@@ -14,4 +14,14 @@
 * player card
   * country flags
   * race
-  * 
+
+* queue
+  * graph?
+
+* match
+  * how long it has been going
+  
+
+* viz
+  * range plot for MMR
+  * sparkline plot? (form for last 10 games?)

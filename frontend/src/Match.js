@@ -1,7 +1,7 @@
 import React, { Component } from "react";
 import Team from "./Team.js";
 
-import { Segment, Header } from "semantic-ui-react";
+import { Segment, Grid } from "semantic-ui-react";
 
 class Match extends Component {
   render() {
@@ -10,16 +10,17 @@ class Match extends Component {
 
     return (
       <Segment>
-        {/* <Header>MATCH</Header> */}
-        <Team team={teams[0]} teamNum={1}></Team>
-        <br />
-        <Team team={teams[1]} teamNum={2}></Team>
-        {/* <p>{JSON.stringify(this.props)}</p> */}
-        {/* <Player data={teams[0].players[0]}></Player> */}
-
-        {/* {Object.keys(teams[0].players).map((key) => (
-          <Player key={teams[0].players[key].name} data={teams[0].players[key]}></Player>
-        ))} */}
+        <Grid columns={3}>
+          <Grid.Row>
+            <Grid.Column>
+              <Team team={teams[0]} teamNum={1}></Team>
+            </Grid.Column>
+            <Grid.Column></Grid.Column>
+            <Grid.Column>
+              <Team team={teams[1]} teamNum={2}></Team>
+            </Grid.Column>
+          </Grid.Row>
+        </Grid>
       </Segment>
     );
   }
