@@ -7,19 +7,15 @@ class TeamHeader extends Component {
     const { teamNum, teamMmr } = this.props;
 
     return (
-      <Grid divided="vertically">
-        <Grid.Row columns={3} className={"playerTop"}>
-          <Grid.Column></Grid.Column>
+      <Grid divided="vertically" className={`team-header team-${teamNum}`}>
+        <Grid.Row columns={1} className={"playerTop"}>
           <Grid.Column>{teamMmr}</Grid.Column>
-          <Grid.Column></Grid.Column>
         </Grid.Row>
 
-        <Grid.Row columns={3} className={"playerBottom"}>
-          <Grid.Column width={4}></Grid.Column>
-          <Grid.Column width={8} className="playerName">
-            Team #{teamNum}
+        <Grid.Row columns={1} className={"playerBottom"}>
+          <Grid.Column className="playerName">
+            Team <span className={"teamNum"}>#{teamNum}</span>
           </Grid.Column>
-          <Grid.Column width={4}></Grid.Column>
         </Grid.Row>
       </Grid>
     );
