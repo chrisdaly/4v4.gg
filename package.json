@@ -13,11 +13,13 @@
     "react-scripts": "4.0.1",
     "semantic-ui-css": "^2.4.1",
     "semantic-ui-react": "^2.0.3",
+    "serve": "^11.3.2",
     "web-vitals": "^0.2.4",
     "websocket": "^1.0.33"
   },
   "scripts": {
-    "start": "react-scripts start",
+    "dev": "react-scripts start",
+    "start": "serve --single ./build",
     "build": "react-scripts build",
     "test": "react-scripts test",
     "eject": "react-scripts eject"

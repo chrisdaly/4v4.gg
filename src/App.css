@@ -130,11 +130,14 @@ a {
   color: black;
 }
 
-g.y.axis.team1 {
-  color: #bf6969;
+line.y.axis.teamOne {
+  stroke: #bf6969;
+  stroke-width: 1;
 }
-g.y.axis.team2 {
-  color: #93b4cc;
+
+line.y.axis.teamTwo {
+  stroke: #93b4cc;
+  stroke-width: 1;
 }
 
 circle.dot.teamOne {

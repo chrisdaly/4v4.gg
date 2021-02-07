@@ -15,7 +15,6 @@ function RangePlot(id, data) {
     .nice(3);
 
   var yAxis = d3.axisLeft().scale(y).tickSize(2).ticks(3, ",f");
-  var yAxisNoTick = d3.axisLeft().scale(y).ticks(0).tickSizeOuter([]);
 
   const svg = d3
     .select(`#${id}`)
@@ -28,16 +27,20 @@ function RangePlot(id, data) {
   const middleLine = svg.append("g").attr("class", "y axis").call(yAxis).append("text").attr("class", "axistitle");
 
   const leftLine = svg
-    .append("g")
-    .attr("class", "y axis team1")
-    .call(yAxisNoTick)
-    .attr("transform", "translate(" + -50 + "," + 0 + ")");
+    .append("line")
+    .attr("class", "y axis teamOne")
+    .attr("x1", -50)
+    .attr("y1", (d) => y(d3.max(teamOneMmrs)))
+    .attr("x2", -50)
+    .attr("y2", (d) => y(d3.min(teamOneMmrs)));
 
   const rightLine = svg
-    .append("g")
-    .attr("class", "y axis team2")
-    .call(yAxisNoTick)
-    .attr("transform", "translate(" + 50 + "," + 0 + ")");
+    .append("line")
+    .attr("class", "y axis teamTwo")
+    .attr("x1", 50)
+    .attr("y1", (d) => y(d3.max(teamTwoMmrs)))
+    .attr("x2", 50)
+    .attr("y2", (d) => y(d3.min(teamTwoMmrs)));
 
   svg
     .selectAll(".dot teamOne")
