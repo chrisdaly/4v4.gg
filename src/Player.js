@@ -21,36 +21,30 @@ class Player extends Component {
     };
     const raceIcon = raceMapping[race];
     const iconStyle = { width: "16px", height: "11px" };
-    const background = ".";
+    // const background = ".";
 
     return (
-      <div>
-        {/* <div
-          className={"raceBackground"}
-          style={{ background: `url(${raceIcon})`, backgroundRepeat: "no-repeat", backgroundSize: "100% 100%" }}
-        ></div> */}
-        <Grid divided="vertically">
-          <Grid.Row columns={3} className={"playerTop"}>
-            <Grid.Column></Grid.Column>
-            <Grid.Column>{oldMmr}</Grid.Column>
-            <Grid.Column></Grid.Column>
-          </Grid.Row>
+      <Grid divided="vertically" className={"playerCard"}>
+        <Grid.Row columns={3} className={"playerTop"}>
+          <Grid.Column></Grid.Column>
+          <Grid.Column>{oldMmr.toLocaleString()}</Grid.Column>
+          <Grid.Column></Grid.Column>
+        </Grid.Row>
 
-          <Grid.Row columns={3} className={"playerBottom"}>
-            <Grid.Column width={4}>
-              <Flag name={countryCode} style={iconStyle}></Flag>
-            </Grid.Column>
-            <Grid.Column width={8} className="playerName">
-              <a target="_blank" href={`https://w3champions.com/player/${battleTag}`} rel="noreferrer">
-                {name}
-              </a>
-            </Grid.Column>
-            <Grid.Column width={4}>
-              <img src={raceIcon} style={iconStyle} alt={race} />
-            </Grid.Column>
-          </Grid.Row>
-        </Grid>
-      </div>
+        <Grid.Row columns={3} className={"playerBottom"}>
+          <Grid.Column width={4}>
+            <Flag name={countryCode} style={iconStyle}></Flag>
+          </Grid.Column>
+          <Grid.Column width={8} className="playerName">
+            <a target="_blank" href={`https://w3champions.com/player/${battleTag}`} rel="noreferrer">
+              {name}
+            </a>
+          </Grid.Column>
+          <Grid.Column width={4}>
+            <img src={raceIcon} style={iconStyle} alt={race} />
+          </Grid.Column>
+        </Grid.Row>
+      </Grid>
     );
   }
 }

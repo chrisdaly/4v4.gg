@@ -2,6 +2,7 @@ import React, { Component } from "react";
 import Team from "./Team.js";
 import Timer from "./Time.js";
 import RangePlotSection from "./RangePlotSection.js";
+// import RangePlotSectionOld from "./charts/RangePlotSectionOld.js";
 
 import { Segment, Grid } from "semantic-ui-react";
 
@@ -46,3 +47,6 @@ class Match extends Component {
 }
 
 export default Match;
+{
+  /* <RangePlotSection data={match} id={match.id} /> */
+}

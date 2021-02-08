@@ -8,7 +8,7 @@ class Team extends Component {
     const playerMmrs = team.players.map((d) => d.oldMmr);
 
     return (
-      <div className="gray-bar">
+      <div className={"teamDiv"}>
         <TeamHeader teamNum={teamNum} teamMmr={teamAverage}></TeamHeader>
 
         {Object.keys(team.players).map((key) => (
@@ -20,3 +20,5 @@ class Team extends Component {
 }
 
 export default Team;
+
+//className="gray-bar"

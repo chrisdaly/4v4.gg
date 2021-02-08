@@ -9,7 +9,7 @@ class TeamHeader extends Component {
     return (
       <Grid divided="vertically" className={`team-header team-${teamNum}`}>
         <Grid.Row columns={1} className={"playerTop"}>
-          <Grid.Column>{teamMmr}</Grid.Column>
+          <Grid.Column>{teamMmr.toLocaleString()}</Grid.Column>
         </Grid.Row>
 
         <Grid.Row columns={1} className={"playerBottom"}>
