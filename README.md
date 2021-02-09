@@ -23,8 +23,6 @@
 
 * background = minimap?
 
-
-
 * stream version
   * use less space
   * transparent background?
@@ -45,3 +43,5 @@
   * sparkline plot? (form for last 10 games?)
 
 * Render a historical Game id
+  
+* annotate plot and player?

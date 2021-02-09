@@ -1,6 +1,7 @@
 import React, { Component } from "react";
 
 import RangePlotOld from "./charts/RangePlotOld";
+// import RangePlot from "./charts/RangePlot";
 
 class RangePlotSection extends Component {
   componentDidMount() {

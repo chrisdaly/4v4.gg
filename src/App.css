@@ -21,7 +21,7 @@
   align-items: center;
   justify-content: center;
   font-size: calc(10px + 2vmin);
-  color: white;
+  color: #fafafa;
 }
 
 .App-link {
@@ -67,6 +67,7 @@
 
 * {
   font-family: "Roboto" !important;
+  color: #fafafa;
   /*background-color: #fafafa;*/
 }
 
@@ -85,7 +86,7 @@ body,
 .ui.segment,
 .ui.vertically.divided.grid,
 .four.wide.column {
-  background-color: #f8f7ec;
+  background-color: #323437;
 }
 
 .ui.vertically.divided.grid.team-header.team-1 {
@@ -103,47 +104,52 @@ body,
 }
 
 .playerCard {
-  outline: 0.2px solid #d3d3d3;
-  margin-left: 0.5rem !important;
-  margin-right: 0.5rem !important;
-  margin-bottom: 0.5rem !important;
+  outline: 0.2px solid #fafafa;
+  margin-left: 0.1rem !important;
+  margin-right: 0.1rem !important;
+  margin-bottom: 0.1rem !important;
+  padding-top: 0.1rem !important;
+  padding-bottom: 0.1rem !important;
 }
 
 .team-header {
-  outline: 0.2px solid #d3d3d3;
-  margin-left: 0.5rem !important;
-  margin-right: 0.5rem !important;
-  margin-bottom: 0.5rem !important;
+  outline: 0.2px solid #fafafa;
+  margin-left: 0.1rem !important;
+  margin-right: 0.1rem !important;
+  margin-bottom: 0.1rem !important;
+  padding-top: 0.1rem !important;
+  padding-bottom: 0.1rem !important;
 }
 /* .ui.vertically.divided.grid {
  */
 /* } */
 
 a {
-  color: black;
+  color: #fafafa;
 }
 
 line.y.axis.teamOne {
   stroke: #bf6969;
-  stroke-width: 1;
+  stroke-width: 2;
 }
 
 line.y.axis.teamTwo {
   stroke: #93b4cc;
-  stroke-width: 1;
+  stroke-width: 2;
 }
 
 circle.dot.teamOne {
   fill: #bf6969;
-  stroke: #f8f7ec;
+  stroke: #323437;
   stroke-opacity: 1;
 }
 
 circle.dot.teamTwo {
   fill: #93b4cc;
-  stroke: #f8f7ec;
+  stroke: #323437;
   stroke-opacity: 1;
 }
+
 .ui.vertically.divided.grid.team-header {
   margin-top: 0rem;
 }
@@ -157,20 +163,53 @@ circle.dot.teamTwo {
   padding-right: 0px;
 }
 
-/* .ui.grid > .row {
-  padding-top: 0.5rem;
-  padding-bottom: 0.5rem;
-} */
 html {
   line-height: 0.5;
 }
 
 .ui.grid > .row {
-  padding-top: 0.5rem;
-  padding-bottom: 0.5rem;
+  padding-top: 0.1rem;
+  padding-bottom: 0.1rem;
 }
 
 path.domain {
-  stroke: grey;
-  stroke-width: 0.5px;
+  stroke: #fafafa;
+  stroke-width: 0.3px;
+}
+
+/* .ui.vertically.divided.grid.playerCard {
+
+} */
+
+.teamDiv {
+  padding: 0.5rem;
+}
+
+.ui.vertically.divided.grid.playerCard {
+  margin-top: 0.5rem;
+}
+
+h5 {
+  font-weight: 200;
+  font-size: 0.9rem;
+}
+
+.ui[class*="vertically divided"].grid > .row:before {
+  box-shadow: 0 -0.4px 0 0 #fafafa;
+}
+
+h1.ui.header {
+  color: #fafafa;
+}
+
+text.axistitle {
+  fill: #fafafa;
+  font-size: 9px;
+  text-anchor: left;
+}
+
+line.y.axis.avgLine {
+  stroke: #fafafa;
+  stroke-width: 1px;
+  stroke-dasharray: 3;
 }

@@ -1,6 +1,7 @@
 import React, { Component } from "react";
-import { Card, Flag } from "semantic-ui-react";
-import { Header, Image, Table, Icon, Grid } from "semantic-ui-react";
+import { Grid } from "semantic-ui-react";
+
+import Mmr from "./Mmr.js";
 
 class TeamHeader extends Component {
   render() {
@@ -9,7 +10,9 @@ class TeamHeader extends Component {
     return (
       <Grid divided="vertically" className={`team-header team-${teamNum}`}>
         <Grid.Row columns={1} className={"playerTop"}>
-          <Grid.Column>{teamMmr.toLocaleString()}</Grid.Column>
+          <Grid.Column>
+            <Mmr data={teamMmr}></Mmr>
+          </Grid.Column>
         </Grid.Row>
 
         <Grid.Row columns={1} className={"playerBottom"}>

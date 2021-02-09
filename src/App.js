@@ -1,9 +1,11 @@
 import React, { Component } from "react";
 import Match from "./Match.js";
-import { Container, Header, Icon } from "semantic-ui-react";
+import { Container, Header } from "semantic-ui-react";
 
 import "semantic-ui-css/semantic.min.css";
 import "./App.css";
+
+// import fakeData from "./fakeData.js";
 
 const validQueue = (queue) => queue.length === 1 && typeof queue[0] !== "undefined" && "count" in queue[0];
 const gameMode = 4;
@@ -23,12 +25,12 @@ class App extends Component {
     matches: [],
   };
 
-  componentWillMount() {
+  componentDidMount() {
     socket.onmessage = (event) => {
       const msg = JSON.parse(event.data);
       const { type, data } = msg;
 
-      const queueFiltered = this.state.QUEUED_PLAYER_COUNT.filter((d) => (d.gateway === 20) & (d.gameMode == 4));
+      const queueFiltered = this.state.QUEUED_PLAYER_COUNT.filter((d) => (d.gateway === 20) & (d.gameMode === 4));
       const queueCount = validQueue(queueFiltered) ? queueFiltered[0].count : 0;
 
       var url = new URL("https://website-backend.w3champions.com/api/matches/ongoing");

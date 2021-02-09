@@ -1,6 +1,7 @@
 import React, { Component } from "react";
-import { Card, Flag, Segment } from "semantic-ui-react";
-import { Header, Image, Table, Icon, Grid } from "semantic-ui-react";
+import { Grid, Flag } from "semantic-ui-react";
+
+import Mmr from "./Mmr.js";
 
 import human from "./icons/human.png";
 import orc from "./icons/orc.png";
@@ -27,7 +28,9 @@ class Player extends Component {
       <Grid divided="vertically" className={"playerCard"}>
         <Grid.Row columns={3} className={"playerTop"}>
           <Grid.Column></Grid.Column>
-          <Grid.Column>{oldMmr.toLocaleString()}</Grid.Column>
+          <Grid.Column>
+            <Mmr data={oldMmr}></Mmr>
+          </Grid.Column>
           <Grid.Column></Grid.Column>
         </Grid.Row>
 

@@ -5,7 +5,6 @@ import TeamHeader from "./TeamHeader.js";
 class Team extends Component {
   render() {
     const { team, teamNum, teamAverage } = this.props;
-    const playerMmrs = team.players.map((d) => d.oldMmr);
 
     return (
       <div className={"teamDiv"}>
@@ -20,5 +19,3 @@ class Team extends Component {
 }
 
 export default Team;
-
-//className="gray-bar"
