@@ -26,22 +26,20 @@ class Player extends Component {
 
     return (
       <Grid divided="vertically" className={"playerCard"}>
-        <Grid.Row columns={3} className={"playerTop"}>
-          <Grid.Column></Grid.Column>
-          <Grid.Column>
-            <Mmr data={oldMmr}></Mmr>
+        <Grid.Row columns={1} className={"playerTop"}>
+          <Grid.Column width={16} className="playerName">
+            <a target="_blank" href={`https://w3champions.com/player/${battleTag}`} rel="noreferrer">
+              {name}
+            </a>
           </Grid.Column>
-          <Grid.Column></Grid.Column>
         </Grid.Row>
 
         <Grid.Row columns={3} className={"playerBottom"}>
           <Grid.Column width={4}>
             <Flag name={countryCode} style={iconStyle}></Flag>
           </Grid.Column>
-          <Grid.Column width={8} className="playerName">
-            <a target="_blank" href={`https://w3champions.com/player/${battleTag}`} rel="noreferrer">
-              {name}
-            </a>
+          <Grid.Column width={8}>
+            <Mmr data={oldMmr}></Mmr>
           </Grid.Column>
           <Grid.Column width={4}>
             <img src={raceIcon} style={iconStyle} alt={race} />

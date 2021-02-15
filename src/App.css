@@ -190,8 +190,8 @@ path.domain {
 }
 
 h5 {
-  font-weight: 200;
-  font-size: 0.9rem;
+  font-weight: 150;
+  font-size: 0.85rem;
 }
 
 .ui[class*="vertically divided"].grid > .row:before {
@@ -212,4 +212,9 @@ line.y.axis.avgLine {
   stroke: #fafafa;
   stroke-width: 1px;
   stroke-dasharray: 3;
+}
+
+svg#svg_logo {
+  width: 50px;
+  fill: #bf6969;
 }

@@ -54,8 +54,8 @@ function RangePlot(id, data) {
     .append("text")
     .attr("class", "axistitle")
     .text("MMR")
-    .attr("x", verticalOffset - 4)
-    .attr("y", y(minMmr) + verticalOffset);
+    .attr("x", verticalOffset - 5)
+    .attr("y", y(maxMmr) - verticalOffset / 2);
 
   // leftLine
   svg

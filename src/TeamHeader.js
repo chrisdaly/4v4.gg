@@ -9,15 +9,14 @@ class TeamHeader extends Component {
 
     return (
       <Grid divided="vertically" className={`team-header team-${teamNum}`}>
-        <Grid.Row columns={1} className={"playerTop"}>
-          <Grid.Column>
-            <Mmr data={teamMmr}></Mmr>
-          </Grid.Column>
-        </Grid.Row>
-
         <Grid.Row columns={1} className={"playerBottom"}>
           <Grid.Column className="playerName">
             Team <span className={"teamNum"}>#{teamNum}</span>
+          </Grid.Column>
+        </Grid.Row>
+        <Grid.Row columns={1} className={"playerTop"}>
+          <Grid.Column>
+            <Mmr data={teamMmr}></Mmr>
           </Grid.Column>
         </Grid.Row>
       </Grid>
