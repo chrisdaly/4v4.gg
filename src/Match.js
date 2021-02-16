@@ -3,7 +3,7 @@ import Team from "./Team.js";
 import Timer from "./Time.js";
 import RangePlotSection from "./RangePlotSection.js";
 
-import { Segment, Grid } from "semantic-ui-react";
+import { Grid } from "semantic-ui-react";
 
 class Match extends Component {
   render() {
@@ -19,28 +19,28 @@ class Match extends Component {
     const data = { teamOneMmrs, teamOneAverageMmr, teamTwoMmrs, teamTwoAverageMmr };
 
     return (
-      <Segment>
-        <Grid columns={3}>
-          <Grid.Row>
-            <Grid.Column></Grid.Column>
-            <Grid.Column>
-              <Timer />
-            </Grid.Column>
-            <Grid.Column></Grid.Column>
-          </Grid.Row>
-          <Grid.Row columns={3}>
-            <Grid.Column width={6}>
-              <Team team={teams[0]} teamNum={1} teamAverage={match.teams[0].teamAverage}></Team>
-            </Grid.Column>
-            <Grid.Column width={2}>
-              <RangePlotSection data={data} id={match.id} />
-            </Grid.Column>
-            <Grid.Column width={6}>
-              <Team team={teams[1]} teamNum={2} teamAverage={match.teams[1].teamAverage}></Team>
-            </Grid.Column>
-          </Grid.Row>
-        </Grid>
-      </Segment>
+      // <Segment>
+      <Grid columns={3}>
+        <Grid.Row>
+          <Grid.Column></Grid.Column>
+          <Grid.Column>
+            <Timer />
+          </Grid.Column>
+          <Grid.Column></Grid.Column>
+        </Grid.Row>
+        <Grid.Row columns={3}>
+          <Grid.Column width={6}>
+            <Team team={teams[0]} teamNum={1} teamAverage={match.teams[0].teamAverage}></Team>
+          </Grid.Column>
+          <Grid.Column width={2}>
+            <RangePlotSection data={data} id={match.id} />
+          </Grid.Column>
+          <Grid.Column width={6}>
+            <Team team={teams[1]} teamNum={2} teamAverage={match.teams[1].teamAverage}></Team>
+          </Grid.Column>
+        </Grid.Row>
+      </Grid>
+      // </Segment>
     );
   }
 }

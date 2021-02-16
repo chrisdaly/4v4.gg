@@ -18,13 +18,9 @@
 * player card
   * ~~country flags~~
   * ~~race~~
-  * comma in MMR?
-  * race flag be the background?
-
-* background = minimap?
 
 * stream version
-  * use less space
+  * ~~compact~~
   * transparent background?
 
 * time series
@@ -43,5 +39,6 @@
   * sparkline plot? (form for last 10 games?)
 
 * Render a historical Game id
-  
-* annotate plot and player?
+* Select game by player
+* Select game by id
+* Select game type

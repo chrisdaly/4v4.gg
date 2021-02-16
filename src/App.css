@@ -155,7 +155,7 @@ circle.dot.teamTwo {
 }
 
 .ui.container {
-  width: 400px;
+  width: 400px !important;
 }
 
 .ui.grid > .row > .column {

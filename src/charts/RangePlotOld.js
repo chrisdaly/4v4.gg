@@ -1,9 +1,6 @@
 import * as d3 from "d3";
 
 function RangePlot(id, data) {
-  // console.log("RANGE PLOT DRAWING", id);
-  // console.log("data", data);
-
   const { teamOneMmrs, teamTwoMmrs } = data;
   const teamSize = teamOneMmrs.length;
   const padding = 1.4;
@@ -18,8 +15,6 @@ function RangePlot(id, data) {
   let minMmr = d3.min(combinedMmrs);
   let maxMmr = d3.max(combinedMmrs);
 
-  console.log(minMmr, maxMmr);
-
   const y = d3
     .scaleLinear()
     .domain([minMmr, maxMmr])
@@ -32,7 +27,6 @@ function RangePlot(id, data) {
       let thisValue = mmrList[i];
       let previousValue = jittered[i - 1];
       let goodValue;
-      console.log(i, thisValue, previousValue, y(previousValue - thisValue));
 
       if (y(previousValue - thisValue) <= 10) {
         goodValue = thisValue - 100;
