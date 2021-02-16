@@ -8,7 +8,7 @@ function RangePlot(id, data) {
   const teamHeaderHeight = 47.91;
   const margin = { top: teamHeaderHeight + padding * 3, right: 0, bottom: padding + 1, left: 0 };
   const width = 49.75;
-  const height = teamHeaderHeight + padding + teamSize * (cardHeight + padding); //4 * cardHeight;
+  const height = teamHeaderHeight + padding + teamSize * (cardHeight + padding);
   const verticalOffset = 10;
 
   const combinedMmrs = [...teamOneMmrs, ...teamTwoMmrs];
@@ -20,26 +20,6 @@ function RangePlot(id, data) {
     .domain([minMmr, maxMmr])
     .range([height - margin.top - margin.bottom, 0])
     .nice(0);
-
-  const jitter = (mmrList) => {
-    let jittered = [mmrList[0]];
-    for (let i = 1; i < mmrList.length; i++) {
-      let thisValue = mmrList[i];
-      let previousValue = jittered[i - 1];
-      let goodValue;
-
-      if (y(previousValue - thisValue) <= 10) {
-        goodValue = thisValue - 100;
-      } else {
-        goodValue = thisValue;
-      }
-      jittered.push(goodValue);
-    }
-    return jittered;
-  };
-
-  // let teamOneMmrsjitter = jitter(teamOneMmrs);
-  // let teamTwoMmrsjitter = jitter(teamTwoMmrs);
 
   var yAxis = d3.axisLeft().scale(y).tickSize(0).ticks(0, ",f");
 

@@ -1,20 +1,13 @@
 import React, { Component } from "react";
-import Match from "./Match.js";
 import { Container } from "semantic-ui-react";
+
+import Match from "./Match.js";
 
 import "semantic-ui-css/semantic.min.css";
 import "./App.css";
 
-import fakeData from "./fakeData.js";
-
-const validQueue = (queue) => queue.length === 1 && typeof queue[0] !== "undefined" && "count" in queue[0];
 const gameMode = 4;
 const gateway = 20;
-
-const socket = new WebSocket(
-  `ws://157.90.1.251:25058/?%7B%22battleTag%22:%22WEAREFOALS%25231522%22,%22gateway%22:${gameMode},%22gatewayPing%22:218,%22toonName%22:%22WEAREFOALS%25231522%22,%22token%22:%22%22,%22country%22:%22GB%22,%22ipAddress%22:%2237.156.72.6%22%7D`
-);
-
 const calculateAverage = (arr) => Math.round(arr.reduce((p, c) => p + c, 0) / arr.length);
 
 class App extends Component {
