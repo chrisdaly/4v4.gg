@@ -21,6 +21,8 @@ function RangePlot(id, data) {
     .range([height - margin.top - margin.bottom, 0])
     .nice(3);
 
+  console.log("y", y);
+
   var yAxis = d3.axisLeft().scale(y).tickSize(0).ticks(0, ",f");
 
   const svg = d3
@@ -40,7 +42,7 @@ function RangePlot(id, data) {
     .attr("class", "axistitle")
     .text("MMR")
     .attr("x", width / 2 - 25)
-    .attr("y", y(maxMmr) - verticalOffset / 2);
+    .attr("y", y.range()[1] - verticalOffset / 2);
 
   // leftLine;
   svg
