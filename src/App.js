@@ -5,10 +5,10 @@ import { Container, Header } from "semantic-ui-react";
 import "semantic-ui-css/semantic.min.css";
 import "./App.css";
 
-// import fakeData from "./fakeData.js";
+import fakeData from "./fakeData.js";
 
 const validQueue = (queue) => queue.length === 1 && typeof queue[0] !== "undefined" && "count" in queue[0];
-const gameMode = 4;
+const gameMode = 2;
 const gateway = 20;
 
 const socket = new WebSocket(
@@ -57,10 +57,11 @@ class App extends Component {
 
             matches.sort((a, b) => b.matchMmr - a.matchMmr);
 
-            matches.forEach((m) => {
-              let teams = m.teams;
-              teams.sort((a, b) => b.teamAverage - a.teamAverage);
-            });
+            // Putting favoured team on left. Boring?
+            // matches.forEach((m) => {
+            //   let teams = m.teams;
+            //   teams.sort((a, b) => b.teamAverage - a.teamAverage);
+            // });
 
             this.setState({
               matches,
@@ -84,17 +85,14 @@ class App extends Component {
     if (matches.length > 0) {
       return (
         <Container>
-          <Header as="h1">
+          {/* <Header as="h1">
             {gameMode} v {gameMode} Summary
           </Header>
-          {/* <div> */}
           <p>Players searching: {JSON.stringify(queueCount)}</p>
-          <p>Matches ongoing: {matches.length}</p>
-
+          <p>Matches ongoing: {matches.length}</p> */}
           {Object.keys(matches).map((key) => (
             <Match match={matches[key]} key={matches[key].id}></Match>
           ))}
-          {/* </div> */}
         </Container>
       );
     } else {

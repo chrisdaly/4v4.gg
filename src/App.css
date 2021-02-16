@@ -155,7 +155,7 @@ circle.dot.teamTwo {
 }
 
 .ui.container {
-  width: 500px;
+  width: 400px;
 }
 
 .ui.grid > .row > .column {
@@ -168,8 +168,8 @@ html {
 }
 
 .ui.grid > .row {
-  padding-top: 0.1rem;
-  padding-bottom: 0.1rem;
+  padding-top: 0rem;
+  padding-bottom: 0rem;
 }
 
 path.domain {
@@ -182,11 +182,11 @@ path.domain {
 } */
 
 .teamDiv {
-  padding: 0.5rem;
+  padding: 0.1rem;
 }
 
 .ui.vertically.divided.grid.playerCard {
-  margin-top: 0.5rem;
+  margin-top: 0rem;
 }
 
 h5 {
@@ -205,7 +205,7 @@ h1.ui.header {
 text.axistitle {
   fill: #fafafa;
   font-size: 9px;
-  text-anchor: left;
+  text-anchor: middle;
 }
 
 line.y.axis.avgLine {

@@ -11,7 +11,7 @@ class TeamHeader extends Component {
       <Grid divided="vertically" className={`team-header team-${teamNum}`}>
         <Grid.Row columns={1} className={"playerBottom"}>
           <Grid.Column className="playerName">
-            Team <span className={"teamNum"}>#{teamNum}</span>
+            Team <span className={"teamNum"}>{teamNum}</span>
           </Grid.Column>
         </Grid.Row>
         <Grid.Row columns={1} className={"playerTop"}>
