@@ -19,7 +19,7 @@ function RangePlot(id, data) {
     .scaleLinear()
     .domain([minMmr, maxMmr])
     .range([height - margin.top - margin.bottom, 0])
-    .nice(0);
+    .nice(3);
 
   var yAxis = d3.axisLeft().scale(y).tickSize(0).ticks(0, ",f");
 
