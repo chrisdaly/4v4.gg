@@ -1,7 +1,7 @@
 import * as d3 from "d3";
 
 function RangePlot(id, data) {
-  const { teamOneMmrs, teamTwoMmrs } = data;
+  const { teamOneMmrs, teamOneAverageMmr, teamTwoMmrs, teamTwoAverageMmr } = data;
   const teamSize = teamOneMmrs.length;
   const padding = 1.4;
   const cardHeight = 51.91;
@@ -67,9 +67,9 @@ function RangePlot(id, data) {
     .append("line")
     .attr("class", "y axis avgLine")
     .attr("x1", -verticalOffset)
-    .attr("y1", (d) => y(d3.mean(teamOneMmrs)))
+    .attr("y1", (d) => y(teamOneAverageMmr))
     .attr("x2", verticalOffset)
-    .attr("y2", (d) => y(d3.mean(teamTwoMmrs)));
+    .attr("y2", (d) => y(teamTwoAverageMmr));
 
   // leftDots
   svg

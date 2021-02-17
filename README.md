@@ -18,6 +18,7 @@
 * player card
   * ~~country flags~~
   * ~~race~~
+  * combine flags? https://fakeflag.net/
 
 * stream version
   * ~~compact~~
@@ -34,11 +35,10 @@
   * stutter close dots
   * better axis annotation
   * additional plot with all game mmr on it? Box plot?
-
-
   * sparkline plot? (form for last 10 games?)
 
 * Render a historical Game id
 * Select game by player
 * Select game by id
 * Select game type
+

@@ -8,7 +8,11 @@ import "./App.css";
 
 const gameMode = 4;
 const gateway = 20;
-const calculateAverage = (arr) => Math.round(arr.reduce((p, c) => p + c, 0) / arr.length);
+const arithmeticMean = (x) => {
+  const product = x.reduce((p, c) => p * c, 1);
+  const exponent = 1 / x.length;
+  return Math.round(Math.pow(product, exponent));
+};
 
 class App extends Component {
   state = {
@@ -40,7 +44,7 @@ class App extends Component {
         let matchMmr = 0;
         m.teams.forEach((t) => {
           let playerMmrs = t.players.map((d) => d.oldMmr);
-          let teamAverage = calculateAverage(playerMmrs);
+          let teamAverage = arithmeticMean(playerMmrs);
           t.teamAverage = teamAverage;
           matchMmr += teamAverage;
         });
