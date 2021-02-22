@@ -95,8 +95,8 @@ body,
 }
 
 .ui.vertically.divided.grid.team-header.team-2 {
-  background-color: #93b4cc;
-  /* outline: 0.5px solid #93b4cc; */
+  background-color: #3282b8;
+  /* outline: 0.5px solid #3282b8; */
 }
 
 .column.playerName {
@@ -134,7 +134,7 @@ line.y.axis.teamOne {
 }
 
 line.y.axis.teamTwo {
-  stroke: #93b4cc;
+  stroke: #3282b8;
   stroke-width: 2;
 }
 
@@ -145,7 +145,7 @@ circle.dot.teamOne {
 }
 
 circle.dot.teamTwo {
-  fill: #93b4cc;
+  fill: #3282b8;
   stroke: #323437;
   stroke-opacity: 1;
 }

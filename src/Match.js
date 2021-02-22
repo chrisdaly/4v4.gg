@@ -3,6 +3,8 @@ import Team from "./Team.js";
 import Timer from "./Time.js";
 import RangePlotSection from "./RangePlotSection.js";
 
+import * as d3 from "d3";
+
 import { Grid } from "semantic-ui-react";
 
 class Match extends Component {
@@ -15,8 +17,17 @@ class Match extends Component {
 
     const teamTwoMmrs = teams[1].players.map((d) => d.oldMmr);
     const teamTwoAverageMmr = teams[1].teamAverage;
+    const gameMmr = Math.round((teamOneAverageMmr + teamTwoAverageMmr) / 2);
+    const threshold = d3
+      .scaleThreshold()
+      .domain([500, 800, 1000, 1200, 1600, 1750, 1850])
+      .range(["bronze", "silver", "gold", "silver", "platinum", "diamond", "master", "grandmaster"]);
 
-    const data = { teamOneMmrs, teamOneAverageMmr, teamTwoMmrs, teamTwoAverageMmr };
+    const league = threshold(gameMmr);
+
+    console.log(gameMmr, threshold(gameMmr));
+
+    const data = { teamOneMmrs, teamOneAverageMmr, teamTwoMmrs, teamTwoAverageMmr, league };
 
     return (
       // <Segment>
