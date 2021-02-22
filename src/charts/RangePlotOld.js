@@ -32,13 +32,13 @@ function RangePlot(id, data) {
 
   // const combinedMmrs = [...teamOneMmrs, ...teamTwoMmrs];
   let minMmr = 800; //d3.min(combinedMmrs);
-  let maxMmr = 2500; //d3.max(combinedMmrs);
+  let maxMmr = 2400; //d3.max(combinedMmrs);
 
   const y = d3
     .scaleLinear()
     .domain([minMmr, maxMmr])
     .range([height - margin.top - margin.bottom, 0])
-    .nice(3);
+    .nice(0);
 
   // console.log("y", y);
 
