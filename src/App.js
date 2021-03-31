@@ -2,6 +2,7 @@ import React, { Component } from "react";
 import { Container } from "semantic-ui-react";
 
 import Match from "./Match.js";
+import Navbar from "./Navbar.js";
 
 import "semantic-ui-css/semantic.min.css";
 import "./App.css";
@@ -68,9 +69,12 @@ class App extends Component {
     if (matches.length > 0) {
       return (
         <Container>
-          {Object.keys(matches).map((key) => (
-            <Match match={matches[key]} key={matches[key].id}></Match>
-          ))}
+          <Navbar />
+          <div className="matches">
+            {Object.keys(matches).map((key) => (
+              <Match match={matches[key]} key={matches[key].id}></Match>
+            ))}
+          </div>
         </Container>
       );
     } else {

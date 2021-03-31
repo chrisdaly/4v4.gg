@@ -218,3 +218,20 @@ svg#svg_logo {
   width: 50px;
   fill: #bf6969;
 }
+
+.navbar {
+  margin-left: -1rem;
+  margin-right: -1rem;
+  position: sticky;
+  top: 0;
+  background-color: #323437;
+  z-index: 10000;
+}
+
+.matches {
+  /* margin-top: 250px; */
+}
+
+.three.column.row {
+  display: inline-table;
+}
