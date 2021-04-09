@@ -62,7 +62,7 @@
 
 .ui.three.column.grid,
 .ui.one.column.grid {
-  /* margin-bottom: 2rem !important; */
+  margin-bottom: 1rem !important;
 }
 
 * {
@@ -84,8 +84,7 @@
 
 body,
 .ui.segment,
-.ui.vertically.divided.grid,
-.four.wide.column {
+.ui.vertically.divided.grid {
   background-color: #323437;
 }
 
@@ -234,4 +233,10 @@ svg#svg_logo {
 
 .three.column.row {
   display: inline-table;
+}
+
+.crown {
+  height: 12px;
+  /* color: #ffd428; */
+  background-color: none important!;
 }

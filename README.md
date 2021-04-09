@@ -40,5 +40,9 @@
 * Render a historical Game id
 * Select game by player
 * Select game by id
-* Select game type
 
+Where to include game id and date?
+
+Search bar for player and game id, 
+Summary of different lobby types
+Breakdown of player/team cards and assignment of lobbies (standard deviation)

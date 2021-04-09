@@ -1,6 +1,8 @@
 import React, { Component } from "react";
 import Team from "./Team.js";
 import Timer from "./Time.js";
+import MatchHeader from "./MatchHeader.js";
+
 import RangePlotSection from "./RangePlotSection.js";
 
 import * as d3 from "d3";
@@ -32,13 +34,7 @@ class Match extends Component {
     return (
       // <Segment>
       <Grid columns={3}>
-        <Grid.Row>
-          <Grid.Column></Grid.Column>
-          <Grid.Column>
-            <Timer />
-          </Grid.Column>
-          <Grid.Column></Grid.Column>
-        </Grid.Row>
+        {/* <MatchHeader></MatchHeader> */}
         <Grid.Row columns={3}>
           <Grid.Column width={6}>
             <Team team={teams[0]} teamNum={1} teamAverage={match.teams[0].teamAverage}></Team>

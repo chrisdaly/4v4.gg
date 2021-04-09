@@ -21,6 +21,10 @@ class App extends Component {
   };
 
   componentDidMount() {
+    const url = new URL(window.location.href);
+    const searchParams = new URLSearchParams(url.search);
+    const queryParams = Object.fromEntries(searchParams);
+    console.log("queryParams", queryParams);
     this.loadData();
     let intervalId = setInterval(this.loadData, 30000);
     this.setState({ intervalId });
@@ -33,9 +37,15 @@ class App extends Component {
   loadData = async () => {
     console.log("loadData");
     try {
-      var url = new URL("https://website-backend.w3champions.com/api/matches/ongoing");
-      var params = { offset: 0, gateway, pageSize: 50, gameMode, map: "Overall" };
+      // var url = new URL("https://website-backend.w3champions.com/api/matches/ongoing");
+      var url = new URL("https://website-backend.w3champions.com/api/matches/search");
+
+      // fetch("https://website-backend.w3champions.com/api/matches/search?playerId=ic3%2321532&gateway=20&offset=0&pageSize=50&season=6", {
+
+      // var params = { offset: 0, gateway, pageSize: 50, gameMode, map: "Overall" };
+      var params = { playerId: "ic3#21532", gateway, pageSize: 50, gameMode, map: "Overall", offset: 0, season: 6 };
       url.search = new URLSearchParams(params).toString();
+      console.log("url", url);
 
       const response = await fetch(url);
       const result = await response.json();
@@ -53,11 +63,9 @@ class App extends Component {
         m.matchMmr = Math.round(matchMmr / 2);
       });
 
-      matches.sort((a, b) => b.matchMmr - a.matchMmr);
+      // matches.sort((a, b) => b.matchMmr - a.matchMmr);
 
-      this.setState({
-        matches,
-      });
+      this.setState({ matches });
     } catch (e) {
       console.log(e);
     }
