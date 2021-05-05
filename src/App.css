@@ -240,3 +240,8 @@ svg#svg_logo {
   /* color: #ffd428; */
   background-color: none important!;
 }
+
+.race {
+  width: 15px;
+  height: 15px;
+}

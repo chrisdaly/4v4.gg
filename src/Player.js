@@ -42,7 +42,7 @@ class Player extends Component {
             <Mmr data={oldMmr}></Mmr>
           </Grid.Column>
           <Grid.Column width={4}>
-            <img src={raceIcon} style={iconStyle} alt={race} />
+            <img src={raceIcon} alt={race} className={"race"} />
           </Grid.Column>
         </Grid.Row>
       </Grid>

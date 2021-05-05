@@ -12,7 +12,7 @@ function RangePlot(id, data) {
   const { teamOneMmrs, teamOneAverageMmr, teamTwoMmrs, teamTwoAverageMmr, league } = data;
   const teamSize = teamOneMmrs.length;
   const padding = 1.4;
-  const cardHeight = 51.91;
+  const cardHeight = 53.13;
   const teamHeaderHeight = 47.91;
   const margin = { top: teamHeaderHeight + padding * 3, right: 0, bottom: padding + 10, left: 0 };
   const width = 49.75;
