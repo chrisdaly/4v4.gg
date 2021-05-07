@@ -22,8 +22,8 @@ class Match extends Component {
     const gameMmr = Math.round((teamOneAverageMmr + teamTwoAverageMmr) / 2);
     const threshold = d3
       .scaleThreshold()
-      .domain([500, 800, 1000, 1200, 1600, 1750, 1850])
-      .range(["bronze", "silver", "gold", "silver", "platinum", "diamond", "master", "grandmaster"]);
+      .domain([1000, 1200, 1300, 1400, 1500, 1600, 1700])
+      .range(["grass", "bronze", "silver", "gold", "platinum", "diamond", "adept", "master", "grandmaster"]);
 
     const league = threshold(gameMmr);
 

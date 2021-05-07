@@ -8,6 +8,9 @@
 * Races:
   * 8: undead
 
+## Resources
+https://github.com/w3champions/website/tree/master/src/assets/TournamenBadges
+
 
 ## Styles 
 * https://densitydesign.github.io/teaching-dd14/es02/group04/question01

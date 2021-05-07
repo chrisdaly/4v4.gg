@@ -1,12 +1,14 @@
 import * as d3 from "d3";
 
 import grandmaster from "../icons/grandmaster.png";
+import adept from "../icons/adept.png";
 import master from "../icons/master.png";
 import diamond from "../icons/diamond.png";
 import platinum from "../icons/platinum.png";
 import gold from "../icons/gold.png";
 import silver from "../icons/silver.png";
 import bronze from "../icons/bronze.png";
+import grass from "../icons/grass.png";
 
 function RangePlot(id, data) {
   const { teamOneMmrs, teamOneAverageMmr, teamTwoMmrs, teamTwoAverageMmr, league } = data;
@@ -21,18 +23,20 @@ function RangePlot(id, data) {
 
   const badgeMapping = {
     grandmaster: grandmaster,
+    adept: adept,
     master: master,
     diamond: diamond,
     platinum: platinum,
     gold: gold,
     silver: silver,
-    grandmbronzester: bronze,
+    bronze: bronze,
+    grass: grass,
   };
   const leagueIcon = badgeMapping[league];
 
   // const combinedMmrs = [...teamOneMmrs, ...teamTwoMmrs];
-  let minMmr = 800; //d3.min(combinedMmrs);
-  let maxMmr = 2400; //d3.max(combinedMmrs);
+  let minMmr = 900; //d3.min(combinedMmrs);
+  let maxMmr = 2100; //d3.max(combinedMmrs);
 
   const y = d3
     .scaleLinear()
