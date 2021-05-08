@@ -6,6 +6,7 @@ const Router = () => (
   <BrowserRouter>
     <Switch>
       <Route exact path="/" component={App} />
+      <Route exact path="/player" component={App} />
     </Switch>
   </BrowserRouter>
 );

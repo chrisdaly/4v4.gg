@@ -1,38 +1,15 @@
 import * as d3 from "d3";
 
-import grandmaster from "../icons/grandmaster.png";
-import adept from "../icons/adept.png";
-import master from "../icons/master.png";
-import diamond from "../icons/diamond.png";
-import platinum from "../icons/platinum.png";
-import gold from "../icons/gold.png";
-import silver from "../icons/silver.png";
-import bronze from "../icons/bronze.png";
-import grass from "../icons/grass.png";
-
 function RangePlot(id, data) {
   const { teamOneMmrs, teamOneAverageMmr, teamTwoMmrs, teamTwoAverageMmr, league } = data;
   const teamSize = teamOneMmrs.length;
   const padding = 1.4;
   const cardHeight = 53.13;
   const teamHeaderHeight = 47.91;
-  const margin = { top: teamHeaderHeight + padding * 3, right: 0, bottom: padding + 10, left: 0 };
+  const margin = { top: 0 + padding * 3, right: 0, bottom: padding + 10, left: 0 };
   const width = 49.75;
   const height = teamHeaderHeight + padding + teamSize * (cardHeight + padding);
   const verticalOffset = 10;
-
-  const badgeMapping = {
-    grandmaster: grandmaster,
-    adept: adept,
-    master: master,
-    diamond: diamond,
-    platinum: platinum,
-    gold: gold,
-    silver: silver,
-    bronze: bronze,
-    grass: grass,
-  };
-  const leagueIcon = badgeMapping[league];
 
   // const combinedMmrs = [...teamOneMmrs, ...teamTwoMmrs];
   let minMmr = 900; //d3.min(combinedMmrs);
@@ -68,13 +45,13 @@ function RangePlot(id, data) {
     .attr("y", y.range()[0] + margin.bottom);
 
   // badge
-  middleLine
-    .append("svg:image")
-    .attr("x", width / 2 - 45)
-    .attr("y", y.range()[1] - 46)
-    .attr("width", 40)
-    // .attr("height", 24)
-    .attr("xlink:href", leagueIcon);
+  // middleLine
+  //   .append("svg:image")
+  //   .attr("x", width / 2 - 45)
+  //   .attr("y", y.range()[1] - 46)
+  //   .attr("width", 40)
+  //   // .attr("height", 24)
+  //   .attr("xlink:href", leagueIcon);
 
   // leftLine;
   svg

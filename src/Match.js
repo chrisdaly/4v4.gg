@@ -7,7 +7,7 @@ import RangePlotSection from "./RangePlotSection.js";
 
 import * as d3 from "d3";
 
-import { Grid } from "semantic-ui-react";
+import { Grid, Segment } from "semantic-ui-react";
 
 class Match extends Component {
   render() {
@@ -27,14 +27,16 @@ class Match extends Component {
 
     const league = threshold(gameMmr);
 
-    console.log(gameMmr, threshold(gameMmr));
+    // console.log(gameMmr, threshold(gameMmr));
 
     const data = { teamOneMmrs, teamOneAverageMmr, teamTwoMmrs, teamTwoAverageMmr, league };
+    const startDate = new Date(this.props.match.startTime);
+    const map = this.props.match.map;
 
     return (
       // <Segment>
       <Grid columns={3}>
-        {/* <MatchHeader></MatchHeader> */}
+        <MatchHeader league={league} startDate={startDate} map={map}></MatchHeader>
         <Grid.Row columns={3}>
           <Grid.Column width={6}>
             <Team team={teams[0]} teamNum={1} teamAverage={match.teams[0].teamAverage}></Team>
