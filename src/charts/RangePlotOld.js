@@ -6,7 +6,7 @@ function RangePlot(id, data) {
   const padding = 1.4;
   const cardHeight = 53.13;
   const teamHeaderHeight = 47.91;
-  const margin = { top: 0 + padding * 3, right: 0, bottom: padding + 10, left: 0 };
+  const margin = { top: teamHeaderHeight + padding * 3, right: 0, bottom: padding, left: 0 };
   const width = 49.75;
   const height = teamHeaderHeight + padding + teamSize * (cardHeight + padding);
   const verticalOffset = 10;
@@ -42,7 +42,7 @@ function RangePlot(id, data) {
     .attr("class", "axistitle")
     .text("MMR")
     .attr("x", width / 2 - 25)
-    .attr("y", y.range()[0] + margin.bottom);
+    .attr("y", y.range()[1] - teamHeaderHeight / 2);
 
   // badge
   // middleLine

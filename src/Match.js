@@ -7,7 +7,7 @@ import RangePlotSection from "./RangePlotSection.js";
 
 import * as d3 from "d3";
 
-import { Grid, Segment } from "semantic-ui-react";
+import { Grid, Segment, Divider } from "semantic-ui-react";
 
 class Match extends Component {
   render() {
@@ -35,20 +35,23 @@ class Match extends Component {
 
     return (
       // <Segment>
-      <Grid columns={3}>
-        <MatchHeader league={league} startDate={startDate} map={map}></MatchHeader>
-        <Grid.Row columns={3}>
-          <Grid.Column width={6}>
-            <Team team={teams[0]} teamNum={1} teamAverage={match.teams[0].teamAverage}></Team>
-          </Grid.Column>
-          <Grid.Column width={2}>
-            <RangePlotSection data={data} id={match.id} />
-          </Grid.Column>
-          <Grid.Column width={6}>
-            <Team team={teams[1]} teamNum={2} teamAverage={match.teams[1].teamAverage}></Team>
-          </Grid.Column>
-        </Grid.Row>
-      </Grid>
+      <p>
+        <Divider />
+        <Grid columns={3}>
+          <MatchHeader league={league} startDate={startDate} map={map}></MatchHeader>
+          <Grid.Row columns={3}>
+            <Grid.Column width={6}>
+              <Team team={teams[0]} teamNum={1} teamAverage={match.teams[0].teamAverage}></Team>
+            </Grid.Column>
+            <Grid.Column width={2}>
+              <RangePlotSection data={data} id={match.id} />
+            </Grid.Column>
+            <Grid.Column width={6}>
+              <Team team={teams[1]} teamNum={2} teamAverage={match.teams[1].teamAverage}></Team>
+            </Grid.Column>
+          </Grid.Row>
+        </Grid>
+      </p>
       // </Segment>
     );
   }

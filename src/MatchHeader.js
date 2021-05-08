@@ -46,11 +46,13 @@ class MatchHeader extends Component {
     let minutes = Math.floor(elapsed / 1000 / 60);
 
     return (
-      <Grid.Row style={{ display: "inline-table" }}>
+      <Grid.Row style={{ display: "inline-table", "padding-bottom": "14px" }}>
         <Grid.Column>
           <img src={leagueIcon} alt={this.props.league} className={"league"} />
           <p className={"mapLabel"}>{this.props.map}</p>
-          <p className={"timeLabel"}>{minutes} mins ago</p>
+          <p className={"timeLabel"}>
+            started {minutes} {minutes === 1 ? "min" : "mins"} ago
+          </p>
         </Grid.Column>
       </Grid.Row>
     );
