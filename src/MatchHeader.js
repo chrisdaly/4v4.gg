@@ -46,16 +46,11 @@ class MatchHeader extends Component {
     let minutes = Math.floor(elapsed / 1000 / 60);
 
     return (
-      <Grid.Row columns={3}>
-        <Grid.Column width={6}>
-          {/* <img src={mapIcon} alt={this.props.map} className={"map"} /> */}
-          <p className={"matchHeaderLabel"}>{this.props.map}</p>
-        </Grid.Column>
-        <Grid.Column width={2}>
+      <Grid.Row style={{ display: "inline-table" }}>
+        <Grid.Column>
           <img src={leagueIcon} alt={this.props.league} className={"league"} />
-        </Grid.Column>
-        <Grid.Column width={6}>
-          <p className={"matchHeaderLabel"}>{minutes} mins</p>
+          <p className={"mapLabel"}>{this.props.map}</p>
+          <p className={"timeLabel"}>{minutes} mins ago</p>
         </Grid.Column>
       </Grid.Row>
     );

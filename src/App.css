@@ -62,7 +62,7 @@
 
 .ui.three.column.grid,
 .ui.one.column.grid {
-  margin-bottom: 1.5rem !important;
+  margin-bottom: 2rem !important;
 }
 
 * {
@@ -253,8 +253,15 @@ svg#svg_logo {
   vertical-align: middle;
 }
 
-.matchHeaderLabel {
+.mapLabel {
   text-transform: uppercase;
-  margin-top: 15px !important;
   font-weight: bold;
+  margin-top: 5px;
+  margin-bottom: 0px;
+}
+
+.timeLabel {
+  /* text-transform: uppercase; */
+  font-weight: 100;
+  font-style: italic;
 }
