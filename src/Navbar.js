@@ -1,11 +1,8 @@
 import React, { Component } from "react";
-import Team from "./Team.js";
-import Timer from "./Time.js";
-import RangePlotSection from "./RangePlotSection.js";
 
 import * as d3 from "d3";
 
-import { Header, Icon, Image } from "semantic-ui-react";
+import { Header, Divider, Image } from "semantic-ui-react";
 
 import logo from "./logos/logo.svg";
 
@@ -18,6 +15,7 @@ class Navbar extends Component {
           {/* <Icon name="users" circular />` */}
           <Header.Content>4v4 RT</Header.Content>
         </Header>
+        <Divider />
         {/* <Image centered size="large" src="https://react.semantic-ui.com/images/wireframe/centered-paragraph.png" /> */}
       </div>
     );

@@ -35,8 +35,7 @@ class Match extends Component {
 
     return (
       // <Segment>
-      <p>
-        <Divider />
+      <div>
         <Grid columns={3}>
           <MatchHeader league={league} startDate={startDate} map={map}></MatchHeader>
           <Grid.Row columns={3}>
@@ -51,7 +50,8 @@ class Match extends Component {
             </Grid.Column>
           </Grid.Row>
         </Grid>
-      </p>
+        <Divider />
+      </div>
       // </Segment>
     );
   }

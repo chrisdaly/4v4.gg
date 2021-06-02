@@ -1,5 +1,10 @@
 # w3c_queue_summary
 
+
+## Next steps
+Put avatar in there, make a profile card
+
+
 ## Destructing W3C data
 * gateways
   * 20: europe
@@ -10,6 +15,8 @@
 
 ## Resources
 https://github.com/w3champions/website/tree/master/src/assets/TournamenBadges
+https://observablehq.com/@irenedelatorre/wonderful-wednesday-april-2021-copd-app-data
+https://observablehq.com/@d3/candlestick-chart
 
 
 ## Styles 

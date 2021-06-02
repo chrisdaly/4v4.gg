@@ -21,12 +21,11 @@ class App extends Component {
   };
 
   componentDidMount() {
-    const url = new URL(window.location.href);
-    const searchParams = new URLSearchParams(url.search);
-    const queryParams = Object.fromEntries(searchParams);
-    // console.log("queryParams", queryParams);
     this.loadData();
     let intervalId = setInterval(this.loadData, 30000);
+    // if (queryParams.player !== undefined) {
+
+    // }
     this.setState({ intervalId });
   }
 
@@ -62,6 +61,15 @@ class App extends Component {
       });
 
       matches.sort((a, b) => b.matchMmr - a.matchMmr);
+
+      const pageUrl = new URL(window.location.href);
+      const searchParams = new URLSearchParams(pageUrl.search);
+      const queryParams = Object.fromEntries(searchParams);
+      console.log("queryParams", queryParams);
+
+      if (queryParams.player !== undefined) {
+        // matches
+      }
 
       this.setState({ matches });
     } catch (e) {
