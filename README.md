@@ -2,8 +2,12 @@
 
 
 ## Next steps
-Put avatar in there, make a profile card
+Candlestick chart
+https://codepen.io/kryo2k/pen/pJxqBN
 
+http://bl.ocks.org/andredumas/27c4a333b0e0813e093d
+
+https://observablehq.com/@seanlaff/candlestick
 
 ## Destructing W3C data
 * gateways

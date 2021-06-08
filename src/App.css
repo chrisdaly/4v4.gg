@@ -267,3 +267,7 @@ svg#svg_logo {
   font-size: 12px;
   margin-bottom: 10px;
 }
+
+img.profilePic {
+  height: 100px;
+}

@@ -110,7 +110,7 @@ class PlayerProfile extends Component {
             <img src={racePic} alt={""} />
 
             <br />
-            <img src={profilePic} alt={"test"} />
+            <img src={profilePic} alt={"test"} className={"profilePic"} />
             <img src={leaguePic} alt={"test"} />
 
             <p>
