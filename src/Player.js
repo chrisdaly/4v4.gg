@@ -28,7 +28,7 @@ class Player extends Component {
       <Grid divided="vertically" className={"playerCard"}>
         <Grid.Row columns={1} className={"playerTop"}>
           <Grid.Column width={16} className="playerName">
-            <a target="_blank" href={`https://w3champions.com/player/${battleTag}`} rel="noreferrer">
+            <a target="_blank" href={`/player/${battleTag.replace("#", "%23")}`} rel="noreferrer">
               {name}
             </a>
           </Grid.Column>

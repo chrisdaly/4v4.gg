@@ -56,3 +56,6 @@ Where to include game id and date?
 Search bar for player and game id, 
 Summary of different lobby types
 Breakdown of player/team cards and assignment of lobbies (standard deviation)
+
+## Improvements 
+utilise public folder in "player.js" like i did in "playerprofile.js" - seems the proper way to do it
