@@ -2,6 +2,13 @@
 
 
 ## Next steps
+Collect all 4v4 matches in game history
+Put test data candlesticks up
+Think about which is better:
+  do it per game, 
+  do it per day and get all available
+
+
 Candlestick chart
 https://codepen.io/kryo2k/pen/pJxqBN
 
@@ -63,3 +70,8 @@ Breakdown of player/team cards and assignment of lobbies (standard deviation)
 
 ## Improvements 
 utilise public folder in "player.js" like i did in "playerprofile.js" - seems the proper way to do it
+google translate account names?
+
+Check if there's a way around ws being insecure
+Visualization for how many in game, how many searching, how many recently finished
+Add headers in navbar for home, player, queue

@@ -15,6 +15,7 @@ import bronze from "./icons/bronze.png";
 import grass from "./icons/grass.png";
 import goldrush from "./maps/goldrush.png";
 import TwilightRuinsLV from "./maps/TwilightRuinsLV.png";
+import logo from "./logos/logo.svg";
 
 class MatchHeader extends Component {
   render() {
@@ -29,6 +30,7 @@ class MatchHeader extends Component {
       silver: silver,
       bronze: bronze,
       grass: grass,
+      inGame: logo,
     };
 
     const mapMapping = {
@@ -36,23 +38,37 @@ class MatchHeader extends Component {
       TwilightRuinsLV: TwilightRuinsLV,
     };
 
+    // function findPlayerMmrAfterMatch(playerId, match) {
+    //   for (let team of match["teams"]) {
+    //     for (let d of team["players"]) {
+    //       if (d["battleTag"] === playerId) {
+    //         return d["currentMmr"];
+    //       }
+    //     }
+    //   }
+    // }
+
     const leagueIcon = badgeMapping[this.props.league];
     const mapIcon = mapMapping[this.props.map];
-    console.log("this.props.map", this.props.map, mapIcon);
+    // console.log("this.props.map", this.props.map, mapIcon);
+    let text = "";
 
     const startDate = this.props.startDate;
-    let end = Date.now();
-    let elapsed = end - startDate;
-    let minutes = Math.floor(elapsed / 1000 / 60);
+    if (startDate !== null) {
+      let end = Date.now();
+      let elapsed = end - startDate;
+      let minutes = Math.floor(elapsed / 1000 / 60);
+      text = `started ${minutes} ${minutes === 1 ? "min" : "mins"} ago`;
+    } else {
+      text = "";
+    }
 
     return (
       <Grid.Row style={{ display: "inline-table", paddingBottom: "14px" }}>
         <Grid.Column>
           <img src={leagueIcon} alt={this.props.league} className={"league"} />
           <p className={"mapLabel"}>{this.props.map}</p>
-          <p className={"timeLabel"}>
-            started {minutes} {minutes === 1 ? "min" : "mins"} ago
-          </p>
+          <p className={"timeLabel"}>{text}</p>
         </Grid.Column>
       </Grid.Row>
     );

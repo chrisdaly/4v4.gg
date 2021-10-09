@@ -17,15 +17,16 @@ const arithmeticMean = (x) => {
 
 class App extends Component {
   state = {
+    // ONLINE_PLAYER_COUNT: [],
+    QUEUED_PLAYER_COUNT: [],
+    queue: [],
     matches: [],
   };
 
   componentDidMount() {
     this.loadData();
     let intervalId = setInterval(this.loadData, 30000);
-    // if (queryParams.player !== undefined) {
 
-    // }
     this.setState({ intervalId });
   }
 
@@ -92,7 +93,12 @@ class App extends Component {
         </Container>
       );
     } else {
-      return <div>No matches being played </div>;
+      return (
+        <Container>
+          <Navbar />
+          <div className="matches">No matches currently being played</div>
+        </Container>
+      );
     }
   }
 }

@@ -271,3 +271,7 @@ svg#svg_logo {
 img.profilePic {
   height: 100px;
 }
+
+.gameStatus {
+  padding-bottom: 10px;
+}

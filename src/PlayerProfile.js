@@ -50,6 +50,17 @@ class PlayerProfile extends Component {
       var result = await response.json();
       var gameModeStats = result.filter((d) => d.gameMode === 4)[0];
       this.setState({ gameModeStats });
+
+      let offset = 0;
+
+      var url = new URL(
+        `https://website-backend.w3champions.com/api/matches/search?playerId=${player}&gateway=20&offset=${offset}&pageSize=200&season=7&gameMode=4`
+      );
+      var params = { gateway: 20, season: 7, playerId: playerTag, pageSize: 20, gameMode: 4 };
+      url.search = new URLSearchParams(params).toString();
+      var response = await fetch(url);
+      var result = await response.json();
+      this.setState({ matches: result });
     } catch (e) {
       console.log(e);
     }
