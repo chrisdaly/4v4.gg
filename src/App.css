@@ -275,3 +275,21 @@ img.profilePic {
 .gameStatus {
   padding-bottom: 10px;
 }
+
+.ui.vertically.divided.grid {
+  margin-top: 1rem;
+}
+
+.navbar {
+  padding-bottom: 1rem;
+}
+
+.ui.inverted.segment,
+.ui.active.transition.visible.dimmer .ui.primary.inverted.segment {
+  background: unset !important;
+  /* color: rgba(255,255,255,.9); */
+}
+
+.ui.active.transition.visible.dimmer {
+  background: unset;
+}

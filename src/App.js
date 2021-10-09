@@ -1,5 +1,5 @@
 import React, { Component } from "react";
-import { Container } from "semantic-ui-react";
+import { Container, Grid, Dimmer, Loader } from "semantic-ui-react";
 
 import Match from "./Match.js";
 import Navbar from "./Navbar.js";
@@ -81,6 +81,16 @@ class App extends Component {
   render() {
     const { matches } = this.state;
 
+    // if (this.state.isLoaded === true) {
+    //   return (
+
+    //   );
+    // } else {
+    //   return (
+
+    //   );
+    // }
+
     if (matches.length > 0) {
       return (
         <Container>
@@ -96,7 +106,14 @@ class App extends Component {
       return (
         <Container>
           <Navbar />
-          <div className="matches">No matches currently being played</div>
+          <Grid columns={3}>
+            <Grid.Row columns={3}>
+              {/* <Segment> */}
+              <Dimmer active>
+                <Loader />
+              </Dimmer>
+            </Grid.Row>
+          </Grid>
         </Container>
       );
     }

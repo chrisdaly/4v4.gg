@@ -75,3 +75,4 @@ google translate account names?
 Check if there's a way around ws being insecure
 Visualization for how many in game, how many searching, how many recently finished
 Add headers in navbar for home, player, queue
+Add a match page

@@ -1,8 +1,9 @@
 import React, { Component } from "react";
+import { Link } from "react-router-dom";
 
 import * as d3 from "d3";
 
-import { Header, Divider, Image } from "semantic-ui-react";
+import { Header, Divider, Grid } from "semantic-ui-react";
 
 import logo from "./logos/logo.svg";
 
@@ -13,9 +14,28 @@ class Navbar extends Component {
         <Header as="h2" icon textAlign="center">
           <img src={logo} alt={"asd"} className={"logo"} />
           {/* <Icon name="users" circular />` */}
-          <Header.Content>4v4.GG</Header.Content>
+          <div>
+            <Header.Content>4v4.GG</Header.Content>
+          </div>
+          <Grid divided="vertically">
+            <Grid.Row columns={3} className={"playerBottom"}>
+              <Grid.Column width={4}>
+                <h3>
+                  <Link to="/">Live Games</Link>
+                </h3>
+              </Grid.Column>
+              <Grid.Column className="playerName">
+                <h3>
+                  <Link to="/queue">Queue</Link>
+                </h3>
+              </Grid.Column>
+            </Grid.Row>
+            <Grid.Row columns={1} className={"playerTop"}>
+              <Grid.Column></Grid.Column>
+            </Grid.Row>
+          </Grid>
         </Header>
-        <Divider />
+        {/* <Divider /> */}
         {/* <Image centered size="large" src="https://react.semantic-ui.com/images/wireframe/centered-paragraph.png" /> */}
       </div>
     );
