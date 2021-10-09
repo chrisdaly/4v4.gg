@@ -13,7 +13,7 @@ class Navbar extends Component {
         <Header as="h2" icon textAlign="center">
           <img src={logo} alt={"asd"} className={"logo"} />
           {/* <Icon name="users" circular />` */}
-          <Header.Content>4v4 RT</Header.Content>
+          <Header.Content>4v4.GG</Header.Content>
         </Header>
         <Divider />
         {/* <Image centered size="large" src="https://react.semantic-ui.com/images/wireframe/centered-paragraph.png" /> */}
