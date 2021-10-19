@@ -50,15 +50,19 @@ class MatchHeader extends Component {
 
     const leagueIcon = badgeMapping[this.props.league];
     const mapIcon = mapMapping[this.props.map];
-    // console.log("this.props.map", this.props.map, mapIcon);
     let text = "";
 
     const startDate = this.props.startDate;
+    console.log("startDate", startDate);
     if (startDate !== null) {
       let end = Date.now();
       let elapsed = end - startDate;
       let minutes = Math.floor(elapsed / 1000 / 60);
-      text = `started ${minutes} ${minutes === 1 ? "min" : "mins"} ago`;
+      if (minutes < 60 * 24) {
+        text = `started ${minutes} ${minutes === 1 ? "min" : "mins"} ago`;
+      } else {
+        text = `started ${startDate.toDateString()}`;
+      }
     } else {
       text = "";
     }

@@ -15,10 +15,14 @@ class Match extends Component {
     const teams = match.teams;
 
     const teamOneMmrs = teams[0].players.map((d) => d.oldMmr);
+    console.log("teamOneMmrs", teamOneMmrs);
     const teamOneAverageMmr = teams[0].teamAverage;
+    console.log("teamOneAverageMmr", teamOneAverageMmr);
 
     const teamTwoMmrs = teams[1].players.map((d) => d.oldMmr);
     const teamTwoAverageMmr = teams[1].teamAverage;
+    console.log("teamTwoAverageMmr", teamTwoAverageMmr);
+
     const gameMmr = Math.round((teamOneAverageMmr + teamTwoAverageMmr) / 2);
     const threshold = d3
       .scaleThreshold()

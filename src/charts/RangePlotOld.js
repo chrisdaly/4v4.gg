@@ -13,7 +13,7 @@ function RangePlot(id, data) {
 
   // const combinedMmrs = [...teamOneMmrs, ...teamTwoMmrs];
   let minMmr = 900; //d3.min(combinedMmrs);
-  let maxMmr = 2100; //d3.max(combinedMmrs);
+  let maxMmr = 2130; //d3.max(combinedMmrs);
 
   const y = d3
     .scaleLinear()
