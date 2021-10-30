@@ -72,7 +72,8 @@ Breakdown of player/team cards and assignment of lobbies (standard deviation)
 utilise public folder in "player.js" like i did in "playerprofile.js" - seems the proper way to do it
 google translate account names?
 
-Check if there's a way around ws being insecure
+Check if there's a way around ws being insecure for num in queue
 Visualization for how many in game, how many searching, how many recently finished
-Add headers in navbar for home, player, queue
-Add a match page
+~~Add headers in navbar for home, player, queue~~
+~~Add a match page~~
+add line chart for RP/MMR gain

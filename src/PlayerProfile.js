@@ -1,11 +1,14 @@
 import React, { Component } from "react";
 import Navbar from "./Navbar.js";
+import Match from "./Match.js";
+import Player from "./Player.js";
 
-import { Container, Flag } from "semantic-ui-react";
+import { Grid, Container, Flag, Divider } from "semantic-ui-react";
 
 class PlayerProfile extends Component {
   state = {
     matches: [],
+    isLoaded: false,
   };
 
   componentDidMount() {
@@ -25,6 +28,7 @@ class PlayerProfile extends Component {
     const pageUrl = new URL(window.location.href);
     const player = pageUrl.pathname.split("/").slice(-1)[0]; //
     const playerTag = player.replace("%23", "#");
+    const season = 9;
     try {
       var url = new URL(`https://website-backend.w3champions.com/api/players/${player}`);
       var response = await fetch(url);
@@ -32,7 +36,7 @@ class PlayerProfile extends Component {
       this.setState({ ...result });
 
       var url = new URL("https://website-backend.w3champions.com/api/matches/search");
-      var params = { playerId: playerTag, gateway: 20, offset: 0, gameMode: 4, season: 7, pageSize: 100 };
+      var params = { playerId: playerTag, gateway: 20, offset: 0, gameMode: 4, season, pageSize: 100 };
       url.search = new URLSearchParams(params).toString();
       var response = await fetch(url);
       var result = await response.json();
@@ -44,7 +48,7 @@ class PlayerProfile extends Component {
       this.setState({ ...result });
 
       var url = new URL(`https://website-backend.w3champions.com/api/players/${player}/game-mode-stats`);
-      var params = { gateway: 20, season: 7 };
+      var params = { gateway: 20, season };
       url.search = new URLSearchParams(params).toString();
       var response = await fetch(url);
       var result = await response.json();
@@ -56,18 +60,19 @@ class PlayerProfile extends Component {
       var url = new URL(
         `https://website-backend.w3champions.com/api/matches/search?playerId=${player}&gateway=20&offset=${offset}&pageSize=200&season=7&gameMode=4`
       );
-      var params = { gateway: 20, season: 7, playerId: playerTag, pageSize: 20, gameMode: 4 };
+      var params = { gateway: 20, season, playerId: playerTag, pageSize: 20, gameMode: 4 };
       url.search = new URLSearchParams(params).toString();
       var response = await fetch(url);
       var result = await response.json();
-      this.setState({ matches: result });
+      console.log("matches", result);
+      this.setState({ matches: result.matches, isLoaded: true });
     } catch (e) {
       console.log(e);
     }
   };
 
   render() {
-    if ((this.state.profilePicture !== undefined) & (this.state.countryCode !== undefined) & (this.state.gameModeStats !== undefined)) {
+    if (this.state.isLoaded === true && this.state.matches.length > 0) {
       const raceMapping = {
         8: "UNDEAD",
         0: "RANDOM",
@@ -95,6 +100,7 @@ class PlayerProfile extends Component {
 
       let numIcon = profilePicture.pictureId;
       let raceIcon = profilePicture.race;
+      let matches = this.state.matches;
 
       const profilePic = `${process.env.PUBLIC_URL}/icons/profile/${raceMapping[raceIcon]}_${numIcon}.jpg`;
       let playedRace = raceMapping[raceIcon];
@@ -114,30 +120,38 @@ class PlayerProfile extends Component {
       return (
         <Container>
           <Navbar />
-          <div>
-            <p>{this.state.name}</p>
+          {/* <div className={"navbarPlayerCard"}> */}
+          <Grid>
+            <Grid.Row columns={3}>
+              <Grid.Column width={6}>
+                <img src={profilePic} alt={"test"} className={"profilePic"} />
+                {/* <Player data={{ ...this.state, oldMmr: mmr }}></Player> */}
 
-            <Flag name={countryCodeIcon} style={iconStyle}></Flag>
-            <img src={racePic} alt={""} />
+                <Flag name={countryCodeIcon} style={iconStyle}></Flag>
+                <img src={racePic} alt={""} />
 
-            <br />
-            <img src={profilePic} alt={"test"} className={"profilePic"} />
-            <img src={leaguePic} alt={"test"} />
+                <br />
 
-            <p>
-              {gameModeStats.mmr} MMR | {gameModeStats.wins}W - {gameModeStats.losses}L ({winrate}%)
-            </p>
+                <img src={leaguePic} alt={"test"} />
+
+                <p>
+                  | {gameModeStats.wins}W - {gameModeStats.losses}L ({winrate}%)
+                </p>
+              </Grid.Column>
+            </Grid.Row>
+          </Grid>
+          {/* </div> */}
+          <Divider />
+          <div className="matches">
+            {Object.keys(matches).map((key) => (
+              <Match match={matches[key]} key={matches[key].id}></Match>
+            ))}
           </div>
         </Container>
       );
     } else {
       return <div></div>;
     }
-
-    //   <Container>
-
-    // <p>test</p>
-    //   </Container>
   }
 }
 

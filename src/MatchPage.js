@@ -32,25 +32,61 @@ class Queue extends Component {
     const pageUrl = new URL(window.location.href);
     const matchId = pageUrl.pathname.split("/").slice(-1)[0]; //
     const url = new URL(`https://website-backend.w3champions.com/api/matches/${matchId}`);
+    let match = null;
     console.log("url", url);
 
     var response = await fetch(url);
     var result = await response.json();
 
-    console.log("result", result);
-    let match = result.match;
+    if (result.match === null) {
+      const gameMode = 4;
+      const gateway = 20;
 
-    let matchMmr = 0;
-    match.teams.forEach((t) => {
-      let playerMmrs = t.players.map((d) => d.oldMmr);
-      let teamAverage = arithmeticMean(playerMmrs);
-      t.teamAverage = teamAverage;
-      matchMmr += teamAverage;
-    });
+      var urlLive = new URL("https://website-backend.w3champions.com/api/matches/ongoing");
+      var params = { offset: 0, gateway, pageSize: 50, gameMode, map: "Overall" };
+      // var url = new URL("https://website-backend.w3champions.com/api/matches/search");
 
-    match.matchMmr = Math.round(matchMmr / 2);
+      // var params = { playerId: "ic3#21532", gateway, pageSize: 50, gameMode, map: "Overall", offset: 0, season: 6 };
+      urlLive.search = new URLSearchParams(params).toString();
+      // console.log("url", url);
 
-    this.setState({ ...result, match, isLoaded: true });
+      response = await fetch(urlLive);
+      result = await response.json();
+      let matches = result.matches;
+
+      matches = matches.filter((d) => d.id === matchId);
+      matches.forEach((m) => {
+        let matchMmr = 0;
+        m.teams.forEach((t) => {
+          let playerMmrs = t.players.map((d) => d.oldMmr);
+          let teamAverage = arithmeticMean(playerMmrs);
+          t.teamAverage = teamAverage;
+          matchMmr += teamAverage;
+        });
+
+        m.matchMmr = Math.round(matchMmr / 2);
+      });
+
+      match = matches[0];
+    } else {
+      console.log("result", result);
+      match = result.match;
+    }
+    console.log("MATCH", match);
+
+    if (match !== undefined) {
+      let matchMmr = 0;
+      match.teams.forEach((t) => {
+        let playerMmrs = t.players.map((d) => d.oldMmr);
+        let teamAverage = arithmeticMean(playerMmrs);
+        t.teamAverage = teamAverage;
+        matchMmr += teamAverage;
+      });
+
+      match.matchMmr = Math.round(matchMmr / 2);
+
+      this.setState({ ...result, match, isLoaded: true });
+    }
   };
 
   render() {

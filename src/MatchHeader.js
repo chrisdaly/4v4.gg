@@ -70,9 +70,11 @@ class MatchHeader extends Component {
     return (
       <Grid.Row style={{ display: "inline-table", paddingBottom: "14px" }}>
         <Grid.Column>
-          <img src={leagueIcon} alt={this.props.league} className={"league"} />
-          <p className={"mapLabel"}>{this.props.map}</p>
-          <p className={"timeLabel"}>{text}</p>
+          <a target="_blank" href={`/match/${this.props.id}`} rel="noreferrer">
+            <img src={leagueIcon} alt={this.props.league} className={"league"} />
+            <p className={"mapLabel"}>{this.props.map}</p>
+            <p className={"timeLabel"}>{text}</p>
+          </a>
         </Grid.Column>
       </Grid.Row>
     );

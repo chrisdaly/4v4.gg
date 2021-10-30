@@ -41,7 +41,7 @@ class Match extends Component {
       // <Segment>
       <div>
         <Grid columns={3}>
-          <MatchHeader league={league} startDate={startDate} map={map}></MatchHeader>
+          <MatchHeader id={this.props.match.id} league={league} startDate={startDate} map={map}></MatchHeader>
           <Grid.Row columns={3}>
             <Grid.Column width={6}>
               <Team team={teams[0]} teamNum={1} teamAverage={match.teams[0].teamAverage}></Team>

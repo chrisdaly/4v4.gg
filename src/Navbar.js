@@ -18,19 +18,24 @@ class Navbar extends Component {
             <Header.Content>4v4.GG</Header.Content>
           </div>
           <Grid divided="vertically">
-            <Grid.Row columns={3} className={"playerBottom"}>
+            <Grid.Row columns={3}>
               <Grid.Column width={4}>
                 <h3>
                   <Link to="/">Live Games</Link>
                 </h3>
               </Grid.Column>
-              <Grid.Column className="playerName">
+              <Grid.Column width={4}>
                 <h3>
                   <Link to="/queue">Queue</Link>
                 </h3>
               </Grid.Column>
+              <Grid.Column width={4}>
+                <h3>
+                  <Link to="/ladder">Ladder</Link>
+                </h3>
+              </Grid.Column>
             </Grid.Row>
-            <Grid.Row columns={1} className={"playerTop"}>
+            <Grid.Row columns={1}>
               <Grid.Column></Grid.Column>
             </Grid.Row>
           </Grid>

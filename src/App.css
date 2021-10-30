@@ -2,6 +2,10 @@
   text-align: center;
 }
 
+html {
+  width: 100vw;
+}
+
 .App-logo {
   height: 40vmin;
   pointer-events: none;
@@ -227,6 +231,15 @@ svg#svg_logo {
   z-index: 10000;
 }
 
+/* .navbarPlayerCard {
+  margin-left: -1 rem;
+  margin-right: -1 rem;
+  position: sticky;
+  top: 175 px !important;
+  background-color: #323437;
+  z-index: 10000;
+} */
+
 .matches {
   /* margin-top: 250px; */
 }
@@ -269,7 +282,7 @@ svg#svg_logo {
 }
 
 img.profilePic {
-  height: 100px;
+  /* height: 100px; */
 }
 
 .gameStatus {
