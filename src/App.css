@@ -89,7 +89,7 @@ body,
 .ui.segment,
 .ui.vertically.divided.grid {
   background-color: #323437;
-  font-size: 15px;
+  font-size: 14px;
 }
 
 .ui.vertically.divided.grid.team-header.team-1 {
@@ -191,7 +191,7 @@ path.domain {
 }
 
 h5 {
-  font-weight: 200;
+  font-weight: 500;
   font-size: 0.9rem;
 }
 

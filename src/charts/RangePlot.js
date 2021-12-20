@@ -5,18 +5,18 @@ function RangePlot(id, data) {
   const teamSize = teamOneMmrs.length;
 
   const padding = 0;
-  const teamHeaderHeight = 48.73; //document.getElementsByClassName("ui vertically divided grid team-header team-1")[0].offsetHeight;
+  const teamHeaderHeight = document.getElementsByClassName("ui vertically divided grid team-header team-1")[0].offsetHeight;
 
-  const cardHeight = 54; //document.getElementsByClassName("ui vertically divided grid playerCard")[0].offsetHeight;
+  const cardHeight = document.getElementsByClassName("ui vertically divided grid playerCard")[0].offsetHeight;
 
-  const margin = { top: teamHeaderHeight + 5, right: 0, bottom: padding, left: 0 };
+  const margin = { top: teamHeaderHeight + 8, right: 0, bottom: padding, left: 0 };
   const width = 49.75;
-  const height = 271.03; //teamHeaderHeight + cardHeight * 4;
+  const height = teamHeaderHeight + cardHeight * 4;
   console.log("height", height);
   const verticalOffset = 10;
 
   let minMmr = 900; //d3.min(combinedMmrs);
-  let maxMmr = 2300; //d3.max(combinedMmrs);
+  let maxMmr = 2230; //d3.max(combinedMmrs);
 
   const y = d3
     .scaleLinear()
