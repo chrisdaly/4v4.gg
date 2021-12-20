@@ -72,7 +72,6 @@ html {
 * {
   font-family: "Roboto" !important;
   color: #fafafa;
-  /*background-color: #fafafa;*/
 }
 
 @font-face {
@@ -90,39 +89,38 @@ body,
 .ui.segment,
 .ui.vertically.divided.grid {
   background-color: #323437;
+  font-size: 15px;
 }
 
 .ui.vertically.divided.grid.team-header.team-1 {
-  background-color: #bf6969;
-  /* outline: 0.5px solid #bf6969; */
+  background-color: #a93232;
+  /* outline: 0.5px solid #a93232; */
 }
 
 .ui.vertically.divided.grid.team-header.team-2 {
-  background-color: #3282b8;
-  /* outline: 0.5px solid #3282b8; */
+  background-color: #266793;
+  /* outline: 0.5px solid #266793; */
 }
 
 .column.playerName {
   font-weight: bold;
 }
 
-.playerCard {
-  outline: 0.2px solid #fafafa;
-  margin-left: 0.1rem !important;
-  margin-right: 0.1rem !important;
-  margin-bottom: 0.1rem !important;
-  padding-top: 0.1rem !important;
-  padding-bottom: 0.1rem !important;
+.playerCard,
+.team-header {
+  outline: 0.05rem solid #fafafa;
+  margin-left: 1px !important;
+  margin-right: 1px !important;
+  margin-bottom: 1px !important;
+  padding-top: 1pz !important;
+  padding-bottom: 0rem !important;
+  border-right: 0;
+  /* 
+  outline: 1px solid;
+  margin-top: 1px;
+  margin-left: 1px; */
 }
 
-.team-header {
-  outline: 0.2px solid #fafafa;
-  margin-left: 0.1rem !important;
-  margin-right: 0.1rem !important;
-  margin-bottom: 0.1rem !important;
-  padding-top: 0.1rem !important;
-  padding-bottom: 0.1rem !important;
-}
 /* .ui.vertically.divided.grid {
  */
 /* } */
@@ -132,25 +130,25 @@ a {
 }
 
 line.y.axis.teamOne {
-  stroke: #bf6969;
+  stroke: #a93232;
   stroke-width: 2;
 }
 
 line.y.axis.teamTwo {
-  stroke: #3282b8;
+  stroke: #266793;
   stroke-width: 2;
 }
 
 circle.dot.teamOne {
-  fill: #bf6969;
-  stroke: #323437;
-  stroke-opacity: 1;
+  fill: #a93232;
+  /* stroke: #323437; */
+  /* stroke-opacity: 1; */
 }
 
 circle.dot.teamTwo {
-  fill: #3282b8;
-  stroke: #323437;
-  stroke-opacity: 1;
+  fill: #266793;
+  /* stroke: #323437; */
+  /* stroke-opacity: 1; */
 }
 
 .ui.vertically.divided.grid.team-header {
@@ -193,8 +191,8 @@ path.domain {
 }
 
 h5 {
-  font-weight: 150;
-  font-size: 0.85rem;
+  font-weight: 200;
+  font-size: 0.9rem;
 }
 
 .ui[class*="vertically divided"].grid > .row:before {
@@ -207,19 +205,27 @@ h1.ui.header {
 
 text.axistitle {
   fill: #fafafa;
+  font-size: 10px;
+  text-anchor: middle;
+  opacity: 1;
+  font-weight: bold;
+}
+
+text.mmrBackground {
+  fill: #fafafa;
   font-size: 9px;
   text-anchor: middle;
 }
 
 line.y.axis.avgLine {
   stroke: #fafafa;
-  stroke-width: 1px;
+  stroke-width: 0.5px;
   stroke-dasharray: 3;
 }
 
 svg#svg_logo {
   width: 50px;
-  fill: #bf6969;
+  fill: #a93232;
 }
 
 .navbar {

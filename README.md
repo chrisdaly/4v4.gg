@@ -77,3 +77,4 @@ Visualization for how many in game, how many searching, how many recently finish
 ~~Add headers in navbar for home, player, queue~~
 ~~Add a match page~~
 add line chart for RP/MMR gain
+add ping information

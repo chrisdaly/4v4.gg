@@ -5,6 +5,12 @@ import Player from "./Player.js";
 
 import { Grid, Container, Flag, Divider } from "semantic-ui-react";
 
+const arithmeticMean = (x) => {
+  const product = x.reduce((p, c) => p * c, 1);
+  const exponent = 1 / x.length;
+  return Math.round(Math.pow(product, exponent));
+};
+
 class PlayerProfile extends Component {
   state = {
     matches: [],
@@ -101,6 +107,17 @@ class PlayerProfile extends Component {
       let numIcon = profilePicture.pictureId;
       let raceIcon = profilePicture.race;
       let matches = this.state.matches;
+      matches.forEach((m) => {
+        let matchMmr = 0;
+        m.teams.forEach((t) => {
+          let playerMmrs = t.players.map((d) => d.oldMmr);
+          let teamAverage = arithmeticMean(playerMmrs);
+          t.teamAverage = teamAverage;
+          matchMmr += teamAverage;
+        });
+
+        m.matchMmr = Math.round(matchMmr / 2);
+      });
 
       const profilePic = `${process.env.PUBLIC_URL}/icons/profile/${raceMapping[raceIcon]}_${numIcon}.jpg`;
       let playedRace = raceMapping[raceIcon];
