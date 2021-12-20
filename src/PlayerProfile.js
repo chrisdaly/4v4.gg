@@ -138,26 +138,27 @@ class PlayerProfile extends Component {
         <Container>
           <Navbar />
           {/* <div className={"navbarPlayerCard"}> */}
-          <Grid>
-            <Grid.Row columns={3}>
-              <Grid.Column width={6}>
-                <img src={profilePic} alt={"test"} className={"profilePic"} />
-                {/* <Player data={{ ...this.state, oldMmr: mmr }}></Player> */}
+          <div id="profileCard">
+            <Grid>
+              <Grid.Row className={3}>
+                <Grid.Column width={6}>
+                  <img src={profilePic} alt={"test"} className={"profilePic"} />
+                  {/* <Player data={{ ...this.state, oldMmr: mmr }}></Player> */}
 
-                <Flag name={countryCodeIcon} style={iconStyle}></Flag>
-                <img src={racePic} alt={""} />
+                  <Flag name={countryCodeIcon} style={iconStyle}></Flag>
+                  <img src={racePic} alt={""} />
 
-                <br />
+                  <br />
 
-                <img src={leaguePic} alt={"test"} />
+                  <img src={leaguePic} alt={"test"} />
 
-                <p>
-                  | {gameModeStats.wins}W - {gameModeStats.losses}L ({winrate}%)
-                </p>
-              </Grid.Column>
-            </Grid.Row>
-          </Grid>
-          {/* </div> */}
+                  <p>
+                    | {gameModeStats.wins}W - {gameModeStats.losses}L ({winrate}%)
+                  </p>
+                </Grid.Column>
+              </Grid.Row>
+            </Grid>
+          </div>
           <Divider />
           <div className="matches">
             {Object.keys(matches).map((key) => (
