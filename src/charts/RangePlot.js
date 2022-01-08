@@ -6,23 +6,19 @@ function RangePlot(id, data) {
 
   const padding = 0;
   const teamHeaderHeight = document.getElementsByClassName("ui vertically divided grid team-header team-1")[0].offsetHeight;
-
   const cardHeight = document.getElementsByClassName("ui vertically divided grid playerCard")[0].offsetHeight;
 
-  const margin = { top: teamHeaderHeight + 8, right: 0, bottom: padding, left: 0 };
+  const margin = { top: teamHeaderHeight, right: 0, bottom: padding, left: 0 };
   const width = 49.75;
-  const height = teamHeaderHeight + cardHeight * 4;
-  console.log("height", height);
+  const height = 5 + cardHeight * 4;
+  const svgHeight = 5 + document.getElementsByClassName("teamDiv")[0].offsetHeight; //height + teamHeaderHeight;
+  // console.log("svgHeight", svgHeight);
   const verticalOffset = 10;
 
   let minMmr = 900; //d3.min(combinedMmrs);
   let maxMmr = 2230; //d3.max(combinedMmrs);
 
-  const y = d3
-    .scaleLinear()
-    .domain([minMmr, maxMmr])
-    .range([cardHeight * 4, 0])
-    .nice(0);
+  const y = d3.scaleLinear().domain([minMmr, maxMmr]).range([height, 0]).nice(0);
 
   var yAxis = d3.axisLeft().scale(y).tickSize(0).ticks(0, ",f");
 
@@ -30,7 +26,7 @@ function RangePlot(id, data) {
     .select(`#${id}`)
     .append("svg")
     .attr("width", width)
-    .attr("height", height)
+    .attr("height", svgHeight)
     .append("g")
     .attr("transform", "translate(" + width / 2 + "," + margin.top + ")")
     .attr("height", height - margin.top);

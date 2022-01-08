@@ -78,3 +78,5 @@ Visualization for how many in game, how many searching, how many recently finish
 ~~Add a match page~~
 add line chart for RP/MMR gain
 add ping information
+
+add standard deviation to team header, transition

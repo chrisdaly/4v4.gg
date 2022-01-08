@@ -53,18 +53,27 @@ class MatchHeader extends Component {
     let text = "";
 
     const startDate = this.props.startDate;
-    console.log("startDate", startDate);
-    if (startDate !== null) {
+    // console.log("startDate", startDate);
+
+    if (this.props.ongoing) {
+      if (startDate !== null) {
+        let end = Date.now();
+        let elapsed = end - startDate;
+        let minutes = Math.floor(elapsed / 1000 / 60);
+        if (minutes < 60 * 24) {
+          text = `started ${minutes} ${minutes === 1 ? "min" : "mins"} ago`;
+        } else {
+          text = `started ${startDate.toDateString()}`;
+        }
+      } else {
+        text = "";
+      }
+    } else {
       let end = Date.now();
       let elapsed = end - startDate;
       let minutes = Math.floor(elapsed / 1000 / 60);
-      if (minutes < 60 * 24) {
-        text = `started ${minutes} ${minutes === 1 ? "min" : "mins"} ago`;
-      } else {
-        text = `started ${startDate.toDateString()}`;
-      }
-    } else {
-      text = "";
+
+      text = `${minutes} mins - ${startDate.toDateString()}`;
     }
 
     return (

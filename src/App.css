@@ -80,6 +80,11 @@ html {
 }
 
 @font-face {
+  font-family: "Inconsolata";
+  src: local("Inconsolata"), url(./fonts/Inconsolata-Medium.ttf) format("truetype");
+}
+
+@font-face {
   font-family: "Roboto";
   font-weight: 900;
   src: local("Roboto"), url(./fonts/Roboto-Bold.ttf) format("truetype");
@@ -169,8 +174,8 @@ html {
 }
 
 .ui.grid > .row {
-  padding-top: 0rem;
-  padding-bottom: 0rem;
+  padding-top: 0.2rem;
+  padding-bottom: 0.2rem;
 }
 
 path.domain {
@@ -188,11 +193,6 @@ path.domain {
 
 .ui.vertically.divided.grid.playerCard {
   margin-top: 0rem;
-}
-
-h5 {
-  font-weight: 500;
-  font-size: 0.9rem;
 }
 
 .ui[class*="vertically divided"].grid > .row:before {
@@ -261,8 +261,8 @@ svg#svg_logo {
 }
 
 .race {
-  width: 15px;
-  height: 15px;
+  /* width: 15px;
+  height: 15px; */
 }
 
 .map,
@@ -311,4 +311,19 @@ img.profilePic {
 
 .ui.active.transition.visible.dimmer {
   background: unset;
+}
+
+img.logo {
+  height: 75px;
+}
+
+i.flag {
+  height: 5px !important;
+  width: 5px !important;
+}
+
+h5.number {
+  font-family: Inconsolata !important;
+  font-weight: 500;
+  /* font-size: 0.9rem; */
 }

@@ -15,13 +15,13 @@ class Match extends Component {
     const teams = match.teams;
 
     const teamOneMmrs = teams[0].players.map((d) => d.oldMmr);
-    console.log("teamOneMmrs", teamOneMmrs);
+    // console.log("teamOneMmrs", teamOneMmrs);
     const teamOneAverageMmr = teams[0].teamAverage;
-    console.log("teamOneAverageMmr", teamOneAverageMmr);
+    // console.log("teamOneAverageMmr", teamOneAverageMmr);
 
     const teamTwoMmrs = teams[1].players.map((d) => d.oldMmr);
     const teamTwoAverageMmr = teams[1].teamAverage;
-    console.log("teamTwoAverageMmr", teamTwoAverageMmr);
+    // console.log("teamTwoAverageMmr", teamTwoAverageMmr);
 
     const gameMmr = Math.round((teamOneAverageMmr + teamTwoAverageMmr) / 2);
     const threshold = d3
@@ -30,23 +30,27 @@ class Match extends Component {
       .range(["grass", "bronze", "silver", "gold", "platinum", "diamond", "adept", "master", "grandmaster"]);
 
     const league = threshold(gameMmr);
-
-    // console.log(gameMmr, threshold(gameMmr));
-
     const data = { teamOneMmrs, teamOneAverageMmr, teamTwoMmrs, teamTwoAverageMmr, league };
     const startDate = new Date(this.props.match.startTime);
     const map = this.props.match.map;
+    const ongoing = this.props.match.durationInSeconds === 0;
 
     return (
-      // <Segment>
       <div>
         <Grid columns={3}>
-          <MatchHeader id={this.props.match.id} league={league} startDate={startDate} map={map}></MatchHeader>
+          <MatchHeader
+            id={this.props.match.id}
+            league={league}
+            startDate={startDate}
+            map={map}
+            ongoing={ongoing}
+            durationInSeconds={this.props.match.durationInSeconds}
+          ></MatchHeader>
           <Grid.Row columns={3}>
             <Grid.Column width={6}>
               <Team team={teams[0]} teamNum={1} teamAverage={match.teams[0].teamAverage}></Team>
             </Grid.Column>
-            <Grid.Column width={2}>
+            <Grid.Column width={3}>
               <RangePlotSection data={data} id={match.id} />
             </Grid.Column>
             <Grid.Column width={6}>
@@ -56,7 +60,6 @@ class Match extends Component {
         </Grid>
         <Divider />
       </div>
-      // </Segment>
     );
   }
 }

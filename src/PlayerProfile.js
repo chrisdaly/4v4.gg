@@ -34,19 +34,22 @@ class PlayerProfile extends Component {
     const pageUrl = new URL(window.location.href);
     const player = pageUrl.pathname.split("/").slice(-1)[0]; //
     const playerTag = player.replace("%23", "#");
-    const season = 9;
+    const gameMode = 4;
+    const gateway = 20;
+
+    const season = 10;
     try {
       var url = new URL(`https://website-backend.w3champions.com/api/players/${player}`);
       var response = await fetch(url);
       var result = await response.json();
       this.setState({ ...result });
 
-      var url = new URL("https://website-backend.w3champions.com/api/matches/search");
-      var params = { playerId: playerTag, gateway: 20, offset: 0, gameMode: 4, season, pageSize: 100 };
-      url.search = new URLSearchParams(params).toString();
-      var response = await fetch(url);
-      var result = await response.json();
-      this.setState({ ...result });
+      // var url = new URL("https://website-backend.w3champions.com/api/matches/search");
+      // var params = { playerId: playerTag, gateway: 20, offset: 0, gameMode: 4, season, pageSize: 100 };
+      // url.search = new URLSearchParams(params).toString();
+      // var response = await fetch(url);
+      // var result = await response.json();
+      // this.setState({ ...result });
 
       var url = new URL(`https://website-backend.w3champions.com/api/personal-settings/${player}`);
       var response = await fetch(url);
@@ -61,6 +64,30 @@ class PlayerProfile extends Component {
       var gameModeStats = result.filter((d) => d.gameMode === 4)[0];
       this.setState({ gameModeStats });
 
+      var url = new URL("https://website-backend.w3champions.com/api/matches/ongoing");
+      var params = { offset: 0, gateway, pageSize: 50, gameMode, map: "Overall" };
+      url.search = new URLSearchParams(params).toString();
+
+      var response = await fetch(url);
+      var result = await response.json();
+      console.log("oingoing", result);
+
+      var ongoingGame = null;
+
+      result.matches.forEach((m) =>
+        m.teams.forEach((t) => {
+          let players = t.players.map((p) => p.battleTag);
+          if (players.includes(playerTag)) {
+            ongoingGame = m;
+            this.setState({ matches: [...this.state.matches, ongoingGame], isLoaded: true });
+          }
+        })
+      );
+
+      // var ongoingGames = result.matches.filter((t => t.forEach();
+      // console.log("ongoingGames", ongoingGames);
+      // this.setState({ gameModeStats });
+
       let offset = 0;
 
       var url = new URL(
@@ -71,7 +98,7 @@ class PlayerProfile extends Component {
       var response = await fetch(url);
       var result = await response.json();
       console.log("matches", result);
-      this.setState({ matches: result.matches, isLoaded: true });
+      this.setState({ matches: [...this.state.matches, ...result.matches], isLoaded: true });
     } catch (e) {
       console.log(e);
     }
@@ -119,6 +146,8 @@ class PlayerProfile extends Component {
         m.matchMmr = Math.round(matchMmr / 2);
       });
 
+      console.log("matches", matches);
+
       const profilePic = `${process.env.PUBLIC_URL}/icons/profile/${raceMapping[raceIcon]}_${numIcon}.jpg`;
       let playedRace = raceMapping[raceIcon];
       playedRace = playedRace ? playedRace.toLowerCase() : "RANDOM";
@@ -140,7 +169,7 @@ class PlayerProfile extends Component {
           {/* <div className={"navbarPlayerCard"}> */}
           <div id="profileCard">
             <Grid>
-              <Grid.Row className={3}>
+              <Grid.Row width={3}>
                 <Grid.Column width={6}>
                   <img src={profilePic} alt={"test"} className={"profilePic"} />
                   {/* <Player data={{ ...this.state, oldMmr: mmr }}></Player> */}

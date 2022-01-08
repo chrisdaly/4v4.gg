@@ -12,9 +12,8 @@ class Navbar extends Component {
     return (
       <div className="navbar">
         <Header as="h2" icon textAlign="center">
-          <img src={logo} alt={"asd"} className={"logo"} />
-          {/* <Icon name="users" circular />` */}
-          <div>
+          <div id="logoAndText">
+            <img src={logo} alt={"asd"} className={"logo"} />
             <Header.Content>4v4.GG</Header.Content>
           </div>
           <Grid divided="vertically">

@@ -5,7 +5,7 @@ class Mmr extends Component {
     const oldMmr = this.props.data;
 
     if (oldMmr !== undefined) {
-      return <h5>{oldMmr.toLocaleString()}</h5>;
+      return <h5 className={"number"}>{oldMmr.toLocaleString()}</h5>;
     } else {
       return null;
     }
