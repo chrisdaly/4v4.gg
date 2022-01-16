@@ -27,12 +27,14 @@ class App extends Component {
   componentDidMount() {
     this.loadData();
     let intervalId = setInterval(this.loadData, 30000);
+    let transitionId = setInterval(() => this.setState({ transition: !this.state.transition }), 1000);
 
-    this.setState({ intervalId });
+    this.setState({ intervalId, transitionId });
   }
 
   componentWillUnmount() {
     clearInterval(this.state.intervalId);
+    clearInterval(this.state.transitionId);
   }
 
   loadData = async () => {

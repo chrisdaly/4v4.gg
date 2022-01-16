@@ -13,7 +13,7 @@ function RangePlot(id, data) {
   const height = 5 + cardHeight * 4;
   const svgHeight = 5 + document.getElementsByClassName("teamDiv")[0].offsetHeight; //height + teamHeaderHeight;
   // console.log("svgHeight", svgHeight);
-  const verticalOffset = 10;
+  const verticalOffset = 15;
 
   let minMmr = 900; //d3.min(combinedMmrs);
   let maxMmr = 2230; //d3.max(combinedMmrs);
@@ -21,6 +21,7 @@ function RangePlot(id, data) {
   const y = d3.scaleLinear().domain([minMmr, maxMmr]).range([height, 0]).nice(0);
 
   var yAxis = d3.axisLeft().scale(y).tickSize(0).ticks(0, ",f");
+  let radius = 4;
 
   const svg = d3
     .select(`#${id}`)
@@ -91,7 +92,7 @@ function RangePlot(id, data) {
     .enter()
     .append("circle")
     .attr("class", "dot teamTwo")
-    .attr("r", 5)
+    .attr("r", radius)
     .attr("cx", verticalOffset)
     .attr("cy", (d) => y(d));
 
@@ -102,7 +103,7 @@ function RangePlot(id, data) {
     .enter()
     .append("circle")
     .attr("class", "dot teamOne")
-    .attr("r", 5)
+    .attr("r", radius)
     .attr("cx", -verticalOffset)
     .attr("cy", (d) => y(d));
 
