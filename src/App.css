@@ -333,3 +333,53 @@ circle.dot {
   stroke-width: 1.5px;
   stroke-opacity: 0.8;
 }
+
+.profileName {
+  font-size: 20px;
+}
+
+img.profilePic {
+  width: 75px;
+}
+
+h5.profileName {
+  text-align-last: center;
+}
+
+.league {
+  text-transform: uppercase;
+  /* font-weight: bold; */
+  margin-top: 5px;
+  margin-bottom: 0px;
+}
+
+/* .leagueContainer {
+  position: relative;
+  text-align: center;
+}
+
+.leagueRank {
+  position: absolute;
+  top: 40px;
+  left: 50px;
+  color: #fff !important;
+  text-shadow: 1px 0 0 #000, 0 -1px 0 #000, 0 1px 0 #000, -1px 0 0 #000 !important;
+} */
+
+.row.middleprofilediv {
+  margin-top: 10px;
+}
+
+span.false {
+  background: red;
+  color: white;
+  padding: 2px;
+  font-weight: 800;
+}
+
+span.true {
+  background: green;
+  color: white;
+  padding: 2px;
+  font-weight: 800;
+}

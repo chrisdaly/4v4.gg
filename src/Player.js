@@ -11,8 +11,10 @@ import random from "./icons/random.png";
 
 class Player extends Component {
   render() {
-    const { race, oldMmr, name, location, battleTag } = this.props.data;
-    let countryCode = location !== null ? location.toLowerCase() : "";
+    let { race, oldMmr, name, location, battleTag } = this.props.data;
+    battleTag = battleTag === undefined ? "" : battleTag;
+    let countryCode = (location === undefined) | (location === null) ? "" : location.toLowerCase();
+
     const raceMapping = {
       8: undead,
       0: random,

@@ -105,7 +105,7 @@ class PlayerProfile extends Component {
   };
 
   render() {
-    if (this.state.isLoaded === true && this.state.matches.length > 0) {
+    if (this.state.isLoaded === true && this.state.matches.length > 0 && this.state.battleTag !== "") {
       const raceMapping = {
         8: "UNDEAD",
         0: "RANDOM",
@@ -149,6 +149,8 @@ class PlayerProfile extends Component {
       console.log("matches", matches);
 
       const profilePic = `${process.env.PUBLIC_URL}/icons/profile/${raceMapping[raceIcon]}_${numIcon}.jpg`;
+      console.log("profilePic", profilePic);
+
       let playedRace = raceMapping[raceIcon];
       playedRace = playedRace ? playedRace.toLowerCase() : "RANDOM";
       console.log("profilePic", profilePic);
@@ -163,29 +165,74 @@ class PlayerProfile extends Component {
       const leaguePic = `${process.env.PUBLIC_URL}/icons/${leagueBadge}.png`;
       console.log("leagueId", leagueBadge);
 
+      console.log("this.state.battleTag", this.state.battleTag);
+      let playerCardData = {};
+      matches[0].teams.forEach((t) => {
+        let players = t.players.map((p) => p.battleTag);
+        if (players.includes(this.state.battleTag)) {
+          playerCardData = t.players.filter((d) => d.battleTag === this.state.battleTag)[0];
+        }
+      });
+
+      let lastTenMatches = matches
+        .filter((m) => m.durationInSeconds > 0)
+        .slice(0, 10)
+        .reverse();
+
+      let lastTenResults = lastTenMatches.map((m) => {
+        let t = m.teams[0];
+        let players = t.players.map((p) => p.battleTag);
+        let won = players.includes(this.state.battleTag) ? t.won : !t.won;
+        return won;
+      });
+      console.log("lastTenResults", lastTenResults);
+
       return (
         <Container>
           <Navbar />
           {/* <div className={"navbarPlayerCard"}> */}
           <div id="profileCard">
             <Grid>
-              <Grid.Row width={3}>
-                <Grid.Column width={6}>
-                  <img src={profilePic} alt={"test"} className={"profilePic"} />
-                  {/* <Player data={{ ...this.state, oldMmr: mmr }}></Player> */}
-
-                  <Flag name={countryCodeIcon} style={iconStyle}></Flag>
-                  <img src={racePic} alt={""} />
-
-                  <br />
-
-                  <img src={leaguePic} alt={"test"} />
-
-                  <p>
-                    | {gameModeStats.wins}W - {gameModeStats.losses}L ({winrate}%)
-                  </p>
+              {/* <Grid.Row></Grid.Row> */}
+              {/* <Grid.Row> */}
+              <Grid columns={3}>
+                <Grid.Column width={3} className={"leagueContainer"}>
+                  <img src={leaguePic} alt={"test"} className={"leaguePic"} />
                 </Grid.Column>
-              </Grid.Row>
+                <Grid.Column width={8}>
+                  <Grid.Row divided>
+                    <h5 className={"profileName"}>{this.state.name}</h5>
+                  </Grid.Row>
+                  <Grid.Row className={"middleprofilediv"}>{this.state.gameModeStats.mmr} MMR</Grid.Row>
+                  {/* <p className={"leagueRank"}>Rank #{gameModeStats.rank}</p> */}
+                  {lastTenResults.map((r) => (
+                    <span className={r.toString()}>{r === true ? "W" : "L"}</span>
+                  ))}
+
+                  <Grid.Row>
+                    {/* <img src={racePic} alt={""} /> */}
+                    {/* <Flag name={countryCodeIcon} style={iconStyle}></Flag> */}
+                    {/* <p className={"winloss"}>
+                        {gameModeStats.wins}W - {gameModeStats.losses}L ({winrate}%)
+                      </p> */}
+                    {/* <p className={"league"}>{badgeMapping[leagueId]}</p> */}
+                  </Grid.Row>
+                </Grid.Column>
+                <Grid.Column width={3}>
+                  <img
+                    src={profilePic}
+                    alt={"test"}
+                    className={"profilePic"}
+                    onError={(event) => {
+                      event.target.src = "https://m.media-amazon.com/images/I/51e6kpkyuIL._AC_SL1200_.jpg";
+                      event.onerror = null;
+                    }}
+                  />
+                </Grid.Column>
+
+                {/* <img src={leaguePic} alt={"test"} /> */}
+              </Grid>
+              {/* </Grid.Row> */}
             </Grid>
           </div>
           <Divider />
