@@ -21,6 +21,7 @@ class App extends Component {
     QUEUED_PLAYER_COUNT: [],
     queue: [],
     matches: [],
+    transition: false,
   };
 
   componentDidMount() {

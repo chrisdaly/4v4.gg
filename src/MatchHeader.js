@@ -73,7 +73,7 @@ class MatchHeader extends Component {
       let elapsed = end - startDate;
       let minutes = Math.floor(elapsed / 1000 / 60);
 
-      text = `${minutes} mins - ${startDate.toDateString()}`;
+      text = `${startDate.toDateString()}`;
     }
 
     return (

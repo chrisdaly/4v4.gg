@@ -91,7 +91,7 @@ function RangePlot(id, data) {
     .enter()
     .append("circle")
     .attr("class", "dot teamTwo")
-    .attr("r", 2.8)
+    .attr("r", 5)
     .attr("cx", verticalOffset)
     .attr("cy", (d) => y(d));
 
@@ -102,12 +102,12 @@ function RangePlot(id, data) {
     .enter()
     .append("circle")
     .attr("class", "dot teamOne")
-    .attr("r", 2.8)
+    .attr("r", 5)
     .attr("cx", -verticalOffset)
     .attr("cy", (d) => y(d));
 
-  var imgs = svg.selectAll("image").data([0]);
-  imgs.enter().append("svg:image");
+  // var imgs = svg.selectAll("image").data([0]);
+  // imgs.enter().append("svg:image");
 
   // svg
   //   .selectAll(".mmr axis")

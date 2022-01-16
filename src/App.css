@@ -94,7 +94,7 @@ body,
 .ui.segment,
 .ui.vertically.divided.grid {
   background-color: #323437;
-  font-size: 14px;
+  font-size: 15px;
 }
 
 .ui.vertically.divided.grid.team-header.team-1 {
@@ -134,15 +134,15 @@ a {
   color: #fafafa;
 }
 
-line.y.axis.teamOne {
-  stroke: #a93232;
-  stroke-width: 2;
+line.y.axis {
+  stroke: white;
+  stroke-width: 1;
 }
 
-line.y.axis.teamTwo {
+/* line.y.axis.teamTwo {
   stroke: #266793;
-  stroke-width: 2;
-}
+  stroke-width: 4;
+} */
 
 circle.dot.teamOne {
   fill: #a93232;
@@ -179,8 +179,8 @@ html {
 }
 
 path.domain {
-  stroke: #fafafa;
-  stroke-width: 0.3px;
+  stroke: white;
+  stroke-width: 1px;
 }
 
 /* .ui.vertically.divided.grid.playerCard {
@@ -205,7 +205,7 @@ h1.ui.header {
 
 text.axistitle {
   fill: #fafafa;
-  font-size: 10px;
+  font-size: 15px;
   text-anchor: middle;
   opacity: 1;
   font-weight: bold;
@@ -218,9 +218,9 @@ text.mmrBackground {
 }
 
 line.y.axis.avgLine {
-  stroke: #fafafa;
-  stroke-width: 0.5px;
-  stroke-dasharray: 3;
+  stroke: white;
+  stroke-width: 0px;
+  /* stroke-dasharray: 3; */
 }
 
 svg#svg_logo {
@@ -283,7 +283,7 @@ svg#svg_logo {
   /* text-transform: uppercase; */
   font-weight: 100;
   font-style: italic;
-  font-size: 12px;
+  font-size: 15px;
   margin-bottom: 10px;
 }
 
@@ -326,4 +326,10 @@ h5.number {
   font-family: Inconsolata !important;
   font-weight: 500;
   /* font-size: 0.9rem; */
+}
+
+circle.dot {
+  stroke: white;
+  stroke-width: 1.5px;
+  stroke-opacity: 0.8;
 }
