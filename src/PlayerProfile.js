@@ -37,19 +37,12 @@ class PlayerProfile extends Component {
     const gameMode = 4;
     const gateway = 20;
 
-    const season = 10;
+    const season = 11;
     try {
       var url = new URL(`https://website-backend.w3champions.com/api/players/${player}`);
       var response = await fetch(url);
       var result = await response.json();
       this.setState({ ...result });
-
-      // var url = new URL("https://website-backend.w3champions.com/api/matches/search");
-      // var params = { playerId: playerTag, gateway: 20, offset: 0, gameMode: 4, season, pageSize: 100 };
-      // url.search = new URLSearchParams(params).toString();
-      // var response = await fetch(url);
-      // var result = await response.json();
-      // this.setState({ ...result });
 
       var url = new URL(`https://website-backend.w3champions.com/api/personal-settings/${player}`);
       var response = await fetch(url);
@@ -91,7 +84,7 @@ class PlayerProfile extends Component {
       let offset = 0;
 
       var url = new URL(
-        `https://website-backend.w3champions.com/api/matches/search?playerId=${player}&gateway=20&offset=${offset}&pageSize=200&season=7&gameMode=4`
+        `https://website-backend.w3champions.com/api/matches/search?playerId=${player}&gateway=20&offset=${offset}&pageSize=200&season=${season}&gameMode=4`
       );
       var params = { gateway: 20, season, playerId: playerTag, pageSize: 20, gameMode: 4 };
       url.search = new URLSearchParams(params).toString();

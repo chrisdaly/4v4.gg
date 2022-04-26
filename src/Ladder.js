@@ -17,7 +17,7 @@ class Ladder extends Component {
   componentWillUnmount() {}
 
   loadData = async () => {
-    const season = 10;
+    const season = 11;
     try {
       var url = new URL(`https://website-backend.w3champions.com/api/ladder/0?gateWay=20&gameMode=4&season=${season}`);
       var response = await fetch(url);

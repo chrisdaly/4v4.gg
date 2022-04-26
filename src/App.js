@@ -42,11 +42,7 @@ class App extends Component {
     try {
       var url = new URL("https://website-backend.w3champions.com/api/matches/ongoing");
       var params = { offset: 0, gateway, pageSize: 50, gameMode, map: "Overall" };
-      // var url = new URL("https://website-backend.w3champions.com/api/matches/search");
-
-      // var params = { playerId: "ic3#21532", gateway, pageSize: 50, gameMode, map: "Overall", offset: 0, season: 6 };
       url.search = new URLSearchParams(params).toString();
-      // console.log("url", url);
 
       const response = await fetch(url);
       const result = await response.json();

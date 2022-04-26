@@ -48,13 +48,13 @@ class Match extends Component {
           ></MatchHeader>
           <Grid.Row columns={3}>
             <Grid.Column width={6}>
-              <Team team={teams[0]} teamNum={1} teamAverage={match.teams[0].teamAverage}></Team>
+              <Team team={teams[0]} teamNum={1} teamAverage={match.teams[0].teamAverage} side="left"></Team>
             </Grid.Column>
             <Grid.Column width={3}>
               <RangePlotSection data={data} id={match.id} />
             </Grid.Column>
             <Grid.Column width={6}>
-              <Team team={teams[1]} teamNum={2} teamAverage={match.teams[1].teamAverage}></Team>
+              <Team team={teams[1]} teamNum={2} teamAverage={match.teams[1].teamAverage} side="right"></Team>
             </Grid.Column>
           </Grid.Row>
         </Grid>

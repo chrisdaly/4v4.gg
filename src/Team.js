@@ -12,7 +12,7 @@ class Team extends Component {
         <TeamHeader teamNum={teamNum} teamMmr={teamAverage} won={won}></TeamHeader>
 
         {Object.keys(team.players).map((key) => (
-          <Player key={team.players[key].name} data={team.players[key]}></Player>
+          <Player key={team.players[key].name} data={team.players[key]} side={this.props.side}></Player>
         ))}
       </div>
     );

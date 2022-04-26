@@ -44,11 +44,7 @@ class Queue extends Component {
 
       var urlLive = new URL("https://website-backend.w3champions.com/api/matches/ongoing");
       var params = { offset: 0, gateway, pageSize: 50, gameMode, map: "Overall" };
-      // var url = new URL("https://website-backend.w3champions.com/api/matches/search");
-
-      // var params = { playerId: "ic3#21532", gateway, pageSize: 50, gameMode, map: "Overall", offset: 0, season: 6 };
       urlLive.search = new URLSearchParams(params).toString();
-      // console.log("url", url);
 
       response = await fetch(urlLive);
       result = await response.json();

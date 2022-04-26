@@ -23,8 +23,7 @@ class Player extends Component {
       1: human,
     };
     const raceIcon = raceMapping[race];
-    const iconStyle = { width: "16px", height: "11px" };
-    // const background = ".";
+    // const iconStyle = { width: "5px", height: "5px" };
 
     return (
       <Grid divided="vertically" className={"playerCard"}>
@@ -38,13 +37,14 @@ class Player extends Component {
 
         <Grid.Row columns={3} className={"playerBottom"}>
           <Grid.Column width={4}>
-            <Flag name={countryCode} style={iconStyle}></Flag>
+            {this.props.side === "left" ? <Flag name={countryCode}></Flag> : <img src={raceIcon} alt={race} className={"race"} />}
           </Grid.Column>
           <Grid.Column width={8}>
             <Mmr data={oldMmr}></Mmr>
           </Grid.Column>
           <Grid.Column width={4}>
-            <img src={raceIcon} alt={race} className={"race"} />
+            {this.props.side === "left" ? <img src={raceIcon} alt={race} className={"race"} /> : <Flag name={countryCode}></Flag>}
+            {/* <img src={raceIcon} alt={race} className={"race"} /> */}
           </Grid.Column>
         </Grid.Row>
       </Grid>

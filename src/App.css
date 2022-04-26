@@ -317,9 +317,28 @@ img.logo {
   height: 75px;
 }
 
-i.flag {
-  height: 5px !important;
-  width: 5px !important;
+/* i.flag {
+  height: 2px !important;
+  width: 2px !important;
+} */
+
+i.flag:not(.icon) {
+  /* display: inline-block;
+  width: 16px;
+  height: 11px;
+  line-height: 11px;
+  vertical-align: baseline; */
+  margin: 0 0.7em 0 0.9em;
+  /* text-decoration: inherit;
+  speak: none;
+  font-smoothing: antialiased;
+  -webkit-backface-visibility: hidden;
+  backface-visibility: hidden; */
+}
+
+i.flag:not(.icon):before {
+  width: 10px;
+  height: 8px;
 }
 
 h5.number {
