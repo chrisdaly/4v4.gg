@@ -337,8 +337,8 @@ i.flag:not(.icon) {
 }
 
 i.flag:not(.icon):before {
-  width: 10px;
-  height: 8px;
+  /* width: 10px;
+  height: 8px; */
 }
 
 h5.number {
