@@ -2,6 +2,7 @@ import React, { Component } from "react";
 import Navbar from "./Navbar.js";
 import Match from "./Match.js";
 import Player from "./Player.js";
+import LineGraphPlotSection from "./LineGraphPlotSection.js";
 
 import { Grid, Container, Flag, Divider } from "semantic-ui-react";
 
@@ -15,19 +16,20 @@ class PlayerProfile extends Component {
   state = {
     matches: [],
     isLoaded: false,
+    ongoingGame: {},
   };
 
   componentDidMount() {
     this.loadData();
-    // let intervalId = setInterval(this.loadData, 30000);
-    // if (queryParams.player !== undefined) {
+    let intervalId = setInterval(this.loadData, 30000);
+    let transitionId = setInterval(() => this.setState({ transition: !this.state.transition }), 1000);
 
-    // }
-    this.setState({}); //intervalId
+    this.setState({ intervalId, transitionId });
   }
 
   componentWillUnmount() {
-    // clearInterval(this.state.intervalId);
+    clearInterval(this.state.intervalId);
+    clearInterval(this.state.transitionId);
   }
 
   loadData = async () => {
@@ -57,29 +59,50 @@ class PlayerProfile extends Component {
       var gameModeStats = result.filter((d) => d.gameMode === 4)[0];
       this.setState({ gameModeStats });
 
+      // MMR TIMELINE
+      // var url = new URL(`https://website-backend.w3champions.com/api/players/${player}/mmr-rp-timeline`);
+      // var params = { gateway: 20, season, race: 0, gameMode: 4 }; //hardcodig race at the moment
+      // url.search = new URLSearchParams(params).toString();
+      // var response = await fetch(url);
+      // var result = await response.json();
+      // console.log("RESULT", result);
+      // this.setState({ ...result });
+
       var url = new URL("https://website-backend.w3champions.com/api/matches/ongoing");
       var params = { offset: 0, gateway, pageSize: 50, gameMode, map: "Overall" };
       url.search = new URLSearchParams(params).toString();
 
       var response = await fetch(url);
       var result = await response.json();
-      console.log("oingoing", result);
+      // console.log("oingoing", result);
 
-      var ongoingGame = null;
+      var ongoingGame = {};
 
       result.matches.forEach((m) =>
         m.teams.forEach((t) => {
           let players = t.players.map((p) => p.battleTag);
           if (players.includes(playerTag)) {
             ongoingGame = m;
-            this.setState({ matches: [...this.state.matches, ongoingGame], isLoaded: true });
+            console.log("ongoingGame", ongoingGame);
+
+            ongoingGame.teams.forEach((t) => {
+              let playerMmrs = t.players.map((d) => d.oldMmr);
+              let teamAverage = arithmeticMean(playerMmrs);
+              t.teamAverage = teamAverage;
+            });
           }
         })
       );
 
+      this.setState({ ongoingGame, isLoaded: true });
+
       // var ongoingGames = result.matches.filter((t => t.forEach();
       // console.log("ongoingGames", ongoingGames);
       // this.setState({ gameModeStats });
+
+      function getUniqueListBy(arr, key) {
+        return [...new Map(arr.map((item) => [item[key], item])).values()];
+      }
 
       let offset = 0;
 
@@ -90,8 +113,13 @@ class PlayerProfile extends Component {
       url.search = new URLSearchParams(params).toString();
       var response = await fetch(url);
       var result = await response.json();
-      console.log("matches", result);
-      this.setState({ matches: [...this.state.matches, ...result.matches], isLoaded: true });
+      // console.log("matches", result);
+      let matches = [...this.state.matches, ...result.matches];
+
+      // matches = getUniqueListBy(matches, "id");
+      // console.log("MATCHES", matches);
+      console.log("MATCHES", matches);
+      this.setState({ matches: matches, isLoaded: true });
     } catch (e) {
       console.log(e);
     }
@@ -122,11 +150,14 @@ class PlayerProfile extends Component {
       };
 
       const { countryCode, location, profilePicture, playerAkaData, gameModeStats } = this.state;
-      const iconStyle = { width: "185px" };
+
+      function getUniqueListBy(arr, key) {
+        return [...new Map(arr.map((item) => [item[key], item])).values()];
+      }
 
       let numIcon = profilePicture.pictureId;
       let raceIcon = profilePicture.race;
-      let matches = this.state.matches;
+      let matches = getUniqueListBy(this.state.matches, "id");
       matches.forEach((m) => {
         let matchMmr = 0;
         m.teams.forEach((t) => {
@@ -138,15 +169,10 @@ class PlayerProfile extends Component {
 
         m.matchMmr = Math.round(matchMmr / 2);
       });
-
-      console.log("matches", matches);
-
       const profilePic = `${process.env.PUBLIC_URL}/icons/profile/${raceMapping[raceIcon]}_${numIcon}.jpg`;
-      console.log("profilePic", profilePic);
 
       let playedRace = raceMapping[raceIcon];
       playedRace = playedRace ? playedRace.toLowerCase() : "RANDOM";
-      console.log("profilePic", profilePic);
       const racePic = `${process.env.PUBLIC_URL}/icons/${playedRace}.png`;
 
       let countryCodeIcon = countryCode !== null ? countryCode.toLowerCase() : location.toLowerCase();
@@ -156,9 +182,9 @@ class PlayerProfile extends Component {
       let leagueBadge = badgeMapping[leagueId];
 
       const leaguePic = `${process.env.PUBLIC_URL}/icons/${leagueBadge}.png`;
-      console.log("leagueId", leagueBadge);
+      // console.log("leagueId", leagueBadge);
 
-      console.log("this.state.battleTag", this.state.battleTag);
+      // console.log("this.state.battleTag", this.state.battleTag);
       let playerCardData = {};
       matches[0].teams.forEach((t) => {
         let players = t.players.map((p) => p.battleTag);
@@ -178,7 +204,6 @@ class PlayerProfile extends Component {
         let won = players.includes(this.state.battleTag) ? t.won : !t.won;
         return won;
       });
-      console.log("lastTenResults", lastTenResults);
 
       return (
         <Container>
@@ -198,8 +223,10 @@ class PlayerProfile extends Component {
                   </Grid.Row>
                   <Grid.Row className={"middleprofilediv"}>{this.state.gameModeStats.mmr} MMR</Grid.Row>
                   {/* <p className={"leagueRank"}>Rank #{gameModeStats.rank}</p> */}
-                  {lastTenResults.map((r) => (
-                    <span className={r.toString()}>{r === true ? "W" : "L"}</span>
+                  {lastTenResults.map((r, index) => (
+                    <span key={index} className={r.toString()}>
+                      {r === true ? "W" : "L"}
+                    </span>
                   ))}
 
                   <Grid.Row>
@@ -222,6 +249,7 @@ class PlayerProfile extends Component {
                     }}
                   />
                 </Grid.Column>
+                <LineGraphPlotSection data={this.state.mmrRpAtDates} />
 
                 {/* <img src={leaguePic} alt={"test"} /> */}
               </Grid>
@@ -229,6 +257,13 @@ class PlayerProfile extends Component {
             </Grid>
           </div>
           <Divider />
+          <div className="ongoing">
+            {Object.keys(this.state.ongoingGame).length !== 0 ? (
+              <Match match={this.state.ongoingGame} key={this.state.ongoingGame.id}></Match>
+            ) : (
+              <div />
+            )}
+          </div>
           <div className="matches">
             {Object.keys(matches).map((key) => (
               <Match match={matches[key]} key={matches[key].id}></Match>

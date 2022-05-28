@@ -14,7 +14,7 @@ https://codepen.io/kryo2k/pen/pJxqBN
 
 http://bl.ocks.org/andredumas/27c4a333b0e0813e093d
 
-https://observablehq.com/@seanlaff/candlestick
+  https://observablehq.com/@seanlaff/candlestick
 
 ## Destructing W3C data
 * gateways
