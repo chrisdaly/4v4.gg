@@ -5,6 +5,9 @@ import Player from "./Player.js";
 import LineGraphPlotSection from "./LineGraphPlotSection.js";
 
 import { Grid, Container, Flag, Divider } from "semantic-ui-react";
+import { Header } from "semantic-ui-react";
+
+import logo from "./logos/logo.svg";
 
 const arithmeticMean = (x) => {
   const product = x.reduce((p, c) => p * c, 1);
@@ -208,9 +211,15 @@ class PlayerStream extends Component {
 
       return (
         <Container style={{ backgroundColor: "rgba(0, 0, 0, 0)", margin: "0px auto", overflow: "hidden", opacity: ".8" }}>
+          <Header as="h2" icon textAlign="center">
+            <div id="logoAndText">
+              <img src={logo} alt={"asd"} className={"logo"} style={{ height: "60px", "margin-bottom": "-10px" }} />
+              <p style={{ "font-size": "20px", margin: "0 0 0em" }}>4v4.GG</p>
+            </div>
+          </Header>
           <div className="ongoing">
             {Object.keys(this.state.ongoingGame).length !== 0 ? (
-              <Match match={this.state.ongoingGame} key={this.state.ongoingGame.id}></Match>
+              <Match match={this.state.ongoingGame} render={false} key={this.state.ongoingGame.id}></Match>
             ) : (
               <div />
             )}
