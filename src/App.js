@@ -1,5 +1,5 @@
 import React, { Component } from "react";
-import { Container, Grid, Dimmer, Loader } from "semantic-ui-react";
+import { Container, Grid, Dimmer, Loader, Divider } from "semantic-ui-react";
 
 import Match from "./Match.js";
 import Navbar from "./Navbar.js";
@@ -96,7 +96,10 @@ class App extends Component {
           <Navbar />
           <div className="matches">
             {Object.keys(matches).map((key) => (
-              <Match match={matches[key]} key={matches[key].id}></Match>
+              <div>
+                <Match match={matches[key]} key={matches[key].id}></Match>
+                <Divider />
+              </div>
             ))}
           </div>
         </Container>

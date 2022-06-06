@@ -63,7 +63,6 @@ class Match extends Component {
             </Grid.Column>
           </Grid.Row>
         </Grid>
-        <Divider />
       </div>
     );
   }

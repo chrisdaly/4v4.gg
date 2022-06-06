@@ -213,8 +213,8 @@ class PlayerStream extends Component {
         <Container style={{}}>
           <Header as="h2" icon textAlign="center">
             <div id="logoAndText">
-              <img src={logo} alt={"asd"} className={"logo"} style={{ height: "32px", "margin-bottom": "-10px" }} />
-              <p style={{ "font-size": "14px", margin: "0 0 0em" }}>4v4.GG</p>
+              <img src={logo} alt={"asd"} className={"logo"} style={{ height: "42px", "margin-bottom": "-10px" }} />
+              <p style={{ "font-size": "18px", margin: "0 0 0em" }}>4v4.GG</p>
             </div>
           </Header>
           <div className="ongoing">

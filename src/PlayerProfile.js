@@ -260,14 +260,20 @@ class PlayerProfile extends Component {
           <Divider />
           <div className="ongoing">
             {Object.keys(this.state.ongoingGame).length !== 0 ? (
-              <Match match={this.state.ongoingGame} key={this.state.ongoingGame.id}></Match>
+              <div>
+                <Match match={this.state.ongoingGame} key={this.state.ongoingGame.id} />
+                <Divider />
+              </div>
             ) : (
               <div />
             )}
           </div>
           <div className="matches">
             {Object.keys(matches).map((key) => (
-              <Match match={matches[key]} key={matches[key].id}></Match>
+              <div>
+                <Match match={matches[key]} key={matches[key].id}></Match>
+                <Divider />
+              </div>
             ))}
           </div>
         </Container>
