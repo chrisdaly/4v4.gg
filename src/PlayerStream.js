@@ -12,7 +12,7 @@ const arithmeticMean = (x) => {
   return Math.round(Math.pow(product, exponent));
 };
 
-class PlayerProfile extends Component {
+class PlayerStream extends Component {
   state = {
     matches: [],
     isLoaded: false,
@@ -117,10 +117,14 @@ class PlayerProfile extends Component {
       // console.log("matches", result);
       let matches = [...this.state.matches, ...result.matches];
 
+      console.log("ongoingGame", Object.keys(ongoingGame).length);
+      if (Object.keys(ongoingGame).length === 0) {
+        ongoingGame = matches[0];
+      }
       // matches = getUniqueListBy(matches, "id");
       // console.log("MATCHES", matches);
       console.log("MATCHES", matches);
-      this.setState({ matches: matches, isLoaded: true });
+      this.setState({ matches: matches, ongoingGame, isLoaded: true });
     } catch (e) {
       console.log(e);
     }
@@ -182,10 +186,6 @@ class PlayerProfile extends Component {
       let leagueId = gameModeStats.leagueId;
       let leagueBadge = badgeMapping[leagueId];
 
-      const leaguePic = `${process.env.PUBLIC_URL}/icons/${leagueBadge}.png`;
-      // console.log("leagueId", leagueBadge);
-
-      // console.log("this.state.battleTag", this.state.battleTag);
       let playerCardData = {};
       matches[0].teams.forEach((t) => {
         let players = t.players.map((p) => p.battleTag);
@@ -207,68 +207,13 @@ class PlayerProfile extends Component {
       });
 
       return (
-        <Container>
-          <Navbar />
-          {/* <div className={"navbarPlayerCard"}> */}
-          <div id="profileCard">
-            <Grid>
-              {/* <Grid.Row></Grid.Row> */}
-              {/* <Grid.Row> */}
-              <Grid columns={3}>
-                <Grid.Column width={3} className={"leagueContainer"}>
-                  <img src={leaguePic} alt={"test"} className={"leaguePic"} />
-                </Grid.Column>
-                <Grid.Column width={8}>
-                  <Grid.Row divided>
-                    <h5 className={"profileName"}>{this.state.name}</h5>
-                  </Grid.Row>
-                  <Grid.Row className={"middleprofilediv"}>{this.state.gameModeStats.mmr} MMR</Grid.Row>
-                  {/* <p className={"leagueRank"}>Rank #{gameModeStats.rank}</p> */}
-                  {lastTenResults.map((r, index) => (
-                    <span key={index} className={r.toString()}>
-                      {r === true ? "W" : "L"}
-                    </span>
-                  ))}
-
-                  <Grid.Row>
-                    {/* <img src={racePic} alt={""} /> */}
-                    {/* <Flag name={countryCodeIcon} style={iconStyle}></Flag> */}
-                    {/* <p className={"winloss"}>
-                        {gameModeStats.wins}W - {gameModeStats.losses}L ({winrate}%)
-                      </p> */}
-                    {/* <p className={"league"}>{badgeMapping[leagueId]}</p> */}
-                  </Grid.Row>
-                </Grid.Column>
-                <Grid.Column width={3}>
-                  <img
-                    src={profilePic}
-                    alt={"test"}
-                    className={"profilePic"}
-                    onError={(event) => {
-                      event.target.src = "https://m.media-amazon.com/images/I/51e6kpkyuIL._AC_SL1200_.jpg";
-                      event.onerror = null;
-                    }}
-                  />
-                </Grid.Column>
-                <LineGraphPlotSection data={this.state.mmrRpAtDates} />
-
-                {/* <img src={leaguePic} alt={"test"} /> */}
-              </Grid>
-              {/* </Grid.Row> */}
-            </Grid>
-          </div>
-          <Divider />
+        <Container style={{ backgroundColor: "rgba(0, 0, 0, 0)", margin: "0px auto", overflow: "hidden", opacity: ".8" }}>
           <div className="ongoing">
             {Object.keys(this.state.ongoingGame).length !== 0 ? (
               <Match match={this.state.ongoingGame} key={this.state.ongoingGame.id}></Match>
             ) : (
               <div />
             )}
-          </div>
-          <div className="matches">
-            {Object.keys(matches).map((key) => (
-              <Match match={matches[key]} key={matches[key].id}></Match>
-            ))}
           </div>
         </Container>
       );
@@ -278,4 +223,4 @@ class PlayerProfile extends Component {
   }
 }
 
-export default PlayerProfile;
+export default PlayerStream;

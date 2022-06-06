@@ -5,6 +5,7 @@ import Queue from "./Queue";
 import MatchPage from "./MatchPage";
 import Ladder from "./Ladder";
 import PlayerProfile from "./PlayerProfile";
+import PlayerStream from "./PlayerStream";
 
 const Router = () => (
   <BrowserRouter>
@@ -13,6 +14,7 @@ const Router = () => (
       <Route exact path="/queue" component={Queue} />
       <Route path="/ladder" component={Ladder} />
       <Route path="/player" component={PlayerProfile} />
+      <Route path="/stream" component={PlayerStream} />
       <Route path="/match" component={MatchPage} />
     </Switch>
   </BrowserRouter>
