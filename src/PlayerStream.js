@@ -210,11 +210,11 @@ class PlayerStream extends Component {
       });
 
       return (
-        <Container style={{ backgroundColor: "rgba(0, 0, 0, 0)", margin: "0px auto", overflow: "hidden", opacity: ".8" }}>
+        <Container style={{}}>
           <Header as="h2" icon textAlign="center">
             <div id="logoAndText">
-              <img src={logo} alt={"asd"} className={"logo"} style={{ height: "60px", "margin-bottom": "-10px" }} />
-              <p style={{ "font-size": "20px", margin: "0 0 0em" }}>4v4.GG</p>
+              <img src={logo} alt={"asd"} className={"logo"} style={{ height: "32px", "margin-bottom": "-10px" }} />
+              <p style={{ "font-size": "14px", margin: "0 0 0em" }}>4v4.GG</p>
             </div>
           </Header>
           <div className="ongoing">
