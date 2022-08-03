@@ -106,3 +106,8 @@ dist
 # Local Netlify folder
 .netlify
 .vercel
+
+.DS_Store
+package-lock.json
+yarn.lock
+build/static/.DS_Store

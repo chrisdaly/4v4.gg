@@ -40,7 +40,7 @@ class PlayerProfile extends Component {
     const gameMode = 4;
     const gateway = 20;
 
-    const season = 11;
+    const season = 12;
     try {
       var url = new URL(`https://website-backend.w3champions.com/api/players/${player}`);
       var response = await fetch(url);
