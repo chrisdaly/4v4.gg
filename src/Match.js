@@ -11,15 +11,28 @@ import { Grid, Segment, Divider } from "semantic-ui-react";
 
 class Match extends Component {
   render() {
-    const { match } = this.props;
+    const { match, battleTag } = this.props;
     const teams = match.teams;
+    let teamOneMmrs, teamTwoMmrs, teamOne, teamTwo
 
-    const teamOneMmrs = teams[0].players.map((d) => d.oldMmr);
+    let teamOnePlayers = match.teams[0].players.map(d => d.battleTag)
+    if (teamOnePlayers.includes(battleTag)){
+      teamOne = teams[0]
+      teamTwo = teams[1]
+      teamOneMmrs = teams[0].players.map((d) => d.oldMmr);
+      teamTwoMmrs = teams[1].players.map((d) => d.oldMmr);
+    } else {
+      teamOne = teams[1]
+      teamTwo = teams[0]
+      teamOneMmrs = teams[1].players.map((d) => d.oldMmr);
+      teamTwoMmrs = teams[0].players.map((d) => d.oldMmr);
+    }
+    // const teamOneMmrs = teams[0].players.map((d) => d.oldMmr);
     // console.log("teamOneMmrs", teamOneMmrs);
     const teamOneAverageMmr = teams[0].teamAverage;
     // console.log("teamOneAverageMmr", teamOneAverageMmr);
 
-    const teamTwoMmrs = teams[1].players.map((d) => d.oldMmr);
+    // const teamTwoMmrs = teams[1].players.map((d) => d.oldMmr);
     const teamTwoAverageMmr = teams[1].teamAverage;
     // console.log("teamTwoAverageMmr", teamTwoAverageMmr);
 
@@ -53,13 +66,13 @@ class Match extends Component {
 
           <Grid.Row columns={3}>
             <Grid.Column width={6}>
-              <Team team={teams[0]} teamNum={1} teamAverage={match.teams[0].teamAverage} side="left"></Team>
+              <Team team={teamOne} teamNum={1} teamAverage={teamOne.teamAverage} side="left"></Team>
             </Grid.Column>
             <Grid.Column width={3}>
               <RangePlotSection data={data} id={match.id} />
             </Grid.Column>
             <Grid.Column width={6}>
-              <Team team={teams[1]} teamNum={2} teamAverage={match.teams[1].teamAverage} side="right"></Team>
+              <Team team={teamTwo} teamNum={2} teamAverage={teamTwo.teamAverage} side="right"></Team>
             </Grid.Column>
           </Grid.Row>
         </Grid>

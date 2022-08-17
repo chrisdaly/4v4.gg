@@ -219,7 +219,7 @@ class PlayerStream extends Component {
           </Header>
           <div className="ongoing">
             {Object.keys(this.state.ongoingGame).length !== 0 ? (
-              <Match match={this.state.ongoingGame} render={false} key={this.state.ongoingGame.id}></Match>
+              <Match match={this.state.ongoingGame}  render={false} battleTag={this.state.battleTag} key={this.state.ongoingGame.id}></Match>
             ) : (
               <div />
             )}

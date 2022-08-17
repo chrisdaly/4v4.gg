@@ -261,7 +261,7 @@ class PlayerProfile extends Component {
           <div className="ongoing">
             {Object.keys(this.state.ongoingGame).length !== 0 ? (
               <div>
-                <Match match={this.state.ongoingGame} key={this.state.ongoingGame.id} />
+                <Match match={this.state.ongoingGame} battleTag={this.state.battleTag} key={this.state.ongoingGame.id} />
                 <Divider />
               </div>
             ) : (
@@ -271,7 +271,7 @@ class PlayerProfile extends Component {
           <div className="matches">
             {Object.keys(matches).map((key) => (
               <div>
-                <Match match={matches[key]} key={matches[key].id}></Match>
+                <Match match={matches[key]} battleTag={this.state.battleTag} key={matches[key].id}></Match>
                 <Divider />
               </div>
             ))}

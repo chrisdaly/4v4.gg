@@ -97,12 +97,12 @@ body,
   font-size: 15px;
 }
 
-.ui.vertically.divided.grid.team-header.team-1 {
+.ui.vertically.divided.grid.team-header.team-2 {
   background-color: #a93232;
   /* outline: 0.5px solid #a93232; */
 }
 
-.ui.vertically.divided.grid.team-header.team-2 {
+.ui.vertically.divided.grid.team-header.team-1 {
   background-color: #266793;
   /* outline: 0.5px solid #266793; */
 }
@@ -144,13 +144,13 @@ line.y.axis {
   stroke-width: 4;
 } */
 
-circle.dot.teamOne {
+circle.dot.teamTwo {
   fill: #a93232;
   /* stroke: #323437; */
   /* stroke-opacity: 1; */
 }
 
-circle.dot.teamTwo {
+circle.dot.teamOne {
   fill: #266793;
   /* stroke: #323437; */
   /* stroke-opacity: 1; */
