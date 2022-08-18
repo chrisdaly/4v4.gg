@@ -4,15 +4,16 @@ import TeamHeader from "./TeamHeader.js";
 
 class Team extends Component {
   render() {
-    const { team, teamNum, teamAverage } = this.props;
+    let { team, teamNum, teamAverage, teamDeviation, sparklinePlayersData } = this.props;
     const won = team.won;
+    sparklinePlayersData = sparklinePlayersData || {};
 
     return (
       <div className={"teamDiv"}>
-        <TeamHeader teamNum={teamNum} teamMmr={teamAverage} won={won}></TeamHeader>
+        <TeamHeader teamNum={teamNum} teamMmr={teamAverage} teamDeviation={teamDeviation} won={won} transition={this.props.transition}></TeamHeader>
 
         {Object.keys(team.players).map((key) => (
-          <Player key={team.players[key].name} data={team.players[key]} side={this.props.side}></Player>
+          <Player key={team.players[key].name} data={team.players[key]} side={this.props.side} transition={this.props.transition} sparklinePlayersData={(team.players[key].battleTag in sparklinePlayersData) ? sparklinePlayersData[team.players[key].battleTag] : []}></Player>
         ))}
       </div>
     );

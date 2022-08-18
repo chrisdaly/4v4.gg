@@ -3,6 +3,10 @@ import * as d3 from "d3";
 function RangePlot(id, data) {
   const { teamOneMmrs, teamOneAverageMmr, teamTwoMmrs, teamTwoAverageMmr, league } = data;
   const teamSize = teamOneMmrs.length;
+  
+  // if (document.getElementsByClassName("ui vertically divided grid playerCard")[0] === undefined){
+  //   return
+  // }
 
   const padding = 0;
   const teamHeaderHeight = document.getElementsByClassName("ui vertically divided grid team-header team-1")[0].offsetHeight;

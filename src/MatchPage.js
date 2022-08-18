@@ -5,11 +5,7 @@ import Navbar from "./Navbar.js";
 
 import Match from "./Match.js";
 
-const arithmeticMean = (x) => {
-  const product = x.reduce((p, c) => p * c, 1);
-  const exponent = 1 / x.length;
-  return Math.round(Math.pow(product, exponent));
-};
+import {standardDeviation, arithmeticMean} from "./utils.js"
 
 class Queue extends Component {
   state = {
@@ -56,7 +52,9 @@ class Queue extends Component {
         m.teams.forEach((t) => {
           let playerMmrs = t.players.map((d) => d.oldMmr);
           let teamAverage = arithmeticMean(playerMmrs);
+          let teamDeviation = standardDeviation(playerMmrs)
           t.teamAverage = teamAverage;
+          t.teamDeviation = teamDeviation
           matchMmr += teamAverage;
         });
 
@@ -75,7 +73,9 @@ class Queue extends Component {
       match.teams.forEach((t) => {
         let playerMmrs = t.players.map((d) => d.oldMmr);
         let teamAverage = arithmeticMean(playerMmrs);
+        let teamDeviation = standardDeviation(playerMmrs)
         t.teamAverage = teamAverage;
+        t.teamDeviation = teamDeviation
         matchMmr += teamAverage;
       });
 

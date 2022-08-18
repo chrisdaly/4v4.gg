@@ -90,6 +90,12 @@ html {
   src: local("Roboto"), url(./fonts/Roboto-Bold.ttf) format("truetype");
 }
 
+@font-face {
+  font-family: "Roboto Mono";
+  font-weight: 900;
+  src: local("Roboto"), url(./fonts/RobotoMono-Medium.ttf) format("truetype");
+}
+
 body,
 .ui.segment,
 .ui.vertically.divided.grid {

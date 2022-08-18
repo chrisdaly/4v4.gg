@@ -4,16 +4,13 @@ import { Container, Grid, Dimmer, Loader, Divider } from "semantic-ui-react";
 import Match from "./Match.js";
 import Navbar from "./Navbar.js";
 
+import {standardDeviation, arithmeticMean} from "./utils.js"
+
 import "semantic-ui-css/semantic.min.css";
 import "./App.css";
 
 const gameMode = 4;
 const gateway = 20;
-const arithmeticMean = (x) => {
-  const product = x.reduce((p, c) => p * c, 1);
-  const exponent = 1 / x.length;
-  return Math.round(Math.pow(product, exponent));
-};
 
 class App extends Component {
   state = {
@@ -22,12 +19,13 @@ class App extends Component {
     queue: [],
     matches: [],
     transition: false,
+    sparklinePlayersData: {}
   };
 
   componentDidMount() {
     this.loadData();
     let intervalId = setInterval(this.loadData, 30000);
-    let transitionId = setInterval(() => this.setState({ transition: !this.state.transition }), 1000);
+    let transitionId = setInterval(() => this.setState({ transition: !this.state.transition }), 5000);
 
     this.setState({ intervalId, transitionId });
   }
@@ -38,7 +36,6 @@ class App extends Component {
   }
 
   loadData = async () => {
-    // console.log("loadData");
     try {
       var url = new URL("https://website-backend.w3champions.com/api/matches/ongoing");
       var params = { offset: 0, gateway, pageSize: 50, gameMode, map: "Overall" };
@@ -53,7 +50,9 @@ class App extends Component {
         m.teams.forEach((t) => {
           let playerMmrs = t.players.map((d) => d.oldMmr);
           let teamAverage = arithmeticMean(playerMmrs);
+          let teamDeviation = standardDeviation(playerMmrs)
           t.teamAverage = teamAverage;
+          t.teamDeviation = teamDeviation
           matchMmr += teamAverage;
         });
 
@@ -68,7 +67,6 @@ class App extends Component {
       console.log("queryParams", queryParams);
 
       if (queryParams.player !== undefined) {
-        // matches
       }
 
       this.setState({ matches });
@@ -80,16 +78,6 @@ class App extends Component {
   render() {
     const { matches } = this.state;
 
-    // if (this.state.isLoaded === true) {
-    //   return (
-
-    //   );
-    // } else {
-    //   return (
-
-    //   );
-    // }
-
     if (matches.length > 0) {
       return (
         <Container>
@@ -97,7 +85,7 @@ class App extends Component {
           <div className="matches">
             {Object.keys(matches).map((key) => (
               <div>
-                <Match match={matches[key]} key={matches[key].id}></Match>
+                <Match match={matches[key]} key={matches[key].id} transition={this.state.transition}></Match>
                 <Divider />
               </div>
             ))}
@@ -110,7 +98,6 @@ class App extends Component {
           <Navbar />
           <Grid columns={3}>
             <Grid.Row columns={3}>
-              {/* <Segment> */}
               <Dimmer active>
                 <Loader />
               </Dimmer>

@@ -2,27 +2,28 @@ import React, { Component } from "react";
 import Navbar from "./Navbar.js";
 import Match from "./Match.js";
 import Player from "./Player.js";
+
 import LineGraphPlotSection from "./LineGraphPlotSection.js";
+
+import {standardDeviation, arithmeticMean, getUniqueListBy} from "./utils.js"
 
 import { Grid, Container, Flag, Divider } from "semantic-ui-react";
 
-const arithmeticMean = (x) => {
-  const product = x.reduce((p, c) => p * c, 1);
-  const exponent = 1 / x.length;
-  return Math.round(Math.pow(product, exponent));
-};
+
 
 class PlayerProfile extends Component {
   state = {
     matches: [],
     isLoaded: false,
     ongoingGame: {},
+    transition: false,
+    sparklinePlayersData: {}
   };
 
   componentDidMount() {
     this.loadData();
     let intervalId = setInterval(this.loadData, 30000);
-    let transitionId = setInterval(() => this.setState({ transition: !this.state.transition }), 1000);
+    let transitionId = setInterval(() => this.setState({ transition: !this.state.transition }), 5000);
 
     this.setState({ intervalId, transitionId });
   }
@@ -61,13 +62,12 @@ class PlayerProfile extends Component {
       this.setState({ gameModeStats });
 
       // MMR TIMELINE
-      // var url = new URL(`https://website-backend.w3champions.com/api/players/${player}/mmr-rp-timeline`);
-      // var params = { gateway: 20, season, race: 0, gameMode: 4 }; //hardcodig race at the moment
-      // url.search = new URLSearchParams(params).toString();
-      // var response = await fetch(url);
-      // var result = await response.json();
-      // console.log("RESULT", result);
-      // this.setState({ ...result });
+      var url = new URL(`https://website-backend.w3champions.com/api/players/${player}/mmr-rp-timeline`);
+      var params = { gateway: 20, season, race: 0, gameMode: 4 }; //hardcodig race at the moment
+      url.search = new URLSearchParams(params).toString();
+      var response = await fetch(url);
+      var result = await response.json();
+      this.setState({ ...result });
 
       var url = new URL("https://website-backend.w3champions.com/api/matches/ongoing");
       var params = { offset: 0, gateway, pageSize: 50, gameMode, map: "Overall" };
@@ -75,7 +75,6 @@ class PlayerProfile extends Component {
 
       var response = await fetch(url);
       var result = await response.json();
-      // console.log("oingoing", result);
 
       var ongoingGame = {};
 
@@ -84,13 +83,6 @@ class PlayerProfile extends Component {
           let players = t.players.map((p) => p.battleTag);
           if (players.includes(playerTag)) {
             ongoingGame = m;
-            console.log("ongoingGame", ongoingGame);
-
-            ongoingGame.teams.forEach((t) => {
-              let playerMmrs = t.players.map((d) => d.oldMmr);
-              let teamAverage = arithmeticMean(playerMmrs);
-              t.teamAverage = teamAverage;
-            });
           }
         })
       );
@@ -100,10 +92,6 @@ class PlayerProfile extends Component {
       // var ongoingGames = result.matches.filter((t => t.forEach();
       // console.log("ongoingGames", ongoingGames);
       // this.setState({ gameModeStats });
-
-      function getUniqueListBy(arr, key) {
-        return [...new Map(arr.map((item) => [item[key], item])).values()];
-      }
 
       let offset = 0;
 
@@ -119,7 +107,6 @@ class PlayerProfile extends Component {
 
       // matches = getUniqueListBy(matches, "id");
       // console.log("MATCHES", matches);
-      console.log("MATCHES", matches);
       this.setState({ matches: matches, isLoaded: true });
     } catch (e) {
       console.log(e);
@@ -152,10 +139,6 @@ class PlayerProfile extends Component {
 
       const { countryCode, location, profilePicture, playerAkaData, gameModeStats } = this.state;
 
-      function getUniqueListBy(arr, key) {
-        return [...new Map(arr.map((item) => [item[key], item])).values()];
-      }
-
       let numIcon = profilePicture.pictureId;
       let raceIcon = profilePicture.race;
       let matches = getUniqueListBy(this.state.matches, "id");
@@ -164,7 +147,9 @@ class PlayerProfile extends Component {
         m.teams.forEach((t) => {
           let playerMmrs = t.players.map((d) => d.oldMmr);
           let teamAverage = arithmeticMean(playerMmrs);
+          let teamDeviation = standardDeviation(playerMmrs)
           t.teamAverage = teamAverage;
+          t.teamDeviation = teamDeviation
           matchMmr += teamAverage;
         });
 
@@ -261,7 +246,7 @@ class PlayerProfile extends Component {
           <div className="ongoing">
             {Object.keys(this.state.ongoingGame).length !== 0 ? (
               <div>
-                <Match match={this.state.ongoingGame} battleTag={this.state.battleTag} key={this.state.ongoingGame.id} />
+                <Match match={this.state.ongoingGame} battleTag={this.state.battleTag}  transition={this.state.transition} key={this.state.ongoingGame.id} />
                 <Divider />
               </div>
             ) : (
@@ -271,7 +256,7 @@ class PlayerProfile extends Component {
           <div className="matches">
             {Object.keys(matches).map((key) => (
               <div>
-                <Match match={matches[key]} battleTag={this.state.battleTag} key={matches[key].id}></Match>
+                <Match match={matches[key]} battleTag={this.state.battleTag} transition={this.state.transition} key={matches[key].id}></Match>
                 <Divider />
               </div>
             ))}
