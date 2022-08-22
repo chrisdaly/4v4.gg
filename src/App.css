@@ -408,3 +408,23 @@ span.true {
   padding: 2px;
   font-weight: 800;
 }
+
+
+.playerMMrstat {
+  /* margin-top: 25px; */
+  /* font-size: 21px; */
+  /* text-align: center; */
+
+  -webkit-animation: fadein ease 10s infinite; /* Safari, Chrome and Opera > 12.1 */
+     -moz-animation: fadein ease 10s infinite; /* Firefox < 16 */
+      -ms-animation: fadein ease 10s infinite; /* Internet Explorer */
+       -o-animation: fadein ease 10s infinite; /* Opera < 12.1 */
+          animation: fadein ease 10s infinite;
+}
+
+@keyframes fadein {
+  0% { opacity: 0; }
+  20%   { opacity: 1; }
+  80%   { opacity: 1; }
+  100%   { opacity: 0; }
+}

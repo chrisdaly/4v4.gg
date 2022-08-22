@@ -24,7 +24,7 @@ class TeamHeader extends Component {
           </Grid.Column>
         </Grid.Row>
         <Grid.Row columns={1} className={"playerTop"}>
-          <Grid.Column>
+          <Grid.Column className={"playerMMrstat"}>
             <Mmr data={statistic}></Mmr>
           </Grid.Column>
         </Grid.Row>

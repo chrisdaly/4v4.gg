@@ -128,7 +128,7 @@ class PlayerStream extends Component {
   };
 
   render() {
-    if (this.state.isLoaded === true && this.state.matches.length > 0 && this.state.battleTag !== "" && Object.keys(this.state.gameModeStats).length > 0) {
+    if (this.state.isLoaded === true && this.state.matches.length > 0 && this.state.battleTag !== "" ) { //&& Object.keys(this.state.gameModeStats).length > 0
       const raceMapping = {
         8: "UNDEAD",
         0: "RANDOM",
@@ -151,7 +151,7 @@ class PlayerStream extends Component {
         8: "grass",
       };
 
-      const { countryCode, location, profilePicture, playerAkaData, gameModeStats } = this.state;
+      const { countryCode, location, profilePicture, playerAkaData} = this.state; //gameModeStats
 
 
       let numIcon = profilePicture.pictureId;
@@ -177,9 +177,9 @@ class PlayerStream extends Component {
 
       let countryCodeIcon = countryCode !== null ? countryCode.toLowerCase() : location.toLowerCase();
 
-      let winrate = Math.round(gameModeStats.winrate * 10000) / 100;
-      let leagueId = gameModeStats.leagueId;
-      let leagueBadge = badgeMapping[leagueId];
+      // let winrate = Math.round(gameModeStats.winrate * 10000) / 100;
+      // let leagueId = gameModeStats.leagueId;
+      // let leagueBadge = badgeMapping[leagueId];
 
       let playerCardData = {};
       matches[0].teams.forEach((t) => {

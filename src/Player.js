@@ -21,7 +21,7 @@ class Player extends Component {
   componentDidMount() {
     this.loadData();
     let intervalId = setInterval(this.loadData, 30000);
-    let transitionId = setInterval(() => this.setState({ transition: !this.state.transition }), 5000);
+    let transitionId = setInterval(() => this.setState({ transition: !this.state.transition }), 10000);
 
     this.setState({ intervalId, transitionId });
   }
@@ -49,7 +49,7 @@ class Player extends Component {
       this.setState({ ...result });
 
       var url = new URL(`https://website-backend.w3champions.com/api/players/${player}/game-mode-stats`);
-      var params = { gateway: 20, season };
+      var params = { gateway, season };
       url.search = new URLSearchParams(params).toString();
       var response = await fetch(url);
       var result = await response.json();
@@ -61,7 +61,7 @@ class Player extends Component {
         
       // }
       var url = new URL(`https://website-backend.w3champions.com/api/players/${player}/mmr-rp-timeline`);
-      var params = { gateway: 20, season, race: this.state.race, gameMode: 4 }; //hardcodig race at the moment
+      var params = { gateway, season, race: this.state.race, gameMode: 4 }; //hardcodig race at the moment
       url.search = new URLSearchParams(params).toString();
       var response = await fetch(url);
       var result = await response.json();
@@ -123,7 +123,7 @@ class Player extends Component {
             <Grid.Column width={4}>
               {this.props.side === "left" ? <Flag name={countryCode}></Flag> : <img src={raceIcon} alt={race} className={"race"} />}
             </Grid.Column>
-            <Grid.Column width={8}>
+            <Grid.Column width={8} className={"playerMMrstat"}>
               <PlayerMmrStatistic/>
             </Grid.Column>
             <Grid.Column width={4}>
@@ -148,8 +148,8 @@ class Player extends Component {
             <Grid.Column width={4}>
               {this.props.side === "left" ? <Flag name={"ie"} style={{"opacity": 0}}></Flag> : <img src={"random"} alt={race} className={"race"} style={{"opacity": 0}}/>}
             </Grid.Column>
-            <Grid.Column width={8}>
-            <Sparklines data={[0, 0, 0]} style={{width: "70px", height: "12px"}}>
+            <Grid.Column width={8} className={"playerMMrstat"}>
+            <Sparklines data={[0, 0, 0]} style={{width: "70px", height: "12px"}} >
               <SparklinesLine style={{ strokeWidth: 1, stroke: "white", fill: "none" }} />
             </Sparklines>
             </Grid.Column>
