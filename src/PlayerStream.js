@@ -154,8 +154,8 @@ class PlayerStream extends Component {
       const { countryCode, location, profilePicture, playerAkaData} = this.state; //gameModeStats
 
 
-      let numIcon = profilePicture.pictureId;
-      let raceIcon = profilePicture.race;
+      // let numIcon = profilePicture.pictureId;
+      // let raceIcon = profilePicture.race;
       let matches = getUniqueListBy(this.state.matches, "id");
       matches.forEach((m) => {
         let matchMmr = 0;
@@ -169,13 +169,13 @@ class PlayerStream extends Component {
 
         m.matchMmr = Math.round(matchMmr / 2);
       });
-      const profilePic = `${process.env.PUBLIC_URL}/icons/profile/${raceMapping[raceIcon]}_${numIcon}.jpg`;
+      // const profilePic = `${process.env.PUBLIC_URL}/icons/profile/${raceMapping[raceIcon]}_${numIcon}.jpg`;
 
-      let playedRace = raceMapping[raceIcon];
-      playedRace = playedRace ? playedRace.toLowerCase() : "RANDOM";
-      const racePic = `${process.env.PUBLIC_URL}/icons/${playedRace}.png`;
+      // let playedRace = raceMapping[raceIcon];
+      // playedRace = playedRace ? playedRace.toLowerCase() : "RANDOM";
+      // const racePic = `${process.env.PUBLIC_URL}/icons/${playedRace}.png`;
 
-      let countryCodeIcon = countryCode !== null ? countryCode.toLowerCase() : location.toLowerCase();
+      // let countryCodeIcon = countryCode !== null ? countryCode.toLowerCase() : location.toLowerCase();
 
       // let winrate = Math.round(gameModeStats.winrate * 10000) / 100;
       // let leagueId = gameModeStats.leagueId;
