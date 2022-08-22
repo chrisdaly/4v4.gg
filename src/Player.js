@@ -77,7 +77,6 @@ class Player extends Component {
 
   
   render() {
-    console.log("PLAYER JS RERENDER")
     let { race, oldMmr, name, location, battleTag } = this.props.data;
     let sparklinePlayersData = this.state.sparklinePlayersData
     if (this.props.data.battleTag !== undefined) {

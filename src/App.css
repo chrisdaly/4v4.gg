@@ -415,16 +415,30 @@ span.true {
   /* font-size: 21px; */
   /* text-align: center; */
 
-  -webkit-animation: fadein ease 10s infinite; /* Safari, Chrome and Opera > 12.1 */
-     -moz-animation: fadein ease 10s infinite; /* Firefox < 16 */
-      -ms-animation: fadein ease 10s infinite; /* Internet Explorer */
-       -o-animation: fadein ease 10s infinite; /* Opera < 12.1 */
-          animation: fadein ease 10s infinite;
+  -webkit-animation: fadeinout ease 10s infinite; /* Safari, Chrome and Opera > 12.1 */
+     -moz-animation: fadeinout ease 10s infinite; /* Firefox < 16 */
+      -ms-animation: fadeinout ease 10s infinite; /* Internet Explorer */
+       -o-animation: fadeinout ease 10s infinite; /* Opera < 12.1 */
+          animation: fadeinout ease 10s infinite;
+}
+
+@keyframes fadeinout {
+  0% { opacity: 0; }
+  10%   { opacity: 1; }
+  90%   { opacity: 1; }
+  100%   { opacity: 0; }
+}
+
+.match {
+  -webkit-animation: fadein ease 10s; /* Safari, Chrome and Opera > 12.1 */
+  -moz-animation: fadein ease 10s ; /* Firefox < 16 */
+   -ms-animation: fadein ease 10s ; /* Internet Explorer */
+    -o-animation: fadein ease 10s ; /* Opera < 12.1 */
+       animation: fadein ease 10s;
 }
 
 @keyframes fadein {
   0% { opacity: 0; }
-  20%   { opacity: 1; }
-  80%   { opacity: 1; }
-  100%   { opacity: 0; }
+  50%   { opacity: 1; }
+  100%   { opacity: 1; }
 }

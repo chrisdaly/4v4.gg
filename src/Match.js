@@ -49,7 +49,7 @@ class Match extends Component {
     const ongoing = this.props.match.durationInSeconds === 0;
 
     return (
-      <div>
+      <div className="match">
         <Grid columns={3}>
           {this.props.render === false ? (
             <div />

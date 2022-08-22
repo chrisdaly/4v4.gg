@@ -26,7 +26,7 @@ class PlayerStream extends Component {
   componentDidMount() {
     this.loadInitData();
     this.loadNewData()
-    let intervalId = setInterval(this.loadNewData, 30000);
+    let intervalId = setInterval(this.loadNewData, 10000);
     let transitionId = setInterval(() => this.setState({ transition: !this.state.transition }), 10000);
 
     this.setState({ intervalId, transitionId });
