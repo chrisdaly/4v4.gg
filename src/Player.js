@@ -20,10 +20,10 @@ class Player extends Component {
 
   componentDidMount() {
     this.loadData();
-    let intervalId = setInterval(this.loadData, 30000);
+    // let intervalId = setInterval(this.loadData, 30000);
     let transitionId = setInterval(() => this.setState({ transition: !this.state.transition }), 10000);
 
-    this.setState({ intervalId, transitionId });
+    this.setState({ transitionId });
   }
 
   loadData = async () => {
@@ -77,6 +77,7 @@ class Player extends Component {
 
   
   render() {
+    console.log("PLAYER JS RERENDER")
     let { race, oldMmr, name, location, battleTag } = this.props.data;
     let sparklinePlayersData = this.state.sparklinePlayersData
     if (this.props.data.battleTag !== undefined) {

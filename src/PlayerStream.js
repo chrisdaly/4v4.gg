@@ -70,7 +70,7 @@ class PlayerStream extends Component {
   }
 
   loadNewData = async () => {
-    console.log("LOADING NEW DATA")
+    console.log("CHECKING FOR NEW GAME")
     const pageUrl = new URL(window.location.href);
     const player = pageUrl.pathname.split("/").slice(-1)[0]; //
     const playerTag = player.replace("%23", "#");
@@ -94,14 +94,14 @@ class PlayerStream extends Component {
           let players = t.players.map((p) => p.battleTag);
           if (players.includes(playerTag) & m.id !== ongoingGame.id) {
             ongoingGame = m;
-            console.log("ongoingGame", ongoingGame);
+            console.log("NEW GAME", ongoingGame);
             this.setState({ matches: [ongoingGame], ongoingGame, isLoaded: true });
           }
         })
       );
 
       if (Object.keys(ongoingGame).length === 0){
-        console.log("ongoingGame", ongoingGame)
+        console.log("NO CURRENT GAME", ongoingGame)
         let offset = 0;
 
         var url = new URL(
