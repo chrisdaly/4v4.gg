@@ -79,6 +79,15 @@ class Player extends Component {
   render() {
     let { race, oldMmr, name, location, battleTag } = this.props.data;
     let sparklinePlayersData = this.state.sparklinePlayersData
+    sparklinePlayersData = sparklinePlayersData || {};
+    let rank = this.props.rank || [];
+    if (rank.length > 0){
+      rank = rank[0].rankNumber
+    } else {
+      rank = null;
+    }
+    console.log(rank)
+
     if (this.props.data.battleTag !== undefined) {
       // console.log(this.state)
     
@@ -108,20 +117,39 @@ class Player extends Component {
           return <Mmr data={oldMmr}></Mmr>
         }
       }
+
+      const LeftPlayerCard = () => {
+        if (this.props.transition){
+          // console.log({sparklinePlayersData})
+          return (
+          <p>{rank  ? `#${rank}`: ""}</p>)
+        } else {
+          if (this.props.side === "right"){
+            return (<img src={raceIcon} alt={race} className={"race"} /> )
+          } else {
+            return (<Flag name={countryCode}></Flag>)
+          }
+        }
+      }
   
       return (
         <Grid divided="vertically" className={"playerCard"}>
-          <Grid.Row columns={1} className={"playerTop"}>
-            <Grid.Column width={16} className="playerName">
+          <Grid.Row columns={3} className={"playerTop"}>
+            <Grid.Column width={4} className={""}>
+              </Grid.Column>
+            <Grid.Column width={8} className="playerName">
               <a target="_blank" href={`/player/${battleTag.replace("#", "%23")}`} rel="noreferrer">
                 {name}
               </a>
             </Grid.Column>
+            <Grid.Column width={4}>
+              {""}
+              </Grid.Column>
           </Grid.Row>
   
           <Grid.Row columns={3} className={"playerBottom"}>
-            <Grid.Column width={4}>
-              {this.props.side === "left" ? <Flag name={countryCode}></Flag> : <img src={raceIcon} alt={race} className={"race"} />}
+            <Grid.Column width={4} className={"playerMMrstat"}>
+              <LeftPlayerCard/>
             </Grid.Column>
             <Grid.Column width={8} className={"playerMMrstat"}>
               <PlayerMmrStatistic/>

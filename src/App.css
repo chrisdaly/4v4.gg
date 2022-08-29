@@ -442,3 +442,7 @@ span.true {
   50%   { opacity: 1; }
   100%   { opacity: 1; }
 }
+
+.numberCircle {
+  font-weight: bolder
+}

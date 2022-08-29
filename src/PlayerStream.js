@@ -20,7 +20,8 @@ class PlayerStream extends Component {
     transition: false,
     sparklinePlayersData: {},
     race: 0,
-    gameModeStats: []
+    gameModeStats: [],
+    ladderRanks: []
   };
 
   componentDidMount() {
@@ -66,6 +67,15 @@ class PlayerStream extends Component {
       var result = await response.json();
       var gameModeStats = result.filter((d) => d.gameMode === 4)[0];
       this.setState({ gameModeStats, isLoaded: true });
+
+      var url = new URL("https://website-backend.w3champions.com/api/ladder/0?gateWay=20&gameMode=4&season=12");
+      var params = {gateway, season, gameMode};
+      url.search = new URLSearchParams(params).toString();
+
+      var response = await fetch(url);
+      var result = await response.json();
+      this.setState({ "ladderRanks": result.slice(0, 10) });
+      
     } catch(e){}
   }
 
@@ -202,6 +212,7 @@ class PlayerStream extends Component {
       });
 
       // let sparklineData = this.state.mmrRpAtDates.map(d => )
+      const {ladderRanks} = this.state;
 
       return (
         <Container style={{}}>
@@ -213,7 +224,7 @@ class PlayerStream extends Component {
           </Header>
           <div className="ongoing">
             {Object.keys(this.state.ongoingGame).length !== 0 ? (
-              <Match match={this.state.ongoingGame} render={false} battleTag={this.state.battleTag} key={this.state.ongoingGame.id} 
+              <Match match={this.state.ongoingGame} render={false}  ladderRanks={ladderRanks} battleTag={this.state.battleTag} key={this.state.ongoingGame.id} 
               transition={this.state.transition} sparklinePlayersData={this.state.sparklinePlayersData}></Match>
 
             ) : (

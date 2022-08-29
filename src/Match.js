@@ -66,13 +66,13 @@ class Match extends Component {
 
           <Grid.Row columns={3}>
             <Grid.Column width={6}>
-              <Team team={teamOne} teamNum={1} teamAverage={teamOne.teamAverage} teamDeviation={teamOne.teamDeviation} side="left" transition={this.props.transition} sparklinePlayersData={this.props.sparklinePlayersData}></Team>
+              <Team team={teamOne} teamNum={1} teamAverage={teamOne.teamAverage} teamDeviation={teamOne.teamDeviation} side="left" transition={this.props.transition} sparklinePlayersData={this.props.sparklinePlayersData } ladderRanks={this.props.ladderRanks}></Team>
             </Grid.Column>
             <Grid.Column width={3}>
               <RangePlotSection data={data} id={match.id} />
             </Grid.Column>
             <Grid.Column width={6}>
-              <Team team={teamTwo} teamNum={2} teamAverage={teamTwo.teamAverage} teamDeviation={teamTwo.teamDeviation} side="right" transition={this.props.transition} sparklinePlayersData={this.props.sparklinePlayersData}></Team>
+              <Team team={teamTwo} teamNum={2} teamAverage={teamTwo.teamAverage} teamDeviation={teamTwo.teamDeviation} side="right" transition={this.props.transition} sparklinePlayersData={this.props.sparklinePlayersData} ladderRanks={this.props.ladderRanks}></Team>
             </Grid.Column>
           </Grid.Row>
         </Grid>

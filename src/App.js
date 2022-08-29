@@ -11,6 +11,7 @@ import "./App.css";
 
 const gameMode = 4;
 const gateway = 20;
+const season = 12;
 
 class App extends Component {
   state = {
@@ -19,7 +20,8 @@ class App extends Component {
     queue: [],
     matches: [],
     transition: false,
-    sparklinePlayersData: {}
+    sparklinePlayersData: {},
+    ladderRanks: []
   };
 
   componentDidMount() {
@@ -41,8 +43,8 @@ class App extends Component {
       var params = { offset: 0, gateway, pageSize: 50, gameMode, map: "Overall" };
       url.search = new URLSearchParams(params).toString();
 
-      const response = await fetch(url);
-      const result = await response.json();
+      var response = await fetch(url);
+      var result = await response.json();
       let matches = result.matches;
 
       matches.forEach((m) => {
@@ -70,22 +72,32 @@ class App extends Component {
       }
 
       this.setState({ matches });
+
+      var url = new URL("https://website-backend.w3champions.com/api/ladder/0?gateWay=20&gameMode=4&season=12");
+      var params = {gateway, season, gameMode};
+      url.search = new URLSearchParams(params).toString();
+
+      var response = await fetch(url);
+      var result = await response.json();
+      this.setState({ "ladderRanks": result.slice(0, 10) });
+
     } catch (e) {
       console.log(e);
     }
   };
 
   render() {
-    const { matches } = this.state;
+    const { matches, ladderRanks } = this.state;
+    console.log({ladderRanks})
 
-    if (matches.length > 0) {
+    if (matches.length > 0 && ladderRanks.length > 0) {
       return (
         <Container>
           <Navbar />
           <div className="matches">
             {Object.keys(matches).map((key) => (
               <div>
-                <Match match={matches[key]} key={matches[key].id} transition={this.state.transition}></Match>
+                <Match match={matches[key]} key={matches[key].id} transition={this.state.transition} ladderRanks={ladderRanks}></Match>
                 <Divider />
               </div>
             ))}
