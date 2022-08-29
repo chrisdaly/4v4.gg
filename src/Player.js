@@ -134,17 +134,12 @@ class Player extends Component {
   
       return (
         <Grid divided="vertically" className={"playerCard"}>
-          <Grid.Row columns={3} className={"playerTop"}>
-            <Grid.Column width={4} className={""}>
-              </Grid.Column>
-            <Grid.Column width={8} className="playerName">
+          <Grid.Row columns={1} className={"playerTop"}>
+            <Grid.Column width={16} className="playerName">
               <a target="_blank" href={`/player/${battleTag.replace("#", "%23")}`} rel="noreferrer">
                 {name}
               </a>
             </Grid.Column>
-            <Grid.Column width={4}>
-              {""}
-              </Grid.Column>
           </Grid.Row>
   
           <Grid.Row columns={3} className={"playerBottom"}>
