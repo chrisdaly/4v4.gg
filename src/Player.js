@@ -118,18 +118,28 @@ class Player extends Component {
         }
       }
 
-      const LeftPlayerCard = () => {
-        if (this.props.transition){
-          // console.log({sparklinePlayersData})
-          return (
-          <p>{rank  ? `#${rank}`: ""}</p>)
-        } else {
-          if (this.props.side === "right"){
-            return (<img src={raceIcon} alt={race} className={"race"} /> )
+      const LeftSlot = () => {
+        if (this.props.side === "left"){
+          if (this.props.transition){
+            return (<p>{rank  ? `#${rank}`: ""}</p>)
           } else {
             return (<Flag name={countryCode}></Flag>)
           }
-        }
+        } else {
+            return (<img src={raceIcon} alt={race} className={"race"} />)
+          }
+      }
+
+      const RightSlot = () => {
+        if (this.props.side === "right"){
+          if (this.props.transition){
+            return (<p>{rank  ? `#${rank}`: ""}</p>)
+          } else {
+            return (<Flag name={countryCode}></Flag>)
+          }
+        } else {
+            return (<img src={raceIcon} alt={race} className={"race"} />)
+          }
       }
   
       return (
@@ -144,13 +154,15 @@ class Player extends Component {
   
           <Grid.Row columns={3} className={"playerBottom"}>
             <Grid.Column width={4} className={"playerMMrstat"}>
-              <LeftPlayerCard/>
+              <LeftSlot/>
             </Grid.Column>
             <Grid.Column width={8} className={"playerMMrstat"}>
               <PlayerMmrStatistic/>
             </Grid.Column>
-            <Grid.Column width={4}>
-              {this.props.side === "left" ? <img src={raceIcon} alt={race} className={"race"} /> : <Flag name={countryCode}></Flag>}
+            <Grid.Column width={4} className={"playerMMrstat"}>
+              <RightSlot/>
+
+              {/* {this.props.side === "left" ? <img src={raceIcon} alt={race} className={"race"} /> : <Flag name={countryCode}></Flag>} */}
               {/* <img src={raceIcon} alt={race} className={"race"} /> */}
             </Grid.Column>
           </Grid.Row>
