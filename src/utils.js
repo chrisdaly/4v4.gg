@@ -12,3 +12,16 @@ export const standardDeviation = (array) => {
   };
 
   export const getUniqueListBy = (arr, key) => [...new Map(arr.map((item) => [item[key], item])).values()]
+
+
+
+  export const akaLookup = (aka) => {
+    const mapping = {
+      "完颜啊骨打": "hainiu",
+      "테드의뜨거운눈빛": "bongo",
+      "渺小之牛头人": "tiny tauren"
+    }
+
+    const name = mapping[aka] || null
+    return name
+  }

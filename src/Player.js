@@ -5,6 +5,8 @@ import Mmr from "./Mmr.js";
 
 import {Sparklines, SparklinesLine, SparklinesSpots} from "react-sparklines";
 
+import {akaLookup} from "./utils.js"
+
 
 import human from "./icons/human.png";
 import orc from "./icons/orc.png";
@@ -78,6 +80,7 @@ class Player extends Component {
   
   render() {
     let { race, oldMmr, name, location, battleTag } = this.props.data;
+    let aka = akaLookup(name)
     let sparklinePlayersData = this.state.sparklinePlayersData
     sparklinePlayersData = sparklinePlayersData || {};
     let rank = this.props.rank || [];
@@ -141,13 +144,25 @@ class Player extends Component {
             return (<img src={raceIcon} alt={race} className={"race"} />)
           }
       }
+
+      const Name = () => {
+        if (aka !== null){
+          if (this.props.transition){
+            return (name)
+          } else {
+            return (aka)
+          }
+        } else {
+            return (name)
+          }
+      }
   
       return (
         <Grid divided="vertically" className={"playerCard"}>
           <Grid.Row columns={1} className={"playerTop"}>
             <Grid.Column width={16} className="playerName">
-              <a target="_blank" href={`/player/${battleTag.replace("#", "%23")}`} rel="noreferrer">
-                {name}
+              <a target="_blank" href={`/player/${battleTag.replace("#", "%23")}`} rel="noreferrer" className={(aka? "playerMMrstat":"")}>
+                <Name></Name>
               </a>
             </Grid.Column>
           </Grid.Row>

@@ -443,6 +443,22 @@ span.true {
   100%   { opacity: 1; }
 }
 
+.name {
+  -webkit-animation: fadeinname ease 10s; /* Safari, Chrome and Opera > 12.1 */
+  -moz-animation: fadeinname ease 10s ; /* Firefox < 16 */
+   -ms-animation: fadeinname ease 10s ; /* Internet Explorer */
+    -o-animation: fadeinname ease 10s ; /* Opera < 12.1 */
+       animation: fadeinname ease 10s;
+}
+
+
+@keyframes fadeinname {
+  0% { opacity: 0; }
+  10%   { opacity: 1; }
+  90%   { opacity: 1; }
+  100%   { opacity: 0; }
+}
+
 .numberCircle {
   font-weight: bolder
 }

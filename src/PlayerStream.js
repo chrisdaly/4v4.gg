@@ -74,7 +74,7 @@ class PlayerStream extends Component {
 
       var response = await fetch(url);
       var result = await response.json();
-      this.setState({ "ladderRanks": result.slice(0, 10) });
+      this.setState({ "ladderRanks": result.slice(0, 20) });
       
     } catch(e){}
   }
