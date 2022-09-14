@@ -171,7 +171,7 @@ class Player extends Component {
             <Grid.Column width={4} className={"playerMMrstat"}>
               <LeftSlot/>
             </Grid.Column>
-            <Grid.Column width={8} className={"playerMMrstat"}>
+            <Grid.Column width={8} className={(aka? "playerMMrstat":"")}>
               <PlayerMmrStatistic/>
             </Grid.Column>
             <Grid.Column width={4} className={"playerMMrstat"}>
