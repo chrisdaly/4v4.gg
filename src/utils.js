@@ -18,7 +18,7 @@ export const standardDeviation = (array) => {
   export const akaLookup = (aka) => {
     const mapping = {
       "完颜啊骨打": "hainiu",
-      "테드의뜨거운눈빛": "bongo",
+      "테드의뜨거운눈빛": "bonggo",
       "渺小之牛头人": "tiny tauren"
     }
 

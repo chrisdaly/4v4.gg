@@ -142,7 +142,7 @@ a {
 
 line.y.axis {
   stroke: white;
-  stroke-width: 1;
+  stroke-width: .8;
 }
 
 /* line.y.axis.teamTwo {
@@ -151,13 +151,13 @@ line.y.axis {
 } */
 
 circle.dot.teamTwo {
-  fill: #a93232;
+  /* fill: #a93232; */
   /* stroke: #323437; */
   /* stroke-opacity: 1; */
 }
 
 circle.dot.teamOne {
-  fill: #266793;
+  /* fill: #266793; */
   /* stroke: #323437; */
   /* stroke-opacity: 1; */
 }
@@ -211,7 +211,7 @@ h1.ui.header {
 
 text.axistitle {
   fill: #fafafa;
-  font-size: 15px;
+  font-size: 12px;
   text-anchor: middle;
   opacity: 1;
   font-weight: bold;
@@ -219,7 +219,7 @@ text.axistitle {
 
 text.mmrBackground {
   fill: #fafafa;
-  font-size: 9px;
+  font-size: 18px;
   text-anchor: middle;
 }
 
@@ -347,6 +347,13 @@ i.flag:not(.icon):before {
   height: 8px; */
 }
 
+.number, g.tick.text {
+  font-family: Inconsolata !important;
+}
+g.tick.text {
+  opacity: .5
+}
+
 h5.number {
   font-family: Inconsolata !important;
   font-weight: 500;
@@ -355,7 +362,8 @@ h5.number {
 
 circle.dot {
   stroke: white;
-  stroke-width: 1.5px;
+  fill: white;
+  stroke-width: .5px;
   stroke-opacity: 0.8;
 }
 
@@ -461,4 +469,8 @@ span.true {
 
 .numberCircle {
   font-weight: bolder
+}
+
+img.race{
+  padding-top:2px
 }

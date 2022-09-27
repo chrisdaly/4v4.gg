@@ -15,17 +15,18 @@ class TeamHeader extends Component {
     let statistic = this.props.transition ? ` σ = ${teamDeviation}` : `x̄ = ${teamMmr}`;
     return (
       <Grid divided="vertically" className={`team-header team-${teamNum}`}>
-        <Grid.Row columns={2} className={"playerBottom"}>
+        {/* <Grid.Row columns={2} className={"playerBottom"}>
           <Grid.Column width={4}>
             <span>{won ? <img src={crown} alt={"asd"} className={"crown"} /> : ""}</span>
           </Grid.Column>
           <Grid.Column className="playerName">
             Team <span className={"teamNum"}>{teamNum}</span>
           </Grid.Column>
-        </Grid.Row>
+        </Grid.Row> */}
         <Grid.Row columns={1} className={"playerTop"}>
-          <Grid.Column className={"playerMMrstat"}>
-            <Mmr data={statistic}></Mmr>
+          <Grid.Column> 
+            {/* className={"playerMMrstat"}> */}
+            <Mmr data={teamMmr}></Mmr>
           </Grid.Column>
         </Grid.Row>
       </Grid>

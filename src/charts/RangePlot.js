@@ -8,33 +8,34 @@ function RangePlot(id, data) {
   //   return
   // }
 
-  const padding = 0;
-  const teamHeaderHeight = document.getElementsByClassName("ui vertically divided grid team-header team-1")[0].offsetHeight;
-  const cardHeight = document.getElementsByClassName("ui vertically divided grid playerCard")[0].offsetHeight;
+  const padding = 10;
+  const teamHeaderHeight = document.getElementsByClassName("team-header")[0].offsetHeight;
+  const cardHeight = document.getElementsByClassName("ui vertically divided grid playerCard")[0].offsetHeight; 
 
-  const margin = { top: teamHeaderHeight, right: 0, bottom: padding, left: 0 };
-  const width = 49.75;
-  const height = 5 + cardHeight * 4;
+  const margin = { top: 0, right: 0, bottom: padding, left: 0 };
+  const width = 80;
+  const height = document.getElementsByClassName("teamDiv")[0].offsetHeight; //8 + cardHeight * 4;
   const svgHeight = 5 + document.getElementsByClassName("teamDiv")[0].offsetHeight; //height + teamHeaderHeight;
   // console.log("svgHeight", svgHeight);
-  const verticalOffset = 15;
+  const verticalOffset = 30;
 
-  let minMmr = 900; //d3.min(combinedMmrs);
-  let maxMmr = 2230; //d3.max(combinedMmrs);
+  let minMmr = 600; //d3.min(combinedMmrs);
+  let maxMmr = 2400; //d3.max(combinedMmrs);
 
   const y = d3.scaleLinear().domain([minMmr, maxMmr]).range([height, 0]).nice(0);
 
-  var yAxis = d3.axisLeft().scale(y).tickSize(0).ticks(0, ",f");
-  let radius = 4;
+  var yAxis = d3.axisLeft().scale(y).tickSize(4).ticks(4, ",f").tickFormat(x => `${x/1000}K`);
+  let radius = 2.5;
 
   const svg = d3
     .select(`#${id}`)
     .append("svg")
     .attr("width", width)
-    .attr("height", svgHeight)
+    .attr("height", svgHeight + 15)
     .append("g")
     .attr("transform", "translate(" + width / 2 + "," + margin.top + ")")
-    .attr("height", height - margin.top);
+    .attr("class", "asdasdad")
+    // .attr("height", height + 50 - margin.top);
 
   const middleLine = svg.append("g").attr("class", "y axis middle").call(yAxis);
 
@@ -43,15 +44,23 @@ function RangePlot(id, data) {
     .append("text")
     .attr("class", "axistitle")
     .text("MMR")
-    .attr("x", width / 2 - 25)
-    .attr("y", y.range()[1] - teamHeaderHeight / 2);
+    .attr("x", 0)
+    .attr("y", y.range()[0] + 15);
 
   // middleLine
   //   .append("text")
-  //   .attr("class", "mmrBackground")
-  //   .text("1.5k")
+  //   .attr("class", "axistitle")
+  //   .text("1k")
   //   .attr("x", width / 2 - 25)
-  //   .attr("y", y.range()[0] / 2);
+  //   .attr("y", y(1000));
+
+  //   middleLine
+  //   .append("text")
+  //   .attr("class", "axistitle")
+  //   .text("2k")
+  //   .attr("x", width / 2 - 15)
+  //   .attr("y", y(2000));
+
 
   // badge
   // middleLine

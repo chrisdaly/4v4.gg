@@ -22,15 +22,9 @@ class Player extends Component {
 
   componentDidMount() {
     this.loadData();
-    // let intervalId = setInterval(this.loadData, 30000);
-    let transitionId = setInterval(() => this.setState({ transition: !this.state.transition }), 10000);
-
-    this.setState({ transitionId });
   }
 
   loadData = async () => {
-    
-    // this.setState({});
     const pageUrl = new URL(window.location.href);
     const player = this.props.data.battleTag.replace("#", "%23");
     console.log(`LOADING PLAYER DATA FOR ${player}`)
@@ -136,7 +130,7 @@ class Player extends Component {
       const RightSlot = () => {
         if (this.props.side === "right"){
           if (this.props.transition){
-            return (<p>{rank  ? `#${rank}`: ""}</p>)
+            return (<p className="number">{rank  ? `#${rank}`: ""}</p>)
           } else {
             return (<Flag name={countryCode}></Flag>)
           }
@@ -168,13 +162,13 @@ class Player extends Component {
           </Grid.Row>
   
           <Grid.Row columns={3} className={"playerBottom"}>
-            <Grid.Column width={4} className={"playerMMrstat"}>
+            <Grid.Column width={4} className={(this.props.side === "left" ? "playerMMrstat": "")}>
               <LeftSlot/>
             </Grid.Column>
-            <Grid.Column width={8} className={(aka? "playerMMrstat":"")}>
+            <Grid.Column width={8} className="playerMMrstat">
               <PlayerMmrStatistic/>
             </Grid.Column>
-            <Grid.Column width={4} className={"playerMMrstat"}>
+            <Grid.Column width={4} className={(this.props.side === "right" ? "playerMMrstat": "")}>
               <RightSlot/>
 
               {/* {this.props.side === "left" ? <img src={raceIcon} alt={race} className={"race"} /> : <Flag name={countryCode}></Flag>} */}

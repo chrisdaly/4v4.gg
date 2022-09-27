@@ -68,7 +68,7 @@ class Match extends Component {
             <Grid.Column width={6}>
               <Team team={teamOne} teamNum={1} teamAverage={teamOne.teamAverage} teamDeviation={teamOne.teamDeviation} side="left" transition={this.props.transition} sparklinePlayersData={this.props.sparklinePlayersData } ladderRanks={this.props.ladderRanks}></Team>
             </Grid.Column>
-            <Grid.Column width={3}>
+            <Grid.Column width={4}>
               <RangePlotSection data={data} id={match.id} />
             </Grid.Column>
             <Grid.Column width={6}>
