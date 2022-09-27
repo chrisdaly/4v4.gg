@@ -70,7 +70,7 @@ html {
 }
 
 * {
-  font-family: "Roboto" !important;
+  font-family: "friz-quadrata-std-medium-5870338ec7ef8" !important;
   color: #fafafa;
 }
 
@@ -78,6 +78,8 @@ html {
   font-family: "Roboto";
   src: local("Roboto"), url(./fonts/Roboto-Regular.ttf) format("truetype");
 }
+
+
 
 @font-face {
   font-family: "Inconsolata";
@@ -95,6 +97,15 @@ html {
   font-weight: 900;
   src: local("Roboto"), url(./fonts/RobotoMono-Medium.ttf) format("truetype");
 }
+
+@font-face {
+  font-family: "friz-quadrata-std-medium-5870338ec7ef8";
+  font-weight: 900;
+  src: local("friz-quadrata-std-medium-5870338ec7ef8"), url(./fonts/friz-quadrata-std-medium-5870338ec7ef8.otf) format("truetype");
+}
+
+
+
 
 body,
 .ui.segment,
@@ -334,7 +345,7 @@ i.flag:not(.icon) {
   height: 11px;
   line-height: 11px;
   vertical-align: baseline; */
-  margin: 0 0.7em 0 0.9em;
+  margin: .3em 2em 0 0.9em !important;
   /* text-decoration: inherit;
   speak: none;
   font-smoothing: antialiased;
@@ -473,4 +484,12 @@ span.true {
 
 img.race{
   padding-top:2px
+}
+
+.sixteen.wide.column.playerName {
+    padding-top: 3px !important;
+}
+
+.three.column.row.playerBottom {
+  padding-top: 5px !important;
 }

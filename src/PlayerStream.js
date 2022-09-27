@@ -17,7 +17,7 @@ class PlayerStream extends Component {
     matches: [],
     isLoaded: false,
     ongoingGame: {},
-    transition: false,
+    transition: true,
     sparklinePlayersData: {},
     race: 0,
     gameModeStats: [],
@@ -27,14 +27,12 @@ class PlayerStream extends Component {
   componentDidMount() {
     this.loadInitData();
     this.loadNewData()
-    let intervalId = setInterval(this.loadNewData, 10000);
     let transitionId = setInterval(() => this.setState({ transition: !this.state.transition }), 10000);
 
-    this.setState({ intervalId, transitionId });
+    this.setState({ transitionId });
   }
 
   componentWillUnmount() {
-    clearInterval(this.state.intervalId);
     clearInterval(this.state.transitionId);
   }
 

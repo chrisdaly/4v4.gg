@@ -17,14 +17,14 @@ function RangePlot(id, data) {
   const height = document.getElementsByClassName("teamDiv")[0].offsetHeight; //8 + cardHeight * 4;
   const svgHeight = 5 + document.getElementsByClassName("teamDiv")[0].offsetHeight; //height + teamHeaderHeight;
   // console.log("svgHeight", svgHeight);
-  const verticalOffset = 30;
+  const verticalOffset = 20;
 
   let minMmr = 600; //d3.min(combinedMmrs);
   let maxMmr = 2400; //d3.max(combinedMmrs);
 
   const y = d3.scaleLinear().domain([minMmr, maxMmr]).range([height, 0]).nice(0);
 
-  var yAxis = d3.axisLeft().scale(y).tickSize(4).ticks(4, ",f").tickFormat(x => `${x/1000}K`);
+  var yAxis = d3.axisLeft().scale(y).tickSize(3).ticks(2, ",f").tickFormat(x => `${x/1000}K`);
   let radius = 2.5;
 
   const svg = d3
@@ -45,7 +45,7 @@ function RangePlot(id, data) {
     .attr("class", "axistitle")
     .text("MMR")
     .attr("x", 0)
-    .attr("y", y.range()[0] + 15);
+    .attr("y", y.range()[0] + 20);
 
   // middleLine
   //   .append("text")

@@ -83,7 +83,7 @@ class Player extends Component {
     } else {
       rank = null;
     }
-    console.log(rank)
+    // console.log(rank)
 
     if (this.props.data.battleTag !== undefined) {
       // console.log(this.state)
