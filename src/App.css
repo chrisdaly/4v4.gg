@@ -79,11 +79,10 @@ html {
   src: local("Roboto"), url(./fonts/Roboto-Regular.ttf) format("truetype");
 }
 
-
-
 @font-face {
   font-family: "Inconsolata";
-  src: local("Inconsolata"), url(./fonts/Inconsolata-Medium.ttf) format("truetype");
+  src: local("Inconsolata"),
+    url(./fonts/Inconsolata-Medium.ttf) format("truetype");
 }
 
 @font-face {
@@ -101,7 +100,8 @@ html {
 @font-face {
   font-family: "friz-quadrata";
   font-weight: 900;
-  src: local("friz-quadrata-std-medium-5870338ec7ef8"), url(./fonts/friz-quadrata-std-medium-5870338ec7ef8.otf);
+  src: local("friz-quadrata-std-medium-5870338ec7ef8"),
+    url(./fonts/friz-quadrata-std-medium-5870338ec7ef8.otf);
 }
 
 body,
@@ -150,7 +150,7 @@ a {
 
 line.y.axis {
   stroke: white;
-  stroke-width: .8;
+  stroke-width: 0.8;
 }
 
 /* line.y.axis.teamTwo {
@@ -342,7 +342,7 @@ i.flag:not(.icon) {
   height: 11px;
   line-height: 11px;
   vertical-align: baseline; */
-  margin: .3em 2em 0 0.9em !important;
+  margin: 0.3em 2em 0 0.9em !important;
   /* text-decoration: inherit;
   speak: none;
   font-smoothing: antialiased;
@@ -355,11 +355,12 @@ i.flag:not(.icon):before {
   height: 8px; */
 }
 
-.number, g.tick.text {
+.number,
+g.tick.text {
   font-family: Inconsolata !important;
 }
 g.tick.text {
-  opacity: .5
+  opacity: 0.5;
 }
 
 h5.number {
@@ -371,7 +372,7 @@ h5.number {
 circle.dot {
   stroke: white;
   fill: white;
-  stroke-width: .5px;
+  stroke-width: 0.5px;
   stroke-opacity: 0.8;
 }
 
@@ -425,66 +426,86 @@ span.true {
   font-weight: 800;
 }
 
-
 .playerMMrstat {
   /* margin-top: 25px; */
   /* font-size: 21px; */
   /* text-align: center; */
 
   -webkit-animation: fadeinout ease 10s infinite; /* Safari, Chrome and Opera > 12.1 */
-     -moz-animation: fadeinout ease 10s infinite; /* Firefox < 16 */
-      -ms-animation: fadeinout ease 10s infinite; /* Internet Explorer */
-       -o-animation: fadeinout ease 10s infinite; /* Opera < 12.1 */
-          animation: fadeinout ease 10s infinite;
+  -moz-animation: fadeinout ease 10s infinite; /* Firefox < 16 */
+  -ms-animation: fadeinout ease 10s infinite; /* Internet Explorer */
+  -o-animation: fadeinout ease 10s infinite; /* Opera < 12.1 */
+  animation: fadeinout ease 10s infinite;
 }
 
 @keyframes fadeinout {
-  0% { opacity: 0; }
-  10%   { opacity: 1; }
-  90%   { opacity: 1; }
-  100%   { opacity: 0; }
+  0% {
+    opacity: 0;
+  }
+  10% {
+    opacity: 1;
+  }
+  90% {
+    opacity: 1;
+  }
+  100% {
+    opacity: 0;
+  }
 }
 
 .match {
   -webkit-animation: fadein ease 10s; /* Safari, Chrome and Opera > 12.1 */
-  -moz-animation: fadein ease 10s ; /* Firefox < 16 */
-   -ms-animation: fadein ease 10s ; /* Internet Explorer */
-    -o-animation: fadein ease 10s ; /* Opera < 12.1 */
-       animation: fadein ease 10s;
+  -moz-animation: fadein ease 10s; /* Firefox < 16 */
+  -ms-animation: fadein ease 10s; /* Internet Explorer */
+  -o-animation: fadein ease 10s; /* Opera < 12.1 */
+  animation: fadein ease 10s;
 }
 
 @keyframes fadein {
-  0% { opacity: 0; }
-  50%   { opacity: 1; }
-  100%   { opacity: 1; }
+  0% {
+    opacity: 0;
+  }
+  50% {
+    opacity: 1;
+  }
+  100% {
+    opacity: 1;
+  }
 }
 
 .name {
   -webkit-animation: fadeinname ease 10s; /* Safari, Chrome and Opera > 12.1 */
-  -moz-animation: fadeinname ease 10s ; /* Firefox < 16 */
-   -ms-animation: fadeinname ease 10s ; /* Internet Explorer */
-    -o-animation: fadeinname ease 10s ; /* Opera < 12.1 */
-       animation: fadeinname ease 10s;
+  -moz-animation: fadeinname ease 10s; /* Firefox < 16 */
+  -ms-animation: fadeinname ease 10s; /* Internet Explorer */
+  -o-animation: fadeinname ease 10s; /* Opera < 12.1 */
+  animation: fadeinname ease 10s;
 }
 
-
 @keyframes fadeinname {
-  0% { opacity: 0; }
-  10%   { opacity: 1; }
-  90%   { opacity: 1; }
-  100%   { opacity: 0; }
+  0% {
+    opacity: 0;
+  }
+  10% {
+    opacity: 1;
+  }
+  90% {
+    opacity: 1;
+  }
+  100% {
+    opacity: 0;
+  }
 }
 
 .numberCircle {
-  font-weight: bolder
+  font-weight: bolder;
 }
 
-img.race{
-  padding-top:2px
+img.race {
+  padding-top: 2px;
 }
 
 .sixteen.wide.column.playerName {
-    padding-top: 3px !important;
+  padding-top: 3px !important;
 }
 
 .three.column.row.playerBottom {

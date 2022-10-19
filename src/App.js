@@ -4,7 +4,7 @@ import { Container, Grid, Dimmer, Loader, Divider } from "semantic-ui-react";
 import Match from "./Match.js";
 import Navbar from "./Navbar.js";
 
-import {standardDeviation, arithmeticMean} from "./utils.js"
+import { standardDeviation, arithmeticMean } from "./utils.js";
 
 import "semantic-ui-css/semantic.min.css";
 import "./App.css";
@@ -21,15 +21,18 @@ class App extends Component {
     matches: [],
     transition: false,
     sparklinePlayersData: {},
-    ladderRanks: []
+    ladderRanks: [],
   };
 
   componentDidMount() {
     this.loadData();
     let intervalId = setInterval(this.loadData, 30000);
-    let transitionId = setInterval(() => this.setState({ transition: !this.state.transition }), 10000);
+    let transitionId = setInterval(
+      () => this.setState({ transition: !this.state.transition }),
+      10000
+    );
 
-    this.setState({ intervalId, transitionId });  
+    this.setState({ intervalId, transitionId });
   }
 
   componentWillUnmount() {
@@ -39,8 +42,16 @@ class App extends Component {
 
   loadData = async () => {
     try {
-      var url = new URL("https://website-backend.w3champions.com/api/matches/ongoing");
-      var params = { offset: 0, gateway, pageSize: 50, gameMode, map: "Overall" };
+      var url = new URL(
+        "https://website-backend.w3champions.com/api/matches/ongoing"
+      );
+      var params = {
+        offset: 0,
+        gateway,
+        pageSize: 50,
+        gameMode,
+        map: "Overall",
+      };
       url.search = new URLSearchParams(params).toString();
 
       var response = await fetch(url);
@@ -52,9 +63,9 @@ class App extends Component {
         m.teams.forEach((t) => {
           let playerMmrs = t.players.map((d) => d.oldMmr);
           let teamAverage = arithmeticMean(playerMmrs);
-          let teamDeviation = standardDeviation(playerMmrs)
+          let teamDeviation = standardDeviation(playerMmrs);
           t.teamAverage = teamAverage;
-          t.teamDeviation = teamDeviation
+          t.teamDeviation = teamDeviation;
           matchMmr += teamAverage;
         });
 
@@ -73,14 +84,15 @@ class App extends Component {
 
       this.setState({ matches });
 
-      var url = new URL("https://website-backend.w3champions.com/api/ladder/0?gateWay=20&gameMode=4&season=12");
-      var params = {gateway, season, gameMode};
+      var url = new URL(
+        "https://website-backend.w3champions.com/api/ladder/0?gateWay=20&gameMode=4&season=12"
+      );
+      var params = { gateway, season, gameMode };
       url.search = new URLSearchParams(params).toString();
 
       var response = await fetch(url);
       var result = await response.json();
-      this.setState({ "ladderRanks": result.slice(0, 20) });
-
+      this.setState({ ladderRanks: result.slice(0, 20) });
     } catch (e) {
       console.log(e);
     }
@@ -88,7 +100,7 @@ class App extends Component {
 
   render() {
     const { matches, ladderRanks } = this.state;
-    console.log({ladderRanks})
+    console.log({ ladderRanks });
 
     if (matches.length > 0 && ladderRanks.length > 0) {
       return (
@@ -97,7 +109,12 @@ class App extends Component {
           <div className="matches">
             {Object.keys(matches).map((key) => (
               <div>
-                <Match match={matches[key]} key={matches[key].id} transition={this.state.transition} ladderRanks={ladderRanks}></Match>
+                <Match
+                  match={matches[key]}
+                  key={matches[key].id}
+                  transition={this.state.transition}
+                  ladderRanks={ladderRanks}
+                ></Match>
                 <Divider />
               </div>
             ))}

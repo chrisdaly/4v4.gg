@@ -1,30 +1,49 @@
 import * as d3 from "d3";
 
 function RangePlot(id, data) {
-  const { teamOneMmrs, teamOneAverageMmr, teamTwoMmrs, teamTwoAverageMmr, league } = data;
+  const {
+    teamOneMmrs,
+    teamOneAverageMmr,
+    teamTwoMmrs,
+    teamTwoAverageMmr,
+    league,
+  } = data;
   const teamSize = teamOneMmrs.length;
-  
+
   // if (document.getElementsByClassName("ui vertically divided grid playerCard")[0] === undefined){
   //   return
   // }
 
   const padding = 10;
-  const teamHeaderHeight = document.getElementsByClassName("team-header")[0].offsetHeight;
-  const cardHeight = document.getElementsByClassName("ui vertically divided grid playerCard")[0].offsetHeight; 
+  const teamHeaderHeight =
+    document.getElementsByClassName("team-header")[0].offsetHeight;
+  const cardHeight = document.getElementsByClassName(
+    "ui vertically divided grid playerCard"
+  )[0].offsetHeight;
 
   const margin = { top: 0, right: 0, bottom: padding, left: 0 };
   const width = 80;
   const height = document.getElementsByClassName("teamDiv")[0].offsetHeight; //8 + cardHeight * 4;
-  const svgHeight = 5 + document.getElementsByClassName("teamDiv")[0].offsetHeight; //height + teamHeaderHeight;
+  const svgHeight =
+    5 + document.getElementsByClassName("teamDiv")[0].offsetHeight; //height + teamHeaderHeight;
   // console.log("svgHeight", svgHeight);
   const verticalOffset = 20;
 
   let minMmr = 600; //d3.min(combinedMmrs);
   let maxMmr = 2400; //d3.max(combinedMmrs);
 
-  const y = d3.scaleLinear().domain([minMmr, maxMmr]).range([height, 0]).nice(0);
+  const y = d3
+    .scaleLinear()
+    .domain([minMmr, maxMmr])
+    .range([height, 0])
+    .nice(0);
 
-  var yAxis = d3.axisLeft().scale(y).tickSize(3).ticks(2, ",f").tickFormat(x => `${x/1000}K`);
+  var yAxis = d3
+    .axisLeft()
+    .scale(y)
+    .tickSize(3)
+    .ticks(2, ",f")
+    .tickFormat((x) => `${x / 1000}K`);
   let radius = 2.5;
 
   const svg = d3
@@ -34,8 +53,8 @@ function RangePlot(id, data) {
     .attr("height", svgHeight + 15)
     .append("g")
     .attr("transform", "translate(" + width / 2 + "," + margin.top + ")")
-    .attr("class", "asdasdad")
-    // .attr("height", height + 50 - margin.top);
+    .attr("class", "asdasdad");
+  // .attr("height", height + 50 - margin.top);
 
   const middleLine = svg.append("g").attr("class", "y axis middle").call(yAxis);
 
@@ -60,7 +79,6 @@ function RangePlot(id, data) {
   //   .text("2k")
   //   .attr("x", width / 2 - 15)
   //   .attr("y", y(2000));
-
 
   // badge
   // middleLine
