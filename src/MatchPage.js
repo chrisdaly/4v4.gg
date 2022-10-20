@@ -1,50 +1,99 @@
 import React, { Component } from "react";
-import { Container, Grid, Statistic, Divider, Dimmer, Loader } from "semantic-ui-react";
+import { Container, Grid, Dimmer, Loader } from "semantic-ui-react";
 
 import Navbar from "./Navbar.js";
-
 import Match from "./Match.js";
+import toast, { Toaster } from "react-hot-toast";
 
-import {standardDeviation, arithmeticMean} from "./utils.js"
+import { standardDeviation, arithmeticMean } from "./utils.js";
 
-class Queue extends Component {
+const gameMode = 4;
+const gateway = 20;
+const season = 12;
+const pageUrl = new URL(window.location.href);
+const matchId = pageUrl.pathname.split("/").slice(-1)[0]; //
+
+class MatchPage extends Component {
   state = {
     match: null,
     isLoaded: false,
+    ladderRanks: [],
+    ongoing: true,
   };
 
   componentDidMount() {
-    this.loadData();
-    let intervalId = setInterval(this.loadData, 30000);
+    this.loadInitData();
+    let intervalId = setInterval(this.loadNewData, 1000);
+    let transitionId = setInterval(
+      () => this.setState({ transition: !this.state.transition }),
+      10000
+    );
 
-    this.setState({ intervalId });
+    this.setState({ intervalId, transitionId });
   }
 
   componentWillUnmount() {
     clearInterval(this.state.intervalId);
   }
 
-  loadData = async () => {
-    const pageUrl = new URL(window.location.href);
-    const matchId = pageUrl.pathname.split("/").slice(-1)[0]; //
-    const url = new URL(`https://website-backend.w3champions.com/api/matches/${matchId}`);
+  loadNewData = async () => {
+    if (this.state.ongoing === true) {
+      console.log("checking update on game");
+
+      var urlLive = new URL(
+        "https://website-backend.w3champions.com/api/matches/ongoing"
+      );
+      var params = {
+        offset: 0,
+        gateway,
+        pageSize: 50,
+        gameMode,
+        map: "Overall",
+      };
+      urlLive.search = new URLSearchParams(params).toString();
+
+      let response = await fetch(urlLive);
+      var result1 = await response.json();
+      let matches = result1.matches;
+
+      let match = matches.filter((d) => d.id === matchId);
+      console.log("match", match);
+      if (match.length === 0) {
+        console.log("setting false");
+        this.setState({ ongoing: false });
+        toast("Game finished!", { icon: "🏁" });
+      } else {
+      }
+    }
+  };
+
+  loadInitData = async () => {
+    let ongoing = this.state.ongoing;
+    let url = new URL(
+      `https://website-backend.w3champions.com/api/matches/${matchId}`
+    );
     let match = null;
-    console.log("url", url);
 
     var response = await fetch(url);
     var result = await response.json();
 
     if (result.match === null) {
-      const gameMode = 4;
-      const gateway = 20;
-
-      var urlLive = new URL("https://website-backend.w3champions.com/api/matches/ongoing");
-      var params = { offset: 0, gateway, pageSize: 50, gameMode, map: "Overall" };
+      var urlLive = new URL(
+        "https://website-backend.w3champions.com/api/matches/ongoing"
+      );
+      ongoing = true;
+      var params = {
+        offset: 0,
+        gateway,
+        pageSize: 50,
+        gameMode,
+        map: "Overall",
+      };
       urlLive.search = new URLSearchParams(params).toString();
 
       response = await fetch(urlLive);
-      result = await response.json();
-      let matches = result.matches;
+      var result1 = await response.json();
+      let matches = result1.matches;
 
       matches = matches.filter((d) => d.id === matchId);
       matches.forEach((m) => {
@@ -52,9 +101,9 @@ class Queue extends Component {
         m.teams.forEach((t) => {
           let playerMmrs = t.players.map((d) => d.oldMmr);
           let teamAverage = arithmeticMean(playerMmrs);
-          let teamDeviation = standardDeviation(playerMmrs)
+          let teamDeviation = standardDeviation(playerMmrs);
           t.teamAverage = teamAverage;
-          t.teamDeviation = teamDeviation
+          t.teamDeviation = teamDeviation;
           matchMmr += teamAverage;
         });
 
@@ -63,57 +112,111 @@ class Queue extends Component {
 
       match = matches[0];
     } else {
-      console.log("result", result);
-      match = result.match;
     }
-    console.log("MATCH", match);
 
     if (match !== undefined) {
       let matchMmr = 0;
       match.teams.forEach((t) => {
         let playerMmrs = t.players.map((d) => d.oldMmr);
         let teamAverage = arithmeticMean(playerMmrs);
-        let teamDeviation = standardDeviation(playerMmrs)
+        let teamDeviation = standardDeviation(playerMmrs);
         t.teamAverage = teamAverage;
-        t.teamDeviation = teamDeviation
+        t.teamDeviation = teamDeviation;
         matchMmr += teamAverage;
       });
 
       match.matchMmr = Math.round(matchMmr / 2);
 
-      this.setState({ ...result, match, isLoaded: true });
+      url = new URL(
+        "https://website-backend.w3champions.com/api/ladder/0?gateWay=20&gameMode=4&season=12"
+      );
+      params = { gateway, season, gameMode };
+      url.search = new URLSearchParams(params).toString();
+      var response = await fetch(url);
+      var result2 = await response.json();
+      let ladderRanks = result2.slice(0, 20);
+
+      this.setState({
+        ...result1,
+        match,
+        ladderRanks: [ladderRanks],
+        isLoaded: true,
+        ongoing,
+      });
     }
   };
 
   render() {
-    const queueDict = this.state.QUEUED_PLAYER_COUNT ? this.state.QUEUED_PLAYER_COUNT.filter((d) => d.gateway === 20 && d.gameMode === 4)[0] : {};
+    const queueDict = this.state.QUEUED_PLAYER_COUNT
+      ? this.state.QUEUED_PLAYER_COUNT.filter(
+          (d) => d.gateway === 20 && d.gameMode === 4
+        )[0]
+      : {};
     const numQueued = queueDict ? queueDict.count : 0;
     const playerPoolPlaying = this.state.playerPoolPlaying;
     const playerPoolRecent = this.state.playerPoolRecent;
-    const match = this.state.match;
+    const { match, ladderRanks } = this.state;
 
     if (this.state.isLoaded === true) {
       return (
         <Container>
           <Navbar />
+
           <div className="matches">
-            {/* {Object.keys(matches).map((key) => ( */}
-            <Match match={match}></Match>
-            {/* ))} */}
+            <Match
+              match={match}
+              transition={this.state.transition}
+              ladderRanks={ladderRanks}
+              sparklinePlayersData={{}}
+            ></Match>
+            <Toaster
+              containerStyle={{
+                top: 400,
+                left: 20,
+                bottom: 20,
+                right: 20,
+              }}
+              toastOptions={{
+                // Define default options
+                className: "",
+                duration: 500000,
+                style: {
+                  background: "white",
+                  color: "black",
+                },
+              }}
+            />
           </div>
         </Container>
       );
     } else {
       return (
         <Container>
+          <Toaster />
           <Navbar />
-
           <Grid columns={3}>
             <Grid.Row columns={3}>
               {/* <Segment> */}
               <Dimmer active>
                 <Loader />
               </Dimmer>
+              <Toaster
+                containerStyle={{
+                  top: 400,
+                  left: 20,
+                  bottom: 20,
+                  right: 20,
+                }}
+                toastOptions={{
+                  // Define default options
+                  className: "",
+                  duration: 500000,
+                  style: {
+                    background: "white",
+                    color: "black",
+                  },
+                }}
+              />
             </Grid.Row>
           </Grid>
         </Container>
@@ -122,4 +225,4 @@ class Queue extends Component {
   }
 }
 
-export default Queue;
+export default MatchPage;

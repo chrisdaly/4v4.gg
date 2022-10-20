@@ -15,12 +15,10 @@ const season = 12;
 
 class App extends Component {
   state = {
-    // ONLINE_PLAYER_COUNT: [],
     QUEUED_PLAYER_COUNT: [],
     queue: [],
     matches: [],
     transition: false,
-    sparklinePlayersData: {},
     ladderRanks: [],
   };
 
@@ -100,12 +98,12 @@ class App extends Component {
 
   render() {
     const { matches, ladderRanks } = this.state;
-    console.log({ ladderRanks });
-
     if (matches.length > 0 && ladderRanks.length > 0) {
       return (
         <Container>
-          <Navbar />
+          <>
+            <Navbar />
+          </>
           <div className="matches">
             {Object.keys(matches).map((key) => (
               <div>
