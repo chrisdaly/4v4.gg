@@ -9,9 +9,7 @@ import { standardDeviation, arithmeticMean } from "./utils.js";
 import "semantic-ui-css/semantic.min.css";
 import "./App.css";
 
-const gameMode = 4;
-const gateway = 20;
-const season = 12;
+import { gameMode, gateway, season } from "./params";
 
 class App extends Component {
   state = {

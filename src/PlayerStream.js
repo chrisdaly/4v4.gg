@@ -11,6 +11,8 @@ import { standardDeviation, arithmeticMean, getUniqueListBy } from "./utils.js";
 
 import logo from "./logos/logo.svg";
 
+import { gameMode, gateway, season } from "./params";
+
 class PlayerStream extends Component {
   state = {
     matches: [],
@@ -45,8 +47,6 @@ class PlayerStream extends Component {
     const pageUrl = new URL(window.location.href);
     const player = pageUrl.pathname.split("/").slice(-1)[0]; //
     const playerTag = player.replace("%23", "#");
-    const gameMode = 4;
-    const gateway = 20;
 
     const season = 12;
     try {

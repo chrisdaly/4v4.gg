@@ -13,6 +13,8 @@ import elf from "./icons/elf.png";
 import undead from "./icons/undead.png";
 import random from "./icons/random.png";
 
+import { gameMode, gateway, season } from "./params";
+
 class Player extends Component {
   state = {
     race: 0,
@@ -24,10 +26,8 @@ class Player extends Component {
   }
 
   loadData = async () => {
-    const pageUrl = new URL(window.location.href);
+    // const pageUrl = new URL(window.location.href);
     const player = this.props.data.battleTag.replace("#", "%23");
-    const gameMode = 4;
-    const gateway = 20;
 
     const season = 12;
     try {

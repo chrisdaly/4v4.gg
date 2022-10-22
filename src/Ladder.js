@@ -4,6 +4,8 @@ import RankRow from "./RankRow.js";
 
 import { Container, Flag, Header, Table, Rating } from "semantic-ui-react";
 
+import { gateway, season } from "./params";
+
 class Ladder extends Component {
   state = {
     rankings: [],
@@ -17,9 +19,10 @@ class Ladder extends Component {
   componentWillUnmount() {}
 
   loadData = async () => {
-    const season = 12;
     try {
-      var url = new URL(`https://website-backend.w3champions.com/api/ladder/0?gateWay=20&gameMode=4&season=${season}`);
+      var url = new URL(
+        `https://website-backend.w3champions.com/api/ladder/0?gateWay=20&gameMode=4&season=${season}`
+      );
       var response = await fetch(url);
       var result = await response.json();
       this.setState({ rankings: result });
