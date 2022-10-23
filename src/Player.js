@@ -28,8 +28,6 @@ class Player extends Component {
   loadData = async () => {
     // const pageUrl = new URL(window.location.href);
     const player = this.props.data.battleTag.replace("#", "%23");
-
-    const season = 12;
     try {
       var url = new URL(
         `https://website-backend.w3champions.com/api/players/${player}`
@@ -127,7 +125,7 @@ class Player extends Component {
       const LeftSlot = () => {
         if (this.props.side === "left") {
           if (this.props.transition) {
-            return <p>{rank ? `#${rank}` : ""}</p>;
+            return <p className="number">{rank ? `#${rank}` : ""}</p>;
           } else {
             return <Flag name={countryCode}></Flag>;
           }
@@ -178,7 +176,9 @@ class Player extends Component {
           <Grid.Row columns={3} className={"playerBottom"}>
             <Grid.Column
               width={4}
-              className={this.props.side === "left" ? "playerMMrstat" : ""}
+              className={
+                this.props.side === "left" ? "playerMMrstat number" : "number"
+              }
             >
               <LeftSlot />
             </Grid.Column>
@@ -187,7 +187,9 @@ class Player extends Component {
             </Grid.Column>
             <Grid.Column
               width={4}
-              className={this.props.side === "right" ? "playerMMrstat" : ""}
+              className={
+                this.props.side === "right" ? "playerMMrstat number" : "number"
+              }
             >
               <RightSlot />
 

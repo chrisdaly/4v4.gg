@@ -25,7 +25,7 @@ class App extends Component {
     let intervalId = setInterval(this.loadData, 30000);
     let transitionId = setInterval(
       () => this.setState({ transition: !this.state.transition }),
-      10000
+      1000000
     );
 
     this.setState({ intervalId, transitionId });
@@ -110,7 +110,7 @@ class App extends Component {
                   key={matches[key].id}
                   transition={this.state.transition}
                   ladderRanks={ladderRanks}
-                ></Match>
+                />
                 <Divider />
               </div>
             ))}

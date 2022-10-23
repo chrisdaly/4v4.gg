@@ -42,8 +42,9 @@ function RangePlot(id, data) {
     .axisLeft()
     .scale(y)
     .tickSize(3)
-    .ticks(2, ",f")
+    .ticks(0, ",f")
     .tickFormat((x) => `${x / 1000}K`);
+
   let radius = 2.5;
 
   const svg = d3

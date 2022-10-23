@@ -1,7 +1,10 @@
 import React, { Component } from "react";
-import { Grid, Statistic, Label } from "semantic-ui-react";
+import { Grid, Statistic, Label, GridColumn } from "semantic-ui-react";
 
 import Mmr from "./Mmr.js";
+
+import { maps } from "./params";
+
 import crown from "./logos/crown.svg";
 
 import grandmaster from "./icons/grandmaster.png";
@@ -50,6 +53,9 @@ class MatchHeader extends Component {
 
     const leagueIcon = badgeMapping[this.props.league];
     const mapIcon = mapMapping[this.props.map];
+    const map = maps.hasOwnProperty(this.props.map)
+      ? maps[this.props.map]
+      : this.props.map;
     let text = "";
 
     const startDate = this.props.startDate;
@@ -61,7 +67,7 @@ class MatchHeader extends Component {
         let elapsed = end - startDate;
         let minutes = Math.floor(elapsed / 1000 / 60);
         if (minutes < 60 * 24) {
-          text = `started ${minutes} ${minutes === 1 ? "min" : "mins"} ago`;
+          text = `${minutes}'`;
         } else {
           text = `started ${startDate.toDateString()}`;
         }
@@ -77,13 +83,29 @@ class MatchHeader extends Component {
     }
 
     return (
-      <Grid.Row style={{ display: "inline-table", paddingBottom: "14px" }}>
+      <Grid.Row style={{ paddingBottom: "14px" }}>
         <Grid.Column>
-          <a target="_blank" href={`/match/${this.props.id}`} rel="noreferrer">
-            <img src={leagueIcon} alt={this.props.league} className={"league"} />
-            <p className={"mapLabel"}>{this.props.map}</p>
-            <p className={"timeLabel"}>{text}</p>
-          </a>
+          <Grid.Row>
+            <a
+              target="_blank"
+              href={`/match/${this.props.id}`}
+              rel="noreferrer"
+            >
+              <img
+                src={leagueIcon}
+                alt={this.props.league}
+                className={"league"}
+              />
+            </a>
+            <p className={"mapLabel"}>{map}</p>
+          </Grid.Row>
+          <Grid.Row>
+            {/* <Grid.Column>test</Grid.Column> */}
+            <Grid.Column>
+              <div className={"pulsating-circle"} />
+              <p>{text}</p>
+            </Grid.Column>
+          </Grid.Row>
         </Grid.Column>
       </Grid.Row>
     );

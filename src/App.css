@@ -184,7 +184,7 @@ circle.dot.teamOne {
 }
 
 html {
-  line-height: 0.5;
+  /* line-height: 0.5; */
 }
 
 .ui.grid > .row {
@@ -510,4 +510,91 @@ img.race {
 
 .three.column.row.playerBottom {
   padding-top: 5px !important;
+}
+
+.ui.toggle.checkbox input:focus:checked ~ .box:before,
+.ui.toggle.checkbox input:focus:checked ~ .coloring.black:before,
+.ui.toggle.checkbox input:checked ~ .box:before,
+.ui.toggle.checkbox input:checked ~ .coloring.black:before {
+  background: red !important;
+}
+
+.ui.toggle.checkbox input:focus:checked ~ .coloring.white:before,
+.ui.toggle.checkbox input:checked ~ .coloring.white:before {
+  background: yellow !important;
+}
+
+.pulsating-circle {
+  position: absolute;
+  /* left: 50%; */
+  /* top: 50%; */
+  /* transform: translateX(-50%) translateY(-50%); */
+  width: 15px;
+  height: 15px;
+  float: right;
+}
+
+.pulsating-circle:after {
+  content: "";
+  position: absolute;
+  display: inline-block;
+  left: 0;
+  top: 0;
+  display: block;
+  width: 100%;
+  height: 100%;
+  background-color: red;
+  border-radius: 15px;
+  box-shadow: 0 0 8px rgba(0, 0, 0, 0.3);
+  animation: pulse-dot 1.25s cubic-bezier(0.455, 0.03, 0.515, 0.955) -0.4s infinite;
+}
+
+@keyframes pulse-ring {
+  0% {
+    transform: scale(0.33);
+  }
+  80%,
+  100% {
+    opacity: 0;
+  }
+}
+
+@keyframes pulse-dot {
+  0% {
+    transform: scale(0.8);
+  }
+  50% {
+    transform: scale(1);
+  }
+  100% {
+    transform: scale(0.8);
+  }
+}
+
+#wrapper {
+  border: 1px solid blue;
+}
+
+#div1 {
+  display: inline-block;
+  width: 120px;
+  height: 120px;
+  border: 1px solid red;
+}
+#div2 {
+  display: inline-block;
+  width: 160px;
+  height: 160px;
+  border: 1px solid green;
+}
+
+.timeDiv {
+  /* float: right; */
+  /* display: inline-block; */
+}
+
+.pulsating-circle {
+  padding-top: 10px !important;
+  margin-top: 2px;
+  margin-left: 30px;
 }

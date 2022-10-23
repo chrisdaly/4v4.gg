@@ -1,5 +1,5 @@
 import React, { Component } from "react";
-import { Container, Grid, Dimmer, Loader } from "semantic-ui-react";
+import { Container, Grid, Dimmer, Loader, Checkbox } from "semantic-ui-react";
 
 import Navbar from "./Navbar.js";
 import Match from "./Match.js";
@@ -62,12 +62,21 @@ class MatchPage extends Component {
         console.log("setting false");
         this.setState({ ongoing: false });
         toast("Game finished!", { icon: "🏁" });
+        var audio = new Audio(
+          "http://commondatastorage.googleapis.com/codeskulptor-assets/week7-brrring.m4a"
+        );
+        audio.play();
       } else {
       }
     }
   };
 
   loadInitData = async () => {
+    var audio = new Audio(
+      "http://commondatastorage.googleapis.com/codeskulptor-assets/week7-brrring.m4a"
+    );
+    audio.play();
+
     let ongoing = this.state.ongoing;
     let url = new URL(
       `https://website-backend.w3champions.com/api/matches/${matchId}`
