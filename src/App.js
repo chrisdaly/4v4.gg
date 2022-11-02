@@ -25,7 +25,7 @@ class App extends Component {
     let intervalId = setInterval(this.loadData, 30000);
     let transitionId = setInterval(
       () => this.setState({ transition: !this.state.transition }),
-      1000000
+      10000
     );
 
     this.setState({ intervalId, transitionId });

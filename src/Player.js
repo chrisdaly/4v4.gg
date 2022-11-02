@@ -5,7 +5,7 @@ import Mmr from "./Mmr.js";
 
 import { Sparklines, SparklinesLine, SparklinesSpots } from "react-sparklines";
 
-import { akaLookup } from "./utils.js";
+import { akaLookup, raceLookup } from "./utils.js";
 
 import human from "./icons/human.png";
 import orc from "./icons/orc.png";
@@ -17,7 +17,7 @@ import { gameMode, gateway, season } from "./params";
 
 class Player extends Component {
   state = {
-    race: 0,
+    race: this.props.data.race,
     sparklinePlayersData: [],
   };
 
@@ -29,13 +29,13 @@ class Player extends Component {
     // const pageUrl = new URL(window.location.href);
     const player = this.props.data.battleTag.replace("#", "%23");
     try {
-      var url = new URL(
-        `https://website-backend.w3champions.com/api/players/${player}`
-      );
-      var response = await fetch(url);
-      var result = await response.json();
-      const race = result.winLosses.sort((a, b) => b.games - a.games)[0].race;
-      this.setState({ ...result, race });
+      // var url = new URL(
+      //   `https://website-backend.w3champions.com/api/players/${player}`
+      // );
+      // var response = await fetch(url);
+      // var result = await response.json();
+      // const race = result.winLosses.sort((a, b) => b.games - a.games)[0].race;
+      // this.setState({ ...result, race });
 
       var url = new URL(
         `https://website-backend.w3champions.com/api/personal-settings/${player}`
@@ -54,6 +54,24 @@ class Player extends Component {
       var gameModeStats = result.filter((d) => d.gameMode === 4)[0];
       this.setState({ gameModeStats });
 
+      let sparklinePlayersData = [];
+      var url = new URL(
+        `https://website-backend.w3champions.com/api/players/${player}/mmr-rp-timeline`
+      );
+      var params = {
+        gateway,
+        season: season - 1,
+        race: this.state.race,
+        gameMode: 4,
+      };
+      url.search = new URLSearchParams(params).toString();
+      var response = await fetch(url);
+      var result = await response.json();
+      if ("mmrRpAtDates" in result) {
+        const prevSeasonMMrs = result.mmrRpAtDates.map((d) => d.mmr);
+        sparklinePlayersData = [...sparklinePlayersData, ...prevSeasonMMrs];
+      }
+
       var url = new URL(
         `https://website-backend.w3champions.com/api/players/${player}/mmr-rp-timeline`
       );
@@ -62,7 +80,8 @@ class Player extends Component {
       var response = await fetch(url);
       var result = await response.json();
       if ("mmrRpAtDates" in result) {
-        const sparklinePlayersData = result.mmrRpAtDates.map((d) => d.mmr);
+        const thisSeasonMMrs = result.mmrRpAtDates.map((d) => d.mmr);
+        sparklinePlayersData = [...sparklinePlayersData, ...thisSeasonMMrs];
         this.setState({ sparklinePlayersData });
       }
     } catch (e) {
