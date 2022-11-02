@@ -80,9 +80,7 @@ class App extends Component {
 
       this.setState({ matches });
 
-      var url = new URL(
-        "https://website-backend.w3champions.com/api/ladder/0?gateWay=20&gameMode=4&season=12"
-      );
+      var url = new URL("https://website-backend.w3champions.com/api/ladder/0");
       var params = { gateway, season, gameMode };
       url.search = new URLSearchParams(params).toString();
 

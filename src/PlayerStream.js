@@ -27,12 +27,12 @@ class PlayerStream extends Component {
 
   componentDidMount() {
     this.loadInitData();
+    this.loadNewData();
     let intervalId = setInterval(this.loadNewData, 30000);
     let transitionId = setInterval(
       () => this.setState({ transition: !this.state.transition }),
       10000
     );
-
     this.setState({ intervalId, transitionId });
   }
 
@@ -47,8 +47,6 @@ class PlayerStream extends Component {
     const pageUrl = new URL(window.location.href);
     const player = pageUrl.pathname.split("/").slice(-1)[0]; //
     const playerTag = player.replace("%23", "#");
-
-    const season = 12;
     try {
       var url = new URL(
         `https://website-backend.w3champions.com/api/players/${player}`
@@ -68,16 +66,14 @@ class PlayerStream extends Component {
       var url = new URL(
         `https://website-backend.w3champions.com/api/players/${player}/game-mode-stats`
       );
-      var params = { gateway: 20, season };
+      var params = { gateway, season };
       url.search = new URLSearchParams(params).toString();
       var response = await fetch(url);
       var result = await response.json();
       var gameModeStats = result.filter((d) => d.gameMode === 4)[0];
       this.setState({ gameModeStats, isLoaded: true });
 
-      var url = new URL(
-        "https://website-backend.w3champions.com/api/ladder/0?gateWay=20&gameMode=4&season=12"
-      );
+      var url = new URL("https://website-backend.w3champions.com/api/ladder/0");
       var params = { gateway, season, gameMode };
       url.search = new URLSearchParams(params).toString();
 
@@ -92,10 +88,7 @@ class PlayerStream extends Component {
     const pageUrl = new URL(window.location.href);
     const player = pageUrl.pathname.split("/").slice(-1)[0]; //
     const playerTag = player.replace("%23", "#");
-    const gameMode = 4;
-    const gateway = 20;
 
-    const season = 12;
     try {
       var url = new URL(
         "https://website-backend.w3champions.com/api/matches/ongoing"
@@ -138,11 +131,11 @@ class PlayerStream extends Component {
           `https://website-backend.w3champions.com/api/matches/search?playerId=${player}&gateway=20&offset=${offset}&pageSize=200&season=${season}&gameMode=4`
         );
         var params = {
-          gateway: 20,
+          gateway,
           season,
           playerId: playerTag,
           pageSize: 20,
-          gameMode: 4,
+          gameMode,
         };
         url.search = new URLSearchParams(params).toString();
         var response = await fetch(url);
