@@ -19,6 +19,7 @@ class Player extends Component {
   state = {
     race: this.props.data.race,
     sparklinePlayersData: [],
+    attemptedAPI: false,
   };
 
   componentDidMount() {
@@ -26,17 +27,8 @@ class Player extends Component {
   }
 
   loadData = async () => {
-    // const pageUrl = new URL(window.location.href);
     const player = this.props.data.battleTag.replace("#", "%23");
     try {
-      // var url = new URL(
-      //   `https://website-backend.w3champions.com/api/players/${player}`
-      // );
-      // var response = await fetch(url);
-      // var result = await response.json();
-      // const race = result.winLosses.sort((a, b) => b.games - a.games)[0].race;
-      // this.setState({ ...result, race });
-
       var url = new URL(
         `https://website-backend.w3champions.com/api/personal-settings/${player}`
       );
@@ -82,18 +74,21 @@ class Player extends Component {
       if ("mmrRpAtDates" in result) {
         const thisSeasonMMrs = result.mmrRpAtDates.map((d) => d.mmr);
         sparklinePlayersData = [...sparklinePlayersData, ...thisSeasonMMrs];
-        this.setState({ sparklinePlayersData });
+        this.setState({ sparklinePlayersData, attemptedAPI: true });
       }
     } catch (e) {
-      console.log(e);
+      console.log("cannot fetch data for a player", player, e);
+      this.setState({ attemptedAPI: true });
     }
+    this.props.noteApiAttempted(player);
   };
 
   render() {
     let { race, oldMmr, name, location, battleTag } = this.props.data;
+    let { side, transition, allMmrsgathered } = this.props;
+
     let aka = akaLookup(name);
     let sparklinePlayersData = this.state.sparklinePlayersData;
-    // console.log("render, sparklinePlayersData", sparklinePlayersData);
     sparklinePlayersData = sparklinePlayersData || {};
     let rank = this.props.rank || [];
     if (rank.length > 0) {
@@ -117,7 +112,6 @@ class Player extends Component {
         1: human,
       };
       const raceIcon = raceMapping[race];
-      // const iconStyle = { width: "5px", height: "5px" };
 
       const PlayerMmrStatistic = () => {
         if (
@@ -131,9 +125,16 @@ class Player extends Component {
               style={{ width: "70px", height: "12px" }}
             >
               <SparklinesLine
-                style={{ strokeWidth: 5, stroke: "white", fill: "none" }}
+                style={{ strokeWidth: 4, stroke: "white", fill: "none" }}
               />
-              {/* <SparklinesSpots size={10}/> */}
+              {/* <SparklinesSpots
+                size={12}
+                spotColors={{
+                  "-1": "white",
+                  // 0: "black",
+                  // 1: "#e18937",
+                }}
+              /> */}
             </Sparklines>
           );
         } else {
@@ -142,8 +143,8 @@ class Player extends Component {
       };
 
       const LeftSlot = () => {
-        if (this.props.side === "left") {
-          if (this.props.transition) {
+        if (side === "left") {
+          if (transition === true) {
             return <p className="number">{rank ? `#${rank}` : ""}</p>;
           } else {
             return <Flag name={countryCode}></Flag>;
@@ -154,8 +155,8 @@ class Player extends Component {
       };
 
       const RightSlot = () => {
-        if (this.props.side === "right") {
-          if (this.props.transition) {
+        if (side === "right") {
+          if (transition === true) {
             return <p className="number">{rank ? `#${rank}` : ""}</p>;
           } else {
             return <Flag name={countryCode}></Flag>;
@@ -167,7 +168,7 @@ class Player extends Component {
 
       const Name = () => {
         if (aka !== null) {
-          if (this.props.transition) {
+          if (transition === true) {
             return name;
           } else {
             return aka;
@@ -185,7 +186,7 @@ class Player extends Component {
                 target="_blank"
                 href={`/player/${battleTag.replace("#", "%23")}`}
                 rel="noreferrer"
-                className={aka ? "playerMMrstat" : ""}
+                className={aka & (transition === true) ? "playerMMrstat" : ""}
               >
                 <Name></Name>
               </a>
@@ -196,23 +197,30 @@ class Player extends Component {
             <Grid.Column
               width={4}
               className={
-                this.props.side === "left" ? "playerMMrstat number" : "number"
+                (side === "left") & allMmrsgathered
+                  ? "playerMMrstat number"
+                  : "number"
               }
             >
               <LeftSlot />
             </Grid.Column>
-            <Grid.Column width={8} className="playerMMrstat">
+            <Grid.Column
+              width={8}
+              className={allMmrsgathered ? "playerMMrstat" : ""}
+            >
               <PlayerMmrStatistic />
             </Grid.Column>
             <Grid.Column
               width={4}
               className={
-                this.props.side === "right" ? "playerMMrstat number" : "number"
+                (side === "right") & allMmrsgathered
+                  ? "playerMMrstat number"
+                  : "number"
               }
             >
               <RightSlot />
 
-              {/* {this.props.side === "left" ? <img src={raceIcon} alt={race} className={"race"} /> : <Flag name={countryCode}></Flag>} */}
+              {/* {side === "left" ? <img src={raceIcon} alt={race} className={"race"} /> : <Flag name={countryCode}></Flag>} */}
               {/* <img src={raceIcon} alt={race} className={"race"} /> */}
             </Grid.Column>
           </Grid.Row>
@@ -235,7 +243,7 @@ class Player extends Component {
 
           <Grid.Row columns={3} className={"playerBottom"}>
             <Grid.Column width={4}>
-              {this.props.side === "left" ? (
+              {side === "left" ? (
                 <Flag name={"ie"} style={{ opacity: 0 }}></Flag>
               ) : (
                 <img
@@ -257,7 +265,7 @@ class Player extends Component {
               </Sparklines>
             </Grid.Column>
             <Grid.Column width={4}>
-              {/* {this.props.side === "left" ? <img src={raceIcon} alt={race} className={"race"} /> : <Flag name={countryCode}></Flag>} */}
+              {/* {side === "left" ? <img src={raceIcon} alt={race} className={"race"} /> : <Flag name={countryCode}></Flag>} */}
               {/* <img src={raceIcon} alt={race} className={"race"} /> */}
             </Grid.Column>
           </Grid.Row>

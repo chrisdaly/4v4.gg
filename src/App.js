@@ -16,24 +16,17 @@ class App extends Component {
     QUEUED_PLAYER_COUNT: [],
     queue: [],
     matches: [],
-    transition: false,
     ladderRanks: [],
   };
 
   componentDidMount() {
     this.loadData();
     let intervalId = setInterval(this.loadData, 30000);
-    let transitionId = setInterval(
-      () => this.setState({ transition: !this.state.transition }),
-      10000
-    );
-
-    this.setState({ intervalId, transitionId });
+    this.setState({ intervalId });
   }
 
   componentWillUnmount() {
     clearInterval(this.state.intervalId);
-    clearInterval(this.state.transitionId);
   }
 
   loadData = async () => {
@@ -73,8 +66,6 @@ class App extends Component {
       const pageUrl = new URL(window.location.href);
       const searchParams = new URLSearchParams(pageUrl.search);
       const queryParams = Object.fromEntries(searchParams);
-      console.log("queryParams", queryParams);
-
       if (queryParams.player !== undefined) {
       }
 
@@ -106,7 +97,6 @@ class App extends Component {
                 <Match
                   match={matches[key]}
                   key={matches[key].id}
-                  transition={this.state.transition}
                   ladderRanks={ladderRanks}
                 />
                 <Divider />

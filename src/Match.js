@@ -17,7 +17,16 @@ class Match extends Component {
     isChecked: false,
     intervalId: null,
     ongoing: true,
+    mmrsGathered: [],
+    allMmrsgathered: false,
+    transitionId: null,
+    transition: false,
   };
+
+  componentWillUnmount() {
+    clearInterval(this.state.intervalId);
+    clearInterval(this.state.transitionId);
+  }
 
   toggleChange = () => {
     this.setState({
@@ -31,9 +40,20 @@ class Match extends Component {
     }
   };
 
-  componentWillUnmount() {
-    clearInterval(this.state.intervalId);
-  }
+  noteApiAttempted = (id) => {
+    let mmrsGathered = [...this.state.mmrsGathered, id];
+    let allMmrsgathered = this.state.allMmrsgathered;
+    let transitionId = this.state.transitionId;
+    if (mmrsGathered.length === 8) {
+      // console.log("ALL MMRS GATHERED, STARTING TRANSITION COUNTERS");
+      allMmrsgathered = true;
+      transitionId = setInterval(
+        () => this.setState({ transition: !this.state.transition }),
+        10000
+      );
+    }
+    this.setState({ mmrsGathered, allMmrsgathered, transitionId });
+  };
 
   getGameData = async () => {
     if (!this.state.ongoing) {
@@ -174,9 +194,12 @@ class Match extends Component {
                 teamAverage={teamOne.teamAverage}
                 teamDeviation={teamOne.teamDeviation}
                 side="left"
-                transition={this.props.transition}
+                transition={this.state.transition}
                 sparklinePlayersData={this.props.sparklinePlayersData}
                 ladderRanks={this.props.ladderRanks}
+                noteApiAttempted={this.noteApiAttempted}
+                transitionId={this.state.transitionId}
+                allMmrsgathered={this.state.allMmrsgathered}
               ></Team>
             </Grid.Column>
             <Grid.Column width={4}>
@@ -189,9 +212,12 @@ class Match extends Component {
                 teamAverage={teamTwo.teamAverage}
                 teamDeviation={teamTwo.teamDeviation}
                 side="right"
-                transition={this.props.transition}
+                transition={this.state.transition}
                 sparklinePlayersData={this.props.sparklinePlayersData}
                 ladderRanks={this.props.ladderRanks}
+                noteApiAttempted={this.noteApiAttempted}
+                transitionId={this.state.transitionId}
+                allMmrsgathered={this.state.allMmrsgathered}
               ></Team>
             </Grid.Column>
           </Grid.Row>

@@ -18,7 +18,6 @@ class PlayerStream extends Component {
     matches: [],
     isLoaded: false,
     ongoingGame: {},
-    transition: true,
     sparklinePlayersData: {},
     race: 0,
     gameModeStats: [],
@@ -29,16 +28,10 @@ class PlayerStream extends Component {
     this.loadInitData();
     this.loadNewData();
     let intervalId = setInterval(this.loadNewData, 30000);
-    let transitionId = setInterval(
-      () => this.setState({ transition: !this.state.transition }),
-      10000
-    );
-    this.setState({ intervalId, transitionId });
   }
 
   componentWillUnmount() {
     clearInterval(this.state.intervalId);
-    clearInterval(this.state.transitionId);
   }
 
   loadInitData = async () => {
@@ -259,7 +252,6 @@ class PlayerStream extends Component {
                 ladderRanks={ladderRanks}
                 battleTag={this.state.battleTag}
                 key={this.state.ongoingGame.id}
-                transition={this.state.transition}
                 sparklinePlayersData={this.state.sparklinePlayersData}
               ></Match>
             ) : (

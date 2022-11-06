@@ -436,6 +436,8 @@ span.true {
   -ms-animation: fadeinout ease 10s infinite; /* Internet Explorer */
   -o-animation: fadeinout ease 10s infinite; /* Opera < 12.1 */
   animation: fadeinout ease 10s infinite;
+  /* color: red;
+  background: red; */
 }
 
 @keyframes fadeinout {

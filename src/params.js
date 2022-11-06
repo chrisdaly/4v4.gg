@@ -3,7 +3,7 @@ export const gateway = 20;
 export const season = 13;
 
 export const maps = {
-  // S13PAINTEDWORLD: "Painted World",
+  s13TwilightRuinsLV: "Twilight Ruins",
   s13Ferocityv1_2: "Ferocity",
   s13WellspringTemplev1_2: "Wellspring Temple",
   s13EkrezemsMazev1_1: "Ekrezems Maze",
@@ -15,4 +15,6 @@ export const maps = {
   s13NerubianPassage: "Nerubian Passage",
   s13PaintedWorld: "Painted World",
   s13Nightopia: "Nightopia",
+  s13_1IndigoKeeperv1_1: "Indigo Keeper",
+  s13DeadlockLV: "Deadlock",
 };

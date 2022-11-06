@@ -39,6 +39,8 @@ class Team extends Component {
                 ? sparklinePlayersData[team.players[key].battleTag]
                 : []
             }
+            noteApiAttempted={this.props.noteApiAttempted}
+            allMmrsgathered={this.props.allMmrsgathered}
           ></Player>
         ))}
       </div>

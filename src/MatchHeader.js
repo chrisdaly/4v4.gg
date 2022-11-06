@@ -41,16 +41,6 @@ class MatchHeader extends Component {
       TwilightRuinsLV: TwilightRuinsLV,
     };
 
-    // function findPlayerMmrAfterMatch(playerId, match) {
-    //   for (let team of match["teams"]) {
-    //     for (let d of team["players"]) {
-    //       if (d["battleTag"] === playerId) {
-    //         return d["currentMmr"];
-    //       }
-    //     }
-    //   }
-    // }
-
     const leagueIcon = badgeMapping[this.props.league];
     const mapIcon = mapMapping[this.props.map];
     const map = maps.hasOwnProperty(this.props.map)
@@ -59,8 +49,6 @@ class MatchHeader extends Component {
     let text = "";
 
     const startDate = this.props.startDate;
-    // console.log("startDate", startDate);
-
     if (this.props.ongoing) {
       if (startDate !== null) {
         let end = Date.now();
