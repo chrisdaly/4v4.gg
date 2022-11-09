@@ -37,25 +37,32 @@ class Ladder extends Component {
       return (
         <Container>
           <Navbar />
-          <Table inverted size="small">
-            <Table.Header>
-              <Table.Row>
-                <Table.HeaderCell singleLine>Rank</Table.HeaderCell>
-                <Table.HeaderCell>Player</Table.HeaderCell>
-                <Table.HeaderCell>RP</Table.HeaderCell>
-                <Table.HeaderCell>MMR</Table.HeaderCell>
-                <Table.HeaderCell>Wins</Table.HeaderCell>
-                <Table.HeaderCell>Losses</Table.HeaderCell>
-                <Table.HeaderCell>Winrate</Table.HeaderCell>
-              </Table.Row>
-            </Table.Header>
+          <div className={"tableContainer"}>
+            <Table inverted size="small" compact>
+              <Table.Header>
+                <Table.Row>
+                  <Table.HeaderCell singleLine>Rank</Table.HeaderCell>
+                  <Table.HeaderCell>LVL</Table.HeaderCell>
+                  <Table.HeaderCell>Race</Table.HeaderCell>
+                  <Table.HeaderCell>Player</Table.HeaderCell>
+                  <Table.HeaderCell>MMR</Table.HeaderCell>
+                  <Table.HeaderCell>Wins</Table.HeaderCell>
+                  <Table.HeaderCell>Losses</Table.HeaderCell>
+                  <Table.HeaderCell>Winrate</Table.HeaderCell>
+                  <Table.HeaderCell>Form</Table.HeaderCell>
+                </Table.Row>
+              </Table.Header>
 
-            <Table.Body>
-              {Object.keys(rankings).map((key) => (
-                <RankRow rank={rankings[key]} key={rankings[key].id}></RankRow>
-              ))}
-            </Table.Body>
-          </Table>
+              <Table.Body>
+                {Object.keys(rankings).map((key) => (
+                  <RankRow
+                    rank={rankings[key]}
+                    key={rankings[key].id}
+                  ></RankRow>
+                ))}
+              </Table.Body>
+            </Table>
+          </div>
         </Container>
       );
     } else {
@@ -65,11 +72,6 @@ class Ladder extends Component {
         </Container>
       );
     }
-
-    //   <Container>
-
-    // <p>test</p>
-    //   </Container>
   }
 }
 

@@ -1,5 +1,12 @@
 import React, { Component } from "react";
-import { Container, Grid, Statistic, Divider, Dimmer, Loader } from "semantic-ui-react";
+import {
+  Container,
+  Grid,
+  Statistic,
+  Divider,
+  Dimmer,
+  Loader,
+} from "semantic-ui-react";
 
 import Navbar from "./Navbar.js";
 import Player from "./Player.js";
@@ -22,11 +29,6 @@ class Queue extends Component {
     isLoaded: false,
   };
 
-  //   socket.onmessage = (event) => {
-  //     const msg = JSON.parse(event.data);
-  //     const type = msg.type;
-  //     const data = msg.data;
-
   componentDidMount() {
     this.loadData();
     let intervalId = setInterval(this.loadData, 30000);
@@ -39,13 +41,24 @@ class Queue extends Component {
   }
 
   loadData = async () => {
-    fetch("https://website-backend.w3champions.com/api/matches?offset=0&gateway=20&pageSize=50&gameMode=4&map=Overall")
+    fetch(
+      "https://website-backend.w3champions.com/api/matches?offset=0&gateway=20&pageSize=50&gameMode=4&map=Overall"
+    )
       .then((response) => response.json())
       .then(
         (result) => {
-          result.matches.forEach((d) => (d["timePassedSinceMatch"] = (Date.now() - new Date(d.endTime)) / (60 * 1000)));
+          result.matches.forEach(
+            (d) =>
+              (d["timePassedSinceMatch"] =
+                (Date.now() - new Date(d.endTime)) / (60 * 1000))
+          );
           // console.log("MATCHES", result.matches);
-          const recentMatches = result.matches.filter((d) => d["timePassedSinceMatch"] <= timeCuttoffForRecent);
+          const recentMatches = result.matches.filter(
+            (d) => d["timePassedSinceMatch"] <= timeCuttoffForRecent
+          );
+
+          console.log("recentMatches", recentMatches);
+
           let playerPoolRecent = [];
           recentMatches.forEach((d) =>
             d.teams.forEach((team) =>
@@ -57,13 +70,26 @@ class Queue extends Component {
               })
             )
           );
+
           // playerPoolRecent = [...this.state.playerPool, ...playerPoolRecent];
-          playerPoolRecent = [...new Map(playerPoolRecent.map((item) => [item["battleTag"], item])).values()];
-          let playersPlaying = this.state.playerPoolPlaying.map((d) => d["battleTag"]);
-          playerPoolRecent = playerPoolRecent.filter((d) => !playersPlaying.includes(d["battleTag"]));
+          playerPoolRecent = [
+            ...new Map(
+              playerPoolRecent.map((item) => [item["battleTag"], item])
+            ).values(),
+          ];
+          let playersPlaying = this.state.playerPoolPlaying.map(
+            (d) => d["battleTag"]
+          );
+          playerPoolRecent = playerPoolRecent.filter(
+            (d) => !playersPlaying.includes(d["battleTag"])
+          );
           // playerPoolRecent = playerPoolRecent.filter((x) => this.state.playerPoolPlaying.map((d) => d["battleTag"].includes(x.id)));
           playerPoolRecent.sort((a, b) => b.currentMmr - a.currentMmr);
-          this.setState({ recentMatches, playerPoolRecent: playerPoolRecent, isLoaded: true });
+          this.setState({
+            recentMatches,
+            playerPoolRecent: playerPoolRecent,
+            isLoaded: true,
+          });
         },
         (error) => {
           this.setState({
@@ -77,7 +103,9 @@ class Queue extends Component {
       .then((response) => response.json())
       .then(
         (result) => {
-          const relevantMatches = result.matches ? result.matches.filter((d) => d.gateWay === 20 && d.gameMode === 4) : [];
+          const relevantMatches = result.matches
+            ? result.matches.filter((d) => d.gateWay === 20 && d.gameMode === 4)
+            : [];
           let playerPoolPlaying = [];
           relevantMatches.forEach((d) =>
             d.teams.forEach((team) =>
@@ -88,7 +116,11 @@ class Queue extends Component {
             )
           );
           playerPoolPlaying = [...this.state.playerPool, ...playerPoolPlaying];
-          playerPoolPlaying = [...new Map(playerPoolPlaying.map((item) => [item["battleTag"], item])).values()];
+          playerPoolPlaying = [
+            ...new Map(
+              playerPoolPlaying.map((item) => [item["battleTag"], item])
+            ).values(),
+          ];
           playerPoolPlaying.sort((a, b) => b.oldMmr - a.oldMmr);
           console.log("relevantMatches", relevantMatches);
           this.setState({
@@ -117,7 +149,18 @@ class Queue extends Component {
   //   }
 
   render() {
-    const queueDict = this.state.QUEUED_PLAYER_COUNT ? this.state.QUEUED_PLAYER_COUNT.filter((d) => d.gateway === 20 && d.gameMode === 4)[0] : {};
+    // socket.onmessage = (event) => {
+    //   const msg = JSON.parse(event.data);
+    //   const type = msg.type;
+    //   const data = msg.data;
+    //   console.log(msg, type, data);
+    // };
+
+    const queueDict = this.state.QUEUED_PLAYER_COUNT
+      ? this.state.QUEUED_PLAYER_COUNT.filter(
+          (d) => d.gateway === 20 && d.gameMode === 4
+        )[0]
+      : {};
     const numQueued = queueDict ? queueDict.count : 0;
     const playerPoolPlaying = this.state.playerPoolPlaying;
     const playerPoolRecent = this.state.playerPoolRecent;
@@ -131,22 +174,35 @@ class Queue extends Component {
             <Grid.Row columns={3}>
               <Grid.Column width={6}>
                 <Statistic inverted>
-                  <Statistic.Value>{this.state.playerPoolPlaying.length}</Statistic.Value>
+                  <Statistic.Value>
+                    {this.state.playerPoolPlaying.length}
+                  </Statistic.Value>
                   <Statistic.Label>Currently Playing</Statistic.Label>
                 </Statistic>
                 {Object.keys(playerPoolPlaying).map((key) => (
-                  <Player key={playerPoolPlaying[key].name} data={playerPoolPlaying[key]}></Player>
+                  <Player
+                    key={playerPoolPlaying[key].name}
+                    data={playerPoolPlaying[key]}
+                    noteApiAttempted={function () {
+                      return;
+                    }}
+                  ></Player>
                 ))}
               </Grid.Column>
               <Grid.Column width={2} />
               <Grid.Column width={6}>
                 <Statistic inverted>
-                  <Statistic.Value>{this.state.playerPoolRecent.length}</Statistic.Value>
+                  <Statistic.Value>
+                    {this.state.playerPoolRecent.length}
+                  </Statistic.Value>
                   <Statistic.Label>Recently Finished</Statistic.Label>
                 </Statistic>
                 {/* <TeamHeader teamNum={1000} teamMmr={2000} won={true}></TeamHeader> */}
                 {Object.keys(playerPoolRecent).map((key) => (
-                  <Player key={playerPoolRecent[key].name} data={playerPoolRecent[key]}></Player>
+                  <Player
+                    key={playerPoolRecent[key].name}
+                    data={playerPoolRecent[key]}
+                  ></Player>
                 ))}
               </Grid.Column>
             </Grid.Row>

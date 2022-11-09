@@ -243,8 +243,8 @@ svg#svg_logo {
 }
 
 .navbar {
-  margin-left: -1rem;
-  margin-right: -1rem;
+  margin-left: -10rem;
+  margin-right: -10rem;
   position: sticky;
   top: 0;
   background-color: #323437;
@@ -604,4 +604,9 @@ img.race {
 p.mapLabel {
   margin-left: -20px;
   margin-right: -20px;
+}
+
+.tableContainer {
+  display: flex;
+  justify-content: center;
 }

@@ -28,6 +28,7 @@ class Player extends Component {
 
   loadData = async () => {
     const player = this.props.data.battleTag.replace("#", "%23");
+
     try {
       var url = new URL(
         `https://website-backend.w3champions.com/api/personal-settings/${player}`
