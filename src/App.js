@@ -1,4 +1,4 @@
-import React, { Component } from "react";
+import React, { useState, useEffect } from "react";
 import { Container, Grid, Dimmer, Loader, Divider } from "semantic-ui-react";
 
 import Match from "./Match.js";
@@ -11,82 +11,72 @@ import "./App.css";
 
 import { gameMode, gateway, season } from "./params";
 
-class App extends Component {
-  state = {
-    QUEUED_PLAYER_COUNT: [],
-    queue: [],
-    matches: [],
-    ladderRanks: [],
-  };
+const App = () => {
+  const [matches, setMatches] = useState([]);
+  const [ladderRanks, setLadderRanks] = useState([]);
 
-  componentDidMount() {
-    this.loadData();
-    let intervalId = setInterval(this.loadData, 30000);
-    this.setState({ intervalId });
-  }
+  useEffect(() => {
+    const loadData = async () => {
+      try {
+        var url = new URL(
+          "https://website-backend.w3champions.com/api/matches/ongoing"
+        );
+        var params = {
+          offset: 0,
+          gateway,
+          pageSize: 50,
+          gameMode,
+          map: "Overall",
+        };
+        url.search = new URLSearchParams(params).toString();
 
-  componentWillUnmount() {
-    clearInterval(this.state.intervalId);
-  }
+        var response = await fetch(url);
+        var result = await response.json();
+        let matches = result.matches;
 
-  loadData = async () => {
-    try {
-      var url = new URL(
-        "https://website-backend.w3champions.com/api/matches/ongoing"
-      );
-      var params = {
-        offset: 0,
-        gateway,
-        pageSize: 50,
-        gameMode,
-        map: "Overall",
-      };
-      url.search = new URLSearchParams(params).toString();
+        matches.forEach((m) => {
+          let matchMmr = 0;
+          m.teams.forEach((t) => {
+            let playerMmrs = t.players.map((d) => d.oldMmr);
+            let teamAverage = arithmeticMean(playerMmrs);
+            let teamDeviation = standardDeviation(playerMmrs);
+            t.teamAverage = teamAverage;
+            t.teamDeviation = teamDeviation;
+            matchMmr += teamAverage;
+          });
 
-      var response = await fetch(url);
-      var result = await response.json();
-      let matches = result.matches;
-
-      matches.forEach((m) => {
-        let matchMmr = 0;
-        m.teams.forEach((t) => {
-          let playerMmrs = t.players.map((d) => d.oldMmr);
-          let teamAverage = arithmeticMean(playerMmrs);
-          let teamDeviation = standardDeviation(playerMmrs);
-          t.teamAverage = teamAverage;
-          t.teamDeviation = teamDeviation;
-          matchMmr += teamAverage;
+          m.matchMmr = Math.round(matchMmr / 2);
         });
 
-        m.matchMmr = Math.round(matchMmr / 2);
-      });
+        matches.sort((a, b) => b.matchMmr - a.matchMmr);
 
-      matches.sort((a, b) => b.matchMmr - a.matchMmr);
+        const pageUrl = new URL(window.location.href);
+        const searchParams = new URLSearchParams(pageUrl.search);
+        const queryParams = Object.fromEntries(searchParams);
+        if (queryParams.player !== undefined) {
+        }
 
-      const pageUrl = new URL(window.location.href);
-      const searchParams = new URLSearchParams(pageUrl.search);
-      const queryParams = Object.fromEntries(searchParams);
-      if (queryParams.player !== undefined) {
+        setMatches(matches);
+
+        var url = new URL("https://website-backend.w3champions.com/api/ladder/0");
+        var params = { gateway, season, gameMode };
+        url.search = new URLSearchParams(params).toString();
+
+        var response = await fetch(url);
+        var result = await response.json();
+        setLadderRanks(result.slice(0, 20));
+      } catch (e) {
+        console.log(e);
       }
+    };
+    loadData();
+    let intervalId = setInterval(loadData, 30000);
+    return () => clearInterval(intervalId);
+  }, []);
 
-      this.setState({ matches });
-
-      var url = new URL("https://website-backend.w3champions.com/api/ladder/0");
-      var params = { gateway, season, gameMode };
-      url.search = new URLSearchParams(params).toString();
-
-      var response = await fetch(url);
-      var result = await response.json();
-      this.setState({ ladderRanks: result.slice(0, 20) });
-    } catch (e) {
-      console.log(e);
-    }
-  };
-
-  render() {
-    const { matches, ladderRanks } = this.state;
-    if (matches.length > 0 && ladderRanks.length > 0) {
-      return (
+  if (matches.length > 0 && ladderRanks.length > 0) {
+    return (
+      
         <Container>
           <>
             <Navbar />
@@ -120,7 +110,7 @@ class App extends Component {
       );
     }
   }
-}
+
 
 export default App;
 // npm run dev

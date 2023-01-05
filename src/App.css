@@ -80,6 +80,12 @@ html {
 }
 
 @font-face {
+  font-family: "Roboto-Bold";
+  src: local("Roboto-Bold"), url(./fonts/Roboto-Bold.ttf) format("truetype");
+}
+
+
+@font-face {
   font-family: "Inconsolata";
   src: local("Inconsolata"),
     url(./fonts/Inconsolata-Medium.ttf) format("truetype");
@@ -97,13 +103,6 @@ html {
   src: local("Roboto"), url(./fonts/RobotoMono-Medium.ttf) format("truetype");
 }
 
-@font-face {
-  font-family: "friz-quadrata";
-  font-weight: 900;
-  src: local("friz-quadrata-std-medium-5870338ec7ef8"),
-    url(./fonts/friz-quadrata-std-medium-5870338ec7ef8.otf);
-}
-
 body,
 .ui.segment,
 .ui.vertically.divided.grid {
@@ -119,10 +118,6 @@ body,
 .ui.vertically.divided.grid.team-header.team-1 {
   background-color: #266793;
   /* outline: 0.5px solid #266793; */
-}
-
-.column.playerName {
-  font-weight: bold;
 }
 
 .playerCard,
@@ -609,4 +604,24 @@ p.mapLabel {
 .tableContainer {
   display: flex;
   justify-content: center;
+}
+
+.ui.vertically.divided.grid.team-header {
+  border-top-left-radius: 7px;
+  border-top-right-radius: 7px;
+}
+
+.ui.vertically.divided.grid.playerCard:nth-of-type(5) {
+  border-bottom-left-radius: 7px;
+  border-bottom-right-radius: 7px;
+}
+
+.playerName {
+  font-family: "Roboto Bold";
+  font-size: 1.15rem !important;
+  font-weight: 800;
+}
+
+.number {
+  /* font-size: 1.15rem !important; */
 }

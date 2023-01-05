@@ -201,7 +201,6 @@ class MatchPage extends Component {
     } else {
       return (
         <Container>
-          <Toaster />
           <Navbar />
           <Grid columns={3}>
             <Grid.Row columns={3}>
@@ -209,7 +208,7 @@ class MatchPage extends Component {
               <Dimmer active>
                 <Loader />
               </Dimmer>
-              <Toaster
+              {/* <Toaster
                 containerStyle={{
                   top: 400,
                   left: 20,
@@ -225,7 +224,7 @@ class MatchPage extends Component {
                     color: "black",
                   },
                 }}
-              />
+              /> */}
             </Grid.Row>
           </Grid>
         </Container>

@@ -150,7 +150,7 @@ class Match extends Component {
 
     return (
       <div className="match">
-        <Toaster
+        {/* <Toaster
           containerStyle={{
             top: 400,
             left: 20,
@@ -166,7 +166,7 @@ class Match extends Component {
               color: "black",
             },
           }}
-        />
+        /> */}
 
         <Grid columns={3}>
           <Grid.Column />
@@ -221,7 +221,7 @@ class Match extends Component {
               ></Team>
             </Grid.Column>
           </Grid.Row>
-          <div
+          {/* <div
             className={"checkboxDiv"}
             style={{ margin: "auto", paddingTop: "10px" }}
           >
@@ -231,7 +231,7 @@ class Match extends Component {
               defaultChecked={this.state.isChecked}
               onChange={this.toggleChange}
             />
-          </div>
+          </div> */}
         </Grid>
       </div>
     );

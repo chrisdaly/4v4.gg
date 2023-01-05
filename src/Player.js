@@ -228,9 +228,6 @@ class Player extends Component {
               }
             >
               <RightSlot />
-
-              {/* {side === "left" ? <img src={raceIcon} alt={race} className={"race"} /> : <Flag name={countryCode}></Flag>} */}
-              {/* <img src={raceIcon} alt={race} className={"race"} /> */}
             </Grid.Column>
           </Grid.Row>
         </Grid>
@@ -273,10 +270,7 @@ class Player extends Component {
                 />
               </Sparklines>
             </Grid.Column>
-            <Grid.Column width={4}>
-              {/* {side === "left" ? <img src={raceIcon} alt={race} className={"race"} /> : <Flag name={countryCode}></Flag>} */}
-              {/* <img src={raceIcon} alt={race} className={"race"} /> */}
-            </Grid.Column>
+            <Grid.Column width={4}></Grid.Column>
           </Grid.Row>
         </Grid>
       );
