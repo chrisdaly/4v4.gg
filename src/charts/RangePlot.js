@@ -1,6 +1,7 @@
 import * as d3 from "d3";
 
 function RangePlot(id, data) {
+  console.log(data);
   const {
     teamOneMmrs,
     teamOneAverageMmr,
