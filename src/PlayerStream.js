@@ -121,7 +121,7 @@ class PlayerStream extends Component {
         let offset = 0;
 
         var url = new URL(
-          `https://website-backend.w3champions.com/api/matches/search?playerId=${player}&gateway=20&offset=${offset}&pageSize=200&season=${season}&gameMode=4`
+          `https://website-backend.w3champions.com/api/matches/search?playerId=${player}&gateway=20&offset=${offset}&pageSize=200&season=${season}&gameMode=${gameMode}`
         );
         var params = {
           gateway,
@@ -133,14 +133,16 @@ class PlayerStream extends Component {
         url.search = new URLSearchParams(params).toString();
         var response = await fetch(url);
         var result = await response.json();
-        // console.log("matches", result);
-        let matches = [...this.state.matches, result.matches[0]];
+        console.log("result", result);
+        if (result.matches.length > 0) {
+          let matches = [...this.state.matches, result.matches[0]];
 
-        if (Object.keys(ongoingGame).length === 0) {
-          ongoingGame = matches[0];
+          if (Object.keys(ongoingGame).length === 0) {
+            ongoingGame = matches[0];
+          }
+          console.log("MATCHES", matches);
+          this.setState({ matches: matches, ongoingGame, isLoaded: true });
         }
-        console.log("MATCHES", matches);
-        this.setState({ matches: matches, ongoingGame, isLoaded: true });
       }
     } catch (e) {
       console.log(e);
@@ -181,19 +183,45 @@ class PlayerStream extends Component {
 
       // let numIcon = profilePicture.pictureId;
       // let raceIcon = profilePicture.race;
-      let matches = getUniqueListBy(this.state.matches, "id");
-      matches.forEach((m) => {
-        let matchMmr = 0;
-        m.teams.forEach((t) => {
-          let playerMmrs = t.players.map((d) => d.oldMmr);
-          let teamAverage = arithmeticMean(playerMmrs);
-          let teamDeviation = standardDeviation(playerMmrs);
-          t.teamAverage = teamAverage;
-          t.teamDeviation = teamDeviation;
+      console.log("THIS.STATE.MATCHES", this.state.matches);
+      if (this.state.matches.length > 0) {
+        let matches = getUniqueListBy(this.state.matches, "id");
+        matches.forEach((m) => {
+          let matchMmr = 0;
+          m.teams.forEach((t) => {
+            let playerMmrs = t.players.map((d) => d.oldMmr);
+            let teamAverage = arithmeticMean(playerMmrs);
+            let teamDeviation = standardDeviation(playerMmrs);
+            t.teamAverage = teamAverage;
+            t.teamDeviation = teamDeviation;
+          });
+
+          m.matchMmr = Math.round(matchMmr / 2);
         });
 
-        m.matchMmr = Math.round(matchMmr / 2);
-      });
+        let playerCardData = {};
+        matches[0].teams.forEach((t) => {
+          let players = t.players.map((p) => p.battleTag);
+          if (players.includes(this.state.battleTag)) {
+            playerCardData = t.players.filter(
+              (d) => d.battleTag === this.state.battleTag
+            )[0];
+          }
+        });
+
+        let lastTenMatches = matches
+          .filter((m) => m.durationInSeconds > 0)
+          .slice(0, 10)
+          .reverse();
+
+        let lastTenResults = lastTenMatches.map((m) => {
+          let t = m.teams[0];
+          let players = t.players.map((p) => p.battleTag);
+          let won = players.includes(this.state.battleTag) ? t.won : !t.won;
+          return won;
+        });
+      }
+
       // const profilePic = `${process.env.PUBLIC_URL}/icons/profile/${raceMapping[raceIcon]}_${numIcon}.jpg`;
 
       // let playedRace = raceMapping[raceIcon];
@@ -205,28 +233,6 @@ class PlayerStream extends Component {
       // let winrate = Math.round(gameModeStats.winrate * 10000) / 100;
       // let leagueId = gameModeStats.leagueId;
       // let leagueBadge = badgeMapping[leagueId];
-
-      let playerCardData = {};
-      matches[0].teams.forEach((t) => {
-        let players = t.players.map((p) => p.battleTag);
-        if (players.includes(this.state.battleTag)) {
-          playerCardData = t.players.filter(
-            (d) => d.battleTag === this.state.battleTag
-          )[0];
-        }
-      });
-
-      let lastTenMatches = matches
-        .filter((m) => m.durationInSeconds > 0)
-        .slice(0, 10)
-        .reverse();
-
-      let lastTenResults = lastTenMatches.map((m) => {
-        let t = m.teams[0];
-        let players = t.players.map((p) => p.battleTag);
-        let won = players.includes(this.state.battleTag) ? t.won : !t.won;
-        return won;
-      });
 
       // let sparklineData = this.state.mmrRpAtDates.map(d => )
       const { ladderRanks } = this.state;

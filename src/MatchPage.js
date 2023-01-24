@@ -6,10 +6,8 @@ import Match from "./Match.js";
 import toast, { Toaster } from "react-hot-toast";
 
 import { standardDeviation, arithmeticMean } from "./utils.js";
+import { gameMode, gateway, season } from "./params";
 
-const gameMode = 4;
-const gateway = 20;
-const season = 12;
 const pageUrl = new URL(window.location.href);
 const matchId = pageUrl.pathname.split("/").slice(-1)[0]; //
 

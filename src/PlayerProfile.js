@@ -42,7 +42,7 @@ class PlayerProfile extends Component {
     const player = pageUrl.pathname.split("/").slice(-1)[0]; //
     const playerTag = player.replace("%23", "#");
 
-    const season = 12;
+    // const season = 12;
     try {
       var url = new URL(
         `https://website-backend.w3champions.com/api/players/${player}`
