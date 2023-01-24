@@ -42,7 +42,10 @@ class RankRow extends Component {
       var response = await fetch(url);
       var result = await response.json();
       if ("mmrRpAtDates" in result) {
-        const prevSeasonMMrs = result.mmrRpAtDates.map((d) => d.mmr);
+        const prevSeasonMMrs = result.mmrRpAtDates
+          .map((d) => d.mmr)
+          .slice(1)
+          .slice(-5);
         sparklinePlayersData = [...sparklinePlayersData, ...prevSeasonMMrs];
       }
 

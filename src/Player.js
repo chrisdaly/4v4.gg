@@ -46,10 +46,11 @@ class Player extends Component {
       var result = await response.json();
       var gameModeStats = result.filter((d) => d.gameMode === 4)[0];
       this.setState({ gameModeStats });
-        
 
       let sparklinePlayersData = [];
-      var url = new URL(`https://website-backend.w3champions.com/api/players/${player}/mmr-rp-timeline`);
+      var url = new URL(
+        `https://website-backend.w3champions.com/api/players/${player}/mmr-rp-timeline`
+      );
 
       try {
         var params = {
@@ -62,14 +63,16 @@ class Player extends Component {
         var response = await fetch(url);
         var result = await response.json();
         if ("mmrRpAtDates" in result) {
-          const prevSeasonMMrs = result.mmrRpAtDates.map((d) => d.mmr);
+          const prevSeasonMMrs = result.mmrRpAtDates
+            .map((d) => d.mmr)
+            .slice(1)
+            .slice(-5);
           sparklinePlayersData = [...sparklinePlayersData, ...prevSeasonMMrs];
         }
-      
       } catch (e) {
-        console.log(e)
-        console.log(`no MMR last season for ${player}`)
-      } 
+        console.log(e);
+        console.log(`no MMR last season for ${player}`);
+      }
       try {
         var params = { gateway, season, race: this.state.race, gameMode: 4 }; //hardcodig race at the moment
         url.search = new URLSearchParams(params).toString();
@@ -80,11 +83,7 @@ class Player extends Component {
           sparklinePlayersData = [...sparklinePlayersData, ...thisSeasonMMrs];
           this.setState({ sparklinePlayersData, attemptedAPI: true });
         }
-      } catch (e) {
-
-      }
-      
-      
+      } catch (e) {}
     } catch (e) {
       console.log("cannot fetch data for a player", player, e);
       this.setState({ attemptedAPI: true });
