@@ -66,7 +66,7 @@ class Player extends Component {
           const prevSeasonMMrs = result.mmrRpAtDates
             .map((d) => d.mmr)
             .slice(1)
-            .slice(-5);
+            .slice(-20);
           sparklinePlayersData = [...sparklinePlayersData, ...prevSeasonMMrs];
         }
       } catch (e) {
