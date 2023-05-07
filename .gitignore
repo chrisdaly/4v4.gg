@@ -111,3 +111,4 @@ dist
 package-lock.json
 yarn.lock
 build/static/.DS_Store
+src/.DS_Store
