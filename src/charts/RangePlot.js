@@ -2,13 +2,7 @@ import * as d3 from "d3";
 
 function RangePlot(id, data) {
   console.log(data);
-  const {
-    teamOneMmrs,
-    teamOneAverageMmr,
-    teamTwoMmrs,
-    teamTwoAverageMmr,
-    league,
-  } = data;
+  const { teamOneMmrs, teamOneAverageMmr, teamTwoMmrs, teamTwoAverageMmr, league } = data;
   const teamSize = teamOneMmrs.length;
 
   // if (document.getElementsByClassName("ui vertically divided grid playerCard")[0] === undefined){
@@ -16,28 +10,20 @@ function RangePlot(id, data) {
   // }
 
   const padding = 10;
-  const teamHeaderHeight =
-    document.getElementsByClassName("team-header")[0].offsetHeight;
-  const cardHeight = document.getElementsByClassName(
-    "ui vertically divided grid playerCard"
-  )[0].offsetHeight;
+  const teamHeaderHeight = document.getElementsByClassName("team-header")[0].offsetHeight;
+  const cardHeight = document.getElementsByClassName("ui vertically divided grid playerCard")[0].offsetHeight;
 
   const margin = { top: 0, right: 0, bottom: padding, left: 0 };
   const width = 80;
   const height = document.getElementsByClassName("teamDiv")[0].offsetHeight; //8 + cardHeight * 4;
-  const svgHeight =
-    5 + document.getElementsByClassName("teamDiv")[0].offsetHeight; //height + teamHeaderHeight;
+  const svgHeight = 5 + document.getElementsByClassName("teamDiv")[0].offsetHeight; //height + teamHeaderHeight;
   // console.log("svgHeight", svgHeight);
   const verticalOffset = 20;
 
   let minMmr = 600; //d3.min(combinedMmrs);
-  let maxMmr = 2400; //d3.max(combinedMmrs);
+  let maxMmr = 2550; //d3.max(combinedMmrs);
 
-  const y = d3
-    .scaleLinear()
-    .domain([minMmr, maxMmr])
-    .range([height, 0])
-    .nice(0);
+  const y = d3.scaleLinear().domain([minMmr, maxMmr]).range([height, 0]).nice(0);
 
   var yAxis = d3
     .axisLeft()

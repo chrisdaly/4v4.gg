@@ -22,10 +22,7 @@ class MatchPage extends Component {
   componentDidMount() {
     this.loadInitData();
     let intervalId = setInterval(this.loadNewData, 1000);
-    let transitionId = setInterval(
-      () => this.setState({ transition: !this.state.transition }),
-      10000
-    );
+    let transitionId = setInterval(() => this.setState({ transition: !this.state.transition }), 10000);
 
     this.setState({ intervalId, transitionId });
   }
@@ -38,9 +35,7 @@ class MatchPage extends Component {
     if (this.state.ongoing === true) {
       console.log("checking update on game");
 
-      var urlLive = new URL(
-        "https://website-backend.w3champions.com/api/matches/ongoing"
-      );
+      var urlLive = new URL("https://website-backend.w3champions.com/api/matches/ongoing");
       var params = {
         offset: 0,
         gateway,
@@ -60,9 +55,7 @@ class MatchPage extends Component {
         console.log("setting false");
         this.setState({ ongoing: false });
         toast("Game finished!", { icon: "🏁" });
-        var audio = new Audio(
-          "http://commondatastorage.googleapis.com/codeskulptor-assets/week7-brrring.m4a"
-        );
+        var audio = new Audio("http://commondatastorage.googleapis.com/codeskulptor-assets/week7-brrring.m4a");
         audio.play();
       } else {
       }
@@ -70,24 +63,18 @@ class MatchPage extends Component {
   };
 
   loadInitData = async () => {
-    var audio = new Audio(
-      "http://commondatastorage.googleapis.com/codeskulptor-assets/week7-brrring.m4a"
-    );
+    var audio = new Audio("http://commondatastorage.googleapis.com/codeskulptor-assets/week7-brrring.m4a");
     audio.play();
 
     let ongoing = this.state.ongoing;
-    let url = new URL(
-      `https://website-backend.w3champions.com/api/matches/${matchId}`
-    );
+    let url = new URL(`https://website-backend.w3champions.com/api/matches/${matchId}`);
     let match = null;
 
     var response = await fetch(url);
     var result = await response.json();
 
     if (result.match === null) {
-      var urlLive = new URL(
-        "https://website-backend.w3champions.com/api/matches/ongoing"
-      );
+      var urlLive = new URL("https://website-backend.w3champions.com/api/matches/ongoing");
       ongoing = true;
       var params = {
         offset: 0,
@@ -121,7 +108,8 @@ class MatchPage extends Component {
     } else {
     }
 
-    if (match !== undefined) {
+    console.log("match", match);
+    if ((match !== undefined) & (match !== null)) {
       let matchMmr = 0;
       match.teams.forEach((t) => {
         let playerMmrs = t.players.map((d) => d.oldMmr);
@@ -134,9 +122,7 @@ class MatchPage extends Component {
 
       match.matchMmr = Math.round(matchMmr / 2);
 
-      url = new URL(
-        "https://website-backend.w3champions.com/api/ladder/0?gateWay=20&gameMode=4&season=12"
-      );
+      url = new URL(`https://website-backend.w3champions.com/api/ladder/0?gateWay=20&gameMode=4&season=${season}`);
       params = { gateway, season, gameMode };
       url.search = new URLSearchParams(params).toString();
       var response = await fetch(url);
@@ -154,11 +140,7 @@ class MatchPage extends Component {
   };
 
   render() {
-    const queueDict = this.state.QUEUED_PLAYER_COUNT
-      ? this.state.QUEUED_PLAYER_COUNT.filter(
-          (d) => d.gateway === 20 && d.gameMode === 4
-        )[0]
-      : {};
+    const queueDict = this.state.QUEUED_PLAYER_COUNT ? this.state.QUEUED_PLAYER_COUNT.filter((d) => d.gateway === 20 && d.gameMode === 4)[0] : {};
     const numQueued = queueDict ? queueDict.count : 0;
     const playerPoolPlaying = this.state.playerPoolPlaying;
     const playerPoolRecent = this.state.playerPoolRecent;
@@ -170,12 +152,7 @@ class MatchPage extends Component {
           <Navbar />
 
           <div className="matches">
-            <Match
-              match={match}
-              transition={this.state.transition}
-              ladderRanks={ladderRanks}
-              sparklinePlayersData={{}}
-            ></Match>
+            <Match match={match} transition={this.state.transition} ladderRanks={ladderRanks} sparklinePlayersData={{}}></Match>
             <Toaster
               containerStyle={{
                 top: 400,

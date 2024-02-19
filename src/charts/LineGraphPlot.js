@@ -18,7 +18,7 @@ function LineGraphPlot(id, data) {
   const verticalOffset = 15;
 
   let minMmr = 900; //d3.min(combinedMmrs);
-  let maxMmr = 2230; //d3.max(combinedMmrs);
+  let maxMmr = 2550; //d3.max(combinedMmrs);
 
   const y = d3.scaleLinear().domain([minMmr, maxMmr]).range([height, 0]).nice(0);
 

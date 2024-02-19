@@ -22,8 +22,7 @@
     "websocket": "^1.0.33"
   },
   "scripts": {
-    "dev": "react-scripts start",
-    "start": "serve --single ./build",
+    "start": "react-scripts start",
     "build": "react-scripts build",
     "test": "react-scripts test",
     "eject": "react-scripts eject"
