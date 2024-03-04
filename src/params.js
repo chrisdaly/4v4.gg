@@ -1,6 +1,6 @@
 export const gameMode = 4;
 export const gateway = 20;
-export const season = 17;
+export const season = 18;
 
 export const maps = {
 	s13TwilightRuinsLV: "Twilight Ruins",
