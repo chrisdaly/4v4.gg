@@ -24,7 +24,7 @@ const MatchDetails = ({ match, playerScores }) => {
         16: "total",
         8: "undead",
         0: "random",
-        4: "elf",
+        4: "nightelf",
         2: "orc",
         1: "human",
       };
@@ -100,6 +100,7 @@ const MatchDetails = ({ match, playerScores }) => {
       for (const team of match.teams) {
         for (const player of team.players) {
           const profilePicUrl = await getPlayerProfilePicUrl(player.battleTag);
+          console.log("profilePicUrl", profilePicUrl);
           profilePics[player.battleTag] = profilePicUrl;
         }
       }
