@@ -1,236 +1,114 @@
-import React, { Component } from "react";
+import React, { useState, useEffect } from "react";
 import { Grid, Flag } from "semantic-ui-react";
-
 import Mmr from "./Mmr.js";
-
-import { Sparklines, SparklinesLine, SparklinesSpots } from "react-sparklines";
-
+import { Sparklines, SparklinesLine } from "react-sparklines";
 import { akaLookup, raceLookup } from "./utils.js";
-
 import human from "./icons/human.png";
 import orc from "./icons/orc.png";
 import elf from "./icons/elf.png";
 import undead from "./icons/undead.png";
 import random from "./icons/random.png";
 
-import { gameMode, gateway, season } from "./params";
+const Player = ({ data, side, transition, allMmrsgathered }) => {
+  const [sparklinePlayersData, setSparklinePlayersData] = useState([]);
+  const { race, oldMmr, name, location, battleTag, countryCode } = data;
+  const aka = akaLookup(name);
+  const raceMapping = { 8: undead, 0: random, 4: elf, 2: orc, 1: human };
+  const raceIcon = raceMapping[race];
 
-class Player extends Component {
-	state = {
-		race: this.props.data.race,
-		sparklinePlayersData: [],
-		attemptedAPI: false,
-	};
+  useEffect(() => {
+    const fetchData = async () => {
+      const player = data.battleTag.replace("#", "%23");
+      const fetchURL = (url) => {
+        return fetch(url).then((response) => {
+          if (!response.ok) {
+            throw new Error("Network response was not ok");
+          }
+          return response.json();
+        });
+      };
 
-	componentDidMount() {
-		this.loadData();
-	}
+      try {
+        const url1 = new URL(`https://website-backend.w3champions.com/api/players/${player}/mmr-rp-timeline`);
+        const params1 = { gateway, season, race, gameMode: 4 };
+        url1.search = new URLSearchParams(params1).toString();
+        const result1 = await fetchURL(url1);
+        const prevSeasonMMrs = result1.mmrRpAtDates
+          .slice(1)
+          .slice(-20)
+          .map((d) => d.mmr);
+        const url2 = new URL(`https://website-backend.w3champions.com/api/players/${player}/mmr-rp-timeline`);
+        const params2 = { gateway, season, race, gameMode: 4 };
+        url2.search = new URLSearchParams(params2).toString();
+        const result2 = await fetchURL(url2);
+        const thisSeasonMMrs = result2.mmrRpAtDates.map((d) => d.mmr);
+        setSparklinePlayersData([...prevSeasonMMrs, ...thisSeasonMMrs]);
+      } catch (error) {
+        console.error("Error fetching player data:", error);
+      }
+    };
 
-	loadData = async () => {
-		const player = this.props.data.battleTag.replace("#", "%23");
+    fetchData();
+  }, [data, race]);
 
-		try {
-			var url = new URL(`https://website-backend.w3champions.com/api/personal-settings/${player}`);
-			var response = await fetch(url);
-			var result = await response.json();
-			this.setState({ ...result });
+  const PlayerMmrStatistic = () => {
+    if (transition && sparklinePlayersData && sparklinePlayersData.length > 0) {
+      return (
+        <Sparklines data={sparklinePlayersData} style={{ width: "70px", height: "12px" }}>
+          <SparklinesLine style={{ strokeWidth: 4, stroke: "white", fill: "none" }} />
+        </Sparklines>
+      );
+    } else {
+      return <Mmr data={oldMmr}></Mmr>;
+    }
+  };
 
-			var url = new URL(`https://website-backend.w3champions.com/api/players/${player}/game-mode-stats`);
-			var params = { gateway, season };
-			url.search = new URLSearchParams(params).toString();
-			var response = await fetch(url);
-			var result = await response.json();
-			var gameModeStats = result.filter((d) => d.gameMode === 4)[0];
-			this.setState({ gameModeStats });
+  const LeftSlot = () => {
+    if (side === "left") {
+      return transition ? <p className="number">{rank ? `#${rank}` : ""}</p> : <Flag name={countryCode}></Flag>;
+    } else {
+      return <img src={raceIcon} alt={race} className={"race"} />;
+    }
+  };
 
-			let sparklinePlayersData = [];
-			var url = new URL(`https://website-backend.w3champions.com/api/players/${player}/mmr-rp-timeline`);
+  const RightSlot = () => {
+    if (side === "right") {
+      return transition ? <p className="number">{rank ? `#${rank}` : ""}</p> : <Flag name={countryCode}></Flag>;
+    } else {
+      return <img src={raceIcon} alt={race} className={"race"} />;
+    }
+  };
 
-			try {
-				var params = {
-					gateway,
-					season: season - 1,
-					race: this.state.race,
-					gameMode: 4,
-				};
-				url.search = new URLSearchParams(params).toString();
-				var response = await fetch(url);
-				var result = await response.json();
-				if ("mmrRpAtDates" in result) {
-					const prevSeasonMMrs = result.mmrRpAtDates
-						.map((d) => d.mmr)
-						.slice(1)
-						.slice(-20);
-					sparklinePlayersData = [...sparklinePlayersData, ...prevSeasonMMrs];
-				}
-			} catch (e) {
-				console.log(e);
-				console.log(`no MMR last season for ${player}`);
-			}
-			try {
-				var params = { gateway, season, race: this.state.race, gameMode: 4 }; //hardcodig race at the moment
-				url.search = new URLSearchParams(params).toString();
-				var response = await fetch(url);
-				var result = await response.json();
-				if ("mmrRpAtDates" in result) {
-					const thisSeasonMMrs = result.mmrRpAtDates.map((d) => d.mmr);
-					sparklinePlayersData = [...sparklinePlayersData, ...thisSeasonMMrs];
-					this.setState({ sparklinePlayersData, attemptedAPI: true });
-				}
-			} catch (e) {}
-		} catch (e) {
-			console.log("cannot fetch data for a player", player, e);
-			this.setState({ attemptedAPI: true });
-		}
-		this.props.noteApiAttempted(player);
-	};
+  const Name = () => {
+    return aka !== null && transition ? aka : name;
+  };
 
-	render() {
-		let { race, oldMmr, name, location, battleTag, countryCode } = this.props.data;
-		let { side, transition, allMmrsgathered } = this.props;
+  return (
+    <Grid divided="vertically" className={"playerCard"}>
+      <Grid.Row columns={1} className={"playerTop"}>
+        <Grid.Column width={16} className="playerName">
+          <h2>
+            <Name />
+            {/* <a target="_blank" href={`/player/${battleTag.replace("#", "%23")}`} rel="noreferrer" className={aka && transition ? "playerMMrstat" : ""}>
+              <Name></Name>
+            </a> */}
+          </h2>
+        </Grid.Column>
+      </Grid.Row>
 
-		let aka = akaLookup(name);
-		let sparklinePlayersData = this.state.sparklinePlayersData;
-		sparklinePlayersData = sparklinePlayersData || {};
-		let rank = this.props.rank || [];
-		if (rank.length > 0) {
-			rank = rank[0].rankNumber;
-		} else {
-			rank = null;
-		}
-
-		if (this.props.data.battleTag !== undefined) {
-			battleTag = battleTag === undefined ? "" : battleTag;
-			// let countryCode =
-			//   (location === undefined) | (location === null)
-			//     ? ""
-			//     : location.toLowerCase();
-			// let countryCode =
-			countryCode = countryCode === null ? "" : countryCode.toLowerCase();
-
-			const raceMapping = {
-				8: undead,
-				0: random,
-				4: elf,
-				2: orc,
-				1: human,
-			};
-			const raceIcon = raceMapping[race];
-
-			const PlayerMmrStatistic = () => {
-				if (this.props.transition & (sparklinePlayersData !== undefined) & (sparklinePlayersData.length > 0)) {
-					return (
-						<Sparklines data={sparklinePlayersData} style={{ width: "70px", height: "12px" }}>
-							<SparklinesLine style={{ strokeWidth: 4, stroke: "white", fill: "none" }} />
-							{/* <SparklinesSpots
-                size={12}
-                spotColors={{
-                  "-1": "white",
-                  // 0: "black",
-                  // 1: "#e18937",
-                }}
-              /> */}
-						</Sparklines>
-					);
-				} else {
-					return <Mmr data={oldMmr}></Mmr>;
-				}
-			};
-
-			const LeftSlot = () => {
-				if (side === "left") {
-					if (transition === true) {
-						return <p className="number">{rank ? `#${rank}` : ""}</p>;
-					} else {
-						return <Flag name={countryCode}></Flag>;
-					}
-				} else {
-					return <img src={raceIcon} alt={race} className={"race"} />;
-				}
-			};
-
-			const RightSlot = () => {
-				if (side === "right") {
-					if (transition === true) {
-						return <p className="number">{rank ? `#${rank}` : ""}</p>;
-					} else {
-						return <Flag name={countryCode}></Flag>;
-					}
-				} else {
-					return <img src={raceIcon} alt={race} className={"race"} />;
-				}
-			};
-
-			const Name = () => {
-				if (aka !== null) {
-					if (transition === true) {
-						return name;
-					} else {
-						return aka;
-					}
-				} else {
-					return name;
-				}
-			};
-
-			return (
-				<Grid divided="vertically" className={"playerCard"}>
-					<Grid.Row columns={1} className={"playerTop"}>
-						<Grid.Column width={16} className="playerName">
-							<a
-								target="_blank"
-								href={`/player/${battleTag.replace("#", "%23")}`}
-								rel="noreferrer"
-								className={aka & (transition === true) ? "playerMMrstat" : ""}
-							>
-								<Name></Name>
-							</a>
-						</Grid.Column>
-					</Grid.Row>
-
-					<Grid.Row columns={3} className={"playerBottom"}>
-						<Grid.Column width={4} className={(side === "left") & allMmrsgathered ? "playerMMrstat number" : "number"}>
-							<LeftSlot />
-						</Grid.Column>
-						<Grid.Column width={8} className={allMmrsgathered ? "playerMMrstat" : ""}>
-							<PlayerMmrStatistic />
-						</Grid.Column>
-						<Grid.Column width={4} className={(side === "right") & allMmrsgathered ? "playerMMrstat number" : "number"}>
-							<RightSlot />
-						</Grid.Column>
-					</Grid.Row>
-				</Grid>
-			);
-		} else {
-			return (
-				<Grid divided="vertically" className={"playerCard"}>
-					<Grid.Row columns={1} className={"playerTop"}>
-						<Grid.Column width={16} className="playerName">
-							<a target="_blank" href={`/player/${battleTag.replace("#", "%23")}`} rel="noreferrer">
-								{name}
-							</a>
-						</Grid.Column>
-					</Grid.Row>
-
-					<Grid.Row columns={3} className={"playerBottom"}>
-						<Grid.Column width={4}>
-							{side === "left" ? (
-								<Flag name={"ie"} style={{ opacity: 0 }}></Flag>
-							) : (
-								<img src={"random"} alt={race} className={"race"} style={{ opacity: 0 }} />
-							)}
-						</Grid.Column>
-						<Grid.Column width={8} className={"playerMMrstat"}>
-							<Sparklines data={[0, 0, 0]} style={{ width: "70px", height: "12px" }}>
-								<SparklinesLine style={{ strokeWidth: 1, stroke: "white", fill: "none" }} />
-							</Sparklines>
-						</Grid.Column>
-						<Grid.Column width={4}></Grid.Column>
-					</Grid.Row>
-				</Grid>
-			);
-		}
-	}
-}
+      <Grid.Row columns={3} className={"playerBottom"}>
+        <Grid.Column width={4} className={(side === "left") & allMmrsgathered ? "playerMMrstat number" : "number"}>
+          <LeftSlot />
+        </Grid.Column>
+        <Grid.Column width={8} className={allMmrsgathered ? "playerMMrstat" : ""}>
+          <PlayerMmrStatistic />
+        </Grid.Column>
+        <Grid.Column width={4} className={(side === "right") & allMmrsgathered ? "playerMMrstat number" : "number"}>
+          <RightSlot />
+        </Grid.Column>
+      </Grid.Row>
+    </Grid>
+  );
+};
 
 export default Player;

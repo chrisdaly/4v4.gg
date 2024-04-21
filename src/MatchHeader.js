@@ -43,9 +43,7 @@ class MatchHeader extends Component {
 
     const leagueIcon = badgeMapping[this.props.league];
     const mapIcon = mapMapping[this.props.map];
-    const map = maps.hasOwnProperty(this.props.map)
-      ? maps[this.props.map]
-      : this.props.map;
+    const map = maps.hasOwnProperty(this.props.map) ? maps[this.props.map] : this.props.map;
     let text = "";
 
     const startDate = this.props.startDate;
@@ -74,18 +72,10 @@ class MatchHeader extends Component {
       <Grid.Row style={{ paddingBottom: "14px" }}>
         <Grid.Column>
           <Grid.Row>
-            <a
-              target="_blank"
-              href={`/match/${this.props.id}`}
-              rel="noreferrer"
-            >
-              <img
-                src={leagueIcon}
-                alt={this.props.league}
-                className={"league"}
-              />
+            <a target="_blank" href={`/match/${this.props.id}`} rel="noreferrer">
+              <img src={leagueIcon} alt={this.props.league} className={"league"} />
             </a>
-            <p className={"mapLabel"}>{map}</p>
+            <h2 className={"mapLabel"}>{map}</h2>
           </Grid.Row>
           <Grid.Row>
             {/* <Grid.Column>test</Grid.Column> */}

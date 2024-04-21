@@ -96,13 +96,13 @@ function RangePlot(id, data) {
     .attr("y2", (d) => y(d3.min(teamTwoMmrs)));
 
   // avgLine
-  svg
-    .append("line")
-    .attr("class", "y axis avgLine")
-    .attr("x1", -verticalOffset)
-    .attr("y1", (d) => y(teamOneAverageMmr))
-    .attr("x2", verticalOffset)
-    .attr("y2", (d) => y(teamTwoAverageMmr));
+  // svg
+  //   .append("line")
+  //   .attr("class", "y axis avgLine")
+  //   .attr("x1", -verticalOffset)
+  //   .attr("y1", (d) => y(teamOneAverageMmr))
+  //   .attr("x2", verticalOffset)
+  //   .attr("y2", (d) => y(teamTwoAverageMmr));
 
   // leftDots
   svg

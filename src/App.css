@@ -1,3 +1,22 @@
+:root {
+  --gold: #fcdb33;
+  --green: #34c774;
+  --red: #c23434;
+  --grey: #d3d3d3;
+}
+
+@font-face {
+  font-family: "OPTI-bold";
+  src: url(./fonts/OPTIOptionSemiBold.otf) format("opentype");
+  font-weight: 1000px;
+}
+
+@font-face {
+  font-family: "OPTI";
+  src: url(./fonts/OPTIOptionSemiBold.otf) format("opentype");
+  font-weight: 500px;
+}
+
 .App {
   text-align: center;
 }
@@ -70,8 +89,19 @@ html {
 }
 
 * {
-  font-family: "Roboto" !important;
+  /* font-family: "Roboto" !important; */
   color: #fafafa;
+}
+
+h1,
+h2,
+h3 {
+  font-family: "OPTI-bold" !important;
+}
+
+.key,
+.value {
+  font-family: "OPTI-bold" !important;
 }
 
 @font-face {
@@ -84,11 +114,9 @@ html {
   src: local("Roboto-Bold"), url(./fonts/Roboto-Bold.ttf) format("truetype");
 }
 
-
 @font-face {
   font-family: "Inconsolata";
-  src: local("Inconsolata"),
-    url(./fonts/Inconsolata-Medium.ttf) format("truetype");
+  src: local("Inconsolata"), url(./fonts/Inconsolata-Medium.ttf) format("truetype");
 }
 
 @font-face {
@@ -106,7 +134,9 @@ html {
 body,
 .ui.segment,
 .ui.vertically.divided.grid {
-  background-color: #323437;
+  /* background-color: #323437; */
+  background-color: black !important;
+
   font-size: 15px;
 }
 
@@ -122,11 +152,11 @@ body,
 
 .playerCard,
 .team-header {
-  outline: 0.05rem solid #fafafa;
+  outline: 0.01rem solid var(--grey);
   margin-left: 1px !important;
   margin-right: 1px !important;
   margin-bottom: 1px !important;
-  padding-top: 1pz !important;
+  padding-top: 1px !important;
   padding-bottom: 0rem !important;
   border-right: 0;
   /* 
@@ -143,8 +173,9 @@ a {
   color: #fafafa;
 }
 
-line.y.axis {
-  stroke: white;
+line.y.axis,
+g.y.axis.middle {
+  stroke: var(--grey);
   stroke-width: 0.8;
 }
 
@@ -153,11 +184,11 @@ line.y.axis {
   stroke-width: 4;
 } */
 
-circle.dot.teamTwo {
-  /* fill: #a93232; */
-  /* stroke: #323437; */
-  /* stroke-opacity: 1; */
-}
+/* circle.dot.teamTwo { */
+/* fill: #a93232; */
+/* stroke: #323437; */
+/* stroke-opacity: 1; */
+/* } */
 
 circle.dot.teamOne {
   /* fill: #266793; */
@@ -226,12 +257,6 @@ text.mmrBackground {
   text-anchor: middle;
 }
 
-line.y.axis.avgLine {
-  stroke: white;
-  stroke-width: 0px;
-  /* stroke-dasharray: 3; */
-}
-
 svg#svg_logo {
   width: 50px;
   fill: #a93232;
@@ -242,7 +267,7 @@ svg#svg_logo {
   margin-right: -10rem;
   position: sticky;
   top: 0;
-  background-color: #323437;
+  background-color: black;
   z-index: 10000;
 }
 
@@ -365,8 +390,8 @@ h5.number {
 }
 
 circle.dot {
-  stroke: white;
-  fill: white;
+  stroke: var(--gold);
+  fill: var(--gold);
   stroke-width: 0.5px;
   stroke-opacity: 0.8;
 }
@@ -616,12 +641,141 @@ p.mapLabel {
   border-bottom-right-radius: 7px;
 }
 
-.playerName {
+/* .playerName {
   font-family: "Roboto Bold";
   font-size: 1.15rem !important;
   font-weight: 800;
-}
+} */
 
 .number {
   /* font-size: 1.15rem !important; */
+}
+
+td {
+  min-width: 160px;
+}
+
+.map-icon {
+  width: 150px;
+  height: 150px;
+}
+
+.profile-pic {
+  width: 50px;
+}
+
+.matchDetails {
+  width: max-content;
+}
+
+.red-text {
+  color: var(--red);
+}
+
+.green-text {
+  color: var(--green);
+}
+
+h2 {
+  color: var(--gold) !important;
+  font-family: "OPTI-bold";
+  font-size: 1.5rem !important;
+}
+
+.th-center {
+  text-align: center !important;
+}
+
+.td {
+}
+
+.number {
+  font-family: "Inconsolata" !important;
+
+  font-size: large !important;
+  font-weight: bolder !important;
+}
+
+.team-0 {
+  text-align: right !important;
+}
+
+.team-1 {
+  text-align: left !important;
+}
+
+.key {
+  color: var(--grey);
+  text-transform: uppercase;
+}
+
+.value {
+  color: white;
+}
+
+.hero-pic {
+  margin-right: 5px;
+  flex: 0 0 auto;
+  width: 35px;
+  height: 35px;
+}
+
+.hero-bit .team-0 {
+  float: right;
+}
+
+.hero-bit team-1 {
+  float: left;
+}
+
+.matchDetails {
+  background-image: url(https://github.com/w3champions/website/blob/d9eb0ddbab4f8493346434cdede16294ea3fccb6/public/assets/backgrounds/undead.jpg?raw=true) !important;
+  background-size: cover;
+}
+
+.matchDetails {
+  position: relative;
+}
+
+.matchDetails > div {
+  position: relative;
+  z-index: 1; /* or any value less than the z-index of .matchDetails */
+}
+
+.matchDetails::before {
+  content: "";
+  position: absolute;
+  top: 0;
+  left: 0;
+  width: 100%;
+  height: 100%;
+  background-image: url(https://github.com/w3champions/website/blob/d9eb0ddbab4f8493346434cdede16294ea3fccb6/public/assets/backgrounds/undead.jpg?raw=true) !important;
+  background-size: cover;
+  z-index: 0;
+}
+
+.matchDetails > div {
+  background-color: transparent;
+}
+
+.matchDetails .ui.segment table td {
+  background-color: transparent !important;
+}
+
+.ui.segment {
+  opacity: 0.75;
+}
+
+.ui.segment .profile-pic,
+.ui.segment .text {
+  opacity: 1;
+}
+
+/*  */
+
+.max-width-cell {
+  width: 170px; /* Adjust the value according to your requirement */
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
 }
