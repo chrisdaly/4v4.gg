@@ -100,7 +100,6 @@ const MatchDetails = ({ match, playerScores }) => {
       for (const team of match.teams) {
         for (const player of team.players) {
           const profilePicUrl = await getPlayerProfilePicUrl(player.battleTag);
-          console.log("profilePicUrl", profilePicUrl);
           profilePics[player.battleTag] = profilePicUrl;
         }
       }
@@ -192,7 +191,11 @@ const MatchDetails = ({ match, playerScores }) => {
           </div>
           <div>
             <p className="key">
-              <span className="number value">{oldMmr}</span> <span className="key">MMR</span> (<span style={{ color: mmrChange > 0 ? "green" : "red" }}>{mmrChange}</span>)
+              <span className="number value">{oldMmr}</span> <span className="key">MMR</span> (
+              <span className={"number"} style={{ color: mmrChange > 0 ? "green" : "red" }}>
+                {mmrChange}
+              </span>
+              )
             </p>
           </div>
         </div>
