@@ -6,15 +6,25 @@
 }
 
 @font-face {
+  font-family: "Friz_Quadrata_Bold";
+  src: url("./fonts/Friz Quadrata Bold.otf") format("opentype");
+  font-weight: 1000px;
+}
+@font-face {
   font-family: "OPTI-bold";
   src: url(./fonts/OPTIOptionSemiBold.otf) format("opentype");
   font-weight: 1000px;
 }
 
 @font-face {
-  font-family: "OPTI";
+  font-family: "OPTI-bold";
   src: url(./fonts/OPTIOptionSemiBold.otf) format("opentype");
-  font-weight: 500px;
+  font-weight: 1000px;
+}
+
+@font-face {
+  font-family: "Inconsolata";
+  src: local("Inconsolata"), url(./fonts/Inconsolata-Medium.ttf) format("truetype");
 }
 
 .App {
@@ -96,39 +106,12 @@ html {
 h1,
 h2,
 h3 {
-  font-family: "OPTI-bold" !important;
+  font-family: "Friz_Quadrata_Bold" !important;
 }
 
 .key,
 .value {
-  font-family: "OPTI-bold" !important;
-}
-
-@font-face {
-  font-family: "Roboto";
-  src: local("Roboto"), url(./fonts/Roboto-Regular.ttf) format("truetype");
-}
-
-@font-face {
-  font-family: "Roboto-Bold";
-  src: local("Roboto-Bold"), url(./fonts/Roboto-Bold.ttf) format("truetype");
-}
-
-@font-face {
-  font-family: "Inconsolata";
-  src: local("Inconsolata"), url(./fonts/Inconsolata-Medium.ttf) format("truetype");
-}
-
-@font-face {
-  font-family: "Roboto";
-  font-weight: 900;
-  src: local("Roboto"), url(./fonts/Roboto-Bold.ttf) format("truetype");
-}
-
-@font-face {
-  font-family: "Roboto Mono";
-  font-weight: 900;
-  src: local("Roboto"), url(./fonts/RobotoMono-Medium.ttf) format("truetype");
+  font-family: "Friz_Quadrata_Bold" !important;
 }
 
 body,

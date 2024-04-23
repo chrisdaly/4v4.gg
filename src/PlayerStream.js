@@ -9,8 +9,6 @@ import { Header } from "semantic-ui-react";
 
 import { standardDeviation, arithmeticMean, getUniqueListBy } from "./utils.js";
 
-import logo from "./logos/logo.svg";
-
 import { gameMode, gateway, season } from "./params";
 
 class PlayerStream extends Component {
@@ -41,24 +39,18 @@ class PlayerStream extends Component {
     const player = pageUrl.pathname.split("/").slice(-1)[0]; //
     const playerTag = player.replace("%23", "#");
     try {
-      var url = new URL(
-        `https://website-backend.w3champions.com/api/players/${player}`
-      );
+      var url = new URL(`https://website-backend.w3champions.com/api/players/${player}`);
       var response = await fetch(url);
       var result = await response.json();
       const race = result.winLosses.sort((a, b) => b.games - a.games)[0].race;
       this.setState({ ...result, race });
 
-      var url = new URL(
-        `https://website-backend.w3champions.com/api/personal-settings/${player}`
-      );
+      var url = new URL(`https://website-backend.w3champions.com/api/personal-settings/${player}`);
       var response = await fetch(url);
       var result = await response.json();
       this.setState({ ...result });
 
-      var url = new URL(
-        `https://website-backend.w3champions.com/api/players/${player}/game-mode-stats`
-      );
+      var url = new URL(`https://website-backend.w3champions.com/api/players/${player}/game-mode-stats`);
       var params = { gateway, season };
       url.search = new URLSearchParams(params).toString();
       var response = await fetch(url);
@@ -83,9 +75,7 @@ class PlayerStream extends Component {
     const playerTag = player.replace("%23", "#");
 
     try {
-      var url = new URL(
-        "https://website-backend.w3champions.com/api/matches/ongoing"
-      );
+      var url = new URL("https://website-backend.w3champions.com/api/matches/ongoing");
       var params = {
         offset: 0,
         gateway,
@@ -120,9 +110,7 @@ class PlayerStream extends Component {
         console.log("NO CURRENT GAME", ongoingGame);
         let offset = 0;
 
-        var url = new URL(
-          `https://website-backend.w3champions.com/api/matches/search?playerId=${player}&gateway=20&offset=${offset}&pageSize=200&season=${season}&gameMode=${gameMode}`
-        );
+        var url = new URL(`https://website-backend.w3champions.com/api/matches/search?playerId=${player}&gateway=20&offset=${offset}&pageSize=200&season=${season}&gameMode=${gameMode}`);
         var params = {
           gateway,
           season,
@@ -150,11 +138,7 @@ class PlayerStream extends Component {
   };
 
   render() {
-    if (
-      this.state.isLoaded === true &&
-      this.state.matches.length > 0 &&
-      this.state.battleTag !== ""
-    ) {
+    if (this.state.isLoaded === true && this.state.matches.length > 0 && this.state.battleTag !== "") {
       //&& Object.keys(this.state.gameModeStats).length > 0
       const raceMapping = {
         8: "UNDEAD",
@@ -178,8 +162,7 @@ class PlayerStream extends Component {
         8: "grass",
       };
 
-      const { countryCode, location, profilePicture, playerAkaData } =
-        this.state; //gameModeStats
+      const { countryCode, location, profilePicture, playerAkaData } = this.state; //gameModeStats
 
       // let numIcon = profilePicture.pictureId;
       // let raceIcon = profilePicture.race;
@@ -203,9 +186,7 @@ class PlayerStream extends Component {
         matches[0].teams.forEach((t) => {
           let players = t.players.map((p) => p.battleTag);
           if (players.includes(this.state.battleTag)) {
-            playerCardData = t.players.filter(
-              (d) => d.battleTag === this.state.battleTag
-            )[0];
+            playerCardData = t.players.filter((d) => d.battleTag === this.state.battleTag)[0];
           }
         });
 
@@ -241,28 +222,17 @@ class PlayerStream extends Component {
         <Container style={{}}>
           <Header as="h2" icon textAlign="center">
             <div id="logoAndText">
-              <img
+              {/* <img
                 src={logo}
                 alt={"asd"}
                 className={"logo"}
                 style={{ height: "42px", marginBottom: "-10px" }}
-              />
+              /> */}
               <p style={{ fontSize: "18px", margin: "0 0 0em" }}>4v4.GG</p>
             </div>
           </Header>
           <div className="ongoing">
-            {Object.keys(this.state.ongoingGame).length !== 0 ? (
-              <Match
-                match={this.state.ongoingGame}
-                render={false}
-                ladderRanks={ladderRanks}
-                battleTag={this.state.battleTag}
-                key={this.state.ongoingGame.id}
-                sparklinePlayersData={this.state.sparklinePlayersData}
-              ></Match>
-            ) : (
-              <div />
-            )}
+            {Object.keys(this.state.ongoingGame).length !== 0 ? <Match match={this.state.ongoingGame} render={false} ladderRanks={ladderRanks} battleTag={this.state.battleTag} key={this.state.ongoingGame.id} sparklinePlayersData={this.state.sparklinePlayersData}></Match> : <div />}
           </div>
         </Container>
       );

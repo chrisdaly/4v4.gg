@@ -1,11 +1,7 @@
 import React, { Component } from "react";
 import { Grid, Statistic, Label, GridColumn } from "semantic-ui-react";
 
-import Mmr from "./Mmr.js";
-
 import { maps } from "./params";
-
-import crown from "./logos/crown.svg";
 
 import grandmaster from "./icons/grandmaster.png";
 import adept from "./icons/adept.png";

@@ -3,7 +3,6 @@ import { Grid } from "semantic-ui-react";
 import { TransitionGroup, CSSTransition } from "react-transition-group";
 
 import Mmr from "./Mmr.js";
-import crown from "./logos/crown.svg";
 
 class TeamHeader extends Component {
   render() {
@@ -12,9 +11,7 @@ class TeamHeader extends Component {
     if (teamMmr !== undefined) {
       teamMmr = teamMmr.toLocaleString();
     }
-    let statistic = this.props.transition
-      ? ` σ = ${teamDeviation}`
-      : `x̄ = ${teamMmr}`;
+    let statistic = this.props.transition ? ` σ = ${teamDeviation}` : `x̄ = ${teamMmr}`;
     return (
       <Grid divided="vertically" className={`team-header team-${teamNum}`}>
         {/* <Grid.Row columns={2} className={"playerBottom"}>
