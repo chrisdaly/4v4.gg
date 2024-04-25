@@ -9,9 +9,11 @@ import elf from "./icons/elf.png";
 import undead from "./icons/undead.png";
 import random from "./icons/random.png";
 
+import { gameMode, gateway, season } from "./params";
+
 const Player = ({ data, side, transition, allMmrsgathered }) => {
   const [sparklinePlayersData, setSparklinePlayersData] = useState([]);
-  const { race, oldMmr, name, location, battleTag, countryCode } = data;
+  const { race, oldMmr, name, location, battleTag, countryCode, rank } = data;
   const aka = akaLookup(name);
   const raceMapping = { 8: undead, 0: random, 4: elf, 2: orc, 1: human };
   const raceIcon = raceMapping[race];
@@ -65,7 +67,7 @@ const Player = ({ data, side, transition, allMmrsgathered }) => {
 
   const LeftSlot = () => {
     if (side === "left") {
-      return transition ? <p className="number">{rank ? `#${rank}` : ""}</p> : <Flag name={countryCode}></Flag>;
+      return transition ? <p className="number">{rank ? `#${rank}` : ""}</p> : <Flag name={countryCode?.toLowerCase()}></Flag>;
     } else {
       return <img src={raceIcon} alt={race} className={"race"} />;
     }
@@ -73,7 +75,7 @@ const Player = ({ data, side, transition, allMmrsgathered }) => {
 
   const RightSlot = () => {
     if (side === "right") {
-      return transition ? <p className="number">{rank ? `#${rank}` : ""}</p> : <Flag name={countryCode}></Flag>;
+      return transition ? <p className="number">{rank ? `#${rank}` : ""}</p> : <Flag name={countryCode?.toLowerCase()}></Flag>;
     } else {
       return <img src={raceIcon} alt={race} className={"race"} />;
     }

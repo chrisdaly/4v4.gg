@@ -1,7 +1,7 @@
 import React, { Component } from "react";
 import Navbar from "./Navbar.js";
 import Match from "./Match.js";
-import Player from "./Player.js";
+// import Player from "./Player.js";
 import LineGraphPlotSection from "./LineGraphPlotSection.js";
 
 import { Grid, Container, Flag, Divider } from "semantic-ui-react";

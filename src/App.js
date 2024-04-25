@@ -18,9 +18,7 @@ const App = () => {
   useEffect(() => {
     const loadData = async () => {
       try {
-        var url = new URL(
-          "https://website-backend.w3champions.com/api/matches/ongoing"
-        );
+        var url = new URL("https://website-backend.w3champions.com/api/matches/ongoing");
         var params = {
           offset: 0,
           gateway,
@@ -76,41 +74,35 @@ const App = () => {
 
   if (matches.length > 0 && ladderRanks.length > 0) {
     return (
-      
-        <Container>
-          <>
-            <Navbar />
-          </>
-          <div className="matches">
-            {Object.keys(matches).map((key) => (
-              <div>
-                <Match
-                  match={matches[key]}
-                  key={matches[key].id}
-                  ladderRanks={ladderRanks}
-                />
-                <Divider />
-              </div>
-            ))}
-          </div>
-        </Container>
-      );
-    } else {
-      return (
-        <Container>
+      <Container>
+        <>
           <Navbar />
-          <Grid columns={3}>
-            <Grid.Row columns={3}>
-              <Dimmer active>
-                <Loader />
-              </Dimmer>
-            </Grid.Row>
-          </Grid>
-        </Container>
-      );
-    }
+        </>
+        <div className="matches">
+          {Object.keys(matches).map((key) => (
+            <div>
+              <Match match={matches[key]} key={matches[key].id} ladderRanks={ladderRanks} />
+              <Divider />
+            </div>
+          ))}
+        </div>
+      </Container>
+    );
+  } else {
+    return (
+      <Container>
+        <Navbar />
+        <Grid columns={3}>
+          <Grid.Row columns={3}>
+            <Dimmer active>
+              <Loader />
+            </Dimmer>
+          </Grid.Row>
+        </Grid>
+      </Container>
+    );
   }
-
+};
 
 export default App;
 // npm run dev
