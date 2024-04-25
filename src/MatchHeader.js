@@ -14,7 +14,7 @@ import bronze from "./icons/bronze.png";
 import grass from "./icons/grass.png";
 import goldrush from "./maps/goldrush.png";
 import TwilightRuinsLV from "./maps/TwilightRuinsLV.png";
-import logo from "./logos/logo.svg";
+// import logo from "./logos/logo.svg";
 
 class MatchHeader extends Component {
   render() {
@@ -29,7 +29,7 @@ class MatchHeader extends Component {
       silver: silver,
       bronze: bronze,
       grass: grass,
-      inGame: logo,
+      // inGame: logo,
     };
 
     const mapMapping = {

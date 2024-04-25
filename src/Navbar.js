@@ -5,7 +5,7 @@ import * as d3 from "d3";
 
 import { Header, Divider, Grid } from "semantic-ui-react";
 
-import logo from "./logos/logo.svg";
+// import logo from "./logos/logo.svg";
 
 class Navbar extends Component {
   render() {
@@ -13,7 +13,7 @@ class Navbar extends Component {
       <div className="navbar">
         <Header as="h2" icon textAlign="center">
           <div id="logoAndText">
-            <img src={logo} alt={"asd"} className={"logo"} />
+            {/* <img src={logo} alt={"asd"} className={"logo"} /> */}
             <Header.Content>4v4.GG</Header.Content>
           </div>
           <Grid divided="vertically">
