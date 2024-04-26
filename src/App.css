@@ -793,13 +793,8 @@ p.number.heroLevel {
 }
 
 path.line {
-  stroke: var(--grey);
-  stroke-width: 1px;
-}
-
-path.line {
-  stroke: var(--grey);
-  stroke-width: 1px;
+  stroke: white;
+  stroke-width: 1.5 px;
 }
 
 line.line.team-middle {

@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from "react";
 import { Flag, Segment, Table } from "semantic-ui-react";
 import * as d3 from "d3";
-import { Sparklines, SparklinesLine } from "react-sparklines";
+import { Sparklines, SparklinesLine, SparklinesSpots } from "react-sparklines";
 
 import { MmrComparison } from "./MmrComparison.js";
 import { MmrTrend } from "./MmrTrend.js";
@@ -177,6 +177,69 @@ const MatchDetails = ({ playerData, metaData, profilePics, mmrTimeline, playerCo
           <Table inverted size="large" basic>
             <Table.Header>
               <Table.Row>
+                <th> </th>
+                <th> </th>
+                <th></th>
+                <th className="team-0">
+                  <div>
+                    <h2>
+                      <span>{playerData[0].won ? "👑 " : ""}</span>TEAM 1
+                    </h2>
+                    <p className="key" style={{ marginBottom: "0px", marginTop: "-10px" }}>
+                      <span className="number value">
+                        {Math.round(
+                          playerData
+                            .slice(0, 4)
+                            .map((d) => d.oldMmr)
+                            .reduce((acc, curr) => acc + curr, 0) / 4
+                        )}
+                      </span>{" "}
+                      <span className="key">MMR</span>
+                    </p>
+                    {playerData
+                      .slice(0, 4)
+                      .map((d) => d.race)
+                      .sort((a, b) => b - a)
+                      .map((race) => (
+                        <img src={raceMapping[race]} alt={race} className={"race"} style={{ padding: "2px", width: "22px" }} />
+                      ))}
+                  </div>
+                </th>
+                <th className="th-center" style={{ position: "relative" }}>
+                  <h2>VS</h2>
+                </th>
+                <th className="team-1">
+                  <div>
+                    <h2>
+                      TEAM 2 <span>{playerData[4].won ? "👑 " : ""}</span>
+                    </h2>
+                    <p className="key" style={{ marginBottom: "0px", marginTop: "-10px" }}>
+                      <span className="number value">
+                        {Math.round(
+                          playerData
+                            .slice(4)
+                            .map((d) => d.oldMmr)
+                            .reduce((acc, curr) => acc + curr, 0) / 4
+                        )}
+                      </span>{" "}
+                      <span className="key">MMR</span>
+                    </p>
+                    {playerData
+                      .slice(4)
+                      .map((d) => d.race)
+                      .sort((a, b) => b - a)
+                      .map((race) => (
+                        <img src={raceMapping[race]} alt={race} className={"race"} style={{ padding: "2px", width: "22px" }} />
+                      ))}
+                  </div>
+                </th>
+                <th> </th>
+                <th> </th>
+                <td> </td>
+              </Table.Row>
+            </Table.Header>
+            <Table.Header>
+              <Table.Row>
                 {playerData.map((playerScore, index) => {
                   const teamIndex = index < 4 ? 0 : 1;
                   const teamClassName = `team-${teamIndex}`;
@@ -185,9 +248,6 @@ const MatchDetails = ({ playerData, metaData, profilePics, mmrTimeline, playerCo
                       {renderPlayerCell(playerScore, teamClassName)}
                       {index === 3 && (
                         <th className="th-center" style={{ position: "relative" }}>
-                          <div style={{ position: "absolute", top: "40%", left: "50%", transform: "translateX(-50%)" }}>
-                            <h2>VS</h2>
-                          </div>
                           <div style={{ width: "100px", height: "130px", overflow: "hidden", display: "inline-block" }}>
                             <MmrComparison data={{ teamOneMmrs: playerData.slice(0, 4).map((d) => d.oldMmr), teamTwoMmrs: playerData.slice(4).map((d) => d.oldMmr) }} id={"123"} />
                           </div>
