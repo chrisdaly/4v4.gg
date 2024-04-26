@@ -5,11 +5,22 @@
   --grey: #d3d3d3;
 }
 
-@font-face {
+/* @font-face {
   font-family: "Friz_Quadrata_Bold";
   src: url("./fonts/Friz Quadrata Bold.otf") format("opentype");
   font-weight: 1000px;
+} */
+
+@font-face {
+  font-family: "Friz_Quadrata_Bold";
+  src: url(./fonts/friz-quadrata-std-bold-587034a220f9f-webfont.woff) format("woff");
 }
+
+@font-face {
+  font-family: "Friz_Quadrata_Regular";
+  src: url(./fonts/friz-quadrata-std-medium-5870338ec7ef8-webfont.woff) format("woff");
+}
+
 /* @font-face {
   font-family: "OPTI-bold";
   src: url(./fonts/OPTIOptionSemiBold.otf) format("opentype");
@@ -228,10 +239,10 @@ h1.ui.header {
 
 text.axistitle {
   fill: #fafafa;
-  font-size: 12px;
+  font-size: 10px;
   text-anchor: middle;
-  opacity: 1;
-  font-weight: bold;
+  /* opacity: 1; */
+  /* font-weight: bold; */
 }
 
 text.mmrBackground {
@@ -345,7 +356,7 @@ i.flag:not(.icon) {
   height: 11px;
   line-height: 11px;
   vertical-align: baseline; */
-  margin: 0.3em 2em 0 0.9em !important;
+  /* margin: 0.3em 2em 0 0.9em !important; */
   /* text-decoration: inherit;
   speak: none;
   font-smoothing: antialiased;
@@ -644,7 +655,7 @@ td {
 }
 
 .profile-pic {
-  width: 50px;
+  width: 60px;
 }
 
 .matchDetails {
@@ -761,4 +772,37 @@ h2 {
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
+}
+
+p.number.heroLevel {
+  line-height: 1rem;
+}
+
+.flag {
+  top: 2px !important;
+}
+
+.flag.team-0 {
+  right: 2px !important;
+  margin-right: 0px !important;
+}
+
+.flag.team-1 {
+  left: 2px !important;
+  margin-left: 0px !important;
+}
+
+path.line {
+  stroke: var(--grey);
+  stroke-width: 1px;
+}
+
+path.line {
+  stroke: var(--grey);
+  stroke-width: 1px;
+}
+
+line.line.team-middle {
+  stroke: var(--grey);
+  stroke-width: 0.5px;
 }
