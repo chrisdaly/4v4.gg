@@ -162,8 +162,9 @@ const MatchDetails = ({ playerData, metaData, profilePics, mmrTimeline, playerCo
           </div>
           <div>
             <h2>
-              {player.isMvp ? "🏅  " : ""}
+              {player.isMvp && teamClassName === "team-0" ? "🏅" : ""}
               {player.name}
+              {player.isMvp && teamClassName === "team-1" ? "🏅" : ""}
             </h2>
           </div>
           <div>
@@ -334,15 +335,20 @@ const MatchDetails = ({ playerData, metaData, profilePics, mmrTimeline, playerCo
                   </div>
                 </td>
                 <td className="th-center">
-                  <div>
+                  <div style={{ position: "relative", display: "inline-block" }}>
                     <img
-                      src={`${process.env.PUBLIC_URL}/maps/Nightopia.png`}
+                      src={`${process.env.PUBLIC_URL}/maps/${metaData.mapName}.png`}
                       alt={metaData.mapName}
-                      style={{ width: "100px", height: "100px" }} // Adjust the size as needed
+                      style={{ width: "100px", height: "100px", display: "block" }} // Adjust the size as needed
                     />
-                    <div className="value">{metaData.mapName}</div>
-                    <div className="key">MAP</div>
+                    <img
+                      src={`${process.env.PUBLIC_URL}/icons/Classic_Frame.png`}
+                      alt="Frame"
+                      style={{ position: "absolute", top: 0, left: 0, width: "100px", height: "100px" }} // Adjust size and position as needed
+                    />
                   </div>
+                  <div className="value">{metaData.mapName}</div>
+                  <div className="key">MAP</div>
                 </td>
                 <td className="th-center">
                   <div>
