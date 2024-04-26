@@ -666,6 +666,10 @@ td {
   color: var(--red);
 }
 
+td.yellow-text.number.team-0 {
+  color: #fffdd0;
+}
+
 .green-text {
   color: var(--green);
 }
@@ -779,16 +783,16 @@ p.number.heroLevel {
 }
 
 .flag {
-  top: 2px !important;
+  top: 5px !important;
 }
 
 .flag.team-0 {
-  right: 2px !important;
+  right: 5px !important;
   margin-right: 0px !important;
 }
 
 .flag.team-1 {
-  left: 2px !important;
+  left: 5px !important;
   margin-left: 0px !important;
 }
 

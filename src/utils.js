@@ -51,17 +51,69 @@ export const calcPlayerMmrAndChange = (battleTag, match) => {
 };
 
 export const preprocessPlayerScores = (match, playerScores) => {
-  console.log("match", match);
+  // Define the key display name mapping
+  const keyDisplayNameMapping = {
+    heroesKilled: "Heroes Killed",
+    expGained: "Experience Gained",
+    goldCollected: "Gold Mined",
+    unitsProduced: "Units Produced",
+    unitsKilled: "Units Killed",
+    largestArmy: "Largest Army",
+    lumberCollected: "Lumber Harvested",
+    goldUpkeepLost: "Gold Lost to Upkeep",
+  };
+
+  const dataTypes = ["heroScore", "resourceScore", "unitScore"];
+
+  let stats = {};
+  for (const dataType of dataTypes) {
+    for (const [statName, value] of Object.entries(playerScores[0][dataType])) {
+      const values = playerScores.map((d) => d[dataType][statName]);
+      let percentiles = calculatePercentiles(values);
+
+      // If the statName is "goldUpkeepLost", reverse the percentiles
+      if (statName === "goldUpkeepLost") {
+        percentiles = percentiles.map((d) => 100 - d);
+      }
+      const displayName = keyDisplayNameMapping[statName] || statName;
+      stats[displayName] = { percentiles, values };
+    }
+  }
+
+  console.log("stats", stats);
+  let mvpData = {};
+  // Define keys to calculate MVP
+  const mvpKeys = ["Heroes Killed", "Experience Gained", "Gold Mined", "Units Killed", "Largest Army"];
+  // Loop through each player
+  for (let i = 0; i < 8; i++) {
+    // console.log("i", i);
+    // console.log(playerScores[i]);
+    const playerName = playerScores[i].battleTag.split("#")[0];
+    let summed = 0;
+    for (const dataType of mvpKeys) {
+      const percentiles = stats[dataType].percentiles;
+      // console.log(percentiles);
+      summed += percentiles[i];
+    }
+    // console.log("playerName", playerName, summed);
+    mvpData[playerName] = summed;
+  }
+
+  const [mvp, maxValue] = Object.entries(mvpData).reduce((acc, [key, value]) => (value > acc[1] ? [key, value] : acc), ["", -Infinity]);
+  // console.log("mvp", mvp);
+
   // Map over the match data first
   const playerData = match.teams.flatMap((team, teamIndex) => {
     return team.players.map((playerData) => {
       const playerScore = playerScores.find((score) => score.battleTag === playerData.battleTag);
       const { oldMmr, mmrChange } = calcPlayerMmrAndChange(playerData.battleTag, match);
+      const isMvp = playerData.battleTag.split("#")[0] === mvp ? true : false;
       return {
         ...playerScore,
         ...playerData,
         oldMmr,
         mmrChange,
+        isMvp,
       };
     });
   });
@@ -70,11 +122,27 @@ export const preprocessPlayerScores = (match, playerScores) => {
     startTime: match.startTime.slice(0, 16),
     gameLength: `${Math.floor(match.durationInSeconds / 60)}:${(match.durationInSeconds % 60).toString().padStart(2, "0")}`,
     server: match.serverInfo.name?.toUpperCase(),
-    location: match.serverInfo.location?.toUpper(),
+    location: match.serverInfo.location?.toUpperCase(),
     mapName: match.mapName?.toUpperCase(),
   };
 
-  console.log("playerData", playerData, metaData);
+  return { playerData, metaData, stats };
+};
 
-  return { playerData, metaData };
+export const calculatePercentiles = (arr) => {
+  // console.log(arr);
+  // Sort the array in ascending order
+  const sortedArr = arr.slice().sort((a, b) => a - b);
+  const n = sortedArr.length;
+
+  // Calculate percentile for each element
+  const percentiles = arr.map((num) => {
+    // Find the index of the number in the sorted array
+    const index = sortedArr.indexOf(num);
+
+    // Calculate percentile using index and array length
+    const percentile = (index / (n - 1)) * 100;
+    return percentile;
+  });
+  return percentiles;
 };

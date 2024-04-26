@@ -5,7 +5,7 @@ import { Sparklines, SparklinesLine, SparklinesSpots } from "react-sparklines";
 
 import { MmrComparison } from "./MmrComparison.js";
 import { MmrTrend } from "./MmrTrend.js";
-
+import { calculatePercentiles } from "./utils.js";
 import human from "./icons/human.png";
 import orc from "./icons/orc.png";
 import elf from "./icons/elf.png";
@@ -14,7 +14,7 @@ import random from "./icons/random.png";
 
 const MatchDetails = ({ playerData, metaData, profilePics, mmrTimeline, playerCountries }) => {
   console.log("MatchDetails", playerData, profilePics, mmrTimeline, playerCountries);
-  const excludedKeys = ["mercsHired", "itemsObtained"];
+  const excludedKeys = ["mercsHired", "itemsObtained", "lumberCollected"];
   const raceMapping = { 8: undead, 0: random, 4: elf, 2: orc, 1: human };
 
   const keyDisplayNameMapping = {
@@ -26,70 +26,87 @@ const MatchDetails = ({ playerData, metaData, profilePics, mmrTimeline, playerCo
     largestArmy: "Largest Army",
     lumberCollected: "Lumber Harvested",
     goldUpkeepLost: "Gold Lost to Upkeep",
-    // Add more key-value pairs as needed
   };
 
-  const getCellStyle = (teamIndex, diff, statName) => {
-    if (teamIndex === 0) {
-      if (statName === "goldUpkeepLost" && diff < 0) {
-        return "green-text";
-      }
-      if (diff > 0) {
-        return "green-text";
-      }
-      if (diff < 0) {
-        return "red-text";
-      }
-      if (diff === 0) {
-        return "white-text";
-      }
-    }
-    if (teamIndex === 1) {
-      if (statName === "goldUpkeepLost" && diff < 0) {
-        return "red-text";
-      }
-      if (diff > 0) {
-        return "red-text";
-      }
-      if (diff < 0) {
-        return "green-text";
-      }
-      if (diff === 0) {
-        return "white-text";
-      }
-    }
+  const calculatePercentiles = (arr) => {
+    // console.log(arr);
+    // Sort the array in ascending order
+    const sortedArr = arr.slice().sort((a, b) => a - b);
+    const n = sortedArr.length;
+
+    // Calculate percentile for each element
+    const percentiles = arr.map((num) => {
+      // Find the index of the number in the sorted array
+      const index = sortedArr.indexOf(num);
+
+      // Calculate percentile using index and array length
+      const percentile = (index / (n - 1)) * 100;
+      return percentile;
+    });
+    // console.log(percentiles);
+    return percentiles;
   };
 
-  const renderTableCells = (scoreType, statName, teamIndex, team0Total, team1Total) => {
+  const getCellStyle = (percentile) => {
+    let className = "white-text"; // Default color
+
+    if (percentile >= 90) {
+      className = "green-text"; // Top 20%
+    } else if (percentile >= 25) {
+      className = "white-text"; // Middle 60%
+    } else {
+      className = "red-text"; // Bottom 20%
+    }
+    // console.log("percentile", percentile, className);
+
+    return className;
+  };
+
+  const renderTableCells = (scoreType, statName, teamIndex, percentiles) => {
     // Determine which team's total to use
-    const total = teamIndex === 0 ? team0Total : team1Total;
-
-    // Calculate team total for the specified scoreType and statName
-    const teamTotal0 = playerData.slice(0, 4).reduce((acc, playerScore) => acc + playerScore[scoreType][statName], 0);
-    const teamTotal1 = playerData.slice(4).reduce((acc, playerScore) => acc + playerScore[scoreType][statName], 0);
-
-    // Determine the cell's style based on the comparison with the opposing team
-    const className = getCellStyle(teamIndex, teamTotal0 - teamTotal1, statName);
+    // console.log("renderTableCells");
+    // console.log(scoreType, statName, teamIndex, percentiles);
 
     // Render table cells for each player in the team
-    return playerData.slice(teamIndex * 4, (teamIndex + 1) * 4).map((playerScore, index) => (
-      <Table.Cell key={`team${teamIndex + 1}-${index}`} className={`${className} number team-${teamIndex}`}>
-        {playerScore[scoreType][statName].toLocaleString("en-US")}
-      </Table.Cell>
-    ));
+    return playerData.slice(teamIndex * 4, (teamIndex + 1) * 4).map((playerScore, index) => {
+      // console.log("index", teamIndex * 4 + index);
+      // Determine the cell's style based on the player's value
+      const value = playerScore[scoreType][statName];
+      // console.log("value", value);
+      // console.log(percentiles[index]);
+      const className = getCellStyle(percentiles[teamIndex * 4 + index]);
+      return (
+        <Table.Cell key={`team${teamIndex + 1}-${index}`} className={`${className} number team-${teamIndex}`}>
+          {value.toLocaleString("en-US")}
+        </Table.Cell>
+      );
+    });
   };
 
   const renderTableRows = (scoreType) => {
     return Object.entries(playerData[0][scoreType])
       .filter(([statName]) => !excludedKeys.includes(statName)) // Exclude keys specified in excludedKeys
-      .map(([statName, _]) => (
-        <Table.Row key={statName}>
-          {renderTableCells(scoreType, statName, 0)}
-          <Table.Cell className="th-center key">{keyDisplayNameMapping[statName] || statName}</Table.Cell>
+      .map(([statName, _]) => {
+        // Extract the scores for the current statName from all players
+        const scores = playerData.map((player) => player[scoreType][statName]);
 
-          {renderTableCells(scoreType, statName, 1)}
-        </Table.Row>
-      ));
+        // Calculate percentiles for the scores
+        let percentiles = calculatePercentiles(scores);
+
+        // If the statName is "goldUpkeepLost", reverse the percentiles
+        if (statName === "goldUpkeepLost") {
+          percentiles = percentiles.map((d) => 100 - d);
+        }
+
+        // Render the table row
+        return (
+          <Table.Row key={statName}>
+            {renderTableCells(scoreType, statName, 0, percentiles)}
+            <Table.Cell className="th-center key">{keyDisplayNameMapping[statName] || statName}</Table.Cell>
+            {renderTableCells(scoreType, statName, 1, percentiles)}
+          </Table.Row>
+        );
+      });
   };
 
   const renderHero = (hero, teamIndex) => {
@@ -144,7 +161,10 @@ const MatchDetails = ({ playerData, metaData, profilePics, mmrTimeline, playerCo
             {playerCountries[player.battleTag] ? <Flag name={playerCountries[player.battleTag].toLowerCase()} style={{ position: "absolute", ...flagPosition }} className={`${teamClassName} flag`}></Flag> : null}
           </div>
           <div>
-            <h2>{player.name}</h2>
+            <h2>
+              {player.isMvp ? "🏅  " : ""}
+              {player.name}
+            </h2>
           </div>
           <div>
             <img src={raceMapping[player.race]} alt={player.race} className={"race"} />
@@ -183,7 +203,7 @@ const MatchDetails = ({ playerData, metaData, profilePics, mmrTimeline, playerCo
                 <th className="team-0">
                   <div>
                     <h2>
-                      <span>{playerData[0].won ? "👑 " : ""}</span>TEAM 1
+                      <span>{playerData[0].won ? "👑   " : ""}</span>TEAM 1
                     </h2>
                     <p className="key" style={{ marginBottom: "0px", marginTop: "-10px" }}>
                       <span className="number value">
@@ -201,7 +221,7 @@ const MatchDetails = ({ playerData, metaData, profilePics, mmrTimeline, playerCo
                       .map((d) => d.race)
                       .sort((a, b) => b - a)
                       .map((race) => (
-                        <img src={raceMapping[race]} alt={race} className={"race"} style={{ padding: "2px", width: "22px" }} />
+                        <img src={raceMapping[race]} alt={race} className={"race"} style={{ paddingLeft: "5px", width: "22px" }} />
                       ))}
                   </div>
                 </th>
@@ -211,7 +231,7 @@ const MatchDetails = ({ playerData, metaData, profilePics, mmrTimeline, playerCo
                 <th className="team-1">
                   <div>
                     <h2>
-                      TEAM 2 <span>{playerData[4].won ? "👑 " : ""}</span>
+                      TEAM 2 <span>{playerData[4].won ? "   👑" : ""}</span>
                     </h2>
                     <p className="key" style={{ marginBottom: "0px", marginTop: "-10px" }}>
                       <span className="number value">
@@ -229,7 +249,7 @@ const MatchDetails = ({ playerData, metaData, profilePics, mmrTimeline, playerCo
                       .map((d) => d.race)
                       .sort((a, b) => b - a)
                       .map((race) => (
-                        <img src={raceMapping[race]} alt={race} className={"race"} style={{ padding: "2px", width: "22px" }} />
+                        <img src={raceMapping[race]} alt={race} className={"race"} style={{ paddingLeft: "0px", paddingRight: "5px", width: "22px" }} />
                       ))}
                   </div>
                 </th>
@@ -248,7 +268,7 @@ const MatchDetails = ({ playerData, metaData, profilePics, mmrTimeline, playerCo
                       {renderPlayerCell(playerScore, teamClassName)}
                       {index === 3 && (
                         <th className="th-center" style={{ position: "relative" }}>
-                          <div style={{ width: "100px", height: "130px", overflow: "hidden", display: "inline-block" }}>
+                          <div style={{ width: "100px", height: "170px", overflow: "hidden", display: "inline-block" }}>
                             <MmrComparison data={{ teamOneMmrs: playerData.slice(0, 4).map((d) => d.oldMmr), teamTwoMmrs: playerData.slice(4).map((d) => d.oldMmr) }} id={"123"} />
                           </div>
                         </th>

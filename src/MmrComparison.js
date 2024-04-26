@@ -77,12 +77,7 @@ const MmrComparison = ({ data }) => {
       .attr("x2", middleLine)
       .attr("y2", innerHeight - 15);
 
-    svg
-      .append("text")
-      .attr("class", "axistitle")
-      .text("MMR")
-      .attr("x", middleLine)
-      .attr("y", innerHeight - 10);
+    svg.append("text").attr("class", "axistitle").text("MMR").attr("x", middleLine).attr("y", innerHeight);
   }, [teamOneMmrs, teamTwoMmrs]);
 
   return <svg ref={svgRef} style={{ width: "100%", height: "100%" }}></svg>;
