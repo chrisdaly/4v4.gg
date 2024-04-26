@@ -7,7 +7,8 @@ import { preprocessPlayerScores, calcPlayerMmrAndChange } from "./utils.js";
 import { gameMode, gateway, season } from "./params";
 
 const MatchPage = () => {
-  const [matchData, setMatchData] = useState(null);
+  const [playerData, setPlayerData] = useState(null);
+  const [metaData, setMetaData] = useState(null);
   const [profilePics, setProfilePics] = useState({});
   const [mmrTimeline, setMmrTimeline] = useState({});
   const [playerCountries, setPlayerCountries] = useState({});
@@ -20,10 +21,15 @@ const MatchPage = () => {
   const fetchMatchData = async () => {
     try {
       const matchId = extractMatchIdFromUrl();
-      const matchData = await getMatchData(matchId);
-      const processedData = preprocessMatchData(matchData);
-      setMatchData(processedData);
-      await fetchPlayerData(processedData);
+      const data = await getMatchData(matchId);
+      const processedData = preprocessMatchData(data);
+      const { playerData, metaData } = { ...processedData };
+      console.log("playerData", playerData);
+      console.log("metaData", metaData);
+
+      setPlayerData(playerData);
+      setMetaData(metaData);
+      await fetchPlayerData(playerData);
     } catch (error) {
       console.error("Error fetching match data:", error.message);
       setIsLoading(false);
@@ -143,8 +149,8 @@ const MatchPage = () => {
         <Dimmer active>
           <Loader size="large">Loading match data...</Loader>
         </Dimmer>
-      ) : matchData ? (
-        <MatchDetails matchData={matchData} profilePics={profilePics} mmrTimeline={mmrTimeline} playerCountries={playerCountries} />
+      ) : playerData ? (
+        <MatchDetails playerData={playerData} metaData={metaData} profilePics={profilePics} mmrTimeline={mmrTimeline} playerCountries={playerCountries} />
       ) : (
         <div>Error: Failed to load match data</div>
       )}

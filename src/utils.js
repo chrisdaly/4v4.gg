@@ -51,9 +51,9 @@ export const calcPlayerMmrAndChange = (battleTag, match) => {
 };
 
 export const preprocessPlayerScores = (match, playerScores) => {
-  console.log("preprocessPlayerScores", match, playerScores);
+  console.log("match", match);
   // Map over the match data first
-  const processedPlayerScores = match.teams.flatMap((team, teamIndex) => {
+  const playerData = match.teams.flatMap((team, teamIndex) => {
     return team.players.map((playerData) => {
       const playerScore = playerScores.find((score) => score.battleTag === playerData.battleTag);
       const { oldMmr, mmrChange } = calcPlayerMmrAndChange(playerData.battleTag, match);
@@ -65,5 +65,16 @@ export const preprocessPlayerScores = (match, playerScores) => {
       };
     });
   });
-  return processedPlayerScores;
+
+  const metaData = {
+    startTime: match.startTime.slice(0, 16),
+    gameLength: `${Math.floor(match.durationInSeconds / 60)}:${(match.durationInSeconds % 60).toString().padStart(2, "0")}`,
+    server: match.serverInfo.name?.toUpperCase(),
+    location: match.serverInfo.location?.toUpper(),
+    mapName: match.mapName?.toUpperCase(),
+  };
+
+  console.log("playerData", playerData, metaData);
+
+  return { playerData, metaData };
 };

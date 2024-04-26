@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from "react";
 import Team from "./Team.js";
 import MatchHeader from "./MatchHeader.js";
-import RangePlotSection from "./RangePlotSection.js";
+import MmrComparison from "./MmrComparison.js";
 import * as d3 from "d3";
 import { Grid } from "semantic-ui-react";
 import { gameMode, gateway } from "./params";

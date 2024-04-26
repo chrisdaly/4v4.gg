@@ -1,8 +1,9 @@
 import React, { useEffect, useRef } from "react";
 import * as d3 from "d3";
 
-const RangePlotSection = ({ data }) => {
-  const { teamOneMmrs, teamTwoMmrs } = data;
+const MmrTrend = ({ data }) => {
+  const { mmrTimeline, id } = data;
+  console.log("MmrTrend", mmrTimeline);
   const svgRef = useRef(null);
 
   useEffect(() => {
@@ -88,4 +89,4 @@ const RangePlotSection = ({ data }) => {
   return <svg ref={svgRef} style={{ width: "100%", height: "100%" }}></svg>;
 };
 
-export { RangePlotSection };
+export { MmrTrend };

@@ -1,8 +1,10 @@
 import React, { useState, useEffect } from "react";
 import { Flag, Segment, Table } from "semantic-ui-react";
 import * as d3 from "d3";
+import { Sparklines, SparklinesLine } from "react-sparklines";
 
-import { RangePlotSection } from "./RangePlotSection.js";
+import { MmrComparison } from "./MmrComparison.js";
+import { MmrTrend } from "./MmrTrend.js";
 
 import human from "./icons/human.png";
 import orc from "./icons/orc.png";
@@ -10,8 +12,8 @@ import elf from "./icons/elf.png";
 import undead from "./icons/undead.png";
 import random from "./icons/random.png";
 
-const MatchDetails = ({ matchData, profilePics, mmrTimeline, playerCountries }) => {
-  console.log("MatchDetails", matchData, profilePics, mmrTimeline, playerCountries);
+const MatchDetails = ({ playerData, metaData, profilePics, mmrTimeline, playerCountries }) => {
+  console.log("MatchDetails", playerData, profilePics, mmrTimeline, playerCountries);
   const excludedKeys = ["mercsHired", "itemsObtained"];
   const raceMapping = { 8: undead, 0: random, 4: elf, 2: orc, 1: human };
 
@@ -63,14 +65,14 @@ const MatchDetails = ({ matchData, profilePics, mmrTimeline, playerCountries }) 
     const total = teamIndex === 0 ? team0Total : team1Total;
 
     // Calculate team total for the specified scoreType and statName
-    const teamTotal0 = matchData.slice(0, 4).reduce((acc, playerScore) => acc + playerScore[scoreType][statName], 0);
-    const teamTotal1 = matchData.slice(4).reduce((acc, playerScore) => acc + playerScore[scoreType][statName], 0);
+    const teamTotal0 = playerData.slice(0, 4).reduce((acc, playerScore) => acc + playerScore[scoreType][statName], 0);
+    const teamTotal1 = playerData.slice(4).reduce((acc, playerScore) => acc + playerScore[scoreType][statName], 0);
 
     // Determine the cell's style based on the comparison with the opposing team
     const className = getCellStyle(teamIndex, teamTotal0 - teamTotal1, statName);
 
     // Render table cells for each player in the team
-    return matchData.slice(teamIndex * 4, (teamIndex + 1) * 4).map((playerScore, index) => (
+    return playerData.slice(teamIndex * 4, (teamIndex + 1) * 4).map((playerScore, index) => (
       <Table.Cell key={`team${teamIndex + 1}-${index}`} className={`${className} number team-${teamIndex}`}>
         {playerScore[scoreType][statName].toLocaleString("en-US")}
       </Table.Cell>
@@ -78,7 +80,7 @@ const MatchDetails = ({ matchData, profilePics, mmrTimeline, playerCountries }) 
   };
 
   const renderTableRows = (scoreType) => {
-    return Object.entries(matchData[0][scoreType])
+    return Object.entries(playerData[0][scoreType])
       .filter(([statName]) => !excludedKeys.includes(statName)) // Exclude keys specified in excludedKeys
       .map(([statName, _]) => (
         <Table.Row key={statName}>
@@ -102,7 +104,7 @@ const MatchDetails = ({ matchData, profilePics, mmrTimeline, playerCountries }) 
   const renderHeroRows = () => {
     return (
       <Table.Row>
-        {matchData.slice(0, 4).map((playerScore, index) => (
+        {playerData.slice(0, 4).map((playerScore, index) => (
           <Table.Cell key={`team1-hero-${index}`} style={{ display: "table-cell" }}>
             <div className="team-0">
               {playerScore.heroes.map((hero, heroIndex) => (
@@ -115,7 +117,7 @@ const MatchDetails = ({ matchData, profilePics, mmrTimeline, playerCountries }) 
         ))}
         <Table.Cell className="th-center key">Heroes</Table.Cell>
 
-        {matchData.slice(4).map((playerScore, index) => (
+        {playerData.slice(4).map((playerScore, index) => (
           <Table.Cell key={`team2-hero-${index}`} style={{ display: "table-cell" }}>
             {playerScore.heroes.map((hero, heroIndex) => (
               <div key={`team1-hero-${index}-${heroIndex}`} className="">
@@ -156,6 +158,13 @@ const MatchDetails = ({ matchData, profilePics, mmrTimeline, playerCountries }) 
               )
             </p>
           </div>
+          <div style={{ width: "200px", height: "20px", overflow: "hidden", display: "inline-block", marginTop: "10px" }}>
+            {/* <div> */}
+            <Sparklines data={mmrTimeline[player.battleTag]} style={{ width: "130px", height: "14px" }}>
+              <SparklinesLine style={{ strokeWidth: 4, stroke: "white", fill: "none" }} />
+            </Sparklines>
+            {/* <MmrTrend data={{ mmrTimeline: mmrTimeline[playerScore.battleTag] }} id={"123"} /> */}
+          </div>
         </div>
       </Table.HeaderCell>
     );
@@ -168,7 +177,7 @@ const MatchDetails = ({ matchData, profilePics, mmrTimeline, playerCountries }) 
           <Table inverted size="large" basic>
             <Table.Header>
               <Table.Row>
-                {matchData.map((playerScore, index) => {
+                {playerData.map((playerScore, index) => {
                   const teamIndex = index < 4 ? 0 : 1;
                   const teamClassName = `team-${teamIndex}`;
                   return (
@@ -180,7 +189,7 @@ const MatchDetails = ({ matchData, profilePics, mmrTimeline, playerCountries }) 
                             <h2>VS</h2>
                           </div>
                           <div style={{ width: "100px", height: "130px", overflow: "hidden", display: "inline-block" }}>
-                            <RangePlotSection data={{ teamOneMmrs: matchData.slice(0, 4).map((d) => d.oldMmr), teamTwoMmrs: matchData.slice(4).map((d) => d.oldMmr) }} id={"123"} />
+                            <MmrComparison data={{ teamOneMmrs: playerData.slice(0, 4).map((d) => d.oldMmr), teamTwoMmrs: playerData.slice(4).map((d) => d.oldMmr) }} id={"123"} />
                           </div>
                         </th>
                       )}
@@ -234,13 +243,13 @@ const MatchDetails = ({ matchData, profilePics, mmrTimeline, playerCountries }) 
                 <td> </td>
                 <td className="th-center">
                   <div>
-                    {/* <div className="value">{matchData.serverInfo.location ? matchData.serverInfo.location.toUpper() : ""}</div> */}
+                    <div className="value">{metaData.location}</div>
                     <div className="key">REGION</div>
                   </div>
                 </td>
                 <td className="th-center">
                   <div>
-                    {/* <div className="value">{matchData.serverInfo.name.toUpperCase()}</div> */}
+                    <div className="value">{metaData.server}</div>
                     <div className="key">SERVER</div>
                   </div>
                 </td>
@@ -248,22 +257,22 @@ const MatchDetails = ({ matchData, profilePics, mmrTimeline, playerCountries }) 
                   <div>
                     <img
                       src={`${process.env.PUBLIC_URL}/maps/Nightopia.png`}
-                      alt="Map Icon"
+                      alt={metaData.mapName}
                       style={{ width: "100px", height: "100px" }} // Adjust the size as needed
                     />
-                    <div className="value">NIGHTOPIA</div>
+                    <div className="value">{metaData.mapName}</div>
                     <div className="key">MAP</div>
                   </div>
                 </td>
                 <td className="th-center">
                   <div>
-                    {/* <div className="value">{`${Math.floor(match.durationInSeconds / 60)}:${(match.durationInSeconds % 60).toString().padStart(2, "0")}`}</div> */}
+                    <div className="value">{metaData.gameLength}</div>
                     <div className="key">GAME LENGTH</div>
                   </div>
                 </td>
                 <td className="th-center">
                   <div>
-                    {/* <div className="value">{match.startTime.slice(0, 16)}</div> */}
+                    <div className="value">{metaData.startTime}</div>
                     <div className="key">DATETIME</div>
                   </div>
                 </td>
