@@ -27,7 +27,7 @@ const OnGoingGames = () => {
         return teamBMMR - teamAMMR;
       });
 
-      console.log("data", data.matches);
+      console.log("sortedMatches", sortedMatches);
       setOngoingGameData(sortedMatches);
 
       setIsLoading(false);

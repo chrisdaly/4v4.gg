@@ -38,7 +38,8 @@ const FinishedGame = ({ data }) => {
 
   const preprocessMatchData = (matchData) => {
     console.log("matchData", matchData);
-    if (!matchData || !matchData.match || !matchData.playerScores) {
+    if (!matchData) {
+      // || !matchData.match || !matchData.playerScores
       throw new Error("Invalid match data format");
     }
     return preprocessPlayerScores(matchData.match, matchData.playerScores);

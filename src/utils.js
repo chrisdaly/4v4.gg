@@ -183,6 +183,41 @@ export const getPlayerProfilePicUrl = async (battleTag) => {
   }
 };
 
+export const findPlayerRaceInMatch = (matchData, playerBattleTag) => {
+  for (const team of matchData.teams) {
+    for (const player of team.players) {
+      if (player.battleTag === playerBattleTag) {
+        return player.race;
+      }
+    }
+  }
+  return null; // Player not found in the match
+};
+
+export const findPlayerMmrInMatch = (matchData, playerBattleTag) => {
+  for (const team of matchData.teams) {
+    for (const player of team.players) {
+      if (player.battleTag === playerBattleTag) {
+        return player.currentMmr;
+      }
+    }
+  }
+  return null; // Player not found in the match
+};
+
+export const findPlayerInOngoingMatches = (allMatchData, playerBattleTag) => {
+  for (const matchData of allMatchData.matches) {
+    for (const team of matchData.teams) {
+      for (const player of team.players) {
+        if (player.battleTag === playerBattleTag) {
+          return matchData;
+        }
+      }
+    }
+  }
+  return null; // Player not found in the match
+};
+
 export const fetchMMRTimeline = async (battleTag, race) => {
   const url = new URL(`https://website-backend.w3champions.com/api/players/${battleTag.replace("#", "%23")}/mmr-rp-timeline`);
   const params = { gateway, season, race, gameMode: 4 };
@@ -190,7 +225,8 @@ export const fetchMMRTimeline = async (battleTag, race) => {
   try {
     const response = await fetch(url);
     const result = await response.json();
-    return result.mmrRpAtDates.map((d) => d.mmr);
+    const mmrTimeline = result.mmrRpAtDates.map((d) => d.mmr);
+    return mmrTimeline;
   } catch (error) {
     console.error("Error fetching MMR timeline:", error);
     return [];
@@ -211,6 +247,6 @@ export const getPlayerCountry = async (battleTag) => {
 export const calculateTeamMMR = (teams) => {
   // Calculate team MMR as the sum of all players' currentMmr in a team
   return teams.reduce((total, team) => {
-    return total + team.players.reduce((teamTotal, player) => teamTotal + player.currentMmr, 0);
+    return total + team.players.reduce((teamTotal, player) => teamTotal + player.oldMmr, 0);
   }, 0);
 };
