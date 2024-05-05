@@ -104,44 +104,15 @@ const PlayerProfile = () => {
   if (!isLoaded || !playerData || !mmrTimeLine) return null;
   return (
     <div>
-      <Navbar />
-      <div className={`team-0 max-width-cell`} style={{ position: "relative" }}>
-        <div style={{ position: "relative" }}>
-          <img src={profilePic} alt="Player Profile Pic" className="profile-pic " />
-          <Flag name={country.toLowerCase()} style={{ position: "absolute", top: 0, right: 0 }} className={`flag`}></Flag>
-        </div>
-        <div>
-          <Link to={`/player/${playerData.battleTag.replace("#", "%23")}`}>
-            <h2>{playerData.name}</h2>
-          </Link>
-        </div>
-        <div>
-          <img src={raceMapping[race]} alt={race} className={"race"} style={{ height: "40px" }} />
-        </div>
-        <div>
-          <p className="key">
-            <span className="number value">{mmr}</span> <span className="key">MMR</span>
-          </p>
-        </div>
-        <div style={{ width: "200px", height: "20px", overflow: "hidden", display: "inline-block", marginTop: "10px" }}>
-          {mmrTimeLine && mmrTimeLine.length > 0 ? (
-            <Sparklines data={mmrTimeLine} style={{ width: "130px", height: "14px" }}>
-              <SparklinesLine style={{ strokeWidth: 4, stroke: "white", fill: "none" }} />
-            </Sparklines>
-          ) : (
-            <div>No data available</div>
-          )}
-        </div>
-      </div>
       {!ongoingGame ? (
         <></>
       ) : (
         <div id="ongoing">
-          <h1>Ongoing Game</h1>
+          {/* <h1>Ongoing Game</h1> */}
           <OnGoingGame ongoingGameData={ongoingGame} />
         </div>
       )}
-      {!matchHistory ? (
+      {/* {!matchHistory ? (
         <></>
       ) : (
         <div id="history">
@@ -150,9 +121,41 @@ const PlayerProfile = () => {
             <FinishedGame data={d} />
           ))}
         </div>
-      )}
+      )} */}
     </div>
   );
 };
 
 export default PlayerProfile;
+
+{
+  /* <Navbar />
+<div className={`team-0 max-width-cell`} style={{ position: "relative" }}>
+  <div style={{ position: "relative" }}>
+    <img src={profilePic} alt="Player Profile Pic" className="profile-pic " />
+    <Flag name={country.toLowerCase()} style={{ position: "absolute", top: 0, right: 0 }} className={`flag`}></Flag>
+  </div>
+  <div>
+    <Link to={`/player/${playerData.battleTag.replace("#", "%23")}`}>
+      <h2>{playerData.name}</h2>
+    </Link>
+  </div>
+  <div>
+    <img src={raceMapping[race]} alt={race} className={"race"} style={{ height: "40px" }} />
+  </div>
+  <div>
+    <p className="key">
+      <span className="number value">{mmr}</span> <span className="key">MMR</span>
+    </p>
+  </div>
+  <div style={{ width: "200px", height: "20px", overflow: "hidden", display: "inline-block", marginTop: "10px" }}>
+    {mmrTimeLine && mmrTimeLine.length > 0 ? (
+      <Sparklines data={mmrTimeLine} style={{ width: "130px", height: "14px" }}>
+        <SparklinesLine style={{ strokeWidth: 4, stroke: "white", fill: "none" }} />
+      </Sparklines>
+    ) : (
+      <div>No data available</div>
+    )}
+  </div>
+</div> */
+}
