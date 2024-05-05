@@ -16,12 +16,6 @@ const PlayerProfile = () => {
 
   useEffect(() => {
     loadData();
-    const intervalId = setInterval(loadData, 30000);
-    const transitionId = setInterval(() => setTransition(!transition), 10000);
-    return () => {
-      clearInterval(intervalId);
-      clearInterval(transitionId);
-    };
   }, []);
 
   const loadData = async () => {
@@ -93,14 +87,13 @@ const PlayerProfile = () => {
               <h3>{playerData.name}</h3>
             </Grid.Column>
           </Grid.Row>
-          <div className="matches">
+          {/* <div className="matches">
             {Object.keys(matches).map((key) => (
               <div>
                 <Match match={matches[key]} key={matches[key].id} ladderRanks={ladderRanks} />
-                <Divider />
               </div>
             ))}
-          </div>
+          </div> */}
         </Grid>
       </div>
     </Container>

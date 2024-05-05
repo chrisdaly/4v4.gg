@@ -11,7 +11,7 @@ class Navbar extends Component {
   render() {
     return (
       <div className="navbar">
-        <Header as="h2" icon textAlign="center">
+        <Header as="h1" icon textAlign="center">
           <div id="logoAndText">
             {/* <img src={logo} alt={"asd"} className={"logo"} /> */}
             <Header.Content>4v4.GG</Header.Content>
@@ -20,7 +20,12 @@ class Navbar extends Component {
             <Grid.Row columns={3}>
               <Grid.Column width={4}>
                 <h3>
-                  <Link to="/">Live Games</Link>
+                  <Link to="/ongoing">Live Games</Link>
+                </h3>
+              </Grid.Column>
+              <Grid.Column width={4}>
+                <h3>
+                  <Link to="/finished">Recently Finished Games</Link>
                 </h3>
               </Grid.Column>
               <Grid.Column width={4}>

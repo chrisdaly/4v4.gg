@@ -1,3 +1,5 @@
+import { gameMode, gateway, season } from "./params";
+
 export const standardDeviation = (array) => {
   const n = array.length;
   const mean = array.reduce((a, b) => a + b) / n;
@@ -50,6 +52,24 @@ export const calcPlayerMmrAndChange = (battleTag, match) => {
   return null;
 };
 
+export const calculatePercentiles = (arr) => {
+  // console.log(arr);
+  // Sort the array in ascending order
+  const sortedArr = arr.slice().sort((a, b) => a - b);
+  const n = sortedArr.length;
+
+  // Calculate percentile for each element
+  const percentiles = arr.map((num) => {
+    // Find the index of the number in the sorted array
+    const index = sortedArr.indexOf(num);
+
+    // Calculate percentile using index and array length
+    const percentile = (index / (n - 1)) * 100;
+    return percentile;
+  });
+  return percentiles;
+};
+
 export const preprocessPlayerScores = (match, playerScores) => {
   // Define the key display name mapping
   const keyDisplayNameMapping = {
@@ -80,29 +100,20 @@ export const preprocessPlayerScores = (match, playerScores) => {
     }
   }
 
-  console.log("stats", stats);
   let mvpData = {};
-  // Define keys to calculate MVP
   const mvpKeys = ["Heroes Killed", "Experience Gained", "Gold Mined", "Units Killed", "Largest Army"];
-  // Loop through each player
   for (let i = 0; i < 8; i++) {
-    // console.log("i", i);
-    // console.log(playerScores[i]);
     const playerName = playerScores[i].battleTag.split("#")[0];
     let summed = 0;
     for (const dataType of mvpKeys) {
       const percentiles = stats[dataType].percentiles;
-      // console.log(percentiles);
       summed += percentiles[i];
     }
-    // console.log("playerName", playerName, summed);
     mvpData[playerName] = summed;
   }
 
   const [mvp, maxValue] = Object.entries(mvpData).reduce((acc, [key, value]) => (value > acc[1] ? [key, value] : acc), ["", -Infinity]);
-  // console.log("mvp", mvp);
 
-  // Map over the match data first
   const playerData = match.teams.flatMap((team, teamIndex) => {
     return team.players.map((playerData) => {
       const playerScore = playerScores.find((score) => score.battleTag === playerData.battleTag);
@@ -119,7 +130,7 @@ export const preprocessPlayerScores = (match, playerScores) => {
   });
 
   const metaData = {
-    startTime: match.startTime.slice(0, 16),
+    startTime: match.startTime.slice(0, 16).replace("T", " "),
     gameLength: `${Math.floor(match.durationInSeconds / 60)}:${(match.durationInSeconds % 60).toString().padStart(2, "0")}`,
     server: match.serverInfo.name?.toUpperCase(),
     location: match.serverInfo.location?.toUpperCase(),
@@ -129,20 +140,77 @@ export const preprocessPlayerScores = (match, playerScores) => {
   return { playerData, metaData, stats };
 };
 
-export const calculatePercentiles = (arr) => {
-  // console.log(arr);
-  // Sort the array in ascending order
-  const sortedArr = arr.slice().sort((a, b) => a - b);
-  const n = sortedArr.length;
-
-  // Calculate percentile for each element
-  const percentiles = arr.map((num) => {
-    // Find the index of the number in the sorted array
-    const index = sortedArr.indexOf(num);
-
-    // Calculate percentile using index and array length
-    const percentile = (index / (n - 1)) * 100;
-    return percentile;
+export const processOngoingGameData = (match) => {
+  // Process each ongoing game
+  const playerData = match.teams.flatMap((team, teamIndex) => {
+    return team.players.map((playerData) => {
+      return {
+        ...playerData,
+      };
+    });
   });
-  return percentiles;
+
+  const metaData = {
+    startTime: match.startTime.slice(0, 16).replace("T", " "),
+    gameLength: `${Math.floor(match.durationInSeconds / 60)}:${(match.durationInSeconds % 60).toString().padStart(2, "0")}`,
+    server: match.serverInfo.name?.toUpperCase(),
+    location: match.serverInfo.location?.toUpperCase(),
+    mapName: match.mapName?.toUpperCase(),
+  };
+
+  return { playerData, metaData };
+};
+
+export const getPlayerProfilePicUrl = async (battleTag) => {
+  try {
+    const response = await fetch(`https://website-backend.w3champions.com/api/personal-settings/${encodeURIComponent(battleTag)}`);
+    const profileData = await response.json();
+    const { profilePicture } = profileData;
+    if (!profilePicture || !profilePicture.pictureId) {
+      return null;
+    }
+    const { pictureId, race } = profilePicture;
+    const raceMapping = { 64: "starter", 16: "total", 8: "undead", 0: "random", 4: "nightelf", 2: "orc", 1: "human" };
+    const { specialPictures } = profileData;
+    if (specialPictures.map((d) => d.pictureId).includes(pictureId)) {
+      return `https://w3champions.wc3.tools/prod/integration/icons/specialAvatars/SPECIAL_${pictureId}.jpg`;
+    } else {
+      return `https://w3champions.wc3.tools/prod/integration/icons/raceAvatars/classic/${raceMapping[race].toUpperCase()}_${pictureId}.jpg`;
+    }
+  } catch (error) {
+    console.error("Error fetching player profile picture:", error);
+    return null;
+  }
+};
+
+export const fetchMMRTimeline = async (battleTag, race) => {
+  const url = new URL(`https://website-backend.w3champions.com/api/players/${battleTag.replace("#", "%23")}/mmr-rp-timeline`);
+  const params = { gateway, season, race, gameMode: 4 };
+  url.search = new URLSearchParams(params).toString();
+  try {
+    const response = await fetch(url);
+    const result = await response.json();
+    return result.mmrRpAtDates.map((d) => d.mmr);
+  } catch (error) {
+    console.error("Error fetching MMR timeline:", error);
+    return [];
+  }
+};
+
+export const getPlayerCountry = async (battleTag) => {
+  try {
+    const response = await fetch(`https://website-backend.w3champions.com/api/personal-settings/${encodeURIComponent(battleTag)}`);
+    const profileData = await response.json();
+    return profileData.countryCode || null;
+  } catch (error) {
+    console.error("Error fetching player country:", error);
+    return null;
+  }
+};
+
+export const calculateTeamMMR = (teams) => {
+  // Calculate team MMR as the sum of all players' currentMmr in a team
+  return teams.reduce((total, team) => {
+    return total + team.players.reduce((teamTotal, player) => teamTotal + player.currentMmr, 0);
+  }, 0);
 };

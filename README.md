@@ -91,3 +91,13 @@ add standard deviation to team header, transition
 
 Add a feature to vote on who you think will win
 Add a feature to vote on post game MVP
+
+# TODO new
+
+order races so that they are easier to compare
+draw a line between AT partners
+do a ongoing match view, that's also suitable for stream
+upscale race icons
+add gold circle to mmr trend
+
+export NODE_OPTIONS=--openssl-legacy-provider

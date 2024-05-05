@@ -727,11 +727,6 @@ h2 {
 }
 
 .matchDetails {
-  background-image: url(https://github.com/w3champions/website/blob/d9eb0ddbab4f8493346434cdede16294ea3fccb6/public/assets/backgrounds/undead.jpg?raw=true) !important;
-  background-size: cover;
-}
-
-.matchDetails {
   position: relative;
 }
 
@@ -743,13 +738,14 @@ h2 {
 .matchDetails::before {
   content: "";
   position: absolute;
+  opacity: 0.3;
   top: 0;
   left: 0;
   width: 100%;
   height: 100%;
   background-image: url(https://github.com/w3champions/website/blob/d9eb0ddbab4f8493346434cdede16294ea3fccb6/public/assets/backgrounds/undead.jpg?raw=true) !important;
   background-size: cover;
-  z-index: 0;
+  z-index: -1;
 }
 
 .matchDetails > div {
@@ -804,4 +800,12 @@ path.line {
 line.line.team-middle {
   stroke: var(--grey);
   stroke-width: 0.5px;
+}
+
+img.race {
+  margin-bottom: -7px;
+}
+
+.Game {
+  padding-bottom: 75px;
 }

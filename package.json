@@ -1,5 +1,5 @@
 {
-  "name": "w3c-queue-viewer",
+  "name": "4v4.gg",
   "version": "0.1.0",
   "private": true,
   "dependencies": {
@@ -7,19 +7,18 @@
     "@testing-library/react": "^11.1.0",
     "@testing-library/user-event": "^12.1.10",
     "d3": "^6.7.0",
-    "react": "^17.0.1",
+    "react": "^18.3.1",
     "react-d3-library": "^1.1.8",
-    "react-dom": "^17.0.1",
+    "react-dom": "^18.3.1",
     "react-hot-toast": "^2.4.0",
     "react-router-dom": "^5.2.0",
     "react-scripts": "4.0.1",
     "react-sparklines": "^1.7.0",
     "react-transition-group": "^4.4.5",
     "semantic-ui-css": "^2.4.1",
-    "semantic-ui-react": "^2.0.3",
+    "semantic-ui-react": "^3.0.0-beta.2",
     "serve": "^11.3.2",
-    "web-vitals": "^0.2.4",
-    "websocket": "^1.0.33"
+    "web-vitals": "^0.2.4"
   },
   "scripts": {
     "start": "react-scripts start",
@@ -46,6 +45,9 @@
     ]
   },
   "now": {
-    "alias": "w3c-team-viewer"
+    "alias": "4v4.gg"
+  },
+  "resolutions": {
+    "react-error-overlay": "6.0.9"
   }
 }

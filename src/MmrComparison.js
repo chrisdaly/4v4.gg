@@ -26,7 +26,8 @@ const MmrComparison = ({ data }) => {
     // Define scales
     const yScale = d3
       .scaleLinear()
-      .domain([Math.min(...teamOneMmrs, ...teamTwoMmrs), Math.max(...teamOneMmrs, ...teamTwoMmrs)])
+      // .domain([Math.min(...teamOneMmrs, ...teamTwoMmrs), Math.max(...teamOneMmrs, ...teamTwoMmrs)])
+      .domain([800, 2600])
       .range([innerHeight, margin.bottom]);
 
     // Draw Team One line and circles
