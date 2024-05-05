@@ -5,6 +5,7 @@ import { processOngoingGameData, getPlayerProfilePicUrl, fetchMMRTimeline, getPl
 import { gameMode, gateway, season } from "./params";
 
 const OnGoingGame = ({ ongoingGameData }) => {
+  console.log("OnGoingGame", ongoingGameData);
   const [playerData, setPlayerData] = useState(null);
   const [metaData, setMetaData] = useState(null);
   const [profilePics, setProfilePics] = useState(null);
