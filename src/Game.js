@@ -2,6 +2,7 @@ import React, { useState, useEffect } from "react";
 import { Flag, Table } from "semantic-ui-react";
 import * as d3 from "d3";
 import { Sparklines, SparklinesLine, SparklinesSpots } from "react-sparklines";
+import { Link } from "react-router-dom";
 
 import { MmrComparison } from "./MmrComparison.js";
 import { MmrTrend } from "./MmrTrend.js";
@@ -170,11 +171,13 @@ const Game = ({ playerData, metaData, profilePics, mmrTimeline, playerCountries 
             {playerCountries[player.battleTag] ? <Flag name={playerCountries[player.battleTag].toLowerCase()} style={{ position: "absolute", ...flagPosition }} className={`${teamClassName} flag`}></Flag> : null}
           </div>
           <div>
-            <h2>
-              {player.isMvp && teamClassName === "team-0" ? "🏅" : ""}
-              {player.name}
-              {player.isMvp && teamClassName === "team-1" ? "🏅" : ""}
-            </h2>
+            <Link to={`/player/${player.battleTag.replace("#", "%23")}`}>
+              <h2>
+                {player.isMvp && teamClassName === "team-0" ? "🏅" : ""}
+                {player.name}
+                {player.isMvp && teamClassName === "team-1" ? "🏅" : ""}
+              </h2>
+            </Link>
           </div>
           <div>
             <img src={raceMapping[player.race]} alt={player.race} className={"race"} style={{ height: "40px" }} />

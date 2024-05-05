@@ -6,6 +6,7 @@ import { findPlayerInOngoingMatches, findPlayerRaceInMatch, findPlayerMmrInMatch
 import { Sparklines, SparklinesLine, SparklinesSpots } from "react-sparklines";
 import OnGoingGame from "./OngoingGame.js";
 import { gameMode, gateway, season } from "./params";
+import { Link } from "react-router-dom";
 
 import human from "./icons/human.svg";
 import orc from "./icons/orc.svg";
@@ -110,7 +111,9 @@ const PlayerProfile = () => {
           <Flag name={country.toLowerCase()} style={{ position: "absolute", top: 0, right: 0 }} className={`flag`}></Flag>
         </div>
         <div>
-          <h2>{playerData.name}</h2>
+          <Link to={`/player/${playerData.battleTag.replace("#", "%23")}`}>
+            <h2>{playerData.name}</h2>
+          </Link>
         </div>
         <div>
           <img src={raceMapping[race]} alt={race} className={"race"} style={{ height: "40px" }} />

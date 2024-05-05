@@ -12,7 +12,7 @@ import RecentlyFinished from "./RecentlyFinished";
 const Router = () => (
   <BrowserRouter>
     <Switch>
-      <Route exact path="/" component={App} />
+      <Route exact path="/" component={OnGoingGames} />
       <Route exact path="/queue" component={Queue} />
       <Route path="/ongoing" component={OnGoingGames} />
       <Route path="/finished" component={RecentlyFinished} />
