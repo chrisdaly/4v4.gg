@@ -237,7 +237,7 @@ export const getPlayerCountry = async (battleTag) => {
   try {
     const response = await fetch(`https://website-backend.w3champions.com/api/personal-settings/${encodeURIComponent(battleTag)}`);
     const profileData = await response.json();
-    return profileData.countryCode || null;
+    return profileData.location || null;
   } catch (error) {
     console.error("Error fetching player country:", error);
     return null;
