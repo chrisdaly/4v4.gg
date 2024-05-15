@@ -5,11 +5,11 @@ import { Sparklines, SparklinesLine, SparklinesSpots } from "react-sparklines";
 
 import { gameMode, gateway, season } from "./params";
 
-import human from "./icons/human.png";
-import orc from "./icons/orc.png";
-import elf from "./icons/elf.png";
-import undead from "./icons/undead.png";
-import random from "./icons/random.png";
+import human from "./icons/human.svg";
+import orc from "./icons/orc.svg";
+import elf from "./icons/elf.svg";
+import undead from "./icons/undead.svg";
+import random from "./icons/random.svg";
 
 class RankRow extends Component {
   state = {
@@ -29,9 +29,7 @@ class RankRow extends Component {
 
     try {
       let sparklinePlayersData = [];
-      var url = new URL(
-        `https://website-backend.w3champions.com/api/players/${player}/mmr-rp-timeline`
-      );
+      var url = new URL(`https://website-backend.w3champions.com/api/players/${player}/mmr-rp-timeline`);
       var params = {
         gateway,
         season: season - 1,
@@ -49,9 +47,7 @@ class RankRow extends Component {
         sparklinePlayersData = [...sparklinePlayersData, ...prevSeasonMMrs];
       }
 
-      var url = new URL(
-        `https://website-backend.w3champions.com/api/players/${player}/mmr-rp-timeline`
-      );
+      var url = new URL(`https://website-backend.w3champions.com/api/players/${player}/mmr-rp-timeline`);
       var params = { gateway, season, race, gameMode: 4 }; //hardcodig race at the moment
       url.search = new URLSearchParams(params).toString();
       var response = await fetch(url);
@@ -88,19 +84,10 @@ class RankRow extends Component {
         </Table.Cell>
         <Table.Cell>{this.props.rank.rankingPoints.toFixed(2)}</Table.Cell>
         <Table.Cell textAlign="center">
-          <img
-            src={raceIcon}
-            alt={this.state.race}
-            className={"race"}
-            textAlign="center"
-          />
+          <img src={raceIcon} alt={this.state.race} className={"race"} textAlign="center" style={{ width: "30px" }} />
         </Table.Cell>
         <Table.Cell singleLine>
-          <a
-            target="_blank"
-            href={`/player/${battleTag.replace("#", "%23")}`}
-            rel="noreferrer"
-          >
+          <a target="_blank" href={`/player/${battleTag.replace("#", "%23")}`} rel="noreferrer">
             {name}
           </a>
         </Table.Cell>
@@ -111,13 +98,8 @@ class RankRow extends Component {
         <Table.Cell>{Math.round(winrate * 10000) / 100}%</Table.Cell>
 
         <Table.Cell>
-          <Sparklines
-            data={this.state.sparklinePlayersData}
-            style={{ width: "70px", height: "12px" }}
-          >
-            <SparklinesLine
-              style={{ strokeWidth: 4, stroke: "white", fill: "none" }}
-            />
+          <Sparklines data={this.state.sparklinePlayersData} style={{ width: "70px", height: "12px" }}>
+            <SparklinesLine style={{ strokeWidth: 4, stroke: "white", fill: "none" }} />
           </Sparklines>
         </Table.Cell>
       </Table.Row>

@@ -5,7 +5,7 @@ import { processOngoingGameData, getPlayerProfilePicUrl, fetchMMRTimeline, getPl
 import { gameMode, gateway, season } from "./params";
 
 const OnGoingGame = ({ ongoingGameData }) => {
-  console.log("OnGoingGame", ongoingGameData);
+  // console.log("OnGoingGame", ongoingGameData);
   const [playerData, setPlayerData] = useState(null);
   const [metaData, setMetaData] = useState(null);
   const [profilePics, setProfilePics] = useState(null);
@@ -16,7 +16,7 @@ const OnGoingGame = ({ ongoingGameData }) => {
 
   useEffect(() => {
     const processedData = preprocessMatchData(ongoingGameData);
-    console.log("XXX processedData", processedData);
+    // console.log("XXX processedData", processedData);
     const { playerData, metaData } = { ...processedData };
     setPlayerData(playerData);
     setMetaData(metaData);
@@ -32,7 +32,7 @@ const OnGoingGame = ({ ongoingGameData }) => {
   };
 
   const fetchRemainingPlayerData = async (processedData) => {
-    console.log("ONGOING GAME const fetchPlayerData", processedData);
+    // console.log("ONGOING GAME const fetchPlayerData", processedData);
 
     setIsLoading(true);
     try {
@@ -51,7 +51,7 @@ const OnGoingGame = ({ ongoingGameData }) => {
         acc[curr.battleTag] = curr.profilePicUrl;
         return acc;
       }, {});
-      console.log("profilePics", profilePics);
+      // console.log("profilePics", profilePics);
 
       setProfilePics(profilePics);
       setMmrTimeline(

@@ -26,8 +26,6 @@ const OnGoingGames = () => {
         const teamBMMR = calculateTeamMMR(b.teams);
         return teamBMMR - teamAMMR;
       });
-
-      console.log("sortedMatches", sortedMatches);
       setOngoingGameData(sortedMatches);
 
       setIsLoading(false);
@@ -47,9 +45,9 @@ const OnGoingGames = () => {
         <div>
           <Navbar />
           <div>
-            {console.log("ongoingGameData", ongoingGameData)}
+            {/* {console.log("ongoingGameData", ongoingGameData)} */}
             {ongoingGameData.map((d) => (
-              <OnGoingGame ongoingGameData={d} />
+              <OnGoingGame ongoingGameData={d} key={d.id} />
             ))}
           </div>
         </div>

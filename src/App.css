@@ -516,10 +516,6 @@ span.true {
   font-weight: bolder;
 }
 
-img.race {
-  padding-top: 2px;
-}
-
 .sixteen.wide.column.playerName {
   padding-top: 3px !important;
 }
@@ -767,13 +763,6 @@ h2 {
 
 /*  */
 
-.max-width-cell {
-  width: 170px; /* Adjust the value according to your requirement */
-  overflow: hidden;
-  text-overflow: ellipsis;
-  white-space: nowrap;
-}
-
 p.number.heroLevel {
   line-height: 1rem;
 }
@@ -808,4 +797,39 @@ img.race {
 
 .Game {
   padding-bottom: 75px;
+}
+table.ui.small.inverted.basic.compact.table {
+  border: 2px solid grey;
+}
+
+.Game {
+  padding: 70px;
+}
+
+.max-width-cell {
+  width: 100px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.live-indicator {
+  width: 10px;
+  height: 10px;
+  border-radius: 50%;
+  background-color: red;
+  display: inline-block; /* Ensures it's displayed inline */
+  vertical-align: middle; /* Vertically aligns it with the text */
+  margin-left: 5px; /* Adjust the margin as needed */
+  animation: pulse 1s infinite alternate;
+  margin-bottom: 2px !important;
+}
+
+@keyframes pulse {
+  from {
+    transform: scale(1);
+  }
+  to {
+    transform: scale(1.2);
+  }
 }

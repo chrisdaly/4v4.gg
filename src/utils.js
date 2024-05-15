@@ -1,3 +1,4 @@
+import { DateTime } from "luxon";
 import { gameMode, gateway, season } from "./params";
 
 export const standardDeviation = (array) => {
@@ -130,7 +131,7 @@ export const preprocessPlayerScores = (match, playerScores) => {
   });
 
   const metaData = {
-    startTime: match.startTime.slice(0, 16).replace("T", " "),
+    startTime: match.startTime, //.slice(0, 16).replace("T", " "),
     gameLength: `${Math.floor(match.durationInSeconds / 60)}:${(match.durationInSeconds % 60).toString().padStart(2, "0")}`,
     server: match.serverInfo.name?.toUpperCase(),
     location: match.serverInfo.location?.toUpperCase(),
@@ -151,7 +152,7 @@ export const processOngoingGameData = (match) => {
   });
 
   const metaData = {
-    startTime: match.startTime.slice(0, 16).replace("T", " "),
+    startTime: match.startTime, //.slice(0, 16).replace("T", " "),
     gameLength: `${Math.floor(match.durationInSeconds / 60)}:${(match.durationInSeconds % 60).toString().padStart(2, "0")}`,
     server: match.serverInfo.name?.toUpperCase(),
     location: match.serverInfo.location?.toUpperCase(),
@@ -250,3 +251,16 @@ export const calculateTeamMMR = (teams) => {
     return total + team.players.reduce((teamTotal, player) => teamTotal + player.oldMmr, 0);
   }, 0);
 };
+
+export function calculateElapsedTime(utcDate) {
+  const localDate = new Date(utcDate);
+  const now = new Date();
+  const diffMs = now - localDate;
+  const diffMins = Math.round(((diffMs % 86400000) % 3600000) / 60000); // minutes
+  return diffMins;
+}
+
+export function convertToLocalTime(utcDate) {
+  const localDate = new Date(utcDate);
+  return localDate.toLocaleString();
+}

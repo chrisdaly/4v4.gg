@@ -3,11 +3,11 @@ import { Grid, Flag } from "semantic-ui-react";
 import Mmr from "./Mmr.js";
 import { Sparklines, SparklinesLine } from "react-sparklines";
 import { akaLookup, raceLookup } from "./utils.js";
-import human from "./icons/human.png";
-import orc from "./icons/orc.png";
-import elf from "./icons/elf.png";
-import undead from "./icons/undead.png";
-import random from "./icons/random.png";
+import human from "./icons/human.svg";
+import orc from "./icons/orc.svg";
+import elf from "./icons/elf.svg";
+import undead from "./icons/undead.svg";
+import random from "./icons/random.svg";
 
 import { gameMode, gateway, season } from "./params";
 

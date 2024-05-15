@@ -6,7 +6,7 @@ import { Link } from "react-router-dom";
 
 import { MmrComparison } from "./MmrComparison.js";
 import { MmrTrend } from "./MmrTrend.js";
-import { calculatePercentiles } from "./utils.js";
+import { calculatePercentiles, calculateElapsedTime, convertToLocalTime } from "./utils.js";
 import human from "./icons/human.svg";
 import orc from "./icons/orc.svg";
 import elf from "./icons/elf.svg";
@@ -165,7 +165,7 @@ const Game = ({ playerData, metaData, profilePics, mmrTimeline, playerCountries 
 
     return (
       <Table.HeaderCell key={player.battleTag}>
-        <div className={`${teamClassName} max-width-cell`} style={{ position: "relative" }}>
+        <div className={`${teamClassName} max-width-cell`} style={{ position: "relative", float: teamClassName === "team-0" ? "right" : "left" }}>
           <div style={{ position: "relative" }}>
             {profilePics[player.battleTag] ? <img src={profilePics[player.battleTag]} alt="Player Profile Pic" className="profile-pic " /> : null}
             {playerCountries[player.battleTag] ? <Flag name={playerCountries[player.battleTag].toLowerCase()} style={{ position: "absolute", ...flagPosition }} className={`${teamClassName} flag`}></Flag> : null}
@@ -179,8 +179,8 @@ const Game = ({ playerData, metaData, profilePics, mmrTimeline, playerCountries 
               </h2>
             </Link>
           </div>
-          <div>
-            <img src={raceMapping[player.race]} alt={player.race} className={"race"} style={{ height: "40px" }} />
+          <div style={{ alignItems: "center", height: "100%", paddingTop: "5px", paddingBottom: "5px" }}>
+            <img src={raceMapping[player.race]} alt={player.race} className={"race"} style={{ height: "30px" }} />
           </div>
           <div>
             <p className="key">
@@ -194,7 +194,17 @@ const Game = ({ playerData, metaData, profilePics, mmrTimeline, playerCountries 
               )}
             </p>
           </div>
-          <div style={{ width: "200px", height: "20px", overflow: "hidden", display: "inline-block", marginTop: "10px" }}>
+          <div
+            style={{
+              width: "200px",
+              height: "20px",
+              overflow: "hidden",
+              display: "inline-block",
+              marginTop: "10px",
+              float: teamClassName === "team-0" ? "right" : "left",
+            }}
+          >
+            {" "}
             {/* <div> */}
             <Sparklines data={mmrTimeline[player.battleTag]} style={{ width: "130px", height: "14px" }}>
               <SparklinesLine style={{ strokeWidth: 4, stroke: "white", fill: "none" }} />
@@ -208,8 +218,7 @@ const Game = ({ playerData, metaData, profilePics, mmrTimeline, playerCountries 
 
   return (
     <div className="Game">
-      {/* {style={{ width: "100%", height: "100vh", overflow: "auto" }}>} */}
-      <Table inverted size="large" basic>
+      <Table inverted compact size="small" basic>
         <Table.Header>
           <Table.Row>
             <th> </th>
@@ -372,13 +381,16 @@ const Game = ({ playerData, metaData, profilePics, mmrTimeline, playerCountries 
             </td>
             <td className="th-center">
               <div>
-                <div className="value">{metaData.gameLength}</div>
+                <div className="value">
+                  {metaData.gameLength === "0:00" ? calculateElapsedTime(metaData.startTime) + " MINS" : metaData.gameLength + " MINS"}
+                  {metaData.gameLength === "0:00" && <div className="live-indicator"></div>}
+                </div>
                 <div className="key">GAME LENGTH</div>
               </div>
             </td>
             <td className="th-center">
               <div>
-                <div className="value">{metaData.startTime}</div>
+                <div className="value">{convertToLocalTime(metaData.startTime)}</div>
                 <div className="key">DATETIME</div>
               </div>
             </td>
