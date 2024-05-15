@@ -1,245 +1,74 @@
-import React, { Component } from "react";
-import Navbar from "./Navbar.js";
-import Match from "./Match.js";
-// import Player from "./Player.js";
-import LineGraphPlotSection from "./LineGraphPlotSection.js";
+import React, { useState, useEffect } from "react";
+import { findPlayerInOngoingMatches } from "./utils.js";
+import OnGoingGame from "./OngoingGame.js";
+import human from "./icons/human.svg";
+import orc from "./icons/orc.svg";
+import elf from "./icons/elf.svg";
+import undead from "./icons/undead.svg";
+import random from "./icons/random.svg";
 
-import { Grid, Container, Flag, Divider } from "semantic-ui-react";
-import { Header } from "semantic-ui-react";
+const PlayerProfile = () => {
+  const [matchHistory, setMatchHistory] = useState([]);
+  const [isLoaded, setIsLoaded] = useState(false);
+  const [ongoingGame, setOngoingGame] = useState(null);
+  const raceMapping = { 8: undead, 0: random, 4: elf, 2: orc, 1: human };
+  const [race, setRace] = useState(null);
 
-import { standardDeviation, arithmeticMean, getUniqueListBy } from "./utils.js";
+  useEffect(() => {
+    // Immediately load data when the component mounts
+    loadData();
 
-import { gameMode, gateway, season } from "./params";
+    // Fetch ongoing games every 30 seconds
+    const interval = setInterval(fetchOngoingGames, 30000);
 
-class PlayerStream extends Component {
-  state = {
-    matches: [],
-    isLoaded: false,
-    ongoingGame: {},
-    sparklinePlayersData: {},
-    race: 0,
-    gameModeStats: [],
-    ladderRanks: [],
-  };
+    // Cleanup interval on component unmount
+    return () => clearInterval(interval);
+  }, []);
 
-  componentDidMount() {
-    this.loadInitData();
-    this.loadNewData();
-    let intervalId = setInterval(this.loadNewData, 30000);
-  }
-
-  componentWillUnmount() {
-    clearInterval(this.state.intervalId);
-  }
-
-  loadInitData = async () => {
-    console.log("LOADING INIT DATA");
-
-    const pageUrl = new URL(window.location.href);
-    const player = pageUrl.pathname.split("/").slice(-1)[0]; //
-    const playerTag = player.replace("%23", "#");
+  const loadData = async () => {
     try {
-      var url = new URL(`https://website-backend.w3champions.com/api/players/${player}`);
-      var response = await fetch(url);
-      var result = await response.json();
-      const race = result.winLosses.sort((a, b) => b.games - a.games)[0].race;
-      this.setState({ ...result, race });
+      // Fetch ongoing games immediately
+      await fetchOngoingGames();
 
-      var url = new URL(`https://website-backend.w3champions.com/api/personal-settings/${player}`);
-      var response = await fetch(url);
-      var result = await response.json();
-      this.setState({ ...result });
+      // Other data loading logic here (e.g., player profile, match history, etc.)
 
-      var url = new URL(`https://website-backend.w3champions.com/api/players/${player}/game-mode-stats`);
-      var params = { gateway, season };
-      url.search = new URLSearchParams(params).toString();
-      var response = await fetch(url);
-      var result = await response.json();
-      var gameModeStats = result.filter((d) => d.gameMode === 4)[0];
-      this.setState({ gameModeStats, isLoaded: true });
-
-      var url = new URL("https://website-backend.w3champions.com/api/ladder/0");
-      var params = { gateway, season, gameMode };
-      url.search = new URLSearchParams(params).toString();
-
-      var response = await fetch(url);
-      var result = await response.json();
-      this.setState({ ladderRanks: result.slice(0, 20) });
-    } catch (e) {}
-  };
-
-  loadNewData = async () => {
-    console.log("CHECKING FOR NEW GAME");
-    const pageUrl = new URL(window.location.href);
-    const player = pageUrl.pathname.split("/").slice(-1)[0]; //
-    const playerTag = player.replace("%23", "#");
-
-    try {
-      var url = new URL("https://website-backend.w3champions.com/api/matches/ongoing");
-      var params = {
-        offset: 0,
-        gateway,
-        pageSize: 50,
-        gameMode,
-        map: "Overall",
-      };
-      url.search = new URLSearchParams(params).toString();
-
-      var response = await fetch(url);
-      var result = await response.json();
-      // console.log("oingoing", result);
-
-      let ongoingGame = this.state.ongoingGame;
-
-      result.matches.forEach((m) =>
-        m.teams.forEach((t) => {
-          let players = t.players.map((p) => p.battleTag);
-          if (players.includes(playerTag) & (m.id !== ongoingGame.id)) {
-            ongoingGame = m;
-            console.log("NEW GAME", ongoingGame);
-            this.setState({
-              matches: [ongoingGame],
-              ongoingGame,
-              isLoaded: true,
-            });
-          }
-        })
-      );
-
-      if (Object.keys(ongoingGame).length === 0) {
-        console.log("NO CURRENT GAME", ongoingGame);
-        let offset = 0;
-
-        var url = new URL(`https://website-backend.w3champions.com/api/matches/search?playerId=${player}&gateway=20&offset=${offset}&pageSize=200&season=${season}&gameMode=${gameMode}`);
-        var params = {
-          gateway,
-          season,
-          playerId: playerTag,
-          pageSize: 20,
-          gameMode,
-        };
-        url.search = new URLSearchParams(params).toString();
-        var response = await fetch(url);
-        var result = await response.json();
-        console.log("result", result);
-        if (result.matches.length > 0) {
-          let matches = [...this.state.matches, result.matches[0]];
-
-          if (Object.keys(ongoingGame).length === 0) {
-            ongoingGame = matches[0];
-          }
-          console.log("MATCHES", matches);
-          this.setState({ matches: matches, ongoingGame, isLoaded: true });
-        }
-      }
-    } catch (e) {
-      console.log(e);
+      setIsLoaded(true);
+    } catch (error) {
+      console.error("Error loading data:", error);
     }
   };
 
-  render() {
-    if (this.state.isLoaded === true && this.state.matches.length > 0 && this.state.battleTag !== "") {
-      //&& Object.keys(this.state.gameModeStats).length > 0
-      const raceMapping = {
-        8: "UNDEAD",
-        0: "RANDOM",
-        4: "ELF",
-        2: "ORC",
-        1: "HUMAN",
-        16: "TOTAL",
-        32: "SPECIAL",
-      };
+  const fetchOngoingGames = async () => {
+    try {
+      // Fetch ongoing games API
+      const ongoingResponse = await fetch("https://website-backend.w3champions.com/api/matches/ongoing");
+      const ongoingResult = await ongoingResponse.json();
 
-      const badgeMapping = {
-        0: "grandmaster",
-        1: "adept",
-        2: "master",
-        3: "diamond",
-        4: "platinum",
-        5: "gold",
-        6: "silver",
-        7: "bronze",
-        8: "grass",
-      };
+      // Extract tag from URL
+      const pageUrl = new URL(window.location.href);
+      const tag = pageUrl.pathname.split("/").slice(-1)[0].replace("%23", "#");
 
-      const { countryCode, location, profilePicture, playerAkaData } = this.state; //gameModeStats
-
-      // let numIcon = profilePicture.pictureId;
-      // let raceIcon = profilePicture.race;
-      console.log("THIS.STATE.MATCHES", this.state.matches);
-      if (this.state.matches.length > 0) {
-        let matches = getUniqueListBy(this.state.matches, "id");
-        matches.forEach((m) => {
-          let matchMmr = 0;
-          m.teams.forEach((t) => {
-            let playerMmrs = t.players.map((d) => d.oldMmr);
-            let teamAverage = arithmeticMean(playerMmrs);
-            let teamDeviation = standardDeviation(playerMmrs);
-            t.teamAverage = teamAverage;
-            t.teamDeviation = teamDeviation;
-          });
-
-          m.matchMmr = Math.round(matchMmr / 2);
-        });
-
-        let playerCardData = {};
-        matches[0].teams.forEach((t) => {
-          let players = t.players.map((p) => p.battleTag);
-          if (players.includes(this.state.battleTag)) {
-            playerCardData = t.players.filter((d) => d.battleTag === this.state.battleTag)[0];
-          }
-        });
-
-        let lastTenMatches = matches
-          .filter((m) => m.durationInSeconds > 0)
-          .slice(0, 10)
-          .reverse();
-
-        let lastTenResults = lastTenMatches.map((m) => {
-          let t = m.teams[0];
-          let players = t.players.map((p) => p.battleTag);
-          let won = players.includes(this.state.battleTag) ? t.won : !t.won;
-          return won;
-        });
-      }
-
-      // const profilePic = `${process.env.PUBLIC_URL}/icons/profile/${raceMapping[raceIcon]}_${numIcon}.jpg`;
-
-      // let playedRace = raceMapping[raceIcon];
-      // playedRace = playedRace ? playedRace.toLowerCase() : "RANDOM";
-      // const racePic = `${process.env.PUBLIC_URL}/icons/${playedRace}.png`;
-
-      // let countryCodeIcon = countryCode !== null ? countryCode.toLowerCase() : location.toLowerCase();
-
-      // let winrate = Math.round(gameModeStats.winrate * 10000) / 100;
-      // let leagueId = gameModeStats.leagueId;
-      // let leagueBadge = badgeMapping[leagueId];
-
-      // let sparklineData = this.state.mmrRpAtDates.map(d => )
-      const { ladderRanks } = this.state;
-
-      return (
-        <Container style={{}}>
-          <Header as="h2" icon textAlign="center">
-            <div id="logoAndText">
-              {/* <img
-                src={logo}
-                alt={"asd"}
-                className={"logo"}
-                style={{ height: "42px", marginBottom: "-10px" }}
-              /> */}
-              <p style={{ fontSize: "18px", margin: "0 0 0em" }}>4v4.GG</p>
-            </div>
-          </Header>
-          <div className="ongoing">
-            {Object.keys(this.state.ongoingGame).length !== 0 ? <Match match={this.state.ongoingGame} render={false} ladderRanks={ladderRanks} battleTag={this.state.battleTag} key={this.state.ongoingGame.id} sparklinePlayersData={this.state.sparklinePlayersData}></Match> : <div />}
-          </div>
-        </Container>
-      );
-    } else {
-      return <div></div>;
+      // Find ongoing game for the player
+      const ongoingGame = findPlayerInOngoingMatches(ongoingResult, tag);
+      setOngoingGame(ongoingGame);
+    } catch (error) {
+      console.error("Error fetching ongoing games:", error);
     }
-  }
-}
+  };
 
-export default PlayerStream;
+  if (!isLoaded) return null;
+
+  return (
+    <div id="PlayerProfile">
+      {!ongoingGame ? (
+        <></>
+      ) : (
+        <div id="ongoing">
+          <OnGoingGame ongoingGameData={ongoingGame} />
+        </div>
+      )}
+    </div>
+  );
+};
+
+export default PlayerProfile;

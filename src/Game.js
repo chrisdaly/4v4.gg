@@ -245,7 +245,7 @@ const Game = ({ playerData, metaData, profilePics, mmrTimeline, playerCountries 
                   .map((d) => d.race)
                   .sort((a, b) => b - a)
                   .map((race, i) => (
-                    <img key={i} src={raceMapping[race]} alt={race} className={"race"} style={{ paddingLeft: "5px", width: "35px" }} />
+                    <img key={i} src={raceMapping[race]} alt={race} className={"race"} style={{ paddingLeft: "5px", width: "30px" }} />
                   ))}
               </div>
             </th>
@@ -348,7 +348,7 @@ const Game = ({ playerData, metaData, profilePics, mmrTimeline, playerCountries 
               </Table.Row>
             </>
           )}
-          <Table.Row>
+          <Table.Row className="meta">
             <td></td>
             <td> </td>
             <td className="th-center">

@@ -833,3 +833,7 @@ table.ui.small.inverted.basic.compact.table {
     transform: scale(1.2);
   }
 }
+
+#PlayerProfile {
+  background-color: magenta;
+}
