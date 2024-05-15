@@ -12,6 +12,8 @@ import orc from "./icons/orc.svg";
 import elf from "./icons/elf.svg";
 import undead from "./icons/undead.svg";
 import random from "./icons/random.svg";
+import king from "./icons/king.svg";
+import medal from "./icons/medal.svg";
 
 const Game = ({ playerData, metaData, profilePics, mmrTimeline, playerCountries }) => {
   console.log("Game", metaData.mapName, metaData);
@@ -167,16 +169,14 @@ const Game = ({ playerData, metaData, profilePics, mmrTimeline, playerCountries 
       <Table.HeaderCell key={player.battleTag}>
         <div className={`${teamClassName} max-width-cell`} style={{ position: "relative", float: teamClassName === "team-0" ? "right" : "left" }}>
           <div style={{ position: "relative" }}>
+            {player.isMvp && teamClassName === "team-0" ? <img src={medal} alt={"won"} className={""} style={{ height: "50px" }} /> : ""}
             {profilePics[player.battleTag] ? <img src={profilePics[player.battleTag]} alt="Player Profile Pic" className="profile-pic " /> : null}
             {playerCountries[player.battleTag] ? <Flag name={playerCountries[player.battleTag].toLowerCase()} style={{ position: "absolute", ...flagPosition }} className={`${teamClassName} flag`}></Flag> : null}
+            {player.isMvp && teamClassName === "team-1" ? <img src={medal} alt={"won"} className={""} style={{ height: "50px" }} /> : ""}
           </div>
           <div>
             <Link to={`/player/${player.battleTag.replace("#", "%23")}`}>
-              <h2>
-                {player.isMvp && teamClassName === "team-0" ? "🏅" : ""}
-                {player.name}
-                {player.isMvp && teamClassName === "team-1" ? "🏅" : ""}
-              </h2>
+              <h2>{player.name}</h2>
             </Link>
           </div>
           <div style={{ alignItems: "center", height: "100%", paddingTop: "5px", paddingBottom: "5px" }}>
@@ -223,12 +223,10 @@ const Game = ({ playerData, metaData, profilePics, mmrTimeline, playerCountries 
           <Table.Row>
             <th> </th>
             <th> </th>
-            <th></th>
+            <th className="team-0">{playerData[0].won ? <img src={king} alt={"won"} className={"race"} style={{ height: "50px" }} /> : ""}</th>
             <th className="team-0">
               <div>
-                <h2>
-                  <span>{playerData[0].won ? "👑   " : ""}</span>TEAM 1
-                </h2>
+                <h2>TEAM 1</h2>
                 <p className="key" style={{ marginBottom: "0px", marginTop: "-10px" }}>
                   <span className="number value">
                     {Math.round(
@@ -254,9 +252,7 @@ const Game = ({ playerData, metaData, profilePics, mmrTimeline, playerCountries 
             </th>
             <th className="team-1">
               <div>
-                <h2>
-                  TEAM 2 <span>{playerData[4].won ? "   👑" : ""}</span>
-                </h2>
+                <h2>TEAM 2</h2>
                 <p className="key" style={{ marginBottom: "0px", marginTop: "-10px" }}>
                   <span className="number value">
                     {Math.round(
@@ -277,7 +273,7 @@ const Game = ({ playerData, metaData, profilePics, mmrTimeline, playerCountries 
                   ))}
               </div>
             </th>
-            <th> </th>
+            <th className="team-01">{playerData[4].won ? <img src={king} alt={"won"} className={"race"} style={{ height: "50px" }} /> : ""}</th>
             <th> </th>
             <td> </td>
           </Table.Row>
