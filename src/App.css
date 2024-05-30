@@ -863,3 +863,7 @@ table.ui.small.inverted.basic.compact.table {
   display: grid;
   place-items: center;
 }
+
+th {
+  border: none !important;
+}
