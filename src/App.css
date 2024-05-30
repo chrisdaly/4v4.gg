@@ -856,6 +856,7 @@ table.ui.small.inverted.basic.compact.table {
 .compact {
   width: 100px;
   overflow: hidden;
+  background: rgba(0, 0, 0, 0);
 }
 
 .games {
