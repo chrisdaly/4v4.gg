@@ -15,8 +15,8 @@ import random from "./icons/random.svg";
 import king from "./icons/king.svg";
 import medal from "./icons/medal.svg";
 
-const Game = ({ playerData, metaData, profilePics, mmrTimeline, playerCountries }) => {
-  console.log("Game", metaData.mapName, metaData);
+const Game = ({ playerData, metaData, profilePics, mmrTimeline, playerCountries, compact }) => {
+  console.log("Game", "compact", compact);
   const excludedKeys = ["mercsHired", "itemsObtained", "lumberCollected"];
   const raceMapping = { 8: undead, 0: random, 4: elf, 2: orc, 1: human };
 
@@ -167,7 +167,7 @@ const Game = ({ playerData, metaData, profilePics, mmrTimeline, playerCountries 
 
     return (
       <Table.HeaderCell key={player.battleTag}>
-        <div className={`${teamClassName} max-width-cell`} style={{ position: "relative", float: teamClassName === "team-0" ? "right" : "left" }}>
+        <div className={`${teamClassName} playerDiv ${compact ? "compact" : ""}`} style={{ position: "relative", float: teamClassName === "team-0" ? "right" : "left" }}>
           <div style={{ position: "relative" }}>
             {player.isMvp && teamClassName === "team-0" ? <img src={medal} alt={"won"} className={""} style={{ height: "50px" }} /> : ""}
             {profilePics[player.battleTag] ? <img src={profilePics[player.battleTag]} alt="Player Profile Pic" className="profile-pic " /> : null}
@@ -196,8 +196,8 @@ const Game = ({ playerData, metaData, profilePics, mmrTimeline, playerCountries 
           </div>
           <div
             style={{
-              width: "200px",
-              height: "20px",
+              width: "75px",
+              height: "15px",
               overflow: "hidden",
               display: "inline-block",
               marginTop: "10px",
@@ -280,15 +280,15 @@ const Game = ({ playerData, metaData, profilePics, mmrTimeline, playerCountries 
         </Table.Header>
         <Table.Header>
           <Table.Row>
-            {playerData.map((playerScore, index) => {
+            {[...playerData.slice(0, 4).reverse(), ...playerData.slice(4)].map((playerScore, index) => {
               const teamIndex = index < 4 ? 0 : 1;
               const teamClassName = `team-${teamIndex}`;
               return (
                 <React.Fragment key={`player-${index}`}>
                   {renderPlayerCell(playerScore, teamClassName)}
                   {index === 3 && (
-                    <th className="th-center" style={{ position: "relative" }}>
-                      <div style={{ width: "100px", height: "170px", overflow: "hidden", display: "inline-block" }}>
+                    <th className={`th-center ${compact}`} style={{ position: "relative" }}>
+                      <div style={{ height: "170px", overflow: "hidden", display: "inline-block" }}>
                         <MmrComparison data={{ teamOneMmrs: playerData.slice(0, 4).map((d) => d.oldMmr), teamTwoMmrs: playerData.slice(4).map((d) => d.oldMmr) }} id={"123"} />
                       </div>
                     </th>

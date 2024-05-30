@@ -83,10 +83,12 @@ const RecentlyFinished = () => {
         </Dimmer>
       ) : matchesData ? (
         <div>
-          {console.log("matchesData", matchesData)}
-          {matchesData.map((d) => (
-            <FinishedGame data={d} />
-          ))}
+          <Navbar />
+          <div className="games">
+            {matchesData.map((d) => (
+              <FinishedGame data={d} />
+            ))}
+          </div>
         </div>
       ) : (
         <div>

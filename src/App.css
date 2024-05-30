@@ -642,7 +642,7 @@ p.mapLabel {
 }
 
 td {
-  min-width: 160px;
+  /* min-width: 160px; */
 }
 
 .map-icon {
@@ -678,6 +678,9 @@ h2 {
 
 .th-center {
   text-align: center !important;
+}
+.th {
+  width: 100px;
 }
 
 .td {
@@ -793,17 +796,21 @@ line.line.team-middle {
 
 img.race {
   margin-bottom: -7px;
+  width: 35px !important;
 }
 
 .Game {
   padding-bottom: 75px;
 }
+
 table.ui.small.inverted.basic.compact.table {
   border: 2px solid grey;
+  table-layout: auto;
+  width: 150px;
 }
 
 .Game {
-  padding: 70px;
+  /* padding: 70px; */
 }
 
 .max-width-cell {
@@ -835,5 +842,23 @@ table.ui.small.inverted.basic.compact.table {
 }
 
 #PlayerProfile {
-  background-color: magenta;
+  /* background-color: magenta; */
+}
+
+.ui.table {
+}
+
+.playerDiv {
+  width: 200px;
+  /* overflow: hidden; */
+}
+
+.compact {
+  width: 100px;
+  overflow: hidden;
+}
+
+.games {
+  display: grid;
+  place-items: center;
 }

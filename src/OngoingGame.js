@@ -4,8 +4,8 @@ import Game from "./Game.js";
 import { processOngoingGameData, getPlayerProfilePicUrl, fetchMMRTimeline, getPlayerCountry } from "./utils.js";
 import { gameMode, gateway, season } from "./params";
 
-const OnGoingGame = ({ ongoingGameData }) => {
-  // console.log("OnGoingGame", ongoingGameData);
+const OnGoingGame = ({ ongoingGameData, compact }) => {
+  console.log("OnGoingGame", "compact", compact);
   const [playerData, setPlayerData] = useState(null);
   const [metaData, setMetaData] = useState(null);
   const [profilePics, setProfilePics] = useState(null);
@@ -81,7 +81,7 @@ const OnGoingGame = ({ ongoingGameData }) => {
         </Dimmer>
       ) : playerData && profilePics ? (
         <div>
-          <Game playerData={playerData} metaData={metaData} profilePics={profilePics} mmrTimeline={mmrTimeline} playerCountries={playerCountries} />
+          <Game playerData={playerData} metaData={metaData} profilePics={profilePics} mmrTimeline={mmrTimeline} playerCountries={playerCountries} compact={compact} />
         </div>
       ) : (
         <div>

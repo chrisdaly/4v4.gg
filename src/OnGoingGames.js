@@ -44,8 +44,7 @@ const OnGoingGames = () => {
       ) : ongoingGameData ? (
         <div>
           <Navbar />
-          <div>
-            {/* {console.log("ongoingGameData", ongoingGameData)} */}
+          <div className="games">
             {ongoingGameData.map((d) => (
               <OnGoingGame ongoingGameData={d} key={d.id} />
             ))}

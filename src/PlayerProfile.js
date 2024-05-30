@@ -59,7 +59,7 @@ const PlayerProfile = () => {
   if (!isLoaded) return null;
 
   return (
-    <div id="PlayerProfile">
+    <div id="PlayerProfile" style={{ width: "50%" }}>
       {!ongoingGame ? (
         <></>
       ) : (
