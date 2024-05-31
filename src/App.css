@@ -477,6 +477,14 @@ span.true {
   animation: fadein ease 10s;
 }
 
+.table {
+  background-image: url(https://github.com/w3champions/website/blob/d9eb0ddbab4f8493346434cdede16294ea3fccb6/public/assets/backgrounds/undead.jpg?raw=true) !important;
+}
+
+.compactTable {
+  background-image: unset !important;
+}
+
 @keyframes fadein {
   0% {
     opacity: 0;
@@ -866,4 +874,22 @@ table.ui.small.inverted.basic.compact.table {
 
 th {
   border: none !important;
+}
+
+.image-container {
+  /* overflow-x: auto; */
+  /* white-space: nowrap; */
+}
+
+.image-container {
+  padding-top: 8px;
+  margin-bottom: -10px;
+}
+
+img.mvpIconRight {
+  padding-left: 10px;
+}
+
+img.mvpIconLeft {
+  padding-right: 10px;
 }

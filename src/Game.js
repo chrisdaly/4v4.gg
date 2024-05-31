@@ -19,6 +19,7 @@ const Game = ({ playerData, metaData, profilePics, mmrTimeline, playerCountries,
   console.log("Game", "compact", compact);
   const excludedKeys = ["mercsHired", "itemsObtained", "lumberCollected"];
   const raceMapping = { 8: undead, 0: random, 4: elf, 2: orc, 1: human };
+  playerData = [...playerData.slice(0, 4).reverse(), ...playerData.slice(4)];
 
   const keyDisplayNameMapping = {
     heroesKilled: "Heroes Killed",
@@ -169,10 +170,10 @@ const Game = ({ playerData, metaData, profilePics, mmrTimeline, playerCountries,
       <Table.HeaderCell key={player.battleTag}>
         <div className={`${teamClassName} playerDiv ${compact ? "compact" : ""}`} style={{ position: "relative", float: teamClassName === "team-0" ? "right" : "left" }}>
           <div style={{ position: "relative" }}>
-            {player.isMvp && teamClassName === "team-0" ? <img src={medal} alt={"won"} className={""} style={{ height: "50px" }} /> : ""}
+            {player.isMvp && teamClassName === "team-0" ? <img src={medal} alt={"won"} className={"mvpIconLeft"} style={{ height: "50px" }} /> : ""}
             {profilePics[player.battleTag] ? <img src={profilePics[player.battleTag]} alt="Player Profile Pic" className="profile-pic " /> : null}
             {playerCountries[player.battleTag] ? <Flag name={playerCountries[player.battleTag].toLowerCase()} style={{ position: "absolute", ...flagPosition }} className={`${teamClassName} flag`}></Flag> : null}
-            {player.isMvp && teamClassName === "team-1" ? <img src={medal} alt={"won"} className={""} style={{ height: "50px" }} /> : ""}
+            {player.isMvp && teamClassName === "team-1" ? <img src={medal} alt={"won"} className={"mvpIconRight"} style={{ height: "50px" }} /> : ""}
           </div>
           <div>
             <Link to={`/player/${player.battleTag.replace("#", "%23")}`}>
@@ -218,7 +219,7 @@ const Game = ({ playerData, metaData, profilePics, mmrTimeline, playerCountries,
 
   return (
     <div className="Game">
-      <Table inverted compact size="small" basic>
+      <Table inverted size="small" basic className={`${compact ? "compactTable" : ""}`}>
         <Table.Header>
           <Table.Row>
             <th> </th>
@@ -238,13 +239,15 @@ const Game = ({ playerData, metaData, profilePics, mmrTimeline, playerCountries,
                   </span>{" "}
                   <span className="key">MMR</span>
                 </p>
-                {playerData
-                  .slice(0, 4)
-                  .map((d) => d.race)
-                  .sort((a, b) => b - a)
-                  .map((race, i) => (
-                    <img key={i} src={raceMapping[race]} alt={race} className={"race"} style={{ paddingLeft: "5px", width: "30px" }} />
-                  ))}
+                <div className="image-container">
+                  {playerData
+                    .slice(0, 4)
+                    .map((d) => d.race)
+                    .sort((a, b) => b - a)
+                    .map((race, i) => (
+                      <img key={i} src={raceMapping[race]} alt={race} className={"race"} style={{ paddingLeft: "5px", width: "30px" }} />
+                    ))}
+                </div>
               </div>
             </th>
             <th className="th-center" style={{ position: "relative" }}>
@@ -264,13 +267,15 @@ const Game = ({ playerData, metaData, profilePics, mmrTimeline, playerCountries,
                   </span>{" "}
                   <span className="key">MMR</span>
                 </p>
-                {playerData
-                  .slice(4)
-                  .map((d) => d.race)
-                  .sort((a, b) => b - a)
-                  .map((race, i) => (
-                    <img key={i} src={raceMapping[race]} alt={race} className={"race"} style={{ paddingLeft: "0px", paddingRight: "5px", width: "35px" }} />
-                  ))}
+                <div className="image-container">
+                  {playerData
+                    .slice(4)
+                    .map((d) => d.race)
+                    .sort((a, b) => b - a)
+                    .map((race, i) => (
+                      <img key={i} src={raceMapping[race]} alt={race} className={"race"} style={{ paddingLeft: "0px", paddingRight: "5px", width: "35px" }} />
+                    ))}
+                </div>
               </div>
             </th>
             <th className="team-01">{playerData[4].won ? <img src={king} alt={"won"} className={"race"} style={{ height: "50px" }} /> : ""}</th>
@@ -280,7 +285,7 @@ const Game = ({ playerData, metaData, profilePics, mmrTimeline, playerCountries,
         </Table.Header>
         <Table.Header>
           <Table.Row>
-            {[...playerData.slice(0, 4).reverse(), ...playerData.slice(4)].map((playerScore, index) => {
+            {playerData.map((playerScore, index) => {
               const teamIndex = index < 4 ? 0 : 1;
               const teamClassName = `team-${teamIndex}`;
               return (
