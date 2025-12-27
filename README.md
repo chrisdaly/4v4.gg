@@ -1,5 +1,9 @@
 # 4v4.gg
 
+## Ideas
+
+Make the match background a gradient depending on the races?
+
 ## Next steps
 
 Collect all 4v4 matches in game history
