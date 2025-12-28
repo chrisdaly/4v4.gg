@@ -71,3 +71,21 @@ All data from W3Champions API:
 - `src/icons/` - Race icons (human, orc, elf, undead), league tier icons
 - `public/heroes/` - 28 hero character images
 - `public/backgrounds/` - Map and race backgrounds
+- `public/maps/` - Minimap images for each map
+
+### Map Images
+
+Map minimap images are stored in `public/maps/` as PNG files. The filename is derived from the API's `mapId` by:
+
+1. Stripping the `(4)` prefix (e.g., `(4)Ekrezem's Maze` → `Ekrezem's Maze`)
+2. Removing all spaces (`Ekrezem's Maze` → `Ekrezem'sMaze`)
+3. Removing apostrophes (`Ekrezem'sMaze` → `EkrezemsMaze`)
+
+**If a map image is missing:**
+
+1. Check the browser console/network tab for the 404'd filename (e.g., `/maps/SomeNewMap.png`)
+2. Get the minimap image from W3Champions or the map file itself
+3. Save as `public/maps/{CleanName}.png` matching the expected filename
+4. The `getMapImageUrl()` function in `Game.jsx` handles the name transformation
+
+**Current maps:** Ferocity, EkrezemsMaze, Snowblind, NorthshireLV, OrdealGround, GoldRush, RoyalGardens, NerubianPassage, PaintedWorld, Nightopia, IndigoKeeper, Deadlock, TwilightRuinsLV, WellspringTemple, SanctuaryLV, BloodvenomFallsv2, Lilious, NorthmarshRuin, RuinsofAlterac

@@ -1,10 +1,6 @@
 import React, { useState, useEffect } from "react";
-import { Container, Dimmer, Loader } from "semantic-ui-react";
+import { Dimmer, Loader } from "semantic-ui-react";
 import Navbar from "./Navbar.jsx";
-import Game from "./Game.jsx";
-import { preprocessPlayerScores, calcPlayerMmrAndChange } from "./utils.jsx";
-import { getPlayerCountry, fetchMMRTimeline, getPlayerProfilePicUrl } from "./utils.jsx";
-import { gameMode, gateway, season } from "./params.jsx";
 import FinishedGame from "./FinishedGame.jsx";
 
 const extractMatchIdFromUrl = () => {

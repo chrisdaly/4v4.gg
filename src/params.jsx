@@ -1,6 +1,21 @@
 export const gameMode = 4;
 export const gateway = 20;
-export const season = 19;
+export let season = 23; // Default, will be updated dynamically
+
+// Fetch current season from API
+export const initSeason = async () => {
+  try {
+    const response = await fetch("https://website-backend.w3champions.com/api/ladder/seasons");
+    const seasons = await response.json();
+    if (seasons && seasons.length > 0) {
+      season = seasons[0].id; // First one is the latest
+      console.log(`Using W3Champions season: ${season}`);
+    }
+  } catch (e) {
+    console.warn("Failed to fetch current season, using default:", season);
+  }
+  return season;
+};
 
 export const maps = {
   s13TwilightRuinsLV: "Twilight Ruins",

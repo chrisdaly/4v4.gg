@@ -1,22 +1,18 @@
 import React, { useState, useEffect } from "react";
-import { Container, Dimmer, Loader } from "semantic-ui-react";
+import { Dimmer, Loader } from "semantic-ui-react";
 import Game from "./Game.jsx";
-import { processOngoingGameData, getPlayerProfilePicUrl, fetchMMRTimeline, getPlayerCountry } from "./utils.jsx";
-import { gameMode, gateway, season } from "./params";
+import { processOngoingGameData, getPlayerProfilePicUrl, getPlayerCountry, fetchPlayerSessionData } from "./utils.jsx";
 
 const OnGoingGame = ({ ongoingGameData, compact }) => {
-  console.log("OnGoingGame", "compact", compact);
   const [playerData, setPlayerData] = useState(null);
   const [metaData, setMetaData] = useState(null);
   const [profilePics, setProfilePics] = useState(null);
-  const [mmrTimeline, setMmrTimeline] = useState({});
   const [playerCountries, setPlayerCountries] = useState({});
-
+  const [sessionData, setSessionData] = useState({});
   const [isLoading, setIsLoading] = useState(true);
 
   useEffect(() => {
     const processedData = preprocessMatchData(ongoingGameData);
-    // console.log("XXX processedData", processedData);
     const { playerData, metaData } = { ...processedData };
     setPlayerData(playerData);
     setMetaData(metaData);
@@ -27,42 +23,37 @@ const OnGoingGame = ({ ongoingGameData, compact }) => {
     if (!ongoingGameData) {
       throw new Error("Invalid match data format");
     }
-    // Process ongoing game data into the desired format
     return processOngoingGameData(ongoingGameData);
   };
 
   const fetchRemainingPlayerData = async (processedData) => {
-    // console.log("ONGOING GAME const fetchPlayerData", processedData);
-
     setIsLoading(true);
     try {
       const promises = processedData.map(async (playerData) => {
-        const { battleTag } = playerData;
-        const [profilePicUrl, mmrTimelineData, country] = await Promise.all([getPlayerProfilePicUrl(battleTag), fetchMMRTimeline(battleTag, playerData.race), getPlayerCountry(battleTag)]);
-        return {
-          ...playerData,
-          profilePicUrl,
-          mmrTimelineData,
-          country,
-        };
+        const { battleTag, race } = playerData;
+        const [profilePicUrl, country, sessionInfo] = await Promise.all([
+          getPlayerProfilePicUrl(battleTag),
+          getPlayerCountry(battleTag),
+          fetchPlayerSessionData(battleTag, race),
+        ]);
+        return { ...playerData, profilePicUrl, country, sessionInfo };
       });
       const updatedData = await Promise.all(promises);
-      let profilePics = updatedData.reduce((acc, curr) => {
-        acc[curr.battleTag] = curr.profilePicUrl;
-        return acc;
-      }, {});
-      // console.log("profilePics", profilePics);
-
-      setProfilePics(profilePics);
-      setMmrTimeline(
+      setProfilePics(
         updatedData.reduce((acc, curr) => {
-          acc[curr.battleTag] = curr.mmrTimelineData;
+          acc[curr.battleTag] = curr.profilePicUrl;
           return acc;
         }, {})
       );
       setPlayerCountries(
         updatedData.reduce((acc, curr) => {
           acc[curr.battleTag] = curr.country;
+          return acc;
+        }, {})
+      );
+      setSessionData(
+        updatedData.reduce((acc, curr) => {
+          acc[curr.battleTag] = curr.sessionInfo?.session;
           return acc;
         }, {})
       );
@@ -80,15 +71,9 @@ const OnGoingGame = ({ ongoingGameData, compact }) => {
           <Loader size="large">Loading match data...</Loader>
         </Dimmer>
       ) : playerData && profilePics ? (
-        <div>
-          <Game playerData={playerData} metaData={metaData} profilePics={profilePics} mmrTimeline={mmrTimeline} playerCountries={playerCountries} compact={compact} />
-        </div>
+        <Game playerData={playerData} metaData={metaData} profilePics={profilePics} playerCountries={playerCountries} sessionData={sessionData} compact={compact} />
       ) : (
-        <div>
-          Error: Failed to load match data
-          {JSON.stringify(playerData)}
-          {JSON.stringify(profilePics)}
-        </div>
+        <div>Error: Failed to load match data</div>
       )}
     </>
   );

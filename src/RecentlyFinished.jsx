@@ -1,10 +1,8 @@
 import React, { useState, useEffect } from "react";
-import { Container, Dimmer, Loader } from "semantic-ui-react";
-import Game from "./Game.jsx";
+import { Dimmer, Loader } from "semantic-ui-react";
 import Navbar from "./Navbar.jsx";
 import FinishedGame from "./FinishedGame.jsx";
-import OnGoingGame from "./OngoingGame.jsx";
-import { calculateTeamMMR, getPlayerProfilePicUrl, fetchMMRTimeline, getPlayerCountry } from "./utils.jsx";
+import { calculateTeamMMR } from "./utils.jsx";
 import { gameMode, gateway, season } from "./params";
 
 function isLessThan30MinutesAgo(endTimeString) {
@@ -86,7 +84,7 @@ const RecentlyFinished = () => {
           <Navbar />
           <div className="games">
             {matchesData.map((d) => (
-              <FinishedGame data={d} />
+              <FinishedGame key={d.match.id} data={d} />
             ))}
           </div>
         </div>

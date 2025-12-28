@@ -2,17 +2,18 @@ import React, { useState, useEffect } from "react";
 import { Grid, Flag } from "semantic-ui-react";
 import Mmr from "./Mmr.jsx";
 import { Sparklines, SparklinesLine } from "react-sparklines";
-import { akaLookup } from "./utils.jsx";
+import { akaLookup, fetchPlayerSessionData } from "./utils.jsx";
 import human from "./icons/human.svg";
 import orc from "./icons/orc.svg";
 import elf from "./icons/elf.svg";
 import undead from "./icons/undead.svg";
 import random from "./icons/random.svg";
 
-import { gameMode, gateway, season } from "./params";
-
 const Player = ({ data, side, transition, allMmrsgathered }) => {
-  const [sparklinePlayersData, setSparklinePlayersData] = useState([]);
+  const [sparklineData, setSparklineData] = useState([]);
+  const [sessionData, setSessionData] = useState(null);
+  const [peakMmr, setPeakMmr] = useState(null);
+  const [playerRank, setPlayerRank] = useState(null);
   const { race, oldMmr, name, location, battleTag, rank } = data;
   const aka = akaLookup(name);
   const raceMapping = { 8: undead, 0: random, 4: elf, 2: orc, 1: human };
@@ -20,54 +21,89 @@ const Player = ({ data, side, transition, allMmrsgathered }) => {
 
   useEffect(() => {
     const fetchData = async () => {
-      const player = data.battleTag.replace("#", "%23");
-      const fetchURL = (url) => {
-        return fetch(url).then((response) => {
-          if (!response.ok) {
-            throw new Error("Network response was not ok");
-          }
-          return response.json();
-        });
-      };
-
       try {
-        const url1 = new URL(`https://website-backend.w3champions.com/api/players/${player}/mmr-rp-timeline`);
-        const params1 = { gateway, season, race, gameMode: 4 };
-        url1.search = new URLSearchParams(params1).toString();
-        const result1 = await fetchURL(url1);
-        const prevSeasonMMrs = result1.mmrRpAtDates
-          .slice(1)
-          .slice(-20)
-          .map((d) => d.mmr);
-        const url2 = new URL(`https://website-backend.w3champions.com/api/players/${player}/mmr-rp-timeline`);
-        const params2 = { gateway, season, race, gameMode: 4 };
-        url2.search = new URLSearchParams(params2).toString();
-        const result2 = await fetchURL(url2);
-        const thisSeasonMMrs = result2.mmrRpAtDates.map((d) => d.mmr);
-        setSparklinePlayersData([...prevSeasonMMrs, ...thisSeasonMMrs]);
+        const { session, seasonMmrs, rank: fetchedRank } = await fetchPlayerSessionData(battleTag, race);
+        setSparklineData(seasonMmrs);
+        setSessionData(session);
+        setPlayerRank(fetchedRank || rank);
+        if (seasonMmrs.length > 0) {
+          setPeakMmr(Math.max(...seasonMmrs));
+        }
       } catch (error) {
         console.error("Error fetching player data:", error);
       }
     };
 
     fetchData();
-  }, [data, race]);
+  }, [battleTag, race, rank]);
 
-  const PlayerMmrStatistic = () => {
-    if (transition && sparklinePlayersData && sparklinePlayersData.length > 0) {
-      return (
-        <Sparklines data={sparklinePlayersData} style={{ width: "70px", height: "12px" }}>
-          <SparklinesLine style={{ strokeWidth: 4, stroke: "white", fill: "none" }} />
-        </Sparklines>
-      );
-    } else {
-      return <Mmr data={oldMmr}></Mmr>;
-    }
+  const Name = () => {
+    return aka !== null && transition ? aka : name;
   };
 
+  // Demo-style layout when transition is active
+  if (transition) {
+    const delta = sessionData?.mmrChange || 0;
+    const hasSparkline = sparklineData && sparklineData.length >= 2;
+
+    return (
+      <div className="player-card-demo">
+        <div className="player-name"><Name /></div>
+
+        <div className="player-mmr-line">
+          <span className="mmr-value">{oldMmr}</span>
+          <span className="mmr-label"> MMR</span>
+          {playerRank && <span className="player-rank"> · #{playerRank}</span>}
+        </div>
+
+        {sessionData && sessionData.form && sessionData.form.length > 0 ? (
+          <div className="session-info">
+            <span className="session-label">Session: </span>
+            <span className="session-record">{sessionData.wins}W-{sessionData.losses}L</span>
+            {delta !== 0 && (
+              <span className={`session-delta ${delta >= 0 ? 'positive' : 'negative'}`}>
+                {delta >= 0 ? ' ↑' : ' ↓'}{Math.abs(delta)} MMR
+              </span>
+            )}
+          </div>
+        ) : (
+          <div className="session-info">
+            <span className="session-label-muted">No active session</span>
+          </div>
+        )}
+
+        <div className="form-dots">
+          {sessionData?.form?.slice().reverse().map((won, i, arr) => (
+            <span
+              key={i}
+              className={`form-dot ${won ? 'win' : 'loss'} ${i === arr.length - 1 ? 'latest' : ''}`}
+            />
+          ))}
+        </div>
+
+        {hasSparkline && (
+          <div className="sparkline-container">
+            <Sparklines data={sparklineData} width={80} height={20} margin={2}>
+              <SparklinesLine style={{ strokeWidth: 2, stroke: "#aaa", fill: "none" }} />
+            </Sparklines>
+          </div>
+        )}
+
+        {peakMmr && (
+          <div className="peak-mmr">
+            <span className="peak-label">peak </span>
+            <span className="peak-value">{peakMmr}</span>
+            <span className="peak-label"> MMR</span>
+          </div>
+        )}
+      </div>
+    );
+  }
+
+  // Original layout when transition is not active
   const LeftSlot = () => {
     if (side === "left") {
-      return transition ? <p className="number">{rank ? `#${rank}` : ""}</p> : <Flag name={location?.toLowerCase()}></Flag>;
+      return <Flag name={location?.toLowerCase()}></Flag>;
     } else {
       return <img src={raceIcon} alt={race} className={"race"} />;
     }
@@ -75,37 +111,28 @@ const Player = ({ data, side, transition, allMmrsgathered }) => {
 
   const RightSlot = () => {
     if (side === "right") {
-      return transition ? <p className="number">{rank ? `#${rank}` : ""}</p> : <Flag name={location?.toLowerCase()}></Flag>;
+      return <Flag name={location?.toLowerCase()}></Flag>;
     } else {
       return <img src={raceIcon} alt={race} className={"race"} />;
     }
-  };
-
-  const Name = () => {
-    return aka !== null && transition ? aka : name;
   };
 
   return (
     <Grid divided="vertically" className={"playerCard"}>
       <Grid.Row columns={1} className={"playerTop"}>
         <Grid.Column width={16} className="playerName">
-          <h2>
-            <Name />
-            {/* <a target="_blank" href={`/player/${battleTag.replace("#", "%23")}`} rel="noreferrer" className={aka && transition ? "playerMMrstat" : ""}>
-              <Name></Name>
-            </a> */}
-          </h2>
+          <h2><Name /></h2>
         </Grid.Column>
       </Grid.Row>
 
       <Grid.Row columns={3} className={"playerBottom"}>
-        <Grid.Column width={4} className={(side === "left") & allMmrsgathered ? "playerMMrstat number" : "number"}>
+        <Grid.Column width={4} className="number">
           <LeftSlot />
         </Grid.Column>
-        <Grid.Column width={8} className={allMmrsgathered ? "playerMMrstat" : ""}>
-          <PlayerMmrStatistic />
+        <Grid.Column width={8}>
+          <Mmr data={oldMmr}></Mmr>
         </Grid.Column>
-        <Grid.Column width={4} className={(side === "right") & allMmrsgathered ? "playerMMrstat number" : "number"}>
+        <Grid.Column width={4} className="number">
           <RightSlot />
         </Grid.Column>
       </Grid.Row>

@@ -43,7 +43,12 @@
 }
 
 html {
-  width: 100vw;
+  width: 100%;
+  overflow-x: hidden;
+}
+
+body {
+  overflow-x: hidden;
 }
 
 .App-logo {
@@ -257,12 +262,29 @@ svg#svg_logo {
 }
 
 .navbar {
-  margin-left: -10rem;
-  margin-right: -10rem;
   position: sticky;
   top: 0;
   background-color: black;
   z-index: 10000;
+  padding: 0.5rem 1rem;
+}
+
+.navbar h1 {
+  margin-bottom: 0.5rem !important;
+}
+
+.navbar h3 {
+  font-size: 1rem !important;
+  margin: 0 !important;
+}
+
+.navbar a {
+  color: #fafafa;
+  text-decoration: none;
+}
+
+.navbar a:hover {
+  color: var(--gold);
 }
 
 /* .navbarPlayerCard {
@@ -327,9 +349,6 @@ img.profilePic {
   margin-top: 1rem;
 }
 
-.navbar {
-  padding-bottom: 1rem;
-}
 
 .ui.inverted.segment,
 .ui.active.transition.visible.dimmer .ui.primary.inverted.segment {
@@ -478,7 +497,7 @@ span.true {
 }
 
 .table {
-  background-image: url(https://github.com/w3champions/website/blob/d9eb0ddbab4f8493346434cdede16294ea3fccb6/public/assets/backgrounds/undead.jpg?raw=true) !important;
+  background: transparent !important;
 }
 
 .compactTable {
@@ -530,6 +549,121 @@ span.true {
 
 .three.column.row.playerBottom {
   padding-top: 5px !important;
+}
+
+/* Demo-style player card */
+.player-card-demo {
+  text-align: center;
+  padding: 8px 4px;
+}
+
+.player-card-demo .player-name {
+  color: var(--gold);
+  font-family: "Friz_Quadrata_Bold", serif;
+  font-size: 14px;
+  margin-bottom: 4px;
+}
+
+.player-card-demo .player-mmr-line {
+  margin-bottom: 4px;
+}
+
+.player-card-demo .mmr-value {
+  font-family: "Inconsolata", monospace;
+  font-size: 16px;
+  color: #fff;
+}
+
+.player-card-demo .mmr-label {
+  color: #888;
+  font-size: 11px;
+}
+
+.player-card-demo .player-rank {
+  color: #666;
+  font-size: 11px;
+}
+
+.player-card-demo .session-info {
+  margin-bottom: 4px;
+  font-size: 10px;
+}
+
+.player-card-demo .session-label {
+  color: #888;
+}
+
+.player-card-demo .session-record {
+  color: #fff;
+  font-family: "Inconsolata", monospace;
+  font-size: 11px;
+}
+
+.player-card-demo .session-label-muted {
+  color: #666;
+}
+
+.player-card-demo .session-delta {
+  font-family: "Inconsolata", monospace;
+  font-size: 11px;
+}
+
+.player-card-demo .session-delta.positive {
+  color: var(--green);
+}
+
+.player-card-demo .session-delta.negative {
+  color: var(--red);
+}
+
+.player-card-demo .form-dots {
+  display: flex;
+  gap: 3px;
+  align-items: center;
+  justify-content: center;
+  margin-bottom: 6px;
+  min-height: 10px;
+}
+
+.player-card-demo .form-dot {
+  width: 6px;
+  height: 6px;
+  border-radius: 50%;
+  opacity: 0.6;
+}
+
+.player-card-demo .form-dot.win {
+  background: var(--green);
+}
+
+.player-card-demo .form-dot.loss {
+  background: var(--red);
+}
+
+.player-card-demo .form-dot.latest {
+  width: 9px;
+  height: 9px;
+  opacity: 1;
+}
+
+.player-card-demo .sparkline-container {
+  display: flex;
+  justify-content: center;
+  margin-bottom: 4px;
+}
+
+.player-card-demo .peak-mmr {
+  font-size: 9px;
+}
+
+.player-card-demo .peak-label {
+  color: #666;
+}
+
+.player-card-demo .peak-value {
+  color: var(--green);
+  font-family: "Inconsolata", monospace;
+  font-size: 10px;
 }
 
 .ui.toggle.checkbox input:focus:checked ~ .box:before,
@@ -659,7 +793,7 @@ td {
 }
 
 .profile-pic {
-  width: 60px;
+  width: 80px;
 }
 
 .matchDetails {
@@ -680,8 +814,8 @@ td.yellow-text.number.team-0 {
 
 h2 {
   color: var(--gold) !important;
-  /* font-family: "OPTI-bold"; */
-  font-size: 1.5rem !important;
+  font-size: 1.4rem !important;
+  margin: 0.3em 0 !important;
 }
 
 .th-center {
@@ -714,15 +848,81 @@ h2 {
   text-transform: uppercase;
 }
 
+/* Stat table styling */
+.stat-label {
+  color: #666 !important;
+  text-transform: uppercase;
+  font-size: 11px !important;
+  font-weight: normal !important;
+  letter-spacing: 0.5px;
+}
+
+.stat-row td {
+  padding: 8px 4px !important;
+  text-align: center !important;
+}
+
+.stat-row:nth-child(odd) {
+  background: rgba(255, 255, 255, 0.02);
+}
+
+.section-divider td {
+  height: 16px !important;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.1) !important;
+}
+
+/* Ensure table doesn't overflow */
+.Game {
+  overflow-x: auto;
+}
+
+.Game table {
+  width: 100%;
+  min-width: 900px;
+}
+
 .value {
   color: white;
 }
 
+/* Hero styling in stats section */
+.heroes-row .hero-cell {
+  vertical-align: middle;
+}
+
+.heroes-wrapper {
+  display: flex;
+  justify-content: center;
+  gap: 6px;
+  flex-wrap: wrap;
+}
+
+.hero-container {
+  position: relative;
+  display: inline-block;
+}
+
 .hero-pic {
-  margin-right: 5px;
-  flex: 0 0 auto;
-  width: 35px;
-  height: 35px;
+  width: 48px;
+  height: 48px;
+  border-radius: 4px;
+  border: 1px solid #444;
+}
+
+.hero-level {
+  position: absolute;
+  bottom: 4px;
+  right: 4px;
+  background: linear-gradient(135deg, #1a1a1a 0%, #333 100%);
+  color: #fff;
+  font-family: "Inconsolata", monospace;
+  font-size: 13px;
+  font-weight: bold;
+  padding: 1px 5px;
+  border-radius: 3px;
+  border: 1px solid #555;
+  text-shadow: 0 1px 2px rgba(0, 0, 0, 0.9);
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.5);
 }
 
 .hero-bit .team-0 {
@@ -750,8 +950,7 @@ h2 {
   left: 0;
   width: 100%;
   height: 100%;
-  background-image: url(https://github.com/w3champions/website/blob/d9eb0ddbab4f8493346434cdede16294ea3fccb6/public/assets/backgrounds/undead.jpg?raw=true) !important;
-  background-size: cover;
+  background: transparent !important;
   z-index: -1;
 }
 
@@ -772,11 +971,6 @@ h2 {
   opacity: 1;
 }
 
-/*  */
-
-p.number.heroLevel {
-  line-height: 1rem;
-}
 
 .flag {
   top: 5px !important;
@@ -808,17 +1002,19 @@ img.race {
 }
 
 .Game {
-  padding-bottom: 75px;
+  padding: 20px;
+  padding-bottom: 20px;
+  background: radial-gradient(ellipse at center, #1a1a1a 0%, #050505 70%);
+  border-radius: 8px;
+  margin: 20px 10px 40px 10px;
+  border: 2px solid #fcdb33;
+  box-shadow: 0 4px 20px rgba(0, 0, 0, 0.5);
 }
 
 table.ui.small.inverted.basic.compact.table {
   border: 2px solid grey;
   table-layout: auto;
   width: 150px;
-}
-
-.Game {
-  /* padding: 70px; */
 }
 
 .max-width-cell {
@@ -857,8 +1053,7 @@ table.ui.small.inverted.basic.compact.table {
 }
 
 .playerDiv {
-  width: 200px;
-  /* overflow: hidden; */
+  width: 160px;
 }
 
 .compact {
@@ -882,8 +1077,19 @@ th {
 }
 
 .image-container {
-  padding-top: 8px;
-  margin-bottom: -10px;
+  padding: 0;
+  margin: 0;
+  display: flex;
+  gap: 0;
+}
+
+/* Team-specific race icon alignment */
+.team-0 .image-container {
+  justify-content: flex-end;
+}
+
+.team-1 .image-container {
+  justify-content: flex-start;
 }
 
 img.mvpIconRight {
@@ -892,4 +1098,505 @@ img.mvpIconRight {
 
 img.mvpIconLeft {
   padding-right: 10px;
+}
+
+/* Win crown icon styling */
+img.winIcon {
+  height: 40px !important;
+  width: auto !important;
+  filter: drop-shadow(0 0 8px var(--gold)) brightness(1.1);
+}
+
+/* MVP medal icon styling */
+img.mvpIconLeft,
+img.mvpIconRight {
+  height: 40px !important;
+  filter: drop-shadow(0 0 6px var(--gold)) brightness(1.2);
+  vertical-align: middle;
+}
+
+/* Race icons in team header */
+img.teamHeaderRace {
+  width: 28px !important;
+  height: 28px;
+  margin: -1px !important;
+}
+
+/* Meta bar - game info footer */
+.meta-bar {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 20px 0;
+  color: #888;
+  font-size: 13px;
+  position: relative;
+}
+
+.meta-match-id {
+  position: absolute;
+  right: 20px;
+  color: #666;
+  font-family: "Inconsolata", monospace;
+  font-size: 12px;
+  text-decoration: none;
+  transition: color 0.2s;
+}
+
+.meta-match-id:hover {
+  color: #fcdb33;
+  text-decoration: underline;
+}
+
+.meta-map-centered {
+  display: flex;
+  align-items: center;
+  gap: 16px;
+}
+
+.meta-map-img {
+  width: 100px;
+  height: 100px;
+  border-radius: 6px;
+  border: 2px solid #3d3422;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.4);
+}
+
+.meta-map-info {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.meta-map-name {
+  color: #fff;
+  font-family: "Friz_Quadrata_Bold", serif;
+  font-size: 16px;
+}
+
+.meta-details {
+  color: #888;
+  font-size: 13px;
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.meta-item {
+  color: #aaa;
+}
+
+.meta-separator {
+  color: #444;
+}
+
+.meta-map {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.meta-mins {
+  color: #666;
+  text-transform: lowercase;
+}
+
+.meta-duration {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.live-dot {
+  width: 8px;
+  height: 8px;
+  background: #c23434;
+  border-radius: 50%;
+  animation: pulse 1.5s infinite;
+}
+
+@keyframes pulse {
+  0%, 100% { opacity: 1; }
+  50% { opacity: 0.5; }
+}
+
+.meta-link {
+  color: #666;
+  text-decoration: none;
+}
+
+.meta-link:hover {
+  color: var(--gold);
+}
+
+/* MVP gold border on profile pic */
+.profile-pic.mvp {
+  border: 3px solid var(--gold);
+  box-shadow: 0 0 12px var(--gold), 0 0 20px rgba(252, 219, 51, 0.4);
+  border-radius: 4px;
+}
+
+/* MVP badge overlay on avatar - bottom corner */
+.mvp-badge {
+  position: absolute;
+  bottom: -5px;
+  display: flex;
+  align-items: center;
+  gap: 2px;
+  background: rgba(0, 0, 0, 0.8);
+  padding: 2px 5px;
+  border-radius: 3px;
+  border: 1px solid var(--gold);
+  z-index: 10;
+}
+
+.mvp-badge.team-0 {
+  left: -5px;
+}
+
+.mvp-badge.team-1 {
+  right: -5px;
+}
+
+.mvp-star {
+  font-size: 12px;
+}
+
+.mvp-text {
+  font-family: "Friz_Quadrata_Bold" !important;
+  font-size: 10px;
+  color: var(--gold);
+  font-weight: bold;
+}
+
+/* Team header - remove all borders */
+th.team-header,
+.ui.table th.team-header,
+.ui.inverted.table th.team-header,
+.ui.basic.table th.team-header {
+  border: none !important;
+  outline: none !important;
+  box-shadow: none !important;
+  border-left: none !important;
+  border-right: none !important;
+  border-top: none !important;
+  border-bottom: none !important;
+}
+
+/* Team name with crown */
+h2.team-name {
+  font-size: 1.6rem !important;
+}
+
+.crown {
+  font-size: 20px;
+  margin: 0 4px;
+}
+
+/* Recent form display - subtle dots */
+.recent-form {
+  margin-top: 5px;
+  display: flex;
+  gap: 4px;
+}
+
+.recent-form.team-0 {
+  justify-content: flex-end;
+}
+
+.recent-form.team-1 {
+  justify-content: flex-start;
+}
+
+.form-indicator {
+  font-size: 0;
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  opacity: 0.7;
+}
+
+.form-indicator.win {
+  background-color: var(--green);
+}
+
+.form-indicator.loss {
+  background-color: var(--red);
+}
+
+/* Form dots wrapper - centered for all players */
+.form-dots-wrapper {
+  width: 100%;
+  min-height: 14px;
+  margin-bottom: 6px;
+  display: flex;
+  justify-content: center !important;
+  text-align: center !important;
+  align-self: stretch;
+}
+
+.form-dots-wrapper.team-0,
+.form-dots-wrapper.team-1 {
+  justify-content: center !important;
+  text-align: center !important;
+}
+
+/* Form dots (new style) */
+.form-dots {
+  display: flex;
+  gap: 3px;
+  align-items: center;
+  margin: 0 auto;
+}
+
+.form-dots-placeholder {
+  height: 12px;
+  min-width: 30px;
+}
+
+.form-dot {
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  opacity: 0.7;
+}
+
+.form-dot.win {
+  background: var(--green);
+}
+
+.form-dot.loss {
+  background: var(--red);
+}
+
+.form-dot.latest {
+  width: 10px;
+  height: 10px;
+  opacity: 1;
+}
+
+/* Peak MMR display */
+.peak-mmr {
+  font-size: 9px;
+  margin-top: 4px;
+  min-height: 14px;
+}
+
+.peak-mmr.team-0 {
+  text-align: right;
+}
+
+.peak-mmr.team-1 {
+  text-align: left;
+}
+
+.peak-label {
+  color: #666;
+}
+
+.peak-value {
+  color: var(--green);
+  font-family: "Inconsolata", monospace;
+}
+
+/* MMR display - shared styles */
+.mmr-value {
+  font-family: "Inconsolata", monospace;
+  font-size: 18px;
+  color: #fff;
+}
+
+.mmr-label {
+  color: #888;
+  font-size: 13px;
+}
+
+/* Player MMR line */
+.player-mmr-line {
+  margin-bottom: 4px;
+  text-align: center;
+}
+
+/* Team MMR line (header) */
+.team-mmr-line {
+  margin-top: -8px;
+  margin-bottom: 8px;
+}
+
+/* Player rank display */
+.player-rank {
+  color: #666;
+  font-size: 11px;
+}
+
+/* Player rank line - separate line for emphasis */
+.player-rank-line {
+  margin-bottom: 6px;
+  min-height: 22px;
+}
+
+.player-rank-line.team-0 {
+  text-align: right;
+}
+
+.player-rank-line.team-1 {
+  text-align: left;
+}
+
+.rank-badge {
+  font-family: "Inconsolata", monospace;
+  font-size: 14px;
+  font-weight: bold;
+  color: var(--gold);
+  background: rgba(252, 219, 51, 0.15);
+  padding: 2px 8px;
+  border-radius: 4px;
+  border: 1px solid rgba(252, 219, 51, 0.3);
+}
+
+.rank-placeholder {
+  display: inline-block;
+  height: 22px;
+}
+
+/* Peak MMR inline with current */
+.peak-inline {
+  color: #666;
+  font-size: 11px;
+  font-style: italic;
+}
+
+/* Session info display */
+.session-info {
+  font-size: 13px;
+  margin-bottom: 6px;
+  min-height: 18px;
+  text-align: center;
+}
+
+.session-label {
+  color: #888;
+}
+
+.session-label-muted {
+  color: #555;
+  font-style: italic;
+  font-size: 11px;
+}
+
+.mmr-label-muted {
+  color: #666;
+  font-style: italic;
+  font-size: 12px;
+}
+
+.session-record {
+  color: #fff;
+  font-family: "Inconsolata", monospace;
+  font-size: 16px;
+}
+
+.session-delta {
+  font-family: "Inconsolata", monospace;
+  font-size: 16px;
+}
+
+.session-delta.positive {
+  color: var(--green);
+}
+
+.session-delta.negative {
+  color: var(--red);
+}
+
+/* Fix player card alignment - all centered */
+.playerDiv {
+  min-height: 140px;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  text-align: center;
+}
+
+/* Sparkline container */
+.sparkline-container {
+  margin-top: 5px;
+  width: 100px;
+  min-height: 24px;
+}
+
+.sparkline-container.team-0 {
+  margin-left: auto;
+}
+
+.sparkline-container.team-1 {
+  margin-right: auto;
+}
+
+.sparkline-placeholder {
+  height: 20px;
+  width: 80px;
+}
+
+/* Fix MMR change overflow */
+.playerDiv p.key {
+  white-space: nowrap;
+  overflow: visible;
+}
+
+/* Hero row alignment */
+.hero-pic {
+  display: inline-block;
+  vertical-align: top;
+}
+
+/* Dim stat labels in table */
+td.key,
+.key {
+  opacity: 0.6;
+  font-size: 0.85rem;
+}
+
+/* Keep value keys fully visible */
+.playerDiv .key {
+  opacity: 0.8;
+}
+
+/* Hover effect on player name links */
+.playerDiv a {
+  transition: color 0.2s ease, text-shadow 0.2s ease;
+}
+
+.playerDiv a:hover h2 {
+  color: white !important;
+  text-shadow: 0 0 8px var(--gold);
+}
+
+/* Gold glow on winning team header */
+th.team-header.winner {
+  background: linear-gradient(to bottom, rgba(252, 219, 51, 0.15) 0%, transparent 100%);
+  box-shadow: inset 0 0 20px rgba(252, 219, 51, 0.1);
+}
+
+.team-name .crown {
+  filter: drop-shadow(0 0 4px var(--gold));
+}
+
+/* Match link styling */
+.match-link {
+  text-decoration: none;
+  transition: all 0.2s ease;
+  display: inline-block;
+}
+
+.match-link:hover {
+  transform: scale(1.1);
+}
+
+.match-link:hover .value {
+  text-shadow: 0 0 8px var(--gold);
+}
+
+.match-link:hover .key {
+  color: var(--gold);
 }

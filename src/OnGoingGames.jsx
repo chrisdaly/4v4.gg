@@ -1,10 +1,9 @@
 import React, { useState, useEffect } from "react";
-import { Container, Dimmer, Loader } from "semantic-ui-react";
-import Game from "./Game.jsx";
+import { Dimmer, Loader } from "semantic-ui-react";
 import Navbar from "./Navbar.jsx";
 import OnGoingGame from "./OngoingGame.jsx";
-import { calculateTeamMMR, getPlayerProfilePicUrl, fetchMMRTimeline, getPlayerCountry } from "./utils.jsx";
-import { gameMode, gateway, season } from "./params";
+import { calculateTeamMMR } from "./utils.jsx";
+import { gameMode, gateway } from "./params";
 
 const OnGoingGames = () => {
   const [ongoingGameData, setOngoingGameData] = useState(null);

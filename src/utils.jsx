@@ -119,11 +119,12 @@ export const preprocessPlayerScores = (match, playerScores) => {
   });
 
   const metaData = {
-    startTime: match.startTime, //.slice(0, 16).replace("T", " "),
+    startTime: match.startTime,
     gameLength: `${Math.floor(match.durationInSeconds / 60)}:${(match.durationInSeconds % 60).toString().padStart(2, "0")}`,
     server: match.serverInfo.name?.toUpperCase(),
     location: match.serverInfo.location?.toUpperCase(),
     mapName: match.mapName?.toUpperCase(),
+    mapId: match.mapName,
   };
 
   return { playerData, metaData, stats };
@@ -140,11 +141,13 @@ export const processOngoingGameData = (match) => {
   });
 
   const metaData = {
-    startTime: match.startTime, //.slice(0, 16).replace("T", " "),
+    matchId: match.id,
+    startTime: match.startTime,
     gameLength: `${Math.floor(match.durationInSeconds / 60)}:${(match.durationInSeconds % 60).toString().padStart(2, "0")}`,
     server: match.serverInfo.name?.toUpperCase(),
     location: match.serverInfo.location?.toUpperCase(),
     mapName: match.mapName?.toUpperCase(),
+    mapId: match.mapName,
   };
 
   return { playerData, metaData };
@@ -185,17 +188,286 @@ export const findPlayerInOngoingMatches = (allMatchData, playerBattleTag) => {
   return null; // Player not found in the match
 };
 
+// Detect session boundary - if 1+ hour gap between consecutive games, session ends
+const SESSION_GAP_MINUTES = 60;
+
+const detectSessionGames = (matches, battleTag) => {
+  if (!matches || matches.length === 0) return [];
+
+  const battleTagLower = battleTag.toLowerCase();
+  const sessionGapMs = SESSION_GAP_MINUTES * 60 * 1000; // 1 hour in ms
+  const sessionMatches = [];
+
+  for (let i = 0; i < matches.length; i++) {
+    const match = matches[i];
+
+    // Find player data in this match
+    let playerData = null;
+    for (const team of match.teams) {
+      const player = team.players.find((p) => p.battleTag.toLowerCase() === battleTagLower);
+      if (player) {
+        playerData = player;
+        break;
+      }
+    }
+    if (!playerData) continue;
+
+    // Check time gap from previous game
+    if (i > 0) {
+      const prevEndTime = new Date(matches[i - 1].endTime);
+      const thisEndTime = new Date(match.endTime);
+      const gapMs = prevEndTime - thisEndTime; // matches are newest-first
+
+      if (gapMs > sessionGapMs) {
+        break; // Found session boundary
+      }
+    }
+
+    sessionMatches.push({
+      won: playerData.won,
+      oldMmr: playerData.oldMmr,
+      currentMmr: playerData.currentMmr,
+      mmrGain: playerData.currentMmr - playerData.oldMmr,
+      endTime: match.endTime,
+    });
+  }
+
+  return sessionMatches;
+};
+
+export const fetchRecentForm = async (battleTag) => {
+  try {
+    const url = `https://website-backend.w3champions.com/api/matches?playerId=${encodeURIComponent(battleTag)}&offset=0&gameMode=4&season=${season}&gateway=${gateway}`;
+    const response = await fetch(url);
+    if (!response.ok) {
+      return [];
+    }
+    const result = await response.json();
+    if (!result.matches || result.matches.length === 0) {
+      return [];
+    }
+    // Get last 5 games and return array of booleans (true = win)
+    const battleTagLower = battleTag.toLowerCase();
+    const recentGames = result.matches.slice(0, 5).map((match) => {
+      for (const team of match.teams) {
+        const player = team.players.find((p) => p.battleTag.toLowerCase() === battleTagLower);
+        if (player) {
+          return player.won;
+        }
+      }
+      return false;
+    });
+    return recentGames;
+  } catch (error) {
+    return [];
+  }
+};
+
+// New combined function - fetches session data + season timeline
+export const fetchPlayerSessionData = async (battleTag, raceOverride) => {
+  try {
+    // Fetch recent matches first (we'll use this to get race + session data)
+    const matchesUrl = `https://website-backend.w3champions.com/api/matches?playerId=${encodeURIComponent(battleTag)}&offset=0&gameMode=4&season=${season}&gateway=${gateway}&pageSize=50`;
+    const matchesResponse = await fetch(matchesUrl);
+
+    if (!matchesResponse.ok) {
+      console.error(`Matches API failed for ${battleTag}`);
+      return { session: null, seasonMmrs: [] };
+    }
+
+    const matchesData = await matchesResponse.json();
+    const battleTagLower = battleTag.toLowerCase();
+
+    // Find player's most-played race from matches
+    let playerRace = raceOverride || 0;
+    if (matchesData.matches && matchesData.matches.length > 0) {
+      const raceCounts = {};
+      for (const match of matchesData.matches) {
+        for (const team of match.teams) {
+          const player = team.players.find(p => p.battleTag.toLowerCase() === battleTagLower);
+          if (player && player.race != null) {
+            raceCounts[player.race] = (raceCounts[player.race] || 0) + 1;
+          }
+        }
+      }
+      // Find most common race
+      const mostPlayedRace = Object.entries(raceCounts)
+        .sort((a, b) => b[1] - a[1])[0];
+      if (mostPlayedRace) {
+        playerRace = parseInt(mostPlayedRace[0]);
+      }
+      console.log(`${battleTag} race counts:`, raceCounts, `-> using race ${playerRace}`);
+    }
+
+    // Fetch timeline for ALL races in parallel and merge (4v4 MMR is unified but data may be stored per-race)
+    const races = [0, 1, 2, 4, 8]; // Random, Human, Orc, NE, UD
+    let allTimelinePoints = [];
+
+    const timelinePromises = races.map(async (race) => {
+      try {
+        const timelineUrl = `https://website-backend.w3champions.com/api/players/${encodeURIComponent(battleTag)}/mmr-rp-timeline?gateway=${gateway}&season=${season}&race=${race}&gameMode=4`;
+        const response = await fetch(timelineUrl);
+        if (response.ok) {
+          const data = await response.json();
+          if (data.mmrRpAtDates && data.mmrRpAtDates.length > 0) {
+            return data.mmrRpAtDates;
+          }
+        }
+      } catch (e) {}
+      return [];
+    });
+
+    const results = await Promise.all(timelinePromises);
+    allTimelinePoints = results.flat();
+
+    // Sort by date and dedupe (same date = same game)
+    let seasonMmrs = [];
+    let lastTimelineDate = null;
+
+    if (allTimelinePoints.length > 0) {
+      const uniqueByDate = {};
+      for (const point of allTimelinePoints) {
+        uniqueByDate[point.date] = point;
+      }
+      const sorted = Object.values(uniqueByDate).sort((a, b) => new Date(a.date) - new Date(b.date));
+      seasonMmrs = sorted.map(d => d.mmr);
+      lastTimelineDate = sorted[sorted.length - 1].date;
+      console.log(`Timeline for ${battleTag}: ${seasonMmrs.length} points merged from all races`);
+    } else {
+      console.log(`No timeline data for ${battleTag} from any race`);
+    }
+
+    // If timeline failed, build from matches data
+    if (seasonMmrs.length === 0 && matchesData.matches) {
+      // Debug: log first match's battleTags to check format
+      if (matchesData.matches.length > 0) {
+        const firstMatch = matchesData.matches[0];
+        const allTags = firstMatch.teams.flatMap(t => t.players.map(p => p.battleTag));
+        console.log(`Debug ${battleTag}: Looking for "${battleTagLower}" in tags:`, allTags);
+      }
+
+      seasonMmrs = matchesData.matches
+        .map(match => {
+          for (const team of match.teams) {
+            const player = team.players.find(p => p.battleTag.toLowerCase() === battleTagLower);
+            // Handle null/undefined MMR - some matches don't have MMR data
+            if (player && player.currentMmr != null) return player.currentMmr;
+          }
+          return null;
+        })
+        .filter(mmr => mmr !== null)
+        .reverse();
+      console.log(`Built timeline from matches for ${battleTag}:`, seasonMmrs.length, "games");
+    }
+
+    // Fetch game-mode-stats for rank and fallback MMR
+    let currentMmrFallback = null;
+    let rank = null;
+    try {
+      const statsUrl = `https://website-backend.w3champions.com/api/players/${encodeURIComponent(battleTag)}/game-mode-stats?gateway=${gateway}&season=${season}`;
+      const statsResponse = await fetch(statsUrl);
+      if (statsResponse.ok) {
+        const statsData = await statsResponse.json();
+        const fourVsFourStats = statsData.find(s => s.gameMode === 4);
+        if (fourVsFourStats) {
+          rank = fourVsFourStats.rank;
+          if (seasonMmrs.length === 0 && fourVsFourStats.mmr) {
+            currentMmrFallback = fourVsFourStats.mmr;
+            console.log(`Got MMR from game-mode-stats for ${battleTag}:`, currentMmrFallback);
+          }
+        }
+      }
+    } catch (e) {
+      console.error(`Failed to fetch game-mode-stats for ${battleTag}:`, e);
+    }
+
+    console.log(`Season MMRs for ${battleTag}:`, seasonMmrs.length, "data points");
+
+    // Process session detection (reusing matchesData from above)
+    let session = null;
+    if (matchesData.matches && matchesData.matches.length > 0) {
+      console.log(`Matches for ${battleTag}:`, matchesData.matches.length);
+
+      // Detect current session
+      const sessionGames = detectSessionGames(matchesData.matches, battleTag);
+      console.log(`Session games for ${battleTag}:`, sessionGames.length);
+
+      // Calculate session stats
+      if (sessionGames.length > 0) {
+        session = {
+          games: sessionGames,
+          form: sessionGames.map(g => g.won),
+          wins: sessionGames.filter(g => g.won).length,
+          losses: sessionGames.filter(g => !g.won).length,
+          mmrChange: sessionGames[0].currentMmr - sessionGames[sessionGames.length - 1].oldMmr,
+          startMmr: sessionGames[sessionGames.length - 1].oldMmr,
+          currentMmr: sessionGames[0].currentMmr,
+        };
+      }
+    }
+
+    // Get last played time from most recent match the player was actually in
+    let lastPlayed = null;
+    let lastPlayedDate = null;
+
+    if (matchesData.matches && matchesData.matches.length > 0) {
+      // Find first match where player actually participated
+      const lastMatch = matchesData.matches.find(match => {
+        for (const team of match.teams) {
+          if (team.players.some(p => p.battleTag.toLowerCase() === battleTagLower)) {
+            return true;
+          }
+        }
+        return false;
+      });
+
+      if (lastMatch) {
+        lastPlayedDate = new Date(lastMatch.endTime);
+      }
+    }
+
+    // Fallback to timeline date if no match found
+    if (!lastPlayedDate && lastTimelineDate) {
+      lastPlayedDate = new Date(lastTimelineDate);
+    }
+
+    if (lastPlayedDate) {
+      const now = new Date();
+      const diffMs = now - lastPlayedDate;
+      const diffHours = Math.floor(diffMs / (1000 * 60 * 60));
+      const diffDays = Math.floor(diffHours / 24);
+
+      if (diffHours < 1) {
+        lastPlayed = "< 1 hour ago";
+      } else if (diffHours < 24) {
+        lastPlayed = `${diffHours}h ago`;
+      } else {
+        lastPlayed = `${diffDays}d ago`;
+      }
+    }
+
+    return { session, seasonMmrs, currentMmrFallback, rank, lastPlayed };
+  } catch (error) {
+    console.error("Error fetching player session data:", error);
+    return { session: null, seasonMmrs: [], currentMmrFallback: null, rank: null, lastPlayed: null };
+  }
+};
+
 export const fetchMMRTimeline = async (battleTag, race) => {
   const url = new URL(`https://website-backend.w3champions.com/api/players/${battleTag.replace("#", "%23")}/mmr-rp-timeline`);
   const params = { gateway, season, race, gameMode: 4 };
   url.search = new URLSearchParams(params).toString();
   try {
     const response = await fetch(url);
+    if (!response.ok) {
+      return [];
+    }
     const result = await response.json();
-    const mmrTimeline = result.mmrRpAtDates.map((d) => d.mmr);
-    return mmrTimeline;
+    if (!result.mmrRpAtDates || result.mmrRpAtDates.length === 0) {
+      return [];
+    }
+    return result.mmrRpAtDates.map((d) => d.mmr);
   } catch (error) {
-    console.error("Error fetching MMR timeline:", error);
     return [];
   }
 };

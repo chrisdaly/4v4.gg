@@ -8,6 +8,10 @@ const MmrComparison = ({ data }) => {
   useEffect(() => {
     if (!svgRef.current) return;
 
+    // Filter out unranked players (0 or null MMR)
+    const validTeamOneMmrs = teamOneMmrs.filter(mmr => mmr && mmr > 0);
+    const validTeamTwoMmrs = teamTwoMmrs.filter(mmr => mmr && mmr > 0);
+
     const svg = d3.select(svgRef.current);
 
     // Remove existing content to avoid appending multiple plots
@@ -31,42 +35,42 @@ const MmrComparison = ({ data }) => {
       .range([innerHeight, margin.bottom]);
 
     // Draw Team One line and circles
+    const teamOneX = innerWidth / 3 + margin.left;
     const teamOneLine = d3
       .line()
-      .x((d, i) => innerWidth / 4 + margin.left)
+      .x((d, i) => teamOneX)
       .y((d) => yScale(d));
 
-    svg.append("path").datum(teamOneMmrs).attr("class", "line team-one").attr("d", teamOneLine);
+    svg.append("path").datum(validTeamOneMmrs).attr("class", "line team-one").attr("d", teamOneLine);
 
     svg
       .selectAll(".dot-team-one")
-      .data(teamOneMmrs)
+      .data(validTeamOneMmrs)
       .enter()
       .append("circle")
       .attr("class", "dot dot-team-one")
-      .attr("cx", innerWidth / 4 + margin.left)
+      .attr("cx", teamOneX)
       .attr("cy", (d) => yScale(d))
-      .attr("r", 3)
-      .attr("fill", "red");
+      .attr("r", 4);
 
     // Draw Team Two line and circles
+    const teamTwoX = (2 * innerWidth) / 3 + margin.left;
     const teamTwoLine = d3
       .line()
-      .x((d, i) => (3 * innerWidth) / 4 + margin.left)
+      .x((d, i) => teamTwoX)
       .y((d) => yScale(d));
 
-    svg.append("path").datum(teamTwoMmrs).attr("class", "line team-two").attr("d", teamTwoLine);
+    svg.append("path").datum(validTeamTwoMmrs).attr("class", "line team-two").attr("d", teamTwoLine);
 
     svg
       .selectAll(".dot-team-two")
-      .data(teamTwoMmrs)
+      .data(validTeamTwoMmrs)
       .enter()
       .append("circle")
       .attr("class", "dot dot-team-two")
-      .attr("cx", (3 * innerWidth) / 4 + margin.left)
+      .attr("cx", teamTwoX)
       .attr("cy", (d) => yScale(d))
-      .attr("r", 3)
-      .attr("fill", "blue");
+      .attr("r", 4);
 
     const middleLine = innerWidth / 2 + margin.left;
 

@@ -1,24 +1,28 @@
-import React, { useState, useEffect } from "react";
+import React from "react";
 import { Flag, Table } from "semantic-ui-react";
-import * as d3 from "d3";
-import { Sparklines, SparklinesLine, SparklinesSpots } from "react-sparklines";
 import { Link } from "react-router-dom";
 
 import { MmrComparison } from "./MmrComparison.jsx";
-import { calculateElapsedTime, convertToLocalTime } from "./utils.jsx";
+import { calculateElapsedTime, convertToLocalTime, calculatePercentiles } from "./utils.jsx";
 import human from "./icons/human.svg";
 import orc from "./icons/orc.svg";
 import elf from "./icons/elf.svg";
 import undead from "./icons/undead.svg";
 import random from "./icons/random.svg";
-import king from "./icons/king.svg";
-import medal from "./icons/medal.svg";
 
-const Game = ({ playerData, metaData, profilePics, mmrTimeline, playerCountries, compact }) => {
-  console.log("Game", "compact", compact);
+// Map images stored locally in /public/maps/
+const getMapImageUrl = (mapId) => {
+  if (!mapId) return null;
+  // Strip parentheses prefix like "(4)", spaces, and apostrophes
+  const cleanName = mapId.replace(/^\(\d\)/, "").replace(/ /g, "").replace(/'/g, "");
+  return `/maps/${cleanName}.png`;
+};
+
+const Game = ({ playerData: rawPlayerData, metaData, profilePics, playerCountries, sessionData, compact }) => {
   const excludedKeys = ["mercsHired", "itemsObtained", "lumberCollected"];
   const raceMapping = { 8: undead, 0: random, 4: elf, 2: orc, 1: human };
-  playerData = [...playerData.slice(0, 4).reverse(), ...playerData.slice(4)];
+  // Reorder team 1 players (reverse) for display, don't mutate props
+  const playerData = [...rawPlayerData.slice(0, 4).reverse(), ...rawPlayerData.slice(4)];
 
   const keyDisplayNameMapping = {
     heroesKilled: "Heroes Killed",
@@ -29,25 +33,6 @@ const Game = ({ playerData, metaData, profilePics, mmrTimeline, playerCountries,
     largestArmy: "Largest Army",
     lumberCollected: "Lumber Harvested",
     goldUpkeepLost: "Gold Lost to Upkeep",
-  };
-
-  const calculatePercentiles = (arr) => {
-    // console.log(arr);
-    // Sort the array in ascending order
-    const sortedArr = arr.slice().sort((a, b) => a - b);
-    const n = sortedArr.length;
-
-    // Calculate percentile for each element
-    const percentiles = arr.map((num) => {
-      // Find the index of the number in the sorted array
-      const index = sortedArr.indexOf(num);
-
-      // Calculate percentile using index and array length
-      const percentile = (index / (n - 1)) * 100;
-      return percentile;
-    });
-    // console.log(percentiles);
-    return percentiles;
   };
 
   const getCellStyle = (percentile) => {
@@ -106,23 +91,20 @@ const Game = ({ playerData, metaData, profilePics, mmrTimeline, playerCountries,
 
         // Render the table row
         return (
-          <Table.Row key={statName}>
+          <Table.Row key={statName} className="stat-row">
             {renderTableCells(scoreType, statName, 0, percentiles)}
-            <Table.Cell className="th-center key">{keyDisplayNameMapping[statName] || statName}</Table.Cell>
+            <Table.Cell className="th-center stat-label">{keyDisplayNameMapping[statName] || statName}</Table.Cell>
             {renderTableCells(scoreType, statName, 1, percentiles)}
           </Table.Row>
         );
       });
   };
 
-  const renderHero = (hero, teamIndex) => {
-    if (!playerData[0].heroes) {
-      return <></>;
-    }
+  const renderHero = (hero) => {
     return (
-      <div style={{ float: `${teamIndex == 0 ? "right" : "left"}`, textAlign: "center" }}>
+      <div className="hero-container">
         <img src={`/heroes/${hero.icon}.jpeg`} alt="Hero Icon" className="hero-pic" />
-        <p className="number heroLevel">{hero.level}</p>
+        <span className="hero-level">{hero.level}</span>
       </div>
     );
   };
@@ -132,27 +114,29 @@ const Game = ({ playerData, metaData, profilePics, mmrTimeline, playerCountries,
       return <></>;
     }
     return (
-      <Table.Row>
+      <Table.Row className="heroes-row">
         {playerData.slice(0, 4).map((playerScore, index) => (
-          <Table.Cell key={`team1-hero-${index}`} style={{ display: "table-cell" }}>
-            <div className="team-0">
+          <Table.Cell key={`team1-hero-${index}`} className="hero-cell">
+            <div className="heroes-wrapper">
               {playerScore.heroes.map((hero, heroIndex) => (
-                <div key={`team0-hero-${index}-${heroIndex}`} className="">
-                  {renderHero(hero, 0)}
-                </div>
+                <React.Fragment key={`team0-hero-${index}-${heroIndex}`}>
+                  {renderHero(hero)}
+                </React.Fragment>
               ))}
             </div>
           </Table.Cell>
         ))}
-        <Table.Cell className="th-center key">Heroes</Table.Cell>
+        <Table.Cell className="th-center stat-label">Heroes</Table.Cell>
 
         {playerData.slice(4).map((playerScore, index) => (
-          <Table.Cell key={`team2-hero-${index}`} style={{ display: "table-cell" }}>
-            {playerScore.heroes.map((hero, heroIndex) => (
-              <div key={`team1-hero-${index}-${heroIndex}`} className="">
-                {renderHero(hero, 1)}
-              </div>
-            ))}
+          <Table.Cell key={`team2-hero-${index}`} className="hero-cell">
+            <div className="heroes-wrapper">
+              {playerScore.heroes.map((hero, heroIndex) => (
+                <React.Fragment key={`team1-hero-${index}-${heroIndex}`}>
+                  {renderHero(hero)}
+                </React.Fragment>
+              ))}
+            </div>
           </Table.Cell>
         ))}
       </Table.Row>
@@ -160,80 +144,94 @@ const Game = ({ playerData, metaData, profilePics, mmrTimeline, playerCountries,
   };
 
   const renderPlayerCell = (player, teamClassName) => {
-    const { oldMmr, mmrChange } = { ...player };
-
-    // Determine flag positioning based on team alignment
+    const { oldMmr } = player;
     const flagPosition = teamClassName === "team-0" ? { top: 0, right: 0 } : { top: 0, left: 0 };
+    const playerSession = sessionData?.[player.battleTag];
+    const sessionDelta = playerSession?.mmrChange || 0;
 
     return (
       <Table.HeaderCell key={player.battleTag}>
         <div
-          className={`${teamClassName} playerDiv ${compact ? "compact" : ""}`}
-          style={{ position: "relative", float: teamClassName === "team-0" ? "right" : "left" }}
+          className={`playerDiv ${compact ? "compact" : ""}`}
+          style={{ position: "relative" }}
         >
-          <div style={{ position: "relative" }}>
-            {player.isMvp && teamClassName === "team-0" ? (
-              <img src={medal} alt={"won"} className={"mvpIconLeft"} style={{ height: "50px" }} />
-            ) : (
-              ""
-            )}
+          {/* Profile pic with flag and MVP badge */}
+          <div style={{ position: "relative", display: "inline-block" }}>
             {profilePics[player.battleTag] ? (
-              <img src={profilePics[player.battleTag]} alt="Player Profile Pic" className="profile-pic " />
+              <img
+                src={profilePics[player.battleTag]}
+                alt="Player Profile Pic"
+                className={`profile-pic ${player.isMvp ? "mvp" : ""}`}
+              />
             ) : null}
             {playerCountries[player.battleTag] ? (
               <Flag
                 name={playerCountries[player.battleTag].toLowerCase()}
                 style={{ position: "absolute", ...flagPosition }}
                 className={`${teamClassName} flag`}
-              ></Flag>
+              />
             ) : null}
-            {player.isMvp && teamClassName === "team-1" ? (
-              <img src={medal} alt={"won"} className={"mvpIconRight"} style={{ height: "50px" }} />
-            ) : (
-              ""
+            {player.isMvp && (
+              <div className={`mvp-badge ${teamClassName}`}>
+                <span className="mvp-star">⭐</span>
+                <span className="mvp-text">MVP</span>
+              </div>
             )}
           </div>
+
+          {/* Player name */}
           <div>
             <Link to={`/player/${player.battleTag.replace("#", "%23")}`}>
               <h2>{player.name}</h2>
             </Link>
           </div>
-          <div style={{ alignItems: "center", height: "100%", paddingTop: "5px", paddingBottom: "5px" }}>
-            <img src={raceMapping[player.race]} alt={player.race} className={"race"} style={{ height: "30px" }} />
+
+          {/* MMR line */}
+          <div className="player-mmr-line">
+            {oldMmr && oldMmr > 0 ? (
+              <>
+                <span className="mmr-value">{oldMmr}</span>
+                <span className="mmr-label"> MMR</span>
+              </>
+            ) : (
+              <span className="mmr-label-muted">Unranked</span>
+            )}
           </div>
-          <div>
-            <p className="key">
-              <span className="number value">{oldMmr}</span> <span className="key">MMR</span>
-              {mmrChange ? (
-                <span className={"number"} style={{ color: mmrChange > 0 ? "green" : "red" }}>
-                  {mmrChange}
-                </span>
-              ) : (
-                <></>
-              )}
-            </p>
+
+          {/* Session info */}
+          <div className="session-info">
+            {playerSession && playerSession.form && playerSession.form.length > 0 ? (
+              <>
+                <span className="session-record">{playerSession.wins}W-{playerSession.losses}L</span>
+                {sessionDelta !== 0 && (
+                  <span className={`session-delta ${sessionDelta >= 0 ? 'positive' : 'negative'}`}>
+                    {sessionDelta >= 0 ? ' ↑' : ' ↓'}{Math.abs(sessionDelta)}
+                  </span>
+                )}
+              </>
+            ) : null}
           </div>
-          <div
-            style={{
-              width: "75px",
-              height: "15px",
-              overflow: "hidden",
-              display: "inline-block",
-              marginTop: "10px",
-              float: teamClassName === "team-0" ? "right" : "left",
-            }}
-          >
-            {" "}
-            {/* <div> */}
-            <Sparklines data={mmrTimeline[player.battleTag]} style={{ width: "130px", height: "14px" }}>
-              <SparklinesLine style={{ strokeWidth: 4, stroke: "white", fill: "none" }} />
-            </Sparklines>
-            {/* <MmrTrend data={{ mmrTimeline: mmrTimeline[playerScore.battleTag] }} id={"123"} /> */}
+
+          {/* Form dots - oldest on left, newest (latest) on right */}
+          <div className="form-dots-wrapper">
+            {playerSession?.form && playerSession.form.length > 0 ? (
+              <div className="form-dots">
+                {playerSession.form.map((won, i, arr) => (
+                  <span
+                    key={i}
+                    className={`form-dot ${won ? "win" : "loss"} ${i === arr.length - 1 ? "latest" : ""}`}
+                  />
+                ))}
+              </div>
+            ) : null}
           </div>
         </div>
       </Table.HeaderCell>
     );
   };
+
+  const team1Won = playerData[0].won;
+  const team2Won = playerData[4].won;
 
   return (
     <div className="Game">
@@ -242,35 +240,30 @@ const Game = ({ playerData, metaData, profilePics, mmrTimeline, playerCountries,
           <Table.Row>
             <th> </th>
             <th> </th>
-            <th className="team-0">
-              {playerData[0].won ? <img src={king} alt={"won"} className={"race"} style={{ height: "50px" }} /> : ""}
-            </th>
-            <th className="team-0">
+            <th> </th>
+            <th className={`team-0 team-header ${team1Won ? "winner" : ""}`}>
               <div>
-                <h2>TEAM 1</h2>
-                <p className="key" style={{ marginBottom: "0px", marginTop: "-10px" }}>
-                  <span className="number value">
+                <h2 className="team-name">{team1Won && <span className="crown">👑</span>} TEAM 1</h2>
+                <div className="team-mmr-line">
+                  <span className="mmr-value">
                     {Math.round(
                       playerData
                         .slice(0, 4)
                         .map((d) => d.oldMmr)
                         .reduce((acc, curr) => acc + curr, 0) / 4
                     )}
-                  </span>{" "}
-                  <span className="key">MMR</span>
-                </p>
+                  </span>
+                  <span className="mmr-label"> MMR</span>
+                </div>
                 <div className="image-container">
                   {playerData
                     .slice(0, 4)
-                    .map((d) => d.race)
-                    .sort((a, b) => b - a)
-                    .map((race, i) => (
+                    .map((d, i) => (
                       <img
                         key={i}
-                        src={raceMapping[race]}
-                        alt={race}
-                        className={"race"}
-                        style={{ paddingLeft: "5px", width: "30px" }}
+                        src={raceMapping[d.race]}
+                        alt={d.race}
+                        className={"race teamHeaderRace"}
                       />
                     ))}
                 </div>
@@ -279,42 +272,37 @@ const Game = ({ playerData, metaData, profilePics, mmrTimeline, playerCountries,
             <th className="th-center" style={{ position: "relative" }}>
               <h2>VS</h2>
             </th>
-            <th className="team-1">
+            <th className={`team-1 team-header ${team2Won ? "winner" : ""}`}>
               <div>
-                <h2>TEAM 2</h2>
-                <p className="key" style={{ marginBottom: "0px", marginTop: "-10px" }}>
-                  <span className="number value">
+                <h2 className="team-name">TEAM 2 {team2Won && <span className="crown">👑</span>}</h2>
+                <div className="team-mmr-line">
+                  <span className="mmr-value">
                     {Math.round(
                       playerData
                         .slice(4)
                         .map((d) => d.oldMmr)
                         .reduce((acc, curr) => acc + curr, 0) / 4
                     )}
-                  </span>{" "}
-                  <span className="key">MMR</span>
-                </p>
+                  </span>
+                  <span className="mmr-label"> MMR</span>
+                </div>
                 <div className="image-container">
                   {playerData
                     .slice(4)
-                    .map((d) => d.race)
-                    .sort((a, b) => b - a)
-                    .map((race, i) => (
+                    .map((d, i) => (
                       <img
                         key={i}
-                        src={raceMapping[race]}
-                        alt={race}
-                        className={"race"}
-                        style={{ paddingLeft: "0px", paddingRight: "5px", width: "35px" }}
+                        src={raceMapping[d.race]}
+                        alt={d.race}
+                        className={"race teamHeaderRace"}
                       />
                     ))}
                 </div>
               </div>
             </th>
-            <th className="team-01">
-              {playerData[4].won ? <img src={king} alt={"won"} className={"race"} style={{ height: "50px" }} /> : ""}
-            </th>
             <th> </th>
-            <td> </td>
+            <th> </th>
+            <th> </th>
           </Table.Row>
         </Table.Header>
         <Table.Header>
@@ -326,8 +314,8 @@ const Game = ({ playerData, metaData, profilePics, mmrTimeline, playerCountries,
                 <React.Fragment key={`player-${index}`}>
                   {renderPlayerCell(playerScore, teamClassName)}
                   {index === 3 && (
-                    <th className={`th-center ${compact}`} style={{ position: "relative" }}>
-                      <div style={{ height: "170px", overflow: "hidden", display: "inline-block" }}>
+                    <th className={`th-center ${compact}`} style={{ position: "relative", verticalAlign: "top" }}>
+                      <div style={{ height: "220px", width: "60px", overflow: "hidden", display: "inline-block" }}>
                         <MmrComparison
                           data={{
                             teamOneMmrs: playerData.slice(0, 4).map((d) => d.oldMmr),
@@ -350,95 +338,44 @@ const Game = ({ playerData, metaData, profilePics, mmrTimeline, playerCountries,
           ) : (
             <>
               {renderHeroRows()}
-
               {renderTableRows("heroScore")}
-              <Table.Row>
-                <td> </td>
-                <td> </td>
-                <td> </td>
-                <td> </td>
-                <td> </td>
-                <td> </td>
-                <td> </td>
-                <td> </td>
-                <td> </td>
+              <Table.Row className="section-divider">
+                <td colSpan={9}></td>
               </Table.Row>
               {renderTableRows("unitScore")}
-              <Table.Row>
-                <td> </td>
-                <td> </td>
-                <td> </td>
-                <td> </td>
-                <td> </td>
-                <td> </td>
-                <td> </td>
-                <td> </td>
-                <td> </td>
+              <Table.Row className="section-divider">
+                <td colSpan={9}></td>
               </Table.Row>
               {renderTableRows("resourceScore")}
-              <Table.Row>
-                <td> </td>
-                <td> </td>
-                <td> </td>
-                <td> </td>
-                <td> </td>
-                <td> </td>
-                <td> </td>
-                <td> </td>
-                <td> </td>
-              </Table.Row>
             </>
           )}
           <Table.Row className="meta">
-            <td></td>
-            <td> </td>
-            <td className="th-center">
-              <div>
-                <div className="value">{metaData.location}</div>
-                <div className="key">REGION</div>
-              </div>
-            </td>
-            <td className="th-center">
-              <div>
-                <div className="value">{metaData.server}</div>
-                <div className="key">SERVER</div>
-              </div>
-            </td>
-            <td className="th-center">
-              <div style={{ position: "relative", display: "inline-block" }}>
-                <img
-                  src={`/maps/${metaData.mapName}.png`}
-                  alt="map"
-                  style={{ width: "100px", height: "100px", display: "block" }} // Adjust the size as needed
-                />
-                <img
-                  src={`/icons/Classic_Frame.png`}
-                  alt="Frame"
-                  style={{ position: "absolute", top: 0, left: 0, width: "100px", height: "100px" }} // Adjust size and position as needed
-                />
-              </div>
-              <div className="value">{metaData.mapName}</div>
-              <div className="key">MAP</div>
-            </td>
-            <td className="th-center">
-              <div>
-                <div className="value">
-                  {metaData.gameLength === "0:00"
-                    ? calculateElapsedTime(metaData.startTime) + " MINS"
-                    : metaData.gameLength + " MINS"}
-                  {metaData.gameLength === "0:00" && <div className="live-indicator"></div>}
+            <td colSpan={9}>
+              <div className="meta-bar">
+                <div className="meta-map-centered">
+                  <img
+                    src={getMapImageUrl(metaData.mapId)}
+                    alt="map"
+                    className="meta-map-img"
+                    onError={(e) => { e.target.style.display = 'none'; }}
+                  />
+                  <div className="meta-map-info">
+                    <span className="meta-map-name">{metaData.mapName}</span>
+                    <span className="meta-details">
+                      {metaData.server} · {metaData.gameLength === "0:00"
+                        ? calculateElapsedTime(metaData.startTime)
+                        : metaData.gameLength} mins
+                      {metaData.gameLength === "0:00" && <span className="live-dot"></span>}
+                    </span>
+                  </div>
                 </div>
-                <div className="key">GAME LENGTH</div>
+                {metaData.matchId && (
+                  <Link to={`/match/${metaData.matchId}`} className="meta-match-id">
+                    #{metaData.matchId}
+                  </Link>
+                )}
               </div>
             </td>
-            <td className="th-center">
-              <div>
-                <div className="value">{convertToLocalTime(metaData.startTime)}</div>
-                <div className="key">DATETIME</div>
-              </div>
-            </td>
-            <td> </td>
-            <td> </td>
           </Table.Row>
         </Table.Body>
       </Table>

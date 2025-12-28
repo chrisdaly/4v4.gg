@@ -8,6 +8,8 @@ import PlayerStream from "./PlayerStream";
 import FinishedGamePage from "./FinishedGamePage";
 import RecentlyFinished from "./RecentlyFinished";
 import MyStreamPage from "./MyStreamPage";
+import VisualizationDemo from "./VisualizationDemo";
+import BackgroundDemo from "./BackgroundDemo";
 
 const Router = () => (
   <BrowserRouter>
@@ -21,6 +23,8 @@ const Router = () => (
       <Route path="/stream" component={PlayerStream} />
       <Route path="/match" component={FinishedGamePage} />
       <Route path="/mystream" component={MyStreamPage} />
+      <Route path="/demo" component={VisualizationDemo} />
+      <Route path="/backgrounds" component={BackgroundDemo} />
     </Switch>
   </BrowserRouter>
 );
