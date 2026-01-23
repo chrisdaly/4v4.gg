@@ -1,9 +1,10 @@
-import React from "react";
+import React, { useState, useEffect } from "react";
 import { Flag, Table } from "semantic-ui-react";
 import { Link } from "react-router-dom";
 
 import { MmrComparison } from "./MmrComparison.jsx";
-import { calculateElapsedTime, convertToLocalTime, calculatePercentiles } from "./utils.jsx";
+import { calculateElapsedTime, convertToLocalTime, calculatePercentiles, detectArrangedTeams } from "./utils.jsx";
+import FormDots from "./FormDots.jsx";
 import human from "./icons/human.svg";
 import orc from "./icons/orc.svg";
 import elf from "./icons/elf.svg";
@@ -19,10 +20,55 @@ const getMapImageUrl = (mapId) => {
 };
 
 const Game = ({ playerData: rawPlayerData, metaData, profilePics, playerCountries, sessionData, compact }) => {
+  const [atGroups, setAtGroups] = useState({});
+
   const excludedKeys = ["mercsHired", "itemsObtained", "lumberCollected"];
   const raceMapping = { 8: undead, 0: random, 4: elf, 2: orc, 1: human };
   // Reorder team 1 players (reverse) for display, don't mutate props
   const playerData = [...rawPlayerData.slice(0, 4).reverse(), ...rawPlayerData.slice(4)];
+
+  // Detect arranged teams
+  useEffect(() => {
+    const detect = async () => {
+      const groups = await detectArrangedTeams(rawPlayerData);
+      setAtGroups(groups);
+    };
+    detect();
+  }, [rawPlayerData]);
+
+  // Check if a player is in an AT group
+  const isPlayerAT = (battleTag) => {
+    return battleTag.toLowerCase() in atGroups;
+  };
+
+  // Get AT partner for a player
+  const getATPartner = (battleTag) => {
+    const partners = atGroups[battleTag.toLowerCase()];
+    return partners ? partners[0] : null;
+  };
+
+  // Find AT pairs with their indices for connector lines
+  const getATConnections = () => {
+    const connections = [];
+    for (let i = 0; i < playerData.length - 1; i++) {
+      const current = playerData[i];
+      const next = playerData[i + 1];
+      // Check if they're on the same team and AT partners
+      const sameTeam = (i < 4 && i + 1 < 4) || (i >= 4 && i + 1 >= 4);
+      if (sameTeam && isPlayerAT(current.battleTag) && isPlayerAT(next.battleTag)) {
+        const currentPartner = getATPartner(current.battleTag);
+        if (currentPartner && currentPartner === next.battleTag.toLowerCase()) {
+          connections.push({ from: i, to: i + 1 });
+        }
+      }
+    }
+    return connections;
+  };
+
+  const atConnections = getATConnections();
+  console.log('AT Groups:', atGroups);
+  console.log('AT Connections:', atConnections);
+  console.log('Player order:', playerData.map(p => p.name));
 
   const keyDisplayNameMapping = {
     heroesKilled: "Heroes Killed",
@@ -143,14 +189,18 @@ const Game = ({ playerData: rawPlayerData, metaData, profilePics, playerCountrie
     );
   };
 
-  const renderPlayerCell = (player, teamClassName) => {
+  const renderPlayerCell = (player, teamClassName, playerIndex) => {
     const { oldMmr } = player;
     const flagPosition = teamClassName === "team-0" ? { top: 0, right: 0 } : { top: 0, left: 0 };
     const playerSession = sessionData?.[player.battleTag];
     const sessionDelta = playerSession?.mmrChange || 0;
+    const playerIsAT = isPlayerAT(player.battleTag);
+
+    // Check if there's an AT connection to the next player
+    const hasATConnectionRight = atConnections.some(c => c.from === playerIndex);
 
     return (
-      <Table.HeaderCell key={player.battleTag}>
+      <Table.HeaderCell key={player.battleTag} className={playerIsAT ? "at-cell" : ""}>
         <div
           className={`playerDiv ${compact ? "compact" : ""}`}
           style={{ position: "relative" }}
@@ -161,7 +211,7 @@ const Game = ({ playerData: rawPlayerData, metaData, profilePics, playerCountrie
               <img
                 src={profilePics[player.battleTag]}
                 alt="Player Profile Pic"
-                className={`profile-pic ${player.isMvp ? "mvp" : ""}`}
+                className={`profile-pic ${player.isMvp ? "mvp" : ""} ${playerIsAT ? "at" : ""}`}
               />
             ) : null}
             {playerCountries[player.battleTag] ? (
@@ -214,18 +264,13 @@ const Game = ({ playerData: rawPlayerData, metaData, profilePics, playerCountrie
 
           {/* Form dots - oldest on left, newest (latest) on right */}
           <div className="form-dots-wrapper">
-            {playerSession?.form && playerSession.form.length > 0 ? (
-              <div className="form-dots">
-                {playerSession.form.map((won, i, arr) => (
-                  <span
-                    key={i}
-                    className={`form-dot ${won ? "win" : "loss"} ${i === arr.length - 1 ? "latest" : ""}`}
-                  />
-                ))}
-              </div>
-            ) : null}
+            <FormDots form={playerSession?.form} size="small" />
           </div>
         </div>
+        {/* AT connector line to next player */}
+        {hasATConnectionRight && (
+          <div className="at-connector-line" />
+        )}
       </Table.HeaderCell>
     );
   };
@@ -312,7 +357,7 @@ const Game = ({ playerData: rawPlayerData, metaData, profilePics, playerCountrie
               const teamClassName = `team-${teamIndex}`;
               return (
                 <React.Fragment key={`player-${index}`}>
-                  {renderPlayerCell(playerScore, teamClassName)}
+                  {renderPlayerCell(playerScore, teamClassName, index)}
                   {index === 3 && (
                     <th className={`th-center ${compact}`} style={{ position: "relative", verticalAlign: "top" }}>
                       <div style={{ height: "220px", width: "60px", overflow: "hidden", display: "inline-block" }}>

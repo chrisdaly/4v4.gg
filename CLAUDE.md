@@ -53,8 +53,58 @@ npm run preview
 ### Styling Stack
 - Semantic UI React for pre-built components (Table, Grid, Header, Flag)
 - Styled Components for dynamic CSS-in-JS
-- Custom CSS variables in App.css (--gold, --green, --red, --grey)
-- Custom fonts: Friz Quadrata, Inconsolata
+- Custom CSS variables in App.css (see Design System below)
+- Custom fonts: Friz Quadrata (headings), Inconsolata (numbers)
+
+## Design System
+
+### CSS Variables
+All colors should use CSS variables defined in `:root` in `App.css`:
+
+```css
+:root {
+  /* Brand colors */
+  --gold: #fcdb33;      /* Player names, highlights, borders */
+  --green: #4ade80;     /* Wins, positive changes */
+  --red: #f87171;       /* Losses, negative changes */
+  --grey: #888;         /* Keys, labels */
+  --grey-light: #ccc;   /* Secondary text */
+  --grey-dark: #666;    /* Muted text, subtle elements */
+
+  /* Text colors */
+  --text-primary: #fff;     /* Main text, values */
+  --text-secondary: #ccc;   /* Secondary info */
+  --text-muted: #888;       /* Labels, hints */
+
+  /* Background colors */
+  --bg-dark: #0a0a0a;
+  --bg-card: rgba(255, 255, 255, 0.02);
+  --border-color: #333;
+  --border-gold: var(--gold);
+}
+```
+
+### Color Usage Guidelines
+| Element | Variable | Example |
+|---------|----------|---------|
+| Player names | `var(--gold)` | `<h2>PlayerName</h2>` |
+| MMR values | `var(--text-primary)` | 1847 MMR |
+| Win indicators | `var(--green)` | +15, 5W |
+| Loss indicators | `var(--red)` | -12, 3L |
+| Labels/hints | `var(--text-muted)` | "MMR", "Session:" |
+| Secondary text | `var(--text-secondary)` | Teammate names |
+| Muted elements | `var(--grey-dark)` | Timestamps, dividers |
+
+### Typography
+- **Headings (h1, h2, h3)**: `font-family: "Friz_Quadrata_Bold"` - gold color
+- **Numbers/stats**: `font-family: "Inconsolata"` - monospace for alignment
+- **Body text**: System default
+
+### Component Patterns
+- Game containers: `border: 2px solid var(--gold)` with radial gradient background
+- Stat rows: Alternating `background: var(--bg-card)` for zebra striping
+- Win/loss indicators: Use `.positive`/`.negative` classes for color
+- Form dots: `.form-dot.win` (green) / `.form-dot.loss` (red)
 
 ## API Integration
 

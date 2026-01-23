@@ -3,6 +3,7 @@ import { Grid, Flag } from "semantic-ui-react";
 import Mmr from "./Mmr.jsx";
 import { Sparklines, SparklinesLine } from "react-sparklines";
 import { akaLookup, fetchPlayerSessionData } from "./utils.jsx";
+import FormDots from "./FormDots.jsx";
 import human from "./icons/human.svg";
 import orc from "./icons/orc.svg";
 import elf from "./icons/elf.svg";
@@ -72,14 +73,7 @@ const Player = ({ data, side, transition, allMmrsgathered }) => {
           </div>
         )}
 
-        <div className="form-dots">
-          {sessionData?.form?.slice().reverse().map((won, i, arr) => (
-            <span
-              key={i}
-              className={`form-dot ${won ? 'win' : 'loss'} ${i === arr.length - 1 ? 'latest' : ''}`}
-            />
-          ))}
-        </div>
+        <FormDots form={sessionData?.form?.slice().reverse()} size="small" />
 
         {hasSparkline && (
           <div className="sparkline-container">

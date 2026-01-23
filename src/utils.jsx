@@ -396,7 +396,7 @@ export const fetchPlayerSessionData = async (battleTag, raceOverride) => {
       if (sessionGames.length > 0) {
         session = {
           games: sessionGames,
-          form: sessionGames.map(g => g.won),
+          form: sessionGames.map(g => g.won).reverse(), // Reverse so oldest is first (left), newest is last (right)
           wins: sessionGames.filter(g => g.won).length,
           losses: sessionGames.filter(g => !g.won).length,
           mmrChange: sessionGames[0].currentMmr - sessionGames[sessionGames.length - 1].oldMmr,
@@ -501,4 +501,85 @@ export function calculateElapsedTime(utcDate) {
 export function convertToLocalTime(utcDate) {
   const localDate = new Date(utcDate);
   return localDate.toLocaleString();
+}
+
+// Find players with matching MMR on the same team (potential AT)
+export const findPotentialATGroups = (players, teamIndex) => {
+  const teamPlayers = players.filter((_, idx) =>
+    teamIndex === 0 ? idx < 4 : idx >= 4
+  );
+
+  const mmrGroups = {};
+  teamPlayers.forEach(player => {
+    const mmr = player.oldMmr;
+    if (mmr && mmr > 0) {
+      if (!mmrGroups[mmr]) mmrGroups[mmr] = [];
+      mmrGroups[mmr].push(player.battleTag);
+    }
+  });
+
+  // Return groups with 2+ players sharing MMR
+  return Object.values(mmrGroups).filter(group => group.length >= 2);
+};
+
+// Confirm AT status by checking game-mode-stats API
+export const confirmATPartners = async (battleTag) => {
+  try {
+    const url = `https://website-backend.w3champions.com/api/players/${encodeURIComponent(battleTag)}/game-mode-stats?gateway=${gateway}&season=${season}`;
+    const response = await fetch(url);
+    if (!response.ok) return [];
+
+    const stats = await response.json();
+    const atPartners = [];
+
+    for (const stat of stats) {
+      // Look for 4v4 AT entries (id contains _4v4_AT)
+      if (stat.id && stat.id.includes('_4v4_AT')) {
+        // ID format: "23_Compre#2362@20_fuetti#2605@20_GM_4v4_AT"
+        // Split by @ and extract battleTags
+        const idParts = stat.id.split('@');
+        for (const part of idParts) {
+          if (part.includes('#') && !part.includes('GM_')) {
+            // Remove leading number_ prefix (season or gateway)
+            const tag = part.replace(/^\d+_/, '');
+            if (tag.toLowerCase() !== battleTag.toLowerCase()) {
+              atPartners.push(tag);
+            }
+          }
+        }
+      }
+    }
+
+    return [...new Set(atPartners)]; // Remove duplicates
+  } catch (error) {
+    console.error('Error fetching AT partners:', error);
+    return [];
+  }
+};
+
+// Detect AT groups in a match - returns map of battleTag -> [partnerBattleTags]
+export const detectArrangedTeams = async (players) => {
+  const atGroups = {};
+
+  // Check both teams for potential AT (matching MMR)
+  for (const teamIndex of [0, 1]) {
+    const potentialGroups = findPotentialATGroups(players, teamIndex);
+
+    for (const group of potentialGroups) {
+      // Only need to check one player from the group
+      const confirmedPartners = await confirmATPartners(group[0]);
+
+      // Check if any confirmed partners are in this match group
+      for (const battleTag of group) {
+        const partnersInMatch = confirmedPartners.filter(partner =>
+          group.some(g => g.toLowerCase() === partner.toLowerCase())
+        );
+        if (partnersInMatch.length > 0) {
+          atGroups[battleTag.toLowerCase()] = partnersInMatch.map(p => p.toLowerCase());
+        }
+      }
+    }
+  }
+
+  return atGroups;
 }

@@ -1,8 +1,22 @@
 :root {
+  /* Brand colors */
   --gold: #fcdb33;
-  --green: #34c774;
-  --red: #c23434;
-  --grey: #d3d3d3;
+  --green: #4ade80;
+  --red: #f87171;
+  --grey: #888;
+  --grey-light: #ccc;
+  --grey-dark: #666;
+
+  /* Text colors */
+  --text-primary: #fff;
+  --text-secondary: #ccc;
+  --text-muted: #888;
+
+  /* Background colors */
+  --bg-dark: #0a0a0a;
+  --bg-card: rgba(255, 255, 255, 0.02);
+  --border-color: #333;
+  --border-gold: var(--gold);
 }
 
 /* @font-face {
@@ -571,16 +585,16 @@ span.true {
 .player-card-demo .mmr-value {
   font-family: "Inconsolata", monospace;
   font-size: 16px;
-  color: #fff;
+  color: var(--text-primary);
 }
 
 .player-card-demo .mmr-label {
-  color: #888;
+  color: var(--text-muted);
   font-size: 11px;
 }
 
 .player-card-demo .player-rank {
-  color: #666;
+  color: var(--grey-dark);
   font-size: 11px;
 }
 
@@ -590,17 +604,17 @@ span.true {
 }
 
 .player-card-demo .session-label {
-  color: #888;
+  color: var(--text-muted);
 }
 
 .player-card-demo .session-record {
-  color: #fff;
+  color: var(--text-primary);
   font-family: "Inconsolata", monospace;
   font-size: 11px;
 }
 
 .player-card-demo .session-label-muted {
-  color: #666;
+  color: var(--grey-dark);
 }
 
 .player-card-demo .session-delta {
@@ -657,7 +671,7 @@ span.true {
 }
 
 .player-card-demo .peak-label {
-  color: #666;
+  color: var(--grey-dark);
 }
 
 .player-card-demo .peak-value {
@@ -850,7 +864,7 @@ h2 {
 
 /* Stat table styling */
 .stat-label {
-  color: #666 !important;
+  color: var(--grey-dark) !important;
   text-transform: uppercase;
   font-size: 11px !important;
   font-weight: normal !important;
@@ -914,13 +928,13 @@ h2 {
   bottom: 4px;
   right: 4px;
   background: linear-gradient(135deg, #1a1a1a 0%, #333 100%);
-  color: #fff;
+  color: var(--text-primary);
   font-family: "Inconsolata", monospace;
   font-size: 13px;
   font-weight: bold;
   padding: 1px 5px;
   border-radius: 3px;
-  border: 1px solid #555;
+  border: 1px solid var(--grey-dark);
   text-shadow: 0 1px 2px rgba(0, 0, 0, 0.9);
   box-shadow: 0 1px 3px rgba(0, 0, 0, 0.5);
 }
@@ -1007,7 +1021,7 @@ img.race {
   background: radial-gradient(ellipse at center, #1a1a1a 0%, #050505 70%);
   border-radius: 8px;
   margin: 20px 10px 40px 10px;
-  border: 2px solid #fcdb33;
+  border: 2px solid var(--gold);
   box-shadow: 0 4px 20px rgba(0, 0, 0, 0.5);
 }
 
@@ -1128,7 +1142,7 @@ img.teamHeaderRace {
   align-items: center;
   justify-content: center;
   padding: 20px 0;
-  color: #888;
+  color: var(--text-muted);
   font-size: 13px;
   position: relative;
 }
@@ -1136,7 +1150,7 @@ img.teamHeaderRace {
 .meta-match-id {
   position: absolute;
   right: 20px;
-  color: #666;
+  color: var(--grey-dark);
   font-family: "Inconsolata", monospace;
   font-size: 12px;
   text-decoration: none;
@@ -1144,7 +1158,7 @@ img.teamHeaderRace {
 }
 
 .meta-match-id:hover {
-  color: #fcdb33;
+  color: var(--gold);
   text-decoration: underline;
 }
 
@@ -1169,13 +1183,13 @@ img.teamHeaderRace {
 }
 
 .meta-map-name {
-  color: #fff;
+  color: var(--text-primary);
   font-family: "Friz_Quadrata_Bold", serif;
   font-size: 16px;
 }
 
 .meta-details {
-  color: #888;
+  color: var(--text-muted);
   font-size: 13px;
   display: flex;
   align-items: center;
@@ -1183,11 +1197,11 @@ img.teamHeaderRace {
 }
 
 .meta-item {
-  color: #aaa;
+  color: var(--text-secondary);
 }
 
 .meta-separator {
-  color: #444;
+  color: var(--grey-dark);
 }
 
 .meta-map {
@@ -1197,7 +1211,7 @@ img.teamHeaderRace {
 }
 
 .meta-mins {
-  color: #666;
+  color: var(--grey-dark);
   text-transform: lowercase;
 }
 
@@ -1221,7 +1235,7 @@ img.teamHeaderRace {
 }
 
 .meta-link {
-  color: #666;
+  color: var(--grey-dark);
   text-decoration: none;
 }
 
@@ -1267,6 +1281,48 @@ img.teamHeaderRace {
   font-size: 10px;
   color: var(--gold);
   font-weight: bold;
+}
+
+/* AT (Arranged Team) styling */
+.profile-pic.at {
+  box-shadow: 0 0 0 2px #8b5cf6;
+}
+
+.at-cell {
+  position: relative;
+  overflow: visible !important;
+}
+
+.at-cell .playerDiv {
+  overflow: visible;
+}
+
+/* Connector line between AT players */
+.at-connector-line {
+  position: absolute;
+  top: 60px;
+  left: 50%;
+  width: calc(100% + 20px);
+  height: 3px;
+  background: #8b5cf6;
+  border-radius: 2px;
+  z-index: 100;
+  pointer-events: none;
+}
+
+/* AT indicator dot below profile pic */
+.at-indicator {
+  display: flex;
+  justify-content: center;
+  margin-top: 4px;
+}
+
+.at-indicator::before {
+  content: "";
+  width: 8px;
+  height: 8px;
+  background: #8b5cf6;
+  border-radius: 50%;
 }
 
 /* Team header - remove all borders */
@@ -1346,7 +1402,7 @@ h2.team-name {
   display: flex;
   gap: 3px;
   align-items: center;
-  margin: 0 auto;
+  justify-content: center;
 }
 
 .form-dots-placeholder {
@@ -1354,11 +1410,13 @@ h2.team-name {
   min-width: 30px;
 }
 
+/* Base dot styles */
 .form-dot {
   width: 8px;
   height: 8px;
   border-radius: 50%;
-  opacity: 0.7;
+  opacity: 0.6;
+  transition: transform 0.15s ease;
 }
 
 .form-dot.win {
@@ -1370,9 +1428,40 @@ h2.team-name {
 }
 
 .form-dot.latest {
-  width: 10px;
-  height: 10px;
+  width: 12px;
+  height: 12px;
   opacity: 1;
+}
+
+/* Size variants */
+.form-dots.small .form-dot {
+  width: 6px;
+  height: 6px;
+}
+
+.form-dots.small .form-dot.latest {
+  width: 9px;
+  height: 9px;
+}
+
+.form-dots.medium .form-dot {
+  width: 8px;
+  height: 8px;
+}
+
+.form-dots.medium .form-dot.latest {
+  width: 12px;
+  height: 12px;
+}
+
+.form-dots.large .form-dot {
+  width: 12px;
+  height: 12px;
+}
+
+.form-dots.large .form-dot.latest {
+  width: 18px;
+  height: 18px;
 }
 
 /* Peak MMR display */
@@ -1391,7 +1480,7 @@ h2.team-name {
 }
 
 .peak-label {
-  color: #666;
+  color: var(--grey-dark);
 }
 
 .peak-value {
@@ -1403,11 +1492,11 @@ h2.team-name {
 .mmr-value {
   font-family: "Inconsolata", monospace;
   font-size: 18px;
-  color: #fff;
+  color: var(--text-primary);
 }
 
 .mmr-label {
-  color: #888;
+  color: var(--text-muted);
   font-size: 13px;
 }
 
@@ -1425,7 +1514,7 @@ h2.team-name {
 
 /* Player rank display */
 .player-rank {
-  color: #666;
+  color: var(--grey-dark);
   font-size: 11px;
 }
 
@@ -1461,7 +1550,7 @@ h2.team-name {
 
 /* Peak MMR inline with current */
 .peak-inline {
-  color: #666;
+  color: var(--grey-dark);
   font-size: 11px;
   font-style: italic;
 }
@@ -1475,23 +1564,23 @@ h2.team-name {
 }
 
 .session-label {
-  color: #888;
+  color: var(--text-muted);
 }
 
 .session-label-muted {
-  color: #555;
+  color: var(--grey-dark);
   font-style: italic;
   font-size: 11px;
 }
 
 .mmr-label-muted {
-  color: #666;
+  color: var(--grey-dark);
   font-style: italic;
   font-size: 12px;
 }
 
 .session-record {
-  color: #fff;
+  color: var(--text-primary);
   font-family: "Inconsolata", monospace;
   font-size: 16px;
 }
@@ -1599,4 +1688,452 @@ th.team-header.winner {
 
 .match-link:hover .key {
   color: var(--gold);
+}
+
+/* Player Profile Page - Stream Mode */
+.player-profile.stream-mode {
+  max-width: 1400px;
+  margin: 0 auto;
+  padding: 30px;
+  background: radial-gradient(ellipse at center, #111 0%, #000 100%);
+  min-height: 100vh;
+}
+
+.profile-loading {
+  text-align: center;
+  color: var(--text-muted);
+  padding: 100px;
+  font-size: 24px;
+}
+
+/* Bento Box Layout */
+.bento-grid {
+  display: grid;
+  gap: 15px;
+  margin-bottom: 15px;
+}
+
+.bento-top {
+  grid-template-columns: 1fr 1fr 1fr;
+}
+
+.bento-bottom {
+  grid-template-columns: 1fr 1fr 1fr;
+}
+
+.bento-box {
+  background: var(--bg-card);
+  border: 1px solid var(--border-color);
+  border-radius: 12px;
+  padding: 20px;
+}
+
+.bento-wide {
+  margin-bottom: 15px;
+}
+
+/* Player Card Box */
+.bento-box.player-card {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  text-align: center;
+}
+
+.profile-pic-wrapper {
+  position: relative;
+  margin-bottom: 12px;
+}
+
+.profile-pic.large {
+  width: 80px;
+  height: 80px;
+  border-radius: 8px;
+  border: 2px solid var(--border-color);
+}
+
+.profile-flag {
+  position: absolute;
+  bottom: -5px;
+  right: -5px;
+}
+
+.player-profile .profile-name {
+  font-size: 24px;
+  margin: 0 0 8px 0;
+  color: var(--gold);
+  font-weight: bold;
+}
+
+.player-profile .profile-mmr-line {
+  margin-bottom: 4px;
+}
+
+.player-profile .profile-mmr-line .mmr-value {
+  font-size: 20px;
+  font-weight: bold;
+  color: var(--text-primary);
+}
+
+.player-profile .profile-mmr-line .mmr-label {
+  color: var(--text-muted);
+  font-size: 14px;
+}
+
+.player-profile .profile-rank-line {
+  font-size: 13px;
+  color: var(--text-secondary);
+}
+
+.player-profile .profile-rank-line .rank-value {
+  color: var(--text-primary);
+  font-weight: bold;
+}
+
+.player-profile .profile-rank-line .rank-label {
+  color: var(--grey-dark);
+}
+
+.player-profile .profile-rank-line .record-value {
+  color: var(--text-secondary);
+}
+
+.player-profile .profile-rank-line .winrate-value {
+  color: var(--text-muted);
+}
+
+/* Session Box */
+.bento-box.session-box {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  text-align: center;
+}
+
+.session-stats {
+  display: flex;
+  align-items: baseline;
+  gap: 10px;
+  margin-bottom: 12px;
+}
+
+.session-record-big {
+  font-size: 22px;
+  font-weight: bold;
+  color: var(--text-primary);
+  font-family: "Inconsolata", monospace;
+}
+
+.session-delta-big {
+  font-size: 18px;
+  font-weight: bold;
+  font-family: "Inconsolata", monospace;
+}
+
+.session-delta-big.positive {
+  color: var(--green);
+}
+
+.session-delta-big.negative {
+  color: var(--red);
+}
+
+.session-count {
+  font-size: 12px;
+  color: var(--text-muted);
+  margin-top: 8px;
+}
+
+.no-session {
+  color: var(--text-muted);
+  font-style: italic;
+  padding: 20px;
+}
+
+/* MMR Box */
+.bento-box.mmr-box {
+  display: flex;
+  flex-direction: column;
+}
+
+.mmr-chart-simple {
+  display: flex;
+  justify-content: center;
+}
+
+/* Horizontal Range Bar */
+.mmr-range-bar {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin-top: 8px;
+}
+
+.mmr-range-bar .range-label {
+  font-family: "Inconsolata", monospace;
+  font-size: 11px;
+  min-width: 35px;
+}
+
+.mmr-range-bar .range-label.low {
+  color: var(--red);
+  text-align: right;
+}
+
+.mmr-range-bar .range-label.high {
+  color: var(--green);
+  text-align: left;
+}
+
+.mmr-range-bar .range-track {
+  flex: 1;
+  height: 6px;
+  background: linear-gradient(to right, var(--red), #888, var(--green));
+  border-radius: 3px;
+  position: relative;
+}
+
+.mmr-range-bar .range-dot {
+  position: absolute;
+  top: 50%;
+  transform: translate(-50%, -50%);
+  width: 12px;
+  height: 12px;
+  background: var(--gold);
+  border-radius: 50%;
+  border: 2px solid #000;
+}
+
+.range-current-label {
+  text-align: center;
+  margin-top: 6px;
+  font-family: "Inconsolata", monospace;
+  font-size: 12px;
+  font-weight: bold;
+  color: var(--gold);
+}
+
+/* Section Title */
+.section-title {
+  font-size: 12px;
+  color: var(--gold);
+  margin: 0 0 12px 0;
+  text-transform: uppercase;
+  letter-spacing: 1.5px;
+  font-weight: normal;
+}
+
+/* Compact Match Row */
+.match-row-compact {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 6px 0;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.05);
+  font-size: 12px;
+}
+
+.match-row-compact:last-child {
+  border-bottom: none;
+}
+
+.match-row-compact .match-result {
+  font-weight: bold;
+  width: 16px;
+}
+
+.match-row-compact.win .match-result {
+  color: var(--green);
+}
+
+.match-row-compact.loss .match-result {
+  color: var(--red);
+}
+
+.match-row-compact .match-map {
+  flex: 1;
+  color: var(--text-secondary);
+  font-size: 11px;
+}
+
+.match-row-compact .match-mmr-change {
+  font-family: "Inconsolata", monospace;
+  font-weight: bold;
+  font-size: 11px;
+  min-width: 30px;
+  text-align: right;
+}
+
+.matches-list.compact {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+/* Matches Box */
+.bento-box.matches-box {
+  min-height: 180px;
+  overflow: visible;
+}
+
+.bento-box.matches-box .matches-list {
+  overflow: visible;
+}
+
+/* Responsive */
+@media (max-width: 900px) {
+  .bento-top,
+  .bento-bottom {
+    grid-template-columns: 1fr;
+  }
+}
+
+/* Stats Table */
+.stats-table {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.stats-row {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 6px 8px;
+  background: rgba(255, 255, 255, 0.02);
+  border-radius: 4px;
+}
+
+.stats-name {
+  flex: 0 0 90px;
+  color: var(--text-secondary);
+  font-size: 12px;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.stats-bar-container {
+  flex: 1;
+  height: 6px;
+  background: rgba(248, 113, 113, 0.2);
+  border-radius: 3px;
+  overflow: hidden;
+}
+
+.stats-bar.win {
+  height: 100%;
+  background: linear-gradient(90deg, var(--green), #22c55e);
+  border-radius: 3px;
+}
+
+.stats-record {
+  flex: 0 0 40px;
+  text-align: right;
+  font-size: 11px;
+  color: var(--text-muted);
+  font-family: "Inconsolata", monospace;
+}
+
+.stats-winrate {
+  flex: 0 0 32px;
+  text-align: right;
+  font-size: 11px;
+  font-weight: bold;
+  font-family: "Inconsolata", monospace;
+}
+
+.stats-winrate.green {
+  color: var(--green);
+}
+
+.stats-winrate.red {
+  color: var(--red);
+}
+
+/* Recent Matches List */
+.matches-list {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.match-row {
+  display: flex;
+  align-items: center;
+  gap: 15px;
+  padding: 10px 15px;
+  background: var(--bg-card);
+  border-radius: 6px;
+  border-left: 3px solid var(--grey-dark);
+}
+
+.match-row.win {
+  border-left-color: var(--green);
+}
+
+.match-row.loss {
+  border-left-color: var(--red);
+}
+
+.match-result {
+  font-size: 14px;
+  font-weight: bold;
+  width: 20px;
+}
+
+.match-row.win .match-result {
+  color: var(--green);
+}
+
+.match-row.loss .match-result {
+  color: var(--red);
+}
+
+.match-map {
+  flex: 0 0 140px;
+  color: var(--text-secondary);
+  font-size: 13px;
+}
+
+.match-teammates {
+  flex: 1;
+  color: var(--text-muted);
+  font-size: 12px;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.match-mmr-change {
+  flex: 0 0 50px;
+  text-align: right;
+  font-family: "Inconsolata", monospace;
+  font-size: 14px;
+  font-weight: bold;
+}
+
+.match-mmr-change.positive {
+  color: var(--green);
+}
+
+.match-mmr-change.negative {
+  color: var(--red);
+}
+
+.match-time {
+  flex: 0 0 50px;
+  text-align: right;
+  color: var(--grey-dark);
+  font-size: 12px;
+}
+
+/* Last Game Section */
+.last-game-section .Game {
+  margin: 0;
+}
+
+/* Ongoing Section */
+.ongoing-section .section-title {
+  color: var(--red);
 }
