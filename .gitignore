@@ -118,3 +118,6 @@ src/.DS_Store
 src/icons/.DS_Store
 public/.DS_Store
 src/.DS_Store
+
+# Large video files
+*.mp4
