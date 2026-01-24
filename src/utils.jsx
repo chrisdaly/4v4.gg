@@ -175,6 +175,35 @@ export const getPlayerProfilePicUrl = async (battleTag) => {
   }
 };
 
+// Get player profile info including pic URL and Twitch
+export const getPlayerProfileInfo = async (battleTag) => {
+  try {
+    const response = await fetch(`https://website-backend.w3champions.com/api/personal-settings/${encodeURIComponent(battleTag)}`);
+    const profileData = await response.json();
+
+    // Get profile pic URL
+    let profilePicUrl = null;
+    const { profilePicture, specialPictures, twitch } = profileData;
+    if (profilePicture && profilePicture.pictureId) {
+      const { pictureId, race } = profilePicture;
+      const raceMapping = { 64: "starter", 16: "total", 8: "undead", 0: "random", 4: "nightelf", 2: "orc", 1: "human" };
+      if (specialPictures.map((d) => d.pictureId).includes(pictureId)) {
+        profilePicUrl = `https://w3champions.wc3.tools/prod/integration/icons/specialAvatars/SPECIAL_${pictureId}.jpg`;
+      } else {
+        profilePicUrl = `https://w3champions.wc3.tools/prod/integration/icons/raceAvatars/classic/${raceMapping[race].toUpperCase()}_${pictureId}.jpg`;
+      }
+    }
+
+    return {
+      profilePicUrl,
+      twitch: twitch || null,
+    };
+  } catch (error) {
+    console.error("Error fetching player profile info:", error);
+    return { profilePicUrl: null, twitch: null };
+  }
+};
+
 export const findPlayerInOngoingMatches = (allMatchData, playerBattleTag) => {
   for (const matchData of allMatchData.matches) {
     for (const team of matchData.teams) {
@@ -488,6 +517,13 @@ export const calculateTeamMMR = (teams) => {
   return teams.reduce((total, team) => {
     return total + team.players.reduce((teamTotal, player) => teamTotal + player.oldMmr, 0);
   }, 0);
+};
+
+// Calculate win probability using ELO formula
+// Returns probability for team 1 (0-100)
+export const calculateWinProbability = (team1AvgMmr, team2AvgMmr) => {
+  const expected = 1 / (1 + Math.pow(10, (team2AvgMmr - team1AvgMmr) / 400));
+  return Math.round(expected * 100);
 };
 
 export function calculateElapsedTime(utcDate) {

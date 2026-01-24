@@ -423,6 +423,14 @@ circle.dot {
   stroke-opacity: 0.8;
 }
 
+circle.dot.at-dot {
+  stroke: #8b5cf6;
+  fill: #8b5cf6;
+  r: 6;
+  stroke-width: 2px;
+  stroke-opacity: 1;
+}
+
 .profileName {
   font-size: 20px;
 }
@@ -1137,6 +1145,10 @@ img.teamHeaderRace {
 }
 
 /* Meta bar - game info footer */
+.meta td {
+  text-align: center !important;
+}
+
 .meta-bar {
   display: flex;
   align-items: center;
@@ -1145,6 +1157,7 @@ img.teamHeaderRace {
   color: var(--text-muted);
   font-size: 13px;
   position: relative;
+  width: 100%;
 }
 
 .meta-match-id {
@@ -1164,8 +1177,9 @@ img.teamHeaderRace {
 
 .meta-map-centered {
   display: flex;
+  flex-direction: column;
   align-items: center;
-  gap: 16px;
+  gap: 8px;
 }
 
 .meta-map-img {
@@ -1179,6 +1193,7 @@ img.teamHeaderRace {
 .meta-map-info {
   display: flex;
   flex-direction: column;
+  align-items: center;
   gap: 4px;
 }
 
@@ -1186,6 +1201,7 @@ img.teamHeaderRace {
   color: var(--text-primary);
   font-family: "Friz_Quadrata_Bold", serif;
   font-size: 16px;
+  text-align: center;
 }
 
 .meta-details {
@@ -1193,6 +1209,7 @@ img.teamHeaderRace {
   font-size: 13px;
   display: flex;
   align-items: center;
+  justify-content: center;
   gap: 6px;
 }
 
@@ -1285,44 +1302,24 @@ img.teamHeaderRace {
 
 /* AT (Arranged Team) styling */
 .profile-pic.at {
-  box-shadow: 0 0 0 2px #8b5cf6;
+  box-shadow: 0 0 0 3px #8b5cf6;
 }
 
-.at-cell {
-  position: relative;
-  overflow: visible !important;
-}
-
-.at-cell .playerDiv {
-  overflow: visible;
-}
-
-/* Connector line between AT players */
-.at-connector-line {
+.at-connector {
   position: absolute;
-  top: 60px;
-  left: 50%;
-  width: calc(100% + 20px);
+  top: 45px;
+  left: 100%;
+  width: 100px;
   height: 3px;
   background: #8b5cf6;
-  border-radius: 2px;
   z-index: 100;
-  pointer-events: none;
+  border-radius: 3px;
 }
 
-/* AT indicator dot below profile pic */
-.at-indicator {
-  display: flex;
-  justify-content: center;
-  margin-top: 4px;
-}
-
-.at-indicator::before {
-  content: "";
-  width: 8px;
-  height: 8px;
-  background: #8b5cf6;
-  border-radius: 50%;
+/* Allow AT connector to overflow */
+.ui.table th,
+.ui.table td {
+  overflow: visible !important;
 }
 
 /* Team header - remove all borders */
@@ -1498,6 +1495,37 @@ h2.team-name {
 .mmr-label {
   color: var(--text-muted);
   font-size: 13px;
+}
+
+.win-prob {
+  color: var(--grey);
+  font-size: 12px;
+  margin-left: 6px;
+  font-family: "Inconsolata", monospace;
+}
+
+/* Player name row with Twitch icon */
+.player-name-row {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+}
+
+.twitch-link {
+  display: flex;
+  align-items: center;
+}
+
+.twitch-icon {
+  width: 16px;
+  height: 16px;
+  fill: #9146ff;
+  transition: fill 0.2s;
+}
+
+.twitch-link:hover .twitch-icon {
+  fill: #a970ff;
 }
 
 /* Player MMR line */
@@ -1690,11 +1718,9 @@ th.team-header.winner {
   color: var(--gold);
 }
 
-/* Player Profile Page - Stream Mode */
-.player-profile.stream-mode {
-  max-width: 1400px;
-  margin: 0 auto;
-  padding: 30px;
+/* Player Profile Page */
+.player-profile {
+  padding: 20px 30px;
   background: radial-gradient(ellipse at center, #111 0%, #000 100%);
   min-height: 100vh;
 }
@@ -1706,6 +1732,150 @@ th.team-header.winner {
   font-size: 24px;
 }
 
+/* Profile Header */
+.profile-header {
+  margin-bottom: 20px;
+  padding-bottom: 20px;
+  border-bottom: 1px solid var(--border-color);
+}
+
+.profile-header-content {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+}
+
+.profile-header-left {
+  display: flex;
+  align-items: center;
+  gap: 20px;
+}
+
+.profile-pic-wrapper.large .profile-pic {
+  width: 100px;
+  height: 100px;
+  border-radius: 8px;
+  border: 3px solid var(--gold);
+}
+
+.profile-header-info {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.profile-header-info .profile-name {
+  font-size: 32px;
+  margin: 0;
+  color: var(--gold);
+}
+
+.profile-header-stats {
+  display: flex;
+  align-items: baseline;
+  gap: 8px;
+}
+
+.profile-header-stats .mmr-value.large {
+  font-size: 24px;
+  font-weight: bold;
+  color: var(--text-primary);
+}
+
+.profile-header-stats .rank-badge {
+  background: var(--gold);
+  color: #000;
+  padding: 2px 8px;
+  border-radius: 4px;
+  font-size: 14px;
+  font-weight: bold;
+  margin-left: 8px;
+}
+
+.profile-header-record {
+  font-size: 14px;
+  color: var(--text-secondary);
+}
+
+/* Last Game Badge */
+.last-game-badge {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  padding: 16px 24px;
+  border-radius: 8px;
+  text-align: center;
+}
+
+.last-game-badge.win {
+  background: rgba(74, 222, 128, 0.15);
+  border: 2px solid var(--green);
+}
+
+.last-game-badge.loss {
+  background: rgba(248, 113, 113, 0.15);
+  border: 2px solid var(--red);
+}
+
+.last-game-result {
+  font-size: 24px;
+  font-weight: bold;
+}
+
+.last-game-badge.win .last-game-result {
+  color: var(--green);
+}
+
+.last-game-badge.loss .last-game-result {
+  color: var(--red);
+}
+
+.last-game-mmr {
+  font-size: 18px;
+  font-weight: bold;
+  font-family: "Inconsolata", monospace;
+}
+
+.last-game-mmr.positive {
+  color: var(--green);
+}
+
+.last-game-mmr.negative {
+  color: var(--red);
+}
+
+.last-game-time {
+  font-size: 12px;
+  color: var(--text-muted);
+  margin-top: 4px;
+}
+
+/* Live Badge */
+.live-badge {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 12px 20px;
+  background: rgba(239, 68, 68, 0.2);
+  border: 2px solid var(--red);
+  border-radius: 8px;
+}
+
+.live-badge .live-dot {
+  width: 12px;
+  height: 12px;
+  background: var(--red);
+  border-radius: 50%;
+  animation: pulse 1.5s infinite;
+}
+
+.live-badge .live-text {
+  font-size: 18px;
+  font-weight: bold;
+  color: var(--red);
+  letter-spacing: 2px;
+}
+
 /* Bento Box Layout */
 .bento-grid {
   display: grid;
@@ -1714,7 +1884,7 @@ th.team-header.winner {
 }
 
 .bento-top {
-  grid-template-columns: 1fr 1fr 1fr;
+  grid-template-columns: 1fr 1fr;
 }
 
 .bento-bottom {
@@ -1730,6 +1900,11 @@ th.team-header.winner {
 
 .bento-wide {
   margin-bottom: 15px;
+  overflow-x: auto;
+}
+
+.bento-wide .Game {
+  min-width: fit-content;
 }
 
 /* Player Card Box */
@@ -2129,11 +2304,313 @@ th.team-header.winner {
 }
 
 /* Last Game Section */
+.last-game-section {
+  overflow-x: auto;
+}
+
 .last-game-section .Game {
   margin: 0;
+  min-width: max-content;
 }
 
 /* Ongoing Section */
+.ongoing-section {
+  overflow-x: auto;
+}
+
+.ongoing-section .Game {
+  min-width: max-content;
+}
+
 .ongoing-section .section-title {
   color: var(--red);
 }
+
+/* Session Timeline */
+.session-timeline {
+  margin-bottom: 15px;
+}
+
+.session-tiles {
+  display: flex;
+  gap: 12px;
+  flex-wrap: wrap;
+  margin-bottom: 15px;
+}
+
+.session-tile {
+  display: flex;
+  flex-direction: column;
+  padding: 12px;
+  border-radius: 8px;
+  cursor: pointer;
+  transition: all 0.2s ease;
+  border: 2px solid transparent;
+  min-width: 320px;
+}
+
+.session-tile.win {
+  background: rgba(74, 222, 128, 0.08);
+  border-color: rgba(74, 222, 128, 0.3);
+}
+
+.session-tile.loss {
+  background: rgba(248, 113, 113, 0.08);
+  border-color: rgba(248, 113, 113, 0.3);
+}
+
+.session-tile.win:hover {
+  border-color: var(--green);
+}
+
+.session-tile.loss:hover {
+  border-color: var(--red);
+}
+
+.session-tile.expanded {
+  border-color: var(--gold);
+  box-shadow: 0 0 10px rgba(252, 219, 51, 0.3);
+}
+
+.tile-top {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  margin-bottom: 10px;
+}
+
+.tile-map-img {
+  width: 50px;
+  height: 50px;
+  object-fit: cover;
+  border-radius: 6px;
+  flex-shrink: 0;
+}
+
+.tile-header {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.tile-result {
+  font-size: 14px;
+  font-weight: bold;
+  text-transform: uppercase;
+}
+
+.tile-result.win {
+  color: var(--green);
+}
+
+.tile-result.loss {
+  color: var(--red);
+}
+
+.tile-map-name {
+  color: var(--text-secondary);
+  font-size: 12px;
+}
+
+.tile-mmr {
+  font-family: "Inconsolata", monospace;
+  font-size: 13px;
+  font-weight: bold;
+}
+
+.tile-mmr.positive {
+  color: var(--green);
+}
+
+.tile-mmr.negative {
+  color: var(--red);
+}
+
+.tile-body {
+  display: flex;
+  align-items: flex-start;
+  gap: 8px;
+}
+
+.tile-team {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  flex: 1;
+}
+
+.tile-team.right {
+  text-align: right;
+}
+
+.tile-team.right .tile-player {
+  justify-content: flex-end;
+}
+
+.tile-player {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+}
+
+.tile-race {
+  width: 14px;
+  height: 14px;
+  opacity: 0.9;
+  flex-shrink: 0;
+}
+
+.tile-player-name {
+  font-size: 11px;
+  color: var(--text-secondary);
+  white-space: nowrap;
+  max-width: 85px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.tile-chart {
+  width: 50px;
+  height: 80px;
+  flex-shrink: 0;
+}
+
+.expanded-game {
+  margin-top: 15px;
+  padding-top: 15px;
+  border-top: 1px solid var(--border-color);
+  overflow-x: auto;
+}
+
+.expanded-game .Game {
+  min-width: max-content;
+}
+
+/* Stream Overlay Compact Mode */
+/* ========================================
+   Stream Overlay - Compact spacing
+   ======================================== */
+#StreamOverlay {
+  display: inline-block;
+}
+
+#StreamOverlay .Game {
+  border: none;
+  background: transparent;
+}
+
+#StreamOverlay .playerDiv {
+  padding: 4px 6px;
+}
+
+#StreamOverlay .profile-pic {
+  width: 70px;
+  height: 70px;
+}
+
+#StreamOverlay h2 {
+  font-size: 14px;
+  margin: 4px 0 2px 0;
+}
+
+#StreamOverlay .player-mmr-line {
+  margin: 2px 0;
+}
+
+#StreamOverlay .session-info {
+  margin: 2px 0;
+}
+
+#StreamOverlay .form-dots-wrapper {
+  margin-top: 4px;
+}
+
+#StreamOverlay .team-header {
+  padding: 8px 0;
+}
+
+#StreamOverlay .team-header h2 {
+  font-size: 16px;
+}
+
+#StreamOverlay .meta-bar,
+#StreamOverlay .meta-row,
+#StreamOverlay .meta {
+  display: none;
+}
+
+#StreamOverlay .axistitle {
+  display: none;
+}
+
+/* Stream overlay - player relation colors (glow only, no border) */
+#StreamOverlay .profile-pic.relation-streamer {
+  border: none !important;
+  box-shadow: 0 0 12px 4px rgba(59, 130, 246, 0.8); /* Blue glow */
+}
+
+#StreamOverlay .profile-pic.relation-ally {
+  border: none !important;
+  box-shadow: 0 0 10px 3px rgba(20, 184, 166, 0.7); /* Teal glow */
+}
+
+#StreamOverlay .profile-pic.relation-opponent {
+  border: none !important;
+  box-shadow: 0 0 10px 3px rgba(239, 68, 68, 0.7); /* Red glow */
+}
+
+#StreamOverlay .ui.table th,
+#StreamOverlay .ui.table td {
+  padding: 4px 6px !important;
+}
+
+/* ========================================
+   Stream Style Variants
+   Use ?style=dark, ?style=bordered, ?style=minimal
+   ======================================== */
+
+/* Style: dark - Semi-transparent dark background */
+#StreamOverlay.stream-style-dark .Game {
+  background: rgba(0, 0, 0, 0.7);
+  border-radius: 6px;
+  padding: 8px;
+}
+
+/* Style: bordered - Dark background with gold border */
+#StreamOverlay.stream-style-bordered .Game {
+  background: rgba(0, 0, 0, 0.6);
+  border: 2px solid var(--gold);
+  border-radius: 6px;
+  padding: 8px;
+}
+
+/* Style: minimal - No background, text shadows only, hide team headers */
+#StreamOverlay.stream-style-minimal .Game {
+  background: transparent;
+  border: none;
+}
+
+#StreamOverlay.stream-style-minimal .team-header {
+  display: none;
+}
+
+#StreamOverlay.stream-style-minimal h2,
+#StreamOverlay.stream-style-minimal .mmr-value,
+#StreamOverlay.stream-style-minimal .mmr-label,
+#StreamOverlay.stream-style-minimal .session-info {
+  text-shadow:
+    0 0 3px rgba(0, 0, 0, 1),
+    0 0 6px rgba(0, 0, 0, 0.8),
+    1px 1px 2px rgba(0, 0, 0, 1);
+}
+
+/* Style: glass - Frosted glass effect */
+#StreamOverlay.stream-style-glass .Game {
+  background: rgba(0, 0, 0, 0.4);
+  backdrop-filter: blur(8px);
+  -webkit-backdrop-filter: blur(8px);
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  border-radius: 8px;
+  padding: 8px;
+}
+

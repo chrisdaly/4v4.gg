@@ -5,7 +5,23 @@ import { findPlayerInOngoingMatches, getPlayerProfilePicUrl, getPlayerCountry } 
 import OnGoingGame from "./OngoingGame.jsx";
 import FinishedGame from "./FinishedGame.jsx";
 import FormDots from "./FormDots.jsx";
+import { MmrComparison } from "./MmrComparison.jsx";
 import { gateway, season } from "./params.jsx";
+import human from "./icons/human.svg";
+import orc from "./icons/orc.svg";
+import elf from "./icons/elf.svg";
+import undead from "./icons/undead.svg";
+import random from "./icons/random.svg";
+
+const raceMapping = { 8: undead, 0: random, 4: elf, 2: orc, 1: human };
+
+// Map images stored locally in /public/maps/
+const getMapImageUrl = (mapName) => {
+  if (!mapName) return null;
+  // Strip parentheses prefix like "(4)", spaces, and apostrophes
+  const cleanName = mapName.replace(/^\(\d\)/, "").replace(/ /g, "").replace(/'/g, "");
+  return `/maps/${cleanName}.png`;
+};
 
 const PlayerProfile = () => {
   const [playerData, setPlayerData] = useState(null);
@@ -19,6 +35,8 @@ const PlayerProfile = () => {
   const [teammateStats, setTeammateStats] = useState([]);
     const [isLoading, setIsLoading] = useState(true);
   const [lastGameData, setLastGameData] = useState(null);
+  const [expandedGameId, setExpandedGameId] = useState(null);
+  const [expandedGameData, setExpandedGameData] = useState(null);
 
   const SESSION_GAP_MINUTES = 60;
 
@@ -148,9 +166,9 @@ const PlayerProfile = () => {
 
     setSessionGames(sessionMatches);
 
-    // Fetch last game details if we have session games
-    if (sessionMatches.length > 0) {
-      fetchLastGameDetails(sessionMatches[0].id);
+    // Fetch last game details (most recent game, regardless of session)
+    if (matchList.length > 0) {
+      fetchLastGameDetails(matchList[0].id);
     }
 
     // Calculate map stats
@@ -236,6 +254,27 @@ const PlayerProfile = () => {
     }
   };
 
+  const handleExpandGame = async (gameId) => {
+    if (expandedGameId === gameId) {
+      // Collapse if already expanded
+      setExpandedGameId(null);
+      setExpandedGameData(null);
+      return;
+    }
+
+    setExpandedGameId(gameId);
+    try {
+      const url = `https://website-backend.w3champions.com/api/matches/${gameId}`;
+      const response = await fetch(url);
+      if (response.ok) {
+        const data = await response.json();
+        setExpandedGameData(data);
+      }
+    } catch (error) {
+      console.error("Error fetching game details:", error);
+    }
+  };
+
   if (isLoading) {
     return (
       <div className="player-profile stream-mode">
@@ -254,33 +293,74 @@ const PlayerProfile = () => {
   const lowestMmr = seasonMmrs.length > 0 ? Math.min(...seasonMmrs) : null;
   const currentMmr = playerData?.mmr || (seasonMmrs.length > 0 ? seasonMmrs[seasonMmrs.length - 1] : null);
 
+  // Calculate last game info
+  const lastGameResult = lastGameData ? (() => {
+    for (const team of lastGameData.match?.teams || []) {
+      const player = team.players.find(p => p.battleTag.toLowerCase() === battleTagLower);
+      if (player) {
+        const won = player.won === true || player.won === 1;
+        const mmrChange = (player.currentMmr || 0) - (player.oldMmr || 0);
+        const endTime = new Date(lastGameData.match?.endTime);
+        const now = new Date();
+        const hoursAgo = Math.round((now - endTime) / (1000 * 60 * 60));
+        const timeAgo = hoursAgo < 1 ? 'Just now' : hoursAgo === 1 ? '1 hour ago' : `${hoursAgo} hours ago`;
+        return { won, mmrChange, timeAgo, mapName: lastGameData.match?.mapName };
+      }
+    }
+    return null;
+  })() : null;
+
   return (
-    <div className="player-profile stream-mode">
-      {/* Bento Grid - Top Row */}
-      <div className="bento-grid bento-top">
-        {/* Player Card */}
-        <div className="bento-box player-card">
-          <div className="profile-pic-wrapper">
-            {profilePic && <img src={profilePic} alt="Profile" className="profile-pic large" />}
-            {country && <Flag name={country.toLowerCase()} className="profile-flag" />}
+    <div className="player-profile">
+      {/* Page Header */}
+      <header className="profile-header">
+        <div className="profile-header-content">
+          <div className="profile-header-left">
+            <div className="profile-pic-wrapper large">
+              {profilePic && <img src={profilePic} alt="Profile" className="profile-pic" />}
+              {country && <Flag name={country.toLowerCase()} className="profile-flag" />}
+            </div>
+            <div className="profile-header-info">
+              <h1 className="profile-name">{playerName}</h1>
+              {playerData && (
+                <div className="profile-header-stats">
+                  <span className="mmr-value large">{playerData.mmr}</span>
+                  <span className="mmr-label"> MMR</span>
+                  <span className="rank-badge">#{playerData.rank || '—'}</span>
+                </div>
+              )}
+              {playerData && (
+                <div className="profile-header-record">
+                  <span className="record-value">{playerData.wins}W - {playerData.losses}L</span>
+                  <span className="winrate-value"> ({Math.round((playerData.wins / (playerData.wins + playerData.losses)) * 100)}%)</span>
+                </div>
+              )}
+            </div>
           </div>
-          <h1 className="profile-name">{playerName}</h1>
-          {playerData && (
-            <>
-              <div className="profile-mmr-line">
-                <span className="mmr-value">{playerData.mmr}</span>
-                <span className="mmr-label"> MMR</span>
-              </div>
-              <div className="profile-rank-line">
-                <span className="rank-value">#{playerData.rank || '—'}</span>
-                <span className="rank-label"> · </span>
-                <span className="record-value">{playerData.wins}W - {playerData.losses}L</span>
-                <span className="winrate-value"> ({Math.round((playerData.wins / (playerData.wins + playerData.losses)) * 100)}%)</span>
-              </div>
-            </>
+
+          {/* Last Game Result in Header */}
+          {lastGameResult && !ongoingGame && (
+            <div className={`last-game-badge ${lastGameResult.won ? 'win' : 'loss'}`}>
+              <span className="last-game-result">{lastGameResult.won ? 'WIN' : 'LOSS'}</span>
+              <span className={`last-game-mmr ${lastGameResult.mmrChange >= 0 ? 'positive' : 'negative'}`}>
+                {lastGameResult.mmrChange >= 0 ? '+' : ''}{lastGameResult.mmrChange} MMR
+              </span>
+              <span className="last-game-time">{lastGameResult.timeAgo}</span>
+            </div>
+          )}
+
+          {/* Live Indicator */}
+          {ongoingGame && (
+            <div className="live-badge">
+              <span className="live-dot"></span>
+              <span className="live-text">LIVE</span>
+            </div>
           )}
         </div>
+      </header>
 
+      {/* Stats Row */}
+      <div className="bento-grid bento-top">
         {/* Session Box */}
         <div className="bento-box session-box">
           <h2 className="section-title">Session</h2>
@@ -339,6 +419,87 @@ const PlayerProfile = () => {
         <div className="bento-box bento-wide last-game-section">
           <h2 className="section-title">Last Game</h2>
           <FinishedGame data={lastGameData} />
+        </div>
+      )}
+
+      {/* Session Games Timeline */}
+      {sessionGames.length > 1 && (
+        <div className="bento-box session-timeline">
+          <h2 className="section-title">Session Games</h2>
+          <div className="session-tiles">
+            {sessionGames.map((game, idx) => {
+              const mmrChange = (game.playerData?.currentMmr || 0) - (game.playerData?.oldMmr || 0);
+              const isExpanded = expandedGameId === game.id;
+
+              // Extract players from both teams
+              const team1Players = game.teams?.[0]?.players || [];
+              const team2Players = game.teams?.[1]?.players || [];
+
+              // Get MMRs for chart
+              const team1Mmrs = team1Players.map(p => p.oldMmr || 0);
+              const team2Mmrs = team2Players.map(p => p.oldMmr || 0);
+
+              return (
+                <div key={game.id || idx}>
+                  <div
+                    className={`session-tile ${game.won ? 'win' : 'loss'} ${isExpanded ? 'expanded' : ''}`}
+                    onClick={() => handleExpandGame(game.id)}
+                  >
+                    <div className="tile-top">
+                      <img
+                        src={getMapImageUrl(game.mapName)}
+                        alt=""
+                        className="tile-map-img"
+                        onError={(e) => { e.target.style.display = 'none'; }}
+                      />
+                      <div className="tile-header">
+                        <span className={`tile-result ${game.won ? 'win' : 'loss'}`}>{game.won ? 'WIN' : 'LOSS'}</span>
+                        <span className="tile-map-name">{game.mapName}</span>
+                        <span className={`tile-mmr ${mmrChange >= 0 ? 'positive' : 'negative'}`}>
+                          {mmrChange >= 0 ? '+' : ''}{mmrChange}
+                        </span>
+                      </div>
+                    </div>
+                    <div className="tile-body">
+                      <div className="tile-team">
+                        {team1Players.map((p, i) => (
+                          <div key={i} className="tile-player">
+                            <img src={raceMapping[p.race]} alt="" className="tile-race" />
+                            <span className="tile-player-name">{p.name}</span>
+                          </div>
+                        ))}
+                      </div>
+                      <div className="tile-chart">
+                        <MmrComparison
+                          data={{
+                            teamOneMmrs: team1Mmrs,
+                            teamTwoMmrs: team2Mmrs,
+                            teamOneAT: [],
+                            teamTwoAT: [],
+                          }}
+                          compact={true}
+                        />
+                      </div>
+                      <div className="tile-team right">
+                        {team2Players.map((p, i) => (
+                          <div key={i} className="tile-player">
+                            <span className="tile-player-name">{p.name}</span>
+                            <img src={raceMapping[p.race]} alt="" className="tile-race" />
+                          </div>
+                        ))}
+                      </div>
+                    </div>
+                  </div>
+                </div>
+              );
+            })}
+          </div>
+          {/* Expanded Game Details */}
+          {expandedGameId && expandedGameData && (
+            <div className="expanded-game">
+              <FinishedGame data={expandedGameData} />
+            </div>
+          )}
         </div>
       )}
 

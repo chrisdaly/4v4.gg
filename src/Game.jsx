@@ -3,7 +3,7 @@ import { Flag, Table } from "semantic-ui-react";
 import { Link } from "react-router-dom";
 
 import { MmrComparison } from "./MmrComparison.jsx";
-import { calculateElapsedTime, convertToLocalTime, calculatePercentiles, detectArrangedTeams } from "./utils.jsx";
+import { calculateElapsedTime, convertToLocalTime, calculatePercentiles, detectArrangedTeams, calculateWinProbability } from "./utils.jsx";
 import FormDots from "./FormDots.jsx";
 import human from "./icons/human.svg";
 import orc from "./icons/orc.svg";
@@ -19,7 +19,7 @@ const getMapImageUrl = (mapId) => {
   return `/maps/${cleanName}.png`;
 };
 
-const Game = ({ playerData: rawPlayerData, metaData, profilePics, playerCountries, sessionData, compact }) => {
+const Game = ({ playerData: rawPlayerData, metaData, profilePics, playerCountries, sessionData, compact, streamerTag }) => {
   const [atGroups, setAtGroups] = useState({});
 
   const excludedKeys = ["mercsHired", "itemsObtained", "lumberCollected"];
@@ -41,34 +41,39 @@ const Game = ({ playerData: rawPlayerData, metaData, profilePics, playerCountrie
     return battleTag.toLowerCase() in atGroups;
   };
 
-  // Get AT partner for a player
-  const getATPartner = (battleTag) => {
-    const partners = atGroups[battleTag.toLowerCase()];
-    return partners ? partners[0] : null;
+  // Get AT partners for a player
+  const getATPartners = (battleTag) => {
+    return atGroups[battleTag.toLowerCase()] || [];
   };
 
-  // Find AT pairs with their indices for connector lines
-  const getATConnections = () => {
-    const connections = [];
-    for (let i = 0; i < playerData.length - 1; i++) {
-      const current = playerData[i];
-      const next = playerData[i + 1];
-      // Check if they're on the same team and AT partners
-      const sameTeam = (i < 4 && i + 1 < 4) || (i >= 4 && i + 1 >= 4);
-      if (sameTeam && isPlayerAT(current.battleTag) && isPlayerAT(next.battleTag)) {
-        const currentPartner = getATPartner(current.battleTag);
-        if (currentPartner && currentPartner === next.battleTag.toLowerCase()) {
-          connections.push({ from: i, to: i + 1 });
-        }
-      }
-    }
-    return connections;
+  // Check if player has an AT partner to their right (next in display order)
+  const hasATPartnerRight = (playerIndex) => {
+    if (playerIndex >= playerData.length - 1) return false;
+    const current = playerData[playerIndex];
+    const next = playerData[playerIndex + 1];
+    // Must be same team
+    const sameTeam = (playerIndex < 4 && playerIndex + 1 < 4) || (playerIndex >= 4 && playerIndex + 1 < 8);
+    if (!sameTeam) return false;
+    // Check if they're AT partners
+    const partners = getATPartners(current.battleTag);
+    return partners.some(p => p.toLowerCase() === next.battleTag.toLowerCase());
   };
 
-  const atConnections = getATConnections();
-  console.log('AT Groups:', atGroups);
-  console.log('AT Connections:', atConnections);
-  console.log('Player order:', playerData.map(p => p.name));
+  // Determine player relationship to streamer (for stream overlay coloring)
+  const getPlayerRelation = (battleTag, playerIndex) => {
+    if (!streamerTag) return null;
+    const isStreamer = battleTag.toLowerCase() === streamerTag.toLowerCase();
+    if (isStreamer) return "streamer";
+
+    // Find which team the streamer is on
+    const streamerIndex = playerData.findIndex(p => p.battleTag.toLowerCase() === streamerTag.toLowerCase());
+    if (streamerIndex === -1) return null;
+
+    const streamerTeam = streamerIndex < 4 ? 0 : 1;
+    const playerTeam = playerIndex < 4 ? 0 : 1;
+
+    return playerTeam === streamerTeam ? "ally" : "opponent";
+  };
 
   const keyDisplayNameMapping = {
     heroesKilled: "Heroes Killed",
@@ -195,15 +200,13 @@ const Game = ({ playerData: rawPlayerData, metaData, profilePics, playerCountrie
     const playerSession = sessionData?.[player.battleTag];
     const sessionDelta = playerSession?.mmrChange || 0;
     const playerIsAT = isPlayerAT(player.battleTag);
-
-    // Check if there's an AT connection to the next player
-    const hasATConnectionRight = atConnections.some(c => c.from === playerIndex);
+    const showConnector = hasATPartnerRight(playerIndex);
+    const playerRelation = getPlayerRelation(player.battleTag, playerIndex);
 
     return (
-      <Table.HeaderCell key={player.battleTag} className={playerIsAT ? "at-cell" : ""}>
+      <Table.HeaderCell key={player.battleTag} style={{ position: 'relative', overflow: 'visible' }}>
         <div
           className={`playerDiv ${compact ? "compact" : ""}`}
-          style={{ position: "relative" }}
         >
           {/* Profile pic with flag and MVP badge */}
           <div style={{ position: "relative", display: "inline-block" }}>
@@ -211,9 +214,11 @@ const Game = ({ playerData: rawPlayerData, metaData, profilePics, playerCountrie
               <img
                 src={profilePics[player.battleTag]}
                 alt="Player Profile Pic"
-                className={`profile-pic ${player.isMvp ? "mvp" : ""} ${playerIsAT ? "at" : ""}`}
+                className={`profile-pic ${player.isMvp ? "mvp" : ""} ${playerIsAT ? "at" : ""} ${playerRelation ? `relation-${playerRelation}` : ""}`}
               />
             ) : null}
+            {/* AT connector line */}
+            {showConnector && <div className="at-connector" />}
             {playerCountries[player.battleTag] ? (
               <Flag
                 name={playerCountries[player.battleTag].toLowerCase()}
@@ -267,16 +272,22 @@ const Game = ({ playerData: rawPlayerData, metaData, profilePics, playerCountrie
             <FormDots form={playerSession?.form} size="small" />
           </div>
         </div>
-        {/* AT connector line to next player */}
-        {hasATConnectionRight && (
-          <div className="at-connector-line" />
-        )}
       </Table.HeaderCell>
     );
   };
 
   const team1Won = playerData[0].won;
   const team2Won = playerData[4].won;
+
+  // Calculate team MMRs and win probability
+  const team1AvgMmr = Math.round(
+    playerData.slice(0, 4).map((d) => d.oldMmr).reduce((acc, curr) => acc + curr, 0) / 4
+  );
+  const team2AvgMmr = Math.round(
+    playerData.slice(4).map((d) => d.oldMmr).reduce((acc, curr) => acc + curr, 0) / 4
+  );
+  const team1WinProb = calculateWinProbability(team1AvgMmr, team2AvgMmr);
+  const team2WinProb = 100 - team1WinProb;
 
   return (
     <div className="Game">
@@ -290,15 +301,9 @@ const Game = ({ playerData: rawPlayerData, metaData, profilePics, playerCountrie
               <div>
                 <h2 className="team-name">{team1Won && <span className="crown">👑</span>} TEAM 1</h2>
                 <div className="team-mmr-line">
-                  <span className="mmr-value">
-                    {Math.round(
-                      playerData
-                        .slice(0, 4)
-                        .map((d) => d.oldMmr)
-                        .reduce((acc, curr) => acc + curr, 0) / 4
-                    )}
-                  </span>
+                  <span className="mmr-value">{team1AvgMmr}</span>
                   <span className="mmr-label"> MMR</span>
+                  <span className="win-prob">({team1WinProb}%)</span>
                 </div>
                 <div className="image-container">
                   {playerData
@@ -321,15 +326,9 @@ const Game = ({ playerData: rawPlayerData, metaData, profilePics, playerCountrie
               <div>
                 <h2 className="team-name">TEAM 2 {team2Won && <span className="crown">👑</span>}</h2>
                 <div className="team-mmr-line">
-                  <span className="mmr-value">
-                    {Math.round(
-                      playerData
-                        .slice(4)
-                        .map((d) => d.oldMmr)
-                        .reduce((acc, curr) => acc + curr, 0) / 4
-                    )}
-                  </span>
+                  <span className="mmr-value">{team2AvgMmr}</span>
                   <span className="mmr-label"> MMR</span>
+                  <span className="win-prob">({team2WinProb}%)</span>
                 </div>
                 <div className="image-container">
                   {playerData
@@ -365,8 +364,9 @@ const Game = ({ playerData: rawPlayerData, metaData, profilePics, playerCountrie
                           data={{
                             teamOneMmrs: playerData.slice(0, 4).map((d) => d.oldMmr),
                             teamTwoMmrs: playerData.slice(4).map((d) => d.oldMmr),
+                            teamOneAT: playerData.slice(0, 4).map((d) => isPlayerAT(d.battleTag)),
+                            teamTwoAT: playerData.slice(4).map((d) => isPlayerAT(d.battleTag)),
                           }}
-                          id={"123"}
                         />
                       </div>
                     </th>

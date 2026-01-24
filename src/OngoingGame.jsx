@@ -1,14 +1,15 @@
 import React, { useState, useEffect } from "react";
 import { Dimmer, Loader } from "semantic-ui-react";
 import Game from "./Game.jsx";
-import { processOngoingGameData, getPlayerProfilePicUrl, getPlayerCountry, fetchPlayerSessionData } from "./utils.jsx";
+import { processOngoingGameData, getPlayerProfileInfo, getPlayerCountry, fetchPlayerSessionData } from "./utils.jsx";
 
-const OnGoingGame = ({ ongoingGameData, compact }) => {
+const OnGoingGame = ({ ongoingGameData, compact, streamerTag }) => {
   const [playerData, setPlayerData] = useState(null);
   const [metaData, setMetaData] = useState(null);
   const [profilePics, setProfilePics] = useState(null);
   const [playerCountries, setPlayerCountries] = useState({});
   const [sessionData, setSessionData] = useState({});
+  const [twitchLinks, setTwitchLinks] = useState({});
   const [isLoading, setIsLoading] = useState(true);
 
   useEffect(() => {
@@ -31,12 +32,12 @@ const OnGoingGame = ({ ongoingGameData, compact }) => {
     try {
       const promises = processedData.map(async (playerData) => {
         const { battleTag, race } = playerData;
-        const [profilePicUrl, country, sessionInfo] = await Promise.all([
-          getPlayerProfilePicUrl(battleTag),
+        const [profileInfo, country, sessionInfo] = await Promise.all([
+          getPlayerProfileInfo(battleTag),
           getPlayerCountry(battleTag),
           fetchPlayerSessionData(battleTag, race),
         ]);
-        return { ...playerData, profilePicUrl, country, sessionInfo };
+        return { ...playerData, profilePicUrl: profileInfo.profilePicUrl, twitch: profileInfo.twitch, country, sessionInfo };
       });
       const updatedData = await Promise.all(promises);
       setProfilePics(
@@ -57,6 +58,12 @@ const OnGoingGame = ({ ongoingGameData, compact }) => {
           return acc;
         }, {})
       );
+      setTwitchLinks(
+        updatedData.reduce((acc, curr) => {
+          if (curr.twitch) acc[curr.battleTag] = curr.twitch;
+          return acc;
+        }, {})
+      );
     } catch (error) {
       console.error("Error fetching player data:", error);
     } finally {
@@ -71,7 +78,7 @@ const OnGoingGame = ({ ongoingGameData, compact }) => {
           <Loader size="large">Loading match data...</Loader>
         </Dimmer>
       ) : playerData && profilePics ? (
-        <Game playerData={playerData} metaData={metaData} profilePics={profilePics} playerCountries={playerCountries} sessionData={sessionData} compact={compact} />
+        <Game playerData={playerData} metaData={metaData} profilePics={profilePics} playerCountries={playerCountries} sessionData={sessionData} compact={compact} streamerTag={streamerTag} />
       ) : (
         <div>Error: Failed to load match data</div>
       )}
