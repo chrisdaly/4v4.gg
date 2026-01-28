@@ -241,11 +241,13 @@ const detectSessionGames = (matches, battleTag) => {
     }
     if (!playerData) continue;
 
-    // Check time gap from previous game
+    // Check actual idle time between games
     if (i > 0) {
       const prevEndTime = new Date(matches[i - 1].endTime);
-      const thisEndTime = new Date(match.endTime);
-      const gapMs = prevEndTime - thisEndTime; // matches are newest-first
+      const thisStartTime = new Date(match.startTime);
+      // matches are newest-first, so prev game ended AFTER this game started
+      // gapMs = time between this game starting and prev game ending (idle time)
+      const gapMs = prevEndTime - thisStartTime;
 
       if (gapMs > sessionGapMs) {
         break; // Found session boundary
