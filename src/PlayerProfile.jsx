@@ -685,7 +685,7 @@ const PlayerProfile = () => {
           {seasonMmrs.length > 2 && (
             <div className="progress-chart">
               <Sparklines data={seasonMmrs} svgWidth={800} svgHeight={80} margin={5} preserveAspectRatio="none">
-                <SparklinesLine style={{ strokeWidth: 2, stroke: "#fcdb33", fill: "rgba(252, 219, 51, 0.1)" }} />
+                <SparklinesLine style={{ strokeWidth: 2, stroke: "var(--gold)", fill: "rgba(252, 219, 51, 0.1)" }} />
               </Sparklines>
             </div>
           )}

@@ -9,29 +9,32 @@ import FinishedGamePage from "./FinishedGamePage";
 import RecentlyFinished from "./RecentlyFinished";
 import MyStreamPage from "./MyStreamPage";
 import VisualizationDemo from "./VisualizationDemo";
-import BackgroundDemo from "./BackgroundDemo";
-import StreamOverlays from "./StreamOverlays";
 import StyleReference from "./StyleReference";
-import MinimalStreamPage from "./MinimalStreamPage";
+import OverlayIndex from "./OverlayIndex";
+import MatchOverlayPage from "./MatchOverlayPage";
+import PlayerOverlayPage from "./PlayerOverlayPage";
 
 const Router = () => (
   <BrowserRouter>
     <Switch>
+      {/* Main pages */}
       <Route exact path="/" component={OnGoingGames} />
       <Route exact path="/queue" component={Queue} />
       <Route path="/ongoing" component={OnGoingGames} />
       <Route path="/finished" component={RecentlyFinished} />
       <Route path="/ladder" component={Ladder} />
       <Route path="/player" component={PlayerProfile} />
-      <Route path="/stream" component={PlayerStream} />
-      <Route path="/overlay" component={MinimalStreamPage} />
       <Route path="/match" component={FinishedGamePage} />
+
+      {/* Stream overlays */}
+      <Route exact path="/overlay" component={OverlayIndex} />
+      <Route path="/overlay/match" component={MatchOverlayPage} />
+      <Route path="/overlay/player" component={PlayerOverlayPage} />
+      <Route path="/stream" component={PlayerStream} />
       <Route path="/mystream" component={MyStreamPage} />
+
+      {/* Dev/demo pages */}
       <Route path="/demo" component={VisualizationDemo} />
-      <Route path="/backgrounds" component={BackgroundDemo} />
-      <Route path="/overlay/identity" component={StreamOverlays} />
-      <Route path="/overlay/session" component={StreamOverlays} />
-      <Route path="/overlay/match" component={StreamOverlays} />
       <Route path="/styles" component={StyleReference} />
     </Switch>
   </BrowserRouter>

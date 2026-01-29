@@ -9,7 +9,7 @@ import random from "./icons/random.svg";
 
 const raceMapping = { 8: undead, 0: random, 4: elf, 2: orc, 1: human };
 
-const MinimalOverlay = ({ matchData, atGroups = {}, sessionData = {}, mmrDuration = 8000, sessionDuration = 4000, streamerTag = "", bgStyle = "bg-gradient-fade" }) => {
+const MatchOverlay = ({ matchData, atGroups = {}, sessionData = {}, mmrDuration = 8000, sessionDuration = 4000, streamerTag = "", bgStyle = "bg-gradient-fade" }) => {
   const [showSession, setShowSession] = useState(false);
   const [fading, setFading] = useState(false);
 
@@ -157,4 +157,4 @@ const MinimalOverlay = ({ matchData, atGroups = {}, sessionData = {}, mmrDuratio
   );
 };
 
-export default MinimalOverlay;
+export default MatchOverlay;

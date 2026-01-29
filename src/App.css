@@ -1,22 +1,60 @@
 :root {
-  /* Brand colors */
+  /* ============================================
+     DESIGN SYSTEM TOKENS - 4v4.gg
+     Minimal (~20 tokens)
+     ============================================ */
+
+  /* COLORS (6) */
   --gold: #fcdb33;
   --green: #4ade80;
   --red: #f87171;
-  --grey: #888;
-  --grey-light: #ccc;
-  --grey-dark: #666;
+  --grey-light: #999;   /* Secondary text, muted labels */
+  --grey-mid: #444;     /* Borders, disabled text */
+  --grey-dark: #1a1a1a; /* Elevated surfaces */
 
-  /* Text colors */
+  /* FONTS (2) */
+  --font-display: "Friz_Quadrata_Bold", Georgia, serif;
+  --font-mono: "Inconsolata", "SF Mono", Consolas, monospace;
+
+  /* TYPE SCALE (5) */
+  --text-xs: 11px;   /* Labels, column headers */
+  --text-sm: 13px;   /* Small text, captions */
+  --text-base: 15px; /* Body default */
+  --text-lg: 20px;   /* Subheadings */
+  --text-xl: 28px;   /* Headings, player names */
+
+  /* SPACING (6) */
+  --space-1: 4px;
+  --space-2: 8px;
+  --space-4: 16px;
+  --space-6: 24px;
+  --space-8: 32px;
+  --space-12: 48px;
+
+  /* BORDERS (5) */
+  --radius-sm: 2px;
+  --radius-md: 4px;
+  --radius-full: 9999px;
+  --border-thin: 1px;
+  --border-thick: 2px;
+
+  /* SHADOW (1) */
+  --shadow-glow: 0 0 20px rgba(252, 219, 51, 0.3);
+
+  /* TRANSITION (1) */
+  --transition: 150ms ease;
+
+  /* Z-INDEX (3) */
+  --z-dropdown: 100;
+  --z-overlay: 200;
+  --z-modal: 300;
+
+  /* LEGACY ALIASES (backwards compatibility) */
+  --grey: var(--grey-light);
   --text-primary: #fff;
-  --text-secondary: #ccc;
-  --text-muted: #888;
-
-  /* Background colors */
-  --bg-dark: #0a0a0a;
+  --text-muted: var(--grey-light);
   --bg-card: rgba(255, 255, 255, 0.02);
-  --border-color: #333;
-  --border-gold: var(--gold);
+  --border-color: var(--grey-mid);
 }
 
 /* @font-face {
@@ -5895,3 +5933,180 @@ a.neighbor-name:hover {
   letter-spacing: 1px;
 }
 
+
+/* ========================================
+   Player Overlay - Compact player card for streams
+   Centered layout like demo Option 6
+   ======================================== */
+.player-overlay {
+  background: rgba(17, 17, 17, 0.95);
+  border-radius: 8px;
+  padding: 20px 24px;
+  min-width: 200px;
+  text-align: center;
+  font-family: system-ui, -apple-system, sans-serif;
+}
+
+/* Profile pic */
+.po-pic-container {
+  position: relative;
+  display: inline-block;
+  margin-bottom: 8px;
+}
+
+.po-pic {
+  width: 64px;
+  height: 64px;
+  border-radius: 6px;
+  object-fit: cover;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.4);
+}
+
+.po-pic-placeholder {
+  background: #333;
+}
+
+/* Country flag overlaid on profile pic */
+.po-flag.flag {
+  position: absolute;
+  bottom: -4px;
+  right: -4px;
+  transform: scale(1.2);
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.5);
+}
+
+/* Name */
+.po-name {
+  font-family: "Friz_Quadrata_Bold", serif;
+  font-size: 18px;
+  color: var(--gold);
+  margin-bottom: 4px;
+}
+
+/* MMR line: 2235 MMR · #52 */
+.po-mmr-line {
+  margin-bottom: 4px;
+}
+
+.po-mmr {
+  font-family: "Inconsolata", monospace;
+  font-size: 18px;
+  font-weight: 600;
+  color: var(--text-primary);
+}
+
+.po-mmr-label {
+  color: var(--text-muted);
+  font-size: 14px;
+}
+
+.po-separator {
+  color: var(--text-muted);
+}
+
+.po-rank {
+  color: var(--text-muted);
+  font-size: 14px;
+}
+
+/* Record line: 11-10 (52%) */
+.po-record-line {
+  font-family: "Inconsolata", monospace;
+  font-size: 13px;
+  margin-bottom: 12px;
+}
+
+.po-wins {
+  color: var(--green);
+}
+
+.po-losses {
+  color: var(--red);
+}
+
+.po-sep {
+  color: var(--text-muted);
+  margin: 0 2px;
+}
+
+.po-winrate {
+  color: var(--text-muted);
+}
+
+/* MMR gradient bar - like demo Option 6 */
+.po-mmr-bar {
+  width: 140px;
+  margin: 0 auto 12px auto;
+}
+
+.po-mmr-bar-track {
+  position: relative;
+  height: 8px;
+  background: linear-gradient(to right, var(--red), #888, var(--green));
+  border-radius: 4px;
+  margin-bottom: 6px;
+}
+
+.po-mmr-bar-marker {
+  position: absolute;
+  top: 50%;
+  transform: translate(-50%, -50%);
+  width: 12px;
+  height: 12px;
+  background: var(--gold);
+  border: 2px solid #000;
+  border-radius: 50%;
+}
+
+.po-mmr-bar-labels {
+  display: flex;
+  justify-content: space-between;
+}
+
+.po-mmr-low {
+  font-size: 10px;
+  color: var(--text-muted);
+  font-family: "Inconsolata", monospace;
+}
+
+.po-mmr-peak {
+  font-size: 10px;
+  color: var(--text-muted);
+  font-family: "Inconsolata", monospace;
+}
+
+/* Session row */
+.po-session {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 10px;
+  padding-top: 10px;
+  border-top: 1px solid rgba(255, 255, 255, 0.1);
+}
+
+.po-session-label {
+  font-size: 10px;
+  text-transform: uppercase;
+  letter-spacing: 1px;
+  color: var(--text-muted);
+}
+
+.po-session-change {
+  font-family: "Inconsolata", monospace;
+  font-size: 16px;
+  font-weight: bold;
+}
+
+.po-session-change.positive {
+  color: var(--green);
+}
+
+.po-session-change.negative {
+  color: var(--red);
+}
+
+/* Form dots in session row */
+.po-session .form-dots {
+  margin-left: auto;
+}

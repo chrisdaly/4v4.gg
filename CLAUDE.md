@@ -58,66 +58,64 @@ npm run preview
 
 ## Design System
 
-### CSS Variables
-All colors should use CSS variables defined in `:root` in `App.css`:
+Minimal token set (~20 tokens). View live reference at `/styles`.
+
+### CSS Variables (App.css :root)
 
 ```css
-:root {
-  /* Brand colors */
-  --gold: #fcdb33;      /* Player names, highlights, borders */
-  --green: #4ade80;     /* Wins, positive changes */
-  --red: #f87171;       /* Losses, negative changes */
-  --grey: #888;         /* Keys, labels */
-  --grey-light: #ccc;   /* Secondary text */
-  --grey-dark: #666;    /* Muted text, subtle elements */
+/* COLORS (6) */
+--gold: #fcdb33;        /* Brand, player names, accents */
+--green: #4ade80;       /* Wins, positive */
+--red: #f87171;         /* Losses, negative */
+--grey-light: #999;     /* Secondary text, labels */
+--grey-mid: #444;       /* Borders, disabled */
+--grey-dark: #1a1a1a;   /* Elevated surfaces */
 
-  /* Text colors */
-  --text-primary: #fff;     /* Main text, values */
-  --text-secondary: #ccc;   /* Secondary info */
-  --text-muted: #888;       /* Labels, hints */
+/* FONTS (2) */
+--font-display          /* Friz Quadrata - headlines, player names */
+--font-mono             /* Inconsolata - everything else */
 
-  /* Background colors */
-  --bg-dark: #0a0a0a;
-  --bg-card: rgba(255, 255, 255, 0.02);
-  --border-color: #333;
-  --border-gold: var(--gold);
-}
+/* TYPE SCALE (5) */
+--text-xs: 11px;        /* Labels, column headers */
+--text-sm: 13px;        /* Small text */
+--text-base: 15px;      /* Body default */
+--text-lg: 20px;        /* Subheadings */
+--text-xl: 28px;        /* Headings */
+
+/* SPACING (6) */
+--space-1: 4px;   --space-6: 24px;
+--space-2: 8px;   --space-8: 32px;
+--space-4: 16px;  --space-12: 48px;
+
+/* BORDERS (5) */
+--radius-sm: 2px;  --radius-md: 4px;  --radius-full: 9999px;
+--border-thin: 1px;  --border-thick: 2px;
+
+/* OTHER */
+--shadow-glow: 0 0 20px rgba(252, 219, 51, 0.3);
+--transition: 150ms ease;
 ```
 
-### Color Usage Guidelines
-| Element | Variable | Example |
-|---------|----------|---------|
-| Player names | `var(--gold)` | `<h2>PlayerName</h2>` |
-| MMR values | `var(--text-primary)` | 1847 MMR |
-| Win indicators | `var(--green)` | +15, 5W |
-| Loss indicators | `var(--red)` | -12, 3L |
-| Labels/hints | `var(--text-muted)` | "MMR", "Session:" |
-| Secondary text | `var(--text-secondary)` | Teammate names |
-| Muted elements | `var(--grey-dark)` | Timestamps, dividers |
+### Usage Patterns
 
-### Typography
-- **Headings (h1, h2, h3)**: `font-family: "Friz_Quadrata_Bold"` - gold color
-- **Numbers/stats**: `font-family: "Inconsolata"` - monospace for alignment
-- **Column headers / Labels**: Monospace caps style (see below)
-- **Body text**: System default
+| Element | Style |
+|---------|-------|
+| Player names | `font-family: var(--font-display); color: var(--gold)` |
+| Stats/MMR | `font-family: var(--font-mono); color: #fff` |
+| Labels | `font: var(--text-xs) var(--font-mono); text-transform: uppercase; letter-spacing: 0.1em; color: var(--grey-light)` |
+| Win values | `color: var(--green)` |
+| Loss values | `color: var(--red)` |
+| Cards | `border: var(--border-thick) solid var(--gold); border-radius: var(--radius-md)` |
+| Borders | `border: 1px solid var(--grey-mid)` |
 
-### Monospace Caps Style
-Use for table/grid column headers, section labels, and UI chrome:
-```css
-.header-label {
-  font-size: 11px;
-  text-transform: uppercase;
-  letter-spacing: 1px;
-  color: var(--text-muted);
-}
-```
-Examples: "RANK", "MMR", "RECORD", "SESSION", "FORM"
+### Shared Components
 
-### Component Patterns
-- Game containers: `border: 2px solid var(--gold)` with radial gradient background
-- Stat rows: Alternating `background: var(--bg-card)` for zebra striping
-- Win/loss indicators: Use `.positive`/`.negative` classes for color
-- Form dots: `.form-dot.win` (green) / `.form-dot.loss` (red)
+Import from `src/components/ui.jsx`:
+- `Button` - Primary/secondary variants
+- `Badge` - Status badges (win/loss/default)
+- `Card` - Gold-bordered container
+- `Dot` - Win/loss form indicator
+- `TeamBar` - Blue/red team indicator
 
 ## API Integration
 

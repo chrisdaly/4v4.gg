@@ -1,18 +1,18 @@
 import React, { useState, useEffect } from "react";
 import { findPlayerInOngoingMatches, detectArrangedTeams, fetchPlayerSessionData } from "./utils.jsx";
-import MinimalOverlay from "./MinimalOverlay.jsx";
+import MatchOverlay from "./MatchOverlay.jsx";
 
 /**
- * Minimal Stream Page - for OBS/Streamlabs browser source
- * URL: /minimal/{battleTag}
+ * Match Overlay Page - for OBS/Streamlabs browser source
+ * URL: /overlay/match/{battleTag}
  *
- * Usage in Streamlabs:
+ * Usage in OBS/Streamlabs:
  * 1. Add Browser Source
- * 2. URL: https://yoursite.com/minimal/YourTag%23123
- * 3. Width: 1000, Height: 200 (adjust as needed)
- * 4. No custom CSS needed - background is transparent by default
+ * 2. URL: https://yoursite.com/overlay/match/YourTag%23123
+ * 3. Width: 1200, Height: 200 (adjust as needed)
+ * 4. Custom CSS: body { background: transparent !important; }
  */
-const MinimalStreamPage = () => {
+const MatchOverlayPage = () => {
   const [isLoaded, setIsLoaded] = useState(false);
   const [ongoingGame, setOngoingGame] = useState(null);
   const [atGroups, setAtGroups] = useState({});
@@ -87,7 +87,7 @@ const MinimalStreamPage = () => {
       {!isLoaded && null}
       {isLoaded && !ongoingGame && null}
       {isLoaded && ongoingGame && (
-        <MinimalOverlay
+        <MatchOverlay
           matchData={ongoingGame}
           atGroups={atGroups}
           sessionData={sessionData}
@@ -98,4 +98,4 @@ const MinimalStreamPage = () => {
   );
 };
 
-export default MinimalStreamPage;
+export default MatchOverlayPage;

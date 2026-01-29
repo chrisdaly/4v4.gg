@@ -90,7 +90,7 @@ const LadderRow = ({ rank, sparklineData, session, detectedRace, isLive, isEven 
         {sparklineData.length > 0 ? (
           <Sparklines data={sparklineData.slice(-50)} width={120} height={24}>
             <SparklinesLine
-              style={{ strokeWidth: 1.5, stroke: "#fcdb33", fill: "none" }}
+              style={{ strokeWidth: 1.5, stroke: "var(--gold)", fill: "none" }}
             />
           </Sparklines>
         ) : (
