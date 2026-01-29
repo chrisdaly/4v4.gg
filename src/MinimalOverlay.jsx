@@ -146,7 +146,7 @@ const MinimalOverlay = ({ matchData, atGroups = {}, sessionData = {}, mmrDuratio
             }}
             compact={true}
           />
-          <span className="mo-vs">VS</span>
+          <span className="mo-vs">vs</span>
         </div>
 
         <div className="mo-team mo-team-2 team-red">

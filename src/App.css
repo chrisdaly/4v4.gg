@@ -3922,6 +3922,8 @@ a.neighbor-name-sm:hover {
    ======================================== */
 #StreamOverlay {
   display: inline-block;
+  transform: scale(1.2);
+  transform-origin: top left;
 }
 
 #StreamOverlay .Game {
@@ -4335,6 +4337,17 @@ a.neighbor-name-sm:hover {
   display: inline-block;
 }
 
+/* MMR chart in stream overlay - extend beyond row */
+#StreamOverlay .mmr-chart-container {
+  height: 180px;
+  overflow: visible;
+}
+
+/* VS text bigger in stream overlay */
+#StreamOverlay .th-center h2 {
+  font-size: 24px;
+}
+
 /* MMR chart in minimal mode - sized to match player row */
 #StreamOverlay.stream-style-minimal-bar .mmr-chart-container {
   height: 70px;
@@ -4361,6 +4374,16 @@ a.neighbor-name-sm:hover {
 .minimal-overlay.bg-gradient-fade {
   background: radial-gradient(ellipse at center, rgba(0, 0, 0, 0.85) 0%, rgba(0, 0, 0, 0.6) 60%, transparent 100%);
   padding: 20px 40px;
+}
+
+/* Style: WC3 ornate frame using border-image */
+.minimal-overlay.bg-wc3-frame {
+  background: rgba(0, 0, 0, 0.85);
+  padding: 24px 32px;
+  border: 30px solid transparent;
+  border-image-source: url('/frames/wc3-frame.png');
+  border-image-slice: 80 fill;
+  border-image-repeat: stretch;
 }
 
 /* Style 3: WC3 UI style - dark with gold corner accents */
@@ -4493,24 +4516,31 @@ a.neighbor-name-sm:hover {
   z-index: 5;
 }
 
-/* Chart container - vertically centered */
+/* Chart container - fill full height */
 .mo-chart {
   width: 100px;
-  height: 110px;
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  justify-content: center;
+  height: 78px; /* match team content: icon(32+6) + name(~18) + mmr(~18) */
   margin: 0 12px;
   position: relative;
 }
 
+.mo-chart svg {
+  display: block;
+  width: 100%;
+  height: 100%;
+}
+
 .mo-vs {
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  transform: translate(-50%, -50%);
   font-family: "Friz_Quadrata_Bold", serif;
-  font-size: 12px;
-  color: #666;
-  margin-top: 4px;
+  font-size: 11px;
+  color: rgba(255, 255, 255, 0.4);
   letter-spacing: 1px;
+  text-transform: lowercase;
+  pointer-events: none;
 }
 
 /* Rotating stat display with fade */

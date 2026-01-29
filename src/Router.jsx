@@ -11,7 +11,8 @@ import MyStreamPage from "./MyStreamPage";
 import VisualizationDemo from "./VisualizationDemo";
 import BackgroundDemo from "./BackgroundDemo";
 import StreamOverlays from "./StreamOverlays";
-import StreamCompare from "./StreamCompare";
+import StyleReference from "./StyleReference";
+import MinimalStreamPage from "./MinimalStreamPage";
 
 const Router = () => (
   <BrowserRouter>
@@ -23,6 +24,7 @@ const Router = () => (
       <Route path="/ladder" component={Ladder} />
       <Route path="/player" component={PlayerProfile} />
       <Route path="/stream" component={PlayerStream} />
+      <Route path="/overlay" component={MinimalStreamPage} />
       <Route path="/match" component={FinishedGamePage} />
       <Route path="/mystream" component={MyStreamPage} />
       <Route path="/demo" component={VisualizationDemo} />
@@ -30,7 +32,7 @@ const Router = () => (
       <Route path="/overlay/identity" component={StreamOverlays} />
       <Route path="/overlay/session" component={StreamOverlays} />
       <Route path="/overlay/match" component={StreamOverlays} />
-      <Route path="/compare" component={StreamCompare} />
+      <Route path="/styles" component={StyleReference} />
     </Switch>
   </BrowserRouter>
 );

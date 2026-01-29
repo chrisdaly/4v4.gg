@@ -27,15 +27,22 @@ const MmrComparison = ({ data, compact = false }) => {
     const height = parent.clientHeight;
 
     // Define margins
-    const margin = { top: 5, right: 0, bottom: 5, left: 0 };
+    const margin = { top: 10, right: 0, bottom: 10, left: 0 };
     const innerWidth = width - margin.left - margin.right;
     const innerHeight = height - margin.top - margin.bottom;
+
+    // Calculate dynamic scale based on actual MMRs
+    const allMmrs = [...teamOneData, ...teamTwoData].map(d => d.mmr);
+    const minMmr = Math.min(...allMmrs);
+    const maxMmr = Math.max(...allMmrs);
+    const range = maxMmr - minMmr;
+    const padding = Math.max(20, range * 0.1); // Minimal padding to maximize spread
 
     // Define scales
     const yScale = d3
       .scaleLinear()
-      .domain([800, 2600])
-      .range([innerHeight, margin.bottom]);
+      .domain([minMmr - padding, maxMmr + padding])
+      .range([innerHeight, margin.top]);
 
     // Draw Team One line and circles
     const teamOneX = innerWidth / 3 + margin.left;
@@ -114,9 +121,9 @@ const MmrComparison = ({ data, compact = false }) => {
       .append("line")
       .attr("class", "line team-middle")
       .attr("x1", middleLine)
-      .attr("y1", compact ? 5 : 15)
+      .attr("y1", 0)
       .attr("x2", middleLine)
-      .attr("y2", innerHeight - (compact ? 5 : 15));
+      .attr("y2", height);
 
     // Only show MMR label in non-compact mode
     if (!compact) {
