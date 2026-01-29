@@ -10,10 +10,10 @@ const MmrComparison = ({ data, compact = false }) => {
 
     // Create data with AT info, filter out unranked players
     const teamOneData = teamOneMmrs
-      .map((mmr, i) => ({ mmr, isAT: teamOneAT[i] || false }))
+      .map((mmr, i) => ({ mmr, isAT: teamOneAT[i] || false, index: i }))
       .filter(d => d.mmr && d.mmr > 0);
     const teamTwoData = teamTwoMmrs
-      .map((mmr, i) => ({ mmr, isAT: teamTwoAT[i] || false }))
+      .map((mmr, i) => ({ mmr, isAT: teamTwoAT[i] || false, index: i }))
       .filter(d => d.mmr && d.mmr > 0);
 
     const svg = d3.select(svgRef.current);
@@ -51,12 +51,36 @@ const MmrComparison = ({ data, compact = false }) => {
 
     const dotRadius = compact ? 3 : 4;
 
+    // Draw connecting lines between AT players (rendered first so dots appear on top)
+    const teamOneATData = teamOneData.filter(d => d.isAT);
+    if (teamOneATData.length > 1) {
+      svg.append("path")
+        .datum(teamOneATData)
+        .attr("class", "at-connect-line")
+        .attr("d", d3.line()
+          .x(() => teamOneX)
+          .y((d) => yScale(d.mmr))
+        );
+    }
+    const teamTwoATData = teamTwoData.filter(d => d.isAT);
+    if (teamTwoATData.length > 1) {
+      const teamTwoX = (2 * innerWidth) / 3 + margin.left;
+      svg.append("path")
+        .datum(teamTwoATData)
+        .attr("class", "at-connect-line")
+        .attr("d", d3.line()
+          .x(() => teamTwoX)
+          .y((d) => yScale(d.mmr))
+        );
+    }
+
+    // Team One dots - AT players get purple ring
     svg
       .selectAll(".dot-team-one")
       .data(teamOneData)
       .enter()
       .append("circle")
-      .attr("class", (d) => `dot dot-team-one ${d.isAT ? "at-dot" : ""}`)
+      .attr("class", (d) => d.isAT ? "dot dot-team-one at-ring" : "dot dot-team-one")
       .attr("cx", teamOneX)
       .attr("cy", (d) => yScale(d.mmr))
       .attr("r", dotRadius);
@@ -73,12 +97,13 @@ const MmrComparison = ({ data, compact = false }) => {
       .attr("class", "line team-two")
       .attr("d", teamTwoLine);
 
+    // Team Two dots - AT players get purple ring
     svg
       .selectAll(".dot-team-two")
       .data(teamTwoData)
       .enter()
       .append("circle")
-      .attr("class", (d) => `dot dot-team-two ${d.isAT ? "at-dot" : ""}`)
+      .attr("class", (d) => d.isAT ? "dot dot-team-two at-ring" : "dot dot-team-two")
       .attr("cx", teamTwoX)
       .attr("cy", (d) => yScale(d.mmr))
       .attr("r", dotRadius);

@@ -19,6 +19,40 @@ const getMapImageUrl = (mapId) => {
   return `/maps/${cleanName}.png`;
 };
 
+// Line connecting AT players - calculates width dynamically
+const ATConnector = ({ relation }) => {
+  const lineRef = React.useRef(null);
+
+  React.useEffect(() => {
+    if (!lineRef.current) return;
+
+    const updateWidth = () => {
+      const line = lineRef.current;
+      const container = line.closest('div[style*="inline-block"]');
+      const sourcePic = container?.querySelector('.profile-pic');
+      const cell = container?.closest('th');
+      const nextCell = cell?.nextElementSibling;
+      // Skip the middle VS column if present
+      const targetCell = nextCell?.classList.contains('th-center') ? nextCell?.nextElementSibling : nextCell;
+      const nextPic = targetCell?.querySelector('.profile-pic');
+
+      if (sourcePic && nextPic) {
+        const sourceRect = sourcePic.getBoundingClientRect();
+        const nextRect = nextPic.getBoundingClientRect();
+        const gap = nextRect.left - sourceRect.right;
+        line.style.width = `${Math.max(0, gap)}px`;
+      }
+    };
+
+    // Delay to ensure DOM is ready
+    setTimeout(updateWidth, 50);
+    window.addEventListener('resize', updateWidth);
+    return () => window.removeEventListener('resize', updateWidth);
+  }, []);
+
+  return <div ref={lineRef} className={`at-line ${relation ? `at-line-${relation}` : ""}`} />;
+};
+
 const Game = ({ playerData: rawPlayerData, metaData, profilePics, playerCountries, sessionData, compact, streamerTag }) => {
   const [atGroups, setAtGroups] = useState({});
 
@@ -200,13 +234,13 @@ const Game = ({ playerData: rawPlayerData, metaData, profilePics, playerCountrie
     const playerSession = sessionData?.[player.battleTag];
     const sessionDelta = playerSession?.mmrChange || 0;
     const playerIsAT = isPlayerAT(player.battleTag);
-    const showConnector = hasATPartnerRight(playerIndex);
+    const showChain = hasATPartnerRight(playerIndex);
     const playerRelation = getPlayerRelation(player.battleTag, playerIndex);
 
     return (
-      <Table.HeaderCell key={player.battleTag} style={{ position: 'relative', overflow: 'visible' }}>
+      <Table.HeaderCell key={player.battleTag} style={{ position: 'relative', overflow: 'visible' }} className={`${playerRelation ? `at-${playerRelation}` : ""} ${playerIsAT ? "is-at" : ""}`}>
         <div
-          className={`playerDiv ${compact ? "compact" : ""}`}
+          className={`playerDiv ${compact ? "compact" : ""} ${playerRelation ? `at-${playerRelation}` : ""} ${playerIsAT ? "is-at" : ""}`}
         >
           {/* Profile pic with flag and MVP badge */}
           <div style={{ position: "relative", display: "inline-block" }}>
@@ -217,8 +251,6 @@ const Game = ({ playerData: rawPlayerData, metaData, profilePics, playerCountrie
                 className={`profile-pic ${player.isMvp ? "mvp" : ""} ${playerIsAT ? "at" : ""} ${playerRelation ? `relation-${playerRelation}` : ""}`}
               />
             ) : null}
-            {/* AT connector line */}
-            {showConnector && <div className="at-connector" />}
             {playerCountries[player.battleTag] ? (
               <Flag
                 name={playerCountries[player.battleTag].toLowerCase()}
@@ -232,6 +264,12 @@ const Game = ({ playerData: rawPlayerData, metaData, profilePics, playerCountrie
                 <span className="mvp-text">MVP</span>
               </div>
             )}
+            {/* Race icon overlay */}
+            <img
+              src={raceMapping[player.race]}
+              alt=""
+              className="race-overlay"
+            />
           </div>
 
           {/* Player name */}
@@ -272,6 +310,8 @@ const Game = ({ playerData: rawPlayerData, metaData, profilePics, playerCountrie
             <FormDots form={playerSession?.form} size="small" />
           </div>
         </div>
+        {/* AT connector line - positioned at cell level */}
+        {showChain && <div className="at-connector" />}
       </Table.HeaderCell>
     );
   };
@@ -358,8 +398,8 @@ const Game = ({ playerData: rawPlayerData, metaData, profilePics, playerCountrie
                 <React.Fragment key={`player-${index}`}>
                   {renderPlayerCell(playerScore, teamClassName, index)}
                   {index === 3 && (
-                    <th className={`th-center ${compact}`} style={{ position: "relative", verticalAlign: "top" }}>
-                      <div style={{ height: "220px", width: "60px", overflow: "hidden", display: "inline-block" }}>
+                    <th className={`th-center ${compact ? "compact" : ""}`} style={{ position: "relative", verticalAlign: "top" }}>
+                      <div className="mmr-chart-container">
                         <MmrComparison
                           data={{
                             teamOneMmrs: playerData.slice(0, 4).map((d) => d.oldMmr),

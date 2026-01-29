@@ -98,7 +98,20 @@ All colors should use CSS variables defined in `:root` in `App.css`:
 ### Typography
 - **Headings (h1, h2, h3)**: `font-family: "Friz_Quadrata_Bold"` - gold color
 - **Numbers/stats**: `font-family: "Inconsolata"` - monospace for alignment
+- **Column headers / Labels**: Monospace caps style (see below)
 - **Body text**: System default
+
+### Monospace Caps Style
+Use for table/grid column headers, section labels, and UI chrome:
+```css
+.header-label {
+  font-size: 11px;
+  text-transform: uppercase;
+  letter-spacing: 1px;
+  color: var(--text-muted);
+}
+```
+Examples: "RANK", "MMR", "RECORD", "SESSION", "FORM"
 
 ### Component Patterns
 - Game containers: `border: 2px solid var(--gold)` with radial gradient background

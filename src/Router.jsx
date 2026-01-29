@@ -10,6 +10,8 @@ import RecentlyFinished from "./RecentlyFinished";
 import MyStreamPage from "./MyStreamPage";
 import VisualizationDemo from "./VisualizationDemo";
 import BackgroundDemo from "./BackgroundDemo";
+import StreamOverlays from "./StreamOverlays";
+import StreamCompare from "./StreamCompare";
 
 const Router = () => (
   <BrowserRouter>
@@ -25,6 +27,10 @@ const Router = () => (
       <Route path="/mystream" component={MyStreamPage} />
       <Route path="/demo" component={VisualizationDemo} />
       <Route path="/backgrounds" component={BackgroundDemo} />
+      <Route path="/overlay/identity" component={StreamOverlays} />
+      <Route path="/overlay/session" component={StreamOverlays} />
+      <Route path="/overlay/match" component={StreamOverlays} />
+      <Route path="/compare" component={StreamCompare} />
     </Switch>
   </BrowserRouter>
 );

@@ -41,6 +41,38 @@ export const calcPlayerMmrAndChange = (battleTag, match) => {
   return null;
 };
 
+export const processMatchData = (match, battleTag) => {
+  const battleTagLower = battleTag.toLowerCase();
+  let playerData = null;
+  let won = false;
+
+  for (const team of match.teams || []) {
+    for (const player of team.players || []) {
+      if (player.battleTag?.toLowerCase() === battleTagLower) {
+        playerData = {
+          currentMmr: player.currentMmr,
+          oldMmr: player.oldMmr,
+          mmrGain: player.mmrGain,
+          race: player.race,
+        };
+        won = player.won === true || player.won === 1;
+        break;
+      }
+    }
+    if (playerData) break;
+  }
+
+  return {
+    id: match.id,
+    endTime: match.endTime,
+    startTime: match.startTime,
+    mapName: match.mapName,
+    won,
+    playerData,
+    teams: match.teams,
+  };
+};
+
 export const calculatePercentiles = (arr) => {
   // console.log(arr);
   // Sort the array in ascending order

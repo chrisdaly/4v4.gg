@@ -1,28 +1,44 @@
 import React from "react";
-import { Link } from "react-router-dom";
-import { Header, Grid } from "semantic-ui-react";
+import { Link, useLocation } from "react-router-dom";
 
 const Navbar = () => {
+  const location = useLocation();
+
+  const isActive = (path) => {
+    if (path === "/ongoing") {
+      return location.pathname === "/" || location.pathname === "/ongoing";
+    }
+    return location.pathname.startsWith(path);
+  };
+
   return (
-    <div className="navbar">
-      <Header as="h1" textAlign="center">
-        <Header.Content>4v4.GG</Header.Content>
-      </Header>
-      <Grid columns={4} textAlign="center">
-        <Grid.Column>
-          <h3><Link to="/ongoing">Live Games</Link></h3>
-        </Grid.Column>
-        <Grid.Column>
-          <h3><Link to="/finished">Recently Finished Games</Link></h3>
-        </Grid.Column>
-        <Grid.Column>
-          <h3><Link to="/queue">Queue</Link></h3>
-        </Grid.Column>
-        <Grid.Column>
-          <h3><Link to="/ladder">Ladder</Link></h3>
-        </Grid.Column>
-      </Grid>
-    </div>
+    <nav className="navbar">
+      <div className="navbar-content">
+        <Link to="/" className="navbar-logo">
+          4v4.GG
+        </Link>
+        <div className="navbar-links">
+          <Link
+            to="/ongoing"
+            className={`navbar-link ${isActive("/ongoing") ? "active" : ""}`}
+          >
+            Live Games
+          </Link>
+          <Link
+            to="/finished"
+            className={`navbar-link ${isActive("/finished") ? "active" : ""}`}
+          >
+            Finished
+          </Link>
+          <Link
+            to="/ladder"
+            className={`navbar-link ${isActive("/ladder") ? "active" : ""}`}
+          >
+            Ladder
+          </Link>
+        </div>
+      </div>
+    </nav>
   );
 };
 

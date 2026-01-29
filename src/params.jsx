@@ -1,6 +1,6 @@
 export const gameMode = 4;
 export const gateway = 20;
-export let season = 23; // Default, will be updated dynamically
+export let season = 24; // Fallback if API fails, will be updated dynamically
 
 // Fetch current season from API
 export const initSeason = async () => {
