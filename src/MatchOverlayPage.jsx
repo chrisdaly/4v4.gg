@@ -24,6 +24,11 @@ const MatchOverlayPage = () => {
     return decodeURIComponent(encoded);
   };
 
+  const getBgStyle = () => {
+    const params = new URLSearchParams(window.location.search);
+    return params.get("bg") || "bg-gradient-fade";
+  };
+
   useEffect(() => {
     loadData();
     const interval = setInterval(fetchOngoingGames, 30000);
@@ -92,6 +97,7 @@ const MatchOverlayPage = () => {
           atGroups={atGroups}
           sessionData={sessionData}
           streamerTag={getStreamerTag()}
+          bgStyle={getBgStyle()}
         />
       )}
     </div>

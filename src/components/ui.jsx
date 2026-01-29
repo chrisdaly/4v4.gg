@@ -210,3 +210,122 @@ export const Stack = styled.div`
   flex-direction: column;
   gap: ${p => p.$gap || 'var(--space-2)'};
 `;
+
+// ============================================
+// OVERLAY CONTAINERS
+// ============================================
+// For stream overlays (OBS/Streamlabs browser sources)
+// Use transparent body: body { background: transparent !important; }
+
+/**
+ * OverlayCard - Main container for stream overlays
+ * Uses --overlay-medium by default, can override with $bg prop
+ * Border uses gold with 0.4 opacity for subtle framing
+ */
+export const OverlayCard = styled.div`
+  background: ${p => p.$bg || 'var(--overlay-medium)'};
+  border: 1px solid rgba(252, 219, 51, 0.4);
+  border-radius: var(--radius-md);
+  padding: var(--space-4);
+  text-align: ${p => p.$center ? 'center' : 'left'};
+`;
+
+/**
+ * OverlayGradient - Radial gradient fade for less harsh edges
+ * Good for centered content that fades to transparent
+ */
+export const OverlayGradient = styled.div`
+  background: radial-gradient(
+    ellipse at center,
+    var(--overlay-medium) 0%,
+    var(--overlay-light) 60%,
+    transparent 100%
+  );
+  padding: var(--space-6);
+  text-align: center;
+`;
+
+/**
+ * OverlayFrosted - Frosted glass effect
+ * Uses backdrop-filter blur for modern browsers
+ */
+export const OverlayFrosted = styled.div`
+  background: rgba(20, 20, 30, 0.7);
+  backdrop-filter: blur(8px);
+  border: 1px solid var(--surface-3);
+  border-radius: var(--radius-md);
+  padding: var(--space-4);
+`;
+
+/**
+ * OverlayMinimal - Minimal dark panel with gradient
+ * Subtle gold border, good for match overlays
+ */
+export const OverlayMinimal = styled.div`
+  background: linear-gradient(
+    180deg,
+    rgba(30, 30, 30, 0.95) 0%,
+    rgba(15, 15, 15, 0.98) 100%
+  );
+  border: 1px solid rgba(252, 219, 51, 0.3);
+  border-radius: var(--radius-sm);
+  padding: var(--space-2) var(--space-4);
+`;
+
+// ============================================
+// TINTED SURFACES
+// ============================================
+
+export const GoldSurface = styled.div`
+  background: var(--gold-tint);
+  border: 1px solid rgba(252, 219, 51, 0.3);
+  border-radius: var(--radius-md);
+  padding: var(--space-2) var(--space-4);
+`;
+
+export const WinSurface = styled.div`
+  background: var(--green-tint);
+  border: 1px solid rgba(74, 222, 128, 0.3);
+  border-radius: var(--radius-md);
+  padding: var(--space-2) var(--space-4);
+`;
+
+export const LossSurface = styled.div`
+  background: var(--red-tint);
+  border: 1px solid rgba(248, 113, 113, 0.3);
+  border-radius: var(--radius-md);
+  padding: var(--space-2) var(--space-4);
+`;
+
+// ============================================
+// MMR BAR
+// ============================================
+// Gradient bar showing current MMR between all-time low/peak
+
+export const MmrBarTrack = styled.div`
+  position: relative;
+  height: var(--space-2);
+  background: linear-gradient(to right, var(--red), var(--grey-light), var(--green));
+  border-radius: var(--radius-full);
+`;
+
+export const MmrBarMarker = styled.div`
+  position: absolute;
+  top: 50%;
+  left: ${p => p.$position || '50%'};
+  transform: translate(-50%, -50%);
+  width: 12px;
+  height: 12px;
+  background: var(--gold);
+  border: 2px solid #000;
+  border-radius: var(--radius-full);
+`;
+
+export const MmrBarLabels = styled.div`
+  display: flex;
+  justify-content: space-between;
+  font-family: var(--font-mono);
+  font-size: var(--text-xs);
+  color: var(--grey-light);
+  margin-top: var(--space-1);
+`;

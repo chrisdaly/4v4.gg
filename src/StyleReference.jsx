@@ -284,6 +284,124 @@ const StyleReference = () => (
       <span style={{ fontFamily: 'var(--font-mono)', fontSize: 'var(--text-xs)', color: 'var(--grey-light)', display: 'block', marginTop: 'var(--space-2)' }}>--shadow-glow</span>
     </Section>
 
+    {/* TRANSPARENCY / OVERLAYS */}
+    <Section>
+      <SectionTitle>Transparency / Overlays (9)</SectionTitle>
+
+      <div style={{ marginBottom: 'var(--space-4)' }}>
+        <div style={{ color: 'var(--grey-light)', fontSize: 'var(--text-xs)', marginBottom: 'var(--space-2)' }}>Dark overlays (for stream overlays, modals)</div>
+        <Row style={{ gap: 'var(--space-4)' }}>
+          {[
+            ['--overlay-heavy', 'rgba(0,0,0,0.9)', '0.9'],
+            ['--overlay-medium', 'rgba(0,0,0,0.8)', '0.8'],
+            ['--overlay-light', 'rgba(0,0,0,0.6)', '0.6'],
+          ].map(([name, value, opacity]) => (
+            <div key={name} style={{ textAlign: 'center' }}>
+              <div style={{ width: 80, height: 50, background: `var(${name})`, border: '1px solid var(--grey-mid)', borderRadius: 'var(--radius-md)', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+                <span style={{ fontFamily: 'var(--font-mono)', fontSize: 'var(--text-xs)', color: '#fff' }}>{opacity}</span>
+              </div>
+              <span style={{ fontFamily: 'var(--font-mono)', fontSize: 10, color: 'var(--grey-light)', display: 'block', marginTop: 'var(--space-1)' }}>{name.replace('--', '')}</span>
+            </div>
+          ))}
+        </Row>
+      </div>
+
+      <div style={{ marginBottom: 'var(--space-4)' }}>
+        <div style={{ color: 'var(--grey-light)', fontSize: 'var(--text-xs)', marginBottom: 'var(--space-2)' }}>Surface tints (for cards, rows, hover states)</div>
+        <Row style={{ gap: 'var(--space-4)' }}>
+          {[
+            ['--surface-1', '0.02', 'Card bg'],
+            ['--surface-2', '0.05', 'Hover'],
+            ['--surface-3', '0.1', 'Borders'],
+          ].map(([name, opacity, use]) => (
+            <div key={name} style={{ textAlign: 'center' }}>
+              <div style={{ width: 80, height: 50, background: `var(${name})`, border: '1px solid var(--grey-mid)', borderRadius: 'var(--radius-md)', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+                <span style={{ fontFamily: 'var(--font-mono)', fontSize: 'var(--text-xs)', color: 'var(--grey-light)' }}>{opacity}</span>
+              </div>
+              <span style={{ fontFamily: 'var(--font-mono)', fontSize: 10, color: 'var(--grey-light)', display: 'block', marginTop: 'var(--space-1)' }}>{use}</span>
+            </div>
+          ))}
+        </Row>
+      </div>
+
+      <div style={{ marginBottom: 'var(--space-4)' }}>
+        <div style={{ color: 'var(--grey-light)', fontSize: 'var(--text-xs)', marginBottom: 'var(--space-2)' }}>Color tints (for badges, highlights)</div>
+        <Row style={{ gap: 'var(--space-4)' }}>
+          {[
+            ['--gold-tint', 'var(--gold)', 'Gold'],
+            ['--green-tint', 'var(--green)', 'Win'],
+            ['--red-tint', 'var(--red)', 'Loss'],
+          ].map(([name, borderColor, label]) => (
+            <div key={name} style={{ textAlign: 'center' }}>
+              <div style={{ width: 80, height: 50, background: `var(${name})`, border: `1px solid ${borderColor}`, borderRadius: 'var(--radius-md)', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+                <span style={{ fontFamily: 'var(--font-mono)', fontSize: 'var(--text-xs)', color: borderColor }}>{label}</span>
+              </div>
+              <span style={{ fontFamily: 'var(--font-mono)', fontSize: 10, color: 'var(--grey-light)', display: 'block', marginTop: 'var(--space-1)' }}>{name.replace('--', '')}</span>
+            </div>
+          ))}
+        </Row>
+      </div>
+    </Section>
+
+    {/* OVERLAY COMPONENTS */}
+    <Section>
+      <SectionTitle>Overlay Components (4)</SectionTitle>
+      <div style={{ color: 'var(--grey-light)', fontSize: 'var(--text-xs)', marginBottom: 'var(--space-4)' }}>
+        Stream overlays for OBS/Streamlabs. Use: body {"{"} background: transparent !important; {"}"}
+      </div>
+
+      <Grid style={{ gridTemplateColumns: 'repeat(2, 1fr)', gap: 'var(--space-4)' }}>
+        {/* OverlayCard */}
+        <div>
+          <div style={{ background: 'var(--overlay-medium)', border: '1px solid rgba(252,219,51,0.4)', borderRadius: 'var(--radius-md)', padding: 'var(--space-4)', textAlign: 'center' }}>
+            <div style={{ fontFamily: 'var(--font-display)', color: 'var(--gold)', fontSize: 'var(--text-lg)' }}>PlayerName</div>
+            <div style={{ fontFamily: 'var(--font-mono)', fontSize: 'var(--text-sm)', color: 'var(--grey-light)' }}>1847 MMR</div>
+          </div>
+          <span style={{ fontFamily: 'var(--font-mono)', fontSize: 10, color: 'var(--grey-light)', display: 'block', marginTop: 'var(--space-1)' }}>OverlayCard</span>
+        </div>
+
+        {/* OverlayMinimal */}
+        <div>
+          <div style={{ background: 'linear-gradient(180deg, rgba(30,30,30,0.95) 0%, rgba(15,15,15,0.98) 100%)', border: '1px solid rgba(252,219,51,0.3)', borderRadius: 'var(--radius-sm)', padding: 'var(--space-2) var(--space-4)' }}>
+            <div style={{ fontFamily: 'var(--font-display)', color: 'var(--gold)', fontSize: 'var(--text-sm)' }}>Match Overlay</div>
+          </div>
+          <span style={{ fontFamily: 'var(--font-mono)', fontSize: 10, color: 'var(--grey-light)', display: 'block', marginTop: 'var(--space-1)' }}>OverlayMinimal</span>
+        </div>
+
+        {/* OverlayGradient */}
+        <div>
+          <div style={{ background: 'radial-gradient(ellipse at center, var(--overlay-medium) 0%, var(--overlay-light) 60%, transparent 100%)', padding: 'var(--space-4)', textAlign: 'center' }}>
+            <div style={{ fontFamily: 'var(--font-display)', color: 'var(--gold)' }}>Gradient Fade</div>
+          </div>
+          <span style={{ fontFamily: 'var(--font-mono)', fontSize: 10, color: 'var(--grey-light)', display: 'block', marginTop: 'var(--space-1)' }}>OverlayGradient</span>
+        </div>
+
+        {/* OverlayFrosted */}
+        <div>
+          <div style={{ background: 'rgba(20,20,30,0.7)', backdropFilter: 'blur(8px)', border: '1px solid var(--surface-3)', borderRadius: 'var(--radius-md)', padding: 'var(--space-4)' }}>
+            <div style={{ fontFamily: 'var(--font-display)', color: 'var(--gold)' }}>Frosted</div>
+          </div>
+          <span style={{ fontFamily: 'var(--font-mono)', fontSize: 10, color: 'var(--grey-light)', display: 'block', marginTop: 'var(--space-1)' }}>OverlayFrosted</span>
+        </div>
+      </Grid>
+    </Section>
+
+    {/* TINTED SURFACES */}
+    <Section>
+      <SectionTitle>Tinted Surfaces (3)</SectionTitle>
+      <Row style={{ gap: 'var(--space-4)' }}>
+        <div style={{ background: 'var(--gold-tint)', border: '1px solid rgba(252,219,51,0.3)', borderRadius: 'var(--radius-md)', padding: 'var(--space-2) var(--space-4)' }}>
+          <span style={{ fontFamily: 'var(--font-mono)', fontSize: 'var(--text-sm)', color: 'var(--gold)' }}>GoldSurface</span>
+        </div>
+        <div style={{ background: 'var(--green-tint)', border: '1px solid rgba(74,222,128,0.3)', borderRadius: 'var(--radius-md)', padding: 'var(--space-2) var(--space-4)' }}>
+          <span style={{ fontFamily: 'var(--font-mono)', fontSize: 'var(--text-sm)', color: 'var(--green)' }}>WinSurface</span>
+        </div>
+        <div style={{ background: 'var(--red-tint)', border: '1px solid rgba(248,113,113,0.3)', borderRadius: 'var(--radius-md)', padding: 'var(--space-2) var(--space-4)' }}>
+          <span style={{ fontFamily: 'var(--font-mono)', fontSize: 'var(--text-sm)', color: 'var(--red)' }}>LossSurface</span>
+        </div>
+      </Row>
+    </Section>
+
     {/* COMPONENTS */}
     <Section>
       <SectionTitle>Components</SectionTitle>
@@ -342,6 +460,19 @@ const StyleReference = () => (
 --grey-light   #999      Secondary text, labels
 --grey-mid     #444      Borders, disabled
 --grey-dark    #1a1a1a   Elevated surfaces
+
+/* TRANSPARENCY / OVERLAYS */
+--overlay-heavy    rgba(0,0,0,0.9)    Nearly opaque
+--overlay-medium   rgba(0,0,0,0.8)    Standard overlay
+--overlay-light    rgba(0,0,0,0.6)    Lighter backdrop
+
+--surface-1        rgba(255,255,255,0.02)  Card bg
+--surface-2        rgba(255,255,255,0.05)  Hover state
+--surface-3        rgba(255,255,255,0.1)   Borders
+
+--gold-tint        rgba(252,219,51,0.1)
+--green-tint       rgba(74,222,128,0.1)
+--red-tint         rgba(248,113,113,0.1)
 
 /* FONTS */
 --font-display            Friz Quadrata (headlines)

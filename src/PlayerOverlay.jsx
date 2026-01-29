@@ -5,8 +5,10 @@ import FormDots from "./FormDots.jsx";
 /**
  * PlayerOverlay - Compact player card for stream overlay
  * Centered layout like demo Option 6
+ *
+ * bgStyle options: bg-gradient-fade, bg-dark-gold, bg-frosted, bg-none, bg-minimal
  */
-const PlayerOverlay = ({ playerData }) => {
+const PlayerOverlay = ({ playerData, bgStyle = "bg-gradient-fade" }) => {
   const {
     name,
     profilePic,
@@ -27,7 +29,7 @@ const PlayerOverlay = ({ playerData }) => {
   const winrate = (wins + losses) > 0 ? Math.round((wins / (wins + losses)) * 100) : 0;
 
   return (
-    <div className="player-overlay">
+    <div className={`player-overlay ${bgStyle}`}>
       {/* Profile pic with flag */}
       <div className="po-pic-container">
         {profilePic ? (

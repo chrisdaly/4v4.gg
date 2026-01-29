@@ -31,17 +31,24 @@ const MmrComparison = ({ data, compact = false }) => {
     const innerWidth = width - margin.left - margin.right;
     const innerHeight = height - margin.top - margin.bottom;
 
-    // Calculate dynamic scale based on actual MMRs
-    const allMmrs = [...teamOneData, ...teamTwoData].map(d => d.mmr);
-    const minMmr = Math.min(...allMmrs);
-    const maxMmr = Math.max(...allMmrs);
-    const range = maxMmr - minMmr;
-    const padding = Math.max(20, range * 0.1); // Minimal padding to maximize spread
-
     // Define scales
+    // Compact mode: dynamic scale stretched to fit actual values (overlays)
+    // Non-compact mode: fixed scale 800-2700 for comparing games
+    let yDomain;
+    if (compact) {
+      const allMmrs = [...teamOneData, ...teamTwoData].map(d => d.mmr);
+      const minMmr = Math.min(...allMmrs);
+      const maxMmr = Math.max(...allMmrs);
+      const range = maxMmr - minMmr;
+      const padding = Math.max(20, range * 0.1);
+      yDomain = [minMmr - padding, maxMmr + padding];
+    } else {
+      yDomain = [800, 2700];
+    }
+
     const yScale = d3
       .scaleLinear()
-      .domain([minMmr - padding, maxMmr + padding])
+      .domain(yDomain)
       .range([innerHeight, margin.top]);
 
     // Draw Team One line and circles
