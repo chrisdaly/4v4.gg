@@ -1,14 +1,280 @@
 import React, { useState, useEffect, useRef } from "react";
+import styled from "styled-components";
 import MatchOverlay from "./MatchOverlay.jsx";
 import PlayerOverlay from "./PlayerOverlay.jsx";
-import LastGameOverlay from "./LastGameOverlay.jsx";
+import { GameCard } from "./components/game";
 
 /**
  * Overlay Index - Instructions and preview for stream overlays
  * URL: /overlay
  */
+
+// Styled components using design system
+const Page = styled.div`
+  background: #0a0a0a;
+  min-height: 100vh;
+  padding: var(--space-8);
+  color: #fff;
+`;
+
+const Title = styled.h1`
+  font-family: var(--font-display);
+  font-size: var(--text-xl);
+  color: var(--gold);
+  margin-bottom: var(--space-1);
+`;
+
+const Subtitle = styled.p`
+  color: var(--grey-light);
+  font-size: var(--text-sm);
+  margin-bottom: var(--space-6);
+`;
+
+const Section = styled.section`
+  margin-bottom: var(--space-8);
+`;
+
+const SectionTitle = styled.h2`
+  font-family: var(--font-display);
+  font-size: var(--text-lg);
+  color: var(--gold);
+  margin-bottom: var(--space-4);
+`;
+
+const SettingsPanel = styled.div`
+  padding: var(--space-4);
+  background: var(--grey-dark);
+  border-radius: var(--radius-md);
+  max-width: 500px;
+  margin-bottom: var(--space-6);
+`;
+
+const Label = styled.label`
+  display: block;
+  font-family: var(--font-mono);
+  font-size: var(--text-xs);
+  text-transform: uppercase;
+  letter-spacing: 0.1em;
+  color: var(--grey-light);
+  margin-bottom: var(--space-1);
+`;
+
+const Select = styled.select`
+  width: 100%;
+  padding: var(--space-2);
+  font-family: var(--font-mono);
+  font-size: var(--text-sm);
+  background: #0a0a0a;
+  border: 1px solid var(--grey-mid);
+  border-radius: var(--radius-md);
+  color: #fff;
+  cursor: pointer;
+
+  &:focus {
+    outline: none;
+    border-color: var(--gold);
+  }
+`;
+
+const CardGrid = styled.div`
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: var(--space-6);
+  margin-bottom: var(--space-8);
+
+  @media (max-width: 1000px) {
+    grid-template-columns: 1fr;
+  }
+`;
+
+const Card = styled.div`
+  background: var(--grey-dark);
+  border-radius: var(--radius-md);
+  padding: var(--space-6);
+`;
+
+const CardTitle = styled.h3`
+  font-family: var(--font-display);
+  font-size: var(--text-lg);
+  color: var(--gold);
+  margin-bottom: var(--space-4);
+`;
+
+const CardDescription = styled.p`
+  color: var(--grey-light);
+  font-size: var(--text-sm);
+  margin-bottom: var(--space-4);
+  line-height: 1.5;
+`;
+
+const FieldLabel = styled.label`
+  display: block;
+  font-family: var(--font-mono);
+  font-size: var(--text-xs);
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  color: var(--grey-mid);
+  margin-bottom: var(--space-1);
+`;
+
+const CodeBlock = styled.code`
+  display: block;
+  padding: var(--space-2);
+  background: #0a0a0a;
+  border-radius: var(--radius-sm);
+  font-family: var(--font-mono);
+  font-size: var(--text-xs);
+  word-break: break-all;
+`;
+
+const UrlCode = styled(CodeBlock)`
+  color: var(--green);
+  padding: var(--space-2) var(--space-2);
+`;
+
+const DimCode = styled(CodeBlock)`
+  color: var(--grey-light);
+`;
+
+const DimensionGrid = styled.div`
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: var(--space-2);
+  margin-bottom: var(--space-4);
+`;
+
+const MockScreen = styled.div`
+  position: relative;
+  width: 100%;
+  max-width: 1280px;
+  aspect-ratio: 16/9;
+  background: url('/scenes/snow.png') center/cover no-repeat, #000;
+  border-radius: var(--radius-md);
+  overflow: hidden;
+
+  &:fullscreen {
+    max-width: none;
+    border-radius: 0;
+    width: 100vw;
+    height: 100vh;
+  }
+`;
+
+const TipBox = styled.div`
+  margin-top: var(--space-4);
+  padding: var(--space-4);
+  background: var(--gold-tint);
+  border: 1px solid rgba(252, 219, 51, 0.3);
+  border-radius: var(--radius-md);
+
+  strong {
+    color: var(--gold);
+  }
+
+  span {
+    color: var(--grey-light);
+  }
+`;
+
+const LayoutButton = styled.button`
+  padding: var(--space-1) var(--space-2);
+  margin-right: var(--space-2);
+  font-family: var(--font-mono);
+  font-size: var(--text-xs);
+  background: ${p => p.$active ? 'var(--gold)' : 'var(--grey-dark)'};
+  border: 1px solid var(--grey-mid);
+  border-radius: var(--radius-md);
+  color: ${p => p.$active ? '#000' : 'var(--grey-light)'};
+  cursor: pointer;
+  transition: background var(--transition);
+
+  &:hover {
+    background: ${p => p.$active ? 'var(--gold)' : 'var(--grey-mid)'};
+  }
+`;
+
+const LayoutSelector = styled.div`
+  margin-bottom: var(--space-4);
+
+  span {
+    color: var(--grey-light);
+    font-family: var(--font-mono);
+    font-size: var(--text-xs);
+    margin-right: var(--space-2);
+  }
+`;
+
+const StepNumber = styled.div`
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 28px;
+  height: 28px;
+  background: var(--gold);
+  color: #000;
+  font-family: var(--font-display);
+  font-size: var(--text-base);
+  font-weight: bold;
+  border-radius: var(--radius-full);
+  margin-right: var(--space-3);
+  flex-shrink: 0;
+`;
+
+const StepHeader = styled.div`
+  display: flex;
+  align-items: center;
+  margin-bottom: var(--space-4);
+`;
+
+const FullscreenButton = styled.button`
+  position: absolute;
+  bottom: 12px;
+  right: 12px;
+  padding: 8px 12px;
+  background: rgba(0, 0, 0, 0.7);
+  border: 1px solid var(--grey-mid);
+  border-radius: var(--radius-md);
+  color: var(--grey-light);
+  font-family: var(--font-mono);
+  font-size: var(--text-xs);
+  cursor: pointer;
+  z-index: 50;
+  transition: all var(--transition);
+
+  &:hover {
+    background: rgba(0, 0, 0, 0.9);
+    border-color: var(--gold);
+    color: var(--gold);
+  }
+`;
+
+const ResetButton = styled.button`
+  padding: var(--space-1) var(--space-2);
+  font-family: var(--font-mono);
+  font-size: var(--text-xs);
+  background: transparent;
+  border: 1px solid var(--grey-mid);
+  border-radius: var(--radius-md);
+  color: var(--grey-mid);
+  cursor: pointer;
+  transition: all var(--transition);
+
+  &:hover {
+    border-color: var(--red);
+    color: var(--red);
+  }
+`;
+
 const STORAGE_KEY = "overlay_recent_tags";
+const POSITIONS_KEY = "overlay_positions";
+const SETTINGS_KEY = "overlay_settings";
 const MAX_RECENT = 5;
+
+const DEFAULT_POSITIONS = {
+  match: { top: 4, left: 50, scale: 1 },
+  player: { bottom: 18, left: 2, scale: 1 },
+  lastGame: { bottom: 18, right: 2, scale: 1 },
+};
 
 const OverlayIndex = () => {
   const [battleTag, setBattleTag] = useState(() => {
@@ -22,9 +288,33 @@ const OverlayIndex = () => {
       return JSON.parse(localStorage.getItem(STORAGE_KEY) || "[]");
     } catch { return []; }
   });
-  const [showMock, setShowMock] = useState(true);
-  const [bgStyle, setBgStyle] = useState("bg-gradient-fade");
+  const [bgStyle, setBgStyle] = useState(() => {
+    try {
+      const settings = JSON.parse(localStorage.getItem(SETTINGS_KEY) || "{}");
+      return settings.bgStyle || "bg-gradient-fade";
+    } catch { return "bg-gradient-fade"; }
+  });
+  const [playerLayout, setPlayerLayout] = useState(() => {
+    try {
+      const settings = JSON.parse(localStorage.getItem(SETTINGS_KEY) || "{}");
+      return settings.playerLayout || "default";
+    } catch { return "default"; }
+  });
   const [saved, setSaved] = useState(false);
+
+  // Overlay positions (percentages from edges) and scale - load from localStorage
+  const [overlayPositions, setOverlayPositions] = useState(() => {
+    try {
+      const saved = localStorage.getItem(POSITIONS_KEY);
+      return saved ? JSON.parse(saved) : DEFAULT_POSITIONS;
+    } catch { return DEFAULT_POSITIONS; }
+  });
+  const [dragging, setDragging] = useState(null);
+  const [resizing, setResizing] = useState(null);
+  const [isFullscreen, setIsFullscreen] = useState(false);
+  const dragOffset = useRef({ x: 0, y: 0 });
+  const resizeStart = useRef({ scale: 1, x: 0, y: 0 });
+  const mockScreenRef = useRef(null);
 
   // Search state
   const [searchResults, setSearchResults] = useState([]);
@@ -110,12 +400,168 @@ const OverlayIndex = () => {
     }
   };
 
+  // Drag handlers for overlay positioning
+  const handleDragStart = (overlayId, e) => {
+    e.preventDefault();
+    if (!mockScreenRef.current) return;
+
+    const rect = mockScreenRef.current.getBoundingClientRect();
+    const startX = ((e.clientX - rect.left) / rect.width) * 100;
+    const startY = ((e.clientY - rect.top) / rect.height) * 100;
+
+    // Calculate offset from current position
+    const pos = overlayPositions[overlayId];
+    if (overlayId === 'match') {
+      dragOffset.current = { x: startX - pos.left, y: startY - pos.top };
+    } else if (overlayId === 'player') {
+      dragOffset.current = { x: startX - pos.left, y: (100 - startY) - pos.bottom };
+    } else if (overlayId === 'lastGame') {
+      dragOffset.current = { x: (100 - startX) - pos.right, y: (100 - startY) - pos.bottom };
+    }
+
+    setDragging(overlayId);
+  };
+
+  const handleDragMove = (e) => {
+    if (!dragging || !mockScreenRef.current) return;
+
+    const rect = mockScreenRef.current.getBoundingClientRect();
+    const x = ((e.clientX - rect.left) / rect.width) * 100;
+    const y = ((e.clientY - rect.top) / rect.height) * 100;
+
+    setOverlayPositions(prev => {
+      const updated = { ...prev };
+      if (dragging === 'match') {
+        updated.match = {
+          ...prev.match,
+          top: Math.max(0, Math.min(y - dragOffset.current.y, 95)),
+          left: Math.max(0, Math.min(x - dragOffset.current.x, 100))
+        };
+      } else if (dragging === 'player') {
+        updated.player = {
+          ...prev.player,
+          bottom: Math.max(0, Math.min((100 - y) - dragOffset.current.y, 95)),
+          left: Math.max(0, Math.min(x - dragOffset.current.x, 95))
+        };
+      } else if (dragging === 'lastGame') {
+        updated.lastGame = {
+          ...prev.lastGame,
+          bottom: Math.max(0, Math.min((100 - y) - dragOffset.current.y, 95)),
+          right: Math.max(0, Math.min((100 - x) - dragOffset.current.x, 95))
+        };
+      }
+      return updated;
+    });
+  };
+
+  const handleDragEnd = () => {
+    setDragging(null);
+    setResizing(null);
+  };
+
+  // Resize handlers
+  const handleResizeStart = (overlayId, e) => {
+    e.preventDefault();
+    e.stopPropagation();
+    resizeStart.current = {
+      scale: overlayPositions[overlayId].scale,
+      x: e.clientX,
+      y: e.clientY
+    };
+    setResizing(overlayId);
+  };
+
+  const handleResizeMove = (e) => {
+    if (!resizing) return;
+
+    // Calculate distance moved from start point
+    const dx = e.clientX - resizeStart.current.x;
+    const dy = e.clientY - resizeStart.current.y;
+    const distance = Math.sqrt(dx * dx + dy * dy);
+    const direction = (dx + dy) > 0 ? 1 : -1;
+
+    const newScale = resizeStart.current.scale + (direction * distance * 0.005);
+
+    setOverlayPositions(prev => ({
+      ...prev,
+      [resizing]: {
+        ...prev[resizing],
+        scale: Math.max(0.4, Math.min(newScale, 2))
+      }
+    }));
+  };
+
+  // Add/remove mouse listeners when dragging or resizing
+  useEffect(() => {
+    if (dragging) {
+      window.addEventListener('mousemove', handleDragMove);
+      window.addEventListener('mouseup', handleDragEnd);
+      return () => {
+        window.removeEventListener('mousemove', handleDragMove);
+        window.removeEventListener('mouseup', handleDragEnd);
+      };
+    }
+    if (resizing) {
+      window.addEventListener('mousemove', handleResizeMove);
+      window.addEventListener('mouseup', handleDragEnd);
+      return () => {
+        window.removeEventListener('mousemove', handleResizeMove);
+        window.removeEventListener('mouseup', handleDragEnd);
+      };
+    }
+  }, [dragging, resizing]);
+
+  // Fullscreen toggle
+  const toggleFullscreen = () => {
+    if (!mockScreenRef.current) return;
+
+    if (!document.fullscreenElement) {
+      mockScreenRef.current.requestFullscreen().catch(err => {
+        console.error('Fullscreen error:', err);
+      });
+    } else {
+      document.exitFullscreen();
+    }
+  };
+
+  // Listen for fullscreen changes
+  useEffect(() => {
+    const handleFullscreenChange = () => {
+      setIsFullscreen(!!document.fullscreenElement);
+    };
+    document.addEventListener('fullscreenchange', handleFullscreenChange);
+    return () => document.removeEventListener('fullscreenchange', handleFullscreenChange);
+  }, []);
+
+  // Save positions to localStorage when they change
+  useEffect(() => {
+    localStorage.setItem(POSITIONS_KEY, JSON.stringify(overlayPositions));
+  }, [overlayPositions]);
+
+  // Save settings to localStorage when they change
+  useEffect(() => {
+    localStorage.setItem(SETTINGS_KEY, JSON.stringify({ bgStyle, playerLayout }));
+  }, [bgStyle, playerLayout]);
+
+  // Reset positions to default
+  const resetPositions = () => {
+    setOverlayPositions(DEFAULT_POSITIONS);
+  };
+
   const bgOptions = [
     { value: "bg-gradient-fade", label: "Gradient Fade (default)" },
     { value: "bg-dark-gold", label: "Dark + Gold Border" },
     { value: "bg-frosted", label: "Frosted Glass" },
     { value: "bg-minimal", label: "Minimal Dark" },
     { value: "bg-none", label: "Fully Transparent" },
+  ];
+
+  const playerLayoutOptions = [
+    { value: "default", label: "Default (vertical)" },
+    { value: "horizontal", label: "Horizontal (bar)" },
+    { value: "minimal", label: "Minimal" },
+    { value: "compact", label: "Compact (2-line)" },
+    { value: "session", label: "Session Only" },
   ];
 
   // Mock data for preview
@@ -154,23 +600,30 @@ const OverlayIndex = () => {
     rank: 52,
   };
 
-  // Mock last game data with player names
+  // Mock last game data for GameCard (uses standard match format)
   const mockLastGame = {
     mapName: "(4)Ferocity",
-    won: true,
-    mmrChange: 12,
-    allies: [
-      { name: "YourName", race: 1 },
-      { name: "Teammate1", race: 2 },
-      { name: "Teammate2", race: 4 },
-      { name: "Teammate3", race: 8 },
-    ],
-    opponents: [
-      { name: "Enemy1", race: 1 },
-      { name: "Enemy2", race: 2 },
-      { name: "Enemy3", race: 4 },
-      { name: "Enemy4", race: 8 },
-    ],
+    durationInSeconds: 892,
+    endTime: new Date(Date.now() - 300000).toISOString(), // 5 minutes ago
+    id: "mock-match-123",
+    teams: [
+      {
+        players: [
+          { battleTag: "YourName#123", name: "YourName", race: 1, oldMmr: 1838, currentMmr: 1850, won: true },
+          { battleTag: "Teammate1#123", name: "Teammate1", race: 2, oldMmr: 1700, currentMmr: 1712, won: true },
+          { battleTag: "Teammate2#123", name: "Teammate2", race: 4, oldMmr: 1650, currentMmr: 1662, won: true },
+          { battleTag: "Teammate3#123", name: "Teammate3", race: 8, oldMmr: 1580, currentMmr: 1592, won: true },
+        ]
+      },
+      {
+        players: [
+          { battleTag: "Enemy1#123", name: "Enemy1", race: 1, oldMmr: 1760, currentMmr: 1748, won: false },
+          { battleTag: "Enemy2#123", name: "Enemy2", race: 2, oldMmr: 1730, currentMmr: 1718, won: false },
+          { battleTag: "Enemy3#123", name: "Enemy3", race: 4, oldMmr: 1680, currentMmr: 1668, won: false },
+          { battleTag: "Enemy4#123", name: "Enemy4", race: 8, oldMmr: 1600, currentMmr: 1588, won: false },
+        ]
+      }
+    ]
   };
 
 
@@ -178,341 +631,345 @@ const OverlayIndex = () => {
   const encodedTag = encodeURIComponent(battleTag || "YourTag#1234");
 
   return (
-    <div style={{ background: "#0a0a0a", minHeight: "100vh", padding: "40px", color: "#fff" }}>
-      <h1 style={{ color: "#fcdb33", fontFamily: "Friz_Quadrata_Bold", marginBottom: "10px" }}>
-        Stream Overlays
-      </h1>
-      <p style={{ color: "#888", marginBottom: "30px" }}>
-        Add these overlays to OBS/Streamlabs as Browser Sources
-      </p>
+    <Page>
+      <Title>Stream Overlays</Title>
+      <Subtitle>Add real-time 4v4 stats to your stream in 3 easy steps</Subtitle>
 
-      {/* Settings */}
-      <div style={{ marginBottom: "30px", padding: "20px", background: "#111", borderRadius: "8px", maxWidth: "500px" }}>
-        <div style={{ display: "flex", alignItems: "center", gap: "8px", marginBottom: "8px" }}>
-          <label style={{ color: "#888", fontSize: "12px", textTransform: "uppercase", letterSpacing: "1px" }}>
-            Your Battle Tag
-          </label>
-          {isSearching && (
-            <span className="search-status searching">searching...</span>
-          )}
-          {saved && (
-            <span className="search-status saved">✓ Saved</span>
-          )}
-        </div>
-        <div ref={inputRef} className="search-container">
-          <input
-            type="text"
-            value={battleTag}
-            onChange={(e) => handleInputChange(e.target.value)}
-            onFocus={() => setShowDropdown(true)}
-            onKeyDown={handleKeyDown}
-            placeholder="Search for a player..."
-            className="search-input"
-          />
+      {/* STEP 1: Pick your username */}
+      <Section>
+        <StepHeader>
+          <StepNumber>1</StepNumber>
+          <SectionTitle style={{ margin: 0 }}>Find Your Account</SectionTitle>
+        </StepHeader>
+        <SettingsPanel>
+          <div style={{ display: "flex", alignItems: "center", gap: "var(--space-2)", marginBottom: "var(--space-2)" }}>
+            <Label style={{ marginBottom: 0 }}>Battle Tag</Label>
+            {isSearching && (
+              <span className="search-status searching">searching...</span>
+            )}
+            {saved && (
+              <span className="search-status saved">Saved</span>
+            )}
+          </div>
+          <div ref={inputRef} className="search-container">
+            <input
+              type="text"
+              value={battleTag}
+              onChange={(e) => handleInputChange(e.target.value)}
+              onFocus={() => setShowDropdown(true)}
+              onKeyDown={handleKeyDown}
+              placeholder="Search for a player..."
+              className="search-input"
+            />
 
-          {/* Search dropdown */}
-          {showDropdown && (searchResults.length > 0 || recentTags.length > 0) && (
-            <div className="search-dropdown">
-              {/* Recent tags section */}
-              {recentTags.length > 0 && searchResults.length === 0 && (
-                <>
-                  <div className="search-dropdown-header">Recent</div>
-                  {recentTags.map(tag => (
-                    <div
-                      key={tag}
-                      onClick={() => selectPlayer(tag)}
-                      className="search-dropdown-item"
-                    >
-                      <span className="search-player-name">{tag.split("#")[0]}</span>
-                      <span className="search-player-tag">#{tag.split("#")[1]}</span>
-                    </div>
-                  ))}
-                </>
-              )}
+            {/* Search dropdown */}
+            {showDropdown && (searchResults.length > 0 || recentTags.length > 0) && (
+              <div className="search-dropdown">
+                {/* Recent tags section */}
+                {recentTags.length > 0 && searchResults.length === 0 && (
+                  <>
+                    <div className="search-dropdown-header">Recent</div>
+                    {recentTags.map(tag => (
+                      <div
+                        key={tag}
+                        onClick={() => selectPlayer(tag)}
+                        className="search-dropdown-item"
+                      >
+                        <span className="search-player-name">{tag.split("#")[0]}</span>
+                        <span className="search-player-tag">#{tag.split("#")[1]}</span>
+                      </div>
+                    ))}
+                  </>
+                )}
 
-              {/* Search results */}
-              {searchResults.length > 0 && (
-                <>
-                  <div className="search-dropdown-header">Search Results</div>
-                  {searchResults.map((player, i) => (
-                    <div
-                      key={player.battleTag || i}
-                      onClick={() => selectPlayer(player.battleTag)}
-                      className="search-dropdown-item"
-                    >
-                      <span className="search-player-name">{player.name}</span>
-                      <span className="search-player-tag">#{player.battleTag?.split("#")[1]}</span>
-                    </div>
-                  ))}
-                </>
-              )}
-            </div>
-          )}
-        </div>
-        <p className="search-hint">
-          Type to search • Click to select • Press Enter to save
-        </p>
-
-        <label style={{ display: "block", marginTop: "16px", marginBottom: "8px", color: "#888", fontSize: "12px", textTransform: "uppercase", letterSpacing: "1px" }}>
-          Background Style
-        </label>
-        <select
-          value={bgStyle}
-          onChange={(e) => setBgStyle(e.target.value)}
-          style={{
-            width: "100%",
-            padding: "12px",
-            fontSize: "14px",
-            background: "#1a1a1a",
-            border: "1px solid #333",
-            borderRadius: "4px",
-            color: "#fff",
-            cursor: "pointer",
-          }}
-        >
-          {bgOptions.map(opt => (
-            <option key={opt.value} value={opt.value}>{opt.label}</option>
-          ))}
-        </select>
-      </div>
-
-      {/* Two Column Layout */}
-      <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: "40px", marginBottom: "40px" }}>
-
-        {/* Match Overlay */}
-        <div style={{ background: "#111", borderRadius: "8px", padding: "24px" }}>
-          <h2 style={{ color: "#fcdb33", marginBottom: "16px" }}>Match Overlay</h2>
-          <p style={{ color: "#888", marginBottom: "16px", fontSize: "14px" }}>
-            Shows both teams when you're in a game. Appears automatically, hides when not in game.
+                {/* Search results */}
+                {searchResults.length > 0 && (
+                  <>
+                    <div className="search-dropdown-header">Search Results</div>
+                    {searchResults.map((player, i) => (
+                      <div
+                        key={player.battleTag || i}
+                        onClick={() => selectPlayer(player.battleTag)}
+                        className="search-dropdown-item"
+                      >
+                        <span className="search-player-name">{player.name}</span>
+                        <span className="search-player-tag">#{player.battleTag?.split("#")[1]}</span>
+                      </div>
+                    ))}
+                  </>
+                )}
+              </div>
+            )}
+          </div>
+          <p className="search-hint">
+            Type to search • Click to select • Press Enter to save
           </p>
 
-          <div style={{ marginBottom: "16px" }}>
-            <label style={{ display: "block", marginBottom: "4px", color: "#666", fontSize: "11px", textTransform: "uppercase" }}>URL</label>
-            <code style={{
-              display: "block",
-              padding: "10px",
-              background: "#0a0a0a",
-              borderRadius: "4px",
-              fontSize: "12px",
-              color: "#4ade80",
-              wordBreak: "break-all"
-            }}>
-              {baseUrl}/overlay/match/{encodedTag}?bg={bgStyle}
-            </code>
+          <Label style={{ marginTop: "var(--space-4)" }}>Background Style</Label>
+          <Select value={bgStyle} onChange={(e) => setBgStyle(e.target.value)}>
+            {bgOptions.map(opt => (
+              <option key={opt.value} value={opt.value}>{opt.label}</option>
+            ))}
+          </Select>
+        </SettingsPanel>
+      </Section>
+
+      {/* STEP 2: Get your overlay URLs */}
+      <Section>
+        <StepHeader>
+          <StepNumber>2</StepNumber>
+          <SectionTitle style={{ margin: 0 }}>Copy Your Overlay URLs</SectionTitle>
+        </StepHeader>
+        <Subtitle style={{ marginBottom: "var(--space-4)", marginLeft: "40px" }}>
+          Add these as Browser Sources in OBS/Streamlabs. Use the Custom CSS to make backgrounds transparent.
+        </Subtitle>
+        <CardGrid>
+        {/* Match Overlay */}
+        <Card>
+          <CardTitle>Match Overlay</CardTitle>
+          <CardDescription>
+            Shows both teams when you're in a game. Appears automatically, hides when not in game.
+          </CardDescription>
+
+          <div style={{ marginBottom: "var(--space-4)" }}>
+            <FieldLabel>URL</FieldLabel>
+            <UrlCode>{baseUrl}/overlay/match/{encodedTag}?bg={bgStyle}</UrlCode>
           </div>
 
-          <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: "12px", marginBottom: "16px" }}>
+          <DimensionGrid>
             <div>
-              <label style={{ display: "block", marginBottom: "4px", color: "#666", fontSize: "11px", textTransform: "uppercase" }}>Width</label>
-              <code style={{ display: "block", padding: "8px", background: "#0a0a0a", borderRadius: "4px", color: "#888" }}>1200</code>
+              <FieldLabel>Width</FieldLabel>
+              <DimCode>1200</DimCode>
             </div>
             <div>
-              <label style={{ display: "block", marginBottom: "4px", color: "#666", fontSize: "11px", textTransform: "uppercase" }}>Height</label>
-              <code style={{ display: "block", padding: "8px", background: "#0a0a0a", borderRadius: "4px", color: "#888" }}>200</code>
+              <FieldLabel>Height</FieldLabel>
+              <DimCode>200</DimCode>
             </div>
-          </div>
+          </DimensionGrid>
 
           <div>
-            <label style={{ display: "block", marginBottom: "4px", color: "#666", fontSize: "11px", textTransform: "uppercase" }}>Custom CSS</label>
-            <code style={{
-              display: "block",
-              padding: "10px",
-              background: "#0a0a0a",
-              borderRadius: "4px",
-              fontSize: "12px",
-              color: "#888"
-            }}>
-              body {"{"} background: transparent !important; {"}"}
-            </code>
+            <FieldLabel>Custom CSS</FieldLabel>
+            <DimCode>body {"{"} background: transparent !important; {"}"}</DimCode>
           </div>
-        </div>
+        </Card>
 
         {/* Player Overlay */}
-        <div style={{ background: "#111", borderRadius: "8px", padding: "24px" }}>
-          <h2 style={{ color: "#fcdb33", marginBottom: "16px" }}>Player Overlay</h2>
-          <p style={{ color: "#888", marginBottom: "16px", fontSize: "14px" }}>
+        <Card>
+          <CardTitle>Player Overlay</CardTitle>
+          <CardDescription>
             Shows your stats, MMR, record, and session progress. Always visible.
-          </p>
+          </CardDescription>
 
-          <div style={{ marginBottom: "16px" }}>
-            <label style={{ display: "block", marginBottom: "4px", color: "#666", fontSize: "11px", textTransform: "uppercase" }}>URL</label>
-            <code style={{
-              display: "block",
-              padding: "10px",
-              background: "#0a0a0a",
-              borderRadius: "4px",
-              fontSize: "12px",
-              color: "#4ade80",
-              wordBreak: "break-all"
-            }}>
-              {baseUrl}/overlay/player/{encodedTag}?bg={bgStyle}
-            </code>
+          <div style={{ marginBottom: "var(--space-4)" }}>
+            <FieldLabel>URL</FieldLabel>
+            <UrlCode>{baseUrl}/overlay/player/{encodedTag}?bg={bgStyle}</UrlCode>
           </div>
 
-          <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: "12px", marginBottom: "16px" }}>
+          <DimensionGrid>
             <div>
-              <label style={{ display: "block", marginBottom: "4px", color: "#666", fontSize: "11px", textTransform: "uppercase" }}>Width</label>
-              <code style={{ display: "block", padding: "8px", background: "#0a0a0a", borderRadius: "4px", color: "#888" }}>280</code>
+              <FieldLabel>Width</FieldLabel>
+              <DimCode>280</DimCode>
             </div>
             <div>
-              <label style={{ display: "block", marginBottom: "4px", color: "#666", fontSize: "11px", textTransform: "uppercase" }}>Height</label>
-              <code style={{ display: "block", padding: "8px", background: "#0a0a0a", borderRadius: "4px", color: "#888" }}>320</code>
+              <FieldLabel>Height</FieldLabel>
+              <DimCode>320</DimCode>
             </div>
-          </div>
+          </DimensionGrid>
 
           <div>
-            <label style={{ display: "block", marginBottom: "4px", color: "#666", fontSize: "11px", textTransform: "uppercase" }}>Custom CSS</label>
-            <code style={{
-              display: "block",
-              padding: "10px",
-              background: "#0a0a0a",
-              borderRadius: "4px",
-              fontSize: "12px",
-              color: "#888"
-            }}>
-              body {"{"} background: transparent !important; {"}"}
-            </code>
+            <FieldLabel>Custom CSS</FieldLabel>
+            <DimCode>body {"{"} background: transparent !important; {"}"}</DimCode>
           </div>
-        </div>
-      </div>
+        </Card>
 
-      {/* Mock Game Screen Preview */}
-      <div style={{ marginBottom: "20px" }}>
-        <div style={{ display: "flex", alignItems: "center", gap: "16px", marginBottom: "16px" }}>
-          <h2 style={{ color: "#fcdb33", margin: 0 }}>Preview</h2>
-          <button
-            onClick={() => setShowMock(!showMock)}
-            style={{
-              padding: "6px 12px",
-              background: showMock ? "#333" : "#1a1a1a",
-              border: "1px solid #444",
-              borderRadius: "4px",
-              color: "#888",
-              cursor: "pointer",
-              fontSize: "12px",
-            }}
-          >
-            {showMock ? "Hide Mock" : "Show Mock"}
-          </button>
-        </div>
-        <p style={{ color: "#666", fontSize: "13px", marginBottom: "16px" }}>
-          This shows how the overlays would look over your game. Add your own screenshot as a background!
-        </p>
-      </div>
+        {/* Last Game Overlay */}
+        <Card>
+          <CardTitle>Last Game Overlay</CardTitle>
+          <CardDescription>
+            Shows your most recent game result with map, players, and MMR change.
+          </CardDescription>
 
-      {showMock && (
+          <div style={{ marginBottom: "var(--space-4)" }}>
+            <FieldLabel>URL</FieldLabel>
+            <UrlCode>{baseUrl}/overlay/lastgame/{encodedTag}?bg={bgStyle}</UrlCode>
+          </div>
+
+          <DimensionGrid>
+            <div>
+              <FieldLabel>Width</FieldLabel>
+              <DimCode>280</DimCode>
+            </div>
+            <div>
+              <FieldLabel>Height</FieldLabel>
+              <DimCode>320</DimCode>
+            </div>
+          </DimensionGrid>
+
+          <div>
+            <FieldLabel>Custom CSS</FieldLabel>
+            <DimCode>body {"{"} background: transparent !important; {"}"}</DimCode>
+          </div>
+        </Card>
+      </CardGrid>
+      </Section>
+
+      {/* STEP 3: Position your overlays */}
+      <Section>
+        <StepHeader>
+          <StepNumber>3</StepNumber>
+          <SectionTitle style={{ margin: 0 }}>Position Your Overlays</SectionTitle>
+        </StepHeader>
+        <Subtitle style={{ marginBottom: "var(--space-4)", marginLeft: "40px" }}>
+          Drag overlays to position them. Use the corner handles to resize. Double-click for fullscreen preview.
+        </Subtitle>
+
+        {/* Layout selector for Player Overlay */}
+        <LayoutSelector style={{ marginLeft: "40px" }}>
+          <span>Player Layout:</span>
+          {playerLayoutOptions.map(opt => (
+            <LayoutButton
+              key={opt.value}
+              $active={playerLayout === opt.value}
+              onClick={() => setPlayerLayout(opt.value)}
+            >
+              {opt.label}
+            </LayoutButton>
+          ))}
+          <ResetButton onClick={resetPositions} style={{ marginLeft: "var(--space-4)" }}>
+            Reset Positions
+          </ResetButton>
+        </LayoutSelector>
+
+        <MockScreen
+          ref={mockScreenRef}
+          onDoubleClick={toggleFullscreen}
+          style={{ cursor: dragging || resizing ? 'grabbing' : 'default' }}
+        >
+          {/* Fullscreen button - bottom right */}
+          <FullscreenButton onClick={toggleFullscreen}>
+            {isFullscreen ? "Exit Fullscreen (ESC)" : "Fullscreen"}
+          </FullscreenButton>
+
+              {/* Match Overlay - draggable + resizable */}
+              <div
+                onMouseDown={(e) => handleDragStart('match', e)}
+                style={{
+                  position: "absolute",
+                  top: `${overlayPositions.match.top}%`,
+                  left: `${overlayPositions.match.left}%`,
+                  transform: `translateX(-50%) scale(${overlayPositions.match.scale})`,
+                  transformOrigin: 'top center',
+                  cursor: dragging === 'match' ? 'grabbing' : 'grab',
+                }}>
+                <div style={{ position: 'relative', border: '2px solid transparent', borderColor: (dragging === 'match' || resizing === 'match') ? 'var(--gold)' : 'transparent', borderRadius: 'var(--radius-md)' }}>
+                  <MatchOverlay
+                    matchData={mockMatchData}
+                    atGroups={{}}
+                    sessionData={{}}
+                    streamerTag="Player1#123"
+                    bgStyle={bgStyle}
+                  />
+                  {/* Resize handle */}
+                  <div
+                    onMouseDown={(e) => handleResizeStart('match', e)}
+                    style={{
+                      position: 'absolute', bottom: -6, right: -6, width: 12, height: 12,
+                      background: 'var(--gold)', borderRadius: 2, cursor: 'nwse-resize',
+                      opacity: 0.8,
+                    }}
+                  />
+                </div>
+              </div>
+
+              {/* Player Overlay - draggable + resizable */}
+              <div
+                onMouseDown={(e) => handleDragStart('player', e)}
+                style={{
+                  position: "absolute",
+                  bottom: `${overlayPositions.player.bottom}%`,
+                  left: `${overlayPositions.player.left}%`,
+                  transform: `scale(${overlayPositions.player.scale})`,
+                  transformOrigin: 'bottom left',
+                  cursor: dragging === 'player' ? 'grabbing' : 'grab',
+                }}>
+                <div style={{ position: 'relative', border: '2px solid transparent', borderColor: (dragging === 'player' || resizing === 'player') ? 'var(--gold)' : 'transparent', borderRadius: 'var(--radius-md)' }}>
+                  <PlayerOverlay playerData={mockPlayerData} layout={playerLayout} bgStyle={bgStyle} />
+                  {/* Resize handle */}
+                  <div
+                    onMouseDown={(e) => handleResizeStart('player', e)}
+                    style={{
+                      position: 'absolute', top: -6, right: -6, width: 12, height: 12,
+                      background: 'var(--gold)', borderRadius: 2, cursor: 'nwse-resize',
+                      opacity: 0.8,
+                    }}
+                  />
+                </div>
+              </div>
+
+              {/* Last Game Overlay - draggable + resizable */}
+              <div
+                onMouseDown={(e) => handleDragStart('lastGame', e)}
+                style={{
+                  position: "absolute",
+                  bottom: `${overlayPositions.lastGame.bottom}%`,
+                  right: `${overlayPositions.lastGame.right}%`,
+                  transform: `scale(${overlayPositions.lastGame.scale})`,
+                  transformOrigin: 'bottom right',
+                  cursor: dragging === 'lastGame' ? 'grabbing' : 'grab',
+                }}>
+                <div style={{ position: 'relative', border: '2px solid transparent', borderColor: (dragging === 'lastGame' || resizing === 'lastGame') ? 'var(--gold)' : 'transparent', borderRadius: 'var(--radius-md)' }}>
+                  <GameCard
+                    game={mockLastGame}
+                    playerBattleTag="YourName#123"
+                    overlay={true}
+                    layout="vertical"
+                    size="expanded"
+                  />
+                  {/* Resize handle */}
+                  <div
+                    onMouseDown={(e) => handleResizeStart('lastGame', e)}
+                    style={{
+                      position: 'absolute', top: -6, left: -6, width: 12, height: 12,
+                      background: 'var(--gold)', borderRadius: 2, cursor: 'nwse-resize',
+                      opacity: 0.8,
+                    }}
+                  />
+                </div>
+              </div>
+        </MockScreen>
+
+        {/* Position readout */}
         <div style={{
-          position: "relative",
-          width: "100%",
-          maxWidth: "1280px",
-          aspectRatio: "16/9",
-          background: "linear-gradient(180deg, #1a2a1a 0%, #0d1a0d 40%, #1a1a10 70%, #2a2015 100%)",
-          backgroundImage: `
-            radial-gradient(circle at 30% 40%, rgba(0, 80, 0, 0.3) 0%, transparent 40%),
-            radial-gradient(circle at 70% 30%, rgba(0, 50, 80, 0.2) 0%, transparent 30%),
-            linear-gradient(180deg, #1a2a1a 0%, #0d1a0d 40%, #1a1a10 70%, #2a2015 100%)
-          `,
-          borderRadius: "8px",
-          overflow: "hidden",
+          display: 'grid',
+          gridTemplateColumns: 'repeat(3, 1fr)',
+          gap: 'var(--space-4)',
+          marginTop: 'var(--space-4)',
+          fontFamily: 'var(--font-mono)',
+          fontSize: 'var(--text-xs)',
         }}>
-          {/* Fake WC3 UI bar at bottom */}
-          <div style={{
-            position: "absolute",
-            bottom: 0,
-            left: 0,
-            right: 0,
-            height: "80px",
-            background: "linear-gradient(180deg, #3d2817 0%, #1a0f08 100%)",
-            borderTop: "2px solid #8b7355",
-          }}>
-            <div style={{
-              position: "absolute",
-              left: "50%",
-              transform: "translateX(-50%)",
-              bottom: "10px",
-              width: "140px",
-              height: "60px",
-              background: "linear-gradient(180deg, #2a1a0a 0%, #1a0f05 100%)",
-              border: "1px solid #8b7355",
-              borderRadius: "4px",
-            }} />
+          <div style={{ background: 'var(--grey-dark)', padding: 'var(--space-2)', borderRadius: 'var(--radius-sm)' }}>
+            <div style={{ color: 'var(--grey-light)', marginBottom: '4px' }}>Match Overlay</div>
+            <div style={{ color: 'var(--gold)' }}>top: {overlayPositions.match.top.toFixed(0)}% | center</div>
+            <div style={{ color: 'var(--grey-light)' }}>scale: {(overlayPositions.match.scale * 100).toFixed(0)}%</div>
           </div>
-
-          {/* Match Overlay - positioned at top center */}
-          <div style={{
-            position: "absolute",
-            top: "20px",
-            left: "50%",
-            transform: "translateX(-50%)",
-          }}>
-            <MatchOverlay
-              matchData={mockMatchData}
-              atGroups={{}}
-              sessionData={{}}
-              streamerTag="Player1#123"
-              bgStyle={bgStyle}
-            />
+          <div style={{ background: 'var(--grey-dark)', padding: 'var(--space-2)', borderRadius: 'var(--radius-sm)' }}>
+            <div style={{ color: 'var(--grey-light)', marginBottom: '4px' }}>Player Overlay</div>
+            <div style={{ color: 'var(--gold)' }}>bottom: {overlayPositions.player.bottom.toFixed(0)}% | left: {overlayPositions.player.left.toFixed(0)}%</div>
+            <div style={{ color: 'var(--grey-light)' }}>scale: {(overlayPositions.player.scale * 100).toFixed(0)}%</div>
           </div>
-
-          {/* Player Overlay - positioned bottom left */}
-          <div style={{
-            position: "absolute",
-            bottom: "100px",
-            left: "20px",
-          }}>
-            <PlayerOverlay playerData={mockPlayerData} bgStyle={bgStyle} />
+          <div style={{ background: 'var(--grey-dark)', padding: 'var(--space-2)', borderRadius: 'var(--radius-sm)' }}>
+            <div style={{ color: 'var(--grey-light)', marginBottom: '4px' }}>Last Game Overlay</div>
+            <div style={{ color: 'var(--gold)' }}>bottom: {overlayPositions.lastGame.bottom.toFixed(0)}% | right: {overlayPositions.lastGame.right.toFixed(0)}%</div>
+            <div style={{ color: 'var(--grey-light)' }}>scale: {(overlayPositions.lastGame.scale * 100).toFixed(0)}%</div>
           </div>
-
-          {/* Last Game Overlay - positioned bottom right */}
-          <div style={{
-            position: "absolute",
-            bottom: "100px",
-            right: "20px",
-          }}>
-            <LastGameOverlay
-              game={mockLastGame}
-              layout="vertical"
-              bgStyle={bgStyle}
-            />
-          </div>
-
         </div>
-      )}
 
-      {/* Preview legend - outside the mock screen */}
-      {showMock && (
-        <div style={{
-          display: "flex",
-          gap: "24px",
-          marginTop: "16px",
-          fontSize: "12px",
-          color: "#666",
-        }}>
-          <span>↑ <strong style={{ color: "#888" }}>Match Overlay</strong> — top center</span>
-          <span>← <strong style={{ color: "#888" }}>Player Overlay</strong> — bottom left</span>
-          <span>→ <strong style={{ color: "#888" }}>Last Game</strong> — bottom right</span>
-        </div>
-      )}
-
-
-      {/* Instructions */}
-      <div style={{ marginTop: "40px", maxWidth: "800px" }}>
-        <h2 style={{ color: "#fcdb33", marginBottom: "16px" }}>Setup Instructions</h2>
-        <ol style={{ color: "#ccc", lineHeight: "1.8", paddingLeft: "20px" }}>
-          <li>Open OBS or Streamlabs</li>
-          <li>Add a new <strong>Browser Source</strong></li>
-          <li>Paste the URL for the overlay you want (replace the battle tag with yours)</li>
-          <li>Set the Width and Height as shown above</li>
-          <li>Paste the Custom CSS into the "Custom CSS" field</li>
-          <li>Position the overlay where you want it on your stream</li>
-        </ol>
-
-        <div style={{ marginTop: "20px", padding: "16px", background: "#1a1a0a", border: "1px solid #4a4a20", borderRadius: "4px" }}>
-          <strong style={{ color: "#fcdb33" }}>Tip:</strong>
-          <span style={{ color: "#888" }}> The Match Overlay auto-hides when you're not in a game, so you can leave it always enabled!</span>
-        </div>
-      </div>
-    </div>
+        <TipBox style={{ marginTop: 'var(--space-4)' }}>
+          <strong>Tip:</strong>
+          <span> The Match Overlay auto-hides when you're not in a game, so you can leave it always enabled!</span>
+        </TipBox>
+      </Section>
+    </Page>
   );
 };
 

@@ -1,5 +1,18 @@
 import React from "react";
 import styled from "styled-components";
+import {
+  colors,
+  fonts,
+  typeScale,
+  spacing,
+  borders,
+  effects,
+  overlays,
+  surfaces,
+  tints,
+  patterns,
+  components,
+} from "./design-tokens";
 
 const Page = styled.div`
   padding: var(--space-8);
@@ -185,321 +198,297 @@ const TeamBar = styled.div`
   color: var(--gold);
 `;
 
+const Note = styled.p`
+  font-size: var(--text-xs);
+  color: var(--grey-light);
+  margin-bottom: var(--space-4);
+  font-style: italic;
+`;
+
 // ============================================
 
-const StyleReference = () => (
-  <Page>
-    <Title>Design System</Title>
-    <Subtitle>~20 tokens for consistency</Subtitle>
+const StyleReference = () => {
+  const colorEntries = Object.entries(colors);
+  const spacingEntries = Object.entries(spacing);
+  const typeEntries = Object.entries(typeScale);
 
-    {/* COLORS */}
-    <Section>
-      <SectionTitle>Colors (6)</SectionTitle>
-      <Grid>
-        <Swatch><SwatchColor $color="var(--gold)" /><SwatchLabel>--gold</SwatchLabel></Swatch>
-        <Swatch><SwatchColor $color="var(--green)" /><SwatchLabel>--green</SwatchLabel></Swatch>
-        <Swatch><SwatchColor $color="var(--red)" /><SwatchLabel>--red</SwatchLabel></Swatch>
-        <Swatch><SwatchColor $color="var(--grey-light)" /><SwatchLabel>--grey-light</SwatchLabel></Swatch>
-        <Swatch><SwatchColor $color="var(--grey-mid)" /><SwatchLabel>--grey-mid</SwatchLabel></Swatch>
-        <Swatch><SwatchColor $color="var(--grey-dark)" /><SwatchLabel>--grey-dark</SwatchLabel></Swatch>
-      </Grid>
-    </Section>
+  return (
+    <Page>
+      <Title>Design System</Title>
+      <Subtitle>Single source of truth: src/design-tokens.js</Subtitle>
 
-    {/* TYPOGRAPHY */}
-    <Section>
-      <SectionTitle>Typography (2 fonts, 5 sizes)</SectionTitle>
-      <TypeRow>
-        <TypeMeta>Display</TypeMeta>
-        <span style={{ fontFamily: 'var(--font-display)', fontSize: 'var(--text-lg)', color: 'var(--gold)' }}>
-          Friz Quadrata — Headlines, player names
-        </span>
-      </TypeRow>
-      <TypeRow>
-        <TypeMeta>Mono</TypeMeta>
-        <span style={{ fontFamily: 'var(--font-mono)', fontSize: 'var(--text-base)' }}>
-          Inconsolata — Everything else (1847 MMR)
-        </span>
-      </TypeRow>
+      {/* COLORS */}
+      <Section>
+        <SectionTitle>Colors ({colorEntries.length})</SectionTitle>
+        <Grid>
+          {colorEntries.map(([key, token]) => (
+            <Swatch key={key}>
+              <SwatchColor $color={token.value} />
+              <SwatchLabel>{token.css}</SwatchLabel>
+            </Swatch>
+          ))}
+        </Grid>
+      </Section>
 
-      <div style={{ marginTop: 'var(--space-4)' }}>
-        <TypeRow><TypeMeta>xl / 28px</TypeMeta><span style={{ fontSize: 'var(--text-xl)', fontFamily: 'var(--font-display)', color: 'var(--gold)' }}>Heading</span></TypeRow>
-        <TypeRow><TypeMeta>lg / 20px</TypeMeta><span style={{ fontSize: 'var(--text-lg)' }}>Subheading</span></TypeRow>
-        <TypeRow><TypeMeta>base / 15px</TypeMeta><span style={{ fontSize: 'var(--text-base)' }}>Body default</span></TypeRow>
-        <TypeRow><TypeMeta>sm / 13px</TypeMeta><span style={{ fontSize: 'var(--text-sm)' }}>Small text</span></TypeRow>
-        <TypeRow><TypeMeta>xs / 11px</TypeMeta><span style={{ fontSize: 'var(--text-xs)' }}>Labels</span></TypeRow>
-      </div>
-
-      <div style={{ marginTop: 'var(--space-4)' }}>
-        <span style={{ fontFamily: 'var(--font-mono)', fontSize: 'var(--text-xs)', textTransform: 'uppercase', letterSpacing: '0.1em', color: 'var(--grey-light)' }}>
-          RANK &nbsp;&nbsp; MMR &nbsp;&nbsp; RECORD &nbsp;&nbsp; FORM
-        </span>
-        <div style={{ color: 'var(--grey-light)', fontSize: 'var(--text-xs)', marginTop: 'var(--space-1)' }}>
-          ↑ Label style: mono + xs + uppercase + letter-spacing
-        </div>
-      </div>
-    </Section>
-
-    {/* SPACING */}
-    <Section>
-      <SectionTitle>Spacing (6)</SectionTitle>
-      {[
-        ['--space-1', '4px'],
-        ['--space-2', '8px'],
-        ['--space-4', '16px'],
-        ['--space-6', '24px'],
-        ['--space-8', '32px'],
-        ['--space-12', '48px'],
-      ].map(([name, size]) => (
-        <SpaceRow key={name}>
-          <SpaceLabel>{name} ({size})</SpaceLabel>
-          <SpaceBar $size={size} />
-        </SpaceRow>
-      ))}
-    </Section>
-
-    {/* BORDERS */}
-    <Section>
-      <SectionTitle>Borders (5)</SectionTitle>
-      <Row style={{ gap: 'var(--space-6)' }}>
-        {[['sm', '2px'], ['md', '4px'], ['full', '∞']].map(([name, val]) => (
-          <div key={name} style={{ textAlign: 'center' }}>
-            <div style={{ width: 40, height: 40, background: 'var(--gold)', borderRadius: `var(--radius-${name})`, marginBottom: 'var(--space-1)' }} />
-            <span style={{ fontFamily: 'var(--font-mono)', fontSize: 'var(--text-xs)', color: 'var(--grey-light)' }}>{name}</span>
-          </div>
+      {/* TYPOGRAPHY */}
+      <Section>
+        <SectionTitle>Typography ({Object.keys(fonts).length} fonts, {typeEntries.length} sizes)</SectionTitle>
+        {Object.entries(fonts).map(([key, token]) => (
+          <TypeRow key={key}>
+            <TypeMeta>{key}</TypeMeta>
+            <span style={{ fontFamily: token.value, fontSize: 'var(--text-lg)', color: key === 'display' ? 'var(--gold)' : '#fff' }}>
+              {token.usage}
+            </span>
+          </TypeRow>
         ))}
-        <div style={{ borderLeft: '1px solid var(--grey-mid)', height: 40 }} />
-        {[['thin', '1px'], ['thick', '2px']].map(([name, val]) => (
-          <div key={name} style={{ textAlign: 'center' }}>
-            <div style={{ width: 50, height: 40, border: `var(--border-${name}) solid var(--gold)`, borderRadius: 'var(--radius-md)', marginBottom: 'var(--space-1)' }} />
-            <span style={{ fontFamily: 'var(--font-mono)', fontSize: 'var(--text-xs)', color: 'var(--grey-light)' }}>{name}</span>
+
+        <div style={{ marginTop: 'var(--space-4)' }}>
+          {typeEntries.map(([key, token]) => (
+            <TypeRow key={key}>
+              <TypeMeta>{key} / {token.value}</TypeMeta>
+              <span style={{ fontSize: token.value }}>{token.usage}</span>
+            </TypeRow>
+          ))}
+        </div>
+
+        <div style={{ marginTop: 'var(--space-4)' }}>
+          <span style={{ fontFamily: 'var(--font-mono)', fontSize: 'var(--text-xs)', textTransform: 'uppercase', letterSpacing: '0.1em', color: 'var(--grey-light)' }}>
+            RANK &nbsp;&nbsp; MMR &nbsp;&nbsp; RECORD &nbsp;&nbsp; FORM
+          </span>
+          <div style={{ color: 'var(--grey-light)', fontSize: 'var(--text-xs)', marginTop: 'var(--space-1)' }}>
+            Label style: mono + xs + uppercase + letter-spacing
           </div>
+        </div>
+      </Section>
+
+      {/* SPACING */}
+      <Section>
+        <SectionTitle>Spacing ({spacingEntries.length})</SectionTitle>
+        {spacingEntries.map(([key, token]) => (
+          <SpaceRow key={key}>
+            <SpaceLabel>{token.css} ({token.value})</SpaceLabel>
+            <SpaceBar $size={token.value} />
+          </SpaceRow>
         ))}
-      </Row>
-    </Section>
+      </Section>
 
-    {/* SHADOW */}
-    <Section>
-      <SectionTitle>Shadow (1)</SectionTitle>
-      <div style={{ width: 80, height: 60, background: 'var(--grey-dark)', borderRadius: 'var(--radius-md)', boxShadow: 'var(--shadow-glow)' }} />
-      <span style={{ fontFamily: 'var(--font-mono)', fontSize: 'var(--text-xs)', color: 'var(--grey-light)', display: 'block', marginTop: 'var(--space-2)' }}>--shadow-glow</span>
-    </Section>
-
-    {/* TRANSPARENCY / OVERLAYS */}
-    <Section>
-      <SectionTitle>Transparency / Overlays (9)</SectionTitle>
-
-      <div style={{ marginBottom: 'var(--space-4)' }}>
-        <div style={{ color: 'var(--grey-light)', fontSize: 'var(--text-xs)', marginBottom: 'var(--space-2)' }}>Dark overlays (for stream overlays, modals)</div>
-        <Row style={{ gap: 'var(--space-4)' }}>
-          {[
-            ['--overlay-heavy', 'rgba(0,0,0,0.9)', '0.9'],
-            ['--overlay-medium', 'rgba(0,0,0,0.8)', '0.8'],
-            ['--overlay-light', 'rgba(0,0,0,0.6)', '0.6'],
-          ].map(([name, value, opacity]) => (
-            <div key={name} style={{ textAlign: 'center' }}>
-              <div style={{ width: 80, height: 50, background: `var(${name})`, border: '1px solid var(--grey-mid)', borderRadius: 'var(--radius-md)', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-                <span style={{ fontFamily: 'var(--font-mono)', fontSize: 'var(--text-xs)', color: '#fff' }}>{opacity}</span>
-              </div>
-              <span style={{ fontFamily: 'var(--font-mono)', fontSize: 10, color: 'var(--grey-light)', display: 'block', marginTop: 'var(--space-1)' }}>{name.replace('--', '')}</span>
+      {/* BORDERS */}
+      <Section>
+        <SectionTitle>Borders ({Object.keys(borders).length})</SectionTitle>
+        <Row style={{ gap: 'var(--space-6)' }}>
+          {Object.entries(borders).filter(([k]) => k.startsWith('radius')).map(([key, token]) => (
+            <div key={key} style={{ textAlign: 'center' }}>
+              <div style={{ width: 40, height: 40, background: 'var(--gold)', borderRadius: token.value, marginBottom: 'var(--space-1)' }} />
+              <span style={{ fontFamily: 'var(--font-mono)', fontSize: 'var(--text-xs)', color: 'var(--grey-light)' }}>{key.replace('radius', '').toLowerCase() || 'sm'}</span>
+            </div>
+          ))}
+          <div style={{ borderLeft: '1px solid var(--grey-mid)', height: 40 }} />
+          {Object.entries(borders).filter(([k]) => !k.startsWith('radius')).map(([key, token]) => (
+            <div key={key} style={{ textAlign: 'center' }}>
+              <div style={{ width: 50, height: 40, border: `${token.value} solid var(--gold)`, borderRadius: 'var(--radius-md)', marginBottom: 'var(--space-1)' }} />
+              <span style={{ fontFamily: 'var(--font-mono)', fontSize: 'var(--text-xs)', color: 'var(--grey-light)' }}>{key}</span>
             </div>
           ))}
         </Row>
-      </div>
+      </Section>
 
-      <div style={{ marginBottom: 'var(--space-4)' }}>
-        <div style={{ color: 'var(--grey-light)', fontSize: 'var(--text-xs)', marginBottom: 'var(--space-2)' }}>Surface tints (for cards, rows, hover states)</div>
-        <Row style={{ gap: 'var(--space-4)' }}>
-          {[
-            ['--surface-1', '0.02', 'Card bg'],
-            ['--surface-2', '0.05', 'Hover'],
-            ['--surface-3', '0.1', 'Borders'],
-          ].map(([name, opacity, use]) => (
-            <div key={name} style={{ textAlign: 'center' }}>
-              <div style={{ width: 80, height: 50, background: `var(${name})`, border: '1px solid var(--grey-mid)', borderRadius: 'var(--radius-md)', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-                <span style={{ fontFamily: 'var(--font-mono)', fontSize: 'var(--text-xs)', color: 'var(--grey-light)' }}>{opacity}</span>
+      {/* EFFECTS */}
+      <Section>
+        <SectionTitle>Effects ({Object.keys(effects).length})</SectionTitle>
+        <Row style={{ gap: 'var(--space-6)' }}>
+          <div>
+            <div style={{ width: 80, height: 60, background: 'var(--grey-dark)', borderRadius: 'var(--radius-md)', boxShadow: effects.shadowGlow.value }} />
+            <span style={{ fontFamily: 'var(--font-mono)', fontSize: 'var(--text-xs)', color: 'var(--grey-light)', display: 'block', marginTop: 'var(--space-2)' }}>{effects.shadowGlow.css}</span>
+          </div>
+        </Row>
+      </Section>
+
+      {/* OVERLAYS */}
+      <Section>
+        <SectionTitle>Transparency / Overlays</SectionTitle>
+
+        <div style={{ marginBottom: 'var(--space-4)' }}>
+          <div style={{ color: 'var(--grey-light)', fontSize: 'var(--text-xs)', marginBottom: 'var(--space-2)' }}>Dark overlays (for stream overlays, modals)</div>
+          <Row style={{ gap: 'var(--space-4)' }}>
+            {Object.entries(overlays).map(([key, token]) => (
+              <div key={key} style={{ textAlign: 'center' }}>
+                <div style={{ width: 80, height: 50, background: token.value, border: '1px solid var(--grey-mid)', borderRadius: 'var(--radius-md)', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+                  <span style={{ fontFamily: 'var(--font-mono)', fontSize: 'var(--text-xs)', color: '#fff' }}>{token.value.match(/[\d.]+\)$/)?.[0]?.replace(')', '') || key}</span>
+                </div>
+                <span style={{ fontFamily: 'var(--font-mono)', fontSize: 10, color: 'var(--grey-light)', display: 'block', marginTop: 'var(--space-1)' }}>{key}</span>
               </div>
-              <span style={{ fontFamily: 'var(--font-mono)', fontSize: 10, color: 'var(--grey-light)', display: 'block', marginTop: 'var(--space-1)' }}>{use}</span>
+            ))}
+          </Row>
+        </div>
+
+        <div style={{ marginBottom: 'var(--space-4)' }}>
+          <div style={{ color: 'var(--grey-light)', fontSize: 'var(--text-xs)', marginBottom: 'var(--space-2)' }}>Surface tints (for cards, rows, hover states)</div>
+          <Row style={{ gap: 'var(--space-4)' }}>
+            {Object.entries(surfaces).map(([key, token]) => (
+              <div key={key} style={{ textAlign: 'center' }}>
+                <div style={{ width: 80, height: 50, background: token.value, border: '1px solid var(--grey-mid)', borderRadius: 'var(--radius-md)', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+                  <span style={{ fontFamily: 'var(--font-mono)', fontSize: 'var(--text-xs)', color: 'var(--grey-light)' }}>{token.value.match(/[\d.]+\)$/)?.[0]?.replace(')', '') || key}</span>
+                </div>
+                <span style={{ fontFamily: 'var(--font-mono)', fontSize: 10, color: 'var(--grey-light)', display: 'block', marginTop: 'var(--space-1)' }}>{token.usage}</span>
+              </div>
+            ))}
+          </Row>
+        </div>
+
+        <div style={{ marginBottom: 'var(--space-4)' }}>
+          <div style={{ color: 'var(--grey-light)', fontSize: 'var(--text-xs)', marginBottom: 'var(--space-2)' }}>Color tints (for badges, highlights)</div>
+          <Row style={{ gap: 'var(--space-4)' }}>
+            {Object.entries(tints).map(([key, token]) => {
+              const borderColor = key === 'gold' ? 'var(--gold)' : key === 'green' ? 'var(--green)' : 'var(--red)';
+              return (
+                <div key={key} style={{ textAlign: 'center' }}>
+                  <div style={{ width: 80, height: 50, background: token.value, border: `1px solid ${borderColor}`, borderRadius: 'var(--radius-md)', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+                    <span style={{ fontFamily: 'var(--font-mono)', fontSize: 'var(--text-xs)', color: borderColor }}>{key}</span>
+                  </div>
+                  <span style={{ fontFamily: 'var(--font-mono)', fontSize: 10, color: 'var(--grey-light)', display: 'block', marginTop: 'var(--space-1)' }}>{token.css}</span>
+                </div>
+              );
+            })}
+          </Row>
+        </div>
+      </Section>
+
+      {/* COMPONENTS */}
+      <Section>
+        <SectionTitle>Components ({components.length})</SectionTitle>
+
+        <div style={{ marginBottom: 'var(--space-4)' }}>
+          <div style={{ color: 'var(--grey-light)', fontSize: 'var(--text-xs)', marginBottom: 'var(--space-2)' }}>Buttons</div>
+          <Row>
+            <Button $primary>Primary</Button>
+            <Button $secondary>Secondary</Button>
+          </Row>
+        </div>
+
+        <div style={{ marginBottom: 'var(--space-4)' }}>
+          <div style={{ color: 'var(--grey-light)', fontSize: 'var(--text-xs)', marginBottom: 'var(--space-2)' }}>Badges</div>
+          <Row>
+            <Badge>Default</Badge>
+            <Badge $bg="var(--gold)" $color="#0a0a0a" $border="var(--gold)">Gold</Badge>
+            <Badge $bg="rgba(74,222,128,0.15)" $color="var(--green)" $border="var(--green)">Win</Badge>
+            <Badge $bg="rgba(248,113,113,0.15)" $color="var(--red)" $border="var(--red)">Loss</Badge>
+          </Row>
+        </div>
+
+        <div style={{ marginBottom: 'var(--space-4)' }}>
+          <div style={{ color: 'var(--grey-light)', fontSize: 'var(--text-xs)', marginBottom: 'var(--space-2)' }}>Form dots (most recent = largest)</div>
+          <Row style={{ gap: 'var(--space-1)', alignItems: 'center' }}>
+            <Dot /><Dot $win /><Dot /><Dot $win /><Dot $win $recent />
+            <span style={{ marginLeft: 'var(--space-2)', fontFamily: 'var(--font-mono)', fontSize: 'var(--text-sm)', color: 'var(--grey-light)' }}>3W-2L</span>
+          </Row>
+        </div>
+
+        <div style={{ marginBottom: 'var(--space-4)' }}>
+          <div style={{ color: 'var(--grey-light)', fontSize: 'var(--text-xs)', marginBottom: 'var(--space-2)' }}>Live indicator</div>
+          <Row style={{ alignItems: 'center', gap: 'var(--space-2)' }}>
+            <span className="live-dot"></span>
+            <span style={{ fontFamily: 'var(--font-mono)', fontSize: 'var(--text-sm)', color: 'var(--grey-light)' }}>Pulsing red dot for live/ongoing status</span>
+          </Row>
+        </div>
+
+        <div style={{ marginBottom: 'var(--space-4)' }}>
+          <div style={{ color: 'var(--grey-light)', fontSize: 'var(--text-xs)', marginBottom: 'var(--space-2)' }}>Team indicators</div>
+          <Row>
+            <TeamBar $blue>PlayerName</TeamBar>
+            <TeamBar>EnemyPlayer</TeamBar>
+          </Row>
+        </div>
+
+        <div>
+          <div style={{ color: 'var(--grey-light)', fontSize: 'var(--text-xs)', marginBottom: 'var(--space-2)' }}>Card</div>
+          <Card style={{ maxWidth: 240 }}>
+            <div style={{ fontFamily: 'var(--font-display)', color: 'var(--gold)', marginBottom: 'var(--space-1)' }}>PlayerName</div>
+            <div style={{ fontFamily: 'var(--font-mono)', fontSize: 'var(--text-sm)', color: 'var(--grey-light)' }}>1847 MMR - 59% WR</div>
+          </Card>
+        </div>
+      </Section>
+
+      {/* CARD BORDERS */}
+      <Section>
+        <SectionTitle>Card Borders</SectionTitle>
+        <Note>Gold border for primary cards. No hover animations that move cards.</Note>
+
+        <Grid style={{ gridTemplateColumns: 'repeat(auto-fill, minmax(200px, 1fr))', gap: 'var(--space-4)' }}>
+          <div>
+            <div style={{ background: surfaces.surface1.value, border: `${borders.thick.value} solid ${colors.gold.value}`, borderRadius: borders.radiusMd.value, padding: 'var(--space-4)' }}>
+              <div style={{ fontFamily: 'var(--font-display)', color: 'var(--gold)', marginBottom: 'var(--space-1)' }}>Gold Border</div>
+              <div style={{ fontFamily: 'var(--font-mono)', fontSize: 'var(--text-sm)', color: 'var(--grey-light)' }}>Primary cards</div>
+            </div>
+            <Code style={{ marginTop: 'var(--space-2)', padding: 'var(--space-2)', fontSize: 10 }}>
+{patterns.cardGold.css}
+            </Code>
+          </div>
+
+          <div>
+            <div style={{ background: surfaces.surface1.value, border: `1px solid ${colors.greyMid.value}`, borderRadius: borders.radiusMd.value, padding: 'var(--space-4)' }}>
+              <div style={{ fontFamily: 'var(--font-display)', color: '#fff', marginBottom: 'var(--space-1)' }}>Grey Border</div>
+              <div style={{ fontFamily: 'var(--font-mono)', fontSize: 'var(--text-sm)', color: 'var(--grey-light)' }}>Secondary cards</div>
+            </div>
+            <Code style={{ marginTop: 'var(--space-2)', padding: 'var(--space-2)', fontSize: 10 }}>
+{patterns.cardSubtle.css}
+            </Code>
+          </div>
+
+          <div>
+            <div style={{ background: tints.green.value, border: `1px solid rgba(74,222,128,0.25)`, borderRadius: borders.radiusMd.value, padding: 'var(--space-4)' }}>
+              <div style={{ fontFamily: 'var(--font-display)', color: 'var(--green)', marginBottom: 'var(--space-1)' }}>Win Card</div>
+              <div style={{ fontFamily: 'var(--font-mono)', fontSize: 'var(--text-sm)', color: 'var(--grey-light)' }}>Victory results</div>
+            </div>
+          </div>
+
+          <div>
+            <div style={{ background: tints.red.value, border: `1px solid rgba(248,113,113,0.25)`, borderRadius: borders.radiusMd.value, padding: 'var(--space-4)' }}>
+              <div style={{ fontFamily: 'var(--font-display)', color: 'var(--red)', marginBottom: 'var(--space-1)' }}>Loss Card</div>
+              <div style={{ fontFamily: 'var(--font-mono)', fontSize: 'var(--text-sm)', color: 'var(--grey-light)' }}>Defeat results</div>
+            </div>
+          </div>
+        </Grid>
+      </Section>
+
+      {/* USAGE PATTERNS */}
+      <Section>
+        <SectionTitle>Usage Patterns</SectionTitle>
+        <div style={{ display: 'grid', gap: 'var(--space-2)' }}>
+          {Object.entries(patterns).map(([key, pattern]) => (
+            <div key={key} style={{ display: 'flex', gap: 'var(--space-4)', alignItems: 'center', padding: 'var(--space-2)', background: 'var(--surface-1)', borderRadius: 'var(--radius-sm)' }}>
+              <span style={{ fontFamily: 'var(--font-mono)', fontSize: 'var(--text-xs)', color: 'var(--gold)', minWidth: 120 }}>{pattern.description}</span>
+              <code style={{ fontFamily: 'var(--font-mono)', fontSize: 10, color: 'var(--grey-light)' }}>{pattern.css}</code>
             </div>
           ))}
-        </Row>
-      </div>
-
-      <div style={{ marginBottom: 'var(--space-4)' }}>
-        <div style={{ color: 'var(--grey-light)', fontSize: 'var(--text-xs)', marginBottom: 'var(--space-2)' }}>Color tints (for badges, highlights)</div>
-        <Row style={{ gap: 'var(--space-4)' }}>
-          {[
-            ['--gold-tint', 'var(--gold)', 'Gold'],
-            ['--green-tint', 'var(--green)', 'Win'],
-            ['--red-tint', 'var(--red)', 'Loss'],
-          ].map(([name, borderColor, label]) => (
-            <div key={name} style={{ textAlign: 'center' }}>
-              <div style={{ width: 80, height: 50, background: `var(${name})`, border: `1px solid ${borderColor}`, borderRadius: 'var(--radius-md)', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-                <span style={{ fontFamily: 'var(--font-mono)', fontSize: 'var(--text-xs)', color: borderColor }}>{label}</span>
-              </div>
-              <span style={{ fontFamily: 'var(--font-mono)', fontSize: 10, color: 'var(--grey-light)', display: 'block', marginTop: 'var(--space-1)' }}>{name.replace('--', '')}</span>
-            </div>
-          ))}
-        </Row>
-      </div>
-    </Section>
-
-    {/* OVERLAY COMPONENTS */}
-    <Section>
-      <SectionTitle>Overlay Components (4)</SectionTitle>
-      <div style={{ color: 'var(--grey-light)', fontSize: 'var(--text-xs)', marginBottom: 'var(--space-4)' }}>
-        Stream overlays for OBS/Streamlabs. Use: body {"{"} background: transparent !important; {"}"}
-      </div>
-
-      <Grid style={{ gridTemplateColumns: 'repeat(2, 1fr)', gap: 'var(--space-4)' }}>
-        {/* OverlayCard */}
-        <div>
-          <div style={{ background: 'var(--overlay-medium)', border: '1px solid rgba(252,219,51,0.4)', borderRadius: 'var(--radius-md)', padding: 'var(--space-4)', textAlign: 'center' }}>
-            <div style={{ fontFamily: 'var(--font-display)', color: 'var(--gold)', fontSize: 'var(--text-lg)' }}>PlayerName</div>
-            <div style={{ fontFamily: 'var(--font-mono)', fontSize: 'var(--text-sm)', color: 'var(--grey-light)' }}>1847 MMR</div>
-          </div>
-          <span style={{ fontFamily: 'var(--font-mono)', fontSize: 10, color: 'var(--grey-light)', display: 'block', marginTop: 'var(--space-1)' }}>OverlayCard</span>
         </div>
+      </Section>
 
-        {/* OverlayMinimal */}
-        <div>
-          <div style={{ background: 'linear-gradient(180deg, rgba(30,30,30,0.95) 0%, rgba(15,15,15,0.98) 100%)', border: '1px solid rgba(252,219,51,0.3)', borderRadius: 'var(--radius-sm)', padding: 'var(--space-2) var(--space-4)' }}>
-            <div style={{ fontFamily: 'var(--font-display)', color: 'var(--gold)', fontSize: 'var(--text-sm)' }}>Match Overlay</div>
-          </div>
-          <span style={{ fontFamily: 'var(--font-mono)', fontSize: 10, color: 'var(--grey-light)', display: 'block', marginTop: 'var(--space-1)' }}>OverlayMinimal</span>
-        </div>
-
-        {/* OverlayGradient */}
-        <div>
-          <div style={{ background: 'radial-gradient(ellipse at center, var(--overlay-medium) 0%, var(--overlay-light) 60%, transparent 100%)', padding: 'var(--space-4)', textAlign: 'center' }}>
-            <div style={{ fontFamily: 'var(--font-display)', color: 'var(--gold)' }}>Gradient Fade</div>
-          </div>
-          <span style={{ fontFamily: 'var(--font-mono)', fontSize: 10, color: 'var(--grey-light)', display: 'block', marginTop: 'var(--space-1)' }}>OverlayGradient</span>
-        </div>
-
-        {/* OverlayFrosted */}
-        <div>
-          <div style={{ background: 'rgba(20,20,30,0.7)', backdropFilter: 'blur(8px)', border: '1px solid var(--surface-3)', borderRadius: 'var(--radius-md)', padding: 'var(--space-4)' }}>
-            <div style={{ fontFamily: 'var(--font-display)', color: 'var(--gold)' }}>Frosted</div>
-          </div>
-          <span style={{ fontFamily: 'var(--font-mono)', fontSize: 10, color: 'var(--grey-light)', display: 'block', marginTop: 'var(--space-1)' }}>OverlayFrosted</span>
-        </div>
-      </Grid>
-    </Section>
-
-    {/* TINTED SURFACES */}
-    <Section>
-      <SectionTitle>Tinted Surfaces (3)</SectionTitle>
-      <Row style={{ gap: 'var(--space-4)' }}>
-        <div style={{ background: 'var(--gold-tint)', border: '1px solid rgba(252,219,51,0.3)', borderRadius: 'var(--radius-md)', padding: 'var(--space-2) var(--space-4)' }}>
-          <span style={{ fontFamily: 'var(--font-mono)', fontSize: 'var(--text-sm)', color: 'var(--gold)' }}>GoldSurface</span>
-        </div>
-        <div style={{ background: 'var(--green-tint)', border: '1px solid rgba(74,222,128,0.3)', borderRadius: 'var(--radius-md)', padding: 'var(--space-2) var(--space-4)' }}>
-          <span style={{ fontFamily: 'var(--font-mono)', fontSize: 'var(--text-sm)', color: 'var(--green)' }}>WinSurface</span>
-        </div>
-        <div style={{ background: 'var(--red-tint)', border: '1px solid rgba(248,113,113,0.3)', borderRadius: 'var(--radius-md)', padding: 'var(--space-2) var(--space-4)' }}>
-          <span style={{ fontFamily: 'var(--font-mono)', fontSize: 'var(--text-sm)', color: 'var(--red)' }}>LossSurface</span>
-        </div>
-      </Row>
-    </Section>
-
-    {/* COMPONENTS */}
-    <Section>
-      <SectionTitle>Components</SectionTitle>
-
-      <div style={{ marginBottom: 'var(--space-4)' }}>
-        <div style={{ color: 'var(--grey-light)', fontSize: 'var(--text-xs)', marginBottom: 'var(--space-2)' }}>Buttons</div>
-        <Row>
-          <Button $primary>Primary</Button>
-          <Button $secondary>Secondary</Button>
-        </Row>
-      </div>
-
-      <div style={{ marginBottom: 'var(--space-4)' }}>
-        <div style={{ color: 'var(--grey-light)', fontSize: 'var(--text-xs)', marginBottom: 'var(--space-2)' }}>Badges</div>
-        <Row>
-          <Badge>Default</Badge>
-          <Badge $bg="var(--gold)" $color="#0a0a0a" $border="var(--gold)">Gold</Badge>
-          <Badge $bg="rgba(74,222,128,0.15)" $color="var(--green)" $border="var(--green)">Win</Badge>
-          <Badge $bg="rgba(248,113,113,0.15)" $color="var(--red)" $border="var(--red)">Loss</Badge>
-        </Row>
-      </div>
-
-      <div style={{ marginBottom: 'var(--space-4)' }}>
-        <div style={{ color: 'var(--grey-light)', fontSize: 'var(--text-xs)', marginBottom: 'var(--space-2)' }}>Form dots (most recent = largest)</div>
-        <Row style={{ gap: 'var(--space-1)', alignItems: 'center' }}>
-          <Dot /><Dot $win /><Dot /><Dot $win /><Dot $win $recent />
-          <span style={{ marginLeft: 'var(--space-2)', fontFamily: 'var(--font-mono)', fontSize: 'var(--text-sm)', color: 'var(--grey-light)' }}>3W-2L</span>
-        </Row>
-      </div>
-
-      <div style={{ marginBottom: 'var(--space-4)' }}>
-        <div style={{ color: 'var(--grey-light)', fontSize: 'var(--text-xs)', marginBottom: 'var(--space-2)' }}>Team indicators</div>
-        <Row>
-          <TeamBar $blue>PlayerName</TeamBar>
-          <TeamBar>EnemyPlayer</TeamBar>
-        </Row>
-      </div>
-
-      <div>
-        <div style={{ color: 'var(--grey-light)', fontSize: 'var(--text-xs)', marginBottom: 'var(--space-2)' }}>Card</div>
-        <Card style={{ maxWidth: 240 }}>
-          <div style={{ fontFamily: 'var(--font-display)', color: 'var(--gold)', marginBottom: 'var(--space-1)' }}>PlayerName</div>
-          <div style={{ fontFamily: 'var(--font-mono)', fontSize: 'var(--text-sm)', color: 'var(--grey-light)' }}>1847 MMR • 59% WR</div>
-        </Card>
-      </div>
-    </Section>
-
-    {/* QUICK REF */}
-    <Section>
-      <SectionTitle>Quick Reference</SectionTitle>
-      <Code>
+      {/* QUICK REF */}
+      <Section>
+        <SectionTitle>Quick Reference</SectionTitle>
+        <Note>Generated from src/design-tokens.js</Note>
+        <Code>
 {`/* COLORS */
---gold         #fcdb33   Brand, accents, player names
---green        #4ade80   Wins, positive
---red          #f87171   Losses, negative
---grey-light   #999      Secondary text, labels
---grey-mid     #444      Borders, disabled
---grey-dark    #1a1a1a   Elevated surfaces
-
-/* TRANSPARENCY / OVERLAYS */
---overlay-heavy    rgba(0,0,0,0.9)    Nearly opaque
---overlay-medium   rgba(0,0,0,0.8)    Standard overlay
---overlay-light    rgba(0,0,0,0.6)    Lighter backdrop
-
---surface-1        rgba(255,255,255,0.02)  Card bg
---surface-2        rgba(255,255,255,0.05)  Hover state
---surface-3        rgba(255,255,255,0.1)   Borders
-
---gold-tint        rgba(252,219,51,0.1)
---green-tint       rgba(74,222,128,0.1)
---red-tint         rgba(248,113,113,0.1)
+${colorEntries.map(([k, t]) => `${t.css.padEnd(18)} ${t.value.padEnd(10)} ${t.usage}`).join('\n')}
 
 /* FONTS */
---font-display            Friz Quadrata (headlines)
---font-mono               Inconsolata (everything else)
+${Object.entries(fonts).map(([k, t]) => `${t.css.padEnd(18)} ${t.usage}`).join('\n')}
 
 /* TYPE SCALE */
---text-xs    11px        Labels
---text-sm    13px        Small
---text-base  15px        Body
---text-lg    20px        Subheads
---text-xl    28px        Headings
+${typeEntries.map(([k, t]) => `${t.css.padEnd(14)} ${t.value.padEnd(6)} ${t.usage}`).join('\n')}
 
 /* SPACING */
---space-1   4px    --space-6   24px
---space-2   8px    --space-8   32px
---space-4  16px    --space-12  48px
+${spacingEntries.map(([k, t]) => `${t.css.padEnd(12)} ${t.value}`).join('\n')}
 
 /* BORDERS */
---radius-sm 2px   --radius-md 4px   --radius-full
---border-thin 1px   --border-thick 2px
+${Object.entries(borders).map(([k, t]) => `${t.css.padEnd(16)} ${t.value}`).join('\n')}
 
-/* OTHER */
---shadow-glow     Gold glow effect
---transition      150ms ease`}
-      </Code>
-    </Section>
-  </Page>
-);
+/* EFFECTS */
+${Object.entries(effects).map(([k, t]) => `${t.css.padEnd(16)} ${t.usage}`).join('\n')}`}
+        </Code>
+      </Section>
+    </Page>
+  );
+};
 
 export default StyleReference;

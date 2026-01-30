@@ -260,7 +260,6 @@ const Game = ({ playerData: rawPlayerData, metaData, profilePics, playerCountrie
             ) : null}
             {player.isMvp && (
               <div className={`mvp-badge ${teamClassName}`}>
-                <span className="mvp-star">⭐</span>
                 <span className="mvp-text">MVP</span>
               </div>
             )}
@@ -339,7 +338,7 @@ const Game = ({ playerData: rawPlayerData, metaData, profilePics, playerCountrie
             <th> </th>
             <th className={`team-0 team-header ${team1Won ? "winner" : ""}`}>
               <div>
-                <h2 className="team-name">{team1Won && <span className="crown">👑</span>} TEAM 1</h2>
+                <h2 className="team-name">{team1Won && <span className="winner-badge">W</span>} TEAM 1</h2>
                 <div className="team-mmr-line">
                   <span className="mmr-value">{team1AvgMmr}</span>
                   <span className="mmr-label"> MMR</span>
@@ -364,7 +363,7 @@ const Game = ({ playerData: rawPlayerData, metaData, profilePics, playerCountrie
             </th>
             <th className={`team-1 team-header ${team2Won ? "winner" : ""}`}>
               <div>
-                <h2 className="team-name">TEAM 2 {team2Won && <span className="crown">👑</span>}</h2>
+                <h2 className="team-name">TEAM 2 {team2Won && <span className="winner-badge">W</span>}</h2>
                 <div className="team-mmr-line">
                   <span className="mmr-value">{team2AvgMmr}</span>
                   <span className="mmr-label"> MMR</span>
@@ -407,6 +406,7 @@ const Game = ({ playerData: rawPlayerData, metaData, profilePics, playerCountrie
                             teamOneAT: playerData.slice(0, 4).map((d) => isPlayerAT(d.battleTag)),
                             teamTwoAT: playerData.slice(4).map((d) => isPlayerAT(d.battleTag)),
                           }}
+                          compact={compact}
                         />
                       </div>
                     </th>
@@ -454,7 +454,7 @@ const Game = ({ playerData: rawPlayerData, metaData, profilePics, playerCountrie
                     </span>
                   </div>
                 </div>
-                {metaData.matchId && (
+                {metaData.matchId && metaData.gameLength !== "0:00" && (
                   <Link to={`/match/${metaData.matchId}`} className="meta-match-id">
                     #{metaData.matchId}
                   </Link>

@@ -58,55 +58,41 @@ npm run preview
 
 ## Design System
 
-Minimal token set (~20 tokens). View live reference at `/styles`.
+**Single source of truth:** `src/design-tokens.js`
 
-### CSS Variables (App.css :root)
+All design tokens (colors, fonts, spacing, etc.) are defined in `design-tokens.js`. This file is imported by:
+- `StyleReference.jsx` - Visual reference at `/styles`
+- Components that need token values directly
 
-```css
-/* COLORS (6) */
---gold: #fcdb33;        /* Brand, player names, accents */
---green: #4ade80;       /* Wins, positive */
---red: #f87171;         /* Losses, negative */
---grey-light: #999;     /* Secondary text, labels */
---grey-mid: #444;       /* Borders, disabled */
---grey-dark: #1a1a1a;   /* Elevated surfaces */
+**Validate consistency:** `npm run validate-tokens` - Checks that App.css matches design-tokens.js
 
-/* FONTS (2) */
---font-display          /* Friz Quadrata - headlines, player names */
---font-mono             /* Inconsolata - everything else */
+### Quick Reference
 
-/* TYPE SCALE (5) */
---text-xs: 11px;        /* Labels, column headers */
---text-sm: 13px;        /* Small text */
---text-base: 15px;      /* Body default */
---text-lg: 20px;        /* Subheadings */
---text-xl: 28px;        /* Headings */
-
-/* SPACING (6) */
---space-1: 4px;   --space-6: 24px;
---space-2: 8px;   --space-8: 32px;
---space-4: 16px;  --space-12: 48px;
-
-/* BORDERS (5) */
---radius-sm: 2px;  --radius-md: 4px;  --radius-full: 9999px;
---border-thin: 1px;  --border-thick: 2px;
-
-/* OTHER */
---shadow-glow: 0 0 20px rgba(252, 219, 51, 0.3);
---transition: 150ms ease;
-```
+| Category | Tokens |
+|----------|--------|
+| Colors | `--gold` `--green` `--red` `--grey-light` `--grey-mid` `--grey-dark` |
+| Fonts | `--font-display` (Friz Quadrata) `--font-mono` (Inconsolata) |
+| Type scale | `--text-xs` (11px) `--text-sm` (13px) `--text-base` (15px) `--text-lg` (20px) `--text-xl` (28px) |
+| Spacing | `--space-1` (4px) `--space-2` (8px) `--space-4` (16px) `--space-6` (24px) `--space-8` (32px) `--space-12` (48px) |
+| Borders | `--radius-sm` `--radius-md` `--radius-full` `--border-thin` `--border-thick` |
+| Overlays | `--overlay-heavy` `--overlay-medium` `--overlay-light` |
+| Surfaces | `--surface-1` `--surface-2` `--surface-3` |
+| Tints | `--gold-tint` `--green-tint` `--red-tint` |
 
 ### Usage Patterns
 
-| Element | Style |
-|---------|-------|
+Defined in `design-tokens.js` under `patterns`:
+
+| Element | CSS |
+|---------|-----|
 | Player names | `font-family: var(--font-display); color: var(--gold)` |
 | Stats/MMR | `font-family: var(--font-mono); color: #fff` |
 | Labels | `font: var(--text-xs) var(--font-mono); text-transform: uppercase; letter-spacing: 0.1em; color: var(--grey-light)` |
 | Win values | `color: var(--green)` |
 | Loss values | `color: var(--red)` |
-| Cards | `border: var(--border-thick) solid var(--gold); border-radius: var(--radius-md)` |
-| Borders | `border: 1px solid var(--grey-mid)` |
+| Live indicator | `width: 10px; height: 10px; background: var(--red); border-radius: 50%; animation: pulse 1.5s infinite` |
+| Primary cards | `border: var(--border-thick) solid var(--gold); border-radius: var(--radius-md)` |
+| Secondary cards | `border: 1px solid var(--grey-mid); border-radius: var(--radius-md)` |
 
 ### Shared Components
 
@@ -145,8 +131,16 @@ Map minimap images are stored in `public/maps/` as PNG files. The filename is de
 **If a map image is missing:**
 
 1. Check the browser console/network tab for the 404'd filename (e.g., `/maps/SomeNewMap.png`)
-2. Get the minimap image from W3Champions or the map file itself
-3. Save as `public/maps/{CleanName}.png` matching the expected filename
-4. The `getMapImageUrl()` function in `Game.jsx` handles the name transformation
+2. Find the map on [wc3maps.com](https://wc3maps.com/) by searching for the map name
+3. Get the map ID from the URL (e.g., `wc3maps.com/map/248157/Deadlock_LV` → ID is `248157`)
+4. Download the minimap image:
+   ```bash
+   curl -sL -o public/maps/{CleanName}.png "https://wc3maps.com/static/maps/{MAP_ID}/archive/war3mapMap.jpg"
+   ```
+   Example for Deadlock LV:
+   ```bash
+   curl -sL -o public/maps/DeadlockLV.png "https://wc3maps.com/static/maps/248157/archive/war3mapMap.jpg"
+   ```
+5. The `getMapImageUrl()` function in `Game.jsx` handles the name transformation
 
 **Current maps:** Ferocity, EkrezemsMaze, Snowblind, NorthshireLV, OrdealGround, GoldRush, RoyalGardens, NerubianPassage, PaintedWorld, Nightopia, IndigoKeeper, Deadlock, TwilightRuinsLV, WellspringTemple, SanctuaryLV, BloodvenomFallsv2, Lilious, NorthmarshRuin, RuinsofAlterac

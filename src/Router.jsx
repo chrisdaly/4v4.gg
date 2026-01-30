@@ -10,9 +10,11 @@ import RecentlyFinished from "./RecentlyFinished";
 import MyStreamPage from "./MyStreamPage";
 import VisualizationDemo from "./VisualizationDemo";
 import StyleReference from "./StyleReference";
+import IconDemo from "./IconDemo";
 import OverlayIndex from "./OverlayIndex";
 import MatchOverlayPage from "./MatchOverlayPage";
 import PlayerOverlayPage from "./PlayerOverlayPage";
+import LastGameOverlayPage from "./LastGameOverlayPage";
 
 const Router = () => (
   <BrowserRouter>
@@ -30,12 +32,14 @@ const Router = () => (
       <Route exact path="/overlay" component={OverlayIndex} />
       <Route path="/overlay/match" component={MatchOverlayPage} />
       <Route path="/overlay/player" component={PlayerOverlayPage} />
+      <Route path="/overlay/lastgame" component={LastGameOverlayPage} />
       <Route path="/stream" component={PlayerStream} />
       <Route path="/mystream" component={MyStreamPage} />
 
       {/* Dev/demo pages */}
       <Route path="/demo" component={VisualizationDemo} />
       <Route path="/styles" component={StyleReference} />
+      <Route path="/icons" component={IconDemo} />
     </Switch>
   </BrowserRouter>
 );
