@@ -53,22 +53,23 @@ const ATConnector = ({ relation }) => {
   return <div ref={lineRef} className={`at-line ${relation ? `at-line-${relation}` : ""}`} />;
 };
 
-const Game = ({ playerData: rawPlayerData, metaData, profilePics, playerCountries, sessionData, compact, streamerTag }) => {
-  const [atGroups, setAtGroups] = useState({});
+const Game = ({ playerData: rawPlayerData, metaData, profilePics, playerCountries, sessionData, compact, streamerTag, initialATGroups }) => {
+  const [atGroups, setAtGroups] = useState(initialATGroups || {});
 
   const excludedKeys = ["mercsHired", "itemsObtained", "lumberCollected"];
   const raceMapping = { 8: undead, 0: random, 4: elf, 2: orc, 1: human };
   // Reorder team 1 players (reverse) for display, don't mutate props
   const playerData = [...rawPlayerData.slice(0, 4).reverse(), ...rawPlayerData.slice(4)];
 
-  // Detect arranged teams
+  // Detect arranged teams (skip if initialATGroups provided)
   useEffect(() => {
+    if (initialATGroups) return;
     const detect = async () => {
       const groups = await detectArrangedTeams(rawPlayerData);
       setAtGroups(groups);
     };
     detect();
-  }, [rawPlayerData]);
+  }, [rawPlayerData, initialATGroups]);
 
   // Check if a player is in an AT group
   const isPlayerAT = (battleTag) => {

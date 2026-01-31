@@ -15,6 +15,7 @@ import OverlayIndex from "./OverlayIndex";
 import MatchOverlayPage from "./MatchOverlayPage";
 import PlayerOverlayPage from "./PlayerOverlayPage";
 import LastGameOverlayPage from "./LastGameOverlayPage";
+import DesignLab from "./DesignLab";
 
 const Router = () => (
   <BrowserRouter>
@@ -40,6 +41,7 @@ const Router = () => (
       <Route path="/demo" component={VisualizationDemo} />
       <Route path="/styles" component={StyleReference} />
       <Route path="/icons" component={IconDemo} />
+      <Route path="/design" component={DesignLab} />
     </Switch>
   </BrowserRouter>
 );

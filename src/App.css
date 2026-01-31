@@ -1379,9 +1379,8 @@ img.teamHeaderRace {
   font-weight: bold;
 }
 
-/* AT (Arranged Team) styling */
+/* AT (Arranged Team) styling - no purple border, connector between avatars instead */
 .profile-pic.at {
-  box-shadow: 0 0 0 3px #8b5cf6;
   position: relative;
   z-index: 1001;
 }
@@ -4377,7 +4376,7 @@ a.neighbor-name-sm:hover {
 /* MMR chart container - default size */
 .mmr-chart-container {
   height: 220px;
-  width: 60px;
+  width: 140px;
   overflow: hidden;
   display: inline-block;
 }
@@ -4639,15 +4638,15 @@ a.neighbor-name-sm:hover {
   text-align: center;
 }
 
-/* AT connector line between AT players */
+/* AT connector - simple yellow/gold dash between player names */
 .at-connector {
   position: absolute;
-  right: -12px;
-  top: 50%;
-  width: 24px;
+  right: -14px;
+  top: 58%;
+  width: 28px;
   height: 3px;
-  background: linear-gradient(90deg, #9b59b6 0%, #9b59b6 100%);
   z-index: 10;
+  background: var(--at-color, var(--gold));
   border-radius: 2px;
 }
 
@@ -7138,49 +7137,6 @@ a.neighbor-name:hover {
 
   .recent-games-grid {
     flex-direction: column;
-  }
-
-  .recent-game-card {
-    width: 100%;
-  }
-
-  .last-game-card,
-  .current-game-card {
-    flex-direction: column;
-    gap: 12px;
-  }
-
-  .lgc-map,
-  .cgc-map {
-    width: 100%;
-    height: 120px;
-  }
-
-  .lgc-teams {
-    flex-direction: column;
-    align-items: flex-start;
-    gap: 8px;
-  }
-
-  .lgc-team.opponents {
-    justify-content: flex-start;
-  }
-
-  .lgc-arrow {
-    display: none;
-  }
-
-  .cgc-teams {
-    flex-direction: column;
-    gap: 12px;
-  }
-
-  .cgc-team-block.opponents {
-    align-items: flex-start;
-  }
-
-  .cgc-team-block.opponents .cgc-team-players {
-    justify-content: flex-start;
   }
 }
 
