@@ -153,6 +153,19 @@ const mmrLayouts = [
   { id: "strip", label: "Compact Strip" },
 ];
 
+const shapePresets = [
+  { id: "shuriken", label: "Shuriken" },
+  { id: "shamrock", label: "Shamrock" },
+  { id: "clover", label: "Clover" },
+  { id: "petal", label: "Petals" },
+  { id: "teardrop", label: "Teardrops" },
+  { id: "chevron", label: "Chevrons" },
+  { id: "crescent", label: "Crescents" },
+  { id: "triangle", label: "Triangles" },
+  { id: "star", label: "Star Points" },
+  { id: "pacman", label: "Pac-Man" },
+];
+
 const DesignLab = () => {
   const [playerData, setPlayerData] = useState(null);
   const [metaData, setMetaData] = useState(null);
@@ -160,7 +173,8 @@ const DesignLab = () => {
   const [mmrLayout, setMmrLayout] = useState("sideBySide");
   const [scenario, setScenario] = useState("2at_oneTeam");
 
-  // Petal shape parameters
+  // Shape type and parameters
+  const [shapeType, setShapeType] = useState("shuriken");
   const [petalLength, setPetalLength] = useState(1.4);
   const [petalWidth, setPetalWidth] = useState(0.7);
   const [petalOffset, setPetalOffset] = useState(0.3);
@@ -299,76 +313,105 @@ const DesignLab = () => {
           </div>
         </div>
 
-        {/* Petal Shape Controls */}
-        <div style={{ marginTop: "16px", padding: "16px", background: "var(--surface-3)", borderRadius: "8px" }}>
-          <label style={{ color: "var(--gold)", fontSize: "12px", textTransform: "uppercase", letterSpacing: "0.1em", display: "block", marginBottom: "12px", fontWeight: "bold" }}>
-            Petal Shape Parameters
+        {/* Shape Type Selector */}
+        <div style={{ marginTop: "16px" }}>
+          <label style={{ color: "var(--grey-light)", fontSize: "11px", textTransform: "uppercase", letterSpacing: "0.1em", display: "block", marginBottom: "6px" }}>
+            AT Shape Style
           </label>
-          <div style={{ display: "grid", gridTemplateColumns: "repeat(4, 1fr)", gap: "16px" }}>
-            <div>
-              <label style={{ color: "var(--grey-light)", fontSize: "10px", display: "block", marginBottom: "4px" }}>
-                Length: {petalLength.toFixed(2)}
-              </label>
-              <input
-                type="range"
-                min="0.5"
-                max="2.5"
-                step="0.1"
-                value={petalLength}
-                onChange={(e) => setPetalLength(parseFloat(e.target.value))}
-                style={{ width: "100%" }}
-              />
-            </div>
-            <div>
-              <label style={{ color: "var(--grey-light)", fontSize: "10px", display: "block", marginBottom: "4px" }}>
-                Width: {petalWidth.toFixed(2)}
-              </label>
-              <input
-                type="range"
-                min="0.2"
-                max="1.5"
-                step="0.1"
-                value={petalWidth}
-                onChange={(e) => setPetalWidth(parseFloat(e.target.value))}
-                style={{ width: "100%" }}
-              />
-            </div>
-            <div>
-              <label style={{ color: "var(--grey-light)", fontSize: "10px", display: "block", marginBottom: "4px" }}>
-                Offset: {petalOffset.toFixed(2)}
-              </label>
-              <input
-                type="range"
-                min="0"
-                max="1"
-                step="0.05"
-                value={petalOffset}
-                onChange={(e) => setPetalOffset(parseFloat(e.target.value))}
-                style={{ width: "100%" }}
-              />
-            </div>
-            <div>
-              <label style={{ color: "var(--grey-light)", fontSize: "10px", display: "block", marginBottom: "4px" }}>
-                Rotation: {petalRotation}°
-              </label>
-              <input
-                type="range"
-                min="0"
-                max="90"
-                step="5"
-                value={petalRotation}
-                onChange={(e) => setPetalRotation(parseInt(e.target.value))}
-                style={{ width: "100%" }}
-              />
-            </div>
+          <div style={{ display: "flex", gap: "6px", flexWrap: "wrap" }}>
+            {shapePresets.map(shape => (
+              <button
+                key={shape.id}
+                onClick={() => setShapeType(shape.id)}
+                style={{
+                  padding: "6px 12px",
+                  background: shapeType === shape.id ? "var(--gold)" : "var(--surface-3)",
+                  color: shapeType === shape.id ? "#000" : "#fff",
+                  border: "1px solid var(--grey-mid)",
+                  borderRadius: "4px",
+                  cursor: "pointer",
+                  fontFamily: "var(--font-mono)",
+                  fontSize: "11px",
+                }}
+              >
+                {shape.label}
+              </button>
+            ))}
           </div>
         </div>
+
+        {/* Shape Parameters (only show for petal type) */}
+        {shapeType === "petal" && (
+          <div style={{ marginTop: "16px", padding: "16px", background: "var(--surface-3)", borderRadius: "8px" }}>
+            <label style={{ color: "var(--gold)", fontSize: "12px", textTransform: "uppercase", letterSpacing: "0.1em", display: "block", marginBottom: "12px", fontWeight: "bold" }}>
+              Petal Shape Parameters
+            </label>
+            <div style={{ display: "grid", gridTemplateColumns: "repeat(4, 1fr)", gap: "16px" }}>
+              <div>
+                <label style={{ color: "var(--grey-light)", fontSize: "10px", display: "block", marginBottom: "4px" }}>
+                  Length: {petalLength.toFixed(2)}
+                </label>
+                <input
+                  type="range"
+                  min="0.5"
+                  max="2.5"
+                  step="0.1"
+                  value={petalLength}
+                  onChange={(e) => setPetalLength(parseFloat(e.target.value))}
+                  style={{ width: "100%" }}
+                />
+              </div>
+              <div>
+                <label style={{ color: "var(--grey-light)", fontSize: "10px", display: "block", marginBottom: "4px" }}>
+                  Width: {petalWidth.toFixed(2)}
+                </label>
+                <input
+                  type="range"
+                  min="0.2"
+                  max="1.5"
+                  step="0.1"
+                  value={petalWidth}
+                  onChange={(e) => setPetalWidth(parseFloat(e.target.value))}
+                  style={{ width: "100%" }}
+                />
+              </div>
+              <div>
+                <label style={{ color: "var(--grey-light)", fontSize: "10px", display: "block", marginBottom: "4px" }}>
+                  Offset: {petalOffset.toFixed(2)}
+                </label>
+                <input
+                  type="range"
+                  min="0"
+                  max="1"
+                  step="0.05"
+                  value={petalOffset}
+                  onChange={(e) => setPetalOffset(parseFloat(e.target.value))}
+                  style={{ width: "100%" }}
+                />
+              </div>
+              <div>
+                <label style={{ color: "var(--grey-light)", fontSize: "10px", display: "block", marginBottom: "4px" }}>
+                  Rotation: {petalRotation}°
+                </label>
+                <input
+                  type="range"
+                  min="0"
+                  max="90"
+                  step="5"
+                  value={petalRotation}
+                  onChange={(e) => setPetalRotation(parseInt(e.target.value))}
+                  style={{ width: "100%" }}
+                />
+              </div>
+            </div>
+          </div>
+        )}
       </div>
 
       {/* Game Display with selected MMR layout */}
       <div className="games">
         <GameDesignVariant
-          key={scenario}
+          key={`${scenario}-${shapeType}`}
           playerData={playerData}
           metaData={metaData}
           profilePics={mockProfilePics}
@@ -378,6 +421,7 @@ const DesignLab = () => {
           initialATGroups={testScenarios[scenario].atGroups}
           mmrLayout={mmrLayout}
           atColor={currentColor?.hex}
+          shapeType={shapeType}
           petalParams={{ length: petalLength, width: petalWidth, offset: petalOffset, rotation: petalRotation }}
         />
       </div>

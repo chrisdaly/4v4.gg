@@ -8,32 +8,26 @@ const MmrComparison = ({ data, compact = false }) => {
   useEffect(() => {
     if (!svgRef.current) return;
 
-    // Create data with AT info, filter out unranked players
+    // Create data with AT group size info, filter out unranked players
+    // teamOneAT/teamTwoAT now contain group sizes (0, 2, 3, 4) instead of booleans
     const teamOneData = teamOneMmrs
-      .map((mmr, i) => ({ mmr, isAT: teamOneAT[i] || false, index: i }))
+      .map((mmr, i) => ({ mmr, atGroupSize: teamOneAT[i] || 0, index: i }))
       .filter(d => d.mmr && d.mmr > 0);
     const teamTwoData = teamTwoMmrs
-      .map((mmr, i) => ({ mmr, isAT: teamTwoAT[i] || false, index: i }))
+      .map((mmr, i) => ({ mmr, atGroupSize: teamTwoAT[i] || 0, index: i }))
       .filter(d => d.mmr && d.mmr > 0);
 
     const svg = d3.select(svgRef.current);
-
-    // Remove existing content to avoid appending multiple plots
     svg.selectAll("*").remove();
 
-    // Get dimensions of parent container
     const parent = svgRef.current.parentElement;
     const width = parent.clientWidth;
     const height = parent.clientHeight;
 
-    // Define margins
     const margin = { top: 10, right: 0, bottom: 10, left: 0 };
     const innerWidth = width - margin.left - margin.right;
     const innerHeight = height - margin.top - margin.bottom;
 
-    // Define scales
-    // Compact mode: dynamic scale fully stretched (min at bottom, max at top)
-    // Non-compact mode: fixed scale 800-2700 for comparing games
     let yDomain;
     if (compact) {
       const allMmrs = [...teamOneData, ...teamTwoData].map(d => d.mmr);
@@ -49,88 +43,86 @@ const MmrComparison = ({ data, compact = false }) => {
       .domain(yDomain)
       .range([innerHeight, margin.top]);
 
-    // Draw Team One line and circles
     const teamOneX = innerWidth / 3 + margin.left;
-    const teamOneLine = d3
-      .line()
-      .x(() => teamOneX)
-      .y((d) => yScale(d.mmr));
-
-    svg.append("path")
-      .datum(teamOneData)
-      .attr("class", "line team-one")
-      .attr("d", teamOneLine);
-
+    const teamTwoX = (2 * innerWidth) / 3 + margin.left;
     const dotRadius = compact ? 3 : 4;
 
-    // Draw connecting lines between AT players (rendered first so dots appear on top)
-    const teamOneATData = teamOneData.filter(d => d.isAT);
-    if (teamOneATData.length > 1) {
+    // Draw team spread lines
+    const teamOneLine = d3.line().x(() => teamOneX).y((d) => yScale(d.mmr));
+    svg.append("path").datum(teamOneData).attr("class", "line team-one").attr("d", teamOneLine);
+
+    const teamTwoLine = d3.line().x(() => teamTwoX).y((d) => yScale(d.mmr));
+    svg.append("path").datum(teamTwoData).attr("class", "line team-two").attr("d", teamTwoLine);
+
+    // Track AT group slice indices for shuriken rendering
+    const atGroupCounters = { team1: {}, team2: {} };
+
+    // Helper to draw shuriken pie slice for AT players
+    const drawShuriken = (cx, cy, groupSize, sliceIndex, teamClass) => {
+      const totalRadius = dotRadius * Math.sqrt(groupSize);
+      const sliceAngle = (2 * Math.PI) / groupSize;
+      const gapAngle = 0.5;
+      const baseRotation = groupSize === 2 ? Math.PI / 4 : 0;
+      const startAngle = sliceIndex * sliceAngle + gapAngle / 2 + baseRotation;
+      const endAngle = (sliceIndex + 1) * sliceAngle - gapAngle / 2 + baseRotation;
+
+      const arc = d3.arc()
+        .innerRadius(0)
+        .outerRadius(totalRadius)
+        .startAngle(startAngle)
+        .endAngle(endAngle);
+
       svg.append("path")
-        .datum(teamOneATData)
-        .attr("class", "at-connect-line")
-        .attr("d", d3.line()
-          .x(() => teamOneX)
-          .y((d) => yScale(d.mmr))
-        );
-    }
-    const teamTwoATData = teamTwoData.filter(d => d.isAT);
-    if (teamTwoATData.length > 1) {
-      const teamTwoX = (2 * innerWidth) / 3 + margin.left;
-      svg.append("path")
-        .datum(teamTwoATData)
-        .attr("class", "at-connect-line")
-        .attr("d", d3.line()
-          .x(() => teamTwoX)
-          .y((d) => yScale(d.mmr))
-        );
-    }
+        .attr("d", arc())
+        .attr("transform", `translate(${cx}, ${cy})`)
+        .attr("class", `dot ${teamClass}`);
+    };
 
-    // Team One dots - AT players get purple ring
-    svg
-      .selectAll(".dot-team-one")
-      .data(teamOneData)
-      .enter()
-      .append("circle")
-      .attr("class", (d) => d.isAT ? "dot dot-team-one at-ring" : "dot dot-team-one")
-      .attr("cx", teamOneX)
-      .attr("cy", (d) => yScale(d.mmr))
-      .attr("r", dotRadius);
+    // Draw Team One dots/shurikens
+    teamOneData.forEach(d => {
+      const cy = yScale(d.mmr);
+      if (d.atGroupSize > 0) {
+        const groupSize = d.atGroupSize;
+        if (!atGroupCounters.team1[groupSize]) atGroupCounters.team1[groupSize] = 0;
+        const sliceIndex = atGroupCounters.team1[groupSize];
+        atGroupCounters.team1[groupSize]++;
+        if (atGroupCounters.team1[groupSize] >= groupSize) atGroupCounters.team1[groupSize] = 0;
+        drawShuriken(teamOneX, cy, groupSize, sliceIndex, "dot-team-one");
+      } else {
+        svg.append("circle")
+          .attr("class", "dot dot-team-one")
+          .attr("cx", teamOneX)
+          .attr("cy", cy)
+          .attr("r", dotRadius);
+      }
+    });
 
-    // Draw Team Two line and circles
-    const teamTwoX = (2 * innerWidth) / 3 + margin.left;
-    const teamTwoLine = d3
-      .line()
-      .x(() => teamTwoX)
-      .y((d) => yScale(d.mmr));
+    // Draw Team Two dots/shurikens
+    teamTwoData.forEach(d => {
+      const cy = yScale(d.mmr);
+      if (d.atGroupSize > 0) {
+        const groupSize = d.atGroupSize;
+        if (!atGroupCounters.team2[groupSize]) atGroupCounters.team2[groupSize] = 0;
+        const sliceIndex = atGroupCounters.team2[groupSize];
+        atGroupCounters.team2[groupSize]++;
+        if (atGroupCounters.team2[groupSize] >= groupSize) atGroupCounters.team2[groupSize] = 0;
+        drawShuriken(teamTwoX, cy, groupSize, sliceIndex, "dot-team-two");
+      } else {
+        svg.append("circle")
+          .attr("class", "dot dot-team-two")
+          .attr("cx", teamTwoX)
+          .attr("cy", cy)
+          .attr("r", dotRadius);
+      }
+    });
 
-    svg.append("path")
-      .datum(teamTwoData)
-      .attr("class", "line team-two")
-      .attr("d", teamTwoLine);
-
-    // Team Two dots - AT players get purple ring
-    svg
-      .selectAll(".dot-team-two")
-      .data(teamTwoData)
-      .enter()
-      .append("circle")
-      .attr("class", (d) => d.isAT ? "dot dot-team-two at-ring" : "dot dot-team-two")
-      .attr("cx", teamTwoX)
-      .attr("cy", (d) => yScale(d.mmr))
-      .attr("r", dotRadius);
-
+    // Center line
     const middleLine = innerWidth / 2 + margin.left;
-
-    svg
-      .append("line")
+    svg.append("line")
       .attr("class", "line team-middle")
-      .attr("x1", middleLine)
-      .attr("y1", 0)
-      .attr("x2", middleLine)
-      .attr("y2", height);
+      .attr("x1", middleLine).attr("y1", 0)
+      .attr("x2", middleLine).attr("y2", height);
 
-    // Only show MMR label in non-compact mode
     if (!compact) {
       svg.append("text").attr("class", "axistitle").text("MMR").attr("x", middleLine).attr("y", innerHeight);
     }

@@ -21,7 +21,7 @@ const getMapImageUrl = mapId => {
 };
 
 // Configurable MMR Chart with multiple layouts
-const MmrChartConfigurable = ({ data, layout, atColor, compact, petalParams }) => {
+const MmrChartConfigurable = ({ data, layout, atColor, compact, shapeType, petalParams }) => {
   const { teamOneMmrs, teamTwoMmrs, teamOneAT = [], teamTwoAT = [] } = data;
   const svgRef = useRef(null);
 
@@ -55,13 +55,13 @@ const MmrChartConfigurable = ({ data, layout, atColor, compact, petalParams }) =
     if (layout === "vertical") {
       renderVertical(svg, teamOneData, teamTwoData, width, height, minMmr, maxMmr, dotRadius, padding, color);
     } else if (layout === "sideBySide") {
-      renderSideBySide(svg, teamOneData, teamTwoData, width, height, minMmr, maxMmr, dotRadius, padding, color, petalParams);
+      renderSideBySide(svg, teamOneData, teamTwoData, width, height, minMmr, maxMmr, dotRadius, padding, color, shapeType, petalParams);
     } else if (layout === "horizontal") {
       renderHorizontal(svg, allData, width, height, minMmr, maxMmr, dotRadius, padding, color);
     } else if (layout === "strip") {
       renderStrip(svg, allData, width, height, minMmr, maxMmr, dotRadius, padding, color);
     }
-  }, [data, layout, atColor, compact, petalParams]);
+  }, [data, layout, atColor, compact, shapeType, petalParams]);
 
   // Container size varies by layout
   const containerStyle = {
@@ -151,27 +151,26 @@ function renderVertical(svg, team1Data, team2Data, width, height, minMmr, maxMmr
     .attr("y", height - 4);
 }
 
-function renderSideBySide(svg, team1Data, team2Data, width, height, minMmr, maxMmr, radius, padding, atColor, petalParams) {
+function renderSideBySide(svg, team1Data, team2Data, width, height, minMmr, maxMmr, radius, padding, atColor, shapeType, petalParams) {
   const yScale = d3
     .scaleLinear()
     .domain([minMmr - 50, maxMmr + 50])
     .range([height - padding, padding]);
 
-  const team1X = width * 0.3; // Team 1 center line
-  const team2X = width * 0.7; // Team 2 center line
-  const collisionOffset = radius * 2.5; // Offset for non-AT collisions
+  const team1X = width * 0.3;
+  const team2X = width * 0.7;
+  const collisionOffset = radius * 2.5;
 
   // Petal parameters with defaults
   const pLength = petalParams?.length ?? 1.4;
   const pWidth = petalParams?.width ?? 0.7;
   const pOffset = petalParams?.offset ?? 0.3;
-  const pRotation = petalParams?.rotation ?? 0; // additional rotation in degrees
+  const pRotation = petalParams?.rotation ?? 0;
 
-  // Position dots - AT groups all at same position (stacked slices), non-AT with collision detection
+  // Position dots
   const positionTeam = (data, centerX, isTeam1) => {
     const positioned = [];
-    // Track AT groups by their group size to determine slice index
-    const atGroupCounters = {}; // key: groupSize, value: count of players seen
+    const atGroupCounters = {};
 
     data.forEach(d => {
       const y = yScale(d.mmr);
@@ -179,22 +178,17 @@ function renderSideBySide(svg, team1Data, team2Data, width, height, minMmr, maxM
       let sliceIndex = 0;
 
       if (d.atGroupSize > 0) {
-        // AT player - all members of same group go at same position
-        // Track which slice this player gets (0, 1, 2, or 3)
         const groupSize = d.atGroupSize;
         if (!atGroupCounters[groupSize]) atGroupCounters[groupSize] = 0;
         sliceIndex = atGroupCounters[groupSize];
         atGroupCounters[groupSize]++;
-        // Reset counter when we've seen all members of this group size
         if (atGroupCounters[groupSize] >= groupSize) atGroupCounters[groupSize] = 0;
       } else {
-        // Non-AT: check for collision (same Y within radius), offset X only
         let attempts = 0;
         while (attempts < 5) {
           const collision = positioned.find(p => Math.abs(p.y - y) < radius * 2.2 && Math.abs(p.x - x) < radius * 2.2);
           if (!collision) break;
           attempts++;
-          // Offset to outer side (away from center)
           x = isTeam1 ? centerX - collisionOffset * attempts : centerX + collisionOffset * attempts;
         }
       }
@@ -207,83 +201,254 @@ function renderSideBySide(svg, team1Data, team2Data, width, height, minMmr, maxM
   const team1Pos = positionTeam(team1Data, team1X, true);
   const team2Pos = positionTeam(team2Data, team2X, false);
 
-  // Team spread lines (highest to lowest MMR) - shows standard deviation
+  // Team spread lines
   if (team1Pos.length > 0) {
     const team1Ys = team1Pos.map(d => d.y).sort((a, b) => a - b);
-    svg
-      .append("line")
-      .attr("x1", team1X)
-      .attr("y1", team1Ys[0])
-      .attr("x2", team1X)
-      .attr("y2", team1Ys[team1Ys.length - 1])
-      .attr("stroke", "#4a9eff")
-      .attr("stroke-width", 2)
-      .attr("stroke-opacity", 0.4);
+    svg.append("line")
+      .attr("x1", team1X).attr("y1", team1Ys[0])
+      .attr("x2", team1X).attr("y2", team1Ys[team1Ys.length - 1])
+      .attr("stroke", "#4a9eff").attr("stroke-width", 2).attr("stroke-opacity", 0.4);
   }
   if (team2Pos.length > 0) {
     const team2Ys = team2Pos.map(d => d.y).sort((a, b) => a - b);
-    svg
-      .append("line")
-      .attr("x1", team2X)
-      .attr("y1", team2Ys[0])
-      .attr("x2", team2X)
-      .attr("y2", team2Ys[team2Ys.length - 1])
-      .attr("stroke", "#ef4444")
-      .attr("stroke-width", 2)
-      .attr("stroke-opacity", 0.4);
+    svg.append("line")
+      .attr("x1", team2X).attr("y1", team2Ys[0])
+      .attr("x2", team2X).attr("y2", team2Ys[team2Ys.length - 1])
+      .attr("stroke", "#ef4444").attr("stroke-width", 2).attr("stroke-opacity", 0.4);
   }
 
   // Center line
-  svg
-    .append("line")
+  svg.append("line")
     .attr("class", "line team-middle")
-    .attr("x1", width / 2)
-    .attr("y1", padding)
-    .attr("x2", width / 2)
-    .attr("y2", height - padding - 10);
+    .attr("x1", width / 2).attr("y1", padding)
+    .attr("x2", width / 2).attr("y2", height - padding - 10);
 
-  // Dots - AT players get petal shapes radiating outward
-  // Each petal is an ellipse rotated to point outward from center
-  const drawPetal = (svg, cx, cy, angle, r, fill) => {
-    // Petal: ellipse stretched outward, rotated to angle
-    const petalLength = r * pLength;
-    const petalWidth = r * pWidth;
-    const offsetFromCenter = r * pOffset;
+  // Shape drawing functions
+  const drawShape = (svg, cx, cy, angle, r, fill, groupSize, sliceIndex) => {
+    const shape = shapeType || "shuriken";
 
-    // Calculate petal center position (offset outward from dot center)
-    const petalCx = cx + Math.sin(angle) * offsetFromCenter;
-    const petalCy = cy - Math.cos(angle) * offsetFromCenter;
+    switch (shape) {
+      case "shuriken": {
+        // One circle with area = groupSize circles, split into equal pie slices
+        // Area of N circles = N * π * r², so radius = r * √N
+        const totalRadius = r * Math.sqrt(groupSize);
 
-    // Total rotation = angle direction + additional rotation parameter
-    const totalRotation = (angle * 180) / Math.PI + pRotation;
+        // Pie slice for this player
+        const sliceAngle = (2 * Math.PI) / groupSize;
+        const gapAngle = 0.5; // Bigger gap between slices
 
-    svg
-      .append("ellipse")
-      .attr("cx", petalCx)
-      .attr("cy", petalCy)
-      .attr("rx", petalWidth)
-      .attr("ry", petalLength)
-      .attr("transform", `rotate(${totalRotation}, ${petalCx}, ${petalCy})`)
-      .attr("fill", fill);
+        // Rotate 2-player by 45° for diagonal split
+        const baseRotation = groupSize === 2 ? Math.PI / 4 : 0;
+        const startAngle = sliceIndex * sliceAngle + gapAngle / 2 + baseRotation;
+        const endAngle = (sliceIndex + 1) * sliceAngle - gapAngle / 2 + baseRotation;
+
+        const arc = d3.arc()
+          .innerRadius(0)
+          .outerRadius(totalRadius)
+          .startAngle(startAngle)
+          .endAngle(endAngle);
+
+        svg.append("path")
+          .attr("d", arc())
+          .attr("transform", `translate(${cx}, ${cy})`)
+          .attr("fill", fill);
+        break;
+      }
+
+      case "shamrock": {
+        // Shamrock: overlapping lobes forming one unified flower shape
+        // Scale lobe size with group size so total area feels right
+        // More players = bigger lobes to compensate for overlap
+        const sizeScale = 0.85 + groupSize * 0.15; // 2p=1.15, 3p=1.3, 4p=1.45
+        const lobeRadius = r * sizeScale;
+        const lobeOffset = r * 0.6;
+
+        const lobeCx = cx + Math.sin(angle) * lobeOffset;
+        const lobeCy = cy - Math.cos(angle) * lobeOffset;
+
+        svg.append("circle")
+          .attr("cx", lobeCx)
+          .attr("cy", lobeCy)
+          .attr("r", lobeRadius)
+          .attr("fill", fill);
+        break;
+      }
+
+      case "clover": {
+        // Clover: single elongated petal per player, overlapping at center
+        const lobeRadius = r * 0.7;
+        const lobeOffset = r * 0.7;
+
+        const lobeCx = cx + Math.sin(angle) * lobeOffset;
+        const lobeCy = cy - Math.cos(angle) * lobeOffset;
+
+        // Elongated ellipse pointing outward
+        svg.append("ellipse")
+          .attr("cx", lobeCx)
+          .attr("cy", lobeCy)
+          .attr("rx", lobeRadius * 0.7)
+          .attr("ry", lobeRadius * 1.2)
+          .attr("transform", `rotate(${(angle * 180) / Math.PI}, ${lobeCx}, ${lobeCy})`)
+          .attr("fill", fill);
+        break;
+      }
+
+      case "petal": {
+        const petalLength = r * pLength;
+        const petalWidth = r * pWidth;
+        const offsetFromCenter = r * pOffset;
+        const petalCx = cx + Math.sin(angle) * offsetFromCenter;
+        const petalCy = cy - Math.cos(angle) * offsetFromCenter;
+        const totalRotation = (angle * 180) / Math.PI + pRotation;
+        svg.append("ellipse")
+          .attr("cx", petalCx).attr("cy", petalCy)
+          .attr("rx", petalWidth).attr("ry", petalLength)
+          .attr("transform", `rotate(${totalRotation}, ${petalCx}, ${petalCy})`)
+          .attr("fill", fill);
+        break;
+      }
+
+      case "teardrop": {
+        // Teardrop: pointed tip outward, rounded base
+        const len = r * 1.6;
+        const tipX = cx + Math.sin(angle) * len;
+        const tipY = cy - Math.cos(angle) * len;
+        const baseOffset = r * 0.3;
+        const baseCx = cx - Math.sin(angle) * baseOffset;
+        const baseCy = cy + Math.cos(angle) * baseOffset;
+        const perpX = Math.cos(angle) * r * 0.6;
+        const perpY = Math.sin(angle) * r * 0.6;
+
+        const path = `M ${tipX} ${tipY}
+          Q ${baseCx + perpX} ${baseCy + perpY}, ${baseCx} ${baseCy}
+          Q ${baseCx - perpX} ${baseCy - perpY}, ${tipX} ${tipY}`;
+        svg.append("path").attr("d", path).attr("fill", fill);
+        break;
+      }
+
+      case "chevron": {
+        // Chevron/Arrow pointing outward
+        const len = r * 1.5;
+        const armLen = r * 1.0;
+        const armAngle = 0.5; // radians spread
+
+        const tipX = cx + Math.sin(angle) * len;
+        const tipY = cy - Math.cos(angle) * len;
+        const leftX = cx + Math.sin(angle - armAngle) * armLen;
+        const leftY = cy - Math.cos(angle - armAngle) * armLen;
+        const rightX = cx + Math.sin(angle + armAngle) * armLen;
+        const rightY = cy - Math.cos(angle + armAngle) * armLen;
+        const innerLen = r * 0.5;
+        const innerX = cx + Math.sin(angle) * innerLen;
+        const innerY = cy - Math.cos(angle) * innerLen;
+
+        const path = `M ${tipX} ${tipY} L ${leftX} ${leftY} L ${innerX} ${innerY} L ${rightX} ${rightY} Z`;
+        svg.append("path").attr("d", path).attr("fill", fill);
+        break;
+      }
+
+      case "crescent": {
+        // Crescent/Arc shape
+        const outerR = r * 1.3;
+        const innerR = r * 0.7;
+        const arcAngle = Math.PI / groupSize * 0.8; // Arc span based on group size
+
+        const arc = d3.arc()
+          .innerRadius(innerR)
+          .outerRadius(outerR)
+          .startAngle(angle - arcAngle)
+          .endAngle(angle + arcAngle);
+
+        svg.append("path")
+          .attr("d", arc())
+          .attr("transform", `translate(${cx}, ${cy})`)
+          .attr("fill", fill);
+        break;
+      }
+
+      case "triangle": {
+        // Rounded triangle / guitar pick
+        const len = r * 1.5;
+        const baseWidth = r * 0.9;
+
+        const tipX = cx + Math.sin(angle) * len;
+        const tipY = cy - Math.cos(angle) * len;
+        const leftX = cx + Math.sin(angle - Math.PI * 0.7) * baseWidth;
+        const leftY = cy - Math.cos(angle - Math.PI * 0.7) * baseWidth;
+        const rightX = cx + Math.sin(angle + Math.PI * 0.7) * baseWidth;
+        const rightY = cy - Math.cos(angle + Math.PI * 0.7) * baseWidth;
+
+        // Rounded corners using quadratic curves
+        const path = `M ${tipX} ${tipY}
+          Q ${(tipX + leftX) / 2 + Math.cos(angle) * r * 0.3} ${(tipY + leftY) / 2 + Math.sin(angle) * r * 0.3}, ${leftX} ${leftY}
+          Q ${cx} ${cy}, ${rightX} ${rightY}
+          Q ${(tipX + rightX) / 2 - Math.cos(angle) * r * 0.3} ${(tipY + rightY) / 2 - Math.sin(angle) * r * 0.3}, ${tipX} ${tipY}`;
+        svg.append("path").attr("d", path).attr("fill", fill);
+        break;
+      }
+
+      case "star": {
+        // Sharp star point radiating outward
+        const outerLen = r * 1.8;
+        const innerLen = r * 0.4;
+        const spikeWidth = Math.PI / (groupSize * 3);
+
+        const tipX = cx + Math.sin(angle) * outerLen;
+        const tipY = cy - Math.cos(angle) * outerLen;
+        const leftX = cx + Math.sin(angle - spikeWidth) * innerLen;
+        const leftY = cy - Math.cos(angle - spikeWidth) * innerLen;
+        const rightX = cx + Math.sin(angle + spikeWidth) * innerLen;
+        const rightY = cy - Math.cos(angle + spikeWidth) * innerLen;
+
+        const path = `M ${tipX} ${tipY} L ${leftX} ${leftY} L ${cx} ${cy} L ${rightX} ${rightY} Z`;
+        svg.append("path").attr("d", path).attr("fill", fill);
+        break;
+      }
+
+      case "pacman": {
+        // Pac-man style pie wedge
+        const pieRadius = r * 1.2;
+        const gapAngle = 0.15; // Gap between slices
+        const sliceAngle = (2 * Math.PI) / groupSize;
+        const startAngle = angle - sliceAngle / 2 + gapAngle / 2;
+        const endAngle = angle + sliceAngle / 2 - gapAngle / 2;
+
+        const arc = d3.arc()
+          .innerRadius(0)
+          .outerRadius(pieRadius)
+          .startAngle(startAngle)
+          .endAngle(endAngle)
+          .cornerRadius(2);
+
+        svg.append("path")
+          .attr("d", arc())
+          .attr("transform", `translate(${cx}, ${cy})`)
+          .attr("fill", fill);
+        break;
+      }
+
+      default:
+        svg.append("circle").attr("cx", cx).attr("cy", cy).attr("r", radius).attr("fill", fill);
+    }
   };
 
+  // Draw team 1
   team1Pos.forEach(d => {
     if (d.atGroupSize > 0) {
-      // Calculate angle for this petal based on slice index
       const sliceAngle = (2 * Math.PI) / d.atGroupSize;
-      const angle = d.sliceIndex * sliceAngle + sliceAngle / 2; // center of slice
-      drawPetal(svg, d.x, d.y, angle, radius, "#4a9eff");
+      const angle = d.sliceIndex * sliceAngle + sliceAngle / 2;
+      drawShape(svg, d.x, d.y, angle, radius, "#4a9eff", d.atGroupSize, d.sliceIndex);
     } else {
       svg.append("circle").attr("cx", d.x).attr("cy", d.y).attr("r", radius).attr("fill", "#4a9eff");
     }
   });
 
+  // Draw team 2
   team2Pos.forEach(d => {
     if (d.atGroupSize > 0) {
-      // Calculate angle for this petal based on slice index
       const sliceAngle = (2 * Math.PI) / d.atGroupSize;
-      const angle = d.sliceIndex * sliceAngle + sliceAngle / 2; // center of slice
-      drawPetal(svg, d.x, d.y, angle, radius, "#ef4444");
+      const angle = d.sliceIndex * sliceAngle + sliceAngle / 2;
+      drawShape(svg, d.x, d.y, angle, radius, "#ef4444", d.atGroupSize, d.sliceIndex);
     } else {
       svg.append("circle").attr("cx", d.x).attr("cy", d.y).attr("r", radius).attr("fill", "#ef4444");
     }
@@ -444,6 +609,7 @@ const GameDesignVariant = ({
   initialATGroups,
   mmrLayout = "vertical",
   atColor,
+  shapeType = "shuriken",
   petalParams,
 }) => {
   const [atGroups, setAtGroups] = useState(initialATGroups || {});
@@ -634,6 +800,7 @@ const GameDesignVariant = ({
                     layout={mmrLayout}
                     atColor={atColor}
                     compact={compact}
+                    shapeType={shapeType}
                     petalParams={petalParams}
                   />
                 </div>
@@ -663,6 +830,7 @@ const GameDesignVariant = ({
                           layout={mmrLayout}
                           atColor={atColor}
                           compact={compact}
+                          shapeType={shapeType}
                           petalParams={petalParams}
                         />
                       </div>

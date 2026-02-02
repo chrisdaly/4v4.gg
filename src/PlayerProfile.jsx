@@ -7,6 +7,7 @@ import Navbar from "./Navbar.jsx";
 import FormDots from "./FormDots.jsx";
 import { gateway } from "./params.jsx";
 import { GameCard, GameRow } from "./components/game";
+import ActivityGraph from "./components/ActivityGraph";
 
 import human from "./icons/human.svg";
 import orc from "./icons/orc.svg";
@@ -130,6 +131,8 @@ const PlayerProfile = () => {
         const fourVsFourStats = stats.find(s => s.gameMode === 4);
         if (fourVsFourStats) {
           setPlayerData(fourVsFourStats);
+          // Set total matches from player stats (wins + losses)
+          setTotalMatches((fourVsFourStats.wins || 0) + (fourVsFourStats.losses || 0));
         }
       }
 
@@ -151,13 +154,15 @@ const PlayerProfile = () => {
 
   const fetchMatches = async (page) => {
     const offset = page * GAMES_PER_PAGE;
-    const matchesUrl = `https://website-backend.w3champions.com/api/matches?playerId=${encodeURIComponent(battleTag)}&offset=${offset}&gameMode=4&season=${selectedSeason}&gateway=${gateway}&pageSize=${GAMES_PER_PAGE}`;
+    // Use /api/matches/search which properly filters by playerId
+    const matchesUrl = `https://website-backend.w3champions.com/api/matches/search?playerId=${encodeURIComponent(battleTag)}&offset=${offset}&gameMode=4&season=${selectedSeason}&gateway=${gateway}&pageSize=${GAMES_PER_PAGE}`;
     const matchesResponse = await fetch(matchesUrl);
     if (matchesResponse.ok) {
       const matchesData = await matchesResponse.json();
       if (matchesData.matches) {
         setMatches(matchesData.matches);
-        setTotalMatches(matchesData.count || matchesData.matches.length);
+        // /api/matches/search doesn't return count, so derive from player stats
+        // totalMatches will be set from playerData.wins + playerData.losses
         if (page === 0) {
           processMatchData(matchesData.matches);
         }
@@ -194,38 +199,49 @@ const PlayerProfile = () => {
     if (!matchList || matchList.length === 0) return;
 
     const sessionGapMs = SESSION_GAP_MINUTES * 60 * 1000;
+    const sessionMaxAgeMs = 2 * 60 * 60 * 1000; // Only show session if most recent game is within 2 hours
     const sessionMatches = [];
 
-    for (let i = 0; i < matchList.length; i++) {
-      const match = matchList[i];
+    // Check if the most recent game is recent enough to be an "active" session
+    const mostRecentEndTime = new Date(matchList[0]?.endTime);
+    const now = new Date();
+    const timeSinceLastGame = now - mostRecentEndTime;
 
-      let playerInMatch = null;
-      let playerWon = false;
-      for (const team of match.teams) {
-        const player = team.players.find(p => p.battleTag.toLowerCase() === battleTagLower);
-        if (player) {
-          playerInMatch = player;
-          playerWon = player.won;
-          break;
+    if (timeSinceLastGame > sessionMaxAgeMs) {
+      // Session is too old, don't show it
+      setSessionGames([]);
+    } else {
+      for (let i = 0; i < matchList.length; i++) {
+        const match = matchList[i];
+
+        let playerInMatch = null;
+        let playerWon = false;
+        for (const team of match.teams) {
+          const player = team.players.find(p => p.battleTag.toLowerCase() === battleTagLower);
+          if (player) {
+            playerInMatch = player;
+            playerWon = player.won;
+            break;
+          }
         }
-      }
-      if (!playerInMatch) continue;
+        if (!playerInMatch) continue;
 
-      if (i > 0) {
-        const prevEndTime = new Date(matchList[i - 1].endTime);
-        const thisEndTime = new Date(match.endTime);
-        const gapMs = prevEndTime - thisEndTime;
-        if (gapMs > sessionGapMs) break;
+        if (i > 0) {
+          const prevEndTime = new Date(matchList[i - 1].endTime);
+          const thisEndTime = new Date(match.endTime);
+          const gapMs = prevEndTime - thisEndTime;
+          if (gapMs > sessionGapMs) break;
+        }
+
+        sessionMatches.push({
+          ...match,
+          playerData: playerInMatch,
+          won: playerWon,
+        });
       }
 
-      sessionMatches.push({
-        ...match,
-        playerData: playerInMatch,
-        won: playerWon,
-      });
+      setSessionGames(sessionMatches);
     }
-
-    setSessionGames(sessionMatches);
 
     // Fetch last game details
     for (const match of matchList) {
@@ -611,6 +627,13 @@ const PlayerProfile = () => {
                 </div>
               </div>
             )}
+
+            {/* Activity Graph */}
+            <ActivityGraph
+              battleTag={battleTag}
+              currentSeason={selectedSeason}
+              gateway={gateway}
+            />
           </aside>
         </div>
       </div>

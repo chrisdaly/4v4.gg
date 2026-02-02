@@ -81,6 +81,12 @@ const Game = ({ playerData: rawPlayerData, metaData, profilePics, playerCountrie
     return atGroups[battleTag.toLowerCase()] || [];
   };
 
+  // Get AT group size (0 for non-AT, 2/3/4 for AT groups)
+  const getATGroupSize = (battleTag) => {
+    const partners = getATPartners(battleTag);
+    return partners.length > 0 ? partners.length + 1 : 0;
+  };
+
   // Check if player has an AT partner to their right (next in display order)
   const hasATPartnerRight = (playerIndex) => {
     if (playerIndex >= playerData.length - 1) return false;
@@ -404,8 +410,8 @@ const Game = ({ playerData: rawPlayerData, metaData, profilePics, playerCountrie
                           data={{
                             teamOneMmrs: playerData.slice(0, 4).map((d) => d.oldMmr),
                             teamTwoMmrs: playerData.slice(4).map((d) => d.oldMmr),
-                            teamOneAT: playerData.slice(0, 4).map((d) => isPlayerAT(d.battleTag)),
-                            teamTwoAT: playerData.slice(4).map((d) => isPlayerAT(d.battleTag)),
+                            teamOneAT: playerData.slice(0, 4).map((d) => getATGroupSize(d.battleTag)),
+                            teamTwoAT: playerData.slice(4).map((d) => getATGroupSize(d.battleTag)),
                           }}
                           compact={compact}
                         />
