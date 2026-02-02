@@ -299,17 +299,17 @@ a.game-card.gc-live:hover {
 }
 
 .gc-team-players {
-  display: flex;
-  flex-wrap: wrap;
-  gap: 6px;
+  display: grid;
+  grid-template-columns: repeat(2, auto);
+  gap: 6px 12px;
 }
 
 .gc-team-block.gc-team-allies .gc-team-players {
-  justify-content: flex-start;
+  justify-items: start;
 }
 
 .gc-team-block.gc-team-opponents .gc-team-players {
-  justify-content: flex-end;
+  justify-items: end;
 }
 
 /* ============================================

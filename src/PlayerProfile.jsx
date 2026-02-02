@@ -520,41 +520,29 @@ const PlayerProfile = () => {
         {/* Player Header */}
         <header className="player-header">
           <div className="player-header-left">
-            <div className="player-pic-wrapper">
-              {profilePic && <img src={profilePic} alt="" className="player-pic" />}
-              {country && <Flag name={country.toLowerCase()} className="player-flag" />}
+            <div className="hd-pic-wrapper">
+              {profilePic && <img src={profilePic} alt="" className="hd-pic" />}
+              {country && <Flag name={country.toLowerCase()} className="hd-flag" />}
             </div>
-            <div className="player-info">
-              {/* Primary: Player name */}
-              <div className="player-name-row">
-                <h1 className="player-name">{playerName}</h1>
-                {ongoingGame && (
-                  <span className="live-dot"></span>
-                )}
+            <div className="hd-info">
+              <div className="hd-name-row">
+                <span className="hd-name">{playerName}</span>
+                {ongoingGame && <span className="hd-live-dot"></span>}
               </div>
-
               {playerData && (
                 <>
-                  {/* Secondary: MMR + league icon */}
-                  <div className="player-mmr-row">
-                    <span className="player-mmr">{playerData.mmr}</span>
-                    <span className="player-mmr-label">MMR</span>
+                  <div className="hd-stats-row">
                     {ladderStanding && (
-                      <img src={ladderStanding.league?.icon} alt="" className="player-league-icon" />
+                      <span className="hd-rank">#{ladderStanding.playerRank}</span>
                     )}
+                    <span className="hd-mmr">{playerData.mmr}</span>
+                    <span className="hd-mmr-label">MMR</span>
                   </div>
-
-                  {/* Tertiary: Rank + W-L record */}
-                  <div className="player-rank-row">
-                    {ladderStanding && (
-                      <span className="player-rank">#{ladderStanding.playerRank}</span>
-                    )}
-                    <span className="player-record">
-                      <span className="wins">{playerData.wins}</span>
-                      <span className="sep">-</span>
-                      <span className="losses">{playerData.losses}</span>
-                    </span>
-                    <span className="player-winrate">({winrate}%)</span>
+                  <div className="hd-record-row">
+                    <span className="hd-wins">{playerData.wins}W</span>
+                    <span className="hd-losses">-{playerData.losses}L</span>
+                    <span className="hd-sep">·</span>
+                    <span className="hd-winrate">{winrate}%</span>
                   </div>
                 </>
               )}
@@ -562,21 +550,6 @@ const PlayerProfile = () => {
           </div>
 
           <div className="player-header-right">
-            {/* Session Summary */}
-            {sessionGames.length > 0 && (
-              <div className="session-summary-inline">
-                <span className="session-label">SESSION</span>
-                <div className="session-stats">
-                  <span className="session-record">{sessionWins}W-{sessionLosses}L</span>
-                  <span className={`session-mmr-change ${sessionMmrChange >= 0 ? 'positive' : 'negative'}`}>
-                    {sessionMmrChange >= 0 ? '+' : ''}{sessionMmrChange}
-                  </span>
-                </div>
-                <FormDots form={sessionGames.slice().reverse().map(g => g.won)} size="small" />
-              </div>
-            )}
-
-            {/* Season Selector */}
             <div className="season-selector">
               <select value={selectedSeason || ""} onChange={handleSeasonChange}>
                 {availableSeasons.map((s) => (
