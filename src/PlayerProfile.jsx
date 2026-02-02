@@ -1,7 +1,6 @@
 import React, { useState, useEffect } from "react";
 import { Flag } from "semantic-ui-react";
 import { Link } from "react-router-dom";
-import { Sparklines, SparklinesLine } from "react-sparklines";
 import { findPlayerInOngoingMatches, getPlayerProfilePicUrl, getPlayerCountry } from "./utils.jsx";
 import Navbar from "./Navbar.jsx";
 import FormDots from "./FormDots.jsx";
@@ -37,6 +36,8 @@ const raceMapping = { 8: undead, 0: random, 4: elf, 2: orc, 1: human };
 
 const GAMES_PER_PAGE = 20;
 
+const MIN_GAMES_FOR_STATS = 3;
+
 const PlayerProfile = () => {
   // Core data
   const [playerData, setPlayerData] = useState(null);
@@ -50,6 +51,13 @@ const PlayerProfile = () => {
   const [lastGameData, setLastGameData] = useState(null);
   const [ladderStanding, setLadderStanding] = useState(null);
   const [isLoading, setIsLoading] = useState(true);
+
+  // Best/worst allies and maps stats
+  const [allyStats, setAllyStats] = useState([]);
+  const [worstAllyStats, setWorstAllyStats] = useState([]);
+  const [mapStats, setMapStats] = useState([]);
+  const [worstMapStats, setWorstMapStats] = useState([]);
+  const [nemesisStats, setNemesisStats] = useState([]);
 
   // Season state
   const [selectedSeason, setSelectedSeason] = useState(null);
@@ -102,6 +110,11 @@ const PlayerProfile = () => {
     setOngoingGame(null);
     setLastGameData(null);
     setLadderStanding(null);
+    setAllyStats([]);
+    setWorstAllyStats([]);
+    setMapStats([]);
+    setWorstMapStats([]);
+    setNemesisStats([]);
     setCurrentPage(0);
     setIsLoading(true);
 
@@ -144,6 +157,9 @@ const PlayerProfile = () => {
 
       // Fetch ladder standing
       await fetchLadderStanding();
+
+      // Fetch statistics for allies and maps
+      await fetchStatistics();
 
     } catch (error) {
       console.error("Error loading player data:", error);
@@ -330,6 +346,139 @@ const PlayerProfile = () => {
     }
   };
 
+  const fetchStatistics = async () => {
+    try {
+      // Fetch 100 matches for statistics calculation
+      const statsUrl = `https://website-backend.w3champions.com/api/matches/search?playerId=${encodeURIComponent(battleTag)}&offset=0&gameMode=4&season=${selectedSeason}&gateway=${gateway}&pageSize=100`;
+      const response = await fetch(statsUrl);
+      if (!response.ok) return;
+
+      const data = await response.json();
+      if (!data.matches || data.matches.length === 0) return;
+
+      // Calculate ally stats
+      const allies = {};
+      // Calculate map stats
+      const maps = {};
+      // Calculate opponent stats (for nemesis)
+      const opponents = {};
+
+      for (const match of data.matches) {
+        // Find player's team and opponent team
+        let playerTeam = null;
+        let opponentTeam = null;
+        let playerWon = false;
+
+        for (const team of match.teams) {
+          const player = team.players.find(p => p.battleTag.toLowerCase() === battleTagLower);
+          if (player) {
+            playerTeam = team;
+            playerWon = player.won;
+          } else {
+            opponentTeam = team;
+          }
+        }
+
+        if (!playerTeam) continue;
+
+        // Aggregate ally stats (teammates on player's team)
+        for (const teammate of playerTeam.players) {
+          if (teammate.battleTag.toLowerCase() === battleTagLower) continue;
+
+          const tag = teammate.battleTag;
+          if (!allies[tag]) {
+            allies[tag] = { battleTag: tag, name: teammate.name, wins: 0, losses: 0, total: 0 };
+          }
+          allies[tag].total += 1;
+          if (playerWon) {
+            allies[tag].wins += 1;
+          } else {
+            allies[tag].losses += 1;
+          }
+        }
+
+        // Aggregate opponent stats (for nemesis - who we lose to most)
+        if (opponentTeam) {
+          for (const opponent of opponentTeam.players) {
+            const tag = opponent.battleTag;
+            if (!opponents[tag]) {
+              opponents[tag] = { battleTag: tag, name: opponent.name, wins: 0, losses: 0, total: 0 };
+            }
+            opponents[tag].total += 1;
+            if (playerWon) {
+              opponents[tag].losses += 1; // Our win = their loss
+            } else {
+              opponents[tag].wins += 1; // Our loss = their win (they beat us)
+            }
+          }
+        }
+
+        // Aggregate map stats - use mapName and clean it
+        const rawMapName = match.mapName;
+        if (rawMapName) {
+          // Clean map name: remove "(4) " prefix
+          const cleanMapName = rawMapName.replace(/^\(\d\)\s*/, "");
+          if (!maps[cleanMapName]) {
+            maps[cleanMapName] = { name: cleanMapName, wins: 0, losses: 0, total: 0 };
+          }
+          maps[cleanMapName].total += 1;
+          if (playerWon) {
+            maps[cleanMapName].wins += 1;
+          } else {
+            maps[cleanMapName].losses += 1;
+          }
+        }
+      }
+
+      // Process allies with win rates
+      const alliesWithRates = Object.values(allies)
+        .filter(a => a.total >= MIN_GAMES_FOR_STATS)
+        .map(a => ({ ...a, winRate: Math.round((a.wins / a.total) * 100) }));
+
+      // Best allies: highest win rate
+      const bestAllies = [...alliesWithRates]
+        .sort((a, b) => b.winRate - a.winRate || b.total - a.total)
+        .slice(0, 3);
+
+      // Worst allies: lowest win rate (with at least some losses)
+      const worstAllies = [...alliesWithRates]
+        .filter(a => a.losses > 0)
+        .sort((a, b) => a.winRate - b.winRate || b.total - a.total)
+        .slice(0, 3);
+
+      // Process maps with win rates
+      const mapsWithRates = Object.values(maps)
+        .filter(m => m.total >= MIN_GAMES_FOR_STATS)
+        .map(m => ({ ...m, winRate: Math.round((m.wins / m.total) * 100) }));
+
+      // Best maps: highest win rate
+      const bestMaps = [...mapsWithRates]
+        .sort((a, b) => b.winRate - a.winRate || b.total - a.total)
+        .slice(0, 5);
+
+      // Worst maps: lowest win rate
+      const worstMaps = [...mapsWithRates]
+        .filter(m => m.losses > 0)
+        .sort((a, b) => a.winRate - b.winRate || b.total - a.total)
+        .slice(0, 3);
+
+      // Nemesis: opponents who beat us most (sort by their wins against us)
+      const nemesisList = Object.values(opponents)
+        .filter(o => o.total >= MIN_GAMES_FOR_STATS && o.wins > 0)
+        .map(o => ({ ...o, winRate: Math.round((o.wins / o.total) * 100) }))
+        .sort((a, b) => b.wins - a.wins || b.winRate - a.winRate)
+        .slice(0, 3);
+
+      setAllyStats(bestAllies);
+      setWorstAllyStats(worstAllies);
+      setMapStats(bestMaps);
+      setWorstMapStats(worstMaps);
+      setNemesisStats(nemesisList);
+    } catch (error) {
+      console.error("Error fetching statistics:", error);
+    }
+  };
+
   const handleSeasonChange = (e) => {
     setSelectedSeason(parseInt(e.target.value, 10));
   };
@@ -376,30 +525,38 @@ const PlayerProfile = () => {
               {country && <Flag name={country.toLowerCase()} className="player-flag" />}
             </div>
             <div className="player-info">
+              {/* Primary: Player name */}
               <div className="player-name-row">
                 <h1 className="player-name">{playerName}</h1>
                 {ongoingGame && (
                   <span className="live-dot"></span>
                 )}
               </div>
+
               {playerData && (
-                <div className="player-stats-row">
-                  <span className="player-mmr">{playerData.mmr}</span>
-                  <span className="player-mmr-label">MMR</span>
-                  {ladderStanding && (
-                    <>
+                <>
+                  {/* Secondary: MMR + league icon */}
+                  <div className="player-mmr-row">
+                    <span className="player-mmr">{playerData.mmr}</span>
+                    <span className="player-mmr-label">MMR</span>
+                    {ladderStanding && (
                       <img src={ladderStanding.league?.icon} alt="" className="player-league-icon" />
+                    )}
+                  </div>
+
+                  {/* Tertiary: Rank + W-L record */}
+                  <div className="player-rank-row">
+                    {ladderStanding && (
                       <span className="player-rank">#{ladderStanding.playerRank}</span>
-                    </>
-                  )}
-                  <span className="player-divider">|</span>
-                  <span className="player-record">
-                    <span className="wins">{playerData.wins}</span>
-                    <span className="sep">-</span>
-                    <span className="losses">{playerData.losses}</span>
-                  </span>
-                  <span className="player-winrate">({winrate}%)</span>
-                </div>
+                    )}
+                    <span className="player-record">
+                      <span className="wins">{playerData.wins}</span>
+                      <span className="sep">-</span>
+                      <span className="losses">{playerData.losses}</span>
+                    </span>
+                    <span className="player-winrate">({winrate}%)</span>
+                  </div>
+                </>
               )}
             </div>
           </div>
@@ -602,28 +759,141 @@ const PlayerProfile = () => {
               </div>
             )}
 
-            {/* MMR Sparkline */}
-            {seasonMmrs.length > 2 && (
-              <div className="mmr-chart-card">
-                <h3 className="mcc-title">Season {selectedSeason} MMR</h3>
-                <div className="mcc-stats">
-                  <div className="mcc-stat">
-                    <span className="mcc-label">Low</span>
-                    <span className="mcc-value low">{Math.min(...seasonMmrs)}</span>
-                  </div>
-                  <div className="mcc-stat">
-                    <span className="mcc-label">Current</span>
-                    <span className="mcc-value">{seasonMmrs[seasonMmrs.length - 1]}</span>
-                  </div>
-                  <div className="mcc-stat">
-                    <span className="mcc-label">Peak</span>
-                    <span className="mcc-value high">{Math.max(...seasonMmrs)}</span>
+            {/* MMR Thermometer */}
+            {seasonMmrs.length > 2 && (() => {
+              const low = Math.min(...seasonMmrs);
+              const peak = Math.max(...seasonMmrs);
+              const current = seasonMmrs[seasonMmrs.length - 1];
+              const range = peak - low;
+              const position = range > 0 ? ((current - low) / range) * 100 : 50;
+              return (
+                <div className="mmr-thermometer-card">
+                  <h3 className="mtc-title">Season {selectedSeason} MMR</h3>
+                  <div className="mtc-bar">
+                    <div className="mtc-bar-track">
+                      <div className="mtc-bar-marker" style={{ left: `${position}%` }} />
+                    </div>
+                    <div className="mtc-bar-labels">
+                      <div className="mtc-label-group">
+                        <span className="mtc-value low">{low}</span>
+                        <span className="mtc-label">LOW</span>
+                      </div>
+                      <div className="mtc-label-group current">
+                        <span className="mtc-value">{current}</span>
+                        <span className="mtc-label">CURRENT</span>
+                      </div>
+                      <div className="mtc-label-group">
+                        <span className="mtc-value high">{peak}</span>
+                        <span className="mtc-label">PEAK</span>
+                      </div>
+                    </div>
                   </div>
                 </div>
-                <div className="mcc-chart">
-                  <Sparklines data={seasonMmrs} svgWidth={250} svgHeight={60} margin={5}>
-                    <SparklinesLine style={{ strokeWidth: 2, stroke: "var(--gold)", fill: "rgba(252, 219, 51, 0.1)" }} />
-                  </Sparklines>
+              );
+            })()}
+
+            {/* Best Allies */}
+            {allyStats.length > 0 && (
+              <div className="best-allies-card">
+                <h3 className="bac-title">Best Allies</h3>
+                <div className="bac-list">
+                  {allyStats.map((ally, idx) => (
+                    <Link
+                      key={ally.battleTag}
+                      to={`/player/${encodeURIComponent(ally.battleTag)}`}
+                      className="bac-row"
+                    >
+                      <span className="bac-rank">#{idx + 1}</span>
+                      <span className="bac-name">{ally.name}</span>
+                      <span className="bac-stats">
+                        <span className="bac-winrate">{ally.winRate}%</span>
+                        <span className="bac-record">({ally.wins}W-{ally.losses}L)</span>
+                      </span>
+                    </Link>
+                  ))}
+                </div>
+              </div>
+            )}
+
+            {/* Best Maps */}
+            {mapStats.length > 0 && (
+              <div className="best-maps-card">
+                <h3 className="bmc-title">Best Maps</h3>
+                <div className="bmc-list">
+                  {mapStats.map((map, idx) => (
+                    <div key={map.name} className="bmc-row">
+                      <span className="bmc-rank">#{idx + 1}</span>
+                      <span className="bmc-name">{map.name}</span>
+                      <span className="bmc-stats">
+                        <span className="bmc-winrate">{map.winRate}%</span>
+                        <span className="bmc-record">({map.wins}W-{map.losses}L)</span>
+                      </span>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            )}
+
+            {/* Worst Allies */}
+            {worstAllyStats.length > 0 && (
+              <div className="worst-allies-card">
+                <h3 className="wac-title">Worst Allies</h3>
+                <div className="wac-list">
+                  {worstAllyStats.map((ally, idx) => (
+                    <Link
+                      key={ally.battleTag}
+                      to={`/player/${encodeURIComponent(ally.battleTag)}`}
+                      className="wac-row"
+                    >
+                      <span className="wac-rank">#{idx + 1}</span>
+                      <span className="wac-name">{ally.name}</span>
+                      <span className="wac-stats">
+                        <span className="wac-winrate">{ally.winRate}%</span>
+                        <span className="wac-record">({ally.wins}W-{ally.losses}L)</span>
+                      </span>
+                    </Link>
+                  ))}
+                </div>
+              </div>
+            )}
+
+            {/* Worst Maps */}
+            {worstMapStats.length > 0 && (
+              <div className="worst-maps-card">
+                <h3 className="wmc-title">Worst Maps</h3>
+                <div className="wmc-list">
+                  {worstMapStats.map((map, idx) => (
+                    <div key={map.name} className="wmc-row">
+                      <span className="wmc-rank">#{idx + 1}</span>
+                      <span className="wmc-name">{map.name}</span>
+                      <span className="wmc-stats">
+                        <span className="wmc-winrate">{map.winRate}%</span>
+                        <span className="wmc-record">({map.wins}W-{map.losses}L)</span>
+                      </span>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            )}
+
+            {/* Nemesis */}
+            {nemesisStats.length > 0 && (
+              <div className="nemesis-card">
+                <h3 className="nc-title">Nemesis</h3>
+                <div className="nc-list">
+                  {nemesisStats.map((enemy, idx) => (
+                    <Link
+                      key={enemy.battleTag}
+                      to={`/player/${encodeURIComponent(enemy.battleTag)}`}
+                      className="nc-row"
+                    >
+                      <span className="nc-rank">#{idx + 1}</span>
+                      <span className="nc-name">{enemy.name}</span>
+                      <span className="nc-stats">
+                        <span className="nc-record">({enemy.losses}W-{enemy.wins}L)</span>
+                      </span>
+                    </Link>
+                  ))}
                 </div>
               </div>
             )}
