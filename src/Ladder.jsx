@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useCallback } from "react";
+import React, { useState, useEffect } from "react";
 import Navbar from "./Navbar.jsx";
 import LadderRow from "./LadderRow.jsx";
 import { gateway } from "./params";
@@ -22,60 +22,6 @@ const LEAGUES = [
   { id: 6, name: "Bronze", icon: bronzeIcon },
 ];
 
-// League distribution chart component
-const LeagueDistribution = ({ leagueCounts, selectedLeague, onLeagueClick, isLoading }) => {
-  const totalPlayers = Object.values(leagueCounts).reduce((sum, count) => sum + count, 0);
-  const maxCount = Math.max(...Object.values(leagueCounts), 1);
-
-  if (isLoading || totalPlayers === 0) {
-    return (
-      <div className="league-distribution">
-        <div className="distribution-loading">Loading distribution...</div>
-      </div>
-    );
-  }
-
-  return (
-    <div className="league-distribution">
-      <div className="distribution-header">
-        <span className="distribution-title">League Distribution</span>
-        <span className="distribution-total">{totalPlayers.toLocaleString()} players</span>
-      </div>
-      <div className="distribution-bars">
-        {LEAGUES.map((league) => {
-          const count = leagueCounts[league.id] || 0;
-          const percentage = totalPlayers > 0 ? ((count / totalPlayers) * 100).toFixed(1) : 0;
-          const barWidth = maxCount > 0 ? (count / maxCount) * 100 : 0;
-          const isSelected = selectedLeague === league.id;
-
-          return (
-            <div
-              key={league.id}
-              className={`distribution-row ${isSelected ? "selected" : ""}`}
-              onClick={() => onLeagueClick(league.id)}
-            >
-              <div className="distribution-label">
-                <img src={league.icon} alt="" className="distribution-icon" />
-                <span className="distribution-name">{league.name}</span>
-              </div>
-              <div className="distribution-bar-container">
-                <div
-                  className={`distribution-bar league-${league.id}`}
-                  style={{ width: `${barWidth}%` }}
-                />
-              </div>
-              <div className="distribution-stats">
-                <span className="distribution-count">{count.toLocaleString()}</span>
-                <span className="distribution-percent">{percentage}%</span>
-              </div>
-            </div>
-          );
-        })}
-      </div>
-    </div>
-  );
-};
-
 const Ladder = () => {
   const [rankings, setRankings] = useState([]);
   const [selectedSeason, setSelectedSeason] = useState(null);
@@ -91,8 +37,6 @@ const Ladder = () => {
   const [isSearching, setIsSearching] = useState(false);
   const [sortField, setSortField] = useState("rank");
   const [sortDirection, setSortDirection] = useState("asc");
-  const [leagueCounts, setLeagueCounts] = useState({});
-  const [isLoadingCounts, setIsLoadingCounts] = useState(true);
 
   // Fetch available seasons on mount
   useEffect(() => {
@@ -146,39 +90,6 @@ const Ladder = () => {
     const interval = setInterval(fetchOngoing, 30000);
     return () => clearInterval(interval);
   }, []);
-
-  // Fetch league counts for distribution chart when season changes
-  useEffect(() => {
-    if (selectedSeason === null) return;
-
-    const fetchLeagueCounts = async () => {
-      setIsLoadingCounts(true);
-      const counts = {};
-
-      try {
-        // Fetch all leagues in parallel
-        const promises = LEAGUES.map(async (league) => {
-          const url = `https://website-backend.w3champions.com/api/ladder/${league.id}?gateWay=${gateway}&gameMode=4&season=${selectedSeason}`;
-          const response = await fetch(url);
-          const result = await response.json();
-          return { id: league.id, count: Array.isArray(result) ? result.length : 0 };
-        });
-
-        const results = await Promise.all(promises);
-        results.forEach(({ id, count }) => {
-          counts[id] = count;
-        });
-
-        setLeagueCounts(counts);
-      } catch (e) {
-        console.error("Failed to fetch league counts:", e);
-      } finally {
-        setIsLoadingCounts(false);
-      }
-    };
-
-    fetchLeagueCounts();
-  }, [selectedSeason]);
 
   // Fetch ladder data when season or league changes
   useEffect(() => {
@@ -429,21 +340,9 @@ const Ladder = () => {
 
   const currentLeague = LEAGUES.find((l) => l.id === selectedLeague);
 
-  const handleDistributionClick = (leagueId) => {
-    setSelectedLeague(leagueId);
-    setSearchQuery("");
-    setSearchResults(null);
-  };
-
   return (
     <div className="ladder-page">
       <Navbar />
-      <LeagueDistribution
-        leagueCounts={leagueCounts}
-        selectedLeague={selectedLeague}
-        onLeagueClick={handleDistributionClick}
-        isLoading={isLoadingCounts}
-      />
       <div className="ladder-header">
         <div className="ladder-title-section">
           {searchResults !== null ? (

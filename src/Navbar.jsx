@@ -36,6 +36,12 @@ const Navbar = () => {
           >
             Ladder
           </Link>
+          <Link
+            to="/stats"
+            className={`navbar-link ${isActive("/stats") ? "active" : ""}`}
+          >
+            Stats
+          </Link>
         </div>
       </div>
     </nav>

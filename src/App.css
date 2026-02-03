@@ -515,6 +515,29 @@ circle.dot.at-dot {
   stroke-opacity: 1;
 }
 
+/* MmrComparison chart team colors */
+.dot.dot-team-one {
+  fill: #4da6ff;
+  stroke: #4da6ff;
+}
+
+.dot.dot-team-two {
+  fill: #f87171;
+  stroke: #f87171;
+}
+
+path.line.team-one {
+  stroke: #4da6ff;
+  stroke-width: 1px;
+  stroke-opacity: 0.5;
+}
+
+path.line.team-two {
+  stroke: #f87171;
+  stroke-width: 1px;
+  stroke-opacity: 0.5;
+}
+
 .profileName {
   font-size: var(--text-lg);
 }
@@ -6934,9 +6957,9 @@ a.neighbor-name:hover {
 }
 
 .player-container {
-  max-width: 1200px;
+  max-width: 1400px;
   margin: 0 auto;
-  padding: 0 20px 40px 20px;
+  padding: 0 24px 40px 24px;
 }
 
 /* Player Header */
@@ -7117,8 +7140,8 @@ a.neighbor-name:hover {
 /* Player Content Layout */
 .player-content {
   display: grid;
-  grid-template-columns: 1fr 300px;
-  gap: 24px;
+  grid-template-columns: 1fr 320px;
+  gap: 32px;
 }
 
 .player-main {
@@ -7160,14 +7183,15 @@ a.neighbor-name:hover {
   color: var(--text-muted);
 }
 
-/* Current Game Section */
-.current-game-section {
-  background: var(--surface-1);
-  border: 1px solid var(--border-color);
-  border-radius: 8px;
-  padding: 16px;
+/* Live Game Section (reuses OngoingGame component) */
+.live-game-section {
+  margin-bottom: 24px;
 }
 
+.live-game-section .Game {
+  margin: 0;
+  border-color: var(--gold);
+}
 
 /* Match History Section */
 .match-history-section {
@@ -7187,7 +7211,7 @@ a.neighbor-name:hover {
 
 .mh-header {
   display: grid;
-  grid-template-columns: 60px 1fr 70px 1.5fr 80px 80px;
+  grid-template-columns: 50px minmax(140px, 1.2fr) 70px 55px minmax(180px, 2fr) 70px 70px;
   padding: 10px 12px;
   background: rgba(20, 20, 20, 0.98);
   border-bottom: 1px solid var(--border-color);
@@ -7199,7 +7223,7 @@ a.neighbor-name:hover {
 
 .mh-row {
   display: grid;
-  grid-template-columns: 60px 1fr 70px 1.5fr 80px 80px;
+  grid-template-columns: 50px minmax(140px, 1.2fr) 70px 55px minmax(180px, 2fr) 70px 70px;
   padding: 10px 12px;
   align-items: center;
   border-bottom: 1px solid rgba(255, 255, 255, 0.03);
@@ -7267,9 +7291,13 @@ a.neighbor-name:hover {
   font-size: 12px;
 }
 
+.mh-col.avg-mmr {
+  text-align: center;
+  color: var(--gold);
+}
+
 .mh-col.mmr {
-  display: flex;
-  justify-content: flex-end;
+  text-align: center;
 }
 
 .mmr-change {
@@ -8052,6 +8080,13 @@ a.neighbor-name:hover {
   gap: 4px;
 }
 
+.nc-winrate {
+  font-family: var(--font-mono);
+  font-size: 12px;
+  color: var(--red);
+  font-weight: bold;
+}
+
 .nc-record {
   font-family: var(--font-mono);
   font-size: 11px;
@@ -8089,11 +8124,12 @@ a.neighbor-name:hover {
 
   .mh-header,
   .mh-row {
-    grid-template-columns: 50px 1fr 60px 100px;
+    grid-template-columns: 50px 1fr 60px 50px 60px;
   }
 
   .mh-col.allies,
-  .mh-col.duration {
+  .mh-col.duration,
+  .mh-col.time {
     display: none;
   }
 
@@ -8114,11 +8150,7 @@ a.neighbor-name:hover {
 
   .mh-header,
   .mh-row {
-    grid-template-columns: 40px 1fr 60px;
-  }
-
-  .mh-col.time {
-    display: none;
+    grid-template-columns: 40px 1fr 50px 50px;
   }
 
   .session-summary-inline {

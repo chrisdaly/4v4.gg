@@ -69,12 +69,6 @@ a.game-card.gc-live:hover {
   object-fit: cover;
 }
 
-.gc-map-mini {
-  width: 48px;
-  height: 48px;
-  border-radius: 4px;
-}
-
 .gc-map-expanded {
   width: 100px;
   height: 100px;
@@ -349,57 +343,6 @@ a.game-card.gc-live:hover {
 
 a.game-card:hover .gc-arrow {
   color: var(--gold);
-}
-
-/* ============================================
-   SIZE: MINI
-   ============================================ */
-
-.game-card.gc-mini {
-  padding: 10px 14px;
-  gap: 12px;
-}
-
-.gc-mini-info {
-  display: flex;
-  flex-direction: column;
-  gap: 4px;
-}
-
-.gc-mini .gc-result {
-  gap: 8px;
-}
-
-.gc-mini .gc-badge {
-  font-size: var(--text-xxs);
-  padding: 2px 6px;
-  border-radius: 3px;
-}
-
-.gc-mini .gc-mmr {
-  font-size: var(--text-xxs);
-}
-
-.gc-mini .gc-map-name {
-  font-size: var(--text-xxs);
-  color: var(--text-muted);
-}
-
-.gc-mini .gc-live-dot {
-  width: 8px;
-  height: 8px;
-}
-
-.gc-mini .gc-live-badge {
-  gap: 6px;
-  font-size: var(--text-xxs);
-}
-
-.gc-avg-mmr-mini {
-  font-family: var(--font-mono);
-  font-size: var(--text-xxs);
-  color: var(--text-muted);
-  margin-left: 4px;
 }
 
 /* ============================================

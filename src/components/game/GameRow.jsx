@@ -10,6 +10,13 @@ import random from "../../icons/random.svg";
 
 const raceMapping = { 8: undead, 0: random, 4: elf, 2: orc, 1: human };
 
+// Map images stored locally in /public/maps/
+const getMapImageUrl = (mapName) => {
+  if (!mapName) return null;
+  const cleanName = mapName.replace(/^\(\d\)/, "").replace(/ /g, "").replace(/'/g, "");
+  return `/maps/${cleanName}.png`;
+};
+
 // Format duration from seconds
 const formatDuration = (seconds) => {
   if (!seconds) return "--";
@@ -79,8 +86,15 @@ const GameRow = ({
   const won = playerData.won === true || playerData.won === 1;
   const mmrChange = (playerData.currentMmr || 0) - (playerData.oldMmr || 0);
   const cleanMapName = match.mapName?.replace(/^\(\d\)\s*/, "") || "Unknown";
+  const mapUrl = getMapImageUrl(match.mapName);
   const duration = formatDuration(match.durationInSeconds);
   const timeAgo = formatTimeAgo(match.endTime);
+
+  // Calculate average MMR across all players in the game
+  const allPlayers = (match.teams || []).flatMap((t) => t.players || []);
+  const avgMmr = allPlayers.length > 0
+    ? Math.round(allPlayers.reduce((sum, p) => sum + (p.oldMmr || 0), 0) / allPlayers.length)
+    : null;
 
   const matchId = match.id || game.id;
   const href = linkTo || (matchId ? `/match/${matchId}` : null);
@@ -102,7 +116,13 @@ const GameRow = ({
         </span>
       </div>
       <div className="gr-col gr-map">
+        {mapUrl && (
+          <img src={mapUrl} alt={cleanMapName} className="gr-map-img" />
+        )}
         <span className="gr-map-name">{cleanMapName}</span>
+      </div>
+      <div className="gr-col gr-avg-mmr">
+        {avgMmr && <span className="gr-avg-mmr-value">{avgMmr}</span>}
       </div>
       <div className="gr-col gr-mmr">
         <span className={`gr-mmr-change ${mmrChange >= 0 ? "positive" : "negative"}`}>

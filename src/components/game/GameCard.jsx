@@ -57,7 +57,7 @@ const formatElapsedTime = (startTime) => {
  *
  * @param {Object} game - Match data object
  * @param {string} status - "live" | "won" | "lost" (auto-detected if not provided)
- * @param {string} size - "mini" | "default" | "expanded" (default: "default")
+ * @param {string} size - "default" | "expanded" (default: "default")
  * @param {string} playerBattleTag - Highlight this player as "me"
  * @param {boolean} showTeams - Show both teams with names (default: true for default/expanded)
  * @param {boolean} showDuration - Show game duration (default: true)
@@ -165,7 +165,7 @@ const GameCard = ({
   const href = linkTo || (matchId ? `/match/${matchId}` : null);
 
   // Determine if teams should be shown
-  const shouldShowTeams = showTeams !== undefined ? showTeams : size !== "mini";
+  const shouldShowTeams = showTeams !== undefined ? showTeams : true;
 
   // Build class names
   const classNames = [
@@ -182,47 +182,6 @@ const GameCard = ({
   // Wrapper component (Link or div)
   const Wrapper = href && !overlay ? Link : "div";
   const wrapperProps = href && !overlay ? { to: href, className: classNames } : { className: classNames };
-
-  // ============================================
-  // SIZE: MINI - Just map + badge + MMR
-  // ============================================
-  if (size === "mini") {
-    const avgMmr = Math.round((myTeamMmr + opponentTeamMmr) / 2);
-
-    return (
-      <Wrapper {...wrapperProps}>
-        {showMap && mapUrl && (
-          <div className="gc-map gc-map-mini">
-            <img src={mapUrl} alt={cleanMapName} />
-          </div>
-        )}
-        <div className="gc-mini-info">
-          <div className="gc-result">
-            {computedStatus === "live" ? (
-              <span className="gc-live-badge">
-                <span className="gc-live-dot"></span>
-                LIVE
-              </span>
-            ) : (
-              <span className={`gc-badge gc-badge-${computedStatus}`}>
-                {computedStatus === "won" ? "WIN" : "LOSS"}
-              </span>
-            )}
-            {computedStatus !== "live" && (
-              <span className={`gc-mmr ${mmrChange >= 0 ? "positive" : "negative"}`}>
-                {mmrChange >= 0 ? "+" : ""}
-                {mmrChange}
-              </span>
-            )}
-            {avgMmr > 0 && (
-              <span className="gc-avg-mmr-mini">{avgMmr}</span>
-            )}
-          </div>
-          <span className="gc-map-name">{cleanMapName}</span>
-        </div>
-      </Wrapper>
-    );
-  }
 
   // ============================================
   // OVERLAY MODE - Multiple layouts

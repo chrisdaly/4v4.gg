@@ -399,12 +399,40 @@ const StyleReference = () => {
           </Row>
         </div>
 
-        <div>
+        <div style={{ marginBottom: 'var(--space-4)' }}>
           <div style={{ color: 'var(--grey-light)', fontSize: 'var(--text-xs)', marginBottom: 'var(--space-2)' }}>Card</div>
           <Card style={{ maxWidth: 240 }}>
             <div style={{ fontFamily: 'var(--font-display)', color: 'var(--gold)', marginBottom: 'var(--space-1)' }}>PlayerName</div>
             <div style={{ fontFamily: 'var(--font-mono)', fontSize: 'var(--text-sm)', color: 'var(--grey-light)' }}>1847 MMR - 59% WR</div>
           </Card>
+        </div>
+
+        <div>
+          <div style={{ color: 'var(--grey-light)', fontSize: 'var(--text-xs)', marginBottom: 'var(--space-2)' }}>Select / Dropdown</div>
+          <Row style={{ gap: 'var(--space-4)' }}>
+            <select style={{
+              fontFamily: '"Friz_Quadrata_Bold", serif',
+              background: 'linear-gradient(180deg, rgba(30, 30, 30, 0.95) 0%, rgba(15, 15, 15, 0.98) 100%)',
+              border: '1px solid rgba(252, 219, 51, 0.3)',
+              borderRadius: '4px',
+              color: 'var(--gold)',
+              fontSize: '12px',
+              letterSpacing: '0.5px',
+              padding: '8px 28px 8px 12px',
+              cursor: 'pointer',
+              WebkitAppearance: 'none',
+              MozAppearance: 'none',
+              appearance: 'none',
+              backgroundImage: "url(\"data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='10' height='6' viewBox='0 0 10 6'%3E%3Cpath fill='%23fcdb33' d='M0 0l5 6 5-6z'/%3E%3C/svg%3E\")",
+              backgroundRepeat: 'no-repeat',
+              backgroundPosition: 'right 10px center',
+            }}>
+              <option>S24</option>
+              <option>S23</option>
+              <option>S22</option>
+            </select>
+            <span style={{ fontFamily: 'var(--font-mono)', fontSize: 'var(--text-xs)', color: 'var(--grey-light)' }}>Gold border, custom arrow, Friz Quadrata font</span>
+          </Row>
         </div>
       </Section>
 
@@ -448,6 +476,86 @@ const StyleReference = () => {
             </div>
           </div>
         </Grid>
+      </Section>
+
+      {/* GAME DISPLAYS */}
+      <Section>
+        <SectionTitle>Game Display Variants</SectionTitle>
+        <Note>Unified GameCard and GameRow components for displaying match data.</Note>
+
+        <div style={{ display: 'grid', gap: 'var(--space-4)' }}>
+          <div style={{ background: 'var(--surface-1)', padding: 'var(--space-4)', borderRadius: 'var(--radius-md)' }}>
+            <div style={{ fontFamily: 'var(--font-mono)', fontSize: 'var(--text-xs)', color: 'var(--gold)', marginBottom: 'var(--space-2)' }}>
+              GameCard (default)
+            </div>
+            <div style={{ color: 'var(--grey-light)', fontSize: 'var(--text-xs)', marginBottom: 'var(--space-2)' }}>
+              Full card with map image, team details, and MMR. Used on /finished page.
+            </div>
+            <Code style={{ marginTop: 'var(--space-2)', padding: 'var(--space-2)', fontSize: 10 }}>
+{`<GameCard
+  game={gameData}
+  playerBattleTag="Player#1234"
+  status="live" // optional: "live" | "won" | "lost"
+/>`}
+            </Code>
+          </div>
+
+          <div style={{ background: 'var(--surface-1)', padding: 'var(--space-4)', borderRadius: 'var(--radius-md)' }}>
+            <div style={{ fontFamily: 'var(--font-mono)', fontSize: 'var(--text-xs)', color: 'var(--gold)', marginBottom: 'var(--space-2)' }}>
+              GameCard (global mode)
+            </div>
+            <div style={{ color: 'var(--grey-light)', fontSize: 'var(--text-xs)', marginBottom: 'var(--space-2)' }}>
+              No player perspective. Shows avg MMR prominently. Used on /finished page.
+            </div>
+            <Code style={{ marginTop: 'var(--space-2)', padding: 'var(--space-2)', fontSize: 10 }}>
+{`<GameCard
+  game={gameData}
+  // No playerBattleTag = global mode
+/>`}
+            </Code>
+          </div>
+
+          <div style={{ background: 'var(--surface-1)', padding: 'var(--space-4)', borderRadius: 'var(--radius-md)' }}>
+            <div style={{ fontFamily: 'var(--font-mono)', fontSize: 'var(--text-xs)', color: 'var(--gold)', marginBottom: 'var(--space-2)' }}>
+              GameCard (overlay)
+            </div>
+            <div style={{ color: 'var(--grey-light)', fontSize: 'var(--text-xs)', marginBottom: 'var(--space-2)' }}>
+              Stream overlay for OBS/Streamlabs. Transparent bg, multiple layouts. Used at /overlay/lastgame/:tag
+            </div>
+            <Code style={{ marginTop: 'var(--space-2)', padding: 'var(--space-2)', fontSize: 10 }}>
+{`<GameCard
+  game={gameData}
+  playerBattleTag="Player#1234"
+  overlay={true}
+  size="expanded"
+  layout="vertical" // "horizontal" | "vertical" | "compact" | "wide"
+/>`}
+            </Code>
+          </div>
+
+          <div style={{ background: 'var(--surface-1)', padding: 'var(--space-4)', borderRadius: 'var(--radius-md)' }}>
+            <div style={{ fontFamily: 'var(--font-mono)', fontSize: 'var(--text-xs)', color: 'var(--gold)', marginBottom: 'var(--space-2)' }}>
+              GameRow (table)
+            </div>
+            <div style={{ color: 'var(--grey-light)', fontSize: 'var(--text-xs)', marginBottom: 'var(--space-2)' }}>
+              Table row format for Match History. Shows Result, Map, Avg MMR, +/-, Allies, Duration, Time.
+            </div>
+            <Code style={{ marginTop: 'var(--space-2)', padding: 'var(--space-2)', fontSize: 10 }}>
+{`<GameRow
+  game={matchData}
+  playerBattleTag="Player#1234"
+  striped={true} // alternate row styling
+/>`}
+            </Code>
+          </div>
+        </div>
+
+        <div style={{ marginTop: 'var(--space-4)', padding: 'var(--space-2)', background: 'rgba(252,219,51,0.05)', borderRadius: 'var(--radius-sm)', border: '1px solid rgba(252,219,51,0.2)' }}>
+          <div style={{ fontFamily: 'var(--font-mono)', fontSize: 'var(--text-xs)', color: 'var(--gold)' }}>Import</div>
+          <Code style={{ marginTop: 'var(--space-1)', padding: 'var(--space-1)', fontSize: 10, background: 'transparent' }}>
+{`import { GameCard, GameRow } from "./components/game";`}
+          </Code>
+        </div>
       </Section>
 
       {/* USAGE PATTERNS */}

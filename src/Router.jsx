@@ -6,6 +6,7 @@ import PlayerProfile from "./PlayerProfile";
 import PlayerStream from "./PlayerStream";
 import FinishedGamePage from "./FinishedGamePage";
 import RecentlyFinished from "./RecentlyFinished";
+import Stats from "./Stats";
 import MyStreamPage from "./MyStreamPage";
 import VisualizationDemo from "./VisualizationDemo";
 import StyleReference from "./StyleReference";
@@ -24,6 +25,7 @@ const Router = () => (
       <Route path="/ongoing" component={OnGoingGames} />
       <Route path="/finished" component={RecentlyFinished} />
       <Route path="/ladder" component={Ladder} />
+      <Route path="/stats" component={Stats} />
       <Route path="/player" component={PlayerProfile} />
       <Route path="/match" component={FinishedGamePage} />
 

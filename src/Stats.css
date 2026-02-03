@@ -1,0 +1,480 @@
+/* Stats Page - follows design system from design-tokens.js */
+
+.stats-page {
+  min-height: 100vh;
+  background: radial-gradient(ellipse at center, #111 0%, #000 100%);
+  padding: var(--space-6);
+  padding-top: calc(60px + var(--space-6));
+}
+
+.stats-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: var(--space-6);
+  max-width: 1400px;
+  margin-left: auto;
+  margin-right: auto;
+  padding: 0 var(--space-4);
+}
+
+.stats-title {
+  font-family: var(--font-display);
+  font-size: var(--text-xl);
+  color: var(--gold);
+  margin: 0;
+}
+
+.stats-controls {
+  display: flex;
+  gap: var(--space-4);
+}
+
+/* Match ladder page season selector styling */
+.stats-controls .season-selector select {
+  font-family: "Friz_Quadrata_Bold", serif;
+  background: linear-gradient(180deg, rgba(30, 30, 30, 0.95) 0%, rgba(15, 15, 15, 0.98) 100%);
+  border: 1px solid rgba(252, 219, 51, 0.3);
+  border-radius: 4px;
+  color: var(--gold);
+  font-size: 12px;
+  letter-spacing: 0.5px;
+  padding: 8px 28px 8px 12px;
+  cursor: pointer;
+  transition: all 0.2s ease;
+  -webkit-appearance: none;
+  -moz-appearance: none;
+  appearance: none;
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='10' height='6' viewBox='0 0 10 6'%3E%3Cpath fill='%23fcdb33' d='M0 0l5 6 5-6z'/%3E%3C/svg%3E");
+  background-repeat: no-repeat;
+  background-position: right 10px center;
+}
+
+.stats-controls .season-selector select:hover {
+  border-color: var(--gold);
+  box-shadow: 0 0 8px rgba(252, 219, 51, 0.15);
+}
+
+.stats-controls .season-selector select:focus {
+  outline: none;
+  border-color: var(--gold);
+  box-shadow: 0 0 8px rgba(252, 219, 51, 0.2);
+}
+
+/* Stats Grid - use more space */
+.stats-grid {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: var(--space-4);
+  max-width: 1400px;
+  margin: 0 auto;
+  padding: 0 var(--space-4);
+}
+
+.stats-grid.two-col {
+  grid-template-columns: repeat(2, 1fr);
+}
+
+@media (max-width: 1100px) {
+  .stats-grid {
+    grid-template-columns: repeat(2, 1fr);
+  }
+}
+
+@media (max-width: 768px) {
+  .stats-grid,
+  .stats-grid.two-col {
+    grid-template-columns: 1fr;
+  }
+}
+
+/* Stats Card - secondary card pattern */
+.stats-card {
+  background: var(--surface-1);
+  border: 1px solid var(--grey-mid);
+  border-radius: var(--radius-md);
+  padding: var(--space-4);
+}
+
+.stats-card-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: baseline;
+  margin-bottom: var(--space-4);
+  padding-bottom: var(--space-2);
+  border-bottom: 1px solid var(--grey-mid);
+}
+
+.stats-card-title {
+  font-family: var(--font-display);
+  font-size: var(--text-lg);
+  color: var(--gold);
+  margin: 0;
+}
+
+/* Label pattern: mono + xs + uppercase + letter-spacing */
+.stats-card-subtitle {
+  font-family: var(--font-mono);
+  font-size: var(--text-xs);
+  color: var(--grey-light);
+  text-transform: uppercase;
+  letter-spacing: 0.1em;
+}
+
+.stats-card-meta {
+  display: flex;
+  align-items: center;
+  gap: var(--space-3);
+}
+
+/* Filter badge - gold highlight pattern */
+.stats-card-filter {
+  font-family: var(--font-mono);
+  font-size: var(--text-xs);
+  color: var(--gold);
+  background: var(--gold-tint);
+  padding: var(--space-1) var(--space-2);
+  border-radius: var(--radius-full);
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+}
+
+.stats-loading {
+  color: var(--grey-light);
+  font-family: var(--font-mono);
+  font-size: var(--text-sm);
+  text-align: center;
+  padding: var(--space-8) 0;
+}
+
+/* Stats Bars */
+.stats-bars {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-1);
+}
+
+.stats-row {
+  display: grid;
+  grid-template-columns: 110px 1fr 90px;
+  align-items: center;
+  gap: var(--space-3);
+  padding: var(--space-2);
+  border-radius: var(--radius-sm);
+  transition: background-color var(--transition);
+}
+
+.stats-row.clickable {
+  cursor: pointer;
+}
+
+.stats-row.clickable:hover {
+  background: var(--surface-2);
+}
+
+/* Selected state - gold tint pattern */
+.stats-row.clickable.selected {
+  background: var(--gold-tint);
+  outline: 1px solid var(--gold);
+}
+
+.stats-row.clickable.selected .stats-name {
+  color: var(--gold);
+}
+
+.stats-label {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+}
+
+.stats-icon {
+  width: 20px;
+  height: 20px;
+  object-fit: contain;
+}
+
+.stats-icon.race-icon {
+  width: 28px;
+  height: 28px;
+}
+
+/* Stats/MMR pattern: mono + white */
+.stats-name {
+  font-family: var(--font-mono);
+  font-size: var(--text-sm);
+  color: #fff;
+  transition: color var(--transition);
+}
+
+.stats-bar-container {
+  height: 20px;
+  background: var(--surface-2);
+  border-radius: var(--radius-sm);
+  overflow: hidden;
+}
+
+.stats-bar {
+  height: 100%;
+  border-radius: var(--radius-sm);
+  transition: width 0.3s ease;
+}
+
+/* League bar colors - match league icons */
+.stats-bar.league-0 { background: linear-gradient(90deg, #c9a227, #f5d742); } /* Grandmaster - gold */
+.stats-bar.league-1 { background: linear-gradient(90deg, #7b5dbd, #a78bfa); } /* Master - purple */
+.stats-bar.league-2 { background: linear-gradient(90deg, #38bdf8, #67e8f9); } /* Diamond - cyan */
+.stats-bar.league-3 { background: linear-gradient(90deg, #22c55e, #4ade80); } /* Platinum - green */
+.stats-bar.league-4 { background: linear-gradient(90deg, #eab308, #facc15); } /* Gold - yellow */
+.stats-bar.league-5 { background: linear-gradient(90deg, #94a3b8, #cbd5e1); } /* Silver - grey */
+.stats-bar.league-6 { background: linear-gradient(90deg, #b45309, #f59e0b); } /* Bronze - orange */
+
+/* Race bar colors - classic WC3 faction colors */
+.stats-bar.race-1 { background: linear-gradient(90deg, #3b82f6, #60a5fa); } /* Human - blue */
+.stats-bar.race-2 { background: linear-gradient(90deg, #dc2626, #f87171); } /* Orc - red */
+.stats-bar.race-4 { background: linear-gradient(90deg, #22c55e, #4ade80); } /* Night Elf - green */
+.stats-bar.race-8 { background: linear-gradient(90deg, #7c3aed, #a78bfa); } /* Undead - purple */
+.stats-bar.race-0 { background: linear-gradient(90deg, #6b7280, #9ca3af); } /* Random - gray */
+
+.stats-values {
+  display: flex;
+  gap: var(--space-2);
+  justify-content: flex-end;
+  font-family: var(--font-mono);
+  font-size: var(--text-sm);
+}
+
+.stats-count {
+  color: #fff;
+  min-width: 40px;
+  text-align: right;
+}
+
+.stats-percent {
+  color: var(--grey-light);
+  min-width: 50px;
+  text-align: right;
+}
+
+/* Clear filter button - secondary button pattern */
+.stats-clear-filter {
+  margin-top: var(--space-3);
+  padding: var(--space-1) var(--space-3);
+  background: transparent;
+  border: 1px solid var(--grey-mid);
+  border-radius: var(--radius-md);
+  color: var(--grey-light);
+  font-family: var(--font-mono);
+  font-size: var(--text-xs);
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  cursor: pointer;
+  transition: all var(--transition);
+}
+
+.stats-clear-filter:hover {
+  border-color: var(--gold);
+  color: var(--gold);
+  background: var(--gold-tint);
+}
+
+/* Country and Map bar colors */
+.stats-bar.country-bar {
+  background: linear-gradient(90deg, #3b82f6, #60a5fa);
+}
+
+.stats-bar.map-bar {
+  background: linear-gradient(90deg, #8b5cf6, #a78bfa);
+}
+
+.stats-flag {
+  margin-right: var(--space-1);
+}
+
+.map-name {
+  font-size: var(--text-xs);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+/* MMR Distribution Chart */
+.mmr-chart {
+  margin-bottom: var(--space-4);
+}
+
+.mmr-bars {
+  display: flex;
+  align-items: flex-end;
+  height: 120px;
+  gap: 1px;
+  padding: var(--space-2) 0;
+}
+
+.mmr-bar {
+  flex: 1;
+  background: linear-gradient(180deg, var(--gold), rgba(252, 219, 51, 0.6));
+  border-radius: var(--radius-sm) var(--radius-sm) 0 0;
+  min-height: 2px;
+  transition: background 0.15s ease;
+}
+
+.mmr-bar:hover {
+  background: var(--gold);
+}
+
+.mmr-bar.percentile {
+  background: linear-gradient(180deg, #22c55e, rgba(34, 197, 94, 0.6));
+}
+
+.mmr-axis {
+  display: flex;
+  justify-content: space-between;
+  font-family: var(--font-mono);
+  font-size: var(--text-xs);
+  color: var(--grey-light);
+  padding-top: var(--space-1);
+  border-top: 1px solid var(--grey-mid);
+}
+
+.mmr-percentiles {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--space-2);
+  justify-content: center;
+}
+
+.mmr-percentile {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  padding: var(--space-2) var(--space-3);
+  background: var(--surface-2);
+  border-radius: var(--radius-sm);
+  min-width: 70px;
+}
+
+.mmr-percentile-label {
+  font-family: var(--font-mono);
+  font-size: var(--text-xs);
+  color: var(--grey-light);
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+}
+
+.mmr-percentile-value {
+  font-family: var(--font-mono);
+  font-size: var(--text-sm);
+  color: var(--green);
+  font-weight: bold;
+}
+
+/* Hours Chart */
+.hours-chart {
+  padding: var(--space-2) 0;
+}
+
+.hours-bars {
+  display: flex;
+  align-items: flex-end;
+  height: 100px;
+  gap: 2px;
+}
+
+.hours-bar {
+  flex: 1;
+  background: linear-gradient(180deg, #3b82f6, rgba(59, 130, 246, 0.5));
+  border-radius: var(--radius-sm) var(--radius-sm) 0 0;
+  min-height: 2px;
+  transition: background 0.15s ease;
+}
+
+.hours-bar:hover {
+  background: #60a5fa;
+}
+
+.hours-axis {
+  display: flex;
+  justify-content: space-between;
+  font-family: var(--font-mono);
+  font-size: var(--text-xs);
+  color: var(--grey-light);
+  padding-top: var(--space-1);
+  border-top: 1px solid var(--grey-mid);
+}
+
+/* Game Length Chart */
+.length-chart {
+  padding: var(--space-2) 0;
+}
+
+.length-bars {
+  display: flex;
+  align-items: flex-end;
+  height: 100px;
+  gap: 4px;
+}
+
+.length-bar {
+  flex: 1;
+  background: linear-gradient(180deg, #22c55e, rgba(34, 197, 94, 0.5));
+  border-radius: var(--radius-sm) var(--radius-sm) 0 0;
+  min-height: 2px;
+  transition: background 0.15s ease;
+}
+
+.length-bar:hover {
+  background: #4ade80;
+}
+
+.length-axis {
+  display: flex;
+  justify-content: space-between;
+  font-family: var(--font-mono);
+  font-size: var(--text-xs);
+  color: var(--grey-light);
+  padding-top: var(--space-1);
+  border-top: 1px solid var(--grey-mid);
+}
+
+/* Responsive */
+@media (max-width: 600px) {
+  .stats-header {
+    flex-direction: column;
+    gap: var(--space-4);
+    align-items: center;
+    text-align: center;
+  }
+
+  .stats-row {
+    grid-template-columns: 90px 1fr 70px;
+    gap: var(--space-2);
+    padding: var(--space-1) var(--space-2);
+  }
+
+  .stats-name {
+    font-size: var(--text-xs);
+  }
+
+  .stats-icon {
+    width: 16px;
+    height: 16px;
+  }
+
+  .stats-icon.race-icon {
+    width: 22px;
+    height: 22px;
+  }
+
+  .stats-values {
+    font-size: var(--text-xs);
+  }
+
+  .stats-count {
+    min-width: 30px;
+  }
+
+  .stats-percent {
+    min-width: 40px;
+  }
+}

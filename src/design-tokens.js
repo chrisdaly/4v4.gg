@@ -112,6 +112,10 @@ export const patterns = {
     description: 'Secondary cards',
     css: 'border: 1px solid var(--grey-mid); border-radius: var(--radius-md)',
   },
+  selectGold: {
+    description: 'Dropdown/select',
+    css: 'font-family: var(--font-display); background: linear-gradient(180deg, rgba(30,30,30,0.95), rgba(15,15,15,0.98)); border: 1px solid rgba(252,219,51,0.3); border-radius: 4px; color: var(--gold); padding: 8px 28px 8px 12px',
+  },
 };
 
 // Components that should exist in ui.jsx
@@ -121,6 +125,7 @@ export const components = [
   { name: 'Card', description: 'Gold-bordered container' },
   { name: 'Dot', description: 'Win/loss form indicator' },
   { name: 'TeamBar', description: 'Blue/red team indicator' },
+  { name: 'Select', description: 'Gold dropdown with custom arrow' },
 ];
 
 // Export all tokens for iteration

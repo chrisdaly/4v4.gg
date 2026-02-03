@@ -3,7 +3,7 @@ import { Flag, Table } from "semantic-ui-react";
 import { Link } from "react-router-dom";
 
 import { MmrComparison } from "./MmrComparison.jsx";
-import { calculateElapsedTime, convertToLocalTime, calculatePercentiles, detectArrangedTeams, calculateWinProbability } from "./utils.jsx";
+import { calculateElapsedTime, convertToLocalTime, calculatePercentiles, detectArrangedTeams } from "./utils.jsx";
 import FormDots from "./FormDots.jsx";
 import human from "./icons/human.svg";
 import orc from "./icons/orc.svg";
@@ -325,15 +325,13 @@ const Game = ({ playerData: rawPlayerData, metaData, profilePics, playerCountrie
   const team1Won = playerData[0].won;
   const team2Won = playerData[4].won;
 
-  // Calculate team MMRs and win probability
+  // Calculate team MMRs
   const team1AvgMmr = Math.round(
     playerData.slice(0, 4).map((d) => d.oldMmr).reduce((acc, curr) => acc + curr, 0) / 4
   );
   const team2AvgMmr = Math.round(
     playerData.slice(4).map((d) => d.oldMmr).reduce((acc, curr) => acc + curr, 0) / 4
   );
-  const team1WinProb = calculateWinProbability(team1AvgMmr, team2AvgMmr);
-  const team2WinProb = 100 - team1WinProb;
 
   return (
     <div className="Game">
@@ -349,7 +347,6 @@ const Game = ({ playerData: rawPlayerData, metaData, profilePics, playerCountrie
                 <div className="team-mmr-line">
                   <span className="mmr-value">{team1AvgMmr}</span>
                   <span className="mmr-label"> MMR</span>
-                  <span className="win-prob">({team1WinProb}%)</span>
                 </div>
                 <div className="image-container">
                   {playerData
@@ -374,7 +371,6 @@ const Game = ({ playerData: rawPlayerData, metaData, profilePics, playerCountrie
                 <div className="team-mmr-line">
                   <span className="mmr-value">{team2AvgMmr}</span>
                   <span className="mmr-label"> MMR</span>
-                  <span className="win-prob">({team2WinProb}%)</span>
                 </div>
                 <div className="image-container">
                   {playerData

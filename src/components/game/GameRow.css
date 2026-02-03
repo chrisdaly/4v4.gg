@@ -4,13 +4,14 @@
 
 .game-row {
   display: grid;
-  grid-template-columns: 60px 1fr 70px 1.5fr 80px 80px;
+  grid-template-columns: 50px minmax(140px, 1.2fr) 70px 55px minmax(180px, 2fr) 70px 70px;
   padding: 10px 12px;
   align-items: center;
   border-bottom: 1px solid rgba(255, 255, 255, 0.03);
   text-decoration: none;
   transition: background 0.2s;
   background: rgba(255, 255, 255, 0.01);
+  min-height: 56px;
 }
 
 .game-row.gr-striped {
@@ -44,13 +45,35 @@
   background: rgba(248, 113, 113, 0.15);
 }
 
-/* Map name */
+/* Map column */
+.gr-col.gr-map {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+
+.gr-map-img {
+  width: 36px;
+  height: 36px;
+  border-radius: 4px;
+  object-fit: cover;
+  flex-shrink: 0;
+  border: 1px solid var(--grey-mid);
+}
+
 .gr-map-name {
   font-size: var(--text-xs);
   color: var(--text-secondary);
   white-space: nowrap;
   overflow: hidden;
   text-overflow: ellipsis;
+}
+
+/* Avg MMR */
+.gr-avg-mmr-value {
+  font-family: var(--font-mono);
+  font-size: var(--text-xs);
+  color: var(--gold);
 }
 
 /* MMR change */
@@ -71,14 +94,16 @@
 /* Allies */
 .gr-allies-list {
   display: flex;
-  flex-wrap: wrap;
+  flex-wrap: nowrap;
   gap: 8px;
+  overflow: hidden;
 }
 
 .gr-ally {
   display: flex;
   align-items: center;
   gap: 4px;
+  flex-shrink: 0;
 }
 
 .gr-race {
@@ -114,6 +139,7 @@
   justify-content: center;
 }
 
+.gr-col.gr-avg-mmr,
 .gr-col.gr-mmr {
   text-align: center;
 }
@@ -126,7 +152,12 @@
 /* Responsive adjustments */
 @media (max-width: 768px) {
   .game-row {
-    grid-template-columns: 50px 1fr 60px 100px 60px;
+    grid-template-columns: 50px 1fr 60px 50px 100px 60px;
+  }
+
+  .gr-map-img {
+    width: 28px;
+    height: 28px;
   }
 
   .gr-col.gr-time {
@@ -144,7 +175,11 @@
 
 @media (max-width: 480px) {
   .game-row {
-    grid-template-columns: 40px 1fr 50px 60px;
+    grid-template-columns: 40px 1fr 50px 50px 60px;
+  }
+
+  .gr-map-img {
+    display: none;
   }
 
   .gr-col.gr-allies {

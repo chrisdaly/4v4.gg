@@ -5,8 +5,9 @@ import { findPlayerInOngoingMatches, getPlayerProfilePicUrl, getPlayerCountry } 
 import Navbar from "./Navbar.jsx";
 import FormDots from "./FormDots.jsx";
 import { gateway } from "./params.jsx";
-import { GameCard, GameRow } from "./components/game";
+import { GameRow } from "./components/game";
 import ActivityGraph from "./components/ActivityGraph";
+import OngoingGame from "./OngoingGame";
 
 import human from "./icons/human.svg";
 import orc from "./icons/orc.svg";
@@ -48,7 +49,6 @@ const PlayerProfile = () => {
   const [sessionGames, setSessionGames] = useState([]);
   const [seasonMmrs, setSeasonMmrs] = useState([]);
   const [ongoingGame, setOngoingGame] = useState(null);
-  const [lastGameData, setLastGameData] = useState(null);
   const [ladderStanding, setLadderStanding] = useState(null);
   const [isLoading, setIsLoading] = useState(true);
 
@@ -108,7 +108,6 @@ const PlayerProfile = () => {
     setSessionGames([]);
     setSeasonMmrs([]);
     setOngoingGame(null);
-    setLastGameData(null);
     setLadderStanding(null);
     setAllyStats([]);
     setWorstAllyStats([]);
@@ -259,33 +258,6 @@ const PlayerProfile = () => {
       setSessionGames(sessionMatches);
     }
 
-    // Fetch last game details
-    for (const match of matchList) {
-      let playerFound = false;
-      for (const team of match.teams) {
-        if (team.players.find(p => p.battleTag.toLowerCase() === battleTagLower)) {
-          playerFound = true;
-          break;
-        }
-      }
-      if (playerFound) {
-        fetchLastGameDetails(match.id);
-        break;
-      }
-    }
-  };
-
-  const fetchLastGameDetails = async (matchId) => {
-    try {
-      const url = `https://website-backend.w3champions.com/api/matches/${matchId}`;
-      const response = await fetch(url);
-      if (response.ok) {
-        const data = await response.json();
-        setLastGameData(data);
-      }
-    } catch (error) {
-      console.error("Error fetching last game:", error);
-    }
   };
 
   const fetchOngoingGames = async () => {
@@ -565,42 +537,15 @@ const PlayerProfile = () => {
         <div className="player-content">
           {/* Main Content */}
           <main className="player-main">
-            {/* Current/Last Game Section */}
-            {ongoingGame ? (
-              <section className="current-game-section">
-                <h2 className="section-title">Current Game</h2>
-                <GameCard
-                  game={ongoingGame}
-                  status="live"
-                  playerBattleTag={battleTag}
+            {/* Live Game Section */}
+            {ongoingGame && (
+              <div className="live-game-section">
+                <OngoingGame
+                  ongoingGameData={ongoingGame}
+                  compact={true}
+                  streamerTag={battleTag}
                 />
-              </section>
-            ) : lastGameData ? (
-              <section className="last-game-section">
-                <h2 className="section-title">Last Game</h2>
-                <GameCard
-                  game={lastGameData}
-                  playerBattleTag={battleTag}
-                />
-              </section>
-            ) : null}
-
-            {/* Recent Games Section */}
-            {sessionGames.length > 1 && (
-              <section className="recent-games-section">
-                <h2 className="section-title">Session Games ({sessionGames.length})</h2>
-                <div className="recent-games-grid">
-                  {sessionGames.map((game, idx) => (
-                    <GameCard
-                      key={game.id || idx}
-                      game={game}
-                      size="mini"
-                      status={game.won ? "won" : "lost"}
-                      playerBattleTag={battleTag}
-                    />
-                  ))}
-                </div>
-              </section>
+              </div>
             )}
 
             {/* Match History Table */}
@@ -614,7 +559,8 @@ const PlayerProfile = () => {
                 <div className="mh-header">
                   <div className="mh-col result">Result</div>
                   <div className="mh-col map">Map</div>
-                  <div className="mh-col mmr">MMR</div>
+                  <div className="mh-col avg-mmr">Avg MMR</div>
+                  <div className="mh-col mmr">+/-</div>
                   <div className="mh-col allies">Allies</div>
                   <div className="mh-col duration">Duration</div>
                   <div className="mh-col time">Time</div>
@@ -706,30 +652,46 @@ const PlayerProfile = () => {
             )}
 
             {/* Session Summary Card */}
-            {sessionGames.length > 0 && (
-              <div className="session-card">
-                <h3 className="sc-title">Session Summary</h3>
-                <div className="sc-stats">
-                  <div className="sc-stat">
-                    <span className="sc-label">Games</span>
-                    <span className="sc-value">{sessionGames.length}</span>
+            {sessionGames.length > 0 && (() => {
+              // Calculate session duration (oldest game start to newest game end)
+              const oldestGame = sessionGames[sessionGames.length - 1];
+              const newestGame = sessionGames[0];
+              const sessionStart = oldestGame?.startTime ? new Date(oldestGame.startTime) : null;
+              const sessionEnd = newestGame?.endTime ? new Date(newestGame.endTime) : null;
+
+              let sessionDuration = null;
+              if (sessionStart && sessionEnd) {
+                const durationMs = sessionEnd - sessionStart;
+                const hours = Math.floor(durationMs / (1000 * 60 * 60));
+                const mins = Math.floor((durationMs % (1000 * 60 * 60)) / (1000 * 60));
+                sessionDuration = hours > 0 ? `${hours}h ${mins}m` : `${mins}m`;
+              }
+
+              return (
+                <div className="session-card">
+                  <h3 className="sc-title">Session Summary</h3>
+                  <div className="sc-stats">
+                    <div className="sc-stat">
+                      <span className="sc-label">Duration</span>
+                      <span className="sc-value">{sessionDuration || `${sessionGames.length} games`}</span>
+                    </div>
+                    <div className="sc-stat">
+                      <span className="sc-label">Record</span>
+                      <span className="sc-value">{sessionWins}W-{sessionLosses}L</span>
+                    </div>
+                    <div className="sc-stat">
+                      <span className="sc-label">MMR</span>
+                      <span className={`sc-value ${sessionMmrChange >= 0 ? 'positive' : 'negative'}`}>
+                        {sessionMmrChange >= 0 ? '+' : ''}{sessionMmrChange}
+                      </span>
+                    </div>
                   </div>
-                  <div className="sc-stat">
-                    <span className="sc-label">Record</span>
-                    <span className="sc-value">{sessionWins}W-{sessionLosses}L</span>
-                  </div>
-                  <div className="sc-stat">
-                    <span className="sc-label">MMR Change</span>
-                    <span className={`sc-value ${sessionMmrChange >= 0 ? 'positive' : 'negative'}`}>
-                      {sessionMmrChange >= 0 ? '+' : ''}{sessionMmrChange}
-                    </span>
+                  <div className="sc-form">
+                    <FormDots form={sessionGames.slice().reverse().map(g => g.won)} size="medium" />
                   </div>
                 </div>
-                <div className="sc-form">
-                  <FormDots form={sessionGames.slice().reverse().map(g => g.won)} size="medium" />
-                </div>
-              </div>
-            )}
+              );
+            })()}
 
             {/* MMR Thermometer */}
             {seasonMmrs.length > 2 && (() => {
@@ -763,6 +725,13 @@ const PlayerProfile = () => {
                 </div>
               );
             })()}
+
+            {/* Activity Graph */}
+            <ActivityGraph
+              battleTag={battleTag}
+              currentSeason={selectedSeason}
+              gateway={gateway}
+            />
 
             {/* Best Allies */}
             {allyStats.length > 0 && (
@@ -853,29 +822,28 @@ const PlayerProfile = () => {
               <div className="nemesis-card">
                 <h3 className="nc-title">Nemesis</h3>
                 <div className="nc-list">
-                  {nemesisStats.map((enemy, idx) => (
-                    <Link
-                      key={enemy.battleTag}
-                      to={`/player/${encodeURIComponent(enemy.battleTag)}`}
-                      className="nc-row"
-                    >
-                      <span className="nc-rank">#{idx + 1}</span>
-                      <span className="nc-name">{enemy.name}</span>
-                      <span className="nc-stats">
-                        <span className="nc-record">({enemy.losses}W-{enemy.wins}L)</span>
-                      </span>
-                    </Link>
-                  ))}
+                  {nemesisStats.map((enemy, idx) => {
+                    // Calculate YOUR win rate against them (inverse of their wins against you)
+                    const yourWinRate = enemy.total > 0 ? Math.round((enemy.losses / enemy.total) * 100) : 0;
+                    return (
+                      <Link
+                        key={enemy.battleTag}
+                        to={`/player/${encodeURIComponent(enemy.battleTag)}`}
+                        className="nc-row"
+                      >
+                        <span className="nc-rank">#{idx + 1}</span>
+                        <span className="nc-name">{enemy.name}</span>
+                        <span className="nc-stats">
+                          <span className="nc-winrate">{yourWinRate}%</span>
+                          <span className="nc-record">({enemy.losses}W-{enemy.wins}L)</span>
+                        </span>
+                      </Link>
+                    );
+                  })}
                 </div>
               </div>
             )}
 
-            {/* Activity Graph */}
-            <ActivityGraph
-              battleTag={battleTag}
-              currentSeason={selectedSeason}
-              gateway={gateway}
-            />
           </aside>
         </div>
       </div>
