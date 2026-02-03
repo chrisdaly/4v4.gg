@@ -1,35 +1,55 @@
 // Twitch live stream detection service
-// Uses W3Champions' OAuth proxy to get Twitch API access
+// Uses Client Credentials flow with your own Twitch app
 
-const W3C_TWITCH_OAUTH_URL = "https://identification.w3champions.com/api/oauth/twitch";
+const TWITCH_TOKEN_URL = "https://id.twitch.tv/oauth2/token";
 const TWITCH_HELIX_URL = "https://api.twitch.tv/helix/streams";
-const TWITCH_CLIENT_ID = "38ac0gifyt5khcuq23h2p8zpcqosbc"; // W3C's client ID
+
+// Credentials from environment variables (set in .env.local)
+const TWITCH_CLIENT_ID = import.meta.env.VITE_TWITCH_CLIENT_ID;
+const TWITCH_CLIENT_SECRET = import.meta.env.VITE_TWITCH_CLIENT_SECRET;
 
 let cachedToken = null;
 let tokenExpiry = 0;
 
 /**
- * Get Twitch OAuth token from W3C's proxy
+ * Get Twitch OAuth token using Client Credentials flow
  * @returns {Promise<string|null>} Access token or null if unavailable
  */
 export const getTwitchToken = async () => {
+  // Check if credentials are configured
+  if (!TWITCH_CLIENT_ID || !TWITCH_CLIENT_SECRET) {
+    console.warn("Twitch credentials not configured. Set VITE_TWITCH_CLIENT_ID and VITE_TWITCH_CLIENT_SECRET in .env.local");
+    return null;
+  }
+
   // Return cached token if still valid
   if (cachedToken && Date.now() < tokenExpiry) {
     return cachedToken;
   }
 
   try {
-    const response = await fetch(W3C_TWITCH_OAUTH_URL);
+    const params = new URLSearchParams({
+      client_id: TWITCH_CLIENT_ID,
+      client_secret: TWITCH_CLIENT_SECRET,
+      grant_type: "client_credentials",
+    });
+
+    const response = await fetch(TWITCH_TOKEN_URL, {
+      method: "POST",
+      body: params,
+    });
+
     if (!response.ok) {
-      console.warn("W3C Twitch OAuth unavailable:", response.status);
+      console.warn("Twitch OAuth failed:", response.status);
       return null;
     }
 
     const data = await response.json();
     if (data?.access_token) {
       cachedToken = data.access_token;
-      // Cache for slightly less than the actual expiry
-      tokenExpiry = Date.now() + (data.expires_in - 60) * 1000;
+      // Cache for slightly less than the actual expiry (tokens last ~60 days)
+      tokenExpiry = Date.now() + (data.expires_in - 300) * 1000;
+      console.log("Twitch token acquired, expires in", Math.round(data.expires_in / 3600), "hours");
       return cachedToken;
     }
   } catch (error) {
