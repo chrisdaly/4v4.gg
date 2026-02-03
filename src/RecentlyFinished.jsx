@@ -5,21 +5,21 @@ import FinishedGame from "./FinishedGame.jsx";
 import { calculateTeamMMR } from "./utils.jsx";
 import { gameMode, gateway, season, maps } from "./params";
 
-function isLessThan30MinutesAgo(endTimeString) {
-  // Convert the endTime string to a Date object
+function isWithinTimeRange(endTimeString, maxMinutes) {
   const endTime = new Date(endTimeString);
-  // Get the current time
   const currentTime = new Date();
-
-  // Calculate the difference in milliseconds between current time and endTime
-  const differenceInMilliseconds = currentTime - endTime;
-
-  // Convert the difference to minutes
-  const differenceInMinutes = differenceInMilliseconds / (1000 * 60);
-
-  // Return true if the difference is less than 30 minutes
-  return differenceInMinutes < 30;
+  const differenceInMinutes = (currentTime - endTime) / (1000 * 60);
+  return differenceInMinutes < maxMinutes;
 }
+
+// Time range options (how far back to look)
+const TIME_RANGES = [
+  { label: "30 min", minutes: 30, pageSize: 50 },
+  { label: "1 hour", minutes: 60, pageSize: 75 },
+  { label: "2 hours", minutes: 120, pageSize: 100 },
+  { label: "4 hours", minutes: 240, pageSize: 150 },
+  { label: "8 hours", minutes: 480, pageSize: 200 },
+];
 
 // Duration ranges in minutes
 const DURATION_RANGES = [
@@ -48,10 +48,11 @@ const RecentlyFinished = () => {
   const [mapFilter, setMapFilter] = useState("all");
   const [durationFilter, setDurationFilter] = useState(0);
   const [mmrFilter, setMmrFilter] = useState(0);
+  const [timeRangeIndex, setTimeRangeIndex] = useState(0);
 
   useEffect(() => {
     fetchFinishedMatchesData();
-  }, []);
+  }, [timeRangeIndex]);
 
   const getMatchData = async (matchId) => {
     const url = `https://website-backend.w3champions.com/api/matches/${matchId}`;
@@ -63,15 +64,18 @@ const RecentlyFinished = () => {
   };
 
   const fetchFinishedMatchesData = async () => {
+    setIsLoading(true);
+    const timeRange = TIME_RANGES[timeRangeIndex];
+
     try {
-      const response = await fetch(`https://website-backend.w3champions.com/api/matches?offset=0&gateway=${gateway}&pageSize=50&gameMode=${gameMode}&map=Overall`);
+      const response = await fetch(`https://website-backend.w3champions.com/api/matches?offset=0&gateway=${gateway}&pageSize=${timeRange.pageSize}&gameMode=${gameMode}&map=Overall`);
       if (!response.ok) {
         throw new Error("Failed to fetch ongoing matches data");
       }
       const data = await response.json();
 
-      // Filter the data
-      const filteredData = data.matches.filter((match) => isLessThan30MinutesAgo(match.endTime));
+      // Filter the data by selected time range
+      const filteredData = data.matches.filter((match) => isWithinTimeRange(match.endTime, timeRange.minutes));
       console.log("filteredData", filteredData);
 
       const sortedMatches = filteredData.slice().sort((a, b) => {
@@ -166,6 +170,19 @@ const RecentlyFinished = () => {
                 </div>
               </div>
               <div className="finished-controls">
+                <div className="filter-group">
+                  <label>Time Range</label>
+                  <select
+                    value={timeRangeIndex}
+                    onChange={(e) => setTimeRangeIndex(Number(e.target.value))}
+                  >
+                    {TIME_RANGES.map((range, idx) => (
+                      <option key={idx} value={idx}>
+                        Last {range.label}
+                      </option>
+                    ))}
+                  </select>
+                </div>
                 <div className="filter-group">
                   <label>Map</label>
                   <select
