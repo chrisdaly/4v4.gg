@@ -13,9 +13,13 @@ export const colors = {
   gold: { value: '#fcdb33', css: '--gold', usage: 'Brand, player names, accents' },
   green: { value: '#4ade80', css: '--green', usage: 'Wins, positive' },
   red: { value: '#f87171', css: '--red', usage: 'Losses, negative' },
+  blue: { value: '#3b82f6', css: '--blue', usage: 'Links, info' },
   greyLight: { value: '#999', css: '--grey-light', usage: 'Secondary text, labels' },
   greyMid: { value: '#444', css: '--grey-mid', usage: 'Borders, disabled' },
   greyDark: { value: '#1a1a1a', css: '--grey-dark', usage: 'Elevated surfaces' },
+  white: { value: '#fff', css: '--white', usage: 'Primary text' },
+  teamBlue: { value: '#4da6ff', css: '--team-blue', usage: 'Team 1 indicator' },
+  teamRed: { value: '#ef4444', css: '--team-red', usage: 'Team 2 indicator' },
 };
 
 export const fonts = {
@@ -115,6 +119,14 @@ export const patterns = {
   selectGold: {
     description: 'Dropdown/select',
     css: 'font-family: var(--font-display); background: linear-gradient(180deg, rgba(30,30,30,0.95), rgba(15,15,15,0.98)); border: 1px solid rgba(252,219,51,0.3); border-radius: 4px; color: var(--gold); padding: 8px 28px 8px 12px',
+  },
+  listItemName: {
+    description: 'List item names (leagues, races, countries)',
+    css: 'font-family: var(--font-display); font-size: var(--text-base); color: #fff',
+  },
+  listItemValue: {
+    description: 'List item values (counts, percentages)',
+    css: 'font-family: var(--font-mono); font-size: var(--text-base); color: #fff',
   },
 };
 

@@ -54,7 +54,7 @@ const COUNTRY_NAMES = {
 };
 
 // League distribution chart component
-const LeagueDistribution = ({ leagueCounts, selectedLeague, onLeagueClick, isLoading }) => {
+const LeagueDistribution = ({ leagueCounts, selectedLeague, onLeagueClick, filterLabels, isLoading }) => {
   const totalPlayers = Object.values(leagueCounts).reduce((sum, count) => sum + count, 0);
   const maxCount = Math.max(...Object.values(leagueCounts), 1);
 
@@ -63,8 +63,15 @@ const LeagueDistribution = ({ leagueCounts, selectedLeague, onLeagueClick, isLoa
       <div className="stats-card">
         <div className="stats-card-header">
           <h2 className="stats-card-title">League Distribution</h2>
+          {filterLabels?.length > 0 && (
+            <div className="stats-card-meta">
+              {filterLabels.map((label, i) => (
+                <span key={i} className="stats-card-filter">{label}</span>
+              ))}
+            </div>
+          )}
         </div>
-        <div className="stats-loading">Loading...</div>
+        <div className="stats-loading">{isLoading ? "Loading..." : "No data"}</div>
       </div>
     );
   }
@@ -73,7 +80,12 @@ const LeagueDistribution = ({ leagueCounts, selectedLeague, onLeagueClick, isLoa
     <div className="stats-card">
       <div className="stats-card-header">
         <h2 className="stats-card-title">League Distribution</h2>
-        <span className="stats-card-subtitle">{totalPlayers.toLocaleString()} players</span>
+        <div className="stats-card-meta">
+          {filterLabels?.map((label, i) => (
+            <span key={i} className="stats-card-filter">{label}</span>
+          ))}
+          <span className="stats-card-subtitle">{totalPlayers.toLocaleString()} players</span>
+        </div>
       </div>
       <div className="stats-bars">
         {LEAGUES.map((league) => {
@@ -90,7 +102,7 @@ const LeagueDistribution = ({ leagueCounts, selectedLeague, onLeagueClick, isLoa
             >
               <div className="stats-label">
                 <img src={league.icon} alt="" className="stats-icon" />
-                <span className="stats-name">{league.name}</span>
+                <span className="stats-item-name">{league.name}</span>
               </div>
               <div className="stats-bar-container">
                 <div
@@ -116,21 +128,21 @@ const LeagueDistribution = ({ leagueCounts, selectedLeague, onLeagueClick, isLoa
 };
 
 // Race distribution chart component
-const RaceDistribution = ({ raceCounts, selectedLeague, isLoading }) => {
+const RaceDistribution = ({ raceCounts, selectedRace, onRaceClick, filterLabels, isLoading }) => {
   const totalPlayers = Object.values(raceCounts).reduce((sum, count) => sum + count, 0);
   const maxCount = Math.max(...Object.values(raceCounts), 1);
-
-  const selectedLeagueName = selectedLeague !== null
-    ? LEAGUES.find(l => l.id === selectedLeague)?.name
-    : null;
 
   if (isLoading || totalPlayers === 0) {
     return (
       <div className="stats-card">
         <div className="stats-card-header">
           <h2 className="stats-card-title">Race Distribution</h2>
-          {selectedLeagueName && (
-            <span className="stats-card-filter">{selectedLeagueName}</span>
+          {filterLabels.length > 0 && (
+            <div className="stats-card-meta">
+              {filterLabels.map((label, i) => (
+                <span key={i} className="stats-card-filter">{label}</span>
+              ))}
+            </div>
           )}
         </div>
         <div className="stats-loading">{isLoading ? "Loading..." : "No data"}</div>
@@ -143,9 +155,9 @@ const RaceDistribution = ({ raceCounts, selectedLeague, isLoading }) => {
       <div className="stats-card-header">
         <h2 className="stats-card-title">Race Distribution</h2>
         <div className="stats-card-meta">
-          {selectedLeagueName && (
-            <span className="stats-card-filter">{selectedLeagueName}</span>
-          )}
+          {filterLabels.map((label, i) => (
+            <span key={i} className="stats-card-filter">{label}</span>
+          ))}
           <span className="stats-card-subtitle">{totalPlayers.toLocaleString()} players</span>
         </div>
       </div>
@@ -154,12 +166,17 @@ const RaceDistribution = ({ raceCounts, selectedLeague, isLoading }) => {
           const count = raceCounts[race.id] || 0;
           const percentage = totalPlayers > 0 ? ((count / totalPlayers) * 100).toFixed(1) : 0;
           const barWidth = maxCount > 0 ? (count / maxCount) * 100 : 0;
+          const isSelected = selectedRace === race.id;
 
           return (
-            <div key={race.id} className="stats-row">
+            <div
+              key={race.id}
+              className={`stats-row clickable ${isSelected ? "selected" : ""}`}
+              onClick={() => onRaceClick(race.id)}
+            >
               <div className="stats-label">
                 <img src={race.icon} alt="" className="stats-icon race-icon" />
-                <span className="stats-name">{race.name}</span>
+                <span className="stats-item-name">{race.name}</span>
               </div>
               <div className="stats-bar-container">
                 <div
@@ -175,12 +192,17 @@ const RaceDistribution = ({ raceCounts, selectedLeague, isLoading }) => {
           );
         })}
       </div>
+      {selectedRace !== null && (
+        <button className="stats-clear-filter" onClick={() => onRaceClick(null)}>
+          Clear filter
+        </button>
+      )}
     </div>
   );
 };
 
 // Country distribution chart component
-const CountryDistribution = ({ countryCounts, selectedLeague, isLoading }) => {
+const CountryDistribution = ({ countryCounts, selectedCountry, onCountryClick, filterLabels, isLoading }) => {
   const sortedCountries = useMemo(() => {
     return Object.entries(countryCounts)
       .filter(([_, count]) => count > 0)
@@ -191,15 +213,18 @@ const CountryDistribution = ({ countryCounts, selectedLeague, isLoading }) => {
   const totalPlayers = sortedCountries.reduce((sum, [_, count]) => sum + count, 0);
   const maxCount = sortedCountries.length > 0 ? sortedCountries[0][1] : 1;
 
-  const selectedLeagueName = selectedLeague !== null
-    ? LEAGUES.find(l => l.id === selectedLeague)?.name
-    : null;
-
   if (isLoading || sortedCountries.length === 0) {
     return (
       <div className="stats-card">
         <div className="stats-card-header">
           <h2 className="stats-card-title">Top Countries</h2>
+          {filterLabels.length > 0 && (
+            <div className="stats-card-meta">
+              {filterLabels.map((label, i) => (
+                <span key={i} className="stats-card-filter">{label}</span>
+              ))}
+            </div>
+          )}
         </div>
         <div className="stats-loading">{isLoading ? "Loading..." : "No data"}</div>
       </div>
@@ -211,9 +236,9 @@ const CountryDistribution = ({ countryCounts, selectedLeague, isLoading }) => {
       <div className="stats-card-header">
         <h2 className="stats-card-title">Top Countries</h2>
         <div className="stats-card-meta">
-          {selectedLeagueName && (
-            <span className="stats-card-filter">{selectedLeagueName}</span>
-          )}
+          {filterLabels.map((label, i) => (
+            <span key={i} className="stats-card-filter">{label}</span>
+          ))}
           <span className="stats-card-subtitle">{totalPlayers.toLocaleString()} players</span>
         </div>
       </div>
@@ -222,12 +247,17 @@ const CountryDistribution = ({ countryCounts, selectedLeague, isLoading }) => {
           const percentage = totalPlayers > 0 ? ((count / totalPlayers) * 100).toFixed(1) : 0;
           const barWidth = maxCount > 0 ? (count / maxCount) * 100 : 0;
           const countryName = COUNTRY_NAMES[countryCode] || countryCode;
+          const isSelected = selectedCountry === countryCode;
 
           return (
-            <div key={countryCode} className="stats-row">
+            <div
+              key={countryCode}
+              className={`stats-row clickable ${isSelected ? "selected" : ""}`}
+              onClick={() => onCountryClick(countryCode)}
+            >
               <div className="stats-label">
                 <Flag name={countryCode.toLowerCase()} className="stats-flag" />
-                <span className="stats-name">{countryName}</span>
+                <span className="stats-item-name">{countryName}</span>
               </div>
               <div className="stats-bar-container">
                 <div
@@ -243,6 +273,11 @@ const CountryDistribution = ({ countryCounts, selectedLeague, isLoading }) => {
           );
         })}
       </div>
+      {selectedCountry !== null && (
+        <button className="stats-clear-filter" onClick={() => onCountryClick(null)}>
+          Clear filter
+        </button>
+      )}
     </div>
   );
 };
@@ -464,6 +499,13 @@ const GameLengthChart = ({ lengthData, isLoading }) => {
   );
 };
 
+// Helper to get map image URL
+const getMapImageUrl = (mapName) => {
+  if (!mapName) return null;
+  const cleanName = mapName.replace(/^\(\d\)/, "").replace(/ /g, "").replace(/'/g, "");
+  return `/maps/${cleanName}.png`;
+};
+
 // Map Popularity chart
 const MapPopularity = ({ mapData, selectedSeason, isLoading }) => {
   const chartData = useMemo(() => {
@@ -476,8 +518,7 @@ const MapPopularity = ({ mapData, selectedSeason, isLoading }) => {
     if (!mode4Data?.maps) return [];
 
     return mode4Data.maps
-      .sort((a, b) => b.count - a.count)
-      .slice(0, 8);
+      .sort((a, b) => b.count - a.count);
   }, [mapData, selectedSeason]);
 
   const maxCount = chartData.length > 0 ? chartData[0].count : 1;
@@ -495,31 +536,30 @@ const MapPopularity = ({ mapData, selectedSeason, isLoading }) => {
   }
 
   return (
-    <div className="stats-card">
+    <div className="stats-card stats-card-wide">
       <div className="stats-card-header">
         <h2 className="stats-card-title">Map Popularity</h2>
-        <span className="stats-card-subtitle">{totalGames.toLocaleString()} games</span>
+        <span className="stats-card-subtitle">{chartData.length} maps · {totalGames.toLocaleString()} games</span>
       </div>
-      <div className="stats-bars">
-        {chartData.map((map) => {
+      <div className="map-grid">
+        {chartData.map((map, index) => {
           const percentage = totalGames > 0 ? ((map.count / totalGames) * 100).toFixed(1) : 0;
-          const barWidth = maxCount > 0 ? (map.count / maxCount) * 100 : 0;
-          const displayName = map.mapName || map.map.replace(/^\(\d\)/, '').trim();
+          // API returns mapName (display name) or map (can be timestamp-prefixed ID or "(4)MapName")
+          const displayName = map.mapName || map.map.replace(/^\(\d\)/, '').replace(/^\d+/, '').trim();
+          const mapImageUrl = getMapImageUrl(displayName);
 
           return (
-            <div key={map.map} className="stats-row">
-              <div className="stats-label">
-                <span className="stats-name map-name">{displayName}</span>
-              </div>
-              <div className="stats-bar-container">
-                <div
-                  className="stats-bar map-bar"
-                  style={{ width: `${barWidth}%` }}
-                />
-              </div>
-              <div className="stats-values">
-                <span className="stats-count">{map.count.toLocaleString()}</span>
-                <span className="stats-percent">{percentage}%</span>
+            <div key={map.map} className="map-grid-item">
+              <div className="map-grid-rank">#{index + 1}</div>
+              <img
+                src={mapImageUrl}
+                alt={displayName}
+                className="map-grid-image"
+                onError={(e) => { e.target.style.opacity = '0.3'; }}
+              />
+              <div className="map-grid-info">
+                <span className="map-grid-name">{displayName}</span>
+                <span className="map-grid-stats">{map.count.toLocaleString()} · {percentage}%</span>
               </div>
             </div>
           );
@@ -532,6 +572,8 @@ const MapPopularity = ({ mapData, selectedSeason, isLoading }) => {
 const Stats = () => {
   const [selectedSeason, setSelectedSeason] = useState(null);
   const [selectedLeague, setSelectedLeague] = useState(null);
+  const [selectedRace, setSelectedRace] = useState(null);
+  const [selectedCountry, setSelectedCountry] = useState(null);
   const [availableSeasons, setAvailableSeasons] = useState([]);
   const [leagueData, setLeagueData] = useState({});
   const [playerCountries, setPlayerCountries] = useState({});
@@ -655,16 +697,28 @@ const Stats = () => {
     fetchAllLeagueData();
   }, [selectedSeason]);
 
-  // Compute league counts from data
+  // Helper to filter players based on current selections
+  const filterPlayer = (player, { skipLeague, skipRace, skipCountry } = {}) => {
+    const race = player.player?.race ?? player.playersInfo?.[0]?.calculatedRace;
+    const location = player.playersInfo?.[0]?.location;
+
+    if (!skipRace && selectedRace !== null && race !== selectedRace) return false;
+    if (!skipCountry && selectedCountry !== null && location !== selectedCountry) return false;
+
+    return true;
+  };
+
+  // Compute league counts - filtered by race and country
   const leagueCounts = useMemo(() => {
     const counts = {};
     LEAGUES.forEach((league) => {
-      counts[league.id] = leagueData[league.id]?.length || 0;
+      const players = leagueData[league.id] || [];
+      counts[league.id] = players.filter(p => filterPlayer(p, { skipLeague: true })).length;
     });
     return counts;
-  }, [leagueData]);
+  }, [leagueData, selectedRace, selectedCountry]);
 
-  // Compute race counts - filtered by selected league if applicable
+  // Compute race counts - filtered by league and country
   const raceCounts = useMemo(() => {
     const counts = { 0: 0, 1: 0, 2: 0, 4: 0, 8: 0 };
 
@@ -675,6 +729,7 @@ const Stats = () => {
     leaguesToCount.forEach((leagueId) => {
       const players = leagueData[leagueId] || [];
       players.forEach((player) => {
+        if (!filterPlayer(player, { skipRace: true })) return;
         const race = player.player?.race ?? player.playersInfo?.[0]?.calculatedRace;
         if (race !== undefined && counts.hasOwnProperty(race)) {
           counts[race]++;
@@ -683,9 +738,9 @@ const Stats = () => {
     });
 
     return counts;
-  }, [leagueData, selectedLeague]);
+  }, [leagueData, selectedLeague, selectedCountry]);
 
-  // Compute country counts - filtered by selected league if applicable
+  // Compute country counts - filtered by league and race
   const countryCounts = useMemo(() => {
     const counts = {};
 
@@ -696,6 +751,7 @@ const Stats = () => {
     leaguesToCount.forEach((leagueId) => {
       const players = leagueData[leagueId] || [];
       players.forEach((player) => {
+        if (!filterPlayer(player, { skipCountry: true })) return;
         const location = player.playersInfo?.[0]?.location;
         if (location) {
           counts[location] = (counts[location] || 0) + 1;
@@ -704,15 +760,40 @@ const Stats = () => {
     });
 
     return counts;
-  }, [leagueData, selectedLeague]);
+  }, [leagueData, selectedLeague, selectedRace]);
+
+  // Generate filter labels for display
+  const getFilterLabels = (exclude) => {
+    const labels = [];
+    if (exclude !== 'league' && selectedLeague !== null) {
+      labels.push(LEAGUES.find(l => l.id === selectedLeague)?.name);
+    }
+    if (exclude !== 'race' && selectedRace !== null) {
+      labels.push(RACES.find(r => r.id === selectedRace)?.name);
+    }
+    if (exclude !== 'country' && selectedCountry !== null) {
+      labels.push(COUNTRY_NAMES[selectedCountry] || selectedCountry);
+    }
+    return labels.filter(Boolean);
+  };
 
   const handleSeasonChange = (e) => {
     setSelectedSeason(parseInt(e.target.value, 10));
     setSelectedLeague(null);
+    setSelectedRace(null);
+    setSelectedCountry(null);
   };
 
   const handleLeagueClick = (leagueId) => {
     setSelectedLeague(selectedLeague === leagueId ? null : leagueId);
+  };
+
+  const handleRaceClick = (raceId) => {
+    setSelectedRace(selectedRace === raceId ? null : raceId);
+  };
+
+  const handleCountryClick = (countryCode) => {
+    setSelectedCountry(selectedCountry === countryCode ? null : countryCode);
   };
 
   return (
@@ -742,16 +823,21 @@ const Stats = () => {
           leagueCounts={leagueCounts}
           selectedLeague={selectedLeague}
           onLeagueClick={handleLeagueClick}
+          filterLabels={getFilterLabels('league')}
           isLoading={isLoading}
         />
         <RaceDistribution
           raceCounts={raceCounts}
-          selectedLeague={selectedLeague}
+          selectedRace={selectedRace}
+          onRaceClick={handleRaceClick}
+          filterLabels={getFilterLabels('race')}
           isLoading={isLoading}
         />
         <CountryDistribution
           countryCounts={countryCounts}
-          selectedLeague={selectedLeague}
+          selectedCountry={selectedCountry}
+          onCountryClick={handleCountryClick}
+          filterLabels={getFilterLabels('country')}
           isLoading={isLoading}
         />
       </div>

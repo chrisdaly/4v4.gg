@@ -5,7 +5,7 @@ import FormDots from "./FormDots.jsx";
 /**
  * PlayerOverlay - Compact player card for stream overlay
  *
- * layout options: "default", "horizontal", "minimal", "compact", "session"
+ * layout options: "default", "horizontal", "minimal", "compact", "session", "banner"
  * bgStyle options: bg-gradient-fade, bg-dark-gold, bg-frosted, bg-none, bg-minimal
  */
 const PlayerOverlay = ({ playerData, layout = "default", bgStyle = "bg-gradient-fade" }) => {
@@ -118,6 +118,52 @@ const PlayerOverlay = ({ playerData, layout = "default", bgStyle = "bg-gradient-
           </span>
         </div>
         <FormDots form={form} size="medium" />
+      </div>
+    );
+  }
+
+  // ============================================
+  // LAYOUT: BANNER - WC3 themed vertical banner
+  // ============================================
+  if (layout === "banner") {
+    return (
+      <div className={`player-overlay po-banner ${bgStyle}`}>
+        {/* Portrait in ornate frame */}
+        <div className="po-banner-portrait">
+          <div className="po-banner-frame">
+            {profilePic ? (
+              <img src={profilePic} alt="" className="po-banner-pic" />
+            ) : (
+              <div className="po-banner-pic po-pic-placeholder" />
+            )}
+          </div>
+          {country && <Flag name={country.toLowerCase()} className="po-banner-flag" />}
+        </div>
+
+        {/* Name */}
+        <div className="po-banner-name">{name}</div>
+
+        {/* MMR + Rank row */}
+        <div className="po-banner-mmr-row">
+          <span className="po-banner-mmr-value">{mmr}</span>
+          <span className="po-banner-mmr-label">MMR</span>
+          {rank && <><span className="po-banner-sep">·</span><span className="po-banner-rank">#{rank}</span></>}
+        </div>
+
+        {/* Record + Winrate row */}
+        <div className="po-banner-record">
+          <span className="po-banner-wins">{wins}</span>
+          <span className="po-banner-losses">-{losses}</span>
+          <span className="po-banner-winrate">({winrate}%)</span>
+        </div>
+
+        {/* Session indicator */}
+        <div className="po-banner-session">
+          <span className={`po-banner-session-change ${sessionChange >= 0 ? 'positive' : 'negative'}`}>
+            {sessionChange >= 0 ? '+' : ''}{sessionChange}
+          </span>
+          <FormDots form={form} size="small" />
+        </div>
       </div>
     );
   }

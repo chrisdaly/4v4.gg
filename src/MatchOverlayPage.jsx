@@ -24,9 +24,9 @@ const MatchOverlayPage = () => {
     return decodeURIComponent(encoded);
   };
 
-  const getBgStyle = () => {
+  const getMatchStyle = () => {
     const params = new URLSearchParams(window.location.search);
-    return params.get("bg") || "bg-gradient-fade";
+    return params.get("style") || "default";
   };
 
   useEffect(() => {
@@ -97,7 +97,7 @@ const MatchOverlayPage = () => {
           atGroups={atGroups}
           sessionData={sessionData}
           streamerTag={getStreamerTag()}
-          bgStyle={getBgStyle()}
+          matchStyle={getMatchStyle()}
         />
       )}
     </div>

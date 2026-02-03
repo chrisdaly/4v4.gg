@@ -176,34 +176,6 @@ const TipBox = styled.div`
   }
 `;
 
-const LayoutButton = styled.button`
-  padding: var(--space-1) var(--space-2);
-  margin-right: var(--space-2);
-  font-family: var(--font-mono);
-  font-size: var(--text-xs);
-  background: ${p => p.$active ? 'var(--gold)' : 'var(--grey-dark)'};
-  border: 1px solid var(--grey-mid);
-  border-radius: var(--radius-md);
-  color: ${p => p.$active ? '#000' : 'var(--grey-light)'};
-  cursor: pointer;
-  transition: background var(--transition);
-
-  &:hover {
-    background: ${p => p.$active ? 'var(--gold)' : 'var(--grey-mid)'};
-  }
-`;
-
-const LayoutSelector = styled.div`
-  margin-bottom: var(--space-4);
-
-  span {
-    color: var(--grey-light);
-    font-family: var(--font-mono);
-    font-size: var(--text-xs);
-    margin-right: var(--space-2);
-  }
-`;
-
 const StepNumber = styled.div`
   display: inline-flex;
   align-items: center;
@@ -298,6 +270,12 @@ const OverlayIndex = () => {
     try {
       const settings = JSON.parse(localStorage.getItem(SETTINGS_KEY) || "{}");
       return settings.playerLayout || "default";
+    } catch { return "default"; }
+  });
+  const [matchStyle, setMatchStyle] = useState(() => {
+    try {
+      const settings = JSON.parse(localStorage.getItem(SETTINGS_KEY) || "{}");
+      return settings.matchStyle || "default";
     } catch { return "default"; }
   });
   const [saved, setSaved] = useState(false);
@@ -540,21 +518,13 @@ const OverlayIndex = () => {
 
   // Save settings to localStorage when they change
   useEffect(() => {
-    localStorage.setItem(SETTINGS_KEY, JSON.stringify({ bgStyle, playerLayout }));
-  }, [bgStyle, playerLayout]);
+    localStorage.setItem(SETTINGS_KEY, JSON.stringify({ bgStyle, playerLayout, matchStyle }));
+  }, [bgStyle, playerLayout, matchStyle]);
 
   // Reset positions to default
   const resetPositions = () => {
     setOverlayPositions(DEFAULT_POSITIONS);
   };
-
-  const bgOptions = [
-    { value: "bg-gradient-fade", label: "Gradient Fade (default)" },
-    { value: "bg-dark-gold", label: "Dark + Gold Border" },
-    { value: "bg-frosted", label: "Frosted Glass" },
-    { value: "bg-minimal", label: "Minimal Dark" },
-    { value: "bg-none", label: "Fully Transparent" },
-  ];
 
   const playerLayoutOptions = [
     { value: "default", label: "Default (vertical)" },
@@ -562,6 +532,17 @@ const OverlayIndex = () => {
     { value: "minimal", label: "Minimal" },
     { value: "compact", label: "Compact (2-line)" },
     { value: "session", label: "Session Only" },
+    { value: "banner", label: "Banner (WC3)" },
+  ];
+
+  const matchStyleOptions = [
+    { value: "default", label: "Default", group: "Simple" },
+    { value: "clean-gold", label: "Dark + Gold Border", group: "Simple" },
+    { value: "frame", label: "Gold Frame (Double)", group: "Simple" },
+    { value: "team-split", label: "Team Colors (Blue/Red)", group: "Gradient" },
+    { value: "frost", label: "Frosted Glass", group: "Gradient" },
+    { value: "wc3", label: "WC3 Dark Blue", group: "Themed" },
+    { value: "banner", label: "Banner Shape", group: "Themed" },
   ];
 
   // Mock data for preview
@@ -704,13 +685,6 @@ const OverlayIndex = () => {
           <p className="search-hint">
             Type to search • Click to select • Press Enter to save
           </p>
-
-          <Label style={{ marginTop: "var(--space-4)" }}>Background Style</Label>
-          <Select value={bgStyle} onChange={(e) => setBgStyle(e.target.value)}>
-            {bgOptions.map(opt => (
-              <option key={opt.value} value={opt.value}>{opt.label}</option>
-            ))}
-          </Select>
         </SettingsPanel>
       </Section>
 
@@ -733,7 +707,7 @@ const OverlayIndex = () => {
 
           <div style={{ marginBottom: "var(--space-4)" }}>
             <FieldLabel>URL</FieldLabel>
-            <UrlCode>{baseUrl}/overlay/match/{encodedTag}?bg={bgStyle}</UrlCode>
+            <UrlCode>{baseUrl}/overlay/match/{encodedTag}?style={matchStyle}</UrlCode>
           </div>
 
           <DimensionGrid>
@@ -762,7 +736,7 @@ const OverlayIndex = () => {
 
           <div style={{ marginBottom: "var(--space-4)" }}>
             <FieldLabel>URL</FieldLabel>
-            <UrlCode>{baseUrl}/overlay/player/{encodedTag}?bg={bgStyle}</UrlCode>
+            <UrlCode>{baseUrl}/overlay/player/{encodedTag}?bg={bgStyle}&layout={playerLayout}</UrlCode>
           </div>
 
           <DimensionGrid>
@@ -823,22 +797,34 @@ const OverlayIndex = () => {
           Drag overlays to position them. Use the corner handles to resize. Double-click for fullscreen preview.
         </Subtitle>
 
-        {/* Layout selector for Player Overlay */}
-        <LayoutSelector style={{ marginLeft: "40px" }}>
-          <span>Player Layout:</span>
-          {playerLayoutOptions.map(opt => (
-            <LayoutButton
-              key={opt.value}
-              $active={playerLayout === opt.value}
-              onClick={() => setPlayerLayout(opt.value)}
-            >
-              {opt.label}
-            </LayoutButton>
-          ))}
-          <ResetButton onClick={resetPositions} style={{ marginLeft: "var(--space-4)" }}>
+        {/* Style controls row */}
+        <div style={{
+          display: 'flex',
+          gap: 'var(--space-4)',
+          marginLeft: '40px',
+          marginBottom: 'var(--space-4)',
+          alignItems: 'flex-end'
+        }}>
+          <div style={{ flex: '0 0 200px' }}>
+            <Label>Match Style</Label>
+            <Select value={matchStyle} onChange={(e) => setMatchStyle(e.target.value)}>
+              {matchStyleOptions.map(opt => (
+                <option key={opt.value} value={opt.value}>{opt.label}</option>
+              ))}
+            </Select>
+          </div>
+          <div style={{ flex: '0 0 180px' }}>
+            <Label>Player Layout</Label>
+            <Select value={playerLayout} onChange={(e) => setPlayerLayout(e.target.value)}>
+              {playerLayoutOptions.map(opt => (
+                <option key={opt.value} value={opt.value}>{opt.label}</option>
+              ))}
+            </Select>
+          </div>
+          <ResetButton onClick={resetPositions}>
             Reset Positions
           </ResetButton>
-        </LayoutSelector>
+        </div>
 
         <MockScreen
           ref={mockScreenRef}
@@ -867,7 +853,7 @@ const OverlayIndex = () => {
                     atGroups={{}}
                     sessionData={{}}
                     streamerTag="Player1#123"
-                    bgStyle={bgStyle}
+                    matchStyle={matchStyle}
                   />
                   {/* Resize handle */}
                   <div

@@ -120,6 +120,11 @@ const PlayerOverlayPage = () => {
     return params.get("bg") || "bg-gradient-fade";
   };
 
+  const getLayout = () => {
+    const params = new URLSearchParams(window.location.search);
+    return params.get("layout") || "default";
+  };
+
   useEffect(() => {
     loadData();
     // Refresh every 30 seconds
@@ -196,7 +201,7 @@ const PlayerOverlayPage = () => {
       padding: '20px',
     }}>
       {isLoaded && playerData && (
-        <PlayerOverlay playerData={playerData} bgStyle={getBgStyle()} />
+        <PlayerOverlay playerData={playerData} layout={getLayout()} bgStyle={getBgStyle()} />
       )}
     </div>
   );

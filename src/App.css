@@ -4,13 +4,17 @@
      Minimal (~20 tokens)
      ============================================ */
 
-  /* COLORS (6) */
+  /* COLORS (10) */
   --gold: #fcdb33;
   --green: #4ade80;
   --red: #f87171;
+  --blue: #3b82f6;
   --grey-light: #999;   /* Secondary text, muted labels */
   --grey-mid: #444;     /* Borders, disabled text */
   --grey-dark: #1a1a1a; /* Elevated surfaces */
+  --white: #fff;        /* Primary text */
+  --team-blue: #4da6ff; /* Team 1 indicator */
+  --team-red: #ef4444;  /* Team 2 indicator */
 
   /* FONTS (2) */
   --font-display: "Friz_Quadrata_Bold", Georgia, serif;
@@ -191,12 +195,12 @@ body {
 h1,
 h2,
 h3 {
-  font-family: "Friz_Quadrata_Bold" !important;
+  font-family: var(--font-display) !important;
 }
 
 .key,
 .value {
-  font-family: "Friz_Quadrata_Bold" !important;
+  font-family: var(--font-display) !important;
 }
 
 body,
@@ -350,7 +354,7 @@ svg#svg_logo {
 }
 
 .navbar-logo {
-  font-family: "Friz_Quadrata_Bold", serif;
+  font-family: var(--font-display);
   font-size: var(--text-lg);
   color: var(--gold);
   text-decoration: none;
@@ -370,7 +374,7 @@ svg#svg_logo {
 }
 
 .navbar-link {
-  font-family: "Friz_Quadrata_Bold", serif;
+  font-family: var(--font-display);
   font-size: var(--text-xs);
   color: var(--text-secondary);
   text-decoration: none;
@@ -488,14 +492,14 @@ i.flag:not(.icon):before {
 
 .number,
 g.tick.text {
-  font-family: Inconsolata !important;
+  font-family: var(--font-mono) !important;
 }
 g.tick.text {
   opacity: 0.5;
 }
 
 h5.number {
-  font-family: Inconsolata !important;
+  font-family: var(--font-mono) !important;
   font-weight: 500;
   /* font-size: 0.9rem; */
 }
@@ -688,7 +692,7 @@ span.true {
 
 .player-card-demo .player-name {
   color: var(--gold);
-  font-family: "Friz_Quadrata_Bold", serif;
+  font-family: var(--font-display);
   font-size: var(--text-xs);
   margin-bottom: 4px;
 }
@@ -698,7 +702,7 @@ span.true {
 }
 
 .player-card-demo .mmr-value {
-  font-family: "Inconsolata", monospace;
+  font-family: var(--font-mono);
   font-size: var(--text-sm);
   color: var(--text-primary);
 }
@@ -724,7 +728,7 @@ span.true {
 
 .player-card-demo .session-record {
   color: var(--text-primary);
-  font-family: "Inconsolata", monospace;
+  font-family: var(--font-mono);
   font-size: var(--text-xxs);
 }
 
@@ -733,7 +737,7 @@ span.true {
 }
 
 .player-card-demo .session-delta {
-  font-family: "Inconsolata", monospace;
+  font-family: var(--font-mono);
   font-size: var(--text-xxs);
 }
 
@@ -791,7 +795,7 @@ span.true {
 
 .player-card-demo .peak-value {
   color: var(--green);
-  font-family: "Inconsolata", monospace;
+  font-family: var(--font-mono);
   font-size: var(--text-xxs);
 }
 
@@ -958,7 +962,7 @@ h2 {
 }
 
 .number {
-  font-family: "Inconsolata" !important;
+  font-family: var(--font-mono) !important;
 
   font-size: large !important;
   font-weight: bolder !important;
@@ -1044,7 +1048,7 @@ h2 {
   right: 4px;
   background: linear-gradient(135deg, #1a1a1a 0%, #333 100%);
   color: var(--text-primary);
-  font-family: "Inconsolata", monospace;
+  font-family: var(--font-mono);
   font-size: var(--text-xs);
   font-weight: bold;
   padding: 1px 5px;
@@ -1271,7 +1275,7 @@ img.teamHeaderRace {
   position: absolute;
   right: 20px;
   color: var(--grey-dark);
-  font-family: "Inconsolata", monospace;
+  font-family: var(--font-mono);
   font-size: var(--text-xxs);
   text-decoration: none;
   transition: color 0.2s;
@@ -1306,7 +1310,7 @@ img.teamHeaderRace {
 
 .meta-map-name {
   color: var(--text-primary);
-  font-family: "Friz_Quadrata_Bold", serif;
+  font-family: var(--font-display);
   font-size: var(--text-sm);
   text-align: center;
 }
@@ -1404,7 +1408,7 @@ img.teamHeaderRace {
 }
 
 .mvp-text {
-  font-family: "Friz_Quadrata_Bold" !important;
+  font-family: var(--font-display) !important;
   font-size: var(--text-xxs);
   color: var(--gold);
   font-weight: bold;
@@ -1629,12 +1633,12 @@ h2.team-name {
 
 .peak-value {
   color: var(--green);
-  font-family: "Inconsolata", monospace;
+  font-family: var(--font-mono);
 }
 
 /* MMR display - shared styles */
 .mmr-value {
-  font-family: "Inconsolata", monospace;
+  font-family: var(--font-mono);
   font-size: var(--text-base);
   color: var(--text-primary);
 }
@@ -1648,7 +1652,7 @@ h2.team-name {
   color: var(--grey);
   font-size: var(--text-xxs);
   margin-left: 6px;
-  font-family: "Inconsolata", monospace;
+  font-family: var(--font-mono);
 }
 
 /* Player name row with Twitch icon */
@@ -1708,7 +1712,7 @@ h2.team-name {
 }
 
 .rank-badge {
-  font-family: "Inconsolata", monospace;
+  font-family: var(--font-mono);
   font-size: var(--text-xs);
   font-weight: bold;
   color: var(--gold);
@@ -1756,12 +1760,12 @@ h2.team-name {
 
 .session-record {
   color: var(--text-primary);
-  font-family: "Inconsolata", monospace;
+  font-family: var(--font-mono);
   font-size: var(--text-sm);
 }
 
 .session-delta {
-  font-family: "Inconsolata", monospace;
+  font-family: var(--font-mono);
   font-size: var(--text-sm);
 }
 
@@ -1913,12 +1917,12 @@ th.team-header.winner {
 .glance-right { display: flex; align-items: center; gap: 12px; }
 .glance-session { display: flex; flex-direction: column; align-items: flex-end; gap: 2px; }
 .glance-session-stats { display: flex; gap: 6px; }
-.glance-record { font-family: "Inconsolata", monospace; font-size: 13px; color: var(--text-primary); }
-.glance-delta { font-family: "Inconsolata", monospace; font-size: 12px; font-weight: bold; }
+.glance-record { font-family: var(--font-mono); font-size: 13px; color: var(--text-primary); }
+.glance-delta { font-family: var(--font-mono); font-size: 12px; font-weight: bold; }
 .glance-delta.positive { color: var(--green); }
 .glance-delta.negative { color: var(--red); }
 .glance-no-session { font-size: 11px; color: var(--text-muted); }
-.glance-last { font-family: "Inconsolata", monospace; font-size: 12px; font-weight: bold; padding: 4px 8px; border-radius: 4px; }
+.glance-last { font-family: var(--font-mono); font-size: 12px; font-weight: bold; padding: 4px 8px; border-radius: 4px; }
 .glance-last.win { background: rgba(74,222,128,0.1); color: var(--green); }
 .glance-last.loss { background: rgba(248,113,113,0.1); color: var(--red); }
 .glance-switcher { display: flex; justify-content: center; margin-top: 12px; }
@@ -1947,8 +1951,8 @@ th.team-header.winner {
 .sh-session { display: flex; flex-direction: column; align-items: center; gap: 2px; }
 .sh-session-label { font-size: 9px; color: var(--text-muted); letter-spacing: 1px; }
 .sh-session-row { display: flex; gap: 6px; }
-.sh-session-record { font-family: "Inconsolata", monospace; font-size: 13px; color: var(--text-primary); }
-.sh-session-delta { font-family: "Inconsolata", monospace; font-size: 12px; font-weight: bold; }
+.sh-session-record { font-family: var(--font-mono); font-size: 13px; color: var(--text-primary); }
+.sh-session-delta { font-family: var(--font-mono); font-size: 12px; font-weight: bold; }
 .sh-session-delta.positive { color: var(--green); }
 .sh-session-delta.negative { color: var(--red); }
 .session-header-right { display: flex; align-items: center; gap: 12px; }
@@ -1958,7 +1962,7 @@ th.team-header.winner {
 .sh-last-result { font-size: 12px; font-weight: bold; }
 .sh-last-badge.win .sh-last-result { color: var(--green); }
 .sh-last-badge.loss .sh-last-result { color: var(--red); }
-.sh-last-mmr { font-family: "Inconsolata", monospace; font-size: 11px; }
+.sh-last-mmr { font-family: var(--font-mono); font-size: 11px; }
 .session-game-main { margin-bottom: 16px; }
 .session-strip { margin-top: 16px; }
 .strip-title { font-size: 11px; color: var(--text-muted); text-transform: uppercase; letter-spacing: 1px; margin-bottom: 8px; }
@@ -1971,7 +1975,7 @@ th.team-header.winner {
 .game-chip.win .chip-result { color: var(--green); }
 .game-chip.loss .chip-result { color: var(--red); }
 .chip-map { font-size: 11px; color: var(--text-secondary); }
-.chip-mmr { font-family: "Inconsolata", monospace; font-size: 11px; font-weight: bold; }
+.chip-mmr { font-family: var(--font-mono); font-size: 11px; font-weight: bold; }
 .chip-mmr.positive { color: var(--green); }
 .chip-mmr.negative { color: var(--red); }
 .session-expanded { margin-top: 16px; padding-top: 16px; border-top: 1px solid var(--border-color); }
@@ -1997,7 +2001,7 @@ th.team-header.winner {
 .journey-stat { text-align: center; }
 .journey-stat.current { background: rgba(252,219,51,0.1); padding: 8px 16px; border-radius: 6px; }
 .journey-label { display: block; font-size: 10px; color: var(--text-muted); text-transform: uppercase; letter-spacing: 1px; margin-bottom: 2px; }
-.journey-value { font-family: "Inconsolata", monospace; font-size: 20px; font-weight: bold; color: var(--text-primary); }
+.journey-value { font-family: var(--font-mono); font-size: 20px; font-weight: bold; color: var(--text-primary); }
 .journey-value.low { color: var(--red); }
 .journey-value.high { color: var(--green); }
 .journey-arrow { font-size: 20px; color: var(--grey-dark); }
@@ -2011,11 +2015,11 @@ th.team-header.winner {
 .progress-ladder-list { display: flex; flex-direction: column; gap: 4px; }
 .pl-row { display: flex; align-items: center; gap: 8px; padding: 4px 6px; border-radius: 4px; }
 .pl-row.me { background: rgba(252,219,51,0.1); }
-.pl-rank { font-family: "Inconsolata", monospace; font-size: 11px; color: var(--text-muted); width: 28px; }
+.pl-rank { font-family: var(--font-mono); font-size: 11px; color: var(--text-muted); width: 28px; }
 .pl-race { width: 16px; height: 16px; }
 .pl-name { flex: 1; font-size: 12px; color: var(--text-secondary); }
 .pl-name.me { color: var(--gold); font-weight: bold; }
-.pl-mmr { font-family: "Inconsolata", monospace; font-size: 12px; color: var(--text-primary); }
+.pl-mmr { font-family: var(--font-mono); font-size: 12px; color: var(--text-primary); }
 
 .form-grid { display: flex; flex-wrap: wrap; gap: 4px; margin-bottom: 8px; }
 .form-cell { width: 24px; height: 24px; display: flex; align-items: center; justify-content: center; font-size: 10px; font-weight: bold; border-radius: 3px; }
@@ -2030,9 +2034,9 @@ th.team-header.winner {
 .ps-summary { display: flex; align-items: center; gap: 16px; margin-bottom: 12px; }
 .ps-stat { text-align: center; }
 .ps-label { display: block; font-size: 10px; color: var(--text-muted); text-transform: uppercase; }
-.ps-value { font-family: "Inconsolata", monospace; font-size: 16px; font-weight: bold; color: var(--text-primary); }
+.ps-value { font-family: var(--font-mono); font-size: 16px; font-weight: bold; color: var(--text-primary); }
 .ps-arrow { color: var(--grey-dark); }
-.ps-change { font-family: "Inconsolata", monospace; font-size: 14px; font-weight: bold; margin-left: auto; }
+.ps-change { font-family: var(--font-mono); font-size: 14px; font-weight: bold; margin-left: auto; }
 .ps-change.positive { color: var(--green); }
 .ps-change.negative { color: var(--red); }
 .ps-games { display: flex; flex-wrap: wrap; gap: 6px; }
@@ -2043,7 +2047,7 @@ th.team-header.winner {
 .ps-game.win .ps-result { color: var(--green); }
 .ps-game.loss .ps-result { color: var(--red); }
 .ps-map { color: var(--text-secondary); }
-.ps-mmr { font-family: "Inconsolata", monospace; font-weight: bold; }
+.ps-mmr { font-family: var(--font-mono); font-weight: bold; }
 .ps-mmr.positive { color: var(--green); }
 .ps-mmr.negative { color: var(--red); }
 
@@ -2069,8 +2073,8 @@ th.team-header.winner {
 .tc-name { font-size: 14px; color: var(--gold); font-weight: bold; margin-bottom: 2px; }
 .tc-games { font-size: 10px; color: var(--text-muted); margin-bottom: 8px; }
 .tc-stats { display: flex; justify-content: space-between; margin-bottom: 6px; }
-.tc-record { font-family: "Inconsolata", monospace; font-size: 11px; color: var(--text-secondary); }
-.tc-wr { font-family: "Inconsolata", monospace; font-size: 11px; font-weight: bold; }
+.tc-record { font-family: var(--font-mono); font-size: 11px; color: var(--text-secondary); }
+.tc-wr { font-family: var(--font-mono); font-size: 11px; font-weight: bold; }
 .tc-wr.good { color: var(--green); }
 .tc-wr.bad { color: var(--red); }
 .tc-bar { height: 4px; background: rgba(255,255,255,0.1); border-radius: 2px; overflow: hidden; }
@@ -2086,7 +2090,7 @@ th.team-header.winner {
 .sr-result.loss { color: var(--red); }
 .sr-map { font-size: 11px; color: var(--text-secondary); width: 100px; }
 .sr-with { flex: 1; font-size: 11px; color: var(--text-muted); }
-.sr-mmr { font-family: "Inconsolata", monospace; font-size: 11px; font-weight: bold; }
+.sr-mmr { font-family: var(--font-mono); font-size: 11px; font-weight: bold; }
 .sr-mmr.positive { color: var(--green); }
 .sr-mmr.negative { color: var(--red); }
 
@@ -2103,10 +2107,10 @@ th.team-header.winner {
 .stream-mmr { font-size: 12px; color: var(--text-secondary); }
 .stream-rank { display: flex; align-items: center; gap: 4px; }
 .stream-league-icon { width: 24px; height: 24px; }
-.stream-rank-num { font-family: "Inconsolata", monospace; font-size: 14px; color: var(--gold); }
+.stream-rank-num { font-family: var(--font-mono); font-size: 14px; color: var(--gold); }
 .stream-session { display: flex; align-items: center; gap: 8px; }
-.stream-session-record { font-family: "Inconsolata", monospace; font-size: 13px; color: var(--text-primary); }
-.stream-session-delta { font-family: "Inconsolata", monospace; font-size: 12px; }
+.stream-session-record { font-family: var(--font-mono); font-size: 13px; color: var(--text-primary); }
+.stream-session-delta { font-family: var(--font-mono); font-size: 12px; }
 .stream-session-delta.positive { color: var(--green); }
 .stream-session-delta.negative { color: var(--red); }
 .stream-live { display: flex; align-items: center; gap: 6px; margin-top: 8px; font-size: 12px; font-weight: bold; color: var(--red); }
@@ -2224,7 +2228,7 @@ th.team-header.winner {
 }
 
 .rank-inline {
-  font-family: "Inconsolata", monospace;
+  font-family: var(--font-mono);
   font-size: var(--text-xxs);
   color: var(--gold);
 }
@@ -2269,13 +2273,13 @@ th.team-header.winner {
 }
 
 .session-inline .session-record {
-  font-family: "Inconsolata", monospace;
+  font-family: var(--font-mono);
   font-size: var(--text-xs);
   color: var(--text-primary);
 }
 
 .session-inline .session-delta {
-  font-family: "Inconsolata", monospace;
+  font-family: var(--font-mono);
   font-size: var(--text-xxs);
   font-weight: bold;
 }
@@ -2317,7 +2321,7 @@ th.team-header.winner {
 .last-game-badge-sm.loss .result { color: var(--red); }
 
 .last-game-badge-sm .mmr-change {
-  font-family: "Inconsolata", monospace;
+  font-family: var(--font-mono);
   font-size: var(--text-xxs);
 }
 
@@ -2426,7 +2430,7 @@ th.team-header.winner {
 }
 
 .chip-mmr {
-  font-family: "Inconsolata", monospace;
+  font-family: var(--font-mono);
   font-size: var(--text-xxs);
   font-weight: bold;
 }
@@ -2475,7 +2479,7 @@ th.team-header.winner {
 
 .mmr-range {
   margin-left: auto;
-  font-family: "Inconsolata", monospace;
+  font-family: var(--font-mono);
   font-size: var(--text-xxs);
 }
 
@@ -2507,7 +2511,7 @@ th.team-header.winner {
 
 .rank-label {
   margin-left: auto;
-  font-family: "Inconsolata", monospace;
+  font-family: var(--font-mono);
   font-size: var(--text-xxs);
   color: var(--text-muted);
 }
@@ -2531,7 +2535,7 @@ th.team-header.winner {
 }
 
 .ladder-rank {
-  font-family: "Inconsolata", monospace;
+  font-family: var(--font-mono);
   font-size: var(--text-xxs);
   color: var(--text-muted);
   width: 24px;
@@ -2562,7 +2566,7 @@ a.ladder-name:hover {
 }
 
 .ladder-mmr {
-  font-family: "Inconsolata", monospace;
+  font-family: var(--font-mono);
   font-size: var(--text-xxs);
   color: var(--text-primary);
 }
@@ -2627,14 +2631,14 @@ a.ladder-name:hover {
 }
 
 .stat-record {
-  font-family: "Inconsolata", monospace;
+  font-family: var(--font-mono);
   font-size: var(--text-xxs);
   color: var(--text-muted);
   width: 35px;
 }
 
 .stat-wr {
-  font-family: "Inconsolata", monospace;
+  font-family: var(--font-mono);
   font-size: var(--text-xxs);
   width: 28px;
   text-align: right;
@@ -2669,7 +2673,7 @@ a.ladder-name:hover {
 }
 
 .recent-mmr {
-  font-family: "Inconsolata", monospace;
+  font-family: var(--font-mono);
   font-size: var(--text-xxs);
 }
 
@@ -2740,13 +2744,13 @@ a.ladder-name:hover {
 }
 
 .teammate-record {
-  font-family: "Inconsolata", monospace;
+  font-family: var(--font-mono);
   font-size: var(--text-xxs);
   color: var(--text-secondary);
 }
 
 .teammate-wr {
-  font-family: "Inconsolata", monospace;
+  font-family: var(--font-mono);
   font-size: var(--text-xxs);
   font-weight: bold;
 }
@@ -2818,7 +2822,7 @@ a.ladder-name:hover {
 }
 
 .social-mmr {
-  font-family: "Inconsolata", monospace;
+  font-family: var(--font-mono);
   font-size: var(--text-xxs);
 }
 
@@ -2949,7 +2953,7 @@ a.ladder-name:hover {
 }
 
 .profile-stats-row .rank-badge {
-  font-family: "Inconsolata", monospace;
+  font-family: var(--font-mono);
   font-size: var(--text-xs);
   font-weight: bold;
   color: var(--gold);
@@ -3001,13 +3005,13 @@ a.ladder-name:hover {
 }
 
 .session-record-sm {
-  font-family: "Inconsolata", monospace;
+  font-family: var(--font-mono);
   font-size: var(--text-xs);
   color: var(--text-primary);
 }
 
 .session-delta-sm {
-  font-family: "Inconsolata", monospace;
+  font-family: var(--font-mono);
   font-size: var(--text-xs);
   font-weight: bold;
 }
@@ -3052,7 +3056,7 @@ a.ladder-name:hover {
 }
 
 .last-game-mmr-sm {
-  font-family: "Inconsolata", monospace;
+  font-family: var(--font-mono);
   font-size: var(--text-xxs);
   font-weight: bold;
 }
@@ -3090,7 +3094,7 @@ a.ladder-name:hover {
 }
 
 .mmr-range-inline {
-  font-family: "Inconsolata", monospace;
+  font-family: var(--font-mono);
   font-size: var(--text-xxs);
 }
 
@@ -3149,7 +3153,7 @@ a.ladder-name:hover {
 }
 
 .ladder-rank-sm {
-  font-family: "Inconsolata", monospace;
+  font-family: var(--font-mono);
   font-size: var(--text-xxs);
   color: var(--text-muted);
 }
@@ -3173,7 +3177,7 @@ a.ladder-name:hover {
 }
 
 .neighbor-rank-sm {
-  font-family: "Inconsolata", monospace;
+  font-family: var(--font-mono);
   font-size: var(--text-xxs);
   color: var(--text-muted);
   width: 22px;
@@ -3204,7 +3208,7 @@ a.neighbor-name-sm:hover {
 }
 
 .neighbor-mmr-sm {
-  font-family: "Inconsolata", monospace;
+  font-family: var(--font-mono);
   font-size: var(--text-xxs);
   color: var(--text-primary);
 }
@@ -3332,7 +3336,7 @@ a.neighbor-name-sm:hover {
 .last-game-mmr {
   font-size: var(--text-base);
   font-weight: bold;
-  font-family: "Inconsolata", monospace;
+  font-family: var(--font-mono);
 }
 
 .last-game-mmr.positive {
@@ -3494,13 +3498,13 @@ a.neighbor-name-sm:hover {
   font-size: var(--text-lg);
   font-weight: bold;
   color: var(--text-primary);
-  font-family: "Inconsolata", monospace;
+  font-family: var(--font-mono);
 }
 
 .session-delta-big {
   font-size: var(--text-sm);
   font-weight: bold;
-  font-family: "Inconsolata", monospace;
+  font-family: var(--font-mono);
 }
 
 .session-delta-big.positive {
@@ -3547,7 +3551,7 @@ a.neighbor-name-sm:hover {
 }
 
 .mmr-range-bar .range-label {
-  font-family: "Inconsolata", monospace;
+  font-family: var(--font-mono);
   font-size: var(--text-xxs);
   min-width: 35px;
 }
@@ -3584,7 +3588,7 @@ a.neighbor-name-sm:hover {
 .range-current-label {
   text-align: center;
   margin-top: 6px;
-  font-family: "Inconsolata", monospace;
+  font-family: var(--font-mono);
   font-size: var(--text-xxs);
   font-weight: bold;
   color: var(--gold);
@@ -3634,7 +3638,7 @@ a.neighbor-name-sm:hover {
 }
 
 .match-row-compact .match-mmr-change {
-  font-family: "Inconsolata", monospace;
+  font-family: var(--font-mono);
   font-weight: bold;
   font-size: var(--text-xxs);
   min-width: 30px;
@@ -3723,7 +3727,7 @@ a.neighbor-name-sm:hover {
   text-align: right;
   font-size: var(--text-xxs);
   color: var(--text-muted);
-  font-family: "Inconsolata", monospace;
+  font-family: var(--font-mono);
 }
 
 .stats-winrate {
@@ -3731,7 +3735,7 @@ a.neighbor-name-sm:hover {
   text-align: right;
   font-size: var(--text-xxs);
   font-weight: bold;
-  font-family: "Inconsolata", monospace;
+  font-family: var(--font-mono);
 }
 
 .stats-winrate.green {
@@ -3799,7 +3803,7 @@ a.neighbor-name-sm:hover {
 .match-mmr-change {
   flex: 0 0 50px;
   text-align: right;
-  font-family: "Inconsolata", monospace;
+  font-family: var(--font-mono);
   font-size: var(--text-xs);
   font-weight: bold;
 }
@@ -3929,7 +3933,7 @@ a.neighbor-name-sm:hover {
 }
 
 .tile-mmr {
-  font-family: "Inconsolata", monospace;
+  font-family: var(--font-mono);
   font-size: var(--text-xs);
   font-weight: bold;
 }
@@ -4530,6 +4534,118 @@ a.neighbor-name-sm:hover {
   border-radius: 4px;
 }
 
+/* ========================================
+   Match Style Variants
+   ======================================== */
+
+/* Default - subtle gradient fade */
+.minimal-overlay.match-style-default {
+  background: radial-gradient(ellipse at center, rgba(0, 0, 0, 0.85) 0%, rgba(0, 0, 0, 0.6) 60%, transparent 100%);
+  padding: 20px 40px;
+}
+
+/* Clean Gold - dark bg with gold border */
+.minimal-overlay.match-style-clean-gold {
+  background: rgba(10, 10, 12, 0.92);
+  border: 1px solid var(--gold);
+  border-radius: 4px;
+}
+
+/* Team Split - blue/red gradient from sides (subtle) */
+.minimal-overlay.match-style-team-split {
+  background: linear-gradient(90deg,
+    rgba(25, 50, 80, 0.7) 0%,
+    rgba(15, 30, 50, 0.5) 12%,
+    rgba(10, 10, 15, 0.9) 28%,
+    rgba(10, 10, 15, 0.9) 72%,
+    rgba(50, 25, 25, 0.5) 88%,
+    rgba(80, 35, 35, 0.7) 100%);
+  border: none;
+  border-radius: 0;
+  border-top: 1px solid;
+  border-bottom: 1px solid;
+  border-image: linear-gradient(90deg,
+    rgba(80, 130, 180, 0.35) 0%,
+    transparent 20%,
+    transparent 80%,
+    rgba(180, 80, 80, 0.35) 100%) 1;
+}
+
+/* Frost - frosted glass effect */
+.minimal-overlay.match-style-frost {
+  background: rgba(40, 50, 70, 0.55);
+  backdrop-filter: blur(12px);
+  -webkit-backdrop-filter: blur(12px);
+  border: 1px solid rgba(255, 255, 255, 0.12);
+  border-radius: 8px;
+}
+
+/* Frame - gold frame, mostly transparent */
+.minimal-overlay.match-style-frame {
+  background: rgba(0, 0, 0, 0.3);
+  border: 2px solid var(--gold);
+  border-radius: 0;
+  position: relative;
+}
+
+.minimal-overlay.match-style-frame::after {
+  content: '';
+  position: absolute;
+  inset: 4px;
+  border: 1px solid rgba(252, 219, 51, 0.3);
+  pointer-events: none;
+}
+
+/* WC3 - dark blue gradient with gold accents */
+.minimal-overlay.match-style-wc3 {
+  background: linear-gradient(180deg,
+    rgba(30, 40, 55, 0.95) 0%,
+    rgba(20, 28, 40, 0.98) 50%,
+    rgba(15, 22, 32, 0.98) 100%);
+  border: 2px solid rgba(180, 150, 90, 0.6);
+  border-radius: 0;
+  position: relative;
+}
+
+.minimal-overlay.match-style-wc3::before {
+  content: '';
+  position: absolute;
+  inset: 4px;
+  border: 1px solid rgba(180, 150, 90, 0.3);
+  pointer-events: none;
+}
+
+/* Banner - pointed ends shape */
+.minimal-overlay.match-style-banner {
+  background: linear-gradient(180deg,
+    rgba(25, 35, 50, 0.95) 0%,
+    rgba(15, 22, 35, 0.98) 50%,
+    rgba(20, 30, 45, 0.95) 100%);
+  border: none;
+  border-radius: 0;
+  position: relative;
+  padding: 20px 60px;
+  clip-path: polygon(
+    30px 0%, calc(100% - 30px) 0%,
+    100% 50%,
+    calc(100% - 30px) 100%, 30px 100%,
+    0% 50%
+  );
+}
+
+.minimal-overlay.match-style-banner::after {
+  content: '';
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  background:
+    radial-gradient(ellipse at 0% 50%, rgba(252, 219, 51, 0.1) 0%, transparent 25%),
+    radial-gradient(ellipse at 100% 50%, rgba(252, 219, 51, 0.1) 0%, transparent 25%);
+  pointer-events: none;
+}
+
 /* Players row */
 .mo-players-row {
   display: flex;
@@ -4621,7 +4737,7 @@ a.neighbor-name-sm:hover {
   top: 50%;
   left: 50%;
   transform: translate(-50%, -50%);
-  font-family: "Friz_Quadrata_Bold", serif;
+  font-family: var(--font-display);
   font-size: 11px;
   color: rgba(255, 255, 255, 0.4);
   letter-spacing: 1px;
@@ -4822,6 +4938,166 @@ a.neighbor-name-sm:hover {
 }
 
 /* ========================================
+   Style: WC3 - Warcraft III themed frame
+   ======================================== */
+#StreamOverlay.stream-style-wc3 .Game {
+  background: linear-gradient(180deg,
+    rgba(30, 40, 55, 0.95) 0%,
+    rgba(20, 28, 40, 0.98) 50%,
+    rgba(15, 22, 32, 0.98) 100%);
+  border: none;
+  border-radius: 0;
+  padding: 16px 24px;
+  position: relative;
+}
+
+/* WC3 decorative frame - outer border */
+#StreamOverlay.stream-style-wc3 .Game::before {
+  content: '';
+  position: absolute;
+  inset: 4px;
+  border: 2px solid rgba(180, 150, 90, 0.6);
+  pointer-events: none;
+}
+
+/* WC3 corner decorations */
+#StreamOverlay.stream-style-wc3 .Game::after {
+  content: '';
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+  background:
+    /* Top-left corner */
+    linear-gradient(135deg, #b4965a 0%, #b4965a 8px, transparent 8px) top left,
+    linear-gradient(225deg, transparent 12px, rgba(180, 150, 90, 0.4) 12px, rgba(180, 150, 90, 0.4) 14px, transparent 14px) top left,
+    /* Top-right corner */
+    linear-gradient(225deg, #b4965a 0%, #b4965a 8px, transparent 8px) top right,
+    linear-gradient(315deg, transparent 12px, rgba(180, 150, 90, 0.4) 12px, rgba(180, 150, 90, 0.4) 14px, transparent 14px) top right,
+    /* Bottom-left corner */
+    linear-gradient(45deg, #b4965a 0%, #b4965a 8px, transparent 8px) bottom left,
+    linear-gradient(135deg, transparent 12px, rgba(180, 150, 90, 0.4) 12px, rgba(180, 150, 90, 0.4) 14px, transparent 14px) bottom left,
+    /* Bottom-right corner */
+    linear-gradient(315deg, #b4965a 0%, #b4965a 8px, transparent 8px) bottom right,
+    linear-gradient(45deg, transparent 12px, rgba(180, 150, 90, 0.4) 12px, rgba(180, 150, 90, 0.4) 14px, transparent 14px) bottom right;
+  background-size: 20px 20px;
+  background-repeat: no-repeat;
+}
+
+#StreamOverlay.stream-style-wc3 .team-header {
+  padding: 8px 0 !important;
+}
+
+#StreamOverlay.stream-style-wc3 .team-name {
+  color: var(--gold);
+  text-shadow: 0 2px 4px rgba(0, 0, 0, 0.8);
+}
+
+#StreamOverlay.stream-style-wc3 .team-mmr-line .mmr-value {
+  text-shadow: 0 2px 4px rgba(0, 0, 0, 0.8);
+}
+
+#StreamOverlay.stream-style-wc3 .th-center h2 {
+  color: rgba(180, 150, 90, 0.8);
+  text-shadow: 0 2px 4px rgba(0, 0, 0, 0.8);
+}
+
+#StreamOverlay.stream-style-wc3 .profile-pic {
+  border: 2px solid rgba(180, 150, 90, 0.5) !important;
+}
+
+#StreamOverlay.stream-style-wc3 h2 {
+  text-shadow: 0 1px 3px rgba(0, 0, 0, 0.9);
+}
+
+/* ========================================
+   Style: CLEAN - Minimal dark with gold accent
+   ======================================== */
+#StreamOverlay.stream-style-clean-gold .Game {
+  background: rgba(10, 10, 12, 0.92);
+  border: 1px solid var(--gold);
+  border-radius: 4px;
+  padding: 12px 20px;
+}
+
+#StreamOverlay.stream-style-clean-gold .team-name {
+  color: var(--gold);
+}
+
+/* ========================================
+   Style: TEAM-SPLIT - Blue/red team gradient
+   ======================================== */
+#StreamOverlay.stream-style-team-split .Game {
+  background: linear-gradient(90deg,
+    rgba(30, 60, 100, 0.9) 0%,
+    rgba(15, 15, 20, 0.95) 45%,
+    rgba(15, 15, 20, 0.95) 55%,
+    rgba(100, 40, 40, 0.9) 100%);
+  border: none;
+  border-radius: 0;
+  padding: 12px 20px;
+}
+
+#StreamOverlay.stream-style-team-split .team-header.team-0 {
+  border-bottom: 2px solid #4a9eff;
+}
+
+#StreamOverlay.stream-style-team-split .team-header.team-1 {
+  border-bottom: 2px solid #ff4a4a;
+}
+
+/* ========================================
+   Style: FROST - Frosted glass effect
+   ======================================== */
+#StreamOverlay.stream-style-frost .Game {
+  background: rgba(40, 50, 70, 0.6);
+  backdrop-filter: blur(12px);
+  -webkit-backdrop-filter: blur(12px);
+  border: 1px solid rgba(255, 255, 255, 0.15);
+  border-radius: 8px;
+  padding: 14px 20px;
+}
+
+#StreamOverlay.stream-style-frost .team-name,
+#StreamOverlay.stream-style-frost h2 {
+  text-shadow: 0 2px 8px rgba(0, 0, 0, 0.8);
+}
+
+/* ========================================
+   Style: FRAME - Thin gold frame, transparent
+   ======================================== */
+#StreamOverlay.stream-style-frame .Game {
+  background: transparent;
+  border: none;
+  padding: 16px 24px;
+  position: relative;
+}
+
+#StreamOverlay.stream-style-frame .Game::before {
+  content: '';
+  position: absolute;
+  inset: 0;
+  border: 2px solid var(--gold);
+  pointer-events: none;
+}
+
+#StreamOverlay.stream-style-frame .Game::after {
+  content: '';
+  position: absolute;
+  inset: 6px;
+  border: 1px solid rgba(252, 219, 51, 0.3);
+  pointer-events: none;
+}
+
+#StreamOverlay.stream-style-frame .team-name,
+#StreamOverlay.stream-style-frame .mmr-value,
+#StreamOverlay.stream-style-frame h2 {
+  text-shadow:
+    0 0 4px rgba(0, 0, 0, 1),
+    0 0 8px rgba(0, 0, 0, 0.9),
+    1px 1px 2px rgba(0, 0, 0, 1);
+}
+
+/* ========================================
    Ladder Page Styles
    ======================================== */
 
@@ -4851,7 +5127,7 @@ a.neighbor-name-sm:hover {
 }
 
 .distribution-title {
-  font-family: "Friz_Quadrata_Bold", serif;
+  font-family: var(--font-display);
   font-size: var(--text-base);
   color: var(--gold);
   letter-spacing: 0.5px;
@@ -4902,7 +5178,7 @@ a.neighbor-name-sm:hover {
 }
 
 .distribution-name {
-  font-family: "Friz_Quadrata_Regular", serif;
+  font-family: var(--font-display);
   font-size: var(--text-sm);
   color: #fff;
 }
@@ -5080,7 +5356,7 @@ a.neighbor-name-sm:hover {
 
 .league-selector select,
 .season-selector select {
-  font-family: "Friz_Quadrata_Bold", serif;
+  font-family: var(--font-display);
   background: linear-gradient(180deg, rgba(30, 30, 30, 0.95) 0%, rgba(15, 15, 15, 0.98) 100%);
   border: 1px solid rgba(252, 219, 51, 0.3);
   border-radius: 4px;
@@ -5128,7 +5404,7 @@ a.neighbor-name-sm:hover {
 }
 
 .ladder-search input {
-  font-family: "Friz_Quadrata_Regular", serif;
+  font-family: var(--font-display);
   background: linear-gradient(180deg, rgba(30, 30, 30, 0.95) 0%, rgba(15, 15, 15, 0.98) 100%);
   border: 1px solid var(--border-color);
   border-radius: 4px;
@@ -5686,7 +5962,7 @@ a.neighbor-name-sm:hover {
 }
 
 .finished-title {
-  font-family: "Friz_Quadrata_Bold", serif;
+  font-family: var(--font-display);
   font-size: var(--text-xl);
   color: var(--gold);
   margin: 0;
@@ -5726,7 +6002,7 @@ a.neighbor-name-sm:hover {
 }
 
 .filter-group select {
-  font-family: "Friz_Quadrata_Bold", serif;
+  font-family: var(--font-display);
   background: linear-gradient(180deg, rgba(30, 30, 30, 0.95) 0%, rgba(15, 15, 15, 0.98) 100%);
   border: 1px solid rgba(252, 219, 51, 0.3);
   border-radius: 4px;
@@ -5888,7 +6164,7 @@ a.neighbor-name-sm:hover {
 }
 
 .ladder-standing-rank {
-  font-family: "Inconsolata", monospace;
+  font-family: var(--font-mono);
   font-size: 14px;
   color: var(--text-muted);
 }
@@ -5919,7 +6195,7 @@ a.neighbor-name-sm:hover {
 }
 
 .neighbor-rank {
-  font-family: "Inconsolata", monospace;
+  font-family: var(--font-mono);
   font-size: 12px;
   color: var(--text-muted);
   min-width: 32px;
@@ -5948,7 +6224,7 @@ a.neighbor-name:hover {
 }
 
 .neighbor-mmr {
-  font-family: "Inconsolata", monospace;
+  font-family: var(--font-mono);
   font-size: 13px;
   color: var(--text-primary);
   min-width: 40px;
@@ -5962,7 +6238,7 @@ a.neighbor-name:hover {
 
 .stream-overlay {
   background: transparent;
-  font-family: "Friz_Quadrata_Regular", sans-serif;
+  font-family: var(--font-display);
 }
 
 .stream-overlay-loading {
@@ -6012,7 +6288,7 @@ a.neighbor-name:hover {
 }
 
 .sow-name {
-  font-family: "Friz_Quadrata_Bold", serif;
+  font-family: var(--font-display);
   font-size: 20px;
   color: var(--gold);
   text-shadow: 0 0 8px rgba(252, 219, 51, 0.4);
@@ -6029,7 +6305,7 @@ a.neighbor-name:hover {
 }
 
 .sow-mmr {
-  font-family: "Inconsolata", monospace;
+  font-family: var(--font-mono);
   font-size: 18px;
   font-weight: bold;
   color: var(--text-primary);
@@ -6047,7 +6323,7 @@ a.neighbor-name:hover {
 }
 
 .sow-rank {
-  font-family: "Inconsolata", monospace;
+  font-family: var(--font-mono);
   font-size: 14px;
   color: var(--gold);
 }
@@ -6061,13 +6337,13 @@ a.neighbor-name:hover {
 }
 
 .sow-session-record {
-  font-family: "Inconsolata", monospace;
+  font-family: var(--font-mono);
   font-size: 14px;
   color: var(--text-primary);
 }
 
 .sow-session-delta {
-  font-family: "Inconsolata", monospace;
+  font-family: var(--font-mono);
   font-size: 13px;
   font-weight: bold;
 }
@@ -6125,13 +6401,13 @@ a.neighbor-name:hover {
 }
 
 .ssw-record {
-  font-family: "Inconsolata", monospace;
+  font-family: var(--font-mono);
   font-size: 15px;
   color: var(--text-primary);
 }
 
 .ssw-delta {
-  font-family: "Inconsolata", monospace;
+  font-family: var(--font-mono);
   font-size: 13px;
   font-weight: bold;
 }
@@ -6167,7 +6443,7 @@ a.neighbor-name:hover {
   display: flex;
   align-items: center;
   gap: 6px;
-  font-family: "Friz_Quadrata_Bold", serif;
+  font-family: var(--font-display);
   font-size: 14px;
   padding: 4px 10px;
   border-radius: 4px;
@@ -6184,7 +6460,7 @@ a.neighbor-name:hover {
 }
 
 .ssw-mmr-change {
-  font-family: "Inconsolata", monospace;
+  font-family: var(--font-mono);
   font-size: 12px;
   font-weight: bold;
 }
@@ -6303,7 +6579,7 @@ a.neighbor-name:hover {
 }
 
 .smw-name {
-  font-family: "Friz_Quadrata_Bold", serif;
+  font-family: var(--font-display);
   font-size: 13px;
   color: var(--gold);
   min-width: 80px;
@@ -6318,7 +6594,7 @@ a.neighbor-name:hover {
 }
 
 .smw-mmr {
-  font-family: "Inconsolata", monospace;
+  font-family: var(--font-mono);
   font-size: 11px;
   color: var(--text-muted);
   min-width: 36px;
@@ -6343,7 +6619,7 @@ a.neighbor-name:hover {
 }
 
 .smw-team-mmr {
-  font-family: "Inconsolata", monospace;
+  font-family: var(--font-mono);
   font-size: 16px;
   font-weight: bold;
   color: var(--text-primary);
@@ -6728,6 +7004,141 @@ a.neighbor-name:hover {
 
 .po-session-only .form-dots {
   justify-content: center;
+}
+
+/* ============================================
+   PLAYER OVERLAY LAYOUT: BANNER
+   Matches player profile header style
+   ============================================ */
+.po-banner {
+  position: relative;
+  padding: 32px 40px 48px;
+  min-width: 200px;
+  text-align: center;
+  background: linear-gradient(180deg,
+    rgba(60, 30, 30, 0.95) 0%,
+    rgba(40, 25, 35, 0.98) 30%,
+    rgba(25, 30, 45, 0.98) 70%,
+    rgba(20, 25, 40, 0.95) 100%);
+  border: 2px solid rgba(180, 150, 90, 0.6);
+  clip-path: polygon(
+    0% 0%,
+    100% 0%,
+    100% 92%,
+    50% 100%,
+    0% 92%
+  );
+}
+
+/* Portrait - matches .hd-pic style */
+.po-banner-portrait {
+  position: relative;
+  display: inline-block;
+  margin-bottom: 16px;
+}
+
+.po-banner-frame {
+  position: relative;
+  width: 100px;
+  height: 100px;
+  border-radius: var(--radius-md);
+  overflow: hidden;
+}
+
+.po-banner-pic {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+}
+
+.po-banner-flag {
+  position: absolute;
+  top: 4px;
+  right: 4px;
+  transform: scale(1.2);
+}
+
+/* Name - matches .hd-name style */
+.po-banner-name {
+  font-family: var(--font-display);
+  font-size: var(--text-xl);
+  color: var(--gold);
+  margin-bottom: 16px;
+}
+
+/* MMR + Rank row */
+.po-banner-mmr-row {
+  margin-bottom: 4px;
+}
+
+.po-banner-mmr-value {
+  font-family: var(--font-mono);
+  font-size: var(--text-lg);
+  font-weight: bold;
+  color: #fff;
+}
+
+.po-banner-mmr-label {
+  font-family: var(--font-mono);
+  font-size: var(--text-xs);
+  color: var(--grey-light);
+  text-transform: uppercase;
+  margin-left: 4px;
+}
+
+.po-banner-rank {
+  font-family: var(--font-mono);
+  font-size: var(--text-sm);
+  color: var(--grey-light);
+}
+
+.po-banner-sep {
+  margin: 0 8px;
+  color: var(--grey-mid);
+  font-size: var(--text-sm);
+}
+
+/* Record row */
+.po-banner-record {
+  font-family: var(--font-mono);
+  font-size: var(--text-sm);
+  color: var(--grey-light);
+  margin-bottom: 12px;
+}
+
+.po-banner-wins {
+  color: var(--green);
+}
+
+.po-banner-losses {
+  color: var(--red);
+}
+
+.po-banner-winrate {
+  color: var(--grey-light);
+  margin-left: 4px;
+}
+
+/* Session row */
+.po-banner-session {
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  gap: 12px;
+}
+
+.po-banner-session-change {
+  font-family: var(--font-mono);
+  font-size: var(--text-base);
+  font-weight: 600;
+}
+
+.po-banner-session-change.positive {
+  color: var(--green);
+}
+
+.po-banner-session-change.negative {
+  color: var(--red);
 }
 
 /* NOTE: Session History Overlay and Last Game Overlay styles removed.

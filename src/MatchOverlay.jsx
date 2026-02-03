@@ -9,7 +9,7 @@ import random from "./icons/random.svg";
 
 const raceMapping = { 8: undead, 0: random, 4: elf, 2: orc, 1: human };
 
-const MatchOverlay = ({ matchData, atGroups = {}, sessionData = {}, mmrDuration = 8000, sessionDuration = 4000, streamerTag = "", bgStyle = "bg-gradient-fade" }) => {
+const MatchOverlay = ({ matchData, atGroups = {}, sessionData = {}, mmrDuration = 8000, sessionDuration = 4000, streamerTag = "", matchStyle = "default" }) => {
   const [showSession, setShowSession] = useState(false);
   const [fading, setFading] = useState(false);
 
@@ -129,7 +129,7 @@ const MatchOverlay = ({ matchData, atGroups = {}, sessionData = {}, mmrDuration 
   };
 
   return (
-    <div className={`minimal-overlay ${bgStyle}`}>
+    <div className={`minimal-overlay match-style-${matchStyle}`}>
       {/* Single row: Team1 | Chart | Team2 */}
       <div className="mo-players-row">
         <div className="mo-team mo-team-1 team-blue">
