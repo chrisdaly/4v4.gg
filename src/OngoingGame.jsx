@@ -78,7 +78,7 @@ const OnGoingGame = ({ ongoingGameData, compact, streamerTag }) => {
           <Loader size="large">Loading match data...</Loader>
         </Dimmer>
       ) : playerData && profilePics ? (
-        <Game playerData={playerData} metaData={metaData} profilePics={profilePics} playerCountries={playerCountries} sessionData={sessionData} compact={compact} streamerTag={streamerTag} />
+        <Game playerData={playerData} metaData={metaData} profilePics={profilePics} playerCountries={playerCountries} sessionData={sessionData} twitchLinks={twitchLinks} compact={compact} streamerTag={streamerTag} />
       ) : (
         <div>Error: Failed to load match data</div>
       )}
