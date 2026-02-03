@@ -1297,6 +1297,13 @@ img.teamHeaderRace {
   gap: 6px;
 }
 
+.meta-time {
+  color: var(--gold);
+  font-family: var(--font-mono);
+  font-size: var(--text-xs);
+  opacity: 0.8;
+}
+
 .meta-item {
   color: var(--text-secondary);
 }
@@ -5749,6 +5756,46 @@ a.neighbor-name-sm:hover {
   color: var(--text-muted);
   font-family: var(--font-mono);
   font-size: var(--text-base);
+}
+
+/* Pagination */
+.pagination {
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  gap: 8px;
+  padding: 24px 0;
+  margin-top: 16px;
+}
+
+.pagination-btn {
+  font-family: var(--font-mono);
+  font-size: 14px;
+  background: linear-gradient(180deg, rgba(30, 30, 30, 0.95) 0%, rgba(15, 15, 15, 0.98) 100%);
+  border: 1px solid var(--border-color);
+  border-radius: 4px;
+  color: var(--gold);
+  padding: 8px 12px;
+  cursor: pointer;
+  transition: all 0.2s ease;
+  min-width: 40px;
+}
+
+.pagination-btn:hover:not(:disabled) {
+  border-color: var(--gold);
+  background: rgba(252, 219, 51, 0.1);
+}
+
+.pagination-btn:disabled {
+  opacity: 0.3;
+  cursor: not-allowed;
+}
+
+.pagination-info {
+  font-family: var(--font-mono);
+  font-size: var(--text-sm);
+  color: var(--text-muted);
+  padding: 0 12px;
 }
 
 /* Responsive styles for finished page */

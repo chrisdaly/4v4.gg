@@ -50,9 +50,18 @@ const RecentlyFinished = () => {
   const [mmrFilter, setMmrFilter] = useState(0);
   const [timeRangeIndex, setTimeRangeIndex] = useState(0);
 
+  // Pagination
+  const [currentPage, setCurrentPage] = useState(1);
+  const GAMES_PER_PAGE = 10;
+
   useEffect(() => {
     fetchFinishedMatchesData();
   }, [timeRangeIndex]);
+
+  // Reset to page 1 when filters change
+  useEffect(() => {
+    setCurrentPage(1);
+  }, [mapFilter, durationFilter, mmrFilter]);
 
   const getMatchData = async (matchId) => {
     const url = `https://website-backend.w3champions.com/api/matches/${matchId}`;
@@ -150,6 +159,12 @@ const RecentlyFinished = () => {
 
   const hasActiveFilters = mapFilter !== "all" || durationFilter !== 0 || mmrFilter !== 0;
 
+  // Pagination calculations
+  const totalPages = Math.ceil(filteredMatches.length / GAMES_PER_PAGE);
+  const startIndex = (currentPage - 1) * GAMES_PER_PAGE;
+  const endIndex = startIndex + GAMES_PER_PAGE;
+  const paginatedMatches = filteredMatches.slice(startIndex, endIndex);
+
   return (
     <>
       {isLoading ? (
@@ -165,7 +180,8 @@ const RecentlyFinished = () => {
                 <h1 className="finished-title">Recently Finished</h1>
                 <div className="finished-stats">
                   <span className="stat-item">
-                    {filteredMatches.length} of {matchesData.length} games
+                    {filteredMatches.length} games
+                    {totalPages > 1 && ` · Page ${currentPage} of ${totalPages}`}
                   </span>
                 </div>
               </div>
@@ -231,8 +247,8 @@ const RecentlyFinished = () => {
               </div>
             </div>
             <div className="games">
-              {filteredMatches.length > 0 ? (
-                filteredMatches.map((d) => (
+              {paginatedMatches.length > 0 ? (
+                paginatedMatches.map((d) => (
                   <FinishedGame key={d.match.id} data={d} />
                 ))
               ) : (
@@ -241,6 +257,41 @@ const RecentlyFinished = () => {
                 </div>
               )}
             </div>
+            {totalPages > 1 && (
+              <div className="pagination">
+                <button
+                  className="pagination-btn"
+                  onClick={() => setCurrentPage(1)}
+                  disabled={currentPage === 1}
+                >
+                  ««
+                </button>
+                <button
+                  className="pagination-btn"
+                  onClick={() => setCurrentPage((p) => Math.max(1, p - 1))}
+                  disabled={currentPage === 1}
+                >
+                  «
+                </button>
+                <span className="pagination-info">
+                  {startIndex + 1}-{Math.min(endIndex, filteredMatches.length)} of {filteredMatches.length}
+                </span>
+                <button
+                  className="pagination-btn"
+                  onClick={() => setCurrentPage((p) => Math.min(totalPages, p + 1))}
+                  disabled={currentPage === totalPages}
+                >
+                  »
+                </button>
+                <button
+                  className="pagination-btn"
+                  onClick={() => setCurrentPage(totalPages)}
+                  disabled={currentPage === totalPages}
+                >
+                  »»
+                </button>
+              </div>
+            )}
           </div>
         </div>
       ) : (

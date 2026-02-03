@@ -459,6 +459,11 @@ const Game = ({ playerData: rawPlayerData, metaData, profilePics, playerCountrie
                         : metaData.gameLength} mins
                       {metaData.gameLength === "0:00" && <span className="live-dot"></span>}
                     </span>
+                    {metaData.startTime && metaData.gameLength !== "0:00" && (
+                      <span className="meta-time">
+                        {new Date(metaData.startTime).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
+                      </span>
+                    )}
                   </div>
                 </div>
                 {metaData.matchId && metaData.gameLength !== "0:00" && (
