@@ -1,9 +1,10 @@
 import React, { useState, useEffect, useMemo } from "react";
 import { Dimmer, Loader } from "semantic-ui-react";
 import Navbar from "./Navbar.jsx";
-import GameTile from "./components/game/GameTile.jsx";
+import GameCard from "./components/game/GameCard.jsx";
 import { calculateTeamMMR } from "./utils.jsx";
 import { gameMode, gateway, season, maps } from "./params";
+import { cache, createCacheKey } from "./cache";
 
 function isWithinTimeRange(endTimeString, maxMinutes) {
   const endTime = new Date(endTimeString);
@@ -64,17 +65,39 @@ const RecentlyFinished = () => {
   }, [mapFilter, durationFilter, mmrFilter]);
 
   const getMatchData = async (matchId) => {
+    // Check cache first
+    const cacheKey = `match:${matchId}`;
+    const cached = cache.get(cacheKey);
+    if (cached) {
+      return cached;
+    }
+
     const url = `https://website-backend.w3champions.com/api/matches/${matchId}`;
     const response = await fetch(url);
     if (!response.ok) {
       throw new Error("Failed to fetch match data");
     }
-    return response.json();
+    const data = await response.json();
+
+    // Cache for 30 minutes (match data doesn't change)
+    cache.set(cacheKey, data, 30 * 60 * 1000);
+    return data;
   };
 
   const fetchFinishedMatchesData = async () => {
-    setIsLoading(true);
     const timeRange = TIME_RANGES[timeRangeIndex];
+    const listCacheKey = createCacheKey("finishedMatches", { timeRangeIndex, gateway, gameMode });
+
+    // Check cache for the list
+    const cachedList = cache.get(listCacheKey);
+    if (cachedList) {
+      setFinishedGameData(cachedList.sortedMatches);
+      setMatchesData(cachedList.matchesData);
+      setIsLoading(false);
+      return;
+    }
+
+    setIsLoading(true);
 
     try {
       const response = await fetch(`https://website-backend.w3champions.com/api/matches?offset=0&gateway=${gateway}&pageSize=${timeRange.pageSize}&gameMode=${gameMode}&map=Overall`);
@@ -85,7 +108,6 @@ const RecentlyFinished = () => {
 
       // Filter the data by selected time range
       const filteredData = data.matches.filter((match) => isWithinTimeRange(match.endTime, timeRange.minutes));
-      console.log("filteredData", filteredData);
 
       const sortedMatches = filteredData.slice().sort((a, b) => {
         const teamAMMR = calculateTeamMMR(a.teams);
@@ -99,8 +121,10 @@ const RecentlyFinished = () => {
       const matchDataPromises = sortedMatches.map((match) => getMatchData(match.id));
       const matchDataResults = await Promise.all(matchDataPromises);
 
-      console.log("matchDataResults", matchDataResults);
       setMatchesData(matchDataResults);
+
+      // Cache the full result for 2 minutes
+      cache.set(listCacheKey, { sortedMatches, matchesData: matchDataResults }, 2 * 60 * 1000);
 
       setIsLoading(false);
     } catch (error) {
@@ -249,7 +273,7 @@ const RecentlyFinished = () => {
             <div className="game-tiles">
               {paginatedMatches.length > 0 ? (
                 paginatedMatches.map((d) => (
-                  <GameTile key={d.match.id} data={d} />
+                  <GameCard key={d.match.id} game={d} />
                 ))
               ) : (
                 <div className="no-results">

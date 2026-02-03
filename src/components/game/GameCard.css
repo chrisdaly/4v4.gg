@@ -215,6 +215,27 @@ a.game-card.gc-live:hover {
   font-family: var(--font-mono);
 }
 
+/* Live badge in meta area (top right) */
+.gc-meta .gc-live-badge {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.gc-meta .gc-live-dot {
+  width: 8px;
+  height: 8px;
+}
+
+.gc-meta .gc-live-text {
+  font-size: var(--text-xxs);
+}
+
+.gc-meta .gc-elapsed {
+  font-size: var(--text-xxs);
+  color: var(--text-secondary);
+}
+
 /* ============================================
    TEAMS DISPLAY
    ============================================ */
@@ -223,6 +244,7 @@ a.game-card.gc-live:hover {
   display: flex;
   align-items: center;
   gap: 16px;
+  flex-wrap: nowrap;
 }
 
 .gc-teams-expanded {
@@ -231,7 +253,7 @@ a.game-card.gc-live:hover {
 
 .gc-team {
   display: flex;
-  flex-wrap: wrap;
+  flex-wrap: nowrap;
   gap: 8px;
 }
 
@@ -371,6 +393,13 @@ a.game-card:hover .gc-arrow {
 .gc-mini .gc-live-badge {
   gap: 6px;
   font-size: var(--text-xxs);
+}
+
+.gc-avg-mmr-mini {
+  font-family: var(--font-mono);
+  font-size: var(--text-xxs);
+  color: var(--text-muted);
+  margin-left: 4px;
 }
 
 /* ============================================
@@ -718,3 +747,33 @@ a.game-card:hover .gc-arrow {
 .gc-layout-wide .gc-team-opponents {
   color: var(--grey-light);
 }
+
+/* ============================================
+   GLOBAL MODE (no playerBattleTag)
+   ============================================ */
+
+.game-card.gc-finished {
+  border-color: rgba(252, 219, 51, 0.15);
+  background: rgba(20, 20, 20, 0.6);
+}
+
+a.game-card.gc-finished:hover {
+  border-color: rgba(252, 219, 51, 0.4);
+  background: rgba(30, 30, 30, 0.9);
+}
+
+/* Average MMR display for global mode */
+.gc-avg-mmr {
+  font-family: var(--font-mono);
+  font-size: var(--text-sm);
+  font-weight: bold;
+  color: #fff;
+}
+
+.gc-avg-mmr .gc-mmr-label {
+  font-size: var(--text-xxs);
+  font-weight: normal;
+  color: var(--text-muted);
+  text-transform: uppercase;
+}
+

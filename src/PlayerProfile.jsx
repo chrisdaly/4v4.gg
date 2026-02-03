@@ -572,7 +572,6 @@ const PlayerProfile = () => {
                 <GameCard
                   game={ongoingGame}
                   status="live"
-                  size="expanded"
                   playerBattleTag={battleTag}
                 />
               </section>

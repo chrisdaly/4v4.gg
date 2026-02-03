@@ -89,10 +89,11 @@ const GameCard = ({
   const mapUrl = showMap ? getMapImageUrl(mapName) : null;
   const cleanMapName = mapName?.replace(/^\(\d\)\s*/, "") || "Unknown";
 
-  // Find player in teams
+  // Find player in teams (player-centric mode)
   const battleTagLower = playerBattleTag?.toLowerCase();
   let playerTeamIndex = null;
   let playerData = null;
+  const isGlobalMode = !playerBattleTag;
 
   if (battleTagLower && teams.length > 0) {
     for (let i = 0; i < teams.length; i++) {
@@ -108,14 +109,22 @@ const GameCard = ({
     }
   }
 
+  // Determine which team won (for global mode)
+  const team1 = teams[0];
+  const team2 = teams[1];
+  const team1Won = team1?.players?.[0]?.won === true || team1?.players?.[0]?.won === 1;
+
   // Determine status if not provided
   let computedStatus = status;
-  if (!computedStatus && playerData) {
+  if (!computedStatus) {
     if (game.startTime && !game.endTime && !match.endTime) {
       computedStatus = "live";
-    } else {
+    } else if (playerData) {
       const won = playerData.won === true || playerData.won === 1;
       computedStatus = won ? "won" : "lost";
+    } else {
+      // Global mode - no specific player, just show as finished
+      computedStatus = "finished";
     }
   }
 
@@ -124,7 +133,7 @@ const GameCard = ({
     ? (playerData.currentMmr || 0) - (playerData.oldMmr || 0)
     : game.mmrChange || 0;
 
-  // Get teams
+  // Get teams - in global mode, team1/team2 are equal (not "my" vs "opponent")
   const myTeam = playerTeamIndex !== null ? teams[playerTeamIndex] : teams[0];
   const opponentTeam = playerTeamIndex !== null
     ? teams[playerTeamIndex === 0 ? 1 : 0]
@@ -178,6 +187,8 @@ const GameCard = ({
   // SIZE: MINI - Just map + badge + MMR
   // ============================================
   if (size === "mini") {
+    const avgMmr = Math.round((myTeamMmr + opponentTeamMmr) / 2);
+
     return (
       <Wrapper {...wrapperProps}>
         {showMap && mapUrl && (
@@ -202,6 +213,9 @@ const GameCard = ({
                 {mmrChange >= 0 ? "+" : ""}
                 {mmrChange}
               </span>
+            )}
+            {avgMmr > 0 && (
+              <span className="gc-avg-mmr-mini">{avgMmr}</span>
             )}
           </div>
           <span className="gc-map-name">{cleanMapName}</span>
@@ -430,6 +444,58 @@ const GameCard = ({
   // SIZE: DEFAULT - Map + badge + MMR + teams
   // ============================================
   if (size === "default") {
+    // Global mode: same layout, no WIN/LOSS badge (no player perspective), just avg MMR
+    if (isGlobalMode) {
+      const avgMmr = Math.round((myTeamMmr + opponentTeamMmr) / 2);
+
+      return (
+        <Wrapper {...wrapperProps}>
+          {showMap && mapUrl && (
+            <div className="gc-map">
+              <img src={mapUrl} alt={cleanMapName} />
+            </div>
+          )}
+          <div className="gc-content">
+            <div className="gc-top">
+              <div className="gc-result">
+                <span className="gc-avg-mmr">{avgMmr} <span className="gc-mmr-label">MMR</span></span>
+              </div>
+              <div className="gc-meta">
+                <span className="gc-map-name">{cleanMapName}</span>
+                {showDuration && duration && <span className="gc-duration">{duration}</span>}
+                {timeAgo && <span className="gc-time">{timeAgo}</span>}
+              </div>
+            </div>
+            {shouldShowTeams && team1 && team2 && (
+              <div className="gc-teams">
+                <div className="gc-team">
+                  {team1.players?.map((p, i) => (
+                    <div key={i} className="gc-player">
+                      <img src={raceMapping[p.race]} alt="" className="gc-race" />
+                      <span className="gc-name">{p.name}</span>
+                    </div>
+                  ))}
+                </div>
+                <div className="gc-vs">vs</div>
+                <div className="gc-team">
+                  {team2.players?.map((p, i) => (
+                    <div key={i} className="gc-player">
+                      <img src={raceMapping[p.race]} alt="" className="gc-race" />
+                      <span className="gc-name">{p.name}</span>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            )}
+          </div>
+          {href && !overlay && <div className="gc-arrow">→</div>}
+        </Wrapper>
+      );
+    }
+
+    // Player-centric mode: show WIN/LOSS relative to player
+    const avgMmr = Math.round((myTeamMmr + opponentTeamMmr) / 2);
+
     return (
       <Wrapper {...wrapperProps}>
         {showMap && mapUrl && (
@@ -441,11 +507,9 @@ const GameCard = ({
           <div className="gc-top">
             <div className="gc-result">
               {computedStatus === "live" ? (
-                <span className="gc-live-badge">
-                  <span className="gc-live-dot"></span>
-                  <span className="gc-live-text">LIVE</span>
-                  {elapsed && <span className="gc-duration">{elapsed}</span>}
-                </span>
+                <>
+                  {avgMmr > 0 && <span className="gc-avg-mmr">{avgMmr} <span className="gc-mmr-label">MMR</span></span>}
+                </>
               ) : (
                 <>
                   <span className={`gc-badge gc-badge-${computedStatus}`}>
@@ -455,12 +519,20 @@ const GameCard = ({
                     {mmrChange >= 0 ? "+" : ""}
                     {mmrChange}
                   </span>
+                  {avgMmr > 0 && <span className="gc-avg-mmr">{avgMmr} <span className="gc-mmr-label">MMR</span></span>}
                 </>
               )}
             </div>
             <div className="gc-meta">
+              {computedStatus === "live" && (
+                <span className="gc-live-badge">
+                  <span className="gc-live-dot"></span>
+                  <span className="gc-live-text">LIVE</span>
+                  {elapsed && <span className="gc-elapsed">{elapsed}</span>}
+                </span>
+              )}
               <span className="gc-map-name">{cleanMapName}</span>
-              {showDuration && duration && <span className="gc-duration">{duration}</span>}
+              {computedStatus !== "live" && showDuration && duration && <span className="gc-duration">{duration}</span>}
               {timeAgo && <span className="gc-time">{timeAgo}</span>}
             </div>
           </div>
