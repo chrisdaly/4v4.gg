@@ -1679,6 +1679,34 @@ h2.team-name {
   fill: #a970ff;
 }
 
+/* Twitch live streaming state */
+.twitch-link.is-live {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+}
+
+.twitch-icon.streaming {
+  fill: #eb0400;
+  animation: pulse-twitch 1.5s ease-in-out infinite;
+}
+
+.live-badge {
+  font-size: 9px;
+  font-weight: 700;
+  color: #fff;
+  background: #eb0400;
+  padding: 1px 4px;
+  border-radius: 2px;
+  letter-spacing: 0.5px;
+  animation: pulse-twitch 1.5s ease-in-out infinite;
+}
+
+@keyframes pulse-twitch {
+  0%, 100% { opacity: 1; }
+  50% { opacity: 0.6; }
+}
+
 /* Player MMR line */
 .player-mmr-line {
   margin-bottom: 4px;

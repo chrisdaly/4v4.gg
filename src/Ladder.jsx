@@ -2,7 +2,8 @@ import React, { useState, useEffect } from "react";
 import Navbar from "./Navbar.jsx";
 import LadderRow from "./LadderRow.jsx";
 import { gateway } from "./params";
-import { fetchPlayerSessionData } from "./utils";
+import { fetchPlayerSessionData, getPlayerProfileInfo } from "./utils";
+import { getLiveStreamers } from "./twitchService";
 
 import grandmasterIcon from "./icons/grandmaster.png";
 import masterIcon from "./icons/master.png";
@@ -31,6 +32,8 @@ const Ladder = () => {
   const [sparklineData, setSparklineData] = useState({});
   const [sessionData, setSessionData] = useState({});
   const [detectedRaces, setDetectedRaces] = useState({});
+  const [twitchLinks, setTwitchLinks] = useState({});
+  const [liveStreamers, setLiveStreamers] = useState(new Map());
   const [ongoingPlayers, setOngoingPlayers] = useState(new Set());
   const [searchQuery, setSearchQuery] = useState("");
   const [searchResults, setSearchResults] = useState(null);
@@ -91,6 +94,25 @@ const Ladder = () => {
     return () => clearInterval(interval);
   }, []);
 
+  // Check Twitch live status for players with linked accounts
+  useEffect(() => {
+    const twitchNames = Object.values(twitchLinks).filter(Boolean);
+    if (twitchNames.length === 0) {
+      setLiveStreamers(new Map());
+      return;
+    }
+
+    const checkLiveStatus = async () => {
+      const live = await getLiveStreamers(twitchNames);
+      setLiveStreamers(live);
+    };
+
+    checkLiveStatus();
+    // Refresh live status every 60 seconds
+    const interval = setInterval(checkLiveStatus, 60000);
+    return () => clearInterval(interval);
+  }, [twitchLinks]);
+
   // Fetch ladder data when season or league changes
   useEffect(() => {
     if (selectedSeason === null) return;
@@ -100,6 +122,7 @@ const Ladder = () => {
       setSparklineData({});
       setSessionData({});
       setDetectedRaces({});
+      setTwitchLinks({});
 
       try {
         const url = new URL(
@@ -179,7 +202,16 @@ const Ladder = () => {
           console.log("Failed to fetch session for", battleTag, e);
         }
 
-        return { battleTag, sparkline, session, detectedRace };
+        // Fetch Twitch info from player profile
+        let twitch = null;
+        try {
+          const profileInfo = await getPlayerProfileInfo(battleTag);
+          twitch = profileInfo?.twitch || null;
+        } catch (e) {
+          // Silently fail
+        }
+
+        return { battleTag, sparkline, session, detectedRace, twitch };
       });
 
       const results = await Promise.all(promises);
@@ -187,6 +219,7 @@ const Ladder = () => {
       const newSparklines = {};
       const newSessions = {};
       const newRaces = {};
+      const newTwitch = {};
 
       results.forEach((result) => {
         if (result) {
@@ -195,12 +228,16 @@ const Ladder = () => {
           if (result.detectedRace !== undefined && result.detectedRace !== null) {
             newRaces[result.battleTag] = result.detectedRace;
           }
+          if (result.twitch) {
+            newTwitch[result.battleTag] = result.twitch;
+          }
         }
       });
 
       setSparklineData((prev) => ({ ...prev, ...newSparklines }));
       setSessionData((prev) => ({ ...prev, ...newSessions }));
       setDetectedRaces((prev) => ({ ...prev, ...newRaces }));
+      setTwitchLinks((prev) => ({ ...prev, ...newTwitch }));
     }
   };
 
@@ -442,6 +479,9 @@ const Ladder = () => {
               sortedRankings.map((rank, index) => {
                 const battleTag = rank.playersInfo?.[0]?.battleTag || rank.player?.playerIds?.[0]?.battleTag;
                 const isLive = battleTag && ongoingPlayers.has(battleTag.toLowerCase());
+                const twitchName = twitchLinks[battleTag];
+                const isStreaming = twitchName && liveStreamers.has(twitchName.toLowerCase());
+                const streamInfo = isStreaming ? liveStreamers.get(twitchName.toLowerCase()) : null;
 
                 return (
                   <LadderRow
@@ -450,6 +490,9 @@ const Ladder = () => {
                     sparklineData={sparklineData[battleTag] || []}
                     session={sessionData[battleTag] || null}
                     detectedRace={detectedRaces[battleTag]}
+                    twitch={twitchName || null}
+                    isStreaming={isStreaming}
+                    streamInfo={streamInfo}
                     isLive={isLive}
                     isEven={index % 2 === 0}
                   />
