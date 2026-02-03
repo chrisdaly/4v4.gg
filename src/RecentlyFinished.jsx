@@ -1,7 +1,7 @@
 import React, { useState, useEffect, useMemo } from "react";
 import { Dimmer, Loader } from "semantic-ui-react";
 import Navbar from "./Navbar.jsx";
-import FinishedGame from "./FinishedGame.jsx";
+import GameTile from "./components/game/GameTile.jsx";
 import { calculateTeamMMR } from "./utils.jsx";
 import { gameMode, gateway, season, maps } from "./params";
 
@@ -246,10 +246,10 @@ const RecentlyFinished = () => {
                 )}
               </div>
             </div>
-            <div className="games">
+            <div className="game-tiles">
               {paginatedMatches.length > 0 ? (
                 paginatedMatches.map((d) => (
-                  <FinishedGame key={d.match.id} data={d} compact={true} />
+                  <GameTile key={d.match.id} data={d} />
                 ))
               ) : (
                 <div className="no-results">
