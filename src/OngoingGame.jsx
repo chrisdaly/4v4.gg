@@ -9,7 +9,6 @@ const OnGoingGame = ({ ongoingGameData, compact, streamerTag }) => {
   const [profilePics, setProfilePics] = useState(null);
   const [playerCountries, setPlayerCountries] = useState({});
   const [sessionData, setSessionData] = useState({});
-  const [twitchLinks, setTwitchLinks] = useState({});
   const [isLoading, setIsLoading] = useState(true);
 
   useEffect(() => {
@@ -58,12 +57,6 @@ const OnGoingGame = ({ ongoingGameData, compact, streamerTag }) => {
           return acc;
         }, {})
       );
-      setTwitchLinks(
-        updatedData.reduce((acc, curr) => {
-          if (curr.twitch) acc[curr.battleTag] = curr.twitch;
-          return acc;
-        }, {})
-      );
     } catch (error) {
       console.error("Error fetching player data:", error);
     } finally {
@@ -78,7 +71,7 @@ const OnGoingGame = ({ ongoingGameData, compact, streamerTag }) => {
           <Loader size="large">Loading match data...</Loader>
         </Dimmer>
       ) : playerData && profilePics ? (
-        <Game playerData={playerData} metaData={metaData} profilePics={profilePics} playerCountries={playerCountries} sessionData={sessionData} twitchLinks={twitchLinks} compact={compact} streamerTag={streamerTag} />
+        <Game playerData={playerData} metaData={metaData} profilePics={profilePics} playerCountries={playerCountries} sessionData={sessionData} compact={compact} streamerTag={streamerTag} />
       ) : (
         <div>Error: Failed to load match data</div>
       )}

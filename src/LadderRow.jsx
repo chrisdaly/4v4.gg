@@ -73,19 +73,16 @@ const LadderRow = ({ rank, sparklineData, session, detectedRace, twitch, isStrea
         <Link to={`/player/${encodedBattleTag}`} className="player-name-link">
           {name}
         </Link>
-        {twitch && (
+        {twitch && isStreaming && (
           <a
             href={`https://twitch.tv/${twitch}`}
             target="_blank"
             rel="noopener noreferrer"
-            className={`twitch-link ${isStreaming ? "is-live" : ""}`}
-            title={isStreaming
-              ? `🔴 LIVE: ${streamInfo?.title || "Streaming"} (${streamInfo?.viewerCount || 0} viewers)`
-              : `Watch ${name} on Twitch`
-            }
+            className="twitch-link is-live"
+            title={`🔴 LIVE: ${streamInfo?.title || "Streaming"} (${streamInfo?.viewerCount || 0} viewers)`}
           >
-            <TwitchIcon className={`twitch-icon ${isStreaming ? "streaming" : ""}`} />
-            {isStreaming && <span className="live-badge">LIVE</span>}
+            <TwitchIcon className="twitch-icon streaming" />
+            <span className="live-badge">LIVE</span>
           </a>
         )}
       </div>
