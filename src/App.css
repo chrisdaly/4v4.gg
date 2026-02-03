@@ -5750,6 +5750,12 @@ a.neighbor-name-sm:hover {
   background: rgba(255, 76, 76, 0.1);
 }
 
+/* Finished games table container */
+.finished-games-table {
+  max-width: 1200px;
+  margin: 0 auto;
+}
+
 .no-results {
   text-align: center;
   padding: 60px 20px;

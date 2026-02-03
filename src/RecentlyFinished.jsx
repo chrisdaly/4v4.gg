@@ -1,7 +1,7 @@
 import React, { useState, useEffect, useMemo } from "react";
 import { Dimmer, Loader } from "semantic-ui-react";
 import Navbar from "./Navbar.jsx";
-import FinishedGame from "./FinishedGame.jsx";
+import FinishedGameRow from "./components/game/FinishedGameRow.jsx";
 import { calculateTeamMMR } from "./utils.jsx";
 import { gameMode, gateway, season, maps } from "./params";
 
@@ -50,9 +50,9 @@ const RecentlyFinished = () => {
   const [mmrFilter, setMmrFilter] = useState(0);
   const [timeRangeIndex, setTimeRangeIndex] = useState(0);
 
-  // Pagination
+  // Pagination - more games per page with compact table view
   const [currentPage, setCurrentPage] = useState(1);
-  const GAMES_PER_PAGE = 10;
+  const GAMES_PER_PAGE = 20;
 
   useEffect(() => {
     fetchFinishedMatchesData();
@@ -246,10 +246,18 @@ const RecentlyFinished = () => {
                 )}
               </div>
             </div>
-            <div className="games">
+            <div className="finished-games-table">
+              <div className="fgr-header">
+                <span>Time</span>
+                <span className="fgr-h-map">Map</span>
+                <span className="fgr-h-duration">Len</span>
+                <span className="fgr-h-team1">Team 1</span>
+                <span className="fgr-h-mmr">MMR</span>
+                <span>Team 2</span>
+              </div>
               {paginatedMatches.length > 0 ? (
-                paginatedMatches.map((d) => (
-                  <FinishedGame key={d.match.id} data={d} />
+                paginatedMatches.map((d, idx) => (
+                  <FinishedGameRow key={d.match.id} data={d} striped={idx % 2 === 1} />
                 ))
               ) : (
                 <div className="no-results">
