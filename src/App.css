@@ -16,12 +16,13 @@
   --font-display: "Friz_Quadrata_Bold", Georgia, serif;
   --font-mono: "Inconsolata", "SF Mono", Consolas, monospace;
 
-  /* TYPE SCALE (5) */
-  --text-xs: 11px;   /* Labels, column headers */
-  --text-sm: 13px;   /* Small text, captions */
-  --text-base: 15px; /* Body default */
-  --text-lg: 20px;   /* Subheadings */
-  --text-xl: 28px;   /* Headings, player names */
+  /* TYPE SCALE (6) - scaled up ~1.25x for readability */
+  --text-xxs: 12px;  /* Tiny labels, tooltips */
+  --text-xs: 14px;   /* Labels, column headers */
+  --text-sm: 16px;   /* Small text, captions */
+  --text-base: 18px; /* Body default */
+  --text-lg: 24px;   /* Subheadings */
+  --text-xl: 34px;   /* Headings, player names */
 
   /* SPACING (6) */
   --space-1: 4px;
@@ -204,7 +205,7 @@ body,
   /* background-color: #323437; */
   background-color: black !important;
 
-  font-size: 15px;
+  font-size: var(--text-sm);
 }
 
 .ui.vertically.divided.grid.team-header.team-2 {
@@ -312,7 +313,7 @@ h1.ui.header {
 
 text.axistitle {
   fill: #fafafa;
-  font-size: 10px;
+  font-size: var(--text-xxs);
   text-anchor: middle;
   /* opacity: 1; */
   /* font-weight: bold; */
@@ -320,7 +321,7 @@ text.axistitle {
 
 text.mmrBackground {
   fill: #fafafa;
-  font-size: 18px;
+  font-size: var(--text-base);
   text-anchor: middle;
 }
 
@@ -350,7 +351,7 @@ svg#svg_logo {
 
 .navbar-logo {
   font-family: "Friz_Quadrata_Bold", serif;
-  font-size: 24px;
+  font-size: var(--text-lg);
   color: var(--gold);
   text-decoration: none;
   letter-spacing: 2px;
@@ -370,7 +371,7 @@ svg#svg_logo {
 
 .navbar-link {
   font-family: "Friz_Quadrata_Bold", serif;
-  font-size: 13px;
+  font-size: var(--text-xs);
   color: var(--text-secondary);
   text-decoration: none;
   padding: 8px 16px;
@@ -430,7 +431,7 @@ svg#svg_logo {
   /* text-transform: uppercase; */
   font-weight: 100;
   font-style: italic;
-  font-size: 15px;
+  font-size: var(--text-sm);
   margin-bottom: 10px;
 }
 
@@ -515,7 +516,7 @@ circle.dot.at-dot {
 }
 
 .profileName {
-  font-size: 20px;
+  font-size: var(--text-lg);
 }
 
 img.profilePic {
@@ -665,7 +666,7 @@ span.true {
 .player-card-demo .player-name {
   color: var(--gold);
   font-family: "Friz_Quadrata_Bold", serif;
-  font-size: 14px;
+  font-size: var(--text-xs);
   margin-bottom: 4px;
 }
 
@@ -675,23 +676,23 @@ span.true {
 
 .player-card-demo .mmr-value {
   font-family: "Inconsolata", monospace;
-  font-size: 16px;
+  font-size: var(--text-sm);
   color: var(--text-primary);
 }
 
 .player-card-demo .mmr-label {
   color: var(--text-muted);
-  font-size: 11px;
+  font-size: var(--text-xxs);
 }
 
 .player-card-demo .player-rank {
   color: var(--grey-dark);
-  font-size: 11px;
+  font-size: var(--text-xxs);
 }
 
 .player-card-demo .session-info {
   margin-bottom: 4px;
-  font-size: 10px;
+  font-size: var(--text-xxs);
 }
 
 .player-card-demo .session-label {
@@ -701,7 +702,7 @@ span.true {
 .player-card-demo .session-record {
   color: var(--text-primary);
   font-family: "Inconsolata", monospace;
-  font-size: 11px;
+  font-size: var(--text-xxs);
 }
 
 .player-card-demo .session-label-muted {
@@ -710,7 +711,7 @@ span.true {
 
 .player-card-demo .session-delta {
   font-family: "Inconsolata", monospace;
-  font-size: 11px;
+  font-size: var(--text-xxs);
 }
 
 .player-card-demo .session-delta.positive {
@@ -758,7 +759,7 @@ span.true {
 }
 
 .player-card-demo .peak-mmr {
-  font-size: 9px;
+  font-size: var(--text-xxs);
 }
 
 .player-card-demo .peak-label {
@@ -768,7 +769,7 @@ span.true {
 .player-card-demo .peak-value {
   color: var(--green);
   font-family: "Inconsolata", monospace;
-  font-size: 10px;
+  font-size: var(--text-xxs);
 }
 
 .ui.toggle.checkbox input:focus:checked ~ .box:before,
@@ -957,7 +958,7 @@ h2 {
 .stat-label {
   color: var(--grey-light) !important;
   text-transform: uppercase;
-  font-size: 11px !important;
+  font-size: var(--text-xxs) !important;
   font-weight: normal !important;
   letter-spacing: 0.5px;
 }
@@ -1021,7 +1022,7 @@ h2 {
   background: linear-gradient(135deg, #1a1a1a 0%, #333 100%);
   color: var(--text-primary);
   font-family: "Inconsolata", monospace;
-  font-size: 13px;
+  font-size: var(--text-xs);
   font-weight: bold;
   padding: 1px 5px;
   border-radius: 3px;
@@ -1238,7 +1239,7 @@ img.teamHeaderRace {
   justify-content: center;
   padding: 20px 0;
   color: var(--text-muted);
-  font-size: 13px;
+  font-size: var(--text-xs);
   position: relative;
   width: 100%;
 }
@@ -1248,7 +1249,7 @@ img.teamHeaderRace {
   right: 20px;
   color: var(--grey-dark);
   font-family: "Inconsolata", monospace;
-  font-size: 12px;
+  font-size: var(--text-xxs);
   text-decoration: none;
   transition: color 0.2s;
 }
@@ -1283,13 +1284,13 @@ img.teamHeaderRace {
 .meta-map-name {
   color: var(--text-primary);
   font-family: "Friz_Quadrata_Bold", serif;
-  font-size: 16px;
+  font-size: var(--text-sm);
   text-align: center;
 }
 
 .meta-details {
   color: var(--text-muted);
-  font-size: 13px;
+  font-size: var(--text-xs);
   display: flex;
   align-items: center;
   justify-content: center;
@@ -1374,7 +1375,7 @@ img.teamHeaderRace {
 
 .mvp-text {
   font-family: "Friz_Quadrata_Bold" !important;
-  font-size: 10px;
+  font-size: var(--text-xxs);
   color: var(--gold);
   font-weight: bold;
 }
@@ -1442,7 +1443,7 @@ h2.team-name {
 .winner-badge {
   background: var(--gold);
   color: #000;
-  font-size: 10px;
+  font-size: var(--text-xxs);
   font-weight: bold;
   padding: 2px 6px;
   border-radius: 2px;
@@ -1579,7 +1580,7 @@ h2.team-name {
 
 /* Peak MMR display */
 .peak-mmr {
-  font-size: 9px;
+  font-size: var(--text-xxs);
   margin-top: 4px;
   min-height: 14px;
 }
@@ -1604,18 +1605,18 @@ h2.team-name {
 /* MMR display - shared styles */
 .mmr-value {
   font-family: "Inconsolata", monospace;
-  font-size: 18px;
+  font-size: var(--text-base);
   color: var(--text-primary);
 }
 
 .mmr-label {
   color: var(--text-muted);
-  font-size: 13px;
+  font-size: var(--text-xs);
 }
 
 .win-prob {
   color: var(--grey);
-  font-size: 12px;
+  font-size: var(--text-xxs);
   margin-left: 6px;
   font-family: "Inconsolata", monospace;
 }
@@ -1659,7 +1660,7 @@ h2.team-name {
 /* Player rank display */
 .player-rank {
   color: var(--grey-dark);
-  font-size: 11px;
+  font-size: var(--text-xxs);
 }
 
 /* Player rank line - separate line for emphasis */
@@ -1678,7 +1679,7 @@ h2.team-name {
 
 .rank-badge {
   font-family: "Inconsolata", monospace;
-  font-size: 14px;
+  font-size: var(--text-xs);
   font-weight: bold;
   color: var(--gold);
   background: rgba(252, 219, 51, 0.15);
@@ -1695,13 +1696,13 @@ h2.team-name {
 /* Peak MMR inline with current */
 .peak-inline {
   color: var(--grey-dark);
-  font-size: 11px;
+  font-size: var(--text-xxs);
   font-style: italic;
 }
 
 /* Session info display */
 .session-info {
-  font-size: 13px;
+  font-size: var(--text-xs);
   margin-bottom: 6px;
   min-height: 18px;
   text-align: center;
@@ -1714,24 +1715,24 @@ h2.team-name {
 .session-label-muted {
   color: var(--grey-dark);
   font-style: italic;
-  font-size: 11px;
+  font-size: var(--text-xxs);
 }
 
 .mmr-label-muted {
   color: var(--grey-dark);
   font-style: italic;
-  font-size: 12px;
+  font-size: var(--text-xxs);
 }
 
 .session-record {
   color: var(--text-primary);
   font-family: "Inconsolata", monospace;
-  font-size: 16px;
+  font-size: var(--text-sm);
 }
 
 .session-delta {
   font-family: "Inconsolata", monospace;
-  font-size: 16px;
+  font-size: var(--text-sm);
 }
 
 .session-delta.positive {
@@ -1841,7 +1842,7 @@ th.team-header.winner {
   text-align: center;
   color: var(--text-muted);
   padding: 100px;
-  font-size: 24px;
+  font-size: var(--text-lg);
 }
 
 /* ========================================
@@ -2141,7 +2142,7 @@ th.team-header.winner {
 }
 
 .profile-header-unified .profile-name {
-  font-size: 22px;
+  font-size: var(--text-lg);
   margin: 0;
   color: var(--gold);
 }
@@ -2150,7 +2151,7 @@ th.team-header.winner {
   display: flex;
   align-items: center;
   gap: 4px;
-  font-size: 10px;
+  font-size: var(--text-xxs);
   font-weight: bold;
   color: var(--red);
   background: rgba(239, 68, 68, 0.15);
@@ -2175,14 +2176,14 @@ th.team-header.winner {
 }
 
 .profile-stats-line .mmr-big {
-  font-size: 18px;
+  font-size: var(--text-base);
   font-weight: bold;
   color: var(--text-primary);
 }
 
 .profile-stats-line .mmr-label {
   color: var(--text-muted);
-  font-size: 11px;
+  font-size: var(--text-xxs);
   margin-right: 4px;
 }
 
@@ -2194,7 +2195,7 @@ th.team-header.winner {
 
 .rank-inline {
   font-family: "Inconsolata", monospace;
-  font-size: 12px;
+  font-size: var(--text-xxs);
   color: var(--gold);
 }
 
@@ -2204,12 +2205,12 @@ th.team-header.winner {
 
 .profile-stats-line .record {
   color: var(--text-secondary);
-  font-size: 12px;
+  font-size: var(--text-xxs);
 }
 
 .profile-stats-line .winrate {
   color: var(--text-muted);
-  font-size: 11px;
+  font-size: var(--text-xxs);
 }
 
 /* Header Center - Session */
@@ -2232,20 +2233,20 @@ th.team-header.winner {
 }
 
 .session-inline .session-label {
-  font-size: 9px;
+  font-size: var(--text-xxs);
   color: var(--text-muted);
   letter-spacing: 1px;
 }
 
 .session-inline .session-record {
   font-family: "Inconsolata", monospace;
-  font-size: 13px;
+  font-size: var(--text-xs);
   color: var(--text-primary);
 }
 
 .session-inline .session-delta {
   font-family: "Inconsolata", monospace;
-  font-size: 12px;
+  font-size: var(--text-xxs);
   font-weight: bold;
 }
 
@@ -2278,7 +2279,7 @@ th.team-header.winner {
 }
 
 .last-game-badge-sm .result {
-  font-size: 12px;
+  font-size: var(--text-xxs);
   font-weight: bold;
 }
 
@@ -2287,7 +2288,7 @@ th.team-header.winner {
 
 .last-game-badge-sm .mmr-change {
   font-family: "Inconsolata", monospace;
-  font-size: 11px;
+  font-size: var(--text-xxs);
 }
 
 /* Layout Switcher */
@@ -2301,7 +2302,7 @@ th.team-header.winner {
 
 .layout-btn {
   padding: 4px 10px;
-  font-size: 11px;
+  font-size: var(--text-xxs);
   color: var(--text-muted);
   background: transparent;
   border: none;
@@ -2378,7 +2379,7 @@ th.team-header.winner {
 }
 
 .chip-result {
-  font-size: 12px;
+  font-size: var(--text-xxs);
   font-weight: bold;
 }
 
@@ -2386,7 +2387,7 @@ th.team-header.winner {
 .session-game-chip.loss .chip-result { color: var(--red); }
 
 .chip-map {
-  font-size: 11px;
+  font-size: var(--text-xxs);
   color: var(--text-secondary);
   max-width: 100px;
   white-space: nowrap;
@@ -2396,7 +2397,7 @@ th.team-header.winner {
 
 .chip-mmr {
   font-family: "Inconsolata", monospace;
-  font-size: 11px;
+  font-size: var(--text-xxs);
   font-weight: bold;
 }
 
@@ -2435,7 +2436,7 @@ th.team-header.winner {
 }
 
 .box-title {
-  font-size: 11px;
+  font-size: var(--text-xxs);
   color: var(--gold);
   text-transform: uppercase;
   letter-spacing: 1px;
@@ -2445,7 +2446,7 @@ th.team-header.winner {
 .mmr-range {
   margin-left: auto;
   font-family: "Inconsolata", monospace;
-  font-size: 11px;
+  font-size: var(--text-xxs);
 }
 
 .mmr-range .low { color: var(--red); }
@@ -2477,7 +2478,7 @@ th.team-header.winner {
 .rank-label {
   margin-left: auto;
   font-family: "Inconsolata", monospace;
-  font-size: 11px;
+  font-size: var(--text-xxs);
   color: var(--text-muted);
 }
 
@@ -2501,7 +2502,7 @@ th.team-header.winner {
 
 .ladder-rank {
   font-family: "Inconsolata", monospace;
-  font-size: 10px;
+  font-size: var(--text-xxs);
   color: var(--text-muted);
   width: 24px;
 }
@@ -2513,7 +2514,7 @@ th.team-header.winner {
 
 .ladder-name {
   flex: 1;
-  font-size: 11px;
+  font-size: var(--text-xxs);
   color: var(--text-secondary);
   text-decoration: none;
   white-space: nowrap;
@@ -2532,12 +2533,12 @@ a.ladder-name:hover {
 
 .ladder-mmr {
   font-family: "Inconsolata", monospace;
-  font-size: 11px;
+  font-size: var(--text-xxs);
   color: var(--text-primary);
 }
 
 .section-label {
-  font-size: 11px;
+  font-size: var(--text-xxs);
   color: var(--text-muted);
   text-transform: uppercase;
   letter-spacing: 1px;
@@ -2574,7 +2575,7 @@ a.ladder-name:hover {
 
 .stat-name {
   flex: 1;
-  font-size: 11px;
+  font-size: var(--text-xxs);
   color: var(--text-secondary);
   white-space: nowrap;
   overflow: hidden;
@@ -2597,14 +2598,14 @@ a.ladder-name:hover {
 
 .stat-record {
   font-family: "Inconsolata", monospace;
-  font-size: 10px;
+  font-size: var(--text-xxs);
   color: var(--text-muted);
   width: 35px;
 }
 
 .stat-wr {
   font-family: "Inconsolata", monospace;
-  font-size: 10px;
+  font-size: var(--text-xxs);
   width: 28px;
   text-align: right;
 }
@@ -2620,7 +2621,7 @@ a.ladder-name:hover {
 }
 
 .recent-result {
-  font-size: 11px;
+  font-size: var(--text-xxs);
   font-weight: bold;
   width: 14px;
 }
@@ -2630,7 +2631,7 @@ a.ladder-name:hover {
 
 .recent-map {
   flex: 1;
-  font-size: 11px;
+  font-size: var(--text-xxs);
   color: var(--text-secondary);
   white-space: nowrap;
   overflow: hidden;
@@ -2639,7 +2640,7 @@ a.ladder-name:hover {
 
 .recent-mmr {
   font-family: "Inconsolata", monospace;
-  font-size: 11px;
+  font-size: var(--text-xxs);
 }
 
 .recent-mmr.positive { color: var(--green); }
@@ -2659,13 +2660,13 @@ a.ladder-name:hover {
 }
 
 .social-title {
-  font-size: 18px;
+  font-size: var(--text-base);
   color: var(--gold);
   margin: 0 0 4px 0;
 }
 
 .social-subtitle {
-  font-size: 12px;
+  font-size: var(--text-xxs);
   color: var(--text-muted);
   margin: 0 0 16px 0;
 }
@@ -2690,14 +2691,14 @@ a.ladder-name:hover {
 }
 
 .teammate-name {
-  font-size: 14px;
+  font-size: var(--text-xs);
   color: var(--gold);
   font-weight: bold;
   margin-bottom: 2px;
 }
 
 .teammate-games {
-  font-size: 11px;
+  font-size: var(--text-xxs);
   color: var(--text-muted);
   margin-bottom: 8px;
 }
@@ -2710,13 +2711,13 @@ a.ladder-name:hover {
 
 .teammate-record {
   font-family: "Inconsolata", monospace;
-  font-size: 12px;
+  font-size: var(--text-xxs);
   color: var(--text-secondary);
 }
 
 .teammate-wr {
   font-family: "Inconsolata", monospace;
-  font-size: 12px;
+  font-size: var(--text-xxs);
   font-weight: bold;
 }
 
@@ -2742,7 +2743,7 @@ a.ladder-name:hover {
 }
 
 .side-title {
-  font-size: 11px;
+  font-size: var(--text-xxs);
   color: var(--text-muted);
   text-transform: uppercase;
   letter-spacing: 1px;
@@ -2773,7 +2774,7 @@ a.ladder-name:hover {
 }
 
 .social-result {
-  font-size: 11px;
+  font-size: var(--text-xxs);
   font-weight: bold;
 }
 
@@ -2782,20 +2783,20 @@ a.ladder-name:hover {
 
 .social-map {
   flex: 1;
-  font-size: 11px;
+  font-size: var(--text-xxs);
   color: var(--text-secondary);
 }
 
 .social-mmr {
   font-family: "Inconsolata", monospace;
-  font-size: 11px;
+  font-size: var(--text-xxs);
 }
 
 .social-mmr.positive { color: var(--green); }
 .social-mmr.negative { color: var(--red); }
 
 .social-teammates {
-  font-size: 10px;
+  font-size: var(--text-xxs);
   color: var(--text-muted);
 }
 
@@ -2880,7 +2881,7 @@ a.ladder-name:hover {
 }
 
 .profile-header-compact .profile-name {
-  font-size: 24px;
+  font-size: var(--text-lg);
   margin: 0;
   color: var(--gold);
 }
@@ -2889,7 +2890,7 @@ a.ladder-name:hover {
   display: flex;
   align-items: center;
   gap: 4px;
-  font-size: 11px;
+  font-size: var(--text-xxs);
   font-weight: bold;
   color: var(--red);
   background: rgba(239, 68, 68, 0.15);
@@ -2906,20 +2907,20 @@ a.ladder-name:hover {
 }
 
 .profile-stats-row .mmr-value {
-  font-size: 20px;
+  font-size: var(--text-lg);
   font-weight: bold;
   color: var(--text-primary);
 }
 
 .profile-stats-row .mmr-label {
   color: var(--text-muted);
-  font-size: 12px;
+  font-size: var(--text-xxs);
   margin-right: 4px;
 }
 
 .profile-stats-row .rank-badge {
   font-family: "Inconsolata", monospace;
-  font-size: 13px;
+  font-size: var(--text-xs);
   font-weight: bold;
   color: var(--gold);
   background: rgba(252, 219, 51, 0.15);
@@ -2934,12 +2935,12 @@ a.ladder-name:hover {
 
 .profile-stats-row .record-value {
   color: var(--text-secondary);
-  font-size: 13px;
+  font-size: var(--text-xs);
 }
 
 .profile-stats-row .winrate-value {
   color: var(--text-muted);
-  font-size: 12px;
+  font-size: var(--text-xxs);
 }
 
 /* Header Right - Session & Last Game */
@@ -2957,7 +2958,7 @@ a.ladder-name:hover {
 }
 
 .session-label-sm {
-  font-size: 9px;
+  font-size: var(--text-xxs);
   color: var(--text-muted);
   letter-spacing: 1px;
   text-transform: uppercase;
@@ -2971,13 +2972,13 @@ a.ladder-name:hover {
 
 .session-record-sm {
   font-family: "Inconsolata", monospace;
-  font-size: 14px;
+  font-size: var(--text-xs);
   color: var(--text-primary);
 }
 
 .session-delta-sm {
   font-family: "Inconsolata", monospace;
-  font-size: 13px;
+  font-size: var(--text-xs);
   font-weight: bold;
 }
 
@@ -3008,7 +3009,7 @@ a.ladder-name:hover {
 }
 
 .last-game-result-sm {
-  font-size: 14px;
+  font-size: var(--text-xs);
   font-weight: bold;
 }
 
@@ -3022,7 +3023,7 @@ a.ladder-name:hover {
 
 .last-game-mmr-sm {
   font-family: "Inconsolata", monospace;
-  font-size: 12px;
+  font-size: var(--text-xxs);
   font-weight: bold;
 }
 
@@ -3052,7 +3053,7 @@ a.ladder-name:hover {
 }
 
 .chart-label {
-  font-size: 10px;
+  font-size: var(--text-xxs);
   color: var(--gold);
   letter-spacing: 1px;
   text-transform: uppercase;
@@ -3060,7 +3061,7 @@ a.ladder-name:hover {
 
 .mmr-range-inline {
   font-family: "Inconsolata", monospace;
-  font-size: 11px;
+  font-size: var(--text-xxs);
 }
 
 .mmr-range-inline .range-low {
@@ -3110,7 +3111,7 @@ a.ladder-name:hover {
 }
 
 .league-name-sm {
-  font-size: 11px;
+  font-size: var(--text-xxs);
   color: var(--gold);
   text-transform: uppercase;
   letter-spacing: 1px;
@@ -3119,7 +3120,7 @@ a.ladder-name:hover {
 
 .ladder-rank-sm {
   font-family: "Inconsolata", monospace;
-  font-size: 12px;
+  font-size: var(--text-xxs);
   color: var(--text-muted);
 }
 
@@ -3143,7 +3144,7 @@ a.ladder-name:hover {
 
 .neighbor-rank-sm {
   font-family: "Inconsolata", monospace;
-  font-size: 10px;
+  font-size: var(--text-xxs);
   color: var(--text-muted);
   width: 22px;
 }
@@ -3155,7 +3156,7 @@ a.ladder-name:hover {
 
 .neighbor-name-sm {
   flex: 1;
-  font-size: 11px;
+  font-size: var(--text-xxs);
   color: var(--text-secondary);
   text-decoration: none;
   white-space: nowrap;
@@ -3174,7 +3175,7 @@ a.neighbor-name-sm:hover {
 
 .neighbor-mmr-sm {
   font-family: "Inconsolata", monospace;
-  font-size: 11px;
+  font-size: var(--text-xxs);
   color: var(--text-primary);
 }
 
@@ -3233,7 +3234,7 @@ a.neighbor-name-sm:hover {
 }
 
 .profile-header-info .profile-name {
-  font-size: 32px;
+  font-size: var(--text-xl);
   margin: 0;
   color: var(--gold);
 }
@@ -3245,7 +3246,7 @@ a.neighbor-name-sm:hover {
 }
 
 .profile-header-stats .mmr-value.large {
-  font-size: 24px;
+  font-size: var(--text-lg);
   font-weight: bold;
   color: var(--text-primary);
 }
@@ -3255,13 +3256,13 @@ a.neighbor-name-sm:hover {
   color: #000;
   padding: 2px 8px;
   border-radius: 4px;
-  font-size: 14px;
+  font-size: var(--text-xs);
   font-weight: bold;
   margin-left: 8px;
 }
 
 .profile-header-record {
-  font-size: 14px;
+  font-size: var(--text-xs);
   color: var(--text-secondary);
 }
 
@@ -3286,7 +3287,7 @@ a.neighbor-name-sm:hover {
 }
 
 .last-game-result {
-  font-size: 24px;
+  font-size: var(--text-lg);
   font-weight: bold;
 }
 
@@ -3299,7 +3300,7 @@ a.neighbor-name-sm:hover {
 }
 
 .last-game-mmr {
-  font-size: 18px;
+  font-size: var(--text-base);
   font-weight: bold;
   font-family: "Inconsolata", monospace;
 }
@@ -3313,7 +3314,7 @@ a.neighbor-name-sm:hover {
 }
 
 .last-game-time {
-  font-size: 12px;
+  font-size: var(--text-xxs);
   color: var(--text-muted);
   margin-top: 4px;
 }
@@ -3338,7 +3339,7 @@ a.neighbor-name-sm:hover {
 }
 
 .live-badge .live-text {
-  font-size: 18px;
+  font-size: var(--text-base);
   font-weight: bold;
   color: var(--red);
   letter-spacing: 2px;
@@ -3402,7 +3403,7 @@ a.neighbor-name-sm:hover {
 }
 
 .player-profile .profile-name {
-  font-size: 24px;
+  font-size: var(--text-lg);
   margin: 0 0 8px 0;
   color: var(--gold);
   font-weight: bold;
@@ -3413,18 +3414,18 @@ a.neighbor-name-sm:hover {
 }
 
 .player-profile .profile-mmr-line .mmr-value {
-  font-size: 20px;
+  font-size: var(--text-lg);
   font-weight: bold;
   color: var(--text-primary);
 }
 
 .player-profile .profile-mmr-line .mmr-label {
   color: var(--text-muted);
-  font-size: 14px;
+  font-size: var(--text-xs);
 }
 
 .player-profile .profile-rank-line {
-  font-size: 13px;
+  font-size: var(--text-xs);
   color: var(--text-secondary);
 }
 
@@ -3460,14 +3461,14 @@ a.neighbor-name-sm:hover {
 }
 
 .session-record-big {
-  font-size: 20px;
+  font-size: var(--text-lg);
   font-weight: bold;
   color: var(--text-primary);
   font-family: "Inconsolata", monospace;
 }
 
 .session-delta-big {
-  font-size: 16px;
+  font-size: var(--text-sm);
   font-weight: bold;
   font-family: "Inconsolata", monospace;
 }
@@ -3481,7 +3482,7 @@ a.neighbor-name-sm:hover {
 }
 
 .session-count {
-  font-size: 11px;
+  font-size: var(--text-xxs);
   color: var(--text-muted);
   margin-top: 6px;
 }
@@ -3517,7 +3518,7 @@ a.neighbor-name-sm:hover {
 
 .mmr-range-bar .range-label {
   font-family: "Inconsolata", monospace;
-  font-size: 11px;
+  font-size: var(--text-xxs);
   min-width: 35px;
 }
 
@@ -3554,14 +3555,14 @@ a.neighbor-name-sm:hover {
   text-align: center;
   margin-top: 6px;
   font-family: "Inconsolata", monospace;
-  font-size: 12px;
+  font-size: var(--text-xxs);
   font-weight: bold;
   color: var(--gold);
 }
 
 /* Section Title */
 .section-title {
-  font-size: 12px;
+  font-size: var(--text-xxs);
   color: var(--gold);
   margin: 0 0 12px 0;
   text-transform: uppercase;
@@ -3576,7 +3577,7 @@ a.neighbor-name-sm:hover {
   gap: 8px;
   padding: 6px 0;
   border-bottom: 1px solid rgba(255, 255, 255, 0.05);
-  font-size: 12px;
+  font-size: var(--text-xxs);
 }
 
 .match-row-compact:last-child {
@@ -3599,13 +3600,13 @@ a.neighbor-name-sm:hover {
 .match-row-compact .match-map {
   flex: 1;
   color: var(--text-secondary);
-  font-size: 11px;
+  font-size: var(--text-xxs);
 }
 
 .match-row-compact .match-mmr-change {
   font-family: "Inconsolata", monospace;
   font-weight: bold;
-  font-size: 11px;
+  font-size: var(--text-xxs);
   min-width: 30px;
   text-align: right;
 }
@@ -3667,7 +3668,7 @@ a.neighbor-name-sm:hover {
 .stats-name {
   flex: 0 0 90px;
   color: var(--text-secondary);
-  font-size: 12px;
+  font-size: var(--text-xxs);
   white-space: nowrap;
   overflow: hidden;
   text-overflow: ellipsis;
@@ -3690,7 +3691,7 @@ a.neighbor-name-sm:hover {
 .stats-record {
   flex: 0 0 40px;
   text-align: right;
-  font-size: 11px;
+  font-size: var(--text-xxs);
   color: var(--text-muted);
   font-family: "Inconsolata", monospace;
 }
@@ -3698,7 +3699,7 @@ a.neighbor-name-sm:hover {
 .stats-winrate {
   flex: 0 0 32px;
   text-align: right;
-  font-size: 11px;
+  font-size: var(--text-xxs);
   font-weight: bold;
   font-family: "Inconsolata", monospace;
 }
@@ -3737,7 +3738,7 @@ a.neighbor-name-sm:hover {
 }
 
 .match-result {
-  font-size: 14px;
+  font-size: var(--text-xs);
   font-weight: bold;
   width: 20px;
 }
@@ -3753,13 +3754,13 @@ a.neighbor-name-sm:hover {
 .match-map {
   flex: 0 0 140px;
   color: var(--text-secondary);
-  font-size: 13px;
+  font-size: var(--text-xs);
 }
 
 .match-teammates {
   flex: 1;
   color: var(--text-muted);
-  font-size: 12px;
+  font-size: var(--text-xxs);
   white-space: nowrap;
   overflow: hidden;
   text-overflow: ellipsis;
@@ -3769,7 +3770,7 @@ a.neighbor-name-sm:hover {
   flex: 0 0 50px;
   text-align: right;
   font-family: "Inconsolata", monospace;
-  font-size: 14px;
+  font-size: var(--text-xs);
   font-weight: bold;
 }
 
@@ -3785,7 +3786,7 @@ a.neighbor-name-sm:hover {
   flex: 0 0 50px;
   text-align: right;
   color: var(--grey-dark);
-  font-size: 12px;
+  font-size: var(--text-xxs);
 }
 
 /* Last Game Section */
@@ -3879,7 +3880,7 @@ a.neighbor-name-sm:hover {
 }
 
 .tile-result {
-  font-size: 14px;
+  font-size: var(--text-xs);
   font-weight: bold;
   text-transform: uppercase;
 }
@@ -3894,12 +3895,12 @@ a.neighbor-name-sm:hover {
 
 .tile-map-name {
   color: var(--text-secondary);
-  font-size: 12px;
+  font-size: var(--text-xxs);
 }
 
 .tile-mmr {
   font-family: "Inconsolata", monospace;
-  font-size: 13px;
+  font-size: var(--text-xs);
   font-weight: bold;
 }
 
@@ -3946,7 +3947,7 @@ a.neighbor-name-sm:hover {
 }
 
 .tile-player-name {
-  font-size: 11px;
+  font-size: var(--text-xxs);
   color: var(--text-secondary);
   white-space: nowrap;
   max-width: 85px;
@@ -3996,7 +3997,7 @@ a.neighbor-name-sm:hover {
 }
 
 #StreamOverlay h2 {
-  font-size: 14px;
+  font-size: var(--text-xs);
   margin: 4px 0 2px 0;
 }
 
@@ -4017,7 +4018,7 @@ a.neighbor-name-sm:hover {
 }
 
 #StreamOverlay .team-header h2 {
-  font-size: 16px;
+  font-size: var(--text-sm);
 }
 
 #StreamOverlay .meta-bar,
@@ -4800,6 +4801,178 @@ a.neighbor-name-sm:hover {
   padding: 0 20px 40px 20px;
 }
 
+/* League Distribution Chart */
+.league-distribution {
+  max-width: 1000px;
+  margin: 0 auto 24px auto;
+  padding: 16px 20px;
+  background: linear-gradient(180deg, rgba(20, 20, 20, 0.9) 0%, rgba(10, 10, 10, 0.95) 100%);
+  border: 1px solid var(--border-color);
+  border-radius: var(--radius-md);
+}
+
+.distribution-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 16px;
+  padding-bottom: 12px;
+  border-bottom: 1px solid var(--border-color);
+}
+
+.distribution-title {
+  font-family: "Friz_Quadrata_Bold", serif;
+  font-size: var(--text-base);
+  color: var(--gold);
+  letter-spacing: 0.5px;
+}
+
+.distribution-total {
+  font-family: var(--font-mono);
+  font-size: var(--text-sm);
+  color: var(--text-muted);
+}
+
+.distribution-bars {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.distribution-row {
+  display: grid;
+  grid-template-columns: 120px 1fr 100px;
+  align-items: center;
+  gap: 12px;
+  padding: 6px 8px;
+  border-radius: 4px;
+  cursor: pointer;
+  transition: all 0.2s ease;
+}
+
+.distribution-row:hover {
+  background: rgba(252, 219, 51, 0.05);
+}
+
+.distribution-row.selected {
+  background: rgba(252, 219, 51, 0.1);
+  border: 1px solid rgba(252, 219, 51, 0.3);
+  margin: -1px;
+}
+
+.distribution-label {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.distribution-icon {
+  width: 20px;
+  height: 20px;
+}
+
+.distribution-name {
+  font-family: "Friz_Quadrata_Regular", serif;
+  font-size: var(--text-sm);
+  color: #fff;
+}
+
+.distribution-bar-container {
+  height: 16px;
+  background: rgba(30, 30, 30, 0.8);
+  border-radius: 2px;
+  overflow: hidden;
+}
+
+.distribution-bar {
+  height: 100%;
+  border-radius: 2px;
+  transition: width 0.5s ease;
+}
+
+/* League-specific bar colors */
+.distribution-bar.league-0 {
+  background: linear-gradient(90deg, #9b59b6 0%, #8e44ad 100%);
+}
+
+.distribution-bar.league-1 {
+  background: linear-gradient(90deg, #e74c3c 0%, #c0392b 100%);
+}
+
+.distribution-bar.league-2 {
+  background: linear-gradient(90deg, #3498db 0%, #2980b9 100%);
+}
+
+.distribution-bar.league-3 {
+  background: linear-gradient(90deg, #1abc9c 0%, #16a085 100%);
+}
+
+.distribution-bar.league-4 {
+  background: linear-gradient(90deg, #f1c40f 0%, #d4a40a 100%);
+}
+
+.distribution-bar.league-5 {
+  background: linear-gradient(90deg, #95a5a6 0%, #7f8c8d 100%);
+}
+
+.distribution-bar.league-6 {
+  background: linear-gradient(90deg, #cd7f32 0%, #a36429 100%);
+}
+
+.distribution-stats {
+  display: flex;
+  justify-content: flex-end;
+  gap: 12px;
+  font-family: var(--font-mono);
+  font-size: var(--text-sm);
+}
+
+.distribution-count {
+  color: #fff;
+  min-width: 40px;
+  text-align: right;
+}
+
+.distribution-percent {
+  color: var(--text-muted);
+  min-width: 45px;
+  text-align: right;
+}
+
+.distribution-loading {
+  text-align: center;
+  padding: 20px;
+  color: var(--text-muted);
+  font-family: var(--font-mono);
+  font-size: var(--text-sm);
+}
+
+/* Responsive distribution chart */
+@media (max-width: 600px) {
+  .distribution-row {
+    grid-template-columns: 100px 1fr 70px;
+    gap: 8px;
+  }
+
+  .distribution-icon {
+    width: 16px;
+    height: 16px;
+  }
+
+  .distribution-name {
+    font-size: 11px;
+  }
+
+  .distribution-stats {
+    gap: 6px;
+    font-size: 11px;
+  }
+
+  .distribution-percent {
+    display: none;
+  }
+}
+
 .ladder-header {
   display: flex;
   justify-content: space-between;
@@ -4823,7 +4996,8 @@ a.neighbor-name-sm:hover {
 .ladder-stats {
   display: flex;
   gap: 16px;
-  font-size: 13px;
+  font-family: var(--font-mono);
+  font-size: var(--text-sm);
 }
 
 .ladder-stats .stat-item {
@@ -4988,8 +5162,8 @@ a.neighbor-name-sm:hover {
 }
 
 .ladder-title {
-  font-family: "Friz_Quadrata_Bold", serif;
-  font-size: 28px;
+  font-family: var(--font-display);
+  font-size: var(--text-xl);
   color: var(--gold);
   margin: 0;
   text-transform: uppercase;
@@ -5043,13 +5217,14 @@ a.neighbor-name-sm:hover {
 .ladder-header-row {
   display: grid;
   grid-template-columns: 55px 1.5fr 0.7fr 0.9fr 0.6fr 1fr 1.3fr;
-  padding: 10px 16px;
+  padding: 12px 16px;
   background: rgba(20, 20, 20, 0.98);
   border-bottom: 1px solid var(--border-color);
   color: var(--text-muted);
-  font-size: 11px;
+  font-family: var(--font-mono);
+  font-size: var(--text-xs);
   text-transform: uppercase;
-  letter-spacing: 1px;
+  letter-spacing: 0.1em;
   align-items: center;
   position: sticky;
   top: 0;
@@ -5091,9 +5266,9 @@ a.neighbor-name-sm:hover {
 .ladder-row {
   display: grid;
   grid-template-columns: 55px 1.5fr 0.7fr 0.9fr 0.6fr 1fr 1.3fr;
-  padding: 10px 16px;
+  padding: 14px 16px;
   align-items: center;
-  min-height: 50px;
+  min-height: 56px;
   border-bottom: 1px solid rgba(255, 255, 255, 0.03);
   transition: background 0.2s;
 }
@@ -5146,10 +5321,10 @@ a.neighbor-name-sm:hover {
 }
 
 .rank-number {
-  font-family: "Inconsolata", monospace;
-  font-size: 16px;
+  font-family: var(--font-mono);
+  font-size: var(--text-base);
   color: var(--text-secondary);
-  width: 28px;
+  width: 32px;
   text-align: right;
 }
 
@@ -5160,14 +5335,14 @@ a.neighbor-name-sm:hover {
 }
 
 .player-race-icon {
-  width: 24px;
-  height: 24px;
+  width: 28px;
+  height: 28px;
 }
 
 .player-name-link {
   color: var(--gold);
-  font-family: "Friz_Quadrata_Bold", serif;
-  font-size: 15px;
+  font-family: var(--font-display);
+  font-size: var(--text-base);
   text-decoration: none;
   transition: color 0.2s, text-shadow 0.2s;
 }
@@ -5182,16 +5357,16 @@ a.neighbor-name-sm:hover {
 }
 
 .col-mmr .mmr-value {
-  font-family: "Inconsolata", monospace;
-  font-size: 16px;
+  font-family: var(--font-mono);
+  font-size: var(--text-base);
   font-weight: bold;
   color: var(--text-primary);
 }
 
 .col-record {
   justify-content: center;
-  font-family: "Inconsolata", monospace;
-  font-size: 14px;
+  font-family: var(--font-mono);
+  font-size: var(--text-sm);
 }
 
 .col-record .wins {
@@ -5209,8 +5384,8 @@ a.neighbor-name-sm:hover {
 
 .col-winrate {
   justify-content: center;
-  font-family: "Inconsolata", monospace;
-  font-size: 14px;
+  font-family: var(--font-mono);
+  font-size: var(--text-sm);
 }
 
 .winrate-positive {
@@ -5226,8 +5401,8 @@ a.neighbor-name-sm:hover {
   flex-direction: column;
   align-items: center;
   justify-content: center;
-  font-family: "Inconsolata", monospace;
-  font-size: 13px;
+  font-family: var(--font-mono);
+  font-size: var(--text-sm);
   min-height: 32px;
 }
 
@@ -5447,6 +5622,158 @@ a.neighbor-name-sm:hover {
 
   .ladder-header-row {
     font-size: 9px;
+  }
+}
+
+/* ========================================
+   Recently Finished Page Styles
+   ======================================== */
+
+.finished-page {
+  min-height: 100vh;
+  background: radial-gradient(ellipse at center, #111 0%, #000 100%);
+  padding: 0 20px 40px 20px;
+}
+
+.finished-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 20px 0;
+  margin-bottom: 20px;
+  border-bottom: 1px solid var(--border-color);
+  flex-wrap: wrap;
+  gap: 16px;
+  max-width: 1200px;
+  margin-left: auto;
+  margin-right: auto;
+}
+
+.finished-title-section {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.finished-title {
+  font-family: "Friz_Quadrata_Bold", serif;
+  font-size: var(--text-xl);
+  color: var(--gold);
+  margin: 0;
+  letter-spacing: 0.5px;
+}
+
+.finished-stats {
+  display: flex;
+  gap: 16px;
+  font-family: var(--font-mono);
+  font-size: var(--text-sm);
+}
+
+.finished-stats .stat-item {
+  color: var(--text-muted);
+}
+
+.finished-controls {
+  display: flex;
+  align-items: flex-end;
+  gap: 16px;
+  flex-wrap: wrap;
+}
+
+.filter-group {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.filter-group label {
+  font-family: var(--font-mono);
+  font-size: 10px;
+  text-transform: uppercase;
+  letter-spacing: 0.1em;
+  color: var(--text-muted);
+}
+
+.filter-group select {
+  font-family: "Friz_Quadrata_Bold", serif;
+  background: linear-gradient(180deg, rgba(30, 30, 30, 0.95) 0%, rgba(15, 15, 15, 0.98) 100%);
+  border: 1px solid rgba(252, 219, 51, 0.3);
+  border-radius: 4px;
+  color: var(--gold);
+  font-size: 12px;
+  padding: 8px 28px 8px 12px;
+  cursor: pointer;
+  transition: all 0.2s ease;
+  appearance: none;
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='12' viewBox='0 0 12 12'%3E%3Cpath fill='%23fcdb33' d='M6 8L2 4h8z'/%3E%3C/svg%3E");
+  background-repeat: no-repeat;
+  background-position: right 10px center;
+  min-width: 110px;
+}
+
+.filter-group select:hover {
+  border-color: rgba(252, 219, 51, 0.5);
+  background-color: rgba(252, 219, 51, 0.05);
+}
+
+.filter-group select:focus {
+  outline: none;
+  border-color: var(--gold);
+  box-shadow: 0 0 8px rgba(252, 219, 51, 0.15);
+}
+
+.clear-filters {
+  font-family: var(--font-mono);
+  font-size: 11px;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  background: transparent;
+  border: 1px solid var(--text-muted);
+  border-radius: 4px;
+  color: var(--text-muted);
+  padding: 8px 12px;
+  cursor: pointer;
+  transition: all 0.2s ease;
+}
+
+.clear-filters:hover {
+  border-color: var(--red);
+  color: var(--red);
+  background: rgba(255, 76, 76, 0.1);
+}
+
+.no-results {
+  text-align: center;
+  padding: 60px 20px;
+  color: var(--text-muted);
+  font-family: var(--font-mono);
+  font-size: var(--text-base);
+}
+
+/* Responsive styles for finished page */
+@media (max-width: 768px) {
+  .finished-header {
+    flex-direction: column;
+    align-items: flex-start;
+  }
+
+  .finished-controls {
+    width: 100%;
+    flex-direction: column;
+    align-items: stretch;
+  }
+
+  .filter-group {
+    width: 100%;
+  }
+
+  .filter-group select {
+    width: 100%;
+  }
+
+  .clear-filters {
+    width: 100%;
   }
 }
 

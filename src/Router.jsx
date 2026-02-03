@@ -1,6 +1,5 @@
 import React from "react";
 import { BrowserRouter, Route, Switch } from "react-router-dom";
-import Queue from "./Queue";
 import OnGoingGames from "./OnGoingGames";
 import Ladder from "./Ladder";
 import PlayerProfile from "./PlayerProfile";
@@ -22,7 +21,6 @@ const Router = () => (
     <Switch>
       {/* Main pages */}
       <Route exact path="/" component={OnGoingGames} />
-      <Route exact path="/queue" component={Queue} />
       <Route path="/ongoing" component={OnGoingGames} />
       <Route path="/finished" component={RecentlyFinished} />
       <Route path="/ladder" component={Ladder} />
