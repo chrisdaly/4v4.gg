@@ -12,6 +12,7 @@ import platinumIcon from "./icons/platinum.png";
 import goldIcon from "./icons/gold.png";
 import silverIcon from "./icons/silver.png";
 import bronzeIcon from "./icons/bronze.png";
+import { GiCrossedSwords } from "react-icons/gi";
 
 const LEAGUES = [
   { id: 0, name: "Grandmaster", icon: grandmasterIcon },
@@ -399,7 +400,7 @@ const Ladder = () => {
                 <span className="stat-item">{rankings.length} players</span>
                 {inGameCount > 0 && (
                   <span className="stat-item in-game">
-                    <span className="live-dot-small"></span>
+                    <GiCrossedSwords className="in-game-icon-small" />
                     {inGameCount} in game
                   </span>
                 )}

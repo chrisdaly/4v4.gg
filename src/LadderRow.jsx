@@ -1,19 +1,14 @@
 import React from "react";
 import { Link } from "react-router-dom";
 import { Sparklines, SparklinesLine } from "react-sparklines";
+import { GiCrossedSwords } from "react-icons/gi";
+import { FaTwitch } from "react-icons/fa";
 
 import human from "./icons/human.svg";
 import orc from "./icons/orc.svg";
 import elf from "./icons/elf.svg";
 import undead from "./icons/undead.svg";
 import random from "./icons/random.svg";
-
-// Twitch icon as inline SVG component
-const TwitchIcon = ({ className }) => (
-  <svg className={className} viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
-    <path d="M11.571 4.714h1.715v5.143H11.57zm4.715 0H18v5.143h-1.714zM6 0L1.714 4.286v15.428h5.143V24l4.286-4.286h3.428L22.286 12V0zm14.571 11.143l-3.428 3.428h-3.429l-3 3v-3H6.857V1.714h13.714Z"/>
-  </svg>
-);
 
 const raceMapping = {
   8: undead,
@@ -65,7 +60,7 @@ const LadderRow = ({ rank, sparklineData, session, detectedRace, twitch, isStrea
   return (
     <div className={`ladder-row ${isLive ? "is-live" : ""} ${isEven ? "even" : "odd"}`}>
       <div className="col-rank">
-        {isLive ? <span className="live-dot" title="In Game" /> : <span className="live-dot-placeholder" />}
+        {isLive ? <GiCrossedSwords className="in-game-icon" /> : <span className="in-game-placeholder" />}
         <span className="rank-number">{rankNumber}</span>
       </div>
       <div className="col-player">
@@ -78,11 +73,10 @@ const LadderRow = ({ rank, sparklineData, session, detectedRace, twitch, isStrea
             href={`https://twitch.tv/${twitch}`}
             target="_blank"
             rel="noopener noreferrer"
-            className="twitch-link is-live"
-            title={`🔴 LIVE: ${streamInfo?.title || "Streaming"} (${streamInfo?.viewerCount || 0} viewers)`}
+            className="twitch-link"
+            title={`${streamInfo?.title || "Streaming"} (${streamInfo?.viewerCount || 0} viewers)`}
           >
-            <TwitchIcon className="twitch-icon streaming" />
-            <span className="live-badge">LIVE</span>
+            <FaTwitch className="twitch-icon" />
           </a>
         )}
       </div>
