@@ -118,61 +118,10 @@
   flex-shrink: 0;
 }
 
-/* MMR Bar */
+/* MMR Comparison */
 .fgr-mmr-col {
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  gap: 4px;
-}
-
-.fgr-mmr-bar {
-  width: 100%;
-  height: 6px;
-  display: flex;
-  border-radius: 3px;
-  overflow: hidden;
-  background: rgba(40, 40, 40, 0.8);
-}
-
-.fgr-mmr-fill {
-  height: 100%;
-  transition: width 0.3s ease;
-}
-
-.fgr-mmr-team1 {
-  background: rgba(59, 130, 246, 0.6);
-}
-
-.fgr-mmr-team1.winner {
-  background: rgba(59, 130, 246, 0.9);
-}
-
-.fgr-mmr-team2 {
-  background: rgba(239, 68, 68, 0.6);
-}
-
-.fgr-mmr-team2.winner {
-  background: rgba(239, 68, 68, 0.9);
-}
-
-.fgr-mmr-values {
-  display: flex;
-  align-items: center;
-  gap: 6px;
-  font-family: var(--font-mono);
-  font-size: 11px;
-  color: var(--text-muted);
-}
-
-.fgr-mmr-values span.winner {
-  color: #fff;
-  font-weight: 500;
-}
-
-.fgr-mmr-vs {
-  font-size: 9px;
-  opacity: 0.5;
+  height: 50px;
+  min-width: 60px;
 }
 
 /* Header row */

@@ -1,6 +1,7 @@
 import React from "react";
 import { Link } from "react-router-dom";
 import "./FinishedGameRow.css";
+import { MmrComparison } from "../../MmrComparison.jsx";
 
 import human from "../../icons/human.svg";
 import orc from "../../icons/orc.svg";
@@ -27,13 +28,6 @@ const formatTime = (dateString) => {
   return `${timeStr} ${tz}`;
 };
 
-// Calculate team average MMR
-const getTeamAvgMmr = (team) => {
-  if (!team?.players?.length) return 0;
-  const total = team.players.reduce((sum, p) => sum + (p.currentMmr || p.oldMmr || 0), 0);
-  return Math.round(total / team.players.length);
-};
-
 /**
  * FinishedGameRow - Compact table row for finished games list
  * Shows both teams, MMR comparison, and game info
@@ -48,10 +42,10 @@ const FinishedGameRow = ({ data, striped = false }) => {
   if (!team1 || !team2) return null;
 
   const team1Won = team1.players?.[0]?.won;
-  const team1Mmr = getTeamAvgMmr(team1);
-  const team2Mmr = getTeamAvgMmr(team2);
-  const totalMmr = team1Mmr + team2Mmr;
-  const team1Pct = totalMmr > 0 ? (team1Mmr / totalMmr) * 100 : 50;
+
+  // Extract MMRs for MmrComparison
+  const teamOneMmrs = team1.players?.map(p => p.currentMmr || p.oldMmr || 0) || [];
+  const teamTwoMmrs = team2.players?.map(p => p.currentMmr || p.oldMmr || 0) || [];
 
   const duration = formatDuration(match.durationInSeconds);
   const timeStr = formatTime(match.startTime);
@@ -83,23 +77,12 @@ const FinishedGameRow = ({ data, striped = false }) => {
         {team1Won && <span className="fgr-win-badge">W</span>}
       </div>
 
-      {/* MMR Bar */}
+      {/* MMR Comparison */}
       <div className="fgr-col fgr-mmr-col">
-        <div className="fgr-mmr-bar">
-          <div
-            className={`fgr-mmr-fill fgr-mmr-team1 ${team1Won ? "winner" : ""}`}
-            style={{ width: `${team1Pct}%` }}
-          />
-          <div
-            className={`fgr-mmr-fill fgr-mmr-team2 ${!team1Won ? "winner" : ""}`}
-            style={{ width: `${100 - team1Pct}%` }}
-          />
-        </div>
-        <div className="fgr-mmr-values">
-          <span className={team1Won ? "winner" : ""}>{team1Mmr}</span>
-          <span className="fgr-mmr-vs">vs</span>
-          <span className={!team1Won ? "winner" : ""}>{team2Mmr}</span>
-        </div>
+        <MmrComparison
+          data={{ teamOneMmrs, teamTwoMmrs }}
+          compact={true}
+        />
       </div>
 
       {/* Team 2 */}
