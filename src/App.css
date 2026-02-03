@@ -4703,7 +4703,7 @@ a.neighbor-name-sm:hover {
 .mo-mmr {
   font-family: var(--font-mono);
   font-size: var(--text-sm);
-  color: #fff;
+  color: var(--white);
 }
 
 /* AT connector line */
@@ -5180,7 +5180,7 @@ a.neighbor-name-sm:hover {
 .distribution-name {
   font-family: var(--font-display);
   font-size: var(--text-sm);
-  color: #fff;
+  color: var(--white);
 }
 
 .distribution-bar-container {
@@ -5234,7 +5234,7 @@ a.neighbor-name-sm:hover {
 }
 
 .distribution-count {
-  color: #fff;
+  color: var(--white);
   min-width: 40px;
   text-align: right;
 }
@@ -5654,7 +5654,7 @@ a.neighbor-name-sm:hover {
 }
 
 .player-name-link:hover {
-  color: #fff;
+  color: var(--white);
   text-shadow: 0 0 8px var(--gold);
 }
 
@@ -6735,7 +6735,7 @@ a.neighbor-name:hover {
   font-family: var(--font-mono);
   font-size: var(--text-lg);
   font-weight: 600;
-  color: #fff;
+  color: var(--white);
 }
 
 .po-mmr-label {
@@ -7075,7 +7075,7 @@ a.neighbor-name:hover {
   font-family: var(--font-mono);
   font-size: var(--text-lg);
   font-weight: bold;
-  color: #fff;
+  color: var(--white);
 }
 
 .po-banner-mmr-label {
@@ -7164,7 +7164,7 @@ a.neighbor-name:hover {
   background: var(--grey-dark);
   border: 1px solid var(--grey-mid);
   border-radius: var(--radius-md);
-  color: #fff;
+  color: var(--white);
   transition: border-color var(--transition);
 }
 
@@ -7311,7 +7311,7 @@ a.neighbor-name:hover {
   font-family: var(--font-mono);
   font-size: var(--text-lg);
   font-weight: bold;
-  color: #fff;
+  color: var(--white);
   margin-right: var(--space-1);
 }
 

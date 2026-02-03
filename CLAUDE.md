@@ -72,7 +72,7 @@ All design tokens (colors, fonts, spacing, etc.) are defined in `design-tokens.j
 |----------|--------|
 | Colors | `--gold` `--green` `--red` `--grey-light` `--grey-mid` `--grey-dark` |
 | Fonts | `--font-display` (Friz Quadrata) `--font-mono` (Inconsolata) |
-| Type scale | `--text-xs` (11px) `--text-sm` (13px) `--text-base` (15px) `--text-lg` (20px) `--text-xl` (28px) |
+| Type scale | `--text-xxs` (12px) `--text-xs` (14px) `--text-sm` (16px) `--text-base` (18px) `--text-lg` (24px) `--text-xl` (34px) |
 | Spacing | `--space-1` (4px) `--space-2` (8px) `--space-4` (16px) `--space-6` (24px) `--space-8` (32px) `--space-12` (48px) |
 | Borders | `--radius-sm` `--radius-md` `--radius-full` `--border-thin` `--border-thick` |
 | Overlays | `--overlay-heavy` `--overlay-medium` `--overlay-light` |
@@ -86,6 +86,8 @@ Defined in `design-tokens.js` under `patterns`:
 | Element | CSS |
 |---------|-----|
 | Player names | `font-family: var(--font-display); color: var(--gold)` |
+| List item names | `font-family: var(--font-display); font-size: var(--text-base); color: #fff` |
+| List item values | `font-family: var(--font-mono); font-size: var(--text-base); color: #fff` |
 | Stats/MMR | `font-family: var(--font-mono); color: #fff` |
 | Labels | `font: var(--text-xs) var(--font-mono); text-transform: uppercase; letter-spacing: 0.1em; color: var(--grey-light)` |
 | Win values | `color: var(--green)` |

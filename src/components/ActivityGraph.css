@@ -39,7 +39,7 @@
 .ag-month-row {
   display: flex;
   gap: 3px;
-  margin-bottom: 6px;
+  margin-bottom: var(--space-2);
 }
 
 .ag-day-label-spacer {
@@ -64,7 +64,7 @@
 /* Body: day labels + grid */
 .ag-body {
   display: flex;
-  gap: 6px;
+  gap: var(--space-2);
 }
 
 .ag-day-labels {
@@ -144,10 +144,10 @@
   background: var(--surface-1);
   border: 1px solid var(--gold);
   border-radius: var(--radius-sm);
-  padding: 6px 10px;
+  padding: var(--space-2) var(--space-2);
   font-family: var(--font-mono);
   font-size: var(--text-xs);
-  color: #fff;
+  color: var(--white);
   pointer-events: none;
   z-index: 1000;
   white-space: nowrap;

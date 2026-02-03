@@ -5,21 +5,21 @@
 .game-row {
   display: grid;
   grid-template-columns: 50px minmax(140px, 1.2fr) 70px 55px minmax(180px, 2fr) 70px 70px;
-  padding: 10px 12px;
+  padding: var(--space-2) var(--space-4);
   align-items: center;
-  border-bottom: 1px solid rgba(255, 255, 255, 0.03);
+  border-bottom: 1px solid var(--surface-1);
   text-decoration: none;
   transition: background 0.2s;
-  background: rgba(255, 255, 255, 0.01);
+  background: var(--surface-1);
   min-height: 56px;
 }
 
 .game-row.gr-striped {
-  background: rgba(255, 255, 255, 0.02);
+  background: var(--surface-2);
 }
 
 .game-row:hover {
-  background: rgba(252, 219, 51, 0.05);
+  background: var(--gold-tint);
 }
 
 /* Result badge */
@@ -32,7 +32,7 @@
   font-family: var(--font-display);
   font-size: var(--text-xxs);
   font-weight: bold;
-  border-radius: 4px;
+  border-radius: var(--radius-md);
 }
 
 .gr-badge-won {
@@ -49,13 +49,13 @@
 .gr-col.gr-map {
   display: flex;
   align-items: center;
-  gap: 10px;
+  gap: var(--space-2);
 }
 
 .gr-map-img {
   width: 36px;
   height: 36px;
-  border-radius: 4px;
+  border-radius: var(--radius-md);
   object-fit: cover;
   flex-shrink: 0;
   border: 1px solid var(--grey-mid);
@@ -95,14 +95,14 @@
 .gr-allies-list {
   display: flex;
   flex-wrap: nowrap;
-  gap: 8px;
+  gap: var(--space-2);
   overflow: hidden;
 }
 
 .gr-ally {
   display: flex;
   align-items: center;
-  gap: 4px;
+  gap: var(--space-1);
   flex-shrink: 0;
 }
 
@@ -165,7 +165,7 @@
   }
 
   .gr-allies-list {
-    gap: 4px;
+    gap: var(--space-1);
   }
 
   .gr-ally-name {
