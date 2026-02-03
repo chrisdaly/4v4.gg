@@ -50,7 +50,7 @@
 .ag-month-cell {
   width: 12px;
   font-family: var(--font-mono);
-  font-size: 10px;
+  font-size: var(--text-xxs);
   color: var(--grey-light);
   text-align: left;
   overflow: visible;
@@ -78,7 +78,7 @@
 .ag-day-labels span {
   height: 12px;
   font-family: var(--font-mono);
-  font-size: 10px;
+  font-size: var(--text-xxs);
   color: var(--grey-light);
   line-height: 12px;
 }

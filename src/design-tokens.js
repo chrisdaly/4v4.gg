@@ -24,11 +24,12 @@ export const fonts = {
 };
 
 export const typeScale = {
-  xs: { value: '11px', css: '--text-xs', usage: 'Labels, column headers' },
-  sm: { value: '13px', css: '--text-sm', usage: 'Small text, captions' },
-  base: { value: '15px', css: '--text-base', usage: 'Body default' },
-  lg: { value: '20px', css: '--text-lg', usage: 'Subheadings' },
-  xl: { value: '28px', css: '--text-xl', usage: 'Headings, player names' },
+  xxs: { value: '12px', css: '--text-xxs', usage: 'Tiny labels, tooltips' },
+  xs: { value: '14px', css: '--text-xs', usage: 'Labels, column headers' },
+  sm: { value: '16px', css: '--text-sm', usage: 'Small text, captions' },
+  base: { value: '18px', css: '--text-base', usage: 'Body default' },
+  lg: { value: '24px', css: '--text-lg', usage: 'Subheadings' },
+  xl: { value: '34px', css: '--text-xl', usage: 'Headings, player names' },
 };
 
 export const spacing = {

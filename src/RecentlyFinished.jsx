@@ -1,7 +1,7 @@
 import React, { useState, useEffect, useMemo } from "react";
 import { Dimmer, Loader } from "semantic-ui-react";
 import Navbar from "./Navbar.jsx";
-import FinishedGameRow from "./components/game/FinishedGameRow.jsx";
+import FinishedGame from "./FinishedGame.jsx";
 import { calculateTeamMMR } from "./utils.jsx";
 import { gameMode, gateway, season, maps } from "./params";
 
@@ -246,18 +246,10 @@ const RecentlyFinished = () => {
                 )}
               </div>
             </div>
-            <div className="finished-games-table">
-              <div className="fgr-header">
-                <span>Time</span>
-                <span className="fgr-h-map">Map</span>
-                <span className="fgr-h-duration">Len</span>
-                <span className="fgr-h-team1">Team 1</span>
-                <span className="fgr-h-mmr">MMR</span>
-                <span>Team 2</span>
-              </div>
+            <div className="games">
               {paginatedMatches.length > 0 ? (
-                paginatedMatches.map((d, idx) => (
-                  <FinishedGameRow key={d.match.id} data={d} striped={idx % 2 === 1} />
+                paginatedMatches.map((d) => (
+                  <FinishedGame key={d.match.id} data={d} compact={true} />
                 ))
               ) : (
                 <div className="no-results">
