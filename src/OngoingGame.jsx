@@ -2,23 +2,38 @@ import React, { useState, useEffect } from "react";
 import Game from "./Game.jsx";
 import { processOngoingGameData, fetchPlayerSessionData } from "./utils.jsx";
 import { getPlayerProfile } from "./api";
+import { cache } from "./cache";
 import { getLiveStreamers } from "./twitchService";
 
+// Get cached player data for a match
+const getCachedMatchPlayerData = (matchId) => {
+  return cache.get(`matchPlayers:${matchId}`);
+};
+
 const OnGoingGame = ({ ongoingGameData, compact, streamerTag }) => {
-  const [playerData, setPlayerData] = useState(null);
-  const [metaData, setMetaData] = useState(null);
-  const [profilePics, setProfilePics] = useState(null);
-  const [playerCountries, setPlayerCountries] = useState({});
-  const [sessionData, setSessionData] = useState({});
+  const matchId = ongoingGameData?.id;
+  const cachedData = matchId ? getCachedMatchPlayerData(matchId) : null;
+
+  // Initialize from cache for instant display
+  const [playerData, setPlayerData] = useState(cachedData?.playerData || null);
+  const [metaData, setMetaData] = useState(cachedData?.metaData || null);
+  const [profilePics, setProfilePics] = useState(cachedData?.profilePics || null);
+  const [playerCountries, setPlayerCountries] = useState(cachedData?.countries || {});
+  const [sessionData, setSessionData] = useState(cachedData?.sessions || {});
   const [liveStreamers, setLiveStreamers] = useState({});
-  const [isLoading, setIsLoading] = useState(true);
+  const [isLoading, setIsLoading] = useState(!cachedData);
 
   useEffect(() => {
     const processedData = preprocessMatchData(ongoingGameData);
-    const { playerData, metaData } = { ...processedData };
-    setPlayerData(playerData);
-    setMetaData(metaData);
-    fetchRemainingPlayerData(playerData);
+    const { playerData: newPlayerData, metaData: newMetaData } = processedData;
+    setPlayerData(newPlayerData);
+    setMetaData(newMetaData);
+
+    // If we had cached data, still refresh in background but don't show loading
+    if (!cachedData) {
+      setIsLoading(true);
+    }
+    fetchRemainingPlayerData(newPlayerData);
   }, []);
 
   const preprocessMatchData = (ongoingGameData) => {
@@ -29,7 +44,6 @@ const OnGoingGame = ({ ongoingGameData, compact, streamerTag }) => {
   };
 
   const fetchRemainingPlayerData = async (processedData) => {
-    setIsLoading(true);
     try {
       const promises = processedData.map(async (playerData) => {
         const { battleTag, race } = playerData;
@@ -47,24 +61,34 @@ const OnGoingGame = ({ ongoingGameData, compact, streamerTag }) => {
         };
       });
       const updatedData = await Promise.all(promises);
-      setProfilePics(
-        updatedData.reduce((acc, curr) => {
-          acc[curr.battleTag] = curr.profilePicUrl;
-          return acc;
-        }, {})
-      );
-      setPlayerCountries(
-        updatedData.reduce((acc, curr) => {
-          acc[curr.battleTag] = curr.country;
-          return acc;
-        }, {})
-      );
-      setSessionData(
-        updatedData.reduce((acc, curr) => {
-          acc[curr.battleTag] = curr.sessionInfo?.session;
-          return acc;
-        }, {})
-      );
+
+      const newProfilePics = updatedData.reduce((acc, curr) => {
+        acc[curr.battleTag] = curr.profilePicUrl;
+        return acc;
+      }, {});
+      const newCountries = updatedData.reduce((acc, curr) => {
+        acc[curr.battleTag] = curr.country;
+        return acc;
+      }, {});
+      const newSessions = updatedData.reduce((acc, curr) => {
+        acc[curr.battleTag] = curr.sessionInfo?.session;
+        return acc;
+      }, {});
+
+      setProfilePics(newProfilePics);
+      setPlayerCountries(newCountries);
+      setSessionData(newSessions);
+
+      // Cache all player data for this match (2 minute TTL for ongoing matches)
+      if (matchId) {
+        cache.set(`matchPlayers:${matchId}`, {
+          playerData: processedData,
+          metaData,
+          profilePics: newProfilePics,
+          countries: newCountries,
+          sessions: newSessions,
+        }, 2 * 60 * 1000);
+      }
 
       // Check which players with Twitch accounts are actually streaming
       const twitchUsernames = updatedData

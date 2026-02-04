@@ -4,6 +4,7 @@ import LadderRow from "./LadderRow.jsx";
 import { gateway } from "./params";
 import { fetchPlayerSessionData } from "./utils";
 import { getPlayerProfile, getPlayerTimelineMerged, getLadder, getLadderCached, getSeasons, getOngoingMatches } from "./api";
+import { cache } from "./cache";
 import { getLiveStreamers } from "./twitchService";
 
 import grandmasterIcon from "./icons/grandmaster.png";
@@ -130,28 +131,38 @@ const Ladder = () => {
   useEffect(() => {
     if (selectedSeason === null) return;
 
+    const playerDataCacheKey = `ladderPlayerData:${selectedLeague}:${selectedSeason}`;
+
     const fetchLadderData = async () => {
       // Check cache first for instant display
       const cachedRankings = getLadderCached(selectedLeague, selectedSeason);
+      const cachedPlayerData = cache.get(playerDataCacheKey);
+
       if (cachedRankings && cachedRankings.length > 0) {
         setRankings(cachedRankings);
         setIsLoading(false);
-        // Still fetch fresh data in background
+
+        // Also restore cached player data (sparklines, sessions, etc.)
+        if (cachedPlayerData) {
+          setSparklineData(cachedPlayerData.sparklines || {});
+          setSessionData(cachedPlayerData.sessions || {});
+          setDetectedRaces(cachedPlayerData.races || {});
+          setTwitchLinks(cachedPlayerData.twitch || {});
+        }
       } else {
         setIsLoading(true);
+        setSparklineData({});
+        setSessionData({});
+        setDetectedRaces({});
+        setTwitchLinks({});
       }
-
-      setSparklineData({});
-      setSessionData({});
-      setDetectedRaces({});
-      setTwitchLinks({});
 
       try {
         const result = await getLadder(selectedLeague, selectedSeason);
         setRankings(result);
 
         // Batch fetch sparkline and session data for all players
-        fetchPlayerData(result, selectedSeason);
+        fetchPlayerData(result, selectedSeason, playerDataCacheKey);
       } catch (e) {
         console.error("Failed to fetch ladder:", e);
         setRankings([]);
@@ -164,8 +175,14 @@ const Ladder = () => {
 
   // Batch fetch sparklines and session data for all players
   // Now uses cached API layer to avoid redundant calls
-  const fetchPlayerData = async (players, season) => {
+  const fetchPlayerData = async (players, season, playerDataCacheKey) => {
     const batchSize = 5;
+
+    // Accumulate all data for caching at the end
+    const allSparklines = {};
+    const allSessions = {};
+    const allRaces = {};
+    const allTwitch = {};
 
     for (let i = 0; i < players.length; i += batchSize) {
       const batch = players.slice(i, i + batchSize);
@@ -206,29 +223,33 @@ const Ladder = () => {
 
       const results = await Promise.all(promises);
 
-      const newSparklines = {};
-      const newSessions = {};
-      const newRaces = {};
-      const newTwitch = {};
-
       results.forEach((result) => {
         if (result) {
-          newSparklines[result.battleTag] = result.sparkline;
-          newSessions[result.battleTag] = result.session;
+          allSparklines[result.battleTag] = result.sparkline;
+          allSessions[result.battleTag] = result.session;
           if (result.detectedRace !== undefined && result.detectedRace !== null) {
-            newRaces[result.battleTag] = result.detectedRace;
+            allRaces[result.battleTag] = result.detectedRace;
           }
           if (result.twitch) {
-            newTwitch[result.battleTag] = result.twitch;
+            allTwitch[result.battleTag] = result.twitch;
           }
         }
       });
 
-      setSparklineData((prev) => ({ ...prev, ...newSparklines }));
-      setSessionData((prev) => ({ ...prev, ...newSessions }));
-      setDetectedRaces((prev) => ({ ...prev, ...newRaces }));
-      setTwitchLinks((prev) => ({ ...prev, ...newTwitch }));
+      // Update UI progressively
+      setSparklineData((prev) => ({ ...prev, ...allSparklines }));
+      setSessionData((prev) => ({ ...prev, ...allSessions }));
+      setDetectedRaces((prev) => ({ ...prev, ...allRaces }));
+      setTwitchLinks((prev) => ({ ...prev, ...allTwitch }));
     }
+
+    // Cache all player data together (5 minute TTL)
+    cache.set(playerDataCacheKey, {
+      sparklines: allSparklines,
+      sessions: allSessions,
+      races: allRaces,
+      twitch: allTwitch,
+    }, 5 * 60 * 1000);
   };
 
   const handleSeasonChange = (e) => {

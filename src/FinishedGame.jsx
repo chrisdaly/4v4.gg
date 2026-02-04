@@ -2,14 +2,24 @@ import React, { useState, useEffect } from "react";
 import Game from "./Game.jsx";
 import { preprocessPlayerScores, fetchPlayerSessionData } from "./utils.jsx";
 import { getPlayerProfile } from "./api";
+import { cache } from "./cache";
+
+// Get cached player data for a finished match
+const getCachedMatchPlayerData = (matchId) => {
+  return cache.get(`finishedMatchPlayers:${matchId}`);
+};
 
 const FinishedGame = ({ data, compact = false }) => {
-  const [playerData, setPlayerData] = useState(null);
-  const [metaData, setMetaData] = useState(null);
-  const [profilePics, setProfilePics] = useState({});
-  const [playerCountries, setPlayerCountries] = useState({});
-  const [sessionData, setSessionData] = useState({});
-  const [isLoading, setIsLoading] = useState(true);
+  const matchId = data?.match?.id;
+  const cachedData = matchId ? getCachedMatchPlayerData(matchId) : null;
+
+  // Initialize from cache for instant display
+  const [playerData, setPlayerData] = useState(cachedData?.playerData || null);
+  const [metaData, setMetaData] = useState(cachedData?.metaData || null);
+  const [profilePics, setProfilePics] = useState(cachedData?.profilePics || {});
+  const [playerCountries, setPlayerCountries] = useState(cachedData?.countries || {});
+  const [sessionData, setSessionData] = useState(cachedData?.sessions || {});
+  const [isLoading, setIsLoading] = useState(!cachedData && !compact);
 
   useEffect(() => {
     fetchMatchData();
@@ -18,15 +28,19 @@ const FinishedGame = ({ data, compact = false }) => {
   const fetchMatchData = async () => {
     try {
       const processedData = preprocessMatchData(data);
-      const { playerData, metaData } = { ...processedData };
-      setPlayerData(playerData);
-      setMetaData({ ...metaData, matchId: data.match.id });
+      const { playerData: newPlayerData, metaData: newMetaData } = processedData;
+      setPlayerData(newPlayerData);
+      setMetaData({ ...newMetaData, matchId: data.match.id });
 
       // In compact mode, skip fetching extra player data for faster loading
       if (compact) {
         setIsLoading(false);
       } else {
-        await fetchPlayerData(playerData);
+        // If we have cached data, still refresh but don't show loading
+        if (!cachedData) {
+          setIsLoading(true);
+        }
+        await fetchPlayerData(newPlayerData);
       }
     } catch (error) {
       console.error("Error fetching match data:", error.message);
@@ -42,7 +56,6 @@ const FinishedGame = ({ data, compact = false }) => {
   };
 
   const fetchPlayerData = async (processedData) => {
-    setIsLoading(true);
     try {
       const promises = processedData.map(async (playerData) => {
         const { battleTag, race } = playerData;
@@ -59,24 +72,34 @@ const FinishedGame = ({ data, compact = false }) => {
         };
       });
       const updatedData = await Promise.all(promises);
-      setProfilePics(
-        updatedData.reduce((acc, curr) => {
-          acc[curr.battleTag] = curr.profilePicUrl;
-          return acc;
-        }, {})
-      );
-      setPlayerCountries(
-        updatedData.reduce((acc, curr) => {
-          acc[curr.battleTag] = curr.country;
-          return acc;
-        }, {})
-      );
-      setSessionData(
-        updatedData.reduce((acc, curr) => {
-          acc[curr.battleTag] = curr.sessionInfo?.session;
-          return acc;
-        }, {})
-      );
+
+      const newProfilePics = updatedData.reduce((acc, curr) => {
+        acc[curr.battleTag] = curr.profilePicUrl;
+        return acc;
+      }, {});
+      const newCountries = updatedData.reduce((acc, curr) => {
+        acc[curr.battleTag] = curr.country;
+        return acc;
+      }, {});
+      const newSessions = updatedData.reduce((acc, curr) => {
+        acc[curr.battleTag] = curr.sessionInfo?.session;
+        return acc;
+      }, {});
+
+      setProfilePics(newProfilePics);
+      setPlayerCountries(newCountries);
+      setSessionData(newSessions);
+
+      // Cache all player data for this match (30 minute TTL - finished match data is stable)
+      if (matchId) {
+        cache.set(`finishedMatchPlayers:${matchId}`, {
+          playerData: processedData,
+          metaData: { ...metaData, matchId },
+          profilePics: newProfilePics,
+          countries: newCountries,
+          sessions: newSessions,
+        }, 30 * 60 * 1000);
+      }
     } catch (error) {
       console.error("Error fetching player data:", error);
     } finally {

@@ -63,7 +63,7 @@ const DesignLab = () => (
         </div>
 
         <p>
-          The loading screen shows eight numbers. Four on your team, four on theirs. You have maybe ten seconds to figure out if this is going to be a stomp or a real game.
+          The loading screen shows eight numbers. Four on your team, four on theirs. You have maybe five seconds to figure out if this is going to be one-sided.
         </p>
 
         <div className="blog-mmr-display">
@@ -87,23 +87,23 @@ const DesignLab = () => (
         </p>
 
         <p>
-          You start doing the math. Add them up, divide by four. Or eyeball the high and low values, try to feel out where the averages sit. But the map is loading. You don't have time. And even if you did, raw averages hide a lot. A team with two great players and two weak ones feels different than four medium players.
+          You start doing the math, adding them up, dividing by four, eyeballing the highs and lows. But the map is loading and you don't have time. And even if you did, raw averages hide a lot: a team with two great players and two weak ones feels different than four medium players.
         </p>
 
         <p>
-          This is what I built 4v4.gg to solve. The balance should be obvious at a glance.
+          This is why I built the dot chart. The balance should be obvious at a glance.
         </p>
 
         <h2>The problem with averages</h2>
 
         <p>
-          The matchmaker balances teams by geometric mean. You could display that for each team, add standard deviation to show the spread. But a team with a 2400 and an 800 could have the same mean as four 1600s. Those are very different games. You have to show the data.
+          The matchmaker balances teams by geometric mean. You could display that for each team, add standard deviation to show the spread. But a team with a 2400 and an 800 could have the same mean as four 1600s. Those are very different games. You have to <a href="https://en.wikipedia.org/wiki/Anscombe%27s_quartet" target="_blank" rel="noopener">show the data</a>.
         </p>
 
         <h2>Showing the data</h2>
 
         <p>
-          Start with 1v1. Two dots on a vertical axis, positioned by MMR. If the dots are close, it's fair. If one is way higher, someone's getting stomped.
+          Start with 1v1: two dots on a vertical axis, positioned by MMR. If the dots are close, it's fair; if one is way higher, it's not.
         </p>
 
         <div className="blog-chart-row gap-lg">
@@ -118,7 +118,7 @@ const DesignLab = () => (
         </div>
 
         <p>
-          For 4v4, same idea. Eight dots, blue team on the left, red on the right. Higher means more skilled.
+          For 4v4, same idea: eight dots with blue on the left and red on the right, higher meaning more skilled.
         </p>
 
         <div className="blog-chart-row">
@@ -157,7 +157,7 @@ const DesignLab = () => (
         </div>
 
         <p>
-          Back to the opening question. Here's that matchup:
+          So who wins the opening matchup? Blue, with a ~130 geometric mean advantage (roughly 68% win probability):
         </p>
 
         <div className="blog-chart-row">
@@ -169,14 +169,10 @@ const DesignLab = () => (
           />
         </div>
 
-        <p>
-          Blue. The geometric mean gap is ~130, roughly 68% win probability.
-        </p>
-
         <h2>Overlapping dots</h2>
 
         <p>
-          What happens when players have similar ratings? The dots would overlap. I nudge them apart horizontally. The highest-rated player stays centered, others shift outward.
+          When players have similar ratings, dots would overlap, so I nudge them apart horizontally while keeping the highest-rated player centered.
         </p>
 
         <div className="blog-chart-row">
