@@ -14,7 +14,7 @@ export const colors = {
   green: { value: '#4ade80', css: '--green', usage: 'Wins, positive' },
   red: { value: '#f87171', css: '--red', usage: 'Losses, negative' },
   blue: { value: '#3b82f6', css: '--blue', usage: 'Links, info' },
-  greyLight: { value: '#999', css: '--grey-light', usage: 'Secondary text, labels' },
+  greyLight: { value: '#bbb', css: '--grey-light', usage: 'Secondary text, labels' },
   greyMid: { value: '#444', css: '--grey-mid', usage: 'Borders, disabled' },
   greyDark: { value: '#1a1a1a', css: '--grey-dark', usage: 'Elevated surfaces' },
   white: { value: '#fff', css: '--white', usage: 'Primary text' },

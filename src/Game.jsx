@@ -20,6 +20,21 @@ const getMapImageUrl = (mapId) => {
   return `/maps/${cleanName}.png`;
 };
 
+// Stats helpers for MMR chart side labels
+const geometricMean = (arr) => {
+  const filtered = arr.filter((v) => v && v > 0);
+  if (filtered.length === 0) return 0;
+  const product = filtered.reduce((acc, val) => acc * val, 1);
+  return Math.pow(product, 1 / filtered.length);
+};
+
+const stdDev = (arr, mean) => {
+  const filtered = arr.filter((v) => v && v > 0);
+  if (filtered.length === 0) return 0;
+  const squaredDiffs = filtered.map((v) => Math.pow(v - mean, 2));
+  return Math.sqrt(squaredDiffs.reduce((a, b) => a + b, 0) / filtered.length);
+};
+
 // Line connecting AT players - calculates width dynamically
 const ATConnector = ({ relation }) => {
   const lineRef = React.useRef(null);
@@ -86,6 +101,34 @@ const Game = ({ playerData: rawPlayerData, metaData, profilePics, playerCountrie
   const getATGroupSize = (battleTag) => {
     const partners = getATPartners(battleTag);
     return partners.length > 0 ? partners.length + 1 : 0;
+  };
+
+  // Get AT group ID (0 for solo, 1+ for AT groups)
+  // Returns the same ID for all members of the same AT group
+  const atGroupIdCache = React.useMemo(() => {
+    const cache = {};
+    let nextGroupId = 1;
+
+    // Get all unique AT groups
+    Object.keys(atGroups).forEach(tag => {
+      if (cache[tag]) return; // Already assigned
+
+      const partners = atGroups[tag] || [];
+      if (partners.length === 0) return; // Not in an AT
+
+      // Assign same ID to this player and all partners
+      const groupId = nextGroupId++;
+      cache[tag] = groupId;
+      partners.forEach(partner => {
+        cache[partner.toLowerCase()] = groupId;
+      });
+    });
+
+    return cache;
+  }, [atGroups]);
+
+  const getATGroupId = (battleTag) => {
+    return atGroupIdCache[battleTag.toLowerCase()] || 0;
   };
 
   // Check if player has an AT partner to their right (next in display order)
@@ -413,18 +456,42 @@ const Game = ({ playerData: rawPlayerData, metaData, profilePics, playerCountrie
                   {renderPlayerCell(playerScore, teamClassName, index)}
                   {index === 3 && (
                     <th className={`th-center ${compact ? "compact" : ""}`} style={{ position: "relative", verticalAlign: "top" }}>
-                      <div className="mmr-chart-container">
-                        <MmrComparison
-                          data={{
-                            teamOneMmrs: playerData.slice(0, 4).map((d) => d.oldMmr),
-                            teamTwoMmrs: playerData.slice(4).map((d) => d.oldMmr),
-                            teamOneAT: playerData.slice(0, 4).map((d) => getATGroupSize(d.battleTag)),
-                            teamTwoAT: playerData.slice(4).map((d) => getATGroupSize(d.battleTag)),
-                          }}
-                          compact={compact}
-                          atStyle="combined"
-                        />
-                      </div>
+                      {(() => {
+                        const team1Mmrs = playerData.slice(0, 4).map((d) => d.oldMmr);
+                        const team2Mmrs = playerData.slice(4).map((d) => d.oldMmr);
+                        const t1Mean = Math.round(geometricMean(team1Mmrs));
+                        const t2Mean = Math.round(geometricMean(team2Mmrs));
+                        const t1Std = Math.round(stdDev(team1Mmrs, t1Mean));
+                        const t2Std = Math.round(stdDev(team2Mmrs, t2Mean));
+
+                        return (
+                          <div className="mmr-chart-with-labels">
+                            <div className="mmr-side-label mmr-side-label-left">
+                              <span className="mmr-label-mean">{t1Mean}</span>
+                              <span className="mmr-label-std">±{t1Std}</span>
+                            </div>
+                            <div className="mmr-chart-container">
+                              <MmrComparison
+                                data={{
+                                  teamOneMmrs: team1Mmrs,
+                                  teamTwoMmrs: team2Mmrs,
+                                  teamOneAT: playerData.slice(0, 4).map((d) => getATGroupId(d.battleTag)),
+                                  teamTwoAT: playerData.slice(4).map((d) => getATGroupId(d.battleTag)),
+                                }}
+                                compact={compact}
+                                atStyle="combined"
+                                showMean={true}
+                                showStdDev={true}
+                                hideLabels={true}
+                              />
+                            </div>
+                            <div className="mmr-side-label mmr-side-label-right">
+                              <span className="mmr-label-mean">{t2Mean}</span>
+                              <span className="mmr-label-std">±{t2Std}</span>
+                            </div>
+                          </div>
+                        );
+                      })()}
                     </th>
                   )}
                 </React.Fragment>

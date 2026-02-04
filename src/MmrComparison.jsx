@@ -3,19 +3,45 @@ import * as d3 from "d3";
 
 // atStyle options: "combined" (default), "yin-yang", "bracket", "pill", "chain", "glow", "pie"
 // pieConfig allows tuning: { combinedGap (px), areaMultiplier (1.0-2.0) }
-const MmrComparison = ({ data, compact = false, atStyle = "combined", pieConfig = {} }) => {
+// AT arrays use GROUP IDs (not sizes): 0 = solo, 1+ = group ID. Size is calculated from count.
+// showMean: show horizontal line at geometric mean
+// showStdDev: show shaded region for standard deviation
+// hideLabels: hide the inline μ/σ text labels (keeps visual elements)
+const MmrComparison = ({ data, compact = false, atStyle = "combined", pieConfig = {}, showMean = false, showStdDev = false, hideLabels = false }) => {
   const { teamOneMmrs, teamTwoMmrs, teamOneAT = [], teamTwoAT = [] } = data;
   const svgRef = useRef(null);
 
   useEffect(() => {
     if (!svgRef.current) return;
 
-    // Create data with AT group size info, filter out unranked players
+    // Calculate group sizes from group IDs
+    const calcGroupSizes = (atArray) => {
+      const counts = {};
+      atArray.forEach(id => { if (id > 0) counts[id] = (counts[id] || 0) + 1; });
+      return counts;
+    };
+    const teamOneGroupSizes = calcGroupSizes(teamOneAT);
+    const teamTwoGroupSizes = calcGroupSizes(teamTwoAT);
+
+    // Create data with AT group info, filter out unranked players
+    // atGroupId = the group ID (0 = solo), atGroupSize = calculated size of that group
     const teamOneData = teamOneMmrs
-      .map((mmr, i) => ({ mmr, atGroupSize: teamOneAT[i] || 0, index: i, team: 1 }))
+      .map((mmr, i) => ({
+        mmr,
+        atGroupId: teamOneAT[i] || 0,
+        atGroupSize: teamOneGroupSizes[teamOneAT[i]] || 0,
+        index: i,
+        team: 1
+      }))
       .filter(d => d.mmr && d.mmr > 0);
     const teamTwoData = teamTwoMmrs
-      .map((mmr, i) => ({ mmr, atGroupSize: teamTwoAT[i] || 0, index: i, team: 2 }))
+      .map((mmr, i) => ({
+        mmr,
+        atGroupId: teamTwoAT[i] || 0,
+        atGroupSize: teamTwoGroupSizes[teamTwoAT[i]] || 0,
+        index: i,
+        team: 2
+      }))
       .filter(d => d.mmr && d.mmr > 0);
 
     const svg = d3.select(svgRef.current);
@@ -46,8 +72,8 @@ const MmrComparison = ({ data, compact = false, atStyle = "combined", pieConfig 
     const getCombinedCircleInfo = (teamData) => {
       const groups = {};
       teamData.forEach(d => {
-        if (d.atGroupSize > 0) {
-          const key = d.atGroupSize;
+        if (d.atGroupId > 0) {
+          const key = d.atGroupId;
           if (!groups[key]) groups[key] = [];
           groups[key].push(d);
         }
@@ -66,60 +92,111 @@ const MmrComparison = ({ data, compact = false, atStyle = "combined", pieConfig 
     };
 
     // Beeswarm collision detection
-    // Prioritizes: 1) AT groups (stay at center), 2) Highest MMR players
-    // Non-priority dots offset AWAY from center line (team1 goes left, team2 goes right)
+    // Prioritizes: 1) AT groups (highest MMR first), 2) Solo players (highest MMR first)
+    // Non-priority elements offset AWAY from center line (team1 goes left, team2 goes right)
     const applyBeeswarm = (teamData, baseX, isTeamOne) => {
       const minDist = dotRadius * 2.5; // Minimum distance between dot centers
 
-      // Get combined circles for this team (for collision with solo players)
-      const combinedCircles = atStyle === "combined" ? getCombinedCircleInfo(teamData) : [];
-
-      // Sort: AT players first, then by MMR (highest first)
-      const sortedData = [...teamData].sort((a, b) => {
-        // AT groups always come first
-        if (a.atGroupSize > 0 && b.atGroupSize === 0) return -1;
-        if (a.atGroupSize === 0 && b.atGroupSize > 0) return 1;
-        // Then by MMR (highest first)
-        return b.mmr - a.mmr;
-      });
-
-      const positioned = [];
       // Direction away from center: team1 goes left (-1), team2 goes right (+1)
       const offsetDirection = isTeamOne ? -1 : 1;
 
+      // First, position AT groups (they can collide with each other)
+      const atGroups = {};
+      teamData.forEach(d => {
+        if (d.atGroupId > 0) {
+          if (!atGroups[d.atGroupId]) atGroups[d.atGroupId] = [];
+          atGroups[d.atGroupId].push(d);
+        }
+      });
+
+      const areaMultiplier = pieConfig.areaMultiplier ?? 1.6;
+      const positionedATGroups = []; // { groupId, centerY, radius, x }
+
+      // Sort AT groups by average MMR (highest first)
+      const sortedATGroups = Object.entries(atGroups)
+        .map(([groupId, players]) => ({
+          groupId: parseInt(groupId),
+          players,
+          avgMmr: players.reduce((sum, p) => sum + p.mmr, 0) / players.length,
+          centerY: players.reduce((sum, p) => sum + yScale(p.mmr), 0) / players.length,
+          radius: dotRadius * Math.sqrt(players.length) * Math.sqrt(areaMultiplier)
+        }))
+        .sort((a, b) => b.avgMmr - a.avgMmr);
+
+      // Position each AT group, checking for collisions with already positioned groups
+      sortedATGroups.forEach(group => {
+        let x = baseX;
+        let attempts = 0;
+
+        while (attempts < 10) {
+          const collision = positionedATGroups.find(pg => {
+            const yDist = Math.abs(pg.centerY - group.centerY);
+            const xDist = Math.abs(pg.x - x);
+            const minSeparation = pg.radius + group.radius + 4;
+            const dist = Math.sqrt(xDist ** 2 + yDist ** 2);
+            return dist < minSeparation;
+          });
+
+          if (!collision) break;
+
+          attempts++;
+          x = baseX + offsetDirection * attempts * 8;
+        }
+
+        positionedATGroups.push({ ...group, x });
+      });
+
+      // Build combined circles info from positioned AT groups
+      const combinedCircles = positionedATGroups.map(g => ({
+        centerY: g.centerY,
+        radius: g.radius,
+        x: g.x,
+        groupId: g.groupId
+      }));
+
+      // Now position all players
+      const positioned = [];
+
+      // Sort: AT players first (by their group's positioned X), then solos by MMR
+      const sortedData = [...teamData].sort((a, b) => {
+        if (a.atGroupId > 0 && b.atGroupId === 0) return -1;
+        if (a.atGroupId === 0 && b.atGroupId > 0) return 1;
+        return b.mmr - a.mmr;
+      });
+
       sortedData.forEach(d => {
         const y = yScale(d.mmr);
-        let x = baseX;
 
-        // AT players always stay at center X
-        if (d.atGroupSize > 0) {
+        // AT players use their group's positioned X
+        if (d.atGroupId > 0) {
+          const groupInfo = positionedATGroups.find(g => g.groupId === d.atGroupId);
+          const x = groupInfo ? groupInfo.x : baseX;
           positioned.push({ ...d, x, y });
           return;
         }
 
         // Solo players: check for collisions and offset on X-axis only
+        let x = baseX;
         let attempts = 0;
+
         while (attempts < 10) {
           // Check collision with other solo players already positioned
           const soloCollision = positioned.find(p => {
-            if (p.atGroupSize > 0) return false;
+            if (p.atGroupId > 0) return false;
             const dist = Math.sqrt((p.x - x) ** 2 + (p.y - y) ** 2);
             return dist < minDist;
           });
 
-          // Check collision with combined circles (AT groups)
+          // Check collision with combined circles (AT groups) at their positioned X
           const combinedCollision = combinedCircles.find(c => {
-            // Check if this dot would overlap with the combined circle
             const yDist = Math.abs(y - c.centerY);
-            const xDist = Math.abs(x - baseX);
-            // Combined circle is at baseX, so check if dot is within its radius
+            const xDist = Math.abs(x - c.x);
             const dist = Math.sqrt(xDist ** 2 + yDist ** 2);
-            return dist < (c.radius + dotRadius + 6); // Buffer for visual separation
+            return dist < (c.radius + dotRadius + 6);
           });
 
           if (!soloCollision && !combinedCollision) break;
 
-          // Offset away from center line (X-axis only, no Y movement)
           attempts++;
           x = baseX + offsetDirection * attempts * 8;
         }
@@ -149,13 +226,13 @@ const MmrComparison = ({ data, compact = false, atStyle = "combined", pieConfig 
       const processedATGroups = new Set();
 
       sorted.forEach((d, i) => {
-        if (d.atGroupSize > 0 && atStyle === "combined") {
+        if (d.atGroupId > 0 && atStyle === "combined") {
           // This is an AT player
-          const groupKey = d.atGroupSize;
+          const groupKey = d.atGroupId;
 
           if (!processedATGroups.has(groupKey)) {
             // First time seeing this AT group - add top edge and start new segment after
-            const atPlayers = sorted.filter(p => p.atGroupSize === d.atGroupSize);
+            const atPlayers = sorted.filter(p => p.atGroupId === d.atGroupId);
             if (atPlayers.length >= 2) {
               const centerY = atPlayers.reduce((sum, p) => sum + p.y, 0) / atPlayers.length;
               const combinedRadius = dotRadius * Math.sqrt(atPlayers.length) * Math.sqrt(areaMultiplier);
@@ -197,18 +274,168 @@ const MmrComparison = ({ data, compact = false, atStyle = "combined", pieConfig 
     drawSpreadLine(teamOnePositioned, "team-one");
     drawSpreadLine(teamTwoPositioned, "team-two");
 
-    // Track AT group slice indices for yin-yang rendering
-    const atGroupCounters = { team1: {}, team2: {} };
-
     // Colors from design tokens
     const goldColor = "#fcdb33";
+    const teamOneColor = "#4da6ff";
+    const teamTwoColor = "#ef4444";
 
-    // Group AT players by their group size for each team
+    // Calculate geometric mean: nth root of product
+    const geometricMean = (arr) => {
+      const filtered = arr.filter(v => v && v > 0);
+      if (filtered.length === 0) return 0;
+      const product = filtered.reduce((acc, val) => acc * val, 1);
+      return Math.pow(product, 1 / filtered.length);
+    };
+
+    // Calculate standard deviation
+    const stdDev = (arr, mean) => {
+      const filtered = arr.filter(v => v && v > 0);
+      if (filtered.length === 0) return 0;
+      const squaredDiffs = filtered.map(v => Math.pow(v - mean, 2));
+      return Math.sqrt(squaredDiffs.reduce((a, b) => a + b, 0) / filtered.length);
+    };
+
+    // Draw mean and std dev if enabled
+    if (showMean || showStdDev) {
+      const team1Mean = geometricMean(teamOneMmrs);
+      const team2Mean = geometricMean(teamTwoMmrs);
+      const team1Std = stdDev(teamOneMmrs, team1Mean);
+      const team2Std = stdDev(teamTwoMmrs, team2Mean);
+
+      // Calculate actual dot spread width for each team
+      const team1Xs = teamOnePositioned.map(d => d.x);
+      const team2Xs = teamTwoPositioned.map(d => d.x);
+      const team1MinX = Math.min(...team1Xs);
+      const team1MaxX = Math.max(...team1Xs);
+      const team2MinX = Math.min(...team2Xs);
+      const team2MaxX = Math.max(...team2Xs);
+
+      // Width is the spread of dots + some padding for the dot radius
+      const padding = dotRadius + 4;
+      const team1Width = Math.max((team1MaxX - team1MinX) + padding * 2, 20);
+      const team2Width = Math.max((team2MaxX - team2MinX) + padding * 2, 20);
+      const team1CenterX = (team1MinX + team1MaxX) / 2;
+      const team2CenterX = (team2MinX + team2MaxX) / 2;
+
+      // Draw std dev regions (shaded areas) - draw first so they're behind
+      if (showStdDev) {
+        // Team 1 std dev region
+        const t1Upper = Math.min(2700, team1Mean + team1Std);
+        const t1Lower = Math.max(700, team1Mean - team1Std);
+        svg.append("rect")
+          .attr("x", team1CenterX - team1Width / 2)
+          .attr("y", yScale(t1Upper))
+          .attr("width", team1Width)
+          .attr("height", Math.max(yScale(t1Lower) - yScale(t1Upper), 4))
+          .attr("fill", teamOneColor)
+          .attr("opacity", 0.12)
+          .attr("rx", 2);
+
+        // Team 2 std dev region
+        const t2Upper = Math.min(2700, team2Mean + team2Std);
+        const t2Lower = Math.max(700, team2Mean - team2Std);
+        svg.append("rect")
+          .attr("x", team2CenterX - team2Width / 2)
+          .attr("y", yScale(t2Upper))
+          .attr("width", team2Width)
+          .attr("height", Math.max(yScale(t2Lower) - yScale(t2Upper), 4))
+          .attr("fill", teamTwoColor)
+          .attr("opacity", 0.12)
+          .attr("rx", 2);
+
+        // Subtle σ value labels (only if hideLabels is false)
+        if (!hideLabels) {
+          const fontSize = compact ? 7 : 9;
+          const labelOpacity = compact ? 0.4 : 0.5;
+
+          // Team 1 σ label (left side, outside the region)
+          svg.append("text")
+            .attr("x", team1CenterX - team1Width / 2 - 2)
+            .attr("y", yScale(t1Upper) + 2)
+            .attr("text-anchor", "end")
+            .attr("dominant-baseline", "hanging")
+            .attr("font-family", "var(--font-mono)")
+            .attr("font-size", fontSize)
+            .attr("fill", teamOneColor)
+            .attr("opacity", labelOpacity)
+            .text(`σ${Math.round(team1Std)}`);
+
+          // Team 2 σ label (right side, outside the region)
+          svg.append("text")
+            .attr("x", team2CenterX + team2Width / 2 + 2)
+            .attr("y", yScale(t2Upper) + 2)
+            .attr("text-anchor", "start")
+            .attr("dominant-baseline", "hanging")
+            .attr("font-family", "var(--font-mono)")
+            .attr("font-size", fontSize)
+            .attr("fill", teamTwoColor)
+            .attr("opacity", labelOpacity)
+            .text(`σ${Math.round(team2Std)}`);
+        }
+      }
+
+      // Draw mean lines
+      if (showMean) {
+        // Team 1 mean line (dashed)
+        svg.append("line")
+          .attr("x1", team1CenterX - team1Width / 2)
+          .attr("y1", yScale(team1Mean))
+          .attr("x2", team1CenterX + team1Width / 2)
+          .attr("y2", yScale(team1Mean))
+          .attr("stroke", teamOneColor)
+          .attr("stroke-width", 2)
+          .attr("stroke-dasharray", "4,3")
+          .attr("opacity", 0.8);
+
+        // Team 2 mean line (dashed)
+        svg.append("line")
+          .attr("x1", team2CenterX - team2Width / 2)
+          .attr("y1", yScale(team2Mean))
+          .attr("x2", team2CenterX + team2Width / 2)
+          .attr("y2", yScale(team2Mean))
+          .attr("stroke", teamTwoColor)
+          .attr("stroke-width", 2)
+          .attr("stroke-dasharray", "4,3")
+          .attr("opacity", 0.8);
+
+        // μ value labels (only if hideLabels is false)
+        if (!hideLabels) {
+          const fontSize = compact ? 7 : 9;
+          const labelOpacity = compact ? 0.5 : 0.6;
+
+          // Team 1 μ value label (right of line)
+          svg.append("text")
+            .attr("x", team1CenterX + team1Width / 2 + 2)
+            .attr("y", yScale(team1Mean))
+            .attr("text-anchor", "start")
+            .attr("dominant-baseline", "middle")
+            .attr("font-family", "var(--font-mono)")
+            .attr("font-size", fontSize)
+            .attr("fill", teamOneColor)
+            .attr("opacity", labelOpacity)
+            .text(`μ${Math.round(team1Mean)}`);
+
+          // Team 2 μ value label (left of line)
+          svg.append("text")
+            .attr("x", team2CenterX - team2Width / 2 - 2)
+            .attr("y", yScale(team2Mean))
+            .attr("text-anchor", "end")
+            .attr("dominant-baseline", "middle")
+            .attr("font-family", "var(--font-mono)")
+            .attr("font-size", fontSize)
+            .attr("fill", teamTwoColor)
+            .attr("opacity", labelOpacity)
+            .text(`μ${Math.round(team2Mean)}`);
+        }
+      }
+    }
+
+    // Group AT players by their group ID for each team
     const groupATPlayers = (teamData, teamKey) => {
       const groups = {};
       teamData.forEach(d => {
-        if (d.atGroupSize > 0) {
-          const key = `${teamKey}-${d.atGroupSize}`;
+        if (d.atGroupId > 0) {
+          const key = `${teamKey}-${d.atGroupId}`;
           if (!groups[key]) groups[key] = [];
           groups[key].push(d);
         }
@@ -410,6 +637,8 @@ const MmrComparison = ({ data, compact = false, atStyle = "combined", pieConfig 
 
       const groupSize = players.length;
       const centerY = players.reduce((sum, p) => sum + p.y, 0) / players.length;
+      // Use the positioned X from the first player (all players in group have same X)
+      const positionedX = players[0].x;
 
       // Combined radius with optional area multiplier
       const baseRadius = dotRadius;
@@ -432,7 +661,7 @@ const MmrComparison = ({ data, compact = false, atStyle = "combined", pieConfig 
 
       // White circle (fully visible)
       mask.append("circle")
-        .attr("cx", baseX)
+        .attr("cx", positionedX)
         .attr("cy", centerY)
         .attr("r", combinedRadius)
         .attr("fill", "white");
@@ -440,11 +669,11 @@ const MmrComparison = ({ data, compact = false, atStyle = "combined", pieConfig 
       // Black lines for gaps (will be transparent)
       for (let i = 0; i < groupSize; i++) {
         const angle = i * sliceAngle + baseRotation;
-        const x2 = baseX + Math.cos(angle) * (combinedRadius + 1);
+        const x2 = positionedX + Math.cos(angle) * (combinedRadius + 1);
         const y2 = centerY + Math.sin(angle) * (combinedRadius + 1);
 
         mask.append("line")
-          .attr("x1", baseX)
+          .attr("x1", positionedX)
           .attr("y1", centerY)
           .attr("x2", x2)
           .attr("y2", y2)
@@ -454,7 +683,7 @@ const MmrComparison = ({ data, compact = false, atStyle = "combined", pieConfig 
 
       // Draw the full circle with the mask applied
       svg.append("circle")
-        .attr("cx", baseX)
+        .attr("cx", positionedX)
         .attr("cy", centerY)
         .attr("r", combinedRadius)
         .attr("class", `dot ${teamClass}`)
@@ -674,21 +903,25 @@ const MmrComparison = ({ data, compact = false, atStyle = "combined", pieConfig 
       Object.values(teamTwoATGroups).forEach(players => drawCombinedCircle(players, teamTwoX, "dot-team-two"));
     }
 
+    // Track AT group slice indices for yin-yang rendering (keyed by groupId)
+    const atGroupSliceCounters = { team1: {}, team2: {} };
+
     // Draw Team One dots
     teamOnePositioned.forEach(d => {
-      if (d.atGroupSize > 0 && atStyle === "yin-yang") {
+      if (d.atGroupId > 0 && atStyle === "yin-yang") {
+        const groupId = d.atGroupId;
         const groupSize = d.atGroupSize;
-        if (!atGroupCounters.team1[groupSize]) atGroupCounters.team1[groupSize] = 0;
-        const sliceIndex = atGroupCounters.team1[groupSize];
-        atGroupCounters.team1[groupSize]++;
-        if (atGroupCounters.team1[groupSize] >= groupSize) atGroupCounters.team1[groupSize] = 0;
+        if (!atGroupSliceCounters.team1[groupId]) atGroupSliceCounters.team1[groupId] = 0;
+        const sliceIndex = atGroupSliceCounters.team1[groupId];
+        atGroupSliceCounters.team1[groupId]++;
+        if (atGroupSliceCounters.team1[groupId] >= groupSize) atGroupSliceCounters.team1[groupId] = 0;
         drawYinYang(teamOneX, d.y, groupSize, sliceIndex, "dot-team-one");
-      } else if (d.atGroupSize > 0 && (atStyle === "pie" || atStyle === "arcs" || atStyle === "combined")) {
+      } else if (d.atGroupId > 0 && (atStyle === "pie" || atStyle === "arcs" || atStyle === "combined")) {
         // These styles draw AT players separately, no individual dots needed
       } else {
         svg.append("circle")
           .attr("class", "dot dot-team-one")
-          .attr("cx", d.atGroupSize > 0 ? teamOneX : d.x)
+          .attr("cx", d.atGroupId > 0 ? teamOneX : d.x)
           .attr("cy", d.y)
           .attr("r", dotRadius);
       }
@@ -696,19 +929,20 @@ const MmrComparison = ({ data, compact = false, atStyle = "combined", pieConfig 
 
     // Draw Team Two dots
     teamTwoPositioned.forEach(d => {
-      if (d.atGroupSize > 0 && atStyle === "yin-yang") {
+      if (d.atGroupId > 0 && atStyle === "yin-yang") {
+        const groupId = d.atGroupId;
         const groupSize = d.atGroupSize;
-        if (!atGroupCounters.team2[groupSize]) atGroupCounters.team2[groupSize] = 0;
-        const sliceIndex = atGroupCounters.team2[groupSize];
-        atGroupCounters.team2[groupSize]++;
-        if (atGroupCounters.team2[groupSize] >= groupSize) atGroupCounters.team2[groupSize] = 0;
+        if (!atGroupSliceCounters.team2[groupId]) atGroupSliceCounters.team2[groupId] = 0;
+        const sliceIndex = atGroupSliceCounters.team2[groupId];
+        atGroupSliceCounters.team2[groupId]++;
+        if (atGroupSliceCounters.team2[groupId] >= groupSize) atGroupSliceCounters.team2[groupId] = 0;
         drawYinYang(teamTwoX, d.y, groupSize, sliceIndex, "dot-team-two");
-      } else if (d.atGroupSize > 0 && (atStyle === "pie" || atStyle === "arcs" || atStyle === "combined")) {
+      } else if (d.atGroupId > 0 && (atStyle === "pie" || atStyle === "arcs" || atStyle === "combined")) {
         // These styles draw AT players separately, no individual dots needed
       } else {
         svg.append("circle")
           .attr("class", "dot dot-team-two")
-          .attr("cx", d.atGroupSize > 0 ? teamTwoX : d.x)
+          .attr("cx", d.atGroupId > 0 ? teamTwoX : d.x)
           .attr("cy", d.y)
           .attr("r", dotRadius);
       }
@@ -724,7 +958,7 @@ const MmrComparison = ({ data, compact = false, atStyle = "combined", pieConfig 
     if (!compact) {
       svg.append("text").attr("class", "axistitle").text("MMR").attr("x", middleLine).attr("y", innerHeight);
     }
-  }, [teamOneMmrs, teamTwoMmrs, teamOneAT, teamTwoAT, compact, atStyle, pieConfig]);
+  }, [teamOneMmrs, teamTwoMmrs, teamOneAT, teamTwoAT, compact, atStyle, pieConfig, showMean, showStdDev, hideLabels]);
 
   return <svg ref={svgRef} style={{ width: "100%", height: "100%" }}></svg>;
 };

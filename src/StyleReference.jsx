@@ -592,8 +592,8 @@ const StyleReference = () => {
                 data={{
                   teamOneMmrs: [1900, 1900, 1750, 1650],
                   teamTwoMmrs: [1850, 1850, 1700, 1600],
-                  teamOneAT: [2, 2, 0, 0],
-                  teamTwoAT: [2, 2, 0, 0],
+                  teamOneAT: [1, 1, 0, 0],
+                  teamTwoAT: [1, 1, 0, 0],
                 }}
                 atStyle="combined"
                 pieConfig={pieConfig}
@@ -611,8 +611,8 @@ const StyleReference = () => {
                 data={{
                   teamOneMmrs: [1900, 1900, 1900, 1650],
                   teamTwoMmrs: [1850, 1850, 1850, 1600],
-                  teamOneAT: [3, 3, 3, 0],
-                  teamTwoAT: [3, 3, 3, 0],
+                  teamOneAT: [1, 1, 1, 0],
+                  teamTwoAT: [1, 1, 1, 0],
                 }}
                 atStyle="combined"
                 pieConfig={pieConfig}
@@ -630,8 +630,8 @@ const StyleReference = () => {
                 data={{
                   teamOneMmrs: [1900, 1900, 1900, 1900],
                   teamTwoMmrs: [1850, 1850, 1850, 1850],
-                  teamOneAT: [4, 4, 4, 4],
-                  teamTwoAT: [4, 4, 4, 4],
+                  teamOneAT: [1, 1, 1, 1],
+                  teamTwoAT: [1, 1, 1, 1],
                 }}
                 atStyle="combined"
                 pieConfig={pieConfig}
@@ -670,8 +670,8 @@ const StyleReference = () => {
                 data={{
                   teamOneMmrs: [1850, 1850, 1855, 2000],
                   teamTwoMmrs: [1820, 1820, 1825, 1950],
-                  teamOneAT: [2, 2, 0, 0],
-                  teamTwoAT: [2, 2, 0, 0],
+                  teamOneAT: [1, 1, 0, 0],
+                  teamTwoAT: [1, 1, 0, 0],
                 }}
                 atStyle="combined"
                 pieConfig={pieConfig}
@@ -688,7 +688,7 @@ const StyleReference = () => {
                 data={{
                   teamOneMmrs: [1850, 1850, 1850, 1850],
                   teamTwoMmrs: [1900, 1850, 1750, 1700],
-                  teamOneAT: [4, 4, 4, 4],
+                  teamOneAT: [1, 1, 1, 1],
                   teamTwoAT: [0, 0, 0, 0],
                 }}
                 atStyle="combined"

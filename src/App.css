@@ -9,7 +9,7 @@
   --green: #4ade80;
   --red: #f87171;
   --blue: #3b82f6;
-  --grey-light: #999;   /* Secondary text, muted labels */
+  --grey-light: #bbb;   /* Secondary text, muted labels */
   --grey-mid: #444;     /* Borders, disabled text */
   --grey-dark: #1a1a1a; /* Elevated surfaces */
   --white: #fff;        /* Primary text */
@@ -4461,6 +4461,59 @@ a.neighbor-name-sm:hover {
   margin: 0 !important;
 }
 
+/* MMR chart with side labels wrapper */
+.mmr-chart-with-labels {
+  display: flex;
+  align-items: stretch;
+  justify-content: center;
+}
+
+.mmr-side-label {
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+  padding: 0 6px;
+  min-width: 44px;
+}
+
+.mmr-side-label-left {
+  align-items: center;
+  text-align: center;
+}
+
+.mmr-side-label-right {
+  align-items: center;
+  text-align: center;
+}
+
+.mmr-label-mean {
+  font-family: var(--font-mono);
+  font-size: 13px;
+  font-weight: 500;
+}
+
+.mmr-side-label-left .mmr-label-mean {
+  color: var(--team-blue);
+}
+
+.mmr-side-label-right .mmr-label-mean {
+  color: var(--team-red);
+}
+
+.mmr-label-std {
+  font-family: var(--font-mono);
+  font-size: 11px;
+  color: rgba(255, 255, 255, 0.5);
+  margin-top: 0;
+}
+
+.mmr-unit {
+  font-size: 10px;
+  opacity: 0.5;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+}
+
 /* MMR chart container - default size */
 .mmr-chart-container {
   height: 220px;
@@ -4760,31 +4813,64 @@ a.neighbor-name-sm:hover {
   z-index: 5;
 }
 
-/* Chart container - fill full height */
+/* Chart wrapper with side labels */
+.mo-chart-wrapper {
+  display: flex;
+  align-items: center;
+}
+
+.mo-chart-label {
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+  padding: 0 8px;
+  white-space: nowrap;
+}
+
+.mo-chart-label-left {
+  align-items: flex-end;
+  text-align: right;
+}
+
+.mo-chart-label-right {
+  align-items: flex-start;
+  text-align: left;
+  margin-left: 8px;
+}
+
+.mo-label-mean,
+.mo-label-std {
+  font-family: var(--font-mono);
+  font-size: 11px;
+  line-height: 1.5;
+  white-space: nowrap;
+}
+
+.mo-chart-label-left .mo-label-mean,
+.mo-chart-label-left .mo-label-std {
+  color: var(--team-blue);
+}
+
+.mo-chart-label-right .mo-label-mean,
+.mo-chart-label-right .mo-label-std {
+  color: var(--team-red);
+}
+
+/* Chart container */
 .mo-chart {
-  width: 100px;
-  height: 78px; /* match team content: icon(32+6) + name(~18) + mmr(~18) */
-  margin: 0 12px;
+  width: 140px;
+  height: 90px;
   position: relative;
+  flex-shrink: 0;
+  overflow: visible;
+  padding: 0 6px;
 }
 
 .mo-chart svg {
   display: block;
   width: 100%;
+  overflow: visible;
   height: 100%;
-}
-
-.mo-vs {
-  position: absolute;
-  top: 50%;
-  left: 50%;
-  transform: translate(-50%, -50%);
-  font-family: var(--font-display);
-  font-size: 11px;
-  color: rgba(255, 255, 255, 0.4);
-  letter-spacing: 1px;
-  text-transform: lowercase;
-  pointer-events: none;
 }
 
 /* Rotating stat display with fade */
@@ -8616,4 +8702,129 @@ a.neighbor-name:hover {
   .session-summary-inline {
     padding: 6px 12px;
   }
+}
+
+/* ============================================
+   Blog Styles
+   ============================================ */
+
+.blog-article {
+  padding: 48px 32px 80px;
+  background: #0a0a0a;
+}
+
+.blog-article .content {
+  max-width: 720px;
+  margin: 0 auto;
+}
+
+.blog-article h1 {
+  color: var(--gold);
+  font-family: var(--font-display);
+  font-size: 38px;
+  margin: 0 0 48px 0;
+  font-weight: normal;
+  line-height: 1.3;
+}
+
+.blog-article h2 {
+  color: #fff;
+  font-family: var(--font-display);
+  font-size: 24px;
+  margin: 64px 0 24px 0;
+  font-weight: normal;
+}
+
+.blog-article p {
+  color: #ccc;
+  font-size: 18px;
+  line-height: 1.8;
+  margin: 0 0 28px 0;
+}
+
+.blog-article a {
+  color: var(--gold);
+}
+
+/* Blog chart container */
+.blog-chart {
+  display: inline-block;
+  vertical-align: middle;
+  background: #0d0d0d;
+  border: 1px solid var(--grey-mid);
+  border-radius: 8px;
+  padding: 12px 24px;
+}
+
+.blog-chart svg {
+  overflow: visible;
+}
+
+.blog-chart-inner {
+  border-radius: 6px;
+  overflow: hidden;
+}
+
+/* Chart row for side-by-side charts */
+.blog-chart-row {
+  margin: 40px 0;
+  display: flex;
+  justify-content: center;
+  gap: 24px;
+  flex-wrap: wrap;
+}
+
+.blog-chart-row.gap-lg {
+  gap: 32px;
+}
+
+/* Chart with label underneath */
+.blog-chart-labeled {
+  text-align: center;
+}
+
+.blog-chart-label {
+  color: var(--grey-light);
+  font-size: 12px;
+  margin-top: 8px;
+  font-family: var(--font-mono);
+}
+
+/* Gallery section */
+.blog-gallery-section {
+  color: var(--gold);
+  font-size: 13px;
+  margin-top: 48px;
+  margin-bottom: 20px;
+  font-family: var(--font-display);
+}
+
+.blog-gallery-row {
+  display: flex;
+  gap: 24px;
+  flex-wrap: wrap;
+}
+
+/* MMR comparison display */
+.blog-mmr-display {
+  display: flex;
+  justify-content: center;
+  gap: 48px;
+  margin: 32px 0;
+  font-family: var(--font-mono);
+  font-size: 16px;
+}
+
+.blog-mmr-display .team-blue {
+  text-align: right;
+  color: var(--team-blue);
+}
+
+.blog-mmr-display .team-red {
+  text-align: left;
+  color: var(--team-red);
+}
+
+.blog-mmr-display .vs {
+  color: var(--grey-mid);
 }

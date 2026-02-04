@@ -16,6 +16,8 @@ import MatchOverlayPage from "./MatchOverlayPage";
 import PlayerOverlayPage from "./PlayerOverlayPage";
 import LastGameOverlayPage from "./LastGameOverlayPage";
 import DesignLab from "./DesignLab";
+import Blog from "./Blog";
+import MmrLab from "./MmrLab";
 
 const Router = () => (
   <BrowserRouter>
@@ -29,6 +31,10 @@ const Router = () => (
       <Route path="/player" component={PlayerProfile} />
       <Route path="/match" component={FinishedGamePage} />
 
+      {/* Blog */}
+      <Route exact path="/blog" component={Blog} />
+      <Route path="/blog/alls-fair" component={DesignLab} />
+
       {/* Stream overlays */}
       <Route exact path="/overlay" component={OverlayIndex} />
       <Route path="/overlay/match" component={MatchOverlayPage} />
@@ -41,7 +47,7 @@ const Router = () => (
       <Route path="/demo" component={VisualizationDemo} />
       <Route path="/styles" component={StyleReference} />
       <Route path="/icons" component={IconDemo} />
-      <Route path="/design" component={DesignLab} />
+      <Route path="/mmr-lab" component={MmrLab} />
     </Switch>
   </BrowserRouter>
 );

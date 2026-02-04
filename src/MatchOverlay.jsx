@@ -79,6 +79,30 @@ const MatchOverlay = ({ matchData, atGroups = {}, sessionData = {}, mmrDuration 
     return false;
   };
 
+  // Get AT group ID (0 for solo, 1+ for AT groups)
+  // Returns the same ID for all members of the same AT group
+  const getATGroupId = React.useMemo(() => {
+    const cache = {};
+    let nextGroupId = 1;
+
+    Object.values(atGroups).forEach(group => {
+      if (!Array.isArray(group) || group.length === 0) return;
+      // Check if any member already has an ID
+      const existingId = group.find(tag => cache[tag.toLowerCase()]);
+      if (existingId) {
+        // Use existing ID for all members
+        const id = cache[existingId.toLowerCase()];
+        group.forEach(tag => { cache[tag.toLowerCase()] = id; });
+      } else {
+        // Assign new ID to all members
+        const id = nextGroupId++;
+        group.forEach(tag => { cache[tag.toLowerCase()] = id; });
+      }
+    });
+
+    return (battleTag) => cache[battleTag?.toLowerCase()] || 0;
+  }, [atGroups]);
+
   // Check if two adjacent players are AT partners
   const areATPartners = (p1, p2) => {
     for (const group of Object.values(atGroups)) {
@@ -141,11 +165,14 @@ const MatchOverlay = ({ matchData, atGroups = {}, sessionData = {}, mmrDuration 
             data={{
               teamOneMmrs: team1.map(p => p.currentMmr || p.oldMmr || 0),
               teamTwoMmrs: team2.map(p => p.currentMmr || p.oldMmr || 0),
-              teamOneAT: team1.map(p => isAT(p.battleTag)),
-              teamTwoAT: team2.map(p => isAT(p.battleTag)),
+              teamOneAT: team1.map(p => getATGroupId(p.battleTag)),
+              teamTwoAT: team2.map(p => getATGroupId(p.battleTag)),
             }}
             compact={true}
             atStyle="combined"
+            showMean={true}
+            showStdDev={true}
+            hideLabels={true}
           />
           <span className="mo-vs">vs</span>
         </div>
