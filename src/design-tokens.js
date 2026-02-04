@@ -15,6 +15,7 @@ export const colors = {
   red: { value: '#f87171', css: '--red', usage: 'Losses, negative' },
   blue: { value: '#3b82f6', css: '--blue', usage: 'Links, info' },
   greyLight: { value: '#bbb', css: '--grey-light', usage: 'Secondary text, labels' },
+  textBody: { value: '#ccc', css: '--text-body', usage: 'Body/prose text' },
   greyMid: { value: '#444', css: '--grey-mid', usage: 'Borders, disabled' },
   greyDark: { value: '#1a1a1a', css: '--grey-dark', usage: 'Elevated surfaces' },
   white: { value: '#fff', css: '--white', usage: 'Primary text' },
@@ -24,7 +25,8 @@ export const colors = {
 
 export const fonts = {
   display: { value: '"Friz_Quadrata_Bold", Georgia, serif', css: '--font-display', usage: 'Headlines, player names' },
-  mono: { value: '"Inconsolata", "SF Mono", Consolas, monospace', css: '--font-mono', usage: 'Everything else' },
+  mono: { value: '"Inconsolata", "SF Mono", Consolas, monospace', css: '--font-mono', usage: 'Stats, labels, dates' },
+  body: { value: '"Libre Baskerville", Georgia, serif', css: '--font-body', usage: 'Blog prose, descriptions' },
 };
 
 export const typeScale = {
@@ -127,6 +129,35 @@ export const patterns = {
   listItemValue: {
     description: 'List item values (counts, percentages)',
     css: 'font-family: var(--font-mono); font-size: var(--text-base); color: #fff',
+  },
+  // Blog patterns
+  blogPageTitle: {
+    description: 'Blog page/article h1',
+    css: 'font-family: var(--font-display); font-size: var(--text-xl); color: var(--gold)',
+  },
+  blogSectionTitle: {
+    description: 'Blog h2 (article sections)',
+    css: 'font-family: var(--font-display); font-size: var(--text-lg); color: var(--white)',
+  },
+  blogPostTitle: {
+    description: 'Blog post title in listing',
+    css: 'font-family: var(--font-display); font-size: 28px; color: var(--white)',
+  },
+  blogTag: {
+    description: 'Blog tags/categories',
+    css: 'font-family: var(--font-mono); font-size: var(--text-xxs); color: var(--grey-light); text-transform: uppercase; letter-spacing: 0.1em',
+  },
+  blogDate: {
+    description: 'Blog dates',
+    css: 'font-family: var(--font-mono); font-size: var(--text-xxs); color: var(--grey-light)',
+  },
+  blogBody: {
+    description: 'Blog article body text',
+    css: 'font-family: var(--font-body); font-size: var(--text-base); color: var(--text-body); line-height: 1.85',
+  },
+  blogDesc: {
+    description: 'Blog post description in listing',
+    css: 'font-family: var(--font-body); font-size: var(--text-base); color: var(--text-body); line-height: 1.7',
   },
 };
 

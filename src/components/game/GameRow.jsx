@@ -67,6 +67,7 @@ const GameRow = ({
   // Find player in teams
   let playerData = null;
   let allies = [];
+  let opponents = [];
 
   for (const team of match.teams || []) {
     const player = team.players?.find(
@@ -77,7 +78,8 @@ const GameRow = ({
       allies = team.players.filter(
         (p) => p.battleTag?.toLowerCase() !== battleTagLower
       );
-      break;
+    } else {
+      opponents = team.players || [];
     }
   }
 
@@ -132,12 +134,34 @@ const GameRow = ({
       </div>
       {showAllies && (
         <div className="gr-col gr-allies">
-          <div className="gr-allies-list">
+          <div className="gr-players-list">
             {allies.slice(0, 3).map((ally, i) => (
-              <div key={i} className="gr-ally">
+              <Link
+                key={i}
+                to={`/player/${encodeURIComponent(ally.battleTag)}`}
+                className="gr-player"
+                onClick={(e) => e.stopPropagation()}
+              >
                 <img src={raceMapping[ally.race]} alt="" className="gr-race" />
-                <span className="gr-ally-name">{ally.name}</span>
-              </div>
+                <span className="gr-player-name">{ally.name}</span>
+              </Link>
+            ))}
+          </div>
+        </div>
+      )}
+      {showAllies && (
+        <div className="gr-col gr-opponents">
+          <div className="gr-players-list">
+            {opponents.slice(0, 4).map((opp, i) => (
+              <Link
+                key={i}
+                to={`/player/${encodeURIComponent(opp.battleTag)}`}
+                className="gr-player"
+                onClick={(e) => e.stopPropagation()}
+              >
+                <img src={raceMapping[opp.race]} alt="" className="gr-race" />
+                <span className="gr-player-name">{opp.name}</span>
+              </Link>
             ))}
           </div>
         </div>

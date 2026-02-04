@@ -593,6 +593,7 @@ const PlayerProfile = () => {
                   <div className="mh-col avg-mmr">Avg MMR</div>
                   <div className="mh-col mmr">+/-</div>
                   <div className="mh-col allies">Allies</div>
+                  <div className="mh-col opponents">Opponents</div>
                   <div className="mh-col duration">Duration</div>
                   <div className="mh-col time">Time</div>
                 </div>
