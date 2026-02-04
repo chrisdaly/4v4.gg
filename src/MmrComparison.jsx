@@ -141,54 +141,64 @@ const MmrComparison = ({ data, compact = false, atStyle = "combined", pieConfig 
     const teamTwoPositioned = applyBeeswarm(teamTwoData, teamTwoX, false);
 
     // Draw team spread lines connecting all dots at their actual positions
-    // For AT groups (combined circles), line stops at edge of circle
+    // For AT groups (combined circles), line stops at edge of circle (doesn't go through)
     const drawSpreadLine = (positionedData, teamClass) => {
       // Sort by Y position (MMR) to draw lines top to bottom
       const sorted = [...positionedData].sort((a, b) => a.y - b.y);
 
-      // Get combined circle info for this team
-      const combinedCircles = atStyle === "combined" ? getCombinedCircleInfo(positionedData) : [];
       const areaMultiplier = pieConfig.areaMultiplier ?? 1.6;
 
-      // Build line points, adjusting for combined circle edges
-      const linePoints = [];
+      // Build line segments, breaking at AT circles (don't draw through them)
+      const segments = [];
+      let currentSegment = [];
+
+      // Track which AT groups we've processed
+      const processedATGroups = new Set();
 
       sorted.forEach((d, i) => {
         if (d.atGroupSize > 0 && atStyle === "combined") {
-          // This is an AT player - find the combined circle
-          const atPlayers = sorted.filter(p => p.atGroupSize === d.atGroupSize);
-          if (atPlayers.length >= 2) {
-            const centerY = atPlayers.reduce((sum, p) => sum + p.y, 0) / atPlayers.length;
-            const combinedRadius = dotRadius * Math.sqrt(atPlayers.length) * Math.sqrt(areaMultiplier);
+          // This is an AT player
+          const groupKey = d.atGroupSize;
 
-            // Only add edge points once per AT group (first and last player in sorted order)
-            const atIndices = sorted.map((p, idx) => p.atGroupSize === d.atGroupSize ? idx : -1).filter(idx => idx >= 0);
-            const isFirstAT = i === atIndices[0];
-            const isLastAT = i === atIndices[atIndices.length - 1];
+          if (!processedATGroups.has(groupKey)) {
+            // First time seeing this AT group - add top edge and start new segment after
+            const atPlayers = sorted.filter(p => p.atGroupSize === d.atGroupSize);
+            if (atPlayers.length >= 2) {
+              const centerY = atPlayers.reduce((sum, p) => sum + p.y, 0) / atPlayers.length;
+              const combinedRadius = dotRadius * Math.sqrt(atPlayers.length) * Math.sqrt(areaMultiplier);
 
-            if (isFirstAT) {
-              // Add top edge of circle
-              linePoints.push({ x: d.x, y: centerY - combinedRadius });
-            }
-            if (isLastAT) {
-              // Add bottom edge of circle
-              linePoints.push({ x: d.x, y: centerY + combinedRadius });
+              // Add top edge to current segment, then close it
+              currentSegment.push({ x: d.x, y: centerY - combinedRadius });
+              if (currentSegment.length > 1) {
+                segments.push(currentSegment);
+              }
+
+              // Start new segment from bottom edge
+              currentSegment = [{ x: d.x, y: centerY + combinedRadius }];
+              processedATGroups.add(groupKey);
             }
           }
+          // Skip other AT players in same group (already handled)
         } else {
           // Solo player - add their position
-          linePoints.push({ x: d.x, y: d.y });
+          currentSegment.push({ x: d.x, y: d.y });
         }
       });
 
-      if (linePoints.length > 1) {
-        const line = d3.line().x((d) => d.x).y((d) => d.y);
+      // Don't forget the last segment
+      if (currentSegment.length > 1) {
+        segments.push(currentSegment);
+      }
+
+      // Draw all segments
+      const line = d3.line().x((d) => d.x).y((d) => d.y);
+      segments.forEach(seg => {
         svg.append("path")
-          .datum(linePoints)
+          .datum(seg)
           .attr("class", `line ${teamClass}`)
           .attr("d", line)
           .attr("fill", "none");
-      }
+      });
     };
 
     drawSpreadLine(teamOnePositioned, "team-one");
@@ -456,14 +466,6 @@ const MmrComparison = ({ data, compact = false, atStyle = "combined", pieConfig 
         .attr("r", combinedRadius)
         .attr("class", `dot ${teamClass}`)
         .attr("mask", `url(#${maskId})`);
-
-      // Draw small center circle to cover spread line ends visible through gaps
-      const centerCoverRadius = gapWidth * 0.8;
-      svg.append("circle")
-        .attr("cx", baseX)
-        .attr("cy", centerY)
-        .attr("r", centerCoverRadius)
-        .attr("class", `dot ${teamClass}`);
     };
 
     // Helper to draw unified pie for AT group - all slices at center position
