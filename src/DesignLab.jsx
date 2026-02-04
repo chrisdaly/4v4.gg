@@ -58,7 +58,7 @@ const DesignLab = () => (
       >
         <Chart label="Even teams" gold={false} data={{ teamOneMmrs: [2200, 1800, 1400, 1000], teamTwoMmrs: [2100, 1700, 1300, 900], teamOneAT: [0, 0, 0, 0], teamTwoAT: [0, 0, 0, 0] }} />
         <Chart label="High MMR" gold={false} data={{ teamOneMmrs: [2500, 2300, 2100, 1900], teamTwoMmrs: [2400, 2200, 2000, 1800], teamOneAT: [0, 0, 0, 0], teamTwoAT: [0, 0, 0, 0] }} />
-        <Chart label="Low MMR" gold={false} data={{ teamOneMmrs: [1400, 1200, 1000, 800], teamTwoMmrs: [1300, 1100, 900, 750], teamOneAT: [0, 0, 0, 0], teamTwoAT: [0, 0, 0, 0] }} />
+        <Chart label="Low MMR" gold={false} data={{ teamOneMmrs: [1300, 1100, 900, 750], teamTwoMmrs: [1250, 1050, 850, 700], teamOneAT: [0, 0, 0, 0], teamTwoAT: [0, 0, 0, 0] }} />
         <Chart label="Skill gap" gold={false} data={{ teamOneMmrs: [2400, 2200, 2000, 1800], teamTwoMmrs: [1400, 1200, 1000, 800], teamOneAT: [0, 0, 0, 0], teamTwoAT: [0, 0, 0, 0] }} />
       </Section>
 
@@ -76,7 +76,7 @@ const DesignLab = () => (
       <Section
         number="03"
         title="Arranged Teams"
-        description={<>Players queuing together shown as combined circle. <span style={{ fontFamily: "var(--font-mono)", color: "var(--gold)" }}>r = base × √n × √1.6</span>. Segments separated by 5px gaps, rotated 45°.</>}
+        description={<>AT players share MMR, so without distinction they'd look like collision-offset dots. Combined circle makes groups obvious. <span style={{ fontFamily: "var(--font-mono)", color: "var(--gold)" }}>r = base × √n × √1.6</span>, 5px gaps, 45° rotation.</>}
       >
         <Chart label="2-stack (duo)" data={{ teamOneMmrs: [2000, 2000, 1400, 1000], teamTwoMmrs: [1900, 1900, 1300, 900], teamOneAT: [2, 2, 0, 0], teamTwoAT: [2, 2, 0, 0] }} />
         <Chart label="3-stack (trio)" data={{ teamOneMmrs: [1800, 1800, 1800, 1000], teamTwoMmrs: [1700, 1700, 1700, 900], teamOneAT: [3, 3, 3, 0], teamTwoAT: [3, 3, 3, 0] }} />
