@@ -183,7 +183,11 @@ const MmrComparison = ({ data, compact = false, atStyle = "combined", pieConfig 
 
       if (linePoints.length > 1) {
         const line = d3.line().x((d) => d.x).y((d) => d.y);
-        svg.append("path").datum(linePoints).attr("class", `line ${teamClass}`).attr("d", line);
+        svg.append("path")
+          .datum(linePoints)
+          .attr("class", `line ${teamClass}`)
+          .attr("d", line)
+          .attr("fill", "none");
       }
     };
 
