@@ -463,8 +463,8 @@ const PlayerProfile = () => {
       <div className="player-page">
         <Navbar />
         <div className="player-loading">
-          <div className="loading-spinner"></div>
-          <span>Loading player data...</span>
+          <div className="loader-spinner lg"></div>
+          <span className="loader-text">Loading player data</span>
         </div>
       </div>
     );

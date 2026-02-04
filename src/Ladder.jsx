@@ -3,7 +3,7 @@ import Navbar from "./Navbar.jsx";
 import LadderRow from "./LadderRow.jsx";
 import { gateway } from "./params";
 import { fetchPlayerSessionData } from "./utils";
-import { getPlayerProfile, getPlayerTimelineMerged } from "./api";
+import { getPlayerProfile, getPlayerTimelineMerged, getLadder, getLadderCached, getSeasons, getOngoingMatches } from "./api";
 import { getLiveStreamers } from "./twitchService";
 
 import grandmasterIcon from "./icons/grandmaster.png";
@@ -25,11 +25,20 @@ const LEAGUES = [
   { id: 6, name: "Bronze", icon: bronzeIcon },
 ];
 
+// Initialize rankings from cache for instant UI on navigation
+const getInitialRankings = (leagueId, seasonId) => {
+  if (!seasonId) return [];
+  return getLadderCached(leagueId, seasonId) || [];
+};
+
 const Ladder = () => {
-  const [rankings, setRankings] = useState([]);
+  // Try to get initial season from cache or use default
   const [selectedSeason, setSelectedSeason] = useState(null);
   const [selectedLeague, setSelectedLeague] = useState(0);
   const [availableSeasons, setAvailableSeasons] = useState([]);
+
+  // Initialize rankings from cache for instant UI
+  const [rankings, setRankings] = useState([]);
   const [isLoading, setIsLoading] = useState(true);
   const [sparklineData, setSparklineData] = useState({});
   const [sessionData, setSessionData] = useState({});
@@ -45,32 +54,34 @@ const Ladder = () => {
 
   // Fetch available seasons on mount
   useEffect(() => {
-    const fetchSeasons = async () => {
+    const fetchSeasonsData = async () => {
       try {
-        const response = await fetch(
-          "https://website-backend.w3champions.com/api/ladder/seasons"
-        );
-        const seasons = await response.json();
+        const seasons = await getSeasons();
         if (seasons && seasons.length > 0) {
           setAvailableSeasons(seasons);
-          setSelectedSeason(seasons[0].id); // Default to latest season
+          const latestSeason = seasons[0].id;
+          setSelectedSeason(latestSeason);
+
+          // Check if we have cached rankings for instant display
+          const cachedRankings = getLadderCached(0, latestSeason);
+          if (cachedRankings) {
+            setRankings(cachedRankings);
+            setIsLoading(false);
+          }
         }
       } catch (e) {
         console.error("Failed to fetch seasons:", e);
         setSelectedSeason(24);
       }
     };
-    fetchSeasons();
+    fetchSeasonsData();
   }, []);
 
   // Fetch ongoing games to check who's live
   useEffect(() => {
     const fetchOngoing = async () => {
       try {
-        const response = await fetch(
-          "https://website-backend.w3champions.com/api/matches/ongoing?offset=0&gameMode=4"
-        );
-        const data = await response.json();
+        const data = await getOngoingMatches();
         const livePlayers = new Set();
 
         if (data?.matches) {
@@ -119,19 +130,24 @@ const Ladder = () => {
   useEffect(() => {
     if (selectedSeason === null) return;
 
-    const fetchLadder = async () => {
-      setIsLoading(true);
+    const fetchLadderData = async () => {
+      // Check cache first for instant display
+      const cachedRankings = getLadderCached(selectedLeague, selectedSeason);
+      if (cachedRankings && cachedRankings.length > 0) {
+        setRankings(cachedRankings);
+        setIsLoading(false);
+        // Still fetch fresh data in background
+      } else {
+        setIsLoading(true);
+      }
+
       setSparklineData({});
       setSessionData({});
       setDetectedRaces({});
       setTwitchLinks({});
 
       try {
-        const url = new URL(
-          `https://website-backend.w3champions.com/api/ladder/${selectedLeague}?gateWay=${gateway}&gameMode=4&season=${selectedSeason}`
-        );
-        const response = await fetch(url);
-        const result = await response.json();
+        const result = await getLadder(selectedLeague, selectedSeason);
         setRankings(result);
 
         // Batch fetch sparkline and session data for all players
@@ -143,7 +159,7 @@ const Ladder = () => {
         setIsLoading(false);
       }
     };
-    fetchLadder();
+    fetchLadderData();
   }, [selectedSeason, selectedLeague]);
 
   // Batch fetch sparklines and session data for all players
@@ -429,8 +445,8 @@ const Ladder = () => {
       <div className="ladder-container">
         {isLoading || isSearching ? (
           <div className="ladder-loading">
-            <div className="loading-spinner"></div>
-            <span>{isSearching ? "Searching..." : "Loading ladder..."}</span>
+            <div className="loader-spinner lg"></div>
+            <span className="loader-text">{isSearching ? "Searching" : "Loading ladder"}</span>
           </div>
         ) : (
           <div className="ladder-table">

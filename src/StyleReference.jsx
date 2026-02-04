@@ -443,6 +443,63 @@ const StyleReference = () => {
         </div>
       </Section>
 
+      {/* LOADING STATES */}
+      <Section>
+        <SectionTitle>Loading States</SectionTitle>
+        <Note>Gold spinner + text. Used across all pages.</Note>
+
+        <Grid style={{ gridTemplateColumns: 'repeat(2, 1fr)', gap: 'var(--space-4)' }}>
+          {/* Spinner sizes */}
+          <div style={{ background: 'var(--surface-1)', padding: 'var(--space-4)', borderRadius: 'var(--radius-md)' }}>
+            <div style={{ color: 'var(--gold)', fontSize: 'var(--text-xs)', fontFamily: 'var(--font-mono)', marginBottom: 'var(--space-4)' }}>
+              Spinner Sizes
+            </div>
+            <Row style={{ gap: 'var(--space-6)', marginBottom: 'var(--space-4)' }}>
+              <div style={{ textAlign: 'center' }}>
+                <div className="loader-spinner sm" />
+                <div style={{ fontSize: 10, color: 'var(--grey-light)', marginTop: 'var(--space-2)' }}>sm (16px)</div>
+              </div>
+              <div style={{ textAlign: 'center' }}>
+                <div className="loader-spinner" />
+                <div style={{ fontSize: 10, color: 'var(--grey-light)', marginTop: 'var(--space-2)' }}>default (24px)</div>
+              </div>
+              <div style={{ textAlign: 'center' }}>
+                <div className="loader-spinner lg" />
+                <div style={{ fontSize: 10, color: 'var(--grey-light)', marginTop: 'var(--space-2)' }}>lg (32px)</div>
+              </div>
+            </Row>
+            <Code style={{ padding: 'var(--space-2)', fontSize: 10, marginTop: 0 }}>
+{`<div className="loader-spinner" />
+<div className="loader-spinner sm" />
+<div className="loader-spinner lg" />`}
+            </Code>
+          </div>
+
+          {/* Page loader */}
+          <div style={{ background: 'var(--surface-1)', padding: 'var(--space-4)', borderRadius: 'var(--radius-md)' }}>
+            <div style={{ color: 'var(--gold)', fontSize: 'var(--text-xs)', fontFamily: 'var(--font-mono)', marginBottom: 'var(--space-4)' }}>
+              Page Loader
+            </div>
+            <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 'var(--space-4)', padding: 'var(--space-4)' }}>
+              <div className="loader-spinner lg" />
+              <span className="loader-text">Loading matches</span>
+            </div>
+            <Code style={{ padding: 'var(--space-2)', fontSize: 10, marginTop: 'var(--space-2)' }}>
+{`<div className="page-loader">
+  <div className="loader-spinner lg" />
+  <span className="loader-text">Loading matches</span>
+</div>`}
+            </Code>
+          </div>
+        </Grid>
+
+        <div style={{ marginTop: 'var(--space-4)', padding: 'var(--space-2)', background: 'rgba(255,255,255,0.02)', borderRadius: 'var(--radius-sm)', border: '1px solid var(--grey-mid)' }}>
+          <div style={{ fontFamily: 'var(--font-mono)', fontSize: 10, color: 'var(--grey-light)' }}>
+            Skeleton placeholders available for future use: .loader-skeleton.avatar, .loader-skeleton.text, .loader-skeleton.card
+          </div>
+        </div>
+      </Section>
+
       {/* CARD BORDERS */}
       <Section>
         <SectionTitle>Card Borders</SectionTitle>

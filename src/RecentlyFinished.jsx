@@ -1,10 +1,10 @@
 import React, { useState, useEffect, useMemo } from "react";
-import { Dimmer, Loader } from "semantic-ui-react";
 import Navbar from "./Navbar.jsx";
 import GameCard from "./components/game/GameCard.jsx";
 import { calculateTeamMMR } from "./utils.jsx";
 import { gameMode, gateway, season, maps } from "./params";
 import { cache, createCacheKey } from "./cache";
+import { getMatch, getFinishedMatches } from "./api";
 
 function isWithinTimeRange(endTimeString, maxMinutes) {
   const endTime = new Date(endTimeString);
@@ -40,10 +40,18 @@ const MMR_RANGES = [
   { label: "1900+", min: 1900, max: Infinity },
 ];
 
+// Initialize from cache for instant UI on navigation
+const getInitialCachedData = (timeRangeIndex) => {
+  const listCacheKey = createCacheKey("finishedMatches", { timeRangeIndex, gateway, gameMode });
+  return cache.get(listCacheKey);
+};
+
 const RecentlyFinished = () => {
-  const [finishedGameData, setFinishedGameData] = useState(null);
-  const [matchesData, setMatchesData] = useState(null);
-  const [isLoading, setIsLoading] = useState(true);
+  // Initialize state from cache synchronously (no loading flash on navigation)
+  const initialCached = getInitialCachedData(0);
+  const [finishedGameData, setFinishedGameData] = useState(initialCached?.sortedMatches || null);
+  const [matchesData, setMatchesData] = useState(initialCached?.matchesData || null);
+  const [isLoading, setIsLoading] = useState(!initialCached);
 
   // Filter states
   const [mapFilter, setMapFilter] = useState("all");
@@ -64,26 +72,6 @@ const RecentlyFinished = () => {
     setCurrentPage(1);
   }, [mapFilter, durationFilter, mmrFilter]);
 
-  const getMatchData = async (matchId) => {
-    // Check cache first
-    const cacheKey = `match:${matchId}`;
-    const cached = cache.get(cacheKey);
-    if (cached) {
-      return cached;
-    }
-
-    const url = `https://website-backend.w3champions.com/api/matches/${matchId}`;
-    const response = await fetch(url);
-    if (!response.ok) {
-      throw new Error("Failed to fetch match data");
-    }
-    const data = await response.json();
-
-    // Cache for 30 minutes (match data doesn't change)
-    cache.set(cacheKey, data, 30 * 60 * 1000);
-    return data;
-  };
-
   const fetchFinishedMatchesData = async () => {
     const timeRange = TIME_RANGES[timeRangeIndex];
     const listCacheKey = createCacheKey("finishedMatches", { timeRangeIndex, gateway, gameMode });
@@ -97,14 +85,14 @@ const RecentlyFinished = () => {
       return;
     }
 
-    setIsLoading(true);
+    // Only show loading if we don't have data yet
+    if (!matchesData) {
+      setIsLoading(true);
+    }
 
     try {
-      const response = await fetch(`https://website-backend.w3champions.com/api/matches?offset=0&gateway=${gateway}&pageSize=${timeRange.pageSize}&gameMode=${gameMode}&map=Overall`);
-      if (!response.ok) {
-        throw new Error("Failed to fetch ongoing matches data");
-      }
-      const data = await response.json();
+      // Use cached API for finished matches list
+      const data = await getFinishedMatches(timeRange.pageSize, 0);
 
       // Filter the data by selected time range
       const filteredData = data.matches.filter((match) => isWithinTimeRange(match.endTime, timeRange.minutes));
@@ -117,8 +105,8 @@ const RecentlyFinished = () => {
 
       setFinishedGameData(sortedMatches);
 
-      // Fetch match data for each gameId in filteredData
-      const matchDataPromises = sortedMatches.map((match) => getMatchData(match.id));
+      // Fetch match data for each gameId using cached API
+      const matchDataPromises = sortedMatches.map((match) => getMatch(match.id));
       const matchDataResults = await Promise.all(matchDataPromises);
 
       setMatchesData(matchDataResults);
@@ -192,9 +180,10 @@ const RecentlyFinished = () => {
   return (
     <>
       {isLoading ? (
-        <Dimmer active>
-          <Loader size="large">Loading match data...</Loader>
-        </Dimmer>
+        <div className="page-loader">
+          <div className="loader-spinner lg" />
+          <span className="loader-text">Loading matches</span>
+        </div>
       ) : matchesData ? (
         <div>
           <Navbar />

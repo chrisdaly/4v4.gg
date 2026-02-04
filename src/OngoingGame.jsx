@@ -1,5 +1,4 @@
 import React, { useState, useEffect } from "react";
-import { Dimmer, Loader } from "semantic-ui-react";
 import Game from "./Game.jsx";
 import { processOngoingGameData, fetchPlayerSessionData } from "./utils.jsx";
 import { getPlayerProfile } from "./api";
@@ -93,18 +92,14 @@ const OnGoingGame = ({ ongoingGameData, compact, streamerTag }) => {
     }
   };
 
+  if (isLoading) return null;
+
+  if (!playerData || !profilePics) {
+    return <div>Error: Failed to load match data</div>;
+  }
+
   return (
-    <>
-      {isLoading ? (
-        <Dimmer active>
-          <Loader size="large">Loading match data...</Loader>
-        </Dimmer>
-      ) : playerData && profilePics ? (
-        <Game playerData={playerData} metaData={metaData} profilePics={profilePics} playerCountries={playerCountries} sessionData={sessionData} liveStreamers={liveStreamers} compact={compact} streamerTag={streamerTag} />
-      ) : (
-        <div>Error: Failed to load match data</div>
-      )}
-    </>
+    <Game playerData={playerData} metaData={metaData} profilePics={profilePics} playerCountries={playerCountries} sessionData={sessionData} liveStreamers={liveStreamers} compact={compact} streamerTag={streamerTag} />
   );
 };
 

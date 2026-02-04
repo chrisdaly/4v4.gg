@@ -1,25 +1,23 @@
 import React, { useState, useEffect } from "react";
-import { Dimmer, Loader } from "semantic-ui-react";
 import Navbar from "./Navbar.jsx";
 import FinishedGame from "./FinishedGame.jsx";
+import { getMatch, getMatchCached } from "./api";
 
 const extractMatchIdFromUrl = () => {
   const pageUrl = new URL(window.location.href);
   return pageUrl.pathname.split("/").slice(-1)[0];
 };
 
-const FinishedGamePage = () => {
-  const [data, setData] = useState(null);
-  const [isLoading, setIsLoading] = useState(true);
+// Initialize from cache for instant UI on navigation
+const getInitialData = () => {
+  const matchId = extractMatchIdFromUrl();
+  return getMatchCached(matchId);
+};
 
-  const getMatchData = async (matchId) => {
-    const url = `https://website-backend.w3champions.com/api/matches/${matchId}`;
-    const response = await fetch(url);
-    if (!response.ok) {
-      throw new Error("Failed to fetch match data");
-    }
-    return response.json();
-  };
+const FinishedGamePage = () => {
+  // Initialize state from cache synchronously (no loading flash on navigation)
+  const [data, setData] = useState(getInitialData);
+  const [isLoading, setIsLoading] = useState(() => getInitialData() === null);
 
   useEffect(() => {
     fetchMatchData();
@@ -28,13 +26,9 @@ const FinishedGamePage = () => {
   const fetchMatchData = async () => {
     try {
       const matchId = extractMatchIdFromUrl();
-      const data = await getMatchData(matchId);
-      console.log("data", data);
+      const data = await getMatch(matchId);
       setData(data);
       setIsLoading(false);
-
-      //   setMetaData(metaData);
-      //   await fetchPlayerData(playerData);
     } catch (error) {
       console.error("Error fetching match data:", error.message);
       setIsLoading(false);
@@ -44,9 +38,10 @@ const FinishedGamePage = () => {
   return (
     <>
       {isLoading ? (
-        <Dimmer active>
-          <Loader size="large">Loading match data...</Loader>
-        </Dimmer>
+        <div className="page-loader">
+          <div className="loader-spinner lg" />
+          <span className="loader-text">Loading match data</span>
+        </div>
       ) : data ? (
         <FinishedGame data={data} />
       ) : (

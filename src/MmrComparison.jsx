@@ -7,7 +7,8 @@ import * as d3 from "d3";
 // showMean: show horizontal line at geometric mean
 // showStdDev: show shaded region for standard deviation
 // hideLabels: hide the inline μ/σ text labels (keeps visual elements)
-const MmrComparison = ({ data, compact = false, atStyle = "combined", pieConfig = {}, showMean = false, showStdDev = false, hideLabels = false }) => {
+// showValues: show MMR values next to each dot
+const MmrComparison = ({ data, compact = false, atStyle = "combined", pieConfig = {}, showMean = false, showStdDev = false, hideLabels = false, showValues = false }) => {
   const { teamOneMmrs, teamTwoMmrs, teamOneAT = [], teamTwoAT = [] } = data;
   const svgRef = useRef(null);
 
@@ -948,13 +949,47 @@ const MmrComparison = ({ data, compact = false, atStyle = "combined", pieConfig 
       }
     });
 
+    // Draw MMR values next to dots if showValues is enabled
+    if (showValues) {
+      const fontSize = compact ? 10 : 12;
+      const labelOffset = dotRadius + 6;
+
+      // Team One values (left side of dots)
+      teamOnePositioned.forEach(d => {
+        svg.append("text")
+          .attr("x", d.x - labelOffset)
+          .attr("y", d.y)
+          .attr("text-anchor", "end")
+          .attr("dominant-baseline", "middle")
+          .attr("font-family", "var(--font-mono)")
+          .attr("font-size", fontSize)
+          .attr("fill", teamOneColor)
+          .attr("opacity", 0.9)
+          .text(d.mmr);
+      });
+
+      // Team Two values (right side of dots)
+      teamTwoPositioned.forEach(d => {
+        svg.append("text")
+          .attr("x", d.x + labelOffset)
+          .attr("y", d.y)
+          .attr("text-anchor", "start")
+          .attr("dominant-baseline", "middle")
+          .attr("font-family", "var(--font-mono)")
+          .attr("font-size", fontSize)
+          .attr("fill", teamTwoColor)
+          .attr("opacity", 0.9)
+          .text(d.mmr);
+      });
+    }
+
     // Center line
     const middleLine = innerWidth / 2 + margin.left;
     svg.append("line")
       .attr("class", "line team-middle")
       .attr("x1", middleLine).attr("y1", 0)
       .attr("x2", middleLine).attr("y2", height);
-  }, [teamOneMmrs, teamTwoMmrs, teamOneAT, teamTwoAT, compact, atStyle, pieConfig, showMean, showStdDev, hideLabels]);
+  }, [teamOneMmrs, teamTwoMmrs, teamOneAT, teamTwoAT, compact, atStyle, pieConfig, showMean, showStdDev, hideLabels, showValues]);
 
   return <svg ref={svgRef} style={{ width: "100%", height: "100%" }}></svg>;
 };

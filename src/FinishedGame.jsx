@@ -1,5 +1,4 @@
 import React, { useState, useEffect } from "react";
-import { Dimmer, Loader } from "semantic-ui-react";
 import Game from "./Game.jsx";
 import { preprocessPlayerScores, fetchPlayerSessionData } from "./utils.jsx";
 import { getPlayerProfile } from "./api";
@@ -88,9 +87,10 @@ const FinishedGame = ({ data, compact = false }) => {
   return (
     <>
       {isLoading ? (
-        <Dimmer active>
-          <Loader size="large">Loading match data...</Loader>
-        </Dimmer>
+        <div className="page-loader">
+          <div className="loader-spinner lg" />
+          <span className="loader-text">Loading match data</span>
+        </div>
       ) : playerData ? (
         <Game playerData={playerData} metaData={metaData} profilePics={profilePics} playerCountries={playerCountries} sessionData={sessionData} compact={compact} />
       ) : (

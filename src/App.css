@@ -5582,17 +5582,86 @@ a.neighbor-name-sm:hover {
   font-size: 16px;
 }
 
-.loading-spinner {
-  width: 32px;
-  height: 32px;
-  border: 3px solid var(--border-color);
-  border-top-color: var(--gold);
-  border-radius: 50%;
-  animation: spin 1s linear infinite;
-}
-
 @keyframes spin {
   to { transform: rotate(360deg); }
+}
+
+@keyframes shimmer {
+  0% { background-position: 200% 0; }
+  100% { background-position: -200% 0; }
+}
+
+/* Loading component variants */
+.loader-spinner {
+  width: 24px;
+  height: 24px;
+  border: 2px solid var(--grey-mid);
+  border-top-color: var(--gold);
+  border-radius: 50%;
+  animation: spin 0.8s linear infinite;
+}
+
+.loader-spinner.lg {
+  width: 32px;
+  height: 32px;
+  border-width: 3px;
+}
+
+.loader-spinner.sm {
+  width: 16px;
+  height: 16px;
+  border-width: 2px;
+}
+
+/* Skeleton placeholders (for future use) */
+.loader-skeleton {
+  background: linear-gradient(
+    90deg,
+    var(--surface-1) 25%,
+    var(--surface-2) 50%,
+    var(--surface-1) 75%
+  );
+  background-size: 200% 100%;
+  animation: shimmer 1.5s ease-in-out infinite;
+  border-radius: var(--radius-sm);
+}
+
+.loader-skeleton.text {
+  height: 14px;
+  width: 120px;
+}
+
+.loader-skeleton.text-lg {
+  height: 20px;
+  width: 180px;
+}
+
+.loader-skeleton.avatar {
+  width: 40px;
+  height: 40px;
+  border-radius: 50%;
+}
+
+.loader-skeleton.card {
+  height: 80px;
+  border-radius: var(--radius-md);
+}
+
+.loader-text {
+  font-family: var(--font-mono);
+  font-size: var(--text-xs);
+  color: var(--grey-light);
+  text-transform: uppercase;
+  letter-spacing: 0.1em;
+}
+
+.page-loader {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: var(--space-4);
+  min-height: 60vh;
 }
 
 .ladder-no-results {
@@ -9050,6 +9119,7 @@ a.neighbor-name:hover {
 
 .blog-mmr-display .vs {
   color: var(--grey-light);
+  align-self: center;
 }
 
 /* Stats example (mean ±std) */

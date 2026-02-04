@@ -190,7 +190,10 @@ const ActivityGraph = ({ battleTag, currentSeason, gateway = 20 }) => {
         <div className="ag-header">
           <h3 className="ag-title">Activity</h3>
         </div>
-        <div className="ag-loading">Loading...</div>
+        <div className="ag-loading">
+          <div className="loader-spinner"></div>
+          <span className="loader-text">Loading</span>
+        </div>
       </div>
     );
   }

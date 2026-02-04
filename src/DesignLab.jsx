@@ -5,10 +5,10 @@ import { MmrComparison } from "./MmrComparison.jsx";
 const pieConfig = { combinedGap: 5, areaMultiplier: 1.6 };
 
 // Chart wrapper component
-const Chart = ({ data, width = 200, height = 160, showMean = false, showStdDev = false }) => (
+const Chart = ({ data, width = 200, height = 160, showMean = false, showStdDev = false, showValues = false }) => (
   <div className="blog-chart">
     <div style={{ width, height }}>
-      <MmrComparison data={data} atStyle="combined" pieConfig={pieConfig} compact={true} showMean={showMean} showStdDev={showStdDev} />
+      <MmrComparison data={data} atStyle="combined" pieConfig={pieConfig} compact={true} showMean={showMean} showStdDev={showStdDev} showValues={showValues} />
     </div>
   </div>
 );
@@ -51,7 +51,7 @@ const DesignLab = () => (
     <article className="blog-article">
       <div className="content">
 
-        <h1>All's Fair in Love and Warcraft</h1>
+        <h1>Dots, Not Numbers</h1>
 
         <div className="blog-meta">
           <span className="blog-date">February 2025</span>
@@ -68,17 +68,17 @@ const DesignLab = () => (
 
         <div className="blog-mmr-display">
           <div className="team-blue">
-            <div>2344</div>
-            <div>1989</div>
-            <div>1734</div>
-            <div>1702</div>
+            <div>2387</div>
+            <div>1653</div>
+            <div>1502</div>
+            <div>1041</div>
           </div>
           <div className="vs">vs</div>
           <div className="team-red">
-            <div>2127</div>
-            <div>1597</div>
-            <div>1567</div>
-            <div>1375</div>
+            <div>2098</div>
+            <div>1756</div>
+            <div>1247</div>
+            <div>963</div>
           </div>
         </div>
 
@@ -91,33 +91,13 @@ const DesignLab = () => (
         </p>
 
         <p>
-          This is what I built 4v4.gg to solve. Whether you're a player on the loading screen, an observer watching a stream, or just browsing for an interesting game to spectate, the balance should be obvious at a glance.
+          This is what I built 4v4.gg to solve. The balance should be obvious at a glance.
         </p>
 
         <h2>The problem with averages</h2>
 
         <p>
-          The matchmaker balances teams by geometric mean. Unlike a regular average, it's less sensitive to outliers—one 2400 player doesn't skew the number as much. You could display that mean for each team, add standard deviation to show the spread:
-        </p>
-
-        <div className="blog-stats-example">
-          <div className="blog-stats-team blue">
-            <span className="mean">1564</span>
-            <span className="std">±95</span>
-          </div>
-          <div className="blog-stats-vs">vs</div>
-          <div className="blog-stats-team red">
-            <span className="mean">1566</span>
-            <span className="std">±123</span>
-          </div>
-        </div>
-
-        <p>
-          But even those hide things. A team with a 2400 and an 800 could have the same mean as four 1600s. Those are very different games. The first has a huge skill gap within the team. The second is actually even.
-        </p>
-
-        <p>
-          This is the same problem statisticians call <a href="https://en.wikipedia.org/wiki/Anscombe%27s_quartet" target="_blank" rel="noopener">Anscombe's Quartet</a>: four datasets with identical means, variances, and correlations that look completely different when plotted. Summary statistics lie. You have to show the data.
+          The matchmaker balances teams by geometric mean. You could display that for each team, add standard deviation to show the spread. But a team with a 2400 and an 800 could have the same mean as four 1600s. Those are very different games. You have to show the data.
         </p>
 
         <h2>Showing the data</h2>
@@ -150,7 +130,7 @@ const DesignLab = () => (
         </div>
 
         <p>
-          You can see the balance and the spread at a glance. Are the teams even? Is there a carry? Is one team top-heavy while the other is clustered in the middle?
+          Now you can see the balance, the spread, whether there's a carry.
         </p>
 
         <p>
@@ -175,6 +155,23 @@ const DesignLab = () => (
             <div className="blog-chart-label">low mmr</div>
           </div>
         </div>
+
+        <p>
+          Back to the opening question. Here's that matchup:
+        </p>
+
+        <div className="blog-chart-row">
+          <Chart
+            data={{ teamOneMmrs: [2387, 1653, 1502, 1041], teamTwoMmrs: [2098, 1756, 1247, 963], teamOneAT: [0, 0, 0, 0], teamTwoAT: [0, 0, 0, 0] }}
+            width={320}
+            height={200}
+            showValues={true}
+          />
+        </div>
+
+        <p>
+          Blue. The geometric mean gap is ~130, roughly 68% win probability.
+        </p>
 
         <h2>Overlapping dots</h2>
 
@@ -204,19 +201,7 @@ const DesignLab = () => (
         <h2>Playing with friends</h2>
 
         <p>
-          Some players queue together as a group, called an "arranged team" or AT. They share a combined rating, so they'd appear as overlapping dots. But I want to distinguish them from random collisions. Four friends who've practiced together play differently than four strangers.
-        </p>
-
-        <p>
-          I show arranged teams as a single larger circle, split into segments. The key insight is that the circle's area should scale with the number of players. A 4-stack should look four times as substantial as a solo player. Since area scales with the square of the radius, I use:
-        </p>
-
-        <p className="blog-formula">
-          <span className="var">r</span> = <span className="var">r</span><sub>0</sub> × √<span className="var">n</span>
-        </p>
-
-        <p>
-          A duo has √2 ≈ 1.41× the radius of a solo. A quad has 2× the radius. The visual weight grows proportionally with group size.
+          Some players queue together as an "arranged team" or AT. I show these as a single larger circle, split into segments. Area scales with group size, so radius scales with √n:
         </p>
 
         <div className="blog-visual-math">
@@ -282,7 +267,7 @@ const DesignLab = () => (
         </div>
 
         <p>
-          The segments serve two purposes. First, they show how many players are in the group at a glance. Second, they distinguish AT circles from coincidentally overlapping solo players. When four randoms happen to have similar MMR, they cluster as separate dots. When four friends queue together, they form a single segmented circle.
+          Segments show group size and distinguish ATs from coincidentally overlapping solos.
         </p>
 
         <div className="blog-chart-row">
@@ -439,24 +424,6 @@ const DesignLab = () => (
             </div>
           </div>
         </div>
-
-        <h2>The answer</h2>
-
-        <p>
-          Blue wins. Their geometric mean is 1935 versus red's 1640. But you didn't need to calculate that. Here's what the chart shows:
-        </p>
-
-        <div className="blog-chart-row">
-          <Chart
-            data={{ teamOneMmrs: [2344, 1989, 1734, 1702], teamTwoMmrs: [2127, 1597, 1567, 1375], teamOneAT: [0, 0, 0, 0], teamTwoAT: [0, 0, 0, 0] }}
-            width={240}
-            height={200}
-          />
-        </div>
-
-        <p>
-          Blue is higher across the board. That's the whole point. You shouldn't need to do math to see who's favored. The picture should tell you.
-        </p>
 
       </div>
     </article>

@@ -5,12 +5,17 @@
  * - Request deduplication (concurrent requests for same data share a single fetch)
  * - Smart caching with appropriate TTLs per data type
  * - Consolidated fetch functions (single source of truth per endpoint)
+ * - Synchronous cache reads for instant UI on navigation
  */
 
-import { fetchWithCache, TTL } from './cache';
-import { gateway, season } from './params';
+import { fetchWithCache, TTL, cache, createCacheKey } from './cache';
+import { gateway, season, gameMode } from './params';
 
 const API_BASE = 'https://website-backend.w3champions.com/api';
+
+// Short TTLs for frequently changing data
+const SHORT_TTL = 30 * 1000; // 30 seconds for live data
+const MEDIUM_TTL = 2 * 60 * 1000; // 2 minutes for match lists
 
 // Race ID to name mapping for avatar URLs
 const RACE_AVATAR_MAP = { 64: 'starter', 16: 'total', 8: 'undead', 0: 'random', 4: 'nightelf', 2: 'orc', 1: 'human' };
@@ -200,7 +205,8 @@ export const getMatch = async (matchId) => {
     const url = `${API_BASE}/matches/${matchId}`;
     const cacheKey = `match:${matchId}`;
 
-    return await fetchWithCache(url, { cacheKey, ttl: TTL.MATCHES });
+    // Match data is immutable, cache for 30 minutes
+    return await fetchWithCache(url, { cacheKey, ttl: 30 * 60 * 1000 });
   } catch (error) {
     console.error(`Error fetching match ${matchId}:`, error);
     return null;
@@ -208,7 +214,15 @@ export const getMatch = async (matchId) => {
 };
 
 /**
- * Get ongoing matches
+ * Get match from cache synchronously
+ */
+export const getMatchCached = (matchId) => {
+  const cacheKey = `match:${matchId}`;
+  return cache.get(cacheKey);
+};
+
+/**
+ * Get ongoing matches (cached for 30 seconds for snappy navigation)
  *
  * @param {number} offset
  * @param {number} pageSize
@@ -216,15 +230,50 @@ export const getMatch = async (matchId) => {
  */
 export const getOngoingMatches = async (offset = 0, pageSize = 50) => {
   try {
-    // Don't cache ongoing matches - they change frequently
-    const url = `${API_BASE}/matches/ongoing?offset=${offset}&pageSize=${pageSize}&gameMode=4`;
-    const response = await fetch(url);
-    if (!response.ok) throw new Error(`HTTP ${response.status}`);
-    return await response.json();
+    const url = `${API_BASE}/matches/ongoing?offset=${offset}&pageSize=${pageSize}&gameMode=${gameMode}&gateway=${gateway}&map=Overall&sort=startTimeDescending`;
+    const cacheKey = `ongoing:${offset}:${pageSize}`;
+
+    return await fetchWithCache(url, { cacheKey, ttl: SHORT_TTL });
   } catch (error) {
     console.error('Error fetching ongoing matches:', error);
     return { matches: [] };
   }
+};
+
+/**
+ * Get ongoing matches from cache synchronously (for instant UI)
+ * Returns null if not cached
+ */
+export const getOngoingMatchesCached = () => {
+  const cacheKey = `ongoing:0:50`;
+  return cache.get(cacheKey);
+};
+
+/**
+ * Get finished matches
+ *
+ * @param {number} pageSize
+ * @param {number} offset
+ * @returns {Promise<{matches: Array, count: number}>}
+ */
+export const getFinishedMatches = async (pageSize = 50, offset = 0) => {
+  try {
+    const url = `${API_BASE}/matches?offset=${offset}&gateway=${gateway}&pageSize=${pageSize}&gameMode=${gameMode}&map=Overall`;
+    const cacheKey = `finished:${offset}:${pageSize}`;
+
+    return await fetchWithCache(url, { cacheKey, ttl: MEDIUM_TTL });
+  } catch (error) {
+    console.error('Error fetching finished matches:', error);
+    return { matches: [], count: 0 };
+  }
+};
+
+/**
+ * Get finished matches from cache synchronously
+ */
+export const getFinishedMatchesCached = (pageSize = 50, offset = 0) => {
+  const cacheKey = `finished:${offset}:${pageSize}`;
+  return cache.get(cacheKey);
 };
 
 /**
@@ -266,6 +315,14 @@ export const getLadder = async (leagueId, seasonOverride = season) => {
 };
 
 /**
+ * Get ladder from cache synchronously
+ */
+export const getLadderCached = (leagueId, seasonOverride = season) => {
+  const cacheKey = `ladder:${leagueId}:${seasonOverride}`;
+  return cache.get(cacheKey);
+};
+
+/**
  * Get available seasons
  *
  * @returns {Promise<Array>}
@@ -275,11 +332,19 @@ export const getSeasons = async () => {
     const url = `${API_BASE}/ladder/seasons`;
     const cacheKey = 'seasons';
 
-    return await fetchWithCache(url, { cacheKey, ttl: TTL.LADDER });
+    // Seasons rarely change, cache for 1 hour
+    return await fetchWithCache(url, { cacheKey, ttl: 60 * 60 * 1000 });
   } catch (error) {
     console.error('Error fetching seasons:', error);
     return [];
   }
+};
+
+/**
+ * Get seasons from cache synchronously
+ */
+export const getSeasonsCached = () => {
+  return cache.get('seasons');
 };
 
 /**

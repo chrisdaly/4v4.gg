@@ -4,8 +4,8 @@ import Navbar from "./Navbar.jsx";
 
 const posts = [
   {
-    slug: "alls-fair",
-    title: "All's Fair in Love and Warcraft",
+    slug: "dots-not-numbers",
+    title: "Dots, Not Numbers",
     description: "How the MMR charts work on 4v4.gg.",
     date: "February 2025",
     tags: ["dataviz", "design", "wc3"],

@@ -33,7 +33,7 @@ const Router = () => (
 
       {/* Blog */}
       <Route exact path="/blog" component={Blog} />
-      <Route path="/blog/alls-fair" component={DesignLab} />
+      <Route path="/blog/dots-not-numbers" component={DesignLab} />
 
       {/* Stream overlays */}
       <Route exact path="/overlay" component={OverlayIndex} />

@@ -71,7 +71,14 @@ const LeagueDistribution = ({ leagueCounts, selectedLeague, onLeagueClick, filte
             </div>
           )}
         </div>
-        <div className="stats-loading">{isLoading ? "Loading..." : "No data"}</div>
+        <div className="stats-loading">
+          {isLoading ? (
+            <>
+              <div className="loader-spinner"></div>
+              <span className="loader-text">Loading</span>
+            </>
+          ) : "No data"}
+        </div>
       </div>
     );
   }
@@ -145,7 +152,14 @@ const RaceDistribution = ({ raceCounts, selectedRace, onRaceClick, filterLabels,
             </div>
           )}
         </div>
-        <div className="stats-loading">{isLoading ? "Loading..." : "No data"}</div>
+        <div className="stats-loading">
+          {isLoading ? (
+            <>
+              <div className="loader-spinner"></div>
+              <span className="loader-text">Loading</span>
+            </>
+          ) : "No data"}
+        </div>
       </div>
     );
   }
@@ -226,7 +240,14 @@ const CountryDistribution = ({ countryCounts, selectedCountry, onCountryClick, f
             </div>
           )}
         </div>
-        <div className="stats-loading">{isLoading ? "Loading..." : "No data"}</div>
+        <div className="stats-loading">
+          {isLoading ? (
+            <>
+              <div className="loader-spinner"></div>
+              <span className="loader-text">Loading</span>
+            </>
+          ) : "No data"}
+        </div>
       </div>
     );
   }
@@ -290,7 +311,14 @@ const MmrDistribution = ({ mmrData, isLoading }) => {
         <div className="stats-card-header">
           <h2 className="stats-card-title">MMR Distribution</h2>
         </div>
-        <div className="stats-loading">{isLoading ? "Loading..." : "No data"}</div>
+        <div className="stats-loading">
+          {isLoading ? (
+            <>
+              <div className="loader-spinner"></div>
+              <span className="loader-text">Loading</span>
+            </>
+          ) : "No data"}
+        </div>
       </div>
     );
   }
@@ -393,7 +421,14 @@ const PopularHours = ({ hoursData, isLoading }) => {
         <div className="stats-card-header">
           <h2 className="stats-card-title">Popular Hours (UTC)</h2>
         </div>
-        <div className="stats-loading">{isLoading ? "Loading..." : "No data"}</div>
+        <div className="stats-loading">
+          {isLoading ? (
+            <>
+              <div className="loader-spinner"></div>
+              <span className="loader-text">Loading</span>
+            </>
+          ) : "No data"}
+        </div>
       </div>
     );
   }
@@ -462,7 +497,14 @@ const GameLengthChart = ({ lengthData, isLoading }) => {
         <div className="stats-card-header">
           <h2 className="stats-card-title">Game Length</h2>
         </div>
-        <div className="stats-loading">{isLoading ? "Loading..." : "No data"}</div>
+        <div className="stats-loading">
+          {isLoading ? (
+            <>
+              <div className="loader-spinner"></div>
+              <span className="loader-text">Loading</span>
+            </>
+          ) : "No data"}
+        </div>
       </div>
     );
   }
@@ -530,7 +572,14 @@ const MapPopularity = ({ mapData, selectedSeason, isLoading }) => {
         <div className="stats-card-header">
           <h2 className="stats-card-title">Map Popularity</h2>
         </div>
-        <div className="stats-loading">{isLoading ? "Loading..." : "No data"}</div>
+        <div className="stats-loading">
+          {isLoading ? (
+            <>
+              <div className="loader-spinner"></div>
+              <span className="loader-text">Loading</span>
+            </>
+          ) : "No data"}
+        </div>
       </div>
     );
   }

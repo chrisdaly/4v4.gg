@@ -1,32 +1,45 @@
 import React, { useState, useEffect } from "react";
-import { Dimmer, Loader } from "semantic-ui-react";
 import Navbar from "./Navbar.jsx";
 import OnGoingGame from "./OngoingGame.jsx";
 import { calculateTeamMMR } from "./utils.jsx";
-import { gameMode, gateway } from "./params";
+import { getOngoingMatches, getOngoingMatchesCached } from "./api";
+
+// Sort matches by team MMR (highest first)
+const sortByMMR = (matches) => {
+  if (!matches) return [];
+  return matches.slice().sort((a, b) => {
+    const teamAMMR = calculateTeamMMR(a.teams);
+    const teamBMMR = calculateTeamMMR(b.teams);
+    return teamBMMR - teamAMMR;
+  });
+};
+
+// Initialize from cache for instant UI on navigation
+const getInitialData = () => {
+  const cached = getOngoingMatchesCached();
+  if (cached?.matches) {
+    return sortByMMR(cached.matches);
+  }
+  return null;
+};
 
 const OnGoingGames = () => {
-  const [ongoingGameData, setOngoingGameData] = useState(null);
-  const [isLoading, setIsLoading] = useState(true);
+  // Initialize state from cache synchronously (no loading flash on navigation)
+  const [ongoingGameData, setOngoingGameData] = useState(getInitialData);
+  const [isLoading, setIsLoading] = useState(() => getInitialData() === null);
 
   useEffect(() => {
     fetchOngoingMatchesData();
+    // Set up polling every 30 seconds
+    const interval = setInterval(fetchOngoingMatchesData, 30000);
+    return () => clearInterval(interval);
   }, []);
 
   const fetchOngoingMatchesData = async () => {
     try {
-      const response = await fetch(`https://website-backend.w3champions.com/api/matches/ongoing?offset=0&gateway=${gateway}&pageSize=50&gameMode=${gameMode}&map=Overall&sort=startTimeDescending`);
-      if (!response.ok) {
-        throw new Error("Failed to fetch ongoing matches data");
-      }
-      const data = await response.json();
-      const sortedMatches = data.matches.slice().sort((a, b) => {
-        const teamAMMR = calculateTeamMMR(a.teams);
-        const teamBMMR = calculateTeamMMR(b.teams);
-        return teamBMMR - teamAMMR;
-      });
+      const data = await getOngoingMatches();
+      const sortedMatches = sortByMMR(data.matches);
       setOngoingGameData(sortedMatches);
-
       setIsLoading(false);
     } catch (error) {
       console.error("Error fetching match data:", error.message);
@@ -37,9 +50,10 @@ const OnGoingGames = () => {
   return (
     <>
       {isLoading ? (
-        <Dimmer active>
-          <Loader size="large">Loading match data...</Loader>
-        </Dimmer>
+        <div className="page-loader">
+          <div className="loader-spinner lg" />
+          <span className="loader-text">Loading matches</span>
+        </div>
       ) : ongoingGameData ? (
         <div>
           <Navbar />
