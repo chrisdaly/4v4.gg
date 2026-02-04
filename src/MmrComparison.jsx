@@ -121,7 +121,7 @@ const MmrComparison = ({ data, compact = false, atStyle = "combined", pieConfig 
             const xDist = Math.abs(x - baseX);
             // Combined circle is at baseX, so check if dot is within its radius
             const dist = Math.sqrt(xDist ** 2 + yDist ** 2);
-            return dist < (c.radius + dotRadius + 2); // Add small buffer
+            return dist < (c.radius + dotRadius + 6); // Buffer for visual separation
           });
 
           if (!soloCollision && !combinedCollision) break;
