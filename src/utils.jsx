@@ -185,55 +185,16 @@ export const processOngoingGameData = (match) => {
   return { playerData, metaData };
 };
 
+// Legacy exports - re-export from api.js for backward compatibility
+// Components should migrate to using api.js directly
+export { getPlayerProfile as getPlayerProfileInfo } from './api';
+export { getPlayerProfile } from './api';
+
+// Helper to extract just profile pic URL (for backward compatibility)
 export const getPlayerProfilePicUrl = async (battleTag) => {
-  try {
-    const response = await fetch(`https://website-backend.w3champions.com/api/personal-settings/${encodeURIComponent(battleTag)}`);
-    const profileData = await response.json();
-    const { profilePicture } = profileData;
-    if (!profilePicture || !profilePicture.pictureId) {
-      return null;
-    }
-    const { pictureId, race } = profilePicture;
-    const raceMapping = { 64: "starter", 16: "total", 8: "undead", 0: "random", 4: "nightelf", 2: "orc", 1: "human" };
-    const { specialPictures } = profileData;
-    if (specialPictures.map((d) => d.pictureId).includes(pictureId)) {
-      return `https://w3champions.wc3.tools/prod/integration/icons/specialAvatars/SPECIAL_${pictureId}.jpg`;
-    } else {
-      return `https://w3champions.wc3.tools/prod/integration/icons/raceAvatars/classic/${raceMapping[race].toUpperCase()}_${pictureId}.jpg`;
-    }
-  } catch (error) {
-    console.error("Error fetching player profile picture:", error);
-    return null;
-  }
-};
-
-// Get player profile info including pic URL and Twitch
-export const getPlayerProfileInfo = async (battleTag) => {
-  try {
-    const response = await fetch(`https://website-backend.w3champions.com/api/personal-settings/${encodeURIComponent(battleTag)}`);
-    const profileData = await response.json();
-
-    // Get profile pic URL
-    let profilePicUrl = null;
-    const { profilePicture, specialPictures, twitch } = profileData;
-    if (profilePicture && profilePicture.pictureId) {
-      const { pictureId, race } = profilePicture;
-      const raceMapping = { 64: "starter", 16: "total", 8: "undead", 0: "random", 4: "nightelf", 2: "orc", 1: "human" };
-      if (specialPictures.map((d) => d.pictureId).includes(pictureId)) {
-        profilePicUrl = `https://w3champions.wc3.tools/prod/integration/icons/specialAvatars/SPECIAL_${pictureId}.jpg`;
-      } else {
-        profilePicUrl = `https://w3champions.wc3.tools/prod/integration/icons/raceAvatars/classic/${raceMapping[race].toUpperCase()}_${pictureId}.jpg`;
-      }
-    }
-
-    return {
-      profilePicUrl,
-      twitch: twitch || null,
-    };
-  } catch (error) {
-    console.error("Error fetching player profile info:", error);
-    return { profilePicUrl: null, twitch: null };
-  }
+  const { getPlayerProfile } = await import('./api');
+  const profile = await getPlayerProfile(battleTag);
+  return profile.profilePicUrl;
 };
 
 export const findPlayerInOngoingMatches = (allMatchData, playerBattleTag) => {
@@ -325,174 +286,72 @@ export const fetchRecentForm = async (battleTag) => {
 };
 
 // New combined function - fetches session data + season timeline
+// Now uses cached API layer to avoid redundant calls
 export const fetchPlayerSessionData = async (battleTag, raceOverride) => {
   try {
-    // Fetch recent matches first (we'll use this to get race + session data)
-    const matchesUrl = `https://website-backend.w3champions.com/api/matches?playerId=${encodeURIComponent(battleTag)}&offset=0&gameMode=4&season=${season}&gateway=${gateway}&pageSize=50`;
-    const matchesResponse = await fetch(matchesUrl);
+    // Import API functions (using dynamic import to avoid circular deps)
+    const { getPlayerMatches, getPlayerTimelineMerged, getPlayerStats } = await import('./api');
 
-    if (!matchesResponse.ok) {
-      console.error(`Matches API failed for ${battleTag}`);
-      return { session: null, seasonMmrs: [] };
-    }
-
-    const matchesData = await matchesResponse.json();
     const battleTagLower = battleTag.toLowerCase();
 
-    // Find player's most-played race from matches
-    let playerRace = raceOverride || 0;
-    if (matchesData.matches && matchesData.matches.length > 0) {
-      const raceCounts = {};
-      for (const match of matchesData.matches) {
-        for (const team of match.teams) {
-          const player = team.players.find(p => p.battleTag.toLowerCase() === battleTagLower);
-          if (player && player.race != null) {
-            raceCounts[player.race] = (raceCounts[player.race] || 0) + 1;
-          }
-        }
-      }
-      // Find most common race
-      const mostPlayedRace = Object.entries(raceCounts)
-        .sort((a, b) => b[1] - a[1])[0];
-      if (mostPlayedRace) {
-        playerRace = parseInt(mostPlayedRace[0]);
-      }
-      console.log(`${battleTag} race counts:`, raceCounts, `-> using race ${playerRace}`);
+    // Fetch recent matches (cached, deduplicated)
+    const { matches } = await getPlayerMatches(battleTag, 50);
+
+    if (!matches || matches.length === 0) {
+      return { session: null, seasonMmrs: [], currentMmrFallback: null, rank: null, lastPlayed: null };
     }
 
-    // Fetch timeline for ALL races in parallel and merge (4v4 MMR is unified but data may be stored per-race)
-    const races = [0, 1, 2, 4, 8]; // Random, Human, Orc, NE, UD
-    let allTimelinePoints = [];
-
-    const timelinePromises = races.map(async (race) => {
-      try {
-        const timelineUrl = `https://website-backend.w3champions.com/api/players/${encodeURIComponent(battleTag)}/mmr-rp-timeline?gateway=${gateway}&season=${season}&race=${race}&gameMode=4`;
-        const response = await fetch(timelineUrl);
-        if (response.ok) {
-          const data = await response.json();
-          if (data.mmrRpAtDates && data.mmrRpAtDates.length > 0) {
-            return data.mmrRpAtDates;
-          }
-        }
-      } catch (e) {}
-      return [];
-    });
-
-    const results = await Promise.all(timelinePromises);
-    allTimelinePoints = results.flat();
-
-    // Sort by date and dedupe (same date = same game)
-    let seasonMmrs = [];
-    let lastTimelineDate = null;
-
-    if (allTimelinePoints.length > 0) {
-      const uniqueByDate = {};
-      for (const point of allTimelinePoints) {
-        uniqueByDate[point.date] = point;
-      }
-      const sorted = Object.values(uniqueByDate).sort((a, b) => new Date(a.date) - new Date(b.date));
-      seasonMmrs = sorted.map(d => d.mmr);
-      lastTimelineDate = sorted[sorted.length - 1].date;
-      console.log(`Timeline for ${battleTag}: ${seasonMmrs.length} points merged from all races`);
-    } else {
-      console.log(`No timeline data for ${battleTag} from any race`);
-    }
+    // Fetch timeline (cached per-race, then merged)
+    let seasonMmrs = await getPlayerTimelineMerged(battleTag);
 
     // If timeline failed, build from matches data
-    if (seasonMmrs.length === 0 && matchesData.matches) {
-      // Debug: log first match's battleTags to check format
-      if (matchesData.matches.length > 0) {
-        const firstMatch = matchesData.matches[0];
-        const allTags = firstMatch.teams.flatMap(t => t.players.map(p => p.battleTag));
-        console.log(`Debug ${battleTag}: Looking for "${battleTagLower}" in tags:`, allTags);
-      }
-
-      seasonMmrs = matchesData.matches
+    if (seasonMmrs.length === 0 && matches.length > 0) {
+      seasonMmrs = matches
         .map(match => {
           for (const team of match.teams) {
             const player = team.players.find(p => p.battleTag.toLowerCase() === battleTagLower);
-            // Handle null/undefined MMR - some matches don't have MMR data
             if (player && player.currentMmr != null) return player.currentMmr;
           }
           return null;
         })
         .filter(mmr => mmr !== null)
         .reverse();
-      console.log(`Built timeline from matches for ${battleTag}:`, seasonMmrs.length, "games");
     }
 
-    // Fetch game-mode-stats for rank and fallback MMR
-    let currentMmrFallback = null;
-    let rank = null;
-    try {
-      const statsUrl = `https://website-backend.w3champions.com/api/players/${encodeURIComponent(battleTag)}/game-mode-stats?gateway=${gateway}&season=${season}`;
-      const statsResponse = await fetch(statsUrl);
-      if (statsResponse.ok) {
-        const statsData = await statsResponse.json();
-        const fourVsFourStats = statsData.find(s => s.gameMode === 4);
-        if (fourVsFourStats) {
-          rank = fourVsFourStats.rank;
-          if (seasonMmrs.length === 0 && fourVsFourStats.mmr) {
-            currentMmrFallback = fourVsFourStats.mmr;
-            console.log(`Got MMR from game-mode-stats for ${battleTag}:`, currentMmrFallback);
-          }
-        }
-      }
-    } catch (e) {
-      console.error(`Failed to fetch game-mode-stats for ${battleTag}:`, e);
-    }
+    // Fetch game-mode-stats for rank and fallback MMR (cached)
+    const stats = await getPlayerStats(battleTag);
+    const currentMmrFallback = seasonMmrs.length === 0 ? stats?.mmr : null;
+    const rank = stats?.rank || null;
 
-    console.log(`Season MMRs for ${battleTag}:`, seasonMmrs.length, "data points");
-
-    // Process session detection (reusing matchesData from above)
+    // Process session detection
     let session = null;
-    if (matchesData.matches && matchesData.matches.length > 0) {
-      console.log(`Matches for ${battleTag}:`, matchesData.matches.length);
+    const sessionGames = detectSessionGames(matches, battleTag);
 
-      // Detect current session
-      const sessionGames = detectSessionGames(matchesData.matches, battleTag);
-      console.log(`Session games for ${battleTag}:`, sessionGames.length);
-
-      // Calculate session stats
-      if (sessionGames.length > 0) {
-        session = {
-          games: sessionGames,
-          form: sessionGames.map(g => g.won).reverse(), // Reverse so oldest is first (left), newest is last (right)
-          wins: sessionGames.filter(g => g.won).length,
-          losses: sessionGames.filter(g => !g.won).length,
-          mmrChange: sessionGames[0].currentMmr - sessionGames[sessionGames.length - 1].oldMmr,
-          startMmr: sessionGames[sessionGames.length - 1].oldMmr,
-          currentMmr: sessionGames[0].currentMmr,
-        };
-      }
+    if (sessionGames.length > 0) {
+      session = {
+        games: sessionGames,
+        form: sessionGames.map(g => g.won).reverse(),
+        wins: sessionGames.filter(g => g.won).length,
+        losses: sessionGames.filter(g => !g.won).length,
+        mmrChange: sessionGames[0].currentMmr - sessionGames[sessionGames.length - 1].oldMmr,
+        startMmr: sessionGames[sessionGames.length - 1].oldMmr,
+        currentMmr: sessionGames[0].currentMmr,
+      };
     }
 
-    // Get last played time from most recent match the player was actually in
+    // Get last played time
     let lastPlayed = null;
-    let lastPlayedDate = null;
-
-    if (matchesData.matches && matchesData.matches.length > 0) {
-      // Find first match where player actually participated
-      const lastMatch = matchesData.matches.find(match => {
-        for (const team of match.teams) {
-          if (team.players.some(p => p.battleTag.toLowerCase() === battleTagLower)) {
-            return true;
-          }
+    const lastMatch = matches.find(match => {
+      for (const team of match.teams) {
+        if (team.players.some(p => p.battleTag.toLowerCase() === battleTagLower)) {
+          return true;
         }
-        return false;
-      });
-
-      if (lastMatch) {
-        lastPlayedDate = new Date(lastMatch.endTime);
       }
-    }
+      return false;
+    });
 
-    // Fallback to timeline date if no match found
-    if (!lastPlayedDate && lastTimelineDate) {
-      lastPlayedDate = new Date(lastTimelineDate);
-    }
-
-    if (lastPlayedDate) {
+    if (lastMatch) {
+      const lastPlayedDate = new Date(lastMatch.endTime);
       const now = new Date();
       const diffMs = now - lastPlayedDate;
       const diffHours = Math.floor(diffMs / (1000 * 60 * 60));
@@ -514,34 +373,17 @@ export const fetchPlayerSessionData = async (battleTag, raceOverride) => {
   }
 };
 
+// Now uses cached API layer
 export const fetchMMRTimeline = async (battleTag, race) => {
-  const url = new URL(`https://website-backend.w3champions.com/api/players/${battleTag.replace("#", "%23")}/mmr-rp-timeline`);
-  const params = { gateway, season, race, gameMode: 4 };
-  url.search = new URLSearchParams(params).toString();
-  try {
-    const response = await fetch(url);
-    if (!response.ok) {
-      return [];
-    }
-    const result = await response.json();
-    if (!result.mmrRpAtDates || result.mmrRpAtDates.length === 0) {
-      return [];
-    }
-    return result.mmrRpAtDates.map((d) => d.mmr);
-  } catch (error) {
-    return [];
-  }
+  const { getPlayerTimeline } = await import('./api');
+  return getPlayerTimeline(battleTag, race);
 };
 
+// Legacy export - re-export from api.js for backward compatibility
 export const getPlayerCountry = async (battleTag) => {
-  try {
-    const response = await fetch(`https://website-backend.w3champions.com/api/personal-settings/${encodeURIComponent(battleTag)}`);
-    const profileData = await response.json();
-    return profileData.location || null;
-  } catch (error) {
-    console.error("Error fetching player country:", error);
-    return null;
-  }
+  const { getPlayerProfile } = await import('./api');
+  const profile = await getPlayerProfile(battleTag);
+  return profile.country;
 };
 
 export const calculateTeamMMR = (teams) => {

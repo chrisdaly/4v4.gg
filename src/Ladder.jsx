@@ -2,7 +2,8 @@ import React, { useState, useEffect } from "react";
 import Navbar from "./Navbar.jsx";
 import LadderRow from "./LadderRow.jsx";
 import { gateway } from "./params";
-import { fetchPlayerSessionData, getPlayerProfileInfo } from "./utils";
+import { fetchPlayerSessionData } from "./utils";
+import { getPlayerProfile, getPlayerTimelineMerged } from "./api";
 import { getLiveStreamers } from "./twitchService";
 
 import grandmasterIcon from "./icons/grandmaster.png";
@@ -146,6 +147,7 @@ const Ladder = () => {
   }, [selectedSeason, selectedLeague]);
 
   // Batch fetch sparklines and session data for all players
+  // Now uses cached API layer to avoid redundant calls
   const fetchPlayerData = async (players, season) => {
     const batchSize = 5;
 
@@ -153,66 +155,37 @@ const Ladder = () => {
       const batch = players.slice(i, i + batchSize);
       const promises = batch.map(async (rank) => {
         const battleTag = rank.playersInfo[0]?.battleTag;
-        // Try player.race first (actual played race), fall back to calculatedRace
+        // Use race from ladder data - no need for 5-race discovery loop
         const race = rank.player?.race ?? rank.playersInfo[0]?.calculatedRace;
         if (!battleTag) return null;
 
-        const encodedTag = battleTag.replace("#", "%23");
-
-        // Fetch sparkline data - try all races and use the one with most data
+        // Fetch sparkline data using merged timeline (caches each race call)
         let sparkline = [];
-        let detectedRace = race;
         try {
-          const races = [1, 2, 4, 8, 0]; // Human, Orc, NE, UD, Random - prioritize specific races
-          let bestData = [];
-          let bestRace = race;
-
-          for (const r of races) {
-            const url = new URL(
-              `https://website-backend.w3champions.com/api/players/${encodedTag}/mmr-rp-timeline`
-            );
-            url.search = new URLSearchParams({ gateway, season, gameMode: 4, race: r }).toString();
-            const response = await fetch(url);
-            const text = await response.text();
-
-            if (text) {
-              try {
-                const result = JSON.parse(text);
-                if (result?.mmrRpAtDates?.length > bestData.length) {
-                  bestData = result.mmrRpAtDates.map((d) => d.mmr);
-                  bestRace = r;
-                }
-              } catch (parseErr) {
-                // JSON parse failed
-              }
-            }
-          }
-
-          sparkline = bestData;
-          detectedRace = bestRace;
+          sparkline = await getPlayerTimelineMerged(battleTag, season);
         } catch (e) {
           // Silently fail - sparkline will just be empty
         }
 
-        // Fetch session data
+        // Fetch session data (uses cached API internally)
         let session = null;
         try {
           const sessionResult = await fetchPlayerSessionData(battleTag, race);
           session = sessionResult?.session || null;
         } catch (e) {
-          console.log("Failed to fetch session for", battleTag, e);
+          // Silently fail
         }
 
-        // Fetch Twitch info from player profile
+        // Fetch Twitch info from player profile (cached, deduplicated)
         let twitch = null;
         try {
-          const profileInfo = await getPlayerProfileInfo(battleTag);
-          twitch = profileInfo?.twitch || null;
+          const profile = await getPlayerProfile(battleTag);
+          twitch = profile?.twitch || null;
         } catch (e) {
           // Silently fail
         }
 
-        return { battleTag, sparkline, session, detectedRace, twitch };
+        return { battleTag, sparkline, session, detectedRace: race, twitch };
       });
 
       const results = await Promise.all(promises);

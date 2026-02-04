@@ -15,32 +15,32 @@ const Chart = ({ data, width = 200, height = 160, showMean = false, showStdDev =
 
 // Simple 1v1 chart
 const SoloChart = ({ p1, p2 }) => (
-  <div style={{ display: "flex", alignItems: "stretch" }}>
-    <div style={{ display: "flex", flexDirection: "column", justifyContent: "space-between", alignItems: "flex-end", paddingRight: "6px", height: 160 }}>
-      <span style={{ fontSize: "11px", fontFamily: "var(--font-mono)", color: "var(--grey-mid)" }}>2700</span>
-      <span style={{ fontSize: "11px", fontFamily: "var(--font-mono)", color: "var(--grey-mid)" }}>700</span>
-    </div>
-    <div className="blog-chart" style={{ width: 100, height: 160, position: "relative", borderLeft: "1px solid var(--grey-mid)" }}>
-      <div style={{
-        position: "absolute",
-        left: "30%",
-        top: `${100 - ((p1 - 700) / 2000) * 100}%`,
-        transform: "translate(-50%, -50%)",
-        width: 12, height: 12,
-        borderRadius: "50%",
-        background: "var(--team-blue)"
-      }} />
-      <div style={{
-        position: "absolute",
-        left: "70%",
-        top: `${100 - ((p2 - 700) / 2000) * 100}%`,
-        transform: "translate(-50%, -50%)",
-        width: 12, height: 12,
-        borderRadius: "50%",
-        background: "var(--team-red)"
-      }} />
-      <div style={{ position: "absolute", left: "50%", top: 0, bottom: 0, width: 1, background: "var(--grey-mid)" }} />
-    </div>
+  <div className="blog-chart" style={{ width: 100, height: 160, position: "relative", border: "1px solid var(--grey-mid)", borderRadius: "var(--radius-sm)" }}>
+    {/* Y-axis labels inside */}
+    <span style={{ position: "absolute", top: 4, left: 6, fontSize: "11px", fontFamily: "var(--font-mono)", color: "var(--grey-mid)" }}>2700</span>
+    <span style={{ position: "absolute", bottom: 4, left: 6, fontSize: "11px", fontFamily: "var(--font-mono)", color: "var(--grey-mid)" }}>700</span>
+    {/* Blue dot */}
+    <div style={{
+      position: "absolute",
+      left: "35%",
+      top: `${100 - ((p1 - 700) / 2000) * 100}%`,
+      transform: "translate(-50%, -50%)",
+      width: 12, height: 12,
+      borderRadius: "50%",
+      background: "var(--team-blue)"
+    }} />
+    {/* Red dot */}
+    <div style={{
+      position: "absolute",
+      left: "65%",
+      top: `${100 - ((p2 - 700) / 2000) * 100}%`,
+      transform: "translate(-50%, -50%)",
+      width: 12, height: 12,
+      borderRadius: "50%",
+      background: "var(--team-red)"
+    }} />
+    {/* Center divider */}
+    <div style={{ position: "absolute", left: "50%", top: 0, bottom: 0, width: 1, background: "var(--grey-mid)" }} />
   </div>
 );
 
@@ -97,7 +97,7 @@ const DesignLab = () => (
         <h2>The problem with averages</h2>
 
         <p>
-          The matchmaker balances teams by their geometric mean—a weighted average that's less sensitive to outliers. You could display that mean for each team, maybe add standard deviation to show the spread:
+          The matchmaker balances teams by geometric mean. Unlike a regular average, it's less sensitive to outliers—one 2400 player doesn't skew the number as much. You could display that mean for each team, add standard deviation to show the spread:
         </p>
 
         <div className="blog-stats-example">
@@ -143,7 +143,7 @@ const DesignLab = () => (
 
         <div className="blog-chart-row">
           <Chart
-            data={{ teamOneMmrs: [2100, 1700, 1400, 1100], teamTwoMmrs: [1900, 1600, 1300, 1000], teamOneAT: [0, 0, 0, 0], teamTwoAT: [0, 0, 0, 0] }}
+            data={{ teamOneMmrs: [2300, 1900, 1500, 1100], teamTwoMmrs: [2200, 1800, 1400, 1000], teamOneAT: [0, 0, 0, 0], teamTwoAT: [0, 0, 0, 0] }}
             width={240}
             height={200}
           />
@@ -175,10 +175,6 @@ const DesignLab = () => (
             <div className="blog-chart-label">low mmr</div>
           </div>
         </div>
-
-        <p>
-          I still show the mean and ± alongside the chart for quick reference. But the dots are what matter—the numbers just confirm what you already see.
-        </p>
 
         <h2>Overlapping dots</h2>
 
@@ -235,7 +231,7 @@ const DesignLab = () => (
             <div className="blog-eq-right">
               <svg width="36" height="36">
                 <circle cx="18" cy="18" r="14.1" fill="var(--team-blue)" />
-                <line x1="8" y1="8" x2="28" y2="28" stroke="#0a0a0a" strokeWidth="2.5" />
+                <line x1="28" y1="8" x2="8" y2="28" stroke="#0a0a0a" strokeWidth="2.5" />
               </svg>
             </div>
             <span className="blog-eq-label">n = 2</span>
@@ -444,8 +440,22 @@ const DesignLab = () => (
           </div>
         </div>
 
-        <p style={{ marginTop: "64px" }}>
-          Eight numbers become one picture. That's the whole idea.
+        <h2>The answer</h2>
+
+        <p>
+          Blue wins. Their geometric mean is 1935 versus red's 1640. But you didn't need to calculate that. Here's what the chart shows:
+        </p>
+
+        <div className="blog-chart-row">
+          <Chart
+            data={{ teamOneMmrs: [2344, 1989, 1734, 1702], teamTwoMmrs: [2127, 1597, 1567, 1375], teamOneAT: [0, 0, 0, 0], teamTwoAT: [0, 0, 0, 0] }}
+            width={240}
+            height={200}
+          />
+        </div>
+
+        <p>
+          Blue is higher across the board. That's the whole point. You shouldn't need to do math to see who's favored. The picture should tell you.
         </p>
 
       </div>

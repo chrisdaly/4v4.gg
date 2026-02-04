@@ -1,5 +1,6 @@
 import React, { useState, useEffect } from "react";
-import { getPlayerProfileInfo, fetchPlayerSessionData, getPlayerCountry } from "./utils.jsx";
+import { fetchPlayerSessionData } from "./utils.jsx";
+import { getPlayerProfile } from "./api";
 import { gateway, season } from "./params.jsx";
 import PlayerOverlay from "./PlayerOverlay.jsx";
 
@@ -137,12 +138,11 @@ const PlayerOverlayPage = () => {
       const battleTag = getBattleTag();
       const name = battleTag.split("#")[0];
 
-      // Fetch profile info, session data, game-mode-stats, country, all-time MMR, and overall rank in parallel
-      const [profileInfo, sessionInfo, statsResponse, country, allTimeMmrs, overallRank] = await Promise.all([
-        getPlayerProfileInfo(battleTag),
+      // Fetch profile (consolidated), session data, game-mode-stats, all-time MMR, and overall rank in parallel
+      const [profile, sessionInfo, statsResponse, allTimeMmrs, overallRank] = await Promise.all([
+        getPlayerProfile(battleTag),
         fetchPlayerSessionData(battleTag),
         fetch(`https://website-backend.w3champions.com/api/players/${encodeURIComponent(battleTag)}/game-mode-stats?gateway=${gateway}&season=${season}`),
-        getPlayerCountry(battleTag),
         fetchAllTimeMmrTimeline(battleTag),
         fetchOverallRank(battleTag),
       ]);
@@ -171,8 +171,8 @@ const PlayerOverlayPage = () => {
       setPlayerData({
         name,
         battleTag,
-        profilePic: profileInfo?.profilePicUrl,
-        country,
+        profilePic: profile?.profilePicUrl,
+        country: profile?.country,
         mmr,
         allTimeLow,
         allTimePeak,

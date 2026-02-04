@@ -1,7 +1,8 @@
 import React, { useState, useEffect } from "react";
 import { Dimmer, Loader } from "semantic-ui-react";
 import Game from "./Game.jsx";
-import { processOngoingGameData, getPlayerProfileInfo, getPlayerCountry, fetchPlayerSessionData } from "./utils.jsx";
+import { processOngoingGameData, fetchPlayerSessionData } from "./utils.jsx";
+import { getPlayerProfile } from "./api";
 import { getLiveStreamers } from "./twitchService";
 
 const OnGoingGame = ({ ongoingGameData, compact, streamerTag }) => {
@@ -33,12 +34,18 @@ const OnGoingGame = ({ ongoingGameData, compact, streamerTag }) => {
     try {
       const promises = processedData.map(async (playerData) => {
         const { battleTag, race } = playerData;
-        const [profileInfo, country, sessionInfo] = await Promise.all([
-          getPlayerProfileInfo(battleTag),
-          getPlayerCountry(battleTag),
+        // Use consolidated profile fetch (single API call for pic, twitch, country)
+        const [profile, sessionInfo] = await Promise.all([
+          getPlayerProfile(battleTag),
           fetchPlayerSessionData(battleTag, race),
         ]);
-        return { ...playerData, profilePicUrl: profileInfo.profilePicUrl, twitch: profileInfo.twitch, country, sessionInfo };
+        return {
+          ...playerData,
+          profilePicUrl: profile.profilePicUrl,
+          twitch: profile.twitch,
+          country: profile.country,
+          sessionInfo
+        };
       });
       const updatedData = await Promise.all(promises);
       setProfilePics(

@@ -1,7 +1,8 @@
 import React, { useState, useEffect } from "react";
 import { Flag } from "semantic-ui-react";
 import { gateway, season } from "./params.jsx";
-import { processMatchData, getPlayerProfilePicUrl } from "./utils.jsx";
+import { processMatchData } from "./utils.jsx";
+import { getPlayerProfile } from "./api";
 import FormDots from "./FormDots.jsx";
 
 import grandmasterIcon from "./icons/grandmaster.png";
@@ -92,19 +93,13 @@ const StreamOverlays = () => {
         });
       }
 
-      // Fetch profile pic and country
-      const picUrl = await getPlayerProfilePicUrl(battleTag);
-      if (picUrl) {
-        setProfilePic(picUrl);
+      // Fetch profile (consolidated - single API call for pic, twitch, country)
+      const profile = await getPlayerProfile(battleTag);
+      if (profile.profilePicUrl) {
+        setProfilePic(profile.profilePicUrl);
       }
-
-      const settingsUrl = `https://website-backend.w3champions.com/api/personal-settings/${encodedTag}`;
-      const settingsResponse = await fetch(settingsUrl);
-      if (settingsResponse.ok) {
-        const settings = await settingsResponse.json();
-        if (settings.country) {
-          setCountry(settings.country);
-        }
+      if (profile.country) {
+        setCountry(profile.country);
       }
 
       // Fetch matches for session

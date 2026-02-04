@@ -1,7 +1,8 @@
 import React, { useState, useEffect } from "react";
 import { Flag } from "semantic-ui-react";
 import { Link } from "react-router-dom";
-import { findPlayerInOngoingMatches, getPlayerProfileInfo, getPlayerCountry } from "./utils.jsx";
+import { findPlayerInOngoingMatches } from "./utils.jsx";
+import { getPlayerProfile, getPlayerTimelineMerged } from "./api";
 import { isStreamerLive } from "./twitchService";
 import { FaTwitch } from "react-icons/fa";
 import { GiCrossedSwords } from "react-icons/gi";
@@ -136,18 +137,16 @@ const PlayerProfile = () => {
   const loadAllData = async () => {
     setIsLoading(true);
     try {
-      const [profileInfo, playerCountry] = await Promise.all([
-        getPlayerProfileInfo(battleTag),
-        getPlayerCountry(battleTag),
-      ]);
+      // Use consolidated profile fetch (single API call for pic, twitch, country)
+      const profile = await getPlayerProfile(battleTag);
 
-      setProfilePic(profileInfo?.profilePicUrl);
-      setCountry(playerCountry);
-      setTwitchName(profileInfo?.twitch || null);
+      setProfilePic(profile?.profilePicUrl);
+      setCountry(profile?.country);
+      setTwitchName(profile?.twitch || null);
 
       // Check if streaming
-      if (profileInfo?.twitch) {
-        const streamStatus = await isStreamerLive(profileInfo.twitch);
+      if (profile?.twitch) {
+        const streamStatus = await isStreamerLive(profile.twitch);
         setIsStreaming(streamStatus.isLive);
         setStreamInfo(streamStatus.isLive ? streamStatus : null);
       }
@@ -203,28 +202,9 @@ const PlayerProfile = () => {
   };
 
   const fetchMmrTimeline = async () => {
-    const races = [0, 1, 2, 4, 8];
-    let allPoints = [];
-
-    for (const race of races) {
-      try {
-        const url = `https://website-backend.w3champions.com/api/players/${encodeURIComponent(battleTag)}/mmr-rp-timeline?gateway=${gateway}&season=${selectedSeason}&race=${race}&gameMode=4`;
-        const response = await fetch(url);
-        if (response.ok) {
-          const data = await response.json();
-          if (data.mmrRpAtDates) {
-            allPoints = [...allPoints, ...data.mmrRpAtDates];
-          }
-        }
-      } catch (e) {}
-    }
-
-    const uniqueByDate = {};
-    for (const point of allPoints) {
-      uniqueByDate[point.date] = point;
-    }
-    const sorted = Object.values(uniqueByDate).sort((a, b) => new Date(a.date) - new Date(b.date));
-    setSeasonMmrs(sorted.map(d => d.mmr));
+    // Use cached API (handles 5-race merge with individual caching per race)
+    const mmrs = await getPlayerTimelineMerged(battleTag, selectedSeason);
+    setSeasonMmrs(mmrs);
   };
 
   const processMatchData = (matchList) => {

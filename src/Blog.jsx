@@ -6,7 +6,7 @@ const posts = [
   {
     slug: "alls-fair",
     title: "All's Fair in Love and Warcraft",
-    description: "How I visualize whether a 4v4 match is fair—and why it's harder than it sounds.",
+    description: "How the MMR charts work on 4v4.gg.",
     date: "February 2025",
     tags: ["dataviz", "design", "wc3"],
   },

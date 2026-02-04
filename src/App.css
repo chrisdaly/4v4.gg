@@ -8899,7 +8899,7 @@ a.neighbor-name:hover {
   color: var(--gold);
   font-family: var(--font-display);
   font-size: var(--text-xl);
-  margin: 0 0 var(--space-4) 0;
+  margin: 0 0 var(--space-6) 0;
   font-weight: normal;
   line-height: 1.2;
 }
@@ -8915,6 +8915,12 @@ a.neighbor-name:hover {
   font-family: var(--font-mono);
   font-size: var(--text-xxs);
   color: var(--grey-light);
+}
+
+.blog-date::after {
+  content: "·";
+  margin-left: var(--space-4);
+  color: var(--grey-mid);
 }
 
 .blog-tags {
@@ -9043,7 +9049,7 @@ a.neighbor-name:hover {
 }
 
 .blog-mmr-display .vs {
-  color: var(--grey-mid);
+  color: var(--grey-light);
 }
 
 /* Stats example (mean ±std) */
@@ -9098,9 +9104,7 @@ a.neighbor-name:hover {
   align-items: center;
   gap: 28px;
   margin: 48px 0;
-  padding: 40px 48px;
-  background: #080808;
-  border-left: 3px solid var(--gold);
+  padding: 40px 0;
 }
 
 .blog-equation {
