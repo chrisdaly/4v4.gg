@@ -54,7 +54,7 @@ const DesignLab = () => (
       <Section
         number="01"
         title="MMR Axis"
-        description="Each dot represents one player. Vertical position shows their MMR rating."
+        description={<>Each dot = one player. Y-axis fixed from <span style={{ fontFamily: "var(--font-mono)" }}>700</span> (min) to <span style={{ fontFamily: "var(--font-mono)" }}>2700</span> (max seen in 4v4). Blue = team 1, Red = team 2.</>}
       >
         <Chart label="Even teams" gold={false} data={{ teamOneMmrs: [1900, 1800, 1700, 1600], teamTwoMmrs: [1880, 1780, 1680, 1580], teamOneAT: [0, 0, 0, 0], teamTwoAT: [0, 0, 0, 0] }} />
         <Chart label="Wide spread" gold={false} data={{ teamOneMmrs: [2000, 1850, 1700, 1550], teamTwoMmrs: [1950, 1800, 1650, 1500], teamOneAT: [0, 0, 0, 0], teamTwoAT: [0, 0, 0, 0] }} />
@@ -65,7 +65,7 @@ const DesignLab = () => (
       <Section
         number="02"
         title="Collision Handling"
-        description="When players have similar MMR, dots are offset horizontally to avoid overlap."
+        description="When players have similar MMR, dots offset horizontally to avoid overlap. Higher MMR players get priority center position."
       >
         <Chart label="No collision" gold={false} data={{ teamOneMmrs: [1900, 1800, 1700, 1600], teamTwoMmrs: [1880, 1780, 1680, 1580], teamOneAT: [0, 0, 0, 0], teamTwoAT: [0, 0, 0, 0] }} />
         <Chart label="Two close" gold={false} data={{ teamOneMmrs: [1850, 1845, 1700, 1600], teamTwoMmrs: [1830, 1825, 1680, 1580], teamOneAT: [0, 0, 0, 0], teamTwoAT: [0, 0, 0, 0] }} />
@@ -76,18 +76,18 @@ const DesignLab = () => (
       <Section
         number="03"
         title="Arranged Teams"
-        description={<>Players queuing together shown as combined circle. <span style={{ fontFamily: "var(--font-mono)", color: "var(--gold)" }}>radius = base × √n × √1.6</span> with 5px gaps between segments.</>}
+        description={<>Players queuing together shown as combined circle. <span style={{ fontFamily: "var(--font-mono)", color: "var(--gold)" }}>r = base × √n × √1.6</span>. Segments separated by 5px gaps, rotated 45°.</>}
       >
         <Chart label="2-stack (duo)" data={{ teamOneMmrs: [1850, 1850, 1750, 1650], teamTwoMmrs: [1830, 1830, 1730, 1630], teamOneAT: [2, 2, 0, 0], teamTwoAT: [2, 2, 0, 0] }} />
         <Chart label="3-stack (trio)" data={{ teamOneMmrs: [1850, 1850, 1850, 1650], teamTwoMmrs: [1830, 1830, 1830, 1630], teamOneAT: [3, 3, 3, 0], teamTwoAT: [3, 3, 3, 0] }} />
         <Chart label="4-stack (premade)" data={{ teamOneMmrs: [1800, 1800, 1800, 1800], teamTwoMmrs: [1780, 1780, 1780, 1780], teamOneAT: [4, 4, 4, 4], teamTwoAT: [4, 4, 4, 4] }} />
-        <Chart label="Two 2-stacks" data={{ teamOneMmrs: [1900, 1900, 1700, 1700], teamTwoMmrs: [1880, 1880, 1680, 1680], teamOneAT: [2, 2, 2, 2], teamTwoAT: [2, 2, 2, 2] }} />
+        <Chart label="2+2 stacks (same team)" data={{ teamOneMmrs: [1900, 1900, 1700, 1700], teamTwoMmrs: [1880, 1880, 1680, 1680], teamOneAT: [2, 2, 2, 2], teamTwoAT: [2, 2, 2, 2] }} />
       </Section>
 
       <Section
         number="04"
         title="AT + Solo Collisions"
-        description="Solo players near AT groups are pushed away horizontally. AT circles take priority positioning."
+        description="Solo players near AT groups pushed away horizontally. AT circles get priority center positioning."
       >
         <Chart label="Solo near 2-stack" data={{ teamOneMmrs: [1850, 1850, 1855, 1700], teamTwoMmrs: [1830, 1830, 1835, 1680], teamOneAT: [2, 2, 0, 0], teamTwoAT: [2, 2, 0, 0] }} />
         <Chart label="Solo near 3-stack" data={{ teamOneMmrs: [1850, 1850, 1850, 1855], teamTwoMmrs: [1830, 1830, 1830, 1835], teamOneAT: [3, 3, 3, 0], teamTwoAT: [3, 3, 3, 0] }} />

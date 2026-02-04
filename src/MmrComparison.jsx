@@ -29,15 +29,8 @@ const MmrComparison = ({ data, compact = false, atStyle = "combined", pieConfig 
     const innerWidth = width - margin.left - margin.right;
     const innerHeight = height - margin.top - margin.bottom;
 
-    let yDomain;
-    if (compact) {
-      const allMmrs = [...teamOneData, ...teamTwoData].map(d => d.mmr);
-      const minMmr = Math.min(...allMmrs);
-      const maxMmr = Math.max(...allMmrs);
-      yDomain = [minMmr, maxMmr];
-    } else {
-      yDomain = [800, 2700];
-    }
+    // Fixed Y-axis: 700 (min possible) to 2700 (max seen in 4v4)
+    const yDomain = [700, 2700];
 
     const yScale = d3
       .scaleLinear()
