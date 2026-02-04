@@ -53,6 +53,15 @@ const DesignLab = () => (
 
         <h1>All's Fair in Love and Warcraft</h1>
 
+        <div className="blog-meta">
+          <span className="blog-date">February 2025</span>
+          <div className="blog-tags">
+            <span className="blog-tag">dataviz</span>
+            <span className="blog-tag">design</span>
+            <span className="blog-tag">wc3</span>
+          </div>
+        </div>
+
         <p>
           The loading screen shows eight numbers. Four on your team, four on theirs. You have maybe ten seconds to figure out if this is going to be a stomp or a real game.
         </p>
@@ -85,51 +94,26 @@ const DesignLab = () => (
           This is what I built 4v4.gg to solve. Whether you're a player on the loading screen, an observer watching a stream, or just browsing for an interesting game to spectate, the balance should be obvious at a glance.
         </p>
 
-        <h2>The simple case</h2>
+        <h2>The problem with averages</h2>
 
         <p>
-          In 1v1, matchmaking is straightforward. Each player has an MMR. The matchmaker pairs players with similar ratings. If your MMR is higher, you're favored to win.
+          The matchmaker balances teams by their geometric mean—a weighted average that's less sensitive to outliers. You could display that mean for each team, maybe add standard deviation to show the spread:
         </p>
 
-        <h2>The hard case</h2>
-
-        <p>
-          4v4 is harder. The matchmaker can't find eight people with identical skill, so it balances teams by their geometric mean. The geometric mean is the nth root of the product. It's less sensitive to outliers than arithmetic mean, which matters when skill gaps are wide.
-        </p>
-
-        <div className="blog-chart-row">
-          <svg width="340" height="200" style={{ display: "block" }}>
-            {/* Horizontal baseline */}
-            <line x1="20" y1="140" x2="320" y2="140" stroke="var(--grey-mid)" strokeWidth="1" />
-
-            {/* Player dots on baseline */}
-            <circle cx="50" cy="140" r="8" fill="var(--team-blue)" />
-            <circle cx="120" cy="140" r="8" fill="var(--team-blue)" />
-            <circle cx="200" cy="140" r="8" fill="var(--team-blue)" />
-            <circle cx="290" cy="140" r="8" fill="var(--team-blue)" />
-
-            {/* Labels below dots */}
-            <text x="50" y="165" fill="var(--grey-light)" fontSize="12" fontFamily="var(--font-mono)" textAnchor="middle">1100</text>
-            <text x="120" y="165" fill="var(--grey-light)" fontSize="12" fontFamily="var(--font-mono)" textAnchor="middle">1400</text>
-            <text x="200" y="165" fill="var(--grey-light)" fontSize="12" fontFamily="var(--font-mono)" textAnchor="middle">1700</text>
-            <text x="290" y="165" fill="var(--grey-light)" fontSize="12" fontFamily="var(--font-mono)" textAnchor="middle">2100</text>
-
-            {/* Semicircle arc for geometric mean construction */}
-            <path d="M 50 140 A 120 120 0 0 1 290 140" fill="none" stroke="var(--grey-mid)" strokeWidth="1" strokeDasharray="4,4" />
-
-            {/* Vertical line to geometric mean */}
-            <line x1="155" y1="140" x2="155" y2="35" stroke="var(--gold)" strokeWidth="2" />
-
-            {/* Mean point */}
-            <circle cx="155" cy="35" r="10" fill="var(--gold)" />
-
-            {/* Mean label */}
-            <text x="155" y="18" fill="var(--gold)" fontSize="14" fontFamily="var(--font-mono)" textAnchor="middle">μ = 1533</text>
-          </svg>
+        <div className="blog-stats-example">
+          <div className="blog-stats-team blue">
+            <span className="mean">1564</span>
+            <span className="std">±95</span>
+          </div>
+          <div className="blog-stats-vs">vs</div>
+          <div className="blog-stats-team red">
+            <span className="mean">1566</span>
+            <span className="std">±123</span>
+          </div>
         </div>
 
         <p>
-          You could display the geometric mean for each team, maybe add standard deviation to show how spread out the ratings are. But even those hide things. A team with a 2400 and an 800 could balance against two 1600s. Those are very different games. The first has a huge skill gap within the team. The second is actually even.
+          But even those hide things. A team with a 2400 and an 800 could have the same mean as four 1600s. Those are very different games. The first has a huge skill gap within the team. The second is actually even.
         </p>
 
         <p>
@@ -192,6 +176,10 @@ const DesignLab = () => (
           </div>
         </div>
 
+        <p>
+          I still show the mean and ± alongside the chart for quick reference. But the dots are what matter—the numbers just confirm what you already see.
+        </p>
+
         <h2>Overlapping dots</h2>
 
         <p>
@@ -227,8 +215,8 @@ const DesignLab = () => (
           I show arranged teams as a single larger circle, split into segments. The key insight is that the circle's area should scale with the number of players. A 4-stack should look four times as substantial as a solo player. Since area scales with the square of the radius, I use:
         </p>
 
-        <p style={{ fontFamily: "var(--font-mono)", textAlign: "center", color: "var(--grey-light)", margin: "24px 0" }}>
-          radius = baseRadius × √n
+        <p className="blog-formula">
+          <span className="var">r</span> = <span className="var">r</span><sub>0</sub> × √<span className="var">n</span>
         </p>
 
         <p>
@@ -238,47 +226,62 @@ const DesignLab = () => (
         <div className="blog-visual-math">
           {/* Duo equation */}
           <div className="blog-equation">
-            <svg width="40" height="40"><circle cx="20" cy="20" r="10" fill="var(--team-blue)" /></svg>
-            <span className="blog-operator">+</span>
-            <svg width="40" height="40"><circle cx="20" cy="20" r="10" fill="var(--team-blue)" /></svg>
-            <span className="blog-operator">=</span>
-            <svg width="50" height="50">
-              <circle cx="25" cy="25" r="14.1" fill="var(--team-blue)" />
-              <line x1="25" y1="10.9" x2="25" y2="39.1" stroke="#0a0a0a" strokeWidth="3" />
-            </svg>
+            <div className="blog-eq-left">
+              <svg width="28" height="28"><circle cx="14" cy="14" r="10" fill="var(--team-blue)" /></svg>
+              <span className="blog-op-plus">+</span>
+              <svg width="28" height="28"><circle cx="14" cy="14" r="10" fill="var(--team-blue)" /></svg>
+            </div>
+            <span className="blog-op-equals">=</span>
+            <div className="blog-eq-right">
+              <svg width="36" height="36">
+                <circle cx="18" cy="18" r="14.1" fill="var(--team-blue)" />
+                <line x1="8" y1="8" x2="28" y2="28" stroke="#0a0a0a" strokeWidth="2.5" />
+              </svg>
+            </div>
+            <span className="blog-eq-label">n = 2</span>
           </div>
 
           {/* Trio equation */}
           <div className="blog-equation">
-            <svg width="40" height="40"><circle cx="20" cy="20" r="10" fill="var(--team-blue)" /></svg>
-            <span className="blog-operator">+</span>
-            <svg width="40" height="40"><circle cx="20" cy="20" r="10" fill="var(--team-blue)" /></svg>
-            <span className="blog-operator">+</span>
-            <svg width="40" height="40"><circle cx="20" cy="20" r="10" fill="var(--team-blue)" /></svg>
-            <span className="blog-operator">=</span>
-            <svg width="56" height="56">
-              <circle cx="28" cy="28" r="17.3" fill="var(--team-blue)" />
-              <line x1="28" y1="28" x2="28" y2="10.7" stroke="#0a0a0a" strokeWidth="3" />
-              <line x1="28" y1="28" x2="43" y2="36.7" stroke="#0a0a0a" strokeWidth="3" />
-              <line x1="28" y1="28" x2="13" y2="36.7" stroke="#0a0a0a" strokeWidth="3" />
-            </svg>
+            <div className="blog-eq-left">
+              <svg width="28" height="28"><circle cx="14" cy="14" r="10" fill="var(--team-blue)" /></svg>
+              <span className="blog-op-plus">+</span>
+              <svg width="28" height="28"><circle cx="14" cy="14" r="10" fill="var(--team-blue)" /></svg>
+              <span className="blog-op-plus">+</span>
+              <svg width="28" height="28"><circle cx="14" cy="14" r="10" fill="var(--team-blue)" /></svg>
+            </div>
+            <span className="blog-op-equals">=</span>
+            <div className="blog-eq-right">
+              <svg width="42" height="42">
+                <circle cx="21" cy="21" r="17.3" fill="var(--team-blue)" />
+                <line x1="21" y1="21" x2="33.2" y2="8.8" stroke="#0a0a0a" strokeWidth="2.5" />
+                <line x1="21" y1="21" x2="6.0" y2="12.3" stroke="#0a0a0a" strokeWidth="2.5" />
+                <line x1="21" y1="21" x2="21" y2="38.3" stroke="#0a0a0a" strokeWidth="2.5" />
+              </svg>
+            </div>
+            <span className="blog-eq-label">n = 3</span>
           </div>
 
           {/* Quad equation */}
           <div className="blog-equation">
-            <svg width="40" height="40"><circle cx="20" cy="20" r="10" fill="var(--team-blue)" /></svg>
-            <span className="blog-operator">+</span>
-            <svg width="40" height="40"><circle cx="20" cy="20" r="10" fill="var(--team-blue)" /></svg>
-            <span className="blog-operator">+</span>
-            <svg width="40" height="40"><circle cx="20" cy="20" r="10" fill="var(--team-blue)" /></svg>
-            <span className="blog-operator">+</span>
-            <svg width="40" height="40"><circle cx="20" cy="20" r="10" fill="var(--team-blue)" /></svg>
-            <span className="blog-operator">=</span>
-            <svg width="60" height="60">
-              <circle cx="30" cy="30" r="20" fill="var(--team-blue)" />
-              <line x1="10" y1="30" x2="50" y2="30" stroke="#0a0a0a" strokeWidth="3" />
-              <line x1="30" y1="10" x2="30" y2="50" stroke="#0a0a0a" strokeWidth="3" />
-            </svg>
+            <div className="blog-eq-left">
+              <svg width="28" height="28"><circle cx="14" cy="14" r="10" fill="var(--team-blue)" /></svg>
+              <span className="blog-op-plus">+</span>
+              <svg width="28" height="28"><circle cx="14" cy="14" r="10" fill="var(--team-blue)" /></svg>
+              <span className="blog-op-plus">+</span>
+              <svg width="28" height="28"><circle cx="14" cy="14" r="10" fill="var(--team-blue)" /></svg>
+              <span className="blog-op-plus">+</span>
+              <svg width="28" height="28"><circle cx="14" cy="14" r="10" fill="var(--team-blue)" /></svg>
+            </div>
+            <span className="blog-op-equals">=</span>
+            <div className="blog-eq-right">
+              <svg width="48" height="48">
+                <circle cx="24" cy="24" r="20" fill="var(--team-blue)" />
+                <line x1="10" y1="10" x2="38" y2="38" stroke="#0a0a0a" strokeWidth="2.5" />
+                <line x1="38" y1="10" x2="10" y2="38" stroke="#0a0a0a" strokeWidth="2.5" />
+              </svg>
+            </div>
+            <span className="blog-eq-label">n = 4</span>
           </div>
         </div>
 
@@ -313,52 +316,10 @@ const DesignLab = () => (
           </div>
         </div>
 
-        <h2>Mean and spread</h2>
-
-        <p>
-          I also draw a horizontal line at each team's geometric mean. If the lines are level, the match is balanced.
-        </p>
-
-        <p>
-          The shaded region shows standard deviation. A tight band means consistent skill levels. A wide band means high variance, maybe one strong player with weaker teammates.
-        </p>
-
-        <div className="blog-chart-row">
-          <div className="blog-chart-labeled">
-            <Chart
-              data={{ teamOneMmrs: [2100, 1900, 1700, 1500], teamTwoMmrs: [2000, 1800, 1600, 1400], teamOneAT: [0, 0, 0, 0], teamTwoAT: [0, 0, 0, 0] }}
-              width={180}
-              height={160}
-              showMean={true}
-              showStdDev={true}
-            />
-            <div className="blog-chart-label">even spread</div>
-          </div>
-          <div className="blog-chart-labeled">
-            <Chart
-              data={{ teamOneMmrs: [2400, 1600, 1200, 800], teamTwoMmrs: [1600, 1550, 1500, 1450], teamOneAT: [0, 0, 0, 0], teamTwoAT: [0, 0, 0, 0] }}
-              width={180}
-              height={160}
-              showMean={true}
-              showStdDev={true}
-            />
-            <div className="blog-chart-label">high vs low variance</div>
-          </div>
-        </div>
-
-        <p>
-          Dots show individual players. The line shows team strength. The shaded region shows team cohesion.
-        </p>
-
-        <p style={{ marginTop: "48px" }}>
-          None of this is complicated on its own. The challenge is making it all work together and still feel simple when you glance at it. The chart should just tell you: is this match fair?
-        </p>
-
         <h2>Gallery</h2>
 
         <p>
-          Here's every combination of team composition and MMR distribution you might see.
-        </p>
+          Every combination of team composition you might see in the wild.</p>
 
         {/* Row 1: All solos */}
         <div className="blog-gallery-section">All solos</div>
@@ -472,6 +433,10 @@ const DesignLab = () => (
             <div className="blog-chart-label">high mmr stacks</div>
           </div>
         </div>
+
+        <p style={{ marginTop: "64px" }}>
+          Eight numbers become one picture. That's the whole idea.
+        </p>
 
       </div>
     </article>

@@ -380,13 +380,13 @@ const Game = ({ playerData: rawPlayerData, metaData, profilePics, playerCountrie
   const team1Won = playerData[0].won;
   const team2Won = playerData[4].won;
 
-  // Calculate team MMRs
-  const team1AvgMmr = Math.round(
-    playerData.slice(0, 4).map((d) => d.oldMmr).reduce((acc, curr) => acc + curr, 0) / 4
-  );
-  const team2AvgMmr = Math.round(
-    playerData.slice(4).map((d) => d.oldMmr).reduce((acc, curr) => acc + curr, 0) / 4
-  );
+  // Calculate team MMRs (geometric mean) and standard deviation
+  const team1MmrArray = playerData.slice(0, 4).map((d) => d.oldMmr);
+  const team2MmrArray = playerData.slice(4).map((d) => d.oldMmr);
+  const team1AvgMmr = Math.round(geometricMean(team1MmrArray));
+  const team2AvgMmr = Math.round(geometricMean(team2MmrArray));
+  const team1StdDev = Math.round(stdDev(team1MmrArray, team1AvgMmr));
+  const team2StdDev = Math.round(stdDev(team2MmrArray, team2AvgMmr));
 
   return (
     <div className="Game">
@@ -456,42 +456,20 @@ const Game = ({ playerData: rawPlayerData, metaData, profilePics, playerCountrie
                   {renderPlayerCell(playerScore, teamClassName, index)}
                   {index === 3 && (
                     <th className={`th-center ${compact ? "compact" : ""}`} style={{ position: "relative", verticalAlign: "top" }}>
-                      {(() => {
-                        const team1Mmrs = playerData.slice(0, 4).map((d) => d.oldMmr);
-                        const team2Mmrs = playerData.slice(4).map((d) => d.oldMmr);
-                        const t1Mean = Math.round(geometricMean(team1Mmrs));
-                        const t2Mean = Math.round(geometricMean(team2Mmrs));
-                        const t1Std = Math.round(stdDev(team1Mmrs, t1Mean));
-                        const t2Std = Math.round(stdDev(team2Mmrs, t2Mean));
-
-                        return (
-                          <div className="mmr-chart-with-labels">
-                            <div className="mmr-side-label mmr-side-label-left">
-                              <span className="mmr-label-mean">{t1Mean}</span>
-                              <span className="mmr-label-std">±{t1Std}</span>
-                            </div>
-                            <div className="mmr-chart-container">
-                              <MmrComparison
-                                data={{
-                                  teamOneMmrs: team1Mmrs,
-                                  teamTwoMmrs: team2Mmrs,
-                                  teamOneAT: playerData.slice(0, 4).map((d) => getATGroupId(d.battleTag)),
-                                  teamTwoAT: playerData.slice(4).map((d) => getATGroupId(d.battleTag)),
-                                }}
-                                compact={compact}
-                                atStyle="combined"
-                                showMean={true}
-                                showStdDev={true}
-                                hideLabels={true}
-                              />
-                            </div>
-                            <div className="mmr-side-label mmr-side-label-right">
-                              <span className="mmr-label-mean">{t2Mean}</span>
-                              <span className="mmr-label-std">±{t2Std}</span>
-                            </div>
-                          </div>
-                        );
-                      })()}
+                      <div className="mmr-chart-container">
+                        <MmrComparison
+                          data={{
+                            teamOneMmrs: team1MmrArray,
+                            teamTwoMmrs: team2MmrArray,
+                            teamOneAT: playerData.slice(0, 4).map((d) => getATGroupId(d.battleTag)),
+                            teamTwoAT: playerData.slice(4).map((d) => getATGroupId(d.battleTag)),
+                          }}
+                          compact={compact}
+                          atStyle="combined"
+                          showMean={false}
+                          showStdDev={false}
+                        />
+                      </div>
                     </th>
                   )}
                 </React.Fragment>
@@ -530,7 +508,7 @@ const Game = ({ playerData: rawPlayerData, metaData, profilePics, playerCountrie
                   <div className="meta-map-info">
                     <span className="meta-map-name">{metaData.mapName}</span>
                     <span className="meta-details">
-                      {metaData.server} · {metaData.gameLength === "0:00"
+                      {metaData.gameLength === "0:00"
                         ? calculateElapsedTime(metaData.startTime)
                         : metaData.gameLength} mins
                       {metaData.gameLength === "0:00" && <span className="live-dot"></span>}

@@ -954,10 +954,6 @@ const MmrComparison = ({ data, compact = false, atStyle = "combined", pieConfig 
       .attr("class", "line team-middle")
       .attr("x1", middleLine).attr("y1", 0)
       .attr("x2", middleLine).attr("y2", height);
-
-    if (!compact) {
-      svg.append("text").attr("class", "axistitle").text("MMR").attr("x", middleLine).attr("y", innerHeight);
-    }
   }, [teamOneMmrs, teamTwoMmrs, teamOneAT, teamTwoAT, compact, atStyle, pieConfig, showMean, showStdDev, hideLabels]);
 
   return <svg ref={svgRef} style={{ width: "100%", height: "100%" }}></svg>;
