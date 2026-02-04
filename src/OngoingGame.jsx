@@ -2,6 +2,7 @@ import React, { useState, useEffect } from "react";
 import { Dimmer, Loader } from "semantic-ui-react";
 import Game from "./Game.jsx";
 import { processOngoingGameData, getPlayerProfileInfo, getPlayerCountry, fetchPlayerSessionData } from "./utils.jsx";
+import { getLiveStreamers } from "./twitchService";
 
 const OnGoingGame = ({ ongoingGameData, compact, streamerTag }) => {
   const [playerData, setPlayerData] = useState(null);
@@ -9,6 +10,7 @@ const OnGoingGame = ({ ongoingGameData, compact, streamerTag }) => {
   const [profilePics, setProfilePics] = useState(null);
   const [playerCountries, setPlayerCountries] = useState({});
   const [sessionData, setSessionData] = useState({});
+  const [liveStreamers, setLiveStreamers] = useState({});
   const [isLoading, setIsLoading] = useState(true);
 
   useEffect(() => {
@@ -57,6 +59,26 @@ const OnGoingGame = ({ ongoingGameData, compact, streamerTag }) => {
           return acc;
         }, {})
       );
+
+      // Check which players with Twitch accounts are actually streaming
+      const twitchUsernames = updatedData
+        .filter(p => p.twitch)
+        .map(p => p.twitch);
+
+      if (twitchUsernames.length > 0) {
+        const streamers = await getLiveStreamers(twitchUsernames);
+        // Map battleTag to stream info for players who are live
+        const liveMap = {};
+        for (const player of updatedData) {
+          if (player.twitch) {
+            const streamInfo = streamers.get(player.twitch.toLowerCase());
+            if (streamInfo) {
+              liveMap[player.battleTag] = { ...streamInfo, twitchName: player.twitch };
+            }
+          }
+        }
+        setLiveStreamers(liveMap);
+      }
     } catch (error) {
       console.error("Error fetching player data:", error);
     } finally {
@@ -71,7 +93,7 @@ const OnGoingGame = ({ ongoingGameData, compact, streamerTag }) => {
           <Loader size="large">Loading match data...</Loader>
         </Dimmer>
       ) : playerData && profilePics ? (
-        <Game playerData={playerData} metaData={metaData} profilePics={profilePics} playerCountries={playerCountries} sessionData={sessionData} compact={compact} streamerTag={streamerTag} />
+        <Game playerData={playerData} metaData={metaData} profilePics={profilePics} playerCountries={playerCountries} sessionData={sessionData} liveStreamers={liveStreamers} compact={compact} streamerTag={streamerTag} />
       ) : (
         <div>Error: Failed to load match data</div>
       )}

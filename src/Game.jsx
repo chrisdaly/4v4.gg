@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from "react";
 import { Flag, Table } from "semantic-ui-react";
 import { Link } from "react-router-dom";
+import { FaTwitch } from "react-icons/fa";
 
 import { MmrComparison } from "./MmrComparison.jsx";
 import { calculateElapsedTime, convertToLocalTime, calculatePercentiles, detectArrangedTeams } from "./utils.jsx";
@@ -53,7 +54,7 @@ const ATConnector = ({ relation }) => {
   return <div ref={lineRef} className={`at-line ${relation ? `at-line-${relation}` : ""}`} />;
 };
 
-const Game = ({ playerData: rawPlayerData, metaData, profilePics, playerCountries, sessionData, compact, streamerTag, initialATGroups }) => {
+const Game = ({ playerData: rawPlayerData, metaData, profilePics, playerCountries, sessionData, liveStreamers = {}, compact, streamerTag, initialATGroups }) => {
   const [atGroups, setAtGroups] = useState(initialATGroups || {});
 
   const excludedKeys = ["mercsHired", "itemsObtained", "lumberCollected"];
@@ -283,6 +284,17 @@ const Game = ({ playerData: rawPlayerData, metaData, profilePics, playerCountrie
             <Link to={`/player/${player.battleTag.replace("#", "%23")}`}>
               <h2>{player.name}</h2>
             </Link>
+            {liveStreamers[player.battleTag] && (
+              <a
+                href={`https://twitch.tv/${liveStreamers[player.battleTag].twitchName}`}
+                target="_blank"
+                rel="noopener noreferrer"
+                className="twitch-link"
+                title={liveStreamers[player.battleTag].title || "Live on Twitch"}
+              >
+                <FaTwitch className="twitch-icon" style={{ fill: '#9146ff' }} />
+              </a>
+            )}
           </div>
 
           {/* MMR line */}

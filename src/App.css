@@ -1140,7 +1140,7 @@ img.race {
   background: radial-gradient(ellipse at center, #1a1a1a 0%, #050505 70%);
   border-radius: 8px;
   margin: 20px 10px 40px 10px;
-  border: 2px solid var(--gold);
+  border: 1px solid var(--grey-mid);
   box-shadow: 0 4px 20px rgba(0, 0, 0, 0.5);
 }
 
@@ -1668,15 +1668,29 @@ h2.team-name {
   align-items: center;
 }
 
+.twitch-link {
+  display: inline-flex;
+  align-items: center;
+}
+
 .twitch-icon {
   width: 16px;
   height: 16px;
-  fill: #9146ff;
+  fill: #9146ff !important;
+  color: #9146ff !important;
   transition: fill 0.2s;
 }
 
 .twitch-link:hover .twitch-icon {
-  fill: #a970ff;
+  fill: #a970ff !important;
+  color: #a970ff !important;
+}
+
+/* Twitch icon in Game player cards */
+.playerDiv .twitch-icon,
+.player-name-row .twitch-icon {
+  fill: #9146ff !important;
+  color: #9146ff !important;
 }
 
 /* Twitch live streaming state */
@@ -5635,20 +5649,21 @@ a.neighbor-name-sm:hover {
 .col-rank {
   display: flex;
   align-items: center;
-  gap: 8px;
+  justify-content: flex-end;
+  gap: 4px;
 }
 
 .col-rank .in-game-icon {
-  width: 16px;
-  height: 16px;
+  width: 14px;
+  height: 14px;
   color: var(--red);
   flex-shrink: 0;
   animation: pulse 1.5s infinite;
 }
 
 .col-rank .in-game-placeholder {
-  width: 16px;
-  height: 16px;
+  width: 14px;
+  height: 14px;
   flex-shrink: 0;
 }
 
@@ -7319,6 +7334,15 @@ a.neighbor-name:hover {
   animation: pulse 1.5s infinite;
 }
 
+/* In-game icon in player header */
+.hd-name-row .in-game-icon {
+  width: 20px;
+  height: 20px;
+  fill: var(--red) !important;
+  color: var(--red) !important;
+  animation: pulse 1.5s infinite;
+}
+
 .hd-stats-row {
   display: flex;
   align-items: baseline;
@@ -7627,7 +7651,6 @@ a.neighbor-name:hover {
 
 .live-game-section .Game {
   margin: 0;
-  border-color: var(--gold);
 }
 
 /* Match History Section */

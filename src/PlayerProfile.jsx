@@ -1,7 +1,10 @@
 import React, { useState, useEffect } from "react";
 import { Flag } from "semantic-ui-react";
 import { Link } from "react-router-dom";
-import { findPlayerInOngoingMatches, getPlayerProfilePicUrl, getPlayerCountry } from "./utils.jsx";
+import { findPlayerInOngoingMatches, getPlayerProfileInfo, getPlayerCountry } from "./utils.jsx";
+import { isStreamerLive } from "./twitchService";
+import { FaTwitch } from "react-icons/fa";
+import { GiCrossedSwords } from "react-icons/gi";
 import Navbar from "./Navbar.jsx";
 import FormDots from "./FormDots.jsx";
 import { gateway } from "./params.jsx";
@@ -44,6 +47,9 @@ const PlayerProfile = () => {
   const [playerData, setPlayerData] = useState(null);
   const [profilePic, setProfilePic] = useState(null);
   const [country, setCountry] = useState(null);
+  const [twitchName, setTwitchName] = useState(null);
+  const [isStreaming, setIsStreaming] = useState(false);
+  const [streamInfo, setStreamInfo] = useState(null);
   const [matches, setMatches] = useState([]);
   const [totalMatches, setTotalMatches] = useState(0);
   const [sessionGames, setSessionGames] = useState([]);
@@ -103,6 +109,9 @@ const PlayerProfile = () => {
     setPlayerData(null);
     setProfilePic(null);
     setCountry(null);
+    setTwitchName(null);
+    setIsStreaming(false);
+    setStreamInfo(null);
     setMatches([]);
     setTotalMatches(0);
     setSessionGames([]);
@@ -127,13 +136,21 @@ const PlayerProfile = () => {
   const loadAllData = async () => {
     setIsLoading(true);
     try {
-      const [pic, playerCountry] = await Promise.all([
-        getPlayerProfilePicUrl(battleTag),
+      const [profileInfo, playerCountry] = await Promise.all([
+        getPlayerProfileInfo(battleTag),
         getPlayerCountry(battleTag),
       ]);
 
-      setProfilePic(pic);
+      setProfilePic(profileInfo?.profilePicUrl);
       setCountry(playerCountry);
+      setTwitchName(profileInfo?.twitch || null);
+
+      // Check if streaming
+      if (profileInfo?.twitch) {
+        const streamStatus = await isStreamerLive(profileInfo.twitch);
+        setIsStreaming(streamStatus.isLive);
+        setStreamInfo(streamStatus.isLive ? streamStatus : null);
+      }
 
       // Fetch player stats
       const statsUrl = `https://website-backend.w3champions.com/api/players/${encodeURIComponent(battleTag)}/game-mode-stats?gateway=${gateway}&season=${selectedSeason}`;
@@ -499,7 +516,18 @@ const PlayerProfile = () => {
             <div className="hd-info">
               <div className="hd-name-row">
                 <span className="hd-name">{playerName}</span>
-                {ongoingGame && <span className="hd-live-dot"></span>}
+                {ongoingGame && <GiCrossedSwords className="in-game-icon" title="In Game" />}
+                {isStreaming && twitchName && (
+                  <a
+                    href={`https://twitch.tv/${twitchName}`}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="twitch-link"
+                    title={streamInfo?.title || "Live on Twitch"}
+                  >
+                    <FaTwitch className="twitch-icon" style={{ fill: '#9146ff' }} />
+                  </a>
+                )}
               </div>
               {playerData && (
                 <>
@@ -539,13 +567,16 @@ const PlayerProfile = () => {
           <main className="player-main">
             {/* Live Game Section */}
             {ongoingGame && (
-              <div className="live-game-section">
+              <section className="live-game-section">
+                <div className="section-header">
+                  <h2 className="section-title">Live Game</h2>
+                </div>
                 <OngoingGame
                   ongoingGameData={ongoingGame}
                   compact={true}
                   streamerTag={battleTag}
                 />
-              </div>
+              </section>
             )}
 
             {/* Match History Table */}
