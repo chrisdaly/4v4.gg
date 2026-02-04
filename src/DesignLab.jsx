@@ -56,10 +56,10 @@ const DesignLab = () => (
         title="MMR Axis"
         description={<>Each dot = one player. Y-axis fixed from <span style={{ fontFamily: "var(--font-mono)" }}>700</span> (min) to <span style={{ fontFamily: "var(--font-mono)" }}>2700</span> (max seen in 4v4). Blue = team 1, Red = team 2.</>}
       >
-        <Chart label="Even teams" gold={false} data={{ teamOneMmrs: [1900, 1800, 1700, 1600], teamTwoMmrs: [1880, 1780, 1680, 1580], teamOneAT: [0, 0, 0, 0], teamTwoAT: [0, 0, 0, 0] }} />
-        <Chart label="Wide spread" gold={false} data={{ teamOneMmrs: [2000, 1850, 1700, 1550], teamTwoMmrs: [1950, 1800, 1650, 1500], teamOneAT: [0, 0, 0, 0], teamTwoAT: [0, 0, 0, 0] }} />
-        <Chart label="Tight cluster" gold={false} data={{ teamOneMmrs: [1820, 1800, 1780, 1760], teamTwoMmrs: [1810, 1790, 1770, 1750], teamOneAT: [0, 0, 0, 0], teamTwoAT: [0, 0, 0, 0] }} />
-        <Chart label="Skill gap" gold={false} data={{ teamOneMmrs: [1950, 1900, 1850, 1800], teamTwoMmrs: [1700, 1650, 1600, 1550], teamOneAT: [0, 0, 0, 0], teamTwoAT: [0, 0, 0, 0] }} />
+        <Chart label="Even teams" gold={false} data={{ teamOneMmrs: [2200, 1800, 1400, 1000], teamTwoMmrs: [2100, 1700, 1300, 900], teamOneAT: [0, 0, 0, 0], teamTwoAT: [0, 0, 0, 0] }} />
+        <Chart label="High MMR" gold={false} data={{ teamOneMmrs: [2500, 2300, 2100, 1900], teamTwoMmrs: [2400, 2200, 2000, 1800], teamOneAT: [0, 0, 0, 0], teamTwoAT: [0, 0, 0, 0] }} />
+        <Chart label="Low MMR" gold={false} data={{ teamOneMmrs: [1400, 1200, 1000, 800], teamTwoMmrs: [1300, 1100, 900, 750], teamOneAT: [0, 0, 0, 0], teamTwoAT: [0, 0, 0, 0] }} />
+        <Chart label="Skill gap" gold={false} data={{ teamOneMmrs: [2400, 2200, 2000, 1800], teamTwoMmrs: [1400, 1200, 1000, 800], teamOneAT: [0, 0, 0, 0], teamTwoAT: [0, 0, 0, 0] }} />
       </Section>
 
       <Section
@@ -67,10 +67,10 @@ const DesignLab = () => (
         title="Collision Handling"
         description="When players have similar MMR, dots offset horizontally to avoid overlap. Higher MMR players get priority center position."
       >
-        <Chart label="No collision" gold={false} data={{ teamOneMmrs: [1900, 1800, 1700, 1600], teamTwoMmrs: [1880, 1780, 1680, 1580], teamOneAT: [0, 0, 0, 0], teamTwoAT: [0, 0, 0, 0] }} />
-        <Chart label="Two close" gold={false} data={{ teamOneMmrs: [1850, 1845, 1700, 1600], teamTwoMmrs: [1830, 1825, 1680, 1580], teamOneAT: [0, 0, 0, 0], teamTwoAT: [0, 0, 0, 0] }} />
-        <Chart label="Three close" gold={false} data={{ teamOneMmrs: [1850, 1848, 1846, 1650], teamTwoMmrs: [1830, 1828, 1826, 1630], teamOneAT: [0, 0, 0, 0], teamTwoAT: [0, 0, 0, 0] }} />
-        <Chart label="All identical" gold={false} data={{ teamOneMmrs: [1800, 1800, 1800, 1800], teamTwoMmrs: [1780, 1780, 1780, 1780], teamOneAT: [0, 0, 0, 0], teamTwoAT: [0, 0, 0, 0] }} />
+        <Chart label="No collision" gold={false} data={{ teamOneMmrs: [2200, 1800, 1400, 1000], teamTwoMmrs: [2100, 1700, 1300, 900], teamOneAT: [0, 0, 0, 0], teamTwoAT: [0, 0, 0, 0] }} />
+        <Chart label="Two close" gold={false} data={{ teamOneMmrs: [2200, 2190, 1400, 1000], teamTwoMmrs: [2100, 2090, 1300, 900], teamOneAT: [0, 0, 0, 0], teamTwoAT: [0, 0, 0, 0] }} />
+        <Chart label="Three close" gold={false} data={{ teamOneMmrs: [2200, 2195, 2190, 1000], teamTwoMmrs: [2100, 2095, 2090, 900], teamOneAT: [0, 0, 0, 0], teamTwoAT: [0, 0, 0, 0] }} />
+        <Chart label="All identical" gold={false} data={{ teamOneMmrs: [1700, 1700, 1700, 1700], teamTwoMmrs: [1650, 1650, 1650, 1650], teamOneAT: [0, 0, 0, 0], teamTwoAT: [0, 0, 0, 0] }} />
       </Section>
 
       <Section
@@ -78,10 +78,10 @@ const DesignLab = () => (
         title="Arranged Teams"
         description={<>Players queuing together shown as combined circle. <span style={{ fontFamily: "var(--font-mono)", color: "var(--gold)" }}>r = base × √n × √1.6</span>. Segments separated by 5px gaps, rotated 45°.</>}
       >
-        <Chart label="2-stack (duo)" data={{ teamOneMmrs: [1850, 1850, 1750, 1650], teamTwoMmrs: [1830, 1830, 1730, 1630], teamOneAT: [2, 2, 0, 0], teamTwoAT: [2, 2, 0, 0] }} />
-        <Chart label="3-stack (trio)" data={{ teamOneMmrs: [1850, 1850, 1850, 1650], teamTwoMmrs: [1830, 1830, 1830, 1630], teamOneAT: [3, 3, 3, 0], teamTwoAT: [3, 3, 3, 0] }} />
-        <Chart label="4-stack (premade)" data={{ teamOneMmrs: [1800, 1800, 1800, 1800], teamTwoMmrs: [1780, 1780, 1780, 1780], teamOneAT: [4, 4, 4, 4], teamTwoAT: [4, 4, 4, 4] }} />
-        <Chart label="2+2 stacks (same team)" data={{ teamOneMmrs: [1900, 1900, 1700, 1700], teamTwoMmrs: [1880, 1880, 1680, 1680], teamOneAT: [2, 2, 2, 2], teamTwoAT: [2, 2, 2, 2] }} />
+        <Chart label="2-stack (duo)" data={{ teamOneMmrs: [2000, 2000, 1400, 1000], teamTwoMmrs: [1900, 1900, 1300, 900], teamOneAT: [2, 2, 0, 0], teamTwoAT: [2, 2, 0, 0] }} />
+        <Chart label="3-stack (trio)" data={{ teamOneMmrs: [1800, 1800, 1800, 1000], teamTwoMmrs: [1700, 1700, 1700, 900], teamOneAT: [3, 3, 3, 0], teamTwoAT: [3, 3, 3, 0] }} />
+        <Chart label="4-stack (premade)" data={{ teamOneMmrs: [1700, 1700, 1700, 1700], teamTwoMmrs: [1600, 1600, 1600, 1600], teamOneAT: [4, 4, 4, 4], teamTwoAT: [4, 4, 4, 4] }} />
+        <Chart label="2+2 stacks (same team)" data={{ teamOneMmrs: [2200, 2200, 1200, 1200], teamTwoMmrs: [2100, 2100, 1100, 1100], teamOneAT: [2, 2, 2, 2], teamTwoAT: [2, 2, 2, 2] }} />
       </Section>
 
       <Section
@@ -89,10 +89,10 @@ const DesignLab = () => (
         title="AT + Solo Collisions"
         description="Solo players near AT groups pushed away horizontally. AT circles get priority center positioning."
       >
-        <Chart label="Solo near 2-stack" data={{ teamOneMmrs: [1850, 1850, 1855, 1700], teamTwoMmrs: [1830, 1830, 1835, 1680], teamOneAT: [2, 2, 0, 0], teamTwoAT: [2, 2, 0, 0] }} />
-        <Chart label="Solo near 3-stack" data={{ teamOneMmrs: [1850, 1850, 1850, 1855], teamTwoMmrs: [1830, 1830, 1830, 1835], teamOneAT: [3, 3, 3, 0], teamTwoAT: [3, 3, 3, 0] }} />
-        <Chart label="4-stack vs solos" data={{ teamOneMmrs: [1800, 1800, 1800, 1800], teamTwoMmrs: [1850, 1800, 1750, 1700], teamOneAT: [4, 4, 4, 4], teamTwoAT: [0, 0, 0, 0] }} />
-        <Chart label="3-stack vs 2-stack" data={{ teamOneMmrs: [1850, 1850, 1850, 1700], teamTwoMmrs: [1830, 1830, 1730, 1680], teamOneAT: [3, 3, 3, 0], teamTwoAT: [2, 2, 0, 0] }} />
+        <Chart label="Solo near 2-stack" data={{ teamOneMmrs: [2000, 2000, 2010, 1200], teamTwoMmrs: [1900, 1900, 1910, 1100], teamOneAT: [2, 2, 0, 0], teamTwoAT: [2, 2, 0, 0] }} />
+        <Chart label="Solo near 3-stack" data={{ teamOneMmrs: [1800, 1800, 1800, 1810], teamTwoMmrs: [1700, 1700, 1700, 1710], teamOneAT: [3, 3, 3, 0], teamTwoAT: [3, 3, 3, 0] }} />
+        <Chart label="4-stack vs solos" data={{ teamOneMmrs: [1700, 1700, 1700, 1700], teamTwoMmrs: [2000, 1700, 1400, 1100], teamOneAT: [4, 4, 4, 4], teamTwoAT: [0, 0, 0, 0] }} />
+        <Chart label="3-stack vs 2-stack" data={{ teamOneMmrs: [2000, 2000, 2000, 1200], teamTwoMmrs: [1800, 1800, 1400, 1000], teamOneAT: [3, 3, 3, 0], teamTwoAT: [2, 2, 0, 0] }} />
       </Section>
 
     </div>
