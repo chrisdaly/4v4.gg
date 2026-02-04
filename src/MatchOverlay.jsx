@@ -145,6 +145,7 @@ const MatchOverlay = ({ matchData, atGroups = {}, sessionData = {}, mmrDuration 
               teamTwoAT: team2.map(p => isAT(p.battleTag)),
             }}
             compact={true}
+            atStyle="combined"
           />
           <span className="mo-vs">vs</span>
         </div>

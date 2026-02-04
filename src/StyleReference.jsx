@@ -1,4 +1,4 @@
-import React from "react";
+import React, { useState } from "react";
 import styled from "styled-components";
 import {
   colors,
@@ -13,6 +13,7 @@ import {
   patterns,
   components,
 } from "./design-tokens";
+import { MmrComparison } from "./MmrComparison";
 
 const Page = styled.div`
   padding: var(--space-8);
@@ -205,12 +206,56 @@ const Note = styled.p`
   font-style: italic;
 `;
 
+const SliderRow = styled.div`
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+  margin-bottom: var(--space-2);
+`;
+
+const SliderLabel = styled.label`
+  font-family: var(--font-mono);
+  font-size: var(--text-xs);
+  color: var(--grey-light);
+  min-width: 100px;
+`;
+
+const SliderInput = styled.input`
+  flex: 1;
+  accent-color: var(--gold);
+`;
+
+const SliderValue = styled.span`
+  font-family: var(--font-mono);
+  font-size: var(--text-xs);
+  color: var(--gold);
+  min-width: 50px;
+  text-align: right;
+`;
+
+const Checkbox = styled.input`
+  accent-color: var(--gold);
+`;
+
 // ============================================
 
 const StyleReference = () => {
   const colorEntries = Object.entries(colors);
   const spacingEntries = Object.entries(spacing);
   const typeEntries = Object.entries(typeScale);
+
+  // Pie config state for interactive playground
+  const [pieConfig, setPieConfig] = useState({
+    gapAngle: 0.5,
+    radius: 10,
+    innerRadius: 0,
+    showRing: false,
+    showLines: false,
+  });
+
+  const updatePieConfig = (key, value) => {
+    setPieConfig(prev => ({ ...prev, [key]: value }));
+  };
 
   return (
     <Page>
@@ -568,6 +613,165 @@ const StyleReference = () => {
               <code style={{ fontFamily: 'var(--font-mono)', fontSize: 10, color: 'var(--grey-light)' }}>{pattern.css}</code>
             </div>
           ))}
+        </div>
+      </Section>
+
+      {/* MMR CHARTS - INTERACTIVE PLAYGROUND */}
+      <Section>
+        <SectionTitle>MMR Chart - Pie Tuning Playground</SectionTitle>
+        <Note>Adjust sliders to tune the unified pie visualization for AT groups.</Note>
+
+        {/* Controls */}
+        <div style={{ background: 'var(--surface-2)', padding: 'var(--space-4)', borderRadius: 'var(--radius-md)', marginBottom: 'var(--space-4)' }}>
+          <SliderRow>
+            <SliderLabel>Gap Angle</SliderLabel>
+            <SliderInput
+              type="range"
+              min="0"
+              max="1.5"
+              step="0.05"
+              value={pieConfig.gapAngle}
+              onChange={e => updatePieConfig('gapAngle', parseFloat(e.target.value))}
+            />
+            <SliderValue>{pieConfig.gapAngle.toFixed(2)}</SliderValue>
+          </SliderRow>
+
+          <SliderRow>
+            <SliderLabel>Radius</SliderLabel>
+            <SliderInput
+              type="range"
+              min="4"
+              max="20"
+              step="1"
+              value={pieConfig.radius}
+              onChange={e => updatePieConfig('radius', parseFloat(e.target.value))}
+            />
+            <SliderValue>{pieConfig.radius}px</SliderValue>
+          </SliderRow>
+
+          <SliderRow>
+            <SliderLabel>Inner Radius</SliderLabel>
+            <SliderInput
+              type="range"
+              min="0"
+              max="10"
+              step="1"
+              value={pieConfig.innerRadius}
+              onChange={e => updatePieConfig('innerRadius', parseFloat(e.target.value))}
+            />
+            <SliderValue>{pieConfig.innerRadius}px</SliderValue>
+          </SliderRow>
+
+          <SliderRow>
+            <SliderLabel>Show Ring</SliderLabel>
+            <Checkbox
+              type="checkbox"
+              checked={pieConfig.showRing}
+              onChange={e => updatePieConfig('showRing', e.target.checked)}
+            />
+          </SliderRow>
+
+          <SliderRow>
+            <SliderLabel>Show Lines</SliderLabel>
+            <Checkbox
+              type="checkbox"
+              checked={pieConfig.showLines}
+              onChange={e => updatePieConfig('showLines', e.target.checked)}
+            />
+          </SliderRow>
+        </div>
+
+        {/* Live Preview - All Stack Sizes */}
+        <div style={{ marginBottom: 'var(--space-4)' }}>
+          <div style={{ fontFamily: 'var(--font-mono)', fontSize: 'var(--text-xs)', color: 'var(--gold)', marginBottom: 'var(--space-2)' }}>
+            Live Preview: 2-stack, 3-stack, 4-stack
+          </div>
+          <Grid style={{ gridTemplateColumns: 'repeat(3, 1fr)', gap: 'var(--space-4)' }}>
+            {/* 2-stack */}
+            <div>
+              <div style={{ height: 180, background: 'var(--surface-1)', borderRadius: 'var(--radius-md)', padding: 'var(--space-2)' }}>
+                <MmrComparison
+                  data={{
+                    teamOneMmrs: [1850, 1900, 1750, 2000],
+                    teamTwoMmrs: [1820, 1880, 1700, 1950],
+                    teamOneAT: [2, 2, 0, 0],
+                    teamTwoAT: [2, 2, 0, 0],
+                  }}
+                  atStyle="combined"
+                  pieConfig={pieConfig}
+                />
+              </div>
+              <div style={{ color: 'var(--grey-light)', fontSize: 'var(--text-xs)', marginTop: 'var(--space-2)', textAlign: 'center' }}>
+                2-stack (duo)
+              </div>
+            </div>
+
+            {/* 3-stack */}
+            <div>
+              <div style={{ height: 180, background: 'var(--surface-1)', borderRadius: 'var(--radius-md)', padding: 'var(--space-2)' }}>
+                <MmrComparison
+                  data={{
+                    teamOneMmrs: [1850, 1900, 1750, 2000],
+                    teamTwoMmrs: [1820, 1880, 1700, 1950],
+                    teamOneAT: [3, 3, 3, 0],
+                    teamTwoAT: [3, 3, 3, 0],
+                  }}
+                  atStyle="combined"
+                  pieConfig={pieConfig}
+                />
+              </div>
+              <div style={{ color: 'var(--grey-light)', fontSize: 'var(--text-xs)', marginTop: 'var(--space-2)', textAlign: 'center' }}>
+                3-stack (trio)
+              </div>
+            </div>
+
+            {/* 4-stack */}
+            <div>
+              <div style={{ height: 180, background: 'var(--surface-1)', borderRadius: 'var(--radius-md)', padding: 'var(--space-2)' }}>
+                <MmrComparison
+                  data={{
+                    teamOneMmrs: [1850, 1900, 1750, 2000],
+                    teamTwoMmrs: [1820, 1880, 1700, 1950],
+                    teamOneAT: [4, 4, 4, 4],
+                    teamTwoAT: [4, 4, 4, 4],
+                  }}
+                  atStyle="combined"
+                  pieConfig={pieConfig}
+                />
+              </div>
+              <div style={{ color: 'var(--grey-light)', fontSize: 'var(--text-xs)', marginTop: 'var(--space-2)', textAlign: 'center' }}>
+                4-stack (full team)
+              </div>
+            </div>
+          </Grid>
+        </div>
+
+        {/* Mixed scenario */}
+        <div style={{ marginBottom: 'var(--space-4)' }}>
+          <div style={{ fontFamily: 'var(--font-mono)', fontSize: 'var(--text-xs)', color: 'var(--gold)', marginBottom: 'var(--space-2)' }}>
+            Mixed: Team 1 has 2-stack, Team 2 all solo
+          </div>
+          <div style={{ maxWidth: 250 }}>
+            <div style={{ height: 180, background: 'var(--surface-1)', borderRadius: 'var(--radius-md)', padding: 'var(--space-2)' }}>
+              <MmrComparison
+                data={{
+                  teamOneMmrs: [1850, 1855, 1700, 2100],
+                  teamTwoMmrs: [1820, 1825, 1830, 1900],
+                  teamOneAT: [2, 2, 0, 0],
+                  teamTwoAT: [0, 0, 0, 0],
+                }}
+                atStyle="combined"
+                pieConfig={pieConfig}
+              />
+            </div>
+          </div>
+        </div>
+
+        {/* Config output */}
+        <div style={{ background: 'var(--grey-dark)', padding: 'var(--space-2)', borderRadius: 'var(--radius-sm)', marginTop: 'var(--space-4)' }}>
+          <div style={{ fontFamily: 'var(--font-mono)', fontSize: 10, color: 'var(--grey-light)' }}>
+            pieConfig = {JSON.stringify(pieConfig)}
+          </div>
         </div>
       </Section>
 

@@ -422,6 +422,7 @@ const Game = ({ playerData: rawPlayerData, metaData, profilePics, playerCountrie
                             teamTwoAT: playerData.slice(4).map((d) => getATGroupSize(d.battleTag)),
                           }}
                           compact={compact}
+                          atStyle="combined"
                         />
                       </div>
                     </th>
