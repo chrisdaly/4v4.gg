@@ -76,12 +76,12 @@ const DesignLab = () => (
       <Section
         number="03"
         title="Arranged Teams"
-        description={<>AT players share MMR—without distinction they'd look like collision-offset solos. Solution: combine into one circle (area = sum of individuals × 1.6), split into n segments with 5px gaps.</>}
+        description="AT players share MMR. Without distinction they'd look like collision-offset solos. Solution: combine into one circle (area = sum of individuals × 1.6), split into n segments with 5px gaps."
       >
         <Chart label="2-stack (duo)" data={{ teamOneMmrs: [2000, 2000, 1400, 1000], teamTwoMmrs: [1900, 1900, 1300, 900], teamOneAT: [2, 2, 0, 0], teamTwoAT: [2, 2, 0, 0] }} />
         <Chart label="3-stack (trio)" data={{ teamOneMmrs: [1800, 1800, 1800, 1000], teamTwoMmrs: [1700, 1700, 1700, 900], teamOneAT: [3, 3, 3, 0], teamTwoAT: [3, 3, 3, 0] }} />
         <Chart label="4-stack (premade)" data={{ teamOneMmrs: [1700, 1700, 1700, 1700], teamTwoMmrs: [1600, 1600, 1600, 1600], teamOneAT: [4, 4, 4, 4], teamTwoAT: [4, 4, 4, 4] }} />
-        <Chart label="2+2 stacks (same team)" data={{ teamOneMmrs: [2200, 2200, 1200, 1200], teamTwoMmrs: [2100, 2100, 1100, 1100], teamOneAT: [2, 2, 2, 2], teamTwoAT: [2, 2, 2, 2] }} />
+        <Chart label="2-stack + spread solos" data={{ teamOneMmrs: [2200, 2200, 1400, 900], teamTwoMmrs: [2100, 2100, 1300, 850], teamOneAT: [2, 2, 0, 0], teamTwoAT: [2, 2, 0, 0] }} />
       </Section>
 
       <Section
