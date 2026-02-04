@@ -2,6 +2,8 @@ import React, { useState, useEffect, useMemo } from "react";
 import { Flag } from "semantic-ui-react";
 import Navbar from "./Navbar.jsx";
 import { gateway } from "./params";
+import { cache } from "./cache";
+import { getSeasons, getLadder, getLadderCached } from "./api";
 import "./Stats.css";
 
 import grandmasterIcon from "./icons/grandmaster.png";
@@ -618,7 +620,20 @@ const MapPopularity = ({ mapData, selectedSeason, isLoading }) => {
   );
 };
 
+// Helper to get cached stats data
+const getCachedStatsData = (season) => {
+  const cacheKey = `statsPage:${season}`;
+  return cache.get(cacheKey);
+};
+
+const getCachedW3CStats = () => {
+  return cache.get('w3cStats');
+};
+
 const Stats = () => {
+  // Try to initialize from cache
+  const cachedW3C = getCachedW3CStats();
+
   const [selectedSeason, setSelectedSeason] = useState(null);
   const [selectedLeague, setSelectedLeague] = useState(null);
   const [selectedRace, setSelectedRace] = useState(null);
@@ -628,37 +643,51 @@ const Stats = () => {
   const [playerCountries, setPlayerCountries] = useState({});
   const [isLoading, setIsLoading] = useState(true);
 
-  // W3C Stats API data
+  // W3C Stats API data - initialize from cache
   const [mmrData, setMmrData] = useState(null);
-  const [hoursData, setHoursData] = useState(null);
-  const [lengthData, setLengthData] = useState(null);
-  const [mapData, setMapData] = useState(null);
-  const [isLoadingStats, setIsLoadingStats] = useState(true);
+  const [hoursData, setHoursData] = useState(cachedW3C?.hours || null);
+  const [lengthData, setLengthData] = useState(cachedW3C?.lengths || null);
+  const [mapData, setMapData] = useState(cachedW3C?.maps || null);
+  const [isLoadingStats, setIsLoadingStats] = useState(!cachedW3C);
 
   // Fetch available seasons on mount
   useEffect(() => {
-    const fetchSeasons = async () => {
+    const fetchSeasonsData = async () => {
       try {
-        const response = await fetch(
-          "https://website-backend.w3champions.com/api/ladder/seasons"
-        );
-        const seasons = await response.json();
+        const seasons = await getSeasons();
         if (seasons && seasons.length > 0) {
           setAvailableSeasons(seasons);
-          setSelectedSeason(seasons[0].id);
+          const latestSeason = seasons[0].id;
+          setSelectedSeason(latestSeason);
+
+          // Check if we have cached stats data for instant display
+          const cachedData = getCachedStatsData(latestSeason);
+          if (cachedData) {
+            setLeagueData(cachedData.leagueData || {});
+            setPlayerCountries(cachedData.countries || {});
+            setMmrData(cachedData.mmrData || null);
+            setIsLoading(false);
+          }
         }
       } catch (e) {
         console.error("Failed to fetch seasons:", e);
         setSelectedSeason(24);
       }
     };
-    fetchSeasons();
+    fetchSeasonsData();
   }, []);
 
-  // Fetch W3C stats (not season-dependent)
+  // Fetch W3C stats (not season-dependent) - with caching
   useEffect(() => {
     const fetchW3CStats = async () => {
-      setIsLoadingStats(true);
+      // Skip if we have cached data
+      if (cachedW3C) {
+        setIsLoadingStats(false);
+        // Still refresh in background
+      } else {
+        setIsLoadingStats(true);
+      }
+
       try {
         const [hoursRes, lengthRes, mapRes] = await Promise.all([
           fetch("https://website-backend.w3champions.com/api/w3c-stats/popular-hours"),
@@ -675,6 +704,9 @@ const Stats = () => {
         setHoursData(hours);
         setLengthData(lengths);
         setMapData(maps);
+
+        // Cache W3C stats (10 minute TTL)
+        cache.set('w3cStats', { hours, lengths, maps }, 10 * 60 * 1000);
       } catch (e) {
         console.error("Failed to fetch W3C stats:", e);
       } finally {
@@ -685,17 +717,25 @@ const Stats = () => {
     fetchW3CStats();
   }, []);
 
-  // Fetch MMR distribution when season changes
+  // Fetch MMR distribution when season changes - with caching
   useEffect(() => {
     if (selectedSeason === null) return;
 
     const fetchMmrDistribution = async () => {
+      const cacheKey = `mmrDist:${selectedSeason}`;
+      const cached = cache.get(cacheKey);
+      if (cached) {
+        setMmrData(cached);
+        // Still refresh in background
+      }
+
       try {
         const response = await fetch(
           `https://website-backend.w3champions.com/api/w3c-stats/mmr-distribution?season=${selectedSeason}&gateWay=${gateway}&gameMode=4`
         );
         const data = await response.json();
         setMmrData(data);
+        cache.set(cacheKey, data, 10 * 60 * 1000);
       } catch (e) {
         console.error("Failed to fetch MMR distribution:", e);
       }
@@ -704,19 +744,30 @@ const Stats = () => {
     fetchMmrDistribution();
   }, [selectedSeason]);
 
-  // Fetch all league data when season changes
+  // Fetch all league data when season changes - with caching
   useEffect(() => {
     if (selectedSeason === null) return;
 
+    const statsCacheKey = `statsPage:${selectedSeason}`;
+
     const fetchAllLeagueData = async () => {
-      setIsLoading(true);
+      // Check cache first for instant display
+      const cachedData = getCachedStatsData(selectedSeason);
+      if (cachedData) {
+        setLeagueData(cachedData.leagueData || {});
+        setPlayerCountries(cachedData.countries || {});
+        setIsLoading(false);
+        // Still fetch fresh data in background
+      } else {
+        setIsLoading(true);
+      }
+
       const data = {};
 
       try {
+        // Use cached API for each league
         const promises = LEAGUES.map(async (league) => {
-          const url = `https://website-backend.w3champions.com/api/ladder/${league.id}?gateWay=${gateway}&gameMode=4&season=${selectedSeason}`;
-          const response = await fetch(url);
-          const result = await response.json();
+          const result = await getLadder(league.id, selectedSeason);
           return { id: league.id, players: Array.isArray(result) ? result : [] };
         });
 
@@ -736,6 +787,13 @@ const Stats = () => {
           }
         });
         setPlayerCountries(countries);
+
+        // Cache the combined stats page data (5 minute TTL)
+        cache.set(statsCacheKey, {
+          leagueData: data,
+          countries,
+          mmrData,
+        }, 5 * 60 * 1000);
       } catch (e) {
         console.error("Failed to fetch league data:", e);
       } finally {
