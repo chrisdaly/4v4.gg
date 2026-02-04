@@ -157,7 +157,7 @@ const DesignLab = () => (
         </div>
 
         <p>
-          So who wins the opening matchup? Blue, with a ~130 geometric mean advantage (roughly 68% win probability):
+          So who wins the opening matchup? Blue, with a ~130 geometric mean advantage:
         </p>
 
         <div className="blog-chart-row">
@@ -194,10 +194,10 @@ const DesignLab = () => (
           </div>
         </div>
 
-        <h2>Playing with friends</h2>
+        <h2>Arranged teams</h2>
 
         <p>
-          Some players queue together as an "arranged team" or AT. I show these as a single larger circle, split into segments. Area scales with group size, so radius scales with √n:
+          Some players queue together as an "arranged team" or AT, sharing a single MMR. Two friends at 1800 will outperform two strangers at 1800 since they coordinate and know each other's style, so the chart should distinguish them. I show ATs as a single circle split into segments, with area scaling to group size:
         </p>
 
         <div className="blog-visual-math">
@@ -263,7 +263,7 @@ const DesignLab = () => (
         </div>
 
         <p>
-          Segments show group size and distinguish ATs from coincidentally overlapping solos.
+          Segments tell you group size at a glance and prevent confusion with solos who happen to have similar MMR: randoms cluster as separate dots, friends form a single segmented circle.
         </p>
 
         <div className="blog-chart-row">
@@ -296,7 +296,7 @@ const DesignLab = () => (
         <h2>Gallery</h2>
 
         <p>
-          Every combination of team composition you might see in the wild.</p>
+          Every team composition you might see:</p>
 
         {/* Row 1: All solos */}
         <div className="blog-gallery-group">
