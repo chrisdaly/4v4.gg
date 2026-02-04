@@ -456,6 +456,14 @@ const MmrComparison = ({ data, compact = false, atStyle = "combined", pieConfig 
         .attr("r", combinedRadius)
         .attr("class", `dot ${teamClass}`)
         .attr("mask", `url(#${maskId})`);
+
+      // Draw small center circle to cover spread line ends visible through gaps
+      const centerCoverRadius = gapWidth * 0.8;
+      svg.append("circle")
+        .attr("cx", baseX)
+        .attr("cy", centerY)
+        .attr("r", centerCoverRadius)
+        .attr("class", `dot ${teamClass}`);
     };
 
     // Helper to draw unified pie for AT group - all slices at center position
