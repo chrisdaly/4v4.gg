@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useMemo } from "react";
-import { Flag } from "semantic-ui-react";
+import { CountryFlag } from "./components/ui";
 import Navbar from "./Navbar.jsx";
 import { gateway } from "./params";
 import { cache } from "./cache";
@@ -279,7 +279,7 @@ const CountryDistribution = ({ countryCounts, selectedCountry, onCountryClick, f
               onClick={() => onCountryClick(countryCode)}
             >
               <div className="stats-label">
-                <Flag name={countryCode.toLowerCase()} className="stats-flag" />
+                <CountryFlag name={countryCode.toLowerCase()} className="stats-flag" />
                 <span className="stats-item-name">{countryName}</span>
               </div>
               <div className="stats-bar-container">

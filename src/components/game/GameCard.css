@@ -192,7 +192,7 @@ a.game-card.gc-live:hover {
   align-items: center;
   gap: var(--space-4);
   font-size: var(--text-xxs);
-  color: var(--text-muted);
+  color: var(--grey-light);
 }
 
 .gc-meta-expanded {
@@ -200,7 +200,7 @@ a.game-card.gc-live:hover {
 }
 
 .gc-map-name {
-  color: var(--text-secondary);
+  color: var(--grey-light);
 }
 
 .gc-duration,
@@ -227,7 +227,7 @@ a.game-card.gc-live:hover {
 
 .gc-meta .gc-elapsed {
   font-size: var(--text-xxs);
-  color: var(--text-secondary);
+  color: var(--grey-light);
 }
 
 /* ============================================
@@ -279,7 +279,7 @@ a.game-card.gc-live:hover {
 .gc-name {
   font-family: var(--font-display);
   font-size: var(--text-xxs);
-  color: var(--text-secondary);
+  color: var(--grey-light);
   white-space: nowrap;
   overflow: hidden;
   text-overflow: ellipsis;
@@ -287,7 +287,7 @@ a.game-card.gc-live:hover {
 
 .gc-vs {
   font-size: var(--text-xxs);
-  color: var(--text-muted);
+  color: var(--grey-light);
   text-transform: uppercase;
   letter-spacing: 1px;
 }
@@ -311,7 +311,7 @@ a.game-card.gc-live:hover {
 .gc-team-mmr {
   font-family: var(--font-mono);
   font-size: var(--text-xxs);
-  color: var(--text-muted);
+  color: var(--grey-light);
 }
 
 .gc-team-players {
@@ -336,7 +336,7 @@ a.game-card.gc-live:hover {
   display: flex;
   align-items: center;
   font-size: var(--text-lg);
-  color: var(--text-muted);
+  color: var(--grey-light);
   padding-left: var(--space-2);
   transition: color 0.2s;
 }
@@ -716,7 +716,7 @@ a.game-card.gc-finished:hover {
 .gc-avg-mmr .gc-mmr-label {
   font-size: var(--text-xxs);
   font-weight: normal;
-  color: var(--text-muted);
+  color: var(--grey-light);
   text-transform: uppercase;
 }
 

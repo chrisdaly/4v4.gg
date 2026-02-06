@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from "react";
-import { Flag } from "semantic-ui-react";
 import { Link } from "react-router-dom";
+import { CountryFlag } from "./components/ui";
 import { findPlayerInOngoingMatches } from "./utils.jsx";
 import { getPlayerProfile, getPlayerTimelineMerged, getPlayerStats, getSeasons } from "./api";
 import { cache } from "./cache";
@@ -584,7 +584,7 @@ const PlayerProfile = () => {
           <div className="player-header-left">
             <div className="hd-pic-wrapper">
               {profilePic && <img src={profilePic} alt="" className="hd-pic" />}
-              {country && <Flag name={country.toLowerCase()} className="hd-flag" />}
+              {country && <CountryFlag name={country.toLowerCase()} className="hd-flag" />}
             </div>
             <div className="hd-info">
               <div className="hd-name-row">

@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from "react";
-import { Grid, Flag } from "semantic-ui-react";
+import { CountryFlag } from "./components/ui";
 import Mmr from "./Mmr.jsx";
 import { Sparklines, SparklinesLine } from "react-sparklines";
 import { akaLookup, fetchPlayerSessionData } from "./utils.jsx";
@@ -97,7 +97,7 @@ const Player = ({ data, side, transition, allMmrsgathered }) => {
   // Original layout when transition is not active
   const LeftSlot = () => {
     if (side === "left") {
-      return <Flag name={location?.toLowerCase()}></Flag>;
+      return <CountryFlag name={location?.toLowerCase()}> />;
     } else {
       return <img src={raceIcon} alt={race} className={"race"} />;
     }
@@ -105,32 +105,31 @@ const Player = ({ data, side, transition, allMmrsgathered }) => {
 
   const RightSlot = () => {
     if (side === "right") {
-      return <Flag name={location?.toLowerCase()}></Flag>;
+      return <CountryFlag name={location?.toLowerCase()}> />;
     } else {
       return <img src={raceIcon} alt={race} className={"race"} />;
     }
   };
 
   return (
-    <Grid divided="vertically" className={"playerCard"}>
-      <Grid.Row columns={1} className={"playerTop"}>
-        <Grid.Column width={16} className="playerName">
+    <div className="playerCard">
+      <div className="playerTop">
+        <div className="playerName">
           <h2><Name /></h2>
-        </Grid.Column>
-      </Grid.Row>
-
-      <Grid.Row columns={3} className={"playerBottom"}>
-        <Grid.Column width={4} className="number">
+        </div>
+      </div>
+      <div className="playerBottom three-columns">
+        <div className="number">
           <LeftSlot />
-        </Grid.Column>
-        <Grid.Column width={8}>
+        </div>
+        <div>
           <Mmr data={oldMmr}></Mmr>
-        </Grid.Column>
-        <Grid.Column width={4} className="number">
+        </div>
+        <div className="number">
           <RightSlot />
-        </Grid.Column>
-      </Grid.Row>
-    </Grid>
+        </div>
+      </div>
+    </div>
   );
 };
 

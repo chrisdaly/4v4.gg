@@ -1,5 +1,4 @@
 import React, { Component } from "react";
-import { Grid, Statistic, Label, GridColumn } from "semantic-ui-react";
 
 import { maps } from "./params";
 
@@ -65,23 +64,22 @@ class MatchHeader extends Component {
     }
 
     return (
-      <Grid.Row style={{ paddingBottom: "14px" }}>
-        <Grid.Column>
-          <Grid.Row>
+      <div className="match-header-row" style={{ paddingBottom: "14px" }}>
+        <div className="match-header-col">
+          <div className="match-header-inner">
             <a target="_blank" href={`/match/${this.props.id}`} rel="noreferrer">
               <img src={leagueIcon} alt={this.props.league} className={"league"} />
             </a>
             <h2 className={"mapLabel"}>{map}</h2>
-          </Grid.Row>
-          <Grid.Row>
-            {/* <Grid.Column>test</Grid.Column> */}
-            <Grid.Column>
+          </div>
+          <div className="match-header-inner">
+            <div>
               <div className={"pulsating-circle"} />
               <p>{text}</p>
-            </Grid.Column>
-          </Grid.Row>
-        </Grid.Column>
-      </Grid.Row>
+            </div>
+          </div>
+        </div>
+      </div>
     );
   }
 }

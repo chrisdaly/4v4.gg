@@ -63,7 +63,7 @@
 
 .gr-map-name {
   font-size: var(--text-xs);
-  color: var(--text-secondary);
+  color: var(--grey-light);
   white-space: nowrap;
   overflow: hidden;
   text-overflow: ellipsis;
@@ -125,7 +125,7 @@
 
 .gr-player-name {
   font-size: var(--text-xxs);
-  color: var(--text-secondary);
+  color: var(--grey-light);
   white-space: nowrap;
   overflow: hidden;
   text-overflow: ellipsis;
@@ -138,7 +138,7 @@
 .gr-time {
   font-family: var(--font-mono);
   font-size: var(--text-xxs);
-  color: var(--text-muted);
+  color: var(--grey-light);
 }
 
 /* Column alignment */

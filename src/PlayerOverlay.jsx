@@ -1,5 +1,5 @@
 import React from "react";
-import { Flag } from "semantic-ui-react";
+import { CountryFlag } from "./components/ui";
 import FormDots from "./FormDots.jsx";
 
 /**
@@ -137,7 +137,7 @@ const PlayerOverlay = ({ playerData, layout = "default", bgStyle = "bg-gradient-
               <div className="po-banner-pic po-pic-placeholder" />
             )}
           </div>
-          {country && <Flag name={country.toLowerCase()} className="po-banner-flag" />}
+          {country && <CountryFlag name={country.toLowerCase()} className="po-banner-flag" />}
         </div>
 
         {/* Name */}
@@ -180,7 +180,7 @@ const PlayerOverlay = ({ playerData, layout = "default", bgStyle = "bg-gradient-
         ) : (
           <div className="po-pic po-pic-placeholder" />
         )}
-        {country && <Flag name={country.toLowerCase()} className="po-flag" />}
+        {country && <CountryFlag name={country.toLowerCase()} className="po-flag" />}
       </div>
 
       {/* Name */}

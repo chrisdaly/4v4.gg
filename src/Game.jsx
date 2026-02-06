@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from "react";
-import { Flag, Table } from "semantic-ui-react";
 import { Link } from "react-router-dom";
+import { CountryFlag } from "./components/ui";
 import { FaTwitch } from "react-icons/fa";
 
 import { MmrComparison } from "./MmrComparison.jsx";
@@ -200,9 +200,9 @@ const Game = ({ playerData: rawPlayerData, metaData, profilePics, playerCountrie
       // console.log(percentiles[index]);
       const className = getCellStyle(percentiles[teamIndex * 4 + index]);
       return (
-        <Table.Cell key={`team${teamIndex + 1}-${index}`} className={`${className} number team-${teamIndex}`}>
+        <td key={`team${teamIndex + 1}-${index}`} className={`${className} number team-${teamIndex}`}>
           {value.toLocaleString("en-US")}
-        </Table.Cell>
+        </td>
       );
     });
   };
@@ -227,11 +227,11 @@ const Game = ({ playerData: rawPlayerData, metaData, profilePics, playerCountrie
 
         // Render the table row
         return (
-          <Table.Row key={statName} className="stat-row">
+          <tr key={statName} className="stat-row">
             {renderTableCells(scoreType, statName, 0, percentiles)}
-            <Table.Cell className="th-center stat-label">{keyDisplayNameMapping[statName] || statName}</Table.Cell>
+            <td className="th-center stat-label">{keyDisplayNameMapping[statName] || statName}</td>
             {renderTableCells(scoreType, statName, 1, percentiles)}
-          </Table.Row>
+          </tr>
         );
       });
   };
@@ -250,9 +250,9 @@ const Game = ({ playerData: rawPlayerData, metaData, profilePics, playerCountrie
       return <></>;
     }
     return (
-      <Table.Row className="heroes-row">
+      <tr className="heroes-row">
         {playerData.slice(0, 4).map((playerScore, index) => (
-          <Table.Cell key={`team1-hero-${index}`} className="hero-cell">
+          <td key={`team1-hero-${index}`} className="hero-cell">
             <div className="heroes-wrapper">
               {playerScore.heroes.map((hero, heroIndex) => (
                 <React.Fragment key={`team0-hero-${index}-${heroIndex}`}>
@@ -260,12 +260,12 @@ const Game = ({ playerData: rawPlayerData, metaData, profilePics, playerCountrie
                 </React.Fragment>
               ))}
             </div>
-          </Table.Cell>
+          </td>
         ))}
-        <Table.Cell className="th-center stat-label">Heroes</Table.Cell>
+        <td className="th-center stat-label">Heroes</td>
 
         {playerData.slice(4).map((playerScore, index) => (
-          <Table.Cell key={`team2-hero-${index}`} className="hero-cell">
+          <td key={`team2-hero-${index}`} className="hero-cell">
             <div className="heroes-wrapper">
               {playerScore.heroes.map((hero, heroIndex) => (
                 <React.Fragment key={`team1-hero-${index}-${heroIndex}`}>
@@ -273,9 +273,9 @@ const Game = ({ playerData: rawPlayerData, metaData, profilePics, playerCountrie
                 </React.Fragment>
               ))}
             </div>
-          </Table.Cell>
+          </td>
         ))}
-      </Table.Row>
+      </tr>
     );
   };
 
@@ -289,7 +289,7 @@ const Game = ({ playerData: rawPlayerData, metaData, profilePics, playerCountrie
     const playerRelation = getPlayerRelation(player.battleTag, playerIndex);
 
     return (
-      <Table.HeaderCell key={player.battleTag} style={{ position: 'relative', overflow: 'visible' }} className={`${playerRelation ? `at-${playerRelation}` : ""} ${playerIsAT ? "is-at" : ""}`}>
+      <th key={player.battleTag} style={{ position: 'relative', overflow: 'visible' }} className={`${playerRelation ? `at-${playerRelation}` : ""} ${playerIsAT ? "is-at" : ""}`}>
         <div
           className={`playerDiv ${compact ? "compact" : ""} ${playerRelation ? `at-${playerRelation}` : ""} ${playerIsAT ? "is-at" : ""}`}
         >
@@ -303,7 +303,7 @@ const Game = ({ playerData: rawPlayerData, metaData, profilePics, playerCountrie
               />
             ) : null}
             {playerCountries[player.battleTag] ? (
-              <Flag
+              <CountryFlag
                 name={playerCountries[player.battleTag].toLowerCase()}
                 className={`${teamClassName} flag player-flag`}
               />
@@ -358,7 +358,7 @@ const Game = ({ playerData: rawPlayerData, metaData, profilePics, playerCountrie
         </div>
         {/* AT connector line - positioned at cell level */}
         {showChain && <div className="at-connector" />}
-      </Table.HeaderCell>
+      </th>
     );
   };
 
@@ -378,9 +378,9 @@ const Game = ({ playerData: rawPlayerData, metaData, profilePics, playerCountrie
 
   return (
     <div className="Game">
-      <Table inverted size="small" basic className={`${compact ? "compactTable" : ""}`}>
-        <Table.Header>
-          <Table.Row>
+      <table className={`game-table ${compact ? "compactTable" : ""}`}>
+        <thead>
+          <tr>
             <th> </th>
             <th> </th>
             <th> </th>
@@ -432,10 +432,10 @@ const Game = ({ playerData: rawPlayerData, metaData, profilePics, playerCountrie
             <th> </th>
             <th> </th>
             <th> </th>
-          </Table.Row>
-        </Table.Header>
-        <Table.Header>
-          <Table.Row>
+          </tr>
+        </thead>
+        <thead>
+          <tr>
             {playerData.map((playerScore, index) => {
               const teamIndex = index < 4 ? 0 : 1;
               const teamClassName = `team-${teamIndex}`;
@@ -463,27 +463,27 @@ const Game = ({ playerData: rawPlayerData, metaData, profilePics, playerCountrie
                 </React.Fragment>
               );
             })}
-          </Table.Row>
-        </Table.Header>
+          </tr>
+        </thead>
 
-        <Table.Body>
+        <tbody>
           {!playerData[0].unitScore ? (
             <></>
           ) : (
             <>
               {renderHeroRows()}
               {renderTableRows("heroScore")}
-              <Table.Row className="section-divider">
+              <tr className="section-divider">
                 <td colSpan={9}></td>
-              </Table.Row>
+              </tr>
               {renderTableRows("unitScore")}
-              <Table.Row className="section-divider">
+              <tr className="section-divider">
                 <td colSpan={9}></td>
-              </Table.Row>
+              </tr>
               {renderTableRows("resourceScore")}
             </>
           )}
-          <Table.Row className="meta">
+          <tr className="meta">
             <td colSpan={9}>
               <div className="meta-bar">
                 <div className="meta-map-centered">
@@ -515,9 +515,9 @@ const Game = ({ playerData: rawPlayerData, metaData, profilePics, playerCountrie
                 )}
               </div>
             </td>
-          </Table.Row>
-        </Table.Body>
-      </Table>
+          </tr>
+        </tbody>
+      </table>
     </div>
   );
 };

@@ -329,3 +329,303 @@ export const MmrBarLabels = styled.div`
   color: var(--grey-light);
   margin-top: var(--space-1);
 `;
+
+// ============================================
+// TYPOGRAPHY
+// ============================================
+
+export const H1 = styled.h1`
+  font-family: var(--font-display);
+  font-size: var(--text-xl);
+  color: var(--gold);
+  margin: 0;
+  line-height: 1.2;
+`;
+
+export const H2 = styled.h2`
+  font-family: var(--font-display);
+  font-size: var(--text-lg);
+  color: ${p => p.$gold ? 'var(--gold)' : '#fff'};
+  margin: 0;
+  line-height: 1.3;
+`;
+
+export const H3 = styled.h3`
+  font-family: var(--font-display);
+  font-size: var(--text-base);
+  color: ${p => p.$gold ? 'var(--gold)' : '#fff'};
+  margin: 0;
+  line-height: 1.4;
+`;
+
+export const Text = styled.p`
+  font-family: ${p => p.$mono ? 'var(--font-mono)' : 'inherit'};
+  font-size: ${p => p.$size || 'var(--text-base)'};
+  color: ${p => p.$muted ? 'var(--grey-light)' : '#fff'};
+  margin: 0;
+  line-height: 1.6;
+`;
+
+export const Code = styled.code`
+  font-family: var(--font-mono);
+  font-size: ${p => p.$size || 'var(--text-sm)'};
+  background: ${p => p.$block ? 'var(--grey-dark)' : 'rgba(255, 255, 255, 0.1)'};
+  color: ${p => p.$dim ? 'var(--grey-light)' : '#fff'};
+  padding: ${p => p.$block ? 'var(--space-4)' : '2px 6px'};
+  border-radius: var(--radius-sm);
+  ${p => p.$block && `display: block; overflow-x: auto;`}
+  ${p => p.$url && `word-break: break-all;`}
+`;
+
+export const Pre = styled.pre`
+  font-family: var(--font-mono);
+  font-size: var(--text-sm);
+  background: var(--grey-dark);
+  color: #fff;
+  padding: var(--space-4);
+  border-radius: var(--radius-md);
+  overflow-x: auto;
+  margin: 0;
+`;
+
+// ============================================
+// FORM COMPONENTS
+// ============================================
+
+export const Select = styled.select`
+  font-family: var(--font-display);
+  font-size: var(--text-sm);
+  background: linear-gradient(180deg, rgba(30,30,30,0.95), rgba(15,15,15,0.98));
+  border: 1px solid rgba(252,219,51,0.3);
+  border-radius: var(--radius-md);
+  color: var(--gold);
+  padding: var(--space-2) 28px var(--space-2) var(--space-4);
+  cursor: pointer;
+  appearance: none;
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='12' viewBox='0 0 12 12'%3E%3Cpath fill='%23fcdb33' d='M6 8L2 4h8z'/%3E%3C/svg%3E");
+  background-repeat: no-repeat;
+  background-position: right 8px center;
+
+  &:hover {
+    border-color: rgba(252,219,51,0.5);
+  }
+
+  &:focus {
+    outline: none;
+    border-color: var(--gold);
+  }
+`;
+
+export const Input = styled.input`
+  font-family: var(--font-mono);
+  font-size: var(--text-sm);
+  background: var(--grey-dark);
+  border: 1px solid ${p => p.$error ? 'var(--red)' : 'var(--grey-mid)'};
+  border-radius: var(--radius-md);
+  color: #fff;
+  padding: var(--space-2) var(--space-4);
+  width: ${p => p.$fullWidth ? '100%' : 'auto'};
+
+  &::placeholder {
+    color: var(--grey-light);
+  }
+
+  &:focus {
+    outline: none;
+    border-color: ${p => p.$error ? 'var(--red)' : 'var(--gold)'};
+  }
+`;
+
+export const FieldGroup = styled.div`
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-1);
+`;
+
+export const FieldLabel = styled.label`
+  font-family: var(--font-mono);
+  font-size: var(--text-xs);
+  text-transform: uppercase;
+  letter-spacing: 0.1em;
+  color: var(--grey-light);
+`;
+
+// ============================================
+// LAYOUT COMPONENTS
+// ============================================
+
+export const Grid = styled.div`
+  display: grid;
+  grid-template-columns: ${p => p.$cols ? `repeat(${p.$cols}, 1fr)` : '1fr'};
+  gap: ${p => p.$gap || 'var(--space-4)'};
+  ${p => p.$responsive && `
+    @media (max-width: 768px) {
+      grid-template-columns: 1fr;
+    }
+  `}
+`;
+
+export const Page = styled.div`
+  min-height: 100vh;
+  padding: var(--space-6);
+  max-width: 1200px;
+  margin: 0 auto;
+`;
+
+export const Section = styled.section`
+  padding: var(--space-6) 0;
+  ${p => p.$border && `border-bottom: 1px solid var(--grey-mid);`}
+`;
+
+export const Container = styled.div`
+  max-width: ${p => p.$width || '1200px'};
+  margin: 0 auto;
+  padding: 0 var(--space-4);
+`;
+
+// ============================================
+// FEEDBACK COMPONENTS
+// ============================================
+
+export const TipBox = styled.div`
+  padding: var(--space-4);
+  border-radius: var(--radius-md);
+  border: 1px solid ${p =>
+    p.$variant === 'gold' ? 'rgba(252, 219, 51, 0.3)' :
+    p.$variant === 'green' ? 'rgba(74, 222, 128, 0.3)' :
+    p.$variant === 'red' ? 'rgba(248, 113, 113, 0.3)' :
+    'var(--grey-mid)'
+  };
+  background: ${p =>
+    p.$variant === 'gold' ? 'var(--gold-tint)' :
+    p.$variant === 'green' ? 'var(--green-tint)' :
+    p.$variant === 'red' ? 'var(--red-tint)' :
+    'var(--surface-1)'
+  };
+`;
+
+export const Note = styled.p`
+  font-family: var(--font-mono);
+  font-size: var(--text-xs);
+  color: var(--grey-light);
+  margin: 0;
+`;
+
+export const StepIndicator = styled.div`
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 24px;
+  height: 24px;
+  border-radius: 50%;
+  background: ${p => p.$active ? 'var(--gold)' : 'var(--grey-mid)'};
+  color: ${p => p.$active ? '#0a0a0a' : '#fff'};
+  font-family: var(--font-mono);
+  font-size: var(--text-xs);
+  font-weight: bold;
+`;
+
+// ============================================
+// MODAL COMPONENTS
+// ============================================
+
+export const ModalBackdrop = styled.div`
+  position: fixed;
+  inset: 0;
+  background: var(--overlay-heavy);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: var(--z-modal);
+`;
+
+export const ModalContent = styled.div`
+  background: var(--grey-dark);
+  border: 1px solid var(--grey-mid);
+  border-radius: var(--radius-md);
+  padding: var(--space-6);
+  max-height: 90vh;
+  overflow-y: auto;
+  width: ${p =>
+    p.$size === 'sm' ? '400px' :
+    p.$size === 'lg' ? '800px' :
+    '600px'
+  };
+  max-width: 90vw;
+`;
+
+// ============================================
+// TABLE COMPONENTS
+// ============================================
+
+export const Table = styled.table`
+  width: 100%;
+  border-collapse: collapse;
+  background: transparent;
+`;
+
+export const TableRow = styled.tr`
+  border-bottom: 1px solid var(--surface-3);
+  ${p => p.$hover && `
+    &:hover {
+      background: var(--surface-2);
+    }
+  `}
+  ${p => p.$striped && `
+    &:nth-child(odd) {
+      background: var(--surface-1);
+    }
+  `}
+`;
+
+export const TableCell = styled.td`
+  padding: var(--space-2) var(--space-4);
+  text-align: ${p => p.$align || 'left'};
+  font-family: ${p => p.$mono ? 'var(--font-mono)' : 'inherit'};
+  color: ${p => p.$muted ? 'var(--grey-light)' : '#fff'};
+`;
+
+export const TableHeaderCell = styled.th`
+  padding: var(--space-2) var(--space-4);
+  text-align: ${p => p.$align || 'left'};
+  font-family: var(--font-mono);
+  font-size: var(--text-xs);
+  text-transform: uppercase;
+  letter-spacing: 0.1em;
+  color: var(--grey-light);
+  font-weight: normal;
+  border-bottom: 1px solid var(--grey-mid);
+`;
+
+// ============================================
+// COUNTRY FLAG
+// ============================================
+
+const FlagImg = styled.img`
+  width: 16px;
+  height: 11px;
+  display: inline-block;
+  vertical-align: baseline;
+`;
+
+/**
+ * CountryFlag - Replaces Semantic UI Flag component
+ * Uses flagcdn.com for flag images
+ * @param {string} name - Country code (e.g., "us", "gb", "de")
+ * @param {string} className - Optional CSS class
+ * @param {object} style - Optional inline styles
+ */
+export const CountryFlag = ({ name, className, style }) => {
+  if (!name) return null;
+  const code = name.toLowerCase();
+  return (
+    <FlagImg
+      src={`https://flagcdn.com/16x12/${code}.png`}
+      srcSet={`https://flagcdn.com/32x24/${code}.png 2x`}
+      alt={code}
+      className={className}
+      style={style}
+      loading="lazy"
+    />
+  );
+};

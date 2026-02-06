@@ -21,6 +21,8 @@ export const colors = {
   white: { value: '#fff', css: '--white', usage: 'Primary text' },
   teamBlue: { value: '#4da6ff', css: '--team-blue', usage: 'Team 1 indicator' },
   teamRed: { value: '#ef4444', css: '--team-red', usage: 'Team 2 indicator' },
+  twitchPurple: { value: '#9146ff', css: '--twitch-purple', usage: 'Twitch branding' },
+  atPurple: { value: '#8b5cf6', css: '--at-purple', usage: 'AT team indicators' },
 };
 
 export const fonts = {

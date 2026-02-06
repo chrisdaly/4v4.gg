@@ -1,6 +1,5 @@
 import React, { Component } from "react";
-
-import { Container, Flag, Header, Table, Rating } from "semantic-ui-react";
+import { CountryFlag } from "./components/ui";
 import { Sparklines, SparklinesLine, SparklinesSpots } from "react-sparklines";
 
 import { gameMode, gateway, season } from "./params";
@@ -76,33 +75,31 @@ class RankRow extends Component {
     const raceIcon = raceMapping[this.state.race];
 
     return (
-      <Table.Row>
-        <Table.Cell>
-          <Header textAlign="center" inverted>
-            {this.props.rank.rankNumber}
-          </Header>
-        </Table.Cell>
-        <Table.Cell>{this.props.rank.rankingPoints.toFixed(2)}</Table.Cell>
-        <Table.Cell textAlign="center">
-          <img src={raceIcon} alt={this.state.race} className={"race"} textAlign="center" style={{ width: "30px" }} />
-        </Table.Cell>
-        <Table.Cell singleLine>
+      <tr>
+        <td style={{ textAlign: "center" }}>
+          <span className="rank-number">{this.props.rank.rankNumber}</span>
+        </td>
+        <td>{this.props.rank.rankingPoints.toFixed(2)}</td>
+        <td style={{ textAlign: "center" }}>
+          <img src={raceIcon} alt={this.state.race} className={"race"} style={{ width: "30px" }} />
+        </td>
+        <td style={{ whiteSpace: "nowrap" }}>
           <a target="_blank" href={`/player/${battleTag.replace("#", "%23")}`} rel="noreferrer">
             {name}
           </a>
-        </Table.Cell>
+        </td>
 
-        <Table.Cell textAlign="right">{mmr}</Table.Cell>
-        <Table.Cell>{wins}</Table.Cell>
-        <Table.Cell>{losses}</Table.Cell>
-        <Table.Cell>{Math.round(winrate * 10000) / 100}%</Table.Cell>
+        <td style={{ textAlign: "right" }}>{mmr}</td>
+        <td>{wins}</td>
+        <td>{losses}</td>
+        <td>{Math.round(winrate * 10000) / 100}%</td>
 
-        <Table.Cell>
+        <td>
           <Sparklines data={this.state.sparklinePlayersData} style={{ width: "70px", height: "12px" }}>
             <SparklinesLine style={{ strokeWidth: 4, stroke: "white", fill: "none" }} />
           </Sparklines>
-        </Table.Cell>
-      </Table.Row>
+        </td>
+      </tr>
     );
   }
 }

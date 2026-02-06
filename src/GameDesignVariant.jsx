@@ -1,7 +1,7 @@
 import * as d3 from "d3";
 import React, { useEffect, useRef, useState } from "react";
 import { Link } from "react-router-dom";
-import { Flag, Table } from "semantic-ui-react";
+import { CountryFlag } from "./components/ui";
 
 import FormDots from "./FormDots.jsx";
 import elf from "./icons/elf.svg";
@@ -653,7 +653,7 @@ const GameDesignVariant = ({
     const showChain = hasATPartnerRight(playerIndex);
 
     return (
-      <Table.HeaderCell
+      <th
         key={player.battleTag}
         style={{ position: "relative", overflow: "visible" }}
         className={playerIsAT ? "is-at" : ""}
@@ -668,7 +668,7 @@ const GameDesignVariant = ({
               />
             ) : null}
             {playerCountries[player.battleTag] ? (
-              <Flag
+              <CountryFlag
                 name={playerCountries[player.battleTag].toLowerCase()}
                 style={{ position: "absolute", ...flagPosition }}
                 className={`${teamClassName} flag`}
@@ -715,7 +715,7 @@ const GameDesignVariant = ({
           </div>
         </div>
         {showChain && <div className="at-connector" />}
-      </Table.HeaderCell>
+      </th>
     );
   };
 
@@ -739,9 +739,9 @@ const GameDesignVariant = ({
 
   return (
     <div className="Game">
-      <Table inverted size="small" basic>
-        <Table.Header>
-          <Table.Row>
+      <table className="game-table">
+        <thead>
+          <tr>
             <th> </th>
             <th> </th>
             <th> </th>
@@ -781,13 +781,13 @@ const GameDesignVariant = ({
             <th> </th>
             <th> </th>
             <th> </th>
-          </Table.Row>
-        </Table.Header>
+          </tr>
+        </thead>
 
         {/* Horizontal layouts: chart spans full width above players */}
         {isHorizontalLayout && (
-          <Table.Header>
-            <Table.Row>
+          <thead>
+            <tr>
               <th colSpan={9} style={{ padding: "8px 16px" }}>
                 <div style={{ maxWidth: "800px", margin: "0 auto" }}>
                   <MmrChartConfigurable
@@ -805,12 +805,12 @@ const GameDesignVariant = ({
                   />
                 </div>
               </th>
-            </Table.Row>
-          </Table.Header>
+            </tr>
+          </thead>
         )}
 
-        <Table.Header>
-          <Table.Row>
+        <thead>
+          <tr>
             {playerData.map((playerScore, index) => {
               const teamIndex = index < 4 ? 0 : 1;
               const teamClassName = `team-${teamIndex}`;
@@ -844,11 +844,11 @@ const GameDesignVariant = ({
                 </React.Fragment>
               );
             })}
-          </Table.Row>
-        </Table.Header>
+          </tr>
+        </thead>
 
-        <Table.Body>
-          <Table.Row className="meta">
+        <tbody>
+          <tr className="meta">
             <td colSpan={9}>
               <div className="meta-bar">
                 <div className="meta-map-centered">
@@ -872,9 +872,9 @@ const GameDesignVariant = ({
                 </div>
               </div>
             </td>
-          </Table.Row>
-        </Table.Body>
-      </Table>
+          </tr>
+        </tbody>
+      </table>
     </div>
   );
 };

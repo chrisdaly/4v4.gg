@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from "react";
-import { Flag } from "semantic-ui-react";
+import { CountryFlag } from "./components/ui";
 import { gateway, season } from "./params.jsx";
 import { processMatchData } from "./utils.jsx";
 import { getPlayerProfile } from "./api";
@@ -221,7 +221,7 @@ const StreamOverlays = () => {
           <div className="sow-info">
             <div className="sow-name-row">
               <span className="sow-name">{playerName}</span>
-              {country && <Flag name={country.toLowerCase()} className="sow-flag" />}
+              {country && <CountryFlag name={country.toLowerCase()} className="sow-flag" />}
             </div>
             <div className="sow-stats-row">
               <span className="sow-mmr">{playerData?.mmr || '—'}</span>
