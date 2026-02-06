@@ -106,6 +106,7 @@
   flex-shrink: 0;
   text-decoration: none;
   transition: opacity 0.15s;
+  cursor: pointer;
 }
 
 .gr-player:hover {

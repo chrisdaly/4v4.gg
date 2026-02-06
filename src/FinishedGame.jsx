@@ -58,7 +58,7 @@ const FinishedGame = ({ data, compact = false }) => {
   const fetchPlayerData = async (processedData) => {
     try {
       const promises = processedData.map(async (playerData) => {
-        const { battleTag, race } = playerData;
+        const { battleTag, race, location } = playerData;
         // Use consolidated profile fetch (single API call for pic, twitch, country)
         const [profile, sessionInfo] = await Promise.all([
           getPlayerProfile(battleTag),
@@ -67,7 +67,8 @@ const FinishedGame = ({ data, compact = false }) => {
         return {
           ...playerData,
           profilePicUrl: profile.profilePicUrl,
-          country: profile.country,
+          // Use profile country if set, otherwise fall back to match location (IP-based)
+          country: profile.country || location,
           sessionInfo
         };
       });
@@ -86,9 +87,10 @@ const FinishedGame = ({ data, compact = false }) => {
         return acc;
       }, {});
 
-      setProfilePics(newProfilePics);
-      setPlayerCountries(newCountries);
-      setSessionData(newSessions);
+      // Merge with existing data to prevent flash of missing content
+      setProfilePics(prev => ({ ...prev, ...newProfilePics }));
+      setPlayerCountries(prev => ({ ...prev, ...newCountries }));
+      setSessionData(prev => ({ ...prev, ...newSessions }));
 
       // Cache all player data for this match (30 minute TTL - finished match data is stable)
       if (matchId) {

@@ -1,5 +1,5 @@
 import React from "react";
-import { Link } from "react-router-dom";
+import { Link, useHistory } from "react-router-dom";
 import "./GameRow.css";
 
 import human from "../../icons/human.svg";
@@ -59,6 +59,8 @@ const GameRow = ({
   striped = false,
   className = "",
 }) => {
+  const history = useHistory();
+
   if (!game) return null;
 
   const match = game.match || game;
@@ -136,15 +138,18 @@ const GameRow = ({
         <div className="gr-col gr-allies">
           <div className="gr-players-list">
             {allies.slice(0, 3).map((ally, i) => (
-              <Link
+              <span
                 key={i}
-                to={`/player/${encodeURIComponent(ally.battleTag)}`}
                 className="gr-player"
-                onClick={(e) => e.stopPropagation()}
+                onClick={(e) => {
+                  e.preventDefault();
+                  e.stopPropagation();
+                  history.push(`/player/${encodeURIComponent(ally.battleTag)}`);
+                }}
               >
                 <img src={raceMapping[ally.race]} alt="" className="gr-race" />
                 <span className="gr-player-name">{ally.name}</span>
-              </Link>
+              </span>
             ))}
           </div>
         </div>
@@ -153,15 +158,18 @@ const GameRow = ({
         <div className="gr-col gr-opponents">
           <div className="gr-players-list">
             {opponents.slice(0, 4).map((opp, i) => (
-              <Link
+              <span
                 key={i}
-                to={`/player/${encodeURIComponent(opp.battleTag)}`}
                 className="gr-player"
-                onClick={(e) => e.stopPropagation()}
+                onClick={(e) => {
+                  e.preventDefault();
+                  e.stopPropagation();
+                  history.push(`/player/${encodeURIComponent(opp.battleTag)}`);
+                }}
               >
                 <img src={raceMapping[opp.race]} alt="" className="gr-race" />
                 <span className="gr-player-name">{opp.name}</span>
-              </Link>
+              </span>
             ))}
           </div>
         </div>

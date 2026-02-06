@@ -46,7 +46,7 @@ const OnGoingGame = ({ ongoingGameData, compact, streamerTag }) => {
   const fetchRemainingPlayerData = async (processedData) => {
     try {
       const promises = processedData.map(async (playerData) => {
-        const { battleTag, race } = playerData;
+        const { battleTag, race, location } = playerData;
         // Use consolidated profile fetch (single API call for pic, twitch, country)
         const [profile, sessionInfo] = await Promise.all([
           getPlayerProfile(battleTag),
@@ -56,7 +56,8 @@ const OnGoingGame = ({ ongoingGameData, compact, streamerTag }) => {
           ...playerData,
           profilePicUrl: profile.profilePicUrl,
           twitch: profile.twitch,
-          country: profile.country,
+          // Use profile country if set, otherwise fall back to match location (IP-based)
+          country: profile.country || location,
           sessionInfo
         };
       });

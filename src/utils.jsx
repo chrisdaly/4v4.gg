@@ -480,12 +480,20 @@ export const detectArrangedTeams = async (players) => {
       const confirmedPartners = await confirmATPartners(group[0]);
 
       // Check if any confirmed partners are in this match group
-      for (const battleTag of group) {
-        const partnersInMatch = confirmedPartners.filter(partner =>
-          group.some(g => g.toLowerCase() === partner.toLowerCase())
-        );
-        if (partnersInMatch.length > 0) {
-          atGroups[battleTag.toLowerCase()] = partnersInMatch.map(p => p.toLowerCase());
+      const partnersInMatch = confirmedPartners.filter(partner =>
+        group.some(g => g.toLowerCase() === partner.toLowerCase())
+      );
+
+      // If we found AT partners in this match, store them for each player
+      if (partnersInMatch.length > 0) {
+        for (const battleTag of group) {
+          // Store OTHER players in the group as partners (not self)
+          const otherPartners = group
+            .filter(g => g.toLowerCase() !== battleTag.toLowerCase())
+            .map(p => p.toLowerCase());
+          if (otherPartners.length > 0) {
+            atGroups[battleTag.toLowerCase()] = otherPartners;
+          }
         }
       }
     }

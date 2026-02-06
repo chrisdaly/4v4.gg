@@ -22,7 +22,7 @@ const Navbar = () => {
             to="/ongoing"
             className={`navbar-link ${isActive("/ongoing") ? "active" : ""}`}
           >
-            Live Games
+            Live
           </Link>
           <Link
             to="/finished"

@@ -468,28 +468,14 @@ img.logo {
   height: 75px;
 }
 
-/* i.flag {
-  height: 2px !important;
-  width: 2px !important;
-} */
-
+/* Semantic UI flag dimensions - required for visibility */
 i.flag:not(.icon) {
-  /* display: inline-block;
+  display: inline-block;
   width: 16px;
   height: 11px;
   line-height: 11px;
-  vertical-align: baseline; */
-  /* margin: 0.3em 2em 0 0.9em !important; */
-  /* text-decoration: inherit;
-  speak: none;
-  font-smoothing: antialiased;
-  -webkit-backface-visibility: hidden;
-  backface-visibility: hidden; */
-}
-
-i.flag:not(.icon):before {
-  /* width: 10px;
-  height: 8px; */
+  vertical-align: baseline;
+  margin: 0 !important;
 }
 
 .number,
@@ -929,6 +915,8 @@ td {
 
 .profile-pic {
   width: 80px;
+  position: relative;
+  z-index: 1;
 }
 
 .matchDetails {
@@ -1107,18 +1095,23 @@ h2 {
 }
 
 
-.flag {
+/* Country flags on player profile pics */
+.player-flag.flag {
+  position: absolute !important;
   top: 5px !important;
+  z-index: 10;
 }
 
-.flag.team-0 {
+.player-flag.flag.team-0 {
   right: 5px !important;
-  margin-right: 0px !important;
+  left: auto !important;
+  margin: 0 !important;
 }
 
-.flag.team-1 {
+.player-flag.flag.team-1 {
   left: 5px !important;
-  margin-left: 0px !important;
+  right: auto !important;
+  margin: 0 !important;
 }
 
 path.line {
@@ -1421,7 +1414,7 @@ img.teamHeaderRace {
 /* AT (Arranged Team) styling - no purple border, connector between avatars instead */
 .profile-pic.at {
   position: relative;
-  z-index: 1001;
+  z-index: 5;
 }
 
 /* Line connecting AT players */
@@ -5860,20 +5853,17 @@ a.neighbor-name-sm:hover {
 
 .col-session {
   display: flex;
-  flex-direction: column;
   align-items: center;
   justify-content: center;
   font-family: var(--font-mono);
   font-size: var(--text-sm);
-  min-height: 32px;
 }
 
-.col-session .session-stats {
+.col-session .session-inline-row {
   display: flex;
   align-items: center;
-  gap: 6px;
+  gap: 8px;
   white-space: nowrap;
-  min-height: 18px;
 }
 
 .col-session .session-record {
@@ -5895,24 +5885,26 @@ a.neighbor-name-sm:hover {
 
 .col-session .session-none {
   color: var(--grey-dark);
-  min-height: 18px;
-  display: flex;
-  align-items: center;
 }
 
-.col-session .form-dots {
-  margin-top: 4px;
+.col-session .form-dots-inline {
+  display: flex;
+  align-items: center;
   gap: 2px;
 }
 
-.col-session .form-dots .form-dot {
+.col-session .form-dots-inline .form-dot {
   width: 5px;
   height: 5px;
+  border-radius: 50%;
 }
 
-.col-session .form-dots .form-dot.latest {
-  width: 7px;
-  height: 7px;
+.col-session .form-dots-inline .form-dot.win {
+  background: var(--green);
+}
+
+.col-session .form-dots-inline .form-dot.loss {
+  background: var(--red);
 }
 
 .col-form {
@@ -5960,40 +5952,53 @@ a.neighbor-name-sm:hover {
   }
 
   .navbar-logo {
-    font-size: 18px;
+    font-size: 16px;
   }
 
   .navbar-links {
-    gap: 2px;
+    gap: 4px;
   }
 
   .navbar-link {
-    font-size: 11px;
-    padding: 6px 10px;
+    font-size: 10px;
+    padding: 6px 8px;
+    letter-spacing: 0.3px;
   }
 
   .ladder-page {
-    padding: 0 12px 30px 12px;
+    padding: var(--space-6) 12px 30px 12px;
   }
 
   .ladder-header {
     flex-direction: column;
-    gap: 12px;
+    gap: 16px;
     align-items: stretch;
     text-align: center;
+    padding: 16px 0;
+    margin-bottom: 16px;
   }
 
   .ladder-title-section {
     align-items: center;
   }
 
+  .ladder-league-title {
+    gap: 10px;
+  }
+
+  .league-icon-title {
+    width: 36px;
+    height: 36px;
+  }
+
   .ladder-stats {
     justify-content: center;
+    margin-top: 4px;
   }
 
   .ladder-controls {
     flex-direction: column;
-    gap: 10px;
+    gap: 12px;
   }
 
   .ladder-search {
@@ -6054,6 +6059,32 @@ a.neighbor-name-sm:hover {
 
 /* Extra small screens */
 @media (max-width: 480px) {
+  .navbar {
+    padding: 0 8px;
+  }
+
+  .navbar-logo {
+    font-size: 14px;
+  }
+
+  .navbar-link {
+    font-size: 9px;
+    padding: 6px 5px;
+  }
+
+  .ladder-page {
+    padding: var(--space-4) 8px 24px 8px;
+  }
+
+  .ladder-title {
+    font-size: 18px;
+  }
+
+  .league-icon-title {
+    width: 28px;
+    height: 28px;
+  }
+
   .ladder-header-row,
   .ladder-row {
     grid-template-columns: 28px 1fr 48px 55px 42px;
@@ -9245,4 +9276,149 @@ a.neighbor-name:hover {
   vertical-align: baseline;
   position: relative;
   bottom: -0.3em;
+}
+
+/* ============================================
+   Blog Mobile Styles
+   ============================================ */
+
+@media (max-width: 768px) {
+  .blog-container {
+    padding: var(--space-6) var(--space-4) 60px;
+  }
+
+  .blog-header {
+    margin-bottom: var(--space-8);
+  }
+
+  .blog-header h1 {
+    font-size: var(--text-lg);
+  }
+
+  .blog-style-b {
+    padding: var(--space-6) 0;
+  }
+
+  .blog-style-b .title {
+    font-size: 24px !important;
+  }
+
+  .blog-style-b .desc {
+    font-size: var(--text-xs);
+  }
+
+  /* Blog article page */
+  .blog-article {
+    padding: var(--space-12) var(--space-4) 60px;
+  }
+
+  .blog-article h1 {
+    font-size: 28px;
+    margin-bottom: var(--space-6);
+  }
+
+  .blog-article h2 {
+    font-size: var(--text-base) !important;
+    margin-top: var(--space-10);
+  }
+
+  .blog-article p {
+    font-size: var(--text-sm);
+    line-height: 1.7;
+  }
+
+  .blog-article p:first-of-type {
+    font-size: var(--text-base);
+    color: var(--grey-light);
+  }
+
+  .blog-meta {
+    flex-direction: column;
+    align-items: flex-start;
+    gap: var(--space-3);
+    margin-bottom: var(--space-10);
+  }
+
+  .blog-date::after {
+    display: none;
+  }
+
+  /* Charts and galleries - stack on mobile */
+  .blog-chart-row {
+    flex-direction: column;
+    align-items: center;
+    gap: 24px;
+    margin: 24px 0;
+  }
+
+  .blog-chart-row.gap-lg {
+    gap: 24px;
+  }
+
+  .blog-gallery-group {
+    margin-top: 32px;
+    padding: 0 var(--space-4);
+    width: 100%;
+    left: 0;
+    margin-left: 0;
+  }
+
+  .blog-gallery-row {
+    flex-direction: column;
+    gap: 16px;
+  }
+
+  .blog-mmr-display {
+    gap: 24px;
+    flex-wrap: wrap;
+    justify-content: center;
+  }
+
+  .blog-stats-example {
+    flex-direction: column;
+    gap: 16px;
+  }
+
+  .blog-visual-math {
+    padding: 24px 0;
+    margin: 32px 0;
+  }
+
+  .blog-equation {
+    grid-template-columns: auto auto auto auto;
+    gap: 12px;
+    max-width: 100%;
+  }
+
+  .blog-formula {
+    font-size: 18px;
+    margin: 24px 0;
+  }
+}
+
+@media (max-width: 480px) {
+  .blog-container {
+    padding: var(--space-4) var(--space-3) 40px;
+  }
+
+  .blog-style-b .title {
+    font-size: 20px !important;
+  }
+
+  .blog-article {
+    padding: var(--space-6) var(--space-3) 40px;
+  }
+
+  .blog-article h1 {
+    font-size: 24px;
+  }
+
+  .blog-article p:first-of-type {
+    font-size: var(--text-sm);
+  }
+
+  .blog-chart {
+    max-width: 100%;
+    overflow-x: auto;
+  }
 }

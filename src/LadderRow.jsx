@@ -29,34 +29,6 @@ const LadderRow = ({ rank, sparklineData, session, detectedRace, twitch, isStrea
   const winratePercent = winrate ? Math.round(winrate * 10000) / 100 : 0;
   const encodedBattleTag = battleTag.replace("#", "%23");
 
-  // Session form dots (win/loss indicators)
-  const formDots = session?.form?.length > 0 ? (
-    <div className="form-dots small">
-      {session.form.map((won, idx) => (
-        <span
-          key={idx}
-          className={`form-dot ${won ? "win" : "loss"} ${idx === session.form.length - 1 ? "latest" : ""}`}
-        />
-      ))}
-    </div>
-  ) : null;
-
-  // Session display
-  const sessionDisplay = session ? (
-    <>
-      <span className="session-record">
-        <span className="wins">{session.wins}</span>
-        <span className="record-separator">-</span>
-        <span className="losses">{session.losses}</span>
-      </span>
-      <span className={`session-mmr ${session.mmrChange >= 0 ? "positive" : "negative"}`}>
-        {session.mmrChange >= 0 ? "+" : ""}{session.mmrChange}
-      </span>
-    </>
-  ) : (
-    <span className="session-none">-</span>
-  );
-
   return (
     <div className={`ladder-row ${isLive ? "is-live" : ""} ${isEven ? "even" : "odd"}`}>
       <div className="col-rank">
@@ -94,10 +66,30 @@ const LadderRow = ({ rank, sparklineData, session, detectedRace, twitch, isStrea
         </span>
       </div>
       <div className="col-session">
-        <div className="session-stats">
-          {sessionDisplay}
-        </div>
-        {formDots}
+        {session ? (
+          <div className="session-inline-row">
+            <span className="session-record">
+              <span className="wins">{session.wins}</span>
+              <span className="record-separator">-</span>
+              <span className="losses">{session.losses}</span>
+            </span>
+            <span className={`session-mmr ${session.mmrChange >= 0 ? "positive" : "negative"}`}>
+              {session.mmrChange >= 0 ? "+" : ""}{session.mmrChange}
+            </span>
+            {session.form?.length > 0 && (
+              <div className="form-dots-inline">
+                {session.form.map((won, idx) => (
+                  <span
+                    key={idx}
+                    className={`form-dot ${won ? "win" : "loss"}`}
+                  />
+                ))}
+              </div>
+            )}
+          </div>
+        ) : (
+          <span className="session-none">-</span>
+        )}
       </div>
       <div className="col-form">
         {sparklineData.length > 0 ? (

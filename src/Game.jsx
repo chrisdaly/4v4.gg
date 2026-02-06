@@ -305,8 +305,7 @@ const Game = ({ playerData: rawPlayerData, metaData, profilePics, playerCountrie
             {playerCountries[player.battleTag] ? (
               <Flag
                 name={playerCountries[player.battleTag].toLowerCase()}
-                style={{ position: "absolute", ...flagPosition }}
-                className={`${teamClassName} flag`}
+                className={`${teamClassName} flag player-flag`}
               />
             ) : null}
             {player.isMvp && (
@@ -381,6 +380,9 @@ const Game = ({ playerData: rawPlayerData, metaData, profilePics, playerCountrie
   const team2Won = playerData[4].won;
 
   // Calculate team MMRs (geometric mean) and standard deviation
+  // Guard against missing data
+  if (!metaData || !playerData || playerData.length < 8) return null;
+
   const team1MmrArray = playerData.slice(0, 4).map((d) => d.oldMmr);
   const team2MmrArray = playerData.slice(4).map((d) => d.oldMmr);
   const team1AvgMmr = Math.round(geometricMean(team1MmrArray));
