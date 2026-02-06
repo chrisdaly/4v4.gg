@@ -34,7 +34,7 @@ const OnGoingGame = ({ ongoingGameData, compact, streamerTag }) => {
       setIsLoading(true);
     }
     fetchRemainingPlayerData(newPlayerData);
-  }, []);
+  }, [ongoingGameData]);
 
   const preprocessMatchData = (ongoingGameData) => {
     if (!ongoingGameData) {

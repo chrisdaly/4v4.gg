@@ -1,0 +1,26 @@
+app = "4v4gg-chat-relay"
+primary_region = "ewr"
+
+[build]
+
+[env]
+  DB_PATH = "/data/chat.db"
+  CORS_ORIGINS = "https://4v4.gg,http://localhost:3000"
+
+[http_service]
+  internal_port = 8080
+  force_https = true
+  auto_stop_machines = false
+  auto_start_machines = true
+  min_machines_running = 1
+
+[[http_service.checks]]
+  grace_period = "10s"
+  interval = "30s"
+  method = "GET"
+  path = "/api/health"
+  timeout = "5s"
+
+[mounts]
+  source = "chat_data"
+  destination = "/data"

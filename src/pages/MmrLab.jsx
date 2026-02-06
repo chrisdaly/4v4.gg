@@ -1,6 +1,7 @@
 import React, { useState } from "react";
-import Navbar from "../components/Navbar";
+
 import { MmrComparison } from "../components/MmrComparison";
+import { geometricMean, stdDev } from "../lib/formatters";
 
 const pieConfig = { combinedGap: 5, areaMultiplier: 1.6 };
 
@@ -63,24 +64,6 @@ const scenarios = {
       teamTwoAT: [1, 1, 0, 0],
     },
   },
-};
-
-// ============================================================================
-// Utility Functions
-// ============================================================================
-
-const geometricMean = (arr) => {
-  const filtered = arr.filter((v) => v && v > 0);
-  if (filtered.length === 0) return 0;
-  const product = filtered.reduce((acc, val) => acc * val, 1);
-  return Math.pow(product, 1 / filtered.length);
-};
-
-const stdDev = (arr, mean) => {
-  const filtered = arr.filter((v) => v && v > 0);
-  if (filtered.length === 0) return 0;
-  const squaredDiffs = filtered.map((v) => Math.pow(v - mean, 2));
-  return Math.sqrt(squaredDiffs.reduce((a, b) => a + b, 0) / filtered.length);
 };
 
 // ============================================================================
@@ -275,8 +258,6 @@ const MmrLab = () => {
 
   return (
     <div>
-      <Navbar />
-
       <div style={{ padding: "32px 48px 80px", background: "#0a0a0a", minHeight: "100vh" }}>
         <h1
           style={{

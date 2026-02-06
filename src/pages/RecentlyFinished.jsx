@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useMemo } from "react";
-import Navbar from "../components/Navbar";
+
 import GameCard from "../components/game/GameCard";
 import { calculateTeamMMR } from "../lib/utils";
 import { gameMode, gateway, season } from "../lib/params";
@@ -186,7 +186,6 @@ const RecentlyFinished = () => {
         </div>
       ) : matchesData ? (
         <div>
-          <Navbar />
           <div className="finished-page">
             <div className="finished-header">
               <div className="finished-title-section">

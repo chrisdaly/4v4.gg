@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from "react";
-import Navbar from "../components/Navbar";
+
 import OngoingGame from "../components/OngoingGame";
 import { calculateTeamMMR } from "../lib/utils";
 import { getOngoingMatches, getOngoingMatchesCached } from "../lib/api";
@@ -56,7 +56,6 @@ const OngoingGames = () => {
         </div>
       ) : ongoingGameData ? (
         <div>
-          <Navbar />
           <div className="games">
             {ongoingGameData.map((d) => (
               <OngoingGame ongoingGameData={d} key={d.id} />

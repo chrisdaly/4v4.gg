@@ -1,6 +1,6 @@
 import React from "react";
 import { Link } from "react-router-dom";
-import Navbar from "../components/Navbar";
+
 
 const posts = [
   {
@@ -28,8 +28,6 @@ const BlogPost = ({ post }) => (
 
 const Blog = () => (
   <div className="blog-page">
-    <Navbar />
-
     <div className="blog-container">
       <header className="blog-header">
         <h1>Blog</h1>

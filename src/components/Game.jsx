@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from "react";
+import React, { useState, useEffect, useMemo } from "react";
 import { Link } from "react-router-dom";
 import { CountryFlag } from "./ui";
 import { FaTwitch } from "react-icons/fa";
@@ -48,7 +48,10 @@ const Game = ({ playerData: rawPlayerData, metaData, profilePics, playerCountrie
 
   const excludedKeys = ["mercsHired", "itemsObtained", "lumberCollected"];
   // Reorder team 1 players (reverse) for display, don't mutate props
-  const playerData = [...rawPlayerData.slice(0, 4).reverse(), ...rawPlayerData.slice(4)];
+  const playerData = useMemo(
+    () => [...rawPlayerData.slice(0, 4).reverse(), ...rawPlayerData.slice(4)],
+    [rawPlayerData]
+  );
 
   // Detect arranged teams (skip if initialATGroups provided)
   useEffect(() => {
@@ -317,19 +320,24 @@ const Game = ({ playerData: rawPlayerData, metaData, profilePics, playerCountrie
     );
   };
 
-  const team1Won = playerData[0].won;
-  const team2Won = playerData[4].won;
-
   // Calculate team MMRs (geometric mean) and standard deviation
+  const { team1MmrArray, team2MmrArray, team1AvgMmr, team2AvgMmr } = useMemo(() => {
+    if (!playerData || playerData.length < 8) return { team1MmrArray: [], team2MmrArray: [], team1AvgMmr: 0, team2AvgMmr: 0 };
+    const t1 = playerData.slice(0, 4).map((d) => d.oldMmr);
+    const t2 = playerData.slice(4).map((d) => d.oldMmr);
+    return {
+      team1MmrArray: t1,
+      team2MmrArray: t2,
+      team1AvgMmr: Math.round(geometricMean(t1)),
+      team2AvgMmr: Math.round(geometricMean(t2)),
+    };
+  }, [playerData]);
+
   // Guard against missing data
   if (!metaData || !playerData || playerData.length < 8) return null;
 
-  const team1MmrArray = playerData.slice(0, 4).map((d) => d.oldMmr);
-  const team2MmrArray = playerData.slice(4).map((d) => d.oldMmr);
-  const team1AvgMmr = Math.round(geometricMean(team1MmrArray));
-  const team2AvgMmr = Math.round(geometricMean(team2MmrArray));
-  const team1StdDev = Math.round(stdDev(team1MmrArray, team1AvgMmr));
-  const team2StdDev = Math.round(stdDev(team2MmrArray, team2AvgMmr));
+  const team1Won = playerData[0].won;
+  const team2Won = playerData[4].won;
 
   return (
     <div className="Game">
@@ -477,4 +485,4 @@ const Game = ({ playerData: rawPlayerData, metaData, profilePics, playerCountrie
   );
 };
 
-export default Game;
+export default React.memo(Game);

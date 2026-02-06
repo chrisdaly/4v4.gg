@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from "react";
+import React, { useState, useEffect, useReducer, useMemo } from "react";
 import { Link } from "react-router-dom";
 import { CountryFlag } from "../components/ui";
 import { findPlayerInOngoingMatches } from "../lib/utils";
@@ -7,7 +7,7 @@ import { cache } from "../lib/cache";
 import { isStreamerLive } from "../lib/twitchService";
 import { FaTwitch } from "react-icons/fa";
 import { GiCrossedSwords } from "react-icons/gi";
-import Navbar from "../components/Navbar";
+
 import FormDots from "../components/FormDots";
 import { gateway } from "../lib/params";
 import { GameRow } from "../components/game/index";
@@ -36,40 +36,62 @@ const PlayerProfile = () => {
   const battleTagLower = battleTag.toLowerCase();
   const playerName = battleTag.split("#")[0];
 
-  // Try to get cached data for instant display
-  // We'll update this once we know the season
-  const [cachedData, setCachedData] = useState(null);
+  // Consolidated state - batches updates to avoid multiple re-renders
+  const [state, updateState] = useReducer(
+    (prev, next) => ({ ...prev, ...next }),
+    {
+      playerData: null,
+      profilePic: null,
+      country: null,
+      twitchName: null,
+      isStreaming: false,
+      streamInfo: null,
+      matches: [],
+      totalMatches: 0,
+      sessionGames: [],
+      seasonMmrs: [],
+      ongoingGame: null,
+      ladderStanding: null,
+      isLoading: true,
+      allyStats: [],
+      worstAllyStats: [],
+      mapStats: [],
+      worstMapStats: [],
+      nemesisStats: [],
+      selectedSeason: null,
+      availableSeasons: [],
+      currentPage: 0,
+    }
+  );
 
-  // Core data - initialize from cache if available
-  const [playerData, setPlayerData] = useState(null);
-  const [profilePic, setProfilePic] = useState(null);
-  const [country, setCountry] = useState(null);
-  const [twitchName, setTwitchName] = useState(null);
-  const [isStreaming, setIsStreaming] = useState(false);
-  const [streamInfo, setStreamInfo] = useState(null);
-  const [matches, setMatches] = useState([]);
-  const [totalMatches, setTotalMatches] = useState(0);
-  const [sessionGames, setSessionGames] = useState([]);
-  const [seasonMmrs, setSeasonMmrs] = useState([]);
-  const [ongoingGame, setOngoingGame] = useState(null);
-  const [ladderStanding, setLadderStanding] = useState(null);
-  const [isLoading, setIsLoading] = useState(true);
-
-  // Best/worst allies and maps stats
-  const [allyStats, setAllyStats] = useState([]);
-  const [worstAllyStats, setWorstAllyStats] = useState([]);
-  const [mapStats, setMapStats] = useState([]);
-  const [worstMapStats, setWorstMapStats] = useState([]);
-  const [nemesisStats, setNemesisStats] = useState([]);
-
-  // Season state
-  const [selectedSeason, setSelectedSeason] = useState(null);
-  const [availableSeasons, setAvailableSeasons] = useState([]);
-
-  // Pagination state
-  const [currentPage, setCurrentPage] = useState(0);
+  const {
+    playerData, profilePic, country, twitchName, isStreaming, streamInfo,
+    matches, totalMatches, sessionGames, seasonMmrs, ongoingGame, ladderStanding,
+    isLoading, allyStats, worstAllyStats, mapStats, worstMapStats, nemesisStats,
+    selectedSeason, availableSeasons, currentPage,
+  } = state;
 
   const SESSION_GAP_MINUTES = 60;
+
+  // Helper to restore from cache in a single batch
+  const restoreFromCache = (cached) => {
+    updateState({
+      playerData: cached.playerData,
+      profilePic: cached.profilePic,
+      country: cached.country,
+      twitchName: cached.twitchName,
+      matches: cached.matches || [],
+      totalMatches: cached.totalMatches || 0,
+      seasonMmrs: cached.seasonMmrs || [],
+      ladderStanding: cached.ladderStanding,
+      allyStats: cached.allyStats || [],
+      worstAllyStats: cached.worstAllyStats || [],
+      mapStats: cached.mapStats || [],
+      worstMapStats: cached.worstMapStats || [],
+      nemesisStats: cached.nemesisStats || [],
+      isLoading: false,
+    });
+  };
 
   // Fetch available seasons on mount
   useEffect(() => {
@@ -77,33 +99,15 @@ const PlayerProfile = () => {
       try {
         const seasons = await getSeasons();
         if (seasons && seasons.length > 0) {
-          setAvailableSeasons(seasons);
           const latestSeason = seasons[0].id;
-          setSelectedSeason(latestSeason);
+          updateState({ availableSeasons: seasons, selectedSeason: latestSeason });
 
-          // Check if we have cached data for instant display
           const cached = getCachedPlayerData(battleTag, latestSeason);
-          if (cached) {
-            setCachedData(cached);
-            setPlayerData(cached.playerData);
-            setProfilePic(cached.profilePic);
-            setCountry(cached.country);
-            setTwitchName(cached.twitchName);
-            setMatches(cached.matches || []);
-            setTotalMatches(cached.totalMatches || 0);
-            setSeasonMmrs(cached.seasonMmrs || []);
-            setLadderStanding(cached.ladderStanding);
-            setAllyStats(cached.allyStats || []);
-            setWorstAllyStats(cached.worstAllyStats || []);
-            setMapStats(cached.mapStats || []);
-            setWorstMapStats(cached.worstMapStats || []);
-            setNemesisStats(cached.nemesisStats || []);
-            setIsLoading(false);
-          }
+          if (cached) restoreFromCache(cached);
         }
       } catch (e) {
         console.error("Failed to fetch seasons:", e);
-        setSelectedSeason(24);
+        updateState({ selectedSeason: 24 });
       }
     };
     fetchSeasonsData();
@@ -113,45 +117,18 @@ const PlayerProfile = () => {
   useEffect(() => {
     if (selectedSeason === null) return;
 
-    // Check cache first for instant display
     const cached = getCachedPlayerData(battleTag, selectedSeason);
     if (cached) {
-      setPlayerData(cached.playerData);
-      setProfilePic(cached.profilePic);
-      setCountry(cached.country);
-      setTwitchName(cached.twitchName);
-      setMatches(cached.matches || []);
-      setTotalMatches(cached.totalMatches || 0);
-      setSeasonMmrs(cached.seasonMmrs || []);
-      setLadderStanding(cached.ladderStanding);
-      setAllyStats(cached.allyStats || []);
-      setWorstAllyStats(cached.worstAllyStats || []);
-      setMapStats(cached.mapStats || []);
-      setWorstMapStats(cached.worstMapStats || []);
-      setNemesisStats(cached.nemesisStats || []);
-      setIsLoading(false);
-      // Still refresh in background
+      restoreFromCache(cached);
     } else {
-      // No cache - reset and show loading
-      setPlayerData(null);
-      setProfilePic(null);
-      setCountry(null);
-      setTwitchName(null);
-      setIsStreaming(false);
-      setStreamInfo(null);
-      setMatches([]);
-      setTotalMatches(0);
-      setSessionGames([]);
-      setSeasonMmrs([]);
-      setOngoingGame(null);
-      setLadderStanding(null);
-      setAllyStats([]);
-      setWorstAllyStats([]);
-      setMapStats([]);
-      setWorstMapStats([]);
-      setNemesisStats([]);
-      setCurrentPage(0);
-      setIsLoading(true);
+      // No cache - reset all data in single batch
+      updateState({
+        playerData: null, profilePic: null, country: null, twitchName: null,
+        isStreaming: false, streamInfo: null, matches: [], totalMatches: 0,
+        sessionGames: [], seasonMmrs: [], ongoingGame: null, ladderStanding: null,
+        allyStats: [], worstAllyStats: [], mapStats: [], worstMapStats: [],
+        nemesisStats: [], currentPage: 0, isLoading: true,
+      });
     }
 
     loadAllData();
@@ -162,25 +139,23 @@ const PlayerProfile = () => {
   }, [battleTag, selectedSeason]);
 
   const loadAllData = async () => {
-    setIsLoading(true);
+    updateState({ isLoading: true });
     try {
-      // Use consolidated profile fetch (single API call for pic, twitch, country)
       const profile = await getPlayerProfile(battleTag);
-
       const newProfilePic = profile?.profilePicUrl;
       const newCountry = profile?.country;
       const newTwitchName = profile?.twitch || null;
 
-      setProfilePic(newProfilePic);
-      setCountry(newCountry);
-      setTwitchName(newTwitchName);
+      // Batch profile update
+      const profileUpdate = { profilePic: newProfilePic, country: newCountry, twitchName: newTwitchName };
 
       // Check if streaming
       if (newTwitchName) {
         const streamStatus = await isStreamerLive(newTwitchName);
-        setIsStreaming(streamStatus.isLive);
-        setStreamInfo(streamStatus.isLive ? streamStatus : null);
+        profileUpdate.isStreaming = streamStatus.isLive;
+        profileUpdate.streamInfo = streamStatus.isLive ? streamStatus : null;
       }
+      updateState(profileUpdate);
 
       // Fetch player stats
       let newPlayerData = null;
@@ -193,61 +168,40 @@ const PlayerProfile = () => {
         if (fourVsFourStats) {
           newPlayerData = fourVsFourStats;
           newTotalMatches = (fourVsFourStats.wins || 0) + (fourVsFourStats.losses || 0);
-          setPlayerData(newPlayerData);
-          setTotalMatches(newTotalMatches);
+          updateState({ playerData: newPlayerData, totalMatches: newTotalMatches });
         }
       }
 
-      // Fetch match history (first page) - returns matches
       const newMatches = await fetchMatches(0, true);
-
-      // Fetch MMR timeline - returns mmrs
       const newSeasonMmrs = await fetchMmrTimeline(true);
-
-      // Fetch ladder standing - returns standing
       const newLadderStanding = await fetchLadderStanding(true);
-
-      // Fetch statistics for allies and maps - returns all stats
       const statsResult = await fetchStatistics(true);
 
       // Cache all player data for instant display on next visit (5 min TTL)
       cache.set(`playerPage:${battleTagLower}:${selectedSeason}`, {
-        playerData: newPlayerData,
-        profilePic: newProfilePic,
-        country: newCountry,
-        twitchName: newTwitchName,
-        matches: newMatches || [],
-        totalMatches: newTotalMatches,
-        seasonMmrs: newSeasonMmrs || [],
-        ladderStanding: newLadderStanding,
-        allyStats: statsResult?.allyStats || [],
-        worstAllyStats: statsResult?.worstAllyStats || [],
-        mapStats: statsResult?.mapStats || [],
-        worstMapStats: statsResult?.worstMapStats || [],
+        playerData: newPlayerData, profilePic: newProfilePic, country: newCountry,
+        twitchName: newTwitchName, matches: newMatches || [], totalMatches: newTotalMatches,
+        seasonMmrs: newSeasonMmrs || [], ladderStanding: newLadderStanding,
+        allyStats: statsResult?.allyStats || [], worstAllyStats: statsResult?.worstAllyStats || [],
+        mapStats: statsResult?.mapStats || [], worstMapStats: statsResult?.worstMapStats || [],
         nemesisStats: statsResult?.nemesisStats || [],
       }, 5 * 60 * 1000);
-
     } catch (error) {
       console.error("Error loading player data:", error);
     } finally {
-      setIsLoading(false);
+      updateState({ isLoading: false });
     }
   };
 
   const fetchMatches = async (page, returnData = false) => {
     const offset = page * GAMES_PER_PAGE;
-    // Use /api/matches/search which properly filters by playerId
     const matchesUrl = `https://website-backend.w3champions.com/api/matches/search?playerId=${encodeURIComponent(battleTag)}&offset=${offset}&gameMode=4&season=${selectedSeason}&gateway=${gateway}&pageSize=${GAMES_PER_PAGE}`;
     const matchesResponse = await fetch(matchesUrl);
     if (matchesResponse.ok) {
       const matchesData = await matchesResponse.json();
       if (matchesData.matches) {
-        setMatches(matchesData.matches);
-        // /api/matches/search doesn't return count, so derive from player stats
-        // totalMatches will be set from playerData.wins + playerData.losses
-        if (page === 0) {
-          processMatchData(matchesData.matches);
-        }
+        updateState({ matches: matchesData.matches });
+        if (page === 0) processMatchData(matchesData.matches);
         if (returnData) return matchesData.matches;
       }
     }
@@ -255,9 +209,8 @@ const PlayerProfile = () => {
   };
 
   const fetchMmrTimeline = async (returnData = false) => {
-    // Use cached API (handles 5-race merge with individual caching per race)
     const mmrs = await getPlayerTimelineMerged(battleTag, selectedSeason);
-    setSeasonMmrs(mmrs);
+    updateState({ seasonMmrs: mmrs });
     if (returnData) return mmrs;
   };
 
@@ -265,50 +218,32 @@ const PlayerProfile = () => {
     if (!matchList || matchList.length === 0) return;
 
     const sessionGapMs = SESSION_GAP_MINUTES * 60 * 1000;
-    const sessionMaxAgeMs = 2 * 60 * 60 * 1000; // Only show session if most recent game is within 2 hours
+    const sessionMaxAgeMs = 2 * 60 * 60 * 1000;
     const sessionMatches = [];
 
-    // Check if the most recent game is recent enough to be an "active" session
     const mostRecentEndTime = new Date(matchList[0]?.endTime);
     const now = new Date();
-    const timeSinceLastGame = now - mostRecentEndTime;
 
-    if (timeSinceLastGame > sessionMaxAgeMs) {
-      // Session is too old, don't show it
-      setSessionGames([]);
+    if (now - mostRecentEndTime > sessionMaxAgeMs) {
+      updateState({ sessionGames: [] });
     } else {
       for (let i = 0; i < matchList.length; i++) {
         const match = matchList[i];
-
         let playerInMatch = null;
         let playerWon = false;
         for (const team of match.teams) {
           const player = team.players.find(p => p.battleTag.toLowerCase() === battleTagLower);
-          if (player) {
-            playerInMatch = player;
-            playerWon = player.won;
-            break;
-          }
+          if (player) { playerInMatch = player; playerWon = player.won; break; }
         }
         if (!playerInMatch) continue;
-
         if (i > 0) {
-          const prevEndTime = new Date(matchList[i - 1].endTime);
-          const thisEndTime = new Date(match.endTime);
-          const gapMs = prevEndTime - thisEndTime;
+          const gapMs = new Date(matchList[i - 1].endTime) - new Date(match.endTime);
           if (gapMs > sessionGapMs) break;
         }
-
-        sessionMatches.push({
-          ...match,
-          playerData: playerInMatch,
-          won: playerWon,
-        });
+        sessionMatches.push({ ...match, playerData: playerInMatch, won: playerWon });
       }
-
-      setSessionGames(sessionMatches);
+      updateState({ sessionGames: sessionMatches });
     }
-
   };
 
   const fetchOngoingGames = async () => {
@@ -316,7 +251,7 @@ const PlayerProfile = () => {
       const ongoingResponse = await fetch("https://website-backend.w3champions.com/api/matches/ongoing");
       const ongoingResult = await ongoingResponse.json();
       const game = findPlayerInOngoingMatches(ongoingResult, battleTag);
-      setOngoingGame(game);
+      updateState({ ongoingGame: game });
     } catch (error) {
       console.error("Error fetching ongoing games:", error);
     }
@@ -364,7 +299,7 @@ const PlayerProfile = () => {
         neighbors,
         totalInLeague: ladderData.length,
       };
-      setLadderStanding(standing);
+      updateState({ ladderStanding: standing });
       if (returnData) return standing;
     } catch (error) {
       console.error("Error fetching ladder standing:", error);
@@ -495,11 +430,10 @@ const PlayerProfile = () => {
         .sort((a, b) => b.wins - a.wins || b.winRate - a.winRate)
         .slice(0, 3);
 
-      setAllyStats(bestAllies);
-      setWorstAllyStats(worstAllies);
-      setMapStats(bestMaps);
-      setWorstMapStats(worstMaps);
-      setNemesisStats(nemesisList);
+      updateState({
+        allyStats: bestAllies, worstAllyStats: worstAllies,
+        mapStats: bestMaps, worstMapStats: worstMaps, nemesisStats: nemesisList,
+      });
 
       if (returnData) {
         return {
@@ -517,11 +451,11 @@ const PlayerProfile = () => {
   };
 
   const handleSeasonChange = (e) => {
-    setSelectedSeason(parseInt(e.target.value, 10));
+    updateState({ selectedSeason: parseInt(e.target.value, 10) });
   };
 
   const handlePageChange = async (newPage) => {
-    setCurrentPage(newPage);
+    updateState({ currentPage: newPage });
     await fetchMatches(newPage);
     window.scrollTo({ top: document.querySelector('.match-history-section')?.offsetTop - 100 || 0, behavior: 'smooth' });
   };
@@ -529,7 +463,6 @@ const PlayerProfile = () => {
   if (isLoading) {
     return (
       <div className="player-page">
-        <Navbar />
         <div className="player-loading">
           <div className="loader-spinner lg"></div>
           <span className="loader-text">Loading player data</span>
@@ -551,8 +484,6 @@ const PlayerProfile = () => {
 
   return (
     <div className="player-page">
-      <Navbar />
-
       <div className="player-container">
         {/* Player Header */}
         <header className="player-header">

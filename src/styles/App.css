@@ -1387,22 +1387,22 @@ h2.team-name {
 }
 
 /* Form dots (new style) */
-/* 5 dots per row: 5*6px + 4*3px gap = 42px for small size */
+/* 8 dots per row: 8*6px + 7*3px gap = 69px for small size */
 .form-dots {
   display: flex;
   flex-wrap: wrap;
   gap: 3px;
   align-items: center;
   justify-content: center;
-  max-width: 42px; /* fits exactly 5 small dots */
+  max-width: 69px; /* fits 8 small dots per row */
 }
 
 .form-dots.medium {
-  max-width: 52px; /* 5*8px + 4*3px */
+  max-width: 91px; /* 8*8px + 7*3px */
 }
 
 .form-dots.large {
-  max-width: 72px; /* 5*12px + 4*3px */
+  max-width: 117px; /* 8*12px + 7*3px */
 }
 
 .form-dots-placeholder {
@@ -1777,10 +1777,9 @@ td.key,
   text-shadow: 0 0 8px var(--gold);
 }
 
-/* Gold glow on winning team header */
+/* Winning team header - subtle indicator only */
 th.team-header.winner {
-  background: linear-gradient(to bottom, rgba(252, 219, 51, 0.15) 0%, transparent 100%);
-  box-shadow: inset 0 0 20px rgba(252, 219, 51, 0.1);
+  background: transparent;
 }
 
 .team-name .winner-badge {

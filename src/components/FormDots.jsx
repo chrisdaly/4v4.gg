@@ -7,7 +7,7 @@ import React from "react";
  * @param {number} maxDots - Maximum dots to show (default 8), shows most recent
  * @param {boolean} showSummary - Show W-L summary when many games (default true)
  */
-const FormDots = ({ form, size = "small", maxDots = 8, showSummary = true }) => {
+const FormDots = ({ form, size = "small", maxDots = 25, showSummary = true }) => {
   if (!form || form.length === 0) return null;
 
   // Show only the most recent games if over limit

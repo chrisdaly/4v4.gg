@@ -1,5 +1,5 @@
 import React from "react";
-import Navbar from "../components/Navbar";
+
 
 // Real W3Champions profile pics
 const samplePics = [
@@ -12,7 +12,6 @@ const samplePic = samplePics[0];
 const IconDemo = () => {
   return (
     <div className="App">
-      <Navbar />
       <div style={{ padding: "40px", maxWidth: "1200px", margin: "0 auto" }}>
         <h1 style={{ color: "var(--gold)", marginBottom: "40px" }}>Winner & MVP Icon Options</h1>
 

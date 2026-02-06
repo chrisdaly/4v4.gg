@@ -94,4 +94,4 @@ const LadderRow = ({ rank, sparklineData, session, detectedRace, twitch, isStrea
   );
 };
 
-export default LadderRow;
+export default React.memo(LadderRow);

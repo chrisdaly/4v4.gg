@@ -1,5 +1,5 @@
 import React from "react";
-import Navbar from "../components/Navbar";
+
 import { MmrComparison } from "../components/MmrComparison";
 
 const pieConfig = { combinedGap: 5, areaMultiplier: 1.6 };
@@ -46,8 +46,6 @@ const SoloChart = ({ p1, p2 }) => (
 
 const DesignLab = () => (
   <div>
-    <Navbar />
-
     <article className="blog-article">
       <div className="content">
 

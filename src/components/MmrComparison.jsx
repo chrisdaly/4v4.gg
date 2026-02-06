@@ -1,5 +1,6 @@
 import React, { useEffect, useRef } from "react";
 import * as d3 from "d3";
+import { geometricMean, stdDev } from "../lib/formatters";
 
 // atStyle options: "combined" (default), "yin-yang", "bracket", "pill", "chain", "glow", "pie"
 // pieConfig allows tuning: { combinedGap (px), areaMultiplier (1.0-2.0) }
@@ -290,22 +291,6 @@ const MmrComparison = ({ data, compact = false, atStyle = "combined", pieConfig 
     const goldColor = "#fcdb33";
     const teamOneColor = "#4da6ff";
     const teamTwoColor = "#ef4444";
-
-    // Calculate geometric mean: nth root of product
-    const geometricMean = (arr) => {
-      const filtered = arr.filter(v => v && v > 0);
-      if (filtered.length === 0) return 0;
-      const product = filtered.reduce((acc, val) => acc * val, 1);
-      return Math.pow(product, 1 / filtered.length);
-    };
-
-    // Calculate standard deviation
-    const stdDev = (arr, mean) => {
-      const filtered = arr.filter(v => v && v > 0);
-      if (filtered.length === 0) return 0;
-      const squaredDiffs = filtered.map(v => Math.pow(v - mean, 2));
-      return Math.sqrt(squaredDiffs.reduce((a, b) => a + b, 0) / filtered.length);
-    };
 
     // Draw mean and std dev if enabled
     if (showMean || showStdDev) {

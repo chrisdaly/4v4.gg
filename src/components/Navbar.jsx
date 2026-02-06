@@ -43,6 +43,12 @@ const Navbar = () => {
             Stats
           </Link>
           <Link
+            to="/chat"
+            className={`navbar-link ${isActive("/chat") ? "active" : ""}`}
+          >
+            Chat
+          </Link>
+          <Link
             to="/blog"
             className={`navbar-link ${isActive("/blog") ? "active" : ""}`}
           >

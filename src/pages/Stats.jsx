@@ -1,6 +1,6 @@
 import React, { useState, useEffect, useMemo } from "react";
 import { CountryFlag } from "../components/ui";
-import Navbar from "../components/Navbar";
+
 import { gateway } from "../lib/params";
 import { cache } from "../lib/cache";
 import { getSeasons, getLadder, getLadderCached } from "../lib/api";
@@ -882,7 +882,6 @@ const Stats = () => {
 
   return (
     <div className="stats-page">
-      <Navbar />
       <div className="stats-header">
         <h1 className="stats-title">4v4 Statistics</h1>
         <div className="stats-controls">

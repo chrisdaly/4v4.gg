@@ -1,5 +1,5 @@
-import React, { useState, useEffect } from "react";
-import Navbar from "../components/Navbar";
+import React, { useState, useEffect, useMemo, useCallback } from "react";
+
 import LadderRow from "../components/LadderRow";
 import { gateway } from "../lib/params";
 import { fetchPlayerSessionData } from "../lib/utils";
@@ -311,8 +311,8 @@ const Ladder = () => {
     return battleTag && ongoingPlayers.has(battleTag.toLowerCase()) ? 1 : 0;
   };
 
-  // Sort results
-  const sortedRankings = [...displayRankings].sort((a, b) => {
+  // Sort results (memoized to avoid re-sorting on unrelated state changes)
+  const sortedRankings = useMemo(() => [...displayRankings].sort((a, b) => {
     let aVal, bVal;
 
     switch (sortField) {
@@ -332,7 +332,7 @@ const Ladder = () => {
         aVal = a.player?.losses || 0;
         bVal = b.player?.losses || 0;
         break;
-      case "winrate":
+      case "winrate": {
         const aWins = a.player?.wins || 0;
         const aLosses = a.player?.losses || 0;
         const bWins = b.player?.wins || 0;
@@ -340,6 +340,7 @@ const Ladder = () => {
         aVal = aWins + aLosses > 0 ? aWins / (aWins + aLosses) : 0;
         bVal = bWins + bLosses > 0 ? bWins / (bWins + bLosses) : 0;
         break;
+      }
       case "games":
         aVal = (a.player?.wins || 0) + (a.player?.losses || 0);
         bVal = (b.player?.wins || 0) + (b.player?.losses || 0);
@@ -361,19 +362,18 @@ const Ladder = () => {
     }
 
     return sortDirection === "asc" ? aVal - bVal : bVal - aVal;
-  });
+  }), [displayRankings, sortField, sortDirection, sparklineData, ongoingPlayers]);
 
   // Count how many players in this ladder are currently in game
-  const inGameCount = rankings.filter((rank) => {
+  const inGameCount = useMemo(() => rankings.filter((rank) => {
     const battleTag = rank.playersInfo?.[0]?.battleTag;
     return battleTag && ongoingPlayers.has(battleTag.toLowerCase());
-  }).length;
+  }).length, [rankings, ongoingPlayers]);
 
   const currentLeague = LEAGUES.find((l) => l.id === selectedLeague);
 
   return (
     <div className="ladder-page">
-      <Navbar />
       <div className="ladder-header">
         <div className="ladder-title-section">
           {searchResults !== null ? (
