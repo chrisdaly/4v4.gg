@@ -2,44 +2,8 @@ import React from "react";
 import { Link, useHistory } from "react-router-dom";
 import "./GameRow.css";
 
-import human from "../../icons/human.svg";
-import orc from "../../icons/orc.svg";
-import elf from "../../icons/elf.svg";
-import undead from "../../icons/undead.svg";
-import random from "../../icons/random.svg";
-
-const raceMapping = { 8: undead, 0: random, 4: elf, 2: orc, 1: human };
-
-// Map images stored locally in /public/maps/
-const getMapImageUrl = (mapName) => {
-  if (!mapName) return null;
-  const cleanName = mapName.replace(/^\(\d\)/, "").replace(/ /g, "").replace(/'/g, "");
-  return `/maps/${cleanName}.png`;
-};
-
-// Format duration from seconds
-const formatDuration = (seconds) => {
-  if (!seconds) return "--";
-  const mins = Math.floor(seconds / 60);
-  const secs = seconds % 60;
-  return `${mins}:${secs.toString().padStart(2, "0")}`;
-};
-
-// Format time ago
-const formatTimeAgo = (dateString) => {
-  if (!dateString) return "";
-  const date = new Date(dateString);
-  const now = new Date();
-  const diffMs = now - date;
-  const diffMins = Math.floor(diffMs / 60000);
-  const diffHours = Math.floor(diffMins / 60);
-  const diffDays = Math.floor(diffHours / 24);
-
-  if (diffMins < 60) return `${diffMins}m ago`;
-  if (diffHours < 24) return `${diffHours}h ago`;
-  if (diffDays < 7) return `${diffDays}d ago`;
-  return date.toLocaleDateString();
-};
+import { raceMapping } from "../../lib/constants";
+import { getMapImageUrl, formatDuration, formatTimeAgo } from "../../lib/formatters";
 
 /**
  * GameRow - Table row format for match history

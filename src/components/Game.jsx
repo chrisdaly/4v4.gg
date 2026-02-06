@@ -1,0 +1,480 @@
+import React, { useState, useEffect } from "react";
+import { Link } from "react-router-dom";
+import { CountryFlag } from "./ui";
+import { FaTwitch } from "react-icons/fa";
+
+import { MmrComparison } from "./MmrComparison";
+import { calculateElapsedTime, calculatePercentiles, detectArrangedTeams } from "../lib/utils";
+import { raceMapping } from "../lib/constants";
+import { getMapImageUrl, geometricMean, stdDev } from "../lib/formatters";
+import FormDots from "./FormDots";
+
+// Line connecting AT players - calculates width dynamically
+const ATConnector = ({ relation }) => {
+  const lineRef = React.useRef(null);
+
+  React.useEffect(() => {
+    if (!lineRef.current) return;
+
+    const updateWidth = () => {
+      const line = lineRef.current;
+      const container = line.closest('div[style*="inline-block"]');
+      const sourcePic = container?.querySelector('.profile-pic');
+      const cell = container?.closest('th');
+      const nextCell = cell?.nextElementSibling;
+      // Skip the middle VS column if present
+      const targetCell = nextCell?.classList.contains('th-center') ? nextCell?.nextElementSibling : nextCell;
+      const nextPic = targetCell?.querySelector('.profile-pic');
+
+      if (sourcePic && nextPic) {
+        const sourceRect = sourcePic.getBoundingClientRect();
+        const nextRect = nextPic.getBoundingClientRect();
+        const gap = nextRect.left - sourceRect.right;
+        line.style.width = `${Math.max(0, gap)}px`;
+      }
+    };
+
+    // Delay to ensure DOM is ready
+    setTimeout(updateWidth, 50);
+    window.addEventListener('resize', updateWidth);
+    return () => window.removeEventListener('resize', updateWidth);
+  }, []);
+
+  return <div ref={lineRef} className={`at-line ${relation ? `at-line-${relation}` : ""}`} />;
+};
+
+const Game = ({ playerData: rawPlayerData, metaData, profilePics, playerCountries, sessionData, liveStreamers = {}, compact, streamerTag, initialATGroups }) => {
+  const [atGroups, setAtGroups] = useState(initialATGroups || {});
+
+  const excludedKeys = ["mercsHired", "itemsObtained", "lumberCollected"];
+  // Reorder team 1 players (reverse) for display, don't mutate props
+  const playerData = [...rawPlayerData.slice(0, 4).reverse(), ...rawPlayerData.slice(4)];
+
+  // Detect arranged teams (skip if initialATGroups provided)
+  useEffect(() => {
+    if (initialATGroups) return;
+    const detect = async () => {
+      const groups = await detectArrangedTeams(rawPlayerData);
+      setAtGroups(groups);
+    };
+    detect();
+  }, [rawPlayerData, initialATGroups]);
+
+  // Check if a player is in an AT group
+  const isPlayerAT = (battleTag) => {
+    return battleTag.toLowerCase() in atGroups;
+  };
+
+  // Get AT partners for a player
+  const getATPartners = (battleTag) => {
+    return atGroups[battleTag.toLowerCase()] || [];
+  };
+
+  // Get AT group size (0 for non-AT, 2/3/4 for AT groups)
+  const getATGroupSize = (battleTag) => {
+    const partners = getATPartners(battleTag);
+    return partners.length > 0 ? partners.length + 1 : 0;
+  };
+
+  // Get AT group ID (0 for solo, 1+ for AT groups)
+  // Returns the same ID for all members of the same AT group
+  const atGroupIdCache = React.useMemo(() => {
+    const cache = {};
+    let nextGroupId = 1;
+
+    // Get all unique AT groups
+    Object.keys(atGroups).forEach(tag => {
+      if (cache[tag]) return; // Already assigned
+
+      const partners = atGroups[tag] || [];
+      if (partners.length === 0) return; // Not in an AT
+
+      // Assign same ID to this player and all partners
+      const groupId = nextGroupId++;
+      cache[tag] = groupId;
+      partners.forEach(partner => {
+        cache[partner.toLowerCase()] = groupId;
+      });
+    });
+
+    return cache;
+  }, [atGroups]);
+
+  const getATGroupId = (battleTag) => {
+    return atGroupIdCache[battleTag.toLowerCase()] || 0;
+  };
+
+  // Check if player has an AT partner to their right (next in display order)
+  const hasATPartnerRight = (playerIndex) => {
+    if (playerIndex >= playerData.length - 1) return false;
+    const current = playerData[playerIndex];
+    const next = playerData[playerIndex + 1];
+    // Must be same team
+    const sameTeam = (playerIndex < 4 && playerIndex + 1 < 4) || (playerIndex >= 4 && playerIndex + 1 < 8);
+    if (!sameTeam) return false;
+    // Check if they're AT partners
+    const partners = getATPartners(current.battleTag);
+    return partners.some(p => p.toLowerCase() === next.battleTag.toLowerCase());
+  };
+
+  // Determine player relationship to streamer (for stream overlay coloring)
+  const getPlayerRelation = (battleTag, playerIndex) => {
+    if (!streamerTag) return null;
+    const isStreamer = battleTag.toLowerCase() === streamerTag.toLowerCase();
+    if (isStreamer) return "streamer";
+
+    // Find which team the streamer is on
+    const streamerIndex = playerData.findIndex(p => p.battleTag.toLowerCase() === streamerTag.toLowerCase());
+    if (streamerIndex === -1) return null;
+
+    const streamerTeam = streamerIndex < 4 ? 0 : 1;
+    const playerTeam = playerIndex < 4 ? 0 : 1;
+
+    return playerTeam === streamerTeam ? "ally" : "opponent";
+  };
+
+  const keyDisplayNameMapping = {
+    heroesKilled: "Heroes Killed",
+    expGained: "Experience Gained",
+    goldCollected: "Gold Mined",
+    unitsProduced: "Units Produced",
+    unitsKilled: "Units Killed",
+    largestArmy: "Largest Army",
+    lumberCollected: "Lumber Harvested",
+    goldUpkeepLost: "Gold Lost to Upkeep",
+  };
+
+  const getCellStyle = (percentile) => {
+    if (percentile >= 90) return "green-text";
+    if (percentile >= 25) return "white-text";
+    return "red-text";
+  };
+
+  const renderTableCells = (scoreType, statName, teamIndex, percentiles) => {
+    return playerData.slice(teamIndex * 4, (teamIndex + 1) * 4).map((playerScore, index) => {
+      const value = playerScore[scoreType][statName];
+      const className = getCellStyle(percentiles[teamIndex * 4 + index]);
+      return (
+        <td key={`team${teamIndex + 1}-${index}`} className={`${className} number team-${teamIndex}`}>
+          {value.toLocaleString("en-US")}
+        </td>
+      );
+    });
+  };
+
+  const renderTableRows = (scoreType) => {
+    if (!playerData[0].unitScore) {
+      return <></>;
+    }
+    return Object.entries(playerData[0][scoreType])
+      .filter(([statName]) => !excludedKeys.includes(statName)) // Exclude keys specified in excludedKeys
+      .map(([statName, _]) => {
+        // Extract the scores for the current statName from all players
+        const scores = playerData.map((player) => player[scoreType][statName]);
+
+        // Calculate percentiles for the scores
+        let percentiles = calculatePercentiles(scores);
+
+        // If the statName is "goldUpkeepLost", reverse the percentiles
+        if (statName === "goldUpkeepLost") {
+          percentiles = percentiles.map((d) => 100 - d);
+        }
+
+        // Render the table row
+        return (
+          <tr key={statName} className="stat-row">
+            {renderTableCells(scoreType, statName, 0, percentiles)}
+            <td className="th-center stat-label">{keyDisplayNameMapping[statName] || statName}</td>
+            {renderTableCells(scoreType, statName, 1, percentiles)}
+          </tr>
+        );
+      });
+  };
+
+  const renderHero = (hero) => {
+    return (
+      <div className="hero-container">
+        <img src={`/heroes/${hero.icon}.jpeg`} alt="Hero Icon" className="hero-pic" />
+        <span className="hero-level">{hero.level}</span>
+      </div>
+    );
+  };
+
+  const renderHeroRows = () => {
+    if (!playerData[0].heroScore) {
+      return <></>;
+    }
+    return (
+      <tr className="heroes-row">
+        {playerData.slice(0, 4).map((playerScore, index) => (
+          <td key={`team1-hero-${index}`} className="hero-cell">
+            <div className="heroes-wrapper">
+              {playerScore.heroes.map((hero, heroIndex) => (
+                <React.Fragment key={`team0-hero-${index}-${heroIndex}`}>
+                  {renderHero(hero)}
+                </React.Fragment>
+              ))}
+            </div>
+          </td>
+        ))}
+        <td className="th-center stat-label">Heroes</td>
+
+        {playerData.slice(4).map((playerScore, index) => (
+          <td key={`team2-hero-${index}`} className="hero-cell">
+            <div className="heroes-wrapper">
+              {playerScore.heroes.map((hero, heroIndex) => (
+                <React.Fragment key={`team1-hero-${index}-${heroIndex}`}>
+                  {renderHero(hero)}
+                </React.Fragment>
+              ))}
+            </div>
+          </td>
+        ))}
+      </tr>
+    );
+  };
+
+  const renderPlayerCell = (player, teamClassName, playerIndex) => {
+    const { oldMmr } = player;
+    const flagPosition = teamClassName === "team-0" ? { top: 0, right: 0 } : { top: 0, left: 0 };
+    const playerSession = sessionData?.[player.battleTag];
+    const sessionDelta = playerSession?.mmrChange || 0;
+    const playerIsAT = isPlayerAT(player.battleTag);
+    const showChain = hasATPartnerRight(playerIndex);
+    const playerRelation = getPlayerRelation(player.battleTag, playerIndex);
+
+    return (
+      <th key={player.battleTag} style={{ position: 'relative', overflow: 'visible' }} className={`${playerRelation ? `at-${playerRelation}` : ""} ${playerIsAT ? "is-at" : ""}`}>
+        <div
+          className={`playerDiv ${compact ? "compact" : ""} ${playerRelation ? `at-${playerRelation}` : ""} ${playerIsAT ? "is-at" : ""}`}
+        >
+          {/* Profile pic with flag and MVP badge */}
+          <div style={{ position: "relative", display: "inline-block" }}>
+            {profilePics[player.battleTag] ? (
+              <img
+                src={profilePics[player.battleTag]}
+                alt="Player Profile Pic"
+                className={`profile-pic ${player.isMvp ? "mvp" : ""} ${playerIsAT ? "at" : ""} ${playerRelation ? `relation-${playerRelation}` : ""}`}
+              />
+            ) : null}
+            {playerCountries[player.battleTag] ? (
+              <CountryFlag
+                name={playerCountries[player.battleTag].toLowerCase()}
+                className={`${teamClassName} flag player-flag`}
+              />
+            ) : null}
+            {player.isMvp && (
+              <div className={`mvp-badge ${teamClassName}`}>
+                <span className="mvp-text">MVP</span>
+              </div>
+            )}
+            {/* Race icon overlay */}
+            <img
+              src={raceMapping[player.race]}
+              alt=""
+              className="race-overlay"
+            />
+          </div>
+
+          {/* Player name */}
+          <div className="player-name-row">
+            <Link to={`/player/${player.battleTag.replace("#", "%23")}`}>
+              <h2>{player.name}</h2>
+            </Link>
+            {liveStreamers[player.battleTag] && (
+              <a
+                href={`https://twitch.tv/${liveStreamers[player.battleTag].twitchName}`}
+                target="_blank"
+                rel="noopener noreferrer"
+                className="twitch-link"
+                title={liveStreamers[player.battleTag].title || "Live on Twitch"}
+              >
+                <FaTwitch className="twitch-icon" style={{ fill: '#9146ff' }} />
+              </a>
+            )}
+          </div>
+
+          {/* MMR line */}
+          <div className="player-mmr-line">
+            {oldMmr && oldMmr > 0 ? (
+              <>
+                <span className="mmr-value">{oldMmr}</span>
+                <span className="mmr-label"> MMR</span>
+              </>
+            ) : (
+              <span className="mmr-label-muted">Unranked</span>
+            )}
+          </div>
+
+          {/* Form dots - oldest on left, newest (latest) on right */}
+          <div className="form-dots-wrapper">
+            <FormDots form={playerSession?.form} size="small" />
+          </div>
+        </div>
+        {/* AT connector line - positioned at cell level */}
+        {showChain && <div className="at-connector" />}
+      </th>
+    );
+  };
+
+  const team1Won = playerData[0].won;
+  const team2Won = playerData[4].won;
+
+  // Calculate team MMRs (geometric mean) and standard deviation
+  // Guard against missing data
+  if (!metaData || !playerData || playerData.length < 8) return null;
+
+  const team1MmrArray = playerData.slice(0, 4).map((d) => d.oldMmr);
+  const team2MmrArray = playerData.slice(4).map((d) => d.oldMmr);
+  const team1AvgMmr = Math.round(geometricMean(team1MmrArray));
+  const team2AvgMmr = Math.round(geometricMean(team2MmrArray));
+  const team1StdDev = Math.round(stdDev(team1MmrArray, team1AvgMmr));
+  const team2StdDev = Math.round(stdDev(team2MmrArray, team2AvgMmr));
+
+  return (
+    <div className="Game">
+      <table className={`game-table ${compact ? "compactTable" : ""}`}>
+        <thead>
+          <tr>
+            <th> </th>
+            <th> </th>
+            <th> </th>
+            <th className={`team-0 team-header ${team1Won ? "winner" : ""}`}>
+              <div>
+                <h2 className="team-name">{team1Won && <span className="winner-badge">W</span>} TEAM 1</h2>
+                <div className="team-mmr-line">
+                  <span className="mmr-value">{team1AvgMmr}</span>
+                  <span className="mmr-label"> MMR</span>
+                </div>
+                <div className="image-container">
+                  {playerData
+                    .slice(0, 4)
+                    .map((d, i) => (
+                      <img
+                        key={i}
+                        src={raceMapping[d.race]}
+                        alt={d.race}
+                        className={"race teamHeaderRace"}
+                      />
+                    ))}
+                </div>
+              </div>
+            </th>
+            <th className="th-center" style={{ position: "relative" }}>
+              <h2>VS</h2>
+            </th>
+            <th className={`team-1 team-header ${team2Won ? "winner" : ""}`}>
+              <div>
+                <h2 className="team-name">TEAM 2 {team2Won && <span className="winner-badge">W</span>}</h2>
+                <div className="team-mmr-line">
+                  <span className="mmr-value">{team2AvgMmr}</span>
+                  <span className="mmr-label"> MMR</span>
+                </div>
+                <div className="image-container">
+                  {playerData
+                    .slice(4)
+                    .map((d, i) => (
+                      <img
+                        key={i}
+                        src={raceMapping[d.race]}
+                        alt={d.race}
+                        className={"race teamHeaderRace"}
+                      />
+                    ))}
+                </div>
+              </div>
+            </th>
+            <th> </th>
+            <th> </th>
+            <th> </th>
+          </tr>
+        </thead>
+        <thead>
+          <tr>
+            {playerData.map((playerScore, index) => {
+              const teamIndex = index < 4 ? 0 : 1;
+              const teamClassName = `team-${teamIndex}`;
+              return (
+                <React.Fragment key={`player-${index}`}>
+                  {renderPlayerCell(playerScore, teamClassName, index)}
+                  {index === 3 && (
+                    <th className={`th-center ${compact ? "compact" : ""}`} style={{ position: "relative", verticalAlign: "top" }}>
+                      <div className="mmr-chart-container">
+                        <MmrComparison
+                          data={{
+                            teamOneMmrs: team1MmrArray,
+                            teamTwoMmrs: team2MmrArray,
+                            teamOneAT: playerData.slice(0, 4).map((d) => getATGroupId(d.battleTag)),
+                            teamTwoAT: playerData.slice(4).map((d) => getATGroupId(d.battleTag)),
+                          }}
+                          compact={compact}
+                          atStyle="combined"
+                          showMean={false}
+                          showStdDev={false}
+                        />
+                      </div>
+                    </th>
+                  )}
+                </React.Fragment>
+              );
+            })}
+          </tr>
+        </thead>
+
+        <tbody>
+          {!playerData[0].unitScore ? (
+            <></>
+          ) : (
+            <>
+              {renderHeroRows()}
+              {renderTableRows("heroScore")}
+              <tr className="section-divider">
+                <td colSpan={9}></td>
+              </tr>
+              {renderTableRows("unitScore")}
+              <tr className="section-divider">
+                <td colSpan={9}></td>
+              </tr>
+              {renderTableRows("resourceScore")}
+            </>
+          )}
+          <tr className="meta">
+            <td colSpan={9}>
+              <div className="meta-bar">
+                <div className="meta-map-centered">
+                  <img
+                    src={getMapImageUrl(metaData.mapId)}
+                    alt="map"
+                    className="meta-map-img"
+                    onError={(e) => { e.target.style.display = 'none'; }}
+                  />
+                  <div className="meta-map-info">
+                    <span className="meta-map-name">{metaData.mapName}</span>
+                    <span className="meta-details">
+                      {metaData.gameLength === "0:00"
+                        ? calculateElapsedTime(metaData.startTime)
+                        : metaData.gameLength} mins
+                      {metaData.gameLength === "0:00" && <span className="live-dot"></span>}
+                    </span>
+                    {metaData.startTime && metaData.gameLength !== "0:00" && (
+                      <span className="meta-time">
+                        {new Date(metaData.startTime).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
+                      </span>
+                    )}
+                  </div>
+                </div>
+                {metaData.matchId && metaData.gameLength !== "0:00" && (
+                  <Link to={`/match/${metaData.matchId}`} className="meta-match-id">
+                    #{metaData.matchId}
+                  </Link>
+                )}
+              </div>
+            </td>
+          </tr>
+        </tbody>
+      </table>
+    </div>
+  );
+};
+
+export default Game;

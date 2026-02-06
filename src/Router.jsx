@@ -1,30 +1,34 @@
 import React from "react";
 import { BrowserRouter, Route, Switch } from "react-router-dom";
-import OnGoingGames from "./OnGoingGames";
-import Ladder from "./Ladder";
-import PlayerProfile from "./PlayerProfile";
-import PlayerStream from "./PlayerStream";
-import FinishedGamePage from "./FinishedGamePage";
-import RecentlyFinished from "./RecentlyFinished";
-import Stats from "./Stats";
-import MyStreamPage from "./MyStreamPage";
-import VisualizationDemo from "./VisualizationDemo";
-import StyleReference from "./StyleReference";
-import IconDemo from "./IconDemo";
-import OverlayIndex from "./OverlayIndex";
-import MatchOverlayPage from "./MatchOverlayPage";
-import PlayerOverlayPage from "./PlayerOverlayPage";
-import LastGameOverlayPage from "./LastGameOverlayPage";
-import DesignLab from "./DesignLab";
-import Blog from "./Blog";
-import MmrLab from "./MmrLab";
+
+// Pages
+import OngoingGames from "./pages/OngoingGames";
+import Ladder from "./pages/Ladder";
+import PlayerProfile from "./pages/PlayerProfile";
+import PlayerStream from "./pages/PlayerStream";
+import FinishedGamePage from "./pages/FinishedGamePage";
+import RecentlyFinished from "./pages/RecentlyFinished";
+import Stats from "./pages/Stats";
+import MyStreamPage from "./pages/MyStreamPage";
+import VisualizationDemo from "./pages/VisualizationDemo";
+import StyleReference from "./pages/StyleReference";
+import IconDemo from "./pages/IconDemo";
+import DesignLab from "./pages/DesignLab";
+import Blog from "./pages/Blog";
+import MmrLab from "./pages/MmrLab";
+
+// Overlay pages
+import OverlayIndex from "./pages/overlay/OverlayIndex";
+import MatchOverlayPage from "./pages/overlay/MatchOverlayPage";
+import PlayerOverlayPage from "./pages/overlay/PlayerOverlayPage";
+import LastGameOverlayPage from "./pages/overlay/LastGameOverlayPage";
 
 const Router = () => (
   <BrowserRouter>
     <Switch>
       {/* Main pages */}
-      <Route exact path="/" component={OnGoingGames} />
-      <Route path="/ongoing" component={OnGoingGames} />
+      <Route exact path="/" component={OngoingGames} />
+      <Route path="/ongoing" component={OngoingGames} />
       <Route path="/finished" component={RecentlyFinished} />
       <Route path="/ladder" component={Ladder} />
       <Route path="/stats" component={Stats} />

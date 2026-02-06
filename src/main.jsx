@@ -1,10 +1,10 @@
 import React from "react";
 import { createRoot } from "react-dom/client";
 import Router from "./Router.jsx";
-import { initSeason } from "./params.jsx";
+import { initSeason } from "./lib/params";
 
-import "./index.css";
-import "./App.css";
+import "./styles/index.css";
+import "./styles/App.css";
 
 // Fetch current season before rendering
 initSeason().then(() => {
