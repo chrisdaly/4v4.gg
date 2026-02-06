@@ -144,7 +144,11 @@ const MmrComparison = ({ data, compact = false, atStyle = "combined", pieConfig 
           x = baseX + offsetDirection * attempts * 8;
         }
 
-        positionedATGroups.push({ ...group, x });
+        // Clamp X to stay within bounds
+        const minX = group.radius + 2;
+        const maxX = innerWidth - group.radius - 2;
+        const clampedX = Math.max(minX, Math.min(maxX, x));
+        positionedATGroups.push({ ...group, x: clampedX });
       });
 
       // Build combined circles info from positioned AT groups
@@ -203,6 +207,13 @@ const MmrComparison = ({ data, compact = false, atStyle = "combined", pieConfig 
         }
 
         positioned.push({ ...d, x, y });
+      });
+
+      // Clamp all positions to stay within SVG bounds
+      const minX = dotRadius + 2;
+      const maxX = innerWidth - dotRadius - 2;
+      positioned.forEach(p => {
+        p.x = Math.max(minX, Math.min(maxX, p.x));
       });
 
       return positioned;

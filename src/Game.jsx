@@ -351,20 +351,6 @@ const Game = ({ playerData: rawPlayerData, metaData, profilePics, playerCountrie
             )}
           </div>
 
-          {/* Session info */}
-          <div className="session-info">
-            {playerSession && playerSession.form && playerSession.form.length > 0 ? (
-              <>
-                <span className="session-record">{playerSession.wins}W-{playerSession.losses}L</span>
-                {sessionDelta !== 0 && (
-                  <span className={`session-delta ${sessionDelta >= 0 ? 'positive' : 'negative'}`}>
-                    {sessionDelta >= 0 ? ' ↑' : ' ↓'}{Math.abs(sessionDelta)}
-                  </span>
-                )}
-              </>
-            ) : null}
-          </div>
-
           {/* Form dots - oldest on left, newest (latest) on right */}
           <div className="form-dots-wrapper">
             <FormDots form={playerSession?.form} size="small" />

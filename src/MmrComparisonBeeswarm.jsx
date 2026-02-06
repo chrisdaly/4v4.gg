@@ -277,7 +277,7 @@ function renderStrip(svg, data, width, height, minMmr, maxMmr, radius, padding) 
     y: centerY
   }));
 
-  // Simple collision resolution
+  // Simple collision resolution - prioritize vertical displacement to avoid horizontal overflow
   for (let iter = 0; iter < 50; iter++) {
     for (let i = 0; i < nodes.length; i++) {
       for (let j = i + 1; j < nodes.length; j++) {
@@ -288,22 +288,24 @@ function renderStrip(svg, data, width, height, minMmr, maxMmr, radius, padding) 
 
         if (dist < minDist && dist > 0) {
           const push = (minDist - dist) / 2;
+          // Bias toward vertical displacement (0.2 horizontal, 0.8 vertical)
           const angle = Math.atan2(dy, dx);
-          nodes[i].x -= Math.cos(angle) * push * 0.5;
-          nodes[j].x += Math.cos(angle) * push * 0.5;
-          nodes[i].y -= Math.sin(angle) * push * 0.5;
-          nodes[j].y += Math.sin(angle) * push * 0.5;
+          nodes[i].x -= Math.cos(angle) * push * 0.2;
+          nodes[j].x += Math.cos(angle) * push * 0.2;
+          nodes[i].y -= Math.sin(angle) * push * 0.8;
+          nodes[j].y += Math.sin(angle) * push * 0.8;
         }
       }
       // Pull back toward target x
       nodes[i].x += (nodes[i].targetX - nodes[i].x) * 0.1;
-      // Keep y near center
-      nodes[i].y += (centerY - nodes[i].y) * 0.3;
+      // Keep y near center (reduced pull to allow more vertical spread)
+      nodes[i].y += (centerY - nodes[i].y) * 0.1;
     }
   }
 
-  // Clamp y to bounds
+  // Clamp to bounds
   nodes.forEach(n => {
+    n.x = Math.max(radius + 2, Math.min(width - radius - 2, n.x));
     n.y = Math.max(radius + 2, Math.min(height - radius - 2, n.y));
   });
 

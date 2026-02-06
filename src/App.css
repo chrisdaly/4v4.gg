@@ -4470,7 +4470,7 @@ a.neighbor-name-sm:hover {
 /* MMR chart container - default size */
 .mmr-chart-container {
   height: 240px;
-  width: 140px;
+  width: 200px;
   overflow: hidden;
   display: inline-block;
 }
