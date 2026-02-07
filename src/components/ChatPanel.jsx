@@ -1,8 +1,6 @@
 import React, { useRef, useEffect, useState, useMemo } from "react";
 import { Link } from "react-router-dom";
 import styled from "styled-components";
-import { GiCrossedSwords } from "react-icons/gi";
-import { CountryFlag } from "./ui";
 import { raceMapping, raceIcons } from "../lib/constants";
 
 const Wrapper = styled.div`
@@ -15,14 +13,17 @@ const Wrapper = styled.div`
   border-radius: var(--radius-md);
   background: rgba(255, 255, 255, 0.02);
   overflow: hidden;
+  font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
 `;
 
 const Header = styled.div`
   display: flex;
   align-items: center;
   justify-content: space-between;
-  padding: var(--space-2) var(--space-4);
+  padding: var(--space-3) var(--space-4);
   border-bottom: 1px solid var(--grey-mid);
+  background: linear-gradient(180deg, rgba(255, 255, 255, 0.03) 0%, transparent 100%);
+  box-shadow: 0 1px 0 rgba(0, 0, 0, 0.2);
 `;
 
 const Title = styled.span`
@@ -79,67 +80,85 @@ const MessageList = styled.div`
   }
 `;
 
-const GroupStartRow = styled.div`
-  display: flex;
-  align-items: flex-start;
-  gap: 10px;
-  padding: 3px 0;
-  margin-top: var(--space-2);
-  line-height: 1.5;
-  border-radius: var(--radius-sm);
+const MessageSegment = styled.div`
+  position: relative;
+  min-height: 85px;
+  margin-top: var(--space-4);
+  padding-bottom: var(--space-1);
 
   &:first-child {
     margin-top: 0;
   }
+`;
+
+const GroupStartRow = styled.div`
+  padding: 2px var(--space-4) 2px 84px;
+  line-height: 1.375;
 
   &:hover {
-    background: rgba(255, 255, 255, 0.03);
+    background: rgba(255, 255, 255, 0.02);
   }
 `;
 
 const ContinuationRow = styled.div`
-  padding: 1px 0;
-  padding-left: 42px;
-  line-height: 1.5;
-  border-radius: var(--radius-sm);
+  position: relative;
+  padding: 2px var(--space-4) 2px 84px;
+  line-height: 1.375;
 
   @media (max-width: 480px) {
-    padding-left: 34px;
+    padding-left: 64px;
   }
 
   &:hover {
-    background: rgba(255, 255, 255, 0.03);
+    background: rgba(255, 255, 255, 0.02);
+  }
+
+  &:hover > .hover-timestamp {
+    opacity: 0.5;
   }
 `;
 
+const HoverTimestamp = styled.span`
+  position: absolute;
+  left: 0;
+  width: 84px;
+  top: 50%;
+  transform: translateY(-50%);
+  font-family: var(--font-mono);
+  font-size: 11px;
+  color: var(--grey-light);
+  opacity: 0;
+  transition: opacity 0.15s;
+  pointer-events: none;
+  text-align: center;
+`;
+
 const Avatar = styled.img`
-  width: 32px;
-  height: 32px;
-  border-radius: var(--radius-sm);
+  width: 60px;
+  height: 60px;
+  border-radius: var(--radius-md);
   flex-shrink: 0;
-  margin-top: 1px;
 
   @media (max-width: 480px) {
-    width: 24px;
-    height: 24px;
+    width: 44px;
+    height: 44px;
   }
 `;
 
 const AvatarRaceIcon = styled.img`
-  width: 32px;
-  height: 32px;
+  width: 60px;
+  height: 60px;
   box-sizing: border-box;
-  border-radius: var(--radius-sm);
+  border-radius: var(--radius-md);
   flex-shrink: 0;
-  margin-top: 1px;
-  padding: 4px;
+  padding: 10px;
   background: rgba(255, 255, 255, 0.06);
   opacity: ${(p) => p.$faded ? 0.3 : 0.85};
 
   @media (max-width: 480px) {
-    width: 24px;
-    height: 24px;
-    padding: 3px;
+    width: 44px;
+    height: 44px;
+    padding: 6px;
   }
 `;
 
@@ -149,37 +168,20 @@ const MessageContent = styled.div`
 
 const Timestamp = styled.span`
   font-family: var(--font-mono);
-  font-size: var(--text-xxs);
+  font-size: 12px;
   color: var(--grey-light);
-  margin-right: 6px;
+  margin-left: var(--space-2);
 `;
 
 const NameWrapper = styled.span`
   display: inline-flex;
   align-items: center;
-  position: relative;
-
-  &:hover > .hover-flag {
-    opacity: 1;
-  }
-`;
-
-const HoverFlag = styled.span`
-  position: absolute;
-  right: 100%;
-  margin-right: 2px;
-  opacity: 0;
-  transition: opacity 0.15s;
-  display: inline-flex;
-  align-items: center;
-  pointer-events: none;
 `;
 
 const UserNameLink = styled(Link)`
   font-family: var(--font-display);
   font-size: var(--text-sm);
   color: var(--gold);
-  margin-right: var(--space-2);
   text-decoration: none;
 
   &:hover {
@@ -188,35 +190,92 @@ const UserNameLink = styled(Link)`
 `;
 
 const AvatarContainer = styled.div`
-  position: relative;
-  flex-shrink: 0;
+  position: absolute;
+  left: var(--space-2);
+  top: 0;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  width: 60px;
+
+  @media (max-width: 480px) {
+    width: 44px;
+  }
 `;
 
-const InGameBadge = styled(GiCrossedSwords)`
+const AvatarStats = styled.div`
   position: absolute;
-  top: -3px;
-  right: -3px;
-  width: 10px;
-  height: 10px;
-  color: var(--red);
-  background: var(--grey-dark);
+  top: 100%;
+  left: 0;
+  right: 0;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  margin-top: 3px;
+  line-height: 1;
+  gap: 4px;
+`;
+
+const MmrRow = styled.div`
+  display: flex;
+  align-items: baseline;
+  gap: 4px;
+  white-space: nowrap;
+`;
+
+const MmrValue = styled.span`
+  font-family: var(--font-mono);
+  font-size: 14px;
+  color: #fff;
+  font-weight: 700;
+`;
+
+const MmrLabel = styled.span`
+  font-family: var(--font-mono);
+  font-size: 10px;
+  color: var(--grey-light);
+  opacity: 0.6;
+`;
+
+const FormDots = styled.div`
+  display: flex;
+  align-items: center;
+  gap: 2px;
+  justify-content: center;
+`;
+
+const FormDot = styled.span`
+  display: inline-block;
+  width: 6px;
+  height: 6px;
+  border-radius: var(--radius-full);
+  background: ${(p) => (p.$win ? "var(--green)" : "var(--red)")};
+  opacity: 0.8;
+`;
+
+const InGameDot = styled.span`
+  position: absolute;
+  bottom: -1px;
+  right: -1px;
+  width: 8px;
+  height: 8px;
+  background: var(--red);
   border-radius: 50%;
-  padding: 1px;
+  border: 2px solid var(--grey-dark);
   animation: pulse 1.5s infinite;
 `;
 
 const MessageText = styled.span`
-  color: rgba(255, 255, 255, 0.88);
-  font-size: var(--text-xs);
+  color: rgba(255, 255, 255, 0.82);
+  font-size: 15px;
+  line-height: 1.375;
   word-break: break-word;
 `;
 
 const SystemMessageRow = styled.div`
-  padding: 2px 0;
-  padding-left: 42px;
-  line-height: 1.5;
-  font-family: var(--font-mono);
-  font-size: var(--text-xxs);
+  padding: 2px var(--space-4) 2px 84px;
+  line-height: 1.375;
+  font-size: 13px;
   color: var(--grey-light);
   font-style: italic;
   opacity: 0.7;
@@ -228,16 +287,18 @@ const ScrollNotice = styled.button`
   left: 50%;
   transform: translateX(-50%);
   background: var(--grey-dark);
-  border: 1px solid var(--grey-mid);
+  border: 1px solid rgba(252, 219, 51, 0.3);
   border-radius: var(--radius-full);
   color: var(--gold);
   font-family: var(--font-mono);
   font-size: var(--text-xxs);
   padding: var(--space-1) var(--space-4);
   cursor: pointer;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.4);
 
   &:hover {
     border-color: var(--gold);
+    background: rgba(252, 219, 51, 0.08);
   }
 `;
 
@@ -266,6 +327,25 @@ function formatTime(isoString) {
   return d.toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" });
 }
 
+function formatDateTime(isoString) {
+  const d = new Date(isoString);
+  const now = new Date();
+  const time = d.toLocaleTimeString([], { hour: "numeric", minute: "2-digit" });
+  const isToday =
+    d.getDate() === now.getDate() &&
+    d.getMonth() === now.getMonth() &&
+    d.getFullYear() === now.getFullYear();
+  if (isToday) return time;
+  const yesterday = new Date(now);
+  yesterday.setDate(yesterday.getDate() - 1);
+  const isYesterday =
+    d.getDate() === yesterday.getDate() &&
+    d.getMonth() === yesterday.getMonth() &&
+    d.getFullYear() === yesterday.getFullYear();
+  if (isYesterday) return `Yesterday ${time}`;
+  return `${d.getMonth() + 1}/${d.getDate()}/${String(d.getFullYear()).slice(2)} ${time}`;
+}
+
 function getAvatarElement(tag, avatars, stats) {
   const avatarUrl = avatars?.get(tag)?.profilePicUrl;
   if (avatarUrl) return <Avatar src={avatarUrl} alt="" />;
@@ -277,26 +357,36 @@ function getAvatarElement(tag, avatars, stats) {
   return <AvatarRaceIcon src={raceIcons.random} alt="" $faded />;
 }
 
-export default function ChatPanel({ messages, status, avatars, stats, inGameTags }) {
+export default function ChatPanel({ messages, status, avatars, stats, sessions, inGameTags }) {
   const listRef = useRef(null);
   const [autoScroll, setAutoScroll] = useState(true);
   const [showNotice, setShowNotice] = useState(false);
 
-  // Compute grouped messages
-  const groupedMessages = useMemo(() => {
-    return messages.map((msg, i) => {
-      if (i === 0) return { ...msg, isGroupStart: true };
-      const prev = messages[i - 1];
-      const prevTag = prev.battle_tag || prev.battleTag;
-      const currTag = msg.battle_tag || msg.battleTag;
-      if (prevTag !== currTag) return { ...msg, isGroupStart: true };
-
-      const prevTime = new Date(prev.sent_at || prev.sentAt).getTime();
-      const currTime = new Date(msg.sent_at || msg.sentAt).getTime();
-      if (currTime - prevTime > 2 * 60 * 1000) return { ...msg, isGroupStart: true };
-
-      return { ...msg, isGroupStart: false };
-    });
+  // Compute message segments (grouped by same user within 2 min)
+  const messageSegments = useMemo(() => {
+    const segments = [];
+    for (let i = 0; i < messages.length; i++) {
+      const msg = messages[i];
+      const tag = msg.battle_tag || msg.battleTag;
+      let isGroupStart = i === 0;
+      if (!isGroupStart) {
+        const prev = messages[i - 1];
+        const prevTag = prev.battle_tag || prev.battleTag;
+        if (prevTag !== tag) {
+          isGroupStart = true;
+        } else {
+          const prevTime = new Date(prev.sent_at || prev.sentAt).getTime();
+          const currTime = new Date(msg.sent_at || msg.sentAt).getTime();
+          if (currTime - prevTime > 2 * 60 * 1000) isGroupStart = true;
+        }
+      }
+      if (isGroupStart) {
+        segments.push({ start: msg, continuations: [] });
+      } else if (segments.length > 0) {
+        segments[segments.length - 1].continuations.push(msg);
+      }
+    }
+    return segments;
   }, [messages]);
 
   // Auto-scroll to bottom when new messages arrive
@@ -342,10 +432,10 @@ export default function ChatPanel({ messages, status, avatars, stats, inGameTags
       ) : (
         <ScrollContainer>
           <MessageList ref={listRef} onScroll={handleScroll}>
-            {groupedMessages.map((msg) => {
+            {messageSegments.map((segment) => {
+              const msg = segment.start;
               const tag = msg.battle_tag || msg.battleTag;
               const userName = msg.user_name || msg.userName;
-              const country = avatars?.get(tag)?.country;
 
               // System message
               if (!tag || tag === "system") {
@@ -356,33 +446,53 @@ export default function ChatPanel({ messages, status, avatars, stats, inGameTags
                 );
               }
 
-              if (msg.isGroupStart) {
-                return (
-                  <GroupStartRow key={msg.id}>
-                    <AvatarContainer>
+              return (
+                <MessageSegment key={msg.id}>
+                  <AvatarContainer>
+                    <div style={{ position: "relative" }}>
                       {getAvatarElement(tag, avatars, stats)}
-                      {inGameTags?.has(tag) && <InGameBadge />}
-                    </AvatarContainer>
+                      {inGameTags?.has(tag) && <InGameDot />}
+                    </div>
+                    {(stats?.get(tag)?.mmr != null || sessions?.get(tag)) && (
+                      <AvatarStats>
+                        {stats?.get(tag)?.mmr != null && (
+                          <MmrRow>
+                            <MmrValue>{Math.round(stats.get(tag).mmr)}</MmrValue>
+                            <MmrLabel>MMR</MmrLabel>
+                          </MmrRow>
+                        )}
+                        {sessions?.get(tag) && (
+                          <FormDots>
+                            {sessions.get(tag).slice(-10).map((won, i) => (
+                              <FormDot key={i} $win={won} />
+                            ))}
+                          </FormDots>
+                        )}
+                      </AvatarStats>
+                    )}
+                  </AvatarContainer>
+                  <GroupStartRow>
                     <MessageContent>
-                      <Timestamp>{formatTime(msg.sent_at || msg.sentAt)}</Timestamp>
-                      <NameWrapper>
-                        <HoverFlag className="hover-flag">
-                          <CountryFlag name={country} />
-                        </HoverFlag>
-                        <UserNameLink to={`/player/${encodeURIComponent(tag)}`}>
-                          {userName}
-                        </UserNameLink>
-                      </NameWrapper>
+                      <div>
+                        <NameWrapper>
+                          <UserNameLink to={`/player/${encodeURIComponent(tag)}`}>
+                            {userName}
+                          </UserNameLink>
+                          <Timestamp>{formatDateTime(msg.sent_at || msg.sentAt)}</Timestamp>
+                        </NameWrapper>
+                      </div>
                       <MessageText>{msg.message}</MessageText>
                     </MessageContent>
                   </GroupStartRow>
-                );
-              }
-
-              return (
-                <ContinuationRow key={msg.id}>
-                  <MessageText>{msg.message}</MessageText>
-                </ContinuationRow>
+                  {segment.continuations.map((cMsg) => (
+                    <ContinuationRow key={cMsg.id}>
+                      <HoverTimestamp className="hover-timestamp">
+                        {formatTime(cMsg.sent_at || cMsg.sentAt)}
+                      </HoverTimestamp>
+                      <MessageText>{cMsg.message}</MessageText>
+                    </ContinuationRow>
+                  ))}
+                </MessageSegment>
               );
             })}
           </MessageList>

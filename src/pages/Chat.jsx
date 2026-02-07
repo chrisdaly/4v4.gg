@@ -2,7 +2,7 @@ import React, { useState, useEffect, useMemo, useRef, useCallback } from "react"
 import styled from "styled-components";
 import { HiUsers } from "react-icons/hi";
 import useChatStream from "../lib/useChatStream";
-import { getPlayerProfile, getPlayerStats, getOngoingMatches } from "../lib/api";
+import { getPlayerProfile, getPlayerStats, getPlayerSessionLight, getOngoingMatches } from "../lib/api";
 import ChatPanel from "../components/ChatPanel";
 import UserListSidebar from "../components/UserListSidebar";
 
@@ -62,6 +62,7 @@ const Chat = () => {
   const { messages, status, onlineUsers } = useChatStream();
   const [avatars, setAvatars] = useState(new Map());
   const [stats, setStats] = useState(new Map());
+  const [sessions, setSessions] = useState(new Map());
   const [ongoingMatches, setOngoingMatches] = useState([]);
   const [showSidebar, setShowSidebar] = useState(false);
   const fetchedRef = useRef(new Set());
@@ -152,6 +153,15 @@ const Chat = () => {
           });
         }
       });
+      getPlayerSessionLight(tag).then((data) => {
+        if (data?.session?.form) {
+          setSessions((prev) => {
+            const next = new Map(prev);
+            next.set(tag, data.session.form);
+            return next;
+          });
+        }
+      });
     }
   }, [allTags]);
 
@@ -163,6 +173,7 @@ const Chat = () => {
           status={status}
           avatars={avatars}
           stats={stats}
+          sessions={sessions}
           inGameTags={inGameTags}
         />
         <UserListSidebar

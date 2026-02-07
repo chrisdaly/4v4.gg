@@ -46,15 +46,18 @@ const Count = styled.span`
 `;
 
 const SearchInput = styled.input`
-  width: 100%;
+  width: calc(100% - var(--space-4));
+  margin: var(--space-2) auto;
+  display: block;
   padding: var(--space-1) var(--space-3);
   font-family: var(--font-mono);
   font-size: var(--text-xxs);
   color: #fff;
-  background: transparent;
-  border: none;
-  border-bottom: 1px solid var(--grey-mid);
+  background: var(--grey-dark);
+  border: 1px solid var(--grey-mid);
+  border-radius: var(--radius-md);
   outline: none;
+  box-sizing: border-box;
 
   &::placeholder {
     color: var(--grey-light);
@@ -62,14 +65,14 @@ const SearchInput = styled.input`
   }
 
   &:focus {
-    border-bottom-color: var(--gold);
+    border-color: var(--gold);
   }
 `;
 
 const UserList = styled.div`
   flex: 1;
   overflow-y: auto;
-  padding: var(--space-1) 0;
+  padding: var(--space-2) 0;
 
   &::-webkit-scrollbar {
     width: 6px;
@@ -86,9 +89,11 @@ const UserList = styled.div`
 const UserRowBase = styled.div`
   display: flex;
   align-items: center;
-  gap: 8px;
-  padding: 5px var(--space-3);
+  gap: var(--space-3);
+  padding: var(--space-2) var(--space-4);
   cursor: default;
+  border-radius: var(--radius-sm);
+  margin: 0 var(--space-1);
 
   &:hover {
     background: rgba(255, 255, 255, 0.04);
@@ -98,11 +103,13 @@ const UserRowBase = styled.div`
 const UserLink = styled(Link)`
   display: flex;
   align-items: center;
-  gap: 8px;
-  padding: 5px var(--space-3);
+  gap: var(--space-3);
+  padding: var(--space-2) var(--space-4);
   cursor: pointer;
   text-decoration: none;
   color: inherit;
+  border-radius: var(--radius-sm);
+  margin: 0 var(--space-1);
 
   &:hover {
     background: rgba(255, 255, 255, 0.04);
@@ -116,16 +123,16 @@ const AvatarWrapper = styled.div`
 `;
 
 const SidebarAvatar = styled.img`
-  width: 24px;
-  height: 24px;
-  border-radius: 50%;
+  width: 28px;
+  height: 28px;
+  border-radius: var(--radius-sm);
 `;
 
 const SidebarAvatarRace = styled.img`
-  width: 24px;
-  height: 24px;
-  border-radius: 50%;
-  padding: 3px;
+  width: 28px;
+  height: 28px;
+  border-radius: var(--radius-sm);
+  padding: 4px;
   background: rgba(255, 255, 255, 0.06);
   opacity: ${(p) => (p.$faded ? 0.2 : 0.85)};
 `;
@@ -143,7 +150,7 @@ const InGameDot = styled.span`
 
 const Name = styled.span`
   font-family: var(--font-display);
-  font-size: var(--text-xs);
+  font-size: var(--text-sm);
   color: #fff;
   white-space: nowrap;
   overflow: hidden;
@@ -158,6 +165,19 @@ const Mmr = styled.span`
   color: var(--gold);
   opacity: 0.7;
   flex-shrink: 0;
+`;
+
+const SectionHeader = styled.div`
+  padding: var(--space-3) var(--space-3) var(--space-1);
+  font-family: var(--font-mono);
+  font-size: var(--text-xxs);
+  text-transform: uppercase;
+  letter-spacing: 0.1em;
+  color: var(--grey-light);
+
+  &:first-child {
+    padding-top: var(--space-1);
+  }
 `;
 
 function getAvatarImg(tag, avatars, stats) {
@@ -219,6 +239,19 @@ export default function UserListSidebar({
     return sortedUsers.filter((u) => (u.name || "").toLowerCase().includes(q));
   }, [sortedUsers, search]);
 
+  const { inGameUsers, onlineUsers } = useMemo(() => {
+    const inG = [];
+    const on = [];
+    for (const user of filteredUsers) {
+      if (inGameTags?.has(user.battleTag)) {
+        inG.push(user);
+      } else {
+        on.push(user);
+      }
+    }
+    return { inGameUsers: inG, onlineUsers: on };
+  }, [filteredUsers, inGameTags]);
+
   return (
     <Sidebar $mobileVisible={$mobileVisible}>
       <Header>
@@ -231,20 +264,32 @@ export default function UserListSidebar({
         onChange={(e) => setSearch(e.target.value)}
       />
       <UserList>
-        {filteredUsers.map((user) => {
-          const inGame = inGameTags?.has(user.battleTag);
-          const matchUrl = inGame ? inGameMatchMap?.get(user.battleTag) : null;
-          return (
-            <UserRowItem
-              key={user.battleTag}
-              user={user}
-              avatars={avatars}
-              stats={stats}
-              inGame={inGame}
-              matchUrl={matchUrl}
-            />
-          );
-        })}
+        {inGameUsers.length > 0 && (
+          <>
+            <SectionHeader>In Game — {inGameUsers.length}</SectionHeader>
+            {inGameUsers.map((user) => (
+              <UserRowItem
+                key={user.battleTag}
+                user={user}
+                avatars={avatars}
+                stats={stats}
+                inGame
+                matchUrl={inGameMatchMap?.get(user.battleTag)}
+              />
+            ))}
+          </>
+        )}
+        <SectionHeader>Online — {onlineUsers.length}</SectionHeader>
+        {onlineUsers.map((user) => (
+          <UserRowItem
+            key={user.battleTag}
+            user={user}
+            avatars={avatars}
+            stats={stats}
+            inGame={false}
+            matchUrl={null}
+          />
+        ))}
       </UserList>
     </Sidebar>
   );
