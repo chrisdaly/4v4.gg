@@ -1,6 +1,7 @@
 import { Router } from 'express';
 import { getMessages, getStats } from '../db.js';
 import { addClient } from '../sse.js';
+import { getOnlineUsers } from '../signalr.js';
 
 const router = Router();
 
@@ -17,8 +18,8 @@ router.get('/stream', (req, res) => {
   addClient(res);
 
   const history = getMessages({ limit: 50 });
-  const payload = `event: history\ndata: ${JSON.stringify(history.reverse())}\n\n`;
-  res.write(payload);
+  res.write(`event: history\ndata: ${JSON.stringify(history.reverse())}\n\n`);
+  res.write(`event: users_init\ndata: ${JSON.stringify(getOnlineUsers())}\n\n`);
 });
 
 // Chat stats

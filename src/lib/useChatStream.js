@@ -7,6 +7,7 @@ const MAX_MESSAGES = 500;
 export default function useChatStream() {
   const [messages, setMessages] = useState([]);
   const [status, setStatus] = useState("connecting");
+  const [onlineUsers, setOnlineUsers] = useState([]);
   const eventSourceRef = useRef(null);
 
   const addMessages = useCallback((newMsgs) => {
@@ -63,6 +64,26 @@ export default function useChatStream() {
       setMessages((prev) => prev.filter((m) => !idSet.has(m.id)));
     });
 
+    es.addEventListener("users_init", (e) => {
+      if (cancelled) return;
+      setOnlineUsers(JSON.parse(e.data));
+    });
+
+    es.addEventListener("user_joined", (e) => {
+      if (cancelled) return;
+      const user = JSON.parse(e.data);
+      setOnlineUsers((prev) => {
+        if (prev.some((u) => u.battleTag === user.battleTag)) return prev;
+        return [...prev, user];
+      });
+    });
+
+    es.addEventListener("user_left", (e) => {
+      if (cancelled) return;
+      const { battleTag } = JSON.parse(e.data);
+      setOnlineUsers((prev) => prev.filter((u) => u.battleTag !== battleTag));
+    });
+
     es.addEventListener("status", (e) => {
       if (cancelled) return;
       const { state } = JSON.parse(e.data);
@@ -88,5 +109,5 @@ export default function useChatStream() {
     };
   }, [addMessages]);
 
-  return { messages, status };
+  return { messages, status, onlineUsers };
 }

@@ -4,7 +4,7 @@
     {
       "label": "Chat Relay",
       "type": "shell",
-      "command": "cd server && ADMIN_API_KEY=localdev node src/index.js",
+      "command": "lsof -ti:3002 | xargs kill -9 2>/dev/null; cd server && ADMIN_API_KEY=localdev node src/index.js",
       "isBackground": true,
       "problemMatcher": [],
       "presentation": {
@@ -21,14 +21,16 @@
       "presentation": {
         "group": "dev",
         "reveal": "always"
-      },
-      "dependsOn": ["Chat Relay"]
+      }
     },
     {
       "label": "4v4 Dev",
       "dependsOn": ["Chat Relay", "Dev Server"],
       "dependsOrder": "parallel",
-      "problemMatcher": []
+      "problemMatcher": [],
+      "runOptions": {
+        "runOn": "folderOpen"
+      }
     }
   ]
 }

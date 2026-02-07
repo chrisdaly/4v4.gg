@@ -370,12 +370,19 @@ const GameCard = ({
           <div className="gc-content">
             <div className="gc-top">
               <div className="gc-result">
-                <span className="gc-avg-mmr">{avgMmr} <span className="gc-mmr-label">MMR</span></span>
+                {avgMmr > 0 && <span className="gc-avg-mmr">{avgMmr} <span className="gc-mmr-label">MMR</span></span>}
               </div>
               <div className="gc-meta">
+                {computedStatus === "live" && (
+                  <span className="gc-live-badge">
+                    <span className="gc-live-dot"></span>
+                    <span className="gc-live-text">LIVE</span>
+                    {elapsed && <span className="gc-elapsed">{elapsed}</span>}
+                  </span>
+                )}
                 <span className="gc-map-name">{cleanMapName}</span>
-                {showDuration && duration && <span className="gc-duration">{duration}</span>}
-                {timeAgo && <span className="gc-time">{timeAgo}</span>}
+                {computedStatus !== "live" && showDuration && duration && <span className="gc-duration">{duration}</span>}
+                {computedStatus !== "live" && timeAgo && <span className="gc-time">{timeAgo}</span>}
               </div>
             </div>
             {shouldShowTeams && team1 && team2 && (

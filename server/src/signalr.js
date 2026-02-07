@@ -9,6 +9,7 @@ const ROOM = '4 vs 4';
 let connection = null;
 let currentToken = null;
 let state = 'Disconnected';
+let onlineUsers = new Map(); // battleTag → { battleTag, name, clanTag }
 
 function normalizeMessage(raw, room) {
   return {
@@ -60,6 +61,8 @@ async function connect() {
   connection.onreconnecting((err) => {
     state = 'Reconnecting';
     console.log('[SignalR] Reconnecting...', err?.message || '');
+    onlineUsers.clear();
+    broadcast('users_init', []);
     broadcast('status', { state });
   });
 
@@ -71,10 +74,27 @@ async function connect() {
 
   // StartChat — (usersOfRoom, messages, chatRoom, defaultRooms?)
   connection.on('StartChat', (...args) => {
+    const usersOfRoom = args[0] || [];
     const messages = args[1] || [];
     const room = args[2] || ROOM;
+
+    // Rebuild online users from the full user list
+    onlineUsers.clear();
+    if (Array.isArray(usersOfRoom)) {
+      for (const u of usersOfRoom) {
+        if (u?.battleTag) {
+          onlineUsers.set(u.battleTag, {
+            battleTag: u.battleTag,
+            name: u.name || '',
+            clanTag: u.clanTag || '',
+          });
+        }
+      }
+    }
+    broadcast('users_init', [...onlineUsers.values()]);
+    console.log(`[SignalR] StartChat: ${messages.length} messages, ${onlineUsers.size} users in "${room}"`);
+
     if (!Array.isArray(messages)) return;
-    console.log(`[SignalR] StartChat: ${messages.length} messages in "${room}"`);
     const normalized = messages.map(m => normalizeMessage(m, room));
     insertMessages(normalized);
   });
@@ -121,9 +141,22 @@ async function connect() {
 
   connection.on('UserEntered', (user) => {
     console.log(`[SignalR] UserEntered: ${user?.name}`);
+    if (user?.battleTag) {
+      const userData = {
+        battleTag: user.battleTag,
+        name: user.name || '',
+        clanTag: user.clanTag || '',
+      };
+      onlineUsers.set(user.battleTag, userData);
+      broadcast('user_joined', userData);
+    }
   });
   connection.on('UserLeft', (user) => {
     console.log(`[SignalR] UserLeft: ${user?.name}`);
+    if (user?.battleTag) {
+      onlineUsers.delete(user.battleTag);
+      broadcast('user_left', { battleTag: user.battleTag });
+    }
   });
 
   try {
@@ -160,4 +193,8 @@ export function getStatus() {
     state,
     hasToken: !!currentToken,
   };
+}
+
+export function getOnlineUsers() {
+  return [...onlineUsers.values()];
 }
