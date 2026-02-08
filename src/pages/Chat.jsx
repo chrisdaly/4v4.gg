@@ -189,7 +189,7 @@ const Chat = () => {
   return (
     <Page>
       <Layout>
-        <ActiveGamesSidebar matchCount={ongoingMatches.length} />
+        <ActiveGamesSidebar matches={ongoingMatches} />
         <ChatPanel
           messages={messages}
           status={status}
