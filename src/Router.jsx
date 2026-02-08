@@ -29,6 +29,7 @@ const LastGameOverlayPage = lazy(() => import("./pages/overlay/LastGameOverlayPa
 const VisualizationDemo = lazy(() => import("./pages/VisualizationDemo"));
 const StyleReference = lazy(() => import("./pages/StyleReference"));
 const IconDemo = lazy(() => import("./pages/IconDemo"));
+const Assets = lazy(() => import("./pages/Assets"));
 
 const PageLoader = () => (
   <div className="page-loader">
@@ -66,6 +67,7 @@ const Router = () => (
               <Route path="/demo" component={VisualizationDemo} />
               <Route path="/styles" component={StyleReference} />
               <Route path="/icons" component={IconDemo} />
+              <Route path="/assets" component={Assets} />
 
               <Route path="/mmr-lab" component={MmrLab} />
             </Switch>
