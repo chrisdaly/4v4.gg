@@ -5297,6 +5297,7 @@ a.neighbor-name-sm:hover {
   width: 12px;
   height: 12px;
   color: var(--red);
+  fill: var(--red);
   animation: pulse 1.5s infinite;
 }
 
@@ -5660,6 +5661,7 @@ a.neighbor-name-sm:hover {
   width: 14px;
   height: 14px;
   color: var(--red);
+  fill: var(--red);
   flex-shrink: 0;
   animation: pulse 1.5s infinite;
 }

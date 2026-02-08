@@ -1,5 +1,6 @@
 import React from "react";
-import styled from "styled-components";
+import styled, { css } from "styled-components";
+import { raceMapping } from "../lib/constants";
 
 const Page = styled.div`
   padding: var(--space-6) var(--space-8);
@@ -667,9 +668,624 @@ const MOCKUPS = [
   },
 ];
 
+/* ══════════════════════════════════════════════════════════
+   ACTIVE GAMES SIDEBAR LAYOUT MOCKUPS
+   ══════════════════════════════════════════════════════════ */
+
+const FAKE_MATCHES = [
+  {
+    map: "Mur'gul Oasis LV",
+    mapImg: "/maps/MurgulOasisLV.png",
+    elapsed: "3:58",
+    team1: [
+      { name: "Densington", race: 1 },
+      { name: "nonamee", race: 4 },
+      { name: "Sageypoo", race: 8 },
+      { name: "Apm50", race: 0 },
+    ],
+    team2: [
+      { name: "TYRN", race: 8 },
+      { name: "qwerty", race: 2 },
+      { name: "Driver", race: 4 },
+      { name: "nASoRCo", race: 2 },
+    ],
+    avg1: 1478,
+    avg2: 1479,
+  },
+  {
+    map: "Deadlock LV",
+    mapImg: "/maps/DeadlockLV.png",
+    elapsed: "4:10",
+    team1: [
+      { name: "Ice", race: 4 },
+      { name: "XIIINostra", race: 2 },
+      { name: "volume!one", race: 1 },
+      { name: "ShoananasS", race: 8 },
+    ],
+    team2: [
+      { name: "Cechi", race: 8 },
+      { name: "EyeServ", race: 4 },
+      { name: "Teo", race: 1 },
+      { name: "ReetarDio", race: 2 },
+    ],
+    avg1: 2086,
+    avg2: 2077,
+  },
+  {
+    map: "Ferocity",
+    mapImg: "/maps/Ferocity.png",
+    elapsed: "9:51",
+    team1: [
+      { name: "Heavenwaits", race: 1 },
+      { name: "jau69", race: 8 },
+      { name: "flOatmybOat", race: 4 },
+      { name: "QQs", race: 2 },
+    ],
+    team2: [
+      { name: "DennisR", race: 1 },
+      { name: "pomanta", race: 4 },
+      { name: "Inarijaervi", race: 2 },
+      { name: "Slothien", race: 8 },
+    ],
+    avg1: 1528,
+    avg2: 1526,
+  },
+];
+
+/* ── Shared mockup styled components ─────────────────── */
+
+const AGFrame = styled.div`
+  width: ${(p) => p.$width || "340px"};
+  box-sizing: border-box;
+  border: 24px solid transparent;
+  border-image: url("/frames/launcher/Maon_Border.png") 120 / 24px stretch;
+  background: rgba(10, 8, 6, 0.45);
+  backdrop-filter: blur(4px);
+  display: flex;
+  flex-direction: column;
+  overflow-y: auto;
+  flex-shrink: 0;
+
+  &::-webkit-scrollbar { width: 6px; }
+  &::-webkit-scrollbar-track { background: transparent; }
+  &::-webkit-scrollbar-thumb { background: var(--grey-mid); border-radius: 3px; }
+`;
+
+const AGHeader = styled.div`
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 14px var(--space-4);
+  border-bottom: 1px solid rgba(252, 219, 51, 0.15);
+  background: linear-gradient(180deg, rgba(160, 130, 80, 0.06) 0%, transparent 100%);
+  flex-shrink: 0;
+`;
+
+const AGHeaderTitle = styled.span`
+  font-family: var(--font-display);
+  font-size: var(--text-sm);
+  color: var(--gold);
+  letter-spacing: 1px;
+`;
+
+const AGHeaderCount = styled.span`
+  font-family: var(--font-mono);
+  font-size: var(--text-xxs);
+  color: var(--grey-light);
+`;
+
+const AGCard = styled.div`
+  display: block;
+  padding: var(--space-4) var(--space-3);
+  margin: var(--space-3) var(--space-2);
+  border-radius: var(--radius-md);
+  border: 1px solid rgba(160, 130, 80, 0.12);
+  background: rgba(255, 255, 255, 0.02);
+`;
+
+const AGLiveDot = styled.span`
+  display: inline-block;
+  width: 6px;
+  height: 6px;
+  border-radius: 50%;
+  background: var(--red);
+  margin-right: 4px;
+  animation: pulse 1.5s infinite;
+`;
+
+const AGRaceIcon = styled.img`
+  width: ${(p) => p.$size || "16px"};
+  height: ${(p) => p.$size || "16px"};
+  flex-shrink: 0;
+`;
+
+const AGPlayerName = styled.span`
+  font-family: var(--font-display);
+  font-size: ${(p) => p.$size || "13px"};
+  color: rgba(255, 255, 255, 0.85);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  min-width: 0;
+  flex: 1;
+`;
+
+const AGMapName = styled.div`
+  font-family: var(--font-display);
+  font-size: ${(p) => p.$size || "var(--text-xs)"};
+  color: #fff;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+`;
+
+const AGElapsed = styled.div`
+  font-family: var(--font-mono);
+  font-size: 10px;
+  color: var(--grey-light);
+`;
+
+const AGTeamLabel = styled.div`
+  font-family: var(--font-mono);
+  font-size: 9px;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  color: ${(p) => (p.$team === 1 ? "var(--blue, #4a9eff)" : "var(--red)")};
+  opacity: 0.6;
+  margin-bottom: 2px;
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+`;
+
+const AGAvgMmr = styled.span`
+  font-family: var(--font-mono);
+  font-size: 10px;
+  color: #fff;
+  opacity: 0.8;
+  text-transform: none;
+  letter-spacing: 0;
+`;
+
+const AGMapImg = styled.img`
+  border-radius: var(--radius-sm);
+  object-fit: cover;
+  flex-shrink: 0;
+`;
+
+const AGVs = styled.span`
+  font-family: var(--font-mono);
+  font-size: 10px;
+  color: var(--grey-light);
+  opacity: 0.5;
+`;
+
+/* ── Layout A: Banner Map ────────────────────────────── */
+
+const BannerImg = styled.img`
+  width: 100%;
+  height: 80px;
+  object-fit: cover;
+  border-radius: var(--radius-sm) var(--radius-sm) 0 0;
+  margin: -16px -12px 0 -12px;
+  width: calc(100% + 24px);
+`;
+
+const BannerOverlay = styled.div`
+  position: relative;
+  margin-top: -28px;
+  padding: 0 var(--space-2);
+  margin-bottom: var(--space-3);
+`;
+
+function LayoutA({ match }) {
+  return (
+    <AGCard>
+      <BannerImg src={match.mapImg} alt="" />
+      <BannerOverlay>
+        <AGMapName $size="var(--text-sm)" style={{ textShadow: "0 1px 4px rgba(0,0,0,0.8)" }}>{match.map}</AGMapName>
+        <AGElapsed><AGLiveDot />{match.elapsed}</AGElapsed>
+      </BannerOverlay>
+      <div style={{ display: "flex", gap: "12px" }}>
+        <div style={{ flex: 1, minWidth: 0 }}>
+          <AGTeamLabel $team={1}><span>Team 1</span><AGAvgMmr>{match.avg1}</AGAvgMmr></AGTeamLabel>
+          {match.team1.map((p, i) => (
+            <div key={i} style={{ display: "flex", alignItems: "center", gap: 5, marginBottom: 3 }}>
+              <AGRaceIcon src={raceMapping[p.race]} />
+              <AGPlayerName>{p.name}</AGPlayerName>
+            </div>
+          ))}
+        </div>
+        <div style={{ flex: 1, minWidth: 0 }}>
+          <AGTeamLabel $team={2}><span>Team 2</span><AGAvgMmr>{match.avg2}</AGAvgMmr></AGTeamLabel>
+          {match.team2.map((p, i) => (
+            <div key={i} style={{ display: "flex", alignItems: "center", gap: 5, marginBottom: 3 }}>
+              <AGRaceIcon src={raceMapping[p.race]} />
+              <AGPlayerName>{p.name}</AGPlayerName>
+            </div>
+          ))}
+        </div>
+      </div>
+    </AGCard>
+  );
+}
+
+/* ── Layout B: Compact race icons only ───────────────── */
+
+const RaceRow = styled.div`
+  display: flex;
+  align-items: center;
+  gap: 3px;
+`;
+
+function LayoutB({ match }) {
+  return (
+    <AGCard style={{ padding: "12px" }}>
+      <div style={{ display: "flex", alignItems: "center", gap: 10, marginBottom: 8 }}>
+        <AGMapImg src={match.mapImg} style={{ width: 40, height: 40 }} />
+        <div style={{ flex: 1, minWidth: 0 }}>
+          <AGMapName>{match.map}</AGMapName>
+          <AGElapsed><AGLiveDot />{match.elapsed}</AGElapsed>
+        </div>
+      </div>
+      <div style={{ display: "flex", alignItems: "center", justifyContent: "center", gap: 8, padding: "6px 0" }}>
+        <div style={{ textAlign: "center" }}>
+          <div style={{ fontFamily: "var(--font-mono)", fontSize: 14, color: "#fff", fontWeight: 700 }}>{match.avg1}</div>
+          <RaceRow>
+            {match.team1.map((p, i) => <AGRaceIcon key={i} src={raceMapping[p.race]} $size="18px" />)}
+          </RaceRow>
+        </div>
+        <AGVs>vs</AGVs>
+        <div style={{ textAlign: "center" }}>
+          <div style={{ fontFamily: "var(--font-mono)", fontSize: 14, color: "#fff", fontWeight: 700 }}>{match.avg2}</div>
+          <RaceRow>
+            {match.team2.map((p, i) => <AGRaceIcon key={i} src={raceMapping[p.race]} $size="18px" />)}
+          </RaceRow>
+        </div>
+      </div>
+    </AGCard>
+  );
+}
+
+/* ── Layout C: Split team tint ───────────────────────── */
+
+const SplitCard = styled.div`
+  margin: var(--space-3) var(--space-2);
+  border-radius: var(--radius-md);
+  border: 1px solid rgba(160, 130, 80, 0.12);
+  overflow: hidden;
+`;
+
+const SplitTop = styled.div`
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 10px 12px;
+  background: rgba(255, 255, 255, 0.02);
+`;
+
+const SplitTeams = styled.div`
+  display: flex;
+`;
+
+const SplitTeamCol = styled.div`
+  flex: 1;
+  padding: 10px 12px;
+  background: ${(p) => p.$team === 1 ? "rgba(74, 158, 255, 0.04)" : "rgba(255, 80, 80, 0.04)"};
+  border-top: 1px solid ${(p) => p.$team === 1 ? "rgba(74, 158, 255, 0.15)" : "rgba(255, 80, 80, 0.15)"};
+`;
+
+function LayoutC({ match }) {
+  return (
+    <SplitCard>
+      <SplitTop>
+        <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
+          <AGMapImg src={match.mapImg} style={{ width: 44, height: 44 }} />
+          <div>
+            <AGMapName>{match.map}</AGMapName>
+            <AGElapsed><AGLiveDot />{match.elapsed}</AGElapsed>
+          </div>
+        </div>
+      </SplitTop>
+      <SplitTeams>
+        <SplitTeamCol $team={1}>
+          <AGTeamLabel $team={1}><span>Team 1</span><AGAvgMmr>{match.avg1}</AGAvgMmr></AGTeamLabel>
+          {match.team1.map((p, i) => (
+            <div key={i} style={{ display: "flex", alignItems: "center", gap: 5, marginBottom: 3 }}>
+              <AGRaceIcon src={raceMapping[p.race]} />
+              <AGPlayerName $size="12px">{p.name}</AGPlayerName>
+            </div>
+          ))}
+        </SplitTeamCol>
+        <SplitTeamCol $team={2}>
+          <AGTeamLabel $team={2}><span>Team 2</span><AGAvgMmr>{match.avg2}</AGAvgMmr></AGTeamLabel>
+          {match.team2.map((p, i) => (
+            <div key={i} style={{ display: "flex", alignItems: "center", gap: 5, marginBottom: 3 }}>
+              <AGRaceIcon src={raceMapping[p.race]} />
+              <AGPlayerName $size="12px">{p.name}</AGPlayerName>
+            </div>
+          ))}
+        </SplitTeamCol>
+      </SplitTeams>
+    </SplitCard>
+  );
+}
+
+/* ── Layout D: Vertical teams, 2 players per row ─────── */
+
+const TwoPerRow = styled.div`
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 2px 8px;
+`;
+
+function LayoutD({ match }) {
+  return (
+    <AGCard>
+      <div style={{ display: "flex", alignItems: "center", gap: 10, marginBottom: 10 }}>
+        <AGMapImg src={match.mapImg} style={{ width: 56, height: 56 }} />
+        <div style={{ flex: 1, minWidth: 0 }}>
+          <AGMapName $size="var(--text-sm)">{match.map}</AGMapName>
+          <AGElapsed><AGLiveDot />{match.elapsed}</AGElapsed>
+        </div>
+      </div>
+      <div style={{ marginBottom: 10 }}>
+        <AGTeamLabel $team={1}><span>Team 1</span><AGAvgMmr>{match.avg1}</AGAvgMmr></AGTeamLabel>
+        <TwoPerRow>
+          {match.team1.map((p, i) => (
+            <div key={i} style={{ display: "flex", alignItems: "center", gap: 4 }}>
+              <AGRaceIcon src={raceMapping[p.race]} $size="14px" />
+              <AGPlayerName $size="12px">{p.name}</AGPlayerName>
+            </div>
+          ))}
+        </TwoPerRow>
+      </div>
+      <div>
+        <AGTeamLabel $team={2}><span>Team 2</span><AGAvgMmr>{match.avg2}</AGAvgMmr></AGTeamLabel>
+        <TwoPerRow>
+          {match.team2.map((p, i) => (
+            <div key={i} style={{ display: "flex", alignItems: "center", gap: 4 }}>
+              <AGRaceIcon src={raceMapping[p.race]} $size="14px" />
+              <AGPlayerName $size="12px">{p.name}</AGPlayerName>
+            </div>
+          ))}
+        </TwoPerRow>
+      </div>
+    </AGCard>
+  );
+}
+
+/* ── Layout E: Minimal list (expandable feel) ────────── */
+
+const MinimalRow = styled.div`
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 10px 12px;
+  border-bottom: 1px solid rgba(160, 130, 80, 0.08);
+
+  &:last-child { border-bottom: none; }
+  &:hover { background: rgba(255, 255, 255, 0.03); }
+`;
+
+const MmrVs = styled.div`
+  font-family: var(--font-mono);
+  font-size: 11px;
+  color: #fff;
+  white-space: nowrap;
+  flex-shrink: 0;
+  text-align: right;
+`;
+
+function LayoutE({ matches }) {
+  return (
+    <>
+      {matches.map((match, i) => (
+        <MinimalRow key={i}>
+          <AGMapImg src={match.mapImg} style={{ width: 36, height: 36 }} />
+          <div style={{ flex: 1, minWidth: 0 }}>
+            <AGMapName $size="13px">{match.map}</AGMapName>
+            <div style={{ display: "flex", alignItems: "center", gap: 6 }}>
+              <AGElapsed><AGLiveDot />{match.elapsed}</AGElapsed>
+              <RaceRow style={{ opacity: 0.7 }}>
+                {match.team1.map((p, j) => <AGRaceIcon key={j} src={raceMapping[p.race]} $size="12px" />)}
+              </RaceRow>
+              <AGVs>v</AGVs>
+              <RaceRow style={{ opacity: 0.7 }}>
+                {match.team2.map((p, j) => <AGRaceIcon key={j} src={raceMapping[p.race]} $size="12px" />)}
+              </RaceRow>
+            </div>
+          </div>
+          <MmrVs>{match.avg1} <span style={{ opacity: 0.4 }}>v</span> {match.avg2}</MmrVs>
+        </MinimalRow>
+      ))}
+    </>
+  );
+}
+
+/* ── Layout F: Banner + race face-off row ────────────── */
+
+const FaceoffRow = styled.div`
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+  padding: 8px 0;
+  border-bottom: 1px solid rgba(160, 130, 80, 0.08);
+  margin-bottom: var(--space-2);
+`;
+
+const FaceoffMmr = styled.span`
+  font-family: var(--font-mono);
+  font-size: 13px;
+  color: #fff;
+  font-weight: 700;
+`;
+
+function LayoutF({ match }) {
+  return (
+    <AGCard>
+      <BannerImg src={match.mapImg} alt="" />
+      <BannerOverlay>
+        <AGMapName $size="var(--text-sm)" style={{ textShadow: "0 1px 4px rgba(0,0,0,0.8)" }}>{match.map}</AGMapName>
+        <AGElapsed><AGLiveDot />{match.elapsed}</AGElapsed>
+      </BannerOverlay>
+      <FaceoffRow>
+        <RaceRow>
+          {match.team1.map((p, i) => <AGRaceIcon key={i} src={raceMapping[p.race]} $size="20px" />)}
+        </RaceRow>
+        <FaceoffMmr>{match.avg1}</FaceoffMmr>
+        <AGVs style={{ fontSize: 12 }}>vs</AGVs>
+        <FaceoffMmr>{match.avg2}</FaceoffMmr>
+        <RaceRow>
+          {match.team2.map((p, i) => <AGRaceIcon key={i} src={raceMapping[p.race]} $size="20px" />)}
+        </RaceRow>
+      </FaceoffRow>
+      <div style={{ display: "flex", gap: "12px" }}>
+        <div style={{ flex: 1, minWidth: 0 }}>
+          {match.team1.map((p, i) => (
+            <div key={i} style={{ display: "flex", alignItems: "center", gap: 5, marginBottom: 3 }}>
+              <AGRaceIcon src={raceMapping[p.race]} />
+              <AGPlayerName>{p.name}</AGPlayerName>
+            </div>
+          ))}
+        </div>
+        <div style={{ flex: 1, minWidth: 0 }}>
+          {match.team2.map((p, i) => (
+            <div key={i} style={{ display: "flex", alignItems: "center", gap: 5, marginBottom: 3 }}>
+              <AGRaceIcon src={raceMapping[p.race]} />
+              <AGPlayerName>{p.name}</AGPlayerName>
+            </div>
+          ))}
+        </div>
+      </div>
+    </AGCard>
+  );
+}
+
+/* ── Active Games Mockup Grid ────────────────────────── */
+
+const LayoutGrid = styled.div`
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: var(--space-6);
+  margin-bottom: var(--space-12);
+`;
+
+const LayoutColumn = styled.div`
+  display: flex;
+  flex-direction: column;
+`;
+
+const LayoutLabel = styled.div`
+  font-family: var(--font-display);
+  font-size: var(--text-base);
+  color: #fff;
+  margin-bottom: var(--space-1);
+`;
+
+const LayoutDesc = styled.div`
+  font-family: var(--font-mono);
+  font-size: 11px;
+  color: var(--grey-light);
+  margin-bottom: var(--space-4);
+  line-height: 1.4;
+`;
+
+function ActiveGamesMockups() {
+  return (
+    <>
+      <PageTitle>Active Games Layouts</PageTitle>
+      <PageSubtitle>Six layout options — same data, different presentations</PageSubtitle>
+
+      <LayoutGrid>
+        {/* A: Banner Map */}
+        <LayoutColumn>
+          <LayoutLabel>A: Banner Map</LayoutLabel>
+          <LayoutDesc>Full-width map hero image, name overlaid. Two-column players below.</LayoutDesc>
+          <AGFrame $width="100%">
+            <AGHeader>
+              <AGHeaderTitle>Active Games</AGHeaderTitle>
+              <AGHeaderCount>{FAKE_MATCHES.length}</AGHeaderCount>
+            </AGHeader>
+            {FAKE_MATCHES.map((m, i) => <LayoutA key={i} match={m} />)}
+          </AGFrame>
+        </LayoutColumn>
+
+        {/* B: Compact race icons */}
+        <LayoutColumn>
+          <LayoutLabel>B: Compact Race Icons</LayoutLabel>
+          <LayoutDesc>No player names — race icons + avg MMR as a visual shorthand. Fits more games.</LayoutDesc>
+          <AGFrame $width="100%">
+            <AGHeader>
+              <AGHeaderTitle>Active Games</AGHeaderTitle>
+              <AGHeaderCount>{FAKE_MATCHES.length}</AGHeaderCount>
+            </AGHeader>
+            {FAKE_MATCHES.map((m, i) => <LayoutB key={i} match={m} />)}
+          </AGFrame>
+        </LayoutColumn>
+
+        {/* C: Split team tint */}
+        <LayoutColumn>
+          <LayoutLabel>C: Split Team Tint</LayoutLabel>
+          <LayoutDesc>Blue/red background tint per team column. Clear team separation.</LayoutDesc>
+          <AGFrame $width="100%">
+            <AGHeader>
+              <AGHeaderTitle>Active Games</AGHeaderTitle>
+              <AGHeaderCount>{FAKE_MATCHES.length}</AGHeaderCount>
+            </AGHeader>
+            {FAKE_MATCHES.map((m, i) => <LayoutC key={i} match={m} />)}
+          </AGFrame>
+        </LayoutColumn>
+
+        {/* D: Vertical, 2 per row */}
+        <LayoutColumn>
+          <LayoutLabel>D: Vertical + 2-Per-Row</LayoutLabel>
+          <LayoutDesc>Each team stacked vertically. Players in a 2-column grid within each team.</LayoutDesc>
+          <AGFrame $width="100%">
+            <AGHeader>
+              <AGHeaderTitle>Active Games</AGHeaderTitle>
+              <AGHeaderCount>{FAKE_MATCHES.length}</AGHeaderCount>
+            </AGHeader>
+            {FAKE_MATCHES.map((m, i) => <LayoutD key={i} match={m} />)}
+          </AGFrame>
+        </LayoutColumn>
+
+        {/* E: Minimal list */}
+        <LayoutColumn>
+          <LayoutLabel>E: Minimal List</LayoutLabel>
+          <LayoutDesc>One line per game — map, race icons, avg MMRs. Ultra-compact.</LayoutDesc>
+          <AGFrame $width="100%">
+            <AGHeader>
+              <AGHeaderTitle>Active Games</AGHeaderTitle>
+              <AGHeaderCount>{FAKE_MATCHES.length}</AGHeaderCount>
+            </AGHeader>
+            <LayoutE matches={FAKE_MATCHES} />
+          </AGFrame>
+        </LayoutColumn>
+
+        {/* F: Banner + faceoff */}
+        <LayoutColumn>
+          <LayoutLabel>F: Banner + Race Faceoff</LayoutLabel>
+          <LayoutDesc>Map banner, then race icons facing off with avg MMR. Player names below.</LayoutDesc>
+          <AGFrame $width="100%">
+            <AGHeader>
+              <AGHeaderTitle>Active Games</AGHeaderTitle>
+              <AGHeaderCount>{FAKE_MATCHES.length}</AGHeaderCount>
+            </AGHeader>
+            {FAKE_MATCHES.map((m, i) => <LayoutF key={i} match={m} />)}
+          </AGFrame>
+        </LayoutColumn>
+      </LayoutGrid>
+    </>
+  );
+}
+
 export default function ChatMockups() {
   return (
     <Page>
+      <ActiveGamesMockups />
+
       <PageTitle>Chat Mockups</PageTitle>
       <PageSubtitle>
         Background + frame combinations — full transcript layout

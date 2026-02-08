@@ -1,25 +1,28 @@
-import React, { useState, useEffect } from "react";
-import { Link } from "react-router-dom";
-import styled from "styled-components";
+import React, { useState, useEffect, useMemo } from "react";
+import { Link, useHistory } from "react-router-dom";
+import styled, { keyframes } from "styled-components";
+import crownIcon from "../assets/icons/king.svg";
 import { raceMapping } from "../lib/constants";
 import { getMapImageUrl, formatElapsedTime } from "../lib/formatters";
 import { MmrComparison } from "./MmrComparison";
 
 const Sidebar = styled.aside`
-  width: 268px;
+  width: 460px;
   height: 100%;
   box-sizing: border-box;
-  border: 24px solid transparent;
-  border-image: url("/frames/launcher/Maon_Border.png") 120 / 24px stretch;
-  background: rgba(10, 8, 6, 0.45);
-  backdrop-filter: blur(4px);
   display: flex;
   flex-direction: column;
   overflow: hidden;
   flex-shrink: 0;
 
   @media (max-width: 768px) {
-    display: none;
+    position: fixed;
+    inset: 0;
+    width: 100%;
+    height: 100vh;
+    z-index: var(--z-overlay);
+    transform: ${(p) => (p.$mobileVisible ? "translateY(0)" : "translateY(100%)")};
+    transition: transform 0.25s ease;
   }
 `;
 
@@ -27,9 +30,31 @@ const Header = styled.div`
   display: flex;
   align-items: center;
   justify-content: space-between;
-  padding: 14px var(--space-4);
+  padding: var(--space-4);
   border-bottom: 1px solid rgba(252, 219, 51, 0.15);
-  background: linear-gradient(180deg, rgba(160, 130, 80, 0.06) 0%, transparent 100%);
+  background: rgba(10, 8, 6, 0.45);
+  backdrop-filter: blur(4px);
+  flex-shrink: 0;
+`;
+
+const SidebarContent = styled.div`
+  flex: 1;
+  min-height: 0;
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+  box-sizing: border-box;
+  border: 16px solid transparent;
+  border-top: none;
+  border-image: url("/frames/launcher/Maon_Border.png") 120 / 16px stretch;
+  border-image-outset: 0;
+  background: rgba(10, 8, 6, 0.45);
+  backdrop-filter: blur(4px);
+
+  @media (max-width: 768px) {
+    border-width: 0 12px 12px;
+    border-image: url("/frames/launcher/Maon_Border.png") 120 / 12px stretch;
+  }
 `;
 
 const HeaderTitle = styled.span`
@@ -43,6 +68,44 @@ const HeaderCount = styled.span`
   font-family: var(--font-mono);
   font-size: var(--text-xxs);
   color: var(--grey-light);
+`;
+
+const SortButton = styled.button`
+  background: none;
+  border: 1px solid rgba(160, 130, 80, 0.2);
+  border-radius: var(--radius-sm);
+  color: var(--grey-light);
+  font-family: var(--font-mono);
+  font-size: 11px;
+  letter-spacing: 0.5px;
+  text-transform: uppercase;
+  padding: 3px 8px;
+  cursor: pointer;
+  transition: all 0.15s;
+
+  &:hover {
+    color: var(--gold);
+    border-color: rgba(160, 130, 80, 0.4);
+  }
+`;
+
+const CloseButton = styled.button`
+  display: none;
+  background: none;
+  border: none;
+  color: var(--grey-light);
+  font-size: 22px;
+  line-height: 1;
+  cursor: pointer;
+  padding: 4px;
+
+  &:hover {
+    color: #fff;
+  }
+
+  @media (max-width: 768px) {
+    display: block;
+  }
 `;
 
 const Content = styled.div`
@@ -75,33 +138,34 @@ const EmptyState = styled.div`
   padding: var(--space-4);
 `;
 
-/* ── Match Card ──────────────────────────────── */
+/* ── Match Card (Layout C: Split Team Tint) ──── */
 
 const Card = styled(Link)`
   display: block;
   text-decoration: none;
   color: inherit;
-  padding: var(--space-2) var(--space-3);
-  margin: 0 var(--space-1);
-  border-radius: var(--radius-sm);
-  border-bottom: 1px solid rgba(160, 130, 80, 0.08);
-  transition: background 0.15s;
+  margin: var(--space-4) var(--space-1);
+  border-radius: var(--radius-md);
+  border: 1px solid rgba(160, 130, 80, 0.12);
+  overflow: hidden;
+  transition: all 0.15s;
 
   &:hover {
-    background: rgba(255, 255, 255, 0.04);
+    border-color: rgba(160, 130, 80, 0.25);
   }
 `;
 
 const CardTop = styled.div`
   display: flex;
   align-items: center;
-  gap: var(--space-2);
-  margin-bottom: var(--space-2);
+  gap: var(--space-3);
+  padding: var(--space-4) var(--space-4) var(--space-3);
+  background: rgba(255, 255, 255, 0.02);
 `;
 
 const MapImg = styled.img`
-  width: 28px;
-  height: 28px;
+  width: 56px;
+  height: 56px;
   border-radius: var(--radius-sm);
   object-fit: cover;
   flex-shrink: 0;
@@ -114,17 +178,47 @@ const MapInfo = styled.div`
 
 const MapName = styled.div`
   font-family: var(--font-display);
-  font-size: 12px;
+  font-size: var(--text-base);
   color: #fff;
   white-space: nowrap;
   overflow: hidden;
   text-overflow: ellipsis;
 `;
 
+const MmrRow = styled.div`
+  display: flex;
+  align-items: baseline;
+  gap: 4px;
+  margin-top: 2px;
+`;
+
+const MmrValue = styled.span`
+  font-family: var(--font-mono);
+  font-size: 15px;
+  color: #fff;
+  font-weight: 700;
+`;
+
+const MmrLabel = styled.span`
+  font-family: var(--font-mono);
+  font-size: 12px;
+  color: var(--grey-light);
+  opacity: 0.7;
+`;
+
+const ChartCol = styled.div`
+  width: 70px;
+  flex-shrink: 0;
+  align-self: stretch;
+  padding: 0;
+  box-sizing: border-box;
+`;
+
 const Elapsed = styled.div`
   font-family: var(--font-mono);
-  font-size: 10px;
+  font-size: 12px;
   color: var(--grey-light);
+  margin-top: 2px;
 `;
 
 const LiveDot = styled.span`
@@ -137,57 +231,123 @@ const LiveDot = styled.span`
   animation: pulse 1.5s infinite;
 `;
 
-const ChartWrapper = styled.div`
-  width: 100%;
-  height: 80px;
-  margin-bottom: var(--space-2);
-`;
 
-const TeamsRow = styled.div`
+const TeamsSection = styled.div`
   display: flex;
-  gap: var(--space-2);
+  align-items: stretch;
+  padding: var(--space-2) var(--space-4);
+  gap: 0;
 `;
 
 const TeamCol = styled.div`
   flex: 1;
   min-width: 0;
-  display: flex;
-  flex-direction: column;
-  gap: 1px;
-`;
-
-const TeamLabel = styled.div`
-  font-family: var(--font-mono);
-  font-size: 9px;
-  text-transform: uppercase;
-  letter-spacing: 0.05em;
-  color: ${(p) => (p.$team === 1 ? "var(--blue, #4a9eff)" : "var(--red)")};
-  opacity: 0.6;
-  margin-bottom: 2px;
 `;
 
 const PlayerRow = styled.div`
   display: flex;
   align-items: center;
-  gap: 4px;
+  gap: 6px;
+  margin-bottom: 5px;
+  flex-direction: ${(p) => (p.$reverse ? "row-reverse" : "row")};
+
+  &:last-child {
+    margin-bottom: 0;
+  }
 `;
 
 const RaceIcon = styled.img`
-  width: 14px;
-  height: 14px;
+  width: 18px;
+  height: 18px;
   flex-shrink: 0;
 `;
 
 const PlayerName = styled.span`
   font-family: var(--font-display);
-  font-size: 11px;
-  color: rgba(255, 255, 255, 0.85);
+  font-size: 14px;
+  color: var(--gold);
   white-space: nowrap;
   overflow: hidden;
   text-overflow: ellipsis;
   min-width: 0;
   flex: 1;
+  text-align: ${(p) => (p.$right ? "right" : "left")};
+  cursor: pointer;
+
+  &:hover {
+    text-decoration: underline;
+  }
 `;
+
+/* ── Finished Match Styles ────────────────────── */
+
+const finishedFadeOut = keyframes`
+  0% { opacity: 1; }
+  75% { opacity: 1; }
+  100% { opacity: 0; }
+`;
+
+const crownAnimate = keyframes`
+  0% { top: 50%; left: 50%; transform: translate(-50%, -50%); width: 80px; height: 80px; opacity: 0; }
+  20% { top: 50%; left: 50%; transform: translate(-50%, -50%); width: 80px; height: 80px; opacity: 1; }
+  50% { top: 50%; left: 50%; transform: translate(-50%, -50%); width: 80px; height: 80px; opacity: 1; }
+  100% { top: 55%; left: var(--crown-end-x); transform: translate(-50%, -50%); width: 28px; height: 28px; opacity: 1; }
+`;
+
+const FinishedCard = styled(Link)`
+  display: block;
+  text-decoration: none;
+  color: inherit;
+  position: relative;
+  margin: var(--space-4) var(--space-1);
+  border-radius: var(--radius-md);
+  border: 1px solid var(--gold);
+  overflow: hidden;
+  animation: ${finishedFadeOut} 8s ease forwards;
+`;
+
+const CrownImg = styled.img`
+  position: absolute;
+  z-index: 3;
+  pointer-events: none;
+  filter: drop-shadow(0 0 12px rgba(252, 219, 51, 0.6)) drop-shadow(0 2px 4px rgba(0, 0, 0, 0.8));
+  animation: ${crownAnimate} 2s ease-out forwards;
+`;
+
+const CrownBackdrop = styled.div`
+  position: absolute;
+  inset: 0;
+  z-index: 2;
+  pointer-events: none;
+  background: rgba(0, 0, 0, 0.5);
+  animation: backdropFade 2s ease-out forwards;
+
+  @keyframes backdropFade {
+    0% { opacity: 0; }
+    20% { opacity: 1; }
+    50% { opacity: 1; }
+    100% { opacity: 0; }
+  }
+`;
+
+const WinnerTeamCol = styled.div`
+  flex: 1;
+  min-width: 0;
+`;
+
+const LoserTeamCol = styled.div`
+  flex: 1;
+  min-width: 0;
+  opacity: 0.35;
+`;
+
+/* ── Helpers ─────────────────────────────────── */
+
+function getMatchAvgMmr(match) {
+  const teams = match.teams || match.match?.teams || [];
+  const mmrs = teams.flatMap((t) => t.players?.map((p) => p.oldMmr || 0) || []);
+  return mmrs.length > 0 ? mmrs.reduce((s, v) => s + v, 0) / mmrs.length : 0;
+}
 
 /* ── Elapsed Timer ───────────────────────────── */
 
@@ -212,6 +372,7 @@ function ElapsedTimer({ startTime }) {
 /* ── Match Card Component ────────────────────── */
 
 function MatchCard({ match }) {
+  const history = useHistory();
   const mapName = match.mapName || match.match?.mapName;
   const cleanMapName = mapName?.replace(/^\(\d\)\s*/, "") || "Unknown";
   const mapUrl = getMapImageUrl(mapName);
@@ -221,73 +382,186 @@ function MatchCard({ match }) {
   const team1 = teams[0];
   const team2 = teams[1];
 
+  const team1Mmrs = team1?.players?.map((p) => p.oldMmr || 0) || [];
+  const team2Mmrs = team2?.players?.map((p) => p.oldMmr || 0) || [];
+
+  const allMmrs = [...team1Mmrs, ...team2Mmrs];
+  const gameAvgMmr =
+    allMmrs.length > 0
+      ? Math.round(allMmrs.reduce((s, v) => s + v, 0) / allMmrs.length)
+      : null;
+
   const mmrData = {
-    teamOneMmrs: team1?.players?.map((p) => p.oldMmr || 0) || [],
-    teamTwoMmrs: team2?.players?.map((p) => p.oldMmr || 0) || [],
+    teamOneMmrs: team1Mmrs,
+    teamTwoMmrs: team2Mmrs,
   };
 
   const matchId = match.id || match.match?.id;
 
   return (
-    <Card to={matchId ? `/match/${matchId}` : "#"}>
+    <Card to={matchId ? `/match/${matchId}` : "/"}>
       <CardTop>
         {mapUrl && <MapImg src={mapUrl} alt="" />}
         <MapInfo>
           <MapName>{cleanMapName}</MapName>
+          {gameAvgMmr != null && (
+            <MmrRow>
+              <MmrValue>{gameAvgMmr}</MmrValue>
+              <MmrLabel>MMR</MmrLabel>
+            </MmrRow>
+          )}
           {startTime && <ElapsedTimer startTime={startTime} />}
         </MapInfo>
       </CardTop>
-      <ChartWrapper>
-        <MmrComparison
-          data={mmrData}
-          compact
-          hideLabels
-          showMean={false}
-          showStdDev={false}
-        />
-      </ChartWrapper>
-      <TeamsRow>
-        <TeamCol>
-          <TeamLabel $team={1}>Team 1</TeamLabel>
+      <TeamsSection>
+        <TeamCol $team={1}>
+          {team1?.players?.map((p, i) => (
+            <PlayerRow key={i}>
+              <RaceIcon src={raceMapping[p.race]} alt="" />
+              <PlayerName onClick={(e) => { e.preventDefault(); e.stopPropagation(); history.push(`/player/${encodeURIComponent(p.battleTag)}`); }}>{p.name}</PlayerName>
+            </PlayerRow>
+          ))}
+        </TeamCol>
+        <ChartCol>
+          <MmrComparison
+            data={mmrData}
+            compact
+            hideLabels
+            showMean={false}
+            showStdDev={false}
+          />
+        </ChartCol>
+        <TeamCol $team={2}>
+          {team2?.players?.map((p, i) => (
+            <PlayerRow key={i} $reverse>
+              <RaceIcon src={raceMapping[p.race]} alt="" />
+              <PlayerName $right onClick={(e) => { e.preventDefault(); e.stopPropagation(); history.push(`/player/${encodeURIComponent(p.battleTag)}`); }}>{p.name}</PlayerName>
+            </PlayerRow>
+          ))}
+        </TeamCol>
+      </TeamsSection>
+    </Card>
+  );
+}
+
+/* ── Finished Match Card ─────────────────────── */
+
+function FinishedMatchCard({ match }) {
+  const mapName = match.mapName || match.match?.mapName;
+  const cleanMapName = mapName?.replace(/^\(\d\)\s*/, "") || "Unknown";
+  const mapUrl = getMapImageUrl(mapName);
+  const teams = match.teams || match.match?.teams || [];
+  const winnerTeam = match._winnerTeam;
+  const durationSec = match.durationInSeconds;
+  const durationStr = durationSec
+    ? `${Math.floor(durationSec / 60)}:${String(durationSec % 60).padStart(2, "0")}`
+    : null;
+
+  const team1 = teams[0];
+  const team2 = teams[1];
+
+  const team1Mmrs = team1?.players?.map((p) => p.oldMmr || 0) || [];
+  const team2Mmrs = team2?.players?.map((p) => p.oldMmr || 0) || [];
+  const allMmrs = [...team1Mmrs, ...team2Mmrs];
+  const gameAvgMmr =
+    allMmrs.length > 0
+      ? Math.round(allMmrs.reduce((s, v) => s + v, 0) / allMmrs.length)
+      : null;
+
+  const matchId = match.id || match.match?.id;
+  const Team1Col = winnerTeam === 0 ? WinnerTeamCol : LoserTeamCol;
+  const Team2Col = winnerTeam === 1 ? WinnerTeamCol : LoserTeamCol;
+
+  // Crown ends centered on winning team column
+  // TeamsSection has padding 16px (space-4) each side, chart is 80px in center
+  // Left team center ≈ 25%, right team center ≈ 75% (approximate)
+  const crownEndX = winnerTeam === 0 ? "25%" : "75%";
+
+  return (
+    <FinishedCard to={matchId ? `/match/${matchId}` : "/"} style={{ "--crown-end-x": crownEndX }}>
+      <CrownBackdrop />
+      {winnerTeam != null && (
+        <CrownImg src={crownIcon} alt="" />
+      )}
+      <CardTop>
+        {mapUrl && <MapImg src={mapUrl} alt="" />}
+        <MapInfo>
+          <MapName>{cleanMapName}</MapName>
+          {gameAvgMmr != null && (
+            <MmrRow>
+              <MmrValue>{gameAvgMmr}</MmrValue>
+              <MmrLabel>MMR</MmrLabel>
+            </MmrRow>
+          )}
+          {durationStr && <Elapsed>{durationStr}</Elapsed>}
+        </MapInfo>
+      </CardTop>
+      <TeamsSection>
+        <Team1Col>
           {team1?.players?.map((p, i) => (
             <PlayerRow key={i}>
               <RaceIcon src={raceMapping[p.race]} alt="" />
               <PlayerName>{p.name}</PlayerName>
             </PlayerRow>
           ))}
-        </TeamCol>
-        <TeamCol>
-          <TeamLabel $team={2}>Team 2</TeamLabel>
+        </Team1Col>
+        <ChartCol />
+        <Team2Col>
           {team2?.players?.map((p, i) => (
-            <PlayerRow key={i}>
+            <PlayerRow key={i} $reverse>
               <RaceIcon src={raceMapping[p.race]} alt="" />
-              <PlayerName>{p.name}</PlayerName>
+              <PlayerName $right>{p.name}</PlayerName>
             </PlayerRow>
           ))}
-        </TeamCol>
-      </TeamsRow>
-    </Card>
+        </Team2Col>
+      </TeamsSection>
+    </FinishedCard>
   );
 }
 
 /* ── Sidebar ─────────────────────────────────── */
 
-export default function ActiveGamesSidebar({ matches = [] }) {
+export default function ActiveGamesSidebar({ matches = [], finishedMatches = [], $mobileVisible, onClose }) {
+  const [sortBy, setSortBy] = useState("mmr");
+
+  const sortedMatches = useMemo(() => {
+    const sorted = [...matches];
+    if (sortBy === "mmr") {
+      sorted.sort((a, b) => getMatchAvgMmr(b) - getMatchAvgMmr(a));
+    } else {
+      sorted.sort((a, b) => {
+        const tA = new Date(a.startTime || a.match?.startTime || 0).getTime();
+        const tB = new Date(b.startTime || b.match?.startTime || 0).getTime();
+        return tB - tA;
+      });
+    }
+    return sorted;
+  }, [matches, sortBy]);
+
   return (
-    <Sidebar>
+    <Sidebar $mobileVisible={$mobileVisible}>
       <Header>
         <HeaderTitle>Active Games</HeaderTitle>
         <HeaderCount>{matches.length}</HeaderCount>
+        <SortButton onClick={() => setSortBy((s) => (s === "mmr" ? "recent" : "mmr"))}>
+          {sortBy === "mmr" ? "MMR" : "Recent"}
+        </SortButton>
+        <CloseButton onClick={onClose}>&times;</CloseButton>
       </Header>
-      {matches.length === 0 ? (
-        <EmptyState>No active games</EmptyState>
-      ) : (
-        <Content>
-          {matches.map((match) => (
-            <MatchCard key={match.id || match.match?.id} match={match} />
-          ))}
-        </Content>
-      )}
+      <SidebarContent>
+        {sortedMatches.length === 0 && finishedMatches.length === 0 ? (
+          <EmptyState>No active games</EmptyState>
+        ) : (
+          <Content>
+            {finishedMatches.map((match) => (
+              <FinishedMatchCard key={`fin-${match.id}`} match={match} />
+            ))}
+            {sortedMatches.map((match) => (
+              <MatchCard key={match.id || match.match?.id} match={match} />
+            ))}
+          </Content>
+        )}
+      </SidebarContent>
     </Sidebar>
   );
 }

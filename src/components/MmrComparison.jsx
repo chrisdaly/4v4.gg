@@ -9,7 +9,7 @@ import { geometricMean, stdDev } from "../lib/formatters";
 // showStdDev: show shaded region for standard deviation
 // hideLabels: hide the inline μ/σ text labels (keeps visual elements)
 // showValues: show MMR values next to each dot
-const MmrComparison = ({ data, compact = false, atStyle = "combined", pieConfig = {}, showMean = false, showStdDev = false, hideLabels = false, showValues = false }) => {
+const MmrComparison = ({ data, compact = false, atStyle = "combined", pieConfig = {}, showMean = false, showStdDev = false, hideLabels = false, showValues = false, fitToData = false }) => {
   const { teamOneMmrs, teamTwoMmrs, teamOneAT = [], teamTwoAT = [] } = data;
   const svgRef = useRef(null);
 
@@ -57,8 +57,18 @@ const MmrComparison = ({ data, compact = false, atStyle = "combined", pieConfig 
     const innerWidth = width - margin.left - margin.right;
     const innerHeight = height - margin.top - margin.bottom;
 
-    // Fixed Y-axis: 700 (min possible) to 2700 (max seen in 4v4)
-    const yDomain = [700, 2700];
+    // Y-axis domain: fixed range or auto-fit to data
+    let yDomain = [700, 2700];
+    if (fitToData) {
+      const allMmrs = [...teamOneData, ...teamTwoData].map(d => d.mmr);
+      if (allMmrs.length > 0) {
+        const minMmr = Math.min(...allMmrs);
+        const maxMmr = Math.max(...allMmrs);
+        const range = maxMmr - minMmr;
+        const padding = Math.max(range * 0.3, 50);
+        yDomain = [minMmr - padding, maxMmr + padding];
+      }
+    }
 
     const yScale = d3
       .scaleLinear()
@@ -985,7 +995,7 @@ const MmrComparison = ({ data, compact = false, atStyle = "combined", pieConfig 
       .attr("class", "line team-middle")
       .attr("x1", middleLine).attr("y1", 0)
       .attr("x2", middleLine).attr("y2", height);
-  }, [teamOneMmrs, teamTwoMmrs, teamOneAT, teamTwoAT, compact, atStyle, pieConfig, showMean, showStdDev, hideLabels, showValues]);
+  }, [teamOneMmrs, teamTwoMmrs, teamOneAT, teamTwoAT, compact, atStyle, pieConfig, showMean, showStdDev, hideLabels, showValues, fitToData]);
 
   return <svg ref={svgRef} style={{ width: "100%", height: "100%" }}></svg>;
 };

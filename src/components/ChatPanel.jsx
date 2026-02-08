@@ -2,7 +2,9 @@ import React, { useRef, useEffect, useState, useMemo } from "react";
 import { Link } from "react-router-dom";
 import styled from "styled-components";
 import { GiCrossedSwords } from "react-icons/gi";
+import crownIcon from "../assets/icons/king.svg";
 import { raceMapping, raceIcons } from "../lib/constants";
+import { CountryFlag } from "./ui";
 
 const OuterFrame = styled.div`
   position: relative;
@@ -20,16 +22,16 @@ const Wrapper = styled.div`
   min-height: 0;
   min-width: 0;
   box-sizing: border-box;
-  border: 24px solid transparent;
-  border-image: url("/frames/launcher/Maon_Border.png") 120 / 24px stretch;
+  border: 16px solid transparent;
+  border-image: url("/frames/launcher/Maon_Border.png") 120 / 16px stretch;
   background: rgba(10, 8, 6, 0.45);
   backdrop-filter: blur(4px);
   overflow: hidden;
   font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
 
   @media (max-width: 768px) {
-    border-width: 16px;
-    border-image: url("/frames/launcher/Maon_Border.png") 120 / 16px stretch;
+    border-width: 12px;
+    border-image: url("/frames/launcher/Maon_Border.png") 120 / 12px stretch;
   }
 `;
 
@@ -37,10 +39,14 @@ const Header = styled.div`
   display: flex;
   align-items: center;
   justify-content: space-between;
-  padding: 14px var(--space-4);
-  border-bottom: 1px solid rgba(160, 130, 80, 0.15);
-  background: linear-gradient(180deg, rgba(160, 130, 80, 0.04) 0%, transparent 100%);
-  box-shadow: 0 1px 0 rgba(0, 0, 0, 0.2);
+  padding: var(--space-4);
+  background: rgba(10, 8, 6, 0.45);
+  backdrop-filter: blur(4px);
+  border-bottom: 1px solid rgba(252, 219, 51, 0.15);
+
+  @media (max-width: 480px) {
+    padding: 10px var(--space-2);
+  }
 `;
 
 const Title = styled(Link)`
@@ -52,6 +58,23 @@ const Title = styled(Link)`
   &:hover {
     text-decoration: underline;
   }
+`;
+
+const StatusBadge = styled.span`
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  font-family: var(--font-mono);
+  font-size: var(--text-xxs);
+  color: var(--grey-light);
+`;
+
+const StatusDot = styled.span`
+  width: 6px;
+  height: 6px;
+  border-radius: 50%;
+  background: ${(p) => (p.$connected ? "var(--green)" : "var(--grey-mid)")};
+  ${(p) => p.$connected && "animation: pulse 1.5s infinite;"}
 `;
 
 const MessageList = styled.div`
@@ -84,11 +107,20 @@ const MessageSegment = styled.div`
   &:first-child {
     margin-top: 0;
   }
+
+  @media (max-width: 480px) {
+    min-height: 74px;
+    margin-top: 14px;
+  }
 `;
 
 const GroupStartRow = styled.div`
   padding: 2px var(--space-4) 2px 84px;
   line-height: 1.375;
+
+  @media (max-width: 480px) {
+    padding-left: 66px;
+  }
 
   &:hover {
     background: rgba(255, 255, 255, 0.02);
@@ -101,7 +133,7 @@ const ContinuationRow = styled.div`
   line-height: 1.375;
 
   @media (max-width: 480px) {
-    padding-left: 64px;
+    padding-left: 66px;
   }
 
   &:hover {
@@ -115,8 +147,7 @@ const ContinuationRow = styled.div`
 
 const HoverTimestamp = styled.span`
   position: absolute;
-  left: 0;
-  width: 84px;
+  right: var(--space-4);
   top: 50%;
   transform: translateY(-50%);
   font-family: var(--font-mono);
@@ -125,7 +156,6 @@ const HoverTimestamp = styled.span`
   opacity: 0;
   transition: opacity 0.15s;
   pointer-events: none;
-  text-align: center;
 `;
 
 const Avatar = styled.img`
@@ -173,6 +203,13 @@ const NameWrapper = styled.span`
   align-items: center;
 `;
 
+const WinCrown = styled.img`
+  width: 16px;
+  height: 16px;
+  margin-left: 4px;
+  filter: drop-shadow(0 0 4px rgba(252, 219, 51, 0.4));
+`;
+
 const UserNameLink = styled(Link)`
   font-family: var(--font-display);
   font-size: var(--text-sm);
@@ -196,6 +233,18 @@ const AvatarContainer = styled.div`
   @media (max-width: 480px) {
     width: 44px;
   }
+`;
+
+const AvatarImgWrap = styled.div`
+  position: relative;
+  display: inline-block;
+`;
+
+const AvatarFlag = styled.div`
+  position: absolute;
+  bottom: -1px;
+  right: -3px;
+  line-height: 0;
 `;
 
 const AvatarStats = styled.div`
@@ -223,6 +272,10 @@ const MmrValue = styled.span`
   font-size: 15px;
   color: #fff;
   font-weight: 700;
+
+  @media (max-width: 480px) {
+    font-size: 13px;
+  }
 `;
 
 const MmrLabel = styled.span`
@@ -248,19 +301,21 @@ const FormDot = styled.span`
   border-radius: var(--radius-full);
   background: ${(p) => (p.$win ? "var(--green)" : "var(--red)")};
   opacity: 0.8;
+
+  @media (max-width: 480px) {
+    width: 5px;
+    height: 5px;
+  }
 `;
 
-const InGameOverlay = styled.div`
-  position: absolute;
-  inset: 0;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  background: rgba(0, 0, 0, 0.5);
-  border-radius: var(--radius-md);
+const InGameIcon = styled(GiCrossedSwords)`
+  width: 14px;
+  height: 14px;
   color: var(--red);
-  font-size: 22px;
-  pointer-events: none;
+  fill: var(--red);
+  margin-left: 6px;
+  animation: pulse 1.5s infinite;
+  flex-shrink: 0;
 `;
 
 const MessageText = styled.span`
@@ -269,6 +324,11 @@ const MessageText = styled.span`
   font-size: 15px;
   line-height: 1.6;
   word-break: break-word;
+
+  @media (max-width: 480px) {
+    font-size: 14px;
+    line-height: 1.5;
+  }
 `;
 
 const SystemMessageRow = styled.div`
@@ -320,6 +380,35 @@ const ScrollContainer = styled.div`
   flex-direction: column;
 `;
 
+const DateDivider = styled.div`
+  display: flex;
+  align-items: center;
+  gap: var(--space-4);
+  margin: var(--space-6) 0 var(--space-2);
+  padding: 0 var(--space-4);
+
+  &:first-child {
+    margin-top: var(--space-2);
+  }
+
+  &::before,
+  &::after {
+    content: "";
+    flex: 1;
+    height: 1px;
+    background: rgba(160, 130, 80, 0.15);
+  }
+`;
+
+const DateLabel = styled.span`
+  font-family: var(--font-mono);
+  font-size: 11px;
+  text-transform: uppercase;
+  letter-spacing: 0.1em;
+  color: var(--grey-light);
+  white-space: nowrap;
+`;
+
 const EmptyState = styled.div`
   flex: 1;
   display: flex;
@@ -331,6 +420,29 @@ const EmptyState = styled.div`
   text-transform: uppercase;
   letter-spacing: 0.1em;
 `;
+
+function formatDateDivider(isoString) {
+  const d = new Date(isoString);
+  const now = new Date();
+  const isToday =
+    d.getDate() === now.getDate() &&
+    d.getMonth() === now.getMonth() &&
+    d.getFullYear() === now.getFullYear();
+  if (isToday) return "Today";
+  const yesterday = new Date(now);
+  yesterday.setDate(yesterday.getDate() - 1);
+  const isYesterday =
+    d.getDate() === yesterday.getDate() &&
+    d.getMonth() === yesterday.getMonth() &&
+    d.getFullYear() === yesterday.getFullYear();
+  if (isYesterday) return "Yesterday";
+  return d.toLocaleDateString([], { month: "short", day: "numeric", year: "numeric" });
+}
+
+function getDateKey(isoString) {
+  const d = new Date(isoString);
+  return `${d.getFullYear()}-${d.getMonth()}-${d.getDate()}`;
+}
 
 function formatTime(isoString) {
   const d = new Date(isoString);
@@ -368,7 +480,7 @@ function getAvatarElement(tag, avatars, stats) {
 }
 
 
-export default function ChatPanel({ messages, status, avatars, stats, sessions, inGameTags }) {
+export default function ChatPanel({ messages, status, avatars, stats, sessions, inGameTags, recentWinners }) {
   const listRef = useRef(null);
   const [autoScroll, setAutoScroll] = useState(true);
   const [showNotice, setShowNotice] = useState(false);
@@ -427,10 +539,14 @@ export default function ChatPanel({ messages, status, avatars, stats, sessions, 
 
   return (
     <OuterFrame>
+      <Header>
+        <Title to="/">4v4 Chat</Title>
+        <StatusBadge>
+          <StatusDot $connected={status === "connected"} />
+          {status === "connected" ? messages.length : "Connecting..."}
+        </StatusBadge>
+      </Header>
       <Wrapper>
-        <Header>
-          <Title to="/">4v4 Chat</Title>
-        </Header>
         {messages.length === 0 ? (
           <EmptyState>
             {status === "connected"
@@ -440,27 +556,50 @@ export default function ChatPanel({ messages, status, avatars, stats, sessions, 
         ) : (
           <ScrollContainer>
             <MessageList ref={listRef} onScroll={handleScroll}>
-              {messageSegments.map((segment) => {
+              {messageSegments.map((segment, segIdx) => {
                 const msg = segment.start;
                 const tag = msg.battle_tag || msg.battleTag;
                 const userName = msg.user_name || msg.userName;
+                const msgTime = msg.sent_at || msg.sentAt;
+                const msgDateKey = getDateKey(msgTime);
+
+                // Check if we need a date divider
+                let showDateDivider = segIdx === 0;
+                if (!showDateDivider && segIdx > 0) {
+                  const prevMsg = messageSegments[segIdx - 1].start;
+                  const prevTime = prevMsg.sent_at || prevMsg.sentAt;
+                  showDateDivider = getDateKey(prevTime) !== msgDateKey;
+                }
 
                 // System message
                 if (!tag || tag === "system") {
                   return (
-                    <SystemMessageRow key={msg.id}>
-                      {msg.message}
-                    </SystemMessageRow>
+                    <React.Fragment key={msg.id}>
+                      {showDateDivider && (
+                        <DateDivider><DateLabel>{formatDateDivider(msgTime)}</DateLabel></DateDivider>
+                      )}
+                      <SystemMessageRow>
+                        {msg.message}
+                      </SystemMessageRow>
+                    </React.Fragment>
                   );
                 }
 
                 return (
-                  <MessageSegment key={msg.id}>
+                  <React.Fragment key={msg.id}>
+                    {showDateDivider && (
+                      <DateDivider><DateLabel>{formatDateDivider(msgTime)}</DateLabel></DateDivider>
+                    )}
+                  <MessageSegment>
                     <AvatarContainer>
-                      <div style={{ position: "relative" }}>
+                      <AvatarImgWrap>
                         {getAvatarElement(tag, avatars, stats)}
-                        {inGameTags?.has(tag) && <InGameOverlay><GiCrossedSwords /></InGameOverlay>}
-                      </div>
+                        {avatars?.get(tag)?.country && (
+                          <AvatarFlag>
+                            <CountryFlag name={avatars.get(tag).country.toLowerCase()} />
+                          </AvatarFlag>
+                        )}
+                      </AvatarImgWrap>
                       {(stats?.get(tag)?.mmr != null || sessions?.get(tag)) && (
                         <AvatarStats>
                           {stats?.get(tag)?.mmr != null && (
@@ -486,6 +625,8 @@ export default function ChatPanel({ messages, status, avatars, stats, sessions, 
                             <UserNameLink to={`/player/${encodeURIComponent(tag)}`}>
                               {userName}
                             </UserNameLink>
+                            {inGameTags?.has(tag) && <InGameIcon />}
+                            {recentWinners?.has(tag) && <WinCrown src={crownIcon} alt="" />}
                             <Timestamp>{formatDateTime(msg.sent_at || msg.sentAt)}</Timestamp>
                           </NameWrapper>
                         </div>
@@ -501,6 +642,7 @@ export default function ChatPanel({ messages, status, avatars, stats, sessions, 
                       </ContinuationRow>
                     ))}
                   </MessageSegment>
+                  </React.Fragment>
                 );
               })}
             </MessageList>

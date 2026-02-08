@@ -1,8 +1,9 @@
 import React, { useState, useEffect, useMemo, useRef, useCallback } from "react";
 import styled from "styled-components";
 import { HiUsers } from "react-icons/hi";
+import { GiCrossedSwords } from "react-icons/gi";
 import useChatStream from "../lib/useChatStream";
-import { getPlayerProfile, getPlayerStats, getPlayerSessionLight, getOngoingMatches } from "../lib/api";
+import { getPlayerProfile, getPlayerStats, getPlayerSessionLight, getOngoingMatches, getMatch } from "../lib/api";
 import ChatPanel from "../components/ChatPanel";
 import ActiveGamesSidebar from "../components/ActiveGamesSidebar";
 import UserListSidebar from "../components/UserListSidebar";
@@ -34,7 +35,7 @@ const Page = styled.div`
 
 const Layout = styled.div`
   display: flex;
-  gap: var(--space-4);
+  gap: var(--space-2);
   height: calc(100vh - var(--space-1));
 
   @media (max-width: 768px) {
@@ -47,7 +48,6 @@ const MobileToggle = styled.button`
   display: none;
   position: fixed;
   bottom: var(--space-4);
-  right: var(--space-4);
   z-index: calc(var(--z-overlay) - 1);
   width: 48px;
   height: 48px;
@@ -59,23 +59,14 @@ const MobileToggle = styled.button`
   cursor: pointer;
   align-items: center;
   justify-content: center;
+  right: ${(p) => p.$right || "auto"};
+  left: ${(p) => p.$left || "auto"};
 
   @media (max-width: 768px) {
     display: flex;
   }
 `;
 
-const MobileBackdrop = styled.div`
-  display: none;
-
-  @media (max-width: 768px) {
-    display: block;
-    position: fixed;
-    inset: 0;
-    z-index: calc(var(--z-overlay) - 1);
-    background: rgba(0, 0, 0, 0.6);
-  }
-`;
 
 /* ── Main component ───────────────────────────────────────────── */
 
@@ -86,7 +77,12 @@ const Chat = () => {
   const [sessions, setSessions] = useState(new Map());
   const [ongoingMatches, setOngoingMatches] = useState([]);
   const [showSidebar, setShowSidebar] = useState(false);
+  const [showGames, setShowGames] = useState(false);
+  const [finishedMatches, setFinishedMatches] = useState([]);
+  const [recentWinners, setRecentWinners] = useState(new Set());
   const fetchedRef = useRef(new Set());
+  const prevInGameRef = useRef(new Set());
+  const prevMatchIdsRef = useRef(new Set());
 
   // Poll ongoing matches every 30s
   const fetchOngoing = useCallback(async () => {
@@ -102,7 +98,68 @@ const Chat = () => {
     return () => clearInterval(interval);
   }, [fetchOngoing]);
 
-  // Build set of in-game battleTags
+  // Detect matches that just ended, fetch results with retry, show briefly then remove
+  useEffect(() => {
+    const currentIds = new Set(ongoingMatches.map((m) => m.id || m.match?.id));
+    const prevIds = prevMatchIdsRef.current;
+    const endedIds = [...prevIds].filter((id) => id && !currentIds.has(id));
+    prevMatchIdsRef.current = currentIds;
+
+    if (endedIds.length === 0) return;
+
+    async function fetchResult(id, attempt = 0) {
+      const result = await getMatch(id);
+      const match = result?.match;
+      if (!match) return;
+
+      const winnerTeamIndex = match.teams?.findIndex(
+        (t) => t.players?.some((p) => p.won === true || p.won === 1)
+      );
+
+      // If no winner data yet and we haven't retried too many times, wait and retry
+      if (winnerTeamIndex < 0 && attempt < 3) {
+        setTimeout(() => fetchResult(id, attempt + 1), 5000);
+        return;
+      }
+
+      // Track winning player battleTags
+      if (winnerTeamIndex >= 0) {
+        const winnerTags = match.teams[winnerTeamIndex].players
+          ?.map((p) => p.battleTag)
+          .filter(Boolean) || [];
+        if (winnerTags.length > 0) {
+          setRecentWinners((prev) => {
+            const next = new Set(prev);
+            winnerTags.forEach((t) => next.add(t));
+            return next;
+          });
+          // Clear after 2 minutes
+          setTimeout(() => {
+            setRecentWinners((prev) => {
+              const next = new Set(prev);
+              winnerTags.forEach((t) => next.delete(t));
+              return next;
+            });
+          }, 120_000);
+        }
+      }
+
+      setFinishedMatches((prev) => [
+        ...prev,
+        { ...match, id, _winnerTeam: winnerTeamIndex >= 0 ? winnerTeamIndex : null, _finishedAt: Date.now() },
+      ]);
+      setTimeout(() => {
+        setFinishedMatches((prev) => prev.filter((m) => m.id !== id));
+      }, 8000);
+    }
+
+    for (const id of endedIds) {
+      // Wait 5s before first attempt — give API time to process the result
+      setTimeout(() => fetchResult(id), 5000);
+    }
+  }, [ongoingMatches]);
+
+  // Build set of in-game battleTags, suppressing players who chatted recently
   const inGameTags = useMemo(() => {
     const tags = new Set();
     for (const match of ongoingMatches) {
@@ -112,8 +169,17 @@ const Chat = () => {
         }
       }
     }
+    // If a player sent a message in the last 60s, they're probably not in game
+    const now = Date.now();
+    for (let i = messages.length - 1; i >= 0; i--) {
+      const msg = messages[i];
+      const msgTime = new Date(msg.sent_at || msg.sentAt).getTime();
+      if (now - msgTime > 60_000) break;
+      const tag = msg.battle_tag || msg.battleTag;
+      if (tag) tags.delete(tag);
+    }
     return tags;
-  }, [ongoingMatches]);
+  }, [ongoingMatches, messages]);
 
   // Build map of in-game battleTag → player page URL
   const inGameMatchMap = useMemo(() => {
@@ -132,6 +198,24 @@ const Chat = () => {
     }
     return map;
   }, [ongoingMatches]);
+
+  // Re-fetch sessions for players who just left a game
+  useEffect(() => {
+    const prev = prevInGameRef.current;
+    const leftGame = [...prev].filter((tag) => !inGameTags.has(tag));
+    prevInGameRef.current = new Set(inGameTags);
+    for (const tag of leftGame) {
+      getPlayerSessionLight(tag).then((data) => {
+        if (data?.session?.form) {
+          setSessions((p) => {
+            const next = new Map(p);
+            next.set(tag, data.session.form);
+            return next;
+          });
+        }
+      });
+    }
+  }, [inGameTags]);
 
   // Collect all unique battleTags
   const allTags = useMemo(() => {
@@ -189,7 +273,12 @@ const Chat = () => {
   return (
     <Page>
       <Layout>
-        <ActiveGamesSidebar matches={ongoingMatches} />
+        <ActiveGamesSidebar
+          matches={ongoingMatches}
+          finishedMatches={finishedMatches}
+          $mobileVisible={showGames}
+          onClose={() => setShowGames(false)}
+        />
         <ChatPanel
           messages={messages}
           status={status}
@@ -197,6 +286,7 @@ const Chat = () => {
           stats={stats}
           sessions={sessions}
           inGameTags={inGameTags}
+          recentWinners={recentWinners}
         />
         <UserListSidebar
           users={onlineUsers}
@@ -204,14 +294,21 @@ const Chat = () => {
           stats={stats}
           inGameTags={inGameTags}
           inGameMatchMap={inGameMatchMap}
+          recentWinners={recentWinners}
           $mobileVisible={showSidebar}
           onClose={() => setShowSidebar(false)}
         />
       </Layout>
-      {showSidebar && <MobileBackdrop onClick={() => setShowSidebar(false)} />}
-      <MobileToggle onClick={() => setShowSidebar((v) => !v)}>
-        <HiUsers />
-      </MobileToggle>
+      {!showGames && !showSidebar && (
+        <>
+          <MobileToggle $left="var(--space-4)" onClick={() => setShowGames(true)}>
+            <GiCrossedSwords />
+          </MobileToggle>
+          <MobileToggle $right="var(--space-4)" onClick={() => setShowSidebar(true)}>
+            <HiUsers />
+          </MobileToggle>
+        </>
+      )}
     </Page>
   );
 };

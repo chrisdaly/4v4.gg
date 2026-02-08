@@ -2,16 +2,14 @@ import React, { useMemo, useState } from "react";
 import { Link } from "react-router-dom";
 import styled from "styled-components";
 import { GiCrossedSwords } from "react-icons/gi";
+import crownIcon from "../assets/icons/king.svg";
 import { raceMapping, raceIcons } from "../lib/constants";
+import { CountryFlag } from "./ui";
 
 const Sidebar = styled.aside`
   width: 268px;
   height: 100%;
   box-sizing: border-box;
-  border: 24px solid transparent;
-  border-image: url("/frames/launcher/Maon_Border.png") 120 / 24px stretch;
-  background: rgba(10, 8, 6, 0.45);
-  backdrop-filter: blur(4px);
   display: flex;
   flex-direction: column;
   overflow: hidden;
@@ -19,15 +17,11 @@ const Sidebar = styled.aside`
 
   @media (max-width: 768px) {
     position: fixed;
-    top: 0;
-    right: 0;
-    width: 280px;
+    inset: 0;
+    width: 100%;
     height: 100vh;
     z-index: var(--z-overlay);
-    background: rgba(15, 12, 10, 0.95);
-    border-width: 16px;
-    border-image: url("/frames/launcher/Maon_Border.png") 120 / 16px stretch;
-    transform: ${(p) => (p.$mobileVisible ? "translateX(0)" : "translateX(100%)")};
+    transform: ${(p) => (p.$mobileVisible ? "translateY(0)" : "translateY(100%)")};
     transition: transform 0.25s ease;
   }
 `;
@@ -36,9 +30,31 @@ const Header = styled.div`
   display: flex;
   align-items: center;
   justify-content: space-between;
-  padding: 14px var(--space-4);
+  padding: var(--space-4);
   border-bottom: 1px solid rgba(252, 219, 51, 0.15);
-  background: linear-gradient(180deg, rgba(160, 130, 80, 0.06) 0%, transparent 100%);
+  background: rgba(10, 8, 6, 0.45);
+  backdrop-filter: blur(4px);
+  flex-shrink: 0;
+`;
+
+const SidebarContent = styled.div`
+  flex: 1;
+  min-height: 0;
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+  box-sizing: border-box;
+  border: 16px solid transparent;
+  border-top: none;
+  border-image: url("/frames/launcher/Maon_Border.png") 120 / 16px stretch;
+  border-image-outset: 0;
+  background: rgba(10, 8, 6, 0.45);
+  backdrop-filter: blur(4px);
+
+  @media (max-width: 768px) {
+    border-width: 0 12px 12px;
+    border-image: url("/frames/launcher/Maon_Border.png") 120 / 12px stretch;
+  }
 `;
 
 const HeaderTitle = styled.span`
@@ -54,31 +70,50 @@ const HeaderCount = styled.span`
   color: var(--grey-light);
 `;
 
+const CloseButton = styled.button`
+  display: none;
+  background: none;
+  border: none;
+  color: var(--grey-light);
+  font-size: 22px;
+  line-height: 1;
+  cursor: pointer;
+  padding: 4px;
+
+  &:hover {
+    color: #fff;
+  }
+
+  @media (max-width: 768px) {
+    display: block;
+  }
+`;
+
 const SearchWrapper = styled.div`
   position: relative;
-  margin: var(--space-2) var(--space-2);
+  margin: 12px var(--space-2);
 
   &::before {
     content: "⌕";
     position: absolute;
-    left: 8px;
+    left: 10px;
     top: 50%;
     transform: translateY(-50%);
     color: var(--grey-light);
-    font-size: 13px;
+    font-size: 15px;
     pointer-events: none;
   }
 `;
 
 const SearchInput = styled.input`
   width: 100%;
-  padding: 6px 28px 6px 24px;
+  padding: 10px 32px 10px 30px;
   font-family: var(--font-display);
-  font-size: 12px;
+  font-size: var(--text-xs);
   letter-spacing: 0.3px;
   color: #fff;
   background: linear-gradient(180deg, rgba(25, 20, 15, 0.9) 0%, rgba(12, 10, 8, 0.95) 100%);
-  border: 1px solid rgba(160, 130, 80, 0.2);
+  border: 1px solid rgba(160, 130, 80, 0.25);
   border-radius: var(--radius-md);
   outline: none;
   box-sizing: border-box;
@@ -86,7 +121,7 @@ const SearchInput = styled.input`
 
   &::placeholder {
     color: var(--grey-light);
-    font-size: 11px;
+    font-size: var(--text-xxs);
   }
 
   &:focus {
@@ -97,13 +132,13 @@ const SearchInput = styled.input`
 
 const SearchClear = styled.button`
   position: absolute;
-  right: 6px;
+  right: 8px;
   top: 50%;
   transform: translateY(-50%);
   background: none;
   border: none;
   color: var(--grey-light);
-  font-size: 16px;
+  font-size: 18px;
   cursor: pointer;
   padding: 0 4px;
   line-height: 1;
@@ -116,12 +151,12 @@ const SearchClear = styled.button`
 const ColumnHeaders = styled.div`
   display: flex;
   align-items: center;
-  padding: var(--space-1) var(--space-4);
-  padding-left: calc(var(--space-4) + 28px + var(--space-4));
-  border-bottom: 1px solid rgba(160, 130, 80, 0.15);
+  padding: var(--space-2) var(--space-2);
+  padding-left: calc(var(--space-2) + 28px + var(--space-2));
+  border-bottom: 1px solid rgba(160, 130, 80, 0.2);
   background: rgba(20, 16, 12, 0.6);
   font-family: var(--font-mono);
-  font-size: 10px;
+  font-size: 11px;
   text-transform: uppercase;
   letter-spacing: 0.1em;
   color: var(--grey-light);
@@ -166,11 +201,10 @@ const UserList = styled.div`
 const UserRowBase = styled.div`
   display: flex;
   align-items: center;
-  gap: var(--space-4);
-  padding: var(--space-2) var(--space-4);
+  gap: var(--space-2);
+  padding: var(--space-1) var(--space-2);
   cursor: default;
   border-radius: var(--radius-sm);
-  margin: 0 var(--space-1);
 
   &:hover {
     background: rgba(255, 255, 255, 0.04);
@@ -180,13 +214,12 @@ const UserRowBase = styled.div`
 const UserLink = styled(Link)`
   display: flex;
   align-items: center;
-  gap: var(--space-4);
-  padding: var(--space-2) var(--space-4);
+  gap: var(--space-2);
+  padding: var(--space-1) var(--space-2);
   cursor: pointer;
   text-decoration: none;
   color: inherit;
   border-radius: var(--radius-sm);
-  margin: 0 var(--space-1);
 
   &:hover {
     background: rgba(255, 255, 255, 0.04);
@@ -197,6 +230,13 @@ const AvatarWrapper = styled.div`
   position: relative;
   display: inline-block;
   flex-shrink: 0;
+`;
+
+const AvatarFlag = styled.div`
+  position: absolute;
+  bottom: -2px;
+  right: -2px;
+  line-height: 0;
 `;
 
 const SidebarAvatar = styled.img`
@@ -214,17 +254,27 @@ const SidebarAvatarRace = styled.img`
   opacity: ${(p) => (p.$faded ? 0.2 : 0.85)};
 `;
 
-const InGameOverlay = styled.div`
-  position: absolute;
-  inset: 0;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  background: rgba(0, 0, 0, 0.5);
-  border-radius: var(--radius-sm);
+const InGameIcon = styled(GiCrossedSwords)`
+  width: 12px;
+  height: 12px;
   color: var(--red);
-  font-size: 14px;
-  pointer-events: none;
+  fill: var(--red);
+  flex-shrink: 0;
+  animation: pulse 1.5s infinite;
+`;
+
+const WinnerCrown = styled.img.attrs({ src: crownIcon, alt: "" })`
+  width: 14px;
+  height: 14px;
+  flex-shrink: 0;
+  filter: drop-shadow(0 0 3px rgba(252, 219, 51, 0.4));
+`;
+
+const RaceIcon = styled.img`
+  width: 18px;
+  height: 18px;
+  flex-shrink: 0;
+  opacity: 0.85;
 `;
 
 const Name = styled.span`
@@ -246,9 +296,10 @@ const MmrNum = styled.span`
 `;
 
 const SectionHeader = styled.div`
-  padding: var(--space-2) var(--space-4) var(--space-1);
+  padding: 12px var(--space-2) var(--space-2);
+  margin-top: var(--space-1);
   font-family: var(--font-mono);
-  font-size: 10px;
+  font-size: 11px;
   text-transform: uppercase;
   letter-spacing: 0.1em;
   color: var(--grey-light);
@@ -258,6 +309,12 @@ const SectionHeader = styled.div`
   cursor: pointer;
   user-select: none;
   transition: color 0.15s;
+  border-top: 1px solid rgba(160, 130, 80, 0.12);
+
+  &:first-child {
+    border-top: none;
+    margin-top: 0;
+  }
 
   &:hover {
     color: #fff;
@@ -285,15 +342,25 @@ function getAvatarImg(tag, avatars, stats) {
   return <SidebarAvatarRace src={raceIcons.random} alt="" $faded />;
 }
 
-function UserRowItem({ user, avatars, stats, inGame, matchUrl }) {
-  const mmr = stats?.get(user.battleTag)?.mmr;
+function UserRowItem({ user, avatars, stats, inGame, matchUrl, isRecentWinner }) {
+  const playerStats = stats?.get(user.battleTag);
+  const mmr = playerStats?.mmr;
+  const raceIcon = playerStats?.race != null ? raceMapping[playerStats.race] : null;
+  const country = avatars?.get(user.battleTag)?.country;
 
   const content = (
     <>
       <AvatarWrapper>
         {getAvatarImg(user.battleTag, avatars, stats)}
-        {inGame && <InGameOverlay><GiCrossedSwords /></InGameOverlay>}
+        {country && (
+          <AvatarFlag>
+            <CountryFlag name={country.toLowerCase()} style={{ width: 14, height: 10 }} />
+          </AvatarFlag>
+        )}
       </AvatarWrapper>
+      {inGame && <InGameIcon />}
+      {isRecentWinner && <WinnerCrown />}
+      {raceIcon && <RaceIcon src={raceIcon} alt="" />}
       <Name>{user.name}</Name>
       {mmr != null && (
         <MmrNum>{Math.round(mmr)}</MmrNum>
@@ -313,6 +380,7 @@ export default function UserListSidebar({
   stats,
   inGameTags,
   inGameMatchMap,
+  recentWinners,
   $mobileVisible,
   onClose,
 }) {
@@ -364,7 +432,9 @@ export default function UserListSidebar({
       <Header>
         <HeaderTitle>Channel</HeaderTitle>
         <HeaderCount>{users.length}</HeaderCount>
+        <CloseButton onClick={onClose}>&times;</CloseButton>
       </Header>
+      <SidebarContent>
       <SearchWrapper>
         <SearchInput
           type="text"
@@ -399,6 +469,7 @@ export default function UserListSidebar({
                 stats={stats}
                 inGame
                 matchUrl={inGameMatchMap?.get(user.battleTag)}
+                isRecentWinner={recentWinners?.has(user.battleTag)}
               />
             ))}
           </>
@@ -415,9 +486,11 @@ export default function UserListSidebar({
             stats={stats}
             inGame={false}
             matchUrl={null}
+            isRecentWinner={recentWinners?.has(user.battleTag)}
           />
         ))}
       </UserList>
+      </SidebarContent>
     </Sidebar>
   );
 }
