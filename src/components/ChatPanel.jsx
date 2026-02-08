@@ -22,17 +22,12 @@ const Wrapper = styled.div`
   min-height: 0;
   min-width: 0;
   box-sizing: border-box;
-  border: 16px solid transparent;
-  border-image: url("/frames/launcher/Maon_Border.png") 120 / 16px stretch;
-  background: rgba(10, 8, 6, 0.45);
-  backdrop-filter: blur(4px);
+  background: rgba(10, 8, 6, 0.25);
+  backdrop-filter: blur(1px);
   overflow: hidden;
   font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
-
-  @media (max-width: 768px) {
-    border-width: 12px;
-    border-image: url("/frames/launcher/Maon_Border.png") 120 / 12px stretch;
-  }
+  border: 8px solid transparent;
+  border-image: url("/frames/chat/ChatFrameBorder.png") 30 / 8px stretch;
 `;
 
 const Header = styled.div`
@@ -40,8 +35,8 @@ const Header = styled.div`
   align-items: center;
   justify-content: space-between;
   padding: var(--space-4);
-  background: rgba(10, 8, 6, 0.45);
-  backdrop-filter: blur(4px);
+  background: rgba(10, 8, 6, 0.2);
+  backdrop-filter: blur(1px);
   border-bottom: 1px solid rgba(252, 219, 51, 0.15);
 
   @media (max-width: 480px) {

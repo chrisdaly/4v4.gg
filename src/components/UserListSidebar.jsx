@@ -32,8 +32,8 @@ const Header = styled.div`
   justify-content: space-between;
   padding: var(--space-4);
   border-bottom: 1px solid rgba(252, 219, 51, 0.15);
-  background: rgba(10, 8, 6, 0.45);
-  backdrop-filter: blur(4px);
+  background: rgba(10, 8, 6, 0.2);
+  backdrop-filter: blur(1px);
   flex-shrink: 0;
 `;
 
@@ -44,17 +44,10 @@ const SidebarContent = styled.div`
   flex-direction: column;
   overflow: hidden;
   box-sizing: border-box;
-  border: 16px solid transparent;
-  border-top: none;
-  border-image: url("/frames/launcher/Maon_Border.png") 120 / 16px stretch;
-  border-image-outset: 0;
-  background: rgba(10, 8, 6, 0.45);
-  backdrop-filter: blur(4px);
-
-  @media (max-width: 768px) {
-    border-width: 0 12px 12px;
-    border-image: url("/frames/launcher/Maon_Border.png") 120 / 12px stretch;
-  }
+  background: rgba(10, 8, 6, 0.25);
+  backdrop-filter: blur(1px);
+  border: 8px solid transparent;
+  border-image: url("/frames/chat/ChatFrameBorder.png") 30 / 8px stretch;
 `;
 
 const HeaderTitle = styled.span`
@@ -429,12 +422,12 @@ export default function UserListSidebar({
 
   return (
     <Sidebar $mobileVisible={$mobileVisible}>
-      <Header>
-        <HeaderTitle>Channel</HeaderTitle>
-        <HeaderCount>{users.length}</HeaderCount>
-        <CloseButton onClick={onClose}>&times;</CloseButton>
-      </Header>
       <SidebarContent>
+        <Header>
+          <HeaderTitle>Channel</HeaderTitle>
+          <HeaderCount>{users.length}</HeaderCount>
+          <CloseButton onClick={onClose}>&times;</CloseButton>
+        </Header>
       <SearchWrapper>
         <SearchInput
           type="text"

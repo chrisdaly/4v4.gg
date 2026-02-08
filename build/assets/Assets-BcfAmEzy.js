@@ -1,4 +1,4 @@
-import{a as T,j as e,E as n}from"./index-DxMnafi1.js";const k=n.div`
+import{a as T,j as e,E as n}from"./index-BfWfxCZJ.js";const k=n.div`
   padding: var(--space-6) var(--space-8);
   max-width: 1400px;
   margin: 0 auto;

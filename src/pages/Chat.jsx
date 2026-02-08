@@ -3,7 +3,7 @@ import styled from "styled-components";
 import { HiUsers } from "react-icons/hi";
 import { GiCrossedSwords } from "react-icons/gi";
 import useChatStream from "../lib/useChatStream";
-import { getPlayerProfile, getPlayerStats, getPlayerSessionLight, getOngoingMatches, getMatch } from "../lib/api";
+import { getPlayerProfile, getPlayerStats, getPlayerSessionLight, getOngoingMatches } from "../lib/api";
 import ChatPanel from "../components/ChatPanel";
 import ActiveGamesSidebar from "../components/ActiveGamesSidebar";
 import UserListSidebar from "../components/UserListSidebar";
@@ -106,10 +106,18 @@ const Chat = () => {
     prevMatchIdsRef.current = currentIds;
 
     if (endedIds.length === 0) return;
+    console.log("[GameEnd] Detected ended matches:", endedIds);
 
     async function fetchResult(id, attempt = 0) {
-      const result = await getMatch(id);
-      const match = result?.match;
+      console.log(`[GameEnd] Fetching result for ${id}, attempt ${attempt}`);
+      // Direct fetch to bypass cache — the cached version may lack winner data
+      let match;
+      try {
+        const res = await fetch(`https://website-backend.w3champions.com/api/matches/${encodeURIComponent(id)}`);
+        if (!res.ok) return;
+        const result = await res.json();
+        match = result?.match;
+      } catch { return; }
       if (!match) return;
 
       const winnerTeamIndex = match.teams?.findIndex(

@@ -32,8 +32,8 @@ const Header = styled.div`
   justify-content: space-between;
   padding: var(--space-4);
   border-bottom: 1px solid rgba(252, 219, 51, 0.15);
-  background: rgba(10, 8, 6, 0.45);
-  backdrop-filter: blur(4px);
+  background: rgba(10, 8, 6, 0.2);
+  backdrop-filter: blur(1px);
   flex-shrink: 0;
 `;
 
@@ -44,17 +44,10 @@ const SidebarContent = styled.div`
   flex-direction: column;
   overflow: hidden;
   box-sizing: border-box;
-  border: 16px solid transparent;
-  border-top: none;
-  border-image: url("/frames/launcher/Maon_Border.png") 120 / 16px stretch;
-  border-image-outset: 0;
-  background: rgba(10, 8, 6, 0.45);
-  backdrop-filter: blur(4px);
-
-  @media (max-width: 768px) {
-    border-width: 0 12px 12px;
-    border-image: url("/frames/launcher/Maon_Border.png") 120 / 12px stretch;
-  }
+  background: rgba(10, 8, 6, 0.25);
+  backdrop-filter: blur(1px);
+  border: 8px solid transparent;
+  border-image: url("/frames/chat/ChatFrameBorder.png") 30 / 8px stretch;
 `;
 
 const HeaderTitle = styled.span`
@@ -144,7 +137,7 @@ const Card = styled(Link)`
   display: block;
   text-decoration: none;
   color: inherit;
-  margin: var(--space-4) var(--space-1);
+  margin: var(--space-4) 0;
   border-radius: var(--radius-md);
   border: 1px solid rgba(160, 130, 80, 0.12);
   overflow: hidden;
@@ -158,14 +151,14 @@ const Card = styled(Link)`
 const CardTop = styled.div`
   display: flex;
   align-items: center;
-  gap: var(--space-3);
-  padding: var(--space-4) var(--space-4) var(--space-3);
+  gap: var(--space-4);
+  padding: var(--space-4) var(--space-6) var(--space-2);
   background: rgba(255, 255, 255, 0.02);
 `;
 
 const MapImg = styled.img`
-  width: 56px;
-  height: 56px;
+  width: 72px;
+  height: 72px;
   border-radius: var(--radius-sm);
   object-fit: cover;
   flex-shrink: 0;
@@ -178,7 +171,7 @@ const MapInfo = styled.div`
 
 const MapName = styled.div`
   font-family: var(--font-display);
-  font-size: var(--text-base);
+  font-size: var(--text-lg);
   color: #fff;
   white-space: nowrap;
   overflow: hidden;
@@ -188,13 +181,13 @@ const MapName = styled.div`
 const MmrRow = styled.div`
   display: flex;
   align-items: baseline;
-  gap: 4px;
-  margin-top: 2px;
+  gap: 5px;
+  margin-top: 4px;
 `;
 
 const MmrValue = styled.span`
   font-family: var(--font-mono);
-  font-size: 15px;
+  font-size: 18px;
   color: #fff;
   font-weight: 700;
 `;
@@ -207,18 +200,18 @@ const MmrLabel = styled.span`
 `;
 
 const ChartCol = styled.div`
-  width: 70px;
+  width: 80px;
   flex-shrink: 0;
   align-self: stretch;
-  padding: 0;
+  padding: var(--space-2) 0;
   box-sizing: border-box;
 `;
 
 const Elapsed = styled.div`
   font-family: var(--font-mono);
-  font-size: 12px;
+  font-size: 14px;
   color: var(--grey-light);
-  margin-top: 2px;
+  margin-top: 3px;
 `;
 
 const LiveDot = styled.span`
@@ -234,8 +227,8 @@ const LiveDot = styled.span`
 
 const TeamsSection = styled.div`
   display: flex;
-  align-items: stretch;
-  padding: var(--space-2) var(--space-4);
+  align-items: center;
+  padding: var(--space-2) var(--space-6) var(--space-3);
   gap: 0;
 `;
 
@@ -247,8 +240,8 @@ const TeamCol = styled.div`
 const PlayerRow = styled.div`
   display: flex;
   align-items: center;
-  gap: 6px;
-  margin-bottom: 5px;
+  gap: 8px;
+  margin-bottom: 8px;
   flex-direction: ${(p) => (p.$reverse ? "row-reverse" : "row")};
 
   &:last-child {
@@ -257,14 +250,14 @@ const PlayerRow = styled.div`
 `;
 
 const RaceIcon = styled.img`
-  width: 18px;
-  height: 18px;
+  width: 22px;
+  height: 22px;
   flex-shrink: 0;
 `;
 
 const PlayerName = styled.span`
   font-family: var(--font-display);
-  font-size: 14px;
+  font-size: var(--text-sm);
   color: var(--gold);
   white-space: nowrap;
   overflow: hidden;
@@ -299,7 +292,7 @@ const FinishedCard = styled(Link)`
   text-decoration: none;
   color: inherit;
   position: relative;
-  margin: var(--space-4) var(--space-1);
+  margin: var(--space-4) 0;
   border-radius: var(--radius-md);
   border: 1px solid var(--gold);
   overflow: hidden;
@@ -540,15 +533,15 @@ export default function ActiveGamesSidebar({ matches = [], finishedMatches = [],
 
   return (
     <Sidebar $mobileVisible={$mobileVisible}>
-      <Header>
-        <HeaderTitle>Active Games</HeaderTitle>
-        <HeaderCount>{matches.length}</HeaderCount>
-        <SortButton onClick={() => setSortBy((s) => (s === "mmr" ? "recent" : "mmr"))}>
-          {sortBy === "mmr" ? "MMR" : "Recent"}
-        </SortButton>
-        <CloseButton onClick={onClose}>&times;</CloseButton>
-      </Header>
       <SidebarContent>
+        <Header>
+          <HeaderTitle>Active Games</HeaderTitle>
+          <HeaderCount>{matches.length}</HeaderCount>
+          <SortButton onClick={() => setSortBy((s) => (s === "mmr" ? "recent" : "mmr"))}>
+            {sortBy === "mmr" ? "MMR" : "Recent"}
+          </SortButton>
+          <CloseButton onClick={onClose}>&times;</CloseButton>
+        </Header>
         {sortedMatches.length === 0 && finishedMatches.length === 0 ? (
           <EmptyState>No active games</EmptyState>
         ) : (
