@@ -7,9 +7,26 @@ import ChatPanel from "../components/ChatPanel";
 import UserListSidebar from "../components/UserListSidebar";
 
 const Page = styled.div`
-  padding: var(--space-4) var(--space-4) 0;
-  max-width: 1400px;
+  padding: var(--space-2) var(--space-4) 0;
+  max-width: 1600px;
   margin: 0 auto;
+  position: relative;
+
+  &::before {
+    content: "";
+    position: fixed;
+    inset: 0;
+    background: url("/backgrounds/nightelf.jpg") center / cover no-repeat fixed;
+    z-index: -2;
+  }
+
+  &::after {
+    content: "";
+    position: fixed;
+    inset: 0;
+    background: rgba(12, 10, 8, 0.9);
+    z-index: -1;
+  }
 
   @media (max-width: 768px) {
     padding: var(--space-2) var(--space-2) 0;
@@ -19,7 +36,7 @@ const Page = styled.div`
 const Layout = styled.div`
   display: flex;
   gap: var(--space-4);
-  height: calc(100vh - 80px);
+  height: calc(100vh - var(--space-2));
 `;
 
 const MobileToggle = styled.button`

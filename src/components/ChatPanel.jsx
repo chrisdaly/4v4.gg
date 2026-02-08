@@ -1,6 +1,7 @@
 import React, { useRef, useEffect, useState, useMemo } from "react";
 import { Link } from "react-router-dom";
 import styled from "styled-components";
+import { GiCrossedSwords } from "react-icons/gi";
 import { raceMapping, raceIcons } from "../lib/constants";
 
 const Wrapper = styled.div`
@@ -9,9 +10,10 @@ const Wrapper = styled.div`
   flex: 1;
   min-height: 0;
   min-width: 0;
-  border: 1px solid var(--grey-mid);
-  border-radius: var(--radius-md);
-  background: rgba(255, 255, 255, 0.02);
+  border: 16px solid transparent;
+  border-image: url("/frames/wc3-frame.png") 80 / 16px stretch;
+  background: rgba(15, 12, 10, 0.85);
+  backdrop-filter: blur(12px);
   overflow: hidden;
   font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
 `;
@@ -21,15 +23,20 @@ const Header = styled.div`
   align-items: center;
   justify-content: space-between;
   padding: var(--space-3) var(--space-4);
-  border-bottom: 1px solid var(--grey-mid);
-  background: linear-gradient(180deg, rgba(255, 255, 255, 0.03) 0%, transparent 100%);
+  border-bottom: 1px solid rgba(160, 130, 80, 0.15);
+  background: linear-gradient(180deg, rgba(160, 130, 80, 0.04) 0%, transparent 100%);
   box-shadow: 0 1px 0 rgba(0, 0, 0, 0.2);
 `;
 
-const Title = styled.span`
+const Title = styled(Link)`
   font-family: var(--font-display);
   font-size: var(--text-base);
   color: var(--gold);
+  text-decoration: none;
+
+  &:hover {
+    text-decoration: underline;
+  }
 `;
 
 const StatusDot = styled.span`
@@ -253,22 +260,24 @@ const FormDot = styled.span`
   opacity: 0.8;
 `;
 
-const InGameDot = styled.span`
+const InGameOverlay = styled.div`
   position: absolute;
-  bottom: -1px;
-  right: -1px;
-  width: 8px;
-  height: 8px;
-  background: var(--red);
-  border-radius: 50%;
-  border: 2px solid var(--grey-dark);
-  animation: pulse 1.5s infinite;
+  inset: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: rgba(0, 0, 0, 0.5);
+  border-radius: var(--radius-md);
+  color: var(--red);
+  font-size: 22px;
+  pointer-events: none;
 `;
 
 const MessageText = styled.span`
-  color: rgba(255, 255, 255, 0.82);
+  font-family: var(--font-body);
+  color: #e0e0e0;
   font-size: 15px;
-  line-height: 1.375;
+  line-height: 1.6;
   word-break: break-word;
 `;
 
@@ -286,7 +295,7 @@ const ScrollNotice = styled.button`
   bottom: var(--space-4);
   left: 50%;
   transform: translateX(-50%);
-  background: var(--grey-dark);
+  background: rgba(15, 12, 10, 0.9);
   border: 1px solid rgba(252, 219, 51, 0.3);
   border-radius: var(--radius-full);
   color: var(--gold);
@@ -417,7 +426,7 @@ export default function ChatPanel({ messages, status, avatars, stats, sessions, 
   return (
     <Wrapper>
       <Header>
-        <Title>4v4 Chat</Title>
+        <Title to="/">4v4 Chat</Title>
         <StatusLabel>
           <StatusDot $status={status} />
           {status}
@@ -451,7 +460,7 @@ export default function ChatPanel({ messages, status, avatars, stats, sessions, 
                   <AvatarContainer>
                     <div style={{ position: "relative" }}>
                       {getAvatarElement(tag, avatars, stats)}
-                      {inGameTags?.has(tag) && <InGameDot />}
+                      {inGameTags?.has(tag) && <InGameOverlay><GiCrossedSwords /></InGameOverlay>}
                     </div>
                     {(stats?.get(tag)?.mmr != null || sessions?.get(tag)) && (
                       <AvatarStats>

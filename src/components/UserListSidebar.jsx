@@ -1,14 +1,16 @@
 import React, { useMemo, useState } from "react";
 import { Link } from "react-router-dom";
 import styled from "styled-components";
+import { GiCrossedSwords } from "react-icons/gi";
 import { raceMapping, raceIcons } from "../lib/constants";
 
 const Sidebar = styled.aside`
   width: 220px;
-  height: calc(100vh - 80px);
-  border: 1px solid var(--grey-mid);
-  border-radius: var(--radius-md);
-  background: rgba(255, 255, 255, 0.02);
+  height: 100%;
+  border: 16px solid transparent;
+  border-image: url("/frames/wc3-frame.png") 80 / 16px stretch;
+  background: rgba(15, 12, 10, 0.85);
+  backdrop-filter: blur(12px);
   display: flex;
   flex-direction: column;
   overflow: hidden;
@@ -20,8 +22,8 @@ const Sidebar = styled.aside`
     right: 0;
     height: 100vh;
     z-index: var(--z-overlay);
-    background: var(--grey-dark);
-    border-left: 1px solid var(--grey-mid);
+    background: rgba(15, 12, 10, 0.95);
+    border-left: 1px solid rgba(160, 130, 80, 0.2);
     border-radius: 0;
     transform: ${(p) => (p.$mobileVisible ? "translateX(0)" : "translateX(100%)")};
     transition: transform 0.25s ease;
@@ -30,49 +32,114 @@ const Sidebar = styled.aside`
 
 const Header = styled.div`
   padding: var(--space-2) var(--space-4);
-  border-bottom: 1px solid var(--grey-mid);
+  border-bottom: 1px solid rgba(160, 130, 80, 0.15);
   font-family: var(--font-mono);
   font-size: var(--text-xxs);
   text-transform: uppercase;
   letter-spacing: 0.1em;
   color: var(--grey-light);
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
 `;
 
 const Count = styled.span`
   color: var(--gold);
 `;
 
+const SearchWrapper = styled.div`
+  position: relative;
+  margin: var(--space-2) var(--space-2);
+
+  &::before {
+    content: "⌕";
+    position: absolute;
+    left: 8px;
+    top: 50%;
+    transform: translateY(-50%);
+    color: var(--grey-light);
+    font-size: 13px;
+    pointer-events: none;
+  }
+`;
+
 const SearchInput = styled.input`
-  width: calc(100% - var(--space-4));
-  margin: var(--space-2) auto;
-  display: block;
-  padding: var(--space-1) var(--space-3);
-  font-family: var(--font-mono);
-  font-size: var(--text-xxs);
+  width: 100%;
+  padding: 6px 28px 6px 24px;
+  font-family: var(--font-display);
+  font-size: 12px;
+  letter-spacing: 0.3px;
   color: #fff;
-  background: var(--grey-dark);
-  border: 1px solid var(--grey-mid);
+  background: linear-gradient(180deg, rgba(25, 20, 15, 0.9) 0%, rgba(12, 10, 8, 0.95) 100%);
+  border: 1px solid rgba(160, 130, 80, 0.2);
   border-radius: var(--radius-md);
   outline: none;
   box-sizing: border-box;
+  transition: all 0.2s ease;
 
   &::placeholder {
     color: var(--grey-light);
-    opacity: 0.5;
+    font-size: 11px;
   }
 
   &:focus {
     border-color: var(--gold);
+    box-shadow: 0 0 8px rgba(252, 219, 51, 0.15);
   }
+`;
+
+const SearchClear = styled.button`
+  position: absolute;
+  right: 6px;
+  top: 50%;
+  transform: translateY(-50%);
+  background: none;
+  border: none;
+  color: var(--grey-light);
+  font-size: 16px;
+  cursor: pointer;
+  padding: 0 4px;
+  line-height: 1;
+
+  &:hover {
+    color: #fff;
+  }
+`;
+
+const ColumnHeaders = styled.div`
+  display: flex;
+  align-items: center;
+  padding: var(--space-1) var(--space-4);
+  padding-left: calc(var(--space-4) + 28px + var(--space-4));
+  border-bottom: 1px solid rgba(160, 130, 80, 0.15);
+  background: rgba(20, 16, 12, 0.6);
+  font-family: var(--font-mono);
+  font-size: 10px;
+  text-transform: uppercase;
+  letter-spacing: 0.1em;
+  color: var(--grey-light);
+`;
+
+const ColHeader = styled.span`
+  cursor: pointer;
+  user-select: none;
+  transition: color 0.15s;
+  color: ${(p) => (p.$active ? "var(--gold)" : "var(--grey-light)")};
+
+  &:hover {
+    color: var(--gold);
+  }
+`;
+
+const ColPlayer = styled(ColHeader)`
+  flex: 1;
+`;
+
+const ColMmr = styled(ColHeader)`
+  flex-shrink: 0;
 `;
 
 const UserList = styled.div`
   flex: 1;
   overflow-y: auto;
-  padding: var(--space-2) 0;
+  padding: var(--space-1) 0;
 
   &::-webkit-scrollbar {
     width: 6px;
@@ -89,7 +156,7 @@ const UserList = styled.div`
 const UserRowBase = styled.div`
   display: flex;
   align-items: center;
-  gap: var(--space-3);
+  gap: var(--space-4);
   padding: var(--space-2) var(--space-4);
   cursor: default;
   border-radius: var(--radius-sm);
@@ -103,7 +170,7 @@ const UserRowBase = styled.div`
 const UserLink = styled(Link)`
   display: flex;
   align-items: center;
-  gap: var(--space-3);
+  gap: var(--space-4);
   padding: var(--space-2) var(--space-4);
   cursor: pointer;
   text-decoration: none;
@@ -137,21 +204,23 @@ const SidebarAvatarRace = styled.img`
   opacity: ${(p) => (p.$faded ? 0.2 : 0.85)};
 `;
 
-const InGameDot = styled.span`
+const InGameOverlay = styled.div`
   position: absolute;
-  bottom: 0;
-  right: 0;
-  width: 6px;
-  height: 6px;
-  background: var(--red);
-  border-radius: 50%;
-  animation: pulse 1.5s infinite;
+  inset: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: rgba(0, 0, 0, 0.5);
+  border-radius: var(--radius-sm);
+  color: var(--red);
+  font-size: 14px;
+  pointer-events: none;
 `;
 
 const Name = styled.span`
   font-family: var(--font-display);
   font-size: var(--text-sm);
-  color: #fff;
+  color: var(--gold);
   white-space: nowrap;
   overflow: hidden;
   text-overflow: ellipsis;
@@ -159,25 +228,11 @@ const Name = styled.span`
   flex: 1;
 `;
 
-const Mmr = styled.span`
+const MmrNum = styled.span`
   font-family: var(--font-mono);
   font-size: var(--text-xxs);
-  color: var(--gold);
-  opacity: 0.7;
+  color: #fff;
   flex-shrink: 0;
-`;
-
-const SectionHeader = styled.div`
-  padding: var(--space-3) var(--space-3) var(--space-1);
-  font-family: var(--font-mono);
-  font-size: var(--text-xxs);
-  text-transform: uppercase;
-  letter-spacing: 0.1em;
-  color: var(--grey-light);
-
-  &:first-child {
-    padding-top: var(--space-1);
-  }
 `;
 
 function getAvatarImg(tag, avatars, stats) {
@@ -198,10 +253,12 @@ function UserRowItem({ user, avatars, stats, inGame, matchUrl }) {
     <>
       <AvatarWrapper>
         {getAvatarImg(user.battleTag, avatars, stats)}
-        {inGame && <InGameDot />}
+        {inGame && <InGameOverlay><GiCrossedSwords /></InGameOverlay>}
       </AvatarWrapper>
       <Name>{user.name}</Name>
-      <Mmr>{mmr != null ? Math.round(mmr) : ""}</Mmr>
+      {mmr != null && (
+        <MmrNum>{Math.round(mmr)}</MmrNum>
+      )}
     </>
   );
 
@@ -221,17 +278,29 @@ export default function UserListSidebar({
   onClose,
 }) {
   const [search, setSearch] = useState("");
+  const [sortField, setSortField] = useState("mmr");
+
+  function handleSort(field) {
+    setSortField(field);
+  }
 
   const sortedUsers = useMemo(() => {
     return [...users].sort((a, b) => {
+      if (sortField === "live") {
+        const aLive = inGameTags?.has(a.battleTag) ? 1 : 0;
+        const bLive = inGameTags?.has(b.battleTag) ? 1 : 0;
+        if (aLive !== bLive) return bLive - aLive;
+      }
+      if (sortField === "name") {
+        const cmp = (a.name || "").localeCompare(b.name || "", undefined, { sensitivity: "base" });
+        if (cmp !== 0) return cmp;
+      }
       const aMmr = stats?.get(a.battleTag)?.mmr ?? -1;
       const bMmr = stats?.get(b.battleTag)?.mmr ?? -1;
       if (aMmr !== bMmr) return bMmr - aMmr;
-      return (a.name || "").localeCompare(b.name || "", undefined, {
-        sensitivity: "base",
-      });
+      return (a.name || "").localeCompare(b.name || "", undefined, { sensitivity: "base" });
     });
-  }, [users, stats]);
+  }, [users, stats, inGameTags, sortField]);
 
   const filteredUsers = useMemo(() => {
     if (!search.trim()) return sortedUsers;
@@ -239,55 +308,39 @@ export default function UserListSidebar({
     return sortedUsers.filter((u) => (u.name || "").toLowerCase().includes(q));
   }, [sortedUsers, search]);
 
-  const { inGameUsers, onlineUsers } = useMemo(() => {
-    const inG = [];
-    const on = [];
-    for (const user of filteredUsers) {
-      if (inGameTags?.has(user.battleTag)) {
-        inG.push(user);
-      } else {
-        on.push(user);
-      }
-    }
-    return { inGameUsers: inG, onlineUsers: on };
-  }, [filteredUsers, inGameTags]);
-
   return (
     <Sidebar $mobileVisible={$mobileVisible}>
       <Header>
         Channel <Count>{users.length}</Count>
       </Header>
-      <SearchInput
-        type="text"
-        placeholder="Search..."
-        value={search}
-        onChange={(e) => setSearch(e.target.value)}
-      />
-      <UserList>
-        {inGameUsers.length > 0 && (
-          <>
-            <SectionHeader>In Game — {inGameUsers.length}</SectionHeader>
-            {inGameUsers.map((user) => (
-              <UserRowItem
-                key={user.battleTag}
-                user={user}
-                avatars={avatars}
-                stats={stats}
-                inGame
-                matchUrl={inGameMatchMap?.get(user.battleTag)}
-              />
-            ))}
-          </>
+      <SearchWrapper>
+        <SearchInput
+          type="text"
+          placeholder="Search players..."
+          value={search}
+          onChange={(e) => setSearch(e.target.value)}
+        />
+        {search && (
+          <SearchClear onClick={() => setSearch("")}>×</SearchClear>
         )}
-        <SectionHeader>Online — {onlineUsers.length}</SectionHeader>
-        {onlineUsers.map((user) => (
+      </SearchWrapper>
+      <ColumnHeaders>
+        <ColPlayer $active={sortField === "name"} onClick={() => handleSort("name")}>
+          Player
+        </ColPlayer>
+        <ColMmr $active={sortField === "mmr"} onClick={() => handleSort("mmr")}>
+          MMR
+        </ColMmr>
+      </ColumnHeaders>
+      <UserList>
+        {filteredUsers.map((user) => (
           <UserRowItem
             key={user.battleTag}
             user={user}
             avatars={avatars}
             stats={stats}
-            inGame={false}
-            matchUrl={null}
+            inGame={inGameTags?.has(user.battleTag)}
+            matchUrl={inGameMatchMap?.get(user.battleTag)}
           />
         ))}
       </UserList>

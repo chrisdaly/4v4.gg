@@ -47,6 +47,7 @@ const Router = () => (
         <Route exact path="/overlay" component={OverlayIndex} />
         <Route path="/stream" component={PlayerStream} />
         <Route path="/mystream" component={MyStreamPage} />
+        <Route path="/chat" component={Chat} />
 
         {/* All other pages - Navbar + ErrorBoundary */}
         <Route>
@@ -65,7 +66,7 @@ const Router = () => (
               <Route path="/demo" component={VisualizationDemo} />
               <Route path="/styles" component={StyleReference} />
               <Route path="/icons" component={IconDemo} />
-              <Route path="/chat" component={Chat} />
+
               <Route path="/mmr-lab" component={MmrLab} />
             </Switch>
           </ErrorBoundary>
