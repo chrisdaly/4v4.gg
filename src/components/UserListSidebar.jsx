@@ -7,10 +7,10 @@ import { raceMapping, raceIcons } from "../lib/constants";
 const Sidebar = styled.aside`
   width: 220px;
   height: 100%;
-  border: 16px solid transparent;
-  border-image: url("/frames/wc3-frame.png") 80 / 16px stretch;
-  background: rgba(15, 12, 10, 0.85);
-  backdrop-filter: blur(12px);
+  border: 1px solid rgba(160, 130, 80, 0.3);
+  border-radius: var(--radius-md);
+  background: rgba(10, 8, 6, 0.65);
+  backdrop-filter: blur(8px);
   display: flex;
   flex-direction: column;
   overflow: hidden;

@@ -10,10 +10,10 @@ const Wrapper = styled.div`
   flex: 1;
   min-height: 0;
   min-width: 0;
-  border: 16px solid transparent;
-  border-image: url("/frames/wc3-frame.png") 80 / 16px stretch;
-  background: rgba(15, 12, 10, 0.85);
-  backdrop-filter: blur(12px);
+  border: 24px solid transparent;
+  border-image: url("/frames/launcher/Maon_Border.png") 120 / 24px stretch;
+  background: rgba(10, 8, 6, 0.65);
+  backdrop-filter: blur(8px);
   overflow: hidden;
   font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
 `;

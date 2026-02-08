@@ -16,7 +16,7 @@ const Page = styled.div`
     content: "";
     position: fixed;
     inset: 0;
-    background: url("/backgrounds/nightelf.jpg") center / cover no-repeat fixed;
+    background: url("/frames/launcher/Static_Background.png") center / cover no-repeat fixed;
     z-index: -2;
   }
 
@@ -24,7 +24,7 @@ const Page = styled.div`
     content: "";
     position: fixed;
     inset: 0;
-    background: rgba(12, 10, 8, 0.9);
+    background: rgba(0, 0, 0, 0.45);
     z-index: -1;
   }
 
