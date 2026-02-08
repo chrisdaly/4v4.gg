@@ -4,12 +4,11 @@ import { HiUsers } from "react-icons/hi";
 import useChatStream from "../lib/useChatStream";
 import { getPlayerProfile, getPlayerStats, getPlayerSessionLight, getOngoingMatches } from "../lib/api";
 import ChatPanel from "../components/ChatPanel";
+import ActiveGamesSidebar from "../components/ActiveGamesSidebar";
 import UserListSidebar from "../components/UserListSidebar";
 
 const Page = styled.div`
-  padding: var(--space-2) var(--space-4) 0;
-  max-width: 1600px;
-  margin: 0 auto;
+  padding: var(--space-1) var(--space-2) 0;
   position: relative;
 
   &::before {
@@ -24,19 +23,24 @@ const Page = styled.div`
     content: "";
     position: fixed;
     inset: 0;
-    background: rgba(0, 0, 0, 0.45);
+    background: transparent;
     z-index: -1;
   }
 
   @media (max-width: 768px) {
-    padding: var(--space-2) var(--space-2) 0;
+    padding: 0;
   }
 `;
 
 const Layout = styled.div`
   display: flex;
   gap: var(--space-4);
-  height: calc(100vh - var(--space-2));
+  height: calc(100vh - var(--space-1));
+
+  @media (max-width: 768px) {
+    gap: 0;
+    height: 100vh;
+  }
 `;
 
 const MobileToggle = styled.button`
@@ -185,6 +189,7 @@ const Chat = () => {
   return (
     <Page>
       <Layout>
+        <ActiveGamesSidebar matchCount={ongoingMatches.length} />
         <ChatPanel
           messages={messages}
           status={status}

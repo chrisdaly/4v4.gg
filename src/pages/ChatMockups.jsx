@@ -56,7 +56,10 @@ const MockupContainer = styled.div`
     content: "";
     position: absolute;
     inset: 0;
-    background: ${(p) => p.$bgImage ? `url(${p.$bgImage}) center / cover no-repeat` : "#080808"};
+    background: ${(p) =>
+      p.$bgTile ? `url(${p.$bgTile}) repeat center / 256px` :
+      p.$bgImage ? `url(${p.$bgImage}) center / cover no-repeat` :
+      "#080808"};
     z-index: 0;
   }
 
@@ -599,84 +602,68 @@ const FRAME_STYLES = {
 
 const MOCKUPS = [
   {
-    label: "A: Campfire + Launcher Border",
-    desc: "Authentic W3C launcher look — iron frame, warm campfire glow",
-    bg: "/frames/launcher/Static_Background.png",
-    overlay: "rgba(0, 0, 0, 0.45)",
-    chatFrame: FRAME_STYLES.launcherBorder,
+    label: "A: Parchment BG + Wood Frame",
+    desc: "Parchment page background + wood corner frame — tavern notice board",
+    bg: "/frames/parchment/Parchment-H.png",
+    overlay: "rgba(0, 0, 0, 0.3)",
+    chatType: "wood",
     sidebarFrame: FRAME_STYLES.simpleBorder,
   },
   {
-    label: "B: Campfire + WC3 Ornate Frame",
-    desc: "Gold ornamental corners over campfire scene",
-    bg: "/frames/launcher/Static_Background.png",
-    overlay: "rgba(0, 0, 0, 0.45)",
+    label: "B: Parchment BG + WC3 Ornate Frame",
+    desc: "Parchment page + gold ornamental frame — royal decree",
+    bg: "/frames/parchment/Parchment-H.png",
+    overlay: "rgba(0, 0, 0, 0.3)",
     chatFrame: FRAME_STYLES.wc3Frame,
     sidebarFrame: FRAME_STYLES.simpleBorder,
   },
   {
-    label: "C: Campfire + Wood Frame",
-    desc: "Assembled wood corners + tile edges — tavern notice board vibe",
-    bg: "/frames/launcher/Static_Background.png",
-    overlay: "rgba(0, 0, 0, 0.45)",
-    chatType: "wood",
-    sidebarFrame: FRAME_STYLES.simpleBorder,
-  },
-  {
-    label: "D: Campfire + Wood Frame + Parchment",
-    desc: "Wood frame with parchment texture inside — quest log feel",
-    bg: "/frames/launcher/Static_Background.png",
-    overlay: "rgba(0, 0, 0, 0.45)",
-    chatType: "wood-parchment",
-    sidebarFrame: FRAME_STYLES.simpleBorder,
-  },
-  {
-    label: "E: Campfire + Parchment Panel",
-    desc: "Subtle parchment texture on dark panel — no wood frame",
-    bg: "/frames/launcher/Static_Background.png",
-    overlay: "rgba(0, 0, 0, 0.45)",
-    chatType: "parchment",
-    sidebarType: "parchment",
-  },
-  {
-    label: "F: Night Elf + Wood Frame + Parchment",
-    desc: "Purple forest + wood frame with parchment glow",
-    bg: "/backgrounds/nightelf.jpg",
-    overlay: "rgba(5, 0, 15, 0.45)",
-    chatType: "wood-parchment",
-    sidebarFrame: FRAME_STYLES.simpleBorder,
-  },
-  {
-    label: "G: Undead + Wood Frame",
-    desc: "Gothic green + dark wood frame — crypt message board",
-    bg: "/backgrounds/undead.jpg",
-    overlay: "rgba(0, 0, 0, 0.45)",
-    chatType: "wood",
-    sidebarFrame: FRAME_STYLES.simpleBorder,
-  },
-  {
-    label: "H: Orc + Wood Frame + Parchment",
-    desc: "Warm earthy tones + wood and parchment — war room briefing",
-    bg: "/backgrounds/orc.jpg",
-    overlay: "rgba(0, 0, 0, 0.45)",
-    chatType: "wood-parchment",
-    sidebarFrame: FRAME_STYLES.simpleBorder,
-  },
-  {
-    label: "I: Human + Launcher Border",
-    desc: "Bright castle scene, iron launcher frame",
-    bg: "/backgrounds/human.jpg",
-    overlay: "rgba(0, 0, 0, 0.5)",
+    label: "C: Parchment BG + Launcher Border",
+    desc: "Parchment page + iron launcher frame",
+    bg: "/frames/parchment/Parchment-H.png",
+    overlay: "rgba(0, 0, 0, 0.3)",
     chatFrame: FRAME_STYLES.launcherBorder,
     sidebarFrame: FRAME_STYLES.simpleBorder,
   },
   {
-    label: "J: Campfire + Simple Gold Border",
-    desc: "Minimal thin gold border, no ornate frame",
+    label: "D: Parchment BG (dark) + Wood Frame",
+    desc: "Heavily darkened parchment + wood frame — aged scroll",
+    bg: "/frames/parchment/Parchment-H.png",
+    overlay: "rgba(0, 0, 0, 0.65)",
+    chatType: "wood",
+    sidebarFrame: FRAME_STYLES.simpleBorder,
+  },
+  {
+    label: "E: Parchment Tile BG + Wood Frame",
+    desc: "Tileable parchment texture repeating + wood corners",
+    bgTile: "/frames/parchment/Tileable.png",
+    overlay: "rgba(0, 0, 0, 0.35)",
+    chatType: "wood",
+    sidebarFrame: FRAME_STYLES.simpleBorder,
+  },
+  {
+    label: "F: Parchment Tile BG (dark) + WC3 Frame",
+    desc: "Tileable parchment darkened + gold ornamental frame",
+    bgTile: "/frames/parchment/Tileable.png",
+    overlay: "rgba(0, 0, 0, 0.6)",
+    chatFrame: FRAME_STYLES.wc3Frame,
+    sidebarFrame: FRAME_STYLES.wc3Frame,
+  },
+  {
+    label: "G: Campfire + Launcher Border (for comparison)",
+    desc: "Previous favorite — campfire + iron frame",
     bg: "/frames/launcher/Static_Background.png",
     overlay: "rgba(0, 0, 0, 0.45)",
-    chatFrame: FRAME_STYLES.goldBorder,
-    sidebarFrame: FRAME_STYLES.goldBorder,
+    chatFrame: FRAME_STYLES.launcherBorder,
+    sidebarFrame: FRAME_STYLES.simpleBorder,
+  },
+  {
+    label: "H: Campfire + Wood Frame (for comparison)",
+    desc: "Campfire + wood corners and tile edges",
+    bg: "/frames/launcher/Static_Background.png",
+    overlay: "rgba(0, 0, 0, 0.45)",
+    chatType: "wood",
+    sidebarFrame: FRAME_STYLES.simpleBorder,
   },
 ];
 
@@ -730,7 +717,7 @@ export default function ChatMockups() {
           <MockupSection key={i}>
             <MockupLabel>{mockup.label}</MockupLabel>
             <MockupDesc>{mockup.desc}</MockupDesc>
-            <MockupContainer $bgImage={mockup.bg} $overlay={mockup.overlay}>
+            <MockupContainer $bgImage={mockup.bg} $bgTile={mockup.bgTile} $overlay={mockup.overlay}>
               {chatEl}
               {sidebarEl}
             </MockupContainer>

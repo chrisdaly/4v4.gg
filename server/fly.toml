@@ -5,7 +5,7 @@ primary_region = "ewr"
 
 [env]
   DB_PATH = "/data/chat.db"
-  CORS_ORIGINS = "https://4v4.gg,http://localhost:3000"
+  CORS_ORIGINS = "https://4v4.gg,https://feature-chat-relay.ddnp6uus284fs.amplifyapp.com,http://localhost:3000,http://localhost:3001"
 
 [http_service]
   internal_port = 8080

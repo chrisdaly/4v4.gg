@@ -5,12 +5,13 @@ import { GiCrossedSwords } from "react-icons/gi";
 import { raceMapping, raceIcons } from "../lib/constants";
 
 const Sidebar = styled.aside`
-  width: 220px;
+  width: 268px;
   height: 100%;
-  border: 1px solid rgba(160, 130, 80, 0.3);
-  border-radius: var(--radius-md);
-  background: rgba(10, 8, 6, 0.65);
-  backdrop-filter: blur(8px);
+  box-sizing: border-box;
+  border: 24px solid transparent;
+  border-image: url("/frames/launcher/Maon_Border.png") 120 / 24px stretch;
+  background: rgba(10, 8, 6, 0.45);
+  backdrop-filter: blur(4px);
   display: flex;
   flex-direction: column;
   overflow: hidden;
@@ -20,28 +21,37 @@ const Sidebar = styled.aside`
     position: fixed;
     top: 0;
     right: 0;
+    width: 280px;
     height: 100vh;
     z-index: var(--z-overlay);
     background: rgba(15, 12, 10, 0.95);
-    border-left: 1px solid rgba(160, 130, 80, 0.2);
-    border-radius: 0;
+    border-width: 16px;
+    border-image: url("/frames/launcher/Maon_Border.png") 120 / 16px stretch;
     transform: ${(p) => (p.$mobileVisible ? "translateX(0)" : "translateX(100%)")};
     transition: transform 0.25s ease;
   }
 `;
 
 const Header = styled.div`
-  padding: var(--space-2) var(--space-4);
-  border-bottom: 1px solid rgba(160, 130, 80, 0.15);
-  font-family: var(--font-mono);
-  font-size: var(--text-xxs);
-  text-transform: uppercase;
-  letter-spacing: 0.1em;
-  color: var(--grey-light);
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 14px var(--space-4);
+  border-bottom: 1px solid rgba(252, 219, 51, 0.15);
+  background: linear-gradient(180deg, rgba(160, 130, 80, 0.06) 0%, transparent 100%);
 `;
 
-const Count = styled.span`
+const HeaderTitle = styled.span`
+  font-family: var(--font-display);
+  font-size: var(--text-sm);
   color: var(--gold);
+  letter-spacing: 1px;
+`;
+
+const HeaderCount = styled.span`
+  font-family: var(--font-mono);
+  font-size: var(--text-xxs);
+  color: var(--grey-light);
 `;
 
 const SearchWrapper = styled.div`
@@ -235,6 +245,35 @@ const MmrNum = styled.span`
   flex-shrink: 0;
 `;
 
+const SectionHeader = styled.div`
+  padding: var(--space-2) var(--space-4) var(--space-1);
+  font-family: var(--font-mono);
+  font-size: 10px;
+  text-transform: uppercase;
+  letter-spacing: 0.1em;
+  color: var(--grey-light);
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+  cursor: pointer;
+  user-select: none;
+  transition: color 0.15s;
+
+  &:hover {
+    color: #fff;
+  }
+`;
+
+const SectionCount = styled.span`
+  color: var(--gold);
+`;
+
+const Chevron = styled.span`
+  font-size: 8px;
+  transition: transform 0.2s;
+  transform: ${(p) => (p.$open ? "rotate(90deg)" : "rotate(0deg)")};
+`;
+
 function getAvatarImg(tag, avatars, stats) {
   const avatarUrl = avatars?.get(tag)?.profilePicUrl;
   if (avatarUrl) return <SidebarAvatar src={avatarUrl} alt="" />;
@@ -279,6 +318,8 @@ export default function UserListSidebar({
 }) {
   const [search, setSearch] = useState("");
   const [sortField, setSortField] = useState("mmr");
+  const [inGameOpen, setInGameOpen] = useState(true);
+  const [onlineOpen, setOnlineOpen] = useState(true);
 
   function handleSort(field) {
     setSortField(field);
@@ -308,10 +349,21 @@ export default function UserListSidebar({
     return sortedUsers.filter((u) => (u.name || "").toLowerCase().includes(q));
   }, [sortedUsers, search]);
 
+  const { inGameUsers, onlineUsers: onlineOnly } = useMemo(() => {
+    const ig = [];
+    const on = [];
+    for (const u of filteredUsers) {
+      if (inGameTags?.has(u.battleTag)) ig.push(u);
+      else on.push(u);
+    }
+    return { inGameUsers: ig, onlineUsers: on };
+  }, [filteredUsers, inGameTags]);
+
   return (
     <Sidebar $mobileVisible={$mobileVisible}>
       <Header>
-        Channel <Count>{users.length}</Count>
+        <HeaderTitle>Channel</HeaderTitle>
+        <HeaderCount>{users.length}</HeaderCount>
       </Header>
       <SearchWrapper>
         <SearchInput
@@ -333,14 +385,36 @@ export default function UserListSidebar({
         </ColMmr>
       </ColumnHeaders>
       <UserList>
-        {filteredUsers.map((user) => (
+        {inGameUsers.length > 0 && (
+          <>
+            <SectionHeader onClick={() => setInGameOpen((v) => !v)}>
+              <Chevron $open={inGameOpen}>&#9654;</Chevron>
+              In Game — <SectionCount>{inGameUsers.length}</SectionCount>
+            </SectionHeader>
+            {inGameOpen && inGameUsers.map((user) => (
+              <UserRowItem
+                key={user.battleTag}
+                user={user}
+                avatars={avatars}
+                stats={stats}
+                inGame
+                matchUrl={inGameMatchMap?.get(user.battleTag)}
+              />
+            ))}
+          </>
+        )}
+        <SectionHeader onClick={() => setOnlineOpen((v) => !v)}>
+          <Chevron $open={onlineOpen}>&#9654;</Chevron>
+          Online — <SectionCount>{onlineOnly.length}</SectionCount>
+        </SectionHeader>
+        {onlineOpen && onlineOnly.map((user) => (
           <UserRowItem
             key={user.battleTag}
             user={user}
             avatars={avatars}
             stats={stats}
-            inGame={inGameTags?.has(user.battleTag)}
-            matchUrl={inGameMatchMap?.get(user.battleTag)}
+            inGame={false}
+            matchUrl={null}
           />
         ))}
       </UserList>

@@ -4,25 +4,40 @@ import styled from "styled-components";
 import { GiCrossedSwords } from "react-icons/gi";
 import { raceMapping, raceIcons } from "../lib/constants";
 
+const OuterFrame = styled.div`
+  position: relative;
+  flex: 1;
+  min-height: 0;
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+`;
+
 const Wrapper = styled.div`
   display: flex;
   flex-direction: column;
   flex: 1;
   min-height: 0;
   min-width: 0;
+  box-sizing: border-box;
   border: 24px solid transparent;
   border-image: url("/frames/launcher/Maon_Border.png") 120 / 24px stretch;
-  background: rgba(10, 8, 6, 0.65);
-  backdrop-filter: blur(8px);
+  background: rgba(10, 8, 6, 0.45);
+  backdrop-filter: blur(4px);
   overflow: hidden;
   font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+
+  @media (max-width: 768px) {
+    border-width: 16px;
+    border-image: url("/frames/launcher/Maon_Border.png") 120 / 16px stretch;
+  }
 `;
 
 const Header = styled.div`
   display: flex;
   align-items: center;
   justify-content: space-between;
-  padding: var(--space-3) var(--space-4);
+  padding: 14px var(--space-4);
   border-bottom: 1px solid rgba(160, 130, 80, 0.15);
   background: linear-gradient(180deg, rgba(160, 130, 80, 0.04) 0%, transparent 100%);
   box-shadow: 0 1px 0 rgba(0, 0, 0, 0.2);
@@ -37,33 +52,6 @@ const Title = styled(Link)`
   &:hover {
     text-decoration: underline;
   }
-`;
-
-const StatusDot = styled.span`
-  display: inline-block;
-  width: 8px;
-  height: 8px;
-  border-radius: 50%;
-  margin-right: var(--space-2);
-  background: ${(p) =>
-    p.$status === "connected"
-      ? "var(--green)"
-      : p.$status === "reconnecting"
-        ? "var(--gold)"
-        : "var(--red)"};
-  ${(p) =>
-    p.$status === "reconnecting" &&
-    `animation: pulse 1.5s infinite;`}
-`;
-
-const StatusLabel = styled.span`
-  font-family: var(--font-mono);
-  font-size: var(--text-xxs);
-  text-transform: uppercase;
-  letter-spacing: 0.1em;
-  color: var(--grey-light);
-  display: flex;
-  align-items: center;
 `;
 
 const MessageList = styled.div`
@@ -89,8 +77,8 @@ const MessageList = styled.div`
 
 const MessageSegment = styled.div`
   position: relative;
-  min-height: 85px;
-  margin-top: var(--space-4);
+  min-height: 90px;
+  margin-top: 20px;
   padding-bottom: var(--space-1);
 
   &:first-child {
@@ -218,7 +206,7 @@ const AvatarStats = styled.div`
   display: flex;
   flex-direction: column;
   align-items: center;
-  margin-top: 3px;
+  margin-top: 2px;
   line-height: 1;
   gap: 4px;
 `;
@@ -232,23 +220,25 @@ const MmrRow = styled.div`
 
 const MmrValue = styled.span`
   font-family: var(--font-mono);
-  font-size: 14px;
+  font-size: 15px;
   color: #fff;
   font-weight: 700;
 `;
 
 const MmrLabel = styled.span`
   font-family: var(--font-mono);
-  font-size: 10px;
+  font-size: 11px;
   color: var(--grey-light);
-  opacity: 0.6;
+  opacity: 0.7;
 `;
 
 const FormDots = styled.div`
   display: flex;
+  flex-wrap: wrap;
   align-items: center;
   gap: 2px;
   justify-content: center;
+  max-width: 38px;
 `;
 
 const FormDot = styled.span`
@@ -292,22 +282,33 @@ const SystemMessageRow = styled.div`
 
 const ScrollNotice = styled.button`
   position: absolute;
-  bottom: var(--space-4);
+  bottom: var(--space-1);
   left: 50%;
   transform: translateX(-50%);
-  background: rgba(15, 12, 10, 0.9);
-  border: 1px solid rgba(252, 219, 51, 0.3);
-  border-radius: var(--radius-full);
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+  background: linear-gradient(180deg, rgba(30, 24, 16, 0.95) 0%, rgba(15, 12, 8, 0.98) 100%);
+  border: 1px solid rgba(252, 219, 51, 0.4);
+  border-radius: var(--radius-md);
   color: var(--gold);
-  font-family: var(--font-mono);
+  font-family: var(--font-display);
   font-size: var(--text-xxs);
-  padding: var(--space-1) var(--space-4);
+  letter-spacing: 0.5px;
+  padding: var(--space-2) var(--space-4);
   cursor: pointer;
-  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.4);
+  box-shadow: 0 2px 12px rgba(0, 0, 0, 0.6), inset 0 1px 0 rgba(252, 219, 51, 0.1);
+  transition: all 0.2s ease;
+
+  &::after {
+    content: "▼";
+    font-size: 9px;
+  }
 
   &:hover {
     border-color: var(--gold);
-    background: rgba(252, 219, 51, 0.08);
+    background: linear-gradient(180deg, rgba(252, 219, 51, 0.12) 0%, rgba(252, 219, 51, 0.04) 100%);
+    box-shadow: 0 2px 16px rgba(252, 219, 51, 0.15), inset 0 1px 0 rgba(252, 219, 51, 0.15);
   }
 `;
 
@@ -365,6 +366,7 @@ function getAvatarElement(tag, avatars, stats) {
 
   return <AvatarRaceIcon src={raceIcons.random} alt="" $faded />;
 }
+
 
 export default function ChatPanel({ messages, status, avatars, stats, sessions, inGameTags }) {
   const listRef = useRef(null);
@@ -424,94 +426,92 @@ export default function ChatPanel({ messages, status, avatars, stats, sessions, 
   }
 
   return (
-    <Wrapper>
-      <Header>
-        <Title to="/">4v4 Chat</Title>
-        <StatusLabel>
-          <StatusDot $status={status} />
-          {status}
-        </StatusLabel>
-      </Header>
-      {messages.length === 0 ? (
-        <EmptyState>
-          {status === "connected"
-            ? "No messages yet"
-            : "Connecting to chat..."}
-        </EmptyState>
-      ) : (
-        <ScrollContainer>
-          <MessageList ref={listRef} onScroll={handleScroll}>
-            {messageSegments.map((segment) => {
-              const msg = segment.start;
-              const tag = msg.battle_tag || msg.battleTag;
-              const userName = msg.user_name || msg.userName;
+    <OuterFrame>
+      <Wrapper>
+        <Header>
+          <Title to="/">4v4 Chat</Title>
+        </Header>
+        {messages.length === 0 ? (
+          <EmptyState>
+            {status === "connected"
+              ? "No messages yet"
+              : "Connecting to chat..."}
+          </EmptyState>
+        ) : (
+          <ScrollContainer>
+            <MessageList ref={listRef} onScroll={handleScroll}>
+              {messageSegments.map((segment) => {
+                const msg = segment.start;
+                const tag = msg.battle_tag || msg.battleTag;
+                const userName = msg.user_name || msg.userName;
 
-              // System message
-              if (!tag || tag === "system") {
+                // System message
+                if (!tag || tag === "system") {
+                  return (
+                    <SystemMessageRow key={msg.id}>
+                      {msg.message}
+                    </SystemMessageRow>
+                  );
+                }
+
                 return (
-                  <SystemMessageRow key={msg.id}>
-                    {msg.message}
-                  </SystemMessageRow>
-                );
-              }
-
-              return (
-                <MessageSegment key={msg.id}>
-                  <AvatarContainer>
-                    <div style={{ position: "relative" }}>
-                      {getAvatarElement(tag, avatars, stats)}
-                      {inGameTags?.has(tag) && <InGameOverlay><GiCrossedSwords /></InGameOverlay>}
-                    </div>
-                    {(stats?.get(tag)?.mmr != null || sessions?.get(tag)) && (
-                      <AvatarStats>
-                        {stats?.get(tag)?.mmr != null && (
-                          <MmrRow>
-                            <MmrValue>{Math.round(stats.get(tag).mmr)}</MmrValue>
-                            <MmrLabel>MMR</MmrLabel>
-                          </MmrRow>
-                        )}
-                        {sessions?.get(tag) && (
-                          <FormDots>
-                            {sessions.get(tag).slice(-10).map((won, i) => (
-                              <FormDot key={i} $win={won} />
-                            ))}
-                          </FormDots>
-                        )}
-                      </AvatarStats>
-                    )}
-                  </AvatarContainer>
-                  <GroupStartRow>
-                    <MessageContent>
-                      <div>
-                        <NameWrapper>
-                          <UserNameLink to={`/player/${encodeURIComponent(tag)}`}>
-                            {userName}
-                          </UserNameLink>
-                          <Timestamp>{formatDateTime(msg.sent_at || msg.sentAt)}</Timestamp>
-                        </NameWrapper>
+                  <MessageSegment key={msg.id}>
+                    <AvatarContainer>
+                      <div style={{ position: "relative" }}>
+                        {getAvatarElement(tag, avatars, stats)}
+                        {inGameTags?.has(tag) && <InGameOverlay><GiCrossedSwords /></InGameOverlay>}
                       </div>
-                      <MessageText>{msg.message}</MessageText>
-                    </MessageContent>
-                  </GroupStartRow>
-                  {segment.continuations.map((cMsg) => (
-                    <ContinuationRow key={cMsg.id}>
-                      <HoverTimestamp className="hover-timestamp">
-                        {formatTime(cMsg.sent_at || cMsg.sentAt)}
-                      </HoverTimestamp>
-                      <MessageText>{cMsg.message}</MessageText>
-                    </ContinuationRow>
-                  ))}
-                </MessageSegment>
-              );
-            })}
-          </MessageList>
-          {showNotice && (
-            <ScrollNotice onClick={scrollToBottom}>
-              New messages below
-            </ScrollNotice>
-          )}
-        </ScrollContainer>
-      )}
-    </Wrapper>
+                      {(stats?.get(tag)?.mmr != null || sessions?.get(tag)) && (
+                        <AvatarStats>
+                          {stats?.get(tag)?.mmr != null && (
+                            <MmrRow>
+                              <MmrValue>{Math.round(stats.get(tag).mmr)}</MmrValue>
+                              <MmrLabel>MMR</MmrLabel>
+                            </MmrRow>
+                          )}
+                          {sessions?.get(tag) && (
+                            <FormDots>
+                              {sessions.get(tag).map((won, i) => (
+                                <FormDot key={i} $win={won} />
+                              ))}
+                            </FormDots>
+                          )}
+                        </AvatarStats>
+                      )}
+                    </AvatarContainer>
+                    <GroupStartRow>
+                      <MessageContent>
+                        <div>
+                          <NameWrapper>
+                            <UserNameLink to={`/player/${encodeURIComponent(tag)}`}>
+                              {userName}
+                            </UserNameLink>
+                            <Timestamp>{formatDateTime(msg.sent_at || msg.sentAt)}</Timestamp>
+                          </NameWrapper>
+                        </div>
+                        <MessageText>{msg.message}</MessageText>
+                      </MessageContent>
+                    </GroupStartRow>
+                    {segment.continuations.map((cMsg) => (
+                      <ContinuationRow key={cMsg.id}>
+                        <HoverTimestamp className="hover-timestamp">
+                          {formatTime(cMsg.sent_at || cMsg.sentAt)}
+                        </HoverTimestamp>
+                        <MessageText>{cMsg.message}</MessageText>
+                      </ContinuationRow>
+                    ))}
+                  </MessageSegment>
+                );
+              })}
+            </MessageList>
+            {showNotice && (
+              <ScrollNotice onClick={scrollToBottom}>
+                New messages below
+              </ScrollNotice>
+            )}
+          </ScrollContainer>
+        )}
+      </Wrapper>
+    </OuterFrame>
   );
 }
