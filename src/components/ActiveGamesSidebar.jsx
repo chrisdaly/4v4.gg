@@ -32,8 +32,8 @@ const Header = styled.div`
   justify-content: space-between;
   padding: var(--space-4);
   border-bottom: 1px solid rgba(252, 219, 51, 0.15);
-  background: rgba(10, 8, 6, 0.2);
-  backdrop-filter: blur(1px);
+  background: ${(p) => p.$theme?.headerBg || "rgba(10, 8, 6, 0.2)"};
+  backdrop-filter: ${(p) => p.$theme?.blur || "blur(1px)"};
   flex-shrink: 0;
 `;
 
@@ -44,10 +44,11 @@ const SidebarContent = styled.div`
   flex-direction: column;
   overflow: hidden;
   box-sizing: border-box;
-  background: rgba(10, 8, 6, 0.25);
-  backdrop-filter: blur(1px);
-  border: 8px solid transparent;
-  border-image: url("/frames/chat/ChatFrameBorder.png") 30 / 8px stretch;
+  background: ${(p) => p.$theme?.bg || "rgba(10, 8, 6, 0.25)"};
+  backdrop-filter: ${(p) => p.$theme?.blur || "blur(1px)"};
+  border: ${(p) => p.$theme?.border || "8px solid transparent"};
+  border-image: ${(p) => p.$theme?.borderImage || 'url("/frames/chat/ChatFrameBorder.png") 30 / 8px stretch'};
+  box-shadow: ${(p) => p.$theme?.shadow || "none"};
 `;
 
 const HeaderTitle = styled.span`
@@ -514,7 +515,7 @@ function FinishedMatchCard({ match }) {
 
 /* ── Sidebar ─────────────────────────────────── */
 
-export default function ActiveGamesSidebar({ matches = [], finishedMatches = [], $mobileVisible, onClose }) {
+export default function ActiveGamesSidebar({ matches = [], finishedMatches = [], $mobileVisible, onClose, borderTheme }) {
   const [sortBy, setSortBy] = useState("mmr");
 
   const sortedMatches = useMemo(() => {
@@ -533,8 +534,8 @@ export default function ActiveGamesSidebar({ matches = [], finishedMatches = [],
 
   return (
     <Sidebar $mobileVisible={$mobileVisible}>
-      <SidebarContent>
-        <Header>
+      <SidebarContent $theme={borderTheme}>
+        <Header $theme={borderTheme}>
           <HeaderTitle>Active Games</HeaderTitle>
           <HeaderCount>{matches.length}</HeaderCount>
           <SortButton onClick={() => setSortBy((s) => (s === "mmr" ? "recent" : "mmr"))}>

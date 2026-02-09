@@ -22,12 +22,13 @@ const Wrapper = styled.div`
   min-height: 0;
   min-width: 0;
   box-sizing: border-box;
-  background: rgba(10, 8, 6, 0.25);
-  backdrop-filter: blur(1px);
+  background: ${(p) => p.$theme?.bg || "rgba(10, 8, 6, 0.25)"};
+  backdrop-filter: ${(p) => p.$theme?.blur || "blur(1px)"};
   overflow: hidden;
   font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
-  border: 8px solid transparent;
-  border-image: url("/frames/chat/ChatFrameBorder.png") 30 / 8px stretch;
+  border: ${(p) => p.$theme?.border || "8px solid transparent"};
+  border-image: ${(p) => p.$theme?.borderImage || 'url("/frames/chat/ChatFrameBorder.png") 30 / 8px stretch'};
+  box-shadow: ${(p) => p.$theme?.shadow || "none"};
 `;
 
 const Header = styled.div`
@@ -35,8 +36,8 @@ const Header = styled.div`
   align-items: center;
   justify-content: space-between;
   padding: var(--space-4);
-  background: rgba(10, 8, 6, 0.2);
-  backdrop-filter: blur(1px);
+  background: ${(p) => p.$theme?.headerBg || "rgba(10, 8, 6, 0.2)"};
+  backdrop-filter: ${(p) => p.$theme?.blur || "blur(1px)"};
   border-bottom: 1px solid rgba(252, 219, 51, 0.15);
 
   @media (max-width: 480px) {
@@ -475,7 +476,7 @@ function getAvatarElement(tag, avatars, stats) {
 }
 
 
-export default function ChatPanel({ messages, status, avatars, stats, sessions, inGameTags, recentWinners }) {
+export default function ChatPanel({ messages, status, avatars, stats, sessions, inGameTags, recentWinners, borderTheme }) {
   const listRef = useRef(null);
   const [autoScroll, setAutoScroll] = useState(true);
   const [showNotice, setShowNotice] = useState(false);
@@ -534,14 +535,14 @@ export default function ChatPanel({ messages, status, avatars, stats, sessions, 
 
   return (
     <OuterFrame>
-      <Header>
+      <Header $theme={borderTheme}>
         <Title to="/">4v4 Chat</Title>
         <StatusBadge>
           <StatusDot $connected={status === "connected"} />
           {status === "connected" ? messages.length : "Connecting..."}
         </StatusBadge>
       </Header>
-      <Wrapper>
+      <Wrapper $theme={borderTheme}>
         {messages.length === 0 ? (
           <EmptyState>
             {status === "connected"

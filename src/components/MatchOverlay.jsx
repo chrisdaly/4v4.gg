@@ -163,7 +163,7 @@ const MatchOverlay = ({ matchData, atGroups = {}, sessionData = {}, mmrDuration 
             }}
             compact={true}
             atStyle="combined"
-            showMean={true}
+            showMean={false}
             showStdDev={true}
             hideLabels={true}
           />
