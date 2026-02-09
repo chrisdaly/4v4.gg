@@ -216,7 +216,7 @@ export function getTopWords(days = 7) {
 
 export function getMessagesByDate(date) {
   return db.prepare(`
-    SELECT user_name, message FROM messages
+    SELECT battle_tag, user_name, message FROM messages
     WHERE deleted = 0 AND DATE(received_at) = ?
     ORDER BY received_at ASC
   `).all(date);

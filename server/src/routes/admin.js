@@ -4,7 +4,7 @@ import { setToken, getStats, getTopWords, getRecentDigests, deleteDigest } from 
 import { updateToken, getStatus } from '../signalr.js';
 import { getClientCount } from '../sse.js';
 import { setBotEnabled, isBotEnabled, testCommand } from '../bot.js';
-import { generateDigest } from '../digest.js';
+import { generateDigest, fetchDailyStats, generateLiveDigest, todayDigestCache, setTodayDigestCache } from '../digest.js';
 
 const router = Router();
 
@@ -92,6 +92,24 @@ router.delete('/digest/:date', requireApiKey, (req, res) => {
 // Recent digests (public)
 router.get('/digests', (_req, res) => {
   res.json(getRecentDigests(14));
+});
+
+// Today's live digest (public, served from shared cache warmed by scheduler)
+router.get('/stats/today', async (_req, res) => {
+  const now = Date.now();
+  if (todayDigestCache.data && todayDigestCache.expires > now) {
+    return res.json(todayDigestCache.data);
+  }
+  try {
+    const today = new Date().toISOString().slice(0, 10);
+    const digest = await generateLiveDigest(today);
+    const result = { date: today, digest };
+    setTodayDigestCache(result);
+    res.json(result);
+  } catch (err) {
+    console.error('[Stats] Error generating today digest:', err.message);
+    res.status(500).json({ error: 'Failed to generate digest' });
+  }
 });
 
 // Analytics bundle (public) — top words + recent digests in one call

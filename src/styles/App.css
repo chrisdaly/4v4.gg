@@ -5,6 +5,7 @@
 @import "./pages/PlayerProfile.css";
 @import "./components/Navbar.css";
 @import "./components/Game.css";
+@import "./pages/Home.css";
 
 :root {
   /* ============================================

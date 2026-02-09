@@ -5,7 +5,7 @@
 .player-page {
   min-height: 100vh;
   padding: 0 20px 40px 20px;
-  max-width: 1200px;
+  max-width: 1600px;
   margin: 0 auto;
 }
 
@@ -33,13 +33,15 @@
   align-items: center;
   padding: 20px 24px;
   margin-bottom: 24px;
-  border-bottom: 1px solid var(--grey-mid);
   gap: 20px;
   flex-wrap: wrap;
   background: var(--theme-bg, rgba(10, 8, 6, 0.25));
+  border: var(--theme-border, 1px solid var(--grey-mid));
+  border-image: var(--theme-border-image, none);
   backdrop-filter: var(--theme-blur, blur(12px));
+  box-shadow: var(--theme-shadow, none);
   border-radius: 12px;
-  max-width: 1200px;
+  max-width: 1600px;
   margin-left: auto;
   margin-right: auto;
 }
@@ -213,8 +215,8 @@
 /* Player Content Layout */
 .player-content {
   display: grid;
-  grid-template-columns: 1fr 320px;
-  gap: 32px;
+  grid-template-columns: 1fr 280px;
+  gap: 24px;
 }
 
 .player-main {
@@ -285,98 +287,38 @@
 
 /* Match History Section */
 .match-history-section {
-  background: var(--theme-bg, var(--surface-1));
-  border: var(--theme-border, 1px solid var(--grey-mid));
-  border-image: var(--theme-border-image, none);
-  border-radius: 8px;
-  padding: 16px;
-  backdrop-filter: var(--theme-blur, none);
-  box-shadow: var(--theme-shadow, none);
+  /* Plain wrapper — no theme border here, it goes on the table */
 }
 
 .match-history-table {
   display: flex;
   flex-direction: column;
-  border: 1px solid var(--grey-mid);
-  border-radius: 6px;
+  background: var(--theme-bg, var(--surface-1));
+  border: var(--theme-border, 1px solid var(--grey-mid));
+  border-image: var(--theme-border-image, none);
+  border-radius: 12px;
   overflow: hidden;
+  backdrop-filter: var(--theme-blur, none);
+  box-shadow: var(--theme-shadow, none);
 }
 
 .mh-header {
   display: grid;
   grid-template-columns: 50px minmax(140px, 1.2fr) 70px 55px minmax(150px, 1fr) minmax(200px, 1.2fr) 70px 70px;
-  padding: 10px 12px;
-  background: rgba(20, 20, 20, 0.98);
-  border-bottom: 1px solid var(--grey-mid);
-  font-size: 11px;
+  padding: 10px 16px;
+  border-bottom: 1px solid rgba(252, 219, 51, 0.25);
   color: var(--grey-light);
+  font-family: var(--font-mono);
+  font-size: 11px;
   text-transform: uppercase;
-  letter-spacing: 0.5px;
-}
-
-.mh-row {
-  display: grid;
-  grid-template-columns: 50px minmax(140px, 1.2fr) 70px 55px minmax(150px, 1fr) minmax(200px, 1.2fr) 70px 70px;
-  padding: 10px 12px;
+  letter-spacing: 0.12em;
   align-items: center;
-  border-bottom: 1px solid rgba(255, 255, 255, 0.03);
-  text-decoration: none;
-  transition: background 0.2s;
-}
-
-.mh-row.even {
-  background: rgba(255, 255, 255, 0.01);
-}
-
-.mh-row.odd {
-  background: rgba(255, 255, 255, 0.02);
-}
-
-.mh-row:hover {
-  background: rgba(252, 219, 51, 0.05);
-}
-
-.mh-row.win:hover {
-  background: rgba(74, 222, 128, 0.08);
-}
-
-.mh-row.loss:hover {
-  background: rgba(248, 113, 113, 0.08);
-}
-
-.mh-row:last-child {
-  border-bottom: none;
-}
-
-.mh-col {
-  font-size: 13px;
+  flex-shrink: 0;
 }
 
 .mh-col.result {
   display: flex;
   justify-content: center;
-}
-
-.result-badge {
-  font-family: var(--font-mono);
-  font-size: 12px;
-  font-weight: bold;
-  width: 24px;
-  height: 24px;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  border-radius: 4px;
-}
-
-.result-badge.win {
-  color: var(--green);
-  background: rgba(74, 222, 128, 0.15);
-}
-
-.result-badge.loss {
-  color: var(--red);
-  background: rgba(248, 113, 113, 0.15);
 }
 
 .mh-col.map .map-name {

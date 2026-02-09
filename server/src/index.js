@@ -5,6 +5,7 @@ import { initDb } from './db.js';
 import { startHeartbeat } from './sse.js';
 import { startSignalR } from './signalr.js';
 import { initBot } from './bot.js';
+import { startScheduler } from './digest.js';
 import chatRoutes from './routes/chat.js';
 import adminRoutes from './routes/admin.js';
 
@@ -33,6 +34,8 @@ initBot().catch(err => {
 startSignalR().catch(err => {
   console.error('[SignalR] Startup error:', err.message);
 });
+
+startScheduler();
 
 app.listen(config.PORT, () => {
   console.log(`[Server] Chat relay listening on :${config.PORT}`);

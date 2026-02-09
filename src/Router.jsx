@@ -6,10 +6,11 @@ import RaceSelectOverlay from "./components/RaceSelectOverlay";
 import { ThemeProvider, useTheme } from "./lib/ThemeContext";
 
 // Homepage loaded eagerly (initial route)
-import OngoingGames from "./pages/OngoingGames";
+import Home from "./pages/Home";
 
 // Core nav pages — lazy-loaded but preloaded after first paint
 const pageImports = {
+  ongoing: () => import("./pages/OngoingGames"),
   finished: () => import("./pages/RecentlyFinished"),
   ladder: () => import("./pages/Ladder"),
   stats: () => import("./pages/Stats"),
@@ -17,6 +18,7 @@ const pageImports = {
   player: () => import("./pages/PlayerProfile"),
 };
 
+const OngoingGames = lazy(pageImports.ongoing);
 const RecentlyFinished = lazy(pageImports.finished);
 const Ladder = lazy(pageImports.ladder);
 const Stats = lazy(pageImports.stats);
@@ -100,7 +102,8 @@ const Router = () => (
           <ErrorBoundary>
             <Suspense fallback={<PageLoader />}>
               <Switch>
-                <Route exact path="/" component={OngoingGames} />
+                <Route exact path="/" component={Home} />
+                <Route path="/live" component={OngoingGames} />
                 <Route path="/ongoing" component={OngoingGames} />
                 <Route path="/finished" component={RecentlyFinished} />
                 <Route path="/ladder" component={Ladder} />
@@ -125,7 +128,7 @@ const Router = () => (
                   <div className="not-found-page">
                     <h1 className="not-found-title">404</h1>
                     <p className="not-found-text">Page not found</p>
-                    <Link to="/" className="not-found-link">Back to live games</Link>
+                    <Link to="/" className="not-found-link">Back to home</Link>
                   </div>
                 </Route>
               </Switch>

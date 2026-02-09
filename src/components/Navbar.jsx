@@ -17,8 +17,8 @@ const Navbar = () => {
   const mobileRef = useRef(null);
 
   const isActive = (path) => {
-    if (path === "/ongoing") {
-      return location.pathname === "/" || location.pathname === "/ongoing";
+    if (path === "/live") {
+      return location.pathname === "/live" || location.pathname === "/ongoing";
     }
     return location.pathname.startsWith(path);
   };
@@ -101,7 +101,7 @@ const Navbar = () => {
   };
 
   const navLinks = [
-    { to: "/ongoing", label: "Live", prefetch: prefetch.ongoing },
+    { to: "/live", label: "Live", prefetch: prefetch.ongoing },
     { to: "/finished", label: "Finished", prefetch: prefetch.finished },
     { to: "/ladder", label: "Ladder", prefetch: prefetch.ladder },
     { to: "/stats", label: "Stats" },
