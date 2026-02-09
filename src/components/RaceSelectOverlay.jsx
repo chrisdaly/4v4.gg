@@ -3,11 +3,12 @@ import styled, { keyframes } from "styled-components";
 import { themeList } from "../lib/borderThemes";
 import { useTheme } from "../lib/ThemeContext";
 
-const RACE_IDS = ["human", "orc", "nightElf", "undead"];
-const OTHER_IDS = ["ironforge", "bevel"];
+const FEATURED_IDS = [
+  "human", "orc", "nightElf", "undead",
+  "frozenThrone", "dalaran", "arena", "midnight",
+];
 
-const raceThemes = themeList.filter((t) => RACE_IDS.includes(t.id));
-const otherThemes = themeList.filter((t) => OTHER_IDS.includes(t.id));
+const featuredThemes = FEATURED_IDS.map((id) => themeList.find((t) => t.id === id)).filter(Boolean);
 
 const fadeIn = keyframes`
   from { opacity: 0; }
@@ -42,13 +43,6 @@ const Content = styled.div`
   animation: ${slideUp} 0.6s ease 0.2s both;
 `;
 
-const HeaderImage = styled.img`
-  width: 100%;
-  max-width: 600px;
-  border-radius: var(--radius-md);
-  border: 2px solid rgba(252, 219, 51, 0.2);
-`;
-
 const Title = styled.h1`
   font-family: var(--font-display);
   color: var(--gold);
@@ -68,7 +62,7 @@ const Subtitle = styled.p`
   letter-spacing: 0.5px;
 `;
 
-const RaceGrid = styled.div`
+const ThemeGrid = styled.div`
   display: grid;
   grid-template-columns: repeat(4, 1fr);
   gap: var(--space-4);
@@ -80,7 +74,7 @@ const RaceGrid = styled.div`
   }
 `;
 
-const RaceCard = styled.button`
+const ThemeCard = styled.button`
   display: flex;
   flex-direction: column;
   align-items: center;
@@ -100,59 +94,19 @@ const RaceCard = styled.button`
   }
 `;
 
-const RacePreview = styled.div`
+const ThemePreview = styled.div`
   width: 100%;
   aspect-ratio: 16 / 10;
   border-radius: var(--radius-sm);
   overflow: hidden;
   background: url(${(p) => p.$bg}) center / cover no-repeat;
-  border: ${(p) => p.$border};
-  border-image: ${(p) => p.$borderImage};
+  border: 1px solid rgba(255, 255, 255, 0.08);
 `;
 
-const RaceName = styled.span`
+const ThemeName = styled.span`
   font-family: var(--font-display);
   font-size: var(--text-base);
   color: #fff;
-`;
-
-const RaceDesc = styled.span`
-  font-family: var(--font-mono);
-  font-size: var(--text-xxs);
-  color: var(--grey-light);
-`;
-
-const OtherSection = styled.div`
-  display: flex;
-  gap: var(--space-2);
-  align-items: center;
-`;
-
-const OtherLabel = styled.span`
-  font-family: var(--font-mono);
-  font-size: var(--text-xxs);
-  color: var(--grey-light);
-  text-transform: uppercase;
-  letter-spacing: 0.1em;
-  white-space: nowrap;
-`;
-
-const OtherButton = styled.button`
-  padding: 6px 16px;
-  background: rgba(15, 12, 8, 0.8);
-  border: 1px solid rgba(160, 130, 80, 0.2);
-  border-radius: var(--radius-sm);
-  color: var(--grey-light);
-  font-family: var(--font-display);
-  font-size: var(--text-xs);
-  cursor: pointer;
-  transition: all 0.15s;
-
-  &:hover {
-    border-color: var(--gold);
-    color: var(--gold);
-    background: rgba(252, 219, 51, 0.06);
-  }
 `;
 
 const DEFAULT_BG = "/frames/launcher/Static_Background.png";
@@ -163,30 +117,16 @@ const RaceSelectOverlay = () => {
   return (
     <Backdrop>
       <Content>
-        <HeaderImage src="/frames/fansite-kit/4-races.jpg" alt="Warcraft III Races" />
-        <Title>Choose Your Race</Title>
-        <Subtitle>This sets your site theme — you can change it anytime from the navbar</Subtitle>
-        <RaceGrid>
-          {raceThemes.map((t) => (
-            <RaceCard key={t.id} onClick={() => setThemeId(t.id)}>
-              <RacePreview
-                $bg={t.backgroundImg || DEFAULT_BG}
-                $border={t.border}
-                $borderImage={t.borderImage}
-              />
-              <RaceName>{t.name}</RaceName>
-              <RaceDesc>{t.desc}</RaceDesc>
-            </RaceCard>
+        <Title>Choose Your Theme</Title>
+        <Subtitle>Pick a look to get started — change anytime from the navbar</Subtitle>
+        <ThemeGrid>
+          {featuredThemes.map((t) => (
+            <ThemeCard key={t.id} onClick={() => setThemeId(t.id)}>
+              <ThemePreview $bg={t.backgroundImg || DEFAULT_BG} />
+              <ThemeName>{t.name}</ThemeName>
+            </ThemeCard>
           ))}
-        </RaceGrid>
-        <OtherSection>
-          <OtherLabel>or:</OtherLabel>
-          {otherThemes.map((t) => (
-            <OtherButton key={t.id} onClick={() => setThemeId(t.id)}>
-              {t.name}
-            </OtherButton>
-          ))}
-        </OtherSection>
+        </ThemeGrid>
       </Content>
     </Backdrop>
   );

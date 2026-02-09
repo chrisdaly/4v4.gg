@@ -4,6 +4,9 @@
 
 .player-page {
   min-height: 100vh;
+  padding: 0 20px 40px 20px;
+  max-width: 1200px;
+  margin: 0 auto;
 }
 
 .player-loading {
@@ -28,11 +31,17 @@
   display: flex;
   justify-content: space-between;
   align-items: center;
-  padding: 20px 0;
+  padding: 20px 24px;
   margin-bottom: 24px;
   border-bottom: 1px solid var(--grey-mid);
   gap: 20px;
   flex-wrap: wrap;
+  background: var(--theme-bg, rgba(10, 8, 6, 0.25));
+  backdrop-filter: var(--theme-blur, blur(12px));
+  border-radius: 12px;
+  max-width: 1200px;
+  margin-left: auto;
+  margin-right: auto;
 }
 
 .player-header-left {

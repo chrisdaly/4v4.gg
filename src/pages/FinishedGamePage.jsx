@@ -59,7 +59,7 @@ const FinishedGamePage = () => {
   };
 
   return (
-    <>
+    <div className="match-page">
       {isLoading ? (
         <div className="page-loader">
           <div className="loader-spinner lg" />
@@ -72,7 +72,7 @@ const FinishedGamePage = () => {
       ) : (
         <div>Error: Failed to load match data</div>
       )}
-    </>
+    </div>
   );
 };
 

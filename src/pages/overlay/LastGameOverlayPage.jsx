@@ -31,6 +31,12 @@ const LastGameOverlayPage = () => {
     return params.get("layout") || "vertical";
   };
 
+  // Hide scrollbars in OBS browser source
+  useEffect(() => {
+    document.documentElement.style.overflow = 'hidden';
+    document.body.style.overflow = 'hidden';
+  }, []);
+
   useEffect(() => {
     const tag = getBattleTag();
     setBattleTag(tag);

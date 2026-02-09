@@ -463,7 +463,7 @@ const Ladder = () => {
             <div className={`col-session sortable ${sortField === "momentum" ? "active" : ""}`} onClick={() => handleSort("momentum")}>Session</div>
             <div className={`col-form sortable ${sortField === "live" ? "active" : ""}`} onClick={() => handleSort("live")}>Form</div>
           </div>
-          <div className="ladder-body">
+          <div className="ladder-body scrollbar-thin">
             {sortedRankings.length === 0 ? (
               <div className="ladder-no-results">
                 {searchResults !== null

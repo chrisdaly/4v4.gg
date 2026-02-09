@@ -1,0 +1,22 @@
+/* ========================================
+   Base Utility Classes
+   ======================================== */
+
+/* Thin scrollbar — matches WC3 theme */
+.scrollbar-thin {
+  scrollbar-width: thin;
+  scrollbar-color: var(--grey-mid) transparent;
+}
+
+.scrollbar-thin::-webkit-scrollbar {
+  width: 6px;
+}
+
+.scrollbar-thin::-webkit-scrollbar-track {
+  background: transparent;
+}
+
+.scrollbar-thin::-webkit-scrollbar-thumb {
+  background: var(--grey-mid);
+  border-radius: 3px;
+}

@@ -18,6 +18,12 @@ const MatchOverlayPage = () => {
   const [atGroups, setAtGroups] = useState({});
   const [sessionData, setSessionData] = useState({});
 
+  // Hide scrollbars in OBS browser source
+  useEffect(() => {
+    document.documentElement.style.overflow = 'hidden';
+    document.body.style.overflow = 'hidden';
+  }, []);
+
   const getStreamerTag = () => {
     const pageUrl = new URL(window.location.href);
     const encoded = pageUrl.pathname.split("/").slice(-1)[0];

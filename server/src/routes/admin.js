@@ -1,9 +1,10 @@
 import { Router } from 'express';
 import config from '../config.js';
-import { setToken, getStats } from '../db.js';
+import { setToken, getStats, getTopWords, getRecentDigests, deleteDigest } from '../db.js';
 import { updateToken, getStatus } from '../signalr.js';
 import { getClientCount } from '../sse.js';
 import { setBotEnabled, isBotEnabled, testCommand } from '../bot.js';
+import { generateDigest } from '../digest.js';
 
 const router = Router();
 
@@ -52,6 +53,53 @@ router.post('/bot', requireApiKey, (req, res) => {
 // Get bot status
 router.get('/bot', requireApiKey, (_req, res) => {
   res.json({ botEnabled: isBotEnabled() });
+});
+
+// Top words (public)
+router.get('/top-words', (req, res) => {
+  const days = Math.min(parseInt(req.query.days) || 7, 30);
+  res.json(getTopWords(days));
+});
+
+// Daily digest — generates if missing, returns cached (public)
+router.get('/digest/:date', async (req, res) => {
+  const { date } = req.params;
+  if (!/^\d{4}-\d{2}-\d{2}$/.test(date)) {
+    return res.status(400).json({ error: 'Date must be YYYY-MM-DD' });
+  }
+  try {
+    const digest = await generateDigest(date);
+    if (!digest) {
+      return res.json({ date, digest: null, reason: 'Not enough messages or no API key' });
+    }
+    res.json({ date, digest });
+  } catch (err) {
+    console.error('[Digest] Error:', err.message);
+    res.status(500).json({ error: 'Failed to generate digest' });
+  }
+});
+
+// Delete a cached digest (so it can be regenerated)
+router.delete('/digest/:date', requireApiKey, (req, res) => {
+  const { date } = req.params;
+  if (!/^\d{4}-\d{2}-\d{2}$/.test(date)) {
+    return res.status(400).json({ error: 'Date must be YYYY-MM-DD' });
+  }
+  deleteDigest(date);
+  res.json({ ok: true, message: `Digest for ${date} cleared` });
+});
+
+// Recent digests (public)
+router.get('/digests', (_req, res) => {
+  res.json(getRecentDigests(14));
+});
+
+// Analytics bundle (public) — top words + recent digests in one call
+router.get('/analytics', (_req, res) => {
+  res.json({
+    topWords: getTopWords(7),
+    digests: getRecentDigests(7),
+  });
 });
 
 // Health check (public)

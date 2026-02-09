@@ -20,7 +20,7 @@ const Sidebar = styled.aside`
     inset: 0;
     width: 100%;
     height: 100vh;
-    z-index: var(--z-overlay);
+    z-index: 10001;
     transform: ${(p) => (p.$mobileVisible ? "translateY(0)" : "translateY(100%)")};
     transition: transform 0.25s ease;
   }
@@ -32,8 +32,6 @@ const Header = styled.div`
   justify-content: space-between;
   padding: var(--space-4);
   border-bottom: 1px solid rgba(252, 219, 51, 0.15);
-  background: ${(p) => p.$theme?.headerBg || "rgba(10, 8, 6, 0.2)"};
-  backdrop-filter: ${(p) => p.$theme?.blur || "blur(1px)"};
   flex-shrink: 0;
 `;
 
@@ -85,7 +83,7 @@ const CloseButton = styled.button`
 
 const SearchWrapper = styled.div`
   position: relative;
-  margin: 12px var(--space-2);
+  margin: 12px var(--space-4);
 
   &::before {
     content: "⌕";
@@ -145,8 +143,8 @@ const SearchClear = styled.button`
 const ColumnHeaders = styled.div`
   display: flex;
   align-items: center;
-  padding: var(--space-2) var(--space-2);
-  padding-left: calc(var(--space-2) + 28px + var(--space-2));
+  padding: var(--space-2) var(--space-4);
+  padding-left: calc(var(--space-4) + 28px + var(--space-2));
   border-bottom: 1px solid rgba(160, 130, 80, 0.2);
   background: rgba(20, 16, 12, 0.6);
   font-family: var(--font-mono);
@@ -196,7 +194,7 @@ const UserRowBase = styled.div`
   display: flex;
   align-items: center;
   gap: var(--space-2);
-  padding: var(--space-1) var(--space-2);
+  padding: var(--space-1) var(--space-4);
   cursor: default;
   border-radius: var(--radius-sm);
 
@@ -209,7 +207,7 @@ const UserLink = styled(Link)`
   display: flex;
   align-items: center;
   gap: var(--space-2);
-  padding: var(--space-1) var(--space-2);
+  padding: var(--space-1) var(--space-4);
   cursor: pointer;
   text-decoration: none;
   color: inherit;
@@ -290,7 +288,7 @@ const MmrNum = styled.span`
 `;
 
 const SectionHeader = styled.div`
-  padding: 12px var(--space-2) var(--space-2);
+  padding: 12px var(--space-4) var(--space-2);
   margin-top: var(--space-1);
   font-family: var(--font-mono);
   font-size: 11px;

@@ -126,6 +126,12 @@ const PlayerOverlayPage = () => {
     return params.get("layout") || "default";
   };
 
+  // Hide scrollbars in OBS browser source
+  useEffect(() => {
+    document.documentElement.style.overflow = 'hidden';
+    document.body.style.overflow = 'hidden';
+  }, []);
+
   useEffect(() => {
     loadData();
     // Refresh every 30 seconds

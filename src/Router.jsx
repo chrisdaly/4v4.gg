@@ -44,6 +44,7 @@ const IconDemo = lazy(() => import("./pages/IconDemo"));
 const Assets = lazy(() => import("./pages/Assets"));
 const ChatMockups = lazy(() => import("./pages/ChatMockups"));
 const Admin = lazy(() => import("./pages/Admin"));
+const Themes = lazy(() => import("./pages/Themes"));
 
 // Preload core nav pages after initial paint so they're instant on click
 const preloadCorePages = () => {
@@ -114,6 +115,7 @@ const Router = () => (
                 <Route path="/assets" component={Assets} />
                 <Route path="/chat" component={Chat} />
                 <Route path="/mockups" component={ChatMockups} />
+                <Route path="/themes" component={Themes} />
                 <Route path="/admin" component={Admin} />
 
                 <Route path="/mmr-lab" component={MmrLab} />

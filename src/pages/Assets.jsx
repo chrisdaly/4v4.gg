@@ -291,10 +291,10 @@ const SECTIONS = [
       {
         label: "Frozen Throne",
         items: [
-          { name: "Arthas Close-up (1920x1080)", src: "/backgrounds/themes/frozen-throne.jpg", note: "has watermark" },
-          { name: "Lich King on Throne", src: "/backgrounds/themes/frozen-throne-ice.jpg", note: "small watermark" },
-          { name: "Undead Campaign — Northrend", src: "/backgrounds/themes/frozen-throne-alt.jpg" },
-          { name: "Wrath Login — Frost Wyrm + Icecrown", src: "/backgrounds/themes/blight-alt.jpg", note: "clean, no text" },
+          { name: "Chronicle — Arthas Ascending (4584x3056)", src: "/backgrounds/themes/frozen-throne-chronicle.jpg", note: "Peter Lee, massive res" },
+          { name: "Fall of the Lich King (1920x1200)", src: "/backgrounds/themes/frozen-throne-lichking.jpg", note: "clean" },
+          { name: "Undead Campaign — Northrend", src: "/backgrounds/themes/frozen-throne-alt.jpg", note: "clean" },
+          { name: "Wrath Login — Icecrown (1920x1080)", src: "/backgrounds/themes/blight-alt.jpg", note: "clean, no text" },
         ],
       },
       {
@@ -308,7 +308,7 @@ const SECTIONS = [
         label: "Lordaeron",
         items: [
           { name: "Human Campaign — Knight in Gates", src: "/backgrounds/themes/lordaeron.jpg" },
-          { name: "The Culling — Arthas at Stratholme", src: "/backgrounds/themes/culling.jpg", note: "has logos" },
+          { name: "The Culling — Arthas at Stratholme (1920x1080)", src: "/backgrounds/themes/culling-clean.jpg", note: "clean, Ken Wong/Lemon Sky" },
         ],
       },
       {
@@ -321,15 +321,15 @@ const SECTIONS = [
         label: "Blackrock",
         items: [
           { name: "Blackrock Mountain Concept", src: "/backgrounds/themes/blackrock-alt.jpg", note: "incredible painting" },
-          { name: "Upper Blackrock Spire Loading", src: "/backgrounds/themes/blackrock.jpg", note: "has WoW logo" },
+          { name: "Cataclysm Login — Volcanic (1920x1080)", src: "/backgrounds/themes/blackrock-cataclysm.jpg", note: "clean, no text" },
+          { name: "Rage of the Firelands — Ragnaros (1920x1200)", src: "/backgrounds/themes/blackrock-firelands.jpg", note: "clean" },
         ],
       },
       {
         label: "Fel / Burning Legion",
         items: [
-          { name: "Legion Wallpaper — Illidan", src: "/backgrounds/themes/fel.jpg", note: "has logo" },
-          { name: "BC Login — Dark Portal", src: "/backgrounds/themes/fel-alt.jpg", note: "clean" },
-          { name: "Legion Login — Tomb of Sargeras", src: "/backgrounds/themes/arcane-legion-login.jpg", note: "clean" },
+          { name: "BC Login — Dark Portal (1920x1080)", src: "/backgrounds/themes/fel-alt.jpg", note: "clean" },
+          { name: "Legion Login — Tomb of Sargeras (1920x1080)", src: "/backgrounds/themes/arcane-legion-login.jpg", note: "clean" },
           { name: "Outland WC3 Map", src: "/backgrounds/themes/outland.jpg", note: "map style" },
         ],
       },
@@ -343,23 +343,24 @@ const SECTIONS = [
       {
         label: "Blight / Plague",
         items: [
-          { name: "Icecrown Citadel Loading", src: "/backgrounds/themes/blight.jpg", note: "has WoW logo" },
-          { name: "Naxxramas Loading", src: "/backgrounds/themes/blight-naxx.jpg", note: "has WoW logo" },
-          { name: "Wrath Login — Icecrown", src: "/backgrounds/themes/blight-alt.jpg", note: "clean" },
+          { name: "WC3R Undead Wallpaper (4096x2160)", src: "/backgrounds/themes/blight-undead-4k.jpg", note: "4K, official Scourge" },
+          { name: "Naxxramas Classic (3840x2160)", src: "/backgrounds/themes/blight-naxx-clean.jpg", note: "4K, clean" },
+          { name: "Wrath Login — Icecrown (1920x1080)", src: "/backgrounds/themes/blight-alt.jpg", note: "clean, no text" },
         ],
       },
       {
-        label: "Arena",
+        label: "Arena / Combat",
         items: [
-          { name: "Trial of the Crusader", src: "/backgrounds/themes/arena.jpg", note: "has WoW logo" },
+          { name: "WC3 Reforged — Humans vs Orcs (3640x2048)", src: "/backgrounds/themes/arena-reforged.jpg", note: "clean, iconic" },
+          { name: "Tyrande and Illidan — Astri Lohne (3413x1920)", src: "/backgrounds/themes/arena-tyrande-illidan.jpg", note: "clean, ultrawide" },
+          { name: "Arthas Taking Frostmourne (2062x1160)", src: "/backgrounds/themes/arena-frostmourne.jpg", note: "clean, iconic scene" },
           { name: "Ring of Valor — Horde Banners", src: "/backgrounds/themes/arena-alt.jpg", note: "clean" },
         ],
       },
       {
         label: "Midnight / Dark",
         items: [
-          { name: "Shadowlands Login — Shattered Sky", src: "/backgrounds/themes/midnight.png", note: "clean, no text" },
-          { name: "Revendreth — Gothic Castle", src: "/backgrounds/themes/midnight-revendreth.jpg" },
+          { name: "Shadowlands Login — Shattered Sky (3500x1969)", src: "/backgrounds/themes/midnight.png", note: "clean, no text" },
           { name: "Campfire Under Stars (existing)", src: "/frames/launcher/Static_Background.png" },
         ],
       },

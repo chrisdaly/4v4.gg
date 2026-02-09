@@ -187,7 +187,7 @@ const RecentlyFinished = () => {
         </div>
       ) : matchesData ? (
         <PageLayout
-          maxWidth="900px"
+          maxWidth="1200px"
           header={
             <div className="finished-header">
               <div className="finished-title-section">

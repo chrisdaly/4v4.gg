@@ -341,23 +341,6 @@ a.game-card.gc-live:hover {
 }
 
 /* ============================================
-   ARROW (for clickable cards)
-   ============================================ */
-
-.gc-arrow {
-  display: flex;
-  align-items: center;
-  font-size: var(--text-lg);
-  color: var(--grey-light);
-  padding-left: var(--space-2);
-  transition: color 0.2s;
-}
-
-a.game-card:hover .gc-arrow {
-  color: var(--gold);
-}
-
-/* ============================================
    OVERLAY MODE
    ============================================ */
 

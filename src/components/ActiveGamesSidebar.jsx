@@ -20,7 +20,7 @@ const Sidebar = styled.aside`
     inset: 0;
     width: 100%;
     height: 100vh;
-    z-index: var(--z-overlay);
+    z-index: 10001;
     transform: ${(p) => (p.$mobileVisible ? "translateY(0)" : "translateY(100%)")};
     transition: transform 0.25s ease;
   }
@@ -32,8 +32,6 @@ const Header = styled.div`
   justify-content: space-between;
   padding: var(--space-4);
   border-bottom: 1px solid rgba(252, 219, 51, 0.15);
-  background: ${(p) => p.$theme?.headerBg || "rgba(10, 8, 6, 0.2)"};
-  backdrop-filter: ${(p) => p.$theme?.blur || "blur(1px)"};
   flex-shrink: 0;
 `;
 
@@ -105,7 +103,7 @@ const CloseButton = styled.button`
 const Content = styled.div`
   flex: 1;
   overflow-y: auto;
-  padding: var(--space-1) 0;
+  padding: var(--space-1) var(--space-4);
 
   &::-webkit-scrollbar {
     width: 6px;

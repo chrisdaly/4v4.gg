@@ -139,8 +139,56 @@ All data from W3Champions API:
 
 - `src/icons/` - Race icons (human, orc, elf, undead), league tier icons
 - `public/heroes/` - 28 hero character images
-- `public/backgrounds/` - Map and race backgrounds
+- `public/backgrounds/` - Race backgrounds (human, orc, nightelf, undead)
+- `public/backgrounds/themes/` - Theme background images (25+ files)
 - `public/maps/` - Minimap images for each map
+
+### Theme System
+
+Themes are defined in `src/lib/borderThemes.js`. Each theme has: border style, background image, panel colors, blur, and shadow. The system is managed by:
+- `src/lib/borderThemes.js` - Theme definitions (28 themes)
+- `src/lib/ThemeContext.jsx` - React context, applies CSS custom properties to `<body>`
+- `src/components/Navbar.jsx` - Theme picker dropdown in navbar
+- `src/components/ThemePicker.jsx` - Fixed bottom theme picker (thumbnail grid)
+- `src/components/RaceSelectOverlay.jsx` - First-visit theme selection overlay
+
+### Theme Background Sources
+
+Best source: **warcraft.wiki.gg** — direct download, high-res, no authentication.
+
+**Finding clean backgrounds (no logos/watermarks):**
+
+1. Search for "No_text" login screens — these are the cleanest:
+   - Pattern: `https://warcraft.wiki.gg/images/{Expansion}_Login_No_text.jpg`
+   - Examples: `Wrath_Login_No_Text.jpg`, `Cataclysm_Login_No_text.jpg`, `Burning_Crusade_Login_No_Text.jpg`
+   - Usually 1920x1080, sometimes 3840x2160 (4K)
+
+2. Search for Chronicle/concept art by known artists:
+   - Peter Lee (Chronicle volumes) — massive res (3000-5000px), stunning paintings
+   - Astri Lohne, Bayard Wu, Glenn Rane — WC3 Reforged key art
+   - Pattern: `https://warcraft.wiki.gg/images/Chronicle3_{Subject}.jpg`
+
+3. Search for WC3 Reforged wallpapers/key art:
+   - Pattern: `https://warcraft.wiki.gg/images/Warcraft_III_Reforged_-_{Subject}.jpg`
+   - Pattern: `https://warcraft.wiki.gg/images/WCIIIR_Key_Art.png`
+   - Usually 1920x1080 to 4096x2160
+
+4. Verify before downloading:
+   ```bash
+   curl -sI "https://warcraft.wiki.gg/images/{filename}" | head -5
+   ```
+   Look for HTTP 200 and `content-type: image/jpeg` or `image/png`.
+
+5. Download:
+   ```bash
+   curl -sL -o public/backgrounds/themes/{local-name}.jpg "https://warcraft.wiki.gg/images/{filename}"
+   ```
+
+6. Add to `borderThemes.js` with a matching theme entry and to the Assets.jsx theme-backgrounds section.
+
+**Avoid:** Regular loading screens (have expansion logos baked in), fan art with watermarks, overhead map views.
+
+**Rate limits:** warcraft.wiki.gg returns 429 if you hit it too fast. Add `sleep 2` between downloads.
 
 ### Map Images
 

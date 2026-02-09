@@ -7,7 +7,8 @@
   top: 0;
   z-index: 10000;
   padding: 0 24px;
-  /* background: #0a0806; */
+  background: rgba(10, 8, 6, 0.25);
+  backdrop-filter: blur(12px);
   border-bottom: 2px solid rgba(184, 134, 11, 0.35);
   box-shadow: 0 2px 16px rgba(0, 0, 0, 0.6);
 }
@@ -47,7 +48,10 @@
   color: var(--grey-light);
   text-decoration: none;
   padding: 6px 14px;
+  border: none;
+  background: none;
   border-radius: 4px;
+  cursor: pointer;
   transition: all 0.2s ease;
   letter-spacing: 0.5px;
   text-transform: uppercase;
@@ -63,87 +67,10 @@
   background: rgba(252, 219, 51, 0.1);
 }
 
-/* ── Navbar theme picker ─────────────────────────────── */
-
-.navbar-theme-btn {
+.navbar-right {
   display: flex;
   align-items: center;
-  justify-content: center;
-  width: 32px;
-  height: 32px;
-  border-radius: 6px;
-  border: 1px solid rgba(184, 134, 11, 0.3);
-  background: rgba(252, 219, 51, 0.04);
-  color: var(--gold);
-  font-size: 16px;
-  cursor: pointer;
-  transition: all 0.15s;
-  margin-left: 8px;
-}
-
-.navbar-theme-btn:hover {
-  border-color: rgba(184, 134, 11, 0.6);
-  background: rgba(252, 219, 51, 0.1);
-}
-
-.navbar-theme-icon {
-  width: 20px;
-  height: 20px;
-  object-fit: contain;
-}
-
-.navbar-theme-dropdown {
-  position: absolute;
-  top: calc(100% + 10px);
-  right: 0;
-  z-index: 10001;
-  display: flex;
-  flex-direction: column;
-  gap: 2px;
-  padding: 6px;
-  background: rgba(10, 8, 6, 0.96);
-  border: 1px solid rgba(184, 134, 11, 0.3);
-  border-radius: 8px;
-  backdrop-filter: blur(12px);
-  box-shadow: 0 8px 32px rgba(0, 0, 0, 0.7);
-  min-width: 140px;
-}
-
-.navbar-theme-option {
-  display: flex;
-  align-items: center;
-  gap: 10px;
-  padding: 8px 12px;
-  background: transparent;
-  border: 1px solid transparent;
-  border-radius: 6px;
-  color: var(--grey-light);
-  cursor: pointer;
-  transition: all 0.15s;
-  text-align: left;
-}
-
-.navbar-theme-option:hover {
-  color: #fff;
-  background: rgba(255, 255, 255, 0.05);
-  border-color: rgba(184, 134, 11, 0.15);
-}
-
-.navbar-theme-option.active {
-  color: var(--gold);
-  background: rgba(252, 219, 51, 0.08);
-  border-color: rgba(184, 134, 11, 0.5);
-}
-
-.navbar-theme-option .navbar-theme-icon {
-  width: 18px;
-  height: 18px;
-}
-
-.navbar-theme-name {
-  font-family: var(--font-display);
-  font-size: var(--text-xxs);
-  letter-spacing: 0.5px;
+  gap: 4px;
 }
 
 /* ============================================
@@ -357,6 +284,93 @@
   text-align: center;
 }
 
+/* ── Hamburger button (hidden on desktop) ─────────── */
+
+.navbar-hamburger {
+  display: none;
+  flex-direction: column;
+  justify-content: center;
+  gap: 4px;
+  width: 32px;
+  height: 32px;
+  padding: 6px;
+  background: none;
+  border: 1px solid transparent;
+  border-radius: 6px;
+  cursor: pointer;
+  transition: all 0.15s;
+}
+
+.navbar-hamburger:hover {
+  background: rgba(255, 255, 255, 0.06);
+  border-color: rgba(184, 134, 11, 0.3);
+}
+
+.hamburger-bar {
+  display: block;
+  width: 100%;
+  height: 2px;
+  background: var(--gold);
+  border-radius: 1px;
+  transition: all 0.25s ease;
+  transform-origin: center;
+}
+
+.hamburger-bar.open:nth-child(1) {
+  transform: translateY(6px) rotate(45deg);
+}
+
+.hamburger-bar.open:nth-child(2) {
+  opacity: 0;
+}
+
+.hamburger-bar.open:nth-child(3) {
+  transform: translateY(-6px) rotate(-45deg);
+}
+
+/* ── Mobile dropdown menu ─────────────────────────── */
+
+.navbar-mobile-menu {
+  display: none;
+  flex-direction: column;
+  padding: 4px 0 12px;
+  border-top: 1px solid rgba(184, 134, 11, 0.15);
+  position: absolute;
+  top: 100%;
+  left: 0;
+  right: 0;
+  background: rgba(10, 8, 6, 0.25);
+  backdrop-filter: blur(12px);
+  border-bottom: 2px solid rgba(184, 134, 11, 0.35);
+  box-shadow: 0 8px 32px rgba(0, 0, 0, 0.5);
+  z-index: 10000;
+}
+
+.navbar-mobile-link {
+  font-family: var(--font-display);
+  font-size: var(--text-xs);
+  color: var(--grey-light);
+  text-decoration: none;
+  padding: 12px 16px;
+  border: none;
+  background: none;
+  cursor: pointer;
+  text-align: left;
+  letter-spacing: 0.5px;
+  text-transform: uppercase;
+  transition: all 0.15s ease;
+}
+
+.navbar-mobile-link:hover {
+  color: #fff;
+  background: rgba(255, 255, 255, 0.04);
+}
+
+.navbar-mobile-link.active {
+  color: var(--gold);
+  background: rgba(252, 219, 51, 0.06);
+}
+
 /* ── Navbar responsive - mobile ─────────────────────── */
 
 @media (max-width: 768px) {
@@ -373,24 +387,15 @@
   }
 
   .navbar-links {
-    gap: 2px;
+    display: none;
   }
 
-  .navbar-link {
-    font-size: 10px;
-    padding: 6px 8px;
-    letter-spacing: 0.3px;
+  .navbar-hamburger {
+    display: flex;
   }
 
-  .navbar-theme-btn {
-    width: 28px;
-    height: 28px;
-    margin-left: 4px;
-  }
-
-  .navbar-theme-icon {
-    width: 16px;
-    height: 16px;
+  .navbar-mobile-menu {
+    display: flex;
   }
 
   .navbar-search {
@@ -409,18 +414,4 @@
     font-size: 14px;
   }
 
-  .navbar-link {
-    font-size: 9px;
-    padding: 6px 5px;
-  }
-
-  .navbar-theme-btn {
-    width: 26px;
-    height: 26px;
-  }
-
-  .navbar-theme-icon {
-    width: 14px;
-    height: 14px;
-  }
 }

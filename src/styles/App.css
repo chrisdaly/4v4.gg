@@ -1,5 +1,6 @@
 /* Import base styles */
 @import "./base/animations.css";
+@import "./base/utilities.css";
 @import "./pages/Finished.css";
 @import "./pages/PlayerProfile.css";
 @import "./components/Navbar.css";

@@ -9,7 +9,6 @@ import { FaTwitch } from "react-icons/fa";
 import { GiCrossedSwords } from "react-icons/gi";
 
 import FormDots from "../components/FormDots";
-import { PageLayout } from "../components/PageLayout";
 import { gateway } from "../lib/params";
 import { GameRow } from "../components/game/index";
 import ActivityGraph from "../components/ActivityGraph";
@@ -484,9 +483,7 @@ const PlayerProfile = () => {
   const totalPages = Math.ceil(totalMatches / GAMES_PER_PAGE);
 
   return (
-    <PageLayout
-      maxWidth="1200px"
-      header={
+    <div className="player-page">
         <header className="player-header">
           <div className="player-header-left">
             <div className="hd-pic-wrapper">
@@ -541,8 +538,6 @@ const PlayerProfile = () => {
             </div>
           </div>
         </header>
-      }
-    >
       <div className="player-content">
           {/* Main Content */}
           <main className="player-main">
@@ -859,7 +854,7 @@ const PlayerProfile = () => {
 
           </aside>
         </div>
-    </PageLayout>
+    </div>
   );
 };
 

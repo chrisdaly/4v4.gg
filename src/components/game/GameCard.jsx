@@ -407,7 +407,6 @@ const GameCard = ({
               </div>
             )}
           </div>
-          {href && !overlay && <div className="gc-arrow">→</div>}
         </Wrapper>
       );
     }

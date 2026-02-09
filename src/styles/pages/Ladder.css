@@ -426,7 +426,7 @@
 
 .ladder-header-row {
   display: grid;
-  grid-template-columns: 48px 1.5fr 0.7fr 0.9fr 0.6fr 1fr 1.3fr;
+  grid-template-columns: 48px 1.5fr 0.7fr 0.9fr 0.6fr 1fr 0.8fr;
   column-gap: 12px;
   padding: 10px 16px;
   border-bottom: 1px solid rgba(252, 219, 51, 0.25);
@@ -477,7 +477,7 @@
 
 .ladder-row {
   display: grid;
-  grid-template-columns: 48px 1.5fr 0.7fr 0.9fr 0.6fr 1fr 1.3fr;
+  grid-template-columns: 48px 1.5fr 0.7fr 0.9fr 0.6fr 1fr 0.8fr;
   column-gap: 12px;
   padding: 10px 16px;
   align-items: center;
@@ -503,12 +503,12 @@
   display: flex;
   align-items: center;
   justify-content: flex-end;
-  gap: 3px;
+  gap: 6px;
 }
 
 .col-rank .in-game-icon {
-  width: 12px;
-  height: 12px;
+  width: 16px;
+  height: 16px;
   color: var(--red);
   fill: var(--red);
   flex-shrink: 0;
@@ -562,6 +562,9 @@
 .col-record {
   justify-content: center;
   font-family: var(--font-mono);
+}
+
+.ladder-row .col-record {
   font-size: var(--text-sm);
 }
 
@@ -581,6 +584,9 @@
 .col-winrate {
   justify-content: center;
   font-family: var(--font-mono);
+}
+
+.ladder-row .col-winrate {
   font-size: var(--text-sm);
 }
 
@@ -597,6 +603,9 @@
   align-items: center;
   justify-content: center;
   font-family: var(--font-mono);
+}
+
+.ladder-row .col-session {
   font-size: var(--text-sm);
 }
 

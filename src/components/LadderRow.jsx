@@ -81,7 +81,7 @@ const LadderRow = ({ rank, sparklineData, session, detectedRace, twitch, isStrea
       </div>
       <div className="col-form">
         {sparklineData.length > 0 ? (
-          <Sparklines data={sparklineData.slice(-50)} width={120} height={24}>
+          <Sparklines data={sparklineData.slice(-50)} width={80} height={18}>
             <SparklinesLine
               style={{ strokeWidth: 1.5, stroke: "var(--gold)", fill: "none" }}
             />

@@ -1,31 +1,20 @@
 import React, { useState, useRef, useEffect } from "react";
 import { Link, useLocation, useHistory } from "react-router-dom";
-import { GiCrossedSwords } from "react-icons/gi";
-import { themeList } from "../lib/borderThemes";
-import { useTheme } from "../lib/ThemeContext";
-import { raceIcons, raceMapping } from "../lib/constants";
+import { raceMapping } from "../lib/constants";
 import { searchLadder, getPlayerProfile, getOngoingMatches, getFinishedMatches, getLadder, getSeasons } from "../lib/api";
 import { CountryFlag } from "./ui";
-
-const THEME_ICONS = {
-  human: raceIcons.human,
-  orc: raceIcons.orc,
-  nightElf: raceIcons.elf,
-  undead: raceIcons.undead,
-};
 
 const Navbar = () => {
   const location = useLocation();
   const history = useHistory();
-  const { themeId, setThemeId } = useTheme();
-  const [showPicker, setShowPicker] = useState(false);
-  const pickerRef = useRef(null);
   const [searchQuery, setSearchQuery] = useState("");
   const [searchResults, setSearchResults] = useState([]);
   const [showSearch, setShowSearch] = useState(false);
   const [isSearching, setIsSearching] = useState(false);
   const [profiles, setProfiles] = useState({});
   const searchRef = useRef(null);
+  const [mobileOpen, setMobileOpen] = useState(false);
+  const mobileRef = useRef(null);
 
   const isActive = (path) => {
     if (path === "/ongoing") {
@@ -33,18 +22,6 @@ const Navbar = () => {
     }
     return location.pathname.startsWith(path);
   };
-
-  // Close picker on outside click
-  useEffect(() => {
-    if (!showPicker) return;
-    const handler = (e) => {
-      if (pickerRef.current && !pickerRef.current.contains(e.target)) {
-        setShowPicker(false);
-      }
-    };
-    document.addEventListener("mousedown", handler);
-    return () => document.removeEventListener("mousedown", handler);
-  }, [showPicker]);
 
   // Close search on outside click
   useEffect(() => {
@@ -58,6 +35,23 @@ const Navbar = () => {
     return () => document.removeEventListener("mousedown", handler);
   }, [showSearch]);
 
+  // Close mobile menu on outside click
+  useEffect(() => {
+    if (!mobileOpen) return;
+    const handler = (e) => {
+      if (mobileRef.current && !mobileRef.current.contains(e.target)) {
+        setMobileOpen(false);
+      }
+    };
+    document.addEventListener("mousedown", handler);
+    return () => document.removeEventListener("mousedown", handler);
+  }, [mobileOpen]);
+
+  // Close mobile menu on route change
+  useEffect(() => {
+    setMobileOpen(false);
+  }, [location.pathname]);
+
   // Debounced search
   useEffect(() => {
     if (searchQuery.length < 2) {
@@ -68,8 +62,6 @@ const Navbar = () => {
     setIsSearching(true);
     const timer = setTimeout(async () => {
       const results = await searchLadder(searchQuery);
-      // Deduplicate by battleTag — API can return multiple entries per player (different races/seasons).
-      // Keep the entry with highest MMR for each player.
       const deduped = [];
       const seen = new Set();
       for (const r of (Array.isArray(results) ? results : [])) {
@@ -83,7 +75,6 @@ const Navbar = () => {
       setShowSearch(true);
       setIsSearching(false);
 
-      // Fetch profiles for results (non-blocking)
       for (const r of sliced) {
         const tag = r.playersInfo?.[0]?.battleTag || r.player?.playerIds?.[0]?.battleTag;
         if (tag && !profiles[tag]) {
@@ -103,61 +94,39 @@ const Navbar = () => {
     setShowSearch(false);
   };
 
-  // Prefetch API data on hover so pages load instantly
   const prefetch = {
     ongoing: () => getOngoingMatches(),
     finished: () => getFinishedMatches(),
     ladder: () => { getSeasons(); getLadder(0); },
   };
 
-  const icon = THEME_ICONS[themeId];
+  const navLinks = [
+    { to: "/ongoing", label: "Live", prefetch: prefetch.ongoing },
+    { to: "/finished", label: "Finished", prefetch: prefetch.finished },
+    { to: "/ladder", label: "Ladder", prefetch: prefetch.ladder },
+    { to: "/stats", label: "Stats" },
+    { to: "/chat", label: "Chat" },
+    { to: "/blog", label: "Blog" },
+    { to: "/themes", label: "Themes" },
+  ];
 
   return (
-    <nav className="navbar">
+    <nav className="navbar" ref={mobileRef}>
       <div className="navbar-content">
         <Link to="/" className="navbar-logo">
           4v4.GG
         </Link>
         <div className="navbar-links">
-          <Link
-            to="/ongoing"
-            className={`navbar-link ${isActive("/ongoing") ? "active" : ""}`}
-            onMouseEnter={prefetch.ongoing}
-          >
-            Live
-          </Link>
-          <Link
-            to="/finished"
-            className={`navbar-link ${isActive("/finished") ? "active" : ""}`}
-            onMouseEnter={prefetch.finished}
-          >
-            Finished
-          </Link>
-          <Link
-            to="/ladder"
-            className={`navbar-link ${isActive("/ladder") ? "active" : ""}`}
-            onMouseEnter={prefetch.ladder}
-          >
-            Ladder
-          </Link>
-          <Link
-            to="/stats"
-            className={`navbar-link ${isActive("/stats") ? "active" : ""}`}
-          >
-            Stats
-          </Link>
-          <Link
-            to="/chat"
-            className={`navbar-link ${isActive("/chat") ? "active" : ""}`}
-          >
-            Chat
-          </Link>
-          <Link
-            to="/blog"
-            className={`navbar-link ${isActive("/blog") ? "active" : ""}`}
-          >
-            Blog
-          </Link>
+          {navLinks.map((link) => (
+            <Link
+              key={link.to}
+              to={link.to}
+              className={`navbar-link ${isActive(link.to) ? "active" : ""}`}
+              onMouseEnter={link.prefetch}
+            >
+              {link.label}
+            </Link>
+          ))}
           <div className="navbar-search" ref={searchRef}>
             <input
               className="navbar-search-input"
@@ -227,43 +196,32 @@ const Navbar = () => {
               </div>
             )}
           </div>
-          <div style={{ position: "relative" }} ref={pickerRef}>
-            <button
-              className="navbar-theme-btn"
-              onClick={() => setShowPicker((v) => !v)}
-              title="Change theme"
-            >
-              {icon
-                ? <img src={icon} alt="" className="navbar-theme-icon" />
-                : <GiCrossedSwords />
-              }
-            </button>
-            {showPicker && (
-              <div className="navbar-theme-dropdown">
-                {themeList.map((t) => {
-                  const tIcon = THEME_ICONS[t.id];
-                  return (
-                    <button
-                      key={t.id}
-                      className={`navbar-theme-option${t.id === themeId ? " active" : ""}`}
-                      onClick={() => {
-                        setThemeId(t.id);
-                        setShowPicker(false);
-                      }}
-                    >
-                      {tIcon
-                        ? <img src={tIcon} alt="" className="navbar-theme-icon" />
-                        : <GiCrossedSwords style={{ fontSize: 16, opacity: 0.7 }} />
-                      }
-                      <span className="navbar-theme-name">{t.name}</span>
-                    </button>
-                  );
-                })}
-              </div>
-            )}
-          </div>
+        </div>
+        <div className="navbar-right">
+          <button
+            className="navbar-hamburger"
+            onClick={() => setMobileOpen((v) => !v)}
+            aria-label="Toggle menu"
+          >
+            <span className={`hamburger-bar ${mobileOpen ? "open" : ""}`} />
+            <span className={`hamburger-bar ${mobileOpen ? "open" : ""}`} />
+            <span className={`hamburger-bar ${mobileOpen ? "open" : ""}`} />
+          </button>
         </div>
       </div>
+      {mobileOpen && (
+        <div className="navbar-mobile-menu">
+          {navLinks.map((link) => (
+            <Link
+              key={link.to}
+              to={link.to}
+              className={`navbar-mobile-link ${isActive(link.to) ? "active" : ""}`}
+            >
+              {link.label}
+            </Link>
+          ))}
+        </div>
+      )}
     </nav>
   );
 };
