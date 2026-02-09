@@ -93,7 +93,7 @@ const OnlineMmrStrip = ({
     const svg = d3.select(svgRef.current);
 
     // VERTICAL LAYOUT: MMR on Y-axis, displacement on X-axis
-    const padding = { left: 20, right: 50, top: 24, bottom: 30 };
+    const padding = { left: 36, right: 50, top: 36, bottom: 36 };
     const chartWidth = width - padding.left - padding.right;
     const centerX = padding.left + chartWidth / 2;
 
@@ -299,8 +299,7 @@ const OnlineMmrStrip = ({
       .attr("fill", (d) => d.inGame ? DOT_COLOR_INGAME : DOT_COLOR)
       .attr("opacity", 1);
 
-    const startX = padding.left - 20;
-    const startY = y(1500);
+    const enterFromY = padding.top - 20;
     const enterCount = dots.enter().size();
     const isBulkLoad = enterCount > 3;
 
@@ -310,8 +309,8 @@ const OnlineMmrStrip = ({
     const entered = dots.enter()
       .append("circle")
       .attr("class", "player-dot")
-      .attr("cx", startX)
-      .attr("cy", startY)
+      .attr("cx", (d) => d.x)
+      .attr("cy", enterFromY)
       .attr("r", 0)
       .attr("opacity", 0)
       .attr("fill", (d) => d.inGame ? DOT_COLOR_INGAME : DOT_COLOR)
@@ -319,74 +318,64 @@ const OnlineMmrStrip = ({
       .attr("stroke-width", 0.5)
       .attr("cursor", "pointer");
 
-    // ── Elliptic arc entrance ──
-    // Path: linear interpolation from start→end + sin(πt) perpendicular bulge
-    const bulgeAmt = chartWidth * 0.35;
-    const maxMmrDist = d3.max(positions, (p) => Math.abs(p.mmr - 1500)) || 1;
-
-    // Elliptic position helpers
-    const ellipseX = (d, t) => {
-      const dx = d.x - startX, dy = d.y - startY;
-      const len = Math.sqrt(dx * dx + dy * dy) || 1;
-      // Perpendicular unit vector (rotated 90° CW), pointing leftward for rightward motion
-      let px = -dy / len;
-      if (dx > 0 && px > 0) px = -px; // always bulge leftward
-      return startX + dx * t + bulgeAmt * Math.sin(Math.PI * t) * px;
-    };
-    const ellipseY = (d, t) => {
-      const dx = d.x - startX, dy = d.y - startY;
-      const len = Math.sqrt(dx * dx + dy * dy) || 1;
-      let py = dx / len;
-      if (dy > 0 && py < 0) py = -py; // consistent direction
-      return startY + dy * t + bulgeAmt * Math.sin(Math.PI * t) * py;
-    };
-
-    // Floating name labels that follow entering dots (only for trickle arrivals)
+    // Floating name labels that follow entering dots
     const enterLabelG = svg.append("g").attr("class", "enter-label-layer").attr("pointer-events", "none");
     const enterLabels = new Map();
-    if (!isBulkLoad) {
-      entered.each(function (d) {
-        const name = d.tag?.split("#")[0] || "";
-        if (!name) return;
-        const label = enterLabelG.append("text")
-          .attr("x", startX - 8)
-          .attr("y", startY + 4)
-          .attr("text-anchor", "end")
-          .attr("fill", "var(--gold)")
-          .attr("font-size", `${LABEL_FONT_SIZE}px`)
-          .attr("font-family", "var(--font-display)")
-          .attr("opacity", 0)
-          .text(name);
-        enterLabels.set(d.tag, label);
-      });
-    }
+    entered.each(function (d) {
+      const name = d.tag?.split("#")[0] || "";
+      if (!name) return;
+      const label = enterLabelG.append("text")
+        .attr("x", d.x + d.r + 8)
+        .attr("y", enterFromY + 4)
+        .attr("text-anchor", "start")
+        .attr("fill", "var(--gold)")
+        .attr("font-size", `${LABEL_FONT_SIZE}px`)
+        .attr("font-family", "var(--font-display)")
+        .attr("opacity", 0)
+        .text(name);
+      enterLabels.set(d.tag, label);
+    });
 
-    const duration = isBulkLoad ? 2800 : 5000;
-    const maxDelay = isBulkLoad ? 600 : 0;
+    // Higher MMR settles first (closer to top); lower MMR cascades down
+    const duration = isBulkLoad ? 2800 : 4000;
+    const mmrRange = maxMmr - minMmr || 1;
+    const maxDelay = isBulkLoad ? 800 : 0;
     let settledCount = 0;
     const totalEntering = enterCount;
 
     entered.transition()
-      .delay((d) => isBulkLoad ? (Math.abs(d.mmr - 1500) / maxMmrDist) * maxDelay : 0)
+      .delay((d) => isBulkLoad ? ((maxMmr - d.mmr) / mmrRange) * maxDelay : 0)
       .duration(duration)
-      .ease(isBulkLoad ? d3.easeCubicOut : d3.easeSinInOut)
-      .attrTween("cx", (d) => (t) => ellipseX(d, t))
-      .attrTween("cy", (d) => (t) => {
-        const ey = ellipseY(d, t);
-        // Sync trailing label — visible the whole journey, fades out at the very end
-        const label = enterLabels.get(d.tag);
-        if (label) {
-          const r = d.r * Math.min(1, t * 2);
-          label.attr("x", ellipseX(d, t) - r - 8).attr("y", ey + 4)
-            .attr("opacity", t < 0.92 ? Math.min(1, t * 4) : Math.max(0, (1 - t) / 0.08));
-        }
-        return ey;
+      .ease(d3.easeCubicOut)
+      .attrTween("cy", (d) => {
+        const interp = d3.interpolate(enterFromY, d.y);
+        return (t) => {
+          const cy = interp(t);
+          const label = enterLabels.get(d.tag);
+          if (label) {
+            label.attr("y", cy + 4)
+              .attr("opacity", Math.min(1, t * 3));
+          }
+          return cy;
+        };
       })
       .attrTween("r", (d) => (t) => d.r * Math.min(1, t * 2))
       .attrTween("opacity", () => (t) => Math.min(1, t * 3))
       .on("end", function (d) {
         const label = enterLabels.get(d.tag);
-        if (label) label.remove();
+        if (label) {
+          if (labeledTags.has(d.tag)) {
+            // Static label exists — cross-fade out to avoid doubling
+            label.transition().duration(400).attr("opacity", 0).remove();
+          } else {
+            // No static label — keep enter label for 5s as the only name
+            label.attr("opacity", 1)
+              .attr("x", d.x + d.r + 8).attr("y", d.y + 4);
+            label.transition().delay(5000).duration(1500)
+              .attr("opacity", 0)
+              .remove();
+          }
+        }
         // Fade in labels + team arcs once all dots have settled
         settledCount++;
         if (settledCount >= totalEntering) {
@@ -425,6 +414,7 @@ const OnlineMmrStrip = ({
     };
 
     // Helper to place a label, returns true if placed
+    // Tries 8 directions around the dot (right, top-right, top, top-left, left, etc.)
     const placeLabel = (pos, force) => {
       const name = pos.tag?.split("#")[0] || "";
       if (!name) return false;
@@ -432,16 +422,25 @@ const OnlineMmrStrip = ({
       const textW = name.length * LABEL_CHAR_W + LABEL_PAD_X * 2;
       const textH = LABEL_H + LABEL_PAD_Y * 2;
 
-      let labelY = pos.y - textH / 2;
-      labelY = Math.max(bounds.top, Math.min(bounds.bottom - textH, labelY));
+      const offsets = [
+        { dx: pos.r + 4, dy: -textH / 2 },              // right
+        { dx: pos.r + 2, dy: -pos.r - textH },           // top-right
+        { dx: -textW / 2, dy: -pos.r - textH - 2 },      // top-center
+        { dx: -textW - pos.r - 2, dy: -pos.r - textH },  // top-left
+        { dx: -textW - pos.r - 4, dy: -textH / 2 },      // left
+        { dx: -textW - pos.r - 2, dy: pos.r },            // bottom-left
+        { dx: -textW / 2, dy: pos.r + 4 },                // bottom-center
+        { dx: pos.r + 2, dy: pos.r },                     // bottom-right
+      ];
 
-      const leftX = pos.x - pos.r - 4 - textW;
-      const rightX = pos.x + pos.r + 4;
+      for (const { dx, dy } of offsets) {
+        const candidateX = pos.x + dx;
+        const candidateY = pos.y + dy;
 
-      for (const candidateX of [rightX, leftX]) {
         if (candidateX < bounds.left || candidateX + textW > bounds.right) continue;
+        if (candidateY < bounds.top || candidateY + textH > bounds.bottom) continue;
 
-        const candidateRect = { x: candidateX, y: labelY, w: textW, h: textH };
+        const candidateRect = { x: candidateX, y: candidateY, w: textW, h: textH };
         if (!force) {
           if (placedLabels.some((r) => rectsOverlap(candidateRect, r))) continue;
           if (rectOverlapsDot(candidateRect, positions.filter((p) => p.tag !== pos.tag))) continue;
@@ -451,7 +450,7 @@ const OnlineMmrStrip = ({
         labeledTags.add(pos.tag);
         labelG.append("text")
           .attr("x", candidateX + textW / 2)
-          .attr("y", labelY + textH - LABEL_PAD_Y - 1)
+          .attr("y", candidateY + textH - LABEL_PAD_Y - 1)
           .attr("text-anchor", "middle")
           .attr("fill", LABEL_COLOR)
           .attr("font-size", `${LABEL_FONT_SIZE}px`)

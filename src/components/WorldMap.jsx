@@ -15,49 +15,38 @@ const getSubsolarPoint = () => {
   return [longitude, declination];
 };
 
-// Visible bounds — crop Antarctica, keep Arctic fringe
-const LAT_SOUTH = -55;
-const LAT_NORTH = 80;
+// Visible bounds — cropped to focus on player regions (NA, SA, Europe, Asia)
+// Shifted east to center on Atlantic, tighter south crop
+const LAT_SOUTH = -42;
+const LAT_NORTH = 72;
+const LON_WEST = -130;
+const LON_EAST = 160;
 const VISIBLE_BOUNDS = {
   type: "Polygon",
   coordinates: [[
-    [-180, LAT_SOUTH], [180, LAT_SOUTH], [180, LAT_NORTH], [-180, LAT_NORTH], [-180, LAT_SOUTH],
+    [LON_WEST, LAT_SOUTH], [LON_EAST, LAT_SOUTH], [LON_EAST, LAT_NORTH], [LON_WEST, LAT_NORTH], [LON_WEST, LAT_SOUTH],
   ]],
 };
 
-// Europe inset bounds (counterclockwise for correct GeoJSON winding)
-const EU_BOUNDS = {
-  type: "Polygon",
-  coordinates: [[[-12, 34], [-12, 62], [45, 62], [45, 34], [-12, 34]]],
-};
-
-// European country codes — dots in these countries get labels in the inset, not the main map
-const EU_CODES = new Set([
-  "AL", "AD", "AT", "BY", "BE", "BA", "BG", "HR", "CY", "CZ", "DK", "EE",
-  "FI", "FR", "DE", "GR", "HU", "IS", "IE", "IT", "XK", "LV", "LI", "LT",
-  "LU", "MK", "MT", "MD", "MC", "ME", "NL", "NO", "PL", "PT", "RO",
-  "SM", "RS", "SK", "SI", "ES", "SE", "CH", "UA", "GB", "VA",
-]);
+// Buffer initial data before starting entrance animation (matches MMR strip timing)
+const INTRO_BUFFER_MS = 2500;
 
 // Label layout constants
 const LABEL_FONT_SIZE = 11;
-const LABEL_CHAR_W = 6.2;
-const LABEL_H = 13;
-const LABEL_PAD_X = 3;
-const LABEL_PAD_Y = 2;
+const DOT_COLOR = "rgba(255, 255, 255, 0.75)";
 
 const rectsOverlap = (a, b) =>
   a.x < b.x + b.w && a.x + a.w > b.x && a.y < b.y + b.h && a.y + a.h > b.y;
 
-// Time zone cities
+// Time zone cities — lat set to bottom of visible area
 const TIME_ZONES = [
-  { label: "LA", lon: -118.24, lat: -42, offset: -8 },
-  { label: "NYC", lon: -74.0, lat: -42, offset: -5 },
-  { label: "SAO", lon: -46.6, lat: -42, offset: -3 },
-  { label: "LON", lon: -0.12, lat: -42, offset: 0 },
-  { label: "MSK", lon: 37.6, lat: -42, offset: 3 },
-  { label: "SEL", lon: 127.0, lat: -42, offset: 9 },
-  { label: "SYD", lon: 151.2, lat: -42, offset: 11 },
+  { label: "LA", lon: -118.24, offset: -8 },
+  { label: "NYC", lon: -74.0, offset: -5 },
+  { label: "SAO", lon: -46.6, offset: -3 },
+  { label: "LON", lon: -0.12, offset: 0 },
+  { label: "MSK", lon: 37.6, offset: 3 },
+  { label: "SEL", lon: 127.0, offset: 9 },
+  { label: "SYD", lon: 151.2, offset: 11 },
 ];
 
 const formatTime = (offset) => {
@@ -131,8 +120,8 @@ const placeLabels = (g, candidates, dotPositions, existingRects, bounds, fontSiz
       placed.push(candidateRect);
 
       g.append("text")
-        .attr("x", lx + padX)
-        .attr("y", ly + textH - padY - 1)
+        .attr("x", Math.round(lx + padX))
+        .attr("y", Math.round(ly + textH - padY - 1))
         .attr("fill", "rgba(255, 255, 255, 0.6)")
         .attr("font-size", `${fontSize}px`)
         .attr("font-family", "var(--font-display)")
@@ -148,6 +137,20 @@ const WorldMap = ({ playerCountries, players = [] }) => {
   const svgRef = useRef(null);
   const [dimensions, setDimensions] = useState({ width: 0, height: 0 });
   const [worldData, setWorldData] = useState(null);
+  const introReadyRef = useRef(false);
+  const [introReady, setIntroReady] = useState(false);
+  const prevPlayersRef = useRef(null); // null = first render, skip diff
+
+  // Buffer initial data so dots from chat + matches all arrive together
+  useEffect(() => {
+    if (introReadyRef.current) return;
+    if (!playerCountries || playerCountries.size === 0) return;
+    const timer = setTimeout(() => {
+      introReadyRef.current = true;
+      setIntroReady(true);
+    }, INTRO_BUFFER_MS);
+    return () => clearTimeout(timer);
+  }, [playerCountries]);
 
   useEffect(() => {
     fetch("/data/world-110m.json")
@@ -184,8 +187,6 @@ const WorldMap = ({ playerCountries, players = [] }) => {
         code: code.toUpperCase(),
         lon: coords[0],
         lat: coords[1],
-        online: counts.online || 0,
-        inGame: counts.inGame || 0,
         total: (counts.online || 0) + (counts.inGame || 0),
       });
     }
@@ -203,23 +204,23 @@ const WorldMap = ({ playerCountries, players = [] }) => {
   // Main D3 render
   useEffect(() => {
     const { width, height } = dimensions;
-    if (!svgRef.current || !width || !height || !worldData) return;
+    if (!introReady || !svgRef.current || !width || !height || !worldData) return;
 
     const svg = d3.select(svgRef.current);
-    svg.selectAll("*").remove();
+
+    // Only clear static layers — keep dot group for transitions
+    svg.selectAll(".static-layer").remove();
+    svg.selectAll(".label-layer").remove();
+    svg.selectAll(".time-layer").remove();
 
     const projection = buildProjection(width, height);
     const path = d3.geoPath(projection);
 
-    // 1. Ocean background
-    svg.append("rect")
-      .attr("width", width)
-      .attr("height", height)
-      .attr("fill", "rgba(10, 10, 15, 0.6)")
-      .attr("rx", 6);
+    // Static group — land, graticule, night
+    const staticG = svg.append("g").attr("class", "static-layer").attr("pointer-events", "none");
 
-    // 2. Land polygons
-    svg.append("g")
+    // Land polygons
+    staticG.append("g")
       .selectAll("path")
       .data(worldData.features)
       .join("path")
@@ -229,8 +230,8 @@ const WorldMap = ({ playerCountries, players = [] }) => {
       .attr("stroke-width", 0.5);
 
     // 3. Graticule
-    const graticule = d3.geoGraticule().stepMinor([30, 30]).extentMinor([[-180, LAT_SOUTH], [180, LAT_NORTH]])();
-    svg.append("path")
+    const graticule = d3.geoGraticule().stepMinor([30, 30]).extentMinor([[LON_WEST, LAT_SOUTH], [LON_EAST, LAT_NORTH]])();
+    staticG.append("path")
       .datum(graticule)
       .attr("d", path)
       .attr("fill", "none")
@@ -242,163 +243,225 @@ const WorldMap = ({ playerCountries, players = [] }) => {
     const antipode = [-subsolar[0], -subsolar[1]];
     const nightCircle = d3.geoCircle().center(antipode).radius(90)();
 
-    svg.append("path")
+    staticG.append("path")
       .datum(nightCircle)
       .attr("class", "night-overlay")
       .attr("d", path)
       .attr("fill", "rgba(0, 0, 0, 0.35)")
       .attr("stroke", "none");
 
-    // 5. Player dots (main map)
+    // 5. Player dots — D3 data join for enter/exit transitions
     const maxTotal = d3.max(dots, (d) => d.total) || 1;
     const rScale = d3.scaleSqrt().domain([1, Math.max(maxTotal, 2)]).range([3, 12]);
-    const dotPositions = [];
 
-    if (dots.length > 0) {
-      const dotG = svg.append("g");
+    // Compute projected positions
+    const dotData = dots.map((d) => {
+      const pt = projection([d.lon, d.lat]);
+      return pt ? { ...d, px: pt[0], py: pt[1], r: rScale(d.total) } : null;
+    }).filter(Boolean);
 
-      for (const d of dots) {
-        const pt = projection([d.lon, d.lat]);
-        if (!pt) continue;
-        const r = rScale(d.total);
-        dotPositions.push({ x: pt[0], y: pt[1], r, code: d.code });
-      }
+    // Build dotPositions for label placement
+    const dotPositions = dotData.map((d) => ({ x: d.px, y: d.py, r: d.r, code: d.code }));
 
-      dotG.selectAll("circle.player-dot")
-        .data(dots)
-        .join("circle")
-        .attr("class", "player-dot")
-        .attr("cx", (d) => projection([d.lon, d.lat])?.[0])
-        .attr("cy", (d) => projection([d.lon, d.lat])?.[1])
-        .attr("r", (d) => rScale(d.total))
-        .attr("fill", "var(--gold, #fcdb33)")
-        .attr("fill-opacity", 0.7)
-        .attr("stroke", "var(--gold, #fcdb33)")
-        .attr("stroke-opacity", 0.3)
-        .attr("stroke-width", 1);
+    // Ensure dot group exists and is above the static layer
+    let dotG = svg.select(".dot-group");
+    if (dotG.empty()) {
+      dotG = svg.append("g").attr("class", "dot-group");
+    }
+    dotG.raise();
+
+    const dotSel = dotG.selectAll("circle.map-dot")
+      .data(dotData, (d) => d.code);
+
+    // Exit — fade out
+    dotSel.exit()
+      .transition().duration(1500).ease(d3.easeCubicIn)
+      .attr("r", 0)
+      .attr("opacity", 0)
+      .remove();
+
+    // Update — move smoothly
+    dotSel.transition().duration(1000).ease(d3.easeSinInOut)
+      .attr("cx", (d) => d.px)
+      .attr("cy", (d) => d.py)
+      .attr("r", (d) => d.r);
+
+    // Build a map of country code → top player name for enter labels
+    const countryTopPlayer = new Map();
+    for (const p of labelCandidates) {
+      const code = p.country.toUpperCase();
+      if (!countryTopPlayer.has(code)) countryTopPlayer.set(code, p.name);
     }
 
-    // 6. Main map labels — non-European players only (Europe handled by inset)
-    const mainCandidates = labelCandidates.filter((p) => !EU_CODES.has(p.country.toUpperCase()));
-    const mainDotPositions = dotPositions.filter((d) => !EU_CODES.has(d.code));
-    const labelG = svg.append("g").attr("pointer-events", "none");
+    // Enter label group — lives above dots, cleared on each render
+    svg.selectAll(".enter-label-layer").remove();
+    const enterLabelG = svg.append("g").attr("class", "enter-label-layer").attr("pointer-events", "none");
+
+    // Track entering country codes to avoid double labels with static labels
+    const enteringCodes = new Set();
+    dotSel.enter().each(function (d) { enteringCodes.add(d.code); });
+
+    // Enter — staggered west→east, grow in with glow pulse + floating name label
+    const enteringDots = dotSel.enter()
+      .append("circle")
+      .attr("class", "map-dot")
+      .attr("cx", (d) => d.px)
+      .attr("cy", (d) => d.py)
+      .attr("r", 0)
+      .attr("fill", DOT_COLOR)
+      .attr("stroke", "rgba(255, 255, 255, 0.3)")
+      .attr("stroke-width", 0.5)
+      .attr("opacity", 0)
+      .each(function (d) {
+        const name = countryTopPlayer.get(d.code);
+        if (!name) return;
+        enterLabelG.append("text")
+          .attr("class", `enter-label-${d.code}`)
+          .attr("x", Math.round(d.px + d.r + 6))
+          .attr("y", Math.round(d.py + 4))
+          .attr("fill", "rgba(255, 255, 255, 0.8)")
+          .attr("font-size", `${LABEL_FONT_SIZE}px`)
+          .attr("font-family", "var(--font-display)")
+          .attr("opacity", 0)
+          .text(name);
+      });
+
+    // Stagger: spread entries over ~1200ms west→east (by screen x position)
+    const isBulkEnter = enteringDots.size() > 3;
+    const enterStagger = (d) => isBulkEnter ? Math.max(0, Math.min(1, d.px / width)) * 1200 : 0;
+
+    enteringDots
+      .transition().delay(enterStagger).duration(2000).ease(d3.easeCubicOut)
+      .attr("r", (d) => d.r)
+      .attr("opacity", 1)
+      .each(function (d) {
+        enterLabelG.select(`.enter-label-${d.code}`)
+          .transition().duration(800)
+          .attr("opacity", 1);
+      })
+      .transition().duration(600)
+      .attr("stroke", "rgba(255, 255, 255, 0.6)")
+      .attr("stroke-width", 2)
+      .transition().duration(800)
+      .attr("stroke", "rgba(255, 255, 255, 0.3)")
+      .attr("stroke-width", 0.5)
+      .on("end", function (d) {
+        enterLabelG.select(`.enter-label-${d.code}`)
+          .transition().delay(5000).duration(1500)
+          .attr("opacity", 0)
+          .remove();
+      });
+
+    // 6. Per-player enter/exit animations
+    const currentPlayerMap = new Map();
+    for (const p of (players || [])) {
+      if (p.battleTag && p.country) {
+        currentPlayerMap.set(p.battleTag, { country: p.country.toUpperCase(), name: p.name || p.battleTag.split("#")[0] });
+      }
+    }
+    const isFirstRender = prevPlayersRef.current === null;
+    const prevMap = prevPlayersRef.current || new Map();
+    prevPlayersRef.current = currentPlayerMap;
+
+    if (!isFirstRender) {
+      // Ensure event layer exists (persists across renders)
+      let eventG = svg.select(".player-event-layer");
+      if (eventG.empty()) eventG = svg.append("g").attr("class", "player-event-layer").attr("pointer-events", "none");
+      eventG.raise();
+
+      // Player exits — name drifts up and fades
+      for (const [tag, info] of prevMap) {
+        if (currentPlayerMap.has(tag)) continue;
+        const coords = countryCentroids[info.country];
+        if (!coords) continue;
+        const pt = projection([coords[0], coords[1]]);
+        if (!pt) continue;
+
+        eventG.append("text")
+          .attr("x", Math.round(pt[0] + 8))
+          .attr("y", Math.round(pt[1] + 4))
+          .attr("fill", "rgba(255, 255, 255, 0.7)")
+          .attr("font-size", `${LABEL_FONT_SIZE}px`)
+          .attr("font-family", "var(--font-display)")
+          .attr("opacity", 0.8)
+          .text(info.name)
+          .transition().duration(2500).ease(d3.easeCubicOut)
+          .attr("y", pt[1] - 20)
+          .attr("opacity", 0)
+          .remove();
+      }
+
+      // Player enters at existing countries — ripple + gold name label
+      const prevCountries = new Set([...prevMap.values()].map((v) => v.country));
+      for (const [tag, info] of currentPlayerMap) {
+        if (prevMap.has(tag)) continue;
+        if (!prevCountries.has(info.country)) continue; // new country handled by dot enter
+        const coords = countryCentroids[info.country];
+        if (!coords) continue;
+        const pt = projection([coords[0], coords[1]]);
+        if (!pt) continue;
+        const [px, py] = pt;
+
+        // Expanding ripple ring
+        eventG.append("circle")
+          .attr("cx", px).attr("cy", py)
+          .attr("r", 3)
+          .attr("fill", "none")
+          .attr("stroke", "rgba(255, 255, 255, 0.9)")
+          .attr("stroke-width", 2)
+          .attr("opacity", 1)
+          .transition().duration(1200).ease(d3.easeCubicOut)
+          .attr("r", 24)
+          .attr("stroke-width", 0.5)
+          .attr("opacity", 0)
+          .remove();
+
+        // Bright flash dot at entry point
+        eventG.append("circle")
+          .attr("cx", px).attr("cy", py)
+          .attr("r", 2)
+          .attr("fill", "rgba(255, 255, 255, 0.9)")
+          .attr("opacity", 1)
+          .transition().duration(600).ease(d3.easeCubicOut)
+          .attr("r", 6)
+          .transition().duration(1000)
+          .attr("r", 0)
+          .attr("opacity", 0)
+          .remove();
+
+        // Gold name label
+        eventG.append("text")
+          .attr("x", Math.round(px + 10))
+          .attr("y", Math.round(py + 4))
+          .attr("fill", "var(--gold)")
+          .attr("font-size", `${LABEL_FONT_SIZE + 1}px`)
+          .attr("font-family", "var(--font-display)")
+          .attr("opacity", 0)
+          .text(info.name)
+          .transition().duration(600)
+          .attr("opacity", 1)
+          .transition().delay(5000).duration(1500)
+          .attr("opacity", 0)
+          .remove();
+      }
+    }
+
+    // 7. Player name labels — skip countries with active enter labels to avoid doubling
+    const labelG = svg.append("g").attr("class", "label-layer").attr("pointer-events", "none");
+    const staticCandidates = enteringCodes.size > 0
+      ? labelCandidates.filter((p) => !enteringCodes.has(p.country.toUpperCase()))
+      : labelCandidates;
     const placedLabels = placeLabels(
-      labelG, mainCandidates, mainDotPositions, [],
+      labelG, staticCandidates, dotPositions, [],
       { left: 0, top: 0, right: width, bottom: height },
       LABEL_FONT_SIZE,
     );
 
-    // 7. Europe inset — bottom-left corner
-    const euDots = dots.filter((d) => EU_CODES.has(d.code));
-    if (euDots.length > 0) {
-      const insetW = Math.min(width * 0.42, 360);
-      const insetH = Math.min(height * 0.65, 300);
-      const insetX = 6;
-      const insetY = height - insetH - 22;
-      const insetPad = 10;
-
-      // Inset background
-      svg.append("rect")
-        .attr("x", insetX)
-        .attr("y", insetY)
-        .attr("width", insetW)
-        .attr("height", insetH)
-        .attr("fill", "rgba(8, 8, 12, 0.7)")
-        .attr("stroke", "rgba(255, 255, 255, 0.1)")
-        .attr("stroke-width", 0.5)
-        .attr("rx", 4);
-
-      // Europe projection — fitExtent with absolute inset coordinates
-      const euProjection = d3.geoMercator()
-        .fitExtent(
-          [[insetX + insetPad, insetY + insetPad], [insetX + insetW - insetPad, insetY + insetH - insetPad]],
-          EU_BOUNDS,
-        )
-        .clipExtent([[insetX, insetY], [insetX + insetW, insetY + insetH]]);
-
-      const euPath = d3.geoPath(euProjection);
-
-      // Inset land
-      const euLandG = svg.append("g");
-      euLandG.selectAll("path")
-        .data(worldData.features)
-        .join("path")
-        .attr("d", euPath)
-        .attr("fill", "rgba(60, 60, 55, 0.5)")
-        .attr("stroke", "rgba(100, 100, 90, 0.3)")
-        .attr("stroke-width", 0.3);
-
-      // Inset night overlay
-      svg.append("path")
-        .datum(nightCircle)
-        .attr("class", "night-overlay-eu")
-        .attr("d", euPath)
-        .attr("fill", "rgba(0, 0, 0, 0.3)")
-        .attr("stroke", "none");
-
-      // Inset dots
-      const euRScale = d3.scaleSqrt().domain([1, Math.max(maxTotal, 2)]).range([2, 8]);
-      const euDotPositions = [];
-      const euDotG = svg.append("g");
-
-      for (const d of euDots) {
-        const pt = euProjection([d.lon, d.lat]);
-        if (!pt) continue;
-        if (pt[0] < insetX || pt[0] > insetX + insetW || pt[1] < insetY || pt[1] > insetY + insetH) continue;
-        const r = euRScale(d.total);
-        euDotPositions.push({ x: pt[0], y: pt[1], r, code: d.code });
-      }
-
-      euDotG.selectAll("circle.eu-dot")
-        .data(euDots)
-        .join("circle")
-        .attr("cx", (d) => euProjection([d.lon, d.lat])?.[0])
-        .attr("cy", (d) => euProjection([d.lon, d.lat])?.[1])
-        .attr("r", (d) => euRScale(d.total))
-        .attr("fill", "var(--gold, #fcdb33)")
-        .attr("fill-opacity", 0.7)
-        .attr("stroke", "var(--gold, #fcdb33)")
-        .attr("stroke-opacity", 0.3)
-        .attr("stroke-width", 0.5);
-
-      // Inset labels
-      const euCandidates = labelCandidates.filter((p) => EU_CODES.has(p.country.toUpperCase()));
-      const euLabelG = svg.append("g").attr("pointer-events", "none");
-      placeLabels(
-        euLabelG, euCandidates, euDotPositions, [],
-        { left: insetX + 2, top: insetY + 2, right: insetX + insetW - 2, bottom: insetY + insetH - 2 },
-        10,
-      );
-
-      // "EUROPE" label
-      svg.append("text")
-        .attr("x", insetX + 6)
-        .attr("y", insetY + 12)
-        .attr("fill", "rgba(255, 255, 255, 0.3)")
-        .attr("font-size", "9px")
-        .attr("font-family", "var(--font-mono)")
-        .attr("letter-spacing", "0.1em")
-        .text("EUROPE");
-
-      // Connector line from inset to Europe on main map
-      const euCenter = projection([15, 50]);
-      if (euCenter) {
-        svg.append("line")
-          .attr("x1", insetX + insetW)
-          .attr("y1", insetY + insetH / 2)
-          .attr("x2", euCenter[0])
-          .attr("y2", euCenter[1])
-          .attr("stroke", "rgba(255, 255, 255, 0.08)")
-          .attr("stroke-width", 0.5)
-          .attr("stroke-dasharray", "3,3");
-      }
-    }
-
-    // 8. Time zone labels along bottom
-    const timeG = svg.append("g").attr("pointer-events", "none");
+    // 7. Time zone labels along bottom
+    const timeG = svg.append("g").attr("class", "time-layer").attr("pointer-events", "none");
     const placedTimeLabels = [];
     for (const tz of TIME_ZONES) {
-      const pt = projection([tz.lon, tz.lat]);
+      const pt = projection([tz.lon, LAT_SOUTH + 2]);
       if (!pt) continue;
       const [tx, ty] = pt;
       if (tx < 10 || tx > width - 10 || ty > height) continue;
@@ -430,7 +493,7 @@ const WorldMap = ({ playerCountries, players = [] }) => {
         .text(timeStr);
     }
 
-  }, [dimensions, worldData, dots, labelCandidates]);
+  }, [introReady, dimensions, worldData, dots, labelCandidates, players]);
 
   // Update terminator every 60s
   useEffect(() => {
@@ -446,22 +509,6 @@ const WorldMap = ({ playerCountries, players = [] }) => {
       const nightCircle = d3.geoCircle().center(antipode).radius(90)();
 
       svg.select(".night-overlay").attr("d", path(nightCircle));
-      // Also update the inset night overlay if it exists
-      svg.select(".night-overlay-eu").each(function () {
-        const { width, height } = dimensions;
-        const insetW = Math.min(width * 0.42, 360);
-        const insetH = Math.min(height * 0.65, 300);
-        const insetX = 6;
-        const insetY = height - insetH - 22;
-        const insetPad = 10;
-        const euProj = d3.geoMercator()
-          .fitExtent(
-            [[insetX + insetPad, insetY + insetPad], [insetX + insetW - insetPad, insetY + insetH - insetPad]],
-            EU_BOUNDS,
-          )
-          .clipExtent([[insetX, insetY], [insetX + insetW, insetY + insetH]]);
-        d3.select(this).attr("d", d3.geoPath(euProj)(nightCircle));
-      });
     }, 60000);
 
     return () => clearInterval(interval);

@@ -1,5 +1,5 @@
 /* ========================================
-   Home Page Layout
+   Home Page Layout — 3 columns: Map | MMR | Events
    ======================================== */
 
 .home {
@@ -11,10 +11,10 @@
   overflow: hidden;
 }
 
-/* World Map panel — takes ~70% of the horizontal space */
+/* World Map panel */
 .home-world-map {
-  flex: 2.5;
-  min-width: 400px;
+  flex: 2;
+  min-width: 360px;
   padding: var(--space-2);
   display: flex;
   flex-direction: column;
@@ -30,12 +30,12 @@
   padding: var(--space-4) var(--space-6);
 }
 
-/* ── MMR Chart (narrow sidebar on right) ────── */
+/* ── MMR Chart ────────────────────────── */
 
 .home-mmr-chart {
   flex: 1;
-  min-width: 240px;
-  max-width: 320px;
+  min-width: 280px;
+  max-width: 420px;
   display: flex;
   flex-direction: column;
   padding-bottom: var(--space-2);
@@ -45,6 +45,88 @@
   position: relative;
   flex: 1;
   min-height: 0;
+}
+
+/* ── Events Feed ──────────────────────── */
+
+.home-events {
+  flex: 0.6;
+  min-width: 160px;
+  max-width: 220px;
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+  padding: var(--space-4) var(--space-4);
+}
+
+.event-feed-list {
+  flex: 1;
+  overflow-y: auto;
+  min-height: 0;
+}
+
+.event-feed-list::-webkit-scrollbar {
+  width: 3px;
+}
+
+.event-feed-list::-webkit-scrollbar-thumb {
+  background: rgba(255, 255, 255, 0.1);
+  border-radius: 2px;
+}
+
+.event-item {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  padding: 4px 0;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.03);
+  font-family: var(--font-mono);
+  font-size: 11px;
+  color: var(--grey-light);
+  line-height: 1.3;
+}
+
+.event-dot {
+  width: 5px;
+  height: 5px;
+  border-radius: 50%;
+  flex-shrink: 0;
+}
+
+.event-dot.event-join {
+  background: var(--green);
+}
+
+.event-dot.event-leave {
+  background: var(--red);
+}
+
+.event-dot.event-game_start {
+  background: var(--gold);
+}
+
+.event-dot.event-game_end {
+  background: var(--grey-mid);
+}
+
+.event-text {
+  flex: 1;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.event-name {
+  font-family: var(--font-display);
+  color: #fff;
+}
+
+.event-time {
+  margin-left: auto;
+  color: var(--grey-mid);
+  font-size: 10px;
+  flex-shrink: 0;
 }
 
 /* ── Section headers ───────────────────────────────── */
@@ -101,6 +183,13 @@
     max-width: none;
     min-height: 200px;
   }
+
+  .home-events {
+    flex: none;
+    min-width: auto;
+    max-width: none;
+    max-height: 200px;
+  }
 }
 
 @media (max-width: 768px) {
@@ -119,5 +208,9 @@
 
   .home-mmr-chart {
     min-height: 160px;
+  }
+
+  .home-events {
+    max-height: 160px;
   }
 }

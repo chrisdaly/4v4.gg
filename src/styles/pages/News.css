@@ -306,6 +306,26 @@
   font-family: var(--font-display);
 }
 
+.digest-match-link {
+  color: var(--gold);
+  font-family: var(--font-mono);
+  font-size: var(--text-xs);
+  text-decoration: underline;
+  text-decoration-style: dotted;
+  text-underline-offset: 2px;
+  opacity: 0.8;
+}
+
+.digest-match-link:hover {
+  opacity: 1;
+}
+
+.digest-quote {
+  color: var(--grey-light);
+  font-style: italic;
+  opacity: 0.85;
+}
+
 /* ── Mobile ────────────────────────────────────────── */
 
 @media (max-width: 768px) {

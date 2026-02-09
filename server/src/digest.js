@@ -199,8 +199,8 @@ function buildDigestPrompt(messages, matchSummaries, soFar = false) {
   return `Summarize this Warcraft III 4v4 chat room's day${soFar ? ' SO FAR' : ''}. Write a SHORT digest with these sections (skip if nothing fits):
 
 TOPICS: 2-5 comma-separated keywords (e.g., "balance patch, undead meta, map pool, tower rush")
-DRAMA: Only BIG accusations or heated personal attacks (cheating, boosting, griefing). Max 2 items. Each item ONE short line. Do NOT include anything that belongs in BANS. Skip mild disagreements about strategy/positioning.
-BANS: Who got banned, duration, reason, appeals (skip if none); semicolon-separated
+DRAMA: Only BIG accusations, threats, or heated personal attacks (cheating, boosting, griefing, flaming). Max 2 items separated by semicolons. For each item: start with a one-line summary, then on the SAME line include 1-2 direct quotes from the chat log in double quotes showing the worst/most heated things said. Example format: "PlayerA made threats toward PlayerB — \"I will destroy your account\" \"you are garbage and should uninstall\""
+BANS: Who got banned, duration, reason (skip if none); semicolon-separated. Include the match ID if mentioned.
 HIGHLIGHTS: Funniest moments or best burns (1-2 items, semicolon-separated)
 
 Rules:
@@ -208,12 +208,12 @@ Rules:
 - TOPICS must be short comma-separated tags, not sentences
 - CRITICAL: Use EXACT player names as they appear in the chat log. Never shorten or abbreviate names. The player list is: ${names.join(', ')}
 - Prioritize high-MMR players (1800+) — their drama and interactions are more interesting
-- DRAMA items must be brief: "PlayerA accused PlayerB of X" — no elaboration
-- BANS and DRAMA must not overlap — if someone got banned, put it in BANS only
+- DRAMA: Include actual quotes from the chat log to show what was said. The juicier the better — we want to see exactly what people said. Do NOT sanitize or soften the language.
+- BANS and DRAMA must not overlap — if someone got banned, put it in BANS only, not in DRAMA
 - State facts only, no commentary (no "classic", "brutal", "chaos", etc)
 - ASCII only
 - DRAMA max 2 items, HIGHLIGHTS max 2 items, BANS max 2 items
-- Total under 500 chars
+- Total under 700 chars
 ${matchContext}
 Chat log (${messages.length} messages):
 ${log}`;

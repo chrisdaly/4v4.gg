@@ -64,22 +64,49 @@ const parseStatLine = (content) => {
   };
 };
 
-const highlightNames = (text, nameSet) => {
-  if (!nameSet || nameSet.size === 0) return [text];
-  const names = [...nameSet].sort((a, b) => b.length - a.length);
-  const escaped = names.map((n) => n.replace(/[.*+?^${}()|[\]\\]/g, "\\$&"));
-  const re = new RegExp(`\\b(${escaped.join("|")})\\b`, "gi");
+const MATCH_ID_RE = /\b([a-f0-9]{24})\b/g;
+
+const linkifyMatchIds = (text) => {
   const parts = [];
   let last = 0;
-  for (const match of text.matchAll(re)) {
+  for (const match of text.matchAll(MATCH_ID_RE)) {
     if (match.index > last) parts.push(text.slice(last, match.index));
     parts.push(
-      <span key={match.index} className="digest-name">{match[0]}</span>
+      <Link key={`m${match.index}`} to={`/match/${match[1]}`} className="digest-match-link">match</Link>
     );
     last = match.index + match[0].length;
   }
   if (last < text.length) parts.push(text.slice(last));
-  return parts;
+  return parts.length > 0 ? parts : [text];
+};
+
+const highlightNames = (text, nameSet) => {
+  // First pass: linkify match IDs
+  const chunks = linkifyMatchIds(text);
+
+  if (!nameSet || nameSet.size === 0) return chunks;
+  const names = [...nameSet].sort((a, b) => b.length - a.length);
+  const escaped = names.map((n) => n.replace(/[.*+?^${}()|[\]\\]/g, "\\$&"));
+  const re = new RegExp(`\\b(${escaped.join("|")})\\b`, "gi");
+
+  // Second pass: highlight names within string chunks only
+  const result = [];
+  for (const chunk of chunks) {
+    if (typeof chunk !== "string") {
+      result.push(chunk);
+      continue;
+    }
+    let last = 0;
+    for (const match of chunk.matchAll(re)) {
+      if (match.index > last) result.push(chunk.slice(last, match.index));
+      result.push(
+        <span key={match.index} className="digest-name">{match[0]}</span>
+      );
+      last = match.index + match[0].length;
+    }
+    if (last < chunk.length) result.push(chunk.slice(last));
+  }
+  return result;
 };
 
 const extractMentionedTags = (text, nameToTag) => {
@@ -182,10 +209,28 @@ const DigestBanner = ({ digest, nameSet, nameToTag, label = "Yesterday in 4v4", 
     return merged;
   }, [mentionsMap, nameToTag]);
 
-  const sections = useMemo(
-    () => allSections.filter((s) => s.key !== "MENTIONS"),
-    [allSections],
-  );
+  const sections = useMemo(() => {
+    const visible = allSections.filter((s) => s.key !== "MENTIONS");
+    // Dedup: collect names mentioned in BANS, remove DRAMA items about banned players
+    const bansSection = visible.find((s) => s.key === "BANS");
+    if (!bansSection) return visible;
+    const bannedNames = new Set();
+    for (const [name] of combinedNameToTag) {
+      if (bansSection.content.toLowerCase().includes(name.toLowerCase())) {
+        bannedNames.add(name.toLowerCase());
+      }
+    }
+    if (bannedNames.size === 0) return visible;
+    return visible.map((s) => {
+      if (s.key !== "DRAMA") return s;
+      const items = s.content.split(/;\s*/).filter((item) => {
+        const lower = item.toLowerCase();
+        return ![...bannedNames].some((n) => lower.includes(n));
+      });
+      if (items.length === 0) return null;
+      return { ...s, content: items.join("; ") };
+    }).filter(Boolean);
+  }, [allSections, combinedNameToTag]);
 
   const combinedNameSet = useMemo(() => {
     const names = new Set(nameSet);

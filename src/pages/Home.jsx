@@ -1,6 +1,7 @@
 import React, { useState, useEffect, useRef, useMemo, useCallback } from "react";
 import { useHistory } from "react-router-dom";
 import useChatStream from "../lib/useChatStream";
+import useFakeData from "../lib/useFakeData";
 import { getOngoingMatches, getOngoingMatchesCached, getPlayerStats, getPlayerProfile, getLadder } from "../lib/api";
 import { calculateTeamMMR } from "../lib/utils";
 import OnlineMmrStrip from "../components/OnlineMmrStrip";
@@ -19,6 +20,39 @@ const getInitialData = () => {
   if (cached?.matches) return sortByMMR(cached.matches);
   return null;
 };
+
+/* ── EventFeed (activity log) ─────────────────────────── */
+
+const formatEventTime = (time) => {
+  const h = time.getHours();
+  const m = time.getMinutes();
+  return `${h}:${m < 10 ? "0" + m : m}`;
+};
+
+const EventFeed = ({ events }) => (
+  <div className="home-panel home-events">
+    <div className="home-section-header">
+      <span className="home-section-title">Activity</span>
+    </div>
+    <div className="event-feed-list">
+      {events.map((e, i) => (
+        <div key={`${e.type}-${e.time.getTime()}-${i}`} className="event-item">
+          <span className={`event-dot event-${e.type}`} />
+          <span className="event-text">
+            {e.type === "join" && <><span className="event-name">{e.player}</span> joined</>}
+            {e.type === "leave" && <><span className="event-name">{e.player}</span> left</>}
+            {e.type === "game_start" && (
+              <><span className="event-name">{e.players.slice(0, 2).join(", ")}</span>
+              {e.players.length > 2 ? ` +${e.players.length - 2}` : ""} started</>
+            )}
+            {e.type === "game_end" && <>Game ended</>}
+          </span>
+          <span className="event-time">{formatEventTime(e.time)}</span>
+        </div>
+      ))}
+    </div>
+  </div>
+);
 
 /* ── MmrChart (fills remaining space) ─────────────────── */
 
@@ -52,29 +86,40 @@ const MmrChart = ({ players, matches, count, histogram }) => {
 /* ── Home Page ─────────────────────────────────────────── */
 
 const Home = () => {
-  const { onlineUsers } = useChatStream();
-  const [matches, setMatches] = useState(getInitialData);
-  const [playerStats, setPlayerStats] = useState(new Map());
-  const [playerProfiles, setPlayerProfiles] = useState(new Map());
-  const [histogram, setHistogram] = useState(null);
+  const isDemo = useMemo(() => new URLSearchParams(window.location.search).has("demo"), []);
+  const fake = useFakeData(isDemo);
+  const { onlineUsers: chatUsers } = useChatStream();
+  const [realMatches, setRealMatches] = useState(getInitialData);
+  const [realStats, setRealStats] = useState(new Map());
+  const [realProfiles, setRealProfiles] = useState(new Map());
+  const [realHistogram, setRealHistogram] = useState(null);
   const fetchedRef = useRef(new Set());
   const profileFetchedRef = useRef(new Set());
 
-  // Fetch live games
+  // Demo mode overrides real data sources
+  const onlineUsers = isDemo ? fake.onlineUsers : chatUsers;
+  const matches = isDemo ? fake.matches : realMatches;
+  const playerStats = isDemo ? fake.playerStats : realStats;
+  const playerProfiles = isDemo ? fake.playerProfiles : realProfiles;
+  const histogram = isDemo ? fake.histogram : realHistogram;
+
+  // Fetch live games (skip in demo mode)
   useEffect(() => {
+    if (isDemo) return;
     const fetchMatches = async () => {
       try {
         const data = await getOngoingMatches();
-        setMatches(sortByMMR(data.matches));
+        setRealMatches(sortByMMR(data.matches));
       } catch {}
     };
     fetchMatches();
     const interval = setInterval(fetchMatches, 30000);
     return () => clearInterval(interval);
-  }, []);
+  }, [isDemo]);
 
-  // Fetch ladder histogram (all 7 leagues, runs once)
+  // Fetch ladder histogram (skip in demo mode)
   useEffect(() => {
+    if (isDemo) return;
     Promise.all([0, 1, 2, 3, 4, 5, 6].map((id) => getLadder(id)))
       .then((results) => {
         const allMmrs = results.flat().map((e) => e?.player?.mmr).filter((m) => m != null && m > 0);
@@ -87,20 +132,21 @@ const Home = () => {
           const count = allMmrs.filter((m) => m >= v && m < v + bucketSize).length;
           bins.push({ mmr: v + bucketSize / 2, count });
         }
-        setHistogram(bins);
+        setRealHistogram(bins);
       })
       .catch(() => {});
-  }, []);
+  }, [isDemo]);
 
-  // Fetch player stats incrementally
+  // Fetch player stats incrementally (skip in demo mode)
   useEffect(() => {
+    if (isDemo) return;
     for (const u of onlineUsers) {
       const tag = u.battleTag;
       if (!tag || fetchedRef.current.has(tag)) continue;
       fetchedRef.current.add(tag);
       getPlayerStats(tag).then((stats) => {
         if (stats) {
-          setPlayerStats((prev) => {
+          setRealStats((prev) => {
             const next = new Map(prev);
             next.set(tag, stats);
             return next;
@@ -108,10 +154,11 @@ const Home = () => {
         }
       });
     }
-  }, [onlineUsers]);
+  }, [onlineUsers, isDemo]);
 
-  // Fetch player profiles incrementally (for country data → WorldMap)
+  // Fetch player profiles incrementally (skip in demo mode)
   useEffect(() => {
+    if (isDemo) return;
     const tags = new Set();
     for (const u of onlineUsers) {
       if (u.battleTag) tags.add(u.battleTag);
@@ -130,7 +177,7 @@ const Home = () => {
       profileFetchedRef.current.add(tag);
       getPlayerProfile(tag).then((profile) => {
         if (profile?.country) {
-          setPlayerProfiles((prev) => {
+          setRealProfiles((prev) => {
             const next = new Map(prev);
             next.set(tag, profile.country);
             return next;
@@ -138,7 +185,7 @@ const Home = () => {
         }
       });
     }
-  }, [onlineUsers, matches]);
+  }, [onlineUsers, matches, isDemo]);
 
   // Derive playerCountries: Map<countryCode, { online, inGame }>
   const playerCountries = useMemo(() => {
@@ -156,17 +203,19 @@ const Home = () => {
     const countries = new Map();
     for (const [tag, country] of playerProfiles) {
       if (!country) continue;
+      if (!onlineTags.has(tag) && !inGameTags.has(tag)) continue; // skip offline
       const code = country.toUpperCase();
       if (!countries.has(code)) countries.set(code, { online: 0, inGame: 0 });
       const entry = countries.get(code);
       if (inGameTags.has(tag)) entry.inGame++;
-      else if (onlineTags.has(tag)) entry.online++;
+      else entry.online++;
     }
     return countries;
   }, [playerProfiles, onlineUsers, matches]);
 
-  // Build per-player list with country + MMR for map labels
+  // Build per-player list with country + MMR for map labels (active players only)
   const mapPlayers = useMemo(() => {
+    const onlineTags = new Set(onlineUsers.map((u) => u.battleTag).filter(Boolean));
     const inGameTags = new Set();
     if (matches) {
       for (const match of matches) {
@@ -180,6 +229,7 @@ const Home = () => {
     const result = [];
     for (const [tag, country] of playerProfiles) {
       if (!country) continue;
+      if (!onlineTags.has(tag) && !inGameTags.has(tag)) continue; // skip offline
       const stats = playerStats.get(tag);
       const mmr = stats?.mmr ?? null;
       result.push({
@@ -191,7 +241,7 @@ const Home = () => {
       });
     }
     return result;
-  }, [playerProfiles, playerStats, matches]);
+  }, [playerProfiles, playerStats, matches, onlineUsers]);
 
   // Derive players with stats (sorted by MMR)
   const playersWithStats = useMemo(() => {
@@ -210,6 +260,59 @@ const Home = () => {
       })
       .sort((a, b) => (b.mmr ?? 0) - (a.mmr ?? 0));
   }, [onlineUsers, playerStats]);
+
+  // ── Event tracking: diff onlineUsers + matches to detect join/leave/game events ──
+  const [events, setEvents] = useState([]);
+  const prevOnlineRef = useRef(null); // null = first render
+  const prevMatchIdsRef = useRef(new Set());
+
+  useEffect(() => {
+    const currentTags = new Set(onlineUsers.map((u) => u.battleTag).filter(Boolean));
+    const currentMatchIds = new Set((matches || []).map((m) => m.id));
+
+    // First render: set baseline, no events
+    if (prevOnlineRef.current === null) {
+      prevOnlineRef.current = currentTags;
+      prevMatchIdsRef.current = currentMatchIds;
+      return;
+    }
+
+    const now = new Date();
+    const newEvents = [];
+
+    // Joins
+    for (const tag of currentTags) {
+      if (!prevOnlineRef.current.has(tag)) {
+        newEvents.push({ type: "join", player: tag.split("#")[0], tag, time: now });
+      }
+    }
+    // Leaves
+    for (const tag of prevOnlineRef.current) {
+      if (!currentTags.has(tag)) {
+        newEvents.push({ type: "leave", player: tag.split("#")[0], tag, time: now });
+      }
+    }
+    // New matches
+    for (const match of (matches || [])) {
+      if (!prevMatchIdsRef.current.has(match.id)) {
+        const players = match.teams?.flatMap((t) => t.players?.map((p) => p.battleTag?.split("#")[0]).filter(Boolean) || []) || [];
+        newEvents.push({ type: "game_start", players, matchId: match.id, time: now });
+      }
+    }
+    // Ended matches
+    for (const id of prevMatchIdsRef.current) {
+      if (!currentMatchIds.has(id)) {
+        newEvents.push({ type: "game_end", matchId: id, time: now });
+      }
+    }
+
+    prevOnlineRef.current = currentTags;
+    prevMatchIdsRef.current = currentMatchIds;
+
+    if (newEvents.length > 0) {
+      setEvents((prev) => [...newEvents, ...prev].slice(0, 100));
+    }
+  }, [onlineUsers, matches]);
 
   const stripPlayers = useMemo(() => {
     const online = playersWithStats.filter((p) => p.mmr != null);
@@ -250,6 +353,7 @@ const Home = () => {
       {stripPlayers.length > 0 && (
         <MmrChart players={stripPlayers} matches={matches} count={onlineUsers.length} histogram={histogram} />
       )}
+      <EventFeed events={events} />
     </div>
   );
 };
