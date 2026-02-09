@@ -8,11 +8,14 @@
   align-items: stretch;
   gap: var(--space-4);
   padding: var(--space-4);
-  background: var(--surface-1);
-  border: 1px solid transparent;
+  background: var(--theme-bg, var(--surface-1));
+  border: var(--theme-border, 1px solid transparent);
+  border-image: var(--theme-border-image, none);
   border-radius: var(--radius-md);
   text-decoration: none;
   transition: all 0.2s;
+  backdrop-filter: var(--theme-blur, none);
+  box-shadow: var(--theme-shadow, none);
 }
 
 .game-card.gc-won {

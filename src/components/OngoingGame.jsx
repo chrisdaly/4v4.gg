@@ -1,9 +1,8 @@
 import React, { useState, useEffect } from "react";
 import Game from "./Game";
-import { processOngoingGameData, fetchPlayerSessionData } from "../lib/utils";
-import { getPlayerProfile } from "../lib/api";
+import { processOngoingGameData } from "../lib/utils";
 import { cache } from "../lib/cache";
-import { getLiveStreamers } from "../lib/twitchService";
+import { enrichPlayerData } from "../lib/gameDataUtils";
 
 // Get cached player data for a match
 const getCachedMatchPlayerData = (matchId) => {
@@ -24,8 +23,9 @@ const OnGoingGame = ({ ongoingGameData, compact, streamerTag }) => {
   const [isLoading, setIsLoading] = useState(!cachedData);
 
   useEffect(() => {
-    const processedData = preprocessMatchData(ongoingGameData);
-    const { playerData: newPlayerData, metaData: newMetaData } = processedData;
+    if (!ongoingGameData) return;
+
+    const { playerData: newPlayerData, metaData: newMetaData } = processOngoingGameData(ongoingGameData);
     setPlayerData(newPlayerData);
     setMetaData(newMetaData);
 
@@ -36,79 +36,27 @@ const OnGoingGame = ({ ongoingGameData, compact, streamerTag }) => {
     fetchRemainingPlayerData(newPlayerData);
   }, [ongoingGameData]);
 
-  const preprocessMatchData = (ongoingGameData) => {
-    if (!ongoingGameData) {
-      throw new Error("Invalid match data format");
-    }
-    return processOngoingGameData(ongoingGameData);
-  };
-
   const fetchRemainingPlayerData = async (processedData) => {
     try {
-      const promises = processedData.map(async (playerData) => {
-        const { battleTag, race, location } = playerData;
-        // Use consolidated profile fetch (single API call for pic, twitch, country)
-        const [profile, sessionInfo] = await Promise.all([
-          getPlayerProfile(battleTag),
-          fetchPlayerSessionData(battleTag, race),
-        ]);
-        return {
-          ...playerData,
-          profilePicUrl: profile.profilePicUrl,
-          twitch: profile.twitch,
-          // Use profile country if set, otherwise fall back to match location (IP-based)
-          country: profile.country || location,
-          sessionInfo
-        };
+      const result = await enrichPlayerData(processedData, {
+        fetchSessions: true,
+        fetchTwitchStatus: true,
       });
-      const updatedData = await Promise.all(promises);
 
-      const newProfilePics = updatedData.reduce((acc, curr) => {
-        acc[curr.battleTag] = curr.profilePicUrl;
-        return acc;
-      }, {});
-      const newCountries = updatedData.reduce((acc, curr) => {
-        acc[curr.battleTag] = curr.country;
-        return acc;
-      }, {});
-      const newSessions = updatedData.reduce((acc, curr) => {
-        acc[curr.battleTag] = curr.sessionInfo?.session;
-        return acc;
-      }, {});
-
-      setProfilePics(newProfilePics);
-      setPlayerCountries(newCountries);
-      setSessionData(newSessions);
+      setProfilePics(result.profilePics);
+      setPlayerCountries(result.countries);
+      setSessionData(result.sessions);
+      setLiveStreamers(result.liveStreamers);
 
       // Cache all player data for this match (2 minute TTL for ongoing matches)
       if (matchId) {
         cache.set(`matchPlayers:${matchId}`, {
           playerData: processedData,
           metaData,
-          profilePics: newProfilePics,
-          countries: newCountries,
-          sessions: newSessions,
+          profilePics: result.profilePics,
+          countries: result.countries,
+          sessions: result.sessions,
         }, 2 * 60 * 1000);
-      }
-
-      // Check which players with Twitch accounts are actually streaming
-      const twitchUsernames = updatedData
-        .filter(p => p.twitch)
-        .map(p => p.twitch);
-
-      if (twitchUsernames.length > 0) {
-        const streamers = await getLiveStreamers(twitchUsernames);
-        // Map battleTag to stream info for players who are live
-        const liveMap = {};
-        for (const player of updatedData) {
-          if (player.twitch) {
-            const streamInfo = streamers.get(player.twitch.toLowerCase());
-            if (streamInfo) {
-              liveMap[player.battleTag] = { ...streamInfo, twitchName: player.twitch };
-            }
-          }
-        }
-        setLiveStreamers(liveMap);
       }
     } catch (error) {
       console.error("Error fetching player data:", error);

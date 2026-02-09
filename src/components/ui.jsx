@@ -1,9 +1,10 @@
 /**
  * Shared UI Components
- * Import: import { Button, Badge, Card, Dot, TeamBar, Label } from './components/ui';
+ * Import: import { Button, Badge, Card, Dot, TeamBar, Label, PageLayout } from './components/ui';
  */
 
 import styled from "styled-components";
+import { PageLayout } from "./PageLayout";
 
 // ============================================
 // BUTTON
@@ -629,3 +630,9 @@ export const CountryFlag = ({ name, className, style }) => {
     />
   );
 };
+
+// ============================================
+// RE-EXPORTS
+// ============================================
+
+export { PageLayout };

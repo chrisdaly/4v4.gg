@@ -1,6 +1,7 @@
 import React, { useState, useEffect, useMemo } from "react";
 
 import GameCard from "../components/game/GameCard";
+import { PageLayout } from "../components/PageLayout";
 import { calculateTeamMMR } from "../lib/utils";
 import { gameMode, gateway, season } from "../lib/params";
 import { cache, createCacheKey } from "../lib/cache";
@@ -185,8 +186,9 @@ const RecentlyFinished = () => {
           <span className="loader-text">Loading matches</span>
         </div>
       ) : matchesData ? (
-        <div>
-          <div className="finished-page">
+        <PageLayout
+          maxWidth="900px"
+          header={
             <div className="finished-header">
               <div className="finished-title-section">
                 <h1 className="finished-title">Recently Finished</h1>
@@ -258,54 +260,55 @@ const RecentlyFinished = () => {
                 )}
               </div>
             </div>
-            <div className="game-tiles">
-              {paginatedMatches.length > 0 ? (
-                paginatedMatches.map((d) => (
-                  <GameCard key={d.match.id} game={d} />
-                ))
-              ) : (
-                <div className="no-results">
-                  No matches found with current filters
-                </div>
-              )}
-            </div>
-            {totalPages > 1 && (
-              <div className="pagination">
-                <button
-                  className="pagination-btn"
-                  onClick={() => setCurrentPage(1)}
-                  disabled={currentPage === 1}
-                >
-                  ««
-                </button>
-                <button
-                  className="pagination-btn"
-                  onClick={() => setCurrentPage((p) => Math.max(1, p - 1))}
-                  disabled={currentPage === 1}
-                >
-                  «
-                </button>
-                <span className="pagination-info">
-                  {startIndex + 1}-{Math.min(endIndex, filteredMatches.length)} of {filteredMatches.length}
-                </span>
-                <button
-                  className="pagination-btn"
-                  onClick={() => setCurrentPage((p) => Math.min(totalPages, p + 1))}
-                  disabled={currentPage === totalPages}
-                >
-                  »
-                </button>
-                <button
-                  className="pagination-btn"
-                  onClick={() => setCurrentPage(totalPages)}
-                  disabled={currentPage === totalPages}
-                >
-                  »»
-                </button>
+          }
+        >
+          <div className="game-tiles">
+            {paginatedMatches.length > 0 ? (
+              paginatedMatches.map((d) => (
+                <GameCard key={d.match.id} game={d} />
+              ))
+            ) : (
+              <div className="no-results">
+                No matches found with current filters
               </div>
             )}
           </div>
-        </div>
+          {totalPages > 1 && (
+            <div className="pagination">
+              <button
+                className="pagination-btn"
+                onClick={() => setCurrentPage(1)}
+                disabled={currentPage === 1}
+              >
+                ««
+              </button>
+              <button
+                className="pagination-btn"
+                onClick={() => setCurrentPage((p) => Math.max(1, p - 1))}
+                disabled={currentPage === 1}
+              >
+                «
+              </button>
+              <span className="pagination-info">
+                {startIndex + 1}-{Math.min(endIndex, filteredMatches.length)} of {filteredMatches.length}
+              </span>
+              <button
+                className="pagination-btn"
+                onClick={() => setCurrentPage((p) => Math.min(totalPages, p + 1))}
+                disabled={currentPage === totalPages}
+              >
+                »
+              </button>
+              <button
+                className="pagination-btn"
+                onClick={() => setCurrentPage(totalPages)}
+                disabled={currentPage === totalPages}
+              >
+                »»
+              </button>
+            </div>
+          )}
+        </PageLayout>
       ) : (
         <div>
           Error: Failed to load match data

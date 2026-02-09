@@ -3,6 +3,7 @@ import { Link } from "react-router-dom";
 import { GiCrossedSwords } from "react-icons/gi";
 
 import OngoingGame from "../components/OngoingGame";
+import { PageLayout } from "../components/PageLayout";
 import { calculateTeamMMR } from "../lib/utils";
 import { getOngoingMatches, getOngoingMatchesCached } from "../lib/api";
 
@@ -58,13 +59,13 @@ const OngoingGames = () => {
           <span className="loader-text">Loading matches</span>
         </div>
       ) : ongoingGameData && ongoingGameData.length > 0 ? (
-        <div>
+        <PageLayout maxWidth="1200px">
           <div className="games">
             {ongoingGameData.map((d) => (
               <OngoingGame ongoingGameData={d} key={d.id} />
             ))}
           </div>
-        </div>
+        </PageLayout>
       ) : ongoingGameData ? (
         <div className="empty-state">
           <GiCrossedSwords className="empty-state-icon" />

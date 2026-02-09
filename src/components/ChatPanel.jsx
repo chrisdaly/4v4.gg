@@ -979,14 +979,14 @@ export default function ChatPanel({ messages, status, avatars, stats, sessions, 
           </ScrollContainer>
         )}
       </Wrapper>
-      {sendMessage && showKeyPrompt && !apiKey && (
+      {import.meta.env.DEV && sendMessage && showKeyPrompt && !apiKey && (
         <KeyPrompt as="form" onSubmit={handleSaveKey}>
           <KeyLabel>API Key:</KeyLabel>
           <KeyInput name="apiKeyInput" type="password" placeholder="Enter admin API key" autoFocus />
           <SendButton type="submit"><IoSend size={14} /></SendButton>
         </KeyPrompt>
       )}
-      {sendMessage && (apiKey || !showKeyPrompt) && (
+      {import.meta.env.DEV && sendMessage && (apiKey || !showKeyPrompt) && (
         <InputBar onSubmit={handleSend}>
           <KeyButton
             type="button"
@@ -1017,20 +1017,22 @@ export default function ChatPanel({ messages, status, avatars, stats, sessions, 
           )}
         </InputBar>
       )}
-      <BotTestBar onSubmit={handleBotTest}>
-        <BotTestPrefix>BOT</BotTestPrefix>
-        <BotTestInput
-          type="text"
-          placeholder="!games, !stats name, !recap topic 50, !help"
-          value={botDraft}
-          onChange={(e) => setBotDraft(e.target.value)}
-          disabled={botTesting}
-          maxLength={200}
-        />
-        <SendButton type="submit" disabled={botTesting || !botDraft.trim()}>
-          <IoSend size={14} />
-        </SendButton>
-      </BotTestBar>
+      {import.meta.env.DEV && (
+        <BotTestBar onSubmit={handleBotTest}>
+          <BotTestPrefix>BOT</BotTestPrefix>
+          <BotTestInput
+            type="text"
+            placeholder="!games, !stats name, !recap topic 50, !help"
+            value={botDraft}
+            onChange={(e) => setBotDraft(e.target.value)}
+            disabled={botTesting}
+            maxLength={200}
+          />
+          <SendButton type="submit" disabled={botTesting || !botDraft.trim()}>
+            <IoSend size={14} />
+          </SendButton>
+        </BotTestBar>
+      )}
     </OuterFrame>
   );
 }

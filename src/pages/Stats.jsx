@@ -7,6 +7,7 @@ import { getSeasons, getLadder, getLadderCached } from "../lib/api";
 import "../styles/Stats.css";
 
 import { LEAGUES, raceIcons } from "../lib/constants";
+import { PageLayout } from "../components/PageLayout";
 
 const RACES = [
   { id: 1, name: "Human", icon: raceIcons.human },
@@ -881,26 +882,29 @@ const Stats = () => {
   };
 
   return (
-    <div className="stats-page">
-      <div className="stats-header">
-        <h1 className="stats-title">4v4 Statistics</h1>
-        <div className="stats-controls">
-          <div className="season-selector">
-            <select
-              id="season-select"
-              value={selectedSeason || ""}
-              onChange={handleSeasonChange}
-            >
-              {availableSeasons.map((s) => (
-                <option key={s.id} value={s.id}>
-                  S{s.id}
-                </option>
-              ))}
-            </select>
+    <PageLayout
+      maxWidth="1400px"
+      header={
+        <div className="stats-header">
+          <h1 className="stats-title">4v4 Statistics</h1>
+          <div className="stats-controls">
+            <div className="season-selector">
+              <select
+                id="season-select"
+                value={selectedSeason || ""}
+                onChange={handleSeasonChange}
+              >
+                {availableSeasons.map((s) => (
+                  <option key={s.id} value={s.id}>
+                    S{s.id}
+                  </option>
+                ))}
+              </select>
+            </div>
           </div>
         </div>
-      </div>
-
+      }
+    >
       <div className="stats-grid">
         <LeagueDistribution
           leagueCounts={leagueCounts}
@@ -947,7 +951,7 @@ const Stats = () => {
           isLoading={isLoadingStats}
         />
       </div>
-    </div>
+    </PageLayout>
   );
 };
 

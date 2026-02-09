@@ -1,0 +1,237 @@
+/* ========================================
+   Base Animations and Keyframes
+   ======================================== */
+
+/* App logo spin (legacy) */
+@keyframes App-logo-spin {
+  from {
+    transform: rotate(0deg);
+  }
+  to {
+    transform: rotate(360deg);
+  }
+}
+
+/* Pulse animations */
+@keyframes pulse {
+  from {
+    transform: scale(1);
+  }
+  to {
+    transform: scale(1.2);
+  }
+}
+
+/* Alternative pulse for live indicators */
+@keyframes pulse-ring {
+  0% {
+    transform: scale(0.33);
+  }
+  80%,
+  100% {
+    transform: scale(2.33);
+    opacity: 0;
+  }
+}
+
+@keyframes pulse-dot {
+  0% {
+    transform: scale(0.8);
+  }
+  50% {
+    transform: scale(1);
+  }
+  100% {
+    transform: scale(0.8);
+  }
+}
+
+/* Twitch streaming pulse */
+@keyframes pulse-twitch {
+  0%, 100% {
+    opacity: 1;
+    transform: scale(1);
+  }
+  50% {
+    opacity: 0.6;
+    transform: scale(0.95);
+  }
+}
+
+/* Spinner rotation */
+@keyframes spin {
+  to {
+    transform: rotate(360deg);
+  }
+}
+
+/* Fade in animation */
+@keyframes fadeIn {
+  from { opacity: 0; }
+  to { opacity: 1; }
+}
+
+/* Shimmer effect for skeleton loading */
+@keyframes shimmer {
+  0% {
+    background-position: 200% 0;
+  }
+  100% {
+    background-position: -200% 0;
+  }
+}
+
+/* Legacy fade animations */
+@keyframes fadeinout {
+  0%,
+  100% {
+    opacity: 0;
+  }
+  50% {
+    opacity: 1;
+  }
+}
+
+@keyframes fadein {
+  from {
+    opacity: 0;
+  }
+  to {
+    opacity: 1;
+  }
+}
+
+@keyframes fadeinname {
+  0% {
+    opacity: 0;
+  }
+  100% {
+    opacity: 1;
+  }
+}
+
+/* ========================================
+   Animation Utility Classes
+   ======================================== */
+
+.fade-in {
+  animation: fadeIn 0.15s ease-out;
+}
+
+.page-loader.fade-in {
+  animation: fadeIn 0.3s ease-out 0.1s both;
+}
+
+/* Smooth page transitions */
+.games,
+.finished-page,
+.ladder-page,
+.stats-page,
+.player-page,
+.empty-state,
+.not-found-page {
+  animation: fadeIn 0.2s ease-out;
+}
+
+.pulse {
+  animation: pulse 1.5s infinite;
+}
+
+/* Live indicator with pulse */
+.live-indicator {
+  width: 10px;
+  height: 10px;
+  border-radius: 50%;
+  background-color: var(--red);
+  display: inline-block;
+  vertical-align: middle;
+  margin-left: 5px;
+  animation: pulse 1s infinite alternate;
+  margin-bottom: 2px !important;
+}
+
+/* In-game icon pulse */
+.in-game-icon {
+  animation: pulse 1.5s infinite;
+}
+
+.in-game-icon-small {
+  animation: pulse 1.5s infinite;
+}
+
+/* Twitch streaming animation */
+.twitch-streaming {
+  animation: pulse-twitch 1.5s ease-in-out infinite;
+}
+
+/* ========================================
+   Loading Components
+   ======================================== */
+
+/* Loading component variants */
+.loader-spinner {
+  width: 24px;
+  height: 24px;
+  border: 2px solid var(--grey-mid);
+  border-top-color: var(--gold);
+  border-radius: 50%;
+  animation: spin 0.8s linear infinite;
+}
+
+.loader-spinner.lg {
+  width: 32px;
+  height: 32px;
+  border-width: 3px;
+}
+
+.loader-spinner.sm {
+  width: 16px;
+  height: 16px;
+  border-width: 2px;
+}
+
+/* Skeleton placeholders */
+.loader-skeleton {
+  background: linear-gradient(90deg, var(--surface-1) 25%, var(--surface-2) 50%, var(--surface-1) 75%);
+  background-size: 200% 100%;
+  animation: shimmer 1.5s ease-in-out infinite;
+  border-radius: var(--radius-sm);
+}
+
+.loader-skeleton.text {
+  height: 14px;
+  width: 120px;
+}
+
+.loader-skeleton.text-lg {
+  height: 20px;
+  width: 180px;
+}
+
+.loader-skeleton.avatar {
+  width: 40px;
+  height: 40px;
+  border-radius: 50%;
+}
+
+.loader-skeleton.card {
+  height: 80px;
+  border-radius: var(--radius-md);
+}
+
+.loader-text {
+  font-family: var(--font-mono);
+  font-size: var(--text-xs);
+  color: var(--grey-light);
+  text-transform: uppercase;
+  letter-spacing: 0.1em;
+}
+
+.page-loader {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: var(--space-4);
+  min-height: 60vh;
+}

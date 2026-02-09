@@ -1,8 +1,8 @@
 import React, { useState, useEffect } from "react";
 import Game from "./Game";
-import { preprocessPlayerScores, fetchPlayerSessionData } from "../lib/utils";
-import { getPlayerProfile } from "../lib/api";
+import { preprocessPlayerScores } from "../lib/utils";
 import { cache } from "../lib/cache";
+import { enrichPlayerData } from "../lib/gameDataUtils";
 
 // Get cached player data for a finished match
 const getCachedMatchPlayerData = (matchId) => {
@@ -27,7 +27,10 @@ const FinishedGame = ({ data, compact = false }) => {
 
   const fetchMatchData = async () => {
     try {
-      const processedData = preprocessMatchData(data);
+      if (!data) {
+        throw new Error("Invalid match data format");
+      }
+      const processedData = preprocessPlayerScores(data.match, data.playerScores);
       const { playerData: newPlayerData, metaData: newMetaData } = processedData;
       setPlayerData(newPlayerData);
       setMetaData({ ...newMetaData, matchId: data.match.id });
@@ -48,58 +51,26 @@ const FinishedGame = ({ data, compact = false }) => {
     }
   };
 
-  const preprocessMatchData = (matchData) => {
-    if (!matchData) {
-      throw new Error("Invalid match data format");
-    }
-    return preprocessPlayerScores(matchData.match, matchData.playerScores);
-  };
-
   const fetchPlayerData = async (processedData) => {
     try {
-      const promises = processedData.map(async (playerData) => {
-        const { battleTag, race, location } = playerData;
-        // Use consolidated profile fetch (single API call for pic, twitch, country)
-        const [profile, sessionInfo] = await Promise.all([
-          getPlayerProfile(battleTag),
-          fetchPlayerSessionData(battleTag, race),
-        ]);
-        return {
-          ...playerData,
-          profilePicUrl: profile.profilePicUrl,
-          // Use profile country if set, otherwise fall back to match location (IP-based)
-          country: profile.country || location,
-          sessionInfo
-        };
+      const result = await enrichPlayerData(processedData, {
+        fetchSessions: true,
+        fetchTwitchStatus: false,
       });
-      const updatedData = await Promise.all(promises);
-
-      const newProfilePics = updatedData.reduce((acc, curr) => {
-        acc[curr.battleTag] = curr.profilePicUrl;
-        return acc;
-      }, {});
-      const newCountries = updatedData.reduce((acc, curr) => {
-        acc[curr.battleTag] = curr.country;
-        return acc;
-      }, {});
-      const newSessions = updatedData.reduce((acc, curr) => {
-        acc[curr.battleTag] = curr.sessionInfo?.session;
-        return acc;
-      }, {});
 
       // Merge with existing data to prevent flash of missing content
-      setProfilePics(prev => ({ ...prev, ...newProfilePics }));
-      setPlayerCountries(prev => ({ ...prev, ...newCountries }));
-      setSessionData(prev => ({ ...prev, ...newSessions }));
+      setProfilePics(prev => ({ ...prev, ...result.profilePics }));
+      setPlayerCountries(prev => ({ ...prev, ...result.countries }));
+      setSessionData(prev => ({ ...prev, ...result.sessions }));
 
       // Cache all player data for this match (30 minute TTL - finished match data is stable)
       if (matchId) {
         cache.set(`finishedMatchPlayers:${matchId}`, {
           playerData: processedData,
           metaData: { ...metaData, matchId },
-          profilePics: newProfilePics,
-          countries: newCountries,
-          sessions: newSessions,
+          profilePics: result.profilePics,
+          countries: result.countries,
+          sessions: result.sessions,
         }, 30 * 60 * 1000);
       }
     } catch (error) {

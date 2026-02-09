@@ -10,8 +10,11 @@
   border-bottom: 1px solid var(--surface-1);
   text-decoration: none;
   transition: background 0.2s;
-  background: var(--surface-1);
+  background: var(--theme-bg, var(--surface-1));
   min-height: 56px;
+  border-image: var(--theme-border-image, none);
+  backdrop-filter: var(--theme-blur, none);
+  box-shadow: var(--theme-shadow, none);
 }
 
 .game-row.gr-striped {

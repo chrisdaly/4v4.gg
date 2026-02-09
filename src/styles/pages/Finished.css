@@ -1,0 +1,206 @@
+/* ========================================
+   Recently Finished Page Styles
+   ======================================== */
+
+.finished-page {
+  min-height: 100vh;
+  padding: 0 20px 40px 20px;
+}
+
+.finished-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 20px 0;
+  margin-bottom: 20px;
+  border-bottom: 1px solid var(--grey-mid);
+  flex-wrap: wrap;
+  gap: 16px;
+  max-width: 1200px;
+  margin-left: auto;
+  margin-right: auto;
+}
+
+.finished-title-section {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.finished-title {
+  font-family: var(--font-display);
+  font-size: var(--text-xl);
+  color: var(--gold);
+  margin: 0;
+  letter-spacing: 0.5px;
+}
+
+.finished-stats {
+  display: flex;
+  gap: 16px;
+  font-family: var(--font-mono);
+  font-size: var(--text-sm);
+}
+
+.finished-stats .stat-item {
+  color: var(--grey-light);
+}
+
+.finished-controls {
+  display: flex;
+  align-items: flex-end;
+  gap: 16px;
+  flex-wrap: wrap;
+}
+
+.filter-group {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.filter-group label {
+  font-family: var(--font-mono);
+  font-size: 10px;
+  text-transform: uppercase;
+  letter-spacing: 0.1em;
+  color: var(--grey-light);
+}
+
+.filter-group select {
+  font-family: var(--font-display);
+  background: linear-gradient(180deg, rgba(30, 30, 30, 0.95) 0%, rgba(15, 15, 15, 0.98) 100%);
+  border: 1px solid rgba(252, 219, 51, 0.3);
+  border-radius: 4px;
+  color: var(--gold);
+  font-size: 12px;
+  padding: 8px 28px 8px 12px;
+  cursor: pointer;
+  transition: all 0.2s ease;
+  appearance: none;
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='12' viewBox='0 0 12 12'%3E%3Cpath fill='%23fcdb33' d='M6 8L2 4h8z'/%3E%3C/svg%3E");
+  background-repeat: no-repeat;
+  background-position: right 10px center;
+  min-width: 110px;
+}
+
+.filter-group select:hover {
+  border-color: rgba(252, 219, 51, 0.5);
+  background-color: rgba(252, 219, 51, 0.05);
+}
+
+.filter-group select:focus {
+  outline: none;
+  border-color: var(--gold);
+  box-shadow: 0 0 8px rgba(252, 219, 51, 0.15);
+}
+
+.clear-filters {
+  font-family: var(--font-mono);
+  font-size: 11px;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  background: transparent;
+  border: 1px solid var(--grey-light);
+  border-radius: 4px;
+  color: var(--grey-light);
+  padding: 8px 12px;
+  cursor: pointer;
+  transition: all 0.2s ease;
+}
+
+.clear-filters:hover {
+  border-color: var(--red);
+  color: var(--red);
+  background: rgba(255, 76, 76, 0.1);
+}
+
+/* Game tiles container */
+.game-tiles {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  max-width: 900px;
+  margin: 0 auto;
+  background: var(--theme-bg, var(--surface-1));
+  border: var(--theme-border, 1px solid var(--grey-mid));
+  border-image: var(--theme-border-image, none);
+  border-radius: 12px;
+  padding: var(--space-4);
+  backdrop-filter: var(--theme-blur, none);
+  box-shadow: var(--theme-shadow, none);
+}
+
+.no-results {
+  text-align: center;
+  padding: 60px 20px;
+  color: var(--grey-light);
+  font-family: var(--font-mono);
+  font-size: var(--text-base);
+}
+
+/* Pagination */
+.pagination {
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  gap: 8px;
+  padding: 24px 0;
+  margin-top: 16px;
+}
+
+.pagination-btn {
+  font-family: var(--font-mono);
+  font-size: 14px;
+  background: linear-gradient(180deg, rgba(30, 30, 30, 0.95) 0%, rgba(15, 15, 15, 0.98) 100%);
+  border: 1px solid var(--grey-mid);
+  border-radius: 4px;
+  color: var(--gold);
+  padding: 8px 12px;
+  cursor: pointer;
+  transition: all 0.2s ease;
+  min-width: 40px;
+}
+
+.pagination-btn:hover:not(:disabled) {
+  border-color: var(--gold);
+  background: rgba(252, 219, 51, 0.1);
+}
+
+.pagination-btn:disabled {
+  opacity: 0.3;
+  cursor: not-allowed;
+}
+
+.pagination-info {
+  font-family: var(--font-mono);
+  font-size: var(--text-sm);
+  color: var(--grey-light);
+  padding: 0 12px;
+}
+
+/* Responsive styles for finished page */
+@media (max-width: 768px) {
+  .finished-header {
+    flex-direction: column;
+    align-items: flex-start;
+  }
+
+  .finished-controls {
+    width: 100%;
+    flex-direction: column;
+    align-items: stretch;
+  }
+
+  .filter-group {
+    width: 100%;
+  }
+
+  .filter-group select {
+    width: 100%;
+  }
+
+  .clear-filters {
+    width: 100%;
+  }
+}
