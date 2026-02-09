@@ -11,6 +11,13 @@
     <link href="https://fonts.googleapis.com/css2?family=Crimson+Text:ital,wght@0,400;0,600;1,400&family=EB+Garamond:ital,wght@0,400;0,500;1,400&family=Libre+Baskerville:ital,wght@0,400;0,700;1,400&family=Lora:ital,wght@0,400;0,500;1,400&family=Merriweather:ital,wght@0,400;0,700;1,400&family=Source+Serif+4:ital,wght@0,400;0,500;1,400&family=Spectral:ital,wght@0,400;0,500;1,400&display=swap" rel="stylesheet">
   </head>
   <body>
+    <script>
+      // Apply saved theme background instantly to prevent flash of default background.
+      // Reads the background URL cached in localStorage by borderThemes.saveThemeId().
+      // These CSS custom properties are set before stylesheets load, so when App.css
+      // applies `background-image: var(--theme-bg-img)`, it picks up the saved value.
+      try{var b=localStorage.getItem('chatBorderTheme_bg');if(b){var s=document.body.style;if(b==='none'){s.setProperty('--theme-bg-img','none');s.setProperty('--theme-bg-overlay','none')}else{s.setProperty('--theme-bg-img','url('+b+')');s.setProperty('--theme-bg-overlay','linear-gradient(rgba(0,0,0,0.55),rgba(0,0,0,0.55))')}}}catch(e){}
+    </script>
     <noscript>You need to enable JavaScript to run this app.</noscript>
     <div id="root"></div>
     <script type="module" src="/src/main.jsx"></script>

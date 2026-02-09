@@ -27,6 +27,9 @@ const rectOverlapsDot = (rect, dots) => {
   return false;
 };
 
+// How long to collect initial data before starting the intro animation
+const INTRO_BUFFER_MS = 2500;
+
 const OnlineMmrStrip = ({
   players,
   matches = [],
@@ -38,6 +41,20 @@ const OnlineMmrStrip = ({
   const hoveredTagRef = useRef(null);
   const [width, setWidth] = useState(0);
   const [height, setHeight] = useState(0);
+
+  // Buffer initial data so in-game + chat players all arrive together
+  const introReadyRef = useRef(false);
+  const [introReady, setIntroReady] = useState(false);
+  useEffect(() => {
+    if (introReadyRef.current) return;
+    if (!players || players.length === 0) return;
+    // First data arrived — start the collection window
+    const timer = setTimeout(() => {
+      introReadyRef.current = true;
+      setIntroReady(true);
+    }, INTRO_BUFFER_MS);
+    return () => clearTimeout(timer);
+  }, [players]);
 
   // Resize observer — track both width and height
   useEffect(() => {
@@ -71,7 +88,7 @@ const OnlineMmrStrip = ({
 
   // Main D3 render
   useEffect(() => {
-    if (!svgRef.current || !width || !height || height < 60 || !players || players.length === 0) return;
+    if (!introReady || !svgRef.current || !width || !height || height < 60 || !players || players.length === 0) return;
 
     const svg = d3.select(svgRef.current);
 
@@ -96,6 +113,8 @@ const OnlineMmrStrip = ({
     svg.selectAll(".static-layer").remove();
     svg.selectAll(".arc-layer").remove();
     svg.selectAll(".label-layer").remove();
+    svg.selectAll(".enter-label-layer").remove();
+    svg.selectAll(".exit-label-layer").remove();
 
     // Static group (behind everything) — no mouse interaction
     const staticG = svg.append("g").attr("class", "static-layer").attr("pointer-events", "none");
@@ -189,7 +208,9 @@ const OnlineMmrStrip = ({
     }
 
     // ── Match pairing arcs ──
-    const arcG = svg.append("g").attr("class", "arc-layer").attr("pointer-events", "none");
+    // Start hidden if dots are entering; fade in with labels after dots settle
+    const arcG = svg.append("g").attr("class", "arc-layer").attr("pointer-events", "none")
+      .attr("opacity", 0);
     const teamGroups = new Map();
     for (const pos of positions) {
       if (!pos.inGame || pos.matchId == null) continue;
@@ -227,12 +248,49 @@ const OnlineMmrStrip = ({
     const dots = dotGroup.selectAll("circle.player-dot")
       .data(positions, (d) => d.tag);
 
+    // Exit animation: drop off the bottom with trailing name label
+    const exitY = height + 20;
+    const exitLabelG = svg.append("g").attr("class", "exit-label-layer").attr("pointer-events", "none");
+    const exitLabels = new Map();
+    dots.exit().each(function (d) {
+      const name = d.tag?.split("#")[0] || "";
+      if (!name) return;
+      const label = exitLabelG.append("text")
+        .attr("x", d.x)
+        .attr("y", d.y + d.r + LABEL_H + 4)
+        .attr("text-anchor", "middle")
+        .attr("fill", "var(--gold)")
+        .attr("font-size", `${LABEL_FONT_SIZE}px`)
+        .attr("font-family", "var(--font-display)")
+        .attr("opacity", 0.9)
+        .text(name);
+      exitLabels.set(d.tag, label);
+    });
     dots.exit()
-      .transition().duration(400)
-      .attr("r", 0).attr("opacity", 0)
+      .transition().duration(5000)
+      .ease(d3.easeCubicIn)
+      .attrTween("cy", function (d) {
+        const sy = +d3.select(this).attr("cy");
+        return (t) => {
+          const cy = sy + (exitY - sy) * t;
+          const label = exitLabels.get(d.tag);
+          if (label) {
+            const r = d.r * (1 - t * 0.8);
+            label.attr("x", +d3.select(this).attr("cx")).attr("y", cy + r + LABEL_H + 4)
+              .attr("opacity", Math.max(0, 1 - t * 1.5));
+          }
+          return cy;
+        };
+      })
+      .attr("r", 2)
+      .attr("opacity", 0)
+      .on("end", function (d) {
+        const label = exitLabels.get(d.tag);
+        if (label) label.remove();
+      })
       .remove();
 
-    dots.transition().duration(300)
+    dots.transition().duration(2000).ease(d3.easeSinInOut)
       .attr("cx", (d) => d.x)
       .attr("cy", (d) => d.y)
       .attr("r", (d) => d.r)
@@ -240,26 +298,105 @@ const OnlineMmrStrip = ({
       .attr("opacity", 1);
 
     const startX = x(1500);
+    const startY = padding.top + 2;
+    const enterCount = dots.enter().size();
+    const isBulkLoad = enterCount > 3;
+
+    // If no dots are entering, show arcs immediately (they started hidden)
+    if (enterCount === 0) arcG.attr("opacity", 1);
 
     const entered = dots.enter()
       .append("circle")
       .attr("class", "player-dot")
       .attr("cx", startX)
-      .attr("cy", centerY)
-      .attr("r", 2)
-      .attr("opacity", 0.3)
+      .attr("cy", startY)
+      .attr("r", 0)
+      .attr("opacity", 0)
       .attr("fill", (d) => d.inGame ? DOT_COLOR_INGAME : DOT_COLOR)
       .attr("stroke", "rgba(0,0,0,0.2)")
       .attr("stroke-width", 0.5)
       .attr("cursor", "pointer");
 
+    // ── Elliptic arc entrance ──
+    // Path: linear interpolation from start→end + sin(πt) perpendicular bulge
+    // Creates a true elliptic trajectory that dips below the straight line
+    const bulgeAmt = chartHeight * 0.35;
+    const maxMmrDist = d3.max(positions, (p) => Math.abs(p.mmr - 1500)) || 1;
+
+    // Elliptic position helpers
+    const ellipseX = (d, t) => {
+      const dx = d.x - startX, dy = d.y - startY;
+      const len = Math.sqrt(dx * dx + dy * dy) || 1;
+      // Perpendicular unit vector (rotated 90° CW), flipped to always point downward
+      let px = dy / len;
+      if (-dx / len < 0) px = -px;
+      return startX + dx * t + bulgeAmt * Math.sin(Math.PI * t) * px;
+    };
+    const ellipseY = (d, t) => {
+      const dx = d.x - startX, dy = d.y - startY;
+      const len = Math.sqrt(dx * dx + dy * dy) || 1;
+      let py = -dx / len;
+      if (py < 0) py = -py;
+      return startY + dy * t + bulgeAmt * Math.sin(Math.PI * t) * py;
+    };
+
+    // Floating name labels that follow entering dots (only for trickle arrivals)
+    const enterLabelG = svg.append("g").attr("class", "enter-label-layer").attr("pointer-events", "none");
+    const enterLabels = new Map();
+    if (!isBulkLoad) {
+      entered.each(function (d) {
+        const name = d.tag?.split("#")[0] || "";
+        if (!name) return;
+        const label = enterLabelG.append("text")
+          .attr("x", startX)
+          .attr("y", startY - 10)
+          .attr("text-anchor", "middle")
+          .attr("fill", "var(--gold)")
+          .attr("font-size", `${LABEL_FONT_SIZE}px`)
+          .attr("font-family", "var(--font-display)")
+          .attr("opacity", 0)
+          .text(name);
+        enterLabels.set(d.tag, label);
+      });
+    }
+
+    const duration = isBulkLoad ? 2800 : 5000;
+    const maxDelay = isBulkLoad ? 600 : 0;
+    let settledCount = 0;
+    const totalEntering = enterCount;
+
     entered.transition()
-      .duration(600)
-      .ease(d3.easeCubicOut)
-      .attr("cx", (d) => d.x)
-      .attr("cy", (d) => d.y)
-      .attr("r", (d) => d.r)
-      .attr("opacity", 1);
+      .delay((d) => isBulkLoad ? (Math.abs(d.mmr - 1500) / maxMmrDist) * maxDelay : 0)
+      .duration(duration)
+      .ease(isBulkLoad ? d3.easeCubicOut : d3.easeSinInOut)
+      .attrTween("cx", (d) => (t) => ellipseX(d, t))
+      .attrTween("cy", (d) => (t) => {
+        const ey = ellipseY(d, t);
+        // Sync trailing label — visible the whole journey, fades out at the very end
+        const label = enterLabels.get(d.tag);
+        if (label) {
+          const r = d.r * Math.min(1, t * 2);
+          label.attr("x", ellipseX(d, t)).attr("y", ey - r - 8)
+            .attr("opacity", t < 0.92 ? Math.min(1, t * 4) : Math.max(0, (1 - t) / 0.08));
+        }
+        return ey;
+      })
+      .attrTween("r", (d) => (t) => d.r * Math.min(1, t * 2))
+      .attrTween("opacity", () => (t) => Math.min(1, t * 3))
+      .on("end", function (d) {
+        const label = enterLabels.get(d.tag);
+        if (label) label.remove();
+        // Fade in labels + team arcs once all dots have settled
+        settledCount++;
+        if (settledCount >= totalEntering) {
+          svg.select(".label-layer")
+            .transition().duration(400)
+            .attr("opacity", 1);
+          svg.select(".arc-layer")
+            .transition().duration(600)
+            .attr("opacity", 1);
+        }
+      });
 
     const allDots = entered.merge(dots);
 
@@ -272,16 +409,11 @@ const OnlineMmrStrip = ({
     }
 
     // ── Player name labels with collision detection ──
-    const labelG = svg.append("g").attr("class", "label-layer").attr("pointer-events", "none");
+    // Start hidden if dots are entering; revealed after entrance animations complete
+    const labelG = svg.append("g").attr("class", "label-layer").attr("pointer-events", "none")
+      .attr("opacity", totalEntering > 0 ? 0 : 1);
     const visible = positions;
     const labeledTags = new Set(); // track which tags got a static label
-
-    // Sort by priority: highest MMR first, then lowest — labels the extremes first,
-    // then fills in anyone else who fits
-    const byPriority = [...visible].sort((a, b) => {
-      const median = d3.median(visible, (d) => d.mmr) || 0;
-      return Math.abs(b.mmr - median) - Math.abs(a.mmr - median);
-    });
 
     const placedLabels = [];
     const bounds = {
@@ -291,9 +423,10 @@ const OnlineMmrStrip = ({
       bottom: height - padding.bottom + 2,
     };
 
-    for (const pos of byPriority) {
+    // Helper to place a label, returns true if placed
+    const placeLabel = (pos, force) => {
       const name = pos.tag?.split("#")[0] || "";
-      if (!name) continue;
+      if (!name) return false;
 
       const textW = name.length * LABEL_CHAR_W + LABEL_PAD_X * 2;
       const textH = LABEL_H + LABEL_PAD_Y * 2;
@@ -308,8 +441,10 @@ const OnlineMmrStrip = ({
         if (candidateY < bounds.top || candidateY + textH > bounds.bottom) continue;
 
         const candidateRect = { x: labelX, y: candidateY, w: textW, h: textH };
-        if (placedLabels.some((r) => rectsOverlap(candidateRect, r))) continue;
-        if (rectOverlapsDot(candidateRect, positions.filter((p) => p.tag !== pos.tag))) continue;
+        if (!force) {
+          if (placedLabels.some((r) => rectsOverlap(candidateRect, r))) continue;
+          if (rectOverlapsDot(candidateRect, positions.filter((p) => p.tag !== pos.tag))) continue;
+        }
 
         placedLabels.push(candidateRect);
         labeledTags.add(pos.tag);
@@ -322,8 +457,26 @@ const OnlineMmrStrip = ({
           .attr("font-family", "var(--font-display)")
           .attr("data-tag", pos.tag)
           .text(name);
-        break;
+        return true;
       }
+      return false;
+    };
+
+    // Always show top 3 MMR players — force-placed before anything else
+    const top3 = [...visible].sort((a, b) => b.mmr - a.mmr).slice(0, 3);
+    for (const pos of top3) {
+      placeLabel(pos, true);
+    }
+
+    // Fill in remaining labels by priority (extremes first), respecting collisions
+    const byPriority = [...visible].sort((a, b) => {
+      const median = d3.median(visible, (d) => d.mmr) || 0;
+      return Math.abs(b.mmr - median) - Math.abs(a.mmr - median);
+    });
+
+    for (const pos of byPriority) {
+      if (labeledTags.has(pos.tag)) continue;
+      placeLabel(pos, false);
     }
 
     // Hover labels group — for temporary labels shown during highlight
@@ -505,7 +658,7 @@ const OnlineMmrStrip = ({
       applyHighlight(hoveredTagRef.current);
     }
 
-  }, [players, matches, width, height, histogram, inGameMap, onPlayerClick]);
+  }, [introReady, players, matches, width, height, histogram, inGameMap, onPlayerClick]);
 
   if (!players || players.length === 0) return null;
 

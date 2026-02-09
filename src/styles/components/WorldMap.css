@@ -1,0 +1,30 @@
+/* ========================================
+   WorldMap Component
+   ======================================== */
+
+.world-map-container {
+  position: relative;
+  width: 100%;
+  height: 100%;
+  flex: 1;
+  min-height: 0;
+}
+
+.world-map-container svg {
+  display: block;
+  width: 100%;
+  height: 100%;
+}
+
+/* Pulsing animation for in-game dots */
+@keyframes map-pulse {
+  0%, 100% { opacity: 0.85; }
+  50% { opacity: 0.4; }
+}
+
+/* Mobile: hide map below 768px */
+@media (max-width: 768px) {
+  .home-world-map {
+    display: none;
+  }
+}

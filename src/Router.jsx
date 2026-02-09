@@ -26,6 +26,7 @@ const Chat = lazy(pageImports.chat);
 const PlayerProfile = lazy(pageImports.player);
 
 // Secondary pages (lazy-loaded on demand)
+const News = lazy(() => import("./pages/News"));
 const FinishedGamePage = lazy(() => import("./pages/FinishedGamePage"));
 const PlayerStream = lazy(() => import("./pages/PlayerStream"));
 const MyStreamPage = lazy(() => import("./pages/MyStreamPage"));
@@ -103,6 +104,7 @@ const Router = () => (
             <Suspense fallback={<PageLoader />}>
               <Switch>
                 <Route exact path="/" component={Home} />
+                <Route path="/news" component={News} />
                 <Route path="/live" component={OngoingGames} />
                 <Route path="/ongoing" component={OngoingGames} />
                 <Route path="/finished" component={RecentlyFinished} />

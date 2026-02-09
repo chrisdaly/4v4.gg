@@ -368,7 +368,16 @@ export const DEFAULT_THEME = "ironforge";
 
 export function loadThemeId() {
   try {
-    return localStorage.getItem(THEME_STORAGE_KEY) || DEFAULT_THEME;
+    const id = localStorage.getItem(THEME_STORAGE_KEY) || DEFAULT_THEME;
+    // Backfill _bg key for existing users so the index.html inline script works
+    if (!localStorage.getItem(THEME_STORAGE_KEY + "_bg")) {
+      const theme = borderThemes[id] || borderThemes[DEFAULT_THEME];
+      const bg = theme.backgroundImg === "none"
+        ? "none"
+        : theme.backgroundImg || "/frames/launcher/Static_Background.png";
+      localStorage.setItem(THEME_STORAGE_KEY + "_bg", bg);
+    }
+    return id;
   } catch {
     return DEFAULT_THEME;
   }
@@ -377,6 +386,13 @@ export function loadThemeId() {
 export function saveThemeId(id) {
   try {
     localStorage.setItem(THEME_STORAGE_KEY, id);
+    // Also save resolved background URL for the inline script in index.html
+    // that prevents flash of wrong background on page load
+    const theme = borderThemes[id] || borderThemes[DEFAULT_THEME];
+    const bg = theme.backgroundImg === "none"
+      ? "none"
+      : theme.backgroundImg || "/frames/launcher/Static_Background.png";
+    localStorage.setItem(THEME_STORAGE_KEY + "_bg", bg);
   } catch {}
 }
 
