@@ -1,5 +1,7 @@
+import Anthropic from '@anthropic-ai/sdk';
 import { broadcast } from './sse.js';
 import { sendMessage } from './signalr.js';
+import { getMessages } from './db.js';
 import config from './config.js';
 
 const API_BASE = 'https://website-backend.w3champions.com/api';
@@ -232,16 +234,71 @@ async function cmdLastGame() {
   const winners = winnerIdx >= 0 ? formatTeam(teams[winnerIdx]) : '?';
   const losers = teams[loserIdx] ? formatTeam(teams[loserIdx]) : '?';
 
-  return `Last game: ${map} (${duration}) — WIN: ${winners} | LOSS: ${losers}`;
+  return `Last game: ${map} (${duration}) - WIN: ${winners} | LOSS: ${losers}`;
+}
+
+async function cmdRecap(args) {
+  if (!config.ANTHROPIC_API_KEY) return 'Recap not available (no API key configured).';
+
+  // Parse args: !recap [topic] [count]
+  // Last arg that's a number = count, rest = topic
+  let count = 50;
+  const topicParts = [];
+  for (const arg of args) {
+    if (/^\d+$/.test(arg)) {
+      count = Math.min(Math.max(parseInt(arg, 10), 10), 200);
+    } else {
+      topicParts.push(arg);
+    }
+  }
+  const topic = topicParts.join(' ');
+
+  const rows = getMessages({ limit: count });
+  if (rows.length === 0) return 'No messages to recap.';
+
+  // Format chat log (oldest first)
+  const log = rows.reverse().map(m =>
+    `[${m.user_name}]: ${m.message}`
+  ).join('\n');
+
+  const topicPrompt = topic
+    ? `Focus on discussion about "${topic}". Ignore unrelated messages.`
+    : '';
+
+  const client = new Anthropic({ apiKey: config.ANTHROPIC_API_KEY });
+  const msg = await client.messages.create({
+    model: 'claude-haiku-4-5-20251001',
+    max_tokens: 300,
+    messages: [{
+      role: 'user',
+      content: `You are the recap bot for a Warcraft III 4v4 chat room. These players trash-talk, banter, and argue about strats all day.
+
+Rules:
+- Summarize each distinct conversation/topic as a separate short line
+- Separate lines with a blank line between them
+- Be casual and witty, match gamer banter energy
+- Use player names
+- Just report what happened, no meta-commentary like "classic 4v4" or "chaos ensued"
+- ASCII only, no emojis or special unicode
+- Keep total output under 350 chars
+${topicPrompt}
+
+Chat log (${rows.length} messages):
+${log}`
+    }],
+  });
+
+  return msg.content[0]?.text || 'Could not generate recap.';
 }
 
 async function cmdHelp() {
-  return '!games — Live 4v4 matches | !stats [name] — Player stats | !lastgame — Last finished game | !help — This list';
+  return '!games - Live 4v4 matches | !stats [name] - Player stats | !lastgame - Last finished game | !recap [topic] [count] - AI chat recap | !help - This list';
 }
 
 const COMMANDS = {
   '!games': cmdGames,
   '!stats': cmdStats,
   '!lastgame': cmdLastGame,
+  '!recap': cmdRecap,
   '!help': cmdHelp,
 };

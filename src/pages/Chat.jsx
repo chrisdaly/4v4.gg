@@ -21,11 +21,11 @@ const Page = styled.div`
 const Layout = styled.div`
   display: flex;
   gap: var(--space-2);
-  height: calc(100vh - var(--space-1));
+  height: calc(100vh - 52px);
 
   @media (max-width: 768px) {
     gap: 0;
-    height: 100vh;
+    height: calc(100vh - 46px);
   }
 `;
 

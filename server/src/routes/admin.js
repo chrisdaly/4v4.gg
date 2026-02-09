@@ -26,8 +26,8 @@ router.post('/token', requireApiKey, (req, res) => {
   res.json({ ok: true, message: 'Token updated, SignalR reconnecting...' });
 });
 
-// Test a bot command — runs it and broadcasts via SSE, never sends to chat
-router.post('/bot/test', requireApiKey, async (req, res) => {
+// Test a bot command — runs it and broadcasts via SSE, never sends to chat (public)
+router.post('/bot/test', async (req, res) => {
   const { command } = req.body;
   if (!command || typeof command !== 'string') {
     return res.status(400).json({ error: 'command is required (e.g. "!games")' });

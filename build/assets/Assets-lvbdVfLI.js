@@ -1,4 +1,4 @@
-import{a as L,j as e,H as s}from"./index-CAUlyqcI.js";const F=s.div`
+import{r as L,j as e,v as s}from"./index-0-cVUc9R.js";const F=s.div`
   padding: var(--space-6) var(--space-8);
   max-width: 1400px;
   margin: 0 auto;

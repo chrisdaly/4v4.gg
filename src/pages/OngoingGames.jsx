@@ -1,8 +1,11 @@
 import React, { useState, useEffect } from "react";
+import { Link } from "react-router-dom";
+import { GiCrossedSwords } from "react-icons/gi";
 
 import OngoingGame from "../components/OngoingGame";
 import { calculateTeamMMR } from "../lib/utils";
 import { getOngoingMatches, getOngoingMatchesCached } from "../lib/api";
+
 
 // Sort matches by team MMR (highest first)
 const sortByMMR = (matches) => {
@@ -54,13 +57,20 @@ const OngoingGames = () => {
           <div className="loader-spinner lg" />
           <span className="loader-text">Loading matches</span>
         </div>
-      ) : ongoingGameData ? (
+      ) : ongoingGameData && ongoingGameData.length > 0 ? (
         <div>
           <div className="games">
             {ongoingGameData.map((d) => (
               <OngoingGame ongoingGameData={d} key={d.id} />
             ))}
           </div>
+        </div>
+      ) : ongoingGameData ? (
+        <div className="empty-state">
+          <GiCrossedSwords className="empty-state-icon" />
+          <h2 className="empty-state-title">No Live Games</h2>
+          <p className="empty-state-text">No 4v4 matches are being played right now</p>
+          <Link to="/finished" className="empty-state-link">View recently finished games</Link>
         </div>
       ) : (
         <div>

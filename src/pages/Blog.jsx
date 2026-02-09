@@ -1,16 +1,6 @@
 import React, { useEffect } from "react";
 import { Link } from "react-router-dom";
-
-
-const posts = [
-  {
-    slug: "dots-not-numbers",
-    title: "Dots, Not Numbers",
-    description: "How the MMR charts work on 4v4.gg.",
-    date: "February 2025",
-    tags: ["dataviz", "design", "wc3"],
-  },
-];
+import { blogPosts } from "../lib/blogPosts";
 
 const BlogPost = ({ post }) => (
   <Link to={`/blog/${post.slug}`} className="blog-style-b">
@@ -50,7 +40,7 @@ const Blog = () => {
         </header>
 
         <div className="blog-list">
-          {posts.map((post) => (
+          {blogPosts.map((post) => (
             <BlogPost key={post.slug} post={post} />
           ))}
         </div>

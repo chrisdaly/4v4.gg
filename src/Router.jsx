@@ -1,5 +1,5 @@
-import React, { Suspense, lazy } from "react";
-import { BrowserRouter, Route, Switch } from "react-router-dom";
+import React, { Suspense, lazy, useEffect } from "react";
+import { BrowserRouter, Route, Switch, Link } from "react-router-dom";
 import ErrorBoundary from "./components/ErrorBoundary";
 import Navbar from "./components/Navbar";
 import RaceSelectOverlay from "./components/RaceSelectOverlay";
@@ -8,18 +8,28 @@ import { ThemeProvider, useTheme } from "./lib/ThemeContext";
 // Homepage loaded eagerly (initial route)
 import OngoingGames from "./pages/OngoingGames";
 
-// Pages (lazy-loaded)
-const Ladder = lazy(() => import("./pages/Ladder"));
-const PlayerProfile = lazy(() => import("./pages/PlayerProfile"));
-const PlayerStream = lazy(() => import("./pages/PlayerStream"));
+// Core nav pages — lazy-loaded but preloaded after first paint
+const pageImports = {
+  finished: () => import("./pages/RecentlyFinished"),
+  ladder: () => import("./pages/Ladder"),
+  stats: () => import("./pages/Stats"),
+  chat: () => import("./pages/Chat"),
+  player: () => import("./pages/PlayerProfile"),
+};
+
+const RecentlyFinished = lazy(pageImports.finished);
+const Ladder = lazy(pageImports.ladder);
+const Stats = lazy(pageImports.stats);
+const Chat = lazy(pageImports.chat);
+const PlayerProfile = lazy(pageImports.player);
+
+// Secondary pages (lazy-loaded on demand)
 const FinishedGamePage = lazy(() => import("./pages/FinishedGamePage"));
-const RecentlyFinished = lazy(() => import("./pages/RecentlyFinished"));
-const Stats = lazy(() => import("./pages/Stats"));
+const PlayerStream = lazy(() => import("./pages/PlayerStream"));
 const MyStreamPage = lazy(() => import("./pages/MyStreamPage"));
 const Blog = lazy(() => import("./pages/Blog"));
-const DesignLab = lazy(() => import("./pages/DesignLab"));
+const BlogPost = lazy(() => import("./pages/BlogPost"));
 const MmrLab = lazy(() => import("./pages/MmrLab"));
-const Chat = lazy(() => import("./pages/Chat"));
 
 // Overlay pages (lazy-loaded)
 const OverlayIndex = lazy(() => import("./pages/overlay/OverlayIndex"));
@@ -34,8 +44,14 @@ const IconDemo = lazy(() => import("./pages/IconDemo"));
 const Assets = lazy(() => import("./pages/Assets"));
 const ChatMockups = lazy(() => import("./pages/ChatMockups"));
 
+// Preload core nav pages after initial paint so they're instant on click
+const preloadCorePages = () => {
+  const load = () => Object.values(pageImports).forEach(fn => fn());
+  requestIdleCallback?.(load) ?? setTimeout(load, 2000);
+};
+
 const PageLoader = () => (
-  <div className="page-loader">
+  <div className="page-loader fade-in">
     <div className="loader-spinner lg"></div>
   </div>
 );
@@ -45,25 +61,42 @@ const FirstVisitGate = () => {
   return isFirstVisit ? <RaceSelectOverlay /> : null;
 };
 
+const Preloader = () => {
+  useEffect(() => { preloadCorePages(); }, []);
+  return null;
+};
+
 const Router = () => (
   <BrowserRouter>
     <ThemeProvider>
       <FirstVisitGate />
-      <Suspense fallback={<PageLoader />}>
-        <Switch>
-          {/* Stream overlays - no Navbar */}
-          <Route path="/overlay/match" component={MatchOverlayPage} />
-          <Route path="/overlay/player" component={PlayerOverlayPage} />
-          <Route path="/overlay/lastgame" component={LastGameOverlayPage} />
-          <Route exact path="/overlay" component={OverlayIndex} />
-          <Route path="/stream" component={PlayerStream} />
-          <Route path="/mystream" component={MyStreamPage} />
-          <Route path="/chat" component={Chat} />
+      <Preloader />
+      <Switch>
+        {/* Stream overlays - no Navbar */}
+        <Route path="/overlay/match">
+          <Suspense fallback={<PageLoader />}><MatchOverlayPage /></Suspense>
+        </Route>
+        <Route path="/overlay/player">
+          <Suspense fallback={<PageLoader />}><PlayerOverlayPage /></Suspense>
+        </Route>
+        <Route path="/overlay/lastgame">
+          <Suspense fallback={<PageLoader />}><LastGameOverlayPage /></Suspense>
+        </Route>
+        <Route exact path="/overlay">
+          <Suspense fallback={<PageLoader />}><OverlayIndex /></Suspense>
+        </Route>
+        <Route path="/stream">
+          <Suspense fallback={<PageLoader />}><PlayerStream /></Suspense>
+        </Route>
+        <Route path="/mystream">
+          <Suspense fallback={<PageLoader />}><MyStreamPage /></Suspense>
+        </Route>
 
-          {/* All other pages - Navbar + ErrorBoundary */}
-          <Route>
-            <Navbar />
-            <ErrorBoundary>
+        {/* All other pages - Navbar stays mounted, only content suspends */}
+        <Route>
+          <Navbar />
+          <ErrorBoundary>
+            <Suspense fallback={<PageLoader />}>
               <Switch>
                 <Route exact path="/" component={OngoingGames} />
                 <Route path="/ongoing" component={OngoingGames} />
@@ -73,19 +106,29 @@ const Router = () => (
                 <Route path="/player" component={PlayerProfile} />
                 <Route path="/match" component={FinishedGamePage} />
                 <Route exact path="/blog" component={Blog} />
-                <Route path="/blog/dots-not-numbers" component={DesignLab} />
+                <Route path="/blog/:slug" component={BlogPost} />
                 <Route path="/demo" component={VisualizationDemo} />
                 <Route path="/styles" component={StyleReference} />
                 <Route path="/icons" component={IconDemo} />
                 <Route path="/assets" component={Assets} />
+                <Route path="/chat" component={Chat} />
                 <Route path="/mockups" component={ChatMockups} />
 
                 <Route path="/mmr-lab" component={MmrLab} />
+
+                {/* 404 catch-all */}
+                <Route>
+                  <div className="not-found-page">
+                    <h1 className="not-found-title">404</h1>
+                    <p className="not-found-text">Page not found</p>
+                    <Link to="/" className="not-found-link">Back to live games</Link>
+                  </div>
+                </Route>
               </Switch>
-            </ErrorBoundary>
-          </Route>
-        </Switch>
-      </Suspense>
+            </Suspense>
+          </ErrorBoundary>
+        </Route>
+      </Switch>
     </ThemeProvider>
   </BrowserRouter>
 );

@@ -38,24 +38,21 @@ const Header = styled.div`
   align-items: center;
   justify-content: space-between;
   padding: var(--space-4);
+  border-bottom: 1px solid rgba(252, 219, 51, 0.15);
   background: ${(p) => p.$theme?.headerBg || "rgba(10, 8, 6, 0.2)"};
   backdrop-filter: ${(p) => p.$theme?.blur || "blur(1px)"};
-  border-bottom: 1px solid rgba(252, 219, 51, 0.15);
+  flex-shrink: 0;
 
   @media (max-width: 480px) {
     padding: 10px var(--space-2);
   }
 `;
 
-const Title = styled(Link)`
+const Title = styled.span`
   font-family: var(--font-display);
-  font-size: var(--text-base);
+  font-size: var(--text-sm);
   color: var(--gold);
-  text-decoration: none;
-
-  &:hover {
-    text-decoration: underline;
-  }
+  letter-spacing: 1px;
 `;
 
 const StatusBadge = styled.span`
@@ -574,6 +571,51 @@ const BotText = styled.pre`
   line-height: 1.4;
 `;
 
+const BotTestBar = styled.form`
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+  padding: var(--space-1) var(--space-4);
+  background: rgba(252, 219, 51, 0.03);
+  border-top: 1px solid rgba(252, 219, 51, 0.1);
+  flex-shrink: 0;
+`;
+
+const BotTestPrefix = styled.span`
+  font-family: var(--font-mono);
+  font-size: 12px;
+  font-weight: 700;
+  color: var(--gold);
+  opacity: 0.7;
+`;
+
+const BotTestInput = styled.input`
+  flex: 1;
+  min-width: 0;
+  background: rgba(255, 255, 255, 0.04);
+  border: 1px solid rgba(252, 219, 51, 0.15);
+  border-radius: var(--radius-sm);
+  padding: 5px var(--space-2);
+  color: #e0e0e0;
+  font-family: var(--font-mono);
+  font-size: 13px;
+  outline: none;
+  transition: border-color 0.15s;
+
+  &:focus {
+    border-color: rgba(252, 219, 51, 0.4);
+  }
+
+  &::placeholder {
+    color: var(--grey-mid);
+    font-size: 11px;
+  }
+
+  &:disabled {
+    opacity: 0.5;
+  }
+`;
+
 const EmptyState = styled.div`
   flex: 1;
   display: flex;
@@ -645,6 +687,8 @@ function getAvatarElement(tag, avatars, stats) {
 }
 
 
+const RELAY_URL =
+  import.meta.env.VITE_CHAT_RELAY_URL || "https://4v4gg-chat-relay.fly.dev";
 const API_KEY_STORAGE = "chat_admin_key";
 
 export default function ChatPanel({ messages, status, avatars, stats, sessions, inGameTags, recentWinners, botResponses = [], borderTheme, sendMessage }) {
@@ -657,6 +701,8 @@ export default function ChatPanel({ messages, status, avatars, stats, sessions, 
   const [draft, setDraft] = useState("");
   const [sending, setSending] = useState(false);
   const [sendError, setSendError] = useState(null);
+  const [botDraft, setBotDraft] = useState("");
+  const [botTesting, setBotTesting] = useState(false);
 
   const handleSend = useCallback(async (e) => {
     e.preventDefault();
@@ -690,11 +736,36 @@ export default function ChatPanel({ messages, status, avatars, stats, sessions, 
     setShowKeyPrompt(false);
   }
 
-  // Index bot responses by triggering message ID
-  const botResponseMap = useMemo(() => {
+  const handleBotTest = useCallback(async (e) => {
+    e.preventDefault();
+    const cmd = botDraft.trim();
+    if (!cmd || botTesting) return;
+    const command = cmd.startsWith("!") ? cmd : `!${cmd}`;
+    setBotTesting(true);
+    try {
+      const key = apiKey || localStorage.getItem(API_KEY_STORAGE) || "";
+      const res = await fetch(`${RELAY_URL}/api/admin/bot/test`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json", "X-API-Key": key },
+        body: JSON.stringify({ command }),
+      });
+      if (!res.ok) {
+        const data = await res.json().catch(() => ({}));
+        throw new Error(data.error || `Failed (${res.status})`);
+      }
+      setBotDraft("");
+    } catch (err) {
+      setSendError(err.message);
+    } finally {
+      setBotTesting(false);
+    }
+  }, [botDraft, apiKey, botTesting]);
+
+  // Index bot responses by triggering message ID + collect unmatched
+  const { botResponseMap, unmatchedBotResponses } = useMemo(() => {
     const map = new Map();
+    const matched = new Set();
     for (const br of botResponses) {
-      // Find the message that triggered this bot response
       for (let i = messages.length - 1; i >= 0; i--) {
         const msg = messages[i];
         const tag = msg.battle_tag || msg.battleTag;
@@ -703,11 +774,13 @@ export default function ChatPanel({ messages, status, avatars, stats, sessions, 
           msg.message.toLowerCase().startsWith(br.command)
         ) {
           map.set(msg.id, br);
+          matched.add(br);
           break;
         }
       }
     }
-    return map;
+    const unmatched = botResponses.filter((br) => !matched.has(br));
+    return { botResponseMap: map, unmatchedBotResponses: unmatched };
   }, [botResponses, messages]);
 
   // Compute message segments (grouped by same user within 2 min)
@@ -764,14 +837,14 @@ export default function ChatPanel({ messages, status, avatars, stats, sessions, 
 
   return (
     <OuterFrame>
-      <Header $theme={borderTheme}>
-        <Title to="/">4v4 Chat</Title>
-        <StatusBadge>
-          <StatusDot $connected={status === "connected"} />
-          {status === "connected" ? messages.length : "Connecting..."}
-        </StatusBadge>
-      </Header>
       <Wrapper $theme={borderTheme}>
+        <Header $theme={borderTheme}>
+          <Title>4v4 Chat</Title>
+          <StatusBadge>
+            <StatusDot $connected={status === "connected"} />
+            {status === "connected" ? messages.length : "Connecting..."}
+          </StatusBadge>
+        </Header>
         {messages.length === 0 ? (
           <EmptyState>
             {status === "connected"
@@ -889,6 +962,14 @@ export default function ChatPanel({ messages, status, avatars, stats, sessions, 
                   </React.Fragment>
                 );
               })}
+              {unmatchedBotResponses.map((br, i) => (
+                <BotResponseRow key={`bot-${i}`} style={{ marginLeft: "var(--space-4)" }}>
+                  <BotLabel>BOT</BotLabel>
+                  {!br.botEnabled && <BotPreviewTag>(preview)</BotPreviewTag>}
+                  <BotPreviewTag style={{ marginLeft: 6 }}>{br.command}</BotPreviewTag>
+                  <BotText>{br.response}</BotText>
+                </BotResponseRow>
+              ))}
             </MessageList>
             {showNotice && (
               <ScrollNotice onClick={scrollToBottom}>
@@ -936,6 +1017,20 @@ export default function ChatPanel({ messages, status, avatars, stats, sessions, 
           )}
         </InputBar>
       )}
+      <BotTestBar onSubmit={handleBotTest}>
+        <BotTestPrefix>BOT</BotTestPrefix>
+        <BotTestInput
+          type="text"
+          placeholder="!games, !stats name, !recap topic 50, !help"
+          value={botDraft}
+          onChange={(e) => setBotDraft(e.target.value)}
+          disabled={botTesting}
+          maxLength={200}
+        />
+        <SendButton type="submit" disabled={botTesting || !botDraft.trim()}>
+          <IoSend size={14} />
+        </SendButton>
+      </BotTestBar>
     </OuterFrame>
   );
 }
