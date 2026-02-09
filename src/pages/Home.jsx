@@ -23,6 +23,11 @@ const getInitialData = () => {
 
 /* ── EventFeed (activity log) ─────────────────────────── */
 
+const toFlag = (code) => {
+  if (!code || code.length !== 2) return "";
+  return String.fromCodePoint(...[...code.toUpperCase()].map(c => 0x1F1E6 + c.charCodeAt(0) - 65));
+};
+
 const formatEventTime = (time) => {
   const h = time.getHours();
   const m = time.getMinutes();
@@ -35,19 +40,59 @@ const EventFeed = ({ events }) => (
       <span className="home-section-title">Activity</span>
     </div>
     <div className="event-feed-list">
+      {events.length === 0 && (
+        <div className="home-empty">Waiting for activity...</div>
+      )}
       {events.map((e, i) => (
         <div key={`${e.type}-${e.time.getTime()}-${i}`} className="event-item">
           <span className={`event-dot event-${e.type}`} />
-          <span className="event-text">
-            {e.type === "join" && <><span className="event-name">{e.player}</span> joined</>}
-            {e.type === "leave" && <><span className="event-name">{e.player}</span> left</>}
-            {e.type === "game_start" && (
-              <><span className="event-name">{e.players.slice(0, 2).join(", ")}</span>
-              {e.players.length > 2 ? ` +${e.players.length - 2}` : ""} started</>
-            )}
-            {e.type === "game_end" && <>Game ended</>}
-          </span>
-          <span className="event-time">{formatEventTime(e.time)}</span>
+          <div className="event-body">
+            <div className="event-main">
+              {e.country && <span className="event-flag">{toFlag(e.country)}</span>}
+              <span className="event-name">
+                {e.type === "game_start"
+                  ? e.players.slice(0, 2).join(", ") + (e.players.length > 2 ? ` +${e.players.length - 2}` : "")
+                  : e.type === "game_end"
+                    ? "Game ended"
+                    : e.player}
+              </span>
+              <span className="event-time">{formatEventTime(e.time)}</span>
+            </div>
+            <div className="event-detail">
+              {e.type === "join" && "joined"}
+              {e.type === "leave" && "left"}
+              {e.type === "game_start" && "started a game"}
+              {e.type === "game_end" && (
+                e.results?.length > 0 ? (
+                  <div className="event-game-results">
+                    {[...e.results]
+                      .sort((a, b) => b.delta - a.delta)
+                      .map((r, j) => (
+                        <div key={j} className="event-game-row">
+                          <span className="event-game-name">{r.name}</span>
+                          <span className={r.delta > 0 ? "event-delta-gain" : "event-delta-loss"}>
+                            {r.delta > 0 ? "+" : ""}{r.delta}
+                          </span>
+                        </div>
+                      ))}
+                  </div>
+                ) : (
+                  <span>
+                    {e.gamePlayers?.slice(0, 4).map((p) => p.name).join(", ")}
+                    {e.gamePlayers?.length > 4 ? ` +${e.gamePlayers.length - 4}` : ""}
+                  </span>
+                )
+              )}
+              {e.type === "mmr_gain" && <><span className="event-delta-gain">+{e.delta}</span> MMR</>}
+              {e.type === "mmr_loss" && <><span className="event-delta-loss">{e.delta}</span> MMR</>}
+              {(e.type === "join" || e.type === "leave") && e.mmr != null && (
+                <span className="event-mmr"> · {Math.round(e.mmr).toLocaleString()} MMR</span>
+              )}
+              {(e.type === "mmr_gain" || e.type === "mmr_loss") && (
+                <span className="event-mmr"> ({Math.round(e.prevMmr).toLocaleString()} → {Math.round(e.mmr).toLocaleString()})</span>
+              )}
+            </div>
+          </div>
         </div>
       ))}
     </div>
@@ -56,7 +101,7 @@ const EventFeed = ({ events }) => (
 
 /* ── MmrChart (fills remaining space) ─────────────────── */
 
-const MmrChart = ({ players, matches, count, histogram }) => {
+const MmrChart = ({ players, matches, count, histogram, mmrFilter, onMmrFilter, mmrSteps }) => {
   const history = useHistory();
   const handlePlayerClick = useCallback((battleTag) => {
     if (battleTag) history.push(`/player/${encodeURIComponent(battleTag)}`);
@@ -73,11 +118,34 @@ const MmrChart = ({ players, matches, count, histogram }) => {
           </span>
         )}
       </div>
+      {mmrSteps.length > 0 && (
+        <div className="flag-badges mmr-filter-badges">
+          {mmrSteps.map((v) => (
+            <span
+              key={v}
+              className={`flag-badge${mmrFilter === v ? " flag-badge-active" : ""}`}
+              onClick={() => onMmrFilter(v)}
+            >
+              <span className="flag-badge-count">{v}+</span>
+            </span>
+          ))}
+          {mmrFilter != null && (
+            <span
+              className="flag-badge flag-badge-clear"
+              onClick={() => onMmrFilter(mmrFilter)}
+            >
+              <span className="flag-badge-count">clear</span>
+            </span>
+          )}
+        </div>
+      )}
       <OnlineMmrStrip
         players={players}
         matches={matches}
         histogram={histogram}
         onPlayerClick={handlePlayerClick}
+        mmrFilter={mmrFilter}
+        onMmrFilter={onMmrFilter}
       />
     </div>
   );
@@ -93,6 +161,9 @@ const Home = () => {
   const [realStats, setRealStats] = useState(new Map());
   const [realProfiles, setRealProfiles] = useState(new Map());
   const [realHistogram, setRealHistogram] = useState(null);
+  const [statsVersion, setStatsVersion] = useState(0);
+  const [mmrFilter, setMmrFilter] = useState(null);
+  const [countryFilter, setCountryFilter] = useState(null);
   const fetchedRef = useRef(new Set());
   const profileFetchedRef = useRef(new Set());
 
@@ -138,23 +209,47 @@ const Home = () => {
   }, [isDemo]);
 
   // Fetch player stats incrementally (skip in demo mode)
+  // Game-end players are batched so chart shows all pulse rings at once
   useEffect(() => {
     if (isDemo) return;
-    for (const u of onlineUsers) {
-      const tag = u.battleTag;
+    const pendingTags = new Set(gameEndPendingRef.current.keys());
+    const batchFetches = [];
+
+    // Also check game-end players who might not be in onlineUsers
+    const tagsToCheck = new Set(onlineUsers.map((u) => u.battleTag).filter(Boolean));
+    for (const tag of pendingTags) tagsToCheck.add(tag);
+
+    for (const tag of tagsToCheck) {
       if (!tag || fetchedRef.current.has(tag)) continue;
       fetchedRef.current.add(tag);
-      getPlayerStats(tag).then((stats) => {
-        if (stats) {
-          setRealStats((prev) => {
-            const next = new Map(prev);
-            next.set(tag, stats);
-            return next;
-          });
-        }
+
+      if (pendingTags.has(tag)) {
+        batchFetches.push(getPlayerStats(tag).then((stats) => [tag, stats]));
+      } else {
+        getPlayerStats(tag).then((stats) => {
+          if (stats) {
+            setRealStats((prev) => {
+              const next = new Map(prev);
+              next.set(tag, stats);
+              return next;
+            });
+          }
+        });
+      }
+    }
+
+    if (batchFetches.length > 0) {
+      Promise.all(batchFetches).then((results) => {
+        setRealStats((prev) => {
+          const next = new Map(prev);
+          for (const [tag, stats] of results) {
+            if (stats) next.set(tag, stats);
+          }
+          return next;
+        });
       });
     }
-  }, [onlineUsers, isDemo]);
+  }, [onlineUsers, isDemo, statsVersion]);
 
   // Fetch player profiles incrementally (skip in demo mode)
   useEffect(() => {
@@ -263,17 +358,31 @@ const Home = () => {
 
   // ── Event tracking: diff onlineUsers + matches to detect join/leave/game events ──
   const [events, setEvents] = useState([]);
-  const prevOnlineRef = useRef(null); // null = first render
-  const prevMatchIdsRef = useRef(new Set());
+  const prevOnlineRef = useRef(new Set());
+  const prevMatchesRef = useRef([]);
+  const settledRef = useRef(false);
+  const prevMmrRef = useRef(new Map());
+  const playerStatsRef = useRef(playerStats);
+  playerStatsRef.current = playerStats;
+  const playerProfilesRef = useRef(playerProfiles);
+  playerProfilesRef.current = playerProfiles;
+  const gameEndPendingRef = useRef(new Map()); // tag → { eventId, name, teamIdx }
+  const nextEventIdRef = useRef(0);
 
+  useEffect(() => {
+    const timer = setTimeout(() => { settledRef.current = true; }, 8000);
+    return () => clearTimeout(timer);
+  }, []);
+
+  // Event tracking: join/leave/game_start/game_end (runs BEFORE mmr detection)
   useEffect(() => {
     const currentTags = new Set(onlineUsers.map((u) => u.battleTag).filter(Boolean));
     const currentMatchIds = new Set((matches || []).map((m) => m.id));
 
-    // First render: set baseline, no events
-    if (prevOnlineRef.current === null) {
+    // Keep updating baseline until settled (suppress initial load events)
+    if (!settledRef.current) {
       prevOnlineRef.current = currentTags;
-      prevMatchIdsRef.current = currentMatchIds;
+      prevMatchesRef.current = matches || [];
       return;
     }
 
@@ -283,36 +392,127 @@ const Home = () => {
     // Joins
     for (const tag of currentTags) {
       if (!prevOnlineRef.current.has(tag)) {
-        newEvents.push({ type: "join", player: tag.split("#")[0], tag, time: now });
+        const stats = playerStatsRef.current.get(tag);
+        const country = playerProfilesRef.current.get(tag);
+        newEvents.push({
+          type: "join", player: tag.split("#")[0], tag,
+          mmr: stats?.mmr ?? null,
+          country: country ? country.toUpperCase() : null,
+          time: now,
+        });
       }
     }
     // Leaves
     for (const tag of prevOnlineRef.current) {
       if (!currentTags.has(tag)) {
-        newEvents.push({ type: "leave", player: tag.split("#")[0], tag, time: now });
+        const stats = playerStatsRef.current.get(tag);
+        const country = playerProfilesRef.current.get(tag);
+        newEvents.push({
+          type: "leave", player: tag.split("#")[0], tag,
+          mmr: stats?.mmr ?? null,
+          country: country ? country.toUpperCase() : null,
+          time: now,
+        });
       }
     }
     // New matches
+    const prevIds = new Set(prevMatchesRef.current.map((m) => m.id));
     for (const match of (matches || [])) {
-      if (!prevMatchIdsRef.current.has(match.id)) {
+      if (!prevIds.has(match.id)) {
         const players = match.teams?.flatMap((t) => t.players?.map((p) => p.battleTag?.split("#")[0]).filter(Boolean) || []) || [];
         newEvents.push({ type: "game_start", players, matchId: match.id, time: now });
       }
     }
-    // Ended matches
-    for (const id of prevMatchIdsRef.current) {
+    // Ended matches — include player data, trigger stat refresh
+    const prevMatchMap = new Map(prevMatchesRef.current.map((m) => [m.id, m]));
+    for (const [id, match] of prevMatchMap) {
       if (!currentMatchIds.has(id)) {
-        newEvents.push({ type: "game_end", matchId: id, time: now });
+        const gamePlayers = match.teams?.flatMap((t, ti) =>
+          t.players?.map((p) => ({
+            name: p.battleTag?.split("#")[0],
+            battleTag: p.battleTag,
+            mmr: p.currentMmr || p.oldMmr,
+            teamIdx: ti,
+          })).filter((p) => p.battleTag) || []
+        ) || [];
+        for (const p of gamePlayers) {
+          if (p.battleTag) fetchedRef.current.delete(p.battleTag);
+        }
+        // Track pending game-end players for MMR folding
+        const eventId = nextEventIdRef.current++;
+        for (const p of gamePlayers) {
+          if (p.battleTag) {
+            gameEndPendingRef.current.set(p.battleTag, { eventId, name: p.name, teamIdx: p.teamIdx });
+            // Seed prevMmrRef so the delta can be detected after stat refetch
+            if (p.mmr != null) prevMmrRef.current.set(p.battleTag, p.mmr);
+          }
+        }
+        newEvents.push({ type: "game_end", gamePlayers, matchId: id, time: now, results: [], eventId });
       }
     }
 
     prevOnlineRef.current = currentTags;
-    prevMatchIdsRef.current = currentMatchIds;
+    prevMatchesRef.current = matches || [];
 
     if (newEvents.length > 0) {
       setEvents((prev) => [...newEvents, ...prev].slice(0, 100));
+      if (newEvents.some((e) => e.type === "game_end")) {
+        setStatsVersion((v) => v + 1);
+      }
     }
   }, [onlineUsers, matches]);
+
+  // MMR change tracking — fold game-end deltas into game_end events
+  useEffect(() => {
+    const now = new Date();
+    const newEvents = [];
+    const gameEndUpdates = new Map(); // eventId → [{ name, tag, delta, mmr, teamIdx }]
+
+    for (const [tag, stats] of playerStats) {
+      if (stats?.mmr == null) continue;
+      const prev = prevMmrRef.current.get(tag);
+      if (prev != null && prev !== stats.mmr) {
+        const delta = stats.mmr - prev;
+        const pending = gameEndPendingRef.current.get(tag);
+        if (pending) {
+          // Fold into the game_end event instead of creating a separate event
+          if (!gameEndUpdates.has(pending.eventId)) gameEndUpdates.set(pending.eventId, []);
+          gameEndUpdates.get(pending.eventId).push({
+            name: pending.name, tag, delta, mmr: stats.mmr, teamIdx: pending.teamIdx,
+          });
+          gameEndPendingRef.current.delete(tag);
+        } else {
+          const country = playerProfilesRef.current.get(tag);
+          newEvents.push({
+            type: delta > 0 ? "mmr_gain" : "mmr_loss",
+            player: tag.split("#")[0], tag,
+            mmr: stats.mmr, prevMmr: prev, delta,
+            country: country ? country.toUpperCase() : null,
+            time: now,
+          });
+        }
+      }
+      prevMmrRef.current.set(tag, stats.mmr);
+    }
+
+    if (gameEndUpdates.size > 0 || newEvents.length > 0) {
+      setEvents((prev) => {
+        let updated = prev;
+        if (gameEndUpdates.size > 0) {
+          updated = updated.map((e) => {
+            if (e.eventId != null && gameEndUpdates.has(e.eventId)) {
+              return { ...e, results: [...(e.results || []), ...gameEndUpdates.get(e.eventId)] };
+            }
+            return e;
+          });
+        }
+        if (newEvents.length > 0) {
+          updated = [...newEvents, ...updated];
+        }
+        return updated.slice(0, 100);
+      });
+    }
+  }, [playerStats]);
 
   const stripPlayers = useMemo(() => {
     const online = playersWithStats.filter((p) => p.mmr != null);
@@ -341,17 +541,103 @@ const Home = () => {
     return online;
   }, [playersWithStats, matches]);
 
+  // ── MMR filter badges ──
+  const mmrSteps = useMemo(() => {
+    if (stripPlayers.length === 0) return [];
+    const mmrs = stripPlayers.map((p) => p.mmr).filter((m) => m != null);
+    if (mmrs.length === 0) return [];
+    const min = Math.floor(Math.min(...mmrs) / 200) * 200;
+    const max = Math.ceil(Math.max(...mmrs) / 200) * 200;
+    const steps = [];
+    for (let v = min; v <= max; v += 200) steps.push(v);
+    return steps;
+  }, [stripPlayers]);
+
+  // ── Filtering ──
+  const handleMmrFilter = useCallback((mmr) => {
+    setMmrFilter((prev) => (prev === mmr ? null : mmr));
+  }, []);
+
+  const handleCountryFilter = useCallback((code) => {
+    setCountryFilter((prev) => (prev === code ? null : code));
+  }, []);
+
+  const filteredStripPlayers = useMemo(() => {
+    let result = stripPlayers;
+    if (mmrFilter != null) result = result.filter((p) => (p.mmr ?? 0) >= mmrFilter);
+    if (countryFilter) {
+      result = result.filter((p) => {
+        const country = playerProfiles.get(p.battleTag);
+        return country && country.toUpperCase() === countryFilter;
+      });
+    }
+    return result;
+  }, [stripPlayers, mmrFilter, countryFilter, playerProfiles]);
+
+  const filteredMapPlayers = useMemo(() => {
+    let result = mapPlayers;
+    if (mmrFilter != null) result = result.filter((p) => (p.mmr ?? 0) >= mmrFilter);
+    if (countryFilter) result = result.filter((p) => p.country === countryFilter);
+    return result;
+  }, [mapPlayers, mmrFilter, countryFilter]);
+
+  const filteredPlayerCountries = useMemo(() => {
+    if (mmrFilter == null && !countryFilter) return playerCountries;
+    const countries = new Map();
+    for (const p of filteredMapPlayers) {
+      const code = p.country;
+      if (!code) continue;
+      if (!countries.has(code)) countries.set(code, { online: 0, inGame: 0 });
+      const entry = countries.get(code);
+      if (p.inGame) entry.inGame++;
+      else entry.online++;
+    }
+    return countries;
+  }, [mmrFilter, countryFilter, playerCountries, filteredMapPlayers]);
+
   return (
     <div className="home">
       <div className="home-panel home-world-map">
         <div className="home-section-header">
           <span className="home-section-title">World Map</span>
-          <span className="home-section-count">{playerCountries.size} countries</span>
+          <span className="home-section-count">{filteredPlayerCountries.size} countries</span>
         </div>
-        <WorldMap playerCountries={playerCountries} players={mapPlayers} />
+        <div className="flag-badges">
+          {[...filteredPlayerCountries.entries()]
+            .map(([code, c]) => ({ code, count: c.online + c.inGame }))
+            .sort((a, b) => b.count - a.count)
+            .map(({ code, count }) => (
+              <span
+                key={code}
+                className={`flag-badge${countryFilter === code ? " flag-badge-active" : ""}`}
+                onClick={() => handleCountryFilter(code)}
+              >
+                <span className="flag-badge-flag">{toFlag(code)}</span>
+                <span className="flag-badge-code">{code}</span>
+                <span className="flag-badge-count">{count}</span>
+              </span>
+            ))}
+          {(mmrFilter != null || countryFilter) && (
+            <span
+              className="flag-badge flag-badge-clear"
+              onClick={() => { setMmrFilter(null); setCountryFilter(null); }}
+            >
+              <span className="flag-badge-count">clear</span>
+            </span>
+          )}
+        </div>
+        <WorldMap playerCountries={filteredPlayerCountries} players={filteredMapPlayers} />
       </div>
       {stripPlayers.length > 0 && (
-        <MmrChart players={stripPlayers} matches={matches} count={onlineUsers.length} histogram={histogram} />
+        <MmrChart
+          players={filteredStripPlayers}
+          matches={matches}
+          count={onlineUsers.length}
+          histogram={histogram}
+          mmrFilter={mmrFilter}
+          onMmrFilter={handleMmrFilter}
+          mmrSteps={mmrSteps}
+        />
       )}
       <EventFeed events={events} />
     </div>

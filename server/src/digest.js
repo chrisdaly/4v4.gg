@@ -158,7 +158,13 @@ async function fetchDailyStats(date, chatterTags = null) {
     return null;
   }).filter(Boolean);
 
-  return { winner, loser, grinder: grinderDeduped, hotStreak: hotDeduped, coldStreak: coldDeduped, totalGames, matchSummaries };
+  // Build name→MMR lookup for all players seen today
+  const playerMmrs = new Map();
+  for (const p of playerStats.values()) {
+    if (p.currentMmr > 0) playerMmrs.set(p.name, p.currentMmr);
+  }
+
+  return { winner, loser, grinder: grinderDeduped, hotStreak: hotDeduped, coldStreak: coldDeduped, totalGames, matchSummaries, playerMmrs };
 }
 
 /**
@@ -187,9 +193,21 @@ export { fetchDailyStats };
 /**
  * Build the AI prompt with chat log + optional match context.
  */
-function buildDigestPrompt(messages, matchSummaries, soFar = false) {
+function buildDigestPrompt(messages, matchSummaries, soFar = false, playerMmrs = null) {
   const log = messages.map(m => `[${m.user_name}]: ${m.message}`).join('\n');
   const names = [...new Set(messages.map(m => m.user_name).filter(Boolean))];
+
+  // Build high-MMR chatter list: chatters who played today sorted by MMR
+  let mmrContext = '';
+  if (playerMmrs && playerMmrs.size > 0) {
+    const chatterMmrs = names
+      .map(n => ({ name: n, mmr: playerMmrs.get(n) || 0 }))
+      .filter(p => p.mmr >= 1500)
+      .sort((a, b) => b.mmr - a.mmr);
+    if (chatterMmrs.length > 0) {
+      mmrContext = `\n\nPlayer MMR rankings (higher = more notable, prioritize these players in DRAMA):\n${chatterMmrs.map(p => `${p.name}: ${p.mmr} MMR`).join(', ')}\n`;
+    }
+  }
 
   let matchContext = '';
   if (matchSummaries && matchSummaries.length > 0) {
@@ -199,22 +217,24 @@ function buildDigestPrompt(messages, matchSummaries, soFar = false) {
   return `Summarize this Warcraft III 4v4 chat room's day${soFar ? ' SO FAR' : ''}. Write a SHORT digest with these sections (skip if nothing fits):
 
 TOPICS: 2-5 comma-separated keywords (e.g., "balance patch, undead meta, map pool, tower rush")
-DRAMA: Only BIG accusations, threats, or heated personal attacks (cheating, boosting, griefing, flaming). Max 2 items separated by semicolons. For each item: start with a one-line summary, then on the SAME line include 1-2 direct quotes from the chat log in double quotes showing the worst/most heated things said. Example format: "PlayerA made threats toward PlayerB — \"I will destroy your account\" \"you are garbage and should uninstall\""
+DRAMA: Only BIG accusations, threats, or heated personal attacks. Max 4 items separated by semicolons. FORMAT IS CRITICAL: first a short summary (max 10 words, NO quoted text anywhere in it), then the direct quotes at the END. The summary must make perfect grammatical sense with zero quotes. NEVER put a "quoted phrase" in the middle of a sentence. WRONG: "PlayerA's \"trash\" strategy of expos". RIGHT: "PlayerA went all-in on expos \"trash strat\" \"absolute garbage\"". Example: "PlayerA ripped into PlayerB all game \"you are garbage\" \"uninstall\""
 BANS: Who got banned, duration, reason (skip if none); semicolon-separated. Include the match ID if mentioned.
-HIGHLIGHTS: Funniest moments or best burns (1-2 items, semicolon-separated)
+HIGHLIGHTS: Funniest in-game moments, best burns, or absurd chat moments (1-2 items, semicolon-separated). Must be about gameplay or player interactions. No hardware, IRL equipment, queue times, or mundane stuff.
 
 Rules:
 - No title, no date header, jump straight into TOPICS:
 - TOPICS must be short comma-separated tags, not sentences
 - CRITICAL: Use EXACT player names as they appear in the chat log. Never shorten or abbreviate names. The player list is: ${names.join(', ')}
-- Prioritize high-MMR players (1800+) — their drama and interactions are more interesting
-- DRAMA: Include actual quotes from the chat log to show what was said. The juicier the better — we want to see exactly what people said. Do NOT sanitize or soften the language.
+- Prioritize high-MMR players (1800+), their drama is more interesting
+- DRAMA summaries must be under 10 words with NO quoted text in them. All "quoted text" goes at the END of the item only. No filler like "engaged in", "exchanged", "calling him", "told him". The quotes speak for themselves.
+- Write like a tabloid reporter. Short punchy sentences. No em-dashes. No AI-speak.
+- Foreign language drama is GOLD. If someone posts threats or insults in Chinese/Korean/etc and another player translates it, that is top-tier content. Always include it. Use the English translation as the quote. If no translation exists in chat, translate it yourself. Always quote in English.
 - BANS and DRAMA must not overlap — if someone got banned, put it in BANS only, not in DRAMA
 - State facts only, no commentary (no "classic", "brutal", "chaos", etc)
 - ASCII only
-- DRAMA max 2 items, HIGHLIGHTS max 2 items, BANS max 2 items
-- Total under 700 chars
-${matchContext}
+- DRAMA max 4 items, HIGHLIGHTS max 2 items, BANS max 2 items
+- Total under 900 chars
+${mmrContext}${matchContext}
 Chat log (${messages.length} messages):
 ${log}`;
 }
@@ -235,11 +255,11 @@ async function assembleDigest(date, messages, soFar = false) {
   });
 
   // Generate AI digest with match context
-  const prompt = buildDigestPrompt(messages, dailyStats?.matchSummaries || [], soFar);
+  const prompt = buildDigestPrompt(messages, dailyStats?.matchSummaries || [], soFar, dailyStats?.playerMmrs || null);
   const client = new Anthropic({ apiKey: config.ANTHROPIC_API_KEY });
   const msg = await client.messages.create({
     model: 'claude-haiku-4-5-20251001',
-    max_tokens: 500,
+    max_tokens: 700,
     messages: [{ role: 'user', content: prompt }],
   });
   const aiText = msg.content[0]?.text?.trim() || null;

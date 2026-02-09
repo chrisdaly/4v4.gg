@@ -3,6 +3,7 @@ import { Link } from "react-router-dom";
 import useChatStream from "../lib/useChatStream";
 import { getPlayerProfile } from "../lib/api";
 import { CountryFlag } from "../components/ui";
+import { FiExternalLink } from "react-icons/fi";
 import "../styles/pages/News.css";
 
 const RELAY_URL =
@@ -72,7 +73,9 @@ const linkifyMatchIds = (text) => {
   for (const match of text.matchAll(MATCH_ID_RE)) {
     if (match.index > last) parts.push(text.slice(last, match.index));
     parts.push(
-      <Link key={`m${match.index}`} to={`/match/${match[1]}`} className="digest-match-link">match</Link>
+      <Link key={`m${match.index}`} to={`/match/${match[1]}`} className="digest-match-link">
+        match <FiExternalLink size={11} />
+      </Link>
     );
     last = match.index + match[0].length;
   }
@@ -118,10 +121,10 @@ const extractMentionedTags = (text, nameToTag) => {
     const re = new RegExp(`\\b${escaped}\\b`, "i");
     if (re.test(text)) {
       tags.add(tag);
-    } else if (name.length >= 4) {
+    } else if (name.length >= 7) {
       const nameLower = name.toLowerCase();
       for (const word of lower.split(/\W+/)) {
-        if (word.length >= 4 && nameLower.startsWith(word)) {
+        if (word.length >= 6 && nameLower.startsWith(word)) {
           tags.add(tag);
           break;
         }
@@ -129,6 +132,29 @@ const extractMentionedTags = (text, nameToTag) => {
     }
   }
   return [...tags];
+};
+
+const QUOTE_RE = /"([^"]+)"/g;
+
+const splitQuotes = (text) => {
+  const quotes = [];
+  let summary = text;
+  for (const m of text.matchAll(QUOTE_RE)) {
+    quotes.push(m[1]);
+  }
+  if (quotes.length > 0) {
+    summary = text
+      .replace(QUOTE_RE, "")
+      .replace(/\btold him to\s*and\b/gi, "")
+      .replace(/\bwhere \w+ told him\s*and\b/gi, "")
+      .replace(/\bcalling him\s*$/gi, "")
+      .replace(/\bcalling him\s+and\b/gi, "")
+      .replace(/'\s+of\b/g, "'s")
+      .replace(/\s*[—:,]\s*$/g, "")
+      .replace(/\s{2,}/g, " ")
+      .trim();
+  }
+  return { summary, quotes };
 };
 
 const formatDigestLabel = (dateStr) => {
@@ -216,16 +242,20 @@ const DigestBanner = ({ digest, nameSet, nameToTag, label = "Yesterday in 4v4", 
     if (!bansSection) return visible;
     const bannedNames = new Set();
     for (const [name] of combinedNameToTag) {
-      if (bansSection.content.toLowerCase().includes(name.toLowerCase())) {
-        bannedNames.add(name.toLowerCase());
+      if (name.length < 3) continue;
+      const escaped = name.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+      if (new RegExp(`\\b${escaped}\\b`, "i").test(bansSection.content)) {
+        bannedNames.add(name);
       }
     }
     if (bannedNames.size === 0) return visible;
     return visible.map((s) => {
       if (s.key !== "DRAMA") return s;
       const items = s.content.split(/;\s*/).filter((item) => {
-        const lower = item.toLowerCase();
-        return ![...bannedNames].some((n) => lower.includes(n));
+        return ![...bannedNames].some((n) => {
+          const escaped = n.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+          return new RegExp(`\\b${escaped}\\b`, "i").test(item);
+        });
       });
       if (items.length === 0) return null;
       return { ...s, content: items.join("; ") };
@@ -360,14 +390,25 @@ const DigestBanner = ({ digest, nameSet, nameToTag, label = "Yesterday in 4v4", 
                       .filter((p) => p.pic)
                       .map((p, j) => <DigestAvatar key={j} src={p.pic} country={p.country} />);
 
+                    const { summary, quotes } = splitQuotes(item);
+
                     return (
                       <li key={i} className="digest-bullet-row">
                         <div className="digest-avatars">
                           {avatarElements}
                         </div>
-                        <span className="digest-section-text">
-                          {highlightNames(item, combinedNameSet)}
-                        </span>
+                        <div className="digest-bullet-content">
+                          <span className="digest-section-text">
+                            {highlightNames(summary, combinedNameSet)}
+                          </span>
+                          {quotes.length > 0 && (
+                            <div className="digest-quotes">
+                              {quotes.map((q, qi) => (
+                                <div key={qi} className="digest-quote">{q}</div>
+                              ))}
+                            </div>
+                          )}
+                        </div>
                       </li>
                     );
                   })}
@@ -377,15 +418,29 @@ const DigestBanner = ({ digest, nameSet, nameToTag, label = "Yesterday in 4v4", 
                   {(() => {
                     const tags = extractMentionedTags(content, combinedNameToTag);
                     const ps = tags.map((t) => profiles.get(t)).filter(Boolean);
-                    return ps.length > 0 ? (
-                      <div className="digest-avatars">
-                        {ps.map((p, i) => p.pic && <DigestAvatar key={i} src={p.pic} country={p.country} />)}
-                      </div>
-                    ) : null;
+                    const { summary, quotes } = splitQuotes(content);
+                    return (
+                      <>
+                        {ps.length > 0 && (
+                          <div className="digest-avatars">
+                            {ps.map((p, i) => p.pic && <DigestAvatar key={i} src={p.pic} country={p.country} />)}
+                          </div>
+                        )}
+                        <div className="digest-bullet-content">
+                          <span className="digest-section-text">
+                            {highlightNames(summary, combinedNameSet)}
+                          </span>
+                          {quotes.length > 0 && (
+                            <div className="digest-quotes">
+                              {quotes.map((q, qi) => (
+                                <div key={qi} className="digest-quote">{q}</div>
+                              ))}
+                            </div>
+                          )}
+                        </div>
+                      </>
+                    );
                   })()}
-                  <span className="digest-section-text">
-                    {highlightNames(content, combinedNameSet)}
-                  </span>
                 </div>
               )}
             </div>

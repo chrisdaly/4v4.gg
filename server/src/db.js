@@ -36,6 +36,15 @@ export function initDb() {
       digest     TEXT NOT NULL,
       created_at TEXT NOT NULL DEFAULT (datetime('now'))
     );
+
+    CREATE TABLE IF NOT EXISTS events (
+      id        INTEGER PRIMARY KEY AUTOINCREMENT,
+      type      TEXT NOT NULL,
+      timestamp TEXT NOT NULL,
+      payload   TEXT NOT NULL
+    );
+    CREATE INDEX IF NOT EXISTS idx_events_timestamp ON events(timestamp);
+    CREATE INDEX IF NOT EXISTS idx_events_type ON events(type);
   `);
 
   return db;
@@ -251,4 +260,65 @@ export function setToken(token) {
     INSERT INTO settings (key, value) VALUES ('w3c_jwt', ?)
     ON CONFLICT(key) DO UPDATE SET value = excluded.value
   `).run(token);
+}
+
+// ── Events (replay system) ──────────────────────────────
+
+export function insertEvent(type, payload) {
+  const stmt = db.prepare(`
+    INSERT INTO events (type, timestamp, payload) VALUES (?, ?, ?)
+  `);
+  return stmt.run(type, new Date().toISOString(), JSON.stringify(payload));
+}
+
+export function getEvents({ from, to, types = null, limit = 50000 } = {}) {
+  let sql = 'SELECT * FROM events WHERE timestamp >= ? AND timestamp <= ?';
+  const params = [from, to];
+
+  if (types && types.length > 0) {
+    sql += ` AND type IN (${types.map(() => '?').join(',')})`;
+    params.push(...types);
+  }
+
+  sql += ' ORDER BY timestamp ASC LIMIT ?';
+  params.push(limit);
+
+  return db.prepare(sql).all(params);
+}
+
+export function getEventsSummary() {
+  const range = db.prepare(`
+    SELECT MIN(timestamp) as earliest, MAX(timestamp) as latest, COUNT(*) as total
+    FROM events
+  `).get();
+
+  const perDay = db.prepare(`
+    SELECT DATE(timestamp) as day, type, COUNT(*) as count
+    FROM events
+    GROUP BY day, type
+    ORDER BY day DESC
+    LIMIT 500
+  `).all();
+
+  // Group by day
+  const days = {};
+  for (const row of perDay) {
+    if (!days[row.day]) days[row.day] = { date: row.day, total: 0, byType: {} };
+    days[row.day].byType[row.type] = row.count;
+    days[row.day].total += row.count;
+  }
+
+  return {
+    earliest: range.earliest,
+    latest: range.latest,
+    totalEvents: range.total,
+    days: Object.values(days),
+  };
+}
+
+export function deleteOldEvents(daysToKeep = 14) {
+  const result = db.prepare(`
+    DELETE FROM events WHERE timestamp < datetime('now', '-' || ? || ' days')
+  `).run(daysToKeep);
+  return result.changes;
 }

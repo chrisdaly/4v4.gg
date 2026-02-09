@@ -131,7 +131,18 @@ const useFakeData = (enabled) => {
     const endMatch = () => {
       const ids = [...activeMatches.keys()];
       if (ids.length === 0) return;
-      activeMatches.delete(ids[Math.floor(Math.random() * ids.length)]);
+      const id = ids[Math.floor(Math.random() * ids.length)];
+      const match = activeMatches.get(id);
+      if (match) {
+        const delta = Math.round(5 + Math.random() * 15);
+        const team1 = match.indices.slice(0, 4);
+        const team2 = match.indices.slice(4, 8);
+        const winners = Math.random() < 0.5 ? team1 : team2;
+        const losers = winners === team1 ? team2 : team1;
+        for (const i of winners) pool[i].mmr += delta;
+        for (const i of losers) pool[i].mmr -= delta;
+      }
+      activeMatches.delete(id);
     };
 
     const flush = () => {

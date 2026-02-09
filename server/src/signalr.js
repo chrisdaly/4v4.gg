@@ -1,6 +1,6 @@
 import * as signalR from '@microsoft/signalr';
 import { getToken } from './db.js';
-import { insertMessage, insertMessages, markDeleted, markBulkDeleted } from './db.js';
+import { insertMessage, insertMessages, markDeleted, markBulkDeleted, insertEvent } from './db.js';
 import { broadcast } from './sse.js';
 import { handleCommand } from './bot.js';
 import { maybeTranslate } from './translate.js';
@@ -159,6 +159,7 @@ async function connect() {
       };
       onlineUsers.set(user.battleTag, userData);
       broadcast('user_joined', userData);
+      insertEvent('join', { battleTag: user.battleTag, name: user.name || '', clanTag: user.clanTag || '' });
     }
   });
   connection.on('UserLeft', (user) => {
@@ -166,6 +167,7 @@ async function connect() {
     if (user?.battleTag) {
       onlineUsers.delete(user.battleTag);
       broadcast('user_left', { battleTag: user.battleTag });
+      insertEvent('leave', { battleTag: user.battleTag, name: user.name || '', clanTag: user.clanTag || '' });
     }
   });
 

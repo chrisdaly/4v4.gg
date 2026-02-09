@@ -33,6 +33,7 @@ const MyStreamPage = lazy(() => import("./pages/MyStreamPage"));
 const Blog = lazy(() => import("./pages/Blog"));
 const BlogPost = lazy(() => import("./pages/BlogPost"));
 const MmrLab = lazy(() => import("./pages/MmrLab"));
+const Replay = lazy(() => import("./pages/Replay"));
 
 // Overlay pages (lazy-loaded)
 const OverlayIndex = lazy(() => import("./pages/overlay/OverlayIndex"));
@@ -123,6 +124,7 @@ const Router = () => (
                 <Route path="/themes" component={Themes} />
                 <Route path="/admin" component={Admin} />
 
+                <Route path="/replay" component={Replay} />
                 <Route path="/mmr-lab" component={MmrLab} />
 
                 {/* 404 catch-all */}

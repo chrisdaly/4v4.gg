@@ -273,9 +273,10 @@ const WorldMap = ({ playerCountries, players = [] }) => {
     const dotSel = dotG.selectAll("circle.map-dot")
       .data(dotData, (d) => d.code);
 
-    // Exit — fade out
+    // Exit — fast fade for bulk exits (filtering), slower for organic
+    const mapExitDuration = dotSel.exit().size() > 3 ? 300 : 1500;
     dotSel.exit()
-      .transition().duration(1500).ease(d3.easeCubicIn)
+      .transition().duration(mapExitDuration).ease(d3.easeCubicIn)
       .attr("r", 0)
       .attr("opacity", 0)
       .remove();
@@ -301,7 +302,9 @@ const WorldMap = ({ playerCountries, players = [] }) => {
     const enteringCodes = new Set();
     dotSel.enter().each(function (d) { enteringCodes.add(d.code); });
 
-    // Enter — staggered west→east, grow in with glow pulse + floating name label
+    const isBulkEnter = dotSel.enter().size() > 3;
+
+    // Enter — fast for filter, slow + dramatic for real events
     const enteringDots = dotSel.enter()
       .append("circle")
       .attr("class", "map-dot")
@@ -311,8 +314,17 @@ const WorldMap = ({ playerCountries, players = [] }) => {
       .attr("fill", DOT_COLOR)
       .attr("stroke", "rgba(255, 255, 255, 0.3)")
       .attr("stroke-width", 0.5)
-      .attr("opacity", 0)
-      .each(function (d) {
+      .attr("opacity", 0);
+
+    if (isBulkEnter) {
+      // Fast filter enter — simple fade in
+      enteringDots
+        .transition().duration(400).ease(d3.easeCubicOut)
+        .attr("r", (d) => d.r)
+        .attr("opacity", 1);
+    } else {
+      // Organic enter — floating name label + glow pulse
+      enteringDots.each(function (d) {
         const name = countryTopPlayer.get(d.code);
         if (!name) return;
         enterLabelG.append("text")
@@ -326,33 +338,30 @@ const WorldMap = ({ playerCountries, players = [] }) => {
           .text(name);
       });
 
-    // Stagger: spread entries over ~1200ms west→east (by screen x position)
-    const isBulkEnter = enteringDots.size() > 3;
-    const enterStagger = (d) => isBulkEnter ? Math.max(0, Math.min(1, d.px / width)) * 1200 : 0;
+      enteringDots
+        .transition().duration(2000).ease(d3.easeCubicOut)
+        .attr("r", (d) => d.r)
+        .attr("opacity", 1)
+        .each(function (d) {
+          enterLabelG.select(`.enter-label-${d.code}`)
+            .transition().duration(800)
+            .attr("opacity", 1);
+        })
+        .transition().duration(600)
+        .attr("stroke", "rgba(255, 255, 255, 0.6)")
+        .attr("stroke-width", 2)
+        .transition().duration(800)
+        .attr("stroke", "rgba(255, 255, 255, 0.3)")
+        .attr("stroke-width", 0.5)
+        .on("end", function (d) {
+          enterLabelG.select(`.enter-label-${d.code}`)
+            .transition().delay(5000).duration(1500)
+            .attr("opacity", 0)
+            .remove();
+        });
+    }
 
-    enteringDots
-      .transition().delay(enterStagger).duration(2000).ease(d3.easeCubicOut)
-      .attr("r", (d) => d.r)
-      .attr("opacity", 1)
-      .each(function (d) {
-        enterLabelG.select(`.enter-label-${d.code}`)
-          .transition().duration(800)
-          .attr("opacity", 1);
-      })
-      .transition().duration(600)
-      .attr("stroke", "rgba(255, 255, 255, 0.6)")
-      .attr("stroke-width", 2)
-      .transition().duration(800)
-      .attr("stroke", "rgba(255, 255, 255, 0.3)")
-      .attr("stroke-width", 0.5)
-      .on("end", function (d) {
-        enterLabelG.select(`.enter-label-${d.code}`)
-          .transition().delay(5000).duration(1500)
-          .attr("opacity", 0)
-          .remove();
-      });
-
-    // 6. Per-player enter/exit animations
+    // 6. Per-player enter/exit animations — only for organic events, not filtering
     const currentPlayerMap = new Map();
     for (const p of (players || [])) {
       if (p.battleTag && p.country) {
@@ -363,7 +372,16 @@ const WorldMap = ({ playerCountries, players = [] }) => {
     const prevMap = prevPlayersRef.current || new Map();
     prevPlayersRef.current = currentPlayerMap;
 
+    // Count player-level diffs to detect bulk (filter) vs organic
+    let playerExitCount = 0;
+    let playerEnterCount = 0;
     if (!isFirstRender) {
+      for (const tag of prevMap.keys()) { if (!currentPlayerMap.has(tag)) playerExitCount++; }
+      for (const tag of currentPlayerMap.keys()) { if (!prevMap.has(tag)) playerEnterCount++; }
+    }
+    const isBulkPlayerChange = playerExitCount > 3 || playerEnterCount > 3;
+
+    if (!isFirstRender && !isBulkPlayerChange) {
       // Ensure event layer exists (persists across renders)
       let eventG = svg.select(".player-event-layer");
       if (eventG.empty()) eventG = svg.append("g").attr("class", "player-event-layer").attr("pointer-events", "none");
