@@ -88,21 +88,23 @@ const OnlineMmrStrip = ({
 
   // Main D3 render
   useEffect(() => {
-    if (!introReady || !svgRef.current || !width || !height || height < 60 || !players || players.length === 0) return;
+    if (!introReady || !svgRef.current || !width || !height || width < 60 || !players || players.length === 0) return;
 
     const svg = d3.select(svgRef.current);
 
-    const padding = { left: 40, right: 40, top: 24, bottom: 30 };
-    const chartHeight = height - padding.top - padding.bottom;
-    const centerY = padding.top + chartHeight / 2;
+    // VERTICAL LAYOUT: MMR on Y-axis, displacement on X-axis
+    const padding = { left: 20, right: 50, top: 24, bottom: 30 };
+    const chartWidth = width - padding.left - padding.right;
+    const centerX = padding.left + chartWidth / 2;
 
     const mmrs = players.map((p) => p.mmr);
     const minMmr = d3.min(mmrs) - 50;
     const maxMmr = d3.max(mmrs) + 50;
 
-    const x = d3.scaleLinear()
+    // Y-scale for MMR (inverted: higher MMR at top)
+    const y = d3.scaleLinear()
       .domain([minMmr, maxMmr])
-      .range([padding.left, width - padding.right]);
+      .range([height - padding.bottom, padding.top]);
 
     // Max games for dot sizing
     const allGames = players.map((p) => (p.wins || 0) + (p.losses || 0));
@@ -122,18 +124,18 @@ const OnlineMmrStrip = ({
     // ── Histogram backdrop ──
     if (histogram && histogram.length > 0) {
       const histMaxCount = d3.max(histogram, (d) => d.count) || 1;
-      const yHist = d3.scaleLinear().domain([0, histMaxCount]).range([0, chartHeight * 0.15]);
+      const xHist = d3.scaleLinear().domain([0, histMaxCount]).range([0, chartWidth * 0.2]);
 
-      const areaAbove = d3.area()
-        .x((d) => x(d.mmr))
-        .y0(centerY)
-        .y1((d) => centerY - yHist(d.count))
+      const areaLeft = d3.area()
+        .y((d) => y(d.mmr))
+        .x0(centerX)
+        .x1((d) => centerX - xHist(d.count))
         .curve(d3.curveBasis);
 
-      const areaBelow = d3.area()
-        .x((d) => x(d.mmr))
-        .y0(centerY)
-        .y1((d) => centerY + yHist(d.count))
+      const areaRight = d3.area()
+        .y((d) => y(d.mmr))
+        .x0(centerX)
+        .x1((d) => centerX + xHist(d.count))
         .curve(d3.curveBasis);
 
       const visibleBins = histogram.filter((d) => d.mmr >= minMmr && d.mmr <= maxMmr);
@@ -141,14 +143,14 @@ const OnlineMmrStrip = ({
       if (visibleBins.length > 1) {
         staticG.append("path")
           .datum(visibleBins)
-          .attr("d", areaAbove)
+          .attr("d", areaLeft)
           .attr("fill", "rgba(252, 219, 51, 0.04)")
           .attr("stroke", "rgba(252, 219, 51, 0.08)")
           .attr("stroke-width", 1);
 
         staticG.append("path")
           .datum(visibleBins)
-          .attr("d", areaBelow)
+          .attr("d", areaRight)
           .attr("fill", "rgba(252, 219, 51, 0.04)")
           .attr("stroke", "rgba(252, 219, 51, 0.08)")
           .attr("stroke-width", 1);
@@ -160,37 +162,37 @@ const OnlineMmrStrip = ({
     const gridStart = Math.ceil(minMmr / step) * step;
     for (let v = gridStart; v <= maxMmr; v += step) {
       staticG.append("line")
-        .attr("x1", x(v)).attr("x2", x(v))
-        .attr("y1", padding.top).attr("y2", height - padding.bottom)
+        .attr("y1", y(v)).attr("y2", y(v))
+        .attr("x1", padding.left).attr("x2", width - padding.right)
         .attr("stroke", "#222").attr("stroke-width", 1);
       staticG.append("text")
-        .attr("x", x(v)).attr("y", height - 6)
+        .attr("y", y(v) + 3).attr("x", width - 8)
         .attr("fill", "#555").attr("font-size", "10px")
-        .attr("font-family", "var(--font-mono)").attr("text-anchor", "middle")
+        .attr("font-family", "var(--font-mono)").attr("text-anchor", "end")
         .text(v);
     }
 
     // ── Center axis ──
     staticG.append("line")
-      .attr("x1", padding.left).attr("x2", width - padding.right)
-      .attr("y1", centerY).attr("y2", centerY)
+      .attr("x1", centerX).attr("x2", centerX)
+      .attr("y1", padding.top).attr("y2", height - padding.bottom)
       .attr("stroke", "#333").attr("stroke-width", 1);
 
     // ── Beeswarm positions ──
-    const sorted = [...players].sort((a, b) => a.mmr - b.mmr);
+    const sorted = [...players].sort((a, b) => b.mmr - a.mmr); // highest MMR first (top to bottom)
     const positions = [];
 
     for (const player of sorted) {
-      const px = x(player.mmr);
+      const py = y(player.mmr);
       const games = (player.wins || 0) + (player.losses || 0);
       const dotR = rScale(games);
-      let py = centerY;
+      let px = centerX;
       let offset = 1;
       while (positions.some((p) => {
         const minDist = (p.r + dotR) * 1.2;
         return Math.hypot(p.x - px, p.y - py) < minDist;
       })) {
-        py = centerY + (offset % 2 === 0 ? 1 : -1) * Math.ceil(offset / 2) * (dotR * 2.2);
+        px = centerX + (offset % 2 === 0 ? 1 : -1) * Math.ceil(offset / 2) * (dotR * 2.2);
         offset++;
         if (offset > 20) break;
       }
@@ -226,10 +228,10 @@ const OnlineMmrStrip = ({
       for (let i = 0; i < members.length - 1; i++) {
         const a = members[i];
         const b = members[i + 1];
-        const dist = Math.abs(a.x - b.x);
-        const controlY = Math.min(a.y, b.y) - dist * 0.3 - 8;
+        const dist = Math.abs(a.y - b.y);
+        const controlX = Math.min(a.x, b.x) - dist * 0.3 - 8;
         arcG.append("path")
-          .attr("d", `M ${a.x} ${a.y} Q ${(a.x + b.x) / 2} ${controlY} ${b.x} ${b.y}`)
+          .attr("d", `M ${a.x} ${a.y} Q ${controlX} ${(a.y + b.y) / 2} ${b.x} ${b.y}`)
           .attr("fill", "none")
           .attr("stroke", color)
           .attr("stroke-width", 1)
@@ -248,17 +250,17 @@ const OnlineMmrStrip = ({
     const dots = dotGroup.selectAll("circle.player-dot")
       .data(positions, (d) => d.tag);
 
-    // Exit animation: drop off the bottom with trailing name label
-    const exitY = height + 20;
+    // Exit animation: slide off to the right with trailing name label
+    const exitX = width + 20;
     const exitLabelG = svg.append("g").attr("class", "exit-label-layer").attr("pointer-events", "none");
     const exitLabels = new Map();
     dots.exit().each(function (d) {
       const name = d.tag?.split("#")[0] || "";
       if (!name) return;
       const label = exitLabelG.append("text")
-        .attr("x", d.x)
-        .attr("y", d.y + d.r + LABEL_H + 4)
-        .attr("text-anchor", "middle")
+        .attr("x", d.x + d.r + 8)
+        .attr("y", d.y + 4)
+        .attr("text-anchor", "start")
         .attr("fill", "var(--gold)")
         .attr("font-size", `${LABEL_FONT_SIZE}px`)
         .attr("font-family", "var(--font-display)")
@@ -269,17 +271,17 @@ const OnlineMmrStrip = ({
     dots.exit()
       .transition().duration(5000)
       .ease(d3.easeCubicIn)
-      .attrTween("cy", function (d) {
-        const sy = +d3.select(this).attr("cy");
+      .attrTween("cx", function (d) {
+        const sx = +d3.select(this).attr("cx");
         return (t) => {
-          const cy = sy + (exitY - sy) * t;
+          const cx = sx + (exitX - sx) * t;
           const label = exitLabels.get(d.tag);
           if (label) {
             const r = d.r * (1 - t * 0.8);
-            label.attr("x", +d3.select(this).attr("cx")).attr("y", cy + r + LABEL_H + 4)
+            label.attr("x", cx + r + 8).attr("y", +d3.select(this).attr("cy") + 4)
               .attr("opacity", Math.max(0, 1 - t * 1.5));
           }
-          return cy;
+          return cx;
         };
       })
       .attr("r", 2)
@@ -297,8 +299,8 @@ const OnlineMmrStrip = ({
       .attr("fill", (d) => d.inGame ? DOT_COLOR_INGAME : DOT_COLOR)
       .attr("opacity", 1);
 
-    const startX = x(1500);
-    const startY = padding.top + 2;
+    const startX = padding.left - 20;
+    const startY = y(1500);
     const enterCount = dots.enter().size();
     const isBulkLoad = enterCount > 3;
 
@@ -319,24 +321,23 @@ const OnlineMmrStrip = ({
 
     // ── Elliptic arc entrance ──
     // Path: linear interpolation from start→end + sin(πt) perpendicular bulge
-    // Creates a true elliptic trajectory that dips below the straight line
-    const bulgeAmt = chartHeight * 0.35;
+    const bulgeAmt = chartWidth * 0.35;
     const maxMmrDist = d3.max(positions, (p) => Math.abs(p.mmr - 1500)) || 1;
 
     // Elliptic position helpers
     const ellipseX = (d, t) => {
       const dx = d.x - startX, dy = d.y - startY;
       const len = Math.sqrt(dx * dx + dy * dy) || 1;
-      // Perpendicular unit vector (rotated 90° CW), flipped to always point downward
-      let px = dy / len;
-      if (-dx / len < 0) px = -px;
+      // Perpendicular unit vector (rotated 90° CW), pointing leftward for rightward motion
+      let px = -dy / len;
+      if (dx > 0 && px > 0) px = -px; // always bulge leftward
       return startX + dx * t + bulgeAmt * Math.sin(Math.PI * t) * px;
     };
     const ellipseY = (d, t) => {
       const dx = d.x - startX, dy = d.y - startY;
       const len = Math.sqrt(dx * dx + dy * dy) || 1;
-      let py = -dx / len;
-      if (py < 0) py = -py;
+      let py = dx / len;
+      if (dy > 0 && py < 0) py = -py; // consistent direction
       return startY + dy * t + bulgeAmt * Math.sin(Math.PI * t) * py;
     };
 
@@ -348,9 +349,9 @@ const OnlineMmrStrip = ({
         const name = d.tag?.split("#")[0] || "";
         if (!name) return;
         const label = enterLabelG.append("text")
-          .attr("x", startX)
-          .attr("y", startY - 10)
-          .attr("text-anchor", "middle")
+          .attr("x", startX - 8)
+          .attr("y", startY + 4)
+          .attr("text-anchor", "end")
           .attr("fill", "var(--gold)")
           .attr("font-size", `${LABEL_FONT_SIZE}px`)
           .attr("font-family", "var(--font-display)")
@@ -376,7 +377,7 @@ const OnlineMmrStrip = ({
         const label = enterLabels.get(d.tag);
         if (label) {
           const r = d.r * Math.min(1, t * 2);
-          label.attr("x", ellipseX(d, t)).attr("y", ey - r - 8)
+          label.attr("x", ellipseX(d, t) - r - 8).attr("y", ey + 4)
             .attr("opacity", t < 0.92 ? Math.min(1, t * 4) : Math.max(0, (1 - t) / 0.08));
         }
         return ey;
@@ -431,16 +432,16 @@ const OnlineMmrStrip = ({
       const textW = name.length * LABEL_CHAR_W + LABEL_PAD_X * 2;
       const textH = LABEL_H + LABEL_PAD_Y * 2;
 
-      let labelX = pos.x - textW / 2;
-      labelX = Math.max(bounds.left, Math.min(bounds.right - textW, labelX));
+      let labelY = pos.y - textH / 2;
+      labelY = Math.max(bounds.top, Math.min(bounds.bottom - textH, labelY));
 
-      const aboveY = pos.y - pos.r - 4 - textH;
-      const belowY = pos.y + pos.r + 4;
+      const leftX = pos.x - pos.r - 4 - textW;
+      const rightX = pos.x + pos.r + 4;
 
-      for (const candidateY of [aboveY, belowY]) {
-        if (candidateY < bounds.top || candidateY + textH > bounds.bottom) continue;
+      for (const candidateX of [rightX, leftX]) {
+        if (candidateX < bounds.left || candidateX + textW > bounds.right) continue;
 
-        const candidateRect = { x: labelX, y: candidateY, w: textW, h: textH };
+        const candidateRect = { x: candidateX, y: labelY, w: textW, h: textH };
         if (!force) {
           if (placedLabels.some((r) => rectsOverlap(candidateRect, r))) continue;
           if (rectOverlapsDot(candidateRect, positions.filter((p) => p.tag !== pos.tag))) continue;
@@ -449,8 +450,8 @@ const OnlineMmrStrip = ({
         placedLabels.push(candidateRect);
         labeledTags.add(pos.tag);
         labelG.append("text")
-          .attr("x", labelX + textW / 2)
-          .attr("y", candidateY + textH - LABEL_PAD_Y - 1)
+          .attr("x", candidateX + textW / 2)
+          .attr("y", labelY + textH - LABEL_PAD_Y - 1)
           .attr("text-anchor", "middle")
           .attr("fill", LABEL_COLOR)
           .attr("font-size", `${LABEL_FONT_SIZE}px`)
@@ -553,15 +554,15 @@ const OnlineMmrStrip = ({
 
         const textW = name.length * LABEL_CHAR_W + LABEL_PAD_X * 2;
         const textH = LABEL_H + LABEL_PAD_Y * 2;
-        let labelX = mPos.x - textW / 2;
-        labelX = Math.max(bounds.left, Math.min(bounds.right - textW, labelX));
+        let labelY = mPos.y - textH / 2;
+        labelY = Math.max(bounds.top, Math.min(bounds.bottom - textH, labelY));
 
-        const aboveY = mPos.y - mPos.r - 4 - textH;
-        const belowY = mPos.y + mPos.r + 4;
+        const leftX = mPos.x - mPos.r - 4 - textW;
+        const rightX = mPos.x + mPos.r + 4;
 
-        for (const candidateY of [aboveY, belowY]) {
-          if (candidateY < bounds.top || candidateY + textH > bounds.bottom) continue;
-          const candidateRect = { x: labelX, y: candidateY, w: textW, h: textH };
+        for (const candidateX of [rightX, leftX]) {
+          if (candidateX < bounds.left || candidateX + textW > bounds.right) continue;
+          const candidateRect = { x: candidateX, y: labelY, w: textW, h: textH };
           // Only check against other hover labels and match participant dots (dimmed dots are fine to overlap)
           if (hoverPlaced.some((r) => rectsOverlap(candidateRect, r))) continue;
           const matchDots = positions.filter((p) => p.tag !== mTag && matchTags.has(p.tag));
@@ -569,8 +570,8 @@ const OnlineMmrStrip = ({
 
           hoverPlaced.push(candidateRect);
           hoverLabelG.append("text")
-            .attr("x", labelX + textW / 2)
-            .attr("y", candidateY + textH - LABEL_PAD_Y - 1)
+            .attr("x", candidateX + textW / 2)
+            .attr("y", labelY + textH - LABEL_PAD_Y - 1)
             .attr("text-anchor", "middle")
             .attr("fill", color)
             .attr("font-size", `${LABEL_FONT_SIZE}px`)
@@ -634,9 +635,9 @@ const OnlineMmrStrip = ({
             const name = d.tag?.split("#")[0] || "";
             if (name) {
               hoverLabelG.append("text")
-                .attr("x", d.x)
-                .attr("y", d.y - d.r - 8)
-                .attr("text-anchor", "middle")
+                .attr("x", d.x + d.r + 8)
+                .attr("y", d.y + 4)
+                .attr("text-anchor", "start")
                 .attr("fill", "#fff")
                 .attr("font-size", `${LABEL_FONT_SIZE}px`)
                 .attr("font-family", "var(--font-display)")

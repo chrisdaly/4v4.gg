@@ -4,17 +4,17 @@
 
 .home {
   display: flex;
-  flex-direction: column;
+  flex-direction: row;
   height: calc(100vh - 52px);
   padding: var(--space-4);
   gap: var(--space-4);
   overflow: hidden;
 }
 
-/* World Map panel — takes ~55% of the vertical space */
+/* World Map panel — takes ~70% of the horizontal space */
 .home-world-map {
-  flex: 1.2;
-  min-height: 280px;
+  flex: 2.5;
+  min-width: 400px;
   padding: var(--space-2);
   display: flex;
   flex-direction: column;
@@ -30,11 +30,12 @@
   padding: var(--space-4) var(--space-6);
 }
 
-/* ── MMR Chart (fills remaining vertical space) ────── */
+/* ── MMR Chart (narrow sidebar on right) ────── */
 
 .home-mmr-chart {
   flex: 1;
-  min-height: 200px;
+  min-width: 240px;
+  max-width: 320px;
   display: flex;
   flex-direction: column;
   padding-bottom: var(--space-2);
@@ -83,6 +84,24 @@
 }
 
 /* ── Mobile ────────────────────────────────────────── */
+
+@media (max-width: 1024px) {
+  .home {
+    flex-direction: column;
+  }
+
+  .home-world-map {
+    flex: none;
+    min-height: 280px;
+  }
+
+  .home-mmr-chart {
+    flex: none;
+    min-width: auto;
+    max-width: none;
+    min-height: 200px;
+  }
+}
 
 @media (max-width: 768px) {
   .home {

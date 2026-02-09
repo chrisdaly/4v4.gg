@@ -133,7 +133,7 @@ const placeLabels = (g, candidates, dotPositions, existingRects, bounds, fontSiz
       g.append("text")
         .attr("x", lx + padX)
         .attr("y", ly + textH - padY - 1)
-        .attr("fill", player.inGame ? "var(--red, #ef4444)" : "rgba(255, 255, 255, 0.6)")
+        .attr("fill", "rgba(255, 255, 255, 0.6)")
         .attr("font-size", `${fontSize}px`)
         .attr("font-family", "var(--font-display)")
         .text(name);
@@ -264,10 +264,10 @@ const WorldMap = ({ playerCountries, players = [] }) => {
         dotPositions.push({ x: pt[0], y: pt[1], r, code: d.code });
       }
 
-      dotG.selectAll("circle.online-dot")
-        .data(dots.filter((d) => d.online > 0))
+      dotG.selectAll("circle.player-dot")
+        .data(dots)
         .join("circle")
-        .attr("class", "online-dot")
+        .attr("class", "player-dot")
         .attr("cx", (d) => projection([d.lon, d.lat])?.[0])
         .attr("cy", (d) => projection([d.lon, d.lat])?.[1])
         .attr("r", (d) => rScale(d.total))
@@ -276,20 +276,6 @@ const WorldMap = ({ playerCountries, players = [] }) => {
         .attr("stroke", "var(--gold, #fcdb33)")
         .attr("stroke-opacity", 0.3)
         .attr("stroke-width", 1);
-
-      dotG.selectAll("circle.ingame-dot")
-        .data(dots.filter((d) => d.inGame > 0))
-        .join("circle")
-        .attr("class", "ingame-dot")
-        .attr("cx", (d) => projection([d.lon, d.lat])?.[0])
-        .attr("cy", (d) => projection([d.lon, d.lat])?.[1])
-        .attr("r", (d) => rScale(d.total))
-        .attr("fill", "var(--red, #ef4444)")
-        .attr("fill-opacity", 0.85)
-        .attr("stroke", "var(--red, #ef4444)")
-        .attr("stroke-opacity", 0.4)
-        .attr("stroke-width", 1.5)
-        .style("animation", "map-pulse 1.5s infinite");
     }
 
     // 6. Main map labels — non-European players only (Europe handled by inset)
@@ -305,8 +291,8 @@ const WorldMap = ({ playerCountries, players = [] }) => {
     // 7. Europe inset — bottom-left corner
     const euDots = dots.filter((d) => EU_CODES.has(d.code));
     if (euDots.length > 0) {
-      const insetW = Math.min(width * 0.38, 280);
-      const insetH = Math.min(height * 0.6, 220);
+      const insetW = Math.min(width * 0.42, 360);
+      const insetH = Math.min(height * 0.65, 300);
       const insetX = 6;
       const insetY = height - insetH - 22;
       const insetPad = 10;
@@ -363,8 +349,8 @@ const WorldMap = ({ playerCountries, players = [] }) => {
         euDotPositions.push({ x: pt[0], y: pt[1], r, code: d.code });
       }
 
-      euDotG.selectAll("circle.eu-online")
-        .data(euDots.filter((d) => d.online > 0))
+      euDotG.selectAll("circle.eu-dot")
+        .data(euDots)
         .join("circle")
         .attr("cx", (d) => euProjection([d.lon, d.lat])?.[0])
         .attr("cy", (d) => euProjection([d.lon, d.lat])?.[1])
@@ -374,19 +360,6 @@ const WorldMap = ({ playerCountries, players = [] }) => {
         .attr("stroke", "var(--gold, #fcdb33)")
         .attr("stroke-opacity", 0.3)
         .attr("stroke-width", 0.5);
-
-      euDotG.selectAll("circle.eu-ingame")
-        .data(euDots.filter((d) => d.inGame > 0))
-        .join("circle")
-        .attr("cx", (d) => euProjection([d.lon, d.lat])?.[0])
-        .attr("cy", (d) => euProjection([d.lon, d.lat])?.[1])
-        .attr("r", (d) => euRScale(d.total))
-        .attr("fill", "var(--red, #ef4444)")
-        .attr("fill-opacity", 0.85)
-        .attr("stroke", "var(--red, #ef4444)")
-        .attr("stroke-opacity", 0.4)
-        .attr("stroke-width", 1)
-        .style("animation", "map-pulse 1.5s infinite");
 
       // Inset labels
       const euCandidates = labelCandidates.filter((p) => EU_CODES.has(p.country.toUpperCase()));
@@ -476,8 +449,8 @@ const WorldMap = ({ playerCountries, players = [] }) => {
       // Also update the inset night overlay if it exists
       svg.select(".night-overlay-eu").each(function () {
         const { width, height } = dimensions;
-        const insetW = Math.min(width * 0.38, 280);
-        const insetH = Math.min(height * 0.6, 220);
+        const insetW = Math.min(width * 0.42, 360);
+        const insetH = Math.min(height * 0.65, 300);
         const insetX = 6;
         const insetY = height - insetH - 22;
         const insetPad = 10;
