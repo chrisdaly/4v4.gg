@@ -8,7 +8,6 @@ import { cache } from "../lib/cache";
 import { getLiveStreamers } from "../lib/twitchService";
 import { LEAGUES } from "../lib/constants";
 import { GiCrossedSwords } from "react-icons/gi";
-import { PageLayout } from "../components/PageLayout";
 import "../styles/pages/Ladder.css";
 
 // Initialize rankings from cache for instant UI on navigation
@@ -375,82 +374,79 @@ const Ladder = () => {
   const currentLeague = LEAGUES.find((l) => l.id === selectedLeague);
 
   return (
-    <PageLayout
-      maxWidth="1000px"
-      header={
-        <div className="ladder-header">
-          <div className="ladder-title-section">
-            {searchResults !== null ? (
-              <>
-                <h1 className="ladder-title">Search Results</h1>
-                <div className="ladder-stats">
-                  <span className="stat-item">{searchResults.length} players found</span>
-                </div>
-              </>
-            ) : (
-              <>
-                <div className="ladder-league-title">
-                  <img src={currentLeague?.icon} alt="" className="league-icon-title" />
-                  <h1 className="ladder-title">{currentLeague?.name}</h1>
-                </div>
-                <div className="ladder-stats">
-                  <span className="stat-item">{rankings.length} players</span>
-                  {inGameCount > 0 && (
-                    <span className="stat-item in-game">
-                      <GiCrossedSwords className="in-game-icon-small" />
-                      {inGameCount} in game
-                    </span>
-                  )}
-                </div>
-              </>
+    <div className="ladder-page">
+      <div className="ladder-header">
+        <div className="ladder-title-section">
+          {searchResults !== null ? (
+            <>
+              <h1 className="ladder-title">Search Results</h1>
+              <div className="ladder-stats">
+                <span className="stat-item">{searchResults.length} players found</span>
+              </div>
+            </>
+          ) : (
+            <>
+              <div className="ladder-league-title">
+                <img src={currentLeague?.icon} alt="" className="league-icon-title" />
+                <h1 className="ladder-title">{currentLeague?.name}</h1>
+              </div>
+              <div className="ladder-stats">
+                <span className="stat-item">{rankings.length} players</span>
+                {inGameCount > 0 && (
+                  <span className="stat-item in-game">
+                    <GiCrossedSwords className="in-game-icon-small" />
+                    {inGameCount} in game
+                  </span>
+                )}
+              </div>
+            </>
+          )}
+        </div>
+        <div className="ladder-controls">
+          <div className="ladder-search">
+            <input
+              type="text"
+              placeholder="Search all leagues..."
+              value={searchQuery}
+              onChange={(e) => setSearchQuery(e.target.value)}
+            />
+            {searchQuery && (
+              <button className="search-clear" onClick={() => { setSearchQuery(""); setSearchResults(null); }}>×</button>
             )}
           </div>
-          <div className="ladder-controls">
-            <div className="ladder-search">
-              <input
-                type="text"
-                placeholder="Search all leagues..."
-                value={searchQuery}
-                onChange={(e) => setSearchQuery(e.target.value)}
-              />
-              {searchQuery && (
-                <button className="search-clear" onClick={() => { setSearchQuery(""); setSearchResults(null); }}>×</button>
-              )}
+          <div className="ladder-selectors">
+            <div className="league-selector">
+              <img src={currentLeague?.icon} alt="" className="league-icon" />
+              <select
+                id="league-select"
+                value={selectedLeague}
+                onChange={handleLeagueChange}
+                disabled={searchResults !== null}
+              >
+                {LEAGUES.map((league) => (
+                  <option key={league.id} value={league.id}>
+                    {league.name}
+                  </option>
+                ))}
+              </select>
             </div>
-            <div className="ladder-selectors">
-              <div className="league-selector">
-                <img src={currentLeague?.icon} alt="" className="league-icon" />
-                <select
-                  id="league-select"
-                  value={selectedLeague}
-                  onChange={handleLeagueChange}
-                  disabled={searchResults !== null}
-                >
-                  {LEAGUES.map((league) => (
-                    <option key={league.id} value={league.id}>
-                      {league.name}
-                    </option>
-                  ))}
-                </select>
-              </div>
-              <div className="season-selector">
-                <select
-                  id="season-select"
-                  value={selectedSeason || ""}
-                  onChange={handleSeasonChange}
-                >
-                  {availableSeasons.map((s) => (
-                    <option key={s.id} value={s.id}>
-                      S{s.id}
-                    </option>
-                  ))}
-                </select>
-              </div>
+            <div className="season-selector">
+              <select
+                id="season-select"
+                value={selectedSeason || ""}
+                onChange={handleSeasonChange}
+              >
+                {availableSeasons.map((s) => (
+                  <option key={s.id} value={s.id}>
+                    S{s.id}
+                  </option>
+                ))}
+              </select>
             </div>
           </div>
         </div>
-      }
-    >
+      </div>
+
       {isLoading || isSearching ? (
         <div className="ladder-loading">
           <div className="loader-spinner lg"></div>
@@ -467,39 +463,41 @@ const Ladder = () => {
             <div className={`col-session sortable ${sortField === "momentum" ? "active" : ""}`} onClick={() => handleSort("momentum")}>Session</div>
             <div className={`col-form sortable ${sortField === "live" ? "active" : ""}`} onClick={() => handleSort("live")}>Form</div>
           </div>
-          {sortedRankings.length === 0 ? (
-            <div className="ladder-no-results">
-              {searchResults !== null
-                ? `No players found matching "${searchQuery}"`
-                : "No players in this league"}
-            </div>
-          ) : (
-            sortedRankings.map((rank, index) => {
-              const battleTag = rank.playersInfo?.[0]?.battleTag || rank.player?.playerIds?.[0]?.battleTag;
-              const isLive = battleTag && ongoingPlayers.has(battleTag.toLowerCase());
-              const twitchName = twitchLinks[battleTag];
-              const isStreaming = twitchName && liveStreamers.has(twitchName.toLowerCase());
-              const streamInfo = isStreaming ? liveStreamers.get(twitchName.toLowerCase()) : null;
+          <div className="ladder-body">
+            {sortedRankings.length === 0 ? (
+              <div className="ladder-no-results">
+                {searchResults !== null
+                  ? `No players found matching "${searchQuery}"`
+                  : "No players in this league"}
+              </div>
+            ) : (
+              sortedRankings.map((rank, index) => {
+                const battleTag = rank.playersInfo?.[0]?.battleTag || rank.player?.playerIds?.[0]?.battleTag;
+                const isLive = battleTag && ongoingPlayers.has(battleTag.toLowerCase());
+                const twitchName = twitchLinks[battleTag];
+                const isStreaming = twitchName && liveStreamers.has(twitchName.toLowerCase());
+                const streamInfo = isStreaming ? liveStreamers.get(twitchName.toLowerCase()) : null;
 
-              return (
-                <LadderRow
-                  key={rank.id}
-                  rank={rank}
-                  sparklineData={sparklineData[battleTag] || []}
-                  session={sessionData[battleTag] || null}
-                  detectedRace={detectedRaces[battleTag]}
-                  twitch={twitchName || null}
-                  isStreaming={isStreaming}
-                  streamInfo={streamInfo}
-                  isLive={isLive}
-                  isEven={index % 2 === 0}
-                />
-              );
-            })
-          )}
+                return (
+                  <LadderRow
+                    key={rank.id}
+                    rank={rank}
+                    sparklineData={sparklineData[battleTag] || []}
+                    session={sessionData[battleTag] || null}
+                    detectedRace={detectedRaces[battleTag]}
+                    twitch={twitchName || null}
+                    isStreaming={isStreaming}
+                    streamInfo={streamInfo}
+                    isLive={isLive}
+                    isEven={index % 2 === 0}
+                  />
+                );
+              })
+            )}
+          </div>
         </div>
       )}
-    </PageLayout>
+    </div>
   );
 };
 

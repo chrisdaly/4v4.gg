@@ -9,6 +9,7 @@ export default function useChatStream() {
   const [status, setStatus] = useState("connecting");
   const [onlineUsers, setOnlineUsers] = useState([]);
   const [botResponses, setBotResponses] = useState([]);
+  const [translations, setTranslations] = useState(new Map());
   const eventSourceRef = useRef(null);
 
   const addMessages = useCallback((newMsgs) => {
@@ -91,6 +92,12 @@ export default function useChatStream() {
       setBotResponses((prev) => [...prev.slice(-49), data]);
     });
 
+    es.addEventListener("translation", (e) => {
+      if (cancelled) return;
+      const { id, translated } = JSON.parse(e.data);
+      setTranslations((prev) => new Map(prev).set(id, translated));
+    });
+
     es.addEventListener("status", (e) => {
       if (cancelled) return;
       const { state } = JSON.parse(e.data);
@@ -131,5 +138,5 @@ export default function useChatStream() {
     }
   }, []);
 
-  return { messages, status, onlineUsers, botResponses, sendMessage };
+  return { messages, status, onlineUsers, botResponses, translations, sendMessage };
 }

@@ -282,6 +282,90 @@ const SECTIONS = [
     ],
   },
   {
+    id: "theme-backgrounds",
+    title: "Theme Backgrounds",
+    desc: "Background candidates for the expanded theme system",
+    minWidth: "400px",
+    isThemeBackgrounds: true,
+    groups: [
+      {
+        label: "Frozen Throne",
+        items: [
+          { name: "Arthas Close-up (1920x1080)", src: "/backgrounds/themes/frozen-throne.jpg", note: "has watermark" },
+          { name: "Lich King on Throne", src: "/backgrounds/themes/frozen-throne-ice.jpg", note: "small watermark" },
+          { name: "Undead Campaign — Northrend", src: "/backgrounds/themes/frozen-throne-alt.jpg" },
+          { name: "Wrath Login — Frost Wyrm + Icecrown", src: "/backgrounds/themes/blight-alt.jpg", note: "clean, no text" },
+        ],
+      },
+      {
+        label: "Dalaran / Arcane",
+        items: [
+          { name: "Peter Lee — Floating City", src: "/backgrounds/themes/dalaran.jpg", note: "stunning" },
+          { name: "Dalaran Overview", src: "/backgrounds/themes/dalaran-alt.jpg" },
+        ],
+      },
+      {
+        label: "Lordaeron",
+        items: [
+          { name: "Human Campaign — Knight in Gates", src: "/backgrounds/themes/lordaeron.jpg" },
+          { name: "The Culling — Arthas at Stratholme", src: "/backgrounds/themes/culling.jpg", note: "has logos" },
+        ],
+      },
+      {
+        label: "Ashenvale",
+        items: [
+          { name: "Night Elf Campaign — Moonlit Forest", src: "/backgrounds/themes/ashenvale.jpg" },
+        ],
+      },
+      {
+        label: "Blackrock",
+        items: [
+          { name: "Blackrock Mountain Concept", src: "/backgrounds/themes/blackrock-alt.jpg", note: "incredible painting" },
+          { name: "Upper Blackrock Spire Loading", src: "/backgrounds/themes/blackrock.jpg", note: "has WoW logo" },
+        ],
+      },
+      {
+        label: "Fel / Burning Legion",
+        items: [
+          { name: "Legion Wallpaper — Illidan", src: "/backgrounds/themes/fel.jpg", note: "has logo" },
+          { name: "BC Login — Dark Portal", src: "/backgrounds/themes/fel-alt.jpg", note: "clean" },
+          { name: "Legion Login — Tomb of Sargeras", src: "/backgrounds/themes/arcane-legion-login.jpg", note: "clean" },
+          { name: "Outland WC3 Map", src: "/backgrounds/themes/outland.jpg", note: "map style" },
+        ],
+      },
+      {
+        label: "Holy Light",
+        items: [
+          { name: "Cathedral of Light — Hearthstone", src: "/backgrounds/themes/holy-light.jpg" },
+          { name: "Uther the Lightbringer", src: "/backgrounds/themes/holy-light-alt.jpg" },
+        ],
+      },
+      {
+        label: "Blight / Plague",
+        items: [
+          { name: "Icecrown Citadel Loading", src: "/backgrounds/themes/blight.jpg", note: "has WoW logo" },
+          { name: "Naxxramas Loading", src: "/backgrounds/themes/blight-naxx.jpg", note: "has WoW logo" },
+          { name: "Wrath Login — Icecrown", src: "/backgrounds/themes/blight-alt.jpg", note: "clean" },
+        ],
+      },
+      {
+        label: "Arena",
+        items: [
+          { name: "Trial of the Crusader", src: "/backgrounds/themes/arena.jpg", note: "has WoW logo" },
+          { name: "Ring of Valor — Horde Banners", src: "/backgrounds/themes/arena-alt.jpg", note: "clean" },
+        ],
+      },
+      {
+        label: "Midnight / Dark",
+        items: [
+          { name: "Shadowlands Login — Shattered Sky", src: "/backgrounds/themes/midnight.png", note: "clean, no text" },
+          { name: "Revendreth — Gothic Castle", src: "/backgrounds/themes/midnight-revendreth.jpg" },
+          { name: "Campfire Under Stars (existing)", src: "/frames/launcher/Static_Background.png" },
+        ],
+      },
+    ],
+  },
+  {
     id: "wc3-frame",
     title: "WC3 Ornate Frame",
     desc: "Full border-image frame with decorative corners",
@@ -549,8 +633,32 @@ export default function Assets() {
           <SectionTitle>{section.title}</SectionTitle>
           <SectionDesc>{section.desc}</SectionDesc>
 
-          {/* Special rendering for backgrounds */}
-          {section.id === "backgrounds" ? (
+          {/* Theme backgrounds — grouped by theme */}
+          {section.isThemeBackgrounds ? (
+            <>
+              {section.groups.map((group) => (
+                <React.Fragment key={group.label}>
+                  <SectionDesc style={{ marginTop: "var(--space-6)", color: "var(--gold)", fontSize: "var(--text-xs)", textTransform: "none", letterSpacing: "normal" }}>
+                    {group.label}
+                  </SectionDesc>
+                  <Grid $minWidth="400px">
+                    {group.items.map((item) => (
+                      <Card key={item.src}>
+                        <BgPreview $src={item.src} />
+                        <AssetInfo>
+                          <AssetName>{item.name}</AssetName>
+                          <AssetPath onClick={() => copyPath(item.src)}>
+                            {item.src}{item.note ? ` — ${item.note}` : ""}
+                          </AssetPath>
+                        </AssetInfo>
+                      </Card>
+                    ))}
+                  </Grid>
+                </React.Fragment>
+              ))}
+            </>
+          ) : /* Special rendering for backgrounds */
+          section.id === "backgrounds" ? (
             <Grid $minWidth="300px">
               {section.items.map((item) => (
                 <Card key={item.name}>

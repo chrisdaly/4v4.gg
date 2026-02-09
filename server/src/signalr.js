@@ -3,6 +3,7 @@ import { getToken } from './db.js';
 import { insertMessage, insertMessages, markDeleted, markBulkDeleted } from './db.js';
 import { broadcast } from './sse.js';
 import { handleCommand } from './bot.js';
+import { maybeTranslate } from './translate.js';
 
 const CHAT_HUB_URL = 'https://chat-service.w3champions.com/chatHub';
 const ROOM = '4 vs 4';
@@ -113,6 +114,9 @@ async function connect() {
     if (msg.message.startsWith('!')) {
       handleCommand(msg.message, msg.battleTag, msg.userName);
     }
+
+    // Auto-translate non-English messages
+    maybeTranslate(msg.id, msg.message);
   });
 
   // MessageDeleted — single message deleted by mod

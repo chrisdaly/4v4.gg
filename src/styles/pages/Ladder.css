@@ -3,8 +3,10 @@
    ======================================== */
 
 .ladder-page {
-  min-height: 100vh;
-  padding: 0 20px 40px 20px;
+  height: calc(100vh - 52px);
+  padding: 0 20px 20px 20px;
+  display: flex;
+  flex-direction: column;
 }
 
 /* League Distribution Chart */
@@ -408,6 +410,18 @@
 .ladder-table {
   display: flex;
   flex-direction: column;
+  background: var(--theme-bg, var(--surface-1));
+  border: var(--theme-border, 1px solid var(--grey-mid));
+  border-image: var(--theme-border-image, none);
+  border-radius: 12px;
+  overflow: hidden;
+  max-width: 1000px;
+  margin: 0 auto;
+  width: 100%;
+  backdrop-filter: var(--theme-blur, none);
+  box-shadow: var(--theme-shadow, none);
+  flex: 1;
+  min-height: 0;
 }
 
 .ladder-header-row {
@@ -415,18 +429,19 @@
   grid-template-columns: 48px 1.5fr 0.7fr 0.9fr 0.6fr 1fr 1.3fr;
   column-gap: 12px;
   padding: 10px 16px;
-  background: rgba(20, 20, 20, 0.98);
-  border-bottom: 1px solid var(--grey-mid);
+  border-bottom: 1px solid rgba(252, 219, 51, 0.25);
   color: var(--grey-light);
   font-family: var(--font-mono);
-  font-size: var(--text-xs);
+  font-size: 11px;
   text-transform: uppercase;
-  letter-spacing: 0.1em;
+  letter-spacing: 0.12em;
   align-items: center;
-  position: sticky;
-  top: 0;
-  z-index: 10;
-  backdrop-filter: blur(8px);
+  flex-shrink: 0;
+}
+
+.ladder-body {
+  overflow-y: auto;
+  flex: 1;
 }
 
 .ladder-header-row > div {
@@ -1030,15 +1045,6 @@ a.neighbor-name:hover {
   display: flex;
   flex-direction: column;
   gap: 8px;
-  max-width: 900px;
-  margin: 0 auto;
-  background: var(--theme-bg, var(--surface-1));
-  border: var(--theme-border, 1px solid var(--grey-mid));
-  border-image: var(--theme-border-image, none);
-  border-radius: 12px;
-  padding: var(--space-4);
-  backdrop-filter: var(--theme-blur, none);
-  box-shadow: var(--theme-shadow, none);
 }
 
 .no-results {

@@ -55,7 +55,7 @@ const MobileToggle = styled.button`
 /* ── Main component ───────────────────────────────────────────── */
 
 const Chat = () => {
-  const { messages, status, onlineUsers, botResponses, sendMessage } = useChatStream();
+  const { messages, status, onlineUsers, botResponses, translations, sendMessage } = useChatStream();
   const { borderTheme } = useTheme();
   const [avatars, setAvatars] = useState(new Map());
   const [stats, setStats] = useState(new Map());
@@ -282,6 +282,7 @@ const Chat = () => {
           inGameTags={inGameTags}
           recentWinners={recentWinners}
           botResponses={botResponses}
+          translations={translations}
           borderTheme={borderTheme}
           sendMessage={sendMessage}
         />

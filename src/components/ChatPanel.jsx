@@ -532,6 +532,33 @@ const SendError = styled.span`
   text-overflow: ellipsis;
 `;
 
+const TranslationRow = styled.div`
+  margin: 2px 0 2px 84px;
+  padding: 2px 10px;
+  font-family: var(--font-mono);
+  font-size: 13px;
+  color: var(--grey-light);
+  font-style: italic;
+  opacity: 0.8;
+  line-height: 1.4;
+
+  @media (max-width: 480px) {
+    margin-left: 66px;
+  }
+`;
+
+const TranslationLabel = styled.span`
+  font-family: var(--font-mono);
+  font-size: 10px;
+  font-weight: 700;
+  color: var(--grey-light);
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+  margin-right: 6px;
+  font-style: normal;
+  opacity: 0.6;
+`;
+
 const BotResponseRow = styled.div`
   margin: 4px 0 4px 84px;
   padding: 6px 10px;
@@ -691,7 +718,7 @@ const RELAY_URL =
   import.meta.env.VITE_CHAT_RELAY_URL || "https://4v4gg-chat-relay.fly.dev";
 const API_KEY_STORAGE = "chat_admin_key";
 
-export default function ChatPanel({ messages, status, avatars, stats, sessions, inGameTags, recentWinners, botResponses = [], borderTheme, sendMessage }) {
+export default function ChatPanel({ messages, status, avatars, stats, sessions, inGameTags, recentWinners, botResponses = [], translations = new Map(), borderTheme, sendMessage }) {
   const listRef = useRef(null);
   const inputRef = useRef(null);
   const [autoScroll, setAutoScroll] = useState(true);
@@ -929,6 +956,12 @@ export default function ChatPanel({ messages, status, avatars, stats, sessions, 
                           </NameWrapper>
                         </div>
                         <MessageText>{msg.message}</MessageText>
+                        {translations.has(msg.id) && (
+                          <TranslationRow style={{ margin: '2px 0', padding: '2px 0' }}>
+                            <TranslationLabel>EN</TranslationLabel>
+                            {translations.get(msg.id)}
+                          </TranslationRow>
+                        )}
                       </MessageContent>
                     </GroupStartRow>
                     {botResponseMap.has(msg.id) && (
@@ -948,6 +981,12 @@ export default function ChatPanel({ messages, status, avatars, stats, sessions, 
                             </HoverTimestamp>
                             <MessageText>{cMsg.message}</MessageText>
                           </ContinuationRow>
+                          {translations.has(cMsg.id) && (
+                            <TranslationRow>
+                              <TranslationLabel>EN</TranslationLabel>
+                              {translations.get(cMsg.id)}
+                            </TranslationRow>
+                          )}
                           {cBotResp && (
                             <BotResponseRow>
                               <BotLabel>BOT</BotLabel>

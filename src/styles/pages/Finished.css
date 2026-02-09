@@ -120,15 +120,6 @@
   display: flex;
   flex-direction: column;
   gap: 8px;
-  max-width: 900px;
-  margin: 0 auto;
-  background: var(--theme-bg, var(--surface-1));
-  border: var(--theme-border, 1px solid var(--grey-mid));
-  border-image: var(--theme-border-image, none);
-  border-radius: 12px;
-  padding: var(--space-4);
-  backdrop-filter: var(--theme-blur, none);
-  box-shadow: var(--theme-shadow, none);
 }
 
 .no-results {

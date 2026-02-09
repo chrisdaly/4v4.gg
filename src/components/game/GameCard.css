@@ -18,6 +18,15 @@
   box-shadow: var(--theme-shadow, none);
 }
 
+/* Inside a themed container, cards use subtle styling instead of theme borders */
+.game-tiles .game-card {
+  background: rgba(20, 20, 20, 0.6);
+  border: 1px solid rgba(252, 219, 51, 0.15);
+  border-image: none;
+  backdrop-filter: none;
+  box-shadow: none;
+}
+
 .game-card.gc-won {
   border-color: rgba(74, 222, 128, 0.25);
   background: rgba(74, 222, 128, 0.05);

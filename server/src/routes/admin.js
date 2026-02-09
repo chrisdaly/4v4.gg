@@ -1,6 +1,6 @@
 import { Router } from 'express';
 import config from '../config.js';
-import { setToken } from '../db.js';
+import { setToken, getStats } from '../db.js';
 import { updateToken, getStatus } from '../signalr.js';
 import { getClientCount } from '../sse.js';
 import { setBotEnabled, isBotEnabled, testCommand } from '../bot.js';
@@ -57,12 +57,14 @@ router.get('/bot', requireApiKey, (_req, res) => {
 // Health check (public)
 router.get('/health', (_req, res) => {
   const signalr = getStatus();
+  const dbStats = getStats();
   res.json({
     status: signalr.state === 'Connected' ? 'ok' : signalr.state,
     signalr: signalr,
     sseClients: getClientCount(),
     botEnabled: isBotEnabled(),
     uptime: process.uptime(),
+    db: dbStats,
   });
 });
 
