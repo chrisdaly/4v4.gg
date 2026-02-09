@@ -109,5 +109,20 @@ export default function useChatStream() {
     };
   }, [addMessages]);
 
-  return { messages, status, onlineUsers };
+  const sendMessage = useCallback(async (text, apiKey) => {
+    const res = await fetch(`${RELAY_URL}/api/admin/send`, {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+        "X-API-Key": apiKey,
+      },
+      body: JSON.stringify({ message: text }),
+    });
+    if (!res.ok) {
+      const data = await res.json().catch(() => ({}));
+      throw new Error(data.error || `Send failed (${res.status})`);
+    }
+  }, []);
+
+  return { messages, status, onlineUsers, sendMessage };
 }

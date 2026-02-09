@@ -1,7 +1,9 @@
-import React, { useRef, useEffect, useState, useMemo } from "react";
+import React, { useRef, useEffect, useState, useMemo, useCallback } from "react";
 import { Link } from "react-router-dom";
 import styled from "styled-components";
 import { GiCrossedSwords } from "react-icons/gi";
+import { HiKey } from "react-icons/hi";
+import { IoSend } from "react-icons/io5";
 import crownIcon from "../assets/icons/king.svg";
 import { raceMapping, raceIcons } from "../lib/constants";
 import { CountryFlag } from "./ui";
@@ -405,6 +407,134 @@ const DateLabel = styled.span`
   white-space: nowrap;
 `;
 
+const InputBar = styled.form`
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+  padding: var(--space-2) var(--space-4);
+  background: rgba(10, 8, 6, 0.4);
+  border-top: 1px solid rgba(252, 219, 51, 0.15);
+  flex-shrink: 0;
+`;
+
+const ChatInput = styled.input`
+  flex: 1;
+  min-width: 0;
+  background: rgba(255, 255, 255, 0.06);
+  border: 1px solid rgba(160, 130, 80, 0.2);
+  border-radius: var(--radius-sm);
+  padding: var(--space-2) var(--space-2);
+  color: #e0e0e0;
+  font-family: var(--font-body);
+  font-size: 14px;
+  outline: none;
+  transition: border-color 0.15s;
+
+  &:focus {
+    border-color: rgba(252, 219, 51, 0.4);
+  }
+
+  &::placeholder {
+    color: var(--grey-mid);
+  }
+
+  &:disabled {
+    opacity: 0.5;
+  }
+`;
+
+const SendButton = styled.button`
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 32px;
+  height: 32px;
+  border: 1px solid rgba(160, 130, 80, 0.3);
+  border-radius: var(--radius-sm);
+  background: rgba(252, 219, 51, 0.08);
+  color: var(--gold);
+  cursor: pointer;
+  flex-shrink: 0;
+  transition: all 0.15s;
+
+  &:hover:not(:disabled) {
+    background: rgba(252, 219, 51, 0.15);
+    border-color: var(--gold);
+  }
+
+  &:disabled {
+    opacity: 0.3;
+    cursor: default;
+  }
+`;
+
+const KeyButton = styled.button`
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 32px;
+  height: 32px;
+  border: 1px solid rgba(160, 130, 80, 0.2);
+  border-radius: var(--radius-sm);
+  background: ${(p) => (p.$active ? "rgba(252, 219, 51, 0.1)" : "transparent")};
+  color: ${(p) => (p.$active ? "var(--gold)" : "var(--grey-mid)")};
+  cursor: pointer;
+  flex-shrink: 0;
+  transition: all 0.15s;
+
+  &:hover {
+    color: var(--gold);
+    border-color: rgba(160, 130, 80, 0.4);
+  }
+`;
+
+const KeyPrompt = styled.div`
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+  padding: var(--space-2) var(--space-4);
+  background: rgba(10, 8, 6, 0.4);
+  border-top: 1px solid rgba(252, 219, 51, 0.15);
+  flex-shrink: 0;
+`;
+
+const KeyInput = styled.input`
+  flex: 1;
+  min-width: 0;
+  background: rgba(255, 255, 255, 0.06);
+  border: 1px solid rgba(160, 130, 80, 0.2);
+  border-radius: var(--radius-sm);
+  padding: var(--space-2) var(--space-2);
+  color: #e0e0e0;
+  font-family: var(--font-mono);
+  font-size: 12px;
+  outline: none;
+
+  &:focus {
+    border-color: rgba(252, 219, 51, 0.4);
+  }
+
+  &::placeholder {
+    color: var(--grey-mid);
+  }
+`;
+
+const KeyLabel = styled.span`
+  font-family: var(--font-mono);
+  font-size: 11px;
+  color: var(--grey-light);
+  white-space: nowrap;
+`;
+
+const SendError = styled.span`
+  font-family: var(--font-mono);
+  font-size: 11px;
+  color: var(--red);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+`;
+
 const EmptyState = styled.div`
   flex: 1;
   display: flex;
@@ -476,10 +606,50 @@ function getAvatarElement(tag, avatars, stats) {
 }
 
 
-export default function ChatPanel({ messages, status, avatars, stats, sessions, inGameTags, recentWinners, borderTheme }) {
+const API_KEY_STORAGE = "chat_admin_key";
+
+export default function ChatPanel({ messages, status, avatars, stats, sessions, inGameTags, recentWinners, borderTheme, sendMessage }) {
   const listRef = useRef(null);
+  const inputRef = useRef(null);
   const [autoScroll, setAutoScroll] = useState(true);
   const [showNotice, setShowNotice] = useState(false);
+  const [apiKey, setApiKey] = useState(() => localStorage.getItem(API_KEY_STORAGE) || "");
+  const [showKeyPrompt, setShowKeyPrompt] = useState(false);
+  const [draft, setDraft] = useState("");
+  const [sending, setSending] = useState(false);
+  const [sendError, setSendError] = useState(null);
+
+  const handleSend = useCallback(async (e) => {
+    e.preventDefault();
+    if (!draft.trim() || !apiKey || sending || !sendMessage) return;
+    setSending(true);
+    setSendError(null);
+    try {
+      await sendMessage(draft.trim(), apiKey);
+      setDraft("");
+      inputRef.current?.focus();
+    } catch (err) {
+      setSendError(err.message);
+    } finally {
+      setSending(false);
+    }
+  }, [draft, apiKey, sending, sendMessage]);
+
+  function handleSaveKey(e) {
+    e.preventDefault();
+    const input = e.target.elements?.apiKeyInput?.value?.trim();
+    if (input) {
+      localStorage.setItem(API_KEY_STORAGE, input);
+      setApiKey(input);
+    }
+    setShowKeyPrompt(false);
+  }
+
+  function handleClearKey() {
+    localStorage.removeItem(API_KEY_STORAGE);
+    setApiKey("");
+    setShowKeyPrompt(false);
+  }
 
   // Compute message segments (grouped by same user within 2 min)
   const messageSegments = useMemo(() => {
@@ -650,6 +820,44 @@ export default function ChatPanel({ messages, status, avatars, stats, sessions, 
           </ScrollContainer>
         )}
       </Wrapper>
+      {sendMessage && showKeyPrompt && !apiKey && (
+        <KeyPrompt as="form" onSubmit={handleSaveKey}>
+          <KeyLabel>API Key:</KeyLabel>
+          <KeyInput name="apiKeyInput" type="password" placeholder="Enter admin API key" autoFocus />
+          <SendButton type="submit"><IoSend size={14} /></SendButton>
+        </KeyPrompt>
+      )}
+      {sendMessage && (apiKey || !showKeyPrompt) && (
+        <InputBar onSubmit={handleSend}>
+          <KeyButton
+            type="button"
+            $active={!!apiKey}
+            onClick={() => apiKey ? handleClearKey() : setShowKeyPrompt(true)}
+            title={apiKey ? "Clear API key" : "Set API key"}
+          >
+            <HiKey size={16} />
+          </KeyButton>
+          {apiKey ? (
+            <>
+              <ChatInput
+                ref={inputRef}
+                type="text"
+                placeholder="Send a message..."
+                value={draft}
+                onChange={(e) => { setDraft(e.target.value); setSendError(null); }}
+                disabled={sending}
+                maxLength={500}
+              />
+              {sendError && <SendError title={sendError}>!</SendError>}
+              <SendButton type="submit" disabled={sending || !draft.trim()}>
+                <IoSend size={14} />
+              </SendButton>
+            </>
+          ) : (
+            <KeyLabel>Set API key to send messages</KeyLabel>
+          )}
+        </InputBar>
+      )}
     </OuterFrame>
   );
 }

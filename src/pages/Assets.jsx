@@ -230,6 +230,42 @@ function AssetCard({ src, name, path, bg, maxH, pixelated, minHeight }) {
   );
 }
 
+/* ── External Links ──────────────────────────────────── */
+
+const ExternalLinks = styled.div`
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(300px, 1fr));
+  gap: var(--space-4);
+`;
+
+const ExtLink = styled.a`
+  display: block;
+  padding: var(--space-4);
+  background: rgba(255, 255, 255, 0.02);
+  border: 1px solid var(--grey-mid);
+  border-radius: var(--radius-md);
+  text-decoration: none;
+  transition: all 0.15s;
+
+  &:hover {
+    border-color: var(--gold);
+    background: rgba(252, 219, 51, 0.04);
+  }
+`;
+
+const ExtLinkTitle = styled.div`
+  font-family: var(--font-display);
+  font-size: var(--text-sm);
+  color: var(--gold);
+  margin-bottom: var(--space-1);
+`;
+
+const ExtLinkMeta = styled.div`
+  font-family: var(--font-mono);
+  font-size: var(--text-xxs);
+  color: var(--grey-light);
+`;
+
 /* ── Asset Data ──────────────────────────────────────── */
 
 const SECTIONS = [
@@ -385,6 +421,8 @@ const SECTIONS = [
       { name: "Header Frame", src: "/frames/launcher/Header_Buttons_Frame.png" },
       { name: "Header Frame Slim", src: "/frames/launcher/Header_Buttons_Frame_Slim.png" },
       { name: "Text Frame", src: "/frames/launcher/W3Champion_Text_Frame.png" },
+      { name: "Settings Panel Frame", src: "/frames/launcher/Settings_Directory_Text_Frame.png" },
+      { name: "Input Field Frame", src: "/frames/launcher/Settings_Directory_Frame.png" },
       { name: "Button Blue", src: "/frames/launcher/Button_Blue.png" },
       { name: "Button Blue Active", src: "/frames/launcher/Button_Blue_Active.png" },
       { name: "Exit Button", src: "/frames/launcher/Exit_Button.png" },
@@ -403,6 +441,75 @@ const SECTIONS = [
       { name: "Small Logo Full", src: "/frames/w3c-logos/small-logo-full.png" },
       { name: "Small Logo Yellow", src: "/frames/w3c-logos/small-logo-full-yellow.png" },
       { name: "Small Logo", src: "/frames/w3c-logos/small-logo.png" },
+    ],
+  },
+  {
+    id: "fansite-kit",
+    title: "WC3 Fansite Kit",
+    desc: "Race-specific borders, buttons, and logos from the Frozen Throne UI kit",
+    items: [
+      { name: "Human Borders", src: "/frames/fansite-kit/human-borders.png" },
+      { name: "Orc Borders", src: "/frames/fansite-kit/orb-borders.png" },
+      { name: "Night Elf Borders", src: "/frames/fansite-kit/elf-borders.png" },
+      { name: "Undead Borders", src: "/frames/fansite-kit/undead-borders.png" },
+      { name: "4 Races", src: "/frames/fansite-kit/4-races.jpg" },
+      { name: "Buttons", src: "/frames/fansite-kit/buttons.png" },
+      { name: "Blue Button", src: "/frames/fansite-kit/blue-button.png" },
+      { name: "Green Button", src: "/frames/fansite-kit/green-button.png" },
+      { name: "Red Button", src: "/frames/fansite-kit/red-button.png" },
+      { name: "Button Yes", src: "/frames/fansite-kit/button-yes.png" },
+      { name: "Button No", src: "/frames/fansite-kit/button-no.png" },
+      { name: "Chain", src: "/frames/fansite-kit/p-chain.png" },
+      { name: "WC3: Reign of Chaos", src: "/frames/fansite-kit/warcraft-3-reign-of-chaos.png" },
+      { name: "WC3: Frozen Throne", src: "/frames/fansite-kit/warcraft-3-the-frozen-throne.png" },
+      { name: "RoC Icon", src: "/frames/fansite-kit/warcraft-3-reign-of-chaos-icon.png" },
+      { name: "TFT Icon", src: "/frames/fansite-kit/warcraft-3-the-frozen-throne-icon.png" },
+    ],
+  },
+  {
+    id: "kenney",
+    title: "Kenney Fantasy UI Borders",
+    desc: "CC0 licensed 9-slice borders — kenney.nl/assets/fantasy-ui-borders",
+    minWidth: "120px",
+    items: [
+      { name: "Preview Sheet", src: "/frames/external/kenney/Preview.png" },
+      { name: "Sample Usage", src: "/frames/external/kenney/Sample.png" },
+      { name: "Border 000", src: "/frames/external/kenney/panel-border-000.png" },
+      { name: "Border 001", src: "/frames/external/kenney/panel-border-001.png" },
+      { name: "Border 002", src: "/frames/external/kenney/panel-border-002.png" },
+      { name: "Border 003", src: "/frames/external/kenney/panel-border-003.png" },
+      { name: "Border 004", src: "/frames/external/kenney/panel-border-004.png" },
+      { name: "Border 005", src: "/frames/external/kenney/panel-border-005.png" },
+      { name: "Border 010", src: "/frames/external/kenney/panel-border-010.png" },
+      { name: "Border 015", src: "/frames/external/kenney/panel-border-015.png" },
+      { name: "Border 020", src: "/frames/external/kenney/panel-border-020.png" },
+      { name: "Border 025", src: "/frames/external/kenney/panel-border-025.png" },
+      { name: "Border 030", src: "/frames/external/kenney/panel-border-030.png" },
+      { name: "Border 031", src: "/frames/external/kenney/panel-border-031.png" },
+      { name: "Panel 000", src: "/frames/external/kenney/panel-000.png" },
+      { name: "Panel 005", src: "/frames/external/kenney/panel-005.png" },
+      { name: "Panel 010", src: "/frames/external/kenney/panel-010.png" },
+      { name: "Panel 015", src: "/frames/external/kenney/panel-015.png" },
+      { name: "Panel 020", src: "/frames/external/kenney/panel-020.png" },
+      { name: "Panel 025", src: "/frames/external/kenney/panel-025.png" },
+      { name: "Panel 030", src: "/frames/external/kenney/panel-030.png" },
+      { name: "Double Border 000", src: "/frames/external/kenney/double-border-panel-border-000.png" },
+      { name: "Double Border 005", src: "/frames/external/kenney/double-border-panel-border-005.png" },
+      { name: "Double Border 010", src: "/frames/external/kenney/double-border-panel-border-010.png" },
+      { name: "Double Border 015", src: "/frames/external/kenney/double-border-panel-border-015.png" },
+      { name: "Double Border 020", src: "/frames/external/kenney/double-border-panel-border-020.png" },
+    ],
+  },
+  {
+    id: "hive-workshop",
+    title: "Hive Workshop Custom UIs",
+    desc: "Custom WC3 UI packs — hiveworkshop.com/repositories/user-interface.779",
+    minWidth: "280px",
+    items: [
+      { name: "Dragon Scales UI", src: "/frames/external/hive/dragon-scales.jpg" },
+      { name: "Scions of the Sky UI", src: "/frames/external/hive/scions-sky.jpg" },
+      { name: "Fallout UI", src: "/frames/external/hive/fallout.jpg" },
+      { name: "Kul Tiran Custom UI", src: "/frames/external/hive/kul-tiran.jpg" },
     ],
   },
 ];
@@ -568,6 +675,21 @@ export default function Assets() {
                 </Card>
               </Grid>
             </>
+          ) : section.id === "kenney" ? (
+            /* Kenney with dark bg so white sprites are visible */
+            <Grid $minWidth={section.minWidth || "120px"}>
+              {section.items.map((item) => (
+                <AssetCard
+                  key={item.name}
+                  src={item.src}
+                  name={item.name}
+                  path={item.src}
+                  bg="#222"
+                  maxH={item.name.startsWith("Preview") || item.name.startsWith("Sample") ? "300px" : "120px"}
+                  minHeight={item.name.startsWith("Preview") || item.name.startsWith("Sample") ? "200px" : "80px"}
+                />
+              ))}
+            </Grid>
           ) : (
             /* Default grid */
             <Grid $minWidth={section.minWidth || "200px"}>
@@ -583,6 +705,45 @@ export default function Assets() {
           )}
         </Section>
       ))}
+
+      <Section>
+        <SectionTitle>External Resources</SectionTitle>
+        <SectionDesc>Additional fantasy UI border packs available online</SectionDesc>
+        <ExternalLinks>
+          <ExtLink href="https://kenney.nl/assets/fantasy-ui-borders" target="_blank" rel="noopener">
+            <ExtLinkTitle>Kenney Fantasy UI Borders</ExtLinkTitle>
+            <ExtLinkMeta>CC0 — 140 sprites, 9-slice, free commercial use</ExtLinkMeta>
+          </ExtLink>
+          <ExtLink href="https://gaming-tools.com/warcraft-3/warcraft-3-fansite-kit-free-download/" target="_blank" rel="noopener">
+            <ExtLinkTitle>WC3 Fansite Kit</ExtLinkTitle>
+            <ExtLinkMeta>Free — Race-specific borders (Human, Orc, NE, UD) + Lifecraft font</ExtLinkMeta>
+          </ExtLink>
+          <ExtLink href="https://www.hiveworkshop.com/repositories/user-interface.779/" target="_blank" rel="noopener">
+            <ExtLinkTitle>Hive Workshop Custom UIs</ExtLinkTitle>
+            <ExtLinkMeta>Community — 9+ pages of custom WC3 UI replacement packs</ExtLinkMeta>
+          </ExtLink>
+          <ExtLink href="https://ronenness.github.io/RPGUI/" target="_blank" rel="noopener">
+            <ExtLinkTitle>RPGUI Framework</ExtLinkTitle>
+            <ExtLinkMeta>zlib license — CSS/JS RPG frames (framed-golden, framed-golden-2)</ExtLinkMeta>
+          </ExtLink>
+          <ExtLink href="https://opengameart.org/content/golden-ui" target="_blank" rel="noopener">
+            <ExtLinkTitle>OpenGameArt: Golden UI</ExtLinkTitle>
+            <ExtLinkMeta>CC0 — Panels, bars, buttons, inventory by Buch</ExtLinkMeta>
+          </ExtLink>
+          <ExtLink href="https://free-game-assets.itch.io/fantasy-rpg-user-interface" target="_blank" rel="noopener">
+            <ExtLinkTitle>Fantasy RPG UI (itch.io)</ExtLinkTitle>
+            <ExtLinkMeta>$0.90 — Includes chat interface assets, gold frames</ExtLinkMeta>
+          </ExtLink>
+          <ExtLink href="https://codepen.io/kevinmcullen/pen/PVmwVz" target="_blank" rel="noopener">
+            <ExtLinkTitle>Gold Shimmer Border (CodePen)</ExtLinkTitle>
+            <ExtLinkMeta>CSS-only — Animated gold border sweep effect</ExtLinkMeta>
+          </ExtLink>
+          <ExtLink href="https://codepen.io/propjockey/pen/poqKrGe" target="_blank" rel="noopener">
+            <ExtLinkTitle>CSS Fantasy Buttons (CodePen)</ExtLinkTitle>
+            <ExtLinkMeta>CSS-only — Metallic gradient border techniques</ExtLinkMeta>
+          </ExtLink>
+        </ExternalLinks>
+      </Section>
     </Page>
   );
 }

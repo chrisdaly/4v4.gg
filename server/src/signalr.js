@@ -195,6 +195,13 @@ export function getStatus() {
   };
 }
 
+export async function sendMessage(text) {
+  if (!connection || state !== 'Connected') {
+    throw new Error('Not connected to chat');
+  }
+  await connection.invoke('SendMessage', text);
+}
+
 export function getOnlineUsers() {
   return [...onlineUsers.values()];
 }

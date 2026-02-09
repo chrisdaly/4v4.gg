@@ -19,6 +19,26 @@ npm run build
 npm run preview
 ```
 
+## Chat Relay
+
+The frontend connects to a chat relay server that bridges the W3Champions SignalR chat service via SSE.
+
+| Environment | URL | Notes |
+|-------------|-----|-------|
+| **Production** | `https://4v4gg-chat-relay.fly.dev` | Fly.io, persistent SQLite, always-on |
+| **Dev (default)** | `https://4v4gg-chat-relay.fly.dev` | Uses fly.io relay — more stable than local |
+| **Dev (local relay)** | `http://localhost:3002` | Only for developing the relay server itself |
+
+Controlled by `VITE_CHAT_RELAY_URL` in `.env.local`. The fly.io relay is preferred for dev because the local server can crash or serve stale data.
+
+To switch to local relay for server development:
+```bash
+# in .env.local
+VITE_CHAT_RELAY_URL=http://localhost:3002
+```
+
+The relay server source is in `server/`. Token is injected via `POST /api/admin/token` with `X-API-Key` header.
+
 ## Architecture
 
 ### Data Flow

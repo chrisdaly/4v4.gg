@@ -10,6 +10,8 @@ import ChatPanel from "../components/ChatPanel";
 import ActiveGamesSidebar from "../components/ActiveGamesSidebar";
 import UserListSidebar from "../components/UserListSidebar";
 
+const DEFAULT_BG = "/frames/launcher/Static_Background.png";
+
 const Page = styled.div`
   padding: var(--space-1) var(--space-2) 0;
   position: relative;
@@ -18,8 +20,9 @@ const Page = styled.div`
     content: "";
     position: fixed;
     inset: 0;
-    background: url("/frames/launcher/Static_Background.png") center / cover no-repeat fixed;
+    background: url(${(p) => p.$bgImg || DEFAULT_BG}) center / cover no-repeat fixed;
     z-index: -2;
+    transition: background-image 0.4s ease;
   }
 
   &::after {
@@ -150,7 +153,7 @@ const ThemeDesc = styled.span`
 /* ── Main component ───────────────────────────────────────────── */
 
 const Chat = () => {
-  const { messages, status, onlineUsers } = useChatStream();
+  const { messages, status, onlineUsers, sendMessage } = useChatStream();
   const [avatars, setAvatars] = useState(new Map());
   const [stats, setStats] = useState(new Map());
   const [sessions, setSessions] = useState(new Map());
@@ -367,7 +370,7 @@ const Chat = () => {
   }, [allTags]);
 
   return (
-    <Page>
+    <Page $bgImg={borderTheme.backgroundImg}>
       <Layout>
         <ActiveGamesSidebar
           matches={ongoingMatches}
@@ -385,6 +388,7 @@ const Chat = () => {
           inGameTags={inGameTags}
           recentWinners={recentWinners}
           borderTheme={borderTheme}
+          sendMessage={sendMessage}
         />
         <UserListSidebar
           users={onlineUsers}

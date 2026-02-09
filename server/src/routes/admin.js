@@ -1,7 +1,7 @@
 import { Router } from 'express';
 import config from '../config.js';
 import { setToken } from '../db.js';
-import { updateToken, getStatus } from '../signalr.js';
+import { updateToken, getStatus, sendMessage } from '../signalr.js';
 import { getClientCount } from '../sse.js';
 
 const router = Router();
@@ -23,6 +23,20 @@ router.post('/token', requireApiKey, (req, res) => {
   setToken(token);
   updateToken(token);
   res.json({ ok: true, message: 'Token updated, SignalR reconnecting...' });
+});
+
+// Send a chat message as the authenticated user
+router.post('/send', requireApiKey, async (req, res) => {
+  const { message } = req.body;
+  if (!message || typeof message !== 'string' || !message.trim()) {
+    return res.status(400).json({ error: 'Message is required' });
+  }
+  try {
+    await sendMessage(message.trim());
+    res.json({ ok: true });
+  } catch (err) {
+    res.status(503).json({ error: err.message });
+  }
 });
 
 // Health check (public)
