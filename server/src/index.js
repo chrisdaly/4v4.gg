@@ -4,6 +4,7 @@ import config from './config.js';
 import { initDb } from './db.js';
 import { startHeartbeat } from './sse.js';
 import { startSignalR } from './signalr.js';
+import { initBot } from './bot.js';
 import chatRoutes from './routes/chat.js';
 import adminRoutes from './routes/admin.js';
 
@@ -24,6 +25,10 @@ initDb();
 console.log(`[DB] Initialized at ${config.DB_PATH}`);
 
 startHeartbeat();
+
+initBot().catch(err => {
+  console.error('[Bot] Init error:', err.message);
+});
 
 startSignalR().catch(err => {
   console.error('[SignalR] Startup error:', err.message);

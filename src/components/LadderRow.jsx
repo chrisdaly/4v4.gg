@@ -20,7 +20,7 @@ const LadderRow = ({ rank, sparklineData, session, detectedRace, twitch, isStrea
   return (
     <div className={`ladder-row ${isLive ? "is-live" : ""} ${isEven ? "even" : "odd"}`}>
       <div className="col-rank">
-        {isLive ? <GiCrossedSwords className="in-game-icon" /> : <span className="in-game-placeholder" />}
+        {isLive && <GiCrossedSwords className="in-game-icon" />}
         <span className="rank-number">{rankNumber}</span>
       </div>
       <div className="col-player">

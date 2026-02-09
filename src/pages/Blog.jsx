@@ -1,4 +1,4 @@
-import React from "react";
+import React, { useEffect } from "react";
 import { Link } from "react-router-dom";
 
 
@@ -26,20 +26,37 @@ const BlogPost = ({ post }) => (
   </Link>
 );
 
-const Blog = () => (
-  <div className="blog-page">
-    <div className="blog-container">
-      <header className="blog-header">
-        <h1>Blog</h1>
-      </header>
+const Blog = () => {
+  // Force classic (black) theme on blog pages
+  useEffect(() => {
+    const s = document.body.style;
+    const prev = {
+      bgImg: s.getPropertyValue("--theme-bg-img"),
+      bgOverlay: s.getPropertyValue("--theme-bg-overlay"),
+    };
+    s.setProperty("--theme-bg-img", "none");
+    s.setProperty("--theme-bg-overlay", "none");
+    return () => {
+      s.setProperty("--theme-bg-img", prev.bgImg);
+      s.setProperty("--theme-bg-overlay", prev.bgOverlay);
+    };
+  }, []);
 
-      <div className="blog-list">
-        {posts.map((post) => (
-          <BlogPost key={post.slug} post={post} />
-        ))}
+  return (
+    <div className="blog-page">
+      <div className="blog-container">
+        <header className="blog-header">
+          <h1>Blog</h1>
+        </header>
+
+        <div className="blog-list">
+          {posts.map((post) => (
+            <BlogPost key={post.slug} post={post} />
+          ))}
+        </div>
       </div>
     </div>
-  </div>
-);
+  );
+};
 
 export default Blog;

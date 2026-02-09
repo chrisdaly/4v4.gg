@@ -2,6 +2,7 @@ import * as signalR from '@microsoft/signalr';
 import { getToken } from './db.js';
 import { insertMessage, insertMessages, markDeleted, markBulkDeleted } from './db.js';
 import { broadcast } from './sse.js';
+import { handleCommand } from './bot.js';
 
 const CHAT_HUB_URL = 'https://chat-service.w3champions.com/chatHub';
 const ROOM = '4 vs 4';
@@ -106,6 +107,11 @@ async function connect() {
     const result = insertMessage(msg);
     if (result.changes > 0) {
       broadcast('message', msg);
+    }
+
+    // Check for bot commands
+    if (msg.message.startsWith('!')) {
+      handleCommand(msg.message, msg.battleTag, msg.userName);
     }
   });
 

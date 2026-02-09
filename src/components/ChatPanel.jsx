@@ -535,6 +535,45 @@ const SendError = styled.span`
   text-overflow: ellipsis;
 `;
 
+const BotResponseRow = styled.div`
+  margin: 4px 0 4px 84px;
+  padding: 6px 10px;
+  border-left: 3px solid var(--gold);
+  background: rgba(252, 219, 51, 0.04);
+  border-radius: 0 var(--radius-sm) var(--radius-sm) 0;
+
+  @media (max-width: 480px) {
+    margin-left: 66px;
+  }
+`;
+
+const BotLabel = styled.span`
+  font-family: var(--font-mono);
+  font-size: 10px;
+  font-weight: 700;
+  color: var(--gold);
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+  margin-right: 6px;
+`;
+
+const BotPreviewTag = styled.span`
+  font-family: var(--font-mono);
+  font-size: 10px;
+  color: var(--grey-light);
+  opacity: 0.7;
+`;
+
+const BotText = styled.pre`
+  font-family: var(--font-mono);
+  font-size: 13px;
+  color: #ccc;
+  margin: 2px 0 0;
+  white-space: pre-wrap;
+  word-break: break-word;
+  line-height: 1.4;
+`;
+
 const EmptyState = styled.div`
   flex: 1;
   display: flex;
@@ -608,7 +647,7 @@ function getAvatarElement(tag, avatars, stats) {
 
 const API_KEY_STORAGE = "chat_admin_key";
 
-export default function ChatPanel({ messages, status, avatars, stats, sessions, inGameTags, recentWinners, borderTheme, sendMessage }) {
+export default function ChatPanel({ messages, status, avatars, stats, sessions, inGameTags, recentWinners, botResponses = [], borderTheme, sendMessage }) {
   const listRef = useRef(null);
   const inputRef = useRef(null);
   const [autoScroll, setAutoScroll] = useState(true);
@@ -650,6 +689,26 @@ export default function ChatPanel({ messages, status, avatars, stats, sessions, 
     setApiKey("");
     setShowKeyPrompt(false);
   }
+
+  // Index bot responses by triggering message ID
+  const botResponseMap = useMemo(() => {
+    const map = new Map();
+    for (const br of botResponses) {
+      // Find the message that triggered this bot response
+      for (let i = messages.length - 1; i >= 0; i--) {
+        const msg = messages[i];
+        const tag = msg.battle_tag || msg.battleTag;
+        if (
+          tag === br.triggeredByTag &&
+          msg.message.toLowerCase().startsWith(br.command)
+        ) {
+          map.set(msg.id, br);
+          break;
+        }
+      }
+    }
+    return map;
+  }, [botResponses, messages]);
 
   // Compute message segments (grouped by same user within 2 min)
   const messageSegments = useMemo(() => {
@@ -799,14 +858,33 @@ export default function ChatPanel({ messages, status, avatars, stats, sessions, 
                         <MessageText>{msg.message}</MessageText>
                       </MessageContent>
                     </GroupStartRow>
-                    {segment.continuations.map((cMsg) => (
-                      <ContinuationRow key={cMsg.id}>
-                        <HoverTimestamp className="hover-timestamp">
-                          {formatTime(cMsg.sent_at || cMsg.sentAt)}
-                        </HoverTimestamp>
-                        <MessageText>{cMsg.message}</MessageText>
-                      </ContinuationRow>
-                    ))}
+                    {botResponseMap.has(msg.id) && (
+                      <BotResponseRow>
+                        <BotLabel>BOT</BotLabel>
+                        {!botResponseMap.get(msg.id).botEnabled && <BotPreviewTag>(preview)</BotPreviewTag>}
+                        <BotText>{botResponseMap.get(msg.id).response}</BotText>
+                      </BotResponseRow>
+                    )}
+                    {segment.continuations.map((cMsg) => {
+                      const cBotResp = botResponseMap.get(cMsg.id);
+                      return (
+                        <React.Fragment key={cMsg.id}>
+                          <ContinuationRow>
+                            <HoverTimestamp className="hover-timestamp">
+                              {formatTime(cMsg.sent_at || cMsg.sentAt)}
+                            </HoverTimestamp>
+                            <MessageText>{cMsg.message}</MessageText>
+                          </ContinuationRow>
+                          {cBotResp && (
+                            <BotResponseRow>
+                              <BotLabel>BOT</BotLabel>
+                              {!cBotResp.botEnabled && <BotPreviewTag>(preview)</BotPreviewTag>}
+                              <BotText>{cBotResp.response}</BotText>
+                            </BotResponseRow>
+                          )}
+                        </React.Fragment>
+                      );
+                    })}
                   </MessageSegment>
                   </React.Fragment>
                 );

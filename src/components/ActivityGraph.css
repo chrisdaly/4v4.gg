@@ -1,8 +1,11 @@
 .activity-graph-card {
-  background: var(--surface-1);
-  border: 1px solid var(--grey-mid);
+  background: var(--theme-bg, var(--surface-1));
+  border: var(--theme-border, 1px solid var(--grey-mid));
+  border-image: var(--theme-border-image, none);
   border-radius: var(--radius-md);
   padding: var(--space-4);
+  backdrop-filter: var(--theme-blur, none);
+  box-shadow: var(--theme-shadow, none);
 }
 
 .ag-header {

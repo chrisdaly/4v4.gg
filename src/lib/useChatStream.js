@@ -8,6 +8,7 @@ export default function useChatStream() {
   const [messages, setMessages] = useState([]);
   const [status, setStatus] = useState("connecting");
   const [onlineUsers, setOnlineUsers] = useState([]);
+  const [botResponses, setBotResponses] = useState([]);
   const eventSourceRef = useRef(null);
 
   const addMessages = useCallback((newMsgs) => {
@@ -84,6 +85,12 @@ export default function useChatStream() {
       setOnlineUsers((prev) => prev.filter((u) => u.battleTag !== battleTag));
     });
 
+    es.addEventListener("bot_response", (e) => {
+      if (cancelled) return;
+      const data = JSON.parse(e.data);
+      setBotResponses((prev) => [...prev.slice(-49), data]);
+    });
+
     es.addEventListener("status", (e) => {
       if (cancelled) return;
       const { state } = JSON.parse(e.data);
@@ -124,5 +131,5 @@ export default function useChatStream() {
     }
   }, []);
 
-  return { messages, status, onlineUsers, sendMessage };
+  return { messages, status, onlineUsers, botResponses, sendMessage };
 }

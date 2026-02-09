@@ -1,4 +1,4 @@
-import React from "react";
+import React, { useEffect } from "react";
 
 import { MmrComparison } from "../components/MmrComparison";
 
@@ -44,7 +44,23 @@ const SoloChart = ({ p1, p2 }) => (
   </div>
 );
 
-const DesignLab = () => (
+const DesignLab = () => {
+  // Force classic (black) theme on blog pages
+  useEffect(() => {
+    const s = document.body.style;
+    const prev = {
+      bgImg: s.getPropertyValue("--theme-bg-img"),
+      bgOverlay: s.getPropertyValue("--theme-bg-overlay"),
+    };
+    s.setProperty("--theme-bg-img", "none");
+    s.setProperty("--theme-bg-overlay", "none");
+    return () => {
+      s.setProperty("--theme-bg-img", prev.bgImg);
+      s.setProperty("--theme-bg-overlay", prev.bgOverlay);
+    };
+  }, []);
+
+  return (
   <div>
     <article className="blog-article">
       <div className="content">
@@ -422,6 +438,7 @@ const DesignLab = () => (
       </div>
     </article>
   </div>
-);
+  );
+};
 
 export default DesignLab;

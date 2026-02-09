@@ -2,6 +2,8 @@ import React, { Suspense, lazy } from "react";
 import { BrowserRouter, Route, Switch } from "react-router-dom";
 import ErrorBoundary from "./components/ErrorBoundary";
 import Navbar from "./components/Navbar";
+import RaceSelectOverlay from "./components/RaceSelectOverlay";
+import { ThemeProvider, useTheme } from "./lib/ThemeContext";
 
 // Homepage loaded eagerly (initial route)
 import OngoingGames from "./pages/OngoingGames";
@@ -38,45 +40,53 @@ const PageLoader = () => (
   </div>
 );
 
+const FirstVisitGate = () => {
+  const { isFirstVisit } = useTheme();
+  return isFirstVisit ? <RaceSelectOverlay /> : null;
+};
+
 const Router = () => (
   <BrowserRouter>
-    <Suspense fallback={<PageLoader />}>
-      <Switch>
-        {/* Stream overlays - no Navbar */}
-        <Route path="/overlay/match" component={MatchOverlayPage} />
-        <Route path="/overlay/player" component={PlayerOverlayPage} />
-        <Route path="/overlay/lastgame" component={LastGameOverlayPage} />
-        <Route exact path="/overlay" component={OverlayIndex} />
-        <Route path="/stream" component={PlayerStream} />
-        <Route path="/mystream" component={MyStreamPage} />
-        <Route path="/chat" component={Chat} />
+    <ThemeProvider>
+      <FirstVisitGate />
+      <Suspense fallback={<PageLoader />}>
+        <Switch>
+          {/* Stream overlays - no Navbar */}
+          <Route path="/overlay/match" component={MatchOverlayPage} />
+          <Route path="/overlay/player" component={PlayerOverlayPage} />
+          <Route path="/overlay/lastgame" component={LastGameOverlayPage} />
+          <Route exact path="/overlay" component={OverlayIndex} />
+          <Route path="/stream" component={PlayerStream} />
+          <Route path="/mystream" component={MyStreamPage} />
+          <Route path="/chat" component={Chat} />
 
-        {/* All other pages - Navbar + ErrorBoundary */}
-        <Route>
-          <Navbar />
-          <ErrorBoundary>
-            <Switch>
-              <Route exact path="/" component={OngoingGames} />
-              <Route path="/ongoing" component={OngoingGames} />
-              <Route path="/finished" component={RecentlyFinished} />
-              <Route path="/ladder" component={Ladder} />
-              <Route path="/stats" component={Stats} />
-              <Route path="/player" component={PlayerProfile} />
-              <Route path="/match" component={FinishedGamePage} />
-              <Route exact path="/blog" component={Blog} />
-              <Route path="/blog/dots-not-numbers" component={DesignLab} />
-              <Route path="/demo" component={VisualizationDemo} />
-              <Route path="/styles" component={StyleReference} />
-              <Route path="/icons" component={IconDemo} />
-              <Route path="/assets" component={Assets} />
-              <Route path="/mockups" component={ChatMockups} />
+          {/* All other pages - Navbar + ErrorBoundary */}
+          <Route>
+            <Navbar />
+            <ErrorBoundary>
+              <Switch>
+                <Route exact path="/" component={OngoingGames} />
+                <Route path="/ongoing" component={OngoingGames} />
+                <Route path="/finished" component={RecentlyFinished} />
+                <Route path="/ladder" component={Ladder} />
+                <Route path="/stats" component={Stats} />
+                <Route path="/player" component={PlayerProfile} />
+                <Route path="/match" component={FinishedGamePage} />
+                <Route exact path="/blog" component={Blog} />
+                <Route path="/blog/dots-not-numbers" component={DesignLab} />
+                <Route path="/demo" component={VisualizationDemo} />
+                <Route path="/styles" component={StyleReference} />
+                <Route path="/icons" component={IconDemo} />
+                <Route path="/assets" component={Assets} />
+                <Route path="/mockups" component={ChatMockups} />
 
-              <Route path="/mmr-lab" component={MmrLab} />
-            </Switch>
-          </ErrorBoundary>
-        </Route>
-      </Switch>
-    </Suspense>
+                <Route path="/mmr-lab" component={MmrLab} />
+              </Switch>
+            </ErrorBoundary>
+          </Route>
+        </Switch>
+      </Suspense>
+    </ThemeProvider>
   </BrowserRouter>
 );
 

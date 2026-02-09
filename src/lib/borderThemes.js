@@ -18,6 +18,19 @@
  */
 
 const borderThemes = {
+  classic: {
+    id: "classic",
+    name: "Classic",
+    desc: "Clean black, no background",
+    border: "1px solid var(--grey-mid)",
+    borderImage: "none",
+    bg: "rgba(0, 0, 0, 0.6)",
+    headerBg: "rgba(0, 0, 0, 0.4)",
+    blur: "none",
+    shadow: "none",
+    backgroundImg: "none",
+  },
+
   ironforge: {
     id: "ironforge",
     name: "Ironforge",

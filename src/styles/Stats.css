@@ -2,7 +2,6 @@
 
 .stats-page {
   min-height: 100vh;
-  background: radial-gradient(ellipse at center, #111 0%, #000 100%);
   padding: 0 20px 40px 20px;
 }
 
@@ -87,12 +86,15 @@
   }
 }
 
-/* Stats Card - secondary card pattern */
+/* Stats Card - uses theme border */
 .stats-card {
-  background: var(--surface-1);
-  border: 1px solid var(--grey-mid);
+  background: var(--theme-bg, var(--surface-1));
+  border: var(--theme-border, 1px solid var(--grey-mid));
+  border-image: var(--theme-border-image, none);
   border-radius: var(--radius-md);
   padding: var(--space-4);
+  backdrop-filter: var(--theme-blur, none);
+  box-shadow: var(--theme-shadow, none);
 }
 
 .stats-card-header {
