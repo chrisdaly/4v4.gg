@@ -8,13 +8,14 @@ const API_BASE = 'https://website-backend.w3champions.com/api';
 const GATEWAY = 20;
 const GAME_MODE = 4;
 const COOLDOWN_MS = 5000;
-const MAX_RESPONSE_LENGTH = 400;
+const MAX_RESPONSE_LENGTH = 600;
 
 let botEnabled = false;
 let currentSeason = 24;
 let lastCommandTime = 0;
 
 const RACE_NAMES = { 0: 'Random', 1: 'Human', 2: 'Orc', 4: 'Night Elf', 8: 'Undead', 16: 'All', 64: 'Starter' };
+const ALLOWED_USERS = new Set(['FOALS#11315']);
 
 // ── Init ──────────────────────────────────────────────────────
 
@@ -56,6 +57,12 @@ export function handleCommand(text, battleTag, userName) {
 
   const handler = COMMANDS[cmd];
   if (!handler) return false;
+
+  // Allowlist check
+  if (!ALLOWED_USERS.has(battleTag)) {
+    console.log(`[Bot] Ignored ${cmd} from ${userName} (${battleTag}) — not in allowlist`);
+    return true;
+  }
 
   // Rate limiting
   const now = Date.now();
@@ -278,9 +285,9 @@ Rules:
 - Separate lines with a blank line between them
 - Be casual and witty, match gamer banter energy
 - Use player names
-- Just report what happened, no meta-commentary like "classic 4v4" or "chaos ensued"
+- Just state what happened factually, no opinions or commentary (no "brutal", "classic", "chaos", "wp", etc)
 - ASCII only, no emojis or special unicode
-- Keep total output under 350 chars
+- Keep total output under 500 chars
 ${topicPrompt}
 
 Chat log (${rows.length} messages):
