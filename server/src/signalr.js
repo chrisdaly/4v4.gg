@@ -82,6 +82,7 @@ async function connect() {
 
     // Rebuild online users from the full user list
     onlineUsers.clear();
+    const now = Date.now();
     if (Array.isArray(usersOfRoom)) {
       for (const u of usersOfRoom) {
         if (u?.battleTag) {
@@ -89,6 +90,7 @@ async function connect() {
             battleTag: u.battleTag,
             name: u.name || '',
             clanTag: u.clanTag || '',
+            joinedAt: now,
           });
         }
       }
@@ -156,6 +158,7 @@ async function connect() {
         battleTag: user.battleTag,
         name: user.name || '',
         clanTag: user.clanTag || '',
+        joinedAt: Date.now(),
       };
       onlineUsers.set(user.battleTag, userData);
       broadcast('user_joined', userData);

@@ -9,6 +9,8 @@ import ChatPanel from "../components/ChatPanel";
 import ActiveGamesSidebar from "../components/ActiveGamesSidebar";
 import UserListSidebar from "../components/UserListSidebar";
 
+const IDLE_MS = 3 * 60 * 60 * 1000; // 3 hours
+
 const Page = styled.div`
   padding: var(--space-1) var(--space-2) 0;
   position: relative;
@@ -65,6 +67,7 @@ const Chat = () => {
   const [showGames, setShowGames] = useState(false);
   const [finishedMatches, setFinishedMatches] = useState([]);
   const [recentWinners, setRecentWinners] = useState(new Set());
+  const [tick, setTick] = useState(0);
   const fetchedRef = useRef(new Set());
   const prevInGameRef = useRef(new Set());
   const prevMatchIdsRef = useRef(new Set());
@@ -82,6 +85,12 @@ const Chat = () => {
     const interval = setInterval(fetchOngoing, 30000);
     return () => clearInterval(interval);
   }, [fetchOngoing]);
+
+  // Tick for idle recomputation (once per minute)
+  useEffect(() => {
+    const id = setInterval(() => setTick((t) => t + 1), 60_000);
+    return () => clearInterval(id);
+  }, []);
 
   // Detect matches that just ended, fetch results with retry, show briefly then remove
   useEffect(() => {
@@ -173,6 +182,18 @@ const Chat = () => {
     }
     return tags;
   }, [ongoingMatches, messages]);
+
+  // Compute idle tags: users who joined >3h ago and aren't in a game
+  const idleTags = useMemo(() => {
+    const now = Date.now();
+    const idle = new Set();
+    for (const u of onlineUsers) {
+      if (u.joinedAt && now - u.joinedAt > IDLE_MS && !inGameTags.has(u.battleTag)) {
+        idle.add(u.battleTag);
+      }
+    }
+    return idle;
+  }, [onlineUsers, inGameTags, tick]);
 
   // Build map of in-game battleTag → player page URL
   const inGameMatchMap = useMemo(() => {
@@ -291,6 +312,7 @@ const Chat = () => {
           avatars={avatars}
           stats={stats}
           inGameTags={inGameTags}
+          idleTags={idleTags}
           inGameMatchMap={inGameMatchMap}
           recentWinners={recentWinners}
           $mobileVisible={showSidebar}

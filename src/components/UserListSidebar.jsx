@@ -334,7 +334,11 @@ function getAvatarImg(tag, avatars, stats) {
   return <SidebarAvatarRace src={raceIcons.random} alt="" $faded />;
 }
 
-function UserRowItem({ user, avatars, stats, inGame, matchUrl, isRecentWinner }) {
+const IdleRow = styled.div`
+  opacity: 0.4;
+`;
+
+function UserRowItem({ user, avatars, stats, inGame, matchUrl, isRecentWinner, isIdle }) {
   const playerStats = stats?.get(user.battleTag);
   const mmr = playerStats?.mmr;
   const raceIcon = playerStats?.race != null ? raceMapping[playerStats.race] : null;
@@ -363,7 +367,9 @@ function UserRowItem({ user, avatars, stats, inGame, matchUrl, isRecentWinner })
   if (matchUrl) {
     return <UserLink to={matchUrl}>{content}</UserLink>;
   }
-  return <UserRowBase>{content}</UserRowBase>;
+  const row = <UserRowBase>{content}</UserRowBase>;
+  if (isIdle) return <IdleRow>{row}</IdleRow>;
+  return row;
 }
 
 export default function UserListSidebar({
@@ -371,6 +377,7 @@ export default function UserListSidebar({
   avatars,
   stats,
   inGameTags,
+  idleTags,
   inGameMatchMap,
   recentWinners,
   $mobileVisible,
@@ -381,6 +388,7 @@ export default function UserListSidebar({
   const [sortField, setSortField] = useState("mmr");
   const [inGameOpen, setInGameOpen] = useState(true);
   const [onlineOpen, setOnlineOpen] = useState(true);
+  const [awayOpen, setAwayOpen] = useState(true);
 
   function handleSort(field) {
     setSortField(field);
@@ -410,15 +418,17 @@ export default function UserListSidebar({
     return sortedUsers.filter((u) => (u.name || "").toLowerCase().includes(q));
   }, [sortedUsers, search]);
 
-  const { inGameUsers, onlineUsers: onlineOnly } = useMemo(() => {
+  const { inGameUsers, onlineUsers: onlineOnly, awayUsers } = useMemo(() => {
     const ig = [];
     const on = [];
+    const away = [];
     for (const u of filteredUsers) {
       if (inGameTags?.has(u.battleTag)) ig.push(u);
+      else if (idleTags?.has(u.battleTag)) away.push(u);
       else on.push(u);
     }
-    return { inGameUsers: ig, onlineUsers: on };
-  }, [filteredUsers, inGameTags]);
+    return { inGameUsers: ig, onlineUsers: on, awayUsers: away };
+  }, [filteredUsers, inGameTags, idleTags]);
 
   return (
     <Sidebar $mobileVisible={$mobileVisible}>
@@ -482,6 +492,26 @@ export default function UserListSidebar({
             isRecentWinner={recentWinners?.has(user.battleTag)}
           />
         ))}
+        {awayUsers.length > 0 && (
+          <>
+            <SectionHeader onClick={() => setAwayOpen((v) => !v)}>
+              <Chevron $open={awayOpen}>&#9654;</Chevron>
+              Away — <SectionCount>{awayUsers.length}</SectionCount>
+            </SectionHeader>
+            {awayOpen && awayUsers.map((user) => (
+              <UserRowItem
+                key={user.battleTag}
+                user={user}
+                avatars={avatars}
+                stats={stats}
+                inGame={false}
+                matchUrl={null}
+                isRecentWinner={recentWinners?.has(user.battleTag)}
+                isIdle
+              />
+            ))}
+          </>
+        )}
       </UserList>
       </SidebarContent>
     </Sidebar>

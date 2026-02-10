@@ -1,4 +1,4 @@
-import React, { useRef, useEffect, useState, useCallback, useMemo } from "react";
+import React, { useRef, useEffect, useState, useMemo } from "react";
 import * as d3 from "d3";
 
 const DOT_COLOR = "rgba(255, 255, 255, 0.75)";
@@ -6,19 +6,29 @@ const DOT_COLOR_INGAME = "rgba(255, 255, 255, 0.85)";
 const LABEL_COLOR = "rgba(255, 255, 255, 0.6)";
 const TEAM_COLORS = ["#4da6ff", "#ef4444"];
 
-// Label layout constants
-const LABEL_FONT_SIZE = 13;
-const LABEL_CHAR_W = 7.4;  // approximate width per char at 13px font-display
-const LABEL_H = 15;         // line height
-const LABEL_PAD_X = 4;      // horizontal padding around text
-const LABEL_PAD_Y = 2;      // vertical padding
-
-// Check if two rects overlap
-const rectsOverlap = (a, b) => {
-  return a.x < b.x + b.w && a.x + a.w > b.x && a.y < b.y + b.h && a.y + a.h > b.y;
+// Transition timing tiers (ms) — multiply by animationScale `s` before use
+const T = {
+  FAST: 300,     // bulk ops, fades, quick appear/disappear
+  MOVE: 1500,    // repositioning existing elements (dots, labels, arcs)
+  ENTER: 2500,   // organic fly-in / fly-out
+  LINGER: 4000,  // how long temp gold labels stay visible
 };
 
-// Check if a rect overlaps any dot circle (as a rect approximation)
+// Label sizing constants
+const L = {
+  FONT_SIZE: 13,
+  CHAR_W: 7.4,   // approximate width per char at 13px font-display
+  H: 15,          // line height
+  PAD_X: 4,       // horizontal padding around text
+  PAD_Y: 2,       // vertical padding
+};
+
+// Settling period: all enters use fast fade-in (no fly-in) during this window
+const SETTLE_MS = 4000;
+
+const rectsOverlap = (a, b) =>
+  a.x < b.x + b.w && a.x + a.w > b.x && a.y < b.y + b.h && a.y + a.h > b.y;
+
 const rectOverlapsDot = (rect, dots) => {
   for (const d of dots) {
     const dotRect = { x: d.x - d.r, y: d.y - d.r, w: d.r * 2, h: d.r * 2 };
@@ -27,8 +37,122 @@ const rectOverlapsDot = (rect, dots) => {
   return false;
 };
 
-// Settling period: all enters use fast fade-in (no fly-in) during this window
-const SETTLE_MS = 4000;
+// Beeswarm layout — stable: reuses X for dots with unchanged MMR
+const computePositions = (sorted, y, centerX, rScale, inGameMap, prevPos) => {
+  const positions = [];
+  const deferred = [];
+
+  for (const player of sorted) {
+    const py = y(player.mmr);
+    const games = (player.wins || 0) + (player.losses || 0);
+    const dotR = rScale(games);
+    const gameInfo = inGameMap.get(player.battleTag);
+    const prev = prevPos.get(player.battleTag);
+    const mmrChanged = prev && prev.mmr !== player.mmr;
+
+    const posData = {
+      y: py, r: dotR,
+      race: player.race, tag: player.battleTag,
+      mmr: player.mmr, inGame: !!gameInfo,
+      mapName: gameInfo?.mapName || null,
+      matchId: gameInfo?.matchId || null,
+      teamIdx: gameInfo?.teamIdx ?? null,
+      wins: player.wins || 0,
+      losses: player.losses || 0,
+    };
+
+    if (prev && !mmrChanged) {
+      positions.push({ ...posData, x: prev.x });
+    } else {
+      deferred.push(posData);
+    }
+  }
+
+  for (const posData of deferred) {
+    let px = centerX;
+    let offset = 1;
+    while (positions.some((p) => {
+      const minDist = (p.r + posData.r) * 1.2;
+      return Math.hypot(p.x - px, p.y - posData.y) < minDist;
+    })) {
+      px = centerX + (offset % 2 === 0 ? 1 : -1) * Math.ceil(offset / 2) * (posData.r * 2.2);
+      offset++;
+      if (offset > 20) break;
+    }
+    positions.push({ ...posData, x: px });
+  }
+
+  return positions;
+};
+
+// Label placement with collision detection
+const computeLabelLayout = (positions, bounds) => {
+  const labeledTags = new Set();
+  const labelPositions = [];
+  const placedRects = [];
+
+  const tryPlace = (pos, force) => {
+    const name = pos.tag?.split("#")[0] || "";
+    if (!name) return null;
+
+    const textW = name.length * L.CHAR_W + L.PAD_X * 2;
+    const textH = L.H + L.PAD_Y * 2;
+
+    const offsets = [
+      { dx: pos.r + 4, dy: -textH / 2 },
+      { dx: pos.r + 2, dy: -pos.r - textH },
+      { dx: -textW / 2, dy: -pos.r - textH - 2 },
+      { dx: -textW - pos.r - 2, dy: -pos.r - textH },
+      { dx: -textW - pos.r - 4, dy: -textH / 2 },
+      { dx: -textW - pos.r - 2, dy: pos.r },
+      { dx: -textW / 2, dy: pos.r + 4 },
+      { dx: pos.r + 2, dy: pos.r },
+    ];
+
+    for (const { dx, dy } of offsets) {
+      const cx = pos.x + dx;
+      const cy = pos.y + dy;
+
+      if (cx < bounds.left || cx + textW > bounds.right) continue;
+      if (cy < bounds.top || cy + textH > bounds.bottom) continue;
+
+      const rect = { x: cx, y: cy, w: textW, h: textH };
+      if (!force) {
+        if (placedRects.some((r) => rectsOverlap(rect, r))) continue;
+        if (rectOverlapsDot(rect, positions.filter((p) => p.tag !== pos.tag))) continue;
+      }
+
+      placedRects.push(rect);
+      labeledTags.add(pos.tag);
+      return {
+        tag: pos.tag, name,
+        x: cx + textW / 2,
+        y: cy + textH - L.PAD_Y - 1,
+      };
+    }
+    return null;
+  };
+
+  // Top 3 MMR players force-placed first
+  const top3 = [...positions].sort((a, b) => b.mmr - a.mmr).slice(0, 3);
+  for (const pos of top3) {
+    const l = tryPlace(pos, true);
+    if (l) labelPositions.push(l);
+  }
+
+  // Remaining by priority (furthest from median first)
+  const median = d3.median(positions, (d) => d.mmr) || 0;
+  const byPriority = [...positions].sort((a, b) =>
+    Math.abs(b.mmr - median) - Math.abs(a.mmr - median)
+  );
+  for (const pos of byPriority) {
+    if (labeledTags.has(pos.tag)) continue;
+    const l = tryPlace(pos, false);
+    if (l) labelPositions.push(l);
+  }
+
+  return { labelPositions, labeledTags };
+};
 
 const OnlineMmrStrip = ({
   players,
@@ -39,7 +163,6 @@ const OnlineMmrStrip = ({
   onMmrFilter = null,
   mmrRange = null,       // [min, max] — lock Y-axis scale (replay mode)
   animationScale = 1,    // multiply all transition durations (< 1 = faster)
-  instant = false,       // skip intro buffer
 }) => {
   const containerRef = useRef(null);
   const svgRef = useRef(null);
@@ -89,12 +212,10 @@ const OnlineMmrStrip = ({
     if (!svgRef.current || !width || !height || width < 60 || !players || players.length === 0) return;
     if (!firstRenderTimeRef.current) firstRenderTimeRef.current = Date.now();
 
-    // Scale all D3 transition durations for replay speed
     const s = animationScale;
-
     const svg = d3.select(svgRef.current);
 
-    // VERTICAL LAYOUT: MMR on Y-axis, displacement on X-axis
+    // ── Layout ──
     const padding = { left: 36, right: 50, top: 36, bottom: 36 };
     const chartWidth = width - padding.left - padding.right;
     const centerX = padding.left + chartWidth / 2;
@@ -103,25 +224,80 @@ const OnlineMmrStrip = ({
     const minMmr = mmrRange ? mmrRange[0] : d3.min(mmrs) - 50;
     const maxMmr = mmrRange ? mmrRange[1] : d3.max(mmrs) + 50;
 
-    // Y-scale for MMR (inverted: higher MMR at top)
     const y = d3.scaleLinear()
       .domain([minMmr, maxMmr])
       .range([height - padding.bottom, padding.top]);
 
-    // Max games for dot sizing
     const allGames = players.map((p) => (p.wins || 0) + (p.losses || 0));
     const maxGames = d3.max(allGames) || 1;
     const rScale = d3.scaleSqrt().domain([0, maxGames]).range([4, 16]);
 
-    // ── Clear static layers, keep dot group + label layer + arc layer ──
+    // ── Data phase (pure computation, no DOM) ──
+    const sorted = [...players].sort((a, b) => b.mmr - a.mmr);
+    const positions = computePositions(sorted, y, centerX, rScale, inGameMap, prevPositionsRef.current);
+    prevPositionsRef.current = new Map(positions.map((p) => [p.tag, { x: p.x, mmr: p.mmr }]));
+
+    const isSettling = (Date.now() - firstRenderTimeRef.current) < SETTLE_MS;
+    const changedDots = [];
+    if (!isSettling) {
+      for (const pos of positions) {
+        const prev = prevMmrsRef.current.get(pos.tag);
+        if (prev != null && prev !== pos.mmr) {
+          changedDots.push({ ...pos, delta: pos.mmr - prev });
+        }
+      }
+    }
+    prevMmrsRef.current = new Map(positions.map((p) => [p.tag, p.mmr]));
+    const changedTagSet = new Set(changedDots.map((d) => d.tag));
+
+    const bounds = {
+      left: padding.left,
+      right: width - padding.right,
+      top: padding.top - 4,
+      bottom: height - padding.bottom + 2,
+    };
+    const { labelPositions, labeledTags } = computeLabelLayout(positions, bounds);
+
+    // Arc path data
+    const teamGroups = new Map();
+    for (const pos of positions) {
+      if (!pos.inGame || pos.matchId == null) continue;
+      const key = `${pos.matchId}-${pos.teamIdx}`;
+      if (!teamGroups.has(key)) teamGroups.set(key, []);
+      teamGroups.get(key).push(pos);
+    }
+
+    const arcData = [];
+    for (const [, members] of teamGroups) {
+      if (members.length < 2) continue;
+      const teamIdx = members[0].teamIdx;
+      const color = TEAM_COLORS[teamIdx] || "#888";
+      for (let i = 0; i < members.length - 1; i++) {
+        const a = members[i];
+        const b = members[i + 1];
+        const dist = Math.abs(a.y - b.y);
+        const controlX = Math.min(a.x, b.x) - dist * 0.3 - 8;
+        const d = `M ${a.x} ${a.y} Q ${controlX} ${(a.y + b.y) / 2} ${b.x} ${b.y}`;
+        arcData.push({ key: `${a.tag}-${b.tag}`, d, color });
+      }
+    }
+
+    // Match player lookup for hover highlighting
+    const matchPlayers = new Map();
+    for (const pos of positions) {
+      if (!pos.inGame || pos.matchId == null) continue;
+      if (!matchPlayers.has(pos.matchId)) matchPlayers.set(pos.matchId, []);
+      matchPlayers.get(pos.matchId).push({ tag: pos.tag, teamIdx: pos.teamIdx });
+    }
+
+    // ── Render: Static layers ──
     svg.selectAll(".static-layer").remove();
     svg.selectAll(".enter-label-layer").remove();
     svg.selectAll(".exit-label-layer").remove();
 
-    // Static group (behind everything) — no mouse interaction
     const staticG = svg.append("g").attr("class", "static-layer").attr("pointer-events", "none");
 
-    // ── Histogram backdrop ──
+    // Histogram backdrop
     if (histogram && histogram.length > 0) {
       const histMaxCount = d3.max(histogram, (d) => d.count) || 1;
       const xHist = d3.scaleLinear().domain([0, histMaxCount]).range([0, chartWidth * 0.2]);
@@ -157,11 +333,10 @@ const OnlineMmrStrip = ({
       }
     }
 
-    // ── Grid lines + clickable axis labels ──
+    // Grid lines + clickable axis labels
     const step = 200;
     const gridStart = Math.ceil(minMmr / step) * step;
 
-    // Persist axis label layer across renders for smooth transitions
     let axisLabelG = svg.select(".axis-label-layer");
     if (axisLabelG.empty()) {
       axisLabelG = svg.append("g").attr("class", "axis-label-layer");
@@ -177,7 +352,6 @@ const OnlineMmrStrip = ({
         .attr("stroke", "#222").attr("stroke-width", 1);
     }
 
-    // Data-join axis labels so they transition instead of being recreated
     const axisLabels = axisLabelG.selectAll(".axis-tick").data(gridValues, (d) => d);
     axisLabels.exit().remove();
 
@@ -203,7 +377,7 @@ const OnlineMmrStrip = ({
 
       g.select("text")
         .attr("y", y(v) + 3).attr("x", width - 4)
-        .transition().duration(400 * s).ease(d3.easeCubicOut)
+        .transition().duration(T.FAST * s).ease(d3.easeCubicOut)
         .attr("fill", targetFill);
 
       g.select("rect")
@@ -213,11 +387,11 @@ const OnlineMmrStrip = ({
         g.select("rect")
           .on("mouseenter", () => {
             if (animatingRef.current) return;
-            g.select("text").transition().duration(150).attr("fill", isActive ? "var(--gold)" : "rgba(255, 255, 255, 0.8)");
+            g.select("text").transition().duration(T.FAST * s).attr("fill", isActive ? "var(--gold)" : "rgba(255, 255, 255, 0.8)");
           })
           .on("mouseleave", () => {
             if (animatingRef.current) return;
-            g.select("text").transition().duration(300).attr("fill", targetFill);
+            g.select("text").transition().duration(T.FAST * s).attr("fill", targetFill);
           })
           .on("click", () => {
             if (animatingRef.current) return;
@@ -226,98 +400,21 @@ const OnlineMmrStrip = ({
       }
     });
 
-    // ── Center axis ──
+    // Center axis
     staticG.append("line")
       .attr("x1", centerX).attr("x2", centerX)
       .attr("y1", padding.top).attr("y2", height - padding.bottom)
       .attr("stroke", "#333").attr("stroke-width", 1);
 
-    // ── Beeswarm positions (stable: reuse X for unchanged dots) ──
-    const sorted = [...players].sort((a, b) => b.mmr - a.mmr);
-    const positions = [];
-    const prevPos = prevPositionsRef.current;
-
-    // First pass: place dots with unchanged MMR at their previous X
-    const deferred = []; // new or MMR-changed players — laid out in second pass
-    for (const player of sorted) {
-      const py = y(player.mmr);
-      const games = (player.wins || 0) + (player.losses || 0);
-      const dotR = rScale(games);
-      const gameInfo = inGameMap.get(player.battleTag);
-      const prev = prevPos.get(player.battleTag);
-      const mmrChanged = prev && prev.mmr !== player.mmr;
-
-      const posData = {
-        y: py, r: dotR,
-        race: player.race, tag: player.battleTag,
-        mmr: player.mmr, inGame: !!gameInfo,
-        mapName: gameInfo?.mapName || null,
-        matchId: gameInfo?.matchId || null,
-        teamIdx: gameInfo?.teamIdx ?? null,
-        wins: player.wins || 0,
-        losses: player.losses || 0,
-      };
-
-      if (prev && !mmrChanged) {
-        // Reuse previous X, recalculate Y from current scale
-        positions.push({ ...posData, x: prev.x });
-      } else {
-        deferred.push(posData);
-      }
-    }
-
-    // Second pass: collision-avoid new/changed dots against already-placed ones
-    for (const posData of deferred) {
-      let px = centerX;
-      let offset = 1;
-      while (positions.some((p) => {
-        const minDist = (p.r + posData.r) * 1.2;
-        return Math.hypot(p.x - px, p.y - posData.y) < minDist;
-      })) {
-        px = centerX + (offset % 2 === 0 ? 1 : -1) * Math.ceil(offset / 2) * (posData.r * 2.2);
-        offset++;
-        if (offset > 20) break;
-      }
-      positions.push({ ...posData, x: px });
-    }
-
-    // Cache for next render
-    const nextPos = new Map();
-    for (const p of positions) nextPos.set(p.tag, { x: p.x, mmr: p.mmr });
-    prevPositionsRef.current = nextPos;
-
-    // ── Match pairing arcs (persisted, data-joined for transitions) ──
+    // ── Render: Arcs ──
     let arcG = svg.select(".arc-layer");
     const isArcLayerNew = arcG.empty();
     if (isArcLayerNew) {
       arcG = svg.append("g").attr("class", "arc-layer").attr("pointer-events", "none").attr("opacity", 0);
     }
 
-    const teamGroups = new Map();
-    for (const pos of positions) {
-      if (!pos.inGame || pos.matchId == null) continue;
-      const key = `${pos.matchId}-${pos.teamIdx}`;
-      if (!teamGroups.has(key)) teamGroups.set(key, []);
-      teamGroups.get(key).push(pos);
-    }
-
-    const arcData = [];
-    for (const [, members] of teamGroups) {
-      if (members.length < 2) continue;
-      const teamIdx = members[0].teamIdx;
-      const color = TEAM_COLORS[teamIdx] || "#888";
-      for (let i = 0; i < members.length - 1; i++) {
-        const a = members[i];
-        const b = members[i + 1];
-        const dist = Math.abs(a.y - b.y);
-        const controlX = Math.min(a.x, b.x) - dist * 0.3 - 8;
-        const d = `M ${a.x} ${a.y} Q ${controlX} ${(a.y + b.y) / 2} ${b.x} ${b.y}`;
-        arcData.push({ key: `${a.tag}-${b.tag}`, d, color });
-      }
-    }
-
     const arcSel = arcG.selectAll("path.team-arc").data(arcData, (d) => d.key);
-    arcSel.exit().transition().duration(400 * s).attr("opacity", 0).remove();
+    arcSel.exit().transition().duration(T.FAST * s).attr("opacity", 0).remove();
     arcSel.enter().append("path")
       .attr("class", "team-arc")
       .attr("fill", "none")
@@ -325,24 +422,23 @@ const OnlineMmrStrip = ({
       .attr("stroke-width", 1)
       .attr("opacity", 0)
       .attr("d", (d) => d.d)
-      .transition().duration(600 * s)
+      .transition().duration(T.FAST * s)
       .attr("opacity", 0.25);
-    arcSel.transition().duration(1500 * s).ease(d3.easeSinInOut)
+    arcSel.transition().duration(T.MOVE * s).ease(d3.easeCubicInOut)
       .attr("d", (d) => d.d)
       .attr("opacity", 0.25);
 
-    // ── Enter/exit dot animations via data join ──
+    // ── Render: Dots ──
     let dotGroup = svg.select(".dot-group");
     if (dotGroup.empty()) {
       dotGroup = svg.append("g").attr("class", "dot-group");
     }
-    // Ensure dots are always the topmost interactive layer
     dotGroup.raise();
 
     const dots = dotGroup.selectAll("circle.player-dot")
       .data(positions, (d) => d.tag);
 
-    // Exit animation — fast fade for bulk exits (filtering), slow slide for organic exits
+    // Exit animation
     const exitCount = dots.exit().size();
     const isBulkExit = exitCount > 3;
     const exitX = width + 20;
@@ -357,7 +453,7 @@ const OnlineMmrStrip = ({
           .attr("y", d.y + 4)
           .attr("text-anchor", "start")
           .attr("fill", "var(--gold)")
-          .attr("font-size", `${LABEL_FONT_SIZE}px`)
+          .attr("font-size", `${L.FONT_SIZE}px`)
           .attr("font-family", "var(--font-display)")
           .attr("opacity", 0.9)
           .text(name);
@@ -365,7 +461,7 @@ const OnlineMmrStrip = ({
       });
     }
     dots.exit()
-      .transition().duration((isBulkExit ? 400 : 5000) * s)
+      .transition().duration((isBulkExit ? T.FAST : T.ENTER) * s)
       .ease(isBulkExit ? d3.easeCubicOut : d3.easeCubicIn)
       .attrTween("cx", isBulkExit ? null : function (d) {
         const sx = +d3.select(this).attr("cx");
@@ -388,23 +484,8 @@ const OnlineMmrStrip = ({
       })
       .remove();
 
-    // Detect MMR changes from previous render (skip during settling — data sources may disagree)
-    const isSettling = (Date.now() - firstRenderTimeRef.current) < SETTLE_MS;
-    const changedDots = [];
-    if (!isSettling) {
-      for (const pos of positions) {
-        const prev = prevMmrsRef.current.get(pos.tag);
-        if (prev != null && prev !== pos.mmr) {
-          changedDots.push({ ...pos, delta: pos.mmr - prev });
-        }
-      }
-    }
-    const nextMmrs = new Map();
-    for (const pos of positions) nextMmrs.set(pos.tag, pos.mmr);
-    prevMmrsRef.current = nextMmrs;
-
+    // Update animation
     if (isSettling) {
-      // During settling, snap existing dots to position (no distracting transitions)
       dots
         .attr("cx", (d) => d.x)
         .attr("cy", (d) => d.y)
@@ -412,7 +493,7 @@ const OnlineMmrStrip = ({
         .attr("fill", (d) => d.inGame ? DOT_COLOR_INGAME : DOT_COLOR)
         .attr("opacity", 1);
     } else {
-      dots.transition().duration(2000 * s).ease(d3.easeSinInOut)
+      dots.transition().duration(T.MOVE * s).ease(d3.easeCubicInOut)
         .attr("cx", (d) => d.x)
         .attr("cy", (d) => d.y)
         .attr("r", (d) => d.r)
@@ -420,7 +501,7 @@ const OnlineMmrStrip = ({
         .attr("opacity", 1);
     }
 
-    // Show pulse ring + delta label for changed MMR dots
+    // MMR delta effects (event-driven, intentionally separate from layout timings)
     if (changedDots.length > 0) {
       let deltaG = svg.select(".delta-label-layer");
       if (deltaG.empty()) {
@@ -437,7 +518,6 @@ const OnlineMmrStrip = ({
         const deltaText = (isGain ? "+" : "") + changed.delta;
         const stagger = isGameEnd ? ci * 80 : 0;
 
-        // Brief colored flash overlay on the dot
         if (isGameEnd) {
           deltaG.append("circle")
             .attr("cx", changed.x).attr("cy", changed.y)
@@ -451,7 +531,6 @@ const OnlineMmrStrip = ({
             .remove();
         }
 
-        // Expanding pulse ring
         deltaG.append("circle")
           .attr("cx", changed.x).attr("cy", changed.y)
           .attr("r", changed.r)
@@ -464,7 +543,6 @@ const OnlineMmrStrip = ({
           .attr("stroke-width", 0.5).attr("opacity", 0)
           .remove();
 
-        // Delta text that fades in, then floats up and fades out
         deltaG.append("text")
           .attr("x", changed.x)
           .attr("y", changed.y - changed.r - 6)
@@ -484,20 +562,18 @@ const OnlineMmrStrip = ({
       }
     }
 
+    // Enter animation
     const enterFromX = padding.left - 20;
     const enterCount = dots.enter().size();
     const isBulkLoad = enterCount > 3 || (isSettling && enterCount > 0);
 
-    // If no dots are entering, show arcs immediately (they started hidden)
     animatingRef.current = !isBulkLoad && enterCount > 0;
     if (enterCount === 0 || isBulkLoad) arcG.attr("opacity", 1);
 
     const enterLabelG = svg.append("g").attr("class", "enter-label-layer").attr("pointer-events", "none");
     const enterLabels = new Map();
-    const totalEntering = enterCount;
 
     if (isBulkLoad) {
-      // ── Bulk enter (filtering) — fast fade in at target position, no flying labels ──
       dots.enter()
         .append("circle")
         .attr("class", "player-dot")
@@ -509,10 +585,9 @@ const OnlineMmrStrip = ({
         .attr("stroke", "rgba(0,0,0,0.2)")
         .attr("stroke-width", 0.5)
         .attr("cursor", "pointer")
-        .transition().duration(400 * s).ease(d3.easeCubicOut)
+        .transition().duration(T.FAST * s).ease(d3.easeCubicOut)
         .attr("opacity", 1);
     } else {
-      // ── Organic enter — fly in from left with gold trailing labels ──
       const entered = dots.enter()
         .append("circle")
         .attr("class", "player-dot")
@@ -533,7 +608,7 @@ const OnlineMmrStrip = ({
           .attr("y", d.y + 4)
           .attr("text-anchor", "start")
           .attr("fill", "var(--gold)")
-          .attr("font-size", `${LABEL_FONT_SIZE}px`)
+          .attr("font-size", `${L.FONT_SIZE}px`)
           .attr("font-family", "var(--font-display)")
           .attr("opacity", 0)
           .text(name);
@@ -543,7 +618,7 @@ const OnlineMmrStrip = ({
       let settledCount = 0;
 
       entered.transition()
-        .duration(4000 * s)
+        .duration(T.ENTER * s)
         .ease(d3.easeCubicOut)
         .attrTween("cx", (d) => {
           const interp = d3.interpolate(enterFromX, d.x);
@@ -563,23 +638,23 @@ const OnlineMmrStrip = ({
           const label = enterLabels.get(d.tag);
           if (label) {
             if (labeledTags.has(d.tag)) {
-              label.transition().duration(400 * s).attr("opacity", 0).remove();
+              label.transition().duration(T.FAST * s).attr("opacity", 0).remove();
             } else {
               label.attr("opacity", 1)
                 .attr("x", d.x + d.r + 8).attr("y", d.y + 4);
-              label.transition().delay(5000 * s).duration(1500 * s)
+              label.transition().delay(T.LINGER * s).duration(T.MOVE * s)
                 .attr("opacity", 0)
                 .remove();
             }
           }
           settledCount++;
-          if (settledCount >= totalEntering) {
+          if (settledCount >= enterCount) {
             animatingRef.current = false;
             svg.select(".label-layer")
-              .transition().duration(400 * s)
+              .transition().duration(T.FAST * s)
               .attr("opacity", 1);
             svg.select(".arc-layer")
-              .transition().duration(600 * s)
+              .transition().duration(T.FAST * s)
               .attr("opacity", 1);
           }
         });
@@ -587,144 +662,53 @@ const OnlineMmrStrip = ({
 
     const allDots = dotGroup.selectAll("circle.player-dot");
 
-    // Build match lookup for hover highlighting
-    const matchPlayers = new Map(); // matchId → [{ tag, teamIdx }]
-    for (const pos of positions) {
-      if (!pos.inGame || pos.matchId == null) continue;
-      if (!matchPlayers.has(pos.matchId)) matchPlayers.set(pos.matchId, []);
-      matchPlayers.get(pos.matchId).push({ tag: pos.tag, teamIdx: pos.teamIdx });
-    }
-
-    // ── Player name labels with collision detection ──
-    // Persist label layer across renders for smooth transitions
+    // ── Render: Labels ──
     let labelG = svg.select(".label-layer");
     const isLabelLayerNew = labelG.empty();
     if (isLabelLayerNew) {
       labelG = svg.append("g").attr("class", "label-layer").attr("pointer-events", "none");
     }
-    if (totalEntering > 0 && isLabelLayerNew && !isBulkLoad) labelG.attr("opacity", 0);
+    if (enterCount > 0 && isLabelLayerNew && !isBulkLoad) labelG.attr("opacity", 0);
 
-    const visible = positions;
-    const labeledTags = new Set();
-    const labelPositions = [];
-    const placedLabelRects = [];
-
-    const bounds = {
-      left: padding.left,
-      right: width - padding.right,
-      top: padding.top - 4,
-      bottom: height - padding.bottom + 2,
-    };
-
-    // Compute label position (returns data, doesn't append to DOM)
-    const computeLabelPos = (pos, force) => {
-      const name = pos.tag?.split("#")[0] || "";
-      if (!name) return null;
-
-      const textW = name.length * LABEL_CHAR_W + LABEL_PAD_X * 2;
-      const textH = LABEL_H + LABEL_PAD_Y * 2;
-
-      const offsets = [
-        { dx: pos.r + 4, dy: -textH / 2 },
-        { dx: pos.r + 2, dy: -pos.r - textH },
-        { dx: -textW / 2, dy: -pos.r - textH - 2 },
-        { dx: -textW - pos.r - 2, dy: -pos.r - textH },
-        { dx: -textW - pos.r - 4, dy: -textH / 2 },
-        { dx: -textW - pos.r - 2, dy: pos.r },
-        { dx: -textW / 2, dy: pos.r + 4 },
-        { dx: pos.r + 2, dy: pos.r },
-      ];
-
-      for (const { dx, dy } of offsets) {
-        const candidateX = pos.x + dx;
-        const candidateY = pos.y + dy;
-
-        if (candidateX < bounds.left || candidateX + textW > bounds.right) continue;
-        if (candidateY < bounds.top || candidateY + textH > bounds.bottom) continue;
-
-        const candidateRect = { x: candidateX, y: candidateY, w: textW, h: textH };
-        if (!force) {
-          if (placedLabelRects.some((r) => rectsOverlap(candidateRect, r))) continue;
-          if (rectOverlapsDot(candidateRect, positions.filter((p) => p.tag !== pos.tag))) continue;
-        }
-
-        placedLabelRects.push(candidateRect);
-        labeledTags.add(pos.tag);
-        return {
-          tag: pos.tag, name,
-          x: candidateX + textW / 2,
-          y: candidateY + textH - LABEL_PAD_Y - 1,
-        };
-      }
-      return null;
-    };
-
-    // Always show top 3 MMR players — force-placed before anything else
-    const top3 = [...visible].sort((a, b) => b.mmr - a.mmr).slice(0, 3);
-    for (const pos of top3) {
-      const l = computeLabelPos(pos, true);
-      if (l) labelPositions.push(l);
-    }
-
-    // Fill in remaining labels by priority (extremes first), respecting collisions
-    const byPriority = [...visible].sort((a, b) => {
-      const median = d3.median(visible, (d) => d.mmr) || 0;
-      return Math.abs(b.mmr - median) - Math.abs(a.mmr - median);
-    });
-
-    for (const pos of byPriority) {
-      if (labeledTags.has(pos.tag)) continue;
-      const l = computeLabelPos(pos, false);
-      if (l) labelPositions.push(l);
-    }
-
-    // Build set of tags with MMR changes for gold flash
-    const changedTagSet = new Set(changedDots.map((d) => d.tag));
-
-    // Data-join labels for smooth transitions
     const labelsSel = labelG.selectAll("text.player-label").data(labelPositions, (d) => d.tag);
-    labelsSel.exit().transition().duration(400 * s).attr("opacity", 0).remove();
+    labelsSel.exit().transition().duration(T.FAST * s).attr("opacity", 0).remove();
 
     labelsSel.enter().append("text")
       .attr("class", "player-label")
       .attr("text-anchor", "middle")
-      .attr("font-size", `${LABEL_FONT_SIZE}px`)
+      .attr("font-size", `${L.FONT_SIZE}px`)
       .attr("font-family", "var(--font-display)")
       .attr("data-tag", (d) => d.tag)
       .text((d) => d.name)
       .attr("x", (d) => d.x).attr("y", (d) => d.y)
       .attr("fill", LABEL_COLOR)
       .attr("opacity", 0)
-      .transition().duration(600 * s).ease(d3.easeCubicOut)
-      .attr("opacity", isLabelLayerNew && totalEntering > 0 && !isBulkLoad ? 0 : 1);
+      .transition().duration(T.FAST * s).ease(d3.easeCubicOut)
+      .attr("opacity", isLabelLayerNew && enterCount > 0 && !isBulkLoad ? 0 : 1);
 
-    // Update existing labels — snap during settling, transition after
     if (isSettling) {
       labelsSel
         .attr("x", (d) => d.x).attr("y", (d) => d.y)
         .attr("fill", LABEL_COLOR);
     } else {
       labelsSel
-        .transition().duration(2000 * s).ease(d3.easeSinInOut)
+        .transition().duration(T.MOVE * s).ease(d3.easeCubicInOut)
         .attr("x", (d) => d.x).attr("y", (d) => d.y)
         .attr("fill", (d) => changedTagSet.has(d.tag) ? "var(--gold)" : LABEL_COLOR);
     }
 
-    // Fade changed labels back to white after the flash
     if (changedTagSet.size > 0) {
       labelsSel.filter((d) => changedTagSet.has(d.tag))
-        .transition().delay(2500 * s).duration(1000 * s)
+        .transition().delay(T.MOVE * s).duration(T.FAST * s)
         .attr("fill", LABEL_COLOR);
     }
 
-    // Ensure label layer is above dots
     labelG.raise();
 
-    // Hover labels group — for temporary labels shown during highlight
+    // ── Render: Hover system ──
     svg.selectAll(".hover-label-layer").remove();
     const hoverLabelG = svg.append("g").attr("class", "hover-label-layer").attr("pointer-events", "none");
 
-    // ── Highlight helpers ──
     const applyHighlight = (tag) => {
       const hoveredPos = positions.find((p) => p.tag === tag);
       if (!hoveredPos || !hoveredPos.inGame || hoveredPos.matchId == null) return;
@@ -742,7 +726,6 @@ const OnlineMmrStrip = ({
       const myColor = TEAM_COLORS[hoveredPos.teamIdx] || "#4da6ff";
       const enemyColor = TEAM_COLORS[hoveredPos.teamIdx === 0 ? 1 : 0] || "#ef4444";
 
-      // Highlight dots — keep fill, add team-colored stroke rings
       allDots.each(function (od) {
         d3.select(this).interrupt();
         if (od.tag === tag) {
@@ -765,11 +748,9 @@ const OnlineMmrStrip = ({
         }
       });
 
-      // Hide arcs and static layer during highlight
       svg.select(".arc-layer").attr("opacity", 0.05);
       svg.select(".static-layer").attr("opacity", 0.3);
 
-      // Dim non-match static labels, brighten match ones gold
       labelG.selectAll("text").each(function () {
         const el = d3.select(this);
         const t = el.attr("data-tag");
@@ -780,17 +761,17 @@ const OnlineMmrStrip = ({
         }
       });
 
-      // Add temporary hover labels for unlabeled match participants (with collision detection)
+      // Temporary hover labels for unlabeled match participants
       hoverLabelG.selectAll("*").remove();
-      const hoverPlaced = []; // track placed hover label rects
+      const hoverPlaced = [];
       for (const mTag of matchTags) {
         if (labeledTags.has(mTag)) continue;
         const mPos = positions.find((p) => p.tag === mTag);
         if (!mPos) continue;
         const name = mPos.tag?.split("#")[0] || "";
         if (!name) continue;
-        const textW = name.length * LABEL_CHAR_W + LABEL_PAD_X * 2;
-        const textH = LABEL_H + LABEL_PAD_Y * 2;
+        const textW = name.length * L.CHAR_W + L.PAD_X * 2;
+        const textH = L.H + L.PAD_Y * 2;
         let labelY = mPos.y - textH / 2;
         labelY = Math.max(bounds.top, Math.min(bounds.bottom - textH, labelY));
 
@@ -800,7 +781,6 @@ const OnlineMmrStrip = ({
         for (const candidateX of [rightX, leftX]) {
           if (candidateX < bounds.left || candidateX + textW > bounds.right) continue;
           const candidateRect = { x: candidateX, y: labelY, w: textW, h: textH };
-          // Only check against other hover labels and match participant dots (dimmed dots are fine to overlap)
           if (hoverPlaced.some((r) => rectsOverlap(candidateRect, r))) continue;
           const matchDots = positions.filter((p) => p.tag !== mTag && matchTags.has(p.tag));
           if (rectOverlapsDot(candidateRect, matchDots)) continue;
@@ -808,10 +788,10 @@ const OnlineMmrStrip = ({
           hoverPlaced.push(candidateRect);
           hoverLabelG.append("text")
             .attr("x", candidateX + textW / 2)
-            .attr("y", labelY + textH - LABEL_PAD_Y - 1)
+            .attr("y", labelY + textH - L.PAD_Y - 1)
             .attr("text-anchor", "middle")
             .attr("fill", "var(--gold)")
-            .attr("font-size", `${LABEL_FONT_SIZE}px`)
+            .attr("font-size", `${L.FONT_SIZE}px`)
             .attr("font-family", "var(--font-display)")
             .attr("opacity", 1)
             .text(name);
@@ -828,7 +808,6 @@ const OnlineMmrStrip = ({
           .attr("opacity", 1)
           .attr("stroke", "rgba(0,0,0,0.2)").attr("stroke-width", 0.5);
       });
-      // Restore arcs and static layer
       svg.select(".arc-layer").attr("opacity", 1);
       svg.select(".static-layer").attr("opacity", 1);
       labelG.selectAll("text").each(function () {
@@ -837,7 +816,6 @@ const OnlineMmrStrip = ({
       hoverLabelG.selectAll("*").remove();
     };
 
-    // ── Event handlers (disabled during entrance animation) ──
     allDots
       .on("mouseenter", function (e, d) {
         if (animatingRef.current) return;
@@ -845,17 +823,14 @@ const OnlineMmrStrip = ({
         if (d.inGame && d.matchId != null) {
           applyHighlight(d.tag);
         } else {
-          // Brighten hovered dot
           d3.select(this).attr("r", d.r + 3).attr("fill", "#fff")
             .attr("stroke", "rgba(255,255,255,0.5)").attr("stroke-width", 2);
-          // Dim all other dots
           allDots.each(function (od) {
             if (od.tag === d.tag) return;
             d3.select(this)
               .attr("fill", "rgba(255,255,255,0.15)")
               .attr("stroke", "none").attr("stroke-width", 0);
           });
-          // Dim all static labels except this player's
           labelG.selectAll("text").each(function () {
             const el = d3.select(this);
             if (el.attr("data-tag") === d.tag) {
@@ -864,10 +839,8 @@ const OnlineMmrStrip = ({
               el.attr("opacity", 0.05);
             }
           });
-          // Dim arcs and static layer
           svg.select(".arc-layer").attr("opacity", 0.05);
           svg.select(".static-layer").attr("opacity", 0.3);
-          // Show hover label if not already labeled
           hoverLabelG.selectAll("*").remove();
           if (!labeledTags.has(d.tag)) {
             const name = d.tag?.split("#")[0] || "";
@@ -877,7 +850,7 @@ const OnlineMmrStrip = ({
                 .attr("y", d.y + 4)
                 .attr("text-anchor", "start")
                 .attr("fill", "#fff")
-                .attr("font-size", `${LABEL_FONT_SIZE}px`)
+                .attr("font-size", `${L.FONT_SIZE}px`)
                 .attr("font-family", "var(--font-display)")
                 .text(name);
             }
@@ -894,7 +867,6 @@ const OnlineMmrStrip = ({
         onPlayerClick?.(d.tag);
       });
 
-    // Re-apply highlight if mouse is still over a dot after re-render
     if (hoveredTagRef.current && !animatingRef.current) {
       applyHighlight(hoveredTagRef.current);
     }

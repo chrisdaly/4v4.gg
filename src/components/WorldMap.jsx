@@ -5,8 +5,8 @@ import countryCentroids from "../lib/countryCentroids";
 import "../styles/components/WorldMap.css";
 
 /** Compute the subsolar point (no library needed). */
-const getSubsolarPoint = () => {
-  const now = new Date();
+const getSubsolarPoint = (time) => {
+  const now = time || new Date();
   const start = new Date(now.getFullYear(), 0, 0);
   const dayOfYear = Math.floor((now - start) / 86400000);
   const declination = -23.44 * Math.cos((2 * Math.PI / 365) * (dayOfYear + 10));
@@ -49,8 +49,8 @@ const TIME_ZONES = [
   { label: "SYD", lon: 151.2, offset: 11 },
 ];
 
-const formatTime = (offset) => {
-  const now = new Date();
+const formatTime = (offset, time) => {
+  const now = time || new Date();
   const utcH = now.getUTCHours();
   const utcM = now.getUTCMinutes();
   let h = (utcH + offset + 24) % 24;
@@ -132,7 +132,7 @@ const placeLabels = (g, candidates, dotPositions, existingRects, bounds, fontSiz
   return placed;
 };
 
-const WorldMap = ({ playerCountries, players = [], instant = false, animationScale = 1 }) => {
+const WorldMap = ({ playerCountries, players = [], instant = false, animationScale = 1, time = null }) => {
   const containerRef = useRef(null);
   const svgRef = useRef(null);
   const [dimensions, setDimensions] = useState({ width: 0, height: 0 });
@@ -240,7 +240,7 @@ const WorldMap = ({ playerCountries, players = [], instant = false, animationSca
       .attr("stroke-width", 0.5);
 
     // 4. Night overlay
-    const subsolar = getSubsolarPoint();
+    const subsolar = getSubsolarPoint(time);
     const antipodeLon = subsolar[0] > 0 ? subsolar[0] - 180 : subsolar[0] + 180;
     const antipode = [antipodeLon, -subsolar[1]];
     const nightCircle = d3.geoCircle().center(antipode).radius(90)();
@@ -486,7 +486,7 @@ const WorldMap = ({ playerCountries, players = [], instant = false, animationSca
       const [tx, ty] = pt;
       if (tx < 10 || tx > width - 10 || ty > height) continue;
 
-      const timeStr = formatTime(tz.offset);
+      const timeStr = formatTime(tz.offset, time);
       const tw = (tz.label.length + 1 + timeStr.length) * 5.8 + 14;
       const th = 14;
       const rect = { x: tx - tw / 2, y: height - 20, w: tw, h: th };
@@ -513,11 +513,11 @@ const WorldMap = ({ playerCountries, players = [], instant = false, animationSca
         .text(timeStr);
     }
 
-  }, [introReady, dimensions, worldData, dots, labelCandidates, players, animationScale]);
+  }, [introReady, dimensions, worldData, dots, labelCandidates, players, animationScale, time]);
 
-  // Update terminator every 60s
+  // Update terminator every 60s (live mode only — replay re-renders via time dep)
   useEffect(() => {
-    if (!svgRef.current || !worldData || !dimensions.width) return;
+    if (time || !svgRef.current || !worldData || !dimensions.width) return;
 
     const interval = setInterval(() => {
       const svg = d3.select(svgRef.current);
@@ -533,7 +533,7 @@ const WorldMap = ({ playerCountries, players = [], instant = false, animationSca
     }, 60000);
 
     return () => clearInterval(interval);
-  }, [worldData, dimensions]);
+  }, [worldData, dimensions, time]);
 
   return (
     <div ref={containerRef} className="world-map-container">

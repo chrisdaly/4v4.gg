@@ -7,6 +7,8 @@ import { calculateTeamMMR } from "../lib/utils";
 import OnlineMmrStrip from "../components/OnlineMmrStrip";
 import WorldMap from "../components/WorldMap";
 
+const IDLE_MS = 3 * 60 * 60 * 1000; // 3 hours
+
 // Sort matches by team MMR (highest first)
 const sortByMMR = (matches) => {
   if (!matches) return [];
@@ -171,6 +173,7 @@ const Home = () => {
   const [statsVersion, setStatsVersion] = useState(0);
   const [mmrFilter, setMmrFilter] = useState(null);
   const [countryFilter, setCountryFilter] = useState(null);
+  const [tick, setTick] = useState(0);
   const fetchedRef = useRef(new Set());
   const profileFetchedRef = useRef(new Set());
 
@@ -214,6 +217,34 @@ const Home = () => {
       })
       .catch(() => {});
   }, [isDemo]);
+
+  // Tick for idle recomputation (once per minute)
+  useEffect(() => {
+    const id = setInterval(() => setTick((t) => t + 1), 60_000);
+    return () => clearInterval(id);
+  }, []);
+
+  // Compute idle tags: users who joined >3h ago and aren't in a game
+  const idleTags = useMemo(() => {
+    const now = Date.now();
+    const inGameSet = new Set();
+    if (matches) {
+      for (const match of matches) {
+        for (const team of match.teams || []) {
+          for (const p of team.players || []) {
+            if (p.battleTag) inGameSet.add(p.battleTag);
+          }
+        }
+      }
+    }
+    const idle = new Set();
+    for (const u of onlineUsers) {
+      if (u.joinedAt && now - u.joinedAt > IDLE_MS && !inGameSet.has(u.battleTag)) {
+        idle.add(u.battleTag);
+      }
+    }
+    return idle;
+  }, [onlineUsers, matches, tick]);
 
   // Fetch player stats incrementally (skip in demo mode)
   // Game-end players are batched so chart shows all pulse rings at once
@@ -332,6 +363,7 @@ const Home = () => {
     for (const [tag, country] of playerProfiles) {
       if (!country) continue;
       if (!onlineTags.has(tag) && !inGameTags.has(tag)) continue; // skip offline
+      if (idleTags.has(tag) && !inGameTags.has(tag)) continue; // skip idle
       const stats = playerStats.get(tag);
       const mmr = stats?.mmr ?? null;
       result.push({
@@ -343,7 +375,7 @@ const Home = () => {
       });
     }
     return result;
-  }, [playerProfiles, playerStats, matches, onlineUsers]);
+  }, [playerProfiles, playerStats, matches, onlineUsers, idleTags]);
 
   // Derive players with stats (sorted by MMR)
   const playersWithStats = useMemo(() => {
@@ -536,7 +568,7 @@ const Home = () => {
   }, [playerStats]);
 
   const stripPlayers = useMemo(() => {
-    const online = playersWithStats.filter((p) => p.mmr != null);
+    const online = playersWithStats.filter((p) => p.mmr != null && !idleTags.has(p.battleTag));
     const onlineTags = new Set(online.map((p) => p.battleTag));
     if (matches) {
       for (const match of matches) {
@@ -560,7 +592,7 @@ const Home = () => {
       }
     }
     return online;
-  }, [playersWithStats, matches]);
+  }, [playersWithStats, matches, idleTags]);
 
   // ── MMR filter badges ──
   const mmrSteps = useMemo(() => {
@@ -679,7 +711,7 @@ const Home = () => {
         <MmrChart
           players={filteredStripPlayers}
           matches={matches}
-          count={onlineUsers.length}
+          count={onlineUsers.length - idleTags.size}
           histogram={histogram}
           mmrFilter={mmrFilter}
           onMmrFilter={handleMmrFilter}

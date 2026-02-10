@@ -758,7 +758,7 @@ const Replay = () => {
             <span className="replay-section-title">World Map</span>
             <span className="replay-section-count">{playerCountries.size} countries</span>
           </div>
-          <WorldMap playerCountries={playerCountries} players={mapPlayers} instant animationScale={animationScale} />
+          <WorldMap playerCountries={playerCountries} players={mapPlayers} instant animationScale={animationScale} time={simTime} />
         </div>
 
         <div className="replay-panel replay-mmr-chart">
@@ -773,7 +773,6 @@ const Replay = () => {
               onPlayerClick={handlePlayerClick}
               mmrRange={mmrRange}
               animationScale={animationScale}
-              instant
             />
           ) : (
             <div className="replay-empty">Waiting for match data...</div>
