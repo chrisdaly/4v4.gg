@@ -475,3 +475,16 @@ export const detectArrangedTeams = async (players) => {
 
   return atGroups;
 }
+
+/* ── Shared formatting helpers ─────────────────────── */
+
+export const toFlag = (code) => {
+  if (!code || code.length !== 2) return "";
+  return String.fromCodePoint(...[...code.toUpperCase()].map(c => 0x1F1E6 + c.charCodeAt(0) - 65));
+};
+
+export const formatEventTime = (time) => {
+  const h = time.getHours();
+  const m = time.getMinutes();
+  return `${h}:${m < 10 ? "0" + m : m}`;
+};

@@ -3,9 +3,10 @@ import { useHistory } from "react-router-dom";
 import useChatStream from "../lib/useChatStream";
 import useFakeData from "../lib/useFakeData";
 import { getOngoingMatches, getOngoingMatchesCached, getPlayerStats, getPlayerProfile, getLadder } from "../lib/api";
-import { calculateTeamMMR } from "../lib/utils";
+import { calculateTeamMMR, toFlag } from "../lib/utils";
 import OnlineMmrStrip from "../components/OnlineMmrStrip";
 import WorldMap from "../components/WorldMap";
+import EventFeed from "../components/EventFeed";
 
 const IDLE_MS = 3 * 60 * 60 * 1000; // 3 hours
 
@@ -22,91 +23,6 @@ const getInitialData = () => {
   if (cached?.matches) return sortByMMR(cached.matches);
   return null;
 };
-
-/* ── EventFeed (activity log) ─────────────────────────── */
-
-const toFlag = (code) => {
-  if (!code || code.length !== 2) return "";
-  return String.fromCodePoint(...[...code.toUpperCase()].map(c => 0x1F1E6 + c.charCodeAt(0) - 65));
-};
-
-const formatEventTime = (time) => {
-  const h = time.getHours();
-  const m = time.getMinutes();
-  return `${h}:${m < 10 ? "0" + m : m}`;
-};
-
-const EventFeed = ({ events }) => (
-  <div className="home-panel home-events">
-    <div className="home-section-header">
-      <span className="home-section-title">Activity</span>
-    </div>
-    <div className="event-feed-list">
-      {events.length === 0 && (
-        <div className="home-empty">Waiting for activity...</div>
-      )}
-      {events.map((e, i) => (
-        <div key={`${e.type}-${e.time.getTime()}-${i}`} className="event-item">
-          <span className={`event-dot event-${e.type}`} />
-          <div className="event-body">
-            <div className="event-main">
-              {e.country && <span className="event-flag">{toFlag(e.country)}</span>}
-              <span className="event-name">
-                {e.type === "game_start"
-                  ? `Game started${e.avgMmr ? ` (${e.avgMmr.toLocaleString()} MMR)` : ""}`
-                  : e.type === "game_end"
-                    ? `Game ended${e.avgMmr ? ` (${e.avgMmr.toLocaleString()} MMR)` : ""}`
-                    : e.player}
-              </span>
-              <span className="event-time">{formatEventTime(e.time)}</span>
-            </div>
-            <div className="event-detail">
-              {e.type === "join" && "joined"}
-              {e.type === "leave" && "left"}
-              {e.type === "game_start" && (
-                <div className="event-game-results">
-                  {e.gamePlayers?.map((p, j) => (
-                    <div key={j} className="event-game-row">
-                      <span className="event-game-name">{p.name}</span>
-                      {p.mmr > 0 && <span className="event-mmr">{p.mmr.toLocaleString()}</span>}
-                    </div>
-                  ))}
-                </div>
-              )}
-              {e.type === "game_end" && (
-                <div className="event-game-results">
-                  {(e.results?.length > 0 ? e.results : (e.gamePlayers || []).map((p) => ({ name: p.name, mmr: p.mmr, delta: null })))
-                    .sort((a, b) => (b.delta ?? 0) - (a.delta ?? 0))
-                    .map((r, j) => (
-                      <div key={j} className="event-game-row">
-                        <span className="event-game-name">{r.name}</span>
-                        <span className="event-game-stats">
-                          {r.mmr > 0 && <span className="event-mmr">{r.mmr.toLocaleString()}</span>}
-                          {r.delta != null && (
-                            <span className={r.delta > 0 ? "event-delta-gain" : "event-delta-loss"}>
-                              {r.delta > 0 ? "+" : ""}{r.delta}
-                            </span>
-                          )}
-                        </span>
-                      </div>
-                    ))}
-                </div>
-              )}
-              {e.type === "mmr_gain" && <><span className="event-delta-gain">+{e.delta}</span> MMR</>}
-              {e.type === "mmr_loss" && <><span className="event-delta-loss">{e.delta}</span> MMR</>}
-              {(e.type === "join" || e.type === "leave") && e.mmr != null && (
-                <span className="event-mmr"> · {Math.round(e.mmr).toLocaleString()} MMR</span>
-              )}
-              {(e.type === "mmr_gain" || e.type === "mmr_loss") && (
-                <span className="event-mmr"> ({Math.round(e.prevMmr).toLocaleString()} → {Math.round(e.mmr).toLocaleString()})</span>
-              )}
-            </div>
-          </div>
-        </div>
-      ))}
-    </div>
-  </div>
-);
 
 /* ── MmrChart (fills remaining space) ─────────────────── */
 
@@ -176,6 +92,9 @@ const Home = () => {
   const [tick, setTick] = useState(0);
   const fetchedRef = useRef(new Set());
   const profileFetchedRef = useRef(new Set());
+  const gameEndPendingRef = useRef(new Map()); // tag → { eventId, name, teamIdx, createdAt }
+  const nextEventIdRef = useRef(0);
+  const retryTimersRef = useRef([]);
 
   // Demo mode overrides real data sources
   const onlineUsers = isDemo ? fake.onlineUsers : chatUsers;
@@ -191,7 +110,9 @@ const Home = () => {
       try {
         const data = await getOngoingMatches();
         setRealMatches(sortByMMR(data.matches));
-      } catch {}
+      } catch (err) {
+        console.warn("[Home] Failed to fetch ongoing matches:", err.message);
+      }
     };
     fetchMatches();
     const interval = setInterval(fetchMatches, 30000);
@@ -215,7 +136,7 @@ const Home = () => {
         }
         setRealHistogram(bins);
       })
-      .catch(() => {});
+      .catch((err) => console.warn("[Home] Failed to fetch ladder histogram:", err.message));
   }, [isDemo]);
 
   // Tick for idle recomputation (once per minute)
@@ -224,27 +145,37 @@ const Home = () => {
     return () => clearInterval(id);
   }, []);
 
-  // Compute idle tags: users who joined >3h ago and aren't in a game
-  const idleTags = useMemo(() => {
-    const now = Date.now();
-    const inGameSet = new Set();
+  // Shared derived sets — avoids repeating the triple-nested loop everywhere
+  const inGameTags = useMemo(() => {
+    const tags = new Set();
     if (matches) {
       for (const match of matches) {
         for (const team of match.teams || []) {
           for (const p of team.players || []) {
-            if (p.battleTag) inGameSet.add(p.battleTag);
+            if (p.battleTag) tags.add(p.battleTag);
           }
         }
       }
     }
+    return tags;
+  }, [matches]);
+
+  const onlineTags = useMemo(
+    () => new Set(onlineUsers.map((u) => u.battleTag).filter(Boolean)),
+    [onlineUsers],
+  );
+
+  // Compute idle tags: users who joined >3h ago and aren't in a game
+  const idleTags = useMemo(() => {
+    const now = Date.now();
     const idle = new Set();
     for (const u of onlineUsers) {
-      if (u.joinedAt && now - u.joinedAt > IDLE_MS && !inGameSet.has(u.battleTag)) {
+      if (u.joinedAt && now - u.joinedAt > IDLE_MS && !inGameTags.has(u.battleTag)) {
         idle.add(u.battleTag);
       }
     }
     return idle;
-  }, [onlineUsers, matches, tick]);
+  }, [onlineUsers, inGameTags, tick]);
 
   // Fetch player stats incrementally (skip in demo mode)
   // Game-end players are batched so chart shows all pulse rings at once
@@ -262,7 +193,8 @@ const Home = () => {
       fetchedRef.current.add(tag);
 
       if (pendingTags.has(tag)) {
-        batchFetches.push(getPlayerStats(tag).then((stats) => [tag, stats]));
+        // Skip cache for game-end players — need fresh post-game MMR
+        batchFetches.push(getPlayerStats(tag, { skipCache: true }).then((stats) => [tag, stats]));
       } else {
         getPlayerStats(tag).then((stats) => {
           if (stats) {
@@ -292,19 +224,7 @@ const Home = () => {
   // Fetch player profiles incrementally (skip in demo mode)
   useEffect(() => {
     if (isDemo) return;
-    const tags = new Set();
-    for (const u of onlineUsers) {
-      if (u.battleTag) tags.add(u.battleTag);
-    }
-    if (matches) {
-      for (const match of matches) {
-        for (const team of match.teams || []) {
-          for (const p of team.players || []) {
-            if (p.battleTag) tags.add(p.battleTag);
-          }
-        }
-      }
-    }
+    const tags = new Set([...onlineTags, ...inGameTags]);
     for (const tag of tags) {
       if (profileFetchedRef.current.has(tag)) continue;
       profileFetchedRef.current.add(tag);
@@ -318,25 +238,14 @@ const Home = () => {
         }
       });
     }
-  }, [onlineUsers, matches, isDemo]);
+  }, [onlineTags, inGameTags, isDemo]);
 
   // Derive playerCountries: Map<countryCode, { online, inGame }>
   const playerCountries = useMemo(() => {
-    const inGameTags = new Set();
-    if (matches) {
-      for (const match of matches) {
-        for (const team of match.teams || []) {
-          for (const p of team.players || []) {
-            if (p.battleTag) inGameTags.add(p.battleTag);
-          }
-        }
-      }
-    }
-    const onlineTags = new Set(onlineUsers.map((u) => u.battleTag).filter(Boolean));
     const countries = new Map();
     for (const [tag, country] of playerProfiles) {
       if (!country) continue;
-      if (!onlineTags.has(tag) && !inGameTags.has(tag)) continue; // skip offline
+      if (!onlineTags.has(tag) && !inGameTags.has(tag)) continue;
       const code = country.toUpperCase();
       if (!countries.has(code)) countries.set(code, { online: 0, inGame: 0 });
       const entry = countries.get(code);
@@ -344,26 +253,15 @@ const Home = () => {
       else entry.online++;
     }
     return countries;
-  }, [playerProfiles, onlineUsers, matches]);
+  }, [playerProfiles, onlineTags, inGameTags]);
 
   // Build per-player list with country + MMR for map labels (active players only)
   const mapPlayers = useMemo(() => {
-    const onlineTags = new Set(onlineUsers.map((u) => u.battleTag).filter(Boolean));
-    const inGameTags = new Set();
-    if (matches) {
-      for (const match of matches) {
-        for (const team of match.teams || []) {
-          for (const p of team.players || []) {
-            if (p.battleTag) inGameTags.add(p.battleTag);
-          }
-        }
-      }
-    }
     const result = [];
     for (const [tag, country] of playerProfiles) {
       if (!country) continue;
-      if (!onlineTags.has(tag) && !inGameTags.has(tag)) continue; // skip offline
-      if (idleTags.has(tag) && !inGameTags.has(tag)) continue; // skip idle
+      if (!onlineTags.has(tag) && !inGameTags.has(tag)) continue;
+      if (idleTags.has(tag) && !inGameTags.has(tag)) continue;
       const stats = playerStats.get(tag);
       const mmr = stats?.mmr ?? null;
       result.push({
@@ -375,7 +273,7 @@ const Home = () => {
       });
     }
     return result;
-  }, [playerProfiles, playerStats, matches, onlineUsers, idleTags]);
+  }, [playerProfiles, playerStats, onlineTags, inGameTags, idleTags]);
 
   // Derive players with stats (sorted by MMR)
   const playersWithStats = useMemo(() => {
@@ -405,12 +303,17 @@ const Home = () => {
   playerStatsRef.current = playerStats;
   const playerProfilesRef = useRef(playerProfiles);
   playerProfilesRef.current = playerProfiles;
-  const gameEndPendingRef = useRef(new Map()); // tag → { eventId, name, teamIdx }
-  const nextEventIdRef = useRef(0);
-
+  const didSeedRef = useRef(false);
   useEffect(() => {
     const timer = setTimeout(() => { settledRef.current = true; }, 8000);
     return () => clearTimeout(timer);
+  }, []);
+
+  // Clean up retry timers on unmount
+  useEffect(() => {
+    return () => {
+      for (const id of retryTimersRef.current) clearTimeout(id);
+    };
   }, []);
 
   // Event tracking: join/leave/game_start/game_end (runs BEFORE mmr detection)
@@ -427,6 +330,24 @@ const Home = () => {
 
     const now = new Date();
     const newEvents = [];
+
+    // Seed activity feed with existing live games on first settled run
+    if (!didSeedRef.current) {
+      didSeedRef.current = true;
+      for (const match of (matches || [])) {
+        const gamePlayers = match.teams?.flatMap((t) =>
+          t.players?.map((p) => ({
+            name: p.battleTag?.split("#")[0],
+            battleTag: p.battleTag,
+            mmr: p.currentMmr || p.oldMmr || 0,
+          })).filter((p) => p.battleTag) || []
+        ) || [];
+        const mmrs = gamePlayers.map((p) => p.mmr).filter((m) => m > 0);
+        const avgMmr = mmrs.length > 0 ? Math.round(mmrs.reduce((a, b) => a + b, 0) / mmrs.length) : null;
+        const startTime = match.startTime ? new Date(match.startTime) : now;
+        newEvents.push({ type: "game_start", gamePlayers, avgMmr, matchId: match.id, time: startTime });
+      }
+    }
 
     // Joins
     for (const tag of currentTags) {
@@ -489,7 +410,7 @@ const Home = () => {
         const eventId = nextEventIdRef.current++;
         for (const p of gamePlayers) {
           if (p.battleTag) {
-            gameEndPendingRef.current.set(p.battleTag, { eventId, name: p.name, teamIdx: p.teamIdx });
+            gameEndPendingRef.current.set(p.battleTag, { eventId, name: p.name, teamIdx: p.teamIdx, createdAt: Date.now() });
             // Seed prevMmrRef so the delta can be detected after stat refetch
             if (p.mmr != null) prevMmrRef.current.set(p.battleTag, p.mmr);
           }
@@ -509,7 +430,18 @@ const Home = () => {
     if (newEvents.length > 0) {
       setEvents((prev) => [...newEvents, ...prev].slice(0, 100));
       if (newEvents.some((e) => e.type === "game_end")) {
+        // Immediate re-fetch (may get stale data if API hasn't processed yet)
         setStatsVersion((v) => v + 1);
+        // Delayed retry — W3C API typically updates within 15-30s after game end
+        const gameEndTags = newEvents
+          .filter((e) => e.type === "game_end")
+          .flatMap((e) => e.gamePlayers?.map((p) => p.battleTag).filter(Boolean) || []);
+        const timerId = setTimeout(() => {
+          for (const tag of gameEndTags) fetchedRef.current.delete(tag);
+          setStatsVersion((v) => v + 1);
+          retryTimersRef.current = retryTimersRef.current.filter((id) => id !== timerId);
+        }, 20_000);
+        retryTimersRef.current.push(timerId);
       }
     }
   }, [onlineUsers, matches]);
@@ -519,6 +451,12 @@ const Home = () => {
     const now = new Date();
     const newEvents = [];
     const gameEndUpdates = new Map(); // eventId → [{ name, tag, delta, mmr, teamIdx }]
+
+    // Expire stale pending entries (>2 min — API should have updated by now)
+    const expiryCutoff = Date.now() - 2 * 60 * 1000;
+    for (const [tag, entry] of gameEndPendingRef.current) {
+      if (entry.createdAt < expiryCutoff) gameEndPendingRef.current.delete(tag);
+    }
 
     for (const [tag, stats] of playerStats) {
       if (stats?.mmr == null) continue;
@@ -697,9 +635,9 @@ const Home = () => {
             <span className="home-section-title">MMR Distribution</span>
           </div>
           <div className="home-skeleton-chart">
-            {Array.from({ length: 8 }, (_, i) => (
+            {[52, 38, 45, 28, 55, 33, 48, 40].map((w, i) => (
               <div key={i} className="loader-skeleton" style={{
-                width: `${20 + Math.random() * 40}%`,
+                width: `${w}%`,
                 height: 6,
                 marginBottom: 12,
                 alignSelf: i % 2 === 0 ? "flex-start" : "flex-end",

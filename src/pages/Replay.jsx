@@ -2,6 +2,7 @@ import React, { useState, useEffect, useRef, useMemo, useCallback } from "react"
 import { useHistory } from "react-router-dom";
 import OnlineMmrStrip from "../components/OnlineMmrStrip";
 import WorldMap from "../components/WorldMap";
+import EventFeed from "../components/EventFeed";
 import "../styles/pages/Replay.css";
 
 const RELAY_URL =
@@ -18,13 +19,6 @@ const PRESETS = [
 
 /* ── Helpers ─────────────────────────────────────────── */
 
-const toFlag = (code) => {
-  if (!code || code.length !== 2) return "";
-  return String.fromCodePoint(
-    ...[...code.toUpperCase()].map((c) => 0x1F1E6 + c.charCodeAt(0) - 65)
-  );
-};
-
 const formatClock = (d) => {
   if (!d) return "--:--:--";
   const h = d.getHours().toString().padStart(2, "0");
@@ -36,12 +30,6 @@ const formatClock = (d) => {
 const formatDate = (d) => {
   if (!d) return "";
   return d.toLocaleDateString(undefined, { weekday: "short", month: "short", day: "numeric" });
-};
-
-const formatEventTime = (time) => {
-  const h = time.getHours();
-  const m = time.getMinutes();
-  return `${h}:${m < 10 ? "0" + m : m}`;
 };
 
 /* Convert Date to local datetime-local string (YYYY-MM-DDTHH:MM) */
@@ -61,66 +49,6 @@ const defaultFrom = () => {
   return toLocalInput(d);
 };
 const defaultTo = () => toLocalInput(new Date());
-
-/* ── EventFeed (replay version) ──────────────────────── */
-
-const EventFeed = ({ events, onEventClick }) => (
-  <div className="replay-panel replay-events">
-    <div className="replay-section-header">
-      <span className="replay-section-title">Activity</span>
-      <span className="replay-section-count">{events.length} events</span>
-    </div>
-    <div className="event-feed-list">
-      {events.length === 0 && (
-        <div className="replay-empty">No events yet...</div>
-      )}
-      {events.map((e, i) => (
-        <div
-          key={`${e.type}-${i}`}
-          className="event-item event-item-clickable"
-          onClick={() => onEventClick && e.rawIdx != null && onEventClick(e.rawIdx)}
-        >
-          <span className={`event-dot event-${e.type}`} />
-          <div className="event-body">
-            <div className="event-main">
-              {e.country && <span className="event-flag">{toFlag(e.country)}</span>}
-              <span className="event-name">
-                {e.type === "game_start"
-                  ? (e.players || []).slice(0, 2).join(", ") +
-                    ((e.players || []).length > 2 ? ` +${e.players.length - 2}` : "")
-                  : e.type === "game_end"
-                    ? "Game ended"
-                    : e.player}
-              </span>
-              <span className="event-time">{formatEventTime(e.time)}</span>
-            </div>
-            <div className="event-detail">
-              {e.type === "join" && "joined"}
-              {e.type === "leave" && "left"}
-              {e.type === "game_start" && (e.map ? `started on ${e.map}` : "started a game")}
-              {e.type === "game_end" && (
-                (e.results || []).length > 0 ? (
-                  <div className="event-game-results">
-                    {[...e.results].sort((a, b) => b.delta - a.delta).map((r, j) => (
-                      <div key={j} className="event-game-row">
-                        <span className="event-game-name">{r.name}</span>
-                        <span className={r.delta > 0 ? "event-delta-gain" : "event-delta-loss"}>
-                          {r.delta > 0 ? "+" : ""}{r.delta}
-                        </span>
-                      </div>
-                    ))}
-                  </div>
-                ) : (
-                  <span>{(e.players || []).slice(0, 4).join(", ")}</span>
-                )
-              )}
-            </div>
-          </div>
-        </div>
-      ))}
-    </div>
-  </div>
-);
 
 /* ── Replay Page ─────────────────────────────────────── */
 
@@ -202,7 +130,9 @@ const Replay = () => {
       );
       if (!res.ok) throw new Error(`HTTP ${res.status}`);
       const data = await res.json();
-      setRawEvents(data.events || []);
+      // Pre-parse timestamps once to avoid Date churn in hot loops
+      const events = (data.events || []).map((ev) => ({ ...ev, _ms: new Date(ev.timestamp).getTime() }));
+      setRawEvents(events);
       resetState();
     } catch (err) {
       setError(err.message);
@@ -245,8 +175,8 @@ const Replay = () => {
 
   // Process a single event into virtual state
   const processEvent = useCallback((event, rawIdx) => {
-    const { type, payload, timestamp } = event;
-    const time = new Date(timestamp);
+    const { type, payload, _ms } = event;
+    const time = new Date(_ms);
 
     switch (type) {
       case "join": {
@@ -291,11 +221,17 @@ const Replay = () => {
           next.set(payload.matchId, payload);
           return next;
         });
-        const playerNames = (payload.players || []).map((p) => p.name || p.battleTag?.split("#")[0]);
+        const startPlayers = (payload.players || []).map((p) => ({
+          name: p.name || p.battleTag?.split("#")[0],
+          battleTag: p.battleTag,
+          mmr: p.currentMmr || p.oldMmr || 0,
+        }));
+        const startMmrs = startPlayers.map((p) => p.mmr).filter((m) => m > 0);
+        const startAvg = startMmrs.length > 0 ? Math.round(startMmrs.reduce((a, b) => a + b, 0) / startMmrs.length) : null;
         setFeedEvents((prev) => [{
           type: "game_start",
-          players: playerNames,
-          map: payload.map,
+          gamePlayers: startPlayers,
+          avgMmr: startAvg,
           matchId: payload.matchId,
           time,
           rawIdx,
@@ -308,19 +244,26 @@ const Replay = () => {
           next.delete(payload.matchId);
           return next;
         });
-        const gamePlayers = (payload.players || []).map((p) => p.name || p.battleTag?.split("#")[0]);
-        // Compute MMR deltas where we have both old and current
+        const endPlayers = (payload.players || []).map((p) => ({
+          name: p.name || p.battleTag?.split("#")[0],
+          battleTag: p.battleTag,
+          mmr: p.currentMmr || p.oldMmr || 0,
+        }));
+        const endMmrs = endPlayers.map((p) => p.mmr).filter((m) => m > 0);
+        const endAvg = endMmrs.length > 0 ? Math.round(endMmrs.reduce((a, b) => a + b, 0) / endMmrs.length) : null;
         const results = (payload.players || [])
-          .filter((p) => p.oldMmr != null && p.currentMmr != null && p.oldMmr !== p.currentMmr)
           .map((p) => ({
             name: p.name || p.battleTag?.split("#")[0],
-            delta: Math.round(p.currentMmr - p.oldMmr),
-            mmr: p.currentMmr,
+            tag: p.battleTag,
+            delta: (p.oldMmr != null && p.currentMmr != null && p.oldMmr !== p.currentMmr)
+              ? Math.round(p.currentMmr - p.oldMmr) : null,
+            mmr: p.currentMmr || p.oldMmr || 0,
           }));
         setFeedEvents((prev) => [{
           type: "game_end",
-          players: gamePlayers,
+          gamePlayers: endPlayers,
           results,
+          avgMmr: endAvg,
           matchId: payload.matchId,
           time,
           rawIdx,
@@ -338,7 +281,7 @@ const Replay = () => {
     // Initialize sim clock to current event's timestamp if not set
     const idx = indexRef.current;
     if (simTimeRef.current == null && idx < rawEvents.length) {
-      simTimeRef.current = new Date(rawEvents[idx].timestamp).getTime();
+      simTimeRef.current = rawEvents[idx]._ms;
     }
 
     const tick = (now) => {
@@ -354,10 +297,9 @@ const Replay = () => {
 
         let i = indexRef.current;
 
-        // Process all events up to the sim clock
+        // Process all events up to the sim clock (use pre-parsed _ms)
         while (i < rawEvents.length) {
-          const eventMs = new Date(rawEvents[i].timestamp).getTime();
-          if (eventMs > targetMs) break;
+          if (rawEvents[i]._ms > targetMs) break;
           processEvent(rawEvents[i], i);
           i++;
         }
@@ -386,19 +328,16 @@ const Replay = () => {
     };
   }, [playing, rawEvents, processEvent]);
 
-  // Seek to a position via the scrubber
-  const handleSeek = useCallback((e) => {
-    const targetIdx = parseInt(e.target.value, 10);
-
-    // Reset state and replay all events up to targetIdx
+  // Rebuild virtual state by replaying all events up to (exclusive) targetIdx
+  const rebuildStateTo = useCallback((targetIdx) => {
     const users = new Map();
     const matches = new Map();
     const feed = [];
 
     for (let i = 0; i < targetIdx && i < rawEvents.length; i++) {
       const ev = rawEvents[i];
-      const { type, payload, timestamp } = ev;
-      const time = new Date(timestamp);
+      const { type, payload, _ms } = ev;
+      const time = new Date(_ms);
 
       switch (type) {
         case "join":
@@ -419,24 +358,33 @@ const Replay = () => {
           break;
       }
 
-      // Only keep last 50 feed events for display
+      // Build feed event matching the shared EventFeed component shape
+      const feedEvent = { type, time, rawIdx: i, matchId: payload.matchId };
+      if (type === "join" || type === "leave") {
+        feedEvent.player = payload.name || payload.battleTag?.split("#")[0];
+        feedEvent.tag = payload.battleTag;
+      }
+      if (type === "game_start" || type === "game_end") {
+        const gp = (payload.players || []).map((p) => ({
+          name: p.name || p.battleTag?.split("#")[0],
+          battleTag: p.battleTag,
+          mmr: p.currentMmr || p.oldMmr || 0,
+        }));
+        const mmrs = gp.map((p) => p.mmr).filter((m) => m > 0);
+        feedEvent.gamePlayers = gp;
+        feedEvent.avgMmr = mmrs.length > 0 ? Math.round(mmrs.reduce((a, b) => a + b, 0) / mmrs.length) : null;
+      }
+      if (type === "game_end") {
+        feedEvent.results = (payload.players || []).map((p) => ({
+          name: p.name || p.battleTag?.split("#")[0],
+          tag: p.battleTag,
+          delta: (p.oldMmr != null && p.currentMmr != null && p.oldMmr !== p.currentMmr)
+            ? Math.round(p.currentMmr - p.oldMmr) : null,
+          mmr: p.currentMmr || p.oldMmr || 0,
+        }));
+      }
       if (feed.length >= 50) feed.pop();
-      feed.unshift({
-        type,
-        player: type === "join" || type === "leave"
-          ? (payload.name || payload.battleTag?.split("#")[0]) : undefined,
-        players: type === "game_start" || type === "game_end"
-          ? (payload.players || []).map((p) => p.name || p.battleTag?.split("#")[0]) : undefined,
-        results: type === "game_end"
-          ? (payload.players || [])
-            .filter((p) => p.oldMmr != null && p.currentMmr != null && p.oldMmr !== p.currentMmr)
-            .map((p) => ({ name: p.name || p.battleTag?.split("#")[0], delta: Math.round(p.currentMmr - p.oldMmr), mmr: p.currentMmr }))
-          : undefined,
-        map: payload.map,
-        matchId: payload.matchId,
-        time,
-        rawIdx: i,
-      });
+      feed.unshift(feedEvent);
     }
 
     setOnlineUsers(users);
@@ -446,89 +394,32 @@ const Replay = () => {
     indexRef.current = targetIdx;
     lastFrameRef.current = null;
 
+    // Set sim clock to the target event's timestamp (use pre-parsed _ms)
     if (targetIdx < rawEvents.length) {
-      const t = new Date(rawEvents[targetIdx].timestamp);
-      setSimTime(t);
-      simTimeRef.current = t.getTime();
+      setSimTime(new Date(rawEvents[targetIdx]._ms));
+      simTimeRef.current = rawEvents[targetIdx]._ms;
     } else if (rawEvents.length > 0) {
-      const t = new Date(rawEvents[rawEvents.length - 1].timestamp);
-      setSimTime(t);
-      simTimeRef.current = t.getTime();
+      const last = rawEvents[rawEvents.length - 1];
+      setSimTime(new Date(last._ms));
+      simTimeRef.current = last._ms;
     }
   }, [rawEvents]);
 
-  // Seek to a specific event by raw index (click from EventFeed)
-  // Rebuilds state up to (but not including) the event, then starts playback
-  const seekToEvent = useCallback((rawIdx) => {
-    // Pause first
+  // Seek to a position via the scrubber
+  const handleSeek = useCallback((e) => {
     setPlaying(false);
     playRef.current = false;
     if (rafRef.current) cancelAnimationFrame(rafRef.current);
+    rebuildStateTo(parseInt(e.target.value, 10));
+  }, [rebuildStateTo]);
 
-    // Rebuild state up to rawIdx (exclusive — we want to see it animate in)
-    const users = new Map();
-    const matches = new Map();
-    const feed = [];
-
-    for (let i = 0; i < rawIdx && i < rawEvents.length; i++) {
-      const ev = rawEvents[i];
-      const { type, payload, timestamp } = ev;
-      const time = new Date(timestamp);
-
-      switch (type) {
-        case "join":
-          users.set(payload.battleTag, {
-            battleTag: payload.battleTag,
-            name: payload.name || payload.battleTag.split("#")[0],
-            clanTag: payload.clanTag || "",
-          });
-          break;
-        case "leave":
-          users.delete(payload.battleTag);
-          break;
-        case "game_start":
-          matches.set(payload.matchId, payload);
-          break;
-        case "game_end":
-          matches.delete(payload.matchId);
-          break;
-      }
-
-      if (feed.length >= 50) feed.pop();
-      feed.unshift({
-        type,
-        player: type === "join" || type === "leave"
-          ? (payload.name || payload.battleTag?.split("#")[0]) : undefined,
-        players: type === "game_start" || type === "game_end"
-          ? (payload.players || []).map((p) => p.name || p.battleTag?.split("#")[0]) : undefined,
-        results: type === "game_end"
-          ? (payload.players || [])
-            .filter((p) => p.oldMmr != null && p.currentMmr != null && p.oldMmr !== p.currentMmr)
-            .map((p) => ({ name: p.name || p.battleTag?.split("#")[0], delta: Math.round(p.currentMmr - p.oldMmr), mmr: p.currentMmr }))
-          : undefined,
-        map: payload.map,
-        matchId: payload.matchId,
-        time,
-        rawIdx: i,
-      });
-    }
-
-    setOnlineUsers(users);
-    setActiveMatches(matches);
-    setFeedEvents(feed);
-    setEventIndex(rawIdx);
-    indexRef.current = rawIdx;
-    lastFrameRef.current = null;
-
-    if (rawIdx < rawEvents.length) {
-      const t = new Date(rawEvents[rawIdx].timestamp);
-      setSimTime(t);
-      simTimeRef.current = t.getTime();
-    }
-
-    // Start playing after a short delay so React renders the rebuilt state first
-    setTimeout(() => setPlaying(true), 80);
-  }, [rawEvents]);
+  // Seek to a specific event by raw index (click from EventFeed)
+  const seekToEvent = useCallback((rawIdx) => {
+    setPlaying(false);
+    playRef.current = false;
+    if (rafRef.current) cancelAnimationFrame(rafRef.current);
+    rebuildStateTo(rawIdx);
+  }, [rebuildStateTo]);
 
   const togglePlay = useCallback(() => {
     if (eventIndex >= rawEvents.length && rawEvents.length > 0) {
@@ -548,24 +439,19 @@ const Replay = () => {
 
   // Convert activeMatches to the match format the components expect
   const matchesForViz = useMemo(() => {
-    return [...activeMatches.values()].map((m) => ({
-      id: m.matchId,
-      mapName: m.map,
-      teams: [
-        { players: (m.players || []).filter((_, i) => i < 4).map((p) => ({
+    return [...activeMatches.values()].map((m) => {
+      const team0 = [], team1 = [];
+      for (const p of m.players || []) {
+        const entry = {
           battleTag: p.battleTag,
           oldMmr: p.oldMmr || p.currentMmr || 0,
           currentMmr: p.currentMmr || p.oldMmr || 0,
           race: p.race,
-        }))},
-        { players: (m.players || []).filter((_, i) => i >= 4).map((p) => ({
-          battleTag: p.battleTag,
-          oldMmr: p.oldMmr || p.currentMmr || 0,
-          currentMmr: p.currentMmr || p.oldMmr || 0,
-          race: p.race,
-        }))},
-      ],
-    }));
+        };
+        (p.teamIdx === 1 ? team1 : team0).push(entry);
+      }
+      return { id: m.matchId, mapName: m.map, teams: [{ players: team0 }, { players: team1 }] };
+    });
   }, [activeMatches]);
 
   // Build players for the MMR strip
@@ -779,7 +665,7 @@ const Replay = () => {
           )}
         </div>
 
-        <EventFeed events={feedEvents} onEventClick={seekToEvent} />
+        <EventFeed events={feedEvents} onEventClick={seekToEvent} className="replay-panel replay-events" />
       </div>
     </div>
   );

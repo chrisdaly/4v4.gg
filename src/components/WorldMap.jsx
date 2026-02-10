@@ -119,10 +119,12 @@ const placeLabels = (g, candidates, dotPositions, existingRects, bounds, fontSiz
 
       placed.push(candidateRect);
 
+      // In-game players get gold labels, online players get dimmer white
+      const labelColor = player.inGame ? "var(--gold)" : "rgba(255, 255, 255, 0.5)";
       g.append("text")
         .attr("x", Math.round(lx + padX))
         .attr("y", Math.round(ly + textH - padY - 1))
-        .attr("fill", "rgba(255, 255, 255, 0.6)")
+        .attr("fill", labelColor)
         .attr("font-size", `${fontSize}px`)
         .attr("font-family", "var(--font-display)")
         .text(name);

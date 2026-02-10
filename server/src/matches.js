@@ -34,8 +34,8 @@ async function getPlayerCountry(battleTag) {
 
 function extractPlayers(match) {
   const players = [];
-  for (const team of match.teams || []) {
-    for (const p of team.players || []) {
+  for (let ti = 0; ti < (match.teams || []).length; ti++) {
+    for (const p of match.teams[ti].players || []) {
       if (p.battleTag) {
         players.push({
           battleTag: p.battleTag,
@@ -43,7 +43,7 @@ function extractPlayers(match) {
           race: p.race ?? null,
           oldMmr: p.oldMmr ?? null,
           currentMmr: p.currentMmr ?? null,
-          teamIdx: team.players.indexOf(p) < 4 ? 0 : 1,
+          teamIdx: ti,
         });
       }
     }

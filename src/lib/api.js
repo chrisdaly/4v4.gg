@@ -73,12 +73,12 @@ export const getPlayerProfile = async (battleTag) => {
  * @param {number} seasonOverride - Optional season override
  * @returns {Promise<{mmr: number, wins: number, losses: number, rank: number, race: number}|null>}
  */
-export const getPlayerStats = async (battleTag, seasonOverride = season) => {
+export const getPlayerStats = async (battleTag, { seasonOverride = season, skipCache = false } = {}) => {
   try {
     const url = `${API_BASE}/players/${encodeURIComponent(battleTag)}/game-mode-stats?gateway=${gateway}&season=${seasonOverride}`;
     const cacheKey = `stats:${battleTag.toLowerCase()}:${seasonOverride}`;
 
-    const data = await fetchWithCache(url, { cacheKey, ttl: TTL.GAME_MODE_STATS });
+    const data = await fetchWithCache(url, { cacheKey, ttl: TTL.GAME_MODE_STATS, skipCache });
 
     const fourVsFourStats = data.find(s => s.gameMode === 4);
     if (!fourVsFourStats) return null;

@@ -68,7 +68,16 @@ export default function useChatStream() {
 
     es.addEventListener("users_init", (e) => {
       if (cancelled) return;
-      setOnlineUsers(JSON.parse(e.data));
+      const serverUsers = JSON.parse(e.data);
+      // Preserve existing joinedAt timestamps across SignalR reconnects
+      // so the idle detection timer doesn't reset for known users
+      setOnlineUsers((prev) => {
+        const prevMap = new Map(prev.map((u) => [u.battleTag, u]));
+        return serverUsers.map((u) => ({
+          ...u,
+          joinedAt: prevMap.get(u.battleTag)?.joinedAt || u.joinedAt || Date.now(),
+        }));
+      });
     });
 
     es.addEventListener("user_joined", (e) => {
