@@ -146,8 +146,14 @@
 .event-detail {
   font-family: var(--font-mono);
   font-size: 11px;
-  color: var(--grey-mid);
+  color: var(--grey-light);
   margin-top: 1px;
+}
+
+.event-delta-pending {
+  color: var(--grey-mid);
+  font-family: var(--font-mono);
+  font-size: 10px;
 }
 
 .event-mmr {
@@ -195,6 +201,13 @@
   text-overflow: ellipsis;
   white-space: nowrap;
   min-width: 0;
+}
+
+.event-game-stats {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  flex-shrink: 0;
 }
 
 /* ── MMR filter badges ──────────────────────────────── */
@@ -293,6 +306,22 @@
   font-size: var(--text-xs);
   padding: var(--space-4) 0;
   text-align: center;
+}
+
+/* Skeleton placeholders while data loads */
+.home-skeleton-map {
+  flex: 1;
+  min-height: 0;
+  border-radius: var(--radius-md);
+  overflow: hidden;
+}
+
+.home-skeleton-chart {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+  padding: var(--space-4) var(--space-2);
 }
 
 /* ── Mobile ────────────────────────────────────────── */

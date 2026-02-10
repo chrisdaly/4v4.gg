@@ -108,7 +108,6 @@ const Navbar = () => {
     { to: "/stats", label: "Stats" },
     { to: "/chat", label: "Chat" },
     { to: "/blog", label: "Blog" },
-    { to: "/replay", label: "Replay" },
     { to: "/themes", label: "Themes" },
   ];
 

@@ -27,6 +27,24 @@
   flex-wrap: wrap;
 }
 
+.replay-presets {
+  display: flex;
+  gap: 4px;
+}
+
+.replay-btn-preset {
+  background: rgba(252, 219, 51, 0.08);
+  border-color: rgba(252, 219, 51, 0.2);
+  color: var(--gold);
+  font-size: 12px;
+  padding: 5px 12px;
+}
+
+.replay-btn-preset:hover {
+  background: rgba(252, 219, 51, 0.18);
+  border-color: rgba(252, 219, 51, 0.4);
+}
+
 .replay-date-inputs {
   display: flex;
   align-items: center;
@@ -296,6 +314,18 @@
   font-size: var(--text-xs);
   padding: var(--space-4) 0;
   text-align: center;
+}
+
+/* ── Clickable event items ───────────── */
+
+.event-item-clickable {
+  cursor: pointer;
+  border-radius: var(--radius-sm);
+  transition: background 0.15s;
+}
+
+.event-item-clickable:hover {
+  background: rgba(252, 219, 51, 0.06);
 }
 
 /* ── Mobile ───────────────────────────── */

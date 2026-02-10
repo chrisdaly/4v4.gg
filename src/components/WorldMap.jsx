@@ -132,14 +132,14 @@ const placeLabels = (g, candidates, dotPositions, existingRects, bounds, fontSiz
   return placed;
 };
 
-const WorldMap = ({ playerCountries, players = [] }) => {
+const WorldMap = ({ playerCountries, players = [], instant = false, animationScale = 1 }) => {
   const containerRef = useRef(null);
   const svgRef = useRef(null);
   const [dimensions, setDimensions] = useState({ width: 0, height: 0 });
   const [worldData, setWorldData] = useState(null);
-  const introReadyRef = useRef(false);
-  const [introReady, setIntroReady] = useState(false);
-  const prevPlayersRef = useRef(null); // null = first render, skip diff
+  const introReadyRef = useRef(instant);
+  const [introReady, setIntroReady] = useState(instant);
+  const prevPlayersRef = useRef(instant ? new Map() : null); // null = first render, skip diff
 
   // Buffer initial data so dots from chat + matches all arrive together
   useEffect(() => {
@@ -206,6 +206,7 @@ const WorldMap = ({ playerCountries, players = [] }) => {
     const { width, height } = dimensions;
     if (!introReady || !svgRef.current || !width || !height || !worldData) return;
 
+    const s = animationScale;
     const svg = d3.select(svgRef.current);
 
     // Only clear static layers — keep dot group for transitions
@@ -240,7 +241,8 @@ const WorldMap = ({ playerCountries, players = [] }) => {
 
     // 4. Night overlay
     const subsolar = getSubsolarPoint();
-    const antipode = [-subsolar[0], -subsolar[1]];
+    const antipodeLon = subsolar[0] > 0 ? subsolar[0] - 180 : subsolar[0] + 180;
+    const antipode = [antipodeLon, -subsolar[1]];
     const nightCircle = d3.geoCircle().center(antipode).radius(90)();
 
     staticG.append("path")
@@ -276,13 +278,13 @@ const WorldMap = ({ playerCountries, players = [] }) => {
     // Exit — fast fade for bulk exits (filtering), slower for organic
     const mapExitDuration = dotSel.exit().size() > 3 ? 300 : 1500;
     dotSel.exit()
-      .transition().duration(mapExitDuration).ease(d3.easeCubicIn)
+      .transition().duration(mapExitDuration * s).ease(d3.easeCubicIn)
       .attr("r", 0)
       .attr("opacity", 0)
       .remove();
 
     // Update — move smoothly
-    dotSel.transition().duration(1000).ease(d3.easeSinInOut)
+    dotSel.transition().duration(1000 * s).ease(d3.easeSinInOut)
       .attr("cx", (d) => d.px)
       .attr("cy", (d) => d.py)
       .attr("r", (d) => d.r);
@@ -319,7 +321,7 @@ const WorldMap = ({ playerCountries, players = [] }) => {
     if (isBulkEnter) {
       // Fast filter enter — simple fade in
       enteringDots
-        .transition().duration(400).ease(d3.easeCubicOut)
+        .transition().duration(400 * s).ease(d3.easeCubicOut)
         .attr("r", (d) => d.r)
         .attr("opacity", 1);
     } else {
@@ -339,23 +341,23 @@ const WorldMap = ({ playerCountries, players = [] }) => {
       });
 
       enteringDots
-        .transition().duration(2000).ease(d3.easeCubicOut)
+        .transition().duration(2000 * s).ease(d3.easeCubicOut)
         .attr("r", (d) => d.r)
         .attr("opacity", 1)
         .each(function (d) {
           enterLabelG.select(`.enter-label-${d.code}`)
-            .transition().duration(800)
+            .transition().duration(800 * s)
             .attr("opacity", 1);
         })
-        .transition().duration(600)
+        .transition().duration(600 * s)
         .attr("stroke", "rgba(255, 255, 255, 0.6)")
         .attr("stroke-width", 2)
-        .transition().duration(800)
+        .transition().duration(800 * s)
         .attr("stroke", "rgba(255, 255, 255, 0.3)")
         .attr("stroke-width", 0.5)
         .on("end", function (d) {
           enterLabelG.select(`.enter-label-${d.code}`)
-            .transition().delay(5000).duration(1500)
+            .transition().delay(5000 * s).duration(1500 * s)
             .attr("opacity", 0)
             .remove();
         });
@@ -403,7 +405,7 @@ const WorldMap = ({ playerCountries, players = [] }) => {
           .attr("font-family", "var(--font-display)")
           .attr("opacity", 0.8)
           .text(info.name)
-          .transition().duration(2500).ease(d3.easeCubicOut)
+          .transition().duration(2500 * s).ease(d3.easeCubicOut)
           .attr("y", pt[1] - 20)
           .attr("opacity", 0)
           .remove();
@@ -428,7 +430,7 @@ const WorldMap = ({ playerCountries, players = [] }) => {
           .attr("stroke", "rgba(255, 255, 255, 0.9)")
           .attr("stroke-width", 2)
           .attr("opacity", 1)
-          .transition().duration(1200).ease(d3.easeCubicOut)
+          .transition().duration(1200 * s).ease(d3.easeCubicOut)
           .attr("r", 24)
           .attr("stroke-width", 0.5)
           .attr("opacity", 0)
@@ -440,9 +442,9 @@ const WorldMap = ({ playerCountries, players = [] }) => {
           .attr("r", 2)
           .attr("fill", "rgba(255, 255, 255, 0.9)")
           .attr("opacity", 1)
-          .transition().duration(600).ease(d3.easeCubicOut)
+          .transition().duration(600 * s).ease(d3.easeCubicOut)
           .attr("r", 6)
-          .transition().duration(1000)
+          .transition().duration(1000 * s)
           .attr("r", 0)
           .attr("opacity", 0)
           .remove();
@@ -456,9 +458,9 @@ const WorldMap = ({ playerCountries, players = [] }) => {
           .attr("font-family", "var(--font-display)")
           .attr("opacity", 0)
           .text(info.name)
-          .transition().duration(600)
+          .transition().duration(600 * s)
           .attr("opacity", 1)
-          .transition().delay(5000).duration(1500)
+          .transition().delay(5000 * s).duration(1500 * s)
           .attr("opacity", 0)
           .remove();
       }
@@ -511,7 +513,7 @@ const WorldMap = ({ playerCountries, players = [] }) => {
         .text(timeStr);
     }
 
-  }, [introReady, dimensions, worldData, dots, labelCandidates, players]);
+  }, [introReady, dimensions, worldData, dots, labelCandidates, players, animationScale]);
 
   // Update terminator every 60s
   useEffect(() => {
@@ -523,7 +525,8 @@ const WorldMap = ({ playerCountries, players = [] }) => {
       const path = d3.geoPath(projection);
 
       const subsolar = getSubsolarPoint();
-      const antipode = [-subsolar[0], -subsolar[1]];
+      const antipodeLon = subsolar[0] > 0 ? subsolar[0] - 180 : subsolar[0] + 180;
+      const antipode = [antipodeLon, -subsolar[1]];
       const nightCircle = d3.geoCircle().center(antipode).radius(90)();
 
       svg.select(".night-overlay").attr("d", path(nightCircle));

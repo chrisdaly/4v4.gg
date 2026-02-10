@@ -51,9 +51,9 @@ const EventFeed = ({ events }) => (
               {e.country && <span className="event-flag">{toFlag(e.country)}</span>}
               <span className="event-name">
                 {e.type === "game_start"
-                  ? e.players.slice(0, 2).join(", ") + (e.players.length > 2 ? ` +${e.players.length - 2}` : "")
+                  ? `Game started${e.avgMmr ? ` (${e.avgMmr.toLocaleString()} MMR)` : ""}`
                   : e.type === "game_end"
-                    ? "Game ended"
+                    ? `Game ended${e.avgMmr ? ` (${e.avgMmr.toLocaleString()} MMR)` : ""}`
                     : e.player}
               </span>
               <span className="event-time">{formatEventTime(e.time)}</span>
@@ -61,27 +61,34 @@ const EventFeed = ({ events }) => (
             <div className="event-detail">
               {e.type === "join" && "joined"}
               {e.type === "leave" && "left"}
-              {e.type === "game_start" && "started a game"}
+              {e.type === "game_start" && (
+                <div className="event-game-results">
+                  {e.gamePlayers?.map((p, j) => (
+                    <div key={j} className="event-game-row">
+                      <span className="event-game-name">{p.name}</span>
+                      {p.mmr > 0 && <span className="event-mmr">{p.mmr.toLocaleString()}</span>}
+                    </div>
+                  ))}
+                </div>
+              )}
               {e.type === "game_end" && (
-                e.results?.length > 0 ? (
-                  <div className="event-game-results">
-                    {[...e.results]
-                      .sort((a, b) => b.delta - a.delta)
-                      .map((r, j) => (
-                        <div key={j} className="event-game-row">
-                          <span className="event-game-name">{r.name}</span>
-                          <span className={r.delta > 0 ? "event-delta-gain" : "event-delta-loss"}>
-                            {r.delta > 0 ? "+" : ""}{r.delta}
-                          </span>
-                        </div>
-                      ))}
-                  </div>
-                ) : (
-                  <span>
-                    {e.gamePlayers?.slice(0, 4).map((p) => p.name).join(", ")}
-                    {e.gamePlayers?.length > 4 ? ` +${e.gamePlayers.length - 4}` : ""}
-                  </span>
-                )
+                <div className="event-game-results">
+                  {(e.results?.length > 0 ? e.results : (e.gamePlayers || []).map((p) => ({ name: p.name, mmr: p.mmr, delta: null })))
+                    .sort((a, b) => (b.delta ?? 0) - (a.delta ?? 0))
+                    .map((r, j) => (
+                      <div key={j} className="event-game-row">
+                        <span className="event-game-name">{r.name}</span>
+                        <span className="event-game-stats">
+                          {r.mmr > 0 && <span className="event-mmr">{r.mmr.toLocaleString()}</span>}
+                          {r.delta != null && (
+                            <span className={r.delta > 0 ? "event-delta-gain" : "event-delta-loss"}>
+                              {r.delta > 0 ? "+" : ""}{r.delta}
+                            </span>
+                          )}
+                        </span>
+                      </div>
+                    ))}
+                </div>
               )}
               {e.type === "mmr_gain" && <><span className="event-delta-gain">+{e.delta}</span> MMR</>}
               {e.type === "mmr_loss" && <><span className="event-delta-loss">{e.delta}</span> MMR</>}
@@ -419,8 +426,16 @@ const Home = () => {
     const prevIds = new Set(prevMatchesRef.current.map((m) => m.id));
     for (const match of (matches || [])) {
       if (!prevIds.has(match.id)) {
-        const players = match.teams?.flatMap((t) => t.players?.map((p) => p.battleTag?.split("#")[0]).filter(Boolean) || []) || [];
-        newEvents.push({ type: "game_start", players, matchId: match.id, time: now });
+        const gamePlayers = match.teams?.flatMap((t) =>
+          t.players?.map((p) => ({
+            name: p.battleTag?.split("#")[0],
+            battleTag: p.battleTag,
+            mmr: p.currentMmr || p.oldMmr || 0,
+          })).filter((p) => p.battleTag) || []
+        ) || [];
+        const mmrs = gamePlayers.map((p) => p.mmr).filter((m) => m > 0);
+        const avgMmr = mmrs.length > 0 ? Math.round(mmrs.reduce((a, b) => a + b, 0) / mmrs.length) : null;
+        newEvents.push({ type: "game_start", gamePlayers, avgMmr, matchId: match.id, time: now });
       }
     }
     // Ended matches — include player data, trigger stat refresh
@@ -447,7 +462,12 @@ const Home = () => {
             if (p.mmr != null) prevMmrRef.current.set(p.battleTag, p.mmr);
           }
         }
-        newEvents.push({ type: "game_end", gamePlayers, matchId: id, time: now, results: [], eventId });
+        const endMmrs = gamePlayers.map((p) => p.mmr).filter((m) => m > 0);
+        const avgMmr = endMmrs.length > 0 ? Math.round(endMmrs.reduce((a, b) => a + b, 0) / endMmrs.length) : null;
+        const initialResults = gamePlayers.map((p) => ({
+          name: p.name, tag: p.battleTag, delta: null, mmr: p.mmr, teamIdx: p.teamIdx,
+        }));
+        newEvents.push({ type: "game_end", gamePlayers, avgMmr, matchId: id, time: now, results: initialResults, eventId });
       }
     }
 
@@ -501,7 +521,8 @@ const Home = () => {
         if (gameEndUpdates.size > 0) {
           updated = updated.map((e) => {
             if (e.eventId != null && gameEndUpdates.has(e.eventId)) {
-              return { ...e, results: [...(e.results || []), ...gameEndUpdates.get(e.eventId)] };
+              const updates = new Map(gameEndUpdates.get(e.eventId).map((u) => [u.tag, u]));
+              return { ...e, results: (e.results || []).map((r) => updates.has(r.tag) ? { ...r, ...updates.get(r.tag) } : r) };
             }
             return e;
           });
@@ -595,40 +616,66 @@ const Home = () => {
     return countries;
   }, [mmrFilter, countryFilter, playerCountries, filteredMapPlayers]);
 
+  const isLoading = onlineUsers.length === 0 && (!matches || matches.length === 0);
+
   return (
     <div className="home">
       <div className="home-panel home-world-map">
         <div className="home-section-header">
           <span className="home-section-title">World Map</span>
-          <span className="home-section-count">{filteredPlayerCountries.size} countries</span>
+          {!isLoading && <span className="home-section-count">{filteredPlayerCountries.size} countries</span>}
         </div>
-        <div className="flag-badges">
-          {[...filteredPlayerCountries.entries()]
-            .map(([code, c]) => ({ code, count: c.online + c.inGame }))
-            .sort((a, b) => b.count - a.count)
-            .map(({ code, count }) => (
-              <span
-                key={code}
-                className={`flag-badge${countryFilter === code ? " flag-badge-active" : ""}`}
-                onClick={() => handleCountryFilter(code)}
-              >
-                <span className="flag-badge-flag">{toFlag(code)}</span>
-                <span className="flag-badge-code">{code}</span>
-                <span className="flag-badge-count">{count}</span>
-              </span>
-            ))}
-          {(mmrFilter != null || countryFilter) && (
-            <span
-              className="flag-badge flag-badge-clear"
-              onClick={() => { setMmrFilter(null); setCountryFilter(null); }}
-            >
-              <span className="flag-badge-count">clear</span>
-            </span>
-          )}
-        </div>
-        <WorldMap playerCountries={filteredPlayerCountries} players={filteredMapPlayers} />
+        {isLoading ? (
+          <div className="home-skeleton-map">
+            <div className="loader-skeleton" style={{ width: "100%", height: "100%", borderRadius: "var(--radius-md)" }} />
+          </div>
+        ) : (
+          <>
+            <div className="flag-badges">
+              {[...filteredPlayerCountries.entries()]
+                .map(([code, c]) => ({ code, count: c.online + c.inGame }))
+                .sort((a, b) => b.count - a.count)
+                .map(({ code, count }) => (
+                  <span
+                    key={code}
+                    className={`flag-badge${countryFilter === code ? " flag-badge-active" : ""}`}
+                    onClick={() => handleCountryFilter(code)}
+                  >
+                    <span className="flag-badge-flag">{toFlag(code)}</span>
+                    <span className="flag-badge-code">{code}</span>
+                    <span className="flag-badge-count">{count}</span>
+                  </span>
+                ))}
+              {(mmrFilter != null || countryFilter) && (
+                <span
+                  className="flag-badge flag-badge-clear"
+                  onClick={() => { setMmrFilter(null); setCountryFilter(null); }}
+                >
+                  <span className="flag-badge-count">clear</span>
+                </span>
+              )}
+            </div>
+            <WorldMap playerCountries={filteredPlayerCountries} players={filteredMapPlayers} />
+          </>
+        )}
       </div>
-      {stripPlayers.length > 0 && (
+      {isLoading ? (
+        <div className="home-panel home-mmr-chart">
+          <div className="home-section-header">
+            <span className="home-section-title">MMR Distribution</span>
+          </div>
+          <div className="home-skeleton-chart">
+            {Array.from({ length: 8 }, (_, i) => (
+              <div key={i} className="loader-skeleton" style={{
+                width: `${20 + Math.random() * 40}%`,
+                height: 6,
+                marginBottom: 12,
+                alignSelf: i % 2 === 0 ? "flex-start" : "flex-end",
+              }} />
+            ))}
+          </div>
+        </div>
+      ) : (
         <MmrChart
           players={filteredStripPlayers}
           matches={matches}

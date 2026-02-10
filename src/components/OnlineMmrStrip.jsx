@@ -27,8 +27,8 @@ const rectOverlapsDot = (rect, dots) => {
   return false;
 };
 
-// How long to collect initial data before starting the intro animation
-const INTRO_BUFFER_MS = 2500;
+// Settling period: all enters use fast fade-in (no fly-in) during this window
+const SETTLE_MS = 4000;
 
 const OnlineMmrStrip = ({
   players,
@@ -37,6 +37,9 @@ const OnlineMmrStrip = ({
   onPlayerClick = null,
   mmrFilter = null,
   onMmrFilter = null,
+  mmrRange = null,       // [min, max] — lock Y-axis scale (replay mode)
+  animationScale = 1,    // multiply all transition durations (< 1 = faster)
+  instant = false,       // skip intro buffer
 }) => {
   const containerRef = useRef(null);
   const svgRef = useRef(null);
@@ -46,19 +49,10 @@ const OnlineMmrStrip = ({
   const [width, setWidth] = useState(0);
   const [height, setHeight] = useState(0);
 
-  // Buffer initial data so in-game + chat players all arrive together
-  const introReadyRef = useRef(false);
-  const [introReady, setIntroReady] = useState(false);
-  useEffect(() => {
-    if (introReadyRef.current) return;
-    if (!players || players.length === 0) return;
-    // First data arrived — start the collection window
-    const timer = setTimeout(() => {
-      introReadyRef.current = true;
-      setIntroReady(true);
-    }, INTRO_BUFFER_MS);
-    return () => clearTimeout(timer);
-  }, [players]);
+  // Track when first render happens — enters during settling use bulk animation
+  const firstRenderTimeRef = useRef(null);
+  // Cache beeswarm X positions so dots don't shift when others join/leave
+  const prevPositionsRef = useRef(new Map());
 
   // Resize observer — track both width and height
   useEffect(() => {
@@ -77,7 +71,7 @@ const OnlineMmrStrip = ({
   // Memoize in-game lookup
   const inGameMap = useMemo(() => {
     const map = new Map();
-    for (const match of matches) {
+    for (const match of (matches || [])) {
       const mapName = (match.mapName || match.map || "").replace(/^\(\d\)/, "");
       match.teams?.forEach((team, ti) => {
         team.players?.forEach((p) => {
@@ -92,7 +86,11 @@ const OnlineMmrStrip = ({
 
   // Main D3 render
   useEffect(() => {
-    if (!introReady || !svgRef.current || !width || !height || width < 60 || !players || players.length === 0) return;
+    if (!svgRef.current || !width || !height || width < 60 || !players || players.length === 0) return;
+    if (!firstRenderTimeRef.current) firstRenderTimeRef.current = Date.now();
+
+    // Scale all D3 transition durations for replay speed
+    const s = animationScale;
 
     const svg = d3.select(svgRef.current);
 
@@ -102,8 +100,8 @@ const OnlineMmrStrip = ({
     const centerX = padding.left + chartWidth / 2;
 
     const mmrs = players.map((p) => p.mmr);
-    const minMmr = d3.min(mmrs) - 50;
-    const maxMmr = d3.max(mmrs) + 50;
+    const minMmr = mmrRange ? mmrRange[0] : d3.min(mmrs) - 50;
+    const maxMmr = mmrRange ? mmrRange[1] : d3.max(mmrs) + 50;
 
     // Y-scale for MMR (inverted: higher MMR at top)
     const y = d3.scaleLinear()
@@ -205,7 +203,7 @@ const OnlineMmrStrip = ({
 
       g.select("text")
         .attr("y", y(v) + 3).attr("x", width - 4)
-        .transition().duration(400).ease(d3.easeCubicOut)
+        .transition().duration(400 * s).ease(d3.easeCubicOut)
         .attr("fill", targetFill);
 
       g.select("rect")
@@ -234,27 +232,23 @@ const OnlineMmrStrip = ({
       .attr("y1", padding.top).attr("y2", height - padding.bottom)
       .attr("stroke", "#333").attr("stroke-width", 1);
 
-    // ── Beeswarm positions ──
-    const sorted = [...players].sort((a, b) => b.mmr - a.mmr); // highest MMR first (top to bottom)
+    // ── Beeswarm positions (stable: reuse X for unchanged dots) ──
+    const sorted = [...players].sort((a, b) => b.mmr - a.mmr);
     const positions = [];
+    const prevPos = prevPositionsRef.current;
 
+    // First pass: place dots with unchanged MMR at their previous X
+    const deferred = []; // new or MMR-changed players — laid out in second pass
     for (const player of sorted) {
       const py = y(player.mmr);
       const games = (player.wins || 0) + (player.losses || 0);
       const dotR = rScale(games);
-      let px = centerX;
-      let offset = 1;
-      while (positions.some((p) => {
-        const minDist = (p.r + dotR) * 1.2;
-        return Math.hypot(p.x - px, p.y - py) < minDist;
-      })) {
-        px = centerX + (offset % 2 === 0 ? 1 : -1) * Math.ceil(offset / 2) * (dotR * 2.2);
-        offset++;
-        if (offset > 20) break;
-      }
       const gameInfo = inGameMap.get(player.battleTag);
-      positions.push({
-        x: px, y: py, r: dotR,
+      const prev = prevPos.get(player.battleTag);
+      const mmrChanged = prev && prev.mmr !== player.mmr;
+
+      const posData = {
+        y: py, r: dotR,
         race: player.race, tag: player.battleTag,
         mmr: player.mmr, inGame: !!gameInfo,
         mapName: gameInfo?.mapName || null,
@@ -262,8 +256,35 @@ const OnlineMmrStrip = ({
         teamIdx: gameInfo?.teamIdx ?? null,
         wins: player.wins || 0,
         losses: player.losses || 0,
-      });
+      };
+
+      if (prev && !mmrChanged) {
+        // Reuse previous X, recalculate Y from current scale
+        positions.push({ ...posData, x: prev.x });
+      } else {
+        deferred.push(posData);
+      }
     }
+
+    // Second pass: collision-avoid new/changed dots against already-placed ones
+    for (const posData of deferred) {
+      let px = centerX;
+      let offset = 1;
+      while (positions.some((p) => {
+        const minDist = (p.r + posData.r) * 1.2;
+        return Math.hypot(p.x - px, p.y - posData.y) < minDist;
+      })) {
+        px = centerX + (offset % 2 === 0 ? 1 : -1) * Math.ceil(offset / 2) * (posData.r * 2.2);
+        offset++;
+        if (offset > 20) break;
+      }
+      positions.push({ ...posData, x: px });
+    }
+
+    // Cache for next render
+    const nextPos = new Map();
+    for (const p of positions) nextPos.set(p.tag, { x: p.x, mmr: p.mmr });
+    prevPositionsRef.current = nextPos;
 
     // ── Match pairing arcs (persisted, data-joined for transitions) ──
     let arcG = svg.select(".arc-layer");
@@ -296,7 +317,7 @@ const OnlineMmrStrip = ({
     }
 
     const arcSel = arcG.selectAll("path.team-arc").data(arcData, (d) => d.key);
-    arcSel.exit().transition().duration(400).attr("opacity", 0).remove();
+    arcSel.exit().transition().duration(400 * s).attr("opacity", 0).remove();
     arcSel.enter().append("path")
       .attr("class", "team-arc")
       .attr("fill", "none")
@@ -304,9 +325,9 @@ const OnlineMmrStrip = ({
       .attr("stroke-width", 1)
       .attr("opacity", 0)
       .attr("d", (d) => d.d)
-      .transition().duration(600)
+      .transition().duration(600 * s)
       .attr("opacity", 0.25);
-    arcSel.transition().duration(1500).ease(d3.easeSinInOut)
+    arcSel.transition().duration(1500 * s).ease(d3.easeSinInOut)
       .attr("d", (d) => d.d)
       .attr("opacity", 0.25);
 
@@ -344,7 +365,7 @@ const OnlineMmrStrip = ({
       });
     }
     dots.exit()
-      .transition().duration(isBulkExit ? 400 : 5000)
+      .transition().duration((isBulkExit ? 400 : 5000) * s)
       .ease(isBulkExit ? d3.easeCubicOut : d3.easeCubicIn)
       .attrTween("cx", isBulkExit ? null : function (d) {
         const sx = +d3.select(this).attr("cx");
@@ -367,24 +388,37 @@ const OnlineMmrStrip = ({
       })
       .remove();
 
-    // Detect MMR changes from previous render
+    // Detect MMR changes from previous render (skip during settling — data sources may disagree)
+    const isSettling = (Date.now() - firstRenderTimeRef.current) < SETTLE_MS;
     const changedDots = [];
-    for (const pos of positions) {
-      const prev = prevMmrsRef.current.get(pos.tag);
-      if (prev != null && prev !== pos.mmr) {
-        changedDots.push({ ...pos, delta: pos.mmr - prev });
+    if (!isSettling) {
+      for (const pos of positions) {
+        const prev = prevMmrsRef.current.get(pos.tag);
+        if (prev != null && prev !== pos.mmr) {
+          changedDots.push({ ...pos, delta: pos.mmr - prev });
+        }
       }
     }
     const nextMmrs = new Map();
     for (const pos of positions) nextMmrs.set(pos.tag, pos.mmr);
     prevMmrsRef.current = nextMmrs;
 
-    dots.transition().duration(2000).ease(d3.easeSinInOut)
-      .attr("cx", (d) => d.x)
-      .attr("cy", (d) => d.y)
-      .attr("r", (d) => d.r)
-      .attr("fill", (d) => d.inGame ? DOT_COLOR_INGAME : DOT_COLOR)
-      .attr("opacity", 1);
+    if (isSettling) {
+      // During settling, snap existing dots to position (no distracting transitions)
+      dots
+        .attr("cx", (d) => d.x)
+        .attr("cy", (d) => d.y)
+        .attr("r", (d) => d.r)
+        .attr("fill", (d) => d.inGame ? DOT_COLOR_INGAME : DOT_COLOR)
+        .attr("opacity", 1);
+    } else {
+      dots.transition().duration(2000 * s).ease(d3.easeSinInOut)
+        .attr("cx", (d) => d.x)
+        .attr("cy", (d) => d.y)
+        .attr("r", (d) => d.r)
+        .attr("fill", (d) => d.inGame ? DOT_COLOR_INGAME : DOT_COLOR)
+        .attr("opacity", 1);
+    }
 
     // Show pulse ring + delta label for changed MMR dots
     if (changedDots.length > 0) {
@@ -410,9 +444,9 @@ const OnlineMmrStrip = ({
             .attr("r", changed.r + 2)
             .attr("fill", color)
             .attr("opacity", 0)
-            .transition().delay(stagger).duration(200)
+            .transition().delay(stagger).duration(200 * s)
             .attr("opacity", 0.6)
-            .transition().duration(800).ease(d3.easeCubicOut)
+            .transition().duration(800 * s).ease(d3.easeCubicOut)
             .attr("opacity", 0)
             .remove();
         }
@@ -425,7 +459,7 @@ const OnlineMmrStrip = ({
           .attr("stroke", color)
           .attr("stroke-width", isGameEnd ? 2.5 : 2)
           .attr("opacity", 1)
-          .transition().delay(stagger).duration(isGameEnd ? 1500 : 1200).ease(d3.easeCubicOut)
+          .transition().delay(stagger).duration((isGameEnd ? 1500 : 1200) * s).ease(d3.easeCubicOut)
           .attr("r", changed.r + (isGameEnd ? 25 : 18))
           .attr("stroke-width", 0.5).attr("opacity", 0)
           .remove();
@@ -441,18 +475,18 @@ const OnlineMmrStrip = ({
           .attr("fill", color)
           .attr("opacity", 0)
           .text(deltaText)
-          .transition().delay(stagger).duration(300)
+          .transition().delay(stagger).duration(300 * s)
           .attr("opacity", 1)
-          .transition().delay(isGameEnd ? 4000 : 3000).duration(2000)
+          .transition().delay((isGameEnd ? 4000 : 3000) * s).duration(2000 * s)
           .attr("y", changed.y - changed.r - 28)
           .attr("opacity", 0)
           .remove();
       }
     }
 
-    const enterFromY = padding.top - 20;
+    const enterFromX = padding.left - 20;
     const enterCount = dots.enter().size();
-    const isBulkLoad = enterCount > 3;
+    const isBulkLoad = enterCount > 3 || (isSettling && enterCount > 0);
 
     // If no dots are entering, show arcs immediately (they started hidden)
     animatingRef.current = !isBulkLoad && enterCount > 0;
@@ -475,15 +509,15 @@ const OnlineMmrStrip = ({
         .attr("stroke", "rgba(0,0,0,0.2)")
         .attr("stroke-width", 0.5)
         .attr("cursor", "pointer")
-        .transition().duration(400).ease(d3.easeCubicOut)
+        .transition().duration(400 * s).ease(d3.easeCubicOut)
         .attr("opacity", 1);
     } else {
-      // ── Organic enter — fly in from top with gold trailing labels ──
+      // ── Organic enter — fly in from left with gold trailing labels ──
       const entered = dots.enter()
         .append("circle")
         .attr("class", "player-dot")
-        .attr("cx", (d) => d.x)
-        .attr("cy", enterFromY)
+        .attr("cx", enterFromX)
+        .attr("cy", (d) => d.y)
         .attr("r", 0)
         .attr("opacity", 0)
         .attr("fill", (d) => d.inGame ? DOT_COLOR_INGAME : DOT_COLOR)
@@ -495,8 +529,8 @@ const OnlineMmrStrip = ({
         const name = d.tag?.split("#")[0] || "";
         if (!name) return;
         const label = enterLabelG.append("text")
-          .attr("x", d.x + d.r + 8)
-          .attr("y", enterFromY + 4)
+          .attr("x", enterFromX + 8)
+          .attr("y", d.y + 4)
           .attr("text-anchor", "start")
           .attr("fill", "var(--gold)")
           .attr("font-size", `${LABEL_FONT_SIZE}px`)
@@ -509,18 +543,18 @@ const OnlineMmrStrip = ({
       let settledCount = 0;
 
       entered.transition()
-        .duration(4000)
+        .duration(4000 * s)
         .ease(d3.easeCubicOut)
-        .attrTween("cy", (d) => {
-          const interp = d3.interpolate(enterFromY, d.y);
+        .attrTween("cx", (d) => {
+          const interp = d3.interpolate(enterFromX, d.x);
           return (t) => {
-            const cy = interp(t);
+            const cx = interp(t);
             const label = enterLabels.get(d.tag);
             if (label) {
-              label.attr("y", cy + 4)
+              label.attr("x", cx + d.r + 8)
                 .attr("opacity", Math.min(1, t * 3));
             }
-            return cy;
+            return cx;
           };
         })
         .attrTween("r", (d) => (t) => d.r * Math.min(1, t * 2))
@@ -529,11 +563,11 @@ const OnlineMmrStrip = ({
           const label = enterLabels.get(d.tag);
           if (label) {
             if (labeledTags.has(d.tag)) {
-              label.transition().duration(400).attr("opacity", 0).remove();
+              label.transition().duration(400 * s).attr("opacity", 0).remove();
             } else {
               label.attr("opacity", 1)
                 .attr("x", d.x + d.r + 8).attr("y", d.y + 4);
-              label.transition().delay(5000).duration(1500)
+              label.transition().delay(5000 * s).duration(1500 * s)
                 .attr("opacity", 0)
                 .remove();
             }
@@ -542,10 +576,10 @@ const OnlineMmrStrip = ({
           if (settledCount >= totalEntering) {
             animatingRef.current = false;
             svg.select(".label-layer")
-              .transition().duration(400)
+              .transition().duration(400 * s)
               .attr("opacity", 1);
             svg.select(".arc-layer")
-              .transition().duration(600)
+              .transition().duration(600 * s)
               .attr("opacity", 1);
           }
         });
@@ -649,7 +683,7 @@ const OnlineMmrStrip = ({
 
     // Data-join labels for smooth transitions
     const labelsSel = labelG.selectAll("text.player-label").data(labelPositions, (d) => d.tag);
-    labelsSel.exit().transition().duration(400).attr("opacity", 0).remove();
+    labelsSel.exit().transition().duration(400 * s).attr("opacity", 0).remove();
 
     labelsSel.enter().append("text")
       .attr("class", "player-label")
@@ -661,19 +695,25 @@ const OnlineMmrStrip = ({
       .attr("x", (d) => d.x).attr("y", (d) => d.y)
       .attr("fill", LABEL_COLOR)
       .attr("opacity", 0)
-      .transition().duration(600).ease(d3.easeCubicOut)
+      .transition().duration(600 * s).ease(d3.easeCubicOut)
       .attr("opacity", isLabelLayerNew && totalEntering > 0 && !isBulkLoad ? 0 : 1);
 
-    // Update existing labels — transition position, flash gold if MMR changed
-    labelsSel
-      .transition().duration(2000).ease(d3.easeSinInOut)
-      .attr("x", (d) => d.x).attr("y", (d) => d.y)
-      .attr("fill", (d) => changedTagSet.has(d.tag) ? "var(--gold)" : LABEL_COLOR);
+    // Update existing labels — snap during settling, transition after
+    if (isSettling) {
+      labelsSel
+        .attr("x", (d) => d.x).attr("y", (d) => d.y)
+        .attr("fill", LABEL_COLOR);
+    } else {
+      labelsSel
+        .transition().duration(2000 * s).ease(d3.easeSinInOut)
+        .attr("x", (d) => d.x).attr("y", (d) => d.y)
+        .attr("fill", (d) => changedTagSet.has(d.tag) ? "var(--gold)" : LABEL_COLOR);
+    }
 
     // Fade changed labels back to white after the flash
     if (changedTagSet.size > 0) {
       labelsSel.filter((d) => changedTagSet.has(d.tag))
-        .transition().delay(2500).duration(1000)
+        .transition().delay(2500 * s).duration(1000 * s)
         .attr("fill", LABEL_COLOR);
     }
 
@@ -702,24 +742,24 @@ const OnlineMmrStrip = ({
       const myColor = TEAM_COLORS[hoveredPos.teamIdx] || "#4da6ff";
       const enemyColor = TEAM_COLORS[hoveredPos.teamIdx === 0 ? 1 : 0] || "#ef4444";
 
-      // Highlight dots — solid team color (fill + stroke match)
+      // Highlight dots — keep fill, add team-colored stroke rings
       allDots.each(function (od) {
         d3.select(this).interrupt();
         if (od.tag === tag) {
           d3.select(this)
-            .attr("fill", myColor).attr("stroke", myColor)
-            .attr("stroke-width", 1).attr("r", od.r + 3).attr("opacity", 1);
+            .attr("stroke", "var(--gold)")
+            .attr("stroke-width", 2.5).attr("r", od.r + 3).attr("opacity", 1);
         } else if (teammates.has(od.tag)) {
           d3.select(this)
-            .attr("fill", myColor).attr("stroke", myColor)
-            .attr("stroke-width", 1).attr("r", od.r + 1).attr("opacity", 1);
+            .attr("stroke", myColor)
+            .attr("stroke-width", 2).attr("r", od.r + 1).attr("opacity", 1);
         } else if (opponents.has(od.tag)) {
           d3.select(this)
-            .attr("fill", enemyColor).attr("stroke", enemyColor)
-            .attr("stroke-width", 1).attr("r", od.r + 1).attr("opacity", 1);
+            .attr("stroke", enemyColor)
+            .attr("stroke-width", 2).attr("r", od.r + 1).attr("opacity", 1);
         } else {
           d3.select(this)
-            .attr("fill", "rgba(255,255,255,0.15)")
+            .attr("fill", "rgba(255,255,255,0.1)")
             .attr("opacity", 1)
             .attr("stroke", "none").attr("stroke-width", 0);
         }
@@ -729,13 +769,12 @@ const OnlineMmrStrip = ({
       svg.select(".arc-layer").attr("opacity", 0.05);
       svg.select(".static-layer").attr("opacity", 0.3);
 
-      // Dim non-match static labels, brighten match ones with team color
+      // Dim non-match static labels, brighten match ones gold
       labelG.selectAll("text").each(function () {
         const el = d3.select(this);
         const t = el.attr("data-tag");
         if (matchTags.has(t)) {
-          const color = (t === tag || teammates.has(t)) ? myColor : enemyColor;
-          el.attr("fill", color).attr("opacity", 1);
+          el.attr("fill", "var(--gold)").attr("opacity", 1);
         } else {
           el.attr("opacity", 0.08);
         }
@@ -750,8 +789,6 @@ const OnlineMmrStrip = ({
         if (!mPos) continue;
         const name = mPos.tag?.split("#")[0] || "";
         if (!name) continue;
-        const color = (mTag === tag || teammates.has(mTag)) ? myColor : enemyColor;
-
         const textW = name.length * LABEL_CHAR_W + LABEL_PAD_X * 2;
         const textH = LABEL_H + LABEL_PAD_Y * 2;
         let labelY = mPos.y - textH / 2;
@@ -773,7 +810,7 @@ const OnlineMmrStrip = ({
             .attr("x", candidateX + textW / 2)
             .attr("y", labelY + textH - LABEL_PAD_Y - 1)
             .attr("text-anchor", "middle")
-            .attr("fill", color)
+            .attr("fill", "var(--gold)")
             .attr("font-size", `${LABEL_FONT_SIZE}px`)
             .attr("font-family", "var(--font-display)")
             .attr("opacity", 1)
@@ -862,7 +899,7 @@ const OnlineMmrStrip = ({
       applyHighlight(hoveredTagRef.current);
     }
 
-  }, [introReady, players, matches, width, height, histogram, inGameMap, onPlayerClick, mmrFilter, onMmrFilter]);
+  }, [players, matches, width, height, histogram, inGameMap, onPlayerClick, mmrFilter, onMmrFilter, mmrRange, animationScale]);
 
   if (!players || players.length === 0) return null;
 

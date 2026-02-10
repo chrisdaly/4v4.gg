@@ -9,6 +9,13 @@ const RELAY_URL =
 
 const SPEEDS = [1, 10, 50, 100];
 
+const PRESETS = [
+  { label: "Last hour", hours: 1 },
+  { label: "Last 6h", hours: 6 },
+  { label: "Last 24h", hours: 24 },
+  { label: "Last 3 days", hours: 72 },
+];
+
 /* ── Helpers ─────────────────────────────────────────── */
 
 const toFlag = (code) => {
@@ -37,17 +44,27 @@ const formatEventTime = (time) => {
   return `${h}:${m < 10 ? "0" + m : m}`;
 };
 
-/* Default: last 24 hours */
+/* Convert Date to local datetime-local string (YYYY-MM-DDTHH:MM) */
+const toLocalInput = (d) => {
+  const y = d.getFullYear();
+  const mo = String(d.getMonth() + 1).padStart(2, "0");
+  const da = String(d.getDate()).padStart(2, "0");
+  const h = String(d.getHours()).padStart(2, "0");
+  const m = String(d.getMinutes()).padStart(2, "0");
+  return `${y}-${mo}-${da}T${h}:${m}`;
+};
+
+/* Default: last hour */
 const defaultFrom = () => {
   const d = new Date();
-  d.setDate(d.getDate() - 1);
-  return d.toISOString().slice(0, 16);
+  d.setHours(d.getHours() - 1);
+  return toLocalInput(d);
 };
-const defaultTo = () => new Date().toISOString().slice(0, 16);
+const defaultTo = () => toLocalInput(new Date());
 
 /* ── EventFeed (replay version) ──────────────────────── */
 
-const EventFeed = ({ events }) => (
+const EventFeed = ({ events, onEventClick }) => (
   <div className="replay-panel replay-events">
     <div className="replay-section-header">
       <span className="replay-section-title">Activity</span>
@@ -58,7 +75,11 @@ const EventFeed = ({ events }) => (
         <div className="replay-empty">No events yet...</div>
       )}
       {events.map((e, i) => (
-        <div key={`${e.type}-${i}`} className="event-item">
+        <div
+          key={`${e.type}-${i}`}
+          className="event-item event-item-clickable"
+          onClick={() => onEventClick && e.rawIdx != null && onEventClick(e.rawIdx)}
+        >
           <span className={`event-dot event-${e.type}`} />
           <div className="event-body">
             <div className="event-main">
@@ -126,11 +147,37 @@ const Replay = () => {
   const indexRef = useRef(0);
   const rafRef = useRef(null);
   const lastFrameRef = useRef(null);
+  const simTimeRef = useRef(null); // persistent sim clock (ms since epoch)
 
   // Virtual state built from processed events
   const [onlineUsers, setOnlineUsers] = useState(new Map());
   const [activeMatches, setActiveMatches] = useState(new Map());
   const [feedEvents, setFeedEvents] = useState([]);
+
+  // Pre-compute full MMR range from all events so the Y-axis stays fixed
+  const mmrRange = useMemo(() => {
+    let min = Infinity, max = -Infinity;
+    for (const ev of rawEvents) {
+      if (ev.type !== "game_start" && ev.type !== "game_end") continue;
+      for (const p of ev.payload?.players || []) {
+        const mmr = p.currentMmr || p.oldMmr;
+        if (mmr != null && mmr > 0) {
+          if (mmr < min) min = mmr;
+          if (mmr > max) max = mmr;
+        }
+      }
+    }
+    if (min === Infinity) return null;
+    return [min - 50, max + 50];
+  }, [rawEvents]);
+
+  // Animation speed: scale down durations at higher playback speeds
+  const animationScale = useMemo(() => {
+    if (speed <= 1) return 1;
+    if (speed <= 10) return 0.3;
+    if (speed <= 50) return 0.1;
+    return 0.05;
+  }, [speed]);
 
   // Fetch summary on mount
   useEffect(() => {
@@ -140,16 +187,16 @@ const Replay = () => {
       .catch(() => {});
   }, []);
 
-  // Fetch events for range
-  const fetchEvents = useCallback(async () => {
+  // Fetch events for range (accepts optional overrides for preset buttons)
+  const fetchEvents = useCallback(async (overrideFrom, overrideTo) => {
     setLoading(true);
     setError(null);
     setPlaying(false);
     playRef.current = false;
 
     try {
-      const from = new Date(fromStr).toISOString();
-      const to = new Date(toStr).toISOString();
+      const from = new Date(overrideFrom || fromStr).toISOString();
+      const to = new Date(overrideTo || toStr).toISOString();
       const res = await fetch(
         `${RELAY_URL}/api/chat/events?from=${encodeURIComponent(from)}&to=${encodeURIComponent(to)}`
       );
@@ -165,10 +212,27 @@ const Replay = () => {
     }
   }, [fromStr, toStr]);
 
+  const handlePreset = useCallback((hours) => {
+    const to = new Date();
+    const from = new Date(to.getTime() - hours * 60 * 60 * 1000);
+    setFromStr(toLocalInput(from));
+    setToStr(toLocalInput(to));
+    fetchEvents(from.toISOString(), to.toISOString());
+  }, [fetchEvents]);
+
+  // Auto-load last hour on mount
+  const didAutoLoad = useRef(false);
+  useEffect(() => {
+    if (didAutoLoad.current) return;
+    didAutoLoad.current = true;
+    handlePreset(1);
+  }, []);
+
   const resetState = useCallback(() => {
     setEventIndex(0);
     indexRef.current = 0;
     setSimTime(null);
+    simTimeRef.current = null;
     setOnlineUsers(new Map());
     setActiveMatches(new Map());
     setFeedEvents([]);
@@ -180,7 +244,7 @@ const Replay = () => {
   useEffect(() => { playRef.current = playing; }, [playing]);
 
   // Process a single event into virtual state
-  const processEvent = useCallback((event) => {
+  const processEvent = useCallback((event, rawIdx) => {
     const { type, payload, timestamp } = event;
     const time = new Date(timestamp);
 
@@ -201,6 +265,7 @@ const Replay = () => {
           tag: payload.battleTag,
           country: null,
           time,
+          rawIdx,
         }, ...prev].slice(0, 100));
         break;
       }
@@ -216,6 +281,7 @@ const Replay = () => {
           tag: payload.battleTag,
           country: null,
           time,
+          rawIdx,
         }, ...prev].slice(0, 100));
         break;
       }
@@ -232,6 +298,7 @@ const Replay = () => {
           map: payload.map,
           matchId: payload.matchId,
           time,
+          rawIdx,
         }, ...prev].slice(0, 100));
         break;
       }
@@ -256,6 +323,7 @@ const Replay = () => {
           results,
           matchId: payload.matchId,
           time,
+          rawIdx,
         }, ...prev].slice(0, 100));
         break;
       }
@@ -263,8 +331,15 @@ const Replay = () => {
   }, []);
 
   // Playback loop using requestAnimationFrame
+  // Maintains a persistent sim clock that advances at speed × real time
   useEffect(() => {
     if (!playing || rawEvents.length === 0) return;
+
+    // Initialize sim clock to current event's timestamp if not set
+    const idx = indexRef.current;
+    if (simTimeRef.current == null && idx < rawEvents.length) {
+      simTimeRef.current = new Date(rawEvents[idx].timestamp).getTime();
+    }
 
     const tick = (now) => {
       if (!playRef.current) return;
@@ -272,31 +347,28 @@ const Replay = () => {
       if (lastFrameRef.current != null) {
         const realDeltaMs = now - lastFrameRef.current;
         const simDeltaMs = realDeltaMs * speedRef.current;
-        let idx = indexRef.current;
 
-        if (idx < rawEvents.length) {
-          const currentSimTime = new Date(rawEvents[idx].timestamp);
-          const targetTime = new Date(currentSimTime.getTime() + simDeltaMs);
+        // Advance the persistent sim clock
+        simTimeRef.current += simDeltaMs;
+        const targetMs = simTimeRef.current;
 
-          // Process all events up to the target time
-          while (idx < rawEvents.length) {
-            const eventTime = new Date(rawEvents[idx].timestamp);
-            if (eventTime > targetTime) break;
-            processEvent(rawEvents[idx]);
-            idx++;
-          }
+        let i = indexRef.current;
 
-          indexRef.current = idx;
-          setEventIndex(idx);
+        // Process all events up to the sim clock
+        while (i < rawEvents.length) {
+          const eventMs = new Date(rawEvents[i].timestamp).getTime();
+          if (eventMs > targetMs) break;
+          processEvent(rawEvents[i], i);
+          i++;
+        }
 
-          if (idx < rawEvents.length) {
-            setSimTime(new Date(rawEvents[idx].timestamp));
-          } else {
-            // Reached the end
-            setSimTime(new Date(rawEvents[rawEvents.length - 1].timestamp));
-            setPlaying(false);
-            playRef.current = false;
-          }
+        indexRef.current = i;
+        setEventIndex(i);
+        setSimTime(new Date(targetMs));
+
+        if (i >= rawEvents.length) {
+          setPlaying(false);
+          playRef.current = false;
         }
       }
 
@@ -363,6 +435,7 @@ const Replay = () => {
         map: payload.map,
         matchId: payload.matchId,
         time,
+        rawIdx: i,
       });
     }
 
@@ -374,10 +447,87 @@ const Replay = () => {
     lastFrameRef.current = null;
 
     if (targetIdx < rawEvents.length) {
-      setSimTime(new Date(rawEvents[targetIdx].timestamp));
+      const t = new Date(rawEvents[targetIdx].timestamp);
+      setSimTime(t);
+      simTimeRef.current = t.getTime();
     } else if (rawEvents.length > 0) {
-      setSimTime(new Date(rawEvents[rawEvents.length - 1].timestamp));
+      const t = new Date(rawEvents[rawEvents.length - 1].timestamp);
+      setSimTime(t);
+      simTimeRef.current = t.getTime();
     }
+  }, [rawEvents]);
+
+  // Seek to a specific event by raw index (click from EventFeed)
+  // Rebuilds state up to (but not including) the event, then starts playback
+  const seekToEvent = useCallback((rawIdx) => {
+    // Pause first
+    setPlaying(false);
+    playRef.current = false;
+    if (rafRef.current) cancelAnimationFrame(rafRef.current);
+
+    // Rebuild state up to rawIdx (exclusive — we want to see it animate in)
+    const users = new Map();
+    const matches = new Map();
+    const feed = [];
+
+    for (let i = 0; i < rawIdx && i < rawEvents.length; i++) {
+      const ev = rawEvents[i];
+      const { type, payload, timestamp } = ev;
+      const time = new Date(timestamp);
+
+      switch (type) {
+        case "join":
+          users.set(payload.battleTag, {
+            battleTag: payload.battleTag,
+            name: payload.name || payload.battleTag.split("#")[0],
+            clanTag: payload.clanTag || "",
+          });
+          break;
+        case "leave":
+          users.delete(payload.battleTag);
+          break;
+        case "game_start":
+          matches.set(payload.matchId, payload);
+          break;
+        case "game_end":
+          matches.delete(payload.matchId);
+          break;
+      }
+
+      if (feed.length >= 50) feed.pop();
+      feed.unshift({
+        type,
+        player: type === "join" || type === "leave"
+          ? (payload.name || payload.battleTag?.split("#")[0]) : undefined,
+        players: type === "game_start" || type === "game_end"
+          ? (payload.players || []).map((p) => p.name || p.battleTag?.split("#")[0]) : undefined,
+        results: type === "game_end"
+          ? (payload.players || [])
+            .filter((p) => p.oldMmr != null && p.currentMmr != null && p.oldMmr !== p.currentMmr)
+            .map((p) => ({ name: p.name || p.battleTag?.split("#")[0], delta: Math.round(p.currentMmr - p.oldMmr), mmr: p.currentMmr }))
+          : undefined,
+        map: payload.map,
+        matchId: payload.matchId,
+        time,
+        rawIdx: i,
+      });
+    }
+
+    setOnlineUsers(users);
+    setActiveMatches(matches);
+    setFeedEvents(feed);
+    setEventIndex(rawIdx);
+    indexRef.current = rawIdx;
+    lastFrameRef.current = null;
+
+    if (rawIdx < rawEvents.length) {
+      const t = new Date(rawEvents[rawIdx].timestamp);
+      setSimTime(t);
+      simTimeRef.current = t.getTime();
+    }
+
+    // Start playing after a short delay so React renders the rebuilt state first
+    setTimeout(() => setPlaying(true), 80);
   }, [rawEvents]);
 
   const togglePlay = useCallback(() => {
@@ -507,6 +657,19 @@ const Replay = () => {
       {/* Controls bar */}
       <div className="replay-controls">
         <div className="replay-controls-row">
+          <div className="replay-presets">
+            {PRESETS.map((p) => (
+              <button
+                key={p.hours}
+                className="replay-btn replay-btn-preset"
+                onClick={() => handlePreset(p.hours)}
+                disabled={loading}
+              >
+                {p.label}
+              </button>
+            ))}
+          </div>
+
           <div className="replay-date-inputs">
             <label>
               <span className="replay-label">From</span>
@@ -524,7 +687,7 @@ const Replay = () => {
                 onChange={(e) => setToStr(e.target.value)}
               />
             </label>
-            <button className="replay-btn replay-btn-load" onClick={fetchEvents} disabled={loading}>
+            <button className="replay-btn replay-btn-load" onClick={() => fetchEvents()} disabled={loading}>
               {loading ? "Loading..." : "Load"}
             </button>
           </div>
@@ -595,24 +758,29 @@ const Replay = () => {
             <span className="replay-section-title">World Map</span>
             <span className="replay-section-count">{playerCountries.size} countries</span>
           </div>
-          <WorldMap playerCountries={playerCountries} players={mapPlayers} />
+          <WorldMap playerCountries={playerCountries} players={mapPlayers} instant animationScale={animationScale} />
         </div>
 
-        {stripPlayers.length > 0 && (
-          <div className="replay-panel replay-mmr-chart">
-            <div className="replay-section-header">
-              <span className="replay-section-title">MMR Distribution</span>
-              <span className="replay-section-count">{stripPlayers.length} players</span>
-            </div>
+        <div className="replay-panel replay-mmr-chart">
+          <div className="replay-section-header">
+            <span className="replay-section-title">MMR Distribution</span>
+            <span className="replay-section-count">{stripPlayers.length} players</span>
+          </div>
+          {stripPlayers.length > 0 ? (
             <OnlineMmrStrip
               players={stripPlayers}
               matches={matchesForViz}
               onPlayerClick={handlePlayerClick}
+              mmrRange={mmrRange}
+              animationScale={animationScale}
+              instant
             />
-          </div>
-        )}
+          ) : (
+            <div className="replay-empty">Waiting for match data...</div>
+          )}
+        </div>
 
-        <EventFeed events={feedEvents} />
+        <EventFeed events={feedEvents} onEventClick={seekToEvent} />
       </div>
     </div>
   );

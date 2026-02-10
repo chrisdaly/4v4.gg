@@ -24,7 +24,7 @@ async function getPlayerCountry(battleTag) {
     const profile = await fetchJSON(
       `${API_BASE}/personal-settings/${encodeURIComponent(battleTag)}`
     );
-    const country = profile?.country || null;
+    const country = profile?.location || null;
     profileCache.set(battleTag, { country, fetchedAt: Date.now() });
     return country;
   } catch {
