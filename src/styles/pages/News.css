@@ -364,6 +364,28 @@
   color: var(--grey-mid);
 }
 
+/* Screenshot button */
+.digest-screenshot-btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  background: none;
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  color: var(--grey-light);
+  padding: 4px 10px;
+  border-radius: var(--radius-full);
+  cursor: pointer;
+  font-family: var(--font-mono);
+  font-size: 11px;
+  transition: all 0.15s;
+  white-space: nowrap;
+}
+
+.digest-screenshot-btn:hover {
+  color: #fff;
+  border-color: rgba(255, 255, 255, 0.2);
+}
+
 /* ── Mobile ────────────────────────────────────────── */
 
 @media (max-width: 768px) {

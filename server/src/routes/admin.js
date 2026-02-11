@@ -120,6 +120,29 @@ router.get('/analytics', (_req, res) => {
   });
 });
 
+// Image proxy for cross-origin avatar screenshots (public)
+const ALLOWED_IMAGE_HOSTS = ['w3champions.wc3.tools', 'w3champions.com'];
+router.get('/image-proxy', async (req, res) => {
+  const url = req.query.url;
+  if (!url) return res.status(400).send('Missing url');
+  try {
+    const parsed = new URL(url);
+    if (!ALLOWED_IMAGE_HOSTS.some(h => parsed.hostname === h || parsed.hostname.endsWith('.' + h))) {
+      return res.status(403).send('Host not allowed');
+    }
+    const resp = await fetch(url);
+    if (!resp.ok) return res.status(resp.status).send('Upstream error');
+    const contentType = resp.headers.get('content-type') || 'image/jpeg';
+    res.set('Content-Type', contentType);
+    res.set('Cache-Control', 'public, max-age=86400');
+    res.set('Access-Control-Allow-Origin', '*');
+    const buffer = Buffer.from(await resp.arrayBuffer());
+    res.send(buffer);
+  } catch {
+    res.status(502).send('Failed to fetch image');
+  }
+});
+
 // Health check (public)
 router.get('/health', (_req, res) => {
   const signalr = getStatus();

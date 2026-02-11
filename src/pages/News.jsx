@@ -3,7 +3,8 @@ import { Link } from "react-router-dom";
 import useChatStream from "../lib/useChatStream";
 import { getPlayerProfile } from "../lib/api";
 import { CountryFlag } from "../components/ui";
-import { FiExternalLink } from "react-icons/fi";
+import { FiExternalLink, FiCamera } from "react-icons/fi";
+import html2canvas from "html2canvas";
 import "../styles/pages/News.css";
 
 const RELAY_URL =
@@ -219,6 +220,93 @@ const StatSection = ({ stat, cls, label, profiles }) => {
 /* ── DigestBanner ────────────────────────────────────── */
 
 const DigestBanner = ({ digest, nameSet, nameToTag, label = "Yesterday in 4v4", dateTabs }) => {
+  const digestRef = useRef(null);
+  const [copyState, setCopyState] = useState(null); // null | "copying" | "copied" | "saved"
+
+  const handleScreenshot = async () => {
+    if (!digestRef.current || copyState === "copying") return;
+    setCopyState("copying");
+    try {
+      // Pre-convert cross-origin avatar images to data URLs via relay proxy
+      const imgs = digestRef.current.querySelectorAll(".digest-avatar");
+      const imgDataMap = new Map();
+      await Promise.all([...imgs].map(async (img) => {
+        if (!img.src || img.src.startsWith("data:")) return;
+        try {
+          const proxyUrl = `${RELAY_URL}/api/admin/image-proxy?url=${encodeURIComponent(img.src)}`;
+          const resp = await fetch(proxyUrl);
+          if (!resp.ok) return;
+          const blob = await resp.blob();
+          const dataUrl = await new Promise((resolve) => {
+            const reader = new FileReader();
+            reader.onload = () => resolve(reader.result);
+            reader.readAsDataURL(blob);
+          });
+          imgDataMap.set(img.src, dataUrl);
+        } catch { /* skip unloadable images */ }
+      }));
+
+      const canvas = await html2canvas(digestRef.current, {
+        backgroundColor: "#0f0d0b",
+        scale: 2,
+        useCORS: true,
+        onclone: (_doc, el) => {
+          el.style.backdropFilter = "none";
+          el.style.webkitBackdropFilter = "none";
+          el.style.background = "#0f0d0b";
+          el.style.padding = "24px 32px 28px";
+
+          // Hide screenshot button
+          const btn = el.querySelector(".digest-screenshot-btn");
+          if (btn) btn.style.display = "none";
+
+          // Replace date tabs with a branded header
+          const header = el.querySelector(".news-digest-header");
+          if (header) {
+            const activeTab = dateTabs?.find((t) => t.active);
+            const dateLabel = activeTab?.label || label;
+            header.innerHTML = `<div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:8px"><span style="font-family:var(--font-display);font-size:20px;color:var(--gold);letter-spacing:0.04em">4V4.GG</span><span style="font-family:var(--font-mono);font-size:12px;text-transform:uppercase;letter-spacing:0.1em;color:var(--grey-light)">${dateLabel}</span></div>`;
+          }
+
+          // Tighten stat sections
+          for (const s of el.querySelectorAll(".digest-section--winner,.digest-section--loser,.digest-section--grinder,.digest-section--hotstreak,.digest-section--coldstreak")) {
+            s.style.padding = "6px 16px";
+          }
+
+          // Replace avatar srcs with pre-fetched data URLs
+          for (const img of el.querySelectorAll(".digest-avatar")) {
+            const dataUrl = imgDataMap.get(img.src);
+            if (dataUrl) img.src = dataUrl;
+            else img.style.display = "none";
+          }
+
+          // Add footer
+          const footer = _doc.createElement("div");
+          footer.style.cssText = "text-align:right;padding-top:12px;font-family:var(--font-mono);font-size:10px;letter-spacing:0.08em;color:#555";
+          footer.textContent = "4v4.gg/news";
+          el.appendChild(footer);
+        },
+      });
+      const blob = await new Promise((r) => canvas.toBlob(r, "image/png"));
+      if (blob && navigator.clipboard?.write) {
+        await navigator.clipboard.write([new ClipboardItem({ "image/png": blob })]);
+        setCopyState("copied");
+      } else {
+        // Fallback: download
+        const url = URL.createObjectURL(blob);
+        const a = document.createElement("a");
+        a.href = url;
+        a.download = `4v4gg-digest-${digest.date || "today"}.png`;
+        a.click();
+        URL.revokeObjectURL(url);
+        setCopyState("saved");
+      }
+    } catch {
+      setCopyState(null);
+    }
+    setTimeout(() => setCopyState(null), 2000);
+  };
+
   if (!digest) return null;
 
   const text = digest.digest || "";
@@ -303,9 +391,15 @@ const DigestBanner = ({ digest, nameSet, nameToTag, label = "Yesterday in 4v4", 
     }
   }, [sections, combinedNameToTag]);
 
+  const screenshotBtn = (
+    <button className="digest-screenshot-btn" onClick={handleScreenshot} title="Copy as image">
+      {copyState === "copying" ? "..." : copyState === "copied" ? "Copied!" : copyState === "saved" ? "Saved!" : <FiCamera size={14} />}
+    </button>
+  );
+
   if (sections.length === 0) {
     return (
-      <div className="news-digest">
+      <div className="news-digest" ref={digestRef}>
         <div className="news-digest-header">
         {dateTabs && dateTabs.length > 1 ? (
           <div className="digest-date-tabs">
@@ -318,9 +412,10 @@ const DigestBanner = ({ digest, nameSet, nameToTag, label = "Yesterday in 4v4", 
                 {tab.label}
               </button>
             ))}
+            {screenshotBtn}
           </div>
         ) : (
-          <div className="news-digest-label">{label}</div>
+          <div className="news-digest-label">{label}{screenshotBtn}</div>
         )}
       </div>
         <p className="digest-section-text">{highlightNames(text, combinedNameSet)}</p>
@@ -329,7 +424,7 @@ const DigestBanner = ({ digest, nameSet, nameToTag, label = "Yesterday in 4v4", 
   }
 
   return (
-    <div className="news-digest">
+    <div className="news-digest" ref={digestRef}>
       <div className="news-digest-header">
         {dateTabs && dateTabs.length > 1 ? (
           <div className="digest-date-tabs">
@@ -342,9 +437,10 @@ const DigestBanner = ({ digest, nameSet, nameToTag, label = "Yesterday in 4v4", 
                 {tab.label}
               </button>
             ))}
+            {screenshotBtn}
           </div>
         ) : (
-          <div className="news-digest-label">{label}</div>
+          <div className="news-digest-label">{label}{screenshotBtn}</div>
         )}
       </div>
       <div className="digest-sections">

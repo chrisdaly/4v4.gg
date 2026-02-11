@@ -254,15 +254,34 @@ async function assembleDigest(date, messages, soFar = false) {
     return null;
   });
 
-  // Generate AI digest with match context
+  // Generate AI digest with match context (retry with fallback models)
   const prompt = buildDigestPrompt(messages, dailyStats?.matchSummaries || [], soFar, dailyStats?.playerMmrs || null);
   const client = new Anthropic({ apiKey: config.ANTHROPIC_API_KEY });
-  const msg = await client.messages.create({
-    model: 'claude-haiku-4-5-20251001',
-    max_tokens: 700,
-    messages: [{ role: 'user', content: prompt }],
-  });
-  const aiText = msg.content[0]?.text?.trim() || null;
+  const models = ['claude-haiku-4-5-20251001', 'claude-sonnet-4-5-20250929'];
+  const maxRetries = 3;
+  let aiText = null;
+
+  for (const model of models) {
+    for (let attempt = 1; attempt <= maxRetries; attempt++) {
+      try {
+        const msg = await client.messages.create({
+          model,
+          max_tokens: 700,
+          messages: [{ role: 'user', content: prompt }],
+        });
+        aiText = msg.content[0]?.text?.trim() || null;
+        if (aiText) break;
+      } catch (err) {
+        const status = err?.status || err?.error?.status || '';
+        console.warn(`[Digest] ${model} attempt ${attempt}/${maxRetries} failed (${status}): ${err.message}`);
+        if (attempt < maxRetries) {
+          await new Promise(r => setTimeout(r, 1000 * Math.pow(2, attempt - 1)));
+        }
+      }
+    }
+    if (aiText) break;
+    console.warn(`[Digest] All retries exhausted for ${model}, trying next model`);
+  }
 
   if (!aiText) return null;
 
