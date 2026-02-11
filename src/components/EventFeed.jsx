@@ -5,8 +5,8 @@ const EventFeed = ({ events, onEventClick, title = "Activity", className = "home
   <div className={className}>
     <div className="home-section-header">
       <span className="home-section-title">{title}</span>
-      {events.length > 0 && (
-        <span className="home-section-count">{events.length} events</span>
+      {events.filter((e) => e.type !== "status").length > 0 && (
+        <span className="home-section-count">{events.filter((e) => e.type !== "status").length} events</span>
       )}
     </div>
     <div className="event-feed-list">
@@ -16,19 +16,21 @@ const EventFeed = ({ events, onEventClick, title = "Activity", className = "home
       {events.map((e, i) => (
         <div
           key={`${e.type}-${e.time?.getTime?.() || i}-${i}`}
-          className={`event-item${onEventClick ? " event-item-clickable" : ""}`}
-          onClick={() => onEventClick && e.rawIdx != null && onEventClick(e.rawIdx)}
+          className={`event-item${e.type === "status" ? " event-item-status" : ""}${onEventClick && e.type !== "status" ? " event-item-clickable" : ""}`}
+          onClick={() => onEventClick && e.type !== "status" && onEventClick(e)}
         >
           <span className={`event-dot event-${e.type}`} />
           <div className="event-body">
             <div className="event-main">
               {e.country && <span className="event-flag">{toFlag(e.country)}</span>}
               <span className="event-name">
-                {e.type === "game_start"
-                  ? `Game started${e.avgMmr ? ` (${e.avgMmr.toLocaleString()} MMR)` : ""}`
-                  : e.type === "game_end"
-                    ? `Game ended${e.avgMmr ? ` (${e.avgMmr.toLocaleString()} MMR)` : ""}`
-                    : e.player}
+                {e.type === "status"
+                  ? e.text
+                  : e.type === "game_start"
+                    ? `Game started${e.avgMmr ? ` (${e.avgMmr.toLocaleString()} MMR)` : ""}`
+                    : e.type === "game_end"
+                      ? `Game ended${e.avgMmr ? ` (${e.avgMmr.toLocaleString()} MMR)` : ""}`
+                      : e.player}
               </span>
               {e.time && <span className="event-time">{formatEventTime(e.time)}</span>}
             </div>

@@ -26,7 +26,7 @@ const getInitialData = () => {
 
 /* ── MmrChart (fills remaining space) ─────────────────── */
 
-const MmrChart = ({ players, matches, count, histogram, mmrFilter, onMmrFilter, mmrSteps }) => {
+const MmrChart = ({ players, matches, count, histogram, mmrFilter, onMmrFilter, mmrSteps, pendingDeltas }) => {
   const history = useHistory();
   const handlePlayerClick = useCallback((battleTag) => {
     if (battleTag) history.push(`/player/${encodeURIComponent(battleTag)}`);
@@ -71,6 +71,7 @@ const MmrChart = ({ players, matches, count, histogram, mmrFilter, onMmrFilter, 
         onPlayerClick={handlePlayerClick}
         mmrFilter={mmrFilter}
         onMmrFilter={onMmrFilter}
+        pendingDeltas={pendingDeltas}
       />
     </div>
   );
@@ -90,6 +91,7 @@ const Home = () => {
   const [mmrFilter, setMmrFilter] = useState(null);
   const [countryFilter, setCountryFilter] = useState(null);
   const [tick, setTick] = useState(0);
+  const [contentReady, setContentReady] = useState(false);
   const fetchedRef = useRef(new Set());
   const profileFetchedRef = useRef(new Set());
   const gameEndPendingRef = useRef(new Map()); // tag → { eventId, name, teamIdx, createdAt }
@@ -144,6 +146,14 @@ const Home = () => {
     const id = setInterval(() => setTick((t) => t + 1), 60_000);
     return () => clearInterval(id);
   }, []);
+
+  // Content settle timer — wait for profiles/stats to accumulate before revealing panels
+  const hasAnyData = onlineUsers.length > 0 || (matches !== null && matches.length > 0);
+  useEffect(() => {
+    if (contentReady || !hasAnyData) return;
+    const timer = setTimeout(() => setContentReady(true), 2500);
+    return () => clearTimeout(timer);
+  }, [hasAnyData, contentReady]);
 
   // Shared derived sets — avoids repeating the triple-nested loop everywhere
   const inGameTags = useMemo(() => {
@@ -335,11 +345,12 @@ const Home = () => {
     if (!didSeedRef.current) {
       didSeedRef.current = true;
       for (const match of (matches || [])) {
-        const gamePlayers = match.teams?.flatMap((t) =>
+        const gamePlayers = match.teams?.flatMap((t, ti) =>
           t.players?.map((p) => ({
             name: p.battleTag?.split("#")[0],
             battleTag: p.battleTag,
             mmr: p.currentMmr || p.oldMmr || 0,
+            teamIdx: ti,
           })).filter((p) => p.battleTag) || []
         ) || [];
         const mmrs = gamePlayers.map((p) => p.mmr).filter((m) => m > 0);
@@ -379,11 +390,12 @@ const Home = () => {
     const prevIds = new Set(prevMatchesRef.current.map((m) => m.id));
     for (const match of (matches || [])) {
       if (!prevIds.has(match.id)) {
-        const gamePlayers = match.teams?.flatMap((t) =>
+        const gamePlayers = match.teams?.flatMap((t, ti) =>
           t.players?.map((p) => ({
             name: p.battleTag?.split("#")[0],
             battleTag: p.battleTag,
             mmr: p.currentMmr || p.oldMmr || 0,
+            teamIdx: ti,
           })).filter((p) => p.battleTag) || []
         ) || [];
         const mmrs = gamePlayers.map((p) => p.mmr).filter((m) => m > 0);
@@ -586,16 +598,222 @@ const Home = () => {
     return countries;
   }, [mmrFilter, countryFilter, playerCountries, filteredMapPlayers]);
 
-  const isLoading = onlineUsers.length === 0 && (!matches || matches.length === 0);
+  // ── Event replay ──
+  const [replayMods, setReplayMods] = useState(null);
+  const isReplayingRef = useRef(false);
+
+  const handleEventReplay = useCallback((event) => {
+    if (isReplayingRef.current) return;
+    isReplayingRef.current = true;
+
+    const unlock = () => { isReplayingRef.current = false; };
+
+    switch (event.type) {
+      case "join": {
+        const stats = playerStats.get(event.tag);
+        const mmr = event.mmr ?? stats?.mmr ?? 1500;
+        const isOnStrip = filteredStripPlayers.some((p) => p.battleTag === event.tag);
+        if (isOnStrip) {
+          // Player visible on strip — suppress then restore to trigger enter anim
+          setReplayMods({ suppressTags: new Set([event.tag]) });
+          setTimeout(() => {
+            setReplayMods(null);
+            setTimeout(unlock, 3000);
+          }, 150);
+        } else {
+          // Player not on strip (no MMR yet) — inject with fallback MMR
+          setReplayMods({
+            injectPlayers: [{
+              battleTag: event.tag,
+              name: event.player || event.tag.split("#")[0],
+              mmr,
+              race: stats?.race ?? null,
+              wins: stats?.wins ?? 0,
+              losses: stats?.losses ?? 0,
+              rank: null,
+            }],
+          });
+          // Clear after enter animation settles
+          setTimeout(() => {
+            setReplayMods(null);
+            setTimeout(unlock, 3000);
+          }, 3000);
+        }
+        break;
+      }
+      case "leave": {
+        const stats = playerStats.get(event.tag);
+        const mmr = event.mmr ?? stats?.mmr ?? 1500;
+        setReplayMods({
+          injectPlayers: [{
+            battleTag: event.tag,
+            name: event.player || event.tag.split("#")[0],
+            mmr,
+            race: stats?.race ?? null,
+            wins: stats?.wins ?? 0,
+            losses: stats?.losses ?? 0,
+            rank: null,
+          }],
+        });
+        // Wait for enter to mostly complete, then remove for exit anim
+        setTimeout(() => {
+          setReplayMods(null);
+          setTimeout(unlock, 3000);
+        }, 2500);
+        break;
+      }
+      case "game_start": {
+        // Phase 1: suppress all game players (dots disappear)
+        const tags = new Set((event.gamePlayers || []).map((p) => p.battleTag).filter(Boolean));
+        setReplayMods({ suppressTags: tags });
+        // Phase 2: restore (enter animation triggers for all)
+        setTimeout(() => {
+          setReplayMods(null);
+          setTimeout(unlock, 3000);
+        }, 150);
+        break;
+      }
+      case "game_end": {
+        // Phase 1: inject a fake match so players appear in-game with arcs
+        const results = event.results || [];
+        const team0 = results.filter((r) => r.teamIdx === 0).map((r) => ({
+          battleTag: r.tag, currentMmr: r.mmr, oldMmr: r.mmr, race: null,
+        }));
+        const team1 = results.filter((r) => r.teamIdx === 1).map((r) => ({
+          battleTag: r.tag, currentMmr: r.mmr, oldMmr: r.mmr, race: null,
+        }));
+        const fakeMatch = {
+          id: `replay-${event.matchId || Date.now()}`,
+          teams: [{ players: team0 }, { players: team1 }],
+        };
+        setReplayMods({ injectMatch: fakeMatch });
+        // Phase 2: remove match + fire deltas
+        setTimeout(() => {
+          const deltas = results.filter((r) => r.delta != null).map((r) => ({ tag: r.tag, delta: r.delta }));
+          setReplayMods(deltas.length > 0 ? { pendingDeltas: deltas } : null);
+          // Phase 3: clear pendingDeltas
+          setTimeout(() => {
+            setReplayMods(null);
+            setTimeout(unlock, 3000);
+          }, 50);
+        }, 150);
+        break;
+      }
+      case "mmr_gain":
+      case "mmr_loss": {
+        // Direct delta fire — no phase 1 needed
+        setReplayMods({
+          pendingDeltas: [{ tag: event.tag, delta: event.delta }],
+        });
+        setTimeout(() => {
+          setReplayMods(null);
+          setTimeout(unlock, 3000);
+        }, 50);
+        break;
+      }
+      default:
+        unlock();
+    }
+  }, [playerStats, filteredStripPlayers]);
+
+  // Derive "effective" data that applies replayMods
+  const effectiveStripPlayers = useMemo(() => {
+    let result = filteredStripPlayers;
+    if (replayMods?.suppressTags) {
+      result = result.filter((p) => !replayMods.suppressTags.has(p.battleTag));
+    }
+    if (replayMods?.injectPlayers) {
+      const existingTags = new Set(result.map((p) => p.battleTag));
+      const toInject = replayMods.injectPlayers.filter((p) => !existingTags.has(p.battleTag));
+      if (toInject.length > 0) result = [...result, ...toInject];
+    }
+    return result;
+  }, [filteredStripPlayers, replayMods]);
+
+  const effectiveMatches = useMemo(() => {
+    let result = matches || [];
+    if (replayMods?.injectMatch) {
+      result = [...result, replayMods.injectMatch];
+    }
+    return result;
+  }, [matches, replayMods]);
+
+  const effectiveMapPlayers = useMemo(() => {
+    let result = filteredMapPlayers;
+    if (replayMods?.suppressTags) {
+      result = result.filter((p) => !replayMods.suppressTags.has(p.battleTag));
+    }
+    if (replayMods?.injectPlayers) {
+      const existingTags = new Set(result.map((p) => p.battleTag));
+      for (const ip of replayMods.injectPlayers) {
+        if (existingTags.has(ip.battleTag)) continue;
+        const country = playerProfiles.get(ip.battleTag);
+        if (country) {
+          result = [...result, {
+            battleTag: ip.battleTag,
+            name: ip.name,
+            country: country.toUpperCase(),
+            mmr: ip.mmr,
+            inGame: false,
+          }];
+        }
+      }
+    }
+    return result;
+  }, [filteredMapPlayers, replayMods, playerProfiles]);
+
+  const effectivePlayerCountries = useMemo(() => {
+    if (!replayMods) return filteredPlayerCountries;
+    // Recompute from effectiveMapPlayers
+    const countries = new Map();
+    for (const p of effectiveMapPlayers) {
+      const code = p.country;
+      if (!code) continue;
+      if (!countries.has(code)) countries.set(code, { online: 0, inGame: 0 });
+      const entry = countries.get(code);
+      if (p.inGame) entry.inGame++;
+      else entry.online++;
+    }
+    return countries;
+  }, [filteredPlayerCountries, replayMods, effectiveMapPlayers]);
+
+  // Status events — loading milestones for activity feed
+  const statusMilestonesRef = useRef({ online: false, games: false, countries: false });
+  useEffect(() => {
+    const m = statusMilestonesRef.current;
+    const now = new Date();
+    const newStatus = [];
+
+    if (!m.online && onlineUsers.length > 0) {
+      m.online = true;
+      newStatus.push({ type: "status", text: `${onlineUsers.length} players online`, time: now });
+    }
+
+    if (!m.games && matches && matches.length > 0) {
+      m.games = true;
+      const inGame = matches.reduce((sum, match) =>
+        sum + (match.teams || []).reduce((s, t) => s + (t.players?.length || 0), 0), 0);
+      newStatus.push({ type: "status", text: `${matches.length} live ${matches.length === 1 ? "game" : "games"} · ${inGame} in-game`, time: now });
+    }
+
+    if (!m.countries && playerCountries.size >= 3) {
+      m.countries = true;
+      newStatus.push({ type: "status", text: `Players from ${playerCountries.size} countries`, time: now });
+    }
+
+    if (newStatus.length > 0) {
+      setEvents((prev) => [...newStatus, ...prev].slice(0, 100));
+    }
+  }, [onlineUsers, matches, playerCountries]);
 
   return (
     <div className="home">
       <div className="home-panel home-world-map">
         <div className="home-section-header">
           <span className="home-section-title">World Map</span>
-          {!isLoading && <span className="home-section-count">{filteredPlayerCountries.size} countries</span>}
+          {contentReady && <span className="home-section-count">{filteredPlayerCountries.size} countries</span>}
         </div>
-        {isLoading ? (
+        {!contentReady ? (
           <div className="home-skeleton-map">
             <div className="loader-skeleton" style={{ width: "100%", height: "100%", borderRadius: "var(--radius-md)" }} />
           </div>
@@ -625,11 +843,11 @@ const Home = () => {
                 </span>
               )}
             </div>
-            <WorldMap playerCountries={filteredPlayerCountries} players={filteredMapPlayers} />
+            <WorldMap playerCountries={effectivePlayerCountries} players={effectiveMapPlayers} instant />
           </>
         )}
       </div>
-      {isLoading ? (
+      {!contentReady ? (
         <div className="home-panel home-mmr-chart">
           <div className="home-section-header">
             <span className="home-section-title">MMR Distribution</span>
@@ -647,16 +865,17 @@ const Home = () => {
         </div>
       ) : (
         <MmrChart
-          players={filteredStripPlayers}
-          matches={matches}
+          players={effectiveStripPlayers}
+          matches={effectiveMatches}
           count={onlineUsers.length - idleTags.size}
           histogram={histogram}
           mmrFilter={mmrFilter}
           onMmrFilter={handleMmrFilter}
           mmrSteps={mmrSteps}
+          pendingDeltas={replayMods?.pendingDeltas || null}
         />
       )}
-      <EventFeed events={events} />
+      <EventFeed events={events} onEventClick={handleEventReplay} />
     </div>
   );
 };

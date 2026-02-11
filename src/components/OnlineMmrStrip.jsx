@@ -163,6 +163,7 @@ const OnlineMmrStrip = ({
   onMmrFilter = null,
   mmrRange = null,       // [min, max] — lock Y-axis scale (replay mode)
   animationScale = 1,    // multiply all transition durations (< 1 = faster)
+  pendingDeltas = null,  // [{tag, delta}] — fire delta animations directly (replay)
 }) => {
   const containerRef = useRef(null);
   const svgRef = useRef(null);
@@ -501,25 +502,17 @@ const OnlineMmrStrip = ({
         .attr("opacity", 1);
     }
 
-    // MMR delta effects (event-driven, intentionally separate from layout timings)
-    if (changedDots.length > 0) {
-      let deltaG = svg.select(".delta-label-layer");
-      if (deltaG.empty()) {
-        deltaG = svg.append("g").attr("class", "delta-label-layer").attr("pointer-events", "none");
-      }
-      deltaG.raise();
-
-      const isGameEnd = changedDots.length >= 6;
-
-      for (let ci = 0; ci < changedDots.length; ci++) {
-        const changed = changedDots[ci];
+    // Helper: render delta pulse ring + label for a dot
+    const renderDeltas = (dots, isGameEnd, deltaLayer) => {
+      for (let ci = 0; ci < dots.length; ci++) {
+        const changed = dots[ci];
         const isGain = changed.delta > 0;
         const color = isGain ? "var(--green)" : "var(--red)";
         const deltaText = (isGain ? "+" : "") + changed.delta;
         const stagger = isGameEnd ? ci * 80 : 0;
 
         if (isGameEnd) {
-          deltaG.append("circle")
+          deltaLayer.append("circle")
             .attr("cx", changed.x).attr("cy", changed.y)
             .attr("r", changed.r + 2)
             .attr("fill", color)
@@ -531,7 +524,7 @@ const OnlineMmrStrip = ({
             .remove();
         }
 
-        deltaG.append("circle")
+        deltaLayer.append("circle")
           .attr("cx", changed.x).attr("cy", changed.y)
           .attr("r", changed.r)
           .attr("fill", "none")
@@ -543,7 +536,7 @@ const OnlineMmrStrip = ({
           .attr("stroke-width", 0.5).attr("opacity", 0)
           .remove();
 
-        deltaG.append("text")
+        deltaLayer.append("text")
           .attr("x", changed.x)
           .attr("y", changed.y - changed.r - 6)
           .attr("text-anchor", "middle")
@@ -560,12 +553,40 @@ const OnlineMmrStrip = ({
           .attr("opacity", 0)
           .remove();
       }
+    };
+
+    // MMR delta effects (event-driven, intentionally separate from layout timings)
+    if (changedDots.length > 0 || (pendingDeltas && pendingDeltas.length > 0)) {
+      let deltaG = svg.select(".delta-label-layer");
+      if (deltaG.empty()) {
+        deltaG = svg.append("g").attr("class", "delta-label-layer").attr("pointer-events", "none");
+      }
+      deltaG.raise();
+
+      if (changedDots.length > 0) {
+        renderDeltas(changedDots, changedDots.length >= 6, deltaG);
+      }
+
+      if (pendingDeltas && pendingDeltas.length > 0) {
+        const pendingDots = pendingDeltas
+          .map((pd) => {
+            const pos = positions.find((p) => p.tag === pd.tag);
+            if (!pos) return null;
+            return { ...pos, delta: pd.delta };
+          })
+          .filter(Boolean);
+        if (pendingDots.length > 0) {
+          renderDeltas(pendingDots, pendingDots.length >= 6, deltaG);
+        }
+      }
     }
 
     // Enter animation
     const enterFromX = padding.left - 20;
     const enterCount = dots.enter().size();
     const isBulkLoad = enterCount > 3 || (isSettling && enterCount > 0);
+    const enteringTags = new Set();
+    if (!isBulkLoad) dots.enter().each(function (d) { enteringTags.add(d.tag); });
 
     animatingRef.current = !isBulkLoad && enterCount > 0;
     if (enterCount === 0 || isBulkLoad) arcG.attr("opacity", 1);
@@ -639,6 +660,10 @@ const OnlineMmrStrip = ({
           if (label) {
             if (labeledTags.has(d.tag)) {
               label.transition().duration(T.FAST * s).attr("opacity", 0).remove();
+              // Reveal the hidden static label
+              labelG.selectAll("text.player-label")
+                .filter((ld) => ld.tag === d.tag)
+                .transition().duration(T.FAST * s).attr("opacity", 1);
             } else {
               label.attr("opacity", 1)
                 .attr("x", d.x + d.r + 8).attr("y", d.y + 4);
@@ -684,7 +709,12 @@ const OnlineMmrStrip = ({
       .attr("fill", LABEL_COLOR)
       .attr("opacity", 0)
       .transition().duration(T.FAST * s).ease(d3.easeCubicOut)
-      .attr("opacity", isLabelLayerNew && enterCount > 0 && !isBulkLoad ? 0 : 1);
+      .attr("opacity", (d) => {
+        // Hide static labels for entering players — the enter label handles it
+        if (enteringTags.has(d.tag)) return 0;
+        if (isLabelLayerNew && enterCount > 0 && !isBulkLoad) return 0;
+        return 1;
+      });
 
     if (isSettling) {
       labelsSel
@@ -871,7 +901,7 @@ const OnlineMmrStrip = ({
       applyHighlight(hoveredTagRef.current);
     }
 
-  }, [players, matches, width, height, histogram, inGameMap, onPlayerClick, mmrFilter, onMmrFilter, mmrRange, animationScale]);
+  }, [players, matches, width, height, histogram, inGameMap, onPlayerClick, mmrFilter, onMmrFilter, mmrRange, animationScale, pendingDeltas]);
 
   if (!players || players.length === 0) return null;
 

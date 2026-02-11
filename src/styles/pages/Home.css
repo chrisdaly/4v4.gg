@@ -85,6 +85,15 @@
   line-height: 1.4;
 }
 
+.event-item-clickable {
+  cursor: pointer;
+  transition: background 0.15s;
+}
+
+.event-item-clickable:hover {
+  background: rgba(255, 255, 255, 0.03);
+}
+
 .event-dot {
   width: 6px;
   height: 6px;
@@ -107,6 +116,17 @@
 
 .event-dot.event-game_end {
   background: var(--grey-mid);
+}
+
+.event-dot.event-status {
+  background: none;
+  border: 1px solid rgba(255, 255, 255, 0.2);
+}
+
+.event-item-status .event-name {
+  font-family: var(--font-mono);
+  font-size: 11px;
+  color: var(--grey-light);
 }
 
 .event-body {
