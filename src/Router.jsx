@@ -1,5 +1,5 @@
 import React, { Suspense, lazy, useEffect } from "react";
-import { BrowserRouter, Route, Switch, Link } from "react-router-dom";
+import { BrowserRouter, Route, Switch, Link, useLocation } from "react-router-dom";
 import ErrorBoundary from "./components/ErrorBoundary";
 import Navbar from "./components/Navbar";
 import RaceSelectOverlay from "./components/RaceSelectOverlay";
@@ -64,7 +64,10 @@ const PageLoader = () => (
 
 const FirstVisitGate = () => {
   const { isFirstVisit } = useTheme();
-  return isFirstVisit ? <RaceSelectOverlay /> : null;
+  const { pathname } = useLocation();
+  const isOverlay = pathname.startsWith("/overlay") || pathname.startsWith("/stream") || pathname.startsWith("/mystream");
+  if (isOverlay || !isFirstVisit) return null;
+  return <RaceSelectOverlay />;
 };
 
 const Preloader = () => {

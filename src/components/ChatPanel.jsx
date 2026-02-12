@@ -1,4 +1,4 @@
-import React, { useRef, useEffect, useState, useMemo, useCallback } from "react";
+import React, { useRef, useEffect, useState, useCallback } from "react";
 import { Link } from "react-router-dom";
 import styled from "styled-components";
 import { GiCrossedSwords } from "react-icons/gi";
@@ -6,7 +6,8 @@ import { HiKey } from "react-icons/hi";
 import { IoSend } from "react-icons/io5";
 import crownIcon from "../assets/icons/king.svg";
 import { raceMapping, raceIcons } from "../lib/constants";
-import { CountryFlag } from "./ui";
+import { CountryFlag, Skeleton, SkeletonCircle } from "./ui";
+import { useMessageSegments, useBotResponseMap, formatDateDivider, getDateKey, formatTime, formatDateTime } from "../lib/useChatMessages";
 
 const OuterFrame = styled.div`
   position: relative;
@@ -655,52 +656,8 @@ const EmptyState = styled.div`
   letter-spacing: 0.1em;
 `;
 
-function formatDateDivider(isoString) {
-  const d = new Date(isoString);
-  const now = new Date();
-  const isToday =
-    d.getDate() === now.getDate() &&
-    d.getMonth() === now.getMonth() &&
-    d.getFullYear() === now.getFullYear();
-  if (isToday) return "Today";
-  const yesterday = new Date(now);
-  yesterday.setDate(yesterday.getDate() - 1);
-  const isYesterday =
-    d.getDate() === yesterday.getDate() &&
-    d.getMonth() === yesterday.getMonth() &&
-    d.getFullYear() === yesterday.getFullYear();
-  if (isYesterday) return "Yesterday";
-  return d.toLocaleDateString([], { month: "short", day: "numeric", year: "numeric" });
-}
-
-function getDateKey(isoString) {
-  const d = new Date(isoString);
-  return `${d.getFullYear()}-${d.getMonth()}-${d.getDate()}`;
-}
-
-function formatTime(isoString) {
-  const d = new Date(isoString);
-  return d.toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" });
-}
-
-function formatDateTime(isoString) {
-  const d = new Date(isoString);
-  const now = new Date();
-  const time = d.toLocaleTimeString([], { hour: "numeric", minute: "2-digit" });
-  const isToday =
-    d.getDate() === now.getDate() &&
-    d.getMonth() === now.getMonth() &&
-    d.getFullYear() === now.getFullYear();
-  if (isToday) return time;
-  const yesterday = new Date(now);
-  yesterday.setDate(yesterday.getDate() - 1);
-  const isYesterday =
-    d.getDate() === yesterday.getDate() &&
-    d.getMonth() === yesterday.getMonth() &&
-    d.getFullYear() === yesterday.getFullYear();
-  if (isYesterday) return `Yesterday ${time}`;
-  return `${d.getMonth() + 1}/${d.getDate()}/${String(d.getFullYear()).slice(2)} ${time}`;
-}
+// formatDateDivider, getDateKey, formatTime, formatDateTime
+// are now imported from ../lib/useChatMessages
 
 function getAvatarElement(tag, avatars, stats) {
   const avatarUrl = avatars?.get(tag)?.profilePicUrl;
@@ -788,59 +745,13 @@ export default function ChatPanel({ messages, status, avatars, stats, sessions, 
     }
   }, [botDraft, apiKey, botTesting]);
 
-  // Index bot responses by triggering message ID + collect unmatched
-  const { botResponseMap, unmatchedBotResponses } = useMemo(() => {
-    const map = new Map();
-    const matched = new Set();
-    for (const br of botResponses) {
-      for (let i = messages.length - 1; i >= 0; i--) {
-        const msg = messages[i];
-        const tag = msg.battle_tag || msg.battleTag;
-        if (
-          tag === br.triggeredByTag &&
-          msg.message.toLowerCase().startsWith(br.command)
-        ) {
-          map.set(msg.id, br);
-          matched.add(br);
-          break;
-        }
-      }
-    }
-    const unmatched = botResponses.filter((br) => !matched.has(br));
-    return { botResponseMap: map, unmatchedBotResponses: unmatched };
-  }, [botResponses, messages]);
-
-  // Compute message segments (grouped by same user within 2 min)
-  const messageSegments = useMemo(() => {
-    const segments = [];
-    for (let i = 0; i < messages.length; i++) {
-      const msg = messages[i];
-      const tag = msg.battle_tag || msg.battleTag;
-      let isGroupStart = i === 0;
-      if (!isGroupStart) {
-        const prev = messages[i - 1];
-        const prevTag = prev.battle_tag || prev.battleTag;
-        if (prevTag !== tag) {
-          isGroupStart = true;
-        } else {
-          const prevTime = new Date(prev.sent_at || prev.sentAt).getTime();
-          const currTime = new Date(msg.sent_at || msg.sentAt).getTime();
-          if (currTime - prevTime > 2 * 60 * 1000) isGroupStart = true;
-        }
-      }
-      if (isGroupStart) {
-        segments.push({ start: msg, continuations: [] });
-      } else if (segments.length > 0) {
-        segments[segments.length - 1].continuations.push(msg);
-      }
-    }
-    return segments;
-  }, [messages]);
+  const { botResponseMap, unmatchedBotResponses } = useBotResponseMap(botResponses, messages);
+  const messageSegments = useMessageSegments(messages);
 
   // Auto-scroll to bottom when new messages arrive
   useEffect(() => {
     if (autoScroll && listRef.current) {
-      listRef.current.scrollTop = listRef.current.scrollHeight;
+      listRef.current.scrollTo({ top: listRef.current.scrollHeight, behavior: "smooth" });
     } else if (!autoScroll && messages.length > 0) {
       setShowNotice(true);
     }
@@ -856,7 +767,7 @@ export default function ChatPanel({ messages, status, avatars, stats, sessions, 
 
   function scrollToBottom() {
     if (listRef.current) {
-      listRef.current.scrollTop = listRef.current.scrollHeight;
+      listRef.current.scrollTo({ top: listRef.current.scrollHeight, behavior: "smooth" });
     }
     setAutoScroll(true);
     setShowNotice(false);
@@ -869,15 +780,33 @@ export default function ChatPanel({ messages, status, avatars, stats, sessions, 
           <Title>4v4 Chat</Title>
           <StatusBadge>
             <StatusDot $connected={status === "connected"} />
-            {status === "connected" ? messages.length : "Connecting..."}
+            {status === "connected"
+              ? messages.length
+              : status === "reconnecting"
+                ? "Reconnecting..."
+                : "Connecting..."}
           </StatusBadge>
         </Header>
         {messages.length === 0 ? (
-          <EmptyState>
-            {status === "connected"
-              ? "No messages yet"
-              : "Connecting to chat..."}
-          </EmptyState>
+          status !== "connected" ? (
+            <MessageList>
+              {[...Array(6)].map((_, i) => (
+                <div key={i} style={{ display: "flex", gap: "var(--space-2)", padding: "var(--space-4) var(--space-4)", alignItems: "flex-start" }}>
+                  <SkeletonCircle $size="60px" style={{ borderRadius: "var(--radius-md)" }} />
+                  <div style={{ flex: 1, display: "flex", flexDirection: "column", gap: 6, paddingTop: 4 }}>
+                    <div style={{ display: "flex", gap: "var(--space-2)", alignItems: "center" }}>
+                      <Skeleton $w="100px" $h="14px" />
+                      <Skeleton $w="50px" $h="10px" />
+                    </div>
+                    <Skeleton $w={`${50 + Math.random() * 40}%`} $h="14px" />
+                    {i % 2 === 0 && <Skeleton $w={`${30 + Math.random() * 30}%`} $h="14px" />}
+                  </div>
+                </div>
+              ))}
+            </MessageList>
+          ) : (
+            <EmptyState>No messages yet</EmptyState>
+          )
         ) : (
           <ScrollContainer>
             <MessageList ref={listRef} onScroll={handleScroll}>

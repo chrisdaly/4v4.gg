@@ -37,6 +37,13 @@ export function initDb() {
       created_at TEXT NOT NULL DEFAULT (datetime('now'))
     );
 
+    CREATE TABLE IF NOT EXISTS weekly_digests (
+      week_start TEXT PRIMARY KEY,
+      week_end   TEXT NOT NULL,
+      digest     TEXT NOT NULL,
+      created_at TEXT NOT NULL DEFAULT (datetime('now'))
+    );
+
     CREATE TABLE IF NOT EXISTS events (
       id        INTEGER PRIMARY KEY AUTOINCREMENT,
       type      TEXT NOT NULL,
@@ -248,6 +255,27 @@ export function deleteDigest(date) {
 
 export function getRecentDigests(limit = 7) {
   return db.prepare('SELECT * FROM daily_digests ORDER BY date DESC LIMIT ?').all(limit);
+}
+
+// ── Weekly digests ──────────────────────────────────
+
+export function getWeeklyDigest(weekStart) {
+  return db.prepare('SELECT * FROM weekly_digests WHERE week_start = ?').get(weekStart);
+}
+
+export function setWeeklyDigest(weekStart, weekEnd, digest) {
+  db.prepare(`
+    INSERT INTO weekly_digests (week_start, week_end, digest) VALUES (?, ?, ?)
+    ON CONFLICT(week_start) DO UPDATE SET digest = excluded.digest, week_end = excluded.week_end, created_at = datetime('now')
+  `).run(weekStart, weekEnd, digest);
+}
+
+export function deleteWeeklyDigest(weekStart) {
+  db.prepare('DELETE FROM weekly_digests WHERE week_start = ?').run(weekStart);
+}
+
+export function getRecentWeeklyDigests(limit = 4) {
+  return db.prepare('SELECT * FROM weekly_digests ORDER BY week_start DESC LIMIT ?').all(limit);
 }
 
 export function getToken() {

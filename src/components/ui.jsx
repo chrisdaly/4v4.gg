@@ -632,6 +632,46 @@ export const CountryFlag = ({ name, className, style }) => {
 };
 
 // ============================================
+// SKELETON LOADERS
+// ============================================
+
+const skeletonShimmer = `
+  @keyframes skeleton-shimmer {
+    0% { background-position: -200% 0; }
+    100% { background-position: 200% 0; }
+  }
+`;
+
+export const Skeleton = styled.div`
+  ${skeletonShimmer}
+  background: linear-gradient(
+    90deg,
+    rgba(255, 255, 255, 0.04) 25%,
+    rgba(255, 255, 255, 0.08) 50%,
+    rgba(255, 255, 255, 0.04) 75%
+  );
+  background-size: 200% 100%;
+  animation: skeleton-shimmer 1.5s ease-in-out infinite;
+  border-radius: ${(p) => p.$radius || "var(--radius-sm)"};
+  width: ${(p) => p.$w || "100%"};
+  height: ${(p) => p.$h || "16px"};
+`;
+
+export const SkeletonCircle = styled(Skeleton)`
+  border-radius: var(--radius-full);
+  width: ${(p) => p.$size || "40px"};
+  height: ${(p) => p.$size || "40px"};
+  flex-shrink: 0;
+`;
+
+export const SkeletonMessage = styled.div`
+  display: flex;
+  gap: var(--space-2);
+  padding: var(--space-2) var(--space-4);
+  align-items: flex-start;
+`;
+
+// ============================================
 // RE-EXPORTS
 // ============================================
 

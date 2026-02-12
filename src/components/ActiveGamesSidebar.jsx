@@ -5,6 +5,7 @@ import crownIcon from "../assets/icons/king.svg";
 import { raceMapping } from "../lib/constants";
 import { getMapImageUrl, formatElapsedTime } from "../lib/formatters";
 import { MmrComparison } from "./MmrComparison";
+import { Skeleton } from "./ui";
 
 const Sidebar = styled.aside`
   width: 460px;
@@ -19,7 +20,7 @@ const Sidebar = styled.aside`
     position: fixed;
     inset: 0;
     width: 100%;
-    height: 100vh;
+    height: 100dvh;
     z-index: 10001;
     transform: ${(p) => (p.$mobileVisible ? "translateY(0)" : "translateY(100%)")};
     transition: transform 0.25s ease;
@@ -542,7 +543,29 @@ export default function ActiveGamesSidebar({ matches = [], finishedMatches = [],
           <CloseButton onClick={onClose}>&times;</CloseButton>
         </Header>
         {sortedMatches.length === 0 && finishedMatches.length === 0 ? (
-          <EmptyState>No active games</EmptyState>
+          <Content>
+            {[...Array(3)].map((_, i) => (
+              <div key={i} style={{ margin: "var(--space-4) 0", borderRadius: "var(--radius-md)", border: "1px solid rgba(160, 130, 80, 0.12)", overflow: "hidden" }}>
+                <div style={{ display: "flex", alignItems: "center", gap: "var(--space-4)", padding: "var(--space-4) var(--space-6) var(--space-2)" }}>
+                  <Skeleton $w="72px" $h="72px" $radius="var(--radius-sm)" />
+                  <div style={{ flex: 1, display: "flex", flexDirection: "column", gap: 6 }}>
+                    <Skeleton $w="120px" $h="18px" />
+                    <Skeleton $w="80px" $h="14px" />
+                    <Skeleton $w="60px" $h="12px" />
+                  </div>
+                </div>
+                <div style={{ display: "flex", padding: "var(--space-2) var(--space-6) var(--space-3)", gap: "var(--space-4)" }}>
+                  <div style={{ flex: 1, display: "flex", flexDirection: "column", gap: 8 }}>
+                    {[...Array(4)].map((_, j) => <Skeleton key={j} $w={`${60 + Math.random() * 30}%`} $h="14px" />)}
+                  </div>
+                  <div style={{ width: 80 }} />
+                  <div style={{ flex: 1, display: "flex", flexDirection: "column", gap: 8, alignItems: "flex-end" }}>
+                    {[...Array(4)].map((_, j) => <Skeleton key={j} $w={`${60 + Math.random() * 30}%`} $h="14px" />)}
+                  </div>
+                </div>
+              </div>
+            ))}
+          </Content>
         ) : (
           <Content>
             {finishedMatches.map((match) => (

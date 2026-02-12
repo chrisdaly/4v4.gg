@@ -1,6 +1,6 @@
 import React, { useState, useEffect, useMemo, useRef, useCallback } from "react";
 import styled from "styled-components";
-import { HiUsers } from "react-icons/hi";
+import { HiUsers, HiChat } from "react-icons/hi";
 import { GiCrossedSwords } from "react-icons/gi";
 import useChatStream from "../lib/useChatStream";
 import { getPlayerProfile, getPlayerStats, getPlayerSessionLight, getOngoingMatches } from "../lib/api";
@@ -27,31 +27,80 @@ const Layout = styled.div`
 
   @media (max-width: 768px) {
     gap: 0;
-    height: calc(100vh - 46px);
+    height: calc(100dvh - 46px - 48px); /* dvh handles mobile address bar */
   }
 `;
 
-const MobileToggle = styled.button`
+/* ── Mobile Tab Bar ──────────────────────────── */
+
+const MobileTabBar = styled.div`
   display: none;
   position: fixed;
-  bottom: var(--space-4);
-  z-index: calc(var(--z-overlay) - 1);
-  width: 48px;
+  bottom: 0;
+  left: 0;
+  right: 0;
+  z-index: 10000;
   height: 48px;
-  border-radius: var(--radius-full);
-  border: 1px solid var(--gold);
-  background: var(--grey-dark);
-  color: var(--gold);
-  font-size: 20px;
-  cursor: pointer;
-  align-items: center;
-  justify-content: center;
-  right: ${(p) => p.$right || "auto"};
-  left: ${(p) => p.$left || "auto"};
+  background: rgba(10, 8, 6, 0.95);
+  backdrop-filter: blur(8px);
+  border-top: 1px solid rgba(252, 219, 51, 0.15);
 
   @media (max-width: 768px) {
     display: flex;
   }
+`;
+
+const Tab = styled.button`
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 2px;
+  background: none;
+  border: none;
+  color: ${(p) => (p.$active ? "var(--gold)" : "var(--grey-light)")};
+  font-family: var(--font-mono);
+  font-size: 10px;
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+  cursor: pointer;
+  position: relative;
+  transition: color 0.15s;
+
+  svg {
+    width: 20px;
+    height: 20px;
+  }
+
+  &::after {
+    content: "";
+    position: absolute;
+    top: 0;
+    left: 20%;
+    right: 20%;
+    height: 2px;
+    background: ${(p) => (p.$active ? "var(--gold)" : "transparent")};
+    transition: background 0.15s;
+  }
+`;
+
+const TabBadge = styled.span`
+  position: absolute;
+  top: 4px;
+  right: calc(50% - 18px);
+  min-width: 16px;
+  height: 16px;
+  border-radius: 8px;
+  background: var(--red);
+  color: #fff;
+  font-family: var(--font-mono);
+  font-size: 9px;
+  font-weight: 700;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 0 4px;
 `;
 
 /* ── Main component ───────────────────────────────────────────── */
@@ -63,14 +112,26 @@ const Chat = () => {
   const [stats, setStats] = useState(new Map());
   const [sessions, setSessions] = useState(new Map());
   const [ongoingMatches, setOngoingMatches] = useState([]);
-  const [showSidebar, setShowSidebar] = useState(false);
-  const [showGames, setShowGames] = useState(false);
+  const [mobileTab, setMobileTab] = useState("chat"); // "games" | "chat" | "users"
+  const [unreadCount, setUnreadCount] = useState(0);
   const [finishedMatches, setFinishedMatches] = useState([]);
   const [recentWinners, setRecentWinners] = useState(new Set());
   const [tick, setTick] = useState(0);
   const fetchedRef = useRef(new Set());
   const prevInGameRef = useRef(new Set());
   const prevMatchIdsRef = useRef(new Set());
+  const prevMsgCountRef = useRef(0);
+
+  // Track unread messages when not on chat tab
+  useEffect(() => {
+    if (mobileTab === "chat") {
+      setUnreadCount(0);
+      prevMsgCountRef.current = messages.length;
+    } else {
+      const newCount = messages.length - prevMsgCountRef.current;
+      if (newCount > 0) setUnreadCount(newCount);
+    }
+  }, [messages.length, mobileTab]);
 
   // Poll ongoing matches every 30s
   const fetchOngoing = useCallback(async () => {
@@ -104,7 +165,6 @@ const Chat = () => {
 
     async function fetchResult(id, attempt = 0) {
       console.log(`[GameEnd] Fetching result for ${id}, attempt ${attempt}`);
-      // Direct fetch to bypass cache — the cached version may lack winner data
       let match;
       try {
         const res = await fetch(`https://website-backend.w3champions.com/api/matches/${encodeURIComponent(id)}`);
@@ -118,13 +178,11 @@ const Chat = () => {
         (t) => t.players?.some((p) => p.won === true || p.won === 1)
       );
 
-      // If no winner data yet and we haven't retried too many times, wait and retry
       if (winnerTeamIndex < 0 && attempt < 3) {
         setTimeout(() => fetchResult(id, attempt + 1), 5000);
         return;
       }
 
-      // Track winning player battleTags
       if (winnerTeamIndex >= 0) {
         const winnerTags = match.teams[winnerTeamIndex].players
           ?.map((p) => p.battleTag)
@@ -135,7 +193,6 @@ const Chat = () => {
             winnerTags.forEach((t) => next.add(t));
             return next;
           });
-          // Clear after 2 minutes
           setTimeout(() => {
             setRecentWinners((prev) => {
               const next = new Set(prev);
@@ -156,7 +213,6 @@ const Chat = () => {
     }
 
     for (const id of endedIds) {
-      // Wait 5s before first attempt — give API time to process the result
       setTimeout(() => fetchResult(id), 5000);
     }
   }, [ongoingMatches]);
@@ -171,7 +227,6 @@ const Chat = () => {
         }
       }
     }
-    // If a player sent a message in the last 60s, they're probably not in game
     const now = Date.now();
     for (let i = messages.length - 1; i >= 0; i--) {
       const msg = messages[i];
@@ -183,7 +238,7 @@ const Chat = () => {
     return tags;
   }, [ongoingMatches, messages]);
 
-  // Compute idle tags: users who joined >3h ago and aren't in a game
+  // Compute idle tags
   const idleTags = useMemo(() => {
     const now = Date.now();
     const idle = new Set();
@@ -290,8 +345,8 @@ const Chat = () => {
         <ActiveGamesSidebar
           matches={ongoingMatches}
           finishedMatches={finishedMatches}
-          $mobileVisible={showGames}
-          onClose={() => setShowGames(false)}
+          $mobileVisible={mobileTab === "games"}
+          onClose={() => setMobileTab("chat")}
           borderTheme={borderTheme}
         />
         <ChatPanel
@@ -315,21 +370,26 @@ const Chat = () => {
           idleTags={idleTags}
           inGameMatchMap={inGameMatchMap}
           recentWinners={recentWinners}
-          $mobileVisible={showSidebar}
-          onClose={() => setShowSidebar(false)}
+          $mobileVisible={mobileTab === "users"}
+          onClose={() => setMobileTab("chat")}
           borderTheme={borderTheme}
         />
       </Layout>
-      {!showGames && !showSidebar && (
-        <>
-          <MobileToggle $left="var(--space-4)" onClick={() => setShowGames(true)}>
-            <GiCrossedSwords />
-          </MobileToggle>
-          <MobileToggle $right="var(--space-4)" onClick={() => setShowSidebar(true)}>
-            <HiUsers />
-          </MobileToggle>
-        </>
-      )}
+      <MobileTabBar>
+        <Tab $active={mobileTab === "games"} onClick={() => setMobileTab("games")}>
+          <GiCrossedSwords />
+          <span>Games{ongoingMatches.length > 0 ? ` (${ongoingMatches.length})` : ""}</span>
+        </Tab>
+        <Tab $active={mobileTab === "chat"} onClick={() => setMobileTab("chat")}>
+          <HiChat />
+          <span>Chat</span>
+          {unreadCount > 0 && <TabBadge>{unreadCount > 99 ? "99+" : unreadCount}</TabBadge>}
+        </Tab>
+        <Tab $active={mobileTab === "users"} onClick={() => setMobileTab("users")}>
+          <HiUsers />
+          <span>Online ({onlineUsers.length})</span>
+        </Tab>
+      </MobileTabBar>
     </Page>
   );
 };

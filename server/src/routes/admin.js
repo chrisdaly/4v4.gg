@@ -1,10 +1,10 @@
 import { Router } from 'express';
 import config from '../config.js';
-import { setToken, getStats, getTopWords, getRecentDigests, deleteDigest } from '../db.js';
+import { setToken, getStats, getTopWords, getRecentDigests, deleteDigest, getRecentWeeklyDigests, deleteWeeklyDigest } from '../db.js';
 import { updateToken, getStatus } from '../signalr.js';
 import { getClientCount } from '../sse.js';
 import { setBotEnabled, isBotEnabled, testCommand } from '../bot.js';
-import { generateDigest, fetchDailyStats, generateLiveDigest, todayDigestCache, setTodayDigestCache } from '../digest.js';
+import { generateDigest, fetchDailyStats, generateLiveDigest, todayDigestCache, setTodayDigestCache, generateWeeklyDigest } from '../digest.js';
 
 const router = Router();
 
@@ -118,6 +118,39 @@ router.get('/analytics', (_req, res) => {
     topWords: getTopWords(7),
     digests: getRecentDigests(7),
   });
+});
+
+// Recent weekly digests (public)
+router.get('/weekly-digests', (_req, res) => {
+  res.json(getRecentWeeklyDigests(8));
+});
+
+// Single weekly digest — generates if missing (public)
+router.get('/weekly-digest/:weekStart', async (req, res) => {
+  const { weekStart } = req.params;
+  if (!/^\d{4}-\d{2}-\d{2}$/.test(weekStart)) {
+    return res.status(400).json({ error: 'weekStart must be YYYY-MM-DD (a Monday)' });
+  }
+  try {
+    const digest = await generateWeeklyDigest(weekStart);
+    if (!digest) {
+      return res.json({ weekStart, digest: null, reason: 'Not enough daily digests (need 3+) or not a Monday' });
+    }
+    res.json({ weekStart, digest });
+  } catch (err) {
+    console.error('[Weekly] Error:', err.message);
+    res.status(500).json({ error: 'Failed to generate weekly digest' });
+  }
+});
+
+// Delete a cached weekly digest (admin, for regeneration)
+router.delete('/weekly-digest/:weekStart', requireApiKey, (req, res) => {
+  const { weekStart } = req.params;
+  if (!/^\d{4}-\d{2}-\d{2}$/.test(weekStart)) {
+    return res.status(400).json({ error: 'weekStart must be YYYY-MM-DD' });
+  }
+  deleteWeeklyDigest(weekStart);
+  res.json({ ok: true, message: `Weekly digest for ${weekStart} cleared` });
 });
 
 // Image proxy for cross-origin avatar screenshots (public)

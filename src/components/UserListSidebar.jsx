@@ -4,7 +4,7 @@ import styled from "styled-components";
 import { GiCrossedSwords } from "react-icons/gi";
 import crownIcon from "../assets/icons/king.svg";
 import { raceMapping, raceIcons } from "../lib/constants";
-import { CountryFlag } from "./ui";
+import { CountryFlag, Skeleton, SkeletonCircle } from "./ui";
 
 const Sidebar = styled.aside`
   width: 268px;
@@ -19,7 +19,7 @@ const Sidebar = styled.aside`
     position: fixed;
     inset: 0;
     width: 100%;
-    height: 100vh;
+    height: 100dvh;
     z-index: 10001;
     transform: ${(p) => (p.$mobileVisible ? "translateY(0)" : "translateY(100%)")};
     transition: transform 0.25s ease;
@@ -458,6 +458,17 @@ export default function UserListSidebar({
         </ColMmr>
       </ColumnHeaders>
       <UserList>
+        {users.length === 0 && (
+          <>
+            {[...Array(8)].map((_, i) => (
+              <UserRowBase key={`skel-${i}`}>
+                <SkeletonCircle $size="28px" style={{ borderRadius: "var(--radius-sm)" }} />
+                <Skeleton $w={`${60 + Math.random() * 30}%`} $h="14px" style={{ flex: 1 }} />
+                <Skeleton $w="32px" $h="12px" />
+              </UserRowBase>
+            ))}
+          </>
+        )}
         {inGameUsers.length > 0 && (
           <>
             <SectionHeader onClick={() => setInGameOpen((v) => !v)}>

@@ -469,8 +469,9 @@ const WorldMap = ({ playerCountries, players = [], instant = false, animationSca
     }
 
     // 7. Player name labels — skip countries with active enter labels to avoid doubling
+    //    Only suppress for organic (non-bulk) enters where animated labels are shown
     const labelG = svg.append("g").attr("class", "label-layer").attr("pointer-events", "none");
-    const staticCandidates = enteringCodes.size > 0
+    const staticCandidates = enteringCodes.size > 0 && !isBulkEnter
       ? labelCandidates.filter((p) => !enteringCodes.has(p.country.toUpperCase()))
       : labelCandidates;
     const placedLabels = placeLabels(

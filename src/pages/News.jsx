@@ -17,6 +17,7 @@ const DIGEST_SECTIONS = [
   { key: "DRAMA", label: "Drama", cls: "drama" },
   { key: "BANS", label: "Bans", cls: "bans" },
   { key: "HIGHLIGHTS", label: "Highlights", cls: "highlights" },
+  { key: "RECAP", label: "Recap", cls: "recap" },
   { key: "WINNER", label: "Winner", cls: "winner", stat: true },
   { key: "LOSER", label: "Loser", cls: "loser", stat: true },
   { key: "GRINDER", label: "Grinder", cls: "grinder", stat: true },
@@ -167,6 +168,18 @@ const formatDigestLabel = (dateStr) => {
   const days = ["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"];
   const months = ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"];
   return `${days[d.getDay()]} ${months[d.getMonth()]} ${d.getDate()}`;
+};
+
+const formatWeeklyLabel = (weekStart, weekEnd) => {
+  const months = ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"];
+  const s = new Date(weekStart + "T12:00:00");
+  const e = new Date(weekEnd + "T12:00:00");
+  const sMonth = months[s.getMonth()];
+  const eMonth = months[e.getMonth()];
+  if (sMonth === eMonth) {
+    return `${sMonth} ${s.getDate()}-${e.getDate()}`;
+  }
+  return `${sMonth} ${s.getDate()} - ${eMonth} ${e.getDate()}`;
 };
 
 /* ── Sub-components ──────────────────────────────────── */
@@ -553,8 +566,11 @@ const News = () => {
   const { onlineUsers, messages } = useChatStream();
   const [allDigests, setAllDigests] = useState([]);
   const [digestIdx, setDigestIdx] = useState(0);
+  const [weeklyDigests, setWeeklyDigests] = useState([]);
+  const [weeklyIdx, setWeeklyIdx] = useState(0);
+  const [viewMode, setViewMode] = useState("daily");
 
-  // Fetch all digests (today + past)
+  // Fetch all digests (today + past) and weekly digests
   useEffect(() => {
     Promise.all([
       fetch(`${RELAY_URL}/api/admin/stats/today`)
@@ -563,13 +579,17 @@ const News = () => {
       fetch(`${RELAY_URL}/api/admin/digests`)
         .then((r) => (r.ok ? r.json() : []))
         .catch(() => []),
-    ]).then(([today, past]) => {
+      fetch(`${RELAY_URL}/api/admin/weekly-digests`)
+        .then((r) => (r.ok ? r.json() : []))
+        .catch(() => []),
+    ]).then(([today, past, weekly]) => {
       const combined = [];
       if (today?.digest) combined.push(today);
       for (const d of past) {
         if (!combined.some((c) => c.date === d.date)) combined.push(d);
       }
       setAllDigests(combined);
+      setWeeklyDigests(weekly);
     });
   }, []);
 
@@ -599,23 +619,62 @@ const News = () => {
   const currentDigest = allDigests[digestIdx] || null;
   const digestLabel = currentDigest ? formatDigestLabel(currentDigest.date) : null;
 
+  const currentWeekly = weeklyDigests[weeklyIdx] || null;
+  const weeklyLabel = currentWeekly ? formatWeeklyLabel(currentWeekly.week_start, currentWeekly.week_end) : null;
+
+  const hasWeekly = weeklyDigests.length > 0;
+
   return (
     <div className="news">
       <div className="news-container">
-        {allDigests.length > 0 ? (
-          <DigestBanner
-            digest={currentDigest}
-            nameSet={nameSet}
-            nameToTag={nameToTag}
-            label={digestLabel}
-            dateTabs={allDigests.map((d, i) => ({
-              label: formatDigestLabel(d.date),
-              active: i === digestIdx,
-              onClick: () => setDigestIdx(i),
-            }))}
-          />
+        {hasWeekly && (
+          <div className="news-view-toggle">
+            <button
+              className={`news-view-btn${viewMode === "daily" ? " news-view-btn--active" : ""}`}
+              onClick={() => setViewMode("daily")}
+            >
+              Daily
+            </button>
+            <button
+              className={`news-view-btn${viewMode === "weekly" ? " news-view-btn--active" : ""}`}
+              onClick={() => setViewMode("weekly")}
+            >
+              Weekly
+            </button>
+          </div>
+        )}
+        {viewMode === "daily" ? (
+          allDigests.length > 0 ? (
+            <DigestBanner
+              digest={currentDigest}
+              nameSet={nameSet}
+              nameToTag={nameToTag}
+              label={digestLabel}
+              dateTabs={allDigests.map((d, i) => ({
+                label: formatDigestLabel(d.date),
+                active: i === digestIdx,
+                onClick: () => setDigestIdx(i),
+              }))}
+            />
+          ) : (
+            <div className="news-empty">No digests available yet.</div>
+          )
         ) : (
-          <div className="news-empty">No digests available yet.</div>
+          weeklyDigests.length > 0 ? (
+            <DigestBanner
+              digest={currentWeekly ? { digest: currentWeekly.digest, date: currentWeekly.week_start } : null}
+              nameSet={nameSet}
+              nameToTag={nameToTag}
+              label={weeklyLabel}
+              dateTabs={weeklyDigests.map((w, i) => ({
+                label: formatWeeklyLabel(w.week_start, w.week_end),
+                active: i === weeklyIdx,
+                onClick: () => setWeeklyIdx(i),
+              }))}
+            />
+          ) : (
+            <div className="news-empty">No weekly digests available yet.</div>
+          )
         )}
       </div>
     </div>
