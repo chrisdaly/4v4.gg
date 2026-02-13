@@ -52,7 +52,7 @@ const Themes = lazy(() => import("./pages/Themes"));
 // Preload core nav pages after initial paint so they're instant on click
 const preloadCorePages = () => {
   const load = () => Object.values(pageImports).forEach(fn => fn());
-  requestIdleCallback?.(load) ?? setTimeout(load, 2000);
+  (window.requestIdleCallback || setTimeout)(load, 2000);
 };
 
 const PageLoader = () => (
