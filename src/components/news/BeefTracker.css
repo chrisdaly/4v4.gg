@@ -1,0 +1,145 @@
+/* ── Beef Tracker / Drama Leaderboard ─────────────── */
+
+.beef-tracker {
+  margin-top: var(--space-4);
+  background: rgba(10, 8, 6, 0.25);
+  backdrop-filter: blur(12px);
+  -webkit-backdrop-filter: blur(12px);
+  border: 1px solid rgba(255, 255, 255, 0.06);
+  border-radius: var(--radius-md);
+  overflow: hidden;
+}
+
+.beef-tracker-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  width: 100%;
+  padding: var(--space-4);
+  background: none;
+  border: none;
+  cursor: pointer;
+  color: inherit;
+  font: inherit;
+}
+
+.beef-tracker-header:hover {
+  background: rgba(255, 255, 255, 0.02);
+}
+
+.beef-tracker-title {
+  font-family: var(--font-mono);
+  font-size: 11px;
+  text-transform: uppercase;
+  letter-spacing: 0.1em;
+  color: var(--gold);
+}
+
+.beef-tracker-toggle {
+  font-family: var(--font-mono);
+  font-size: 14px;
+  color: var(--grey-light);
+}
+
+.beef-tracker-body {
+  padding: 0 var(--space-4) var(--space-4);
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-4);
+}
+
+.beef-tracker-section-label {
+  font-family: var(--font-mono);
+  font-size: 10px;
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+  color: var(--grey-mid);
+  margin-bottom: var(--space-2);
+}
+
+.beef-tracker-bars {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.beef-tracker-bar-row {
+  display: grid;
+  grid-template-columns: 100px 1fr auto;
+  align-items: center;
+  gap: var(--space-2);
+}
+
+.beef-tracker-name {
+  font-family: var(--font-display);
+  font-size: var(--text-xs);
+  color: var(--gold);
+  text-decoration: none;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.beef-tracker-name:hover {
+  text-decoration: underline;
+}
+
+.beef-tracker-bar-wrap {
+  height: 8px;
+  background: rgba(255, 255, 255, 0.04);
+  border-radius: 4px;
+  overflow: hidden;
+}
+
+.beef-tracker-bar {
+  height: 100%;
+  background: var(--red);
+  border-radius: 4px;
+  transition: width 0.3s ease;
+  min-width: 4px;
+}
+
+.beef-tracker-count {
+  font-family: var(--font-mono);
+  font-size: 11px;
+  color: var(--grey-light);
+  text-align: right;
+}
+
+.beef-tracker-rivalries {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.beef-tracker-rivalry {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+}
+
+.beef-tracker-rival-name {
+  font-family: var(--font-display);
+  font-size: var(--text-xs);
+  color: var(--gold);
+  text-decoration: none;
+}
+
+.beef-tracker-rival-name:hover {
+  text-decoration: underline;
+}
+
+.beef-tracker-vs {
+  font-family: var(--font-mono);
+  font-size: 10px;
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+  color: var(--grey-mid);
+}
+
+.beef-tracker-rivalry-count {
+  font-family: var(--font-mono);
+  font-size: 11px;
+  color: var(--red);
+  margin-left: auto;
+}

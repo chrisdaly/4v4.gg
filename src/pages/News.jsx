@@ -1,71 +1,27 @@
-import React, { useState, useEffect, useRef, useMemo } from "react";
-import { Link } from "react-router-dom";
+import React, { useState, useEffect, useRef, useMemo, useCallback } from "react";
+import { Link, useLocation, useHistory } from "react-router-dom";
 import useChatStream from "../lib/useChatStream";
 import { getPlayerProfile } from "../lib/api";
 import { CountryFlag } from "../components/ui";
-import { FiExternalLink, FiCamera } from "react-icons/fi";
+import { FiExternalLink, FiCamera, FiRefreshCw } from "react-icons/fi";
 import html2canvas from "html2canvas";
+import ChatContext from "../components/news/ChatContext";
+import {
+  DIGEST_SECTIONS,
+  parseDigestSections,
+  parseMentions,
+  parseStatLine,
+  extractMentionedTags,
+  splitQuotes,
+} from "../lib/digestUtils";
+import TopicTrends from "../components/news/TopicTrends";
+import BeefTracker from "../components/news/BeefTracker";
 import "../styles/pages/News.css";
 
 const RELAY_URL =
   import.meta.env.VITE_CHAT_RELAY_URL || "https://4v4gg-chat-relay.fly.dev";
 
-/* ── Digest parsing helpers ──────────────────────────── */
-
-const DIGEST_SECTIONS = [
-  { key: "TOPICS", label: "Topics", cls: "topics", tags: true },
-  { key: "DRAMA", label: "Drama", cls: "drama" },
-  { key: "BANS", label: "Bans", cls: "bans" },
-  { key: "HIGHLIGHTS", label: "Highlights", cls: "highlights" },
-  { key: "RECAP", label: "Recap", cls: "recap" },
-  { key: "WINNER", label: "Winner", cls: "winner", stat: true },
-  { key: "LOSER", label: "Loser", cls: "loser", stat: true },
-  { key: "GRINDER", label: "Grinder", cls: "grinder", stat: true },
-  { key: "HOTSTREAK", label: "Hot", cls: "hotstreak", stat: true },
-  { key: "COLDSTREAK", label: "Cold", cls: "coldstreak", stat: true },
-];
-
-const ALL_SECTION_KEYS = [...DIGEST_SECTIONS.map((s) => s.key), "MENTIONS"];
-const SECTION_RE = new RegExp(`^(${ALL_SECTION_KEYS.join("|")})\\s*:\\s*`, "gm");
-
-const parseDigestSections = (text) => {
-  const sections = [];
-  const matches = [...text.matchAll(SECTION_RE)];
-  for (let i = 0; i < matches.length; i++) {
-    const m = matches[i];
-    const start = m.index + m[0].length;
-    const end = i + 1 < matches.length ? matches[i + 1].index : text.length;
-    const content = text.slice(start, end).trim();
-    if (content) sections.push({ key: m[1], content });
-  }
-  return sections;
-};
-
-const parseMentions = (sections) => {
-  const mentionsSection = sections.find((s) => s.key === "MENTIONS");
-  if (!mentionsSection) return new Map();
-  const map = new Map();
-  for (const tag of mentionsSection.content.split(",")) {
-    const trimmed = tag.trim();
-    if (!trimmed) continue;
-    const name = trimmed.split("#")[0];
-    if (name) map.set(name, trimmed);
-  }
-  return map;
-};
-
-const parseStatLine = (content) => {
-  const m = content.match(/^(.+?#\d+)\s+(.+?)\s+\((\d+)W-(\d+)L\)\s*([WL]*)$/);
-  if (!m) return null;
-  return {
-    battleTag: m[1],
-    name: m[1].split("#")[0],
-    headline: m[2],
-    wins: parseInt(m[3]),
-    losses: parseInt(m[4]),
-    form: m[5] || "",
-  };
-};
+/* ── Local rendering helpers ──────────────────────────── */
 
 const MATCH_ID_RE = /\b([a-f0-9]{24})\b/g;
 
@@ -86,7 +42,6 @@ const linkifyMatchIds = (text) => {
 };
 
 const highlightNames = (text, nameSet) => {
-  // First pass: linkify match IDs
   const chunks = linkifyMatchIds(text);
 
   if (!nameSet || nameSet.size === 0) return chunks;
@@ -94,7 +49,6 @@ const highlightNames = (text, nameSet) => {
   const escaped = names.map((n) => n.replace(/[.*+?^${}()|[\]\\]/g, "\\$&"));
   const re = new RegExp(`\\b(${escaped.join("|")})\\b`, "gi");
 
-  // Second pass: highlight names within string chunks only
   const result = [];
   for (const chunk of chunks) {
     if (typeof chunk !== "string") {
@@ -112,51 +66,6 @@ const highlightNames = (text, nameSet) => {
     if (last < chunk.length) result.push(chunk.slice(last));
   }
   return result;
-};
-
-const extractMentionedTags = (text, nameToTag) => {
-  const tags = new Set();
-  const lower = text.toLowerCase();
-  for (const [name, tag] of nameToTag) {
-    if (name.length < 2) continue;
-    const escaped = name.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
-    const re = new RegExp(`\\b${escaped}\\b`, "i");
-    if (re.test(text)) {
-      tags.add(tag);
-    } else if (name.length >= 7) {
-      const nameLower = name.toLowerCase();
-      for (const word of lower.split(/\W+/)) {
-        if (word.length >= 6 && nameLower.startsWith(word)) {
-          tags.add(tag);
-          break;
-        }
-      }
-    }
-  }
-  return [...tags];
-};
-
-const QUOTE_RE = /"([^"]+)"/g;
-
-const splitQuotes = (text) => {
-  const quotes = [];
-  let summary = text;
-  for (const m of text.matchAll(QUOTE_RE)) {
-    quotes.push(m[1]);
-  }
-  if (quotes.length > 0) {
-    summary = text
-      .replace(QUOTE_RE, "")
-      .replace(/\btold him to\s*and\b/gi, "")
-      .replace(/\bwhere \w+ told him\s*and\b/gi, "")
-      .replace(/\bcalling him\s*$/gi, "")
-      .replace(/\bcalling him\s+and\b/gi, "")
-      .replace(/'\s+of\b/g, "'s")
-      .replace(/\s*[—:,]\s*$/g, "")
-      .replace(/\s{2,}/g, " ")
-      .trim();
-  }
-  return { summary, quotes };
 };
 
 const formatDigestLabel = (dateStr) => {
@@ -235,6 +144,8 @@ const StatSection = ({ stat, cls, label, profiles }) => {
 const DigestBanner = ({ digest, nameSet, nameToTag, label = "Yesterday in 4v4", dateTabs }) => {
   const digestRef = useRef(null);
   const [copyState, setCopyState] = useState(null); // null | "copying" | "copied" | "saved"
+  const [expandedDramaIdx, setExpandedDramaIdx] = useState(null);
+  const [expandedSpikeIdx, setExpandedSpikeIdx] = useState(null);
 
   const handleScreenshot = async () => {
     if (!digestRef.current || copyState === "copying") return;
@@ -323,6 +234,8 @@ const DigestBanner = ({ digest, nameSet, nameToTag, label = "Yesterday in 4v4", 
   if (!digest) return null;
 
   const text = digest.digest || "";
+  // Reset expanded items when switching digests
+  useEffect(() => { setExpandedDramaIdx(null); setExpandedSpikeIdx(null); }, [text]);
   const allSections = useMemo(() => parseDigestSections(text), [text]);
 
   const mentionsMap = useMemo(() => parseMentions(allSections), [allSections]);
@@ -500,9 +413,35 @@ const DigestBanner = ({ digest, nameSet, nameToTag, label = "Yesterday in 4v4", 
                       .map((p, j) => <DigestAvatar key={j} src={p.pic} country={p.country} />);
 
                     const { summary, quotes } = splitQuotes(item);
+                    const isDrama = key === "DRAMA";
+                    const isSpike = key === "SPIKES";
+                    const isClickable = isDrama || isSpike;
+                    const isExpanded = isDrama ? expandedDramaIdx === i
+                      : isSpike ? expandedSpikeIdx === i : false;
+
+                    // Parse time range from spike text like "02:28 (22 msgs, ...)"
+                    let spikeFrom, spikeTo;
+                    if (isSpike) {
+                      const timeMatch = item.match(/^(\d{1,2}:\d{2})/);
+                      if (timeMatch) {
+                        spikeFrom = timeMatch[1].padStart(5, "0");
+                        // 5-minute window
+                        const [h, m] = spikeFrom.split(":").map(Number);
+                        const endMin = m + 4;
+                        spikeTo = `${String(h + Math.floor(endMin / 60)).padStart(2, "0")}:${String(endMin % 60).padStart(2, "0")}`;
+                      }
+                    }
+
+                    const handleClick = isDrama
+                      ? () => setExpandedDramaIdx(isExpanded ? null : i)
+                      : isSpike
+                      ? () => setExpandedSpikeIdx(isExpanded ? null : i)
+                      : undefined;
 
                     return (
-                      <li key={i} className="digest-bullet-row">
+                      <li key={i} className={`digest-bullet-row${isClickable ? " digest-bullet-row--clickable" : ""}`}
+                        onClick={handleClick}
+                      >
                         <div className="digest-avatars">
                           {avatarElements}
                         </div>
@@ -516,6 +455,22 @@ const DigestBanner = ({ digest, nameSet, nameToTag, label = "Yesterday in 4v4", 
                                 <div key={qi} className="digest-quote">{q}</div>
                               ))}
                             </div>
+                          )}
+                          {isDrama && (
+                            <ChatContext
+                              date={digest.date}
+                              battleTags={itemTags}
+                              quotes={quotes}
+                              expanded={isExpanded}
+                            />
+                          )}
+                          {isSpike && spikeFrom && (
+                            <ChatContext
+                              date={digest.date}
+                              fromTime={spikeFrom}
+                              toTime={spikeTo}
+                              expanded={isExpanded}
+                            />
                           )}
                         </div>
                       </li>
@@ -560,6 +515,292 @@ const DigestBanner = ({ digest, nameSet, nameToTag, label = "Yesterday in 4v4", 
   );
 };
 
+/* ── Stat Picker (admin editorial mode) ───────────────── */
+
+const STAT_CATEGORIES = [
+  { key: "WINNER", label: "Winner", cls: "winner" },
+  { key: "LOSER", label: "Loser", cls: "loser" },
+  { key: "GRINDER", label: "Grinder", cls: "grinder" },
+  { key: "HOTSTREAK", label: "Hot Streak", cls: "hotstreak" },
+  { key: "COLDSTREAK", label: "Cold Streak", cls: "coldstreak" },
+];
+
+const StatPicker = ({ candidates, selectedStats, onToggle }) => {
+  if (!candidates) return null;
+
+  return (
+    <div className="stat-picker">
+      <div className="stat-picker-label">Player Stats</div>
+      {STAT_CATEGORIES.map(({ key, label, cls }) => {
+        const items = candidates[key] || [];
+        if (items.length === 0) return null;
+        const selectedIdx = selectedStats[key] ?? null;
+        return (
+          <div key={key} className={`stat-picker-category stat-picker-category--${cls}`}>
+            <span className="stat-picker-category-label">{label}</span>
+            <div className="stat-picker-candidates">
+              {items.map((c, i) => {
+                const isSelected = selectedIdx === i;
+                return (
+                  <button
+                    key={c.battleTag}
+                    className={`stat-picker-candidate${isSelected ? " stat-picker-candidate--selected" : ""}`}
+                    onClick={() => onToggle(key, i)}
+                  >
+                    <span className="stat-picker-candidate-name">{c.name}</span>
+                    <span className="stat-picker-candidate-record">{c.wins}W-{c.losses}L</span>
+                    <FormDots form={c.form} />
+                  </button>
+                );
+              })}
+            </div>
+          </div>
+        );
+      })}
+    </div>
+  );
+};
+
+/* ── Digest Editor (admin editorial mode) ────────────── */
+
+// Sections with semicolon-separated items that can be toggled
+const EDITABLE_SECTIONS = [
+  { key: "DRAMA", label: "Drama", cls: "drama" },
+  { key: "BANS", label: "Bans", cls: "bans" },
+  { key: "HIGHLIGHTS", label: "Highlights", cls: "highlights" },
+];
+
+const DigestEditor = ({ date, apiKey, nameSet, nameToTag, onPublished }) => {
+  const [draft, setDraft] = useState(null);
+  const [currentDigest, setCurrentDigest] = useState(null);
+  // Per-section selections: { DRAMA: Set, BANS: Set, HIGHLIGHTS: Set }
+  const [sectionSelections, setSectionSelections] = useState({});
+  const [loading, setLoading] = useState(true);
+  const [publishState, setPublishState] = useState("idle"); // idle | publishing | published
+  const [statCandidates, setStatCandidates] = useState(null);
+  const [selectedStats, setSelectedStats] = useState({});
+
+  useEffect(() => {
+    setLoading(true);
+    Promise.all([
+      fetch(`${RELAY_URL}/api/admin/digest/${date}/draft`, {
+        headers: { "X-API-Key": apiKey },
+      }).then((r) => (r.ok ? r.json() : null)).catch(() => null),
+      fetch(`${RELAY_URL}/api/admin/digest/${date}/stat-candidates`, {
+        headers: { "X-API-Key": apiKey },
+      }).then((r) => (r.ok ? r.json() : null)).catch(() => null),
+    ]).then(([draftData, candidatesData]) => {
+      const pubDigest = draftData?.digest || "";
+      const pubSections = parseDigestSections(pubDigest);
+
+      if (draftData?.draft) {
+        setDraft(draftData.draft);
+        setCurrentDigest(draftData.digest);
+        const draftSections = parseDigestSections(draftData.draft);
+
+        // Pre-select items in each editable section by matching to published digest
+        const selections = {};
+        for (const { key } of EDITABLE_SECTIONS) {
+          const draftSec = draftSections.find((s) => s.key === key);
+          if (!draftSec) continue;
+          const draftItems = draftSec.content.split(/;\s*/).map((i) => i.trim()).filter(Boolean);
+          if (draftItems.length === 0) continue;
+
+          const pubSec = pubSections.find((s) => s.key === key);
+          const pubItems = pubSec
+            ? pubSec.content.split(/;\s*/).map((i) => i.trim()).filter(Boolean)
+            : [];
+
+          const sel = new Set();
+          for (let i = 0; i < draftItems.length; i++) {
+            const prefix = draftItems[i].slice(0, 30).toLowerCase();
+            if (pubItems.some((p) => p.slice(0, 30).toLowerCase() === prefix)) {
+              sel.add(i);
+            }
+          }
+          selections[key] = sel;
+        }
+        setSectionSelections(selections);
+      }
+
+      // Pre-select stat candidates that match current published stat lines
+      const candidates = candidatesData?.candidates;
+      if (candidates) {
+        setStatCandidates(candidates);
+        const initStats = {};
+        for (const cat of STAT_CATEGORIES) {
+          const pubStat = pubSections.find((s) => s.key === cat.key);
+          if (!pubStat) continue;
+          const pubParsed = parseStatLine(pubStat.content);
+          if (!pubParsed) continue;
+          const items = candidates[cat.key] || [];
+          const matchIdx = items.findIndex((c) => c.battleTag === pubParsed.battleTag);
+          if (matchIdx >= 0) initStats[cat.key] = matchIdx;
+        }
+        setSelectedStats(initStats);
+      }
+
+      setLoading(false);
+    }).catch(() => setLoading(false));
+  }, [date, apiKey]);
+
+  // Parse all editable sections from draft
+  const editableSections = useMemo(() => {
+    if (!draft) return [];
+    const draftSections = parseDigestSections(draft);
+    const result = [];
+    for (const { key, label, cls } of EDITABLE_SECTIONS) {
+      const sec = draftSections.find((s) => s.key === key);
+      if (!sec) continue;
+      const items = sec.content.split(/;\s*/).map((i) => i.trim()).filter(Boolean);
+      if (items.length === 0) continue;
+      result.push({ key, label, cls, items });
+    }
+    return result;
+  }, [draft]);
+
+  const toggleItem = useCallback((sectionKey, idx) => {
+    setSectionSelections((prev) => {
+      const sel = new Set(prev[sectionKey] || []);
+      if (sel.has(idx)) sel.delete(idx);
+      else sel.add(idx);
+      return { ...prev, [sectionKey]: sel };
+    });
+    setPublishState("idle");
+  }, []);
+
+  const toggleStat = useCallback((key, idx) => {
+    setSelectedStats((prev) => {
+      const next = { ...prev };
+      if (next[key] === idx) delete next[key];
+      else next[key] = idx;
+      return next;
+    });
+    setPublishState("idle");
+  }, []);
+
+  const handlePublish = async () => {
+    setPublishState("publishing");
+    try {
+      // Build per-section selectedItems payload
+      const selectedItems = {};
+      for (const { key } of editableSections) {
+        const sel = sectionSelections[key];
+        if (sel) selectedItems[key] = [...sel].sort((a, b) => a - b);
+      }
+
+      // Build selectedStats payload from candidate indices
+      const statsPayload = {};
+      if (statCandidates) {
+        for (const cat of STAT_CATEGORIES) {
+          const idx = selectedStats[cat.key];
+          if (idx !== undefined && idx !== null) {
+            const candidate = statCandidates[cat.key]?.[idx];
+            if (candidate) statsPayload[cat.key] = candidate.formatted;
+          } else {
+            statsPayload[cat.key] = null;
+          }
+        }
+      }
+
+      const body = { selectedItems };
+      if (statCandidates) body.selectedStats = statsPayload;
+
+      const res = await fetch(`${RELAY_URL}/api/admin/digest/${date}/curate`, {
+        method: "PUT",
+        headers: {
+          "Content-Type": "application/json",
+          "X-API-Key": apiKey,
+        },
+        body: JSON.stringify(body),
+      });
+      if (res.ok) {
+        const data = await res.json();
+        setCurrentDigest(data.digest);
+        if (onPublished) onPublished(data.digest);
+        setPublishState("published");
+        setTimeout(() => setPublishState((s) => s === "published" ? "idle" : s), 2500);
+      } else {
+        setPublishState("idle");
+      }
+    } catch {
+      setPublishState("idle");
+    }
+  };
+
+  const combinedNameSet = useMemo(() => {
+    const names = new Set(nameSet);
+    if (nameToTag) {
+      for (const name of nameToTag.keys()) names.add(name);
+    }
+    return names;
+  }, [nameSet, nameToTag]);
+
+  if (loading) return <div className="digest-editor"><div className="digest-editor-loading">Loading draft...</div></div>;
+  if (!draft && !statCandidates) return <div className="digest-editor"><div className="digest-editor-loading">No draft or stats available</div></div>;
+
+  const totalSelected = editableSections.reduce((sum, { key }) => sum + (sectionSelections[key]?.size || 0), 0);
+  const canPublish = totalSelected > 0 || !!statCandidates;
+
+  return (
+    <div className="digest-editor">
+      <div className="digest-editor-header">
+        <span className="digest-editor-title">Editorial — {date}</span>
+      </div>
+      {editableSections.map(({ key, label, cls, items }) => {
+        const sel = sectionSelections[key] || new Set();
+        return (
+          <div key={key} className="digest-editor-section">
+            <div className="digest-editor-section-header">
+              <span className={`digest-editor-section-label digest-editor-section-label--${cls}`}>{label}</span>
+              <span className="digest-editor-count">{sel.size}/{items.length}</span>
+            </div>
+            <div className="digest-editor-items">
+              {items.map((item, i) => {
+                const isSelected = sel.has(i);
+                const { summary, quotes } = splitQuotes(item);
+                return (
+                  <button
+                    key={i}
+                    className={`digest-editor-item ${isSelected ? "digest-editor-item--selected" : "digest-editor-item--deselected"}`}
+                    onClick={() => toggleItem(key, i)}
+                  >
+                    <span className="digest-editor-item-check">{isSelected ? "\u2713" : ""}</span>
+                    <div className="digest-editor-item-content">
+                      <span className="digest-editor-item-summary">
+                        {highlightNames(summary, combinedNameSet)}
+                      </span>
+                      {quotes.length > 0 && (
+                        <div className="digest-quotes">
+                          {quotes.map((q, qi) => (
+                            <div key={qi} className="digest-quote">{q}</div>
+                          ))}
+                        </div>
+                      )}
+                    </div>
+                  </button>
+                );
+              })}
+            </div>
+          </div>
+        );
+      })}
+      <StatPicker
+        candidates={statCandidates}
+        selectedStats={selectedStats}
+        onToggle={toggleStat}
+      />
+      <button
+        className={`digest-editor-publish${publishState === "published" ? " digest-editor-publish--success" : ""}`}
+        onClick={handlePublish}
+        disabled={publishState === "publishing" || !canPublish}
+      >
+        {publishState === "publishing" ? "Publishing..." : publishState === "published" ? "\u2713 Published" : `Publish ${totalSelected} item${totalSelected !== 1 ? "s" : ""}`}
+      </button>
+    </div>
+  );
+};
+
 /* ── News Page ───────────────────────────────────────── */
 
 const News = () => {
@@ -569,6 +810,27 @@ const News = () => {
   const [weeklyDigests, setWeeklyDigests] = useState([]);
   const [weeklyIdx, setWeeklyIdx] = useState(0);
   const [viewMode, setViewMode] = useState("daily");
+
+  // Editorial mode detection
+  const location = useLocation();
+  const history = useHistory();
+  const searchParams = useMemo(() => new URLSearchParams(location.search), [location.search]);
+  const editMode = searchParams.get("edit") === "1";
+  const urlDate = searchParams.get("date");
+
+  const [adminKey, setAdminKey] = useState(() => {
+    try { return localStorage.getItem("chat_admin_key"); } catch { return null; }
+  });
+  const [keyInput, setKeyInput] = useState("");
+  const isAdmin = editMode && !!adminKey;
+
+  const handleKeySubmit = useCallback(() => {
+    const key = keyInput.trim();
+    if (!key) return;
+    try { localStorage.setItem("chat_admin_key", key); } catch { /* ignore */ }
+    setAdminKey(key);
+    setKeyInput("");
+  }, [keyInput]);
 
   // Fetch all digests (today + past) and weekly digests
   useEffect(() => {
@@ -590,6 +852,11 @@ const News = () => {
       }
       setAllDigests(combined);
       setWeeklyDigests(weekly);
+      // Sync with URL date param
+      if (urlDate && combined.length > 0) {
+        const idx = combined.findIndex((d) => d.date === urlDate);
+        if (idx >= 0) setDigestIdx(idx);
+      }
     });
   }, []);
 
@@ -616,6 +883,16 @@ const News = () => {
     return { nameSet: names, nameToTag: tagMap };
   }, [onlineUsers, messages]);
 
+  // Update URL date param when switching tabs (edit mode only)
+  const setDigestIdxAndUrl = useCallback((idx) => {
+    setDigestIdx(idx);
+    if (editMode && allDigests[idx]) {
+      const params = new URLSearchParams(location.search);
+      params.set("date", allDigests[idx].date);
+      history.replace({ search: params.toString() });
+    }
+  }, [editMode, allDigests, history, location.search]);
+
   const currentDigest = allDigests[digestIdx] || null;
   const digestLabel = currentDigest ? formatDigestLabel(currentDigest.date) : null;
 
@@ -623,6 +900,47 @@ const News = () => {
   const weeklyLabel = currentWeekly ? formatWeeklyLabel(currentWeekly.week_start, currentWeekly.week_end) : null;
 
   const hasWeekly = weeklyDigests.length > 0;
+
+  // When editor publishes, update the matching digest in local state
+  const handleEditorPublished = useCallback((newDigestText) => {
+    if (!currentDigest) return;
+    setAllDigests((prev) =>
+      prev.map((d) =>
+        d.date === currentDigest.date ? { ...d, digest: newDigestText } : d
+      )
+    );
+  }, [currentDigest]);
+
+  // Editorial date — use current daily digest date (skip "today so far" which has no draft)
+  const editorialDate = useMemo(() => {
+    if (!isAdmin || !currentDigest) return null;
+    const today = new Date().toISOString().slice(0, 10);
+    // "Today so far" has no stored draft — skip it
+    if (currentDigest.date === today) return null;
+    return currentDigest.date;
+  }, [isAdmin, currentDigest]);
+
+  // Refresh "today so far" digest (admin only, busts server cache)
+  const [refreshing, setRefreshing] = useState(false);
+  const isViewingToday = currentDigest?.date === new Date().toISOString().slice(0, 10);
+  const handleRefreshToday = useCallback(async () => {
+    if (refreshing) return;
+    setRefreshing(true);
+    try {
+      const res = await fetch(`${RELAY_URL}/api/admin/stats/today?refresh=1`, {
+        headers: { "X-API-Key": adminKey },
+      });
+      if (res.ok) {
+        const data = await res.json();
+        if (data?.digest) {
+          setAllDigests((prev) =>
+            prev.map((d) => (d.date === data.date ? { ...d, digest: data.digest } : d))
+          );
+        }
+      }
+    } catch { /* ignore */ }
+    setRefreshing(false);
+  }, [adminKey, refreshing]);
 
   return (
     <div className="news">
@@ -653,7 +971,7 @@ const News = () => {
               dateTabs={allDigests.map((d, i) => ({
                 label: formatDigestLabel(d.date),
                 active: i === digestIdx,
-                onClick: () => setDigestIdx(i),
+                onClick: () => setDigestIdxAndUrl(i),
               }))}
             />
           ) : (
@@ -675,6 +993,51 @@ const News = () => {
           ) : (
             <div className="news-empty">No weekly digests available yet.</div>
           )
+        )}
+        {isAdmin && viewMode === "daily" && isViewingToday && (
+          <button
+            className="digest-editor-refresh"
+            onClick={handleRefreshToday}
+            disabled={refreshing}
+          >
+            <FiRefreshCw size={12} className={refreshing ? "spin" : ""} />
+            {refreshing ? "Refreshing..." : "Refresh today"}
+          </button>
+        )}
+        {editMode && viewMode === "daily" && !adminKey && (
+          <div className="digest-editor">
+            <div className="digest-editor-header">
+              <span className="digest-editor-title">Admin Key Required</span>
+            </div>
+            <div className="digest-editor-key-prompt">
+              <input
+                type="password"
+                className="digest-editor-key-input"
+                placeholder="Paste admin API key..."
+                value={keyInput}
+                onChange={(e) => setKeyInput(e.target.value)}
+                onKeyDown={(e) => e.key === "Enter" && handleKeySubmit()}
+              />
+              <button className="digest-editor-key-btn" onClick={handleKeySubmit} disabled={!keyInput.trim()}>
+                Save
+              </button>
+            </div>
+          </div>
+        )}
+        {editorialDate && viewMode === "daily" && (
+          <DigestEditor
+            date={editorialDate}
+            apiKey={adminKey}
+            nameSet={nameSet}
+            nameToTag={nameToTag}
+            onPublished={handleEditorPublished}
+          />
+        )}
+        {viewMode === "daily" && allDigests.length > 1 && (
+          <>
+            <TopicTrends digests={allDigests} />
+            <BeefTracker digests={allDigests} nameToTag={nameToTag} />
+          </>
         )}
       </div>
     </div>

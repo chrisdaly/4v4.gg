@@ -171,6 +171,13 @@
   color: var(--green);
 }
 
+.digest-section--spikes {
+  border-left-color: #f59e0b;
+}
+.digest-section--spikes .digest-section-label {
+  color: #f59e0b;
+}
+
 .digest-section--winner {
   border-left-color: var(--green);
 }
@@ -342,6 +349,18 @@
   justify-self: end;
 }
 
+.digest-bullet-row--clickable {
+  cursor: pointer;
+  transition: background 0.15s;
+  border-radius: var(--radius-sm);
+  padding: var(--space-1);
+  margin: calc(var(--space-1) * -1);
+}
+
+.digest-bullet-row--clickable:hover {
+  background: rgba(255, 255, 255, 0.03);
+}
+
 .news-digest .digest-name {
   color: var(--gold);
   font-family: var(--font-display);
@@ -425,6 +444,345 @@
 .digest-screenshot-btn:hover {
   color: #fff;
   border-color: rgba(255, 255, 255, 0.2);
+}
+
+/* ── Digest Editor (editorial mode) ────────────────── */
+
+.digest-editor {
+  margin-top: var(--space-4);
+  border: 1px solid var(--gold);
+  border-radius: var(--radius-md);
+  background: rgba(10, 8, 6, 0.4);
+  padding: var(--space-4);
+}
+
+.digest-editor-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: var(--space-4);
+}
+
+.digest-editor-title {
+  font-family: var(--font-display);
+  font-size: var(--text-sm);
+  color: var(--gold);
+}
+
+.digest-editor-count {
+  font-family: var(--font-mono);
+  font-size: 11px;
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+  color: var(--grey-light);
+}
+
+.digest-editor-loading {
+  font-family: var(--font-mono);
+  font-size: var(--text-xs);
+  color: var(--grey-mid);
+  text-align: center;
+  padding: var(--space-4);
+}
+
+.digest-editor-section {
+  margin-bottom: var(--space-4);
+}
+
+.digest-editor-section-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: var(--space-2);
+}
+
+.digest-editor-section-label {
+  font-family: var(--font-mono);
+  font-size: 11px;
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+  color: var(--grey-light);
+}
+
+.digest-editor-section-label--drama { color: var(--red); }
+.digest-editor-section-label--bans { color: #f59e0b; }
+.digest-editor-section-label--highlights { color: var(--green); }
+
+.digest-editor-items {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-2);
+}
+
+.digest-editor-item {
+  display: flex;
+  align-items: flex-start;
+  gap: var(--space-2);
+  padding: var(--space-2) var(--space-4);
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  border-radius: var(--radius-sm);
+  background: rgba(255, 255, 255, 0.02);
+  cursor: pointer;
+  text-align: left;
+  transition: all 0.15s;
+  width: 100%;
+  font: inherit;
+  color: inherit;
+}
+
+.digest-editor-item:hover {
+  border-color: rgba(255, 255, 255, 0.15);
+}
+
+.digest-editor-item--selected {
+  border-color: var(--green);
+  background: rgba(34, 197, 94, 0.06);
+}
+
+.digest-editor-item--deselected {
+  opacity: 0.45;
+}
+
+.digest-editor-item-check {
+  flex-shrink: 0;
+  width: 20px;
+  height: 20px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 14px;
+  color: var(--green);
+  margin-top: 2px;
+}
+
+.digest-editor-item-content {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  min-width: 0;
+}
+
+.digest-editor-item-summary {
+  font-family: var(--font-body);
+  font-size: var(--text-xs);
+  color: var(--text-body);
+  line-height: 1.5;
+}
+
+.digest-editor-item .digest-quotes {
+  margin-top: 2px;
+}
+
+/* ── Stat Picker (editorial mode) ────────────────────── */
+
+.stat-picker {
+  margin-top: var(--space-4);
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-2);
+}
+
+.stat-picker-label {
+  font-family: var(--font-mono);
+  font-size: 11px;
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+  color: var(--grey-light);
+  margin-bottom: var(--space-1);
+}
+
+.stat-picker-category {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+  padding: 6px var(--space-2);
+  border-left: 2px solid var(--grey-mid);
+  border-radius: 0 var(--radius-sm) var(--radius-sm) 0;
+  background: rgba(255, 255, 255, 0.02);
+}
+
+.stat-picker-category--winner { border-left-color: var(--green); }
+.stat-picker-category--loser { border-left-color: var(--red); }
+.stat-picker-category--grinder { border-left-color: var(--gold); }
+.stat-picker-category--hotstreak { border-left-color: var(--green); }
+.stat-picker-category--coldstreak { border-left-color: var(--red); }
+
+.stat-picker-category-label {
+  font-family: var(--font-mono);
+  font-size: 11px;
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+  color: var(--grey-light);
+  width: 56px;
+  flex-shrink: 0;
+}
+
+.stat-picker-category--winner .stat-picker-category-label { color: var(--green); }
+.stat-picker-category--loser .stat-picker-category-label { color: var(--red); }
+.stat-picker-category--grinder .stat-picker-category-label { color: var(--gold); }
+.stat-picker-category--hotstreak .stat-picker-category-label { color: var(--green); }
+.stat-picker-category--coldstreak .stat-picker-category-label { color: var(--red); }
+
+.stat-picker-candidates {
+  display: flex;
+  gap: 6px;
+  flex-wrap: wrap;
+}
+
+.stat-picker-candidate {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  padding: 4px 10px;
+  font: inherit;
+  color: inherit;
+  background: rgba(255, 255, 255, 0.03);
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  border-radius: var(--radius-full);
+  cursor: pointer;
+  transition: all 0.15s;
+  white-space: nowrap;
+  opacity: 0.5;
+}
+
+.stat-picker-candidate:hover {
+  opacity: 0.8;
+  border-color: rgba(255, 255, 255, 0.2);
+}
+
+.stat-picker-candidate--selected {
+  opacity: 1;
+  border-color: var(--gold);
+  background: rgba(252, 219, 51, 0.08);
+}
+
+.stat-picker-candidate-name {
+  font-family: var(--font-display);
+  font-size: var(--text-xs);
+  color: var(--gold);
+}
+
+.stat-picker-candidate-record {
+  font-family: var(--font-mono);
+  font-size: 11px;
+  color: var(--grey-light);
+}
+
+.stat-picker-candidate .digest-form-dots {
+  margin-left: 2px;
+}
+
+/* Admin key prompt */
+.digest-editor-key-prompt {
+  display: flex;
+  gap: var(--space-2);
+}
+
+.digest-editor-key-input {
+  flex: 1;
+  padding: 8px 12px;
+  font-family: var(--font-mono);
+  font-size: var(--text-xs);
+  color: #fff;
+  background: rgba(255, 255, 255, 0.05);
+  border: 1px solid rgba(255, 255, 255, 0.15);
+  border-radius: var(--radius-sm);
+  outline: none;
+}
+
+.digest-editor-key-input:focus {
+  border-color: var(--gold);
+}
+
+.digest-editor-key-btn {
+  padding: 8px 16px;
+  font-family: var(--font-mono);
+  font-size: 11px;
+  text-transform: uppercase;
+  letter-spacing: 0.1em;
+  color: #fff;
+  background: rgba(252, 219, 51, 0.15);
+  border: 1px solid var(--gold);
+  border-radius: var(--radius-sm);
+  cursor: pointer;
+  transition: all 0.15s;
+}
+
+.digest-editor-key-btn:hover:not(:disabled) {
+  background: rgba(252, 219, 51, 0.25);
+}
+
+.digest-editor-key-btn:disabled {
+  opacity: 0.4;
+  cursor: not-allowed;
+}
+
+.digest-editor-publish {
+  display: block;
+  width: 100%;
+  margin-top: var(--space-4);
+  padding: 10px;
+  font-family: var(--font-mono);
+  font-size: 12px;
+  text-transform: uppercase;
+  letter-spacing: 0.1em;
+  color: #fff;
+  background: rgba(34, 197, 94, 0.15);
+  border: 1px solid var(--green);
+  border-radius: var(--radius-sm);
+  cursor: pointer;
+  transition: all 0.15s;
+}
+
+.digest-editor-publish:hover:not(:disabled) {
+  background: rgba(34, 197, 94, 0.25);
+}
+
+.digest-editor-publish:disabled {
+  opacity: 0.4;
+  cursor: not-allowed;
+}
+
+.digest-editor-publish--success {
+  background: rgba(34, 197, 94, 0.3);
+  border-color: var(--green);
+}
+
+.digest-editor-refresh {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  margin: var(--space-2) auto 0;
+  padding: 6px 16px;
+  font-family: var(--font-mono);
+  font-size: 11px;
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+  color: var(--grey-light);
+  background: none;
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  border-radius: var(--radius-full);
+  cursor: pointer;
+  transition: all 0.15s;
+}
+
+.digest-editor-refresh:hover:not(:disabled) {
+  color: #fff;
+  border-color: rgba(255, 255, 255, 0.2);
+}
+
+.digest-editor-refresh:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+.spin {
+  animation: spin 1s linear infinite;
+}
+
+@keyframes spin {
+  from { transform: rotate(0deg); }
+  to { transform: rotate(360deg); }
 }
 
 /* ── Mobile ────────────────────────────────────────── */

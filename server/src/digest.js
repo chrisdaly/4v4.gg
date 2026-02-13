@@ -1,5 +1,5 @@
 import Anthropic from '@anthropic-ai/sdk';
-import { getMessagesByDate, getDigest, setDigest, getRecentDigests, getWeeklyDigest, setWeeklyDigest, deleteDigest } from './db.js';
+import { getMessagesByDate, getMessageBuckets, getDigest, setDigest, getRecentDigests, getWeeklyDigest, setWeeklyDigest, deleteDigest, setDigestWithDraft, updateDigestOnly, getDraftForDate } from './db.js';
 import config from './config.js';
 
 const API_BASE = 'https://website-backend.w3champions.com/api';
@@ -8,11 +8,14 @@ const GAME_MODE = 4;
 
 /**
  * Fetch all finished 4v4 matches for a given date and compute per-player stats.
- * Returns { winner, loser, grinder, streak, totalGames } or null.
  */
 const RACE_NAMES = { 0: 'RND', 1: 'HU', 2: 'ORC', 4: 'NE', 8: 'UD' };
 
-async function fetchDailyStats(date, chatterTags = null) {
+/**
+ * Shared core: fetch matches for a date and compute per-player stats.
+ * Returns { playerStats, rawMatches, playerMmrs, qualified, totalGames } or null.
+ */
+async function computePlayerStats(date, chatterTags = null) {
   const dateStart = new Date(`${date}T00:00:00Z`);
   const dateEnd = new Date(`${date}T23:59:59.999Z`);
   const chatterSet = chatterTags ? new Set(chatterTags.map(t => t.toLowerCase())) : null;
@@ -109,33 +112,6 @@ async function fetchDailyStats(date, chatterTags = null) {
 
   // Require at least 3 games to qualify
   const qualified = [...playerStats.values()].filter(p => p.wins + p.losses >= 3);
-  if (qualified.length === 0) return null;
-
-  // Biggest MMR winner/loser
-  const byMmr = [...qualified].sort((a, b) => b.mmrChange - a.mmrChange);
-  const winner = byMmr[0]?.mmrChange > 0 ? byMmr[0] : null;
-  const loser = byMmr[byMmr.length - 1]?.mmrChange < 0 ? byMmr[byMmr.length - 1] : null;
-
-  // Most games played
-  const byGames = [...qualified].sort((a, b) => (b.wins + b.losses) - (a.wins + a.losses));
-  const grinder = byGames[0];
-
-  // Longest win streak (min 4)
-  const byWinStreak = [...qualified].filter(p => p.winStreak >= 4).sort((a, b) => b.winStreak - a.winStreak);
-  const hotStreak = byWinStreak[0] || null;
-
-  // Longest loss streak (min 4)
-  const byLossStreak = [...qualified].filter(p => p.lossStreak >= 4).sort((a, b) => b.lossStreak - a.lossStreak);
-  const coldStreak = byLossStreak[0] || null;
-
-  // Don't show grinder if it's the same as winner
-  const grinderDeduped = grinder && grinder.battleTag !== winner?.battleTag && grinder.battleTag !== loser?.battleTag
-    ? grinder : null;
-
-  // Deduplicate streaks
-  const usedTags = new Set([winner?.battleTag, loser?.battleTag, grinderDeduped?.battleTag].filter(Boolean));
-  const hotDeduped = hotStreak && !usedTags.has(hotStreak.battleTag) ? hotStreak : null;
-  const coldDeduped = coldStreak && !usedTags.has(coldStreak.battleTag) ? coldStreak : null;
 
   const totalGames = [...playerStats.values()].reduce((sum, p) => sum + p.wins, 0);
 
@@ -164,6 +140,41 @@ async function fetchDailyStats(date, chatterTags = null) {
     if (p.currentMmr > 0) playerMmrs.set(p.name, p.currentMmr);
   }
 
+  return { playerStats, rawMatches, playerMmrs, qualified, totalGames, matchSummaries };
+}
+
+async function fetchDailyStats(date, chatterTags = null) {
+  const result = await computePlayerStats(date, chatterTags);
+  if (!result) return null;
+  const { qualified, totalGames, matchSummaries, playerMmrs } = result;
+  if (qualified.length === 0) return null;
+
+  // Biggest MMR winner/loser
+  const byMmr = [...qualified].sort((a, b) => b.mmrChange - a.mmrChange);
+  const winner = byMmr[0]?.mmrChange > 0 ? byMmr[0] : null;
+  const loser = byMmr[byMmr.length - 1]?.mmrChange < 0 ? byMmr[byMmr.length - 1] : null;
+
+  // Most games played
+  const byGames = [...qualified].sort((a, b) => (b.wins + b.losses) - (a.wins + a.losses));
+  const grinder = byGames[0];
+
+  // Longest win streak (min 4)
+  const byWinStreak = [...qualified].filter(p => p.winStreak >= 4).sort((a, b) => b.winStreak - a.winStreak);
+  const hotStreak = byWinStreak[0] || null;
+
+  // Longest loss streak (min 4)
+  const byLossStreak = [...qualified].filter(p => p.lossStreak >= 4).sort((a, b) => b.lossStreak - a.lossStreak);
+  const coldStreak = byLossStreak[0] || null;
+
+  // Don't show grinder if it's the same as winner
+  const grinderDeduped = grinder && grinder.battleTag !== winner?.battleTag && grinder.battleTag !== loser?.battleTag
+    ? grinder : null;
+
+  // Deduplicate streaks
+  const usedTags = new Set([winner?.battleTag, loser?.battleTag, grinderDeduped?.battleTag].filter(Boolean));
+  const hotDeduped = hotStreak && !usedTags.has(hotStreak.battleTag) ? hotStreak : null;
+  const coldDeduped = coldStreak && !usedTags.has(coldStreak.battleTag) ? coldStreak : null;
+
   return { winner, loser, grinder: grinderDeduped, hotStreak: hotDeduped, coldStreak: coldDeduped, totalGames, matchSummaries, playerMmrs };
 }
 
@@ -188,7 +199,137 @@ function formatLossStreakLine(player) {
   return `COLDSTREAK: ${player.battleTag} ${player.lossStreak}L streak (${player.wins}W-${player.losses}L) ${player.form}`;
 }
 
-export { fetchDailyStats };
+/**
+ * Return top 3 candidates per stat category (no dedup — admin picks).
+ */
+function buildCandidate(player, formatted) {
+  return {
+    battleTag: player.battleTag,
+    name: player.name,
+    wins: player.wins,
+    losses: player.losses,
+    form: player.form,
+    formatted,
+  };
+}
+
+export async function fetchDailyStatCandidates(date) {
+  const result = await computePlayerStats(date);
+  if (!result) return null;
+  const { qualified } = result;
+  if (qualified.length === 0) return null;
+
+  const categories = {};
+
+  // WINNER: top 3 by mmrChange (positive only)
+  const winners = [...qualified].filter(p => p.mmrChange > 0).sort((a, b) => b.mmrChange - a.mmrChange).slice(0, 3);
+  categories.WINNER = winners.map(p => buildCandidate(p, formatMmrLine('WINNER', p)));
+
+  // LOSER: bottom 3 by mmrChange (negative only)
+  const losers = [...qualified].filter(p => p.mmrChange < 0).sort((a, b) => a.mmrChange - b.mmrChange).slice(0, 3);
+  categories.LOSER = losers.map(p => buildCandidate(p, formatMmrLine('LOSER', p)));
+
+  // GRINDER: top 3 by total games
+  const grinders = [...qualified].sort((a, b) => (b.wins + b.losses) - (a.wins + a.losses)).slice(0, 3);
+  categories.GRINDER = grinders.map(p => buildCandidate(p, formatGrinderLine(p)));
+
+  // HOTSTREAK: top 3 by winStreak (min 4)
+  const hotStreaks = [...qualified].filter(p => p.winStreak >= 4).sort((a, b) => b.winStreak - a.winStreak).slice(0, 3);
+  categories.HOTSTREAK = hotStreaks.map(p => buildCandidate(p, formatWinStreakLine(p)));
+
+  // COLDSTREAK: top 3 by lossStreak (min 4)
+  const coldStreaks = [...qualified].filter(p => p.lossStreak >= 4).sort((a, b) => b.lossStreak - a.lossStreak).slice(0, 3);
+  categories.COLDSTREAK = coldStreaks.map(p => buildCandidate(p, formatLossStreakLine(p)));
+
+  return categories;
+}
+
+export { fetchDailyStats, formatMmrLine, formatGrinderLine, formatWinStreakLine, formatLossStreakLine };
+
+/**
+ * Parse a full digest text into its raw section blocks.
+ * Returns array of { key, content } for each section found.
+ */
+const ALL_SECTION_KEYS_RE = /^(TOPICS|DRAMA|BANS|HIGHLIGHTS|RECAP|SPIKES|WINNER|LOSER|GRINDER|HOTSTREAK|COLDSTREAK|MENTIONS)\s*:\s*/gm;
+
+function parseDigestSections(text) {
+  const sections = [];
+  const matches = [...text.matchAll(ALL_SECTION_KEYS_RE)];
+  for (let i = 0; i < matches.length; i++) {
+    const m = matches[i];
+    const start = m.index + m[0].length;
+    const end = i + 1 < matches.length ? matches[i + 1].index : text.length;
+    const content = text.slice(start, end).trim();
+    if (content) sections.push({ key: m[1], content });
+  }
+  return sections;
+}
+
+function reassembleSections(sections) {
+  return sections.map(s => `${s.key}: ${s.content}`).join('\n');
+}
+
+/**
+ * Auto-publish: keep only the first N drama items from a full digest.
+ */
+function autoPublishDigest(fullText, maxDrama = 5) {
+  const sections = parseDigestSections(fullText);
+  const result = sections.map(s => {
+    if (s.key !== 'DRAMA') return s;
+    const items = s.content.split(/;\s*/).map(i => i.trim()).filter(Boolean);
+    const kept = items.slice(0, maxDrama);
+    if (kept.length === 0) return null;
+    return { key: 'DRAMA', content: kept.join('; ') };
+  }).filter(Boolean);
+  return reassembleSections(result);
+}
+
+/**
+ * Curate: filter items in semicolon-separated sections from a draft digest.
+ *
+ * selectedItems: object mapping section keys to index arrays, e.g.
+ *   { DRAMA: [0, 1, 3], BANS: [0], HIGHLIGHTS: [1] }
+ *   Sections not present are kept unchanged.
+ *   Backward compat: if an array is passed, treated as { DRAMA: array }.
+ *
+ * selectedStats: object like { WINNER: "formatted line" | null, ... }
+ *   - string value replaces/adds that stat line
+ *   - null value removes that stat line
+ *   - omitted keys are left unchanged
+ */
+const SEMICOLON_SECTIONS = new Set(['DRAMA', 'BANS', 'HIGHLIGHTS', 'SPIKES']);
+
+export function curateDigest(draftText, selectedItems, selectedStats = null) {
+  // Backward compat: array → { DRAMA: array }
+  const itemMap = Array.isArray(selectedItems) ? { DRAMA: selectedItems } : (selectedItems || {});
+
+  const sections = parseDigestSections(draftText);
+  let result = sections.map(s => {
+    if (!SEMICOLON_SECTIONS.has(s.key) || !(s.key in itemMap)) return s;
+    const items = s.content.split(/;\s*/).map(i => i.trim()).filter(Boolean);
+    const indices = itemMap[s.key];
+    const kept = indices.map(i => items[i]).filter(Boolean);
+    if (kept.length === 0) return null;
+    return { key: s.key, content: kept.join('; ') };
+  }).filter(Boolean);
+
+  if (selectedStats) {
+    const STAT_KEYS = ['WINNER', 'LOSER', 'GRINDER', 'HOTSTREAK', 'COLDSTREAK'];
+    for (const key of STAT_KEYS) {
+      if (!(key in selectedStats)) continue;
+      const value = selectedStats[key];
+      // Remove existing line for this key
+      result = result.filter(s => s.key !== key);
+      // Add replacement if non-null (strip the "KEY: " prefix if present since reassemble adds it)
+      if (value) {
+        const content = value.replace(new RegExp(`^${key}:\\s*`), '');
+        result.push({ key, content });
+      }
+    }
+  }
+
+  return reassembleSections(result);
+}
 
 /**
  * Build the AI prompt with chat log + optional match context.
@@ -214,26 +355,30 @@ function buildDigestPrompt(messages, matchSummaries, soFar = false, playerMmrs =
     matchContext = `\n\nRecent 4v4 games involving these chatters (use to add context to drama — who was on whose team, who won/lost):\n${matchSummaries.join('\n')}\n`;
   }
 
-  return `Summarize this Warcraft III 4v4 chat room's day${soFar ? ' SO FAR' : ''}. Write a SHORT digest with these sections (skip if nothing fits):
+  return `Summarize this Warcraft III 4v4 chat room's day${soFar ? ' SO FAR' : ''}. Write a digest with these sections (skip if nothing fits):
 
-TOPICS: 2-5 comma-separated keywords (e.g., "balance patch, undead meta, map pool, tower rush")
-DRAMA: Only BIG accusations, threats, or heated personal attacks. Max 4 items separated by semicolons. FORMAT IS CRITICAL: first a short summary (max 10 words, NO quoted text anywhere in it), then the direct quotes at the END. The summary must make perfect grammatical sense with zero quotes. NEVER put a "quoted phrase" in the middle of a sentence. WRONG: "PlayerA's \"trash\" strategy of expos". RIGHT: "PlayerA went all-in on expos \"trash strat\" \"absolute garbage\"". Example: "PlayerA ripped into PlayerB all game \"you are garbage\" \"uninstall\""
+TOPICS: Pick 2-5 from this EXACT list (do not invent new ones): balance, map pool, race war, griefing, matchmaking, meta, tournament, player beef, ban drama, tech issues, memes, stream drama
+DRAMA: BIG accusations, threats, heated personal attacks, AND juicy back-and-forth exchanges. Max 10 items separated by semicolons. Each item MUST have 2-4 direct quotes. FORMAT IS CRITICAL: first a short plain summary (max 8 words, NO quoted text anywhere in it), then the direct quotes at the END. Summary must be dead simple — just say who flamed who and why. WRONG: "PlayerA's entire evening devolving into defending himself against allies". RIGHT: "PlayerA flamed by allies over map losses". WRONG: "PlayerA eviscerated PlayerB". RIGHT: "PlayerA flamed PlayerB". Example: "PlayerA flamed PlayerB all game \"you are garbage\" \"uninstall\" \"I carried you last game\""
 BANS: Who got banned, duration, reason (skip if none); semicolon-separated. Include the match ID if mentioned.
-HIGHLIGHTS: Funniest in-game moments, best burns, or absurd chat moments (1-2 items, semicolon-separated). Must be about gameplay or player interactions. No hardware, IRL equipment, queue times, or mundane stuff.
+HIGHLIGHTS: Lighthearted, funny, or wholesome moments (3-5 items, semicolon-separated). Include: jokes landing well, friendly banter, community moments, absurd in-game stories, self-deprecating humor, unexpected kindness, running gags, silly arguments that aren't actually hostile. Each item needs 1-2 direct quotes. No hardware, IRL equipment, queue times, or mundane stuff.
 
 Rules:
 - No title, no date header, jump straight into TOPICS:
+- TOPICS must only use tags from the allowed list. If nothing fits, use the closest match.
 - TOPICS must be short comma-separated tags, not sentences
 - CRITICAL: Use EXACT player names as they appear in the chat log. Never shorten or abbreviate names. The player list is: ${names.join(', ')}
 - Prioritize high-MMR players (1800+), their drama is more interesting
-- DRAMA summaries must be under 10 words with NO quoted text in them. All "quoted text" goes at the END of the item only. No filler like "engaged in", "exchanged", "calling him", "told him". The quotes speak for themselves.
+- DRAMA: aim for 10 items. Include minor beefs and trash talk too, not just the biggest blowups. Every item needs 2-4 direct quotes from the chat log.
+- DRAMA summaries must be under 8 words with NO quoted text in them. All "quoted text" goes at the END of the item only.
+- DRAMA summaries use PLAIN verbs only: "flamed", "went off on", "called out", "blamed", "mocked", "accused". NEVER use: "unleashed", "eviscerated", "ripped into", "devolving", "decimated", "obliterated", "destroyed", "dismantled", "torched" or any dramatic/flowery synonyms. Keep it simple.
+- No filler like "engaged in", "exchanged", "calling him", "told him", "repeatedly calling". The quotes speak for themselves.
 - Write like a tabloid reporter. Short punchy sentences. No em-dashes. No AI-speak.
 - Foreign language drama is GOLD. If someone posts threats or insults in Chinese/Korean/etc and another player translates it, that is top-tier content. Always include it. Use the English translation as the quote. If no translation exists in chat, translate it yourself. Always quote in English.
 - BANS and DRAMA must not overlap — if someone got banned, put it in BANS only, not in DRAMA
 - State facts only, no commentary (no "classic", "brutal", "chaos", etc)
 - ASCII only
-- DRAMA max 4 items, HIGHLIGHTS max 2 items, BANS max 2 items
-- Total under 900 chars
+- DRAMA max 10 items, HIGHLIGHTS max 5 items, BANS max 2 items
+- Total under 3000 chars
 ${mmrContext}${matchContext}
 Chat log (${messages.length} messages):
 ${log}`;
@@ -266,7 +411,7 @@ async function assembleDigest(date, messages, soFar = false) {
       try {
         const msg = await client.messages.create({
           model,
-          max_tokens: 700,
+          max_tokens: 1400,
           messages: [{ role: 'user', content: prompt }],
         });
         aiText = msg.content[0]?.text?.trim() || null;
@@ -286,6 +431,26 @@ async function assembleDigest(date, messages, soFar = false) {
   if (!aiText) return null;
 
   const parts = [aiText];
+
+  // Detect chat volume spikes (3x average AND 10+ messages in a 5-min window)
+  try {
+    const buckets = getMessageBuckets(date, 5);
+    if (buckets.length > 0) {
+      const avg = buckets.reduce((s, b) => s + b.count, 0) / buckets.length;
+      const spikes = buckets
+        .filter(b => b.count >= 10 && b.count >= avg * 3)
+        .map(b => {
+          const topNames = (b.names || '').split(',').slice(0, 3).join(', ');
+          return `${b.bucket} (${b.count} msgs, ${topNames})`;
+        });
+      if (spikes.length > 0) {
+        parts.push(`SPIKES: ${spikes.join('; ')}`);
+      }
+    }
+  } catch (err) {
+    console.warn('[Digest] Spike detection failed:', err.message);
+  }
+
   if (dailyStats?.winner) parts.push(formatMmrLine('WINNER', dailyStats.winner));
   if (dailyStats?.loser) parts.push(formatMmrLine('LOSER', dailyStats.loser));
   if (dailyStats?.grinder) parts.push(formatGrinderLine(dailyStats.grinder));
@@ -316,9 +481,11 @@ export async function generateDigest(date) {
   const result = await assembleDigest(date, messages, false);
   if (!result) return null;
 
-  setDigest(date, result.digest);
+  const fullDraft = result.digest;
+  const published = autoPublishDigest(fullDraft, 5);
+  setDigestWithDraft(date, published, fullDraft);
   console.log(`[Digest] Generated for ${date} (${result.messageCount} messages, ${result.totalGames} games)`);
-  return result.digest;
+  return published;
 }
 
 /* ── Weekly digest generation ────────────────────── */
@@ -543,7 +710,7 @@ async function finalizeYesterday() {
     const yesterday = new Date(Date.now() - 86400000).toISOString().slice(0, 10);
     const existing = getDigest(yesterday);
     if (existing) {
-      // Delete and regenerate to get final version
+      // Delete and regenerate to get final version with fresh draft
       deleteDigest(yesterday);
     }
     const digest = await generateDigest(yesterday);

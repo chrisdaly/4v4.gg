@@ -1,10 +1,10 @@
 import { Router } from 'express';
 import config from '../config.js';
-import { setToken, getStats, getTopWords, getRecentDigests, deleteDigest, getRecentWeeklyDigests, deleteWeeklyDigest } from '../db.js';
+import { setToken, getStats, getTopWords, getRecentDigests, deleteDigest, getRecentWeeklyDigests, deleteWeeklyDigest, getDraftForDate, updateDigestOnly, getContextAroundQuotes, getMessagesByTimeWindow } from '../db.js';
 import { updateToken, getStatus } from '../signalr.js';
 import { getClientCount } from '../sse.js';
 import { setBotEnabled, isBotEnabled, testCommand } from '../bot.js';
-import { generateDigest, fetchDailyStats, generateLiveDigest, todayDigestCache, setTodayDigestCache, generateWeeklyDigest } from '../digest.js';
+import { generateDigest, fetchDailyStats, generateLiveDigest, todayDigestCache, setTodayDigestCache, generateWeeklyDigest, curateDigest, fetchDailyStatCandidates } from '../digest.js';
 
 const router = Router();
 
@@ -89,15 +89,71 @@ router.delete('/digest/:date', requireApiKey, (req, res) => {
   res.json({ ok: true, message: `Digest for ${date} cleared` });
 });
 
+// Get draft for a date (protected — editorial mode)
+router.get('/digest/:date/draft', requireApiKey, (req, res) => {
+  const { date } = req.params;
+  if (!/^\d{4}-\d{2}-\d{2}$/.test(date)) {
+    return res.status(400).json({ error: 'Date must be YYYY-MM-DD' });
+  }
+  const result = getDraftForDate(date);
+  if (!result) {
+    return res.json({ date, draft: null, digest: null });
+  }
+  res.json(result);
+});
+
+// Stat candidates for editorial picking (protected)
+router.get('/digest/:date/stat-candidates', requireApiKey, async (req, res) => {
+  const { date } = req.params;
+  if (!/^\d{4}-\d{2}-\d{2}$/.test(date)) {
+    return res.status(400).json({ error: 'Date must be YYYY-MM-DD' });
+  }
+  try {
+    const candidates = await fetchDailyStatCandidates(date);
+    if (!candidates) {
+      return res.json({ date, candidates: null });
+    }
+    res.json({ date, candidates });
+  } catch (err) {
+    console.error('[Digest] Stat candidates error:', err.message);
+    res.status(500).json({ error: 'Failed to fetch stat candidates' });
+  }
+});
+
+// Curate a digest — select which drama items to publish (protected)
+router.put('/digest/:date/curate', requireApiKey, async (req, res) => {
+  const { date } = req.params;
+  if (!/^\d{4}-\d{2}-\d{2}$/.test(date)) {
+    return res.status(400).json({ error: 'Date must be YYYY-MM-DD' });
+  }
+  const { selectedIndices, selectedItems, selectedStats } = req.body;
+  // Accept either selectedItems (new: per-section) or selectedIndices (legacy: drama-only)
+  const items = selectedItems || selectedIndices;
+  if (!items || (Array.isArray(items) && items.length === undefined) || (!Array.isArray(items) && typeof items !== 'object')) {
+    return res.status(400).json({ error: 'selectedItems (object) or selectedIndices (array) is required' });
+  }
+  const draft = getDraftForDate(date);
+  // Fall back to published digest if no draft exists (stats-only edit)
+  const sourceText = draft?.draft || draft?.digest;
+  if (!sourceText) {
+    return res.status(404).json({ error: 'No draft or digest found for this date' });
+  }
+  const curated = curateDigest(sourceText, items, selectedStats || null);
+  updateDigestOnly(date, curated);
+  res.json({ ok: true, date, digest: curated });
+});
+
 // Recent digests (public)
 router.get('/digests', (_req, res) => {
   res.json(getRecentDigests(14));
 });
 
 // Today's live digest (public, served from shared cache warmed by scheduler)
-router.get('/stats/today', async (_req, res) => {
+// Pass ?refresh=1 with API key to bust cache and regenerate
+router.get('/stats/today', async (req, res) => {
+  const forceRefresh = req.query.refresh === '1' && req.headers['x-api-key'] === config.ADMIN_API_KEY;
   const now = Date.now();
-  if (todayDigestCache.data && todayDigestCache.expires > now) {
+  if (!forceRefresh && todayDigestCache.data && todayDigestCache.expires > now) {
     return res.json(todayDigestCache.data);
   }
   try {
@@ -151,6 +207,49 @@ router.delete('/weekly-digest/:weekStart', requireApiKey, (req, res) => {
   }
   deleteWeeklyDigest(weekStart);
   res.json({ ok: true, message: `Weekly digest for ${weekStart} cleared` });
+});
+
+// Chat context — surrounding messages for drama items or time windows (public)
+// Mode 1 (drama): ?date=...&players=Tag1,Tag2&quotes=["q1","q2"]
+//   Uses quotes to find the exact conversation, falls back to player activity window
+// Mode 2 (spikes): ?date=...&from=HH:MM&to=HH:MM
+//   All messages in that time window
+router.get('/messages/context', (req, res) => {
+  const { date, players, from, to, limit } = req.query;
+  if (!date || !/^\d{4}-\d{2}-\d{2}$/.test(date)) {
+    return res.status(400).json({ error: 'date (YYYY-MM-DD) is required' });
+  }
+  const maxLimit = Math.min(parseInt(limit) || 100, 200);
+
+  // Mode 2: time window (for spikes)
+  if (from && to) {
+    if (!/^\d{2}:\d{2}$/.test(from) || !/^\d{2}:\d{2}$/.test(to)) {
+      return res.status(400).json({ error: 'from/to must be HH:MM format' });
+    }
+    const messages = getMessagesByTimeWindow(date, from, to, maxLimit);
+    return res.json(messages);
+  }
+
+  // Mode 1: quote-based context (for drama)
+  if (!players) {
+    return res.status(400).json({ error: 'players or from/to time range is required' });
+  }
+  const battleTags = players.split(',').map(t => t.trim()).filter(Boolean);
+  if (battleTags.length === 0) {
+    return res.status(400).json({ error: 'At least one player required' });
+  }
+
+  // Parse quotes if provided (JSON array)
+  let quotes = [];
+  if (req.query.quotes) {
+    try {
+      quotes = JSON.parse(req.query.quotes);
+      if (!Array.isArray(quotes)) quotes = [];
+    } catch { quotes = []; }
+  }
+
+  const messages = getContextAroundQuotes(date, quotes, battleTags, 3, maxLimit);
+  res.json(messages);
 });
 
 // Image proxy for cross-origin avatar screenshots (public)
