@@ -80,3 +80,59 @@
   text-align: center;
   padding: var(--space-2);
 }
+
+/* ── Selectable mode ─────────────────────────────── */
+
+.chat-context-msg--selectable {
+  cursor: pointer;
+  border-radius: 2px;
+  margin: 0 -4px;
+  padding: 2px 4px;
+  transition: background 0.1s;
+}
+
+.chat-context-msg--selectable:hover {
+  background: rgba(255, 255, 255, 0.04);
+}
+
+.chat-context-msg--selected {
+  background: rgba(252, 219, 51, 0.08) !important;
+  border-left: 2px solid var(--gold);
+  padding-left: 6px;
+}
+
+.chat-context-check {
+  font-family: var(--font-mono);
+  font-size: 11px;
+  color: var(--gold);
+  width: 14px;
+  flex-shrink: 0;
+  text-align: center;
+}
+
+.chat-context-save {
+  display: block;
+  width: 100%;
+  margin-top: 8px;
+  padding: 6px 12px;
+  background: rgba(252, 219, 51, 0.12);
+  border: 1px solid rgba(252, 219, 51, 0.3);
+  border-radius: var(--radius-sm);
+  color: var(--gold);
+  font-family: var(--font-mono);
+  font-size: 11px;
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+  cursor: pointer;
+  transition: all 0.15s;
+}
+
+.chat-context-save:hover:not(:disabled) {
+  background: rgba(252, 219, 51, 0.2);
+  border-color: var(--gold);
+}
+
+.chat-context-save:disabled {
+  opacity: 0.6;
+  cursor: default;
+}

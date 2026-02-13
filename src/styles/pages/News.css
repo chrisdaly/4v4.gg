@@ -306,6 +306,22 @@
   color: #fff;
 }
 
+/* Race icon in stat cards */
+.digest-stat-race {
+  width: 16px;
+  height: 16px;
+  opacity: 0.7;
+  flex-shrink: 0;
+}
+
+/* Game link chips */
+.digest-game-links {
+  display: flex;
+  gap: 4px;
+  flex-wrap: wrap;
+  margin-top: 2px;
+}
+
 /* Form dots (W/L session indicators) */
 .digest-form-dots {
   display: flex;
@@ -358,6 +374,27 @@
 }
 
 .digest-bullet-row--clickable:hover {
+  background: rgba(255, 255, 255, 0.03);
+}
+
+.digest-section--clickable {
+  cursor: pointer;
+  transition: background 0.15s;
+}
+
+.digest-section--clickable:hover {
+  background: rgba(255, 255, 255, 0.02);
+}
+
+.digest-section-body--clickable {
+  cursor: pointer;
+  transition: background 0.15s;
+  border-radius: var(--radius-sm);
+  padding: var(--space-1);
+  margin: calc(var(--space-1) * -1);
+}
+
+.digest-section-body--clickable:hover {
   background: rgba(255, 255, 255, 0.03);
 }
 
@@ -507,6 +544,7 @@
 .digest-editor-section-label--drama { color: var(--red); }
 .digest-editor-section-label--bans { color: #f59e0b; }
 .digest-editor-section-label--highlights { color: var(--green); }
+.digest-editor-section-label--spikes { color: #f59e0b; }
 
 .digest-editor-items {
   display: flex;
@@ -571,6 +609,129 @@
 
 .digest-editor-item .digest-quotes {
   margin-top: 2px;
+}
+
+/* ── Spike Explorer (editorial mode) ─────────────────── */
+
+.digest-editor-spikes {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-2);
+}
+
+.digest-editor-spike-btn {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+  width: 100%;
+  padding: 6px var(--space-4);
+  font: inherit;
+  color: inherit;
+  background: rgba(255, 255, 255, 0.02);
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  border-radius: var(--radius-sm);
+  cursor: pointer;
+  text-align: left;
+  transition: all 0.15s;
+}
+
+.digest-editor-spike-btn:hover {
+  border-color: rgba(255, 255, 255, 0.15);
+  background: rgba(255, 255, 255, 0.04);
+}
+
+.digest-editor-spike-btn--active {
+  border-color: #f59e0b;
+  background: rgba(245, 158, 11, 0.06);
+}
+
+.digest-editor-spike-time {
+  font-family: var(--font-mono);
+  font-size: 11px;
+  color: #f59e0b;
+  flex-shrink: 0;
+  min-width: 40px;
+}
+
+.digest-editor-spike-text {
+  font-family: var(--font-body);
+  font-size: var(--text-xs);
+  color: var(--grey-light);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.digest-editor-spike-row {
+  display: flex;
+  gap: var(--space-2);
+  align-items: center;
+}
+
+.digest-editor-spike-detail {
+  padding: var(--space-2) 0 var(--space-2) var(--space-4);
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-2);
+}
+
+.digest-editor-spike-loading {
+  font-family: var(--font-mono);
+  font-size: 11px;
+  color: var(--grey-mid);
+  padding: var(--space-1) 0;
+}
+
+.digest-editor-spike-suggestions {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-1);
+}
+
+.digest-editor-spike-suggestion {
+  display: flex;
+  align-items: flex-start;
+  gap: var(--space-2);
+  padding: 4px var(--space-2);
+  background: rgba(255, 255, 255, 0.02);
+  border: 1px solid rgba(255, 255, 255, 0.06);
+  border-radius: var(--radius-sm);
+}
+
+.digest-editor-spike-suggestion-text {
+  flex: 1;
+  font-family: var(--font-body);
+  font-size: var(--text-xs);
+  color: var(--text-body);
+  line-height: 1.5;
+  min-width: 0;
+}
+
+.digest-editor-spike-add {
+  flex-shrink: 0;
+  width: 22px;
+  height: 22px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 14px;
+  font-weight: bold;
+  color: var(--green);
+  background: rgba(34, 197, 94, 0.08);
+  border: 1px solid rgba(34, 197, 94, 0.3);
+  border-radius: var(--radius-sm);
+  cursor: pointer;
+  transition: all 0.15s;
+  margin-top: 2px;
+}
+
+.digest-editor-spike-add:hover {
+  background: rgba(34, 197, 94, 0.2);
+  border-color: var(--green);
+}
+
+.digest-editor-spike-detail .chat-context {
+  margin-top: var(--space-1);
 }
 
 /* ── Stat Picker (editorial mode) ────────────────────── */

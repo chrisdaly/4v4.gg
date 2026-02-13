@@ -44,15 +44,16 @@ export const parseMentions = (sections) => {
 };
 
 export const parseStatLine = (content) => {
-  const m = content.match(/^(.+?#\d+)\s+(.+?)\s+\((\d+)W-(\d+)L\)\s*([WL]*)$/);
+  const m = content.match(/^(.+?#\d+)(?:\[(\w+)\])?\s+(.+?)\s+\((\d+)W-(\d+)L\)\s*([WL]*)$/);
   if (!m) return null;
   return {
     battleTag: m[1],
     name: m[1].split("#")[0],
-    headline: m[2],
-    wins: parseInt(m[3]),
-    losses: parseInt(m[4]),
-    form: m[5] || "",
+    race: m[2] || null,
+    headline: m[3],
+    wins: parseInt(m[4]),
+    losses: parseInt(m[5]),
+    form: m[6] || "",
   };
 };
 

@@ -16,7 +16,10 @@ import {
 } from "../lib/digestUtils";
 import TopicTrends from "../components/news/TopicTrends";
 import BeefTracker from "../components/news/BeefTracker";
+import { raceMapping } from "../lib/constants";
 import "../styles/pages/News.css";
+
+const RACE_STR_TO_ID = { HU: 1, ORC: 2, NE: 4, UD: 8, RND: 0 };
 
 const RELAY_URL =
   import.meta.env.VITE_CHAT_RELAY_URL || "https://4v4gg-chat-relay.fly.dev";
@@ -119,33 +122,70 @@ const FormDots = ({ form }) => {
   );
 };
 
-const StatSection = ({ stat, cls, label, profiles }) => {
+const StatSection = ({ stat, cls, label, profiles, date, expanded, onToggle }) => {
   const profile = profiles.get(stat.battleTag);
+  const raceId = stat.race ? RACE_STR_TO_ID[stat.race] : null;
+  const raceIcon = raceId != null ? raceMapping[raceId] : null;
   return (
-    <div className={`digest-section digest-section--${cls}`}>
+    <div className={`digest-section digest-section--${cls} digest-section--clickable`} onClick={onToggle}>
       <span className="digest-section-label">{label}</span>
       <div className="digest-stat">
         {profile?.pic && <DigestAvatar src={profile.pic} country={profile.country} />}
+        {raceIcon && <img src={raceIcon} alt="" className="digest-stat-race" />}
         <Link
           to={`/player/${encodeURIComponent(stat.battleTag)}`}
           className="digest-stat-name"
+          onClick={(e) => e.stopPropagation()}
         >
           {stat.name}
         </Link>
         <span className="digest-stat-headline">{stat.headline}</span>
         <FormDots form={stat.form} />
       </div>
+      <ChatContext
+        date={date}
+        battleTags={[stat.battleTag]}
+        playerOnly
+        expanded={expanded}
+      />
     </div>
   );
 };
 
 /* ── DigestBanner ────────────────────────────────────── */
 
-const DigestBanner = ({ digest, nameSet, nameToTag, label = "Yesterday in 4v4", dateTabs }) => {
+const DigestBanner = ({ digest, nameSet, nameToTag, label = "Yesterday in 4v4", dateTabs, isAdmin, apiKey, onDigestUpdated }) => {
   const digestRef = useRef(null);
   const [copyState, setCopyState] = useState(null); // null | "copying" | "copied" | "saved"
-  const [expandedDramaIdx, setExpandedDramaIdx] = useState(null);
-  const [expandedSpikeIdx, setExpandedSpikeIdx] = useState(null);
+  const [expandedItem, setExpandedItem] = useState(null); // { key, idx } or null
+  const [matchContext, setMatchContext] = useState(null); // { battleTag: matchId[] }
+
+  // Fetch match context for game links
+  useEffect(() => {
+    if (!digest?.date) return;
+    setMatchContext(null);
+    fetch(`${RELAY_URL}/api/admin/digest/${digest.date}/matches`)
+      .then((r) => (r.ok ? r.json() : null))
+      .then((data) => {
+        if (data?.matchContext) setMatchContext(data.matchContext);
+      })
+      .catch(() => {});
+  }, [digest?.date]);
+
+  const handleSaveQuotes = useCallback(async (sectionKey, itemIdx, newQuotes) => {
+    if (!isAdmin || !apiKey || !digest?.date) return;
+    try {
+      const res = await fetch(`${RELAY_URL}/api/admin/digest/${digest.date}/quotes`, {
+        method: "PUT",
+        headers: { "Content-Type": "application/json", "X-API-Key": apiKey },
+        body: JSON.stringify({ section: sectionKey, itemIndex: itemIdx, newQuotes }),
+      });
+      if (res.ok) {
+        const data = await res.json();
+        if (onDigestUpdated) onDigestUpdated(data.digest);
+      }
+    } catch { /* ignore */ }
+  }, [isAdmin, apiKey, digest?.date, onDigestUpdated]);
 
   const handleScreenshot = async () => {
     if (!digestRef.current || copyState === "copying") return;
@@ -180,9 +220,12 @@ const DigestBanner = ({ digest, nameSet, nameToTag, label = "Yesterday in 4v4", 
           el.style.background = "#0f0d0b";
           el.style.padding = "24px 32px 28px";
 
-          // Hide screenshot button
+          // Hide screenshot button and chat transcripts
           const btn = el.querySelector(".digest-screenshot-btn");
           if (btn) btn.style.display = "none";
+          for (const ctx of el.querySelectorAll(".chat-context")) {
+            ctx.style.display = "none";
+          }
 
           // Replace date tabs with a branded header
           const header = el.querySelector(".news-digest-header");
@@ -234,8 +277,8 @@ const DigestBanner = ({ digest, nameSet, nameToTag, label = "Yesterday in 4v4", 
   if (!digest) return null;
 
   const text = digest.digest || "";
-  // Reset expanded items when switching digests
-  useEffect(() => { setExpandedDramaIdx(null); setExpandedSpikeIdx(null); }, [text]);
+  // Reset expanded item when switching digests
+  useEffect(() => { setExpandedItem(null); }, [text]);
   const allSections = useMemo(() => parseDigestSections(text), [text]);
 
   const mentionsMap = useMemo(() => parseMentions(allSections), [allSections]);
@@ -373,12 +416,28 @@ const DigestBanner = ({ digest, nameSet, nameToTag, label = "Yesterday in 4v4", 
         {sections.map(({ key, content }) => {
           const meta = DIGEST_SECTIONS.find((s) => s.key === key);
           if (!meta) return null;
+          // SPIKES are editorial-only (used in editor to explore chat moments)
+          if (key === "SPIKES") return null;
+          // Skip sections with empty/placeholder content
+          if (/^none$/i.test(content.trim())) return null;
           const { cls, label } = meta;
 
           if (meta.stat) {
             const stat = parseStatLine(content);
             if (stat) {
-              return <StatSection key={key} stat={stat} cls={cls} label={label} profiles={profiles} />;
+              const isExpanded = expandedItem?.key === key;
+              return (
+                <StatSection
+                  key={key}
+                  stat={stat}
+                  cls={cls}
+                  label={label}
+                  profiles={profiles}
+                  date={digest.date}
+                  expanded={isExpanded}
+                  onToggle={() => setExpandedItem(isExpanded ? null : { key, idx: 0 })}
+                />
+              );
             }
           }
 
@@ -396,6 +455,10 @@ const DigestBanner = ({ digest, nameSet, nameToTag, label = "Yesterday in 4v4", 
           }
 
           const items = content.split(/;\s*/).map(s => s.trim()).filter(Boolean);
+          const isSpike = key === "SPIKES";
+          const isRecap = key === "RECAP";
+          // All list sections are clickable except RECAP
+          const isClickable = !isRecap;
 
           return (
             <div key={key} className={`digest-section digest-section--${cls}`}>
@@ -413,11 +476,7 @@ const DigestBanner = ({ digest, nameSet, nameToTag, label = "Yesterday in 4v4", 
                       .map((p, j) => <DigestAvatar key={j} src={p.pic} country={p.country} />);
 
                     const { summary, quotes } = splitQuotes(item);
-                    const isDrama = key === "DRAMA";
-                    const isSpike = key === "SPIKES";
-                    const isClickable = isDrama || isSpike;
-                    const isExpanded = isDrama ? expandedDramaIdx === i
-                      : isSpike ? expandedSpikeIdx === i : false;
+                    const isExpanded = expandedItem?.key === key && expandedItem?.idx === i;
 
                     // Parse time range from spike text like "02:28 (22 msgs, ...)"
                     let spikeFrom, spikeTo;
@@ -425,17 +484,14 @@ const DigestBanner = ({ digest, nameSet, nameToTag, label = "Yesterday in 4v4", 
                       const timeMatch = item.match(/^(\d{1,2}:\d{2})/);
                       if (timeMatch) {
                         spikeFrom = timeMatch[1].padStart(5, "0");
-                        // 5-minute window
                         const [h, m] = spikeFrom.split(":").map(Number);
                         const endMin = m + 4;
                         spikeTo = `${String(h + Math.floor(endMin / 60)).padStart(2, "0")}:${String(endMin % 60).padStart(2, "0")}`;
                       }
                     }
 
-                    const handleClick = isDrama
-                      ? () => setExpandedDramaIdx(isExpanded ? null : i)
-                      : isSpike
-                      ? () => setExpandedSpikeIdx(isExpanded ? null : i)
+                    const handleClick = isClickable
+                      ? () => setExpandedItem(isExpanded ? null : { key, idx: i })
                       : undefined;
 
                     return (
@@ -456,15 +512,7 @@ const DigestBanner = ({ digest, nameSet, nameToTag, label = "Yesterday in 4v4", 
                               ))}
                             </div>
                           )}
-                          {isDrama && (
-                            <ChatContext
-                              date={digest.date}
-                              battleTags={itemTags}
-                              quotes={quotes}
-                              expanded={isExpanded}
-                            />
-                          )}
-                          {isSpike && spikeFrom && (
+                          {isClickable && isSpike && spikeFrom && (
                             <ChatContext
                               date={digest.date}
                               fromTime={spikeFrom}
@@ -472,17 +520,50 @@ const DigestBanner = ({ digest, nameSet, nameToTag, label = "Yesterday in 4v4", 
                               expanded={isExpanded}
                             />
                           )}
+                          {isClickable && !isSpike && (
+                            <ChatContext
+                              date={digest.date}
+                              battleTags={itemTags}
+                              quotes={quotes}
+                              expanded={isExpanded}
+                              selectable={isAdmin}
+                              onSaveQuotes={(newQ) => handleSaveQuotes(key, i, newQ)}
+                            />
+                          )}
+                          {matchContext && itemTags.length > 0 && (() => {
+                            const ids = new Set();
+                            for (const tag of itemTags) {
+                              for (const id of matchContext[tag] || []) ids.add(id);
+                            }
+                            if (ids.size === 0) return null;
+                            return (
+                              <div className="digest-game-links">
+                                {[...ids].slice(0, 3).map((id) => (
+                                  <Link key={id} to={`/match/${id}`} className="digest-match-link" onClick={(e) => e.stopPropagation()}>
+                                    game <FiExternalLink size={10} />
+                                  </Link>
+                                ))}
+                              </div>
+                            );
+                          })()}
                         </div>
                       </li>
                     );
                   })}
                 </ul>
               ) : (
-                <div className="digest-section-body">
+                <div
+                  className={`digest-section-body${isClickable ? " digest-section-body--clickable" : ""}`}
+                  onClick={isClickable ? () => {
+                    const isExpanded = expandedItem?.key === key && expandedItem?.idx === 0;
+                    setExpandedItem(isExpanded ? null : { key, idx: 0 });
+                  } : undefined}
+                >
                   {(() => {
                     const tags = extractMentionedTags(content, combinedNameToTag);
                     const ps = tags.map((t) => profiles.get(t)).filter(Boolean);
                     const { summary, quotes } = splitQuotes(content);
+                    const isExpanded = expandedItem?.key === key && expandedItem?.idx === 0;
                     return (
                       <>
                         {ps.length > 0 && (
@@ -501,6 +582,32 @@ const DigestBanner = ({ digest, nameSet, nameToTag, label = "Yesterday in 4v4", 
                               ))}
                             </div>
                           )}
+                          {isClickable && (
+                            <ChatContext
+                              date={digest.date}
+                              battleTags={tags}
+                              quotes={quotes}
+                              expanded={isExpanded}
+                              selectable={isAdmin}
+                              onSaveQuotes={(newQ) => handleSaveQuotes(key, 0, newQ)}
+                            />
+                          )}
+                          {matchContext && tags.length > 0 && (() => {
+                            const ids = new Set();
+                            for (const tag of tags) {
+                              for (const id of matchContext[tag] || []) ids.add(id);
+                            }
+                            if (ids.size === 0) return null;
+                            return (
+                              <div className="digest-game-links">
+                                {[...ids].slice(0, 3).map((id) => (
+                                  <Link key={id} to={`/match/${id}`} className="digest-match-link" onClick={(e) => e.stopPropagation()}>
+                                    game <FiExternalLink size={10} />
+                                  </Link>
+                                ))}
+                              </div>
+                            );
+                          })()}
                         </div>
                       </>
                     );
@@ -659,6 +766,77 @@ const DigestEditor = ({ date, apiKey, nameSet, nameToTag, onPublished }) => {
     return result;
   }, [draft]);
 
+  // Parse SPIKES from draft for exploration
+  const spikes = useMemo(() => {
+    if (!draft) return [];
+    const draftSections = parseDigestSections(draft);
+    const sec = draftSections.find((s) => s.key === "SPIKES");
+    if (!sec) return [];
+    return sec.content.split(/;\s*/).map((s) => s.trim()).filter(Boolean).map((text) => {
+      const timeMatch = text.match(/^(\d{1,2}:\d{2})/);
+      if (!timeMatch) return null;
+      const from = timeMatch[1].padStart(5, "0");
+      const [h, m] = from.split(":").map(Number);
+      const endMin = m + 4;
+      const to = `${String(h + Math.floor(endMin / 60)).padStart(2, "0")}:${String(endMin % 60).padStart(2, "0")}`;
+      return { text, from, to };
+    }).filter(Boolean);
+  }, [draft]);
+
+  const [expandedSpike, setExpandedSpike] = useState(null);
+  // Per-spike analysis results: Map<index, { DRAMA: [], HIGHLIGHTS: [], BANS: [] } | "loading">
+  const [spikeAnalysis, setSpikeAnalysis] = useState({});
+
+  const handleAnalyzeSpike = useCallback(async (idx) => {
+    const spike = spikes[idx];
+    if (!spike || spikeAnalysis[idx]) return;
+    setSpikeAnalysis((prev) => ({ ...prev, [idx]: "loading" }));
+    try {
+      const res = await fetch(`${RELAY_URL}/api/admin/digest/${date}/analyze-spike`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json", "X-API-Key": apiKey },
+        body: JSON.stringify({ from: spike.from, to: spike.to }),
+      });
+      if (res.ok) {
+        const data = await res.json();
+        setSpikeAnalysis((prev) => ({ ...prev, [idx]: data.suggestions || {} }));
+      } else {
+        setSpikeAnalysis((prev) => ({ ...prev, [idx]: {} }));
+      }
+    } catch {
+      setSpikeAnalysis((prev) => ({ ...prev, [idx]: {} }));
+    }
+  }, [spikes, date, apiKey, spikeAnalysis]);
+
+  // Add a suggested item from spike analysis into an editable section's draft items
+  const handleAddSuggestion = useCallback((sectionKey, text) => {
+    // Append item to the section in editableSections and auto-select it
+    // We do this by mutating the draft to inject the item, then re-parsing
+    setDraft((prev) => {
+      if (!prev) return prev;
+      const sections = parseDigestSections(prev);
+      const sec = sections.find((s) => s.key === sectionKey);
+      if (sec) {
+        sec.content = sec.content + "; " + text;
+      } else {
+        sections.push({ key: sectionKey, content: text });
+      }
+      return sections.map((s) => `${s.key}: ${s.content}`).join("\n");
+    });
+    // Auto-select the newly added item (it'll be the last one)
+    setTimeout(() => {
+      setSectionSelections((prev) => {
+        const draftSections = parseDigestSections(draft || "");
+        const sec = draftSections.find((s) => s.key === sectionKey);
+        const items = sec ? sec.content.split(/;\s*/).map((i) => i.trim()).filter(Boolean) : [];
+        const sel = new Set(prev[sectionKey] || []);
+        sel.add(items.length); // The new item will be at the end
+        return { ...prev, [sectionKey]: sel };
+      });
+    }, 0);
+    setPublishState("idle");
+  }, [draft]);
+
   const toggleItem = useCallback((sectionKey, idx) => {
     setSectionSelections((prev) => {
       const sel = new Set(prev[sectionKey] || []);
@@ -785,6 +963,84 @@ const DigestEditor = ({ date, apiKey, nameSet, nameToTag, onPublished }) => {
           </div>
         );
       })}
+      {spikes.length > 0 && (
+        <div className="digest-editor-section">
+          <div className="digest-editor-section-header">
+            <span className="digest-editor-section-label digest-editor-section-label--spikes">Spikes</span>
+            <span className="digest-editor-count">{spikes.length} hot moments</span>
+          </div>
+          <div className="digest-editor-spikes">
+            {spikes.map((spike, i) => {
+              const isExpanded = expandedSpike === i;
+              const analysis = spikeAnalysis[i];
+              const isLoading = analysis === "loading";
+              const suggestions = analysis && analysis !== "loading" ? analysis : null;
+              return (
+                <div key={i} className="digest-editor-spike">
+                  <div className="digest-editor-spike-row">
+                    <button
+                      className={`digest-editor-spike-btn${isExpanded ? " digest-editor-spike-btn--active" : ""}`}
+                      onClick={() => {
+                        setExpandedSpike(isExpanded ? null : i);
+                        if (!isExpanded && !analysis) handleAnalyzeSpike(i);
+                      }}
+                    >
+                      <span className="digest-editor-spike-time">{spike.from}</span>
+                      <span className="digest-editor-spike-text">{spike.text}</span>
+                    </button>
+                  </div>
+                  {isExpanded && (
+                    <div className="digest-editor-spike-detail">
+                      {isLoading && <div className="digest-editor-spike-loading">Analyzing...</div>}
+                      {suggestions && Object.entries(suggestions).map(([secKey, items]) => {
+                        if (!items || items.length === 0) return null;
+                        const meta = EDITABLE_SECTIONS.find((s) => s.key === secKey);
+                        if (!meta) return null;
+                        return (
+                          <div key={secKey} className="digest-editor-spike-suggestions">
+                            <span className={`digest-editor-section-label digest-editor-section-label--${meta.cls}`}>{meta.label}</span>
+                            {items.map((item, j) => {
+                              const { summary, quotes } = splitQuotes(item);
+                              return (
+                                <div key={j} className="digest-editor-spike-suggestion">
+                                  <div className="digest-editor-spike-suggestion-text">
+                                    <span>{highlightNames(summary, combinedNameSet)}</span>
+                                    {quotes.length > 0 && (
+                                      <div className="digest-quotes">
+                                        {quotes.map((q, qi) => (
+                                          <div key={qi} className="digest-quote">{q}</div>
+                                        ))}
+                                      </div>
+                                    )}
+                                  </div>
+                                  <button
+                                    className="digest-editor-spike-add"
+                                    onClick={() => handleAddSuggestion(secKey, item)}
+                                    title={`Add to ${meta.label}`}
+                                  >+</button>
+                                </div>
+                              );
+                            })}
+                          </div>
+                        );
+                      })}
+                      {suggestions && Object.values(suggestions).every((v) => !v || v.length === 0) && (
+                        <div className="digest-editor-spike-loading">Nothing notable found</div>
+                      )}
+                      <ChatContext
+                        date={date}
+                        fromTime={spike.from}
+                        toTime={spike.to}
+                        expanded={true}
+                      />
+                    </div>
+                  )}
+                </div>
+              );
+            })}
+          </div>
+        </div>
+      )}
       <StatPicker
         candidates={statCandidates}
         selectedStats={selectedStats}
@@ -968,6 +1224,9 @@ const News = () => {
               nameSet={nameSet}
               nameToTag={nameToTag}
               label={digestLabel}
+              isAdmin={isAdmin}
+              apiKey={adminKey}
+              onDigestUpdated={handleEditorPublished}
               dateTabs={allDigests.map((d, i) => ({
                 label: formatDigestLabel(d.date),
                 active: i === digestIdx,

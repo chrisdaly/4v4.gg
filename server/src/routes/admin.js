@@ -1,10 +1,10 @@
 import { Router } from 'express';
 import config from '../config.js';
-import { setToken, getStats, getTopWords, getRecentDigests, deleteDigest, getRecentWeeklyDigests, deleteWeeklyDigest, getDraftForDate, updateDigestOnly, getContextAroundQuotes, getMessagesByTimeWindow } from '../db.js';
+import { setToken, getStats, getTopWords, getRecentDigests, deleteDigest, getRecentWeeklyDigests, deleteWeeklyDigest, getDraftForDate, updateDigestOnly, getContextAroundQuotes, getMessagesByTimeWindow, getMessagesByDateAndUsers, getMessageBuckets, getGameStats, getMatchContext } from '../db.js';
 import { updateToken, getStatus } from '../signalr.js';
 import { getClientCount } from '../sse.js';
 import { setBotEnabled, isBotEnabled, testCommand } from '../bot.js';
-import { generateDigest, fetchDailyStats, generateLiveDigest, todayDigestCache, setTodayDigestCache, generateWeeklyDigest, curateDigest, fetchDailyStatCandidates } from '../digest.js';
+import { generateDigest, fetchDailyStats, generateLiveDigest, todayDigestCache, setTodayDigestCache, generateWeeklyDigest, curateDigest, fetchDailyStatCandidates, analyzeSpike } from '../digest.js';
 
 const router = Router();
 
@@ -143,6 +143,94 @@ router.put('/digest/:date/curate', requireApiKey, async (req, res) => {
   res.json({ ok: true, date, digest: curated });
 });
 
+// Update quotes for a specific item in a digest section (protected)
+router.put('/digest/:date/quotes', requireApiKey, (req, res) => {
+  const { date } = req.params;
+  if (!/^\d{4}-\d{2}-\d{2}$/.test(date)) {
+    return res.status(400).json({ error: 'Date must be YYYY-MM-DD' });
+  }
+  const { section, itemIndex, newQuotes } = req.body;
+  if (!section || typeof itemIndex !== 'number' || !Array.isArray(newQuotes)) {
+    return res.status(400).json({ error: 'section (string), itemIndex (number), newQuotes (string[]) required' });
+  }
+
+  const row = getDraftForDate(date);
+  const text = row?.digest;
+  if (!text) {
+    return res.status(404).json({ error: 'No digest found for this date' });
+  }
+
+  // Parse sections, find the target, split items, replace quotes in the target item
+  const sectionRe = new RegExp(`^(${section})\\s*:\\s*`, 'gm');
+  const allKeysRe = /^(TOPICS|DRAMA|BANS|HIGHLIGHTS|RECAP|SPIKES|WINNER|LOSER|GRINDER|HOTSTREAK|COLDSTREAK|MENTIONS)\s*:\s*/gm;
+  const matches = [...text.matchAll(allKeysRe)];
+  const secMatch = matches.find(m => m[1] === section);
+  if (!secMatch) {
+    return res.status(404).json({ error: `Section ${section} not found` });
+  }
+
+  const secStart = secMatch.index + secMatch[0].length;
+  const nextMatch = matches.find(m => m.index > secMatch.index);
+  const secEnd = nextMatch ? nextMatch.index : text.length;
+  const secContent = text.slice(secStart, secEnd).trim();
+
+  const items = secContent.split(/;\s*/);
+  if (itemIndex < 0 || itemIndex >= items.length) {
+    return res.status(400).json({ error: `Item index ${itemIndex} out of range (0-${items.length - 1})` });
+  }
+
+  // Strip existing quotes from the item, keep the summary
+  const oldItem = items[itemIndex];
+  const summary = oldItem.replace(/"[^"]+"/g, '').replace(/\s{2,}/g, ' ').trim()
+    .replace(/\s*[—:,]\s*$/, '').trim();
+
+  // Rebuild item: summary + new quotes
+  const quoteParts = newQuotes.map(q => `"${q}"`).join(' ');
+  items[itemIndex] = `${summary} ${quoteParts}`;
+
+  // Reconstruct digest text
+  const updated = text.slice(0, secStart) + items.join('; ') + '\n' + text.slice(secEnd);
+  updateDigestOnly(date, updated.trim());
+  res.json({ ok: true, date, digest: updated.trim() });
+});
+
+// Match context for a digest date (public)
+router.get('/digest/:date/matches', (req, res) => {
+  const { date } = req.params;
+  if (!/^\d{4}-\d{2}-\d{2}$/.test(date)) {
+    return res.status(400).json({ error: 'Date must be YYYY-MM-DD' });
+  }
+  const raw = getMatchContext(date);
+  if (!raw) return res.json({ date, matchContext: null });
+  try {
+    res.json({ date, matchContext: JSON.parse(raw) });
+  } catch {
+    res.json({ date, matchContext: null });
+  }
+});
+
+// Analyze a chat spike — returns suggested items per section (protected)
+router.post('/digest/:date/analyze-spike', requireApiKey, async (req, res) => {
+  const { date } = req.params;
+  if (!/^\d{4}-\d{2}-\d{2}$/.test(date)) {
+    return res.status(400).json({ error: 'Date must be YYYY-MM-DD' });
+  }
+  const { from, to } = req.body;
+  if (!from || !to || !/^\d{2}:\d{2}$/.test(from) || !/^\d{2}:\d{2}$/.test(to)) {
+    return res.status(400).json({ error: 'from/to must be HH:MM format' });
+  }
+  try {
+    const suggestions = await analyzeSpike(date, from, to);
+    if (!suggestions) {
+      return res.json({ date, from, to, suggestions: null });
+    }
+    res.json({ date, from, to, suggestions });
+  } catch (err) {
+    console.error('[Spike] Analysis error:', err.message);
+    res.status(500).json({ error: 'Failed to analyze spike' });
+  }
+});
+
 // Recent digests (public)
 router.get('/digests', (_req, res) => {
   res.json(getRecentDigests(14));
@@ -166,6 +254,17 @@ router.get('/stats/today', async (req, res) => {
     console.error('[Stats] Error generating today digest:', err.message);
     res.status(500).json({ error: 'Failed to generate digest' });
   }
+});
+
+// Message volume timeline for a date (public)
+router.get('/messages/timeline/:date', (req, res) => {
+  const { date } = req.params;
+  if (!/^\d{4}-\d{2}-\d{2}$/.test(date)) {
+    return res.status(400).json({ error: 'Date must be YYYY-MM-DD' });
+  }
+  const buckets = getMessageBuckets(date, 5);
+  const games = getGameStats(date);
+  res.json({ buckets, games });
 });
 
 // Analytics bundle (public) — top words + recent digests in one call
@@ -215,13 +314,13 @@ router.delete('/weekly-digest/:weekStart', requireApiKey, (req, res) => {
 // Mode 2 (spikes): ?date=...&from=HH:MM&to=HH:MM
 //   All messages in that time window
 router.get('/messages/context', (req, res) => {
-  const { date, players, from, to, limit } = req.query;
+  const { date, players, from, to, limit, mode } = req.query;
   if (!date || !/^\d{4}-\d{2}-\d{2}$/.test(date)) {
     return res.status(400).json({ error: 'date (YYYY-MM-DD) is required' });
   }
   const maxLimit = Math.min(parseInt(limit) || 100, 200);
 
-  // Mode 2: time window (for spikes)
+  // Time window mode (for spikes)
   if (from && to) {
     if (!/^\d{2}:\d{2}$/.test(from) || !/^\d{2}:\d{2}$/.test(to)) {
       return res.status(400).json({ error: 'from/to must be HH:MM format' });
@@ -230,7 +329,6 @@ router.get('/messages/context', (req, res) => {
     return res.json(messages);
   }
 
-  // Mode 1: quote-based context (for drama)
   if (!players) {
     return res.status(400).json({ error: 'players or from/to time range is required' });
   }
@@ -239,7 +337,13 @@ router.get('/messages/context', (req, res) => {
     return res.status(400).json({ error: 'At least one player required' });
   }
 
-  // Parse quotes if provided (JSON array)
+  // Player-only mode (for stat lines — just their messages, no surrounding context)
+  if (mode === 'player') {
+    const messages = getMessagesByDateAndUsers(date, battleTags, maxLimit);
+    return res.json(messages);
+  }
+
+  // Quote-based context mode (for drama/highlights/bans)
   let quotes = [];
   if (req.query.quotes) {
     try {

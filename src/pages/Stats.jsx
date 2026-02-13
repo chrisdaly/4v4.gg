@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useMemo } from "react";
+import React, { useState, useEffect, useMemo, useCallback } from "react";
 import { CountryFlag } from "../components/ui";
 
 import { gateway } from "../lib/params";
@@ -598,6 +598,132 @@ const MapPopularity = ({ mapData, selectedSeason, isLoading }) => {
   );
 };
 
+const RELAY_URL =
+  import.meta.env.VITE_CHAT_RELAY_URL || "https://4v4gg-chat-relay.fly.dev";
+
+// Chat Activity sparkline + stats
+const ChatActivity = () => {
+  const [buckets, setBuckets] = useState(null);
+  const [games, setGames] = useState(null);
+  const [selectedBucket, setSelectedBucket] = useState(null);
+
+  useEffect(() => {
+    const today = new Date().toISOString().slice(0, 10);
+    fetch(`${RELAY_URL}/api/admin/messages/timeline/${today}`)
+      .then((r) => (r.ok ? r.json() : null))
+      .then((data) => {
+        if (!data) { setBuckets([]); return; }
+        if (Array.isArray(data)) {
+          setBuckets(data);
+        } else {
+          setBuckets(data.buckets || []);
+          setGames(data.games || null);
+        }
+      })
+      .catch(() => setBuckets([]));
+  }, []);
+
+  const maxCount = useMemo(() => {
+    if (!buckets || buckets.length === 0) return 1;
+    return Math.max(...buckets.map((b) => b.count));
+  }, [buckets]);
+
+  const avg = useMemo(() => {
+    if (!buckets || buckets.length === 0) return 0;
+    return buckets.reduce((s, b) => s + b.count, 0) / buckets.length;
+  }, [buckets]);
+
+  const stats = useMemo(() => {
+    if (!buckets || buckets.length === 0) return null;
+    const totalMsgs = buckets.reduce((s, b) => s + b.count, 0);
+    const uniqueNames = new Set();
+    for (const b of buckets) {
+      if (b.names) {
+        for (const n of b.names.split(",")) {
+          const trimmed = n.trim();
+          if (trimmed) uniqueNames.add(trimmed);
+        }
+      }
+    }
+    let peakBucket = buckets[0];
+    for (const b of buckets) {
+      if (b.count > peakBucket.count) peakBucket = b;
+    }
+    return {
+      totalMsgs,
+      uniqueUsers: uniqueNames.size,
+      peakCount: peakBucket.count,
+      peakTime: peakBucket.bucket,
+    };
+  }, [buckets]);
+
+  const handleBarClick = useCallback((bucket) => {
+    setSelectedBucket((prev) => (prev === bucket ? null : bucket));
+  }, []);
+
+  if (!buckets || buckets.length === 0) {
+    return (
+      <div className="stats-card stats-card-wide">
+        <div className="stats-card-header">
+          <h2 className="stats-card-title">Chat Activity</h2>
+        </div>
+        <div className="stats-loading">No data</div>
+      </div>
+    );
+  }
+
+  const barData = buckets.map((b) => ({
+    ...b,
+    isSpike: b.count >= avg * 3 && b.count >= 10,
+  }));
+
+  const chips = [];
+  if (stats) {
+    chips.push(`${stats.totalMsgs} messages`);
+    chips.push(`${stats.uniqueUsers} players`);
+    chips.push(`peak ${stats.peakCount} at ${stats.peakTime} utc`);
+  }
+  if (games) {
+    if (games.totalGames > 0) chips.push(`${games.totalGames} games`);
+    if (games.peakConcurrent > 0) chips.push(`${games.peakConcurrent} concurrent`);
+  }
+
+  return (
+    <div className="stats-card stats-card-wide">
+      <div className="stats-card-header">
+        <h2 className="stats-card-title">Chat Activity</h2>
+        <span className="stats-card-subtitle">Today (UTC)</span>
+      </div>
+      <div className="chat-activity-spark">
+        {barData.map((b) => {
+          const height = Math.max(2, (b.count / maxCount) * 100);
+          const isSelected = selectedBucket === b.bucket;
+          return (
+            <div
+              key={b.bucket}
+              className={`chat-activity-bar-wrap${isSelected ? " chat-activity-bar-wrap--selected" : ""}`}
+              onClick={() => handleBarClick(b.bucket)}
+              title={`${b.bucket} — ${b.count} msgs, ${b.users} users`}
+            >
+              <div
+                className={`chat-activity-bar${b.isSpike ? " chat-activity-bar--spike" : ""}`}
+                style={{ height: `${height}%` }}
+              />
+            </div>
+          );
+        })}
+      </div>
+      {chips.length > 0 && (
+        <div className="chat-activity-chips">
+          {chips.map((chip, i) => (
+            <span key={i} className="chat-activity-chip">{chip}</span>
+          ))}
+        </div>
+      )}
+    </div>
+  );
+};
+
 // Helper to get cached stats data
 const getCachedStatsData = (season) => {
   const cacheKey = `statsPage:${season}`;
@@ -950,6 +1076,10 @@ const Stats = () => {
           lengthData={lengthData}
           isLoading={isLoadingStats}
         />
+      </div>
+
+      <div className="stats-grid two-col" style={{ marginTop: 'var(--space-4)' }}>
+        <ChatActivity />
       </div>
     </PageLayout>
   );

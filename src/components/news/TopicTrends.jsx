@@ -2,17 +2,11 @@ import React, { useMemo } from "react";
 import { parseDigestSections } from "../../lib/digestUtils";
 import "./TopicTrends.css";
 
-const TAXONOMY = new Set([
-  "balance", "map pool", "race war", "griefing", "matchmaking",
-  "meta", "tournament", "player beef", "ban drama", "tech issues",
-  "memes", "stream drama",
-]);
-
 const TopicTrends = ({ digests }) => {
   const { topics, dates, matrix } = useMemo(() => {
     if (!digests || digests.length < 2) return { topics: [], dates: [], matrix: {} };
 
-    // Parse topics from each digest, keeping only taxonomy matches
+    // Parse topics from each digest
     const dateTopics = [];
     for (const d of digests) {
       const text = d.digest || "";
@@ -22,7 +16,7 @@ const TopicTrends = ({ digests }) => {
       const tags = topicSec.content
         .split(/,\s*/)
         .map((t) => t.trim().toLowerCase())
-        .filter((t) => TAXONOMY.has(t));
+        .filter(Boolean);
       if (tags.length > 0) {
         dateTopics.push({ date: d.date, tags });
       }
@@ -38,9 +32,11 @@ const TopicTrends = ({ digests }) => {
       }
     }
 
-    // Sort topics by frequency (most common first)
+    // Sort topics by frequency (most common first), only show recurring ones
     const sortedTopics = [...freq.entries()]
+      .filter(([, count]) => count >= 2)
       .sort((a, b) => b[1] - a[1])
+      .slice(0, 12)
       .map(([t]) => t);
 
     // Build date list (chronological)

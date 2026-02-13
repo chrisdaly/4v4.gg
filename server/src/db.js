@@ -61,6 +61,13 @@ export function initDb() {
     // Column already exists — ignore
   }
 
+  // Migration: add match_context column to daily_digests
+  try {
+    db.exec(`ALTER TABLE daily_digests ADD COLUMN match_context TEXT`);
+  } catch {
+    // Column already exists — ignore
+  }
+
   return db;
 }
 
@@ -238,9 +245,10 @@ export function getTopWords(days = 7) {
 }
 
 export function getMessageBuckets(date, bucketMinutes = 5) {
+  const b = Math.max(1, Math.floor(bucketMinutes));
   const rows = db.prepare(`
     SELECT
-      strftime('%H', received_at) || ':' || printf('%02d', (CAST(strftime('%M', received_at) AS INTEGER) / ?) * ?) AS bucket,
+      strftime('%H', received_at) || ':' || printf('%02d', (CAST(strftime('%M', received_at) AS INTEGER) / ${b}) * ${b}) AS bucket,
       COUNT(*) AS count,
       COUNT(DISTINCT battle_tag) AS users,
       GROUP_CONCAT(DISTINCT user_name) AS names
@@ -248,8 +256,33 @@ export function getMessageBuckets(date, bucketMinutes = 5) {
     WHERE deleted = 0 AND DATE(received_at) = ?
     GROUP BY bucket
     ORDER BY bucket
-  `).all(bucketMinutes, bucketMinutes, date);
+  `).all(date);
   return rows;
+}
+
+export function getGameStats(date) {
+  // Count total unique games that started on this date
+  const totalRow = db.prepare(`
+    SELECT COUNT(*) as total FROM events
+    WHERE type = 'game_start' AND DATE(timestamp) = ?
+  `).get(date);
+
+  // Get all game_start and game_end events for this date to compute peak concurrent
+  const events = db.prepare(`
+    SELECT type, timestamp FROM events
+    WHERE type IN ('game_start', 'game_end') AND DATE(timestamp) = ?
+    ORDER BY timestamp ASC
+  `).all(date);
+
+  let concurrent = 0;
+  let peak = 0;
+  for (const e of events) {
+    if (e.type === 'game_start') concurrent++;
+    else concurrent = Math.max(0, concurrent - 1);
+    if (concurrent > peak) peak = concurrent;
+  }
+
+  return { totalGames: totalRow?.total || 0, peakConcurrent: peak };
 }
 
 export function getMessagesByDateAndUsers(date, battleTags, limit = 50) {
@@ -258,66 +291,123 @@ export function getMessagesByDateAndUsers(date, battleTags, limit = 50) {
     SELECT user_name, message, sent_at, battle_tag
     FROM messages
     WHERE deleted = 0 AND DATE(received_at) = ? AND battle_tag IN (${placeholders})
-    ORDER BY sent_at ASC
+    ORDER BY received_at ASC
     LIMIT ?
   `).all(date, ...battleTags, limit);
 }
 
+// Format JS Date to SQLite datetime format: "YYYY-MM-DD HH:MM:SS"
+function toSqliteDatetime(d) {
+  return d.toISOString().replace('T', ' ').replace(/\.\d{3}Z$/, '');
+}
+
+// Return all messages in a padded window around a time range
+function getWindowMessages(date, firstMsg, lastMsg, paddingMinutes, limit) {
+  const pad = paddingMinutes * 60 * 1000;
+  const from = toSqliteDatetime(new Date(new Date(firstMsg + 'Z').getTime() - pad));
+  const to = toSqliteDatetime(new Date(new Date(lastMsg + 'Z').getTime() + pad));
+  return db.prepare(`
+    SELECT user_name, message, sent_at, battle_tag
+    FROM messages
+    WHERE deleted = 0 AND DATE(received_at) = ? AND received_at >= ? AND received_at <= ?
+    ORDER BY received_at ASC
+    LIMIT ?
+  `).all(date, from, to, limit);
+}
+
+// Extract distinctive words (4+ chars, lowercased) from quote strings for fuzzy matching
+function extractKeywords(quotes) {
+  const stopWords = new Set(['this', 'that', 'with', 'from', 'have', 'been', 'were', 'they', 'them', 'their', 'what', 'when', 'your', 'will', 'just', 'like', 'some', 'very', 'also', 'than']);
+  const words = new Set();
+  for (const q of quotes) {
+    for (const w of q.toLowerCase().split(/\W+/)) {
+      if (w.length >= 4 && !stopWords.has(w)) words.add(w);
+    }
+  }
+  return [...words];
+}
+
+// Find the 5-min window with the most messages (sliding window)
+function findDensestCluster(rows) {
+  const WINDOW_MS = 5 * 60 * 1000;
+  const times = rows.map(m => new Date(m.received_at + 'Z').getTime());
+  let bestStart = 0, bestCount = 0;
+  for (let i = 0; i < times.length; i++) {
+    const windowEnd = times[i] + WINDOW_MS;
+    let j = i;
+    while (j < times.length && times[j] <= windowEnd) j++;
+    const count = j - i;
+    if (count > bestCount) {
+      bestCount = count;
+      bestStart = i;
+    }
+  }
+  const endIdx = Math.min(bestStart + bestCount - 1, rows.length - 1);
+  return { first: rows[bestStart].received_at, last: rows[endIdx].received_at };
+}
+
 /**
- * Search for messages matching quoted text, then return ALL messages
- * in a padded time window around those matches. This finds the specific
- * conversation where the drama happened, not just "any messages from those players".
- * Falls back to player-based lookup if no quotes match.
+ * Find the conversation context around drama quotes.
+ * Strategy (in order):
+ *   1. Exact substring match on quotes → padded time window
+ *   2. Keyword match: messages FROM target players containing keywords from quotes → padded window
+ *   3. Densest cluster: find where target players chatted most intensely (5-min sliding window)
  */
 export function getContextAroundQuotes(date, quotes, battleTags = [], paddingMinutes = 3, limit = 100) {
-  // Step 1: Try to find messages matching the quoted text
+  // Step 1: Exact quote substring match (any message in the DB)
   if (quotes && quotes.length > 0) {
     const likeConditions = quotes.map(() => 'message LIKE ?').join(' OR ');
     const likeParams = quotes.map(q => `%${q}%`);
 
     const range = db.prepare(`
-      SELECT MIN(sent_at) AS first_msg, MAX(sent_at) AS last_msg
+      SELECT MIN(received_at) AS first_msg, MAX(received_at) AS last_msg
       FROM messages
       WHERE deleted = 0 AND DATE(received_at) = ? AND (${likeConditions})
     `).get(date, ...likeParams);
 
     if (range?.first_msg) {
-      const pad = paddingMinutes * 60 * 1000;
-      const from = new Date(new Date(range.first_msg).getTime() - pad).toISOString();
-      const to = new Date(new Date(range.last_msg).getTime() + pad).toISOString();
-
-      return db.prepare(`
-        SELECT user_name, message, sent_at, battle_tag
-        FROM messages
-        WHERE deleted = 0 AND DATE(received_at) = ? AND sent_at >= ? AND sent_at <= ?
-        ORDER BY sent_at ASC
-        LIMIT ?
-      `).all(date, from, to, limit);
+      return getWindowMessages(date, range.first_msg, range.last_msg, paddingMinutes, limit);
     }
   }
 
-  // Step 2: Fallback — find time window around target players' messages
+  // Step 2: Keyword match — find the densest cluster of keyword-matching messages from target players
+  if (quotes && quotes.length > 0 && battleTags && battleTags.length > 0) {
+    const keywords = extractKeywords(quotes);
+    if (keywords.length > 0) {
+      const placeholders = battleTags.map(() => '?').join(',');
+      const kwConditions = keywords.map(() => 'LOWER(message) LIKE ?').join(' OR ');
+      const kwParams = keywords.map(w => `%${w}%`);
+
+      const kwMsgs = db.prepare(`
+        SELECT received_at
+        FROM messages
+        WHERE deleted = 0 AND DATE(received_at) = ?
+          AND battle_tag IN (${placeholders})
+          AND (${kwConditions})
+        ORDER BY received_at ASC
+      `).all(date, ...battleTags, ...kwParams);
+
+      if (kwMsgs.length > 0) {
+        const cluster = findDensestCluster(kwMsgs);
+        return getWindowMessages(date, cluster.first, cluster.last, paddingMinutes, limit);
+      }
+    }
+  }
+
+  // Step 3: Densest activity cluster — find where target players chatted most intensely
   if (battleTags && battleTags.length > 0) {
     const placeholders = battleTags.map(() => '?').join(',');
-    const range = db.prepare(`
-      SELECT MIN(sent_at) AS first_msg, MAX(sent_at) AS last_msg
+    const playerMsgs = db.prepare(`
+      SELECT received_at
       FROM messages
       WHERE deleted = 0 AND DATE(received_at) = ? AND battle_tag IN (${placeholders})
-    `).get(date, ...battleTags);
+      ORDER BY received_at ASC
+    `).all(date, ...battleTags);
 
-    if (range?.first_msg) {
-      const pad = paddingMinutes * 60 * 1000;
-      const from = new Date(new Date(range.first_msg).getTime() - pad).toISOString();
-      const to = new Date(new Date(range.last_msg).getTime() + pad).toISOString();
+    if (playerMsgs.length === 0) return [];
 
-      return db.prepare(`
-        SELECT user_name, message, sent_at, battle_tag
-        FROM messages
-        WHERE deleted = 0 AND DATE(received_at) = ? AND sent_at >= ? AND sent_at <= ?
-        ORDER BY sent_at ASC
-        LIMIT ?
-      `).all(date, from, to, limit);
-    }
+    const cluster = findDensestCluster(playerMsgs);
+    return getWindowMessages(date, cluster.first, cluster.last, paddingMinutes, limit);
   }
 
   return [];
@@ -328,13 +418,13 @@ export function getContextAroundQuotes(date, quotes, battleTags = [], paddingMin
  * fromTime/toTime are "HH:MM" strings.
  */
 export function getMessagesByTimeWindow(date, fromTime, toTime, limit = 100) {
-  const from = `${date}T${fromTime}:00.000Z`;
-  const to = `${date}T${toTime}:59.999Z`;
+  const from = `${date} ${fromTime}:00`;
+  const to = `${date} ${toTime}:59`;
   return db.prepare(`
     SELECT user_name, message, sent_at, battle_tag
     FROM messages
-    WHERE deleted = 0 AND DATE(received_at) = ? AND sent_at >= ? AND sent_at <= ?
-    ORDER BY sent_at ASC
+    WHERE deleted = 0 AND DATE(received_at) = ? AND received_at >= ? AND received_at <= ?
+    ORDER BY received_at ASC
     LIMIT ?
   `).all(date, from, to, limit);
 }
@@ -362,11 +452,11 @@ export function deleteDigest(date) {
   db.prepare('DELETE FROM daily_digests WHERE date = ?').run(date);
 }
 
-export function setDigestWithDraft(date, digest, draft) {
+export function setDigestWithDraft(date, digest, draft, matchContext = null) {
   db.prepare(`
-    INSERT INTO daily_digests (date, digest, draft) VALUES (?, ?, ?)
-    ON CONFLICT(date) DO UPDATE SET digest = excluded.digest, draft = excluded.draft, created_at = datetime('now')
-  `).run(date, digest, draft);
+    INSERT INTO daily_digests (date, digest, draft, match_context) VALUES (?, ?, ?, ?)
+    ON CONFLICT(date) DO UPDATE SET digest = excluded.digest, draft = excluded.draft, match_context = COALESCE(excluded.match_context, match_context), created_at = datetime('now')
+  `).run(date, digest, draft, matchContext);
 }
 
 export function updateDigestOnly(date, digest) {
@@ -377,6 +467,11 @@ export function getDraftForDate(date) {
   const row = db.prepare('SELECT date, digest, draft FROM daily_digests WHERE date = ?').get(date);
   if (!row) return null;
   return { date: row.date, digest: row.digest, draft: row.draft || row.digest };
+}
+
+export function getMatchContext(date) {
+  const row = db.prepare('SELECT match_context FROM daily_digests WHERE date = ?').get(date);
+  return row?.match_context || null;
 }
 
 export function getRecentDigests(limit = 7) {

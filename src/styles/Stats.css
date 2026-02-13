@@ -568,3 +568,65 @@
     min-width: 50px;
   }
 }
+
+/* ── Chat Activity sparkline ─────────────────────── */
+
+.chat-activity-spark {
+  display: flex;
+  align-items: flex-end;
+  height: 28px;
+  gap: 1px;
+  margin-bottom: var(--space-2);
+}
+
+.chat-activity-bar-wrap {
+  flex: 1;
+  min-width: 2px;
+  height: 100%;
+  display: flex;
+  align-items: flex-end;
+  cursor: pointer;
+}
+
+.chat-activity-bar-wrap:hover .chat-activity-bar {
+  opacity: 1;
+}
+
+.chat-activity-bar-wrap--selected .chat-activity-bar {
+  background: var(--gold) !important;
+  opacity: 1;
+}
+
+.chat-activity-bar {
+  width: 100%;
+  border-radius: 1px 1px 0 0;
+  background: rgba(255, 255, 255, 0.18);
+  opacity: 0.5;
+  transition: opacity 0.1s, background 0.1s;
+  min-height: 1px;
+}
+
+.chat-activity-bar--spike {
+  background: var(--gold);
+  opacity: 0.85;
+}
+
+.chat-activity-chips {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  align-items: center;
+}
+
+.chat-activity-chip {
+  font-family: var(--font-mono);
+  font-size: 11px;
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+  color: var(--grey-light);
+  background: rgba(255, 255, 255, 0.06);
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  padding: 4px 12px;
+  border-radius: var(--radius-full);
+  white-space: nowrap;
+}

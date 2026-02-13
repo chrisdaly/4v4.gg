@@ -1,5 +1,5 @@
 import Anthropic from '@anthropic-ai/sdk';
-import { getMessagesByDate, getMessageBuckets, getDigest, setDigest, getRecentDigests, getWeeklyDigest, setWeeklyDigest, deleteDigest, setDigestWithDraft, updateDigestOnly, getDraftForDate } from './db.js';
+import { getMessagesByDate, getMessageBuckets, getDigest, setDigest, getRecentDigests, getWeeklyDigest, setWeeklyDigest, deleteDigest, setDigestWithDraft, updateDigestOnly, getDraftForDate, getMessagesByTimeWindow } from './db.js';
 import config from './config.js';
 
 const API_BASE = 'https://website-backend.w3champions.com/api';
@@ -69,11 +69,14 @@ async function computePlayerStats(date, chatterTags = null) {
               mmrChange: 0, wins: 0, losses: 0,
               name: tag.split('#')[0], battleTag: tag,
               results: [], currentMmr: 0,
+              race: null, matchIds: [],
             });
           }
           const stats = playerStats.get(tag);
           stats.mmrChange += change;
           stats.currentMmr = Math.max(stats.currentMmr, player.currentMmr || 0);
+          stats.race = stats.race ?? player.race;
+          if (match.id) stats.matchIds.push(match.id);
           if (player.won) stats.wins++;
           else stats.losses++;
           stats.results.push({ won: !!player.won, time: endTime.getTime() });
@@ -140,13 +143,19 @@ async function computePlayerStats(date, chatterTags = null) {
     if (p.currentMmr > 0) playerMmrs.set(p.name, p.currentMmr);
   }
 
-  return { playerStats, rawMatches, playerMmrs, qualified, totalGames, matchSummaries };
+  // Build playerMatches map (battleTag → matchId[])
+  const playerMatches = {};
+  for (const [tag, stats] of playerStats) {
+    if (stats.matchIds.length > 0) playerMatches[tag] = stats.matchIds;
+  }
+
+  return { playerStats, rawMatches, playerMmrs, qualified, totalGames, matchSummaries, playerMatches };
 }
 
 async function fetchDailyStats(date, chatterTags = null) {
   const result = await computePlayerStats(date, chatterTags);
   if (!result) return null;
-  const { qualified, totalGames, matchSummaries, playerMmrs } = result;
+  const { qualified, totalGames, matchSummaries, playerMmrs, playerMatches } = result;
   if (qualified.length === 0) return null;
 
   // Biggest MMR winner/loser
@@ -175,28 +184,33 @@ async function fetchDailyStats(date, chatterTags = null) {
   const hotDeduped = hotStreak && !usedTags.has(hotStreak.battleTag) ? hotStreak : null;
   const coldDeduped = coldStreak && !usedTags.has(coldStreak.battleTag) ? coldStreak : null;
 
-  return { winner, loser, grinder: grinderDeduped, hotStreak: hotDeduped, coldStreak: coldDeduped, totalGames, matchSummaries, playerMmrs };
+  return { winner, loser, grinder: grinderDeduped, hotStreak: hotDeduped, coldStreak: coldDeduped, totalGames, matchSummaries, playerMmrs, playerMatches };
 }
 
 /**
  * Format: "LABEL: Tag#1234 HEADLINE (XW-YL) FORM"
  */
+function raceTag(player) {
+  const r = RACE_NAMES[player.race];
+  return r ? `[${r}]` : '';
+}
+
 function formatMmrLine(label, player) {
   const sign = player.mmrChange > 0 ? '+' : '';
-  return `${label}: ${player.battleTag} ${sign}${Math.round(player.mmrChange)} MMR (${player.wins}W-${player.losses}L) ${player.form}`;
+  return `${label}: ${player.battleTag}${raceTag(player)} ${sign}${Math.round(player.mmrChange)} MMR (${player.wins}W-${player.losses}L) ${player.form}`;
 }
 
 function formatGrinderLine(player) {
   const total = player.wins + player.losses;
-  return `GRINDER: ${player.battleTag} ${total} games (${player.wins}W-${player.losses}L) ${player.form}`;
+  return `GRINDER: ${player.battleTag}${raceTag(player)} ${total} games (${player.wins}W-${player.losses}L) ${player.form}`;
 }
 
 function formatWinStreakLine(player) {
-  return `HOTSTREAK: ${player.battleTag} ${player.winStreak}W streak (${player.wins}W-${player.losses}L) ${player.form}`;
+  return `HOTSTREAK: ${player.battleTag}${raceTag(player)} ${player.winStreak}W streak (${player.wins}W-${player.losses}L) ${player.form}`;
 }
 
 function formatLossStreakLine(player) {
-  return `COLDSTREAK: ${player.battleTag} ${player.lossStreak}L streak (${player.wins}W-${player.losses}L) ${player.form}`;
+  return `COLDSTREAK: ${player.battleTag}${raceTag(player)} ${player.lossStreak}L streak (${player.wins}W-${player.losses}L) ${player.form}`;
 }
 
 /**
@@ -206,6 +220,7 @@ function buildCandidate(player, formatted) {
   return {
     battleTag: player.battleTag,
     name: player.name,
+    race: player.race,
     wins: player.wins,
     losses: player.losses,
     form: player.form,
@@ -357,15 +372,14 @@ function buildDigestPrompt(messages, matchSummaries, soFar = false, playerMmrs =
 
   return `Summarize this Warcraft III 4v4 chat room's day${soFar ? ' SO FAR' : ''}. Write a digest with these sections (skip if nothing fits):
 
-TOPICS: Pick 2-5 from this EXACT list (do not invent new ones): balance, map pool, race war, griefing, matchmaking, meta, tournament, player beef, ban drama, tech issues, memes, stream drama
+TOPICS: 2-5 comma-separated tags capturing what people actually talked about. Be SPECIFIC — "tower rush debate", "undead nerf rage", "ToD vs Boyzinho beef" are good. "meta", "player beef", "balance" alone are too vague.
 DRAMA: BIG accusations, threats, heated personal attacks, AND juicy back-and-forth exchanges. Max 10 items separated by semicolons. Each item MUST have 2-4 direct quotes. FORMAT IS CRITICAL: first a short plain summary (max 8 words, NO quoted text anywhere in it), then the direct quotes at the END. Summary must be dead simple — just say who flamed who and why. WRONG: "PlayerA's entire evening devolving into defending himself against allies". RIGHT: "PlayerA flamed by allies over map losses". WRONG: "PlayerA eviscerated PlayerB". RIGHT: "PlayerA flamed PlayerB". Example: "PlayerA flamed PlayerB all game \"you are garbage\" \"uninstall\" \"I carried you last game\""
 BANS: Who got banned, duration, reason (skip if none); semicolon-separated. Include the match ID if mentioned.
 HIGHLIGHTS: Lighthearted, funny, or wholesome moments (3-5 items, semicolon-separated). Include: jokes landing well, friendly banter, community moments, absurd in-game stories, self-deprecating humor, unexpected kindness, running gags, silly arguments that aren't actually hostile. Each item needs 1-2 direct quotes. No hardware, IRL equipment, queue times, or mundane stuff.
 
 Rules:
 - No title, no date header, jump straight into TOPICS:
-- TOPICS must only use tags from the allowed list. If nothing fits, use the closest match.
-- TOPICS must be short comma-separated tags, not sentences
+- TOPICS must be specific and flavorful, not generic buckets. Name players, strategies, or events. Max 4 words per tag.
 - CRITICAL: Use EXACT player names as they appear in the chat log. Never shorten or abbreviate names. The player list is: ${names.join(', ')}
 - Prioritize high-MMR players (1800+), their drama is more interesting
 - DRAMA: aim for 10 items. Include minor beefs and trash talk too, not just the biggest blowups. Every item needs 2-4 direct quotes from the chat log.
@@ -458,7 +472,7 @@ async function assembleDigest(date, messages, soFar = false) {
   if (dailyStats?.coldStreak) parts.push(formatLossStreakLine(dailyStats.coldStreak));
   if (chatTags.length > 0) parts.push(`MENTIONS: ${chatTags.join(',')}`);
 
-  return { digest: parts.join('\n'), totalGames: dailyStats?.totalGames || 0, messageCount: messages.length };
+  return { digest: parts.join('\n'), totalGames: dailyStats?.totalGames || 0, messageCount: messages.length, playerMatches: dailyStats?.playerMatches || null };
 }
 
 /**
@@ -483,9 +497,66 @@ export async function generateDigest(date) {
 
   const fullDraft = result.digest;
   const published = autoPublishDigest(fullDraft, 5);
-  setDigestWithDraft(date, published, fullDraft);
+  const matchContext = result.playerMatches ? JSON.stringify(result.playerMatches) : null;
+  setDigestWithDraft(date, published, fullDraft, matchContext);
   console.log(`[Digest] Generated for ${date} (${result.messageCount} messages, ${result.totalGames} games)`);
   return published;
+}
+
+/* ── Spike analysis ──────────────────────────────── */
+
+/**
+ * Analyze a chat time window and return suggested items for each section.
+ * Returns { DRAMA: string[], HIGHLIGHTS: string[], BANS: string[] }
+ */
+export async function analyzeSpike(date, fromTime, toTime) {
+  if (!config.ANTHROPIC_API_KEY) return null;
+
+  const messages = getMessagesByTimeWindow(date, fromTime, toTime, 200);
+  if (messages.length < 3) return null;
+
+  const log = messages.map(m => `[${m.user_name}]: ${m.message}`).join('\n');
+  const names = [...new Set(messages.map(m => m.user_name).filter(Boolean))];
+
+  const prompt = `Analyze this Warcraft III 4v4 chat excerpt (${fromTime}-${toTime} UTC) and extract items for a daily digest.
+
+Return JSON only, no other text. Format:
+{"DRAMA":["item1","item2"],"HIGHLIGHTS":["item1"],"BANS":["item1"]}
+
+Rules for each item:
+- DRAMA: accusations, flame wars, heated exchanges. Format: short summary (max 8 words, NO quotes in it), then 2-3 direct quotes at the end. Example: "PlayerA flamed PlayerB over tower rush \\"you are garbage\\" \\"uninstall\\""
+- HIGHLIGHTS: funny, wholesome, absurd moments. Same format: short summary + 1-2 quotes.
+- BANS: bans or mutes mentioned. Who, duration, reason.
+- Use EXACT player names from the log: ${names.join(', ')}
+- Skip empty categories (use empty array [])
+- Max 3 items per category
+- ASCII only, no em-dashes
+
+Chat log (${messages.length} messages):
+${log}`;
+
+  const client = new Anthropic({ apiKey: config.ANTHROPIC_API_KEY });
+  try {
+    const msg = await client.messages.create({
+      model: 'claude-haiku-4-5-20251001',
+      max_tokens: 600,
+      messages: [{ role: 'user', content: prompt }],
+    });
+    const text = msg.content[0]?.text?.trim();
+    if (!text) return null;
+    // Extract JSON from response (may have markdown fences)
+    const jsonMatch = text.match(/\{[\s\S]*\}/);
+    if (!jsonMatch) return null;
+    const parsed = JSON.parse(jsonMatch[0]);
+    return {
+      DRAMA: Array.isArray(parsed.DRAMA) ? parsed.DRAMA : [],
+      HIGHLIGHTS: Array.isArray(parsed.HIGHLIGHTS) ? parsed.HIGHLIGHTS : [],
+      BANS: Array.isArray(parsed.BANS) ? parsed.BANS : [],
+    };
+  } catch (err) {
+    console.warn(`[Spike] Analysis failed for ${date} ${fromTime}-${toTime}:`, err.message);
+    return null;
+  }
 }
 
 /* ── Weekly digest generation ────────────────────── */
