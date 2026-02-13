@@ -205,6 +205,21 @@ body {
   font-size: var(--text-sm);
 }
 
+/* iOS doesn't support background-attachment:fixed — it breaks backdrop-filter
+   on child elements by putting the bg on a separate compositing layer.
+   Falling back to scroll keeps backdrop-filter working on navbar/panels. */
+@supports (-webkit-touch-callout: none) {
+  body {
+    background-attachment: scroll;
+  }
+}
+
+@media (max-width: 1024px) {
+  body {
+    background-attachment: scroll;
+  }
+}
+
 /* Team headers - no background color */
 .team-header.team-0,
 .team-header.team-1 {

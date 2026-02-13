@@ -339,7 +339,7 @@
   top: 100%;
   left: 0;
   right: 0;
-  background: rgba(10, 8, 6, 0.25);
+  background: rgba(10, 8, 6, 0.85);
   backdrop-filter: blur(12px);
   border-bottom: 2px solid rgba(184, 134, 11, 0.35);
   box-shadow: 0 8px 32px rgba(0, 0, 0, 0.5);
@@ -376,6 +376,7 @@
 @media (max-width: 768px) {
   .navbar {
     padding: 0 12px;
+    background: rgba(10, 8, 6, 0.85);
   }
 
   .navbar-content {

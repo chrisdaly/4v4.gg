@@ -955,5 +955,6 @@
 
   .news-digest {
     padding: var(--space-2) var(--space-4);
+    background: rgba(10, 8, 6, 0.85);
   }
 }

@@ -1,9 +1,8 @@
 import React, { Suspense, lazy, useEffect } from "react";
-import { BrowserRouter, Route, Switch, Link, useLocation } from "react-router-dom";
+import { BrowserRouter, Route, Switch, Link } from "react-router-dom";
 import ErrorBoundary from "./components/ErrorBoundary";
 import Navbar from "./components/Navbar";
-import RaceSelectOverlay from "./components/RaceSelectOverlay";
-import { ThemeProvider, useTheme } from "./lib/ThemeContext";
+import { ThemeProvider } from "./lib/ThemeContext";
 
 // Homepage loaded eagerly (initial route)
 import Home from "./pages/Home";
@@ -62,13 +61,8 @@ const PageLoader = () => (
   </div>
 );
 
-const FirstVisitGate = () => {
-  const { isFirstVisit } = useTheme();
-  const { pathname } = useLocation();
-  const isOverlay = pathname.startsWith("/overlay") || pathname.startsWith("/stream") || pathname.startsWith("/mystream");
-  if (isOverlay || !isFirstVisit) return null;
-  return <RaceSelectOverlay />;
-};
+// Theme overlay removed — new visitors get the default theme
+// and can pick one from the Themes page whenever they want.
 
 const Preloader = () => {
   useEffect(() => { preloadCorePages(); }, []);
@@ -78,7 +72,6 @@ const Preloader = () => {
 const Router = () => (
   <BrowserRouter>
     <ThemeProvider>
-      <FirstVisitGate />
       <Preloader />
       <Switch>
         {/* Stream overlays - no Navbar */}
