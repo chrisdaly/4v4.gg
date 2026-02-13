@@ -197,27 +197,21 @@ body {
   --theme-bg-img: url("/frames/launcher/Static_Background.png");
   --theme-bg-overlay: linear-gradient(rgba(0, 0, 0, 0.55), rgba(0, 0, 0, 0.55));
   background-color: black;
+  font-size: var(--text-sm);
+}
+
+/* Fixed background via pseudo-element — avoids the iOS compositing bug
+   where background-attachment:fixed on body breaks backdrop-filter on
+   all child elements, making the entire UI invisible. */
+body::before {
+  content: "";
+  position: fixed;
+  inset: 0;
+  z-index: -1;
   background-image: var(--theme-bg-overlay), var(--theme-bg-img);
   background-size: cover;
   background-position: center;
   background-repeat: no-repeat;
-  background-attachment: fixed;
-  font-size: var(--text-sm);
-}
-
-/* iOS doesn't support background-attachment:fixed — it breaks backdrop-filter
-   on child elements by putting the bg on a separate compositing layer.
-   Falling back to scroll keeps backdrop-filter working on navbar/panels. */
-@supports (-webkit-touch-callout: none) {
-  body {
-    background-attachment: scroll;
-  }
-}
-
-@media (max-width: 1024px) {
-  body {
-    background-attachment: scroll;
-  }
 }
 
 /* Team headers - no background color */
