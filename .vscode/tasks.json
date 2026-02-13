@@ -2,30 +2,50 @@
   "version": "2.0.0",
   "tasks": [
     {
-      "label": "Chat Relay",
+      "label": "Cleanup",
       "type": "shell",
-      "command": "lsof -ti:3002 | xargs kill -9 2>/dev/null; cd server && ADMIN_API_KEY=localdev node src/index.js",
-      "isBackground": true,
-      "problemMatcher": [],
+      "command": "lsof -ti:3001 | xargs kill -9 2>/dev/null; lsof -ti:3002 | xargs kill -9 2>/dev/null; echo '✓ Cleanup complete'",
       "presentation": {
-        "group": "dev",
-        "reveal": "always"
-      }
+        "reveal": "silent",
+        "close": true
+      },
+      "problemMatcher": []
     },
     {
       "label": "Dev Server",
       "type": "shell",
-      "command": "npm run dev -- --port 3001",
+      "command": "while true; do npm run dev -- --port 3001; echo ''; echo '↻ Dev Server stopped — press Enter to restart, Ctrl+D to exit'; read || break; done",
+      "options": {
+        "cwd": "${workspaceFolder}"
+      },
+      "dependsOn": ["Cleanup"],
       "isBackground": true,
       "problemMatcher": [],
       "presentation": {
         "group": "dev",
-        "reveal": "always"
+        "reveal": "always",
+        "close": false
+      }
+    },
+    {
+      "label": "Chat Relay",
+      "type": "shell",
+      "command": "while true; do ADMIN_API_KEY=localdev node src/index.js; echo ''; echo '↻ Chat Relay stopped — press Enter to restart, Ctrl+D to exit'; read || break; done",
+      "options": {
+        "cwd": "${workspaceFolder}/server"
+      },
+      "dependsOn": ["Cleanup"],
+      "isBackground": true,
+      "problemMatcher": [],
+      "presentation": {
+        "group": "dev",
+        "reveal": "always",
+        "close": false
       }
     },
     {
       "label": "4v4 Dev",
-      "dependsOn": ["Chat Relay", "Dev Server"],
+      "dependsOn": ["Dev Server", "Chat Relay"],
       "dependsOrder": "parallel",
       "problemMatcher": [],
       "runOptions": {

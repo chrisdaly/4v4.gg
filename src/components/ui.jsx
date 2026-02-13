@@ -20,7 +20,7 @@ export const Button = styled.button`
 
   ${p => p.$primary && `
     background: var(--gold);
-    color: #0a0a0a;
+    color: var(--grey-dark);
     border: none;
     &:hover { opacity: 0.9; }
   `}
@@ -29,7 +29,7 @@ export const Button = styled.button`
     background: transparent;
     color: var(--gold);
     border: var(--border-thin) solid var(--gold);
-    &:hover { background: rgba(252, 219, 51, 0.1); }
+    &:hover { background: var(--gold-tint); }
   `}
 
   ${p => p.$ghost && `
@@ -55,24 +55,24 @@ export const Badge = styled.span`
   border-radius: var(--radius-full);
   background: ${p => p.$bg || 'var(--grey-dark)'};
   color: ${p => p.$color || '#fff'};
-  border: 1px solid ${p => p.$border || 'var(--grey-mid)'};
+  border: var(--border-thin) solid ${p => p.$border || 'var(--grey-mid)'};
 `;
 
 export const WinBadge = styled(Badge)`
-  background: rgba(74, 222, 128, 0.15);
+  background: var(--green-tint);
   color: var(--green);
   border-color: var(--green);
 `;
 
 export const LossBadge = styled(Badge)`
-  background: rgba(248, 113, 113, 0.15);
+  background: var(--red-tint);
   color: var(--red);
   border-color: var(--red);
 `;
 
 export const GoldBadge = styled(Badge)`
   background: var(--gold);
-  color: #0a0a0a;
+  color: var(--grey-dark);
   border-color: var(--gold);
 `;
 
@@ -81,15 +81,15 @@ export const GoldBadge = styled(Badge)`
 // ============================================
 
 export const Card = styled.div`
-  background: rgba(255, 255, 255, 0.02);
+  background: var(--surface-1);
   border: var(--border-thick) solid var(--gold);
   border-radius: var(--radius-md);
   padding: var(--space-4);
 `;
 
 export const CardSubtle = styled.div`
-  background: rgba(255, 255, 255, 0.02);
-  border: 1px solid var(--grey-mid);
+  background: var(--surface-1);
+  border: var(--border-thin) solid var(--grey-mid);
   border-radius: var(--radius-md);
   padding: var(--space-4);
 `;
@@ -115,7 +115,7 @@ export const Dot = styled.span`
 
 export const TeamBar = styled.div`
   padding: var(--space-2) var(--space-4);
-  border-left: 3px solid ${p => p.$blue ? '#3b82f6' : '#ef4444'};
+  border-left: 3px solid ${p => p.$blue ? 'var(--team-blue)' : 'var(--team-red)'};
   background: ${p => p.$blue ? 'rgba(59, 130, 246, 0.1)' : 'rgba(239, 68, 68, 0.1)'};
 `;
 
@@ -141,10 +141,10 @@ export const StatRow = styled.div`
   align-items: center;
   padding: var(--space-2) var(--space-4);
 
-  ${p => p.$alt && `background: rgba(255, 255, 255, 0.02);`}
+  ${p => p.$alt && `background: var(--surface-1);`}
 
   &:hover {
-    background: rgba(255, 255, 255, 0.04);
+    background: var(--surface-2);
   }
 `;
 
@@ -178,7 +178,7 @@ export const PlayerName = styled.span`
 
 export const MMR = styled.span`
   font-family: var(--font-mono);
-  color: #fff;
+  color: var(--white);
   font-size: ${p => p.$size || 'var(--text-base)'};
 `;
 
@@ -251,9 +251,9 @@ export const OverlayGradient = styled.div`
  * Uses backdrop-filter blur for modern browsers
  */
 export const OverlayFrosted = styled.div`
-  background: rgba(20, 20, 30, 0.7);
+  background: var(--overlay-light);
   backdrop-filter: blur(8px);
-  border: 1px solid var(--surface-3);
+  border: var(--border-thin) solid var(--surface-3);
   border-radius: var(--radius-md);
   padding: var(--space-4);
 `;
@@ -268,7 +268,7 @@ export const OverlayMinimal = styled.div`
     rgba(30, 30, 30, 0.95) 0%,
     rgba(15, 15, 15, 0.98) 100%
   );
-  border: 1px solid rgba(252, 219, 51, 0.3);
+  border: var(--border-thin) solid rgba(252, 219, 51, 0.3);
   border-radius: var(--radius-sm);
   padding: var(--space-2) var(--space-4);
 `;
@@ -279,21 +279,21 @@ export const OverlayMinimal = styled.div`
 
 export const GoldSurface = styled.div`
   background: var(--gold-tint);
-  border: 1px solid rgba(252, 219, 51, 0.3);
+  border: var(--border-thin) solid rgba(252, 219, 51, 0.3);
   border-radius: var(--radius-md);
   padding: var(--space-2) var(--space-4);
 `;
 
 export const WinSurface = styled.div`
   background: var(--green-tint);
-  border: 1px solid rgba(74, 222, 128, 0.3);
+  border: var(--border-thin) solid rgba(74, 222, 128, 0.3);
   border-radius: var(--radius-md);
   padding: var(--space-2) var(--space-4);
 `;
 
 export const LossSurface = styled.div`
   background: var(--red-tint);
-  border: 1px solid rgba(248, 113, 113, 0.3);
+  border: var(--border-thin) solid rgba(248, 113, 113, 0.3);
   border-radius: var(--radius-md);
   padding: var(--space-2) var(--space-4);
 `;
@@ -315,10 +315,10 @@ export const MmrBarMarker = styled.div`
   top: 50%;
   left: ${p => p.$position || '50%'};
   transform: translate(-50%, -50%);
-  width: 12px;
-  height: 12px;
+  width: var(--space-4);
+  height: var(--space-4);
   background: var(--gold);
-  border: 2px solid #000;
+  border: var(--border-thick) solid var(--grey-dark);
   border-radius: var(--radius-full);
 `;
 
@@ -362,7 +362,7 @@ export const H3 = styled.h3`
 export const Text = styled.p`
   font-family: ${p => p.$mono ? 'var(--font-mono)' : 'inherit'};
   font-size: ${p => p.$size || 'var(--text-base)'};
-  color: ${p => p.$muted ? 'var(--grey-light)' : '#fff'};
+  color: ${p => p.$muted ? 'var(--grey-light)' : 'var(--white)'};
   margin: 0;
   line-height: 1.6;
 `;
@@ -370,9 +370,9 @@ export const Text = styled.p`
 export const Code = styled.code`
   font-family: var(--font-mono);
   font-size: ${p => p.$size || 'var(--text-sm)'};
-  background: ${p => p.$block ? 'var(--grey-dark)' : 'rgba(255, 255, 255, 0.1)'};
+  background: ${p => p.$block ? 'var(--grey-dark)' : 'var(--surface-3)'};
   color: ${p => p.$dim ? 'var(--grey-light)' : '#fff'};
-  padding: ${p => p.$block ? 'var(--space-4)' : '2px 6px'};
+  padding: ${p => p.$block ? 'var(--space-4)' : 'var(--space-1) var(--space-2)'};
   border-radius: var(--radius-sm);
   ${p => p.$block && `display: block; overflow-x: auto;`}
   ${p => p.$url && `word-break: break-all;`}
@@ -382,7 +382,7 @@ export const Pre = styled.pre`
   font-family: var(--font-mono);
   font-size: var(--text-sm);
   background: var(--grey-dark);
-  color: #fff;
+  color: var(--white);
   padding: var(--space-4);
   border-radius: var(--radius-md);
   overflow-x: auto;
@@ -423,7 +423,7 @@ export const Input = styled.input`
   background: var(--grey-dark);
   border: 1px solid ${p => p.$error ? 'var(--red)' : 'var(--grey-mid)'};
   border-radius: var(--radius-md);
-  color: #fff;
+  color: var(--white);
   padding: var(--space-2) var(--space-4);
   width: ${p => p.$fullWidth ? '100%' : 'auto'};
 
@@ -516,11 +516,11 @@ export const StepIndicator = styled.div`
   display: inline-flex;
   align-items: center;
   justify-content: center;
-  width: 24px;
-  height: 24px;
+  width: var(--space-6);
+  height: var(--space-6);
   border-radius: 50%;
   background: ${p => p.$active ? 'var(--gold)' : 'var(--grey-mid)'};
-  color: ${p => p.$active ? '#0a0a0a' : '#fff'};
+  color: ${p => p.$active ? 'var(--grey-dark)' : 'var(--white)'};
   font-family: var(--font-mono);
   font-size: var(--text-xs);
   font-weight: bold;
@@ -542,7 +542,7 @@ export const ModalBackdrop = styled.div`
 
 export const ModalContent = styled.div`
   background: var(--grey-dark);
-  border: 1px solid var(--grey-mid);
+  border: var(--border-thin) solid var(--grey-mid);
   border-radius: var(--radius-md);
   padding: var(--space-6);
   max-height: 90vh;
@@ -583,7 +583,7 @@ export const TableCell = styled.td`
   padding: var(--space-2) var(--space-4);
   text-align: ${p => p.$align || 'left'};
   font-family: ${p => p.$mono ? 'var(--font-mono)' : 'inherit'};
-  color: ${p => p.$muted ? 'var(--grey-light)' : '#fff'};
+  color: ${p => p.$muted ? 'var(--grey-light)' : 'var(--white)'};
 `;
 
 export const TableHeaderCell = styled.th`

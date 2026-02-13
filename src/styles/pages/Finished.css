@@ -4,18 +4,18 @@
 
 .finished-page {
   min-height: 100vh;
-  padding: 0 20px 40px 20px;
+  padding: 0 var(--space-6) var(--space-12) var(--space-6);
 }
 
 .finished-header {
   display: flex;
   justify-content: space-between;
   align-items: center;
-  padding: 20px 0;
-  margin-bottom: 20px;
-  border-bottom: 1px solid var(--grey-mid);
+  padding: var(--space-6) 0;
+  margin-bottom: var(--space-6);
+  border-bottom: var(--border-thin) solid var(--grey-mid);
   flex-wrap: wrap;
-  gap: 16px;
+  gap: var(--space-4);
   max-width: 1200px;
   margin-left: auto;
   margin-right: auto;
@@ -24,7 +24,7 @@
 .finished-title-section {
   display: flex;
   flex-direction: column;
-  gap: 4px;
+  gap: var(--space-1);
 }
 
 .finished-title {
@@ -37,7 +37,7 @@
 
 .finished-stats {
   display: flex;
-  gap: 16px;
+  gap: var(--space-4);
   font-family: var(--font-mono);
   font-size: var(--text-sm);
 }
@@ -49,19 +49,19 @@
 .finished-controls {
   display: flex;
   align-items: flex-end;
-  gap: 16px;
+  gap: var(--space-4);
   flex-wrap: wrap;
 }
 
 .filter-group {
   display: flex;
   flex-direction: column;
-  gap: 4px;
+  gap: var(--space-1);
 }
 
 .filter-group label {
   font-family: var(--font-mono);
-  font-size: 10px;
+  font-size: var(--text-xxs);
   text-transform: uppercase;
   letter-spacing: 0.1em;
   color: var(--grey-light);
@@ -70,13 +70,13 @@
 .filter-group select {
   font-family: var(--font-display);
   background: linear-gradient(180deg, rgba(30, 30, 30, 0.95) 0%, rgba(15, 15, 15, 0.98) 100%);
-  border: 1px solid rgba(252, 219, 51, 0.3);
-  border-radius: 4px;
+  border: var(--border-thin) solid rgba(252, 219, 51, 0.3);
+  border-radius: var(--radius-md);
   color: var(--gold);
-  font-size: 12px;
-  padding: 8px 28px 8px 12px;
+  font-size: var(--text-xs);
+  padding: var(--space-2) 28px var(--space-2) var(--space-4);
   cursor: pointer;
-  transition: all 0.2s ease;
+  transition: var(--transition);
   appearance: none;
   background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='12' viewBox='0 0 12 12'%3E%3Cpath fill='%23fcdb33' d='M6 8L2 4h8z'/%3E%3C/svg%3E");
   background-repeat: no-repeat;
@@ -86,7 +86,7 @@
 
 .filter-group select:hover {
   border-color: rgba(252, 219, 51, 0.5);
-  background-color: rgba(252, 219, 51, 0.05);
+  background-color: var(--gold-tint);
 }
 
 .filter-group select:focus {
@@ -97,16 +97,16 @@
 
 .clear-filters {
   font-family: var(--font-mono);
-  font-size: 11px;
+  font-size: var(--text-xxs);
   text-transform: uppercase;
   letter-spacing: 0.05em;
   background: transparent;
-  border: 1px solid var(--grey-light);
-  border-radius: 4px;
+  border: var(--border-thin) solid var(--grey-light);
+  border-radius: var(--radius-md);
   color: var(--grey-light);
-  padding: 8px 12px;
+  padding: var(--space-2) var(--space-4);
   cursor: pointer;
-  transition: all 0.2s ease;
+  transition: var(--transition);
 }
 
 .clear-filters:hover {
@@ -126,7 +126,7 @@
   text-align: center;
   padding: 60px 20px;
   color: var(--grey-light);
-  font-family: var(--font-mono);
+  font-family: var(--font-body);
   font-size: var(--text-base);
 }
 
@@ -147,9 +147,9 @@
   border: 1px solid var(--grey-mid);
   border-radius: 4px;
   color: var(--gold);
-  padding: 8px 12px;
+  padding: var(--space-2) var(--space-4);
   cursor: pointer;
-  transition: all 0.2s ease;
+  transition: var(--transition);
   min-width: 40px;
 }
 

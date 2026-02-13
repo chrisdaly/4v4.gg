@@ -19,7 +19,7 @@
   --red: #f87171;
   --blue: #3b82f6;
   --grey-light: #bbb; /* Secondary text, muted labels */
-  --text-body: #ccc; /* Body/prose text */
+  --text-body: #ddd; /* Body/prose text */
   --grey-mid: #444; /* Borders, disabled text */
   --grey-dark: #1a1a1a; /* Elevated surfaces */
   --white: #fff; /* Primary text */
@@ -6916,7 +6916,7 @@ a.neighbor-name:hover {
 }
 
 .empty-state-text {
-  font-family: var(--font-mono);
+  font-family: var(--font-body);
   font-size: var(--text-sm);
   color: var(--grey-light);
   margin: 0;

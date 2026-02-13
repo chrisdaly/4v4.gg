@@ -52,7 +52,11 @@ const Themes = lazy(() => import("./pages/Themes"));
 // Preload core nav pages after initial paint so they're instant on click
 const preloadCorePages = () => {
   const load = () => Object.values(pageImports).forEach(fn => fn());
-  (window.requestIdleCallback || setTimeout)(load, 2000);
+  if (window.requestIdleCallback) {
+    window.requestIdleCallback(load, { timeout: 2000 });
+  } else {
+    setTimeout(load, 2000);
+  }
 };
 
 const PageLoader = () => (
@@ -112,7 +116,7 @@ const Router = () => (
                 <Route exact path="/blog" component={Blog} />
                 <Route path="/blog/:slug" component={BlogPost} />
                 <Route path="/demo" component={VisualizationDemo} />
-                <Route path="/styles" component={StyleReference} />
+                <Route path="/style" component={StyleReference} />
                 <Route path="/icons" component={IconDemo} />
                 <Route path="/assets" component={Assets} />
                 <Route path="/chat" component={Chat} />

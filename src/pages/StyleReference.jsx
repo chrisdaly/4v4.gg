@@ -1,5 +1,4 @@
 import React from "react";
-import styled from "styled-components";
 import {
   colors,
   fonts,
@@ -14,205 +13,12 @@ import {
   components,
 } from "../lib/design-tokens";
 import { MmrComparison } from "../components/MmrComparison";
+import "../styles/pages/StyleReference.css";
 
-const Page = styled.div`
-  padding: var(--space-8);
-  background: #0a0a0a;
-  min-height: 100vh;
-  max-width: 900px;
-  margin: 0 auto;
-`;
+const pieConfig = { combinedGap: 5, areaMultiplier: 1.6 };
 
-const Title = styled.h1`
-  font-family: var(--font-display);
-  font-size: var(--text-xl);
-  color: var(--gold);
-  margin-bottom: var(--space-1);
-`;
-
-const Subtitle = styled.p`
-  color: var(--grey-light);
-  font-size: var(--text-sm);
-  margin-bottom: var(--space-8);
-`;
-
-const Section = styled.section`
-  margin-bottom: var(--space-8);
-`;
-
-const SectionTitle = styled.h2`
-  font-size: var(--text-xs);
-  font-family: var(--font-mono);
-  text-transform: uppercase;
-  letter-spacing: 0.1em;
-  color: var(--green);
-  margin-bottom: var(--space-4);
-  padding-bottom: var(--space-1);
-  border-bottom: 1px solid var(--grey-mid);
-`;
-
-const Grid = styled.div`
-  display: grid;
-  grid-template-columns: repeat(auto-fill, minmax(140px, 1fr));
-  gap: var(--space-2);
-`;
-
-const Row = styled.div`
-  display: flex;
-  flex-wrap: wrap;
-  gap: var(--space-2);
-  align-items: center;
-`;
-
-const Code = styled.pre`
-  background: var(--grey-dark);
-  padding: var(--space-4);
-  border-radius: var(--radius-md);
-  color: var(--grey-light);
-  font-family: var(--font-mono);
-  font-size: var(--text-xs);
-  overflow-x: auto;
-  margin-top: var(--space-4);
-`;
-
-// Color swatch
-const Swatch = styled.div`
-  display: flex;
-  flex-direction: column;
-`;
-
-const SwatchColor = styled.div`
-  height: 40px;
-  background: ${p => p.$color};
-  border-radius: var(--radius-md) var(--radius-md) 0 0;
-  border: 1px solid var(--grey-mid);
-  border-bottom: none;
-`;
-
-const SwatchLabel = styled.div`
-  background: var(--grey-dark);
-  padding: var(--space-1) var(--space-2);
-  border-radius: 0 0 var(--radius-md) var(--radius-md);
-  border: 1px solid var(--grey-mid);
-  font-family: var(--font-mono);
-  font-size: var(--text-xs);
-  color: #fff;
-`;
-
-// Type sample
-const TypeRow = styled.div`
-  display: flex;
-  align-items: baseline;
-  gap: var(--space-4);
-  padding: var(--space-2) 0;
-  border-bottom: 1px solid #222;
-  &:last-child { border-bottom: none; }
-`;
-
-const TypeMeta = styled.span`
-  flex: 0 0 80px;
-  font-family: var(--font-mono);
-  font-size: var(--text-xs);
-  color: var(--grey-light);
-`;
-
-// Spacing bar
-const SpaceRow = styled.div`
-  display: flex;
-  align-items: center;
-  gap: var(--space-2);
-  margin-bottom: var(--space-1);
-`;
-
-const SpaceBar = styled.div`
-  width: ${p => p.$size};
-  height: 16px;
-  background: var(--gold);
-  border-radius: var(--radius-sm);
-  opacity: 0.8;
-`;
-
-const SpaceLabel = styled.span`
-  font-family: var(--font-mono);
-  font-size: var(--text-xs);
-  color: var(--grey-light);
-  min-width: 100px;
-`;
-
-// Components
-const Card = styled.div`
-  background: rgba(255,255,255,0.02);
-  border: var(--border-thick) solid var(--gold);
-  border-radius: var(--radius-md);
-  padding: var(--space-4);
-`;
-
-const Badge = styled.span`
-  display: inline-flex;
-  padding: var(--space-1) var(--space-2);
-  font-family: var(--font-mono);
-  font-size: var(--text-xs);
-  text-transform: uppercase;
-  letter-spacing: 0.05em;
-  border-radius: var(--radius-full);
-  background: ${p => p.$bg || 'var(--grey-dark)'};
-  color: ${p => p.$color || '#fff'};
-  border: 1px solid ${p => p.$border || 'var(--grey-mid)'};
-`;
-
-const Dot = styled.span`
-  width: ${p => p.$recent ? '10px' : '8px'};
-  height: ${p => p.$recent ? '10px' : '8px'};
-  border-radius: var(--radius-full);
-  background: ${p => p.$win ? 'var(--green)' : 'var(--red)'};
-  opacity: ${p => p.$recent ? 1 : 0.7};
-`;
-
-const Button = styled.button`
-  padding: var(--space-2) var(--space-4);
-  font-family: var(--font-display);
-  font-size: var(--text-sm);
-  border-radius: var(--radius-md);
-  cursor: pointer;
-  transition: opacity var(--transition);
-
-  ${p => p.$primary && `
-    background: var(--gold);
-    color: #0a0a0a;
-    border: none;
-    &:hover { opacity: 0.9; }
-  `}
-
-  ${p => p.$secondary && `
-    background: transparent;
-    color: var(--gold);
-    border: var(--border-thin) solid var(--gold);
-    &:hover { background: rgba(252,219,51,0.1); }
-  `}
-`;
-
-const TeamBar = styled.div`
-  padding: var(--space-2) var(--space-4);
-  border-left: 3px solid ${p => p.$blue ? '#3b82f6' : '#ef4444'};
-  background: ${p => p.$blue ? 'rgba(59,130,246,0.1)' : 'rgba(239,68,68,0.1)'};
-  font-family: var(--font-display);
-  color: var(--gold);
-`;
-
-const Note = styled.p`
-  font-size: var(--text-xs);
-  color: var(--grey-light);
-  margin-bottom: var(--space-4);
-  font-style: italic;
-`;
-
-// ============================================
-
-// Fixed config for combined circle style
-const pieConfig = {
-  combinedGap: 5,
-  areaMultiplier: 1.6,
-};
+// Colors that need dark text on their swatch
+const lightSwatches = new Set(["gold", "green", "greyLight", "textBody", "white"]);
 
 const StyleReference = () => {
   const colorEntries = Object.entries(colors);
@@ -220,431 +26,497 @@ const StyleReference = () => {
   const typeEntries = Object.entries(typeScale);
 
   return (
-    <Page>
-      <Title>Design System</Title>
-      <Subtitle>Single source of truth: src/design-tokens.js</Subtitle>
+    <div className="sr-page">
 
-      {/* COLORS */}
-      <Section>
-        <SectionTitle>Colors ({colorEntries.length})</SectionTitle>
-        <Grid>
-          {colorEntries.map(([key, token]) => (
-            <Swatch key={key}>
-              <SwatchColor $color={token.value} />
-              <SwatchLabel>{token.css}</SwatchLabel>
-            </Swatch>
-          ))}
-        </Grid>
-      </Section>
-
-      {/* TYPOGRAPHY */}
-      <Section>
-        <SectionTitle>Typography ({Object.keys(fonts).length} fonts, {typeEntries.length} sizes)</SectionTitle>
-        {Object.entries(fonts).map(([key, token]) => (
-          <TypeRow key={key}>
-            <TypeMeta>{key}</TypeMeta>
-            <span style={{ fontFamily: token.value, fontSize: 'var(--text-lg)', color: key === 'display' ? 'var(--gold)' : '#fff' }}>
-              {token.usage}
-            </span>
-          </TypeRow>
-        ))}
-
-        <div style={{ marginTop: 'var(--space-4)' }}>
-          {typeEntries.map(([key, token]) => (
-            <TypeRow key={key}>
-              <TypeMeta>{key} / {token.value}</TypeMeta>
-              <span style={{ fontSize: token.value }}>{token.usage}</span>
-            </TypeRow>
-          ))}
-        </div>
-
-        <div style={{ marginTop: 'var(--space-4)' }}>
-          <span style={{ fontFamily: 'var(--font-mono)', fontSize: 'var(--text-xs)', textTransform: 'uppercase', letterSpacing: '0.1em', color: 'var(--grey-light)' }}>
-            RANK &nbsp;&nbsp; MMR &nbsp;&nbsp; RECORD &nbsp;&nbsp; FORM
-          </span>
-          <div style={{ color: 'var(--grey-light)', fontSize: 'var(--text-xs)', marginTop: 'var(--space-1)' }}>
-            Label style: mono + xs + uppercase + letter-spacing
+      {/* ── Hero ─────────────────────────── */}
+      <header className="sr-hero">
+        <div className="sr-hero-copy sr-reveal" style={{ "--delay": "0.05s" }}>
+          <div className="sr-eyebrow">4v4.gg Design System</div>
+          <h1>Dark gold systems for competitive Warcraft III spectating.</h1>
+          <p className="sr-lead">
+            A cinematic design language built around gold accents, monospace data,
+            and dark surfaces for focused match viewing.
+          </p>
+          <div className="sr-pills">
+            <span className="sr-pill">Dark cinema</span>
+            <span className="sr-pill">Gold accents</span>
+            <span className="sr-pill">Monospace data</span>
+            <span className="sr-pill">Real-time</span>
           </div>
         </div>
-      </Section>
-
-      {/* SPACING */}
-      <Section>
-        <SectionTitle>Spacing ({spacingEntries.length})</SectionTitle>
-        {spacingEntries.map(([key, token]) => (
-          <SpaceRow key={key}>
-            <SpaceLabel>{token.css} ({token.value})</SpaceLabel>
-            <SpaceBar $size={token.value} />
-          </SpaceRow>
-        ))}
-      </Section>
-
-      {/* BORDERS */}
-      <Section>
-        <SectionTitle>Borders ({Object.keys(borders).length})</SectionTitle>
-        <Row style={{ gap: 'var(--space-6)' }}>
-          {Object.entries(borders).filter(([k]) => k.startsWith('radius')).map(([key, token]) => (
-            <div key={key} style={{ textAlign: 'center' }}>
-              <div style={{ width: 40, height: 40, background: 'var(--gold)', borderRadius: token.value, marginBottom: 'var(--space-1)' }} />
-              <span style={{ fontFamily: 'var(--font-mono)', fontSize: 'var(--text-xs)', color: 'var(--grey-light)' }}>{key.replace('radius', '').toLowerCase() || 'sm'}</span>
+        <div className="sr-panel sr-reveal" style={{ "--delay": "0.18s" }}>
+          <div className="sr-eyebrow">At a glance</div>
+          <div className="sr-token-grid">
+            <div className="sr-token">
+              <span className="sr-token-label">Display font</span>
+              <span className="sr-token-value">Friz Quadrata</span>
             </div>
-          ))}
-          <div style={{ borderLeft: '1px solid var(--grey-mid)', height: 40 }} />
-          {Object.entries(borders).filter(([k]) => !k.startsWith('radius')).map(([key, token]) => (
-            <div key={key} style={{ textAlign: 'center' }}>
-              <div style={{ width: 50, height: 40, border: `${token.value} solid var(--gold)`, borderRadius: 'var(--radius-md)', marginBottom: 'var(--space-1)' }} />
-              <span style={{ fontFamily: 'var(--font-mono)', fontSize: 'var(--text-xs)', color: 'var(--grey-light)' }}>{key}</span>
+            <div className="sr-token">
+              <span className="sr-token-label">Data font</span>
+              <span className="sr-token-value">Inconsolata</span>
             </div>
-          ))}
-        </Row>
-      </Section>
+            <div className="sr-token">
+              <span className="sr-token-label">Prose font</span>
+              <span className="sr-token-value">Libre Baskerville</span>
+            </div>
+            <div className="sr-token">
+              <span className="sr-token-label">Palette</span>
+              <span className="sr-token-value">Gold / Green / Red on dark</span>
+            </div>
+          </div>
+        </div>
+      </header>
 
-      {/* EFFECTS */}
-      <Section>
-        <SectionTitle>Effects ({Object.keys(effects).length})</SectionTitle>
-        <Row style={{ gap: 'var(--space-6)' }}>
+      {/* ── Design Principles ────────────── */}
+      <section className="sr-section sr-reveal" style={{ "--delay": "0.08s" }}>
+        <div className="sr-section-head">
           <div>
-            <div style={{ width: 80, height: 60, background: 'var(--grey-dark)', borderRadius: 'var(--radius-md)', boxShadow: effects.shadowGlow.value }} />
-            <span style={{ fontFamily: 'var(--font-mono)', fontSize: 'var(--text-xs)', color: 'var(--grey-light)', display: 'block', marginTop: 'var(--space-2)' }}>{effects.shadowGlow.css}</span>
+            <h2>Design principles</h2>
+            <p>Built for the competitive spectator. Fast reads, clear outcomes, cinematic atmosphere.</p>
           </div>
-        </Row>
-      </Section>
+          <div className="sr-badge-row">
+            <span className="sr-badge gold">Clarity</span>
+            <span className="sr-badge green">Speed</span>
+            <span className="sr-badge red">Immersion</span>
+          </div>
+        </div>
+        <div className="sr-card-grid">
+          <article className="sr-card sr-reveal" style={{ "--delay": "0.12s" }}>
+            <h3>At-a-glance data</h3>
+            <p>Monospace numbers, gold highlights, and team colors deliver competitive context instantly.</p>
+          </article>
+          <article className="sr-card sr-reveal" style={{ "--delay": "0.18s" }}>
+            <h3>Competitive contrast</h3>
+            <p>High-contrast text on dark surfaces. Gold for emphasis, green and red for win/loss outcomes.</p>
+          </article>
+          <article className="sr-card sr-reveal" style={{ "--delay": "0.24s" }}>
+            <h3>Cinematic immersion</h3>
+            <p>Race backgrounds, subtle overlays, and generous spacing create a spectator atmosphere.</p>
+          </article>
+        </div>
+      </section>
 
-      {/* OVERLAYS */}
-      <Section>
-        <SectionTitle>Transparency / Overlays</SectionTitle>
-
-        <div style={{ marginBottom: 'var(--space-4)' }}>
-          <div style={{ color: 'var(--grey-light)', fontSize: 'var(--text-xs)', marginBottom: 'var(--space-2)' }}>Dark overlays (for stream overlays, modals)</div>
-          <Row style={{ gap: 'var(--space-4)' }}>
-            {Object.entries(overlays).map(([key, token]) => (
-              <div key={key} style={{ textAlign: 'center' }}>
-                <div style={{ width: 80, height: 50, background: token.value, border: '1px solid var(--grey-mid)', borderRadius: 'var(--radius-md)', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-                  <span style={{ fontFamily: 'var(--font-mono)', fontSize: 'var(--text-xs)', color: '#fff' }}>{token.value.match(/[\d.]+\)$/)?.[0]?.replace(')', '') || key}</span>
-                </div>
-                <span style={{ fontFamily: 'var(--font-mono)', fontSize: 10, color: 'var(--grey-light)', display: 'block', marginTop: 'var(--space-1)' }}>{key}</span>
+      {/* ── Color Palette ────────────────── */}
+      <section className="sr-section sr-reveal" style={{ "--delay": "0.1s" }}>
+        <div className="sr-section-head">
+          <div>
+            <h2>Color palette</h2>
+            <p>Gold anchors the brand. Green and red signal outcomes. Cool greys recede into the background.</p>
+          </div>
+        </div>
+        <div className="sr-swatch-grid">
+          {colorEntries
+            .filter(([key]) => !["teamBlue", "teamRed", "twitchPurple", "atPurple"].includes(key))
+            .map(([key, token]) => (
+            <div
+              key={key}
+              className={`sr-swatch ${lightSwatches.has(key) ? "light" : "dark"}`}
+              style={{ background: token.value }}
+            >
+              <span className="sr-swatch-name">{token.css}</span>
+              <div>
+                <span className="sr-swatch-hex">{token.value}</span>
               </div>
-            ))}
-          </Row>
+            </div>
+          ))}
+        </div>
+      </section>
+
+      {/* ── Typography ───────────────────── */}
+      <section className="sr-section sr-reveal" style={{ "--delay": "0.1s" }}>
+        <div className="sr-section-head">
+          <div>
+            <h2>Typography</h2>
+            <p>Friz Quadrata delivers Warcraft gravitas. Inconsolata keeps stats crisp. Libre Baskerville for long-form prose.</p>
+          </div>
+        </div>
+        <div className="sr-type-grid">
+          <div className="sr-type-sample">
+            <div className="sample-title">Display</div>
+            <h4 style={{ fontFamily: "var(--font-display)", color: "var(--gold)" }}>
+              Friz Quadrata
+            </h4>
+            <p>Player names, headings, and brand moments. The Warcraft typeface.</p>
+          </div>
+          <div className="sr-type-sample">
+            <div className="sample-title">Mono</div>
+            <h4 style={{ fontFamily: "var(--font-mono)", color: "#fff" }}>
+              Inconsolata
+            </h4>
+            <p>Stats, MMR values, labels, dates. Tabular data that needs to align.</p>
+          </div>
+          <div className="sr-type-sample">
+            <div className="sample-title">Body</div>
+            <h4 style={{ fontFamily: "var(--font-body)", color: "#fff" }}>
+              Libre Baskerville
+            </h4>
+            <p>Blog articles, news summaries, empty states, and descriptive prose. Readable serif for anything meant to be read.</p>
+          </div>
         </div>
 
-        <div style={{ marginBottom: 'var(--space-4)' }}>
-          <div style={{ color: 'var(--grey-light)', fontSize: 'var(--text-xs)', marginBottom: 'var(--space-2)' }}>Surface tints (for cards, rows, hover states)</div>
-          <Row style={{ gap: 'var(--space-4)' }}>
-            {Object.entries(surfaces).map(([key, token]) => (
-              <div key={key} style={{ textAlign: 'center' }}>
-                <div style={{ width: 80, height: 50, background: token.value, border: '1px solid var(--grey-mid)', borderRadius: 'var(--radius-md)', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-                  <span style={{ fontFamily: 'var(--font-mono)', fontSize: 'var(--text-xs)', color: 'var(--grey-light)' }}>{token.value.match(/[\d.]+\)$/)?.[0]?.replace(')', '') || key}</span>
-                </div>
-                <span style={{ fontFamily: 'var(--font-mono)', fontSize: 10, color: 'var(--grey-light)', display: 'block', marginTop: 'var(--space-1)' }}>{token.usage}</span>
-              </div>
-            ))}
-          </Row>
+        <div className="sr-type-scale">
+          {typeEntries.map(([key, token]) => (
+            <div className="sr-type-row" key={key}>
+              <span className="sr-type-meta">{token.css} ({token.value})</span>
+              <span style={{ fontSize: token.value, color: "#fff" }}>{token.usage}</span>
+            </div>
+          ))}
         </div>
+      </section>
 
-        <div style={{ marginBottom: 'var(--space-4)' }}>
-          <div style={{ color: 'var(--grey-light)', fontSize: 'var(--text-xs)', marginBottom: 'var(--space-2)' }}>Color tints (for badges, highlights)</div>
-          <Row style={{ gap: 'var(--space-4)' }}>
-            {Object.entries(tints).map(([key, token]) => {
-              const borderColor = key === 'gold' ? 'var(--gold)' : key === 'green' ? 'var(--green)' : 'var(--red)';
-              return (
-                <div key={key} style={{ textAlign: 'center' }}>
-                  <div style={{ width: 80, height: 50, background: token.value, border: `1px solid ${borderColor}`, borderRadius: 'var(--radius-md)', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-                    <span style={{ fontFamily: 'var(--font-mono)', fontSize: 'var(--text-xs)', color: borderColor }}>{key}</span>
-                  </div>
-                  <span style={{ fontFamily: 'var(--font-mono)', fontSize: 10, color: 'var(--grey-light)', display: 'block', marginTop: 'var(--space-1)' }}>{token.css}</span>
-                </div>
-              );
-            })}
-          </Row>
+      {/* ── Spacing ──────────────────────── */}
+      <section className="sr-section sr-reveal" style={{ "--delay": "0.1s" }}>
+        <div className="sr-section-head">
+          <div>
+            <h2>Spacing</h2>
+            <p>A compact scale for dense data displays with room to breathe at larger sizes.</p>
+          </div>
         </div>
-      </Section>
+        {spacingEntries.map(([key, token]) => (
+          <div className="sr-space-row" key={key}>
+            <span className="sr-space-label">{token.css} ({token.value})</span>
+            <div className="sr-space-bar" style={{ width: token.value }} />
+          </div>
+        ))}
+      </section>
 
-      {/* COMPONENTS */}
-      <Section>
-        <SectionTitle>Components ({components.length})</SectionTitle>
-
-        <div style={{ marginBottom: 'var(--space-4)' }}>
-          <div style={{ color: 'var(--grey-light)', fontSize: 'var(--text-xs)', marginBottom: 'var(--space-2)' }}>Buttons</div>
-          <Row>
-            <Button $primary>Primary</Button>
-            <Button $secondary>Secondary</Button>
-          </Row>
+      {/* ── Components ───────────────────── */}
+      <section className="sr-section sr-reveal" style={{ "--delay": "0.1s" }}>
+        <div className="sr-section-head">
+          <div>
+            <h2>Components</h2>
+            <p>Buttons, badges, team indicators, and form dots. The building blocks of match display.</p>
+          </div>
         </div>
+        <div className="sr-component-grid">
+          <div className="sr-stack">
+            <div className="sr-label">Buttons</div>
+            <button className="sr-btn sr-btn-primary">Primary Action</button>
+            <button className="sr-btn sr-btn-secondary">Secondary</button>
+          </div>
 
-        <div style={{ marginBottom: 'var(--space-4)' }}>
-          <div style={{ color: 'var(--grey-light)', fontSize: 'var(--text-xs)', marginBottom: 'var(--space-2)' }}>Badges</div>
-          <Row>
-            <Badge>Default</Badge>
-            <Badge $bg="var(--gold)" $color="#0a0a0a" $border="var(--gold)">Gold</Badge>
-            <Badge $bg="rgba(74,222,128,0.15)" $color="var(--green)" $border="var(--green)">Win</Badge>
-            <Badge $bg="rgba(248,113,113,0.15)" $color="var(--red)" $border="var(--red)">Loss</Badge>
-          </Row>
-        </div>
+          <div className="sr-stack">
+            <div className="sr-label">Badges</div>
+            <div className="sr-badge-row">
+              <span className="sr-badge">Default</span>
+              <span className="sr-badge gold">Gold</span>
+              <span className="sr-badge green">Win</span>
+              <span className="sr-badge red">Loss</span>
+            </div>
+          </div>
 
-        <div style={{ marginBottom: 'var(--space-4)' }}>
-          <div style={{ color: 'var(--grey-light)', fontSize: 'var(--text-xs)', marginBottom: 'var(--space-2)' }}>Form dots (most recent = largest)</div>
-          <Row style={{ gap: 'var(--space-1)', alignItems: 'center' }}>
-            <Dot /><Dot $win /><Dot /><Dot $win /><Dot $win $recent />
-            <span style={{ marginLeft: 'var(--space-2)', fontFamily: 'var(--font-mono)', fontSize: 'var(--text-sm)', color: 'var(--grey-light)' }}>3W-2L</span>
-          </Row>
-        </div>
+          <div className="sr-stack">
+            <div className="sr-label">Form dots</div>
+            <div style={{ display: "flex", alignItems: "center", gap: 4 }}>
+              <span className="sr-dot loss sm" />
+              <span className="sr-dot win sm" />
+              <span className="sr-dot loss sm" />
+              <span className="sr-dot win sm" />
+              <span className="sr-dot win lg" />
+              <span style={{ marginLeft: 8, fontFamily: "var(--font-mono)", fontSize: "0.9rem", color: "var(--grey-light)" }}>
+                3W-2L
+              </span>
+            </div>
+          </div>
 
-        <div style={{ marginBottom: 'var(--space-4)' }}>
-          <div style={{ color: 'var(--grey-light)', fontSize: 'var(--text-xs)', marginBottom: 'var(--space-2)' }}>Live indicator</div>
-          <Row style={{ alignItems: 'center', gap: 'var(--space-2)' }}>
-            <span className="live-dot"></span>
-            <span style={{ fontFamily: 'var(--font-mono)', fontSize: 'var(--text-sm)', color: 'var(--grey-light)' }}>Pulsing red dot for live/ongoing status</span>
-          </Row>
-        </div>
+          <div className="sr-stack">
+            <div className="sr-label">Live indicator</div>
+            <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
+              <span className="live-dot" />
+              <span style={{ fontFamily: "var(--font-mono)", fontSize: "0.85rem", color: "var(--grey-light)" }}>
+                Pulsing red dot
+              </span>
+            </div>
+          </div>
 
-        <div style={{ marginBottom: 'var(--space-4)' }}>
-          <div style={{ color: 'var(--grey-light)', fontSize: 'var(--text-xs)', marginBottom: 'var(--space-2)' }}>Team indicators</div>
-          <Row>
-            <TeamBar $blue>PlayerName</TeamBar>
-            <TeamBar>EnemyPlayer</TeamBar>
-          </Row>
-        </div>
+          <div className="sr-stack">
+            <div className="sr-label">Team indicators</div>
+            <div className="sr-team-bar blue">Blue Team Player</div>
+            <div className="sr-team-bar red">Red Team Player</div>
+          </div>
 
-        <div style={{ marginBottom: 'var(--space-4)' }}>
-          <div style={{ color: 'var(--grey-light)', fontSize: 'var(--text-xs)', marginBottom: 'var(--space-2)' }}>Card</div>
-          <Card style={{ maxWidth: 240 }}>
-            <div style={{ fontFamily: 'var(--font-display)', color: 'var(--gold)', marginBottom: 'var(--space-1)' }}>PlayerName</div>
-            <div style={{ fontFamily: 'var(--font-mono)', fontSize: 'var(--text-sm)', color: 'var(--grey-light)' }}>1847 MMR - 59% WR</div>
-          </Card>
-        </div>
-
-        <div>
-          <div style={{ color: 'var(--grey-light)', fontSize: 'var(--text-xs)', marginBottom: 'var(--space-2)' }}>Select / Dropdown</div>
-          <Row style={{ gap: 'var(--space-4)' }}>
+          <div className="sr-stack">
+            <div className="sr-label">Select / Dropdown</div>
             <select style={{
-              fontFamily: '"Friz_Quadrata_Bold", serif',
-              background: 'linear-gradient(180deg, rgba(30, 30, 30, 0.95) 0%, rgba(15, 15, 15, 0.98) 100%)',
-              border: '1px solid rgba(252, 219, 51, 0.3)',
-              borderRadius: '4px',
-              color: 'var(--gold)',
-              fontSize: '12px',
-              letterSpacing: '0.5px',
-              padding: '8px 28px 8px 12px',
-              cursor: 'pointer',
-              WebkitAppearance: 'none',
-              MozAppearance: 'none',
-              appearance: 'none',
-              backgroundImage: "url(\"data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='10' height='6' viewBox='0 0 10 6'%3E%3Cpath fill='%23fcdb33' d='M0 0l5 6 5-6z'/%3E%3C/svg%3E\")",
-              backgroundRepeat: 'no-repeat',
-              backgroundPosition: 'right 10px center',
+              fontFamily: "var(--font-display)",
+              background: "linear-gradient(180deg, rgba(30,30,30,0.95), rgba(15,15,15,0.98))",
+              border: "1px solid rgba(252,219,51,0.3)",
+              borderRadius: "4px",
+              color: "var(--gold)",
+              fontSize: "12px",
+              letterSpacing: "0.5px",
+              padding: "8px 28px 8px 12px",
+              cursor: "pointer",
+              WebkitAppearance: "none",
+              MozAppearance: "none",
+              appearance: "none",
             }}>
               <option>S24</option>
               <option>S23</option>
               <option>S22</option>
             </select>
-            <span style={{ fontFamily: 'var(--font-mono)', fontSize: 'var(--text-xs)', color: 'var(--grey-light)' }}>Gold border, custom arrow, Friz Quadrata font</span>
-          </Row>
+          </div>
         </div>
-      </Section>
+      </section>
 
-      {/* LOADING STATES */}
-      <Section>
-        <SectionTitle>Loading States</SectionTitle>
-        <Note>Gold spinner + text. Used across all pages.</Note>
+      {/* ── Card Borders ─────────────────── */}
+      <section className="sr-section sr-reveal" style={{ "--delay": "0.1s" }}>
+        <div className="sr-section-head">
+          <div>
+            <h2>Card borders</h2>
+            <p>Gold border for primary cards. Grey for secondary. Tinted backgrounds for win/loss states.</p>
+          </div>
+        </div>
+        <div className="sr-showcase-grid">
+          <div
+            className="sr-showcase-card"
+            style={{
+              background: surfaces.surface1.value,
+              border: `${borders.thick.value} solid ${colors.gold.value}`,
+            }}
+          >
+            <div className="card-title" style={{ color: "var(--gold)" }}>Gold Border</div>
+            <div className="card-sub">Primary cards</div>
+          </div>
+          <div
+            className="sr-showcase-card"
+            style={{
+              background: surfaces.surface1.value,
+              border: `1px solid ${colors.greyMid.value}`,
+            }}
+          >
+            <div className="card-title" style={{ color: "#fff" }}>Grey Border</div>
+            <div className="card-sub">Secondary cards</div>
+          </div>
+          <div
+            className="sr-showcase-card"
+            style={{
+              background: tints.green.value,
+              border: "1px solid rgba(74,222,128,0.25)",
+            }}
+          >
+            <div className="card-title" style={{ color: "var(--green)" }}>Win Card</div>
+            <div className="card-sub">Victory results</div>
+          </div>
+          <div
+            className="sr-showcase-card"
+            style={{
+              background: tints.red.value,
+              border: "1px solid rgba(248,113,113,0.25)",
+            }}
+          >
+            <div className="card-title" style={{ color: "var(--red)" }}>Loss Card</div>
+            <div className="card-sub">Defeat results</div>
+          </div>
+        </div>
+      </section>
 
-        <Grid style={{ gridTemplateColumns: 'repeat(2, 1fr)', gap: 'var(--space-4)' }}>
-          {/* Spinner sizes */}
-          <div style={{ background: 'var(--surface-1)', padding: 'var(--space-4)', borderRadius: 'var(--radius-md)' }}>
-            <div style={{ color: 'var(--gold)', fontSize: 'var(--text-xs)', fontFamily: 'var(--font-mono)', marginBottom: 'var(--space-4)' }}>
-              Spinner Sizes
-            </div>
-            <Row style={{ gap: 'var(--space-6)', marginBottom: 'var(--space-4)' }}>
-              <div style={{ textAlign: 'center' }}>
-                <div className="loader-spinner sm" />
-                <div style={{ fontSize: 10, color: 'var(--grey-light)', marginTop: 'var(--space-2)' }}>sm (16px)</div>
+      {/* ── Surface & Overlays ────────────── */}
+      <section className="sr-section sr-reveal" style={{ "--delay": "0.1s" }}>
+        <div className="sr-section-head">
+          <div>
+            <h2>Surfaces and overlays</h2>
+            <p>Dark overlays for modals and streams. Subtle surface tints for layering. Color tints for state.</p>
+          </div>
+        </div>
+
+        <div className="sr-label" style={{ marginBottom: 12 }}>Dark overlays</div>
+        <div className="sr-overlay-grid" style={{ marginBottom: 24 }}>
+          {Object.entries(overlays).map(([key, token]) => (
+            <div className="sr-overlay-swatch" key={key}>
+              <div className="sr-overlay-box" style={{ background: token.value }}>
+                <span>{token.value.match(/[\d.]+\)$/)?.[0]?.replace(")", "") || key}</span>
               </div>
-              <div style={{ textAlign: 'center' }}>
-                <div className="loader-spinner" />
-                <div style={{ fontSize: 10, color: 'var(--grey-light)', marginTop: 'var(--space-2)' }}>default (24px)</div>
-              </div>
-              <div style={{ textAlign: 'center' }}>
-                <div className="loader-spinner lg" />
-                <div style={{ fontSize: 10, color: 'var(--grey-light)', marginTop: 'var(--space-2)' }}>lg (32px)</div>
-              </div>
-            </Row>
-            <Code style={{ padding: 'var(--space-2)', fontSize: 10, marginTop: 0 }}>
-{`<div className="loader-spinner" />
-<div className="loader-spinner sm" />
-<div className="loader-spinner lg" />`}
-            </Code>
-          </div>
-
-          {/* Page loader */}
-          <div style={{ background: 'var(--surface-1)', padding: 'var(--space-4)', borderRadius: 'var(--radius-md)' }}>
-            <div style={{ color: 'var(--gold)', fontSize: 'var(--text-xs)', fontFamily: 'var(--font-mono)', marginBottom: 'var(--space-4)' }}>
-              Page Loader
-            </div>
-            <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 'var(--space-4)', padding: 'var(--space-4)' }}>
-              <div className="loader-spinner lg" />
-              <span className="loader-text">Loading matches</span>
-            </div>
-            <Code style={{ padding: 'var(--space-2)', fontSize: 10, marginTop: 'var(--space-2)' }}>
-{`<div className="page-loader">
-  <div className="loader-spinner lg" />
-  <span className="loader-text">Loading matches</span>
-</div>`}
-            </Code>
-          </div>
-        </Grid>
-
-        <div style={{ marginTop: 'var(--space-4)', padding: 'var(--space-2)', background: 'rgba(255,255,255,0.02)', borderRadius: 'var(--radius-sm)', border: '1px solid var(--grey-mid)' }}>
-          <div style={{ fontFamily: 'var(--font-mono)', fontSize: 10, color: 'var(--grey-light)' }}>
-            Skeleton placeholders available for future use: .loader-skeleton.avatar, .loader-skeleton.text, .loader-skeleton.card
-          </div>
-        </div>
-      </Section>
-
-      {/* CARD BORDERS */}
-      <Section>
-        <SectionTitle>Card Borders</SectionTitle>
-        <Note>Gold border for primary cards. No hover animations that move cards.</Note>
-
-        <Grid style={{ gridTemplateColumns: 'repeat(auto-fill, minmax(200px, 1fr))', gap: 'var(--space-4)' }}>
-          <div>
-            <div style={{ background: surfaces.surface1.value, border: `${borders.thick.value} solid ${colors.gold.value}`, borderRadius: borders.radiusMd.value, padding: 'var(--space-4)' }}>
-              <div style={{ fontFamily: 'var(--font-display)', color: 'var(--gold)', marginBottom: 'var(--space-1)' }}>Gold Border</div>
-              <div style={{ fontFamily: 'var(--font-mono)', fontSize: 'var(--text-sm)', color: 'var(--grey-light)' }}>Primary cards</div>
-            </div>
-            <Code style={{ marginTop: 'var(--space-2)', padding: 'var(--space-2)', fontSize: 10 }}>
-{patterns.cardGold.css}
-            </Code>
-          </div>
-
-          <div>
-            <div style={{ background: surfaces.surface1.value, border: `1px solid ${colors.greyMid.value}`, borderRadius: borders.radiusMd.value, padding: 'var(--space-4)' }}>
-              <div style={{ fontFamily: 'var(--font-display)', color: '#fff', marginBottom: 'var(--space-1)' }}>Grey Border</div>
-              <div style={{ fontFamily: 'var(--font-mono)', fontSize: 'var(--text-sm)', color: 'var(--grey-light)' }}>Secondary cards</div>
-            </div>
-            <Code style={{ marginTop: 'var(--space-2)', padding: 'var(--space-2)', fontSize: 10 }}>
-{patterns.cardSubtle.css}
-            </Code>
-          </div>
-
-          <div>
-            <div style={{ background: tints.green.value, border: `1px solid rgba(74,222,128,0.25)`, borderRadius: borders.radiusMd.value, padding: 'var(--space-4)' }}>
-              <div style={{ fontFamily: 'var(--font-display)', color: 'var(--green)', marginBottom: 'var(--space-1)' }}>Win Card</div>
-              <div style={{ fontFamily: 'var(--font-mono)', fontSize: 'var(--text-sm)', color: 'var(--grey-light)' }}>Victory results</div>
-            </div>
-          </div>
-
-          <div>
-            <div style={{ background: tints.red.value, border: `1px solid rgba(248,113,113,0.25)`, borderRadius: borders.radiusMd.value, padding: 'var(--space-4)' }}>
-              <div style={{ fontFamily: 'var(--font-display)', color: 'var(--red)', marginBottom: 'var(--space-1)' }}>Loss Card</div>
-              <div style={{ fontFamily: 'var(--font-mono)', fontSize: 'var(--text-sm)', color: 'var(--grey-light)' }}>Defeat results</div>
-            </div>
-          </div>
-        </Grid>
-      </Section>
-
-      {/* GAME DISPLAYS */}
-      <Section>
-        <SectionTitle>Game Display Variants</SectionTitle>
-        <Note>Unified GameCard and GameRow components for displaying match data.</Note>
-
-        <div style={{ display: 'grid', gap: 'var(--space-4)' }}>
-          <div style={{ background: 'var(--surface-1)', padding: 'var(--space-4)', borderRadius: 'var(--radius-md)' }}>
-            <div style={{ fontFamily: 'var(--font-mono)', fontSize: 'var(--text-xs)', color: 'var(--gold)', marginBottom: 'var(--space-2)' }}>
-              GameCard (default)
-            </div>
-            <div style={{ color: 'var(--grey-light)', fontSize: 'var(--text-xs)', marginBottom: 'var(--space-2)' }}>
-              Full card with map image, team details, and MMR. Used on /finished page.
-            </div>
-            <Code style={{ marginTop: 'var(--space-2)', padding: 'var(--space-2)', fontSize: 10 }}>
-{`<GameCard
-  game={gameData}
-  playerBattleTag="Player#1234"
-  status="live" // optional: "live" | "won" | "lost"
-/>`}
-            </Code>
-          </div>
-
-          <div style={{ background: 'var(--surface-1)', padding: 'var(--space-4)', borderRadius: 'var(--radius-md)' }}>
-            <div style={{ fontFamily: 'var(--font-mono)', fontSize: 'var(--text-xs)', color: 'var(--gold)', marginBottom: 'var(--space-2)' }}>
-              GameCard (global mode)
-            </div>
-            <div style={{ color: 'var(--grey-light)', fontSize: 'var(--text-xs)', marginBottom: 'var(--space-2)' }}>
-              No player perspective. Shows avg MMR prominently. Used on /finished page.
-            </div>
-            <Code style={{ marginTop: 'var(--space-2)', padding: 'var(--space-2)', fontSize: 10 }}>
-{`<GameCard
-  game={gameData}
-  // No playerBattleTag = global mode
-/>`}
-            </Code>
-          </div>
-
-          <div style={{ background: 'var(--surface-1)', padding: 'var(--space-4)', borderRadius: 'var(--radius-md)' }}>
-            <div style={{ fontFamily: 'var(--font-mono)', fontSize: 'var(--text-xs)', color: 'var(--gold)', marginBottom: 'var(--space-2)' }}>
-              GameCard (overlay)
-            </div>
-            <div style={{ color: 'var(--grey-light)', fontSize: 'var(--text-xs)', marginBottom: 'var(--space-2)' }}>
-              Stream overlay for OBS/Streamlabs. Transparent bg, multiple layouts. Used at /overlay/lastgame/:tag
-            </div>
-            <Code style={{ marginTop: 'var(--space-2)', padding: 'var(--space-2)', fontSize: 10 }}>
-{`<GameCard
-  game={gameData}
-  playerBattleTag="Player#1234"
-  overlay={true}
-  size="expanded"
-  layout="vertical" // "horizontal" | "vertical" | "compact" | "wide"
-/>`}
-            </Code>
-          </div>
-
-          <div style={{ background: 'var(--surface-1)', padding: 'var(--space-4)', borderRadius: 'var(--radius-md)' }}>
-            <div style={{ fontFamily: 'var(--font-mono)', fontSize: 'var(--text-xs)', color: 'var(--gold)', marginBottom: 'var(--space-2)' }}>
-              GameRow (table)
-            </div>
-            <div style={{ color: 'var(--grey-light)', fontSize: 'var(--text-xs)', marginBottom: 'var(--space-2)' }}>
-              Table row format for Match History. Shows Result, Map, Avg MMR, +/-, Allies, Duration, Time.
-            </div>
-            <Code style={{ marginTop: 'var(--space-2)', padding: 'var(--space-2)', fontSize: 10 }}>
-{`<GameRow
-  game={matchData}
-  playerBattleTag="Player#1234"
-  striped={true} // alternate row styling
-/>`}
-            </Code>
-          </div>
-        </div>
-
-        <div style={{ marginTop: 'var(--space-4)', padding: 'var(--space-2)', background: 'rgba(252,219,51,0.05)', borderRadius: 'var(--radius-sm)', border: '1px solid rgba(252,219,51,0.2)' }}>
-          <div style={{ fontFamily: 'var(--font-mono)', fontSize: 'var(--text-xs)', color: 'var(--gold)' }}>Import</div>
-          <Code style={{ marginTop: 'var(--space-1)', padding: 'var(--space-1)', fontSize: 10, background: 'transparent' }}>
-{`import { GameCard, GameRow } from "../components/game/index";`}
-          </Code>
-        </div>
-      </Section>
-
-      {/* USAGE PATTERNS */}
-      <Section>
-        <SectionTitle>Usage Patterns</SectionTitle>
-        <div style={{ display: 'grid', gap: 'var(--space-2)' }}>
-          {Object.entries(patterns).map(([key, pattern]) => (
-            <div key={key} style={{ display: 'flex', gap: 'var(--space-4)', alignItems: 'center', padding: 'var(--space-2)', background: 'var(--surface-1)', borderRadius: 'var(--radius-sm)' }}>
-              <span style={{ fontFamily: 'var(--font-mono)', fontSize: 'var(--text-xs)', color: 'var(--gold)', minWidth: 120 }}>{pattern.description}</span>
-              <code style={{ fontFamily: 'var(--font-mono)', fontSize: 10, color: 'var(--grey-light)' }}>{pattern.css}</code>
+              <div className="sr-overlay-name">{key}</div>
             </div>
           ))}
         </div>
-      </Section>
 
-      {/* MMR CHARTS - AT VISUALIZATION */}
-      <Section>
-        <SectionTitle>MMR Chart - AT Visualization</SectionTitle>
-        <Note>Combined circle style: AT groups shown as single circle with area = sum of individual circles. Gap: 5px, Area multiplier: 160%</Note>
+        <div className="sr-label" style={{ marginBottom: 12 }}>Surface tints</div>
+        <div className="sr-overlay-grid" style={{ marginBottom: 24 }}>
+          {Object.entries(surfaces).map(([key, token]) => (
+            <div className="sr-overlay-swatch" key={key}>
+              <div className="sr-overlay-box" style={{ background: token.value }}>
+                <span style={{ color: "var(--grey-light)" }}>{token.usage}</span>
+              </div>
+              <div className="sr-overlay-name">{token.css}</div>
+            </div>
+          ))}
+        </div>
 
-        {/* Stack Sizes */}
-        <Grid style={{ gridTemplateColumns: 'repeat(4, 1fr)', gap: 'var(--space-4)', marginBottom: 'var(--space-4)' }}>
-          {/* 2-stack */}
+        <div className="sr-label" style={{ marginBottom: 12 }}>Color tints</div>
+        <div className="sr-overlay-grid">
+          {Object.entries(tints).map(([key, token]) => {
+            const accent = key === "gold" ? "var(--gold)" : key === "green" ? "var(--green)" : "var(--red)";
+            return (
+              <div className="sr-overlay-swatch" key={key}>
+                <div className="sr-overlay-box" style={{ background: token.value, borderColor: accent }}>
+                  <span style={{ color: accent, fontFamily: "var(--font-mono)", fontSize: "0.78rem" }}>{key}</span>
+                </div>
+                <div className="sr-overlay-name">{token.css}</div>
+              </div>
+            );
+          })}
+        </div>
+      </section>
+
+      {/* ── Surface Layouts ───────────────── */}
+      <section className="sr-section sr-reveal" style={{ "--delay": "0.1s" }}>
+        <div className="sr-section-head">
           <div>
-            <div style={{ height: 160, background: 'var(--surface-1)', borderRadius: 'var(--radius-md)', padding: 'var(--space-2)' }}>
+            <h2>Surface layouts</h2>
+            <p>Layer dark panels with gold accents for dashboards and stat displays.</p>
+          </div>
+        </div>
+        <div className="sr-layout-grid">
+          <div className="sr-surface">
+            <div className="meta">Match overview</div>
+            <h4>Live Games</h4>
+            <p>Display ongoing 4v4 matches with team MMR, race icons, and game duration.</p>
+            <div className="sr-stat-row">
+              <div className="sr-stat">
+                <div className="value">12</div>
+                <div className="label">Live</div>
+              </div>
+              <div className="sr-stat">
+                <div className="value">1847</div>
+                <div className="label">Avg MMR</div>
+              </div>
+              <div className="sr-stat">
+                <div className="value">23m</div>
+                <div className="label">Duration</div>
+              </div>
+            </div>
+          </div>
+          <div className="sr-surface">
+            <div className="meta">Player profile</div>
+            <h4>Season Stats</h4>
+            <p>Win rates, MMR trends, and match history for individual players.</p>
+            <div className="sr-stat-row">
+              <div className="sr-stat">
+                <div className="value">64%</div>
+                <div className="label">Win rate</div>
+              </div>
+              <div className="sr-stat">
+                <div className="value">248</div>
+                <div className="label">Games</div>
+              </div>
+              <div className="sr-stat">
+                <div className="value">+12</div>
+                <div className="label">MMR</div>
+              </div>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      {/* ── Usage Patterns (table) ────────── */}
+      <section className="sr-section sr-reveal" style={{ "--delay": "0.1s" }}>
+        <div className="sr-section-head">
+          <div>
+            <h2>Usage patterns</h2>
+            <p>Common CSS combinations for consistent styling across components.</p>
+          </div>
+        </div>
+        <table className="sr-table">
+          <thead>
+            <tr>
+              <th>Pattern</th>
+              <th>CSS</th>
+            </tr>
+          </thead>
+          <tbody>
+            {Object.entries(patterns).map(([key, pattern]) => (
+              <tr key={key}>
+                <td style={{ fontFamily: "var(--font-display)", color: "var(--gold)", whiteSpace: "nowrap" }}>
+                  {pattern.description}
+                </td>
+                <td><code>{pattern.css}</code></td>
+              </tr>
+            ))}
+          </tbody>
+        </table>
+      </section>
+
+      {/* ── Loading States ────────────────── */}
+      <section className="sr-section sr-reveal" style={{ "--delay": "0.1s" }}>
+        <div className="sr-section-head">
+          <div>
+            <h2>Loading states</h2>
+            <p>Gold spinner with optional text. Three sizes for inline, component, and page-level loading.</p>
+          </div>
+        </div>
+        <div className="sr-layout-grid">
+          <div className="sr-surface">
+            <div className="meta">Spinner sizes</div>
+            <div style={{ display: "flex", gap: 32, alignItems: "center", marginTop: 12 }}>
+              <div style={{ textAlign: "center" }}>
+                <div className="loader-spinner sm" />
+                <div className="sr-overlay-name" style={{ marginTop: 8 }}>sm (16px)</div>
+              </div>
+              <div style={{ textAlign: "center" }}>
+                <div className="loader-spinner" />
+                <div className="sr-overlay-name" style={{ marginTop: 8 }}>default (24px)</div>
+              </div>
+              <div style={{ textAlign: "center" }}>
+                <div className="loader-spinner lg" />
+                <div className="sr-overlay-name" style={{ marginTop: 8 }}>lg (32px)</div>
+              </div>
+            </div>
+          </div>
+          <div className="sr-surface">
+            <div className="meta">Page loader</div>
+            <div style={{ display: "flex", flexDirection: "column", alignItems: "center", gap: 16, padding: 16 }}>
+              <div className="loader-spinner lg" />
+              <span className="loader-text">Loading matches</span>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      {/* ── Borders & Radius ──────────────── */}
+      <section className="sr-section sr-reveal" style={{ "--delay": "0.1s" }}>
+        <div className="sr-section-head">
+          <div>
+            <h2>Borders and radius</h2>
+            <p>Tight radius for a sharp, competitive feel. Two border weights for hierarchy.</p>
+          </div>
+        </div>
+        <div style={{ display: "flex", flexWrap: "wrap", gap: 32, alignItems: "flex-end" }}>
+          {Object.entries(borders).filter(([k]) => k.startsWith("radius")).map(([key, token]) => (
+            <div key={key} style={{ textAlign: "center" }}>
+              <div style={{ width: 48, height: 48, background: "var(--gold)", borderRadius: token.value, marginBottom: 8 }} />
+              <div className="sr-overlay-name">{token.css}</div>
+              <div className="sr-overlay-name">{token.value}</div>
+            </div>
+          ))}
+          <div style={{ borderLeft: "1px solid var(--grey-mid)", height: 48, margin: "0 8px" }} />
+          {Object.entries(borders).filter(([k]) => !k.startsWith("radius")).map(([key, token]) => (
+            <div key={key} style={{ textAlign: "center" }}>
+              <div style={{ width: 56, height: 48, border: `${token.value} solid var(--gold)`, borderRadius: "var(--radius-md)", marginBottom: 8 }} />
+              <div className="sr-overlay-name">{token.css}</div>
+              <div className="sr-overlay-name">{token.value}</div>
+            </div>
+          ))}
+        </div>
+      </section>
+
+      {/* ── MMR Charts ────────────────────── */}
+      <section className="sr-section sr-reveal" style={{ "--delay": "0.1s" }}>
+        <div className="sr-section-head">
+          <div>
+            <h2>MMR visualization</h2>
+            <p>Combined circle style for AT groups. Area equals sum of individual player circles.</p>
+          </div>
+          <div className="sr-badge-row">
+            <span className="sr-badge blue">AT groups</span>
+            <span className="sr-badge">Solo</span>
+          </div>
+        </div>
+
+        <div className="sr-mmr-grid">
+          <div className="sr-mmr-cell">
+            <div className="sr-mmr-box">
               <MmrComparison
                 data={{
                   teamOneMmrs: [1900, 1900, 1750, 1650],
@@ -656,14 +528,10 @@ const StyleReference = () => {
                 pieConfig={pieConfig}
               />
             </div>
-            <div style={{ color: 'var(--grey-light)', fontSize: 'var(--text-xs)', marginTop: 'var(--space-2)', textAlign: 'center' }}>
-              2-stack
-            </div>
+            <div className="sr-mmr-label">2-stack</div>
           </div>
-
-          {/* 3-stack */}
-          <div>
-            <div style={{ height: 160, background: 'var(--surface-1)', borderRadius: 'var(--radius-md)', padding: 'var(--space-2)' }}>
+          <div className="sr-mmr-cell">
+            <div className="sr-mmr-box">
               <MmrComparison
                 data={{
                   teamOneMmrs: [1900, 1900, 1900, 1650],
@@ -675,14 +543,10 @@ const StyleReference = () => {
                 pieConfig={pieConfig}
               />
             </div>
-            <div style={{ color: 'var(--grey-light)', fontSize: 'var(--text-xs)', marginTop: 'var(--space-2)', textAlign: 'center' }}>
-              3-stack
-            </div>
+            <div className="sr-mmr-label">3-stack</div>
           </div>
-
-          {/* 4-stack */}
-          <div>
-            <div style={{ height: 160, background: 'var(--surface-1)', borderRadius: 'var(--radius-md)', padding: 'var(--space-2)' }}>
+          <div className="sr-mmr-cell">
+            <div className="sr-mmr-box">
               <MmrComparison
                 data={{
                   teamOneMmrs: [1900, 1900, 1900, 1900],
@@ -694,14 +558,10 @@ const StyleReference = () => {
                 pieConfig={pieConfig}
               />
             </div>
-            <div style={{ color: 'var(--grey-light)', fontSize: 'var(--text-xs)', marginTop: 'var(--space-2)', textAlign: 'center' }}>
-              4-stack
-            </div>
+            <div className="sr-mmr-label">4-stack</div>
           </div>
-
-          {/* No AT */}
-          <div>
-            <div style={{ height: 160, background: 'var(--surface-1)', borderRadius: 'var(--radius-md)', padding: 'var(--space-2)' }}>
+          <div className="sr-mmr-cell">
+            <div className="sr-mmr-box">
               <MmrComparison
                 data={{
                   teamOneMmrs: [2000, 1900, 1750, 1600],
@@ -713,16 +573,13 @@ const StyleReference = () => {
                 pieConfig={pieConfig}
               />
             </div>
-            <div style={{ color: 'var(--grey-light)', fontSize: 'var(--text-xs)', marginTop: 'var(--space-2)', textAlign: 'center' }}>
-              No AT
-            </div>
+            <div className="sr-mmr-label">No AT</div>
           </div>
-        </Grid>
+        </div>
 
-        {/* Collision scenario */}
-        <Grid style={{ gridTemplateColumns: 'repeat(2, 1fr)', gap: 'var(--space-4)' }}>
-          <div>
-            <div style={{ height: 160, background: 'var(--surface-1)', borderRadius: 'var(--radius-md)', padding: 'var(--space-2)' }}>
+        <div className="sr-mmr-grid-2">
+          <div className="sr-mmr-cell">
+            <div className="sr-mmr-box">
               <MmrComparison
                 data={{
                   teamOneMmrs: [1850, 1850, 1855, 2000],
@@ -734,13 +591,10 @@ const StyleReference = () => {
                 pieConfig={pieConfig}
               />
             </div>
-            <div style={{ color: 'var(--grey-light)', fontSize: 'var(--text-xs)', marginTop: 'var(--space-2)', textAlign: 'center' }}>
-              2-stack + solo collision
-            </div>
+            <div className="sr-mmr-label">2-stack + solo collision</div>
           </div>
-
-          <div>
-            <div style={{ height: 160, background: 'var(--surface-1)', borderRadius: 'var(--radius-md)', padding: 'var(--space-2)' }}>
+          <div className="sr-mmr-cell">
+            <div className="sr-mmr-box">
               <MmrComparison
                 data={{
                   teamOneMmrs: [1850, 1850, 1850, 1850],
@@ -752,38 +606,44 @@ const StyleReference = () => {
                 pieConfig={pieConfig}
               />
             </div>
-            <div style={{ color: 'var(--grey-light)', fontSize: 'var(--text-xs)', marginTop: 'var(--space-2)', textAlign: 'center' }}>
-              4-stack vs all solo
-            </div>
+            <div className="sr-mmr-label">4-stack vs all solo</div>
           </div>
-        </Grid>
-      </Section>
+        </div>
+      </section>
 
-      {/* QUICK REF */}
-      <Section>
-        <SectionTitle>Quick Reference</SectionTitle>
-        <Note>Generated from src/design-tokens.js</Note>
-        <Code>
+      {/* ── Quick Reference ───────────────── */}
+      <section className="sr-section sr-reveal" style={{ "--delay": "0.1s" }}>
+        <div className="sr-section-head">
+          <div>
+            <h2>Quick reference</h2>
+            <p>All tokens from src/lib/design-tokens.js in one block.</p>
+          </div>
+        </div>
+        <pre className="sr-code">
 {`/* COLORS */
-${colorEntries.map(([k, t]) => `${t.css.padEnd(18)} ${t.value.padEnd(10)} ${t.usage}`).join('\n')}
+${colorEntries.map(([k, t]) => `${t.css.padEnd(18)} ${t.value.padEnd(10)} ${t.usage}`).join("\n")}
 
 /* FONTS */
-${Object.entries(fonts).map(([k, t]) => `${t.css.padEnd(18)} ${t.usage}`).join('\n')}
+${Object.entries(fonts).map(([k, t]) => `${t.css.padEnd(18)} ${t.usage}`).join("\n")}
 
 /* TYPE SCALE */
-${typeEntries.map(([k, t]) => `${t.css.padEnd(14)} ${t.value.padEnd(6)} ${t.usage}`).join('\n')}
+${typeEntries.map(([k, t]) => `${t.css.padEnd(14)} ${t.value.padEnd(6)} ${t.usage}`).join("\n")}
 
 /* SPACING */
-${spacingEntries.map(([k, t]) => `${t.css.padEnd(12)} ${t.value}`).join('\n')}
+${spacingEntries.map(([k, t]) => `${t.css.padEnd(12)} ${t.value}`).join("\n")}
 
 /* BORDERS */
-${Object.entries(borders).map(([k, t]) => `${t.css.padEnd(16)} ${t.value}`).join('\n')}
+${Object.entries(borders).map(([k, t]) => `${t.css.padEnd(16)} ${t.value}`).join("\n")}
 
 /* EFFECTS */
-${Object.entries(effects).map(([k, t]) => `${t.css.padEnd(16)} ${t.usage}`).join('\n')}`}
-        </Code>
-      </Section>
-    </Page>
+${Object.entries(effects).map(([k, t]) => `${t.css.padEnd(16)} ${t.usage}`).join("\n")}`}
+        </pre>
+      </section>
+
+      <footer className="sr-footer sr-reveal" style={{ "--delay": "0.2s" }}>
+        4v4.gg design system — dark gold interfaces for competitive Warcraft III spectating.
+      </footer>
+    </div>
   );
 };
 

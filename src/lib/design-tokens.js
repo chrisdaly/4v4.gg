@@ -15,7 +15,7 @@ export const colors = {
   red: { value: '#f87171', css: '--red', usage: 'Losses, negative' },
   blue: { value: '#3b82f6', css: '--blue', usage: 'Links, info' },
   greyLight: { value: '#bbb', css: '--grey-light', usage: 'Secondary text, labels' },
-  textBody: { value: '#ccc', css: '--text-body', usage: 'Body/prose text' },
+  textBody: { value: '#ddd', css: '--text-body', usage: 'Body/prose text' },
   greyMid: { value: '#444', css: '--grey-mid', usage: 'Borders, disabled' },
   greyDark: { value: '#1a1a1a', css: '--grey-dark', usage: 'Elevated surfaces' },
   white: { value: '#fff', css: '--white', usage: 'Primary text' },
@@ -28,7 +28,7 @@ export const colors = {
 export const fonts = {
   display: { value: '"Friz_Quadrata_Bold", Georgia, serif', css: '--font-display', usage: 'Headlines, player names' },
   mono: { value: '"Inconsolata", "SF Mono", Consolas, monospace', css: '--font-mono', usage: 'Stats, labels, dates' },
-  body: { value: '"Libre Baskerville", Georgia, serif', css: '--font-body', usage: 'Blog prose, descriptions' },
+  body: { value: '"Libre Baskerville", Georgia, serif', css: '--font-body', usage: 'Prose, summaries, empty states' },
 };
 
 export const typeScale = {

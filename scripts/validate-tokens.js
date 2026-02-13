@@ -12,8 +12,8 @@ const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const rootDir = path.join(__dirname, '..');
 
 // Import tokens
-const tokensPath = path.join(rootDir, 'src/design-tokens.js');
-const cssPath = path.join(rootDir, 'src/App.css');
+const tokensPath = path.join(rootDir, 'src/lib/design-tokens.js');
+const cssPath = path.join(rootDir, 'src/styles/App.css');
 
 async function main() {
   // Dynamic import for ES modules
