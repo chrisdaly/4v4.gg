@@ -1,5 +1,6 @@
 import React, { Suspense, lazy, useMemo } from "react";
 import { useParams, Link } from "react-router-dom";
+import PeonLoader from "../components/PeonLoader";
 import { blogPosts } from "../lib/blogPosts";
 
 const BlogPost = () => {
@@ -25,7 +26,7 @@ const BlogPost = () => {
     <Suspense
       fallback={
         <div className="page-loader fade-in">
-          <div className="loader-spinner lg" />
+          <PeonLoader />
         </div>
       }
     >

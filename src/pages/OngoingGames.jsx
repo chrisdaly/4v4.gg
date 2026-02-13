@@ -3,6 +3,7 @@ import { Link, useHistory } from "react-router-dom";
 import { GiCrossedSwords } from "react-icons/gi";
 
 import OngoingGame from "../components/OngoingGame";
+import PeonLoader from "../components/PeonLoader";
 import { calculateTeamMMR } from "../lib/utils";
 import { getOngoingMatches, getOngoingMatchesCached } from "../lib/api";
 
@@ -50,8 +51,7 @@ const OngoingGames = () => {
 
   return isLoading ? (
     <div className="page-loader">
-      <div className="loader-spinner lg" />
-      <span className="loader-text">Loading matches</span>
+      <PeonLoader />
     </div>
   ) : ongoingGameData && ongoingGameData.length > 0 ? (
     <div className="games">

@@ -52,6 +52,46 @@ export function initDb() {
     );
     CREATE INDEX IF NOT EXISTS idx_events_timestamp ON events(timestamp);
     CREATE INDEX IF NOT EXISTS idx_events_type ON events(type);
+
+    CREATE TABLE IF NOT EXISTS streamers (
+      twitch_login  TEXT PRIMARY KEY,
+      twitch_id     TEXT,
+      display_name  TEXT,
+      battle_tag    TEXT,
+      active        INTEGER NOT NULL DEFAULT 1,
+      added_at      TEXT NOT NULL DEFAULT (datetime('now'))
+    );
+
+    CREATE TABLE IF NOT EXISTS clips (
+      clip_id        TEXT PRIMARY KEY,
+      twitch_login   TEXT NOT NULL,
+      title          TEXT NOT NULL,
+      url            TEXT NOT NULL,
+      embed_url      TEXT NOT NULL,
+      thumbnail_url  TEXT NOT NULL,
+      creator_name   TEXT NOT NULL DEFAULT '',
+      view_count     INTEGER NOT NULL DEFAULT 0,
+      duration       REAL NOT NULL DEFAULT 0,
+      created_at     TEXT NOT NULL,
+      fetched_at     TEXT NOT NULL DEFAULT (datetime('now')),
+      game_id        TEXT DEFAULT '',
+      featured       INTEGER NOT NULL DEFAULT 0,
+      featured_at    TEXT,
+      tag            TEXT,
+      relevance_score REAL DEFAULT 0,
+      hidden         INTEGER NOT NULL DEFAULT 0
+    );
+    CREATE INDEX IF NOT EXISTS idx_clips_created ON clips(created_at DESC);
+    CREATE INDEX IF NOT EXISTS idx_clips_featured ON clips(featured, featured_at DESC);
+    CREATE INDEX IF NOT EXISTS idx_clips_streamer ON clips(twitch_login, created_at DESC);
+
+    CREATE TABLE IF NOT EXISTS clip_fetch_log (
+      twitch_login TEXT NOT NULL,
+      fetched_date TEXT NOT NULL,
+      clip_count   INTEGER NOT NULL DEFAULT 0,
+      fetched_at   TEXT NOT NULL DEFAULT (datetime('now')),
+      PRIMARY KEY (twitch_login, fetched_date)
+    );
   `);
 
   // Migration: add draft column to daily_digests
@@ -570,4 +610,112 @@ export function deleteOldEvents(daysToKeep = 14) {
     DELETE FROM events WHERE timestamp < datetime('now', '-' || ? || ' days')
   `).run(daysToKeep);
   return result.changes;
+}
+
+// ── Clips ──────────────────────────────────────────
+
+export function insertClips(clips) {
+  const stmt = db.prepare(`
+    INSERT OR IGNORE INTO clips (clip_id, twitch_login, title, url, embed_url, thumbnail_url, creator_name, view_count, duration, created_at, game_id)
+    VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+  `);
+  const tx = db.transaction((rows) => {
+    let inserted = 0;
+    for (const c of rows) {
+      const r = stmt.run(c.clip_id, c.twitch_login, c.title, c.url, c.embed_url, c.thumbnail_url, c.creator_name || '', c.view_count || 0, c.duration || 0, c.created_at, c.game_id || '');
+      if (r.changes > 0) inserted++;
+    }
+    return inserted;
+  });
+  return tx(clips);
+}
+
+export function getClips({ limit = 20, offset = 0, streamer = null, tag = null, since = null } = {}) {
+  let sql = 'SELECT * FROM clips WHERE hidden = 0';
+  const params = [];
+
+  if (streamer) {
+    sql += ' AND twitch_login = ?';
+    params.push(streamer);
+  }
+  if (tag) {
+    sql += ' AND tag = ?';
+    params.push(tag);
+  }
+  if (since) {
+    sql += ' AND created_at >= ?';
+    params.push(since);
+  }
+
+  sql += ' ORDER BY featured DESC, featured_at DESC NULLS LAST, view_count DESC, created_at DESC LIMIT ? OFFSET ?';
+  params.push(limit, offset);
+
+  return db.prepare(sql).all(...params);
+}
+
+export function getClipById(clipId) {
+  return db.prepare('SELECT * FROM clips WHERE clip_id = ?').get(clipId);
+}
+
+export function getFeaturedClips(limit = 10) {
+  return db.prepare('SELECT * FROM clips WHERE featured = 1 AND hidden = 0 ORDER BY featured_at DESC LIMIT ?').all(limit);
+}
+
+export function updateClipCuration(clipId, { featured, tag, hidden }) {
+  const sets = [];
+  const params = [];
+
+  if (featured !== undefined) {
+    sets.push('featured = ?');
+    params.push(featured ? 1 : 0);
+    if (featured) {
+      sets.push("featured_at = datetime('now')");
+    }
+  }
+  if (tag !== undefined) {
+    sets.push('tag = ?');
+    params.push(tag);
+  }
+  if (hidden !== undefined) {
+    sets.push('hidden = ?');
+    params.push(hidden ? 1 : 0);
+  }
+
+  if (sets.length === 0) return;
+  params.push(clipId);
+  db.prepare(`UPDATE clips SET ${sets.join(', ')} WHERE clip_id = ?`).run(...params);
+}
+
+export function getStreamers(activeOnly = true) {
+  if (activeOnly) {
+    return db.prepare('SELECT * FROM streamers WHERE active = 1 ORDER BY display_name').all();
+  }
+  return db.prepare('SELECT * FROM streamers ORDER BY display_name').all();
+}
+
+export function upsertStreamer({ twitch_login, twitch_id, display_name, battle_tag, active }) {
+  db.prepare(`
+    INSERT INTO streamers (twitch_login, twitch_id, display_name, battle_tag, active)
+    VALUES (?, ?, ?, ?, ?)
+    ON CONFLICT(twitch_login) DO UPDATE SET
+      twitch_id = COALESCE(excluded.twitch_id, twitch_id),
+      display_name = COALESCE(excluded.display_name, display_name),
+      battle_tag = COALESCE(excluded.battle_tag, battle_tag),
+      active = excluded.active
+  `).run(twitch_login, twitch_id || null, display_name || twitch_login, battle_tag || null, active !== undefined ? (active ? 1 : 0) : 1);
+}
+
+export function deactivateStreamer(login) {
+  db.prepare('UPDATE streamers SET active = 0 WHERE twitch_login = ?').run(login);
+}
+
+export function getClipFetchLog(login, date) {
+  return db.prepare('SELECT * FROM clip_fetch_log WHERE twitch_login = ? AND fetched_date = ?').get(login, date);
+}
+
+export function insertClipFetchLog(login, date, clipCount) {
+  db.prepare(`
+    INSERT OR REPLACE INTO clip_fetch_log (twitch_login, fetched_date, clip_count)
+    VALUES (?, ?, ?)
+  `).run(login, date, clipCount);
 }

@@ -1,7 +1,9 @@
 import React, { useState, useEffect, useMemo } from "react";
 
 import GameCard from "../components/game/GameCard";
+import PeonLoader from "../components/PeonLoader";
 import { PageLayout } from "../components/PageLayout";
+import { Select, Button } from "../components/ui";
 import { calculateTeamMMR } from "../lib/utils";
 import { gameMode, gateway, season } from "../lib/params";
 import { cache, createCacheKey } from "../lib/cache";
@@ -182,8 +184,7 @@ const RecentlyFinished = () => {
     <>
       {isLoading ? (
         <div className="page-loader">
-          <div className="loader-spinner lg" />
-          <span className="loader-text">Loading matches</span>
+          <PeonLoader />
         </div>
       ) : matchesData ? (
         <PageLayout
@@ -202,7 +203,7 @@ const RecentlyFinished = () => {
               <div className="finished-controls">
                 <div className="filter-group">
                   <label>Time Range</label>
-                  <select
+                  <Select
                     value={timeRangeIndex}
                     onChange={(e) => setTimeRangeIndex(Number(e.target.value))}
                   >
@@ -211,11 +212,11 @@ const RecentlyFinished = () => {
                         Last {range.label}
                       </option>
                     ))}
-                  </select>
+                  </Select>
                 </div>
                 <div className="filter-group">
                   <label>Map</label>
-                  <select
+                  <Select
                     value={mapFilter}
                     onChange={(e) => setMapFilter(e.target.value)}
                   >
@@ -225,11 +226,11 @@ const RecentlyFinished = () => {
                         {mapName}
                       </option>
                     ))}
-                  </select>
+                  </Select>
                 </div>
                 <div className="filter-group">
                   <label>Duration</label>
-                  <select
+                  <Select
                     value={durationFilter}
                     onChange={(e) => setDurationFilter(Number(e.target.value))}
                   >
@@ -238,11 +239,11 @@ const RecentlyFinished = () => {
                         {range.label}
                       </option>
                     ))}
-                  </select>
+                  </Select>
                 </div>
                 <div className="filter-group">
                   <label>Avg MMR</label>
-                  <select
+                  <Select
                     value={mmrFilter}
                     onChange={(e) => setMmrFilter(Number(e.target.value))}
                   >
@@ -251,12 +252,12 @@ const RecentlyFinished = () => {
                         {range.label}
                       </option>
                     ))}
-                  </select>
+                  </Select>
                 </div>
                 {hasActiveFilters && (
-                  <button className="clear-filters" onClick={clearFilters}>
+                  <Button $ghost className="clear-filters" onClick={clearFilters}>
                     Clear
-                  </button>
+                  </Button>
                 )}
               </div>
             </div>
@@ -275,37 +276,41 @@ const RecentlyFinished = () => {
           </div>
           {totalPages > 1 && (
             <div className="pagination">
-              <button
+              <Button
+                $secondary
                 className="pagination-btn"
                 onClick={() => setCurrentPage(1)}
                 disabled={currentPage === 1}
               >
                 ««
-              </button>
-              <button
+              </Button>
+              <Button
+                $secondary
                 className="pagination-btn"
                 onClick={() => setCurrentPage((p) => Math.max(1, p - 1))}
                 disabled={currentPage === 1}
               >
                 «
-              </button>
+              </Button>
               <span className="pagination-info">
                 {startIndex + 1}-{Math.min(endIndex, filteredMatches.length)} of {filteredMatches.length}
               </span>
-              <button
+              <Button
+                $secondary
                 className="pagination-btn"
                 onClick={() => setCurrentPage((p) => Math.min(totalPages, p + 1))}
                 disabled={currentPage === totalPages}
               >
                 »
-              </button>
-              <button
+              </Button>
+              <Button
+                $secondary
                 className="pagination-btn"
                 onClick={() => setCurrentPage(totalPages)}
                 disabled={currentPage === totalPages}
               >
                 »»
-              </button>
+              </Button>
             </div>
           )}
         </PageLayout>

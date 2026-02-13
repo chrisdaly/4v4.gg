@@ -28,37 +28,6 @@
   gap: var(--space-4);
 }
 
-/* Match ladder page season selector styling */
-.stats-controls .season-selector select {
-  font-family: var(--font-display);
-  background: linear-gradient(180deg, rgba(30, 30, 30, 0.95) 0%, rgba(15, 15, 15, 0.98) 100%);
-  border: 1px solid rgba(252, 219, 51, 0.3);
-  border-radius: var(--radius-md);
-  color: var(--gold);
-  font-size: var(--text-xxs);
-  letter-spacing: 0.5px;
-  padding: var(--space-2) 28px var(--space-2) var(--space-4);
-  cursor: pointer;
-  transition: all 0.2s ease;
-  -webkit-appearance: none;
-  -moz-appearance: none;
-  appearance: none;
-  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='10' height='6' viewBox='0 0 10 6'%3E%3Cpath fill='%23fcdb33' d='M0 0l5 6 5-6z'/%3E%3C/svg%3E");
-  background-repeat: no-repeat;
-  background-position: right 10px center;
-}
-
-.stats-controls .season-selector select:hover {
-  border-color: var(--gold);
-  box-shadow: 0 0 8px rgba(252, 219, 51, 0.15);
-}
-
-.stats-controls .season-selector select:focus {
-  outline: none;
-  border-color: var(--gold);
-  box-shadow: 0 0 8px rgba(252, 219, 51, 0.2);
-}
-
 /* Stats Grid - use more space */
 .stats-grid {
   display: grid;
@@ -261,26 +230,9 @@
   text-align: right;
 }
 
-/* Clear filter button - secondary button pattern */
+/* Stats clear filter - layout only */
 .stats-clear-filter {
   margin-top: var(--space-3);
-  padding: var(--space-2) var(--space-4);
-  background: transparent;
-  border: 1px solid var(--grey-mid);
-  border-radius: var(--radius-md);
-  color: var(--grey-light);
-  font-family: var(--font-mono);
-  font-size: var(--text-sm);
-  text-transform: uppercase;
-  letter-spacing: 0.05em;
-  cursor: pointer;
-  transition: all var(--transition);
-}
-
-.stats-clear-filter:hover {
-  border-color: var(--gold);
-  color: var(--gold);
-  background: var(--gold-tint);
 }
 
 /* Country and Map bar colors */

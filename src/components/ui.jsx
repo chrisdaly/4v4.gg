@@ -3,6 +3,7 @@
  * Import: import { Button, Badge, Card, Dot, TeamBar, Label, PageLayout } from './components/ui';
  */
 
+import React, { useState, useRef, useEffect, useCallback } from "react";
 import styled from "styled-components";
 import { PageLayout } from "./PageLayout";
 
@@ -38,6 +39,11 @@ export const Button = styled.button`
     border: var(--border-thin) solid var(--grey-mid);
     &:hover { color: #fff; border-color: var(--grey-light); }
   `}
+
+  &:disabled {
+    opacity: 0.3;
+    cursor: not-allowed;
+  }
 `;
 
 // ============================================
@@ -393,19 +399,25 @@ export const Pre = styled.pre`
 // FORM COMPONENTS
 // ============================================
 
-export const Select = styled.select`
+// ---- Custom Select (div-based for full font styling) ----
+
+const SelectWrapper = styled.div`
+  position: relative;
+  display: inline-block;
+`;
+
+const TriggerButton = styled.button`
   font-family: var(--font-display);
   font-size: var(--text-sm);
-  background: linear-gradient(180deg, rgba(30,30,30,0.95), rgba(15,15,15,0.98));
+  background: transparent url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='12' viewBox='0 0 12 12'%3E%3Cpath fill='%239ca3af' d='M6 8L2 4h8z'/%3E%3C/svg%3E") no-repeat right 8px center;
   border: 1px solid rgba(252,219,51,0.3);
   border-radius: var(--radius-md);
-  color: var(--gold);
+  color: #fff;
   padding: var(--space-2) 28px var(--space-2) var(--space-4);
   cursor: pointer;
-  appearance: none;
-  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='12' viewBox='0 0 12 12'%3E%3Cpath fill='%23fcdb33' d='M6 8L2 4h8z'/%3E%3C/svg%3E");
-  background-repeat: no-repeat;
-  background-position: right 8px center;
+  text-align: left;
+  white-space: nowrap;
+  width: 100%;
 
   &:hover {
     border-color: rgba(252,219,51,0.5);
@@ -415,15 +427,140 @@ export const Select = styled.select`
     outline: none;
     border-color: var(--gold);
   }
+
+  &:disabled {
+    opacity: 0.5;
+    cursor: not-allowed;
+  }
 `;
 
-export const Input = styled.input`
-  font-family: var(--font-mono);
-  font-size: var(--text-sm);
+const DropdownList = styled.div`
+  position: absolute;
+  left: 0;
+  ${p => p.$above ? 'bottom: 100%; margin-bottom: 2px;' : 'top: 100%; margin-top: 2px;'}
+  min-width: 100%;
   background: var(--grey-dark);
-  border: 1px solid ${p => p.$error ? 'var(--red)' : 'var(--grey-mid)'};
+  border: 1px solid rgba(252,219,51,0.4);
   border-radius: var(--radius-md);
-  color: var(--white);
+  box-shadow: 0 8px 24px rgba(0,0,0,0.5);
+  max-height: 240px;
+  overflow-y: auto;
+  z-index: 1000;
+`;
+
+const OptionItem = styled.div`
+  font-family: var(--font-display);
+  font-size: var(--text-sm);
+  color: ${p => p.$selected ? 'var(--gold)' : '#fff'};
+  background: ${p => p.$selected ? 'var(--gold-tint)' : 'transparent'};
+  padding: var(--space-2) var(--space-4);
+  cursor: pointer;
+  white-space: nowrap;
+
+  &:hover {
+    background: var(--surface-2);
+  }
+`;
+
+export const Select = React.forwardRef(function Select(
+  { value, defaultValue, onChange, disabled, id, style, className, children, ...rest },
+  ref
+) {
+  // Parse <option> children into {value, label} pairs
+  const options = [];
+  React.Children.forEach(children, (child) => {
+    if (!React.isValidElement(child)) return;
+    const optVal = child.props.value !== undefined ? child.props.value : child.props.children;
+    const optLabel = child.props.children;
+    options.push({ value: String(optVal), label: optLabel });
+  });
+
+  const isControlled = value !== undefined;
+  const [internalValue, setInternalValue] = useState(() => String(defaultValue ?? options[0]?.value ?? ''));
+  const currentValue = String(isControlled ? value : internalValue);
+
+  const [open, setOpen] = useState(false);
+  const [above, setAbove] = useState(false);
+  const wrapperRef = useRef(null);
+  const triggerRef = useRef(null);
+
+  const currentLabel = options.find((o) => o.value === currentValue)?.label || currentValue;
+
+  const handleToggle = useCallback(() => {
+    if (disabled) return;
+    setOpen((prev) => {
+      if (!prev && triggerRef.current) {
+        const rect = triggerRef.current.getBoundingClientRect();
+        setAbove(rect.bottom + 240 > window.innerHeight);
+      }
+      return !prev;
+    });
+  }, [disabled]);
+
+  const handleSelect = useCallback((optValue) => {
+    if (!isControlled) setInternalValue(optValue);
+    if (onChange) onChange({ target: { value: optValue } });
+    setOpen(false);
+  }, [isControlled, onChange]);
+
+  // Close on outside click
+  useEffect(() => {
+    if (!open) return;
+    const handleMouseDown = (e) => {
+      if (wrapperRef.current && !wrapperRef.current.contains(e.target)) setOpen(false);
+    };
+    document.addEventListener('mousedown', handleMouseDown);
+    return () => document.removeEventListener('mousedown', handleMouseDown);
+  }, [open]);
+
+  // Close on Escape
+  useEffect(() => {
+    if (!open) return;
+    const handleKey = (e) => { if (e.key === 'Escape') setOpen(false); };
+    document.addEventListener('keydown', handleKey);
+    return () => document.removeEventListener('keydown', handleKey);
+  }, [open]);
+
+  return (
+    <SelectWrapper ref={wrapperRef} className={className} {...rest}>
+      <TriggerButton
+        ref={(node) => {
+          triggerRef.current = node;
+          if (typeof ref === 'function') ref(node);
+          else if (ref) ref.current = node;
+        }}
+        type="button"
+        id={id}
+        style={style}
+        disabled={disabled}
+        onClick={handleToggle}
+      >
+        {currentLabel}
+      </TriggerButton>
+      {open && (
+        <DropdownList $above={above}>
+          {options.map((opt) => (
+            <OptionItem
+              key={opt.value}
+              $selected={opt.value === currentValue}
+              onClick={() => handleSelect(opt.value)}
+            >
+              {opt.label}
+            </OptionItem>
+          ))}
+        </DropdownList>
+      )}
+    </SelectWrapper>
+  );
+});
+
+export const Input = styled.input`
+  font-family: var(--font-display);
+  font-size: var(--text-sm);
+  background: transparent;
+  border: 1px solid ${p => p.$error ? 'var(--red)' : 'rgba(252,219,51,0.3)'};
+  border-radius: var(--radius-md);
+  color: var(--grey-light);
   padding: var(--space-2) var(--space-4);
   width: ${p => p.$fullWidth ? '100%' : 'auto'};
 

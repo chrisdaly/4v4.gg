@@ -2,6 +2,7 @@ import React, { useState, useEffect } from "react";
 
 import FinishedGame from "../components/FinishedGame";
 import OnGoingGame from "../components/OngoingGame";
+import PeonLoader from "../components/PeonLoader";
 import { getMatch, getMatchCached, getOngoingMatches } from "../lib/api";
 
 const extractMatchIdFromUrl = () => {
@@ -62,8 +63,7 @@ const FinishedGamePage = () => {
     <div className="match-page">
       {isLoading ? (
         <div className="page-loader">
-          <div className="loader-spinner lg" />
-          <span className="loader-text">Loading match data</span>
+          <PeonLoader />
         </div>
       ) : data?.match ? (
         <FinishedGame data={data} />

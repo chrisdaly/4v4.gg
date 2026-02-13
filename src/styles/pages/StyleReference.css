@@ -14,9 +14,9 @@
 
 .sr-hero {
   display: grid;
-  grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
-  gap: 48px;
-  align-items: center;
+  grid-template-columns: 1.4fr 1fr;
+  gap: var(--space-12);
+  align-items: start;
   margin-bottom: 64px;
 }
 
@@ -36,7 +36,7 @@
 .sr-hero h1 {
   font-family: var(--font-display);
   font-size: clamp(2.4rem, 5.5vw, 3.8rem);
-  color: #fff;
+  color: var(--gold);
   line-height: 1.1;
 }
 
@@ -72,10 +72,12 @@
 
 .sr-panel {
   position: relative;
+  display: grid;
+  gap: var(--space-6);
   border-radius: 12px;
   background: rgba(255, 255, 255, 0.02);
   border: 1px solid var(--grey-mid);
-  padding: 32px;
+  padding: var(--space-8);
   box-shadow: 0 18px 44px rgba(0, 0, 0, 0.4);
   overflow: hidden;
 }
@@ -702,7 +704,7 @@
 
 @media (max-width: 600px) {
   .sr-page { padding: 48px 16px 64px; }
-  .sr-hero { gap: 32px; }
+  .sr-hero { grid-template-columns: 1fr; gap: 32px; }
   .sr-section { padding: 24px; }
 }
 

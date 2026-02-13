@@ -1,6 +1,6 @@
 import React, { useState, useEffect, useReducer, useMemo } from "react";
 import { Link } from "react-router-dom";
-import { CountryFlag } from "../components/ui";
+import { CountryFlag, Select } from "../components/ui";
 import { findPlayerInOngoingMatches } from "../lib/utils";
 import { getPlayerProfile, getPlayerTimelineMerged, getPlayerStats, getSeasons } from "../lib/api";
 import { cache } from "../lib/cache";
@@ -9,6 +9,7 @@ import { FaTwitch } from "react-icons/fa";
 import { GiCrossedSwords } from "react-icons/gi";
 
 import FormDots from "../components/FormDots";
+import PeonLoader from "../components/PeonLoader";
 import { gateway } from "../lib/params";
 import { GameRow } from "../components/game/index";
 import ActivityGraph from "../components/ActivityGraph";
@@ -464,8 +465,7 @@ const PlayerProfile = () => {
     return (
       <div className="player-page">
         <div className="player-loading">
-          <div className="loader-spinner lg"></div>
-          <span className="loader-text">Loading player data</span>
+          <PeonLoader />
         </div>
       </div>
     );
@@ -528,13 +528,13 @@ const PlayerProfile = () => {
 
           <div className="player-header-right">
             <div className="season-selector">
-              <select value={selectedSeason || ""} onChange={handleSeasonChange}>
+              <Select value={selectedSeason || ""} onChange={handleSeasonChange}>
                 {availableSeasons.map((s) => (
                   <option key={s.id} value={s.id}>
                     S{s.id}
                   </option>
                 ))}
-              </select>
+              </Select>
             </div>
           </div>
         </header>

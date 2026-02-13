@@ -256,77 +256,13 @@
   z-index: 1;
 }
 
-.league-selector select,
-.season-selector select {
-  font-family: var(--font-display);
-  background: linear-gradient(180deg, rgba(30, 30, 30, 0.95) 0%, rgba(15, 15, 15, 0.98) 100%);
-  border: 1px solid rgba(252, 219, 51, 0.3);
-  border-radius: 4px;
-  color: var(--gold);
-  font-size: 12px;
-  letter-spacing: 0.5px;
-  cursor: pointer;
-  transition: all 0.2s ease;
-  -webkit-appearance: none;
-  -moz-appearance: none;
-  appearance: none;
-  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='10' height='6' viewBox='0 0 10 6'%3E%3Cpath fill='%23fcdb33' d='M0 0l5 6 5-6z'/%3E%3C/svg%3E");
-  background-repeat: no-repeat;
-  background-position: right 10px center;
-}
-
-.league-selector select {
-  padding: 8px 28px 8px 34px;
-}
-
-.season-selector select {
-  padding: 8px 28px 8px 12px;
-}
-
-.league-selector select:hover,
-.season-selector select:hover {
-  border-color: var(--gold);
-  box-shadow: 0 0 8px rgba(252, 219, 51, 0.15);
-}
-
-.league-selector select:focus,
-.season-selector select:focus {
-  outline: none;
-  border-color: var(--gold);
-  box-shadow: 0 0 8px rgba(252, 219, 51, 0.2);
-}
-
-.league-selector select:disabled {
-  opacity: 0.5;
-  cursor: not-allowed;
-}
-
 .ladder-search {
   position: relative;
 }
 
 .ladder-search input {
-  font-family: var(--font-display);
-  background: linear-gradient(180deg, rgba(30, 30, 30, 0.95) 0%, rgba(15, 15, 15, 0.98) 100%);
-  border: var(--border-thin) solid var(--grey-mid);
-  border-radius: 4px;
-  padding: 8px 12px 8px 32px;
-  color: #fff;
+  padding-left: 32px;
   width: 180px;
-  font-size: 12px;
-  letter-spacing: 0.3px;
-  transition: all 0.2s ease;
-}
-
-.ladder-search input:focus {
-  outline: none;
-  border-color: var(--gold);
-  box-shadow: 0 0 8px rgba(252, 219, 51, 0.15);
-}
-
-.ladder-search input::placeholder {
-  color: var(--grey-light);
-  font-size: 11px;
 }
 
 .ladder-search::before {
@@ -1002,54 +938,6 @@ a.neighbor-name:hover {
   color: var(--grey-light);
 }
 
-.filter-group select {
-  font-family: var(--font-display);
-  background: linear-gradient(180deg, rgba(30, 30, 30, 0.95) 0%, rgba(15, 15, 15, 0.98) 100%);
-  border: 1px solid rgba(252, 219, 51, 0.3);
-  border-radius: 4px;
-  color: var(--gold);
-  font-size: 12px;
-  padding: 8px 28px 8px 12px;
-  cursor: pointer;
-  transition: all 0.2s ease;
-  appearance: none;
-  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='12' viewBox='0 0 12 12'%3E%3Cpath fill='%23fcdb33' d='M6 8L2 4h8z'/%3E%3C/svg%3E");
-  background-repeat: no-repeat;
-  background-position: right 10px center;
-  min-width: 110px;
-}
-
-.filter-group select:hover {
-  border-color: rgba(252, 219, 51, 0.5);
-  background-color: rgba(252, 219, 51, 0.05);
-}
-
-.filter-group select:focus {
-  outline: none;
-  border-color: var(--gold);
-  box-shadow: 0 0 8px rgba(252, 219, 51, 0.15);
-}
-
-.clear-filters {
-  font-family: var(--font-mono);
-  font-size: 11px;
-  text-transform: uppercase;
-  letter-spacing: 0.05em;
-  background: transparent;
-  border: 1px solid var(--grey-light);
-  border-radius: 4px;
-  color: var(--grey-light);
-  padding: 8px 12px;
-  cursor: pointer;
-  transition: all 0.2s ease;
-}
-
-.clear-filters:hover {
-  border-color: var(--red);
-  color: var(--red);
-  background: rgba(255, 76, 76, 0.1);
-}
-
 /* Game tiles container */
 .game-tiles {
   display: flex;
@@ -1073,29 +961,6 @@ a.neighbor-name:hover {
   gap: var(--space-2);
   padding: 24px 0;
   margin-top: 16px;
-}
-
-.pagination-btn {
-  font-family: var(--font-mono);
-  font-size: 14px;
-  background: linear-gradient(180deg, rgba(30, 30, 30, 0.95) 0%, rgba(15, 15, 15, 0.98) 100%);
-  border: var(--border-thin) solid var(--grey-mid);
-  border-radius: 4px;
-  color: var(--gold);
-  padding: 8px 12px;
-  cursor: pointer;
-  transition: all 0.2s ease;
-  min-width: 40px;
-}
-
-.pagination-btn:hover:not(:disabled) {
-  border-color: var(--gold);
-  background: rgba(252, 219, 51, 0.1);
-}
-
-.pagination-btn:disabled {
-  opacity: 0.3;
-  cursor: not-allowed;
 }
 
 .pagination-info {
@@ -1122,11 +987,8 @@ a.neighbor-name:hover {
     width: 100%;
   }
 
-  .filter-group select {
-    width: 100%;
-  }
-
-  .clear-filters {
+  .filter-group select,
+  .filter-group > div {
     width: 100%;
   }
 }

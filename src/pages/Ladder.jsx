@@ -1,6 +1,8 @@
 import React, { useState, useEffect, useMemo, useCallback } from "react";
 
 import LadderRow from "../components/LadderRow";
+import PeonLoader from "../components/PeonLoader";
+import { Select, Input, Button } from "../components/ui";
 import { gateway } from "../lib/params";
 import { fetchPlayerSessionData } from "../lib/utils";
 import { getPlayerProfile, getPlayerTimelineMerged, getLadder, getLadderCached, getSeasons, getOngoingMatches } from "../lib/api";
@@ -404,7 +406,7 @@ const Ladder = () => {
         </div>
         <div className="ladder-controls">
           <div className="ladder-search">
-            <input
+            <Input
               type="text"
               placeholder="Search all leagues..."
               value={searchQuery}
@@ -417,21 +419,22 @@ const Ladder = () => {
           <div className="ladder-selectors">
             <div className="league-selector">
               <img src={currentLeague?.icon} alt="" className="league-icon" />
-              <select
+              <Select
                 id="league-select"
                 value={selectedLeague}
                 onChange={handleLeagueChange}
                 disabled={searchResults !== null}
+                style={{ paddingLeft: '34px' }}
               >
                 {LEAGUES.map((league) => (
                   <option key={league.id} value={league.id}>
                     {league.name}
                   </option>
                 ))}
-              </select>
+              </Select>
             </div>
             <div className="season-selector">
-              <select
+              <Select
                 id="season-select"
                 value={selectedSeason || ""}
                 onChange={handleSeasonChange}
@@ -441,7 +444,7 @@ const Ladder = () => {
                     S{s.id}
                   </option>
                 ))}
-              </select>
+              </Select>
             </div>
           </div>
         </div>
@@ -449,8 +452,7 @@ const Ladder = () => {
 
       {isLoading || isSearching ? (
         <div className="ladder-loading">
-          <div className="loader-spinner lg"></div>
-          <span className="loader-text">{isSearching ? "Searching" : "Loading ladder"}</span>
+          <PeonLoader size="md" />
         </div>
       ) : (
         <div className="ladder-table">

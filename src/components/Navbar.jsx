@@ -193,7 +193,7 @@ const Navbar = () => {
             )}
             {isSearching && searchQuery.length >= 2 && !showSearch && (
               <div className="navbar-search-dropdown">
-                <div className="navbar-search-loading">Searching...</div>
+                <div className="navbar-search-loading">Zug zug<span className="ellipsis-anim" /></div>
               </div>
             )}
           </div>

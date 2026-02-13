@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useMemo, useCallback } from "react";
-import { CountryFlag } from "../components/ui";
+import { CountryFlag, Select, Button } from "../components/ui";
 
 import { gateway } from "../lib/params";
 import { cache } from "../lib/cache";
@@ -106,9 +106,9 @@ const LeagueDistribution = ({ leagueCounts, selectedLeague, onLeagueClick, filte
         })}
       </div>
       {selectedLeague !== null && (
-        <button className="stats-clear-filter" onClick={() => onLeagueClick(null)}>
+        <Button $ghost className="stats-clear-filter" onClick={() => onLeagueClick(null)}>
           Clear filter
-        </button>
+        </Button>
       )}
     </div>
   );
@@ -187,9 +187,9 @@ const RaceDistribution = ({ raceCounts, selectedRace, onRaceClick, filterLabels,
         })}
       </div>
       {selectedRace !== null && (
-        <button className="stats-clear-filter" onClick={() => onRaceClick(null)}>
+        <Button $ghost className="stats-clear-filter" onClick={() => onRaceClick(null)}>
           Clear filter
-        </button>
+        </Button>
       )}
     </div>
   );
@@ -275,9 +275,9 @@ const CountryDistribution = ({ countryCounts, selectedCountry, onCountryClick, f
         })}
       </div>
       {selectedCountry !== null && (
-        <button className="stats-clear-filter" onClick={() => onCountryClick(null)}>
+        <Button $ghost className="stats-clear-filter" onClick={() => onCountryClick(null)}>
           Clear filter
-        </button>
+        </Button>
       )}
     </div>
   );
@@ -1015,7 +1015,7 @@ const Stats = () => {
           <h1 className="stats-title">4v4 Statistics</h1>
           <div className="stats-controls">
             <div className="season-selector">
-              <select
+              <Select
                 id="season-select"
                 value={selectedSeason || ""}
                 onChange={handleSeasonChange}
@@ -1025,7 +1025,7 @@ const Stats = () => {
                     S{s.id}
                   </option>
                 ))}
-              </select>
+              </Select>
             </div>
           </div>
         </div>

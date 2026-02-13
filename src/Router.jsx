@@ -2,6 +2,7 @@ import React, { Suspense, lazy, useEffect } from "react";
 import { BrowserRouter, Route, Switch, Link } from "react-router-dom";
 import ErrorBoundary from "./components/ErrorBoundary";
 import Navbar from "./components/Navbar";
+import PeonLoader from "./components/PeonLoader";
 import { ThemeProvider } from "./lib/ThemeContext";
 
 // Homepage loaded eagerly (initial route)
@@ -61,7 +62,7 @@ const preloadCorePages = () => {
 
 const PageLoader = () => (
   <div className="page-loader fade-in">
-    <div className="loader-spinner lg"></div>
+    <PeonLoader />
   </div>
 );
 

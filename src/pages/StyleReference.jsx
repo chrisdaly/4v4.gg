@@ -13,6 +13,8 @@ import {
   components,
 } from "../lib/design-tokens";
 import { MmrComparison } from "../components/MmrComparison";
+import PeonLoader from "../components/PeonLoader";
+import { CountryFlag, Select, Input, Button } from "../components/ui";
 import "../styles/pages/StyleReference.css";
 
 const pieConfig = { combinedGap: 5, areaMultiplier: 1.6 };
@@ -106,7 +108,7 @@ const StyleReference = () => {
         </div>
         <div className="sr-swatch-grid">
           {colorEntries
-            .filter(([key]) => !["teamBlue", "teamRed", "twitchPurple", "atPurple"].includes(key))
+            .filter(([key]) => !["teamBlue", "teamRed", "twitchPurple", "atPurple", "white", "textBody"].includes(key))
             .map(([key, token]) => (
             <div
               key={key}
@@ -237,24 +239,54 @@ const StyleReference = () => {
 
           <div className="sr-stack">
             <div className="sr-label">Select / Dropdown</div>
-            <select style={{
-              fontFamily: "var(--font-display)",
-              background: "linear-gradient(180deg, rgba(30,30,30,0.95), rgba(15,15,15,0.98))",
-              border: "1px solid rgba(252,219,51,0.3)",
-              borderRadius: "4px",
-              color: "var(--gold)",
-              fontSize: "12px",
-              letterSpacing: "0.5px",
-              padding: "8px 28px 8px 12px",
-              cursor: "pointer",
-              WebkitAppearance: "none",
-              MozAppearance: "none",
-              appearance: "none",
-            }}>
+            <Select defaultValue="S24">
               <option>S24</option>
               <option>S23</option>
               <option>S22</option>
-            </select>
+            </Select>
+          </div>
+
+          <div className="sr-stack">
+            <div className="sr-label">Input</div>
+            <Input placeholder="Search players..." />
+          </div>
+
+          <div className="sr-stack">
+            <div className="sr-label">Country flags</div>
+            <div style={{ display: "flex", alignItems: "center", gap: 12 }}>
+              {[
+                { code: "us", label: "US" },
+                { code: "de", label: "DE" },
+                { code: "kr", label: "KR" },
+                { code: "ru", label: "RU" },
+                { code: "cn", label: "CN" },
+                { code: "fr", label: "FR" },
+                { code: "br", label: "BR" },
+              ].map(({ code, label }) => (
+                <span key={code} style={{ display: "inline-flex", alignItems: "center", gap: 4 }}>
+                  <CountryFlag name={code} />
+                  <span style={{ fontFamily: "var(--font-mono)", fontSize: "var(--text-xs)", color: "var(--grey-light)" }}>{label}</span>
+                </span>
+              ))}
+            </div>
+          </div>
+
+          <div className="sr-stack">
+            <div className="sr-label">Peon loader sizes</div>
+            <div style={{ display: "flex", gap: 32, alignItems: "flex-start" }}>
+              <div style={{ textAlign: "center" }}>
+                <PeonLoader size="sm" />
+                <div className="sr-overlay-name" style={{ marginTop: 8 }}>sm</div>
+              </div>
+              <div style={{ textAlign: "center" }}>
+                <PeonLoader size="md" />
+                <div className="sr-overlay-name" style={{ marginTop: 8 }}>md</div>
+              </div>
+              <div style={{ textAlign: "center" }}>
+                <PeonLoader size="lg" />
+                <div className="sr-overlay-name" style={{ marginTop: 8 }}>lg</div>
+              </div>
+            </div>
           </div>
         </div>
       </section>
@@ -443,7 +475,7 @@ const StyleReference = () => {
         <div className="sr-section-head">
           <div>
             <h2>Loading states</h2>
-            <p>Gold spinner with optional text. Three sizes for inline, component, and page-level loading.</p>
+            <p>Gold spinner with random WC3 peon quotes. Three sizes for inline, component, and page-level loading.</p>
           </div>
         </div>
         <div className="sr-layout-grid">
@@ -465,10 +497,9 @@ const StyleReference = () => {
             </div>
           </div>
           <div className="sr-surface">
-            <div className="meta">Page loader</div>
-            <div style={{ display: "flex", flexDirection: "column", alignItems: "center", gap: 16, padding: 16 }}>
-              <div className="loader-spinner lg" />
-              <span className="loader-text">Loading matches</span>
+            <div className="meta">Page loader (PeonLoader)</div>
+            <div style={{ padding: 16 }}>
+              <PeonLoader />
             </div>
           </div>
         </div>

@@ -1,5 +1,6 @@
 import React, { useState, useEffect } from "react";
 import Game from "./Game";
+import PeonLoader from "./PeonLoader";
 import { preprocessPlayerScores } from "../lib/utils";
 import { cache } from "../lib/cache";
 import { enrichPlayerData } from "../lib/gameDataUtils";
@@ -84,8 +85,7 @@ const FinishedGame = ({ data, compact = false }) => {
     <>
       {isLoading ? (
         <div className="page-loader">
-          <div className="loader-spinner lg" />
-          <span className="loader-text">Loading match data</span>
+          <PeonLoader />
         </div>
       ) : playerData ? (
         <Game playerData={playerData} metaData={metaData} profilePics={profilePics} playerCountries={playerCountries} sessionData={sessionData} compact={compact} />
