@@ -180,8 +180,26 @@ const ActivityGraph = ({ battleTag, currentSeason, gateway = 20 }) => {
     return monthLabels.some(m => m.weekIndex === weekIndex);
   };
 
-  const totalGames = useMemo(() => {
-    return Object.values(activityData).reduce((sum, c) => sum + c, 0);
+  const stats = useMemo(() => {
+    const total = Object.values(activityData).reduce((sum, c) => sum + c, 0);
+    const now = new Date();
+    const yesterday = new Date(now);
+    yesterday.setDate(yesterday.getDate() - 1);
+    const todayKey = now.toISOString().split("T")[0];
+    const yesterdayKey = yesterday.toISOString().split("T")[0];
+    const last24h = (activityData[todayKey] || 0) + (activityData[yesterdayKey] || 0);
+
+    // Average per day over the last 30 days
+    const thirtyDaysAgo = new Date(now);
+    thirtyDaysAgo.setDate(thirtyDaysAgo.getDate() - 30);
+    let last30 = 0;
+    for (const [key, count] of Object.entries(activityData)) {
+      const d = new Date(key);
+      if (d >= thirtyDaysAgo) last30 += count;
+    }
+    const avgPerDay = last30 / 30;
+
+    return { total, last24h, last30, avgPerDay };
   }, [activityData]);
 
   if (isLoading) {
@@ -202,7 +220,6 @@ const ActivityGraph = ({ battleTag, currentSeason, gateway = 20 }) => {
     <div className="activity-graph-card">
       <div className="ag-header">
         <h3 className="ag-title">Activity</h3>
-        <span className="ag-total">{totalGames} games</span>
       </div>
 
       {/* Month labels */}
@@ -257,6 +274,14 @@ const ActivityGraph = ({ battleTag, currentSeason, gateway = 20 }) => {
             </div>
           ))}
         </div>
+      </div>
+
+      <div className="ag-footer">
+        <span className="ag-stat">{stats.last24h} today</span>
+        <span className="ag-stat-sep">&middot;</span>
+        <span className="ag-stat">{stats.avgPerDay.toFixed(1)}/day avg</span>
+        <span className="ag-stat-sep">&middot;</span>
+        <span className="ag-stat">{stats.total} total</span>
       </div>
 
       {/* Tooltip */}

@@ -29,6 +29,10 @@ app.get('/api/health', (req, res, next) => {
 initDb();
 console.log(`[DB] Initialized at ${config.DB_PATH}`);
 
+if (!config.ADMIN_API_KEY) {
+  console.warn('[SECURITY] ADMIN_API_KEY is empty — admin endpoints will reject all requests.');
+}
+
 startHeartbeat();
 
 initBot().catch(err => {

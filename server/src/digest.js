@@ -6,6 +6,14 @@ const API_BASE = 'https://website-backend.w3champions.com/api';
 const GATEWAY = 20;
 const GAME_MODE = 4;
 
+const SYSTEM_PROMPT = 'You are the tabloid reporter for 4v4.gg, a Warcraft III 4v4 community site. Write punchy, factual daily digests. Plain verbs only. No flowery language, em-dashes, or AI-speak.';
+
+// Named constants
+const MIN_MESSAGES_FOR_DIGEST = 10;
+const MIN_GAMES_TO_QUALIFY = 3;
+const MIN_STREAK_LENGTH = 4;
+const MAX_MATCH_OFFSET = 500;
+
 /**
  * Fetch all finished 4v4 matches for a given date and compute per-player stats.
  */
@@ -33,7 +41,8 @@ async function computePlayerStats(date, chatterTags = null) {
       const res = await fetch(url);
       if (!res.ok) break;
       data = await res.json();
-    } catch {
+    } catch (err) {
+      console.warn('[Digest] Match fetch failed:', err.message);
       break;
     }
 
@@ -85,7 +94,7 @@ async function computePlayerStats(date, chatterTags = null) {
     }
 
     offset += pageSize;
-    if (offset > 500) break;
+    if (offset > MAX_MATCH_OFFSET) break;
   }
 
   if (playerStats.size === 0) return null;
@@ -113,8 +122,7 @@ async function computePlayerStats(date, chatterTags = null) {
     stats.lossStreak = maxLossStreak;
   }
 
-  // Require at least 3 games to qualify
-  const qualified = [...playerStats.values()].filter(p => p.wins + p.losses >= 3);
+  const qualified = [...playerStats.values()].filter(p => p.wins + p.losses >= MIN_GAMES_TO_QUALIFY);
 
   const totalGames = [...playerStats.values()].reduce((sum, p) => sum + p.wins, 0);
 
@@ -167,12 +175,12 @@ async function fetchDailyStats(date, chatterTags = null) {
   const byGames = [...qualified].sort((a, b) => (b.wins + b.losses) - (a.wins + a.losses));
   const grinder = byGames[0];
 
-  // Longest win streak (min 4)
-  const byWinStreak = [...qualified].filter(p => p.winStreak >= 4).sort((a, b) => b.winStreak - a.winStreak);
+  // Longest win streak
+  const byWinStreak = [...qualified].filter(p => p.winStreak >= MIN_STREAK_LENGTH).sort((a, b) => b.winStreak - a.winStreak);
   const hotStreak = byWinStreak[0] || null;
 
-  // Longest loss streak (min 4)
-  const byLossStreak = [...qualified].filter(p => p.lossStreak >= 4).sort((a, b) => b.lossStreak - a.lossStreak);
+  // Longest loss streak
+  const byLossStreak = [...qualified].filter(p => p.lossStreak >= MIN_STREAK_LENGTH).sort((a, b) => b.lossStreak - a.lossStreak);
   const coldStreak = byLossStreak[0] || null;
 
   // Don't show grinder if it's the same as winner
@@ -251,12 +259,12 @@ export async function fetchDailyStatCandidates(date) {
   const grinders = [...qualified].sort((a, b) => (b.wins + b.losses) - (a.wins + a.losses)).slice(0, 3);
   categories.GRINDER = grinders.map(p => buildCandidate(p, formatGrinderLine(p)));
 
-  // HOTSTREAK: top 3 by winStreak (min 4)
-  const hotStreaks = [...qualified].filter(p => p.winStreak >= 4).sort((a, b) => b.winStreak - a.winStreak).slice(0, 3);
+  // HOTSTREAK: top 3 by winStreak
+  const hotStreaks = [...qualified].filter(p => p.winStreak >= MIN_STREAK_LENGTH).sort((a, b) => b.winStreak - a.winStreak).slice(0, 3);
   categories.HOTSTREAK = hotStreaks.map(p => buildCandidate(p, formatWinStreakLine(p)));
 
-  // COLDSTREAK: top 3 by lossStreak (min 4)
-  const coldStreaks = [...qualified].filter(p => p.lossStreak >= 4).sort((a, b) => b.lossStreak - a.lossStreak).slice(0, 3);
+  // COLDSTREAK: top 3 by lossStreak
+  const coldStreaks = [...qualified].filter(p => p.lossStreak >= MIN_STREAK_LENGTH).sort((a, b) => b.lossStreak - a.lossStreak).slice(0, 3);
   categories.COLDSTREAK = coldStreaks.map(p => buildCandidate(p, formatLossStreakLine(p)));
 
   return categories;
@@ -384,25 +392,26 @@ function buildDigestPrompt(messages, matchSummaries, soFar = false, playerMmrs =
 TOPICS: 2-5 comma-separated tags capturing what people actually talked about. Be SPECIFIC — "tower rush debate", "undead nerf rage", "ToD vs Boyzinho beef" are good. "meta", "player beef", "balance" alone are too vague.
 DRAMA: BIG accusations, threats, heated personal attacks, AND juicy back-and-forth exchanges. Max 10 items separated by semicolons. CRITICAL FORMAT: each item is ONE unit — summary followed by quotes with NO semicolon between them. A semicolon ONLY separates one complete item from the next. Each item = short summary (max 8 words, NO quotes in it) then 2-4 direct quotes. Every quote MUST have speaker attribution "Name: text". Example: PlayerA flamed PlayerB all game "PlayerA: you are garbage" "PlayerB: cry more" "PlayerA: uninstall"; PlayerC accused PlayerD of maphack "PlayerC: nice maphack" "PlayerD: cope"
 BANS: Who got banned, duration, reason (skip if none); semicolon-separated. Include the match ID if mentioned.
-HIGHLIGHTS: Lighthearted, funny, or wholesome moments (3-5 items, semicolon-separated). Include: jokes landing well, friendly banter, community moments, absurd in-game stories, self-deprecating humor, unexpected kindness, running gags, silly arguments that aren't actually hostile. Each item needs 1-2 direct quotes with speaker attribution ("Name: quote"). No hardware, IRL equipment, queue times, or mundane stuff.
+HIGHLIGHTS: Lighthearted, funny, or wholesome moments (3-5 items, semicolon-separated). Good examples: jokes that landed well, friendly banter between rivals, absurd in-game stories, self-deprecating humor, unexpected kindness, running gags, silly arguments that aren't actually hostile. Each item needs 1-2 direct quotes with speaker attribution ("Name: quote").
+RECAP: 1-2 sentences summarizing the day's overall vibe. Write like a sports columnist.
 
 Rules:
-- No title, no date header, jump straight into TOPICS:
-- TOPICS must be specific and flavorful, not generic buckets. Name players, strategies, or events. Max 4 words per tag.
-- CRITICAL: Use EXACT player names as they appear in the chat log. Never shorten or abbreviate names. The player list is: ${names.join(', ')}
-- Prioritize high-MMR players (1800+), their drama is more interesting
-- DRAMA: aim for 10 items. Include minor beefs and trash talk too, not just the biggest blowups. Every item needs 2-4 direct quotes from the chat log.
-- DRAMA summaries must be under 8 words with NO quoted text in them. All "quoted text" goes at the END of the item only.
-- CRITICAL: Every direct quote MUST be attributed with "SpeakerName: quote text" format. This lets readers follow the back-and-forth. Example: "ToD: you are garbage" not just "you are garbage".
-- DRAMA summaries use PLAIN verbs only: "flamed", "went off on", "called out", "blamed", "mocked", "accused". NEVER use: "unleashed", "eviscerated", "ripped into", "devolving", "decimated", "obliterated", "destroyed", "dismantled", "torched" or any dramatic/flowery synonyms. Keep it simple.
-- No filler like "engaged in", "exchanged", "calling him", "told him", "repeatedly calling". The quotes speak for themselves.
-- Write like a tabloid reporter. Short punchy sentences. No em-dashes. No AI-speak.
-- Foreign language drama is GOLD. If someone posts threats or insults in Chinese/Korean/etc and another player translates it, that is top-tier content. Always include it. Use the English translation as the quote. If no translation exists in chat, translate it yourself. Always quote in English.
-- BANS and DRAMA must not overlap — if someone got banned, put it in BANS only, not in DRAMA
-- State facts only, no commentary (no "classic", "brutal", "chaos", etc)
-- ASCII only
-- DRAMA max 10 items, HIGHLIGHTS max 5 items, BANS max 2 items
-- Total under 3000 chars
+1. No title, no date header, jump straight into TOPICS:
+2. TOPICS must be specific and flavorful, not generic buckets. Name players, strategies, or events. Max 4 words per tag.
+3. CRITICAL: Use EXACT player names as they appear in the chat log. Never shorten or abbreviate names. The player list is: ${names.join(', ')}
+4. Prioritize high-MMR players (1800+), their drama is more interesting.
+5. DRAMA: aim for 10 items. Include minor beefs and trash talk too, not just the biggest blowups. Every item needs 2-4 direct quotes from the chat log.
+6. DRAMA summaries must be under 8 words with NO quoted text in them. All "quoted text" goes at the END of the item only.
+7. CRITICAL: Every direct quote MUST be attributed with "SpeakerName: quote text" format. Example: "ToD: you are garbage" not just "you are garbage".
+8. DRAMA summaries use PLAIN verbs only: "flamed", "went off on", "called out", "blamed", "mocked", "accused". NEVER use: "unleashed", "eviscerated", "ripped into", "devolving", "decimated", "obliterated", "destroyed", "dismantled", "torched" or any dramatic/flowery synonyms.
+9. No filler like "engaged in", "exchanged", "calling him", "told him", "repeatedly calling". The quotes speak for themselves.
+10. Write like a tabloid reporter. Short punchy sentences. No em-dashes. No AI-speak.
+11. Foreign language drama is GOLD. If someone posts threats or insults in Chinese/Korean/etc and another player translates it, that is top-tier content. Always include it. Use the English translation as the quote. If no translation exists in chat, translate it yourself. Always quote in English.
+12. BANS and DRAMA must not overlap — if someone got banned, put it in BANS only, not in DRAMA.
+13. State facts only, no commentary (no "classic", "brutal", "chaos", etc).
+14. ASCII only.
+15. DRAMA max 10 items, HIGHLIGHTS max 5 items, BANS max 2 items.
+16. Total under 3000 chars.
 ${mmrContext}${matchContext}
 Chat log (${messages.length} messages):
 ${log}`;
@@ -413,7 +422,7 @@ ${log}`;
  */
 async function assembleDigest(date, messages, soFar = false) {
   if (!config.ANTHROPIC_API_KEY) return null;
-  if (messages.length < 10) return null;
+  if (messages.length < MIN_MESSAGES_FOR_DIGEST) return null;
 
   const chatTags = [...new Set(messages.map(m => m.battle_tag).filter(Boolean))];
 
@@ -435,7 +444,8 @@ async function assembleDigest(date, messages, soFar = false) {
       try {
         const msg = await client.messages.create({
           model,
-          max_tokens: 1400,
+          max_tokens: 1800,
+          system: SYSTEM_PROMPT,
           messages: [{ role: 'user', content: prompt }],
         });
         aiText = msg.content[0]?.text?.trim() || null;
@@ -550,6 +560,7 @@ ${log}`;
     const msg = await client.messages.create({
       model: 'claude-haiku-4-5-20251001',
       max_tokens: 600,
+      system: SYSTEM_PROMPT,
       messages: [{ role: 'user', content: prompt }],
     });
     const text = msg.content[0]?.text?.trim();
@@ -618,6 +629,7 @@ ${log}`;
     const msg = await client.messages.create({
       model: 'claude-haiku-4-5-20251001',
       max_tokens: 800,
+      system: SYSTEM_PROMPT,
       messages: [{ role: 'user', content: prompt }],
     });
     const text = msg.content[0]?.text?.trim();
@@ -799,6 +811,7 @@ export async function generateWeeklyDigest(weekStart) {
         const msg = await client.messages.create({
           model,
           max_tokens: 900,
+          system: SYSTEM_PROMPT,
           messages: [{ role: 'user', content: prompt }],
         });
         aiText = msg.content[0]?.text?.trim() || null;

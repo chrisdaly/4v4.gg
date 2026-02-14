@@ -196,11 +196,17 @@
   color: var(--gold);
 }
 
-/* Date tabs */
+/* Date tabs — horizontal scroll */
 .digest-date-tabs {
   display: flex;
   gap: 6px;
-  flex-wrap: wrap;
+  overflow-x: auto;
+  scrollbar-width: none;
+  -ms-overflow-style: none;
+}
+
+.digest-date-tabs::-webkit-scrollbar {
+  display: none;
 }
 
 .digest-date-tab {
@@ -1128,6 +1134,81 @@
   to { transform: rotate(360deg); }
 }
 
+/* Admin controls always visible in editorial mode */
+.digest-bullet-row--editorial .digest-admin-controls {
+  opacity: 1;
+}
+
+/* Reset to draft button */
+.digest-admin-footer-actions {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-top: var(--space-2);
+}
+
+.digest-admin-reset-btn {
+  font-family: var(--font-mono);
+  font-size: var(--text-xxs);
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+  color: var(--grey-light);
+  background: none;
+  border: var(--border-thin) solid rgba(255, 255, 255, 0.08);
+  padding: 5px 14px;
+  border-radius: var(--radius-full);
+  cursor: pointer;
+  transition: all 0.15s;
+}
+
+.digest-admin-reset-btn:hover {
+  color: var(--white);
+  border-color: rgba(255, 255, 255, 0.2);
+}
+
+/* Admin bar (live notice + logout) */
+.digest-admin-bar {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: var(--space-4);
+  margin-top: var(--space-2);
+}
+
+.digest-admin-logout {
+  font-family: var(--font-mono);
+  font-size: var(--text-xxs);
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+  color: var(--grey-mid);
+  background: none;
+  border: none;
+  cursor: pointer;
+  transition: color 0.15s;
+  padding: 4px 8px;
+}
+
+.digest-admin-logout:hover {
+  color: var(--red);
+}
+
+/* Admin key validation error */
+.digest-editor-key-error {
+  font-family: var(--font-mono);
+  font-size: var(--text-xxs);
+  color: var(--red);
+  margin-top: var(--space-2);
+}
+
+/* Loading state */
+.news-loading {
+  text-align: center;
+  font-family: var(--font-mono);
+  font-size: var(--text-xs);
+  color: var(--grey-mid);
+  padding: var(--space-12) 0;
+}
+
 /* ── Mobile ────────────────────────────────────────── */
 
 @media (max-width: 768px) {
@@ -1138,5 +1219,23 @@
   .news-digest {
     padding: var(--space-2) var(--space-4);
     background: rgba(10, 8, 6, 0.85);
+  }
+
+  .digest-section {
+    grid-template-columns: 1fr;
+  }
+
+  .digest-section-label {
+    position: static;
+  }
+
+  .digest-stat {
+    flex-direction: column;
+    align-items: flex-start;
+  }
+
+  .stat-picker-category {
+    flex-direction: column;
+    align-items: flex-start;
   }
 }

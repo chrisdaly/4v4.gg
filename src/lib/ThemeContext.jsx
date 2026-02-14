@@ -1,26 +1,17 @@
 import React, { createContext, useContext, useState, useMemo, useCallback, useEffect } from "react";
-import { getTheme, loadThemeId, saveThemeId, THEME_STORAGE_KEY } from "./borderThemes";
+import { getTheme, loadThemeId, saveThemeId } from "./borderThemes";
 
 const ThemeContext = createContext(null);
 
 const DEFAULT_BG = "/frames/launcher/Static_Background.png";
 
 export function ThemeProvider({ children }) {
-  const [isFirstVisit, setIsFirstVisit] = useState(() => {
-    try {
-      return localStorage.getItem(THEME_STORAGE_KEY) === null;
-    } catch {
-      return false;
-    }
-  });
-
   const [themeId, setThemeIdRaw] = useState(loadThemeId);
   const borderTheme = useMemo(() => getTheme(themeId), [themeId]);
 
   const setThemeId = useCallback((id) => {
     setThemeIdRaw(id);
     saveThemeId(id);
-    setIsFirstVisit(false);
   }, []);
 
   // Expose all theme properties as CSS custom properties on body
@@ -47,8 +38,8 @@ export function ThemeProvider({ children }) {
   }, [borderTheme]);
 
   const value = useMemo(
-    () => ({ themeId, borderTheme, setThemeId, isFirstVisit }),
-    [themeId, borderTheme, setThemeId, isFirstVisit]
+    () => ({ themeId, borderTheme, setThemeId }),
+    [themeId, borderTheme, setThemeId]
   );
 
   return <ThemeContext.Provider value={value}>{children}</ThemeContext.Provider>;

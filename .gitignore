@@ -123,3 +123,6 @@ src/.DS_Store
 
 # Large video files
 *.mp4
+
+# Production build output
+build/

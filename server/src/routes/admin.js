@@ -1,12 +1,38 @@
 import { Router } from 'express';
+import rateLimit from 'express-rate-limit';
 import config from '../config.js';
-import { setToken, getStats, getTopWords, getRecentDigests, deleteDigest, getRecentWeeklyDigests, deleteWeeklyDigest, getDraftForDate, updateDigestOnly, updateDraftOnly, updateHiddenAvatars, getContextAroundQuotes, getMessagesByTimeWindow, getMessagesByDateAndUsers, getMessageBuckets, getGameStats, getMatchContext } from '../db.js';
+import { setToken, getStats, getTopWords, getRecentDigests, deleteDigest, getDigest, getRecentWeeklyDigests, deleteWeeklyDigest, getDraftForDate, updateDigestOnly, updateDraftOnly, updateHiddenAvatars, getContextAroundQuotes, getMessagesByTimeWindow, getMessagesByDateAndUsers, getMessageBuckets, getGameStats, getMatchContext } from '../db.js';
 import { updateToken, getStatus } from '../signalr.js';
 import { getClientCount } from '../sse.js';
 import { setBotEnabled, isBotEnabled, testCommand } from '../bot.js';
 import { generateDigest, fetchDailyStats, generateLiveDigest, todayDigestCache, setTodayDigestCache, generateWeeklyDigest, curateDigest, fetchDailyStatCandidates, analyzeSpike, generateMoreItems, appendItemsToDraft } from '../digest.js';
 
 const router = Router();
+
+// Rate limiters — three tiers based on cost
+const aiLimiter = rateLimit({
+  windowMs: 60 * 1000,
+  max: 5,
+  standardHeaders: true,
+  legacyHeaders: false,
+  message: { error: 'Too many AI requests, try again in a minute' },
+});
+
+const contextLimiter = rateLimit({
+  windowMs: 60 * 1000,
+  max: 20,
+  standardHeaders: true,
+  legacyHeaders: false,
+  message: { error: 'Too many context requests, try again in a minute' },
+});
+
+const publicLimiter = rateLimit({
+  windowMs: 60 * 1000,
+  max: 30,
+  standardHeaders: true,
+  legacyHeaders: false,
+  message: { error: 'Too many requests, try again in a minute' },
+});
 
 function requireApiKey(req, res, next) {
   const key = req.headers['x-api-key'];
@@ -27,8 +53,8 @@ router.post('/token', requireApiKey, (req, res) => {
   res.json({ ok: true, message: 'Token updated, SignalR reconnecting...' });
 });
 
-// Test a bot command — runs it and broadcasts via SSE, never sends to chat (public)
-router.post('/bot/test', async (req, res) => {
+// Test a bot command — runs it and broadcasts via SSE, never sends to chat
+router.post('/bot/test', requireApiKey, async (req, res) => {
   const { command } = req.body;
   if (!command || typeof command !== 'string') {
     return res.status(400).json({ error: 'command is required (e.g. "!games")' });
@@ -56,13 +82,26 @@ router.get('/bot', requireApiKey, (_req, res) => {
 });
 
 // Top words (public)
-router.get('/top-words', (req, res) => {
+router.get('/top-words', publicLimiter, (req, res) => {
   const days = Math.min(parseInt(req.query.days) || 7, 30);
   res.json(getTopWords(days));
 });
 
-// Daily digest — generates if missing, returns cached (public)
-router.get('/digest/:date', async (req, res) => {
+// Daily digest — returns cached only (public)
+router.get('/digest/:date', publicLimiter, (req, res) => {
+  const { date } = req.params;
+  if (!/^\d{4}-\d{2}-\d{2}$/.test(date)) {
+    return res.status(400).json({ error: 'Date must be YYYY-MM-DD' });
+  }
+  const existing = getDigest(date);
+  if (!existing) {
+    return res.json({ date, digest: null, reason: 'No cached digest for this date' });
+  }
+  res.json({ date, digest: existing.digest });
+});
+
+// Generate a digest (admin, triggers AI) — generates if missing, returns result
+router.post('/digest/:date/generate', requireApiKey, aiLimiter, async (req, res) => {
   const { date } = req.params;
   if (!/^\d{4}-\d{2}-\d{2}$/.test(date)) {
     return res.status(400).json({ error: 'Date must be YYYY-MM-DD' });
@@ -221,13 +260,14 @@ router.get('/digest/:date/matches', (req, res) => {
   if (!raw) return res.json({ date, matchContext: null });
   try {
     res.json({ date, matchContext: JSON.parse(raw) });
-  } catch {
+  } catch (err) {
+    console.warn('[Admin] Failed to parse match context:', err.message);
     res.json({ date, matchContext: null });
   }
 });
 
 // Analyze a chat spike — returns suggested items per section (protected)
-router.post('/digest/:date/analyze-spike', requireApiKey, async (req, res) => {
+router.post('/digest/:date/analyze-spike', requireApiKey, aiLimiter, async (req, res) => {
   const { date } = req.params;
   if (!/^\d{4}-\d{2}-\d{2}$/.test(date)) {
     return res.status(400).json({ error: 'Date must be YYYY-MM-DD' });
@@ -249,7 +289,7 @@ router.post('/digest/:date/analyze-spike', requireApiKey, async (req, res) => {
 });
 
 // Generate more items for a specific section (protected)
-router.post('/digest/:date/more-items', requireApiKey, async (req, res) => {
+router.post('/digest/:date/more-items', requireApiKey, aiLimiter, async (req, res) => {
   const { date } = req.params;
   if (!/^\d{4}-\d{2}-\d{2}$/.test(date)) {
     return res.status(400).json({ error: 'Date must be YYYY-MM-DD' });
@@ -276,7 +316,7 @@ router.post('/digest/:date/more-items', requireApiKey, async (req, res) => {
 });
 
 // Recent digests (public)
-router.get('/digests', (_req, res) => {
+router.get('/digests', publicLimiter, (_req, res) => {
   res.json(getRecentDigests(14));
 });
 
@@ -331,7 +371,7 @@ router.get('/digests/by-player/:tag', (req, res) => {
 
 // Today's live digest (public, served from shared cache warmed by scheduler)
 // Pass ?refresh=1 with API key to bust cache and regenerate
-router.get('/stats/today', async (req, res) => {
+router.get('/stats/today', aiLimiter, async (req, res) => {
   const forceRefresh = req.query.refresh === '1' && req.headers['x-api-key'] === config.ADMIN_API_KEY;
   const now = Date.now();
   if (!forceRefresh && todayDigestCache.data && todayDigestCache.expires > now) {
@@ -361,7 +401,7 @@ router.get('/messages/timeline/:date', (req, res) => {
 });
 
 // Analytics bundle (public) — top words + recent digests in one call
-router.get('/analytics', (_req, res) => {
+router.get('/analytics', publicLimiter, (_req, res) => {
   res.json({
     topWords: getTopWords(7),
     digests: getRecentDigests(7),
@@ -369,12 +409,12 @@ router.get('/analytics', (_req, res) => {
 });
 
 // Recent weekly digests (public)
-router.get('/weekly-digests', (_req, res) => {
+router.get('/weekly-digests', publicLimiter, (_req, res) => {
   res.json(getRecentWeeklyDigests(8));
 });
 
 // Single weekly digest — generates if missing (public)
-router.get('/weekly-digest/:weekStart', async (req, res) => {
+router.get('/weekly-digest/:weekStart', aiLimiter, async (req, res) => {
   const { weekStart } = req.params;
   if (!/^\d{4}-\d{2}-\d{2}$/.test(weekStart)) {
     return res.status(400).json({ error: 'weekStart must be YYYY-MM-DD (a Monday)' });
@@ -406,7 +446,7 @@ router.delete('/weekly-digest/:weekStart', requireApiKey, (req, res) => {
 //   Uses quotes to find the exact conversation, falls back to player activity window
 // Mode 2 (spikes): ?date=...&from=HH:MM&to=HH:MM
 //   All messages in that time window
-router.get('/messages/context', (req, res) => {
+router.get('/messages/context', contextLimiter, (req, res) => {
   const { date, players, from, to, limit, mode } = req.query;
   if (!date || !/^\d{4}-\d{2}-\d{2}$/.test(date)) {
     return res.status(400).json({ error: 'date (YYYY-MM-DD) is required' });
@@ -442,7 +482,7 @@ router.get('/messages/context', (req, res) => {
     try {
       quotes = JSON.parse(req.query.quotes);
       if (!Array.isArray(quotes)) quotes = [];
-    } catch { quotes = []; }
+    } catch (err) { console.warn('[Admin] Failed to parse quotes param:', err.message); quotes = []; }
   }
 
   const messages = getContextAroundQuotes(date, quotes, battleTags, 3, maxLimit);
@@ -467,7 +507,8 @@ router.get('/image-proxy', async (req, res) => {
     res.set('Access-Control-Allow-Origin', '*');
     const buffer = Buffer.from(await resp.arrayBuffer());
     res.send(buffer);
-  } catch {
+  } catch (err) {
+    console.warn('[Admin] Image proxy failed:', err.message);
     res.status(502).send('Failed to fetch image');
   }
 });

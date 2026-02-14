@@ -58,8 +58,7 @@ const TopicTrends = ({ digests }) => {
 
   const formatDate = (dateStr) => {
     const d = new Date(dateStr + "T12:00:00");
-    const days = ["S", "M", "T", "W", "T", "F", "S"];
-    return days[d.getDay()];
+    return String(d.getDate());
   };
 
   return (

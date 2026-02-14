@@ -1,24 +1,9 @@
 import React, { useState, useEffect, useRef, useMemo, useCallback } from "react";
-import { getPlayerProfile } from "../../lib/api";
+import { getCachedProfile, fetchAndCacheProfile } from "../../lib/profileCache";
 import "./ChatContext.css";
 
 const RELAY_URL =
   import.meta.env.VITE_CHAT_RELAY_URL || "https://4v4gg-chat-relay.fly.dev";
-
-/**
- * Expandable chat transcript with grouped messages and avatars.
- * Modes:
- *   - quotes: pass battleTags + quotes — finds exact conversation via quote matching
- *   - time:   pass fromTime + toTime (HH:MM) — all messages in that window
- *   - player: pass battleTags + playerOnly — just that player's messages for the day
- * All modes require date (YYYY-MM-DD).
- *
- * When selectable=true (edit mode), messages can be clicked to select as quotes.
- * onSaveQuotes(quotes) is called when the user saves their selection.
- */
-
-// Shared profile cache across all ChatContext instances
-const profileCache = new Map();
 
 const ChatContext = ({ date, battleTags, quotes, fromTime, toTime, playerOnly, expanded, selectable, onSaveQuotes, existingQuotes }) => {
   const [messages, setMessages] = useState(null);
@@ -114,18 +99,17 @@ const ChatContext = ({ date, battleTags, quotes, fromTime, toTime, playerOnly, e
     if (!messages || messages.length === 0) return;
     const tags = new Set(messages.map((m) => m.battle_tag).filter(Boolean));
     for (const tag of tags) {
-      if (profileCache.has(tag)) {
+      const cached = getCachedProfile(tag);
+      if (cached) {
         setProfiles((prev) => {
           if (prev.has(tag)) return prev;
           const next = new Map(prev);
-          next.set(tag, profileCache.get(tag));
+          next.set(tag, cached);
           return next;
         });
         continue;
       }
-      getPlayerProfile(tag).then((p) => {
-        const data = { pic: p?.profilePicUrl || null };
-        profileCache.set(tag, data);
+      fetchAndCacheProfile(tag).then((data) => {
         setProfiles((prev) => {
           const next = new Map(prev);
           next.set(tag, data);

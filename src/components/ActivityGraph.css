@@ -6,6 +6,7 @@
   padding: var(--space-4);
   backdrop-filter: var(--theme-blur, none);
   box-shadow: var(--theme-shadow, none);
+  overflow: hidden;
 }
 
 .ag-header {
@@ -24,10 +25,20 @@
   margin: 0;
 }
 
-.ag-total {
+.ag-footer {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
   font-family: var(--font-mono);
-  font-size: var(--text-xs);
+  font-size: var(--text-xxs);
   color: var(--grey-light);
+  margin-top: var(--space-3);
+  white-space: nowrap;
+}
+
+.ag-stat-sep {
+  color: var(--grey-mid);
 }
 
 .ag-loading {
@@ -48,10 +59,12 @@
   display: flex;
   gap: 3px;
   margin-bottom: var(--space-2);
+  overflow: hidden;
+  justify-content: flex-end;
 }
 
 .ag-day-label-spacer {
-  width: 18px;
+  width: 22px;
   flex-shrink: 0;
 }
 
@@ -66,13 +79,14 @@
 }
 
 .ag-month-cell.ag-month-start {
-  margin-left: 4px;
+  margin-left: 9px;
 }
 
 /* Body: day labels + grid */
 .ag-body {
   display: flex;
   gap: var(--space-2);
+  overflow: hidden;
 }
 
 .ag-day-labels {
@@ -95,6 +109,10 @@
 .ag-grid {
   display: flex;
   gap: 3px;
+  overflow: hidden;
+  flex: 1;
+  min-width: 0;
+  justify-content: flex-end;
 }
 
 .ag-week {
