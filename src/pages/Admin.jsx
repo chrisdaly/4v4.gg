@@ -2,10 +2,10 @@ import React, { useState, useEffect, useCallback } from "react";
 import styled from "styled-components";
 import { FiExternalLink, FiRefreshCw } from "react-icons/fi";
 import { IoSend } from "react-icons/io5";
+import useAdmin from "../lib/useAdmin";
 
 const RELAY_URL =
   import.meta.env.VITE_CHAT_RELAY_URL || "https://4v4gg-chat-relay.fly.dev";
-const API_KEY_STORAGE = "chat_admin_key";
 
 const Page = styled.div`
   max-width: 720px;
@@ -457,7 +457,7 @@ export default function Admin() {
   const [tokenDraft, setTokenDraft] = useState("");
   const [tokenStatus, setTokenStatus] = useState(null);
   const [botToggling, setBotToggling] = useState(false);
-  const [apiKey] = useState(() => localStorage.getItem(API_KEY_STORAGE) || "");
+  const { adminKey: apiKey } = useAdmin();
 
   const fetchHealth = useCallback(() => {
     fetch(`${RELAY_URL}/api/admin/health`)

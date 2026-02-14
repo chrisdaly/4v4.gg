@@ -3,24 +3,25 @@ import { getStreamers, upsertStreamer, insertClips, getClipFetchLog, insertClipF
 
 const TWITCH_AUTH_URL = 'https://id.twitch.tv/oauth2/token';
 const TWITCH_API = 'https://api.twitch.tv/helix';
+const WC3_GAME_ID = '12924'; // Warcraft III on Twitch
 
 // Known WC3 streamers — seeded on first run if table is empty
 const SEED_STREAMERS = [
   { twitch_login: 'back2warcraft', display_name: 'Back2Warcraft' },
   { twitch_login: 'grubby', display_name: 'Grubby' },
-  { twitch_login: 'hitman_wc3', display_name: 'Hitman' },
-  { twitch_login: 'foggy_wc3', display_name: 'Foggy' },
-  { twitch_login: 'happy_wc3', display_name: 'Happy' },
-  { twitch_login: 'sheik_wc3', display_name: 'Sheik' },
-  { twitch_login: 'eer0', display_name: 'Eer0' },
-  { twitch_login: 'xlord_wc3', display_name: 'XlorD' },
-  { twitch_login: 'cash_wc3', display_name: 'Cash' },
-  { twitch_login: 'ena1337', display_name: 'Ena1337' },
-  { twitch_login: 'pad_wc3', display_name: 'Pad' },
-  { twitch_login: 'sonikot', display_name: 'Sonik' },
-  { twitch_login: 'hawk_wc3', display_name: 'Hawk' },
   { twitch_login: 'followgrubby', display_name: 'FollowGrubby' },
-  { twitch_login: 'labyrinth_wc3', display_name: 'LabyRinth' },
+  { twitch_login: 'tod', display_name: 'ToD' },
+  { twitch_login: 'starbuck', display_name: 'Starbuck' },
+  { twitch_login: 'yesitshappy', display_name: 'Happy' },
+  { twitch_login: 'foggywc3', display_name: 'Foggy' },
+  { twitch_login: 'hitmanstarcraft2', display_name: 'Hitman' },
+  { twitch_login: 'sheik242', display_name: 'Sheik' },
+  { twitch_login: 'ixixlord', display_name: 'XlorD' },
+  { twitch_login: 'cashwc3', display_name: 'Cash' },
+  { twitch_login: 'ena1337', display_name: 'Ena1337' },
+  { twitch_login: 'soonik', display_name: 'Sonik' },
+  { twitch_login: 'lookhawk', display_name: 'Hawk' },
+  { twitch_login: 'eer0', display_name: 'Eer0' },
 ];
 
 // ── Twitch OAuth ────────────────────────────────
@@ -140,6 +141,8 @@ async function fetchClipsForStreamer(streamer, startedAt, endedAt) {
 
     const data = await twitchGet(path);
     for (const c of data.data || []) {
+      // Only keep Warcraft III clips
+      if (c.game_id !== WC3_GAME_ID) continue;
       clips.push({
         clip_id: c.id,
         twitch_login: streamer.twitch_login,

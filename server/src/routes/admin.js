@@ -236,6 +236,55 @@ router.get('/digests', (_req, res) => {
   res.json(getRecentDigests(14));
 });
 
+// Player digest mentions (public) — find which digests mention a player
+router.get('/digests/by-player/:tag', (req, res) => {
+  const tag = decodeURIComponent(req.params.tag);
+  const playerName = tag.split('#')[0].toLowerCase();
+  if (!playerName || playerName.length < 2) {
+    return res.json([]);
+  }
+
+  const SECTION_KEYS = ['TOPICS', 'DRAMA', 'BANS', 'HIGHLIGHTS', 'RECAP', 'SPIKES', 'WINNER', 'LOSER', 'GRINDER', 'HOTSTREAK', 'COLDSTREAK', 'MENTIONS'];
+  const SECTION_RE = new RegExp(`^(${SECTION_KEYS.join('|')})\\s*:\\s*`, 'gm');
+
+  const digests = getRecentDigests(30);
+  const results = [];
+
+  for (const row of digests) {
+    if (!row.digest) continue;
+    const text = row.digest;
+
+    // Parse sections
+    const matches = [...text.matchAll(SECTION_RE)];
+    const matchingSections = [];
+
+    for (let i = 0; i < matches.length; i++) {
+      const m = matches[i];
+      const key = m[1];
+      if (key === 'MENTIONS') continue;
+      const start = m.index + m[0].length;
+      const end = i + 1 < matches.length ? matches[i + 1].index : text.length;
+      const content = text.slice(start, end).trim();
+      if (!content) continue;
+
+      // Check if player name appears in this section (case-insensitive word boundary)
+      const escaped = playerName.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+      const nameRe = new RegExp(`\\b${escaped}\\b`, 'i');
+      if (!nameRe.test(content)) continue;
+
+      const snippet = content.length > 120 ? content.slice(0, 120) + '…' : content;
+      matchingSections.push({ key, snippet });
+    }
+
+    if (matchingSections.length > 0) {
+      results.push({ date: row.date, sections: matchingSections });
+    }
+    if (results.length >= 10) break;
+  }
+
+  res.json(results);
+});
+
 // Today's live digest (public, served from shared cache warmed by scheduler)
 // Pass ?refresh=1 with API key to bust cache and regenerate
 router.get('/stats/today', async (req, res) => {

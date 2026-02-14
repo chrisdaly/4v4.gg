@@ -8,6 +8,7 @@ import crownIcon from "../assets/icons/king.svg";
 import { raceMapping, raceIcons } from "../lib/constants";
 import { CountryFlag, Skeleton, SkeletonCircle } from "./ui";
 import { useMessageSegments, useBotResponseMap, formatDateDivider, getDateKey, formatTime, formatDateTime } from "../lib/useChatMessages";
+import useAdmin from "../lib/useAdmin";
 
 const OuterFrame = styled.div`
   position: relative;
@@ -673,14 +674,12 @@ function getAvatarElement(tag, avatars, stats) {
 
 const RELAY_URL =
   import.meta.env.VITE_CHAT_RELAY_URL || "https://4v4gg-chat-relay.fly.dev";
-const API_KEY_STORAGE = "chat_admin_key";
-
 export default function ChatPanel({ messages, status, avatars, stats, sessions, inGameTags, recentWinners, botResponses = [], translations = new Map(), borderTheme, sendMessage }) {
   const listRef = useRef(null);
   const inputRef = useRef(null);
   const [autoScroll, setAutoScroll] = useState(true);
   const [showNotice, setShowNotice] = useState(false);
-  const [apiKey, setApiKey] = useState(() => localStorage.getItem(API_KEY_STORAGE) || "");
+  const { adminKey: apiKey, setAdminKey: setApiKeyHook } = useAdmin();
   const [showKeyPrompt, setShowKeyPrompt] = useState(false);
   const [draft, setDraft] = useState("");
   const [sending, setSending] = useState(false);
@@ -708,15 +707,13 @@ export default function ChatPanel({ messages, status, avatars, stats, sessions, 
     e.preventDefault();
     const input = e.target.elements?.apiKeyInput?.value?.trim();
     if (input) {
-      localStorage.setItem(API_KEY_STORAGE, input);
-      setApiKey(input);
+      setApiKeyHook(input);
     }
     setShowKeyPrompt(false);
   }
 
   function handleClearKey() {
-    localStorage.removeItem(API_KEY_STORAGE);
-    setApiKey("");
+    setApiKeyHook("");
     setShowKeyPrompt(false);
   }
 
@@ -727,7 +724,7 @@ export default function ChatPanel({ messages, status, avatars, stats, sessions, 
     const command = cmd.startsWith("!") ? cmd : `!${cmd}`;
     setBotTesting(true);
     try {
-      const key = apiKey || localStorage.getItem(API_KEY_STORAGE) || "";
+      const key = apiKey;
       const res = await fetch(`${RELAY_URL}/api/admin/bot/test`, {
         method: "POST",
         headers: { "Content-Type": "application/json", "X-API-Key": key },

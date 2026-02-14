@@ -792,6 +792,183 @@
   margin-top: 2px;
 }
 
+/* Player Highlights Strip (below header) */
+.player-highlights {
+  display: flex;
+  gap: var(--space-8);
+  margin-bottom: var(--space-6);
+  padding: var(--space-4) var(--space-6);
+  background: var(--theme-bg, var(--surface-1));
+  border: var(--theme-border, var(--border-thin) solid var(--grey-mid));
+  border-image: var(--theme-border-image, none);
+  backdrop-filter: var(--theme-blur, none);
+  box-shadow: var(--theme-shadow, none);
+  border-radius: var(--radius-md);
+}
+
+.ph-group {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-3);
+  min-width: 0;
+}
+
+.ph-group--news {
+  flex: 1;
+  min-width: 0;
+}
+
+.ph-group--clips {
+  flex: 1;
+  min-width: 0;
+}
+
+
+/* ── Clips ── */
+.ph-clips {
+  display: flex;
+  gap: 10px;
+  flex-wrap: wrap;
+}
+
+.ph-clip {
+  position: relative;
+  width: 140px;
+  border-radius: 6px;
+  overflow: hidden;
+  border: 1px solid var(--grey-mid);
+  cursor: pointer;
+  background: none;
+  padding: 0;
+  text-align: left;
+  transition: border-color 0.2s, transform 0.15s;
+}
+
+.ph-clip:hover {
+  border-color: var(--gold);
+  transform: translateY(-1px);
+}
+
+.ph-clip img {
+  width: 100%;
+  aspect-ratio: 16 / 9;
+  object-fit: cover;
+  display: block;
+}
+
+.ph-clip-overlay {
+  position: absolute;
+  inset: 0;
+  bottom: 22px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: rgba(0, 0, 0, 0.3);
+  opacity: 0;
+  transition: opacity 0.15s;
+}
+
+.ph-clip:hover .ph-clip-overlay {
+  opacity: 1;
+}
+
+.ph-clip-play {
+  font-size: 20px;
+  color: #fff;
+  filter: drop-shadow(0 1px 3px rgba(0, 0, 0, 0.5));
+}
+
+.ph-clip-title {
+  display: block;
+  padding: 4px 8px;
+  font-size: 11px;
+  color: var(--grey-light);
+  background: rgba(0, 0, 0, 0.5);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+/* ── News ── */
+.ph-news-list {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  flex: 1;
+  min-width: 0;
+}
+
+.ph-news-item {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  text-decoration: none;
+  padding: 8px 12px;
+  border-radius: 6px;
+  background: rgba(255, 255, 255, 0.03);
+  border: 1px solid rgba(255, 255, 255, 0.06);
+  transition: background 0.15s, border-color 0.15s;
+}
+
+.ph-news-item:hover {
+  background: rgba(255, 255, 255, 0.06);
+  border-color: rgba(255, 255, 255, 0.12);
+}
+
+.ph-news-snippet {
+  font-size: 13px;
+  color: var(--grey-light);
+  line-height: 1.3;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  flex: 1;
+  min-width: 0;
+}
+
+.ph-news-snippet .form-dots-container {
+  display: inline-flex;
+  vertical-align: middle;
+}
+
+.ph-news-snippet .form-dots {
+  display: inline-flex;
+}
+
+.ph-badge {
+  font-family: var(--font-mono);
+  font-size: 9px;
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+  padding: 2px 6px;
+  border-radius: 3px;
+  flex-shrink: 0;
+  color: var(--gold);
+  background: var(--gold-tint, rgba(252, 219, 51, 0.1));
+}
+
+.ph-badge--drama,
+.ph-badge--bans,
+.ph-badge--coldstreak,
+.ph-badge--loser {
+  color: var(--red);
+  background: var(--red-tint, rgba(255, 77, 77, 0.1));
+}
+
+.ph-badge--winner,
+.ph-badge--hotstreak,
+.ph-badge--highlights {
+  color: var(--green);
+  background: var(--green-tint, rgba(76, 175, 80, 0.1));
+}
+
+.ph-news-date {
+  font-family: var(--font-mono);
+  font-size: 10px;
+  color: var(--grey-mid);
+  flex-shrink: 0;
+}
+
 /* Sidebar: Best Allies Card */
 .best-allies-card {
   background: var(--theme-bg, var(--surface-1));
@@ -1155,6 +1332,100 @@
   color: var(--grey-light);
 }
 
+/* Clip Modal (shared with Clips page pattern) */
+.player-page .clip-modal-backdrop {
+  position: fixed;
+  inset: 0;
+  z-index: 1000;
+  background: rgba(0, 0, 0, 0.85);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: var(--space-4);
+  animation: ppClipFade 0.15s ease-out;
+}
+
+@keyframes ppClipFade {
+  from { opacity: 0; }
+  to { opacity: 1; }
+}
+
+.player-page .clip-modal {
+  width: 100%;
+  max-width: 960px;
+  background: var(--surface-1);
+  border: var(--border-thick) solid var(--gold);
+  border-radius: var(--radius-md);
+  overflow: hidden;
+  position: relative;
+  animation: ppClipScale 0.15s ease-out;
+}
+
+@keyframes ppClipScale {
+  from { transform: scale(0.95); opacity: 0; }
+  to { transform: scale(1); opacity: 1; }
+}
+
+.player-page .clip-modal-close {
+  position: absolute;
+  top: 8px;
+  right: 12px;
+  z-index: 10;
+  background: rgba(0, 0, 0, 0.7);
+  color: #fff;
+  border: none;
+  font-size: 28px;
+  line-height: 1;
+  width: 36px;
+  height: 36px;
+  border-radius: 50%;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  transition: background 0.15s;
+}
+
+.player-page .clip-modal-close:hover {
+  background: rgba(0, 0, 0, 0.9);
+}
+
+.player-page .clip-modal-embed {
+  width: 100%;
+  aspect-ratio: 16 / 9;
+  border: none;
+  display: block;
+}
+
+.player-page .clip-modal-info {
+  padding: var(--space-4) var(--space-6) var(--space-6);
+}
+
+.player-page .clip-modal-title {
+  font-family: var(--font-display);
+  font-size: var(--text-lg);
+  color: #fff;
+  margin: 0 0 var(--space-2);
+  line-height: 1.3;
+}
+
+.player-page .clip-modal-meta {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 13px;
+  color: var(--grey-light);
+  flex-wrap: wrap;
+}
+
+.player-page .clip-modal-streamer {
+  color: #fff;
+}
+
+.player-page .clip-modal-sep {
+  color: var(--grey-mid);
+}
+
 /* Player Page Responsive */
 @media (max-width: 1200px) {
   .player-container {
@@ -1189,6 +1460,16 @@
 }
 
 @media (max-width: 768px) {
+  .player-highlights {
+    flex-direction: column;
+    gap: 16px;
+    padding: 12px 16px;
+  }
+
+  .ph-clip {
+    width: 110px;
+  }
+
   .player-header {
     flex-direction: column;
     align-items: flex-start;

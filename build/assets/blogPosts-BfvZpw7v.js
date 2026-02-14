@@ -1,0 +1,2 @@
+const __vite__mapDeps=(i,m=__vite__mapDeps,d=(m.f||(m.f=["assets/DesignLab-BvF49SJN.js","assets/index-C4yNIdvx.js","assets/index-B7opbqxD.css","assets/MmrComparison-DlP-8o5-.js","assets/formatters-C0HfR3L6.js"])))=>i.map(i=>d[i]);
+import{_ as t}from"./index-C4yNIdvx.js";const s=[{slug:"dots-not-numbers",title:"Dots, Not Numbers",description:"How the MMR charts work on 4v4.gg.",date:"February 2025",tags:["dataviz","design","wc3"],component:()=>t(()=>import("./DesignLab-BvF49SJN.js"),__vite__mapDeps([0,1,2,3,4]))}];export{s as b};

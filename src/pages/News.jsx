@@ -17,6 +17,7 @@ import {
 import TopicTrends from "../components/news/TopicTrends";
 import BeefTracker from "../components/news/BeefTracker";
 import { raceMapping } from "../lib/constants";
+import useAdmin from "../lib/useAdmin";
 import "../styles/pages/News.css";
 
 const RACE_STR_TO_ID = { HU: 1, ORC: 2, NE: 4, UD: 8, RND: 0 };
@@ -154,7 +155,7 @@ const StatSection = ({ stat, cls, label, profiles, date, expanded, onToggle }) =
 
 /* ── DigestBanner ────────────────────────────────────── */
 
-const DigestBanner = ({ digest, nameSet, nameToTag, label = "Yesterday in 4v4", dateTabs, isAdmin, apiKey, onDigestUpdated }) => {
+const DigestBanner = ({ digest, nameSet, nameToTag, label = "Yesterday in 4v4", dateTabs, isAdmin, apiKey, onDigestUpdated, filterPlayer }) => {
   const digestRef = useRef(null);
   const [copyState, setCopyState] = useState(null); // null | "copying" | "copied" | "saved"
   const [expandedItem, setExpandedItem] = useState(null); // { key, idx } or null
@@ -327,6 +328,15 @@ const DigestBanner = ({ digest, nameSet, nameToTag, label = "Yesterday in 4v4", 
     return names;
   }, [nameSet, combinedNameToTag]);
 
+  // When filtering by player, only show sections that mention them
+  const displaySections = useMemo(() => {
+    if (!filterPlayer) return sections;
+    const pName = filterPlayer.split("#")[0];
+    const escaped = pName.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+    const re = new RegExp(`\\b${escaped}\\b`, "i");
+    return sections.filter((s) => re.test(s.content));
+  }, [sections, filterPlayer]);
+
   const [profiles, setProfiles] = useState(new Map());
   const fetchedRef = useRef(new Set());
 
@@ -366,7 +376,7 @@ const DigestBanner = ({ digest, nameSet, nameToTag, label = "Yesterday in 4v4", 
     </button>
   );
 
-  if (sections.length === 0) {
+  if (displaySections.length === 0) {
     return (
       <div className="news-digest" ref={digestRef}>
         <div className="news-digest-header">
@@ -412,8 +422,14 @@ const DigestBanner = ({ digest, nameSet, nameToTag, label = "Yesterday in 4v4", 
           <div className="news-digest-label">{label}{screenshotBtn}</div>
         )}
       </div>
+      {filterPlayer && (
+        <div className="digest-player-filter">
+          <span>Showing mentions of <strong>{filterPlayer.split("#")[0]}</strong></span>
+          <Link to="/news" className="digest-player-filter-clear">&times;</Link>
+        </div>
+      )}
       <div className="digest-sections">
-        {sections.map(({ key, content }) => {
+        {displaySections.map(({ key, content }) => {
           const meta = DIGEST_SECTIONS.find((s) => s.key === key);
           if (!meta) return null;
           // SPIKES are editorial-only (used in editor to explore chat moments)
@@ -1071,22 +1087,19 @@ const News = () => {
   const location = useLocation();
   const history = useHistory();
   const searchParams = useMemo(() => new URLSearchParams(location.search), [location.search]);
-  const editMode = searchParams.get("edit") === "1";
   const urlDate = searchParams.get("date");
+  const urlPlayer = searchParams.get("player");
 
-  const [adminKey, setAdminKey] = useState(() => {
-    try { return localStorage.getItem("chat_admin_key"); } catch { return null; }
-  });
+  const { adminKey, isAdmin, showAdmin, setAdminKey: setAdminKeyHook } = useAdmin();
   const [keyInput, setKeyInput] = useState("");
-  const isAdmin = editMode && !!adminKey;
+  const editMode = showAdmin;
 
   const handleKeySubmit = useCallback(() => {
     const key = keyInput.trim();
     if (!key) return;
-    try { localStorage.setItem("chat_admin_key", key); } catch { /* ignore */ }
-    setAdminKey(key);
+    setAdminKeyHook(key);
     setKeyInput("");
-  }, [keyInput]);
+  }, [keyInput, setAdminKeyHook]);
 
   // Fetch all digests (today + past) and weekly digests
   useEffect(() => {
@@ -1227,6 +1240,7 @@ const News = () => {
               isAdmin={isAdmin}
               apiKey={adminKey}
               onDigestUpdated={handleEditorPublished}
+              filterPlayer={urlPlayer}
               dateTabs={allDigests.map((d, i) => ({
                 label: formatDigestLabel(d.date),
                 active: i === digestIdx,

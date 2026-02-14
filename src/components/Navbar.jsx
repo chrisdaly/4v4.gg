@@ -102,6 +102,7 @@ const Navbar = () => {
 
   const navLinks = [
     { to: "/news", label: "News" },
+    { to: "/clips", label: "Clips" },
     { to: "/live", label: "Live", prefetch: prefetch.ongoing },
     { to: "/finished", label: "Finished", prefetch: prefetch.finished },
     { to: "/ladder", label: "Ladder", prefetch: prefetch.ladder },

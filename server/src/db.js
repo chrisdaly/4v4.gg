@@ -94,6 +94,13 @@ export function initDb() {
     );
   `);
 
+  // Migration: add player_tag column to clips
+  try {
+    db.exec(`ALTER TABLE clips ADD COLUMN player_tag TEXT`);
+  } catch {
+    // Column already exists — ignore
+  }
+
   // Migration: add draft column to daily_digests
   try {
     db.exec(`ALTER TABLE daily_digests ADD COLUMN draft TEXT`);
@@ -630,9 +637,13 @@ export function insertClips(clips) {
   return tx(clips);
 }
 
-export function getClips({ limit = 20, offset = 0, streamer = null, tag = null, since = null } = {}) {
-  let sql = 'SELECT * FROM clips WHERE hidden = 0';
+export function getClips({ limit = 20, offset = 0, streamer = null, tag = null, since = null, player = null, includeHidden = false } = {}) {
+  let sql = `SELECT * FROM clips WHERE game_id = '12924'`;
   const params = [];
+
+  if (!includeHidden) {
+    sql += ' AND hidden = 0';
+  }
 
   if (streamer) {
     sql += ' AND twitch_login = ?';
@@ -645,6 +656,10 @@ export function getClips({ limit = 20, offset = 0, streamer = null, tag = null, 
   if (since) {
     sql += ' AND created_at >= ?';
     params.push(since);
+  }
+  if (player) {
+    sql += ' AND player_tag LIKE ?';
+    params.push(`%${player}%`);
   }
 
   sql += ' ORDER BY featured DESC, featured_at DESC NULLS LAST, view_count DESC, created_at DESC LIMIT ? OFFSET ?';
@@ -661,7 +676,7 @@ export function getFeaturedClips(limit = 10) {
   return db.prepare('SELECT * FROM clips WHERE featured = 1 AND hidden = 0 ORDER BY featured_at DESC LIMIT ?').all(limit);
 }
 
-export function updateClipCuration(clipId, { featured, tag, hidden }) {
+export function updateClipCuration(clipId, { featured, tag, hidden, playerTag }) {
   const sets = [];
   const params = [];
 
@@ -679,6 +694,10 @@ export function updateClipCuration(clipId, { featured, tag, hidden }) {
   if (hidden !== undefined) {
     sets.push('hidden = ?');
     params.push(hidden ? 1 : 0);
+  }
+  if (playerTag !== undefined) {
+    sets.push('player_tag = ?');
+    params.push(playerTag);
   }
 
   if (sets.length === 0) return;

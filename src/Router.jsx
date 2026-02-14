@@ -32,6 +32,7 @@ const PlayerStream = lazy(() => import("./pages/PlayerStream"));
 const MyStreamPage = lazy(() => import("./pages/MyStreamPage"));
 const Blog = lazy(() => import("./pages/Blog"));
 const BlogPost = lazy(() => import("./pages/BlogPost"));
+const Clips = lazy(() => import("./pages/Clips"));
 const MmrLab = lazy(() => import("./pages/MmrLab"));
 const Replay = lazy(() => import("./pages/Replay"));
 
@@ -121,6 +122,7 @@ const Router = () => (
                 <Route path="/icons" component={IconDemo} />
                 <Route path="/assets" component={Assets} />
                 <Route path="/chat" component={Chat} />
+                <Route path="/clips" component={Clips} />
                 <Route path="/mockups" component={ChatMockups} />
                 <Route path="/themes" component={Themes} />
                 <Route path="/admin" component={Admin} />

@@ -1,6 +1,6 @@
-import React, { useState, useEffect, useReducer, useMemo } from "react";
+import React, { useState, useEffect, useReducer, useMemo, useRef, useCallback } from "react";
 import { Link } from "react-router-dom";
-import { CountryFlag, Select } from "../components/ui";
+import { CountryFlag, Select, Button } from "../components/ui";
 import { findPlayerInOngoingMatches } from "../lib/utils";
 import { getPlayerProfile, getPlayerTimelineMerged, getPlayerStats, getSeasons } from "../lib/api";
 import { cache } from "../lib/cache";
@@ -15,7 +15,9 @@ import { GameRow } from "../components/game/index";
 import ActivityGraph from "../components/ActivityGraph";
 import OngoingGame from "../components/OngoingGame";
 import { raceMapping, LEAGUES } from "../lib/constants";
+import { parseDigestSections } from "../lib/digestUtils";
 
+const RELAY_URL = import.meta.env.VITE_CHAT_RELAY_URL || "https://4v4gg-chat-relay.fly.dev";
 const GAMES_PER_PAGE = 20;
 
 const MIN_GAMES_FOR_STATS = 3;
@@ -25,6 +27,42 @@ const getCachedPlayerData = (battleTag, season) => {
   const cacheKey = `playerPage:${battleTag.toLowerCase()}:${season}`;
   return cache.get(cacheKey);
 };
+
+function ClipModal({ clip, onClose }) {
+  const backdropRef = useRef(null);
+  const embedSrc = clip.embed_url
+    ? `${clip.embed_url}&parent=4v4.gg&parent=localhost&autoplay=true`
+    : `https://clips.twitch.tv/embed?clip=${clip.clip_id}&parent=4v4.gg&parent=localhost&autoplay=true`;
+
+  useEffect(() => {
+    backdropRef.current?.focus();
+    const handler = (e) => { if (e.key === "Escape") onClose(); };
+    window.addEventListener("keydown", handler, true);
+    return () => window.removeEventListener("keydown", handler, true);
+  }, [onClose]);
+
+  return (
+    <div className="clip-modal-backdrop" ref={backdropRef} tabIndex={-1} onClick={onClose}>
+      <div className="clip-modal" onClick={(e) => e.stopPropagation()}>
+        <button className="clip-modal-close" onClick={onClose}>&times;</button>
+        <iframe
+          className="clip-modal-embed"
+          src={embedSrc}
+          allowFullScreen
+          title={clip.title}
+        />
+        <div className="clip-modal-info">
+          <h2 className="clip-modal-title">{clip.title}</h2>
+          <div className="clip-modal-meta">
+            <span className="clip-modal-streamer">{clip.twitch_login}</span>
+            <span className="clip-modal-sep">&middot;</span>
+            <span className="clip-modal-views">{clip.view_count.toLocaleString()} views</span>
+          </div>
+        </div>
+      </div>
+    </div>
+  );
+}
 
 const PlayerProfile = () => {
   // Extract battleTag from URL
@@ -62,6 +100,8 @@ const PlayerProfile = () => {
       selectedSeason: null,
       availableSeasons: [],
       currentPage: 0,
+      playerClips: [],
+      playerMentions: [],
     }
   );
 
@@ -70,7 +110,10 @@ const PlayerProfile = () => {
     matches, totalMatches, sessionGames, seasonMmrs, ongoingGame, ladderStanding,
     isLoading, allyStats, worstAllyStats, mapStats, worstMapStats, nemesisStats,
     selectedSeason, availableSeasons, currentPage,
+    playerClips, playerMentions,
   } = state;
+
+  const [activeClip, setActiveClip] = useState(null);
 
   const SESSION_GAP_MINUTES = 60;
 
@@ -138,6 +181,77 @@ const PlayerProfile = () => {
     const interval = setInterval(fetchOngoingGames, 30000);
     return () => clearInterval(interval);
   }, [battleTag, selectedSeason]);
+
+  // Fetch player clips and news mentions from relay server
+  useEffect(() => {
+    const fetchPlayerMedia = async () => {
+      try {
+        const [clipsRes, digestsRes, todayRes] = await Promise.all([
+          fetch(`${RELAY_URL}/api/clips?player=${encodeURIComponent(battleTag)}&limit=10`),
+          fetch(`${RELAY_URL}/api/admin/digests`),
+          fetch(`${RELAY_URL}/api/admin/stats/today`),
+        ]);
+        const clipsData = clipsRes.ok ? await clipsRes.json() : { clips: [] };
+        // Client-side filter: only clips actually tagged with this player
+        const taggedClips = (clipsData.clips || []).filter(c =>
+          c.player_tag && c.player_tag.toLowerCase().includes(battleTag.toLowerCase())
+        ).slice(0, 4);
+
+        // Parse digests client-side to find individual items mentioning this player
+        const mentions = [];
+        const escaped = playerName.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+        const nameRe = new RegExp(`\\b${escaped}\\b`, "i");
+        const SKIP_SECTIONS = new Set(["MENTIONS", "TOPICS"]);
+
+        const findMentions = (digestText) => {
+          const sections = parseDigestSections(digestText);
+          const items = [];
+          for (const s of sections) {
+            if (SKIP_SECTIONS.has(s.key)) continue;
+            // Split into individual items (semicolon-separated) and match each
+            for (const item of s.content.split(/;\s*/)) {
+              if (!item.trim() || !nameRe.test(item)) continue;
+              const snippet = item.trim();
+              items.push({
+                key: s.key,
+                snippet: snippet.length > 120 ? snippet.slice(0, 120) + "…" : snippet,
+              });
+            }
+          }
+          return items;
+        };
+
+        // Check today's live digest first
+        if (todayRes.ok) {
+          const todayData = await todayRes.json();
+          if (todayData.digest) {
+            const items = findMentions(todayData.digest);
+            if (items.length > 0) {
+              mentions.push({ date: todayData.date || new Date().toISOString().slice(0, 10), sections: items });
+            }
+          }
+        }
+
+        // Then check published digests
+        if (digestsRes.ok) {
+          const digests = await digestsRes.json();
+          for (const row of (Array.isArray(digests) ? digests : [])) {
+            if (!row.digest) continue;
+            const items = findMentions(row.digest);
+            if (items.length > 0) {
+              mentions.push({ date: row.date, sections: items });
+            }
+            if (mentions.length >= 10) break;
+          }
+        }
+
+        updateState({ playerClips: taggedClips, playerMentions: mentions });
+      } catch (e) {
+        console.error("Failed to fetch player media:", e);
+      }
+    };
+    fetchPlayerMedia();
+  }, [battleTag]);
 
   const loadAllData = async () => {
     updateState({ isLoading: true });
@@ -482,6 +596,21 @@ const PlayerProfile = () => {
     : 0;
   const totalPages = Math.ceil(totalMatches / GAMES_PER_PAGE);
 
+  // Render news snippet, replacing W/L streaks with FormDots
+  const WL_RE = /[WL]{4,}/g;
+  const renderSnippet = (text) => {
+    const parts = [];
+    let last = 0;
+    for (const m of text.matchAll(WL_RE)) {
+      if (m.index > last) parts.push(text.slice(last, m.index));
+      const form = [...m[0]].map(c => c === 'W');
+      parts.push(<FormDots key={m.index} form={form} size="small" />);
+      last = m.index + m[0].length;
+    }
+    if (last < text.length) parts.push(text.slice(last));
+    return parts.length > 1 ? parts : text;
+  };
+
   return (
     <div className="player-page">
         <header className="player-header">
@@ -538,6 +667,63 @@ const PlayerProfile = () => {
             </div>
           </div>
         </header>
+
+      {/* Highlights Strip */}
+      {(playerClips.length > 0 || playerMentions.length > 0) && (
+        <div className="player-highlights">
+          {playerMentions.length > 0 && (
+            <div className="ph-group ph-group--news">
+              <div className="section-header">
+                <h2 className="section-title">In the News</h2>
+                <Link to={`/news?player=${encodeURIComponent(battleTag)}`}><Button $secondary>More</Button></Link>
+              </div>
+              <div className="ph-news-list">
+                {playerMentions.flatMap((mention) =>
+                  mention.sections.map((sec, i) => ({
+                    key: `${mention.date}-${i}`,
+                    date: mention.date,
+                    sec,
+                  }))
+                ).slice(0, 4).map(({ key, date, sec }) => {
+                  const dateStr = new Date(date + 'T00:00:00').toLocaleDateString('en-US', { month: 'short', day: 'numeric' });
+                  return (
+                    <Link key={key} to={`/news?date=${date}`} className="ph-news-item">
+                      <span className={`ph-badge ph-badge--${sec.key.toLowerCase()}`}>{sec.key}</span>
+                      <span className="ph-news-snippet">{renderSnippet(sec.snippet)}</span>
+                      <span className="ph-news-date">{dateStr}</span>
+                    </Link>
+                  );
+                })}
+              </div>
+            </div>
+          )}
+          {playerClips.length > 0 && (
+            <div className="ph-group ph-group--clips">
+              <div className="section-header">
+                <h2 className="section-title">Clips</h2>
+                <Link to={`/clips?player=${encodeURIComponent(battleTag)}`}><Button $secondary>More</Button></Link>
+              </div>
+              <div className="ph-clips">
+                {playerClips.slice(0, 4).map((clip) => (
+                  <button
+                    key={clip.clip_id}
+                    className="ph-clip"
+                    onClick={() => setActiveClip(clip)}
+                    title={clip.title}
+                  >
+                    <img src={clip.thumbnail_url} alt="" loading="lazy" />
+                    <div className="ph-clip-overlay">
+                      <div className="ph-clip-play">&#9654;</div>
+                    </div>
+                    <span className="ph-clip-title">{clip.title}</span>
+                  </button>
+                ))}
+              </div>
+            </div>
+          )}
+        </div>
+      )}
+
       <div className="player-content">
           {/* Main Content */}
           <main className="player-main">
@@ -854,6 +1040,11 @@ const PlayerProfile = () => {
 
           </aside>
         </div>
+
+      {/* Clip Modal */}
+      {activeClip && (
+        <ClipModal clip={activeClip} onClose={() => setActiveClip(null)} />
+      )}
     </div>
   );
 };

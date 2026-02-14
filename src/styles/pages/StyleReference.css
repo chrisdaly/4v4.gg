@@ -404,7 +404,7 @@
 }
 
 .sr-btn:hover {
-  transform: translateY(-2px);
+  opacity: 0.9;
 }
 
 .sr-btn-primary {
