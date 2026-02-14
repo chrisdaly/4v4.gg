@@ -15,6 +15,7 @@ import {
 import { MmrComparison } from "../components/MmrComparison";
 import PeonLoader from "../components/PeonLoader";
 import { CountryFlag, Select, Input, Button } from "../components/ui";
+import "../components/news/ChatContext.css";
 import "../styles/pages/StyleReference.css";
 
 const pieConfig = { combinedGap: 5, areaMultiplier: 1.6 };
@@ -289,6 +290,130 @@ const StyleReference = () => {
             </div>
           </div>
         </div>
+      </section>
+
+      {/* ── Chat Transcripts ─────────────── */}
+      <section className="sr-section sr-reveal" style={{ "--delay": "0.1s" }}>
+        <div className="sr-section-head">
+          <div>
+            <h2>Chat transcripts</h2>
+            <p>Grouped messages with square avatars for conversation context. Two sizes: full (32px) for chat panels, compact (22px) for digest quotes.</p>
+          </div>
+        </div>
+
+        <div className="sr-layout-grid">
+          {/* Full-size chat context */}
+          <div className="sr-surface" style={{ padding: 0, overflow: "hidden" }}>
+            <div style={{ padding: "12px 16px 4px" }}>
+              <div className="meta">Chat context (32px avatars)</div>
+            </div>
+            <div className="chat-context" style={{ margin: 0, border: "none", borderRadius: 0 }}>
+              <div className="chat-context-scroll" style={{ maxHeight: "none" }}>
+                <div className="chat-context-group chat-context-group--target">
+                  <div className="chat-context-group-avatar">
+                    <span className="chat-context-avatar-placeholder" />
+                  </div>
+                  <div className="chat-context-group-body">
+                    <div className="chat-context-group-header">
+                      <span className="chat-context-name chat-context-name--target">ToD</span>
+                      <span className="chat-context-time">21:34</span>
+                    </div>
+                    <div className="chat-context-msg">
+                      <span className="chat-context-text">gg wp that was close</span>
+                    </div>
+                    <div className="chat-context-msg">
+                      <span className="chat-context-text">human mirror is pain</span>
+                    </div>
+                  </div>
+                </div>
+                <div className="chat-context-group">
+                  <div className="chat-context-group-avatar">
+                    <span className="chat-context-avatar-placeholder" />
+                  </div>
+                  <div className="chat-context-group-body">
+                    <div className="chat-context-group-header">
+                      <span className="chat-context-name">Mubarak</span>
+                      <span className="chat-context-time">21:35</span>
+                    </div>
+                    <div className="chat-context-msg">
+                      <span className="chat-context-text">you got lucky with that expo timing</span>
+                    </div>
+                  </div>
+                </div>
+                <div className="chat-context-group chat-context-group--target">
+                  <div className="chat-context-group-avatar">
+                    <span className="chat-context-avatar-placeholder" />
+                  </div>
+                  <div className="chat-context-group-body">
+                    <div className="chat-context-group-header">
+                      <span className="chat-context-name chat-context-name--target">ToD</span>
+                      <span className="chat-context-time">21:35</span>
+                    </div>
+                    <div className="chat-context-msg">
+                      <span className="chat-context-text">lucky? that was calculated</span>
+                    </div>
+                  </div>
+                </div>
+              </div>
+            </div>
+          </div>
+
+          {/* Compact digest quotes */}
+          <div className="sr-surface">
+            <div className="meta">Digest quotes (name + text, no avatars)</div>
+            <div style={{ marginTop: 12 }}>
+              <div className="digest-quotes digest-quotes--chat">
+                <div className="digest-quote-group">
+                  <span className="digest-quote-name">ToD</span>
+                  <div className="digest-quote digest-quote--attributed">gg wp that was close</div>
+                  <div className="digest-quote digest-quote--attributed">human mirror is pain</div>
+                </div>
+                <div className="digest-quote-group">
+                  <span className="digest-quote-name">Mubarak</span>
+                  <div className="digest-quote digest-quote--attributed">you got lucky with that expo timing</div>
+                </div>
+              </div>
+            </div>
+            <div style={{ marginTop: 16 }}>
+              <div className="meta">Plain quotes (no attribution)</div>
+              <div className="digest-quotes" style={{ marginTop: 8 }}>
+                <div className="digest-quote">gg wp that was close</div>
+                <div className="digest-quote">human mirror is pain</div>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <table className="sr-table" style={{ marginTop: 24 }}>
+          <thead>
+            <tr>
+              <th>Element</th>
+              <th>CSS</th>
+            </tr>
+          </thead>
+          <tbody>
+            <tr>
+              <td style={{ fontFamily: "var(--font-display)", color: "var(--gold)", whiteSpace: "nowrap" }}>Chat avatar (32px)</td>
+              <td><code>width: 32px; height: 32px; border-radius: var(--radius-md); object-fit: cover</code></td>
+            </tr>
+            <tr>
+              <td style={{ fontFamily: "var(--font-display)", color: "var(--gold)", whiteSpace: "nowrap" }}>Speaker name</td>
+              <td><code>font-family: var(--font-display); font-size: var(--text-xxs); color: var(--gold)</code></td>
+            </tr>
+            <tr>
+              <td style={{ fontFamily: "var(--font-display)", color: "var(--gold)", whiteSpace: "nowrap" }}>Target highlight</td>
+              <td><code>background: rgba(252, 219, 51, 0.03); name color: var(--gold)</code></td>
+            </tr>
+            <tr>
+              <td style={{ fontFamily: "var(--font-display)", color: "var(--gold)", whiteSpace: "nowrap" }}>Message text</td>
+              <td><code>font-size: var(--text-xs); color: var(--text-body); line-height: 1.5</code></td>
+            </tr>
+            <tr>
+              <td style={{ fontFamily: "var(--font-display)", color: "var(--gold)", whiteSpace: "nowrap" }}>Timestamp</td>
+              <td><code>font-family: var(--font-mono); font-size: 11px; color: var(--grey-mid)</code></td>
+            </tr>
+          </tbody>
+        </table>
       </section>
 
       {/* ── Card Borders ─────────────────── */}

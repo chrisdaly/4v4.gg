@@ -1,11 +1,12 @@
 import React, { useState, useEffect, useRef, useMemo, useCallback } from "react";
+import { getPlayerProfile } from "../../lib/api";
 import "./ChatContext.css";
 
 const RELAY_URL =
   import.meta.env.VITE_CHAT_RELAY_URL || "https://4v4gg-chat-relay.fly.dev";
 
 /**
- * Expandable chat transcript.
+ * Expandable chat transcript with grouped messages and avatars.
  * Modes:
  *   - quotes: pass battleTags + quotes — finds exact conversation via quote matching
  *   - time:   pass fromTime + toTime (HH:MM) — all messages in that window
@@ -15,12 +16,17 @@ const RELAY_URL =
  * When selectable=true (edit mode), messages can be clicked to select as quotes.
  * onSaveQuotes(quotes) is called when the user saves their selection.
  */
-const ChatContext = ({ date, battleTags, quotes, fromTime, toTime, playerOnly, expanded, selectable, onSaveQuotes }) => {
+
+// Shared profile cache across all ChatContext instances
+const profileCache = new Map();
+
+const ChatContext = ({ date, battleTags, quotes, fromTime, toTime, playerOnly, expanded, selectable, onSaveQuotes, existingQuotes }) => {
   const [messages, setMessages] = useState(null);
   const [loading, setLoading] = useState(false);
   const [selected, setSelected] = useState(new Set());
-  const [saving, setSaving] = useState(false);
+  const [profiles, setProfiles] = useState(new Map());
   const cacheRef = useRef(new Map());
+  const initializedRef = useRef(false);
 
   // Build a set of target player battle_tags for highlighting
   const targetTags = useRef(new Set());
@@ -29,9 +35,24 @@ const ChatContext = ({ date, battleTags, quotes, fromTime, toTime, playerOnly, e
   }, [battleTags]);
 
   // Reset selection when transcript changes
-  useEffect(() => { setSelected(new Set()); }, [expanded, date]);
+  useEffect(() => { setSelected(new Set()); initializedRef.current = false; }, [expanded, date]);
 
-  // Derive a stable cache key string to avoid re-fetching on every render
+  // Pre-select messages that match existing quotes
+  useEffect(() => {
+    if (!messages || !existingQuotes || existingQuotes.length === 0 || initializedRef.current) return;
+    initializedRef.current = true;
+    const quoteSet = new Set(existingQuotes.map(q => q.toLowerCase().trim()));
+    const matched = new Set();
+    for (let i = 0; i < messages.length; i++) {
+      const m = messages[i];
+      const candidate = `${m.user_name}: ${m.message}`.toLowerCase().trim();
+      if (quoteSet.has(candidate)) matched.add(i);
+    }
+    if (matched.size > 0) setSelected(matched);
+  }, [messages, existingQuotes]);
+
+  // Derive a stable cache key — lock it once expanded so quote edits don't re-fetch
+  const lockedKeyRef = useRef(null);
   const cacheKey = useMemo(() => {
     if (!date) return null;
     if (fromTime && toTime) return `${date}:t:${fromTime}-${toTime}`;
@@ -44,11 +65,21 @@ const ChatContext = ({ date, battleTags, quotes, fromTime, toTime, playerOnly, e
     return null;
   }, [date, fromTime, toTime, battleTags, quotes, playerOnly]);
 
+  // Lock the key on first expansion; reset when collapsed
   useEffect(() => {
-    if (!expanded || !cacheKey) return;
+    if (expanded && cacheKey && !lockedKeyRef.current) {
+      lockedKeyRef.current = cacheKey;
+    }
+    if (!expanded) lockedKeyRef.current = null;
+  }, [expanded, cacheKey]);
 
-    if (cacheRef.current.has(cacheKey)) {
-      setMessages(cacheRef.current.get(cacheKey));
+  const activeCacheKey = lockedKeyRef.current || cacheKey;
+
+  useEffect(() => {
+    if (!expanded || !activeCacheKey) return;
+
+    if (cacheRef.current.has(activeCacheKey)) {
+      setMessages(cacheRef.current.get(activeCacheKey));
       return;
     }
 
@@ -71,12 +102,38 @@ const ChatContext = ({ date, battleTags, quotes, fromTime, toTime, playerOnly, e
     fetch(`${RELAY_URL}/api/admin/messages/context?${params}`)
       .then((r) => (r.ok ? r.json() : []))
       .then((data) => {
-        cacheRef.current.set(cacheKey, data);
+        cacheRef.current.set(activeCacheKey, data);
         setMessages(data);
       })
       .catch(() => setMessages([]))
       .finally(() => setLoading(false));
-  }, [expanded, cacheKey]);
+  }, [expanded, activeCacheKey]);
+
+  // Fetch profiles for unique battle tags in messages
+  useEffect(() => {
+    if (!messages || messages.length === 0) return;
+    const tags = new Set(messages.map((m) => m.battle_tag).filter(Boolean));
+    for (const tag of tags) {
+      if (profileCache.has(tag)) {
+        setProfiles((prev) => {
+          if (prev.has(tag)) return prev;
+          const next = new Map(prev);
+          next.set(tag, profileCache.get(tag));
+          return next;
+        });
+        continue;
+      }
+      getPlayerProfile(tag).then((p) => {
+        const data = { pic: p?.profilePicUrl || null };
+        profileCache.set(tag, data);
+        setProfiles((prev) => {
+          const next = new Map(prev);
+          next.set(tag, data);
+          return next;
+        });
+      });
+    }
+  }, [messages]);
 
   const toggleSelect = useCallback((idx) => {
     setSelected((prev) => {
@@ -87,15 +144,21 @@ const ChatContext = ({ date, battleTags, quotes, fromTime, toTime, playerOnly, e
     });
   }, []);
 
-  const handleSave = useCallback(() => {
-    if (!messages || selected.size === 0 || !onSaveQuotes) return;
-    setSaving(true);
+  // Auto-save quotes when selection changes (runs after render, not during)
+  const selectionRef = useRef(0);
+  const onSaveQuotesRef = useRef(onSaveQuotes);
+  onSaveQuotesRef.current = onSaveQuotes;
+
+  useEffect(() => {
+    if (!messages || selected.size === 0) return;
+    // Skip the initial render — only fire on user-driven changes
+    selectionRef.current++;
+    if (selectionRef.current <= 1) return;
     const selectedQuotes = [...selected]
       .sort((a, b) => a - b)
-      .map((i) => messages[i].message);
-    onSaveQuotes(selectedQuotes);
-    setTimeout(() => setSaving(false), 1500);
-  }, [messages, selected, onSaveQuotes]);
+      .map((i) => `${messages[i].user_name}: ${messages[i].message}`);
+    if (onSaveQuotesRef.current) onSaveQuotesRef.current(selectedQuotes);
+  }, [selected, messages]);
 
   if (!expanded) return null;
 
@@ -115,41 +178,74 @@ const ChatContext = ({ date, battleTags, quotes, fromTime, toTime, playerOnly, e
     );
   }
 
+  // Group consecutive messages by the same user
+  const groups = [];
+  for (let i = 0; i < messages.length; i++) {
+    const m = messages[i];
+    const prev = i > 0 ? messages[i - 1] : null;
+    if (prev && prev.battle_tag === m.battle_tag) {
+      groups[groups.length - 1].msgs.push({ ...m, idx: i });
+    } else {
+      groups.push({
+        battle_tag: m.battle_tag,
+        user_name: m.user_name,
+        isTarget: targetTags.current.has(m.battle_tag),
+        msgs: [{ ...m, idx: i }],
+      });
+    }
+  }
+
   return (
     <div className="chat-context" onClick={(e) => e.stopPropagation()}>
       <div className="chat-context-scroll">
-        {messages.map((m, i) => {
-          const time = m.sent_at
-            ? new Date(m.sent_at).toLocaleTimeString([], {
-                hour: "2-digit",
-                minute: "2-digit",
-              })
-            : "";
-          const isTarget = targetTags.current.has(m.battle_tag);
-          const isSelected = selected.has(i);
+        {groups.map((group, gi) => {
+          const profile = profiles.get(group.battle_tag);
+          const pic = profile?.pic;
           return (
-            <div
-              key={i}
-              className={`chat-context-msg${isTarget ? " chat-context-msg--target" : ""}${isSelected ? " chat-context-msg--selected" : ""}${selectable ? " chat-context-msg--selectable" : ""}`}
-              onClick={selectable ? () => toggleSelect(i) : undefined}
-            >
-              {selectable && (
-                <span className="chat-context-check">{isSelected ? "\u2713" : ""}</span>
-              )}
-              <span className="chat-context-time">{time}</span>
-              <span className={`chat-context-name${isTarget ? " chat-context-name--target" : ""}`}>
-                {m.user_name}
-              </span>
-              <span className="chat-context-text">{m.message}</span>
+            <div key={gi} className={`chat-context-group${group.isTarget ? " chat-context-group--target" : ""}`}>
+              <div className="chat-context-group-avatar">
+                {pic ? (
+                  <img
+                    src={pic}
+                    alt=""
+                    className="chat-context-avatar"
+                    onError={(e) => { e.target.style.display = "none"; }}
+                  />
+                ) : (
+                  <span className="chat-context-avatar-placeholder" />
+                )}
+              </div>
+              <div className="chat-context-group-body">
+                <div className="chat-context-group-header">
+                  <span className={`chat-context-name${group.isTarget ? " chat-context-name--target" : ""}`}>
+                    {group.user_name}
+                  </span>
+                  <span className="chat-context-time">
+                    {group.msgs[0].sent_at
+                      ? new Date(group.msgs[0].sent_at).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" })
+                      : ""}
+                  </span>
+                </div>
+                {group.msgs.map((m) => {
+                  const isSelected = selected.has(m.idx);
+                  return (
+                    <div
+                      key={m.idx}
+                      className={`chat-context-msg${isSelected ? " chat-context-msg--selected" : ""}${selectable ? " chat-context-msg--selectable" : ""}`}
+                      onClick={selectable ? (e) => { e.stopPropagation(); toggleSelect(m.idx); } : undefined}
+                    >
+                      {selectable && (
+                        <span className="chat-context-check">{isSelected ? "\u2713" : ""}</span>
+                      )}
+                      <span className="chat-context-text">{m.message}</span>
+                    </div>
+                  );
+                })}
+              </div>
             </div>
           );
         })}
       </div>
-      {selectable && selected.size > 0 && (
-        <button className="chat-context-save" onClick={handleSave} disabled={saving}>
-          {saving ? "\u2713 Saved" : `Use ${selected.size} quote${selected.size !== 1 ? "s" : ""}`}
-        </button>
-      )}
     </div>
   );
 };

@@ -1,10 +1,10 @@
 import { Router } from 'express';
 import config from '../config.js';
-import { setToken, getStats, getTopWords, getRecentDigests, deleteDigest, getRecentWeeklyDigests, deleteWeeklyDigest, getDraftForDate, updateDigestOnly, getContextAroundQuotes, getMessagesByTimeWindow, getMessagesByDateAndUsers, getMessageBuckets, getGameStats, getMatchContext } from '../db.js';
+import { setToken, getStats, getTopWords, getRecentDigests, deleteDigest, getRecentWeeklyDigests, deleteWeeklyDigest, getDraftForDate, updateDigestOnly, updateDraftOnly, updateHiddenAvatars, getContextAroundQuotes, getMessagesByTimeWindow, getMessagesByDateAndUsers, getMessageBuckets, getGameStats, getMatchContext } from '../db.js';
 import { updateToken, getStatus } from '../signalr.js';
 import { getClientCount } from '../sse.js';
 import { setBotEnabled, isBotEnabled, testCommand } from '../bot.js';
-import { generateDigest, fetchDailyStats, generateLiveDigest, todayDigestCache, setTodayDigestCache, generateWeeklyDigest, curateDigest, fetchDailyStatCandidates, analyzeSpike } from '../digest.js';
+import { generateDigest, fetchDailyStats, generateLiveDigest, todayDigestCache, setTodayDigestCache, generateWeeklyDigest, curateDigest, fetchDailyStatCandidates, analyzeSpike, generateMoreItems, appendItemsToDraft } from '../digest.js';
 
 const router = Router();
 
@@ -102,6 +102,20 @@ router.get('/digest/:date/draft', requireApiKey, (req, res) => {
   res.json(result);
 });
 
+// Update draft text (protected) — persists text edits, reorders, quote changes
+router.put('/digest/:date/draft', requireApiKey, (req, res) => {
+  const { date } = req.params;
+  if (!/^\d{4}-\d{2}-\d{2}$/.test(date)) {
+    return res.status(400).json({ error: 'Date must be YYYY-MM-DD' });
+  }
+  const { draft } = req.body;
+  if (!draft || typeof draft !== 'string') {
+    return res.status(400).json({ error: 'draft (string) is required' });
+  }
+  updateDraftOnly(date, draft);
+  res.json({ ok: true, date });
+});
+
 // Stat candidates for editorial picking (protected)
 router.get('/digest/:date/stat-candidates', requireApiKey, async (req, res) => {
   const { date } = req.params;
@@ -126,7 +140,7 @@ router.put('/digest/:date/curate', requireApiKey, async (req, res) => {
   if (!/^\d{4}-\d{2}-\d{2}$/.test(date)) {
     return res.status(400).json({ error: 'Date must be YYYY-MM-DD' });
   }
-  const { selectedIndices, selectedItems, selectedStats } = req.body;
+  const { selectedIndices, selectedItems, selectedStats, itemOverrides, hiddenAvatars } = req.body;
   // Accept either selectedItems (new: per-section) or selectedIndices (legacy: drama-only)
   const items = selectedItems || selectedIndices;
   if (!items || (Array.isArray(items) && items.length === undefined) || (!Array.isArray(items) && typeof items !== 'object')) {
@@ -138,8 +152,11 @@ router.put('/digest/:date/curate', requireApiKey, async (req, res) => {
   if (!sourceText) {
     return res.status(404).json({ error: 'No draft or digest found for this date' });
   }
-  const curated = curateDigest(sourceText, items, selectedStats || null);
+  const curated = curateDigest(sourceText, items, selectedStats || null, itemOverrides || null);
   updateDigestOnly(date, curated);
+  if (hiddenAvatars && Array.isArray(hiddenAvatars)) {
+    updateHiddenAvatars(date, JSON.stringify(hiddenAvatars));
+  }
   res.json({ ok: true, date, digest: curated });
 });
 
@@ -228,6 +245,33 @@ router.post('/digest/:date/analyze-spike', requireApiKey, async (req, res) => {
   } catch (err) {
     console.error('[Spike] Analysis error:', err.message);
     res.status(500).json({ error: 'Failed to analyze spike' });
+  }
+});
+
+// Generate more items for a specific section (protected)
+router.post('/digest/:date/more-items', requireApiKey, async (req, res) => {
+  const { date } = req.params;
+  if (!/^\d{4}-\d{2}-\d{2}$/.test(date)) {
+    return res.status(400).json({ error: 'Date must be YYYY-MM-DD' });
+  }
+  const { section, existingItems } = req.body;
+  if (!section || !['DRAMA', 'HIGHLIGHTS', 'BANS'].includes(section)) {
+    return res.status(400).json({ error: 'section must be DRAMA, HIGHLIGHTS, or BANS' });
+  }
+  try {
+    const items = await generateMoreItems(date, section, existingItems || []);
+    // Persist new items to the server-side draft
+    if (items && items.length > 0) {
+      const draft = getDraftForDate(date);
+      if (draft?.draft) {
+        const updatedDraft = appendItemsToDraft(draft.draft, section, items);
+        updateDraftOnly(date, updatedDraft);
+      }
+    }
+    res.json({ date, section, items: items || [] });
+  } catch (err) {
+    console.error('[MoreItems] Error:', err.message);
+    res.status(500).json({ error: 'Failed to generate more items' });
   }
 });
 

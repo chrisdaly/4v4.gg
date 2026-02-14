@@ -456,7 +456,6 @@ export default function Admin() {
   const [digestLoading, setDigestLoading] = useState(null);
   const [tokenDraft, setTokenDraft] = useState("");
   const [tokenStatus, setTokenStatus] = useState(null);
-  const [botToggling, setBotToggling] = useState(false);
   const { adminKey: apiKey } = useAdmin();
 
   const fetchHealth = useCallback(() => {
@@ -518,43 +517,44 @@ export default function Admin() {
     setDigestLoading(null);
   }
 
-  async function handleTokenSubmit(e) {
+  function handleTokenSubmit(e) {
     e.preventDefault();
     const token = tokenDraft.trim();
     if (!token || !apiKey) return;
-    setTokenStatus("updating...");
-    try {
-      const res = await fetch(`${RELAY_URL}/api/admin/token`, {
-        method: "POST",
-        headers: { "Content-Type": "application/json", "X-API-Key": apiKey },
-        body: JSON.stringify({ token }),
-      });
-      if (!res.ok) throw new Error(`${res.status}`);
-      setTokenDraft("");
-      setTokenStatus("Token updated");
-      setTimeout(() => { setTokenStatus(null); fetchHealth(); }, 2000);
-    } catch (err) {
+    setTokenDraft("");
+    setTokenStatus("Token updated");
+    setHealth((prev) => prev ? { ...prev, signalr: { ...prev.signalr, hasToken: true } } : prev);
+    fetch(`${RELAY_URL}/api/admin/token`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json", "X-API-Key": apiKey },
+      body: JSON.stringify({ token }),
+    }).then((res) => {
+      if (!res.ok) {
+        setTokenStatus("Error: update failed");
+        setHealth((prev) => prev ? { ...prev, signalr: { ...prev.signalr, hasToken: false } } : prev);
+      } else {
+        setTimeout(() => setTokenStatus(null), 2000);
+      }
+    }).catch((err) => {
       setTokenStatus(`Error: ${err.message}`);
-    }
+      setHealth((prev) => prev ? { ...prev, signalr: { ...prev.signalr, hasToken: false } } : prev);
+    });
   }
 
-  async function handleBotToggle() {
-    if (!apiKey || botToggling) return;
-    const newEnabled = !health?.botEnabled;
-    setBotToggling(true);
-    try {
-      const res = await fetch(`${RELAY_URL}/api/admin/bot`, {
-        method: "POST",
-        headers: { "Content-Type": "application/json", "X-API-Key": apiKey },
-        body: JSON.stringify({ enabled: newEnabled }),
-      });
-      if (!res.ok) throw new Error(`${res.status}`);
-      fetchHealth();
-    } catch (err) {
-      console.error("Bot toggle failed:", err.message);
-    } finally {
-      setBotToggling(false);
-    }
+  function handleBotToggle() {
+    if (!apiKey) return;
+    const prev = health?.botEnabled;
+    const newEnabled = !prev;
+    setHealth((h) => h ? { ...h, botEnabled: newEnabled } : h);
+    fetch(`${RELAY_URL}/api/admin/bot`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json", "X-API-Key": apiKey },
+      body: JSON.stringify({ enabled: newEnabled }),
+    }).then((res) => {
+      if (!res.ok) setHealth((h) => h ? { ...h, botEnabled: prev } : h);
+    }).catch(() => {
+      setHealth((h) => h ? { ...h, botEnabled: prev } : h);
+    });
   }
 
   const statusColor =
@@ -620,7 +620,7 @@ export default function Admin() {
           <ToggleButton
             $active={health?.botEnabled}
             onClick={handleBotToggle}
-            disabled={!apiKey || botToggling}
+            disabled={!apiKey}
           >
             {health?.botEnabled ? "ENABLED" : "DISABLED"}
           </ToggleButton>

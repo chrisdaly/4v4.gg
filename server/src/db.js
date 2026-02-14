@@ -115,6 +115,13 @@ export function initDb() {
     // Column already exists — ignore
   }
 
+  // Migration: add hidden_avatars column to daily_digests
+  try {
+    db.exec(`ALTER TABLE daily_digests ADD COLUMN hidden_avatars TEXT`);
+  } catch {
+    // Column already exists — ignore
+  }
+
   return db;
 }
 
@@ -510,10 +517,18 @@ export function updateDigestOnly(date, digest) {
   db.prepare('UPDATE daily_digests SET digest = ? WHERE date = ?').run(digest, date);
 }
 
+export function updateDraftOnly(date, draft) {
+  db.prepare('UPDATE daily_digests SET draft = ? WHERE date = ?').run(draft, date);
+}
+
 export function getDraftForDate(date) {
-  const row = db.prepare('SELECT date, digest, draft FROM daily_digests WHERE date = ?').get(date);
+  const row = db.prepare('SELECT date, digest, draft, hidden_avatars FROM daily_digests WHERE date = ?').get(date);
   if (!row) return null;
-  return { date: row.date, digest: row.digest, draft: row.draft || row.digest };
+  return { date: row.date, digest: row.digest, draft: row.draft || row.digest, hidden_avatars: row.hidden_avatars || null };
+}
+
+export function updateHiddenAvatars(date, hiddenAvatarsJson) {
+  db.prepare('UPDATE daily_digests SET hidden_avatars = ? WHERE date = ?').run(hiddenAvatarsJson, date);
 }
 
 export function getMatchContext(date) {

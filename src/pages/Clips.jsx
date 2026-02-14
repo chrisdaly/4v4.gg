@@ -2,8 +2,8 @@ import React, { useState, useEffect, useCallback, useRef, useMemo } from "react"
 import { Link, useLocation, useHistory } from "react-router-dom";
 import { FaTwitch } from "react-icons/fa";
 import useAdmin from "../lib/useAdmin";
-import { searchLadder } from "../lib/api";
-import { Select, Badge, Button } from "../components/ui";
+import { searchLadder, getPlayerProfile } from "../lib/api";
+import { Select, Badge, Button, Input } from "../components/ui";
 import "../styles/pages/Clips.css";
 
 const RELAY_URL =
@@ -55,6 +55,7 @@ function PlayerTagSearch({ value, onAdd, onRemove }) {
   const tags = parsePlayerTags(value);
   const [query, setQuery] = useState("");
   const [results, setResults] = useState([]);
+  const [profiles, setProfiles] = useState({});
   const [open, setOpen] = useState(false);
   const [searching, setSearching] = useState(false);
   const wrapRef = useRef(null);
@@ -77,9 +78,18 @@ function PlayerTagSearch({ value, onAdd, onRemove }) {
           losses: r.player?.losses || 0,
         });
       }
-      setResults(deduped.slice(0, 6));
+      const sliced = deduped.slice(0, 6);
+      setResults(sliced);
       setOpen(true);
       setSearching(false);
+
+      for (const r of sliced) {
+        if (!profiles[r.battleTag]) {
+          getPlayerProfile(r.battleTag).then((p) => {
+            setProfiles((prev) => ({ ...prev, [r.battleTag]: p }));
+          });
+        }
+      }
     }, 300);
     return () => clearTimeout(timer);
   }, [query]);
@@ -124,12 +134,18 @@ function PlayerTagSearch({ value, onAdd, onRemove }) {
         <div className="clip-player-search-dropdown">
           {results.map((r) => {
             const [name, hash] = r.battleTag.split("#");
+            const avatarUrl = profiles[r.battleTag]?.profilePicUrl;
             return (
               <button
                 key={r.battleTag}
                 className="clip-player-search-result"
                 onClick={() => handleSelect(r.battleTag)}
               >
+                {avatarUrl ? (
+                  <img src={avatarUrl} alt="" className="clip-player-search-avatar" />
+                ) : (
+                  <span className="clip-player-search-avatar clip-player-search-avatar--placeholder" />
+                )}
                 <span className="clip-player-search-info">
                   <span className="clip-player-search-name-row">
                     <span className="clip-player-search-name">{name}</span>
@@ -152,6 +168,65 @@ function PlayerTagSearch({ value, onAdd, onRemove }) {
         <div className="clip-player-search-dropdown">
           <div className="clip-player-search-loading">Zug zug<span className="ellipsis-anim" /></div>
         </div>
+      )}
+    </div>
+  );
+}
+
+// ── Add clip by URL ───────────────────────────
+
+function AddClipInput({ apiKey, onAdded }) {
+  const [url, setUrl] = useState("");
+  const [status, setStatus] = useState(null); // { type: 'success'|'error', msg }
+  const [adding, setAdding] = useState(false);
+
+  const handleAdd = async () => {
+    const trimmed = url.trim();
+    if (!trimmed) return;
+    setAdding(true);
+    setStatus(null);
+    try {
+      const res = await fetch(`${RELAY_URL}/api/clips/admin/add`, {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          "X-API-Key": apiKey,
+        },
+        body: JSON.stringify({ url: trimmed }),
+      });
+      const data = await res.json();
+      if (!res.ok) {
+        setStatus({ type: "error", msg: data.error || "Failed" });
+      } else {
+        setStatus({ type: "success", msg: `Added: ${data.clip?.title || "clip"}` });
+        setUrl("");
+        onAdded();
+      }
+    } catch (err) {
+      setStatus({ type: "error", msg: err.message });
+    } finally {
+      setAdding(false);
+    }
+  };
+
+  return (
+    <div className="clips-add-clip">
+      <Input
+        type="text"
+        value={url}
+        onChange={(e) => setUrl(e.target.value)}
+        onKeyDown={(e) => e.key === "Enter" && handleAdd()}
+        placeholder="Paste Twitch clip URL..."
+        disabled={adding}
+        style={{ width: 280 }}
+      />
+      <Button $secondary onClick={handleAdd} disabled={adding || !url.trim()}>
+        {adding ? "Adding..." : "Add"}
+      </Button>
+      {status && (
+        <span className={`clips-add-clip-status clips-add-clip-status--${status.type}`}>
+          {status.msg}
+        </span>
       )}
     </div>
   );
@@ -203,38 +278,67 @@ function ClipMeta({ clip }) {
 
 // ── Admin controls on a card ──────────────────
 
-function ClipAdminActions({ clip, apiKey, onUpdate }) {
-  const isRelevant = !!clip.featured;
+function ClipAdminActions({ clip, apiKey, onUpdate, onOptimistic }) {
+  const [localFeatured, setLocalFeatured] = useState(!!clip.featured);
+  const [localHidden, setLocalHidden] = useState(!!clip.hidden);
   const [tagValue, setTagValue] = useState(clip.tag || "");
+  const [localPlayerTag, setLocalPlayerTag] = useState(clip.player_tag);
 
-  const handleTagChange = async (newTag) => {
+  useEffect(() => { setLocalPlayerTag(clip.player_tag); }, [clip.player_tag]);
+  useEffect(() => { setLocalFeatured(!!clip.featured); }, [clip.featured]);
+  useEffect(() => { setLocalHidden(!!clip.hidden); }, [clip.hidden]);
+
+  const handleTagChange = (newTag) => {
+    const prev = tagValue;
     setTagValue(newTag);
-    await adminAction("feature", { clipId: clip.clip_id, tag: newTag || null }, apiKey);
-    onUpdate();
+    adminAction("feature", { clipId: clip.clip_id, tag: newTag || null }, apiKey)
+      .then((ok) => { if (!ok) setTagValue(prev); });
   };
 
-  const handlePlayerAdd = async (battleTag) => {
-    const existing = parsePlayerTags(clip.player_tag);
+  const handlePlayerAdd = (battleTag) => {
+    const existing = parsePlayerTags(localPlayerTag);
     if (existing.includes(battleTag)) return;
+    const prev = localPlayerTag;
     const newValue = [...existing, battleTag].join(",");
-    await adminAction("tag-player", { clipId: clip.clip_id, playerTag: newValue }, apiKey);
-    onUpdate();
+    setLocalPlayerTag(newValue);
+    clip.player_tag = newValue;
+    adminAction("tag-player", { clipId: clip.clip_id, playerTag: newValue }, apiKey)
+      .then((ok) => { if (!ok) { setLocalPlayerTag(prev); clip.player_tag = prev; } });
   };
 
-  const handlePlayerRemove = async (battleTag) => {
-    const existing = parsePlayerTags(clip.player_tag);
+  const handlePlayerRemove = (battleTag) => {
+    const existing = parsePlayerTags(localPlayerTag);
+    const prev = localPlayerTag;
     const newValue = existing.filter((t) => t !== battleTag).join(",") || null;
-    await adminAction("tag-player", { clipId: clip.clip_id, playerTag: newValue }, apiKey);
-    onUpdate();
+    setLocalPlayerTag(newValue);
+    clip.player_tag = newValue;
+    adminAction("tag-player", { clipId: clip.clip_id, playerTag: newValue }, apiKey)
+      .then((ok) => { if (!ok) { setLocalPlayerTag(prev); clip.player_tag = prev; } });
   };
 
-  const handleRestore = async () => {
-    const ok = await adminAction("unhide", { clipId: clip.clip_id }, apiKey);
-    if (ok) onUpdate();
+  const handleFeature = () => {
+    if (localFeatured) return;
+    setLocalFeatured(true);
+    adminAction("feature", { clipId: clip.clip_id, tag: null }, apiKey)
+      .then((ok) => { if (!ok) setLocalFeatured(false); });
+  };
+
+  const handleHide = () => {
+    setLocalHidden(true);
+    onOptimistic(clip.clip_id, { hidden: true });
+    adminAction("hide", { clipId: clip.clip_id }, apiKey)
+      .then((ok) => { if (!ok) { setLocalHidden(false); onOptimistic(clip.clip_id, { hidden: false }); } });
+  };
+
+  const handleRestore = () => {
+    setLocalHidden(false);
+    onOptimistic(clip.clip_id, { hidden: false });
+    adminAction("unhide", { clipId: clip.clip_id }, apiKey)
+      .then((ok) => { if (!ok) { setLocalHidden(true); onOptimistic(clip.clip_id, { hidden: true }); } });
   };
 
   // Hidden clips just get a restore button
-  if (clip.hidden) {
+  if (localHidden) {
     return (
       <div className="clip-admin-actions">
         <Button $secondary onClick={handleRestore}>
@@ -249,27 +353,19 @@ function ClipAdminActions({ clip, apiKey, onUpdate }) {
       <span className="clip-admin-label">4v4?</span>
       <Button
         $ghost
-        className={isRelevant ? "clip-admin-vote--active" : ""}
-        onClick={async () => {
-          if (!isRelevant) {
-            const ok = await adminAction("feature", { clipId: clip.clip_id, tag: null }, apiKey);
-            if (ok) onUpdate();
-          }
-        }}
+        className={localFeatured ? "clip-admin-vote--active" : ""}
+        onClick={handleFeature}
       >
         Yes
       </Button>
       <Button
         $ghost
-        className={`clip-admin-vote--no ${!isRelevant ? "clip-admin-vote--active" : ""}`}
-        onClick={async () => {
-          const ok = await adminAction("hide", { clipId: clip.clip_id }, apiKey);
-          if (ok) onUpdate();
-        }}
+        className={`clip-admin-vote--no ${!localFeatured ? "clip-admin-vote--active" : ""}`}
+        onClick={handleHide}
       >
         No
       </Button>
-      {isRelevant && (
+      {localFeatured && (
         <Select
           value={tagValue}
           onChange={(e) => handleTagChange(e.target.value)}
@@ -281,7 +377,7 @@ function ClipAdminActions({ clip, apiKey, onUpdate }) {
         </Select>
       )}
       <PlayerTagSearch
-        value={clip.player_tag}
+        value={localPlayerTag}
         onAdd={handlePlayerAdd}
         onRemove={handlePlayerRemove}
       />
@@ -291,7 +387,7 @@ function ClipAdminActions({ clip, apiKey, onUpdate }) {
 
 // ── Grid card ─────────────────────────────────
 
-function ClipGridCard({ clip, onClick, apiKey, onUpdate }) {
+function ClipGridCard({ clip, onClick, apiKey, onUpdate, onOptimistic }) {
   return (
     <div className={`clip-card ${clip.featured ? "clip-card--featured" : ""}`} onClick={() => onClick(clip)}>
       <div className="clip-thumbnail-wrap">
@@ -317,7 +413,7 @@ function ClipGridCard({ clip, onClick, apiKey, onUpdate }) {
       </div>
       {apiKey && (
         <div onClick={(e) => e.stopPropagation()}>
-          <ClipAdminActions clip={clip} apiKey={apiKey} onUpdate={onUpdate} />
+          <ClipAdminActions clip={clip} apiKey={apiKey} onUpdate={onUpdate} onOptimistic={onOptimistic} />
         </div>
       )}
     </div>
@@ -326,7 +422,7 @@ function ClipGridCard({ clip, onClick, apiKey, onUpdate }) {
 
 // ── Expanded modal ────────────────────────────
 
-function ClipModal({ clip, onClose, apiKey, onUpdate }) {
+function ClipModal({ clip, onClose, apiKey, onUpdate, onOptimistic }) {
   const backdropRef = useRef(null);
   const embedSrc = clip.embed_url
     ? `${clip.embed_url}&parent=4v4.gg&parent=localhost&autoplay=true`
@@ -357,7 +453,7 @@ function ClipModal({ clip, onClose, apiKey, onUpdate }) {
           <h2 className="clip-modal-title">{clip.title}</h2>
           <ClipMeta clip={clip} />
           {apiKey && (
-            <ClipAdminActions clip={clip} apiKey={apiKey} onUpdate={onUpdate} />
+            <ClipAdminActions clip={clip} apiKey={apiKey} onUpdate={onUpdate} onOptimistic={onOptimistic} />
           )}
         </div>
       </div>
@@ -438,6 +534,10 @@ export default function Clips() {
     fetchClips(0);
   };
 
+  const optimisticUpdate = useCallback((clipId, patch) => {
+    setClips((prev) => prev.map((c) => c.clip_id === clipId ? { ...c, ...patch } : c));
+  }, []);
+
   const loadMore = async () => {
     const newOffset = offset + PAGE_SIZE;
     setLoadingMore(true);
@@ -494,6 +594,10 @@ export default function Clips() {
               </option>
             ))}
           </Select>
+
+          {isAdmin && (
+            <AddClipInput apiKey={adminKey} onAdded={refreshClips} />
+          )}
         </div>
 
         {loading ? (
@@ -511,6 +615,7 @@ export default function Clips() {
                     onClick={setActiveClip}
                     apiKey={isAdmin ? adminKey : null}
                     onUpdate={refreshClips}
+                    onOptimistic={optimisticUpdate}
                   />
                 ))}
               </div>
@@ -544,6 +649,7 @@ export default function Clips() {
                         onClick={setActiveClip}
                         apiKey={adminKey}
                         onUpdate={refreshClips}
+                        onOptimistic={optimisticUpdate}
                       />
                     ))}
                   </div>
@@ -555,7 +661,7 @@ export default function Clips() {
       </div>
 
       {activeClip && (
-        <ClipModal clip={activeClip} onClose={() => setActiveClip(null)} apiKey={isAdmin ? adminKey : null} onUpdate={() => { setActiveClip(null); refreshClips(); }} />
+        <ClipModal clip={activeClip} onClose={() => setActiveClip(null)} apiKey={isAdmin ? adminKey : null} onUpdate={() => { setActiveClip(null); refreshClips(); }} onOptimistic={optimisticUpdate} />
       )}
     </div>
   );

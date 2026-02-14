@@ -101,3 +101,24 @@ export const splitQuotes = (text) => {
   }
   return { summary, quotes };
 };
+
+/**
+ * Parse speaker-attributed quotes ("Name: message") and group consecutive
+ * quotes by the same speaker. Returns array of { name, messages } groups.
+ * Quotes without a "Name: " prefix get name = null.
+ */
+export const groupQuotesBySpeaker = (quotes) => {
+  const groups = [];
+  for (const q of quotes) {
+    const m = q.match(/^(\w[\w\d!ǃ]*?):\s+(.+)$/);
+    const name = m ? m[1] : null;
+    const text = m ? m[2] : q;
+    const last = groups[groups.length - 1];
+    if (last && last.name === name) {
+      last.messages.push(text);
+    } else {
+      groups.push({ name, messages: [text] });
+    }
+  }
+  return groups;
+};

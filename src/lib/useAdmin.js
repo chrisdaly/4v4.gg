@@ -40,7 +40,7 @@ export default function useAdmin() {
   const location = useLocation();
   const hasAdminParam = useMemo(() => {
     const params = new URLSearchParams(location.search);
-    return params.has("admin") || params.get("edit") === "1";
+    return params.has("admin");
   }, [location.search]);
 
   const [adminKey, setAdminKeyState] = useState(() => {

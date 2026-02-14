@@ -59,7 +59,7 @@ async function getAccessToken() {
   return accessToken;
 }
 
-async function twitchGet(path) {
+export async function twitchGet(path) {
   let token = await getAccessToken();
   let res = await fetch(`${TWITCH_API}${path}`, {
     headers: {

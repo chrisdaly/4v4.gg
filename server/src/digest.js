@@ -217,7 +217,7 @@ function formatLossStreakLine(player) {
  * Return top 3 candidates per stat category (no dedup — admin picks).
  */
 function buildCandidate(player, formatted) {
-  return {
+  const c = {
     battleTag: player.battleTag,
     name: player.name,
     race: player.race,
@@ -226,6 +226,9 @@ function buildCandidate(player, formatted) {
     form: player.form,
     formatted,
   };
+  if (player.winStreak) c.winStreak = player.winStreak;
+  if (player.lossStreak) c.lossStreak = player.lossStreak;
+  return c;
 }
 
 export async function fetchDailyStatCandidates(date) {
@@ -314,16 +317,22 @@ function autoPublishDigest(fullText, maxDrama = 5) {
  */
 const SEMICOLON_SECTIONS = new Set(['DRAMA', 'BANS', 'HIGHLIGHTS', 'SPIKES']);
 
-export function curateDigest(draftText, selectedItems, selectedStats = null) {
+export function curateDigest(draftText, selectedItems, selectedStats = null, itemOverrides = null) {
   // Backward compat: array → { DRAMA: array }
   const itemMap = Array.isArray(selectedItems) ? { DRAMA: selectedItems } : (selectedItems || {});
+  const overrides = itemOverrides || {};
 
   const sections = parseDigestSections(draftText);
   let result = sections.map(s => {
     if (!SEMICOLON_SECTIONS.has(s.key) || !(s.key in itemMap)) return s;
     const items = s.content.split(/;\s*/).map(i => i.trim()).filter(Boolean);
     const indices = itemMap[s.key];
-    const kept = indices.map(i => items[i]).filter(Boolean);
+    const sectionOverrides = overrides[s.key] || {};
+    const kept = indices.map(i => {
+      // Use override text if admin edited this item, otherwise use original
+      const override = sectionOverrides[String(i)];
+      return override != null ? override : items[i];
+    }).filter(Boolean);
     if (kept.length === 0) return null;
     return { key: s.key, content: kept.join('; ') };
   }).filter(Boolean);
@@ -373,9 +382,9 @@ function buildDigestPrompt(messages, matchSummaries, soFar = false, playerMmrs =
   return `Summarize this Warcraft III 4v4 chat room's day${soFar ? ' SO FAR' : ''}. Write a digest with these sections (skip if nothing fits):
 
 TOPICS: 2-5 comma-separated tags capturing what people actually talked about. Be SPECIFIC — "tower rush debate", "undead nerf rage", "ToD vs Boyzinho beef" are good. "meta", "player beef", "balance" alone are too vague.
-DRAMA: BIG accusations, threats, heated personal attacks, AND juicy back-and-forth exchanges. Max 10 items separated by semicolons. Each item MUST have 2-4 direct quotes. FORMAT IS CRITICAL: first a short plain summary (max 8 words, NO quoted text anywhere in it), then the direct quotes at the END. Summary must be dead simple — just say who flamed who and why. WRONG: "PlayerA's entire evening devolving into defending himself against allies". RIGHT: "PlayerA flamed by allies over map losses". WRONG: "PlayerA eviscerated PlayerB". RIGHT: "PlayerA flamed PlayerB". Example: "PlayerA flamed PlayerB all game \"you are garbage\" \"uninstall\" \"I carried you last game\""
+DRAMA: BIG accusations, threats, heated personal attacks, AND juicy back-and-forth exchanges. Max 10 items separated by semicolons. CRITICAL FORMAT: each item is ONE unit — summary followed by quotes with NO semicolon between them. A semicolon ONLY separates one complete item from the next. Each item = short summary (max 8 words, NO quotes in it) then 2-4 direct quotes. Every quote MUST have speaker attribution "Name: text". Example: PlayerA flamed PlayerB all game "PlayerA: you are garbage" "PlayerB: cry more" "PlayerA: uninstall"; PlayerC accused PlayerD of maphack "PlayerC: nice maphack" "PlayerD: cope"
 BANS: Who got banned, duration, reason (skip if none); semicolon-separated. Include the match ID if mentioned.
-HIGHLIGHTS: Lighthearted, funny, or wholesome moments (3-5 items, semicolon-separated). Include: jokes landing well, friendly banter, community moments, absurd in-game stories, self-deprecating humor, unexpected kindness, running gags, silly arguments that aren't actually hostile. Each item needs 1-2 direct quotes. No hardware, IRL equipment, queue times, or mundane stuff.
+HIGHLIGHTS: Lighthearted, funny, or wholesome moments (3-5 items, semicolon-separated). Include: jokes landing well, friendly banter, community moments, absurd in-game stories, self-deprecating humor, unexpected kindness, running gags, silly arguments that aren't actually hostile. Each item needs 1-2 direct quotes with speaker attribution ("Name: quote"). No hardware, IRL equipment, queue times, or mundane stuff.
 
 Rules:
 - No title, no date header, jump straight into TOPICS:
@@ -384,6 +393,7 @@ Rules:
 - Prioritize high-MMR players (1800+), their drama is more interesting
 - DRAMA: aim for 10 items. Include minor beefs and trash talk too, not just the biggest blowups. Every item needs 2-4 direct quotes from the chat log.
 - DRAMA summaries must be under 8 words with NO quoted text in them. All "quoted text" goes at the END of the item only.
+- CRITICAL: Every direct quote MUST be attributed with "SpeakerName: quote text" format. This lets readers follow the back-and-forth. Example: "ToD: you are garbage" not just "you are garbage".
 - DRAMA summaries use PLAIN verbs only: "flamed", "went off on", "called out", "blamed", "mocked", "accused". NEVER use: "unleashed", "eviscerated", "ripped into", "devolving", "decimated", "obliterated", "destroyed", "dismantled", "torched" or any dramatic/flowery synonyms. Keep it simple.
 - No filler like "engaged in", "exchanged", "calling him", "told him", "repeatedly calling". The quotes speak for themselves.
 - Write like a tabloid reporter. Short punchy sentences. No em-dashes. No AI-speak.
@@ -524,8 +534,8 @@ Return JSON only, no other text. Format:
 {"DRAMA":["item1","item2"],"HIGHLIGHTS":["item1"],"BANS":["item1"]}
 
 Rules for each item:
-- DRAMA: accusations, flame wars, heated exchanges. Format: short summary (max 8 words, NO quotes in it), then 2-3 direct quotes at the end. Example: "PlayerA flamed PlayerB over tower rush \\"you are garbage\\" \\"uninstall\\""
-- HIGHLIGHTS: funny, wholesome, absurd moments. Same format: short summary + 1-2 quotes.
+- DRAMA: accusations, flame wars, heated exchanges. Format: short summary (max 8 words, NO quotes in it), then 2-3 direct quotes at the end. Every quote must have speaker attribution. Example: "PlayerA flamed PlayerB over tower rush \\"PlayerA: you are garbage\\" \\"PlayerB: cry more\\""
+- HIGHLIGHTS: funny, wholesome, absurd moments. Same format: short summary + 1-2 quotes with speaker attribution ("Name: quote").
 - BANS: bans or mutes mentioned. Who, duration, reason.
 - Use EXACT player names from the log: ${names.join(', ')}
 - Skip empty categories (use empty array [])
@@ -557,6 +567,83 @@ ${log}`;
     console.warn(`[Spike] Analysis failed for ${date} ${fromTime}-${toTime}:`, err.message);
     return null;
   }
+}
+
+/* ── Generate more items for a section ───────────── */
+
+const SECTION_LABELS = {
+  DRAMA: 'accusations, flame wars, heated personal attacks, trash talk',
+  HIGHLIGHTS: 'funny, wholesome, absurd, or lighthearted moments',
+  BANS: 'bans, mutes, or moderation actions mentioned',
+};
+
+/**
+ * Generate additional items for a specific section, avoiding duplicates.
+ * Returns string[] of new items.
+ */
+export async function generateMoreItems(date, section, existingItems = []) {
+  if (!config.ANTHROPIC_API_KEY) return null;
+  if (!SECTION_LABELS[section]) return null;
+
+  const messages = getMessagesByDate(date);
+  if (messages.length < 5) return null;
+
+  const log = messages.map(m => `[${m.user_name}]: ${m.message}`).join('\n');
+  const names = [...new Set(messages.map(m => m.user_name).filter(Boolean))];
+
+  const existingContext = existingItems.length > 0
+    ? `\n\nALREADY COVERED (do NOT repeat these — find DIFFERENT moments):\n${existingItems.map((item, i) => `${i + 1}. ${item}`).join('\n')}\n`
+    : '';
+
+  const prompt = `You are analyzing a Warcraft III 4v4 chat room for a daily digest. Find items for the ${section} section.
+
+${section} covers: ${SECTION_LABELS[section]}
+${existingContext}
+Return JSON only, no other text. Format:
+{"items":["item1","item2","item3"]}
+
+Rules:
+- Format each item: short summary (max 8 words, plain verbs only), then 1-3 direct quotes with speaker attribution. Example: "PlayerA flamed PlayerB over tower rush \\"PlayerA: you are garbage\\" \\"PlayerB: cry more\\""
+- Every quote MUST start with "SpeakerName: " so readers know who said what
+- Use EXACT player names from the log: ${names.join(', ')}
+- Find 3-5 NEW items not covered above
+- ASCII only, no em-dashes
+- State facts only, no commentary
+
+Chat log (${messages.length} messages):
+${log}`;
+
+  const client = new Anthropic({ apiKey: config.ANTHROPIC_API_KEY });
+  try {
+    const msg = await client.messages.create({
+      model: 'claude-haiku-4-5-20251001',
+      max_tokens: 800,
+      messages: [{ role: 'user', content: prompt }],
+    });
+    const text = msg.content[0]?.text?.trim();
+    if (!text) return null;
+    const jsonMatch = text.match(/\{[\s\S]*\}/);
+    if (!jsonMatch) return null;
+    const parsed = JSON.parse(jsonMatch[0]);
+    return Array.isArray(parsed.items) ? parsed.items : [];
+  } catch (err) {
+    console.warn(`[MoreItems] Failed for ${date} ${section}:`, err.message);
+    return null;
+  }
+}
+
+/**
+ * Append new items to a section in draft text. Returns updated draft string.
+ */
+export function appendItemsToDraft(draftText, sectionKey, newItems) {
+  const sections = parseDigestSections(draftText);
+  const sec = sections.find(s => s.key === sectionKey);
+  if (sec) {
+    sec.content = sec.content + '; ' + newItems.join('; ');
+  } else {
+    sections.push({ key: sectionKey, content: newItems.join('; ') });
+  }
+  return reassembleSections(sections);
 }
 
 /* ── Weekly digest generation ────────────────────── */
@@ -616,7 +703,7 @@ function buildWeeklyPrompt(dailyDigests, aggregateStats) {
   return `Summarize this week's Warcraft III 4v4 activity from ${dailyDigests.length} daily digests into a WEEKLY recap. Write a SHORT digest with these sections (skip if nothing fits):
 
 TOPICS: 3-6 comma-separated keywords capturing the week's themes
-DRAMA: The BIGGEST 2-3 drama stories of the week, semicolon-separated. Combine related daily items into one story. FORMAT: short summary (max 10 words, no quoted text), then quotes at the END only.
+DRAMA: The BIGGEST 2-3 drama stories of the week, semicolon-separated. Combine related daily items into one story. FORMAT: short summary (max 10 words, no quoted text), then quotes with speaker attribution at the END only ("Name: quote").
 BANS: Notable bans this week (skip if none); semicolon-separated
 HIGHLIGHTS: Best 1-2 moments of the entire week, semicolon-separated
 RECAP: 2-3 sentence narrative summary of the week's overall vibe and notable trends

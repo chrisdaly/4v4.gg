@@ -85,6 +85,30 @@
   color: #fff;
 }
 
+/* ── Add clip input ───────────────────────── */
+
+.clips-add-clip {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+  margin-left: auto;
+}
+
+
+.clips-add-clip-status {
+  font-family: var(--font-mono);
+  font-size: var(--text-xxs);
+  white-space: nowrap;
+}
+
+.clips-add-clip-status--success {
+  color: var(--green);
+}
+
+.clips-add-clip-status--error {
+  color: var(--red);
+}
+
 /* ── Featured label ────────────────────────── */
 
 .clips-featured-label {
@@ -389,6 +413,19 @@
   -webkit-backdrop-filter: blur(12px);
   box-shadow: 0 8px 32px rgba(0, 0, 0, 0.7);
   min-width: 240px;
+}
+
+.clip-player-search-avatar {
+  width: 28px;
+  height: 28px;
+  border-radius: var(--radius-sm);
+  object-fit: cover;
+  flex-shrink: 0;
+}
+
+.clip-player-search-avatar--placeholder {
+  display: block;
+  background: rgba(255, 255, 255, 0.06);
 }
 
 .clip-player-search-result {
