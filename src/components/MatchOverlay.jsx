@@ -153,20 +153,22 @@ const MatchOverlay = ({ matchData, atGroups = {}, sessionData = {}, mmrDuration 
           {team1.map((p, i) => renderPlayer(p, i, team1, true))}
         </div>
 
-        <div className="mo-chart">
-          <MmrComparison
-            data={{
-              teamOneMmrs: team1.map(p => p.currentMmr || p.oldMmr || 0),
-              teamTwoMmrs: team2.map(p => p.currentMmr || p.oldMmr || 0),
-              teamOneAT: team1.map(p => getATGroupId(p.battleTag)),
-              teamTwoAT: team2.map(p => getATGroupId(p.battleTag)),
-            }}
-            compact={true}
-            atStyle="combined"
-            showMean={false}
-            showStdDev={true}
-            hideLabels={true}
-          />
+        <div className="mo-center">
+          <div className="mo-chart">
+            <MmrComparison
+              data={{
+                teamOneMmrs: team1.map(p => p.currentMmr || p.oldMmr || 0),
+                teamTwoMmrs: team2.map(p => p.currentMmr || p.oldMmr || 0),
+                teamOneAT: team1.map(p => getATGroupId(p.battleTag)),
+                teamTwoAT: team2.map(p => getATGroupId(p.battleTag)),
+              }}
+              compact={true}
+              atStyle="combined"
+              showMean={false}
+              showStdDev={false}
+              hideLabels={true}
+            />
+          </div>
           <span className="mo-vs">vs</span>
         </div>
 
