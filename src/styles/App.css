@@ -214,6 +214,16 @@ body::before {
   background-repeat: no-repeat;
 }
 
+/* Overlay mode — fully transparent for OBS/Streamlabs browser sources */
+body.overlay-mode {
+  background-color: transparent !important;
+  background: transparent !important;
+}
+
+body.overlay-mode::before {
+  display: none;
+}
+
 /* Team headers - no background color */
 .team-header.team-0,
 .team-header.team-1 {

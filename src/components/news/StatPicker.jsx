@@ -31,6 +31,15 @@ const StatPicker = ({ candidates, selectedStats, onToggle }) => {
             <div className="stat-picker-candidates">
               {items.map((c, i) => {
                 const isSelected = selectedIdx === i;
+                let record;
+                if ((key === "WINNER" || key === "LOSER") && c.mmrChange != null) {
+                  const sign = c.mmrChange > 0 ? "+" : "";
+                  record = <>{sign}{c.mmrChange} MMR</>;
+                } else if (key === "GRINDER") {
+                  record = <>{c.wins + c.losses} games</>;
+                } else {
+                  record = <>{c.wins}W-{c.losses}L</>;
+                }
                 return (
                   <button
                     key={c.battleTag}
@@ -39,7 +48,7 @@ const StatPicker = ({ candidates, selectedStats, onToggle }) => {
                   >
                     <span className="stat-picker-candidate-name">{c.name}</span>
                     <span className="stat-picker-candidate-record">
-                      {c.wins}W-{c.losses}L
+                      {record}
                       {c.winStreak > 0 && <span className="stat-picker-streak stat-picker-streak--hot"> ({c.winStreak}W streak)</span>}
                       {c.lossStreak > 0 && <span className="stat-picker-streak stat-picker-streak--cold"> ({c.lossStreak}L streak)</span>}
                     </span>

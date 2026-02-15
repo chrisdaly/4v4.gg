@@ -31,10 +31,13 @@ const LastGameOverlayPage = () => {
     return params.get("layout") || "vertical";
   };
 
-  // Hide scrollbars in OBS browser source
+  // Make body fully transparent for OBS browser source
   useEffect(() => {
     document.documentElement.style.overflow = 'hidden';
     document.body.style.overflow = 'hidden';
+    document.body.style.backgroundColor = 'transparent';
+    document.body.style.background = 'transparent';
+    document.body.classList.add('overlay-mode');
   }, []);
 
   useEffect(() => {

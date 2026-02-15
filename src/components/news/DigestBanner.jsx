@@ -122,8 +122,15 @@ const DigestQuotes = ({ quotes }) => {
   );
 };
 
-const StatSection = ({ stat, cls, label, profiles, date, expanded, onToggle }) => {
+const StatSection = ({ stat, cls, label, profiles, date, expanded, onToggle, sectionKey }) => {
   const profile = profiles.get(stat.battleTag);
+  let displayHeadline = stat.headline;
+  if (sectionKey === "GRINDER") {
+    displayHeadline = `(${stat.wins + stat.losses})`;
+  } else if ((sectionKey === "WINNER" || sectionKey === "LOSER") && stat.mmrChange != null) {
+    const sign = stat.mmrChange > 0 ? "+" : "";
+    displayHeadline = `${sign}${stat.mmrChange} MMR`;
+  }
   return (
     <div className={`digest-section digest-section--${cls} digest-section--clickable`} onClick={onToggle}>
       <span className="digest-section-label">{label}</span>
@@ -136,7 +143,7 @@ const StatSection = ({ stat, cls, label, profiles, date, expanded, onToggle }) =
         >
           {stat.name}
         </Link>
-        <span className="digest-stat-headline">{stat.headline}</span>
+        <span className="digest-stat-headline">{displayHeadline}</span>
         <FormDots form={stat.form} />
       </div>
       <ChatContext
@@ -331,16 +338,18 @@ const DigestBanner = ({ digest, nameSet, nameToTag, label = "Yesterday in 4v4", 
   }, [isDirty]);
 
   const renderDateTabs = (tabs) => (
-    <div className="digest-date-tabs">
-      {tabs.map((tab, i) => (
-        <button
-          key={i}
-          className={`digest-date-tab${tab.active ? " digest-date-tab--active" : ""}`}
-          onClick={() => isEditorial ? handleTabClick(tab.onClick) : tab.onClick()}
-        >
-          {tab.label}
-        </button>
-      ))}
+    <div className="digest-date-tabs-wrap">
+      <div className="digest-date-tabs">
+        {tabs.map((tab, i) => (
+          <button
+            key={i}
+            className={`digest-date-tab${tab.active ? " digest-date-tab--active" : ""}`}
+            onClick={() => isEditorial ? handleTabClick(tab.onClick) : tab.onClick()}
+          >
+            {tab.label}
+          </button>
+        ))}
+      </div>
       {screenshotBtn}
     </div>
   );
@@ -386,7 +395,7 @@ const DigestBanner = ({ digest, nameSet, nameToTag, label = "Yesterday in 4v4", 
         {displaySections.map(({ key, content }) => {
           const meta = DIGEST_SECTIONS.find((s) => s.key === key);
           if (!meta) return null;
-          if (key === "SPIKES") return null;
+          if (key === "SPIKES" || key === "RECAP") return null;
           if (/^none$/i.test(content.trim())) return null;
           const cls = meta.cls;
           const sectionLabel = vLabels?.[key] || meta.label;
@@ -402,6 +411,7 @@ const DigestBanner = ({ digest, nameSet, nameToTag, label = "Yesterday in 4v4", 
                   stat={stat}
                   cls={cls}
                   label={sectionLabel}
+                  sectionKey={key}
                   profiles={profiles}
                   date={digest.date}
                   expanded={isExpanded}

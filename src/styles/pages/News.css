@@ -197,12 +197,20 @@
 }
 
 /* Date tabs — horizontal scroll */
+.digest-date-tabs-wrap {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+
 .digest-date-tabs {
   display: flex;
   gap: 6px;
   overflow-x: auto;
   scrollbar-width: none;
   -ms-overflow-style: none;
+  flex: 1;
+  min-width: 0;
 }
 
 .digest-date-tabs::-webkit-scrollbar {
@@ -388,13 +396,13 @@
 
 .digest-tag {
   font-family: var(--font-mono);
-  font-size: var(--text-xxs);
+  font-size: 11px;
   text-transform: uppercase;
-  letter-spacing: 0.08em;
+  letter-spacing: 0.02em;
   color: var(--grey-light);
   background: rgba(255, 255, 255, 0.06);
   border: var(--border-thin) solid rgba(255, 255, 255, 0.08);
-  padding: 4px 12px;
+  padding: 3px 8px;
   border-radius: var(--radius-full);
   white-space: nowrap;
 }
@@ -1164,32 +1172,6 @@
 .digest-admin-reset-btn:hover {
   color: var(--white);
   border-color: rgba(255, 255, 255, 0.2);
-}
-
-/* Admin bar (live notice + logout) */
-.digest-admin-bar {
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  gap: var(--space-4);
-  margin-top: var(--space-2);
-}
-
-.digest-admin-logout {
-  font-family: var(--font-mono);
-  font-size: var(--text-xxs);
-  text-transform: uppercase;
-  letter-spacing: 0.08em;
-  color: var(--grey-mid);
-  background: none;
-  border: none;
-  cursor: pointer;
-  transition: color 0.15s;
-  padding: 4px 8px;
-}
-
-.digest-admin-logout:hover {
-  color: var(--red);
 }
 
 /* Admin key validation error */

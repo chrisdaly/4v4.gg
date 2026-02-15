@@ -46,11 +46,14 @@ export const parseMentions = (sections) => {
 export const parseStatLine = (content) => {
   const m = content.match(/^(.+?#\d+)(?:\[(\w+)\])?\s+(.+?)\s+\((\d+)W-(\d+)L\)\s*([WL]*)$/);
   if (!m) return null;
+  const headline = m[3];
+  const mmrMatch = headline.match(/([+-]?\d+)\s*MMR/);
   return {
     battleTag: m[1],
     name: m[1].split("#")[0],
     race: m[2] || null,
-    headline: m[3],
+    headline,
+    mmrChange: mmrMatch ? parseInt(mmrMatch[1]) : null,
     wins: parseInt(m[4]),
     losses: parseInt(m[5]),
     form: m[6] || "",

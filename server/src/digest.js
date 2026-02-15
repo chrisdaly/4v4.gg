@@ -234,6 +234,7 @@ function buildCandidate(player, formatted) {
     form: player.form,
     formatted,
   };
+  if (player.mmrChange != null) c.mmrChange = Math.round(player.mmrChange);
   if (player.winStreak) c.winStreak = player.winStreak;
   if (player.lossStreak) c.lossStreak = player.lossStreak;
   return c;

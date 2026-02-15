@@ -14,17 +14,11 @@ const RELAY_URL =
 const formatDigestLabel = (dateStr) => {
   const d = new Date(dateStr + "T12:00:00");
   const months = ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"];
-  const days = ["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"];
-  const dateFormatted = `${days[d.getDay()]} ${months[d.getMonth()]} ${d.getDate()}`;
   const today = new Date().toISOString().slice(0, 10);
-  if (dateStr === today) return `Today so far \u00B7 ${dateFormatted}`;
+  if (dateStr === today) return "Today";
   const yesterday = new Date(Date.now() - 86400000).toISOString().slice(0, 10);
-  if (dateStr === yesterday) {
-    const todayMD = new Date().toISOString().slice(5, 10);
-    if (todayMD === "02-14") return `Valentine's Eve \u00B7 ${dateFormatted}`;
-    return `Yesterday \u00B7 ${dateFormatted}`;
-  }
-  return dateFormatted;
+  if (dateStr === yesterday) return "Yesterday";
+  return `${months[d.getMonth()]} ${d.getDate()}`;
 };
 
 const formatWeeklyLabel = (weekStart, weekEnd) => {
@@ -55,6 +49,8 @@ const News = () => {
   const urlPlayer = searchParams.get("player");
 
   const { adminKey, isAdmin, showAdmin, setAdminKey: setAdminKeyHook } = useAdmin();
+  const [previewReader, setPreviewReader] = useState(false);
+  const effectiveAdmin = isAdmin && !previewReader;
   const [keyInput, setKeyInput] = useState("");
   const [keyError, setKeyError] = useState(null);
 
@@ -195,22 +191,40 @@ const News = () => {
   return (
     <div className="news">
       <div className="news-container">
-        {hasWeekly && (
-          <div className="news-view-toggle">
-            <button
-              className={`news-view-btn${viewMode === "daily" ? " news-view-btn--active" : ""}`}
-              onClick={() => setViewMode("daily")}
-            >
-              Daily
-            </button>
-            <button
-              className={`news-view-btn${viewMode === "weekly" ? " news-view-btn--active" : ""}`}
-              onClick={() => setViewMode("weekly")}
-            >
-              Weekly
-            </button>
-          </div>
-        )}
+        {(hasWeekly || isAdmin) && <div className="news-view-toggle">
+          {hasWeekly && (
+            <>
+              <button
+                className={`news-view-btn${viewMode === "daily" ? " news-view-btn--active" : ""}`}
+                onClick={() => setViewMode("daily")}
+              >
+                Daily
+              </button>
+              <button
+                className={`news-view-btn${viewMode === "weekly" ? " news-view-btn--active" : ""}`}
+                onClick={() => setViewMode("weekly")}
+              >
+                Weekly
+              </button>
+            </>
+          )}
+          {isAdmin && (
+            <>
+              <button
+                className={`news-view-btn${!previewReader ? " news-view-btn--active" : ""}`}
+                onClick={() => setPreviewReader(false)}
+              >
+                Admin
+              </button>
+              <button
+                className={`news-view-btn${previewReader ? " news-view-btn--active" : ""}`}
+                onClick={() => setPreviewReader(true)}
+              >
+                Reader
+              </button>
+            </>
+          )}
+        </div>}
         {viewMode === "daily" ? (
           allDigests.length > 0 ? (
             <DigestBanner
@@ -218,7 +232,7 @@ const News = () => {
               nameSet={nameSet}
               nameToTag={nameToTag}
               label={digestLabel}
-              isAdmin={isAdmin}
+              isAdmin={effectiveAdmin}
               apiKey={adminKey}
               onDigestUpdated={handleDigestUpdated}
               filterPlayer={urlPlayer}
@@ -279,17 +293,10 @@ const News = () => {
             {keyError && <div className="digest-editor-key-error">{keyError}</div>}
           </div>
         )}
-        {isAdmin && viewMode === "daily" && (
-          <div className="digest-admin-bar">
-            {isViewingToday && (
-              <span className="digest-today-notice">
-                Live digest — editing available after the day ends
-              </span>
-            )}
-            <button className="digest-admin-logout" onClick={() => setAdminKeyHook("")}>
-              Logout
-            </button>
-          </div>
+        {isAdmin && viewMode === "daily" && isViewingToday && !previewReader && (
+          <span className="digest-today-notice">
+            Live digest — editing available after the day ends
+          </span>
         )}
         {viewMode === "daily" && allDigests.length > 1 && (
           <>

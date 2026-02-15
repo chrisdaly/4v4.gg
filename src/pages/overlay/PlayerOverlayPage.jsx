@@ -126,10 +126,14 @@ const PlayerOverlayPage = () => {
     return params.get("layout") || "default";
   };
 
-  // Hide scrollbars in OBS browser source
+  // Make body fully transparent for OBS browser source
   useEffect(() => {
     document.documentElement.style.overflow = 'hidden';
     document.body.style.overflow = 'hidden';
+    document.body.style.backgroundColor = 'transparent';
+    document.body.style.background = 'transparent';
+    // Remove the ::before pseudo-element background
+    document.body.classList.add('overlay-mode');
   }, []);
 
   useEffect(() => {
