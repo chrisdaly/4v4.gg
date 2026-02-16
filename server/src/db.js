@@ -141,6 +141,41 @@ export function initDb() {
     // Column already exists — ignore
   }
 
+  // Migration: daily_player_stats table for weekly aggregation
+  db.exec(`
+    CREATE TABLE IF NOT EXISTS daily_player_stats (
+      date        TEXT NOT NULL,
+      battle_tag  TEXT NOT NULL,
+      name        TEXT NOT NULL,
+      race        INTEGER,
+      wins        INTEGER NOT NULL DEFAULT 0,
+      losses      INTEGER NOT NULL DEFAULT 0,
+      mmr_change  REAL NOT NULL DEFAULT 0,
+      current_mmr INTEGER NOT NULL DEFAULT 0,
+      form        TEXT NOT NULL DEFAULT '',
+      win_streak  INTEGER NOT NULL DEFAULT 0,
+      loss_streak INTEGER NOT NULL DEFAULT 0,
+      PRIMARY KEY (date, battle_tag)
+    );
+  `);
+
+  // Migration: daily_matches table for weekly upset detection
+  db.exec(`
+    CREATE TABLE IF NOT EXISTS daily_matches (
+      match_id TEXT PRIMARY KEY,
+      date TEXT NOT NULL,
+      map_name TEXT,
+      team1_avg_mmr REAL,
+      team2_avg_mmr REAL,
+      team1_races TEXT,
+      team2_races TEXT,
+      team1_won INTEGER,
+      team1_tags TEXT,
+      team2_tags TEXT
+    );
+    CREATE INDEX IF NOT EXISTS idx_daily_matches_date ON daily_matches(date);
+  `);
+
   // Migration: add clips and stats columns to weekly_digests
   try {
     db.exec(`ALTER TABLE weekly_digests ADD COLUMN clips TEXT`);
@@ -149,6 +184,13 @@ export function initDb() {
   }
   try {
     db.exec(`ALTER TABLE weekly_digests ADD COLUMN stats TEXT`);
+  } catch {
+    // Column already exists — ignore
+  }
+
+  // Migration: add cover_image BLOB column to weekly_digests
+  try {
+    db.exec(`ALTER TABLE weekly_digests ADD COLUMN cover_image BLOB`);
   } catch {
     // Column already exists — ignore
   }
@@ -804,6 +846,83 @@ export function updateClip4v4Status(clipId, is4v4, matchId) {
 
 export function updateDigestClips(date, clipsJson) {
   db.prepare('UPDATE daily_digests SET clips = ? WHERE date = ?').run(clipsJson, date);
+}
+
+// ── Daily player stats (for weekly aggregation) ─────
+
+export function saveDailyPlayerStats(date, playerStatsMap) {
+  const stmt = db.prepare(`
+    INSERT OR REPLACE INTO daily_player_stats (date, battle_tag, name, race, wins, losses, mmr_change, current_mmr, form, win_streak, loss_streak)
+    VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+  `);
+  const tx = db.transaction(() => {
+    for (const [tag, stats] of playerStatsMap) {
+      stmt.run(date, tag, stats.name, stats.race ?? null, stats.wins, stats.losses,
+        Math.round(stats.mmrChange * 100) / 100, stats.currentMmr, stats.form || '',
+        stats.winStreak || 0, stats.lossStreak || 0);
+    }
+  });
+  tx();
+}
+
+export function getDailyPlayerStatsForDate(date) {
+  return db.prepare('SELECT * FROM daily_player_stats WHERE date = ?').all(date);
+}
+
+export function hasDailyPlayerStats(date) {
+  const row = db.prepare('SELECT COUNT(*) as count FROM daily_player_stats WHERE date = ?').get(date);
+  return row.count > 0;
+}
+
+export function getDailyPlayerStatsRange(startDate, endDate) {
+  return db.prepare('SELECT * FROM daily_player_stats WHERE date >= ? AND date <= ?').all(startDate, endDate);
+}
+
+// ── Daily matches (for weekly upset detection) ──────
+
+export function saveDailyMatches(date, matches) {
+  const stmt = db.prepare(`
+    INSERT OR IGNORE INTO daily_matches (match_id, date, map_name, team1_avg_mmr, team2_avg_mmr, team1_races, team2_races, team1_won, team1_tags, team2_tags)
+    VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+  `);
+  const tx = db.transaction(() => {
+    for (const m of matches) {
+      stmt.run(m.match_id, date, m.map_name || null,
+        m.team1_avg_mmr, m.team2_avg_mmr,
+        m.team1_races, m.team2_races,
+        m.team1_won ? 1 : 0, m.team1_tags, m.team2_tags);
+    }
+  });
+  tx();
+}
+
+export function getDailyMatchesRange(startDate, endDate) {
+  return db.prepare('SELECT * FROM daily_matches WHERE date >= ? AND date <= ?').all(startDate, endDate);
+}
+
+// ── New player detection (for weekly NEW_BLOOD) ─────
+
+export function getNewPlayersForWeek(weekStart, weekEnd) {
+  return db.prepare(`
+    SELECT dps.battle_tag, dps.name, MAX(dps.current_mmr) as max_mmr,
+           SUM(dps.wins + dps.losses) as total_games, SUM(dps.wins) as total_wins
+    FROM daily_player_stats dps
+    WHERE dps.date >= ? AND dps.date <= ?
+      AND dps.battle_tag NOT IN (
+        SELECT DISTINCT battle_tag FROM daily_player_stats WHERE date < ?
+      )
+    GROUP BY dps.battle_tag
+    ORDER BY max_mmr DESC
+  `).all(weekStart, weekEnd, weekStart);
+}
+
+export function getWeeklyCoverImage(weekStart) {
+  const row = db.prepare('SELECT cover_image FROM weekly_digests WHERE week_start = ?').get(weekStart);
+  return row?.cover_image || null;
+}
+
+export function setWeeklyCoverImage(weekStart, imageBuffer) {
+  db.prepare('UPDATE weekly_digests SET cover_image = ? WHERE week_start = ?').run(imageBuffer, weekStart);
 }
 
 export function setWeeklyDigestFull(weekStart, weekEnd, digest, clipsJson, statsJson) {

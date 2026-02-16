@@ -12,6 +12,8 @@ export const DIGEST_SECTIONS = [
   { key: "GRINDER", label: "Grinder", cls: "grinder", stat: true },
   { key: "HOTSTREAK", label: "Hot", cls: "hotstreak", stat: true },
   { key: "COLDSTREAK", label: "Cold", cls: "coldstreak", stat: true },
+  { key: "NEW_BLOOD", label: "New Blood", cls: "new-blood" },
+  { key: "UPSET", label: "Upset", cls: "upset" },
   { key: "BEST_OF_CHAT", label: "Best of Chat", cls: "chat-best" },
   { key: "POWER_RANKINGS", label: "Power Rankings", cls: "rankings", rankings: true },
   { key: "META", label: "Meta Report", cls: "meta", meta: true },

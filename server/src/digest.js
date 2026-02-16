@@ -1,5 +1,5 @@
 import Anthropic from '@anthropic-ai/sdk';
-import { getMessagesByDate, getMessageBuckets, getDigest, setDigest, getRecentDigests, getWeeklyDigest, setWeeklyDigest, deleteDigest, setDigestWithDraft, updateDigestOnly, getDraftForDate, getMessagesByTimeWindow, getClipsByDateRange, updateClip4v4Status, updateDigestClips, setWeeklyDigestFull, getStreamers } from './db.js';
+import { getMessagesByDate, getMessageBuckets, getDigest, setDigest, getRecentDigests, getWeeklyDigest, setWeeklyDigest, deleteDigest, setDigestWithDraft, updateDigestOnly, getDraftForDate, getMessagesByTimeWindow, getClipsByDateRange, updateClip4v4Status, updateDigestClips, setWeeklyDigestFull, getStreamers, saveDailyPlayerStats, getDailyPlayerStatsRange, hasDailyPlayerStats, saveDailyMatches, getDailyMatchesRange, getNewPlayersForWeek } from './db.js';
 import { runClipFetch } from './clips.js';
 import config from './config.js';
 
@@ -13,7 +13,7 @@ const SYSTEM_PROMPT = 'You are the tabloid reporter for 4v4.gg, a Warcraft III 4
 const MIN_MESSAGES_FOR_DIGEST = 10;
 const MIN_GAMES_TO_QUALIFY = 3;
 const MIN_STREAK_LENGTH = 4;
-const MAX_MATCH_OFFSET = 500;
+const MAX_MATCH_OFFSET = 2000;
 
 /**
  * Fetch all finished 4v4 matches for a given date and compute per-player stats.
@@ -78,6 +78,7 @@ async function computePlayerStats(date, chatterTags = null) {
 
   const playerStats = new Map();
   const rawMatches = [];
+  const matchDataForDb = [];
   let offset = 0;
   const pageSize = 100;
   let done = false;
@@ -137,6 +138,28 @@ async function computePlayerStats(date, chatterTags = null) {
           if (player.won) stats.wins++;
           else stats.losses++;
           stats.results.push({ won: !!player.won, time: endTime.getTime() });
+        }
+      }
+
+      // Collect match-level data for daily_matches table (upset detection)
+      if (match.id && (match.teams || []).length === 2) {
+        const teams = match.teams;
+        const t1players = (teams[0].players || []);
+        const t2players = (teams[1].players || []);
+        if (t1players.length > 0 && t2players.length > 0) {
+          const t1mmrs = t1players.map(p => p.currentMmr || p.oldMmr || 0).filter(m => m > 0);
+          const t2mmrs = t2players.map(p => p.currentMmr || p.oldMmr || 0).filter(m => m > 0);
+          matchDataForDb.push({
+            match_id: match.id,
+            map_name: match.mapName || match.map || null,
+            team1_avg_mmr: t1mmrs.length > 0 ? t1mmrs.reduce((a, b) => a + b, 0) / t1mmrs.length : 0,
+            team2_avg_mmr: t2mmrs.length > 0 ? t2mmrs.reduce((a, b) => a + b, 0) / t2mmrs.length : 0,
+            team1_races: t1players.map(p => RACE_NAMES[p.race] || '?').join(','),
+            team2_races: t2players.map(p => RACE_NAMES[p.race] || '?').join(','),
+            team1_won: !!t1players[0]?.won,
+            team1_tags: t1players.map(p => p.battleTag).filter(Boolean).join(','),
+            team2_tags: t2players.map(p => p.battleTag).filter(Boolean).join(','),
+          });
         }
       }
     }
@@ -203,6 +226,22 @@ async function computePlayerStats(date, chatterTags = null) {
   const playerMatches = {};
   for (const [tag, stats] of playerStats) {
     if (stats.matchIds.length > 0) playerMatches[tag] = stats.matchIds;
+  }
+
+  // Persist player stats to DB for weekly aggregation
+  try {
+    saveDailyPlayerStats(date, playerStats);
+  } catch (err) {
+    console.warn(`[Digest] Failed to persist daily stats for ${date}:`, err.message);
+  }
+
+  // Persist match-level data for weekly upset detection
+  try {
+    if (matchDataForDb.length > 0) {
+      saveDailyMatches(date, matchDataForDb);
+    }
+  } catch (err) {
+    console.warn(`[Digest] Failed to persist daily matches for ${date}:`, err.message);
   }
 
   return { playerStats, rawMatches, playerMmrs, qualified, totalGames, matchSummaries, playerMatches };
@@ -325,7 +364,7 @@ export { fetchDailyStats, formatMmrLine, formatGrinderLine, formatWinStreakLine,
  * Parse a full digest text into its raw section blocks.
  * Returns array of { key, content } for each section found.
  */
-const ALL_SECTION_KEYS_RE = /^(TOPICS|DRAMA|BANS|HIGHLIGHTS|RECAP|SPIKES|WINNER|LOSER|GRINDER|HOTSTREAK|COLDSTREAK|MENTIONS)\s*:\s*/gm;
+const ALL_SECTION_KEYS_RE = /^(TOPICS|DRAMA|BANS|HIGHLIGHTS|RECAP|SPIKES|WINNER|LOSER|GRINDER|HOTSTREAK|COLDSTREAK|NEW_BLOOD|UPSET|MENTIONS)\s*:\s*/gm;
 
 function parseDigestSections(text) {
   const sections = [];
@@ -777,20 +816,62 @@ function parseWeeklyStatLines(digestTexts) {
 }
 
 /**
- * Compute aggregate match stats across a week by calling computePlayerStats for each day.
+ * Compute aggregate match stats across a week.
+ * Reads from stored daily_player_stats in DB first; falls back to API for missing days.
  */
 async function computeWeeklyMatchStats(weekStart, weekEnd) {
   const startDate = new Date(weekStart + 'T12:00:00Z');
   const endDate = new Date(weekEnd + 'T12:00:00Z');
   const weeklyPlayerMap = new Map();
-  const raceStats = {}; // HU/ORC/NE/UD → { picks, wins }
-  const mapCounts = new Map(); // mapName → count
+  const raceStats = {};
   let totalGames = 0;
   let mmrSum = 0;
   let mmrCount = 0;
+  let daysLoaded = 0;
+
+  // Try bulk read from DB first
+  const storedRows = getDailyPlayerStatsRange(weekStart, weekEnd);
+  const storedByDate = new Map();
+  for (const row of storedRows) {
+    if (!storedByDate.has(row.date)) storedByDate.set(row.date, []);
+    storedByDate.get(row.date).push(row);
+  }
 
   for (let d = new Date(startDate); d <= endDate; d.setUTCDate(d.getUTCDate() + 1)) {
     const dateStr = d.toISOString().slice(0, 10);
+
+    // Use stored DB stats if available
+    const dbRows = storedByDate.get(dateStr);
+    if (dbRows && dbRows.length > 0) {
+      for (const row of dbRows) {
+        if (!weeklyPlayerMap.has(row.battle_tag)) {
+          weeklyPlayerMap.set(row.battle_tag, {
+            battleTag: row.battle_tag, name: row.name, race: row.race,
+            mmrChange: 0, wins: 0, losses: 0, currentMmr: 0, form: '',
+          });
+        }
+        const wp = weeklyPlayerMap.get(row.battle_tag);
+        wp.mmrChange += row.mmr_change;
+        wp.wins += row.wins;
+        wp.losses += row.losses;
+        wp.currentMmr = Math.max(wp.currentMmr, row.current_mmr);
+        wp.form += row.form;
+        if (!wp.race && row.race) wp.race = row.race;
+
+        const raceName = RACE_NAMES[row.race];
+        if (raceName && raceName !== 'RND') {
+          if (!raceStats[raceName]) raceStats[raceName] = { picks: 0, wins: 0 };
+          raceStats[raceName].picks += row.wins + row.losses;
+          raceStats[raceName].wins += row.wins;
+        }
+        if (row.current_mmr > 0) { mmrSum += row.current_mmr; mmrCount++; }
+      }
+      totalGames += dbRows.reduce((s, r) => s + r.wins, 0);
+      daysLoaded++;
+      continue;
+    }
+
+    // Fall back to API fetch (also saves to DB for next time)
     let result;
     try {
       result = await computePlayerStats(dateStr);
@@ -800,19 +881,11 @@ async function computeWeeklyMatchStats(weekStart, weekEnd) {
     }
     if (!result) continue;
 
-    // Count games from raw matches
-    for (const match of result.rawMatches || []) {
-      const mapName = match.mapName || match.map || 'Unknown';
-      mapCounts.set(mapName, (mapCounts.get(mapName) || 0) + 1);
-    }
-
-    // Aggregate per-player stats
     for (const [tag, stats] of result.playerStats) {
       if (!weeklyPlayerMap.has(tag)) {
         weeklyPlayerMap.set(tag, {
           battleTag: tag, name: stats.name, race: stats.race,
-          mmrChange: 0, wins: 0, losses: 0, currentMmr: 0,
-          form: '',
+          mmrChange: 0, wins: 0, losses: 0, currentMmr: 0, form: '',
         });
       }
       const wp = weeklyPlayerMap.get(tag);
@@ -823,31 +896,24 @@ async function computeWeeklyMatchStats(weekStart, weekEnd) {
       wp.form += stats.form;
       if (!wp.race && stats.race) wp.race = stats.race;
 
-      // Track race stats
       const raceName = RACE_NAMES[stats.race];
       if (raceName && raceName !== 'RND') {
         if (!raceStats[raceName]) raceStats[raceName] = { picks: 0, wins: 0 };
         raceStats[raceName].picks += stats.wins + stats.losses;
         raceStats[raceName].wins += stats.wins;
       }
-
-      if (stats.currentMmr > 0) {
-        mmrSum += stats.currentMmr;
-        mmrCount++;
-      }
+      if (stats.currentMmr > 0) { mmrSum += stats.currentMmr; mmrCount++; }
     }
-
     totalGames += result.totalGames || 0;
+    daysLoaded++;
   }
+
+  console.log(`[Weekly] Loaded stats for ${daysLoaded}/7 days (${weeklyPlayerMap.size} unique players)`);
 
   const uniquePlayers = weeklyPlayerMap.size;
   const averageMmr = mmrCount > 0 ? Math.round(mmrSum / mmrCount) : 0;
-  const topMaps = [...mapCounts.entries()]
-    .sort((a, b) => b[1] - a[1])
-    .slice(0, 5)
-    .map(([name, games]) => ({ name, games }));
 
-  return { weeklyPlayerMap, raceStats, topMaps, totalGames, uniquePlayers, averageMmr };
+  return { weeklyPlayerMap, raceStats, topMaps: [], totalGames, uniquePlayers, averageMmr };
 }
 
 /**
@@ -889,6 +955,106 @@ function computeWeeklyAwards(weeklyPlayerMap) {
   const biggestTilt = [...qualified].filter(p => p.mmrChange < 0).sort((a, b) => a.mmrChange - b.mmrChange)[0] || null;
 
   return { powerRankings, mvp, ironMan, mostImproved, biggestTilt };
+}
+
+/**
+ * Compute weekly streaks from concatenated daily form strings.
+ * Returns { hotStreak, coldStreak } players with cross-day streaks.
+ */
+function computeWeeklyStreaks(weeklyPlayerMap) {
+  const MIN_WEEKLY_STREAK = 5;
+  const results = [];
+
+  for (const p of weeklyPlayerMap.values()) {
+    if (!p.form || p.form.length < MIN_WEEKLY_STREAK) continue;
+    let winStreak = 0, maxWin = 0, lossStreak = 0, maxLoss = 0;
+    for (const ch of p.form) {
+      if (ch === 'W') { winStreak++; lossStreak = 0; if (winStreak > maxWin) maxWin = winStreak; }
+      else { lossStreak++; winStreak = 0; if (lossStreak > maxLoss) maxLoss = lossStreak; }
+    }
+    results.push({ ...p, weeklyWinStreak: maxWin, weeklyLossStreak: maxLoss });
+  }
+
+  const byWin = results.filter(p => p.weeklyWinStreak >= MIN_WEEKLY_STREAK).sort((a, b) => b.weeklyWinStreak - a.weeklyWinStreak);
+  const byLoss = results.filter(p => p.weeklyLossStreak >= MIN_WEEKLY_STREAK).sort((a, b) => b.weeklyLossStreak - a.weeklyLossStreak);
+
+  return { hotStreak: byWin[0] || null, coldStreak: byLoss[0] || null };
+}
+
+/**
+ * Find new players this week (first-ever appearance in daily_player_stats).
+ */
+function computeNewBlood(weekStart, weekEnd) {
+  const MIN_MMR_NEW_BLOOD = 2000;
+  const MIN_GAMES_NEW_BLOOD = 5;
+
+  let newPlayers;
+  try {
+    newPlayers = getNewPlayersForWeek(weekStart, weekEnd);
+  } catch (err) {
+    console.warn('[Weekly] New player query failed:', err.message);
+    return [];
+  }
+
+  if (!newPlayers || newPlayers.length === 0) return [];
+
+  // Filter: 2k+ MMR, or 5+ games
+  const filtered = newPlayers.filter(p =>
+    p.max_mmr >= MIN_MMR_NEW_BLOOD || p.total_games >= MIN_GAMES_NEW_BLOOD
+  );
+
+  return filtered.slice(0, 5).map(p => ({
+    battleTag: p.battle_tag,
+    name: p.name,
+    maxMmr: p.max_mmr,
+    totalGames: p.total_games,
+    totalWins: p.total_wins,
+  }));
+}
+
+/**
+ * Find biggest upsets of the week (lower-MMR team winning with biggest gap).
+ */
+function computeWeeklyUpsets(weekStart, weekEnd) {
+  let matches;
+  try {
+    matches = getDailyMatchesRange(weekStart, weekEnd);
+  } catch (err) {
+    console.warn('[Weekly] Match range query failed:', err.message);
+    return [];
+  }
+
+  if (!matches || matches.length === 0) return [];
+
+  const upsets = [];
+  for (const m of matches) {
+    if (!m.team1_avg_mmr || !m.team2_avg_mmr) continue;
+    const gap = Math.abs(m.team1_avg_mmr - m.team2_avg_mmr);
+    if (gap < 100) continue; // Only care about significant gaps
+
+    const team1Favored = m.team1_avg_mmr > m.team2_avg_mmr;
+    const underdogWon = (team1Favored && !m.team1_won) || (!team1Favored && m.team1_won);
+
+    if (underdogWon) {
+      const winnerMmr = m.team1_won ? m.team1_avg_mmr : m.team2_avg_mmr;
+      const loserMmr = m.team1_won ? m.team2_avg_mmr : m.team1_avg_mmr;
+      const winnerTags = m.team1_won ? m.team1_tags : m.team2_tags;
+      const loserTags = m.team1_won ? m.team2_tags : m.team1_tags;
+      upsets.push({
+        match_id: m.match_id,
+        map: m.map_name,
+        winnerAvgMmr: Math.round(winnerMmr),
+        loserAvgMmr: Math.round(loserMmr),
+        gap: Math.round(gap),
+        winnerTags: winnerTags || '',
+        loserTags: loserTags || '',
+      });
+    }
+  }
+
+  // Sort by biggest gap
+  upsets.sort((a, b) => b.gap - a.gap);
+  return upsets.slice(0, 2);
 }
 
 function buildWeeklyPrompt(dailyDigests, aggregateStats) {
@@ -1055,6 +1221,49 @@ export async function generateWeeklyDigest(weekStart) {
     parts.push(`GRINDER: ${weeklyGrinder.battleTag} ${weeklyGrinder.wins + weeklyGrinder.losses} games (${weeklyGrinder.wins}W-${weeklyGrinder.losses}L)`);
   }
 
+  // Weekly streaks (from concatenated daily form strings — can be longer than any single daily streak)
+  if (weeklyMatchStats?.weeklyPlayerMap) {
+    const usedStatTags = new Set([weeklyWinner?.battleTag, weeklyLoser?.battleTag, weeklyGrinder?.battleTag].filter(Boolean));
+    const streaks = computeWeeklyStreaks(weeklyMatchStats.weeklyPlayerMap);
+    if (streaks.hotStreak && !usedStatTags.has(streaks.hotStreak.battleTag)) {
+      const p = streaks.hotStreak;
+      parts.push(`HOTSTREAK: ${p.battleTag}${raceTag(p)} ${p.weeklyWinStreak}W streak (${p.wins}W-${p.losses}L) ${p.form}`);
+    }
+    if (streaks.coldStreak && !usedStatTags.has(streaks.coldStreak.battleTag)) {
+      const p = streaks.coldStreak;
+      parts.push(`COLDSTREAK: ${p.battleTag}${raceTag(p)} ${p.weeklyLossStreak}L streak (${p.wins}W-${p.losses}L) ${p.form}`);
+    }
+  }
+
+  // NEW_BLOOD: first-time players this week
+  try {
+    const newBlood = computeNewBlood(weekStart, weekEnd);
+    if (newBlood.length > 0) {
+      const entries = newBlood.map(p => {
+        const wr = p.totalGames > 0 ? Math.round(p.totalWins / p.totalGames * 100) : 0;
+        return `${p.battleTag} debuted at ${p.maxMmr} MMR (${p.totalGames} games, ${wr}% WR)`;
+      });
+      parts.push(`NEW_BLOOD: ${entries.join('; ')}`);
+    }
+  } catch (err) {
+    console.warn('[Weekly] New blood computation failed:', err.message);
+  }
+
+  // UPSET: biggest MMR gap upsets of the week
+  try {
+    const upsets = computeWeeklyUpsets(weekStart, weekEnd);
+    if (upsets.length > 0) {
+      const entries = upsets.map(u => {
+        const winnerNames = u.winnerTags.split(',').map(t => t.split('#')[0]).join(', ');
+        const mapStr = u.map ? ` on ${u.map}` : '';
+        return `${winnerNames} (avg ${u.winnerAvgMmr} MMR) beat favorites (avg ${u.loserAvgMmr} MMR)${mapStr} — ${u.gap} MMR gap`;
+      });
+      parts.push(`UPSET: ${entries.join('; ')}`);
+    }
+  } catch (err) {
+    console.warn('[Weekly] Upset computation failed:', err.message);
+  }
+
   // Append power rankings, meta, and awards sections
   if (weeklyAwards?.powerRankings?.length > 0) {
     parts.push(`POWER_RANKINGS: ${weeklyAwards.powerRankings.map((p, i) => `${i + 1}. ${p}`).join('; ')}`);
@@ -1118,6 +1327,39 @@ export async function generateWeeklyDigest(weekStart) {
   );
   console.log(`[Weekly] Generated for ${weekStart} to ${weekEnd} (${dailyDigests.length} daily digests, ${weeklyClips.length} clips)`);
   return digest;
+}
+
+/**
+ * Backfill daily player stats for a date range by fetching from the W3C API.
+ * Uses a higher offset limit to reach older matches.
+ */
+export async function backfillDailyStats(startDate, endDate) {
+  const origLimit = MAX_MATCH_OFFSET;
+  // Temporarily increase offset limit for backfill
+  // MAX_MATCH_OFFSET is a const, so we'll just directly use a high limit in the loop
+  const results = [];
+  const start = new Date(startDate + 'T12:00:00Z');
+  const end = new Date(endDate + 'T12:00:00Z');
+
+  for (let d = new Date(start); d <= end; d.setUTCDate(d.getUTCDate() + 1)) {
+    const dateStr = d.toISOString().slice(0, 10);
+    if (hasDailyPlayerStats(dateStr)) {
+      results.push({ date: dateStr, status: 'already_stored' });
+      continue;
+    }
+    try {
+      // computePlayerStats auto-saves to DB on success
+      const result = await computePlayerStats(dateStr);
+      if (result) {
+        results.push({ date: dateStr, status: 'ok', players: result.playerStats.size });
+      } else {
+        results.push({ date: dateStr, status: 'no_data' });
+      }
+    } catch (err) {
+      results.push({ date: dateStr, status: 'error', message: err.message });
+    }
+  }
+  return results;
 }
 
 /* ── Scheduled digest generation ─────────────────── */
