@@ -4,6 +4,7 @@ import { FaTwitch } from "react-icons/fa";
 import useAdmin from "../lib/useAdmin";
 import { searchLadder, getPlayerProfile } from "../lib/api";
 import { Select, Badge, Button, Input } from "../components/ui";
+import { PageLayout } from "../components/PageLayout";
 import PeonLoader from "../components/PeonLoader";
 import "../styles/pages/Clips.css";
 
@@ -189,12 +190,15 @@ function AddClipInput({ apiKey, onAdded }) {
     setAdding(true);
     setStatus(null);
     try {
-      const res = await fetch(`${RELAY_URL}/api/clips/admin/add`, {
+      const endpoint = apiKey
+        ? `${RELAY_URL}/api/clips/admin/add`
+        : `${RELAY_URL}/api/clips/submit`;
+      const headers = { "Content-Type": "application/json" };
+      if (apiKey) headers["X-API-Key"] = apiKey;
+
+      const res = await fetch(endpoint, {
         method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-          "X-API-Key": apiKey,
-        },
+        headers,
         body: JSON.stringify({ url: trimmed }),
       });
       const data = await res.json();
@@ -553,121 +557,120 @@ export default function Clips() {
   const relevantClips = isAdmin ? clips.filter((c) => !c.hidden) : clips;
   const hiddenClips = isAdmin ? clips.filter((c) => c.hidden) : [];
 
-  return (
-    <div className="clips">
-      <div className="clips-container">
-        <div className="clips-header">
-          <h1 className="clips-title">
-            <FaTwitch className="clips-twitch-icon" />
-            Clips
-          </h1>
-          <p className="clips-subtitle">Top moments from WC3 streamers</p>
+  const clipsHeader = (
+    <div className="page-header">
+      <div className="page-title-section">
+        <h1 className="page-title clips-title-row">
+          <FaTwitch className="clips-twitch-icon" />
+          Clips
+        </h1>
+        <div className="page-stats">
+          <span className="stat-item">Top moments from WC3 streamers</span>
         </div>
-
-        <div className="clips-filters">
-          {urlPlayer && (
-            <div className="clips-player-filter">
-              <span className="clips-player-tag">{urlPlayer.split("#")[0]}</span>
-              <button
-                className="clips-player-clear"
-                onClick={() => history.push("/clips")}
-                title="Clear player filter"
-              >&times;</button>
-            </div>
-          )}
-          <Select
-            value={filterStreamer}
-            onChange={(e) => setFilterStreamer(e.target.value)}
-          >
-            <option value="">All streamers</option>
-            {streamers.map((s) => (
-              <option key={s.twitch_login} value={s.twitch_login}>
-                {s.display_name}
-              </option>
-            ))}
-          </Select>
-
-          <Select
-            value={filterTag}
-            onChange={(e) => setFilterTag(e.target.value)}
-          >
-            {TAG_OPTIONS.map((t) => (
-              <option key={t.value} value={t.value}>
-                {t.label}
-              </option>
-            ))}
-          </Select>
-
-          {isAdmin && (
-            <AddClipInput apiKey={adminKey} onAdded={refreshClips} />
-          )}
-        </div>
-
-        {loading ? (
-          <div className="page-loader">
-            <PeonLoader />
-          </div>
-        ) : relevantClips.length === 0 && hiddenClips.length === 0 ? (
-          <div className="clips-empty">No clips found</div>
-        ) : (
-          <>
-            {relevantClips.length > 0 && (
-              <div className="clips-grid">
-                {relevantClips.map((clip) => (
-                  <ClipGridCard
-                    key={clip.clip_id}
-                    clip={clip}
-                    onClick={setActiveClip}
-                    apiKey={isAdmin ? adminKey : null}
-                    onUpdate={refreshClips}
-                    onOptimistic={optimisticUpdate}
-                  />
-                ))}
-              </div>
-            )}
-            {hasMore && (
-              <div className="clips-load-more">
-                <button
-                  className="clips-load-more-btn"
-                  onClick={loadMore}
-                  disabled={loadingMore}
-                >
-                  {loadingMore ? "Loading..." : "Load more"}
-                </button>
-              </div>
-            )}
-
-            {isAdmin && hiddenClips.length > 0 && (
-              <div className="clips-hidden-drawer">
-                <button
-                  className="clips-hidden-toggle"
-                  onClick={() => setShowHidden((v) => !v)}
-                >
-                  {showHidden ? "Hide" : "Show"} irrelevant ({hiddenClips.length})
-                </button>
-                {showHidden && (
-                  <div className="clips-grid clips-grid--hidden">
-                    {hiddenClips.map((clip) => (
-                      <ClipGridCard
-                        key={clip.clip_id}
-                        clip={clip}
-                        onClick={setActiveClip}
-                        apiKey={adminKey}
-                        onUpdate={refreshClips}
-                        onOptimistic={optimisticUpdate}
-                      />
-                    ))}
-                  </div>
-                )}
-              </div>
-            )}
-          </>
-        )}
       </div>
+      <div className="page-controls">
+        {urlPlayer && (
+          <div className="clips-player-filter">
+            <span className="clips-player-tag">{urlPlayer.split("#")[0]}</span>
+            <button
+              className="clips-player-clear"
+              onClick={() => history.push("/clips")}
+              title="Clear player filter"
+            >&times;</button>
+          </div>
+        )}
+        <Select
+          value={filterStreamer}
+          onChange={(e) => setFilterStreamer(e.target.value)}
+        >
+          <option value="">All streamers</option>
+          {streamers.map((s) => (
+            <option key={s.twitch_login} value={s.twitch_login}>
+              {s.display_name}
+            </option>
+          ))}
+        </Select>
+        <Select
+          value={filterTag}
+          onChange={(e) => setFilterTag(e.target.value)}
+        >
+          {TAG_OPTIONS.map((t) => (
+            <option key={t.value} value={t.value}>
+              {t.label}
+            </option>
+          ))}
+        </Select>
+        <AddClipInput apiKey={isAdmin ? adminKey : null} onAdded={refreshClips} />
+      </div>
+    </div>
+  );
+
+  return (
+    <>
+      <PageLayout maxWidth="1200px" bare header={clipsHeader}>
+        <div className="clips-content">
+          {loading ? (
+            <div className="page-loader">
+              <PeonLoader />
+            </div>
+          ) : relevantClips.length === 0 && hiddenClips.length === 0 ? (
+            <div className="clips-empty">No clips found</div>
+          ) : (
+            <>
+              {relevantClips.length > 0 && (
+                <div className="clips-grid">
+                  {relevantClips.map((clip) => (
+                    <ClipGridCard
+                      key={clip.clip_id}
+                      clip={clip}
+                      onClick={setActiveClip}
+                      apiKey={isAdmin ? adminKey : null}
+                      onUpdate={refreshClips}
+                      onOptimistic={optimisticUpdate}
+                    />
+                  ))}
+                </div>
+              )}
+              {hasMore && (
+                <div className="clips-load-more">
+                  <Button $secondary onClick={loadMore} disabled={loadingMore}>
+                    {loadingMore ? "Loading..." : "Load more"}
+                  </Button>
+                </div>
+              )}
+
+              {isAdmin && hiddenClips.length > 0 && (
+                <div className="clips-hidden-drawer">
+                  <button
+                    className="clips-hidden-toggle"
+                    onClick={() => setShowHidden((v) => !v)}
+                  >
+                    {showHidden ? "Hide" : "Show"} irrelevant ({hiddenClips.length})
+                  </button>
+                  {showHidden && (
+                    <div className="clips-grid clips-grid--hidden">
+                      {hiddenClips.map((clip) => (
+                        <ClipGridCard
+                          key={clip.clip_id}
+                          clip={clip}
+                          onClick={setActiveClip}
+                          apiKey={adminKey}
+                          onUpdate={refreshClips}
+                          onOptimistic={optimisticUpdate}
+                        />
+                      ))}
+                    </div>
+                  )}
+                </div>
+              )}
+            </>
+          )}
+        </div>
+      </PageLayout>
 
       {activeClip && (
         <ClipModal clip={activeClip} onClose={() => setActiveClip(null)} apiKey={isAdmin ? adminKey : null} onUpdate={() => { setActiveClip(null); refreshClips(); }} onOptimistic={optimisticUpdate} />
       )}
-    </div>
+    </>
   );
 }

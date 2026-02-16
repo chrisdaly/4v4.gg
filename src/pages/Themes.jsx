@@ -1,17 +1,25 @@
 import React from "react";
 import { themeList } from "../lib/borderThemes";
 import { useTheme } from "../lib/ThemeContext";
+import { PageLayout } from "../components/PageLayout";
 import "../styles/pages/Themes.css";
 
 const Themes = () => {
   const { themeId, setThemeId } = useTheme();
 
-  return (
-    <div className="themes-page">
-      <div className="themes-header">
-        <h1 className="themes-title">Themes</h1>
-        <p className="themes-subtitle">Choose a look for 4v4.GG</p>
+  const themesHeader = (
+    <div className="page-header">
+      <div className="page-title-section">
+        <h1 className="page-title">Themes</h1>
+        <div className="page-stats">
+          <span className="stat-item">Choose a look for 4v4.GG</span>
+        </div>
       </div>
+    </div>
+  );
+
+  return (
+    <PageLayout maxWidth="1000px" bare header={themesHeader}>
       <div className="themes-grid">
         {themeList.map((t) => (
           <button
@@ -34,7 +42,7 @@ const Themes = () => {
           </button>
         ))}
       </div>
-    </div>
+    </PageLayout>
   );
 };
 

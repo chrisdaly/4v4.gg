@@ -41,8 +41,6 @@ const Header = styled.div`
   justify-content: space-between;
   padding: var(--space-4);
   border-bottom: 1px solid rgba(252, 219, 51, 0.15);
-  background: ${(p) => p.$theme?.headerBg || "rgba(10, 8, 6, 0.2)"};
-  backdrop-filter: ${(p) => p.$theme?.blur || "blur(1px)"};
   flex-shrink: 0;
 
   @media (max-width: 480px) {

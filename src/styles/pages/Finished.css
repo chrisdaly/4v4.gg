@@ -1,13 +1,8 @@
 /* ========================================
-   Recently Finished Page Styles
+   Shared Page Header Styles
    ======================================== */
 
-.finished-page {
-  min-height: 100vh;
-  padding: 0 var(--space-6) var(--space-12) var(--space-6);
-}
-
-.finished-header {
+.page-header {
   display: flex;
   justify-content: space-between;
   align-items: center;
@@ -16,18 +11,15 @@
   border-bottom: var(--border-thin) solid var(--grey-mid);
   flex-wrap: wrap;
   gap: var(--space-4);
-  max-width: 1200px;
-  margin-left: auto;
-  margin-right: auto;
 }
 
-.finished-title-section {
+.page-title-section {
   display: flex;
   flex-direction: column;
   gap: var(--space-1);
 }
 
-.finished-title {
+.page-title {
   font-family: var(--font-display);
   font-size: var(--text-xl);
   color: var(--gold);
@@ -35,18 +27,18 @@
   letter-spacing: 0.5px;
 }
 
-.finished-stats {
+.page-stats {
   display: flex;
   gap: var(--space-4);
   font-family: var(--font-mono);
   font-size: var(--text-sm);
 }
 
-.finished-stats .stat-item {
+.page-stats .stat-item {
   color: var(--grey-light);
 }
 
-.finished-controls {
+.page-controls {
   display: flex;
   align-items: flex-end;
   gap: var(--space-4);
@@ -66,6 +58,10 @@
   letter-spacing: 0.1em;
   color: var(--grey-light);
 }
+
+/* ========================================
+   Recently Finished Page Content Styles
+   ======================================== */
 
 /* Game tiles container */
 .game-tiles {
@@ -99,14 +95,14 @@
   padding: 0 12px;
 }
 
-/* Responsive styles for finished page */
+/* Responsive styles */
 @media (max-width: 768px) {
-  .finished-header {
+  .page-header {
     flex-direction: column;
     align-items: flex-start;
   }
 
-  .finished-controls {
+  .page-controls {
     width: 100%;
     flex-direction: column;
     align-items: stretch;

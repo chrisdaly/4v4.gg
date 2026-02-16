@@ -1,18 +1,44 @@
 /* ========================================
-   News Page
+   News Page — Editorial Layout
    ======================================== */
 
-.news {
-  display: flex;
-  flex-direction: column;
-  min-height: calc(100vh - 52px);
-  padding: var(--space-4);
+.news-page {
+  max-width: 1000px;
+  margin: 0 auto;
+  padding: 64px 32px 96px;
 }
 
-.news-container {
-  max-width: 1000px;
-  width: 100%;
-  margin: 0 auto;
+/* ── Hero ──────────────────────────────────────────── */
+
+.news-hero {
+  margin-bottom: 48px;
+}
+
+.news-eyebrow {
+  text-transform: uppercase;
+  letter-spacing: 0.32em;
+  font-size: 0.75rem;
+  color: var(--gold);
+  font-family: var(--font-mono);
+}
+
+.news-hero h1 {
+  font-family: var(--font-display);
+  font-size: clamp(2rem, 5vw, 3.2rem);
+  color: var(--gold);
+  line-height: 1.1;
+  margin: 16px 0;
+  font-weight: normal;
+  text-shadow: 0 2px 16px rgba(0, 0, 0, 0.8);
+}
+
+.news-lead {
+  font-family: var(--font-body);
+  font-size: 1.05rem;
+  color: var(--grey-light);
+  max-width: 55ch;
+  line-height: 1.6;
+  text-shadow: 0 1px 8px rgba(0, 0, 0, 0.7);
 }
 
 .news-empty {
@@ -22,13 +48,21 @@
   text-align: center;
 }
 
+/* ── Controls row (toggle + month nav) ────────────── */
+
+.news-controls {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--space-4);
+  margin-bottom: var(--space-6);
+}
+
 /* ── View toggle (Daily / Weekly) ─────────────────── */
 
 .news-view-toggle {
   display: flex;
-  justify-content: center;
   gap: var(--space-1);
-  margin-bottom: var(--space-4);
 }
 
 /* ── Month Navigation ─────────────────────────────── */
@@ -36,13 +70,7 @@
 .month-nav {
   display: flex;
   align-items: center;
-  justify-content: center;
   gap: var(--space-4);
-  margin-bottom: var(--space-6);
-  padding: var(--space-4);
-  background: var(--surface-1);
-  border: 1px solid var(--grey-mid);
-  border-radius: var(--radius-md);
 }
 
 .month-nav-btn {
@@ -108,15 +136,10 @@
   background: rgba(252, 219, 51, 0.1);
 }
 
-/* ── Digest panel ─────────────────────────────────── */
+/* ── Digest panel (panelless editorial) ──────────── */
 
 .news-digest {
-  background: rgba(10, 8, 6, 0.25);
-  backdrop-filter: blur(12px);
-  -webkit-backdrop-filter: blur(12px);
-  border: 1px solid rgba(255, 255, 255, 0.06);
-  border-radius: var(--radius-md);
-  padding: var(--space-6);
+  padding: var(--space-6) 0;
 }
 
 /* Valentine's Day theme (Feb 14) */
@@ -361,6 +384,7 @@
   font-size: var(--text-sm);
   line-height: 1.7;
   color: var(--text-body);
+  text-shadow: 0 1px 8px rgba(0, 0, 0, 0.7);
 }
 
 /* Section accents */
@@ -1228,14 +1252,23 @@
 
 /* ── Mobile ────────────────────────────────────────── */
 
-@media (max-width: 768px) {
-  .news {
-    padding: var(--space-2);
+@media (max-width: 600px) {
+  .news-page {
+    padding: 48px 0 64px;
+  }
+
+  .news-hero {
+    padding: 0 16px;
+  }
+
+  .news-controls {
+    flex-direction: column;
+    gap: var(--space-2);
+    padding: 0 16px;
   }
 
   .news-digest {
-    padding: var(--space-2) var(--space-4);
-    background: rgba(10, 8, 6, 0.85);
+    padding: var(--space-4) 16px;
   }
 
   .digest-section {

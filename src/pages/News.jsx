@@ -245,158 +245,201 @@ const News = () => {
 
   if (loading) {
     return (
-      <div className="news">
-        <div className="news-container">
-          <div className="page-loader">
-            <PeonLoader />
-          </div>
+      <div className="news-page">
+        <div className="page-loader">
+          <PeonLoader />
         </div>
       </div>
     );
   }
 
   return (
-    <div className="news">
-      <div className="news-container">
-        {(hasWeekly || isAdmin) && <div className="news-view-toggle">
-          {hasWeekly && (
-            <>
-              <button
-                className={`news-view-btn${viewMode === "daily" ? " news-view-btn--active" : ""}`}
-                onClick={() => setViewMode("daily")}
-              >
-                Daily
-              </button>
-              <button
-                className={`news-view-btn${viewMode === "weekly" ? " news-view-btn--active" : ""}`}
-                onClick={() => setViewMode("weekly")}
-              >
-                Weekly
-              </button>
-            </>
-          )}
-          {isAdmin && (
-            <>
-              <button
-                className={`news-view-btn${!previewReader ? " news-view-btn--active" : ""}`}
-                onClick={() => setPreviewReader(false)}
-              >
-                Admin
-              </button>
-              <button
-                className={`news-view-btn${previewReader ? " news-view-btn--active" : ""}`}
-                onClick={() => setPreviewReader(true)}
-              >
-                Reader
-              </button>
-            </>
-          )}
-        </div>}
-        {viewMode === "daily" ? (
-          allDigests.length > 0 ? (
-            <>
-              {/* Month Navigation */}
-              <div className="month-nav">
-                <button
-                  className="month-nav-btn"
-                  onClick={handlePrevMonth}
-                  disabled={!canGoPrevMonth}
-                >
-                  ←
-                </button>
-                <span className="month-nav-label">
-                  {effectiveMonth ? formatMonthLabel(effectiveMonth) : "Loading..."}
-                </span>
-                <button
-                  className="month-nav-btn"
-                  onClick={handleNextMonth}
-                  disabled={!canGoNextMonth}
-                >
-                  →
-                </button>
-              </div>
+    <div className="news-page">
+      <header className="news-hero">
+        <div className="news-eyebrow">4v4.gg Daily</div>
+        <h1>The 4v4 Digest</h1>
+        <p className="news-lead">Daily drama, stats, and highlights from the W3C 4v4 ladder.</p>
+      </header>
 
-              <DigestBanner
-                digest={currentDigest}
-                nameSet={nameSet}
-                nameToTag={nameToTag}
-                label={digestLabel}
-                isAdmin={effectiveAdmin}
-                apiKey={adminKey}
-                onDigestUpdated={handleDigestUpdated}
-                filterPlayer={urlPlayer}
-                dateTabs={currentMonthDigests.map((d, i) => ({
-                  label: formatDigestLabel(d.date),
-                  active: i === safeDayIdx,
-                  onClick: () => setDigestIdxAndUrl(i),
-                }))}
-              />
-            </>
-          ) : (
-            <div className="news-empty">No digests available yet.</div>
-          )
-        ) : (
-          weeklyDigests.length > 0 ? (
-            <DigestBanner
-              digest={currentWeekly ? { digest: currentWeekly.digest, date: currentWeekly.week_start, clips: currentWeekly.clips } : null}
-              nameSet={nameSet}
-              nameToTag={nameToTag}
-              label={weeklyLabel}
-              clips={currentWeekly?.clips}
-              stats={currentWeekly?.stats}
-              dateTabs={weeklyDigests.map((w, i) => ({
-                label: formatWeeklyLabel(w.week_start, w.week_end),
-                active: i === weeklyIdx,
-                onClick: () => setWeeklyIdx(i),
-              }))}
-            />
-          ) : (
-            <div className="news-empty">No weekly digests available yet.</div>
-          )
-        )}
-        {isAdmin && viewMode === "daily" && isViewingToday && (
-          <button
-            className="digest-editor-refresh"
-            onClick={handleRefreshToday}
-            disabled={refreshing}
-          >
-            <FiRefreshCw size={12} className={refreshing ? "spin" : ""} />
-            {refreshing ? "Refreshing..." : "Refresh today"}
-          </button>
-        )}
-        {showAdmin && viewMode === "daily" && !adminKey && (
-          <div className="digest-editor">
-            <div className="digest-editor-header">
-              <span className="digest-editor-title">Admin Key Required</span>
+      {/* Controls row: view toggle left, month nav right */}
+      {viewMode === "daily" && allDigests.length > 0 ? (
+        <div className="news-controls">
+          {(hasWeekly || isAdmin) && (
+            <div className="news-view-toggle">
+              {hasWeekly && (
+                <>
+                  <button
+                    className={`news-view-btn${viewMode === "daily" ? " news-view-btn--active" : ""}`}
+                    onClick={() => setViewMode("daily")}
+                  >
+                    Daily
+                  </button>
+                  <button
+                    className={`news-view-btn${viewMode === "weekly" ? " news-view-btn--active" : ""}`}
+                    onClick={() => setViewMode("weekly")}
+                  >
+                    Weekly
+                  </button>
+                </>
+              )}
+              {isAdmin && (
+                <>
+                  <button
+                    className={`news-view-btn${!previewReader ? " news-view-btn--active" : ""}`}
+                    onClick={() => setPreviewReader(false)}
+                  >
+                    Admin
+                  </button>
+                  <button
+                    className={`news-view-btn${previewReader ? " news-view-btn--active" : ""}`}
+                    onClick={() => setPreviewReader(true)}
+                  >
+                    Reader
+                  </button>
+                </>
+              )}
             </div>
-            <div className="digest-editor-key-prompt">
-              <input
-                type="password"
-                className="digest-editor-key-input"
-                placeholder="Paste admin API key..."
-                value={keyInput}
-                onChange={(e) => { setKeyInput(e.target.value); setKeyError(null); }}
-                onKeyDown={(e) => e.key === "Enter" && handleKeySubmit()}
-              />
-              <button className="digest-editor-key-btn" onClick={handleKeySubmit} disabled={!keyInput.trim()}>
-                Save
-              </button>
-            </div>
-            {keyError && <div className="digest-editor-key-error">{keyError}</div>}
+          )}
+          <div className="month-nav">
+            <button
+              className="month-nav-btn"
+              onClick={handlePrevMonth}
+              disabled={!canGoPrevMonth}
+            >
+              ←
+            </button>
+            <span className="month-nav-label">
+              {effectiveMonth ? formatMonthLabel(effectiveMonth) : "Loading..."}
+            </span>
+            <button
+              className="month-nav-btn"
+              onClick={handleNextMonth}
+              disabled={!canGoNextMonth}
+            >
+              →
+            </button>
           </div>
-        )}
-        {isAdmin && viewMode === "daily" && isViewingToday && !previewReader && (
-          <span className="digest-today-notice">
-            Live digest — editing available after the day ends
-          </span>
-        )}
-        {viewMode === "daily" && allDigests.length > 1 && (
-          <>
-            <TopicTrends digests={allDigests} />
-            <BeefTracker digests={allDigests} nameToTag={nameToTag} />
-          </>
-        )}
-      </div>
+        </div>
+      ) : (hasWeekly || isAdmin) ? (
+        <div className="news-controls">
+          <div className="news-view-toggle">
+            {hasWeekly && (
+              <>
+                <button
+                  className={`news-view-btn${viewMode === "daily" ? " news-view-btn--active" : ""}`}
+                  onClick={() => setViewMode("daily")}
+                >
+                  Daily
+                </button>
+                <button
+                  className={`news-view-btn${viewMode === "weekly" ? " news-view-btn--active" : ""}`}
+                  onClick={() => setViewMode("weekly")}
+                >
+                  Weekly
+                </button>
+              </>
+            )}
+            {isAdmin && (
+              <>
+                <button
+                  className={`news-view-btn${!previewReader ? " news-view-btn--active" : ""}`}
+                  onClick={() => setPreviewReader(false)}
+                >
+                  Admin
+                </button>
+                <button
+                  className={`news-view-btn${previewReader ? " news-view-btn--active" : ""}`}
+                  onClick={() => setPreviewReader(true)}
+                >
+                  Reader
+                </button>
+              </>
+            )}
+          </div>
+        </div>
+      ) : null}
+
+      {viewMode === "daily" ? (
+        allDigests.length > 0 ? (
+          <DigestBanner
+            digest={currentDigest}
+            nameSet={nameSet}
+            nameToTag={nameToTag}
+            label={digestLabel}
+            isAdmin={effectiveAdmin}
+            apiKey={adminKey}
+            onDigestUpdated={handleDigestUpdated}
+            filterPlayer={urlPlayer}
+            dateTabs={currentMonthDigests.map((d, i) => ({
+              label: formatDigestLabel(d.date),
+              active: i === safeDayIdx,
+              onClick: () => setDigestIdxAndUrl(i),
+            }))}
+          />
+        ) : (
+          <div className="news-empty">No digests available yet.</div>
+        )
+      ) : (
+        weeklyDigests.length > 0 ? (
+          <DigestBanner
+            digest={currentWeekly ? { digest: currentWeekly.digest, date: currentWeekly.week_start, clips: currentWeekly.clips } : null}
+            nameSet={nameSet}
+            nameToTag={nameToTag}
+            label={weeklyLabel}
+            clips={currentWeekly?.clips}
+            stats={currentWeekly?.stats}
+            dateTabs={weeklyDigests.map((w, i) => ({
+              label: formatWeeklyLabel(w.week_start, w.week_end),
+              active: i === weeklyIdx,
+              onClick: () => setWeeklyIdx(i),
+            }))}
+          />
+        ) : (
+          <div className="news-empty">No weekly digests available yet.</div>
+        )
+      )}
+      {isAdmin && viewMode === "daily" && isViewingToday && (
+        <button
+          className="digest-editor-refresh"
+          onClick={handleRefreshToday}
+          disabled={refreshing}
+        >
+          <FiRefreshCw size={12} className={refreshing ? "spin" : ""} />
+          {refreshing ? "Refreshing..." : "Refresh today"}
+        </button>
+      )}
+      {showAdmin && viewMode === "daily" && !adminKey && (
+        <div className="digest-editor">
+          <div className="digest-editor-header">
+            <span className="digest-editor-title">Admin Key Required</span>
+          </div>
+          <div className="digest-editor-key-prompt">
+            <input
+              type="password"
+              className="digest-editor-key-input"
+              placeholder="Paste admin API key..."
+              value={keyInput}
+              onChange={(e) => { setKeyInput(e.target.value); setKeyError(null); }}
+              onKeyDown={(e) => e.key === "Enter" && handleKeySubmit()}
+            />
+            <button className="digest-editor-key-btn" onClick={handleKeySubmit} disabled={!keyInput.trim()}>
+              Save
+            </button>
+          </div>
+          {keyError && <div className="digest-editor-key-error">{keyError}</div>}
+        </div>
+      )}
+      {isAdmin && viewMode === "daily" && isViewingToday && !previewReader && (
+        <span className="digest-today-notice">
+          Live digest — editing available after the day ends
+        </span>
+      )}
+      {viewMode === "daily" && allDigests.length > 1 && (
+        <>
+          <TopicTrends digests={allDigests} />
+          <BeefTracker digests={allDigests} nameToTag={nameToTag} />
+        </>
+      )}
     </div>
   );
 };

@@ -190,17 +190,17 @@ const RecentlyFinished = () => {
         <PageLayout
           maxWidth="1200px"
           header={
-            <div className="finished-header">
-              <div className="finished-title-section">
-                <h1 className="finished-title">Recently Finished</h1>
-                <div className="finished-stats">
+            <div className="page-header">
+              <div className="page-title-section">
+                <h1 className="page-title">Recently Finished</h1>
+                <div className="page-stats">
                   <span className="stat-item">
                     {filteredMatches.length} games
                     {totalPages > 1 && ` · Page ${currentPage} of ${totalPages}`}
                   </span>
                 </div>
               </div>
-              <div className="finished-controls">
+              <div className="page-controls">
                 <div className="filter-group">
                   <label>Time Range</label>
                   <Select

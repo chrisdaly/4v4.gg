@@ -9,7 +9,7 @@ const getCachedMatchPlayerData = (matchId) => {
   return cache.get(`matchPlayers:${matchId}`);
 };
 
-const OnGoingGame = ({ ongoingGameData, compact, streamerTag }) => {
+const OnGoingGame = ({ ongoingGameData, compact, streamerTag, onReady }) => {
   const matchId = ongoingGameData?.id;
   const cachedData = matchId ? getCachedMatchPlayerData(matchId) : null;
 
@@ -21,6 +21,11 @@ const OnGoingGame = ({ ongoingGameData, compact, streamerTag }) => {
   const [sessionData, setSessionData] = useState(cachedData?.sessions || {});
   const [liveStreamers, setLiveStreamers] = useState({});
   const [isLoading, setIsLoading] = useState(!cachedData);
+
+  // If initialized from cache, signal ready immediately
+  useEffect(() => {
+    if (cachedData && matchId && onReady) onReady(matchId);
+  }, []);
 
   useEffect(() => {
     if (!ongoingGameData) return;
@@ -62,6 +67,7 @@ const OnGoingGame = ({ ongoingGameData, compact, streamerTag }) => {
       console.error("Error fetching player data:", error);
     } finally {
       setIsLoading(false);
+      if (matchId && onReady) onReady(matchId);
     }
   };
 

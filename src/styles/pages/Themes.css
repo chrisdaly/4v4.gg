@@ -2,38 +2,12 @@
    Themes Page
    ======================================== */
 
-.themes-page {
-  min-height: 100vh;
-  padding: 0 20px 40px;
-  max-width: 1000px;
-  margin: 0 auto;
-}
-
-.themes-header {
-  padding: 24px 0 20px;
-  text-align: center;
-}
-
-.themes-title {
-  font-family: var(--font-display);
-  font-size: var(--text-xl);
-  color: var(--gold);
-  margin: 0;
-  letter-spacing: 2px;
-}
-
-.themes-subtitle {
-  font-family: var(--font-mono);
-  font-size: var(--text-xs);
-  color: var(--grey-light);
-  margin: 8px 0 0;
-  letter-spacing: 0.5px;
-}
-
 .themes-grid {
   display: grid;
   grid-template-columns: repeat(4, 1fr);
   gap: 12px;
+  max-width: 1000px;
+  margin: 0 auto;
 }
 
 .themes-card {
@@ -100,10 +74,6 @@
 
 /* Responsive - tablet */
 @media (max-width: 768px) {
-  .themes-page {
-    padding: 0 12px 30px;
-  }
-
   .themes-grid {
     grid-template-columns: repeat(3, 1fr);
     gap: 8px;
@@ -124,20 +94,8 @@
 
 /* Responsive - mobile */
 @media (max-width: 480px) {
-  .themes-page {
-    padding: 0 8px 24px;
-  }
-
   .themes-grid {
     grid-template-columns: repeat(2, 1fr);
     gap: 8px;
-  }
-
-  .themes-header {
-    padding: 16px 0;
-  }
-
-  .themes-title {
-    font-size: var(--text-lg);
   }
 }

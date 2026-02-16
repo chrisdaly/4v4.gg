@@ -2,32 +2,9 @@
    Clips Page
    ======================================== */
 
-.clips {
-  display: flex;
-  flex-direction: column;
-  min-height: calc(100vh - 52px);
-  padding: var(--space-4);
-}
-
-.clips-container {
-  max-width: 1200px;
-  width: 100%;
-  margin: 0 auto;
-}
-
-.clips-header {
-  text-align: center;
-  margin-bottom: var(--space-4);
-}
-
-.clips-title {
-  font-family: var(--font-display);
-  font-size: var(--text-xl);
-  color: var(--gold);
-  margin: 0 0 var(--space-1);
+.clips-title-row {
   display: flex;
   align-items: center;
-  justify-content: center;
   gap: var(--space-2);
 }
 
@@ -37,23 +14,13 @@
   font-size: 0.85em;
 }
 
-.clips-subtitle {
-  font-family: var(--font-mono);
-  font-size: var(--text-xs);
-  color: var(--grey-light);
-  text-transform: uppercase;
-  letter-spacing: 0.1em;
+
+/* ── Content container (bare layout) ─────────── */
+
+.clips-content {
+  max-width: 1200px;
+  margin: 0 auto;
 }
-
-/* ── Filters ───────────────────────────────── */
-
-.clips-filters {
-  display: flex;
-  gap: var(--space-2);
-  margin-bottom: var(--space-8);
-  flex-wrap: wrap;
-}
-
 
 /* ── Player filter pill ────────────────────── */
 
@@ -138,6 +105,8 @@
   -webkit-backdrop-filter: blur(12px);
   cursor: pointer;
   transition: border-color 0.15s;
+  overflow: hidden;
+  min-width: 0;
 }
 
 .clip-card:hover {
@@ -628,30 +597,6 @@
   margin: var(--space-6) 0 var(--space-8);
 }
 
-.clips-load-more-btn {
-  font-family: var(--font-mono);
-  font-size: var(--text-xs);
-  text-transform: uppercase;
-  letter-spacing: 0.08em;
-  color: var(--grey-light);
-  background: none;
-  border: var(--border-thin) solid var(--grey-mid);
-  padding: 8px 24px;
-  border-radius: var(--radius-full);
-  cursor: pointer;
-  transition: all 0.15s;
-}
-
-.clips-load-more-btn:hover {
-  color: var(--white);
-  border-color: var(--grey-light);
-}
-
-.clips-load-more-btn:disabled {
-  opacity: 0.3;
-  cursor: not-allowed;
-}
-
 /* ── Empty / loading states ────────────────── */
 
 .clips-empty {
@@ -672,18 +617,6 @@
 }
 
 @media (max-width: 768px) {
-  .clips {
-    padding: var(--space-2);
-  }
-
-  .clips-header {
-    margin-bottom: var(--space-4);
-  }
-
-  .clips-title {
-    font-size: var(--text-lg);
-  }
-
   .clips-grid {
     grid-template-columns: 1fr;
     gap: var(--space-3);

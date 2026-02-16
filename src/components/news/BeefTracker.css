@@ -1,13 +1,9 @@
 /* ── Beef Tracker / Drama Leaderboard ─────────────── */
 
 .beef-tracker {
-  margin-top: var(--space-4);
-  background: rgba(10, 8, 6, 0.25);
-  backdrop-filter: blur(12px);
-  -webkit-backdrop-filter: blur(12px);
-  border: 1px solid rgba(255, 255, 255, 0.06);
-  border-radius: var(--radius-md);
-  overflow: hidden;
+  margin-top: 48px;
+  padding-top: 48px;
+  border-top: 1px solid rgba(255, 255, 255, 0.08);
 }
 
 .beef-tracker-header {

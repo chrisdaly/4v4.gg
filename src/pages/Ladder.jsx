@@ -2,6 +2,7 @@ import React, { useState, useEffect, useMemo, useCallback } from "react";
 
 import LadderRow from "../components/LadderRow";
 import PeonLoader from "../components/PeonLoader";
+import { PageLayout } from "../components/PageLayout";
 import { Select, Input, Button } from "../components/ui";
 import { gateway } from "../lib/params";
 import { fetchPlayerSessionData } from "../lib/utils";
@@ -375,81 +376,80 @@ const Ladder = () => {
 
   const currentLeague = LEAGUES.find((l) => l.id === selectedLeague);
 
-  return (
-    <div className="ladder-page">
-      <div className="ladder-header">
-        <div className="ladder-title-section">
-          {searchResults !== null ? (
-            <>
-              <h1 className="ladder-title">Search Results</h1>
-              <div className="ladder-stats">
-                <span className="stat-item">{searchResults.length} players found</span>
-              </div>
-            </>
-          ) : (
-            <>
-              <div className="ladder-league-title">
-                <img src={currentLeague?.icon} alt="" className="league-icon-title" />
-                <h1 className="ladder-title">{currentLeague?.name}</h1>
-              </div>
-              <div className="ladder-stats">
-                <span className="stat-item">{rankings.length} players</span>
-                {inGameCount > 0 && (
-                  <span className="stat-item in-game">
-                    <GiCrossedSwords className="in-game-icon-small" />
-                    {inGameCount} in game
-                  </span>
-                )}
-              </div>
-            </>
+  const ladderHeader = (
+    <div className="page-header">
+      <div className="page-title-section">
+        {searchResults !== null ? (
+          <>
+            <h1 className="page-title">Search Results</h1>
+            <div className="page-stats">
+              <span className="stat-item">{searchResults.length} players found</span>
+            </div>
+          </>
+        ) : (
+          <>
+            <h1 className="page-title">{currentLeague?.name}</h1>
+            <div className="page-stats">
+              <span className="stat-item">{rankings.length} players</span>
+              {inGameCount > 0 && (
+                <span className="stat-item in-game">
+                  <GiCrossedSwords className="in-game-icon-small" />
+                  {inGameCount} in game
+                </span>
+              )}
+            </div>
+          </>
+        )}
+      </div>
+      <div className="page-controls ladder-controls">
+        <div className="ladder-search">
+          <Input
+            type="text"
+            placeholder="Search all leagues..."
+            value={searchQuery}
+            onChange={(e) => setSearchQuery(e.target.value)}
+          />
+          {searchQuery && (
+            <button className="search-clear" onClick={() => { setSearchQuery(""); setSearchResults(null); }}>×</button>
           )}
         </div>
-        <div className="ladder-controls">
-          <div className="ladder-search">
-            <Input
-              type="text"
-              placeholder="Search all leagues..."
-              value={searchQuery}
-              onChange={(e) => setSearchQuery(e.target.value)}
-            />
-            {searchQuery && (
-              <button className="search-clear" onClick={() => { setSearchQuery(""); setSearchResults(null); }}>×</button>
-            )}
+        <div className="ladder-selectors">
+          <div className="league-selector">
+            <img src={currentLeague?.icon} alt="" className="league-icon" />
+            <Select
+              id="league-select"
+              value={selectedLeague}
+              onChange={handleLeagueChange}
+              disabled={searchResults !== null}
+              style={{ paddingLeft: '34px' }}
+            >
+              {LEAGUES.map((league) => (
+                <option key={league.id} value={league.id}>
+                  {league.name}
+                </option>
+              ))}
+            </Select>
           </div>
-          <div className="ladder-selectors">
-            <div className="league-selector">
-              <img src={currentLeague?.icon} alt="" className="league-icon" />
-              <Select
-                id="league-select"
-                value={selectedLeague}
-                onChange={handleLeagueChange}
-                disabled={searchResults !== null}
-                style={{ paddingLeft: '34px' }}
-              >
-                {LEAGUES.map((league) => (
-                  <option key={league.id} value={league.id}>
-                    {league.name}
-                  </option>
-                ))}
-              </Select>
-            </div>
-            <div className="season-selector">
-              <Select
-                id="season-select"
-                value={selectedSeason || ""}
-                onChange={handleSeasonChange}
-              >
-                {availableSeasons.map((s) => (
-                  <option key={s.id} value={s.id}>
-                    S{s.id}
-                  </option>
-                ))}
-              </Select>
-            </div>
+          <div className="season-selector">
+            <Select
+              id="season-select"
+              value={selectedSeason || ""}
+              onChange={handleSeasonChange}
+            >
+              {availableSeasons.map((s) => (
+                <option key={s.id} value={s.id}>
+                  S{s.id}
+                </option>
+              ))}
+            </Select>
           </div>
         </div>
       </div>
+    </div>
+  );
 
+  return (
+    <PageLayout maxWidth="1000px" fullHeight header={ladderHeader}>
       {isLoading || isSearching ? (
         <div className="page-loader">
           <PeonLoader />
@@ -499,7 +499,7 @@ const Ladder = () => {
           </div>
         </div>
       )}
-    </div>
+    </PageLayout>
   );
 };
 

@@ -41,6 +41,62 @@ router.get('/:clipId', (req, res) => {
   res.json(clip);
 });
 
+// POST /api/clips/submit — public clip submission by URL
+router.post('/submit', async (req, res) => {
+  const { url } = req.body;
+  if (!url) return res.status(400).json({ error: 'url is required' });
+
+  // Parse slug from Twitch clip URL
+  let slug = null;
+  try {
+    const parsed = new URL(url);
+    if (parsed.hostname === 'clips.twitch.tv') {
+      slug = parsed.pathname.split('/').filter(Boolean)[0];
+    } else if (parsed.hostname.includes('twitch.tv')) {
+      const parts = parsed.pathname.split('/').filter(Boolean);
+      const clipIdx = parts.indexOf('clip');
+      if (clipIdx !== -1 && parts[clipIdx + 1]) {
+        slug = parts[clipIdx + 1];
+      }
+    }
+  } catch {
+    return res.status(400).json({ error: 'Invalid URL' });
+  }
+
+  if (!slug) return res.status(400).json({ error: 'Could not parse clip slug from URL' });
+
+  // Check if clip already exists
+  const existing = getClipById(slug);
+  if (existing) return res.json({ ok: true, clip: existing, message: 'Clip already exists' });
+
+  try {
+    const data = await twitchGet(`/clips?id=${encodeURIComponent(slug)}`);
+    const clips = data.data || [];
+    if (clips.length === 0) return res.status(404).json({ error: 'Clip not found on Twitch' });
+
+    const c = clips[0];
+    const clip = {
+      clip_id: c.id,
+      twitch_login: c.broadcaster_name.toLowerCase(),
+      title: c.title,
+      url: c.url,
+      embed_url: c.embed_url,
+      thumbnail_url: c.thumbnail_url,
+      creator_name: c.creator_name || '',
+      view_count: c.view_count || 0,
+      duration: c.duration || 0,
+      created_at: c.created_at,
+      game_id: c.game_id || '',
+    };
+
+    insertClips([clip]);
+    const inserted = getClipById(clip.clip_id);
+    res.json({ ok: true, clip: inserted });
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
 // ── Admin routes ────────────────────────────────
 
 // GET /api/clips/admin/all — all clips including hidden (for admin triage)

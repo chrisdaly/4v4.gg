@@ -2,13 +2,6 @@
    Ladder Page Styles
    ======================================== */
 
-.ladder-page {
-  height: calc(100vh - 52px);
-  padding: 0 var(--space-6) var(--space-6) var(--space-6);
-  display: flex;
-  flex-direction: column;
-}
-
 /* League Distribution Chart */
 .league-distribution {
   max-width: 1000px;
@@ -181,38 +174,8 @@
   }
 }
 
-.ladder-header {
-  display: flex;
-  justify-content: space-between;
-  align-items: center;
-  padding: 20px 0;
-  margin-bottom: 20px;
-  border-bottom: 1px solid var(--grey-mid);
-  flex-wrap: wrap;
-  gap: 16px;
-  max-width: 1000px;
-  margin-left: auto;
-  margin-right: auto;
-}
-
-.ladder-title-section {
-  display: flex;
-  flex-direction: column;
-  gap: 4px;
-}
-
-.ladder-stats {
-  display: flex;
-  gap: 16px;
-  font-family: var(--font-mono);
-  font-size: var(--text-sm);
-}
-
-.ladder-stats .stat-item {
-  color: var(--grey-light);
-}
-
-.ladder-stats .stat-item.in-game {
+/* Ladder-specific header elements */
+.page-stats .stat-item.in-game {
   color: var(--red);
   display: flex;
   align-items: center;
@@ -228,9 +191,7 @@
 }
 
 .ladder-controls {
-  display: flex;
   align-items: center;
-  gap: 16px;
 }
 
 .ladder-selectors {
@@ -266,7 +227,7 @@
 }
 
 .ladder-search::before {
-  content: "⌕";
+  content: "\2315";
   position: absolute;
   left: 12px;
   top: 50%;
@@ -294,39 +255,6 @@
   color: var(--white);
 }
 
-.ladder-league-title {
-  display: flex;
-  align-items: center;
-  gap: 12px;
-}
-
-.league-icon-title {
-  width: 48px;
-  height: 48px;
-}
-
-.ladder-title {
-  font-family: var(--font-display);
-  font-size: var(--text-xl);
-  color: var(--gold);
-  margin: 0;
-  text-transform: uppercase;
-  letter-spacing: 2px;
-}
-
-.ladder-container {
-  background: var(--theme-bg, var(--surface-1));
-  border: var(--theme-border, 1px solid var(--grey-mid));
-  border-image: var(--theme-border-image, none);
-  border-radius: 12px;
-  overflow: hidden;
-  max-width: 1000px;
-  margin: 0 auto;
-  backdrop-filter: var(--theme-blur, none);
-  box-shadow: var(--theme-shadow, none);
-}
-
-
 .ladder-no-results {
   text-align: center;
   padding: 40px;
@@ -338,16 +266,7 @@
 .ladder-table {
   display: flex;
   flex-direction: column;
-  background: var(--theme-bg, var(--surface-1));
-  border: var(--theme-border, 1px solid var(--grey-mid));
-  border-image: var(--theme-border-image, none);
-  border-radius: 12px;
-  overflow: hidden;
-  max-width: 1000px;
-  margin: 0 auto;
   width: 100%;
-  backdrop-filter: var(--theme-blur, none);
-  box-shadow: var(--theme-shadow, none);
   flex: 1;
   min-height: 0;
 }
@@ -621,35 +540,8 @@
 
 /* Responsive adjustments - mobile */
 @media (max-width: 768px) {
-  .ladder-page {
-    padding: var(--space-6) 12px 30px 12px;
-  }
-
-  .ladder-header {
-    flex-direction: column;
-    gap: 16px;
-    align-items: stretch;
-    text-align: center;
-    padding: 16px 0;
-    margin-bottom: 16px;
-  }
-
-  .ladder-title-section {
-    align-items: center;
-  }
-
-  .ladder-league-title {
-    gap: 10px;
-  }
-
-  .league-icon-title {
-    width: 36px;
-    height: 36px;
-  }
-
-  .ladder-stats {
+  .page-stats .stat-item.in-game {
     justify-content: center;
-    margin-top: 4px;
   }
 
   .ladder-controls {
@@ -683,10 +575,6 @@
     display: none !important;
   }
 
-  .ladder-title {
-    font-size: var(--text-lg);
-  }
-
   .player-name-link {
     font-size: var(--text-xs);
   }
@@ -715,19 +603,6 @@
 
 /* Extra small screens */
 @media (max-width: 480px) {
-  .ladder-page {
-    padding: var(--space-4) 8px 24px 8px;
-  }
-
-  .ladder-title {
-    font-size: var(--text-base);
-  }
-
-  .league-icon-title {
-    width: 28px;
-    height: 28px;
-  }
-
   .ladder-header-row,
   .ladder-row {
     grid-template-columns: 28px 1fr 48px 55px 42px;
@@ -858,128 +733,4 @@ a.neighbor-name:hover {
   color: var(--white);
   min-width: 40px;
   text-align: right;
-}
-
-/* ========================================
-   Recently Finished Page Styles
-   ======================================== */
-
-.finished-page {
-  min-height: 100vh;
-  padding: 0 20px 40px 20px;
-}
-
-.finished-header {
-  display: flex;
-  justify-content: space-between;
-  align-items: center;
-  padding: 20px 0;
-  margin-bottom: 20px;
-  border-bottom: 1px solid var(--grey-mid);
-  flex-wrap: wrap;
-  gap: 16px;
-  max-width: 1200px;
-  margin-left: auto;
-  margin-right: auto;
-}
-
-.finished-title-section {
-  display: flex;
-  flex-direction: column;
-  gap: 4px;
-}
-
-.finished-title {
-  font-family: var(--font-display);
-  font-size: var(--text-xl);
-  color: var(--gold);
-  margin: 0;
-  letter-spacing: 0.5px;
-}
-
-.finished-stats {
-  display: flex;
-  gap: 16px;
-  font-family: var(--font-mono);
-  font-size: var(--text-sm);
-}
-
-.finished-stats .stat-item {
-  color: var(--grey-light);
-}
-
-.finished-controls {
-  display: flex;
-  align-items: flex-end;
-  gap: 16px;
-  flex-wrap: wrap;
-}
-
-.filter-group {
-  display: flex;
-  flex-direction: column;
-  gap: 4px;
-}
-
-.filter-group label {
-  font-family: var(--font-mono);
-  font-size: var(--text-xxxs);
-  text-transform: uppercase;
-  letter-spacing: 0.1em;
-  color: var(--grey-light);
-}
-
-/* Game tiles container */
-.game-tiles {
-  display: flex;
-  flex-direction: column;
-  gap: var(--space-2);
-}
-
-.no-results {
-  text-align: center;
-  padding: 60px 20px;
-  color: var(--grey-light);
-  font-family: var(--font-mono);
-  font-size: var(--text-base);
-}
-
-/* Pagination */
-.pagination {
-  display: flex;
-  justify-content: center;
-  align-items: center;
-  gap: var(--space-2);
-  padding: 24px 0;
-  margin-top: 16px;
-}
-
-.pagination-info {
-  font-family: var(--font-mono);
-  font-size: var(--text-sm);
-  color: var(--grey-light);
-  padding: 0 12px;
-}
-
-/* Responsive styles for finished page */
-@media (max-width: 768px) {
-  .finished-header {
-    flex-direction: column;
-    align-items: flex-start;
-  }
-
-  .finished-controls {
-    width: 100%;
-    flex-direction: column;
-    align-items: stretch;
-  }
-
-  .filter-group {
-    width: 100%;
-  }
-
-  .filter-group select,
-  .filter-group > div {
-    width: 100%;
-  }
 }
