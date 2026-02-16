@@ -63,15 +63,14 @@ const MatchOverlayPage = () => {
 
       // Detect AT groups and fetch session data
       if (game?.teams) {
-        const players = game.teams.flatMap(team =>
-          team.players.map(p => p.battleTag)
-        );
+        const playerObjects = game.teams.flatMap(team => team.players);
+        const battleTags = playerObjects.map(p => p.battleTag);
 
-        const groups = await detectArrangedTeams(players);
+        const groups = await detectArrangedTeams(playerObjects);
         setAtGroups(groups || {});
 
         // Fetch session data for all players (in parallel)
-        const sessionPromises = players.map(async (battleTag) => {
+        const sessionPromises = battleTags.map(async (battleTag) => {
           const data = await fetchPlayerSessionData(battleTag);
           return [battleTag, {
             recentGames: data?.session?.form || [],
