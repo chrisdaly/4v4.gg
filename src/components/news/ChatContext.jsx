@@ -1,5 +1,6 @@
 import React, { useState, useEffect, useRef, useMemo, useCallback } from "react";
 import { getCachedProfile, fetchAndCacheProfile } from "../../lib/profileCache";
+import PeonLoader from "../PeonLoader";
 import "./ChatContext.css";
 
 const RELAY_URL =
@@ -149,7 +150,7 @@ const ChatContext = ({ date, battleTags, quotes, fromTime, toTime, playerOnly, e
   if (loading) {
     return (
       <div className="chat-context">
-        <div className="chat-context-loading">Loading chat...</div>
+        <PeonLoader size="sm" />
       </div>
     );
   }

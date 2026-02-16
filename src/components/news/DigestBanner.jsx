@@ -5,6 +5,7 @@ import { CountryFlag } from "../ui";
 import { FiExternalLink, FiCamera, FiEdit2 } from "react-icons/fi";
 import ChatContext from "./ChatContext";
 import StatPicker from "./StatPicker";
+import PeonLoader from "../PeonLoader";
 import useEditorial, { EDITABLE_SECTIONS } from "../../lib/useEditorial";
 import useScreenshot from "../../lib/useScreenshot";
 import {
@@ -15,6 +16,9 @@ import {
   extractMentionedTags,
   splitQuotes,
   groupQuotesBySpeaker,
+  parsePowerRankings,
+  parseMetaReport,
+  parseAwards,
 } from "../../lib/digestUtils";
 
 const RELAY_URL =
@@ -156,9 +160,152 @@ const StatSection = ({ stat, cls, label, profiles, date, expanded, onToggle, sec
   );
 };
 
+/* ── Clips section ──────────────────────────────────── */
+
+const ClipsSection = ({ clips }) => {
+  if (!clips || clips.length === 0) return null;
+  return (
+    <div className="digest-section digest-section--clips">
+      <span className="digest-section-label">Clips</span>
+      <div className="digest-clips-strip">
+        {clips.map((clip) => (
+          <a
+            key={clip.clip_id}
+            href={clip.url}
+            target="_blank"
+            rel="noopener noreferrer"
+            className="digest-clip-card"
+          >
+            <div className="digest-clip-thumb-wrap">
+              <img src={clip.thumbnail_url} alt="" className="digest-clip-thumb" />
+              <span className="digest-clip-duration">{Math.round(clip.duration)}s</span>
+            </div>
+            <div className="digest-clip-info">
+              <span className="digest-clip-title">{clip.title}</span>
+              <span className="digest-clip-meta">
+                {clip.twitch_login} · {clip.view_count?.toLocaleString()} views
+              </span>
+            </div>
+          </a>
+        ))}
+      </div>
+    </div>
+  );
+};
+
+/* ── Power Rankings section ─────────────────────────── */
+
+const RankingsSection = ({ content, profiles }) => {
+  const rankings = parsePowerRankings(content);
+  if (rankings.length === 0) return null;
+  return (
+    <div className="digest-section digest-section--rankings">
+      <span className="digest-section-label">Power Rankings</span>
+      <div className="digest-rankings">
+        {rankings.map((r) => {
+          const profile = profiles.get(r.battleTag);
+          const sign = r.mmrChange > 0 ? "+" : "";
+          return (
+            <div key={r.rank} className="digest-ranking-item">
+              <span className="digest-ranking-rank">{r.rank}</span>
+              {profile?.pic && <DigestAvatar src={profile.pic} country={profile.country} />}
+              <Link
+                to={`/player/${encodeURIComponent(r.battleTag)}`}
+                className="digest-ranking-name"
+              >
+                {r.name}
+              </Link>
+              {r.race && <span className="digest-ranking-race">[{r.race}]</span>}
+              <span className={`digest-ranking-mmr${r.mmrChange > 0 ? " digest-ranking-mmr--up" : " digest-ranking-mmr--down"}`}>
+                {sign}{r.mmrChange}
+              </span>
+              <span className="digest-ranking-record">({r.wins}W-{r.losses}L)</span>
+              <FormDots form={r.form} />
+            </div>
+          );
+        })}
+      </div>
+    </div>
+  );
+};
+
+/* ── Meta Report section ────────────────────────────── */
+
+const RACE_ICONS = { HU: "/icons/human.png", ORC: "/icons/orc.png", NE: "/icons/elf.png", UD: "/icons/undead.png" };
+
+const MetaSection = ({ content }) => {
+  const { races, maps } = parseMetaReport(content);
+  if (races.length === 0 && maps.length === 0) return null;
+  return (
+    <div className="digest-section digest-section--meta">
+      <span className="digest-section-label">Meta Report</span>
+      <div className="digest-meta-report">
+        {races.length > 0 && (
+          <div className="digest-meta-races">
+            {races.map((r) => (
+              <div key={r.race} className="digest-meta-race">
+                {RACE_ICONS[r.race] && <img src={RACE_ICONS[r.race]} alt={r.race} className="digest-meta-race-icon" />}
+                <span className="digest-meta-race-name">{r.race}</span>
+                <span className="digest-meta-race-pick">{r.pickPct}%</span>
+                <span className={`digest-meta-race-wr${r.winPct >= 50 ? " digest-meta-race-wr--high" : ""}`}>
+                  {r.winPct}% WR
+                </span>
+              </div>
+            ))}
+          </div>
+        )}
+        {maps.length > 0 && (
+          <div className="digest-meta-maps">
+            {maps.map((m) => (
+              <span key={m.name} className="digest-meta-map">
+                {m.name} <span className="digest-meta-map-count">{m.games}</span>
+              </span>
+            ))}
+          </div>
+        )}
+      </div>
+    </div>
+  );
+};
+
+/* ── Awards section ─────────────────────────────────── */
+
+const AWARD_ICONS = { MVP: "\uD83C\uDFC6", "Iron Man": "\uD83D\uDCAA", "Most Improved": "\uD83D\uDCC8", "Biggest Tilt": "\uD83D\uDCC9" };
+
+const AwardsSection = ({ content, profiles }) => {
+  const awards = parseAwards(content);
+  if (awards.length === 0) return null;
+  return (
+    <div className="digest-section digest-section--awards">
+      <span className="digest-section-label">Awards</span>
+      <div className="digest-awards-strip">
+        {awards.map((a) => {
+          const profile = profiles.get(a.battleTag);
+          return (
+            <div key={a.category} className="digest-award-card">
+              <span className="digest-award-icon">{AWARD_ICONS[a.category] || "\uD83C\uDFC5"}</span>
+              <span className="digest-award-category">{a.category}</span>
+              <div className="digest-award-player">
+                {profile?.pic && <DigestAvatar src={profile.pic} country={profile.country} />}
+                <Link
+                  to={`/player/${encodeURIComponent(a.battleTag)}`}
+                  className="digest-award-name"
+                >
+                  {a.name}
+                </Link>
+              </div>
+              <span className="digest-award-detail">{a.detail}</span>
+            </div>
+          );
+        })}
+      </div>
+    </div>
+  );
+};
+
 /* ── DigestBanner ────────────────────────────────────── */
 
-const DigestBanner = ({ digest, nameSet, nameToTag, label = "Yesterday in 4v4", dateTabs, isAdmin, apiKey, onDigestUpdated, filterPlayer }) => {
+const DigestBanner = ({ digest, nameSet, nameToTag, label = "Yesterday in 4v4", dateTabs, isAdmin, apiKey, onDigestUpdated, filterPlayer, clips: propClips, stats: propStats }) => {
   const digestRef = useRef(null);
   const [expandedItem, setExpandedItem] = useState(null);
 
@@ -286,6 +433,14 @@ const DigestBanner = ({ digest, nameSet, nameToTag, label = "Yesterday in 4v4", 
       if (meta?.stat) {
         const stat = parseStatLine(content);
         if (stat) tagsToFetch.add(stat.battleTag);
+      } else if (meta?.rankings) {
+        for (const r of parsePowerRankings(content)) {
+          tagsToFetch.add(r.battleTag);
+        }
+      } else if (meta?.awards) {
+        for (const a of parseAwards(content)) {
+          tagsToFetch.add(a.battleTag);
+        }
       } else if (!meta?.tags) {
         for (const tag of extractMentionedTags(content, combinedNameToTag)) {
           tagsToFetch.add(tag);
@@ -363,7 +518,7 @@ const DigestBanner = ({ digest, nameSet, nameToTag, label = "Yesterday in 4v4", 
           )}
         </div>
         {draftLoading && isEditorial && (
-          <div className="digest-admin-loading">Loading draft...</div>
+          <PeonLoader size="sm" />
         )}
         <p className="digest-section-text">{highlightNames(sourceText, combinedNameSet)}</p>
       </div>
@@ -383,7 +538,7 @@ const DigestBanner = ({ digest, nameSet, nameToTag, label = "Yesterday in 4v4", 
         )}
       </div>
       {draftLoading && isEditorial && (
-        <div className="digest-admin-loading">Loading draft...</div>
+        <PeonLoader size="sm" />
       )}
       {filterPlayer && (
         <div className="digest-player-filter">
@@ -400,6 +555,27 @@ const DigestBanner = ({ digest, nameSet, nameToTag, label = "Yesterday in 4v4", 
           const cls = meta.cls;
           const sectionLabel = vLabels?.[key] || meta.label;
           const editable = isEditorial && isEditableSection(key);
+
+          // Clips section: rendered from digest.clips JSON, not text
+          if (meta.clips) {
+            const digestClips = propClips || digest?.clips;
+            return <ClipsSection key={key} clips={digestClips} />;
+          }
+
+          // Power Rankings section
+          if (meta.rankings) {
+            return <RankingsSection key={key} content={content} profiles={profiles} />;
+          }
+
+          // Meta Report section
+          if (meta.meta) {
+            return <MetaSection key={key} content={content} />;
+          }
+
+          // Awards section
+          if (meta.awards) {
+            return <AwardsSection key={key} content={content} profiles={profiles} />;
+          }
 
           if (meta.stat) {
             const stat = parseStatLine(content);
@@ -681,6 +857,15 @@ const DigestBanner = ({ digest, nameSet, nameToTag, label = "Yesterday in 4v4", 
           );
         })}
       </div>
+      {/* Clips from JSON data (if not already rendered via text section) */}
+      {(() => {
+        const digestClips = propClips || digest?.clips;
+        const hasClipsSection = displaySections.some(s => s.key === "CLIPS");
+        if (!hasClipsSection && digestClips && digestClips.length > 0) {
+          return <ClipsSection clips={digestClips} />;
+        }
+        return null;
+      })()}
       {/* Editorial footer: stat picker + reset + save status */}
       {isEditorial && (
         <div className="digest-admin-footer">

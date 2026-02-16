@@ -37,7 +37,7 @@ export const Button = styled.button`
     background: transparent;
     color: var(--grey-light);
     border: var(--border-thin) solid var(--grey-mid);
-    &:hover { color: #fff; border-color: var(--grey-light); }
+    &:hover { color: var(--white); border-color: var(--grey-light); }
   `}
 
   &:disabled {
@@ -60,7 +60,7 @@ export const Badge = styled.span`
   letter-spacing: 0.05em;
   border-radius: var(--radius-full);
   background: ${p => p.$bg || 'var(--grey-dark)'};
-  color: ${p => p.$color || '#fff'};
+  color: ${p => p.$color || 'var(--white)'};
   border: var(--border-thin) solid ${p => p.$border || 'var(--grey-mid)'};
 `;
 
@@ -165,7 +165,7 @@ export const StatLabel = styled.span`
 export const StatValue = styled.span`
   font-family: var(--font-mono);
   font-size: var(--text-base);
-  color: ${p => p.$color || '#fff'};
+  color: ${p => p.$color || 'var(--white)'};
 `;
 
 // ============================================
@@ -352,7 +352,7 @@ export const H1 = styled.h1`
 export const H2 = styled.h2`
   font-family: var(--font-display);
   font-size: var(--text-lg);
-  color: ${p => p.$gold ? 'var(--gold)' : '#fff'};
+  color: ${p => p.$gold ? 'var(--gold)' : 'var(--white)'};
   margin: 0;
   line-height: 1.3;
 `;
@@ -360,7 +360,7 @@ export const H2 = styled.h2`
 export const H3 = styled.h3`
   font-family: var(--font-display);
   font-size: var(--text-base);
-  color: ${p => p.$gold ? 'var(--gold)' : '#fff'};
+  color: ${p => p.$gold ? 'var(--gold)' : 'var(--white)'};
   margin: 0;
   line-height: 1.4;
 `;
@@ -377,7 +377,7 @@ export const Code = styled.code`
   font-family: var(--font-mono);
   font-size: ${p => p.$size || 'var(--text-sm)'};
   background: ${p => p.$block ? 'var(--grey-dark)' : 'var(--surface-3)'};
-  color: ${p => p.$dim ? 'var(--grey-light)' : '#fff'};
+  color: ${p => p.$dim ? 'var(--grey-light)' : 'var(--white)'};
   padding: ${p => p.$block ? 'var(--space-4)' : 'var(--space-1) var(--space-2)'};
   border-radius: var(--radius-sm);
   ${p => p.$block && `display: block; overflow-x: auto;`}
@@ -412,7 +412,7 @@ const TriggerButton = styled.button`
   background: transparent url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='12' viewBox='0 0 12 12'%3E%3Cpath fill='%239ca3af' d='M6 8L2 4h8z'/%3E%3C/svg%3E") no-repeat right 8px center;
   border: 1px solid rgba(252,219,51,0.3);
   border-radius: var(--radius-md);
-  color: #fff;
+  color: var(--grey-light);
   padding: var(--space-2) 28px var(--space-2) var(--space-4);
   cursor: pointer;
   text-align: left;
@@ -451,7 +451,7 @@ const DropdownList = styled.div`
 const OptionItem = styled.div`
   font-family: var(--font-display);
   font-size: var(--text-sm);
-  color: ${p => p.$selected ? 'var(--gold)' : '#fff'};
+  color: ${p => p.$selected ? 'var(--gold)' : 'var(--white)'};
   background: ${p => p.$selected ? 'var(--gold-tint)' : 'transparent'};
   padding: var(--space-2) var(--space-4);
   cursor: pointer;

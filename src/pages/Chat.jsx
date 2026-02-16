@@ -61,7 +61,7 @@ const Tab = styled.button`
   border: none;
   color: ${(p) => (p.$active ? "var(--gold)" : "var(--grey-light)")};
   font-family: var(--font-mono);
-  font-size: 10px;
+  font-size: var(--text-xxxs);
   text-transform: uppercase;
   letter-spacing: 0.08em;
   cursor: pointer;
@@ -93,9 +93,9 @@ const TabBadge = styled.span`
   height: 16px;
   border-radius: 8px;
   background: var(--red);
-  color: #fff;
+  color: var(--white);
   font-family: var(--font-mono);
-  font-size: 9px;
+  font-size: var(--text-xxxs);
   font-weight: 700;
   display: flex;
   align-items: center;

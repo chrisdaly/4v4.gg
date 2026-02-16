@@ -122,6 +122,37 @@ export function initDb() {
     // Column already exists — ignore
   }
 
+  // Migration: add clips column to daily_digests (JSON array of clip data)
+  try {
+    db.exec(`ALTER TABLE daily_digests ADD COLUMN clips TEXT`);
+  } catch {
+    // Column already exists — ignore
+  }
+
+  // Migration: add is_4v4 and match_id columns to clips
+  try {
+    db.exec(`ALTER TABLE clips ADD COLUMN is_4v4 INTEGER DEFAULT NULL`);
+  } catch {
+    // Column already exists — ignore
+  }
+  try {
+    db.exec(`ALTER TABLE clips ADD COLUMN match_id TEXT`);
+  } catch {
+    // Column already exists — ignore
+  }
+
+  // Migration: add clips and stats columns to weekly_digests
+  try {
+    db.exec(`ALTER TABLE weekly_digests ADD COLUMN clips TEXT`);
+  } catch {
+    // Column already exists — ignore
+  }
+  try {
+    db.exec(`ALTER TABLE weekly_digests ADD COLUMN stats TEXT`);
+  } catch {
+    // Column already exists — ignore
+  }
+
   return db;
 }
 
@@ -752,4 +783,37 @@ export function insertClipFetchLog(login, date, clipCount) {
     INSERT OR REPLACE INTO clip_fetch_log (twitch_login, fetched_date, clip_count)
     VALUES (?, ?, ?)
   `).run(login, date, clipCount);
+}
+
+// ── Clip queries for digests ────────────────────────
+
+export function getClipsByDateRange(startDate, endDate) {
+  return db.prepare(`
+    SELECT * FROM clips
+    WHERE game_id = '12924' AND hidden = 0
+      AND created_at >= ? AND created_at < ?
+    ORDER BY view_count DESC
+  `).all(startDate + 'T00:00:00Z', endDate + 'T23:59:59Z');
+}
+
+export function updateClip4v4Status(clipId, is4v4, matchId) {
+  db.prepare(`
+    UPDATE clips SET is_4v4 = ?, match_id = ? WHERE clip_id = ?
+  `).run(is4v4 ? 1 : 0, matchId || null, clipId);
+}
+
+export function updateDigestClips(date, clipsJson) {
+  db.prepare('UPDATE daily_digests SET clips = ? WHERE date = ?').run(clipsJson, date);
+}
+
+export function setWeeklyDigestFull(weekStart, weekEnd, digest, clipsJson, statsJson) {
+  db.prepare(`
+    INSERT INTO weekly_digests (week_start, week_end, digest, clips, stats) VALUES (?, ?, ?, ?, ?)
+    ON CONFLICT(week_start) DO UPDATE SET
+      digest = excluded.digest,
+      week_end = excluded.week_end,
+      clips = excluded.clips,
+      stats = excluded.stats,
+      created_at = datetime('now')
+  `).run(weekStart, weekEnd, digest, clipsJson || null, statsJson || null);
 }

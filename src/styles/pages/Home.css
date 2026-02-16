@@ -80,7 +80,7 @@
   gap: 8px;
   padding: 8px 0;
   border-bottom: 1px solid rgba(255, 255, 255, 0.04);
-  font-size: 12px;
+  font-size: var(--text-xxs);
   color: var(--grey-light);
   line-height: 1.4;
 }
@@ -125,7 +125,7 @@
 
 .event-item-status .event-name {
   font-family: var(--font-mono);
-  font-size: 11px;
+  font-size: var(--text-xxxs);
   color: var(--grey-light);
 }
 
@@ -141,14 +141,14 @@
 }
 
 .event-flag {
-  font-size: 13px;
+  font-size: var(--text-xs);
   line-height: 1;
   flex-shrink: 0;
 }
 
 .event-name {
   font-family: var(--font-display);
-  color: #fff;
+  color: var(--white);
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
@@ -159,13 +159,13 @@
 .event-time {
   margin-left: auto;
   color: var(--grey-mid);
-  font-size: 10px;
+  font-size: var(--text-xxxs);
   flex-shrink: 0;
 }
 
 .event-detail {
   font-family: var(--font-mono);
-  font-size: 11px;
+  font-size: var(--text-xxxs);
   color: var(--grey-light);
   margin-top: 1px;
 }
@@ -173,7 +173,7 @@
 .event-delta-pending {
   color: var(--grey-mid);
   font-family: var(--font-mono);
-  font-size: 10px;
+  font-size: var(--text-xxxs);
 }
 
 .event-mmr {
@@ -210,7 +210,7 @@
   justify-content: space-between;
   align-items: center;
   gap: 6px;
-  font-size: 10px;
+  font-size: var(--text-xxxs);
   line-height: 1.5;
 }
 
@@ -254,7 +254,7 @@
   background: rgba(255, 255, 255, 0.04);
   border: 1px solid transparent;
   border-radius: 4px;
-  font-size: 13px;
+  font-size: var(--text-xs);
   cursor: pointer;
   transition: background 0.15s, border-color 0.15s;
 }
@@ -272,7 +272,7 @@
   background: rgba(255, 255, 255, 0.06);
   color: var(--grey-mid);
   font-family: var(--font-mono);
-  font-size: 10px;
+  font-size: var(--text-xxxs);
 }
 
 .flag-badge-clear:hover {
@@ -281,14 +281,14 @@
 
 .flag-badge-code {
   font-family: var(--font-mono);
-  font-size: 9px;
+  font-size: var(--text-xxxs);
   color: var(--grey-mid);
   letter-spacing: 0.05em;
 }
 
 .flag-badge-count {
   font-family: var(--font-mono);
-  font-size: 10px;
+  font-size: var(--text-xxxs);
   color: var(--grey-light);
 }
 

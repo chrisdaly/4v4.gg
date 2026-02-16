@@ -44,7 +44,7 @@
   bottom: 4px;
   right: 4px;
   background: linear-gradient(135deg, #1a1a1a 0%, #333 100%);
-  color: #fff;
+  color: var(--white);
   font-family: var(--font-mono);
   font-size: var(--text-xs);
   font-weight: bold;
@@ -335,7 +335,7 @@ img.teamHeaderRace {
 }
 
 .meta-map-name {
-  color: #fff;
+  color: var(--white);
   font-family: var(--font-display);
   font-size: var(--text-sm);
   text-align: center;
@@ -646,7 +646,7 @@ h2.team-name {
 /* Session summary (shown when many games) */
 .form-summary {
   font-family: var(--font-mono);
-  font-size: 9px;
+  font-size: var(--text-xxxs);
   opacity: 0.7;
 }
 
@@ -691,7 +691,7 @@ h2.team-name {
 .mmr-value {
   font-family: var(--font-mono);
   font-size: var(--text-base);
-  color: #fff;
+  color: var(--white);
 }
 
 .mmr-label {
@@ -771,9 +771,9 @@ h2.team-name {
 }
 
 .live-badge {
-  font-size: 9px;
+  font-size: var(--text-xxxs);
   font-weight: 700;
-  color: #fff;
+  color: var(--white);
   background: #eb0400;
   padding: 1px 4px;
   border-radius: 2px;
@@ -871,7 +871,7 @@ h2.team-name {
 }
 
 .session-record {
-  color: #fff;
+  color: var(--white);
   font-family: var(--font-mono);
   font-size: var(--text-sm);
 }

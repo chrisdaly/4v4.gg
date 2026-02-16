@@ -1,4 +1,5 @@
 import React, { useState, useEffect, useMemo } from "react";
+import PeonLoader from "./PeonLoader";
 import "./ActivityGraph.css";
 
 const CACHE_KEY_PREFIX = "activity-graph-";
@@ -209,8 +210,7 @@ const ActivityGraph = ({ battleTag, currentSeason, gateway = 20 }) => {
           <h3 className="ag-title">Activity</h3>
         </div>
         <div className="ag-loading">
-          <div className="loader-spinner"></div>
-          <span className="loader-text">Loading</span>
+          <PeonLoader size="sm" />
         </div>
       </div>
     );

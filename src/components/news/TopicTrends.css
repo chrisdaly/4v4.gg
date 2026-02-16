@@ -13,7 +13,7 @@
 
 .topic-trends-header {
   font-family: var(--font-mono);
-  font-size: 11px;
+  font-size: var(--text-xxxs);
   text-transform: uppercase;
   letter-spacing: 0.1em;
   color: var(--gold);
@@ -33,7 +33,7 @@
 
 .topic-trends-date {
   font-family: var(--font-mono);
-  font-size: 9px;
+  font-size: var(--text-xxxs);
   color: var(--grey-mid);
   text-align: center;
   line-height: 14px;
@@ -41,7 +41,7 @@
 
 .topic-trends-label {
   font-family: var(--font-mono);
-  font-size: 10px;
+  font-size: var(--text-xxxs);
   text-transform: uppercase;
   letter-spacing: 0.06em;
   color: var(--grey-light);

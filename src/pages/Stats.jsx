@@ -1,6 +1,6 @@
 import React, { useState, useEffect, useMemo, useCallback } from "react";
 import { CountryFlag, Select, Button } from "../components/ui";
-
+import PeonLoader from "../components/PeonLoader";
 import { gateway } from "../lib/params";
 import { cache } from "../lib/cache";
 import { getSeasons, getLadder, getLadderCached } from "../lib/api";
@@ -53,10 +53,7 @@ const LeagueDistribution = ({ leagueCounts, selectedLeague, onLeagueClick, filte
         </div>
         <div className="stats-loading">
           {isLoading ? (
-            <>
-              <div className="loader-spinner"></div>
-              <span className="loader-text">Loading</span>
-            </>
+            <PeonLoader size="sm" />
           ) : "No data"}
         </div>
       </div>
@@ -134,10 +131,7 @@ const RaceDistribution = ({ raceCounts, selectedRace, onRaceClick, filterLabels,
         </div>
         <div className="stats-loading">
           {isLoading ? (
-            <>
-              <div className="loader-spinner"></div>
-              <span className="loader-text">Loading</span>
-            </>
+            <PeonLoader size="sm" />
           ) : "No data"}
         </div>
       </div>
@@ -222,10 +216,7 @@ const CountryDistribution = ({ countryCounts, selectedCountry, onCountryClick, f
         </div>
         <div className="stats-loading">
           {isLoading ? (
-            <>
-              <div className="loader-spinner"></div>
-              <span className="loader-text">Loading</span>
-            </>
+            <PeonLoader size="sm" />
           ) : "No data"}
         </div>
       </div>
@@ -293,10 +284,7 @@ const MmrDistribution = ({ mmrData, isLoading }) => {
         </div>
         <div className="stats-loading">
           {isLoading ? (
-            <>
-              <div className="loader-spinner"></div>
-              <span className="loader-text">Loading</span>
-            </>
+            <PeonLoader size="sm" />
           ) : "No data"}
         </div>
       </div>
@@ -403,10 +391,7 @@ const PopularHours = ({ hoursData, isLoading }) => {
         </div>
         <div className="stats-loading">
           {isLoading ? (
-            <>
-              <div className="loader-spinner"></div>
-              <span className="loader-text">Loading</span>
-            </>
+            <PeonLoader size="sm" />
           ) : "No data"}
         </div>
       </div>
@@ -479,10 +464,7 @@ const GameLengthChart = ({ lengthData, isLoading }) => {
         </div>
         <div className="stats-loading">
           {isLoading ? (
-            <>
-              <div className="loader-spinner"></div>
-              <span className="loader-text">Loading</span>
-            </>
+            <PeonLoader size="sm" />
           ) : "No data"}
         </div>
       </div>
@@ -554,10 +536,7 @@ const MapPopularity = ({ mapData, selectedSeason, isLoading }) => {
         </div>
         <div className="stats-loading">
           {isLoading ? (
-            <>
-              <div className="loader-spinner"></div>
-              <span className="loader-text">Loading</span>
-            </>
+            <PeonLoader size="sm" />
           ) : "No data"}
         </div>
       </div>

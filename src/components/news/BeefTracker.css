@@ -29,7 +29,7 @@
 
 .beef-tracker-title {
   font-family: var(--font-mono);
-  font-size: 11px;
+  font-size: var(--text-xxxs);
   text-transform: uppercase;
   letter-spacing: 0.1em;
   color: var(--gold);
@@ -37,7 +37,7 @@
 
 .beef-tracker-toggle {
   font-family: var(--font-mono);
-  font-size: 14px;
+  font-size: var(--text-xs);
   color: var(--grey-light);
 }
 
@@ -50,7 +50,7 @@
 
 .beef-tracker-section-label {
   font-family: var(--font-mono);
-  font-size: 10px;
+  font-size: var(--text-xxxs);
   text-transform: uppercase;
   letter-spacing: 0.08em;
   color: var(--grey-mid);
@@ -101,7 +101,7 @@
 
 .beef-tracker-count {
   font-family: var(--font-mono);
-  font-size: 11px;
+  font-size: var(--text-xxxs);
   color: var(--grey-light);
   text-align: right;
 }
@@ -131,7 +131,7 @@
 
 .beef-tracker-vs {
   font-family: var(--font-mono);
-  font-size: 10px;
+  font-size: var(--text-xxxs);
   text-transform: uppercase;
   letter-spacing: 0.08em;
   color: var(--grey-mid);
@@ -139,7 +139,7 @@
 
 .beef-tracker-rivalry-count {
   font-family: var(--font-mono);
-  font-size: 11px;
+  font-size: var(--text-xxxs);
   color: var(--red);
   margin-left: auto;
 }

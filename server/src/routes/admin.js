@@ -1,7 +1,7 @@
 import { Router } from 'express';
 import rateLimit from 'express-rate-limit';
 import config from '../config.js';
-import { setToken, getStats, getTopWords, getRecentDigests, deleteDigest, getDigest, getRecentWeeklyDigests, deleteWeeklyDigest, getDraftForDate, updateDigestOnly, updateDraftOnly, updateHiddenAvatars, getContextAroundQuotes, getMessagesByTimeWindow, getMessagesByDateAndUsers, getMessageBuckets, getGameStats, getMatchContext } from '../db.js';
+import { setToken, getStats, getTopWords, getRecentDigests, deleteDigest, getDigest, getRecentWeeklyDigests, deleteWeeklyDigest, getDraftForDate, updateDigestOnly, updateDraftOnly, updateHiddenAvatars, getContextAroundQuotes, getMessagesByTimeWindow, getMessagesByDateAndUsers, getMessageBuckets, getGameStats, getMatchContext, getClipsByDateRange } from '../db.js';
 import { updateToken, getStatus } from '../signalr.js';
 import { getClientCount } from '../sse.js';
 import { setBotEnabled, isBotEnabled, testCommand } from '../bot.js';
@@ -97,7 +97,11 @@ router.get('/digest/:date', publicLimiter, (req, res) => {
   if (!existing) {
     return res.json({ date, digest: null, reason: 'No cached digest for this date' });
   }
-  res.json({ date, digest: existing.digest });
+  const result = { date, digest: existing.digest };
+  if (existing.clips) {
+    try { result.clips = JSON.parse(existing.clips); } catch { /* ignore */ }
+  }
+  res.json(result);
 });
 
 // Generate a digest (admin, triggers AI) — generates if missing, returns result
@@ -315,9 +319,16 @@ router.post('/digest/:date/more-items', requireApiKey, aiLimiter, async (req, re
   }
 });
 
-// Recent digests (public)
+// Recent digests (public) — parse clips JSON
 router.get('/digests', publicLimiter, (_req, res) => {
-  res.json(getRecentDigests(14));
+  const digests = getRecentDigests(14).map(d => {
+    const result = { ...d };
+    if (d.clips) {
+      try { result.clips = JSON.parse(d.clips); } catch { result.clips = null; }
+    }
+    return result;
+  });
+  res.json(digests);
 });
 
 // Player digest mentions (public) — find which digests mention a player
@@ -381,6 +392,18 @@ router.get('/stats/today', aiLimiter, async (req, res) => {
     const today = new Date().toISOString().slice(0, 10);
     const digest = await generateLiveDigest(today);
     const result = { date: today, digest };
+    // Include today's clips
+    try {
+      const clips = getClipsByDateRange(today, today)
+        .filter(c => c.is_4v4 === 1)
+        .slice(0, 3)
+        .map(c => ({
+          clip_id: c.clip_id, title: c.title, url: c.url,
+          thumbnail_url: c.thumbnail_url, twitch_login: c.twitch_login,
+          view_count: c.view_count, duration: c.duration, match_id: c.match_id,
+        }));
+      if (clips.length > 0) result.clips = clips;
+    } catch { /* clips are optional */ }
     setTodayDigestCache(result);
     res.json(result);
   } catch (err) {
@@ -408,9 +431,19 @@ router.get('/analytics', publicLimiter, (_req, res) => {
   });
 });
 
-// Recent weekly digests (public)
+// Recent weekly digests (public) — parse clips + stats JSON
 router.get('/weekly-digests', publicLimiter, (_req, res) => {
-  res.json(getRecentWeeklyDigests(8));
+  const weeklies = getRecentWeeklyDigests(8).map(w => {
+    const result = { ...w };
+    if (w.clips) {
+      try { result.clips = JSON.parse(w.clips); } catch { result.clips = null; }
+    }
+    if (w.stats) {
+      try { result.stats = JSON.parse(w.stats); } catch { result.stats = null; }
+    }
+    return result;
+  });
+  res.json(weeklies);
 });
 
 // Single weekly digest — generates if missing (public)

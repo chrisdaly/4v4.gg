@@ -451,8 +451,8 @@ const Ladder = () => {
       </div>
 
       {isLoading || isSearching ? (
-        <div className="ladder-loading">
-          <PeonLoader size="md" />
+        <div className="page-loader">
+          <PeonLoader />
         </div>
       ) : (
         <div className="ladder-table">

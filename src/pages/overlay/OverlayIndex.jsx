@@ -3,6 +3,7 @@ import styled from "styled-components";
 import MatchOverlay from "../../components/MatchOverlay";
 import PlayerOverlay from "../../components/PlayerOverlay";
 import { GameCard } from "../../components/game/index";
+import PeonLoader from "../../components/PeonLoader";
 
 /**
  * Overlay Index - Instructions and preview for stream overlays
@@ -14,7 +15,7 @@ const Page = styled.div`
   background: #0a0a0a;
   min-height: 100vh;
   padding: var(--space-8);
-  color: #fff;
+  color: var(--white);
 `;
 
 const Title = styled.h1`
@@ -67,7 +68,7 @@ const Select = styled.select`
   background: #0a0a0a;
   border: 1px solid var(--grey-mid);
   border-radius: var(--radius-md);
-  color: #fff;
+  color: var(--white);
   cursor: pointer;
 
   &:focus {
@@ -626,7 +627,7 @@ const OverlayIndex = () => {
           <div style={{ display: "flex", alignItems: "center", gap: "var(--space-2)", marginBottom: "var(--space-2)" }}>
             <Label style={{ marginBottom: 0 }}>Battle Tag</Label>
             {isSearching && (
-              <span className="search-status searching">searching...</span>
+              <span className="search-status searching"><PeonLoader size="sm" /></span>
             )}
             {saved && (
               <span className="search-status saved">Saved</span>

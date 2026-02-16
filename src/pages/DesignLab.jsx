@@ -1,6 +1,6 @@
-import React, { useEffect } from "react";
-
+import React from "react";
 import { MmrComparison } from "../components/MmrComparison";
+import "../styles/pages/Blog.css";
 
 const pieConfig = { combinedGap: 5, areaMultiplier: 1.6 };
 
@@ -45,36 +45,19 @@ const SoloChart = ({ p1, p2 }) => (
 );
 
 const DesignLab = () => {
-  // Force classic (black) theme on blog pages
-  useEffect(() => {
-    const s = document.body.style;
-    const prev = {
-      bgImg: s.getPropertyValue("--theme-bg-img"),
-      bgOverlay: s.getPropertyValue("--theme-bg-overlay"),
-    };
-    s.setProperty("--theme-bg-img", "none");
-    s.setProperty("--theme-bg-overlay", "none");
-    return () => {
-      s.setProperty("--theme-bg-img", prev.bgImg);
-      s.setProperty("--theme-bg-overlay", prev.bgOverlay);
-    };
-  }, []);
-
   return (
-  <div>
-    <article className="blog-article">
-      <div className="content">
+  <div className="bl-article">
 
-        <h1>Dots, Not Numbers</h1>
+    <div className="bl-section bl-reveal" style={{ "--delay": "0.06s" }}>
+      <div className="bl-content">
 
-        <div className="blog-meta">
-          <span className="blog-date">February 2025</span>
-          <div className="blog-tags">
-            <span className="blog-tag">dataviz</span>
-            <span className="blog-tag">design</span>
-            <span className="blog-tag">wc3</span>
-          </div>
+        <div className="bl-card-tags" style={{ marginBottom: 16 }}>
+          <span className="bl-card-tag">dataviz</span>
+          <span className="bl-card-tag">design</span>
+          <span className="bl-card-tag">wc3</span>
         </div>
+        <h1 style={{ fontFamily: "var(--font-display)", fontSize: "clamp(2rem, 5vw, 3.2rem)", color: "var(--gold)", lineHeight: 1.1, margin: "0 0 16px 0", fontWeight: "normal", textShadow: "0 2px 16px rgba(0,0,0,0.8)" }}>Dots, Not Numbers</h1>
+        <div style={{ marginBottom: 24 }}><span className="bl-card-tag">February 2025</span></div>
 
         <p>
           The loading screen shows eight numbers. Four on your team, four on theirs. You have maybe five seconds to figure out if this is going to be one-sided.
@@ -226,7 +209,7 @@ const DesignLab = () => {
             <div className="blog-eq-right">
               <svg width="36" height="36">
                 <circle cx="18" cy="18" r="14.1" fill="var(--team-blue)" />
-                <line x1="28" y1="8" x2="8" y2="28" stroke="#0a0a0a" strokeWidth="2.5" />
+                <line x1="28" y1="8" x2="8" y2="28" stroke="var(--grey-dark)" strokeWidth="2.5" />
               </svg>
             </div>
             <span className="blog-eq-label">n = 2</span>
@@ -245,9 +228,9 @@ const DesignLab = () => {
             <div className="blog-eq-right">
               <svg width="42" height="42">
                 <circle cx="21" cy="21" r="17.3" fill="var(--team-blue)" />
-                <line x1="21" y1="21" x2="33.2" y2="8.8" stroke="#0a0a0a" strokeWidth="2.5" />
-                <line x1="21" y1="21" x2="6.0" y2="12.3" stroke="#0a0a0a" strokeWidth="2.5" />
-                <line x1="21" y1="21" x2="21" y2="38.3" stroke="#0a0a0a" strokeWidth="2.5" />
+                <line x1="21" y1="21" x2="33.2" y2="8.8" stroke="var(--grey-dark)" strokeWidth="2.5" />
+                <line x1="21" y1="21" x2="6.0" y2="12.3" stroke="var(--grey-dark)" strokeWidth="2.5" />
+                <line x1="21" y1="21" x2="21" y2="38.3" stroke="var(--grey-dark)" strokeWidth="2.5" />
               </svg>
             </div>
             <span className="blog-eq-label">n = 3</span>
@@ -268,8 +251,8 @@ const DesignLab = () => {
             <div className="blog-eq-right">
               <svg width="48" height="48">
                 <circle cx="24" cy="24" r="20" fill="var(--team-blue)" />
-                <line x1="10" y1="10" x2="38" y2="38" stroke="#0a0a0a" strokeWidth="2.5" />
-                <line x1="38" y1="10" x2="10" y2="38" stroke="#0a0a0a" strokeWidth="2.5" />
+                <line x1="10" y1="10" x2="38" y2="38" stroke="var(--grey-dark)" strokeWidth="2.5" />
+                <line x1="38" y1="10" x2="10" y2="38" stroke="var(--grey-dark)" strokeWidth="2.5" />
               </svg>
             </div>
             <span className="blog-eq-label">n = 4</span>
@@ -306,137 +289,137 @@ const DesignLab = () => {
             <div className="blog-chart-label">two duos each</div>
           </div>
         </div>
-
-        <h2>Gallery</h2>
-
-        <p>
-          Every team composition you might see:</p>
-
-        {/* Row 1: All solos */}
-        <div className="blog-gallery-group">
-          <div className="blog-gallery-section">All solos</div>
-          <div className="blog-gallery-row">
-            <div className="blog-chart-labeled">
-              <Chart data={{ teamOneMmrs: [1800, 1750, 1700, 1650], teamTwoMmrs: [1780, 1730, 1680, 1630], teamOneAT: [0, 0, 0, 0], teamTwoAT: [0, 0, 0, 0] }} width={180} height={160} />
-              <div className="blog-chart-label">balanced</div>
-            </div>
-            <div className="blog-chart-labeled">
-              <Chart data={{ teamOneMmrs: [2200, 2100, 2000, 1900], teamTwoMmrs: [1600, 1550, 1500, 1450], teamOneAT: [0, 0, 0, 0], teamTwoAT: [0, 0, 0, 0] }} width={180} height={160} />
-              <div className="blog-chart-label">mismatch</div>
-            </div>
-            <div className="blog-chart-labeled">
-              <Chart data={{ teamOneMmrs: [2400, 1600, 1400, 1200], teamTwoMmrs: [1700, 1650, 1600, 1550], teamOneAT: [0, 0, 0, 0], teamTwoAT: [0, 0, 0, 0] }} width={180} height={160} />
-              <div className="blog-chart-label">carry</div>
-            </div>
-            <div className="blog-chart-labeled">
-              <Chart data={{ teamOneMmrs: [2500, 2400, 2300, 2200], teamTwoMmrs: [2450, 2350, 2250, 2150], teamOneAT: [0, 0, 0, 0], teamTwoAT: [0, 0, 0, 0] }} width={180} height={160} />
-              <div className="blog-chart-label">high mmr</div>
-            </div>
-            <div className="blog-chart-labeled">
-              <Chart data={{ teamOneMmrs: [1100, 1000, 900, 800], teamTwoMmrs: [1050, 950, 850, 750], teamOneAT: [0, 0, 0, 0], teamTwoAT: [0, 0, 0, 0] }} width={180} height={160} />
-              <div className="blog-chart-label">low mmr</div>
-            </div>
-          </div>
-        </div>
-
-        {/* Row 2: Duo + solos */}
-        <div className="blog-gallery-group">
-          <div className="blog-gallery-section">Duo + solos</div>
-          <div className="blog-gallery-row">
-            <div className="blog-chart-labeled">
-              <Chart data={{ teamOneMmrs: [1900, 1900, 1600, 1400], teamTwoMmrs: [1850, 1850, 1550, 1350], teamOneAT: [1, 1, 0, 0], teamTwoAT: [1, 1, 0, 0] }} width={180} height={160} />
-              <div className="blog-chart-label">both have duo</div>
-            </div>
-            <div className="blog-chart-labeled">
-              <Chart data={{ teamOneMmrs: [2000, 2000, 1500, 1300], teamTwoMmrs: [1700, 1650, 1600, 1550], teamOneAT: [1, 1, 0, 0], teamTwoAT: [0, 0, 0, 0] }} width={180} height={160} />
-              <div className="blog-chart-label">duo vs solos</div>
-            </div>
-            <div className="blog-chart-labeled">
-              <Chart data={{ teamOneMmrs: [2200, 2200, 1200, 1000], teamTwoMmrs: [1600, 1600, 1600, 1600], teamOneAT: [1, 1, 0, 0], teamTwoAT: [0, 0, 0, 0] }} width={180} height={160} />
-              <div className="blog-chart-label">high duo carrying</div>
-            </div>
-            <div className="blog-chart-labeled">
-              <Chart data={{ teamOneMmrs: [1400, 1400, 1800, 1600], teamTwoMmrs: [1500, 1500, 1700, 1500], teamOneAT: [1, 1, 0, 0], teamTwoAT: [1, 1, 0, 0] }} width={180} height={160} />
-              <div className="blog-chart-label">low duo</div>
-            </div>
-          </div>
-        </div>
-
-        {/* Row 3: Two duos */}
-        <div className="blog-gallery-group">
-          <div className="blog-gallery-section">Two duos</div>
-          <div className="blog-gallery-row">
-            <div className="blog-chart-labeled">
-              <Chart data={{ teamOneMmrs: [2000, 2000, 1400, 1400], teamTwoMmrs: [1950, 1950, 1350, 1350], teamOneAT: [1, 1, 2, 2], teamTwoAT: [1, 1, 2, 2] }} width={180} height={160} />
-              <div className="blog-chart-label">mirrored</div>
-            </div>
-            <div className="blog-chart-labeled">
-              <Chart data={{ teamOneMmrs: [2100, 2100, 1300, 1300], teamTwoMmrs: [1700, 1700, 1700, 1700], teamOneAT: [1, 1, 2, 2], teamTwoAT: [1, 1, 2, 2] }} width={180} height={160} />
-              <div className="blog-chart-label">split vs even</div>
-            </div>
-            <div className="blog-chart-labeled">
-              <Chart data={{ teamOneMmrs: [1800, 1800, 1800, 1800], teamTwoMmrs: [2000, 2000, 1600, 1600], teamOneAT: [1, 1, 2, 2], teamTwoAT: [1, 1, 2, 2] }} width={180} height={160} />
-              <div className="blog-chart-label">clustered vs split</div>
-            </div>
-            <div className="blog-chart-labeled">
-              <Chart data={{ teamOneMmrs: [2200, 2200, 1200, 1200], teamTwoMmrs: [1900, 1500, 1400, 1000], teamOneAT: [1, 1, 2, 2], teamTwoAT: [0, 0, 0, 0] }} width={180} height={160} />
-              <div className="blog-chart-label">2 duos vs solos</div>
-            </div>
-          </div>
-        </div>
-
-        {/* Row 4: Trio + solo */}
-        <div className="blog-gallery-group">
-          <div className="blog-gallery-section">Trio + solo</div>
-          <div className="blog-gallery-row">
-            <div className="blog-chart-labeled">
-              <Chart data={{ teamOneMmrs: [1800, 1800, 1800, 1500], teamTwoMmrs: [1750, 1750, 1750, 1450], teamOneAT: [1, 1, 1, 0], teamTwoAT: [1, 1, 1, 0] }} width={180} height={160} />
-              <div className="blog-chart-label">both have trio</div>
-            </div>
-            <div className="blog-chart-labeled">
-              <Chart data={{ teamOneMmrs: [2000, 2000, 2000, 1200], teamTwoMmrs: [1700, 1700, 1600, 1600], teamOneAT: [1, 1, 1, 0], teamTwoAT: [1, 1, 0, 0] }} width={180} height={160} />
-              <div className="blog-chart-label">trio vs duo</div>
-            </div>
-            <div className="blog-chart-labeled">
-              <Chart data={{ teamOneMmrs: [1900, 1900, 1900, 1400], teamTwoMmrs: [1750, 1700, 1650, 1600], teamOneAT: [1, 1, 1, 0], teamTwoAT: [0, 0, 0, 0] }} width={180} height={160} />
-              <div className="blog-chart-label">trio vs solos</div>
-            </div>
-            <div className="blog-chart-labeled">
-              <Chart data={{ teamOneMmrs: [2200, 2200, 2200, 800], teamTwoMmrs: [1700, 1700, 1700, 1700], teamOneAT: [1, 1, 1, 0], teamTwoAT: [1, 1, 1, 1] }} width={180} height={160} />
-              <div className="blog-chart-label">trio carrying</div>
-            </div>
-          </div>
-        </div>
-
-        {/* Row 5: Full stacks */}
-        <div className="blog-gallery-group">
-          <div className="blog-gallery-section">Full stacks</div>
-          <div className="blog-gallery-row">
-            <div className="blog-chart-labeled">
-              <Chart data={{ teamOneMmrs: [1800, 1800, 1800, 1800], teamTwoMmrs: [1750, 1750, 1750, 1750], teamOneAT: [1, 1, 1, 1], teamTwoAT: [1, 1, 1, 1] }} width={180} height={160} />
-              <div className="blog-chart-label">even stacks</div>
-            </div>
-            <div className="blog-chart-labeled">
-              <Chart data={{ teamOneMmrs: [2200, 2200, 2200, 2200], teamTwoMmrs: [1400, 1400, 1400, 1400], teamOneAT: [1, 1, 1, 1], teamTwoAT: [1, 1, 1, 1] }} width={180} height={160} />
-              <div className="blog-chart-label">stack mismatch</div>
-            </div>
-            <div className="blog-chart-labeled">
-              <Chart data={{ teamOneMmrs: [1900, 1900, 1900, 1900], teamTwoMmrs: [2000, 1800, 1600, 1400], teamOneAT: [1, 1, 1, 1], teamTwoAT: [0, 0, 0, 0] }} width={180} height={160} />
-              <div className="blog-chart-label">stack vs solos</div>
-            </div>
-            <div className="blog-chart-labeled">
-              <Chart data={{ teamOneMmrs: [1700, 1700, 1700, 1700], teamTwoMmrs: [1900, 1900, 1500, 1500], teamOneAT: [1, 1, 1, 1], teamTwoAT: [1, 1, 2, 2] }} width={180} height={160} />
-              <div className="blog-chart-label">stack vs 2 duos</div>
-            </div>
-            <div className="blog-chart-labeled">
-              <Chart data={{ teamOneMmrs: [2400, 2400, 2400, 2400], teamTwoMmrs: [2350, 2350, 2350, 2350], teamOneAT: [1, 1, 1, 1], teamTwoAT: [1, 1, 1, 1] }} width={180} height={160} />
-              <div className="blog-chart-label">high mmr stacks</div>
-            </div>
-          </div>
-        </div>
-
       </div>
-    </article>
+
+      <h2>Gallery</h2>
+      <p>
+        Every team composition you might see:
+      </p>
+
+      {/* Row 1: All solos */}
+      <div className="blog-gallery-group">
+        <div className="blog-gallery-section">All solos</div>
+        <div className="blog-gallery-row">
+          <div className="blog-chart-labeled">
+            <Chart data={{ teamOneMmrs: [1800, 1750, 1700, 1650], teamTwoMmrs: [1780, 1730, 1680, 1630], teamOneAT: [0, 0, 0, 0], teamTwoAT: [0, 0, 0, 0] }} width={180} height={160} />
+            <div className="blog-chart-label">balanced</div>
+          </div>
+          <div className="blog-chart-labeled">
+            <Chart data={{ teamOneMmrs: [2200, 2100, 2000, 1900], teamTwoMmrs: [1600, 1550, 1500, 1450], teamOneAT: [0, 0, 0, 0], teamTwoAT: [0, 0, 0, 0] }} width={180} height={160} />
+            <div className="blog-chart-label">mismatch</div>
+          </div>
+          <div className="blog-chart-labeled">
+            <Chart data={{ teamOneMmrs: [2400, 1600, 1400, 1200], teamTwoMmrs: [1700, 1650, 1600, 1550], teamOneAT: [0, 0, 0, 0], teamTwoAT: [0, 0, 0, 0] }} width={180} height={160} />
+            <div className="blog-chart-label">carry</div>
+          </div>
+          <div className="blog-chart-labeled">
+            <Chart data={{ teamOneMmrs: [2500, 2400, 2300, 2200], teamTwoMmrs: [2450, 2350, 2250, 2150], teamOneAT: [0, 0, 0, 0], teamTwoAT: [0, 0, 0, 0] }} width={180} height={160} />
+            <div className="blog-chart-label">high mmr</div>
+          </div>
+          <div className="blog-chart-labeled">
+            <Chart data={{ teamOneMmrs: [1100, 1000, 900, 800], teamTwoMmrs: [1050, 950, 850, 750], teamOneAT: [0, 0, 0, 0], teamTwoAT: [0, 0, 0, 0] }} width={180} height={160} />
+            <div className="blog-chart-label">low mmr</div>
+          </div>
+        </div>
+      </div>
+
+      {/* Row 2: Duo + solos */}
+      <div className="blog-gallery-group">
+        <div className="blog-gallery-section">Duo + solos</div>
+        <div className="blog-gallery-row">
+          <div className="blog-chart-labeled">
+            <Chart data={{ teamOneMmrs: [1900, 1900, 1600, 1400], teamTwoMmrs: [1850, 1850, 1550, 1350], teamOneAT: [1, 1, 0, 0], teamTwoAT: [1, 1, 0, 0] }} width={180} height={160} />
+            <div className="blog-chart-label">both have duo</div>
+          </div>
+          <div className="blog-chart-labeled">
+            <Chart data={{ teamOneMmrs: [2000, 2000, 1500, 1300], teamTwoMmrs: [1700, 1650, 1600, 1550], teamOneAT: [1, 1, 0, 0], teamTwoAT: [0, 0, 0, 0] }} width={180} height={160} />
+            <div className="blog-chart-label">duo vs solos</div>
+          </div>
+          <div className="blog-chart-labeled">
+            <Chart data={{ teamOneMmrs: [2200, 2200, 1200, 1000], teamTwoMmrs: [1600, 1600, 1600, 1600], teamOneAT: [1, 1, 0, 0], teamTwoAT: [0, 0, 0, 0] }} width={180} height={160} />
+            <div className="blog-chart-label">high duo carrying</div>
+          </div>
+          <div className="blog-chart-labeled">
+            <Chart data={{ teamOneMmrs: [1400, 1400, 1800, 1600], teamTwoMmrs: [1500, 1500, 1700, 1500], teamOneAT: [1, 1, 0, 0], teamTwoAT: [1, 1, 0, 0] }} width={180} height={160} />
+            <div className="blog-chart-label">low duo</div>
+          </div>
+        </div>
+      </div>
+
+      {/* Row 3: Two duos */}
+      <div className="blog-gallery-group">
+        <div className="blog-gallery-section">Two duos</div>
+        <div className="blog-gallery-row">
+          <div className="blog-chart-labeled">
+            <Chart data={{ teamOneMmrs: [2000, 2000, 1400, 1400], teamTwoMmrs: [1950, 1950, 1350, 1350], teamOneAT: [1, 1, 2, 2], teamTwoAT: [1, 1, 2, 2] }} width={180} height={160} />
+            <div className="blog-chart-label">mirrored</div>
+          </div>
+          <div className="blog-chart-labeled">
+            <Chart data={{ teamOneMmrs: [2100, 2100, 1300, 1300], teamTwoMmrs: [1700, 1700, 1700, 1700], teamOneAT: [1, 1, 2, 2], teamTwoAT: [1, 1, 2, 2] }} width={180} height={160} />
+            <div className="blog-chart-label">split vs even</div>
+          </div>
+          <div className="blog-chart-labeled">
+            <Chart data={{ teamOneMmrs: [1800, 1800, 1800, 1800], teamTwoMmrs: [2000, 2000, 1600, 1600], teamOneAT: [1, 1, 2, 2], teamTwoAT: [1, 1, 2, 2] }} width={180} height={160} />
+            <div className="blog-chart-label">clustered vs split</div>
+          </div>
+          <div className="blog-chart-labeled">
+            <Chart data={{ teamOneMmrs: [2200, 2200, 1200, 1200], teamTwoMmrs: [1900, 1500, 1400, 1000], teamOneAT: [1, 1, 2, 2], teamTwoAT: [0, 0, 0, 0] }} width={180} height={160} />
+            <div className="blog-chart-label">2 duos vs solos</div>
+          </div>
+        </div>
+      </div>
+
+      {/* Row 4: Trio + solo */}
+      <div className="blog-gallery-group">
+        <div className="blog-gallery-section">Trio + solo</div>
+        <div className="blog-gallery-row">
+          <div className="blog-chart-labeled">
+            <Chart data={{ teamOneMmrs: [1800, 1800, 1800, 1500], teamTwoMmrs: [1750, 1750, 1750, 1450], teamOneAT: [1, 1, 1, 0], teamTwoAT: [1, 1, 1, 0] }} width={180} height={160} />
+            <div className="blog-chart-label">both have trio</div>
+          </div>
+          <div className="blog-chart-labeled">
+            <Chart data={{ teamOneMmrs: [2000, 2000, 2000, 1200], teamTwoMmrs: [1700, 1700, 1600, 1600], teamOneAT: [1, 1, 1, 0], teamTwoAT: [1, 1, 0, 0] }} width={180} height={160} />
+            <div className="blog-chart-label">trio vs duo</div>
+          </div>
+          <div className="blog-chart-labeled">
+            <Chart data={{ teamOneMmrs: [1900, 1900, 1900, 1400], teamTwoMmrs: [1750, 1700, 1650, 1600], teamOneAT: [1, 1, 1, 0], teamTwoAT: [0, 0, 0, 0] }} width={180} height={160} />
+            <div className="blog-chart-label">trio vs solos</div>
+          </div>
+          <div className="blog-chart-labeled">
+            <Chart data={{ teamOneMmrs: [2200, 2200, 2200, 800], teamTwoMmrs: [1700, 1700, 1700, 1700], teamOneAT: [1, 1, 1, 0], teamTwoAT: [1, 1, 1, 1] }} width={180} height={160} />
+            <div className="blog-chart-label">trio carrying</div>
+          </div>
+        </div>
+      </div>
+
+      {/* Row 5: Full stacks */}
+      <div className="blog-gallery-group">
+        <div className="blog-gallery-section">Full stacks</div>
+        <div className="blog-gallery-row">
+          <div className="blog-chart-labeled">
+            <Chart data={{ teamOneMmrs: [1800, 1800, 1800, 1800], teamTwoMmrs: [1750, 1750, 1750, 1750], teamOneAT: [1, 1, 1, 1], teamTwoAT: [1, 1, 1, 1] }} width={180} height={160} />
+            <div className="blog-chart-label">even stacks</div>
+          </div>
+          <div className="blog-chart-labeled">
+            <Chart data={{ teamOneMmrs: [2200, 2200, 2200, 2200], teamTwoMmrs: [1400, 1400, 1400, 1400], teamOneAT: [1, 1, 1, 1], teamTwoAT: [1, 1, 1, 1] }} width={180} height={160} />
+            <div className="blog-chart-label">stack mismatch</div>
+          </div>
+          <div className="blog-chart-labeled">
+            <Chart data={{ teamOneMmrs: [1900, 1900, 1900, 1900], teamTwoMmrs: [2000, 1800, 1600, 1400], teamOneAT: [1, 1, 1, 1], teamTwoAT: [0, 0, 0, 0] }} width={180} height={160} />
+            <div className="blog-chart-label">stack vs solos</div>
+          </div>
+          <div className="blog-chart-labeled">
+            <Chart data={{ teamOneMmrs: [1700, 1700, 1700, 1700], teamTwoMmrs: [1900, 1900, 1500, 1500], teamOneAT: [1, 1, 1, 1], teamTwoAT: [1, 1, 2, 2] }} width={180} height={160} />
+            <div className="blog-chart-label">stack vs 2 duos</div>
+          </div>
+          <div className="blog-chart-labeled">
+            <Chart data={{ teamOneMmrs: [2400, 2400, 2400, 2400], teamTwoMmrs: [2350, 2350, 2350, 2350], teamOneAT: [1, 1, 1, 1], teamTwoAT: [1, 1, 1, 1] }} width={180} height={160} />
+            <div className="blog-chart-label">high mmr stacks</div>
+          </div>
+        </div>
+      </div>
+    </div>
+
   </div>
   );
 };

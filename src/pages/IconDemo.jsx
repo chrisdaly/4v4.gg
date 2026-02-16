@@ -17,7 +17,7 @@ const IconDemo = () => {
 
         {/* WINNER OPTIONS */}
         <section style={{ marginBottom: "60px" }}>
-          <h2 style={{ color: "#fff", marginBottom: "24px", borderBottom: "1px solid var(--grey-mid)", paddingBottom: "8px" }}>
+          <h2 style={{ color: "var(--white)", marginBottom: "24px", borderBottom: "1px solid var(--grey-mid)", paddingBottom: "8px" }}>
             Winner Indicators
           </h2>
 
@@ -109,7 +109,7 @@ const IconDemo = () => {
 
         {/* MVP OPTIONS */}
         <section>
-          <h2 style={{ color: "#fff", marginBottom: "24px", borderBottom: "1px solid var(--grey-mid)", paddingBottom: "8px" }}>
+          <h2 style={{ color: "var(--white)", marginBottom: "24px", borderBottom: "1px solid var(--grey-mid)", paddingBottom: "8px" }}>
             MVP Indicators - Placement Options
           </h2>
 
@@ -319,7 +319,7 @@ const DemoCard = ({ title, desc, children }) => (
     borderRadius: "8px",
     padding: "20px"
   }}>
-    <h3 style={{ color: "#fff", fontSize: "14px", marginBottom: "4px" }}>{title}</h3>
+    <h3 style={{ color: "var(--white)", fontSize: "14px", marginBottom: "4px" }}>{title}</h3>
     <p style={{ color: "var(--grey-light)", fontSize: "11px", marginBottom: "16px" }}>{desc}</p>
     <div style={{ display: "flex", justifyContent: "center", alignItems: "center", minHeight: "80px" }}>
       {children}
@@ -332,7 +332,7 @@ const TeamHeader = ({ children, winner, style }) => (
     fontFamily: "var(--font-display)",
     fontSize: "18px",
     fontWeight: "bold",
-    color: winner ? "#fff" : "var(--grey-light)",
+    color: winner ? "var(--white)" : "var(--grey-light)",
     textAlign: "center",
     ...style
   }}>

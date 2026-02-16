@@ -15,6 +15,26 @@ const FormDots = ({ form }) => {
   );
 };
 
+const getMmr = (c) => {
+  if (c.mmrChange != null) return c.mmrChange;
+  const m = c.formatted?.match(/([+-]?\d+)\s*MMR/);
+  return m ? parseInt(m[1]) : null;
+};
+
+const getRecord = (key, c) => {
+  if (key === "WINNER" || key === "LOSER") {
+    const mmr = getMmr(c);
+    if (mmr != null) {
+      const sign = mmr > 0 ? "+" : "";
+      return `${sign}${mmr} MMR`;
+    }
+  }
+  if (key === "GRINDER") return `${c.wins + c.losses} games`;
+  if (key === "HOTSTREAK") return `${c.winStreak}W streak`;
+  if (key === "COLDSTREAK") return `${c.lossStreak}L streak`;
+  return `${c.wins}W-${c.losses}L`;
+};
+
 const StatPicker = ({ candidates, selectedStats, onToggle }) => {
   if (!candidates) return null;
 
@@ -31,15 +51,6 @@ const StatPicker = ({ candidates, selectedStats, onToggle }) => {
             <div className="stat-picker-candidates">
               {items.map((c, i) => {
                 const isSelected = selectedIdx === i;
-                let record;
-                if ((key === "WINNER" || key === "LOSER") && c.mmrChange != null) {
-                  const sign = c.mmrChange > 0 ? "+" : "";
-                  record = <>{sign}{c.mmrChange} MMR</>;
-                } else if (key === "GRINDER") {
-                  record = <>{c.wins + c.losses} games</>;
-                } else {
-                  record = <>{c.wins}W-{c.losses}L</>;
-                }
                 return (
                   <button
                     key={c.battleTag}
@@ -47,11 +58,7 @@ const StatPicker = ({ candidates, selectedStats, onToggle }) => {
                     onClick={() => onToggle(key, i)}
                   >
                     <span className="stat-picker-candidate-name">{c.name}</span>
-                    <span className="stat-picker-candidate-record">
-                      {record}
-                      {c.winStreak > 0 && <span className="stat-picker-streak stat-picker-streak--hot"> ({c.winStreak}W streak)</span>}
-                      {c.lossStreak > 0 && <span className="stat-picker-streak stat-picker-streak--cold"> ({c.lossStreak}L streak)</span>}
-                    </span>
+                    <span className="stat-picker-candidate-record">{getRecord(key, c)}</span>
                     <FormDots form={c.form} />
                   </button>
                 );

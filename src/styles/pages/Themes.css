@@ -84,7 +84,7 @@
 .themes-card-name {
   font-family: var(--font-display);
   font-size: var(--text-sm);
-  color: #fff;
+  color: var(--white);
 }
 
 .themes-card.active .themes-card-name {
@@ -93,7 +93,7 @@
 
 .themes-card-desc {
   font-family: var(--font-mono);
-  font-size: 11px;
+  font-size: var(--text-xxxs);
   color: var(--grey-light);
   letter-spacing: 0.3px;
 }
@@ -118,7 +118,7 @@
   }
 
   .themes-card-desc {
-    font-size: 10px;
+    font-size: var(--text-xxxs);
   }
 }
 
@@ -138,6 +138,6 @@
   }
 
   .themes-title {
-    font-size: 22px;
+    font-size: var(--text-lg);
   }
 }

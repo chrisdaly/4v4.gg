@@ -1,5 +1,6 @@
 import Anthropic from '@anthropic-ai/sdk';
-import { getMessagesByDate, getMessageBuckets, getDigest, setDigest, getRecentDigests, getWeeklyDigest, setWeeklyDigest, deleteDigest, setDigestWithDraft, updateDigestOnly, getDraftForDate, getMessagesByTimeWindow } from './db.js';
+import { getMessagesByDate, getMessageBuckets, getDigest, setDigest, getRecentDigests, getWeeklyDigest, setWeeklyDigest, deleteDigest, setDigestWithDraft, updateDigestOnly, getDraftForDate, getMessagesByTimeWindow, getClipsByDateRange, updateClip4v4Status, updateDigestClips, setWeeklyDigestFull, getStreamers } from './db.js';
+import { runClipFetch } from './clips.js';
 import config from './config.js';
 
 const API_BASE = 'https://website-backend.w3champions.com/api';
@@ -18,6 +19,53 @@ const MAX_MATCH_OFFSET = 500;
  * Fetch all finished 4v4 matches for a given date and compute per-player stats.
  */
 const RACE_NAMES = { 0: 'RND', 1: 'HU', 2: 'ORC', 4: 'NE', 8: 'UD' };
+
+/**
+ * Tag clips as 4v4 by matching streamer battle_tags against player stats.
+ * A clip is 4v4 if its streamer played a match within ±10 min of clip creation.
+ */
+function tagClipsAs4v4(clips, playerStats) {
+  const streamers = getStreamers();
+  const streamerMap = new Map(); // twitch_login → battle_tag
+  for (const s of streamers) {
+    if (s.battle_tag) streamerMap.set(s.twitch_login, s.battle_tag);
+  }
+
+  const tagged = [];
+  for (const clip of clips) {
+    const battleTag = streamerMap.get(clip.twitch_login);
+    if (!battleTag) {
+      updateClip4v4Status(clip.clip_id, false, null);
+      continue;
+    }
+
+    const stats = playerStats.get(battleTag);
+    if (!stats || stats.results.length === 0) {
+      updateClip4v4Status(clip.clip_id, false, null);
+      continue;
+    }
+
+    // Check if any match was within ±10 min of clip creation
+    const clipTime = new Date(clip.created_at).getTime();
+    const TEN_MIN = 10 * 60 * 1000;
+    let matchId = null;
+    for (let i = 0; i < stats.results.length; i++) {
+      if (Math.abs(stats.results[i].time - clipTime) <= TEN_MIN) {
+        matchId = stats.matchIds?.[i] || null;
+        break;
+      }
+    }
+
+    if (matchId !== null || stats.results.some(r => Math.abs(r.time - clipTime) <= TEN_MIN)) {
+      updateClip4v4Status(clip.clip_id, true, matchId);
+      tagged.push({ ...clip, is_4v4: true, match_id: matchId });
+    } else {
+      updateClip4v4Status(clip.clip_id, false, null);
+    }
+  }
+
+  return tagged;
+}
 
 /**
  * Shared core: fetch matches for a date and compute per-player stats.
@@ -493,7 +541,24 @@ async function assembleDigest(date, messages, soFar = false) {
   if (dailyStats?.coldStreak) parts.push(formatLossStreakLine(dailyStats.coldStreak));
   if (chatTags.length > 0) parts.push(`MENTIONS: ${chatTags.join(',')}`);
 
-  return { digest: parts.join('\n'), totalGames: dailyStats?.totalGames || 0, messageCount: messages.length, playerMatches: dailyStats?.playerMatches || null };
+  // Tag and collect 4v4 clips for this date
+  let digestClips = [];
+  try {
+    const allClips = getClipsByDateRange(date, date);
+    if (allClips.length > 0 && dailyStats) {
+      const result = await computePlayerStats(date);
+      const tagged = result ? tagClipsAs4v4(allClips, result.playerStats) : [];
+      digestClips = tagged.slice(0, 3).map(c => ({
+        clip_id: c.clip_id, title: c.title, url: c.url,
+        thumbnail_url: c.thumbnail_url, twitch_login: c.twitch_login,
+        view_count: c.view_count, duration: c.duration, match_id: c.match_id,
+      }));
+    }
+  } catch (err) {
+    console.warn('[Digest] Clip tagging failed:', err.message);
+  }
+
+  return { digest: parts.join('\n'), totalGames: dailyStats?.totalGames || 0, messageCount: messages.length, playerMatches: dailyStats?.playerMatches || null, clips: digestClips };
 }
 
 /**
@@ -520,7 +585,13 @@ export async function generateDigest(date) {
   const published = autoPublishDigest(fullDraft, 5);
   const matchContext = result.playerMatches ? JSON.stringify(result.playerMatches) : null;
   setDigestWithDraft(date, published, fullDraft, matchContext);
-  console.log(`[Digest] Generated for ${date} (${result.messageCount} messages, ${result.totalGames} games)`);
+
+  // Store clips on the digest
+  if (result.clips && result.clips.length > 0) {
+    updateDigestClips(date, JSON.stringify(result.clips));
+  }
+
+  console.log(`[Digest] Generated for ${date} (${result.messageCount} messages, ${result.totalGames} games, ${result.clips?.length || 0} clips)`);
   return published;
 }
 
@@ -705,6 +776,121 @@ function parseWeeklyStatLines(digestTexts) {
   return players;
 }
 
+/**
+ * Compute aggregate match stats across a week by calling computePlayerStats for each day.
+ */
+async function computeWeeklyMatchStats(weekStart, weekEnd) {
+  const startDate = new Date(weekStart + 'T12:00:00Z');
+  const endDate = new Date(weekEnd + 'T12:00:00Z');
+  const weeklyPlayerMap = new Map();
+  const raceStats = {}; // HU/ORC/NE/UD → { picks, wins }
+  const mapCounts = new Map(); // mapName → count
+  let totalGames = 0;
+  let mmrSum = 0;
+  let mmrCount = 0;
+
+  for (let d = new Date(startDate); d <= endDate; d.setUTCDate(d.getUTCDate() + 1)) {
+    const dateStr = d.toISOString().slice(0, 10);
+    let result;
+    try {
+      result = await computePlayerStats(dateStr);
+    } catch (err) {
+      console.warn(`[Weekly] Stats fetch failed for ${dateStr}:`, err.message);
+      continue;
+    }
+    if (!result) continue;
+
+    // Count games from raw matches
+    for (const match of result.rawMatches || []) {
+      const mapName = match.mapName || match.map || 'Unknown';
+      mapCounts.set(mapName, (mapCounts.get(mapName) || 0) + 1);
+    }
+
+    // Aggregate per-player stats
+    for (const [tag, stats] of result.playerStats) {
+      if (!weeklyPlayerMap.has(tag)) {
+        weeklyPlayerMap.set(tag, {
+          battleTag: tag, name: stats.name, race: stats.race,
+          mmrChange: 0, wins: 0, losses: 0, currentMmr: 0,
+          form: '',
+        });
+      }
+      const wp = weeklyPlayerMap.get(tag);
+      wp.mmrChange += stats.mmrChange;
+      wp.wins += stats.wins;
+      wp.losses += stats.losses;
+      wp.currentMmr = Math.max(wp.currentMmr, stats.currentMmr);
+      wp.form += stats.form;
+      if (!wp.race && stats.race) wp.race = stats.race;
+
+      // Track race stats
+      const raceName = RACE_NAMES[stats.race];
+      if (raceName && raceName !== 'RND') {
+        if (!raceStats[raceName]) raceStats[raceName] = { picks: 0, wins: 0 };
+        raceStats[raceName].picks += stats.wins + stats.losses;
+        raceStats[raceName].wins += stats.wins;
+      }
+
+      if (stats.currentMmr > 0) {
+        mmrSum += stats.currentMmr;
+        mmrCount++;
+      }
+    }
+
+    totalGames += result.totalGames || 0;
+  }
+
+  const uniquePlayers = weeklyPlayerMap.size;
+  const averageMmr = mmrCount > 0 ? Math.round(mmrSum / mmrCount) : 0;
+  const topMaps = [...mapCounts.entries()]
+    .sort((a, b) => b[1] - a[1])
+    .slice(0, 5)
+    .map(([name, games]) => ({ name, games }));
+
+  return { weeklyPlayerMap, raceStats, topMaps, totalGames, uniquePlayers, averageMmr };
+}
+
+/**
+ * Compute weekly awards from aggregated player stats.
+ */
+function computeWeeklyAwards(weeklyPlayerMap) {
+  const MIN_GAMES_WEEKLY = 3;
+  const MIN_GAMES_MVP = 5;
+  const qualified = [...weeklyPlayerMap.values()].filter(p => p.wins + p.losses >= MIN_GAMES_WEEKLY);
+
+  // POWER_RANKINGS: top 10 by mmrChange
+  const powerRankings = [...qualified]
+    .sort((a, b) => b.mmrChange - a.mmrChange)
+    .slice(0, 10)
+    .map(p => {
+      const race = RACE_NAMES[p.race] || '';
+      const sign = p.mmrChange > 0 ? '+' : '';
+      return `${p.battleTag}${race ? '[' + race + ']' : ''} ${sign}${Math.round(p.mmrChange)} MMR (${p.wins}W-${p.losses}L) ${p.form}`;
+    });
+
+  // MVP: highest weighted score, 5+ games
+  const mvpQualified = qualified.filter(p => p.wins + p.losses >= MIN_GAMES_MVP);
+  const mvp = mvpQualified.length > 0
+    ? mvpQualified
+      .map(p => ({
+        ...p,
+        score: p.currentMmr * 0.5 + (p.wins / (p.wins + p.losses)) * 1000 + p.mmrChange,
+      }))
+      .sort((a, b) => b.score - a.score)[0]
+    : null;
+
+  // IRON_MAN: most games
+  const ironMan = [...qualified].sort((a, b) => (b.wins + b.losses) - (a.wins + a.losses))[0] || null;
+
+  // MOST_IMPROVED: biggest MMR gain
+  const mostImproved = [...qualified].filter(p => p.mmrChange > 0).sort((a, b) => b.mmrChange - a.mmrChange)[0] || null;
+
+  // BIGGEST_TILT: worst MMR loss
+  const biggestTilt = [...qualified].filter(p => p.mmrChange < 0).sort((a, b) => a.mmrChange - b.mmrChange)[0] || null;
+
+  return { powerRankings, mvp, ironMan, mostImproved, biggestTilt };
+}
+
 function buildWeeklyPrompt(dailyDigests, aggregateStats) {
   const dailyTexts = dailyDigests.map((d, i) => {
     const dayLabel = new Date(d.date + 'T12:00:00Z').toLocaleDateString('en-US', { weekday: 'long' });
@@ -769,23 +955,47 @@ export async function generateWeeklyDigest(weekStart) {
     return null;
   }
 
-  // Parse aggregate stats from daily stat lines
+  // Compute rich aggregate stats from actual match data
+  let weeklyMatchStats = null;
+  let weeklyAwards = null;
+  try {
+    weeklyMatchStats = await computeWeeklyMatchStats(weekStart, weekEnd);
+    weeklyAwards = computeWeeklyAwards(weeklyMatchStats.weeklyPlayerMap);
+  } catch (err) {
+    console.warn('[Weekly] Match stats computation failed:', err.message);
+  }
+
+  // Fall back to parsing stat lines from daily digests if match fetch fails
   const digestTexts = dailyDigests.map(d => d.digest);
-  const playerMap = parseWeeklyStatLines(digestTexts);
+  const playerMap = weeklyMatchStats?.weeklyPlayerMap || parseWeeklyStatLines(digestTexts);
 
   // Pick weekly winners
-  const qualified = [...playerMap.values()].filter(p => p.games >= 3);
+  const qualified = [...playerMap.values()].filter(p => (p.wins + p.losses) >= 3);
   const byMmr = [...qualified].sort((a, b) => b.mmrChange - a.mmrChange);
   const weeklyWinner = byMmr[0]?.mmrChange > 0 ? byMmr[0] : null;
   const weeklyLoser = byMmr[byMmr.length - 1]?.mmrChange < 0 ? byMmr[byMmr.length - 1] : null;
-  const byGames = [...qualified].sort((a, b) => b.games - a.games);
+  const byGames = [...qualified].sort((a, b) => (b.wins + b.losses) - (a.wins + a.losses));
   const usedTags = new Set([weeklyWinner?.battleTag, weeklyLoser?.battleTag].filter(Boolean));
   const weeklyGrinder = byGames[0] && !usedTags.has(byGames[0].battleTag) ? byGames[0] : null;
 
   let aggregateText = `\nAggregate stats for the week (${dailyDigests.length} days):`;
-  if (weeklyWinner) aggregateText += `\nTop MMR gainer: ${weeklyWinner.name} (+${weeklyWinner.mmrChange} MMR, ${weeklyWinner.games} games)`;
-  if (weeklyLoser) aggregateText += `\nBiggest MMR loss: ${weeklyLoser.name} (${weeklyLoser.mmrChange} MMR, ${weeklyLoser.games} games)`;
-  if (weeklyGrinder) aggregateText += `\nMost active: ${weeklyGrinder.name} (${weeklyGrinder.games} games)`;
+  if (weeklyWinner) aggregateText += `\nTop MMR gainer: ${weeklyWinner.name} (+${Math.round(weeklyWinner.mmrChange)} MMR, ${weeklyWinner.wins + weeklyWinner.losses} games)`;
+  if (weeklyLoser) aggregateText += `\nBiggest MMR loss: ${weeklyLoser.name} (${Math.round(weeklyLoser.mmrChange)} MMR, ${weeklyLoser.wins + weeklyLoser.losses} games)`;
+  if (weeklyGrinder) aggregateText += `\nMost active: ${weeklyGrinder.name} (${weeklyGrinder.wins + weeklyGrinder.losses} games)`;
+
+  // Race/map context for AI
+  if (weeklyMatchStats?.raceStats) {
+    const raceLines = Object.entries(weeklyMatchStats.raceStats)
+      .sort((a, b) => b[1].picks - a[1].picks)
+      .map(([race, s]) => {
+        const wr = s.picks > 0 ? Math.round(s.wins / s.picks * 100) : 0;
+        return `${race} ${s.picks} picks (${wr}% WR)`;
+      });
+    if (raceLines.length > 0) aggregateText += `\nRace breakdown: ${raceLines.join(', ')}`;
+  }
+  if (weeklyMatchStats?.topMaps?.length > 0) {
+    aggregateText += `\nTop maps: ${weeklyMatchStats.topMaps.map(m => `${m.name} (${m.games})`).join(', ')}`;
+  }
 
   // Busiest day
   const dayCounts = dailyDigests.map(d => {
@@ -842,12 +1052,71 @@ export async function generateWeeklyDigest(weekStart) {
     parts.push(`LOSER: ${weeklyLoser.battleTag} ${sign}${Math.round(weeklyLoser.mmrChange)} MMR (${weeklyLoser.wins}W-${weeklyLoser.losses}L)`);
   }
   if (weeklyGrinder) {
-    parts.push(`GRINDER: ${weeklyGrinder.battleTag} ${weeklyGrinder.games} games (${weeklyGrinder.wins}W-${weeklyGrinder.losses}L)`);
+    parts.push(`GRINDER: ${weeklyGrinder.battleTag} ${weeklyGrinder.wins + weeklyGrinder.losses} games (${weeklyGrinder.wins}W-${weeklyGrinder.losses}L)`);
+  }
+
+  // Append power rankings, meta, and awards sections
+  if (weeklyAwards?.powerRankings?.length > 0) {
+    parts.push(`POWER_RANKINGS: ${weeklyAwards.powerRankings.map((p, i) => `${i + 1}. ${p}`).join('; ')}`);
+  }
+
+  if (weeklyMatchStats?.raceStats) {
+    const totalPicks = Object.values(weeklyMatchStats.raceStats).reduce((s, r) => s + r.picks, 0);
+    const raceParts = Object.entries(weeklyMatchStats.raceStats)
+      .sort((a, b) => b[1].picks - a[1].picks)
+      .map(([race, s]) => {
+        const pct = totalPicks > 0 ? Math.round(s.picks / totalPicks * 100) : 0;
+        const wr = s.picks > 0 ? Math.round(s.wins / s.picks * 100) : 0;
+        return `${race} ${pct}% (${wr}% WR)`;
+      });
+    const mapParts = (weeklyMatchStats.topMaps || []).map(m => `${m.name} ${m.games}`);
+    parts.push(`META: ${raceParts.join(', ')}${mapParts.length > 0 ? ' | Maps: ' + mapParts.join(', ') : ''}`);
+  }
+
+  if (weeklyAwards) {
+    const awards = [];
+    if (weeklyAwards.mvp) {
+      const wr = Math.round(weeklyAwards.mvp.wins / (weeklyAwards.mvp.wins + weeklyAwards.mvp.losses) * 100);
+      awards.push(`MVP ${weeklyAwards.mvp.battleTag} ${weeklyAwards.mvp.currentMmr} MMR ${wr}% WR`);
+    }
+    if (weeklyAwards.ironMan) awards.push(`Iron Man ${weeklyAwards.ironMan.battleTag} ${weeklyAwards.ironMan.wins + weeklyAwards.ironMan.losses} games`);
+    if (weeklyAwards.mostImproved) awards.push(`Most Improved ${weeklyAwards.mostImproved.battleTag} +${Math.round(weeklyAwards.mostImproved.mmrChange)} MMR`);
+    if (weeklyAwards.biggestTilt) awards.push(`Biggest Tilt ${weeklyAwards.biggestTilt.battleTag} ${Math.round(weeklyAwards.biggestTilt.mmrChange)} MMR`);
+    if (awards.length > 0) parts.push(`AWARDS: ${awards.join(' | ')}`);
   }
 
   const digest = parts.join('\n');
-  setWeeklyDigest(weekStart, weekEnd, digest);
-  console.log(`[Weekly] Generated for ${weekStart} to ${weekEnd} (${dailyDigests.length} daily digests)`);
+
+  // Collect weekly clips: top 5 4v4 clips by views
+  let weeklyClips = [];
+  try {
+    const allClips = getClipsByDateRange(weekStart, weekEnd);
+    weeklyClips = allClips
+      .filter(c => c.is_4v4 === 1)
+      .slice(0, 5)
+      .map(c => ({
+        clip_id: c.clip_id, title: c.title, url: c.url,
+        thumbnail_url: c.thumbnail_url, twitch_login: c.twitch_login,
+        view_count: c.view_count, duration: c.duration, match_id: c.match_id,
+      }));
+  } catch (err) {
+    console.warn('[Weekly] Clip collection failed:', err.message);
+  }
+
+  // Build stats JSON
+  const statsJson = weeklyMatchStats ? JSON.stringify({
+    totalGames: weeklyMatchStats.totalGames,
+    uniquePlayers: weeklyMatchStats.uniquePlayers,
+    averageMmr: weeklyMatchStats.averageMmr,
+    raceStats: weeklyMatchStats.raceStats,
+    topMaps: weeklyMatchStats.topMaps,
+  }) : null;
+
+  setWeeklyDigestFull(weekStart, weekEnd, digest,
+    weeklyClips.length > 0 ? JSON.stringify(weeklyClips) : null,
+    statsJson
+  );
+  console.log(`[Weekly] Generated for ${weekStart} to ${weekEnd} (${dailyDigests.length} daily digests, ${weeklyClips.length} clips)`);
   return digest;
 }
 
@@ -879,6 +1148,13 @@ async function refreshTodayDigest() {
 
 async function finalizeYesterday() {
   try {
+    // Fetch clips before generating the digest so they can be tagged
+    try {
+      await runClipFetch();
+    } catch (err) {
+      console.warn('[Scheduler] Pre-digest clip fetch failed:', err.message);
+    }
+
     const yesterday = new Date(Date.now() - 86400000).toISOString().slice(0, 10);
     const existing = getDigest(yesterday);
     if (existing) {

@@ -1,6 +1,7 @@
 import React, { useEffect, useRef } from "react";
 import * as d3 from "d3";
 import { geometricMean, stdDev } from "../lib/formatters";
+import { colors } from "../lib/design-tokens";
 
 // atStyle options: "combined" (default), "yin-yang", "bracket", "pill", "chain", "glow", "pie"
 // pieConfig allows tuning: { combinedGap (px), areaMultiplier (1.0-2.0) }
@@ -298,9 +299,9 @@ const MmrComparison = ({ data, compact = false, atStyle = "combined", pieConfig 
     drawSpreadLine(teamTwoPositioned, "team-two");
 
     // Colors from design tokens
-    const goldColor = "#fcdb33";
-    const teamOneColor = "#4da6ff";
-    const teamTwoColor = "#ef4444";
+    const goldColor = colors.gold.value;
+    const teamOneColor = colors.teamBlue.value;
+    const teamTwoColor = colors.teamRed.value;
 
     // Draw mean and std dev if enabled
     if (showMean || showStdDev) {

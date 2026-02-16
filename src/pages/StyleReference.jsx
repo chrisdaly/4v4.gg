@@ -104,12 +104,18 @@ const StyleReference = () => {
         <div className="sr-section-head">
           <div>
             <h2>Color palette</h2>
-            <p>Gold anchors the brand. Green and red signal outcomes. Cool greys recede into the background.</p>
+            <p>Gold anchors the brand and highlights player names. White for primary content. Green and red signal outcomes.</p>
+          </div>
+          <div className="sr-badge-row">
+            <span className="sr-badge gold">Brand & players</span>
+            <span className="sr-badge" style={{ backgroundColor: 'var(--white)', color: '#000' }}>Primary text</span>
+            <span className="sr-badge green">Wins</span>
+            <span className="sr-badge red">Losses</span>
           </div>
         </div>
         <div className="sr-swatch-grid">
           {colorEntries
-            .filter(([key]) => !["teamBlue", "teamRed", "twitchPurple", "atPurple", "white", "textBody"].includes(key))
+            .filter(([key]) => !["teamBlue", "teamRed", "twitchPurple", "atPurple", "textBody"].includes(key))
             .map(([key, token]) => (
             <div
               key={key}
@@ -143,14 +149,14 @@ const StyleReference = () => {
           </div>
           <div className="sr-type-sample">
             <div className="sample-title">Mono</div>
-            <h4 style={{ fontFamily: "var(--font-mono)", color: "#fff" }}>
+            <h4 style={{ fontFamily: "var(--font-mono)", color: "var(--white)" }}>
               Inconsolata
             </h4>
             <p>Stats, MMR values, labels, dates. Tabular data that needs to align.</p>
           </div>
           <div className="sr-type-sample">
             <div className="sample-title">Body</div>
-            <h4 style={{ fontFamily: "var(--font-body)", color: "#fff" }}>
+            <h4 style={{ fontFamily: "var(--font-body)", color: "var(--white)" }}>
               Libre Baskerville
             </h4>
             <p>Blog articles, news summaries, empty states, and descriptive prose. Readable serif for anything meant to be read.</p>
@@ -161,7 +167,7 @@ const StyleReference = () => {
           {typeEntries.map(([key, token]) => (
             <div className="sr-type-row" key={key}>
               <span className="sr-type-meta">{token.css} ({token.value})</span>
-              <span style={{ fontSize: token.value, color: "#fff" }}>{token.usage}</span>
+              <span style={{ fontSize: token.value, color: "var(--white)" }}>{token.usage}</span>
             </div>
           ))}
         </div>
@@ -410,7 +416,7 @@ const StyleReference = () => {
             </tr>
             <tr>
               <td style={{ fontFamily: "var(--font-display)", color: "var(--gold)", whiteSpace: "nowrap" }}>Timestamp</td>
-              <td><code>font-family: var(--font-mono); font-size: 11px; color: var(--grey-mid)</code></td>
+              <td><code>font-family: var(--font-mono); font-size: var(--text-xxxs); color: var(--grey-mid)</code></td>
             </tr>
           </tbody>
         </table>
@@ -442,7 +448,7 @@ const StyleReference = () => {
               border: `1px solid ${colors.greyMid.value}`,
             }}
           >
-            <div className="card-title" style={{ color: "#fff" }}>Grey Border</div>
+            <div className="card-title" style={{ color: "var(--white)" }}>Grey Border</div>
             <div className="card-sub">Secondary cards</div>
           </div>
           <div
@@ -464,6 +470,63 @@ const StyleReference = () => {
           >
             <div className="card-title" style={{ color: "var(--red)" }}>Loss Card</div>
             <div className="card-sub">Defeat results</div>
+          </div>
+        </div>
+      </section>
+
+      {/* ── Hover Patterns ───────────────── */}
+      <section className="sr-section sr-reveal" style={{ "--delay": "0.1s" }}>
+        <div className="sr-section-head">
+          <div>
+            <h2>Hover patterns</h2>
+            <p>Three approaches: neutral row highlight, gold-tinted for branded items, gold text for links.</p>
+          </div>
+        </div>
+        <div className="sr-layout-grid">
+          <div className="sr-surface" style={{ padding: 0, overflow: "hidden" }}>
+            <div style={{ padding: "12px 16px 4px" }}>
+              <div className="meta">Row hovers</div>
+            </div>
+            <div style={{ padding: "0 16px 16px" }}>
+              {[
+                { label: "Neutral row", bg: "var(--surface-2)", desc: "Default list/table rows" },
+                { label: "Gold row", bg: "var(--gold-tint-subtle)", desc: "Ladder rows, branded items" },
+                { label: "Win row", bg: "var(--green-tint-subtle)", desc: "Win-state items" },
+                { label: "Loss row", bg: "var(--red-tint-subtle)", desc: "Loss-state items" },
+              ].map(({ label, bg, desc }) => (
+                <div
+                  key={label}
+                  style={{
+                    padding: "10px 12px",
+                    background: bg,
+                    borderBottom: "1px solid rgba(255,255,255,0.04)",
+                    display: "flex",
+                    justifyContent: "space-between",
+                    alignItems: "center",
+                  }}
+                >
+                  <span style={{ fontFamily: "var(--font-display)", color: "var(--white)", fontSize: "var(--text-sm)" }}>{label}</span>
+                  <span style={{ fontFamily: "var(--font-mono)", fontSize: "var(--text-xxs)", color: "var(--grey-light)" }}>{desc}</span>
+                </div>
+              ))}
+            </div>
+          </div>
+          <div className="sr-surface">
+            <div className="meta">Link hovers</div>
+            <div style={{ marginTop: 12, display: "flex", flexDirection: "column", gap: 12 }}>
+              <div>
+                <span style={{ fontFamily: "var(--font-display)", color: "var(--gold)" }}>Player Name</span>
+                <span style={{ fontFamily: "var(--font-mono)", fontSize: "var(--text-xxs)", color: "var(--grey-light)", marginLeft: 12 }}>color: var(--gold)</span>
+              </div>
+              <div>
+                <span style={{ fontFamily: "var(--font-display)", color: "var(--gold)", textShadow: "0 0 8px var(--gold)" }}>Glowing Name</span>
+                <span style={{ fontFamily: "var(--font-mono)", fontSize: "var(--text-xxs)", color: "var(--grey-light)", marginLeft: 12 }}>+ text-shadow glow</span>
+              </div>
+              <div>
+                <span style={{ fontFamily: "var(--font-mono)", color: "var(--grey-light)", textDecoration: "underline" }}>underline link</span>
+                <span style={{ fontFamily: "var(--font-mono)", fontSize: "var(--text-xxs)", color: "var(--grey-light)", marginLeft: 12 }}>text-decoration: underline</span>
+              </div>
+            </div>
           </div>
         </div>
       </section>
@@ -567,6 +630,58 @@ const StyleReference = () => {
         </div>
       </section>
 
+      {/* ── Text Patterns Examples ────────── */}
+      <section className="sr-section sr-reveal" style={{ "--delay": "0.1s" }}>
+        <div className="sr-section-head">
+          <div>
+            <h2>Text patterns</h2>
+            <p>Color and font combinations for different content types. Gold for emphasis, white for primary content.</p>
+          </div>
+        </div>
+        <div className="sr-layout-grid">
+          <div className="sr-surface">
+            <div className="meta">Player and map examples</div>
+            <div style={{ marginTop: 12, display: 'flex', flexDirection: 'column', gap: 16 }}>
+              <div>
+                <div className="sr-label" style={{ marginBottom: 4 }}>Player names (gold display)</div>
+                <div style={{ fontFamily: "var(--font-display)", color: "var(--gold)" }}>
+                  ToD, Mubarak, Happy, 120
+                </div>
+              </div>
+              <div>
+                <div className="sr-label" style={{ marginBottom: 4 }}>Map names (white display)</div>
+                <div style={{ fontFamily: "var(--font-display)", color: "var(--white)", fontSize: "var(--text-sm)" }}>
+                  Northshire LV, Twilight Ruins LV, Ekrezem's Maze
+                </div>
+              </div>
+              <div>
+                <div className="sr-label" style={{ marginBottom: 4 }}>Data values (white mono)</div>
+                <div style={{ fontFamily: "var(--font-mono)", color: "var(--white)" }}>
+                  1847 MMR • 64% WR • 248 Games
+                </div>
+              </div>
+            </div>
+          </div>
+          <div className="sr-surface">
+            <div className="meta">Ladder patterns</div>
+            <div style={{ marginTop: 12, display: 'flex', flexDirection: 'column', gap: 12 }}>
+              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '8px 0', borderBottom: '1px solid var(--grey-mid)' }}>
+                <div style={{ fontFamily: "var(--font-display)", color: "var(--gold)" }}>Happy</div>
+                <div style={{ fontFamily: "var(--font-mono)", color: "var(--white)", fontWeight: '500' }}>2156</div>
+              </div>
+              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '8px 0', borderBottom: '1px solid var(--grey-mid)' }}>
+                <div style={{ fontFamily: "var(--font-display)", color: "var(--gold)" }}>ToD</div>
+                <div style={{ fontFamily: "var(--font-mono)", color: "var(--white)", fontWeight: '500' }}>2089</div>
+              </div>
+              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '8px 0' }}>
+                <div style={{ fontFamily: "var(--font-display)", color: "var(--gold)" }}>Mubarak</div>
+                <div style={{ fontFamily: "var(--font-mono)", color: "var(--white)", fontWeight: '500' }}>1943</div>
+              </div>
+            </div>
+          </div>
+        </div>
+      </section>
+
       {/* ── Usage Patterns (table) ────────── */}
       <section className="sr-section sr-reveal" style={{ "--delay": "0.1s" }}>
         <div className="sr-section-head">
@@ -600,7 +715,7 @@ const StyleReference = () => {
         <div className="sr-section-head">
           <div>
             <h2>Loading states</h2>
-            <p>Gold spinner with random WC3 peon quotes. Three sizes for inline, component, and page-level loading.</p>
+            <p>Gold spinner with cycling WC3 peon quotes. Quotes rotate every 3s with fade transitions. Three sizes for inline, component, and page-level loading.</p>
           </div>
         </div>
         <div className="sr-layout-grid">
@@ -628,6 +743,28 @@ const StyleReference = () => {
             </div>
           </div>
         </div>
+        <table className="sr-table" style={{ marginTop: 24 }}>
+          <thead>
+            <tr>
+              <th>Pattern</th>
+              <th>Usage</th>
+            </tr>
+          </thead>
+          <tbody>
+            <tr>
+              <td style={{ fontFamily: "var(--font-display)", color: "var(--gold)", whiteSpace: "nowrap" }}>Page-level centering</td>
+              <td><code>{'<div className="page-loader"><PeonLoader /></div>'}</code> — centers vertically (min-height: 60vh)</td>
+            </tr>
+            <tr>
+              <td style={{ fontFamily: "var(--font-display)", color: "var(--gold)", whiteSpace: "nowrap" }}>Inline / compact</td>
+              <td><code>{'<PeonLoader size="sm" />'}</code> — 16px spinner, for inside cards or rows</td>
+            </tr>
+            <tr>
+              <td style={{ fontFamily: "var(--font-display)", color: "var(--gold)", whiteSpace: "nowrap" }}>Custom interval</td>
+              <td><code>{'<PeonLoader interval={4000} />'}</code> — quote cycle speed in ms (default 3000)</td>
+            </tr>
+          </tbody>
+        </table>
       </section>
 
       {/* ── Borders & Radius ──────────────── */}

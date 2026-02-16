@@ -1,10 +1,11 @@
 import React, { useRef, useEffect, useState, useMemo } from "react";
 import * as d3 from "d3";
+import { colors } from "../lib/design-tokens";
 
 const DOT_COLOR = "rgba(255, 255, 255, 0.75)";
 const DOT_COLOR_INGAME = "rgba(255, 255, 255, 0.85)";
 const LABEL_COLOR = "rgba(255, 255, 255, 0.6)";
-const TEAM_COLORS = ["#4da6ff", "#ef4444"];
+const TEAM_COLORS = [colors.teamBlue.value, colors.teamRed.value];
 
 // Transition timing tiers (ms) — multiply by animationScale `s` before use
 const T = {
@@ -272,7 +273,7 @@ const OnlineMmrStrip = ({
     for (const [, members] of teamGroups) {
       if (members.length < 2) continue;
       const teamIdx = members[0].teamIdx;
-      const color = TEAM_COLORS[teamIdx] || "#888";
+      const color = TEAM_COLORS[teamIdx] || "var(--grey-light)";
       for (let i = 0; i < members.length - 1; i++) {
         const a = members[i];
         const b = members[i + 1];
@@ -405,7 +406,7 @@ const OnlineMmrStrip = ({
     staticG.append("line")
       .attr("x1", centerX).attr("x2", centerX)
       .attr("y1", padding.top).attr("y2", height - padding.bottom)
-      .attr("stroke", "#333").attr("stroke-width", 1);
+      .attr("stroke", "var(--grey-mid)").attr("stroke-width", 1);
 
     // ── Render: Arcs ──
     let arcG = svg.select(".arc-layer");
@@ -853,7 +854,7 @@ const OnlineMmrStrip = ({
         if (d.inGame && d.matchId != null) {
           applyHighlight(d.tag);
         } else {
-          d3.select(this).attr("r", d.r + 3).attr("fill", "#fff")
+          d3.select(this).attr("r", d.r + 3).attr("fill", "var(--white)")
             .attr("stroke", "rgba(255,255,255,0.5)").attr("stroke-width", 2);
           allDots.each(function (od) {
             if (od.tag === d.tag) return;
@@ -864,7 +865,7 @@ const OnlineMmrStrip = ({
           labelG.selectAll("text").each(function () {
             const el = d3.select(this);
             if (el.attr("data-tag") === d.tag) {
-              el.attr("fill", "#fff").attr("opacity", 1);
+              el.attr("fill", "var(--white)").attr("opacity", 1);
             } else {
               el.attr("opacity", 0.05);
             }
@@ -879,7 +880,7 @@ const OnlineMmrStrip = ({
                 .attr("x", d.x + d.r + 8)
                 .attr("y", d.y + 4)
                 .attr("text-anchor", "start")
-                .attr("fill", "#fff")
+                .attr("fill", "var(--white)")
                 .attr("font-size", `${L.FONT_SIZE}px`)
                 .attr("font-family", "var(--font-display)")
                 .text(name);

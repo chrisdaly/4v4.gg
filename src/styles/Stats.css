@@ -572,7 +572,7 @@
 
 .chat-activity-chip {
   font-family: var(--font-mono);
-  font-size: 11px;
+  font-size: var(--text-xxxs);
   text-transform: uppercase;
   letter-spacing: 0.08em;
   color: var(--grey-light);

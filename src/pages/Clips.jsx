@@ -4,6 +4,7 @@ import { FaTwitch } from "react-icons/fa";
 import useAdmin from "../lib/useAdmin";
 import { searchLadder, getPlayerProfile } from "../lib/api";
 import { Select, Badge, Button, Input } from "../components/ui";
+import PeonLoader from "../components/PeonLoader";
 import "../styles/pages/Clips.css";
 
 const RELAY_URL =
@@ -166,7 +167,9 @@ function PlayerTagSearch({ value, onAdd, onRemove }) {
       )}
       {searching && query.length >= 2 && !open && (
         <div className="clip-player-search-dropdown">
-          <div className="clip-player-search-loading">Zug zug<span className="ellipsis-anim" /></div>
+          <div className="clip-player-search-loading">
+            <PeonLoader size="sm" />
+          </div>
         </div>
       )}
     </div>
@@ -601,7 +604,9 @@ export default function Clips() {
         </div>
 
         {loading ? (
-          <div className="clips-loading">Loading clips...</div>
+          <div className="page-loader">
+            <PeonLoader />
+          </div>
         ) : relevantClips.length === 0 && hiddenClips.length === 0 ? (
           <div className="clips-empty">No clips found</div>
         ) : (

@@ -69,7 +69,7 @@ const SortButton = styled.button`
   border-radius: var(--radius-sm);
   color: var(--grey-light);
   font-family: var(--font-mono);
-  font-size: 11px;
+  font-size: var(--text-xxxs);
   letter-spacing: 0.5px;
   text-transform: uppercase;
   padding: 3px 8px;
@@ -87,13 +87,13 @@ const CloseButton = styled.button`
   background: none;
   border: none;
   color: var(--grey-light);
-  font-size: 22px;
+  font-size: var(--text-lg);
   line-height: 1;
   cursor: pointer;
   padding: 4px;
 
   &:hover {
-    color: #fff;
+    color: var(--white);
   }
 
   @media (max-width: 768px) {
@@ -172,7 +172,7 @@ const MapInfo = styled.div`
 const MapName = styled.div`
   font-family: var(--font-display);
   font-size: var(--text-lg);
-  color: #fff;
+  color: var(--white);
   white-space: nowrap;
   overflow: hidden;
   text-overflow: ellipsis;
@@ -187,14 +187,14 @@ const MmrRow = styled.div`
 
 const MmrValue = styled.span`
   font-family: var(--font-mono);
-  font-size: 18px;
-  color: #fff;
+  font-size: var(--text-base);
+  color: var(--white);
   font-weight: 700;
 `;
 
 const MmrLabel = styled.span`
   font-family: var(--font-mono);
-  font-size: 12px;
+  font-size: var(--text-xxs);
   color: var(--grey-light);
   opacity: 0.7;
 `;
@@ -209,7 +209,7 @@ const ChartCol = styled.div`
 
 const Elapsed = styled.div`
   font-family: var(--font-mono);
-  font-size: 14px;
+  font-size: var(--text-xs);
   color: var(--grey-light);
   margin-top: 3px;
 `;

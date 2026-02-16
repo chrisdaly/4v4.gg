@@ -118,7 +118,7 @@
   display: block;
   margin-top: 8px;
   font-weight: 600;
-  color: #fff;
+  color: var(--white);
 }
 
 /* ── Section ──────────────────────────── */
@@ -159,7 +159,7 @@
 .sr-section-head h2 {
   font-family: var(--font-display);
   font-size: clamp(1.6rem, 3vw, 2.4rem);
-  color: #fff;
+  color: var(--white);
   line-height: 1.1;
   margin-bottom: 8px;
 }
@@ -479,7 +479,7 @@
 .sr-surface h4 {
   font-family: var(--font-display);
   font-size: 1.4rem;
-  color: #fff;
+  color: var(--white);
   margin-bottom: 12px;
 }
 
@@ -537,7 +537,7 @@
   text-align: left;
   padding: 12px 16px;
   border-bottom: 1px solid rgba(255, 255, 255, 0.05);
-  color: #fff;
+  color: var(--white);
 }
 
 .sr-table th {
@@ -585,7 +585,7 @@
 .sr-overlay-box span {
   font-family: var(--font-mono);
   font-size: 0.72rem;
-  color: #fff;
+  color: var(--white);
 }
 
 .sr-overlay-name {

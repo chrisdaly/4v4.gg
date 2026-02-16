@@ -168,12 +168,12 @@
   }
 
   .distribution-name {
-    font-size: 11px;
+    font-size: var(--text-xxxs);
   }
 
   .distribution-stats {
     gap: 6px;
-    font-size: 11px;
+    font-size: var(--text-xxxs);
   }
 
   .distribution-percent {
@@ -272,7 +272,7 @@
   top: 50%;
   transform: translateY(-50%);
   color: var(--grey-light);
-  font-size: 13px;
+  font-size: var(--text-xs);
   pointer-events: none;
 }
 
@@ -284,14 +284,14 @@
   background: none;
   border: none;
   color: var(--grey-light);
-  font-size: 18px;
+  font-size: var(--text-base);
   cursor: pointer;
   padding: 0 4px;
   line-height: 1;
 }
 
 .search-clear:hover {
-  color: #fff;
+  color: var(--white);
 }
 
 .ladder-league-title {
@@ -326,22 +326,13 @@
   box-shadow: var(--theme-shadow, none);
 }
 
-.ladder-loading {
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  gap: 16px;
-  padding: 60px;
-  color: var(--grey-light);
-  font-size: 16px;
-}
 
 .ladder-no-results {
   text-align: center;
   padding: 40px;
   color: var(--grey-light);
   font-family: var(--font-body);
-  font-size: 14px;
+  font-size: var(--text-xs);
 }
 
 .ladder-table {
@@ -369,7 +360,7 @@
   border-bottom: 1px solid rgba(252, 219, 51, 0.25);
   color: var(--grey-light);
   font-family: var(--font-mono);
-  font-size: 11px;
+  font-size: var(--text-xxxs);
   text-transform: uppercase;
   letter-spacing: 0.12em;
   align-items: center;
@@ -493,7 +484,7 @@
   font-family: var(--font-mono);
   font-size: var(--text-base);
   font-weight: bold;
-  color: #fff;
+  color: var(--white);
 }
 
 .col-record {
@@ -693,23 +684,23 @@
   }
 
   .ladder-title {
-    font-size: 22px;
+    font-size: var(--text-lg);
   }
 
   .player-name-link {
-    font-size: 13px;
+    font-size: var(--text-xs);
   }
 
   .col-mmr .mmr-value {
-    font-size: 14px;
+    font-size: var(--text-xs);
   }
 
   .col-record {
-    font-size: 12px;
+    font-size: var(--text-xxs);
   }
 
   .col-winrate {
-    font-size: 12px;
+    font-size: var(--text-xxs);
   }
 
   .player-race-icon {
@@ -729,7 +720,7 @@
   }
 
   .ladder-title {
-    font-size: 18px;
+    font-size: var(--text-base);
   }
 
   .league-icon-title {
@@ -749,24 +740,24 @@
   }
 
   .player-name-link {
-    font-size: 11px;
+    font-size: var(--text-xxxs);
   }
 
   .col-mmr .mmr-value {
-    font-size: 12px;
+    font-size: var(--text-xxs);
   }
 
   .col-record,
   .col-winrate {
-    font-size: 10px;
+    font-size: var(--text-xxxs);
   }
 
   .rank-number {
-    font-size: 12px;
+    font-size: var(--text-xxs);
   }
 
   .ladder-header-row {
-    font-size: 9px;
+    font-size: var(--text-xxxs);
   }
 }
 
@@ -803,7 +794,7 @@
 
 .ladder-standing-rank {
   font-family: var(--font-mono);
-  font-size: 14px;
+  font-size: var(--text-xs);
   color: var(--grey-light);
 }
 
@@ -834,7 +825,7 @@
 
 .neighbor-rank {
   font-family: var(--font-mono);
-  font-size: 12px;
+  font-size: var(--text-xxs);
   color: var(--grey-light);
   min-width: 32px;
 }
@@ -846,7 +837,7 @@
 
 .neighbor-name {
   flex: 1;
-  font-size: 13px;
+  font-size: var(--text-xs);
   color: var(--grey-light);
   text-decoration: none;
   transition: color 0.2s;
@@ -863,8 +854,8 @@ a.neighbor-name:hover {
 
 .neighbor-mmr {
   font-family: var(--font-mono);
-  font-size: 13px;
-  color: #fff;
+  font-size: var(--text-xs);
+  color: var(--white);
   min-width: 40px;
   text-align: right;
 }
@@ -932,7 +923,7 @@ a.neighbor-name:hover {
 
 .filter-group label {
   font-family: var(--font-mono);
-  font-size: 10px;
+  font-size: var(--text-xxxs);
   text-transform: uppercase;
   letter-spacing: 0.1em;
   color: var(--grey-light);

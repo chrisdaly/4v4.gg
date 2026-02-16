@@ -67,13 +67,13 @@ const CloseButton = styled.button`
   background: none;
   border: none;
   color: var(--grey-light);
-  font-size: 22px;
+  font-size: var(--text-lg);
   line-height: 1;
   cursor: pointer;
   padding: 4px;
 
   &:hover {
-    color: #fff;
+    color: var(--white);
   }
 
   @media (max-width: 768px) {
@@ -92,7 +92,7 @@ const SearchWrapper = styled.div`
     top: 50%;
     transform: translateY(-50%);
     color: var(--grey-light);
-    font-size: 15px;
+    font-size: var(--text-sm);
     pointer-events: none;
   }
 `;
@@ -103,7 +103,7 @@ const SearchInput = styled.input`
   font-family: var(--font-display);
   font-size: var(--text-xs);
   letter-spacing: 0.3px;
-  color: #fff;
+  color: var(--white);
   background: linear-gradient(180deg, rgba(25, 20, 15, 0.9) 0%, rgba(12, 10, 8, 0.95) 100%);
   border: 1px solid rgba(160, 130, 80, 0.25);
   border-radius: var(--radius-md);
@@ -130,13 +130,13 @@ const SearchClear = styled.button`
   background: none;
   border: none;
   color: var(--grey-light);
-  font-size: 18px;
+  font-size: var(--text-base);
   cursor: pointer;
   padding: 0 4px;
   line-height: 1;
 
   &:hover {
-    color: #fff;
+    color: var(--white);
   }
 `;
 
@@ -148,7 +148,7 @@ const ColumnHeaders = styled.div`
   border-bottom: 1px solid rgba(160, 130, 80, 0.2);
   background: rgba(20, 16, 12, 0.6);
   font-family: var(--font-mono);
-  font-size: 11px;
+  font-size: var(--text-xxxs);
   text-transform: uppercase;
   letter-spacing: 0.1em;
   color: var(--grey-light);
@@ -283,7 +283,7 @@ const Name = styled.span`
 const MmrNum = styled.span`
   font-family: var(--font-mono);
   font-size: var(--text-xxs);
-  color: #fff;
+  color: var(--white);
   flex-shrink: 0;
 `;
 
@@ -291,7 +291,7 @@ const SectionHeader = styled.div`
   padding: 12px var(--space-4) var(--space-2);
   margin-top: var(--space-1);
   font-family: var(--font-mono);
-  font-size: 11px;
+  font-size: var(--text-xxxs);
   text-transform: uppercase;
   letter-spacing: 0.1em;
   color: var(--grey-light);
@@ -309,7 +309,7 @@ const SectionHeader = styled.div`
   }
 
   &:hover {
-    color: #fff;
+    color: var(--white);
   }
 `;
 

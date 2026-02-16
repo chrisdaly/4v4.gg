@@ -85,7 +85,7 @@
 
 .chat-context-time {
   font-family: var(--font-mono);
-  font-size: 11px;
+  font-size: var(--text-xxxs);
   color: var(--grey-mid);
   flex-shrink: 0;
 }
@@ -120,10 +120,9 @@
   min-width: 0;
 }
 
-.chat-context-loading,
 .chat-context-empty {
   font-family: var(--font-mono);
-  font-size: 11px;
+  font-size: var(--text-xxxs);
   color: var(--grey-mid);
   text-align: center;
   padding: var(--space-2);
@@ -151,7 +150,7 @@
 
 .chat-context-check {
   font-family: var(--font-mono);
-  font-size: 11px;
+  font-size: var(--text-xxxs);
   color: var(--gold);
   width: 14px;
   flex-shrink: 0;
@@ -168,7 +167,7 @@
   border-radius: var(--radius-sm);
   color: var(--gold);
   font-family: var(--font-mono);
-  font-size: 11px;
+  font-size: var(--text-xxxs);
   text-transform: uppercase;
   letter-spacing: 0.08em;
   cursor: pointer;

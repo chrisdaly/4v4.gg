@@ -148,7 +148,7 @@ const HoverTimestamp = styled.span`
   top: 50%;
   transform: translateY(-50%);
   font-family: var(--font-mono);
-  font-size: 11px;
+  font-size: var(--text-xxxs);
   color: var(--grey-light);
   opacity: 0;
   transition: opacity 0.15s;
@@ -190,7 +190,7 @@ const MessageContent = styled.div`
 
 const Timestamp = styled.span`
   font-family: var(--font-mono);
-  font-size: 12px;
+  font-size: var(--text-xxs);
   color: var(--grey-light);
   margin-left: var(--space-2);
 `;
@@ -266,18 +266,18 @@ const MmrRow = styled.div`
 
 const MmrValue = styled.span`
   font-family: var(--font-mono);
-  font-size: 15px;
-  color: #fff;
+  font-size: var(--text-sm);
+  color: var(--white);
   font-weight: 700;
 
   @media (max-width: 480px) {
-    font-size: 13px;
+    font-size: var(--text-xs);
   }
 `;
 
 const MmrLabel = styled.span`
   font-family: var(--font-mono);
-  font-size: 11px;
+  font-size: var(--text-xxxs);
   color: var(--grey-light);
   opacity: 0.7;
 `;
@@ -317,13 +317,13 @@ const InGameIcon = styled(GiCrossedSwords)`
 
 const MessageText = styled.span`
   font-family: var(--font-body);
-  color: #e0e0e0;
-  font-size: 15px;
+  color: var(--text-body);
+  font-size: var(--text-sm);
   line-height: 1.6;
   word-break: break-word;
 
   @media (max-width: 480px) {
-    font-size: 14px;
+    font-size: var(--text-xs);
     line-height: 1.5;
   }
 `;
@@ -331,7 +331,7 @@ const MessageText = styled.span`
 const SystemMessageRow = styled.div`
   padding: 2px var(--space-4) 2px 84px;
   line-height: 1.375;
-  font-size: 13px;
+  font-size: var(--text-xs);
   color: var(--grey-light);
   font-style: italic;
   opacity: 0.7;
@@ -359,7 +359,7 @@ const ScrollNotice = styled.button`
 
   &::after {
     content: "▼";
-    font-size: 9px;
+    font-size: var(--text-xxxs);
   }
 
   &:hover {
@@ -399,7 +399,7 @@ const DateDivider = styled.div`
 
 const DateLabel = styled.span`
   font-family: var(--font-mono);
-  font-size: 11px;
+  font-size: var(--text-xxxs);
   text-transform: uppercase;
   letter-spacing: 0.1em;
   color: var(--grey-light);
@@ -423,9 +423,9 @@ const ChatInput = styled.input`
   border: 1px solid rgba(160, 130, 80, 0.2);
   border-radius: var(--radius-sm);
   padding: var(--space-2) var(--space-2);
-  color: #e0e0e0;
+  color: var(--text-body);
   font-family: var(--font-body);
-  font-size: 14px;
+  font-size: var(--text-xs);
   outline: none;
   transition: border-color 0.15s;
 
@@ -504,9 +504,9 @@ const KeyInput = styled.input`
   border: 1px solid rgba(160, 130, 80, 0.2);
   border-radius: var(--radius-sm);
   padding: var(--space-2) var(--space-2);
-  color: #e0e0e0;
+  color: var(--text-body);
   font-family: var(--font-mono);
-  font-size: 12px;
+  font-size: var(--text-xxs);
   outline: none;
 
   &:focus {
@@ -520,14 +520,14 @@ const KeyInput = styled.input`
 
 const KeyLabel = styled.span`
   font-family: var(--font-mono);
-  font-size: 11px;
+  font-size: var(--text-xxxs);
   color: var(--grey-light);
   white-space: nowrap;
 `;
 
 const SendError = styled.span`
   font-family: var(--font-mono);
-  font-size: 11px;
+  font-size: var(--text-xxxs);
   color: var(--red);
   white-space: nowrap;
   overflow: hidden;
@@ -538,7 +538,7 @@ const TranslationRow = styled.div`
   margin: 2px 0 2px 84px;
   padding: 2px 10px;
   font-family: var(--font-mono);
-  font-size: 13px;
+  font-size: var(--text-xs);
   color: var(--grey-light);
   font-style: italic;
   opacity: 0.8;
@@ -551,7 +551,7 @@ const TranslationRow = styled.div`
 
 const TranslationLabel = styled.span`
   font-family: var(--font-mono);
-  font-size: 10px;
+  font-size: var(--text-xxxs);
   font-weight: 700;
   color: var(--grey-light);
   text-transform: uppercase;
@@ -575,7 +575,7 @@ const BotResponseRow = styled.div`
 
 const BotLabel = styled.span`
   font-family: var(--font-mono);
-  font-size: 10px;
+  font-size: var(--text-xxxs);
   font-weight: 700;
   color: var(--gold);
   text-transform: uppercase;
@@ -585,15 +585,15 @@ const BotLabel = styled.span`
 
 const BotPreviewTag = styled.span`
   font-family: var(--font-mono);
-  font-size: 10px;
+  font-size: var(--text-xxxs);
   color: var(--grey-light);
   opacity: 0.7;
 `;
 
 const BotText = styled.pre`
   font-family: var(--font-mono);
-  font-size: 13px;
-  color: #ccc;
+  font-size: var(--text-xs);
+  color: var(--grey-light);
   margin: 2px 0 0;
   white-space: pre-wrap;
   word-break: break-word;
@@ -612,7 +612,7 @@ const BotTestBar = styled.form`
 
 const BotTestPrefix = styled.span`
   font-family: var(--font-mono);
-  font-size: 12px;
+  font-size: var(--text-xxs);
   font-weight: 700;
   color: var(--gold);
   opacity: 0.7;
@@ -625,9 +625,9 @@ const BotTestInput = styled.input`
   border: 1px solid rgba(252, 219, 51, 0.15);
   border-radius: var(--radius-sm);
   padding: 5px var(--space-2);
-  color: #e0e0e0;
+  color: var(--text-body);
   font-family: var(--font-mono);
-  font-size: 13px;
+  font-size: var(--text-xs);
   outline: none;
   transition: border-color 0.15s;
 
@@ -637,7 +637,7 @@ const BotTestInput = styled.input`
 
   &::placeholder {
     color: var(--grey-mid);
-    font-size: 11px;
+    font-size: var(--text-xxxs);
   }
 
   &:disabled {

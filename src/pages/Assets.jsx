@@ -28,7 +28,7 @@ const Section = styled.section`
 const SectionTitle = styled.h2`
   font-family: var(--font-display);
   font-size: var(--text-lg);
-  color: #fff;
+  color: var(--white);
   margin-bottom: var(--space-1);
 `;
 
@@ -84,8 +84,8 @@ const AssetInfo = styled.div`
 
 const AssetName = styled.div`
   font-family: var(--font-mono);
-  font-size: 11px;
-  color: #fff;
+  font-size: var(--text-xxxs);
+  color: var(--white);
   white-space: nowrap;
   overflow: hidden;
   text-overflow: ellipsis;
@@ -93,7 +93,7 @@ const AssetName = styled.div`
 
 const AssetPath = styled.div`
   font-family: var(--font-mono);
-  font-size: 10px;
+  font-size: var(--text-xxxs);
   color: var(--grey-light);
   opacity: 0.6;
   white-space: nowrap;
@@ -177,7 +177,7 @@ const CornerCenter = styled.div`
   align-items: center;
   justify-content: center;
   font-family: var(--font-mono);
-  font-size: 10px;
+  font-size: var(--text-xxxs);
   color: var(--grey-light);
   opacity: 0.5;
 `;

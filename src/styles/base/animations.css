@@ -241,8 +241,10 @@
    ======================================== */
 
 @keyframes peon-text-pulse {
-  0%, 100% { opacity: 0.4; }
-  50%      { opacity: 1; }
+  0%   { opacity: 0; }
+  15%  { opacity: 1; }
+  85%  { opacity: 1; }
+  100% { opacity: 0; }
 }
 
 .peon-loader {
@@ -257,5 +259,5 @@
   font-size: var(--text-sm);
   color: var(--gold);
   letter-spacing: 0.05em;
-  animation: peon-text-pulse 2.5s ease-in-out infinite;
+  animation: peon-text-pulse 3s ease-in-out both;
 }

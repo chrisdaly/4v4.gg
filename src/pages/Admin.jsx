@@ -45,7 +45,7 @@ const SectionHeader = styled.div`
 const SectionTitle = styled.h2`
   font-family: var(--font-display);
   font-size: var(--text-lg);
-  color: #fff;
+  color: var(--white);
 `;
 
 const RefreshButton = styled.button`
@@ -58,7 +58,7 @@ const RefreshButton = styled.button`
   padding: 4px 10px;
   color: var(--grey-light);
   font-family: var(--font-mono);
-  font-size: 11px;
+  font-size: var(--text-xxxs);
   cursor: pointer;
   transition: all 0.15s;
 
@@ -77,7 +77,7 @@ const LinkCard = styled.a`
   background: rgba(255, 255, 255, 0.04);
   border: 1px solid rgba(160, 130, 80, 0.2);
   border-radius: var(--radius-md);
-  color: #e0e0e0;
+  color: var(--text-body);
   text-decoration: none;
   transition: all 0.15s;
 
@@ -127,13 +127,13 @@ const HealthCard = styled.div`
 const HealthValue = styled.div`
   font-family: var(--font-mono);
   font-size: var(--text-base);
-  color: ${(p) => p.$color || "#fff"};
+  color: ${(p) => p.$color || "var(--white)"};
   font-weight: 700;
 `;
 
 const HealthLabel = styled.div`
   font-family: var(--font-mono);
-  font-size: 11px;
+  font-size: var(--text-xxxs);
   color: var(--grey-light);
   text-transform: uppercase;
   letter-spacing: 0.08em;
@@ -154,9 +154,9 @@ const TokenInput = styled.input`
   border: 1px solid rgba(160, 130, 80, 0.2);
   border-radius: var(--radius-sm);
   padding: var(--space-2);
-  color: #e0e0e0;
+  color: var(--text-body);
   font-family: var(--font-mono);
-  font-size: 12px;
+  font-size: var(--text-xxs);
   outline: none;
 
   &:focus {
@@ -200,7 +200,7 @@ const ToggleButton = styled.button`
   background: ${(p) => (p.$active ? "rgba(76, 175, 80, 0.15)" : "rgba(255, 255, 255, 0.04)")};
   color: ${(p) => (p.$active ? "var(--green)" : "var(--grey-light)")};
   font-family: var(--font-mono);
-  font-size: 13px;
+  font-size: var(--text-xs);
   font-weight: 700;
   cursor: pointer;
   transition: all 0.15s;
@@ -218,7 +218,7 @@ const ToggleButton = styled.button`
 
 const StatusText = styled.span`
   font-family: var(--font-mono);
-  font-size: 12px;
+  font-size: var(--text-xxs);
   color: ${(p) => p.$color || "var(--grey-light)"};
 `;
 
@@ -236,7 +236,7 @@ const TopChatterRow = styled.div`
 
 const ChatterRank = styled.span`
   font-family: var(--font-mono);
-  font-size: 12px;
+  font-size: var(--text-xxs);
   color: var(--grey-mid);
   width: 24px;
 `;
@@ -255,7 +255,7 @@ const ChatterName = styled.span`
 const ChatterCount = styled.span`
   font-family: var(--font-mono);
   font-size: var(--text-xs);
-  color: #fff;
+  color: var(--white);
   font-weight: 700;
 `;
 
@@ -269,7 +269,7 @@ const TopChattersCard = styled.div`
 
 const SubLabel = styled.div`
   font-family: var(--font-mono);
-  font-size: 11px;
+  font-size: var(--text-xxxs);
   color: var(--grey-light);
   text-transform: uppercase;
   letter-spacing: 0.08em;
@@ -308,8 +308,8 @@ const Bar = styled.div`
     left: 50%;
     transform: translateX(-50%);
     font-family: var(--font-mono);
-    font-size: 10px;
-    color: #fff;
+    font-size: var(--text-xxxs);
+    color: var(--white);
     background: rgba(0, 0, 0, 0.85);
     padding: 2px 6px;
     border-radius: 3px;
@@ -329,14 +329,14 @@ const ChartLabel = styled.span`
   min-width: 0;
   text-align: center;
   font-family: var(--font-mono);
-  font-size: 9px;
+  font-size: var(--text-xxxs);
   color: var(--grey-mid);
   overflow: hidden;
 `;
 
 const BusiestDayText = styled.div`
   font-family: var(--font-mono);
-  font-size: 13px;
+  font-size: var(--text-xs);
   color: var(--grey-light);
   margin-top: var(--space-2);
 `;
@@ -350,8 +350,8 @@ const WordCloud = styled.div`
 
 const WordTag = styled.span`
   font-family: var(--font-mono);
-  font-size: ${(p) => p.$size || "13px"};
-  color: ${(p) => p.$color || "#e0e0e0"};
+  font-size: ${(p) => p.$size || "var(--text-xs)"};
+  color: ${(p) => p.$color || "var(--text-body)"};
   background: rgba(255, 255, 255, 0.04);
   border: 1px solid rgba(160, 130, 80, 0.15);
   border-radius: var(--radius-sm);
@@ -377,8 +377,8 @@ const DigestDate = styled.div`
 
 const DigestText = styled.pre`
   font-family: var(--font-mono);
-  font-size: 13px;
-  color: #ccc;
+  font-size: var(--text-xs);
+  color: var(--grey-light);
   white-space: pre-wrap;
   word-break: break-word;
   line-height: 1.5;
@@ -387,7 +387,7 @@ const DigestText = styled.pre`
 
 const GenerateButton = styled.button`
   font-family: var(--font-mono);
-  font-size: 12px;
+  font-size: var(--text-xxs);
   color: var(--gold);
   background: rgba(252, 219, 51, 0.06);
   border: 1px solid rgba(252, 219, 51, 0.25);
@@ -680,7 +680,7 @@ export default function Admin() {
         {db?.busiestDay && (
           <BusiestDayText>
             Busiest day: <strong style={{ color: "var(--gold)" }}>{db.busiestDay.day}</strong> with{" "}
-            <strong style={{ color: "#fff" }}>{db.busiestDay.count.toLocaleString()}</strong> messages
+            <strong style={{ color: "var(--white)" }}>{db.busiestDay.count.toLocaleString()}</strong> messages
           </BusiestDayText>
         )}
         {db?.perDay?.length > 0 && (
@@ -756,7 +756,7 @@ export default function Admin() {
               const max = analytics.topWords[0].count;
               const ratio = w.count / max;
               const size = Math.round(11 + ratio * 10);
-              const color = ratio > 0.7 ? "var(--gold)" : ratio > 0.4 ? "#fff" : "#aaa";
+              const color = ratio > 0.7 ? "var(--gold)" : ratio > 0.4 ? "var(--white)" : "var(--grey-light)";
               return (
                 <WordTag key={w.word} $size={`${size}px`} $color={color} title={`${w.count} uses`}>
                   {w.word}

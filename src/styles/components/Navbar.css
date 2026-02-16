@@ -58,7 +58,7 @@
 }
 
 .navbar-link:hover {
-  color: #fff;
+  color: var(--white);
   background: rgba(255, 255, 255, 0.06);
 }
 
@@ -89,14 +89,14 @@
   top: 50%;
   transform: translateY(-50%);
   color: var(--grey-light);
-  font-size: 13px;
+  font-size: var(--text-xs);
   pointer-events: none;
   z-index: 1;
 }
 
 .navbar-search-input {
   font-family: var(--font-display);
-  font-size: 12px;
+  font-size: var(--text-xxs);
   letter-spacing: 0.3px;
   color: var(--grey-light);
   background: transparent;
@@ -110,7 +110,7 @@
 
 .navbar-search-input::placeholder {
   color: var(--grey-light);
-  font-size: 11px;
+  font-size: var(--text-xxxs);
 }
 
 .navbar-search-input:focus {
@@ -126,14 +126,14 @@
   background: none;
   border: none;
   color: var(--grey-light);
-  font-size: 18px;
+  font-size: var(--text-base);
   cursor: pointer;
   padding: 0 4px;
   line-height: 1;
 }
 
 .navbar-search-clear:hover {
-  color: #fff;
+  color: var(--white);
 }
 
 .navbar-search-dropdown {
@@ -233,7 +233,7 @@
 
 .navbar-search-tag {
   font-family: var(--font-mono);
-  font-size: 11px;
+  font-size: var(--text-xxxs);
   color: var(--grey-mid);
   flex-shrink: 0;
 }
@@ -276,23 +276,7 @@
 }
 
 .navbar-search-loading {
-  font-family: var(--font-mono);
-  font-size: var(--text-xxs);
-  color: var(--grey-light);
-  padding: 8px 10px;
-  text-align: center;
-}
-
-.ellipsis-anim::after {
-  content: '';
-  animation: ellipsis 1.2s steps(4, end) infinite;
-}
-
-@keyframes ellipsis {
-  0%  { content: ''; }
-  25% { content: '.'; }
-  50% { content: '..'; }
-  75% { content: '...'; }
+  padding: var(--space-2) var(--space-4);
 }
 
 /* ── Hamburger button (hidden on desktop) ─────────── */
@@ -373,7 +357,7 @@
 }
 
 .navbar-mobile-link:hover {
-  color: #fff;
+  color: var(--white);
   background: rgba(255, 255, 255, 0.04);
 }
 
@@ -395,7 +379,7 @@
   }
 
   .navbar-logo {
-    font-size: 16px;
+    font-size: var(--text-sm);
   }
 
   .navbar-links {
@@ -423,7 +407,7 @@
   }
 
   .navbar-logo {
-    font-size: 14px;
+    font-size: var(--text-xs);
   }
 
 }

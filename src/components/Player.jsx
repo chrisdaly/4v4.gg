@@ -73,7 +73,7 @@ const Player = ({ data, side, transition }) => {
         {hasSparkline && (
           <div className="sparkline-container">
             <Sparklines data={sparklineData} width={80} height={20} margin={2}>
-              <SparklinesLine style={{ strokeWidth: 2, stroke: "#aaa", fill: "none" }} />
+              <SparklinesLine style={{ strokeWidth: 2, stroke: "var(--grey-light)", fill: "none" }} />
             </Sparklines>
           </div>
         )}

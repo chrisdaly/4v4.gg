@@ -29,7 +29,7 @@ const MockupSection = styled.section`
 const MockupLabel = styled.h2`
   font-family: var(--font-display);
   font-size: var(--text-lg);
-  color: #fff;
+  color: var(--white);
   margin-bottom: var(--space-1);
 `;
 
@@ -185,14 +185,14 @@ const MmrRow = styled.div`
 
 const MmrValue = styled.span`
   font-family: var(--font-mono);
-  font-size: 14px;
-  color: #fff;
+  font-size: var(--text-xs);
+  color: var(--white);
   font-weight: 700;
 `;
 
 const MmrLabel = styled.span`
   font-family: var(--font-mono);
-  font-size: 10px;
+  font-size: var(--text-xxxs);
   color: var(--grey-light);
   opacity: 0.6;
 `;
@@ -231,15 +231,15 @@ const MsgName = styled.span`
 
 const MsgTime = styled.span`
   font-family: var(--font-mono);
-  font-size: 12px;
+  font-size: var(--text-xxs);
   color: var(--grey-light);
   margin-left: var(--space-2);
 `;
 
 const MsgText = styled.span`
   font-family: var(--font-body);
-  color: #e0e0e0;
-  font-size: 15px;
+  color: var(--text-body);
+  font-size: var(--text-sm);
   line-height: 1.6;
   word-break: break-word;
 `;
@@ -278,7 +278,7 @@ const ColumnHeaders = styled.div`
   border-bottom: 1px solid rgba(160, 130, 80, 0.15);
   background: rgba(20, 16, 12, 0.6);
   font-family: var(--font-mono);
-  font-size: 10px;
+  font-size: var(--text-xxxs);
   text-transform: uppercase;
   letter-spacing: 0.1em;
   flex-shrink: 0;
@@ -336,7 +336,7 @@ const SidebarName = styled.span`
 const SidebarMmr = styled.span`
   font-family: var(--font-mono);
   font-size: var(--text-xxs);
-  color: #fff;
+  color: var(--white);
 `;
 
 /* ── Transcript Data ─────────────────────────────────── */
@@ -813,7 +813,7 @@ const AGPlayerName = styled.span`
 const AGMapName = styled.div`
   font-family: var(--font-display);
   font-size: ${(p) => p.$size || "var(--text-xs)"};
-  color: #fff;
+  color: var(--white);
   white-space: nowrap;
   overflow: hidden;
   text-overflow: ellipsis;
@@ -821,13 +821,13 @@ const AGMapName = styled.div`
 
 const AGElapsed = styled.div`
   font-family: var(--font-mono);
-  font-size: 10px;
+  font-size: var(--text-xxxs);
   color: var(--grey-light);
 `;
 
 const AGTeamLabel = styled.div`
   font-family: var(--font-mono);
-  font-size: 9px;
+  font-size: var(--text-xxxs);
   text-transform: uppercase;
   letter-spacing: 0.05em;
   color: ${(p) => (p.$team === 1 ? "var(--blue, #4a9eff)" : "var(--red)")};
@@ -840,8 +840,8 @@ const AGTeamLabel = styled.div`
 
 const AGAvgMmr = styled.span`
   font-family: var(--font-mono);
-  font-size: 10px;
-  color: #fff;
+  font-size: var(--text-xxxs);
+  color: var(--white);
   opacity: 0.8;
   text-transform: none;
   letter-spacing: 0;
@@ -855,7 +855,7 @@ const AGMapImg = styled.img`
 
 const AGVs = styled.span`
   font-family: var(--font-mono);
-  font-size: 10px;
+  font-size: var(--text-xxxs);
   color: var(--grey-light);
   opacity: 0.5;
 `;
@@ -930,14 +930,14 @@ function LayoutB({ match }) {
       </div>
       <div style={{ display: "flex", alignItems: "center", justifyContent: "center", gap: 8, padding: "6px 0" }}>
         <div style={{ textAlign: "center" }}>
-          <div style={{ fontFamily: "var(--font-mono)", fontSize: 14, color: "#fff", fontWeight: 700 }}>{match.avg1}</div>
+          <div style={{ fontFamily: "var(--font-mono)", fontSize: "var(--text-xs)", color: "var(--white)", fontWeight: 700 }}>{match.avg1}</div>
           <RaceRow>
             {match.team1.map((p, i) => <AGRaceIcon key={i} src={raceMapping[p.race]} $size="18px" />)}
           </RaceRow>
         </div>
         <AGVs>vs</AGVs>
         <div style={{ textAlign: "center" }}>
-          <div style={{ fontFamily: "var(--font-mono)", fontSize: 14, color: "#fff", fontWeight: 700 }}>{match.avg2}</div>
+          <div style={{ fontFamily: "var(--font-mono)", fontSize: "var(--text-xs)", color: "var(--white)", fontWeight: 700 }}>{match.avg2}</div>
           <RaceRow>
             {match.team2.map((p, i) => <AGRaceIcon key={i} src={raceMapping[p.race]} $size="18px" />)}
           </RaceRow>
@@ -1070,8 +1070,8 @@ const MinimalRow = styled.div`
 
 const MmrVs = styled.div`
   font-family: var(--font-mono);
-  font-size: 11px;
-  color: #fff;
+  font-size: var(--text-xxxs);
+  color: var(--white);
   white-space: nowrap;
   flex-shrink: 0;
   text-align: right;
@@ -1117,8 +1117,8 @@ const FaceoffRow = styled.div`
 
 const FaceoffMmr = styled.span`
   font-family: var(--font-mono);
-  font-size: 13px;
-  color: #fff;
+  font-size: var(--text-xs);
+  color: var(--white);
   font-weight: 700;
 `;
 
@@ -1135,7 +1135,7 @@ function LayoutF({ match }) {
           {match.team1.map((p, i) => <AGRaceIcon key={i} src={raceMapping[p.race]} $size="20px" />)}
         </RaceRow>
         <FaceoffMmr>{match.avg1}</FaceoffMmr>
-        <AGVs style={{ fontSize: 12 }}>vs</AGVs>
+        <AGVs style={{ fontSize: "var(--text-xxs)" }}>vs</AGVs>
         <FaceoffMmr>{match.avg2}</FaceoffMmr>
         <RaceRow>
           {match.team2.map((p, i) => <AGRaceIcon key={i} src={raceMapping[p.race]} $size="20px" />)}
@@ -1180,13 +1180,13 @@ const LayoutColumn = styled.div`
 const LayoutLabel = styled.div`
   font-family: var(--font-display);
   font-size: var(--text-base);
-  color: #fff;
+  color: var(--white);
   margin-bottom: var(--space-1);
 `;
 
 const LayoutDesc = styled.div`
   font-family: var(--font-mono);
-  font-size: 11px;
+  font-size: var(--text-xxxs);
   color: var(--grey-light);
   margin-bottom: var(--space-4);
   line-height: 1.4;

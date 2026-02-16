@@ -1,24 +1,14 @@
-import React from "react";
+import React, { useState, useEffect, useRef } from "react";
 
 /**
- * PeonLoader — Gold spinner + random WC3 peon quote
+ * PeonLoader — Gold spinner + cycling WC3 peon quotes
  *
  * Usage:
  *   <PeonLoader />                   — default (page-level, lg spinner)
  *   <PeonLoader size="sm" />         — inline/compact
  *   <PeonLoader size="md" />         — medium
+ *   <PeonLoader interval={4000} />   — custom cycle speed (ms)
  */
-
-const PeonLoader = ({ size = "lg" }) => {
-  const sizeClass = size === "lg" ? " lg" : size === "sm" ? " sm" : "";
-
-  return (
-    <div className="peon-loader">
-      <div className={`loader-spinner${sizeClass}`} />
-      <span className="peon-text">{randomQuote()}</span>
-    </div>
-  );
-};
 
 const quotes = [
   "Work work...",
@@ -37,8 +27,34 @@ const quotes = [
   "Job's done.",
 ];
 
-function randomQuote() {
-  return quotes[Math.floor(Math.random() * quotes.length)];
+function randomIndex(exclude) {
+  let idx;
+  do { idx = Math.floor(Math.random() * quotes.length); } while (idx === exclude && quotes.length > 1);
+  return idx;
 }
+
+const PeonLoader = ({ size = "lg", interval = 3000 }) => {
+  const sizeClass = size === "lg" ? " lg" : size === "sm" ? " sm" : "";
+  const [idx, setIdx] = useState(() => randomIndex(-1));
+  const prevRef = useRef(idx);
+
+  useEffect(() => {
+    const id = setInterval(() => {
+      setIdx((prev) => {
+        const next = randomIndex(prev);
+        prevRef.current = next;
+        return next;
+      });
+    }, interval);
+    return () => clearInterval(id);
+  }, [interval]);
+
+  return (
+    <div className="peon-loader">
+      <div className={`loader-spinner${sizeClass}`} />
+      <span className="peon-text" key={idx}>{quotes[idx]}</span>
+    </div>
+  );
+};
 
 export default PeonLoader;

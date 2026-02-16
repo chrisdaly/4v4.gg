@@ -5,6 +5,7 @@ import { FiRefreshCw } from "react-icons/fi";
 import DigestBanner from "../components/news/DigestBanner";
 import TopicTrends from "../components/news/TopicTrends";
 import BeefTracker from "../components/news/BeefTracker";
+import PeonLoader from "../components/PeonLoader";
 import useAdmin from "../lib/useAdmin";
 import "../styles/pages/News.css";
 
@@ -19,6 +20,23 @@ const formatDigestLabel = (dateStr) => {
   const yesterday = new Date(Date.now() - 86400000).toISOString().slice(0, 10);
   if (dateStr === yesterday) return "Yesterday";
   return `${months[d.getMonth()]} ${d.getDate()}`;
+};
+
+const groupDigestsByMonth = (digests) => {
+  const groups = {};
+  digests.forEach((digest, idx) => {
+    const date = new Date(digest.date + "T12:00:00");
+    const key = `${date.getFullYear()}-${(date.getMonth() + 1).toString().padStart(2, "0")}`;
+    if (!groups[key]) groups[key] = [];
+    groups[key].push({ ...digest, originalIdx: idx });
+  });
+  return groups;
+};
+
+const formatMonthLabel = (yearMonth) => {
+  const [year, month] = yearMonth.split("-");
+  const months = ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"];
+  return `${months[parseInt(month) - 1]} ${year}`;
 };
 
 const formatWeeklyLabel = (weekStart, weekEnd) => {
@@ -41,6 +59,8 @@ const News = () => {
   const [weeklyIdx, setWeeklyIdx] = useState(0);
   const [viewMode, setViewMode] = useState("daily");
   const [loading, setLoading] = useState(true);
+  const [currentMonth, setCurrentMonth] = useState(null);
+  const [currentDayInMonth, setCurrentDayInMonth] = useState(0);
 
   const location = useLocation();
   const history = useHistory();
@@ -96,11 +116,27 @@ const News = () => {
       }
       setAllDigests(combined);
       setWeeklyDigests(weekly);
-      if (urlDate && combined.length > 0) {
-        const idx = combined.findIndex((d) => d.date === urlDate);
-        if (idx >= 0) setDigestIdx(idx);
-      }
       setLoading(false);
+
+      // Handle URL date param - set the month and day
+      if (urlDate && combined.length > 0) {
+        const targetDigest = combined.find((d) => d.date === urlDate);
+        if (targetDigest) {
+          const date = new Date(targetDigest.date + "T12:00:00");
+          const monthKey = `${date.getFullYear()}-${(date.getMonth() + 1).toString().padStart(2, "0")}`;
+          setCurrentMonth(monthKey);
+
+          // Find the day index within that month
+          const monthDigests = combined.filter(d => {
+            const dDate = new Date(d.date + "T12:00:00");
+            const dMonthKey = `${dDate.getFullYear()}-${(dDate.getMonth() + 1).toString().padStart(2, "0")}`;
+            return dMonthKey === monthKey;
+          }).sort((a, b) => b.date.localeCompare(a.date));
+
+          const dayIdx = monthDigests.findIndex(d => d.date === urlDate);
+          if (dayIdx >= 0) setCurrentDayInMonth(dayIdx);
+        }
+      }
     });
   }, []);
 
@@ -127,18 +163,47 @@ const News = () => {
     return { nameSet: names, nameToTag: tagMap };
   }, [onlineUsers, messages]);
 
+  // Group digests by month
+  const monthGroups = useMemo(() => groupDigestsByMonth(allDigests), [allDigests]);
+  const monthKeys = useMemo(() => Object.keys(monthGroups).sort().reverse(), [monthGroups]);
+
+  // Derive effective month — use currentMonth if valid, else fall back to first available
+  const effectiveMonth = (currentMonth && monthGroups[currentMonth]) ? currentMonth : monthKeys[0] || null;
+
+  // Get current month's digests and current digest
+  const currentMonthDigests = effectiveMonth ? monthGroups[effectiveMonth] || [] : [];
+  const safeDayIdx = currentDayInMonth < currentMonthDigests.length ? currentDayInMonth : 0;
+  const currentDigest = currentMonthDigests[safeDayIdx] || null;
+  const digestLabel = currentDigest ? formatDigestLabel(currentDigest.date) : null;
+
+  // Month navigation
+  const monthIdx = effectiveMonth ? monthKeys.indexOf(effectiveMonth) : -1;
+  const canGoPrevMonth = monthIdx >= 0 && monthIdx < monthKeys.length - 1;
+  const canGoNextMonth = monthIdx > 0;
+
+  const handlePrevMonth = () => {
+    if (canGoPrevMonth) {
+      setCurrentMonth(monthKeys[monthIdx + 1]);
+      setCurrentDayInMonth(0);
+    }
+  };
+
+  const handleNextMonth = () => {
+    if (canGoNextMonth) {
+      setCurrentMonth(monthKeys[monthIdx - 1]);
+      setCurrentDayInMonth(0);
+    }
+  };
+
   // Update URL date param when switching tabs (edit mode only)
   const setDigestIdxAndUrl = useCallback((idx) => {
-    setDigestIdx(idx);
-    if (showAdmin && allDigests[idx]) {
+    setCurrentDayInMonth(idx);
+    if (showAdmin && currentMonthDigests[idx]) {
       const params = new URLSearchParams(location.search);
-      params.set("date", allDigests[idx].date);
+      params.set("date", currentMonthDigests[idx].date);
       history.replace({ search: params.toString() });
     }
-  }, [showAdmin, allDigests, history, location.search]);
-
-  const currentDigest = allDigests[digestIdx] || null;
-  const digestLabel = currentDigest ? formatDigestLabel(currentDigest.date) : null;
+  }, [showAdmin, currentMonthDigests, history, location.search]);
 
   const currentWeekly = weeklyDigests[weeklyIdx] || null;
   const weeklyLabel = currentWeekly ? formatWeeklyLabel(currentWeekly.week_start, currentWeekly.week_end) : null;
@@ -182,7 +247,9 @@ const News = () => {
     return (
       <div className="news">
         <div className="news-container">
-          <div className="news-loading">Loading digests...</div>
+          <div className="page-loader">
+            <PeonLoader />
+          </div>
         </div>
       </div>
     );
@@ -227,31 +294,56 @@ const News = () => {
         </div>}
         {viewMode === "daily" ? (
           allDigests.length > 0 ? (
-            <DigestBanner
-              digest={currentDigest}
-              nameSet={nameSet}
-              nameToTag={nameToTag}
-              label={digestLabel}
-              isAdmin={effectiveAdmin}
-              apiKey={adminKey}
-              onDigestUpdated={handleDigestUpdated}
-              filterPlayer={urlPlayer}
-              dateTabs={allDigests.map((d, i) => ({
-                label: formatDigestLabel(d.date),
-                active: i === digestIdx,
-                onClick: () => setDigestIdxAndUrl(i),
-              }))}
-            />
+            <>
+              {/* Month Navigation */}
+              <div className="month-nav">
+                <button
+                  className="month-nav-btn"
+                  onClick={handlePrevMonth}
+                  disabled={!canGoPrevMonth}
+                >
+                  ←
+                </button>
+                <span className="month-nav-label">
+                  {effectiveMonth ? formatMonthLabel(effectiveMonth) : "Loading..."}
+                </span>
+                <button
+                  className="month-nav-btn"
+                  onClick={handleNextMonth}
+                  disabled={!canGoNextMonth}
+                >
+                  →
+                </button>
+              </div>
+
+              <DigestBanner
+                digest={currentDigest}
+                nameSet={nameSet}
+                nameToTag={nameToTag}
+                label={digestLabel}
+                isAdmin={effectiveAdmin}
+                apiKey={adminKey}
+                onDigestUpdated={handleDigestUpdated}
+                filterPlayer={urlPlayer}
+                dateTabs={currentMonthDigests.map((d, i) => ({
+                  label: formatDigestLabel(d.date),
+                  active: i === safeDayIdx,
+                  onClick: () => setDigestIdxAndUrl(i),
+                }))}
+              />
+            </>
           ) : (
             <div className="news-empty">No digests available yet.</div>
           )
         ) : (
           weeklyDigests.length > 0 ? (
             <DigestBanner
-              digest={currentWeekly ? { digest: currentWeekly.digest, date: currentWeekly.week_start } : null}
+              digest={currentWeekly ? { digest: currentWeekly.digest, date: currentWeekly.week_start, clips: currentWeekly.clips } : null}
               nameSet={nameSet}
               nameToTag={nameToTag}
               label={weeklyLabel}
+              clips={currentWeekly?.clips}
+              stats={currentWeekly?.stats}
               dateTabs={weeklyDigests.map((w, i) => ({
                 label: formatWeeklyLabel(w.week_start, w.week_end),
                 active: i === weeklyIdx,

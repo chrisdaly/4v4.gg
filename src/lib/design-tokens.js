@@ -32,6 +32,7 @@ export const fonts = {
 };
 
 export const typeScale = {
+  xxxs: { value: '11px', css: '--text-xxxs', usage: 'Dense data, timestamps, compact UI' },
   xxs: { value: '12px', css: '--text-xxs', usage: 'Tiny labels, tooltips' },
   xs: { value: '14px', css: '--text-xs', usage: 'Labels, column headers' },
   sm: { value: '16px', css: '--text-sm', usage: 'Small text, captions' },
@@ -75,8 +76,11 @@ export const surfaces = {
 };
 
 export const tints = {
+  goldSubtle: { value: 'rgba(252, 219, 51, 0.05)', css: '--gold-tint-subtle', usage: 'Gold row hover' },
   gold: { value: 'rgba(252, 219, 51, 0.1)', css: '--gold-tint', usage: 'Gold highlight bg' },
+  greenSubtle: { value: 'rgba(74, 222, 128, 0.05)', css: '--green-tint-subtle', usage: 'Win row hover' },
   green: { value: 'rgba(74, 222, 128, 0.1)', css: '--green-tint', usage: 'Win highlight bg' },
+  redSubtle: { value: 'rgba(248, 113, 113, 0.05)', css: '--red-tint-subtle', usage: 'Loss row hover' },
   red: { value: 'rgba(248, 113, 113, 0.1)', css: '--red-tint', usage: 'Loss highlight bg' },
 };
 
@@ -160,6 +164,28 @@ export const patterns = {
   blogDesc: {
     description: 'Blog post description in listing',
     css: 'font-family: var(--font-body); font-size: var(--text-base); color: var(--text-body); line-height: 1.7',
+  },
+  // Content text patterns
+  mapName: {
+    description: 'Map names',
+    css: 'font-family: var(--font-display); color: var(--white); font-size: var(--text-sm)',
+  },
+  dataValue: {
+    description: 'Data values, counts, numbers',
+    css: 'font-family: var(--font-mono); color: var(--white)',
+  },
+  // Hover patterns
+  hoverRow: {
+    description: 'Row hover (neutral)',
+    css: 'background: var(--surface-2)',
+  },
+  hoverRowGold: {
+    description: 'Row hover (branded)',
+    css: 'background: var(--gold-tint-subtle)',
+  },
+  hoverLink: {
+    description: 'Link hover',
+    css: 'color: var(--gold)',
   },
 };
 

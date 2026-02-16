@@ -12,6 +12,11 @@ export const DIGEST_SECTIONS = [
   { key: "GRINDER", label: "Grinder", cls: "grinder", stat: true },
   { key: "HOTSTREAK", label: "Hot", cls: "hotstreak", stat: true },
   { key: "COLDSTREAK", label: "Cold", cls: "coldstreak", stat: true },
+  { key: "BEST_OF_CHAT", label: "Best of Chat", cls: "chat-best" },
+  { key: "POWER_RANKINGS", label: "Power Rankings", cls: "rankings", rankings: true },
+  { key: "META", label: "Meta Report", cls: "meta", meta: true },
+  { key: "AWARDS", label: "Awards", cls: "awards", awards: true },
+  { key: "CLIPS", label: "Clips", cls: "clips", clips: true },
 ];
 
 export const ALL_SECTION_KEYS = [...DIGEST_SECTIONS.map((s) => s.key), "MENTIONS"];
@@ -124,4 +129,57 @@ export const groupQuotesBySpeaker = (quotes) => {
     }
   }
   return groups;
+};
+
+/**
+ * Parse POWER_RANKINGS: "1. Name#123[HU] +120 MMR (8W-2L) WWWLWWWW; 2. ..."
+ */
+export const parsePowerRankings = (content) => {
+  return content.split(/;\s*/).map((entry) => {
+    const m = entry.trim().match(
+      /^(\d+)\.\s*(.+?#\d+)(?:\[(\w+)\])?\s+([+-]?\d+)\s*MMR\s+\((\d+)W-(\d+)L\)\s*([WL]*)$/
+    );
+    if (!m) return null;
+    return {
+      rank: parseInt(m[1]),
+      battleTag: m[2],
+      name: m[2].split("#")[0],
+      race: m[3] || null,
+      mmrChange: parseInt(m[4]),
+      wins: parseInt(m[5]),
+      losses: parseInt(m[6]),
+      form: m[7] || "",
+    };
+  }).filter(Boolean);
+};
+
+/**
+ * Parse META: "HU 42% (55% WR), ORC 28% (48% WR) | Maps: Ferocity 9, Snowblind 7"
+ */
+export const parseMetaReport = (content) => {
+  const [racePart, mapPart] = content.split(/\s*\|\s*Maps:\s*/i);
+  const races = (racePart || "").split(/,\s*/).map((entry) => {
+    const m = entry.trim().match(/^(\w+)\s+(\d+)%\s*\((\d+)%\s*WR\)$/);
+    if (!m) return null;
+    return { race: m[1], pickPct: parseInt(m[2]), winPct: parseInt(m[3]) };
+  }).filter(Boolean);
+
+  const maps = (mapPart || "").split(/,\s*/).map((entry) => {
+    const m = entry.trim().match(/^(.+?)\s+(\d+)$/);
+    if (!m) return null;
+    return { name: m[1], games: parseInt(m[2]) };
+  }).filter(Boolean);
+
+  return { races, maps };
+};
+
+/**
+ * Parse AWARDS: "MVP Name#123 1850 MMR 75% WR | Iron Man Name#456 32 games | ..."
+ */
+export const parseAwards = (content) => {
+  return content.split(/\s*\|\s*/).map((entry) => {
+    const m = entry.trim().match(/^(.+?)\s+(\S+#\d+)\s+(.+)$/);
+    if (!m) return null;
+    return { category: m[1], battleTag: m[2], name: m[2].split("#")[0], detail: m[3] };
+  }).filter(Boolean);
 };

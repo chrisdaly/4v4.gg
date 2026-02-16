@@ -578,7 +578,7 @@ const PlayerProfile = () => {
   if (isLoading) {
     return (
       <div className="player-page">
-        <div className="player-loading">
+        <div className="page-loader">
           <PeonLoader />
         </div>
       </div>

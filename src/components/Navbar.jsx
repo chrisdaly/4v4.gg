@@ -3,6 +3,7 @@ import { Link, useLocation, useHistory } from "react-router-dom";
 import { raceMapping } from "../lib/constants";
 import { searchLadder, getPlayerProfile, getOngoingMatches, getFinishedMatches, getLadder, getSeasons } from "../lib/api";
 import { CountryFlag } from "./ui";
+import PeonLoader from "./PeonLoader";
 
 const Navbar = () => {
   const location = useLocation();
@@ -194,7 +195,9 @@ const Navbar = () => {
             )}
             {isSearching && searchQuery.length >= 2 && !showSearch && (
               <div className="navbar-search-dropdown">
-                <div className="navbar-search-loading">Zug zug<span className="ellipsis-anim" /></div>
+                <div className="navbar-search-loading">
+                  <PeonLoader size="sm" />
+                </div>
               </div>
             )}
           </div>

@@ -33,7 +33,6 @@ const MyStreamPage = lazy(() => import("./pages/MyStreamPage"));
 const Blog = lazy(() => import("./pages/Blog"));
 const BlogPost = lazy(() => import("./pages/BlogPost"));
 const Clips = lazy(() => import("./pages/Clips"));
-const MmrLab = lazy(() => import("./pages/MmrLab"));
 const Replay = lazy(() => import("./pages/Replay"));
 
 // Overlay pages (lazy-loaded)
@@ -43,13 +42,13 @@ const PlayerOverlayPage = lazy(() => import("./pages/overlay/PlayerOverlayPage")
 const LastGameOverlayPage = lazy(() => import("./pages/overlay/LastGameOverlayPage"));
 
 // Dev/demo pages (lazy-loaded)
-const VisualizationDemo = lazy(() => import("./pages/VisualizationDemo"));
 const StyleReference = lazy(() => import("./pages/StyleReference"));
 const IconDemo = lazy(() => import("./pages/IconDemo"));
 const Assets = lazy(() => import("./pages/Assets"));
 const ChatMockups = lazy(() => import("./pages/ChatMockups"));
 const Admin = lazy(() => import("./pages/Admin"));
 const Themes = lazy(() => import("./pages/Themes"));
+const FaviconMockups = lazy(() => import("./pages/FaviconMockups"));
 
 // Preload core nav pages after initial paint so they're instant on click
 const preloadCorePages = () => {
@@ -117,7 +116,6 @@ const Router = () => (
                 <Route path="/match" component={FinishedGamePage} />
                 <Route exact path="/blog" component={Blog} />
                 <Route path="/blog/:slug" component={BlogPost} />
-                <Route path="/demo" component={VisualizationDemo} />
                 <Route path="/style" component={StyleReference} />
                 <Route path="/icons" component={IconDemo} />
                 <Route path="/assets" component={Assets} />
@@ -126,9 +124,9 @@ const Router = () => (
                 <Route path="/mockups" component={ChatMockups} />
                 <Route path="/themes" component={Themes} />
                 <Route path="/admin" component={Admin} />
+                <Route path="/favicons" component={FaviconMockups} />
 
                 <Route path="/replay" component={Replay} />
-                <Route path="/mmr-lab" component={MmrLab} />
 
                 {/* 404 catch-all */}
                 <Route>

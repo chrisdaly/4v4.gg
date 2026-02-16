@@ -36,7 +36,7 @@
   background: rgba(252, 219, 51, 0.08);
   border-color: rgba(252, 219, 51, 0.2);
   color: var(--gold);
-  font-size: 12px;
+  font-size: var(--text-xxs);
   padding: 5px 12px;
 }
 
@@ -69,9 +69,9 @@
   background: rgba(255, 255, 255, 0.06);
   border: 1px solid rgba(255, 255, 255, 0.1);
   border-radius: var(--radius-sm);
-  color: #fff;
+  color: var(--white);
   font-family: var(--font-mono);
-  font-size: 12px;
+  font-size: var(--text-xxs);
   padding: 4px 8px;
   outline: none;
 }
@@ -84,9 +84,9 @@
   background: rgba(255, 255, 255, 0.06);
   border: 1px solid rgba(255, 255, 255, 0.1);
   border-radius: var(--radius-sm);
-  color: #fff;
+  color: var(--white);
   font-family: var(--font-mono);
-  font-size: 12px;
+  font-size: var(--text-xxs);
   padding: 4px 12px;
   cursor: pointer;
   transition: background 0.15s, border-color 0.15s;
@@ -112,7 +112,7 @@
 }
 
 .replay-btn-play {
-  font-size: 16px;
+  font-size: var(--text-sm);
   padding: 4px 14px;
   min-width: 40px;
 }
@@ -130,7 +130,7 @@
 
 .replay-btn-speed {
   padding: 3px 8px;
-  font-size: 11px;
+  font-size: var(--text-xxxs);
 }
 
 .replay-btn-speed.active {
@@ -148,13 +148,13 @@
 
 .replay-clock-date {
   font-family: var(--font-mono);
-  font-size: 12px;
+  font-size: var(--text-xxs);
   color: var(--grey-mid);
 }
 
 .replay-clock-time {
   font-family: var(--font-mono);
-  font-size: 20px;
+  font-size: var(--text-base);
   color: var(--gold);
   letter-spacing: 0.05em;
 }
@@ -163,7 +163,7 @@
   display: flex;
   gap: var(--space-4);
   font-family: var(--font-mono);
-  font-size: 11px;
+  font-size: var(--text-xxxs);
   color: var(--grey-mid);
 }
 
@@ -223,13 +223,13 @@
 .replay-error {
   color: var(--red);
   font-family: var(--font-mono);
-  font-size: 12px;
+  font-size: var(--text-xxs);
   margin-top: var(--space-2);
 }
 
 .replay-summary {
   font-family: var(--font-mono);
-  font-size: 12px;
+  font-size: var(--text-xxs);
   color: var(--grey-mid);
   margin-top: var(--space-2);
 }
