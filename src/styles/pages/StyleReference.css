@@ -679,22 +679,6 @@
   padding-top: 16px;
 }
 
-/* ── Reveal animation ─────────────────── */
-
-.sr-reveal {
-  opacity: 0;
-  transform: translateY(18px);
-  animation: sr-fadeUp 900ms cubic-bezier(0.17, 0.76, 0.28, 1) forwards;
-  animation-delay: var(--delay, 0s);
-}
-
-@keyframes sr-fadeUp {
-  to {
-    opacity: 1;
-    transform: translateY(0);
-  }
-}
-
 /* ── Responsive ───────────────────────── */
 
 @media (max-width: 900px) {
@@ -708,10 +692,3 @@
   .sr-section { padding: 24px; }
 }
 
-@media (prefers-reduced-motion: reduce) {
-  .sr-reveal {
-    opacity: 1;
-    transform: none;
-    animation: none;
-  }
-}

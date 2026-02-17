@@ -279,6 +279,47 @@
   padding: var(--space-2) var(--space-4);
 }
 
+/* ── Admin view toggle ─────────────────────────────── */
+
+.navbar-admin-toggle {
+  font-family: var(--font-mono);
+  font-size: var(--text-xxxs);
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+  padding: 4px 10px;
+  border-radius: 4px;
+  border: 1px solid var(--grey-mid);
+  background: none;
+  color: var(--grey-mid);
+  cursor: pointer;
+  transition: all 0.2s ease;
+  white-space: nowrap;
+}
+
+.navbar-admin-toggle:hover {
+  border-color: var(--grey-light);
+  color: var(--grey-light);
+}
+
+.navbar-admin-toggle.active {
+  border-color: var(--gold);
+  color: var(--gold);
+}
+
+.navbar-admin-toggle.active:hover {
+  border-color: var(--gold);
+  color: var(--gold);
+  opacity: 0.8;
+}
+
+.navbar-admin-toggle-mobile {
+  border-top: 1px solid rgba(184, 134, 11, 0.1);
+}
+
+.navbar-admin-toggle-mobile.active {
+  color: var(--gold);
+}
+
 /* ── Hamburger button (hidden on desktop) ─────────── */
 
 .navbar-hamburger {

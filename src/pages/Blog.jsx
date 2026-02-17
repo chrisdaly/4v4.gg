@@ -7,7 +7,7 @@ const Blog = () => {
   return (
     <div className="bl-page">
 
-      <header className="bl-hero bl-reveal" style={{ "--delay": "0.05s" }}>
+      <header className="bl-hero reveal" style={{ "--delay": "0.05s" }}>
         <div className="bl-eyebrow">4v4.gg Blog</div>
         <h1>Writing about Warcraft III 4v4.</h1>
         <p className="bl-lead">
@@ -21,7 +21,7 @@ const Blog = () => {
           <Link
             key={post.slug}
             to={`/blog/${post.slug}`}
-            className={`bl-post-card bl-reveal${post.preview ? " bl-post-card--has-preview" : ""}`}
+            className={`bl-post-card reveal${post.preview ? " bl-post-card--has-preview" : ""}`}
             style={{ "--delay": `${0.12 + i * 0.06}s` }}
           >
             {post.preview && (

@@ -4,6 +4,7 @@ import { raceMapping } from "../lib/constants";
 import { searchLadder, getPlayerProfile, getOngoingMatches, getFinishedMatches, getLadder, getSeasons } from "../lib/api";
 import { CountryFlag } from "./ui";
 import PeonLoader from "./PeonLoader";
+import useAdmin from "../lib/useAdmin";
 
 const Navbar = () => {
   const location = useLocation();
@@ -16,6 +17,7 @@ const Navbar = () => {
   const searchRef = useRef(null);
   const [mobileOpen, setMobileOpen] = useState(false);
   const mobileRef = useRef(null);
+  const { adminKey, adminViewActive, toggleAdminView } = useAdmin();
 
   const isActive = (path) => {
     if (path === "/live") {
@@ -203,6 +205,15 @@ const Navbar = () => {
           </div>
         </div>
         <div className="navbar-right">
+          {adminKey && (
+            <button
+              className={`navbar-admin-toggle ${adminViewActive ? "active" : ""}`}
+              onClick={toggleAdminView}
+              title={adminViewActive ? "Admin view on" : "Admin view off"}
+            >
+              Admin
+            </button>
+          )}
           <button
             className="navbar-hamburger"
             onClick={() => setMobileOpen((v) => !v)}
@@ -225,6 +236,14 @@ const Navbar = () => {
               {link.label}
             </Link>
           ))}
+          {adminKey && (
+            <button
+              className={`navbar-mobile-link navbar-admin-toggle-mobile ${adminViewActive ? "active" : ""}`}
+              onClick={toggleAdminView}
+            >
+              Admin {adminViewActive ? "On" : "Off"}
+            </button>
+          )}
         </div>
       )}
     </nav>

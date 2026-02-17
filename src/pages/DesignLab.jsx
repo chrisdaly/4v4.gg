@@ -48,7 +48,7 @@ const DesignLab = () => {
   return (
   <div className="bl-article">
 
-    <div className="bl-section bl-reveal" style={{ "--delay": "0.06s" }}>
+    <div className="bl-section reveal" style={{ "--delay": "0.06s" }}>
       <div className="bl-content">
 
         <div className="bl-card-tags" style={{ marginBottom: 16 }}>

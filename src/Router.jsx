@@ -1,5 +1,5 @@
 import React, { Suspense, lazy, useEffect } from "react";
-import { BrowserRouter, Route, Switch, Link } from "react-router-dom";
+import { BrowserRouter, Route, Switch, Link, Redirect } from "react-router-dom";
 import ErrorBoundary from "./components/ErrorBoundary";
 import Navbar from "./components/Navbar";
 import PeonLoader from "./components/PeonLoader";
@@ -47,6 +47,7 @@ const IconDemo = lazy(() => import("./pages/IconDemo"));
 const Assets = lazy(() => import("./pages/Assets"));
 const ChatMockups = lazy(() => import("./pages/ChatMockups"));
 const Admin = lazy(() => import("./pages/Admin"));
+const DevTools = lazy(() => import("./pages/DevTools"));
 const Themes = lazy(() => import("./pages/Themes"));
 const FaviconMockups = lazy(() => import("./pages/FaviconMockups"));
 
@@ -124,8 +125,10 @@ const Router = () => (
                 <Route path="/mockups" component={ChatMockups} />
                 <Route path="/themes" component={Themes} />
                 <Route path="/admin" component={Admin} />
+                <Route path="/dev" component={DevTools} />
                 <Route path="/favicons" component={FaviconMockups} />
 
+                <Redirect from="/magazine" to="/news" />
                 <Route path="/replay" component={Replay} />
 
                 {/* 404 catch-all */}

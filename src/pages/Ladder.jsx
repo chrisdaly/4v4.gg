@@ -455,7 +455,7 @@ const Ladder = () => {
           <PeonLoader />
         </div>
       ) : (
-        <div className="ladder-table">
+        <div className="ladder-table reveal" style={{ "--delay": "0.05s" }}>
           <div className="ladder-header-row">
             <div className={`col-rank sortable ${sortField === "rank" ? "active" : ""}`} onClick={() => handleSort("rank")}>Rank</div>
             <div className={`col-player sortable ${sortField === "race" ? "active" : ""}`} onClick={() => handleSort("race")}>Player</div>

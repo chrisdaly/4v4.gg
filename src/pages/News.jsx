@@ -1,446 +1,190 @@
-import React, { useState, useEffect, useMemo, useCallback } from "react";
-import { useLocation, useHistory } from "react-router-dom";
-import useChatStream from "../lib/useChatStream";
-import { FiRefreshCw } from "react-icons/fi";
-import DigestBanner from "../components/news/DigestBanner";
-import TopicTrends from "../components/news/TopicTrends";
-import BeefTracker from "../components/news/BeefTracker";
+import React, { useState, useEffect, useMemo } from "react";
+import { Link, useLocation } from "react-router-dom";
+import WeeklyMagazine from "../components/news/WeeklyMagazine";
+import DailyView from "../components/news/DailyView";
 import PeonLoader from "../components/PeonLoader";
 import useAdmin from "../lib/useAdmin";
+import {
+  COVER_BACKGROUNDS,
+  hashDate,
+  formatWeekRange,
+  formatDigestLabel,
+  formatDigestDay,
+  parseDigestSections,
+  splitQuotes,
+} from "../lib/digestUtils";
 import "../styles/pages/News.css";
 
 const RELAY_URL =
   import.meta.env.VITE_CHAT_RELAY_URL || "https://4v4gg-chat-relay.fly.dev";
 
-const formatDigestLabel = (dateStr) => {
-  const d = new Date(dateStr + "T12:00:00");
-  const months = ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"];
-  const today = new Date().toISOString().slice(0, 10);
-  if (dateStr === today) return "Today";
-  const yesterday = new Date(Date.now() - 86400000).toISOString().slice(0, 10);
-  if (dateStr === yesterday) return "Yesterday";
-  return `${months[d.getMonth()]} ${d.getDate()}`;
-};
-
-const groupDigestsByMonth = (digests) => {
-  const groups = {};
-  digests.forEach((digest, idx) => {
-    const date = new Date(digest.date + "T12:00:00");
-    const key = `${date.getFullYear()}-${(date.getMonth() + 1).toString().padStart(2, "0")}`;
-    if (!groups[key]) groups[key] = [];
-    groups[key].push({ ...digest, originalIdx: idx });
-  });
-  return groups;
-};
-
-const formatMonthLabel = (yearMonth) => {
-  const [year, month] = yearMonth.split("-");
-  const months = ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"];
-  return `${months[parseInt(month) - 1]} ${year}`;
-};
-
-const formatWeeklyLabel = (weekStart, weekEnd) => {
-  const months = ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"];
-  const s = new Date(weekStart + "T12:00:00");
-  const e = new Date(weekEnd + "T12:00:00");
-  const sMonth = months[s.getMonth()];
-  const eMonth = months[e.getMonth()];
-  if (sMonth === eMonth) {
-    return `${sMonth} ${s.getDate()}-${e.getDate()}`;
-  }
-  return `${sMonth} ${s.getDate()} - ${eMonth} ${e.getDate()}`;
+/** Extract a short teaser from the DRAMA section (or first narrative section) */
+const extractTeaser = (digestText) => {
+  const sections = parseDigestSections(digestText);
+  const drama = sections.find((s) => s.key === "DRAMA");
+  const source = drama || sections.find((s) => !["TOPICS", "MENTIONS"].includes(s.key));
+  if (!source) return "";
+  const { summary } = splitQuotes(source.content);
+  const cleaned = summary.split(/;\s*/)[0].replace(/\n+/g, " ").trim();
+  return cleaned.length > 160 ? cleaned.slice(0, 157) + "..." : cleaned;
 };
 
 const News = () => {
-  const { onlineUsers, messages } = useChatStream();
-  const [allDigests, setAllDigests] = useState([]);
-  const [digestIdx, setDigestIdx] = useState(0);
-  const [weeklyDigests, setWeeklyDigests] = useState([]);
-  const [weeklyIdx, setWeeklyIdx] = useState(0);
-  const [viewMode, setViewMode] = useState("daily");
-  const [loading, setLoading] = useState(true);
-  const [currentMonth, setCurrentMonth] = useState(null);
-  const [currentDayInMonth, setCurrentDayInMonth] = useState(0);
-
   const location = useLocation();
-  const history = useHistory();
-  const searchParams = useMemo(() => new URLSearchParams(location.search), [location.search]);
-  const urlDate = searchParams.get("date");
-  const urlPlayer = searchParams.get("player");
+  const params = useMemo(() => new URLSearchParams(location.search), [location.search]);
+  const weekParam = params.get("week");
+  const dayParam = params.get("day");
+  const { adminKey, isAdmin } = useAdmin();
 
-  const { adminKey, isAdmin, showAdmin, setAdminKey: setAdminKeyHook } = useAdmin();
-  const [previewReader, setPreviewReader] = useState(false);
-  const effectiveAdmin = isAdmin && !previewReader;
-  const [keyInput, setKeyInput] = useState("");
-  const [keyError, setKeyError] = useState(null);
+  // If detail param present, render the detail view directly
+  if (weekParam) return <div className="news-page"><WeeklyMagazine weekParam={weekParam} isAdmin={isAdmin} apiKey={adminKey} /></div>;
+  if (dayParam) return <div className="news-page"><DailyView dayParam={dayParam} /></div>;
 
-  const handleKeySubmit = useCallback(async () => {
-    const key = keyInput.trim();
-    if (!key) return;
-    // Validate against a lightweight authenticated endpoint
-    try {
-      const res = await fetch(`${RELAY_URL}/api/admin/bot`, {
-        headers: { "X-API-Key": key },
-      });
-      if (!res.ok) {
-        setKeyError("Invalid API key");
-        return;
-      }
-    } catch {
-      setKeyError("Could not validate key");
-      return;
-    }
-    setKeyError(null);
-    setAdminKeyHook(key);
-    setKeyInput("");
-  }, [keyInput, setAdminKeyHook]);
+  return <NewsIndex />;
+};
 
-  // Fetch all digests (today + past) and weekly digests
+const DAILY_INITIAL = 7;
+
+const NewsIndex = () => {
+  const [weeklyDigests, setWeeklyDigests] = useState([]);
+  const [dailyDigests, setDailyDigests] = useState([]);
+  const [loading, setLoading] = useState(true);
+  const [showAllDaily, setShowAllDaily] = useState(false);
+
   useEffect(() => {
-    setLoading(true);
-    Promise.all([
-      fetch(`${RELAY_URL}/api/admin/stats/today`)
-        .then((r) => (r.ok ? r.json() : null))
-        .catch(() => null),
-      fetch(`${RELAY_URL}/api/admin/digests`)
-        .then((r) => (r.ok ? r.json() : []))
-        .catch(() => []),
-      fetch(`${RELAY_URL}/api/admin/weekly-digests`)
-        .then((r) => (r.ok ? r.json() : []))
-        .catch(() => []),
-    ]).then(([today, past, weekly]) => {
-      const combined = [];
-      if (today?.digest) combined.push(today);
-      for (const d of past) {
-        if (!combined.some((c) => c.date === d.date)) combined.push(d);
-      }
-      setAllDigests(combined);
-      setWeeklyDigests(weekly);
-      setLoading(false);
+    let done = 0;
+    const check = () => { if (++done >= 2) setLoading(false); };
 
-      // Handle URL date param - set the month and day
-      if (urlDate && combined.length > 0) {
-        const targetDigest = combined.find((d) => d.date === urlDate);
-        if (targetDigest) {
-          const date = new Date(targetDigest.date + "T12:00:00");
-          const monthKey = `${date.getFullYear()}-${(date.getMonth() + 1).toString().padStart(2, "0")}`;
-          setCurrentMonth(monthKey);
+    fetch(`${RELAY_URL}/api/admin/weekly-digests`, { cache: "no-store" })
+      .then((r) => (r.ok ? r.json() : []))
+      .then(setWeeklyDigests)
+      .catch(() => {})
+      .finally(check);
 
-          // Find the day index within that month
-          const monthDigests = combined.filter(d => {
-            const dDate = new Date(d.date + "T12:00:00");
-            const dMonthKey = `${dDate.getFullYear()}-${(dDate.getMonth() + 1).toString().padStart(2, "0")}`;
-            return dMonthKey === monthKey;
-          }).sort((a, b) => b.date.localeCompare(a.date));
-
-          const dayIdx = monthDigests.findIndex(d => d.date === urlDate);
-          if (dayIdx >= 0) setCurrentDayInMonth(dayIdx);
-        }
-      }
-    });
+    fetch(`${RELAY_URL}/api/admin/digests`, { cache: "no-store" })
+      .then((r) => (r.ok ? r.json() : []))
+      .then(setDailyDigests)
+      .catch(() => {})
+      .finally(check);
   }, []);
-
-  // Build name set + name->battleTag map for digest highlighting
-  const { nameSet, nameToTag } = useMemo(() => {
-    const names = new Set();
-    const tagMap = new Map();
-    for (const u of onlineUsers) {
-      const tag = u.battleTag;
-      const name = tag?.split("#")[0];
-      if (name) {
-        names.add(name);
-        tagMap.set(name, tag);
-      }
-    }
-    for (const m of messages) {
-      const tag = m.battle_tag || m.battleTag;
-      const name = tag?.split("#")[0];
-      if (name) {
-        names.add(name);
-        if (!tagMap.has(name)) tagMap.set(name, tag);
-      }
-    }
-    return { nameSet: names, nameToTag: tagMap };
-  }, [onlineUsers, messages]);
-
-  // Group digests by month
-  const monthGroups = useMemo(() => groupDigestsByMonth(allDigests), [allDigests]);
-  const monthKeys = useMemo(() => Object.keys(monthGroups).sort().reverse(), [monthGroups]);
-
-  // Derive effective month — use currentMonth if valid, else fall back to first available
-  const effectiveMonth = (currentMonth && monthGroups[currentMonth]) ? currentMonth : monthKeys[0] || null;
-
-  // Get current month's digests and current digest
-  const currentMonthDigests = effectiveMonth ? monthGroups[effectiveMonth] || [] : [];
-  const safeDayIdx = currentDayInMonth < currentMonthDigests.length ? currentDayInMonth : 0;
-  const currentDigest = currentMonthDigests[safeDayIdx] || null;
-  const digestLabel = currentDigest ? formatDigestLabel(currentDigest.date) : null;
-
-  // Month navigation
-  const monthIdx = effectiveMonth ? monthKeys.indexOf(effectiveMonth) : -1;
-  const canGoPrevMonth = monthIdx >= 0 && monthIdx < monthKeys.length - 1;
-  const canGoNextMonth = monthIdx > 0;
-
-  const handlePrevMonth = () => {
-    if (canGoPrevMonth) {
-      setCurrentMonth(monthKeys[monthIdx + 1]);
-      setCurrentDayInMonth(0);
-    }
-  };
-
-  const handleNextMonth = () => {
-    if (canGoNextMonth) {
-      setCurrentMonth(monthKeys[monthIdx - 1]);
-      setCurrentDayInMonth(0);
-    }
-  };
-
-  // Update URL date param when switching tabs (edit mode only)
-  const setDigestIdxAndUrl = useCallback((idx) => {
-    setCurrentDayInMonth(idx);
-    if (showAdmin && currentMonthDigests[idx]) {
-      const params = new URLSearchParams(location.search);
-      params.set("date", currentMonthDigests[idx].date);
-      history.replace({ search: params.toString() });
-    }
-  }, [showAdmin, currentMonthDigests, history, location.search]);
-
-  const currentWeekly = weeklyDigests[weeklyIdx] || null;
-  const weeklyLabel = currentWeekly ? formatWeeklyLabel(currentWeekly.week_start, currentWeekly.week_end) : null;
-
-  const hasWeekly = weeklyDigests.length > 0;
-
-  const handleDigestUpdated = useCallback((newDigestText) => {
-    if (!currentDigest) return;
-    setAllDigests((prev) =>
-      prev.map((d) =>
-        d.date === currentDigest.date ? { ...d, digest: newDigestText } : d
-      )
-    );
-  }, [currentDigest]);
-
-  // Refresh "today so far" digest (admin only, busts server cache)
-  const [refreshing, setRefreshing] = useState(false);
-  const isViewingToday = currentDigest?.date === new Date().toISOString().slice(0, 10);
-  const handleRefreshToday = useCallback(async () => {
-    if (refreshing) return;
-    setRefreshing(true);
-    try {
-      const res = await fetch(`${RELAY_URL}/api/admin/stats/today?refresh=1`, {
-        headers: { "X-API-Key": adminKey },
-      });
-      if (res.ok) {
-        const data = await res.json();
-        if (data?.digest) {
-          setAllDigests((prev) =>
-            prev.map((d) => (d.date === data.date ? { ...d, digest: data.digest } : d))
-          );
-        }
-      }
-    } catch (err) {
-      console.warn('[News] Refresh failed:', err.message);
-    }
-    setRefreshing(false);
-  }, [adminKey, refreshing]);
 
   if (loading) {
     return (
-      <div className="news-page">
-        <div className="page-loader">
-          <PeonLoader />
-        </div>
+      <div className="news-page nw-index">
+        <div className="page-loader fade-in"><PeonLoader /></div>
       </div>
     );
   }
 
+  const visibleDaily = showAllDaily ? dailyDigests : dailyDigests.slice(0, DAILY_INITIAL);
+  const hasMoreDaily = dailyDigests.length > DAILY_INITIAL;
+
   return (
-    <div className="news-page">
-      <header className="news-hero">
-        <div className="news-eyebrow">4v4.gg Daily</div>
-        <h1>The 4v4 Digest</h1>
-        <p className="news-lead">Daily drama, stats, and highlights from the W3C 4v4 ladder.</p>
+    <div className="news-page nw-index">
+      {/* Hero */}
+      <header className="nw-hero reveal" style={{ "--delay": "0.05s" }}>
+        <span className="nw-eyebrow">4v4.gg News</span>
+        <h1 className="nw-title">The Digest</h1>
+        <p className="nw-lead">
+          Weekly roundups and daily recaps of 4v4 competitive Warcraft III — drama, stats, and highlights.
+        </p>
       </header>
 
-      {/* Controls row: view toggle left, month nav right */}
-      {viewMode === "daily" && allDigests.length > 0 ? (
-        <div className="news-controls">
-          {(hasWeekly || isAdmin) && (
-            <div className="news-view-toggle">
-              {hasWeekly && (
-                <>
-                  <button
-                    className={`news-view-btn${viewMode === "daily" ? " news-view-btn--active" : ""}`}
-                    onClick={() => setViewMode("daily")}
-                  >
-                    Daily
-                  </button>
-                  <button
-                    className={`news-view-btn${viewMode === "weekly" ? " news-view-btn--active" : ""}`}
-                    onClick={() => setViewMode("weekly")}
-                  >
-                    Weekly
-                  </button>
-                </>
-              )}
-              {isAdmin && (
-                <>
-                  <button
-                    className={`news-view-btn${!previewReader ? " news-view-btn--active" : ""}`}
-                    onClick={() => setPreviewReader(false)}
-                  >
-                    Admin
-                  </button>
-                  <button
-                    className={`news-view-btn${previewReader ? " news-view-btn--active" : ""}`}
-                    onClick={() => setPreviewReader(true)}
-                  >
-                    Reader
-                  </button>
-                </>
-              )}
-            </div>
-          )}
-          <div className="month-nav">
-            <button
-              className="month-nav-btn"
-              onClick={handlePrevMonth}
-              disabled={!canGoPrevMonth}
-            >
-              ←
-            </button>
-            <span className="month-nav-label">
-              {effectiveMonth ? formatMonthLabel(effectiveMonth) : "Loading..."}
-            </span>
-            <button
-              className="month-nav-btn"
-              onClick={handleNextMonth}
-              disabled={!canGoNextMonth}
-            >
-              →
-            </button>
+      {/* Weekly Issues */}
+      {weeklyDigests.length > 0 && (
+        <section className="nw-section reveal" style={{ "--delay": "0.10s" }}>
+          <h2 className="nw-section-title">Weekly Issues</h2>
+          <div className="nw-card-list">
+            {weeklyDigests.map((w, i) => (
+              <WeeklyCard key={w.week_start} weekly={w} delay={0.12 + i * 0.04} />
+            ))}
           </div>
-        </div>
-      ) : (hasWeekly || isAdmin) ? (
-        <div className="news-controls">
-          <div className="news-view-toggle">
-            {hasWeekly && (
-              <>
-                <button
-                  className={`news-view-btn${viewMode === "daily" ? " news-view-btn--active" : ""}`}
-                  onClick={() => setViewMode("daily")}
-                >
-                  Daily
-                </button>
-                <button
-                  className={`news-view-btn${viewMode === "weekly" ? " news-view-btn--active" : ""}`}
-                  onClick={() => setViewMode("weekly")}
-                >
-                  Weekly
-                </button>
-              </>
-            )}
-            {isAdmin && (
-              <>
-                <button
-                  className={`news-view-btn${!previewReader ? " news-view-btn--active" : ""}`}
-                  onClick={() => setPreviewReader(false)}
-                >
-                  Admin
-                </button>
-                <button
-                  className={`news-view-btn${previewReader ? " news-view-btn--active" : ""}`}
-                  onClick={() => setPreviewReader(true)}
-                >
-                  Reader
-                </button>
-              </>
-            )}
-          </div>
-        </div>
-      ) : null}
+        </section>
+      )}
 
-      {viewMode === "daily" ? (
-        allDigests.length > 0 ? (
-          <DigestBanner
-            digest={currentDigest}
-            nameSet={nameSet}
-            nameToTag={nameToTag}
-            label={digestLabel}
-            isAdmin={effectiveAdmin}
-            apiKey={adminKey}
-            onDigestUpdated={handleDigestUpdated}
-            filterPlayer={urlPlayer}
-            dateTabs={currentMonthDigests.map((d, i) => ({
-              label: formatDigestLabel(d.date),
-              active: i === safeDayIdx,
-              onClick: () => setDigestIdxAndUrl(i),
-            }))}
-          />
-        ) : (
-          <div className="news-empty">No digests available yet.</div>
-        )
-      ) : (
-        weeklyDigests.length > 0 ? (
-          <DigestBanner
-            digest={currentWeekly ? { digest: currentWeekly.digest, date: currentWeekly.week_start, clips: currentWeekly.clips } : null}
-            nameSet={nameSet}
-            nameToTag={nameToTag}
-            label={weeklyLabel}
-            clips={currentWeekly?.clips}
-            stats={currentWeekly?.stats}
-            dateTabs={weeklyDigests.map((w, i) => ({
-              label: formatWeeklyLabel(w.week_start, w.week_end),
-              active: i === weeklyIdx,
-              onClick: () => setWeeklyIdx(i),
-            }))}
-          />
-        ) : (
-          <div className="news-empty">No weekly digests available yet.</div>
-        )
-      )}
-      {isAdmin && viewMode === "daily" && isViewingToday && (
-        <button
-          className="digest-editor-refresh"
-          onClick={handleRefreshToday}
-          disabled={refreshing}
-        >
-          <FiRefreshCw size={12} className={refreshing ? "spin" : ""} />
-          {refreshing ? "Refreshing..." : "Refresh today"}
-        </button>
-      )}
-      {showAdmin && viewMode === "daily" && !adminKey && (
-        <div className="digest-editor">
-          <div className="digest-editor-header">
-            <span className="digest-editor-title">Admin Key Required</span>
+      {/* Daily Digests */}
+      {dailyDigests.length > 0 && (
+        <section className="nw-section reveal" style={{ "--delay": `${0.15 + weeklyDigests.length * 0.04}s` }}>
+          <h2 className="nw-section-title">Daily Digests</h2>
+          <div className="nw-daily-list">
+            {visibleDaily.map((d, i) => (
+              <DailyCard key={d.date} digest={d} delay={0.18 + weeklyDigests.length * 0.04 + i * 0.03} />
+            ))}
           </div>
-          <div className="digest-editor-key-prompt">
-            <input
-              type="password"
-              className="digest-editor-key-input"
-              placeholder="Paste admin API key..."
-              value={keyInput}
-              onChange={(e) => { setKeyInput(e.target.value); setKeyError(null); }}
-              onKeyDown={(e) => e.key === "Enter" && handleKeySubmit()}
-            />
-            <button className="digest-editor-key-btn" onClick={handleKeySubmit} disabled={!keyInput.trim()}>
-              Save
+          {hasMoreDaily && !showAllDaily && (
+            <button className="nw-show-more" onClick={() => setShowAllDaily(true)}>
+              Show {dailyDigests.length - DAILY_INITIAL} older digests
             </button>
-          </div>
-          {keyError && <div className="digest-editor-key-error">{keyError}</div>}
-        </div>
+          )}
+        </section>
       )}
-      {isAdmin && viewMode === "daily" && isViewingToday && !previewReader && (
-        <span className="digest-today-notice">
-          Live digest — editing available after the day ends
-        </span>
-      )}
-      {viewMode === "daily" && allDigests.length > 1 && (
-        <>
-          <TopicTrends digests={allDigests} />
-          <BeefTracker digests={allDigests} nameToTag={nameToTag} />
-        </>
+
+      {weeklyDigests.length === 0 && dailyDigests.length === 0 && (
+        <p className="nw-empty">No digests published yet. Check back soon.</p>
       )}
     </div>
+  );
+};
+
+const WeeklyCard = ({ weekly, delay }) => {
+  const fallbackBg = COVER_BACKGROUNDS[hashDate(weekly.week_start) % COVER_BACKGROUNDS.length];
+  const coverUrl = `${RELAY_URL}/api/admin/weekly-digest/${weekly.week_start}/cover.jpg`;
+  const [coverBg, setCoverBg] = useState(fallbackBg);
+
+  useEffect(() => {
+    const img = new Image();
+    img.onload = () => setCoverBg(coverUrl);
+    img.onerror = () => setCoverBg(fallbackBg);
+    img.src = coverUrl;
+  }, [coverUrl, fallbackBg]);
+
+  const teaser = weekly.digest ? extractTeaser(weekly.digest) : "";
+  const stats = weekly.stats;
+
+  return (
+    <Link to={`/news?week=${weekly.week_start}`} className="nw-card reveal" style={{ "--delay": `${delay}s` }}>
+      <div className="nw-card-bg" style={{ backgroundImage: `url(${coverBg})` }} />
+      <div className="nw-card-overlay" />
+      <div className="nw-card-content">
+        <span className="nw-card-eyebrow">The 4v4 Weekly</span>
+        <h3 className="nw-card-title">{formatWeekRange(weekly.week_start, weekly.week_end)}</h3>
+        {teaser && <p className="nw-card-teaser">{teaser}</p>}
+        {stats && (
+          <div className="nw-card-stats">
+            {stats.totalGames != null && (
+              <div className="nw-stat">
+                <span className="nw-stat-value">{stats.totalGames.toLocaleString()}</span>
+                <span className="nw-stat-label">Games</span>
+              </div>
+            )}
+            {stats.uniquePlayers != null && (
+              <div className="nw-stat">
+                <span className="nw-stat-value">{stats.uniquePlayers}</span>
+                <span className="nw-stat-label">Players</span>
+              </div>
+            )}
+          </div>
+        )}
+      </div>
+    </Link>
+  );
+};
+
+const DailyCard = ({ digest, delay }) => {
+  const teaser = digest.digest ? extractTeaser(digest.digest) : "";
+  const label = formatDigestLabel(digest.date);
+  const dayName = formatDigestDay(digest.date);
+
+  return (
+    <Link to={`/news?day=${digest.date}`} className="nw-daily-card reveal" style={{ "--delay": `${delay}s` }}>
+      <div className="nw-daily-date">
+        <span className="nw-daily-date-day">{dayName}</span>
+        <span className="nw-daily-date-label">{label}</span>
+      </div>
+      <div className="nw-daily-content">
+        {teaser && <p className="nw-daily-teaser">{teaser}</p>}
+      </div>
+    </Link>
   );
 };
 

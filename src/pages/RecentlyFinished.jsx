@@ -263,7 +263,7 @@ const RecentlyFinished = () => {
             </div>
           }
         >
-          <div className="game-tiles">
+          <div className="game-tiles reveal" style={{ "--delay": "0.05s" }}>
             {paginatedMatches.length > 0 ? (
               paginatedMatches.map((d) => (
                 <GameCard key={d.match.id} game={d} />

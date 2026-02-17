@@ -732,7 +732,7 @@ h2.team-name {
 }
 
 .player-name-row a:hover {
-  text-shadow: 0 0 8px var(--gold);
+  color: var(--white);
 }
 
 .player-name-row h2 {
@@ -956,14 +956,11 @@ td.key,
 
 /* Hover effect on player name links */
 .playerDiv a {
-  transition:
-    color 0.2s ease,
-    text-shadow 0.2s ease;
+  transition: color 0.2s ease;
 }
 
 .playerDiv a:hover h2 {
   color: white !important;
-  text-shadow: 0 0 8px var(--gold);
 }
 
 /* Winning team header - subtle indicator only */
@@ -983,7 +980,7 @@ th.team-header.winner {
 }
 
 .match-link:hover .value {
-  text-shadow: 0 0 8px var(--gold);
+  color: var(--gold);
 }
 
 .match-link:hover .key {

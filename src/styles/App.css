@@ -5227,7 +5227,6 @@ a.neighbor-name:hover {
   font-family: var(--font-display);
   font-size: var(--text-base);
   color: var(--gold);
-  text-shadow: 0 0 8px rgba(252, 219, 51, 0.4);
 }
 
 .sow-flag {

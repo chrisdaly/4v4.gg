@@ -176,6 +176,18 @@ export function initDb() {
     CREATE INDEX IF NOT EXISTS idx_daily_matches_date ON daily_matches(date);
   `);
 
+  // Migration: add individual MMR columns to daily_matches
+  try {
+    db.exec(`ALTER TABLE daily_matches ADD COLUMN team1_mmrs TEXT`);
+  } catch {
+    // Column already exists — ignore
+  }
+  try {
+    db.exec(`ALTER TABLE daily_matches ADD COLUMN team2_mmrs TEXT`);
+  } catch {
+    // Column already exists — ignore
+  }
+
   // Migration: add clips and stats columns to weekly_digests
   try {
     db.exec(`ALTER TABLE weekly_digests ADD COLUMN clips TEXT`);
@@ -195,7 +207,139 @@ export function initDb() {
     // Column already exists — ignore
   }
 
+  // Migration: add draft column to weekly_digests (editorial mode)
+  try {
+    db.exec(`ALTER TABLE weekly_digests ADD COLUMN draft TEXT`);
+  } catch {
+    // Column already exists — ignore
+  }
+
+  // Migration: match_player_scores table for per-match detail stats
+  db.exec(`
+    CREATE TABLE IF NOT EXISTS match_player_scores (
+      match_id TEXT NOT NULL,
+      battle_tag TEXT NOT NULL,
+      date TEXT NOT NULL,
+      heroes_killed INTEGER DEFAULT 0,
+      items_obtained INTEGER DEFAULT 0,
+      mercs_hired INTEGER DEFAULT 0,
+      exp_gained INTEGER DEFAULT 0,
+      units_produced INTEGER DEFAULT 0,
+      units_killed INTEGER DEFAULT 0,
+      largest_army INTEGER DEFAULT 0,
+      gold_collected INTEGER DEFAULT 0,
+      lumber_collected INTEGER DEFAULT 0,
+      gold_upkeep_lost INTEGER DEFAULT 0,
+      duration_seconds INTEGER DEFAULT 0,
+      heroes TEXT,
+      PRIMARY KEY (match_id, battle_tag)
+    );
+    CREATE INDEX IF NOT EXISTS idx_mps_date ON match_player_scores(date);
+  `);
+
+  // Migration: add duration_seconds column to match_player_scores
+  try {
+    db.exec(`ALTER TABLE match_player_scores ADD COLUMN duration_seconds INTEGER DEFAULT 0`);
+  } catch {
+    // Column already exists — ignore
+  }
+
+  // Cover image generations — stores every generated image with metadata
+  db.exec(`
+    CREATE TABLE IF NOT EXISTS cover_generations (
+      id          INTEGER PRIMARY KEY AUTOINCREMENT,
+      week_start  TEXT NOT NULL,
+      headline    TEXT,
+      scene       TEXT,
+      style       TEXT,
+      full_prompt TEXT,
+      image       BLOB NOT NULL,
+      created_at  TEXT NOT NULL DEFAULT (datetime('now'))
+    );
+    CREATE INDEX IF NOT EXISTS idx_cover_gen_week ON cover_generations(week_start, created_at DESC);
+  `);
+
+  // Variant generation tables
+  db.exec(`
+    CREATE TABLE IF NOT EXISTS weekly_gen_jobs (
+      id          INTEGER PRIMARY KEY AUTOINCREMENT,
+      week_start  TEXT NOT NULL,
+      status      TEXT NOT NULL DEFAULT 'pending',
+      total       INTEGER NOT NULL DEFAULT 3,
+      completed   INTEGER NOT NULL DEFAULT 0,
+      error       TEXT,
+      created_at  TEXT NOT NULL DEFAULT (datetime('now')),
+      updated_at  TEXT NOT NULL DEFAULT (datetime('now'))
+    );
+
+    CREATE TABLE IF NOT EXISTS weekly_variants (
+      id          INTEGER PRIMARY KEY AUTOINCREMENT,
+      job_id      INTEGER NOT NULL REFERENCES weekly_gen_jobs(id),
+      week_start  TEXT NOT NULL,
+      variant_idx INTEGER NOT NULL,
+      narrative   TEXT NOT NULL,
+      created_at  TEXT NOT NULL DEFAULT (datetime('now')),
+      UNIQUE(job_id, variant_idx)
+    );
+  `);
+
+  // Startup recovery: mark any running jobs as error
+  db.prepare(`
+    UPDATE weekly_gen_jobs SET status = 'error', error = 'Server restarted', updated_at = datetime('now')
+    WHERE status IN ('pending', 'running')
+  `).run();
+
   return db;
+}
+
+// ── Variant generation CRUD ──────────────────────────
+
+export function createGenJob(weekStart, total = 3) {
+  const result = db.prepare(`
+    INSERT INTO weekly_gen_jobs (week_start, total) VALUES (?, ?)
+  `).run(weekStart, total);
+  return result.lastInsertRowid;
+}
+
+export function updateGenJobStatus(id, status, error = null) {
+  db.prepare(`
+    UPDATE weekly_gen_jobs SET status = ?, error = ?, updated_at = datetime('now') WHERE id = ?
+  `).run(status, error, id);
+}
+
+export function updateGenJobProgress(id, completed) {
+  db.prepare(`
+    UPDATE weekly_gen_jobs SET completed = ?, updated_at = datetime('now') WHERE id = ?
+  `).run(completed, id);
+}
+
+export function getLatestGenJob(weekStart) {
+  return db.prepare(`
+    SELECT * FROM weekly_gen_jobs WHERE week_start = ? ORDER BY created_at DESC LIMIT 1
+  `).get(weekStart);
+}
+
+export function getActiveGenJob(weekStart) {
+  return db.prepare(`
+    SELECT * FROM weekly_gen_jobs WHERE week_start = ? AND status IN ('pending', 'running') ORDER BY created_at DESC LIMIT 1
+  `).get(weekStart);
+}
+
+export function saveWeeklyVariant(jobId, weekStart, variantIdx, narrative) {
+  db.prepare(`
+    INSERT OR REPLACE INTO weekly_variants (job_id, week_start, variant_idx, narrative) VALUES (?, ?, ?, ?)
+  `).run(jobId, weekStart, variantIdx, narrative);
+}
+
+export function getVariantsForJob(jobId) {
+  return db.prepare(`
+    SELECT * FROM weekly_variants WHERE job_id = ? ORDER BY variant_idx
+  `).all(jobId);
+}
+
+export function deleteVariantsForWeek(weekStart) {
+  db.prepare('DELETE FROM weekly_variants WHERE week_start = ?').run(weekStart);
+  db.prepare('DELETE FROM weekly_gen_jobs WHERE week_start = ?').run(weekStart);
 }
 
 export function insertMessage(msg) {
@@ -421,6 +565,16 @@ export function getMessagesByDateAndUsers(date, battleTags, limit = 50) {
     ORDER BY received_at ASC
     LIMIT ?
   `).all(date, ...battleTags, limit);
+}
+
+export function getMessagesByDateRangeAndUser(startDate, endDate, battleTag, limit = 200) {
+  return db.prepare(`
+    SELECT user_name, message, sent_at, battle_tag
+    FROM messages
+    WHERE deleted = 0 AND DATE(received_at) >= ? AND DATE(received_at) <= ? AND battle_tag = ?
+    ORDER BY received_at ASC
+    LIMIT ?
+  `).all(startDate, endDate, battleTag, limit);
 }
 
 // Format JS Date to SQLite datetime format: "YYYY-MM-DD HH:MM:SS"
@@ -730,7 +884,7 @@ export function getClips({ limit = 20, offset = 0, streamer = null, tag = null, 
   const params = [];
 
   if (!includeHidden) {
-    sql += ' AND hidden = 0';
+    sql += ' AND hidden = 0 AND featured = 1';
   }
 
   if (streamer) {
@@ -882,15 +1036,16 @@ export function getDailyPlayerStatsRange(startDate, endDate) {
 
 export function saveDailyMatches(date, matches) {
   const stmt = db.prepare(`
-    INSERT OR IGNORE INTO daily_matches (match_id, date, map_name, team1_avg_mmr, team2_avg_mmr, team1_races, team2_races, team1_won, team1_tags, team2_tags)
-    VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+    INSERT OR IGNORE INTO daily_matches (match_id, date, map_name, team1_avg_mmr, team2_avg_mmr, team1_races, team2_races, team1_won, team1_tags, team2_tags, team1_mmrs, team2_mmrs)
+    VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
   `);
   const tx = db.transaction(() => {
     for (const m of matches) {
       stmt.run(m.match_id, date, m.map_name || null,
         m.team1_avg_mmr, m.team2_avg_mmr,
         m.team1_races, m.team2_races,
-        m.team1_won ? 1 : 0, m.team1_tags, m.team2_tags);
+        m.team1_won ? 1 : 0, m.team1_tags, m.team2_tags,
+        m.team1_mmrs || null, m.team2_mmrs || null);
     }
   });
   tx();
@@ -898,6 +1053,14 @@ export function saveDailyMatches(date, matches) {
 
 export function getDailyMatchesRange(startDate, endDate) {
   return db.prepare('SELECT * FROM daily_matches WHERE date >= ? AND date <= ?').all(startDate, endDate);
+}
+
+export function getDailyMatchesMissingMmrs(startDate, endDate) {
+  return db.prepare('SELECT match_id FROM daily_matches WHERE date >= ? AND date <= ? AND team1_mmrs IS NULL').all(startDate, endDate);
+}
+
+export function updateDailyMatchMmrs(matchId, team1Mmrs, team2Mmrs) {
+  db.prepare('UPDATE daily_matches SET team1_mmrs = ?, team2_mmrs = ? WHERE match_id = ?').run(team1Mmrs, team2Mmrs, matchId);
 }
 
 // ── New player detection (for weekly NEW_BLOOD) ─────
@@ -916,6 +1079,11 @@ export function getNewPlayersForWeek(weekStart, weekEnd) {
   `).all(weekStart, weekEnd, weekStart);
 }
 
+export function getFirstAppearanceDate(battleTag) {
+  const row = db.prepare('SELECT MIN(date) as first_date FROM daily_player_stats WHERE battle_tag = ?').get(battleTag);
+  return row?.first_date || null;
+}
+
 export function getWeeklyCoverImage(weekStart) {
   const row = db.prepare('SELECT cover_image FROM weekly_digests WHERE week_start = ?').get(weekStart);
   return row?.cover_image || null;
@@ -923,6 +1091,20 @@ export function getWeeklyCoverImage(weekStart) {
 
 export function setWeeklyCoverImage(weekStart, imageBuffer) {
   db.prepare('UPDATE weekly_digests SET cover_image = ? WHERE week_start = ?').run(imageBuffer, weekStart);
+}
+
+export function getWeeklyDraftForWeek(weekStart) {
+  const row = db.prepare('SELECT week_start, digest, draft FROM weekly_digests WHERE week_start = ?').get(weekStart);
+  if (!row) return null;
+  return { weekStart: row.week_start, digest: row.digest, draft: row.draft || row.digest };
+}
+
+export function updateWeeklyDraftOnly(weekStart, draft) {
+  db.prepare('UPDATE weekly_digests SET draft = ? WHERE week_start = ?').run(draft, weekStart);
+}
+
+export function updateWeeklyDigestOnly(weekStart, digest) {
+  db.prepare('UPDATE weekly_digests SET digest = ? WHERE week_start = ?').run(digest, weekStart);
 }
 
 export function setWeeklyDigestFull(weekStart, weekEnd, digest, clipsJson, statsJson) {
@@ -935,4 +1117,72 @@ export function setWeeklyDigestFull(weekStart, weekEnd, digest, clipsJson, stats
       stats = excluded.stats,
       created_at = datetime('now')
   `).run(weekStart, weekEnd, digest, clipsJson || null, statsJson || null);
+}
+
+// ── Match player scores (per-match detail stats) ─────
+
+export function saveMatchPlayerScores(date, matchId, scores) {
+  const stmt = db.prepare(`
+    INSERT OR IGNORE INTO match_player_scores
+      (match_id, battle_tag, date, heroes_killed, items_obtained, mercs_hired, exp_gained,
+       units_produced, units_killed, largest_army, gold_collected, lumber_collected, gold_upkeep_lost, duration_seconds, heroes)
+    VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+  `);
+  const tx = db.transaction(() => {
+    for (const s of scores) {
+      stmt.run(matchId, s.battleTag, date,
+        s.heroesKilled || 0, s.itemsObtained || 0, s.mercsHired || 0, s.expGained || 0,
+        s.unitsProduced || 0, s.unitsKilled || 0, s.largestArmy || 0,
+        s.goldCollected || 0, s.lumberCollected || 0, s.goldUpkeepLost || 0,
+        s.durationSeconds || 0,
+        s.heroes ? JSON.stringify(s.heroes) : null);
+    }
+  });
+  tx();
+}
+
+export function hasMatchScores(matchId) {
+  const row = db.prepare('SELECT COUNT(*) as count FROM match_player_scores WHERE match_id = ?').get(matchId);
+  return row.count > 0;
+}
+
+export function getMatchPlayerScoresRange(startDate, endDate) {
+  return db.prepare('SELECT * FROM match_player_scores WHERE date >= ? AND date <= ?').all(startDate, endDate);
+}
+
+export function getMatchIdsForDateRange(startDate, endDate) {
+  return db.prepare('SELECT match_id FROM daily_matches WHERE date >= ? AND date <= ?').all(startDate, endDate).map(r => r.match_id);
+}
+
+// ── Cover Generations ─────────────────────────────────────────────
+
+export function saveCoverGeneration(weekStart, headline, scene, style, fullPrompt, imageBuffer) {
+  const result = db.prepare(`
+    INSERT INTO cover_generations (week_start, headline, scene, style, full_prompt, image)
+    VALUES (?, ?, ?, ?, ?, ?)
+  `).run(weekStart, headline || null, scene || null, style || null, fullPrompt || null, imageBuffer);
+  return result.lastInsertRowid;
+}
+
+export function getCoverGenerations(weekStart) {
+  return db.prepare(`
+    SELECT id, week_start, headline, scene, style, full_prompt, created_at
+    FROM cover_generations WHERE week_start = ? ORDER BY created_at DESC
+  `).all(weekStart);
+}
+
+export function getAllCoverGenerations(limit = 50) {
+  return db.prepare(`
+    SELECT id, week_start, headline, scene, style, full_prompt, created_at
+    FROM cover_generations ORDER BY created_at DESC LIMIT ?
+  `).all(limit);
+}
+
+export function getCoverGenerationImage(id) {
+  const row = db.prepare('SELECT image FROM cover_generations WHERE id = ?').get(id);
+  return row?.image || null;
+}
+
+export function deleteCoverGeneration(id) {
+  db.prepare('DELETE FROM cover_generations WHERE id = ?').run(id);
 }

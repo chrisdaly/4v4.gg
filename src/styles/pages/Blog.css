@@ -513,22 +513,6 @@
   bottom: -0.3em;
 }
 
-/* ── Reveal animation ────────────────── */
-
-.bl-reveal {
-  opacity: 0;
-  transform: translateY(18px);
-  animation: bl-fadeUp 900ms cubic-bezier(0.17, 0.76, 0.28, 1) forwards;
-  animation-delay: var(--delay, 0s);
-}
-
-@keyframes bl-fadeUp {
-  to {
-    opacity: 1;
-    transform: translateY(0);
-  }
-}
-
 /* ── Responsive ──────────────────────── */
 
 @media (max-width: 900px) {
@@ -612,10 +596,3 @@
   }
 }
 
-@media (prefers-reduced-motion: reduce) {
-  .bl-reveal {
-    opacity: 1;
-    transform: none;
-    animation: none;
-  }
-}

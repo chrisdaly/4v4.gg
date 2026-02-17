@@ -1,11 +1,12 @@
 import { Router } from 'express';
 import rateLimit from 'express-rate-limit';
 import config from '../config.js';
-import { setToken, getStats, getTopWords, getRecentDigests, deleteDigest, getDigest, getRecentWeeklyDigests, deleteWeeklyDigest, getDraftForDate, updateDigestOnly, updateDraftOnly, updateHiddenAvatars, getContextAroundQuotes, getMessagesByTimeWindow, getMessagesByDateAndUsers, getMessageBuckets, getGameStats, getMatchContext, getClipsByDateRange } from '../db.js';
+import { setToken, getStats, getTopWords, getRecentDigests, deleteDigest, getDigest, getRecentWeeklyDigests, deleteWeeklyDigest, getWeeklyDigest, getWeeklyCoverImage, setWeeklyCoverImage, getDraftForDate, updateDigestOnly, updateDraftOnly, updateHiddenAvatars, getContextAroundQuotes, getMessagesByTimeWindow, getMessagesByDateAndUsers, getMessageBuckets, getGameStats, getMatchContext, getClipsByDateRange, saveCoverGeneration, getCoverGenerations, getCoverGenerationImage, deleteCoverGeneration, getWeeklyDraftForWeek, updateWeeklyDraftOnly, updateWeeklyDigestOnly, createGenJob, getActiveGenJob, getLatestGenJob, getVariantsForJob } from '../db.js';
 import { updateToken, getStatus } from '../signalr.js';
 import { getClientCount } from '../sse.js';
 import { setBotEnabled, isBotEnabled, testCommand } from '../bot.js';
-import { generateDigest, fetchDailyStats, generateLiveDigest, todayDigestCache, setTodayDigestCache, generateWeeklyDigest, curateDigest, fetchDailyStatCandidates, analyzeSpike, generateMoreItems, appendItemsToDraft } from '../digest.js';
+import { generateDigest, fetchDailyStats, generateLiveDigest, todayDigestCache, setTodayDigestCache, generateWeeklyDigest, curateDigest, fetchDailyStatCandidates, analyzeSpike, generateMoreItems, appendItemsToDraft, backfillDailyStats, backfillMatchScores, backfillMatchMmrs, generateWeeklyVariants } from '../digest.js';
+import { generateCoverImage, buildImagePrompt, extractHeadline, buildImagePromptWithPlayers, generateImageFromPrompt } from '../coverImage.js';
 
 const router = Router();
 
@@ -472,6 +473,427 @@ router.delete('/weekly-digest/:weekStart', requireApiKey, (req, res) => {
   }
   deleteWeeklyDigest(weekStart);
   res.json({ ok: true, message: `Weekly digest for ${weekStart} cleared` });
+});
+
+// Get weekly draft for editorial mode (protected)
+router.get('/weekly-digest/:weekStart/draft', requireApiKey, (req, res) => {
+  const { weekStart } = req.params;
+  if (!/^\d{4}-\d{2}-\d{2}$/.test(weekStart)) {
+    return res.status(400).json({ error: 'weekStart must be YYYY-MM-DD' });
+  }
+  const result = getWeeklyDraftForWeek(weekStart);
+  if (!result) {
+    return res.json({ weekStart, draft: null, digest: null });
+  }
+  res.json(result);
+});
+
+// Save weekly draft text (protected)
+router.put('/weekly-digest/:weekStart/draft', requireApiKey, (req, res) => {
+  const { weekStart } = req.params;
+  if (!/^\d{4}-\d{2}-\d{2}$/.test(weekStart)) {
+    return res.status(400).json({ error: 'weekStart must be YYYY-MM-DD' });
+  }
+  const { draft } = req.body;
+  if (!draft || typeof draft !== 'string') {
+    return res.status(400).json({ error: 'draft (string) is required' });
+  }
+  updateWeeklyDraftOnly(weekStart, draft);
+  res.json({ ok: true, weekStart });
+});
+
+// Curate weekly digest — apply item selections + overrides → publish (protected)
+router.put('/weekly-digest/:weekStart/curate', requireApiKey, (req, res) => {
+  const { weekStart } = req.params;
+  if (!/^\d{4}-\d{2}-\d{2}$/.test(weekStart)) {
+    return res.status(400).json({ error: 'weekStart must be YYYY-MM-DD' });
+  }
+  const { selectedItems, selectedStats, itemOverrides, hiddenSections } = req.body;
+  const items = selectedItems || {};
+  if (typeof items !== 'object') {
+    return res.status(400).json({ error: 'selectedItems (object) is required' });
+  }
+  const draft = getWeeklyDraftForWeek(weekStart);
+  const sourceText = draft?.draft || draft?.digest;
+  if (!sourceText) {
+    return res.status(404).json({ error: 'No draft or digest found for this week' });
+  }
+  let curated = curateDigest(sourceText, items, selectedStats || null, itemOverrides || null);
+  // Remove hidden sections entirely
+  if (hiddenSections && Array.isArray(hiddenSections) && hiddenSections.length > 0) {
+    const hiddenSet = new Set(hiddenSections);
+    const lines = curated.split('\n');
+    const sectionKeyRe = /^([A-Z_]+)\s*:\s*/;
+    const filtered = lines.filter(line => {
+      const m = line.match(sectionKeyRe);
+      return !m || !hiddenSet.has(m[1]);
+    });
+    curated = filtered.join('\n').trim();
+  }
+  updateWeeklyDigestOnly(weekStart, curated);
+  res.json({ ok: true, weekStart, digest: curated });
+});
+
+// ── Variant Generation Endpoints ──────────────────────
+
+// Start variant generation (admin, fire-and-forget)
+router.post('/weekly-digest/:weekStart/generate-variants', requireApiKey, (req, res) => {
+  const { weekStart } = req.params;
+  if (!/^\d{4}-\d{2}-\d{2}$/.test(weekStart)) {
+    return res.status(400).json({ error: 'weekStart must be YYYY-MM-DD' });
+  }
+  // Require base digest to exist
+  const weekly = getWeeklyDigest(weekStart);
+  if (!weekly) {
+    return res.status(404).json({ error: 'Weekly digest must exist before generating variants' });
+  }
+  // Dedup: return existing active job
+  const active = getActiveGenJob(weekStart);
+  if (active) {
+    return res.json({ ok: true, jobId: active.id, existing: true });
+  }
+  const jobId = createGenJob(weekStart, 3);
+  // Fire and forget — don't await
+  generateWeeklyVariants(weekStart, jobId).catch(err => {
+    console.error(`[Variants] Unhandled error for job ${jobId}:`, err.message);
+  });
+  res.json({ ok: true, jobId });
+});
+
+// Poll variant generation status (admin)
+router.get('/weekly-digest/:weekStart/gen-status', requireApiKey, (req, res) => {
+  const { weekStart } = req.params;
+  if (!/^\d{4}-\d{2}-\d{2}$/.test(weekStart)) {
+    return res.status(400).json({ error: 'weekStart must be YYYY-MM-DD' });
+  }
+  const job = getLatestGenJob(weekStart);
+  if (!job) {
+    return res.json({ status: null });
+  }
+  res.json({
+    jobId: job.id,
+    status: job.status,
+    total: job.total,
+    completed: job.completed,
+    error: job.error,
+    createdAt: job.created_at,
+  });
+});
+
+// Get parsed variants from latest completed job (admin)
+router.get('/weekly-digest/:weekStart/variants', requireApiKey, (req, res) => {
+  const { weekStart } = req.params;
+  if (!/^\d{4}-\d{2}-\d{2}$/.test(weekStart)) {
+    return res.status(400).json({ error: 'weekStart must be YYYY-MM-DD' });
+  }
+  const job = getLatestGenJob(weekStart);
+  if (!job || job.status !== 'done') {
+    return res.json({ jobId: job?.id || null, variants: [] });
+  }
+  const rows = getVariantsForJob(job.id);
+  // Parse each variant's narrative into sections
+  const NARRATIVE_KEYS = new Set(['TOPICS', 'DRAMA', 'BANS', 'HIGHLIGHTS', 'RECAP']);
+  const SECTION_RE = /^([A-Z_]+)\s*:\s*/gm;
+  const variants = rows.map(r => {
+    const sections = {};
+    const matches = [...r.narrative.matchAll(SECTION_RE)];
+    for (let i = 0; i < matches.length; i++) {
+      const m = matches[i];
+      const key = m[1];
+      if (!NARRATIVE_KEYS.has(key)) continue;
+      const start = m.index + m[0].length;
+      const end = i + 1 < matches.length ? matches[i + 1].index : r.narrative.length;
+      sections[key] = r.narrative.slice(start, end).trim();
+    }
+    return { idx: r.variant_idx, sections };
+  });
+  res.json({ jobId: job.id, variants });
+});
+
+// Apply variant picks — mix-and-match sections from different variants (admin)
+router.put('/weekly-digest/:weekStart/apply-variants', requireApiKey, (req, res) => {
+  const { weekStart } = req.params;
+  if (!/^\d{4}-\d{2}-\d{2}$/.test(weekStart)) {
+    return res.status(400).json({ error: 'weekStart must be YYYY-MM-DD' });
+  }
+  const { picks, jobId } = req.body;
+  if (!picks || typeof picks !== 'object' || !jobId) {
+    return res.status(400).json({ error: 'picks (object) and jobId (number) are required' });
+  }
+  // Get the existing digest for deterministic sections
+  const weekly = getWeeklyDigest(weekStart);
+  if (!weekly) {
+    return res.status(404).json({ error: 'Weekly digest not found' });
+  }
+  // Get variants
+  const rows = getVariantsForJob(jobId);
+  if (rows.length === 0) {
+    return res.status(404).json({ error: 'No variants found for this job' });
+  }
+  // Parse variant narratives into sections
+  const NARRATIVE_KEYS = new Set(['TOPICS', 'DRAMA', 'BANS', 'HIGHLIGHTS', 'RECAP']);
+  const SECTION_RE = /^([A-Z_]+)\s*:\s*/gm;
+  const variantSections = {};
+  for (const r of rows) {
+    const sections = {};
+    const matches = [...r.narrative.matchAll(SECTION_RE)];
+    for (let i = 0; i < matches.length; i++) {
+      const m = matches[i];
+      const key = m[1];
+      if (!NARRATIVE_KEYS.has(key)) continue;
+      const start = m.index + m[0].length;
+      const end = i + 1 < matches.length ? matches[i + 1].index : r.narrative.length;
+      sections[key] = r.narrative.slice(start, end).trim();
+    }
+    variantSections[r.variant_idx] = sections;
+  }
+  // Parse existing digest into sections
+  const existingText = weekly.draft || weekly.digest;
+  const existingSections = [];
+  const existingMatches = [...existingText.matchAll(/^([A-Z_]+)\s*:\s*/gm)];
+  for (let i = 0; i < existingMatches.length; i++) {
+    const m = existingMatches[i];
+    const start = m.index + m[0].length;
+    const end = i + 1 < existingMatches.length ? existingMatches[i + 1].index : existingText.length;
+    existingSections.push({ key: m[1], content: existingText.slice(start, end).trim() });
+  }
+  // Replace narrative sections with picked variants
+  for (const [key, variantIdx] of Object.entries(picks)) {
+    if (!NARRATIVE_KEYS.has(key)) continue;
+    const pickedContent = variantSections[variantIdx]?.[key];
+    if (!pickedContent) continue;
+    const existing = existingSections.find(s => s.key === key);
+    if (existing) {
+      existing.content = pickedContent;
+    } else {
+      // Insert narrative section at the appropriate position
+      existingSections.unshift({ key, content: pickedContent });
+    }
+  }
+  // Reassemble and save as draft
+  const newDraft = existingSections.map(s => `${s.key}: ${s.content}`).join('\n');
+  updateWeeklyDraftOnly(weekStart, newDraft);
+  res.json({ ok: true, draft: newDraft });
+});
+
+// Serve weekly digest cover image (public)
+router.get('/weekly-digest/:weekStart/cover.jpg', (req, res) => {
+  const { weekStart } = req.params;
+  if (!/^\d{4}-\d{2}-\d{2}$/.test(weekStart)) {
+    return res.status(400).send('Invalid date');
+  }
+  const imageBuffer = getWeeklyCoverImage(weekStart);
+  if (!imageBuffer) {
+    return res.status(404).send('No cover image');
+  }
+  res.set('Content-Type', 'image/png');
+  res.set('Cache-Control', 'public, max-age=604800');
+  res.send(imageBuffer);
+});
+
+// Generate cover image for a weekly digest (admin)
+router.post('/weekly-digest/:weekStart/cover', requireApiKey, async (req, res) => {
+  const { weekStart } = req.params;
+  if (!/^\d{4}-\d{2}-\d{2}$/.test(weekStart)) {
+    return res.status(400).json({ error: 'weekStart must be YYYY-MM-DD' });
+  }
+  const weekly = getWeeklyDigest(weekStart);
+  if (!weekly) {
+    return res.status(404).json({ error: 'Weekly digest not found' });
+  }
+  try {
+    console.log(`[CoverImage] Generating cover for ${weekStart}...`);
+    const imageBuffer = await generateCoverImage(weekly.digest);
+    setWeeklyCoverImage(weekStart, imageBuffer);
+    console.log(`[CoverImage] Saved cover for ${weekStart} (${imageBuffer.length} bytes)`);
+    res.json({ ok: true, size: imageBuffer.length });
+  } catch (err) {
+    console.error('[CoverImage] Error:', err.message);
+    res.status(500).json({ error: err.message });
+  }
+});
+
+// Extract headline + key players from digest (admin)
+router.post('/weekly-digest/:weekStart/headline', requireApiKey, aiLimiter, async (req, res) => {
+  const { weekStart } = req.params;
+  if (!/^\d{4}-\d{2}-\d{2}$/.test(weekStart)) {
+    return res.status(400).json({ error: 'weekStart must be YYYY-MM-DD' });
+  }
+  const weekly = getWeeklyDigest(weekStart);
+  if (!weekly) {
+    return res.status(404).json({ error: 'Weekly digest not found' });
+  }
+  try {
+    const digestText = req.body?.digest || weekly.digest;
+    const result = await extractHeadline(digestText);
+    res.json({ ok: true, ...result });
+  } catch (err) {
+    console.error('[CoverImage] Headline error:', err.message);
+    res.status(500).json({ error: err.message });
+  }
+});
+
+// Generate prompt only (admin) — returns Claude's visual prompt without generating image
+// Accepts optional headline + playerContext for enhanced prompts
+// Auto-enriches players with recent digest mentions for character depth
+router.post('/weekly-digest/:weekStart/prompt', requireApiKey, aiLimiter, async (req, res) => {
+  const { weekStart } = req.params;
+  if (!/^\d{4}-\d{2}-\d{2}$/.test(weekStart)) {
+    return res.status(400).json({ error: 'weekStart must be YYYY-MM-DD' });
+  }
+  const weekly = getWeeklyDigest(weekStart);
+  if (!weekly) {
+    return res.status(404).json({ error: 'Weekly digest not found' });
+  }
+  try {
+    const digestText = req.body?.digest || weekly.digest;
+    const { headline, playerContext } = req.body || {};
+    let prompt;
+    if (headline && playerContext?.length > 0) {
+      // Enrich players with recent digest mentions
+      const enriched = playerContext.map(p => {
+        const enrichedPlayer = { ...p };
+        if (p.name && !p.digestMentions) {
+          const mentions = getPlayerDigestMentions(p.name);
+          if (mentions) enrichedPlayer.digestMentions = mentions;
+        }
+        return enrichedPlayer;
+      });
+      prompt = await buildImagePromptWithPlayers(digestText, headline, enriched);
+    } else {
+      prompt = await buildImagePrompt(digestText);
+    }
+    res.json({ ok: true, prompt });
+  } catch (err) {
+    console.error('[CoverImage] Prompt error:', err.message);
+    res.status(500).json({ error: err.message });
+  }
+});
+
+// Generate image from a prompt string — downloads, stores in DB, returns local URL
+router.post('/generate-image', requireApiKey, async (req, res) => {
+  const { prompt, weekStart, headline, scene, style } = req.body || {};
+  if (!prompt) {
+    return res.status(400).json({ error: 'prompt is required' });
+  }
+  try {
+    const replicateUrl = await generateImageFromPrompt(prompt);
+    // Download the image from Replicate
+    const imgRes = await fetch(replicateUrl);
+    if (!imgRes.ok) throw new Error(`Failed to download image (${imgRes.status})`);
+    const imageBuffer = Buffer.from(await imgRes.arrayBuffer());
+    // Save to DB
+    const id = saveCoverGeneration(weekStart || null, headline || null, scene || null, style || null, prompt, imageBuffer);
+    console.log(`[CoverImage] Saved generation #${id} (${imageBuffer.length} bytes)`);
+    res.json({ ok: true, id, imageUrl: `/api/admin/cover-generation/${id}/image` });
+  } catch (err) {
+    console.error('[CoverImage] Generate image error:', err.message);
+    res.status(500).json({ error: err.message });
+  }
+});
+
+// List saved cover generations for a week (or all)
+router.get('/cover-generations', requireApiKey, (req, res) => {
+  const { weekStart } = req.query;
+  const generations = weekStart ? getCoverGenerations(weekStart) : getCoverGenerations(req.query.weekStart);
+  res.json(generations || []);
+});
+
+router.get('/cover-generations/:weekStart', requireApiKey, (req, res) => {
+  const generations = getCoverGenerations(req.params.weekStart);
+  res.json(generations || []);
+});
+
+// Serve a saved cover generation image (public — no API key needed for <img> tags)
+router.get('/cover-generation/:id/image', (req, res) => {
+  const id = parseInt(req.params.id);
+  if (isNaN(id)) return res.status(400).send('Invalid ID');
+  const imageBuffer = getCoverGenerationImage(id);
+  if (!imageBuffer) return res.status(404).send('Not found');
+  res.set('Content-Type', 'image/png');
+  res.set('Cache-Control', 'public, max-age=604800');
+  res.send(imageBuffer);
+});
+
+// Delete a saved cover generation
+router.delete('/cover-generation/:id', requireApiKey, (req, res) => {
+  const id = parseInt(req.params.id);
+  if (isNaN(id)) return res.status(400).json({ error: 'Invalid ID' });
+  deleteCoverGeneration(id);
+  res.json({ ok: true });
+});
+
+// Helper: scan recent digests for mentions of a player name
+function getPlayerDigestMentions(playerName) {
+  const SECTION_KEYS = ['DRAMA', 'HIGHLIGHTS', 'BANS', 'WINNER', 'LOSER', 'GRINDER'];
+  const SECTION_RE = new RegExp(`^(${SECTION_KEYS.join('|')})\\s*:\\s*`, 'gm');
+  const escaped = playerName.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+  const nameRe = new RegExp(`\\b${escaped}\\b`, 'i');
+
+  const digests = getRecentDigests(14);
+  const snippets = [];
+
+  for (const row of digests) {
+    if (!row.digest) continue;
+    const text = row.digest;
+    const matches = [...text.matchAll(SECTION_RE)];
+
+    for (let i = 0; i < matches.length; i++) {
+      const m = matches[i];
+      const start = m.index + m[0].length;
+      const end = i + 1 < matches.length ? matches[i + 1].index : text.length;
+      const content = text.slice(start, end).trim();
+      if (!nameRe.test(content)) continue;
+
+      const snippet = content.length > 100 ? content.slice(0, 100) + '…' : content;
+      snippets.push(`[${m[1]}] ${snippet}`);
+    }
+    if (snippets.length >= 4) break;
+  }
+
+  return snippets.length > 0 ? snippets.slice(0, 4).join('; ') : null;
+}
+
+// Backfill daily player stats for a date range (fetches from W3C API)
+router.post('/backfill-stats', requireApiKey, async (req, res) => {
+  const { startDate, endDate } = req.body;
+  if (!startDate || !endDate) {
+    return res.status(400).json({ error: 'startDate and endDate required (YYYY-MM-DD)' });
+  }
+  try {
+    const results = await backfillDailyStats(startDate, endDate);
+    res.json({ ok: true, results });
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
+// Backfill match detail scores for a date range (fetches from W3C API)
+router.post('/backfill-scores', requireApiKey, async (req, res) => {
+  const { startDate, endDate } = req.body;
+  if (!startDate || !endDate) {
+    return res.status(400).json({ error: 'startDate and endDate required (YYYY-MM-DD)' });
+  }
+  try {
+    const results = await backfillMatchScores(startDate, endDate);
+    res.json({ ok: true, results });
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
+// Backfill individual player MMRs for daily_matches missing them
+router.post('/backfill-mmrs', requireApiKey, async (req, res) => {
+  const { startDate, endDate } = req.body;
+  if (!startDate || !endDate) {
+    return res.status(400).json({ error: 'startDate and endDate required (YYYY-MM-DD)' });
+  }
+  try {
+    const results = await backfillMatchMmrs(startDate, endDate);
+    res.json({ ok: true, ...results });
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
 });
 
 // Chat context — surrounding messages for drama items or time windows (public)

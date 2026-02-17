@@ -1,7 +1,6 @@
 import React, { useMemo, useState } from "react";
 import { Link } from "react-router-dom";
 import styled from "styled-components";
-import { GiCrossedSwords } from "react-icons/gi";
 import crownIcon from "../assets/icons/king.svg";
 import { raceMapping, raceIcons } from "../lib/constants";
 import { CountryFlag, Skeleton, SkeletonCircle } from "./ui";
@@ -246,15 +245,6 @@ const SidebarAvatarRace = styled.img`
   opacity: ${(p) => (p.$faded ? 0.2 : 0.85)};
 `;
 
-const InGameIcon = styled(GiCrossedSwords)`
-  width: 12px;
-  height: 12px;
-  color: var(--red);
-  fill: var(--red);
-  flex-shrink: 0;
-  animation: pulse 1.5s infinite;
-`;
-
 const WinnerCrown = styled.img.attrs({ src: crownIcon, alt: "" })`
   width: 14px;
   height: 14px;
@@ -338,7 +328,11 @@ const IdleRow = styled.div`
   opacity: 0.4;
 `;
 
-function UserRowItem({ user, avatars, stats, inGame, matchUrl, isRecentWinner, isIdle }) {
+const QuietRow = styled.div`
+  opacity: 0.5;
+`;
+
+function UserRowItem({ user, avatars, stats, inGame, matchUrl, isRecentWinner, isIdle, isQuiet }) {
   const playerStats = stats?.get(user.battleTag);
   const mmr = playerStats?.mmr;
   const raceIcon = playerStats?.race != null ? raceMapping[playerStats.race] : null;
@@ -354,7 +348,6 @@ function UserRowItem({ user, avatars, stats, inGame, matchUrl, isRecentWinner, i
           </AvatarFlag>
         )}
       </AvatarWrapper>
-      {inGame && <InGameIcon />}
       {isRecentWinner && <WinnerCrown />}
       {raceIcon && <RaceIcon src={raceIcon} alt="" />}
       <Name>{user.name}</Name>
@@ -369,6 +362,7 @@ function UserRowItem({ user, avatars, stats, inGame, matchUrl, isRecentWinner, i
   }
   const row = <UserRowBase>{content}</UserRowBase>;
   if (isIdle) return <IdleRow>{row}</IdleRow>;
+  if (isQuiet) return <QuietRow>{row}</QuietRow>;
   return row;
 }
 
@@ -380,6 +374,7 @@ export default function UserListSidebar({
   idleTags,
   inGameMatchMap,
   recentWinners,
+  recentChatters,
   $mobileVisible,
   onClose,
   borderTheme,
@@ -501,6 +496,7 @@ export default function UserListSidebar({
             inGame={false}
             matchUrl={null}
             isRecentWinner={recentWinners?.has(user.battleTag)}
+            isQuiet={recentChatters && recentChatters.size > 0 && !recentChatters.has(user.battleTag)}
           />
         ))}
         {awayUsers.length > 0 && (

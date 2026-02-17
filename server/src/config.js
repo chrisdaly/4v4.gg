@@ -7,6 +7,8 @@ const config = {
   ANTHROPIC_API_KEY: process.env.ANTHROPIC_API_KEY || '',
   TWITCH_CLIENT_ID: process.env.TWITCH_CLIENT_ID || '',
   TWITCH_CLIENT_SECRET: process.env.TWITCH_CLIENT_SECRET || '',
+  // Replicate (for FLUX image generation)
+  REPLICATE_API_TOKEN: process.env.REPLICATE_API_TOKEN || '',
 };
 
 export default config;

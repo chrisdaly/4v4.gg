@@ -613,7 +613,7 @@ const PlayerProfile = () => {
 
   return (
     <div className="player-page">
-        <header className="player-header">
+        <header className="player-header reveal" style={{ "--delay": "0.05s" }}>
           <div className="player-header-left">
             <div className="hd-pic-wrapper">
               {profilePic && <img src={profilePic} alt="" className="hd-pic" />}
@@ -670,7 +670,7 @@ const PlayerProfile = () => {
 
       {/* Highlights Strip */}
       {(playerClips.length > 0 || playerMentions.length > 0) && (
-        <div className="player-highlights">
+        <div className="player-highlights reveal" style={{ "--delay": "0.10s" }}>
           {playerMentions.length > 0 && (
             <div className="ph-group ph-group--news">
               <div className="section-header">
@@ -724,7 +724,7 @@ const PlayerProfile = () => {
         </div>
       )}
 
-      <div className="player-content">
+      <div className="player-content reveal" style={{ "--delay": "0.15s" }}>
           {/* Main Content */}
           <main className="player-main">
             {/* Live Game Section */}

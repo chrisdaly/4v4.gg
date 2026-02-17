@@ -217,6 +217,20 @@ const Chat = () => {
     }
   }, [ongoingMatches]);
 
+  // Derive set of battleTags who chatted in the last 10 minutes
+  const recentChatters = useMemo(() => {
+    const tags = new Set();
+    const cutoff = Date.now() - 10 * 60 * 1000;
+    for (let i = messages.length - 1; i >= 0; i--) {
+      const msg = messages[i];
+      const msgTime = new Date(msg.sent_at || msg.sentAt).getTime();
+      if (msgTime < cutoff) break;
+      const tag = msg.battle_tag || msg.battleTag;
+      if (tag) tags.add(tag);
+    }
+    return tags;
+  }, [messages]);
+
   // Build set of in-game battleTags, suppressing players who chatted recently
   const inGameTags = useMemo(() => {
     const tags = new Set();
@@ -370,6 +384,7 @@ const Chat = () => {
           idleTags={idleTags}
           inGameMatchMap={inGameMatchMap}
           recentWinners={recentWinners}
+          recentChatters={recentChatters}
           $mobileVisible={mobileTab === "users"}
           onClose={() => setMobileTab("chat")}
           borderTheme={borderTheme}

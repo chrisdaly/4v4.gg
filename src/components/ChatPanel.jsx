@@ -95,8 +95,8 @@ const MessageList = styled.div`
 
 const MessageSegment = styled.div`
   position: relative;
-  min-height: 90px;
-  margin-top: 20px;
+  min-height: 56px;
+  margin-top: 14px;
   padding-bottom: var(--space-1);
 
   &:first-child {
@@ -104,17 +104,17 @@ const MessageSegment = styled.div`
   }
 
   @media (max-width: 480px) {
-    min-height: 74px;
-    margin-top: 14px;
+    min-height: 48px;
+    margin-top: 10px;
   }
 `;
 
 const GroupStartRow = styled.div`
-  padding: 2px var(--space-4) 2px 84px;
+  padding: 2px var(--space-4) 2px 64px;
   line-height: 1.375;
 
   @media (max-width: 480px) {
-    padding-left: 66px;
+    padding-left: 56px;
   }
 
   &:hover {
@@ -124,11 +124,11 @@ const GroupStartRow = styled.div`
 
 const ContinuationRow = styled.div`
   position: relative;
-  padding: 2px var(--space-4) 2px 84px;
+  padding: 2px var(--space-4) 2px 64px;
   line-height: 1.375;
 
   @media (max-width: 480px) {
-    padding-left: 66px;
+    padding-left: 56px;
   }
 
   &:hover {
@@ -154,36 +154,51 @@ const HoverTimestamp = styled.span`
 `;
 
 const Avatar = styled.img`
-  width: 60px;
-  height: 60px;
+  width: 44px;
+  height: 44px;
   border-radius: var(--radius-md);
   flex-shrink: 0;
 
   @media (max-width: 480px) {
-    width: 44px;
-    height: 44px;
+    width: 36px;
+    height: 36px;
   }
 `;
 
 const AvatarRaceIcon = styled.img`
-  width: 60px;
-  height: 60px;
+  width: 44px;
+  height: 44px;
   box-sizing: border-box;
   border-radius: var(--radius-md);
   flex-shrink: 0;
-  padding: 10px;
+  padding: 8px;
   background: rgba(255, 255, 255, 0.06);
   opacity: ${(p) => p.$faded ? 0.3 : 0.85};
 
   @media (max-width: 480px) {
-    width: 44px;
-    height: 44px;
+    width: 36px;
+    height: 36px;
     padding: 6px;
   }
 `;
 
 const MessageContent = styled.div`
   min-width: 0;
+`;
+
+const InlineMmr = styled.span`
+  font-family: var(--font-mono);
+  font-size: var(--text-xs);
+  color: #fff;
+  margin-left: var(--space-2);
+  font-weight: 600;
+`;
+
+const MmrSuffix = styled.span`
+  font-size: var(--text-xxxs);
+  color: var(--grey-light);
+  font-weight: 400;
+  opacity: 0.7;
 `;
 
 const Timestamp = styled.span`
@@ -223,10 +238,10 @@ const AvatarContainer = styled.div`
   display: flex;
   flex-direction: column;
   align-items: center;
-  width: 60px;
+  width: 44px;
 
   @media (max-width: 480px) {
-    width: 44px;
+    width: 36px;
   }
 `;
 
@@ -242,66 +257,6 @@ const AvatarFlag = styled.div`
   line-height: 0;
 `;
 
-const AvatarStats = styled.div`
-  position: absolute;
-  top: 100%;
-  left: 0;
-  right: 0;
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  margin-top: 2px;
-  line-height: 1;
-  gap: 4px;
-`;
-
-const MmrRow = styled.div`
-  display: flex;
-  align-items: baseline;
-  gap: 4px;
-  white-space: nowrap;
-`;
-
-const MmrValue = styled.span`
-  font-family: var(--font-mono);
-  font-size: var(--text-sm);
-  color: var(--white);
-  font-weight: 700;
-
-  @media (max-width: 480px) {
-    font-size: var(--text-xs);
-  }
-`;
-
-const MmrLabel = styled.span`
-  font-family: var(--font-mono);
-  font-size: var(--text-xxxs);
-  color: var(--grey-light);
-  opacity: 0.7;
-`;
-
-const FormDots = styled.div`
-  display: flex;
-  flex-wrap: wrap;
-  align-items: center;
-  gap: 2px;
-  justify-content: center;
-  max-width: 38px;
-`;
-
-const FormDot = styled.span`
-  display: inline-block;
-  width: 6px;
-  height: 6px;
-  border-radius: var(--radius-full);
-  background: ${(p) => (p.$win ? "var(--green)" : "var(--red)")};
-  opacity: 0.8;
-
-  @media (max-width: 480px) {
-    width: 5px;
-    height: 5px;
-  }
-`;
 
 const InGameIcon = styled(GiCrossedSwords)`
   width: 14px;
@@ -327,7 +282,7 @@ const MessageText = styled.span`
 `;
 
 const SystemMessageRow = styled.div`
-  padding: 2px var(--space-4) 2px 84px;
+  padding: 2px var(--space-4) 2px 64px;
   line-height: 1.375;
   font-size: var(--text-xs);
   color: var(--grey-light);
@@ -533,7 +488,7 @@ const SendError = styled.span`
 `;
 
 const TranslationRow = styled.div`
-  margin: 2px 0 2px 84px;
+  margin: 2px 0 2px 64px;
   padding: 2px 10px;
   font-family: var(--font-mono);
   font-size: var(--text-xs);
@@ -543,7 +498,7 @@ const TranslationRow = styled.div`
   line-height: 1.4;
 
   @media (max-width: 480px) {
-    margin-left: 66px;
+    margin-left: 56px;
   }
 `;
 
@@ -560,14 +515,14 @@ const TranslationLabel = styled.span`
 `;
 
 const BotResponseRow = styled.div`
-  margin: 4px 0 4px 84px;
+  margin: 4px 0 4px 64px;
   padding: 6px 10px;
   border-left: 3px solid var(--gold);
   background: rgba(252, 219, 51, 0.04);
   border-radius: 0 var(--radius-sm) var(--radius-sm) 0;
 
   @media (max-width: 480px) {
-    margin-left: 66px;
+    margin-left: 56px;
   }
 `;
 
@@ -677,7 +632,7 @@ export default function ChatPanel({ messages, status, avatars, stats, sessions, 
   const inputRef = useRef(null);
   const [autoScroll, setAutoScroll] = useState(true);
   const [showNotice, setShowNotice] = useState(false);
-  const { adminKey: apiKey, setAdminKey: setApiKeyHook } = useAdmin();
+  const { adminKey: apiKey, isAdmin, setAdminKey: setApiKeyHook } = useAdmin();
   const [showKeyPrompt, setShowKeyPrompt] = useState(false);
   const [draft, setDraft] = useState("");
   const [sending, setSending] = useState(false);
@@ -787,7 +742,7 @@ export default function ChatPanel({ messages, status, avatars, stats, sessions, 
             <MessageList>
               {[...Array(6)].map((_, i) => (
                 <div key={i} style={{ display: "flex", gap: "var(--space-2)", padding: "var(--space-4) var(--space-4)", alignItems: "flex-start" }}>
-                  <SkeletonCircle $size="60px" style={{ borderRadius: "var(--radius-md)" }} />
+                  <SkeletonCircle $size="44px" style={{ borderRadius: "var(--radius-md)" }} />
                   <div style={{ flex: 1, display: "flex", flexDirection: "column", gap: 6, paddingTop: 4 }}>
                     <div style={{ display: "flex", gap: "var(--space-2)", alignItems: "center" }}>
                       <Skeleton $w="100px" $h="14px" />
@@ -849,23 +804,6 @@ export default function ChatPanel({ messages, status, avatars, stats, sessions, 
                           </AvatarFlag>
                         )}
                       </AvatarImgWrap>
-                      {(stats?.get(tag)?.mmr != null || sessions?.get(tag)) && (
-                        <AvatarStats>
-                          {stats?.get(tag)?.mmr != null && (
-                            <MmrRow>
-                              <MmrValue>{Math.round(stats.get(tag).mmr)}</MmrValue>
-                              <MmrLabel>MMR</MmrLabel>
-                            </MmrRow>
-                          )}
-                          {sessions?.get(tag) && (
-                            <FormDots>
-                              {sessions.get(tag).map((won, i) => (
-                                <FormDot key={i} $win={won} />
-                              ))}
-                            </FormDots>
-                          )}
-                        </AvatarStats>
-                      )}
                     </AvatarContainer>
                     <GroupStartRow>
                       <MessageContent>
@@ -874,6 +812,9 @@ export default function ChatPanel({ messages, status, avatars, stats, sessions, 
                             <UserNameLink to={`/player/${encodeURIComponent(tag)}`}>
                               {userName}
                             </UserNameLink>
+                            {stats?.get(tag)?.mmr != null && (
+                              <InlineMmr>{Math.round(stats.get(tag).mmr)} <MmrSuffix>MMR</MmrSuffix></InlineMmr>
+                            )}
                             {inGameTags?.has(tag) && <InGameIcon />}
                             {recentWinners?.has(tag) && <WinCrown src={crownIcon} alt="" />}
                             <Timestamp>{formatDateTime(msg.sent_at || msg.sentAt)}</Timestamp>
@@ -942,14 +883,14 @@ export default function ChatPanel({ messages, status, avatars, stats, sessions, 
           </ScrollContainer>
         )}
       </Wrapper>
-      {import.meta.env.DEV && sendMessage && showKeyPrompt && !apiKey && (
+      {isAdmin && sendMessage && showKeyPrompt && !apiKey && (
         <KeyPrompt as="form" onSubmit={handleSaveKey}>
           <KeyLabel>API Key:</KeyLabel>
           <KeyInput name="apiKeyInput" type="password" placeholder="Enter admin API key" autoFocus />
           <SendButton type="submit"><IoSend size={14} /></SendButton>
         </KeyPrompt>
       )}
-      {import.meta.env.DEV && sendMessage && (apiKey || !showKeyPrompt) && (
+      {isAdmin && sendMessage && (apiKey || !showKeyPrompt) && (
         <InputBar onSubmit={handleSend}>
           <KeyButton
             type="button"
@@ -980,7 +921,7 @@ export default function ChatPanel({ messages, status, avatars, stats, sessions, 
           )}
         </InputBar>
       )}
-      {import.meta.env.DEV && (
+      {isAdmin && (
         <BotTestBar onSubmit={handleBotTest}>
           <BotTestPrefix>BOT</BotTestPrefix>
           <BotTestInput

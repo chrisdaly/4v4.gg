@@ -60,6 +60,16 @@ export default function useScreenshot({ digestRef, dateTabs, label, digestDate }
           for (const dim of el.querySelectorAll(".digest-bullet-row--dimmed")) {
             dim.style.display = "none";
           }
+          for (const btn of el.querySelectorAll(".digest-admin-more-btn, .digest-admin-count")) {
+            btn.style.display = "none";
+          }
+          // Hide sections where all bullet rows are dimmed (nothing selected)
+          for (const section of el.querySelectorAll(".digest-section")) {
+            const rows = section.querySelectorAll(".digest-bullet-row");
+            if (rows.length > 0 && [...rows].every(r => r.style.display === "none")) {
+              section.style.display = "none";
+            }
+          }
 
           // Replace date tabs with a branded header
           const header = el.querySelector(".news-digest-header");

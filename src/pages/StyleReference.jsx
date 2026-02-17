@@ -1,4 +1,4 @@
-import React from "react";
+import React, { useState } from "react";
 import {
   colors,
   fonts,
@@ -14,8 +14,9 @@ import {
 } from "../lib/design-tokens";
 import { MmrComparison } from "../components/MmrComparison";
 import PeonLoader from "../components/PeonLoader";
-import { CountryFlag, Select, Input, Button } from "../components/ui";
+import { CountryFlag, Select, Input, Button, ConfirmModal } from "../components/ui";
 import "../components/news/ChatContext.css";
+import "../styles/pages/DevTools.css";
 import "../styles/pages/StyleReference.css";
 
 const pieConfig = { combinedGap: 5, areaMultiplier: 1.6 };
@@ -27,13 +28,16 @@ const StyleReference = () => {
   const colorEntries = Object.entries(colors);
   const spacingEntries = Object.entries(spacing);
   const typeEntries = Object.entries(typeScale);
+  const [modalDanger, setModalDanger] = useState(false);
+  const [modalGold, setModalGold] = useState(false);
+  const [modalSuccess, setModalSuccess] = useState(false);
 
   return (
     <div className="sr-page">
 
       {/* ── Hero ─────────────────────────── */}
       <header className="sr-hero">
-        <div className="sr-hero-copy sr-reveal" style={{ "--delay": "0.05s" }}>
+        <div className="sr-hero-copy reveal" style={{ "--delay": "0.05s" }}>
           <div className="sr-eyebrow">4v4.gg Design System</div>
           <h1>Dark gold systems for competitive Warcraft III spectating.</h1>
           <p className="sr-lead">
@@ -47,7 +51,7 @@ const StyleReference = () => {
             <span className="sr-pill">Real-time</span>
           </div>
         </div>
-        <div className="sr-panel sr-reveal" style={{ "--delay": "0.18s" }}>
+        <div className="sr-panel reveal" style={{ "--delay": "0.18s" }}>
           <div className="sr-eyebrow">At a glance</div>
           <div className="sr-token-grid">
             <div className="sr-token">
@@ -71,7 +75,7 @@ const StyleReference = () => {
       </header>
 
       {/* ── Design Principles ────────────── */}
-      <section className="sr-section sr-reveal" style={{ "--delay": "0.08s" }}>
+      <section className="sr-section reveal" style={{ "--delay": "0.08s" }}>
         <div className="sr-section-head">
           <div>
             <h2>Design principles</h2>
@@ -84,15 +88,15 @@ const StyleReference = () => {
           </div>
         </div>
         <div className="sr-card-grid">
-          <article className="sr-card sr-reveal" style={{ "--delay": "0.12s" }}>
+          <article className="sr-card reveal" style={{ "--delay": "0.12s" }}>
             <h3>At-a-glance data</h3>
             <p>Monospace numbers, gold highlights, and team colors deliver competitive context instantly.</p>
           </article>
-          <article className="sr-card sr-reveal" style={{ "--delay": "0.18s" }}>
+          <article className="sr-card reveal" style={{ "--delay": "0.18s" }}>
             <h3>Competitive contrast</h3>
             <p>High-contrast text on dark surfaces. Gold for emphasis, green and red for win/loss outcomes.</p>
           </article>
-          <article className="sr-card sr-reveal" style={{ "--delay": "0.24s" }}>
+          <article className="sr-card reveal" style={{ "--delay": "0.24s" }}>
             <h3>Cinematic immersion</h3>
             <p>Race backgrounds, subtle overlays, and generous spacing create a spectator atmosphere.</p>
           </article>
@@ -100,7 +104,7 @@ const StyleReference = () => {
       </section>
 
       {/* ── Color Palette ────────────────── */}
-      <section className="sr-section sr-reveal" style={{ "--delay": "0.1s" }}>
+      <section className="sr-section reveal" style={{ "--delay": "0.1s" }}>
         <div className="sr-section-head">
           <div>
             <h2>Color palette</h2>
@@ -132,7 +136,7 @@ const StyleReference = () => {
       </section>
 
       {/* ── Typography ───────────────────── */}
-      <section className="sr-section sr-reveal" style={{ "--delay": "0.1s" }}>
+      <section className="sr-section reveal" style={{ "--delay": "0.1s" }}>
         <div className="sr-section-head">
           <div>
             <h2>Typography</h2>
@@ -174,7 +178,7 @@ const StyleReference = () => {
       </section>
 
       {/* ── Spacing ──────────────────────── */}
-      <section className="sr-section sr-reveal" style={{ "--delay": "0.1s" }}>
+      <section className="sr-section reveal" style={{ "--delay": "0.1s" }}>
         <div className="sr-section-head">
           <div>
             <h2>Spacing</h2>
@@ -190,7 +194,7 @@ const StyleReference = () => {
       </section>
 
       {/* ── Components ───────────────────── */}
-      <section className="sr-section sr-reveal" style={{ "--delay": "0.1s" }}>
+      <section className="sr-section reveal" style={{ "--delay": "0.1s" }}>
         <div className="sr-section-head">
           <div>
             <h2>Components</h2>
@@ -298,8 +302,132 @@ const StyleReference = () => {
         </div>
       </section>
 
+      {/* ── Modals ────────────────────────── */}
+      <section className="sr-section reveal" style={{ "--delay": "0.1s" }}>
+        <div className="sr-section-head">
+          <div>
+            <h2>Confirm Modal</h2>
+            <p>Drop-in replacement for window.confirm(). Three variants: danger (red), gold, and success (green).</p>
+          </div>
+        </div>
+        <div className="sr-component-grid">
+          <div className="sr-stack">
+            <div className="sr-label">Danger</div>
+            <button className="sr-btn sr-btn-primary" style={{ background: "var(--red)", color: "#fff" }} onClick={() => setModalDanger(true)}>
+              Delete Something
+            </button>
+          </div>
+          <div className="sr-stack">
+            <div className="sr-label">Gold</div>
+            <button className="sr-btn sr-btn-primary" onClick={() => setModalGold(true)}>
+              Confirm Action
+            </button>
+          </div>
+          <div className="sr-stack">
+            <div className="sr-label">Success</div>
+            <button className="sr-btn sr-btn-primary" style={{ background: "var(--green)", color: "#000" }} onClick={() => setModalSuccess(true)}>
+              Approve Change
+            </button>
+          </div>
+        </div>
+        <ConfirmModal
+          open={modalDanger}
+          title="Delete Digest"
+          message="This will permanently delete the cached digest and all editorial edits. This action cannot be undone."
+          confirmLabel="Delete"
+          variant="danger"
+          onConfirm={() => setModalDanger(false)}
+          onCancel={() => setModalDanger(false)}
+        />
+        <ConfirmModal
+          open={modalGold}
+          title="Publish Changes"
+          message="Your editorial changes will be published and visible to all users immediately."
+          confirmLabel="Publish"
+          variant="gold"
+          onConfirm={() => setModalGold(false)}
+          onCancel={() => setModalGold(false)}
+        />
+        <ConfirmModal
+          open={modalSuccess}
+          title="Approve Player"
+          message="This player will be added to the verified list and receive a badge on their profile."
+          confirmLabel="Approve"
+          variant="success"
+          onConfirm={() => setModalSuccess(false)}
+          onCancel={() => setModalSuccess(false)}
+        />
+      </section>
+
+      {/* ── Player Cards ─────────────────── */}
+      <section className="sr-section reveal" style={{ "--delay": "0.1s" }}>
+        <div className="sr-section-head">
+          <div>
+            <h2>Player cards</h2>
+            <p>Compact identity cards with avatar, name, race, and MMR. Used in cover art tools, could work for spotlights, leaderboards, or anywhere a player needs a visual identity.</p>
+          </div>
+          <div className="sr-badge-row">
+            <span className="sr-badge">dt-player-card</span>
+          </div>
+        </div>
+
+        <div className="sr-component-grid">
+          <div className="sr-stack">
+            <div className="sr-label">With avatar</div>
+            <div className="dt-player-cards">
+              <div className="dt-player-card">
+                <div className="dt-player-card-avatar">
+                  <img src="https://w3champions.wc3.tools/profile-pictures/anonymous.png" alt="" className="dt-player-card-img" />
+                </div>
+                <div className="dt-player-card-info">
+                  <span className="dt-player-card-name">ToD</span>
+                  <span className="dt-player-card-meta">Human · 2178 MMR</span>
+                </div>
+                <button className="dt-player-card-remove">&times;</button>
+              </div>
+              <div className="dt-player-card">
+                <div className="dt-player-card-avatar">
+                  <img src="https://w3champions.wc3.tools/profile-pictures/anonymous.png" alt="" className="dt-player-card-img" />
+                </div>
+                <div className="dt-player-card-info">
+                  <span className="dt-player-card-name">mubarak</span>
+                  <span className="dt-player-card-meta">Undead · 1824 MMR</span>
+                </div>
+                <button className="dt-player-card-remove">&times;</button>
+              </div>
+            </div>
+          </div>
+
+          <div className="sr-stack">
+            <div className="sr-label">Race fallback (no avatar)</div>
+            <div className="dt-player-cards">
+              <div className="dt-player-card">
+                <div className="dt-player-card-avatar">
+                  <img src="/icons/human.png" alt="" className="dt-player-card-img dt-race-fallback" />
+                </div>
+                <div className="dt-player-card-info">
+                  <span className="dt-player-card-name">Unknown</span>
+                  <span className="dt-player-card-meta">Human · 1500 MMR</span>
+                </div>
+                <button className="dt-player-card-remove">&times;</button>
+              </div>
+              <div className="dt-player-card">
+                <div className="dt-player-card-avatar">
+                  <span className="dt-player-card-img dt-avatar-placeholder" />
+                </div>
+                <div className="dt-player-card-info">
+                  <span className="dt-player-card-name">No data</span>
+                  <span className="dt-player-card-meta">—</span>
+                </div>
+                <button className="dt-player-card-remove">&times;</button>
+              </div>
+            </div>
+          </div>
+        </div>
+      </section>
+
       {/* ── Chat Transcripts ─────────────── */}
-      <section className="sr-section sr-reveal" style={{ "--delay": "0.1s" }}>
+      <section className="sr-section reveal" style={{ "--delay": "0.1s" }}>
         <div className="sr-section-head">
           <div>
             <h2>Chat transcripts</h2>
@@ -423,7 +551,7 @@ const StyleReference = () => {
       </section>
 
       {/* ── Card Borders ─────────────────── */}
-      <section className="sr-section sr-reveal" style={{ "--delay": "0.1s" }}>
+      <section className="sr-section reveal" style={{ "--delay": "0.1s" }}>
         <div className="sr-section-head">
           <div>
             <h2>Card borders</h2>
@@ -475,11 +603,11 @@ const StyleReference = () => {
       </section>
 
       {/* ── Hover Patterns ───────────────── */}
-      <section className="sr-section sr-reveal" style={{ "--delay": "0.1s" }}>
+      <section className="sr-section reveal" style={{ "--delay": "0.1s" }}>
         <div className="sr-section-head">
           <div>
             <h2>Hover patterns</h2>
-            <p>Three approaches: neutral row highlight, gold-tinted for branded items, gold text for links.</p>
+            <p>Neutral row highlights, gold-tinted for branded items, gold text and underlines for links.</p>
           </div>
         </div>
         <div className="sr-layout-grid">
@@ -519,10 +647,6 @@ const StyleReference = () => {
                 <span style={{ fontFamily: "var(--font-mono)", fontSize: "var(--text-xxs)", color: "var(--grey-light)", marginLeft: 12 }}>color: var(--gold)</span>
               </div>
               <div>
-                <span style={{ fontFamily: "var(--font-display)", color: "var(--gold)", textShadow: "0 0 8px var(--gold)" }}>Glowing Name</span>
-                <span style={{ fontFamily: "var(--font-mono)", fontSize: "var(--text-xxs)", color: "var(--grey-light)", marginLeft: 12 }}>+ text-shadow glow</span>
-              </div>
-              <div>
                 <span style={{ fontFamily: "var(--font-mono)", color: "var(--grey-light)", textDecoration: "underline" }}>underline link</span>
                 <span style={{ fontFamily: "var(--font-mono)", fontSize: "var(--text-xxs)", color: "var(--grey-light)", marginLeft: 12 }}>text-decoration: underline</span>
               </div>
@@ -532,7 +656,7 @@ const StyleReference = () => {
       </section>
 
       {/* ── Surface & Overlays ────────────── */}
-      <section className="sr-section sr-reveal" style={{ "--delay": "0.1s" }}>
+      <section className="sr-section reveal" style={{ "--delay": "0.1s" }}>
         <div className="sr-section-head">
           <div>
             <h2>Surfaces and overlays</h2>
@@ -581,7 +705,7 @@ const StyleReference = () => {
       </section>
 
       {/* ── Surface Layouts ───────────────── */}
-      <section className="sr-section sr-reveal" style={{ "--delay": "0.1s" }}>
+      <section className="sr-section reveal" style={{ "--delay": "0.1s" }}>
         <div className="sr-section-head">
           <div>
             <h2>Surface layouts</h2>
@@ -631,7 +755,7 @@ const StyleReference = () => {
       </section>
 
       {/* ── Text Patterns Examples ────────── */}
-      <section className="sr-section sr-reveal" style={{ "--delay": "0.1s" }}>
+      <section className="sr-section reveal" style={{ "--delay": "0.1s" }}>
         <div className="sr-section-head">
           <div>
             <h2>Text patterns</h2>
@@ -683,7 +807,7 @@ const StyleReference = () => {
       </section>
 
       {/* ── Usage Patterns (table) ────────── */}
-      <section className="sr-section sr-reveal" style={{ "--delay": "0.1s" }}>
+      <section className="sr-section reveal" style={{ "--delay": "0.1s" }}>
         <div className="sr-section-head">
           <div>
             <h2>Usage patterns</h2>
@@ -711,7 +835,7 @@ const StyleReference = () => {
       </section>
 
       {/* ── Loading States ────────────────── */}
-      <section className="sr-section sr-reveal" style={{ "--delay": "0.1s" }}>
+      <section className="sr-section reveal" style={{ "--delay": "0.1s" }}>
         <div className="sr-section-head">
           <div>
             <h2>Loading states</h2>
@@ -767,8 +891,108 @@ const StyleReference = () => {
         </table>
       </section>
 
+      {/* ── Entrance Animation ────────────── */}
+      <section className="sr-section reveal" style={{ "--delay": "0.1s" }}>
+        <div className="sr-section-head">
+          <div>
+            <h2>Entrance animation</h2>
+            <p>Staggered fade-up reveals for page sections. Each element animates in with an incremental delay for a cascading effect.</p>
+          </div>
+          <div className="sr-badge-row">
+            <span className="sr-badge gold">900ms</span>
+            <span className="sr-badge">cubic-bezier</span>
+          </div>
+        </div>
+
+        <div className="sr-layout-grid">
+          <div className="sr-surface">
+            <div className="meta">Live demo</div>
+            <div id="reveal-demo" style={{ display: "flex", flexDirection: "column", gap: 12, marginTop: 12 }}>
+              {[0.05, 0.12, 0.20, 0.28].map((delay, i) => (
+                <div
+                  key={i}
+                  className="reveal"
+                  style={{
+                    "--delay": `${delay}s`,
+                    padding: "16px 20px",
+                    background: "rgba(252, 219, 51, 0.06)",
+                    border: "1px solid rgba(252, 219, 51, 0.15)",
+                    borderRadius: "var(--radius-md)",
+                    fontFamily: "var(--font-mono)",
+                    fontSize: "var(--text-xs)",
+                    color: "var(--grey-light)",
+                  }}
+                >
+                  Element {i + 1} — delay: {delay}s
+                </div>
+              ))}
+            </div>
+            <button
+              className="sr-btn sr-btn-secondary"
+              style={{ marginTop: 16 }}
+              onClick={() => {
+                const demo = document.getElementById("reveal-demo");
+                if (!demo) return;
+                const items = demo.querySelectorAll(".reveal");
+                items.forEach((el) => {
+                  el.style.animation = "none";
+                  el.offsetHeight; // force reflow
+                  el.style.animation = "";
+                });
+              }}
+            >
+              Replay
+            </button>
+          </div>
+          <div className="sr-surface">
+            <div className="meta">Usage</div>
+            <pre className="sr-code" style={{ marginTop: 12 }}>{`<!-- Add .reveal class + --delay variable -->
+<div class="reveal" style="--delay: 0.05s">
+  First section
+</div>
+<div class="reveal" style="--delay: 0.10s">
+  Second section
+</div>
+<div class="reveal" style="--delay: 0.15s">
+  Third section
+</div>`}</pre>
+          </div>
+        </div>
+
+        <table className="sr-table" style={{ marginTop: 24 }}>
+          <thead>
+            <tr>
+              <th>Property</th>
+              <th>Value</th>
+            </tr>
+          </thead>
+          <tbody>
+            <tr>
+              <td style={{ fontFamily: "var(--font-display)", color: "var(--gold)", whiteSpace: "nowrap" }}>Class</td>
+              <td><code>.reveal</code></td>
+            </tr>
+            <tr>
+              <td style={{ fontFamily: "var(--font-display)", color: "var(--gold)", whiteSpace: "nowrap" }}>Transform</td>
+              <td><code>opacity: 0 → 1, translateY(18px) → 0</code></td>
+            </tr>
+            <tr>
+              <td style={{ fontFamily: "var(--font-display)", color: "var(--gold)", whiteSpace: "nowrap" }}>Duration</td>
+              <td><code>900ms cubic-bezier(0.17, 0.76, 0.28, 1)</code></td>
+            </tr>
+            <tr>
+              <td style={{ fontFamily: "var(--font-display)", color: "var(--gold)", whiteSpace: "nowrap" }}>Delay</td>
+              <td><code>var(--delay, 0s)</code> — set via inline style</td>
+            </tr>
+            <tr>
+              <td style={{ fontFamily: "var(--font-display)", color: "var(--gold)", whiteSpace: "nowrap" }}>Reduced motion</td>
+              <td><code>animation: none; opacity: 1; transform: none</code></td>
+            </tr>
+          </tbody>
+        </table>
+      </section>
+
       {/* ── Borders & Radius ──────────────── */}
-      <section className="sr-section sr-reveal" style={{ "--delay": "0.1s" }}>
+      <section className="sr-section reveal" style={{ "--delay": "0.1s" }}>
         <div className="sr-section-head">
           <div>
             <h2>Borders and radius</h2>
@@ -795,7 +1019,7 @@ const StyleReference = () => {
       </section>
 
       {/* ── MMR Charts ────────────────────── */}
-      <section className="sr-section sr-reveal" style={{ "--delay": "0.1s" }}>
+      <section className="sr-section reveal" style={{ "--delay": "0.1s" }}>
         <div className="sr-section-head">
           <div>
             <h2>MMR visualization</h2>
@@ -905,7 +1129,7 @@ const StyleReference = () => {
       </section>
 
       {/* ── Quick Reference ───────────────── */}
-      <section className="sr-section sr-reveal" style={{ "--delay": "0.1s" }}>
+      <section className="sr-section reveal" style={{ "--delay": "0.1s" }}>
         <div className="sr-section-head">
           <div>
             <h2>Quick reference</h2>
@@ -933,7 +1157,7 @@ ${Object.entries(effects).map(([k, t]) => `${t.css.padEnd(16)} ${t.usage}`).join
         </pre>
       </section>
 
-      <footer className="sr-footer sr-reveal" style={{ "--delay": "0.2s" }}>
+      <footer className="sr-footer reveal" style={{ "--delay": "0.2s" }}>
         4v4.gg design system — dark gold interfaces for competitive Warcraft III spectating.
       </footer>
     </div>

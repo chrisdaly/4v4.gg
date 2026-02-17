@@ -17,16 +17,22 @@ import {
   splitQuotes,
   groupQuotesBySpeaker,
   parsePowerRankings,
-  parseMetaReport,
   parseAwards,
 } from "../../lib/digestUtils";
+import { MmrComparison } from "../MmrComparison";
 
 const RELAY_URL =
   import.meta.env.VITE_CHAT_RELAY_URL || "https://4v4gg-chat-relay.fly.dev";
 
+/* Data-derived sections — no ChatContext, no click-to-expand */
+const DATA_SECTIONS = new Set(["UPSET", "MATCH_STATS", "NEW_BLOOD", "AT_SPOTLIGHT"]);
+
 /* ── Rendering helpers ──────────────────────────────── */
 
 const MATCH_ID_RE = /\b([a-f0-9]{24})\b/g;
+const UPSET_DATA_RE = /\s*\[([0-9,]+)\|([0-9,]+)\|([^|]+)\|([^\]]+)\]\s*$/;
+const UPSET_MMRS_RE = /\s*\[([0-9,]+)\|([0-9,]+)(?:\|[^\]]+)?\]\s*$/;
+const AT_DATA_RE = /\s*\[([^|]+)\|([0-9,]+)\]\s*$/;
 
 const linkifyMatchIds = (text) => {
   const parts = [];
@@ -96,6 +102,139 @@ const FormDots = ({ form }) => {
         />
       ))}
     </span>
+  );
+};
+
+/** Full UPSET card: [Team1] [Chart] [Team2] layout like the live game page. */
+const UpsetCard = ({ item, profiles }) => {
+  const m = UPSET_DATA_RE.exec(item);
+  if (!m) {
+    const display = item.replace(UPSET_MMRS_RE, "");
+    return <span className="digest-section-text">{display}</span>;
+  }
+
+  const winnerMmrs = m[1].split(",").map(Number);
+  const loserMmrs = m[2].split(",").map(Number);
+  const winnerTags = m[3].split(",");
+  const loserTags = m[4].split(",");
+  const validWinnerMmrs = winnerMmrs.filter(n => n > 0);
+  const validLoserMmrs = loserMmrs.filter(n => n > 0);
+  const hasChart = validWinnerMmrs.length >= 2 && validLoserMmrs.length >= 2;
+  const zeros = (n) => new Array(n).fill(0);
+
+  const displayText = item.replace(UPSET_DATA_RE, "");
+  const mapMatch = displayText.match(/on (.+?) —/);
+  const gapMatch = displayText.match(/(\d+) MMR gap/);
+  const matchId = displayText.match(/([a-f0-9]{24})/)?.[1];
+
+  const TeamCol = ({ tags, isWinner }) => (
+    <div className={`upset-card-team${isWinner ? " upset-card-team--winner" : ""}`}>
+      {tags.map((tag, i) => {
+        const p = profiles.get(tag);
+        const name = tag.split("#")[0];
+        return (
+          <Link key={i} to={`/player/${encodeURIComponent(tag)}`} className="upset-card-player">
+            {p?.pic ? (
+              <img src={p.pic} alt="" className="upset-card-avatar" onError={(e) => { e.target.style.display = "none"; }} />
+            ) : (
+              <div className="upset-card-avatar upset-card-avatar--empty" />
+            )}
+            <span className="upset-card-name">{name}</span>
+          </Link>
+        );
+      })}
+    </div>
+  );
+
+  return (
+    <div className="upset-card">
+      <div className="upset-card-body">
+        <TeamCol tags={winnerTags} isWinner={true} />
+        {hasChart && (
+          <div className="upset-card-chart">
+            <MmrComparison
+              data={{
+                teamOneMmrs: validWinnerMmrs,
+                teamTwoMmrs: validLoserMmrs,
+                teamOneAT: zeros(validWinnerMmrs.length),
+                teamTwoAT: zeros(validLoserMmrs.length),
+              }}
+              compact={true}
+              fitToData={true}
+            />
+          </div>
+        )}
+        <TeamCol tags={loserTags} isWinner={false} />
+      </div>
+      <div className="upset-card-footer">
+        {mapMatch && <span className="upset-card-map">{mapMatch[1]}</span>}
+        {gapMatch && <span className="upset-card-gap">{gapMatch[1]} MMR gap</span>}
+        {matchId && (
+          <Link to={`/match/${matchId}`} className="digest-match-link">
+            match <FiExternalLink size={11} />
+          </Link>
+        )}
+      </div>
+    </div>
+  );
+};
+
+/** AT Spotlight card: [Avatars+Names] [MMR Chart] with W/L footer */
+const ATSpotlightCard = ({ item, profiles }) => {
+  const m = AT_DATA_RE.exec(item);
+  const displayText = item.replace(AT_DATA_RE, "");
+  if (!m) return <span className="digest-section-text">{displayText}</span>;
+
+  const tags = m[1].split(",");
+  const mmrs = m[2].split(",").map(Number);
+  const validMmrs = mmrs.filter(n => n > 0);
+
+  // Parse display info
+  const sizeMatch = displayText.match(/(\d)-stack/);
+  const recordMatch = displayText.match(/(\d+W-\d+L\s+\d+%)/);
+  const avgMatch = displayText.match(/avg (\d+) MMR/);
+
+  return (
+    <div className="at-card">
+      <div className="at-card-body">
+        <div className="at-card-players">
+          {tags.map((tag, i) => {
+            const p = profiles.get(tag);
+            const name = tag.split("#")[0];
+            return (
+              <Link key={i} to={`/player/${encodeURIComponent(tag)}`} className="at-card-player">
+                {p?.pic ? (
+                  <img src={p.pic} alt="" className="upset-card-avatar" onError={(e) => { e.target.style.display = "none"; }} />
+                ) : (
+                  <div className="upset-card-avatar upset-card-avatar--empty" />
+                )}
+                <span className="at-card-name">{name}</span>
+                {mmrs[i] > 0 && <span className="at-card-mmr">{mmrs[i]}</span>}
+              </Link>
+            );
+          })}
+        </div>
+        {validMmrs.length >= 2 && (
+          <div className="at-card-chart">
+            <MmrComparison
+              data={{
+                teamOneMmrs: validMmrs,
+                teamTwoMmrs: [],
+                teamOneAT: new Array(validMmrs.length).fill(1),
+                teamTwoAT: [],
+              }}
+              compact={true}
+              fitToData={true}
+            />
+          </div>
+        )}
+      </div>
+      <div className="at-card-footer">
+        {sizeMatch && <span className="at-card-size">{sizeMatch[1]}-stack</span>}
+        {avgMatch && <span className="at-card-avg">{avgMatch[1]} MMR</span>}
+        {recordMatch && <span className="at-card-record">{recordMatch[1]}</span>}
+      </div>
+    </div>
   );
 };
 
@@ -208,19 +347,19 @@ const RankingsSection = ({ content, profiles }) => {
           return (
             <div key={r.rank} className="digest-ranking-item">
               <span className="digest-ranking-rank">{r.rank}</span>
-              {profile?.pic && <DigestAvatar src={profile.pic} country={profile.country} />}
+              <span className="digest-ranking-avatar">
+                {profile?.pic && <DigestAvatar src={profile.pic} country={profile.country} />}
+              </span>
               <Link
                 to={`/player/${encodeURIComponent(r.battleTag)}`}
                 className="digest-ranking-name"
               >
                 {r.name}
               </Link>
-              {r.race && <span className="digest-ranking-race">[{r.race}]</span>}
               <span className={`digest-ranking-mmr${r.mmrChange > 0 ? " digest-ranking-mmr--up" : " digest-ranking-mmr--down"}`}>
                 {sign}{r.mmrChange}
               </span>
-              <span className="digest-ranking-record">({r.wins}W-{r.losses}L)</span>
-              <FormDots form={r.form} />
+              <span className="digest-ranking-record">{r.wins}W-{r.losses}L</span>
             </div>
           );
         })}
@@ -231,42 +370,7 @@ const RankingsSection = ({ content, profiles }) => {
 
 /* ── Meta Report section ────────────────────────────── */
 
-const RACE_ICONS = { HU: "/icons/human.png", ORC: "/icons/orc.png", NE: "/icons/elf.png", UD: "/icons/undead.png" };
 
-const MetaSection = ({ content }) => {
-  const { races, maps } = parseMetaReport(content);
-  if (races.length === 0 && maps.length === 0) return null;
-  return (
-    <div className="digest-section digest-section--meta">
-      <span className="digest-section-label">Meta Report</span>
-      <div className="digest-meta-report">
-        {races.length > 0 && (
-          <div className="digest-meta-races">
-            {races.map((r) => (
-              <div key={r.race} className="digest-meta-race">
-                {RACE_ICONS[r.race] && <img src={RACE_ICONS[r.race]} alt={r.race} className="digest-meta-race-icon" />}
-                <span className="digest-meta-race-name">{r.race}</span>
-                <span className="digest-meta-race-pick">{r.pickPct}%</span>
-                <span className={`digest-meta-race-wr${r.winPct >= 50 ? " digest-meta-race-wr--high" : ""}`}>
-                  {r.winPct}% WR
-                </span>
-              </div>
-            ))}
-          </div>
-        )}
-        {maps.length > 0 && (
-          <div className="digest-meta-maps">
-            {maps.map((m) => (
-              <span key={m.name} className="digest-meta-map">
-                {m.name} <span className="digest-meta-map-count">{m.games}</span>
-              </span>
-            ))}
-          </div>
-        )}
-      </div>
-    </div>
-  );
-};
 
 /* ── Awards section ─────────────────────────────────── */
 
@@ -441,6 +545,21 @@ const DigestBanner = ({ digest, nameSet, nameToTag, label = "Yesterday in 4v4", 
         for (const a of parseAwards(content)) {
           tagsToFetch.add(a.battleTag);
         }
+      } else if (key === "UPSET") {
+        for (const upsetItem of content.split(/;\s*/)) {
+          const um = UPSET_DATA_RE.exec(upsetItem);
+          if (um) {
+            um[3].split(",").forEach(t => tagsToFetch.add(t));
+            um[4].split(",").forEach(t => tagsToFetch.add(t));
+          }
+        }
+      } else if (key === "AT_SPOTLIGHT") {
+        for (const atItem of content.split(/;\s*/)) {
+          const am = AT_DATA_RE.exec(atItem);
+          if (am) {
+            am[1].split(",").forEach(t => tagsToFetch.add(t));
+          }
+        }
       } else if (!meta?.tags) {
         for (const tag of extractMentionedTags(content, combinedNameToTag)) {
           tagsToFetch.add(tag);
@@ -567,11 +686,6 @@ const DigestBanner = ({ digest, nameSet, nameToTag, label = "Yesterday in 4v4", 
             return <RankingsSection key={key} content={content} profiles={profiles} />;
           }
 
-          // Meta Report section
-          if (meta.meta) {
-            return <MetaSection key={key} content={content} />;
-          }
-
           // Awards section
           if (meta.awards) {
             return <AwardsSection key={key} content={content} profiles={profiles} />;
@@ -611,10 +725,42 @@ const DigestBanner = ({ digest, nameSet, nameToTag, label = "Yesterday in 4v4", 
           }
 
           const items = content.split(/;\s*/).map(s => s.trim()).filter(Boolean);
+
+          // Hide editable sections where no items are selected
+          const sectionSel = sectionSelections[key];
+          if (editable && sectionSel && sectionSel.size === 0) return null;
+
+          // Custom UPSET card rendering
+          if (key === "UPSET" && !editable) {
+            return (
+              <div key={key} className={`digest-section digest-section--${cls}`}>
+                <span className="digest-section-label">{sectionLabel}</span>
+                <div className="digest-upset-cards">
+                  {items.map((item, i) => (
+                    <UpsetCard key={i} item={item} profiles={profiles} />
+                  ))}
+                </div>
+              </div>
+            );
+          }
+
+          // Custom AT_SPOTLIGHT card rendering
+          if (key === "AT_SPOTLIGHT" && !editable) {
+            return (
+              <div key={key} className={`digest-section digest-section--${cls}`}>
+                <span className="digest-section-label">{sectionLabel}</span>
+                <div className="digest-upset-cards">
+                  {items.map((item, i) => (
+                    <ATSpotlightCard key={i} item={item} profiles={profiles} />
+                  ))}
+                </div>
+              </div>
+            );
+          }
+
           const isRecap = key === "RECAP";
           const isClickable = !isRecap;
 
-          const sectionSel = sectionSelections[key];
           const sectionHeader = editable ? (
             <div className="digest-section-admin-label">
               <span className="digest-section-label">{sectionLabel}</span>
@@ -640,14 +786,16 @@ const DigestBanner = ({ digest, nameSet, nameToTag, label = "Yesterday in 4v4", 
                     const itemTags = extractMentionedTags(item, combinedNameToTag);
                     const avatarTags = itemTags.filter((tag) => !hiddenAvatars.has(tag));
                     const avatarProfiles = avatarTags.map((tag) => profiles.get(tag)).filter((p) => p?.pic);
-                    const { summary, quotes } = splitQuotes(item);
+                    const displayItem = key === "UPSET" ? item.replace(UPSET_MMRS_RE, "") : item;
+                    const { summary, quotes } = splitQuotes(displayItem);
                     const isExpanded = expandedItem?.key === key && expandedItem?.idx === i;
                     const isSelected = editable ? (sectionSel?.has(i) ?? false) : true;
                     const isEditing = editingItem?.key === key && editingItem?.idx === i;
 
+                    const isDataSection = DATA_SECTIONS.has(key);
                     const handleClick = editable
                       ? (e) => { if (e.target.closest(".chat-context")) return; toggleItem(key, i); }
-                      : isClickable
+                      : (isClickable && !isDataSection)
                         ? (e) => { if (e.target.closest(".chat-context")) return; setExpandedItem(isExpanded ? null : { key, idx: i }); }
                         : undefined;
 
@@ -749,7 +897,8 @@ const DigestBanner = ({ digest, nameSet, nameToTag, label = "Yesterday in 4v4", 
                         </div>
                         <div className="digest-bullet-content">
                           <DigestQuotes quotes={quotes} />
-                          {isClickable && (
+                          {key === "UPSET" && <UpsetCard item={item} profiles={profiles} />}
+                          {isClickable && !isDataSection && (
                             <ChatContext
                               date={digest.date}
                               battleTags={itemTags}
@@ -770,8 +919,8 @@ const DigestBanner = ({ digest, nameSet, nameToTag, label = "Yesterday in 4v4", 
                 </ul>
               ) : (
                 <div
-                  className={`digest-section-body${isClickable ? " digest-section-body--clickable" : ""}`}
-                  onClick={isClickable && !editable ? () => {
+                  className={`digest-section-body${isClickable && !DATA_SECTIONS.has(key) ? " digest-section-body--clickable" : ""}`}
+                  onClick={isClickable && !DATA_SECTIONS.has(key) && !editable ? () => {
                     const isExpanded = expandedItem?.key === key && expandedItem?.idx === 0;
                     setExpandedItem(isExpanded ? null : { key, idx: 0 });
                   } : editable ? () => toggleItem(key, 0) : undefined}
@@ -779,7 +928,8 @@ const DigestBanner = ({ digest, nameSet, nameToTag, label = "Yesterday in 4v4", 
                   {(() => {
                     const tags = extractMentionedTags(content, combinedNameToTag).filter((t) => !hiddenAvatars.has(t));
                     const singleProfiles = tags.map((tag) => profiles.get(tag)).filter((p) => p?.pic);
-                    const { summary, quotes } = splitQuotes(content);
+                    const displayContent = key === "UPSET" ? content.replace(UPSET_MMRS_RE, "") : content;
+                    const { summary, quotes } = splitQuotes(displayContent);
                     const isExpanded = expandedItem?.key === key && expandedItem?.idx === 0;
                     const isSelected = editable ? (sectionSel?.has(0) ?? false) : true;
                     const isEditing = editingItem?.key === key && editingItem?.idx === 0;
@@ -834,7 +984,8 @@ const DigestBanner = ({ digest, nameSet, nameToTag, label = "Yesterday in 4v4", 
                           </span>
                         )}
                         <DigestQuotes quotes={quotes} />
-                        {isClickable && (
+                        {key === "UPSET" && <UpsetCard item={content} profiles={profiles} />}
+                        {isClickable && !DATA_SECTIONS.has(key) && (
                           <ChatContext
                             date={digest.date}
                             battleTags={tags}

@@ -692,6 +692,60 @@ export const ModalContent = styled.div`
   max-width: 90vw;
 `;
 
+/** Confirm modal — drop-in replacement for window.confirm() */
+export const ConfirmModal = ({
+  open,
+  title = "Are you sure?",
+  message,
+  confirmLabel = "Confirm",
+  cancelLabel = "Cancel",
+  variant = "danger",
+  onConfirm,
+  onCancel,
+}) => {
+  if (!open) return null;
+
+  const confirmColor =
+    variant === "danger" ? "var(--red)" :
+    variant === "gold"   ? "var(--gold)" :
+    "var(--green)";
+
+  return (
+    <ModalBackdrop onClick={onCancel}>
+      <ModalContent $size="sm" onClick={(e) => e.stopPropagation()}>
+        <div style={{ display: "flex", flexDirection: "column", gap: "var(--space-4)" }}>
+          <h3 style={{
+            fontFamily: "var(--font-display)",
+            fontSize: "var(--text-lg)",
+            color: "var(--white)",
+            margin: 0,
+          }}>{title}</h3>
+          {message && (
+            <p style={{
+              fontFamily: "var(--font-mono)",
+              fontSize: "var(--text-xs)",
+              color: "var(--grey-light)",
+              lineHeight: 1.6,
+              margin: 0,
+            }}>{message}</p>
+          )}
+          <div style={{ display: "flex", gap: "var(--space-2)", justifyContent: "flex-end", marginTop: "var(--space-2)" }}>
+            <Button $ghost onClick={onCancel}>{cancelLabel}</Button>
+            <Button
+              onClick={onConfirm}
+              style={{
+                background: confirmColor,
+                color: variant === "gold" ? "var(--grey-dark)" : "#fff",
+                border: "none",
+              }}
+            >{confirmLabel}</Button>
+          </div>
+        </div>
+      </ModalContent>
+    </ModalBackdrop>
+  );
+};
+
 // ============================================
 // TABLE COMPONENTS
 // ============================================
