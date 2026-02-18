@@ -228,12 +228,12 @@ const CoverHero = ({ weekly, coverBg, headline, editorial }) => {
 };
 
 /** Big lead story — headline + attributed pull quotes */
-const FeatureStory = ({ lead, quotes, nameToTag, editorial }) => {
+const FeatureStory = ({ lead, quotes, curated, nameToTag, editorial }) => {
   if (!lead) return null;
 
-  // Only show quotes from speakers mentioned in the lead, cap at 3
+  // Curated DRAMA_QUOTES show as-is; auto-extracted quotes filter to speakers in the lead
   const leadLower = lead.toLowerCase();
-  const attributed = quotes.filter((q) => {
+  const attributed = curated ? quotes : quotes.filter((q) => {
     const m = q.match(/^(\w[\w\d!ǃ]*?):\s+/);
     return m && leadLower.includes(m[1].toLowerCase());
   }).slice(0, 3);
@@ -1892,6 +1892,7 @@ const WeeklyMagazine = ({ weekParam, isAdmin = false, apiKey = "" }) => {
         <FeatureStory
           lead={dramaLead}
           quotes={dramaQuotes}
+          curated={!!dramaQuotesSection}
           nameToTag={knownNames}
           editorial={editorialProps}
         />

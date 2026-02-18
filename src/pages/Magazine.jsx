@@ -168,12 +168,8 @@ const CoverHero = ({ weekly, topics, coverBg }) => {
 const FeatureStory = ({ lead, quotes, coverBg, nameToTag }) => {
   if (!lead) return null;
 
-  // Only show quotes from speakers mentioned in the lead, cap at 3
-  const leadLower = lead.toLowerCase();
-  const attributed = quotes.filter((q) => {
-    const m = q.match(/^(\w[\w\d!ǃ]*?):\s+/);
-    return m && leadLower.includes(m[1].toLowerCase());
-  }).slice(0, 3);
+  // Show all curated quotes from the lead story
+  const attributed = quotes;
 
   return (
     <section className="mg-feature reveal" style={{ "--delay": "0.10s" }}>
@@ -883,11 +879,12 @@ const Magazine = () => {
   const newBloodSection = find("NEW_BLOOD");
   const atSection = find("AT_SPOTLIGHT");
   // Parse drama into lead headline + sub-stories
-  const dramaQuotes = dramaSection ? splitQuotes(dramaSection.content).quotes : [];
-  const dramaCleaned = dramaSection ? cleanSummary(splitQuotes(dramaSection.content).summary) : "";
-  const dramaItems = dramaCleaned ? dramaCleaned.split(/;\s*/).filter(Boolean).map((s) => s.trim()) : [];
-  const dramaLead = dramaItems[0] || "";
-  const dramaSubStories = dramaItems.slice(1);
+  // Split by semicolons first, then extract quotes per segment so each story gets its own quotes
+  const dramaRawItems = dramaSection ? dramaSection.content.split(/;\s*/).filter(Boolean) : [];
+  const leadParsed = dramaRawItems[0] ? splitQuotes(dramaRawItems[0]) : { summary: "", quotes: [] };
+  const dramaLead = cleanSummary(leadParsed.summary);
+  const dramaLeadQuotes = leadParsed.quotes;
+  const dramaSubStories = dramaRawItems.slice(1).map((s) => cleanSummary(splitQuotes(s).summary)).filter(Boolean);
 
   return (
     <div className="mg-page">
@@ -917,7 +914,7 @@ const Magazine = () => {
       {dramaLead && (
         <FeatureStory
           lead={dramaLead}
-          quotes={dramaQuotes}
+          quotes={dramaLeadQuotes}
           coverBg={coverBg}
           nameToTag={knownNames}
         />

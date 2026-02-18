@@ -165,6 +165,19 @@ export const patterns = {
     description: 'Blog post description in listing',
     css: 'font-family: var(--font-body); font-size: var(--text-base); color: var(--text-body); line-height: 1.7',
   },
+  // Quote patterns (Magazine)
+  quoteText: {
+    description: 'Quoted chat message (indented, italic, grey, left border)',
+    css: 'margin-left: var(--quote-indent); padding-left: var(--quote-pad-left); border-left: var(--quote-border); font-style: italic; color: var(--grey-light); line-height: 1.5',
+  },
+  quoteName: {
+    description: 'Quote speaker name (gold, display font)',
+    css: 'font-family: var(--font-display); font-size: var(--text-xs); color: var(--gold); margin-bottom: var(--quote-name-gap)',
+  },
+  quoteSpacing: {
+    description: 'Quote spacing constants (set on .mg-page)',
+    css: '--quote-group-gap: var(--space-4); --quote-item-gap: var(--space-1); --quote-name-gap: var(--space-1); --quote-pad-left: var(--space-4); --quote-indent: var(--space-4); --quote-border: 2px solid rgba(255,255,255,0.15)',
+  },
   // Content text patterns
   mapName: {
     description: 'Map names',

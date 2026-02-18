@@ -215,7 +215,12 @@ export default function useWeeklyEditorial({ weekly, isAdmin, apiKey, onDigestUp
       if (!prev) return prev;
       const sections = parseDigestSections(prev);
       const sec = sections.find((s) => s.key === sectionKey);
-      if (!sec) return prev;
+      if (!sec) {
+        // Section doesn't exist yet — create it (unless text is empty)
+        if (!trimmed) return prev;
+        sections.push({ key: sectionKey, content: trimmed });
+        return sections.map((s) => `${s.key}: ${s.content}`).join("\n");
+      }
       if (!trimmed) {
         // Empty text — remove the section entirely
         return sections.filter((s) => s.key !== sectionKey).map((s) => `${s.key}: ${s.content}`).join("\n");

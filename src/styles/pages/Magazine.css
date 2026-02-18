@@ -4,6 +4,16 @@
    All classes prefixed with .mg-
    ======================================== */
 
+/* ── Quote spacing constants ──────────────────────── */
+.mg-page {
+  --quote-group-gap: var(--space-4);    /* between speaker groups (16px) */
+  --quote-item-gap: 0px;               /* between quotes within a group — 0 for continuous bar */
+  --quote-name-gap: var(--space-1);     /* below speaker name (4px) */
+  --quote-pad-left: var(--space-4);     /* space between border and text (16px) */
+  --quote-indent: var(--space-4);       /* left margin indent for whole quote block (16px) */
+  --quote-border: 2px solid rgba(255, 255, 255, 0.15);
+}
+
 .mg-page {
   min-height: 100vh;
 }
@@ -244,37 +254,38 @@ a.mg-inline-name:hover {
 .mg-quotes {
   display: flex;
   flex-direction: column;
-  gap: var(--space-4);
+  gap: var(--quote-group-gap);
   margin-top: var(--space-4);
 }
 
 .mg-quotes--compact {
   margin-top: var(--space-2);
-  gap: var(--space-3);
+  gap: var(--quote-group-gap);
 }
 
 .mg-quote-group {
   display: flex;
   flex-direction: column;
-  gap: 4px;
+  gap: var(--quote-item-gap);
 }
 
 .mg-quote-name {
   font-family: var(--font-display);
   font-size: var(--text-xs);
   color: var(--gold);
-  margin-bottom: 2px;
+  margin-bottom: var(--quote-name-gap);
 }
 
 .mg-quote {
   margin: 0;
-  padding-left: var(--space-4);
-  border-left: 2px solid rgba(255, 255, 255, 0.15);
+  margin-left: var(--quote-indent);
+  padding: var(--space-1) 0 var(--space-1) var(--quote-pad-left);
+  border-left: var(--quote-border);
   font-family: var(--font-body, Georgia, serif);
   font-size: var(--text-sm);
   font-style: italic;
   color: var(--grey-light);
-  line-height: 1.6;
+  line-height: 1.5;
 }
 
 /* ── Stories Grid (2-column) ──────────────────────── */
@@ -584,7 +595,11 @@ a.mg-inline-name:hover {
 }
 
 .mg-spotlight-quotes .mg-quote-group {
-  margin-bottom: var(--space-2);
+  margin-bottom: var(--quote-group-gap);
+}
+
+.mg-spotlight-quotes .mg-quote-group:last-child {
+  margin-bottom: 0;
 }
 
 .mg-quote-group-header {
@@ -599,13 +614,15 @@ a.mg-inline-name:hover {
 
 .mg-spotlight-quotes .mg-quote-name {
   font-size: var(--text-xs);
+  margin-bottom: var(--quote-name-gap);
 }
 
 .mg-spotlight-quotes .mg-quote {
   font-size: var(--text-xs);
-  padding-left: var(--space-3);
-  border-left: 2px solid rgba(255, 255, 255, 0.15);
-  margin: var(--space-1) 0;
+  margin: 0;
+  margin-left: var(--quote-indent);
+  padding: var(--space-1) 0 var(--space-1) var(--quote-pad-left);
+  border-left: var(--quote-border);
   color: rgba(255, 255, 255, 0.8);
   line-height: 1.5;
 }
