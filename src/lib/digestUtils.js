@@ -63,6 +63,7 @@ export const DIGEST_SECTIONS = [
   { key: "GRINDER", label: "Grinder", cls: "grinder", stat: true },
   { key: "HOTSTREAK", label: "Hot", cls: "hotstreak", stat: true },
   { key: "COLDSTREAK", label: "Cold", cls: "coldstreak", stat: true },
+  { key: "HEROSLAYER", label: "Hero Slayer", cls: "heroslayer", stat: true },
   { key: "NEW_BLOOD", label: "New Blood", cls: "new-blood" },
   { key: "UPSET", label: "Upset", cls: "upset" },
   { key: "AT_SPOTLIGHT", label: "AT Stacks", cls: "at-spotlight" },
@@ -74,9 +75,11 @@ export const DIGEST_SECTIONS = [
   { key: "CLIPS", label: "Clips", cls: "clips", clips: true },
 ];
 
-const BLURB_KEYS = ["WINNER_BLURB", "LOSER_BLURB", "GRINDER_BLURB", "HOTSTREAK_BLURB", "COLDSTREAK_BLURB"];
-const QUOTE_KEYS = ["WINNER_QUOTES", "LOSER_QUOTES", "GRINDER_QUOTES", "HOTSTREAK_QUOTES", "COLDSTREAK_QUOTES"];
-export const ALL_SECTION_KEYS = [...DIGEST_SECTIONS.map((s) => s.key), ...BLURB_KEYS, ...QUOTE_KEYS, "MENTIONS"];
+const HEROSLAYER_DATA_KEYS = ["HEROSLAYER_HEROES", "HEROSLAYER_VICTIMS", "HEROSLAYER_KILLBOARD", "HEROSLAYER_MAX"];
+const BLURB_KEYS = ["WINNER_BLURB", "LOSER_BLURB", "GRINDER_BLURB", "HOTSTREAK_BLURB", "COLDSTREAK_BLURB", "HEROSLAYER_BLURB", "Hero Slayer_BLURB", "Unit Killer_BLURB"];
+const QUOTE_KEYS = ["WINNER_QUOTES", "LOSER_QUOTES", "GRINDER_QUOTES", "HOTSTREAK_QUOTES", "COLDSTREAK_QUOTES", "HEROSLAYER_QUOTES", "Hero Slayer_QUOTES", "Unit Killer_QUOTES"];
+const STREAK_DATA_KEYS = ["HOTSTREAK_DAILY", "COLDSTREAK_DAILY", "STREAK_SPECTRUM"];
+export const ALL_SECTION_KEYS = [...DIGEST_SECTIONS.map((s) => s.key), ...BLURB_KEYS, ...QUOTE_KEYS, ...STREAK_DATA_KEYS, ...HEROSLAYER_DATA_KEYS, "MENTIONS"];
 export const SECTION_RE = new RegExp(`^(${ALL_SECTION_KEYS.join("|")})\\s*:\\s*`, "gm");
 
 export const parseDigestSections = (text) => {
@@ -110,12 +113,15 @@ export const parseStatLine = (content) => {
   if (!m) return null;
   const headline = m[3];
   const mmrMatch = headline.match(/([+-]?\d+)\s*MMR/);
+  const streakMatch = headline.match(/(\d+)([WL])\s*streak/);
   return {
     battleTag: m[1],
     name: m[1].split("#")[0],
     race: m[2] || null,
     headline,
     mmrChange: mmrMatch ? parseInt(mmrMatch[1]) : null,
+    streakLen: streakMatch ? parseInt(streakMatch[1]) : null,
+    streakType: streakMatch ? streakMatch[2] : null,
     wins: parseInt(m[4]),
     losses: parseInt(m[5]),
     form: m[6] || "",
@@ -425,10 +431,60 @@ export const getSpotlightExtras = (statKey, sections) => {
   return { blurb, quotes };
 };
 
+/**
+ * Parse HOTSTREAK_DAILY / COLDSTREAK_DAILY section.
+ * Format: "Mon:WWLW,0,+32;Tue:WWWWWWW,7,+48|streakIdx:3,streakLen:11"
+ * Returns { days: [{ day, form, streakGames, mmrChange }], streakIdx, streakLen }
+ */
+export const parseStreakDaily = (content) => {
+  const [daysPart, metaPart] = content.split("|");
+  if (!daysPart || !metaPart) return null;
+  const days = daysPart.split(";").map((entry) => {
+    const [dayForm, ...rest] = entry.split(",");
+    const colonIdx = dayForm.indexOf(":");
+    if (colonIdx < 0) return null;
+    const day = dayForm.slice(0, colonIdx);
+    const form = dayForm.slice(colonIdx + 1);
+    const streakGames = parseInt(rest[0]) || 0;
+    const mmrChange = parseInt(rest[1]) || 0;
+    return { day, form, streakGames, mmrChange };
+  }).filter(Boolean);
+
+  let streakIdx = 0, streakLen = 0;
+  for (const pair of metaPart.split(",")) {
+    const [k, v] = pair.split(":");
+    if (k === "streakIdx") streakIdx = parseInt(v) || 0;
+    if (k === "streakLen") streakLen = parseInt(v) || 0;
+  }
+  return { days, streakIdx, streakLen };
+};
+
+/**
+ * Parse STREAK_SPECTRUM section.
+ * Format: "W:3=12,4=8,5=3,11=1|L:3=10,4=5,16=1"
+ * Returns { win: [{ len, count }], loss: [{ len, count }] }
+ */
+export const parseStreakSpectrum = (content) => {
+  const parseHalf = (str) => {
+    if (!str) return [];
+    // Strip the "W:" or "L:" prefix
+    const data = str.includes(":") ? str.split(":")[1] : str;
+    if (!data) return [];
+    return data.split(",").map((e) => {
+      const [len, count] = e.split("=");
+      return { len: parseInt(len), count: parseInt(count) };
+    }).filter((e) => !isNaN(e.len) && !isNaN(e.count));
+  };
+  const parts = content.split("|");
+  const winPart = parts.find((p) => p.startsWith("W:"));
+  const lossPart = parts.find((p) => p.startsWith("L:"));
+  return { win: parseHalf(winPart), loss: parseHalf(lossPart) };
+};
+
 export const parseNewBlood = (content) => {
   return content.split(/;\s*/).map((entry) => {
     const m = entry.trim().match(
-      /^(\S+#\d+)\s+debuted\s+at\s+(\d+)\s*MMR\s+\((\d+)\s+games?,\s*(\d+)%\s*WR\)(?:\s+\[returning\])?(?:\s+first:(\d{4}-\d{2}-\d{2}))?$/
+      /^(\S+#\d+)\s+debuted\s+at\s+(\d+)\s*MMR\s+\((\d+)\s+games?,\s*(\d+)%\s*WR\)(?:\s+\[returning(?::(\d{4}-\d{2}-\d{2}|\d+))?\])?(?:\s+first:(\d{4}-\d{2}-\d{2}))?$/
     );
     if (!m) return null;
     return {
@@ -437,8 +493,9 @@ export const parseNewBlood = (content) => {
       mmr: parseInt(m[2]),
       games: parseInt(m[3]),
       winPct: parseInt(m[4]),
-      returning: entry.includes("[returning]"),
-      firstDate: m[5] || null,
+      returning: entry.includes("[returning"),
+      lastActive: m[5] && m[5].includes("-") ? m[5] : null,
+      firstDate: m[6] || null,
     };
   }).filter(Boolean);
 };

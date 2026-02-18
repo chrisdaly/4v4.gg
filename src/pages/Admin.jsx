@@ -3,6 +3,8 @@ import styled from "styled-components";
 import { FiExternalLink, FiRefreshCw } from "react-icons/fi";
 import { IoSend } from "react-icons/io5";
 import useAdmin from "../lib/useAdmin";
+import { Link } from "react-router-dom";
+import ChatSearch from "./AdminChatSearch";
 
 const RELAY_URL =
   import.meta.env.VITE_CHAT_RELAY_URL || "https://4v4gg-chat-relay.fly.dev";
@@ -414,6 +416,203 @@ const DigestActions = styled.div`
   margin-bottom: var(--space-4);
 `;
 
+const SearchForm = styled.form`
+  display: flex;
+  gap: var(--space-2);
+  margin-bottom: var(--space-4);
+`;
+
+const SearchInput = styled.input`
+  flex: 1;
+  min-width: 0;
+  background: rgba(255, 255, 255, 0.06);
+  border: 1px solid rgba(160, 130, 80, 0.2);
+  border-radius: var(--radius-sm);
+  padding: var(--space-2) var(--space-4);
+  color: var(--text-body);
+  font-family: var(--font-mono);
+  font-size: var(--text-xs);
+  outline: none;
+
+  &:focus {
+    border-color: rgba(252, 219, 51, 0.4);
+  }
+
+  &::placeholder {
+    color: var(--grey-mid);
+  }
+`;
+
+const SearchToolbar = styled.div`
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+  padding: 4px var(--space-4);
+  border-top: 1px solid rgba(160, 130, 80, 0.08);
+  background: rgba(0, 0, 0, 0.15);
+`;
+
+const ContextBtn = styled.button`
+  background: none;
+  border: none;
+  font-family: var(--font-mono);
+  font-size: var(--text-xxxs);
+  color: var(--grey-mid);
+  cursor: pointer;
+  padding: 2px 6px;
+
+  &:hover {
+    color: var(--gold);
+  }
+`;
+
+const PaddingBtn = styled.button`
+  background: rgba(255, 255, 255, 0.06);
+  border: 1px solid rgba(160, 130, 80, 0.15);
+  border-radius: var(--radius-sm);
+  font-family: var(--font-mono);
+  font-size: var(--text-xxxs);
+  color: var(--grey-light);
+  cursor: pointer;
+  padding: 1px 8px;
+  min-width: 24px;
+
+  &:hover {
+    border-color: var(--gold);
+    color: var(--gold);
+  }
+
+  &:disabled {
+    opacity: 0.3;
+    cursor: default;
+  }
+`;
+
+const PaddingLabel = styled.span`
+  font-family: var(--font-mono);
+  font-size: var(--text-xxxs);
+  color: var(--grey-mid);
+  min-width: 38px;
+  text-align: center;
+`;
+
+const ScrollEdgeBtn = styled.button`
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 4px;
+  width: 100%;
+  padding: 8px;
+  background: var(--surface-2);
+  border: none;
+  border-bottom: ${(p) => p.$top ? "1px solid rgba(160, 130, 80, 0.08)" : "none"};
+  border-top: ${(p) => p.$top ? "none" : "1px solid rgba(160, 130, 80, 0.08)"};
+  color: var(--grey-mid);
+  font-family: var(--font-mono);
+  font-size: var(--text-xxxs);
+  cursor: pointer;
+  transition: all 0.15s;
+
+  &:hover {
+    background: var(--gold-tint);
+    color: var(--gold);
+  }
+
+  &:disabled {
+    opacity: 0.3;
+    cursor: default;
+  }
+`;
+
+const HighlightMark = styled.mark`
+  background: rgba(252, 219, 51, 0.25);
+  color: var(--gold);
+  border-radius: 2px;
+  padding: 0 1px;
+`;
+
+const SearchMeta = styled.div`
+  font-family: var(--font-mono);
+  font-size: var(--text-xxs);
+  color: var(--grey-mid);
+  margin-bottom: var(--space-2);
+`;
+
+const HistoryRow = styled.div`
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  margin-bottom: var(--space-4);
+  align-items: center;
+`;
+
+const HistoryChip = styled.button`
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  background: rgba(255, 255, 255, 0.04);
+  border: 1px solid rgba(160, 130, 80, 0.15);
+  border-radius: var(--radius-full);
+  padding: 3px 10px;
+  font-family: var(--font-mono);
+  font-size: var(--text-xxxs);
+  color: var(--grey-light);
+  cursor: pointer;
+  transition: all 0.15s;
+  max-width: 200px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+
+  &:hover {
+    border-color: var(--gold);
+    color: var(--gold);
+    background: rgba(252, 219, 51, 0.06);
+  }
+`;
+
+const HistoryX = styled.span`
+  font-size: 10px;
+  opacity: 0.5;
+  margin-left: 2px;
+
+  &:hover {
+    opacity: 1;
+    color: var(--red);
+  }
+`;
+
+const HistoryLabel = styled.span`
+  font-family: var(--font-mono);
+  font-size: var(--text-xxxs);
+  color: var(--grey-mid);
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+`;
+
+const LoadMoreButton = styled.button`
+  width: 100%;
+  padding: var(--space-2);
+  background: rgba(255, 255, 255, 0.04);
+  border: 1px solid rgba(160, 130, 80, 0.15);
+  border-radius: var(--radius-sm);
+  color: var(--grey-light);
+  font-family: var(--font-mono);
+  font-size: var(--text-xxs);
+  cursor: pointer;
+  transition: all 0.15s;
+
+  &:hover {
+    border-color: var(--gold);
+    color: var(--gold);
+  }
+
+  &:disabled {
+    opacity: 0.4;
+    cursor: default;
+  }
+`;
+
 const LINKS = [
   {
     title: "Anthropic API Cost",
@@ -450,7 +649,46 @@ function formatDate(iso) {
   return d.toLocaleDateString([], { month: "short", day: "numeric", year: "numeric" });
 }
 
+function AdminGate() {
+  const [draft, setDraft] = useState("");
+  const { adminKey, setAdminKey } = useAdmin();
+
+  function handleSubmit(e) {
+    e.preventDefault();
+    const key = draft.trim();
+    if (key) {
+      setAdminKey(key);
+      setDraft("");
+    }
+  }
+
+  if (adminKey) return <AdminDashboard />;
+
+  return (
+    <Page>
+      <Title>Admin</Title>
+      <StatusText>Enter API key to access the admin dashboard.</StatusText>
+      <TokenForm onSubmit={handleSubmit} style={{ marginTop: 16 }}>
+        <TokenInput
+          type="password"
+          placeholder="API key..."
+          value={draft}
+          onChange={(e) => setDraft(e.target.value)}
+          autoFocus
+        />
+        <SubmitButton type="submit" disabled={!draft.trim()}>
+          <IoSend size={14} />
+        </SubmitButton>
+      </TokenForm>
+    </Page>
+  );
+}
+
 export default function Admin() {
+  return <AdminGate />;
+}
+
+function AdminDashboard() {
   const [health, setHealth] = useState(null);
   const [analytics, setAnalytics] = useState(null);
   const [digestLoading, setDigestLoading] = useState(null);
@@ -612,6 +850,19 @@ export default function Admin() {
             <HealthLabel>Uptime</HealthLabel>
           </HealthCard>
         </HealthGrid>
+      </Section>
+
+      <ChatSearch />
+
+      <Section>
+        <SectionTitle>Replays</SectionTitle>
+        <LinkCard as={Link} to="/replay-lab">
+          <LinkInfo>
+            <LinkTitle>Replay Lab</LinkTitle>
+            <LinkDesc>Upload, import from W3C, and analyze replays</LinkDesc>
+          </LinkInfo>
+          <LinkIcon size={16} />
+        </LinkCard>
       </Section>
 
       <Section>

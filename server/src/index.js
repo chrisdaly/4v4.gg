@@ -10,6 +10,8 @@ import { startMatchPolling } from './matches.js';
 import chatRoutes from './routes/chat.js';
 import adminRoutes from './routes/admin.js';
 import clipRoutes from './routes/clips.js';
+import replayRoutes from './routes/replays.js';
+import fingerprintRoutes from './routes/fingerprints.js';
 import { startClipScheduler } from './clips.js';
 
 const app = express();
@@ -21,6 +23,8 @@ app.use(express.json());
 app.use('/api/chat', chatRoutes);
 app.use('/api/admin', adminRoutes);
 app.use('/api/clips', clipRoutes);
+app.use('/api/replays', replayRoutes);
+app.use('/api/fingerprints', fingerprintRoutes);
 // Mount health at top level too for convenience
 app.get('/api/health', (req, res, next) => {
   req.url = '/health';

@@ -18,7 +18,6 @@ export const ITEM_SECTIONS = [
 
 /** Sections that can be toggled on/off as a whole (non-semicolon) */
 export const TOGGLEABLE_SECTIONS = [
-  { key: "RECAP", label: "Recap" },
   { key: "POWER_RANKINGS", label: "Power Rankings" },
   { key: "MATCH_STATS", label: "Match Stats" },
   { key: "HEROES", label: "Heroes" },
@@ -29,6 +28,7 @@ export const STAT_LINES = [
   { key: "WINNER", label: "Winner" },
   { key: "LOSER", label: "Loser" },
   { key: "GRINDER", label: "Grinder" },
+  { key: "HEROSLAYER", label: "Hero Slayer" },
   { key: "HOTSTREAK", label: "Hot Streak" },
   { key: "COLDSTREAK", label: "Cold Streak" },
 ];
@@ -54,6 +54,8 @@ export default function useWeeklyEditorial({ weekly, isAdmin, apiKey, onDigestUp
   const [itemEdits, setItemEdits] = useState({});
   const [editingItem, setEditingItem] = useState(null);
   const [publishState, setPublishState] = useState("idle");
+  // Per-section regeneration: section key while loading, null when idle
+  const [regenLoading, setRegenLoading] = useState(null);
 
   // Fetch draft when entering editorial mode
   useEffect(() => {
@@ -209,13 +211,59 @@ export default function useWeeklyEditorial({ weekly, isAdmin, apiKey, onDigestUp
 
   const handleEditSection = useCallback((sectionKey, newText) => {
     const trimmed = newText.trim();
-    if (!trimmed) return;
     setDraft((prev) => {
       if (!prev) return prev;
       const sections = parseDigestSections(prev);
       const sec = sections.find((s) => s.key === sectionKey);
       if (!sec) return prev;
+      if (!trimmed) {
+        // Empty text — remove the section entirely
+        return sections.filter((s) => s.key !== sectionKey).map((s) => `${s.key}: ${s.content}`).join("\n");
+      }
       sec.content = trimmed;
+      return sections.map((s) => `${s.key}: ${s.content}`).join("\n");
+    });
+  }, []);
+
+  // ── Delete item from a section ──
+
+  const handleDeleteItem = useCallback((sectionKey, itemIdx) => {
+    setDraft((prev) => {
+      if (!prev) return prev;
+      const sections = parseDigestSections(prev);
+      const sec = sections.find((s) => s.key === sectionKey);
+      if (!sec) return prev;
+      const items = sec.content.split(/;\s*/).map((s) => s.trim()).filter(Boolean);
+      if (itemIdx >= items.length) return prev;
+      items.splice(itemIdx, 1);
+      if (items.length === 0) {
+        // Remove the section entirely
+        return sections.filter((s) => s.key !== sectionKey).map((s) => `${s.key}: ${s.content}`).join("\n");
+      }
+      sec.content = items.join("; ");
+      // Remap selections: remove deleted index, shift higher indices down
+      setSectionSelections((prev) => {
+        const oldSel = prev[sectionKey] || new Set();
+        const newSel = new Set();
+        for (const i of oldSel) {
+          if (i < itemIdx) newSel.add(i);
+          else if (i > itemIdx) newSel.add(i - 1);
+          // skip i === itemIdx (deleted)
+        }
+        return { ...prev, [sectionKey]: newSel };
+      });
+      // Remap item edits
+      setItemEdits((prev) => {
+        const oldEdits = prev[sectionKey];
+        if (!oldEdits || Object.keys(oldEdits).length === 0) return prev;
+        const newEdits = {};
+        for (const [k, v] of Object.entries(oldEdits)) {
+          const i = Number(k);
+          if (i < itemIdx) newEdits[i] = v;
+          else if (i > itemIdx) newEdits[i - 1] = v;
+        }
+        return { ...prev, [sectionKey]: newEdits };
+      });
       return sections.map((s) => `${s.key}: ${s.content}`).join("\n");
     });
   }, []);
@@ -263,6 +311,163 @@ export default function useWeeklyEditorial({ weekly, isAdmin, apiKey, onDigestUp
       return sections.map((s) => `${s.key}: ${s.content}`).join("\n");
     });
   }, []);
+
+  // ── Regenerate a single AI-generated section ──
+
+  const regenSection = useCallback(async (sectionKey) => {
+    if (!isEditorial || regenLoading) return;
+    setRegenLoading(sectionKey);
+    try {
+      const res = await fetch(`${RELAY_URL}/api/admin/weekly-digest/${weekly.week_start}/regen-section`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json", "X-API-Key": apiKey },
+        body: JSON.stringify({ section: sectionKey }),
+      });
+      if (!res.ok) throw new Error((await res.json().catch(() => ({}))).error || "Failed");
+      const data = await res.json();
+      handleEditSection(sectionKey, data.content);
+    } catch (err) {
+      console.warn(`[Regen] ${sectionKey} failed:`, err.message);
+    } finally {
+      setRegenLoading(null);
+    }
+  }, [isEditorial, regenLoading, weekly?.week_start, apiKey, handleEditSection]);
+
+  // ── Regenerate spotlight blurbs + quotes for all stat-card players ──
+
+  const regenSpotlights = useCallback(async () => {
+    if (!isEditorial || regenLoading) return;
+    setRegenLoading("SPOTLIGHTS");
+    try {
+      const res = await fetch(`${RELAY_URL}/api/admin/weekly-digest/${weekly.week_start}/regen-spotlights`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json", "X-API-Key": apiKey },
+      });
+      if (!res.ok) throw new Error((await res.json().catch(() => ({}))).error || "Failed");
+      const data = await res.json();
+      // Inject each blurb/quotes line into the draft
+      setDraft((prev) => {
+        if (!prev) return prev;
+        const sections = parseDigestSections(prev);
+        for (const [key, content] of Object.entries(data.blurbs)) {
+          const existing = sections.find((s) => s.key === key);
+          if (existing) {
+            existing.content = content;
+          } else {
+            sections.push({ key, content });
+          }
+        }
+        return sections.map((s) => `${s.key}: ${s.content}`).join("\n");
+      });
+    } catch (err) {
+      console.warn("[Regen] Spotlights failed:", err.message);
+    } finally {
+      setRegenLoading(null);
+    }
+  }, [isEditorial, regenLoading, weekly?.week_start, apiKey]);
+
+  // ── Regenerate match stat blurbs + quotes (Hero Slayer, Unit Killer, etc.) ──
+
+  const regenMatchStats = useCallback(async () => {
+    if (!isEditorial || regenLoading) return;
+    setRegenLoading("MATCH_STATS");
+    try {
+      const res = await fetch(`${RELAY_URL}/api/admin/weekly-digest/${weekly.week_start}/regen-match-stats`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json", "X-API-Key": apiKey },
+      });
+      if (!res.ok) throw new Error((await res.json().catch(() => ({}))).error || "Failed");
+      const data = await res.json();
+      // Inject each blurb/quotes line into the draft
+      setDraft((prev) => {
+        if (!prev) return prev;
+        const sections = parseDigestSections(prev);
+        for (const [key, content] of Object.entries(data.blurbs)) {
+          const existing = sections.find((s) => s.key === key);
+          if (existing) {
+            existing.content = content;
+          } else {
+            sections.push({ key, content });
+          }
+        }
+        return sections.map((s) => `${s.key}: ${s.content}`).join("\n");
+      });
+    } catch (err) {
+      console.warn("[Regen] Match stats failed:", err.message);
+    } finally {
+      setRegenLoading(null);
+    }
+  }, [isEditorial, regenLoading, weekly?.week_start, apiKey]);
+
+  // ── Regenerate quotes for a single spotlight player ──
+
+  const regenQuotes = useCallback(async (statKey, battleTag) => {
+    if (!isEditorial || regenLoading) return;
+    setRegenLoading(`QUOTES_${statKey}`);
+    try {
+      const res = await fetch(`${RELAY_URL}/api/admin/weekly-digest/${weekly.week_start}/regen-quotes`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json", "X-API-Key": apiKey },
+        body: JSON.stringify({ statKey, battleTag }),
+      });
+      if (!res.ok) throw new Error((await res.json().catch(() => ({}))).error || "Failed");
+      const data = await res.json();
+      setDraft((prev) => {
+        if (!prev) return prev;
+        const sections = parseDigestSections(prev);
+        for (const [key, content] of Object.entries(data.quotes)) {
+          const existing = sections.find((s) => s.key === key);
+          if (existing) {
+            existing.content = content;
+          } else {
+            sections.push({ key, content });
+          }
+        }
+        return sections.map((s) => `${s.key}: ${s.content}`).join("\n");
+      });
+    } catch (err) {
+      console.warn(`[Regen] Quotes for ${statKey} failed:`, err.message);
+    } finally {
+      setRegenLoading(null);
+    }
+  }, [isEditorial, regenLoading, weekly?.week_start, apiKey]);
+
+  // ── Browse all scored messages for a spotlight player ──
+
+  const browseMessages = useCallback(async (statKey, battleTag) => {
+    if (!isEditorial) return [];
+    try {
+      const params = new URLSearchParams({ statKey, battleTag });
+      const res = await fetch(`${RELAY_URL}/api/admin/weekly-digest/${weekly.week_start}/player-messages?${params}`, {
+        headers: { "X-API-Key": apiKey },
+      });
+      if (!res.ok) throw new Error((await res.json().catch(() => ({}))).error || "Failed");
+      const data = await res.json();
+      return data.messages || [];
+    } catch (err) {
+      console.warn(`[Browse] Messages for ${statKey}/${battleTag} failed:`, err.message);
+      return [];
+    }
+  }, [isEditorial, weekly?.week_start, apiKey]);
+
+  // ── Manually set quotes for a spotlight player ──
+
+  const setQuotes = useCallback((statKey, quotes, { append = false } = {}) => {
+    if (!isEditorial) return;
+    const quoteKey = `${statKey}_QUOTES`;
+    const formatted = quotes.map(q => `"${q}"`).join('; ');
+    setDraft((prev) => {
+      if (!prev) return prev;
+      const sections = parseDigestSections(prev);
+      const existing = sections.find((s) => s.key === quoteKey);
+      if (existing) {
+        existing.content = append ? `${existing.content}; ${formatted}` : formatted;
+      } else {
+        sections.push({ key: quoteKey, content: formatted });
+      }
+      return sections.map((s) => `${s.key}: ${s.content}`).join("\n");
+    });
+  }, [isEditorial]);
 
   // ── Parse editable item sections from draft ──
 
@@ -316,7 +521,6 @@ export default function useWeeklyEditorial({ weekly, isAdmin, apiKey, onDigestUp
           if (hiddenStats.has(key)) {
             selectedStats[key] = null;
           }
-          // else: omit key to leave unchanged
         }
 
         const body = {
@@ -326,26 +530,24 @@ export default function useWeeklyEditorial({ weekly, isAdmin, apiKey, onDigestUp
         if (Object.keys(selectedStats).length > 0) body.selectedStats = selectedStats;
         if (Object.keys(itemEdits).length > 0) body.itemOverrides = itemEdits;
 
-        const [curateRes] = await Promise.all([
-          fetch(`${RELAY_URL}/api/admin/weekly-digest/${weekly.week_start}/curate`, {
-            method: "PUT",
-            headers: { "Content-Type": "application/json", "X-API-Key": apiKey },
-            body: JSON.stringify(body),
-          }),
-          fetch(`${RELAY_URL}/api/admin/weekly-digest/${weekly.week_start}/draft`, {
-            method: "PUT",
-            headers: { "Content-Type": "application/json", "X-API-Key": apiKey },
-            body: JSON.stringify({ draft }),
-          }).catch(() => {}),
-        ]);
-        if (curateRes.ok) {
-          const data = await curateRes.json();
-          if (onDigestUpdatedRef.current) onDigestUpdatedRef.current(data.digest);
-          setPublishState("saved");
-          setTimeout(() => setPublishState((s) => (s === "saved" ? "idle" : s)), 2000);
-        } else {
-          setPublishState("idle");
-        }
+        // Save draft first, show "saved" immediately after
+        await fetch(`${RELAY_URL}/api/admin/weekly-digest/${weekly.week_start}/draft`, {
+          method: "PUT",
+          headers: { "Content-Type": "application/json", "X-API-Key": apiKey },
+          body: JSON.stringify({ draft }),
+        }).catch(() => {});
+
+        setPublishState("saved");
+        setTimeout(() => setPublishState((s) => (s === "saved" ? "idle" : s)), 2000);
+
+        // Curate in background — updates published digest without blocking UI
+        fetch(`${RELAY_URL}/api/admin/weekly-digest/${weekly.week_start}/curate`, {
+          method: "PUT",
+          headers: { "Content-Type": "application/json", "X-API-Key": apiKey },
+          body: JSON.stringify(body),
+        }).then((r) => r.ok ? r.json() : null).then((data) => {
+          if (data && onDigestUpdatedRef.current) onDigestUpdatedRef.current(data.digest);
+        }).catch(() => {});
       } catch {
         setPublishState("idle");
       }
@@ -380,5 +582,13 @@ export default function useWeeklyEditorial({ weekly, isAdmin, apiKey, onDigestUp
     handleEditSummary,
     handleEditSection,
     handleReorderItem,
+    handleDeleteItem,
+    regenSection,
+    regenSpotlights,
+    regenMatchStats,
+    regenQuotes,
+    browseMessages,
+    setQuotes,
+    regenLoading,
   };
 }

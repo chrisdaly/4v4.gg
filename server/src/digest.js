@@ -1,5 +1,5 @@
 import Anthropic from '@anthropic-ai/sdk';
-import { getMessagesByDate, getMessageBuckets, getDigest, setDigest, getRecentDigests, getWeeklyDigest, setWeeklyDigest, deleteDigest, setDigestWithDraft, updateDigestOnly, getDraftForDate, getMessagesByTimeWindow, getClipsByDateRange, updateClip4v4Status, updateDigestClips, setWeeklyDigestFull, getStreamers, saveDailyPlayerStats, getDailyPlayerStatsRange, hasDailyPlayerStats, saveDailyMatches, getDailyMatchesRange, getNewPlayersForWeek, saveMatchPlayerScores, hasMatchScores, getMatchPlayerScoresRange, getMatchIdsForDateRange, getDailyMatchesMissingMmrs, updateDailyMatchMmrs, getMessagesByDateRangeAndUser, getFirstAppearanceDate, getMessagesByDateAndUsers, updateGenJobStatus, updateGenJobProgress, saveWeeklyVariant } from './db.js';
+import { getMessagesByDate, getMessageBuckets, getDigest, setDigest, getRecentDigests, getWeeklyDigest, setWeeklyDigest, deleteDigest, setDigestWithDraft, updateDigestOnly, getDraftForDate, getMessagesByTimeWindow, getClipsByDateRange, updateClip4v4Status, updateDigestClips, setWeeklyDigestFull, getStreamers, saveDailyPlayerStats, getDailyPlayerStatsRange, hasDailyPlayerStats, saveDailyMatches, getDailyMatchesRange, getNewPlayersForWeek, saveMatchPlayerScores, hasMatchScores, getMatchPlayerScoresRange, getMatchIdsForDateRange, getDailyMatchesMissingMmrs, updateDailyMatchMmrs, getMessagesByDateRangeAndUser, getMessagesByDateRangeMentioning, getFirstAppearanceDate, getLastActiveDateBefore, getMessagesByDateAndUsers, updateGenJobStatus, updateGenJobProgress, saveWeeklyVariant } from './db.js';
 import { runClipFetch } from './clips.js';
 import config from './config.js';
 
@@ -303,11 +303,15 @@ function formatGrinderLine(player) {
 }
 
 function formatWinStreakLine(player) {
-  return `HOTSTREAK: ${player.battleTag}${raceTag(player)} ${player.winStreak}W streak (${player.wins}W-${player.losses}L) ${player.form}`;
+  const sign = player.mmrChange > 0 ? '+' : '';
+  const mmrPart = player.mmrChange != null ? ` ${sign}${Math.round(player.mmrChange)} MMR` : '';
+  return `HOTSTREAK: ${player.battleTag}${raceTag(player)} ${player.winStreak}W streak${mmrPart} (${player.wins}W-${player.losses}L) ${player.form}`;
 }
 
 function formatLossStreakLine(player) {
-  return `COLDSTREAK: ${player.battleTag}${raceTag(player)} ${player.lossStreak}L streak (${player.wins}W-${player.losses}L) ${player.form}`;
+  const sign = player.mmrChange > 0 ? '+' : '';
+  const mmrPart = player.mmrChange != null ? ` ${sign}${Math.round(player.mmrChange)} MMR` : '';
+  return `COLDSTREAK: ${player.battleTag}${raceTag(player)} ${player.lossStreak}L streak${mmrPart} (${player.wins}W-${player.losses}L) ${player.form}`;
 }
 
 /**
@@ -366,7 +370,7 @@ export { fetchDailyStats, formatMmrLine, formatGrinderLine, formatWinStreakLine,
  * Parse a full digest text into its raw section blocks.
  * Returns array of { key, content } for each section found.
  */
-const ALL_SECTION_KEYS_RE = /^(TOPICS|DRAMA|BANS|HIGHLIGHTS|RECAP|SPIKES|WINNER|LOSER|GRINDER|HOTSTREAK|COLDSTREAK|WINNER_BLURB|LOSER_BLURB|GRINDER_BLURB|HOTSTREAK_BLURB|COLDSTREAK_BLURB|WINNER_QUOTES|LOSER_QUOTES|GRINDER_QUOTES|HOTSTREAK_QUOTES|COLDSTREAK_QUOTES|NEW_BLOOD|UPSET|AT_SPOTLIGHT|BEST_OF_CHAT|POWER_RANKINGS|MATCH_STATS|HEROES|AWARDS|CLIPS|MENTIONS)\s*:\s*/gm;
+const ALL_SECTION_KEYS_RE = /^(TOPICS|DRAMA|BANS|HIGHLIGHTS|RECAP|SPIKES|WINNER|LOSER|GRINDER|HOTSTREAK|COLDSTREAK|HEROSLAYER|HOTSTREAK_DAILY|COLDSTREAK_DAILY|STREAK_SPECTRUM|WINNER_BLURB|LOSER_BLURB|GRINDER_BLURB|HOTSTREAK_BLURB|COLDSTREAK_BLURB|HEROSLAYER_BLURB|HEROSLAYER_HEROES|HEROSLAYER_VICTIMS|HEROSLAYER_KILLBOARD|HEROSLAYER_MAX|WINNER_QUOTES|LOSER_QUOTES|GRINDER_QUOTES|HOTSTREAK_QUOTES|COLDSTREAK_QUOTES|HEROSLAYER_QUOTES|Hero Slayer_BLURB|Unit Killer_BLURB|Hero Slayer_QUOTES|Unit Killer_QUOTES|NEW_BLOOD|UPSET|AT_SPOTLIGHT|BEST_OF_CHAT|POWER_RANKINGS|MATCH_STATS|HEROES|AWARDS|CLIPS|MENTIONS)\s*:\s*/gm;
 
 function parseDigestSections(text) {
   const sections = [];
@@ -782,7 +786,7 @@ export function appendItemsToDraft(draftText, sectionKey, newItems) {
 
 /* ── Weekly digest generation ────────────────────── */
 
-const STAT_LINE_RE = /^(WINNER|LOSER|GRINDER|HOTSTREAK|COLDSTREAK):\s*(.+)$/gm;
+const STAT_LINE_RE = /^(WINNER|LOSER|GRINDER|HOTSTREAK|COLDSTREAK|HEROSLAYER):\s*(.+)$/gm;
 
 function parseWeeklyStatLines(digestTexts) {
   // Accumulate per-player stats across all daily digests
@@ -990,15 +994,31 @@ function buildSpotlightBlurb(type, player, dailyRows) {
   const raceName = RACE_NAMES[player.race] || null;
   const raceStr = raceName ? ` on ${raceName}` : '';
   const DAY_NAMES = ['Sunday', 'Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday'];
+  const NOTABLE_DAYS = {
+    '02-14': "Valentine's Day", '03-17': "St. Patrick's Day",
+    '10-31': 'Halloween', '12-24': 'Christmas Eve', '12-25': 'Christmas',
+    '12-31': "New Year's Eve", '01-01': "New Year's Day",
+  };
 
   // Find the day with the most relevant games
   const dayBreakdown = dailyRows
     .filter(r => r.battle_tag === player.battleTag)
     .map(r => {
       const d = new Date(r.date + 'T12:00:00Z');
-      return { date: r.date, day: DAY_NAMES[d.getUTCDay()], wins: r.wins, losses: r.losses, form: r.form || '' };
+      const notable = NOTABLE_DAYS[r.date.slice(5)]; // MM-DD lookup
+      return { date: r.date, day: notable || DAY_NAMES[d.getUTCDay()], wins: r.wins, losses: r.losses, form: r.form || '' };
     })
     .sort((a, b) => a.date.localeCompare(b.date));
+
+  const daysPlayed = dayBreakdown.length;
+  const peakDay = [...dayBreakdown].sort((a, b) => (b.wins + b.losses) - (a.wins + a.losses))[0];
+  const peakDayGames = peakDay ? peakDay.wins + peakDay.losses : 0;
+
+  // Session duration from match timestamps (first game → last game per day)
+  const playerResults = (player.results || []).slice().sort((a, b) => a.time - b.time);
+  const sessionHours = playerResults.length >= 2
+    ? Math.round((playerResults[playerResults.length - 1].time - playerResults[0].time) / (1000 * 60 * 60))
+    : null;
 
   if (type === 'WINNER') {
     const mmr = player.mmrChange ? `+${Math.abs(Math.round(player.mmrChange))} MMR` : null;
@@ -1009,6 +1029,9 @@ function buildSpotlightBlurb(type, player, dailyRows) {
     if (best && best.wins >= 5 && dayBreakdown.length > 1) {
       line += ` Best day: ${best.day}, going ${best.wins}-${best.losses}.`;
     }
+    if (daysPlayed === 7) {
+      line += ' Played every single day.';
+    }
     return line;
   }
 
@@ -1016,20 +1039,60 @@ function buildSpotlightBlurb(type, player, dailyRows) {
     const mmr = player.mmrChange ? Math.abs(Math.round(player.mmrChange)) : null;
     const worst = [...dayBreakdown].sort((a, b) => b.losses - a.losses)[0];
     let line;
-    if (total <= 6) {
+    // Single-session loser: all games on one day
+    if (daysPlayed === 1 && dayBreakdown[0]) {
+      const dayName = dayBreakdown[0].day;
+      if (total <= 6) {
+        line = `Played ${total} games on ${dayName}, lost ${player.losses === total ? 'all' : player.losses} of them${raceStr}.`;
+      } else {
+        line = `Crammed ${total} games into a single ${dayName} session${raceStr} — went ${player.wins}-${player.losses}.`;
+      }
+    } else if (total <= 6) {
       line = `A brutal ${player.wins}-${player.losses} week${raceStr}.`;
     } else {
       line = `Went ${player.wins}-${player.losses}${raceStr} across ${total} games — just ${wr}% win rate.`;
     }
-    if (mmr) line += ` Lost ${mmr} MMR.`;
-    if (worst && worst.losses >= 5 && dayBreakdown.length > 1) {
+    if (mmr) {
+      const perGame = total > 0 ? Math.round(mmr / total) : 0;
+      line += ` Lost ${mmr} MMR`;
+      // Show per-game average when losses are few but expensive
+      if (total <= 10 && perGame >= 30) {
+        line += ` (~${perGame} per game).`;
+      } else {
+        line += '.';
+      }
+    }
+    if (worst && worst.losses >= 5 && daysPlayed > 1) {
       line = line.replace(/\.$/, '') + ` — worst day: ${worst.day} (${worst.wins}-${worst.losses}).`;
     }
     return line;
   }
 
   if (type === 'GRINDER') {
-    return `Logged ${total} games${raceStr} this week — more than anyone else. Went ${player.wins}-${player.losses} (${wr}% WR).`;
+    const parts = [];
+    parts.push(`${total} games.`);
+    if (daysPlayed === 7) {
+      parts.push('Every single day.');
+    } else if (daysPlayed >= 5) {
+      parts.push(`${daysPlayed} of 7 days.`);
+    }
+    if (peakDay && peakDayGames >= 15 && daysPlayed > 1) {
+      parts.push(`${peakDayGames} in one sitting on ${peakDay.day} alone.`);
+    }
+    parts.push(`Went ${player.wins}-${player.losses} (${wr}% WR)${raceStr}`);
+    // Add net MMR and notable streak for grinder
+    const netMmr = player.mmrChange ? Math.round(player.mmrChange) : 0;
+    const streakType = (player.lossStreak || 0) > (player.winStreak || 0) ? 'loss' : 'win';
+    const streakLen = streakType === 'loss' ? player.lossStreak : player.winStreak;
+    if (netMmr && streakLen >= 6) {
+      parts[parts.length - 1] += ` and ${netMmr > 0 ? 'gained' : 'bled'} ${Math.abs(netMmr)} MMR across a ${streakLen}-game ${streakType} streak.`;
+    } else if (netMmr) {
+      const sign = netMmr > 0 ? '+' : '';
+      parts[parts.length - 1] += `. Net ${sign}${netMmr} MMR.`;
+    } else {
+      parts[parts.length - 1] += '.';
+    }
+    return parts.join(' ');
   }
 
   if (type === 'HOTSTREAK' || type === 'COLDSTREAK') {
@@ -1083,10 +1146,99 @@ function buildSpotlightBlurb(type, player, dailyRows) {
 }
 
 /**
- * Pick the best chat quotes from a player's messages during the week.
- * Filters out short/boring messages and picks up to `max` interesting ones.
+ * Compute per-day breakdown for a streak player, with streak overlap info.
+ * Output format: "Mon:WWLW,0,+32;Tue:WWWWWWW,7,+48;Wed:WWWW,4,+14|streakIdx:3,streakLen:11"
+ * @param {"HOTSTREAK"|"COLDSTREAK"} type
+ * @param {object} player - weekly aggregated player stats (must have .form, .weeklyWinStreak/.weeklyLossStreak)
+ * @param {Array} dailyRows - daily_player_stats rows for all players during the week
+ * @returns {string|null}
  */
-function pickPlayerQuotes(battleTag, weekStart, weekEnd, max = 3) {
+function computeStreakDailyBreakdown(type, player, dailyRows) {
+  if (!player) return null;
+  const isHot = type === 'HOTSTREAK';
+  const streakLen = isHot ? player.weeklyWinStreak : player.weeklyLossStreak;
+  if (!streakLen || streakLen < 3) return null;
+
+  const char = isHot ? 'W' : 'L';
+  const weeklyForm = player.form || '';
+  const streakStr = char.repeat(streakLen);
+  const streakIdx = weeklyForm.indexOf(streakStr);
+  if (streakIdx < 0) return null;
+
+  const DAY_ABBREV = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'];
+
+  const dayBreakdown = dailyRows
+    .filter(r => r.battle_tag === player.battleTag)
+    .map(r => {
+      const d = new Date(r.date + 'T12:00:00Z');
+      return { date: r.date, day: DAY_ABBREV[d.getUTCDay()], form: r.form || '', mmrChange: r.mmr_change || 0 };
+    })
+    .sort((a, b) => a.date.localeCompare(b.date));
+
+  if (dayBreakdown.length === 0) return null;
+
+  // Build day entries with streak overlap count
+  let formOffset = 0;
+  const dayEntries = [];
+  for (const day of dayBreakdown) {
+    const dayLen = day.form.length;
+    if (dayLen === 0) { formOffset += dayLen; continue; }
+    const dayStart = formOffset;
+    const dayEnd = formOffset + dayLen;
+    // Count how many streak chars overlap this day
+    const overlapStart = Math.max(streakIdx, dayStart);
+    const overlapEnd = Math.min(streakIdx + streakLen, dayEnd);
+    const streakGames = Math.max(0, overlapEnd - overlapStart);
+    const mmrSign = day.mmrChange >= 0 ? '+' : '';
+    dayEntries.push(`${day.day}:${day.form},${streakGames},${mmrSign}${day.mmrChange}`);
+    formOffset += dayLen;
+  }
+
+  return `${dayEntries.join(';')}|streakIdx:${streakIdx},streakLen:${streakLen}`;
+}
+
+/**
+ * Compute streak spectrum: all players' max win/loss streaks for the week.
+ * Output format: "W:3=12,4=8,5=3,11=1|L:3=10,4=5,16=1"
+ * @param {Map} weeklyPlayerMap
+ * @returns {string|null}
+ */
+function computeStreakSpectrum(weeklyPlayerMap) {
+  const winHist = {};
+  const lossHist = {};
+
+  for (const p of weeklyPlayerMap.values()) {
+    if (!p.form || p.form.length < 3) continue;
+    let winStreak = 0, maxWin = 0, lossStreak = 0, maxLoss = 0;
+    for (const ch of p.form) {
+      if (ch === 'W') { winStreak++; lossStreak = 0; if (winStreak > maxWin) maxWin = winStreak; }
+      else { lossStreak++; winStreak = 0; if (lossStreak > maxLoss) maxLoss = lossStreak; }
+    }
+    if (maxWin >= 3) winHist[maxWin] = (winHist[maxWin] || 0) + 1;
+    if (maxLoss >= 3) lossHist[maxLoss] = (lossHist[maxLoss] || 0) + 1;
+  }
+
+  const fmtHist = (h) => Object.entries(h).sort((a, b) => Number(a[0]) - Number(b[0])).map(([len, count]) => `${len}=${count}`).join(',');
+  const wStr = fmtHist(winHist);
+  const lStr = fmtHist(lossHist);
+  if (!wStr && !lStr) return null;
+  return `W:${wStr}|L:${lStr}`;
+}
+
+/**
+ * Pick the best chat quotes from a player's messages during the week.
+ * Filters out short/boring messages and scores by relevance to the spotlight type.
+ * @param {string} battleTag
+ * @param {string} weekStart
+ * @param {string} weekEnd
+ * @param {number} max
+ * @param {string} spotlightType - e.g. "WINNER", "COLDSTREAK" etc. for context-aware scoring
+ */
+/**
+ * Score chat messages for a player, returning scored candidates.
+ * Used by both pickPlayerQuotes (auto) and the browse-messages endpoint.
+ */
+function scorePlayerMessages(battleTag, weekStart, weekEnd, spotlightType = null) {
   let messages;
   try {
     messages = getMessagesByDateRangeAndUser(weekStart, weekEnd, battleTag, 500);
@@ -1097,20 +1249,90 @@ function pickPlayerQuotes(battleTag, weekStart, weekEnd, max = 3) {
   if (!messages || messages.length === 0) return [];
 
   const BORING = /^(gg|go|gl hf|gogo|lol|lmao|haha|yes|no|ok|\.+|!+|\?+)$/i;
-  const MIN_LEN = 12;
+  const MIN_LEN = 10;
+
+  // Tiered keywords: strong signals (+50) vs weak signals (+15)
+  const KEYWORDS_BY_TYPE = {
+    WINNER: {
+      strong: /\b(win\s*streak|on\s*a\s*roll|lets?\s*go+|carry|carried|mvp|im\s*(so\s*)?good|ez\s*game|pogchamp|climbing|i\s*am\s*(the|a)\s*\w+|grandmaster|top\s*\d+|imba|progamer|fear\s*me)\b/i,
+      weak: /\b(mmr|win|won|climb|rank|ez|easy)\b/i,
+    },
+    LOSER: {
+      strong: /\b(i\s*(keep\s*)?los|lost\s*(so|every)|drop(ped|ping)|derank|im\s*done|tilt(ed)?|uninstall|cant\s*win|this\s*is\s*unfair)\b/i,
+      weak: /\b(mmr|lost|bad|blame|grief|throw|quit)\b/i,
+    },
+    GRINDER: {
+      strong: /\b(one\s*more|cant\s*stop|all\s*(day|night)|addicted|again|another\s*one|keep\s*going|hours?|sleep|no\s*life|pyjamas|pajamas|bed|coffee|food\s*and|holiday\s*is|non.?stop|marathon|progamer|i\s*am\s*(the|a)\s*\w+|grandmaster)\b/i,
+      weak: /\b(game|games|grind|playing|queue|lifestyle|home|work)\b/i,
+    },
+    HOTSTREAK: {
+      strong: /\b(win\s*streak|on\s*a\s*roll|unstoppable|on\s*fire|cant\s*lose|lets?\s*go+|carry|carried|climbing|i\s*am\s*(the|a)\s*\w+|grandmaster|top\s*\d+|imba|progamer|fear\s*me)\b/i,
+      weak: /\b(mmr|win|won|streak|row|ez)\b/i,
+    },
+    COLDSTREAK: {
+      strong: /\b(i\s*(keep\s*)?los|lost\s*(so|every|again)|losing\s*streak|cant\s*win|drop(ped|ping)\s*mmr|im\s*done|tilt(ed)?|uninstall|derank|give\s*up|this\s*game\s*is|so\s*(un)?lucky|rigged|why\s*(do\s*)?i|what\s*is\s*wrong|how\s*(do|did)\s*i\s*lose)\b/i,
+      weak: /\b(los[est]|lost|streak|row|mmr|drop|tilt|bad|unlucky|unfair|done)\b/i,
+    },
+  };
+
+  const tiers = spotlightType && KEYWORDS_BY_TYPE[spotlightType] ? KEYWORDS_BY_TYPE[spotlightType] : null;
+
+  // Detect non-ASCII (CJK, Arabic, Cyrillic, etc.) — these are distinctive and carry
+  // more meaning per character than English, so use a lower min length
+  const NON_ASCII_RE = /[^\x00-\x7F]/;
+  const MIN_LEN_NON_ASCII = 4;
 
   const candidates = messages
-    .filter(m => m.message && m.message.length >= MIN_LEN && !BORING.test(m.message.trim()))
-    .map(m => ({
-      name: m.user_name || battleTag.split('#')[0],
-      text: m.message.trim(),
-      len: m.message.length,
-    }));
+    .filter(m => {
+      if (!m.message) return false;
+      const t = m.message.trim();
+      if (BORING.test(t)) return false;
+      const hasNonAscii = NON_ASCII_RE.test(t);
+      return t.length >= (hasNonAscii ? MIN_LEN_NON_ASCII : MIN_LEN);
+    })
+    .map(m => {
+      const text = m.message.trim();
+      const lower = text.toLowerCase();
+      const hasNonAscii = NON_ASCII_RE.test(text);
+      // Base score: moderate length bonus (cap at 60 so keywords dominate)
+      let score = Math.min(text.length, 60);
+      // Non-English bonus: distinctive flavor, stands out in a spotlight card (+25)
+      if (hasNonAscii && text.length >= 6) score += 25;
+      // Strong keyword matches (+50 each)
+      if (tiers?.strong) {
+        const strongMatches = lower.match(new RegExp(tiers.strong.source, 'gi'));
+        if (strongMatches) score += strongMatches.length * 50;
+      }
+      // Weak keyword matches (+15 each)
+      if (tiers?.weak) {
+        const weakMatches = lower.match(new RegExp(tiers.weak.source, 'gi'));
+        if (weakMatches) score += weakMatches.length * 15;
+      }
+      // First person = player expressing feelings (+20)
+      if (/\b(i|im|i'm|i've|my|me)\b/i.test(lower)) score += 20;
+      // Emotional emphasis (+10)
+      if (/[!?]{2,}/.test(text) || /\b(lmao|omg|wtf|bruh|smh|fml)\b/i.test(lower)) score += 10;
+      // Penalty for commands, @mentions, or talking about other players (not self)
+      if (text.startsWith('!') || text.startsWith('/')) score -= 50;
+      // Penalty for messages that are mostly about other players
+      if (/\b(tod|happy|grubby|lyn|foggy|moon)\b/i.test(lower) && !/\b(i|im|i'm|my|me)\b/i.test(lower)) score -= 20;
+      return {
+        name: m.user_name || battleTag.split('#')[0],
+        text,
+        score,
+        sentAt: m.sent_at,
+        received_at: m.received_at,
+      };
+    });
 
+  // Sort by score descending
+  candidates.sort((a, b) => b.score - a.score);
+  return candidates;
+}
+
+function pickPlayerQuotes(battleTag, weekStart, weekEnd, max = 3, spotlightType = null) {
+  const candidates = scorePlayerMessages(battleTag, weekStart, weekEnd, spotlightType);
   if (candidates.length === 0) return [];
-
-  // Score by length (longer = more expressive) and pick diverse ones
-  candidates.sort((a, b) => b.len - a.len);
 
   // Deduplicate similar messages (skip if >80% overlap with already picked)
   const picked = [];
@@ -1128,6 +1350,66 @@ function pickPlayerQuotes(battleTag, weekStart, weekEnd, max = 3) {
 }
 
 /**
+ * Return all scored message candidates for a player (for the admin message browser).
+ * Includes both messages BY the player and messages ABOUT the player (mentions from others).
+ */
+export function getPlayerMessageCandidates(weekStart, statKey, battleTag) {
+  const startDate = new Date(weekStart + 'T12:00:00Z');
+  const endDate = new Date(startDate);
+  endDate.setUTCDate(endDate.getUTCDate() + 6);
+  const weekEnd = endDate.toISOString().slice(0, 10);
+
+  // Messages BY the player
+  const byPlayer = scorePlayerMessages(battleTag, weekStart, weekEnd, statKey);
+
+  // Messages ABOUT the player (from other people)
+  const playerName = battleTag.split('#')[0];
+  const searchTerms = [playerName.toLowerCase()];
+  // Add common shortened forms (3+ chars from the start)
+  if (playerName.length > 5) {
+    // Try first 4-5 chars as a short form (e.g., "KODOFORSAKEN" → "kodo")
+    for (let len = 4; len <= Math.min(6, playerName.length - 1); len++) {
+      const short = playerName.slice(0, len).toLowerCase();
+      if (!searchTerms.includes(short)) searchTerms.push(short);
+    }
+  }
+
+  let mentions = [];
+  try {
+    const raw = getMessagesByDateRangeMentioning(weekStart, weekEnd, searchTerms, battleTag, 200);
+    if (raw && raw.length > 0) {
+      const MIN_LEN = 8;
+      mentions = raw
+        .filter(m => m.message && m.message.trim().length >= MIN_LEN)
+        .map(m => {
+          const text = m.message.trim();
+          let score = Math.min(text.length, 40);
+          // Boost messages that directly name the player
+          const lower = text.toLowerCase();
+          if (lower.includes(playerName.toLowerCase())) score += 30;
+          // Boost if talking about the player in context
+          if (/\b(he|his|him|they|their|that\s*guy)\b/i.test(lower)) score += 10;
+          return {
+            name: m.user_name || m.battle_tag?.split('#')[0] || '?',
+            text,
+            score,
+            sentAt: m.sent_at,
+            received_at: m.received_at,
+            battle_tag: m.battle_tag,
+            isMention: true,
+          };
+        })
+        .sort((a, b) => b.score - a.score);
+    }
+  } catch (err) {
+    console.warn(`[Browse] Mentions query failed for ${battleTag}:`, err.message);
+  }
+
+  // Return both lists, player messages first, then mentions
+  return [...byPlayer, ...mentions];
+}
+
+/**
  * Generate BLURB and QUOTES lines for all spotlight stat types.
  * Returns array of strings like ["WINNER_BLURB: ...", "WINNER_QUOTES: ...", ...]
  */
@@ -1137,18 +1419,50 @@ function generateSpotlightBlurbs(spotlights, dailyRows, weekStart, weekEnd) {
     if (!player) continue;
     const blurb = buildSpotlightBlurb(key, player, dailyRows);
     if (blurb) lines.push(`${key}_BLURB: ${blurb}`);
-    const quotes = pickPlayerQuotes(player.battleTag, weekStart, weekEnd);
+    const quotes = pickPlayerQuotes(player.battleTag, weekStart, weekEnd, 3, key);
     if (quotes.length > 0) lines.push(`${key}_QUOTES: ${quotes.map(q => `"${q}"`).join('; ')}`);
   }
   return lines;
 }
 
 /**
+ * Regenerate quotes for a single spotlight key.
+ * Returns { KEY_QUOTES: "..." } or empty if no quotes found.
+ */
+export function regeneratePlayerQuotes(weekStart, statKey, battleTag) {
+  const startDate = new Date(weekStart + 'T12:00:00Z');
+  const endDate = new Date(startDate);
+  endDate.setUTCDate(endDate.getUTCDate() + 6);
+  const weekEnd = endDate.toISOString().slice(0, 10);
+  const quotes = pickPlayerQuotes(battleTag, weekStart, weekEnd, 3, statKey);
+  const result = {};
+  if (quotes.length > 0) {
+    result[`${statKey}_QUOTES`] = quotes.map(q => `"${q}"`).join('; ');
+  }
+  return result;
+}
+
+/**
  * Find new players this week (first-ever appearance in daily_player_stats).
  */
 async function computeNewBlood(weekStart, weekEnd) {
-  const MIN_MMR_NEW_BLOOD = 2000;
-  const MIN_GAMES_NEW_BLOOD = 5;
+  const MIN_MMR_NEW_BLOOD = 1500;
+  const MIN_GAMES_NEW_BLOOD = 3;
+
+  // Dynamically fetch current season
+  let currentSeason = 24; // fallback
+  try {
+    const seasonsRes = await fetch(`${API_BASE}/ladder/seasons`);
+    if (seasonsRes.ok) {
+      const seasons = await seasonsRes.json();
+      if (seasons?.[0]?.id) currentSeason = seasons[0].id;
+    }
+  } catch {}
+  // Check all seasons before the current one (up to 6 back)
+  const seasonsToCheck = [];
+  for (let s = currentSeason - 1; s >= Math.max(1, currentSeason - 6); s--) {
+    seasonsToCheck.push(s);
+  }
 
   let newPlayers;
   try {
@@ -1165,15 +1479,64 @@ async function computeNewBlood(weekStart, weekEnd) {
     p.max_mmr >= MIN_MMR_NEW_BLOOD || p.total_games >= MIN_GAMES_NEW_BLOOD
   );
 
-  const top5 = filtered.slice(0, 5);
+  // Enrich a larger pool first, then pick the best mix
+  const pool = filtered.slice(0, 25);
 
-  // Determine season to check for previous season stats
-  const now = new Date(weekStart + 'T12:00:00Z');
-  // W3C seasons are roughly numbered; current is ~22, check previous
-  const prevSeason = 21;
+  // Check previous seasons — returns { lastSeason, lastActive (YYYY-MM-DD) } or null
+  async function checkHistory(battleTag) {
+    for (const season of seasonsToCheck) {
+      try {
+        const url = `${API_BASE}/players/${encodeURIComponent(battleTag)}/game-mode-stats?season=${season}&gateway=${GATEWAY}`;
+        const res = await fetch(url);
+        if (res.ok) {
+          const data = await res.json();
+          const prev4v4 = (Array.isArray(data) ? data : []).find(
+            s => s.gameMode === GAME_MODE && (s.wins + s.losses) > 0
+          );
+          if (prev4v4) {
+            // Fetch their most recent match date from that season
+            let lastActive = null;
+            try {
+              const mUrl = `${API_BASE}/matches/search?playerId=${encodeURIComponent(battleTag)}&season=${season}&gateway=${GATEWAY}&gameMode=${GAME_MODE}&pageSize=1&offset=0`;
+              const mRes = await fetch(mUrl);
+              if (mRes.ok) {
+                const mData = await mRes.json();
+                if (mData.matches?.[0]?.startTime) {
+                  lastActive = mData.matches[0].startTime.split('T')[0];
+                }
+              }
+            } catch {}
+            return { lastSeason: season, lastActive };
+          }
+        }
+      } catch {}
+    }
+    return null;
+  }
+
+  // Check if a player was already active this season before the target week.
+  // Catches false positives from local DB not having earlier data (e.g. after rebuild).
+  async function wasActiveThisSeasonBeforeWeek(battleTag, weeklyGames) {
+    try {
+      const url = `${API_BASE}/players/${encodeURIComponent(battleTag)}/game-mode-stats?season=${currentSeason}&gateway=${GATEWAY}`;
+      const res = await fetch(url);
+      if (!res.ok) return false;
+      const data = await res.json();
+      const stats = (Array.isArray(data) ? data : []).find(s => s.gameMode === GAME_MODE);
+      if (!stats) return false;
+      const apiTotal = (stats.wins || 0) + (stats.losses || 0);
+      // If API shows more games this season than they played this week,
+      // they were active before this week — not actually new/returning
+      return apiTotal > weeklyGames;
+    } catch {}
+    return false;
+  }
 
   // Enrich with first appearance date + returning player detection
-  const enriched = await Promise.all(top5.map(async (p) => {
+  const MIN_RETURN_GAP_DAYS = 14;
+  const enriched = (await Promise.all(pool.map(async (p) => {
+    const wasActiveBefore = await wasActiveThisSeasonBeforeWeek(p.battle_tag, p.total_games);
+
     const entry = {
       battleTag: p.battle_tag,
       name: p.name,
@@ -1181,33 +1544,61 @@ async function computeNewBlood(weekStart, weekEnd) {
       totalGames: p.total_games,
       totalWins: p.total_wins,
       returning: false,
+      lastActive: null,
       firstDate: null,
     };
 
-    // Get first appearance date from DB
     try {
       entry.firstDate = getFirstAppearanceDate(p.battle_tag);
     } catch {}
 
-    // Check W3C API for previous season 4v4 stats
-    try {
-      const url = `${API_BASE}/players/${encodeURIComponent(p.battle_tag)}/game-mode-stats?season=${prevSeason}&gateway=${GATEWAY}`;
-      const res = await fetch(url);
-      if (res.ok) {
-        const data = await res.json();
-        // data is an array of mode stats; check for gameMode 4 (4v4) with games > 0
-        const prev4v4 = (Array.isArray(data) ? data : []).find(
-          s => s.gameMode === GAME_MODE && (s.wins + s.losses) > 0
-        );
-        if (prev4v4) entry.returning = true;
+    if (wasActiveBefore) {
+      // They were active earlier this season — check local DB for a gap
+      const lastDate = getLastActiveDateBefore(p.battle_tag, weekStart);
+      if (lastDate) {
+        const gapMs = new Date(weekStart).getTime() - new Date(lastDate).getTime();
+        const gapDays = Math.round(gapMs / 86400000);
+        if (gapDays >= MIN_RETURN_GAP_DAYS) {
+          entry.returning = true;
+          entry.lastActive = lastDate;
+          return entry;
+        }
       }
-    } catch {}
+      return null; // Active recently, not a meaningful return
+    }
 
+    // Not active this season before — check previous seasons
+    const history = await checkHistory(p.battle_tag);
+    if (history) {
+      entry.returning = true;
+      entry.lastActive = history.lastActive;
+    }
     return entry;
-  }));
+  }))).filter(Boolean);
 
-  return enriched;
+  // Pick a mix: prioritize truly new players, fill remaining with returning
+  const trulyNew = enriched.filter(p => !p.returning);
+  const returning = enriched.filter(p => p.returning);
+  const result = [...trulyNew.slice(0, 8), ...returning.slice(0, 8)];
+
+  return result;
 }
+
+function formatNewBloodLine(newBlood) {
+  if (!newBlood || newBlood.length === 0) return null;
+  const entries = newBlood.map(p => {
+    const wr = p.totalGames > 0 ? Math.round(p.totalWins / p.totalGames * 100) : 0;
+    let line = `${p.battleTag} debuted at ${p.maxMmr} MMR (${p.totalGames} games, ${wr}% WR)`;
+    if (p.returning) {
+      line += p.lastActive ? ` [returning:${p.lastActive}]` : ' [returning]';
+    }
+    if (p.firstDate) line += ` first:${p.firstDate}`;
+    return line;
+  });
+  return `NEW_BLOOD: ${entries.join('; ')}`;
+}
+
+export { computeNewBlood, formatNewBloodLine };
 
 /**
  * Find biggest upsets of the week (lower-MMR team winning with biggest gap).
@@ -1552,12 +1943,16 @@ export async function generateWeeklyDigest(weekStart) {
     if (streaks.hotStreak && !usedStatTags.has(streaks.hotStreak.battleTag)) {
       weeklyHotStreak = streaks.hotStreak;
       const p = weeklyHotStreak;
-      parts.push(`HOTSTREAK: ${p.battleTag}${raceTag(p)} ${p.weeklyWinStreak}W streak (${p.wins}W-${p.losses}L) ${p.form}`);
+      const hSign = p.mmrChange > 0 ? '+' : '';
+      const hMmr = p.mmrChange != null ? ` ${hSign}${Math.round(p.mmrChange)} MMR` : '';
+      parts.push(`HOTSTREAK: ${p.battleTag}${raceTag(p)} ${p.weeklyWinStreak}W streak${hMmr} (${p.wins}W-${p.losses}L) ${p.form}`);
     }
     if (streaks.coldStreak && !usedStatTags.has(streaks.coldStreak.battleTag)) {
       weeklyColdStreak = streaks.coldStreak;
       const p = weeklyColdStreak;
-      parts.push(`COLDSTREAK: ${p.battleTag}${raceTag(p)} ${p.weeklyLossStreak}L streak (${p.wins}W-${p.losses}L) ${p.form}`);
+      const cSign = p.mmrChange > 0 ? '+' : '';
+      const cMmr = p.mmrChange != null ? ` ${cSign}${Math.round(p.mmrChange)} MMR` : '';
+      parts.push(`COLDSTREAK: ${p.battleTag}${raceTag(p)} ${p.weeklyLossStreak}L streak${cMmr} (${p.wins}W-${p.losses}L) ${p.form}`);
     }
   }
 
@@ -1573,23 +1968,27 @@ export async function generateWeeklyDigest(weekStart) {
     ];
     const blurbLines = generateSpotlightBlurbs(spotlights, dailyRows, weekStart, weekEnd);
     parts.push(...blurbLines);
+
+    // Streak daily breakdowns (reuse dailyRows)
+    const hotDaily = computeStreakDailyBreakdown('HOTSTREAK', weeklyHotStreak, dailyRows);
+    if (hotDaily) parts.push(`HOTSTREAK_DAILY: ${hotDaily}`);
+    const coldDaily = computeStreakDailyBreakdown('COLDSTREAK', weeklyColdStreak, dailyRows);
+    if (coldDaily) parts.push(`COLDSTREAK_DAILY: ${coldDaily}`);
   } catch (err) {
     console.warn('[Weekly] Spotlight blurb generation failed:', err.message);
+  }
+
+  // Streak spectrum (all players)
+  if (weeklyMatchStats?.weeklyPlayerMap) {
+    const spectrum = computeStreakSpectrum(weeklyMatchStats.weeklyPlayerMap);
+    if (spectrum) parts.push(`STREAK_SPECTRUM: ${spectrum}`);
   }
 
   // NEW_BLOOD: first-time players this week
   try {
     const newBlood = await computeNewBlood(weekStart, weekEnd);
-    if (newBlood.length > 0) {
-      const entries = newBlood.map(p => {
-        const wr = p.totalGames > 0 ? Math.round(p.totalWins / p.totalGames * 100) : 0;
-        let line = `${p.battleTag} debuted at ${p.maxMmr} MMR (${p.totalGames} games, ${wr}% WR)`;
-        if (p.returning) line += ' [returning]';
-        if (p.firstDate) line += ` first:${p.firstDate}`;
-        return line;
-      });
-      parts.push(`NEW_BLOOD: ${entries.join('; ')}`);
-    }
+    const nbLine = formatNewBloodLine(newBlood);
+    if (nbLine) parts.push(nbLine);
   } catch (err) {
     console.warn('[Weekly] New blood computation failed:', err.message);
   }
@@ -1629,12 +2028,37 @@ export async function generateWeeklyDigest(weekStart) {
 
   // MATCH_STATS + HEROES: per-match detail awards split into performance and hero meta
   try {
-    const { matchStats: matchStatsLine, heroes: heroesLine } = computeWeeklyMatchScoreAwards(weekStart, weekEnd);
+    const { matchStats: matchStatsLine, heroes: heroesLine, blurbs: msBlurbs, awardWinnerTags, heroSlayer: hsPlayer } =
+      computeWeeklyMatchScoreAwards(weekStart, weekEnd);
+
+    // Hero Slayer → promoted to full spotlight stat line
+    if (hsPlayer && weeklyMatchStats?.weeklyPlayerMap) {
+      const wp = weeklyMatchStats.weeklyPlayerMap.get(hsPlayer.battleTag);
+      if (wp) {
+        const race = raceTag(wp);
+        const form = wp.form || '';
+        parts.push(`HEROSLAYER: ${hsPlayer.battleTag}${race} ${hsPlayer.rate.toFixed(1)} hero kills/game (${wp.wins}W-${wp.losses}L) ${form}`);
+      }
+    }
+
     if (matchStatsLine) {
       parts.push(`MATCH_STATS: ${matchStatsLine}`);
     }
     if (heroesLine) {
       parts.push(`HEROES: ${heroesLine}`);
+    }
+    // Append match stat blurbs (e.g. "HEROSLAYER_BLURB: ...")
+    if (msBlurbs?.length > 0) {
+      parts.push(...msBlurbs);
+    }
+    // Append chat quotes for match stat award winners
+    if (awardWinnerTags?.length > 0) {
+      for (const { category, battleTag } of awardWinnerTags) {
+        const quotes = pickPlayerQuotes(battleTag, weekStart, weekEnd, 3, null);
+        if (quotes.length > 0) {
+          parts.push(`${category}_QUOTES: ${quotes.map(q => `"${q}"`).join('; ')}`);
+        }
+      }
     }
   } catch (err) {
     console.warn('[Weekly] Match score awards failed:', err.message);
@@ -1693,6 +2117,180 @@ export async function generateWeeklyDigest(weekStart) {
   );
   console.log(`[Weekly] Generated for ${weekStart} to ${weekEnd} (${dailyDigests.length} daily digests, ${weeklyClips.length} clips)`);
   return digest;
+}
+
+/**
+ * Regenerate a single narrative section of a weekly digest.
+ * Re-gathers context and asks AI to produce a fresh take on just that section.
+ */
+const REGEN_SECTIONS = new Set(['TOPICS', 'DRAMA', 'BANS', 'HIGHLIGHTS', 'RECAP']);
+
+export async function regenerateSection(weekStart, sectionKey) {
+  if (!REGEN_SECTIONS.has(sectionKey)) throw new Error(`Cannot regenerate ${sectionKey}`);
+  if (!config.ANTHROPIC_API_KEY) throw new Error('No API key configured');
+
+  const ctx = await gatherWeeklyContext(weekStart);
+  if (!ctx) throw new Error('Insufficient weekly data');
+
+  const { dailyDigests, aggregateText } = ctx;
+  const basePrompt = buildWeeklyPrompt(dailyDigests, aggregateText);
+
+  const sectionPrompt = `${basePrompt}
+
+IMPORTANT: You previously generated a weekly digest. Now regenerate ONLY the ${sectionKey} section. Write a completely different version with fresh angles and different quote selections. Output ONLY one line in the format "${sectionKey}: content". No other sections.`;
+
+  const client = new Anthropic({ apiKey: config.ANTHROPIC_API_KEY });
+  const models = ['claude-haiku-4-5-20251001', 'claude-sonnet-4-5-20250929'];
+  let aiText = null;
+
+  for (const model of models) {
+    for (let attempt = 1; attempt <= 3; attempt++) {
+      try {
+        const msg = await client.messages.create({
+          model, max_tokens: 1000, system: SYSTEM_PROMPT,
+          messages: [{ role: 'user', content: sectionPrompt }],
+        });
+        aiText = msg.content[0]?.text?.trim() || null;
+        if (aiText) break;
+      } catch (err) {
+        const status = err?.status || err?.error?.status || '';
+        console.warn(`[Regen] ${model} attempt ${attempt}/3 failed (${status}): ${err.message}`);
+        if (attempt < 3) await new Promise(r => setTimeout(r, 1000 * Math.pow(2, attempt - 1)));
+      }
+    }
+    if (aiText) break;
+    console.warn(`[Regen] All retries exhausted for ${model}, trying next model`);
+  }
+
+  if (!aiText) throw new Error('AI call failed after all retries');
+
+  const parsed = parseDigestSections(aiText);
+  const target = parsed.find(s => s.key === sectionKey);
+  if (!target) throw new Error(`AI did not return ${sectionKey} section`);
+
+  console.log(`[Regen] Regenerated ${sectionKey} for ${weekStart} (${target.content.length} chars)`);
+  return target.content;
+}
+
+/**
+ * Regenerate spotlight blurbs + chat quotes for all stat-card players.
+ * Returns an object like { WINNER_BLURB: "...", WINNER_QUOTES: "...", ... }
+ * that can be injected into the draft.
+ */
+export async function regenerateSpotlights(weekStart) {
+  const ctx = await gatherWeeklyContext(weekStart);
+  if (!ctx) throw new Error('Insufficient weekly data');
+
+  const { weeklyWinner, weeklyLoser, weeklyGrinder, weekEnd } = ctx;
+
+  // Compute streaks (same as generateWeeklyDigest)
+  let weeklyHotStreak = null, weeklyColdStreak = null;
+  if (ctx.weeklyMatchStats?.weeklyPlayerMap) {
+    const usedStatTags = new Set([weeklyWinner?.battleTag, weeklyLoser?.battleTag, weeklyGrinder?.battleTag].filter(Boolean));
+    const streaks = computeWeeklyStreaks(ctx.weeklyMatchStats.weeklyPlayerMap);
+    if (streaks.hotStreak && !usedStatTags.has(streaks.hotStreak.battleTag)) weeklyHotStreak = streaks.hotStreak;
+    if (streaks.coldStreak && !usedStatTags.has(streaks.coldStreak.battleTag)) weeklyColdStreak = streaks.coldStreak;
+  }
+
+  const dailyRows = getDailyPlayerStatsRange(weekStart, weekEnd);
+  const spotlights = [
+    { key: 'WINNER', player: weeklyWinner },
+    { key: 'LOSER', player: weeklyLoser },
+    { key: 'GRINDER', player: weeklyGrinder },
+    { key: 'HOTSTREAK', player: weeklyHotStreak },
+    { key: 'COLDSTREAK', player: weeklyColdStreak },
+  ];
+
+  const blurbLines = generateSpotlightBlurbs(spotlights, dailyRows, weekStart, weekEnd);
+  // Parse into key→content map
+  const result = {};
+  for (const line of blurbLines) {
+    const m = line.match(/^([A-Z_]+):\s*(.+)$/);
+    if (m) result[m[1]] = m[2];
+  }
+
+  // Hero Slayer — promoted to spotlight: inject stat line + blurb + quotes
+  try {
+    const awards = computeWeeklyMatchScoreAwards(weekStart, weekEnd);
+    if (awards?.heroSlayer && ctx.weeklyMatchStats?.weeklyPlayerMap) {
+      const hs = awards.heroSlayer;
+      const wp = ctx.weeklyMatchStats.weeklyPlayerMap.get(hs.battleTag);
+      if (wp) {
+        const race = raceTag(wp);
+        const form = wp.form || '';
+        result['HEROSLAYER'] = `${hs.battleTag}${race} ${hs.rate.toFixed(1)} hero kills/game (${wp.wins}W-${wp.losses}L) ${form}`;
+      }
+    }
+    if (awards?.blurbs?.length > 0) {
+      for (const line of awards.blurbs) {
+        const m = line.match(/^(HEROSLAYER_BLURB|HEROSLAYER_HEROES|HEROSLAYER_VICTIMS|HEROSLAYER_KILLBOARD|HEROSLAYER_MAX):\s*(.+)$/);
+        if (m) result[m[1]] = m[2];
+      }
+    }
+    if (awards?.awardWinnerTags?.length > 0) {
+      for (const { category, battleTag } of awards.awardWinnerTags) {
+        if (category !== 'HEROSLAYER') continue;
+        const quotes = pickPlayerQuotes(battleTag, weekStart, weekEnd, 3, null);
+        if (quotes.length > 0) {
+          result[`${category}_QUOTES`] = quotes.map(q => `"${q}"`).join('; ');
+        }
+      }
+    }
+  } catch (err) {
+    console.warn('[Regen] Hero Slayer spotlight failed:', err.message);
+  }
+
+  // Streak daily breakdowns
+  const hotDaily = computeStreakDailyBreakdown('HOTSTREAK', weeklyHotStreak, dailyRows);
+  if (hotDaily) result['HOTSTREAK_DAILY'] = hotDaily;
+  const coldDaily = computeStreakDailyBreakdown('COLDSTREAK', weeklyColdStreak, dailyRows);
+  if (coldDaily) result['COLDSTREAK_DAILY'] = coldDaily;
+
+  // Streak spectrum
+  if (ctx.weeklyMatchStats?.weeklyPlayerMap) {
+    const spectrum = computeStreakSpectrum(ctx.weeklyMatchStats.weeklyPlayerMap);
+    if (spectrum) result['STREAK_SPECTRUM'] = spectrum;
+  }
+
+  console.log(`[Regen] Regenerated spotlights for ${weekStart}: ${Object.keys(result).join(', ')}`);
+  return result;
+}
+
+/**
+ * Regenerate match stat blurbs + quotes (Unit Killer, etc. — Hero Slayer is now a spotlight).
+ * Returns an object like { "Unit Killer_BLURB": "...", ... }
+ */
+export function regenerateMatchStatBlurbs(weekStart) {
+  const startDate = new Date(weekStart + 'T12:00:00Z');
+  const endDate = new Date(startDate);
+  endDate.setUTCDate(endDate.getUTCDate() + 6);
+  const weekEnd = endDate.toISOString().slice(0, 10);
+
+  const awards = computeWeeklyMatchScoreAwards(weekStart, weekEnd);
+  if (!awards) return {};
+
+  const result = {};
+
+  // Parse blurb lines: "Hero Slayer_BLURB: ..."
+  if (awards.blurbs?.length > 0) {
+    for (const line of awards.blurbs) {
+      const m = line.match(/^(.+?):\s*(.+)$/);
+      if (m) result[m[1]] = m[2];
+    }
+  }
+
+  // Generate quotes for award winners
+  if (awards.awardWinnerTags?.length > 0) {
+    for (const { category, battleTag } of awards.awardWinnerTags) {
+      const quotes = pickPlayerQuotes(battleTag, weekStart, weekEnd, 3, null);
+      if (quotes.length > 0) {
+        result[`${category}_QUOTES`] = quotes.map(q => `"${q}"`).join('; ');
+      }
+    }
+  }
+
+  console.log(`[Regen] Regenerated match stat blurbs for ${weekStart}: ${Object.keys(result).join(', ')}`);
+  return result;
 }
 
 /**
@@ -1957,12 +2555,32 @@ function computeWeeklyMatchScoreAwards(weekStart, weekEnd) {
     if (winnerTags) matchWins.set(m.match_id, new Set(winnerTags.split(',')));
   }
 
+  // Build per-match heroes lookup: matchId+battleTag → hero names
+  const matchHeroLookup = new Map(); // "matchId|battleTag" → [heroName, ...]
+  for (const row of rows) {
+    if (row.heroes) {
+      try {
+        const heroes = JSON.parse(row.heroes);
+        matchHeroLookup.set(`${row.match_id}|${row.battle_tag}`, heroes.map(h => h.name));
+      } catch {}
+    }
+  }
+
+  // Build opponent team lookup from daily_matches: for each match+player, find opposing team's tags
+  const matchTeams = new Map(); // matchId → { team1: Set<tag>, team2: Set<tag> }
+  for (const m of matchRows) {
+    const t1 = m.team1_tags ? new Set(m.team1_tags.split(',')) : new Set();
+    const t2 = m.team2_tags ? new Set(m.team2_tags.split(',')) : new Set();
+    matchTeams.set(m.match_id, { team1: t1, team2: t2 });
+  }
+
   // Aggregate per-player stats + track longest game + hero data
   const players = new Map();
   let longestGame = { matchId: null, durationSeconds: 0, battleTags: [] };
   const heroCounts = new Map(); // heroName → total picks
   const comboCounts = new Map(); // combo string → { count, wins, players[] }
   const playerHeroData = new Map(); // battleTag → { uniqueHeroes: Set, combos: Map<combo, count>, games }
+  const playerOpponentHeroes = new Map(); // battleTag → Map<heroName, count> (heroes they faced)
 
   for (const row of rows) {
     if (!players.has(row.battle_tag)) {
@@ -1970,16 +2588,39 @@ function computeWeeklyMatchScoreAwards(weekStart, weekEnd) {
         battleTag: row.battle_tag,
         name: row.battle_tag.split('#')[0],
         totalHeroesKilled: 0,
+        maxHeroKillsInGame: 0,
         totalUnitsKilled: 0,
         totalDurationSeconds: 0,
         games: 0,
+        wins: 0,
       });
     }
     const p = players.get(row.battle_tag);
-    p.totalHeroesKilled += row.heroes_killed || 0;
+    const gameHeroKills = row.heroes_killed || 0;
+    p.totalHeroesKilled += gameHeroKills;
+    if (gameHeroKills > p.maxHeroKillsInGame) p.maxHeroKillsInGame = gameHeroKills;
     p.totalUnitsKilled += row.units_killed || 0;
     p.totalDurationSeconds += row.duration_seconds || 0;
     p.games++;
+    const winners = matchWins.get(row.match_id);
+    if (winners && winners.has(row.battle_tag)) p.wins++;
+
+    // Track opponent heroes faced
+    const teams = matchTeams.get(row.match_id);
+    if (teams) {
+      const isTeam1 = teams.team1.has(row.battle_tag);
+      const opponentTags = isTeam1 ? teams.team2 : teams.team1;
+      if (!playerOpponentHeroes.has(row.battle_tag)) {
+        playerOpponentHeroes.set(row.battle_tag, new Map());
+      }
+      const oppHeroes = playerOpponentHeroes.get(row.battle_tag);
+      for (const oppTag of opponentTags) {
+        const heroNames = matchHeroLookup.get(`${row.match_id}|${oppTag}`);
+        if (heroNames) {
+          for (const h of heroNames) oppHeroes.set(h, (oppHeroes.get(h) || 0) + 1);
+        }
+      }
+    }
 
     // Track longest game
     const dur = row.duration_seconds || 0;
@@ -2003,7 +2644,6 @@ function computeWeeklyMatchScoreAwards(weekStart, weekEnd) {
           if (!comboCounts.has(combo)) comboCounts.set(combo, { count: 0, wins: 0, players: [] });
           const c = comboCounts.get(combo);
           c.count++;
-          const winners = matchWins.get(row.match_id);
           if (winners && winners.has(row.battle_tag)) c.wins++;
           if (c.players.length < 3) c.players.push(row.battle_tag);
         }
@@ -2028,6 +2668,7 @@ function computeWeeklyMatchScoreAwards(weekStart, weekEnd) {
 
   const matchStatsAwards = [];
   const heroAwards = [];
+  const matchStatBlurbs = []; // blurb lines for award winners
 
   // Helper: get top combo display name for a player
   function getTopComboDisplay(battleTag) {
@@ -2036,6 +2677,16 @@ function computeWeeklyMatchScoreAwards(weekStart, weekEnd) {
     const [topCombo] = [...phd.combos.entries()].sort((a, b) => b[1] - a[1])[0];
     if (!topCombo) return null;
     return topCombo.split('+').map(h => HERO_DISPLAY_NAMES[h] || h).join(' + ');
+  }
+
+  // Helper: get top N opponent heroes for a player (by frequency)
+  function getTopOpponentHeroes(battleTag, n = 3) {
+    const oppHeroes = playerOpponentHeroes.get(battleTag);
+    if (!oppHeroes || oppHeroes.size === 0) return [];
+    return [...oppHeroes.entries()]
+      .sort((a, b) => b[1] - a[1])
+      .slice(0, n)
+      .map(([name, count]) => ({ name, displayName: HERO_DISPLAY_NAMES[name] || name, count }));
   }
 
   // ── MATCH_STATS (performance awards) ──
@@ -2048,11 +2699,45 @@ function computeWeeklyMatchScoreAwards(weekStart, weekEnd) {
     .slice(0, 3);
   if (heroSlayers.length > 0) {
     const top = heroSlayers[0];
-    const runnersUp = heroSlayers.slice(1).map(p => `${p.name} ${p.rate.toFixed(1)}`).join(', ');
-    let detail = runnersUp ? `${top.rate.toFixed(1)} hero kills/game in ${top.games} games (${runnersUp})` : `${top.rate.toFixed(1)} hero kills/game in ${top.games} games`;
-    const combo = getTopComboDisplay(top.battleTag);
-    if (combo) detail += ` [${combo}]`;
-    matchStatsAwards.push(`Hero Slayer ${top.battleTag} ${detail}`);
+
+    // Build Hero Slayer blurb with opponent hero context
+    const wr = top.games > 0 ? Math.round(top.wins / top.games * 100) : 0;
+    const topOpp = getTopOpponentHeroes(top.battleTag, 3);
+    let blurb = `${top.totalHeroesKilled} hero kills across ${top.games} games (${top.rate.toFixed(1)}/game, ${wr}% WR).`;
+    if (topOpp.length > 0) {
+      const heroNames = topOpp.map(h => h.displayName);
+      if (heroNames.length === 1) {
+        blurb += ` Spent the week hunting ${heroNames[0]}s.`;
+      } else if (heroNames.length === 2) {
+        blurb += ` Most frequent prey: ${heroNames[0]}s and ${heroNames[1]}s.`;
+      } else {
+        blurb += ` Most frequent prey: ${heroNames.slice(0, -1).join(', ')}, and ${heroNames[heroNames.length - 1]}.`;
+      }
+    }
+    matchStatBlurbs.push(`HEROSLAYER_BLURB: ${blurb}`);
+
+    // Output hero combo icons (raw icon names for frontend rendering)
+    const phd = playerHeroData.get(top.battleTag);
+    if (phd?.combos?.size > 0) {
+      const [topCombo] = [...phd.combos.entries()].sort((a, b) => b[1] - a[1])[0];
+      if (topCombo) matchStatBlurbs.push(`HEROSLAYER_HEROES: ${topCombo.split('+').join(',')}`);
+    }
+
+    // Output victim hero icons (most-killed opponent heroes, top 3)
+    if (topOpp.length > 0) {
+      matchStatBlurbs.push(`HEROSLAYER_VICTIMS: ${topOpp.map(h => h.name).join(',')}`);
+    }
+
+    // Output max hero kills in a single game
+    if (top.maxHeroKillsInGame > 0) {
+      matchStatBlurbs.push(`HEROSLAYER_MAX: ${top.maxHeroKillsInGame}`);
+    }
+
+    // Output full killboard — all opponent heroes with counts (compact: name:count,name:count)
+    const allOpp = getTopOpponentHeroes(top.battleTag, 100);
+    if (allOpp.length > 0) {
+      matchStatBlurbs.push(`HEROSLAYER_KILLBOARD: ${allOpp.map(h => `${h.name}:${h.count}`).join(',')}`);
+    }
   }
 
   // 2. Unit Killer — top 3 unit kills per game (rate)
@@ -2068,6 +2753,11 @@ function computeWeeklyMatchScoreAwards(weekStart, weekEnd) {
     const combo = getTopComboDisplay(top.battleTag);
     if (combo) detail += ` [${combo}]`;
     matchStatsAwards.push(`Unit Killer ${top.battleTag} ${detail}`);
+
+    // Build Unit Killer blurb
+    const wr = top.games > 0 ? Math.round(top.wins / top.games * 100) : 0;
+    const blurb = `${top.totalUnitsKilled} units destroyed across ${top.games} games (${top.rate.toFixed(1)}/game, ${wr}% WR).`;
+    matchStatBlurbs.push(`Unit Killer_BLURB: ${blurb}`);
   }
 
   // 3. Longest Game — only include if match players chatted that day (community interest proxy)
@@ -2155,9 +2845,17 @@ function computeWeeklyMatchScoreAwards(weekStart, weekEnd) {
     heroAwards.push(`Wildcard ${wc.battleTag} ${wc.uniqueHeroes} unique heroes across ${wc.uniqueCombos} combos in ${wc.games} games`);
   }
 
+  // Collect award winner battletags for quote lookup
+  const awardWinnerTags = [];
+  if (heroSlayers.length > 0) awardWinnerTags.push({ category: 'HEROSLAYER', battleTag: heroSlayers[0].battleTag });
+  if (unitKillers.length > 0) awardWinnerTags.push({ category: 'Unit Killer', battleTag: unitKillers[0].battleTag });
+
   return {
     matchStats: matchStatsAwards.length > 0 ? matchStatsAwards.join(' | ') : null,
     heroes: heroAwards.length > 0 ? heroAwards.join(' | ') : null,
+    blurbs: matchStatBlurbs,
+    awardWinnerTags,
+    heroSlayer: heroSlayers.length > 0 ? heroSlayers[0] : null,
   };
 }
 

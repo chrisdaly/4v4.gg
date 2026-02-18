@@ -48,7 +48,7 @@ export default function useScreenshot({ digestRef, dateTabs, label, digestDate }
           // Hide screenshot button, chat transcripts, and admin controls
           const btn = el.querySelector(".digest-screenshot-btn");
           if (btn) btn.style.display = "none";
-          for (const ctx of el.querySelectorAll(".chat-context")) {
+          for (const ctx of el.querySelectorAll(".cc-panel")) {
             ctx.style.display = "none";
           }
           for (const ctrl of el.querySelectorAll(".digest-admin-controls")) {

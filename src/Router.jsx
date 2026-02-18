@@ -34,6 +34,7 @@ const Blog = lazy(() => import("./pages/Blog"));
 const BlogPost = lazy(() => import("./pages/BlogPost"));
 const Clips = lazy(() => import("./pages/Clips"));
 const Replay = lazy(() => import("./pages/Replay"));
+const ReplayLab = lazy(() => import("./pages/ReplayLab"));
 
 // Overlay pages (lazy-loaded)
 const OverlayIndex = lazy(() => import("./pages/overlay/OverlayIndex"));
@@ -129,6 +130,7 @@ const Router = () => (
                 <Route path="/favicons" component={FaviconMockups} />
 
                 <Redirect from="/magazine" to="/news" />
+                <Route path="/replay-lab" component={ReplayLab} />
                 <Route path="/replay" component={Replay} />
 
                 {/* 404 catch-all */}

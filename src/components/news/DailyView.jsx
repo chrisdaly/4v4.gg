@@ -2,6 +2,7 @@ import React, { useState, useEffect, useMemo, useCallback } from "react";
 import { FiRefreshCw } from "react-icons/fi";
 import useChatStream from "../../lib/useChatStream";
 import useAdmin from "../../lib/useAdmin";
+import { PageNav } from "../ui";
 import DigestBanner from "./DigestBanner";
 import PeonLoader from "../PeonLoader";
 
@@ -25,8 +26,6 @@ const DailyView = ({ dayParam }) => {
   const [loading, setLoading] = useState(true);
 
   const { adminKey, isAdmin, showAdmin, setAdminKey: setAdminKeyHook } = useAdmin();
-  const [previewReader, setPreviewReader] = useState(false);
-  const effectiveAdmin = isAdmin && !previewReader;
   const [keyInput, setKeyInput] = useState("");
   const [keyError, setKeyError] = useState(null);
 
@@ -152,44 +151,17 @@ const DailyView = ({ dayParam }) => {
 
   return (
     <div className="news-daily-content">
-      {/* Day navigation */}
-      {allDigests.length > 0 && (
-        <div className="news-day-nav reveal" style={{ "--delay": "0.10s" }}>
-          <button
-            className="mg-week-btn"
-            onClick={() => setDayIdx((i) => Math.min(i + 1, allDigests.length - 1))}
-            disabled={!canGoOlder}
-          >
-            &larr; Older
-          </button>
-          <span className="mg-week-label">{digestLabel}</span>
-          <button
-            className="mg-week-btn"
-            onClick={() => setDayIdx((i) => Math.max(i - 1, 0))}
-            disabled={!canGoNewer}
-          >
-            Newer &rarr;
-          </button>
-        </div>
-      )}
-
-      {/* Admin/Reader toggle */}
-      {isAdmin && (
-        <div className="news-view-toggle" style={{ justifyContent: "center", marginBottom: "var(--space-4)" }}>
-          <button
-            className={`news-view-btn${!previewReader ? " news-view-btn--active" : ""}`}
-            onClick={() => setPreviewReader(false)}
-          >
-            Admin
-          </button>
-          <button
-            className={`news-view-btn${previewReader ? " news-view-btn--active" : ""}`}
-            onClick={() => setPreviewReader(true)}
-          >
-            Reader
-          </button>
-        </div>
-      )}
+      {/* Back + day tabs */}
+      <PageNav
+        backTo="/news"
+        backLabel="News"
+        tabs={allDigests.slice(0, 7).map((d, i) => ({
+          key: String(i),
+          label: formatDigestLabel(d.date),
+        }))}
+        activeTab={String(dayIdx)}
+        onTab={(key) => setDayIdx(Number(key))}
+      />
 
       {allDigests.length > 0 ? (
         <DigestBanner
@@ -197,7 +169,7 @@ const DailyView = ({ dayParam }) => {
           nameSet={nameSet}
           nameToTag={nameToTag}
           label={digestLabel}
-          isAdmin={effectiveAdmin}
+          isAdmin={isAdmin}
           apiKey={adminKey}
           onDigestUpdated={handleDigestUpdated}
         />
@@ -238,7 +210,7 @@ const DailyView = ({ dayParam }) => {
         </div>
       )}
 
-      {isAdmin && isViewingToday && !previewReader && (
+      {isAdmin && isViewingToday && (
         <span className="digest-today-notice">
           Live digest — editing available after the day ends
         </span>

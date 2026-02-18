@@ -14,8 +14,8 @@ import {
 } from "../lib/design-tokens";
 import { MmrComparison } from "../components/MmrComparison";
 import PeonLoader from "../components/PeonLoader";
-import { CountryFlag, Select, Input, Button, ConfirmModal } from "../components/ui";
-import "../components/news/ChatContext.css";
+import { CountryFlag, Select, Input, Button, ConfirmModal, PageNav } from "../components/ui";
+import "../components/ChatContext.css";
 import "../styles/pages/DevTools.css";
 import "../styles/pages/StyleReference.css";
 
@@ -441,50 +441,50 @@ const StyleReference = () => {
             <div style={{ padding: "12px 16px 4px" }}>
               <div className="meta">Chat context (32px avatars)</div>
             </div>
-            <div className="chat-context" style={{ margin: 0, border: "none", borderRadius: 0 }}>
-              <div className="chat-context-scroll" style={{ maxHeight: "none" }}>
-                <div className="chat-context-group chat-context-group--target">
-                  <div className="chat-context-group-avatar">
-                    <span className="chat-context-avatar-placeholder" />
+            <div className="cc-panel cc-panel--compact" style={{ margin: 0, border: "none", borderRadius: 0 }}>
+              <div className="cc-list" style={{ maxHeight: "none" }}>
+                <div className="cc-group cc-group--target">
+                  <div className="cc-group-avatar">
+                    <span className="cc-avatar-placeholder" />
                   </div>
-                  <div className="chat-context-group-body">
-                    <div className="chat-context-group-header">
-                      <span className="chat-context-name chat-context-name--target">ToD</span>
-                      <span className="chat-context-time">21:34</span>
+                  <div className="cc-group-body">
+                    <div className="cc-group-header">
+                      <span className="cc-name cc-name--target">ToD</span>
+                      <span className="cc-time">21:34</span>
                     </div>
-                    <div className="chat-context-msg">
-                      <span className="chat-context-text">gg wp that was close</span>
+                    <div className="cc-msg">
+                      <span className="cc-text">gg wp that was close</span>
                     </div>
-                    <div className="chat-context-msg">
-                      <span className="chat-context-text">human mirror is pain</span>
-                    </div>
-                  </div>
-                </div>
-                <div className="chat-context-group">
-                  <div className="chat-context-group-avatar">
-                    <span className="chat-context-avatar-placeholder" />
-                  </div>
-                  <div className="chat-context-group-body">
-                    <div className="chat-context-group-header">
-                      <span className="chat-context-name">Mubarak</span>
-                      <span className="chat-context-time">21:35</span>
-                    </div>
-                    <div className="chat-context-msg">
-                      <span className="chat-context-text">you got lucky with that expo timing</span>
+                    <div className="cc-msg">
+                      <span className="cc-text">human mirror is pain</span>
                     </div>
                   </div>
                 </div>
-                <div className="chat-context-group chat-context-group--target">
-                  <div className="chat-context-group-avatar">
-                    <span className="chat-context-avatar-placeholder" />
+                <div className="cc-group">
+                  <div className="cc-group-avatar">
+                    <span className="cc-avatar-placeholder" />
                   </div>
-                  <div className="chat-context-group-body">
-                    <div className="chat-context-group-header">
-                      <span className="chat-context-name chat-context-name--target">ToD</span>
-                      <span className="chat-context-time">21:35</span>
+                  <div className="cc-group-body">
+                    <div className="cc-group-header">
+                      <span className="cc-name">Mubarak</span>
+                      <span className="cc-time">21:35</span>
                     </div>
-                    <div className="chat-context-msg">
-                      <span className="chat-context-text">lucky? that was calculated</span>
+                    <div className="cc-msg">
+                      <span className="cc-text">you got lucky with that expo timing</span>
+                    </div>
+                  </div>
+                </div>
+                <div className="cc-group cc-group--target">
+                  <div className="cc-group-avatar">
+                    <span className="cc-avatar-placeholder" />
+                  </div>
+                  <div className="cc-group-body">
+                    <div className="cc-group-header">
+                      <span className="cc-name cc-name--target">ToD</span>
+                      <span className="cc-time">21:35</span>
+                    </div>
+                    <div className="cc-msg">
+                      <span className="cc-text">lucky? that was calculated</span>
                     </div>
                   </div>
                 </div>
@@ -1155,6 +1155,122 @@ ${Object.entries(borders).map(([k, t]) => `${t.css.padEnd(16)} ${t.value}`).join
 /* EFFECTS */
 ${Object.entries(effects).map(([k, t]) => `${t.css.padEnd(16)} ${t.usage}`).join("\n")}`}
         </pre>
+      </section>
+
+      {/* ── Navigation: PageNav Component ────── */}
+      <section className="sr-section reveal" style={{ "--delay": "0.1s" }}>
+        <div className="sr-section-head">
+          <div>
+            <h2>Page navigation</h2>
+            <p>Combined back-link and sub-tabs. Gold arrow returns to parent page, tabs switch between siblings. Import from ui.jsx.</p>
+          </div>
+          <div className="sr-badge-row">
+            <span className="sr-badge gold">PageNav</span>
+          </div>
+        </div>
+
+        {/* Live PageNav demos */}
+        <div className="sr-label" style={{ marginBottom: 12 }}>Live component</div>
+        <div style={{ display: "flex", flexDirection: "column", gap: 16, marginBottom: 32 }}>
+          <div className="sr-surface" style={{ padding: 0, overflow: "hidden" }}>
+            <div style={{ padding: "12px 16px 4px" }}>
+              <div className="meta">Ladder → Player profile</div>
+            </div>
+            <div style={{ padding: "8px 20px 12px" }}>
+              <PageNav backTo="/ladder" backLabel="Ladder" />
+            </div>
+          </div>
+          <div className="sr-surface" style={{ padding: 0, overflow: "hidden" }}>
+            <div style={{ padding: "12px 16px 4px" }}>
+              <div className="meta">News → Weekly issue (with sibling tabs)</div>
+            </div>
+            <div style={{ padding: "8px 20px 12px" }}>
+              <PageNav
+                backTo="/news"
+                backLabel="News"
+                tabs={[
+                  { key: "1", label: "Feb 9 – 15" },
+                  { key: "2", label: "Feb 2 – 8" },
+                  { key: "3", label: "Jan 26 – Feb 1" },
+                ]}
+                activeTab="1"
+              />
+            </div>
+          </div>
+          <div className="sr-surface" style={{ padding: 0, overflow: "hidden" }}>
+            <div style={{ padding: "12px 16px 4px" }}>
+              <div className="meta">News → Daily digest (with day tabs)</div>
+            </div>
+            <div style={{ padding: "8px 20px 12px" }}>
+              <PageNav
+                backTo="/news"
+                backLabel="News"
+                tabs={[
+                  { key: "0", label: "Today" },
+                  { key: "1", label: "Yesterday" },
+                  { key: "2", label: "Feb 15" },
+                  { key: "3", label: "Feb 14" },
+                  { key: "4", label: "Feb 13" },
+                ]}
+                activeTab="0"
+              />
+            </div>
+          </div>
+          <div className="sr-surface" style={{ padding: 0, overflow: "hidden" }}>
+            <div style={{ padding: "12px 16px 4px" }}>
+              <div className="meta">Finished → Match detail (back only, no tabs)</div>
+            </div>
+            <div style={{ padding: "8px 20px 12px" }}>
+              <PageNav backTo="/finished" backLabel="Finished" />
+            </div>
+          </div>
+        </div>
+
+        {/* Usage */}
+        <div className="sr-label" style={{ marginBottom: 12 }}>Usage</div>
+        <pre className="sr-code" style={{ marginBottom: 24 }}>{`import { PageNav } from '../components/ui';
+
+// Back only (no tabs)
+<PageNav backTo="/ladder" backLabel="Ladder" />
+
+// Back + sibling tabs
+<PageNav
+  backTo="/news"
+  backLabel="News"
+  tabs={[
+    { key: "0", label: "Feb 9 – 15" },
+    { key: "1", label: "Feb 2 – 8" },
+  ]}
+  activeTab="0"
+  onTab={(key) => setActiveIdx(Number(key))}
+/>`}</pre>
+
+        <table className="sr-table">
+          <thead>
+            <tr>
+              <th>Element</th>
+              <th>CSS</th>
+            </tr>
+          </thead>
+          <tbody>
+            <tr>
+              <td style={{ fontFamily: "var(--font-display)", color: "var(--gold)", whiteSpace: "nowrap" }}>Back arrow</td>
+              <td><code>font-size: var(--text-sm); color: var(--gold); translateX(-3px) on hover</code></td>
+            </tr>
+            <tr>
+              <td style={{ fontFamily: "var(--font-display)", color: "var(--gold)", whiteSpace: "nowrap" }}>Back label</td>
+              <td><code>font-family: var(--font-mono); font-size: var(--text-xxs); uppercase; letter-spacing: 0.08em</code></td>
+            </tr>
+            <tr>
+              <td style={{ fontFamily: "var(--font-display)", color: "var(--gold)", whiteSpace: "nowrap" }}>Tab (active)</td>
+              <td><code>color: var(--gold); border-bottom: 2px solid var(--gold)</code></td>
+            </tr>
+            <tr>
+              <td style={{ fontFamily: "var(--font-display)", color: "var(--gold)", whiteSpace: "nowrap" }}>Tab (inactive)</td>
+              <td><code>color: var(--grey-light); hover → var(--white)</code></td>
+            </tr>
+          </tbody>
+        </table>
       </section>
 
       <footer className="sr-footer reveal" style={{ "--delay": "0.2s" }}>

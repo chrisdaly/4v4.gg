@@ -42,10 +42,10 @@ export default function useVariantGen({ weekStart, apiKey, isAdmin }) {
     return () => { if (pollRef.current) clearInterval(pollRef.current); };
   }, [weekStart, isAdmin, apiKey]);
 
-  // Poll while pending/running
+  // Poll while pending/running (only when we have a real job ID from the server)
   useEffect(() => {
     if (pollRef.current) clearInterval(pollRef.current);
-    if (!job || (job.status !== "pending" && job.status !== "running")) return;
+    if (!job || !job.id || (job.status !== "pending" && job.status !== "running")) return;
 
     pollRef.current = setInterval(() => {
       fetch(`${RELAY_URL}/api/admin/weekly-digest/${weekStart}/gen-status`, { headers })
@@ -87,6 +87,10 @@ export default function useVariantGen({ weekStart, apiKey, isAdmin }) {
 
   const startGeneration = useCallback(async () => {
     if (!weekStart || !apiKey) return;
+    // Immediate visual feedback
+    setJob({ id: null, status: "pending", total: 3, completed: 0, error: null });
+    setVariants([]);
+    setPicks({});
     try {
       const res = await fetch(`${RELAY_URL}/api/admin/weekly-digest/${weekStart}/generate-variants`, {
         method: "POST",
@@ -95,11 +99,13 @@ export default function useVariantGen({ weekStart, apiKey, isAdmin }) {
       if (res.ok) {
         const data = await res.json();
         setJob({ id: data.jobId, status: "pending", total: 3, completed: 0, error: null });
-        setVariants([]);
-        setPicks({});
+      } else {
+        const err = await res.json().catch(() => ({ error: `Server returned ${res.status}` }));
+        setJob({ id: null, status: "error", total: 3, completed: 0, error: err.error || "Failed to start generation" });
       }
     } catch (err) {
       console.warn("[VariantGen] Start failed:", err.message);
+      setJob({ id: null, status: "error", total: 3, completed: 0, error: err.message });
     }
   }, [weekStart, apiKey]);
 

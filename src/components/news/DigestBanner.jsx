@@ -794,9 +794,9 @@ const DigestBanner = ({ digest, nameSet, nameToTag, label = "Yesterday in 4v4", 
 
                     const isDataSection = DATA_SECTIONS.has(key);
                     const handleClick = editable
-                      ? (e) => { if (e.target.closest(".chat-context")) return; toggleItem(key, i); }
+                      ? (e) => { if (e.target.closest(".cc-panel")) return; toggleItem(key, i); }
                       : (isClickable && !isDataSection)
-                        ? (e) => { if (e.target.closest(".chat-context")) return; setExpandedItem(isExpanded ? null : { key, idx: i }); }
+                        ? (e) => { if (e.target.closest(".cc-panel")) return; setExpandedItem(isExpanded ? null : { key, idx: i }); }
                         : undefined;
 
                     const isDragOver = editable && dragOverIdx?.key === key && dragOverIdx?.idx === i;

@@ -283,6 +283,96 @@ export function initDb() {
     );
   `);
 
+  // ── Replay tables ──────────────────────────────────
+  db.exec(`
+    CREATE TABLE IF NOT EXISTS replays (
+      id              INTEGER PRIMARY KEY AUTOINCREMENT,
+      filename        TEXT NOT NULL,
+      file_path       TEXT NOT NULL,
+      file_size       INTEGER NOT NULL,
+      uploaded_at     TEXT NOT NULL DEFAULT (datetime('now')),
+      game_name       TEXT,
+      game_duration   INTEGER,
+      map_name        TEXT,
+      match_type      TEXT,
+      w3c_match_id    TEXT,
+      match_date      TEXT,
+      parse_status    TEXT NOT NULL DEFAULT 'pending',
+      parse_error     TEXT,
+      raw_parsed      TEXT
+    );
+
+    CREATE TABLE IF NOT EXISTS replay_players (
+      id          INTEGER PRIMARY KEY AUTOINCREMENT,
+      replay_id   INTEGER NOT NULL REFERENCES replays(id),
+      player_id   INTEGER NOT NULL,
+      player_name TEXT NOT NULL,
+      team_id     INTEGER,
+      race        TEXT,
+      apm         REAL,
+      battle_tag  TEXT,
+      UNIQUE(replay_id, player_id)
+    );
+
+    CREATE TABLE IF NOT EXISTS replay_chat (
+      id          INTEGER PRIMARY KEY AUTOINCREMENT,
+      replay_id   INTEGER NOT NULL REFERENCES replays(id),
+      player_id   INTEGER NOT NULL,
+      player_name TEXT NOT NULL,
+      message     TEXT NOT NULL,
+      time_ms     INTEGER NOT NULL,
+      mode        TEXT NOT NULL DEFAULT 'All'
+    );
+
+    CREATE TABLE IF NOT EXISTS replay_player_actions (
+      id              INTEGER PRIMARY KEY AUTOINCREMENT,
+      replay_id       INTEGER NOT NULL REFERENCES replays(id),
+      player_id       INTEGER NOT NULL,
+      assigngroup     INTEGER DEFAULT 0,
+      rightclick      INTEGER DEFAULT 0,
+      basic           INTEGER DEFAULT 0,
+      buildtrain      INTEGER DEFAULT 0,
+      ability         INTEGER DEFAULT 0,
+      item            INTEGER DEFAULT 0,
+      select_count    INTEGER DEFAULT 0,
+      removeunit      INTEGER DEFAULT 0,
+      subgroup        INTEGER DEFAULT 0,
+      selecthotkey    INTEGER DEFAULT 0,
+      esc             INTEGER DEFAULT 0,
+      timed_segments  TEXT,
+      group_hotkeys   TEXT,
+      heroes          TEXT,
+      units_summary   TEXT,
+      buildings_summary TEXT,
+      early_game_sequence TEXT,
+      UNIQUE(replay_id, player_id)
+    );
+  `);
+
+  // ── Player fingerprints table ─────────────────────
+  db.exec(`
+    CREATE TABLE IF NOT EXISTS player_fingerprints (
+      id           INTEGER PRIMARY KEY AUTOINCREMENT,
+      replay_id    INTEGER NOT NULL REFERENCES replays(id),
+      player_id    INTEGER NOT NULL,
+      battle_tag   TEXT,
+      player_name  TEXT NOT NULL,
+      race         TEXT,
+      vector       TEXT NOT NULL,
+      action_seg   TEXT NOT NULL,
+      apm_seg      TEXT NOT NULL,
+      hotkey_seg   TEXT NOT NULL,
+      created_at   TEXT NOT NULL DEFAULT (datetime('now')),
+      UNIQUE(replay_id, player_id)
+    );
+    CREATE INDEX IF NOT EXISTS idx_fp_battle_tag ON player_fingerprints(battle_tag);
+  `);
+
+  // Migration: add early_game_sequence column to replay_player_actions
+  try {
+    db.exec(`ALTER TABLE replay_player_actions ADD COLUMN early_game_sequence TEXT`);
+  } catch (_) { /* column already exists */ }
+
   // Startup recovery: mark any running jobs as error
   db.prepare(`
     UPDATE weekly_gen_jobs SET status = 'error', error = 'Server restarted', updated_at = datetime('now')
@@ -569,12 +659,26 @@ export function getMessagesByDateAndUsers(date, battleTags, limit = 50) {
 
 export function getMessagesByDateRangeAndUser(startDate, endDate, battleTag, limit = 200) {
   return db.prepare(`
-    SELECT user_name, message, sent_at, battle_tag
+    SELECT user_name, message, sent_at, received_at, battle_tag
     FROM messages
     WHERE deleted = 0 AND DATE(received_at) >= ? AND DATE(received_at) <= ? AND battle_tag = ?
     ORDER BY received_at ASC
     LIMIT ?
   `).all(startDate, endDate, battleTag, limit);
+}
+
+export function getMessagesByDateRangeMentioning(startDate, endDate, searchTerms, excludeBattleTag, limit = 200) {
+  const likeConditions = searchTerms.map(() => 'LOWER(message) LIKE ?').join(' OR ');
+  const likeParams = searchTerms.map(t => `%${t.toLowerCase()}%`);
+  return db.prepare(`
+    SELECT user_name, message, sent_at, received_at, battle_tag
+    FROM messages
+    WHERE deleted = 0 AND DATE(received_at) >= ? AND DATE(received_at) <= ?
+      AND battle_tag != ?
+      AND (${likeConditions})
+    ORDER BY received_at ASC
+    LIMIT ?
+  `).all(startDate, endDate, excludeBattleTag, ...likeParams, limit);
 }
 
 // Format JS Date to SQLite datetime format: "YYYY-MM-DD HH:MM:SS"
@@ -1084,6 +1188,11 @@ export function getFirstAppearanceDate(battleTag) {
   return row?.first_date || null;
 }
 
+export function getLastActiveDateBefore(battleTag, beforeDate) {
+  const row = db.prepare('SELECT MAX(date) as last_date FROM daily_player_stats WHERE battle_tag = ? AND date < ?').get(battleTag, beforeDate);
+  return row?.last_date || null;
+}
+
 export function getWeeklyCoverImage(weekStart) {
   const row = db.prepare('SELECT cover_image FROM weekly_digests WHERE week_start = ?').get(weekStart);
   return row?.cover_image || null;
@@ -1185,4 +1294,233 @@ export function getCoverGenerationImage(id) {
 
 export function deleteCoverGeneration(id) {
   db.prepare('DELETE FROM cover_generations WHERE id = ?').run(id);
+}
+
+// ── Full-text message search ──────────────────────────
+
+export function searchMessages(query, limit = 50, offset = 0) {
+  return db.prepare(`
+    SELECT user_name, message, sent_at, battle_tag, received_at
+    FROM messages
+    WHERE deleted = 0 AND message LIKE ?
+    ORDER BY received_at DESC
+    LIMIT ? OFFSET ?
+  `).all(`%${query}%`, Math.min(limit, 200), offset);
+}
+
+export function getMessagesAroundTime(receivedAt, minutesPadding = 3, limit = 60) {
+  return db.prepare(`
+    SELECT user_name, message, sent_at, battle_tag, received_at
+    FROM messages
+    WHERE deleted = 0
+      AND received_at >= datetime(?, '-' || ? || ' minutes')
+      AND received_at <= datetime(?, '+' || ? || ' minutes')
+    ORDER BY received_at ASC
+    LIMIT ?
+  `).all(receivedAt, minutesPadding, receivedAt, minutesPadding, limit);
+}
+
+// ── Replays ──────────────────────────────────────────
+
+export function insertReplay({ filename, filePath, fileSize }) {
+  const result = db.prepare(`
+    INSERT INTO replays (filename, file_path, file_size) VALUES (?, ?, ?)
+  `).run(filename, filePath, fileSize);
+  return result.lastInsertRowid;
+}
+
+export function getReplayByW3cMatchId(w3cMatchId) {
+  return db.prepare('SELECT * FROM replays WHERE w3c_match_id = ?').get(w3cMatchId);
+}
+
+export function getExistingW3cMatchIds(matchIds) {
+  if (!matchIds.length) return new Set();
+  const placeholders = matchIds.map(() => '?').join(',');
+  const rows = db.prepare(`SELECT w3c_match_id FROM replays WHERE w3c_match_id IN (${placeholders})`).all(...matchIds);
+  return new Set(rows.map(r => r.w3c_match_id));
+}
+
+export function insertReplayWithW3c({ filename, filePath, fileSize, w3cMatchId }) {
+  const result = db.prepare(`
+    INSERT INTO replays (filename, file_path, file_size, w3c_match_id) VALUES (?, ?, ?, ?)
+  `).run(filename, filePath, fileSize, w3cMatchId);
+  return result.lastInsertRowid;
+}
+
+export function updateReplayParsed(id, { gameName, gameDuration, mapName, matchType, matchDate, rawParsed }) {
+  db.prepare(`
+    UPDATE replays SET
+      game_name = ?, game_duration = ?, map_name = ?, match_type = ?,
+      match_date = ?, parse_status = 'parsed', raw_parsed = ?
+    WHERE id = ?
+  `).run(gameName, gameDuration, mapName, matchType, matchDate, rawParsed, id);
+}
+
+export function updateReplayError(id, errorMessage) {
+  db.prepare(`
+    UPDATE replays SET parse_status = 'error', parse_error = ? WHERE id = ?
+  `).run(errorMessage, id);
+}
+
+export function getReplay(id) {
+  return db.prepare('SELECT * FROM replays WHERE id = ?').get(id);
+}
+
+export function listReplays(limit = 50, offset = 0) {
+  return db.prepare(`
+    SELECT id, filename, file_size, uploaded_at, game_name, game_duration,
+           map_name, match_type, w3c_match_id, match_date, parse_status, parse_error
+    FROM replays ORDER BY uploaded_at DESC LIMIT ? OFFSET ?
+  `).all(limit, offset);
+}
+
+export function getReplayCount() {
+  return db.prepare('SELECT COUNT(*) as count FROM replays').get().count;
+}
+
+export function deleteReplay(id) {
+  const tx = db.transaction(() => {
+    db.prepare('DELETE FROM player_fingerprints WHERE replay_id = ?').run(id);
+    db.prepare('DELETE FROM replay_player_actions WHERE replay_id = ?').run(id);
+    db.prepare('DELETE FROM replay_chat WHERE replay_id = ?').run(id);
+    db.prepare('DELETE FROM replay_players WHERE replay_id = ?').run(id);
+    db.prepare('DELETE FROM replays WHERE id = ?').run(id);
+  });
+  tx();
+}
+
+export function insertReplayPlayers(replayId, players) {
+  const stmt = db.prepare(`
+    INSERT OR REPLACE INTO replay_players (replay_id, player_id, player_name, team_id, race, apm, battle_tag)
+    VALUES (?, ?, ?, ?, ?, ?, ?)
+  `);
+  const tx = db.transaction(() => {
+    for (const p of players) {
+      stmt.run(replayId, p.playerId, p.playerName, p.teamId, p.race, p.apm, p.battleTag || null);
+    }
+  });
+  tx();
+}
+
+export function getReplayPlayers(replayId) {
+  return db.prepare('SELECT * FROM replay_players WHERE replay_id = ? ORDER BY team_id, player_id').all(replayId);
+}
+
+export function insertReplayChat(replayId, messages) {
+  const stmt = db.prepare(`
+    INSERT INTO replay_chat (replay_id, player_id, player_name, message, time_ms, mode)
+    VALUES (?, ?, ?, ?, ?, ?)
+  `);
+  const tx = db.transaction(() => {
+    for (const m of messages) {
+      stmt.run(replayId, m.playerId, m.playerName, m.message, m.timeMs, m.mode || 'All');
+    }
+  });
+  tx();
+}
+
+export function getReplayChat(replayId) {
+  return db.prepare('SELECT * FROM replay_chat WHERE replay_id = ? ORDER BY time_ms ASC').all(replayId);
+}
+
+export function insertReplayPlayerActions(replayId, actions) {
+  const stmt = db.prepare(`
+    INSERT OR REPLACE INTO replay_player_actions
+      (replay_id, player_id, assigngroup, rightclick, basic, buildtrain, ability, item,
+       select_count, removeunit, subgroup, selecthotkey, esc, timed_segments, group_hotkeys,
+       heroes, units_summary, buildings_summary, early_game_sequence)
+    VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+  `);
+  const tx = db.transaction(() => {
+    for (const a of actions) {
+      stmt.run(
+        replayId, a.playerId,
+        a.assigngroup, a.rightclick, a.basic, a.buildtrain, a.ability, a.item,
+        a.selectCount, a.removeunit, a.subgroup, a.selecthotkey, a.esc,
+        JSON.stringify(a.timedSegments),
+        JSON.stringify(a.groupHotkeys),
+        JSON.stringify(a.heroes),
+        JSON.stringify(a.unitsSummary),
+        JSON.stringify(a.buildingsSummary),
+        JSON.stringify(a.earlyGameSequence)
+      );
+    }
+  });
+  tx();
+}
+
+export function getReplayPlayerActions(replayId) {
+  return db.prepare('SELECT * FROM replay_player_actions WHERE replay_id = ? ORDER BY player_id').all(replayId);
+}
+
+// ── Player Fingerprints ─────────────────────────────
+
+export function insertPlayerFingerprints(replayId, fingerprints) {
+  const stmt = db.prepare(`
+    INSERT OR REPLACE INTO player_fingerprints
+      (replay_id, player_id, battle_tag, player_name, race, vector, action_seg, apm_seg, hotkey_seg)
+    VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
+  `);
+  const tx = db.transaction(() => {
+    for (const fp of fingerprints) {
+      stmt.run(
+        replayId, fp.playerId, fp.battleTag || null, fp.playerName, fp.race || null,
+        JSON.stringify(fp.vector), JSON.stringify(fp.segments.action),
+        JSON.stringify(fp.segments.apm), JSON.stringify(fp.segments.hotkey)
+      );
+    }
+  });
+  tx();
+}
+
+export function getPlayerFingerprints(battleTag) {
+  return db.prepare(`
+    SELECT pf.*, r.map_name, r.match_date, r.game_duration
+    FROM player_fingerprints pf
+    JOIN replays r ON r.id = pf.replay_id
+    WHERE pf.battle_tag = ?
+    ORDER BY r.match_date DESC
+  `).all(battleTag);
+}
+
+export function getAllAveragedFingerprints() {
+  return db.prepare(`
+    SELECT battle_tag, player_name, race,
+           COUNT(*) as replay_count,
+           GROUP_CONCAT(vector, '|||') as vectors,
+           GROUP_CONCAT(action_seg, '|||') as action_segs,
+           GROUP_CONCAT(apm_seg, '|||') as apm_segs,
+           GROUP_CONCAT(hotkey_seg, '|||') as hotkey_segs
+    FROM player_fingerprints
+    WHERE battle_tag IS NOT NULL
+    GROUP BY battle_tag
+  `).all();
+}
+
+export function getFingerprintCount() {
+  const players = db.prepare('SELECT COUNT(DISTINCT battle_tag) as count FROM player_fingerprints WHERE battle_tag IS NOT NULL').get();
+  const total = db.prepare('SELECT COUNT(*) as count FROM player_fingerprints').get();
+  return { totalPlayers: players.count, totalFingerprints: total.count };
+}
+
+export function getIndexedPlayers() {
+  return db.prepare(`
+    SELECT battle_tag, player_name, race, COUNT(*) as replay_count
+    FROM player_fingerprints
+    WHERE battle_tag IS NOT NULL
+    GROUP BY battle_tag
+    ORDER BY replay_count DESC
+  `).all();
+}
+
+export function getReplaysWithoutFingerprints() {
+  return db.prepare(`
+    SELECT r.id FROM replays r
+    WHERE r.parse_status = 'parsed'
+      AND r.id NOT IN (SELECT DISTINCT replay_id FROM player_fingerprints)
+  `).all();
+}
+
+export function deleteReplayFingerprints(replayId) {
+  db.prepare('DELETE FROM player_fingerprints WHERE replay_id = ?').run(replayId);
 }

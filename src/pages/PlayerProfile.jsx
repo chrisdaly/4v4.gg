@@ -1,6 +1,6 @@
 import React, { useState, useEffect, useReducer, useMemo, useRef, useCallback } from "react";
 import { Link } from "react-router-dom";
-import { CountryFlag, Select, Button } from "../components/ui";
+import { CountryFlag, Select, Button, PageNav } from "../components/ui";
 import { findPlayerInOngoingMatches } from "../lib/utils";
 import { getPlayerProfile, getPlayerTimelineMerged, getPlayerStats, getSeasons } from "../lib/api";
 import { cache } from "../lib/cache";
@@ -613,6 +613,7 @@ const PlayerProfile = () => {
 
   return (
     <div className="player-page">
+        <PageNav backTo="/ladder" backLabel="Ladder" />
         <header className="player-header reveal" style={{ "--delay": "0.05s" }}>
           <div className="player-header-left">
             <div className="hd-pic-wrapper">

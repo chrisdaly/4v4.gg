@@ -5,6 +5,7 @@
 
 import React, { useState, useRef, useEffect, useCallback } from "react";
 import styled from "styled-components";
+import { Link } from "react-router-dom";
 import { PageLayout } from "./PageLayout";
 
 // ============================================
@@ -691,6 +692,98 @@ export const ModalContent = styled.div`
   };
   max-width: 90vw;
 `;
+
+// ============================================
+// PAGE NAV (back + sub-tabs)
+// ============================================
+
+const PageNavWrap = styled.nav`
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--space-4);
+  padding: var(--space-2) 0;
+  margin-bottom: var(--space-4);
+`;
+
+const BackLink = styled(Link)`
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+  text-decoration: none;
+  color: var(--gold);
+  flex-shrink: 0;
+
+  &:hover .pn-arrow { transform: translateX(-3px); }
+  &:hover .pn-label { color: var(--white); }
+`;
+
+const BackArrow = styled.span.attrs({ className: "pn-arrow" })`
+  font-size: var(--text-sm);
+  line-height: 1;
+  transition: transform var(--transition), color var(--transition);
+`;
+
+const BackLabel = styled.span.attrs({ className: "pn-label" })`
+  font-family: var(--font-mono);
+  font-size: var(--text-xxs);
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+  transition: color var(--transition);
+`;
+
+const Tabs = styled.div`
+  display: flex;
+  gap: var(--space-1);
+  overflow-x: auto;
+  scrollbar-width: none;
+  -ms-overflow-style: none;
+  &::-webkit-scrollbar { display: none; }
+`;
+
+const Tab = styled.button`
+  font-family: var(--font-mono);
+  font-size: var(--text-xxs);
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+  color: ${p => p.$active ? "var(--gold)" : "var(--grey-light)"};
+  padding: var(--space-2) var(--space-4);
+  cursor: pointer;
+  transition: color var(--transition);
+  border: none;
+  border-bottom: 2px solid ${p => p.$active ? "var(--gold)" : "transparent"};
+  background: none;
+  white-space: nowrap;
+
+  &:hover { color: var(--white); }
+`;
+
+/**
+ * PageNav — Combined back-link + sub-tabs navigation.
+ *
+ * @param {string}   backTo    - Route path for the back link
+ * @param {string}   backLabel - Label shown next to the arrow (e.g. "News")
+ * @param {Array}    tabs      - Array of { key, label } for sub-tabs (optional)
+ * @param {string}   activeTab - Key of the currently active tab
+ * @param {Function} onTab     - Called with tab key when a tab is clicked
+ */
+export const PageNav = ({ backTo, backLabel, tabs, activeTab, onTab }) => (
+  <PageNavWrap className="reveal" style={{ "--delay": "0.03s" }}>
+    <BackLink to={backTo}>
+      <BackArrow>&#8592;</BackArrow>
+      <BackLabel>{backLabel}</BackLabel>
+    </BackLink>
+    {tabs && tabs.length > 0 && (
+      <Tabs>
+        {tabs.map(t => (
+          <Tab key={t.key} $active={t.key === activeTab} onClick={() => onTab?.(t.key)}>
+            {t.label}
+          </Tab>
+        ))}
+      </Tabs>
+    )}
+  </PageNavWrap>
+);
 
 /** Confirm modal — drop-in replacement for window.confirm() */
 export const ConfirmModal = ({

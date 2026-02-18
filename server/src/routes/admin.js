@@ -1,11 +1,11 @@
 import { Router } from 'express';
 import rateLimit from 'express-rate-limit';
 import config from '../config.js';
-import { setToken, getStats, getTopWords, getRecentDigests, deleteDigest, getDigest, getRecentWeeklyDigests, deleteWeeklyDigest, getWeeklyDigest, getWeeklyCoverImage, setWeeklyCoverImage, getDraftForDate, updateDigestOnly, updateDraftOnly, updateHiddenAvatars, getContextAroundQuotes, getMessagesByTimeWindow, getMessagesByDateAndUsers, getMessageBuckets, getGameStats, getMatchContext, getClipsByDateRange, saveCoverGeneration, getCoverGenerations, getCoverGenerationImage, deleteCoverGeneration, getWeeklyDraftForWeek, updateWeeklyDraftOnly, updateWeeklyDigestOnly, createGenJob, getActiveGenJob, getLatestGenJob, getVariantsForJob } from '../db.js';
+import { setToken, getStats, getTopWords, getRecentDigests, deleteDigest, getDigest, getRecentWeeklyDigests, deleteWeeklyDigest, getWeeklyDigest, getWeeklyCoverImage, setWeeklyCoverImage, getDraftForDate, updateDigestOnly, updateDraftOnly, updateHiddenAvatars, getContextAroundQuotes, getMessagesByTimeWindow, getMessagesByDateAndUsers, getMessageBuckets, getGameStats, getMatchContext, getClipsByDateRange, saveCoverGeneration, getCoverGenerations, getCoverGenerationImage, deleteCoverGeneration, getWeeklyDraftForWeek, updateWeeklyDraftOnly, updateWeeklyDigestOnly, createGenJob, getActiveGenJob, getLatestGenJob, getVariantsForJob, searchMessages, getMessagesAroundTime } from '../db.js';
 import { updateToken, getStatus } from '../signalr.js';
 import { getClientCount } from '../sse.js';
 import { setBotEnabled, isBotEnabled, testCommand } from '../bot.js';
-import { generateDigest, fetchDailyStats, generateLiveDigest, todayDigestCache, setTodayDigestCache, generateWeeklyDigest, curateDigest, fetchDailyStatCandidates, analyzeSpike, generateMoreItems, appendItemsToDraft, backfillDailyStats, backfillMatchScores, backfillMatchMmrs, generateWeeklyVariants } from '../digest.js';
+import { generateDigest, fetchDailyStats, generateLiveDigest, todayDigestCache, setTodayDigestCache, generateWeeklyDigest, curateDigest, fetchDailyStatCandidates, analyzeSpike, generateMoreItems, appendItemsToDraft, backfillDailyStats, backfillMatchScores, backfillMatchMmrs, generateWeeklyVariants, regenerateSection, regenerateSpotlights, regeneratePlayerQuotes, regenerateMatchStatBlurbs, getPlayerMessageCandidates, computeNewBlood, formatNewBloodLine } from '../digest.js';
 import { generateCoverImage, buildImagePrompt, extractHeadline, buildImagePromptWithPlayers, generateImageFromPrompt } from '../coverImage.js';
 
 const router = Router();
@@ -471,6 +471,14 @@ router.delete('/weekly-digest/:weekStart', requireApiKey, (req, res) => {
   if (!/^\d{4}-\d{2}-\d{2}$/.test(weekStart)) {
     return res.status(400).json({ error: 'weekStart must be YYYY-MM-DD' });
   }
+  // Safety: check if there's a draft with editorial work before deleting
+  const existing = getWeeklyDraftForWeek(weekStart);
+  if (existing?.draft && existing.draft !== existing.digest && !req.query.force) {
+    return res.status(409).json({
+      error: 'This weekly has an editorial draft with unsaved changes. Add ?force=true to delete anyway.',
+      hasDraft: true,
+    });
+  }
   deleteWeeklyDigest(weekStart);
   res.json({ ok: true, message: `Weekly digest for ${weekStart} cleared` });
 });
@@ -532,6 +540,135 @@ router.put('/weekly-digest/:weekStart/curate', requireApiKey, (req, res) => {
   }
   updateWeeklyDigestOnly(weekStart, curated);
   res.json({ ok: true, weekStart, digest: curated });
+});
+
+// Regenerate a single narrative section of a weekly digest (admin, AI)
+router.post('/weekly-digest/:weekStart/regen-section', requireApiKey, aiLimiter, async (req, res) => {
+  const { weekStart } = req.params;
+  if (!/^\d{4}-\d{2}-\d{2}$/.test(weekStart)) {
+    return res.status(400).json({ error: 'weekStart must be YYYY-MM-DD' });
+  }
+  const { section } = req.body;
+  if (!section) {
+    return res.status(400).json({ error: 'Missing section key' });
+  }
+  try {
+    const content = await regenerateSection(weekStart, section);
+    res.json({ ok: true, section, content });
+  } catch (err) {
+    console.error(`[Regen] ${section} error:`, err.message);
+    res.status(500).json({ error: err.message });
+  }
+});
+
+// Regenerate spotlight blurbs + chat quotes for all stat-card players (admin)
+router.post('/weekly-digest/:weekStart/regen-spotlights', requireApiKey, async (req, res) => {
+  const { weekStart } = req.params;
+  if (!/^\d{4}-\d{2}-\d{2}$/.test(weekStart)) {
+    return res.status(400).json({ error: 'weekStart must be YYYY-MM-DD' });
+  }
+  try {
+    const blurbs = await regenerateSpotlights(weekStart);
+    res.json({ ok: true, blurbs });
+  } catch (err) {
+    console.error('[Regen] Spotlights error:', err.message);
+    res.status(500).json({ error: err.message });
+  }
+});
+
+// Regenerate match stat blurbs + quotes (Hero Slayer, Unit Killer, etc.)
+router.post('/weekly-digest/:weekStart/regen-match-stats', requireApiKey, (req, res) => {
+  const { weekStart } = req.params;
+  if (!/^\d{4}-\d{2}-\d{2}$/.test(weekStart)) {
+    return res.status(400).json({ error: 'weekStart must be YYYY-MM-DD' });
+  }
+  try {
+    const blurbs = regenerateMatchStatBlurbs(weekStart);
+    res.json({ ok: true, blurbs });
+  } catch (err) {
+    console.error('[Regen] Match stats error:', err.message);
+    res.status(500).json({ error: err.message });
+  }
+});
+
+// Regenerate quotes for a single spotlight player (admin)
+router.post('/weekly-digest/:weekStart/regen-quotes', requireApiKey, (req, res) => {
+  const { weekStart } = req.params;
+  if (!/^\d{4}-\d{2}-\d{2}$/.test(weekStart)) {
+    return res.status(400).json({ error: 'weekStart must be YYYY-MM-DD' });
+  }
+  const { statKey, battleTag } = req.body;
+  if (!statKey || !battleTag) {
+    return res.status(400).json({ error: 'Missing statKey or battleTag' });
+  }
+  try {
+    const result = regeneratePlayerQuotes(weekStart, statKey, battleTag);
+    res.json({ ok: true, quotes: result });
+  } catch (err) {
+    console.error('[Regen] Quotes error:', err.message);
+    res.status(500).json({ error: err.message });
+  }
+});
+
+// Recompute NEW_BLOOD data and splice into existing draft (admin, no AI needed)
+router.post('/weekly-digest/:weekStart/regen-newblood', requireApiKey, async (req, res) => {
+  const { weekStart } = req.params;
+  if (!/^\d{4}-\d{2}-\d{2}$/.test(weekStart)) {
+    return res.status(400).json({ error: 'weekStart must be YYYY-MM-DD' });
+  }
+  try {
+    const weekly = getWeeklyDigest(weekStart);
+    if (!weekly) {
+      return res.status(404).json({ error: 'Weekly digest not found' });
+    }
+    const weekEnd = new Date(new Date(weekStart + 'T12:00:00Z').getTime() + 6 * 86400000)
+      .toISOString().split('T')[0];
+
+    const newBlood = await computeNewBlood(weekStart, weekEnd);
+    const newLine = formatNewBloodLine(newBlood);
+
+    // Splice into both digest and draft (if it exists)
+    function spliceNewBlood(text) {
+      const lines = text.split('\n');
+      const idx = lines.findIndex(l => l.startsWith('NEW_BLOOD:'));
+      if (newLine) {
+        if (idx >= 0) lines[idx] = newLine;
+        else lines.push(newLine);
+      } else if (idx >= 0) {
+        lines.splice(idx, 1);
+      }
+      return lines.join('\n');
+    }
+
+    updateWeeklyDigestOnly(weekStart, spliceNewBlood(weekly.digest));
+    if (weekly.draft) {
+      updateWeeklyDraftOnly(weekStart, spliceNewBlood(weekly.draft));
+    }
+
+    res.json({ ok: true, newBlood, line: newLine });
+  } catch (err) {
+    console.error('[Regen] NewBlood error:', err.message);
+    res.status(500).json({ error: err.message });
+  }
+});
+
+// Browse all scored message candidates for a spotlight player (admin)
+router.get('/weekly-digest/:weekStart/player-messages', requireApiKey, (req, res) => {
+  const { weekStart } = req.params;
+  if (!/^\d{4}-\d{2}-\d{2}$/.test(weekStart)) {
+    return res.status(400).json({ error: 'weekStart must be YYYY-MM-DD' });
+  }
+  const { statKey, battleTag } = req.query;
+  if (!statKey || !battleTag) {
+    return res.status(400).json({ error: 'Missing statKey or battleTag query params' });
+  }
+  try {
+    const candidates = getPlayerMessageCandidates(weekStart, statKey, battleTag);
+    res.json({ ok: true, messages: candidates });
+  } catch (err) {
+    console.error('[Browse] Messages error:', err.message);
+    res.status(500).json({ error: err.message });
+  }
 });
 
 // ── Variant Generation Endpoints ──────────────────────
@@ -941,6 +1078,21 @@ router.get('/messages/context', contextLimiter, (req, res) => {
   }
 
   const messages = getContextAroundQuotes(date, quotes, battleTags, 3, maxLimit);
+  res.json(messages);
+});
+
+// ── Full-text message search ──────────────────────────
+router.get('/messages/search', contextLimiter, (req, res) => {
+  const { q, limit = 50, offset = 0 } = req.query;
+  if (!q || q.length < 2) return res.status(400).json({ error: 'Query must be at least 2 characters' });
+  const results = searchMessages(q, Math.min(Number(limit), 200), Number(offset));
+  res.json({ query: q, count: results.length, results });
+});
+
+router.get('/messages/search/context', contextLimiter, (req, res) => {
+  const { received_at, padding = 3 } = req.query;
+  if (!received_at) return res.status(400).json({ error: 'received_at is required' });
+  const messages = getMessagesAroundTime(received_at, Number(padding), 60);
   res.json(messages);
 });
 
