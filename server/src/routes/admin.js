@@ -1,11 +1,11 @@
 import { Router } from 'express';
 import rateLimit from 'express-rate-limit';
 import config from '../config.js';
-import { setToken, getStats, getTopWords, getRecentDigests, deleteDigest, getDigest, getRecentWeeklyDigests, deleteWeeklyDigest, getWeeklyDigest, getWeeklyCoverImage, setWeeklyCoverImage, getDraftForDate, updateDigestOnly, updateDraftOnly, updateHiddenAvatars, getContextAroundQuotes, getMessagesByTimeWindow, getMessagesByDateAndUsers, getMessageBuckets, getGameStats, getMatchContext, getClipsByDateRange, saveCoverGeneration, getCoverGenerations, getCoverGenerationImage, deleteCoverGeneration, getWeeklyDraftForWeek, updateWeeklyDraftOnly, updateWeeklyDigestOnly, createGenJob, getActiveGenJob, getLatestGenJob, getVariantsForJob, searchMessages, getMessagesAroundTime } from '../db.js';
+import { setToken, getStats, getTopWords, getRecentDigests, deleteDigest, getDigest, getRecentWeeklyDigests, deleteWeeklyDigest, getWeeklyDigest, getWeeklyCoverImage, setWeeklyCoverImage, getDraftForDate, updateDigestOnly, updateDraftOnly, updateHiddenAvatars, getContextAroundQuotes, getMessagesByTimeWindow, getMessagesByDateAndUsers, getMessageBuckets, getGameStats, getMatchContext, getClipsByDateRange, saveCoverGeneration, getCoverGenerations, getCoverGenerationImage, deleteCoverGeneration, getWeeklyDraftForWeek, updateWeeklyDraftOnly, updateWeeklyDigestOnly, createGenJob, getActiveGenJob, getLatestGenJob, getVariantsForJob, searchMessages, getMessagesAroundTime, countMessagesByDateRange, updateWeeklyDigestJson } from '../db.js';
 import { updateToken, getStatus } from '../signalr.js';
 import { getClientCount } from '../sse.js';
 import { setBotEnabled, isBotEnabled, testCommand } from '../bot.js';
-import { generateDigest, fetchDailyStats, generateLiveDigest, todayDigestCache, setTodayDigestCache, generateWeeklyDigest, curateDigest, fetchDailyStatCandidates, analyzeSpike, generateMoreItems, appendItemsToDraft, backfillDailyStats, backfillMatchScores, backfillMatchMmrs, generateWeeklyVariants, regenerateSection, regenerateSpotlights, regeneratePlayerQuotes, regenerateMatchStatBlurbs, getPlayerMessageCandidates, computeNewBlood, formatNewBloodLine } from '../digest.js';
+import { generateDigest, fetchDailyStats, generateLiveDigest, todayDigestCache, setTodayDigestCache, generateWeeklyDigest, curateDigest, fetchDailyStatCandidates, analyzeSpike, generateMoreItems, appendItemsToDraft, backfillDailyStats, backfillMatchScores, backfillMatchMmrs, generateWeeklyVariants, regenerateSection, regenerateSpotlights, regeneratePlayerQuotes, regenerateMatchStatBlurbs, getPlayerMessageCandidates, computeNewBlood, formatNewBloodLine, digestToJSON } from '../digest.js';
 import { generateCoverImage, buildImagePrompt, extractHeadline, buildImagePromptWithPlayers, generateImageFromPrompt } from '../coverImage.js';
 
 const router = Router();
@@ -432,7 +432,7 @@ router.get('/analytics', publicLimiter, (_req, res) => {
   });
 });
 
-// Recent weekly digests (public) — parse clips + stats JSON
+// Recent weekly digests (public) — parse clips + stats + digest_json, backfill message count
 router.get('/weekly-digests', publicLimiter, (_req, res) => {
   const weeklies = getRecentWeeklyDigests(8).map(w => {
     const result = { ...w };
@@ -442,17 +442,46 @@ router.get('/weekly-digests', publicLimiter, (_req, res) => {
     if (w.stats) {
       try { result.stats = JSON.parse(w.stats); } catch { result.stats = null; }
     }
+    if (w.digest_json) {
+      try { result.digestJson = JSON.parse(w.digest_json); } catch { result.digestJson = null; }
+    }
+    delete result.digest_json;
+    // Backfill totalMessages if missing from stored stats
+    if (!result.stats?.totalMessages && w.week_start && w.week_end) {
+      const count = countMessagesByDateRange(w.week_start, w.week_end);
+      if (count > 0) {
+        result.stats = { ...(result.stats || {}), totalMessages: count };
+      }
+    }
     return result;
   });
   res.json(weeklies);
 });
 
 // Single weekly digest — generates if missing (public)
+// Pass ?format=json to get the structured JSON version
 router.get('/weekly-digest/:weekStart', aiLimiter, async (req, res) => {
   const { weekStart } = req.params;
   if (!/^\d{4}-\d{2}-\d{2}$/.test(weekStart)) {
     return res.status(400).json({ error: 'weekStart must be YYYY-MM-DD (a Monday)' });
   }
+
+  // If format=json requested, return stored digest_json (no generation)
+  if (req.query.format === 'json') {
+    const existing = getWeeklyDigest(weekStart);
+    if (!existing) {
+      return res.json({ weekStart, digestJson: null, reason: 'No weekly digest found' });
+    }
+    if (existing.digest_json) {
+      try {
+        return res.json({ weekStart, digestJson: JSON.parse(existing.digest_json) });
+      } catch {
+        return res.json({ weekStart, digestJson: null, reason: 'Failed to parse stored JSON' });
+      }
+    }
+    return res.json({ weekStart, digestJson: null, reason: 'No JSON version available (run backfill)' });
+  }
+
   try {
     const digest = await generateWeeklyDigest(weekStart);
     if (!digest) {
@@ -1031,6 +1060,44 @@ router.post('/backfill-mmrs', requireApiKey, async (req, res) => {
   } catch (err) {
     res.status(500).json({ error: err.message });
   }
+});
+
+// Backfill digest_json for all weekly digests missing it (admin)
+router.post('/backfill-digest-json', requireApiKey, (req, res) => {
+  const weeklies = getRecentWeeklyDigests(100);
+  let converted = 0;
+  let failed = 0;
+  const errors = [];
+
+  for (const w of weeklies) {
+    if (w.digest_json) continue; // already has JSON
+    if (!w.digest) continue;     // no flat text to convert
+
+    try {
+      let stats = null;
+      if (w.stats) {
+        try { stats = JSON.parse(w.stats); } catch { /* ignore */ }
+      }
+      let clips = [];
+      if (w.clips) {
+        try { clips = JSON.parse(w.clips); } catch { /* ignore */ }
+      }
+
+      const jsonObj = digestToJSON(w.digest, {
+        weekStart: w.week_start,
+        weekEnd: w.week_end,
+        stats,
+        clips,
+      });
+      updateWeeklyDigestJson(w.week_start, JSON.stringify(jsonObj));
+      converted++;
+    } catch (err) {
+      failed++;
+      errors.push({ weekStart: w.week_start, error: err.message });
+    }
+  }
+
+  res.json({ ok: true, converted, failed, errors: errors.slice(0, 10) });
 });
 
 // Chat context — surrounding messages for drama items or time windows (public)

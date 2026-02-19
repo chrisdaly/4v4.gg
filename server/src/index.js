@@ -12,6 +12,7 @@ import adminRoutes from './routes/admin.js';
 import clipRoutes from './routes/clips.js';
 import replayRoutes from './routes/replays.js';
 import fingerprintRoutes from './routes/fingerprints.js';
+import ogRoutes from './routes/og.js';
 import { startClipScheduler } from './clips.js';
 
 const app = express();
@@ -25,6 +26,7 @@ app.use('/api/admin', adminRoutes);
 app.use('/api/clips', clipRoutes);
 app.use('/api/replays', replayRoutes);
 app.use('/api/fingerprints', fingerprintRoutes);
+app.use('/og', ogRoutes);
 // Mount health at top level too for convenience
 app.get('/api/health', (req, res, next) => {
   req.url = '/health';

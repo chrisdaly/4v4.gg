@@ -1,6 +1,7 @@
 import React, { useState, useEffect, useMemo, useCallback, useRef } from "react";
 import { Link } from "react-router-dom";
-import { FiRefreshCw, FiX, FiPlus, FiMenu } from "react-icons/fi";
+import { FiRefreshCw, FiX, FiPlus, FiMenu, FiShare2, FiCamera } from "react-icons/fi";
+import html2canvas from "html2canvas";
 import ChatContext from "../ChatContext";
 import { fetchAndCacheProfile } from "../../lib/profileCache";
 import { CountryFlag, ConfirmModal, PageNav, Button } from "../ui";
@@ -42,6 +43,27 @@ const RACE_ICONS = {
   ORC: "/icons/orc.png",
   NE: "/icons/elf.png",
   UD: "/icons/undead.png",
+};
+
+/** Map hero display names (as they appear in digest text) → icon filenames */
+const HERO_ICON_MAP = {
+  "Shadow Hunter": "shadowhunter", "Death Knight": "deathknight", "Archmage": "archmage",
+  "Tauren Chieftain": "taurenchieftain", "Lich": "lich", "Blademaster": "blademaster",
+  "Mountain King": "mountainking", "Paladin": "paladin", "Far Seer": "farseer",
+  "Keeper": "keeperofthegrove", "Crypt Lord": "cryptlord", "Priestess": "priestessofthemoon",
+  "Dreadlord": "dreadlord", "Naga": "sorceror", "Sea Witch": "seawitch", "Pit Lord": "pitlord",
+  "Panda": "pandarenbrewmaster", "Dark Ranger": "bansheeranger", "Demon Hunter": "demonhunter",
+  "Tinker": "tinker", "Beastmaster": "beastmaster", "Alchemist": "alchemist",
+  "Firelord": "avatarofflame", "Warden": "warden",
+};
+
+/** Extract hero icon filenames from award detail text */
+const extractHeroIcons = (detail) => {
+  const icons = [];
+  for (const [name, file] of Object.entries(HERO_ICON_MAP)) {
+    if (detail.includes(name)) icons.push(file);
+  }
+  return icons;
 };
 
 /** Clean up summary text after quote extraction — removes empty paren blocks, stray punctuation */
@@ -198,8 +220,113 @@ const SectionRegenButton = ({ sectionKey, regenLoading, onRegen }) => {
 
 const CoverHero = ({ weekly, coverBg, headline, editorial }) => {
   const stats = weekly.stats;
+  const [copied, setCopied] = useState(false);
+  const [shotState, setShotState] = useState(null); // null | "copying" | "copied" | "saved"
+  const headerRef = useRef(null);
+
+  const handleShare = () => {
+    const shareUrl = `https://4v4gg-chat-relay.fly.dev/og/news?week=${weekly.week_start}`;
+    navigator.clipboard.writeText(shareUrl).then(() => {
+      setCopied(true);
+      setTimeout(() => setCopied(false), 2000);
+    });
+  };
+
+  const handleScreenshot = useCallback(async () => {
+    if (!headerRef.current || shotState === "copying") return;
+    setShotState("copying");
+    try {
+      // Pre-fetch cover image as data URL to avoid cross-origin dimming
+      const img = headerRef.current.querySelector(".mg-header-img");
+      let imgDataUrl = null;
+      if (img?.src && !img.src.startsWith("data:")) {
+        try {
+          const proxyUrl = `${RELAY_URL}/api/admin/image-proxy?url=${encodeURIComponent(img.src)}`;
+          const resp = await fetch(proxyUrl);
+          if (resp.ok) {
+            const blob = await resp.blob();
+            imgDataUrl = await new Promise((resolve) => {
+              const reader = new FileReader();
+              reader.onload = () => resolve(reader.result);
+              reader.readAsDataURL(blob);
+            });
+          }
+        } catch { /* fall back to useCORS */ }
+      }
+
+      const canvas = await html2canvas(headerRef.current, {
+        backgroundColor: "#0f0d0b",
+        scale: 2,
+        useCORS: true,
+        onclone: (_doc, el) => {
+          // Art collection style: just the image, title, date, faint link
+          el.style.cssText = "position:relative;padding:0;background:none;overflow:hidden;margin:0";
+
+          // Hide original text elements and buttons
+          for (const hide of el.querySelectorAll(".mg-header-actions, .mg-header-meta, .mg-header-title")) {
+            hide.style.display = "none";
+          }
+
+          // Full-bleed image
+          const imgWrap = el.querySelector(".mg-header-image");
+          const clonedImg = el.querySelector(".mg-header-img");
+          if (clonedImg && imgDataUrl) clonedImg.src = imgDataUrl;
+          if (imgWrap) {
+            imgWrap.style.cssText = "position:relative;border:none;border-radius:0;overflow:hidden;outline:none;box-shadow:none;margin:0;padding:0";
+          }
+          if (clonedImg) {
+            clonedImg.style.cssText = "display:block;width:110%;max-width:none;margin:-6% -5%;border:none;outline:none";
+          }
+
+          // ── Bottom overlay: title, date, faint link ──
+          const overlay = _doc.createElement("div");
+          overlay.style.cssText = "position:absolute;bottom:0;left:0;right:0;padding:48px 20px 14px;background:linear-gradient(0deg,rgba(0,0,0,0.55) 0%,rgba(0,0,0,0.2) 50%,transparent 100%);z-index:2";
+
+          if (headline) {
+            const titleEl = _doc.createElement("div");
+            titleEl.style.cssText = "font-family:'Friz_Quadrata_Bold',Georgia,serif;font-size:26px;color:#fcdb33;line-height:1.15;text-shadow:0 2px 8px rgba(0,0,0,0.7);margin-bottom:6px";
+            titleEl.textContent = headline;
+            overlay.appendChild(titleEl);
+          }
+
+          const footRow = _doc.createElement("div");
+          footRow.style.cssText = "display:flex;align-items:baseline;justify-content:space-between";
+
+          const dateEl = _doc.createElement("span");
+          dateEl.style.cssText = "font-family:'Inconsolata',monospace;font-size:11px;color:rgba(255,255,255,0.55);letter-spacing:0.12em;text-transform:uppercase;text-shadow:0 1px 6px rgba(0,0,0,0.9)";
+          dateEl.textContent = formatWeekRange(weekly.week_start, weekly.week_end);
+          footRow.appendChild(dateEl);
+
+          const link = _doc.createElement("span");
+          link.style.cssText = "font-family:'Inconsolata',monospace;font-size:10px;color:rgba(255,255,255,0.3);letter-spacing:0.06em;text-shadow:0 1px 4px rgba(0,0,0,0.8)";
+          link.textContent = "4v4.gg";
+          footRow.appendChild(link);
+
+          overlay.appendChild(footRow);
+          if (imgWrap) imgWrap.appendChild(overlay);
+        },
+      });
+      const blob = await new Promise((r) => canvas.toBlob(r, "image/png"));
+      if (blob && navigator.clipboard?.write) {
+        await navigator.clipboard.write([new ClipboardItem({ "image/png": blob })]);
+        setShotState("copied");
+      } else if (blob) {
+        const url = URL.createObjectURL(blob);
+        const a = document.createElement("a");
+        a.href = url;
+        a.download = `4v4gg-weekly-${weekly.week_start}.png`;
+        a.click();
+        URL.revokeObjectURL(url);
+        setShotState("saved");
+      }
+    } catch {
+      setShotState(null);
+    }
+    setTimeout(() => setShotState(null), 2000);
+  }, [weekly.week_start, shotState]);
+
   return (
-    <header className="mg-header reveal" style={{ "--delay": "0.05s" }}>
+    <header className="mg-header reveal" ref={headerRef} style={{ "--delay": "0.05s" }}>
       <div className="mg-header-meta">
         <span className="mg-header-date">{formatWeekRange(weekly.week_start, weekly.week_end)}</span>
         {stats?.totalGames != null && (
@@ -212,6 +339,19 @@ const CoverHero = ({ weekly, coverBg, headline, editorial }) => {
             <span className="mg-header-stat-val">{stats.uniquePlayers.toLocaleString()}</span> Players
           </span>
         )}
+        {stats?.totalMessages != null && stats.totalMessages > 0 && (
+          <span className="mg-header-stat-inline">
+            <span className="mg-header-stat-val">{stats.totalMessages.toLocaleString()}</span> Messages
+          </span>
+        )}
+        <span className="mg-header-actions">
+          <button className="digest-screenshot-btn" onClick={handleScreenshot} title="Copy as image">
+            {shotState === "copying" ? "..." : shotState === "copied" ? "Copied!" : shotState === "saved" ? "Saved!" : <FiCamera size={14} />}
+          </button>
+          <button className="digest-screenshot-btn" onClick={handleShare} title="Copy share link for Discord">
+            {copied ? "Copied!" : <FiShare2 size={14} />}
+          </button>
+        </span>
       </div>
       {headline && (
         editorial ? (
@@ -231,12 +371,8 @@ const CoverHero = ({ weekly, coverBg, headline, editorial }) => {
 const FeatureStory = ({ lead, quotes, curated, nameToTag, editorial }) => {
   if (!lead) return null;
 
-  // Curated DRAMA_QUOTES show as-is; auto-extracted quotes filter to speakers in the lead
-  const leadLower = lead.toLowerCase();
-  const attributed = curated ? quotes : quotes.filter((q) => {
-    const m = q.match(/^(\w[\w\d!ǃ]*?):\s+/);
-    return m && leadLower.includes(m[1].toLowerCase());
-  }).slice(0, 3);
+  // Show all quotes from the lead story (already scoped to first item)
+  const attributed = quotes;
 
   // For QuoteBrowser in editorial mode — extract mentioned battle tags
   const mentionedTags = editorial?.browseMessages && nameToTag
@@ -636,7 +772,6 @@ const SpotlightCard = ({ stat, profile, accent, role, blurb, quotes, statKey, he
           ) : stat.headline && (
             <span className={`mg-spotlight-mmr mg-text-${accent}`}>{stat.headline}</span>
           )}
-          {maxHeroKills && <span className="mg-spotlight-stat-secondary">{maxHeroKills} best in one game</span>}
         </div>
         {heroIcons?.length > 0 && (
           <div className="mg-spotlight-heroes">
@@ -1360,7 +1495,7 @@ const CompactStats = ({ newBloodContent, atContent, heroesContent, matchStatsCon
                             <Link to={`/player/${encodeURIComponent(p.battleTag)}`} className="mg-returning-name">{p.name}</Link>
                             {profile?.country && <CountryFlag name={profile.country.toLowerCase()} />}
                           </div>
-                          <span className="mg-returning-gap">{fmtGap(p.gapDays)} away</span>
+                          <span className="mg-returning-gap">{fmtGap(p.gapDays)} AFK</span>
                           <span className="mg-returning-stats">{p.games}G · {p.mmr} MMR</span>
                         </div>
                       );
@@ -1406,14 +1541,31 @@ const CompactStats = ({ newBloodContent, atContent, heroesContent, matchStatsCon
             <div className="mg-ticker-list">
               {allAwards.map((s) => {
                 const profile = profiles.get(s.battleTag);
-                // Trim detail for compact display
-                const shortDetail = s.detail
+                const heroIcons = extractHeroIcons(s.detail);
+                // Trim detail for compact display — strip hero names when icons shown
+                let shortDetail = s.detail
                   .replace(/\s+in\s+\d+%?\s+of\s+\d+\s+games?/gi, "")
                   .replace(/\s+in\s+\d+\s+games?/gi, "")
                   .replace(/\s+across\s+.*/i, "")
                   .replace(/\s*\([^)]*\)\s*/g, "")
-                  .replace(/picked\s+(\d+)\s+times?/i, "$1 picks")
+                  .replace(/picked\s+(\d+)\s+times?/i, "$1 times")
                   .trim();
+                if (heroIcons.length > 0) {
+                  // Strip hero display names — icons replace them inline
+                  for (const name of Object.keys(HERO_ICON_MAP)) {
+                    shortDetail = shortDetail.replace(name, "");
+                  }
+                  shortDetail = shortDetail.replace(/[\s+]+/g, " ").trim();
+                  // Rewrite to flow naturally into trailing icons
+                  if (/^won\b/i.test(shortDetail)) {
+                    // "won with 2 times" → "won 2x with"
+                    const m = shortDetail.match(/(\d+)\s*times?/);
+                    shortDetail = m ? `won ${m[1]}x with` : "won with";
+                  } else {
+                    // "3150 times" / "24 times" → "3150x" / "24x"
+                    shortDetail = shortDetail.replace(/(\d+)\s*times?/, "$1x");
+                  }
+                }
                 return (
                   <div key={s.category} className="mg-ticker-item">
                     <span className="mg-ticker-category">{s.category}</span>
@@ -1422,7 +1574,12 @@ const CompactStats = ({ newBloodContent, atContent, heroesContent, matchStatsCon
                         {profile?.pic && <img src={profile.pic} alt="" className="mg-ticker-pic" />}
                         <Link to={`/player/${encodeURIComponent(s.battleTag)}`} className="mg-ticker-name">{s.name}</Link>
                       </div>
-                      <span className="mg-ticker-detail">{shortDetail}</span>
+                      <span className="mg-ticker-detail">
+                        {shortDetail}
+                        {heroIcons.length > 0 && heroIcons.map((icon) => (
+                          <img key={icon} src={`/heroes/${icon}.jpeg`} alt={icon} className="mg-ticker-hero-icon" />
+                        ))}
+                      </span>
                     </div>
                   </div>
                 );
@@ -1710,7 +1867,11 @@ const WeeklyMagazine = ({ weekParam, isAdmin = false, apiKey = "" }) => {
   const dramaQuotesSection = find("DRAMA_QUOTES");
   const dramaQuotes = dramaQuotesSection
     ? [...dramaQuotesSection.content.matchAll(/"([^"]+)"/g)].map((m) => m[1])
-    : dramaSection ? splitQuotes(dramaSection.content).quotes : [];
+    : (() => {
+        if (!dramaSection) return [];
+        const firstItem = dramaSection.content.split(/;\s*/)[0] || "";
+        return splitQuotes(firstItem).quotes;
+      })();
   const dramaCleaned = dramaSection ? cleanSummary(splitQuotes(dramaSection.content).summary) : "";
   const dramaItems = dramaCleaned ? dramaCleaned.split(/;\s*/).filter(Boolean).map((s) => s.trim()) : [];
   // Lead item may have "Title | narrative body" format

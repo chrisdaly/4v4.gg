@@ -17,7 +17,7 @@
 
 /* Hero */
 .nw-hero {
-  margin-bottom: var(--space-12);
+  margin-bottom: var(--space-8);
 }
 
 .nw-eyebrow {
@@ -61,31 +61,26 @@
   text-shadow: 0 2px 12px rgba(0, 0, 0, 0.8);
 }
 
-/* Card list */
-.nw-card-list {
-  display: flex;
-  flex-direction: column;
-  gap: var(--space-6);
-}
+/* ── Weekly Hero ──────────────────────────────────────── */
 
-/* Weekly card — full-width hero with background image */
-.nw-card {
+.nw-hero-card {
   display: block;
   position: relative;
   text-decoration: none;
   border-radius: var(--radius-md);
   overflow: hidden;
-  min-height: 280px;
+  min-height: 200px;
+  margin-bottom: var(--space-8);
   border: var(--border-thin) solid var(--surface-2);
   transition: border-color 300ms ease, box-shadow 300ms ease;
 }
 
-.nw-card:hover {
+.nw-hero-card:hover {
   border-color: var(--gold);
   box-shadow: 0 8px 32px var(--overlay-light);
 }
 
-.nw-card-bg {
+.nw-hero-card-bg {
   position: absolute;
   inset: 0;
   background-size: cover;
@@ -93,114 +88,72 @@
   transition: transform 600ms ease;
 }
 
-.nw-card:hover .nw-card-bg {
+.nw-hero-card:hover .nw-hero-card-bg {
   transform: scale(1.03);
 }
 
-.nw-card-overlay {
+.nw-hero-card-overlay {
   position: absolute;
   inset: 0;
   background: linear-gradient(
     to right,
-    rgba(0, 0, 0, 0.85) 0%,
-    rgba(0, 0, 0, 0.6) 50%,
-    rgba(0, 0, 0, 0.3) 100%
+    rgba(0, 0, 0, 0.82) 0%,
+    rgba(0, 0, 0, 0.5) 50%,
+    rgba(0, 0, 0, 0.2) 100%
   );
 }
 
-.nw-card-content {
+.nw-hero-card-content {
   position: relative;
   z-index: 1;
   padding: var(--space-8) 36px;
   display: flex;
   flex-direction: column;
   justify-content: center;
-  min-height: 280px;
+  min-height: 200px;
 }
 
-.nw-card-eyebrow {
+.nw-hero-card-eyebrow {
   font-family: var(--font-mono);
   font-size: var(--text-xxs);
   text-transform: uppercase;
   letter-spacing: 0.2em;
   color: var(--gold);
+  display: block;
   margin-bottom: var(--space-2);
 }
 
-/* Title */
-.nw-card-title {
+.nw-hero-card-date {
   font-family: var(--font-display);
   font-size: clamp(1.6rem, 3.5vw, 2.4rem);
-  color: var(--gold);
+  color: #fff;
   margin: 0 0 var(--space-2) 0;
   line-height: 1.15;
   font-weight: normal;
   text-shadow: 0 2px 16px rgba(0, 0, 0, 0.8);
 }
 
-/* Teaser */
-.nw-card-teaser {
-  font-family: var(--font-body);
-  font-size: var(--text-sm);
-  color: var(--text-body);
-  line-height: 1.6;
-  margin: 0 0 var(--space-4) 0;
+.nw-hero-card-title {
+  font-family: var(--font-display);
+  font-size: clamp(1.4rem, 3vw, 2rem);
+  color: var(--gold);
+  margin: 0;
+  line-height: 1.2;
+  font-weight: normal;
   max-width: 50ch;
-  text-shadow: 0 1px 8px rgba(0, 0, 0, 0.7);
+  text-shadow: 0 2px 16px rgba(0, 0, 0, 0.8);
 }
 
-/* Stats row with dividers */
-.nw-card-stats {
-  display: flex;
-  gap: 0;
-  margin-top: var(--space-1);
-}
+/* ── Unified timeline ─────────────────────────────────── */
 
-.nw-stat {
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  gap: var(--space-1);
-  padding: 0 var(--space-4) 0 var(--space-1);
-  border-right: var(--border-thin) solid var(--surface-3);
-}
-
-.nw-stat:first-child {
-  padding-left: 0;
-  align-items: flex-start;
-}
-
-.nw-stat:last-child {
-  border-right: none;
-}
-
-.nw-stat-value {
-  font-family: var(--font-mono);
-  font-size: var(--text-base);
-  color: var(--white);
-  font-weight: 500;
-  letter-spacing: -0.01em;
-}
-
-.nw-stat-label {
-  font-family: var(--font-mono);
-  font-size: var(--text-xxs);
-  text-transform: uppercase;
-  letter-spacing: 0.08em;
-  color: var(--grey-light);
-}
-
-/* ── Daily timeline ─────────────────────────────────── */
-
-.nw-daily-list {
+.nw-timeline {
   display: flex;
   flex-direction: column;
   border-left: var(--border-thick) solid var(--surface-3);
   margin-left: var(--space-1);
-  padding-left: 0;
 }
 
-.nw-daily-card {
+.nw-timeline-item {
   display: flex;
   align-items: center;
   gap: var(--space-4);
@@ -210,43 +163,51 @@
   transition: background 200ms ease;
 }
 
-.nw-daily-card:hover {
+.nw-timeline-item:hover {
   background: var(--surface-1);
 }
 
-/* Timeline dot */
-.nw-daily-card::before {
+/* Timeline dot — centered on the 2px border-left line
+   dot = 8px content + 2px border each side = 12px total
+   border-left center is at -1px from child edge
+   so dot left = -1 - 6 = -7px */
+.nw-timeline-item::before {
   content: "";
   position: absolute;
-  left: -5px;
-  top: 50%;
-  transform: translateY(-50%);
+  left: -7px;
+  top: 0;
+  bottom: 0;
+  margin: auto;
   width: var(--space-2);
   height: var(--space-2);
   border-radius: var(--radius-full);
-  background: var(--grey-light);
+  background: var(--grey-mid);
   border: var(--border-thick) solid var(--surface-1, #0a0a0f);
   transition: background 200ms ease;
 }
 
-.nw-daily-card:first-child::before {
+.nw-timeline-item:first-child::before {
   background: var(--gold);
 }
 
-.nw-daily-card:hover::before {
+.nw-timeline-item:hover::before {
   background: var(--gold);
 }
 
-.nw-daily-date {
+/* Weekly dot is gold */
+.nw-timeline-item--weekly::before {
+  background: var(--gold);
+}
+
+.nw-timeline-date {
   flex-shrink: 0;
-  width: 72px;
+  width: 88px;
   display: flex;
   flex-direction: column;
-  align-items: flex-start;
-  gap: var(--space-1);
+  gap: 2px;
 }
 
-.nw-daily-date-day {
+.nw-timeline-date-day {
   font-family: var(--font-mono);
   font-size: var(--text-xxs);
   text-transform: uppercase;
@@ -254,20 +215,33 @@
   color: var(--grey-light);
 }
 
-.nw-daily-date-label {
+.nw-timeline-date-label {
   font-family: var(--font-display);
   font-size: var(--text-base);
   color: var(--gold);
   white-space: nowrap;
+  line-height: 1.2;
 }
 
-.nw-daily-content {
+.nw-timeline-badge {
+  font-family: var(--font-mono);
+  font-size: 10px;
+  text-transform: uppercase;
+  letter-spacing: 0.1em;
+  color: var(--gold);
+  background: rgba(252, 219, 51, 0.1);
+  border: 1px solid rgba(252, 219, 51, 0.25);
+  padding: 1px 6px;
+  border-radius: var(--radius-full);
+  white-space: nowrap;
+}
+
+.nw-timeline-content {
   flex: 1;
   min-width: 0;
-  padding-top: var(--space-1);
 }
 
-.nw-daily-teaser {
+.nw-timeline-teaser {
   font-family: var(--font-body);
   font-size: var(--text-sm);
   color: var(--grey-light);
@@ -277,7 +251,7 @@
   transition: color 200ms ease;
 }
 
-.nw-daily-card:hover .nw-daily-teaser {
+.nw-timeline-item:hover .nw-timeline-teaser {
   color: var(--white);
 }
 
@@ -318,12 +292,11 @@
     padding: var(--space-12) var(--space-4) var(--space-12);
   }
 
-  .nw-card-content {
+  .nw-hero-card-content {
     padding: var(--space-6) var(--space-4);
-    min-height: 220px;
   }
 
-  .nw-card-overlay {
+  .nw-hero-card-overlay {
     background: linear-gradient(
       to top,
       rgba(0, 0, 0, 0.9) 0%,
@@ -333,13 +306,13 @@
 }
 
 @media (max-width: 480px) {
-  .nw-daily-card {
+  .nw-timeline-item {
     gap: var(--space-2);
     padding-left: var(--space-4);
   }
 
-  .nw-daily-date {
-    width: 56px;
+  .nw-timeline-date {
+    width: 64px;
   }
 }
 

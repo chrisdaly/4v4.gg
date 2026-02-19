@@ -214,6 +214,13 @@ export function initDb() {
     // Column already exists — ignore
   }
 
+  // Migration: add digest_json column to weekly_digests (structured JSON format)
+  try {
+    db.exec(`ALTER TABLE weekly_digests ADD COLUMN digest_json TEXT`);
+  } catch {
+    // Column already exists — ignore
+  }
+
   // Migration: match_player_scores table for per-match detail stats
   db.exec(`
     CREATE TABLE IF NOT EXISTS match_player_scores (
@@ -814,6 +821,14 @@ export function getMessagesByTimeWindow(date, fromTime, toTime, limit = 100) {
   `).all(date, from, to, limit);
 }
 
+export function countMessagesByDateRange(startDate, endDate) {
+  return db.prepare(
+    `SELECT COUNT(*) as count FROM messages
+     WHERE received_at >= ? AND received_at < ?
+     AND deleted = 0`
+  ).get(startDate + ' 00:00:00', endDate + ' 23:59:59')?.count || 0;
+}
+
 export function getMessagesByDate(date) {
   return db.prepare(`
     SELECT battle_tag, user_name, message FROM messages
@@ -1216,16 +1231,21 @@ export function updateWeeklyDigestOnly(weekStart, digest) {
   db.prepare('UPDATE weekly_digests SET digest = ? WHERE week_start = ?').run(digest, weekStart);
 }
 
-export function setWeeklyDigestFull(weekStart, weekEnd, digest, clipsJson, statsJson) {
+export function setWeeklyDigestFull(weekStart, weekEnd, digest, clipsJson, statsJson, digestJson = null) {
   db.prepare(`
-    INSERT INTO weekly_digests (week_start, week_end, digest, clips, stats) VALUES (?, ?, ?, ?, ?)
+    INSERT INTO weekly_digests (week_start, week_end, digest, clips, stats, digest_json) VALUES (?, ?, ?, ?, ?, ?)
     ON CONFLICT(week_start) DO UPDATE SET
       digest = excluded.digest,
       week_end = excluded.week_end,
       clips = excluded.clips,
       stats = excluded.stats,
+      digest_json = excluded.digest_json,
       created_at = datetime('now')
-  `).run(weekStart, weekEnd, digest, clipsJson || null, statsJson || null);
+  `).run(weekStart, weekEnd, digest, clipsJson || null, statsJson || null, digestJson || null);
+}
+
+export function updateWeeklyDigestJson(weekStart, digestJson) {
+  db.prepare('UPDATE weekly_digests SET digest_json = ? WHERE week_start = ?').run(digestJson, weekStart);
 }
 
 // ── Match player scores (per-match detail stats) ─────

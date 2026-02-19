@@ -1,5 +1,5 @@
 import Anthropic from '@anthropic-ai/sdk';
-import { getMessagesByDate, getMessageBuckets, getDigest, setDigest, getRecentDigests, getWeeklyDigest, setWeeklyDigest, deleteDigest, setDigestWithDraft, updateDigestOnly, getDraftForDate, getMessagesByTimeWindow, getClipsByDateRange, updateClip4v4Status, updateDigestClips, setWeeklyDigestFull, getStreamers, saveDailyPlayerStats, getDailyPlayerStatsRange, hasDailyPlayerStats, saveDailyMatches, getDailyMatchesRange, getNewPlayersForWeek, saveMatchPlayerScores, hasMatchScores, getMatchPlayerScoresRange, getMatchIdsForDateRange, getDailyMatchesMissingMmrs, updateDailyMatchMmrs, getMessagesByDateRangeAndUser, getMessagesByDateRangeMentioning, getFirstAppearanceDate, getLastActiveDateBefore, getMessagesByDateAndUsers, updateGenJobStatus, updateGenJobProgress, saveWeeklyVariant } from './db.js';
+import { getMessagesByDate, getMessageBuckets, getDigest, setDigest, getRecentDigests, getWeeklyDigest, setWeeklyDigest, deleteDigest, setDigestWithDraft, updateDigestOnly, getDraftForDate, getMessagesByTimeWindow, getClipsByDateRange, updateClip4v4Status, updateDigestClips, setWeeklyDigestFull, getStreamers, saveDailyPlayerStats, getDailyPlayerStatsRange, hasDailyPlayerStats, saveDailyMatches, getDailyMatchesRange, getNewPlayersForWeek, saveMatchPlayerScores, hasMatchScores, getMatchPlayerScoresRange, getMatchIdsForDateRange, getDailyMatchesMissingMmrs, updateDailyMatchMmrs, getMessagesByDateRangeAndUser, getMessagesByDateRangeMentioning, getFirstAppearanceDate, getLastActiveDateBefore, getMessagesByDateAndUsers, updateGenJobStatus, updateGenJobProgress, saveWeeklyVariant, countMessagesByDateRange, updateWeeklyDigestOnly, updateWeeklyDraftOnly } from './db.js';
 import { runClipFetch } from './clips.js';
 import config from './config.js';
 
@@ -402,6 +402,450 @@ function autoPublishDigest(fullText, maxDrama = 5) {
     return { key: 'DRAMA', content: kept.join('; ') };
   }).filter(Boolean);
   return reassembleSections(result);
+}
+
+// ── digestToJSON: flat-text → structured JSON converter ──────────────
+
+/**
+ * Extract all quoted strings from text. Returns array of raw quote strings.
+ */
+function extractQuotedStrings(text) {
+  const quotes = [];
+  for (const m of text.matchAll(/"([^"]+)"/g)) {
+    quotes.push(m[1]);
+  }
+  return quotes;
+}
+
+/**
+ * Parse a raw "Name: message" quote string into { speaker, text }.
+ */
+function parseQuoteString(raw) {
+  const m = raw.match(/^(\w[\w\d!ǃ]*?):\s+(.+)$/);
+  return m ? { speaker: m[1], text: m[2] } : { speaker: null, text: raw };
+}
+
+/**
+ * Split text into summary (non-quoted part) and parsed quotes.
+ * Returns { summary, quotes: Quote[] }
+ */
+function splitQuotesFromText(text) {
+  const rawQuotes = extractQuotedStrings(text);
+  const quotes = rawQuotes.map(parseQuoteString);
+  let summary = text
+    .replace(/"[^"]+"/g, '')
+    .replace(/\s{2,}/g, ' ')
+    .replace(/\s*[—:,]\s*$/g, '')
+    .trim();
+  return { summary, quotes };
+}
+
+/**
+ * Parse TOPICS content into an array of topic strings.
+ */
+function parseTopicsJSON(content) {
+  if (!content) return [];
+  return content.split(/,\s*/).map(t => t.trim()).filter(Boolean);
+}
+
+/**
+ * Parse DRAMA/HIGHLIGHTS items with per-item quote extraction.
+ * Key: split on semicolons FIRST, then extract quotes per-item.
+ * Lead item (index 0) checks for | pipe headline separator.
+ */
+function parseDramaItems(content) {
+  if (!content) return [];
+  return content.split(/;\s*/).map((raw, idx) => {
+    const trimmed = raw.trim();
+    if (!trimmed) return null;
+    const { summary, quotes } = splitQuotesFromText(trimmed);
+    const item = { summary, quotes };
+    // Lead item may have a headline separated by |
+    if (idx === 0) {
+      const pipeIdx = summary.indexOf('|');
+      if (pipeIdx > 0) {
+        item.headline = summary.slice(0, pipeIdx).trim();
+        item.summary = summary.slice(pipeIdx + 1).trim();
+      }
+    }
+    return item;
+  }).filter(Boolean);
+}
+
+/**
+ * Parse BANS items. Format: "Name got Xd for reason matchId123; ..."
+ */
+function parseBanItems(content) {
+  if (!content) return [];
+  return content.split(/;\s*/).map(raw => {
+    const trimmed = raw.trim();
+    if (!trimmed) return null;
+    // Try structured regex: "Name banned/got Xd/perm for reason [matchId]"
+    const m = trimmed.match(/^(\S+)\s+(?:got\s+|banned\s+)?(\d+d|perm(?:a(?:nent)?)?)\s+(?:for\s+)?(.+?)(?:\s+([a-f0-9]{20,}))?$/i);
+    if (m) {
+      return {
+        name: m[1],
+        duration: m[2],
+        reason: m[3].replace(/\s+$/, ''),
+        matchId: m[4] || null,
+      };
+    }
+    // Fallback: extract what we can from the { summary, quotes } approach
+    const { summary, quotes } = splitQuotesFromText(trimmed);
+    return { name: null, duration: null, reason: summary, matchId: null, quotes };
+  }).filter(Boolean);
+}
+
+/**
+ * Parse highlight items — same per-item approach as drama.
+ */
+function parseHighlightItems(content) {
+  return parseDramaItems(content);  // Same structure as drama items
+}
+
+/**
+ * Parse a stat line. Port of digestUtils.js parseStatLine.
+ * Format: "Name#123[RACE] headline (XW-YL) FORM"
+ */
+function parseStatLineJSON(content) {
+  if (!content) return null;
+  const m = content.match(/^(.+?#\d+)(?:\[(\w+)\])?\s+(.+?)\s+\((\d+)W-(\d+)L\)\s*([WL]*)$/);
+  if (!m) return null;
+  const headline = m[3];
+  const mmrMatch = headline.match(/([+-]?\d+)\s*MMR/);
+  const streakMatch = headline.match(/(\d+)([WL])\s*streak/);
+  return {
+    battleTag: m[1],
+    race: m[2] || null,
+    headline,
+    mmrChange: mmrMatch ? parseInt(mmrMatch[1]) : null,
+    streakLength: streakMatch ? parseInt(streakMatch[1]) : null,
+    wins: parseInt(m[4]),
+    losses: parseInt(m[5]),
+    form: m[6] || '',
+  };
+}
+
+/**
+ * Parse a spotlight card: stat line + blurb + quotes.
+ */
+function parseSpotlightCard(key, sections) {
+  const find = k => sections.find(s => s.key === k)?.content || null;
+  const statContent = find(key);
+  if (!statContent) return null;
+
+  const stat = parseStatLineJSON(statContent);
+  if (!stat) return null;
+
+  const blurb = find(`${key}_BLURB`) || null;
+  const quotesRaw = find(`${key}_QUOTES`);
+  const quotes = quotesRaw ? extractQuotedStrings(quotesRaw).map(parseQuoteString) : [];
+
+  return { ...stat, blurb, quotes };
+}
+
+/**
+ * Parse a streak spotlight card: extends spotlight with daily breakdown + spectrum.
+ */
+function parseStreakCard(key, sections) {
+  const card = parseSpotlightCard(key, sections);
+  if (!card) return null;
+
+  const find = k => sections.find(s => s.key === k)?.content || null;
+
+  // Parse daily breakdown
+  const dailyContent = find(`${key}_DAILY`);
+  if (dailyContent) {
+    const [daysPart, metaPart] = dailyContent.split('|');
+    if (daysPart && metaPart) {
+      card.dailyBreakdown = daysPart.split(';').map(entry => {
+        const [dayForm, ...rest] = entry.split(',');
+        const colonIdx = dayForm.indexOf(':');
+        if (colonIdx < 0) return null;
+        return {
+          day: dayForm.slice(0, colonIdx),
+          form: dayForm.slice(colonIdx + 1),
+          streakGames: parseInt(rest[0]) || 0,
+          mmrChange: parseInt(rest[1]) || 0,
+        };
+      }).filter(Boolean);
+
+      for (const pair of metaPart.split(',')) {
+        const [k, v] = pair.split(':');
+        if (k === 'streakIdx') card.streakIdx = parseInt(v) || 0;
+        if (k === 'streakLen') card.streakLen = parseInt(v) || 0;
+      }
+    }
+  }
+
+  // Parse streak spectrum
+  const spectrumContent = find('STREAK_SPECTRUM');
+  if (spectrumContent && key === 'HOTSTREAK') {
+    const parseHalf = (str) => {
+      if (!str) return {};
+      const data = str.includes(':') ? str.split(':')[1] : str;
+      if (!data) return {};
+      const result = {};
+      for (const e of data.split(',')) {
+        const [len, count] = e.split('=');
+        if (!isNaN(parseInt(len)) && !isNaN(parseInt(count))) {
+          result[parseInt(len)] = parseInt(count);
+        }
+      }
+      return result;
+    };
+    const parts = spectrumContent.split('|');
+    const winPart = parts.find(p => p.startsWith('W:'));
+    const lossPart = parts.find(p => p.startsWith('L:'));
+    card.streakSpectrum = { wins: parseHalf(winPart), losses: parseHalf(lossPart) };
+  }
+
+  return card;
+}
+
+/**
+ * Parse the Hero Slayer spotlight card with extended data.
+ */
+function parseHeroSlayerCard(sections) {
+  const card = parseSpotlightCard('HEROSLAYER', sections);
+  if (!card) return null;
+
+  const find = k => sections.find(s => s.key === k)?.content || null;
+
+  const heroesContent = find('HEROSLAYER_HEROES');
+  if (heroesContent) card.playerHeroes = heroesContent.split(',').map(h => h.trim()).filter(Boolean);
+
+  const victimsContent = find('HEROSLAYER_VICTIMS');
+  if (victimsContent) card.victimHeroes = victimsContent.split(',').map(h => h.trim()).filter(Boolean);
+
+  const killboardContent = find('HEROSLAYER_KILLBOARD');
+  if (killboardContent) {
+    card.killboard = {};
+    for (const entry of killboardContent.split(',')) {
+      const [hero, count] = entry.split(':');
+      if (hero && count) card.killboard[hero.trim()] = parseInt(count) || 0;
+    }
+  }
+
+  const maxContent = find('HEROSLAYER_MAX');
+  if (maxContent) card.maxKillsInGame = parseInt(maxContent) || 0;
+
+  return card;
+}
+
+/**
+ * Parse POWER_RANKINGS into structured entries.
+ */
+function parsePowerRankingsJSON(content) {
+  if (!content) return [];
+  return content.split(/;\s*/).map(entry => {
+    const m = entry.trim().match(
+      /^(\d+)\.\s*(.+?#\d+)(?:\[(\w+)\])?\s+([+-]?\d+)\s*MMR\s+\((\d+)W-(\d+)L\)\s*([WL]*)$/
+    );
+    if (!m) return null;
+    return {
+      rank: parseInt(m[1]),
+      battleTag: m[2],
+      race: m[3] || null,
+      mmrChange: parseInt(m[4]),
+      wins: parseInt(m[5]),
+      losses: parseInt(m[6]),
+      form: m[7] || '',
+    };
+  }).filter(Boolean);
+}
+
+/**
+ * Parse MATCH_STATS or HEROES into structured award cards.
+ * Format: "Category Name#123 detail (Runner1, Runner2) | ..."
+ * Also attaches blurbs/quotes from companion sections like "Hero Slayer_BLURB".
+ */
+function parseAwardCardsJSON(content, sections) {
+  if (!content) return [];
+  return content.split(/\s*\|\s*/).map(entry => {
+    const m = entry.trim().match(
+      /^(.+?)\s+(\S+#\d+)\s+(.+?)(?:\s+\((.+)\))?$/
+    );
+    if (!m) return null;
+
+    let detail = m[3];
+    let combo = null;
+    const comboMatch = detail.match(/\s+\[([^\]]+)\]$/);
+    if (comboMatch) {
+      combo = comboMatch[1];
+      detail = detail.slice(0, comboMatch.index);
+    }
+
+    const runnersUp = m[4]
+      ? m[4].split(/,\s*/).map(r => r.trim()).filter(Boolean)
+      : [];
+
+    const category = m[1];
+    // Look for companion blurb/quotes sections
+    const blurbSec = sections.find(s => s.key === `${category}_BLURB`);
+    const quotesSec = sections.find(s => s.key === `${category}_QUOTES`);
+    const blurb = blurbSec?.content?.trim() || null;
+    const quotes = quotesSec
+      ? extractQuotedStrings(quotesSec.content).map(parseQuoteString)
+      : [];
+
+    return {
+      category,
+      battleTag: m[2],
+      stat: detail,
+      combo,
+      runnersUp,
+      blurb,
+      quotes,
+    };
+  }).filter(Boolean);
+}
+
+/**
+ * Parse NEW_BLOOD entries.
+ */
+function parseNewBloodJSON(content) {
+  if (!content) return [];
+  return content.split(/;\s*/).map(entry => {
+    const m = entry.trim().match(
+      /^(\S+#\d+)\s+debuted\s+at\s+(\d+)\s*MMR\s+\((\d+)\s+games?,\s*(\d+)%\s*WR\)(?:\s+\[returning(?::(\d{4}-\d{2}-\d{2}|\d+))?\])?(?:\s+first:(\d{4}-\d{2}-\d{2}))?$/
+    );
+    if (!m) return null;
+    return {
+      battleTag: m[1],
+      mmr: parseInt(m[2]),
+      games: parseInt(m[3]),
+      winRate: parseInt(m[4]),
+      isReturning: entry.includes('[returning'),
+      lastSeen: m[5] && m[5].includes('-') ? m[5] : null,
+      firstSeen: m[6] || null,
+    };
+  }).filter(Boolean);
+}
+
+/**
+ * Parse UPSET entries.
+ */
+function parseUpsetsJSON(content) {
+  if (!content) return [];
+  return content.split(/;\s*/).map(entry => {
+    const e = entry.trim();
+    if (!e) return null;
+    const m = e.match(
+      /^(.+?)\s+\(avg\s+(\d+)\s*MMR\)\s+beat\s+favorites?\s+\(avg\s+(\d+)\s*MMR\)\s+on\s+(.+?)\s+[—-]\s+(\d+)\s*MMR\s*gap\s+([a-f0-9]+)\s+\[([^\]]+)\]/i
+    );
+    if (!m) return null;
+    const parts = m[7].split('|');
+    if (parts.length < 4) return null;
+    const underdogMmrs = parts[0].split(',').map(Number);
+    const favoriteMmrs = parts[1].split(',').map(Number);
+    const underdogTags = parts[2].split(',');
+    const favoriteTags = parts[3].split(',');
+    return {
+      matchId: m[6],
+      map: m[4],
+      mmrGap: parseInt(m[5]),
+      underdogs: underdogTags.map((tag, i) => ({ battleTag: tag, mmr: underdogMmrs[i] || 0 })),
+      favorites: favoriteTags.map((tag, i) => ({ battleTag: tag, mmr: favoriteMmrs[i] || 0 })),
+    };
+  }).filter(Boolean);
+}
+
+/**
+ * Parse AT_SPOTLIGHT entries with optional bracket data.
+ */
+function parseATSpotlightJSON(content) {
+  if (!content) return [];
+  return content.split(/;\s*/).map(entry => {
+    const m = entry.trim().match(
+      /^(.+?)\s+\((\d)-stack,\s*avg\s+(\d+)\s*MMR\)\s+(\d+)W-(\d+)L\s+(\d+)%(?:\s+\[([^\]]+)\])?$/
+    );
+    if (!m) return null;
+    const playerNames = m[1].split(/\s*\+\s*/);
+    const wins = parseInt(m[4]);
+    const losses = parseInt(m[5]);
+
+    // Parse bracket data [tags|mmrs]
+    let players = playerNames.map(name => ({ name, battleTag: null, mmr: null }));
+    if (m[7]) {
+      const bParts = m[7].split('|');
+      if (bParts.length >= 2) {
+        const tags = bParts[0].split(',');
+        const mmrs = bParts[1].split(',').map(Number);
+        players = tags.map((tag, i) => ({
+          name: tag.split('#')[0],
+          battleTag: tag,
+          mmr: mmrs[i] || null,
+        }));
+      }
+    }
+
+    return {
+      players,
+      stackSize: parseInt(m[2]),
+      avgMmr: parseInt(m[3]),
+      wins,
+      losses,
+      winRate: parseInt(m[6]),
+    };
+  }).filter(Boolean);
+}
+
+/**
+ * Parse MENTIONS into { name: battleTag } mapping.
+ */
+function parseMentionsJSON(content) {
+  if (!content) return {};
+  const result = {};
+  for (const tag of content.split(',')) {
+    const trimmed = tag.trim();
+    if (!trimmed) continue;
+    const name = trimmed.split('#')[0];
+    if (name) result[name] = trimmed;
+  }
+  return result;
+}
+
+/**
+ * Convert flat-text weekly digest into structured JSON.
+ * @param {string} digestText - The flat "KEY: content\n" text
+ * @param {object} opts - Optional metadata: { weekStart, weekEnd, stats, clips }
+ * @returns {object} Structured digest JSON per DIGEST_DATA_STANDARD.md
+ */
+export function digestToJSON(digestText, { weekStart, weekEnd, stats, clips } = {}) {
+  const sections = parseDigestSections(digestText);
+  const find = (key) => sections.find(s => s.key === key)?.content || null;
+
+  return {
+    version: 1,
+    weekStart: weekStart || null,
+    weekEnd: weekEnd || null,
+    narrative: {
+      topics: parseTopicsJSON(find('TOPICS')),
+      drama: parseDramaItems(find('DRAMA')),
+      bans: parseBanItems(find('BANS')),
+      highlights: parseHighlightItems(find('HIGHLIGHTS')),
+      recap: find('RECAP') || null,
+      bestOfChat: find('BEST_OF_CHAT') || null,
+    },
+    spotlights: {
+      winner: parseSpotlightCard('WINNER', sections),
+      loser: parseSpotlightCard('LOSER', sections),
+      grinder: parseSpotlightCard('GRINDER', sections),
+      hotStreak: parseStreakCard('HOTSTREAK', sections),
+      coldStreak: parseStreakCard('COLDSTREAK', sections),
+      heroSlayer: parseHeroSlayerCard(sections),
+    },
+    powerRankings: parsePowerRankingsJSON(find('POWER_RANKINGS')),
+    matchStats: parseAwardCardsJSON(find('MATCH_STATS'), sections),
+    heroMeta: parseAwardCardsJSON(find('HEROES'), sections),
+    newBlood: parseNewBloodJSON(find('NEW_BLOOD')),
+    upsets: parseUpsetsJSON(find('UPSET')),
+    atSpotlight: parseATSpotlightJSON(find('AT_SPOTLIGHT')),
+    mentions: parseMentionsJSON(find('MENTIONS')),
+    stats: stats || null,
+    clips: clips || [],
+  };
 }
 
 /**
@@ -2103,17 +2547,37 @@ export async function generateWeeklyDigest(weekStart) {
   }
 
   // Build stats JSON
+  const totalMessages = countMessagesByDateRange(weekStart, weekEnd);
   const statsJson = weeklyMatchStats ? JSON.stringify({
     totalGames: weeklyMatchStats.totalGames,
     uniquePlayers: weeklyMatchStats.uniquePlayers,
     averageMmr: weeklyMatchStats.averageMmr,
     raceStats: weeklyMatchStats.raceStats,
     topMaps: weeklyMatchStats.topMaps,
-  }) : null;
+    totalMessages,
+  }) : JSON.stringify({ totalMessages });
+
+  // Convert flat text → structured JSON
+  let digestJson = null;
+  try {
+    const parsedStats = weeklyMatchStats ? {
+      totalGames: weeklyMatchStats.totalGames,
+      uniquePlayers: weeklyMatchStats.uniquePlayers,
+      averageMmr: weeklyMatchStats.averageMmr,
+      raceStats: weeklyMatchStats.raceStats,
+      topMaps: weeklyMatchStats.topMaps,
+      totalMessages: countMessagesByDateRange(weekStart, weekEnd),
+    } : { totalMessages: countMessagesByDateRange(weekStart, weekEnd) };
+    const jsonObj = digestToJSON(digest, { weekStart, weekEnd, stats: parsedStats, clips: weeklyClips });
+    digestJson = JSON.stringify(jsonObj);
+  } catch (err) {
+    console.warn('[Weekly] digestToJSON conversion failed:', err.message);
+  }
 
   setWeeklyDigestFull(weekStart, weekEnd, digest,
     weeklyClips.length > 0 ? JSON.stringify(weeklyClips) : null,
-    statsJson
+    statsJson,
+    digestJson
   );
   console.log(`[Weekly] Generated for ${weekStart} to ${weekEnd} (${dailyDigests.length} daily digests, ${weeklyClips.length} clips)`);
   return digest;
@@ -2287,6 +2751,26 @@ export function regenerateMatchStatBlurbs(weekStart) {
         result[`${category}_QUOTES`] = quotes.map(q => `"${q}"`).join('; ');
       }
     }
+  }
+
+  // Splice updated MATCH_STATS and HEROES lines into stored digest + draft
+  const weekly = getWeeklyDigest(weekStart);
+  if (weekly) {
+    const spliceAwardLine = (text, key, newLine) => {
+      if (!text || !newLine) return text;
+      const re = new RegExp(`${key}:\\s*[^\\n]+`);
+      if (re.test(text)) return text.replace(re, `${key}: ${newLine}`);
+      return text + `\n${key}: ${newLine}`;
+    };
+    for (const field of ['digest', 'draft']) {
+      let txt = weekly[field];
+      if (!txt) continue;
+      if (awards.matchStats) txt = spliceAwardLine(txt, 'MATCH_STATS', awards.matchStats);
+      if (awards.heroes) txt = spliceAwardLine(txt, 'HEROES', awards.heroes);
+      if (field === 'digest') updateWeeklyDigestOnly(weekStart, txt);
+      else updateWeeklyDraftOnly(weekStart, txt);
+    }
+    result._splicedSections = ['MATCH_STATS', 'HEROES'].filter(k => awards[k === 'MATCH_STATS' ? 'matchStats' : 'heroes']);
   }
 
   console.log(`[Regen] Regenerated match stat blurbs for ${weekStart}: ${Object.keys(result).join(', ')}`);
@@ -2703,7 +3187,8 @@ function computeWeeklyMatchScoreAwards(weekStart, weekEnd) {
     // Build Hero Slayer blurb with opponent hero context
     const wr = top.games > 0 ? Math.round(top.wins / top.games * 100) : 0;
     const topOpp = getTopOpponentHeroes(top.battleTag, 3);
-    let blurb = `${top.totalHeroesKilled} hero kills across ${top.games} games (${top.rate.toFixed(1)}/game, ${wr}% WR).`;
+    const maxNote = top.maxHeroKillsInGame > 0 ? `, best ${top.maxHeroKillsInGame} in one game` : '';
+    let blurb = `${top.totalHeroesKilled} hero kills across ${top.games} games (${top.rate.toFixed(1)}/game${maxNote}, ${wr}% WR).`;
     if (topOpp.length > 0) {
       const heroNames = topOpp.map(h => h.displayName);
       if (heroNames.length === 1) {
@@ -2799,7 +3284,7 @@ function computeWeeklyMatchScoreAwards(weekStart, weekEnd) {
     }
     const topPicker = [...heroPlayerCounts.entries()].sort((a, b) => b[1] - a[1])[0];
     if (topPicker) {
-      heroAwards.push(`Fan Favorite ${topPicker[0]} ${displayName} picked ${topCount} times (${pct}% of all picks)`);
+      heroAwards.push(`Fan Favorite ${topPicker[0]} ${displayName} ${topCount} times`);
     }
   }
 
@@ -2812,7 +3297,7 @@ function computeWeeklyMatchScoreAwards(weekStart, weekEnd) {
       const [comboKey, comboData] = rareWinners[0];
       const displayCombo = comboKey.split('+').map(h => HERO_DISPLAY_NAMES[h] || h).join(' + ');
       const player = comboData.players[0];
-      heroAwards.push(`Spicy Combo ${player} won with ${displayCombo} (picked ${comboData.count}x this week)`);
+      heroAwards.push(`Spicy Combo ${player} won with ${displayCombo} ${comboData.wins} times`);
     }
   }
 
@@ -2829,7 +3314,7 @@ function computeWeeklyMatchScoreAwards(weekStart, weekEnd) {
   if (oneTricks.length > 0) {
     const ot = oneTricks[0];
     const displayCombo = ot.topCombo.split('+').map(h => HERO_DISPLAY_NAMES[h] || h).join(' + ');
-    heroAwards.push(`One Trick ${ot.battleTag} ${displayCombo} in ${Math.round(ot.pct * 100)}% of ${ot.games} games`);
+    heroAwards.push(`One Trick ${ot.battleTag} ${displayCombo} ${ot.topCount} times in ${ot.games} games`);
   }
 
   // 7. Wildcard — most unique heroes picked (10+ games)
@@ -2842,7 +3327,7 @@ function computeWeeklyMatchScoreAwards(weekStart, weekEnd) {
     .sort((a, b) => b.uniqueHeroes - a.uniqueHeroes || b.uniqueCombos - a.uniqueCombos);
   if (wildcards.length > 0) {
     const wc = wildcards[0];
-    heroAwards.push(`Wildcard ${wc.battleTag} ${wc.uniqueHeroes} unique heroes across ${wc.uniqueCombos} combos in ${wc.games} games`);
+    heroAwards.push(`Wildcard ${wc.battleTag} ${wc.uniqueHeroes} unique heroes in ${wc.games} games`);
   }
 
   // Collect award winner battletags for quote lookup
