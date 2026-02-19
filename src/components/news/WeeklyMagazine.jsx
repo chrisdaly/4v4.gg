@@ -329,21 +329,6 @@ const CoverHero = ({ weekly, coverBg, headline, editorial }) => {
     <header className="mg-header reveal" ref={headerRef} style={{ "--delay": "0.05s" }}>
       <div className="mg-header-meta">
         <span className="mg-header-date">{formatWeekRange(weekly.week_start, weekly.week_end)}</span>
-        {stats?.totalGames != null && (
-          <span className="mg-header-stat-inline">
-            <span className="mg-header-stat-val">{stats.totalGames.toLocaleString()}</span> Games
-          </span>
-        )}
-        {stats?.uniquePlayers != null && (
-          <span className="mg-header-stat-inline">
-            <span className="mg-header-stat-val">{stats.uniquePlayers.toLocaleString()}</span> Players
-          </span>
-        )}
-        {stats?.totalMessages != null && stats.totalMessages > 0 && (
-          <span className="mg-header-stat-inline">
-            <span className="mg-header-stat-val">{stats.totalMessages.toLocaleString()}</span> Messages
-          </span>
-        )}
         <span className="mg-header-actions">
           <button className="digest-screenshot-btn" onClick={handleScreenshot} title="Copy as image">
             {shotState === "copying" ? "..." : shotState === "copied" ? "Copied!" : shotState === "saved" ? "Saved!" : <FiCamera size={14} />}
