@@ -1,7 +1,7 @@
 import { Router } from 'express';
 import rateLimit from 'express-rate-limit';
 import config from '../config.js';
-import { setToken, getStats, getTopWords, getRecentDigests, deleteDigest, getDigest, getRecentWeeklyDigests, deleteWeeklyDigest, getWeeklyDigest, getWeeklyCoverImage, setWeeklyCoverImage, getDraftForDate, updateDigestOnly, updateDraftOnly, updateHiddenAvatars, getContextAroundQuotes, getMessagesByTimeWindow, getMessagesByDateAndUsers, getMessageBuckets, getGameStats, getMatchContext, getClipsByDateRange, saveCoverGeneration, getCoverGenerations, getCoverGenerationImage, deleteCoverGeneration, getWeeklyDraftForWeek, updateWeeklyDraftOnly, updateWeeklyDigestOnly, createGenJob, getActiveGenJob, getLatestGenJob, getVariantsForJob, searchMessages, getMessagesAroundTime, countMessagesByDateRange, updateWeeklyDigestJson } from '../db.js';
+import { setToken, getStats, getTopWords, getRecentDigests, deleteDigest, getDigest, getRecentWeeklyDigests, deleteWeeklyDigest, getWeeklyDigest, getWeeklyCoverImage, setWeeklyCoverImage, getDraftForDate, updateDigestOnly, updateDraftOnly, updateHiddenAvatars, getContextAroundQuotes, getMessagesByTimeWindow, getMessagesByDateAndUsers, getMessageBuckets, getGameStats, getMatchContext, getClipsByDateRange, saveCoverGeneration, getCoverGenerations, getCoverGenerationImage, deleteCoverGeneration, getWeeklyDraftForWeek, updateWeeklyDraftOnly, updateWeeklyDigestOnly, createGenJob, getActiveGenJob, getLatestGenJob, getVariantsForJob, searchMessages, searchMessagesByPlayer, getMessagesAroundTime, countMessagesByDateRange, updateWeeklyDigestJson } from '../db.js';
 import { updateToken, getStatus } from '../signalr.js';
 import { getClientCount } from '../sse.js';
 import { setBotEnabled, isBotEnabled, testCommand } from '../bot.js';
@@ -1150,10 +1150,27 @@ router.get('/messages/context', contextLimiter, (req, res) => {
 
 // ── Full-text message search ──────────────────────────
 router.get('/messages/search', contextLimiter, (req, res) => {
-  const { q, limit = 50, offset = 0 } = req.query;
-  if (!q || q.length < 2) return res.status(400).json({ error: 'Query must be at least 2 characters' });
-  const results = searchMessages(q, Math.min(Number(limit), 200), Number(offset));
-  res.json({ query: q, count: results.length, results });
+  const { q, player, limit = 50, offset = 0 } = req.query;
+  const lim = Math.min(Number(limit), 200);
+  const off = Number(offset);
+
+  if (!q && !player) return res.status(400).json({ error: 'Query (q) or player param is required' });
+  if (q && q.length < 2) return res.status(400).json({ error: 'Query must be at least 2 characters' });
+  if (player && player.length < 2) return res.status(400).json({ error: 'Player query must be at least 2 characters' });
+
+  let results;
+  if (player && q) {
+    // Combined: messages by player matching text
+    const playerResults = searchMessagesByPlayer(player, 500, 0);
+    const lower = q.toLowerCase();
+    results = playerResults.filter(r => r.message.toLowerCase().includes(lower)).slice(off, off + lim);
+  } else if (player) {
+    results = searchMessagesByPlayer(player, lim, off);
+  } else {
+    results = searchMessages(q, lim, off);
+  }
+
+  res.json({ query: q || null, player: player || null, count: results.length, results });
 });
 
 router.get('/messages/search/context', contextLimiter, (req, res) => {

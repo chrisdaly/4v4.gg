@@ -1328,6 +1328,17 @@ export function searchMessages(query, limit = 50, offset = 0) {
   `).all(`%${query}%`, Math.min(limit, 200), offset);
 }
 
+export function searchMessagesByPlayer(playerQuery, limit = 50, offset = 0) {
+  const like = `%${playerQuery}%`;
+  return db.prepare(`
+    SELECT user_name, message, sent_at, battle_tag, received_at
+    FROM messages
+    WHERE deleted = 0 AND (user_name LIKE ? OR battle_tag LIKE ?)
+    ORDER BY received_at DESC
+    LIMIT ? OFFSET ?
+  `).all(like, like, Math.min(limit, 200), offset);
+}
+
 export function getMessagesAroundTime(receivedAt, minutesPadding = 3, limit = 60) {
   return db.prepare(`
     SELECT user_name, message, sent_at, battle_tag, received_at

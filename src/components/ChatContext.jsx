@@ -39,10 +39,28 @@ function groupMessages(messages) {
   return groups;
 }
 
+function parseTimestamp(ts) {
+  if (!ts) return null;
+  return new Date(ts.endsWith?.("Z") ? ts : typeof ts === "string" && !ts.includes("T") && !ts.includes("Z") ? ts + "Z" : ts);
+}
+
 function formatTimeShort(ts) {
-  if (!ts) return "";
-  const d = new Date(ts.endsWith?.("Z") ? ts : typeof ts === "string" && !ts.includes("T") && !ts.includes("Z") ? ts + "Z" : ts);
+  const d = parseTimestamp(ts);
+  if (!d) return "";
   return d.toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" });
+}
+
+function formatDateShort(ts) {
+  const d = parseTimestamp(ts);
+  if (!d) return "";
+  return d.toLocaleDateString([], { month: "short", day: "numeric" }) + " " +
+    d.toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" });
+}
+
+function getDateKey(ts) {
+  const d = parseTimestamp(ts);
+  if (!d) return "";
+  return d.toISOString().slice(0, 10);
 }
 
 /* ── ChatContext ────────────────────────────────────── */
@@ -62,6 +80,7 @@ function formatTimeShort(ts) {
  * @param {string}   highlight         - Text to highlight in messages
  * @param {Array}    targetTags        - battle_tags to highlight as gold (target players)
  * @param {boolean}  compact           - Minimal mode: no filter input, no panel border
+ * @param {boolean}  showDates         - Show full dates in timestamps (auto-enabled when messages span multiple days)
  */
 const ChatContext = ({
   messages,
@@ -77,6 +96,7 @@ const ChatContext = ({
   highlight = "",
   targetTags,
   compact = false,
+  showDates = false,
 }) => {
   const [filter, setFilter] = useState("");
   const [sortBy, setSortBy] = useState("score"); // "score" or "date"
@@ -85,6 +105,21 @@ const ChatContext = ({
   const [selectedCtx, setSelectedCtx] = useState(new Set()); // context panel selections (by received_at)
   const [profiles, setProfiles] = useState(new Map());
   const targetSet = useMemo(() => new Set(targetTags || []), [targetTags]);
+
+  // Detect whether messages span multiple days
+  const spansMultipleDays = useMemo(() => {
+    if (!messages || messages.length < 2) return false;
+    const dates = new Set();
+    for (const m of messages) {
+      const dk = getDateKey(m.received_at || m.sentAt || m.sent_at);
+      if (dk) dates.add(dk);
+      if (dates.size > 1) return true;
+    }
+    return false;
+  }, [messages]);
+
+  const useDates = showDates || spansMultipleDays;
+  const formatTime = useCallback((ts) => useDates ? formatDateShort(ts) : formatTimeShort(ts), [useDates]);
 
   // Context expansion state
   const [expandedMsg, setExpandedMsg] = useState(null); // { idx, receivedAt }
@@ -364,13 +399,25 @@ const ChatContext = ({
       {/* Message list */}
       {filtered.length > 0 && (
         <div className="cc-list">
-          {groupMessages(filtered).map((group, gi) => {
+          {(() => {
+            const groups = groupMessages(filtered);
+            let lastDateKey = null;
+            return groups.map((group, gi) => {
             const profile = profiles.get(group.battle_tag);
             const pic = profile?.pic;
             const isTarget = targetSet.size > 0 && targetSet.has(group.battle_tag);
             const isMentionGroup = group.lines[0]?.isMention;
+            const dateKey = useDates ? getDateKey(group.time) : null;
+            const showDateSep = useDates && dateKey && dateKey !== lastDateKey;
+            if (dateKey) lastDateKey = dateKey;
             return (
-              <div key={gi} className={`cc-group${isTarget ? " cc-group--target" : ""}${isMentionGroup ? " cc-group--mention" : ""}`}>
+              <React.Fragment key={gi}>
+                {showDateSep && (
+                  <div className="cc-date-separator">
+                    {parseTimestamp(group.time)?.toLocaleDateString([], { weekday: "short", month: "short", day: "numeric" }) || dateKey}
+                  </div>
+                )}
+              <div className={`cc-group${isTarget ? " cc-group--target" : ""}${isMentionGroup ? " cc-group--mention" : ""}`}>
                 <div className="cc-group-avatar">
                   {pic ? (
                     <img src={pic} alt="" className="cc-avatar" />
@@ -382,7 +429,7 @@ const ChatContext = ({
                   <div className="cc-group-header">
                     <span className={`cc-name${isTarget ? " cc-name--target" : ""}`}>{group.name}</span>
                     {isMentionGroup && <span className="cc-mention-badge">mention</span>}
-                    <span className="cc-time">{formatTimeShort(group.time)}</span>
+                    <span className="cc-time">{formatTime(group.time)}</span>
                   </div>
                   {group.lines.map((line) => {
                     const origIdx = messages.indexOf(line);
@@ -488,8 +535,10 @@ const ChatContext = ({
                   })}
                 </div>
               </div>
+              </React.Fragment>
             );
-          })}
+          });
+          })()}
         </div>
       )}
 

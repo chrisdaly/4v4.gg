@@ -420,6 +420,39 @@
   cursor: default;
 }
 
+/* ── Date separators ──────────────────────────────── */
+
+.cc-date-separator {
+  font-family: var(--font-mono);
+  font-size: var(--text-xxxs);
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+  color: var(--grey-mid);
+  text-align: center;
+  padding: var(--space-2) 0;
+  margin: var(--space-1) 0;
+  border-top: 1px solid rgba(255, 255, 255, 0.06);
+  position: relative;
+}
+
+.cc-date-separator::before,
+.cc-date-separator::after {
+  content: "";
+  position: absolute;
+  top: 50%;
+  width: 30%;
+  height: 1px;
+  background: rgba(255, 255, 255, 0.06);
+}
+
+.cc-date-separator::before {
+  left: 0;
+}
+
+.cc-date-separator::after {
+  right: 0;
+}
+
 /* ── Mentions ─────────────────────────────────────── */
 
 .cc-group--mention {

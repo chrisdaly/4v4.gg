@@ -162,38 +162,71 @@ function saveSearchHistory(history) {
   localStorage.setItem(SEARCH_HISTORY_KEY, JSON.stringify(history.slice(0, MAX_HISTORY)));
 }
 
+const ModeToggle = styled.button`
+  background: none;
+  border: 1px solid var(--grey-mid);
+  border-radius: var(--radius-sm);
+  color: var(--grey-light);
+  font-family: var(--font-mono);
+  font-size: var(--text-xxs);
+  padding: var(--space-1) var(--space-2);
+  cursor: pointer;
+  white-space: nowrap;
+  transition: border-color 0.15s, color 0.15s;
+  flex-shrink: 0;
+  height: 32px;
+
+  &:hover {
+    border-color: var(--gold);
+    color: #fff;
+  }
+
+  ${({ $active }) => $active && `
+    border-color: var(--gold);
+    color: var(--gold);
+  `}
+`;
+
 export default function ChatSearch() {
   const [query, setQuery] = useState("");
+  const [mode, setMode] = useState("text"); // "text" | "player"
   const [results, setResults] = useState([]);
   const [loading, setLoading] = useState(false);
   const [searched, setSearched] = useState(false);
   const [offset, setOffset] = useState(0);
   const [history, setHistory] = useState(loadSearchHistory);
 
-  const addToHistory = useCallback((q) => {
+  const addToHistory = useCallback((q, m) => {
     setHistory((prev) => {
-      const filtered = prev.filter((h) => h.toLowerCase() !== q.toLowerCase());
-      const next = [q, ...filtered].slice(0, MAX_HISTORY);
+      const key = `${m}:${q}`;
+      const filtered = prev.filter((h) => {
+        const hKey = typeof h === "object" ? `${h.mode}:${h.q}` : `text:${h}`;
+        return hKey.toLowerCase() !== key.toLowerCase();
+      });
+      const next = [{ q, mode: m }, ...filtered].slice(0, MAX_HISTORY);
       saveSearchHistory(next);
       return next;
     });
   }, []);
 
-  const removeFromHistory = useCallback((q) => {
+  const removeFromHistory = useCallback((entry) => {
     setHistory((prev) => {
-      const next = prev.filter((h) => h !== q);
+      const next = prev.filter((h) => h !== entry);
       saveSearchHistory(next);
       return next;
     });
   }, []);
 
-  const runSearch = useCallback(async (q, newOffset = 0) => {
+  const runSearch = useCallback(async (q, newOffset = 0, searchMode) => {
     if (!q || q.length < 2) return;
+    const m = searchMode || mode;
     setQuery(q);
+    setMode(m);
     setLoading(true);
-    addToHistory(q);
+    addToHistory(q, m);
     try {
-      const res = await fetch(`${RELAY_URL}/api/admin/messages/search?q=${encodeURIComponent(q)}&limit=50&offset=${newOffset}`);
+      const param = m === "player" ? `player=${encodeURIComponent(q)}` : `q=${encodeURIComponent(q)}`;
+      const res = await fetch(`${RELAY_URL}/api/admin/messages/search?${param}&limit=50&offset=${newOffset}`);
       const data = await res.json();
       if (newOffset === 0) {
         setResults(data.results || []);
@@ -206,12 +239,12 @@ export default function ChatSearch() {
       setResults([]);
     }
     setLoading(false);
-  }, [addToHistory]);
+  }, [mode, addToHistory]);
 
   const handleSearch = useCallback((e, newOffset = 0) => {
     if (e) e.preventDefault();
-    runSearch(query.trim(), newOffset);
-  }, [query, runSearch]);
+    runSearch(query.trim(), newOffset, mode);
+  }, [query, mode, runSearch]);
 
   // Normalize search results to ChatContext format
   const normalizedResults = results.map((r) => ({
@@ -226,9 +259,17 @@ export default function ChatSearch() {
     <Section>
       <SectionTitle>Chat Search</SectionTitle>
       <SearchForm onSubmit={handleSearch}>
+        <ModeToggle
+          type="button"
+          $active={mode === "player"}
+          onClick={() => setMode((m) => m === "text" ? "player" : "text")}
+          title={mode === "text" ? "Switch to player search" : "Switch to text search"}
+        >
+          {mode === "text" ? "Text" : "Player"}
+        </ModeToggle>
         <SearchInput
           type="text"
-          placeholder="Search messages... (player names, URLs, keywords)"
+          placeholder={mode === "text" ? "Search messages..." : "Search by player name..."}
           value={query}
           onChange={(e) => setQuery(e.target.value)}
           autoComplete="off"
@@ -241,23 +282,32 @@ export default function ChatSearch() {
       {history.length > 0 && (
         <HistoryRow>
           <HistoryLabel>Recent</HistoryLabel>
-          {history.map((h) => (
-            <HistoryChip key={h} onClick={() => runSearch(h)}>
-              {h}
-              <HistoryX onClick={(e) => { e.stopPropagation(); removeFromHistory(h); }}>&times;</HistoryX>
-            </HistoryChip>
-          ))}
+          {history.map((h, i) => {
+            const entry = typeof h === "object" ? h : { q: h, mode: "text" };
+            return (
+              <HistoryChip key={`${entry.mode}:${entry.q}:${i}`} onClick={() => runSearch(entry.q, 0, entry.mode)}>
+                {entry.mode === "player" ? `@${entry.q}` : entry.q}
+                <HistoryX onClick={(e) => { e.stopPropagation(); removeFromHistory(h); }}>&times;</HistoryX>
+              </HistoryChip>
+            );
+          })}
         </HistoryRow>
       )}
 
-      {searched && <SearchMeta>{results.length} result{results.length !== 1 ? "s" : ""} for &ldquo;{query}&rdquo;</SearchMeta>}
+      {searched && (
+        <SearchMeta>
+          {results.length} result{results.length !== 1 ? "s" : ""}
+          {mode === "player" ? ` by "${query}"` : ` for "${query}"`}
+        </SearchMeta>
+      )}
 
       {searched && normalizedResults.length > 0 && (
         <ChatContext
           messages={normalizedResults}
           loading={loading}
           expandable
-          highlight={query}
+          highlight={mode === "text" ? query : ""}
+          showDates
           placeholder="Filter results..."
         />
       )}
