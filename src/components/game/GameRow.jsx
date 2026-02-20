@@ -3,6 +3,7 @@ import { Link, useHistory } from "react-router-dom";
 import "./GameRow.css";
 
 import { raceMapping } from "../../lib/constants";
+import { RaceIcon } from "../ui";
 import { getMapImageUrl, formatDuration, formatTimeAgo } from "../../lib/formatters";
 
 /**
@@ -111,7 +112,7 @@ const GameRow = ({
                   history.push(`/player/${encodeURIComponent(ally.battleTag)}`);
                 }}
               >
-                <img src={raceMapping[ally.race]} alt="" className="gr-race" />
+                <RaceIcon race={ally.race} rndRace={ally.rndRace} className="gr-race" />
                 <span className="gr-player-name">{ally.name}</span>
               </span>
             ))}
@@ -131,7 +132,7 @@ const GameRow = ({
                   history.push(`/player/${encodeURIComponent(opp.battleTag)}`);
                 }}
               >
-                <img src={raceMapping[opp.race]} alt="" className="gr-race" />
+                <RaceIcon race={opp.race} rndRace={opp.rndRace} className="gr-race" />
                 <span className="gr-player-name">{opp.name}</span>
               </span>
             ))}

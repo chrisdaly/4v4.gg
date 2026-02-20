@@ -7,6 +7,7 @@ import React, { useState, useRef, useEffect, useCallback } from "react";
 import styled from "styled-components";
 import { Link } from "react-router-dom";
 import { PageLayout } from "./PageLayout";
+import { raceMapping } from "../lib/constants";
 
 // ============================================
 // BUTTON
@@ -892,6 +893,23 @@ const FlagImg = styled.img`
   display: inline-block;
   vertical-align: baseline;
 `;
+
+/**
+ * RaceIcon - Shows race icon, substituting the actual race when player randomed
+ * Adds a "?" badge to indicate the player chose random
+ */
+export const RaceIcon = ({ race, rndRace, className = "" }) => {
+  const displayRace = rndRace != null ? rndRace : race;
+  if (rndRace == null) {
+    return <img src={raceMapping[displayRace]} alt="" className={className} />;
+  }
+  return (
+    <span className="rnd-race-wrapper">
+      <img src={raceMapping[displayRace]} alt="" className={className} />
+      <img src={raceMapping[0]} alt="random" className="rnd-badge-icon" />
+    </span>
+  );
+};
 
 /**
  * CountryFlag - Replaces Semantic UI Flag component

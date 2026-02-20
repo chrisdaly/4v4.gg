@@ -128,6 +128,23 @@ export const preprocessPlayerScores = (match, playerScores) => {
     });
   });
 
+  // Compute efficiency scores (derived ratios)
+  for (const player of playerData) {
+    if (player.unitScore && player.resourceScore) {
+      player.efficiencyScore = {
+        killRatio: player.unitScore.unitsProduced > 0
+          ? Math.round((player.unitScore.unitsKilled / player.unitScore.unitsProduced) * 100) / 100
+          : 0,
+        killEfficiency: player.resourceScore.goldCollected > 0
+          ? Math.round((player.unitScore.unitsKilled / player.resourceScore.goldCollected) * 1000 * 10) / 10
+          : 0,
+        upkeepRate: player.resourceScore.goldCollected > 0
+          ? Math.round((player.resourceScore.goldUpkeepLost / player.resourceScore.goldCollected) * 100)
+          : 0,
+      };
+    }
+  }
+
   const metaData = {
     startTime: match.startTime,
     gameLength: `${Math.floor(match.durationInSeconds / 60)}:${(match.durationInSeconds % 60).toString().padStart(2, "0")}`,

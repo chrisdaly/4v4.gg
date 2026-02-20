@@ -840,6 +840,25 @@ h2 {
   border-bottom: 1px solid rgba(255, 255, 255, 0.1) !important;
 }
 
+/* Inline secondary stat (derived value under parent) */
+.stat-secondary {
+  display: block;
+  font-size: 13px;
+  font-weight: normal !important;
+  opacity: 0.75;
+  line-height: 1;
+  margin-top: 3px;
+}
+
+/* Secondary label shown under stat name */
+.stat-label-secondary {
+  display: block;
+  font-size: 10px;
+  opacity: 0.5;
+  margin-top: 2px;
+  letter-spacing: 0.05em;
+}
+
 /* Player Profile Page */
 .player-profile {
   padding: 20px 30px;
@@ -4023,9 +4042,28 @@ a.neighbor-name-sm:hover {
 }
 
 /* Race overlay on profile pics (all styles) */
+/* Random race badge */
+.rnd-race-wrapper {
+  position: relative;
+  display: inline-block;
+}
+
+.rnd-badge-icon {
+  position: absolute;
+  bottom: -2px;
+  right: -4px;
+  width: 14px;
+  height: 14px;
+  background: rgba(0, 0, 0, 0.85);
+  border-radius: 50%;
+  padding: 1px;
+  z-index: 2;
+}
+
 .race-overlay {
   display: none;
 }
+
 
 /* Style: clean - No border, races on avatars, compact */
 #StreamOverlay.stream-style-clean .Game {

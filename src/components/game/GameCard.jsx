@@ -3,6 +3,7 @@ import { Link } from "react-router-dom";
 import "./GameCard.css";
 
 import { raceMapping } from "../../lib/constants";
+import { RaceIcon } from "../ui";
 import { getMapImageUrl, formatDuration, formatTimeAgo, formatElapsedTime } from "../../lib/formatters";
 
 /**
@@ -186,7 +187,7 @@ const GameCard = ({
                       p.battleTag?.toLowerCase() === battleTagLower ? "gc-player-me" : ""
                     }`}
                   >
-                    <img src={raceMapping[p.race]} alt="" className="gc-race" />
+                    <RaceIcon race={p.race} rndRace={p.rndRace} className="gc-race" />
                     <span className="gc-name">{p.name}</span>
                   </div>
                 ))}
@@ -195,7 +196,7 @@ const GameCard = ({
               <div className="gc-team gc-team-opponents">
                 {opponentTeam.players?.map((p, i) => (
                   <div key={i} className="gc-player">
-                    <img src={raceMapping[p.race]} alt="" className="gc-race" />
+                    <RaceIcon race={p.race} rndRace={p.rndRace} className="gc-race" />
                     <span className="gc-name">{p.name}</span>
                   </div>
                 ))}
@@ -274,7 +275,7 @@ const GameCard = ({
             <div className="gc-team">
               {myTeam.players?.map((p, i) => (
                 <div key={i} className="gc-player-inline">
-                  <img src={raceMapping[p.race]} alt="" className="gc-race" />
+                  <RaceIcon race={p.race} rndRace={p.rndRace} className="gc-race" />
                   <span>{p.name}</span>
                 </div>
               ))}
@@ -285,7 +286,7 @@ const GameCard = ({
             <div className="gc-team gc-team-opponents">
               {opponentTeam.players?.map((p, i) => (
                 <div key={i} className="gc-player-inline">
-                  <img src={raceMapping[p.race]} alt="" className="gc-race" />
+                  <RaceIcon race={p.race} rndRace={p.rndRace} className="gc-race" />
                   <span>{p.name}</span>
                 </div>
               ))}
@@ -331,7 +332,7 @@ const GameCard = ({
                       p.battleTag?.toLowerCase() === battleTagLower ? "gc-player-me" : ""
                     }`}
                   >
-                    <img src={raceMapping[p.race]} alt="" className="gc-race" />
+                    <RaceIcon race={p.race} rndRace={p.rndRace} className="gc-race" />
                     <span className="gc-name">{p.name}</span>
                   </div>
                 ))}
@@ -340,7 +341,7 @@ const GameCard = ({
               <div className="gc-team gc-team-opponents">
                 {opponentTeam.players?.map((p, i) => (
                   <div key={i} className="gc-player">
-                    <img src={raceMapping[p.race]} alt="" className="gc-race" />
+                    <RaceIcon race={p.race} rndRace={p.rndRace} className="gc-race" />
                     <span className="gc-name">{p.name}</span>
                   </div>
                 ))}
@@ -390,7 +391,7 @@ const GameCard = ({
                 <div className="gc-team">
                   {team1.players?.map((p, i) => (
                     <div key={i} className="gc-player">
-                      <img src={raceMapping[p.race]} alt="" className="gc-race" />
+                      <RaceIcon race={p.race} rndRace={p.rndRace} className="gc-race" />
                       <span className="gc-name">{p.name}</span>
                     </div>
                   ))}
@@ -399,7 +400,7 @@ const GameCard = ({
                 <div className="gc-team">
                   {team2.players?.map((p, i) => (
                     <div key={i} className="gc-player">
-                      <img src={raceMapping[p.race]} alt="" className="gc-race" />
+                      <RaceIcon race={p.race} rndRace={p.rndRace} className="gc-race" />
                       <span className="gc-name">{p.name}</span>
                     </div>
                   ))}
@@ -464,7 +465,7 @@ const GameCard = ({
                       p.battleTag?.toLowerCase() === battleTagLower ? "gc-player-me" : ""
                     }`}
                   >
-                    <img src={raceMapping[p.race]} alt="" className="gc-race" />
+                    <RaceIcon race={p.race} rndRace={p.rndRace} className="gc-race" />
                     <span className="gc-name">{p.name}</span>
                   </div>
                 ))}
@@ -473,7 +474,7 @@ const GameCard = ({
               <div className="gc-team gc-team-opponents">
                 {opponentTeam.players?.map((p, i) => (
                   <div key={i} className="gc-player">
-                    <img src={raceMapping[p.race]} alt="" className="gc-race" />
+                    <RaceIcon race={p.race} rndRace={p.rndRace} className="gc-race" />
                     <span className="gc-name">{p.name}</span>
                   </div>
                 ))}
@@ -539,7 +540,7 @@ const GameCard = ({
                       p.battleTag?.toLowerCase() === battleTagLower ? "gc-player-me" : ""
                     }`}
                   >
-                    <img src={raceMapping[p.race]} alt="" className="gc-race" />
+                    <RaceIcon race={p.race} rndRace={p.rndRace} className="gc-race" />
                     <span className="gc-name">{p.name}</span>
                   </div>
                 ))}
@@ -553,7 +554,7 @@ const GameCard = ({
               <div className="gc-team-players">
                 {opponentTeam.players?.map((p, i) => (
                   <div key={i} className="gc-player">
-                    <img src={raceMapping[p.race]} alt="" className="gc-race" />
+                    <RaceIcon race={p.race} rndRace={p.rndRace} className="gc-race" />
                     <span className="gc-name">{p.name}</span>
                   </div>
                 ))}

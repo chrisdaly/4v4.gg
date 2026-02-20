@@ -1,6 +1,6 @@
 import React, { useState, useEffect, useMemo } from "react";
 import { Link } from "react-router-dom";
-import { CountryFlag } from "./ui";
+import { CountryFlag, RaceIcon } from "./ui";
 import { FaTwitch } from "react-icons/fa";
 
 import { MmrComparison } from "./MmrComparison";
@@ -153,13 +153,47 @@ const Game = ({ playerData: rawPlayerData, metaData, profilePics, playerCountrie
     return "red-text";
   };
 
+  // Inline secondary stats: map parent stat → derived label + value
+  const inlineStats = {
+    unitsKilled: { label: "kill ratio", key: "killRatio", format: (v) => v.toFixed(2) },
+    goldCollected: { label: "kills/1k gold", key: "killEfficiency", format: (v) => v.toFixed(1) },
+    goldUpkeepLost: { label: "upkeep rate", key: "upkeepRate", format: (v) => `${v}%`, invert: true },
+  };
+
+  // Pre-compute efficiency percentiles for secondary value coloring
+  const efficiencyPercentiles = useMemo(() => {
+    if (!playerData[0]?.efficiencyScore) return {};
+    const result = {};
+    for (const [, config] of Object.entries(inlineStats)) {
+      const scores = playerData.map((p) => p.efficiencyScore[config.key]);
+      let pcts = calculatePercentiles(scores);
+      if (config.invert) {
+        pcts = pcts.map((d) => 100 - d);
+      }
+      result[config.key] = pcts;
+    }
+    return result;
+  }, [playerData]);
+
   const renderTableCells = (scoreType, statName, teamIndex, percentiles) => {
+    const inline = inlineStats[statName];
     return playerData.slice(teamIndex * 4, (teamIndex + 1) * 4).map((playerScore, index) => {
       const value = playerScore[scoreType][statName];
-      const className = getCellStyle(percentiles[teamIndex * 4 + index]);
+      const percentile = percentiles[teamIndex * 4 + index];
+      const className = getCellStyle(percentile);
+      const playerIndex = teamIndex * 4 + index;
+      const secondaryValue = inline && playerScore.efficiencyScore
+        ? inline.format(playerScore.efficiencyScore[inline.key])
+        : null;
+      const secondaryClass = inline && efficiencyPercentiles[inline.key]
+        ? getCellStyle(efficiencyPercentiles[inline.key][playerIndex])
+        : "";
       return (
         <td key={`team${teamIndex + 1}-${index}`} className={`${className} number team-${teamIndex}`}>
           {value.toLocaleString("en-US")}
+          {secondaryValue && (
+            <span className={`stat-secondary ${secondaryClass}`}>{secondaryValue}</span>
+          )}
         </td>
       );
     });
@@ -170,24 +204,24 @@ const Game = ({ playerData: rawPlayerData, metaData, profilePics, playerCountrie
       return <></>;
     }
     return Object.entries(playerData[0][scoreType])
-      .filter(([statName]) => !excludedKeys.includes(statName)) // Exclude keys specified in excludedKeys
+      .filter(([statName]) => !excludedKeys.includes(statName))
       .map(([statName, _]) => {
-        // Extract the scores for the current statName from all players
         const scores = playerData.map((player) => player[scoreType][statName]);
-
-        // Calculate percentiles for the scores
         let percentiles = calculatePercentiles(scores);
 
-        // If the statName is "goldUpkeepLost", reverse the percentiles
         if (statName === "goldUpkeepLost") {
           percentiles = percentiles.map((d) => 100 - d);
         }
 
-        // Render the table row
         return (
           <tr key={statName} className="stat-row">
             {renderTableCells(scoreType, statName, 0, percentiles)}
-            <td className="th-center stat-label">{keyDisplayNameMapping[statName] || statName}</td>
+            <td className="th-center stat-label">
+              {keyDisplayNameMapping[statName] || statName}
+              {inlineStats[statName] && (
+                <span className="stat-label-secondary">{inlineStats[statName].label}</span>
+              )}
+            </td>
             {renderTableCells(scoreType, statName, 1, percentiles)}
           </tr>
         );
@@ -358,12 +392,7 @@ const Game = ({ playerData: rawPlayerData, metaData, profilePics, playerCountrie
                   {playerData
                     .slice(0, 4)
                     .map((d, i) => (
-                      <img
-                        key={i}
-                        src={raceMapping[d.race]}
-                        alt={d.race}
-                        className={"race teamHeaderRace"}
-                      />
+                      <RaceIcon key={i} race={d.race} rndRace={d.rndRace} className="race teamHeaderRace" />
                     ))}
                 </div>
               </div>
@@ -382,12 +411,7 @@ const Game = ({ playerData: rawPlayerData, metaData, profilePics, playerCountrie
                   {playerData
                     .slice(4)
                     .map((d, i) => (
-                      <img
-                        key={i}
-                        src={raceMapping[d.race]}
-                        alt={d.race}
-                        className={"race teamHeaderRace"}
-                      />
+                      <RaceIcon key={i} race={d.race} rndRace={d.rndRace} className="race teamHeaderRace" />
                     ))}
                 </div>
               </div>
