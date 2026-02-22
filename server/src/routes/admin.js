@@ -7,6 +7,7 @@ import { getClientCount } from '../sse.js';
 import { setBotEnabled, isBotEnabled, testCommand } from '../bot.js';
 import { generateDigest, fetchDailyStats, generateLiveDigest, todayDigestCache, setTodayDigestCache, generateWeeklyDigest, curateDigest, fetchDailyStatCandidates, analyzeSpike, generateMoreItems, appendItemsToDraft, backfillDailyStats, backfillMatchScores, backfillMatchMmrs, generateWeeklyVariants, regenerateSection, regenerateSpotlights, regeneratePlayerQuotes, regenerateMatchStatBlurbs, getPlayerMessageCandidates, computeNewBlood, formatNewBloodLine, digestToJSON } from '../digest.js';
 import { generateCoverImage, buildImagePrompt, extractHeadline, buildImagePromptWithPlayers, generateImageFromPrompt } from '../coverImage.js';
+import { runFeedbackScan, getRecentFeedback } from '../feedback.js';
 
 const router = Router();
 
@@ -1216,6 +1217,24 @@ router.get('/health', (_req, res) => {
     uptime: process.uptime(),
     db: dbStats,
   });
+});
+
+// ── Feedback scan ────────────────────────────────────
+
+router.post('/feedback/scan', requireApiKey, aiLimiter, async (req, res) => {
+  try {
+    const result = await runFeedbackScan();
+    res.json(result);
+  } catch (err) {
+    console.error('[Admin] Feedback scan error:', err);
+    res.status(500).json({ error: err.message });
+  }
+});
+
+router.get('/feedback/recent', requireApiKey, (req, res) => {
+  const limit = parseInt(req.query.limit || '20', 10);
+  const issues = getRecentFeedback(limit);
+  res.json(issues);
 });
 
 export default router;

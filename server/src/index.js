@@ -14,6 +14,7 @@ import replayRoutes from './routes/replays.js';
 import fingerprintRoutes from './routes/fingerprints.js';
 import ogRoutes from './routes/og.js';
 import { startClipScheduler } from './clips.js';
+import { startFeedbackScheduler } from './feedback.js';
 
 const app = express();
 app.set('trust proxy', 1);
@@ -57,6 +58,9 @@ startMatchPolling();
 
 // Clips — fetch Twitch clips from WC3 streamers
 startClipScheduler();
+
+// Feedback — scan chat for site feedback, create GitHub issues
+startFeedbackScheduler();
 
 // Event cleanup — delete events older than 14 days, run every 6 hours
 const runCleanup = () => {

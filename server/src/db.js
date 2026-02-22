@@ -375,6 +375,21 @@ export function initDb() {
     CREATE INDEX IF NOT EXISTS idx_fp_battle_tag ON player_fingerprints(battle_tag);
   `);
 
+  // ── Feedback issues table ─────────────────────────
+  db.exec(`
+    CREATE TABLE IF NOT EXISTS feedback_issues (
+      id                  INTEGER PRIMARY KEY AUTOINCREMENT,
+      trigger_msg_ids     TEXT NOT NULL,
+      github_issue_number INTEGER,
+      github_issue_url    TEXT,
+      ai_type             TEXT,
+      ai_title            TEXT,
+      ai_priority         TEXT,
+      actionable          INTEGER NOT NULL DEFAULT 0,
+      created_at          TEXT NOT NULL DEFAULT (datetime('now'))
+    );
+  `);
+
   // Migration: add early_game_sequence column to replay_player_actions
   try {
     db.exec(`ALTER TABLE replay_player_actions ADD COLUMN early_game_sequence TEXT`);
@@ -1554,4 +1569,62 @@ export function getReplaysWithoutFingerprints() {
 
 export function deleteReplayFingerprints(replayId) {
   db.prepare('DELETE FROM player_fingerprints WHERE replay_id = ?').run(replayId);
+}
+
+// ── Feedback issues ──────────────────────────────────
+
+export function searchMessagesByKeywords(keywords, sinceHours = 24) {
+  const conditions = keywords.map(() => 'LOWER(message) LIKE ?').join(' OR ');
+  const params = keywords.map(k => `%${k.toLowerCase()}%`);
+  return db.prepare(`
+    SELECT id, battle_tag, user_name, clan_tag, message, sent_at, received_at
+    FROM messages
+    WHERE deleted = 0 AND received_at > datetime('now', '-' || ? || ' hours')
+      AND (${conditions})
+    ORDER BY received_at ASC
+  `).all(sinceHours, ...params);
+}
+
+export function getMessagesInTimeRange(from, to) {
+  return db.prepare(`
+    SELECT id, battle_tag, user_name, clan_tag, message, sent_at, received_at
+    FROM messages
+    WHERE deleted = 0 AND received_at >= ? AND received_at <= ?
+    ORDER BY received_at ASC
+  `).all(from, to);
+}
+
+export function insertFeedbackIssue(record) {
+  return db.prepare(`
+    INSERT INTO feedback_issues (trigger_msg_ids, github_issue_number, github_issue_url, ai_type, ai_title, ai_priority, actionable)
+    VALUES (?, ?, ?, ?, ?, ?, ?)
+  `).run(
+    JSON.stringify(record.triggerMsgIds),
+    record.githubIssueNumber || null,
+    record.githubIssueUrl || null,
+    record.aiType || null,
+    record.aiTitle || null,
+    record.aiPriority || null,
+    record.actionable ? 1 : 0
+  );
+}
+
+export function getFeedbackIssueTriggerIds(sinceHours = 48) {
+  const rows = db.prepare(`
+    SELECT trigger_msg_ids FROM feedback_issues
+    WHERE created_at > datetime('now', '-' || ? || ' hours')
+  `).all(sinceHours);
+  const ids = new Set();
+  for (const row of rows) {
+    for (const id of JSON.parse(row.trigger_msg_ids)) {
+      ids.add(id);
+    }
+  }
+  return ids;
+}
+
+export function getRecentFeedbackIssues(limit = 20) {
+  return db.prepare(`
+    SELECT * FROM feedback_issues ORDER BY created_at DESC LIMIT ?
+  `).all(limit);
 }

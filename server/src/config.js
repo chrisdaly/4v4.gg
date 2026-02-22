@@ -9,6 +9,9 @@ const config = {
   TWITCH_CLIENT_SECRET: process.env.TWITCH_CLIENT_SECRET || '',
   // Replicate (for FLUX image generation)
   REPLICATE_API_TOKEN: process.env.REPLICATE_API_TOKEN || '',
+  // GitHub (for feedback issue creation)
+  GITHUB_TOKEN: process.env.GITHUB_TOKEN || '',
+  GITHUB_REPO: process.env.GITHUB_REPO || 'chrisdaly/4v4-gg',
 };
 
 export default config;
