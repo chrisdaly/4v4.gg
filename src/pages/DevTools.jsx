@@ -3,7 +3,8 @@ import { useLocation } from "react-router-dom";
 import useAdmin from "../lib/useAdmin";
 import { searchLadder, getPlayerProfile } from "../lib/api";
 import { raceMapping } from "../lib/constants";
-import { CountryFlag } from "../components/ui";
+import { CountryFlag, PageHero } from "../components/ui";
+import { PageLayout } from "../components/PageLayout";
 import PeonLoader from "../components/PeonLoader";
 import "../styles/pages/DevTools.css";
 
@@ -12,28 +13,8 @@ const RELAY_URL =
 
 const RACE_NAMES = { 0: "Random", 1: "Human", 2: "Orc", 4: "Night Elf", 8: "Undead" };
 
-const STYLE_PRESETS = [
-  {
-    id: "wc3-classic",
-    label: "WC3 Classic",
-    style: "Warcraft III concept art by Samwise Didier, bold black outlines, chunky exaggerated proportions, vibrant saturated colors, thick visible brushstrokes, hand-painted game manual illustration, Blizzard 2002 fantasy art, rich golds and deep blues, stylized not photorealistic",
-  },
-  {
-    id: "cel-shaded",
-    label: "Cel-shaded",
-    style: "digital painting in classic Warcraft III art style, cel-shaded with thick black ink outlines, flat color fills, exaggerated cartoon proportions, visible paint texture, matte colors, no photorealism, stylized 2D game illustration",
-  },
-  {
-    id: "dark-fantasy",
-    label: "Dark Fantasy",
-    style: "dark fantasy illustration, dramatic chiaroscuro lighting, moody atmosphere, heavy shadows, desaturated palette with selective color accents, oil painting texture, gothic Warcraft style, ominous and cinematic",
-  },
-  {
-    id: "comic",
-    label: "Comic Book",
-    style: "comic book cover art, bold ink outlines, halftone dots, dynamic action poses, dramatic perspective, bright primary colors, speech-bubble-ready composition, retro pulp fantasy style",
-  },
-];
+const STYLE_SUFFIX = "Warcraft III fantasy illustration, rich oil painting with visible brushstrokes, bold saturated colors, dramatic rim lighting, deep crimson and burnished gold palette, dark atmospheric background, ornate detailed armor and robes, painterly game concept art, epic and cinematic, wide cinematic composition";
+
 
 // ─── Player Search ─────────────────────────────────────────────────────────────
 
@@ -296,9 +277,6 @@ export default function DevTools() {
   const [playerProfiles, setPlayerProfiles] = useState({});
   const [existingCovers, setExistingCovers] = useState({});
 
-  // Style
-  const [stylePresetId, setStylePresetId] = useState("wc3-classic");
-  const [styleText, setStyleText] = useState(STYLE_PRESETS[0].style);
 
   // Pipeline
   const [cards, setCards] = useState([]);
@@ -308,6 +286,28 @@ export default function DevTools() {
 
   // Gallery
   const [savedGenerations, setSavedGenerations] = useState([]);
+  const [publishedGenId, setPublishedGenId] = useState(null);
+
+  // Upload
+  const [uploading, setUploading] = useState(false);
+  const uploadRef = useRef(null);
+
+  // Modal
+  const [selectedGenId, setSelectedGenId] = useState(null);
+
+  // Scene suggestions
+  const [sceneSuggestions, setSceneSuggestions] = useState(null); // { scenes, dailyCount, dateRange }
+  const [suggestLoading, setSuggestLoading] = useState(false);
+  const [suggestError, setSuggestError] = useState(null);
+
+  // Freeform
+  const [freeformPrompt, setFreeformPrompt] = useState("");
+  const [freeformStatus, setFreeformStatus] = useState(null); // null | "rendering"
+  const [freeformImageUrl, setFreeformImageUrl] = useState(null);
+  const [freeformError, setFreeformError] = useState(null);
+
+  // Tabs
+  const [tab, setTab] = useState("prompt"); // "prompt" | "gallery"
 
   // ─── Data loading ────────────────────────────────────────────────────────
   useEffect(() => {
@@ -349,13 +349,16 @@ export default function DevTools() {
   }, [adminKey]);
 
   useEffect(() => {
-    if (selectedDigest) {
-      setCards([]);
-      setGenError(null);
-      setShowDigest(false);
-      loadSavedGenerations(selectedDigest.week_start);
+    setCards([]);
+    setGenError(null);
+    setShowDigest(false);
+    setSceneSuggestions(null);
+    setSuggestError(null);
+    setPublishedGenId(null);
+    if (selectedWeek) {
+      loadSavedGenerations(selectedWeek);
     }
-  }, [selectedDigest, loadSavedGenerations]);
+  }, [selectedWeek, loadSavedGenerations]);
 
   // ─── Player helpers ──────────────────────────────────────────────────────
   async function resolvePlayersFromLLM(playerInfos) {
@@ -453,7 +456,7 @@ export default function DevTools() {
 
   // ─── Image generation ────────────────────────────────────────────────────
   function buildFullPrompt(scene) {
-    return styleText ? `${scene}, ${styleText}` : scene;
+    return `${scene}, ${STYLE_SUFFIX}`;
   }
 
   async function handleRenderImage(idx) {
@@ -475,7 +478,7 @@ export default function DevTools() {
       const res = await fetch(`${RELAY_URL}/api/admin/generate-image`, {
         method: "POST",
         headers: { "X-API-Key": adminKey, "Content-Type": "application/json" },
-        body: JSON.stringify({ prompt: fullPrompt, weekStart: selectedWeek, headline: card.headline, scene, style: styleText }),
+        body: JSON.stringify({ prompt: fullPrompt, weekStart: selectedWeek, headline: card.headline, scene, style: STYLE_SUFFIX }),
       });
       const data = await res.json();
       if (data.error) throw new Error(data.error);
@@ -501,7 +504,7 @@ export default function DevTools() {
       const imgRes = await fetch(`${RELAY_URL}/api/admin/generate-image`, {
         method: "POST",
         headers: { "X-API-Key": adminKey, "Content-Type": "application/json" },
-        body: JSON.stringify({ prompt: fullPrompt, weekStart: selectedWeek, headline: card.headline, scene: promptRes.prompt, style: styleText }),
+        body: JSON.stringify({ prompt: fullPrompt, weekStart: selectedWeek, headline: card.headline, scene: promptRes.prompt, style: STYLE_SUFFIX }),
       }).then((r) => r.json());
       if (imgRes.error) throw new Error(imgRes.error);
       setCards((prev) => prev.map((c, i) => i === idx ? { ...c, imageUrl: `${RELAY_URL}${imgRes.imageUrl}`, status: "done" } : c));
@@ -516,233 +519,288 @@ export default function DevTools() {
     try {
       await fetch(`${RELAY_URL}/api/admin/cover-generation/${id}`, { method: "DELETE", headers: { "X-API-Key": adminKey } });
       setSavedGenerations((prev) => prev.filter((g) => g.id !== id));
+      if (selectedGenId === id) setSelectedGenId(null);
     } catch { /* ignore */ }
   }
+
+  async function handleSetAsCover(genId) {
+    if (!selectedWeek || !adminKey) return;
+    try {
+      const res = await fetch(`${RELAY_URL}/api/admin/weekly-digest/${selectedWeek}/cover-from-generation`, {
+        method: "POST",
+        headers: { "X-API-Key": adminKey, "Content-Type": "application/json" },
+        body: JSON.stringify({ generationId: genId }),
+      });
+      const data = await res.json();
+      if (data.error) throw new Error(data.error);
+      setPublishedGenId(genId);
+      setExistingCovers((prev) => ({
+        ...prev,
+        [selectedWeek]: `${RELAY_URL}/api/admin/weekly-digest/${selectedWeek}/cover.jpg?t=${Date.now()}`,
+      }));
+    } catch { /* ignore */ }
+  }
+
+  async function handleUploadFile(file) {
+    if (!file || !adminKey) return;
+    setUploading(true);
+    try {
+      const form = new FormData();
+      form.append("image", file);
+      if (selectedWeek) form.append("weekStart", selectedWeek);
+      const res = await fetch(`${RELAY_URL}/api/admin/upload-image`, {
+        method: "POST",
+        headers: { "X-API-Key": adminKey },
+        body: form,
+      });
+      const data = await res.json();
+      if (data.error) throw new Error(data.error);
+      if (selectedWeek) loadSavedGenerations(selectedWeek);
+    } catch (err) {
+      console.error("Upload failed:", err);
+    }
+    setUploading(false);
+    if (uploadRef.current) uploadRef.current.value = "";
+  }
+
+  async function handleSuggestScenes(weekOverride) {
+    const week = weekOverride || selectedWeek;
+    if (!week || !adminKey) return;
+
+    // Check cache first (4 hour TTL)
+    const cacheKey = `inspire-scenes-${week}`;
+    const cached = localStorage.getItem(cacheKey);
+    if (cached) {
+      try {
+        const { data, timestamp } = JSON.parse(cached);
+        const fourHours = 4 * 60 * 60 * 1000;
+        if (Date.now() - timestamp < fourHours) {
+          setSceneSuggestions(data);
+          return;
+        }
+      } catch (e) {
+        // Invalid cache, continue to fetch
+        localStorage.removeItem(cacheKey);
+      }
+    }
+
+    setSuggestLoading(true);
+    setSuggestError(null);
+    setSceneSuggestions(null);
+    try {
+      const res = await fetch(`${RELAY_URL}/api/admin/weekly-digest/${week}/suggest-scenes`, {
+        method: "POST",
+        headers: { "X-API-Key": adminKey, "Content-Type": "application/json" },
+        body: JSON.stringify({}),
+      });
+      const data = await res.json();
+      if (data.error) throw new Error(data.error);
+
+      // Cache the result
+      localStorage.setItem(cacheKey, JSON.stringify({
+        data,
+        timestamp: Date.now()
+      }));
+
+      setSceneSuggestions(data);
+    } catch (err) {
+      setSuggestError(err.message);
+    }
+    setSuggestLoading(false);
+  }
+
+  async function handleFreeformRender() {
+    if (!freeformPrompt.trim() || !adminKey) return;
+    setFreeformStatus("rendering");
+    setFreeformImageUrl(null);
+    setFreeformError(null);
+    try {
+      const fullPrompt = `${freeformPrompt}, ${STYLE_SUFFIX}`;
+      const res = await fetch(`${RELAY_URL}/api/admin/generate-image`, {
+        method: "POST",
+        headers: { "X-API-Key": adminKey, "Content-Type": "application/json" },
+        body: JSON.stringify({ prompt: fullPrompt, weekStart: selectedWeek || null, scene: freeformPrompt, style: STYLE_SUFFIX }),
+      });
+      const data = await res.json();
+      if (data.error) throw new Error(data.error);
+      setFreeformImageUrl(`${RELAY_URL}${data.imageUrl}`);
+      if (selectedWeek) loadSavedGenerations(selectedWeek);
+    } catch (err) {
+      setFreeformError(err.message);
+    }
+    setFreeformStatus(null);
+  }
+
+  // Modal navigation
+  const selectedGeneration = selectedGenId ? savedGenerations.find((g) => g.id === selectedGenId) : null;
+  const selectedGenIdx = selectedGenId ? savedGenerations.findIndex((g) => g.id === selectedGenId) : -1;
+
+  useEffect(() => {
+    if (selectedGenId === null) return;
+    function handleKey(e) {
+      if (e.key === "Escape") { setSelectedGenId(null); return; }
+      if (e.key === "ArrowLeft" && selectedGenIdx > 0) {
+        setSelectedGenId(savedGenerations[selectedGenIdx - 1].id);
+      }
+      if (e.key === "ArrowRight" && selectedGenIdx < savedGenerations.length - 1) {
+        setSelectedGenId(savedGenerations[selectedGenIdx + 1].id);
+      }
+    }
+    document.addEventListener("keydown", handleKey);
+    return () => document.removeEventListener("keydown", handleKey);
+  }, [selectedGenId, selectedGenIdx, savedGenerations]);
 
   function updateCard(idx, patch) {
     setCards((prev) => prev.map((c, i) => (i === idx ? { ...c, ...patch } : c)));
   }
 
+  // Current week's Monday (for "This week" shortcut) — must be before early return
+  const currentMonday = useMemo(() => {
+    const now = new Date();
+    const day = now.getDay();
+    const diff = day === 0 ? 6 : day - 1;
+    const monday = new Date(now);
+    monday.setDate(now.getDate() - diff);
+    return monday.toISOString().split("T")[0];
+  }, []);
+  const isCurrentWeek = selectedWeek === currentMonday;
+
   // ─── Render ──────────────────────────────────────────────────────────────
   if (loading) {
-    return <div className="dt-page"><div className="dt-loading"><PeonLoader /></div></div>;
+    return <PageLayout maxWidth="1000px" bare overlay><div className="dt-loading"><PeonLoader /></div></PageLayout>;
   }
 
-  const topics = selectedDigest?.digest?.match(/^TOPICS:\s*(.+)/m)?.[1] || "";
-  const hasCards = cards.length > 0;
+  const galleryCount = savedGenerations.length + Object.keys(existingCovers).length;
 
   return (
-    <div className="dt-page">
-      {/* Hero */}
-      <header className="dt-hero reveal" style={{ "--delay": "0.05s" }}>
-        <span className="dt-eyebrow">Workshop</span>
-        <h1 className="dt-title">Cover Art Pipeline</h1>
-        <p className="dt-lead">
-          Distill weekly digests into headlines, cast players as characters, and render cover art.
-        </p>
-      </header>
-
-      {/* ── Section 1: Source ─────────────────────────────────────────────── */}
-      <section className="dt-section reveal" style={{ "--delay": "0.10s" }}>
-        <div className="dt-section-head">
-          <div>
-            <h2>Source</h2>
-            <p>Select a weekly digest to distill.</p>
-          </div>
-          <div className="dt-section-meta">
-            {selectedDigest && (
-              <span className="dt-pill">{selectedDigest.week_start}</span>
-            )}
-          </div>
-        </div>
-
-        <WeeklyDigestSearch
-          weeklies={weeklies}
-          selectedWeek={selectedWeek}
-          onSelect={setSelectedWeek}
-          existingCovers={existingCovers}
-        />
-
-        {selectedDigest && (
-          <div className="dt-digest-section">
-            <button className="dt-digest-toggle" onClick={() => setShowDigest(!showDigest)}>
-              <span className="dt-digest-toggle-arrow">{showDigest ? "▾" : "▸"}</span>
-              <span className="dt-digest-toggle-label">
-                {topics ? topics.slice(0, 100) : "View digest text"}
-              </span>
-            </button>
-            {showDigest && (
-              <pre className="dt-digest-preview">{selectedDigest.digest}</pre>
-            )}
-          </div>
-        )}
-      </section>
-
-      {/* ── Section 2: Distill ────────────────────────────────────────────── */}
-      <section className="dt-section reveal" style={{ "--delay": "0.15s" }}>
-        <div className="dt-section-head">
-          <div>
-            <h2>Distill</h2>
-            <p>Extract headlines, resolve players, and write scene descriptions from the digest.</p>
-          </div>
-          <button
-            className="dt-btn dt-btn-gold"
-            onClick={handleDistill}
-            disabled={generating || !adminKey || !selectedWeek}
-          >
-            {generating ? genStep || "Distilling..." : hasCards ? "Re-distill" : "Distill"}
+    <PageLayout maxWidth="1000px" bare overlay>
+      <div style={{ maxWidth: 1000, margin: '0 auto' }}>
+      {/* Header */}
+      <PageHero
+        eyebrow="Dev Tools"
+        title="Cover Art"
+        lead="Generate and manage weekly magazine cover illustrations from chat highlights."
+        className="dt-hero reveal"
+      >
+        <div className="dt-tabs">
+          <button className={`dt-tab ${tab === "prompt" ? "dt-tab--active" : ""}`} onClick={() => setTab("prompt")}>Prompt</button>
+          <button className={`dt-tab ${tab === "gallery" ? "dt-tab--active" : ""}`} onClick={() => setTab("gallery")}>
+            Gallery{galleryCount > 0 ? ` (${galleryCount})` : ""}
           </button>
         </div>
-        {genError && <div className="dt-error">{genError}</div>}
+      </PageHero>
 
-        {hasCards && (
-          <div className="dt-cards">
-            {cards.map((card, idx) => (
-              <div key={idx} className={`dt-card ${card.status === "done" && card.imageUrl ? "dt-card--rendered" : card.status === "done" ? "dt-card--ready" : ""}`}>
-                {/* Header: score + headline */}
-                <div className="dt-card-header">
-                  <span className="dt-card-score">{card.score}</span>
-                  <input
-                    className="dt-card-headline"
-                    type="text"
-                    value={card.headline}
-                    onChange={(e) => updateCard(idx, { headline: e.target.value })}
-                  />
-                </div>
-
-                {/* Players */}
-                <PlayerSearch
-                  selectedPlayers={card.resolvedPlayers}
-                  profiles={playerProfiles}
-                  onAdd={(p) => {
-                    updateCard(idx, { resolvedPlayers: [...card.resolvedPlayers, p] });
-                    if (p.tag) getPlayerProfile(p.tag).then((prof) => setPlayerProfiles((prev) => ({ ...prev, [p.tag]: prof })));
-                  }}
-                  onRemove={(tag) => updateCard(idx, { resolvedPlayers: card.resolvedPlayers.filter((p) => p.tag !== tag) })}
-                />
-
-                {/* Scene prompt */}
-                {card.prompt && (
-                  <div className="dt-card-prompt">
-                    <label className="dt-label">Scene</label>
-                    <textarea
-                      className="dt-card-prompt-input"
-                      value={card.prompt}
-                      onChange={(e) => updateCard(idx, { prompt: e.target.value })}
-                      rows={3}
-                    />
-                  </div>
-                )}
-
-                {/* Image */}
-                {card.imageUrl && (
-                  <div className="dt-card-image">
-                    <img src={card.imageUrl} alt="Generated cover" className="dt-cover-img" />
-                  </div>
-                )}
-
-                {/* Loading */}
-                {(card.status === "prompt" || card.status === "image" || card.status === "players") && (
-                  <div className="dt-card-loading">
-                    <PeonLoader size="sm" />
-                    <span className="dt-card-loading-text">
-                      {card.status === "players" && "Resolving players..."}
-                      {card.status === "prompt" && "Writing scene prompt..."}
-                      {card.status === "image" && "Rendering image..."}
-                    </span>
-                  </div>
-                )}
-
-                {card.error && <div className="dt-error">{card.error}</div>}
-
-                {/* Actions */}
-                {card.status === "done" && (
-                  <div className="dt-card-actions">
-                    {!card.imageUrl ? (
-                      <button className="dt-btn dt-btn-sm dt-btn-gold" onClick={() => handleRenderImage(idx)}>
-                        Render
-                      </button>
-                    ) : (
-                      <>
-                        <button className="dt-btn dt-btn-sm" onClick={() => handleRenderImage(idx)}>Re-render</button>
-                        <button className="dt-btn dt-btn-sm" onClick={() => handleNewPromptAndImage(idx)}>New Scene + Render</button>
-                      </>
-                    )}
-                  </div>
-                )}
-                {card.status === "error" && (
-                  <div className="dt-card-actions">
-                    <button className="dt-btn dt-btn-sm" onClick={() => handleNewPromptAndImage(idx)}>Retry</button>
-                  </div>
-                )}
-              </div>
-            ))}
-          </div>
-        )}
-
-        {!adminKey && (
-          <div className="dt-warning">Set your admin API key on the Admin page to use generation features.</div>
-        )}
-      </section>
-
-      {/* ── Section 3: Style ──────────────────────────────────────────────── */}
-      <section className="dt-section reveal" style={{ "--delay": "0.20s" }}>
-        <div className="dt-section-head">
-          <div>
-            <h2>Style</h2>
-            <p>Art direction applied when rendering images. Edit or pick a preset.</p>
-          </div>
-        </div>
-        <div className="dt-style-presets">
-          {STYLE_PRESETS.map((p) => (
-            <button
-              key={p.id}
-              className={`dt-style-preset ${stylePresetId === p.id ? "dt-style-preset--active" : ""}`}
-              onClick={() => { setStylePresetId(p.id); setStyleText(p.style); }}
-            >
-              {p.label}
-            </button>
-          ))}
-        </div>
-        <textarea
-          className="dt-style-input"
-          value={styleText}
-          onChange={(e) => { setStyleText(e.target.value); setStylePresetId(""); }}
-          rows={3}
-        />
-      </section>
-
-      {/* ── Section 4: Gallery ────────────────────────────────────────────── */}
-      {(savedGenerations.length > 0 || Object.keys(existingCovers).length > 0) && (
-        <section className="dt-section reveal" style={{ "--delay": "0.25s" }}>
-          <div className="dt-section-head">
-            <div>
-              <h2>Gallery</h2>
-              <p>
-                {savedGenerations.length > 0
-                  ? `${savedGenerations.length} saved generation${savedGenerations.length !== 1 ? "s" : ""} for ${selectedWeek}.`
-                  : "Published covers across all weeks."}
-              </p>
+      {tab === "prompt" && (
+        <>
+          {/* Prompt area */}
+          <div className="dt-prompt-zen reveal" style={{ "--delay": "0.10s" }}>
+            <textarea
+              className="dt-prompt-input"
+              value={freeformPrompt}
+              onChange={(e) => setFreeformPrompt(e.target.value)}
+              placeholder="Describe a scene..."
+              rows={6}
+            />
+            <div className="dt-prompt-bar">
+              <button
+                className="dt-btn dt-btn-gold"
+                onClick={handleFreeformRender}
+                disabled={freeformStatus === "rendering" || !freeformPrompt.trim() || !adminKey}
+              >
+                {freeformStatus === "rendering" ? "Rendering..." : "Render"}
+              </button>
             </div>
           </div>
 
+          {/* Suggestions */}
+          <div className="dt-suggest-row reveal" style={{ "--delay": "0.15s" }}>
+            <button
+              className="dt-suggest-chip"
+              onClick={() => { setSelectedWeek(currentMonday); handleSuggestScenes(currentMonday); }}
+              disabled={suggestLoading}
+            >
+              Inspire from this week
+            </button>
+          </div>
+
+          {suggestLoading && <PeonLoader size="sm" />}
+
+          {sceneSuggestions?.scenes?.length > 0 && (
+            <div className="dt-scenes reveal" style={{ "--delay": "0.12s" }}>
+              {sceneSuggestions.scenes.map((s, i) => (
+                <button key={i} className="dt-scene-card" onClick={() => setFreeformPrompt(s.scene)}>
+                  <span className="dt-scene-title">{s.title}</span>
+                  <span className="dt-scene-text">{s.scene}</span>
+                </button>
+              ))}
+            </div>
+          )}
+
+          {/* Style footer */}
+          <div className="dt-style-footer reveal" style={{ "--delay": "0.20s" }}>
+            <span className="dt-style-footer-label">Style</span>
+            <div className="dt-style-tags">
+              {STYLE_SUFFIX.split(",").map((tag, i) => (
+                <span key={i} className="dt-style-tag">{tag.trim()}</span>
+              ))}
+            </div>
+          </div>
+
+          {/* Result */}
+          {freeformStatus === "rendering" && (
+            <PeonLoader size="sm" />
+          )}
+          {(suggestError || freeformError) && <div className="dt-error">{suggestError || freeformError}</div>}
+          {freeformImageUrl && (
+            <div className="dt-result reveal" style={{ "--delay": "0.05s" }}>
+              <img src={freeformImageUrl} alt="Rendered" className="dt-cover-img" />
+            </div>
+          )}
+        </>
+      )}
+
+      {tab === "gallery" && (
+        <div className="dt-gallery-tab reveal" style={{ "--delay": "0.10s" }}>
+          <div className="dt-gallery-toolbar">
+            <input
+              ref={uploadRef}
+              type="file"
+              accept="image/*"
+              style={{ display: "none" }}
+              onChange={(e) => e.target.files?.[0] && handleUploadFile(e.target.files[0])}
+            />
+            <button
+              className="dt-btn dt-btn-sm"
+              onClick={() => uploadRef.current?.click()}
+              disabled={uploading || !adminKey}
+            >
+              {uploading ? "Uploading..." : "Upload image"}
+            </button>
+          </div>
           {savedGenerations.length > 0 && (
             <div className="dt-gallery-group">
-              <label className="dt-label">This week</label>
+              <label className="dt-label">{selectedWeek || "Generations"}</label>
               <div className="dt-gallery-grid">
                 {savedGenerations.map((gen) => (
-                  <div key={gen.id} className="dt-gallery-item">
-                    <img
-                      src={`${RELAY_URL}/api/admin/cover-generation/${gen.id}/image`}
-                      alt={gen.headline || "Generated cover"}
-                      className="dt-gallery-img"
-                    />
-                    <div className="dt-gallery-meta">
-                      {gen.headline && <span className="dt-gallery-headline">{gen.headline}</span>}
-                      <span className="dt-gallery-date">{new Date(gen.created_at + "Z").toLocaleString()}</span>
+                  <div
+                    key={gen.id}
+                    className={`dt-gallery-card ${publishedGenId === gen.id ? "dt-gallery-card--published" : ""}`}
+                    onClick={() => setSelectedGenId(gen.id)}
+                  >
+                    <div className="dt-gallery-thumb">
+                      <img
+                        src={`${RELAY_URL}/api/admin/cover-generation/${gen.id}/image`}
+                        alt={gen.headline || "Generated cover"}
+                        loading="lazy"
+                      />
+                      {publishedGenId === gen.id && <span className="dt-published-badge">Published</span>}
+                      <div className="dt-gallery-actions">
+                        <button className="dt-btn-xs" onClick={(e) => { e.stopPropagation(); handleDeleteGeneration(gen.id); }} title="Delete">&times;</button>
+                      </div>
                     </div>
-                    <div className="dt-gallery-actions">
-                      <button className="dt-btn-xs" onClick={() => handleDeleteGeneration(gen.id)} title="Delete">&times;</button>
+                    <div className="dt-gallery-info">
+                      {gen.headline && <h3 className="dt-gallery-title">{gen.headline}</h3>}
+                      <span className="dt-gallery-date">{new Date(gen.created_at + "Z").toLocaleString()}</span>
                     </div>
                   </div>
                 ))}
@@ -755,16 +813,77 @@ export default function DevTools() {
               <label className="dt-label">Published covers</label>
               <div className="dt-gallery-grid">
                 {Object.entries(existingCovers).map(([week, url]) => (
-                  <div key={week} className="dt-gallery-item">
-                    <img src={url} alt={`Cover ${week}`} className="dt-gallery-img" />
-                    <span className="dt-gallery-label">{week}</span>
+                  <div key={week} className="dt-gallery-card">
+                    <div className="dt-gallery-thumb">
+                      <img src={url} alt={`Cover ${week}`} loading="lazy" />
+                    </div>
+                    <div className="dt-gallery-info">
+                      <h3 className="dt-gallery-title">{week}</h3>
+                    </div>
                   </div>
                 ))}
               </div>
             </div>
           )}
-        </section>
+
+          {galleryCount === 0 && (
+            <p className="dt-gallery-empty">No images yet. Render something on the Prompt tab.</p>
+          )}
+        </div>
       )}
-    </div>
+
+      {/* ── Modal ────────────────────────────────────────────────────────── */}
+      {selectedGeneration && (
+        <div className="dt-modal" onClick={() => setSelectedGenId(null)}>
+          <div className="dt-modal-content" onClick={(e) => e.stopPropagation()}>
+            <img
+              src={`${RELAY_URL}/api/admin/cover-generation/${selectedGeneration.id}/image`}
+              alt={selectedGeneration.headline || "Cover"}
+              className="dt-modal-img"
+            />
+            <div className="dt-modal-meta">
+              {selectedGeneration.headline && <h3 className="dt-modal-headline">{selectedGeneration.headline}</h3>}
+              <span className="dt-modal-date">{new Date(selectedGeneration.created_at + "Z").toLocaleString()}</span>
+              {selectedGeneration.scene && (
+                <details className="dt-modal-details">
+                  <summary>Scene prompt</summary>
+                  <p>{selectedGeneration.scene}</p>
+                </details>
+              )}
+              {selectedGeneration.style && (
+                <details className="dt-modal-details">
+                  <summary>Style</summary>
+                  <p>{selectedGeneration.style}</p>
+                </details>
+              )}
+            </div>
+            <div className="dt-modal-actions">
+              <button
+                className={`dt-btn dt-btn-sm ${publishedGenId === selectedGeneration.id ? "dt-btn-published" : "dt-btn-gold"}`}
+                onClick={() => handleSetAsCover(selectedGeneration.id)}
+                disabled={publishedGenId === selectedGeneration.id}
+              >
+                {publishedGenId === selectedGeneration.id ? "Published to " + selectedWeek : "Publish as cover for " + selectedWeek}
+              </button>
+              <button className="dt-btn dt-btn-sm" onClick={() => { handleDeleteGeneration(selectedGeneration.id); }}>
+                Delete
+              </button>
+            </div>
+            {selectedGenIdx > 0 && (
+              <button className="dt-modal-nav dt-modal-nav--prev" onClick={() => setSelectedGenId(savedGenerations[selectedGenIdx - 1].id)}>
+                &#8249;
+              </button>
+            )}
+            {selectedGenIdx < savedGenerations.length - 1 && (
+              <button className="dt-modal-nav dt-modal-nav--next" onClick={() => setSelectedGenId(savedGenerations[selectedGenIdx + 1].id)}>
+                &#8250;
+              </button>
+            )}
+            <button className="dt-modal-close" onClick={() => setSelectedGenId(null)}>&times;</button>
+          </div>
+        </div>
+      )}
+      </div>
+    </PageLayout>
   );
 }

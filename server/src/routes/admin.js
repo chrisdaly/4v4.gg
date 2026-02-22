@@ -1,12 +1,13 @@
 import { Router } from 'express';
 import rateLimit from 'express-rate-limit';
+import multer from 'multer';
 import config from '../config.js';
-import { setToken, getStats, getTopWords, getRecentDigests, deleteDigest, getDigest, getRecentWeeklyDigests, deleteWeeklyDigest, getWeeklyDigest, getWeeklyCoverImage, setWeeklyCoverImage, getDraftForDate, updateDigestOnly, updateDraftOnly, updateHiddenAvatars, getContextAroundQuotes, getMessagesByTimeWindow, getMessagesByDateAndUsers, getMessageBuckets, getGameStats, getMatchContext, getClipsByDateRange, saveCoverGeneration, getCoverGenerations, getCoverGenerationImage, deleteCoverGeneration, getWeeklyDraftForWeek, updateWeeklyDraftOnly, updateWeeklyDigestOnly, createGenJob, getActiveGenJob, getLatestGenJob, getVariantsForJob, searchMessages, searchMessagesByPlayer, getMessagesAroundTime, countMessagesByDateRange, updateWeeklyDigestJson } from '../db.js';
+import { setToken, getStats, getTopWords, getRecentDigests, deleteDigest, getDigest, getRecentWeeklyDigests, deleteWeeklyDigest, getWeeklyDigest, getWeeklyCoverImage, setWeeklyCoverImage, getDraftForDate, updateDigestOnly, updateDraftOnly, updateHiddenAvatars, getContextAroundQuotes, getMessagesByTimeWindow, getMessagesByDateAndUsers, getMessageBuckets, getGameStats, getMatchContext, getClipsByDateRange, saveCoverGeneration, getCoverGenerations, getCoverGenerationImage, deleteCoverGeneration, getWeeklyDraftForWeek, updateWeeklyDraftOnly, updateWeeklyDigestOnly, createGenJob, getActiveGenJob, getLatestGenJob, getVariantsForJob, searchMessages, searchMessagesByPlayer, getMessagesAroundTime, countMessagesByDateRange, updateWeeklyDigestJson, getDigestsByDateRange, saveStyleThumbnail, getStyleThumbnail } from '../db.js';
 import { updateToken, getStatus } from '../signalr.js';
 import { getClientCount } from '../sse.js';
 import { setBotEnabled, isBotEnabled, testCommand } from '../bot.js';
 import { generateDigest, fetchDailyStats, generateLiveDigest, todayDigestCache, setTodayDigestCache, generateWeeklyDigest, curateDigest, fetchDailyStatCandidates, analyzeSpike, generateMoreItems, appendItemsToDraft, backfillDailyStats, backfillMatchScores, backfillMatchMmrs, generateWeeklyVariants, regenerateSection, regenerateSpotlights, regeneratePlayerQuotes, regenerateMatchStatBlurbs, getPlayerMessageCandidates, computeNewBlood, formatNewBloodLine, digestToJSON } from '../digest.js';
-import { generateCoverImage, buildImagePrompt, extractHeadline, buildImagePromptWithPlayers, generateImageFromPrompt } from '../coverImage.js';
+import { generateCoverImage, buildImagePrompt, extractHeadline, buildImagePromptWithPlayers, generateImageFromPrompt, WC3_STYLE_SUFFIX, suggestScenes } from '../coverImage.js';
 import { runFeedbackScan, getRecentFeedback } from '../feedback.js';
 
 const router = Router();
@@ -28,6 +29,14 @@ const contextLimiter = rateLimit({
   message: { error: 'Too many context requests, try again in a minute' },
 });
 
+const imageLimiter = rateLimit({
+  windowMs: 60 * 1000,
+  max: 3,
+  standardHeaders: true,
+  legacyHeaders: false,
+  message: { error: 'Too many image generation requests, try again in a minute' },
+});
+
 const publicLimiter = rateLimit({
   windowMs: 60 * 1000,
   max: 30,
@@ -43,6 +52,11 @@ function requireApiKey(req, res, next) {
   }
   next();
 }
+
+// Verify API key is valid (used by frontend to show key status)
+router.get('/verify', requireApiKey, (_req, res) => {
+  res.json({ valid: true });
+});
 
 // Set W3C JWT token
 router.post('/token', requireApiKey, (req, res) => {
@@ -382,13 +396,20 @@ router.get('/digests/by-player/:tag', (req, res) => {
   res.json(results);
 });
 
-// Today's live digest (public, served from shared cache warmed by scheduler)
-// Pass ?refresh=1 with API key to bust cache and regenerate
+// Today's live digest (public read from cache, admin-only generation)
+// Cache is warmed by scheduler. Pass ?refresh=1 with API key to bust cache.
+// Public requests get cached data only — never trigger Claude.
 router.get('/stats/today', aiLimiter, async (req, res) => {
-  const forceRefresh = req.query.refresh === '1' && req.headers['x-api-key'] === config.ADMIN_API_KEY;
+  const isAdmin = req.headers['x-api-key'] === config.ADMIN_API_KEY;
+  const forceRefresh = req.query.refresh === '1' && isAdmin;
   const now = Date.now();
   if (!forceRefresh && todayDigestCache.data && todayDigestCache.expires > now) {
     return res.json(todayDigestCache.data);
+  }
+  // Public requests: return stale cache or empty — never trigger AI generation
+  if (!isAdmin) {
+    if (todayDigestCache.data) return res.json(todayDigestCache.data);
+    return res.json({ date: new Date().toISOString().slice(0, 10), digest: null });
   }
   try {
     const today = new Date().toISOString().slice(0, 10);
@@ -592,7 +613,7 @@ router.post('/weekly-digest/:weekStart/regen-section', requireApiKey, aiLimiter,
 });
 
 // Regenerate spotlight blurbs + chat quotes for all stat-card players (admin)
-router.post('/weekly-digest/:weekStart/regen-spotlights', requireApiKey, async (req, res) => {
+router.post('/weekly-digest/:weekStart/regen-spotlights', requireApiKey, aiLimiter, async (req, res) => {
   const { weekStart } = req.params;
   if (!/^\d{4}-\d{2}-\d{2}$/.test(weekStart)) {
     return res.status(400).json({ error: 'weekStart must be YYYY-MM-DD' });
@@ -607,7 +628,7 @@ router.post('/weekly-digest/:weekStart/regen-spotlights', requireApiKey, async (
 });
 
 // Regenerate match stat blurbs + quotes (Hero Slayer, Unit Killer, etc.)
-router.post('/weekly-digest/:weekStart/regen-match-stats', requireApiKey, (req, res) => {
+router.post('/weekly-digest/:weekStart/regen-match-stats', requireApiKey, aiLimiter, (req, res) => {
   const { weekStart } = req.params;
   if (!/^\d{4}-\d{2}-\d{2}$/.test(weekStart)) {
     return res.status(400).json({ error: 'weekStart must be YYYY-MM-DD' });
@@ -622,7 +643,7 @@ router.post('/weekly-digest/:weekStart/regen-match-stats', requireApiKey, (req, 
 });
 
 // Regenerate quotes for a single spotlight player (admin)
-router.post('/weekly-digest/:weekStart/regen-quotes', requireApiKey, (req, res) => {
+router.post('/weekly-digest/:weekStart/regen-quotes', requireApiKey, aiLimiter, (req, res) => {
   const { weekStart } = req.params;
   if (!/^\d{4}-\d{2}-\d{2}$/.test(weekStart)) {
     return res.status(400).json({ error: 'weekStart must be YYYY-MM-DD' });
@@ -859,7 +880,7 @@ router.get('/weekly-digest/:weekStart/cover.jpg', (req, res) => {
 });
 
 // Generate cover image for a weekly digest (admin)
-router.post('/weekly-digest/:weekStart/cover', requireApiKey, async (req, res) => {
+router.post('/weekly-digest/:weekStart/cover', requireApiKey, imageLimiter, async (req, res) => {
   const { weekStart } = req.params;
   if (!/^\d{4}-\d{2}-\d{2}$/.test(weekStart)) {
     return res.status(400).json({ error: 'weekStart must be YYYY-MM-DD' });
@@ -900,6 +921,44 @@ router.post('/weekly-digest/:weekStart/headline', requireApiKey, aiLimiter, asyn
   }
 });
 
+// Suggest visual scene ideas from daily digests (for cover art inspiration)
+router.post('/weekly-digest/:weekStart/suggest-scenes', requireApiKey, aiLimiter, async (req, res) => {
+  const { weekStart } = req.params;
+  if (!/^\d{4}-\d{2}-\d{2}$/.test(weekStart)) {
+    return res.status(400).json({ error: 'weekStart must be YYYY-MM-DD' });
+  }
+  // Compute week end (weekStart + 6 days), cap at today
+  const start = new Date(weekStart + 'T12:00:00Z');
+  const weekEnd = new Date(start.getTime() + 6 * 86400000).toISOString().split('T')[0];
+  const today = new Date().toISOString().split('T')[0];
+  const endDate = weekEnd < today ? weekEnd : today;
+
+  // Use weekly digest if available, otherwise combine dailies
+  const weekly = getWeeklyDigest(weekStart);
+  let combined;
+  let dailyCount = 0;
+  if (weekly?.digest) {
+    combined = weekly.digest;
+  } else {
+    const dailies = getDigestsByDateRange(weekStart, endDate);
+    if (dailies.length === 0) {
+      return res.json({ scenes: [], reason: 'No digests found for this date range' });
+    }
+    dailyCount = dailies.length;
+    combined = dailies.map(d => d.digest).filter(Boolean).join('\n\n');
+  }
+  if (!combined) {
+    return res.json({ scenes: [], reason: 'No digest content' });
+  }
+  try {
+    const result = await suggestScenes(combined);
+    res.json({ ok: true, scenes: result.scenes || [], dailyCount, dateRange: `${weekStart} to ${endDate}` });
+  } catch (err) {
+    console.error('[CoverImage] Suggest scenes error:', err.message);
+    res.status(500).json({ error: err.message });
+  }
+});
+
 // Generate prompt only (admin) — returns Claude's visual prompt without generating image
 // Accepts optional headline + playerContext for enhanced prompts
 // Auto-enriches players with recent digest mentions for character depth
@@ -930,7 +989,7 @@ router.post('/weekly-digest/:weekStart/prompt', requireApiKey, aiLimiter, async 
     } else {
       prompt = await buildImagePrompt(digestText);
     }
-    res.json({ ok: true, prompt });
+    res.json({ ok: true, prompt, styleSuffix: WC3_STYLE_SUFFIX });
   } catch (err) {
     console.error('[CoverImage] Prompt error:', err.message);
     res.status(500).json({ error: err.message });
@@ -938,7 +997,7 @@ router.post('/weekly-digest/:weekStart/prompt', requireApiKey, aiLimiter, async 
 });
 
 // Generate image from a prompt string — downloads, stores in DB, returns local URL
-router.post('/generate-image', requireApiKey, async (req, res) => {
+router.post('/generate-image', requireApiKey, imageLimiter, async (req, res) => {
   const { prompt, weekStart, headline, scene, style } = req.body || {};
   if (!prompt) {
     return res.status(400).json({ error: 'prompt is required' });
@@ -980,6 +1039,25 @@ router.get('/cover-generation/:id/image', (req, res) => {
   res.set('Content-Type', 'image/png');
   res.set('Cache-Control', 'public, max-age=604800');
   res.send(imageBuffer);
+});
+
+// Set a saved generation as the official weekly cover
+router.post('/weekly-digest/:weekStart/cover-from-generation', requireApiKey, (req, res) => {
+  const { weekStart } = req.params;
+  if (!/^\d{4}-\d{2}-\d{2}$/.test(weekStart)) {
+    return res.status(400).json({ error: 'weekStart must be YYYY-MM-DD' });
+  }
+  const { generationId } = req.body;
+  if (!generationId) {
+    return res.status(400).json({ error: 'generationId is required' });
+  }
+  const imageBuffer = getCoverGenerationImage(generationId);
+  if (!imageBuffer) {
+    return res.status(404).json({ error: 'Generation not found' });
+  }
+  setWeeklyCoverImage(weekStart, imageBuffer);
+  console.log(`[CoverImage] Set generation #${generationId} as cover for ${weekStart}`);
+  res.json({ ok: true });
 });
 
 // Delete a saved cover generation
@@ -1235,6 +1313,66 @@ router.get('/feedback/recent', requireApiKey, (req, res) => {
   const limit = parseInt(req.query.limit || '20', 10);
   const issues = getRecentFeedback(limit);
   res.json(issues);
+});
+
+// ── Image Upload ──────────────────────────────────────
+
+const imageUpload = multer({ storage: multer.memoryStorage(), limits: { fileSize: 10 * 1024 * 1024 } });
+
+// Upload an image file or fetch from URL, save to cover_generations gallery
+router.post('/upload-image', requireApiKey, imageUpload.single('image'), async (req, res) => {
+  try {
+    let imageBuffer;
+    if (req.file) {
+      imageBuffer = req.file.buffer;
+    } else if (req.body?.url) {
+      const imgRes = await fetch(req.body.url);
+      if (!imgRes.ok) throw new Error(`Failed to fetch image (${imgRes.status})`);
+      imageBuffer = Buffer.from(await imgRes.arrayBuffer());
+    } else {
+      return res.status(400).json({ error: 'Provide an image file or url' });
+    }
+    const { weekStart, headline, scene, style } = req.body || {};
+    const id = saveCoverGeneration(weekStart || null, headline || null, scene || null, style || null, null, imageBuffer);
+    console.log(`[Upload] Saved uploaded image #${id} (${imageBuffer.length} bytes)`);
+    res.json({ ok: true, id, imageUrl: `/api/admin/cover-generation/${id}/image` });
+  } catch (err) {
+    console.error('[Upload] Error:', err.message);
+    res.status(500).json({ error: err.message });
+  }
+});
+
+// ── Style Thumbnails ──────────────────────────────────
+
+// Generate and save a style thumbnail preview image (admin)
+router.post('/style-thumbnail', requireApiKey, imageLimiter, async (req, res) => {
+  const { prompt, styleId, style } = req.body;
+  if (!prompt || !styleId || !style) {
+    return res.status(400).json({ error: 'prompt, styleId, and style are required' });
+  }
+  try {
+    const fullPrompt = `${prompt}, ${style}`;
+    const replicateUrl = await generateImageFromPrompt(fullPrompt);
+    const imgRes = await fetch(replicateUrl);
+    if (!imgRes.ok) throw new Error(`Failed to download image (${imgRes.status})`);
+    const imageBuffer = Buffer.from(await imgRes.arrayBuffer());
+    saveStyleThumbnail(styleId, fullPrompt, imageBuffer);
+    console.log(`[StyleThumb] Saved thumbnail for ${styleId} (${imageBuffer.length} bytes)`);
+    res.json({ ok: true, styleId });
+  } catch (err) {
+    console.error('[StyleThumb] Error:', err.message);
+    res.status(500).json({ error: err.message });
+  }
+});
+
+// Serve a style thumbnail image (public — for <img> tags)
+router.get('/style-thumbnail/:styleId', (req, res) => {
+  const { styleId } = req.params;
+  const imageBuffer = getStyleThumbnail(styleId);
+  if (!imageBuffer) return res.status(404).send('Not found');
+  res.set('Content-Type', 'image/png');
+  res.set('Cache-Control', 'public, max-age=604800');
+  res.send(imageBuffer);
 });
 
 export default router;

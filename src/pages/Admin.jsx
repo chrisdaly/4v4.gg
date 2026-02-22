@@ -5,25 +5,11 @@ import { IoSend } from "react-icons/io5";
 import useAdmin from "../lib/useAdmin";
 import { Link } from "react-router-dom";
 import ChatSearch from "./AdminChatSearch";
+import { PageLayout } from "../components/PageLayout";
+import { PageHero } from "../components/ui";
 
 const RELAY_URL =
   import.meta.env.VITE_CHAT_RELAY_URL || "https://4v4gg-chat-relay.fly.dev";
-
-const Page = styled.div`
-  max-width: 720px;
-  margin: 0 auto;
-  padding: var(--space-8) var(--space-4);
-  background: rgba(10, 8, 6, 0.6);
-  backdrop-filter: blur(12px);
-  min-height: calc(100vh - 52px);
-`;
-
-const Title = styled.h1`
-  font-family: var(--font-display);
-  font-size: var(--text-xl);
-  color: var(--gold);
-  margin-bottom: var(--space-2);
-`;
 
 const RelayUrl = styled.div`
   font-family: var(--font-mono);
@@ -387,6 +373,27 @@ const DigestText = styled.pre`
   margin: 0;
 `;
 
+const DigestPreview = styled.div`
+  font-family: var(--font-mono);
+  font-size: var(--text-xxs);
+  color: var(--grey-light);
+  cursor: pointer;
+  display: flex;
+  align-items: baseline;
+  gap: var(--space-2);
+
+  &:hover {
+    color: var(--white);
+  }
+`;
+
+const DigestToggle = styled.span`
+  font-family: var(--font-mono);
+  font-size: var(--text-xxxs);
+  color: var(--grey-mid);
+  flex-shrink: 0;
+`;
+
 const GenerateButton = styled.button`
   font-family: var(--font-mono);
   font-size: var(--text-xxs);
@@ -625,6 +632,11 @@ const LINKS = [
     url: "https://platform.claude.com/usage",
   },
   {
+    title: "Replicate Billing",
+    desc: "FLUX Dev image generation cost",
+    url: "https://replicate.com/account/billing",
+  },
+  {
     title: "Fly.io Billing",
     desc: "Relay server hosting cost",
     url: "https://fly.io/dashboard/chris-daly-727/billing",
@@ -665,22 +677,24 @@ function AdminGate() {
   if (adminKey) return <AdminDashboard />;
 
   return (
-    <Page>
-      <Title>Admin</Title>
-      <StatusText>Enter API key to access the admin dashboard.</StatusText>
-      <TokenForm onSubmit={handleSubmit} style={{ marginTop: 16 }}>
-        <TokenInput
-          type="password"
-          placeholder="API key..."
-          value={draft}
-          onChange={(e) => setDraft(e.target.value)}
-          autoFocus
-        />
-        <SubmitButton type="submit" disabled={!draft.trim()}>
-          <IoSend size={14} />
-        </SubmitButton>
-      </TokenForm>
-    </Page>
+    <PageLayout bare overlay>
+      <div style={{ maxWidth: 720, margin: '0 auto' }}>
+        <PageHero eyebrow="Dev Tools" title="Admin" />
+        <StatusText>Enter API key to access the admin dashboard.</StatusText>
+        <TokenForm onSubmit={handleSubmit} style={{ marginTop: 16 }}>
+          <TokenInput
+            type="password"
+            placeholder="API key..."
+            value={draft}
+            onChange={(e) => setDraft(e.target.value)}
+            autoFocus
+          />
+          <SubmitButton type="submit" disabled={!draft.trim()}>
+            <IoSend size={14} />
+          </SubmitButton>
+        </TokenForm>
+      </div>
+    </PageLayout>
   );
 }
 
@@ -694,6 +708,7 @@ function AdminDashboard() {
   const [digestLoading, setDigestLoading] = useState(null);
   const [tokenDraft, setTokenDraft] = useState("");
   const [tokenStatus, setTokenStatus] = useState(null);
+  const [expandedDigests, setExpandedDigests] = useState(new Set());
   const { adminKey: apiKey } = useAdmin();
 
   const fetchHealth = useCallback(() => {
@@ -811,8 +826,9 @@ function AdminDashboard() {
   const avgPerDay = daysSinceOldest ? Math.round(db.totalMessages / daysSinceOldest) : null;
 
   return (
-    <Page>
-      <Title>Admin</Title>
+    <PageLayout bare overlay>
+      <div style={{ maxWidth: 720, margin: '0 auto' }}>
+      <PageHero eyebrow="Dev Tools" title="Admin" lead="Chat relay dashboard, analytics, and server management." />
       <RelayUrl>{RELAY_URL}</RelayUrl>
 
       <Section>
@@ -1047,16 +1063,38 @@ function AdminDashboard() {
           })()}
         </DigestActions>
         {analytics?.digests?.length > 0 ? (
-          analytics.digests.map((d) => (
-            <DigestCard key={d.date} $error={!d.digest}>
-              <DigestDate>{d.date}</DigestDate>
-              {d.digest ? (
-                <DigestText>{d.digest}</DigestText>
-              ) : (
-                <StatusText $color="var(--grey-mid)">{d.reason || "No digest available"}</StatusText>
-              )}
-            </DigestCard>
-          ))
+          analytics.digests.map((d) => {
+            const isExpanded = expandedDigests.has(d.date);
+            const toggleDigest = () => setExpandedDigests(prev => {
+              const next = new Set(prev);
+              if (next.has(d.date)) next.delete(d.date);
+              else next.add(d.date);
+              return next;
+            });
+            return (
+              <DigestCard key={d.date} $error={!d.digest}>
+                {d.digest ? (
+                  isExpanded ? (
+                    <>
+                      <DigestDate onClick={toggleDigest} style={{ cursor: "pointer" }}>{d.date} <DigestToggle>collapse</DigestToggle></DigestDate>
+                      <DigestText>{d.digest}</DigestText>
+                    </>
+                  ) : (
+                    <DigestPreview onClick={toggleDigest}>
+                      <DigestDate style={{ marginBottom: 0 }}>{d.date}</DigestDate>
+                      <span style={{ overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{d.digest.slice(0, 80)}...</span>
+                      <DigestToggle>expand</DigestToggle>
+                    </DigestPreview>
+                  )
+                ) : (
+                  <>
+                    <DigestDate>{d.date}</DigestDate>
+                    <StatusText $color="var(--grey-mid)">{d.reason || "No digest available"}</StatusText>
+                  </>
+                )}
+              </DigestCard>
+            );
+          })
         ) : (
           <StatusText>No digests yet. Generate one for a recent day.</StatusText>
         )}
@@ -1105,6 +1143,7 @@ function AdminDashboard() {
           </LinkCard>
         ))}
       </Section>
-    </Page>
+      </div>
+    </PageLayout>
   );
 }

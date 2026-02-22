@@ -12,6 +12,10 @@ const config = {
   // GitHub (for feedback issue creation)
   GITHUB_TOKEN: process.env.GITHUB_TOKEN || '',
   GITHUB_REPO: process.env.GITHUB_REPO || 'chrisdaly/4v4-gg',
+  // ML embed sidecar
+  EMBED_URL: process.env.EMBED_URL || 'http://localhost:8081',
+  // Replay storage directory (should be on persistent volume in production)
+  REPLAY_DIR: process.env.REPLAY_DIR || './data/replays',
 };
 
 export default config;

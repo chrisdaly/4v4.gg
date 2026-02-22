@@ -18,6 +18,8 @@
 
 /* Player Header */
 .player-header {
+  position: relative;
+  z-index: 2;
   display: flex;
   justify-content: space-between;
   align-items: center;
@@ -957,6 +959,39 @@
   font-size: var(--text-xxxs);
   color: var(--grey-mid);
   flex-shrink: 0;
+}
+
+/* Sidebar: Card Toggle & Sample Label */
+.card-sample-label {
+  display: block;
+  font-family: var(--font-mono);
+  font-size: var(--text-xxxs);
+  color: var(--grey-mid);
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+  margin: -8px 0 12px 0;
+}
+
+.card-toggle-btn {
+  display: block;
+  width: 100%;
+  margin-top: 8px;
+  padding: 6px 0;
+  background: none;
+  border: 1px solid var(--grey-mid);
+  border-radius: 4px;
+  color: var(--grey-light);
+  font-family: var(--font-mono);
+  font-size: var(--text-xxxs);
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+  cursor: pointer;
+  transition: color 0.2s, border-color 0.2s;
+}
+
+.card-toggle-btn:hover {
+  color: var(--gold);
+  border-color: var(--gold);
 }
 
 /* Sidebar: Best Allies Card */

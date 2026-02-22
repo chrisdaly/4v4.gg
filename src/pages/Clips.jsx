@@ -3,7 +3,7 @@ import { Link, useLocation, useHistory } from "react-router-dom";
 import { FaTwitch } from "react-icons/fa";
 import useAdmin from "../lib/useAdmin";
 import { searchLadder, getPlayerProfile } from "../lib/api";
-import { Select, Badge, Button, Input } from "../components/ui";
+import { Select, Badge, Button, Input, PageHero } from "../components/ui";
 import { PageLayout } from "../components/PageLayout";
 import PeonLoader from "../components/PeonLoader";
 import "../styles/pages/Clips.css";
@@ -558,17 +558,13 @@ export default function Clips() {
   const hiddenClips = isAdmin ? clips.filter((c) => c.hidden) : [];
 
   const clipsHeader = (
-    <div className="page-header">
-      <div className="page-title-section">
-        <h1 className="page-title clips-title-row">
-          <FaTwitch className="clips-twitch-icon" />
-          Clips
-        </h1>
-        <div className="page-stats">
-          <span className="stat-item">Top moments from WC3 streamers</span>
-        </div>
-      </div>
-      <div className="page-controls">
+    <>
+      <PageHero
+        eyebrow="4v4.gg Clips"
+        title={<><FaTwitch className="clips-twitch-icon" /> Clips</>}
+        lead="Top moments from WC3 streamers."
+      />
+      <div className="page-controls" style={{ marginBottom: 'var(--space-6)' }}>
         {urlPlayer && (
           <div className="clips-player-filter">
             <span className="clips-player-tag">{urlPlayer.split("#")[0]}</span>
@@ -602,7 +598,7 @@ export default function Clips() {
         </Select>
         <AddClipInput apiKey={isAdmin ? adminKey : null} onAdded={refreshClips} />
       </div>
-    </div>
+    </>
   );
 
   return (

@@ -27,32 +27,71 @@ const quotes = [
   "Job's done.",
 ];
 
-function randomIndex(exclude) {
+// Quotes with optional {name} placeholder — used when `subject` prop is provided
+// Mix of investigation-specific + WC3 unit lines that fit the scouting/detection vibe
+const subjectQuotes = [
+  // Investigation-specific
+  "Investigating {name}...",
+  "Analyzing {name}'s replays...",
+  "Checking {name}'s hotkeys...",
+  "Scouting {name}...",
+  "Studying {name}'s build order...",
+  "Who is {name}, really?",
+  "{name} looks suspicious...",
+  "Cross-referencing {name}...",
+  // Far Seer
+  "I see {name}...",
+  // Warden
+  "{name} shall not escape.",
+  "My prey draws near...",
+  // Shadow Hunter
+  "The voodoo never lies.",
+  "Stay cool, mon.",
+  // Dark Ranger
+  "The hunt is on.",
+  // Shade
+  "{name} cannot hide from my sight.",
+  // Archmage
+  "I'll look into it.",
+  // Paladin
+  "Justice has come.",
+  // Blood Mage
+  "Your magic betrays you.",
+  // Witch Doctor
+  "It's all in da reflexes.",
+  // Demon Hunter
+  "I am my scars.",
+];
+
+function randomIndex(exclude, len) {
   let idx;
-  do { idx = Math.floor(Math.random() * quotes.length); } while (idx === exclude && quotes.length > 1);
+  do { idx = Math.floor(Math.random() * len); } while (idx === exclude && len > 1);
   return idx;
 }
 
-const PeonLoader = ({ size = "lg", interval = 3000 }) => {
+const PeonLoader = ({ size = "lg", interval = 3000, subject }) => {
   const sizeClass = size === "lg" ? " lg" : size === "sm" ? " sm" : "";
-  const [idx, setIdx] = useState(() => randomIndex(-1));
+  const pool = subject ? subjectQuotes : quotes;
+  const [idx, setIdx] = useState(() => randomIndex(-1, pool.length));
   const prevRef = useRef(idx);
 
   useEffect(() => {
     const id = setInterval(() => {
       setIdx((prev) => {
-        const next = randomIndex(prev);
+        const next = randomIndex(prev, pool.length);
         prevRef.current = next;
         return next;
       });
     }, interval);
     return () => clearInterval(id);
-  }, [interval]);
+  }, [interval, pool.length]);
+
+  const text = subject ? pool[idx % pool.length].replace("{name}", subject) : pool[idx % pool.length];
 
   return (
     <div className="peon-loader">
       <div className={`loader-spinner${sizeClass}`} />
-      <span className="peon-text" key={idx}>{quotes[idx]}</span>
+      <span className="peon-text" key={idx}>{text}</span>
     </div>
   );
 };

@@ -4,6 +4,8 @@ import WeeklyMagazine from "../components/news/WeeklyMagazine";
 import DailyView from "../components/news/DailyView";
 import PeonLoader from "../components/PeonLoader";
 import useAdmin from "../lib/useAdmin";
+import { PageLayout } from "../components/PageLayout";
+import { PageHero } from "../components/ui";
 import {
   COVER_BACKGROUNDS,
   hashDate,
@@ -48,23 +50,24 @@ const News = () => {
   const { adminKey, isAdmin } = useAdmin();
 
   // If detail param present, render the detail view directly
-  if (weekParam) return <div className="news-page"><WeeklyMagazine weekParam={weekParam} isAdmin={isAdmin} apiKey={adminKey} /></div>;
-  if (dayParam) return <div className="news-page"><DailyView dayParam={dayParam} /></div>;
+  if (weekParam) return <PageLayout bare><WeeklyMagazine weekParam={weekParam} isAdmin={isAdmin} apiKey={adminKey} /></PageLayout>;
+  if (dayParam) return <PageLayout bare><DailyView dayParam={dayParam} /></PageLayout>;
 
-  return <NewsIndex />;
+  return <NewsIndex isAdmin={isAdmin} />;
 };
 
 const INITIAL_COUNT = 10;
 
-const NewsIndex = () => {
+const NewsIndex = ({ isAdmin }) => {
   const [weeklyDigests, setWeeklyDigests] = useState([]);
   const [dailyDigests, setDailyDigests] = useState([]);
+  const [todayDigest, setTodayDigest] = useState(null);
   const [loading, setLoading] = useState(true);
   const [showAll, setShowAll] = useState(false);
 
   useEffect(() => {
     let done = 0;
-    const check = () => { if (++done >= 2) setLoading(false); };
+    const check = () => { if (++done >= 3) setLoading(false); };
 
     fetch(`${RELAY_URL}/api/admin/weekly-digests`, { cache: "no-store" })
       .then((r) => (r.ok ? r.json() : []))
@@ -75,6 +78,12 @@ const NewsIndex = () => {
     fetch(`${RELAY_URL}/api/admin/digests`, { cache: "no-store" })
       .then((r) => (r.ok ? r.json() : []))
       .then(setDailyDigests)
+      .catch(() => {})
+      .finally(check);
+
+    fetch(`${RELAY_URL}/api/admin/stats/today`, { cache: "no-store" })
+      .then((r) => (r.ok ? r.json() : null))
+      .then((data) => { if (data?.digest) setTodayDigest(data); })
       .catch(() => {})
       .finally(check);
   }, []);
@@ -91,15 +100,31 @@ const NewsIndex = () => {
     for (const d of dailyDigests) {
       items.push({ type: "daily", sortDate: d.date, data: d });
     }
+    // Prepend today's live digest if it's not already in dailyDigests
+    if (todayDigest) {
+      const alreadyExists = dailyDigests.some((d) => d.date === todayDigest.date);
+      if (!alreadyExists) {
+        items.push({ type: "daily", sortDate: todayDigest.date, data: todayDigest, isLive: true });
+      }
+    }
     items.sort((a, b) => b.sortDate.localeCompare(a.sortDate));
     return items;
-  }, [olderWeeklies, dailyDigests]);
+  }, [olderWeeklies, dailyDigests, todayDigest]);
+
+  const newsHeader = (
+    <PageHero
+      eyebrow="4v4.gg News"
+      title="The Digest"
+      lead="Weekly roundups and daily recaps of 4v4 competitive Warcraft III — drama, stats, and highlights."
+      lg
+    />
+  );
 
   if (loading) {
     return (
-      <div className="news-page nw-index">
+      <PageLayout maxWidth="1200px" bare header={newsHeader}>
         <div className="page-loader fade-in"><PeonLoader /></div>
-      </div>
+      </PageLayout>
     );
   }
 
@@ -107,19 +132,13 @@ const NewsIndex = () => {
   const hasMore = timeline.length > INITIAL_COUNT;
 
   return (
-    <div className="news-page nw-index">
-      <header className="nw-hero reveal" style={{ "--delay": "0.05s" }}>
-        <span className="nw-eyebrow">4v4.gg News</span>
-        <h1 className="nw-title">The Digest</h1>
-        <p className="nw-lead">
-          Weekly roundups and daily recaps of 4v4 competitive Warcraft III — drama, stats, and highlights.
-        </p>
-      </header>
-
+    <PageLayout maxWidth="1200px" bare header={newsHeader}>
+      <div style={{ maxWidth: 1200, margin: '0 auto' }}>
       {latestWeekly && (
         <section className="nw-section reveal" style={{ "--delay": "0.10s" }}>
           <h2 className="nw-section-title">Weekly Issues</h2>
           <WeeklyHero weekly={latestWeekly} />
+          {isAdmin && <AdminWeeklyButton />}
         </section>
       )}
 
@@ -131,7 +150,7 @@ const NewsIndex = () => {
             item.type === "weekly" ? (
               <TimelineWeekly key={`w-${item.data.week_start}`} weekly={item.data} delay={0.08 + i * 0.03} />
             ) : (
-              <TimelineDaily key={`d-${item.data.date}`} digest={item.data} delay={0.08 + i * 0.03} />
+              <TimelineDaily key={`d-${item.data.date}`} digest={item.data} delay={0.08 + i * 0.03} isLive={item.isLive} />
             )
           )}
           {hasMore && !showAll && (
@@ -146,7 +165,8 @@ const NewsIndex = () => {
       {!latestWeekly && timeline.length === 0 && (
         <p className="nw-empty">No digests published yet. Check back soon.</p>
       )}
-    </div>
+      </div>
+    </PageLayout>
   );
 };
 
@@ -192,13 +212,14 @@ const TimelineWeekly = ({ weekly, delay }) => {
   );
 };
 
-const TimelineDaily = ({ digest, delay }) => {
+const TimelineDaily = ({ digest, delay, isLive }) => {
   const teaser = digest.digest ? extractTeaser(digest.digest) : "";
   const label = formatDigestLabel(digest.date);
   const dayName = formatDigestDay(digest.date);
+  const cls = `nw-timeline-item${isLive ? " nw-timeline-item--live" : ""} reveal`;
 
   return (
-    <Link to={`/news?day=${digest.date}`} className="nw-timeline-item reveal" style={{ "--delay": `${delay}s` }}>
+    <Link to={`/news?day=${digest.date}`} className={cls} style={{ "--delay": `${delay}s` }}>
       <div className="nw-timeline-date">
         <span className="nw-timeline-date-day">{dayName}</span>
         <span className="nw-timeline-date-label">{label}</span>
@@ -206,6 +227,21 @@ const TimelineDaily = ({ digest, delay }) => {
       <div className="nw-timeline-content">
         {teaser && <p className="nw-timeline-teaser">{teaser}</p>}
       </div>
+    </Link>
+  );
+};
+
+const AdminWeeklyButton = () => {
+  const now = new Date();
+  const day = now.getDay();
+  const diff = day === 0 ? 6 : day - 1; // Monday = 0 offset
+  const monday = new Date(now);
+  monday.setDate(now.getDate() - diff);
+  const weekStr = monday.toISOString().slice(0, 10);
+
+  return (
+    <Link to={`/news?week=${weekStr}`} className="nw-admin-weekly-btn">
+      Edit this week's magazine
     </Link>
   );
 };

@@ -279,41 +279,65 @@
   padding: var(--space-2) var(--space-4);
 }
 
+/* ── Admin key status dot (small, informational) ──── */
+
+.admin-key-dot {
+  display: inline-block;
+  width: 6px;
+  height: 6px;
+  border-radius: 50%;
+  margin-right: 6px;
+  vertical-align: middle;
+  flex-shrink: 0;
+}
+
+.admin-key-dot[data-status="valid"]   { background: var(--green); }
+.admin-key-dot[data-status="invalid"] { background: var(--red); }
+.admin-key-dot[data-status="unknown"] { background: var(--grey-mid); }
+
 /* ── Admin view toggle ─────────────────────────────── */
 
+/* Off state: ghost / dimmed — "previewing as user" */
 .navbar-admin-toggle {
+  display: inline-flex;
+  align-items: center;
   font-family: var(--font-mono);
   font-size: var(--text-xxxs);
   text-transform: uppercase;
-  letter-spacing: 0.08em;
-  padding: 4px 10px;
-  border-radius: 4px;
+  letter-spacing: 0.14em;
+  padding: 6px 12px;
+  border-radius: 9999px;
+  background: transparent;
   border: 1px solid var(--grey-mid);
-  background: none;
   color: var(--grey-mid);
   cursor: pointer;
   transition: all 0.2s ease;
   white-space: nowrap;
+  opacity: 0.7;
 }
 
 .navbar-admin-toggle:hover {
+  opacity: 1;
   border-color: var(--grey-light);
   color: var(--grey-light);
 }
 
+/* On state: gold badge — admin features visible */
 .navbar-admin-toggle.active {
-  border-color: var(--gold);
+  background: rgba(252, 219, 51, 0.12);
+  border-color: rgba(252, 219, 51, 0.3);
   color: var(--gold);
+  opacity: 1;
 }
 
 .navbar-admin-toggle.active:hover {
-  border-color: var(--gold);
-  color: var(--gold);
-  opacity: 0.8;
+  background: rgba(252, 219, 51, 0.18);
 }
 
 .navbar-admin-toggle-mobile {
   border-top: 1px solid rgba(184, 134, 11, 0.1);
+  display: flex;
+  align-items: center;
 }
 
 .navbar-admin-toggle-mobile.active {

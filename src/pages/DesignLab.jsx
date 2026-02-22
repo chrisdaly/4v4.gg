@@ -46,8 +46,7 @@ const SoloChart = ({ p1, p2 }) => (
 
 const DesignLab = () => {
   return (
-  <div className="bl-article">
-
+  <>
     <div className="bl-section reveal" style={{ "--delay": "0.06s" }}>
       <div className="bl-content">
 
@@ -63,21 +62,26 @@ const DesignLab = () => {
           The loading screen shows eight numbers. Four on your team, four on theirs. You have maybe five seconds to figure out if this is going to be one-sided.
         </p>
 
-        <div className="blog-mmr-display">
-          <div className="team-blue">
-            <div>2387</div>
-            <div>1653</div>
-            <div>1502</div>
-            <div>1041</div>
-          </div>
-          <div className="vs">vs</div>
-          <div className="team-red">
-            <div>2098</div>
-            <div>1756</div>
-            <div>1247</div>
-            <div>963</div>
-          </div>
-        </div>
+        <table className="blog-mmr-table">
+          <thead>
+            <tr>
+              <th colSpan={2} className="blog-mmr-table-blue">Blue Team</th>
+              <th />
+              <th colSpan={2} className="blog-mmr-table-red">Red Team</th>
+            </tr>
+          </thead>
+          <tbody>
+            {[[2387, 2098], [1653, 1756], [1502, 1247], [1041, 963]].map(([b, r], i) => (
+              <tr key={i}>
+                <td className="blog-mmr-table-name">Player {i + 1}</td>
+                <td className="blog-mmr-table-val blog-mmr-table-blue">{b}</td>
+                <td className="blog-mmr-table-vs">{i === 1 ? "vs" : ""}</td>
+                <td className="blog-mmr-table-val blog-mmr-table-red">{r}</td>
+                <td className="blog-mmr-table-name">Player {i + 5}</td>
+              </tr>
+            ))}
+          </tbody>
+        </table>
 
         <p>
           Quick. Which team wins?
@@ -289,7 +293,6 @@ const DesignLab = () => {
             <div className="blog-chart-label">two duos each</div>
           </div>
         </div>
-      </div>
 
       <h2>Gallery</h2>
       <p>
@@ -419,8 +422,9 @@ const DesignLab = () => {
         </div>
       </div>
     </div>
-
   </div>
+
+  </>
   );
 };
 

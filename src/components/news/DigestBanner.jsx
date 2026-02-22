@@ -265,7 +265,7 @@ const DigestQuotes = ({ quotes }) => {
   );
 };
 
-const StatSection = ({ stat, cls, label, profiles, date, expanded, onToggle, sectionKey }) => {
+const StatSection = ({ stat, cls, label, profiles, date, expanded, onToggle, sectionKey, sectionId }) => {
   const profile = profiles.get(stat.battleTag);
   let displayHeadline = stat.headline;
   if (sectionKey === "GRINDER") {
@@ -275,7 +275,7 @@ const StatSection = ({ stat, cls, label, profiles, date, expanded, onToggle, sec
     displayHeadline = `${sign}${stat.mmrChange} MMR`;
   }
   return (
-    <div className={`digest-section digest-section--${cls} digest-section--clickable`} onClick={onToggle}>
+    <div id={sectionId} className={`digest-section digest-section--${cls} digest-section--clickable`} onClick={onToggle}>
       <span className="digest-section-label">{label}</span>
       <div className="digest-stat">
         {profile?.pic && <DigestAvatar src={profile.pic} country={profile.country} />}
@@ -301,10 +301,10 @@ const StatSection = ({ stat, cls, label, profiles, date, expanded, onToggle, sec
 
 /* ── Clips section ──────────────────────────────────── */
 
-const ClipsSection = ({ clips }) => {
+const ClipsSection = ({ clips, sectionId }) => {
   if (!clips || clips.length === 0) return null;
   return (
-    <div className="digest-section digest-section--clips">
+    <div id={sectionId} className="digest-section digest-section--clips">
       <span className="digest-section-label">Clips</span>
       <div className="digest-clips-strip">
         {clips.map((clip) => (
@@ -334,11 +334,11 @@ const ClipsSection = ({ clips }) => {
 
 /* ── Power Rankings section ─────────────────────────── */
 
-const RankingsSection = ({ content, profiles }) => {
+const RankingsSection = ({ content, profiles, sectionId }) => {
   const rankings = parsePowerRankings(content);
   if (rankings.length === 0) return null;
   return (
-    <div className="digest-section digest-section--rankings">
+    <div id={sectionId} className="digest-section digest-section--rankings">
       <span className="digest-section-label">Power Rankings</span>
       <div className="digest-rankings">
         {rankings.map((r) => {
@@ -376,11 +376,11 @@ const RankingsSection = ({ content, profiles }) => {
 
 const AWARD_ICONS = { MVP: "\uD83C\uDFC6", "Iron Man": "\uD83D\uDCAA", "Most Improved": "\uD83D\uDCC8", "Biggest Tilt": "\uD83D\uDCC9" };
 
-const AwardsSection = ({ content, profiles }) => {
+const AwardsSection = ({ content, profiles, sectionId }) => {
   const awards = parseAwards(content);
   if (awards.length === 0) return null;
   return (
-    <div className="digest-section digest-section--awards">
+    <div id={sectionId} className="digest-section digest-section--awards">
       <span className="digest-section-label">Awards</span>
       <div className="digest-awards-strip">
         {awards.map((a) => {
@@ -678,17 +678,17 @@ const DigestBanner = ({ digest, nameSet, nameToTag, label = "Yesterday in 4v4", 
           // Clips section: rendered from digest.clips JSON, not text
           if (meta.clips) {
             const digestClips = propClips || digest?.clips;
-            return <ClipsSection key={key} clips={digestClips} />;
+            return <ClipsSection key={key} sectionId={key.toLowerCase()} clips={digestClips} />;
           }
 
           // Power Rankings section
           if (meta.rankings) {
-            return <RankingsSection key={key} content={content} profiles={profiles} />;
+            return <RankingsSection key={key} sectionId={key.toLowerCase()} content={content} profiles={profiles} />;
           }
 
           // Awards section
           if (meta.awards) {
-            return <AwardsSection key={key} content={content} profiles={profiles} />;
+            return <AwardsSection key={key} sectionId={key.toLowerCase()} content={content} profiles={profiles} />;
           }
 
           if (meta.stat) {
@@ -698,6 +698,7 @@ const DigestBanner = ({ digest, nameSet, nameToTag, label = "Yesterday in 4v4", 
               return (
                 <StatSection
                   key={key}
+                  sectionId={key.toLowerCase()}
                   stat={stat}
                   cls={cls}
                   label={sectionLabel}
@@ -713,7 +714,7 @@ const DigestBanner = ({ digest, nameSet, nameToTag, label = "Yesterday in 4v4", 
 
           if (meta.tags) {
             return (
-              <div key={key} className={`digest-section digest-section--${cls}`}>
+              <div key={key} id={key.toLowerCase()} className={`digest-section digest-section--${cls}`}>
                 <span className="digest-section-label">{sectionLabel}</span>
                 <span className="digest-tags">
                   {content.split(/,\s*/).filter(Boolean).map((tag, i) => (
@@ -733,7 +734,7 @@ const DigestBanner = ({ digest, nameSet, nameToTag, label = "Yesterday in 4v4", 
           // Custom UPSET card rendering
           if (key === "UPSET" && !editable) {
             return (
-              <div key={key} className={`digest-section digest-section--${cls}`}>
+              <div key={key} id={key.toLowerCase()} className={`digest-section digest-section--${cls}`}>
                 <span className="digest-section-label">{sectionLabel}</span>
                 <div className="digest-upset-cards">
                   {items.map((item, i) => (
@@ -747,7 +748,7 @@ const DigestBanner = ({ digest, nameSet, nameToTag, label = "Yesterday in 4v4", 
           // Custom AT_SPOTLIGHT card rendering
           if (key === "AT_SPOTLIGHT" && !editable) {
             return (
-              <div key={key} className={`digest-section digest-section--${cls}`}>
+              <div key={key} id={key.toLowerCase()} className={`digest-section digest-section--${cls}`}>
                 <span className="digest-section-label">{sectionLabel}</span>
                 <div className="digest-upset-cards">
                   {items.map((item, i) => (
@@ -778,7 +779,7 @@ const DigestBanner = ({ digest, nameSet, nameToTag, label = "Yesterday in 4v4", 
           );
 
           return (
-            <div key={key} className={`digest-section digest-section--${cls}`}>
+            <div key={key} id={key.toLowerCase()} className={`digest-section digest-section--${cls}`}>
               {sectionHeader}
               {items.length > 1 ? (
                 <ul className="digest-bullets">

@@ -75,6 +75,12 @@ const DailyView = ({ dayParam }) => {
       }
 
       setLoading(false);
+
+      // Scroll to hash fragment after content loads
+      requestAnimationFrame(() => {
+        const hash = window.location.hash.slice(1);
+        if (hash) document.getElementById(hash)?.scrollIntoView({ behavior: "smooth", block: "center" });
+      });
     });
   }, [dayParam]);
 

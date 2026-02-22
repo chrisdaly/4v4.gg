@@ -3,6 +3,8 @@ import React from "react";
 /**
  * Blog post registry — single source of truth.
  * Add new posts here; Blog index + Router consume this automatically.
+ *
+ * coverImage: optional path to a hero image (rendered as magazine-style card)
  */
 
 /** Four gold dots on dark — matches the "Dots, Not Numbers" theme */
@@ -22,6 +24,7 @@ export const blogPosts = [
     description: "How the MMR charts work on 4v4.gg.",
     date: "Feb 2025",
     tags: ["dataviz", "design", "wc3"],
+    type: "component",
     component: () => import("../pages/DesignLab"),
     preview: DotsPreview,
   },

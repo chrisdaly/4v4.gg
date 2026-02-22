@@ -1,5 +1,5 @@
 import Anthropic from '@anthropic-ai/sdk';
-import { getMessagesByDate, getMessageBuckets, getDigest, setDigest, getRecentDigests, getWeeklyDigest, setWeeklyDigest, deleteDigest, setDigestWithDraft, updateDigestOnly, getDraftForDate, getMessagesByTimeWindow, getClipsByDateRange, updateClip4v4Status, updateDigestClips, setWeeklyDigestFull, getStreamers, saveDailyPlayerStats, getDailyPlayerStatsRange, hasDailyPlayerStats, saveDailyMatches, getDailyMatchesRange, getNewPlayersForWeek, saveMatchPlayerScores, hasMatchScores, getMatchPlayerScoresRange, getMatchIdsForDateRange, getDailyMatchesMissingMmrs, updateDailyMatchMmrs, getMessagesByDateRangeAndUser, getMessagesByDateRangeMentioning, getFirstAppearanceDate, getLastActiveDateBefore, getMessagesByDateAndUsers, updateGenJobStatus, updateGenJobProgress, saveWeeklyVariant, countMessagesByDateRange, updateWeeklyDigestOnly, updateWeeklyDraftOnly } from './db.js';
+import { getMessagesByDate, getMessageBuckets, getDigest, setDigest, getRecentDigests, getWeeklyDigest, setWeeklyDigest, deleteDigest, setDigestWithDraft, updateDigestOnly, getDraftForDate, getMessagesByTimeWindow, getClipsByDateRange, updateClip4v4Status, updateDigestClips, setWeeklyDigestFull, getStreamers, saveDailyPlayerStats, getDailyPlayerStatsRange, hasDailyPlayerStats, saveDailyMatches, getDailyMatchesRange, getNewPlayersForWeek, saveMatchPlayerScores, hasMatchScores, getMatchPlayerScoresRange, getMatchIdsForDateRange, getDailyMatchesMissingMmrs, updateDailyMatchMmrs, getMessagesByDateRangeAndUser, getMessagesByDateRangeMentioning, getFirstAppearanceDate, getLastActiveDateBefore, getMessagesByDateAndUsers, updateGenJobStatus, updateGenJobProgress, saveWeeklyVariant, countMessagesByDateRange, updateWeeklyDigestOnly, updateWeeklyDraftOnly, getAllMessagesByDateRange } from './db.js';
 import { runClipFetch } from './clips.js';
 import config from './config.js';
 
@@ -1228,6 +1228,73 @@ export function appendItemsToDraft(draftText, sectionKey, newItems) {
   return reassembleSections(sections);
 }
 
+/* ── Top weekly chat moments (for richer weekly context) ── */
+
+const BORING_MSG_RE = /^(gg|go|gl hf|gogo|lol|lmao|haha|yes|no|ok|\.+|!+|\?+|wb|ty|thx|np|brb|afk)$/i;
+const COMMAND_RE = /^[!/\\]/;
+const DRAMA_KEYWORDS = /\b(ban|grief|cheat|report|kick|toxic|maphack|smurf|hack|exploit)\b/i;
+const TRASH_TALK_RE = /\b(you always|you never|your fault|blame|carried|useless|trash|noob|idiot)\b/i;
+
+function scoreChatMessage(msg) {
+  const text = msg.message;
+  if (!text || text.length < 5) return -1;
+  if (BORING_MSG_RE.test(text.trim())) return -1;
+  if (COMMAND_RE.test(text.trim())) return -50;
+
+  let score = Math.min(text.length, 60);
+
+  if (DRAMA_KEYWORDS.test(text)) score += 50;
+  if (TRASH_TALK_RE.test(text)) score += 40;
+
+  // Emotional intensity
+  if (/!!/.test(text)) score += 15;
+  if (/\?\?/.test(text)) score += 15;
+  const upper = text.replace(/[^A-Z]/g, '').length;
+  const alpha = text.replace(/[^a-zA-Z]/g, '').length;
+  if (alpha > 5 && upper / alpha > 0.6) score += 15;
+  if (/\b(lmao|omg|wtf|bruh)\b/i.test(text)) score += 15;
+
+  // First person — personal stakes
+  if (/\b(I |my |im |i'm )\b/i.test(text)) score += 20;
+
+  // Non-English bonus (CJK, Cyrillic, Arabic)
+  if (/[\u4e00-\u9fff\u0400-\u04ff\u0600-\u06ff]/.test(text)) score += 25;
+
+  return score;
+}
+
+function deduplicateMessages(msgs) {
+  const result = [];
+  for (const msg of msgs) {
+    const isDupe = result.some(existing => {
+      const a = existing.message.toLowerCase();
+      const b = msg.message.toLowerCase();
+      if (a.length === 0 || b.length === 0) return false;
+      const shorter = a.length <= b.length ? a : b;
+      const longer = a.length > b.length ? a : b;
+      return longer.includes(shorter) || (shorter.length > 10 && longer.includes(shorter.slice(0, Math.floor(shorter.length * 0.8))));
+    });
+    if (!isDupe) result.push(msg);
+  }
+  return result;
+}
+
+export function getTopWeeklyMessages(weekStart, weekEnd, limit = 25) {
+  const messages = getAllMessagesByDateRange(weekStart, weekEnd, 2000);
+  if (messages.length === 0) return [];
+
+  const scored = messages
+    .map(m => ({ ...m, _score: scoreChatMessage(m) }))
+    .filter(m => m._score > 0)
+    .sort((a, b) => b._score - a._score);
+
+  const deduped = deduplicateMessages(scored);
+
+  return deduped
+    .slice(0, limit)
+    .map(m => ({ userName: m.user_name, message: m.message, battleTag: m.battle_tag }));
+}
+
 /* ── Weekly digest generation ────────────────────── */
 
 const STAT_LINE_RE = /^(WINNER|LOSER|GRINDER|HOTSTREAK|COLDSTREAK|HEROSLAYER):\s*(.+)$/gm;
@@ -2196,13 +2263,29 @@ function computeWeeklyATSpotlight(weekStart, weekEnd) {
   return top;
 }
 
-function buildWeeklyPrompt(dailyDigests, aggregateStats) {
+function buildWeeklyPrompt(dailyDigests, aggregateStats, topChatMessages = []) {
   const dailyTexts = dailyDigests.map((d, i) => {
     const dayLabel = new Date(d.date + 'T12:00:00Z').toLocaleDateString('en-US', { weekday: 'long' });
     // Strip stat lines for AI (they get re-aggregated)
     const textOnly = d.digest.replace(STAT_LINE_RE, '').replace(/^MENTIONS:.*$/gm, '').trim();
     return `--- ${dayLabel} (${d.date}) ---\n${textOnly}`;
   }).join('\n\n');
+
+  // Build raw chat highlights section (capped at 500 chars)
+  let chatHighlightsSection = '';
+  if (topChatMessages.length > 0) {
+    let lines = [];
+    let totalLen = 0;
+    for (const m of topChatMessages) {
+      const line = `"${m.userName}: ${m.message}"`;
+      if (totalLen + line.length > 500) break;
+      lines.push(line);
+      totalLen += line.length + 1;
+    }
+    if (lines.length > 0) {
+      chatHighlightsSection = `\nRaw chat highlights (use these for authentic quotes in DRAMA and HIGHLIGHTS):\n${lines.join('\n')}\n`;
+    }
+  }
 
   return `Summarize this week's Warcraft III 4v4 activity from ${dailyDigests.length} daily digests into a WEEKLY magazine recap. The first DRAMA item becomes the "Top Story" on the site with featured pull quotes, so make it count. Write a digest with these sections (skip if nothing fits):
 
@@ -2225,7 +2308,7 @@ Rules:
 - Total under 3000 chars
 
 ${aggregateStats}
-
+${chatHighlightsSection}
 Daily digests (${dailyDigests.length} days):
 ${dailyTexts}`;
 }
@@ -2313,9 +2396,20 @@ export async function gatherWeeklyContext(weekStart) {
     aggregateText += `\nBusiest day: ${dayName} (${dayCounts[0].games} games)`;
   }
 
+  // Fetch top chat moments for richer weekly narrative
+  let topChatMessages = [];
+  try {
+    topChatMessages = getTopWeeklyMessages(weekStart, weekEnd, 25);
+    if (topChatMessages.length > 0) {
+      console.log(`[Weekly] Found ${topChatMessages.length} top chat moments for ${weekStart}`);
+    }
+  } catch (err) {
+    console.warn('[Weekly] Top chat messages fetch failed:', err.message);
+  }
+
   return {
     dailyDigests, aggregateText, weekEnd, weeklyMatchStats, weeklyAwards,
-    playerMap, qualified, weeklyWinner, weeklyLoser, weeklyGrinder,
+    playerMap, qualified, weeklyWinner, weeklyLoser, weeklyGrinder, topChatMessages,
   };
 }
 
@@ -2330,9 +2424,9 @@ export async function generateWeeklyDigest(weekStart) {
   if (!ctx) return null;
 
   const { dailyDigests, aggregateText, weekEnd, weeklyMatchStats, weeklyAwards,
-          playerMap, qualified, weeklyWinner, weeklyLoser, weeklyGrinder } = ctx;
+          playerMap, qualified, weeklyWinner, weeklyLoser, weeklyGrinder, topChatMessages } = ctx;
 
-  const prompt = buildWeeklyPrompt(dailyDigests, aggregateText);
+  const prompt = buildWeeklyPrompt(dailyDigests, aggregateText, topChatMessages);
 
   // Call AI (same retry pattern as daily)
   const client = new Anthropic({ apiKey: config.ANTHROPIC_API_KEY });
@@ -2596,8 +2690,8 @@ export async function regenerateSection(weekStart, sectionKey) {
   const ctx = await gatherWeeklyContext(weekStart);
   if (!ctx) throw new Error('Insufficient weekly data');
 
-  const { dailyDigests, aggregateText } = ctx;
-  const basePrompt = buildWeeklyPrompt(dailyDigests, aggregateText);
+  const { dailyDigests, aggregateText, topChatMessages } = ctx;
+  const basePrompt = buildWeeklyPrompt(dailyDigests, aggregateText, topChatMessages);
 
   const sectionPrompt = `${basePrompt}
 
@@ -2797,7 +2891,7 @@ export async function generateWeeklyVariants(weekStart, jobId) {
       'EDITORIAL ANGLE: Lead with the biggest competitive upset or performance story. Who rose, who fell. Emphasize rankings shifts, streaks, and clutch plays.',
     ];
 
-    const basePrompt = buildWeeklyPrompt(ctx.dailyDigests, ctx.aggregateText);
+    const basePrompt = buildWeeklyPrompt(ctx.dailyDigests, ctx.aggregateText, ctx.topChatMessages);
     const client = new Anthropic({ apiKey: config.ANTHROPIC_API_KEY });
 
     for (let i = 0; i < angles.length; i++) {

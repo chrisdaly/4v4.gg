@@ -14,8 +14,13 @@ import {
   getReplayByW3cMatchId, insertReplayWithW3c,
   getExistingW3cMatchIds,
   insertPlayerFingerprints,
+  getReplaysNeedingActionSequences,
+  updatePlayerActionSequence,
+  getActionSequencesForExport,
+  updateFingerprintEmbedding,
 } from '../db.js';
 import { buildServerFingerprint } from '../fingerprint.js';
+import { getEmbeddingBatch } from '../embedClient.js';
 
 const router = Router();
 
@@ -27,8 +32,8 @@ function requireApiKey(req, res, next) {
   next();
 }
 
-// Set up multer for .w3g file uploads
-const REPLAY_DIR = join(process.cwd(), 'data', 'replays');
+// Set up multer for .w3g file uploads — use persistent volume in production
+const REPLAY_DIR = config.REPLAY_DIR.startsWith('/') ? config.REPLAY_DIR : join(process.cwd(), config.REPLAY_DIR);
 mkdirSync(REPLAY_DIR, { recursive: true });
 
 const storage = multer.diskStorage({
@@ -92,6 +97,8 @@ router.post('/upload', requireApiKey, (req, res, next) => {
     try {
       const fingerprints = computeFingerprints(parsed.actions, parsed.players);
       if (fingerprints.length > 0) insertPlayerFingerprints(replayId, fingerprints);
+      // Fire-and-forget: compute neural embeddings if sidecar is up
+      computeEmbeddingsAsync(replayId, parsed.actions);
     } catch (fpErr) {
       console.error(`[Fingerprint] Error for ${originalname}:`, fpErr.message);
     }
@@ -211,6 +218,7 @@ router.post('/import-w3c', requireApiKey, async (req, res) => {
     try {
       const fingerprints = computeFingerprints(parsed.actions, playersWithTags);
       if (fingerprints.length > 0) insertPlayerFingerprints(replayId, fingerprints);
+      computeEmbeddingsAsync(replayId, parsed.actions);
     } catch (fpErr) {
       console.error(`[Fingerprint] Error for W3C match ${matchId}:`, fpErr.message);
     }
@@ -253,6 +261,20 @@ router.get('/', requireApiKey, (req, res) => {
   res.json({ replays, total, limit, offset });
 });
 
+// GET /api/replays/action-sequences — Export action sequences for ML training
+router.get('/action-sequences', requireApiKey, (req, res) => {
+  const rows = getActionSequencesForExport();
+  const result = rows.map(r => ({
+    replayId: r.replay_id,
+    playerId: r.player_id,
+    battleTag: r.battle_tag,
+    playerName: r.player_name,
+    race: r.race,
+    actions: tryParse(r.full_action_sequence) || [],
+  }));
+  res.json({ count: result.length, sequences: result });
+});
+
 // GET /api/replays/:id — Single replay with players + actions
 router.get('/:id', requireApiKey, (req, res) => {
   const id = parseInt(req.params.id);
@@ -274,6 +296,7 @@ router.get('/:id', requireApiKey, (req, res) => {
     units_summary: tryParse(a.units_summary),
     buildings_summary: tryParse(a.buildings_summary),
     early_game_sequence: tryParse(a.early_game_sequence),
+    full_action_sequence: tryParse(a.full_action_sequence),
   }));
 
   res.json({
@@ -318,6 +341,218 @@ router.delete('/:id', requireApiKey, (req, res) => {
   res.json({ ok: true, message: `Replay ${id} deleted` });
 });
 
+// POST /api/replays/batch-import — Bulk import replays from top W3C ladder players
+router.post('/batch-import', requireApiKey, async (req, res) => {
+  const W3C_API = 'https://website-backend.w3champions.com/api';
+  const RATE_LIMIT_MS = 500;
+  const season = req.body.season || 24;
+  const maxMatchesPerPlayer = req.body.maxMatches || 20;
+
+  // SSE setup
+  res.writeHead(200, {
+    'Content-Type': 'text/event-stream',
+    'Cache-Control': 'no-cache',
+    Connection: 'keep-alive',
+  });
+  const send = (data) => res.write(`data: ${JSON.stringify(data)}\n\n`);
+  const sleep = (ms) => new Promise(r => setTimeout(r, ms));
+
+  try {
+    // Step 1: Fetch current season
+    send({ phase: 'init', message: `Fetching season info...` });
+    let currentSeason = season;
+    try {
+      const seasonsRes = await fetch(`${W3C_API}/ladder/seasons`);
+      if (seasonsRes.ok) {
+        const seasons = await seasonsRes.json();
+        if (seasons?.length > 0) currentSeason = seasons[0].id;
+      }
+    } catch { /* use provided season */ }
+    send({ phase: 'init', message: `Using season ${currentSeason}` });
+
+    // Step 2: Fetch top GM (league 0) and top Master (league 1) players
+    const battleTags = new Set();
+    for (const leagueId of [0, 1]) {
+      const leagueName = leagueId === 0 ? 'GM' : 'Master';
+      send({ phase: 'ladder', message: `Fetching ${leagueName} ladder...` });
+      await sleep(RATE_LIMIT_MS);
+
+      try {
+        const url = `${W3C_API}/ladder/${leagueId}?gateWay=20&gameMode=4&season=${currentSeason}`;
+        const ladderRes = await fetch(url);
+        if (!ladderRes.ok) {
+          send({ phase: 'ladder', message: `${leagueName} ladder fetch failed (${ladderRes.status})` });
+          continue;
+        }
+        const entries = await ladderRes.json();
+        const players = (Array.isArray(entries) ? entries : []).slice(0, 50);
+        for (const entry of players) {
+          const tag = entry?.player?.playerIds?.[0]?.battleTag
+            || entry?.playersInfo?.[0]?.battleTag;
+          if (tag) battleTags.add(tag);
+        }
+        send({ phase: 'ladder', message: `${leagueName}: found ${players.length} players` });
+      } catch (err) {
+        send({ phase: 'ladder', message: `${leagueName} error: ${err.message}` });
+      }
+    }
+
+    send({ phase: 'players', message: `Total unique players: ${battleTags.size}` });
+
+    // Step 3: For each player, fetch recent matches and collect unique match IDs
+    const matchMap = new Map(); // matchId -> { matchId, players }
+    let playerIdx = 0;
+    for (const tag of battleTags) {
+      playerIdx++;
+      send({ phase: 'matches', message: `[${playerIdx}/${battleTags.size}] Fetching matches for ${tag}...` });
+      await sleep(RATE_LIMIT_MS);
+
+      try {
+        const url = `${W3C_API}/matches?playerId=${encodeURIComponent(tag)}&offset=0&gameMode=4&season=${currentSeason}&gateway=20&pageSize=${maxMatchesPerPlayer}`;
+        const matchRes = await fetch(url);
+        if (!matchRes.ok) continue;
+        const data = await matchRes.json();
+        const matches = data.matches || [];
+
+        for (const m of matches) {
+          if (matchMap.has(m.id)) continue;
+          const players = [];
+          for (const team of m.teams || []) {
+            for (const p of team.players || []) {
+              players.push({ name: p.name || p.battleTag?.split('#')[0], battleTag: p.battleTag });
+            }
+          }
+          matchMap.set(m.id, { matchId: m.id, players });
+        }
+      } catch { /* skip this player */ }
+    }
+
+    send({ phase: 'matches', message: `Collected ${matchMap.size} unique matches` });
+
+    // Step 4: Deduplicate against existing DB
+    const allMatchIds = [...matchMap.keys()];
+    const existingIds = getExistingW3cMatchIds(allMatchIds);
+    const newMatches = allMatchIds.filter(id => !existingIds.has(id));
+    send({ phase: 'dedup', message: `${existingIds.size} already imported, ${newMatches.length} new to import` });
+
+    // Step 5: Import each new match
+    let imported = 0, failed = 0, skipped = 0;
+    for (let i = 0; i < newMatches.length; i++) {
+      const matchId = newMatches[i];
+      const matchInfo = matchMap.get(matchId);
+      send({ phase: 'import', progress: `${i + 1}/${newMatches.length}`, matchId, imported, failed });
+      await sleep(RATE_LIMIT_MS);
+
+      try {
+        // Download .w3g from W3C
+        const w3cUrl = `${W3C_API}/replays/${encodeURIComponent(matchId)}`;
+        const dlRes = await fetch(w3cUrl);
+        if (!dlRes.ok) {
+          if (dlRes.status === 404) { skipped++; continue; }
+          failed++;
+          continue;
+        }
+        const replayBuffer = Buffer.from(await dlRes.arrayBuffer());
+
+        // Save to disk
+        const ts = Date.now();
+        const safeId = matchId.replace(/[^a-zA-Z0-9._-]/g, '_');
+        const filename = `${ts}-w3c-${safeId}.w3g`;
+        const filePath = join(REPLAY_DIR, filename);
+        writeFileSync(filePath, replayBuffer);
+
+        // Insert DB record
+        const replayId = insertReplayWithW3c({ filename, filePath, fileSize: replayBuffer.length, w3cMatchId: matchId });
+
+        // Parse
+        const parsed = await parseReplayFile(filePath);
+        updateReplayParsed(replayId, {
+          gameName: parsed.metadata.gameName,
+          gameDuration: parsed.metadata.gameDuration,
+          mapName: parsed.metadata.mapName,
+          matchType: parsed.metadata.matchType,
+          matchDate: parsed.metadata.matchDate,
+          rawParsed: JSON.stringify(parsed),
+        });
+
+        // Match battletags
+        const playerTagMap = {};
+        if (matchInfo?.players) {
+          for (const wp of matchInfo.players) {
+            if (wp.name && wp.battleTag) {
+              playerTagMap[wp.name.toLowerCase()] = wp.battleTag;
+              playerTagMap[wp.battleTag.toLowerCase()] = wp.battleTag;
+            }
+          }
+        }
+
+        const playersWithTags = parsed.players.map(p => {
+          const nameKey = p.playerName.toLowerCase();
+          const nameOnly = nameKey.split('#')[0];
+          return { ...p, battleTag: playerTagMap[nameKey] || playerTagMap[nameOnly] || null };
+        });
+
+        insertReplayPlayers(replayId, playersWithTags);
+        insertReplayChat(replayId, parsed.chat);
+        insertReplayPlayerActions(replayId, parsed.actions);
+
+        // Compute fingerprints
+        try {
+          const fingerprints = computeFingerprints(parsed.actions, playersWithTags);
+          if (fingerprints.length > 0) insertPlayerFingerprints(replayId, fingerprints);
+        } catch { /* fingerprint error is non-fatal */ }
+
+        imported++;
+      } catch (err) {
+        failed++;
+        send({ phase: 'import', error: `Match ${matchId}: ${err.message}` });
+      }
+    }
+
+    send({
+      phase: 'done',
+      imported,
+      failed,
+      skipped,
+      totalMatches: newMatches.length,
+      alreadyExisted: existingIds.size,
+    });
+  } catch (err) {
+    send({ phase: 'error', message: err.message });
+  }
+
+  res.end();
+});
+
+// POST /api/replays/backfill-actions — Re-parse existing replays for full action sequences
+router.post('/backfill-actions', requireApiKey, async (req, res) => {
+  const { parseReplayFile: reparse } = await import('../replayParser.js');
+  const missing = getReplaysNeedingActionSequences();
+
+  if (missing.length === 0) {
+    return res.json({ ok: true, message: 'All replays already have action sequences', processed: 0 });
+  }
+
+  let processed = 0, errors = 0;
+  for (const { id: replayId, file_path: filePath } of missing) {
+    try {
+      const parsed = await reparse(filePath);
+      for (const a of parsed.actions) {
+        if (a.fullActionSequence && a.fullActionSequence.length > 0) {
+          updatePlayerActionSequence(replayId, a.playerId, a.fullActionSequence);
+        }
+      }
+      processed++;
+    } catch (err) {
+      console.error(`[Backfill Actions] Replay ${replayId}: ${err.message}`);
+      errors++;
+    }
+  }
+
+  res.json({ ok: true, processed, errors, total: missing.length });
+});
+
+
 // POST /api/replays/check-existing — Check which W3C match IDs already exist
 router.post('/check-existing', requireApiKey, (req, res) => {
   const { matchIds } = req.body;
@@ -344,6 +579,7 @@ function computeFingerprints(actions, players) {
       selecthotkey: a.selecthotkey, assigngroup: a.assigngroup,
       timed_segments: a.timedSegments,
       group_hotkeys: a.groupHotkeys,
+      full_action_sequence: a.fullActionSequence,
     });
     const player = players.find(p => p.playerId === a.playerId);
     return {
@@ -354,6 +590,31 @@ function computeFingerprints(actions, players) {
       ...fp,
     };
   });
+}
+
+/**
+ * Fire-and-forget: compute embeddings for a just-imported replay via the sidecar.
+ */
+async function computeEmbeddingsAsync(replayId, actions) {
+  try {
+    const sequences = actions
+      .filter(a => a.fullActionSequence && a.fullActionSequence.length > 10)
+      .map(a => a.fullActionSequence);
+    if (sequences.length === 0) return;
+
+    const embeddings = await getEmbeddingBatch(sequences);
+    let idx = 0;
+    for (const a of actions) {
+      if (a.fullActionSequence && a.fullActionSequence.length > 10) {
+        if (embeddings[idx]) {
+          updateFingerprintEmbedding(replayId, a.playerId, embeddings[idx]);
+        }
+        idx++;
+      }
+    }
+  } catch (err) {
+    console.error(`[Embed] Error for replay ${replayId}:`, err.message);
+  }
 }
 
 export default router;

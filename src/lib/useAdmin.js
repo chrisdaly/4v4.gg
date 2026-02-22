@@ -4,6 +4,8 @@ import { useLocation } from "react-router-dom";
 const STORAGE_KEY = "admin_api_key";
 const VIEW_KEY = "admin_view_active";
 const VIEW_EVENT = "admin-view-changed";
+const RELAY_URL =
+  import.meta.env.VITE_CHAT_RELAY_URL || "https://4v4gg-chat-relay.fly.dev";
 
 // Legacy keys to migrate from
 const LEGACY_KEYS = ["chat_admin_key", "clips_admin_key"];
@@ -51,6 +53,9 @@ export default function useAdmin() {
     try { return localStorage.getItem(STORAGE_KEY) || ""; } catch { return ""; }
   });
 
+  // null = unchecked, true = valid, false = invalid
+  const [isKeyValid, setIsKeyValid] = useState(null);
+
   const [adminViewActive, setAdminViewActive] = useState(() => {
     try {
       const stored = localStorage.getItem(VIEW_KEY);
@@ -71,6 +76,25 @@ export default function useAdmin() {
     window.addEventListener(VIEW_EVENT, handler);
     return () => window.removeEventListener(VIEW_EVENT, handler);
   }, []);
+
+  // Verify key against server on mount and when key changes
+  useEffect(() => {
+    if (!adminKey) {
+      setIsKeyValid(null);
+      return;
+    }
+    let cancelled = false;
+    fetch(`${RELAY_URL}/api/admin/verify`, {
+      headers: { "x-api-key": adminKey },
+    })
+      .then((res) => {
+        if (!cancelled) setIsKeyValid(res.ok);
+      })
+      .catch(() => {
+        if (!cancelled) setIsKeyValid(null); // network error → unknown
+      });
+    return () => { cancelled = true; };
+  }, [adminKey]);
 
   // Show admin UI if URL param present OR if key was previously stored
   const showAdmin = hasAdminParam || !!adminKey;
@@ -107,5 +131,5 @@ export default function useAdmin() {
     });
   }, []);
 
-  return { adminKey, isAdmin, showAdmin, adminViewActive, toggleAdminView, setAdminKey };
+  return { adminKey, isAdmin, showAdmin, adminViewActive, toggleAdminView, setAdminKey, isKeyValid };
 }

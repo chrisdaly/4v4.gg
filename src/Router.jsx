@@ -1,5 +1,5 @@
 import React, { Suspense, lazy, useEffect } from "react";
-import { BrowserRouter, Route, Switch, Link, Redirect } from "react-router-dom";
+import { BrowserRouter, Route, Switch, Link } from "react-router-dom";
 import ErrorBoundary from "./components/ErrorBoundary";
 import Navbar from "./components/Navbar";
 import PeonLoader from "./components/PeonLoader";
@@ -16,6 +16,8 @@ const pageImports = {
   stats: () => import("./pages/Stats"),
   chat: () => import("./pages/Chat"),
   player: () => import("./pages/PlayerProfile"),
+  news: () => import("./pages/News"),
+  clips: () => import("./pages/Clips"),
 };
 
 const OngoingGames = lazy(pageImports.ongoing);
@@ -24,15 +26,13 @@ const Ladder = lazy(pageImports.ladder);
 const Stats = lazy(pageImports.stats);
 const Chat = lazy(pageImports.chat);
 const PlayerProfile = lazy(pageImports.player);
-
-// Secondary pages (lazy-loaded on demand)
-const News = lazy(() => import("./pages/News"));
+const News = lazy(pageImports.news);
 const FinishedGamePage = lazy(() => import("./pages/FinishedGamePage"));
 const PlayerStream = lazy(() => import("./pages/PlayerStream"));
 const MyStreamPage = lazy(() => import("./pages/MyStreamPage"));
 const Blog = lazy(() => import("./pages/Blog"));
 const BlogPost = lazy(() => import("./pages/BlogPost"));
-const Clips = lazy(() => import("./pages/Clips"));
+const Clips = lazy(pageImports.clips);
 const Replay = lazy(() => import("./pages/Replay"));
 const ReplayLab = lazy(() => import("./pages/ReplayLab"));
 
@@ -51,6 +51,7 @@ const Admin = lazy(() => import("./pages/Admin"));
 const DevTools = lazy(() => import("./pages/DevTools"));
 const Themes = lazy(() => import("./pages/Themes"));
 const FaviconMockups = lazy(() => import("./pages/FaviconMockups"));
+const Signatures = lazy(() => import("./pages/Signatures"));
 
 // Preload core nav pages after initial paint so they're instant on click
 const preloadCorePages = () => {
@@ -126,10 +127,10 @@ const Router = () => (
                 <Route path="/mockups" component={ChatMockups} />
                 <Route path="/themes" component={Themes} />
                 <Route path="/admin" component={Admin} />
-                <Route path="/dev" component={DevTools} />
+                <Route path="/cover-art" component={DevTools} />
                 <Route path="/favicons" component={FaviconMockups} />
+                <Route path="/signatures" component={Signatures} />
 
-                <Redirect from="/magazine" to="/news" />
                 <Route path="/replay-lab" component={ReplayLab} />
                 <Route path="/replay" component={Replay} />
 

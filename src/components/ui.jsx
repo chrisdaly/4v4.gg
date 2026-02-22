@@ -6,7 +6,7 @@
 import React, { useState, useRef, useEffect, useCallback } from "react";
 import styled from "styled-components";
 import { Link } from "react-router-dom";
-import { PageLayout } from "./PageLayout";
+import { PageLayout, PageHero } from "./PageLayout";
 import { raceMapping } from "../lib/constants";
 
 // ============================================
@@ -977,4 +977,4 @@ export const SkeletonMessage = styled.div`
 // RE-EXPORTS
 // ============================================
 
-export { PageLayout };
+export { PageLayout, PageHero };

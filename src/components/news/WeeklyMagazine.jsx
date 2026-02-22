@@ -17,22 +17,11 @@ import {
   COVER_BACKGROUNDS,
   hashDate,
   formatWeekRange,
-  parseDigestSections,
-  parseMentions,
-  parseStatLine,
   extractMentionedTags,
-  splitQuotes,
   groupQuotesBySpeaker,
-  getSpotlightExtras,
   buildStatBlurb,
-  parsePowerRankings,
-  parseUpsets,
-  parseATSpotlight,
-  parseMatchStats,
-  parseNewBlood,
-  parseStreakDaily,
-  parseStreakSpectrum,
 } from "../../lib/digestUtils";
+import useDigestData from "../../lib/useDigestData";
 import "../../styles/pages/Magazine.css";
 
 const RELAY_URL =
@@ -65,16 +54,6 @@ const extractHeroIcons = (detail) => {
   }
   return icons;
 };
-
-/** Clean up summary text after quote extraction — removes empty paren blocks, stray punctuation */
-const cleanSummary = (text) =>
-  text
-    .replace(/\([;,\s]*\)/g, "")       // "(; ; ; )" or "()" left after quote extraction
-    .replace(/\n+/g, " ")              // collapse newlines
-    .replace(/\s{2,}/g, " ")           // collapse spaces
-    .replace(/\s+([.,;])/g, "$1")      // remove space before punctuation
-    .replace(/[.,;]+\s*$/, "")         // trim trailing punctuation
-    .trim();
 
 /** Highlight known player names in narrative text as gold links/spans */
 const highlightNames = (text, nameToTag) => {
@@ -404,27 +383,11 @@ const FeatureStory = ({ lead, quotes, curated, nameToTag, editorial }) => {
   );
 };
 
-/** Parse ban text into structured { name, duration, reason, matchId } */
-const parseBanItem = (text) => {
-  const m = text.trim().match(/^(\S+)\s+banned\s+(?:(\d+)\s+days?\s+)?for\s+(.+)$/i);
-  if (!m) return null;
-  let reason = m[3];
-  let matchId = null;
-  // Extract match ID patterns like "match 12345" or "(match 12345)" or "match ID 12345"
-  const matchIdRe = /\(?match(?:\s+ID)?\s+(\d+)\)?/i;
-  const mm = reason.match(matchIdRe);
-  if (mm) {
-    matchId = mm[1];
-    reason = reason.replace(matchIdRe, "").replace(/\s{2,}/g, " ").trim();
-    if (reason.endsWith(",") || reason.endsWith(";")) reason = reason.slice(0, -1).trim();
-  }
-  return { name: m[1], duration: m[2] ? `${m[2]}d` : "perm", reason, matchId };
-};
-
 /** Secondary stories grid — sub-drama + highlights + bans */
 const StoriesGrid = ({ stories, highlights, bans, nameToTag, editorial }) => {
-  const highlightItems = highlights ? highlights.split(/;\s*/).filter(Boolean) : [];
-  const banRows = bans ? bans.split(/;\s*/).map(parseBanItem).filter(Boolean) : [];
+  // highlights & bans are now pre-parsed arrays (from useDigestData)
+  const highlightItems = highlights || [];
+  const banRows = bans || [];
   const [dragState, setDragState] = useState({ section: null, from: null, over: null });
 
   if (stories.length === 0 && highlightItems.length === 0 && banRows.length === 0) return null;
@@ -495,7 +458,7 @@ const StoriesGrid = ({ stories, highlights, bans, nameToTag, editorial }) => {
                 {editorial && <SectionRegenButton sectionKey="HIGHLIGHTS" regenLoading={editorial.regenLoading} onRegen={editorial.regenSection} />}
                 <div className="mg-section-rule" />
               </div>
-              {renderList(highlightItems, "HIGHLIGHTS", { onEdit: editorial?.onEditHighlight })}
+              {renderList(highlightItems.map((h) => typeof h === "string" ? h : h.summary), "HIGHLIGHTS", { onEdit: editorial?.onEditHighlight })}
             </div>
           )}
           {banRows.length > 0 && (
@@ -975,52 +938,58 @@ const StreakCard = ({ stat, profile, accent, role, blurb, quotes, dailyData, typ
   );
 };
 
-const SpotlightsSection = ({ sections, profiles, editorial }) => {
+const SpotlightsSection = ({ spotlights, profiles, editorial }) => {
   const STREAK_KEYS = new Set(["HOTSTREAK", "COLDSTREAK"]);
   const cards = [
-    { key: "WINNER", role: "Winner", accent: "green" },
-    { key: "LOSER", role: "Loser", accent: "red" },
-    { key: "GRINDER", role: "Grinder", accent: "white" },
-    { key: "HOTSTREAK", role: "Hot Streak", accent: "green" },
-    { key: "COLDSTREAK", role: "Cold Streak", accent: "red" },
-    { key: "HEROSLAYER", role: "Hero Slayer", accent: "white" },
+    { key: "WINNER", jsonKey: "winner", role: "Winner", accent: "green" },
+    { key: "LOSER", jsonKey: "loser", role: "Loser", accent: "red" },
+    { key: "GRINDER", jsonKey: "grinder", role: "Grinder", accent: "white" },
+    { key: "HOTSTREAK", jsonKey: "hotStreak", role: "Hot Streak", accent: "green" },
+    { key: "COLDSTREAK", jsonKey: "coldStreak", role: "Cold Streak", accent: "red" },
+    { key: "HEROSLAYER", jsonKey: "heroSlayer", role: "Hero Slayer", accent: "white" },
   ];
 
-  // Parse streak daily data
-  const hotDailySec = sections.find((s) => s.key === "HOTSTREAK_DAILY");
-  const coldDailySec = sections.find((s) => s.key === "COLDSTREAK_DAILY");
-  const hotDailyData = hotDailySec ? parseStreakDaily(hotDailySec.content) : null;
-  const coldDailyData = coldDailySec ? parseStreakDaily(coldDailySec.content) : null;
-  const dailyMap = { HOTSTREAK: hotDailyData, COLDSTREAK: coldDailyData };
+  // Build spectrum data from hotStreak spotlight's streakSpectrum
+  const hotCard = spotlights.hotStreak;
+  const spectrumData = hotCard?.streakSpectrum ? {
+    win: Object.entries(hotCard.streakSpectrum.wins || {}).map(([len, count]) => ({ len: parseInt(len), count })).filter((e) => !isNaN(e.len)),
+    loss: Object.entries(hotCard.streakSpectrum.losses || {}).map(([len, count]) => ({ len: parseInt(len), count })).filter((e) => !isNaN(e.len)),
+  } : null;
 
-  // Parse spectrum
-  const spectrumSec = sections.find((s) => s.key === "STREAK_SPECTRUM");
-  const spectrumData = spectrumSec ? parseStreakSpectrum(spectrumSec.content) : null;
-
-  const parsed = cards.map(({ key, role, accent }) => {
-    const sec = sections.find((s) => s.key === key);
-    const stat = sec ? parseStatLine(sec.content) : null;
-    if (!stat) return null;
-    const extras = getSpotlightExtras(key, sections);
-    const serverBlurb = extras.blurb || null;
+  const parsed = cards.map(({ key, jsonKey, role, accent }) => {
+    const card = spotlights[jsonKey];
+    if (!card) return null;
+    // Normalize stat shape for SpotlightCard/StreakCard compatibility
+    const stat = {
+      battleTag: card.battleTag,
+      name: card.battleTag.split("#")[0],
+      race: card.race,
+      headline: card.headline,
+      mmrChange: card.mmrChange,
+      streakLen: card.streakLength || card.streakLen || null,
+      streakType: (card.streakLength || card.streakLen) ? (key === "HOTSTREAK" ? "W" : key === "COLDSTREAK" ? "L" : null) : null,
+      wins: card.wins,
+      losses: card.losses,
+      form: card.form,
+    };
+    // Blurb: prefer server blurb, fall back to client-generated
+    const serverBlurb = card.blurb || null;
     const clientBlurb = !serverBlurb ? buildStatBlurb(stat, accent) : null;
     const blurb = serverBlurb || (clientBlurb?.length > 0 ? clientBlurb.join(" ") : null);
-    const quotes = extras.quotes.length > 0 ? extras.quotes : [];
-    const dailyData = STREAK_KEYS.has(key) ? dailyMap[key] : null;
+    // Quotes: normalize from { speaker, text } to raw strings for groupQuotesBySpeaker
+    const quotes = (card.quotes || []).map((q) => q.speaker ? `${q.speaker}: ${q.text}` : q.text);
+    // Streak daily data
+    const dailyData = STREAK_KEYS.has(key) && card.dailyBreakdown ? {
+      days: card.dailyBreakdown,
+      streakIdx: card.streakIdx || 0,
+      streakLen: card.streakLen || card.streakLength || 0,
+    } : null;
     // Hero icons for HEROSLAYER
-    const heroesSec = key === "HEROSLAYER" ? sections.find((s) => s.key === "HEROSLAYER_HEROES") : null;
-    const heroIcons = heroesSec ? heroesSec.content.split(",").map((h) => h.trim()).filter(Boolean) : null;
-    const victimsSec = key === "HEROSLAYER" ? sections.find((s) => s.key === "HEROSLAYER_VICTIMS") : null;
-    const victimIcons = victimsSec ? victimsSec.content.split(",").map((h) => h.trim()).filter(Boolean) : null;
-    // Killboard: "deathknight:15,lich:12,..." → grouped [{name, count}] sorted by count desc
-    const killboardSec = key === "HEROSLAYER" ? sections.find((s) => s.key === "HEROSLAYER_KILLBOARD") : null;
-    const killboard = killboardSec ? killboardSec.content.split(",").map((entry) => {
-      const [name, countStr] = entry.trim().split(":");
-      return name && countStr ? { name, count: parseInt(countStr, 10) } : null;
-    }).filter(Boolean) : null;
-    // Max hero kills in a single game
-    const maxSec = key === "HEROSLAYER" ? sections.find((s) => s.key === "HEROSLAYER_MAX") : null;
-    const maxHeroKills = maxSec ? parseInt(maxSec.content.trim(), 10) || null : null;
+    const heroIcons = card.playerHeroes || null;
+    const victimIcons = card.victimHeroes || null;
+    // Killboard: object → [{name, count}] sorted by count desc
+    const killboard = card.killboard ? Object.entries(card.killboard).map(([name, count]) => ({ name, count })).sort((a, b) => b.count - a.count) : null;
+    const maxHeroKills = card.maxKillsInGame || null;
     return { key, stat, role, accent, blurb, quotes, dailyData, heroIcons, victimIcons, killboard, maxHeroKills };
   }).filter(Boolean);
 
@@ -1064,9 +1033,10 @@ const SpotlightsSection = ({ sections, profiles, editorial }) => {
   );
 };
 
-const UpsetsSection = ({ content, profiles }) => {
-  const upsets = parseUpsets(content).filter((u) =>
-    u.underdogMmrs.every((m) => m > 0) && u.favoriteMmrs.every((m) => m > 0)
+const UpsetsSection = ({ upsets: rawUpsets, profiles }) => {
+  // upsets are now pre-parsed with { underdogs: [{battleTag, mmr}], favorites: [{battleTag, mmr}] }
+  const upsets = (rawUpsets || []).filter((u) =>
+    u.underdogs.every((p) => p.mmr > 0) && u.favorites.every((p) => p.mmr > 0)
   );
   if (upsets.length === 0) return null;
 
@@ -1091,16 +1061,16 @@ const UpsetsSection = ({ content, profiles }) => {
           <div className="mg-upset-teams">
             <div className="mg-upset-team mg-upset-team--underdogs">
               <span className="mg-upset-team-label mg-text-green">Underdogs</span>
-              <span className="mg-upset-team-avg">{u.underdogAvg} avg</span>
-              {u.underdogTags.map((tag, j) => {
-                const profile = profiles.get(tag);
-                const name = tag.split("#")[0];
+              <span className="mg-upset-team-avg">{Math.round(u.underdogs.reduce((s, p) => s + p.mmr, 0) / u.underdogs.length)} avg</span>
+              {u.underdogs.map((p) => {
+                const profile = profiles.get(p.battleTag);
+                const name = p.battleTag.split("#")[0];
                 return (
-                  <div key={tag} className="mg-upset-player">
+                  <div key={p.battleTag} className="mg-upset-player">
                     {profile?.pic && <img src={profile.pic} alt="" className="mg-upset-avatar" />}
-                    <Link to={`/player/${encodeURIComponent(tag)}`} className="mg-upset-name">{name}</Link>
+                    <Link to={`/player/${encodeURIComponent(p.battleTag)}`} className="mg-upset-name">{name}</Link>
                     {profile?.country && <CountryFlag name={profile.country.toLowerCase()} style={{ width: 12, height: 9 }} />}
-                    <span className="mg-upset-mmr">{u.underdogMmrs[j] || ""}</span>
+                    <span className="mg-upset-mmr">{p.mmr || ""}</span>
                   </div>
                 );
               })}
@@ -1108,16 +1078,16 @@ const UpsetsSection = ({ content, profiles }) => {
             <div className="mg-upset-vs">VS</div>
             <div className="mg-upset-team mg-upset-team--favorites">
               <span className="mg-upset-team-label mg-text-red">Favorites</span>
-              <span className="mg-upset-team-avg">{u.favoriteAvg} avg</span>
-              {u.favoriteTags.map((tag, j) => {
-                const profile = profiles.get(tag);
-                const name = tag.split("#")[0];
+              <span className="mg-upset-team-avg">{Math.round(u.favorites.reduce((s, p) => s + p.mmr, 0) / u.favorites.length)} avg</span>
+              {u.favorites.map((p) => {
+                const profile = profiles.get(p.battleTag);
+                const name = p.battleTag.split("#")[0];
                 return (
-                  <div key={tag} className="mg-upset-player">
+                  <div key={p.battleTag} className="mg-upset-player">
                     {profile?.pic && <img src={profile.pic} alt="" className="mg-upset-avatar" />}
-                    <Link to={`/player/${encodeURIComponent(tag)}`} className="mg-upset-name">{name}</Link>
+                    <Link to={`/player/${encodeURIComponent(p.battleTag)}`} className="mg-upset-name">{name}</Link>
                     {profile?.country && <CountryFlag name={profile.country.toLowerCase()} style={{ width: 12, height: 9 }} />}
-                    <span className="mg-upset-mmr">{u.favoriteMmrs[j] || ""}</span>
+                    <span className="mg-upset-mmr">{p.mmr || ""}</span>
                   </div>
                 );
               })}
@@ -1137,8 +1107,8 @@ const UpsetsSection = ({ content, profiles }) => {
    ACT 3 — THE NUMBERS (stats / data)
    ═══════════════════════════════════════════════════════ */
 
-const RankingsSection = ({ content, profiles }) => {
-  const all = parsePowerRankings(content);
+const RankingsSection = ({ rankings, profiles }) => {
+  const all = rankings || [];
   if (all.length === 0) return null;
 
   const sorted = [...all].sort((a, b) => b.mmrChange - a.mmrChange);
@@ -1307,11 +1277,31 @@ const NewBloodTimeline = ({ players, weekStart, weekEnd }) => {
   );
 };
 
-const CompactStats = ({ newBloodContent, atContent, heroesContent, matchStatsContent, sections, profiles, weekStart, weekEnd }) => {
-  const players = newBloodContent ? parseNewBlood(newBloodContent) : [];
-  const stacks = atContent ? parseATSpotlight(atContent) : [];
-  const matchStats = matchStatsContent ? parseMatchStats(matchStatsContent).filter((s) => !PROMOTED_STATS.has(s.category)) : [];
-  const heroStats = heroesContent ? parseMatchStats(heroesContent) : [];
+const CompactStats = ({ newBlood, atSpotlight, heroMeta, matchStats: rawMatchStats, profiles, weekStart, weekEnd }) => {
+  // All props are now pre-parsed arrays from useDigestData
+  const players = (newBlood || []).map((p) => ({
+    ...p,
+    name: p.battleTag.split("#")[0],
+    winPct: p.winRate,
+    returning: p.isReturning,
+    lastActive: p.lastSeen,
+    firstDate: p.firstSeen,
+  }));
+  const stacks = (atSpotlight || []).map((s) => ({
+    ...s,
+    winPct: s.winRate,
+    players: s.players.map((p) => typeof p === "string" ? p : p.name),
+  }));
+  const matchStats = (rawMatchStats || []).filter((s) => !PROMOTED_STATS.has(s.category)).map((s) => ({
+    ...s,
+    name: s.battleTag.split("#")[0],
+    detail: s.stat || s.detail,
+  }));
+  const heroStats = (heroMeta || []).map((s) => ({
+    ...s,
+    name: s.battleTag.split("#")[0],
+    detail: s.stat || s.detail,
+  }));
   const allAwards = [...matchStats, ...heroStats];
 
   if (players.length === 0 && stacks.length === 0 && allAwards.length === 0) return null;
@@ -1718,79 +1708,21 @@ const WeeklyMagazine = ({ weekParam, isAdmin = false, apiKey = "" }) => {
     setRegenerating(false);
   }, [weekly, apiKey, weeklyIdx]);
 
-  const sections = useMemo(() => {
-    const source = ed.isEditorial && ed.draft ? ed.draft : weekly?.digest;
-    if (!source) return [];
-    return parseDigestSections(source);
-  }, [weekly, ed.isEditorial, ed.draft]);
+  // Dual-path digest data hook — JSON when available, text fallback otherwise
+  const { digestData, knownNames, sections } = useDigestData({
+    weekly,
+    isEditorial: ed.isEditorial,
+    draft: ed.draft,
+  });
 
-  // Build name→battleTag map from all structured sections + quote speakers
-  const knownNames = useMemo(() => {
-    const names = new Map();
-    for (const s of sections) {
-      if (["WINNER", "LOSER", "GRINDER", "HOTSTREAK", "COLDSTREAK", "HEROSLAYER"].includes(s.key)) {
-        const stat = parseStatLine(s.content);
-        if (stat) names.set(stat.name, stat.battleTag);
-      }
-      if (s.key === "POWER_RANKINGS") {
-        for (const r of parsePowerRankings(s.content)) names.set(r.name, r.battleTag);
-      }
-      if (s.key === "NEW_BLOOD") {
-        for (const p of parseNewBlood(s.content)) names.set(p.name, p.battleTag);
-      }
-      if (s.key === "MATCH_STATS" || s.key === "HEROES") {
-        for (const ms of parseMatchStats(s.content)) names.set(ms.name, ms.battleTag);
-      }
-      if (s.key === "UPSET") {
-        for (const u of parseUpsets(s.content)) {
-          u.underdogTags.forEach((t) => names.set(t.split("#")[0], t));
-          u.favoriteTags.forEach((t) => names.set(t.split("#")[0], t));
-        }
-      }
-      // Extract speaker names from drama quotes
-      if (s.key === "DRAMA") {
-        const { quotes } = splitQuotes(s.content);
-        for (const q of quotes) {
-          const m = q.match(/^(\w[\w\d!ǃ]*?):\s+/);
-          if (m && m[1].length >= 2) names.set(m[1], m[1]);
-        }
-      }
-    }
-    const mentionMap = parseMentions(sections);
-    for (const [name, tag] of mentionMap) names.set(name, tag);
-    return names;
-  }, [sections]);
-
+  // Fetch profiles for all known battleTags
   useEffect(() => {
-    if (!weekly?.digest) return;
-    const allSections = parseDigestSections(weekly.digest);
-    const mentions = parseMentions(allSections);
+    if (!weekly?.digest && !weekly?.digestJson) return;
     const tags = new Set();
 
-    for (const s of allSections) {
-      if (["WINNER", "LOSER", "GRINDER", "HOTSTREAK", "COLDSTREAK", "HEROSLAYER"].includes(s.key)) {
-        const stat = parseStatLine(s.content);
-        if (stat) tags.add(stat.battleTag);
-      }
-      if (s.key === "POWER_RANKINGS") {
-        for (const r of parsePowerRankings(s.content)) tags.add(r.battleTag);
-      }
-      if (s.key === "UPSET") {
-        for (const u of parseUpsets(s.content)) {
-          u.underdogTags.forEach((t) => tags.add(t));
-          u.favoriteTags.forEach((t) => tags.add(t));
-        }
-      }
-      if (s.key === "NEW_BLOOD") {
-        for (const p of parseNewBlood(s.content)) tags.add(p.battleTag);
-      }
-      if (s.key === "MATCH_STATS" || s.key === "HEROES") {
-        for (const ms of parseMatchStats(s.content)) tags.add(ms.battleTag);
-      }
-    }
-
-    for (const s of allSections) {
-      for (const tag of extractMentionedTags(s.content, mentions)) tags.add(tag);
+    // Collect all battleTags from knownNames (already aggregates all sources)
+    for (const tag of knownNames.values()) {
+      if (tag.includes("#")) tags.add(tag);
     }
 
     if (tags.size === 0) return;
@@ -1804,7 +1736,7 @@ const WeeklyMagazine = ({ weekParam, isAdmin = false, apiKey = "" }) => {
         setProfiles(map);
       }
     );
-  }, [weekly]);
+  }, [weekly, knownNames]);
 
   const [coverBg, setCoverBg] = useState(COVER_BACKGROUNDS[0]);
 
@@ -1817,8 +1749,6 @@ const WeeklyMagazine = ({ weekParam, isAdmin = false, apiKey = "" }) => {
     img.onerror = () => setCoverBg(fallback);
     img.src = coverUrl;
   }, [weekly?.week_start]);
-
-  const find = (key) => sections.find((s) => s.key === key);
 
   if (loading) {
     return (
@@ -1839,32 +1769,13 @@ const WeeklyMagazine = ({ weekParam, isAdmin = false, apiKey = "" }) => {
     );
   }
 
-  const dramaSection = find("DRAMA");
-  const rankingsSection = find("POWER_RANKINGS");
-  const highlightsSection = find("HIGHLIGHTS");
-  const bansSection = find("BANS");
-  const upsetSection = find("UPSET");
-  const matchStatsSection = find("MATCH_STATS");
-  const heroesSection = find("HEROES");
-  const newBloodSection = find("NEW_BLOOD");
-  const atSection = find("AT_SPOTLIGHT");
-  // Parse drama into lead headline + sub-stories
-  const dramaQuotesSection = find("DRAMA_QUOTES");
-  const dramaQuotes = dramaQuotesSection
-    ? [...dramaQuotesSection.content.matchAll(/"([^"]+)"/g)].map((m) => m[1])
-    : (() => {
-        if (!dramaSection) return [];
-        const firstItem = dramaSection.content.split(/;\s*/)[0] || "";
-        return splitQuotes(firstItem).quotes;
-      })();
-  const dramaCleaned = dramaSection ? cleanSummary(splitQuotes(dramaSection.content).summary) : "";
-  const dramaItems = dramaCleaned ? dramaCleaned.split(/;\s*/).filter(Boolean).map((s) => s.trim()) : [];
-  // Lead item may have "Title | narrative body" format
-  const rawLead = dramaItems[0] || "";
-  const pipeSplit = rawLead.split(/\s*\|\s*/);
-  const dramaTitle = pipeSplit.length > 1 ? pipeSplit[0] : "";
-  const dramaLead = pipeSplit.length > 1 ? pipeSplit.slice(1).join(" | ") : rawLead;
-  const dramaSubStories = dramaItems.slice(1);
+  // Extract drama structure from digestData
+  const dramaItems = digestData.narrative.drama;
+  const leadDrama = dramaItems[0] || null;
+  const dramaTitle = leadDrama?.headline || "";
+  const dramaLead = leadDrama?.summary || "";
+  const dramaQuotes = (leadDrama?.quotes || []).map((q) => q.speaker ? `${q.speaker}: ${q.text}` : q.text);
+  const dramaSubStories = dramaItems.slice(1).map((d) => d.summary);
 
   // Editorial callbacks for CoverHero — editing headline edits first drama item title
   const editorialProps = ed.isEditorial ? {
@@ -1916,7 +1827,7 @@ const WeeklyMagazine = ({ weekParam, isAdmin = false, apiKey = "" }) => {
           </div>
           <div className="mg-editorial-actions">
             {weekly.week_start && (
-              <Button $secondary as="a" href={`/dev?week=${weekly.week_start}`} title="Edit cover image">Edit Cover</Button>
+              <Button $secondary as="a" href={`/cover-art?week=${weekly.week_start}`} title="Edit cover image">Edit Cover</Button>
             )}
             <Button $secondary onClick={() => setShowRegenConfirm(true)} disabled={regenerating} title="Delete cached digest and regenerate from scratch">
               {regenerating ? "Regenerating..." : "Regenerate"}
@@ -2038,7 +1949,7 @@ const WeeklyMagazine = ({ weekParam, isAdmin = false, apiKey = "" }) => {
         <FeatureStory
           lead={dramaLead}
           quotes={dramaQuotes}
-          curated={!!dramaQuotesSection}
+          curated={leadDrama?.quotes?.length > 0}
           nameToTag={knownNames}
           editorial={editorialProps}
         />
@@ -2046,8 +1957,8 @@ const WeeklyMagazine = ({ weekParam, isAdmin = false, apiKey = "" }) => {
 
       <StoriesGrid
         stories={dramaSubStories}
-        highlights={highlightsSection?.content}
-        bans={bansSection?.content}
+        highlights={digestData.narrative.highlights}
+        bans={digestData.narrative.bans}
         nameToTag={knownNames}
         editorial={ed.isEditorial ? {
           deleteItem: ed.handleDeleteItem,
@@ -2064,24 +1975,23 @@ const WeeklyMagazine = ({ weekParam, isAdmin = false, apiKey = "" }) => {
       {/* Player features */}
       {(!ed.isEditorial || !["WINNER", "LOSER", "GRINDER", "HOTSTREAK", "COLDSTREAK", "HEROSLAYER"].every((k) => ed.hiddenStats.has(k))) && (
         <SpotlightsSection
-          sections={sections}
+          spotlights={digestData.spotlights}
           profiles={profiles}
           editorial={ed.isEditorial ? { regenSpotlights: ed.regenSpotlights, regenMatchStats: ed.regenMatchStats, regenLoading: ed.regenLoading, browseMessages: ed.browseMessages, setQuotes: ed.setQuotes, handleEditSection: ed.handleEditSection } : null}
         />
       )}
-      {upsetSection && (!ed.isEditorial || !ed.hiddenSections.has("UPSET")) && (
-        <UpsetsSection content={upsetSection.content} profiles={profiles} />
+      {digestData.upsets.length > 0 && (!ed.isEditorial || !ed.hiddenSections.has("UPSET")) && (
+        <UpsetsSection upsets={digestData.upsets} profiles={profiles} />
       )}
       {/* Stats & data */}
-      {rankingsSection && (!ed.isEditorial || !ed.hiddenSections.has("POWER_RANKINGS")) && (
-        <RankingsSection content={rankingsSection.content} profiles={profiles} />
+      {digestData.powerRankings.length > 0 && (!ed.isEditorial || !ed.hiddenSections.has("POWER_RANKINGS")) && (
+        <RankingsSection rankings={digestData.powerRankings} profiles={profiles} />
       )}
       <CompactStats
-        newBloodContent={(!ed.isEditorial || !ed.hiddenSections.has("NEW_BLOOD")) ? newBloodSection?.content : null}
-        atContent={(!ed.isEditorial || !ed.hiddenSections.has("AT_SPOTLIGHT")) ? atSection?.content : null}
-        heroesContent={(!ed.isEditorial || !ed.hiddenSections.has("HEROES")) ? heroesSection?.content : null}
-        matchStatsContent={(!ed.isEditorial || !ed.hiddenSections.has("MATCH_STATS")) ? matchStatsSection?.content : null}
-        sections={sections}
+        newBlood={(!ed.isEditorial || !ed.hiddenSections.has("NEW_BLOOD")) ? digestData.newBlood : null}
+        atSpotlight={(!ed.isEditorial || !ed.hiddenSections.has("AT_SPOTLIGHT")) ? digestData.atSpotlight : null}
+        heroMeta={(!ed.isEditorial || !ed.hiddenSections.has("HEROES")) ? digestData.heroMeta : null}
+        matchStats={(!ed.isEditorial || !ed.hiddenSections.has("MATCH_STATS")) ? digestData.matchStats : null}
         profiles={profiles}
         weekStart={weekly?.week_start}
         weekEnd={weekly?.week_end}

@@ -2,50 +2,7 @@
    News Page — Editorial Layout
    ======================================== */
 
-.news-page {
-  margin: 0 auto;
-  padding: 0;
-}
-
 /* ── News Index (nw- prefix) ─────────────────────── */
-
-.nw-index {
-  max-width: 1200px;
-  margin: 0 auto;
-  padding: 64px 32px 96px;
-}
-
-/* Hero */
-.nw-hero {
-  margin-bottom: var(--space-8);
-}
-
-.nw-eyebrow {
-  text-transform: uppercase;
-  letter-spacing: 0.32em;
-  font-size: var(--text-xs);
-  color: var(--gold);
-  font-family: var(--font-mono);
-}
-
-.nw-title {
-  font-family: var(--font-display);
-  font-size: clamp(2.4rem, 5.5vw, 3.8rem);
-  color: var(--gold);
-  line-height: 1.1;
-  margin: var(--space-4) 0;
-  font-weight: normal;
-  text-shadow: 0 2px 16px rgba(0, 0, 0, 0.8);
-}
-
-.nw-lead {
-  font-family: var(--font-body);
-  font-size: var(--text-base);
-  color: var(--grey-light);
-  max-width: 55ch;
-  line-height: 1.6;
-  text-shadow: 0 1px 8px rgba(0, 0, 0, 0.7);
-}
 
 /* Section titles */
 .nw-section {
@@ -199,6 +156,38 @@
   background: var(--gold);
 }
 
+/* Live "today" dot pulses red */
+.nw-timeline-item--live::before {
+  background: var(--red);
+  animation: nw-pulse 1.5s infinite;
+}
+
+@keyframes nw-pulse {
+  0%, 100% { box-shadow: 0 0 0 0 rgba(239, 68, 68, 0.5); }
+  50% { box-shadow: 0 0 0 4px rgba(239, 68, 68, 0); }
+}
+
+/* Admin: edit this week's magazine */
+.nw-admin-weekly-btn {
+  display: inline-block;
+  font-family: var(--font-mono);
+  font-size: var(--text-xxs);
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+  color: var(--gold);
+  background: none;
+  border: var(--border-thin) solid var(--gold);
+  padding: var(--space-2) var(--space-6);
+  border-radius: var(--radius-full);
+  cursor: pointer;
+  text-decoration: none;
+  transition: all var(--transition);
+}
+
+.nw-admin-weekly-btn:hover {
+  background: var(--gold-tint);
+}
+
 .nw-timeline-date {
   flex-shrink: 0;
   width: 88px;
@@ -288,10 +277,6 @@
 /* ── Responsive ──────────────────────────────────────── */
 
 @media (max-width: 768px) {
-  .nw-index {
-    padding: var(--space-12) var(--space-4) var(--space-12);
-  }
-
   .nw-hero-card-content {
     padding: var(--space-6) var(--space-4);
   }
@@ -333,39 +318,6 @@
   gap: var(--space-4);
   padding: var(--space-4) 0;
   margin-bottom: var(--space-4);
-}
-
-/* ── Hero ──────────────────────────────────────────── */
-
-.news-hero {
-  margin-bottom: var(--space-12);
-}
-
-.news-eyebrow {
-  text-transform: uppercase;
-  letter-spacing: 0.32em;
-  font-size: var(--text-xs);
-  color: var(--gold);
-  font-family: var(--font-mono);
-}
-
-.news-hero h1 {
-  font-family: var(--font-display);
-  font-size: clamp(2rem, 5vw, 3.2rem);
-  color: var(--gold);
-  line-height: 1.1;
-  margin: var(--space-4) 0;
-  font-weight: normal;
-  text-shadow: 0 2px 16px rgba(0, 0, 0, 0.8);
-}
-
-.news-lead {
-  font-family: var(--font-body);
-  font-size: var(--text-base);
-  color: var(--grey-light);
-  max-width: 55ch;
-  line-height: 1.6;
-  text-shadow: 0 1px 8px rgba(0, 0, 0, 0.7);
 }
 
 .news-empty {

@@ -15,12 +15,23 @@ import { GameRow } from "../components/game/index";
 import ActivityGraph from "../components/ActivityGraph";
 import OngoingGame from "../components/OngoingGame";
 import { raceMapping, LEAGUES } from "../lib/constants";
-import { parseDigestSections } from "../lib/digestUtils";
+import { parseDigestSections, splitQuotes } from "../lib/digestUtils";
 
 const RELAY_URL = import.meta.env.VITE_CHAT_RELAY_URL || "https://4v4gg-chat-relay.fly.dev";
 const GAMES_PER_PAGE = 20;
+const ALL_SEASONS = 0;
 
 const MIN_GAMES_FOR_STATS = 3;
+
+// Wilson score lower bound (95% confidence interval)
+// Ranks by "lowest plausible rate" — small samples naturally sort lower
+const wilsonLB = (wins, total) => {
+  if (total === 0) return 0;
+  const z = 1.96;
+  const p = wins / total;
+  const d = 1 + z * z / total;
+  return (p + z * z / (2 * total) - z * Math.sqrt((p * (1 - p) + z * z / (4 * total)) / total)) / d;
+};
 
 // Helper to get cached player page data
 const getCachedPlayerData = (battleTag, season) => {
@@ -97,6 +108,10 @@ const PlayerProfile = () => {
       mapStats: [],
       worstMapStats: [],
       nemesisStats: [],
+      allAllies: [],
+      allWorstAllies: [],
+      allNemesis: [],
+      statsSampleSize: 0,
       selectedSeason: null,
       availableSeasons: [],
       currentPage: 0,
@@ -109,11 +124,16 @@ const PlayerProfile = () => {
     playerData, profilePic, country, twitchName, isStreaming, streamInfo,
     matches, totalMatches, sessionGames, seasonMmrs, ongoingGame, ladderStanding,
     isLoading, allyStats, worstAllyStats, mapStats, worstMapStats, nemesisStats,
+    allAllies, allWorstAllies, allNemesis, statsSampleSize,
     selectedSeason, availableSeasons, currentPage,
     playerClips, playerMentions,
   } = state;
 
+  const prevBattleTagRef = useRef(battleTag);
+  const hasLoadedProfileRef = useRef(false);
   const [activeClip, setActiveClip] = useState(null);
+  const [expandedSections, setExpandedSections] = useState({});
+  const toggleSection = (key) => setExpandedSections(prev => ({ ...prev, [key]: !prev[key] }));
 
   const SESSION_GAP_MINUTES = 60;
 
@@ -133,6 +153,10 @@ const PlayerProfile = () => {
       mapStats: cached.mapStats || [],
       worstMapStats: cached.worstMapStats || [],
       nemesisStats: cached.nemesisStats || [],
+      allAllies: cached.allAllies || [],
+      allWorstAllies: cached.allWorstAllies || [],
+      allNemesis: cached.allNemesis || [],
+      statsSampleSize: cached.statsSampleSize || 0,
       isLoading: false,
     });
   };
@@ -161,21 +185,36 @@ const PlayerProfile = () => {
   useEffect(() => {
     if (selectedSeason === null) return;
 
+    const isPlayerChange = prevBattleTagRef.current !== battleTag;
+    prevBattleTagRef.current = battleTag;
+    const needsProfile = isPlayerChange || !hasLoadedProfileRef.current;
+    hasLoadedProfileRef.current = true;
+
     const cached = getCachedPlayerData(battleTag, selectedSeason);
     if (cached) {
       restoreFromCache(cached);
-    } else {
-      // No cache - reset all data in single batch
+    } else if (isPlayerChange) {
+      // New player - full reset with loader
       updateState({
         playerData: null, profilePic: null, country: null, twitchName: null,
         isStreaming: false, streamInfo: null, matches: [], totalMatches: 0,
         sessionGames: [], seasonMmrs: [], ongoingGame: null, ladderStanding: null,
         allyStats: [], worstAllyStats: [], mapStats: [], worstMapStats: [],
-        nemesisStats: [], currentPage: 0, isLoading: true,
+        nemesisStats: [], allAllies: [], allWorstAllies: [], allNemesis: [],
+        statsSampleSize: 0, currentPage: 0, isLoading: true,
+      });
+    } else {
+      // Season change - clear season data, keep profile visible
+      updateState({
+        playerData: null, matches: [], totalMatches: 0,
+        sessionGames: [], seasonMmrs: [], ladderStanding: null,
+        allyStats: [], worstAllyStats: [], mapStats: [], worstMapStats: [],
+        nemesisStats: [], allAllies: [], allWorstAllies: [], allNemesis: [],
+        statsSampleSize: 0, currentPage: 0,
       });
     }
 
-    loadAllData();
+    loadAllData(needsProfile);
     fetchOngoingGames();
 
     const interval = setInterval(fetchOngoingGames, 30000);
@@ -201,8 +240,9 @@ const PlayerProfile = () => {
         const mentions = [];
         const escaped = playerName.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
         const nameRe = new RegExp(`\\b${escaped}\\b`, "i");
-        const SKIP_SECTIONS = new Set(["MENTIONS", "TOPICS"]);
+        const SKIP_SECTIONS = new Set(["MENTIONS", "TOPICS", "SPIKES"]);
 
+        const seenSnippets = new Set();
         const findMentions = (digestText) => {
           const sections = parseDigestSections(digestText);
           const items = [];
@@ -211,11 +251,20 @@ const PlayerProfile = () => {
             // Split into individual items (semicolon-separated) and match each
             for (const item of s.content.split(/;\s*/)) {
               if (!item.trim() || !nameRe.test(item)) continue;
-              const snippet = item.trim();
-              items.push({
-                key: s.key,
-                snippet: snippet.length > 120 ? snippet.slice(0, 120) + "…" : snippet,
-              });
+              // Strip embedded quotes, use just the narrative summary
+              const { summary } = splitQuotes(item.trim());
+              if (!summary) continue;
+              // For DRAMA headlines, take just the part before the pipe
+              let snippet = summary;
+              if (s.key === "DRAMA") {
+                const pipeParts = summary.split(/\s*\|\s*/);
+                snippet = pipeParts.length > 1 ? pipeParts[1] : pipeParts[0];
+              }
+              snippet = snippet.length > 120 ? snippet.slice(0, 120) + "…" : snippet;
+              // Deduplicate identical snippets across digests
+              if (seenSnippets.has(snippet)) continue;
+              seenSnippets.add(snippet);
+              items.push({ key: s.key, snippet });
             }
           }
           return items;
@@ -253,44 +302,64 @@ const PlayerProfile = () => {
     fetchPlayerMedia();
   }, [battleTag]);
 
-  const loadAllData = async () => {
-    updateState({ isLoading: true });
+  const seasonParam = selectedSeason > 0 ? `&season=${selectedSeason}` : '';
+  const isAllSeasons = selectedSeason === ALL_SEASONS;
+
+  const loadAllData = async (fetchProfile = true) => {
     try {
-      const profile = await getPlayerProfile(battleTag);
-      const newProfilePic = profile?.profilePicUrl;
-      const newCountry = profile?.country;
-      const newTwitchName = profile?.twitch || null;
+      let newProfilePic = profilePic;
+      let newCountry = country;
+      let newTwitchName = twitchName;
 
-      // Batch profile update
-      const profileUpdate = { profilePic: newProfilePic, country: newCountry, twitchName: newTwitchName };
+      if (fetchProfile) {
+        const profile = await getPlayerProfile(battleTag);
+        newProfilePic = profile?.profilePicUrl;
+        newCountry = profile?.country;
+        newTwitchName = profile?.twitch || null;
 
-      // Check if streaming
-      if (newTwitchName) {
-        const streamStatus = await isStreamerLive(newTwitchName);
-        profileUpdate.isStreaming = streamStatus.isLive;
-        profileUpdate.streamInfo = streamStatus.isLive ? streamStatus : null;
+        const profileUpdate = { profilePic: newProfilePic, country: newCountry, twitchName: newTwitchName };
+
+        if (newTwitchName) {
+          const streamStatus = await isStreamerLive(newTwitchName);
+          profileUpdate.isStreaming = streamStatus.isLive;
+          profileUpdate.streamInfo = streamStatus.isLive ? streamStatus : null;
+        }
+        updateState(profileUpdate);
       }
-      updateState(profileUpdate);
 
-      // Fetch player stats
+      // Fetch player stats (season-specific W/L/MMR)
       let newPlayerData = null;
       let newTotalMatches = 0;
-      const statsUrl = `https://website-backend.w3champions.com/api/players/${encodeURIComponent(battleTag)}/game-mode-stats?gateway=${gateway}&season=${selectedSeason}`;
-      const statsResponse = await fetch(statsUrl);
-      if (statsResponse.ok) {
-        const stats = await statsResponse.json();
-        const fourVsFourStats = stats.find(s => s.gameMode === 4);
-        if (fourVsFourStats) {
-          newPlayerData = fourVsFourStats;
-          newTotalMatches = (fourVsFourStats.wins || 0) + (fourVsFourStats.losses || 0);
-          updateState({ playerData: newPlayerData, totalMatches: newTotalMatches });
+      if (!isAllSeasons) {
+        const statsUrl = `https://website-backend.w3champions.com/api/players/${encodeURIComponent(battleTag)}/game-mode-stats?gateway=${gateway}${seasonParam}`;
+        const statsResponse = await fetch(statsUrl);
+        if (statsResponse.ok) {
+          const stats = await statsResponse.json();
+          const fourVsFourStats = stats.find(s => s.gameMode === 4);
+          if (fourVsFourStats) {
+            newPlayerData = fourVsFourStats;
+            newTotalMatches = (fourVsFourStats.wins || 0) + (fourVsFourStats.losses || 0);
+            updateState({ playerData: newPlayerData, totalMatches: newTotalMatches });
+          }
         }
       }
 
       const newMatches = await fetchMatches(0, true);
-      const newSeasonMmrs = await fetchMmrTimeline(true);
-      const newLadderStanding = await fetchLadderStanding(true);
+
+      // Skip season-specific data for all-seasons view
+      let newSeasonMmrs = [];
+      let newLadderStanding = null;
+      if (!isAllSeasons) {
+        newSeasonMmrs = await fetchMmrTimeline(true);
+        newLadderStanding = await fetchLadderStanding(true);
+      }
       const statsResult = await fetchStatistics(true);
+
+      // For all-seasons, derive totalMatches from the stats fetch count
+      if (isAllSeasons && statsResult) {
+        newTotalMatches = statsResult.statsSampleSize || 0;
+        updateState({ totalMatches: newTotalMatches });
+      }
 
       // Cache all player data for instant display on next visit (5 min TTL)
       cache.set(`playerPage:${battleTagLower}:${selectedSeason}`, {
@@ -300,6 +369,8 @@ const PlayerProfile = () => {
         allyStats: statsResult?.allyStats || [], worstAllyStats: statsResult?.worstAllyStats || [],
         mapStats: statsResult?.mapStats || [], worstMapStats: statsResult?.worstMapStats || [],
         nemesisStats: statsResult?.nemesisStats || [],
+        allAllies: statsResult?.allAllies || [], allWorstAllies: statsResult?.allWorstAllies || [],
+        allNemesis: statsResult?.allNemesis || [], statsSampleSize: statsResult?.statsSampleSize || 0,
       }, 5 * 60 * 1000);
     } catch (error) {
       console.error("Error loading player data:", error);
@@ -310,13 +381,17 @@ const PlayerProfile = () => {
 
   const fetchMatches = async (page, returnData = false) => {
     const offset = page * GAMES_PER_PAGE;
-    const matchesUrl = `https://website-backend.w3champions.com/api/matches/search?playerId=${encodeURIComponent(battleTag)}&offset=${offset}&gameMode=4&season=${selectedSeason}&gateway=${gateway}&pageSize=${GAMES_PER_PAGE}`;
+    const matchesUrl = `https://website-backend.w3champions.com/api/matches/search?playerId=${encodeURIComponent(battleTag)}&offset=${offset}&gameMode=4${seasonParam}&gateway=${gateway}&pageSize=${GAMES_PER_PAGE}`;
     const matchesResponse = await fetch(matchesUrl);
     if (matchesResponse.ok) {
       const matchesData = await matchesResponse.json();
       if (matchesData.matches) {
-        updateState({ matches: matchesData.matches });
-        if (page === 0) processMatchData(matchesData.matches);
+        const matchUpdate = { matches: matchesData.matches };
+        if (isAllSeasons && page === 0 && matchesData.count) {
+          matchUpdate.totalMatches = matchesData.count;
+        }
+        updateState(matchUpdate);
+        if (page === 0 && !isAllSeasons) processMatchData(matchesData.matches);
         if (returnData) return matchesData.matches;
       }
     }
@@ -374,7 +449,7 @@ const PlayerProfile = () => {
 
   const fetchLadderStanding = async (returnData = false) => {
     try {
-      const searchUrl = `https://website-backend.w3champions.com/api/ladder/search?gateWay=${gateway}&searchFor=${encodeURIComponent(battleTag.split("#")[0])}&gameMode=4&season=${selectedSeason}`;
+      const searchUrl = `https://website-backend.w3champions.com/api/ladder/search?gateWay=${gateway}&searchFor=${encodeURIComponent(battleTag.split("#")[0])}&gameMode=4${seasonParam}`;
       const searchResponse = await fetch(searchUrl);
       if (!searchResponse.ok) return returnData ? null : undefined;
 
@@ -390,7 +465,7 @@ const PlayerProfile = () => {
       const leagueId = playerResult.league;
       const league = LEAGUES.find(l => l.id === leagueId);
 
-      const ladderUrl = `https://website-backend.w3champions.com/api/ladder/${leagueId}?gateWay=${gateway}&gameMode=4&season=${selectedSeason}`;
+      const ladderUrl = `https://website-backend.w3champions.com/api/ladder/${leagueId}?gateWay=${gateway}&gameMode=4${seasonParam}`;
       const ladderResponse = await fetch(ladderUrl);
       if (!ladderResponse.ok) return returnData ? null : undefined;
 
@@ -424,13 +499,43 @@ const PlayerProfile = () => {
 
   const fetchStatistics = async (returnData = false) => {
     try {
-      // Fetch 100 matches for statistics calculation
-      const statsUrl = `https://website-backend.w3champions.com/api/matches/search?playerId=${encodeURIComponent(battleTag)}&offset=0&gameMode=4&season=${selectedSeason}&gateway=${gateway}&pageSize=100`;
-      const response = await fetch(statsUrl);
-      if (!response.ok) return returnData ? null : undefined;
+      // Check past-season stats cache first (not for "All" or current season)
+      const currentSeasonId = availableSeasons[0]?.id;
+      const isPastSeason = selectedSeason > 0 && selectedSeason < currentSeasonId;
+      const statsCacheKey = `playerStats:${battleTagLower}:${selectedSeason}`;
 
-      const data = await response.json();
-      if (!data.matches || data.matches.length === 0) return returnData ? null : undefined;
+      if (isPastSeason) {
+        const cached = cache.get(statsCacheKey);
+        if (cached) {
+          updateState(cached);
+          return returnData ? cached : undefined;
+        }
+      }
+
+      // Fetch first page to get total count
+      const baseUrl = `https://website-backend.w3champions.com/api/matches/search?playerId=${encodeURIComponent(battleTag)}&gameMode=4${seasonParam}&gateway=${gateway}`;
+      const firstRes = await fetch(`${baseUrl}&offset=0&pageSize=100`);
+      if (!firstRes.ok) return returnData ? null : undefined;
+
+      const firstData = await firstRes.json();
+      if (!firstData.matches || firstData.matches.length === 0) return returnData ? null : undefined;
+
+      const allMatches = [...firstData.matches];
+      const total = firstData.count || allMatches.length;
+
+      // Paginate remaining pages in parallel (cap at 2000 matches)
+      if (total > 100) {
+        const remaining = [];
+        for (let offset = 100; offset < Math.min(total, 2000); offset += 100) {
+          remaining.push(fetch(`${baseUrl}&offset=${offset}&pageSize=100`).then(r => r.json()));
+        }
+        const pages = await Promise.all(remaining);
+        for (const page of pages) {
+          if (page.matches) allMatches.push(...page.matches);
+        }
+      }
+
+      const sampleSize = allMatches.length;
 
       // Calculate ally stats
       const allies = {};
@@ -439,7 +544,7 @@ const PlayerProfile = () => {
       // Calculate opponent stats (for nemesis)
       const opponents = {};
 
-      for (const match of data.matches) {
+      for (const match of allMatches) {
         // Find player's team and opponent team
         let playerTeam = null;
         let opponentTeam = null;
@@ -511,54 +616,55 @@ const PlayerProfile = () => {
         .filter(a => a.total >= MIN_GAMES_FOR_STATS)
         .map(a => ({ ...a, winRate: Math.round((a.wins / a.total) * 100) }));
 
-      // Best allies: highest win rate
-      const bestAllies = [...alliesWithRates]
-        .sort((a, b) => b.winRate - a.winRate || b.total - a.total)
-        .slice(0, 3);
+      // Best allies: Wilson-scored win rate (full sorted list + top 3)
+      const allAlliesSorted = [...alliesWithRates]
+        .sort((a, b) => wilsonLB(b.wins, b.total) - wilsonLB(a.wins, a.total));
+      const bestAllies = allAlliesSorted.slice(0, 3);
 
-      // Worst allies: lowest win rate (with at least some losses)
-      const worstAllies = [...alliesWithRates]
+      // Worst allies: Wilson-scored loss rate (full sorted list + top 3)
+      const allWorstAlliesSorted = [...alliesWithRates]
         .filter(a => a.losses > 0)
-        .sort((a, b) => a.winRate - b.winRate || b.total - a.total)
-        .slice(0, 3);
+        .sort((a, b) => wilsonLB(b.losses, b.total) - wilsonLB(a.losses, a.total));
+      const worstAllies = allWorstAlliesSorted.slice(0, 3);
 
       // Process maps with win rates
       const mapsWithRates = Object.values(maps)
         .filter(m => m.total >= MIN_GAMES_FOR_STATS)
         .map(m => ({ ...m, winRate: Math.round((m.wins / m.total) * 100) }));
 
-      // Best maps: highest win rate
+      // Best maps: Wilson-scored win rate
       const bestMaps = [...mapsWithRates]
-        .sort((a, b) => b.winRate - a.winRate || b.total - a.total)
+        .sort((a, b) => wilsonLB(b.wins, b.total) - wilsonLB(a.wins, a.total))
         .slice(0, 5);
 
-      // Worst maps: lowest win rate
+      // Worst maps: Wilson-scored loss rate
       const worstMaps = [...mapsWithRates]
         .filter(m => m.losses > 0)
-        .sort((a, b) => a.winRate - b.winRate || b.total - a.total)
+        .sort((a, b) => wilsonLB(b.losses, b.total) - wilsonLB(a.losses, a.total))
         .slice(0, 3);
 
-      // Nemesis: opponents who beat us most (sort by their wins against us)
-      const nemesisList = Object.values(opponents)
+      // Nemesis: Wilson-scored opponent win rate against us (full sorted list + top 3)
+      const allNemesisSorted = Object.values(opponents)
         .filter(o => o.total >= MIN_GAMES_FOR_STATS && o.wins > 0)
         .map(o => ({ ...o, winRate: Math.round((o.wins / o.total) * 100) }))
-        .sort((a, b) => b.wins - a.wins || b.winRate - a.winRate)
-        .slice(0, 3);
+        .sort((a, b) => wilsonLB(b.wins, b.total) - wilsonLB(a.wins, a.total));
+      const nemesisList = allNemesisSorted.slice(0, 3);
 
-      updateState({
+      const result = {
         allyStats: bestAllies, worstAllyStats: worstAllies,
         mapStats: bestMaps, worstMapStats: worstMaps, nemesisStats: nemesisList,
-      });
+        allAllies: allAlliesSorted, allWorstAllies: allWorstAlliesSorted, allNemesis: allNemesisSorted,
+        statsSampleSize: sampleSize,
+      };
 
-      if (returnData) {
-        return {
-          allyStats: bestAllies,
-          worstAllyStats: worstAllies,
-          mapStats: bestMaps,
-          worstMapStats: worstMaps,
-          nemesisStats: nemesisList,
-        };
+      updateState(result);
+
+      // Cache past-season stats for 7 days (data never changes)
+      if (isPastSeason) {
+        cache.set(statsCacheKey, result, 7 * 24 * 60 * 60 * 1000);
       }
+
+      if (returnData) return result;
     } catch (error) {
       console.error("Error fetching statistics:", error);
       return returnData ? null : undefined;
@@ -658,12 +764,13 @@ const PlayerProfile = () => {
 
           <div className="player-header-right">
             <div className="season-selector">
-              <Select value={selectedSeason || ""} onChange={handleSeasonChange}>
+              <Select value={selectedSeason ?? ""} onChange={handleSeasonChange}>
                 {availableSeasons.map((s) => (
                   <option key={s.id} value={s.id}>
                     S{s.id}
                   </option>
                 ))}
+                <option value={ALL_SEASONS}>All</option>
               </Select>
             </div>
           </div>
@@ -676,7 +783,7 @@ const PlayerProfile = () => {
             <div className="ph-group ph-group--news">
               <div className="section-header">
                 <h2 className="section-title">In the News</h2>
-                <Link to={`/news?player=${encodeURIComponent(battleTag)}`}><Button $secondary>More</Button></Link>
+                <Link to="/news"><Button $secondary>More</Button></Link>
               </div>
               <div className="ph-news-list">
                 {playerMentions.flatMap((mention) =>
@@ -688,7 +795,7 @@ const PlayerProfile = () => {
                 ).slice(0, 4).map(({ key, date, sec }) => {
                   const dateStr = new Date(date + 'T00:00:00').toLocaleDateString('en-US', { month: 'short', day: 'numeric' });
                   return (
-                    <Link key={key} to={`/news?date=${date}`} className="ph-news-item">
+                    <Link key={key} to={`/news?day=${date}#${sec.key.toLowerCase()}`} className="ph-news-item">
                       <span className={`ph-badge ph-badge--${sec.key.toLowerCase()}`}>{sec.key}</span>
                       <span className="ph-news-snippet">{renderSnippet(sec.snippet)}</span>
                       <span className="ph-news-date">{dateStr}</span>
@@ -922,34 +1029,46 @@ const PlayerProfile = () => {
             })()}
 
             {/* Activity Graph */}
-            <ActivityGraph
-              battleTag={battleTag}
-              currentSeason={selectedSeason}
-              gateway={gateway}
-            />
+            {!isAllSeasons && (
+              <ActivityGraph
+                battleTag={battleTag}
+                currentSeason={selectedSeason}
+                gateway={gateway}
+              />
+            )}
 
             {/* Best Allies */}
-            {allyStats.length > 0 && (
-              <div className="best-allies-card">
-                <h3 className="bac-title">Best Allies</h3>
-                <div className="bac-list">
-                  {allyStats.map((ally, idx) => (
-                    <Link
-                      key={ally.battleTag}
-                      to={`/player/${encodeURIComponent(ally.battleTag)}`}
-                      className="bac-row"
-                    >
-                      <span className="bac-rank">#{idx + 1}</span>
-                      <span className="bac-name">{ally.name}</span>
-                      <span className="bac-stats">
-                        <span className="bac-winrate">{ally.winRate}%</span>
-                        <span className="bac-record">({ally.wins}W-{ally.losses}L)</span>
-                      </span>
-                    </Link>
-                  ))}
+            {allyStats.length > 0 && (() => {
+              const expanded = expandedSections.bestAllies;
+              const displayList = expanded ? allAllies : allyStats;
+              return (
+                <div className="best-allies-card">
+                  <h3 className="bac-title">Best Allies</h3>
+                  {statsSampleSize > 0 && <span className="card-sample-label">{statsSampleSize} games</span>}
+                  <div className="bac-list">
+                    {displayList.map((ally, idx) => (
+                      <Link
+                        key={ally.battleTag}
+                        to={`/player/${encodeURIComponent(ally.battleTag)}`}
+                        className="bac-row"
+                      >
+                        <span className="bac-rank">#{idx + 1}</span>
+                        <span className="bac-name">{ally.name}</span>
+                        <span className="bac-stats">
+                          <span className="bac-winrate">{ally.winRate}%</span>
+                          <span className="bac-record">({ally.wins}W-{ally.losses}L)</span>
+                        </span>
+                      </Link>
+                    ))}
+                  </div>
+                  {allAllies.length > 3 && (
+                    <button className="card-toggle-btn" onClick={() => toggleSection('bestAllies')}>
+                      {expanded ? 'Show less' : `Show all (${allAllies.length})`}
+                    </button>
+                  )}
                 </div>
-              </div>
-            )}
+              );
+            })()}
 
             {/* Best Maps */}
             {mapStats.length > 0 && (
@@ -971,27 +1090,37 @@ const PlayerProfile = () => {
             )}
 
             {/* Worst Allies */}
-            {worstAllyStats.length > 0 && (
-              <div className="worst-allies-card">
-                <h3 className="wac-title">Worst Allies</h3>
-                <div className="wac-list">
-                  {worstAllyStats.map((ally, idx) => (
-                    <Link
-                      key={ally.battleTag}
-                      to={`/player/${encodeURIComponent(ally.battleTag)}`}
-                      className="wac-row"
-                    >
-                      <span className="wac-rank">#{idx + 1}</span>
-                      <span className="wac-name">{ally.name}</span>
-                      <span className="wac-stats">
-                        <span className="wac-winrate">{ally.winRate}%</span>
-                        <span className="wac-record">({ally.wins}W-{ally.losses}L)</span>
-                      </span>
-                    </Link>
-                  ))}
+            {worstAllyStats.length > 0 && (() => {
+              const expanded = expandedSections.worstAllies;
+              const displayList = expanded ? allWorstAllies : worstAllyStats;
+              return (
+                <div className="worst-allies-card">
+                  <h3 className="wac-title">Worst Allies</h3>
+                  {statsSampleSize > 0 && <span className="card-sample-label">{statsSampleSize} games</span>}
+                  <div className="wac-list">
+                    {displayList.map((ally, idx) => (
+                      <Link
+                        key={ally.battleTag}
+                        to={`/player/${encodeURIComponent(ally.battleTag)}`}
+                        className="wac-row"
+                      >
+                        <span className="wac-rank">#{idx + 1}</span>
+                        <span className="wac-name">{ally.name}</span>
+                        <span className="wac-stats">
+                          <span className="wac-winrate">{ally.winRate}%</span>
+                          <span className="wac-record">({ally.wins}W-{ally.losses}L)</span>
+                        </span>
+                      </Link>
+                    ))}
+                  </div>
+                  {allWorstAllies.length > 3 && (
+                    <button className="card-toggle-btn" onClick={() => toggleSection('worstAllies')}>
+                      {expanded ? 'Show less' : `Show all (${allWorstAllies.length})`}
+                    </button>
+                  )}
                 </div>
-              </div>
-            )}
+              );
+            })()}
 
             {/* Worst Maps */}
             {worstMapStats.length > 0 && (
@@ -1013,31 +1142,40 @@ const PlayerProfile = () => {
             )}
 
             {/* Nemesis */}
-            {nemesisStats.length > 0 && (
-              <div className="nemesis-card">
-                <h3 className="nc-title">Nemesis</h3>
-                <div className="nc-list">
-                  {nemesisStats.map((enemy, idx) => {
-                    // Calculate YOUR win rate against them (inverse of their wins against you)
-                    const yourWinRate = enemy.total > 0 ? Math.round((enemy.losses / enemy.total) * 100) : 0;
-                    return (
-                      <Link
-                        key={enemy.battleTag}
-                        to={`/player/${encodeURIComponent(enemy.battleTag)}`}
-                        className="nc-row"
-                      >
-                        <span className="nc-rank">#{idx + 1}</span>
-                        <span className="nc-name">{enemy.name}</span>
-                        <span className="nc-stats">
-                          <span className="nc-winrate">{yourWinRate}%</span>
-                          <span className="nc-record">({enemy.losses}W-{enemy.wins}L)</span>
-                        </span>
-                      </Link>
-                    );
-                  })}
+            {nemesisStats.length > 0 && (() => {
+              const expanded = expandedSections.nemesis;
+              const displayList = expanded ? allNemesis : nemesisStats;
+              return (
+                <div className="nemesis-card">
+                  <h3 className="nc-title">Nemesis</h3>
+                  {statsSampleSize > 0 && <span className="card-sample-label">{statsSampleSize} games</span>}
+                  <div className="nc-list">
+                    {displayList.map((enemy, idx) => {
+                      const yourWinRate = enemy.total > 0 ? Math.round((enemy.losses / enemy.total) * 100) : 0;
+                      return (
+                        <Link
+                          key={enemy.battleTag}
+                          to={`/player/${encodeURIComponent(enemy.battleTag)}`}
+                          className="nc-row"
+                        >
+                          <span className="nc-rank">#{idx + 1}</span>
+                          <span className="nc-name">{enemy.name}</span>
+                          <span className="nc-stats">
+                            <span className="nc-winrate">{yourWinRate}%</span>
+                            <span className="nc-record">({enemy.losses}W-{enemy.wins}L)</span>
+                          </span>
+                        </Link>
+                      );
+                    })}
+                  </div>
+                  {allNemesis.length > 3 && (
+                    <button className="card-toggle-btn" onClick={() => toggleSection('nemesis')}>
+                      {expanded ? 'Show less' : `Show all (${allNemesis.length})`}
+                    </button>
+                  )}
                 </div>
-              </div>
-            )}
+              );
+            })()}
 
           </aside>
         </div>

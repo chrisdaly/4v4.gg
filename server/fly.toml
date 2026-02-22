@@ -5,6 +5,9 @@ primary_region = "ewr"
 
 [env]
   DB_PATH = "/data/chat.db"
+  REPLAY_DIR = "/data/replays"
+  EMBED_URL = "http://localhost:8081"
+  MODEL_PATH = "/app/ml/data/model.onnx"
   CORS_ORIGINS = "https://4v4.gg,https://www.4v4.gg,https://main.ddnp6uus284fs.amplifyapp.com,https://feature-chat-relay.ddnp6uus284fs.amplifyapp.com,http://localhost:3000,http://localhost:3001"
 
 [http_service]

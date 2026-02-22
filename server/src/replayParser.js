@@ -10,6 +10,20 @@ const parser = new W3GReplay();
 // Actions 0x17 = assign group, 0x18 = select group. groupNumber is mapped via (n+1)%10.
 const EARLY_GAME_MS = 60000;
 
+// Full-game action IDs to capture for nanoGPT sequences
+const TRACKED_ACTION_IDS = new Set([
+  0x10, 0x11, 0x12, 0x13, 0x14, // Abilities (no target, point, unit, double, pos+obj)
+  0x16,                           // Selection change
+  0x17,                           // Assign group hotkey
+  0x18,                           // Select group hotkey
+  0x19,                           // Select subgroup (Tab)
+  0x1E,                           // Remove from build queue
+  0x61,                           // ESC pressed
+  0x66,                           // Hero skill menu
+  0x67,                           // Build menu
+  0x68,                           // Minimap ping
+]);
+
 /**
  * Parse a .w3g replay file and return structured data.
  */
@@ -18,21 +32,35 @@ export async function parseReplayFile(filePath) {
 
   // Collect early-game hotkey sequences per player from raw blocks
   const earlySeqs = {}; // playerId -> [{ ms, group, type }]
+  // Collect full-game action sequences per player for nanoGPT
+  const fullSeqs = {}; // playerId -> [{ ms, id, g? }]
   let elapsed = 0;
 
   const onBlock = (block) => {
     if (block.id !== 0x1f && block.id !== 0x1e) return;
     elapsed += block.timeIncrement;
-    if (elapsed > EARLY_GAME_MS) return;
+
     for (const cmd of block.commandBlocks || []) {
       for (const action of cmd.actions || []) {
-        if (action.id === 0x17 || action.id === 0x18) {
+        // Early-game hotkey capture (first 60s only)
+        if (elapsed <= EARLY_GAME_MS && (action.id === 0x17 || action.id === 0x18)) {
           if (!earlySeqs[cmd.playerId]) earlySeqs[cmd.playerId] = [];
           earlySeqs[cmd.playerId].push({
             ms: elapsed,
             group: (action.groupNumber + 1) % 10,
-            type: action.id === 0x17 ? 'a' : 's', // assign vs select
+            type: action.id === 0x17 ? 'a' : 's',
           });
+        }
+
+        // Full-game action capture (all tracked actions, entire duration)
+        if (TRACKED_ACTION_IDS.has(action.id)) {
+          if (!fullSeqs[cmd.playerId]) fullSeqs[cmd.playerId] = [];
+          const entry = { ms: elapsed, id: action.id };
+          // Include group number for hotkey actions
+          if (action.id === 0x17 || action.id === 0x18) {
+            entry.g = (action.groupNumber + 1) % 10;
+          }
+          fullSeqs[cmd.playerId].push(entry);
         }
       }
     }
@@ -46,7 +74,7 @@ export async function parseReplayFile(filePath) {
     metadata: extractMetadata(result),
     players: extractPlayers(result),
     chat: extractChatMessages(result),
-    actions: extractPlayerActions(result, earlySeqs),
+    actions: extractPlayerActions(result, earlySeqs, fullSeqs),
   };
 }
 
@@ -111,7 +139,7 @@ function extractChatMessages(parsed) {
 /**
  * Extract per-player action summaries from parsed replay.
  */
-function extractPlayerActions(parsed, earlySeqs = {}) {
+function extractPlayerActions(parsed, earlySeqs = {}, fullSeqs = {}) {
   const durationMs = parsed.duration || 1;
 
   return (parsed.players || []).map(p => {
@@ -162,6 +190,7 @@ function extractPlayerActions(parsed, earlySeqs = {}) {
       unitsSummary: p.units?.summary || {},
       buildingsSummary: p.buildings?.summary || {},
       earlyGameSequence: earlySeqs[p.id] || [],
+      fullActionSequence: fullSeqs[p.id] || [],
     };
   });
 }

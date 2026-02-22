@@ -17,6 +17,64 @@ function getAnthropic() {
   return anthropic;
 }
 
+export const WC3_STYLE_SUFFIX = 'Oil painting, Warcraft III concept art, dramatic chiaroscuro lighting, rich saturated colors, thick painterly brushstrokes, fantasy illustration inspired by Samwise Didier and Glenn Rane, dark atmospheric background';
+
+/**
+ * Suggest 3 visual scene ideas from digest text — for the Prompt section.
+ * Returns { scenes: [{ score, title, scene }] } sorted by score desc.
+ * Title is short (3-8 words), scene is a one-sentence visual description.
+ */
+export async function suggestScenes(digestText) {
+  const client = getAnthropic();
+
+  const response = await client.messages.create({
+    model: 'claude-haiku-4-5-20251001',
+    max_tokens: 1000,
+    system: `You suggest cover art scenes for a Warcraft III 4v4 gaming magazine.
+
+Given a digest of the week's events, suggest exactly 3 DIFFERENT visual scene ideas for the cover. Each should cover a different story.
+
+COMPOSITION RULES (critical — these make covers work):
+- ONE focal subject. One hero in a scene, not a group battle. Think movie poster, not battle scene.
+- Maximum 1-2 characters. A third can appear tiny/distant. More than that turns to mush.
+- Wide shot with environment. Show the character IN a place — burning ruins, frozen throne room, crumbling arena. Not floating in fog.
+- Left side must be dark/empty. Text overlays on the left. Keep the focal subject center or right.
+- Story-specific but archetypal. A viewer should FEEL the story through the scene. A griefer sits smugly on ruins he caused. A rager's magic cracks the ground beneath him. Don't be too literal about game mechanics.
+- The character's ATTITUDE and BODY LANGUAGE tell the story — not action sequences.
+
+VISUAL DESCRIPTIONS (critical — FLUX doesn't know WC3 terminology):
+- NEVER use game class names — describe the character visually instead.
+- HUMAN: Blood Mage → "tall handsome elven sorcerer with fair skin, sharp cheekbones, long white hair, glowing green eyes, flowing crimson robes". Archmage → "elderly human wizard with long white beard, ornate blue and gold robes, glowing staff". Paladin → "heavily armored human knight in golden plate armor, glowing warhammer, white cape, holy light". Mountain King → "stocky armored dwarf warrior, massive warhammer, thick braided beard, storm-blue plate armor".
+- ORC: Blademaster → "massive green-skinned orc warrior with topknot hairstyle, scarred face, wielding a curved burning blade, minimal armor showing tribal tattoos". Far Seer → "old green-skinned orc shaman in wolf pelt cloak, glowing white eyes, lightning crackling from hands". Tauren Chieftain → "towering bull-headed minotaur with huge horns, massive war totem, thick brown fur, bone and leather armor". Shadow Hunter → "lean blue-skinned troll with tusks, voodoo mask, serpent staff, feathered headdress".
+- UNDEAD: Death Knight → "pale armored knight with glowing blue eyes, frost-covered black plate armor, runic greatsword". Lich → "skeletal floating mage in tattered dark robes, glowing blue eyes, frost magic swirling". Dread Lord → "winged vampiric demon in dark ornate armor, bat-like wings, pale face, glowing red eyes". Crypt Lord → "massive beetle-like undead creature with bone armor, scorpion tail, insectoid".
+- NIGHT ELF: Demon Hunter → "muscular purple-skinned elf with blindfold, fel-green tattoos across chest, twin curved warglaives". Keeper of the Grove → "ancient half-stag half-elf creature with wooden antlers, bark-like skin, nature magic, forest guardian". Warden → "hooded night elf assassin in dark purple armor, crescent moon blade, shadowy". Priestess of the Moon → "elegant purple-skinned elven woman on a white tiger mount, silver armor, moon imagery".
+- Say "elven" not "elf" for better results. Say "fair skin" or "warm skin tone" explicitly — FLUX defaults elves to grey/green.
+- Avoid "pointed ears" alone — FLUX makes goblins. Pair with "tall, handsome/elegant, elven."
+
+Rules:
+- "title": 3-8 words, the story hook (e.g. "ToD vs GhostGGGL Tower War", "Sharky's 14-Day Exile")
+- "scene": 2-3 sentences describing the visual scene using the VISUAL DESCRIPTIONS above. Be specific about: the character's appearance, their pose/expression, the environment, the color mood, and the lighting direction.
+- "score": 1-10, how compelling this would be as cover art (drama, visual impact, community interest)
+- Output JSON only: {"scenes": [{"score": 9, "title": "...", "scene": "..."}, ...]}
+- Sort by score descending
+- No markdown, no explanation`,
+    messages: [{
+      role: 'user',
+      content: digestText.slice(0, 3000)
+    }]
+  });
+
+  const text = response.content[0].text.trim();
+  try {
+    const parsed = JSON.parse(text);
+    return parsed;
+  } catch {
+    const match = text.match(/\{[\s\S]*\}/);
+    if (match) return JSON.parse(match[0]);
+    return { scenes: [] };
+  }
+}
+
 /**
  * Extract 3 headline options with scores and per-headline player casts.
  * Returns { headlines: [{ score, headline, players: [{ name, archetype, visual }] }] }
@@ -173,17 +231,31 @@ YOUR JOB: Translate the headline, character bios, and (if shown) avatar portrait
 ${hasAvatars ? `
 AVATARS: You're shown player avatar portraits. These are Warcraft III hero icons. Look at the EXACT creature/hero depicted — its armor, species, colors, weapons — and describe that same figure in your scene. Don't guess; describe what you SEE.
 ` : ''}
+COMPOSITION (critical — follow exactly):
+- ONE focal character, center or right of frame. Left side dark/empty (text goes there).
+- Wide shot: show the character IN an environment (ruins, throne room, battlefield, forest). Not floating in void.
+- Maximum 2 characters. A third can be tiny/distant. No crowds or armies.
+- Body language and attitude tell the story. A griefer smirks on rubble. A rager's magic cracks the earth. No generic action poses.
+- Describe the dominant COLOR MOOD (fiery orange, cold blue, sickly green, etc.)
+- Include LIGHTING DIRECTION (backlit, rim-lit from below, dramatic side-light, etc.)
+
 CHARACTER DEPTH:
 - Each character is a real person with a country, personality, and reputation. Blend their REAL identity with their WC3 hero.
-- A player from Kuwait could be depicted in flowing robes with desert motifs fused with their WC3 hero design.
-- A notorious grinder might look haggard, surrounded by tallies. A toxic pro might radiate arrogance.
-- The character's ATTITUDE matters more than generic hero poses. Show their personality through body language.
+- The character's ATTITUDE matters more than generic hero poses. Show personality through body language.
+
+VISUAL DESCRIPTIONS (critical — FLUX doesn't know WC3 terminology):
+- NEVER use game class names — describe the character visually instead.
+- HUMAN: Blood Mage → "tall handsome elven sorcerer with fair skin, sharp cheekbones, long white hair, glowing green eyes, flowing crimson robes". Archmage → "elderly human wizard with long white beard, ornate blue and gold robes, glowing staff". Paladin → "heavily armored human knight in golden plate armor, glowing warhammer, white cape, holy light". Mountain King → "stocky armored dwarf warrior, massive warhammer, thick braided beard, storm-blue plate armor".
+- ORC: Blademaster → "massive green-skinned orc warrior with topknot hairstyle, scarred face, wielding a curved burning blade, minimal armor showing tribal tattoos". Far Seer → "old green-skinned orc shaman in wolf pelt cloak, glowing white eyes, lightning crackling from hands". Tauren Chieftain → "towering bull-headed minotaur with huge horns, massive war totem, thick brown fur, bone and leather armor". Shadow Hunter → "lean blue-skinned troll with tusks, voodoo mask, serpent staff, feathered headdress".
+- UNDEAD: Death Knight → "pale armored knight with glowing blue eyes, frost-covered black plate armor, runic greatsword". Lich → "skeletal floating mage in tattered dark robes, glowing blue eyes, frost magic swirling". Dread Lord → "winged vampiric demon in dark ornate armor, bat-like wings, pale face, glowing red eyes". Crypt Lord → "massive beetle-like undead creature with bone armor, scorpion tail, insectoid".
+- NIGHT ELF: Demon Hunter → "muscular purple-skinned elf with blindfold, fel-green tattoos across chest, twin curved warglaives". Keeper of the Grove → "ancient half-stag half-elf creature with wooden antlers, bark-like skin, nature magic, forest guardian". Warden → "hooded night elf assassin in dark purple armor, crescent moon blade, shadowy". Priestess of the Moon → "elegant purple-skinned elven woman on a white tiger mount, silver armor, moon imagery".
+- Say "elven" not "elf" for better results. Say "fair skin" or "warm skin tone" explicitly — FLUX defaults elves to grey/green.
+- Avoid "pointed ears" alone — FLUX makes goblins. Pair with "tall, handsome/elegant, elven."
 
 RULES:
-- 50-70 words. Scene description ONLY. No style instructions (added separately).
+- 40-60 words. Scene description ONLY. No style instructions (added separately).
 - Start with the main subject/action. First words matter most to FLUX.
-- Describe specific visual details: armor type, colors, weapons, expressions, environment.
-- Focus on the RELATIONSHIP between characters — who dominates, who defies.
+- Describe specific visual details: skin tone, hair, armor type, colors, weapons, expressions, environment.
 - No text, logos, or UI. No real player names.
 - Output ONLY the scene description.`,
     messages: [{
@@ -210,11 +282,27 @@ export async function buildImagePrompt(digestText) {
 
 Given a weekly digest, extract the MAIN STORY and write a scene description.
 
-CRITICAL RULES:
+COMPOSITION (critical — follow exactly):
+- ONE focal character, center or right of frame. Left side dark/empty (text goes there).
+- Wide shot: show the character IN an environment (ruins, throne room, battlefield, forest). Not floating in void.
+- Maximum 2 characters. A third can be tiny/distant. No crowds or armies.
+- Body language and attitude tell the story — no generic action poses.
+- Describe the dominant COLOR MOOD (fiery orange, cold blue, sickly green, etc.)
+- Include LIGHTING DIRECTION (backlit, rim-lit, dramatic side-light, etc.)
+
+VISUAL DESCRIPTIONS (critical — FLUX doesn't know WC3 terminology):
+- NEVER use game class names — describe the character visually instead.
+- HUMAN: Blood Mage → "tall handsome elven sorcerer with fair skin, sharp cheekbones, long white hair, glowing green eyes, flowing crimson robes". Archmage → "elderly human wizard with long white beard, ornate blue and gold robes, glowing staff". Paladin → "heavily armored human knight in golden plate armor, glowing warhammer, white cape, holy light". Mountain King → "stocky armored dwarf warrior, massive warhammer, thick braided beard, storm-blue plate armor".
+- ORC: Blademaster → "massive green-skinned orc warrior with topknot hairstyle, scarred face, wielding a curved burning blade, minimal armor showing tribal tattoos". Far Seer → "old green-skinned orc shaman in wolf pelt cloak, glowing white eyes, lightning crackling from hands". Tauren Chieftain → "towering bull-headed minotaur with huge horns, massive war totem, thick brown fur, bone and leather armor". Shadow Hunter → "lean blue-skinned troll with tusks, voodoo mask, serpent staff, feathered headdress".
+- UNDEAD: Death Knight → "pale armored knight with glowing blue eyes, frost-covered black plate armor, runic greatsword". Lich → "skeletal floating mage in tattered dark robes, glowing blue eyes, frost magic swirling". Dread Lord → "winged vampiric demon in dark ornate armor, bat-like wings, pale face, glowing red eyes". Crypt Lord → "massive beetle-like undead creature with bone armor, scorpion tail, insectoid".
+- NIGHT ELF: Demon Hunter → "muscular purple-skinned elf with blindfold, fel-green tattoos across chest, twin curved warglaives". Keeper of the Grove → "ancient half-stag half-elf creature with wooden antlers, bark-like skin, nature magic, forest guardian". Warden → "hooded night elf assassin in dark purple armor, crescent moon blade, shadowy". Priestess of the Moon → "elegant purple-skinned elven woman on a white tiger mount, silver armor, moon imagery".
+- Say "elven" not "elf" for better results. Say "fair skin" or "warm skin tone" explicitly — FLUX defaults elves to grey/green.
+- Avoid "pointed ears" alone — FLUX makes goblins. Pair with "tall, handsome/elegant, elven."
+
+RULES:
 - 40-60 words MAX. No style instructions — those are added separately.
-- Start with the main subject immediately. First words matter most.
-- Use WC3 hero designs (Archmage, Death Knight, Demon Hunter, Blademaster, Necromancer, etc.)
-- Focus on specific characters, poses, emotions, and interactions.
+- Start with the main subject immediately. First words matter most to FLUX.
+- Describe characters using the VISUAL DESCRIPTIONS above, not game terminology.
 - No text, no logos. No player names.
 - Output ONLY the scene description.`,
     messages: [{
@@ -326,7 +414,8 @@ export async function generateImageFromPrompt(prompt) {
  */
 export async function generateCoverImage(digestText) {
   // Step 1: Build a visual prompt from the digest content
-  const imagePrompt = await buildImagePrompt(digestText);
+  const scene = await buildImagePrompt(digestText);
+  const imagePrompt = `${scene}. ${WC3_STYLE_SUFFIX}`;
   console.log('[CoverImage] Generated prompt:', imagePrompt.slice(0, 120) + '...');
 
   // Step 2: Generate the image with FLUX Dev via Replicate

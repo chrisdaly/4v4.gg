@@ -17,7 +17,7 @@ const Navbar = () => {
   const searchRef = useRef(null);
   const [mobileOpen, setMobileOpen] = useState(false);
   const mobileRef = useRef(null);
-  const { adminKey, adminViewActive, toggleAdminView } = useAdmin();
+  const { adminKey, adminViewActive, toggleAdminView, isKeyValid } = useAdmin();
 
   const isActive = (path) => {
     if (path === "/live") {
@@ -209,9 +209,13 @@ const Navbar = () => {
             <button
               className={`navbar-admin-toggle ${adminViewActive ? "active" : ""}`}
               onClick={toggleAdminView}
-              title={adminViewActive ? "Admin view on" : "Admin view off"}
+              title={adminViewActive ? "Admin view on — click to preview as user" : "Admin view off — click to enable"}
             >
-              Admin
+              <span
+                className="admin-key-dot"
+                data-status={isKeyValid === true ? "valid" : isKeyValid === false ? "invalid" : "unknown"}
+              />
+              {adminViewActive ? "Admin" : "Admin Off"}
             </button>
           )}
           <button
@@ -241,7 +245,11 @@ const Navbar = () => {
               className={`navbar-mobile-link navbar-admin-toggle-mobile ${adminViewActive ? "active" : ""}`}
               onClick={toggleAdminView}
             >
-              Admin {adminViewActive ? "On" : "Off"}
+              <span
+                className="admin-key-dot"
+                data-status={isKeyValid === true ? "valid" : isKeyValid === false ? "invalid" : "unknown"}
+              />
+              {adminViewActive ? "Admin" : "Admin Off"}
             </button>
           )}
         </div>

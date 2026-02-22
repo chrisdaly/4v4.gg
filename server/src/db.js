@@ -395,6 +395,55 @@ export function initDb() {
     db.exec(`ALTER TABLE replay_player_actions ADD COLUMN early_game_sequence TEXT`);
   } catch (_) { /* column already exists */ }
 
+  // Migration: add full_action_sequence column for nanoGPT training data
+  try {
+    db.exec(`ALTER TABLE replay_player_actions ADD COLUMN full_action_sequence TEXT`);
+  } catch (_) { /* column already exists */ }
+
+  // Migration: add embedding column for nanoGPT embeddings
+  try {
+    db.exec(`ALTER TABLE player_fingerprints ADD COLUMN embedding TEXT`);
+  } catch (_) { /* column already exists */ }
+
+  // Migration: add new fingerprint segment columns (tempo, intensity, transitions, rhythm)
+  for (const col of ['tempo_seg', 'intensity_seg', 'transitions_seg', 'rhythm_seg']) {
+    try {
+      db.exec(`ALTER TABLE player_fingerprints ADD COLUMN ${col} TEXT`);
+    } catch (_) { /* column already exists */ }
+  }
+
+  // Blog posts — markdown content with publish/draft workflow
+  db.exec(`
+    CREATE TABLE IF NOT EXISTS blog_posts (
+      slug        TEXT PRIMARY KEY,
+      title       TEXT NOT NULL,
+      description TEXT NOT NULL DEFAULT '',
+      date        TEXT NOT NULL,
+      tags        TEXT NOT NULL DEFAULT '[]',
+      content     TEXT NOT NULL DEFAULT '',
+      published   INTEGER NOT NULL DEFAULT 0,
+      created_at  TEXT NOT NULL DEFAULT (datetime('now')),
+      updated_at  TEXT NOT NULL DEFAULT (datetime('now'))
+    );
+  `);
+
+  // Migration: add cover_image column to blog_posts
+  try {
+    db.exec(`ALTER TABLE blog_posts ADD COLUMN cover_image TEXT`);
+  } catch {
+    // Column already exists — ignore
+  }
+
+  // Style thumbnails — preview images for style presets
+  db.exec(`
+    CREATE TABLE IF NOT EXISTS style_thumbnails (
+      style_id    TEXT PRIMARY KEY,
+      image       BLOB NOT NULL,
+      prompt      TEXT,
+      created_at  TEXT NOT NULL DEFAULT (datetime('now'))
+    );
+  `);
+
   // Startup recovery: mark any running jobs as error
   db.prepare(`
     UPDATE weekly_gen_jobs SET status = 'error', error = 'Server restarted', updated_at = datetime('now')
@@ -679,6 +728,16 @@ export function getMessagesByDateAndUsers(date, battleTags, limit = 50) {
   `).all(date, ...battleTags, limit);
 }
 
+export function getAllMessagesByDateRange(startDate, endDate, limit = 2000) {
+  return db.prepare(`
+    SELECT user_name, message, sent_at, received_at, battle_tag
+    FROM messages
+    WHERE deleted = 0 AND DATE(received_at) >= ? AND DATE(received_at) <= ?
+    ORDER BY received_at ASC
+    LIMIT ?
+  `).all(startDate, endDate, limit);
+}
+
 export function getMessagesByDateRangeAndUser(startDate, endDate, battleTag, limit = 200) {
   return db.prepare(`
     SELECT user_name, message, sent_at, received_at, battle_tag
@@ -899,6 +958,10 @@ export function getMatchContext(date) {
 
 export function getRecentDigests(limit = 7) {
   return db.prepare('SELECT * FROM daily_digests ORDER BY date DESC LIMIT ?').all(limit);
+}
+
+export function getDigestsByDateRange(startDate, endDate) {
+  return db.prepare('SELECT * FROM daily_digests WHERE date >= ? AND date <= ? ORDER BY date ASC').all(startDate, endDate);
 }
 
 // ── Weekly digests ──────────────────────────────────
@@ -1474,8 +1537,8 @@ export function insertReplayPlayerActions(replayId, actions) {
     INSERT OR REPLACE INTO replay_player_actions
       (replay_id, player_id, assigngroup, rightclick, basic, buildtrain, ability, item,
        select_count, removeunit, subgroup, selecthotkey, esc, timed_segments, group_hotkeys,
-       heroes, units_summary, buildings_summary, early_game_sequence)
-    VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+       heroes, units_summary, buildings_summary, early_game_sequence, full_action_sequence)
+    VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
   `);
   const tx = db.transaction(() => {
     for (const a of actions) {
@@ -1488,7 +1551,8 @@ export function insertReplayPlayerActions(replayId, actions) {
         JSON.stringify(a.heroes),
         JSON.stringify(a.unitsSummary),
         JSON.stringify(a.buildingsSummary),
-        JSON.stringify(a.earlyGameSequence)
+        JSON.stringify(a.earlyGameSequence),
+        JSON.stringify(a.fullActionSequence || [])
       );
     }
   });
@@ -1499,20 +1563,62 @@ export function getReplayPlayerActions(replayId) {
   return db.prepare('SELECT * FROM replay_player_actions WHERE replay_id = ? ORDER BY player_id').all(replayId);
 }
 
+export function getReplaysNeedingActionSequences() {
+  return db.prepare(`
+    SELECT DISTINCT r.id, r.file_path FROM replays r
+    JOIN replay_player_actions rpa ON rpa.replay_id = r.id
+    WHERE r.parse_status = 'parsed'
+      AND (rpa.full_action_sequence IS NULL OR rpa.full_action_sequence = '[]')
+  `).all();
+}
+
+export function updatePlayerActionSequence(replayId, playerId, fullActionSequence) {
+  db.prepare(`
+    UPDATE replay_player_actions SET full_action_sequence = ? WHERE replay_id = ? AND player_id = ?
+  `).run(JSON.stringify(fullActionSequence), replayId, playerId);
+}
+
+export function getActionSequencesForExport() {
+  return db.prepare(`
+    SELECT rpa.replay_id, rpa.player_id, rpa.full_action_sequence,
+           rp.battle_tag, rp.player_name, rp.race
+    FROM replay_player_actions rpa
+    JOIN replay_players rp ON rp.replay_id = rpa.replay_id AND rp.player_id = rpa.player_id
+    WHERE rpa.full_action_sequence IS NOT NULL
+      AND rpa.full_action_sequence != '[]'
+      AND rp.battle_tag IS NOT NULL
+    ORDER BY rp.battle_tag, rpa.replay_id
+  `).all();
+}
+
+export function getPlayerActionData(battleTag) {
+  return db.prepare(`
+    SELECT rpa.timed_segments, rpa.full_action_sequence, rpa.group_hotkeys
+    FROM replay_player_actions rpa
+    JOIN replay_players rp ON rp.replay_id = rpa.replay_id AND rp.player_id = rpa.player_id
+    WHERE rp.battle_tag = ?
+  `).all(battleTag);
+}
+
 // ── Player Fingerprints ─────────────────────────────
 
 export function insertPlayerFingerprints(replayId, fingerprints) {
   const stmt = db.prepare(`
     INSERT OR REPLACE INTO player_fingerprints
-      (replay_id, player_id, battle_tag, player_name, race, vector, action_seg, apm_seg, hotkey_seg)
-    VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
+      (replay_id, player_id, battle_tag, player_name, race, vector,
+       action_seg, apm_seg, hotkey_seg, tempo_seg, intensity_seg, transitions_seg, rhythm_seg)
+    VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
   `);
   const tx = db.transaction(() => {
     for (const fp of fingerprints) {
       stmt.run(
         replayId, fp.playerId, fp.battleTag || null, fp.playerName, fp.race || null,
         JSON.stringify(fp.vector), JSON.stringify(fp.segments.action),
-        JSON.stringify(fp.segments.apm), JSON.stringify(fp.segments.hotkey)
+        JSON.stringify(fp.segments.apm), JSON.stringify(fp.segments.hotkey),
+        JSON.stringify(fp.segments.tempo || []),
+        JSON.stringify(fp.segments.intensity || []),
+        JSON.stringify(fp.segments.transitions || []),
+        JSON.stringify(fp.segments.rhythm || [])
       );
     }
   });
@@ -1529,6 +1635,19 @@ export function getPlayerFingerprints(battleTag) {
   `).all(battleTag);
 }
 
+export function getPlayerFingerprintsFiltered(battleTag, { minDuration = 0 } = {}) {
+  if (minDuration > 0) {
+    return db.prepare(`
+      SELECT pf.*, r.map_name, r.match_date, r.game_duration
+      FROM player_fingerprints pf
+      JOIN replays r ON r.id = pf.replay_id
+      WHERE pf.battle_tag = ? AND r.game_duration >= ?
+      ORDER BY r.match_date DESC
+    `).all(battleTag, minDuration);
+  }
+  return getPlayerFingerprints(battleTag);
+}
+
 export function getAllAveragedFingerprints() {
   return db.prepare(`
     SELECT battle_tag, player_name, race,
@@ -1536,7 +1655,11 @@ export function getAllAveragedFingerprints() {
            GROUP_CONCAT(vector, '|||') as vectors,
            GROUP_CONCAT(action_seg, '|||') as action_segs,
            GROUP_CONCAT(apm_seg, '|||') as apm_segs,
-           GROUP_CONCAT(hotkey_seg, '|||') as hotkey_segs
+           GROUP_CONCAT(hotkey_seg, '|||') as hotkey_segs,
+           GROUP_CONCAT(COALESCE(tempo_seg, '[]'), '|||') as tempo_segs,
+           GROUP_CONCAT(COALESCE(intensity_seg, '[]'), '|||') as intensity_segs,
+           GROUP_CONCAT(COALESCE(transitions_seg, '[]'), '|||') as transitions_segs,
+           GROUP_CONCAT(COALESCE(rhythm_seg, '[]'), '|||') as rhythm_segs
     FROM player_fingerprints
     WHERE battle_tag IS NOT NULL
     GROUP BY battle_tag
@@ -1569,6 +1692,51 @@ export function getReplaysWithoutFingerprints() {
 
 export function deleteReplayFingerprints(replayId) {
   db.prepare('DELETE FROM player_fingerprints WHERE replay_id = ?').run(replayId);
+}
+
+export function deleteAllFingerprints() {
+  const result = db.prepare('DELETE FROM player_fingerprints').run();
+  return result.changes;
+}
+
+export function getAllReplayIds() {
+  return db.prepare("SELECT id FROM replays WHERE parse_status = 'parsed'").all();
+}
+
+export function updateFingerprintEmbedding(replayId, playerId, embedding) {
+  db.prepare(`
+    UPDATE player_fingerprints SET embedding = ? WHERE replay_id = ? AND player_id = ?
+  `).run(JSON.stringify(embedding), replayId, playerId);
+}
+
+export function getFingerprintsWithoutEmbeddings() {
+  return db.prepare(`
+    SELECT pf.replay_id, pf.player_id, rpa.full_action_sequence
+    FROM player_fingerprints pf
+    JOIN replay_player_actions rpa ON rpa.replay_id = pf.replay_id AND rpa.player_id = pf.player_id
+    WHERE pf.embedding IS NULL
+      AND rpa.full_action_sequence IS NOT NULL
+      AND rpa.full_action_sequence != '[]'
+  `).all();
+}
+
+export function getAllAveragedFingerprintsWithEmbeddings() {
+  return db.prepare(`
+    SELECT battle_tag, player_name, race,
+           COUNT(*) as replay_count,
+           GROUP_CONCAT(vector, '|||') as vectors,
+           GROUP_CONCAT(action_seg, '|||') as action_segs,
+           GROUP_CONCAT(apm_seg, '|||') as apm_segs,
+           GROUP_CONCAT(hotkey_seg, '|||') as hotkey_segs,
+           GROUP_CONCAT(COALESCE(tempo_seg, '[]'), '|||') as tempo_segs,
+           GROUP_CONCAT(COALESCE(intensity_seg, '[]'), '|||') as intensity_segs,
+           GROUP_CONCAT(COALESCE(transitions_seg, '[]'), '|||') as transitions_segs,
+           GROUP_CONCAT(COALESCE(rhythm_seg, '[]'), '|||') as rhythm_segs,
+           GROUP_CONCAT(COALESCE(embedding, ''), '|||') as embeddings
+    FROM player_fingerprints
+    WHERE battle_tag IS NOT NULL
+    GROUP BY battle_tag
+  `).all();
 }
 
 // ── Feedback issues ──────────────────────────────────
@@ -1627,4 +1795,74 @@ export function getRecentFeedbackIssues(limit = 20) {
   return db.prepare(`
     SELECT * FROM feedback_issues ORDER BY created_at DESC LIMIT ?
   `).all(limit);
+}
+
+// ── Style Thumbnails ──────────────────────────────────
+
+export function saveStyleThumbnail(styleId, prompt, imageBuffer) {
+  db.prepare(`
+    INSERT INTO style_thumbnails (style_id, image, prompt) VALUES (?, ?, ?)
+    ON CONFLICT(style_id) DO UPDATE SET image = excluded.image, prompt = excluded.prompt, created_at = datetime('now')
+  `).run(styleId, imageBuffer, prompt);
+}
+
+export function getStyleThumbnail(styleId) {
+  const row = db.prepare('SELECT image FROM style_thumbnails WHERE style_id = ?').get(styleId);
+  return row?.image || null;
+}
+
+// ── Blog posts ──────────────────────────────────────
+
+export function getBlogPosts(includeUnpublished = false) {
+  if (includeUnpublished) {
+    return db.prepare('SELECT slug, title, description, date, tags, published, cover_image, created_at, updated_at FROM blog_posts ORDER BY created_at DESC').all();
+  }
+  return db.prepare('SELECT slug, title, description, date, tags, published, cover_image, created_at, updated_at FROM blog_posts WHERE published = 1 ORDER BY created_at DESC').all();
+}
+
+export function getBlogPost(slug, includeUnpublished = false) {
+  if (includeUnpublished) {
+    return db.prepare('SELECT * FROM blog_posts WHERE slug = ?').get(slug);
+  }
+  return db.prepare('SELECT * FROM blog_posts WHERE slug = ? AND published = 1').get(slug);
+}
+
+export function createBlogPost({ slug, title, description, date, tags, content, published, coverImage }) {
+  db.prepare(`
+    INSERT INTO blog_posts (slug, title, description, date, tags, content, published, cover_image)
+    VALUES (?, ?, ?, ?, ?, ?, ?, ?)
+  `).run(slug, title, description || '', date, JSON.stringify(tags || []), content || '', published ? 1 : 0, coverImage || null);
+}
+
+export function updateBlogPost(slug, fields) {
+  const sets = [];
+  const params = [];
+  for (const [key, value] of Object.entries(fields)) {
+    if (['title', 'description', 'date', 'content'].includes(key)) {
+      sets.push(`${key} = ?`);
+      params.push(value);
+    } else if (key === 'coverImage') {
+      sets.push('cover_image = ?');
+      params.push(value);
+    } else if (key === 'tags') {
+      sets.push('tags = ?');
+      params.push(JSON.stringify(value));
+    } else if (key === 'published') {
+      sets.push('published = ?');
+      params.push(value ? 1 : 0);
+    }
+  }
+  if (sets.length === 0) return;
+  sets.push("updated_at = datetime('now')");
+  params.push(slug);
+  db.prepare(`UPDATE blog_posts SET ${sets.join(', ')} WHERE slug = ?`).run(...params);
+}
+
+export function toggleBlogPostPublished(slug) {
+  db.prepare('UPDATE blog_posts SET published = 1 - published, updated_at = datetime(\'now\') WHERE slug = ?').run(slug);
+  return db.prepare('SELECT published FROM blog_posts WHERE slug = ?').get(slug);
+}
+
+export function deleteBlogPost(slug) {
+  db.prepare('DELETE FROM blog_posts WHERE slug = ?').run(slug);
 }

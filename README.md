@@ -103,5 +103,6 @@ draw a line between AT partners
 do a ongoing match view, that's also suitable for stream
 upscale race icons
 add gold circle to mmr trend
+in statistics, be able to see the players that the filter applies to
 
 export NODE_OPTIONS=--openssl-legacy-provider

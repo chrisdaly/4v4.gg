@@ -49,7 +49,6 @@ export const getTwitchToken = async () => {
       cachedToken = data.access_token;
       // Cache for slightly less than the actual expiry (tokens last ~60 days)
       tokenExpiry = Date.now() + (data.expires_in - 300) * 1000;
-      console.log("Twitch token acquired, expires in", Math.round(data.expires_in / 3600), "hours");
       return cachedToken;
     }
   } catch (error) {

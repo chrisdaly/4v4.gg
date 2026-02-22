@@ -161,10 +161,8 @@ const Chat = () => {
     prevMatchIdsRef.current = currentIds;
 
     if (endedIds.length === 0) return;
-    console.log("[GameEnd] Detected ended matches:", endedIds);
 
     async function fetchResult(id, attempt = 0) {
-      console.log(`[GameEnd] Fetching result for ${id}, attempt ${attempt}`);
       let match;
       try {
         const res = await fetch(`https://website-backend.w3champions.com/api/matches/${encodeURIComponent(id)}`);
