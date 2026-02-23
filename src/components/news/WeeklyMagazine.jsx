@@ -424,14 +424,13 @@ const CoverHero = ({ weekly, coverBg, headline, editorial, onPickCover, coverPos
     <header className="mg-header reveal" ref={headerRef} style={{ "--delay": "0.05s" }}>
       <div className="mg-header-meta">
         <span className="mg-header-date">{formatWeekRange(weekly.week_start, weekly.week_end)}</span>
-        <span className="mg-header-actions">
-          <button className="digest-screenshot-btn" onClick={handleScreenshot} title="Copy as image">
-            {shotState === "copying" ? "..." : shotState === "copied" ? "Copied!" : shotState === "saved" ? "Saved!" : <FiCamera size={14} />}
-          </button>
-          <button className="digest-screenshot-btn" onClick={handleShare} title="Copy share link for Discord">
-            {copied ? "Copied!" : <FiShare2 size={14} />}
-          </button>
-        </span>
+        {editorial && (
+          <span className="mg-header-actions">
+            <button className="digest-screenshot-btn" onClick={handleScreenshot} title="Copy as image">
+              {shotState === "copying" ? "..." : shotState === "copied" ? "Copied!" : shotState === "saved" ? "Saved!" : <FiCamera size={14} />}
+            </button>
+          </span>
+        )}
       </div>
       {headline && (
         editorial ? (
@@ -481,6 +480,7 @@ const CoverHero = ({ weekly, coverBg, headline, editorial, onPickCover, coverPos
           </>
         )}
       </div>
+      <div className="mg-header-scroll-hint" aria-hidden="true">&#8595;</div>
     </header>
   );
 };
@@ -1084,7 +1084,7 @@ const StreakTimeline = ({ dailyData, type }) => {
 };
 
 /* ── Hero Kills Distribution: bar chart of hero kills/game across all players ── */
-const HeroKillsChart = ({ killsDistribution }) => {
+const HeroKillsChart = ({ killsDistribution, highlightBucket }) => {
   if (!killsDistribution) return null;
   const { all } = killsDistribution;
   if (!all || Object.keys(all).length === 0) return null;
@@ -1093,6 +1093,8 @@ const HeroKillsChart = ({ killsDistribution }) => {
   const maxBucket = Math.max(...Object.keys(all).map(Number), 0);
   const buckets = Array.from({ length: maxBucket + 1 }, (_, i) => i);
   const maxCount = Math.max(...buckets.map((k) => all[k] || 0), 1);
+  // sqrt scale so small bars are visible when data is heavily skewed
+  const sqrtMax = Math.sqrt(maxCount);
 
   return (
     <div className="mg-kills-dist">
@@ -1104,13 +1106,14 @@ const HeroKillsChart = ({ killsDistribution }) => {
       <div className="mg-kills-dist-chart">
         {buckets.map((k) => {
           const allCount = all[k] || 0;
-          const pct = allCount > 0 ? Math.round((allCount / maxCount) * 100) : 0;
+          const pct = allCount > 0 ? Math.round((Math.sqrt(allCount) / sqrtMax) * 100) : 0;
+          const isHighlighted = highlightBucket != null && k === highlightBucket;
           return (
-            <div key={k} className={`mg-kills-dist-col${allCount === 0 ? " mg-kills-dist-col--empty" : ""}`}>
+            <div key={k} className={`mg-kills-dist-col${allCount === 0 ? " mg-kills-dist-col--empty" : ""}${isHighlighted ? " mg-kills-dist-col--highlighted" : ""}`}>
               <span className="mg-kills-dist-count">{allCount || ""}</span>
               {allCount > 0 && (
-                <div className="mg-kills-dist-bar-wrapper" style={{ height: `${pct}%` }}>
-                  <div className="mg-kills-dist-bar mg-kills-dist-bar--all" />
+                <div className="mg-kills-dist-bar-wrapper" style={{ '--pct': `${pct}%` }}>
+                  <div className={`mg-kills-dist-bar mg-kills-dist-bar--all${isHighlighted ? " mg-kills-dist-bar--highlighted" : ""}`} />
                 </div>
               )}
               <span className="mg-kills-dist-tick">{k}</span>
@@ -1133,6 +1136,9 @@ const StreakSpectrum = ({ spectrumData, hotName, coldName }) => {
     ...loss.map((e) => e.count),
     1
   );
+  // sqrt scale so small bars are still visible when data is heavily skewed
+  const sqrtMax = Math.sqrt(maxCount);
+  const pct = (count) => Math.round((Math.sqrt(count) / sqrtMax) * 100);
 
   return (
     <div className="mg-streak-spectrum">
@@ -1145,13 +1151,12 @@ const StreakSpectrum = ({ spectrumData, hotName, coldName }) => {
         <div className="mg-streak-spectrum-side mg-streak-spectrum-side--loss">
           {[...loss].reverse().map((e) => (
             <div key={e.len} className="mg-streak-spectrum-col">
+              <span className="mg-streak-spectrum-tick">{e.len}L</span>
               <div
                 className={`mg-streak-spectrum-bar mg-streak-spectrum-bar--loss ${e.len === Math.max(...loss.map((l) => l.len)) ? "mg-streak-spectrum-bar--featured" : ""}`}
-                style={{ height: `${(e.count / maxCount) * 100}%` }}
-              >
-                <span className="mg-streak-spectrum-count">{e.count}</span>
-              </div>
-              <span className="mg-streak-spectrum-tick">{e.len}L</span>
+                style={{ '--pct': `${pct(e.count)}%` }}
+              />
+              <span className="mg-streak-spectrum-count">{e.count}</span>
             </div>
           ))}
         </div>
@@ -1159,13 +1164,12 @@ const StreakSpectrum = ({ spectrumData, hotName, coldName }) => {
         <div className="mg-streak-spectrum-side mg-streak-spectrum-side--win">
           {win.map((e) => (
             <div key={e.len} className="mg-streak-spectrum-col">
+              <span className="mg-streak-spectrum-tick">{e.len}W</span>
               <div
                 className={`mg-streak-spectrum-bar mg-streak-spectrum-bar--win ${e.len === Math.max(...win.map((w) => w.len)) ? "mg-streak-spectrum-bar--featured" : ""}`}
-                style={{ height: `${(e.count / maxCount) * 100}%` }}
-              >
-                <span className="mg-streak-spectrum-count">{e.count}</span>
-              </div>
-              <span className="mg-streak-spectrum-tick">{e.len}W</span>
+                style={{ '--pct': `${pct(e.count)}%` }}
+              />
+              <span className="mg-streak-spectrum-count">{e.count}</span>
             </div>
           ))}
         </div>
@@ -1328,7 +1332,7 @@ const SpotlightsSection = ({ spotlights, profiles, editorial }) => {
                 <StreakSpectrum spectrumData={spectrumData} hotName={hotStat?.stat?.name} coldName={coldStat?.stat?.name} />
               )}
               {key === "HEROSLAYER" && killsDistData && (
-                <HeroKillsChart killsDistribution={killsDistData} />
+                <HeroKillsChart killsDistribution={killsDistData} highlightBucket={heroSlayerParsed?.maxHeroKills} />
               )}
             </React.Fragment>
           ))}
@@ -1991,6 +1995,51 @@ const WeeklyMagazine = ({ weekParam, isAdmin = false, apiKey = "" }) => {
   const [previewMode, setPreviewMode] = useState(false);
   const showEditControls = ed.isEditorial && !previewMode;
 
+  // Mobile: show nav after scrolling past hero, hide site navbar during splash
+  const heroRef = useRef(null);
+  const [navVisible, setNavVisible] = useState(false);
+  useEffect(() => {
+    const el = heroRef.current;
+    if (!el) return;
+    const mq = window.matchMedia("(max-width: 900px)");
+    if (!mq.matches) return;
+    const navbar = document.querySelector(".navbar");
+    // Keep navbar fixed the whole time (no layout shift) — just fade opacity
+    if (navbar) {
+      navbar.style.position = "fixed";
+      navbar.style.width = "100%";
+      navbar.style.left = "0";
+      navbar.style.top = "0";
+      navbar.style.transition = "opacity 0.2s";
+      navbar.style.opacity = "0";
+      navbar.style.pointerEvents = "none";
+    }
+    const obs = new IntersectionObserver(
+      ([entry]) => {
+        const pastHero = !entry.isIntersecting;
+        setNavVisible(pastHero);
+        if (navbar) {
+          navbar.style.opacity = pastHero ? "1" : "0";
+          navbar.style.pointerEvents = pastHero ? "auto" : "none";
+        }
+      },
+      { threshold: 0.05 }
+    );
+    obs.observe(el);
+    return () => {
+      obs.disconnect();
+      if (navbar) {
+        navbar.style.opacity = "";
+        navbar.style.pointerEvents = "";
+        navbar.style.transition = "";
+        navbar.style.position = "";
+        navbar.style.width = "";
+        navbar.style.left = "";
+        navbar.style.top = "";
+      }
+    };
+  }, [weekly]);
+
   // Cover gallery picker state
   const [coverGenerations, setCoverGenerations] = useState([]);
   const [coverGalleryLoading, setCoverGalleryLoading] = useState(false);
@@ -2230,8 +2279,8 @@ const WeeklyMagazine = ({ weekParam, isAdmin = false, apiKey = "" }) => {
 
   return (
     <div className={`mg-page ${ed.isEditorial ? "mg-page--editorial" : ""}`}>
-      {/* Back + week tabs */}
-      <div style={{ maxWidth: 900, margin: "0 auto", padding: "0 var(--space-6)" }}>
+      {/* Back + week tabs — hidden during splash, sticky after scroll */}
+      <div className={`mg-page-nav-wrap${navVisible ? " mg-nav--visible" : ""}`}>
         <PageNav
           backTo="/news"
           backLabel="News"
@@ -2396,7 +2445,9 @@ const WeeklyMagazine = ({ weekParam, isAdmin = false, apiKey = "" }) => {
       )}
 
       {/* ACT 1 — THE STORIES */}
-      <CoverHero weekly={weekly} coverBg={coverBg} headline={dramaTitle || dramaLead} editorial={editorialProps} onPickCover={showEditControls ? fetchCoverGallery : null} coverPosition={weekly.cover_position} onSaveCoverPosition={showEditControls ? saveCoverPosition : null} />
+      <div ref={heroRef}>
+        <CoverHero weekly={weekly} coverBg={coverBg} headline={dramaTitle || dramaLead} editorial={editorialProps} onPickCover={showEditControls ? fetchCoverGallery : null} coverPosition={weekly.cover_position} onSaveCoverPosition={showEditControls ? saveCoverPosition : null} />
+      </div>
 
       {showEditControls && (
         <TopicPills

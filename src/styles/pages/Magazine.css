@@ -11,11 +11,19 @@
   --quote-name-gap: var(--space-1);     /* below speaker name (4px) */
   --quote-pad-left: var(--space-4);     /* space between border and text (16px) */
   --quote-indent: var(--space-4);       /* left margin indent for whole quote block (16px) */
-  --quote-border: 2px solid rgba(255, 255, 255, 0.15);
+  --quote-border: var(--border-thick) solid rgba(255, 255, 255, 0.15);
 }
 
 .mg-page {
   min-height: 100vh;
+}
+
+/* ── Page Nav Wrap ─────────────────────────────────── */
+
+.mg-page-nav-wrap {
+  max-width: 900px;
+  margin: 0 auto;
+  padding: 0 var(--space-6);
 }
 
 /* ── Blog-style Header ─────────────────────────────── */
@@ -23,7 +31,7 @@
 .mg-header {
   max-width: 900px;
   margin: 0 auto;
-  padding: 48px var(--space-6) 0;
+  padding: var(--space-12) var(--space-6) 0;
 }
 
 .mg-header-date {
@@ -87,7 +95,7 @@
   backdrop-filter: blur(4px);
   gap: 6px;
   opacity: 0;
-  transition: opacity 0.2s ease, transform 0.2s ease;
+  transition: opacity var(--transition), transform var(--transition);
   font-size: var(--text-xs) !important;
   padding: 6px 10px !important;
 }
@@ -115,7 +123,7 @@
 
 /* Repositioning mode */
 .mg-header-image--repositioning {
-  outline: 2px solid var(--gold);
+  outline: var(--border-thick) solid var(--gold);
   outline-offset: -2px;
 }
 .mg-header-image--repositioning .mg-header-img {
@@ -148,6 +156,12 @@
 .mg-header-reposition-btn--save {
   border-color: var(--gold) !important;
   color: var(--gold) !important;
+}
+
+/* ── Scroll hint arrow (mobile only) ─────────────── */
+
+.mg-header-scroll-hint {
+  display: none;
 }
 
 /* ── Topic Pills ──────────────────────────────────── */
@@ -185,7 +199,7 @@
 }
 
 .mg-topic-pill--editable .mg-topic-pill-text:focus {
-  color: #fff;
+  color: var(--white);
 }
 
 .mg-topic-pill--editable .mg-topic-pill-delete {
@@ -223,7 +237,7 @@
 .mg-topic-input {
   font-family: var(--font-mono);
   font-size: var(--text-xxs);
-  color: #fff;
+  color: var(--white);
   background: rgba(255, 255, 255, 0.08);
   border: 1px solid var(--gold);
   border-radius: var(--radius-full);
@@ -259,7 +273,7 @@
   background: rgba(0, 0, 0, 0.4);
   border: 1px solid rgba(255, 255, 255, 0.08);
   cursor: pointer;
-  transition: all 0.2s;
+  transition: all var(--transition);
 }
 
 .mg-side-btn--left {
@@ -322,7 +336,7 @@
   padding: 2px 6px;
   display: flex;
   align-items: center;
-  transition: color 0.15s, border-color 0.15s;
+  transition: color var(--transition), border-color var(--transition);
 }
 .mg-section-add:hover { color: var(--gold); border-color: var(--gold); }
 
@@ -337,7 +351,7 @@
 .mg-text-green { color: var(--green); }
 .mg-text-red { color: var(--red); }
 .mg-text-gold { color: var(--gold); }
-.mg-text-white { color: #fff; }
+.mg-text-white { color: var(--white); }
 
 /* ═══════════════════════════════════════════════════════
    ACT 1 — FEATURE STORY
@@ -455,7 +469,7 @@ a.mg-inline-name:hover {
 
 .mg-story-card {
   padding-left: var(--space-4);
-  border-left: 2px solid rgba(255, 255, 255, 0.08);
+  border-left: var(--border-thick) solid rgba(255, 255, 255, 0.08);
 }
 
 .mg-story-text {
@@ -535,7 +549,7 @@ a.mg-inline-name:hover {
 }
 
 .mg-ban-row--dragover {
-  border-top: 2px solid var(--gold);
+  border-top: var(--border-thick) solid var(--gold);
 }
 
 .mg-ban-content {
@@ -622,7 +636,7 @@ a.mg-inline-name:hover {
   z-index: 2;
   background: rgba(0, 0, 0, 0.6);
   border: 1px solid rgba(255, 255, 255, 0.15);
-  border-radius: 50%;
+  border-radius: var(--radius-full);
   color: rgba(255, 255, 255, 0.6);
   width: 24px;
   height: 24px;
@@ -631,16 +645,16 @@ a.mg-inline-name:hover {
   justify-content: center;
   cursor: pointer;
   opacity: 0;
-  transition: opacity 0.15s;
+  transition: opacity var(--transition);
   padding: 0;
 }
 .mg-spotlight-card:hover .mg-spotlight-dismiss { opacity: 1; }
-.mg-spotlight-dismiss:hover { color: #fff; background: rgba(248, 113, 113, 0.7); }
+.mg-spotlight-dismiss:hover { color: var(--white); background: rgba(248, 113, 113, 0.7); }
 
-.mg-spotlight-card--green { border: 2px solid rgba(74, 222, 128, 0.4); }
-.mg-spotlight-card--red { border: 2px solid rgba(248, 113, 113, 0.4); }
-.mg-spotlight-card--gold { border: 2px solid rgba(252, 219, 51, 0.4); }
-.mg-spotlight-card--white { border: 2px solid rgba(255, 255, 255, 0.25); }
+.mg-spotlight-card--green { border: var(--border-thick) solid rgba(74, 222, 128, 0.4); }
+.mg-spotlight-card--red { border: var(--border-thick) solid rgba(248, 113, 113, 0.4); }
+.mg-spotlight-card--gold { border: var(--border-thick) solid rgba(252, 219, 51, 0.4); }
+.mg-spotlight-card--white { border: var(--border-thick) solid rgba(255, 255, 255, 0.25); }
 
 .mg-spotlight-avatar {
   flex-shrink: 0;
@@ -721,6 +735,7 @@ a.mg-inline-name:hover {
 .mg-spotlight-heroes {
   display: flex;
   align-items: center;
+  flex-wrap: wrap;
   gap: var(--space-2);
   margin: var(--space-2) 0 0;
 }
@@ -771,7 +786,7 @@ a.mg-inline-name:hover {
 
 .mg-killboard-count {
   font-family: var(--font-mono);
-  font-size: var(--text-xxxs, 10px);
+  font-size: var(--text-xxxs);
   color: rgba(255, 255, 255, 0.6);
   margin-bottom: 2px;
 }
@@ -781,13 +796,13 @@ a.mg-inline-name:hover {
   max-width: 28px;
   min-height: 2px;
   background: rgba(255, 255, 255, 0.2);
-  border-radius: 2px 2px 0 0;
+  border-radius: var(--radius-sm) var(--radius-sm) 0 0;
 }
 
 .mg-killboard-icon {
   width: 22px;
   height: 22px;
-  border-radius: 3px;
+  border-radius: var(--radius-sm);
   object-fit: cover;
   position: absolute;
   bottom: -26px;
@@ -830,7 +845,7 @@ a.mg-inline-name:hover {
 
 .mg-kills-dist-center {
   font-family: var(--font-mono);
-  font-size: var(--text-xxxs, 10px);
+  font-size: var(--text-xxxs);
   color: var(--grey-mid);
   text-transform: uppercase;
   letter-spacing: 0.1em;
@@ -856,16 +871,17 @@ a.mg-inline-name:hover {
 
 .mg-kills-dist-count {
   font-family: var(--font-mono);
-  font-size: var(--text-xxxs, 10px);
+  font-size: var(--text-xxxs);
   color: rgba(255, 255, 255, 0.5);
 }
 
 .mg-kills-dist-bar-wrapper {
   width: 100%;
   max-width: 28px;
+  height: var(--pct, 0%);
   min-height: 4px;
   position: relative;
-  border-radius: 2px 2px 0 0;
+  border-radius: var(--radius-sm) var(--radius-sm) 0 0;
   overflow: hidden;
 }
 
@@ -874,7 +890,7 @@ a.mg-inline-name:hover {
   bottom: 0;
   left: 0;
   right: 0;
-  border-radius: 2px 2px 0 0;
+  border-radius: var(--radius-sm) var(--radius-sm) 0 0;
 }
 
 .mg-kills-dist-bar--all {
@@ -888,9 +904,20 @@ a.mg-inline-name:hover {
   opacity: 0.3;
 }
 
+.mg-kills-dist-col--highlighted .mg-kills-dist-tick,
+.mg-kills-dist-col--highlighted .mg-kills-dist-count {
+  color: var(--gold);
+  font-weight: 700;
+}
+
+.mg-kills-dist-bar--highlighted {
+  background: linear-gradient(90deg, rgba(252, 219, 51, 0.25), rgba(252, 219, 51, 0.5)) !important;
+  border-color: rgba(252, 219, 51, 0.6) !important;
+}
+
 .mg-kills-dist-tick {
   font-family: var(--font-mono);
-  font-size: var(--text-xxxs, 10px);
+  font-size: var(--text-xxxs);
   color: rgba(255, 255, 255, 0.5);
 }
 
@@ -921,7 +948,7 @@ a.mg-inline-name:hover {
 }
 
 .mg-quote-group--dragover {
-  border-top: 2px solid var(--gold);
+  border-top: var(--border-thick) solid var(--gold);
 }
 
 .mg-spotlight-quotes .mg-quote-name {
@@ -951,7 +978,7 @@ a.mg-inline-name:hover {
   align-items: center;
   gap: 6px;
   padding: 4px 0;
-  border-top: 2px solid transparent;
+  border-top: var(--border-thick) solid transparent;
   transition: background 0.1s;
 }
 
@@ -977,7 +1004,7 @@ a.mg-inline-name:hover {
   color: var(--grey-mid);
   padding: 4px 2px;
   opacity: 0.5;
-  transition: color 0.15s, opacity 0.15s;
+  transition: color var(--transition), opacity var(--transition);
   user-select: none;
   display: inline-flex;
   align-items: center;
@@ -1029,7 +1056,7 @@ a.mg-inline-name:hover {
   letter-spacing: 0.06em;
   padding: 6px 0;
   cursor: pointer;
-  transition: color 0.15s;
+  transition: color var(--transition);
   display: inline-flex;
   align-items: center;
   gap: 4px;
@@ -1051,11 +1078,11 @@ a.mg-inline-name:hover {
   background: rgba(255, 255, 255, 0.04);
   border: 1px solid var(--grey-mid);
   border-radius: var(--radius-sm);
-  color: #fff;
+  color: var(--white);
   font: var(--text-xxs) var(--font-mono);
   padding: 6px 10px;
   outline: none;
-  transition: border-color 0.15s;
+  transition: border-color var(--transition);
 }
 
 .mg-quote-add-input:focus {
@@ -1076,7 +1103,7 @@ a.mg-inline-name:hover {
   letter-spacing: 0.06em;
   padding: 5px 14px;
   cursor: pointer;
-  transition: background 0.15s;
+  transition: background var(--transition);
 }
 
 .mg-quote-add-confirm:hover {
@@ -1107,7 +1134,7 @@ a.mg-inline-name:hover {
   align-items: center;
   justify-content: space-between;
   padding: var(--space-2) var(--space-3);
-  background: var(--surface-2, #1a1a2e);
+  background: var(--surface-2);
   border-bottom: 1px solid var(--grey-mid);
 }
 
@@ -1153,7 +1180,7 @@ a.mg-inline-name:hover {
 
 .mg-streak-day-label {
   font-family: var(--font-mono);
-  font-size: var(--text-xxxs, 10px);
+  font-size: var(--text-xxxs);
   text-transform: uppercase;
   letter-spacing: 0.1em;
   color: var(--grey-light);
@@ -1168,7 +1195,7 @@ a.mg-inline-name:hover {
 .mg-streak-dot {
   width: 14px;
   height: 14px;
-  border-radius: 50%;
+  border-radius: var(--radius-full);
   flex-shrink: 0;
 }
 
@@ -1191,7 +1218,7 @@ a.mg-inline-name:hover {
 
 .mg-streak-day-mmr {
   font-family: var(--font-mono);
-  font-size: var(--text-xxxs, 10px);
+  font-size: var(--text-xxxs);
   margin-top: 2px;
 }
 
@@ -1223,7 +1250,7 @@ a.mg-inline-name:hover {
 
 .mg-streak-spectrum-center {
   font-family: var(--font-mono);
-  font-size: var(--text-xxxs, 10px);
+  font-size: var(--text-xxxs);
   color: var(--grey-mid);
   text-transform: uppercase;
   letter-spacing: 0.1em;
@@ -1270,11 +1297,16 @@ a.mg-inline-name:hover {
   justify-content: flex-end;
 }
 
+/* Desktop vertical: reorder so count (3rd) → top, bar (2nd) → middle, tick (1st) → bottom */
+.mg-streak-spectrum-tick { order: 2; }
+.mg-streak-spectrum-bar { order: 1; }
+.mg-streak-spectrum-count { order: 0; }
+
 .mg-streak-spectrum-bar {
   width: 20px;
+  height: var(--pct, 0%);
   min-height: 4px;
-  border-radius: 2px 2px 0 0;
-  position: relative;
+  border-radius: var(--radius-sm) var(--radius-sm) 0 0;
   display: flex;
   align-items: flex-start;
   justify-content: center;
@@ -1306,15 +1338,13 @@ a.mg-inline-name:hover {
 
 .mg-streak-spectrum-count {
   font-family: var(--font-mono);
-  font-size: var(--text-xxxs, 10px);
+  font-size: var(--text-xxxs);
   color: rgba(255, 255, 255, 0.7);
-  position: absolute;
-  top: -14px;
 }
 
 .mg-streak-spectrum-tick {
   font-family: var(--font-mono);
-  font-size: var(--text-xxxs, 10px);
+  font-size: var(--text-xxxs);
   color: rgba(255, 255, 255, 0.5);
 }
 
@@ -1374,7 +1404,7 @@ a.mg-inline-name:hover {
 
 .mg-upset-gap-label {
   font-family: var(--font-mono);
-  font-size: var(--text-xxxs, 10px);
+  font-size: var(--text-xxxs);
   text-transform: uppercase;
   letter-spacing: 0.08em;
   color: var(--grey-light);
@@ -1398,7 +1428,7 @@ a.mg-inline-name:hover {
 
 .mg-upset-team-label {
   font-family: var(--font-mono);
-  font-size: var(--text-xxxs, 10px);
+  font-size: var(--text-xxxs);
   text-transform: uppercase;
   letter-spacing: 0.15em;
   margin-bottom: 2px;
@@ -1480,7 +1510,7 @@ a.mg-inline-name:hover {
   border: 1px solid rgba(252, 219, 51, 0.3);
   border-radius: var(--radius-full);
   padding: 2px 10px;
-  transition: all 0.15s;
+  transition: all var(--transition);
 }
 
 .mg-upset-match-link:hover {
@@ -1546,7 +1576,7 @@ a.mg-inline-name:hover {
 
 .mg-rank-bar {
   height: 24px;
-  border-radius: 2px;
+  border-radius: var(--radius-sm);
   min-width: 4px;
   transition: width 0.6s ease;
 }
@@ -1679,7 +1709,7 @@ a.mg-inline-name:hover {
 
 .mg-award-runners {
   font-family: var(--font-mono);
-  font-size: var(--text-xxxs, 10px);
+  font-size: var(--text-xxxs);
   color: var(--grey-mid);
   line-height: 1.3;
 }
@@ -1707,7 +1737,7 @@ a.mg-inline-name:hover {
 
 .mg-ticker-category {
   font-family: var(--font-mono);
-  font-size: 11px;
+  font-size: var(--text-xxxs);
   color: var(--grey-light);
   text-transform: uppercase;
   letter-spacing: 0.06em;
@@ -1754,7 +1784,7 @@ a.mg-inline-name:hover {
 .mg-ticker-hero-icon {
   width: 18px;
   height: 18px;
-  border-radius: 3px;
+  border-radius: var(--radius-sm);
   object-fit: cover;
   vertical-align: middle;
   margin-left: 3px;
@@ -1950,7 +1980,7 @@ a.mg-inline-name:hover {
   justify-content: center;
   color: var(--grey-light);
   font-family: var(--font-display);
-  font-size: 10px;
+  font-size: var(--text-xxxs);
   flex-shrink: 0;
 }
 
@@ -1979,7 +2009,7 @@ a.mg-inline-name:hover {
 .mg-returning-stats {
   font-family: var(--font-mono);
   font-size: var(--text-xxs);
-  color: #fff;
+  color: var(--white);
   white-space: nowrap;
   flex-shrink: 0;
   min-width: 130px;
@@ -2075,7 +2105,7 @@ a.mg-stack-player-name:hover {
 .mg-stack-mmr {
   font-family: var(--font-mono);
   font-size: var(--text-lg);
-  color: #fff;
+  color: var(--white);
   white-space: nowrap;
   line-height: 1;
 }
@@ -2115,11 +2145,11 @@ a.mg-stack-player-name:hover {
   display: block;
   text-decoration: none;
   color: inherit;
-  border: 2px solid rgba(252, 219, 51, 0.4);
+  border: var(--border-thick) solid rgba(252, 219, 51, 0.4);
   border-radius: var(--radius-md);
   overflow: hidden;
   margin-bottom: var(--space-4);
-  transition: border-color 0.15s;
+  transition: border-color var(--transition);
 }
 
 .mg-clip-featured:hover { border-color: var(--gold); }
@@ -2129,7 +2159,7 @@ a.mg-stack-player-name:hover {
   width: 100%;
   aspect-ratio: 16 / 9;
   overflow: hidden;
-  background: #000;
+  background: var(--grey-dark);
 }
 
 .mg-clip-thumb-wrap--featured { aspect-ratio: 16 / 9; }
@@ -2143,14 +2173,14 @@ a.mg-stack-player-name:hover {
   width: 56px;
   height: 56px;
   background: rgba(0, 0, 0, 0.6);
-  border: 2px solid rgba(255, 255, 255, 0.3);
-  border-radius: 50%;
+  border: var(--border-thick) solid rgba(255, 255, 255, 0.3);
+  border-radius: var(--radius-full);
   display: flex;
   align-items: center;
   justify-content: center;
   font-size: 20px;
   color: var(--white);
-  transition: all 0.15s;
+  transition: all var(--transition);
 }
 
 .mg-clip-play--small { width: 36px; height: 36px; font-size: 14px; }
@@ -2210,12 +2240,12 @@ a.mg-stack-player-name:hover {
   overflow: hidden;
   text-decoration: none;
   color: inherit;
-  transition: border-color 0.15s;
+  transition: border-color var(--transition);
 }
 
 .mg-clip-card:hover { border-color: var(--gold); }
 
-.mg-clip--dragover { outline: 2px solid var(--gold); outline-offset: -2px; }
+.mg-clip--dragover { outline: var(--border-thick) solid var(--gold); outline-offset: -2px; }
 
 .mg-clip-editorial-overlay {
   position: absolute;
@@ -2226,7 +2256,7 @@ a.mg-stack-player-name:hover {
   gap: 4px;
   z-index: 2;
   opacity: 0;
-  transition: opacity 0.15s;
+  transition: opacity var(--transition);
 }
 
 .mg-clip-featured:hover .mg-clip-editorial-overlay,
@@ -2250,7 +2280,7 @@ a.mg-stack-player-name:hover {
   border-radius: var(--radius-sm);
   color: rgba(255, 255, 255, 0.4);
   font-family: var(--font-mono);
-  font-size: 10px;
+  font-size: var(--text-xxxs);
   padding: 2px 6px;
   display: flex;
   align-items: center;
@@ -2296,12 +2326,17 @@ a.mg-stack-player-name:hover {
 /* ── Responsive ────────────────────────────────────── */
 
 @media (max-width: 768px) {
+  /* ── Section separators on mobile ── */
+  .mg-page > section + section {
+    border-top: 1px solid rgba(255, 255, 255, 0.06);
+  }
+
   .mg-stories-grid {
     grid-template-columns: 1fr;
   }
 
   .mg-spotlight-grid {
-    gap: var(--space-3);
+    gap: var(--space-6);
   }
 
   .mg-spotlight-card {
@@ -2310,32 +2345,13 @@ a.mg-stack-player-name:hover {
 
   .mg-spotlight-avatar {
     width: 100%;
-    height: 160px;
+    height: auto;
+    aspect-ratio: 3 / 1;
     min-height: 0;
   }
 
   .mg-streak-timeline {
     gap: var(--space-4);
-  }
-
-  .mg-streak-spectrum-chart {
-    height: 60px;
-  }
-
-  .mg-streak-spectrum-col {
-    min-width: 18px;
-  }
-
-  .mg-streak-spectrum-bar {
-    width: 14px;
-  }
-
-  .mg-kills-dist-chart {
-    height: 60px;
-  }
-
-  .mg-kills-dist-bar-wrapper {
-    max-width: 20px;
   }
 
   .mg-rank-center {
@@ -2359,6 +2375,203 @@ a.mg-stack-player-name:hover {
   .mg-awards-grid {
     grid-template-columns: repeat(2, 1fr);
   }
+
+  /* ── Ticker / Awards — stack vertically on mobile ── */
+  .mg-ticker-item {
+    flex-direction: column;
+    align-items: flex-start;
+    gap: var(--space-2);
+    padding: var(--space-4);
+    border-bottom: 1px solid rgba(255, 255, 255, 0.08);
+  }
+
+  .mg-ticker-category {
+    width: auto;
+  }
+
+  .mg-ticker-body {
+    width: 100%;
+    flex-wrap: wrap;
+  }
+
+  .mg-ticker-detail {
+    margin-left: 0;
+    white-space: normal;
+    overflow: visible;
+  }
+
+  /* ── Hero Kills Distribution — flip to horizontal bars ── */
+  .mg-kills-dist-header {
+    flex-direction: column;
+    align-items: flex-start;
+    gap: 0;
+  }
+
+  .mg-kills-dist-chart {
+    flex-direction: column;
+    height: auto;
+    align-items: stretch;
+    gap: 3px;
+  }
+
+  .mg-kills-dist-col {
+    display: grid;
+    grid-template-columns: 20px 1fr auto;
+    height: auto;
+    min-width: 0;
+    align-items: center;
+    gap: var(--space-2);
+  }
+
+  .mg-kills-dist-tick {
+    order: -1;
+    text-align: right;
+    flex-shrink: 0;
+  }
+
+  .mg-kills-dist-bar-wrapper {
+    height: 10px;
+    width: var(--pct, 0%);
+    max-width: 100%;
+    min-height: 0;
+    min-width: 4px;
+    border-radius: 0 var(--radius-sm) var(--radius-sm) 0;
+  }
+
+  .mg-kills-dist-bar {
+    border-radius: 0 var(--radius-sm) var(--radius-sm) 0;
+  }
+
+  .mg-kills-dist-bar--all {
+    border-bottom: 1px solid rgba(255, 255, 255, 0.15);
+    border-left: none;
+  }
+
+  .mg-kills-dist-count {
+    order: 1;
+    text-align: left;
+    flex-shrink: 0;
+  }
+
+  .mg-kills-dist-col--empty .mg-kills-dist-count {
+    visibility: hidden;
+  }
+
+  /* ── Streak Spectrum — horizontal bars ── */
+  .mg-streak-spectrum {
+    padding: var(--space-2);
+  }
+
+  .mg-streak-spectrum-chart {
+    flex-direction: column;
+    align-items: stretch;
+    height: auto;
+    gap: 0;
+  }
+
+  .mg-streak-spectrum-side {
+    flex-direction: column;
+    align-items: stretch;
+    height: auto;
+    gap: 1px;
+  }
+
+  .mg-streak-spectrum-side--loss {
+    justify-content: flex-start;
+  }
+
+  .mg-streak-spectrum-col {
+    display: grid;
+    grid-template-columns: 28px 1fr 28px;
+    gap: var(--space-1);
+    align-items: center;
+    height: auto;
+    min-width: 0;
+  }
+
+  /* Reset desktop order for mobile grid */
+  .mg-streak-spectrum-tick,
+  .mg-streak-spectrum-bar,
+  .mg-streak-spectrum-count {
+    order: unset;
+  }
+
+  .mg-streak-spectrum-tick {
+    text-align: right;
+  }
+
+  /* Bar: container fills grid cell, ::after draws the colored portion */
+  .mg-streak-spectrum-bar {
+    width: 100% !important;
+    height: 8px !important;
+    min-height: 0;
+    position: relative;
+    background: rgba(255, 255, 255, 0.04) !important;
+    border: none !important;
+    border-radius: var(--radius-sm) !important;
+    box-shadow: none !important;
+  }
+
+  .mg-streak-spectrum-bar::after {
+    content: "";
+    position: absolute;
+    left: 0;
+    top: 0;
+    bottom: 0;
+    width: var(--pct, 0%);
+    min-width: 2px;
+    border-radius: var(--radius-sm);
+  }
+
+  .mg-streak-spectrum-bar--win::after {
+    background: rgba(74, 222, 128, 0.7);
+  }
+
+  .mg-streak-spectrum-bar--loss::after {
+    background: rgba(248, 113, 113, 0.7);
+  }
+
+  .mg-streak-spectrum-bar--featured.mg-streak-spectrum-bar--win::after {
+    background: var(--green);
+  }
+
+  .mg-streak-spectrum-bar--featured.mg-streak-spectrum-bar--loss::after {
+    background: var(--red);
+  }
+
+  .mg-streak-spectrum-count {
+    text-align: right;
+  }
+
+  .mg-streak-spectrum-axis {
+    width: 100%;
+    height: 1px;
+    margin: 2px 0;
+  }
+
+  /* ── Spotlight — tighter padding on mobile ── */
+  .mg-spotlight-content {
+    padding: var(--space-4);
+  }
+
+  .mg-spotlight-avatar-img {
+    width: 100%;
+    height: 100%;
+  }
+
+  .mg-spotlight-hero-icon {
+    width: 30px;
+    height: 30px;
+  }
+
+  .mg-spotlight-name {
+    font-size: var(--text-base);
+  }
+
+  .mg-spotlight-blurb {
+    font-size: var(--text-xs);
+  }
+
 
   .mg-upset-teams {
     grid-template-columns: 1fr;
@@ -2392,6 +2605,121 @@ a.mg-stack-player-name:hover {
   }
 }
 
+/* ── NYT-style full-bleed cover splash (phones + tablets) ── */
+@media (max-width: 900px) {
+  /* Always fixed, always out of flow — just toggle opacity */
+  .mg-page-nav-wrap {
+    position: fixed;
+    top: 0;
+    left: 0;
+    right: 0;
+    z-index: 100;
+    padding: 0 var(--space-4);
+    background: rgba(10, 8, 6, 0.95);
+    backdrop-filter: blur(12px);
+    border-bottom: 1px solid rgba(255, 255, 255, 0.06);
+    opacity: 0;
+    pointer-events: none;
+    transition: opacity 0.2s;
+  }
+
+  .mg-page-nav-wrap.mg-nav--visible {
+    opacity: 1;
+    pointer-events: auto;
+  }
+
+  .mg-header {
+    position: relative;
+    height: 100svh;
+    padding: 0;
+    display: flex;
+    flex-direction: column;
+    justify-content: flex-end;
+    overflow: hidden;
+    max-width: none;
+    /* Cancel PageOuter padding: 64px top, 32px sides */
+    margin: -64px -32px 0;
+    width: calc(100% + 64px);
+  }
+
+  .mg-header-image {
+    position: absolute;
+    inset: 0;
+    border-radius: 0;
+    border: none;
+    z-index: 0;
+  }
+
+  .mg-header-img {
+    width: 100%;
+    height: 100%;
+    aspect-ratio: auto;
+    object-fit: cover;
+  }
+
+  /* Cinematic gradient — heavy at bottom for text, subtle vignette at top */
+  .mg-header-image::after {
+    content: "";
+    position: absolute;
+    inset: 0;
+    background: linear-gradient(
+      to top,
+      rgba(0, 0, 0, 0.95) 0%,
+      rgba(0, 0, 0, 0.6) 30%,
+      rgba(0, 0, 0, 0.1) 55%,
+      rgba(0, 0, 0, 0.25) 100%
+    );
+    pointer-events: none;
+  }
+
+  .mg-header-meta {
+    position: relative;
+    z-index: 1;
+    padding: 0 var(--space-6);
+    margin-top: auto;
+  }
+
+  .mg-header-date {
+    font-size: var(--text-xxs);
+    letter-spacing: 0.2em;
+  }
+
+  .mg-header-title {
+    position: relative;
+    z-index: 1;
+    padding: 0 var(--space-6);
+    padding-bottom: var(--space-12);
+    font-size: clamp(2.2rem, 9vw, 4rem);
+    line-height: 1.05;
+  }
+
+  .mg-header-scroll-hint {
+    display: block;
+    position: absolute;
+    bottom: var(--space-4);
+    left: 50%;
+    transform: translateX(-50%);
+    z-index: 1;
+    font-size: var(--text-lg);
+    color: rgba(255, 255, 255, 0.35);
+    animation: mg-bounce 2.5s ease infinite;
+  }
+
+  @keyframes mg-bounce {
+    0%, 100% { transform: translateX(-50%) translateY(0); opacity: 0.35; }
+    50% { transform: translateX(-50%) translateY(10px); opacity: 0.7; }
+  }
+}
+
+/* Override margins for narrower PageOuter padding at ≤600px */
+@media (max-width: 600px) {
+  .mg-header {
+    /* PageOuter padding: 32px top, 16px sides at ≤600px */
+    margin: -32px -16px 0;
+    width: calc(100% + 32px);
+  }
+}
+
 @media (max-width: 600px) {
   .mg-section {
     padding: var(--space-6) var(--space-4);
@@ -2399,14 +2727,6 @@ a.mg-stack-player-name:hover {
 
   .mg-feature {
     padding: var(--space-4);
-  }
-
-  .mg-header {
-    padding: 48px 16px 0;
-  }
-
-  .mg-header-img {
-    aspect-ratio: 16 / 9;
   }
 
   .mg-side-btn {
@@ -2422,6 +2742,25 @@ a.mg-stack-player-name:hover {
   .mg-meta-wr {
     width: auto;
   }
+
+  /* ── Spotlight — even tighter on narrow screens ── */
+  .mg-spotlight-avatar {
+    aspect-ratio: 4 / 1;
+  }
+
+  .mg-spotlight-hero-icon {
+    width: 26px;
+    height: 26px;
+  }
+
+  /* ── Horizontal bars — slightly smaller on narrow screens ── */
+  .mg-kills-dist-bar-wrapper {
+    height: 8px;
+  }
+
+  .mg-streak-spectrum-bar {
+    height: 6px !important;
+  }
 }
 
 /* ========================================
@@ -2431,11 +2770,11 @@ a.mg-stack-player-name:hover {
 .mg-page--editorial .mg-editable {
   cursor: text;
   border-bottom: 1px dashed var(--gold);
-  transition: border-color 0.2s;
+  transition: border-color var(--transition);
 }
 
 .mg-page--editorial .mg-editable:hover {
-  border-bottom-color: #fff;
+  border-bottom-color: var(--white);
 }
 
 .mg-editable--active {
@@ -2445,7 +2784,7 @@ a.mg-stack-player-name:hover {
   background: rgba(255, 255, 255, 0.05);
   border: 1px solid var(--gold) !important;
   border-radius: var(--radius-sm);
-  color: #fff;
+  color: var(--white);
   font: inherit;
   line-height: 1.6;
   padding: var(--space-2) var(--space-4);
@@ -2476,7 +2815,7 @@ a.mg-stack-player-name:hover {
 .mg-data-dot {
   width: 8px;
   height: 8px;
-  border-radius: 50%;
+  border-radius: var(--radius-full);
   background: var(--grey-mid);
 }
 
@@ -2541,7 +2880,7 @@ a.mg-stack-player-name:hover {
   gap: var(--space-1);
   padding: 2px 0;
   border-radius: var(--radius-sm);
-  transition: background 0.15s;
+  transition: background var(--transition);
 }
 
 .mg-editorial-item--dragover {
@@ -2550,7 +2889,7 @@ a.mg-stack-player-name:hover {
 
 .mg-editorial-item--unpublished {
   opacity: 0.45;
-  border-left: 2px solid var(--grey-mid);
+  border-left: var(--border-thick) solid var(--grey-mid);
   padding-left: var(--space-1);
 }
 
@@ -2629,7 +2968,7 @@ a.mg-stack-player-name:hover {
 }
 
 .mg-editorial-item-text:hover {
-  color: #fff;
+  color: var(--white);
 }
 
 .mg-editorial-inline-input {
@@ -2638,7 +2977,7 @@ a.mg-stack-player-name:hover {
   background: rgba(255, 255, 255, 0.05);
   border: 1px solid var(--gold);
   border-radius: var(--radius-sm);
-  color: #fff;
+  color: var(--white);
   font-family: var(--font-mono);
   font-size: var(--text-xxs);
   padding: 2px 4px;
@@ -2668,7 +3007,7 @@ a.mg-stack-player-name:hover {
 
 .mg-editorial-toggle-label:hover,
 .mg-editorial-stat-toggle:hover {
-  color: #fff;
+  color: var(--white);
 }
 
 /* ── Section wrap (hidden state) ─────────── */
@@ -2706,7 +3045,7 @@ a.mg-stack-player-name:hover {
 
 .mg-editorial-status--dirty {
   background: var(--red);
-  color: #fff;
+  color: var(--white);
 }
 
 .mg-editorial-status--saving {
@@ -2736,7 +3075,7 @@ a.mg-stack-player-name:hover {
 .mg-variant-title {
   font-family: var(--font-display);
   font-size: var(--text-lg);
-  color: #fff;
+  color: var(--white);
   margin: 0;
 }
 
@@ -2809,14 +3148,14 @@ a.mg-stack-player-name:hover {
   font-family: var(--font-mono);
   font-size: var(--text-xs);
   font-weight: 700;
-  color: #fff;
+  color: var(--white);
   width: 18px;
   height: 18px;
   display: flex;
   align-items: center;
   justify-content: center;
   border: 1px solid var(--grey-light);
-  border-radius: 2px;
+  border-radius: var(--radius-sm);
   flex-shrink: 0;
 }
 
@@ -2827,7 +3166,7 @@ a.mg-stack-player-name:hover {
 
 .mg-variant-card-angle {
   font-family: var(--font-mono);
-  font-size: 11px;
+  font-size: var(--text-xxxs);
   color: var(--grey-light);
 }
 
@@ -2851,7 +3190,7 @@ a.mg-stack-player-name:hover {
 
 .mg-variant-preview-text {
   font-family: var(--font-mono);
-  font-size: 11px;
+  font-size: var(--text-xxxs);
   color: var(--grey-light);
   line-height: 1.4;
   display: -webkit-box;
@@ -2866,7 +3205,7 @@ a.mg-stack-player-name:hover {
   border: none;
   color: var(--gold);
   font-family: var(--font-mono);
-  font-size: 10px;
+  font-size: var(--text-xxxs);
   cursor: pointer;
   padding: 0;
   text-align: left;
@@ -2888,7 +3227,7 @@ a.mg-stack-player-name:hover {
 
 .mg-variant-full-text {
   font-family: var(--font-mono);
-  font-size: 11px;
+  font-size: var(--text-xxxs);
   color: var(--grey-light);
   line-height: 1.5;
   margin: 0;
@@ -2931,7 +3270,7 @@ a.mg-stack-player-name:hover {
   width: 8px;
   height: 8px;
   background: var(--gold);
-  border-radius: 50%;
+  border-radius: var(--radius-full);
   animation: pulse 1.5s infinite;
 }
 
@@ -3014,7 +3353,7 @@ a.mg-stack-player-name:hover {
 }
 
 .mg-picker-close:hover {
-  color: #fff;
+  color: var(--white);
 }
 
 .mg-picker-loading {
@@ -3082,7 +3421,7 @@ a.mg-stack-player-name:hover {
 .mg-headline-text {
   font-family: var(--font-display);
   font-size: var(--text-base);
-  color: #fff;
+  color: var(--white);
   line-height: 1.3;
 }
 
@@ -3108,7 +3447,7 @@ a.mg-stack-player-name:hover {
   background: rgba(10, 8, 6, 0.25);
   backdrop-filter: blur(12px);
   cursor: pointer;
-  transition: border-color 0.15s;
+  transition: border-color var(--transition);
   overflow: hidden;
 }
 
@@ -3119,7 +3458,7 @@ a.mg-stack-player-name:hover {
 .mg-cover-card-thumb {
   position: relative;
   aspect-ratio: 16 / 9;
-  background: #000;
+  background: var(--grey-dark);
   overflow: hidden;
 }
 
@@ -3141,14 +3480,14 @@ a.mg-stack-player-name:hover {
   overflow: hidden;
   font-family: var(--font-display);
   font-size: var(--text-xs);
-  color: #fff;
+  color: var(--white);
   line-height: 1.3;
   margin-bottom: var(--space-1);
 }
 
 .mg-cover-card-date {
   font-family: var(--font-mono);
-  font-size: 11px;
+  font-size: var(--text-xxxs);
   color: rgba(255, 255, 255, 0.4);
 }
 

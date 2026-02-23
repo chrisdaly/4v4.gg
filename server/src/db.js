@@ -11,6 +11,7 @@ export function initDb() {
   db = new Database(config.DB_PATH);
   db.pragma('journal_mode = WAL');
   db.pragma('busy_timeout = 5000');
+  db.pragma('cache_size = -20000'); // limit SQLite page cache to ~20MB
 
   db.exec(`
     CREATE TABLE IF NOT EXISTS messages (
@@ -97,6 +98,13 @@ export function initDb() {
   // Migration: add player_tag column to clips
   try {
     db.exec(`ALTER TABLE clips ADD COLUMN player_tag TEXT`);
+  } catch {
+    // Column already exists — ignore
+  }
+
+  // Migration: add auto_feature column to streamers
+  try {
+    db.exec(`ALTER TABLE streamers ADD COLUMN auto_feature INTEGER NOT NULL DEFAULT 0`);
   } catch {
     // Column already exists — ignore
   }
@@ -366,9 +374,17 @@ export function initDb() {
       units_summary   TEXT,
       buildings_summary TEXT,
       early_game_sequence TEXT,
+      group_compositions TEXT,
       UNIQUE(replay_id, player_id)
     );
   `);
+
+  // Migration: add group_compositions column if missing
+  try {
+    db.prepare('SELECT group_compositions FROM replay_player_actions LIMIT 1').get();
+  } catch {
+    db.exec('ALTER TABLE replay_player_actions ADD COLUMN group_compositions TEXT');
+  }
 
   // ── Player fingerprints table ─────────────────────
   db.exec(`
@@ -1083,15 +1099,21 @@ export function deleteOldEvents(daysToKeep = 14) {
 // ── Clips ──────────────────────────────────────────
 
 export function insertClips(clips) {
-  const stmt = db.prepare(`
+  const insertStmt = db.prepare(`
     INSERT OR IGNORE INTO clips (clip_id, twitch_login, title, url, embed_url, thumbnail_url, creator_name, view_count, duration, created_at, game_id)
     VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
   `);
+  const featureStmt = db.prepare(`UPDATE clips SET featured = 1, featured_at = datetime('now') WHERE clip_id = ?`);
   const tx = db.transaction((rows) => {
     let inserted = 0;
     for (const c of rows) {
-      const r = stmt.run(c.clip_id, c.twitch_login, c.title, c.url, c.embed_url, c.thumbnail_url, c.creator_name || '', c.view_count || 0, c.duration || 0, c.created_at, c.game_id || '');
-      if (r.changes > 0) inserted++;
+      const r = insertStmt.run(c.clip_id, c.twitch_login, c.title, c.url, c.embed_url, c.thumbnail_url, c.creator_name || '', c.view_count || 0, c.duration || 0, c.created_at, c.game_id || '');
+      if (r.changes > 0) {
+        inserted++;
+        if (c._autoFeature) {
+          featureStmt.run(c.clip_id);
+        }
+      }
     }
     return inserted;
   });
@@ -1173,16 +1195,27 @@ export function getStreamers(activeOnly = true) {
   return db.prepare('SELECT * FROM streamers ORDER BY display_name').all();
 }
 
-export function upsertStreamer({ twitch_login, twitch_id, display_name, battle_tag, active }) {
+export function upsertStreamer({ twitch_login, twitch_id, display_name, battle_tag, active, auto_feature }) {
+  // INSERT uses safe defaults; ON CONFLICT preserves existing values unless explicitly provided
+  const activeVal = active !== undefined ? (active ? 1 : 0) : 1;
+  const autoFeatureVal = auto_feature !== undefined ? (auto_feature ? 1 : 0) : 0;
+  const hasActive = active !== undefined;
+  const hasAutoFeature = auto_feature !== undefined;
+
   db.prepare(`
-    INSERT INTO streamers (twitch_login, twitch_id, display_name, battle_tag, active)
-    VALUES (?, ?, ?, ?, ?)
+    INSERT INTO streamers (twitch_login, twitch_id, display_name, battle_tag, active, auto_feature)
+    VALUES (?, ?, ?, ?, ?, ?)
     ON CONFLICT(twitch_login) DO UPDATE SET
       twitch_id = COALESCE(excluded.twitch_id, twitch_id),
       display_name = COALESCE(excluded.display_name, display_name),
       battle_tag = COALESCE(excluded.battle_tag, battle_tag),
-      active = excluded.active
-  `).run(twitch_login, twitch_id || null, display_name || twitch_login, battle_tag || null, active !== undefined ? (active ? 1 : 0) : 1);
+      active = CASE WHEN ? THEN excluded.active ELSE active END,
+      auto_feature = CASE WHEN ? THEN excluded.auto_feature ELSE auto_feature END
+  `).run(twitch_login, twitch_id || null, display_name || twitch_login, battle_tag || null, activeVal, autoFeatureVal, hasActive ? 1 : 0, hasAutoFeature ? 1 : 0);
+}
+
+export function getAutoFeatureStreamers() {
+  return db.prepare('SELECT * FROM streamers WHERE active = 1 AND auto_feature = 1').all();
 }
 
 export function deactivateStreamer(login) {
@@ -1567,8 +1600,9 @@ export function insertReplayPlayerActions(replayId, actions) {
     INSERT OR REPLACE INTO replay_player_actions
       (replay_id, player_id, assigngroup, rightclick, basic, buildtrain, ability, item,
        select_count, removeunit, subgroup, selecthotkey, esc, timed_segments, group_hotkeys,
-       heroes, units_summary, buildings_summary, early_game_sequence, full_action_sequence)
-    VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+       heroes, units_summary, buildings_summary, early_game_sequence, full_action_sequence,
+       group_compositions)
+    VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
   `);
   const tx = db.transaction(() => {
     for (const a of actions) {
@@ -1582,7 +1616,8 @@ export function insertReplayPlayerActions(replayId, actions) {
         JSON.stringify(a.unitsSummary),
         JSON.stringify(a.buildingsSummary),
         JSON.stringify(a.earlyGameSequence),
-        JSON.stringify(a.fullActionSequence || [])
+        JSON.stringify(a.fullActionSequence || []),
+        JSON.stringify(a.groupCompositions || {})
       );
     }
   });
@@ -1623,11 +1658,33 @@ export function getActionSequencesForExport() {
 
 export function getPlayerActionData(battleTag) {
   return db.prepare(`
-    SELECT rpa.timed_segments, rpa.full_action_sequence, rpa.group_hotkeys
+    SELECT rpa.timed_segments, rpa.full_action_sequence, rpa.group_hotkeys,
+           rpa.esc, rpa.subgroup, rpa.removeunit, rpa.basic,
+           rpa.rightclick, rpa.ability, rpa.buildtrain, rpa.item,
+           rpa.select_count, rpa.assigngroup, rpa.selecthotkey,
+           rpa.group_compositions, r.game_duration
     FROM replay_player_actions rpa
     JOIN replay_players rp ON rp.replay_id = rpa.replay_id AND rp.player_id = rpa.player_id
+    JOIN replays r ON r.id = rpa.replay_id
     WHERE rp.battle_tag = ?
   `).all(battleTag);
+}
+
+export function getPlayerActionDataByReplayIds(battleTag, replayIds) {
+  if (!replayIds || replayIds.length === 0) return [];
+  const placeholders = replayIds.map(() => '?').join(',');
+  return db.prepare(`
+    SELECT rpa.replay_id, r.match_date,
+           rpa.timed_segments, rpa.full_action_sequence, rpa.group_hotkeys,
+           rpa.esc, rpa.subgroup, rpa.removeunit, rpa.basic,
+           rpa.rightclick, rpa.ability, rpa.buildtrain, rpa.item,
+           rpa.select_count, rpa.assigngroup, rpa.selecthotkey,
+           rpa.group_compositions, r.game_duration
+    FROM replay_player_actions rpa
+    JOIN replay_players rp ON rp.replay_id = rpa.replay_id AND rp.player_id = rpa.player_id
+    JOIN replays r ON r.id = rpa.replay_id
+    WHERE rp.battle_tag = ? AND r.id IN (${placeholders})
+  `).all(battleTag, ...replayIds);
 }
 
 // ── Player Fingerprints ─────────────────────────────

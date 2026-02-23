@@ -2,27 +2,29 @@ import React from "react";
 import { GOLD, GOLD_DIM, GREY, GREY_MID, safeMax, seededRandom, hashCode } from "../vizUtils";
 
 /**
- * FingerprintRidges — Loop/whorl/arch ridge patterns modulated by data.
- * Action types control ridge flow direction, APM controls ridge density,
- * transitions create ridge bifurcations (minutiae).
+ * FingerprintRidges — Control-group fingerprint.
+ * Each of the 10 control groups (hotkey[0-9]) maps to a horizontal zone.
+ * Ridge density in each zone = how much that group is used.
+ * Assignment frequency (hotkey[10-19]) adds diamond minutiae markers.
+ * Overall ridge tightness modulated by APM.
  */
 export default function FingerprintRidges({ segments, battleTag }) {
-  const W = 180, H = 220;
-  const cx = W / 2, cy = H / 2;
-  const { action = Array(6).fill(0), apm = [0, 0, 0], transitions = Array(10).fill(0) } = segments || {};
+  const W = 180, H = 240;
+  const cx = W / 2, cy = H / 2 - 10;
+  const { hotkey = Array(20).fill(0), apm = [0, 0, 0] } = segments || {};
 
   const rand = seededRandom(hashCode(battleTag || "default"));
-  const maxAction = safeMax(action);
   const elements = [];
 
-  // Determine ridge pattern type from action distribution
-  const dominantAction = action.indexOf(Math.max(...action));
-  // 0-1: loop, 2-3: whorl, 4-5: arch
-  const patternType = dominantAction < 2 ? "loop" : dominantAction < 4 ? "whorl" : "arch";
+  // hotkey[0-9] = usage distribution per group, hotkey[10-19] = assignment distribution
+  const usage = hotkey.slice(0, 10);
+  const assigns = hotkey.slice(10, 20);
+  const maxUsage = safeMax(usage);
+  const maxAssign = safeMax(assigns);
 
-  // Ridge density from APM (more APM = tighter ridges)
-  const ridgeCount = 12 + Math.round((apm[0] || 0) * 18);
-  const ridgeSpacing = 3 + (1 - (apm[0] || 0)) * 2;
+  // Find which groups are active (non-trivial usage)
+  const activeGroups = usage.map((v, i) => ({ group: i, usage: v, assign: assigns[i] || 0 }))
+    .filter(g => g.usage > 0.01);
 
   // Fingerprint oval boundary
   const ovalRx = 65;
@@ -32,94 +34,172 @@ export default function FingerprintRidges({ segments, battleTag }) {
       fill="none" stroke={GREY_MID} strokeWidth="1" opacity="0.3" />
   );
 
-  // Generate ridges
-  for (let r = 0; r < ridgeCount; r++) {
-    const t = r / ridgeCount;
-    const offset = (r - ridgeCount / 2) * ridgeSpacing;
-    const points = [];
-    const numPts = 20;
+  // Ridge density from APM (more APM = tighter ridges)
+  const apmFactor = apm[0] || 0;
+  const baseRidgeCount = 10 + Math.round(apmFactor * 15);
 
-    for (let i = 0; i < numPts; i++) {
-      const s = i / (numPts - 1); // 0 to 1 along ridge
-      let x, y;
-
-      if (patternType === "loop") {
-        // Loop pattern — concentric U shapes
-        const loopW = (ovalRx - 10) * (1 - Math.abs(t - 0.5) * 1.5);
-        x = cx + (s - 0.5) * loopW * 1.6;
-        y = cy + offset + Math.pow(Math.abs(s - 0.5) * 2, 2) * 20 * (t < 0.5 ? 1 : -1);
-      } else if (patternType === "whorl") {
-        // Whorl pattern — spiral curves
-        const angle = s * Math.PI * 1.5 + t * Math.PI * 2;
-        const spiralR = 15 + t * 55;
-        x = cx + Math.cos(angle) * spiralR * (0.6 + s * 0.4);
-        y = cy + Math.sin(angle) * spiralR * (0.5 + s * 0.5);
-      } else {
-        // Arch pattern — curved horizontal lines
-        x = cx + (s - 0.5) * (ovalRx * 1.6);
-        const archHeight = Math.sin(s * Math.PI) * (25 - Math.abs(offset) * 0.4);
-        y = cy + offset - archHeight;
-      }
-
-      // Add micro-wobble based on action data
-      const actionIdx = Math.floor(s * action.length) % action.length;
-      const wobble = (action[actionIdx] / maxAction) * 2;
-      x += (rand() - 0.5) * wobble;
-      y += (rand() - 0.5) * wobble;
-
-      // Clip to oval
-      const dx = (x - cx) / ovalRx;
-      const dy = (y - cy) / ovalRy;
-      if (dx * dx + dy * dy > 0.85) continue;
-
-      points.push({ x, y });
-    }
-
-    if (points.length < 3) continue;
-
-    // Build smooth path
-    let d = `M ${points[0].x} ${points[0].y}`;
-    for (let i = 1; i < points.length; i++) {
-      const prev = points[i - 1];
-      const curr = points[i];
-      const cpx1 = prev.x + (curr.x - prev.x) * 0.3;
-      const cpx2 = curr.x - (curr.x - prev.x) * 0.3;
-      d += ` C ${cpx1} ${prev.y}, ${cpx2} ${curr.y}, ${curr.x} ${curr.y}`;
-    }
-
+  // Divide the oval into zones for each active group
+  // If no active groups, show empty fingerprint
+  if (activeGroups.length === 0) {
     elements.push(
-      <path key={`ridge-${r}`} d={d}
-        fill="none" stroke={GOLD_DIM} strokeWidth={0.8 + t * 0.4}
-        opacity={0.25 + t * 0.25} strokeLinecap="round" />
+      <text key="empty" x={cx} y={cy} textAnchor="middle" fill={GREY}
+        fontSize="8" fontFamily="Inconsolata, monospace" opacity="0.5">
+        No hotkey data
+      </text>
     );
+    return <svg viewBox={`0 0 ${W} ${H}`} width="100%">{elements}</svg>;
   }
 
-  // Minutiae markers from transitions (ridge endings and bifurcations)
-  const maxTrans = safeMax(transitions);
-  transitions.forEach((v, i) => {
-    if (v < 0.03) return;
-    const angle = (i / transitions.length) * Math.PI * 2;
-    const dist = 20 + rand() * 40;
-    const mx = cx + Math.cos(angle) * dist;
-    const my = cy + Math.sin(angle) * dist * 1.2;
-    const dx2 = (mx - cx) / ovalRx;
-    const dy2 = (my - cy) / ovalRy;
-    if (dx2 * dx2 + dy2 * dy2 > 0.7) return;
+  // Allocate zones proportional to usage — each group gets a vertical band
+  const totalUsage = activeGroups.reduce((s, g) => s + g.usage, 0) || 1;
+  const innerTop = cy - ovalRy + 12;
+  const innerBot = cy + ovalRy - 12;
+  const totalHeight = innerBot - innerTop;
+
+  let yOffset = innerTop;
+  for (const grp of activeGroups) {
+    const zoneFrac = grp.usage / totalUsage;
+    const zoneHeight = totalHeight * zoneFrac;
+    const zoneCenter = yOffset + zoneHeight / 2;
+
+    // Number of ridges in this zone proportional to usage * apm
+    const ridgeCount = Math.max(2, Math.round(baseRidgeCount * zoneFrac));
+    const ridgeSpacing = zoneHeight / (ridgeCount + 1);
+
+    for (let r = 0; r < ridgeCount; r++) {
+      const ry = yOffset + ridgeSpacing * (r + 1);
+      const points = [];
+      const numPts = 18;
+
+      for (let i = 0; i < numPts; i++) {
+        const s = i / (numPts - 1);
+        // Ridge width narrows near oval edges
+        const dy = (ry - cy) / ovalRy;
+        const maxWidth = Math.sqrt(Math.max(0, 1 - dy * dy)) * ovalRx * 0.9;
+        let x = cx + (s - 0.5) * maxWidth * 2;
+        let y = ry;
+
+        // Gentle wave modulated by group index for visual variety
+        const wave = Math.sin(s * Math.PI * (2 + grp.group * 0.3)) * (1.5 + grp.usage / maxUsage * 2);
+        y += wave;
+
+        // Micro-wobble
+        x += (rand() - 0.5) * 1.2;
+        y += (rand() - 0.5) * 0.8;
+
+        // Clip to oval
+        const dx2 = (x - cx) / ovalRx;
+        const dy2 = (y - cy) / ovalRy;
+        if (dx2 * dx2 + dy2 * dy2 > 0.88) continue;
+
+        points.push({ x, y });
+      }
+
+      if (points.length < 3) continue;
+
+      let d = `M ${points[0].x} ${points[0].y}`;
+      for (let i = 1; i < points.length; i++) {
+        const prev = points[i - 1];
+        const curr = points[i];
+        const cpx1 = prev.x + (curr.x - prev.x) * 0.3;
+        const cpx2 = curr.x - (curr.x - prev.x) * 0.3;
+        d += ` C ${cpx1} ${prev.y}, ${cpx2} ${curr.y}, ${curr.x} ${curr.y}`;
+      }
+
+      const intensity = grp.usage / maxUsage;
+      elements.push(
+        <path key={`ridge-${grp.group}-${r}`} d={d}
+          fill="none" stroke={GOLD_DIM} strokeWidth={0.6 + intensity * 0.6}
+          opacity={0.2 + intensity * 0.35} strokeLinecap="round" />
+      );
+    }
+
+    // Diamond minutiae for assignment hotkeys
+    if (grp.assign > 0.02) {
+      const numDiamonds = Math.min(4, Math.round((grp.assign / maxAssign) * 4));
+      for (let d = 0; d < numDiamonds; d++) {
+        const dx = cx + (rand() - 0.5) * ovalRx * 1.2;
+        const dy = yOffset + rand() * zoneHeight;
+        const checkX = (dx - cx) / ovalRx;
+        const checkY = (dy - cy) / ovalRy;
+        if (checkX * checkX + checkY * checkY > 0.75) continue;
+
+        const sz = 2 + (grp.assign / maxAssign) * 1.5;
+        elements.push(
+          <polygon key={`dia-${grp.group}-${d}`}
+            points={`${dx},${dy - sz} ${dx + sz},${dy} ${dx},${dy + sz} ${dx - sz},${dy}`}
+            fill="none" stroke={GOLD} strokeWidth="0.6"
+            opacity={0.25 + (grp.assign / maxAssign) * 0.35} />
+        );
+      }
+    }
+
+    // Side label for this zone
+    const labelY = zoneCenter;
+    const labelDy = (labelY - cy) / ovalRy;
+    if (Math.abs(labelDy) < 0.85) {
+      elements.push(
+        <text key={`zlabel-${grp.group}`} x={cx + ovalRx + 6} y={labelY + 1}
+          textAnchor="start" fill={GREY} fontSize="6"
+          fontFamily="Inconsolata, monospace" opacity="0.45">
+          {grp.group}
+        </text>
+      );
+    }
+
+    yOffset += zoneHeight;
+  }
+
+  // ── Legend ──
+  const legendY = H - 30;
+  const legItems = [
+    { type: "ridge", label: "zone = group usage" },
+    { type: "diamond", label: "re-assign" },
+    { type: "density", label: "density = APM" },
+  ];
+
+  let lx = 12;
+  legItems.forEach((item, i) => {
+    const ly = legendY + (i < 2 ? 0 : 12);
+    if (i === 2) lx = 12;
+
+    if (item.type === "ridge") {
+      elements.push(
+        <line key="leg-ridge" x1={lx} y1={ly} x2={lx + 12} y2={ly}
+          stroke={GOLD_DIM} strokeWidth="1" opacity="0.5" />
+      );
+      lx += 16;
+    } else if (item.type === "diamond") {
+      const sz = 3;
+      const dx = lx + 4, dy = ly;
+      elements.push(
+        <polygon key="leg-dia"
+          points={`${dx},${dy - sz} ${dx + sz},${dy} ${dx},${dy + sz} ${dx - sz},${dy}`}
+          fill="none" stroke={GOLD} strokeWidth="0.6" opacity="0.5" />
+      );
+      lx += 14;
+    } else if (item.type === "density") {
+      // Two lines, one loose one tight
+      elements.push(
+        <line key="leg-d1" x1={lx} y1={ly - 1.5} x2={lx + 6} y2={ly - 1.5}
+          stroke={GOLD_DIM} strokeWidth="0.6" opacity="0.35" />
+      );
+      elements.push(
+        <line key="leg-d2" x1={lx} y1={ly + 1.5} x2={lx + 6} y2={ly + 1.5}
+          stroke={GOLD_DIM} strokeWidth="0.6" opacity="0.35" />
+      );
+      lx += 10;
+    }
 
     elements.push(
-      <circle key={`min-${i}`} cx={mx} cy={my} r={1.5 + (v / maxTrans) * 2}
-        fill="none" stroke={GOLD} strokeWidth="0.8"
-        opacity={0.3 + (v / maxTrans) * 0.4} />
+      <text key={`leg-t-${i}`} x={lx} y={ly + 1}
+        textAnchor="start" dominantBaseline="central"
+        fill={GREY} fontSize="6.5" fontFamily="Inconsolata, monospace" opacity="0.5">
+        {item.label}
+      </text>
     );
+    lx += item.label.length * 4.2 + 10;
   });
-
-  // Pattern label
-  elements.push(
-    <text key="pattern-label" x={cx} y={H - 6} textAnchor="middle"
-      fill={GREY} fontSize="7" fontFamily="Inconsolata, monospace" opacity="0.6">
-      {patternType.toUpperCase()}
-    </text>
-  );
 
   return (
     <svg viewBox={`0 0 ${W} ${H}`} width="100%">

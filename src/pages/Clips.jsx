@@ -63,10 +63,10 @@ function PlayerTagSearch({ value, onAdd, onRemove }) {
   const wrapRef = useRef(null);
 
   useEffect(() => {
-    if (query.length < 2) { setResults([]); setOpen(false); return; }
+    if (query.length < 3) { setResults([]); setOpen(false); return; }
     setSearching(true);
     const timer = setTimeout(async () => {
-      const data = await searchLadder(query);
+      const data = await searchLadder(query, undefined, 1);
       const seen = new Set(tags);
       const deduped = [];
       for (const r of (Array.isArray(data) ? data : [])) {
@@ -166,7 +166,7 @@ function PlayerTagSearch({ value, onAdd, onRemove }) {
           })}
         </div>
       )}
-      {searching && query.length >= 2 && !open && (
+      {searching && query.length >= 3 && !open && (
         <div className="clip-player-search-dropdown">
           <div className="clip-player-search-loading">
             <PeonLoader size="sm" />
@@ -357,7 +357,7 @@ function ClipAdminActions({ clip, apiKey, onUpdate, onOptimistic }) {
 
   return (
     <div className="clip-admin-actions">
-      <span className="clip-admin-label">4v4?</span>
+      <span className="clip-admin-label">Relevant?</span>
       <Button
         $ghost
         className={localFeatured ? "clip-admin-vote--active" : ""}
@@ -394,7 +394,7 @@ function ClipAdminActions({ clip, apiKey, onUpdate, onOptimistic }) {
 
 // ── Grid card ─────────────────────────────────
 
-function ClipGridCard({ clip, onClick, apiKey, onUpdate, onOptimistic }) {
+function ClipGridCard({ clip, onClick }) {
   return (
     <div className={`clip-card ${clip.featured ? "clip-card--featured" : ""}`} onClick={() => onClick(clip)}>
       <div className="clip-thumbnail-wrap">
@@ -418,11 +418,6 @@ function ClipGridCard({ clip, onClick, apiKey, onUpdate, onOptimistic }) {
         <h3 className="clip-title">{clip.title}</h3>
         <ClipMeta clip={clip} />
       </div>
-      {apiKey && (
-        <div onClick={(e) => e.stopPropagation()}>
-          <ClipAdminActions clip={clip} apiKey={apiKey} onUpdate={onUpdate} onOptimistic={onOptimistic} />
-        </div>
-      )}
     </div>
   );
 }
@@ -596,7 +591,7 @@ export default function Clips() {
             </option>
           ))}
         </Select>
-        <AddClipInput apiKey={isAdmin ? adminKey : null} onAdded={refreshClips} />
+        {isAdmin && <AddClipInput apiKey={adminKey} onAdded={refreshClips} />}
       </div>
     </>
   );
@@ -620,9 +615,6 @@ export default function Clips() {
                       key={clip.clip_id}
                       clip={clip}
                       onClick={setActiveClip}
-                      apiKey={isAdmin ? adminKey : null}
-                      onUpdate={refreshClips}
-                      onOptimistic={optimisticUpdate}
                     />
                   ))}
                 </div>
@@ -650,9 +642,6 @@ export default function Clips() {
                           key={clip.clip_id}
                           clip={clip}
                           onClick={setActiveClip}
-                          apiKey={adminKey}
-                          onUpdate={refreshClips}
-                          onOptimistic={optimisticUpdate}
                         />
                       ))}
                     </div>

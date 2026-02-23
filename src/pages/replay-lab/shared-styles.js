@@ -12,26 +12,32 @@ export const SectionTitle = styled.h2`
   font-size: var(--text-lg);
   color: var(--white);
   margin-bottom: var(--space-4);
+  text-shadow: 0 1px 8px rgba(0, 0, 0, 0.6);
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
 `;
 
 // ── Drop Zone ───────────────────────────────────
 
 export const DropZone = styled.div`
-  border: 2px dashed
-    ${(p) => (p.$active ? "var(--gold)" : "rgba(160, 130, 80, 0.3)")};
+  border: 2px dashed ${(p) => (p.$active ? "var(--gold)" : "var(--grey-mid)")};
   border-radius: var(--radius-md);
-  padding: var(--space-6) var(--space-4);
+  padding: var(--space-8) var(--space-4);
   text-align: center;
   cursor: pointer;
-  transition: all 0.2s;
+  transition: all 0.3s cubic-bezier(0.17, 0.76, 0.28, 1);
   background: ${(p) =>
-    p.$active
-      ? "rgba(252, 219, 51, 0.08)"
-      : "rgba(255, 255, 255, 0.02)"};
+    p.$active ? "var(--gold-tint)" : "var(--surface-1)"};
 
   &:hover {
     border-color: var(--gold);
-    background: rgba(252, 219, 51, 0.06);
+    background: var(--gold-tint);
+    transform: translateY(-2px);
+  }
+
+  &:active {
+    transform: translateY(0);
   }
 `;
 
@@ -59,10 +65,16 @@ export const ReplayChip = styled.div`
   display: flex;
   align-items: center;
   gap: var(--space-2);
-  padding: 4px 10px;
-  background: rgba(255, 255, 255, 0.04);
-  border: 1px solid rgba(160, 130, 80, 0.15);
-  border-radius: var(--radius-sm);
+  padding: 6px 12px;
+  background: var(--surface-1);
+  border: var(--border-thin) solid var(--grey-mid);
+  border-radius: var(--radius-md);
+  transition: all 0.2s ease;
+
+  &:hover {
+    border-color: var(--gold);
+    background: var(--gold-tint);
+  }
 `;
 
 export const ChipText = styled.span`
@@ -75,18 +87,28 @@ export const ChipName = styled.span`
   font-family: var(--font-display);
   font-size: var(--text-xs);
   color: var(--gold);
+  font-weight: 500;
 `;
 
 export const ChipRemove = styled.button`
   display: flex;
   align-items: center;
-  background: none;
-  border: none;
+  justify-content: center;
+  width: 20px;
+  height: 20px;
+  background: rgba(255, 255, 255, 0.04);
+  border: var(--border-thin) solid var(--grey-mid);
+  border-radius: var(--radius-full);
   color: var(--grey-mid);
   cursor: pointer;
-  padding: 0;
+  transition: all 0.2s ease;
+  margin-left: var(--space-1);
+
   &:hover {
     color: var(--red);
+    background: var(--red-tint);
+    border-color: var(--red);
+    transform: scale(1.1);
   }
 `;
 
@@ -100,11 +122,14 @@ export const StatusText = styled.div`
 `;
 
 export const EmptyState = styled.div`
-  padding: var(--space-6);
+  padding: var(--space-8) var(--space-4);
   text-align: center;
   font-family: var(--font-mono);
   font-size: var(--text-xs);
   color: var(--grey-light);
+  background: var(--surface-1);
+  border: var(--border-thin) solid var(--grey-mid);
+  border-radius: var(--radius-md);
 `;
 
 export const DbBadge = styled.span`
@@ -150,37 +175,38 @@ export const ThresholdValue = styled.span`
 // ── Candidate Table ─────────────────────────────
 
 export const CandidateTable = styled.div`
-  border: 1px solid rgba(160, 130, 80, 0.15);
+  border: var(--border-thin) solid var(--grey-mid);
   border-radius: var(--radius-md);
   overflow: hidden;
+  background: var(--surface-1);
 `;
 
 export const CandidateHeader = styled.div`
   display: grid;
   grid-template-columns: 1fr 50px 1fr 70px 80px;
   gap: var(--space-2);
-  padding: var(--space-2) var(--space-4);
-  background: rgba(0, 0, 0, 0.3);
-  border-bottom: 1px solid rgba(160, 130, 80, 0.15);
+  padding: var(--space-3) var(--space-4);
+  background: rgba(255, 255, 255, 0.02);
+  border-bottom: var(--border-thin) solid var(--grey-mid);
   font-family: var(--font-mono);
-  font-size: 9px;
+  font-size: var(--text-xxxs);
   color: var(--gold);
   text-transform: uppercase;
-  letter-spacing: 0.06em;
+  letter-spacing: 0.08em;
 `;
 
 export const CandidateRow = styled.div`
   display: grid;
   grid-template-columns: 1fr 50px 1fr 70px 80px;
   gap: var(--space-2);
-  padding: var(--space-2) var(--space-4);
+  padding: var(--space-3) var(--space-4);
   align-items: center;
-  border-bottom: 1px solid rgba(160, 130, 80, 0.06);
+  border-bottom: var(--border-thin) solid rgba(255, 255, 255, 0.04);
   cursor: pointer;
-  transition: background 0.1s;
+  transition: background 0.15s ease;
 
   &:last-child { border-bottom: none; }
-  &:hover { background: rgba(252, 219, 51, 0.04); }
+  &:hover { background: var(--gold-tint); }
 `;
 
 export const CandidateName = styled.span`
@@ -226,16 +252,20 @@ export const CandidateScoreFill = styled.div`
 `;
 
 export const LinkBtn = styled.button`
-  padding: 3px 10px;
+  padding: 4px 12px;
   font-family: var(--font-mono);
   font-size: var(--text-xxs);
   border-radius: var(--radius-sm);
   cursor: pointer;
-  transition: all 0.15s;
-  background: rgba(252, 219, 51, 0.12);
+  transition: all 0.2s ease;
+  background: var(--gold-tint);
   color: var(--gold);
-  border: 1px solid rgba(252, 219, 51, 0.3);
-  &:hover { background: rgba(252, 219, 51, 0.2); }
+  border: var(--border-thin) solid rgba(252, 219, 51, 0.3);
+
+  &:hover {
+    background: rgba(252, 219, 51, 0.2);
+    border-color: var(--gold);
+  }
 `;
 
 // ── Breakdown Bars ──────────────────────────────
@@ -371,9 +401,12 @@ export const ProgressLabel = styled.div`
 export const DetailPanel = styled.div`
   margin-top: var(--space-4);
   padding: var(--space-6);
-  border: 1px solid rgba(160, 130, 80, 0.2);
+  border: var(--border-thin) solid var(--grey-mid);
   border-radius: var(--radius-md);
-  background: rgba(0, 0, 0, 0.35);
+  background: var(--surface-1);
+  transition: border-color 0.2s ease;
+
+  &:hover { border-color: rgba(255, 255, 255, 0.15); }
 `;
 
 export const DetailHeader = styled.div`

@@ -5,11 +5,11 @@ Exports action sequences from SQLite, converts to token IDs,
 and outputs train.bin / val.bin (numpy memmap files).
 
 Token schema:
-  - 15 base action types × 7 time-delta buckets = 105 tokens
+  - 12 base action types × 7 time-delta buckets = 84 tokens
   - Hotkey assign: 10 groups × 7 buckets = 70 tokens
   - Hotkey select: 10 groups × 7 buckets = 70 tokens
   - 3 special tokens (PAD=0, BOS=1, EOS=2)
-  Total vocab = 248
+  Total vocab = 227
 
 Usage:
   python tokenizer.py --db ../data/chat.db --out ./data
@@ -19,7 +19,6 @@ Usage:
 import argparse
 import json
 import sqlite3
-import os
 import numpy as np
 from pathlib import Path
 from collections import defaultdict
@@ -120,20 +119,25 @@ def tokenize_sequence(actions, block_size=1024):
 
 
 def load_sequences_from_db(db_path):
-    """Load action sequences from SQLite database."""
+    """Load action sequences from SQLite database.
+
+    Uses COALESCE(battle_tag, player_name) for player identity so that
+    bulk-imported replays (which lack battle_tag but have BNet names like
+    "Nenzzz#21219") are still grouped by player.
+    """
     conn = sqlite3.connect(db_path)
     conn.row_factory = sqlite3.Row
     cursor = conn.cursor()
 
     cursor.execute("""
         SELECT rpa.replay_id, rpa.player_id, rpa.full_action_sequence,
-               rp.battle_tag, rp.player_name, rp.race
+               COALESCE(rp.battle_tag, rp.player_name) as player_key,
+               rp.player_name, rp.race
         FROM replay_player_actions rpa
         JOIN replay_players rp ON rp.replay_id = rpa.replay_id AND rp.player_id = rpa.player_id
         WHERE rpa.full_action_sequence IS NOT NULL
-          AND rpa.full_action_sequence != '[]'
-          AND rp.battle_tag IS NOT NULL
-        ORDER BY rp.battle_tag, rpa.replay_id
+          AND length(rpa.full_action_sequence) > 2
+        ORDER BY player_key, rpa.replay_id
     """)
 
     rows = cursor.fetchall()
@@ -148,7 +152,7 @@ def load_sequences_from_db(db_path):
             sequences.append({
                 'replay_id': row['replay_id'],
                 'player_id': row['player_id'],
-                'battle_tag': row['battle_tag'],
+                'battle_tag': row['player_key'],
                 'player_name': row['player_name'],
                 'race': row['race'],
                 'actions': actions,
@@ -188,6 +192,128 @@ def build_player_map(sequences):
     return player_map
 
 
+def tokenize_from_db_streaming(db_path, block_size, val_split, min_replays):
+    """
+    Stream-tokenize from SQLite without loading all JSON into memory.
+
+    Pass 1: Build player counts and determine train/val split by player.
+    Pass 2: Stream rows, tokenize, and accumulate token lists.
+    """
+    conn = sqlite3.connect(db_path)
+    cursor = conn.cursor()
+
+    # ── Pass 1: Build player counts (lightweight — no action data) ──
+    print('Pass 1: Building player counts...')
+    cursor.execute("""
+        SELECT COALESCE(rp.battle_tag, rp.player_name) as player_key,
+               COUNT(*) as seq_count
+        FROM replay_player_actions rpa
+        JOIN replay_players rp ON rp.replay_id = rpa.replay_id AND rp.player_id = rpa.player_id
+        WHERE rpa.full_action_sequence IS NOT NULL
+          AND length(rpa.full_action_sequence) > 2
+        GROUP BY player_key
+    """)
+
+    player_counts = {}
+    for row in cursor.fetchall():
+        player_counts[row[0]] = row[1]
+
+    total_players = len(player_counts)
+    print(f'  {total_players} unique players, {sum(player_counts.values())} total sequences')
+
+    # Filter by min replays
+    if min_replays > 1:
+        player_counts = {k: v for k, v in player_counts.items() if v >= min_replays}
+        print(f'  After filtering (min {min_replays}): {len(player_counts)} players, {sum(player_counts.values())} sequences')
+
+    valid_players = set(player_counts.keys())
+
+    # Determine train/val split by player
+    player_list = sorted(player_counts.keys())
+    rng = np.random.RandomState(42)
+    rng.shuffle(player_list)
+    val_count = max(1, int(len(player_list) * val_split))
+    val_players = set(player_list[:val_count])
+
+    print(f'  Split: {len(player_list) - val_count} train players, {val_count} val players')
+
+    # ── Pass 2: Stream-tokenize ──
+    print('Pass 2: Tokenizing sequences...')
+    cursor.execute("""
+        SELECT rpa.full_action_sequence,
+               COALESCE(rp.battle_tag, rp.player_name) as player_key
+        FROM replay_player_actions rpa
+        JOIN replay_players rp ON rp.replay_id = rpa.replay_id AND rp.player_id = rpa.player_id
+        WHERE rpa.full_action_sequence IS NOT NULL
+          AND length(rpa.full_action_sequence) > 2
+        ORDER BY player_key, rpa.replay_id
+    """)
+
+    train_tokens = []
+    val_tokens = []
+    player_labels = []  # For eval: which player each tokenized sequence belongs to
+    total_actions = 0
+    total_tok = 0
+    n_seqs = 0
+    n_skipped = 0
+
+    batch_size = 500
+    while True:
+        rows = cursor.fetchmany(batch_size)
+        if not rows:
+            break
+
+        for row in rows:
+            player_key = row[1]
+            if player_key not in valid_players:
+                continue
+
+            try:
+                actions = json.loads(row[0])
+            except (json.JSONDecodeError, TypeError):
+                continue
+
+            if len(actions) < 10:
+                n_skipped += 1
+                continue
+
+            tokens = tokenize_sequence(actions, block_size=block_size)
+            if len(tokens) < 5:
+                n_skipped += 1
+                continue
+
+            total_actions += len(actions)
+            total_tok += len(tokens)
+            n_seqs += 1
+            player_labels.append(player_key)
+
+            if player_key in val_players:
+                val_tokens.extend(tokens)
+            else:
+                train_tokens.extend(tokens)
+
+            if n_seqs % 5000 == 0:
+                print(f'  ... {n_seqs} sequences tokenized ({total_tok} tokens)')
+
+    conn.close()
+
+    avg_len = total_tok / max(n_seqs, 1)
+    print(f'\nTokenization stats:')
+    print(f'  Sequences: {n_seqs} (skipped {n_skipped})')
+    print(f'  Total tokens: {total_tok}')
+    print(f'  Avg sequence length: {avg_len:.1f}')
+    print(f'  Vocab size: {VOCAB_SIZE}')
+    print(f'  Unique players: {len(player_counts)}')
+
+    train_seqs = sum(1 for p in player_labels if p not in val_players)
+    val_seqs = sum(1 for p in player_labels if p in val_players)
+    print(f'\nPlayer-based split:')
+    print(f'  Train: {train_seqs} seqs ({len(train_tokens)} tokens) from {len(player_list) - val_count} players')
+    print(f'  Val:   {val_seqs} seqs ({len(val_tokens)} tokens) from {val_count} players')
+
+    return train_tokens, val_tokens, player_labels, player_counts
+
+
 def main():
     parser = argparse.ArgumentParser(description='WC3 Action Sequence Tokenizer')
     parser.add_argument('--db', type=str, help='Path to SQLite database')
@@ -201,74 +327,66 @@ def main():
     if not args.db and not args.json:
         parser.error('Either --db or --json is required')
 
-    # Load sequences
-    if args.db:
-        print(f'Loading from SQLite: {args.db}')
-        sequences = load_sequences_from_db(args.db)
-    else:
-        print(f'Loading from JSON: {args.json}')
-        sequences = load_sequences_from_json(args.json)
-
-    print(f'Loaded {len(sequences)} action sequences')
-
-    # Filter by min replays per player
-    player_map = build_player_map(sequences)
-    if args.min_replays > 1:
-        filtered = []
-        for tag, seqs in player_map.items():
-            if len(seqs) >= args.min_replays:
-                filtered.extend(seqs)
-        sequences = filtered
-        player_map = build_player_map(sequences)
-        print(f'After filtering (min {args.min_replays} replays): {len(sequences)} sequences from {len(player_map)} players')
-
-    if not sequences:
-        print('No sequences to process!')
-        return
-
-    # Tokenize all sequences
-    all_tokens = []
-    player_labels = []  # For eval: which player each sequence belongs to
-    stats = {'total_actions': 0, 'total_tokens': 0, 'avg_len': 0}
-
-    for seq in sequences:
-        tokens = tokenize_sequence(seq['actions'], block_size=args.block_size)
-        if len(tokens) < 5:  # Skip very short tokenized sequences
-            continue
-        all_tokens.append(tokens)
-        player_labels.append(seq['battle_tag'])
-        stats['total_actions'] += len(seq['actions'])
-        stats['total_tokens'] += len(tokens)
-
-    stats['avg_len'] = stats['total_tokens'] / max(len(all_tokens), 1)
-
-    print(f'\nTokenization stats:')
-    print(f'  Sequences: {len(all_tokens)}')
-    print(f'  Total tokens: {stats["total_tokens"]}')
-    print(f'  Avg sequence length: {stats["avg_len"]:.1f}')
-    print(f'  Vocab size: {VOCAB_SIZE}')
-    print(f'  Unique players: {len(set(player_labels))}')
-
-    # Split into train/val
-    n = len(all_tokens)
-    indices = np.random.RandomState(42).permutation(n)
-    val_n = max(1, int(n * args.val_split))
-    val_indices = set(indices[:val_n])
-
-    train_tokens = []
-    val_tokens = []
-    for i, tokens in enumerate(all_tokens):
-        if i in val_indices:
-            val_tokens.extend(tokens)
-        else:
-            train_tokens.extend(tokens)
-
-    print(f'\nSplit: {len(train_tokens)} train tokens, {len(val_tokens)} val tokens')
-
-    # Save as numpy memmap files (uint16)
     out_dir = Path(args.out)
     out_dir.mkdir(parents=True, exist_ok=True)
 
+    if args.db:
+        # Streaming mode for large databases — no OOM
+        print(f'Loading from SQLite (streaming): {args.db}')
+        train_tokens, val_tokens, player_labels, player_counts = tokenize_from_db_streaming(
+            args.db, args.block_size, args.val_split, args.min_replays
+        )
+    else:
+        # JSON mode (original in-memory approach — fine for smaller files)
+        print(f'Loading from JSON: {args.json}')
+        sequences = load_sequences_from_json(args.json)
+        print(f'Loaded {len(sequences)} action sequences')
+
+        player_map = build_player_map(sequences)
+        if args.min_replays > 1:
+            filtered = []
+            for tag, seqs in player_map.items():
+                if len(seqs) >= args.min_replays:
+                    filtered.extend(seqs)
+            sequences = filtered
+            player_map = build_player_map(sequences)
+            print(f'After filtering (min {args.min_replays} replays): {len(sequences)} sequences from {len(player_map)} players')
+
+        if not sequences:
+            print('No sequences to process!')
+            return
+
+        all_tokens = []
+        player_labels = []
+        for seq in sequences:
+            tokens = tokenize_sequence(seq['actions'], block_size=args.block_size)
+            if len(tokens) < 5:
+                continue
+            all_tokens.append(tokens)
+            player_labels.append(seq['battle_tag'])
+
+        # Player-based split
+        unique_players = list(set(player_labels))
+        rng = np.random.RandomState(42)
+        rng.shuffle(unique_players)
+        val_count = max(1, int(len(unique_players) * args.val_split))
+        val_players = set(unique_players[:val_count])
+
+        train_tokens = []
+        val_tokens = []
+        for i, tokens in enumerate(all_tokens):
+            if player_labels[i] in val_players:
+                val_tokens.extend(tokens)
+            else:
+                train_tokens.extend(tokens)
+
+        player_counts = {tag: len(seqs) for tag, seqs in player_map.items()}
+
+    if not train_tokens:
+        print('No training data!')
+        return
+
+    # Save as numpy memmap files (uint16)
     train_arr = np.array(train_tokens, dtype=np.uint16)
     val_arr = np.array(val_tokens, dtype=np.uint16)
 
@@ -281,7 +399,7 @@ def main():
         'block_size': args.block_size,
         'train_tokens': len(train_tokens),
         'val_tokens': len(val_tokens),
-        'num_sequences': len(all_tokens),
+        'num_sequences': len(player_labels),
         'num_players': len(set(player_labels)),
         'token_layout': {
             'PAD': PAD_TOKEN,
@@ -300,7 +418,7 @@ def main():
     # Save player labels for eval
     labels_data = {
         'player_labels': player_labels,
-        'player_counts': {tag: len(seqs) for tag, seqs in player_map.items()},
+        'player_counts': player_counts,
     }
     with open(out_dir / 'player_labels.json', 'w') as f:
         json.dump(labels_data, f, indent=2)

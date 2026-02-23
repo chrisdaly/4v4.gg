@@ -19,7 +19,7 @@ from pydantic import BaseModel
 app = FastAPI(title="WC3 Embed Server", docs_url=None, redoc_url=None)
 
 MODEL_PATH = os.environ.get("MODEL_PATH", "/app/ml/data/model.onnx")
-BLOCK_SIZE = 1024
+BLOCK_SIZE = 128
 N_EMBD = 128
 
 session = None

@@ -24,6 +24,16 @@ const TRACKED_ACTION_IDS = new Set([
   0x68,                           // Minimap ping
 ]);
 
+// FourCC bytes are stored little-endian in w3gjs — reverse to get standard unit ID
+function fourCCToString(arr) {
+  if (!arr || arr.length !== 4) return null;
+  return String.fromCharCode(arr[3], arr[2], arr[1], arr[0]);
+}
+
+function netTagKey(tag) {
+  return `${tag[0]}:${tag[1]}`;
+}
+
 /**
  * Parse a .w3g replay file and return structured data.
  */
@@ -34,7 +44,14 @@ export async function parseReplayFile(filePath) {
   const earlySeqs = {}; // playerId -> [{ ms, group, type }]
   // Collect full-game action sequences per player for nanoGPT
   const fullSeqs = {}; // playerId -> [{ ms, id, g? }]
+  // Control group composition tracking per player
+  const groupState = {}; // playerId -> { objectMap, groups }
   let elapsed = 0;
+
+  const getGroupState = (id) => {
+    if (!groupState[id]) groupState[id] = { objectMap: new Map(), groups: {} };
+    return groupState[id];
+  };
 
   const onBlock = (block) => {
     if (block.id !== 0x1f && block.id !== 0x1e) return;
@@ -62,6 +79,22 @@ export async function parseReplayFile(filePath) {
           }
           fullSeqs[cmd.playerId].push(entry);
         }
+
+        // 0x19: Select Subgroup — reveals ItemID ↔ ObjectID association
+        if (action.id === 0x19 && action.itemId && action.object) {
+          const gs = getGroupState(cmd.playerId);
+          const itemStr = fourCCToString(action.itemId);
+          if (itemStr && (action.object[0] !== 0 || action.object[1] !== 0)) {
+            gs.objectMap.set(netTagKey(action.object), itemStr);
+          }
+        }
+
+        // 0x17: Assign Group Hotkey — full unit list for this group
+        if (action.id === 0x17 && action.units) {
+          const gs = getGroupState(cmd.playerId);
+          const g = (action.groupNumber + 1) % 10;
+          gs.groups[g] = action.units.map(u => netTagKey(u));
+        }
       }
     }
   };
@@ -70,11 +103,20 @@ export async function parseReplayFile(filePath) {
   const result = await parser.parse(buffer);
   parser.removeListener('gamedatablock', onBlock);
 
+  // Build final group compositions with backfilled ObjectID→ItemID
+  const groupComps = {}; // playerId -> { g: [itemId, ...] }
+  for (const [playerId, gs] of Object.entries(groupState)) {
+    groupComps[playerId] = {};
+    for (const [g, unitKeys] of Object.entries(gs.groups)) {
+      groupComps[playerId][g] = unitKeys.map(key => gs.objectMap.get(key) || null);
+    }
+  }
+
   return {
     metadata: extractMetadata(result),
     players: extractPlayers(result),
     chat: extractChatMessages(result),
-    actions: extractPlayerActions(result, earlySeqs, fullSeqs),
+    actions: extractPlayerActions(result, earlySeqs, fullSeqs, groupComps),
   };
 }
 
@@ -139,7 +181,7 @@ function extractChatMessages(parsed) {
 /**
  * Extract per-player action summaries from parsed replay.
  */
-function extractPlayerActions(parsed, earlySeqs = {}, fullSeqs = {}) {
+function extractPlayerActions(parsed, earlySeqs = {}, fullSeqs = {}, groupComps = {}) {
   const durationMs = parsed.duration || 1;
 
   return (parsed.players || []).map(p => {
@@ -191,6 +233,7 @@ function extractPlayerActions(parsed, earlySeqs = {}, fullSeqs = {}) {
       buildingsSummary: p.buildings?.summary || {},
       earlyGameSequence: earlySeqs[p.id] || [],
       fullActionSequence: fullSeqs[p.id] || [],
+      groupCompositions: groupComps[p.id] || {},
     };
   });
 }

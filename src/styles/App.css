@@ -27,6 +27,7 @@
   --team-red: #ef4444; /* Team 2 indicator */
   --twitch-purple: #9146ff; /* Twitch branding */
   --at-purple: #8b5cf6; /* AT team indicators */
+  --amber: #f59e0b; /* Warnings, bans, upsets */
 
   /* FONTS (3) */
   --font-display: "Friz_Quadrata_Bold", Georgia, serif;

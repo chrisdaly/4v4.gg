@@ -38,7 +38,7 @@ function timeBucket(deltaMs) {
  * @param {number} blockSize - Max sequence length (default 1024)
  * @returns {number[]} Token IDs
  */
-export function tokenize(actions, blockSize = 1024) {
+export function tokenize(actions, blockSize = 128) {
   if (!actions || actions.length === 0) return [];
 
   const tokens = [BOS_TOKEN];

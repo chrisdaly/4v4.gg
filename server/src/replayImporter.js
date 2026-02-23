@@ -29,9 +29,9 @@ import { buildServerFingerprint } from './fingerprint.js';
 import { getEmbeddingBatch } from './embedClient.js';
 
 const W3C_API = 'https://website-backend.w3champions.com/api';
-const CYCLE_MS = 15 * 60 * 1000; // 15 minutes
-const IMPORTS_PER_CYCLE = 3;
-const RATE_LIMIT_MS = 8000; // 8s between W3C API calls
+const CYCLE_MS = 3 * 60 * 1000; // 3 minutes
+const IMPORTS_PER_CYCLE = 10;
+const RATE_LIMIT_MS = 3000; // 3s between W3C API calls
 
 const REPLAY_DIR = config.REPLAY_DIR.startsWith('/')
   ? config.REPLAY_DIR
@@ -86,7 +86,7 @@ async function discoverMatches() {
   const matchMap = new Map();
   let checked = 0;
   for (const tag of battleTags) {
-    if (checked++ > 20) break; // check first 20 players per discover cycle
+    if (checked++ > 50) break; // check first 50 players per discover cycle
     await sleep(RATE_LIMIT_MS);
     try {
       const url = `${W3C_API}/matches?playerId=${encodeURIComponent(tag)}&offset=0&gameMode=4&season=${season}&gateway=20&pageSize=10`;
@@ -286,12 +286,6 @@ async function runCycle() {
  * Start the background importer. Call once at server startup.
  */
 export function startReplayImporter() {
-  // PAUSED: W3C replay download endpoint returning 429 to all requests (as of 2026-02-23).
-  // Not a rate limit issue on our end — endpoint appears globally blocked/broken.
-  // Re-enable once W3C fixes their replay download API.
-  console.log('[Importer] PAUSED — W3C replay download endpoint is returning 429 globally');
-  return;
-
   // First cycle after 30s delay (let server finish starting up)
   setTimeout(() => {
     runCycle();

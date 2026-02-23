@@ -1,0 +1,70 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1344" height="768" viewBox="0 0 1344 768">
+  <defs>
+    <linearGradient id="bg" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0%" stop-color="#08081a"/>
+      <stop offset="100%" stop-color="#0e0e22"/>
+    </linearGradient>
+    <radialGradient id="glow" cx="55%" cy="50%" r="40%">
+      <stop offset="0%" stop-color="#D4A843" stop-opacity="0.08"/>
+      <stop offset="100%" stop-color="#D4A843" stop-opacity="0"/>
+    </radialGradient>
+  </defs>
+  <rect width="1344" height="768" fill="url(#bg)"/>
+  <ellipse cx="770" cy="384" rx="360" ry="260" fill="url(#glow)"/>
+
+  <!-- Binary/hex data stream on left — the raw replay file -->
+  <text font-family="monospace" font-size="11" opacity="0.12" fill="#D4A843">
+    <tspan x="480" y="200">57 33 47 45 1A 00 00 00</tspan>
+    <tspan x="480" y="218">48 45 33 57 0D 00 00 00</tspan>
+    <tspan x="480" y="236">00 01 52 65 66 6F 72 67</tspan>
+    <tspan x="480" y="254">65 64 20 76 31 2E 33 36</tspan>
+    <tspan x="480" y="272">2E 30 2E 31 39 37 33 38</tspan>
+    <tspan x="480" y="290">00 00 80 00 00 00 E4 0A</tspan>
+    <tspan x="480" y="308">00 00 0F 00 00 00 53 65</tspan>
+    <tspan x="480" y="326">6E 74 69 6E 65 6C 73 00</tspan>
+  </text>
+
+  <!-- Arrow — transformation -->
+  <line x1="740" y1="384" x2="800" y2="384" stroke="#D4A843" stroke-width="2" opacity="0.3"/>
+  <polygon points="800,378 815,384 800,390" fill="#D4A843" opacity="0.3"/>
+
+  <!-- Parsed action timeline on right -->
+  <!-- Action bars — like a gantt chart of player actions -->
+  <rect x="850" y="240" width="45" height="12" rx="2" fill="#D4A843" opacity="0.5"/>
+  <rect x="905" y="240" width="20" height="12" rx="2" fill="#D4A843" opacity="0.3"/>
+  <rect x="935" y="240" width="55" height="12" rx="2" fill="#66bb6a" opacity="0.4"/>
+  <rect x="1000" y="240" width="30" height="12" rx="2" fill="#D4A843" opacity="0.25"/>
+
+  <rect x="850" y="270" width="30" height="12" rx="2" fill="#D4A843" opacity="0.35"/>
+  <rect x="890" y="270" width="60" height="12" rx="2" fill="#ef5350" opacity="0.35"/>
+  <rect x="960" y="270" width="25" height="12" rx="2" fill="#D4A843" opacity="0.4"/>
+  <rect x="995" y="270" width="40" height="12" rx="2" fill="#66bb6a" opacity="0.3"/>
+
+  <rect x="850" y="300" width="55" height="12" rx="2" fill="#66bb6a" opacity="0.3"/>
+  <rect x="915" y="300" width="35" height="12" rx="2" fill="#D4A843" opacity="0.45"/>
+  <rect x="960" y="300" width="50" height="12" rx="2" fill="#D4A843" opacity="0.2"/>
+
+  <rect x="850" y="330" width="25" height="12" rx="2" fill="#D4A843" opacity="0.3"/>
+  <rect x="885" y="330" width="45" height="12" rx="2" fill="#ef5350" opacity="0.25"/>
+  <rect x="940" y="330" width="35" height="12" rx="2" fill="#D4A843" opacity="0.4"/>
+  <rect x="985" y="330" width="50" height="12" rx="2" fill="#66bb6a" opacity="0.35"/>
+
+  <!-- Player labels -->
+  <text x="840" y="250" fill="#D4A843" font-family="monospace" font-size="10" opacity="0.3" text-anchor="end">P1</text>
+  <text x="840" y="280" fill="#D4A843" font-family="monospace" font-size="10" opacity="0.3" text-anchor="end">P2</text>
+  <text x="840" y="310" fill="#D4A843" font-family="monospace" font-size="10" opacity="0.3" text-anchor="end">P3</text>
+  <text x="840" y="340" fill="#D4A843" font-family="monospace" font-size="10" opacity="0.3" text-anchor="end">P4</text>
+
+  <!-- Action type legend -->
+  <rect x="860" y="420" width="12" height="12" rx="2" fill="#D4A843" opacity="0.4"/>
+  <text x="880" y="430" fill="#D4A843" font-family="monospace" font-size="10" opacity="0.25">build</text>
+  <rect x="920" y="420" width="12" height="12" rx="2" fill="#66bb6a" opacity="0.4"/>
+  <text x="940" y="430" fill="#66bb6a" font-family="monospace" font-size="10" opacity="0.25">train</text>
+  <rect x="980" y="420" width="12" height="12" rx="2" fill="#ef5350" opacity="0.4"/>
+  <text x="1000" y="430" fill="#ef5350" font-family="monospace" font-size="10" opacity="0.25">attack</text>
+
+  <!-- APM sparkline at bottom -->
+  <polyline points="850,500 870,490 890,485 910,495 930,470 950,460 970,475 990,450 1010,440 1030,455"
+    fill="none" stroke="#D4A843" stroke-width="1.5" opacity="0.2"/>
+  <text x="840" y="504" fill="#D4A843" font-family="monospace" font-size="9" opacity="0.15" text-anchor="end">APM</text>
+</svg>

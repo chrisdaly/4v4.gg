@@ -241,7 +241,7 @@ export function cosineSegment(a, b) {
   return denom === 0 ? 0 : dot / denom;
 }
 
-function l2Distance(a, b) {
+export function l2Distance(a, b) {
   let sum = 0;
   for (let i = 0; i < a.length; i++) {
     sum += (a[i] - b[i]) ** 2;
@@ -473,5 +473,125 @@ export function computeConfidence(fingerprints) {
     confidence: Math.round(replayConfidence * 1000) / 1000,
     replayCount: count,
     selfConsistency: selfConsistency !== null ? Math.round(selfConsistency * 1000) / 1000 : null,
+  };
+}
+
+// ── Clustering (Persona Detection) ──────────────────
+
+/**
+ * K-means with k=2 on 63-dim fingerprint vectors.
+ * Init: two most-distant points. Returns { labels: number[], centroids: number[][] }.
+ */
+export function kMeans2(fingerprints) {
+  const vecs = fingerprints.map(fp => fp.vector);
+  const n = vecs.length;
+  if (n < 2) return { labels: Array(n).fill(0), centroids: [vecs[0] || []] };
+
+  // Init: pick two most-distant points
+  let maxDist = -1, idxA = 0, idxB = 1;
+  for (let i = 0; i < n; i++) {
+    for (let j = i + 1; j < n; j++) {
+      const d = l2Distance(vecs[i], vecs[j]);
+      if (d > maxDist) { maxDist = d; idxA = i; idxB = j; }
+    }
+  }
+
+  const dim = vecs[0].length;
+  let centroids = [vecs[idxA].slice(), vecs[idxB].slice()];
+  let labels = Array(n).fill(0);
+
+  for (let iter = 0; iter < 50; iter++) {
+    // Assign
+    const newLabels = vecs.map(v => {
+      const d0 = l2Distance(v, centroids[0]);
+      const d1 = l2Distance(v, centroids[1]);
+      return d0 <= d1 ? 0 : 1;
+    });
+
+    // Check convergence
+    if (newLabels.every((l, i) => l === labels[i])) { labels = newLabels; break; }
+    labels = newLabels;
+
+    // Update centroids
+    const counts = [0, 0];
+    const sums = [Array(dim).fill(0), Array(dim).fill(0)];
+    for (let i = 0; i < n; i++) {
+      const c = labels[i];
+      counts[c]++;
+      for (let d = 0; d < dim; d++) sums[c][d] += vecs[i][d];
+    }
+    for (let c = 0; c < 2; c++) {
+      if (counts[c] > 0) {
+        centroids[c] = sums[c].map(s => s / counts[c]);
+      }
+    }
+  }
+
+  return { labels, centroids };
+}
+
+/**
+ * Average silhouette score across all points for k=2 clustering.
+ * Returns -1 if degenerate (either cluster has < 2 members).
+ */
+export function silhouetteScore(fingerprints, labels) {
+  const vecs = fingerprints.map(fp => fp.vector);
+  const n = vecs.length;
+  const c0 = labels.filter(l => l === 0).length;
+  const c1 = labels.filter(l => l === 1).length;
+  if (c0 < 2 || c1 < 2) return -1;
+
+  let totalSil = 0;
+  for (let i = 0; i < n; i++) {
+    let intraSum = 0, intraCount = 0;
+    let interSum = 0, interCount = 0;
+    for (let j = 0; j < n; j++) {
+      if (i === j) continue;
+      const d = l2Distance(vecs[i], vecs[j]);
+      if (labels[j] === labels[i]) { intraSum += d; intraCount++; }
+      else { interSum += d; interCount++; }
+    }
+    const a = intraCount > 0 ? intraSum / intraCount : 0;
+    const b = interCount > 0 ? interSum / interCount : 0;
+    const maxAB = Math.max(a, b);
+    totalSil += maxAB > 0 ? (b - a) / maxAB : 0;
+  }
+
+  return totalSil / n;
+}
+
+/**
+ * Detect if a player's per-replay fingerprints split into two distinct personas.
+ * Returns null if no meaningful split. Otherwise returns cluster metadata.
+ */
+export function detectPersonas(fingerprints, minSilhouette = 0.25) {
+  if (fingerprints.length < 4) return null;
+
+  const { labels, centroids } = kMeans2(fingerprints);
+
+  const sil = silhouetteScore(fingerprints, labels);
+  if (sil < minSilhouette) return null;
+
+  const c0 = labels.filter(l => l === 0).length;
+  const c1 = labels.filter(l => l === 1).length;
+
+  // Reject if either cluster is too small (< 10% of total) — likely outliers, not a second person
+  const minCluster = Math.min(c0, c1);
+  if (minCluster < 4 || minCluster / fingerprints.length < 0.10) return null;
+
+  // Compute inter-cluster similarity using averaged fingerprints per cluster
+  const cluster0 = fingerprints.filter((_, i) => labels[i] === 0);
+  const cluster1 = fingerprints.filter((_, i) => labels[i] === 1);
+  const avg0 = averageFingerprints(cluster0);
+  const avg1 = averageFingerprints(cluster1);
+  const interClusterSimilarity = avg0 && avg1 ? computeServerSimilarity(avg0, avg1) : null;
+  const interClusterBreakdown = avg0 && avg1 ? computeServerBreakdown(avg0, avg1) : null;
+
+  return {
+    labels,
+    silhouette: Math.round(sil * 1000) / 1000,
+    clusterSizes: [c0, c1],
+    interClusterSimilarity: interClusterSimilarity !== null ? Math.round(interClusterSimilarity * 1000) / 1000 : null,
+    interClusterBreakdown,
   };
 }

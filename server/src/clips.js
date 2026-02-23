@@ -1,5 +1,5 @@
 import config from './config.js';
-import { getStreamers, upsertStreamer, insertClips, getClipFetchLog, insertClipFetchLog } from './db.js';
+import { getStreamers, upsertStreamer, insertClips, getClipFetchLog, insertClipFetchLog, getAutoFeatureStreamers } from './db.js';
 
 const TWITCH_AUTH_URL = 'https://id.twitch.tv/oauth2/token';
 const TWITCH_API = 'https://api.twitch.tv/helix';
@@ -22,6 +22,9 @@ const SEED_STREAMERS = [
   { twitch_login: 'soonik', display_name: 'Sonik' },
   { twitch_login: 'lookhawk', display_name: 'Hawk' },
   { twitch_login: 'eer0', display_name: 'Eer0' },
+  { twitch_login: 'k4zm', display_name: 'K4zm', auto_feature: true },
+  { twitch_login: 'foal5', display_name: 'Foal5', auto_feature: true },
+  { twitch_login: 'doomtrainwc3', display_name: 'DoomTrain', auto_feature: true },
 ];
 
 // ── Twitch OAuth ────────────────────────────────
@@ -163,7 +166,7 @@ async function fetchClipsForStreamer(streamer, startedAt, endedAt) {
   return clips;
 }
 
-export async function runClipFetch() {
+export async function runClipFetch({ days = 2, force = false } = {}) {
   if (!config.TWITCH_CLIENT_ID || !config.TWITCH_CLIENT_SECRET) {
     console.log('[Clips] Skipping fetch — no Twitch credentials configured');
     return { fetched: 0, inserted: 0 };
@@ -173,30 +176,42 @@ export async function runClipFetch() {
   await resolveTwitchIds();
 
   const streamers = getStreamers();
+  const autoFeatureLogins = new Set(getAutoFeatureStreamers().map(s => s.twitch_login));
   const now = new Date();
   const todayStr = now.toISOString().slice(0, 10);
 
-  // Fetch clips from last 48h to catch late-view clips
-  const startedAt = new Date(now.getTime() - 48 * 60 * 60 * 1000).toISOString();
+  const startedAt = new Date(now.getTime() - days * 24 * 60 * 60 * 1000).toISOString();
   const endedAt = now.toISOString();
+
+  console.log(`[Clips] Fetching clips from last ${days} days (force=${force})`);
 
   let totalFetched = 0;
   let totalInserted = 0;
 
   for (const streamer of streamers) {
-    // Skip if already fetched today for this streamer
-    const log = getClipFetchLog(streamer.twitch_login, todayStr);
-    if (log) continue;
+    // Skip if already fetched today for this streamer (unless force)
+    if (!force) {
+      const log = getClipFetchLog(streamer.twitch_login, todayStr);
+      if (log) continue;
+    }
 
     try {
       const clips = await fetchClipsForStreamer(streamer, startedAt, endedAt);
+
+      // Auto-feature clips from auto_feature streamers
+      if (autoFeatureLogins.has(streamer.twitch_login)) {
+        for (const c of clips) {
+          c._autoFeature = true;
+        }
+      }
+
       const inserted = clips.length > 0 ? insertClips(clips) : 0;
       insertClipFetchLog(streamer.twitch_login, todayStr, clips.length);
       totalFetched += clips.length;
       totalInserted += inserted;
 
       if (clips.length > 0) {
-        console.log(`[Clips] ${streamer.display_name}: ${clips.length} clips fetched, ${inserted} new`);
+        console.log(`[Clips] ${streamer.display_name}: ${clips.length} clips fetched, ${inserted} new${autoFeatureLogins.has(streamer.twitch_login) ? ' (auto-featured)' : ''}`);
       }
     } catch (err) {
       console.error(`[Clips] Error fetching ${streamer.twitch_login}:`, err.message);

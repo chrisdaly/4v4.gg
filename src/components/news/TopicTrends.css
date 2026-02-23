@@ -1,8 +1,8 @@
 /* ── Topic Trends Heatmap ─────────────────────────── */
 
 .topic-trends {
-  margin-top: 48px;
-  padding-top: 48px;
+  margin-top: var(--space-12);
+  padding-top: var(--space-12);
   border-top: 1px solid rgba(255, 255, 255, 0.08);
   overflow-x: auto;
 }
@@ -50,9 +50,9 @@
 .topic-trends-cell {
   width: 14px;
   height: 14px;
-  border-radius: 2px;
+  border-radius: var(--radius-sm);
   background: rgba(255, 255, 255, 0.04);
-  transition: background 0.15s;
+  transition: background var(--transition);
 }
 
 .topic-trends-cell--active {

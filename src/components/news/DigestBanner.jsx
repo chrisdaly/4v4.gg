@@ -582,11 +582,11 @@ const DigestBanner = ({ digest, nameSet, nameToTag, label = "Yesterday in 4v4", 
     }
   }, [sections, combinedNameToTag]);
 
-  const screenshotBtn = (
+  const screenshotBtn = isAdmin ? (
     <button className="digest-screenshot-btn" onClick={handleScreenshot} title="Copy as image">
       {copyState === "copying" ? "..." : copyState === "copied" ? "Copied!" : copyState === "saved" ? "Saved!" : <FiCamera size={14} />}
     </button>
-  );
+  ) : null;
 
   const todayMD = new Date().toISOString().slice(5, 10);
   const isValentines = todayMD === "02-14" || digest.date?.slice(5) === "02-14";

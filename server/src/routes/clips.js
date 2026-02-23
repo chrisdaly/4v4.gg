@@ -153,10 +153,10 @@ router.post('/admin/tag-player', requireApiKey, (req, res) => {
 
 // POST /api/clips/admin/streamers — add/update a streamer
 router.post('/admin/streamers', requireApiKey, (req, res) => {
-  const { twitch_login, display_name, battle_tag } = req.body;
+  const { twitch_login, display_name, battle_tag, auto_feature } = req.body;
   if (!twitch_login) return res.status(400).json({ error: 'twitch_login is required' });
 
-  upsertStreamer({ twitch_login, display_name, battle_tag });
+  upsertStreamer({ twitch_login, display_name, battle_tag, auto_feature });
   res.json({ ok: true, message: `Streamer ${twitch_login} upserted` });
 });
 
@@ -231,10 +231,13 @@ router.post('/admin/add', requireApiKey, async (req, res) => {
 });
 
 // POST /api/clips/admin/fetch — trigger manual fetch
+// Query params: days (default 2), force (bypass daily fetch log)
 router.post('/admin/fetch', requireApiKey, async (req, res) => {
+  const days = Math.min(parseInt(req.query.days || req.body.days) || 2, 30);
+  const force = req.query.force === 'true' || req.body.force === true;
   try {
-    const result = await runClipFetch();
-    res.json({ ok: true, ...result });
+    const result = await runClipFetch({ days, force });
+    res.json({ ok: true, days, force, ...result });
   } catch (err) {
     res.status(500).json({ error: err.message });
   }

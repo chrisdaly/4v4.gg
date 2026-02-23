@@ -26,9 +26,11 @@ const Blog = () => {
   }, [isAdmin, adminKey]);
 
   // Merge: legacy component posts take precedence, then DB posts (dedup by slug)
+  // Filter out drafts for non-admins (legacy posts use `draft: true`, DB posts use `published: 0`)
   const legacySlugs = new Set(blogPosts.map((p) => p.slug));
+  const visibleLegacy = blogPosts.filter((p) => isAdmin || !p.draft);
   const merged = [
-    ...blogPosts,
+    ...visibleLegacy,
     ...dbPosts.filter((p) => !legacySlugs.has(p.slug)),
   ];
 
@@ -68,7 +70,7 @@ const Blog = () => {
                     {post.tags?.map((tag) => (
                       <span key={tag} className="bl-card-tag">{tag}</span>
                     ))}
-                    {isAdmin && !post.published && !post.type && (
+                    {isAdmin && (post.draft || (!post.published && !post.type)) && (
                       <span className="bl-card-tag bl-card-tag--draft">draft</span>
                     )}
                   </div>

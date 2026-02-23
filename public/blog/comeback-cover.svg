@@ -1,0 +1,53 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1344" height="768" viewBox="0 0 1344 768">
+  <defs>
+    <linearGradient id="bg" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0%" stop-color="#08081a"/>
+      <stop offset="100%" stop-color="#0e0e22"/>
+    </linearGradient>
+    <radialGradient id="glow" cx="60%" cy="55%" r="40%">
+      <stop offset="0%" stop-color="#66bb6a" stop-opacity="0.08"/>
+      <stop offset="100%" stop-color="#66bb6a" stop-opacity="0"/>
+    </radialGradient>
+    <radialGradient id="glow2" cx="35%" cy="35%" r="30%">
+      <stop offset="0%" stop-color="#ef5350" stop-opacity="0.06"/>
+      <stop offset="100%" stop-color="#ef5350" stop-opacity="0"/>
+    </radialGradient>
+  </defs>
+  <rect width="1344" height="768" fill="url(#bg)"/>
+  <ellipse cx="800" cy="420" rx="360" ry="240" fill="url(#glow)"/>
+  <ellipse cx="540" cy="300" rx="240" ry="180" fill="url(#glow2)"/>
+
+  <!-- Momentum chart — team advantage over time -->
+  <!-- X axis (time) -->
+  <line x1="440" y1="384" x2="1000" y2="384" stroke="#D4A843" stroke-width="1" opacity="0.1"/>
+
+  <!-- "0" line label -->
+  <text x="425" y="388" fill="#D4A843" font-family="monospace" font-size="12" opacity="0.2" text-anchor="end">0</text>
+
+  <!-- Red zone (losing) — area fill above center line -->
+  <polygon points="440,384 480,360 520,330 560,310 600,290 640,300 680,320 720,345 760,370 800,384 440,384"
+    fill="#ef5350" opacity="0.08"/>
+
+  <!-- Green zone (winning) — area fill below center line (inverted: below = winning) -->
+  <polygon points="800,384 840,400 880,430 920,470 960,500 1000,520 1000,384 800,384"
+    fill="#66bb6a" opacity="0.1"/>
+
+  <!-- Momentum line — starts losing, then comeback -->
+  <polyline points="440,384 480,360 520,330 560,310 600,290 640,300 680,320 720,345 760,370 800,384 840,400 880,430 920,470 960,500 1000,520"
+    fill="none" stroke="#D4A843" stroke-width="2.5" opacity="0.7"/>
+
+  <!-- Key moment dots -->
+  <circle cx="600" cy="290" r="5" fill="#ef5350" opacity="0.7"/>
+  <text x="600" y="275" fill="#ef5350" font-family="monospace" font-size="11" opacity="0.4" text-anchor="middle">worst</text>
+
+  <circle cx="800" cy="384" r="6" fill="#D4A843" opacity="0.8"/>
+  <text x="800" y="370" fill="#D4A843" font-family="monospace" font-size="11" opacity="0.4" text-anchor="middle">turning point</text>
+
+  <circle cx="1000" cy="520" r="5" fill="#66bb6a" opacity="0.7"/>
+  <text x="1000" y="545" fill="#66bb6a" font-family="monospace" font-size="11" opacity="0.4" text-anchor="middle">victory</text>
+
+  <!-- Time markers -->
+  <text x="440" y="410" fill="#D4A843" font-family="monospace" font-size="10" opacity="0.15" text-anchor="middle">0:00</text>
+  <text x="720" y="410" fill="#D4A843" font-family="monospace" font-size="10" opacity="0.15" text-anchor="middle">15:00</text>
+  <text x="1000" y="410" fill="#D4A843" font-family="monospace" font-size="10" opacity="0.15" text-anchor="middle">30:00</text>
+</svg>

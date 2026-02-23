@@ -57,7 +57,7 @@ const Navbar = () => {
 
   // Debounced search
   useEffect(() => {
-    if (searchQuery.length < 2) {
+    if (searchQuery.length < 3) {
       setSearchResults([]);
       setShowSearch(false);
       return;
@@ -236,6 +236,7 @@ const Navbar = () => {
               key={link.to}
               to={link.to}
               className={`navbar-mobile-link ${isActive(link.to) ? "active" : ""}`}
+              onClick={() => setMobileOpen(false)}
             >
               {link.label}
             </Link>

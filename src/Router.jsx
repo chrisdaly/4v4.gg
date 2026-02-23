@@ -52,6 +52,7 @@ const DevTools = lazy(() => import("./pages/DevTools"));
 const Themes = lazy(() => import("./pages/Themes"));
 const FaviconMockups = lazy(() => import("./pages/FaviconMockups"));
 const Signatures = lazy(() => import("./pages/Signatures"));
+const IconPicker = lazy(() => import("./pages/IconPicker"));
 
 // Preload core nav pages after initial paint so they're instant on click
 const preloadCorePages = () => {
@@ -130,6 +131,7 @@ const Router = () => (
                 <Route path="/cover-art" component={DevTools} />
                 <Route path="/favicons" component={FaviconMockups} />
                 <Route path="/signatures" component={Signatures} />
+                <Route path="/icon-picker" component={IconPicker} />
 
                 <Route path="/replay-lab" component={ReplayLab} />
                 <Route path="/replay" component={Replay} />

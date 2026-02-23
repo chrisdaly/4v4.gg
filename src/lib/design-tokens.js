@@ -23,6 +23,7 @@ export const colors = {
   teamRed: { value: '#ef4444', css: '--team-red', usage: 'Team 2 indicator' },
   twitchPurple: { value: '#9146ff', css: '--twitch-purple', usage: 'Twitch branding' },
   atPurple: { value: '#8b5cf6', css: '--at-purple', usage: 'AT team indicators' },
+  amber: { value: '#f59e0b', css: '--amber', usage: 'Warnings, bans, upsets' },
 };
 
 export const fonts = {

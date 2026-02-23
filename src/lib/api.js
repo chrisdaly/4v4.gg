@@ -283,10 +283,10 @@ export const getFinishedMatchesCached = (pageSize = 50, offset = 0) => {
  * @param {number} seasonOverride
  * @returns {Promise<Array>}
  */
-export const searchLadder = async (searchTerm, seasonOverride = season) => {
+export const searchLadder = async (searchTerm, seasonOverride = season, gameMode = 4) => {
   try {
-    const url = `${API_BASE}/ladder/search?gateWay=${gateway}&searchFor=${encodeURIComponent(searchTerm)}&gameMode=4&season=${seasonOverride}`;
-    const cacheKey = `ladder-search:${searchTerm.toLowerCase()}:${seasonOverride}`;
+    const url = `${API_BASE}/ladder/search?gateWay=${gateway}&searchFor=${encodeURIComponent(searchTerm)}&gameMode=${gameMode}&season=${seasonOverride}`;
+    const cacheKey = `ladder-search:${searchTerm.toLowerCase()}:${seasonOverride}:${gameMode}`;
 
     return await fetchWithCache(url, { cacheKey, ttl: TTL.LADDER });
   } catch (error) {

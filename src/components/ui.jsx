@@ -705,6 +705,11 @@ const PageNavWrap = styled.nav`
   gap: var(--space-4);
   padding: var(--space-2) 0;
   margin-bottom: var(--space-4);
+
+  @media (max-width: 600px) {
+    gap: var(--space-2);
+    margin-bottom: var(--space-2);
+  }
 `;
 
 const BackLink = styled(Link)`
@@ -757,6 +762,11 @@ const Tab = styled.button`
   white-space: nowrap;
 
   &:hover { color: var(--white); }
+
+  @media (max-width: 600px) {
+    font-size: var(--text-xxxs);
+    padding: var(--space-1) var(--space-2);
+  }
 `;
 
 /**

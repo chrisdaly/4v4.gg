@@ -1,8 +1,8 @@
 /* ── Beef Tracker / Drama Leaderboard ─────────────── */
 
 .beef-tracker {
-  margin-top: 48px;
-  padding-top: 48px;
+  margin-top: var(--space-12);
+  padding-top: var(--space-12);
   border-top: 1px solid rgba(255, 255, 255, 0.08);
 }
 
@@ -20,7 +20,7 @@
 }
 
 .beef-tracker-header:hover {
-  background: rgba(255, 255, 255, 0.02);
+  background: var(--surface-1);
 }
 
 .beef-tracker-title {
@@ -83,14 +83,14 @@
 .beef-tracker-bar-wrap {
   height: 8px;
   background: rgba(255, 255, 255, 0.04);
-  border-radius: 4px;
+  border-radius: var(--radius-md);
   overflow: hidden;
 }
 
 .beef-tracker-bar {
   height: 100%;
   background: var(--red);
-  border-radius: 4px;
+  border-radius: var(--radius-md);
   transition: width 0.3s ease;
   min-width: 4px;
 }
