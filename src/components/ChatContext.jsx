@@ -97,6 +97,7 @@ const ChatContext = ({
   targetTags,
   compact = false,
   showDates = false,
+  dateRange,
 }) => {
   const [filter, setFilter] = useState("");
   const [sortBy, setSortBy] = useState("score"); // "score" or "date"
@@ -180,7 +181,7 @@ const ChatContext = ({
       result = [...result].sort((a, b) => {
         const ta = a.received_at || a.sentAt || a.sent_at || "";
         const tb = b.received_at || b.sentAt || b.sent_at || "";
-        return ta < tb ? -1 : ta > tb ? 1 : 0;
+        return ta > tb ? -1 : ta < tb ? 1 : 0;
       });
     }
     return result;
@@ -314,6 +315,22 @@ const ChatContext = ({
            (cm.message || cm.text) === (origMsg.text || origMsg.message);
   }, [expandedMsg, messages]);
 
+  // Build set of selected message timestamps for highlighting in context panel
+  const selectedTimestamps = useMemo(() => {
+    if (!messages || selected.size === 0) return new Set();
+    const ts = new Set();
+    for (const idx of selected) {
+      const m = messages[idx];
+      if (m) ts.add(m.received_at || m.sentAt || m.sent_at || "");
+    }
+    return ts;
+  }, [messages, selected]);
+
+  const isSelectedInContext = useCallback((cm) => {
+    if (selectedTimestamps.size === 0) return false;
+    return selectedTimestamps.has(cm.received_at || "");
+  }, [selectedTimestamps]);
+
   /* ── Render helpers ──────────────────────────────── */
 
   const contextPanel = expandable && expandedMsg && (
@@ -361,13 +378,14 @@ const ChatContext = ({
                   {cGroup.lines.map((cl, cli) => {
                     const ctxIdx = cl._ctxIdx;
                     const isCtxSelected = selectedCtx.has(ctxIdx);
+                    const isInQuoteList = isSelectedInContext(cl);
                     return (
                       <div
                         key={cli}
-                        className={`cc-msg cc-msg--selectable ${isOriginMsg(cl) ? "cc-msg--origin" : ""} ${isCtxSelected ? "cc-msg--selected" : ""}`}
+                        className={`cc-msg cc-msg--selectable ${isOriginMsg(cl) ? "cc-msg--origin" : ""} ${isCtxSelected ? "cc-msg--selected" : ""} ${isInQuoteList ? "cc-msg--in-quotes" : ""}`}
                         onClick={(e) => { e.stopPropagation(); toggleCtx(ctxIdx); }}
                       >
-                        <span className="cc-check">{isCtxSelected ? "\u2713" : ""}</span>
+                        <span className="cc-check">{isCtxSelected ? "\u2713" : isInQuoteList ? "\u2605" : ""}</span>
                         <span className="cc-text">
                           <HighlightText text={cl.message || cl.text || ""} query={highlightQuery} />
                         </span>
@@ -450,12 +468,18 @@ const ChatContext = ({
                             line.isMention && "cc-msg--mention",
                           ].filter(Boolean).join(" ")}
                           onClick={() => {
-                            if (selectable) toggle(origIdx);
-                            if (expandable && receivedAt) handleExpand(origIdx, receivedAt);
+                            if (expandable && splitView && receivedAt) {
+                              handleExpand(origIdx, receivedAt);
+                            } else if (selectable) {
+                              toggle(origIdx);
+                            }
                           }}
                         >
                           {selectable && (
-                            <span className="cc-check">{isSelected ? "\u2713" : ""}</span>
+                            <span
+                              className={`cc-check${isSelected ? " cc-check--active" : ""}`}
+                              onClick={expandable && splitView ? (e) => { e.stopPropagation(); toggle(origIdx); } : undefined}
+                            >{isSelected ? "\u2713" : ""}</span>
                           )}
                           {showScores && (
                             sortBy === "date" ? (
@@ -571,17 +595,28 @@ const ChatContext = ({
               onClick={() => setSortBy((s) => s === "score" ? "date" : "score")}
               title={sortBy === "score" ? "Click to sort chronologically" : "Click to sort by relevance"}
             >
-              {sortBy === "score" ? "Sort: relevance" : "Sort: date"}
+              {sortBy === "score" ? "Sort: relevance" : "Sort: newest"}
             </button>
           )}
           {hasMentions && (
-            <button
-              className={`cc-sort-toggle${msgFilter !== "all" ? " cc-sort-toggle--active" : ""}`}
-              onClick={() => setMsgFilter((f) => f === "all" ? "mentions" : f === "mentions" ? "player" : "all")}
-              title="Cycle: all → mentions only → player only"
-            >
-              {msgFilter === "all" ? "Show: all" : msgFilter === "mentions" ? "Show: @mentions" : "Show: player"}
-            </button>
+            <span className="cc-filter-tabs">
+              {[
+                { key: "all", label: "all" },
+                { key: "player", label: "from" },
+                { key: "mentions", label: "about" },
+              ].map(({ key, label }) => (
+                <button
+                  key={key}
+                  className={`cc-filter-tab${msgFilter === key ? " cc-filter-tab--active" : ""}`}
+                  onClick={() => setMsgFilter(key)}
+                >
+                  {label}
+                </button>
+              ))}
+            </span>
+          )}
+          {dateRange && (
+            <span className="cc-date-range">{dateRange}</span>
           )}
         </div>
       )}

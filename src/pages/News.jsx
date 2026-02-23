@@ -58,7 +58,8 @@ const News = () => {
 
 const INITIAL_COUNT = 10;
 
-const NewsIndex = ({ isAdmin, adminKey }) => {
+const NewsIndex = ({ isAdmin, adminKey: rawAdminKey }) => {
+  const adminKey = isAdmin ? rawAdminKey : "";
   const [weeklyDigests, setWeeklyDigests] = useState([]);
   const [dailyDigests, setDailyDigests] = useState([]);
   const [todayDigest, setTodayDigest] = useState(null);
@@ -87,7 +88,7 @@ const NewsIndex = ({ isAdmin, adminKey }) => {
       .then((data) => { if (data?.digest) setTodayDigest(data); })
       .catch(() => {})
       .finally(check);
-  }, []);
+  }, [adminKey]);
 
   // Latest weekly goes up top as hero; rest merge into timeline
   const latestWeekly = weeklyDigests.length > 0 ? weeklyDigests[0] : null;
@@ -186,7 +187,7 @@ const WeeklyHero = ({ weekly }) => {
 
   return (
     <Link to={`/news?week=${weekly.week_start}`} className="nw-hero-card reveal" style={{ "--delay": "0.05s" }}>
-      <div className="nw-hero-card-bg" style={{ backgroundImage: `url(${coverBg})` }} />
+      <div className="nw-hero-card-bg" style={{ backgroundImage: `url(${coverBg})`, backgroundPosition: weekly.cover_position || "center" }} />
       <div className="nw-hero-card-overlay" />
       <div className="nw-hero-card-content">
         <span className="nw-hero-card-eyebrow">The 4v4 Weekly</span>
@@ -198,7 +199,17 @@ const WeeklyHero = ({ weekly }) => {
 };
 
 const TimelineWeekly = ({ weekly, delay }) => {
-  const teaser = weekly.digest ? extractTeaser(weekly.digest) : "";
+  const headline = weekly.digest ? extractHeadline(weekly.digest) : "";
+  const fallbackBg = COVER_BACKGROUNDS[hashDate(weekly.week_start) % COVER_BACKGROUNDS.length];
+  const coverUrl = `${RELAY_URL}/api/admin/weekly-digest/${weekly.week_start}/cover.jpg`;
+  const [coverBg, setCoverBg] = useState(fallbackBg);
+
+  useEffect(() => {
+    const img = new Image();
+    img.onload = () => setCoverBg(coverUrl);
+    img.onerror = () => setCoverBg(fallbackBg);
+    img.src = coverUrl;
+  }, [coverUrl, fallbackBg]);
 
   return (
     <Link to={`/news?week=${weekly.week_start}`} className="nw-timeline-item nw-timeline-item--weekly reveal" style={{ "--delay": `${delay}s` }}>
@@ -207,7 +218,11 @@ const TimelineWeekly = ({ weekly, delay }) => {
         <span className="nw-timeline-date-label">{formatWeekRange(weekly.week_start, weekly.week_end)}</span>
       </div>
       <div className="nw-timeline-content">
-        {teaser && <p className="nw-timeline-teaser">{teaser}</p>}
+        <div className="nw-timeline-weekly-banner">
+          <div className="nw-timeline-weekly-bg" style={{ backgroundImage: `url(${coverBg})`, backgroundPosition: weekly.cover_position || "center" }} />
+          <div className="nw-timeline-weekly-overlay" />
+          {headline && <span className="nw-timeline-weekly-title">{headline}</span>}
+        </div>
       </div>
     </Link>
   );

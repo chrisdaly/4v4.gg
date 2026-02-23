@@ -41,7 +41,7 @@
   position: absolute;
   inset: 0;
   background-size: cover;
-  background-position: center;
+  background-position: center; /* overridden by inline style when cover_position is set */
   transition: transform 600ms ease;
 }
 
@@ -151,9 +151,54 @@
   background: var(--gold);
 }
 
-/* Weekly dot is gold */
+/* Weekly dot is gold + wider date column for week ranges */
 .nw-timeline-item--weekly::before {
   background: var(--gold);
+}
+.nw-timeline-item--weekly .nw-timeline-date {
+  width: 130px;
+}
+
+/* ── Timeline Weekly Banner ────────────────────────── */
+
+.nw-timeline-weekly-banner {
+  position: relative;
+  border-radius: var(--radius-sm);
+  overflow: hidden;
+  height: 56px;
+  display: flex;
+  align-items: center;
+  padding: 0 var(--space-4);
+}
+.nw-timeline-weekly-bg {
+  position: absolute;
+  inset: 0;
+  background-size: cover;
+  background-position: center;
+  transition: transform 600ms ease;
+}
+.nw-timeline-item--weekly:hover .nw-timeline-weekly-bg {
+  transform: scale(1.05);
+}
+.nw-timeline-weekly-overlay {
+  position: absolute;
+  inset: 0;
+  background: linear-gradient(
+    to right,
+    rgba(0, 0, 0, 0.75) 0%,
+    rgba(0, 0, 0, 0.3) 60%,
+    transparent 100%
+  );
+}
+.nw-timeline-weekly-title {
+  position: relative;
+  font-family: var(--font-display);
+  font-size: var(--text-sm);
+  color: var(--gold);
+  text-shadow: 0 1px 6px rgba(0, 0, 0, 0.8);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
 }
 
 /* Live "today" dot pulses red */

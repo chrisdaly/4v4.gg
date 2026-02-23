@@ -228,6 +228,13 @@ export function initDb() {
     // Column already exists — ignore
   }
 
+  // Migration: add cover_position column (CSS object-position value, e.g. "50% 30%")
+  try {
+    db.exec(`ALTER TABLE weekly_digests ADD COLUMN cover_position TEXT`);
+  } catch {
+    // Column already exists — ignore
+  }
+
   // Migration: match_player_scores table for per-match detail stats
   db.exec(`
     CREATE TABLE IF NOT EXISTS match_player_scores (
@@ -1310,6 +1317,10 @@ export function setWeeklyCoverImage(weekStart, imageBuffer) {
   db.prepare('UPDATE weekly_digests SET cover_image = ? WHERE week_start = ?').run(imageBuffer, weekStart);
 }
 
+export function updateWeeklyCoverPosition(weekStart, position) {
+  db.prepare('UPDATE weekly_digests SET cover_position = ? WHERE week_start = ?').run(position, weekStart);
+}
+
 export function getWeeklyDraftForWeek(weekStart) {
   const row = db.prepare('SELECT week_start, digest, draft FROM weekly_digests WHERE week_start = ?').get(weekStart);
   if (!row) return null;
@@ -1339,6 +1350,10 @@ export function setWeeklyDigestFull(weekStart, weekEnd, digest, clipsJson, stats
 
 export function updateWeeklyDigestJson(weekStart, digestJson) {
   db.prepare('UPDATE weekly_digests SET digest_json = ? WHERE week_start = ?').run(digestJson, weekStart);
+}
+
+export function updateWeeklyClips(weekStart, clipsJson) {
+  db.prepare('UPDATE weekly_digests SET clips = ? WHERE week_start = ?').run(clipsJson, weekStart);
 }
 
 // ── Match player scores (per-match detail stats) ─────

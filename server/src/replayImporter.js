@@ -4,9 +4,10 @@
  * Runs on a timer to slowly discover and import W3C replays.
  * Avoids rate limiting by importing only a few replays per cycle.
  *
- * Cycle (every 10 min):
+ * Cycle (every 15 min):
  *   1. If queue is empty, discover new matches from GM/Master/Diamond/Platinum ladder
- *   2. Import up to 5 queued matches (download → parse → fingerprint → embed)
+ *   2. Wait 30s cooldown after discovery
+ *   3. Import up to 3 queued matches (download → parse → fingerprint → embed)
  */
 
 import config from './config.js';
@@ -28,9 +29,9 @@ import { buildServerFingerprint } from './fingerprint.js';
 import { getEmbeddingBatch } from './embedClient.js';
 
 const W3C_API = 'https://website-backend.w3champions.com/api';
-const CYCLE_MS = 10 * 60 * 1000; // 10 minutes
-const IMPORTS_PER_CYCLE = 5;
-const RATE_LIMIT_MS = 5000; // 5s between W3C API calls
+const CYCLE_MS = 15 * 60 * 1000; // 15 minutes
+const IMPORTS_PER_CYCLE = 3;
+const RATE_LIMIT_MS = 8000; // 8s between W3C API calls
 
 const REPLAY_DIR = config.REPLAY_DIR.startsWith('/')
   ? config.REPLAY_DIR
@@ -244,6 +245,9 @@ async function runCycle() {
       return;
     }
 
+    // Cool down after discovery before starting downloads
+    await sleep(30_000);
+
     // Import up to N matches
     const batch = importQueue.splice(0, IMPORTS_PER_CYCLE);
     let imported = 0, skipped = 0, errors = 0;
@@ -282,6 +286,12 @@ async function runCycle() {
  * Start the background importer. Call once at server startup.
  */
 export function startReplayImporter() {
+  // PAUSED: W3C replay download endpoint returning 429 to all requests (as of 2026-02-23).
+  // Not a rate limit issue on our end — endpoint appears globally blocked/broken.
+  // Re-enable once W3C fixes their replay download API.
+  console.log('[Importer] PAUSED — W3C replay download endpoint is returning 429 globally');
+  return;
+
   // First cycle after 30s delay (let server finish starting up)
   setTimeout(() => {
     runCycle();

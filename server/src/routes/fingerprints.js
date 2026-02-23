@@ -718,6 +718,15 @@ router.get('/calibration', requireApiKey, (req, res) => {
   });
 });
 
+// Seeded LCG PRNG for deterministic PCA
+function seededLCG(seed) {
+  let s = seed;
+  return () => {
+    s = (s * 1664525 + 1013904223) & 0xFFFFFFFF;
+    return (s >>> 0) / 0xFFFFFFFF;
+  };
+}
+
 // GET /api/fingerprints/embedding-map — 2D PCA projection of all player embeddings (no auth)
 router.get('/embedding-map', (req, res) => {
   const allRows = getAllAveragedFingerprintsWithEmbeddings();
@@ -756,14 +765,15 @@ router.get('/embedding-map', (req, res) => {
     p.embedding.map((v, d) => v - mean[d])
   );
 
-  // Power iteration to find top 2 principal components
+  // Power iteration to find top 2 principal components (seeded for determinism)
   function powerIteration(data, numComponents) {
+    const rand = seededLCG(42);
     const components = [];
     const residual = data.map(row => [...row]);
 
     for (let c = 0; c < numComponents; c++) {
-      // Random init
-      let vec = new Array(dim).fill(0).map(() => Math.random() - 0.5);
+      // Seeded random init
+      let vec = new Array(dim).fill(0).map(() => rand() - 0.5);
       let norm = Math.sqrt(vec.reduce((s, v) => s + v * v, 0));
       vec = vec.map(v => v / norm);
 
@@ -814,6 +824,9 @@ router.get('/embedding-map', (req, res) => {
   const pc1Var = points.reduce((s, p) => s + p.x * p.x, 0);
   const pc2Var = points.reduce((s, p) => s + p.y * p.y, 0);
 
+  // Round PCA basis for transport (6 decimal places)
+  const r6 = v => Math.round(v * 1e6) / 1e6;
+
   res.json({
     players: points,
     pca: {
@@ -822,8 +835,108 @@ router.get('/embedding-map', (req, res) => {
         Math.round((pc2Var / totalVar) * 1000) / 10,
       ],
       playerCount: n,
+      mean: mean.map(r6),
+      components: pcs.map(pc => pc.map(r6)),
     },
   });
+});
+
+// ── Suspects Cache ──────────────────────────────────
+let suspectsCache = null;
+let suspectsAge = 0;
+
+function getSuspectsData() {
+  const now = Date.now();
+  if (suspectsCache && (now - suspectsAge) < CALIBRATION_TTL) {
+    return suspectsCache;
+  }
+
+  const allRows = getAllAveragedFingerprintsWithEmbeddings();
+  if (allRows.length < 5) return null;
+
+  const players = allRows.map(row => {
+    const { fp, embedding } = parseAveragedRowWithEmbedding(row);
+    return { battleTag: row.battle_tag, race: row.race, replayCount: row.replay_count, fp, embedding };
+  }).filter(p => p.fp);
+
+  const scoredPairs = [];
+  for (let i = 0; i < players.length; i++) {
+    for (let j = i + 1; j < players.length; j++) {
+      const hybrid = computeHybridSimilarity(
+        players[i].fp, players[j].fp,
+        players[i].embedding, players[j].embedding
+      );
+      scoredPairs.push({ i, j, ...hybrid });
+    }
+  }
+  scoredPairs.sort((a, b) => b.similarity - a.similarity);
+
+  suspectsCache = { players, scoredPairs };
+  suspectsAge = now;
+  return suspectsCache;
+}
+
+// GET /api/fingerprints/suspects — Top similar player pairs (public, no auth)
+router.get('/suspects', (req, res) => {
+  const limit = Math.min(parseInt(req.query.limit) || 50, 200);
+
+  const data = getSuspectsData();
+  if (!data) {
+    return res.json({ pairs: [], playerCount: 0 });
+  }
+
+  const { players, scoredPairs } = data;
+  const cal = getCalibration();
+
+  const pairs = scoredPairs.slice(0, limit).map(p => {
+    const pA = players[p.i], pB = players[p.j];
+    const breakdown = computeServerBreakdown(pA.fp, pB.fp);
+    return {
+      tagA: pA.battleTag,
+      tagB: pB.battleTag,
+      raceA: pA.race,
+      raceB: pB.race,
+      replaysA: pA.replayCount,
+      replaysB: pB.replayCount,
+      similarity: r3(p.similarity),
+      handcrafted: r3(p.handcrafted),
+      embedding: r3(p.embedding),
+      percentile: cal ? scoreToPercentile(p.similarity, cal) : null,
+      breakdown: formatBreakdown(breakdown, p),
+    };
+  });
+
+  res.json({
+    pairs,
+    playerCount: players.length,
+    totalPairs: scoredPairs.length,
+    calibration: cal ? { mean: r3(cal.mean), stddev: r3(cal.stddev) } : null,
+  });
+});
+
+// GET /api/fingerprints/embeddings/:battleTag — Per-replay raw embeddings (no auth)
+router.get('/embeddings/:battleTag', (req, res) => {
+  const { battleTag } = req.params;
+  const rows = getPlayerFingerprints(battleTag);
+
+  if (rows.length === 0) {
+    return res.status(404).json({ error: 'No fingerprints found', battleTag });
+  }
+
+  const replays = [];
+  for (const row of rows) {
+    const emb = tryParse(row.embedding);
+    if (!emb || emb.length === 0) continue;
+    replays.push({
+      replayId: row.replay_id,
+      matchDate: row.match_date,
+      mapName: row.map_name,
+      gameDuration: row.game_duration,
+      embedding: emb,
+    });
+  }
+
+  res.json({ battleTag, replays });
 });
 
 // GET /api/fingerprints/stats

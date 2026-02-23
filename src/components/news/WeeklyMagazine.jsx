@@ -1,6 +1,6 @@
 import React, { useState, useEffect, useMemo, useCallback, useRef } from "react";
 import { Link } from "react-router-dom";
-import { FiRefreshCw, FiX, FiPlus, FiMenu, FiShare2, FiCamera } from "react-icons/fi";
+import { FiRefreshCw, FiX, FiPlus, FiMenu, FiShare2, FiCamera, FiMessageSquare, FiImage, FiMove } from "react-icons/fi";
 import html2canvas from "html2canvas";
 import ChatContext from "../ChatContext";
 import { fetchAndCacheProfile } from "../../lib/profileCache";
@@ -22,6 +22,7 @@ import {
   buildStatBlurb,
 } from "../../lib/digestUtils";
 import useDigestData from "../../lib/useDigestData";
+import useDragReorder from "../../lib/useDragReorder";
 import "../../styles/pages/Magazine.css";
 
 const RELAY_URL =
@@ -124,7 +125,7 @@ const EditableText = ({ value, onSave, tag: Tag = "span", className = "" }) => {
       onBlur={() => { setEditing(false); if (text.trim() !== value) onSave(text.trim()); }}
       onKeyDown={(e) => { if (e.key === "Escape") { setEditing(false); setText(value); } }}
       autoFocus
-      rows={4}
+      rows={1}
     />
   );
 };
@@ -157,12 +158,69 @@ const StatToggle = ({ label, statKey, hidden, onToggle }) => (
 );
 
 /** Item drag handle + delete controls for semicolon lists */
-const ItemControls = ({ onDelete, dragProps }) => (
+const ItemControls = ({ onDelete, onContext, dragProps }) => (
   <div className="mg-editorial-item-controls">
     {dragProps && <span className="mg-editorial-drag" {...dragProps} title="Drag to reorder"><FiMenu size={12} /></span>}
     {onDelete && <button className="mg-editorial-delete" onClick={onDelete} title="Delete item"><FiX size={12} /></button>}
+    {onContext && <button className="mg-editorial-context" onClick={onContext} title="View chat context"><FiMessageSquare size={12} /></button>}
   </div>
 );
+
+/** Per-item chat context panel — searches for messages mentioning player names */
+const ItemContextPanel = ({ text, nameToTag, dateRange }) => {
+  const [messages, setMessages] = useState(null);
+  const [loading, setLoading] = useState(true);
+
+  useEffect(() => {
+    let cancelled = false;
+    (async () => {
+      // Extract player names mentioned in this item
+      const names = nameToTag ? Object.keys(nameToTag).filter((n) => text.includes(n)) : [];
+      if (names.length === 0) {
+        // Fallback: search by first significant word (>4 chars)
+        const words = text.split(/\s+/).filter((w) => w.length > 4 && /^[A-Za-z]/.test(w));
+        if (words[0]) names.push(words[0]);
+      }
+      if (names.length === 0) { setMessages([]); setLoading(false); return; }
+
+      try {
+        // Search for messages by the first mentioned player
+        const tag = nameToTag?.[names[0]];
+        const params = new URLSearchParams({ limit: "80" });
+        if (tag) params.set("player", tag.split("#")[0]);
+        else params.set("q", names[0]);
+        const res = await fetch(`${RELAY_URL}/api/admin/messages/search?${params}`);
+        if (!cancelled) {
+          const data = await res.json();
+          const results = (data.results || []).map((m) => ({
+            name: m.user_name || m.battle_tag?.split("#")[0] || "",
+            text: m.message || "",
+            battle_tag: m.battle_tag || "",
+            received_at: m.received_at || "",
+          }));
+          setMessages(results);
+        }
+      } catch {
+        if (!cancelled) setMessages([]);
+      }
+      if (!cancelled) setLoading(false);
+    })();
+    return () => { cancelled = true; };
+  }, [text, nameToTag]);
+
+  return (
+    <div className="mg-item-context-panel">
+      <ChatContext
+        messages={messages}
+        loading={loading}
+        expandable
+        showDates
+        placeholder="Filter context..."
+        dateRange={dateRange}
+      />
+    </div>
+  );
+};
 
 /** Save status bar */
 const SaveStatus = ({ state }) => {
@@ -197,11 +255,69 @@ const SectionRegenButton = ({ sectionKey, regenLoading, onRegen }) => {
    ACT 1 — THE STORIES (editorial / narrative)
    ═══════════════════════════════════════════════════════ */
 
-const CoverHero = ({ weekly, coverBg, headline, editorial }) => {
+const CoverHero = ({ weekly, coverBg, headline, editorial, onPickCover, coverPosition, onSaveCoverPosition }) => {
   const stats = weekly.stats;
   const [copied, setCopied] = useState(false);
   const [shotState, setShotState] = useState(null); // null | "copying" | "copied" | "saved"
   const headerRef = useRef(null);
+
+  // Cover reposition drag state
+  const [repositioning, setRepositioning] = useState(false);
+  const [posY, setPosY] = useState(() => {
+    const match = coverPosition?.match(/(\d+)%\s+(\d+)%/);
+    return match ? parseInt(match[2]) : 50;
+  });
+  const dragRef = useRef(null);
+
+  useEffect(() => {
+    const match = coverPosition?.match(/(\d+)%\s+(\d+)%/);
+    if (match) setPosY(parseInt(match[2]));
+    else setPosY(50);
+  }, [coverPosition]);
+
+  const handleDragStart = useCallback((e) => {
+    e.preventDefault();
+    const clientY = e.touches ? e.touches[0].clientY : e.clientY;
+    const img = e.currentTarget.closest(".mg-header-image")?.querySelector(".mg-header-img");
+    if (!img) return;
+    const rect = img.getBoundingClientRect();
+    dragRef.current = { startY: clientY, startPosY: posY, imgHeight: rect.height };
+  }, [posY]);
+
+  useEffect(() => {
+    if (!repositioning) return;
+    const handleMove = (e) => {
+      if (!dragRef.current) return;
+      const clientY = e.touches ? e.touches[0].clientY : e.clientY;
+      const delta = clientY - dragRef.current.startY;
+      // Map pixel drag to percentage — full image height = 100% range
+      const pctDelta = (delta / dragRef.current.imgHeight) * 100;
+      const newY = Math.max(0, Math.min(100, dragRef.current.startPosY - pctDelta));
+      setPosY(Math.round(newY));
+    };
+    const handleUp = () => { dragRef.current = null; };
+    window.addEventListener("mousemove", handleMove);
+    window.addEventListener("mouseup", handleUp);
+    window.addEventListener("touchmove", handleMove, { passive: true });
+    window.addEventListener("touchend", handleUp);
+    return () => {
+      window.removeEventListener("mousemove", handleMove);
+      window.removeEventListener("mouseup", handleUp);
+      window.removeEventListener("touchmove", handleMove);
+      window.removeEventListener("touchend", handleUp);
+    };
+  }, [repositioning]);
+
+  const handleSavePosition = () => {
+    onSaveCoverPosition?.(`50% ${posY}%`);
+    setRepositioning(false);
+  };
+
+  const handleCancelReposition = () => {
+    const match = coverPosition?.match(/(\d+)%\s+(\d+)%/);
+    setPosY(match ? parseInt(match[2]) : 50);
+    setRepositioning(false);
+  };
 
   const handleShare = () => {
     const shareUrl = `https://4v4gg-chat-relay.fly.dev/og/news?week=${weekly.week_start}`;
@@ -324,10 +440,144 @@ const CoverHero = ({ weekly, coverBg, headline, editorial }) => {
           <h1 className="mg-header-title">{headline}</h1>
         )
       )}
-      <div className="mg-header-image">
-        <img src={coverBg} alt="" className="mg-header-img" />
+      <div className={`mg-header-image${repositioning ? " mg-header-image--repositioning" : ""}`}>
+        <img
+          src={coverBg}
+          alt=""
+          className="mg-header-img"
+          style={{ objectPosition: `50% ${posY}%` }}
+          onMouseDown={repositioning ? handleDragStart : undefined}
+          onTouchStart={repositioning ? handleDragStart : undefined}
+        />
+        {repositioning && (
+          <div className="mg-header-reposition-bar">
+            <Button $ghost className="mg-header-reposition-btn" onClick={handleCancelReposition}><FiX size={14} /> Cancel</Button>
+            <span className="mg-header-reposition-hint">Drag to reposition</span>
+            <Button $ghost className="mg-header-reposition-btn mg-header-reposition-btn--save" onClick={handleSavePosition}>Save</Button>
+          </div>
+        )}
+        {!repositioning && onPickCover && (
+          <>
+            <Button
+              $ghost
+              className="mg-header-pick-cover"
+              onClick={onPickCover}
+              title="Pick cover art"
+            >
+              <FiImage size={14} />
+              Pick Cover
+            </Button>
+            {onSaveCoverPosition && (
+              <Button
+                $ghost
+                className="mg-header-pick-cover mg-header-reposition-toggle"
+                onClick={() => setRepositioning(true)}
+                title="Reposition cover image"
+              >
+                <FiMove size={14} />
+                Reposition
+              </Button>
+            )}
+          </>
+        )}
       </div>
     </header>
+  );
+};
+
+/** Topic pills — read-only or editable */
+const TopicPills = ({ topics, editorial }) => {
+  const [addingTopic, setAddingTopic] = useState(false);
+  const addRef = useRef(null);
+
+  if (!topics || topics.length === 0) {
+    if (!editorial) return null;
+    // Editorial: show add button when no topics
+    return (
+      <div className="mg-topics">
+        <button className="mg-section-add" onClick={() => setAddingTopic(true)} title="Add topic"><FiPlus size={12} /> Add topic</button>
+        {addingTopic && (
+          <input
+            ref={addRef}
+            className="mg-topic-input"
+            placeholder="Topic"
+            autoFocus
+            onKeyDown={(e) => {
+              if (e.key === "Enter") { const v = addRef.current?.value?.trim(); if (v) editorial.handleEditTopics([v]); setAddingTopic(false); }
+              if (e.key === "Escape") setAddingTopic(false);
+            }}
+            onBlur={() => { const v = addRef.current?.value?.trim(); if (v) editorial.handleEditTopics([v]); setAddingTopic(false); }}
+          />
+        )}
+      </div>
+    );
+  }
+
+  if (!editorial) {
+    return (
+      <div className="mg-topics">
+        {topics.map((t, i) => (
+          <span key={i} className="mg-topic-pill">{t}</span>
+        ))}
+      </div>
+    );
+  }
+
+  const handleDelete = (idx) => {
+    editorial.handleEditTopics(topics.filter((_, i) => i !== idx));
+  };
+
+  const handleEdit = (idx, newText) => {
+    const next = [...topics];
+    next[idx] = newText.trim();
+    editorial.handleEditTopics(next.filter(Boolean));
+  };
+
+  const handleAdd = () => {
+    const v = addRef.current?.value?.trim();
+    if (v) editorial.handleEditTopics([...topics, v]);
+    setAddingTopic(false);
+  };
+
+  return (
+    <div className="mg-topics">
+      {topics.map((t, i) => (
+        <span key={i} className="mg-topic-pill mg-topic-pill--editable">
+          <EditableText value={t} onSave={(v) => handleEdit(i, v)} className="mg-topic-pill-text" />
+          <button className="mg-topic-pill-delete" onClick={() => handleDelete(i)} title="Remove topic"><FiX size={10} /></button>
+        </span>
+      ))}
+      {addingTopic ? (
+        <input
+          ref={addRef}
+          className="mg-topic-input"
+          placeholder="Topic"
+          autoFocus
+          onKeyDown={(e) => { if (e.key === "Enter") handleAdd(); if (e.key === "Escape") setAddingTopic(false); }}
+          onBlur={handleAdd}
+        />
+      ) : (
+        <button className="mg-topic-pill mg-topic-pill--add" onClick={() => setAddingTopic(true)} title="Add topic"><FiPlus size={10} /></button>
+      )}
+    </div>
+  );
+};
+
+/** Read-only quote block — renders grouped speaker quotes. Used by FeatureStory, SpotlightCard, StreakCard. */
+const QuoteBlock = ({ quotes, compact, className = "" }) => {
+  if (!quotes || quotes.length === 0) return null;
+  const groups = groupQuotesBySpeaker(quotes);
+  return (
+    <div className={`mg-quotes${compact ? " mg-quotes--compact" : ""} ${className}`.trim()}>
+      {groups.map((group, i) => (
+        <div key={i} className="mg-quote-group">
+          {group.name && <span className="mg-quote-name">{group.name}</span>}
+          {group.messages.map((msg, j) => (
+            <blockquote key={j} className="mg-quote">{msg}</blockquote>
+          ))}
+        </div>
+      ))}
+    </div>
   );
 };
 
@@ -366,18 +616,9 @@ const FeatureStory = ({ lead, quotes, curated, nameToTag, editorial }) => {
               );
             })}
           </>
-        ) : attributed.length > 0 ? (
-          <div className="mg-quotes">
-            {groupQuotesBySpeaker(attributed).map((group, i) => (
-              <div key={i} className="mg-quote-group">
-                {group.name && <span className="mg-quote-name">{group.name}</span>}
-                {group.messages.map((msg, j) => (
-                  <blockquote key={j} className="mg-quote">{msg}</blockquote>
-                ))}
-              </div>
-            ))}
-          </div>
-        ) : null}
+        ) : (
+          <QuoteBlock quotes={attributed} />
+        )}
       </div>
     </section>
   );
@@ -388,38 +629,39 @@ const StoriesGrid = ({ stories, highlights, bans, nameToTag, editorial }) => {
   // highlights & bans are now pre-parsed arrays (from useDigestData)
   const highlightItems = highlights || [];
   const banRows = bans || [];
-  const [dragState, setDragState] = useState({ section: null, from: null, over: null });
+  const drag = useDragReorder();
+  // Track which item has context panel open: "SECTION:index" or null
+  const [contextOpen, setContextOpen] = useState(null);
+
+  const dateRange = editorial?.weekStart && editorial?.weekEnd
+    ? formatWeekRange(editorial.weekStart, editorial.weekEnd)
+    : undefined;
 
   if (stories.length === 0 && highlightItems.length === 0 && banRows.length === 0) return null;
-
-  const handleDrop = (section, toIdx, offset = 0) => {
-    const { from } = dragState;
-    setDragState({ section: null, from: null, over: null });
-    if (from == null || from === toIdx) return;
-    editorial?.reorderItem?.(section, from + offset, toIdx + offset);
-  };
 
   /** Render an editorial item list — same [grip][x] pattern as editorial panel */
   const renderList = (items, sectionKey, { offset = 0, onEdit } = {}) => (
     <ul className="mg-sidebar-list">
       {items.map((text, i) => {
         const draftIdx = i + offset;
-        const isDragOver = dragState.section === sectionKey && dragState.over === i;
+        const contextKey = `${sectionKey}:${i}`;
+        const isContextOpen = contextOpen === contextKey;
         return (
           <li
             key={i}
-            className={`mg-sidebar-item${isDragOver ? " mg-sidebar-item--dragover" : ""}`}
-            onDragOver={(e) => { if (dragState.section === sectionKey) { e.preventDefault(); setDragState((s) => ({ ...s, over: i })); } }}
-            onDragLeave={() => setDragState((s) => s.over === i ? { ...s, over: null } : s)}
-            onDrop={(e) => { if (dragState.section === sectionKey) { e.preventDefault(); handleDrop(sectionKey, i, offset); } }}
+            className={`mg-sidebar-item${drag.isDragOver(sectionKey, i) ? " mg-sidebar-item--dragover" : ""}`}
+            onDragOver={(e) => { if (drag.dragState.section === sectionKey) { e.preventDefault(); drag.onDragOver(sectionKey, i); } }}
+            onDragLeave={() => drag.onDragLeave(i)}
+            onDrop={(e) => { if (drag.dragState.section === sectionKey) { e.preventDefault(); drag.onDrop(sectionKey, i, (sec, from, to) => editorial?.reorderItem?.(sec, from + offset, to + offset)); } }}
           >
             {editorial && (
               <ItemControls
                 onDelete={() => editorial.deleteItem(sectionKey, draftIdx)}
+                onContext={() => setContextOpen(isContextOpen ? null : contextKey)}
                 dragProps={{
                   draggable: true,
-                  onDragStart: () => setDragState({ section: sectionKey, from: i, over: null }),
-                  onDragEnd: () => setDragState({ section: null, from: null, over: null }),
+                  onDragStart: () => drag.onDragStart(sectionKey, i),
+                  onDragEnd: drag.onDragEnd,
                 }}
               />
             )}
@@ -427,6 +669,9 @@ const StoriesGrid = ({ stories, highlights, bans, nameToTag, editorial }) => {
               <EditableText value={text.trim()} onSave={(t) => onEdit(i, t)} className="mg-sidebar-item-text" />
             ) : (
               highlightNames(text.trim(), nameToTag)
+            )}
+            {isContextOpen && (
+              <ItemContextPanel text={text} nameToTag={nameToTag} dateRange={dateRange} />
             )}
           </li>
         );
@@ -442,6 +687,7 @@ const StoriesGrid = ({ stories, highlights, bans, nameToTag, editorial }) => {
           <div className="mg-stories-col">
             <div className="mg-section-header">
               <span className="mg-section-label">Also This Week</span>
+              {editorial?.addItem && <button className="mg-section-add" onClick={() => editorial.addItem("DRAMA")} title="Add item"><FiPlus size={12} /></button>}
               {editorial && <SectionRegenButton sectionKey="DRAMA" regenLoading={editorial.regenLoading} onRegen={editorial.regenSection} />}
               <div className="mg-section-rule" />
             </div>
@@ -455,35 +701,59 @@ const StoriesGrid = ({ stories, highlights, bans, nameToTag, editorial }) => {
             <div className="mg-stories-sidebar">
               <div className="mg-section-header">
                 <span className="mg-section-label mg-section-label--green">Highlights</span>
+                {editorial?.addItem && <button className="mg-section-add" onClick={() => editorial.addItem("HIGHLIGHTS")} title="Add item"><FiPlus size={12} /></button>}
                 {editorial && <SectionRegenButton sectionKey="HIGHLIGHTS" regenLoading={editorial.regenLoading} onRegen={editorial.regenSection} />}
                 <div className="mg-section-rule" />
               </div>
               {renderList(highlightItems.map((h) => typeof h === "string" ? h : h.summary), "HIGHLIGHTS", { onEdit: editorial?.onEditHighlight })}
             </div>
           )}
-          {banRows.length > 0 && (
+          {banRows.length > 0 && editorial && (
             <div className="mg-stories-sidebar">
               <div className="mg-section-header">
                 <span className="mg-section-label mg-section-label--red">Bans</span>
+                {editorial?.addItem && <button className="mg-section-add" onClick={() => editorial.addItem("BANS")} title="Add item"><FiPlus size={12} /></button>}
                 {editorial && <SectionRegenButton sectionKey="BANS" regenLoading={editorial.regenLoading} onRegen={editorial.regenSection} />}
                 <div className="mg-section-rule" />
               </div>
               <div className="mg-bans-table">
                 {banRows.map((b, i) => (
-                  <div key={i} className="mg-ban-row">
-                    <div className="mg-ban-header">
-                      <span className="mg-ban-name">{b.name}</span>
-                      <span className="mg-ban-duration">{b.duration}</span>
-                    </div>
-                    <span className="mg-ban-reason">
-                      {b.reason}
-                      {b.matchId && (
-                        <>
-                          {" "}
-                          <Link to={`/match/${b.matchId}`} className="mg-ban-match-link">Match</Link>
-                        </>
+                  <div
+                    key={i}
+                    className={`mg-ban-row${drag.isDragOver("BANS", i) ? " mg-ban-row--dragover" : ""}`}
+                    onDragOver={(e) => { if (drag.dragState.section === "BANS") { e.preventDefault(); drag.onDragOver("BANS", i); } }}
+                    onDragLeave={() => drag.onDragLeave(i)}
+                    onDrop={(e) => { if (drag.dragState.section === "BANS") { e.preventDefault(); drag.onDrop("BANS", i, (sec, from, to) => editorial?.reorderItem?.(sec, from, to)); } }}
+                  >
+                    {editorial && (
+                      <ItemControls
+                        onDelete={() => editorial.deleteItem("BANS", i)}
+                        dragProps={{
+                          draggable: true,
+                          onDragStart: () => drag.onDragStart("BANS", i),
+                          onDragEnd: drag.onDragEnd,
+                        }}
+                      />
+                    )}
+                    <div className="mg-ban-content">
+                      <div className="mg-ban-header">
+                        <span className="mg-ban-name">{b.name}</span>
+                        <span className="mg-ban-duration">{b.duration}</span>
+                      </div>
+                      {editorial?.onEditBan ? (
+                        <EditableText value={b.reason || ""} onSave={(t) => editorial.onEditBan(i, t, b)} className="mg-ban-reason" />
+                      ) : (
+                        <span className="mg-ban-reason">
+                          {b.reason}
+                          {b.matchId && (
+                            <>
+                              {" "}
+                              <Link to={`/match/${b.matchId}`} className="mg-ban-match-link">Match</Link>
+                            </>
+                          )}
+                        </span>
                       )}
-                    </span>
+                    </div>
                   </div>
                 ))}
               </div>
@@ -671,17 +941,24 @@ const QuoteBrowser = ({ statKey, battleTag, editorial, label }) => {
         {open ? "Close" : label ? `Browse ${label}` : "Browse Messages"}
       </Button>
       {open && (
-        <ChatContext
-          messages={messages}
-          loading={loading}
-          onApply={handleApply}
-          selectable
-          expandable
-          splitView
-          showScores
-          placeholder="Filter by keyword..."
-          applyLabel={(n) => `Use ${n} quote${n !== 1 ? "s" : ""}`}
-        />
+        <div className="mg-quote-browser-panel">
+          <div className="mg-quote-browser-close">
+            <span className="mg-quote-browser-label">{label || "Messages"}</span>
+            <button onClick={() => setOpen(false)} title="Close"><FiX size={14} /></button>
+          </div>
+          <ChatContext
+            messages={messages}
+            loading={loading}
+            onApply={handleApply}
+            selectable
+            expandable
+            splitView
+            showScores
+            placeholder="Filter by keyword..."
+            applyLabel={(n) => `Use ${n} quote${n !== 1 ? "s" : ""}`}
+            dateRange={editorial.weekStart && editorial.weekEnd ? formatWeekRange(editorial.weekStart, editorial.weekEnd) : undefined}
+          />
+        </div>
       )}
     </div>
   );
@@ -689,6 +966,7 @@ const QuoteBrowser = ({ statKey, battleTag, editorial, label }) => {
 
 const SpotlightCard = ({ stat, profile, accent, role, blurb, quotes, statKey, heroIcons, victimIcons, killboard, maxHeroKills, editorial }) => {
   if (!stat) return null;
+  const canDismiss = editorial?.toggleStat;
   // For streak types, show only the streak portion (e.g. 16 red dots) not the full week form
   const isStreak = stat.streakLen && stat.streakType;
   const formArr = isStreak
@@ -699,6 +977,11 @@ const SpotlightCard = ({ stat, profile, accent, role, blurb, quotes, statKey, he
 
   return (
     <div className={`mg-spotlight-card mg-spotlight-card--${accent}`}>
+      {canDismiss && (
+        <button className="mg-spotlight-dismiss" onClick={() => editorial.toggleStat(statKey)} title="Hide this spotlight">
+          <FiX size={14} />
+        </button>
+      )}
       {hasPic && (
         <div className="mg-spotlight-avatar">
           <img src={profile.pic} alt="" className="mg-spotlight-avatar-img" />
@@ -729,14 +1012,10 @@ const SpotlightCard = ({ stat, profile, accent, role, blurb, quotes, statKey, he
           </div>
         )}
         {killboard?.length > 0 ? (
-          <div className="mg-killboard mg-killboard--weighted">
-            {killboard.map(({ name, count }) => {
-              const maxCount = killboard[0].count;
-              const size = Math.round(20 + (count / maxCount) * 30);
-              return (
-                <img key={name} src={`/heroes/${name}.jpeg`} alt={name} className="mg-killboard-icon-weighted" style={{ width: size, height: size }} />
-              );
-            })}
+          <div className="mg-spotlight-heroes mg-spotlight-heroes--victims">
+            {killboard.map(({ name }) => (
+              <img key={name} src={`/heroes/${name}.jpeg`} alt={name} className="mg-spotlight-hero-icon mg-spotlight-hero-victim" />
+            ))}
           </div>
         ) : !heroIcons?.length && formArr.length > 0 ? (
           <FormDots form={formArr} size="small" maxDots={20} showSummary={false} />
@@ -755,18 +1034,9 @@ const SpotlightCard = ({ stat, profile, accent, role, blurb, quotes, statKey, he
         ) : null}
         {editorial?.handleEditSection ? (
           <EditableQuotes quotes={quotes} statKey={statKey} editorial={editorial} />
-        ) : quotes && quotes.length > 0 ? (
-          <div className="mg-spotlight-quotes">
-            {groupQuotesBySpeaker(quotes).map((group, i) => (
-              <div key={i} className="mg-quote-group">
-                {group.name && <span className="mg-quote-name">{group.name}</span>}
-                {group.messages.map((msg, j) => (
-                  <blockquote key={j} className="mg-quote">{msg}</blockquote>
-                ))}
-              </div>
-            ))}
-          </div>
-        ) : null}
+        ) : (
+          <QuoteBlock quotes={quotes} className="mg-spotlight-quotes" compact />
+        )}
         {editorial?.browseMessages && (
           <QuoteBrowser statKey={statKey} battleTag={stat.battleTag} editorial={editorial} currentQuotes={quotes} />
         )}
@@ -809,6 +1079,49 @@ const StreakTimeline = ({ dailyData, type }) => {
           </div>
         );
       })}
+    </div>
+  );
+};
+
+/* ── Hero Kills Distribution: bar chart of hero kills/game across all players ── */
+const HeroKillsChart = ({ killsDistribution, playerName }) => {
+  if (!killsDistribution) return null;
+  const { all, player } = killsDistribution;
+  if (!all || Object.keys(all).length === 0) return null;
+
+  // Build contiguous bucket list from 0 to max kill count (no gaps)
+  const allNums = [...Object.keys(all), ...Object.keys(player || {})].map(Number);
+  const maxBucket = Math.max(...allNums, 0);
+  const buckets = Array.from({ length: maxBucket + 1 }, (_, i) => i);
+  const maxCount = Math.max(...buckets.map((k) => all[k] || 0), 1);
+
+  return (
+    <div className="mg-kills-dist">
+      <div className="mg-kills-dist-title">Hero Kills Per Game {playerName && <span className="mg-text-gold">{"\u2014"} {playerName}</span>}</div>
+      <div className="mg-kills-dist-header">
+        <span className="mg-kills-dist-label">{"\u2190"} Fewer</span>
+        <span className="mg-kills-dist-label">More {"\u2192"}</span>
+      </div>
+      <div className="mg-kills-dist-chart">
+        {buckets.map((k) => {
+          const allCount = all[k] || 0;
+          const playerCount = (player && player[k]) || 0;
+          const pct = Math.round((allCount / maxCount) * 100);
+          const playerPct = allCount > 0 ? Math.round((playerCount / allCount) * 100) : 0;
+          return (
+            <div key={k} className="mg-kills-dist-col">
+              <span className="mg-kills-dist-count">{allCount}</span>
+              <div className="mg-kills-dist-bar-wrapper" style={{ height: `${pct}%` }}>
+                <div className="mg-kills-dist-bar mg-kills-dist-bar--all" />
+                {playerCount > 0 && (
+                  <div className="mg-kills-dist-bar mg-kills-dist-bar--player" style={{ height: `${playerPct}%` }} />
+                )}
+              </div>
+              <span className="mg-kills-dist-tick">{k}</span>
+            </div>
+          );
+        })}
+      </div>
     </div>
   );
 };
@@ -868,6 +1181,7 @@ const StreakSpectrum = ({ spectrumData, hotName, coldName }) => {
 /* ── Streak Card: full-width panel for HOTSTREAK/COLDSTREAK ── */
 const StreakCard = ({ stat, profile, accent, role, blurb, quotes, dailyData, type, editorial }) => {
   if (!stat || !dailyData) return null;
+  const canDismiss = editorial?.toggleStat;
   const sign = stat.mmrChange > 0 ? "+" : "";
   const hasPic = profile?.pic;
   const streakLabel = stat.streakLen
@@ -875,31 +1189,33 @@ const StreakCard = ({ stat, profile, accent, role, blurb, quotes, dailyData, typ
     : stat.headline;
 
   return (
-    <div className={`mg-streak-card mg-streak-card--${accent}`}>
-      {hasPic && (
-        <div className="mg-streak-card-bg" style={{ backgroundImage: `url(${profile.pic})` }} />
+    <div className={`mg-spotlight-card mg-spotlight-card--${accent}`}>
+      {canDismiss && (
+        <button className="mg-spotlight-dismiss" onClick={() => editorial.toggleStat(type)} title="Hide this spotlight">
+          <FiX size={14} />
+        </button>
       )}
-      <div className="mg-streak-card-overlay" />
-      <div className="mg-streak-card-content">
-        <div className="mg-streak-card-header">
-          <span className={`mg-spotlight-role mg-spotlight-role--${accent}`}>{role}</span>
-          <div className="mg-streak-card-player-row">
-            <div className="mg-spotlight-player">
-              <Link to={`/player/${encodeURIComponent(stat.battleTag)}`} className="mg-spotlight-name">
-                {stat.name}
-              </Link>
-              {profile?.country && <CountryFlag name={profile.country.toLowerCase()} />}
-            </div>
-            <div className="mg-spotlight-stats">
-              <span className={`mg-streak-headline mg-text-${accent}`}>{streakLabel}</span>
-              {stat.mmrChange != null && (
-                <span className={`mg-spotlight-mmr ${stat.mmrChange >= 0 ? "mg-text-green" : "mg-text-red"}`}>
-                  {sign}{stat.mmrChange} MMR
-                </span>
-              )}
-              <span className="mg-spotlight-record">{stat.wins}W-{stat.losses}L</span>
-            </div>
-          </div>
+      {hasPic && (
+        <div className="mg-spotlight-avatar">
+          <img src={profile.pic} alt="" className="mg-spotlight-avatar-img" />
+        </div>
+      )}
+      <div className="mg-spotlight-content">
+        <span className={`mg-spotlight-role mg-spotlight-role--${accent}`}>{role}</span>
+        <div className="mg-spotlight-player">
+          <Link to={`/player/${encodeURIComponent(stat.battleTag)}`} className="mg-spotlight-name">
+            {stat.name}
+          </Link>
+          {profile?.country && <CountryFlag name={profile.country.toLowerCase()} />}
+        </div>
+        <div className="mg-spotlight-stats">
+          <span className={`mg-spotlight-mmr mg-text-${accent}`}>{streakLabel}</span>
+          {stat.mmrChange != null && (
+            <span className={`mg-spotlight-mmr ${stat.mmrChange >= 0 ? "mg-text-green" : "mg-text-red"}`}>
+              {sign}{stat.mmrChange} MMR
+            </span>
+          )}
+          <span className="mg-spotlight-record">{stat.wins}W-{stat.losses}L</span>
         </div>
         <StreakTimeline dailyData={dailyData} type={type} />
         {editorial?.handleEditSection ? (
@@ -914,25 +1230,14 @@ const StreakCard = ({ stat, profile, accent, role, blurb, quotes, dailyData, typ
         ) : blurb ? (
           <p className="mg-spotlight-blurb">{typeof blurb === "string" ? blurb : blurb.join(" ")}</p>
         ) : null}
-        <div className="mg-streak-card-quotes-row">
-          {editorial?.handleEditSection ? (
-            <EditableQuotes quotes={quotes} statKey={type} editorial={editorial} />
-          ) : quotes && quotes.length > 0 ? (
-            <div className="mg-spotlight-quotes">
-              {groupQuotesBySpeaker(quotes).map((group, i) => (
-                <div key={i} className="mg-quote-group">
-                  {group.name && <span className="mg-quote-name">{group.name}</span>}
-                  {group.messages.map((msg, j) => (
-                    <blockquote key={j} className="mg-quote">{msg}</blockquote>
-                  ))}
-                </div>
-              ))}
-            </div>
-          ) : null}
-          {editorial?.browseMessages && (
-            <QuoteBrowser statKey={type} battleTag={stat.battleTag} editorial={editorial} currentQuotes={quotes} />
-          )}
-        </div>
+        {editorial?.handleEditSection ? (
+          <EditableQuotes quotes={quotes} statKey={type} editorial={editorial} />
+        ) : (
+          <QuoteBlock quotes={quotes} className="mg-spotlight-quotes" compact />
+        )}
+        {editorial?.browseMessages && (
+          <QuoteBrowser statKey={type} battleTag={stat.battleTag} editorial={editorial} currentQuotes={quotes} />
+        )}
       </div>
     </div>
   );
@@ -990,18 +1295,17 @@ const SpotlightsSection = ({ spotlights, profiles, editorial }) => {
     // Killboard: object → [{name, count}] sorted by count desc
     const killboard = card.killboard ? Object.entries(card.killboard).map(([name, count]) => ({ name, count })).sort((a, b) => b.count - a.count) : null;
     const maxHeroKills = card.maxKillsInGame || null;
-    return { key, stat, role, accent, blurb, quotes, dailyData, heroIcons, victimIcons, killboard, maxHeroKills };
+    const killsDistribution = card.killsDistribution || null;
+    return { key, stat, role, accent, blurb, quotes, dailyData, heroIcons, victimIcons, killboard, maxHeroKills, killsDistribution };
   }).filter(Boolean);
 
   if (parsed.length === 0) return null;
 
-  // Separate standard cards from streak cards
-  const standardCards = parsed.filter((c) => !STREAK_KEYS.has(c.key) || !c.dailyData);
-  const streakCards = parsed.filter((c) => STREAK_KEYS.has(c.key) && c.dailyData);
-
   // Get player names for spectrum labels
   const hotStat = parsed.find((c) => c.key === "HOTSTREAK");
   const coldStat = parsed.find((c) => c.key === "COLDSTREAK");
+  const heroSlayerParsed = parsed.find((c) => c.key === "HEROSLAYER");
+  const killsDistData = heroSlayerParsed?.killsDistribution || null;
 
   return (
     <section className="mg-section mg-spotlights reveal" style={{ "--delay": "0.20s" }}>
@@ -1016,18 +1320,23 @@ const SpotlightsSection = ({ spotlights, profiles, editorial }) => {
         )}
         <div className="mg-section-rule" />
       </div>
-      {standardCards.length > 0 && (
+      {parsed.length > 0 && (
         <div className="mg-spotlight-grid">
-          {standardCards.map(({ key, stat, role, accent, blurb, quotes, heroIcons, victimIcons, killboard, maxHeroKills }) => (
-            <SpotlightCard key={stat.battleTag} stat={stat} profile={profiles.get(stat.battleTag)} accent={accent} role={role} blurb={blurb} quotes={quotes} heroIcons={heroIcons} victimIcons={victimIcons} killboard={killboard} maxHeroKills={maxHeroKills} statKey={key} editorial={editorial} />
+          {parsed.map(({ key, stat, role, accent, blurb, quotes, heroIcons, victimIcons, killboard, maxHeroKills, dailyData }) => (
+            <React.Fragment key={stat.battleTag}>
+              {STREAK_KEYS.has(key) && dailyData
+                ? <StreakCard stat={stat} profile={profiles.get(stat.battleTag)} accent={accent} role={role} blurb={blurb} quotes={quotes} dailyData={dailyData} type={key} editorial={editorial} />
+                : <SpotlightCard stat={stat} profile={profiles.get(stat.battleTag)} accent={accent} role={role} blurb={blurb} quotes={quotes} heroIcons={heroIcons} victimIcons={victimIcons} killboard={killboard} maxHeroKills={maxHeroKills} statKey={key} editorial={editorial} />
+              }
+              {key === "COLDSTREAK" && spectrumData && (
+                <StreakSpectrum spectrumData={spectrumData} hotName={hotStat?.stat?.name} coldName={coldStat?.stat?.name} />
+              )}
+              {key === "HEROSLAYER" && killsDistData && (
+                <HeroKillsChart killsDistribution={killsDistData} playerName={heroSlayerParsed?.stat?.name} />
+              )}
+            </React.Fragment>
           ))}
         </div>
-      )}
-      {streakCards.map(({ key, stat, role, accent, blurb, quotes, dailyData }) => (
-        <StreakCard key={stat.battleTag} stat={stat} profile={profiles.get(stat.battleTag)} accent={accent} role={role} blurb={blurb} quotes={quotes} dailyData={dailyData} type={key} editorial={editorial} />
-      ))}
-      {spectrumData && (
-        <StreakSpectrum spectrumData={spectrumData} hotName={hotStat?.stat?.name} coldName={coldStat?.stat?.name} />
       )}
     </section>
   );
@@ -1186,96 +1495,77 @@ const RankingsSection = ({ rankings, profiles }) => {
   );
 };
 
-const PROMOTED_STATS = new Set(["Hero Slayer"]); // already full spotlight cards
-
-const NewBloodTimeline = ({ players, weekStart, weekEnd }) => {
-  const [seasonStart, setSeasonStart] = useState(null);
-
-  useEffect(() => {
-    let cancelled = false;
-    (async () => {
-      try {
-        // Try seasons API first
-        const res = await fetch("https://website-backend.w3champions.com/api/ladder/seasons");
-        const seasons = await res.json();
-        if (!cancelled && seasons?.[0]?.startDate) {
-          setSeasonStart(seasons[0].startDate.split("T")[0]);
-          return;
-        }
-        // Fallback: find the earliest match in current season
-        const currentSeason = seasons?.[0]?.id;
-        if (!currentSeason) return;
-        const countRes = await fetch(
-          `https://website-backend.w3champions.com/api/matches?offset=0&pageSize=1&gameMode=4&gateway=20&season=${currentSeason}`
-        );
-        const countData = await countRes.json();
-        const total = countData?.count;
-        if (!total || cancelled) return;
-        const lastPage = Math.max(0, total - 1);
-        const tailRes = await fetch(
-          `https://website-backend.w3champions.com/api/matches?offset=${lastPage}&pageSize=1&gameMode=4&gateway=20&season=${currentSeason}`
-        );
-        const tailData = await tailRes.json();
-        const oldest = tailData?.matches?.[0]?.startTime;
-        if (!cancelled && oldest) {
-          setSeasonStart(oldest.split("T")[0]);
-        }
-      } catch {}
-    })();
-    return () => { cancelled = true; };
-  }, []);
-
-  if (!seasonStart || !weekStart || !weekEnd) return null;
-
-  const sStart = new Date(seasonStart + "T00:00:00");
-  const wStart = new Date(weekStart + "T00:00:00");
-  const wEnd = new Date(weekEnd + "T23:59:59");
-  const totalMs = wEnd - sStart;
-  if (totalMs <= 0) return null;
-
-  const weekStartPct = ((wStart - sStart) / totalMs) * 100;
-
-  const positioned = players
-    .filter((p) => p.firstDate)
-    .map((p) => {
-      const d = new Date(p.firstDate + "T12:00:00");
-      const pct = Math.max(0, Math.min(100, ((d - sStart) / totalMs) * 100));
-      return { ...p, pct };
-    })
-    .sort((a, b) => a.pct - b.pct);
-
-  // Nudge dots that overlap (within 2% of each other)
-  for (let i = 1; i < positioned.length; i++) {
-    if (positioned[i].pct - positioned[i - 1].pct < 2) {
-      positioned[i].pct = Math.min(100, positioned[i - 1].pct + 2);
-    }
-  }
+/** Segmented AT circle — matches MmrComparison's "combined" style */
+const ATCircle = ({ n, size = 20 }) => {
+  const r = size / 2;
+  const cx = r + 1;
+  const cy = r + 1;
+  const svgSize = size + 2;
+  const sliceAngle = (2 * Math.PI) / n;
+  const baseRot = -Math.PI / 2 + Math.PI / 4;
+  const gapW = Math.max(3, size * 0.15);
+  const maskId = `at-seg-${n}-${size}`;
 
   return (
-    <div className="mg-newblood-timeline">
-      <div className="mg-newblood-timeline-labels">
-        <span className="mg-newblood-timeline-label">
-          {new Date(seasonStart + "T12:00:00").toLocaleDateString("en-US", { month: "short", day: "numeric" })}
-        </span>
-        <span className="mg-newblood-timeline-label">This Week</span>
-      </div>
-      <div className="mg-newblood-timeline-track">
-        <div
-          className="mg-newblood-timeline-week"
-          style={{ left: `${weekStartPct}%`, width: `${100 - weekStartPct}%` }}
-        />
-        {positioned.map((p) => (
-          <div
-            key={p.battleTag}
-            className={`mg-newblood-timeline-dot${!p.returning && p.mmr >= 1800 ? " mg-newblood-timeline-dot--smurf" : ""}`}
-            style={{ left: `${p.pct}%` }}
-            title={`${p.name} — ${p.mmr} MMR — ${new Date(p.firstDate + "T12:00:00").toLocaleDateString("en-US", { month: "short", day: "numeric" })}`}
-          />
-        ))}
-      </div>
-    </div>
+    <svg width={svgSize} height={svgSize} style={{ display: "block", flexShrink: 0 }}>
+      <defs>
+        <mask id={maskId}>
+          <circle cx={cx} cy={cy} r={r} fill="white" />
+          {Array.from({ length: n }, (_, i) => {
+            const angle = i * sliceAngle + baseRot;
+            return (
+              <line key={i} x1={cx} y1={cy}
+                x2={cx + Math.cos(angle) * (r + 1)} y2={cy + Math.sin(angle) * (r + 1)}
+                stroke="black" strokeWidth={gapW} />
+            );
+          })}
+        </mask>
+      </defs>
+      <circle cx={cx} cy={cy} r={r} fill="var(--gold)" mask={`url(#${maskId})`} />
+    </svg>
   );
 };
+
+/** Vertical mini MMR chart for a stack — dots with value labels, shared scale */
+const StackMmrChart = ({ players, scaleMin, scaleMax, stackIdx }) => {
+  const mmrs = players.filter((p) => p.mmr).map((p) => ({ name: p.name, mmr: p.mmr }));
+  if (mmrs.length === 0) return null;
+
+  const w = 70;
+  const rowH = 24;
+  const h = mmrs.length * rowH;
+  const dotR = 4;
+  const pad = dotR + 2;
+  const dotX = w - 8;
+
+  // Sort by MMR descending for vertical layout
+  const sorted = [...mmrs].sort((a, b) => b.mmr - a.mmr);
+
+  return (
+    <svg width={w} height={h} className="mg-stack-chart">
+      {sorted.map((p, i) => {
+        const cy = pad + i * rowH + (rowH - 2 * pad) / 2;
+        return (
+          <g key={i}>
+            <circle cx={dotX} cy={cy} r={dotR} fill="var(--gold)" opacity={0.85} />
+            <text x={dotX - 10} y={cy} textAnchor="end" dominantBaseline="central"
+              fontFamily="var(--font-mono)" fontSize="13" fill="#ccc">
+              {p.mmr}
+            </text>
+          </g>
+        );
+      })}
+      {/* Spread line */}
+      {sorted.length >= 2 && (
+        <line x1={dotX} y1={pad + (rowH - 2 * pad) / 2} x2={dotX}
+          y2={pad + (sorted.length - 1) * rowH + (rowH - 2 * pad) / 2}
+          stroke="var(--gold)" strokeWidth={1.5} opacity={0.2} />
+      )}
+    </svg>
+  );
+};
+
+const PROMOTED_STATS = new Set(["Hero Slayer"]); // already full spotlight cards
 
 const CompactStats = ({ newBlood, atSpotlight, heroMeta, matchStats: rawMatchStats, profiles, weekStart, weekEnd }) => {
   // All props are now pre-parsed arrays from useDigestData
@@ -1290,7 +1580,7 @@ const CompactStats = ({ newBlood, atSpotlight, heroMeta, matchStats: rawMatchSta
   const stacks = (atSpotlight || []).map((s) => ({
     ...s,
     winPct: s.winRate,
-    players: s.players.map((p) => typeof p === "string" ? p : p.name),
+    playerNames: s.players.map((p) => typeof p === "string" ? p : p.name),
   }));
   const matchStats = (rawMatchStats || []).filter((s) => !PROMOTED_STATS.has(s.category)).map((s) => ({
     ...s,
@@ -1313,120 +1603,6 @@ const CompactStats = ({ newBlood, atSpotlight, heroMeta, matchStats: rawMatchSta
           const newPlayers = players.filter((p) => !p.returning);
           const returningPlayers = players.filter((p) => p.returning);
 
-          const SEASON_STARTS = [
-            { season: 24, date: '2026-01-26' },
-            { season: 23, date: '2025-10-06' },
-          ];
-
-          const renderTimeline = (items, label, dateKey) => {
-            const withDates = items.filter((p) => p[dateKey]);
-            if (withDates.length === 0) return null;
-
-            const dates = withDates.map((p) => new Date(p[dateKey] + "T12:00:00"));
-            const thisWeek = new Date(weekEnd + "T23:59:59");
-            const earliest = new Date(Math.min(...dates));
-            const range = thisWeek - earliest;
-            const padded = new Date(earliest.getTime() - range * 0.15);
-            const totalMs = thisWeek - padded;
-            if (totalMs <= 0) return null;
-
-            const positioned = withDates
-              .map((p) => {
-                const d = new Date(p[dateKey] + "T12:00:00");
-                const pct = Math.max(2, Math.min(92, ((d - padded) / totalMs) * 100));
-                return { ...p, pct };
-              })
-              .sort((a, b) => a.pct - b.pct);
-
-            // Nudge overlapping items (minimum 10% gap between adjacent)
-            for (let i = 1; i < positioned.length; i++) {
-              if (positioned[i].pct - positioned[i - 1].pct < 10) {
-                positioned[i].pct = Math.min(92, positioned[i - 1].pct + 10);
-              }
-            }
-
-            // Assign above/below side and stem height using a lane system.
-            // Each side has 3 tiers — items get the lowest tier that doesn't
-            // overlap a same-side neighbor (cards are ~12% of track width).
-            const CARD_WIDTH_PCT = 12;
-            const STEM_TIERS = [16, 48, 80];
-            positioned.forEach((p, i) => {
-              p.above = i % 2 === 0;
-              let tier = 0;
-              for (let t = 0; t < STEM_TIERS.length; t++) {
-                const conflict = positioned.slice(0, i).some(
-                  (q) => q.above === p.above && q.tier === t && Math.abs(p.pct - q.pct) < CARD_WIDTH_PCT
-                );
-                if (!conflict) { tier = t; break; }
-                if (t === STEM_TIERS.length - 1) tier = t;
-              }
-              p.tier = tier;
-              p.stemHeight = STEM_TIERS[tier];
-            });
-
-            // Season markers within range
-            const seasonMarkers = SEASON_STARTS
-              .map(({ season, date }) => {
-                const d = new Date(date + "T12:00:00");
-                if (d > padded && d < thisWeek) {
-                  return { season, pct: ((d - padded) / totalMs) * 100 };
-                }
-                return null;
-              })
-              .filter(Boolean);
-
-            const fmtDate = (d) => new Date(d + "T12:00:00").toLocaleDateString("en-US", { month: "short", day: "numeric" });
-
-            return (
-              <div className="mg-compact-block">
-                <div className="mg-section-header">
-                  <span className="mg-section-label mg-section-label--gold">{label}</span>
-                  <div className="mg-section-rule" />
-                </div>
-                <div className="mg-newblood-timeline mg-newblood-timeline--rich">
-                  <div className="mg-newblood-timeline-labels">
-                    <span className="mg-newblood-timeline-label">{fmtDate(withDates.reduce((a, b) => a[dateKey] < b[dateKey] ? a : b)[dateKey])}</span>
-                    <span className="mg-newblood-timeline-label">This Week</span>
-                  </div>
-                  <div className="mg-newblood-timeline-track mg-newblood-timeline-track--rich">
-                    {seasonMarkers.map(({ season, pct }) => (
-                      <div
-                        key={`s${season}`}
-                        className="mg-newblood-tl-season"
-                        style={{ left: `${pct}%` }}
-                      >
-                        <div className="mg-newblood-tl-season-line" />
-                        <span className="mg-newblood-tl-season-label">S{season}</span>
-                      </div>
-                    ))}
-                    {positioned.map((p, i) => {
-                      const profile = profiles.get(p.battleTag);
-                      return (
-                        <div
-                          key={p.battleTag}
-                          className={`mg-newblood-tl-item ${p.above ? "mg-newblood-tl-item--above" : "mg-newblood-tl-item--below"}`}
-                          style={{ left: `${p.pct}%` }}
-                        >
-                          <div className="mg-newblood-tl-stem" style={p.stemHeight !== 16 ? { height: `${p.stemHeight}px` } : undefined} />
-                          <Link to={`/player/${encodeURIComponent(p.battleTag)}`} className="mg-newblood-tl-card">
-                            {profile?.pic ? (
-                              <img src={profile.pic} alt="" className="mg-newblood-tl-avatar" />
-                            ) : (
-                              <div className="mg-newblood-tl-avatar-placeholder">
-                                <span>{p.name.charAt(0)}</span>
-                              </div>
-                            )}
-                            <span className="mg-newblood-tl-name">{p.name}</span>
-                          </Link>
-                        </div>
-                      );
-                    })}
-                  </div>
-                </div>
-              </div>
-            );
-          };
-
           // Compute gap duration for returning players, filter out trivial gaps (<2 weeks)
           const MIN_GAP_DAYS = 14;
           const weekStartMs = new Date(weekStart + "T00:00:00").getTime();
@@ -1446,11 +1622,44 @@ const CompactStats = ({ newBlood, atSpotlight, heroMeta, matchStats: rawMatchSta
           };
 
           return (
-            <>
-              {newPlayers.length > 0 && renderTimeline(newPlayers, "New Blood", "firstDate")}
+            <div className="mg-compact-block">
+              {newPlayers.length > 0 && (() => {
+                const fmtDate = (d) => new Date(d + "T12:00:00").toLocaleDateString("en-US", { month: "short", day: "numeric" });
+
+                return (
+                  <>
+                    <div className="mg-section-header">
+                      <span className="mg-section-label mg-section-label--gold">New Blood</span>
+                      <div className="mg-section-rule" />
+                    </div>
+                    <div className="mg-returning-list">
+                      {newPlayers.map((p) => {
+                        const profile = profiles.get(p.battleTag);
+                        return (
+                          <div key={p.battleTag} className="mg-returning-row">
+                            <div className="mg-returning-player">
+                              {profile?.pic ? (
+                                <img src={profile.pic} alt="" className="mg-returning-avatar" />
+                              ) : (
+                                <div className="mg-returning-avatar-placeholder">
+                                  <span>{p.name.charAt(0)}</span>
+                                </div>
+                              )}
+                              <Link to={`/player/${encodeURIComponent(p.battleTag)}`} className="mg-returning-name">{p.name}</Link>
+                              {profile?.country && <CountryFlag name={profile.country.toLowerCase()} />}
+                            </div>
+                            {p.firstDate && <span className="mg-returning-gap">{fmtDate(p.firstDate)}</span>}
+                            <span className="mg-returning-stats">{p.games} games · {p.mmr} MMR</span>
+                          </div>
+                        );
+                      })}
+                    </div>
+                  </>
+                );
+              })()}
               {returningWithGap.length > 0 && (
-                <div className="mg-compact-block">
-                  <div className="mg-section-header">
+                <>
+                  <div className="mg-section-header" style={newPlayers.length > 0 ? { marginTop: "var(--space-4)" } : undefined}>
                     <span className="mg-section-label mg-section-label--gold">Welcome Back</span>
                     <div className="mg-section-rule" />
                   </div>
@@ -1471,42 +1680,80 @@ const CompactStats = ({ newBlood, atSpotlight, heroMeta, matchStats: rawMatchSta
                             {profile?.country && <CountryFlag name={profile.country.toLowerCase()} />}
                           </div>
                           <span className="mg-returning-gap">{fmtGap(p.gapDays)} AFK</span>
-                          <span className="mg-returning-stats">{p.games}G · {p.mmr} MMR</span>
+                          <span className="mg-returning-stats">{p.games} games · {p.mmr} MMR</span>
                         </div>
                       );
                     })}
                   </div>
-                </div>
+                </>
               )}
-            </>
+            </div>
           );
         })()}
-        {stacks.length > 0 && (
-          <div className="mg-compact-block">
-            <div className="mg-section-header">
-              <span className="mg-section-label">Team Stacks</span>
-              <div className="mg-section-rule" />
-            </div>
-            <div className="mg-stacks-list">
-              {stacks.map((s, i) => (
-                <div key={i} className="mg-stack-row">
-                  <div className="mg-stack-players">
-                    {s.players.map((name, j) => (
-                      <span key={j} className="mg-stack-player-name">
-                        {name}{j < s.players.length - 1 ? " + " : ""}
-                      </span>
-                    ))}
-                    <span className="mg-stack-size">{s.stackSize}-stack</span>
+        {stacks.length > 0 && (() => {
+          // Group stacks by size, largest first
+          const bySize = new Map();
+          for (const s of stacks) {
+            const key = s.stackSize;
+            if (!bySize.has(key)) bySize.set(key, []);
+            bySize.get(key).push(s);
+          }
+          const groups = [...bySize.entries()].sort((a, b) => b[0] - a[0]);
+
+          // Shared scale for MMR charts
+          const allMmrs = stacks.flatMap((s) => s.players.filter((p) => p.mmr).map((p) => p.mmr));
+          const mmrPad = 30;
+          const scaleMin = allMmrs.length > 0 ? Math.min(...allMmrs) - mmrPad : 0;
+          const scaleMax = allMmrs.length > 0 ? Math.max(...allMmrs) + mmrPad : 1;
+
+          return (
+            <div className="mg-compact-block">
+              <div className="mg-section-header">
+                <span className="mg-section-label">Team Stacks</span>
+                <div className="mg-section-rule" />
+              </div>
+              {groups.map(([size, groupStacks]) => (
+                <div key={size} className="mg-stack-group">
+                  <div className="mg-stack-group-label">
+                    <ATCircle n={size} size={14} />
+                    <span>{size}-Stack</span>
                   </div>
-                  <span className="mg-stack-record">{s.wins}W-{s.losses}L</span>
-                  <span className={`mg-stack-wr ${s.winPct >= 60 ? "mg-text-green" : s.winPct < 50 ? "mg-text-red" : ""}`}>
-                    {s.winPct}%
-                  </span>
+                  <div className="mg-stacks-list">
+                    {groupStacks.map((s, i) => (
+                      <div key={i} className="mg-stack-card">
+                        <div className="mg-stack-left">
+                          {s.players.map((p, j) => {
+                            const name = typeof p === "string" ? p : p.name;
+                            const tag = typeof p === "string" ? null : p.battleTag;
+                            const profile = tag ? profiles.get(tag) : null;
+                            return (
+                              <div key={j} className="mg-stack-player">
+                                {profile?.country && <CountryFlag name={profile.country.toLowerCase()} />}
+                                {tag ? (
+                                  <Link to={`/player/${encodeURIComponent(tag)}`} className="mg-stack-player-name">{name}</Link>
+                                ) : (
+                                  <span className="mg-stack-player-name">{name}</span>
+                                )}
+                              </div>
+                            );
+                          })}
+                        </div>
+                        <StackMmrChart players={s.players} scaleMin={scaleMin} scaleMax={scaleMax} stackIdx={i} />
+                        <div className="mg-stack-right">
+                          <span className="mg-stack-mmr">{s.avgMmr} <span className="mg-stack-mmr-label">AVG MMR</span></span>
+                          <span className="mg-stack-record">{s.wins}W-{s.losses}L</span>
+                          <span className={`mg-stack-wr ${s.winPct >= 60 ? "mg-text-green" : s.winPct < 50 ? "mg-text-red" : ""}`}>
+                            {s.winPct}%
+                          </span>
+                        </div>
+                      </div>
+                    ))}
+                  </div>
                 </div>
               ))}
             </div>
-          </div>
-        )}
+          );
+        })()}
         {allAwards.length > 0 && (
           <div className="mg-compact-block">
             <div className="mg-section-header">
@@ -1567,10 +1814,47 @@ const CompactStats = ({ newBlood, atSpotlight, heroMeta, matchStats: rawMatchSta
   );
 };
 
-const ClipsSection = ({ clips }) => {
-  if (!clips || clips.length === 0) return null;
+const ClipsSection = ({ clips, editorial, onClipsChanged }) => {
+  const [dragIdx, setDragIdx] = useState(null);
+  const [dragOverIdx, setDragOverIdx] = useState(null);
+
+  if (!clips || clips.length === 0) {
+    if (!editorial) return null;
+    return (
+      <section className="mg-section mg-clips reveal" style={{ "--delay": "0.38s" }}>
+        <div className="mg-section-header">
+          <span className="mg-section-label">Clips</span>
+          <div className="mg-section-rule" />
+        </div>
+        <p style={{ color: "var(--grey-light)", fontStyle: "italic", textAlign: "center" }}>No clips yet</p>
+      </section>
+    );
+  }
+
+  const handleDelete = (idx) => {
+    const next = clips.filter((_, i) => i !== idx);
+    onClipsChanged(next);
+  };
+
+  const handleDrop = (toIdx) => {
+    if (dragIdx == null || dragIdx === toIdx) { setDragIdx(null); setDragOverIdx(null); return; }
+    const next = [...clips];
+    const [moved] = next.splice(dragIdx, 1);
+    next.splice(toIdx, 0, moved);
+    onClipsChanged(next);
+    setDragIdx(null);
+    setDragOverIdx(null);
+  };
+
   const featured = clips[0];
   const rest = clips.slice(1);
+
+  const renderClipOverlay = (idx) => editorial && (
+    <div className="mg-clip-editorial-overlay">
+      <button className="mg-clip-delete" onClick={(e) => { e.preventDefault(); e.stopPropagation(); handleDelete(idx); }} title="Remove clip"><FiX size={14} /></button>
+      <span className="mg-clip-drag-hint"><FiMenu size={12} /> drag to reorder</span>
+    </div>
+  );
 
   return (
     <section className="mg-section mg-clips reveal" style={{ "--delay": "0.38s" }}>
@@ -1578,7 +1862,17 @@ const ClipsSection = ({ clips }) => {
         <span className="mg-section-label">Clips</span>
         <div className="mg-section-rule" />
       </div>
-      <a href={featured.url} target="_blank" rel="noopener noreferrer" className="mg-clip-featured">
+      <a
+        href={featured.url} target="_blank" rel="noopener noreferrer"
+        className={`mg-clip-featured${dragOverIdx === 0 ? " mg-clip--dragover" : ""}`}
+        draggable={!!editorial}
+        onDragStart={editorial ? () => setDragIdx(0) : undefined}
+        onDragOver={editorial ? (e) => { e.preventDefault(); setDragOverIdx(0); } : undefined}
+        onDragLeave={editorial ? () => setDragOverIdx((p) => p === 0 ? null : p) : undefined}
+        onDrop={editorial ? (e) => { e.preventDefault(); handleDrop(0); } : undefined}
+        onDragEnd={editorial ? () => { setDragIdx(null); setDragOverIdx(null); } : undefined}
+      >
+        {renderClipOverlay(0)}
         <div className="mg-clip-thumb-wrap mg-clip-thumb-wrap--featured">
           <img src={featured.thumbnail_url} alt="" className="mg-clip-thumb" />
           <div className="mg-clip-play">&#9654;</div>
@@ -1591,19 +1885,32 @@ const ClipsSection = ({ clips }) => {
       </a>
       {rest.length > 0 && (
         <div className="mg-clips-grid">
-          {rest.map((clip) => (
-            <a key={clip.clip_id} href={clip.url} target="_blank" rel="noopener noreferrer" className="mg-clip-card">
-              <div className="mg-clip-thumb-wrap">
-                <img src={clip.thumbnail_url} alt="" className="mg-clip-thumb" />
-                <div className="mg-clip-play mg-clip-play--small">&#9654;</div>
-                <span className="mg-clip-duration">{Math.round(clip.duration)}s</span>
-              </div>
-              <div className="mg-clip-info">
-                <span className="mg-clip-title">{clip.title}</span>
-                <span className="mg-clip-meta">{clip.twitch_login} · {clip.view_count?.toLocaleString()} views</span>
-              </div>
-            </a>
-          ))}
+          {rest.map((clip, i) => {
+            const idx = i + 1;
+            return (
+              <a
+                key={clip.clip_id} href={clip.url} target="_blank" rel="noopener noreferrer"
+                className={`mg-clip-card${dragOverIdx === idx ? " mg-clip--dragover" : ""}`}
+                draggable={!!editorial}
+                onDragStart={editorial ? () => setDragIdx(idx) : undefined}
+                onDragOver={editorial ? (e) => { e.preventDefault(); setDragOverIdx(idx); } : undefined}
+                onDragLeave={editorial ? () => setDragOverIdx((p) => p === idx ? null : p) : undefined}
+                onDrop={editorial ? (e) => { e.preventDefault(); handleDrop(idx); } : undefined}
+                onDragEnd={editorial ? () => { setDragIdx(null); setDragOverIdx(null); } : undefined}
+              >
+                {renderClipOverlay(idx)}
+                <div className="mg-clip-thumb-wrap">
+                  <img src={clip.thumbnail_url} alt="" className="mg-clip-thumb" />
+                  <div className="mg-clip-play mg-clip-play--small">&#9654;</div>
+                  <span className="mg-clip-duration">{Math.round(clip.duration)}s</span>
+                </div>
+                <div className="mg-clip-info">
+                  <span className="mg-clip-title">{clip.title}</span>
+                  <span className="mg-clip-meta">{clip.twitch_login} · {clip.view_count?.toLocaleString()} views</span>
+                </div>
+              </a>
+            );
+          })}
         </div>
       )}
     </section>
@@ -1677,12 +1984,23 @@ const WeeklyMagazine = ({ weekParam, isAdmin = false, apiKey = "" }) => {
   // Regenerate digest (delete cache + re-fetch)
   const [regenerating, setRegenerating] = useState(false);
   const [showRegenConfirm, setShowRegenConfirm] = useState(false);
-  const [panelDrag, setPanelDrag] = useState({ section: null, from: null, over: null });
+  const panelDrag = useDragReorder();
 
-  const handlePanelDrop = (section, toIdx) => {
-    const { from } = panelDrag;
-    setPanelDrag({ section: null, from: null, over: null });
-    if (from == null || from === toIdx) return;
+  // Headline picker state
+  const [headlineOptions, setHeadlineOptions] = useState([]);
+  const [headlineLoading, setHeadlineLoading] = useState(false);
+  const [showHeadlinePicker, setShowHeadlinePicker] = useState(false);
+
+  // Preview mode — hides edit controls but keeps editorial panel visible
+  const [previewMode, setPreviewMode] = useState(false);
+  const showEditControls = ed.isEditorial && !previewMode;
+
+  // Cover gallery picker state
+  const [coverGenerations, setCoverGenerations] = useState([]);
+  const [coverGalleryLoading, setCoverGalleryLoading] = useState(false);
+  const [showCoverGallery, setShowCoverGallery] = useState(false);
+
+  const handlePanelDrop = (section, from, toIdx) => {
     ed.handleReorderItem(section, from, toIdx);
   };
   const handleTogglePublish = useCallback(async () => {
@@ -1727,6 +2045,88 @@ const WeeklyMagazine = ({ weekParam, isAdmin = false, apiKey = "" }) => {
     setRegenerating(false);
   }, [weekly, apiKey, weeklyIdx]);
 
+  // Headline picker — fetch 5 options from LLM
+  const fetchHeadlines = useCallback(async () => {
+    if (!weekly?.week_start || !apiKey) return;
+    setHeadlineLoading(true);
+    setShowHeadlinePicker(true);
+    try {
+      const res = await fetch(`${RELAY_URL}/api/admin/weekly-digest/${weekly.week_start}/headline`, {
+        method: "POST",
+        headers: { "X-API-Key": apiKey, "Content-Type": "application/json" },
+      });
+      if (res.ok) {
+        const data = await res.json();
+        setHeadlineOptions(data.headlines || []);
+      }
+    } catch (err) {
+      console.warn("[Magazine] Headline fetch failed:", err.message);
+    }
+    setHeadlineLoading(false);
+  }, [weekly, apiKey]);
+
+  // Cover gallery — fetch all saved generations across all weeks
+  const fetchCoverGallery = useCallback(async () => {
+    if (!apiKey) return;
+    setCoverGalleryLoading(true);
+    setShowCoverGallery(true);
+    try {
+      const res = await fetch(`${RELAY_URL}/api/admin/cover-generations`, {
+        headers: { "X-API-Key": apiKey },
+      });
+      if (res.ok) {
+        const data = await res.json();
+        setCoverGenerations(data || []);
+      }
+    } catch (err) {
+      console.warn("[Magazine] Cover gallery fetch failed:", err.message);
+    }
+    setCoverGalleryLoading(false);
+  }, [weekly, apiKey]);
+
+  // Pick a cover generation as the official cover
+  const [coverSaveState, setCoverSaveState] = useState(null); // null | "saving" | "saved" | "error"
+  const pickCover = useCallback(async (generationId) => {
+    if (!weekly?.week_start || !apiKey) return;
+    setCoverSaveState("saving");
+    try {
+      const res = await fetch(`${RELAY_URL}/api/admin/weekly-digest/${weekly.week_start}/cover-from-generation`, {
+        method: "POST",
+        headers: { "X-API-Key": apiKey, "Content-Type": "application/json" },
+        body: JSON.stringify({ generationId }),
+      });
+      if (res.ok) {
+        setCoverBg(`${RELAY_URL}/api/admin/weekly-digest/${weekly.week_start}/cover.jpg?t=${Date.now()}`);
+        setCoverSaveState("saved");
+        setTimeout(() => { setCoverSaveState(null); setShowCoverGallery(false); }, 1200);
+      } else {
+        setCoverSaveState("error");
+        setTimeout(() => setCoverSaveState(null), 2000);
+      }
+    } catch (err) {
+      console.warn("[Magazine] Pick cover failed:", err.message);
+      setCoverSaveState("error");
+      setTimeout(() => setCoverSaveState(null), 2000);
+    }
+  }, [weekly, apiKey]);
+
+  // Save cover focal point
+  const saveCoverPosition = useCallback(async (position) => {
+    if (!weekly?.week_start || !apiKey) return;
+    try {
+      await fetch(`${RELAY_URL}/api/admin/weekly-digest/${weekly.week_start}/cover-position`, {
+        method: "PUT",
+        headers: { "X-API-Key": apiKey, "Content-Type": "application/json" },
+        body: JSON.stringify({ position }),
+      });
+      setWeeklyDigests((prev) =>
+        prev.map((w, i) => (i === weeklyIdx ? { ...w, cover_position: position } : w))
+      );
+    } catch (err) {
+      console.warn("[Magazine] Save cover position failed:", err.message);
+    }
+  }, [weekly, apiKey, weeklyIdx]);
+
   // Dual-path digest data hook — JSON when available, text fallback otherwise
   const { digestData, knownNames, sections } = useDigestData({
     weekly,
@@ -1744,6 +2144,15 @@ const WeeklyMagazine = ({ weekParam, isAdmin = false, apiKey = "" }) => {
       if (tag.includes("#")) tags.add(tag);
     }
 
+    // Also collect from AT spotlight (stack players need flags)
+    if (digestData.atSpotlight) {
+      for (const stack of digestData.atSpotlight) {
+        for (const p of stack.players) {
+          if (p.battleTag) tags.add(p.battleTag);
+        }
+      }
+    }
+
     if (tags.size === 0) return;
 
     Promise.all([...tags].map((tag) => fetchAndCacheProfile(tag).then((p) => [tag, p]))).then(
@@ -1755,7 +2164,7 @@ const WeeklyMagazine = ({ weekParam, isAdmin = false, apiKey = "" }) => {
         setProfiles(map);
       }
     );
-  }, [weekly, knownNames]);
+  }, [weekly, knownNames, digestData.atSpotlight]);
 
   const [coverBg, setCoverBg] = useState(COVER_BACKGROUNDS[0]);
 
@@ -1797,7 +2206,7 @@ const WeeklyMagazine = ({ weekParam, isAdmin = false, apiKey = "" }) => {
   const dramaSubStories = dramaItems.slice(1).map((d) => d.summary);
 
   // Editorial callbacks for CoverHero — editing headline edits first drama item title
-  const editorialProps = ed.isEditorial ? {
+  const editorialProps = showEditControls ? {
     onEditHeadline: (text) => {
       if (dramaTitle) {
         ed.handleEditSummary("DRAMA", 0, `${text} | ${dramaLead}`);
@@ -1817,6 +2226,8 @@ const WeeklyMagazine = ({ weekParam, isAdmin = false, apiKey = "" }) => {
     handleEditSection: ed.handleEditSection,
     browseMessages: ed.browseMessages,
     setQuotes: ed.setQuotes,
+    weekStart: ed.weekStart,
+    weekEnd: ed.weekEnd,
   } : null;
 
   // No pre-built item controls — StoriesGrid builds its own internally for consistency
@@ -1842,12 +2253,27 @@ const WeeklyMagazine = ({ weekParam, isAdmin = false, apiKey = "" }) => {
         <div className="mg-editorial-panel reveal" style={{ "--delay": "0.08s" }}>
           <div className="mg-section-header" style={{ maxWidth: 900, margin: "0 auto", padding: "0 var(--space-6)" }}>
             <span className="mg-section-label mg-section-label--gold">Editorial Controls</span>
+            {weekly.dataCoverage && (
+              <span className="mg-data-coverage" title="Daily stats coverage for this week">
+                {Object.entries(weekly.dataCoverage).map(([date, has]) => (
+                  <span key={date} className={`mg-data-dot${has ? " mg-data-dot--ok" : ""}`} title={`${date}: ${has ? "data" : "missing"}`} />
+                ))}
+              </span>
+            )}
             <div className="mg-section-rule" />
           </div>
           <div className="mg-editorial-actions">
             {weekly.week_start && (
               <Button $secondary as="a" href={`/cover-art?week=${weekly.week_start}`} title="Edit cover image">Edit Cover</Button>
             )}
+            {weekly.week_start && (
+              <Button $secondary onClick={fetchCoverGallery} disabled={coverGalleryLoading} title="Browse generated covers and pick one">
+                {coverGalleryLoading ? "Loading..." : "Pick Cover"}
+              </Button>
+            )}
+            <Button $secondary onClick={fetchHeadlines} disabled={headlineLoading} title="Generate 5 headline options to choose from">
+              {headlineLoading ? "Generating..." : "Headlines"}
+            </Button>
             <Button $secondary onClick={() => setShowRegenConfirm(true)} disabled={regenerating} title="Delete cached digest and regenerate from scratch">
               {regenerating ? "Regenerating..." : "Regenerate"}
             </Button>
@@ -1873,10 +2299,14 @@ const WeeklyMagazine = ({ weekParam, isAdmin = false, apiKey = "" }) => {
                 <Button $secondary onClick={variantGen.startGeneration} style={{ marginLeft: "var(--space-2)" }}>Retry</Button>
               </span>
             )}
+            <Button $secondary onClick={() => setPreviewMode((p) => !p)} title={previewMode ? "Return to editing mode" : "Preview as a reader would see it"}>
+              {previewMode ? "Editing" : "Preview"}
+            </Button>
             <Button
+              $secondary={!!weekly.published}
+              $primary={!weekly.published}
               onClick={handleTogglePublish}
               title={weekly.published ? "Unpublish this weekly" : "Publish this weekly to all visitors"}
-              style={weekly.published ? {} : { background: "var(--green)", color: "#000", border: "1px solid var(--green)" }}
             >
               {weekly.published ? "Unpublish" : "Publish"}
             </Button>
@@ -1893,20 +2323,21 @@ const WeeklyMagazine = ({ weekParam, isAdmin = false, apiKey = "" }) => {
                 {items.map((item, i) => {
                   const summaryText = item.replace(/"[^"]+"/g, "").replace(/\s{2,}/g, " ").trim();
                   const short = summaryText.length > 60 ? summaryText.slice(0, 57) + "..." : summaryText;
+                  const isSelected = ed.sectionSelections[key]?.has(i);
                   return (
                     <div
                       key={i}
-                      className={`mg-editorial-item${panelDrag.section === key && panelDrag.over === i ? " mg-editorial-item--dragover" : ""}`}
-                      onDragOver={(e) => { if (panelDrag.section === key) { e.preventDefault(); setPanelDrag((s) => ({ ...s, over: i })); } }}
-                      onDragLeave={() => setPanelDrag((s) => s.over === i ? { ...s, over: null } : s)}
-                      onDrop={(e) => { if (panelDrag.section === key) { e.preventDefault(); handlePanelDrop(key, i); } }}
+                      className={`mg-editorial-item${panelDrag.isDragOver(key, i) ? " mg-editorial-item--dragover" : ""}${!isSelected ? " mg-editorial-item--unpublished" : ""}`}
+                      onDragOver={(e) => { if (panelDrag.dragState.section === key) { e.preventDefault(); panelDrag.onDragOver(key, i); } }}
+                      onDragLeave={() => panelDrag.onDragLeave(i)}
+                      onDrop={(e) => { if (panelDrag.dragState.section === key) { e.preventDefault(); panelDrag.onDrop(key, i, handlePanelDrop); } }}
                     >
                       <ItemControls
                         onDelete={() => ed.handleDeleteItem(key, i)}
                         dragProps={{
                           draggable: true,
-                          onDragStart: () => setPanelDrag({ section: key, from: i, over: null }),
-                          onDragEnd: () => setPanelDrag({ section: null, from: null, over: null }),
+                          onDragStart: () => panelDrag.onDragStart(key, i),
+                          onDragEnd: panelDrag.onDragEnd,
                         }}
                       />
                       {ed.editingItem === `${key}-${i}` ? (
@@ -1969,7 +2400,14 @@ const WeeklyMagazine = ({ weekParam, isAdmin = false, apiKey = "" }) => {
       )}
 
       {/* ACT 1 — THE STORIES */}
-      <CoverHero weekly={weekly} coverBg={coverBg} headline={dramaTitle || dramaLead} editorial={editorialProps} />
+      <CoverHero weekly={weekly} coverBg={coverBg} headline={dramaTitle || dramaLead} editorial={editorialProps} onPickCover={showEditControls ? fetchCoverGallery : null} coverPosition={weekly.cover_position} onSaveCoverPosition={showEditControls ? saveCoverPosition : null} />
+
+      {showEditControls && (
+        <TopicPills
+          topics={digestData.narrative.topics}
+          editorial={{ handleEditTopics: ed.handleEditTopics }}
+        />
+      )}
 
       {dramaLead && (
         <FeatureStory
@@ -1986,38 +2424,53 @@ const WeeklyMagazine = ({ weekParam, isAdmin = false, apiKey = "" }) => {
         highlights={digestData.narrative.highlights}
         bans={digestData.narrative.bans}
         nameToTag={knownNames}
-        editorial={ed.isEditorial ? {
+        editorial={showEditControls ? {
           deleteItem: ed.handleDeleteItem,
           reorderItem: ed.handleReorderItem,
+          addItem: ed.handleAddItem,
           onEditDrama: (subIdx, text) => ed.handleEditSummary("DRAMA", subIdx + 1, text),
           onEditHighlight: (idx, text) => ed.handleEditSummary("HIGHLIGHTS", idx, text),
+          onEditBan: (idx, reason, ban) => {
+            const parts = [ban.name, ban.duration, reason].filter(Boolean);
+            if (ban.matchId) parts.push(ban.matchId);
+            ed.handleEditSummary("BANS", idx, parts.join(" "));
+          },
           regenSection: ed.regenSection,
           regenLoading: ed.regenLoading,
+          weekStart: ed.weekStart,
+          weekEnd: ed.weekEnd,
         } : null}
       />
 
-      <ClipsSection clips={weekly.clips} />
+      <ClipsSection
+        clips={weekly.clips}
+        editorial={showEditControls ? {} : null}
+        onClipsChanged={showEditControls ? (newClips) => {
+          setWeeklyDigests((prev) => prev.map((w, i) => i === weeklyIdx ? { ...w, clips: newClips } : w));
+          ed.handleEditClips(newClips);
+        } : undefined}
+      />
 
       {/* Player features */}
-      {(!ed.isEditorial || !["WINNER", "LOSER", "GRINDER", "HOTSTREAK", "COLDSTREAK", "HEROSLAYER"].every((k) => ed.hiddenStats.has(k))) && (
+      {(!showEditControls || !["WINNER", "LOSER", "GRINDER", "HOTSTREAK", "COLDSTREAK", "HEROSLAYER"].every((k) => ed.hiddenStats.has(k))) && (
         <SpotlightsSection
           spotlights={digestData.spotlights}
           profiles={profiles}
-          editorial={ed.isEditorial ? { regenSpotlights: ed.regenSpotlights, regenMatchStats: ed.regenMatchStats, regenLoading: ed.regenLoading, browseMessages: ed.browseMessages, setQuotes: ed.setQuotes, handleEditSection: ed.handleEditSection } : null}
+          editorial={showEditControls ? { regenSpotlights: ed.regenSpotlights, regenMatchStats: ed.regenMatchStats, regenLoading: ed.regenLoading, browseMessages: ed.browseMessages, setQuotes: ed.setQuotes, handleEditSection: ed.handleEditSection, toggleStat: ed.toggleStat, weekStart: ed.weekStart, weekEnd: ed.weekEnd } : null}
         />
       )}
-      {digestData.upsets.length > 0 && (!ed.isEditorial || !ed.hiddenSections.has("UPSET")) && (
+      {digestData.upsets.length > 0 && (!showEditControls || !ed.hiddenSections.has("UPSET")) && (
         <UpsetsSection upsets={digestData.upsets} profiles={profiles} />
       )}
       {/* Stats & data */}
-      {digestData.powerRankings.length > 0 && (!ed.isEditorial || !ed.hiddenSections.has("POWER_RANKINGS")) && (
+      {digestData.powerRankings.length > 0 && (!showEditControls || !ed.hiddenSections.has("POWER_RANKINGS")) && (
         <RankingsSection rankings={digestData.powerRankings} profiles={profiles} />
       )}
       <CompactStats
-        newBlood={(!ed.isEditorial || !ed.hiddenSections.has("NEW_BLOOD")) ? digestData.newBlood : null}
-        atSpotlight={(!ed.isEditorial || !ed.hiddenSections.has("AT_SPOTLIGHT")) ? digestData.atSpotlight : null}
-        heroMeta={(!ed.isEditorial || !ed.hiddenSections.has("HEROES")) ? digestData.heroMeta : null}
-        matchStats={(!ed.isEditorial || !ed.hiddenSections.has("MATCH_STATS")) ? digestData.matchStats : null}
+        newBlood={(!showEditControls || !ed.hiddenSections.has("NEW_BLOOD")) ? digestData.newBlood : null}
+        atSpotlight={(!showEditControls || !ed.hiddenSections.has("AT_SPOTLIGHT")) ? digestData.atSpotlight : null}
+        heroMeta={(!showEditControls || !ed.hiddenSections.has("HEROES")) ? digestData.heroMeta : null}
+        matchStats={(!showEditControls || !ed.hiddenSections.has("MATCH_STATS")) ? digestData.matchStats : null}
         profiles={profiles}
         weekStart={weekly?.week_start}
         weekEnd={weekly?.week_end}
@@ -2037,6 +2490,93 @@ const WeeklyMagazine = ({ weekParam, isAdmin = false, apiKey = "" }) => {
         onConfirm={doRegenerate}
         onCancel={() => setShowRegenConfirm(false)}
       />
+
+      {/* Headline picker overlay */}
+      {showHeadlinePicker && (
+        <div className="mg-picker-overlay" onClick={() => setShowHeadlinePicker(false)}>
+          <div className="mg-picker-panel" onClick={(e) => e.stopPropagation()}>
+            <div className="mg-picker-header">
+              <span className="mg-section-label mg-section-label--gold">Pick a Headline</span>
+              <button className="mg-picker-close" onClick={() => setShowHeadlinePicker(false)}><FiX size={16} /></button>
+            </div>
+            {headlineLoading ? (
+              <div className="mg-picker-loading"><PeonLoader size="sm" /></div>
+            ) : headlineOptions.length === 0 ? (
+              <p className="mg-picker-empty">No headlines generated yet.</p>
+            ) : (
+              <div className="mg-headline-options">
+                {headlineOptions.map((opt, i) => (
+                  <button
+                    key={i}
+                    className="mg-headline-option"
+                    onClick={() => {
+                      editorialProps?.onEditHeadline(opt.headline);
+                      setShowHeadlinePicker(false);
+                    }}
+                  >
+                    <span className="mg-headline-score">{opt.score}</span>
+                    <div className="mg-headline-content">
+                      <span className="mg-headline-text">{opt.headline}</span>
+                      {opt.players?.length > 0 && (
+                        <span className="mg-headline-players">
+                          {opt.players.map((p) => p.name).join(", ")}
+                        </span>
+                      )}
+                    </div>
+                  </button>
+                ))}
+              </div>
+            )}
+          </div>
+        </div>
+      )}
+
+      {/* Cover gallery picker overlay */}
+      {showCoverGallery && (
+        <div className="mg-picker-overlay" onClick={() => setShowCoverGallery(false)}>
+          <div className="mg-picker-panel mg-picker-panel--gallery" onClick={(e) => e.stopPropagation()}>
+            <div className="mg-picker-header">
+              <span className="mg-section-label mg-section-label--gold">Pick a Cover{coverGenerations.length > 0 ? ` (${coverGenerations.length})` : ""}</span>
+              {coverSaveState && (
+                <span className={`mg-cover-save-state mg-cover-save-state--${coverSaveState}`}>
+                  {coverSaveState === "saving" ? "Saving..." : coverSaveState === "saved" ? "Saved!" : "Failed"}
+                </span>
+              )}
+              <button className="mg-picker-close" onClick={() => setShowCoverGallery(false)}><FiX size={16} /></button>
+            </div>
+            {coverGalleryLoading ? (
+              <div className="mg-picker-loading"><PeonLoader size="sm" /></div>
+            ) : coverGenerations.length === 0 ? (
+              <p className="mg-picker-empty">No generated covers found.</p>
+            ) : (
+              <div className="mg-cover-grid">
+                {coverGenerations.map((gen) => (
+                  <div
+                    key={gen.id}
+                    className="mg-cover-card"
+                    onClick={() => pickCover(gen.id)}
+                  >
+                    <div className="mg-cover-card-thumb">
+                      <img
+                        src={`${RELAY_URL}/api/admin/cover-generation/${gen.id}/image`}
+                        alt={gen.headline || "Cover option"}
+                        loading="lazy"
+                      />
+                    </div>
+                    <div className="mg-cover-card-info">
+                      {gen.headline && <span className="mg-cover-card-title">{gen.headline}</span>}
+                      <span className="mg-cover-card-date">
+                        {gen.week_start && <span className="mg-cover-card-week">{gen.week_start}</span>}
+                        {new Date(gen.created_at + "Z").toLocaleString()}
+                      </span>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            )}
+          </div>
+        </div>
+      )}
 
       {/* Variant picker overlay */}
       {variantGen.showPicker && variantGen.variants.length > 0 && (

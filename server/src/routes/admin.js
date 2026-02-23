@@ -2,7 +2,7 @@ import { Router } from 'express';
 import rateLimit from 'express-rate-limit';
 import multer from 'multer';
 import config from '../config.js';
-import { setToken, getStats, getTopWords, getRecentDigests, deleteDigest, getDigest, getRecentWeeklyDigests, deleteWeeklyDigest, getWeeklyDigest, getWeeklyCoverImage, setWeeklyCoverImage, getDraftForDate, updateDigestOnly, updateDraftOnly, updateHiddenAvatars, getContextAroundQuotes, getMessagesByTimeWindow, getMessagesByDateAndUsers, getMessageBuckets, getGameStats, getMatchContext, getClipsByDateRange, saveCoverGeneration, getCoverGenerations, getCoverGenerationImage, deleteCoverGeneration, getWeeklyDraftForWeek, updateWeeklyDraftOnly, updateWeeklyDigestOnly, createGenJob, getActiveGenJob, getLatestGenJob, getVariantsForJob, searchMessages, searchMessagesByPlayer, getMessagesAroundTime, countMessagesByDateRange, updateWeeklyDigestJson, getDigestsByDateRange, saveStyleThumbnail, getStyleThumbnail, toggleWeeklyPublished } from '../db.js';
+import { setToken, getStats, getTopWords, getRecentDigests, deleteDigest, getDigest, getRecentWeeklyDigests, deleteWeeklyDigest, getWeeklyDigest, getWeeklyCoverImage, setWeeklyCoverImage, updateWeeklyCoverPosition, getDraftForDate, updateDigestOnly, updateDraftOnly, updateHiddenAvatars, getContextAroundQuotes, getMessagesByTimeWindow, getMessagesByDateAndUsers, getMessageBuckets, getGameStats, getMatchContext, getClipsByDateRange, saveCoverGeneration, getCoverGenerations, getAllCoverGenerations, getCoverGenerationImage, deleteCoverGeneration, getWeeklyDraftForWeek, updateWeeklyDraftOnly, updateWeeklyDigestOnly, createGenJob, getActiveGenJob, getLatestGenJob, getVariantsForJob, searchMessages, searchMessagesByPlayer, getMessagesAroundTime, countMessagesByDateRange, updateWeeklyDigestJson, updateWeeklyClips, getDigestsByDateRange, saveStyleThumbnail, getStyleThumbnail, toggleWeeklyPublished, hasDailyPlayerStats } from '../db.js';
 import { updateToken, getStatus } from '../signalr.js';
 import { getClientCount } from '../sse.js';
 import { setBotEnabled, isBotEnabled, testCommand } from '../bot.js';
@@ -476,6 +476,18 @@ router.get('/weekly-digests', publicLimiter, (req, res) => {
         result.stats = { ...(result.stats || {}), totalMessages: count };
       }
     }
+    // Data coverage — admin only
+    if (isAdmin && w.week_start && w.week_end) {
+      const coverage = {};
+      const d = new Date(w.week_start + 'T00:00:00Z');
+      const end = new Date(w.week_end + 'T00:00:00Z');
+      while (d <= end) {
+        const dateStr = d.toISOString().slice(0, 10);
+        coverage[dateStr] = hasDailyPlayerStats(dateStr);
+        d.setUTCDate(d.getUTCDate() + 1);
+      }
+      result.dataCoverage = coverage;
+    }
     return result;
   });
   res.json(weeklies);
@@ -545,6 +557,26 @@ router.put('/weekly-digest/:weekStart/publish', requireApiKey, (req, res) => {
   if (!existing) {
     return res.status(404).json({ error: 'Weekly digest not found' });
   }
+
+  // When publishing (not unpublishing), rebuild digest_json from the curated digest
+  // The curated digest (existing.digest) is maintained by the /curate endpoint during
+  // autosave — it has editorial selections, hidden sections, and item edits applied.
+  // Use that, not the raw draft (which contains all items including deselected ones).
+  const isCurrentlyPublished = !!existing.published;
+  if (!isCurrentlyPublished) {
+    const source = existing.digest || existing.draft;
+    if (source) {
+      try {
+        const stats = existing.stats ? JSON.parse(existing.stats) : {};
+        const clips = existing.clips ? JSON.parse(existing.clips) : [];
+        const jsonObj = digestToJSON(source, { weekStart, weekEnd: existing.week_end, stats, clips });
+        updateWeeklyDigestJson(weekStart, JSON.stringify(jsonObj));
+      } catch (err) {
+        console.warn('[Publish] digest_json rebuild failed:', err.message);
+      }
+    }
+  }
+
   const result = toggleWeeklyPublished(weekStart);
   res.json({ ok: true, weekStart, published: !!result?.published });
 });
@@ -608,18 +640,32 @@ router.put('/weekly-digest/:weekStart/curate', requireApiKey, (req, res) => {
   res.json({ ok: true, weekStart, digest: curated });
 });
 
+// Update clips for a weekly digest (admin)
+router.put('/weekly-digest/:weekStart/clips', requireApiKey, (req, res) => {
+  const { weekStart } = req.params;
+  if (!/^\d{4}-\d{2}-\d{2}$/.test(weekStart)) {
+    return res.status(400).json({ error: 'weekStart must be YYYY-MM-DD' });
+  }
+  const { clips } = req.body;
+  if (!Array.isArray(clips)) {
+    return res.status(400).json({ error: 'clips (array) is required' });
+  }
+  updateWeeklyClips(weekStart, JSON.stringify(clips));
+  res.json({ ok: true, weekStart, clips });
+});
+
 // Regenerate a single narrative section of a weekly digest (admin, AI)
 router.post('/weekly-digest/:weekStart/regen-section', requireApiKey, aiLimiter, async (req, res) => {
   const { weekStart } = req.params;
   if (!/^\d{4}-\d{2}-\d{2}$/.test(weekStart)) {
     return res.status(400).json({ error: 'weekStart must be YYYY-MM-DD' });
   }
-  const { section } = req.body;
+  const { section, existing } = req.body;
   if (!section) {
     return res.status(400).json({ error: 'Missing section key' });
   }
   try {
-    const content = await regenerateSection(weekStart, section);
+    const content = await regenerateSection(weekStart, section, existing);
     res.json({ ok: true, section, content });
   } catch (err) {
     console.error(`[Regen] ${section} error:`, err.message);
@@ -1036,7 +1082,7 @@ router.post('/generate-image', requireApiKey, imageLimiter, async (req, res) => 
 // List saved cover generations for a week (or all)
 router.get('/cover-generations', requireApiKey, (req, res) => {
   const { weekStart } = req.query;
-  const generations = weekStart ? getCoverGenerations(weekStart) : getCoverGenerations(req.query.weekStart);
+  const generations = weekStart ? getCoverGenerations(weekStart) : getAllCoverGenerations();
   res.json(generations || []);
 });
 
@@ -1073,6 +1119,20 @@ router.post('/weekly-digest/:weekStart/cover-from-generation', requireApiKey, (r
   setWeeklyCoverImage(weekStart, imageBuffer);
   console.log(`[CoverImage] Set generation #${generationId} as cover for ${weekStart}`);
   res.json({ ok: true });
+});
+
+// Update cover image focal point (admin)
+router.put('/weekly-digest/:weekStart/cover-position', requireApiKey, (req, res) => {
+  const { weekStart } = req.params;
+  if (!/^\d{4}-\d{2}-\d{2}$/.test(weekStart)) {
+    return res.status(400).json({ error: 'weekStart must be YYYY-MM-DD' });
+  }
+  const { position } = req.body;
+  if (!position || typeof position !== 'string') {
+    return res.status(400).json({ error: 'position is required (e.g. "50% 30%")' });
+  }
+  updateWeeklyCoverPosition(weekStart, position);
+  res.json({ ok: true, position });
 });
 
 // Delete a saved cover generation

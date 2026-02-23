@@ -1,4 +1,6 @@
 {
+  "terminal.integrated.defaultLocation": "editor",
+  "terminal.integrated.enablePersistentSessions": false,
   "workbench.colorCustomizations": {
     "titleBar.activeBackground": "#fcdb33",
     "titleBar.activeForeground": "#1a1a1a",

@@ -76,8 +76,8 @@ export const DIGEST_SECTIONS = [
 ];
 
 const HEROSLAYER_DATA_KEYS = ["HEROSLAYER_HEROES", "HEROSLAYER_VICTIMS", "HEROSLAYER_KILLBOARD", "HEROSLAYER_MAX"];
-const BLURB_KEYS = ["WINNER_BLURB", "LOSER_BLURB", "GRINDER_BLURB", "HOTSTREAK_BLURB", "COLDSTREAK_BLURB", "HEROSLAYER_BLURB", "Hero Slayer_BLURB", "Unit Killer_BLURB"];
-const QUOTE_KEYS = ["DRAMA_QUOTES", "WINNER_QUOTES", "LOSER_QUOTES", "GRINDER_QUOTES", "HOTSTREAK_QUOTES", "COLDSTREAK_QUOTES", "HEROSLAYER_QUOTES", "Hero Slayer_QUOTES", "Unit Killer_QUOTES"];
+const BLURB_KEYS = ["WINNER_BLURB", "LOSER_BLURB", "GRINDER_BLURB", "HOTSTREAK_BLURB", "COLDSTREAK_BLURB", "HEROSLAYER_BLURB", "UNITKILLER_BLURB", "Hero Slayer_BLURB", "Unit Killer_BLURB"];
+const QUOTE_KEYS = ["DRAMA_QUOTES", "WINNER_QUOTES", "LOSER_QUOTES", "GRINDER_QUOTES", "HOTSTREAK_QUOTES", "COLDSTREAK_QUOTES", "HEROSLAYER_QUOTES", "UNITKILLER_QUOTES", "Hero Slayer_QUOTES", "Unit Killer_QUOTES"];
 const STREAK_DATA_KEYS = ["HOTSTREAK_DAILY", "COLDSTREAK_DAILY", "STREAK_SPECTRUM"];
 export const ALL_SECTION_KEYS = [...DIGEST_SECTIONS.map((s) => s.key), ...BLURB_KEYS, ...QUOTE_KEYS, ...STREAK_DATA_KEYS, ...HEROSLAYER_DATA_KEYS, "MENTIONS"];
 export const SECTION_RE = new RegExp(`^(${ALL_SECTION_KEYS.join("|")})\\s*:\\s*`, "gm");
@@ -419,8 +419,9 @@ export const extractPlayerContext = (playerName, sections) => {
  * @returns {{ blurb: string|null, quotes: string[] }}
  */
 export const getSpotlightExtras = (statKey, sections) => {
-  const blurbSec = sections.find((s) => s.key === `${statKey}_BLURB`);
-  const quotesSec = sections.find((s) => s.key === `${statKey}_QUOTES`);
+  const normKey = statKey.replace(/\s+/g, "").toUpperCase();
+  const blurbSec = sections.find((s) => s.key === `${normKey}_BLURB`) || sections.find((s) => s.key === `${statKey}_BLURB`);
+  const quotesSec = sections.find((s) => s.key === `${normKey}_QUOTES`) || sections.find((s) => s.key === `${statKey}_QUOTES`);
   const blurb = blurbSec?.content?.trim() || null;
   const quotes = [];
   if (quotesSec) {

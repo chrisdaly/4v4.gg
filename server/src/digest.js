@@ -370,7 +370,7 @@ export { fetchDailyStats, formatMmrLine, formatGrinderLine, formatWinStreakLine,
  * Parse a full digest text into its raw section blocks.
  * Returns array of { key, content } for each section found.
  */
-const ALL_SECTION_KEYS_RE = /^(TOPICS|DRAMA|BANS|HIGHLIGHTS|RECAP|SPIKES|WINNER|LOSER|GRINDER|HOTSTREAK|COLDSTREAK|HEROSLAYER|HOTSTREAK_DAILY|COLDSTREAK_DAILY|STREAK_SPECTRUM|WINNER_BLURB|LOSER_BLURB|GRINDER_BLURB|HOTSTREAK_BLURB|COLDSTREAK_BLURB|HEROSLAYER_BLURB|HEROSLAYER_HEROES|HEROSLAYER_VICTIMS|HEROSLAYER_KILLBOARD|HEROSLAYER_MAX|WINNER_QUOTES|LOSER_QUOTES|GRINDER_QUOTES|HOTSTREAK_QUOTES|COLDSTREAK_QUOTES|HEROSLAYER_QUOTES|Hero Slayer_BLURB|Unit Killer_BLURB|Hero Slayer_QUOTES|Unit Killer_QUOTES|NEW_BLOOD|UPSET|AT_SPOTLIGHT|BEST_OF_CHAT|POWER_RANKINGS|MATCH_STATS|HEROES|AWARDS|CLIPS|MENTIONS)\s*:\s*/gm;
+const ALL_SECTION_KEYS_RE = /^(TOPICS|DRAMA|DRAMA_QUOTES|BANS|HIGHLIGHTS|RECAP|SPIKES|WINNER|LOSER|GRINDER|HOTSTREAK|COLDSTREAK|HEROSLAYER|HOTSTREAK_DAILY|COLDSTREAK_DAILY|STREAK_SPECTRUM|WINNER_BLURB|LOSER_BLURB|GRINDER_BLURB|HOTSTREAK_BLURB|COLDSTREAK_BLURB|HEROSLAYER_BLURB|UNITKILLER_BLURB|HEROSLAYER_HEROES|HEROSLAYER_VICTIMS|HEROSLAYER_KILLBOARD|HEROSLAYER_MAX|HEROSLAYER_DISTRIBUTION|WINNER_QUOTES|LOSER_QUOTES|GRINDER_QUOTES|HOTSTREAK_QUOTES|COLDSTREAK_QUOTES|HEROSLAYER_QUOTES|UNITKILLER_QUOTES|Hero Slayer_BLURB|Unit Killer_BLURB|Hero Slayer_QUOTES|Unit Killer_QUOTES|NEW_BLOOD|UPSET|AT_SPOTLIGHT|BEST_OF_CHAT|POWER_RANKINGS|MATCH_STATS|HEROES|AWARDS|CLIPS|MENTIONS)\s*:\s*/gm;
 
 function parseDigestSections(text) {
   const sections = [];
@@ -452,8 +452,11 @@ function parseTopicsJSON(content) {
  * Parse DRAMA/HIGHLIGHTS items with per-item quote extraction.
  * Key: split on semicolons FIRST, then extract quotes per-item.
  * Lead item (index 0) checks for | pipe headline separator.
+ * @param {string} content - The section content text
+ * @param {string} [leadQuotesContent] - Optional DRAMA_QUOTES section content;
+ *   if present, lead item uses these quotes instead of inline quotes.
  */
-function parseDramaItems(content) {
+function parseDramaItems(content, leadQuotesContent) {
   if (!content) return [];
   return content.split(/;\s*/).map((raw, idx) => {
     const trimmed = raw.trim();
@@ -466,6 +469,11 @@ function parseDramaItems(content) {
       if (pipeIdx > 0) {
         item.headline = summary.slice(0, pipeIdx).trim();
         item.summary = summary.slice(pipeIdx + 1).trim();
+      }
+      // Prefer explicit DRAMA_QUOTES section over inline quotes
+      if (leadQuotesContent) {
+        const explicit = extractQuotedStrings(leadQuotesContent).map(parseQuoteString);
+        if (explicit.length > 0) item.quotes = explicit;
       }
     }
     return item;
@@ -630,6 +638,23 @@ function parseHeroSlayerCard(sections) {
   const maxContent = find('HEROSLAYER_MAX');
   if (maxContent) card.maxKillsInGame = parseInt(maxContent) || 0;
 
+  const distContent = find('HEROSLAYER_DISTRIBUTION');
+  if (distContent) {
+    const parseHist = (str) => {
+      const result = {};
+      if (!str) return result;
+      for (const e of str.split(',')) {
+        const [k, v] = e.split('=');
+        if (!isNaN(parseInt(k)) && !isNaN(parseInt(v))) result[parseInt(k)] = parseInt(v);
+      }
+      return result;
+    };
+    const parts = distContent.split('|');
+    const allPart = parts[0] || '';
+    const playerPart = (parts.find(p => p.startsWith('player:')) || '').replace('player:', '');
+    card.killsDistribution = { all: parseHist(allPart), player: parseHist(playerPart) };
+  }
+
   return card;
 }
 
@@ -681,9 +706,10 @@ function parseAwardCardsJSON(content, sections) {
       : [];
 
     const category = m[1];
-    // Look for companion blurb/quotes sections
-    const blurbSec = sections.find(s => s.key === `${category}_BLURB`);
-    const quotesSec = sections.find(s => s.key === `${category}_QUOTES`);
+    // Look for companion blurb/quotes sections (try normalized key first, then raw category)
+    const normKey = category.replace(/\s+/g, '').toUpperCase();
+    const blurbSec = sections.find(s => s.key === `${normKey}_BLURB`) || sections.find(s => s.key === `${category}_BLURB`);
+    const quotesSec = sections.find(s => s.key === `${normKey}_QUOTES`) || sections.find(s => s.key === `${category}_QUOTES`);
     const blurb = blurbSec?.content?.trim() || null;
     const quotes = quotesSec
       ? extractQuotedStrings(quotesSec.content).map(parseQuoteString)
@@ -822,7 +848,7 @@ export function digestToJSON(digestText, { weekStart, weekEnd, stats, clips } = 
     weekEnd: weekEnd || null,
     narrative: {
       topics: parseTopicsJSON(find('TOPICS')),
-      drama: parseDramaItems(find('DRAMA')),
+      drama: parseDramaItems(find('DRAMA'), find('DRAMA_QUOTES')),
       bans: parseBanItems(find('BANS')),
       highlights: parseHighlightItems(find('HIGHLIGHTS')),
       recap: find('RECAP') || null,
@@ -1923,17 +1949,160 @@ export function getPlayerMessageCandidates(weekStart, statKey, battleTag) {
 /**
  * Generate BLURB and QUOTES lines for all spotlight stat types.
  * Returns array of strings like ["WINNER_BLURB: ...", "WINNER_QUOTES: ...", ...]
+ * Rewrites stat-template blurbs through AI with chat context for more engaging copy.
  */
-function generateSpotlightBlurbs(spotlights, dailyRows, weekStart, weekEnd) {
+async function generateSpotlightBlurbs(spotlights, dailyRows, weekStart, weekEnd) {
   const lines = [];
+  const rewriteCandidates = [];
+
+  // Pull previous week's digest for cross-week narrative context
+  const prevWeekContext = getPreviousWeekContext(weekStart);
+
   for (const { key, player } of spotlights) {
     if (!player) continue;
     const blurb = buildSpotlightBlurb(key, player, dailyRows);
-    if (blurb) lines.push(`${key}_BLURB: ${blurb}`);
     const quotes = pickPlayerQuotes(player.battleTag, weekStart, weekEnd, 3, key);
     if (quotes.length > 0) lines.push(`${key}_QUOTES: ${quotes.map(q => `"${q}"`).join('; ')}`);
+    if (blurb) {
+      const prevContext = prevWeekContext.get(player.battleTag) || null;
+      rewriteCandidates.push({ key, blurb, quotes, name: player.battleTag.split('#')[0], prevContext });
+    }
   }
+
+  // Rewrite blurbs through AI with chat context
+  if (rewriteCandidates.length > 0 && config.ANTHROPIC_API_KEY) {
+    try {
+      const rewritten = await rewriteSpotlightBlurbs(rewriteCandidates);
+      for (const { key, blurb } of rewritten) {
+        lines.push(`${key}_BLURB: ${blurb}`);
+      }
+    } catch (err) {
+      console.warn('[Weekly] Blurb rewrite failed, using stat templates:', err.message);
+      for (const { key, blurb } of rewriteCandidates) {
+        lines.push(`${key}_BLURB: ${blurb}`);
+      }
+    }
+  } else {
+    for (const { key, blurb } of rewriteCandidates) {
+      lines.push(`${key}_BLURB: ${blurb}`);
+    }
+  }
+
   return lines;
+}
+
+/**
+ * Extract player context from the previous week's digest.
+ * Returns Map<battleTag, string> with narrative context (spotlight role, MMR, record, power ranking).
+ */
+function getPreviousWeekContext(weekStart) {
+  const context = new Map();
+  try {
+    const prevDate = new Date(weekStart + 'T12:00:00Z');
+    prevDate.setUTCDate(prevDate.getUTCDate() - 7);
+    const prevWeekStart = prevDate.toISOString().slice(0, 10);
+    const prev = getWeeklyDigest(prevWeekStart);
+    if (!prev?.digest) return context;
+
+    const digest = prev.digest;
+    const lines = digest.split('\n');
+
+    // Extract spotlight players and their roles
+    const STAT_KEYS = ['WINNER', 'LOSER', 'GRINDER', 'HOTSTREAK', 'COLDSTREAK', 'HEROSLAYER'];
+    const ROLE_NAMES = {
+      WINNER: 'biggest winner', LOSER: 'biggest loser', GRINDER: 'grinder',
+      HOTSTREAK: 'hot streak', COLDSTREAK: 'cold streak', HEROSLAYER: 'hero slayer',
+    };
+    for (const line of lines) {
+      const tag = line.split(':')[0];
+      if (STAT_KEYS.includes(tag)) {
+        const content = line.slice(tag.length + 1).trim();
+        // Extract battleTag (first token)
+        const battleTag = content.split(/\s/)[0];
+        if (battleTag && battleTag.includes('#')) {
+          const existing = context.get(battleTag) || '';
+          context.set(battleTag, (existing ? existing + '; ' : '') + `Last week's ${ROLE_NAMES[tag] || tag}: ${content}`);
+        }
+      }
+    }
+
+    // Extract power rankings mentions
+    for (const line of lines) {
+      if (line.startsWith('POWER_RANKINGS:')) {
+        const rankings = line.slice('POWER_RANKINGS:'.length).trim().split(/;\s*/);
+        for (const entry of rankings) {
+          const m = entry.match(/(\d+)\.\s*(\S+#\d+)/);
+          if (m) {
+            const [, rank, battleTag] = m;
+            const existing = context.get(battleTag) || '';
+            const rankStr = `Ranked #${rank} in last week's power rankings`;
+            context.set(battleTag, existing ? `${existing}; ${rankStr}` : rankStr);
+          }
+        }
+      }
+    }
+  } catch (err) {
+    console.warn('[Weekly] Previous week context lookup failed:', err.message);
+  }
+  return context;
+}
+
+/**
+ * Rewrite spotlight blurbs through AI, weaving in chat personality.
+ * Single API call for all blurbs to minimize latency/cost.
+ */
+async function rewriteSpotlightBlurbs(candidates) {
+  const ROLE_LABELS = {
+    WINNER: 'biggest winner', LOSER: 'biggest loser', GRINDER: 'most games played',
+    HOTSTREAK: 'longest win streak', COLDSTREAK: 'longest loss streak',
+  };
+
+  const playerBlocks = candidates.map(({ key, blurb, quotes, name, prevContext }) => {
+    const chatLines = quotes.length > 0
+      ? `Their chat messages this week:\n${quotes.map(q => `  "${q}"`).join('\n')}`
+      : '(no chat messages found)';
+    const prevLines = prevContext
+      ? `Previous week context: ${prevContext}`
+      : '(no previous week data)';
+    return `${key} — ${name} (${ROLE_LABELS[key] || key}):\nStat summary: ${blurb}\n${chatLines}\n${prevLines}`;
+  }).join('\n\n');
+
+  const client = new Anthropic({ apiKey: config.ANTHROPIC_API_KEY });
+  const resp = await client.messages.create({
+    model: 'claude-haiku-4-5-20251001',
+    max_tokens: 1024,
+    messages: [{
+      role: 'user',
+      content: `You're writing player spotlight blurbs for a Warcraft III 4v4 weekly magazine. Each blurb is 1-2 short sentences shown under the player's name on their spotlight card.
+
+Rewrite each stat summary into a blurb. Rules:
+- Lead with the story, not the stats — what happened to this player this week? The stats support the narrative, not the other way around
+- If previous week context shows a narrative arc (last week's winner is this week's loser, race switch, power ranking swing), lead with that — it's the most interesting thing
+- Weave in chat personality when it adds color — a self-aware moment, an attitude, a detail that reveals who they are
+- Don't quote them directly (quotes are shown separately)
+- Keep key stats but fold them in naturally — don't list them
+- SHORT. One punchy sentence is better than two decent ones. Trust the reader to get it.
+- Tone: dry, observational. No clichés, no "impressive/remarkable/brutal". No exclamation marks.
+
+Examples of good blurbs:
+- "Last week's #2 power-ranked player had a massive swing back. Dropped 13 straight on Thursday, 9 in a row, switching from UD to HU."
+- "199 games in seven days on random and finished exactly where he started — +9 MMR."
+- "The Guatemalan grinder climbed +131 on NE across 42 games at 52% — pure volume."
+
+For each player, output exactly one line: KEY: rewritten blurb
+Nothing else.
+
+${playerBlocks}`,
+    }],
+  });
+
+  const text = resp.content?.[0]?.text || '';
+  const results = [];
+  for (const { key, blurb } of candidates) {
+    const m = text.match(new RegExp(`^${key}:\\s*(.+)$`, 'm'));
+    results.push({ key, blurb: m ? m[1].trim() : blurb });
+  }
+  return results;
 }
 
 /**
@@ -2504,7 +2673,7 @@ export async function generateWeeklyDigest(weekStart) {
       { key: 'HOTSTREAK', player: weeklyHotStreak },
       { key: 'COLDSTREAK', player: weeklyColdStreak },
     ];
-    const blurbLines = generateSpotlightBlurbs(spotlights, dailyRows, weekStart, weekEnd);
+    const blurbLines = await generateSpotlightBlurbs(spotlights, dailyRows, weekStart, weekEnd);
     parts.push(...blurbLines);
 
     // Streak daily breakdowns (reuse dailyRows)
@@ -2683,7 +2852,7 @@ export async function generateWeeklyDigest(weekStart) {
  */
 const REGEN_SECTIONS = new Set(['TOPICS', 'DRAMA', 'BANS', 'HIGHLIGHTS', 'RECAP']);
 
-export async function regenerateSection(weekStart, sectionKey) {
+export async function regenerateSection(weekStart, sectionKey, existingItems) {
   if (!REGEN_SECTIONS.has(sectionKey)) throw new Error(`Cannot regenerate ${sectionKey}`);
   if (!config.ANTHROPIC_API_KEY) throw new Error('No API key configured');
 
@@ -2693,9 +2862,13 @@ export async function regenerateSection(weekStart, sectionKey) {
   const { dailyDigests, aggregateText, topChatMessages } = ctx;
   const basePrompt = buildWeeklyPrompt(dailyDigests, aggregateText, topChatMessages);
 
+  const existingClause = Array.isArray(existingItems) && existingItems.length > 0
+    ? `\n\nThe editor already has these ${sectionKey} items — do NOT repeat any of them or cover the same events/people:\n${existingItems.map((item, i) => `${i + 1}. ${item}`).join('\n')}\n\nGenerate NEW items about DIFFERENT events, players, and incidents not covered above.`
+    : '';
+
   const sectionPrompt = `${basePrompt}
 
-IMPORTANT: You previously generated a weekly digest. Now regenerate ONLY the ${sectionKey} section. Write a completely different version with fresh angles and different quote selections. Output ONLY one line in the format "${sectionKey}: content". No other sections.`;
+IMPORTANT: You previously generated a weekly digest. Now regenerate ONLY the ${sectionKey} section. Write a completely different version with fresh angles and different quote selections. Output ONLY one line in the format "${sectionKey}: content". No other sections.${existingClause}`;
 
   const client = new Anthropic({ apiKey: config.ANTHROPIC_API_KEY });
   const models = ['claude-haiku-4-5-20251001', 'claude-sonnet-4-5-20250929'];
@@ -2759,7 +2932,7 @@ export async function regenerateSpotlights(weekStart) {
     { key: 'COLDSTREAK', player: weeklyColdStreak },
   ];
 
-  const blurbLines = generateSpotlightBlurbs(spotlights, dailyRows, weekStart, weekEnd);
+  const blurbLines = await generateSpotlightBlurbs(spotlights, dailyRows, weekStart, weekEnd);
   // Parse into key→content map
   const result = {};
   for (const line of blurbLines) {
@@ -2781,7 +2954,7 @@ export async function regenerateSpotlights(weekStart) {
     }
     if (awards?.blurbs?.length > 0) {
       for (const line of awards.blurbs) {
-        const m = line.match(/^(HEROSLAYER_BLURB|HEROSLAYER_HEROES|HEROSLAYER_VICTIMS|HEROSLAYER_KILLBOARD|HEROSLAYER_MAX):\s*(.+)$/);
+        const m = line.match(/^(HEROSLAYER_BLURB|HEROSLAYER_HEROES|HEROSLAYER_VICTIMS|HEROSLAYER_KILLBOARD|HEROSLAYER_MAX|HEROSLAYER_DISTRIBUTION):\s*(.+)$/);
         if (m) result[m[1]] = m[2];
       }
     }
@@ -3317,6 +3490,23 @@ function computeWeeklyMatchScoreAwards(weekStart, weekEnd) {
     if (allOpp.length > 0) {
       matchStatBlurbs.push(`HEROSLAYER_KILLBOARD: ${allOpp.map(h => `${h.name}:${h.count}`).join(',')}`);
     }
+
+    // Hero kills distribution: histogram of hero kills per game across all players + hero slayer
+    const allKillsHist = {};
+    const playerKillsHist = {};
+    for (const row of rows) {
+      const k = row.heroes_killed || 0;
+      allKillsHist[k] = (allKillsHist[k] || 0) + 1;
+      if (row.battle_tag === top.battleTag) {
+        playerKillsHist[k] = (playerKillsHist[k] || 0) + 1;
+      }
+    }
+    const fmtHist = (h) => Object.entries(h).sort((a, b) => Number(a[0]) - Number(b[0])).map(([k, v]) => `${k}=${v}`).join(',');
+    const allStr = fmtHist(allKillsHist);
+    const playerStr = fmtHist(playerKillsHist);
+    if (allStr) {
+      matchStatBlurbs.push(`HEROSLAYER_DISTRIBUTION: ${allStr}|player:${playerStr}`);
+    }
   }
 
   // 2. Unit Killer — top 3 unit kills per game (rate)
@@ -3336,7 +3526,7 @@ function computeWeeklyMatchScoreAwards(weekStart, weekEnd) {
     // Build Unit Killer blurb
     const wr = top.games > 0 ? Math.round(top.wins / top.games * 100) : 0;
     const blurb = `${top.totalUnitsKilled} units destroyed across ${top.games} games (${top.rate.toFixed(1)}/game, ${wr}% WR).`;
-    matchStatBlurbs.push(`Unit Killer_BLURB: ${blurb}`);
+    matchStatBlurbs.push(`UNITKILLER_BLURB: ${blurb}`);
   }
 
   // 3. Longest Game — only include if match players chatted that day (community interest proxy)
@@ -3378,7 +3568,7 @@ function computeWeeklyMatchScoreAwards(weekStart, weekEnd) {
     }
     const topPicker = [...heroPlayerCounts.entries()].sort((a, b) => b[1] - a[1])[0];
     if (topPicker) {
-      heroAwards.push(`Fan Favorite ${topPicker[0]} ${displayName} ${topCount} times`);
+      heroAwards.push(`Fan Favorite ${topPicker[0]} ${displayName} ${topPicker[1]}x`);
     }
   }
 
@@ -3427,7 +3617,7 @@ function computeWeeklyMatchScoreAwards(weekStart, weekEnd) {
   // Collect award winner battletags for quote lookup
   const awardWinnerTags = [];
   if (heroSlayers.length > 0) awardWinnerTags.push({ category: 'HEROSLAYER', battleTag: heroSlayers[0].battleTag });
-  if (unitKillers.length > 0) awardWinnerTags.push({ category: 'Unit Killer', battleTag: unitKillers[0].battleTag });
+  if (unitKillers.length > 0) awardWinnerTags.push({ category: 'UNITKILLER', battleTag: unitKillers[0].battleTag });
 
   return {
     matchStats: matchStatsAwards.length > 0 ? matchStatsAwards.join(' | ') : null,

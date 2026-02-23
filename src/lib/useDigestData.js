@@ -163,6 +163,22 @@ function parseSpotlightFromText(key, sections) {
     }
     const maxContent = find("HEROSLAYER_MAX");
     if (maxContent) card.maxKillsInGame = parseInt(maxContent) || 0;
+    const distContent = find("HEROSLAYER_DISTRIBUTION");
+    if (distContent) {
+      const parseHist = (str) => {
+        const result = {};
+        if (!str) return result;
+        for (const e of str.split(",")) {
+          const [k, v] = e.split("=");
+          if (!isNaN(parseInt(k)) && !isNaN(parseInt(v))) result[parseInt(k)] = parseInt(v);
+        }
+        return result;
+      };
+      const parts = distContent.split("|");
+      const allPart = parts[0] || "";
+      const playerPart = (parts.find((p) => p.startsWith("player:")) || "").replace("player:", "");
+      card.killsDistribution = { all: parseHist(allPart), player: parseHist(playerPart) };
+    }
   }
 
   return card;
@@ -348,7 +364,10 @@ export default function useDigestData({ weekly, isEditorial, draft }) {
       heroMeta: parseMatchStatsFromText(sections, "HEROES"),
       newBlood: parseNewBloodFromText(sections),
       upsets: parseUpsetsFromText(sections),
-      atSpotlight: parseATSpotlightFromText(sections),
+      // Prefer JSON atSpotlight in editorial mode — text format lacks individual MMR/battleTags
+      atSpotlight: weekly?.digestJson?.atSpotlight?.length
+        ? weekly.digestJson.atSpotlight
+        : parseATSpotlightFromText(sections),
       mentions: parseMentionsFromText(sections),
     };
   }, [hasJSON, weekly, sections]);

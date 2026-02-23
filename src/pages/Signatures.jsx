@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useId, Suspense } from "react";
+import React, { useState, useEffect, useCallback, useId, useRef, useMemo, Suspense } from "react";
 import styled from "styled-components";
 import { PageLayout } from "../components/PageLayout";
 import { PageHero } from "../components/ui";
@@ -381,19 +381,116 @@ const RACE_COLORS = {
   "Random": GREY,
 };
 
-function EmbeddingScatter({ mapData, highlightTags }) {
+function projectEmbedding(embedding, pcaMean, pcaComponents) {
+  const centered = embedding.map((v, d) => v - pcaMean[d]);
+  const x = pcaComponents[0].reduce((s, c, d) => s + centered[d] * c, 0);
+  const y = pcaComponents[1].reduce((s, c, d) => s + centered[d] * c, 0);
+  return { x, y };
+}
+
+// Compute 2×2 covariance matrix eigendecomposition for rotated ellipse
+function covarianceEllipse(dots) {
+  if (dots.length < 3) return null;
+  const n = dots.length;
+  const mx = dots.reduce((s, d) => s + d.x, 0) / n;
+  const my = dots.reduce((s, d) => s + d.y, 0) / n;
+  let cxx = 0, cyy = 0, cxy = 0;
+  for (const d of dots) {
+    cxx += (d.x - mx) ** 2;
+    cyy += (d.y - my) ** 2;
+    cxy += (d.x - mx) * (d.y - my);
+  }
+  cxx /= n; cyy /= n; cxy /= n;
+
+  // Eigenvalues of [[cxx, cxy], [cxy, cyy]]
+  const trace = cxx + cyy;
+  const det = cxx * cyy - cxy * cxy;
+  const disc = Math.sqrt(Math.max((trace * trace) / 4 - det, 0));
+  const l1 = trace / 2 + disc;
+  const l2 = trace / 2 - disc;
+
+  // Rotation angle (eigenvector of larger eigenvalue)
+  const angle = Math.abs(cxy) < 1e-10 ? 0 : Math.atan2(l1 - cxx, cxy);
+
+  return {
+    cx: mx, cy: my,
+    rx: Math.sqrt(Math.max(l1, 0)),
+    ry: Math.sqrt(Math.max(l2, 0)),
+    angleDeg: (angle * 180) / Math.PI,
+  };
+}
+
+const HOVER_THRESHOLD = 25; // px distance for nearest-point hover
+
+function EmbeddingScatter({ mapData, highlightTags, suspects }) {
+  const [expandedTag, setExpandedTag] = useState(null);
+  const [replayDots, setReplayDots] = useState(null);
+  const [loadingReplays, setLoadingReplays] = useState(false);
+  const [hoveredPlayer, setHoveredPlayer] = useState(null);
+  const [hoveredReplay, setHoveredReplay] = useState(null);
+  const [mousePos, setMousePos] = useState(null);
+  const svgRef = useRef(null);
+  const [searchQuery, setSearchQuery] = useState("");
+  const [searchedTags, setSearchedTags] = useState([]);
+  const [showSuspects, setShowSuspects] = useState(true);
+  const [hoveredSuspect, setHoveredSuspect] = useState(null);
+
+  const handlePlayerClick = useCallback(async (battleTag) => {
+    if (expandedTag === battleTag) {
+      setExpandedTag(null);
+      setReplayDots(null);
+      return;
+    }
+
+    if (!mapData?.pca?.mean || !mapData?.pca?.components) return;
+
+    setExpandedTag(battleTag);
+    setLoadingReplays(true);
+    try {
+      const res = await fetch(
+        `${RELAY_URL}/api/fingerprints/embeddings/${encodeURIComponent(battleTag)}`
+      );
+      if (!res.ok) { setReplayDots(null); setLoadingReplays(false); return; }
+      const data = await res.json();
+
+      const dots = data.replays.map(r => {
+        const { x, y } = projectEmbedding(r.embedding, mapData.pca.mean, mapData.pca.components);
+        return {
+          x: Math.round(x * 1000) / 1000,
+          y: Math.round(y * 1000) / 1000,
+          mapName: r.mapName,
+          matchDate: r.matchDate,
+          gameDuration: r.gameDuration,
+          replayId: r.replayId,
+        };
+      });
+
+      // Compute cluster stats
+      const avgX = dots.reduce((s, d) => s + d.x, 0) / dots.length;
+      const avgY = dots.reduce((s, d) => s + d.y, 0) / dots.length;
+      const stdX = Math.sqrt(dots.reduce((s, d) => s + (d.x - avgX) ** 2, 0) / dots.length);
+      const stdY = Math.sqrt(dots.reduce((s, d) => s + (d.y - avgY) ** 2, 0) / dots.length);
+      const ellipse = covarianceEllipse(dots);
+
+      setReplayDots({ dots, avgX, avgY, stdX, stdY, count: dots.length, ellipse });
+    } catch {
+      setReplayDots(null);
+    }
+    setLoadingReplays(false);
+  }, [expandedTag, mapData]);
+
   if (!mapData || mapData.players.length === 0) {
     return (
       <div style={{ textAlign: "center", padding: "40px 0" }}>
-        <span style={{ fontFamily: "var(--font-mono)", color: GREY, fontSize: 13 }}>
-          Loading embedding map...
-        </span>
+        <PeonLoader size="sm" />
       </div>
     );
   }
 
-  const W = 600, H = 400;
-  const PAD = 50;
+  const W = 800, H = 500;
+  const PAD_L = 60, PAD_B = 60, PAD_T = 30, PAD_R = 30;
+  const plotW = W - PAD_L - PAD_R;
+  const plotH = H - PAD_T - PAD_B;
   const { players, pca } = mapData;
 
   const xs = players.map(p => p.x);
@@ -404,53 +501,656 @@ function EmbeddingScatter({ mapData, highlightTags }) {
   const yRange = yMax - yMin || 1;
 
   const scale = (px, py) => ({
-    sx: PAD + ((px - xMin) / xRange) * (W - PAD * 2),
-    sy: PAD + ((py - yMin) / yRange) * (H - PAD * 2),
+    sx: PAD_L + ((px - xMin) / xRange) * plotW,
+    sy: PAD_T + ((py - yMin) / yRange) * plotH,
   });
 
-  const highlightSet = new Set(highlightTags);
+  // Inverse scale: pixel → data space
+  const unscale = (sx, sy) => ({
+    dx: xMin + ((sx - PAD_L) / plotW) * xRange,
+    dy: yMin + ((sy - PAD_T) / plotH) * yRange,
+  });
+
+  // Density heatmap via KDE (memoized — only recomputes when mapData changes)
+  const DENSITY_N = 20;
+  const densityResult = useMemo(() => {
+    const ps = mapData?.players;
+    if (!ps || ps.length < 5) return null;
+    const xs_ = ps.map(p => p.x), ys_ = ps.map(p => p.y);
+    const x0 = Math.min(...xs_), x1 = Math.max(...xs_);
+    const y0 = Math.min(...ys_), y1 = Math.max(...ys_);
+    const xR = x1 - x0 || 1, yR = y1 - y0 || 1;
+    const bw = 1.8, grid = [];
+    let max = 0;
+    for (let gy = 0; gy < DENSITY_N; gy++) {
+      const row = [];
+      for (let gx = 0; gx < DENSITY_N; gx++) {
+        let sum = 0;
+        for (const p of ps) {
+          const dx = gx + 0.5 - ((p.x - x0) / xR) * DENSITY_N;
+          const dy = gy + 0.5 - ((p.y - y0) / yR) * DENSITY_N;
+          const d2 = dx * dx + dy * dy;
+          if (d2 < 25) sum += Math.exp(-d2 / (2 * bw * bw));
+        }
+        row.push(sum);
+        if (sum > max) max = sum;
+      }
+      grid.push(row);
+    }
+    return { grid, max };
+  }, [mapData]);
+
+  const highlightSet = new Set([...highlightTags, ...searchedTags]);
+  const searchSuggestions = searchQuery.length >= 2
+    ? players.filter(p =>
+        p.battleTag.toLowerCase().includes(searchQuery.toLowerCase()) &&
+        !highlightSet.has(p.battleTag)
+      ).slice(0, 8)
+    : [];
   const bgPlayers = players.filter(p => !highlightSet.has(p.battleTag));
   const fgPlayers = players.filter(p => highlightSet.has(p.battleTag));
 
+  // Population centroid + spread
+  const popMeanX = players.reduce((a, p) => a + p.x, 0) / players.length;
+  const popMeanY = players.reduce((a, p) => a + p.y, 0) / players.length;
+  const popStdX = Math.sqrt(
+    players.reduce((s, p) => s + (p.x - popMeanX) ** 2, 0) / players.length
+  );
+  const popStdY = Math.sqrt(
+    players.reduce((s, p) => s + (p.y - popMeanY) ** 2, 0) / players.length
+  );
+  const popStd = Math.sqrt(popStdX ** 2 + popStdY ** 2);
+
+  // Distance from centroid for any player
+  const distFromCenter = (p) => {
+    const d = Math.sqrt((p.x - popMeanX) ** 2 + (p.y - popMeanY) ** 2);
+    return popStd > 0 ? d / popStd : 0;
+  };
+
+  // Grid ticks
+  const TICK_COUNT = 5;
+  const xTicks = Array.from({ length: TICK_COUNT }, (_, i) => {
+    const t = i / (TICK_COUNT - 1);
+    return { val: xMin + t * xRange, px: PAD_L + t * plotW };
+  });
+  const yTicks = Array.from({ length: TICK_COUNT }, (_, i) => {
+    const t = i / (TICK_COUNT - 1);
+    return { val: yMin + t * yRange, px: PAD_T + t * plotH };
+  });
+
+  const formatDuration = (secs) => {
+    if (!secs) return "?";
+    const m = Math.floor(secs / 60);
+    const s = secs % 60;
+    return `${m}:${String(s).padStart(2, "0")}`;
+  };
+
+  // Nearest-point hover handler (checks replay dots first, then players)
+  const handleMouseMove = (e) => {
+    const svg = svgRef.current;
+    if (!svg) return;
+    const rect = svg.getBoundingClientRect();
+    const scaleX = W / rect.width;
+    const scaleY = H / rect.height;
+    const mx = (e.clientX - rect.left) * scaleX;
+    const my = (e.clientY - rect.top) * scaleY;
+
+    // Only consider points in the plot area
+    if (mx < PAD_L || mx > W - PAD_R || my < PAD_T || my > H - PAD_B) {
+      setHoveredPlayer(null);
+      setHoveredReplay(null);
+      setMousePos(null);
+      return;
+    }
+
+    const clientPos = { clientX: e.clientX, clientY: e.clientY };
+
+    // Check replay dots first (they're smaller, need priority)
+    if (replayDots?.dots) {
+      let nearestReplay = null;
+      let nearestReplayDist = Infinity;
+      for (const d of replayDots.dots) {
+        const { sx, sy } = scale(d.x, d.y);
+        const dist = Math.sqrt((mx - sx) ** 2 + (my - sy) ** 2);
+        if (dist < nearestReplayDist) {
+          nearestReplayDist = dist;
+          nearestReplay = d;
+        }
+      }
+      if (nearestReplay && nearestReplayDist < 12) {
+        setHoveredReplay(nearestReplay);
+        setHoveredPlayer(null);
+        setMousePos(clientPos);
+        return;
+      }
+    }
+
+    setHoveredReplay(null);
+
+    // Check players
+    let nearest = null;
+    let nearestDist = Infinity;
+    for (const p of players) {
+      const { sx, sy } = scale(p.x, p.y);
+      const dist = Math.sqrt((mx - sx) ** 2 + (my - sy) ** 2);
+      if (dist < nearestDist) {
+        nearestDist = dist;
+        nearest = p;
+      }
+    }
+
+    if (nearest && nearestDist < HOVER_THRESHOLD) {
+      setHoveredPlayer(nearest);
+      setMousePos(clientPos);
+    } else {
+      setHoveredPlayer(null);
+      setMousePos(null);
+    }
+  };
+
+  const handleMouseLeave = () => {
+    setHoveredPlayer(null);
+    setHoveredReplay(null);
+    setMousePos(null);
+  };
+
+  const handleOverlayClick = () => {
+    if (hoveredPlayer && highlightSet.has(hoveredPlayer.battleTag)) {
+      handlePlayerClick(hoveredPlayer.battleTag);
+    }
+  };
+
+  // Hovered point screen coords for crosshairs
+  const hoveredSc = hoveredPlayer ? scale(hoveredPlayer.x, hoveredPlayer.y) : null;
+
+  // Date range for cluster stats
+  const clusterDateRange = replayDots?.dots?.length > 0 ? (() => {
+    const dates = replayDots.dots.filter(d => d.matchDate).map(d => new Date(d.matchDate));
+    if (dates.length === 0) return null;
+    const min = new Date(Math.min(...dates));
+    const max = new Date(Math.max(...dates));
+    return `${min.toLocaleDateString()} — ${max.toLocaleDateString()}`;
+  })() : null;
+
+  // Cluster tightness (cluster std / population std)
+  const tightness = replayDots && popStdX > 0
+    ? (replayDots.stdX / popStdX)
+    : null;
+
   return (
-    <svg viewBox={`0 0 ${W} ${H}`} width="100%" style={{ maxWidth: 700 }}>
-      <line x1={PAD} y1={H - PAD} x2={W - PAD} y2={H - PAD} stroke={GREY_MID} strokeWidth="1" />
-      <line x1={PAD} y1={PAD} x2={PAD} y2={H - PAD} stroke={GREY_MID} strokeWidth="1" />
-      <text x={W / 2} y={H - 10} textAnchor="middle" fill={GREY} fontSize="10" fontFamily="Inconsolata, monospace">
-        PC1 ({pca?.varianceExplained?.[0]}% var)
-      </text>
-      <text x={14} y={H / 2} textAnchor="middle" fill={GREY} fontSize="10" fontFamily="Inconsolata, monospace"
-        transform={`rotate(-90, 14, ${H / 2})`}>
-        PC2 ({pca?.varianceExplained?.[1]}% var)
-      </text>
-      {bgPlayers.map((p, i) => {
-        const { sx, sy } = scale(p.x, p.y);
-        return (
-          <circle key={`bg-${i}`} cx={sx} cy={sy} r="4"
-            fill={RACE_COLORS[p.race] || GREY} opacity="0.25" />
-        );
-      })}
-      {fgPlayers.map((p, i) => {
-        const { sx, sy } = scale(p.x, p.y);
-        const color = RACE_COLORS[p.race] || GOLD;
-        const label = p.battleTag.split("#")[0];
-        return (
-          <g key={`fg-${i}`}>
-            <circle cx={sx} cy={sy} r="7" fill={color} stroke="#fff" strokeWidth="1.5" />
-            <text x={sx + 10} y={sy + 4} fill="#fff" fontSize="11"
-              fontFamily="var(--font-display)" fontWeight="bold">
-              {label}
-            </text>
+    <ScatterContainer>
+      {/* ── Search bar ── */}
+      <SearchRow>
+        <SearchInputWrap>
+          <SearchInput
+            value={searchQuery}
+            onChange={e => setSearchQuery(e.target.value)}
+            onKeyDown={e => e.key === "Escape" && setSearchQuery("")}
+            placeholder="Search players…"
+          />
+          {searchSuggestions.length > 0 && (
+            <SearchDropdown>
+              {searchSuggestions.map(p => (
+                <SearchItem key={p.battleTag} onClick={() => {
+                  setSearchedTags(prev => [...prev, p.battleTag]);
+                  setSearchQuery("");
+                }}>
+                  <span className="dot" style={{ background: RACE_COLORS[p.race] || GREY }} />
+                  <span className="name">{p.battleTag.split("#")[0]}</span>
+                  <span className="meta">{p.race} · {p.replayCount} replays</span>
+                </SearchItem>
+              ))}
+            </SearchDropdown>
+          )}
+        </SearchInputWrap>
+        {searchedTags.map(tag => {
+          const p = players.find(pl => pl.battleTag === tag);
+          return (
+            <SearchChip key={tag} style={{ borderColor: p ? RACE_COLORS[p.race] : GREY }}>
+              <span className="dot" style={{ background: p ? RACE_COLORS[p.race] : GREY }} />
+              {tag.split("#")[0]}
+              <button onClick={() => {
+                setSearchedTags(prev => prev.filter(t => t !== tag));
+                if (expandedTag === tag) { setExpandedTag(null); setReplayDots(null); }
+              }}>×</button>
+            </SearchChip>
+          );
+        })}
+      </SearchRow>
+
+      <svg ref={svgRef} viewBox={`0 0 ${W} ${H}`} width="100%">
+        {/* ── Defs ── */}
+        <defs>
+          <filter id="dot-glow" x="-50%" y="-50%" width="200%" height="200%">
+            <feGaussianBlur in="SourceGraphic" stdDeviation="4" result="blur" />
+            <feMerge>
+              <feMergeNode in="blur" />
+              <feMergeNode in="SourceGraphic" />
+            </feMerge>
+          </filter>
+        </defs>
+
+        {/* ── Plot background ── */}
+        <rect x={PAD_L} y={PAD_T} width={plotW} height={plotH}
+          fill="rgba(0, 0, 0, 0.25)" />
+
+        {/* ── Density heatmap ── */}
+        {densityResult && (() => {
+          const { grid, max } = densityResult;
+          const cellW = plotW / DENSITY_N;
+          const cellH = plotH / DENSITY_N;
+          const rects = [];
+          for (let gy = 0; gy < DENSITY_N; gy++) {
+            for (let gx = 0; gx < DENSITY_N; gx++) {
+              const t = grid[gy][gx] / max;
+              if (t < 0.08) continue;
+              const w = t * t;
+              const r = Math.round(30 + w * 222);
+              const g = Math.round(40 + w * 179);
+              const b = Math.round(90 - w * 59);
+              const a = 0.03 + w * 0.17;
+              rects.push(
+                <rect key={`d-${gy}-${gx}`}
+                  x={PAD_L + gx * cellW} y={PAD_T + gy * cellH}
+                  width={cellW + 0.5} height={cellH + 0.5}
+                  fill={`rgba(${r}, ${g}, ${b}, ${a})`} rx="2" />
+              );
+            }
+          }
+          return rects;
+        })()}
+
+        {/* ── Layer 1: Grid lines ── */}
+        {xTicks.map((t, i) => (
+          <g key={`xt-${i}`}>
+            <line x1={t.px} y1={PAD_T} x2={t.px} y2={H - PAD_B}
+              stroke={GREY_MID} strokeWidth="0.5" strokeDasharray="3 3" opacity="0.3" />
+            <text x={t.px} y={H - PAD_B + 16} textAnchor="middle"
+              fill={GREY} fontSize="9" fontFamily="Inconsolata, monospace">{t.val.toFixed(1)}</text>
           </g>
-        );
-      })}
-      {Object.entries(RACE_COLORS).filter(([r]) => r !== "Random").map(([race, color], i) => (
-        <g key={race} transform={`translate(${W - PAD + 5}, ${PAD + i * 18})`}>
-          <circle cx="5" cy="0" r="4" fill={color} opacity="0.7" />
-          <text x="14" y="4" fill={GREY} fontSize="9" fontFamily="Inconsolata, monospace">{race}</text>
-        </g>
-      ))}
-    </svg>
+        ))}
+        {yTicks.map((t, i) => (
+          <g key={`yt-${i}`}>
+            <line x1={PAD_L} y1={t.px} x2={W - PAD_R} y2={t.px}
+              stroke={GREY_MID} strokeWidth="0.5" strokeDasharray="3 3" opacity="0.3" />
+            <text x={PAD_L - 8} y={t.px + 3} textAnchor="end"
+              fill={GREY} fontSize="9" fontFamily="Inconsolata, monospace">{t.val.toFixed(1)}</text>
+          </g>
+        ))}
+
+        {/* ── Layer 1.5: Suspect connection lines ── */}
+        {showSuspects && suspects?.pairs && (() => {
+          const playerMap = new Map(players.map(p => [p.battleTag, p]));
+          const topPairs = suspects.pairs.slice(0, 20);
+          const maxSim = topPairs[0]?.similarity || 1;
+          const minSim = topPairs[topPairs.length - 1]?.similarity || 0;
+          const simRange = maxSim - minSim || 1;
+          return topPairs.map((pair, i) => {
+            const pA = playerMap.get(pair.tagA);
+            const pB = playerMap.get(pair.tagB);
+            if (!pA || !pB) return null;
+            const { sx: x1, sy: y1 } = scale(pA.x, pA.y);
+            const { sx: x2, sy: y2 } = scale(pB.x, pB.y);
+            const t = (pair.similarity - minSim) / simRange;
+            const isHovered = hoveredSuspect === i;
+            return (
+              <line key={`suspect-${i}`} x1={x1} y1={y1} x2={x2} y2={y2}
+                stroke={RED} strokeWidth={isHovered ? 2.5 : 0.8 + t * 1.2}
+                opacity={isHovered ? 0.8 : 0.1 + t * 0.25}
+                strokeDasharray={isHovered ? "none" : "4 3"}
+                pointerEvents="none" />
+            );
+          });
+        })()}
+
+        {/* ── Layer 2: Background player dots ── */}
+        {bgPlayers.map((p, i) => {
+          const { sx, sy } = scale(p.x, p.y);
+          const isHovered = hoveredPlayer?.battleTag === p.battleTag;
+          return (
+            <circle key={`bg-${i}`} cx={sx} cy={sy}
+              r={isHovered ? 5.5 : 4}
+              fill={RACE_COLORS[p.race] || GREY}
+              opacity={isHovered ? 0.85 : 0.35}
+              stroke={isHovered ? "#fff" : "rgba(0,0,0,0.4)"}
+              strokeWidth={isHovered ? 1 : 0.5}
+              pointerEvents="none"
+            />
+          );
+        })}
+
+        {/* ── Layer 3: Replay cluster: ellipses → journey → dots → center ── */}
+        {replayDots && expandedTag && (() => {
+          const { dots, avgX, avgY, ellipse } = replayDots;
+          const player = players.find(p => p.battleTag === expandedTag);
+          const color = player ? (RACE_COLORS[player.race] || GOLD) : GOLD;
+          const { sx: csx, sy: csy } = scale(avgX, avgY);
+
+          // Sort dated replays for journey path
+          const sortedDated = dots.filter(d => d.matchDate)
+            .sort((a, b) => new Date(a.matchDate) - new Date(b.matchDate));
+          const firstId = sortedDated[0]?.replayId;
+          const lastId = sortedDated[sortedDated.length - 1]?.replayId;
+
+          // Rotated covariance ellipse
+          let ellipseEls = null;
+          if (ellipse) {
+            const { sx: esx, sy: esy } = scale(ellipse.cx, ellipse.cy);
+            const rxPx = Math.max((ellipse.rx / xRange) * plotW, 4);
+            const ryPx = Math.max((ellipse.ry / yRange) * plotH, 4);
+            ellipseEls = (
+              <g>
+                <ellipse cx={esx} cy={esy} rx={rxPx * 2} ry={ryPx * 2}
+                  fill="none" stroke={color} strokeWidth="0.8"
+                  strokeDasharray="4 3" opacity="0.2"
+                  transform={`rotate(${ellipse.angleDeg}, ${esx}, ${esy})`} />
+                <ellipse cx={esx} cy={esy} rx={rxPx} ry={ryPx}
+                  fill={color} fillOpacity="0.06" stroke={color} strokeWidth="1.2"
+                  opacity="0.5"
+                  transform={`rotate(${ellipse.angleDeg}, ${esx}, ${esy})`} />
+              </g>
+            );
+          }
+
+          return (
+            <g>
+              {ellipseEls}
+
+              {/* Radial lines to center (dim) */}
+              {dots.map((d, i) => {
+                const { sx, sy } = scale(d.x, d.y);
+                return (
+                  <line key={`line-${i}`} x1={csx} y1={csy} x2={sx} y2={sy}
+                    stroke={color} strokeWidth="0.5" opacity="0.08"
+                    pointerEvents="none" />
+                );
+              })}
+
+              {/* Journey path (chronological, old→new = dim→bright) */}
+              {sortedDated.length >= 2 && sortedDated.slice(0, -1).map((d, i) => {
+                const next = sortedDated[i + 1];
+                const { sx: x1, sy: y1 } = scale(d.x, d.y);
+                const { sx: x2, sy: y2 } = scale(next.x, next.y);
+                const progress = sortedDated.length > 2 ? i / (sortedDated.length - 2) : 1;
+                return (
+                  <line key={`journey-${i}`} x1={x1} y1={y1} x2={x2} y2={y2}
+                    stroke={color} strokeWidth={1 + progress * 1.5}
+                    opacity={0.15 + progress * 0.5}
+                    strokeLinecap="round" pointerEvents="none" />
+                );
+              })}
+
+              {/* Replay dots */}
+              {dots.map((d, i) => {
+                const { sx, sy } = scale(d.x, d.y);
+                const isHovered = hoveredReplay === d;
+                const isFirst = d.replayId === firstId;
+                const isLast = d.replayId === lastId;
+                const isEndpoint = isFirst || isLast;
+                return (
+                  <g key={`replay-${i}`}>
+                    <circle cx={sx} cy={sy}
+                      r={isHovered ? 4.5 : isEndpoint ? 4 : 3}
+                      fill={color} opacity={isHovered ? 0.9 : isEndpoint ? 0.85 : 0.6}
+                      stroke={isEndpoint ? "#fff" : "rgba(255,255,255,0.4)"}
+                      strokeWidth={isEndpoint ? 1 : 0.5}
+                      pointerEvents="none" />
+                    {isFirst && sortedDated.length >= 2 && (
+                      <text x={sx} y={sy - 7} textAnchor="middle"
+                        fill="rgba(255,255,255,0.5)" fontSize="7"
+                        fontFamily="Inconsolata, monospace" pointerEvents="none">1</text>
+                    )}
+                    {isLast && sortedDated.length >= 2 && (
+                      <text x={sx} y={sy - 7} textAnchor="middle"
+                        fill="rgba(255,255,255,0.7)" fontSize="7"
+                        fontFamily="Inconsolata, monospace" pointerEvents="none">
+                        {sortedDated.length}
+                      </text>
+                    )}
+                  </g>
+                );
+              })}
+
+              {/* Cluster center (mean) */}
+              <circle cx={csx} cy={csy} r="2.5" fill="#fff" stroke={color}
+                strokeWidth="1" opacity="0.9" />
+              <line x1={csx - 5} y1={csy} x2={csx + 5} y2={csy}
+                stroke="#fff" strokeWidth="0.8" opacity="0.6" />
+              <line x1={csx} y1={csy - 5} x2={csx} y2={csy + 5}
+                stroke="#fff" strokeWidth="0.8" opacity="0.6" />
+            </g>
+          );
+        })()}
+
+        {/* ── Layer 4: Foreground (highlighted) player dots ── */}
+        {fgPlayers.map((p, i) => {
+          const { sx, sy } = scale(p.x, p.y);
+          const color = RACE_COLORS[p.race] || GOLD;
+          const label = p.battleTag.split("#")[0];
+          const isExpanded = expandedTag === p.battleTag;
+          const isHovered = hoveredPlayer?.battleTag === p.battleTag;
+          const r = isExpanded ? 7 : isHovered ? 6.5 : 5.5;
+          return (
+            <g key={`fg-${i}`} pointerEvents="none">
+              {/* Glow */}
+              <circle cx={sx} cy={sy} r={r} fill={color} opacity="0.4"
+                filter="url(#dot-glow)" />
+              {isExpanded && (
+                <circle cx={sx} cy={sy} r="15" fill="none" stroke={color}
+                  strokeWidth="1.2" strokeDasharray="3 2" opacity="0.5" />
+              )}
+              <circle cx={sx} cy={sy} r={r}
+                fill={color} stroke="#fff" strokeWidth={isExpanded ? 2 : 1.5} />
+              <text x={sx + 12} y={sy + 4} fill="#fff" fontSize="11"
+                fontFamily="var(--font-display)" fontWeight="bold"
+                stroke="rgba(0,0,0,0.7)" strokeWidth="3" paintOrder="stroke">
+                {label}
+              </text>
+            </g>
+          );
+        })}
+
+        {/* ── Layer 5: Hover crosshairs + highlight ring ── */}
+        {hoveredSc && (
+          <g pointerEvents="none">
+            <line x1={hoveredSc.sx} y1={PAD_T} x2={hoveredSc.sx} y2={H - PAD_B}
+              stroke={RACE_COLORS[hoveredPlayer.race] || GREY} strokeWidth="0.8"
+              strokeDasharray="4 3" opacity="0.35" />
+            <line x1={PAD_L} y1={hoveredSc.sy} x2={W - PAD_R} y2={hoveredSc.sy}
+              stroke={RACE_COLORS[hoveredPlayer.race] || GREY} strokeWidth="0.8"
+              strokeDasharray="4 3" opacity="0.35" />
+            {/* Coordinate labels at axis edges */}
+            {(() => {
+              const { dx, dy } = unscale(hoveredSc.sx, hoveredSc.sy);
+              return (
+                <>
+                  <text x={hoveredSc.sx} y={H - PAD_B + 28} textAnchor="middle"
+                    fill={RACE_COLORS[hoveredPlayer.race] || GREY} fontSize="8"
+                    fontFamily="Inconsolata, monospace">{dx.toFixed(2)}</text>
+                  <text x={PAD_L - 8} y={hoveredSc.sy + 3} textAnchor="end"
+                    fill={RACE_COLORS[hoveredPlayer.race] || GREY} fontSize="8"
+                    fontFamily="Inconsolata, monospace">{dy.toFixed(2)}</text>
+                </>
+              );
+            })()}
+            {/* Enlarged ring around hovered dot (if not highlighted) */}
+            {!highlightSet.has(hoveredPlayer.battleTag) && (
+              <circle cx={hoveredSc.sx} cy={hoveredSc.sy} r="8"
+                fill="none" stroke={RACE_COLORS[hoveredPlayer.race] || GREY}
+                strokeWidth="1.5" opacity="0.6" />
+            )}
+          </g>
+        )}
+
+        {/* ── Population centroid ── */}
+        {(() => {
+          const { sx: cmx, sy: cmy } = scale(popMeanX, popMeanY);
+          return (
+            <g opacity="0.25" pointerEvents="none">
+              <line x1={cmx - 8} y1={cmy} x2={cmx + 8} y2={cmy} stroke={GREY} strokeWidth="1" />
+              <line x1={cmx} y1={cmy - 8} x2={cmx} y2={cmy + 8} stroke={GREY} strokeWidth="1" />
+              <circle cx={cmx} cy={cmy} r="3" fill="none" stroke={GREY} strokeWidth="0.8" />
+            </g>
+          );
+        })()}
+
+        {/* ── Layer 7: Axis lines + labels + legend ── */}
+        <line x1={PAD_L} y1={H - PAD_B} x2={W - PAD_R} y2={H - PAD_B} stroke={GREY_MID} strokeWidth="1" />
+        <line x1={PAD_L} y1={PAD_T} x2={PAD_L} y2={H - PAD_B} stroke={GREY_MID} strokeWidth="1" />
+        <text x={(PAD_L + W - PAD_R) / 2} y={H - 12} textAnchor="middle"
+          fill={GREY} fontSize="10" fontFamily="Inconsolata, monospace">
+          PC1 ({pca?.varianceExplained?.[0]}% var)
+        </text>
+        <text x={16} y={(PAD_T + H - PAD_B) / 2} textAnchor="middle"
+          fill={GREY} fontSize="10" fontFamily="Inconsolata, monospace"
+          transform={`rotate(-90, 16, ${(PAD_T + H - PAD_B) / 2})`}>
+          PC2 ({pca?.varianceExplained?.[1]}% var)
+        </text>
+
+        {/* Legend */}
+        {Object.entries(RACE_COLORS).filter(([r]) => r !== "Random").map(([race, color], i) => {
+          const count = players.filter(p => p.race === race).length;
+          return (
+            <g key={race} transform={`translate(${W - PAD_R - 90}, ${PAD_T + 6 + i * 16})`}>
+              <circle cx="4" cy="0" r="3" fill={color} opacity="0.6" />
+              <text x="12" y="3" fill={GREY} fontSize="8" fontFamily="Inconsolata, monospace">
+                {race} ({count})
+              </text>
+            </g>
+          );
+        })}
+        <text x={W - PAD_R - 90} y={PAD_T + 6 + 4 * 16 + 6} fill={GREY_MID}
+          fontSize="8" fontFamily="Inconsolata, monospace">
+          n={players.length}
+        </text>
+
+        {/* ── Layer 8: Transparent overlay (captures all mouse events) ── */}
+        <rect x={PAD_L} y={PAD_T} width={plotW} height={plotH}
+          fill="transparent" style={{ cursor: hoveredPlayer && highlightSet.has(hoveredPlayer.battleTag) ? "pointer" : "crosshair" }}
+          onMouseMove={handleMouseMove}
+          onMouseLeave={handleMouseLeave}
+          onClick={handleOverlayClick} />
+      </svg>
+
+      {/* HTML tooltip — player */}
+      {hoveredPlayer && mousePos && (
+        <ScatterTooltip style={{
+          left: mousePos.clientX,
+          top: mousePos.clientY,
+        }}>
+          <span className="name" style={{ color: RACE_COLORS[hoveredPlayer.race] || GREY }}>
+            {hoveredPlayer.battleTag.split("#")[0]}
+          </span>
+          <span className="race">{hoveredPlayer.race} &middot; {hoveredPlayer.replayCount} replays</span>
+          <span className="count">{distFromCenter(hoveredPlayer).toFixed(1)}σ from center</span>
+        </ScatterTooltip>
+      )}
+
+      {/* HTML tooltip — replay dot */}
+      {hoveredReplay && mousePos && (
+        <ScatterTooltip style={{
+          left: mousePos.clientX,
+          top: mousePos.clientY,
+        }}>
+          <span className="name">{hoveredReplay.mapName || "Unknown map"}</span>
+          <span className="count">
+            {hoveredReplay.matchDate ? new Date(hoveredReplay.matchDate).toLocaleDateString() : "?"} — {formatDuration(hoveredReplay.gameDuration)}
+          </span>
+        </ScatterTooltip>
+      )}
+
+      {/* Cluster stats panel */}
+      {loadingReplays && (
+        <div style={{ marginTop: 8 }}><PeonLoader size="sm" /></div>
+      )}
+      {replayDots && expandedTag && !loadingReplays && (
+        <ClusterStats>
+          <span className="tag">{expandedTag.split("#")[0]}</span>
+          <span>{replayDots.count} replays</span>
+          {tightness !== null && (
+            <span>tightness: <strong style={{ color: tightness < 0.3 ? GREEN : tightness < 0.6 ? GOLD : RED }}>
+              {(tightness * 100).toFixed(0)}%
+            </strong></span>
+          )}
+          {clusterDateRange && <span>{clusterDateRange}</span>}
+          <span className="hint">click player to collapse</span>
+        </ClusterStats>
+      )}
+
+      {/* ── Suspects panel ── */}
+      {suspects?.pairs?.length > 0 && (
+        <SuspectsPanel>
+          <SuspectsPanelHeader>
+            <span className="title">Smurf Detection</span>
+            <span className="meta">{suspects.pairs.length} pairs · {suspects.playerCount} players</span>
+            <button
+              className={showSuspects ? "active" : ""}
+              onClick={() => setShowSuspects(s => !s)}
+            >
+              {showSuspects ? "Hide lines" : "Show lines"}
+            </button>
+          </SuspectsPanelHeader>
+          <SuspectsTable>
+            <thead>
+              <tr>
+                <th>Player A</th>
+                <th>Player B</th>
+                <th>Match</th>
+                <th>Pctl</th>
+                <th>HC</th>
+                <th>NN</th>
+              </tr>
+            </thead>
+            <tbody>
+              {suspects.pairs.map((pair, i) => {
+                const isTop20 = i < 20;
+                return (
+                  <tr key={i}
+                    className={hoveredSuspect === i ? "hovered" : ""}
+                    onMouseEnter={() => setHoveredSuspect(i)}
+                    onMouseLeave={() => setHoveredSuspect(null)}
+                    onClick={() => {
+                      const tags = [pair.tagA, pair.tagB].filter(t =>
+                        !new Set(highlightTags).has(t)
+                      );
+                      setSearchedTags(prev => {
+                        const existing = new Set(prev);
+                        const next = [...prev];
+                        for (const t of tags) {
+                          if (!existing.has(t)) next.push(t);
+                        }
+                        return next;
+                      });
+                    }}
+                  >
+                    <td>
+                      <span className="dot" style={{ background: RACE_COLORS[pair.raceA] || GREY }} />
+                      {pair.tagA.split("#")[0]}
+                    </td>
+                    <td>
+                      <span className="dot" style={{ background: RACE_COLORS[pair.raceB] || GREY }} />
+                      {pair.tagB.split("#")[0]}
+                    </td>
+                    <td className="sim" style={{
+                      color: pair.similarity > 0.85 ? RED
+                        : pair.similarity > 0.75 ? GOLD
+                        : GREY,
+                    }}>
+                      {(pair.similarity * 100).toFixed(1)}%
+                    </td>
+                    <td className="pctl">
+                      {pair.percentile != null ? `${pair.percentile}%` : "—"}
+                    </td>
+                    <td className="dim">{pair.handcrafted != null ? (pair.handcrafted * 100).toFixed(0) : "—"}</td>
+                    <td className="dim">{pair.embedding != null ? (pair.embedding * 100).toFixed(0) : "—"}</td>
+                  </tr>
+                );
+              })}
+            </tbody>
+          </SuspectsTable>
+        </SuspectsPanel>
+      )}
+    </ScatterContainer>
   );
 }
 
@@ -540,6 +1240,28 @@ const PlayerRow = styled.div`
   margin-bottom: 48px;
 `;
 
+const VizRow = styled.div`
+  margin-bottom: var(--space-8);
+`;
+
+const VizRowHeader = styled.div`
+  display: flex;
+  align-items: baseline;
+  gap: 12px;
+  margin-bottom: 12px;
+
+  .name {
+    font-family: var(--font-display);
+    color: #fff;
+    font-size: var(--text-base);
+  }
+  .desc {
+    font-family: var(--font-mono);
+    color: var(--grey-light);
+    font-size: var(--text-xxs);
+  }
+`;
+
 const PlayerHeader = styled.div`
   display: flex;
   align-items: baseline;
@@ -588,6 +1310,276 @@ const VizCard = styled.div`
   svg {
     width: 100%;
     height: auto;
+  }
+`;
+
+const ScatterContainer = styled.div`
+  position: relative;
+
+  svg {
+    display: block;
+    width: 100%;
+    height: auto;
+  }
+`;
+
+const SearchRow = styled.div`
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin-bottom: 12px;
+  flex-wrap: wrap;
+`;
+
+const SearchInputWrap = styled.div`
+  position: relative;
+`;
+
+const SearchInput = styled.input`
+  font-family: var(--font-mono);
+  font-size: var(--text-xxs);
+  background: rgba(0, 0, 0, 0.4);
+  border: 1px solid var(--grey-mid);
+  border-radius: var(--radius-sm, 4px);
+  color: #fff;
+  padding: 6px 12px;
+  width: 200px;
+  outline: none;
+
+  &:focus {
+    border-color: var(--gold);
+  }
+  &::placeholder {
+    color: var(--grey-mid);
+  }
+`;
+
+const SearchDropdown = styled.div`
+  position: absolute;
+  top: 100%;
+  left: 0;
+  width: 280px;
+  background: rgba(10, 10, 10, 0.95);
+  border: 1px solid var(--grey-mid);
+  border-radius: var(--radius-sm, 4px);
+  margin-top: 4px;
+  z-index: 50;
+  max-height: 240px;
+  overflow-y: auto;
+`;
+
+const SearchItem = styled.div`
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 6px 10px;
+  cursor: pointer;
+  font-family: var(--font-mono);
+  font-size: 11px;
+
+  &:hover {
+    background: rgba(252, 219, 51, 0.08);
+  }
+  .dot {
+    width: 8px;
+    height: 8px;
+    border-radius: 50%;
+    flex-shrink: 0;
+  }
+  .name {
+    color: #fff;
+    font-family: var(--font-display);
+    font-size: 12px;
+  }
+  .meta {
+    color: var(--grey-light);
+    margin-left: auto;
+    font-size: 10px;
+  }
+`;
+
+const SearchChip = styled.div`
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  padding: 4px 8px 4px 6px;
+  border: 1px solid var(--grey-mid);
+  border-radius: var(--radius-full);
+  font-family: var(--font-display);
+  font-size: 12px;
+  color: #fff;
+  background: rgba(0, 0, 0, 0.3);
+
+  .dot {
+    width: 8px;
+    height: 8px;
+    border-radius: 50%;
+  }
+  button {
+    background: none;
+    border: none;
+    color: var(--grey-light);
+    cursor: pointer;
+    font-size: 14px;
+    padding: 0 2px;
+    line-height: 1;
+    &:hover {
+      color: var(--red);
+    }
+  }
+`;
+
+const SuspectsPanel = styled.div`
+  margin-top: var(--space-4);
+  border: 1px solid var(--grey-mid);
+  border-radius: var(--radius-md);
+  background: rgba(0, 0, 0, 0.3);
+  overflow: hidden;
+`;
+
+const SuspectsPanelHeader = styled.div`
+  display: flex;
+  align-items: center;
+  gap: var(--space-4);
+  padding: var(--space-2) var(--space-4);
+  border-bottom: 1px solid var(--grey-mid);
+
+  .title {
+    font-family: var(--font-display);
+    color: #fff;
+    font-size: var(--text-sm);
+  }
+  .meta {
+    font-family: var(--font-mono);
+    color: var(--grey-light);
+    font-size: var(--text-xxs);
+  }
+  button {
+    margin-left: auto;
+    font-family: var(--font-mono);
+    font-size: var(--text-xxs);
+    background: none;
+    border: 1px solid var(--grey-mid);
+    border-radius: var(--radius-sm, 4px);
+    color: var(--grey-light);
+    padding: 3px 10px;
+    cursor: pointer;
+    &.active { color: var(--red); border-color: var(--red); }
+    &:hover { color: #fff; }
+  }
+`;
+
+const SuspectsTable = styled.table`
+  width: 100%;
+  border-collapse: collapse;
+  font-family: var(--font-mono);
+  font-size: 11px;
+  max-height: 320px;
+  display: block;
+  overflow-y: auto;
+
+  thead, tbody, tr { display: table; width: 100%; table-layout: fixed; }
+
+  th {
+    text-align: left;
+    padding: 6px 10px;
+    color: var(--grey-mid);
+    font-size: 10px;
+    text-transform: uppercase;
+    letter-spacing: 0.06em;
+    border-bottom: 1px solid var(--grey-mid);
+    position: sticky;
+    top: 0;
+    background: rgba(10, 10, 10, 0.95);
+  }
+  td {
+    padding: 5px 10px;
+    color: var(--grey-light);
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+  }
+  .dot {
+    display: inline-block;
+    width: 6px;
+    height: 6px;
+    border-radius: 50%;
+    margin-right: 6px;
+    vertical-align: middle;
+  }
+  .sim {
+    font-weight: bold;
+    font-size: 12px;
+  }
+  .pctl {
+    color: var(--grey-mid);
+  }
+  .dim {
+    color: var(--grey-mid);
+    font-size: 10px;
+  }
+  tbody tr {
+    cursor: pointer;
+    &:hover, &.hovered {
+      background: rgba(248, 113, 113, 0.06);
+    }
+  }
+`;
+
+const ScatterTooltip = styled.div`
+  position: fixed;
+  transform: translate(12px, -100%);
+  pointer-events: none;
+  background: rgba(0, 0, 0, 0.9);
+  border: 1px solid var(--grey-mid);
+  border-radius: var(--radius-sm, 4px);
+  padding: 6px 10px;
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  z-index: 100;
+  white-space: nowrap;
+  font-family: var(--font-mono);
+  font-size: 11px;
+
+  .name {
+    font-family: var(--font-display);
+    font-size: 13px;
+    font-weight: bold;
+  }
+  .race {
+    color: var(--grey-light, #bbb);
+    font-size: 10px;
+    text-transform: uppercase;
+    letter-spacing: 0.06em;
+  }
+  .count {
+    color: var(--grey-light, #bbb);
+    font-size: 10px;
+  }
+`;
+
+const ClusterStats = styled.div`
+  display: flex;
+  gap: var(--space-4);
+  align-items: center;
+  flex-wrap: wrap;
+  margin-top: var(--space-2);
+  padding: var(--space-2) var(--space-4);
+  border: 1px solid var(--grey-mid);
+  border-radius: var(--radius-md);
+  background: rgba(0, 0, 0, 0.3);
+  font-family: var(--font-mono);
+  font-size: var(--text-xxs);
+  color: var(--grey-light);
+
+  .tag {
+    color: var(--gold);
+    font-weight: bold;
+  }
+  .hint {
+    color: var(--grey-mid);
+    margin-left: auto;
   }
 `;
 
@@ -674,6 +1666,7 @@ export default function Signatures() {
   const [loading, setLoading] = useState(true);
   const [errors, setErrors] = useState({});
   const [embeddingMap, setEmbeddingMap] = useState(null);
+  const [suspects, setSuspects] = useState(null);
   const [mode, setMode] = useState("gallery"); // "gallery" | "compare"
 
   useEffect(() => {
@@ -701,6 +1694,11 @@ export default function Signatures() {
       .then(r => r.ok ? r.json() : null)
       .then(data => setEmbeddingMap(data))
       .catch(() => {});
+
+    fetch(`${RELAY_URL}/api/fingerprints/suspects?limit=50`)
+      .then(r => r.ok ? r.json() : null)
+      .then(data => setSuspects(data))
+      .catch(() => {});
   }, []);
 
   if (loading) {
@@ -725,7 +1723,7 @@ export default function Signatures() {
           <ModeButton $active={mode === "compare"} onClick={() => setMode("compare")}>
             Compare
           </ModeButton>
-          <VizCount>{VIZ_REGISTRY.length + 5} visualizations</VizCount>
+          <VizCount>{VIZ_REGISTRY.length + 5} vizzes</VizCount>
         </ModeToggle>
 
         {mode === "compare" ? (
@@ -766,14 +1764,13 @@ export default function Signatures() {
               <SectionTitle>Neural Embedding Space</SectionTitle>
               <NeuralNote style={{ marginBottom: 16 }}>
                 All player embeddings projected to 2D via PCA. Players with similar playstyles cluster together.
-                Test players highlighted against the full population.
+                Hover to inspect, click to expand replay clusters.
               </NeuralNote>
-              <VizCard style={{ padding: 24 }}>
-                <EmbeddingScatter
-                  mapData={embeddingMap}
-                  highlightTags={TEST_PLAYERS.map(p => p.tag)}
-                />
-              </VizCard>
+              <EmbeddingScatter
+                mapData={embeddingMap}
+                highlightTags={TEST_PLAYERS.map(p => p.tag)}
+                suspects={suspects}
+              />
             </Section>
 
             {/* ── Player Viz Grid (Original 5) ── */}
@@ -838,42 +1835,49 @@ export default function Signatures() {
               })}
             </Section>
 
-            {/* ── New Viz Gallery (all registry vizzes per player) ── */}
+            {/* ── Viz Gallery (viz-first: each viz across all players) ── */}
             <Section>
-              <SectionTitle>Expanded Visualization Gallery</SectionTitle>
+              <SectionTitle>Visualization Gallery</SectionTitle>
               <NeuralNote style={{ marginBottom: 16 }}>
-                {VIZ_REGISTRY.length} new visualization styles organized by theme.
-                Switch to <strong>Compare</strong> mode to view any single viz type across all players side-by-side.
+                {VIZ_REGISTRY.length} visualization styles — each row shows the same viz for all test players,
+                making it easy to see how the style captures differences between playstyles.
               </NeuralNote>
-              {TEST_PLAYERS.map(({ tag, label, race }) => {
-                const data = players[tag];
-                if (!data?.averaged?.segments) return null;
-
-                const seg = data.averaged.segments;
-                const emb = data.averagedEmbedding;
-
-                return (
-                  <PlayerRow key={`expanded-${tag}`}>
-                    <PlayerHeader>
-                      <h3>{label}</h3>
-                      <span className="meta">{race} &middot; {data.replayCount} replays</span>
-                    </PlayerHeader>
-                    <Grid>
-                      <Suspense fallback={<VizCard><h4>Loading...</h4></VizCard>}>
-                        {VIZ_REGISTRY.map((viz) => {
-                          const VizComp = viz.component;
+              <Suspense fallback={<PeonLoader />}>
+                {VIZ_REGISTRY.map((viz) => {
+                  const VizComp = viz.component;
+                  return (
+                    <VizRow key={viz.id}>
+                      <VizRowHeader>
+                        <span className="name">{viz.name}</span>
+                        <span className="desc">{viz.desc}</span>
+                      </VizRowHeader>
+                      <Grid>
+                        {TEST_PLAYERS.map(({ tag, label, race }) => {
+                          const data = players[tag];
+                          if (!data?.averaged?.segments) {
+                            return (
+                              <VizCard key={tag}>
+                                <h4>{label}</h4>
+                                <ErrorMsg>No data</ErrorMsg>
+                              </VizCard>
+                            );
+                          }
                           return (
-                            <VizCard key={viz.id}>
-                              <h4>{viz.name}</h4>
-                              <VizComp segments={seg} embedding={emb} battleTag={tag} />
+                            <VizCard key={tag}>
+                              <h4>{label}</h4>
+                              <VizComp
+                                segments={data.averaged.segments}
+                                embedding={data.averagedEmbedding}
+                                battleTag={tag}
+                              />
                             </VizCard>
                           );
                         })}
-                      </Suspense>
-                    </Grid>
-                  </PlayerRow>
-                );
-              })}
+                      </Grid>
+                    </VizRow>
+                  );
+                })}
+              </Suspense>
             </Section>
           </>
         )}

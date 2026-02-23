@@ -10,7 +10,6 @@ export const VIZ_CATEGORIES = [
   { id: "music", label: "Music" },
   { id: "biology", label: "Biology" },
   { id: "maps", label: "Maps" },
-  { id: "engineering", label: "Engineering" },
   { id: "sports", label: "Sports" },
   { id: "dataart", label: "Data Art" },
   { id: "abstract", label: "Abstract" },
@@ -85,22 +84,8 @@ export const VIZ_REGISTRY = [
     component: lazy(() => import("./biology/FingerprintRidges")),
     desc: "Loop/whorl/arch ridges modulated by action data",
   },
-  {
-    id: "heartbeat",
-    name: "Heartbeat ECG",
-    category: "biology",
-    component: lazy(() => import("./biology/HeartbeatEcg")),
-    desc: "ECG trace with one complex per action type",
-  },
 
   // Maps
-  {
-    id: "subway-map",
-    name: "Subway Map",
-    category: "maps",
-    component: lazy(() => import("./maps/SubwayMap")),
-    desc: "Transit lines = transitions, stations = hotkey groups",
-  },
   {
     id: "constellation",
     name: "Constellation",
@@ -114,22 +99,6 @@ export const VIZ_REGISTRY = [
     category: "maps",
     component: lazy(() => import("./maps/TopoContour")),
     desc: "8x8 heightmap from embedding with contour lines",
-  },
-
-  // Engineering
-  {
-    id: "gauge-cluster",
-    name: "Gauge Cluster",
-    category: "engineering",
-    component: lazy(() => import("./engineering/GaugeCluster")),
-    desc: "Dashboard gauges for APM, intensity, tempo",
-  },
-  {
-    id: "circuit-board",
-    name: "Circuit Board",
-    category: "engineering",
-    component: lazy(() => import("./engineering/CircuitBoard")),
-    desc: "PCB traces connecting action type chips",
   },
 
   // Sports
@@ -155,13 +124,6 @@ export const VIZ_REGISTRY = [
     category: "dataart",
     component: lazy(() => import("./dataart/Barcode")),
     desc: "All 63 dimensions as colored vertical bars",
-  },
-  {
-    id: "flame-graph",
-    name: "Flame Graph",
-    category: "dataart",
-    component: lazy(() => import("./dataart/FlameGraph")),
-    desc: "Hierarchical: actions > hotkey groups > transitions",
   },
   {
     id: "chord-diagram",

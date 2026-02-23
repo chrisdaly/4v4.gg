@@ -57,6 +57,34 @@ export default function useWeeklyEditorial({ weekly, isAdmin, apiKey, onDigestUp
   // Per-section regeneration: section key while loading, null when idle
   const [regenLoading, setRegenLoading] = useState(null);
 
+  // ── Undo stack ──
+  const undoStackRef = useRef([]);
+  const UNDO_MAX = 30;
+
+  /** Snapshot current state onto the undo stack (call before mutations) */
+  const pushUndo = useCallback(() => {
+    undoStackRef.current.push({
+      draft,
+      sectionSelections: Object.fromEntries(
+        Object.entries(sectionSelections).map(([k, s]) => [k, new Set(s)])
+      ),
+      hiddenSections: new Set(hiddenSections),
+      hiddenStats: new Set(hiddenStats),
+      itemEdits: JSON.parse(JSON.stringify(itemEdits)),
+    });
+    if (undoStackRef.current.length > UNDO_MAX) undoStackRef.current.shift();
+  }, [draft, sectionSelections, hiddenSections, hiddenStats, itemEdits]);
+
+  const undo = useCallback(() => {
+    const snapshot = undoStackRef.current.pop();
+    if (!snapshot) return;
+    setDraft(snapshot.draft);
+    setSectionSelections(snapshot.sectionSelections);
+    setHiddenSections(snapshot.hiddenSections);
+    setHiddenStats(snapshot.hiddenStats);
+    setItemEdits(snapshot.itemEdits);
+  }, []);
+
   // Fetch draft when entering editorial mode
   useEffect(() => {
     if (!isEditorial) {
@@ -148,39 +176,43 @@ export default function useWeeklyEditorial({ weekly, isAdmin, apiKey, onDigestUp
   // ── Item toggle (semicolon sections) ──
 
   const toggleItem = useCallback((sectionKey, idx) => {
+    pushUndo();
     setSectionSelections((prev) => {
       const sel = new Set(prev[sectionKey] || []);
       if (sel.has(idx)) sel.delete(idx);
       else sel.add(idx);
       return { ...prev, [sectionKey]: sel };
     });
-  }, []);
+  }, [pushUndo]);
 
   // ── Section toggle (show/hide entire section) ──
 
   const toggleSection = useCallback((sectionKey) => {
+    pushUndo();
     setHiddenSections((prev) => {
       const next = new Set(prev);
       if (next.has(sectionKey)) next.delete(sectionKey);
       else next.add(sectionKey);
       return next;
     });
-  }, []);
+  }, [pushUndo]);
 
   // ── Stat line toggle ──
 
   const toggleStat = useCallback((key) => {
+    pushUndo();
     setHiddenStats((prev) => {
       const next = new Set(prev);
       if (next.has(key)) next.delete(key);
       else next.add(key);
       return next;
     });
-  }, []);
+  }, [pushUndo]);
 
   // ── Inline text editing ──
 
   const handleEditSummary = useCallback((sectionKey, itemIdx, newSummary) => {
+    pushUndo();
     setEditingItem(null);
     const trimmed = newSummary.trim();
     if (!trimmed) return;
@@ -205,11 +237,12 @@ export default function useWeeklyEditorial({ weekly, isAdmin, apiKey, onDigestUp
       sec.content = items.join("; ");
       return sections.map((s) => `${s.key}: ${s.content}`).join("\n");
     });
-  }, []);
+  }, [pushUndo]);
 
   // ── Edit recap/narrative text (whole section) ──
 
   const handleEditSection = useCallback((sectionKey, newText) => {
+    pushUndo();
     const trimmed = newText.trim();
     setDraft((prev) => {
       if (!prev) return prev;
@@ -228,11 +261,12 @@ export default function useWeeklyEditorial({ weekly, isAdmin, apiKey, onDigestUp
       sec.content = trimmed;
       return sections.map((s) => `${s.key}: ${s.content}`).join("\n");
     });
-  }, []);
+  }, [pushUndo]);
 
   // ── Delete item from a section ──
 
   const handleDeleteItem = useCallback((sectionKey, itemIdx) => {
+    pushUndo();
     setDraft((prev) => {
       if (!prev) return prev;
       const sections = parseDigestSections(prev);
@@ -271,12 +305,45 @@ export default function useWeeklyEditorial({ weekly, isAdmin, apiKey, onDigestUp
       });
       return sections.map((s) => `${s.key}: ${s.content}`).join("\n");
     });
-  }, []);
+  }, [pushUndo]);
+
+  // ── Add item to a section ──
+
+  const handleAddItem = useCallback((sectionKey, text = "New item — click to edit") => {
+    pushUndo();
+    setDraft((prev) => {
+      if (!prev) return prev;
+      const sections = parseDigestSections(prev);
+      const sec = sections.find((s) => s.key === sectionKey);
+      if (sec) {
+        // Append to existing section
+        const items = sec.content.split(/;\s*/).map((s) => s.trim()).filter(Boolean);
+        items.push(text);
+        sec.content = items.join("; ");
+        // Auto-select the new item
+        const newIdx = items.length - 1;
+        setSectionSelections((prev) => {
+          const sel = new Set(prev[sectionKey] || []);
+          sel.add(newIdx);
+          return { ...prev, [sectionKey]: sel };
+        });
+      } else {
+        // Create new section
+        sections.push({ key: sectionKey, content: text });
+        setSectionSelections((prev) => ({
+          ...prev,
+          [sectionKey]: new Set([0]),
+        }));
+      }
+      return sections.map((s) => `${s.key}: ${s.content}`).join("\n");
+    });
+  }, [pushUndo]);
 
   // ── Reorder items within a section ──
 
   const handleReorderItem = useCallback((sectionKey, fromIdx, toIdx) => {
     if (fromIdx === toIdx) return;
+    pushUndo();
     setDraft((prev) => {
       if (!prev) return prev;
       const sections = parseDigestSections(prev);
@@ -315,28 +382,62 @@ export default function useWeeklyEditorial({ weekly, isAdmin, apiKey, onDigestUp
       });
       return sections.map((s) => `${s.key}: ${s.content}`).join("\n");
     });
-  }, []);
+  }, [pushUndo]);
 
   // ── Regenerate a single AI-generated section ──
+  // For item sections (DRAMA, HIGHLIGHTS, etc.), appends new items to existing ones.
+  // For non-item sections (RECAP, etc.), replaces the whole section.
 
   const regenSection = useCallback(async (sectionKey) => {
     if (!isEditorial || regenLoading) return;
     setRegenLoading(sectionKey);
     try {
+      // For item sections, gather existing items to send to the AI so it avoids repeats
+      let existingItems = null;
+      if (ITEM_KEYS.has(sectionKey) && draft) {
+        const sections = parseDigestSections(draft);
+        const sec = sections.find((s) => s.key === sectionKey);
+        if (sec) {
+          existingItems = sec.content.split(/;\s*/).map((s) => s.trim()).filter(Boolean);
+        }
+      }
+
+      const body = { section: sectionKey };
+      if (existingItems) body.existing = existingItems;
+
       const res = await fetch(`${RELAY_URL}/api/admin/weekly-digest/${weekly.week_start}/regen-section`, {
         method: "POST",
         headers: { "Content-Type": "application/json", "X-API-Key": apiKey },
-        body: JSON.stringify({ section: sectionKey }),
+        body: JSON.stringify(body),
       });
       if (!res.ok) throw new Error((await res.json().catch(() => ({}))).error || "Failed");
       const data = await res.json();
-      handleEditSection(sectionKey, data.content);
+      if (ITEM_KEYS.has(sectionKey)) {
+        // Append new items, deduplicating against existing by first 30 chars
+        setDraft((prev) => {
+          if (!prev) return prev;
+          const sections = parseDigestSections(prev);
+          const sec = sections.find((s) => s.key === sectionKey);
+          const newItems = data.content.split(/;\s*/).map((s) => s.trim()).filter(Boolean);
+          if (sec) {
+            const existing = sec.content.split(/;\s*/).map((s) => s.trim()).filter(Boolean);
+            const existingPrefixes = new Set(existing.map((s) => s.slice(0, 30).toLowerCase()));
+            const unique = newItems.filter((item) => !existingPrefixes.has(item.slice(0, 30).toLowerCase()));
+            sec.content = [...existing, ...unique].join("; ");
+          } else {
+            sections.push({ key: sectionKey, content: newItems.join("; ") });
+          }
+          return sections.map((s) => `${s.key}: ${s.content}`).join("\n");
+        });
+      } else {
+        handleEditSection(sectionKey, data.content);
+      }
     } catch (err) {
       console.warn(`[Regen] ${sectionKey} failed:`, err.message);
     } finally {
       setRegenLoading(null);
     }
-  }, [isEditorial, regenLoading, weekly?.week_start, apiKey, handleEditSection]);
+  }, [isEditorial, regenLoading, weekly?.week_start, apiKey, handleEditSection, setDraft, draft]);
 
   // ── Regenerate spotlight blurbs + quotes for all stat-card players ──
 
@@ -474,6 +575,43 @@ export default function useWeeklyEditorial({ weekly, isAdmin, apiKey, onDigestUp
     });
   }, [isEditorial]);
 
+  // ── Edit topics (comma-separated) ──
+
+  const handleEditTopics = useCallback((newTopics) => {
+    pushUndo();
+    const joined = newTopics.filter(Boolean).join(", ");
+    setDraft((prev) => {
+      if (!prev) return prev;
+      const sections = parseDigestSections(prev);
+      const sec = sections.find((s) => s.key === "TOPICS");
+      if (sec) {
+        if (!joined) {
+          return sections.filter((s) => s.key !== "TOPICS").map((s) => `${s.key}: ${s.content}`).join("\n");
+        }
+        sec.content = joined;
+      } else if (joined) {
+        sections.unshift({ key: "TOPICS", content: joined });
+      }
+      return sections.map((s) => `${s.key}: ${s.content}`).join("\n");
+    });
+  }, [pushUndo]);
+
+  // ── Edit clips (reorder/delete/add) ──
+
+  const handleEditClips = useCallback(async (newClips) => {
+    if (!isEditorial || !weekly?.week_start) return;
+    try {
+      const res = await fetch(`${RELAY_URL}/api/admin/weekly-digest/${weekly.week_start}/clips`, {
+        method: "PUT",
+        headers: { "Content-Type": "application/json", "X-API-Key": apiKey },
+        body: JSON.stringify({ clips: newClips }),
+      });
+      if (!res.ok) throw new Error("Failed to save clips");
+    } catch (err) {
+      console.error("[Editorial] Clips save failed:", err.message);
+    }
+  }, [isEditorial, weekly?.week_start, apiKey]);
+
   // ── Parse editable item sections from draft ──
 
   const editableItemSections = useMemo(() => {
@@ -535,24 +673,26 @@ export default function useWeeklyEditorial({ weekly, isAdmin, apiKey, onDigestUp
         if (Object.keys(selectedStats).length > 0) body.selectedStats = selectedStats;
         if (Object.keys(itemEdits).length > 0) body.itemOverrides = itemEdits;
 
-        // Save draft first, show "saved" immediately after
+        // Save draft first
         await fetch(`${RELAY_URL}/api/admin/weekly-digest/${weekly.week_start}/draft`, {
           method: "PUT",
           headers: { "Content-Type": "application/json", "X-API-Key": apiKey },
           body: JSON.stringify({ draft }),
         }).catch(() => {});
 
-        setPublishState("saved");
-        setTimeout(() => setPublishState((s) => (s === "saved" ? "idle" : s)), 2000);
-
-        // Curate in background — updates published digest without blocking UI
+        // Curate — only show "saved" after curate completes
         fetch(`${RELAY_URL}/api/admin/weekly-digest/${weekly.week_start}/curate`, {
           method: "PUT",
           headers: { "Content-Type": "application/json", "X-API-Key": apiKey },
           body: JSON.stringify(body),
         }).then((r) => r.ok ? r.json() : null).then((data) => {
           if (data && onDigestUpdatedRef.current) onDigestUpdatedRef.current(data.digest);
-        }).catch(() => {});
+          setPublishState("saved");
+          setTimeout(() => setPublishState((s) => (s === "saved" ? "idle" : s)), 2000);
+        }).catch(() => {
+          setPublishState("saved");
+          setTimeout(() => setPublishState((s) => (s === "saved" ? "idle" : s)), 2000);
+        });
       } catch {
         setPublishState("idle");
       }
@@ -566,6 +706,22 @@ export default function useWeeklyEditorial({ weekly, isAdmin, apiKey, onDigestUp
     window.addEventListener("beforeunload", handler);
     return () => window.removeEventListener("beforeunload", handler);
   }, [isDirty]);
+
+  // ── Undo keyboard shortcut (Ctrl+Z / Cmd+Z) ──
+  useEffect(() => {
+    if (!isEditorial) return;
+    const handler = (e) => {
+      if ((e.ctrlKey || e.metaKey) && e.key === "z" && !e.shiftKey) {
+        // Don't intercept undo inside text inputs/textareas
+        const tag = document.activeElement?.tagName;
+        if (tag === "INPUT" || tag === "TEXTAREA" || document.activeElement?.contentEditable === "true") return;
+        e.preventDefault();
+        undo();
+      }
+    };
+    window.addEventListener("keydown", handler);
+    return () => window.removeEventListener("keydown", handler);
+  }, [isEditorial, undo]);
 
   return {
     isEditorial,
@@ -588,6 +744,10 @@ export default function useWeeklyEditorial({ weekly, isAdmin, apiKey, onDigestUp
     handleEditSection,
     handleReorderItem,
     handleDeleteItem,
+    handleAddItem,
+    handleEditTopics,
+    handleEditClips,
+    undo,
     regenSection,
     regenSpotlights,
     regenMatchStats,
@@ -595,5 +755,7 @@ export default function useWeeklyEditorial({ weekly, isAdmin, apiKey, onDigestUp
     browseMessages,
     setQuotes,
     regenLoading,
+    weekStart: weekly?.week_start || null,
+    weekEnd: weekly?.week_end || null,
   };
 }

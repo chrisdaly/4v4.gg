@@ -88,7 +88,7 @@ export async function extractHeadline(digestText) {
     max_tokens: 1000,
     system: `You write punchy headlines for a Warcraft III 4v4 gaming zine and cast each player as a character.
 
-Generate exactly 3 different headline options from this digest. Each should cover a DIFFERENT story angle — don't just rephrase the same story.
+Generate exactly 5 different headline options from this digest. Each should cover a DIFFERENT story angle — don't just rephrase the same story.
 
 Rules:
 - Write SHORT headlines: 3-10 words. Punchy fragments OK. No fluff.

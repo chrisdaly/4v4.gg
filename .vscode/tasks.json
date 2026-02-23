@@ -2,55 +2,33 @@
   "version": "2.0.0",
   "tasks": [
     {
-      "label": "Cleanup",
+      "label": "Ralph",
       "type": "shell",
-      "command": "lsof -ti:3001 | xargs kill -9 2>/dev/null; lsof -ti:3002 | xargs kill -9 2>/dev/null; echo '✓ Cleanup complete'",
-      "presentation": {
-        "reveal": "silent",
-        "close": true
-      },
-      "problemMatcher": []
-    },
-    {
-      "label": "Dev Server",
-      "type": "shell",
-      "command": "while true; do npm run dev -- --port 3001; echo ''; echo '↻ Dev Server stopped — press Enter to restart, Ctrl+D to exit'; read || break; done",
-      "options": {
-        "cwd": "${workspaceFolder}"
-      },
-      "dependsOn": ["Cleanup"],
+      "command": "claude --dangerously-skip-permissions",
       "isBackground": true,
-      "problemMatcher": [],
-      "presentation": {
-        "group": "dev",
-        "reveal": "always",
-        "close": false
-      }
-    },
-    {
-      "label": "Chat Relay",
-      "type": "shell",
-      "command": "while true; do ADMIN_API_KEY=localdev node src/index.js; echo ''; echo '↻ Chat Relay stopped — press Enter to restart, Ctrl+D to exit'; read || break; done",
-      "options": {
-        "cwd": "${workspaceFolder}/server"
+      "problemMatcher": {
+        "pattern": { "regexp": "^$" },
+        "background": { "activeOnStart": true, "beginsPattern": ".", "endsPattern": "." }
       },
-      "dependsOn": ["Cleanup"],
-      "isBackground": true,
-      "problemMatcher": [],
-      "presentation": {
-        "group": "dev",
-        "reveal": "always",
-        "close": false
-      }
+      "presentation": { "reveal": "always", "close": false, "panel": "dedicated" }
     },
     {
-      "label": "4v4 Dev",
-      "dependsOn": ["Dev Server", "Chat Relay"],
+      "label": "Lauren",
+      "type": "shell",
+      "command": "sleep 1 && claude --dangerously-skip-permissions",
+      "isBackground": true,
+      "problemMatcher": {
+        "pattern": { "regexp": "^$" },
+        "background": { "activeOnStart": true, "beginsPattern": ".", "endsPattern": "." }
+      },
+      "presentation": { "reveal": "always", "close": false, "panel": "dedicated" }
+    },
+    {
+      "label": "Start Dev",
+      "dependsOn": ["Ralph", "Lauren"],
       "dependsOrder": "parallel",
       "problemMatcher": [],
-      "runOptions": {
-        "runOn": "folderOpen"
-      }
+      "runOptions": { "runOn": "folderOpen" }
     }
   ]
 }
