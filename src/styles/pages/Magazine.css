@@ -884,11 +884,8 @@ a.mg-inline-name:hover {
   border-bottom: none;
 }
 
-.mg-kills-dist-bar--player {
-  background: rgba(255, 215, 0, 0.45);
-  border: 1px solid rgba(255, 215, 0, 0.6);
-  border-bottom: none;
-  box-shadow: 0 0 6px rgba(255, 215, 0, 0.2);
+.mg-kills-dist-col--empty {
+  opacity: 0.3;
 }
 
 .mg-kills-dist-tick {

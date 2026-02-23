@@ -1084,20 +1084,19 @@ const StreakTimeline = ({ dailyData, type }) => {
 };
 
 /* ── Hero Kills Distribution: bar chart of hero kills/game across all players ── */
-const HeroKillsChart = ({ killsDistribution, playerName }) => {
+const HeroKillsChart = ({ killsDistribution }) => {
   if (!killsDistribution) return null;
-  const { all, player } = killsDistribution;
+  const { all } = killsDistribution;
   if (!all || Object.keys(all).length === 0) return null;
 
   // Build contiguous bucket list from 0 to max kill count (no gaps)
-  const allNums = [...Object.keys(all), ...Object.keys(player || {})].map(Number);
-  const maxBucket = Math.max(...allNums, 0);
+  const maxBucket = Math.max(...Object.keys(all).map(Number), 0);
   const buckets = Array.from({ length: maxBucket + 1 }, (_, i) => i);
   const maxCount = Math.max(...buckets.map((k) => all[k] || 0), 1);
 
   return (
     <div className="mg-kills-dist">
-      <div className="mg-kills-dist-title">Hero Kills Per Game {playerName && <span className="mg-text-gold">{"\u2014"} {playerName}</span>}</div>
+      <div className="mg-kills-dist-title">Global Hero Kills Per Game</div>
       <div className="mg-kills-dist-header">
         <span className="mg-kills-dist-label">{"\u2190"} Fewer</span>
         <span className="mg-kills-dist-label">More {"\u2192"}</span>
@@ -1105,18 +1104,15 @@ const HeroKillsChart = ({ killsDistribution, playerName }) => {
       <div className="mg-kills-dist-chart">
         {buckets.map((k) => {
           const allCount = all[k] || 0;
-          const playerCount = (player && player[k]) || 0;
-          const pct = Math.round((allCount / maxCount) * 100);
-          const playerPct = allCount > 0 ? Math.round((playerCount / allCount) * 100) : 0;
+          const pct = allCount > 0 ? Math.round((allCount / maxCount) * 100) : 0;
           return (
-            <div key={k} className="mg-kills-dist-col">
-              <span className="mg-kills-dist-count">{allCount}</span>
-              <div className="mg-kills-dist-bar-wrapper" style={{ height: `${pct}%` }}>
-                <div className="mg-kills-dist-bar mg-kills-dist-bar--all" />
-                {playerCount > 0 && (
-                  <div className="mg-kills-dist-bar mg-kills-dist-bar--player" style={{ height: `${playerPct}%` }} />
-                )}
-              </div>
+            <div key={k} className={`mg-kills-dist-col${allCount === 0 ? " mg-kills-dist-col--empty" : ""}`}>
+              <span className="mg-kills-dist-count">{allCount || ""}</span>
+              {allCount > 0 && (
+                <div className="mg-kills-dist-bar-wrapper" style={{ height: `${pct}%` }}>
+                  <div className="mg-kills-dist-bar mg-kills-dist-bar--all" />
+                </div>
+              )}
               <span className="mg-kills-dist-tick">{k}</span>
             </div>
           );
@@ -1332,7 +1328,7 @@ const SpotlightsSection = ({ spotlights, profiles, editorial }) => {
                 <StreakSpectrum spectrumData={spectrumData} hotName={hotStat?.stat?.name} coldName={coldStat?.stat?.name} />
               )}
               {key === "HEROSLAYER" && killsDistData && (
-                <HeroKillsChart killsDistribution={killsDistData} playerName={heroSlayerParsed?.stat?.name} />
+                <HeroKillsChart killsDistribution={killsDistData} />
               )}
             </React.Fragment>
           ))}
