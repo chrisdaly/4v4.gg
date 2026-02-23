@@ -221,6 +221,13 @@ export function initDb() {
     // Column already exists — ignore
   }
 
+  // Migration: add published column to weekly_digests (0 = draft, 1 = published)
+  try {
+    db.exec(`ALTER TABLE weekly_digests ADD COLUMN published INTEGER NOT NULL DEFAULT 0`);
+  } catch {
+    // Column already exists — ignore
+  }
+
   // Migration: match_player_scores table for per-match detail stats
   db.exec(`
     CREATE TABLE IF NOT EXISTS match_player_scores (
@@ -981,8 +988,16 @@ export function deleteWeeklyDigest(weekStart) {
   db.prepare('DELETE FROM weekly_digests WHERE week_start = ?').run(weekStart);
 }
 
-export function getRecentWeeklyDigests(limit = 4) {
-  return db.prepare('SELECT * FROM weekly_digests ORDER BY week_start DESC LIMIT ?').all(limit);
+export function getRecentWeeklyDigests(limit = 4, includeUnpublished = false) {
+  if (includeUnpublished) {
+    return db.prepare('SELECT * FROM weekly_digests ORDER BY week_start DESC LIMIT ?').all(limit);
+  }
+  return db.prepare('SELECT * FROM weekly_digests WHERE published = 1 ORDER BY week_start DESC LIMIT ?').all(limit);
+}
+
+export function toggleWeeklyPublished(weekStart) {
+  db.prepare('UPDATE weekly_digests SET published = CASE WHEN published = 1 THEN 0 ELSE 1 END WHERE week_start = ?').run(weekStart);
+  return db.prepare('SELECT published FROM weekly_digests WHERE week_start = ?').get(weekStart);
 }
 
 export function getToken() {

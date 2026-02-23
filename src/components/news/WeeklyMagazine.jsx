@@ -1621,7 +1621,8 @@ const WeeklyMagazine = ({ weekParam, isAdmin = false, apiKey = "" }) => {
   const [profiles, setProfiles] = useState(new Map());
 
   useEffect(() => {
-    fetch(`${RELAY_URL}/api/admin/weekly-digests`, { cache: "no-store" })
+    const headers = apiKey ? { "X-API-Key": apiKey } : {};
+    fetch(`${RELAY_URL}/api/admin/weekly-digests`, { cache: "no-store", headers })
       .then((r) => (r.ok ? r.json() : []))
       .then((data) => {
         setWeeklyDigests(data);
@@ -1633,7 +1634,7 @@ const WeeklyMagazine = ({ weekParam, isAdmin = false, apiKey = "" }) => {
         setLoading(false);
       })
       .catch((err) => { console.error("Magazine fetch failed:", err); setLoading(false); });
-  }, [weekParam]);
+  }, [weekParam, apiKey]);
 
   const weekly = weeklyDigests[weeklyIdx] || null;
 
@@ -1684,6 +1685,24 @@ const WeeklyMagazine = ({ weekParam, isAdmin = false, apiKey = "" }) => {
     if (from == null || from === toIdx) return;
     ed.handleReorderItem(section, from, toIdx);
   };
+  const handleTogglePublish = useCallback(async () => {
+    if (!weekly?.week_start || !apiKey) return;
+    try {
+      const res = await fetch(`${RELAY_URL}/api/admin/weekly-digest/${weekly.week_start}/publish`, {
+        method: "PUT",
+        headers: { "X-API-Key": apiKey },
+      });
+      if (res.ok) {
+        const { published } = await res.json();
+        setWeeklyDigests((prev) =>
+          prev.map((w, i) => (i === weeklyIdx ? { ...w, published: published ? 1 : 0 } : w))
+        );
+      }
+    } catch (err) {
+      console.warn("[Magazine] Publish toggle failed:", err.message);
+    }
+  }, [weekly, apiKey, weeklyIdx]);
+
   const doRegenerate = useCallback(async () => {
     if (!weekly?.week_start || !apiKey) return;
     setShowRegenConfirm(false);
@@ -1854,6 +1873,13 @@ const WeeklyMagazine = ({ weekParam, isAdmin = false, apiKey = "" }) => {
                 <Button $secondary onClick={variantGen.startGeneration} style={{ marginLeft: "var(--space-2)" }}>Retry</Button>
               </span>
             )}
+            <Button
+              onClick={handleTogglePublish}
+              title={weekly.published ? "Unpublish this weekly" : "Publish this weekly to all visitors"}
+              style={weekly.published ? {} : { background: "var(--green)", color: "#000", border: "1px solid var(--green)" }}
+            >
+              {weekly.published ? "Unpublish" : "Publish"}
+            </Button>
           </div>
           <div className="mg-editorial-grid">
             {ed.editableItemSections.map(({ key, label, items }) => (

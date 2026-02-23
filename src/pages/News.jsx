@@ -53,12 +53,12 @@ const News = () => {
   if (weekParam) return <PageLayout bare><WeeklyMagazine weekParam={weekParam} isAdmin={isAdmin} apiKey={adminKey} /></PageLayout>;
   if (dayParam) return <PageLayout bare><DailyView dayParam={dayParam} /></PageLayout>;
 
-  return <NewsIndex isAdmin={isAdmin} />;
+  return <NewsIndex isAdmin={isAdmin} adminKey={adminKey} />;
 };
 
 const INITIAL_COUNT = 10;
 
-const NewsIndex = ({ isAdmin }) => {
+const NewsIndex = ({ isAdmin, adminKey }) => {
   const [weeklyDigests, setWeeklyDigests] = useState([]);
   const [dailyDigests, setDailyDigests] = useState([]);
   const [todayDigest, setTodayDigest] = useState(null);
@@ -69,7 +69,8 @@ const NewsIndex = ({ isAdmin }) => {
     let done = 0;
     const check = () => { if (++done >= 3) setLoading(false); };
 
-    fetch(`${RELAY_URL}/api/admin/weekly-digests`, { cache: "no-store" })
+    const headers = adminKey ? { "X-API-Key": adminKey } : {};
+    fetch(`${RELAY_URL}/api/admin/weekly-digests`, { cache: "no-store", headers })
       .then((r) => (r.ok ? r.json() : []))
       .then(setWeeklyDigests)
       .catch(() => {})

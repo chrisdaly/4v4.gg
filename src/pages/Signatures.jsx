@@ -1,8 +1,10 @@
-import React, { useState, useEffect, useId, useMemo } from "react";
+import React, { useState, useEffect, useId, Suspense } from "react";
 import styled from "styled-components";
 import { PageLayout } from "../components/PageLayout";
 import { PageHero } from "../components/ui";
 import PeonLoader from "../components/PeonLoader";
+import CompareView from "./signatures/CompareView";
+import { VIZ_REGISTRY } from "./signatures/vizRegistry";
 
 const RELAY_URL =
   import.meta.env.VITE_CHAT_RELAY_URL || "https://4v4gg-chat-relay.fly.dev";
@@ -336,17 +338,16 @@ function EmbeddingHeatmap({ embedding, label }) {
   const max = Math.max(...embedding);
   const range = max - min || 1;
 
-  // Color scale: blue (low) → black (mid) → gold (high)
   function valToColor(v) {
-    const t = (v - min) / range; // 0..1
+    const t = (v - min) / range;
     if (t < 0.5) {
-      const s = t * 2; // 0..1 for low half
+      const s = t * 2;
       const r = Math.round(30 * s);
       const g = Math.round(30 * s);
       const b = Math.round(180 * (1 - s) + 40 * s);
       return `rgb(${r},${g},${b})`;
     } else {
-      const s = (t - 0.5) * 2; // 0..1 for high half
+      const s = (t - 0.5) * 2;
       const r = Math.round(40 + 212 * s);
       const g = Math.round(40 + 179 * s);
       const b = Math.round(40 - 9 * s);
@@ -413,7 +414,6 @@ function EmbeddingScatter({ mapData, highlightTags }) {
 
   return (
     <svg viewBox={`0 0 ${W} ${H}`} width="100%" style={{ maxWidth: 700 }}>
-      {/* Axes */}
       <line x1={PAD} y1={H - PAD} x2={W - PAD} y2={H - PAD} stroke={GREY_MID} strokeWidth="1" />
       <line x1={PAD} y1={PAD} x2={PAD} y2={H - PAD} stroke={GREY_MID} strokeWidth="1" />
       <text x={W / 2} y={H - 10} textAnchor="middle" fill={GREY} fontSize="10" fontFamily="Inconsolata, monospace">
@@ -423,8 +423,6 @@ function EmbeddingScatter({ mapData, highlightTags }) {
         transform={`rotate(-90, 14, ${H / 2})`}>
         PC2 ({pca?.varianceExplained?.[1]}% var)
       </text>
-
-      {/* Background dots */}
       {bgPlayers.map((p, i) => {
         const { sx, sy } = scale(p.x, p.y);
         return (
@@ -432,8 +430,6 @@ function EmbeddingScatter({ mapData, highlightTags }) {
             fill={RACE_COLORS[p.race] || GREY} opacity="0.25" />
         );
       })}
-
-      {/* Highlighted dots */}
       {fgPlayers.map((p, i) => {
         const { sx, sy } = scale(p.x, p.y);
         const color = RACE_COLORS[p.race] || GOLD;
@@ -448,8 +444,6 @@ function EmbeddingScatter({ mapData, highlightTags }) {
           </g>
         );
       })}
-
-      {/* Legend */}
       {Object.entries(RACE_COLORS).filter(([r]) => r !== "Random").map(([race, color], i) => (
         <g key={race} transform={`translate(${W - PAD + 5}, ${PAD + i * 18})`}>
           <circle cx="5" cy="0" r="4" fill={color} opacity="0.7" />
@@ -623,6 +617,45 @@ const ErrorMsg = styled.div`
   text-align: center;
 `;
 
+const ModeToggle = styled.div`
+  display: flex;
+  gap: 0;
+  margin-bottom: var(--space-6);
+  border: 1px solid var(--grey-mid);
+  border-radius: var(--radius-md);
+  overflow: hidden;
+  width: fit-content;
+`;
+
+const ModeButton = styled.button`
+  font-family: var(--font-mono);
+  font-size: var(--text-xxs);
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+  padding: var(--space-2) var(--space-6);
+  border: none;
+  cursor: pointer;
+  transition: all 0.15s;
+  background: ${(p) => (p.$active ? "rgba(252, 219, 51, 0.15)" : "transparent")};
+  color: ${(p) => (p.$active ? "var(--gold)" : "var(--grey-light)")};
+
+  &:hover {
+    color: var(--white);
+    background: ${(p) => (p.$active ? "rgba(252, 219, 51, 0.15)" : "var(--surface-2)")};
+  }
+
+  & + & {
+    border-left: 1px solid var(--grey-mid);
+  }
+`;
+
+const VizCount = styled.span`
+  font-family: var(--font-mono);
+  font-size: var(--text-xxs);
+  color: var(--grey-mid);
+  margin-left: var(--space-4);
+`;
+
 // ── Page Header ────────────────────────────────────────
 
 const sigHeader = (
@@ -641,6 +674,7 @@ export default function Signatures() {
   const [loading, setLoading] = useState(true);
   const [errors, setErrors] = useState({});
   const [embeddingMap, setEmbeddingMap] = useState(null);
+  const [mode, setMode] = useState("gallery"); // "gallery" | "compare"
 
   useEffect(() => {
     async function fetchAll() {
@@ -663,7 +697,6 @@ export default function Signatures() {
     }
     fetchAll();
 
-    // Fetch embedding map for scatter plot
     fetch(`${RELAY_URL}/api/fingerprints/embedding-map`)
       .then(r => r.ok ? r.json() : null)
       .then(data => setEmbeddingMap(data))
@@ -684,107 +717,166 @@ export default function Signatures() {
     <PageLayout maxWidth="1200px" bare header={sigHeader}>
       <div style={{ maxWidth: 1200, margin: "0 auto" }}>
 
-        {/* ── Feature Importance Summary ── */}
-        <Section>
-          <SectionTitle>What Makes Players Distinct</SectionTitle>
-          <SummaryGrid>
-            {FEATURES.map(f => (
-              <FeatureCard key={f.name}>
-                <div className="feat-header">
-                  <span className="feat-name">{f.name}</span>
-                  <span className="feat-weight">{Math.round((f.weight / TOTAL_WEIGHT) * 100)}%</span>
-                </div>
-                <div className="feat-bar">
-                  <div className="feat-bar-fill" style={{ width: `${(f.weight / 4) * 100}%` }} />
-                </div>
-                <div className="feat-desc">{f.desc}</div>
-                <div className="feat-dims">{f.dims} dimensions &middot; weight {f.weight}</div>
-              </FeatureCard>
-            ))}
-          </SummaryGrid>
-          <NeuralNote style={{ marginTop: 12 }}>
-            <strong>Handcrafted model</strong> (above) is fully interpretable — 48 dimensions, 6 weighted segments.
-            Combined 50/50 with a <span className="gold">neural embedding</span> (64-dim black box from action sequence encoder).
-            The neural model captures sequential patterns the handcrafted features miss.
-          </NeuralNote>
-        </Section>
+        {/* ── Mode Toggle ── */}
+        <ModeToggle>
+          <ModeButton $active={mode === "gallery"} onClick={() => setMode("gallery")}>
+            Gallery
+          </ModeButton>
+          <ModeButton $active={mode === "compare"} onClick={() => setMode("compare")}>
+            Compare
+          </ModeButton>
+          <VizCount>{VIZ_REGISTRY.length + 5} visualizations</VizCount>
+        </ModeToggle>
 
-        {/* ── Embedding Scatter Plot ── */}
-        <Section>
-          <SectionTitle>Neural Embedding Space</SectionTitle>
-          <NeuralNote style={{ marginBottom: 16 }}>
-            All player embeddings projected to 2D via PCA. Players with similar playstyles cluster together.
-            Test players highlighted against the full population.
-          </NeuralNote>
-          <VizCard style={{ padding: 24 }}>
-            <EmbeddingScatter
-              mapData={embeddingMap}
-              highlightTags={TEST_PLAYERS.map(p => p.tag)}
-            />
-          </VizCard>
-        </Section>
+        {mode === "compare" ? (
+          /* ── Compare Mode ── */
+          <Suspense fallback={<PeonLoader />}>
+            <CompareView players={players} testPlayers={TEST_PLAYERS} />
+          </Suspense>
+        ) : (
+          /* ── Gallery Mode (original layout) ── */
+          <>
+            {/* ── Feature Importance Summary ── */}
+            <Section>
+              <SectionTitle>What Makes Players Distinct</SectionTitle>
+              <SummaryGrid>
+                {FEATURES.map(f => (
+                  <FeatureCard key={f.name}>
+                    <div className="feat-header">
+                      <span className="feat-name">{f.name}</span>
+                      <span className="feat-weight">{Math.round((f.weight / TOTAL_WEIGHT) * 100)}%</span>
+                    </div>
+                    <div className="feat-bar">
+                      <div className="feat-bar-fill" style={{ width: `${(f.weight / 4) * 100}%` }} />
+                    </div>
+                    <div className="feat-desc">{f.desc}</div>
+                    <div className="feat-dims">{f.dims} dimensions &middot; weight {f.weight}</div>
+                  </FeatureCard>
+                ))}
+              </SummaryGrid>
+              <NeuralNote style={{ marginTop: 12 }}>
+                <strong>Handcrafted model</strong> (above) is fully interpretable — 48 dimensions, 6 weighted segments.
+                Combined 50/50 with a <span className="gold">neural embedding</span> (64-dim black box from action sequence encoder).
+                The neural model captures sequential patterns the handcrafted features miss.
+              </NeuralNote>
+            </Section>
 
-        {/* ── Player Viz Grid ── */}
-        <Section>
-          <SectionTitle>Visualization Mockups</SectionTitle>
-          {TEST_PLAYERS.map(({ tag, label, race }) => {
-            const data = players[tag];
-            const err = errors[tag];
+            {/* ── Embedding Scatter Plot ── */}
+            <Section>
+              <SectionTitle>Neural Embedding Space</SectionTitle>
+              <NeuralNote style={{ marginBottom: 16 }}>
+                All player embeddings projected to 2D via PCA. Players with similar playstyles cluster together.
+                Test players highlighted against the full population.
+              </NeuralNote>
+              <VizCard style={{ padding: 24 }}>
+                <EmbeddingScatter
+                  mapData={embeddingMap}
+                  highlightTags={TEST_PLAYERS.map(p => p.tag)}
+                />
+              </VizCard>
+            </Section>
 
-            if (err) {
-              return (
-                <PlayerRow key={tag}>
-                  <PlayerHeader><h3>{label}</h3><span className="meta">{race}</span></PlayerHeader>
-                  <ErrorMsg>Error: {err}</ErrorMsg>
-                </PlayerRow>
-              );
-            }
-            if (!data?.averaged?.segments) {
-              return (
-                <PlayerRow key={tag}>
-                  <PlayerHeader><h3>{label}</h3><span className="meta">{race}</span></PlayerHeader>
-                  <ErrorMsg>No fingerprint data</ErrorMsg>
-                </PlayerRow>
-              );
-            }
+            {/* ── Player Viz Grid (Original 5) ── */}
+            <Section>
+              <SectionTitle>Original Signatures</SectionTitle>
+              {TEST_PLAYERS.map(({ tag, label, race }) => {
+                const data = players[tag];
+                const err = errors[tag];
 
-            const seg = data.averaged.segments;
-            const conf = data.confidence;
-            const emb = data.averagedEmbedding;
+                if (err) {
+                  return (
+                    <PlayerRow key={tag}>
+                      <PlayerHeader><h3>{label}</h3><span className="meta">{race}</span></PlayerHeader>
+                      <ErrorMsg>Error: {err}</ErrorMsg>
+                    </PlayerRow>
+                  );
+                }
+                if (!data?.averaged?.segments) {
+                  return (
+                    <PlayerRow key={tag}>
+                      <PlayerHeader><h3>{label}</h3><span className="meta">{race}</span></PlayerHeader>
+                      <ErrorMsg>No fingerprint data</ErrorMsg>
+                    </PlayerRow>
+                  );
+                }
 
-            return (
-              <PlayerRow key={tag}>
-                <PlayerHeader>
-                  <h3>{label}</h3>
-                  <span className="meta">{race} &middot; {data.replayCount} replays</span>
-                  {conf && <span className="confidence">{Math.round(conf.confidence * 100)}% confidence</span>}
-                </PlayerHeader>
-                <Grid>
-                  <VizCard>
-                    <h4>Penstroke</h4>
-                    <PenstrokeSignature segments={seg} battleTag={tag} />
-                  </VizCard>
-                  <VizCard>
-                    <h4>Transition Glyph</h4>
-                    <TransitionGlyph segments={seg} />
-                  </VizCard>
-                  <VizCard>
-                    <h4>Tempo Waveform</h4>
-                    <TempoWaveform segments={seg} />
-                  </VizCard>
-                  <VizCard>
-                    <h4>Radial Rhythm</h4>
-                    <RadialRhythm segments={seg} />
-                  </VizCard>
-                </Grid>
-                <VizCard style={{ marginTop: 8 }}>
-                  <h4>Neural Embedding</h4>
-                  <EmbeddingHeatmap embedding={emb} label={label} />
-                </VizCard>
-              </PlayerRow>
-            );
-          })}
-        </Section>
+                const seg = data.averaged.segments;
+                const conf = data.confidence;
+                const emb = data.averagedEmbedding;
+
+                return (
+                  <PlayerRow key={tag}>
+                    <PlayerHeader>
+                      <h3>{label}</h3>
+                      <span className="meta">{race} &middot; {data.replayCount} replays</span>
+                      {conf && <span className="confidence">{Math.round(conf.confidence * 100)}% confidence</span>}
+                    </PlayerHeader>
+                    <Grid>
+                      <VizCard>
+                        <h4>Penstroke</h4>
+                        <PenstrokeSignature segments={seg} battleTag={tag} />
+                      </VizCard>
+                      <VizCard>
+                        <h4>Transition Glyph</h4>
+                        <TransitionGlyph segments={seg} />
+                      </VizCard>
+                      <VizCard>
+                        <h4>Tempo Waveform</h4>
+                        <TempoWaveform segments={seg} />
+                      </VizCard>
+                      <VizCard>
+                        <h4>Radial Rhythm</h4>
+                        <RadialRhythm segments={seg} />
+                      </VizCard>
+                    </Grid>
+                    <VizCard style={{ marginTop: 8 }}>
+                      <h4>Neural Embedding</h4>
+                      <EmbeddingHeatmap embedding={emb} label={label} />
+                    </VizCard>
+                  </PlayerRow>
+                );
+              })}
+            </Section>
+
+            {/* ── New Viz Gallery (all registry vizzes per player) ── */}
+            <Section>
+              <SectionTitle>Expanded Visualization Gallery</SectionTitle>
+              <NeuralNote style={{ marginBottom: 16 }}>
+                {VIZ_REGISTRY.length} new visualization styles organized by theme.
+                Switch to <strong>Compare</strong> mode to view any single viz type across all players side-by-side.
+              </NeuralNote>
+              {TEST_PLAYERS.map(({ tag, label, race }) => {
+                const data = players[tag];
+                if (!data?.averaged?.segments) return null;
+
+                const seg = data.averaged.segments;
+                const emb = data.averagedEmbedding;
+
+                return (
+                  <PlayerRow key={`expanded-${tag}`}>
+                    <PlayerHeader>
+                      <h3>{label}</h3>
+                      <span className="meta">{race} &middot; {data.replayCount} replays</span>
+                    </PlayerHeader>
+                    <Grid>
+                      <Suspense fallback={<VizCard><h4>Loading...</h4></VizCard>}>
+                        {VIZ_REGISTRY.map((viz) => {
+                          const VizComp = viz.component;
+                          return (
+                            <VizCard key={viz.id}>
+                              <h4>{viz.name}</h4>
+                              <VizComp segments={seg} embedding={emb} battleTag={tag} />
+                            </VizCard>
+                          );
+                        })}
+                      </Suspense>
+                    </Grid>
+                  </PlayerRow>
+                );
+              })}
+            </Section>
+          </>
+        )}
 
       </div>
     </PageLayout>

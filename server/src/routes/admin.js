@@ -2,7 +2,7 @@ import { Router } from 'express';
 import rateLimit from 'express-rate-limit';
 import multer from 'multer';
 import config from '../config.js';
-import { setToken, getStats, getTopWords, getRecentDigests, deleteDigest, getDigest, getRecentWeeklyDigests, deleteWeeklyDigest, getWeeklyDigest, getWeeklyCoverImage, setWeeklyCoverImage, getDraftForDate, updateDigestOnly, updateDraftOnly, updateHiddenAvatars, getContextAroundQuotes, getMessagesByTimeWindow, getMessagesByDateAndUsers, getMessageBuckets, getGameStats, getMatchContext, getClipsByDateRange, saveCoverGeneration, getCoverGenerations, getCoverGenerationImage, deleteCoverGeneration, getWeeklyDraftForWeek, updateWeeklyDraftOnly, updateWeeklyDigestOnly, createGenJob, getActiveGenJob, getLatestGenJob, getVariantsForJob, searchMessages, searchMessagesByPlayer, getMessagesAroundTime, countMessagesByDateRange, updateWeeklyDigestJson, getDigestsByDateRange, saveStyleThumbnail, getStyleThumbnail } from '../db.js';
+import { setToken, getStats, getTopWords, getRecentDigests, deleteDigest, getDigest, getRecentWeeklyDigests, deleteWeeklyDigest, getWeeklyDigest, getWeeklyCoverImage, setWeeklyCoverImage, getDraftForDate, updateDigestOnly, updateDraftOnly, updateHiddenAvatars, getContextAroundQuotes, getMessagesByTimeWindow, getMessagesByDateAndUsers, getMessageBuckets, getGameStats, getMatchContext, getClipsByDateRange, saveCoverGeneration, getCoverGenerations, getCoverGenerationImage, deleteCoverGeneration, getWeeklyDraftForWeek, updateWeeklyDraftOnly, updateWeeklyDigestOnly, createGenJob, getActiveGenJob, getLatestGenJob, getVariantsForJob, searchMessages, searchMessagesByPlayer, getMessagesAroundTime, countMessagesByDateRange, updateWeeklyDigestJson, getDigestsByDateRange, saveStyleThumbnail, getStyleThumbnail, toggleWeeklyPublished } from '../db.js';
 import { updateToken, getStatus } from '../signalr.js';
 import { getClientCount } from '../sse.js';
 import { setBotEnabled, isBotEnabled, testCommand } from '../bot.js';
@@ -455,8 +455,9 @@ router.get('/analytics', publicLimiter, (_req, res) => {
 });
 
 // Recent weekly digests (public) — parse clips + stats + digest_json, backfill message count
-router.get('/weekly-digests', publicLimiter, (_req, res) => {
-  const weeklies = getRecentWeeklyDigests(8).map(w => {
+router.get('/weekly-digests', publicLimiter, (req, res) => {
+  const isAdmin = req.headers['x-api-key'] === config.ADMIN_API_KEY && !!config.ADMIN_API_KEY;
+  const weeklies = getRecentWeeklyDigests(8, isAdmin).map(w => {
     const result = { ...w };
     if (w.clips) {
       try { result.clips = JSON.parse(w.clips); } catch { result.clips = null; }
@@ -532,6 +533,20 @@ router.delete('/weekly-digest/:weekStart', requireApiKey, (req, res) => {
   }
   deleteWeeklyDigest(weekStart);
   res.json({ ok: true, message: `Weekly digest for ${weekStart} cleared` });
+});
+
+// Toggle weekly digest published state (protected)
+router.put('/weekly-digest/:weekStart/publish', requireApiKey, (req, res) => {
+  const { weekStart } = req.params;
+  if (!/^\d{4}-\d{2}-\d{2}$/.test(weekStart)) {
+    return res.status(400).json({ error: 'weekStart must be YYYY-MM-DD' });
+  }
+  const existing = getWeeklyDigest(weekStart);
+  if (!existing) {
+    return res.status(404).json({ error: 'Weekly digest not found' });
+  }
+  const result = toggleWeeklyPublished(weekStart);
+  res.json({ ok: true, weekStart, published: !!result?.published });
 });
 
 // Get weekly draft for editorial mode (protected)

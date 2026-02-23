@@ -85,7 +85,7 @@ async function discoverMatches() {
   const matchMap = new Map();
   let checked = 0;
   for (const tag of battleTags) {
-    if (checked++ > 50) break; // check first 50 players per discover cycle
+    if (checked++ > 20) break; // check first 20 players per discover cycle
     await sleep(RATE_LIMIT_MS);
     try {
       const url = `${W3C_API}/matches?playerId=${encodeURIComponent(tag)}&offset=0&gameMode=4&season=${season}&gateway=20&pageSize=10`;
@@ -254,9 +254,10 @@ async function runCycle() {
         const result = await importMatch(match);
         if (result.status === 'imported') imported++;
         else if (result.status === 'rate_limited') {
-          // Put it back and stop this cycle
-          importQueue.unshift(match);
-          console.log('[Importer] Rate limited, will retry next cycle');
+          // Drop the queue and skip 3 cycles (~30 min cooldown)
+          importQueue = [];
+          discoverCooldown = 3;
+          console.log('[Importer] Rate limited — clearing queue, cooling down for 3 cycles');
           break;
         } else {
           skipped++;
