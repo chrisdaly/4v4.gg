@@ -14,6 +14,7 @@ import {
   getFingerprintsWithoutEmbeddings,
   updateFingerprintEmbedding,
   getPlayerActionData,
+  getPlayerActionDataByReplayIds,
   deleteReplayFingerprints,
   deleteAllFingerprints,
   getAllReplayIds,
@@ -27,6 +28,7 @@ import {
   averageEmbeddings,
   embeddingSimilarity,
   computeConfidence,
+  detectPersonas,
 } from '../fingerprint.js';
 import { getEmbedding, getEmbeddingBatch, checkSidecar } from '../embedClient.js';
 
@@ -190,6 +192,243 @@ function scoreToZScore(rawScore, cal) {
   return Math.round(((rawScore - cal.mean) / cal.stddev) * 100) / 100;
 }
 
+/**
+ * Build action profile (transition pairs, group usage, compositions, action counts)
+ * from raw action rows. Extracted from the profile endpoint for reuse.
+ */
+function computeActionProfile(actionRows) {
+  let transitionPairs = [];
+  let groupUsage = [];
+  let groupCompositions = {};
+  let actionCounts = null;
+
+  if (actionRows.length === 0) return { transitionPairs, groupUsage, groupCompositions, actionCounts };
+
+  const allSeqs = actionRows.map(r => tryParse(r.full_action_sequence)).filter(a => a && a.length > 1);
+  const groupTransitions = {};
+  const groupStats = {};
+  // Track rapid vs functional switches: rapid = <500ms with no real actions between
+  const RAPID_MS = 500;
+  const switchTiming = {}; // key -> { rapid: n, functional: n, gaps: number[] }
+
+  for (const seq of allSeqs) {
+    let lastGroup = null;
+    let lastSwitchMs = null;
+    let actionsBetween = 0; // non-hotkey actions since last group switch
+    for (const a of seq) {
+      if (a.ms < 120000) continue;
+      const isHotkey = (a.id === 0x17 || a.id === 0x18 || a.id === 23 || a.id === 24) && a.g != null;
+      if (isHotkey) {
+        const isAssign = (a.id === 0x17 || a.id === 23);
+        if (!groupStats[a.g]) groupStats[a.g] = { used: 0, assigned: 0 };
+        if (isAssign) groupStats[a.g].assigned++;
+        else groupStats[a.g].used++;
+        if (lastGroup !== null && lastGroup !== a.g) {
+          const key = `${lastGroup}->${a.g}`;
+          groupTransitions[key] = (groupTransitions[key] || 0) + 1;
+          // Classify as rapid tick or functional switch
+          if (lastSwitchMs !== null) {
+            const gap = a.ms - lastSwitchMs;
+            if (!switchTiming[key]) switchTiming[key] = { rapid: 0, functional: 0, gaps: [] };
+            if (gap < RAPID_MS && actionsBetween === 0) {
+              switchTiming[key].rapid++;
+            } else {
+              switchTiming[key].functional++;
+            }
+            switchTiming[key].gaps.push(gap);
+          }
+        }
+        lastGroup = a.g;
+        lastSwitchMs = a.ms;
+        actionsBetween = 0;
+      } else {
+        actionsBetween++;
+      }
+    }
+  }
+
+  transitionPairs = Object.entries(groupTransitions)
+    .sort((a, b) => b[1] - a[1])
+    .slice(0, 10)
+    .map(([k, v]) => {
+      const pair = { from: parseInt(k), to: parseInt(k.split('->')[1]), count: v };
+      const timing = switchTiming[k];
+      if (timing && (timing.rapid + timing.functional) > 0) {
+        const total = timing.rapid + timing.functional;
+        pair.rapidPct = Math.round((timing.rapid / total) * 100);
+        pair.medianGapMs = timing.gaps.length > 0
+          ? timing.gaps.sort((a, b) => a - b)[Math.floor(timing.gaps.length / 2)]
+          : null;
+      }
+      return pair;
+    });
+
+  groupUsage = Object.entries(groupStats)
+    .map(([g, s]) => ({ group: parseInt(g), used: s.used, assigned: s.assigned }))
+    .sort((a, b) => (b.used + b.assigned) - (a.used + a.assigned));
+
+  // Aggregate group compositions
+  const groupUnitCounts = {};
+  for (const r of actionRows) {
+    const comp = tryParse(r.group_compositions);
+    if (!comp) continue;
+    for (const [g, units] of Object.entries(comp)) {
+      if (!groupUnitCounts[g]) groupUnitCounts[g] = {};
+      for (const unitId of units) {
+        if (!unitId) continue;
+        groupUnitCounts[g][unitId] = (groupUnitCounts[g][unitId] || 0) + 1;
+      }
+    }
+  }
+  for (const [g, counts] of Object.entries(groupUnitCounts)) {
+    const sorted = Object.entries(counts)
+      .sort((a, b) => b[1] - a[1])
+      .slice(0, 8)
+      .map(([unitId, count]) => ({ id: unitId, count }));
+    if (sorted.length > 0) groupCompositions[g] = sorted;
+  }
+
+  // ── Compute high-signal metrics from action sequences ──
+  let totalAssigns = 0, totalSelects = 0, totalTab = 0;
+  const allGaps = [];  // inter-action intervals for rhythm
+
+  for (const seq of allSeqs) {
+    let prevMs = null;
+    for (const a of seq) {
+      if (a.ms < 120000) continue;
+      // Rhythm: gaps between any consecutive actions
+      if (prevMs !== null) {
+        const gap = a.ms - prevMs;
+        if (gap > 0 && gap < 5000) allGaps.push(gap); // cap at 5s to exclude AFK
+      }
+      prevMs = a.ms;
+      // Count action types from sequence (more reliable than DB columns)
+      const id = a.id;
+      if ((id === 0x17 || id === 23) && a.g != null) totalAssigns++;
+      if ((id === 0x18 || id === 24) && a.g != null) totalSelects++;
+      if (id === 0x19 || id === 25) totalTab++;
+    }
+  }
+
+  // Action counts (per-minute averages)
+  const totals = { removeunit: 0, basic: 0, totalDuration: 0 };
+  for (const r of actionRows) {
+    totals.removeunit += r.removeunit || 0;
+    totals.basic += r.basic || 0;
+    totals.totalDuration += r.game_duration || 0;
+  }
+  const avgMins = totals.totalDuration > 0 ? totals.totalDuration / 60 : 1;
+
+  // Rhythm stats
+  let rhythmMeanMs = null, rhythmMedianMs = null, rhythmStdMs = null;
+  if (allGaps.length > 10) {
+    allGaps.sort((a, b) => a - b);
+    rhythmMeanMs = Math.round(allGaps.reduce((s, g) => s + g, 0) / allGaps.length);
+    rhythmMedianMs = allGaps[Math.floor(allGaps.length / 2)];
+    const variance = allGaps.reduce((s, g) => s + (g - rhythmMeanMs) ** 2, 0) / allGaps.length;
+    rhythmStdMs = Math.round(Math.sqrt(variance));
+  }
+
+  // Reassign ratio: what % of group actions are reassigns vs selects
+  const totalGroupActions = totalAssigns + totalSelects;
+  const reassignRatio = totalGroupActions > 0 ? Math.round((totalAssigns / totalGroupActions) * 100) : 0;
+
+  actionCounts = {
+    // Tier 1 signal
+    assignPerMin: +(totalAssigns / avgMins).toFixed(1),
+    selectPerMin: +(totalSelects / avgMins).toFixed(1),
+    reassignRatio,
+    tabPerMin: +(totalTab / avgMins).toFixed(1),
+    rhythmMeanMs,
+    rhythmMedianMs,
+    rhythmStdMs,
+    // Tier 2
+    attackMovePerMin: +(totals.basic / avgMins).toFixed(1),
+    cancelPerMin: +(totals.removeunit / avgMins).toFixed(1),
+    replayCount: actionRows.length,
+  };
+
+  return { transitionPairs, groupUsage, groupCompositions, actionCounts };
+}
+
+// GET /api/fingerprints/explore/players — Public player directory (no auth)
+router.get('/explore/players', (req, res) => {
+  const players = getIndexedPlayers();
+  res.json({ players });
+});
+
+// GET /api/fingerprints/explore/similar/:battleTag?limit=5 — Public nearest neighbors (no auth)
+router.get('/explore/similar/:battleTag', (req, res) => {
+  const { battleTag } = req.params;
+  const limit = Math.min(parseInt(req.query.limit) || 5, 5);
+
+  const queryRows = getPlayerFingerprints(battleTag);
+  if (queryRows.length === 0) {
+    return res.status(404).json({ error: 'No fingerprints found for player', battleTag });
+  }
+
+  const queryFps = queryRows.map(parseDbFingerprint);
+  const queryAvg = averageFingerprints(queryFps);
+  const queryRace = queryRows[0].race;
+
+  const queryEmbeddings = queryRows.map(r => tryParse(r.embedding)).filter(Boolean);
+  const queryAvgEmb = averageEmbeddings(queryEmbeddings);
+
+  const allRows = getAllAveragedFingerprintsWithEmbeddings();
+  const results = [];
+
+  for (const row of allRows) {
+    if (row.battle_tag === battleTag) continue;
+
+    const { fp: avgFp, embedding: avgEmb } = parseAveragedRowWithEmbedding(row);
+    if (!avgFp) continue;
+
+    const hybrid = computeHybridSimilarity(queryAvg, avgFp, queryAvgEmb, avgEmb);
+    const breakdown = computeServerBreakdown(queryAvg, avgFp);
+
+    results.push({
+      battleTag: row.battle_tag,
+      playerName: row.player_name,
+      race: row.race,
+      replayCount: row.replay_count,
+      similarity: Math.round(hybrid.similarity * 1000) / 1000,
+      hybrid: hybrid.hybrid,
+      breakdown: formatBreakdown(breakdown, hybrid),
+      _segments: avgFp.segments, // keep for glyph enrichment, stripped before response
+    });
+  }
+
+  results.sort((a, b) => b.similarity - a.similarity);
+
+  const cal = getCalibration();
+  const topResults = results.slice(0, limit);
+
+  if (cal) {
+    for (const r of topResults) {
+      r.percentile = scoreToPercentile(r.similarity, cal);
+    }
+  }
+
+  // Enrich top results with glyph data (transition pairs, group usage, compositions, APM)
+  for (const r of topResults) {
+    const actionRows = getPlayerActionData(r.battleTag);
+    if (actionRows.length > 0) {
+      const { transitionPairs, groupUsage, groupCompositions } = computeActionProfile(actionRows);
+      r.glyph = { transitionPairs, groupUsage, groupCompositions };
+    }
+    // Include APM segment for mini glyph center display
+    if (r._segments?.apm) {
+      r.segments = { apm: r._segments.apm };
+    }
+    delete r._segments;
+  }
+
+  res.json({
+    query: { battleTag, race: queryRace, replayCount: queryRows.length },
+    similar: topResults,
+  });
+});
+
 // GET /api/fingerprints/profile/:battleTag — Public profile (no auth)
 // Returns averaged fingerprint data only (no raw per-replay fingerprints)
 router.get('/profile/:battleTag', (req, res) => {
@@ -209,6 +448,10 @@ router.get('/profile/:battleTag', (req, res) => {
   const avgEmb = averageEmbeddings(embeddings);
   const confidence = computeConfidence(fingerprints);
 
+  // Build action profile from raw action sequences
+  const actionRows = getPlayerActionData(battleTag);
+  const { transitionPairs, groupUsage, groupCompositions, actionCounts } = computeActionProfile(actionRows);
+
   res.json({
     battleTag,
     replayCount: rows.length,
@@ -216,7 +459,199 @@ router.get('/profile/:battleTag', (req, res) => {
     confidence,
     averaged: avgFp,
     averagedEmbedding: avgEmb,
+    transitionPairs,
+    groupUsage,
+    groupCompositions,
+    actionCounts,
   });
+});
+
+// GET /api/fingerprints/profile/:battleTag/personas — Detect account sharing (public)
+router.get('/profile/:battleTag/personas', (req, res) => {
+  const { battleTag } = req.params;
+
+  const rows = getPlayerFingerprints(battleTag);
+  if (rows.length === 0) {
+    return res.status(404).json({ error: 'No fingerprints found', battleTag });
+  }
+
+  const fingerprints = rows.map(parseDbFingerprint);
+  const confidence = computeConfidence(fingerprints);
+
+  const result = detectPersonas(fingerprints);
+  if (!result) {
+    return res.json({
+      split: false,
+      reason: fingerprints.length < 4 ? 'Too few replays' : 'No meaningful split detected',
+      replayCount: rows.length,
+      selfConsistency: confidence.selfConsistency,
+    });
+  }
+
+  const { labels, silhouette, clusterSizes, interClusterSimilarity, interClusterBreakdown } = result;
+
+  // Partition replay IDs by cluster
+  const clusterReplayIds = [[], []];
+  const clusterDates = [[], []];
+  for (let i = 0; i < rows.length; i++) {
+    const c = labels[i];
+    clusterReplayIds[c].push(rows[i].replay_id);
+    if (rows[i].match_date) clusterDates[c].push(rows[i].match_date);
+  }
+
+  // Build per-cluster averaged fingerprints
+  const clusterFps = [
+    fingerprints.filter((_, i) => labels[i] === 0),
+    fingerprints.filter((_, i) => labels[i] === 1),
+  ];
+  const avgFps = clusterFps.map(fps => averageFingerprints(fps));
+
+  // Build per-cluster embeddings
+  const clusterEmbs = [
+    rows.filter((_, i) => labels[i] === 0).map(r => tryParse(r.embedding)).filter(Boolean),
+    rows.filter((_, i) => labels[i] === 1).map(r => tryParse(r.embedding)).filter(Boolean),
+  ];
+  const avgEmbs = clusterEmbs.map(embs => averageEmbeddings(embs));
+
+  // Build per-cluster action profiles
+  const clusterActionRows = [
+    getPlayerActionDataByReplayIds(battleTag, clusterReplayIds[0]),
+    getPlayerActionDataByReplayIds(battleTag, clusterReplayIds[1]),
+  ];
+  const clusterProfiles = clusterActionRows.map(rows => computeActionProfile(rows));
+
+  // Top divergences — segments where the two personas differ most
+  const SEGMENT_NAMES = ['action', 'apm', 'hotkey', 'tempo', 'intensity', 'transitions', 'rhythm'];
+  const topDivergences = [];
+  if (interClusterBreakdown) {
+    for (const seg of SEGMENT_NAMES) {
+      const sim = interClusterBreakdown[seg];
+      if (sim != null) {
+        topDivergences.push({ segment: seg, similarity: r3(sim), divergence: r3(1 - sim) });
+      }
+    }
+    topDivergences.sort((a, b) => b.divergence - a.divergence);
+  }
+
+  // Date ranges per cluster
+  const dateRanges = clusterDates.map(dates => {
+    if (dates.length === 0) return null;
+    const sorted = [...dates].sort();
+    return { earliest: sorted[0], latest: sorted[sorted.length - 1] };
+  });
+
+  // Build persona response objects (same shape as profile endpoint)
+  const personas = [0, 1].map(c => ({
+    battleTag,
+    replayCount: clusterSizes[c],
+    embeddingCount: clusterEmbs[c].length,
+    confidence: computeConfidence(clusterFps[c]),
+    averaged: avgFps[c],
+    averagedEmbedding: avgEmbs[c],
+    ...clusterProfiles[c],
+    dateRange: dateRanges[c],
+  }));
+
+  res.json({
+    split: true,
+    silhouette: r3(silhouette),
+    clusterSizes,
+    interClusterSimilarity: r3(interClusterSimilarity),
+    topDivergences: topDivergences.slice(0, 5),
+    personas,
+  });
+});
+
+// GET /api/fingerprints/gallery — Public gallery of player extremes (no auth)
+router.get('/gallery', (req, res) => {
+  const allRows = getAllAveragedFingerprintsWithEmbeddings();
+  if (allRows.length === 0) {
+    return res.json({ players: [] });
+  }
+
+  const players = [];
+  for (const row of allRows) {
+    if (row.replay_count < 2) continue;
+
+    const { fp } = parseAveragedRowWithEmbedding(row);
+    if (!fp) continue;
+
+    // Extract metrics from fingerprint segments
+    const apmSeg = fp.segments.apm || []; // [meanNorm, stdNorm, burstiness]
+    const meanApm = Math.round((apmSeg[0] || 0) * 300); // denormalize
+    const burstiness = r3(apmSeg[2] || 0);
+
+    const actionSeg = fp.segments.action || []; // [rc, ability, build, item, selecthk, assigngrp]
+    const totalAction = actionSeg.reduce((a, b) => a + b, 0) || 1;
+    const selectPct = Math.round(((actionSeg[4] || 0) / totalAction) * 100);
+    const abilityPct = Math.round(((actionSeg[1] || 0) / totalAction) * 100);
+    const rightclickPct = Math.round(((actionSeg[0] || 0) / totalAction) * 100);
+
+    const hotkeySeg = fp.segments.hotkey || []; // [used0-9, assigned0-9]
+    let activeGroups = 0;
+    for (let i = 0; i < 10; i++) {
+      if ((hotkeySeg[i] || 0) > 0.02 || (hotkeySeg[i + 10] || 0) > 0.02) activeGroups++;
+    }
+
+    // Check if buildings are on hotkeys (assign activity on groups 6-9 suggests buildings)
+    const buildingsOnHotkey = [6, 7, 8, 9].some(g => (hotkeySeg[g + 10] || 0) > 0.05);
+
+    // Rhythm segment: oscillation and rapid switching
+    const rhythmSeg = fp.segments.rhythm || [];
+    const oscillation = r3(rhythmSeg[10] || 0); // oscillation index
+    const rapidSwitchPct = Math.round((rhythmSeg[12] || 0) * 100); // rapid switch ratio
+
+    // Get action counts from raw data
+    const actionRows = getPlayerActionData(row.battle_tag);
+    let escPerMin = 0, tabPerMin = 0, attackMovePerMin = 0, cancelPerMin = 0;
+    let selfConsistency = null;
+
+    if (actionRows.length > 0) {
+      const { actionCounts } = computeActionProfile(actionRows);
+      if (actionCounts) {
+        tabPerMin = actionCounts.tabPerMin || 0;
+        attackMovePerMin = actionCounts.attackMovePerMin || 0;
+        cancelPerMin = actionCounts.cancelPerMin || 0;
+      }
+      // ESC per min from raw esc counts
+      let totalEsc = 0, totalDuration = 0;
+      for (const r of actionRows) {
+        totalEsc += r.esc || 0;
+        totalDuration += r.game_duration || 0;
+      }
+      const avgMins = totalDuration > 0 ? totalDuration / 60 : 1;
+      escPerMin = +(totalEsc / avgMins).toFixed(1);
+    }
+
+    // Self-consistency from transitions segment (mean of segment = smoothness)
+    const transSeg = fp.segments.transitions || [];
+    if (transSeg.length > 0) {
+      selfConsistency = r3(transSeg.reduce((a, b) => a + b, 0) / transSeg.length);
+    }
+
+    players.push({
+      battleTag: row.battle_tag,
+      race: row.race,
+      replayCount: row.replay_count,
+      metrics: {
+        meanApm,
+        burstiness,
+        activeGroups,
+        escPerMin,
+        tabPerMin,
+        attackMovePerMin,
+        cancelPerMin,
+        selectPct,
+        abilityPct,
+        rightclickPct,
+        rapidSwitchPct,
+        buildingsOnHotkey,
+        oscillation,
+      },
+    });
+  }
+
+  res.json({ players });
 });
 
 // GET /api/fingerprints/players — List all indexed players
@@ -806,16 +1241,31 @@ router.get('/embedding-map', (req, res) => {
 
   const pcs = powerIteration(centered, 2);
 
+  // Build a map from battleTag → averaged fingerprint for glyph data
+  const glyphFpLookup = {};
+  for (const row of allRows) {
+    const { fp } = parseAveragedRowWithEmbedding(row);
+    if (fp) glyphFpLookup[row.battle_tag] = fp;
+  }
+
   // Project each player onto the 2 PCs
+  const r2 = v => Math.round(v * 100) / 100;
   const points = players.map((p, i) => {
     const x = centered[i].reduce((s, v, d) => s + v * pcs[0][d], 0);
     const y = centered[i].reduce((s, v, d) => s + v * pcs[1][d], 0);
+    const fp = glyphFpLookup[p.battleTag];
+    const glyph = fp ? {
+      hotkey: fp.segments.hotkey.slice(0, 10).map(r2),
+      apm: r2(fp.segments.apm[0] || 0),
+      action: fp.segments.action.slice(0, 6).map(r2),
+    } : null;
     return {
       battleTag: p.battleTag,
       race: p.race,
       replayCount: p.replayCount,
       x: Math.round(x * 1000) / 1000,
       y: Math.round(y * 1000) / 1000,
+      glyph,
     };
   });
 
@@ -827,6 +1277,67 @@ router.get('/embedding-map', (req, res) => {
   // Round PCA basis for transport (6 decimal places)
   const r6 = v => Math.round(v * 1e6) / 1e6;
 
+  // ── Axis interpretation: correlate PC coordinates with fingerprint segments ──
+  // For each player, get their averaged handcrafted fingerprint segments,
+  // then compute Pearson correlation of x/y with each segment's mean value.
+  const SEGMENT_NAMES = ['action', 'apm', 'hotkey', 'tempo', 'intensity', 'transitions', 'rhythm'];
+  const SEGMENT_LABELS = {
+    action: 'Actions',
+    apm: 'APM',
+    hotkey: 'Hotkeys',
+    tempo: 'Tempo',
+    intensity: 'Intensity',
+    transitions: 'Switching',
+    rhythm: 'Rhythm',
+  };
+
+  // Build a lookup from battleTag → averaged fingerprint
+  const fpLookup = {};
+  for (const row of allRows) {
+    const { fp } = parseAveragedRowWithEmbedding(row);
+    if (fp) fpLookup[row.battle_tag] = fp;
+  }
+
+  function pearson(xs_, ys_) {
+    const n_ = xs_.length;
+    if (n_ < 3) return 0;
+    const mx = xs_.reduce((a, b) => a + b, 0) / n_;
+    const my = ys_.reduce((a, b) => a + b, 0) / n_;
+    let num = 0, dx2 = 0, dy2 = 0;
+    for (let i = 0; i < n_; i++) {
+      const dx = xs_[i] - mx;
+      const dy = ys_[i] - my;
+      num += dx * dy;
+      dx2 += dx * dx;
+      dy2 += dy * dy;
+    }
+    const denom = Math.sqrt(dx2 * dy2);
+    return denom > 0 ? num / denom : 0;
+  }
+
+  // For each segment, compute mean value per player, then correlate with x and y
+  const axisCorrelations = { pc1: [], pc2: [] };
+  const pcXs = points.map(p => p.x);
+  const pcYs = points.map(p => p.y);
+
+  for (const seg of SEGMENT_NAMES) {
+    // Mean of this segment across its dimensions for each player
+    const segMeans = points.map(p => {
+      const fp = fpLookup[p.battleTag];
+      if (!fp?.segments?.[seg]) return 0;
+      const arr = fp.segments[seg];
+      return arr.length > 0 ? arr.reduce((a, b) => a + b, 0) / arr.length : 0;
+    });
+    const corrX = pearson(pcXs, segMeans);
+    const corrY = pearson(pcYs, segMeans);
+    axisCorrelations.pc1.push({ segment: seg, label: SEGMENT_LABELS[seg], r: r3(corrX) });
+    axisCorrelations.pc2.push({ segment: seg, label: SEGMENT_LABELS[seg], r: r3(corrY) });
+  }
+
+  // Sort by absolute correlation strength
+  axisCorrelations.pc1.sort((a, b) => Math.abs(b.r) - Math.abs(a.r));
+  axisCorrelations.pc2.sort((a, b) => Math.abs(b.r) - Math.abs(a.r));
+
   res.json({
     players: points,
     pca: {
@@ -837,6 +1348,7 @@ router.get('/embedding-map', (req, res) => {
       playerCount: n,
       mean: mean.map(r6),
       components: pcs.map(pc => pc.map(r6)),
+      axisCorrelations,
     },
   });
 });
