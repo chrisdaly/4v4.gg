@@ -27,21 +27,28 @@ const SearchForm = styled.form`
 const SearchInput = styled.input`
   flex: 1;
   min-width: 0;
-  background: rgba(255, 255, 255, 0.06);
-  border: 1px solid rgba(160, 130, 80, 0.2);
+  background: var(--surface-1);
+  border: 1px solid var(--grey-mid);
   border-radius: var(--radius-sm);
   padding: var(--space-2) var(--space-4);
-  color: var(--text-body);
+  color: var(--white);
   font-family: var(--font-mono);
   font-size: var(--text-xs);
   outline: none;
+  transition: var(--transition);
 
   &:focus {
-    border-color: rgba(252, 219, 51, 0.4);
+    border-color: var(--gold);
+    background: var(--surface-2);
+  }
+
+  &:hover {
+    border-color: rgba(252,219,51,0.5);
   }
 
   &::placeholder {
     color: var(--grey-mid);
+    opacity: 0.8;
   }
 `;
 

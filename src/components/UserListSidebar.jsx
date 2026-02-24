@@ -99,25 +99,31 @@ const SearchWrapper = styled.div`
 const SearchInput = styled.input`
   width: 100%;
   padding: 10px 32px 10px 30px;
-  font-family: var(--font-display);
+  font-family: var(--font-mono);
   font-size: var(--text-xs);
   letter-spacing: 0.3px;
   color: var(--white);
-  background: linear-gradient(180deg, rgba(25, 20, 15, 0.9) 0%, rgba(12, 10, 8, 0.95) 100%);
-  border: 1px solid rgba(160, 130, 80, 0.25);
+  background: var(--surface-1);
+  border: 1px solid var(--grey-mid);
   border-radius: var(--radius-md);
   outline: none;
   box-sizing: border-box;
-  transition: all 0.2s ease;
+  transition: var(--transition);
 
   &::placeholder {
-    color: var(--grey-light);
+    color: var(--grey-mid);
+    opacity: 0.8;
     font-size: var(--text-xxs);
   }
 
   &:focus {
     border-color: var(--gold);
-    box-shadow: 0 0 8px rgba(252, 219, 51, 0.15);
+    background: var(--surface-2);
+    box-shadow: 0 0 8px rgba(252, 219, 51, 0.1);
+  }
+
+  &:hover {
+    border-color: rgba(252,219,51,0.5);
   }
 `;
 

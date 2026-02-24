@@ -129,6 +129,10 @@ export const patterns = {
     description: 'Dropdown/select',
     css: 'font-family: var(--font-display); background: linear-gradient(180deg, rgba(30,30,30,0.95), rgba(15,15,15,0.98)); border: 1px solid rgba(252,219,51,0.3); border-radius: 4px; color: var(--gold); padding: 8px 28px 8px 12px',
   },
+  input: {
+    description: 'Text input (search, filter, form)',
+    css: 'font-family: var(--font-mono); font-size: var(--text-xs); background: var(--surface-1); border: 1px solid var(--grey-mid); border-radius: var(--radius-md); color: var(--white); padding: var(--space-2) var(--space-4); placeholder: var(--grey-light); focus: border-color var(--gold)',
+  },
   listItemName: {
     description: 'List item names (leagues, races, countries)',
     css: 'font-family: var(--font-display); font-size: var(--text-base); color: #fff',

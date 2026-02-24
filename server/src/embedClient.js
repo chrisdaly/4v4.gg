@@ -9,6 +9,8 @@ import { tokenize } from '../ml/tokenizer.js';
 const EMBED_URL = config.EMBED_URL;
 
 let sidecarAvailable = null; // null = unknown, true/false after first check
+let lastSidecarCheck = 0;
+const SIDECAR_RECHECK_MS = 30000; // re-check every 30s if unavailable
 
 /**
  * Check if the embed sidecar is running.
@@ -19,12 +21,23 @@ export async function checkSidecar() {
     if (res.ok) {
       const data = await res.json();
       sidecarAvailable = data.model_loaded === true;
+      lastSidecarCheck = Date.now();
       return sidecarAvailable;
     }
   } catch {
     sidecarAvailable = false;
+    lastSidecarCheck = Date.now();
   }
   return false;
+}
+
+/**
+ * Ensure sidecar is available, re-checking periodically if previously unavailable.
+ */
+async function ensureSidecar() {
+  if (sidecarAvailable === true) return true;
+  if (sidecarAvailable === false && (Date.now() - lastSidecarCheck) < SIDECAR_RECHECK_MS) return false;
+  return checkSidecar();
 }
 
 /**
@@ -33,11 +46,7 @@ export async function checkSidecar() {
  * @returns {number[]|null} 128-dim embedding or null if sidecar unavailable
  */
 export async function getEmbedding(actions) {
-  if (sidecarAvailable === false) return null;
-  if (sidecarAvailable === null) {
-    await checkSidecar();
-    if (!sidecarAvailable) return null;
-  }
+  if (!(await ensureSidecar())) return null;
 
   const tokens = tokenize(actions);
   if (tokens.length < 5) return null;
@@ -58,16 +67,70 @@ export async function getEmbedding(actions) {
 }
 
 /**
+ * Fit UMAP on a matrix of embeddings and return 2D projections.
+ * @param {number[][]} embeddings - Array of 128-dim embeddings
+ * @param {object} options - { n_neighbors, min_dist }
+ * @returns {{ points: {x: number, y: number}[] } | null}
+ */
+export async function getUmapProjection(embeddings, options = {}) {
+  if (!(await ensureSidecar())) return null;
+
+  try {
+    console.log(`[UMAP] Fitting ${embeddings.length} embeddings...`);
+    const start = Date.now();
+    const res = await fetch(`${EMBED_URL}/umap`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        embeddings,
+        n_neighbors: options.n_neighbors || 15,
+        min_dist: options.min_dist || 0.1,
+      }),
+      signal: AbortSignal.timeout(120000),
+    });
+    if (!res.ok) {
+      const text = await res.text().catch(() => '');
+      console.error(`[UMAP] Sidecar returned ${res.status}: ${text}`);
+      return null;
+    }
+    const data = await res.json();
+    console.log(`[UMAP] Fit complete in ${((Date.now() - start) / 1000).toFixed(1)}s — ${data.points?.length} points`);
+    return data;
+  } catch (err) {
+    console.error(`[UMAP] Fit failed:`, err.message || err);
+    return null;
+  }
+}
+
+/**
+ * Project new embeddings using the cached fitted UMAP model.
+ * @param {number[][]} embeddings - Array of 128-dim embeddings
+ * @returns {{ points: {x: number, y: number}[] } | null}
+ */
+export async function getUmapTransform(embeddings) {
+  if (!(await ensureSidecar())) return null;
+
+  try {
+    const res = await fetch(`${EMBED_URL}/umap-transform`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ embeddings }),
+      signal: AbortSignal.timeout(5000),
+    });
+    if (!res.ok) return null;
+    return await res.json();
+  } catch {
+    return null;
+  }
+}
+
+/**
  * Get embeddings for multiple action sequences in one call.
  * @param {Array<Array>} actionSequences - Array of raw action sequences
  * @returns {Array<number[]|null>} Array of embeddings (null for failed ones)
  */
 export async function getEmbeddingBatch(actionSequences) {
-  if (sidecarAvailable === false) return actionSequences.map(() => null);
-  if (sidecarAvailable === null) {
-    await checkSidecar();
-    if (!sidecarAvailable) return actionSequences.map(() => null);
-  }
+  if (!(await ensureSidecar())) return actionSequences.map(() => null);
 
   const tokenized = actionSequences.map(actions => tokenize(actions));
   const valid = tokenized.map(t => t.length >= 5);

@@ -6,8 +6,7 @@ primary_region = "ewr"
 [env]
   DB_PATH = "/data/chat.db"
   REPLAY_DIR = "/data/replays"
-  EMBED_URL = "http://localhost:8081"
-  MODEL_PATH = "/app/ml/data/model.onnx"
+  EMBED_URL = "http://4v4gg-ml.internal:8081"
   CORS_ORIGINS = "https://4v4.gg,https://www.4v4.gg,https://main.ddnp6uus284fs.amplifyapp.com,https://feature-chat-relay.ddnp6uus284fs.amplifyapp.com,http://localhost:3000,http://localhost:3001"
 
 [http_service]
@@ -18,11 +17,11 @@ primary_region = "ewr"
   min_machines_running = 1
 
 [[http_service.checks]]
-  grace_period = "10s"
+  grace_period = "60s"
   interval = "30s"
   method = "GET"
   path = "/api/health"
-  timeout = "5s"
+  timeout = "10s"
 
 [mounts]
   source = "chat_data"

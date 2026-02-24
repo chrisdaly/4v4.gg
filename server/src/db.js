@@ -474,6 +474,18 @@ export function initDb() {
     );
   `);
 
+  // Validation pairs — known smurf-main pairs for ground-truth testing
+  db.exec(`
+    CREATE TABLE IF NOT EXISTS validation_pairs (
+      id INTEGER PRIMARY KEY AUTOINCREMENT,
+      tag_main TEXT NOT NULL,
+      tag_smurf TEXT NOT NULL,
+      notes TEXT DEFAULT '',
+      created_at TEXT NOT NULL DEFAULT (datetime('now')),
+      UNIQUE(tag_main, tag_smurf)
+    );
+  `);
+
   // Startup recovery: mark any running jobs as error
   db.prepare(`
     UPDATE weekly_gen_jobs SET status = 'error', error = 'Server restarted', updated_at = datetime('now')
@@ -1656,6 +1668,20 @@ export function getActionSequencesForExport() {
   `).all();
 }
 
+export function getPlayerActionDataForReplay(battleTag, replayId) {
+  return db.prepare(`
+    SELECT rpa.timed_segments, rpa.full_action_sequence, rpa.group_hotkeys,
+           rpa.esc, rpa.subgroup, rpa.removeunit, rpa.basic,
+           rpa.rightclick, rpa.ability, rpa.buildtrain, rpa.item,
+           rpa.select_count, rpa.assigngroup, rpa.selecthotkey,
+           rpa.group_compositions, r.game_duration
+    FROM replay_player_actions rpa
+    JOIN replay_players rp ON rp.replay_id = rpa.replay_id AND rp.player_id = rpa.player_id
+    JOIN replays r ON r.id = rpa.replay_id
+    WHERE rp.battle_tag = ? AND r.id = ?
+  `).all(battleTag, replayId);
+}
+
 export function getPlayerActionData(battleTag) {
   return db.prepare(`
     SELECT rpa.timed_segments, rpa.full_action_sequence, rpa.group_hotkeys,
@@ -1807,6 +1833,17 @@ export function getFingerprintsWithoutEmbeddings() {
   `).all();
 }
 
+export function countFingerprintsWithoutEmbeddings() {
+  return db.prepare(`
+    SELECT COUNT(*) as count
+    FROM player_fingerprints pf
+    JOIN replay_player_actions rpa ON rpa.replay_id = pf.replay_id AND rpa.player_id = pf.player_id
+    WHERE pf.embedding IS NULL
+      AND rpa.full_action_sequence IS NOT NULL
+      AND rpa.full_action_sequence != '[]'
+  `).get().count;
+}
+
 export function getAllAveragedFingerprintsWithEmbeddings() {
   return db.prepare(`
     SELECT battle_tag, player_name, race,
@@ -1952,4 +1989,24 @@ export function toggleBlogPostPublished(slug) {
 
 export function deleteBlogPost(slug) {
   db.prepare('DELETE FROM blog_posts WHERE slug = ?').run(slug);
+}
+
+// ── Validation pairs (known smurf-main) ────────────
+
+export function getValidationPairs() {
+  return db.prepare('SELECT * FROM validation_pairs ORDER BY created_at DESC').all();
+}
+
+export function insertValidationPair(tagMain, tagSmurf, notes = '') {
+  return db.prepare(`
+    INSERT INTO validation_pairs (tag_main, tag_smurf, notes) VALUES (?, ?, ?)
+  `).run(tagMain, tagSmurf, notes);
+}
+
+export function deleteValidationPair(id) {
+  return db.prepare('DELETE FROM validation_pairs WHERE id = ?').run(id);
+}
+
+export function updateValidationPairNotes(id, notes) {
+  return db.prepare('UPDATE validation_pairs SET notes = ? WHERE id = ?').run(notes, id);
 }

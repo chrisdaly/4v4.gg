@@ -22,8 +22,8 @@ const GOLD_DIM = "#b89a1e";
 const GREEN = "#4ade80";
 const RED = "#f87171";
 const BLUE = "#3b82f6";
-const GREY = "#bbb";
-const GREY_MID = "#444";
+const GREY = "var(--grey-light)";
+const GREY_MID = "var(--grey-mid)";
 const TRAIT_COLORS = [GOLD, GREEN, BLUE, RED, "#c084fc", "#f472b6"];
 
 // Feature importance from the handcrafted model (weights in fingerprint.js)
@@ -1163,7 +1163,7 @@ const Section = styled.section`
 const SectionTitle = styled.h2`
   font-family: var(--font-display);
   font-size: clamp(1.2rem, 3vw, 1.6rem);
-  color: #fff;
+  color: var(--white);
   margin: 0 0 var(--space-4);
 `;
 
@@ -1188,7 +1188,7 @@ const FeatureCard = styled.div`
   .feat-name {
     font-family: var(--font-mono);
     font-size: var(--text-xs);
-    color: #fff;
+    color: var(--white);
     text-transform: uppercase;
     letter-spacing: 0.05em;
   }
@@ -1252,7 +1252,7 @@ const VizRowHeader = styled.div`
 
   .name {
     font-family: var(--font-display);
-    color: #fff;
+    color: var(--white);
     font-size: var(--text-base);
   }
   .desc {
@@ -1338,19 +1338,27 @@ const SearchInputWrap = styled.div`
 const SearchInput = styled.input`
   font-family: var(--font-mono);
   font-size: var(--text-xxs);
-  background: rgba(0, 0, 0, 0.4);
+  background: var(--surface-1);
   border: 1px solid var(--grey-mid);
-  border-radius: var(--radius-sm, 4px);
-  color: #fff;
+  border-radius: var(--radius-sm);
+  color: var(--white);
   padding: 6px 12px;
   width: 200px;
   outline: none;
+  transition: var(--transition);
 
   &:focus {
     border-color: var(--gold);
+    background: var(--surface-2);
   }
+
+  &:hover {
+    border-color: rgba(252,219,51,0.5);
+  }
+
   &::placeholder {
     color: var(--grey-mid);
+    opacity: 0.8;
   }
 `;
 
@@ -1387,7 +1395,7 @@ const SearchItem = styled.div`
     flex-shrink: 0;
   }
   .name {
-    color: #fff;
+    color: var(--white);
     font-family: var(--font-display);
     font-size: 12px;
   }
@@ -1407,7 +1415,7 @@ const SearchChip = styled.div`
   border-radius: var(--radius-full);
   font-family: var(--font-display);
   font-size: 12px;
-  color: #fff;
+  color: var(--white);
   background: rgba(0, 0, 0, 0.3);
 
   .dot {
@@ -1446,7 +1454,7 @@ const SuspectsPanelHeader = styled.div`
 
   .title {
     font-family: var(--font-display);
-    color: #fff;
+    color: var(--white);
     font-size: var(--text-sm);
   }
   .meta {
@@ -1594,7 +1602,7 @@ const NeuralNote = styled.div`
   line-height: 1.6;
 
   strong {
-    color: #fff;
+    color: var(--white);
   }
   .gold {
     color: var(--gold);

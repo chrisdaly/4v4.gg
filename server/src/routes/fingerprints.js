@@ -3,7 +3,6 @@ import config from '../config.js';
 import {
   getPlayerFingerprints,
   getPlayerFingerprintsFiltered,
-  getAllAveragedFingerprints,
   getAllAveragedFingerprintsWithEmbeddings,
   getFingerprintCount,
   getIndexedPlayers,
@@ -12,12 +11,18 @@ import {
   getReplayPlayers,
   insertPlayerFingerprints,
   getFingerprintsWithoutEmbeddings,
+  countFingerprintsWithoutEmbeddings,
   updateFingerprintEmbedding,
   getPlayerActionData,
+  getPlayerActionDataForReplay,
   getPlayerActionDataByReplayIds,
   deleteReplayFingerprints,
   deleteAllFingerprints,
   getAllReplayIds,
+  getValidationPairs,
+  insertValidationPair,
+  deleteValidationPair,
+  updateValidationPairNotes,
 } from '../db.js';
 import {
   buildServerFingerprint,
@@ -30,7 +35,7 @@ import {
   computeConfidence,
   detectPersonas,
 } from '../fingerprint.js';
-import { getEmbedding, getEmbeddingBatch, checkSidecar } from '../embedClient.js';
+import { getEmbedding, getEmbeddingBatch, checkSidecar, getUmapProjection, getUmapTransform } from '../embedClient.js';
 
 const router = Router();
 
@@ -84,7 +89,7 @@ function parseDbFingerprint(row) {
 /**
  * Parse grouped fingerprint rows into averaged fingerprint + averaged embedding.
  */
-function parseAveragedRowWithEmbedding(row) {
+function parseAveragedRow(row) {
   const vectors = row.vectors.split('|||').map(v => tryParse(v)).filter(Boolean);
   const actionSegs = row.action_segs.split('|||').map(v => tryParse(v)).filter(Boolean);
   const apmSegs = row.apm_segs.split('|||').map(v => tryParse(v)).filter(Boolean);
@@ -107,16 +112,41 @@ function parseAveragedRowWithEmbedding(row) {
     },
   }));
 
-  const avgFp = averageFingerprints(fps);
+  return averageFingerprints(fps);
+}
 
-  // Parse embeddings
+function parseAveragedRowWithEmbedding(row) {
+  const fp = parseAveragedRow(row);
+
   let avgEmb = null;
   if (row.embeddings) {
     const embeddings = row.embeddings.split('|||').map(v => tryParse(v)).filter(Boolean);
     avgEmb = averageEmbeddings(embeddings);
   }
 
-  return { fp: avgFp, embedding: avgEmb };
+  return { fp, embedding: avgEmb };
+}
+
+// ── Shared Parsed Players Cache ──────────────────
+// Single cache for all parsed player objects — avoids redundant JSON.parse
+// across concurrent requests to /embedding-map, /suspects, /explore etc.
+let parsedPlayersCache = null;
+let parsedPlayersAge = 0;
+const PARSED_PLAYERS_TTL = 5 * 60 * 1000; // 5 min
+
+function getParsedPlayers() {
+  const now = Date.now();
+  if (parsedPlayersCache && (now - parsedPlayersAge) < PARSED_PLAYERS_TTL) {
+    return parsedPlayersCache;
+  }
+  const allRows = getAllAveragedFingerprintsWithEmbeddings();
+  const players = allRows.map(row => {
+    const { fp, embedding } = parseAveragedRowWithEmbedding(row);
+    return { battleTag: row.battle_tag, playerName: row.player_name, race: row.race, replayCount: row.replay_count, fp, embedding };
+  }).filter(p => p.fp);
+  parsedPlayersCache = players;
+  parsedPlayersAge = now;
+  return parsedPlayersCache;
 }
 
 // ── Population Calibration Cache ─────────────────
@@ -133,16 +163,23 @@ function getCalibration() {
     return calibrationCache;
   }
 
-  const allRows = getAllAveragedFingerprintsWithEmbeddings();
-  if (allRows.length < 5) return null; // need enough players
+  let players = getParsedPlayers();
+  if (players.length < 5) return null; // need enough players
 
-  // Parse all players
-  const players = allRows.map(row => {
-    const { fp, embedding } = parseAveragedRowWithEmbedding(row);
-    return { battleTag: row.battle_tag, race: row.race, fp, embedding };
-  }).filter(p => p.fp);
+  // Sample up to 200 players to keep O(n²) manageable (~20K pairs vs 1.6M)
+  const MAX_SAMPLE = 200;
+  const totalPlayerCount = players.length;
+  if (players.length > MAX_SAMPLE) {
+    // Deterministic shuffle (seeded) for reproducible calibration
+    const rand = seededLCG(12345);
+    for (let i = players.length - 1; i > 0; i--) {
+      const j = Math.floor(rand() * (i + 1));
+      [players[i], players[j]] = [players[j], players[i]];
+    }
+    players = players.slice(0, MAX_SAMPLE);
+  }
 
-  // Compute all pairwise similarities
+  // Compute all pairwise similarities within sample
   const scores = [];
   for (let i = 0; i < players.length; i++) {
     for (let j = i + 1; j < players.length; j++) {
@@ -162,7 +199,7 @@ function getCalibration() {
   const variance = scores.reduce((sum, v) => sum + (v - mean) ** 2, 0) / n;
   const stddev = Math.sqrt(variance);
 
-  calibrationCache = { mean, stddev, scores, playerCount: players.length, pairCount: n };
+  calibrationCache = { mean, stddev, scores, playerCount: totalPlayerCount, sampleCount: players.length, pairCount: n };
   calibrationAge = now;
   return calibrationCache;
 }
@@ -294,6 +331,7 @@ function computeActionProfile(actionRows) {
 
   for (const seq of allSeqs) {
     let prevMs = null;
+    let prevId = null;
     for (const a of seq) {
       if (a.ms < 120000) continue;
       // Rhythm: gaps between any consecutive actions
@@ -301,12 +339,19 @@ function computeActionProfile(actionRows) {
         const gap = a.ms - prevMs;
         if (gap > 0 && gap < 5000) allGaps.push(gap); // cap at 5s to exclude AFK
       }
-      prevMs = a.ms;
-      // Count action types from sequence (more reliable than DB columns)
       const id = a.id;
+      // Count action types from sequence (more reliable than DB columns)
       if ((id === 0x17 || id === 23) && a.g != null) totalAssigns++;
       if ((id === 0x18 || id === 24) && a.g != null) totalSelects++;
-      if (id === 0x19 || id === 25) totalTab++;
+      // 0x19 (SelectSubgroup/Tab) — the game auto-generates one after every
+      // group select (0x18) at the same tick. Only count genuine Tab presses.
+      // See w3g_actions.txt: "nearly all Select Subgroup actions are autogenerated"
+      if (id === 0x19 || id === 25) {
+        const autoGenerated = (prevId === 0x18 || prevId === 24) && a.ms === prevMs;
+        if (!autoGenerated) totalTab++;
+      }
+      prevMs = a.ms;
+      prevId = id;
     }
   }
 
@@ -374,27 +419,24 @@ router.get('/explore/similar/:battleTag', (req, res) => {
   const queryEmbeddings = queryRows.map(r => tryParse(r.embedding)).filter(Boolean);
   const queryAvgEmb = averageEmbeddings(queryEmbeddings);
 
-  const allRows = getAllAveragedFingerprintsWithEmbeddings();
+  const allPlayers = getParsedPlayers();
   const results = [];
 
-  for (const row of allRows) {
-    if (row.battle_tag === battleTag) continue;
+  for (const p of allPlayers) {
+    if (p.battleTag === battleTag) continue;
 
-    const { fp: avgFp, embedding: avgEmb } = parseAveragedRowWithEmbedding(row);
-    if (!avgFp) continue;
-
-    const hybrid = computeHybridSimilarity(queryAvg, avgFp, queryAvgEmb, avgEmb);
-    const breakdown = computeServerBreakdown(queryAvg, avgFp);
+    const hybrid = computeHybridSimilarity(queryAvg, p.fp, queryAvgEmb, p.embedding);
+    const breakdown = computeServerBreakdown(queryAvg, p.fp);
 
     results.push({
-      battleTag: row.battle_tag,
-      playerName: row.player_name,
-      race: row.race,
-      replayCount: row.replay_count,
+      battleTag: p.battleTag,
+      playerName: p.playerName,
+      race: p.race,
+      replayCount: p.replayCount,
       similarity: Math.round(hybrid.similarity * 1000) / 1000,
       hybrid: hybrid.hybrid,
       breakdown: formatBreakdown(breakdown, hybrid),
-      _segments: avgFp.segments, // keep for glyph enrichment, stripped before response
+      _segments: p.fp.segments, // keep for glyph enrichment, stripped before response
     });
   }
 
@@ -411,7 +453,8 @@ router.get('/explore/similar/:battleTag', (req, res) => {
 
   // Enrich top results with glyph data (transition pairs, group usage, compositions, APM)
   for (const r of topResults) {
-    const actionRows = getPlayerActionData(r.battleTag);
+    const allActionRows = getPlayerActionData(r.battleTag);
+    const actionRows = allActionRows.length > 10 ? allActionRows.slice(-10) : allActionRows;
     if (actionRows.length > 0) {
       const { transitionPairs, groupUsage, groupCompositions } = computeActionProfile(actionRows);
       r.glyph = { transitionPairs, groupUsage, groupCompositions };
@@ -448,8 +491,9 @@ router.get('/profile/:battleTag', (req, res) => {
   const avgEmb = averageEmbeddings(embeddings);
   const confidence = computeConfidence(fingerprints);
 
-  // Build action profile from raw action sequences
-  const actionRows = getPlayerActionData(battleTag);
+  // Build action profile from raw action sequences (cap at 50 most recent to avoid blocking)
+  const allActionRows = getPlayerActionData(battleTag);
+  const actionRows = allActionRows.length > 10 ? allActionRows.slice(-10) : allActionRows;
   const { transitionPairs, groupUsage, groupCompositions, actionCounts } = computeActionProfile(actionRows);
 
   res.json({
@@ -463,6 +507,60 @@ router.get('/profile/:battleTag', (req, res) => {
     groupUsage,
     groupCompositions,
     actionCounts,
+  });
+});
+
+// GET /api/fingerprints/profile/:battleTag/replays — Lightweight replay list (public)
+router.get('/profile/:battleTag/replays', (req, res) => {
+  const { battleTag } = req.params;
+  const rows = getPlayerFingerprints(battleTag);
+
+  if (rows.length === 0) {
+    return res.status(404).json({ error: 'No fingerprints found', battleTag });
+  }
+
+  const replays = rows.map(r => ({
+    replayId: r.replay_id,
+    matchDate: r.match_date,
+    mapName: r.map_name,
+    gameDuration: r.game_duration,
+    race: r.race,
+    playerName: r.player_name,
+  }));
+
+  res.json({ battleTag, replays });
+});
+
+// GET /api/fingerprints/profile/:battleTag/replays/:replayId — Single-replay profile (public)
+router.get('/profile/:battleTag/replays/:replayId', (req, res) => {
+  const { battleTag, replayId } = req.params;
+  const rid = parseInt(replayId);
+
+  const rows = getPlayerFingerprints(battleTag);
+  const row = rows.find(r => r.replay_id === rid);
+  if (!row) {
+    return res.status(404).json({ error: 'No fingerprint found for this replay', battleTag, replayId: rid });
+  }
+
+  const fp = parseDbFingerprint(row);
+  const actionRows = getPlayerActionDataForReplay(battleTag, rid);
+  const { transitionPairs, groupUsage, groupCompositions, actionCounts } = computeActionProfile(actionRows);
+
+  res.json({
+    battleTag,
+    replayCount: 1,
+    averaged: fp,
+    transitionPairs,
+    groupUsage,
+    groupCompositions,
+    actionCounts,
+    replay: {
+      replayId: rid,
+      matchDate: row.match_date,
+      mapName: row.map_name,
+      gameDuration: row.game_duration,
+      race: row.race,
+    },
   });
 });
 
@@ -562,24 +660,32 @@ router.get('/profile/:battleTag/personas', (req, res) => {
   });
 });
 
+// ── Gallery Cache ──────────────────────────────────
+let galleryCache = null;
+let galleryAge = 0;
+const GALLERY_TTL = 60 * 60 * 1000; // 1 hour (expensive to compute)
+
 // GET /api/fingerprints/gallery — Public gallery of player extremes (no auth)
 router.get('/gallery', (req, res) => {
-  const allRows = getAllAveragedFingerprintsWithEmbeddings();
-  if (allRows.length === 0) {
+  const now = Date.now();
+  if (galleryCache && (now - galleryAge) < GALLERY_TTL) {
+    return res.json(galleryCache);
+  }
+
+  const allParsed = getParsedPlayers();
+  if (allParsed.length === 0) {
     return res.json({ players: [] });
   }
 
   const players = [];
-  for (const row of allRows) {
-    if (row.replay_count < 2) continue;
+  for (const p of allParsed) {
+    if (p.replayCount < 2) continue;
 
-    const { fp } = parseAveragedRowWithEmbedding(row);
-    if (!fp) continue;
+    const fp = p.fp;
 
     // Extract metrics from fingerprint segments
     const apmSeg = fp.segments.apm || []; // [meanNorm, stdNorm, burstiness]
     const meanApm = Math.round((apmSeg[0] || 0) * 300); // denormalize
-    const burstiness = r3(apmSeg[2] || 0);
 
     const actionSeg = fp.segments.action || []; // [rc, ability, build, item, selecthk, assigngrp]
     const totalAction = actionSeg.reduce((a, b) => a + b, 0) || 1;
@@ -596,62 +702,40 @@ router.get('/gallery', (req, res) => {
     // Check if buildings are on hotkeys (assign activity on groups 6-9 suggests buildings)
     const buildingsOnHotkey = [6, 7, 8, 9].some(g => (hotkeySeg[g + 10] || 0) > 0.05);
 
-    // Rhythm segment: oscillation and rapid switching
-    const rhythmSeg = fp.segments.rhythm || [];
-    const oscillation = r3(rhythmSeg[10] || 0); // oscillation index
-    const rapidSwitchPct = Math.round((rhythmSeg[12] || 0) * 100); // rapid switch ratio
+    const buildPct = Math.round(((actionSeg[2] || 0) / totalAction) * 100);
+    const assignPct = Math.round(((actionSeg[5] || 0) / totalAction) * 100);
 
-    // Get action counts from raw data
-    const actionRows = getPlayerActionData(row.battle_tag);
-    let escPerMin = 0, tabPerMin = 0, attackMovePerMin = 0, cancelPerMin = 0;
-    let selfConsistency = null;
+    const sortedHk = [...hotkeySeg.slice(0, 10)].sort((a, b) => b - a);
+    const topGroupPct = Math.round((sortedHk[0] || 0) * 100);
 
-    if (actionRows.length > 0) {
-      const { actionCounts } = computeActionProfile(actionRows);
-      if (actionCounts) {
-        tabPerMin = actionCounts.tabPerMin || 0;
-        attackMovePerMin = actionCounts.attackMovePerMin || 0;
-        cancelPerMin = actionCounts.cancelPerMin || 0;
-      }
-      // ESC per min from raw esc counts
-      let totalEsc = 0, totalDuration = 0;
-      for (const r of actionRows) {
-        totalEsc += r.esc || 0;
-        totalDuration += r.game_duration || 0;
-      }
-      const avgMins = totalDuration > 0 ? totalDuration / 60 : 1;
-      escPerMin = +(totalEsc / avgMins).toFixed(1);
-    }
-
-    // Self-consistency from transitions segment (mean of segment = smoothness)
-    const transSeg = fp.segments.transitions || [];
-    if (transSeg.length > 0) {
-      selfConsistency = r3(transSeg.reduce((a, b) => a + b, 0) / transSeg.length);
-    }
+    const r2 = v => Math.round(v * 100) / 100;
 
     players.push({
-      battleTag: row.battle_tag,
-      race: row.race,
-      replayCount: row.replay_count,
+      battleTag: p.battleTag,
+      race: p.race,
+      replayCount: p.replayCount,
+      glyph: {
+        hotkey: hotkeySeg.slice(0, 10).map(r2),
+        apm: r2(apmSeg[0] || 0),
+        action: actionSeg.slice(0, 6).map(r2),
+      },
       metrics: {
         meanApm,
-        burstiness,
         activeGroups,
-        escPerMin,
-        tabPerMin,
-        attackMovePerMin,
-        cancelPerMin,
         selectPct,
         abilityPct,
         rightclickPct,
-        rapidSwitchPct,
+        buildPct,
+        assignPct,
+        topGroupPct,
         buildingsOnHotkey,
-        oscillation,
       },
     });
   }
 
-  res.json({ players });
+  galleryCache = { players };
+  galleryAge = now;
+  res.json(galleryCache);
 });
 
 // GET /api/fingerprints/players — List all indexed players
@@ -685,26 +769,23 @@ router.get('/similar/:battleTag', requireApiKey, (req, res) => {
   const queryEmbeddings = queryRows.map(r => tryParse(r.embedding)).filter(Boolean);
   const queryAvgEmb = averageEmbeddings(queryEmbeddings);
 
-  // Get all players' averaged fingerprints with embeddings
-  const allRows = getAllAveragedFingerprintsWithEmbeddings();
+  // Get all players from shared cache
+  const allPlayers = getParsedPlayers();
   const results = [];
 
-  for (const row of allRows) {
-    if (row.battle_tag === battleTag) continue;
+  for (const p of allPlayers) {
+    if (p.battleTag === battleTag) continue;
     // Race filter: skip candidates with different race
-    if (sameRace && queryRace && row.race !== queryRace) continue;
+    if (sameRace && queryRace && p.race !== queryRace) continue;
 
-    const { fp: avgFp, embedding: avgEmb } = parseAveragedRowWithEmbedding(row);
-    if (!avgFp) continue;
-
-    const hybrid = computeHybridSimilarity(queryAvg, avgFp, queryAvgEmb, avgEmb);
-    const breakdown = computeServerBreakdown(queryAvg, avgFp);
+    const hybrid = computeHybridSimilarity(queryAvg, p.fp, queryAvgEmb, p.embedding);
+    const breakdown = computeServerBreakdown(queryAvg, p.fp);
 
     results.push({
-      battleTag: row.battle_tag,
-      playerName: row.player_name,
-      race: row.race,
-      replayCount: row.replay_count,
+      battleTag: p.battleTag,
+      playerName: p.playerName,
+      race: p.race,
+      replayCount: p.replayCount,
       similarity: Math.round(hybrid.similarity * 1000) / 1000,
       hybrid: hybrid.hybrid,
       breakdown: formatBreakdown(breakdown, hybrid),
@@ -794,8 +875,9 @@ router.get('/compare/:tagA/:tagB', requireApiKey, (req, res) => {
   const { tagA, tagB } = req.params;
 
   function buildProfile(battleTag) {
-    const rows = getPlayerActionData(battleTag);
-    if (rows.length === 0) return null;
+    const allRows = getPlayerActionData(battleTag);
+    if (allRows.length === 0) return null;
+    const rows = allRows.length > 10 ? allRows.slice(-10) : allRows;
 
     // Average timed_segments across replays (APM curve)
     const allTs = rows.map(r => tryParse(r.timed_segments)).filter(Boolean);
@@ -936,6 +1018,11 @@ router.post('/backfill', requireApiKey, (req, res) => {
 // POST /api/fingerprints/rebuild — Delete all fingerprints and recompute from action data
 router.post('/rebuild', requireApiKey, (req, res) => {
   calibrationCache = null; // invalidate calibration
+  parsedPlayersCache = null; // invalidate shared cache
+  suspectsCache = null;
+  pcaCache = null;
+  umapCache = null;
+  galleryCache = null;
   const deleted = deleteAllFingerprints();
   const allReplays = getAllReplayIds();
 
@@ -1050,23 +1137,20 @@ router.post('/blind-test', requireApiKey, (req, res) => {
   const selfBreakdown = computeServerBreakdown(avgA, avgB);
 
   // Now compare groupB against ALL other players
-  const allRows = getAllAveragedFingerprintsWithEmbeddings();
+  const allPlayers = getParsedPlayers();
   const results = [];
 
-  for (const row of allRows) {
+  for (const p of allPlayers) {
     // Skip the test player entirely (both halves should be excluded)
-    if (row.battle_tag === battleTag) continue;
+    if (p.battleTag === battleTag) continue;
 
-    const { fp: avgFp, embedding: avgEmb } = parseAveragedRowWithEmbedding(row);
-    if (!avgFp) continue;
-
-    const hybrid = computeHybridSimilarity(avgB, avgFp, avgEmbB, avgEmb);
-    const breakdown = computeServerBreakdown(avgB, avgFp);
+    const hybrid = computeHybridSimilarity(avgB, p.fp, avgEmbB, p.embedding);
+    const breakdown = computeServerBreakdown(avgB, p.fp);
 
     results.push({
-      battleTag: row.battle_tag,
-      race: row.race,
-      replayCount: row.replay_count,
+      battleTag: p.battleTag,
+      race: p.race,
+      replayCount: p.replayCount,
       similarity: Math.round(hybrid.similarity * 1000) / 1000,
       hybrid: hybrid.hybrid,
       breakdown: formatBreakdown(breakdown, hybrid),
@@ -1162,32 +1246,82 @@ function seededLCG(seed) {
   };
 }
 
-// GET /api/fingerprints/embedding-map — 2D PCA projection of all player embeddings (no auth)
-router.get('/embedding-map', (req, res) => {
-  const allRows = getAllAveragedFingerprintsWithEmbeddings();
-  if (allRows.length < 3) {
-    return res.json({ players: [], pca: null });
-  }
+// ── Embedding map caches ────────────────────────
+let umapCache = null;
+let umapAge = 0;
+const UMAP_TTL = 5 * 60 * 1000; // 5 min
 
-  // Parse all players with embeddings
-  const players = [];
-  for (const row of allRows) {
-    const { fp, embedding } = parseAveragedRowWithEmbedding(row);
-    if (!embedding || embedding.length === 0) continue;
-    players.push({
-      battleTag: row.battle_tag,
-      race: row.race,
-      replayCount: row.replay_count,
-      embedding,
-    });
-  }
+let pcaCache = null;
+let pcaAge = 0;
+const PCA_TTL = 5 * 60 * 1000; // 5 min
+
+// ── Extracted embedding-map computation (for coalescing) ──
+async function computeEmbeddingMapResult(method) {
+  const allPlayers = getParsedPlayers();
+  const players = allPlayers.filter(p => p.embedding && p.embedding.length > 0);
 
   if (players.length < 3) {
-    return res.json({ players: [], pca: null });
+    return { players: [], pca: null, projection: { method } };
   }
 
   const dim = players[0].embedding.length;
   const n = players.length;
+
+  // Build a lookup from battleTag → fp for glyph data
+  const fpLookup = {};
+  for (const p of allPlayers) {
+    if (p.fp) fpLookup[p.battleTag] = p.fp;
+  }
+
+  const r2 = v => Math.round(v * 100) / 100;
+
+  function buildGlyph(battleTag) {
+    const fp = fpLookup[battleTag];
+    return fp ? {
+      hotkey: fp.segments.hotkey.slice(0, 10).map(r2),
+      apm: r2(fp.segments.apm[0] || 0),
+      action: fp.segments.action.slice(0, 6).map(r2),
+    } : null;
+  }
+
+  // ── UMAP path ──
+  if (method === 'umap') {
+    const now = Date.now();
+    if (umapCache && (now - umapAge) < UMAP_TTL && umapCache.playerCount === n) {
+      return umapCache.data;
+    }
+
+    const embeddings = players.map(p => p.embedding);
+    const result = await getUmapProjection(embeddings);
+    if (!result || !result.points) {
+      throw new Error('UMAP sidecar unavailable or failed');
+    }
+
+    const points = players.map((p, i) => ({
+      battleTag: p.battleTag,
+      race: p.race,
+      replayCount: p.replayCount,
+      x: result.points[i].x,
+      y: result.points[i].y,
+      glyph: buildGlyph(p.battleTag),
+    }));
+
+    const responseData = {
+      players: points,
+      pca: null,
+      projection: { method: 'umap', playerCount: n, supportsTransform: true },
+    };
+
+    umapCache = { data: responseData, playerCount: n };
+    umapAge = now;
+    return responseData;
+  }
+
+  // ── PCA path (default) ──
+  const now2 = Date.now();
+  if (pcaCache && (now2 - pcaAge) < PCA_TTL && pcaCache.playerCount === n) {
+    return pcaCache.data;
+  }
 
   // Center the data (subtract mean per dimension)
   const mean = new Array(dim).fill(0);
@@ -1207,13 +1341,11 @@ router.get('/embedding-map', (req, res) => {
     const residual = data.map(row => [...row]);
 
     for (let c = 0; c < numComponents; c++) {
-      // Seeded random init
       let vec = new Array(dim).fill(0).map(() => rand() - 0.5);
       let norm = Math.sqrt(vec.reduce((s, v) => s + v * v, 0));
       vec = vec.map(v => v / norm);
 
       for (let iter = 0; iter < 100; iter++) {
-        // Multiply: A^T * A * vec
         const proj = residual.map(row => row.reduce((s, v, d) => s + v * vec[d], 0));
         const newVec = new Array(dim).fill(0);
         for (let i = 0; i < n; i++) {
@@ -1227,7 +1359,6 @@ router.get('/embedding-map', (req, res) => {
 
       components.push(vec);
 
-      // Deflate: remove this component from residual
       const scores = residual.map(row => row.reduce((s, v, d) => s + v * vec[d], 0));
       for (let i = 0; i < n; i++) {
         for (let d = 0; d < dim; d++) {
@@ -1241,45 +1372,25 @@ router.get('/embedding-map', (req, res) => {
 
   const pcs = powerIteration(centered, 2);
 
-  // Build a map from battleTag → averaged fingerprint for glyph data
-  const glyphFpLookup = {};
-  for (const row of allRows) {
-    const { fp } = parseAveragedRowWithEmbedding(row);
-    if (fp) glyphFpLookup[row.battle_tag] = fp;
-  }
-
-  // Project each player onto the 2 PCs
-  const r2 = v => Math.round(v * 100) / 100;
   const points = players.map((p, i) => {
     const x = centered[i].reduce((s, v, d) => s + v * pcs[0][d], 0);
     const y = centered[i].reduce((s, v, d) => s + v * pcs[1][d], 0);
-    const fp = glyphFpLookup[p.battleTag];
-    const glyph = fp ? {
-      hotkey: fp.segments.hotkey.slice(0, 10).map(r2),
-      apm: r2(fp.segments.apm[0] || 0),
-      action: fp.segments.action.slice(0, 6).map(r2),
-    } : null;
     return {
       battleTag: p.battleTag,
       race: p.race,
       replayCount: p.replayCount,
       x: Math.round(x * 1000) / 1000,
       y: Math.round(y * 1000) / 1000,
-      glyph,
+      glyph: buildGlyph(p.battleTag),
     };
   });
 
-  // Compute variance explained (approximate)
   const totalVar = centered.reduce((s, row) => s + row.reduce((ss, v) => ss + v * v, 0), 0);
   const pc1Var = points.reduce((s, p) => s + p.x * p.x, 0);
   const pc2Var = points.reduce((s, p) => s + p.y * p.y, 0);
 
-  // Round PCA basis for transport (6 decimal places)
   const r6 = v => Math.round(v * 1e6) / 1e6;
 
-  // ── Axis interpretation: correlate PC coordinates with fingerprint segments ──
-  // For each player, get their averaged handcrafted fingerprint segments,
-  // then compute Pearson correlation of x/y with each segment's mean value.
   const SEGMENT_NAMES = ['action', 'apm', 'hotkey', 'tempo', 'intensity', 'transitions', 'rhythm'];
   const SEGMENT_LABELS = {
     action: 'Actions',
@@ -1290,13 +1401,6 @@ router.get('/embedding-map', (req, res) => {
     transitions: 'Switching',
     rhythm: 'Rhythm',
   };
-
-  // Build a lookup from battleTag → averaged fingerprint
-  const fpLookup = {};
-  for (const row of allRows) {
-    const { fp } = parseAveragedRowWithEmbedding(row);
-    if (fp) fpLookup[row.battle_tag] = fp;
-  }
 
   function pearson(xs_, ys_) {
     const n_ = xs_.length;
@@ -1315,13 +1419,11 @@ router.get('/embedding-map', (req, res) => {
     return denom > 0 ? num / denom : 0;
   }
 
-  // For each segment, compute mean value per player, then correlate with x and y
   const axisCorrelations = { pc1: [], pc2: [] };
   const pcXs = points.map(p => p.x);
   const pcYs = points.map(p => p.y);
 
   for (const seg of SEGMENT_NAMES) {
-    // Mean of this segment across its dimensions for each player
     const segMeans = points.map(p => {
       const fp = fpLookup[p.battleTag];
       if (!fp?.segments?.[seg]) return 0;
@@ -1334,11 +1436,10 @@ router.get('/embedding-map', (req, res) => {
     axisCorrelations.pc2.push({ segment: seg, label: SEGMENT_LABELS[seg], r: r3(corrY) });
   }
 
-  // Sort by absolute correlation strength
   axisCorrelations.pc1.sort((a, b) => Math.abs(b.r) - Math.abs(a.r));
   axisCorrelations.pc2.sort((a, b) => Math.abs(b.r) - Math.abs(a.r));
 
-  res.json({
+  const responseData = {
     players: points,
     pca: {
       varianceExplained: [
@@ -1350,7 +1451,41 @@ router.get('/embedding-map', (req, res) => {
       components: pcs.map(pc => pc.map(r6)),
       axisCorrelations,
     },
-  });
+    projection: { method: 'pca' },
+  };
+
+  pcaCache = { data: responseData, playerCount: n };
+  pcaAge = Date.now();
+  return responseData;
+}
+
+// ── Request coalescing for embedding-map ──
+let embeddingMapInflight = null; // { method, promise }
+
+// GET /api/fingerprints/embedding-map — 2D projection of all player embeddings (no auth)
+// ?method=pca (default) or ?method=umap
+router.get('/embedding-map', async (req, res) => {
+  const method = (req.query.method || 'pca').toLowerCase();
+
+  // Coalesce: if same computation is already in-flight, share the result
+  if (embeddingMapInflight?.method === method) {
+    try {
+      return res.json(await embeddingMapInflight.promise);
+    } catch (err) {
+      return res.status(503).json({ error: err.message });
+    }
+  }
+
+  const promise = computeEmbeddingMapResult(method);
+  embeddingMapInflight = { method, promise };
+  try {
+    const result = await promise;
+    res.json(result);
+  } catch (err) {
+    res.status(503).json({ error: err.message });
+  } finally {
+    embeddingMapInflight = null;
+  }
 });
 
 // ── Suspects Cache ──────────────────────────────────
@@ -1363,23 +1498,69 @@ function getSuspectsData() {
     return suspectsCache;
   }
 
-  const allRows = getAllAveragedFingerprintsWithEmbeddings();
-  if (allRows.length < 5) return null;
+  const players = getParsedPlayers();
+  if (players.length < 5) return null;
 
-  const players = allRows.map(row => {
-    const { fp, embedding } = parseAveragedRowWithEmbedding(row);
-    return { battleTag: row.battle_tag, race: row.race, replayCount: row.replay_count, fp, embedding };
-  }).filter(p => p.fp);
+  // Two-phase approach: fast embedding pre-filter, then full hybrid on top candidates
+  // Phase 1: For players with embeddings, compute cheap cosine similarity to find top candidates
+  const playersWithEmb = players.map((p, idx) => ({ ...p, idx })).filter(p => p.embedding);
+  const candidatePairs = new Set(); // store as "i,j" strings
 
-  const scoredPairs = [];
-  for (let i = 0; i < players.length; i++) {
-    for (let j = i + 1; j < players.length; j++) {
-      const hybrid = computeHybridSimilarity(
-        players[i].fp, players[j].fp,
-        players[i].embedding, players[j].embedding
-      );
-      scoredPairs.push({ i, j, ...hybrid });
+  if (playersWithEmb.length > 50) {
+    // Fast embedding-only pass: keep top ~500 pairs by embedding similarity
+    const embPairs = [];
+    for (let a = 0; a < playersWithEmb.length; a++) {
+      for (let b = a + 1; b < playersWithEmb.length; b++) {
+        const sim = embeddingSimilarity(playersWithEmb[a].embedding, playersWithEmb[b].embedding);
+        if (sim !== null) {
+          embPairs.push({ i: playersWithEmb[a].idx, j: playersWithEmb[b].idx, embSim: sim });
+        }
+      }
     }
+    embPairs.sort((a, b) => b.embSim - a.embSim);
+    for (const p of embPairs.slice(0, 500)) {
+      candidatePairs.add(`${p.i},${p.j}`);
+    }
+  }
+
+  // Phase 2: For players without embeddings, or if few have embeddings, do full comparison
+  // Also always include pairs from a random sample to ensure coverage
+  const MAX_BRUTE = 300;
+  if (players.length <= MAX_BRUTE) {
+    // Small enough for full O(n²)
+    for (let i = 0; i < players.length; i++) {
+      for (let j = i + 1; j < players.length; j++) {
+        candidatePairs.add(`${i},${j}`);
+      }
+    }
+  } else {
+    // Add all pairs involving players without embeddings (compare against sample)
+    const noEmbIdxs = players.map((p, idx) => ({ ...p, idx })).filter(p => !p.embedding).map(p => p.idx);
+    const sampleSize = Math.min(100, players.length);
+    const rand = seededLCG(54321);
+    const sampleIdxs = new Set();
+    while (sampleIdxs.size < sampleSize) {
+      sampleIdxs.add(Math.floor(rand() * players.length));
+    }
+    for (const i of noEmbIdxs) {
+      for (const j of sampleIdxs) {
+        if (i !== j) {
+          const [a, b] = i < j ? [i, j] : [j, i];
+          candidatePairs.add(`${a},${b}`);
+        }
+      }
+    }
+  }
+
+  // Compute full hybrid similarity for all candidate pairs
+  const scoredPairs = [];
+  for (const key of candidatePairs) {
+    const [i, j] = key.split(',').map(Number);
+    const hybrid = computeHybridSimilarity(
+      players[i].fp, players[j].fp,
+      players[i].embedding, players[j].embedding
+    );
+    scoredPairs.push({ i, j, ...hybrid });
   }
   scoredPairs.sort((a, b) => b.similarity - a.similarity);
 
@@ -1388,11 +1569,26 @@ function getSuspectsData() {
   return suspectsCache;
 }
 
+// ── Request coalescing for suspects ──
+let suspectsInflight = null; // Promise
+
 // GET /api/fingerprints/suspects — Top similar player pairs (public, no auth)
-router.get('/suspects', (req, res) => {
+router.get('/suspects', async (req, res) => {
   const limit = Math.min(parseInt(req.query.limit) || 50, 200);
 
-  const data = getSuspectsData();
+  let data;
+  if (suspectsInflight) {
+    data = await suspectsInflight;
+  } else {
+    const promise = new Promise(resolve => resolve(getSuspectsData()));
+    suspectsInflight = promise;
+    try {
+      data = await promise;
+    } finally {
+      suspectsInflight = null;
+    }
+  }
+
   if (!data) {
     return res.json({ pairs: [], playerCount: 0 });
   }
@@ -1427,8 +1623,10 @@ router.get('/suspects', (req, res) => {
 });
 
 // GET /api/fingerprints/embeddings/:battleTag — Per-replay raw embeddings (no auth)
-router.get('/embeddings/:battleTag', (req, res) => {
+// ?project=umap — return pre-projected 2D coords via sidecar (no raw embeddings)
+router.get('/embeddings/:battleTag', async (req, res) => {
   const { battleTag } = req.params;
+  const projectMethod = req.query.project;
   const rows = getPlayerFingerprints(battleTag);
 
   if (rows.length === 0) {
@@ -1436,6 +1634,7 @@ router.get('/embeddings/:battleTag', (req, res) => {
   }
 
   const replays = [];
+  const embeddings = [];
   for (const row of rows) {
     const emb = tryParse(row.embedding);
     if (!emb || emb.length === 0) continue;
@@ -1446,6 +1645,26 @@ router.get('/embeddings/:battleTag', (req, res) => {
       gameDuration: row.game_duration,
       embedding: emb,
     });
+    embeddings.push(emb);
+  }
+
+  if (projectMethod === 'umap') {
+    if (embeddings.length === 0) {
+      return res.json({ battleTag, replays: [] });
+    }
+    const result = await getUmapTransform(embeddings);
+    if (!result || !result.points) {
+      return res.status(503).json({ error: 'UMAP transform unavailable — fit model first' });
+    }
+    const projected = replays.map((r, i) => ({
+      replayId: r.replayId,
+      matchDate: r.matchDate,
+      mapName: r.mapName,
+      gameDuration: r.gameDuration,
+      x: result.points[i].x,
+      y: result.points[i].y,
+    }));
+    return res.json({ battleTag, replays: projected, projected: 'umap' });
   }
 
   res.json({ battleTag, replays });
@@ -1455,13 +1674,13 @@ router.get('/embeddings/:battleTag', (req, res) => {
 router.get('/stats', requireApiKey, async (req, res) => {
   const dbStats = getFingerprintCount();
   const missing = getReplaysWithoutFingerprints();
-  const missingEmbeddings = getFingerprintsWithoutEmbeddings();
+  const missingEmbeddingCount = countFingerprintsWithoutEmbeddings();
   const sidecarUp = await checkSidecar();
   const cal = getCalibration();
   res.json({
     ...dbStats,
     replaysWithoutFingerprints: missing.length,
-    fingerprintsWithoutEmbeddings: missingEmbeddings.length,
+    fingerprintsWithoutEmbeddings: missingEmbeddingCount,
     embedSidecar: sidecarUp ? 'available' : 'unavailable',
     calibration: cal ? {
       mean: r3(cal.mean),
@@ -1471,5 +1690,121 @@ router.get('/stats', requireApiKey, async (req, res) => {
     } : null,
   });
 });
+
+// ── Validation pairs (known smurf-main ground truth) ──────────────
+
+// GET /api/fingerprints/validation — Public list with live-computed similarity
+router.get('/validation', (req, res) => {
+  const pairs = getValidationPairs();
+  if (pairs.length === 0) {
+    return res.json({ pairs: [], summary: { total: 0, indexed: 0, aboveP90: 0, aboveP95: 0, aboveP99: 0, meanPercentile: 0 } });
+  }
+
+  const allPlayers = getParsedPlayers();
+  const playerLookup = {};
+  for (const p of allPlayers) {
+    playerLookup[p.battleTag] = p;
+  }
+
+  const cal = getCalibration();
+  const enriched = [];
+
+  for (const pair of pairs) {
+    const pMain = playerLookup[pair.tag_main];
+    const pSmurf = playerLookup[pair.tag_smurf];
+
+    if (!pMain || !pSmurf) {
+      enriched.push({
+        id: pair.id, tagMain: pair.tag_main, tagSmurf: pair.tag_smurf,
+        notes: pair.notes, createdAt: pair.created_at,
+        similarity: null, percentile: null, handcrafted: null, embedding: null,
+        breakdown: null, replaysMain: pMain?.replayCount || 0, replaysSmurf: pSmurf?.replayCount || 0,
+        raceMain: pMain?.race || null, raceSmurf: pSmurf?.race || null,
+        missing: true,
+      });
+      continue;
+    }
+
+    const hybrid = computeHybridSimilarity(pMain.fp, pSmurf.fp, pMain.embedding, pSmurf.embedding);
+    const breakdown = computeServerBreakdown(pMain.fp, pSmurf.fp);
+    const percentile = cal ? scoreToPercentile(hybrid.similarity, cal) : null;
+
+    enriched.push({
+      id: pair.id, tagMain: pair.tag_main, tagSmurf: pair.tag_smurf,
+      notes: pair.notes, createdAt: pair.created_at,
+      similarity: r3(hybrid.similarity), percentile,
+      handcrafted: r3(hybrid.handcrafted), embedding: r3(hybrid.embedding),
+      breakdown: formatBreakdown(breakdown, hybrid),
+      replaysMain: pMain.replayCount, replaysSmurf: pSmurf.replayCount,
+      raceMain: pMain.race, raceSmurf: pSmurf.race,
+      missing: false,
+    });
+  }
+
+  // Summary stats
+  const indexed = enriched.filter(p => !p.missing);
+  const withPercentile = indexed.filter(p => p.percentile != null);
+  const summary = {
+    total: enriched.length,
+    indexed: indexed.length,
+    aboveP90: withPercentile.filter(p => p.percentile >= 90).length,
+    aboveP95: withPercentile.filter(p => p.percentile >= 95).length,
+    aboveP99: withPercentile.filter(p => p.percentile >= 99).length,
+    meanPercentile: withPercentile.length > 0
+      ? Math.round((withPercentile.reduce((s, p) => s + p.percentile, 0) / withPercentile.length) * 10) / 10
+      : 0,
+  };
+
+  res.json({ pairs: enriched, summary });
+});
+
+// POST /api/fingerprints/validation — Admin: add pair
+router.post('/validation', requireApiKey, (req, res) => {
+  const { tagMain, tagSmurf, notes } = req.body;
+  if (!tagMain || !tagSmurf) {
+    return res.status(400).json({ error: 'tagMain and tagSmurf are required' });
+  }
+  try {
+    const result = insertValidationPair(tagMain, tagSmurf, notes || '');
+    res.json({ ok: true, id: Number(result.lastInsertRowid) });
+  } catch (err) {
+    if (err.message?.includes('UNIQUE')) {
+      return res.status(409).json({ error: 'Pair already exists' });
+    }
+    throw err;
+  }
+});
+
+// DELETE /api/fingerprints/validation/:id — Admin: remove pair
+router.delete('/validation/:id', requireApiKey, (req, res) => {
+  const id = parseInt(req.params.id);
+  deleteValidationPair(id);
+  res.json({ ok: true });
+});
+
+// PATCH /api/fingerprints/validation/:id — Admin: update notes
+router.patch('/validation/:id', requireApiKey, (req, res) => {
+  const id = parseInt(req.params.id);
+  const { notes } = req.body;
+  if (notes === undefined) {
+    return res.status(400).json({ error: 'notes field is required' });
+  }
+  updateValidationPairNotes(id, notes);
+  res.json({ ok: true });
+});
+
+export async function warmCaches() {
+  console.log('[Cache] Warming parsed players...');
+  getParsedPlayers();
+  console.log(`[Cache] Parsed ${parsedPlayersCache.length} players`);
+
+  console.log('[Cache] Warming calibration...');
+  getCalibration();
+  console.log('[Cache] Calibration ready');
+
+  console.log('[Cache] Warming PCA embedding map...');
+  await computeEmbeddingMapResult('pca');
+  console.log('[Cache] PCA ready');
+}
 
 export default router;

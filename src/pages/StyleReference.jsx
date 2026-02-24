@@ -259,7 +259,10 @@ const StyleReference = () => {
 
           <div className="sr-stack">
             <div className="sr-label">Input</div>
-            <Input placeholder="Search players..." />
+            <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
+              <Input placeholder="Search players..." />
+              <Input $fullWidth placeholder="Full width variant" />
+            </div>
           </div>
 
           <div className="sr-stack">

@@ -7,7 +7,7 @@ const RELAY_URL =
 
 const RED = "#f87171";
 const GOLD = "#fcdb33";
-const GREY = "#bbb";
+const GREY = "var(--grey-light)";
 
 function getVerdict(similarity, percentile) {
   if (percentile != null) {

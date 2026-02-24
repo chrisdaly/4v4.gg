@@ -8,8 +8,8 @@ const RELAY_URL =
 
 const GOLD = "#fcdb33";
 const GOLD_DIM = "#b89a1e";
-const GREY = "#bbb";
-const GREY_MID = "#444";
+const GREY = "var(--grey-light)";
+const GREY_MID = "var(--grey-mid)";
 const RED = "#f87171";
 const GREEN = "#4ade80";
 
@@ -57,7 +57,7 @@ const HOVER_THRESHOLD = 25;
  * @param {function} onSelectPlayer - (battleTag) => void, called when a dot is clicked
  * @param {boolean}  hideSuspects   - if true, hide the suspects panel below the scatter
  */
-export default function EmbeddingScatter({ mapData, highlightTags = [], suspects, onSelectPlayer, allPlayers, hideSuspects }) {
+export default function EmbeddingScatter({ mapData, highlightTags = [], suspects, onSelectPlayer, allPlayers, hideSuspects, projectionMethod = "pca", onMethodChange, projectionLoading }) {
   const [expandedTag, setExpandedTag] = useState(null);
   const [replayDots, setReplayDots] = useState(null);
   const [loadingReplays, setLoadingReplays] = useState(false);
@@ -70,6 +70,16 @@ export default function EmbeddingScatter({ mapData, highlightTags = [], suspects
   const [showSuspects, setShowSuspects] = useState(true);
   const [hoveredSuspect, setHoveredSuspect] = useState(null);
 
+  // Clear expanded replay dots when projection method changes
+  const prevMethod = useRef(projectionMethod);
+  if (prevMethod.current !== projectionMethod) {
+    prevMethod.current = projectionMethod;
+    if (expandedTag) {
+      setExpandedTag(null);
+      setReplayDots(null);
+    }
+  }
+
   const handlePlayerClick = useCallback(async (battleTag) => {
     // Notify parent if callback provided
     if (onSelectPlayer) onSelectPlayer(battleTag);
@@ -79,16 +89,32 @@ export default function EmbeddingScatter({ mapData, highlightTags = [], suspects
       setReplayDots(null);
       return;
     }
-    if (!mapData?.pca?.mean || !mapData?.pca?.components) return;
+
+    const isUmap = projectionMethod === "umap";
+    // PCA needs basis vectors; UMAP fetches pre-projected coords
+    if (!isUmap && (!mapData?.pca?.mean || !mapData?.pca?.components)) return;
+
     setExpandedTag(battleTag);
     setLoadingReplays(true);
     try {
-      const res = await fetch(
-        `${RELAY_URL}/api/fingerprints/embeddings/${encodeURIComponent(battleTag)}`
-      );
+      const url = isUmap
+        ? `${RELAY_URL}/api/fingerprints/embeddings/${encodeURIComponent(battleTag)}?project=umap`
+        : `${RELAY_URL}/api/fingerprints/embeddings/${encodeURIComponent(battleTag)}`;
+      const res = await fetch(url);
       if (!res.ok) { setReplayDots(null); setLoadingReplays(false); return; }
       const data = await res.json();
       const dots = data.replays.map(r => {
+        if (isUmap) {
+          // Server already projected to 2D
+          return {
+            x: r.x,
+            y: r.y,
+            mapName: r.mapName,
+            matchDate: r.matchDate,
+            gameDuration: r.gameDuration,
+            replayId: r.replayId,
+          };
+        }
         const { x, y } = projectEmbedding(r.embedding, mapData.pca.mean, mapData.pca.components);
         return {
           x: Math.round(x * 1000) / 1000,
@@ -109,7 +135,7 @@ export default function EmbeddingScatter({ mapData, highlightTags = [], suspects
       setReplayDots(null);
     }
     setLoadingReplays(false);
-  }, [expandedTag, mapData, onSelectPlayer]);
+  }, [expandedTag, mapData, onSelectPlayer, projectionMethod]);
 
   if (!mapData || mapData.players.length === 0) {
     return (
@@ -123,7 +149,8 @@ export default function EmbeddingScatter({ mapData, highlightTags = [], suspects
   const PAD_L = 60, PAD_B = 60, PAD_T = 30, PAD_R = 30;
   const plotW = W - PAD_L - PAD_R;
   const plotH = H - PAD_T - PAD_B;
-  const { players, pca } = mapData;
+  const { players, pca, projection } = mapData;
+  const isUmap = projectionMethod === "umap";
 
   const xs = players.map(p => p.x);
   const ys = players.map(p => p.y);
@@ -175,8 +202,9 @@ export default function EmbeddingScatter({ mapData, highlightTags = [], suspects
     return popStd > 0 ? d / popStd : 0;
   };
 
-  // Derive human-readable axis labels from correlations
+  // Derive human-readable axis labels from correlations (PCA only)
   const axisLabel = (pcKey) => {
+    if (isUmap) return null;
     const corrs = pca?.axisCorrelations?.[pcKey];
     if (!corrs || corrs.length === 0) return null;
     const top = corrs[0]; // strongest absolute correlation
@@ -273,13 +301,21 @@ export default function EmbeddingScatter({ mapData, highlightTags = [], suspects
     <ScatterContainer>
       {/* Stats bar */}
       <StatsBar>
+        {onMethodChange && (
+          <MethodToggle>
+            <MethodBtn $active={projectionMethod === "pca"} onClick={() => onMethodChange("pca")}>PCA</MethodBtn>
+            <MethodBtn $active={projectionMethod === "umap"} onClick={() => onMethodChange("umap")}>UMAP</MethodBtn>
+          </MethodToggle>
+        )}
         <StatChip>{players.length} <span>players</span></StatChip>
-        {pca?.varianceExplained && (
+        {!isUmap && pca?.varianceExplained && (
           <StatChip>{pca.varianceExplained[0] + pca.varianceExplained[1]}% <span>variance captured</span></StatChip>
         )}
+        {isUmap && <StatChip>UMAP <span>neighborhood projection</span></StatChip>}
         {suspects?.totalPairs && (
           <StatChip>{suspects.totalPairs} <span>pairs analyzed</span></StatChip>
         )}
+        {projectionLoading && <StatChip style={{ color: GREY }}>loading…</StatChip>}
       </StatsBar>
 
       {/* Search */}
@@ -341,16 +377,20 @@ export default function EmbeddingScatter({ mapData, highlightTags = [], suspects
           <g key={`xt-${i}`}>
             <line x1={t.px} y1={PAD_T} x2={t.px} y2={H - PAD_B}
               stroke={GREY_MID} strokeWidth="0.5" strokeDasharray="3 3" opacity="0.25" />
-            <text x={t.px} y={H - PAD_B + 16} textAnchor="middle"
-              fill={GREY_MID} fontSize="9" fontFamily="Inconsolata, monospace">{t.val.toFixed(1)}</text>
+            {!isUmap && (
+              <text x={t.px} y={H - PAD_B + 16} textAnchor="middle"
+                fill={GREY_MID} fontSize="9" fontFamily="Inconsolata, monospace">{t.val.toFixed(1)}</text>
+            )}
           </g>
         ))}
         {yTicks.map((t, i) => (
           <g key={`yt-${i}`}>
             <line x1={PAD_L} y1={t.px} x2={W - PAD_R} y2={t.px}
               stroke={GREY_MID} strokeWidth="0.5" strokeDasharray="3 3" opacity="0.25" />
-            <text x={PAD_L - 8} y={t.px + 3} textAnchor="end"
-              fill={GREY_MID} fontSize="9" fontFamily="Inconsolata, monospace">{t.val.toFixed(1)}</text>
+            {!isUmap && (
+              <text x={PAD_L - 8} y={t.px + 3} textAnchor="end"
+                fill={GREY_MID} fontSize="9" fontFamily="Inconsolata, monospace">{t.val.toFixed(1)}</text>
+            )}
           </g>
         ))}
 
@@ -516,7 +556,7 @@ export default function EmbeddingScatter({ mapData, highlightTags = [], suspects
               stroke={GOLD_DIM} strokeWidth="0.8" strokeDasharray="4 3" opacity="0.3" />
             <line x1={PAD_L} y1={hoveredSc.sy} x2={W - PAD_R} y2={hoveredSc.sy}
               stroke={GOLD_DIM} strokeWidth="0.8" strokeDasharray="4 3" opacity="0.3" />
-            {(() => {
+            {!isUmap && (() => {
               const { dx, dy } = unscale(hoveredSc.sx, hoveredSc.sy);
               return (
                 <>
@@ -554,12 +594,12 @@ export default function EmbeddingScatter({ mapData, highlightTags = [], suspects
         <line x1={PAD_L} y1={PAD_T} x2={PAD_L} y2={H - PAD_B} stroke={GREY_MID} strokeWidth="1" />
         <text x={(PAD_L + W - PAD_R) / 2} y={H - 12} textAnchor="middle"
           fill={GREY_MID} fontSize="10" fontFamily="Inconsolata, monospace">
-          {pc1Label ? `${pc1Label}  ·  ` : ''}PC1 ({pca?.varianceExplained?.[0]}% var)
+          {isUmap ? 'UMAP-1' : `${pc1Label ? `${pc1Label}  ·  ` : ''}PC1 (${pca?.varianceExplained?.[0]}% var)`}
         </text>
         <text x={16} y={(PAD_T + H - PAD_B) / 2} textAnchor="middle"
           fill={GREY_MID} fontSize="10" fontFamily="Inconsolata, monospace"
           transform={`rotate(-90, 16, ${(PAD_T + H - PAD_B) / 2})`}>
-          {pc2Label ? `${pc2Label}  ·  ` : ''}PC2 ({pca?.varianceExplained?.[1]}% var)
+          {isUmap ? 'UMAP-2' : `${pc2Label ? `${pc2Label}  ·  ` : ''}PC2 (${pca?.varianceExplained?.[1]}% var)`}
         </text>
 
         {/* Player count label (no race legend) */}
@@ -684,6 +724,34 @@ const StatsBar = styled.div`
   gap: var(--space-3);
   flex-wrap: wrap;
   margin-bottom: var(--space-3);
+`;
+
+const MethodToggle = styled.div`
+  display: flex;
+  border: var(--border-thin) solid var(--grey-mid);
+  border-radius: var(--radius-sm);
+  overflow: hidden;
+`;
+
+const MethodBtn = styled.button`
+  font-family: var(--font-mono);
+  font-size: var(--text-xxs);
+  padding: 6px 14px;
+  border: none;
+  cursor: pointer;
+  transition: all 0.2s ease;
+  background: ${p => p.$active ? 'var(--gold-tint)' : 'transparent'};
+  color: ${p => p.$active ? 'var(--gold)' : 'var(--grey-light)'};
+  font-weight: ${p => p.$active ? '600' : '400'};
+
+  &:hover {
+    background: ${p => p.$active ? 'var(--gold-tint)' : 'rgba(255, 255, 255, 0.04)'};
+    color: ${p => p.$active ? 'var(--gold)' : 'var(--white)'};
+  }
+
+  & + & {
+    border-left: var(--border-thin) solid var(--grey-mid);
+  }
 `;
 
 const StatChip = styled.div`

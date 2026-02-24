@@ -11,7 +11,7 @@ import chatRoutes from './routes/chat.js';
 import adminRoutes from './routes/admin.js';
 import clipRoutes from './routes/clips.js';
 import replayRoutes from './routes/replays.js';
-import fingerprintRoutes from './routes/fingerprints.js';
+import fingerprintRoutes, { warmCaches } from './routes/fingerprints.js';
 import blogRoutes from './routes/blog.js';
 import ogRoutes from './routes/og.js';
 import { startClipScheduler } from './clips.js';
@@ -31,10 +31,9 @@ app.use('/api/replays', replayRoutes);
 app.use('/api/fingerprints', fingerprintRoutes);
 app.use('/api/blog', blogRoutes);
 app.use('/og', ogRoutes);
-// Mount health at top level too for convenience
-app.get('/api/health', (req, res, next) => {
-  req.url = '/health';
-  adminRoutes(req, res, next);
+// Lightweight health check for Fly proxy (must respond fast)
+app.get('/api/health', (_req, res) => {
+  res.json({ status: 'ok', uptime: process.uptime() });
 });
 
 initDb();
@@ -82,4 +81,9 @@ setInterval(runCleanup, 6 * 60 * 60 * 1000);
 
 app.listen(config.PORT, () => {
   console.log(`[Server] Chat relay listening on :${config.PORT}`);
+
+  // Warm heavy caches after a delay so health check passes first
+  setTimeout(() => {
+    warmCaches().catch(err => console.error('[Cache] Warmup error:', err.message));
+  }, 3000);
 });

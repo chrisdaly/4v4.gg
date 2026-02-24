@@ -48,7 +48,7 @@ const BUILDINGS = new Set([
   'ogre','ostr','ofrt','oalt','obar','ofor','osld','obea','otrb','otto','owtw','ovln','ohou',
   'etol','etoa','etoe','eate','eaom','eaow','eaoe','edob','emow','etrp','eden',
   'unpl','unp1','unp2','uaod','usep','ugrv','utod','uslh','ubon','utom','uzig','uzg1','uzg2','ugol',
-  'ngme','ntav','ngad',
+  'ngme','ntav','ngad','ngsp',
 ]);
 
 const BUILDING_NAMES = {
@@ -71,7 +71,7 @@ const BUILDING_NAMES = {
   uslh: 'Slaughter', ubon: 'Boneyard', utom: 'Tomb',
   uzig: 'Zig', uzg1: 'S.Tower', uzg2: 'N.Tower', ugol: 'Mine',
   // Neutral
-  ngme: 'Mine', ntav: 'Tavern', ngad: 'Shop',
+  ngme: 'Mine', ntav: 'Tavern', ngad: 'Shop', ngsp: 'Shipyard',
 };
 
 // IDs that have icons in /units/
@@ -84,7 +84,7 @@ const UNIT_ICONS = new Set([
   'hgra','hgry','hgtw','hgyr','hhou','hkee','hkni','hlum','hmil','Hmkg','hmpr','hmtm',
   'Hpal','hpea','hrif','hsie','hsor','hspt','htow','hvlt','hwtw',
   // Neutral heroes
-  'Nalc','Nbrn','Nbst','Nfir','Nngs','Npbm','Nplh','Ntin',
+  'Nalc','Nbrn','Nbst','Nfir','Nngs','Npbm','Nplh','Ntin','ngsp',
   // Orc units + buildings
   'oalt','obar','obea','Obla','ocat','odoc','Ofar','ofor','ofrt','ogre','ogru','ohou','ohun','okod','opeo',
   'orai','Oshd','oshm','osld','osp1','ostr','otau','otbk','otbr','Otch','otrb','otto','ovln','owtw','owvy',
@@ -178,7 +178,7 @@ function buildNotes({ segments, transitionPairs, groupUsage, actionCounts }) {
   }
 
   // Tab cycling — strong signal (Quality 2.38)
-  if (actionCounts?.tabPerMin >= 30) {
+  if (actionCounts?.tabPerMin >= 50) {
     notes.push({ text: `Tab masher — cycles subgroups ${actionCounts.tabPerMin}/min`, tone: "green" });
   }
 
@@ -643,7 +643,7 @@ const UnitPic = styled.img`
   width: 32px;
   height: 32px;
   border-radius: 4px;
-  border: 1px solid #444;
+  border: 1px solid var(--grey-mid);
   object-fit: cover;
   display: block;
 `;

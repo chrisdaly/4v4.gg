@@ -58,7 +58,7 @@ const BUILDINGS = new Set([
   'ogre','ostr','ofrt','oalt','obar','ofor','osld','obea','otrb','otto','owtw','ovln','ohou',
   'etol','etoa','etoe','eate','eaom','eaow','eaoe','edob','emow','etrp','eden',
   'unpl','unp1','unp2','uaod','usep','ugrv','utod','uslh','ubon','utom','uzig','uzg1','uzg2','ugol',
-  'ngme','ntav','ngad',
+  'ngme','ntav','ngad','ngsp',
 ]);
 
 // IDs that have icons in /units/
@@ -71,7 +71,7 @@ const UNIT_ICONS = new Set([
   'hgra','hgry','hgtw','hgyr','hhou','hkee','hkni','hlum','hmil','Hmkg','hmpr','hmtm',
   'Hpal','hpea','hrif','hsie','hsor','hspt','htow','hvlt','hwtw',
   // Neutral heroes
-  'Nalc','Nbrn','Nbst','Nfir','Nngs','Npbm','Nplh','Ntin',
+  'Nalc','Nbrn','Nbst','Nfir','Nngs','Npbm','Nplh','Ntin','ngsp',
   // Orc units + buildings
   'oalt','obar','obea','Obla','ocat','odoc','Ofar','ofor','ofrt','ogre','ogru','ohou','ohun','okod','opeo',
   'orai','Oshd','oshm','osld','osp1','ostr','otau','otbk','otbr','Otch','otrb','otto','ovln','owtw','owvy',

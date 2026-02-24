@@ -2,7 +2,7 @@ import React, { useState, useRef, useEffect } from "react";
 import { Link, useLocation, useHistory } from "react-router-dom";
 import { raceMapping } from "../lib/constants";
 import { searchLadder, getPlayerProfile, getOngoingMatches, getFinishedMatches, getLadder, getSeasons } from "../lib/api";
-import { CountryFlag } from "./ui";
+import { CountryFlag, Input } from "./ui";
 import PeonLoader from "./PeonLoader";
 import useAdmin from "../lib/useAdmin";
 
@@ -133,7 +133,7 @@ const Navbar = () => {
             </Link>
           ))}
           <div className="navbar-search" ref={searchRef}>
-            <input
+            <Input
               className="navbar-search-input"
               type="text"
               placeholder="Search player..."

@@ -557,14 +557,16 @@ export const Select = React.forwardRef(function Select(
 });
 
 export const Input = styled.input`
-  font-family: var(--font-display);
-  font-size: var(--text-sm);
-  background: transparent;
-  border: 1px solid ${p => p.$error ? 'var(--red)' : 'rgba(252,219,51,0.3)'};
+  font-family: var(--font-mono);
+  font-size: var(--text-xs);
+  background: var(--surface-1);
+  border: 1px solid ${p => p.$error ? 'var(--red)' : 'var(--grey-mid)'};
   border-radius: var(--radius-md);
-  color: var(--grey-light);
+  color: var(--white);
   padding: var(--space-2) var(--space-4);
   width: ${p => p.$fullWidth ? '100%' : 'auto'};
+  transition: var(--transition);
+  box-sizing: border-box;
 
   &::placeholder {
     color: var(--grey-light);
@@ -573,6 +575,10 @@ export const Input = styled.input`
   &:focus {
     outline: none;
     border-color: ${p => p.$error ? 'var(--red)' : 'var(--gold)'};
+  }
+
+  &:hover:not(:focus) {
+    border-color: ${p => p.$error ? 'var(--red)' : 'rgba(252,219,51,0.4)'};
   }
 `;
 

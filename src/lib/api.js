@@ -60,8 +60,7 @@ export const getPlayerProfile = async (battleTag) => {
       twitch: data.twitch || null,
       country: data.location || null,
     };
-  } catch (error) {
-    console.error(`Error fetching profile for ${battleTag}:`, error);
+  } catch {
     return { profilePicUrl: null, twitch: null, country: null };
   }
 };

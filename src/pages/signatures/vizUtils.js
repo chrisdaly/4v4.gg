@@ -9,9 +9,9 @@ export const GOLD_DIM = "#b89a1e";
 export const GREEN = "#4ade80";
 export const RED = "#f87171";
 export const BLUE = "#3b82f6";
-export const GREY = "#bbb";
-export const GREY_MID = "#444";
-export const GREY_DARK = "#1a1a1a";
+export const GREY = "var(--grey-light)";
+export const GREY_MID = "var(--grey-mid)";
+export const GREY_DARK = "var(--grey-dark)";
 export const TRAIT_COLORS = [GOLD, GREEN, BLUE, RED, "#c084fc", "#f472b6"];
 
 export const RACE_COLORS = {

@@ -139,8 +139,8 @@ const PlayerTag = styled.div`
   font-family: var(--font-mono); font-size: var(--text-xxxs);
   display: flex; justify-content: space-between; margin-bottom: 8px;
 `;
-const TagLeft = styled.span`color: #4fc3f7;`;
-const TagRight = styled.span`color: #ef5350;`;
+const TagLeft = styled.span`color: var(--blue);`;
+const TagRight = styled.span`color: var(--red);`;
 
 // ── Compare Grid (butterfly bars) ───────────────
 

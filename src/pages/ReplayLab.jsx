@@ -3,19 +3,27 @@ import styled from "styled-components";
 import { useLocation, useHistory } from "react-router-dom";
 import { PageLayout, PageNav, PageHero } from "../components/ui";
 import { ReplayLabProvider } from "../lib/useReplayLabStore";
+import ScoutTab from "./replay-lab/ScoutTab";
 import ExploreTab from "./replay-lab/ExploreTab";
 import SmurfsTab from "./replay-lab/SmurfsTab";
 import CompareTab from "./replay-lab/CompareTab";
 import GalleryTab from "./replay-lab/GalleryTab";
+import ValidationTab from "./replay-lab/ValidationTab";
 
 const TABS = [
+  { key: "scout", label: "Scout" },
   { key: "explore", label: "Explore" },
   { key: "gallery", label: "Gallery" },
   { key: "smurfs", label: "Smurfs" },
   { key: "compare", label: "Compare" },
+  { key: "validation", label: "Validation" },
 ];
 
 const TAB_CONTENT = {
+  scout: {
+    title: "Scout",
+    lead: "Look up any indexed player's playstyle fingerprint.",
+  },
   explore: {
     title: "Player Explorer",
     lead: "Browse indexed players, view their playstyle fingerprints, and discover their nearest neighbors.",
@@ -31,6 +39,10 @@ const TAB_CONTENT = {
   compare: {
     title: "Compare Replays",
     lead: "Upload .w3g files to compare playstyle fingerprints side by side.",
+  },
+  validation: {
+    title: "Validation",
+    lead: "Ground-truth smurf-main pairs for testing embedding model accuracy.",
   },
 };
 
@@ -71,7 +83,7 @@ function ReplayLabInner() {
   const location = useLocation();
   const history = useHistory();
   const params = new URLSearchParams(location.search);
-  const initialTab = TABS.find(t => t.key === params.get("tab"))?.key || "explore";
+  const initialTab = TABS.find(t => t.key === params.get("tab"))?.key || "scout";
   const initialPlayer = params.get("player") || null;
 
   const [activeTab, setActiveTab] = useState(initialTab);
@@ -79,11 +91,11 @@ function ReplayLabInner() {
   const switchTab = useCallback((key) => {
     setActiveTab(key);
     const p = new URLSearchParams(location.search);
-    if (key === "explore") p.delete("tab"); else p.set("tab", key);
+    if (key === "scout") p.delete("tab"); else p.set("tab", key);
     p.delete("player");
     history.replace({ search: p.toString() ? `?${p}` : "" });
   }, [history, location.search]);
-  const { title, lead } = TAB_CONTENT[activeTab] || TAB_CONTENT.explore;
+  const { title, lead } = TAB_CONTENT[activeTab] || TAB_CONTENT.scout;
 
   return (
     <PageLayout bare>
@@ -96,10 +108,12 @@ function ReplayLabInner() {
           onTab={switchTab}
         />
         <PageHero eyebrow="Replay Lab" title={title} lead={lead} />
+        {activeTab === "scout" && <ScoutTab initialPlayer={initialPlayer} />}
         {activeTab === "explore" && <ExploreTab initialPlayer={initialPlayer} />}
         {activeTab === "gallery" && <GalleryTab />}
         {activeTab === "smurfs" && <SmurfsTab />}
         {activeTab === "compare" && <CompareTab />}
+        {activeTab === "validation" && <ValidationTab />}
       </Inner>
     </PageLayout>
   );

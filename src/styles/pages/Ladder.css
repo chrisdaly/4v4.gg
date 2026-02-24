@@ -222,19 +222,7 @@
 }
 
 .ladder-search input {
-  padding-left: 32px;
-  width: 180px;
-}
-
-.ladder-search::before {
-  content: "\2315";
-  position: absolute;
-  left: 12px;
-  top: 50%;
-  transform: translateY(-50%);
-  color: var(--grey-light);
-  font-size: var(--text-xs);
-  pointer-events: none;
+  width: 200px;
 }
 
 .search-clear {

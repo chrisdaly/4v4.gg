@@ -1,44 +1,36 @@
-import React, { useState, useEffect, useMemo } from "react";
+import React, { useState, useEffect, useMemo, useCallback } from "react";
 import { useHistory } from "react-router-dom";
 import styled from "styled-components";
 import PeonLoader from "../../components/PeonLoader";
 import TransitionGlyph from "../../components/replay-lab/TransitionGlyph";
+import { raceIcons } from "../../lib/constants";
+import { searchLadder } from "../../lib/api";
 
 const RELAY_URL =
   import.meta.env.VITE_CHAT_RELAY_URL || "https://4v4gg-chat-relay.fly.dev";
 
-// ── Derive metrics from embedding-map glyph data ──
+const RACE_ICON_MAP = {
+  Human: raceIcons.human,
+  Orc: raceIcons.orc,
+  "Night Elf": raceIcons.elf,
+  Undead: raceIcons.undead,
+  Random: raceIcons.random,
+};
 
-function deriveMetrics(player) {
-  const g = player.glyph;
-  if (!g) return null;
+// ── MMR lookup ──────────────────────────────────
 
-  const apmNorm = g.apm || 0;
-  const meanApm = Math.round(apmNorm * 300);
-
-  const action = g.action || [];
-  const total = action.reduce((a, b) => a + b, 0) || 1;
-  const rightclickPct = Math.round(((action[0] || 0) / total) * 100);
-  const abilityPct = Math.round(((action[1] || 0) / total) * 100);
-  const buildPct = Math.round(((action[2] || 0) / total) * 100);
-  const selectPct = Math.round(((action[4] || 0) / total) * 100);
-  const assignPct = Math.round(((action[5] || 0) / total) * 100);
-
-  const hotkey = g.hotkey || [];
-  let activeGroups = 0;
-  for (let i = 0; i < 10; i++) {
-    if ((hotkey[i] || 0) > 0.02) activeGroups++;
+async function fetchMmr(battleTag) {
+  try {
+    const name = battleTag.split("#")[0];
+    const results = await searchLadder(name);
+    if (!Array.isArray(results)) return null;
+    const match = results.find(r =>
+      r.player1Id === battleTag && r.gameMode === 4
+    );
+    return match?.player?.mmr ?? null;
+  } catch {
+    return null;
   }
-
-  const sortedHk = [...hotkey].sort((a, b) => b - a);
-  const topGroupPct = Math.round((sortedHk[0] || 0) * 100);
-  const highGroupUsage = hotkey.slice(5).reduce((a, b) => a + b, 0);
-  const buildingsOnHotkey = highGroupUsage > 0.1;
-
-  return {
-    meanApm, rightclickPct, abilityPct, buildPct,
-    selectPct, assignPct, activeGroups, topGroupPct, buildingsOnHotkey,
-  };
 }
 
 // ── Category Definitions ────────────────────────
@@ -80,19 +72,307 @@ function getVisibleTags(categories) {
   return [...tags];
 }
 
-// ── Styles ──────────────────────────────────────
+// ── Shared card info (name, race, mmr) ──────────
 
-const RACE_COLORS = {
-  Human: "#3b82f6", Orc: "#ef4444", "Night Elf": "#22c55e", Undead: "#a855f7", Random: "#9ca3af",
-};
-
-function raceShort(r) {
-  if (r === "Human") return "HU";
-  if (r === "Orc") return "ORC";
-  if (r === "Night Elf") return "NE";
-  if (r === "Undead") return "UD";
-  return "RND";
+function CardInfo({ name, raceIcon, race, mmr }) {
+  return (
+    <CardInfoWrap>
+      <CardName>{name}</CardName>
+      <CardMeta>
+        {raceIcon && <RaceImg src={raceIcon} alt={race} />}
+        {mmr != null && <MmrValue>{mmr}</MmrValue>}
+      </CardMeta>
+    </CardInfoWrap>
+  );
 }
+
+// ── Compare Panel ────────────────────────────────
+
+function ComparePanel({ players, profiles: galleryProfiles, mmrCache, onMmrFetch }) {
+  const [inputs, setInputs] = useState(["", ""]);
+  const [compareProfiles, setCompareProfiles] = useState([null, null]);
+  const [loading, setLoading] = useState([false, false]);
+
+  const raceLookup = useMemo(() => {
+    const map = {};
+    if (players) {
+      for (const p of players) map[p.battleTag] = p.race;
+    }
+    return map;
+  }, [players]);
+
+  const allTags = useMemo(() => {
+    if (!players) return [];
+    return players.map(p => p.battleTag).sort((a, b) => a.localeCompare(b));
+  }, [players]);
+
+  const fetchProfile = useCallback(async (tag, index) => {
+    if (!tag) {
+      setCompareProfiles(prev => { const n = [...prev]; n[index] = null; return n; });
+      return;
+    }
+    setLoading(prev => { const n = [...prev]; n[index] = true; return n; });
+    try {
+      if (galleryProfiles[tag]) {
+        setCompareProfiles(prev => { const n = [...prev]; n[index] = galleryProfiles[tag]; return n; });
+      } else {
+        const r = await fetch(`${RELAY_URL}/api/fingerprints/profile/${encodeURIComponent(tag)}`);
+        const data = r.ok ? await r.json() : null;
+        setCompareProfiles(prev => { const n = [...prev]; n[index] = data; return n; });
+      }
+      // Fetch MMR if not cached
+      if (!(tag in mmrCache)) onMmrFetch(tag);
+    } catch {
+      setCompareProfiles(prev => { const n = [...prev]; n[index] = null; return n; });
+    }
+    setLoading(prev => { const n = [...prev]; n[index] = false; return n; });
+  }, [galleryProfiles, mmrCache, onMmrFetch]);
+
+  const handleSubmit = (index) => {
+    const tag = inputs[index].trim();
+    if (tag) fetchProfile(tag, index);
+  };
+
+  const handleKeyDown = (e, index) => {
+    if (e.key === "Enter") handleSubmit(index);
+  };
+
+  const addSlot = () => {
+    setInputs(prev => [...prev, ""]);
+    setCompareProfiles(prev => [...prev, null]);
+    setLoading(prev => [...prev, false]);
+  };
+
+  const removeSlot = (index) => {
+    if (inputs.length <= 2) return;
+    setInputs(prev => prev.filter((_, i) => i !== index));
+    setCompareProfiles(prev => prev.filter((_, i) => i !== index));
+    setLoading(prev => prev.filter((_, i) => i !== index));
+  };
+
+  const hasAnyProfile = compareProfiles.some(Boolean);
+
+  return (
+    <CompareWrap>
+      <CompareHeader>
+        <CompareTitle>Compare</CompareTitle>
+        <CompareDesc>Enter battletags to compare side by side</CompareDesc>
+      </CompareHeader>
+      <CompareInputRow>
+        {inputs.map((val, i) => (
+          <CompareInputWrap key={i}>
+            <CompareInput
+              type="text"
+              list="compare-tags"
+              placeholder="Player#12345"
+              value={val}
+              onChange={(e) => setInputs(prev => { const n = [...prev]; n[i] = e.target.value; return n; })}
+              onKeyDown={(e) => handleKeyDown(e, i)}
+              onBlur={() => handleSubmit(i)}
+            />
+            {inputs.length > 2 && (
+              <RemoveSlotBtn onClick={() => removeSlot(i)} title="Remove">x</RemoveSlotBtn>
+            )}
+          </CompareInputWrap>
+        ))}
+        {inputs.length < 4 && (
+          <AddSlotBtn onClick={addSlot} title="Add player">+</AddSlotBtn>
+        )}
+      </CompareInputRow>
+      <datalist id="compare-tags">
+        {allTags.map(tag => <option key={tag} value={tag} />)}
+      </datalist>
+      {hasAnyProfile && (
+        <CompareGrid $count={inputs.length}>
+          {inputs.map((val, i) => {
+            const profile = compareProfiles[i];
+            const tag = val.trim();
+            const displayName = tag ? tag.split("#")[0] : "";
+            const race = raceLookup[tag];
+            const raceIcon = RACE_ICON_MAP[race];
+            const mmr = mmrCache[tag];
+            return (
+              <CompareCard key={i}>
+                {loading[i] ? (
+                  <GlyphPlaceholder><PlaceholderDot /></GlyphPlaceholder>
+                ) : profile ? (
+                  <>
+                    <GlyphBox>
+                      <TransitionGlyph
+                        transitionPairs={profile.transitionPairs || []}
+                        groupUsage={profile.groupUsage || []}
+                        groupCompositions={profile.groupCompositions || {}}
+                        segments={profile.averaged?.segments || null}
+                        playerName={tag}
+                        replayCount={profile.replayCount || profile.confidence?.replayCount}
+                        mini
+                      />
+                    </GlyphBox>
+                    <CardInfo name={displayName} raceIcon={raceIcon} race={race} mmr={mmr} />
+                  </>
+                ) : tag ? (
+                  <GlyphPlaceholder><NoDataSmall>No data</NoDataSmall></GlyphPlaceholder>
+                ) : null}
+              </CompareCard>
+            );
+          })}
+        </CompareGrid>
+      )}
+    </CompareWrap>
+  );
+}
+
+// ── Component ───────────────────────────────────
+
+export default function GalleryTab() {
+  const history = useHistory();
+  const [players, setPlayers] = useState(null);
+  const [loading, setLoading] = useState(true);
+  const [profiles, setProfiles] = useState({});
+  const [mmrCache, setMmrCache] = useState({});
+
+  useEffect(() => {
+    fetch(`${RELAY_URL}/api/fingerprints/gallery`)
+      .then((r) => (r.ok ? r.json() : null))
+      .then((data) => {
+        if (data?.players) {
+          setPlayers(data.players.filter((p) => p.metrics));
+        }
+        setLoading(false);
+      })
+      .catch(() => setLoading(false));
+  }, []);
+
+  const categories = useMemo(
+    () => (players ? buildCategories(players) : []),
+    [players]
+  );
+
+  // Fetch profiles for gallery cards
+  useEffect(() => {
+    if (categories.length === 0) return;
+    const tags = getVisibleTags(categories);
+    let cancelled = false;
+    (async () => {
+      const BATCH = 6;
+      for (let i = 0; i < tags.length; i += BATCH) {
+        if (cancelled) return;
+        const batch = tags.slice(i, i + BATCH);
+        const results = await Promise.all(
+          batch.map((tag) =>
+            fetch(`${RELAY_URL}/api/fingerprints/profile/${encodeURIComponent(tag)}`)
+              .then((r) => (r.ok ? r.json() : null))
+              .catch(() => null)
+          )
+        );
+        if (cancelled) return;
+        setProfiles((prev) => {
+          const next = { ...prev };
+          batch.forEach((tag, j) => {
+            if (results[j]) next[tag] = results[j];
+          });
+          return next;
+        });
+      }
+    })();
+    return () => { cancelled = true; };
+  }, [categories]);
+
+  // Fetch MMR for gallery card players
+  useEffect(() => {
+    if (categories.length === 0) return;
+    const tags = getVisibleTags(categories);
+    let cancelled = false;
+    (async () => {
+      for (const tag of tags) {
+        if (cancelled) return;
+        const mmr = await fetchMmr(tag);
+        if (cancelled) return;
+        if (mmr != null) {
+          setMmrCache(prev => ({ ...prev, [tag]: mmr }));
+        }
+      }
+    })();
+    return () => { cancelled = true; };
+  }, [categories]);
+
+  // Callback for compare panel to request MMR
+  const handleMmrFetch = useCallback(async (tag) => {
+    const mmr = await fetchMmr(tag);
+    if (mmr != null) {
+      setMmrCache(prev => ({ ...prev, [tag]: mmr }));
+    }
+  }, []);
+
+  const navigateToPlayer = (battleTag) => {
+    const p = new URLSearchParams();
+    p.set("tab", "explore");
+    p.set("player", battleTag);
+    history.push({ pathname: "/replay-lab", search: `?${p}` });
+  };
+
+  if (loading) {
+    return (
+      <div className="page-loader" style={{ minHeight: "40vh" }}>
+        <PeonLoader />
+      </div>
+    );
+  }
+
+  if (!players?.length) {
+    return <NoData>No gallery data yet. More replays need to be indexed.</NoData>;
+  }
+
+  return (
+    <>
+      <ComparePanel players={players} profiles={profiles} mmrCache={mmrCache} onMmrFetch={handleMmrFetch} />
+      <StatsRow>
+        <StatChip>{players.length} <span>players indexed</span></StatChip>
+      </StatsRow>
+      {categories.map((cat) => (
+        <CategorySection key={cat.id}>
+          <CategoryHeader>
+            <CategoryTitle>{cat.title}</CategoryTitle>
+            <CategoryDesc>{cat.desc}</CategoryDesc>
+          </CategoryHeader>
+          <CardGrid>
+            {cat.players.map((player, i) => {
+              const displayName = player.battleTag.split("#")[0];
+              const profile = profiles[player.battleTag];
+              const raceIcon = RACE_ICON_MAP[player.race];
+              const mmr = mmrCache[player.battleTag];
+              return (
+                <Card
+                  key={player.battleTag}
+                  onClick={() => navigateToPlayer(player.battleTag)}
+                >
+                  {profile ? (
+                    <GlyphBox>
+                      <TransitionGlyph
+                        transitionPairs={profile.transitionPairs || []}
+                        groupUsage={profile.groupUsage || []}
+                        groupCompositions={profile.groupCompositions || {}}
+                        segments={profile.averaged?.segments || null}
+                        playerName={player.battleTag}
+                        replayCount={player.replayCount}
+                        mini
+                      />
+                    </GlyphBox>
+                  ) : (
+                    <GlyphPlaceholder><PlaceholderDot /></GlyphPlaceholder>
+                  )}
+                  <CardInfo name={displayName} raceIcon={raceIcon} race={player.race} mmr={mmr} />
+                </Card>
+              );
+            })}
+          </CardGrid>
+        </CategorySection>
+      ))}
+    </>
+  );
+}
+
+// ── Styled Components ───────────────────────────
 
 const CategorySection = styled.section`
   margin-bottom: var(--space-8);
@@ -138,6 +418,7 @@ const Card = styled.button`
   transition: all 0.2s ease;
   text-align: left;
   overflow: hidden;
+  padding: 0;
 
   &:hover {
     border-color: var(--gold);
@@ -178,63 +459,44 @@ const PlaceholderDot = styled.div`
   }
 `;
 
-const CardFooter = styled.div`
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  padding: var(--space-2) var(--space-3);
-  gap: var(--space-2);
-  min-width: 0;
-`;
+/* Card info underneath glyph */
 
-const FooterLeft = styled.div`
+const CardInfoWrap = styled.div`
   display: flex;
+  flex-direction: column;
   align-items: center;
-  gap: var(--space-2);
-  min-width: 0;
-`;
-
-const CardRank = styled.span`
-  font-family: var(--font-mono);
-  font-size: var(--text-xxs);
-  color: var(--grey-mid);
-  flex-shrink: 0;
+  gap: 4px;
+  padding: var(--space-2) var(--space-3) var(--space-3);
 `;
 
 const CardName = styled.span`
   font-family: var(--font-display);
-  font-size: var(--text-sm);
+  font-size: var(--text-base);
   color: var(--gold);
+  line-height: 1.1;
+  text-align: center;
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
+  max-width: 100%;
 `;
 
-const FooterRight = styled.div`
+const CardMeta = styled.div`
   display: flex;
-  align-items: baseline;
-  gap: var(--space-1);
+  align-items: center;
+  gap: 6px;
+`;
+
+const RaceImg = styled.img`
+  width: 18px;
+  height: 18px;
   flex-shrink: 0;
 `;
 
-const CardStat = styled.span`
+const MmrValue = styled.span`
   font-family: var(--font-mono);
-  font-size: var(--text-sm);
-  color: #fff;
-`;
-
-const CardUnit = styled.span`
-  font-family: var(--font-mono);
-  font-size: var(--text-xxs);
+  font-size: var(--text-xs);
   color: var(--grey-light);
-`;
-
-const RaceDot = styled.span`
-  width: 6px;
-  height: 6px;
-  border-radius: 50%;
-  background: ${(p) => p.$color || "var(--grey-mid)"};
-  flex-shrink: 0;
 `;
 
 const NoData = styled.div`
@@ -246,6 +508,12 @@ const NoData = styled.div`
   background: var(--surface-1);
   border: var(--border-thin) solid var(--grey-mid);
   border-radius: var(--radius-md);
+`;
+
+const NoDataSmall = styled.span`
+  font-family: var(--font-mono);
+  font-size: var(--text-xxs);
+  color: var(--grey-mid);
 `;
 
 const StatsRow = styled.div`
@@ -262,139 +530,113 @@ const StatChip = styled.span`
   & span { color: var(--grey-light); font-size: var(--text-xxs); }
 `;
 
-// ── Component ───────────────────────────────────
+/* ── Compare Panel ── */
 
-export default function GalleryTab() {
-  const history = useHistory();
-  const [players, setPlayers] = useState(null);
-  const [loading, setLoading] = useState(true);
-  const [profiles, setProfiles] = useState({});
+const CompareWrap = styled.div`
+  margin-bottom: var(--space-8);
+  padding-bottom: var(--space-6);
+  border-bottom: 1px solid rgba(255, 255, 255, 0.06);
+`;
 
-  useEffect(() => {
-    fetch(`${RELAY_URL}/api/fingerprints/embedding-map`)
-      .then((r) => (r.ok ? r.json() : null))
-      .then((data) => {
-        if (data?.players) {
-          const enriched = data.players
-            .filter((p) => p.glyph && p.replayCount >= 2)
-            .map((p) => {
-              const metrics = deriveMetrics(p);
-              return metrics ? { ...p, metrics } : null;
-            })
-            .filter(Boolean);
-          setPlayers(enriched);
-        }
-        setLoading(false);
-      })
-      .catch(() => setLoading(false));
-  }, []);
+const CompareHeader = styled.div`
+  display: flex;
+  align-items: baseline;
+  gap: var(--space-2);
+  margin-bottom: var(--space-3);
+`;
 
-  const categories = useMemo(
-    () => (players ? buildCategories(players) : []),
-    [players]
-  );
+const CompareTitle = styled.h3`
+  font-family: var(--font-display);
+  font-size: var(--text-lg);
+  color: var(--gold);
+  margin: 0;
+`;
 
-  useEffect(() => {
-    if (categories.length === 0) return;
-    const tags = getVisibleTags(categories);
-    let cancelled = false;
-    (async () => {
-      const BATCH = 6;
-      for (let i = 0; i < tags.length; i += BATCH) {
-        if (cancelled) return;
-        const batch = tags.slice(i, i + BATCH);
-        const results = await Promise.all(
-          batch.map((tag) =>
-            fetch(`${RELAY_URL}/api/fingerprints/profile/${encodeURIComponent(tag)}`)
-              .then((r) => (r.ok ? r.json() : null))
-              .catch(() => null)
-          )
-        );
-        if (cancelled) return;
-        setProfiles((prev) => {
-          const next = { ...prev };
-          batch.forEach((tag, j) => {
-            if (results[j]) next[tag] = results[j];
-          });
-          return next;
-        });
-      }
-    })();
-    return () => { cancelled = true; };
-  }, [categories]);
+const CompareDesc = styled.span`
+  font-family: var(--font-mono);
+  font-size: var(--text-xxs);
+  color: var(--grey-mid);
+`;
 
-  const navigateToPlayer = (battleTag) => {
-    const p = new URLSearchParams();
-    p.set("tab", "explore");
-    p.set("player", battleTag);
-    history.push({ pathname: "/replay-lab", search: `?${p}` });
-  };
+const CompareInputRow = styled.div`
+  display: flex;
+  gap: var(--space-2);
+  align-items: center;
+  flex-wrap: wrap;
+  margin-bottom: var(--space-4);
+`;
 
-  if (loading) {
-    return (
-      <div className="page-loader" style={{ minHeight: "40vh" }}>
-        <PeonLoader />
-      </div>
-    );
+const CompareInputWrap = styled.div`
+  position: relative;
+  display: flex;
+  align-items: center;
+`;
+
+const CompareInput = styled.input`
+  background: var(--surface-1);
+  border: var(--border-thin) solid var(--grey-mid);
+  border-radius: var(--radius-sm);
+  color: #fff;
+  font-family: var(--font-mono);
+  font-size: var(--text-xs);
+  padding: var(--space-2) var(--space-3);
+  width: 200px;
+  outline: none;
+  transition: border-color 0.2s ease;
+
+  &::placeholder { color: var(--grey-mid); }
+  &:focus { border-color: var(--gold); }
+`;
+
+const RemoveSlotBtn = styled.button`
+  position: absolute;
+  right: 6px;
+  background: none;
+  border: none;
+  color: var(--grey-mid);
+  font-family: var(--font-mono);
+  font-size: var(--text-xs);
+  cursor: pointer;
+  padding: 2px 4px;
+  line-height: 1;
+
+  &:hover { color: var(--red); }
+`;
+
+const AddSlotBtn = styled.button`
+  background: var(--surface-1);
+  border: var(--border-thin) solid var(--grey-mid);
+  border-radius: var(--radius-sm);
+  color: var(--grey-light);
+  font-family: var(--font-mono);
+  font-size: var(--text-sm);
+  width: 36px;
+  height: 36px;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  transition: all 0.2s ease;
+
+  &:hover {
+    border-color: var(--gold);
+    color: var(--gold);
   }
+`;
 
-  if (!players?.length) {
-    return <NoData>No gallery data yet. More replays need to be indexed.</NoData>;
+const CompareGrid = styled.div`
+  display: grid;
+  grid-template-columns: repeat(${p => p.$count}, 1fr);
+  gap: var(--space-3);
+
+  @media (max-width: 700px) {
+    grid-template-columns: 1fr;
   }
+`;
 
-  return (
-    <>
-      <StatsRow>
-        <StatChip>{players.length} <span>players indexed</span></StatChip>
-      </StatsRow>
-      {categories.map((cat) => (
-        <CategorySection key={cat.id}>
-          <CategoryHeader>
-            <CategoryTitle>{cat.title}</CategoryTitle>
-            <CategoryDesc>{cat.desc}</CategoryDesc>
-          </CategoryHeader>
-          <CardGrid>
-            {cat.players.map((player, i) => {
-              const val = player.metrics[cat.metric];
-              const displayName = player.battleTag.split("#")[0];
-              const profile = profiles[player.battleTag];
-              return (
-                <Card
-                  key={player.battleTag}
-                  onClick={() => navigateToPlayer(player.battleTag)}
-                >
-                  {profile ? (
-                    <GlyphBox>
-                      <TransitionGlyph
-                        transitionPairs={profile.transitionPairs || []}
-                        groupUsage={profile.groupUsage || []}
-                        groupCompositions={profile.groupCompositions || {}}
-                        segments={profile.averaged?.segments || null}
-                        playerName={player.battleTag}
-                        replayCount={player.replayCount}
-                        mini
-                      />
-                    </GlyphBox>
-                  ) : (
-                    <GlyphPlaceholder><PlaceholderDot /></GlyphPlaceholder>
-                  )}
-                  <CardFooter>
-                    <FooterLeft>
-                      <CardRank>#{i + 1}</CardRank>
-                      <RaceDot $color={RACE_COLORS[player.race] || RACE_COLORS.Random} />
-                      <CardName title={player.battleTag}>{displayName}</CardName>
-                    </FooterLeft>
-                    <FooterRight>
-                      <CardStat>{cat.format(val)}</CardStat>
-                      <CardUnit>{cat.unit}</CardUnit>
-                    </FooterRight>
-                  </CardFooter>
-                </Card>
-              );
-            })}
-          </CardGrid>
-        </CategorySection>
-      ))}
-    </>
-  );
-}
+const CompareCard = styled.div`
+  background: var(--surface-1);
+  border: var(--border-thin) solid var(--grey-mid);
+  border-radius: var(--radius-md);
+  overflow: hidden;
+`;
