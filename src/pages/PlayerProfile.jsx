@@ -683,6 +683,18 @@ const PlayerProfile = () => {
     window.scrollTo({ top: document.querySelector('.match-history-section')?.offsetTop - 100 || 0, behavior: 'smooth' });
   };
 
+  // Filter matches by player name (allies + opponents) — must be before early return to preserve hook order
+  const filteredMatches = useMemo(() => {
+    const q = playerFilter.trim().toLowerCase();
+    if (!q) return matches;
+    return matches.filter((match) => {
+      const allPlayers = (match.teams || []).flatMap((t) => t.players || []);
+      return allPlayers.some(
+        (p) => p.battleTag?.toLowerCase() !== battleTagLower && p.name?.toLowerCase().includes(q)
+      );
+    });
+  }, [matches, playerFilter, battleTagLower]);
+
   if (isLoading) {
     return (
       <div className="player-page">
@@ -703,18 +715,6 @@ const PlayerProfile = () => {
     ? Math.round((playerData.wins / (playerData.wins + playerData.losses)) * 100)
     : 0;
   const totalPages = Math.ceil(totalMatches / GAMES_PER_PAGE);
-
-  // Filter matches by player name (allies + opponents)
-  const filteredMatches = useMemo(() => {
-    const q = playerFilter.trim().toLowerCase();
-    if (!q) return matches;
-    return matches.filter((match) => {
-      const allPlayers = (match.teams || []).flatMap((t) => t.players || []);
-      return allPlayers.some(
-        (p) => p.battleTag?.toLowerCase() !== battleTagLower && p.name?.toLowerCase().includes(q)
-      );
-    });
-  }, [matches, playerFilter, battleTagLower]);
 
   // Render news snippet, replacing W/L streaks with FormDots
   const WL_RE = /[WL]{4,}/g;
