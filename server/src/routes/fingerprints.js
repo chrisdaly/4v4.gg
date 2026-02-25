@@ -1,4 +1,5 @@
 import { Router } from 'express';
+import rateLimit from 'express-rate-limit';
 import config from '../config.js';
 import {
   getPlayerFingerprints,
@@ -36,6 +37,7 @@ import {
   detectPersonas,
 } from '../fingerprint.js';
 import { getEmbedding, getEmbeddingBatch, checkSidecar, getUmapProjection, getUmapTransform } from '../embedClient.js';
+import { importPlayerMatches } from '../replayImporter.js';
 
 const router = Router();
 
@@ -736,6 +738,88 @@ router.get('/gallery', (req, res) => {
   galleryCache = { players };
   galleryAge = now;
   res.json(galleryCache);
+});
+
+// ── Rate limiters for public endpoints ──────────────
+const searchW3cLimiter = rateLimit({
+  windowMs: 60 * 1000,
+  max: 10,
+  standardHeaders: true,
+  message: { error: 'Too many search requests, try again in a minute' },
+});
+
+const importLimiter = rateLimit({
+  windowMs: 60 * 1000,
+  max: 3,
+  standardHeaders: true,
+  message: { error: 'Too many import requests, try again in a minute' },
+});
+
+const W3C_API = 'https://website-backend.w3champions.com/api';
+
+// GET /api/fingerprints/search-w3c?q=BAKA — Proxy W3C ladder search (public)
+router.get('/search-w3c', searchW3cLimiter, async (req, res) => {
+  const q = (req.query.q || '').trim();
+  if (q.length < 2) {
+    return res.json({ players: [] });
+  }
+
+  // Resolve current season
+  let season = 24;
+  try {
+    const sRes = await fetch(`${W3C_API}/ladder/seasons`);
+    if (sRes.ok) {
+      const seasons = await sRes.json();
+      if (seasons?.length > 0) season = seasons[0].id;
+    }
+  } catch { /* use default */ }
+
+  try {
+    const url = `${W3C_API}/ladder/search?searchFor=${encodeURIComponent(q)}&season=${season}&gateway=20&gameMode=4`;
+    const apiRes = await fetch(url);
+    if (!apiRes.ok) {
+      return res.json({ players: [] });
+    }
+    const data = await apiRes.json();
+
+    // Map W3C ladder entries to simplified player objects
+    const RACE_MAP = { 0: 'Random', 1: 'Human', 2: 'Orc', 4: 'Night Elf', 8: 'Undead' };
+    const players = (Array.isArray(data) ? data : []).slice(0, 10).map(entry => {
+      const id = entry.player?.playerIds?.[0];
+      return {
+        battleTag: id?.battleTag || entry.player?.name || '',
+        name: id?.name || entry.player?.name?.split('#')[0] || '',
+        mmr: entry.player?.mmr ?? null,
+        games: entry.player?.games ?? 0,
+        race: RACE_MAP[entry.race] || 'Random',
+        league: entry.league ?? null,
+      };
+    }).filter(p => p.battleTag);
+
+    res.json({ players });
+  } catch (err) {
+    console.error('[search-w3c] Error:', err.message);
+    res.json({ players: [] });
+  }
+});
+
+// POST /api/fingerprints/import — Import replays for a player (public, rate-limited)
+router.post('/import', importLimiter, async (req, res) => {
+  const { battleTag } = req.body;
+  if (!battleTag || typeof battleTag !== 'string') {
+    return res.status(400).json({ error: 'battleTag is required' });
+  }
+
+  try {
+    const result = await importPlayerMatches(battleTag, 3);
+    // Invalidate caches so new data shows up immediately
+    parsedPlayersCache = null;
+    galleryCache = null;
+    res.json(result);
+  } catch (err) {
+    console.error('[import] Error:', err.message);
+    res.status(500).json({ error: 'Import failed: ' + err.message });
+  }
 });
 
 // GET /api/fingerprints/players — List all indexed players

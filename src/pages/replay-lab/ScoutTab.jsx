@@ -52,6 +52,15 @@ export default function ScoutTab({ initialPlayer = null }) {
   const [profiles, setProfiles] = useState({});
   const searchRef = useRef(null);
 
+  // W3C fallback search
+  const [w3cResults, setW3cResults] = useState([]);
+  const [w3cSearching, setW3cSearching] = useState(false);
+  const w3cDebounce = useRef(null);
+
+  // Import state
+  const [importStatus, setImportStatus] = useState(null); // null | 'importing' | 'done' | 'error'
+  const [importResult, setImportResult] = useState(null);
+
   // Close dropdown on outside click (same pattern as Navbar)
   useEffect(() => {
     if (!showDropdown) return;
@@ -94,6 +103,8 @@ export default function ScoutTab({ initialPlayer = null }) {
       setReplayList(null);
       setSelectedReplayId(null);
       setReplayProfileData(null);
+      setImportStatus(null);
+      setImportResult(null);
       replayCache.current = new Map();
       setProfileLoading(true);
       setSearchQuery("");
@@ -183,6 +194,36 @@ export default function ScoutTab({ initialPlayer = null }) {
     [selectedReplayId, fetchReplayProfile]
   );
 
+  const handleImport = useCallback(async () => {
+    if (!selectedTag || importStatus === 'importing') return;
+    const tag = selectedTag;
+    setImportStatus('importing');
+    setImportResult(null);
+    try {
+      const res = await fetch(`${RELAY_URL}/api/fingerprints/import`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ battleTag: tag }),
+      });
+      const data = await res.json();
+      if (!res.ok) {
+        setImportStatus('error');
+        setImportResult(data.error || 'Import failed');
+        return;
+      }
+      setImportResult(data);
+      setImportStatus('done');
+      if (data.imported > 0) {
+        // Re-fetch profile now that data exists
+        setSelectedTag(null); // force selectPlayer to re-run
+        setTimeout(() => selectPlayer(tag), 300);
+      }
+    } catch (err) {
+      setImportStatus('error');
+      setImportResult(err.message);
+    }
+  }, [selectedTag, importStatus, selectPlayer]);
+
   const dismiss = useCallback(() => {
     setSelectedTag(null);
     setProfileData(null);
@@ -191,9 +232,49 @@ export default function ScoutTab({ initialPlayer = null }) {
     setReplayList(null);
     setSelectedReplayId(null);
     setReplayProfileData(null);
+    setImportStatus(null);
+    setImportResult(null);
     replayCache.current = new Map();
     pushPlayerParam(null);
   }, [pushPlayerParam]);
+
+  // W3C fallback search when local results are sparse
+  useEffect(() => {
+    clearTimeout(w3cDebounce.current);
+    setW3cResults([]);
+    setW3cSearching(false);
+    if (searchQuery.length < 3) return;
+
+    // Count local matches to decide if we need W3C fallback
+    const localCount = allPlayers
+      ? allPlayers.filter((p) => {
+          const tag = p.battleTag || p.battle_tag;
+          return tag.toLowerCase().includes(searchQuery.toLowerCase()) && tag !== selectedTag;
+        }).length
+      : 0;
+
+    if (localCount >= 2) return;
+
+    w3cDebounce.current = setTimeout(async () => {
+      setW3cSearching(true);
+      try {
+        const res = await fetch(
+          `${RELAY_URL}/api/fingerprints/search-w3c?q=${encodeURIComponent(searchQuery)}`
+        );
+        if (res.ok) {
+          const data = await res.json();
+          // Filter out players already in local index
+          const localTags = new Set((allPlayers || []).map((p) => p.battleTag || p.battle_tag));
+          setW3cResults(
+            (data.players || []).filter((p) => !localTags.has(p.battleTag))
+          );
+        }
+      } catch { /* ignore */ }
+      setW3cSearching(false);
+    }, 500);
+
+    return () => clearTimeout(w3cDebounce.current);
+  }, [searchQuery, allPlayers, selectedTag]);
 
   // Search suggestions
   const searchSuggestions =
@@ -214,10 +295,10 @@ export default function ScoutTab({ initialPlayer = null }) {
           }))
       : [];
 
-  // Show/hide dropdown based on suggestions
+  // Show/hide dropdown based on suggestions + W3C results
   useEffect(() => {
-    setShowDropdown(searchSuggestions.length > 0);
-  }, [searchSuggestions.length]);
+    setShowDropdown(searchSuggestions.length > 0 || w3cResults.length > 0 || w3cSearching);
+  }, [searchSuggestions.length, w3cResults.length, w3cSearching]);
 
   // Fire-and-forget profile fetches for search suggestions (cached in api.js)
   useEffect(() => {
@@ -256,11 +337,11 @@ export default function ScoutTab({ initialPlayer = null }) {
             value={searchQuery}
             onChange={(e) => setSearchQuery(e.target.value)}
             onKeyDown={(e) => e.key === "Escape" && setSearchQuery("")}
-            onFocus={() => searchSuggestions.length > 0 && setShowDropdown(true)}
+            onFocus={() => (searchSuggestions.length > 0 || w3cResults.length > 0) && setShowDropdown(true)}
             placeholder="Search players…"
             autoFocus={!initialPlayer}
           />
-          {showDropdown && searchSuggestions.length > 0 && (
+          {showDropdown && (searchSuggestions.length > 0 || w3cResults.length > 0 || w3cSearching) && (
             <div className="navbar-search-dropdown">
               {searchSuggestions.map((p) => {
                 const profile = profiles[p.battleTag];
@@ -302,6 +383,43 @@ export default function ScoutTab({ initialPlayer = null }) {
                   </button>
                 );
               })}
+              {/* W3C fallback results */}
+              {w3cResults.length > 0 && (
+                <>
+                  {searchSuggestions.length > 0 && <DropdownDivider />}
+                  {w3cResults.map((p) => {
+                    const [name, hashNum] = p.battleTag.split("#");
+                    return (
+                      <button
+                        key={`w3c-${p.battleTag}`}
+                        className="navbar-search-result"
+                        onClick={() => { setShowDropdown(false); selectPlayer(p.battleTag); }}
+                      >
+                        <span className="navbar-search-avatar-wrap">
+                          {RACE_ICON_MAP[p.race] ? (
+                            <img src={RACE_ICON_MAP[p.race]} alt="" className="navbar-search-avatar race-fallback" />
+                          ) : (
+                            <span className="navbar-search-avatar placeholder" />
+                          )}
+                        </span>
+                        <span className="navbar-search-info">
+                          <span className="navbar-search-name-row">
+                            <span className="navbar-search-name">{name}</span>
+                            {hashNum && <span className="navbar-search-tag">#{hashNum}</span>}
+                            <W3cBadge>not indexed</W3cBadge>
+                          </span>
+                          <span className="navbar-search-meta">
+                            {p.games} games{p.mmr ? ` · ${p.mmr} MMR` : ''}
+                          </span>
+                        </span>
+                      </button>
+                    );
+                  })}
+                </>
+              )}
+              {w3cSearching && (
+                <SearchingHint>Searching W3Champions...</SearchingHint>
+              )}
             </div>
           )}
         </SearchInputWrap>
@@ -420,7 +538,33 @@ export default function ScoutTab({ initialPlayer = null }) {
           )}
 
           {!profileLoading && !profileData && selectedTag && (
-            <NoData>No fingerprint data found for {queryName}.</NoData>
+            <NoData>
+              {importStatus === 'importing' ? (
+                <PeonLoader size="sm" subject={queryName} />
+              ) : importStatus === 'done' && importResult ? (
+                importResult.imported > 0 ? (
+                  <span>Imported {importResult.imported} replays — loading profile...</span>
+                ) : (
+                  <span>
+                    Found {importResult.discovered} matches ({importResult.alreadyImported} already imported), but no new replays could be processed.
+                  </span>
+                )
+              ) : importStatus === 'error' ? (
+                <>
+                  <span>Import failed: {typeof importResult === 'string' ? importResult : 'Unknown error'}</span>
+                  <ImportBtn onClick={handleImport} style={{ marginTop: 'var(--space-2)' }}>
+                    Retry import
+                  </ImportBtn>
+                </>
+              ) : (
+                <>
+                  <span>No data yet for {queryName}</span>
+                  <ImportBtn onClick={handleImport}>
+                    Import replays
+                  </ImportBtn>
+                </>
+              )}
+            </NoData>
           )}
         </ProfilePanel>
       )}
@@ -660,4 +804,53 @@ const ReplayDate = styled.span`
 const ReplayDuration = styled.span`
   min-width: 44px;
   text-align: right;
+`;
+
+const W3cBadge = styled.span`
+  font-family: var(--font-mono);
+  font-size: 9px;
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+  color: var(--grey-mid);
+  background: rgba(255, 255, 255, 0.06);
+  border: 1px solid var(--grey-mid);
+  border-radius: var(--radius-sm);
+  padding: 1px 5px;
+  margin-left: 6px;
+  vertical-align: middle;
+`;
+
+const DropdownDivider = styled.div`
+  height: 1px;
+  background: var(--grey-mid);
+  margin: 2px 12px;
+  opacity: 0.4;
+`;
+
+const SearchingHint = styled.div`
+  font-family: var(--font-mono);
+  font-size: var(--text-xxs);
+  color: var(--grey-mid);
+  padding: 8px 14px;
+  text-align: center;
+`;
+
+const ImportBtn = styled.button`
+  display: block;
+  margin: var(--space-4) auto 0;
+  padding: var(--space-2) var(--space-6);
+  font: var(--text-xxs) var(--font-mono);
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+  color: var(--grey-light);
+  background: transparent;
+  border: var(--border-thin) solid var(--grey-mid);
+  border-radius: var(--radius-md);
+  cursor: pointer;
+  transition: all 0.2s ease;
+
+  &:hover {
+    color: var(--gold);
+    border-color: var(--gold);
+  }
 `;
