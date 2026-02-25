@@ -44,6 +44,15 @@ let discoverCooldown = 0; // skip discover if we recently filled the queue
 
 const sleep = (ms) => new Promise(r => setTimeout(r, ms));
 
+/** Fisher-Yates shuffle (in-place) */
+function shuffle(arr) {
+  for (let i = arr.length - 1; i > 0; i--) {
+    const j = Math.floor(Math.random() * (i + 1));
+    [arr[i], arr[j]] = [arr[j], arr[i]];
+  }
+  return arr;
+}
+
 /**
  * Discover new matches from GM + Master ladder players.
  * Returns array of { matchId, players } not yet in DB.
@@ -82,14 +91,17 @@ async function discoverMatches() {
     return [];
   }
 
+  // Shuffle so different players get checked each cycle
+  const shuffledTags = shuffle([...battleTags]);
+
   // Fetch recent matches for each player
   const matchMap = new Map();
   let checked = 0;
-  for (const tag of battleTags) {
-    if (checked++ > 50) break; // check first 50 players per discover cycle
+  for (const tag of shuffledTags) {
+    if (checked++ > 60) break; // check 60 random players per discover cycle
     await sleep(RATE_LIMIT_MS);
     try {
-      const url = `${W3C_API}/matches?playerId=${encodeURIComponent(tag)}&offset=0&gameMode=4&season=${season}&gateway=20&pageSize=10`;
+      const url = `${W3C_API}/matches/search?playerId=${encodeURIComponent(tag)}&offset=0&gameMode=4&season=${season}&gateway=20&pageSize=10`;
       const res = await fetch(url);
       if (!res.ok) continue;
       const data = await res.json();
@@ -280,6 +292,59 @@ async function runCycle() {
   }
 
   isRunning = false;
+}
+
+/**
+ * Import recent matches for a specific player (on-demand).
+ * Returns { discovered, imported, errors }.
+ */
+export async function importPlayerMatches(battleTag, maxMatches = 10, seasonOverride = null) {
+  let season = seasonOverride;
+  if (!season) {
+    season = 24;
+    try {
+      const res = await fetch(`${W3C_API}/ladder/seasons`);
+      if (res.ok) {
+        const seasons = await res.json();
+        if (seasons?.length > 0) season = seasons[0].id;
+      }
+    } catch { /* use default */ }
+  }
+
+  const url = `${W3C_API}/matches/search?playerId=${encodeURIComponent(battleTag)}&offset=0&gameMode=4&season=${season}&gateway=20&pageSize=${maxMatches}`;
+  const res = await fetch(url);
+  if (!res.ok) throw new Error(`W3C API returned ${res.status}`);
+  const data = await res.json();
+
+  const candidates = [];
+  for (const m of (data.matches || [])) {
+    const players = [];
+    for (const team of m.teams || []) {
+      for (const p of team.players || []) {
+        players.push({ name: p.name || p.battleTag?.split('#')[0], battleTag: p.battleTag });
+      }
+    }
+    candidates.push({ matchId: m.id, players });
+  }
+
+  const allIds = candidates.map(c => c.matchId);
+  const existing = getExistingW3cMatchIds(allIds);
+  const newMatches = candidates.filter(c => !existing.has(c.matchId));
+
+  let imported = 0, errors = 0;
+  for (const match of newMatches) {
+    await sleep(RATE_LIMIT_MS);
+    try {
+      const result = await importMatch(match);
+      if (result.status === 'imported') imported++;
+    } catch (err) {
+      console.error(`[Importer] Manual import error ${match.matchId}:`, err.message);
+      errors++;
+    }
+  }
+
+  console.log(`[Importer] Manual import for ${battleTag}: ${candidates.length} found, ${existing.size} existing, ${imported} imported, ${errors} errors`);
+  return { discovered: candidates.length, alreadyImported: existing.size, imported, errors };
 }
 
 /**

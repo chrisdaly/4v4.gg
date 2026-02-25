@@ -9,6 +9,7 @@ import { setBotEnabled, isBotEnabled, testCommand } from '../bot.js';
 import { generateDigest, fetchDailyStats, generateLiveDigest, todayDigestCache, setTodayDigestCache, generateWeeklyDigest, curateDigest, fetchDailyStatCandidates, analyzeSpike, generateMoreItems, appendItemsToDraft, backfillDailyStats, backfillMatchScores, backfillMatchMmrs, generateWeeklyVariants, regenerateSection, regenerateSpotlights, regeneratePlayerQuotes, regenerateMatchStatBlurbs, getPlayerMessageCandidates, computeNewBlood, formatNewBloodLine, digestToJSON } from '../digest.js';
 import { generateCoverImage, buildImagePrompt, extractHeadline, buildImagePromptWithPlayers, generateImageFromPrompt, WC3_STYLE_SUFFIX, suggestScenes } from '../coverImage.js';
 import { runFeedbackScan, getRecentFeedback } from '../feedback.js';
+import { importPlayerMatches } from '../replayImporter.js';
 
 const router = Router();
 
@@ -1448,6 +1449,19 @@ router.get('/style-thumbnail/:styleId', (req, res) => {
   res.set('Content-Type', 'image/png');
   res.set('Cache-Control', 'public, max-age=604800');
   res.send(imageBuffer);
+});
+
+// POST /api/admin/import-player — Import recent matches for a specific player
+router.post('/import-player', requireApiKey, async (req, res) => {
+  const { battleTag, maxMatches, season } = req.body;
+  if (!battleTag) return res.status(400).json({ error: 'battleTag required' });
+  try {
+    const result = await importPlayerMatches(battleTag, maxMatches || 10, season || null);
+    res.json(result);
+  } catch (err) {
+    console.error('[Admin] import-player error:', err.message);
+    res.status(500).json({ error: err.message });
+  }
 });
 
 export default router;

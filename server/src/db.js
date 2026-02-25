@@ -1525,10 +1525,14 @@ export function getExistingW3cMatchIds(matchIds) {
 }
 
 export function insertReplayWithW3c({ filename, filePath, fileSize, w3cMatchId }) {
+  // Explicitly set id/uploaded_at/parse_status because production DB schema
+  // predates the AUTOINCREMENT and DEFAULT constraints
+  const nextId = (db.prepare('SELECT COALESCE(MAX(id), 0) + 1 AS next FROM replays').get()).next;
   const result = db.prepare(`
-    INSERT INTO replays (filename, file_path, file_size, w3c_match_id) VALUES (?, ?, ?, ?)
-  `).run(filename, filePath, fileSize, w3cMatchId);
-  return result.lastInsertRowid;
+    INSERT INTO replays (id, filename, file_path, file_size, w3c_match_id, uploaded_at, parse_status)
+    VALUES (?, ?, ?, ?, ?, datetime('now'), 'pending')
+  `).run(nextId, filename, filePath, fileSize, w3cMatchId);
+  return nextId;
 }
 
 export function updateReplayParsed(id, { gameName, gameDuration, mapName, matchType, matchDate, rawParsed }) {
