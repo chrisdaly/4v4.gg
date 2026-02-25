@@ -547,8 +547,8 @@ export function deleteVariantsForWeek(weekStart) {
 
 export function insertMessage(msg) {
   const stmt = db.prepare(`
-    INSERT OR IGNORE INTO messages (id, battle_tag, user_name, clan_tag, message, sent_at, received_at, room)
-    VALUES (?, ?, ?, ?, ?, ?, datetime('now'), ?)
+    INSERT OR IGNORE INTO messages (id, battle_tag, user_name, clan_tag, message, sent_at, received_at, deleted, room)
+    VALUES (?, ?, ?, ?, ?, ?, datetime('now'), 0, ?)
   `);
   return stmt.run(
     msg.id,
@@ -563,8 +563,8 @@ export function insertMessage(msg) {
 
 export function insertMessages(msgs) {
   const stmt = db.prepare(`
-    INSERT OR IGNORE INTO messages (id, battle_tag, user_name, clan_tag, message, sent_at, received_at, room)
-    VALUES (?, ?, ?, ?, ?, ?, datetime('now'), ?)
+    INSERT OR IGNORE INTO messages (id, battle_tag, user_name, clan_tag, message, sent_at, received_at, deleted, room)
+    VALUES (?, ?, ?, ?, ?, ?, datetime('now'), 0, ?)
   `);
   const tx = db.transaction((messages) => {
     for (const msg of messages) {
@@ -586,15 +586,15 @@ export function getMessages({ limit = 50, before = null } = {}) {
   if (before) {
     return db.prepare(`
       SELECT * FROM messages
-      WHERE deleted = 0 AND sent_at < ?
-      ORDER BY sent_at DESC
+      WHERE deleted = 0 AND received_at < ?
+      ORDER BY received_at DESC
       LIMIT ?
     `).all(before, limit);
   }
   return db.prepare(`
     SELECT * FROM messages
     WHERE deleted = 0
-    ORDER BY sent_at DESC
+    ORDER BY received_at DESC
     LIMIT ?
   `).all(limit);
 }
