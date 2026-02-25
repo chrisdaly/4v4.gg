@@ -547,8 +547,8 @@ export function deleteVariantsForWeek(weekStart) {
 
 export function insertMessage(msg) {
   const stmt = db.prepare(`
-    INSERT OR IGNORE INTO messages (id, battle_tag, user_name, clan_tag, message, sent_at, room)
-    VALUES (?, ?, ?, ?, ?, ?, ?)
+    INSERT OR IGNORE INTO messages (id, battle_tag, user_name, clan_tag, message, sent_at, received_at, room)
+    VALUES (?, ?, ?, ?, ?, ?, datetime('now'), ?)
   `);
   return stmt.run(
     msg.id,
@@ -563,8 +563,8 @@ export function insertMessage(msg) {
 
 export function insertMessages(msgs) {
   const stmt = db.prepare(`
-    INSERT OR IGNORE INTO messages (id, battle_tag, user_name, clan_tag, message, sent_at, room)
-    VALUES (?, ?, ?, ?, ?, ?, ?)
+    INSERT OR IGNORE INTO messages (id, battle_tag, user_name, clan_tag, message, sent_at, received_at, room)
+    VALUES (?, ?, ?, ?, ?, ?, datetime('now'), ?)
   `);
   const tx = db.transaction((messages) => {
     for (const msg of messages) {
