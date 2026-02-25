@@ -133,6 +133,7 @@ const PlayerProfile = () => {
   const hasLoadedProfileRef = useRef(false);
   const [activeClip, setActiveClip] = useState(null);
   const [expandedSections, setExpandedSections] = useState({});
+  const [playerFilter, setPlayerFilter] = useState("");
   const toggleSection = (key) => setExpandedSections(prev => ({ ...prev, [key]: !prev[key] }));
 
   const SESSION_GAP_MINUTES = 60;
@@ -676,6 +677,7 @@ const PlayerProfile = () => {
   };
 
   const handlePageChange = async (newPage) => {
+    setPlayerFilter("");
     updateState({ currentPage: newPage });
     await fetchMatches(newPage);
     window.scrollTo({ top: document.querySelector('.match-history-section')?.offsetTop - 100 || 0, behavior: 'smooth' });
@@ -701,6 +703,18 @@ const PlayerProfile = () => {
     ? Math.round((playerData.wins / (playerData.wins + playerData.losses)) * 100)
     : 0;
   const totalPages = Math.ceil(totalMatches / GAMES_PER_PAGE);
+
+  // Filter matches by player name (allies + opponents)
+  const filteredMatches = useMemo(() => {
+    const q = playerFilter.trim().toLowerCase();
+    if (!q) return matches;
+    return matches.filter((match) => {
+      const allPlayers = (match.teams || []).flatMap((t) => t.players || []);
+      return allPlayers.some(
+        (p) => p.battleTag?.toLowerCase() !== battleTagLower && p.name?.toLowerCase().includes(q)
+      );
+    });
+  }, [matches, playerFilter, battleTagLower]);
 
   // Render news snippet, replacing W/L streaks with FormDots
   const WL_RE = /[WL]{4,}/g;
@@ -853,7 +867,18 @@ const PlayerProfile = () => {
             <section className="match-history-section">
               <div className="section-header">
                 <h2 className="section-title">Match History</h2>
-                <span className="match-count">{totalMatches} games</span>
+                <div className="mh-controls">
+                  <input
+                    type="text"
+                    className="mh-player-filter"
+                    placeholder="Filter by player..."
+                    value={playerFilter}
+                    onChange={(e) => setPlayerFilter(e.target.value)}
+                  />
+                  <span className="match-count">
+                    {playerFilter ? `${filteredMatches.length} / ${matches.length}` : `${totalMatches} games`}
+                  </span>
+                </div>
               </div>
 
               <div className="match-history-table">
@@ -867,7 +892,7 @@ const PlayerProfile = () => {
                   <div className="mh-col duration">Duration</div>
                   <div className="mh-col time">Time</div>
                 </div>
-                {matches.map((match, idx) => (
+                {filteredMatches.map((match, idx) => (
                   <GameRow
                     key={match.id}
                     game={match}

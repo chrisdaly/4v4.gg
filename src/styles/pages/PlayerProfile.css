@@ -246,6 +246,34 @@
   margin: 0;
 }
 
+.mh-controls {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+
+.mh-player-filter {
+  font-family: var(--font-mono);
+  font-size: var(--text-xs);
+  color: #fff;
+  background: var(--surface-2);
+  border: 1px solid var(--grey-mid);
+  border-radius: var(--radius-sm);
+  padding: 4px 10px;
+  width: 160px;
+  outline: none;
+  transition: border-color 0.15s;
+}
+
+.mh-player-filter::placeholder {
+  color: var(--grey-light);
+  opacity: 0.6;
+}
+
+.mh-player-filter:focus {
+  border-color: var(--gold);
+}
+
 .match-count {
   font-family: var(--font-mono);
   font-size: var(--text-xs);
