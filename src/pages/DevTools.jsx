@@ -774,7 +774,7 @@ export default function DevTools() {
               onClick={() => uploadRef.current?.click()}
               disabled={uploading || !adminKey}
             >
-              {uploading ? "Uploading..." : "Upload image"}
+              {uploading ? <PeonLoader size="sm" /> : "Upload image"}
             </button>
           </div>
           {savedGenerations.length > 0 && (

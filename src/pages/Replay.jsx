@@ -3,6 +3,7 @@ import { useHistory } from "react-router-dom";
 import OnlineMmrStrip from "../components/OnlineMmrStrip";
 import WorldMap from "../components/WorldMap";
 import EventFeed from "../components/EventFeed";
+import PeonLoader from "../components/PeonLoader";
 import "../styles/pages/Replay.css";
 
 const RELAY_URL =
@@ -574,7 +575,7 @@ const Replay = () => {
               />
             </label>
             <button className="replay-btn replay-btn-load" onClick={() => fetchEvents()} disabled={loading}>
-              {loading ? "Loading..." : "Load"}
+              {loading ? <PeonLoader size="sm" /> : "Load"}
             </button>
           </div>
 
