@@ -166,61 +166,6 @@ const ItemControls = ({ onDelete, onContext, dragProps }) => (
   </div>
 );
 
-/** Per-item chat context panel — searches for messages mentioning player names */
-const ItemContextPanel = ({ text, nameToTag, dateRange }) => {
-  const [messages, setMessages] = useState(null);
-  const [loading, setLoading] = useState(true);
-
-  useEffect(() => {
-    let cancelled = false;
-    (async () => {
-      // Extract player names mentioned in this item
-      const names = nameToTag ? Object.keys(nameToTag).filter((n) => text.includes(n)) : [];
-      if (names.length === 0) {
-        // Fallback: search by first significant word (>4 chars)
-        const words = text.split(/\s+/).filter((w) => w.length > 4 && /^[A-Za-z]/.test(w));
-        if (words[0]) names.push(words[0]);
-      }
-      if (names.length === 0) { setMessages([]); setLoading(false); return; }
-
-      try {
-        // Search for messages by the first mentioned player
-        const tag = nameToTag?.[names[0]];
-        const params = new URLSearchParams({ limit: "80" });
-        if (tag) params.set("player", tag.split("#")[0]);
-        else params.set("q", names[0]);
-        const res = await fetch(`${RELAY_URL}/api/admin/messages/search?${params}`);
-        if (!cancelled) {
-          const data = await res.json();
-          const results = (data.results || []).map((m) => ({
-            name: m.user_name || m.battle_tag?.split("#")[0] || "",
-            text: m.message || "",
-            battle_tag: m.battle_tag || "",
-            received_at: m.received_at || "",
-          }));
-          setMessages(results);
-        }
-      } catch {
-        if (!cancelled) setMessages([]);
-      }
-      if (!cancelled) setLoading(false);
-    })();
-    return () => { cancelled = true; };
-  }, [text, nameToTag]);
-
-  return (
-    <div className="mg-item-context-panel">
-      <ChatContext
-        messages={messages}
-        loading={loading}
-        expandable
-        showDates
-        placeholder="Filter context..."
-        dateRange={dateRange}
-      />
-    </div>
-  );
-};
 
 /** Save status bar */
 const SaveStatus = ({ state }) => {
@@ -640,7 +585,7 @@ const StoriesGrid = ({ stories, highlights, bans, nameToTag, editorial }) => {
   if (stories.length === 0 && highlightItems.length === 0 && banRows.length === 0) return null;
 
   /** Render an editorial item list — same [grip][x] pattern as editorial panel */
-  const renderList = (items, sectionKey, { offset = 0, onEdit } = {}) => (
+  const renderList = (items, sectionKey, { offset = 0, onEdit, onAppendQuotes } = {}) => (
     <ul className="mg-sidebar-list">
       {items.map((text, i) => {
         const draftIdx = i + offset;
@@ -671,7 +616,13 @@ const StoriesGrid = ({ stories, highlights, bans, nameToTag, editorial }) => {
               highlightNames(text.trim(), nameToTag)
             )}
             {isContextOpen && (
-              <ItemContextPanel text={text} nameToTag={nameToTag} dateRange={dateRange} />
+              <QuoteBrowser
+                inline
+                text={text}
+                nameToTag={nameToTag}
+                dateRange={dateRange}
+                onApplyQuotes={onAppendQuotes ? (quotes) => onAppendQuotes(draftIdx, quotes) : undefined}
+              />
             )}
           </li>
         );
@@ -691,7 +642,53 @@ const StoriesGrid = ({ stories, highlights, bans, nameToTag, editorial }) => {
               {editorial && <SectionRegenButton sectionKey="DRAMA" regenLoading={editorial.regenLoading} onRegen={editorial.regenSection} />}
               <div className="mg-section-rule" />
             </div>
-            {renderList(stories, "DRAMA", { offset: 1, onEdit: editorial?.onEditDrama })}
+            <ul className="mg-sidebar-list">
+              {stories.map((h, i) => {
+                const item = typeof h === "string" ? { summary: h, quotes: [] } : h;
+                const draftIdx = i + 1;
+                const contextKey = `DRAMA:${i}`;
+                const isContextOpen = contextOpen === contextKey;
+                return (
+                  <li key={i} className={`mg-sidebar-item${drag.isDragOver("DRAMA", i) ? " mg-sidebar-item--dragover" : ""}`}
+                    onDragOver={(e) => { if (drag.dragState.section === "DRAMA") { e.preventDefault(); drag.onDragOver("DRAMA", i); } }}
+                    onDragLeave={() => drag.onDragLeave(i)}
+                    onDrop={(e) => { if (drag.dragState.section === "DRAMA") { e.preventDefault(); drag.onDrop("DRAMA", i, (sec, from, to) => editorial?.reorderItem?.(sec, from + 1, to + 1)); } }}
+                  >
+                    {editorial && (
+                      <ItemControls
+                        onDelete={() => editorial.deleteItem("DRAMA", draftIdx)}
+                        onContext={() => setContextOpen(isContextOpen ? null : contextKey)}
+                        dragProps={{ draggable: true, onDragStart: () => drag.onDragStart("DRAMA", i), onDragEnd: drag.onDragEnd }}
+                      />
+                    )}
+                    {editorial?.onEditDrama ? (
+                      <EditableText value={item.summary.trim()} onSave={(t) => editorial.onEditDrama(i, t)} className="mg-sidebar-item-text" />
+                    ) : (
+                      <span>{highlightNames(item.summary.trim(), nameToTag)}</span>
+                    )}
+                    {item.quotes.length > 0 && (
+                      <div className="mg-highlight-quotes">
+                        {item.quotes.map((q, qi) => (
+                          <p key={qi} className="mg-highlight-quote">
+                            {q.speaker && <span className="mg-highlight-speaker">{q.speaker}:</span>}
+                            {" "}{q.text}
+                          </p>
+                        ))}
+                      </div>
+                    )}
+                    {isContextOpen && (
+                      <QuoteBrowser
+                        inline
+                        text={`${item.summary} ${item.quotes.map(q => `"${q.speaker}: ${q.text}"`).join(" ")}`}
+                        nameToTag={nameToTag}
+                        dateRange={dateRange}
+                        onApplyQuotes={editorial?.appendDramaQuotes ? (quotes) => editorial.appendDramaQuotes(draftIdx, quotes) : undefined}
+                      />
+                    )}
+                  </li>
+                );
+              })}
+            </ul>
           </div>
         )}
 
@@ -705,7 +702,53 @@ const StoriesGrid = ({ stories, highlights, bans, nameToTag, editorial }) => {
                 {editorial && <SectionRegenButton sectionKey="HIGHLIGHTS" regenLoading={editorial.regenLoading} onRegen={editorial.regenSection} />}
                 <div className="mg-section-rule" />
               </div>
-              {renderList(highlightItems.map((h) => typeof h === "string" ? h : h.summary), "HIGHLIGHTS", { onEdit: editorial?.onEditHighlight })}
+              <ul className="mg-sidebar-list mg-highlights-list">
+                {highlightItems.map((h, i) => {
+                  const item = typeof h === "string" ? { summary: h, quotes: [] } : h;
+                  const draftIdx = i;
+                  const contextKey = `HIGHLIGHTS:${i}`;
+                  const isContextOpen = contextOpen === contextKey;
+                  return (
+                    <li key={i} className={`mg-sidebar-item mg-highlight-item${drag.isDragOver("HIGHLIGHTS", i) ? " mg-sidebar-item--dragover" : ""}`}
+                      onDragOver={(e) => { if (drag.dragState.section === "HIGHLIGHTS") { e.preventDefault(); drag.onDragOver("HIGHLIGHTS", i); } }}
+                      onDragLeave={() => drag.onDragLeave(i)}
+                      onDrop={(e) => { if (drag.dragState.section === "HIGHLIGHTS") { e.preventDefault(); drag.onDrop("HIGHLIGHTS", i, (sec, from, to) => editorial?.reorderItem?.(sec, from, to)); } }}
+                    >
+                      {editorial && (
+                        <ItemControls
+                          onDelete={() => editorial.deleteItem("HIGHLIGHTS", draftIdx)}
+                          onContext={() => setContextOpen(isContextOpen ? null : contextKey)}
+                          dragProps={{ draggable: true, onDragStart: () => drag.onDragStart("HIGHLIGHTS", i), onDragEnd: drag.onDragEnd }}
+                        />
+                      )}
+                      {editorial?.onEditHighlight ? (
+                        <EditableText value={item.summary.trim()} onSave={(t) => editorial.onEditHighlight(i, t)} className="mg-sidebar-item-text mg-highlight-summary" />
+                      ) : (
+                        <span className="mg-highlight-summary">{highlightNames(item.summary.trim(), nameToTag)}</span>
+                      )}
+                      {item.quotes.length > 0 && (
+                        <div className="mg-highlight-quotes">
+                          {item.quotes.map((q, qi) => (
+                            <p key={qi} className="mg-highlight-quote">
+                              {q.speaker && <span className="mg-highlight-speaker">{q.speaker}:</span>}
+                              {" "}{q.text}
+                            </p>
+                          ))}
+                        </div>
+                      )}
+                      {isContextOpen && (
+                        <QuoteBrowser
+                          inline
+                          text={typeof h === "string" ? h : `${item.summary} ${item.quotes.map(q => `"${q.speaker}: ${q.text}"`).join(" ")}`}
+                          nameToTag={nameToTag}
+                          dateRange={dateRange}
+                          onApplyQuotes={editorial?.appendHighlightQuotes ? (quotes) => editorial.appendHighlightQuotes(i, quotes) : undefined}
+                        />
+                      )}
+                    </li>
+                  );
+                })}
+              </ul>
             </div>
           )}
           {banRows.length > 0 && editorial && (
@@ -913,27 +956,135 @@ const EditableQuotes = ({ quotes = [], statKey, editorial }) => {
   );
 };
 
-/* ── QuoteBrowser: loads player messages and uses shared ChatContext ── */
-const QuoteBrowser = ({ statKey, battleTag, editorial, label }) => {
+/* ── QuoteBrowser: unified chat context browser ──
+ *
+ * Two modes:
+ * 1. Scored (SpotlightCard) — statKey + battleTag → editorial.browseMessages(), pre-scored, no pagination
+ * 2. Search (StoriesGrid items) — text + nameToTag → /messages/search, with infinite scroll
+ *
+ * Props:
+ *   statKey    — stat key (e.g. "DRAMA", "WINNER") — enables scored endpoint when combined with battleTag+editorial
+ *   battleTag  — player battle tag
+ *   editorial  — editorial hook object
+ *   label      — button/header label
+ *   text       — item text to extract player names from (search mode)
+ *   nameToTag  — Map/object of player name → battle tag
+ *   dateRange  — date range string for toolbar
+ *   onApplyQuotes — (quotes: string[]) => void — callback for search mode
+ *   inline     — render inline (no toggle button), for StoriesGrid items
+ */
+const SEARCH_PAGE_SIZE = 50;
+
+const QuoteBrowser = ({ statKey, battleTag, editorial, label, text, nameToTag, dateRange: dateRangeProp, onApplyQuotes, inline }) => {
   const [messages, setMessages] = useState(null);
   const [loading, setLoading] = useState(false);
-  const [open, setOpen] = useState(false);
+  const [loadingMore, setLoadingMore] = useState(false);
+  const [hasMore, setHasMore] = useState(false);
+  const [offset, setOffset] = useState(0);
+  const [open, setOpen] = useState(!!inline);
+
+  // Determine mode: scored (has editorial.browseMessages + statKey + battleTag) vs search
+  const isScored = !!(editorial?.browseMessages && statKey && battleTag && !text);
+
+  // Derive search params from text + nameToTag (search mode)
+  const searchParams = useMemo(() => {
+    if (isScored || !text) return null;
+    const ntMap = nameToTag instanceof Map ? Object.fromEntries(nameToTag) : (nameToTag || {});
+    const names = Object.keys(ntMap).filter((n) => text.includes(n));
+    if (names.length === 0) {
+      // Fallback: first significant word
+      const words = text.split(/\s+/).filter((w) => w.length > 4 && /^[A-Za-z]/.test(w));
+      if (words[0]) return { q: words[0] };
+      return null;
+    }
+    const tag = ntMap[names[0]];
+    if (tag) return { player: tag.split("#")[0] };
+    return { q: names[0] };
+  }, [isScored, text, nameToTag]);
+
+  // Fetch search results with offset
+  const fetchSearch = useCallback(async (off) => {
+    if (!searchParams) return [];
+    const params = new URLSearchParams({ ...searchParams, limit: String(SEARCH_PAGE_SIZE), offset: String(off) });
+    const res = await fetch(`${RELAY_URL}/api/admin/messages/search?${params}`);
+    const data = await res.json();
+    return (data.results || []).map((m) => ({
+      name: m.user_name || m.battle_tag?.split("#")[0] || "",
+      text: m.message || "",
+      battle_tag: m.battle_tag || "",
+      received_at: m.received_at || "",
+    }));
+  }, [searchParams]);
 
   const handleToggle = async () => {
-    if (open) { setOpen(false); return; }
+    if (open && !inline) { setOpen(false); return; }
     setOpen(true);
     if (messages) return;
     setLoading(true);
-    const result = await editorial.browseMessages(statKey, battleTag);
-    setMessages(result);
+    if (isScored) {
+      const result = await editorial.browseMessages(statKey, battleTag);
+      setMessages(result);
+      setHasMore(false);
+    } else {
+      const results = await fetchSearch(0);
+      setMessages(results);
+      setOffset(SEARCH_PAGE_SIZE);
+      setHasMore(results.length >= SEARCH_PAGE_SIZE);
+    }
     setLoading(false);
   };
 
+  // Auto-fetch on mount for inline mode
+  useEffect(() => {
+    if (inline && !messages && !loading) handleToggle();
+  }, [inline]); // eslint-disable-line react-hooks/exhaustive-deps
+
+  const handleLoadMore = useCallback(async () => {
+    if (loadingMore || !hasMore || isScored) return;
+    setLoadingMore(true);
+    const results = await fetchSearch(offset);
+    setMessages((prev) => [...(prev || []), ...results]);
+    setOffset((prev) => prev + SEARCH_PAGE_SIZE);
+    setHasMore(results.length >= SEARCH_PAGE_SIZE);
+    setLoadingMore(false);
+  }, [loadingMore, hasMore, isScored, offset, fetchSearch]);
+
   const handleApply = (items) => {
     const quotes = items.map((m) => `${m.name}: ${m.text}`);
-    editorial.setQuotes(statKey, quotes, { append: true });
-    setOpen(false);
+    if (onApplyQuotes) {
+      onApplyQuotes(quotes);
+    } else if (editorial?.setQuotes && statKey) {
+      editorial.setQuotes(statKey, quotes, { append: true });
+    }
+    if (!inline) setOpen(false);
   };
+
+  const resolvedDateRange = dateRangeProp
+    || (editorial?.weekStart && editorial?.weekEnd ? formatWeekRange(editorial.weekStart, editorial.weekEnd) : undefined);
+
+  // Inline mode: render directly without toggle button
+  if (inline) {
+    return (
+      <div className="mg-item-context-panel">
+        <ChatContext
+          messages={messages}
+          loading={loading}
+          onApply={onApplyQuotes || editorial?.setQuotes ? handleApply : undefined}
+          selectable={!!(onApplyQuotes || editorial?.setQuotes)}
+          expandable
+          splitView
+          showScores={isScored}
+          showDates
+          placeholder="Filter context..."
+          dateRange={resolvedDateRange}
+          applyLabel={(n) => `Add ${n} quote${n !== 1 ? "s" : ""}`}
+          onLoadMore={hasMore ? handleLoadMore : undefined}
+          hasMore={hasMore}
+          loadingMore={loadingMore}
+        />
+      </div>
+    );
+  }
 
   return (
     <div className="mg-quote-browser">
@@ -953,10 +1104,14 @@ const QuoteBrowser = ({ statKey, battleTag, editorial, label }) => {
             selectable
             expandable
             splitView
-            showScores
+            showScores={isScored}
+            showDates={!isScored}
             placeholder="Filter by keyword..."
             applyLabel={(n) => `Use ${n} quote${n !== 1 ? "s" : ""}`}
-            dateRange={editorial.weekStart && editorial.weekEnd ? formatWeekRange(editorial.weekStart, editorial.weekEnd) : undefined}
+            dateRange={resolvedDateRange}
+            onLoadMore={hasMore ? handleLoadMore : undefined}
+            hasMore={hasMore}
+            loadingMore={loadingMore}
           />
         </div>
       )}
@@ -1925,23 +2080,54 @@ const WeeklyMagazine = ({ weekParam, isAdmin = false, apiKey = "" }) => {
   const [weeklyDigests, setWeeklyDigests] = useState([]);
   const [weeklyIdx, setWeeklyIdx] = useState(0);
   const [loading, setLoading] = useState(true);
+  const [generating, setGenerating] = useState(false);
+  const [weekNotFound, setWeekNotFound] = useState(false);
   const [profiles, setProfiles] = useState(new Map());
 
-  useEffect(() => {
+  const fetchDigests = useCallback((selectWeek) => {
     const headers = apiKey ? { "X-API-Key": apiKey } : {};
-    fetch(`${RELAY_URL}/api/admin/weekly-digests`, { cache: "no-store", headers })
+    return fetch(`${RELAY_URL}/api/admin/weekly-digests`, { cache: "no-store", headers })
       .then((r) => (r.ok ? r.json() : []))
       .then((data) => {
         setWeeklyDigests(data);
-        // If weekParam provided, find and select that week
-        if (weekParam && data.length > 0) {
-          const idx = data.findIndex((w) => w.week_start === weekParam);
-          if (idx >= 0) setWeeklyIdx(idx);
+        const target = selectWeek || weekParam;
+        if (target && data.length > 0) {
+          const idx = data.findIndex((w) => w.week_start === target);
+          if (idx >= 0) {
+            setWeeklyIdx(idx);
+            setWeekNotFound(false);
+          } else {
+            setWeekNotFound(true);
+          }
         }
-        setLoading(false);
-      })
-      .catch((err) => { console.error("Magazine fetch failed:", err); setLoading(false); });
+        return data;
+      });
   }, [weekParam, apiKey]);
+
+  useEffect(() => {
+    fetchDigests()
+      .catch((err) => console.error("Magazine fetch failed:", err))
+      .finally(() => setLoading(false));
+  }, [fetchDigests]);
+
+  // Trigger generation for a missing week (admin only)
+  const handleGenerate = useCallback(async () => {
+    if (!weekParam || !isAdmin) return;
+    setGenerating(true);
+    try {
+      const res = await fetch(`${RELAY_URL}/api/admin/weekly-digest/${weekParam}`, { cache: "no-store" });
+      if (res.ok) {
+        const data = await res.json();
+        if (data.digest) {
+          await fetchDigests(weekParam);
+        }
+      }
+    } catch (err) {
+      console.error("Generation failed:", err);
+    } finally {
+      setGenerating(false);
+    }
+  }, [weekParam, isAdmin, fetchDigests]);
 
   const weekly = weeklyDigests[weeklyIdx] || null;
 
@@ -2045,6 +2231,25 @@ const WeeklyMagazine = ({ weekParam, isAdmin = false, apiKey = "" }) => {
   const [coverGalleryLoading, setCoverGalleryLoading] = useState(false);
   const [showCoverGallery, setShowCoverGallery] = useState(false);
 
+  // Inline cover generation
+  const [coverGenLoading, setCoverGenLoading] = useState(false);
+  const generateCover = useCallback(async () => {
+    if (!weekly?.week_start || !apiKey || !weekly?.digest) return;
+    setCoverGenLoading(true);
+    try {
+      const res = await fetch(`${RELAY_URL}/api/admin/weekly-digest/${weekly.week_start}/cover`, {
+        method: "POST",
+        headers: { "X-API-Key": apiKey },
+      });
+      if (res.ok) {
+        setCoverBg(`${RELAY_URL}/api/admin/weekly-digest/${weekly.week_start}/cover.jpg?t=${Date.now()}`);
+      }
+    } catch (err) {
+      console.warn("[Magazine] Cover generation failed:", err.message);
+    }
+    setCoverGenLoading(false);
+  }, [weekly, apiKey]);
+
   const handlePanelDrop = (section, from, toIdx) => {
     ed.handleReorderItem(section, from, toIdx);
   };
@@ -2131,8 +2336,11 @@ const WeeklyMagazine = ({ weekParam, isAdmin = false, apiKey = "" }) => {
 
   // Pick a cover generation as the official cover
   const [coverSaveState, setCoverSaveState] = useState(null); // null | "saving" | "saved" | "error"
+  const [pickedCoverId, setPickedCoverId] = useState(null);
   const pickCover = useCallback(async (generationId) => {
-    if (!weekly?.week_start || !apiKey) return;
+    if (!weekly?.week_start || !apiKey) { console.warn("[Magazine] pickCover: missing weekly or apiKey"); return; }
+    console.log("[Magazine] pickCover: saving generation", generationId);
+    setPickedCoverId(generationId);
     setCoverSaveState("saving");
     try {
       const res = await fetch(`${RELAY_URL}/api/admin/weekly-digest/${weekly.week_start}/cover-from-generation`, {
@@ -2140,17 +2348,22 @@ const WeeklyMagazine = ({ weekParam, isAdmin = false, apiKey = "" }) => {
         headers: { "X-API-Key": apiKey, "Content-Type": "application/json" },
         body: JSON.stringify({ generationId }),
       });
+      console.log("[Magazine] pickCover: response", res.status, res.ok);
       if (res.ok) {
         setCoverBg(`${RELAY_URL}/api/admin/weekly-digest/${weekly.week_start}/cover.jpg?t=${Date.now()}`);
         setCoverSaveState("saved");
-        setTimeout(() => { setCoverSaveState(null); setShowCoverGallery(false); }, 1200);
+        setTimeout(() => { setCoverSaveState(null); setPickedCoverId(null); setShowCoverGallery(false); }, 1500);
       } else {
+        const body = await res.text().catch(() => "");
+        console.warn("[Magazine] pickCover: server error", res.status, body);
         setCoverSaveState("error");
+        setPickedCoverId(null);
         setTimeout(() => setCoverSaveState(null), 2000);
       }
     } catch (err) {
       console.warn("[Magazine] Pick cover failed:", err.message);
       setCoverSaveState("error");
+      setPickedCoverId(null);
       setTimeout(() => setCoverSaveState(null), 2000);
     }
   }, [weekly, apiKey]);
@@ -2216,17 +2429,39 @@ const WeeklyMagazine = ({ weekParam, isAdmin = false, apiKey = "" }) => {
   useEffect(() => {
     if (!weekly?.week_start) return;
     const fallback = COVER_BACKGROUNDS[hashDate(weekly.week_start) % COVER_BACKGROUNDS.length];
-    const coverUrl = `${RELAY_URL}/api/admin/weekly-digest/${weekly.week_start}/cover.jpg`;
+    const coverUrl = `${RELAY_URL}/api/admin/weekly-digest/${weekly.week_start}/cover.jpg?t=${Date.now()}`;
     const img = new Image();
     img.onload = () => setCoverBg(coverUrl);
     img.onerror = () => setCoverBg(fallback);
     img.src = coverUrl;
   }, [weekly?.week_start]);
 
-  if (loading) {
+  if (loading || generating) {
     return (
       <div className="mg-page">
         <div className="page-loader fade-in"><PeonLoader /></div>
+      </div>
+    );
+  }
+
+  if (weekNotFound && weekParam) {
+    const weekEnd = new Date(weekParam);
+    weekEnd.setDate(weekEnd.getDate() + 6);
+    const rangeLabel = formatWeekRange(weekParam, weekEnd.toISOString().slice(0, 10));
+    return (
+      <div className="mg-page">
+        <div className="mg-empty">
+          <h2>No magazine for {rangeLabel}</h2>
+          {isAdmin ? (
+            <>
+              <p>This weekly digest hasn't been generated yet.</p>
+              <button className="mg-generate-btn" onClick={handleGenerate}>Generate Now</button>
+            </>
+          ) : (
+            <p>This issue hasn't been published yet. Check back soon.</p>
+          )}
+          <Link to="/news" style={{ color: "var(--gold)", marginTop: "1rem", display: "inline-block" }}>Back to News</Link>
+        </div>
       </div>
     );
   }
@@ -2248,7 +2483,7 @@ const WeeklyMagazine = ({ weekParam, isAdmin = false, apiKey = "" }) => {
   const dramaTitle = leadDrama?.headline || "";
   const dramaLead = leadDrama?.summary || "";
   const dramaQuotes = (leadDrama?.quotes || []).map((q) => q.speaker ? `${q.speaker}: ${q.text}` : q.text);
-  const dramaSubStories = dramaItems.slice(1).map((d) => d.summary);
+  const dramaSubStories = dramaItems.slice(1);
 
   // Editorial callbacks for CoverHero — editing headline edits first drama item title
   const editorialProps = showEditControls ? {
@@ -2309,11 +2544,16 @@ const WeeklyMagazine = ({ weekParam, isAdmin = false, apiKey = "" }) => {
           </div>
           <div className="mg-editorial-actions">
             {weekly.week_start && (
-              <Button $secondary as="a" href={`/cover-art?week=${weekly.week_start}`} title="Edit cover image">Edit Cover</Button>
+              <Button $secondary as="a" href={`/cover-art?week=${weekly.week_start}`} title="Open full cover art editor">Edit Cover</Button>
             )}
             {weekly.week_start && (
               <Button $secondary onClick={fetchCoverGallery} disabled={coverGalleryLoading} title="Browse generated covers and pick one">
                 {coverGalleryLoading ? "Loading..." : "Pick Cover"}
+              </Button>
+            )}
+            {weekly.week_start && (
+              <Button $secondary onClick={generateCover} disabled={coverGenLoading} title="Auto-generate a cover image from the top story">
+                {coverGenLoading ? "Generating..." : "Generate Cover"}
               </Button>
             )}
             <Button $secondary onClick={fetchHeadlines} disabled={headlineLoading} title="Generate 5 headline options to choose from">
@@ -2477,6 +2717,8 @@ const WeeklyMagazine = ({ weekParam, isAdmin = false, apiKey = "" }) => {
           addItem: ed.handleAddItem,
           onEditDrama: (subIdx, text) => ed.handleEditSummary("DRAMA", subIdx + 1, text),
           onEditHighlight: (idx, text) => ed.handleEditSummary("HIGHLIGHTS", idx, text),
+          appendHighlightQuotes: (idx, quotes) => ed.appendQuotesToItem("HIGHLIGHTS", idx, quotes),
+          appendDramaQuotes: (idx, quotes) => ed.appendQuotesToItem("DRAMA", idx + 1, quotes),
           onEditBan: (idx, reason, ban) => {
             const parts = [ban.name, ban.duration, reason].filter(Boolean);
             if (ban.matchId) parts.push(ban.matchId);
@@ -2580,7 +2822,7 @@ const WeeklyMagazine = ({ weekParam, isAdmin = false, apiKey = "" }) => {
 
       {/* Cover gallery picker overlay */}
       {showCoverGallery && (
-        <div className="mg-picker-overlay" onClick={() => setShowCoverGallery(false)}>
+        <div className="mg-picker-overlay" onClick={coverSaveState === "saving" ? undefined : () => setShowCoverGallery(false)}>
           <div className="mg-picker-panel mg-picker-panel--gallery" onClick={(e) => e.stopPropagation()}>
             <div className="mg-picker-header">
               <span className="mg-section-label mg-section-label--gold">Pick a Cover{coverGenerations.length > 0 ? ` (${coverGenerations.length})` : ""}</span>
@@ -2589,7 +2831,7 @@ const WeeklyMagazine = ({ weekParam, isAdmin = false, apiKey = "" }) => {
                   {coverSaveState === "saving" ? "Saving..." : coverSaveState === "saved" ? "Saved!" : "Failed"}
                 </span>
               )}
-              <button className="mg-picker-close" onClick={() => setShowCoverGallery(false)}><FiX size={16} /></button>
+              <button className="mg-picker-close" onClick={coverSaveState === "saving" ? undefined : () => setShowCoverGallery(false)}><FiX size={16} /></button>
             </div>
             {coverGalleryLoading ? (
               <div className="mg-picker-loading"><PeonLoader size="sm" /></div>
@@ -2600,8 +2842,8 @@ const WeeklyMagazine = ({ weekParam, isAdmin = false, apiKey = "" }) => {
                 {coverGenerations.map((gen) => (
                   <div
                     key={gen.id}
-                    className="mg-cover-card"
-                    onClick={() => pickCover(gen.id)}
+                    className={`mg-cover-card${pickedCoverId === gen.id ? " mg-cover-card--picked" : ""}`}
+                    onClick={coverSaveState ? undefined : () => pickCover(gen.id)}
                   >
                     <div className="mg-cover-card-thumb">
                       <img
@@ -2609,6 +2851,12 @@ const WeeklyMagazine = ({ weekParam, isAdmin = false, apiKey = "" }) => {
                         alt={gen.headline || "Cover option"}
                         loading="lazy"
                       />
+                      {pickedCoverId === gen.id && coverSaveState === "saving" && (
+                        <div className="mg-cover-card-overlay">Saving...</div>
+                      )}
+                      {pickedCoverId === gen.id && coverSaveState === "saved" && (
+                        <div className="mg-cover-card-overlay mg-cover-card-overlay--saved">Saved!</div>
+                      )}
                     </div>
                     <div className="mg-cover-card-info">
                       {gen.headline && <span className="mg-cover-card-title">{gen.headline}</span>}

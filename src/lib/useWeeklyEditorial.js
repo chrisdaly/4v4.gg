@@ -575,6 +575,25 @@ export default function useWeeklyEditorial({ weekly, isAdmin, apiKey, onDigestUp
     });
   }, [isEditorial]);
 
+  // ── Append quotes to a semicolon-separated item (DRAMA, HIGHLIGHTS, BANS) ──
+
+  const appendQuotesToItem = useCallback((sectionKey, itemIdx, quotes) => {
+    if (!isEditorial || !quotes.length) return;
+    pushUndo();
+    const formatted = quotes.map(q => `"${q}"`).join(" ");
+    setDraft((prev) => {
+      if (!prev) return prev;
+      const sections = parseDigestSections(prev);
+      const sec = sections.find((s) => s.key === sectionKey);
+      if (!sec) return prev;
+      const items = sec.content.split(/;\s*/).map((s) => s.trim()).filter(Boolean);
+      if (itemIdx >= items.length) return prev;
+      items[itemIdx] = `${items[itemIdx]} ${formatted}`;
+      sec.content = items.join("; ");
+      return sections.map((s) => `${s.key}: ${s.content}`).join("\n");
+    });
+  }, [isEditorial, pushUndo]);
+
   // ── Edit topics (comma-separated) ──
 
   const handleEditTopics = useCallback((newTopics) => {
@@ -754,6 +773,7 @@ export default function useWeeklyEditorial({ weekly, isAdmin, apiKey, onDigestUp
     regenQuotes,
     browseMessages,
     setQuotes,
+    appendQuotesToItem,
     regenLoading,
     weekStart: weekly?.week_start || null,
     weekEnd: weekly?.week_end || null,

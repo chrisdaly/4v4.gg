@@ -1,6 +1,8 @@
 import Anthropic from '@anthropic-ai/sdk';
 import { getMessagesByDate, getMessageBuckets, getDigest, setDigest, getRecentDigests, getWeeklyDigest, setWeeklyDigest, deleteDigest, setDigestWithDraft, updateDigestOnly, getDraftForDate, getMessagesByTimeWindow, getClipsByDateRange, updateClip4v4Status, updateDigestClips, setWeeklyDigestFull, getStreamers, saveDailyPlayerStats, getDailyPlayerStatsRange, hasDailyPlayerStats, saveDailyMatches, getDailyMatchesRange, getNewPlayersForWeek, saveMatchPlayerScores, hasMatchScores, getMatchPlayerScoresRange, getMatchIdsForDateRange, getDailyMatchesMissingMmrs, updateDailyMatchMmrs, getMessagesByDateRangeAndUser, getMessagesByDateRangeMentioning, getFirstAppearanceDate, getLastActiveDateBefore, getMessagesByDateAndUsers, updateGenJobStatus, updateGenJobProgress, saveWeeklyVariant, countMessagesByDateRange, updateWeeklyDigestOnly, updateWeeklyDraftOnly, getAllMessagesByDateRange } from './db.js';
 import { runClipFetch } from './clips.js';
+import { generateCoverImage } from './coverImage.js';
+import { saveCoverGeneration, setWeeklyCoverImage } from './db.js';
 import config from './config.js';
 
 const API_BASE = 'https://website-backend.w3champions.com/api';
@@ -2843,7 +2845,31 @@ export async function generateWeeklyDigest(weekStart) {
     digestJson
   );
   console.log(`[Weekly] Generated for ${weekStart} to ${weekEnd} (${dailyDigests.length} daily digests, ${weeklyClips.length} clips)`);
+
+  // Fire-and-forget: auto-generate a cover image from the top story
+  autoGenerateCover(weekStart, digest).catch(err =>
+    console.warn('[Weekly] Auto cover generation failed (non-fatal):', err.message)
+  );
+
   return digest;
+}
+
+/**
+ * Auto-generate a cover image for a newly created weekly digest.
+ * Saves to both cover_generations (gallery) and weekly cover (published).
+ */
+async function autoGenerateCover(weekStart, digestText) {
+  if (!config.REPLICATE_API_TOKEN) {
+    console.log('[Weekly] No Replicate token, skipping auto cover');
+    return;
+  }
+  console.log(`[Weekly] Auto-generating cover for ${weekStart}...`);
+  const imageBuffer = await generateCoverImage(digestText);
+  // Save to gallery
+  const id = saveCoverGeneration(weekStart, null, 'auto-generated', null, 'auto', imageBuffer);
+  // Set as the week's cover
+  setWeeklyCoverImage(weekStart, imageBuffer);
+  console.log(`[Weekly] Auto cover saved (generation #${id}, ${imageBuffer.length} bytes)`);
 }
 
 /**

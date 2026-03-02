@@ -167,6 +167,9 @@ export function initDb() {
     );
   `);
 
+  // Migration: ensure unique constraint on daily_player_stats (fix for tables created before PK was added)
+  db.exec(`CREATE UNIQUE INDEX IF NOT EXISTS idx_dps_date_tag ON daily_player_stats(date, battle_tag)`);
+
   // Migration: daily_matches table for weekly upset detection
   db.exec(`
     CREATE TABLE IF NOT EXISTS daily_matches (
@@ -183,6 +186,9 @@ export function initDb() {
     );
     CREATE INDEX IF NOT EXISTS idx_daily_matches_date ON daily_matches(date);
   `);
+
+  // Migration: ensure unique constraint on daily_matches (fix for tables created before PK was added)
+  db.exec(`CREATE UNIQUE INDEX IF NOT EXISTS idx_dm_match_id ON daily_matches(match_id)`);
 
   // Migration: add individual MMR columns to daily_matches
   try {
@@ -242,6 +248,9 @@ export function initDb() {
   } catch {
     // Column already exists — ignore
   }
+
+  // Migration: ensure week_start has a unique index (table may have been created without PRIMARY KEY)
+  db.exec(`CREATE UNIQUE INDEX IF NOT EXISTS idx_weekly_digests_week_start ON weekly_digests(week_start)`);
 
   // Migration: match_player_scores table for per-match detail stats
   db.exec(`
@@ -379,6 +388,12 @@ export function initDb() {
     );
   `);
 
+  // Migration: add file_hash column to replays for dedup
+  try {
+    db.exec(`ALTER TABLE replays ADD COLUMN file_hash TEXT`);
+  } catch { /* column already exists */ }
+  db.exec(`CREATE UNIQUE INDEX IF NOT EXISTS idx_replays_file_hash ON replays(file_hash)`);
+
   // Migration: add group_compositions column if missing
   try {
     db.prepare('SELECT group_compositions FROM replay_player_actions LIMIT 1').get();
@@ -485,6 +500,15 @@ export function initDb() {
       UNIQUE(tag_main, tag_smurf)
     );
   `);
+
+  // Migration: fix messages with NULL deleted (bug from Feb 23-25 2026)
+  const fixed = db.prepare(`UPDATE messages SET deleted = 0 WHERE deleted IS NULL`).run();
+  if (fixed.changes > 0) {
+    console.log(`[DB] Fixed ${fixed.changes} messages with NULL deleted column`);
+  }
+
+  // Migration: ensure daily_digests has UNIQUE constraint on date (required for ON CONFLICT)
+  db.exec(`CREATE UNIQUE INDEX IF NOT EXISTS idx_daily_digests_date ON daily_digests(date)`);
 
   // Startup recovery: mark any running jobs as error
   db.prepare(`
@@ -1023,11 +1047,13 @@ export function deleteWeeklyDigest(weekStart) {
   db.prepare('DELETE FROM weekly_digests WHERE week_start = ?').run(weekStart);
 }
 
+const WEEKLY_COLS_NO_BLOB = 'week_start, week_end, digest, created_at, clips, stats, draft, digest_json, published, cover_position';
+
 export function getRecentWeeklyDigests(limit = 4, includeUnpublished = false) {
   if (includeUnpublished) {
-    return db.prepare('SELECT * FROM weekly_digests ORDER BY week_start DESC LIMIT ?').all(limit);
+    return db.prepare(`SELECT ${WEEKLY_COLS_NO_BLOB} FROM weekly_digests ORDER BY week_start DESC LIMIT ?`).all(limit);
   }
-  return db.prepare('SELECT * FROM weekly_digests WHERE published = 1 ORDER BY week_start DESC LIMIT ?').all(limit);
+  return db.prepare(`SELECT ${WEEKLY_COLS_NO_BLOB} FROM weekly_digests WHERE published = 1 ORDER BY week_start DESC LIMIT ?`).all(limit);
 }
 
 export function toggleWeeklyPublished(weekStart) {
@@ -1382,7 +1408,7 @@ export function updateWeeklyDigestOnly(weekStart, digest) {
 
 export function setWeeklyDigestFull(weekStart, weekEnd, digest, clipsJson, statsJson, digestJson = null) {
   db.prepare(`
-    INSERT INTO weekly_digests (week_start, week_end, digest, clips, stats, digest_json) VALUES (?, ?, ?, ?, ?, ?)
+    INSERT INTO weekly_digests (week_start, week_end, digest, clips, stats, digest_json, published) VALUES (?, ?, ?, ?, ?, ?, 0)
     ON CONFLICT(week_start) DO UPDATE SET
       digest = excluded.digest,
       week_end = excluded.week_end,
@@ -1472,13 +1498,14 @@ export function deleteCoverGeneration(id) {
 // ── Full-text message search ──────────────────────────
 
 export function searchMessages(query, limit = 50, offset = 0) {
+  const like = `%${query}%`;
   return db.prepare(`
     SELECT user_name, message, sent_at, battle_tag, received_at
     FROM messages
-    WHERE deleted = 0 AND message LIKE ?
+    WHERE deleted = 0 AND (message LIKE ? OR user_name LIKE ? OR battle_tag LIKE ?)
     ORDER BY received_at DESC
     LIMIT ? OFFSET ?
-  `).all(`%${query}%`, Math.min(limit, 200), offset);
+  `).all(like, like, like, Math.min(limit, 200), offset);
 }
 
 export function searchMessagesByPlayer(playerQuery, limit = 50, offset = 0) {
@@ -1506,11 +1533,15 @@ export function getMessagesAroundTime(receivedAt, minutesPadding = 3, limit = 60
 
 // ── Replays ──────────────────────────────────────────
 
-export function insertReplay({ filename, filePath, fileSize }) {
+export function insertReplay({ filename, filePath, fileSize, fileHash }) {
   const result = db.prepare(`
-    INSERT INTO replays (filename, file_path, file_size) VALUES (?, ?, ?)
-  `).run(filename, filePath, fileSize);
+    INSERT INTO replays (filename, file_path, file_size, file_hash) VALUES (?, ?, ?, ?)
+  `).run(filename, filePath, fileSize, fileHash || null);
   return result.lastInsertRowid;
+}
+
+export function getReplayByFileHash(hash) {
+  return db.prepare('SELECT * FROM replays WHERE file_hash = ?').get(hash);
 }
 
 export function getReplayByW3cMatchId(w3cMatchId) {

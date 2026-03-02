@@ -937,7 +937,7 @@ router.get('/weekly-digest/:weekStart/cover.jpg', (req, res) => {
     return res.status(404).send('No cover image');
   }
   res.set('Content-Type', 'image/png');
-  res.set('Cache-Control', 'public, max-age=604800');
+  res.set('Cache-Control', 'public, no-cache');
   res.send(imageBuffer);
 });
 

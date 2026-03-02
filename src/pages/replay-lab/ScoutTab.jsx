@@ -6,6 +6,7 @@ import PeonLoader from "../../components/PeonLoader";
 import TransitionGlyph from "../../components/replay-lab/TransitionGlyph";
 import PlaystyleReport from "../../components/replay-lab/PlaystyleReport";
 import PersonaSplit from "../../components/replay-lab/PersonaSplit";
+import { DropZone, DropLabel, DropIcon } from "./shared-styles";
 import { raceIcons } from "../../lib/constants";
 import { getPlayerProfile } from "../../lib/api";
 
@@ -61,6 +62,12 @@ export default function ScoutTab({ initialPlayer = null }) {
   const [importStatus, setImportStatus] = useState(null); // null | 'importing' | 'done' | 'error'
   const [importResult, setImportResult] = useState(null);
 
+  // Upload state
+  const [uploadStatus, setUploadStatus] = useState(null); // null | 'uploading' | 'done' | 'error'
+  const [uploadResult, setUploadResult] = useState(null);
+  const [dragActive, setDragActive] = useState(false);
+  const fileRef = useRef(null);
+
   // Close dropdown on outside click (same pattern as Navbar)
   useEffect(() => {
     if (!showDropdown) return;
@@ -105,6 +112,8 @@ export default function ScoutTab({ initialPlayer = null }) {
       setReplayProfileData(null);
       setImportStatus(null);
       setImportResult(null);
+      setUploadStatus(null);
+      setUploadResult(null);
       replayCache.current = new Map();
       setProfileLoading(true);
       setSearchQuery("");
@@ -224,6 +233,52 @@ export default function ScoutTab({ initialPlayer = null }) {
     }
   }, [selectedTag, importStatus, selectPlayer]);
 
+  const handleUpload = useCallback(async (file) => {
+    if (!file || uploadStatus === 'uploading') return;
+    setUploadStatus('uploading');
+    setUploadResult(null);
+    try {
+      const form = new FormData();
+      form.append('replay', file);
+      const res = await fetch(`${RELAY_URL}/api/fingerprints/upload`, {
+        method: 'POST',
+        body: form,
+      });
+      const data = await res.json();
+      if (!res.ok) {
+        setUploadStatus('error');
+        setUploadResult(data.error || data.detail || 'Upload failed');
+        return;
+      }
+      setUploadResult(data);
+      setUploadStatus('done');
+      // If a player is selected and they're in this replay, refresh their profile
+      if (selectedTag && data.players) {
+        const match = data.players.find(p => p.battleTag === selectedTag);
+        if (match) {
+          setSelectedTag(null);
+          setTimeout(() => selectPlayer(selectedTag), 300);
+        }
+      }
+    } catch (err) {
+      setUploadStatus('error');
+      setUploadResult(err.message);
+    }
+  }, [uploadStatus, selectedTag, selectPlayer]);
+
+  const handleFileDrop = useCallback((e) => {
+    e.preventDefault();
+    setDragActive(false);
+    const file = e.dataTransfer?.files?.[0];
+    if (file) handleUpload(file);
+  }, [handleUpload]);
+
+  const handleFileSelect = useCallback((e) => {
+    const file = e.target.files?.[0];
+    if (file) handleUpload(file);
+    e.target.value = '';
+  }, [handleUpload]);
+
   const dismiss = useCallback(() => {
     setSelectedTag(null);
     setProfileData(null);
@@ -234,6 +289,8 @@ export default function ScoutTab({ initialPlayer = null }) {
     setReplayProfileData(null);
     setImportStatus(null);
     setImportResult(null);
+    setUploadStatus(null);
+    setUploadResult(null);
     replayCache.current = new Map();
     pushPlayerParam(null);
   }, [pushPlayerParam]);
@@ -544,9 +601,22 @@ export default function ScoutTab({ initialPlayer = null }) {
               ) : importStatus === 'done' && importResult ? (
                 importResult.imported > 0 ? (
                   <span>Imported {importResult.imported} replays — loading profile...</span>
+                ) : importResult.discovered === 0 ? (
+                  <span>No 4v4 matches found for this player.</span>
+                ) : importResult.noReplay > 0 ? (
+                  <span>
+                    Searched {importResult.discovered} matches — replay files not available on W3C. This is normal.
+                    {importResult.filteredShort > 0 && ` (${importResult.filteredShort} short games skipped)`}
+                  </span>
+                ) : importResult.alreadyImported > 0 ? (
+                  <span>
+                    All {importResult.alreadyImported} recent matches already imported.
+                    {importResult.filteredShort > 0 && ` (${importResult.filteredShort} short games skipped)`}
+                  </span>
                 ) : (
                   <span>
-                    Found {importResult.discovered} matches ({importResult.alreadyImported} already imported), but no new replays could be processed.
+                    No new replays could be processed.
+                    {importResult.filteredShort > 0 && ` (${importResult.filteredShort} short games skipped)`}
                   </span>
                 )
               ) : importStatus === 'error' ? (
@@ -564,6 +634,62 @@ export default function ScoutTab({ initialPlayer = null }) {
                   </ImportBtn>
                 </>
               )}
+
+              {/* Upload drop zone — always visible as fallback */}
+              <UploadSection>
+                {uploadStatus === 'uploading' ? (
+                  <PeonLoader size="sm" />
+                ) : uploadStatus === 'done' && uploadResult ? (
+                  <UploadResultBox>
+                    {uploadResult.duplicate ? (
+                      <span>Replay already imported.</span>
+                    ) : (
+                      <span>Replay processed!</span>
+                    )}
+                    {uploadResult.players && uploadResult.players.length > 0 && (
+                      <UploadPlayerList>
+                        {uploadResult.players.map((p, i) => (
+                          <UploadPlayerBtn
+                            key={i}
+                            onClick={() => { if (p.battleTag) selectPlayer(p.battleTag); }}
+                            $clickable={!!p.battleTag}
+                          >
+                            {p.playerName}{p.race ? ` (${p.race})` : ''}
+                          </UploadPlayerBtn>
+                        ))}
+                      </UploadPlayerList>
+                    )}
+                  </UploadResultBox>
+                ) : uploadStatus === 'error' ? (
+                  <UploadResultBox>
+                    <span style={{ color: 'var(--red)' }}>
+                      Upload failed: {typeof uploadResult === 'string' ? uploadResult : 'Unknown error'}
+                    </span>
+                  </UploadResultBox>
+                ) : null}
+
+                {uploadStatus !== 'uploading' && (
+                  <CompactDropZone
+                    $active={dragActive}
+                    onDrop={handleFileDrop}
+                    onDragOver={(e) => { e.preventDefault(); setDragActive(true); }}
+                    onDragLeave={() => setDragActive(false)}
+                    onClick={() => fileRef.current?.click()}
+                  >
+                    <DropIcon size={18} $active={dragActive} />
+                    <DropLabel $active={dragActive} style={{ marginTop: 'var(--space-1)' }}>
+                      {dragActive ? 'Drop .w3g file here' : 'or drop a .w3g file'}
+                    </DropLabel>
+                    <input
+                      ref={fileRef}
+                      type="file"
+                      accept=".w3g"
+                      style={{ display: 'none' }}
+                      onChange={handleFileSelect}
+                    />
+                  </CompactDropZone>
+                )}
+              </UploadSection>
             </NoData>
           )}
         </ProfilePanel>
@@ -853,4 +979,47 @@ const ImportBtn = styled.button`
     color: var(--gold);
     border-color: var(--gold);
   }
+`;
+
+const UploadSection = styled.div`
+  margin-top: var(--space-4);
+  padding-top: var(--space-4);
+  border-top: 1px solid rgba(255, 255, 255, 0.06);
+`;
+
+const CompactDropZone = styled(DropZone)`
+  padding: var(--space-4) var(--space-4);
+`;
+
+const UploadResultBox = styled.div`
+  font-family: var(--font-mono);
+  font-size: var(--text-xxs);
+  color: var(--grey-light);
+  margin-bottom: var(--space-3);
+`;
+
+const UploadPlayerList = styled.div`
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--space-2);
+  margin-top: var(--space-2);
+  justify-content: center;
+`;
+
+const UploadPlayerBtn = styled.button`
+  font: var(--text-xxs) var(--font-mono);
+  color: ${(p) => (p.$clickable ? "var(--gold)" : "var(--grey-light)")};
+  background: rgba(255, 255, 255, 0.04);
+  border: var(--border-thin) solid ${(p) => (p.$clickable ? "rgba(252, 219, 51, 0.3)" : "var(--grey-mid)")};
+  border-radius: var(--radius-sm);
+  padding: 3px 10px;
+  cursor: ${(p) => (p.$clickable ? "pointer" : "default")};
+  transition: all 0.2s ease;
+
+  ${(p) =>
+    p.$clickable &&
+    `&:hover {
+      background: var(--gold-tint);
+      border-color: var(--gold);
+    }`}
 `;

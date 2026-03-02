@@ -533,6 +533,39 @@ a.mg-inline-name:hover {
   border-left-color: rgba(248, 113, 113, 0.4);
 }
 
+/* Highlight items with inline quotes */
+.mg-highlight-item {
+  flex-direction: column;
+  align-items: flex-start;
+}
+
+.mg-highlight-summary {
+  display: block;
+  line-height: 1.4;
+}
+
+.mg-highlight-quotes {
+  margin-top: var(--space-2);
+  padding-left: var(--quote-pad-left);
+  border-left: var(--quote-border);
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-1);
+}
+
+.mg-highlight-quote {
+  margin: 0;
+  font-family: var(--font-mono);
+  font-size: var(--text-xxs);
+  color: var(--grey-light);
+  line-height: 1.4;
+}
+
+.mg-highlight-speaker {
+  color: var(--gold);
+  font-weight: 600;
+}
+
 /* ── Structured Bans Table ────────────────────────── */
 
 .mg-bans-table {
@@ -2323,6 +2356,21 @@ a.mg-stack-player-name:hover {
   color: var(--grey-light);
 }
 
+.mg-generate-btn {
+  margin-top: var(--space-4);
+  padding: var(--space-2) var(--space-6);
+  font-family: var(--font-mono);
+  font-size: var(--text-xs);
+  text-transform: uppercase;
+  letter-spacing: 0.1em;
+  color: #000;
+  background: var(--gold);
+  border: none;
+  border-radius: var(--radius-sm);
+  cursor: pointer;
+}
+.mg-generate-btn:hover { opacity: 0.85; }
+
 /* ── Responsive ────────────────────────────────────── */
 
 @media (max-width: 768px) {
@@ -3455,6 +3503,11 @@ a.mg-stack-player-name:hover {
   border-color: rgba(252, 219, 51, 0.3);
 }
 
+.mg-cover-card--picked {
+  border-color: var(--gold);
+  box-shadow: 0 0 12px rgba(252, 219, 51, 0.3);
+}
+
 .mg-cover-card-thumb {
   position: relative;
   aspect-ratio: 16 / 9;
@@ -3467,6 +3520,25 @@ a.mg-stack-player-name:hover {
   height: 100%;
   object-fit: cover;
   display: block;
+}
+
+.mg-cover-card-overlay {
+  position: absolute;
+  inset: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: rgba(0, 0, 0, 0.6);
+  font-family: var(--font-mono);
+  font-size: var(--text-sm);
+  color: var(--grey-light);
+  letter-spacing: 0.05em;
+}
+
+.mg-cover-card-overlay--saved {
+  background: rgba(0, 0, 0, 0.5);
+  color: var(--green);
+  font-size: var(--text-base);
 }
 
 .mg-cover-card-info {

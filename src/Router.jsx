@@ -7,6 +7,7 @@ import { ThemeProvider } from "./lib/ThemeContext";
 
 // Homepage loaded eagerly (initial route)
 import Home from "./pages/Home";
+const Observatory = lazy(() => import("./pages/Observatory"));
 
 // Core nav pages — lazy-loaded but preloaded after first paint
 const pageImports = {
@@ -110,6 +111,7 @@ const Router = () => (
             <Suspense fallback={<PageLoader />}>
               <Switch>
                 <Route exact path="/" component={Home} />
+                <Route path="/observatory" component={Observatory} />
                 <Route path="/news" component={News} />
                 <Route path="/live" component={OngoingGames} />
                 <Route path="/ongoing" component={OngoingGames} />

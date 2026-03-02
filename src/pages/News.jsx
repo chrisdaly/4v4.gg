@@ -174,7 +174,7 @@ const NewsIndex = ({ isAdmin, adminKey: rawAdminKey }) => {
 
 const WeeklyHero = ({ weekly }) => {
   const fallbackBg = COVER_BACKGROUNDS[hashDate(weekly.week_start) % COVER_BACKGROUNDS.length];
-  const coverUrl = `${RELAY_URL}/api/admin/weekly-digest/${weekly.week_start}/cover.jpg`;
+  const coverUrl = `${RELAY_URL}/api/admin/weekly-digest/${weekly.week_start}/cover.jpg?t=${Date.now()}`;
   const [coverBg, setCoverBg] = useState(fallbackBg);
   const headline = weekly.digest ? extractHeadline(weekly.digest) : "";
 
@@ -201,7 +201,7 @@ const WeeklyHero = ({ weekly }) => {
 const TimelineWeekly = ({ weekly, delay }) => {
   const headline = weekly.digest ? extractHeadline(weekly.digest) : "";
   const fallbackBg = COVER_BACKGROUNDS[hashDate(weekly.week_start) % COVER_BACKGROUNDS.length];
-  const coverUrl = `${RELAY_URL}/api/admin/weekly-digest/${weekly.week_start}/cover.jpg`;
+  const coverUrl = `${RELAY_URL}/api/admin/weekly-digest/${weekly.week_start}/cover.jpg?t=${Date.now()}`;
   const [coverBg, setCoverBg] = useState(fallbackBg);
 
   useEffect(() => {
@@ -250,10 +250,14 @@ const TimelineDaily = ({ digest, delay, isLive }) => {
 const AdminWeeklyButton = () => {
   const now = new Date();
   const day = now.getDay();
-  const diff = day === 0 ? 6 : day - 1; // Monday = 0 offset
-  const monday = new Date(now);
-  monday.setDate(now.getDate() - diff);
-  const weekStr = monday.toISOString().slice(0, 10);
+  // Find this week's Monday
+  const offset = day === 0 ? 6 : day - 1;
+  const thisMon = new Date(now);
+  thisMon.setDate(now.getDate() - offset);
+  // The latest completed week started 7 days before this Monday
+  const lastMon = new Date(thisMon);
+  lastMon.setDate(thisMon.getDate() - 7);
+  const weekStr = lastMon.toISOString().slice(0, 10);
 
   return (
     <Link to={`/news?week=${weekStr}`} className="nw-admin-weekly-btn">

@@ -81,6 +81,9 @@ function getDateKey(ts) {
  * @param {Array}    targetTags        - battle_tags to highlight as gold (target players)
  * @param {boolean}  compact           - Minimal mode: no filter input, no panel border
  * @param {boolean}  showDates         - Show full dates in timestamps (auto-enabled when messages span multiple days)
+ * @param {Function} onLoadMore        - Callback to fetch more messages (infinite scroll)
+ * @param {boolean}  hasMore           - Whether more messages are available to load
+ * @param {boolean}  loadingMore       - Whether a load-more fetch is in progress
  */
 const ChatContext = ({
   messages,
@@ -98,6 +101,9 @@ const ChatContext = ({
   compact = false,
   showDates = false,
   dateRange,
+  onLoadMore,
+  hasMore = false,
+  loadingMore = false,
 }) => {
   const [filter, setFilter] = useState("");
   const [sortBy, setSortBy] = useState("score"); // "score" or "date"
@@ -130,6 +136,20 @@ const ChatContext = ({
   const [contextWindow, setContextWindow] = useState({ start: null, end: null });
   const [contextAvatars, setContextAvatars] = useState(new Map());
   const matchRef = useRef(null);
+  const sentinelRef = useRef(null);
+
+  // Infinite scroll — observe sentinel at bottom of list
+  useEffect(() => {
+    if (!onLoadMore || !hasMore || loadingMore) return;
+    const el = sentinelRef.current;
+    if (!el) return;
+    const observer = new IntersectionObserver(
+      ([entry]) => { if (entry.isIntersecting) onLoadMore(); },
+      { rootMargin: "100px" }
+    );
+    observer.observe(el);
+    return () => observer.disconnect();
+  }, [onLoadMore, hasMore, loadingMore]);
 
   // Reset selection when messages change
   useEffect(() => { setSelected(new Set()); }, [messages]);
@@ -563,6 +583,13 @@ const ChatContext = ({
             );
           });
           })()}
+        </div>
+      )}
+
+      {/* Infinite scroll sentinel */}
+      {hasMore && (
+        <div ref={sentinelRef} className="cc-load-more">
+          {loadingMore && <span className="cc-status">Loading more...</span>}
         </div>
       )}
 

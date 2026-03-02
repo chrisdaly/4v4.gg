@@ -31,14 +31,19 @@ const cleanSummary = (text) =>
 function parseDramaFromText(sections) {
   const sec = sections.find((s) => s.key === "DRAMA");
   if (!sec) return [];
-  const { summary, quotes: leadQuotes } = splitQuotes(sec.content);
-  const cleaned = cleanSummary(summary);
-  if (!cleaned) return [];
-  return cleaned.split(/;\s*/).filter(Boolean).map((raw, idx) => {
-    const trimmed = raw.trim();
+  // Split by semicolons first (preserving quotes), then extract quotes per item
+  const rawItems = sec.content.split(/;\s*/).filter(Boolean);
+  return rawItems.map((raw, idx) => {
+    const { summary: cleanedRaw, quotes: inlineQuotes } = splitQuotes(raw.trim());
+    const trimmed = cleanSummary(cleanedRaw) || "";
+    if (!trimmed) return null;
     const item = { summary: trimmed, quotes: [] };
+    const parseQuote = (q) => {
+      const qm = q.match(/^(\w[\w\d!ǃ]*?):\s+(.+)$/);
+      return qm ? { speaker: qm[1], text: qm[2] } : { speaker: null, text: q };
+    };
     if (idx === 0) {
-      // Lead item quotes come from DRAMA_QUOTES or inline extraction
+      // Lead item: split headline from body via pipe
       const pipeSplit = trimmed.split(/\s*\|\s*/);
       if (pipeSplit.length > 1) {
         item.headline = pipeSplit[0];
@@ -47,19 +52,16 @@ function parseDramaFromText(sections) {
       // Attach quotes: prefer DRAMA_QUOTES section, fall back to inline
       const quotesSec = sections.find((s) => s.key === "DRAMA_QUOTES");
       if (quotesSec) {
-        item.quotes = [...quotesSec.content.matchAll(/"([^"]+)"/g)].map((m) => {
-          const qm = m[1].match(/^(\w[\w\d!ǃ]*?):\s+(.+)$/);
-          return qm ? { speaker: qm[1], text: qm[2] } : { speaker: null, text: m[1] };
-        });
+        item.quotes = [...quotesSec.content.matchAll(/"([^"]+)"/g)].map((m) => parseQuote(m[1]));
       } else {
-        item.quotes = leadQuotes.map((q) => {
-          const qm = q.match(/^(\w[\w\d!ǃ]*?):\s+(.+)$/);
-          return qm ? { speaker: qm[1], text: qm[2] } : { speaker: null, text: q };
-        });
+        item.quotes = inlineQuotes.map(parseQuote);
       }
+    } else {
+      // Non-lead items: use inline quotes
+      item.quotes = inlineQuotes.map(parseQuote);
     }
     return item;
-  });
+  }).filter(Boolean);
 }
 
 /** Parse highlights from text into structured items */

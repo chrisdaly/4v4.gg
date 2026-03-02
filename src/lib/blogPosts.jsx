@@ -22,7 +22,7 @@ export const blogPosts = [
     slug: "dots-not-numbers",
     title: "Dots, Not Numbers",
     description: "How the MMR charts work on 4v4.gg.",
-    date: "Feb 2025",
+    date: "Jan 25, 2026",
     tags: ["dataviz", "design", "wc3"],
     type: "component",
     component: () => import("../pages/DesignLab"),
@@ -35,7 +35,7 @@ export const blogPosts = [
     title: "Can AI Tell Who You Are From Your Clicks?",
     description:
       "Using neural networks and behavioral fingerprints to detect smurfs in Warcraft III.",
-    date: "Draft",
+    date: "Feb 16, 2026",
     tags: ["ml", "replays", "smurf-detection"],
     coverImage: "/blog/fingerprint-cover.svg",
     draft: true,

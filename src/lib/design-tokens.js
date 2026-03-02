@@ -45,6 +45,7 @@ export const typeScale = {
 export const spacing = {
   1: { value: '4px', css: '--space-1' },
   2: { value: '8px', css: '--space-2' },
+  3: { value: '12px', css: '--space-3' },
   4: { value: '16px', css: '--space-4' },
   6: { value: '24px', css: '--space-6' },
   8: { value: '32px', css: '--space-8' },
@@ -61,6 +62,7 @@ export const borders = {
 
 export const effects = {
   shadowGlow: { value: '0 0 20px rgba(252, 219, 51, 0.3)', css: '--shadow-glow', usage: 'Gold glow effect' },
+  shadowGlowSubtle: { value: '0 0 24px rgba(252, 219, 51, 0.08)', css: '--shadow-glow-subtle', usage: 'Subtle card hover glow' },
   transition: { value: '150ms ease', css: '--transition', usage: 'Default animation' },
 };
 
@@ -74,11 +76,14 @@ export const surfaces = {
   surface1: { value: 'rgba(255, 255, 255, 0.02)', css: '--surface-1', usage: 'Card background' },
   surface2: { value: 'rgba(255, 255, 255, 0.05)', css: '--surface-2', usage: 'Hover state' },
   surface3: { value: 'rgba(255, 255, 255, 0.1)', css: '--surface-3', usage: 'Borders, dividers' },
+  panelBg: { value: 'rgba(10, 8, 6, 0.25)', css: '--panel-bg', usage: 'Frosted glass panel background' },
+  panelBorder: { value: 'rgba(255, 255, 255, 0.06)', css: '--panel-border', usage: 'Frosted glass panel border' },
 };
 
 export const tints = {
   goldSubtle: { value: 'rgba(252, 219, 51, 0.05)', css: '--gold-tint-subtle', usage: 'Gold row hover' },
   gold: { value: 'rgba(252, 219, 51, 0.1)', css: '--gold-tint', usage: 'Gold highlight bg' },
+  goldBorderHover: { value: 'rgba(252, 219, 51, 0.3)', css: '--gold-border-hover', usage: 'Gold border on hover/focus' },
   greenSubtle: { value: 'rgba(74, 222, 128, 0.05)', css: '--green-tint-subtle', usage: 'Win row hover' },
   green: { value: 'rgba(74, 222, 128, 0.1)', css: '--green-tint', usage: 'Win highlight bg' },
   redSubtle: { value: 'rgba(248, 113, 113, 0.05)', css: '--red-tint-subtle', usage: 'Loss row hover' },
@@ -204,6 +209,14 @@ export const patterns = {
   hoverLink: {
     description: 'Link hover',
     css: 'color: var(--gold)',
+  },
+  hoverCardGlow: {
+    description: 'Card hover (gold border glow)',
+    css: 'border-color: var(--gold-border-hover); box-shadow: var(--shadow-glow-subtle)',
+  },
+  panelGlass: {
+    description: 'Frosted glass panel',
+    css: 'background: var(--panel-bg); backdrop-filter: blur(12px); border: 1px solid var(--panel-border); border-radius: var(--radius-md)',
   },
 };
 

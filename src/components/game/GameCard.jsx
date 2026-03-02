@@ -520,10 +520,10 @@ const GameCard = ({
           </div>
           <div className="gc-meta gc-meta-expanded">
             <span className="gc-map-name">{cleanMapName}</span>
-            {showDuration && (duration || elapsed) && (
-              <span className="gc-duration">{elapsed || duration}</span>
+            {computedStatus !== "live" && showDuration && duration && (
+              <span className="gc-duration">{duration}</span>
             )}
-            {timeAgo && <span className="gc-time">{timeAgo}</span>}
+            {computedStatus !== "live" && timeAgo && <span className="gc-time">{timeAgo}</span>}
           </div>
         </div>
         {shouldShowTeams && myTeam && opponentTeam && (

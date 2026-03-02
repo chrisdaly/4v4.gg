@@ -296,9 +296,10 @@ async function runCycle() {
 
 /**
  * Import recent matches for a specific player (on-demand).
- * Returns { discovered, imported, errors }.
+ * Fetches 25 matches, filters short games, tries up to 10 downloads to hit targetImports.
+ * Returns { discovered, alreadyImported, imported, errors, noReplay, filteredShort }.
  */
-export async function importPlayerMatches(battleTag, maxMatches = 10, seasonOverride = null) {
+export async function importPlayerMatches(battleTag, targetImports = 3, seasonOverride = null) {
   let season = seasonOverride;
   if (!season) {
     season = 24;
@@ -311,13 +312,20 @@ export async function importPlayerMatches(battleTag, maxMatches = 10, seasonOver
     } catch { /* use default */ }
   }
 
-  const url = `${W3C_API}/matches/search?playerId=${encodeURIComponent(battleTag)}&offset=0&gameMode=4&season=${season}&gateway=20&pageSize=${maxMatches}`;
+  const fetchSize = 25;
+  const maxAttempts = 10;
+  const url = `${W3C_API}/matches/search?playerId=${encodeURIComponent(battleTag)}&offset=0&gameMode=4&season=${season}&gateway=20&pageSize=${fetchSize}`;
   const res = await fetch(url);
   if (!res.ok) throw new Error(`W3C API returned ${res.status}`);
   const data = await res.json();
 
+  let filteredShort = 0;
   const candidates = [];
   for (const m of (data.matches || [])) {
+    if (m.durationInSeconds != null && m.durationInSeconds < 300) {
+      filteredShort++;
+      continue;
+    }
     const players = [];
     for (const team of m.teams || []) {
       for (const p of team.players || []) {
@@ -331,20 +339,23 @@ export async function importPlayerMatches(battleTag, maxMatches = 10, seasonOver
   const existing = getExistingW3cMatchIds(allIds);
   const newMatches = candidates.filter(c => !existing.has(c.matchId));
 
-  let imported = 0, errors = 0;
+  let imported = 0, errors = 0, noReplay = 0, attempts = 0;
   for (const match of newMatches) {
+    if (imported >= targetImports || attempts >= maxAttempts) break;
     await sleep(RATE_LIMIT_MS);
+    attempts++;
     try {
       const result = await importMatch(match);
       if (result.status === 'imported') imported++;
+      else if (result.status === 'no_replay') noReplay++;
     } catch (err) {
       console.error(`[Importer] Manual import error ${match.matchId}:`, err.message);
       errors++;
     }
   }
 
-  console.log(`[Importer] Manual import for ${battleTag}: ${candidates.length} found, ${existing.size} existing, ${imported} imported, ${errors} errors`);
-  return { discovered: candidates.length, alreadyImported: existing.size, imported, errors };
+  console.log(`[Importer] Manual import for ${battleTag}: ${candidates.length} candidates, ${filteredShort} short filtered, ${existing.size} existing, ${imported} imported, ${noReplay} no replay, ${errors} errors`);
+  return { discovered: candidates.length, alreadyImported: existing.size, imported, errors, noReplay, filteredShort };
 }
 
 /**

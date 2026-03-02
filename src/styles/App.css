@@ -5,7 +5,8 @@
 @import "./pages/PlayerProfile.css";
 @import "./components/Navbar.css";
 @import "./components/Game.css";
-@import "./pages/Home.css";
+@import "./pages/Observatory.css";
+@import "./pages/HomeNew.css";
 
 :root {
   /* ============================================
@@ -43,9 +44,10 @@
   --text-lg: 24px; /* Subheadings */
   --text-xl: 34px; /* Headings, player names */
 
-  /* SPACING (6) */
+  /* SPACING (7) */
   --space-1: 4px;
   --space-2: 8px;
+  --space-3: 12px;
   --space-4: 16px;
   --space-6: 24px;
   --space-8: 32px;
@@ -58,8 +60,9 @@
   --border-thin: 1px;
   --border-thick: 2px;
 
-  /* SHADOW (1) */
+  /* SHADOW (2) */
   --shadow-glow: 0 0 20px rgba(252, 219, 51, 0.3);
+  --shadow-glow-subtle: 0 0 24px rgba(252, 219, 51, 0.08);
 
   /* TRANSITION (1) */
   --transition: 150ms ease;
@@ -83,10 +86,15 @@
   /* Color tints - for badges, highlights, backgrounds */
   --gold-tint-subtle: rgba(252, 219, 51, 0.05);
   --gold-tint: rgba(252, 219, 51, 0.1);
+  --gold-border-hover: rgba(252, 219, 51, 0.3);
   --green-tint-subtle: rgba(74, 222, 128, 0.05);
   --green-tint: rgba(74, 222, 128, 0.1);
   --red-tint-subtle: rgba(248, 113, 113, 0.05);
   --red-tint: rgba(248, 113, 113, 0.1);
+
+  /* Panel glass - warm-black frosted panels */
+  --panel-bg: rgba(10, 8, 6, 0.25);
+  --panel-border: rgba(255, 255, 255, 0.06);
 
   /* LEGACY ALIAS */
   --grey: var(--grey-light);

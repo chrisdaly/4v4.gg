@@ -311,7 +311,8 @@ export default function DevTools() {
 
   // ─── Data loading ────────────────────────────────────────────────────────
   useEffect(() => {
-    fetch(`${RELAY_URL}/api/admin/weekly-digests`)
+    const headers = adminKey ? { "X-API-Key": adminKey } : {};
+    fetch(`${RELAY_URL}/api/admin/weekly-digests`, { headers })
       .then((r) => r.json())
       .then((data) => {
         setWeeklies(data || []);
@@ -324,7 +325,7 @@ export default function DevTools() {
         setLoading(false);
       })
       .catch(() => setLoading(false));
-  }, [weekUrlParam]);
+  }, [weekUrlParam, adminKey]);
 
   useEffect(() => {
     if (weeklies.length === 0) return;

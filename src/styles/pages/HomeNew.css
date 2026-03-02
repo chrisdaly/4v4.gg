@@ -1,0 +1,627 @@
+/* ========================================
+   SportsCenter Homepage — sc- prefix
+   ======================================== */
+
+.sc-home {
+  max-width: 1200px;
+  margin: 0 auto;
+  padding: var(--space-4);
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-6);
+}
+
+/* ── Shared panel style ─────────────────── */
+
+.sc-panel {
+  background: var(--panel-bg);
+  backdrop-filter: blur(12px);
+  -webkit-backdrop-filter: blur(12px);
+  border: 1px solid var(--panel-border);
+  border-radius: var(--radius-md);
+}
+
+/* ── Section headers ────────────────────── */
+
+.sc-section-header {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+  margin-bottom: var(--space-4);
+}
+
+.sc-section-title {
+  font-family: var(--font-mono);
+  font-size: var(--text-xxs);
+  text-transform: uppercase;
+  letter-spacing: 0.1em;
+  color: var(--grey-light);
+}
+
+.sc-section-count {
+  font-family: var(--font-mono);
+  font-size: var(--text-xxs);
+  color: var(--gold);
+  background: var(--gold-tint);
+  padding: var(--space-1) var(--space-2);
+  border-radius: var(--radius-full);
+}
+
+.sc-section-link {
+  margin-left: auto;
+  font-family: var(--font-mono);
+  font-size: var(--text-xxs);
+  color: var(--gold);
+  text-decoration: none;
+  opacity: 0.7;
+  transition: opacity 0.15s;
+}
+
+.sc-section-link:hover {
+  opacity: 1;
+}
+
+/* ── 1. Hero Spotlight ──────────────────── */
+
+.sc-hero {
+  position: relative;
+  overflow: hidden;
+  height: 300px;
+  display: flex;
+  flex-direction: column;
+  justify-content: flex-end;
+  padding: var(--space-6);
+  cursor: pointer;
+  text-decoration: none;
+  color: inherit;
+  transition: border-color 0.2s, box-shadow 0.2s;
+}
+
+.sc-hero:hover {
+  border-color: var(--gold-border-hover);
+  box-shadow: var(--shadow-glow-subtle);
+}
+
+.sc-hero-bg {
+  position: absolute;
+  inset: 0;
+  background-size: cover;
+  background-position: center;
+  filter: brightness(0.4);
+  z-index: 0;
+}
+
+.sc-hero-content {
+  position: relative;
+  z-index: 1;
+}
+
+/* Live hero — centered layout with positioned metadata */
+.sc-hero-live {
+  justify-content: center;
+  align-items: center;
+}
+
+.sc-hero-live .sc-hero-content {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  width: 100%;
+}
+
+.sc-hero-bottomleft {
+  position: absolute;
+  bottom: var(--space-6);
+  left: var(--space-6);
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+  font-family: var(--font-mono);
+  font-size: var(--text-xxs);
+  color: var(--grey-light);
+  z-index: 1;
+}
+
+.sc-hero-live-dot {
+  width: 10px;
+  height: 10px;
+  background: var(--red);
+  border-radius: 50%;
+  animation: pulse 1.5s infinite;
+}
+
+.sc-hero-live-label {
+  font-family: var(--font-mono);
+  font-size: var(--text-xxs);
+  text-transform: uppercase;
+  letter-spacing: 0.1em;
+  color: var(--red);
+  font-weight: bold;
+}
+
+.sc-hero-topright {
+  position: absolute;
+  top: var(--space-6);
+  right: var(--space-6);
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+  font-family: var(--font-mono);
+  font-size: var(--text-xxs);
+  color: var(--grey-light);
+  z-index: 1;
+}
+
+.sc-hero-arrow {
+  color: var(--gold);
+  font-size: var(--text-xs);
+}
+
+.sc-hero-map-thumb {
+  width: 36px;
+  height: 36px;
+  border-radius: var(--radius-sm);
+  border: 1px solid var(--surface-3);
+  object-fit: cover;
+}
+
+/* bottomright removed — avg MMR no longer shown */
+
+.sc-hero-badge {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-2);
+  font-family: var(--font-mono);
+  font-size: var(--text-xxs);
+  text-transform: uppercase;
+  letter-spacing: 0.1em;
+  color: var(--grey-light);
+  margin-bottom: var(--space-2);
+}
+
+.sc-hero-title {
+  font-family: var(--font-display);
+  font-size: var(--text-xl);
+  color: #fff;
+  margin: 0 0 var(--space-2) 0;
+  line-height: 1.2;
+}
+
+.sc-hero-teams {
+  display: grid;
+  grid-template-columns: 1fr auto 1fr;
+  align-items: center;
+  gap: var(--space-4);
+}
+
+.sc-hero-chart {
+  width: 100px;
+  height: 180px;
+}
+
+.sc-hero-team-col {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-2);
+}
+
+/* Left team: align names to the right (toward chart) */
+.sc-hero-team-col:first-child {
+  text-align: right;
+  align-items: flex-end;
+}
+.sc-hero-team-col:first-child .sc-hero-team {
+  align-items: flex-end;
+}
+
+/* Right team: align names to the left (toward chart) */
+.sc-hero-team-col:last-child {
+  text-align: left;
+  align-items: flex-start;
+}
+.sc-hero-team-col:last-child .sc-hero-team {
+  align-items: flex-start;
+}
+
+.sc-hero-team-mmr {
+  font-family: var(--font-mono);
+  font-size: var(--text-xxs);
+  color: var(--grey-light);
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+}
+
+.sc-hero-team {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-1);
+}
+
+.sc-hero-player {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-2);
+  font-family: var(--font-display);
+  font-size: var(--text-base);
+  color: var(--gold);
+}
+
+.sc-hero-player .gc-race {
+  width: 20px;
+  height: 20px;
+}
+
+/* Left team: name first, race icon on inner side (toward chart) */
+.sc-hero-player-left {
+  flex-direction: row;
+}
+
+/* sc-hero-vs removed — chart replaces the "vs" divider */
+
+.sc-hero-meta {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+  margin-top: var(--space-2);
+  font-family: var(--font-mono);
+  font-size: var(--text-xxs);
+  color: var(--grey-light);
+}
+
+.sc-hero-mmr {
+  color: #fff;
+  font-family: var(--font-mono);
+  font-size: var(--text-xxs);
+  font-weight: bold;
+}
+
+.sc-hero-sep {
+  color: var(--grey-mid);
+  margin: 0 2px;
+}
+
+.sc-hero-elapsed {
+  color: #fff;
+  font-size: var(--text-xs);
+  font-weight: bold;
+}
+
+.sc-hero-subtitle {
+  font-family: var(--font-mono);
+  font-size: var(--text-xs);
+  color: var(--grey-light);
+  margin-top: var(--space-1);
+}
+
+/* ── 2. Games Strip ───────────────────────── */
+
+.sc-games-strip {
+  display: flex;
+  gap: var(--space-4);
+  overflow-x: auto;
+}
+
+.sc-games-strip > * {
+  flex: 0 0 auto;
+  min-width: 340px;
+}
+
+.sc-games-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(340px, 1fr));
+  gap: var(--space-4);
+}
+
+.sc-empty {
+  color: var(--grey-mid);
+  font-size: var(--text-xs);
+  font-family: var(--font-mono);
+  padding: var(--space-4) 0;
+}
+
+.sc-empty a {
+  color: var(--gold);
+  text-decoration: none;
+}
+
+.sc-empty a:hover {
+  text-decoration: underline;
+}
+
+/* ── 3. Today's Digest ──────────────────── */
+
+.sc-digest-grid {
+  display: grid;
+  grid-template-columns: 3fr 2fr;
+  gap: var(--space-4);
+}
+
+.sc-digest-headlines {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-2);
+}
+
+.sc-headline {
+  padding: var(--space-2) var(--space-4);
+  border-left: 3px solid var(--gold);
+  font-family: var(--font-display);
+  font-size: var(--text-sm);
+  color: #fff;
+  line-height: 1.5;
+}
+
+.sc-headline-drama {
+  border-left-color: var(--red);
+}
+
+.sc-headline-highlights {
+  border-left-color: var(--green);
+}
+
+.sc-digest-stats {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: var(--space-2);
+}
+
+.sc-stat-card {
+  position: relative;
+  padding: var(--space-4);
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-1);
+  text-decoration: none;
+  color: inherit;
+  transition: border-color 0.15s;
+  overflow: hidden;
+}
+
+.sc-stat-avatar {
+  position: absolute;
+  top: 0;
+  right: 0;
+  width: 56px;
+  height: 56px;
+  object-fit: cover;
+  border-radius: 0 0 0 var(--radius-md);
+  opacity: 0.85;
+}
+
+.sc-stat-card:hover {
+  border-color: var(--surface-3);
+}
+
+.sc-stat-label {
+  font-family: var(--font-mono);
+  font-size: var(--text-xxxs);
+  text-transform: uppercase;
+  letter-spacing: 0.1em;
+  color: var(--grey-light);
+}
+
+.sc-stat-name {
+  font-family: var(--font-display);
+  font-size: var(--text-base);
+  color: #fff;
+}
+
+.sc-stat-detail {
+  font-family: var(--font-mono);
+  font-size: var(--text-xxs);
+  color: var(--grey-light);
+}
+
+.sc-stat-winner .sc-stat-detail {
+  color: var(--green);
+}
+
+.sc-stat-loser .sc-stat-detail {
+  color: var(--red);
+}
+
+.sc-stat-grinder .sc-stat-detail {
+  color: var(--gold);
+}
+
+.sc-stat-hotstreak .sc-stat-detail {
+  color: var(--green);
+}
+
+/* ── 4. Featured Content ────────────────── */
+
+.sc-featured-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
+  gap: var(--space-4);
+}
+
+.sc-featured-card {
+  position: relative;
+  overflow: hidden;
+  min-height: 240px;
+  display: flex;
+  flex-direction: column;
+  justify-content: flex-end;
+  padding: var(--space-6);
+  text-decoration: none;
+  color: inherit;
+  transition: border-color 0.15s;
+}
+
+.sc-featured-card:hover {
+  border-color: var(--gold-border-hover);
+}
+
+.sc-featured-bg {
+  position: absolute;
+  inset: 0;
+  background-size: cover;
+  background-position: center;
+  filter: brightness(0.45);
+  z-index: 0;
+}
+
+.sc-featured-content {
+  position: relative;
+  z-index: 1;
+}
+
+.sc-featured-label {
+  font-family: var(--font-mono);
+  font-size: var(--text-xxxs);
+  text-transform: uppercase;
+  letter-spacing: 0.1em;
+  color: var(--grey-light);
+  margin-bottom: var(--space-1);
+}
+
+.sc-featured-title {
+  font-family: var(--font-display);
+  font-size: var(--text-lg);
+  color: #fff;
+  line-height: 1.3;
+}
+
+.sc-featured-preview {
+  position: absolute;
+  inset: 0;
+  z-index: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: var(--overlay-medium);
+}
+
+.sc-featured-preview svg {
+  width: 60%;
+  height: auto;
+  opacity: 0.5;
+}
+
+.sc-clip-thumb {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  position: absolute;
+  inset: 0;
+  filter: brightness(0.45);
+  z-index: 0;
+}
+
+/* ── 5. Community Pulse Bar ─────────────── */
+
+.sc-pulse {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: var(--space-6);
+  padding: var(--space-4);
+  font-family: var(--font-mono);
+  font-size: var(--text-xs);
+  color: var(--grey-light);
+}
+
+.sc-pulse-stat {
+  display: flex;
+  align-items: center;
+  gap: var(--space-1);
+}
+
+.sc-pulse-value {
+  color: #fff;
+  font-weight: bold;
+}
+
+.sc-pulse a {
+  color: var(--gold);
+  text-decoration: none;
+  opacity: 0.7;
+  transition: opacity 0.15s;
+}
+
+.sc-pulse a:hover {
+  opacity: 1;
+}
+
+/* ── Responsive ─────────────────────────── */
+
+@media (max-width: 768px) {
+  .sc-home {
+    padding: var(--space-2);
+    gap: var(--space-4);
+  }
+
+  .sc-hero {
+    height: 220px;
+    padding: var(--space-4);
+  }
+
+  .sc-hero-title {
+    font-size: var(--text-lg);
+  }
+
+  .sc-hero-teams {
+    display: flex;
+    flex-direction: row;
+    flex-wrap: wrap;
+    gap: var(--space-4);
+    justify-content: center;
+  }
+
+  .sc-hero-chart {
+    display: none;
+  }
+
+  .sc-hero-team-col {
+    align-items: center !important;
+    text-align: center !important;
+  }
+
+  .sc-hero-team-col .sc-hero-team {
+    align-items: center !important;
+    flex-direction: row;
+    flex-wrap: wrap;
+  }
+
+  .sc-hero-player {
+    font-size: var(--text-sm);
+  }
+
+  .sc-hero-player .gc-race {
+    width: 18px;
+    height: 18px;
+  }
+
+  .sc-hero-bottomleft {
+    bottom: var(--space-4);
+    left: var(--space-4);
+  }
+
+  .sc-hero-topright {
+    top: var(--space-4);
+    right: var(--space-4);
+  }
+
+  .sc-hero-bottomright {
+    bottom: var(--space-4);
+    right: var(--space-4);
+  }
+
+  .sc-digest-grid {
+    grid-template-columns: 1fr;
+  }
+
+  .sc-featured-grid {
+    grid-template-columns: 1fr;
+  }
+
+  .sc-games-strip > * {
+    min-width: 300px;
+  }
+
+  .sc-pulse {
+    flex-wrap: wrap;
+    gap: var(--space-4);
+  }
+}

@@ -1,5 +1,9 @@
 import { Router } from 'express';
 import rateLimit from 'express-rate-limit';
+import multer from 'multer';
+import { createHash } from 'crypto';
+import { readFileSync, mkdirSync } from 'fs';
+import { join } from 'path';
 import config from '../config.js';
 import {
   getPlayerFingerprints,
@@ -24,6 +28,14 @@ import {
   insertValidationPair,
   deleteValidationPair,
   updateValidationPairNotes,
+  insertReplay,
+  updateReplayParsed,
+  updateReplayError,
+  getReplay,
+  insertReplayPlayers,
+  insertReplayChat,
+  insertReplayPlayerActions,
+  getReplayByFileHash,
 } from '../db.js';
 import {
   buildServerFingerprint,
@@ -36,6 +48,7 @@ import {
   computeConfidence,
   detectPersonas,
 } from '../fingerprint.js';
+import { parseReplayFile } from '../replayParser.js';
 import { getEmbedding, getEmbeddingBatch, checkSidecar, getUmapProjection, getUmapTransform } from '../embedClient.js';
 import { importPlayerMatches } from '../replayImporter.js';
 
@@ -753,6 +766,177 @@ const importLimiter = rateLimit({
   max: 3,
   standardHeaders: true,
   message: { error: 'Too many import requests, try again in a minute' },
+});
+
+// ── Multer for public .w3g uploads ──────────────
+const REPLAY_DIR = config.REPLAY_DIR.startsWith('/') ? config.REPLAY_DIR : join(process.cwd(), config.REPLAY_DIR);
+mkdirSync(REPLAY_DIR, { recursive: true });
+
+const uploadStorage = multer.diskStorage({
+  destination: (_req, _file, cb) => cb(null, REPLAY_DIR),
+  filename: (_req, file, cb) => {
+    const ts = Date.now();
+    const safe = file.originalname.replace(/[^a-zA-Z0-9._-]/g, '_');
+    cb(null, `${ts}-${safe}`);
+  },
+});
+
+const uploadMulter = multer({
+  storage: uploadStorage,
+  limits: { fileSize: 20 * 1024 * 1024 },
+  fileFilter: (_req, file, cb) => {
+    if (file.originalname.toLowerCase().endsWith('.w3g')) cb(null, true);
+    else cb(new Error('Only .w3g replay files are accepted'));
+  },
+});
+
+const uploadLimiter = rateLimit({
+  windowMs: 60 * 1000,
+  max: 3,
+  standardHeaders: true,
+  message: { error: 'Too many upload requests, try again in a minute' },
+});
+
+/**
+ * Compute fingerprints for all players in a parsed replay.
+ */
+function computeFingerprints(actions, players) {
+  return actions.map(a => {
+    const fp = buildServerFingerprint({
+      rightclick: a.rightclick, ability: a.ability,
+      buildtrain: a.buildtrain, item: a.item,
+      selecthotkey: a.selecthotkey, assigngroup: a.assigngroup,
+      timed_segments: a.timedSegments,
+      group_hotkeys: a.groupHotkeys,
+      full_action_sequence: a.fullActionSequence,
+    });
+    const player = players.find(p => p.playerId === a.playerId);
+    return {
+      playerId: a.playerId,
+      battleTag: player?.battleTag || null,
+      playerName: player?.playerName || '',
+      race: player?.race || null,
+      ...fp,
+    };
+  });
+}
+
+/**
+ * Fire-and-forget: compute embeddings for a just-uploaded replay via the sidecar.
+ */
+async function computeEmbeddingsAsync(replayId, actions) {
+  try {
+    const sequences = actions
+      .filter(a => a.fullActionSequence && a.fullActionSequence.length > 10)
+      .map(a => a.fullActionSequence);
+    if (sequences.length === 0) return;
+    const embeddings = await getEmbeddingBatch(sequences);
+    let idx = 0;
+    for (const a of actions) {
+      if (a.fullActionSequence && a.fullActionSequence.length > 10) {
+        if (embeddings[idx]) {
+          updateFingerprintEmbedding(replayId, a.playerId, embeddings[idx]);
+        }
+        idx++;
+      }
+    }
+  } catch (err) {
+    console.error(`[Embed] Error for replay ${replayId}:`, err.message);
+  }
+}
+
+// POST /api/fingerprints/upload — Public replay upload (rate-limited, no API key)
+router.post('/upload', uploadLimiter, (req, res, next) => {
+  uploadMulter.single('replay')(req, res, (err) => {
+    if (err) {
+      if (err instanceof multer.MulterError) return res.status(400).json({ error: err.message });
+      return res.status(400).json({ error: err.message });
+    }
+    next();
+  });
+}, async (req, res) => {
+  if (!req.file) {
+    return res.status(400).json({ error: 'No replay file provided' });
+  }
+
+  const { originalname, path: filePath, size } = req.file;
+
+  // SHA-256 dedup
+  const fileBuffer = readFileSync(filePath);
+  const fileHash = createHash('sha256').update(fileBuffer).digest('hex');
+
+  const existing = getReplayByFileHash(fileHash);
+  if (existing) {
+    const players = getReplayPlayers(existing.id);
+    return res.json({
+      ok: true,
+      duplicate: true,
+      replay: {
+        id: existing.id,
+        mapName: existing.map_name,
+        gameDuration: existing.game_duration,
+        matchType: existing.match_type,
+        playerCount: players.length,
+      },
+      players: players.map(p => ({ playerName: p.player_name, race: p.race, battleTag: p.battle_tag })),
+    });
+  }
+
+  const replayId = insertReplay({ filename: originalname, filePath, fileSize: size, fileHash });
+
+  try {
+    const parsed = await parseReplayFile(filePath);
+
+    updateReplayParsed(replayId, {
+      gameName: parsed.metadata.gameName,
+      gameDuration: parsed.metadata.gameDuration,
+      mapName: parsed.metadata.mapName,
+      matchType: parsed.metadata.matchType,
+      matchDate: parsed.metadata.matchDate,
+      rawParsed: JSON.stringify(parsed),
+    });
+
+    insertReplayPlayers(replayId, parsed.players);
+    insertReplayChat(replayId, parsed.chat);
+    insertReplayPlayerActions(replayId, parsed.actions);
+
+    // Compute and store fingerprints
+    try {
+      const fingerprints = computeFingerprints(parsed.actions, parsed.players);
+      if (fingerprints.length > 0) insertPlayerFingerprints(replayId, fingerprints);
+      computeEmbeddingsAsync(replayId, parsed.actions);
+    } catch (fpErr) {
+      console.error(`[Fingerprint] Error for ${originalname}:`, fpErr.message);
+    }
+
+    // Invalidate caches
+    parsedPlayersCache = null;
+    galleryCache = null;
+
+    const replay = getReplay(replayId);
+    const players = getReplayPlayers(replayId);
+
+    res.json({
+      ok: true,
+      replay: {
+        id: replay.id,
+        mapName: replay.map_name,
+        gameDuration: replay.game_duration,
+        matchType: replay.match_type,
+        playerCount: players.length,
+      },
+      players: players.map(p => ({ playerName: p.player_name, race: p.race, battleTag: p.battle_tag })),
+    });
+  } catch (err) {
+    console.error(`[Upload] Parse error for ${originalname}:`, err.message);
+    updateReplayError(replayId, err.message);
+    res.status(422).json({
+      ok: false,
+      error: 'Failed to parse replay',
+      detail: err.message,
+      replayId,
+    });
+  }
 });
 
 const W3C_API = 'https://website-backend.w3champions.com/api';
