@@ -23,19 +23,19 @@
   display: grid;
   grid-template-columns: 1fr 1fr;
   gap: var(--space-3);
-  min-height: 300px;
+  min-height: 400px;
 }
 
 .cc-split-left {
   overflow-y: auto;
-  max-height: 500px;
+  max-height: 70vh;
   border-right: 1px solid var(--grey-mid);
   padding-right: var(--space-3);
 }
 
 .cc-split-right {
   overflow-y: auto;
-  max-height: 500px;
+  max-height: 70vh;
 }
 
 .cc-context-side {

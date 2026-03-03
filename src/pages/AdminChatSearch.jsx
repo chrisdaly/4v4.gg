@@ -136,29 +136,6 @@ const SearchMeta = styled.div`
   margin-bottom: var(--space-2);
 `;
 
-const LoadMoreButton = styled.button`
-  width: 100%;
-  padding: var(--space-2);
-  background: rgba(255, 255, 255, 0.04);
-  border: 1px solid rgba(160, 130, 80, 0.15);
-  border-radius: var(--radius-sm);
-  color: var(--grey-light);
-  font-family: var(--font-mono);
-  font-size: var(--text-xxs);
-  cursor: pointer;
-  transition: all 0.15s;
-
-  &:hover {
-    border-color: var(--gold);
-    color: var(--gold);
-  }
-
-  &:disabled {
-    opacity: 0.4;
-    cursor: default;
-  }
-`;
-
 // Utility functions
 function loadSearchHistory() {
   try { return JSON.parse(localStorage.getItem(SEARCH_HISTORY_KEY)) || []; }
@@ -313,16 +290,14 @@ export default function ChatSearch() {
           messages={normalizedResults}
           loading={loading}
           expandable
+          splitView
           highlight={mode === "text" ? query : ""}
           showDates
           placeholder="Filter results..."
+          onLoadMore={() => handleSearch(null, offset + 50)}
+          hasMore={results.length > 0 && results.length % 50 === 0}
+          loadingMore={loading && offset > 0}
         />
-      )}
-
-      {searched && results.length > 0 && results.length % 50 === 0 && (
-        <LoadMoreButton onClick={() => handleSearch(null, offset + 50)} disabled={loading}>
-          {loading ? "Loading..." : "Load more"}
-        </LoadMoreButton>
       )}
     </Section>
   );
