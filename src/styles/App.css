@@ -4605,8 +4605,15 @@ a.neighbor-name-sm:hover {
 .mo-race {
   width: 32px;
   height: 32px;
-  margin-bottom: 6px;
   border-radius: 4px;
+  margin-bottom: 6px;
+}
+
+.mo-flag-inline {
+  width: 22px;
+  height: 16px;
+  border-radius: 2px;
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.6);
 }
 
 .mo-name {
@@ -4708,7 +4715,7 @@ a.neighbor-name-sm:hover {
 
 /* Chart container */
 .mo-chart {
-  width: 140px;
+  width: 200px;
   height: 80px;
   position: relative;
   flex-shrink: 0;

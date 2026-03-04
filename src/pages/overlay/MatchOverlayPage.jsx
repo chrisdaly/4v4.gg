@@ -1,5 +1,6 @@
 import React, { useState, useEffect } from "react";
 import { findPlayerInOngoingMatches, detectArrangedTeams, fetchPlayerSessionData } from "../../lib/utils";
+import { getPlayerProfile } from "../../lib/api";
 import MatchOverlay from "../../components/MatchOverlay";
 
 /**
@@ -17,6 +18,7 @@ const MatchOverlayPage = () => {
   const [ongoingGame, setOngoingGame] = useState(null);
   const [atGroups, setAtGroups] = useState({});
   const [sessionData, setSessionData] = useState({});
+  const [countries, setCountries] = useState({});
 
   // Make body fully transparent for OBS browser source
   useEffect(() => {
@@ -69,7 +71,7 @@ const MatchOverlayPage = () => {
         const groups = await detectArrangedTeams(playerObjects);
         setAtGroups(groups || {});
 
-        // Fetch session data for all players (in parallel)
+        // Fetch session data and profiles for all players (in parallel)
         const sessionPromises = battleTags.map(async (battleTag) => {
           const data = await fetchPlayerSessionData(battleTag);
           return [battleTag, {
@@ -78,9 +80,17 @@ const MatchOverlayPage = () => {
             losses: data?.session?.losses || 0,
           }];
         });
-        const sessionResults = await Promise.all(sessionPromises);
-        const sessionObj = Object.fromEntries(sessionResults);
-        setSessionData(sessionObj);
+        const profilePromises = battleTags.map(async (battleTag) => {
+          const profile = await getPlayerProfile(battleTag);
+          return [battleTag, profile.country];
+        });
+
+        const [sessionResults, profileResults] = await Promise.all([
+          Promise.all(sessionPromises),
+          Promise.all(profilePromises),
+        ]);
+        setSessionData(Object.fromEntries(sessionResults));
+        setCountries(Object.fromEntries(profileResults.filter(([, c]) => c)));
       }
     } catch (error) {
       console.error("Error fetching ongoing games:", error);
@@ -104,6 +114,7 @@ const MatchOverlayPage = () => {
           matchData={ongoingGame}
           atGroups={atGroups}
           sessionData={sessionData}
+          countries={countries}
           streamerTag={getStreamerTag()}
           matchStyle={getMatchStyle()}
         />

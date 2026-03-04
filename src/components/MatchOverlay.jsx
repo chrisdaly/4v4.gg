@@ -1,31 +1,34 @@
 import React, { useState, useEffect } from "react";
 import { MmrComparison } from "./MmrComparison";
+import { CountryFlag } from "./ui";
 import { raceMapping } from "../lib/constants";
 
-const MatchOverlay = ({ matchData, atGroups = {}, sessionData = {}, mmrDuration = 8000, sessionDuration = 4000, streamerTag = "", matchStyle = "default" }) => {
-  const [showSession, setShowSession] = useState(false);
+// Phase: 0 = MMR, 1 = country flag, 2 = session form
+const PHASE_MMR = 0;
+const PHASE_FLAG = 1;
+const PHASE_SESSION = 2;
+const PHASE_COUNT = 3;
+
+const MatchOverlay = ({ matchData, atGroups = {}, sessionData = {}, countries = {}, mmrDuration = 8000, flagDuration = 4000, sessionDuration = 4000, streamerTag = "", matchStyle = "default" }) => {
+  const [phase, setPhase] = useState(PHASE_MMR);
   const [fading, setFading] = useState(false);
 
-  // Rotate between MMR (80%) and session (20%) with different durations
+  // Rotate through phases: MMR → flag → session
   useEffect(() => {
-    const hasSessionData = Object.keys(sessionData).length > 0;
-    if (!hasSessionData) return;
+    const hasExtra = Object.keys(sessionData).length > 0 || Object.keys(countries).length > 0;
+    if (!hasExtra) return;
 
-    let timeout;
-    const scheduleNext = () => {
-      const duration = showSession ? sessionDuration : mmrDuration;
-      timeout = setTimeout(() => {
-        setFading(true);
-        setTimeout(() => {
-          setShowSession(prev => !prev);
-          setFading(false);
-        }, 800); // match CSS fade duration
-      }, duration);
-    };
+    const durations = [mmrDuration, flagDuration, sessionDuration];
+    const timeout = setTimeout(() => {
+      setFading(true);
+      setTimeout(() => {
+        setPhase(prev => (prev + 1) % PHASE_COUNT);
+        setFading(false);
+      }, 800);
+    }, durations[phase]);
 
-    scheduleNext();
     return () => clearTimeout(timeout);
-  }, [showSession, sessionData, mmrDuration, sessionDuration]);
+  }, [phase, sessionData, countries, mmrDuration, flagDuration, sessionDuration]);
 
   if (!matchData?.teams || matchData.teams.length < 2) return null;
 
@@ -111,7 +114,7 @@ const MatchOverlay = ({ matchData, atGroups = {}, sessionData = {}, mmrDuration 
       return <span className="mo-mmr">—</span>;
     }
 
-    const games = session.recentGames.slice(0, 10);
+    const games = session.recentGames.slice(0, 5);
     return (
       <div className="mo-session-dots">
         {games.map((won, i) => (
@@ -124,10 +127,22 @@ const MatchOverlay = ({ matchData, atGroups = {}, sessionData = {}, mmrDuration 
     );
   };
 
+  const renderStat = (player) => {
+    const mmr = player.currentMmr || player.oldMmr || 0;
+    const country = countries[player.battleTag];
+
+    if (phase === PHASE_FLAG && country) {
+      return <CountryFlag name={country.toLowerCase()} className="mo-flag-inline" />;
+    }
+    if (phase === PHASE_SESSION) {
+      return renderSessionDots(player.battleTag);
+    }
+    return <span className="mo-mmr">{mmr || "—"}</span>;
+  };
+
   const renderPlayer = (player, index, team, isStreamerTeam) => {
     const nextPlayer = team[index + 1];
     const showConnector = nextPlayer && areATPartners(player, nextPlayer);
-    const mmr = player.currentMmr || player.oldMmr || 0;
 
     return (
       <div key={player.battleTag} className="mo-player">
@@ -136,9 +151,7 @@ const MatchOverlay = ({ matchData, atGroups = {}, sessionData = {}, mmrDuration 
           {player.name}
         </span>
         <div className={`mo-stat ${fading ? 'fading' : ''}`}>
-          {showSession ? renderSessionDots(player.battleTag) : (
-            <span className="mo-mmr">{mmr || "—"}</span>
-          )}
+          {renderStat(player)}
         </div>
         {showConnector && <div className="mo-at-line" />}
       </div>

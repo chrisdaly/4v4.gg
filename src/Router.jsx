@@ -40,8 +40,9 @@ const ReplayLab = lazy(() => import("./pages/ReplayLab"));
 // Overlay pages (lazy-loaded)
 const OverlayIndex = lazy(() => import("./pages/overlay/OverlayIndex"));
 const MatchOverlayPage = lazy(() => import("./pages/overlay/MatchOverlayPage"));
-const PlayerOverlayPage = lazy(() => import("./pages/overlay/PlayerOverlayPage"));
-const LastGameOverlayPage = lazy(() => import("./pages/overlay/LastGameOverlayPage"));
+// Future: Player and Last Game overlays (components kept in pages/overlay/)
+// const PlayerOverlayPage = lazy(() => import("./pages/overlay/PlayerOverlayPage"));
+// const LastGameOverlayPage = lazy(() => import("./pages/overlay/LastGameOverlayPage"));
 
 // Dev/demo pages (lazy-loaded)
 const StyleReference = lazy(() => import("./pages/StyleReference"));
@@ -87,12 +88,6 @@ const Router = () => (
         {/* Stream overlays - no Navbar */}
         <Route path="/overlay/match">
           <Suspense fallback={<PageLoader />}><MatchOverlayPage /></Suspense>
-        </Route>
-        <Route path="/overlay/player">
-          <Suspense fallback={<PageLoader />}><PlayerOverlayPage /></Suspense>
-        </Route>
-        <Route path="/overlay/lastgame">
-          <Suspense fallback={<PageLoader />}><LastGameOverlayPage /></Suspense>
         </Route>
         <Route exact path="/overlay">
           <Suspense fallback={<PageLoader />}><OverlayIndex /></Suspense>
