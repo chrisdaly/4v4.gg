@@ -9,7 +9,7 @@ const PHASE_FLAG = 1;
 const PHASE_SESSION = 2;
 const PHASE_COUNT = 3;
 
-const MatchOverlay = ({ matchData, atGroups = {}, sessionData = {}, countries = {}, mmrDuration = 8000, flagDuration = 4000, sessionDuration = 4000, streamerTag = "", matchStyle = "default" }) => {
+const MatchOverlay = ({ matchData, atGroups = {}, sessionData = {}, countries = {}, mmrDuration = 8000, flagDuration = 4000, sessionDuration = 4000, streamerTag = "", matchStyle = "default", layout = "horizontal" }) => {
   const [phase, setPhase] = useState(PHASE_MMR);
   const [fading, setFading] = useState(false);
 
@@ -158,6 +158,53 @@ const MatchOverlay = ({ matchData, atGroups = {}, sessionData = {}, countries = 
     );
   };
 
+  const renderVerticalPlayer = (player) => {
+    const mmr = player.currentMmr || player.oldMmr || 0;
+    return (
+      <div key={player.battleTag} className="mo-player">
+        <img src={raceMapping[player.race]} alt="" className="mo-race" />
+        <span className={`mo-name ${isAT(player.battleTag) ? "is-at" : ""}`}>
+          {player.name}
+        </span>
+        <span className="mo-mmr">{mmr || "—"}</span>
+      </div>
+    );
+  };
+
+  if (layout === "vertical") {
+    return (
+      <div className={`minimal-overlay mo-vertical match-style-${matchStyle}`}>
+        <div className="mo-players-col">
+          <div className="mo-team mo-team-1 team-blue">
+            {team1.map(p => renderVerticalPlayer(p))}
+          </div>
+          <div className="mo-vertical-center">
+            <div className="mo-vertical-chart">
+              <MmrComparison
+                data={{
+                  teamOneMmrs: team1.map(p => p.currentMmr || p.oldMmr || 0),
+                  teamTwoMmrs: team2.map(p => p.currentMmr || p.oldMmr || 0),
+                  teamOneAT: team1.map(p => getATGroupId(p.battleTag)),
+                  teamTwoAT: team2.map(p => getATGroupId(p.battleTag)),
+                }}
+                compact={false}
+                atStyle="combined"
+                showMean={false}
+                showStdDev={false}
+                hideLabels={true}
+                transposed={true}
+                fitToData={true}
+              />
+            </div>
+          </div>
+          <div className="mo-team mo-team-2 team-red">
+            {team2.map(p => renderVerticalPlayer(p))}
+          </div>
+        </div>
+      </div>
+    );
+  }
+
   return (
     <div className={`minimal-overlay match-style-${matchStyle}`}>
       {/* Single row: Team1 | Chart | Team2 */}
@@ -182,7 +229,6 @@ const MatchOverlay = ({ matchData, atGroups = {}, sessionData = {}, countries = 
               hideLabels={true}
             />
           </div>
-          <span className="mo-vs">vs</span>
         </div>
 
         <div className="mo-team mo-team-2 team-red">

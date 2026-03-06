@@ -10,7 +10,7 @@ import { colors } from "../lib/design-tokens";
 // showStdDev: show shaded region for standard deviation
 // hideLabels: hide the inline μ/σ text labels (keeps visual elements)
 // showValues: show MMR values next to each dot
-const MmrComparison = ({ data, compact = false, atStyle = "combined", pieConfig = {}, showMean = false, showStdDev = false, hideLabels = false, showValues = false, fitToData = false }) => {
+const MmrComparison = ({ data, compact = false, atStyle = "combined", pieConfig = {}, showMean = false, showStdDev = false, hideLabels = false, showValues = false, fitToData = false, transposed = false }) => {
   const { teamOneMmrs, teamTwoMmrs, teamOneAT = [], teamTwoAT = [] } = data;
   const svgRef = useRef(null);
 
@@ -76,10 +76,17 @@ const MmrComparison = ({ data, compact = false, atStyle = "combined", pieConfig 
       .domain(yDomain)
       .range([innerHeight, margin.top]);
 
-    const teamOneX = innerWidth / 3 + margin.left;
-    const teamTwoX = (2 * innerWidth) / 3 + margin.left;
+    // Transposed mode: MMR on X axis, teams on Y axis
+    const xScale = transposed
+      ? d3.scaleLinear().domain(yDomain).range([margin.left + 10, innerWidth - 10])
+      : null;
+
     const dotRadius = compact ? 4 : 5;
     const shurikenRadius = compact ? 6 : 8; // Larger for AT visibility
+    const teamOneX = innerWidth / 3 + margin.left;
+    const teamTwoX = (2 * innerWidth) / 3 + margin.left;
+    const teamOneY = transposed ? (margin.top + dotRadius + 2) : null;
+    const teamTwoY = transposed ? (height - margin.bottom - dotRadius - 2) : null;
 
     // Calculate combined circle info for AT groups (for collision detection)
     const getCombinedCircleInfo = (teamData) => {
@@ -95,10 +102,15 @@ const MmrComparison = ({ data, compact = false, atStyle = "combined", pieConfig 
       const circles = [];
       Object.values(groups).forEach(players => {
         if (players.length >= 2) {
-          const centerY = players.reduce((sum, p) => sum + yScale(p.mmr), 0) / players.length;
           const areaMultiplier = pieConfig.areaMultiplier ?? 1.6;
           const combinedRadius = dotRadius * Math.sqrt(players.length) * Math.sqrt(areaMultiplier);
-          circles.push({ centerY, radius: combinedRadius });
+          if (transposed) {
+            const centerX = players.reduce((sum, p) => sum + xScale(p.mmr), 0) / players.length;
+            circles.push({ centerX, radius: combinedRadius });
+          } else {
+            const centerY = players.reduce((sum, p) => sum + yScale(p.mmr), 0) / players.length;
+            circles.push({ centerY, radius: combinedRadius });
+          }
         }
       });
       return circles;
@@ -107,10 +119,12 @@ const MmrComparison = ({ data, compact = false, atStyle = "combined", pieConfig 
     // Beeswarm collision detection
     // Prioritizes: 1) AT groups (highest MMR first), 2) Solo players (highest MMR first)
     // Non-priority elements offset AWAY from center line (team1 goes left, team2 goes right)
-    const applyBeeswarm = (teamData, baseX, isTeamOne) => {
+    // In transposed mode: MMR → X axis, teams → Y axis, offset in Y direction
+    const applyBeeswarm = (teamData, basePos, isTeamOne) => {
       const minDist = dotRadius * 2.5; // Minimum distance between dot centers
 
-      // Direction away from center: team1 goes left (-1), team2 goes right (+1)
+      // Direction away from center: team1 goes up (-1), team2 goes down (+1) [transposed]
+      // or: team1 goes left (-1), team2 goes right (+1) [normal]
       const offsetDirection = isTeamOne ? -1 : 1;
 
       // First, position AT groups (they can collide with each other)
@@ -123,7 +137,7 @@ const MmrComparison = ({ data, compact = false, atStyle = "combined", pieConfig 
       });
 
       const areaMultiplier = pieConfig.areaMultiplier ?? 1.6;
-      const positionedATGroups = []; // { groupId, centerY, radius, x }
+      const positionedATGroups = [];
 
       // Sort AT groups by average MMR (highest first)
       const sortedATGroups = Object.entries(atGroups)
@@ -131,50 +145,55 @@ const MmrComparison = ({ data, compact = false, atStyle = "combined", pieConfig 
           groupId: parseInt(groupId),
           players,
           avgMmr: players.reduce((sum, p) => sum + p.mmr, 0) / players.length,
-          centerY: players.reduce((sum, p) => sum + yScale(p.mmr), 0) / players.length,
+          // mmrCenter: center on the MMR axis
+          mmrCenter: transposed
+            ? players.reduce((sum, p) => sum + xScale(p.mmr), 0) / players.length
+            : players.reduce((sum, p) => sum + yScale(p.mmr), 0) / players.length,
           radius: dotRadius * Math.sqrt(players.length) * Math.sqrt(areaMultiplier)
         }))
         .sort((a, b) => b.avgMmr - a.avgMmr);
 
       // Position each AT group, checking for collisions with already positioned groups
       sortedATGroups.forEach(group => {
-        let x = baseX;
+        let teamPos = basePos;
         let attempts = 0;
 
         while (attempts < 10) {
           const collision = positionedATGroups.find(pg => {
-            const yDist = Math.abs(pg.centerY - group.centerY);
-            const xDist = Math.abs(pg.x - x);
+            const mmrDist = Math.abs(pg.mmrCenter - group.mmrCenter);
+            const teamDist = Math.abs(pg.teamPos - teamPos);
             const minSeparation = pg.radius + group.radius + 4;
-            const dist = Math.sqrt(xDist ** 2 + yDist ** 2);
+            const dist = Math.sqrt(mmrDist ** 2 + teamDist ** 2);
             return dist < minSeparation;
           });
 
           if (!collision) break;
 
           attempts++;
-          x = baseX + offsetDirection * attempts * 8;
+          teamPos = basePos + offsetDirection * attempts * 8;
         }
 
-        // Clamp X to stay within bounds
-        const minX = group.radius + 2;
-        const maxX = innerWidth - group.radius - 2;
-        const clampedX = Math.max(minX, Math.min(maxX, x));
-        positionedATGroups.push({ ...group, x: clampedX });
+        // Clamp team position to stay within bounds
+        if (transposed) {
+          teamPos = Math.max(group.radius + 2, Math.min(innerHeight - group.radius - 2, teamPos));
+        } else {
+          teamPos = Math.max(group.radius + 2, Math.min(innerWidth - group.radius - 2, teamPos));
+        }
+        positionedATGroups.push({ ...group, teamPos });
       });
 
       // Build combined circles info from positioned AT groups
       const combinedCircles = positionedATGroups.map(g => ({
-        centerY: g.centerY,
+        mmrCenter: g.mmrCenter,
         radius: g.radius,
-        x: g.x,
+        teamPos: g.teamPos,
         groupId: g.groupId
       }));
 
       // Now position all players
       const positioned = [];
 
-      // Sort: AT players first (by their group's positioned X), then solos by MMR
+      // Sort: AT players first, then solos by MMR
       const sortedData = [...teamData].sort((a, b) => {
         if (a.atGroupId > 0 && b.atGroupId === 0) return -1;
         if (a.atGroupId === 0 && b.atGroupId > 0) return 1;
@@ -182,63 +201,80 @@ const MmrComparison = ({ data, compact = false, atStyle = "combined", pieConfig 
       });
 
       sortedData.forEach(d => {
-        const y = yScale(d.mmr);
+        const mmrPos = transposed ? xScale(d.mmr) : yScale(d.mmr);
 
-        // AT players use their group's positioned X
+        // AT players use their group's positioned team coordinate
         if (d.atGroupId > 0) {
           const groupInfo = positionedATGroups.find(g => g.groupId === d.atGroupId);
-          const x = groupInfo ? groupInfo.x : baseX;
-          positioned.push({ ...d, x, y });
+          const tp = groupInfo ? groupInfo.teamPos : basePos;
+          if (transposed) {
+            positioned.push({ ...d, x: mmrPos, y: tp });
+          } else {
+            positioned.push({ ...d, x: tp, y: mmrPos });
+          }
           return;
         }
 
-        // Solo players: check for collisions and offset on X-axis only
-        let x = baseX;
+        // Solo players: check for collisions and offset on team axis
+        let teamPos = basePos;
         let attempts = 0;
 
         while (attempts < 10) {
+          const px = transposed ? mmrPos : teamPos;
+          const py = transposed ? teamPos : mmrPos;
+
           // Check collision with other solo players already positioned
           const soloCollision = positioned.find(p => {
             if (p.atGroupId > 0) return false;
-            const dist = Math.sqrt((p.x - x) ** 2 + (p.y - y) ** 2);
+            const dist = Math.sqrt((p.x - px) ** 2 + (p.y - py) ** 2);
             return dist < minDist;
           });
 
-          // Check collision with combined circles (AT groups) at their positioned X
+          // Check collision with combined circles (AT groups)
           const combinedCollision = combinedCircles.find(c => {
-            const yDist = Math.abs(y - c.centerY);
-            const xDist = Math.abs(x - c.x);
-            const dist = Math.sqrt(xDist ** 2 + yDist ** 2);
+            const mmrDist = transposed ? Math.abs(mmrPos - c.mmrCenter) : Math.abs(mmrPos - c.mmrCenter);
+            const teamDist = Math.abs(teamPos - c.teamPos);
+            const dist = Math.sqrt(mmrDist ** 2 + teamDist ** 2);
             return dist < (c.radius + dotRadius + 6);
           });
 
           if (!soloCollision && !combinedCollision) break;
 
           attempts++;
-          x = baseX + offsetDirection * attempts * 8;
+          teamPos = basePos + offsetDirection * attempts * 8;
         }
 
-        positioned.push({ ...d, x, y });
+        if (transposed) {
+          positioned.push({ ...d, x: mmrPos, y: teamPos });
+        } else {
+          positioned.push({ ...d, x: teamPos, y: mmrPos });
+        }
       });
 
       // Clamp all positions to stay within SVG bounds
-      const minX = dotRadius + 2;
-      const maxX = innerWidth - dotRadius - 2;
-      positioned.forEach(p => {
-        p.x = Math.max(minX, Math.min(maxX, p.x));
-      });
+      if (transposed) {
+        const minY = dotRadius + 2;
+        const maxY = height - dotRadius - 2;
+        positioned.forEach(p => { p.y = Math.max(minY, Math.min(maxY, p.y)); });
+      } else {
+        const minX = dotRadius + 2;
+        const maxX = innerWidth - dotRadius - 2;
+        positioned.forEach(p => { p.x = Math.max(minX, Math.min(maxX, p.x)); });
+      }
 
       return positioned;
     };
 
-    const teamOnePositioned = applyBeeswarm(teamOneData, teamOneX, true);
-    const teamTwoPositioned = applyBeeswarm(teamTwoData, teamTwoX, false);
+    const teamOnePositioned = applyBeeswarm(teamOneData, transposed ? teamOneY : teamOneX, true);
+    const teamTwoPositioned = applyBeeswarm(teamTwoData, transposed ? teamTwoY : teamTwoX, false);
 
     // Draw team spread lines connecting all dots at their actual positions
     // For AT groups (combined circles), line stops at edge of circle (doesn't go through)
     const drawSpreadLine = (positionedData, teamClass) => {
-      // Sort by Y position (MMR) to draw lines top to bottom
-      const sorted = [...positionedData].sort((a, b) => a.y - b.y);
+      // Sort by MMR axis position: Y in normal mode, X in transposed mode
+      const sorted = transposed
+        ? [...positionedData].sort((a, b) => a.x - b.x)
+        : [...positionedData].sort((a, b) => a.y - b.y);
 
       const areaMultiplier = pieConfig.areaMultiplier ?? 1.6;
 
@@ -251,47 +287,48 @@ const MmrComparison = ({ data, compact = false, atStyle = "combined", pieConfig 
 
       sorted.forEach((d, i) => {
         if (d.atGroupId > 0 && atStyle === "combined") {
-          // This is an AT player
           const groupKey = d.atGroupId;
 
           if (!processedATGroups.has(groupKey)) {
-            // First time seeing this AT group - add top edge and start new segment after
             const atPlayers = sorted.filter(p => p.atGroupId === d.atGroupId);
             if (atPlayers.length >= 2) {
-              const centerY = atPlayers.reduce((sum, p) => sum + p.y, 0) / atPlayers.length;
               const combinedRadius = dotRadius * Math.sqrt(atPlayers.length) * Math.sqrt(areaMultiplier);
 
-              // Add top edge to current segment, then close it
-              currentSegment.push({ x: d.x, y: centerY - combinedRadius });
-              if (currentSegment.length > 1) {
-                segments.push(currentSegment);
+              if (transposed) {
+                const centerX = atPlayers.reduce((sum, p) => sum + p.x, 0) / atPlayers.length;
+                // Add left edge to current segment, then close it
+                currentSegment.push({ x: centerX - combinedRadius, y: d.y });
+                if (currentSegment.length > 1) segments.push(currentSegment);
+                // Start new segment from right edge
+                currentSegment = [{ x: centerX + combinedRadius, y: d.y }];
+              } else {
+                const centerY = atPlayers.reduce((sum, p) => sum + p.y, 0) / atPlayers.length;
+                currentSegment.push({ x: d.x, y: centerY - combinedRadius });
+                if (currentSegment.length > 1) segments.push(currentSegment);
+                currentSegment = [{ x: d.x, y: centerY + combinedRadius }];
               }
-
-              // Start new segment from bottom edge
-              currentSegment = [{ x: d.x, y: centerY + combinedRadius }];
               processedATGroups.add(groupKey);
             }
           }
-          // Skip other AT players in same group (already handled)
         } else {
-          // Solo player - add their position
           currentSegment.push({ x: d.x, y: d.y });
         }
       });
 
-      // Don't forget the last segment
       if (currentSegment.length > 1) {
         segments.push(currentSegment);
       }
 
-      // Draw all segments
       const line = d3.line().x((d) => d.x).y((d) => d.y);
       segments.forEach(seg => {
-        svg.append("path")
+        const path = svg.append("path")
           .datum(seg)
           .attr("class", `line ${teamClass}`)
           .attr("d", line)
           .attr("fill", "none");
+        if (transposed) {
+          path.attr("stroke-width", 2).attr("stroke-opacity", 0.7);
+        }
       });
     };
 
@@ -644,9 +681,13 @@ const MmrComparison = ({ data, compact = false, atStyle = "combined", pieConfig 
       if (players.length < 2) return;
 
       const groupSize = players.length;
-      const centerY = players.reduce((sum, p) => sum + p.y, 0) / players.length;
-      // Use the positioned X from the first player (all players in group have same X)
-      const positionedX = players[0].x;
+      // In transposed mode: center on X (MMR axis), positioned Y (team axis)
+      const centerY = transposed
+        ? players[0].y
+        : players.reduce((sum, p) => sum + p.y, 0) / players.length;
+      const positionedX = transposed
+        ? players.reduce((sum, p) => sum + p.x, 0) / players.length
+        : players[0].x;
 
       // Combined radius with optional area multiplier
       const baseRadius = dotRadius;
@@ -991,12 +1032,66 @@ const MmrComparison = ({ data, compact = false, atStyle = "combined", pieConfig 
     }
 
     // Center line
-    const middleLine = innerWidth / 2 + margin.left;
-    svg.append("line")
-      .attr("class", "line team-middle")
-      .attr("x1", middleLine).attr("y1", 0)
-      .attr("x2", middleLine).attr("y2", height);
-  }, [teamOneMmrs, teamTwoMmrs, teamOneAT, teamTwoAT, compact, atStyle, pieConfig, showMean, showStdDev, hideLabels, showValues, fitToData]);
+    if (transposed) {
+      const middleLine = innerHeight / 2 + margin.top;
+      const centerX = width / 2;
+
+      // Grey center divider line
+      svg.append("line")
+        .attr("class", "line team-middle")
+        .attr("x1", 0).attr("y1", middleLine)
+        .attr("x2", width).attr("y2", middleLine);
+
+      // MMR scale ticks at data range edges
+      const allMmrs = [...teamOneData, ...teamTwoData].map(d => d.mmr);
+      if (allMmrs.length > 0) {
+        const dataMin = Math.min(...allMmrs);
+        const dataMax = Math.max(...allMmrs);
+        const tickMinX = xScale(dataMin);
+        const tickMaxX = xScale(dataMax);
+        const tickLen = 3;
+
+        // Left tick
+        svg.append("line")
+          .attr("x1", tickMinX).attr("y1", middleLine - tickLen)
+          .attr("x2", tickMinX).attr("y2", middleLine + tickLen)
+          .attr("stroke", "#aaa").attr("stroke-width", 1).attr("opacity", 0.7);
+        svg.append("text")
+          .attr("x", tickMinX).attr("y", middleLine + tickLen + 10)
+          .attr("text-anchor", "middle").attr("font-family", "var(--font-mono)")
+          .attr("font-size", 10).attr("fill", "#aaa").attr("opacity", 0.7)
+          .text(Math.round(dataMin));
+
+        // Right tick
+        svg.append("line")
+          .attr("x1", tickMaxX).attr("y1", middleLine - tickLen)
+          .attr("x2", tickMaxX).attr("y2", middleLine + tickLen)
+          .attr("stroke", "#aaa").attr("stroke-width", 1).attr("opacity", 0.7);
+        svg.append("text")
+          .attr("x", tickMaxX).attr("y", middleLine + tickLen + 10)
+          .attr("text-anchor", "middle").attr("font-family", "var(--font-mono)")
+          .attr("font-size", 10).attr("fill", "#aaa").attr("opacity", 0.7)
+          .text(Math.round(dataMax));
+      }
+    } else {
+      const middleLine = innerWidth / 2 + margin.left;
+      svg.append("line")
+        .attr("class", "line team-middle")
+        .attr("x1", middleLine).attr("y1", 0)
+        .attr("x2", middleLine).attr("y2", height);
+
+      // "vs" label centered on the middle line
+      svg.append("text")
+        .attr("x", middleLine)
+        .attr("y", height - 4)
+        .attr("text-anchor", "middle")
+        .attr("font-family", "var(--font-display)")
+        .attr("font-size", 11)
+        .attr("fill", "#aaa")
+        .attr("letter-spacing", "0.1em")
+        .text("vs");
+    }
+  }, [teamOneMmrs, teamTwoMmrs, teamOneAT, teamTwoAT, compact, atStyle, pieConfig, showMean, showStdDev, hideLabels, showValues, fitToData, transposed]);
 
   return <svg ref={svgRef} style={{ width: "100%", height: "100%" }}></svg>;
 };

@@ -4711,6 +4711,7 @@ a.neighbor-name-sm:hover {
   flex-direction: column;
   align-items: center;
   flex-shrink: 0;
+  position: relative;
 }
 
 /* Chart container */
@@ -4736,7 +4737,8 @@ a.neighbor-name-sm:hover {
   color: var(--grey-light);
   text-transform: uppercase;
   letter-spacing: 0.1em;
-  margin-top: 2px;
+  margin-top: -2px;
+  text-shadow: 0 1px 4px rgba(0, 0, 0, 0.8), 0 0 8px rgba(0, 0, 0, 0.6);
 }
 
 /* Rotating stat display with fade */
@@ -4782,6 +4784,150 @@ a.neighbor-name-sm:hover {
 
 .mo-dot.loss {
   background: var(--red);
+}
+
+/* ===== Vertical / Sidebar Layout ===== */
+.mo-vertical {
+  width: 280px;
+  padding: 6px 6px;
+}
+
+.mo-vertical .mo-players-col {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.mo-vertical .mo-team {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  padding: 0;
+  border: none;
+}
+
+.mo-vertical .mo-team.team-blue {
+  border-left: 3px solid var(--blue);
+  border-right: none;
+  padding-left: 8px;
+  padding-right: 0;
+}
+
+.mo-vertical .mo-team.team-red {
+  border-right: 3px solid #ef4444;
+  border-left: none;
+  padding-right: 8px;
+  padding-left: 0;
+}
+
+.mo-vertical .mo-player {
+  width: auto;
+  flex-direction: row;
+  align-items: center;
+  padding: 1px 0;
+  gap: 6px;
+}
+
+.mo-vertical .mo-race {
+  width: 28px;
+  height: 28px;
+  margin-bottom: 0;
+  flex-shrink: 0;
+}
+
+.mo-vertical .mo-name {
+  flex: 1;
+  text-align: left;
+  margin-bottom: 0;
+  max-width: none;
+  font-size: var(--text-base);
+}
+
+.mo-vertical .mo-team.team-red .mo-name {
+  text-align: right;
+}
+
+.mo-vertical .mo-stat {
+  height: auto;
+  flex-shrink: 0;
+  min-width: 40px;
+  justify-content: flex-end;
+}
+
+.mo-vertical .mo-team.team-red .mo-stat {
+  justify-content: flex-start;
+}
+
+.mo-vertical .mo-team.team-red .mo-player {
+  flex-direction: row-reverse;
+}
+
+.mo-vertical .mo-mmr {
+  font-size: var(--text-sm);
+}
+
+.mo-vertical-center {
+  position: relative;
+  margin: 0;
+}
+
+.mo-vertical-chart {
+  width: 100%;
+  height: 56px;
+  position: relative;
+  overflow: visible;
+}
+
+.mo-vertical-chart svg {
+  display: block;
+  width: 100%;
+  height: 100%;
+  overflow: visible;
+}
+
+.mo-vs-bar {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  padding: 4px 0;
+}
+
+.mo-team-avg {
+  font-family: var(--font-mono);
+  font-size: var(--text-xs);
+  opacity: 0.9;
+}
+
+.mo-team-avg.team-blue {
+  color: var(--team-blue, #3b82f6);
+}
+
+.mo-team-avg.team-red {
+  color: var(--team-red, #ef4444);
+}
+
+.mo-vertical .mo-vs {
+  position: static;
+  transform: none;
+  text-align: center;
+  padding: 0;
+  border: none;
+  margin: 0;
+  text-shadow: none;
+}
+
+.mo-vertical .mo-at-line {
+  display: none;
+}
+
+.mo-vertical .mo-flag-inline {
+  width: 18px;
+  height: 13px;
+}
+
+.mo-vertical .mo-session-dots {
+  max-width: 40px;
 }
 
 /* Player cells - stacked vertical: race, name, mmr */
