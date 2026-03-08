@@ -805,11 +805,11 @@ const OverlayIndex = () => {
           <DimensionGrid>
             <div>
               <FieldLabel>Width</FieldLabel>
-              <DimCode>{layout === "vertical" ? "280" : "1200"}</DimCode>
+              <DimCode>{layout === "vertical" ? "220" : "1200"}</DimCode>
             </div>
             <div>
               <FieldLabel>Height</FieldLabel>
-              <DimCode>{layout === "vertical" ? "180" : "200"}</DimCode>
+              <DimCode>{layout === "vertical" ? "380" : "200"}</DimCode>
             </div>
           </DimensionGrid>
 
