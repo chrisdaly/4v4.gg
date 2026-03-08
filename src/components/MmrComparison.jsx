@@ -1080,16 +1080,18 @@ const MmrComparison = ({ data, compact = false, atStyle = "combined", pieConfig 
         .attr("x1", middleLine).attr("y1", 0)
         .attr("x2", middleLine).attr("y2", height);
 
-      // "vs" label centered on the middle line
-      svg.append("text")
-        .attr("x", middleLine)
-        .attr("y", height - 4)
-        .attr("text-anchor", "middle")
-        .attr("font-family", "var(--font-display)")
-        .attr("font-size", 11)
-        .attr("fill", "#aaa")
-        .attr("letter-spacing", "0.1em")
-        .text("vs");
+      // "vs" label centered on the middle line (hidden when hideLabels is true)
+      if (!hideLabels) {
+        svg.append("text")
+          .attr("x", middleLine)
+          .attr("y", height - 4)
+          .attr("text-anchor", "middle")
+          .attr("font-family", "var(--font-display)")
+          .attr("font-size", 11)
+          .attr("fill", "#aaa")
+          .attr("letter-spacing", "0.1em")
+          .text("vs");
+      }
     }
   }, [teamOneMmrs, teamTwoMmrs, teamOneAT, teamTwoAT, compact, atStyle, pieConfig, showMean, showStdDev, hideLabels, showValues, fitToData, transposed]);
 

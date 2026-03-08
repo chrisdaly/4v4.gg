@@ -4930,16 +4930,16 @@ a.neighbor-name-sm:hover {
   max-width: 40px;
 }
 
-/* ===== NEW Vertical Layout (mov-) - Compact chart + rows ===== */
+/* ===== NEW Vertical Layout (mov-) - Stacked cards ===== */
 
 .mov-container {
-  padding: 6px 8px;
+  padding: 4px;
 }
 
-/* Chart at top - compact */
+/* Chart at top */
 .mov-chart-top {
   width: 100%;
-  height: 60px;
+  height: 70px;
   margin-bottom: 4px;
 }
 
@@ -4953,82 +4953,85 @@ a.neighbor-name-sm:hover {
 /* Two-column layout */
 .mov-cols {
   display: flex;
-  gap: 12px;
+  gap: 6px;
 }
 
 .mov-col {
   flex: 1;
   display: flex;
   flex-direction: column;
-  gap: 1px;
+  gap: 8px;
+  padding-top: 4px;
+  min-width: 0;
+  overflow: hidden;
 }
 
-.mov-col-left {
-  border-left: 2px solid var(--blue);
-  padding-left: 4px;
+/* Team color bars */
+.mov-col:first-child {
+  border-top: 2px solid var(--blue);
 }
 
-.mov-col-right {
-  border-right: 2px solid var(--red);
-  padding-right: 4px;
+.mov-col:last-child {
+  border-top: 2px solid var(--red);
 }
 
-/* Player row - single line */
-.mov-row {
+/* Player card - stacked: race, name, mmr+flag */
+.mov-card {
   display: flex;
+  flex-direction: column;
   align-items: center;
-  gap: 4px;
-  padding: 2px 0;
-}
-
-.mov-row.right {
-  flex-direction: row-reverse;
+  text-align: center;
+  min-width: 0;
 }
 
 /* Race icon */
 .mov-race {
-  width: 20px;
-  height: 20px;
-  flex-shrink: 0;
+  width: 26px;
+  height: 26px;
 }
 
-/* Country flag */
-.mov-flag {
-  width: 16px;
-  height: 11px;
-  flex-shrink: 0;
-}
-
-/* Player name */
+/* Player name - truncate long names */
 .mov-name {
   font-family: var(--font-display);
-  font-size: var(--text-xs);
+  font-size: var(--text-sm);
   color: #fff;
-  flex: 1;
-  min-width: 0;
-  white-space: nowrap;
+  line-height: 1.1;
+  max-width: 100%;
   overflow: hidden;
   text-overflow: ellipsis;
-}
-
-.mov-row.left .mov-name {
-  text-align: left;
-}
-
-.mov-row.right .mov-name {
-  text-align: right;
+  white-space: nowrap;
 }
 
 .mov-name.is-at {
   color: var(--gold);
 }
 
-/* MMR value */
-.mov-mmr {
+/* Bottom row: flag + MMR */
+.mov-bottom {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 3px;
+  margin-top: 2px;
+}
+
+/* Country flag */
+.mov-flag {
+  width: 14px;
+  height: 10px;
+}
+
+/* MMR value - team colored */
+.mov-col:first-child .mov-mmr {
   font-family: var(--font-mono);
-  font-size: var(--text-xxs);
-  color: var(--grey-light);
-  flex-shrink: 0;
+  font-size: var(--text-xs);
+  color: var(--blue);
+}
+
+.mov-col:last-child .mov-mmr {
+  font-family: var(--font-mono);
+  font-size: var(--text-xs);
+  color: var(--red);
 }
 
 /* Player cells - stacked vertical: race, name, mmr */
