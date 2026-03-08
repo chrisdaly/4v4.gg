@@ -163,15 +163,17 @@ const MatchOverlay = ({ matchData, atGroups = {}, sessionData = {}, countries = 
     const team1Sorted = [...team1].sort((a, b) => (b.currentMmr || b.oldMmr || 0) - (a.currentMmr || a.oldMmr || 0));
     const team2Sorted = [...team2].sort((a, b) => (b.currentMmr || b.oldMmr || 0) - (a.currentMmr || a.oldMmr || 0));
 
-    const renderRow = (player, isRight = false) => {
+    const renderCard = (player) => {
       const mmr = player.currentMmr || player.oldMmr || 0;
       const country = countries[player.battleTag];
       return (
-        <div key={player.battleTag} className={`mov-row ${isRight ? 'right' : 'left'}`}>
+        <div key={player.battleTag} className="mov-card">
           <img src={raceMapping[player.race]} alt="" className="mov-race" />
-          {country && <CountryFlag name={country.toLowerCase()} className="mov-flag" />}
           <span className={`mov-name ${isAT(player.battleTag) ? "is-at" : ""}`}>{player.name}</span>
-          <span className="mov-mmr">{mmr}</span>
+          <div className="mov-bottom">
+            {country && <CountryFlag name={country.toLowerCase()} className="mov-flag" />}
+            <span className="mov-mmr">{mmr}</span>
+          </div>
         </div>
       );
     };
@@ -197,13 +199,13 @@ const MatchOverlay = ({ matchData, atGroups = {}, sessionData = {}, countries = 
           />
         </div>
 
-        {/* Player rows: 2 columns */}
+        {/* Player cards: 2 columns */}
         <div className="mov-cols">
-          <div className="mov-col mov-col-left">
-            {team1Sorted.map(p => renderRow(p, false))}
+          <div className="mov-col">
+            {team1Sorted.map(p => renderCard(p))}
           </div>
-          <div className="mov-col mov-col-right">
-            {team2Sorted.map(p => renderRow(p, true))}
+          <div className="mov-col">
+            {team2Sorted.map(p => renderCard(p))}
           </div>
         </div>
       </div>
