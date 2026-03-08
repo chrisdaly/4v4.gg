@@ -40,6 +40,11 @@ const MatchOverlayPage = () => {
     return params.get("style") || "default";
   };
 
+  const getLayout = () => {
+    const params = new URLSearchParams(window.location.search);
+    return params.get("layout") || "horizontal";
+  };
+
   useEffect(() => {
     loadData();
     const interval = setInterval(fetchOngoingGames, 30000);
@@ -117,6 +122,7 @@ const MatchOverlayPage = () => {
           countries={countries}
           streamerTag={getStreamerTag()}
           matchStyle={getMatchStyle()}
+          layout={getLayout()}
         />
       )}
     </div>

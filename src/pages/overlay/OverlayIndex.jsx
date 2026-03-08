@@ -367,6 +367,12 @@ const OverlayIndex = () => {
       return settings.matchStyle || "default";
     } catch { return "default"; }
   });
+  const [layout, setLayout] = useState(() => {
+    try {
+      const settings = JSON.parse(localStorage.getItem(SETTINGS_KEY) || "{}");
+      return settings.layout || "horizontal";
+    } catch { return "horizontal"; }
+  });
   const [saved, setSaved] = useState(false);
 
   // Overlay positions (percentages from edges) and scale - load from localStorage
@@ -588,8 +594,8 @@ const OverlayIndex = () => {
 
   // Save settings to localStorage when they change
   useEffect(() => {
-    localStorage.setItem(SETTINGS_KEY, JSON.stringify({ matchStyle }));
-  }, [matchStyle]);
+    localStorage.setItem(SETTINGS_KEY, JSON.stringify({ matchStyle, layout }));
+  }, [matchStyle, layout]);
 
   // Reset positions to default
   const resetPositions = () => {
@@ -793,17 +799,17 @@ const OverlayIndex = () => {
 
           <div style={{ marginBottom: "var(--space-4)" }}>
             <FieldLabel>URL</FieldLabel>
-            <UrlCode>{baseUrl}/overlay/match/{encodedTag}?style={matchStyle}</UrlCode>
+            <UrlCode>{baseUrl}/overlay/match/{encodedTag}?style={matchStyle}{layout === "vertical" ? "&layout=vertical" : ""}</UrlCode>
           </div>
 
           <DimensionGrid>
             <div>
               <FieldLabel>Width</FieldLabel>
-              <DimCode>1200</DimCode>
+              <DimCode>{layout === "vertical" ? "280" : "1200"}</DimCode>
             </div>
             <div>
               <FieldLabel>Height</FieldLabel>
-              <DimCode>200</DimCode>
+              <DimCode>{layout === "vertical" ? "180" : "200"}</DimCode>
             </div>
           </DimensionGrid>
 
@@ -832,6 +838,13 @@ const OverlayIndex = () => {
           marginBottom: 'var(--space-4)',
           alignItems: 'flex-end'
         }}>
+          <div style={{ flex: '0 0 200px' }}>
+            <Label>Layout</Label>
+            <Select value={layout} onChange={(e) => setLayout(e.target.value)}>
+              <option value="horizontal">Horizontal (Top Bar)</option>
+              <option value="vertical">Vertical (Sidebar)</option>
+            </Select>
+          </div>
           <div style={{ flex: '0 0 200px' }}>
             <Label>Match Style</Label>
             <Select value={matchStyle} onChange={(e) => setMatchStyle(e.target.value)}>
@@ -889,6 +902,7 @@ const OverlayIndex = () => {
                       countries={previewCountries}
                       streamerTag={previewStreamer}
                       matchStyle={matchStyle}
+                      layout={layout}
                     />
                   ) : (
                     <div style={{ padding: 'var(--space-4)', color: 'var(--grey-mid)', fontFamily: 'var(--font-mono)', fontSize: 'var(--text-xs)' }}>
@@ -961,7 +975,7 @@ const OverlayIndex = () => {
             <GuideStepContent>
               <GuideStepTitle>Set the dimensions</GuideStepTitle>
               <GuideStepText>
-                Set <strong>Width</strong> to <strong>1200</strong> and <strong>Height</strong> to <strong>200</strong> as shown in the overlay card above.
+                Set the <strong>Width</strong> and <strong>Height</strong> to the values shown in the overlay card above.
               </GuideStepText>
             </GuideStepContent>
           </GuideStep>

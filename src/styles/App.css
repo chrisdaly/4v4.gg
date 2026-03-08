@@ -4930,6 +4930,107 @@ a.neighbor-name-sm:hover {
   max-width: 40px;
 }
 
+/* ===== NEW Vertical Layout (mov-) - Compact chart + rows ===== */
+
+.mov-container {
+  padding: 6px 8px;
+}
+
+/* Chart at top - compact */
+.mov-chart-top {
+  width: 100%;
+  height: 60px;
+  margin-bottom: 4px;
+}
+
+.mov-chart-top svg {
+  display: block;
+  width: 100%;
+  height: 100%;
+  overflow: visible;
+}
+
+/* Two-column layout */
+.mov-cols {
+  display: flex;
+  gap: 12px;
+}
+
+.mov-col {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  gap: 1px;
+}
+
+.mov-col-left {
+  border-left: 2px solid var(--blue);
+  padding-left: 4px;
+}
+
+.mov-col-right {
+  border-right: 2px solid var(--red);
+  padding-right: 4px;
+}
+
+/* Player row - single line */
+.mov-row {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  padding: 2px 0;
+}
+
+.mov-row.right {
+  flex-direction: row-reverse;
+}
+
+/* Race icon */
+.mov-race {
+  width: 20px;
+  height: 20px;
+  flex-shrink: 0;
+}
+
+/* Country flag */
+.mov-flag {
+  width: 16px;
+  height: 11px;
+  flex-shrink: 0;
+}
+
+/* Player name */
+.mov-name {
+  font-family: var(--font-display);
+  font-size: var(--text-xs);
+  color: #fff;
+  flex: 1;
+  min-width: 0;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.mov-row.left .mov-name {
+  text-align: left;
+}
+
+.mov-row.right .mov-name {
+  text-align: right;
+}
+
+.mov-name.is-at {
+  color: var(--gold);
+}
+
+/* MMR value */
+.mov-mmr {
+  font-family: var(--font-mono);
+  font-size: var(--text-xxs);
+  color: var(--grey-light);
+  flex-shrink: 0;
+}
+
 /* Player cells - stacked vertical: race, name, mmr */
 #StreamOverlay.stream-style-minimal-bar .playerDiv {
   padding: 0 10px 4px 10px !important;

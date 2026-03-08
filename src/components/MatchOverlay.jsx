@@ -158,47 +158,52 @@ const MatchOverlay = ({ matchData, atGroups = {}, sessionData = {}, countries = 
     );
   };
 
-  const renderVerticalPlayer = (player) => {
-    const mmr = player.currentMmr || player.oldMmr || 0;
-    return (
-      <div key={player.battleTag} className="mo-player">
-        <img src={raceMapping[player.race]} alt="" className="mo-race" />
-        <span className={`mo-name ${isAT(player.battleTag) ? "is-at" : ""}`}>
-          {player.name}
-        </span>
-        <span className="mo-mmr">{mmr || "—"}</span>
-      </div>
-    );
-  };
-
   if (layout === "vertical") {
+    // Sort teams by MMR descending (highest at top)
+    const team1Sorted = [...team1].sort((a, b) => (b.currentMmr || b.oldMmr || 0) - (a.currentMmr || a.oldMmr || 0));
+    const team2Sorted = [...team2].sort((a, b) => (b.currentMmr || b.oldMmr || 0) - (a.currentMmr || a.oldMmr || 0));
+
+    const renderRow = (player, isRight = false) => {
+      const mmr = player.currentMmr || player.oldMmr || 0;
+      const country = countries[player.battleTag];
+      return (
+        <div key={player.battleTag} className={`mov-row ${isRight ? 'right' : 'left'}`}>
+          <img src={raceMapping[player.race]} alt="" className="mov-race" />
+          {country && <CountryFlag name={country.toLowerCase()} className="mov-flag" />}
+          <span className={`mov-name ${isAT(player.battleTag) ? "is-at" : ""}`}>{player.name}</span>
+          <span className="mov-mmr">{mmr}</span>
+        </div>
+      );
+    };
+
     return (
-      <div className={`minimal-overlay mo-vertical match-style-${matchStyle}`}>
-        <div className="mo-players-col">
-          <div className="mo-team mo-team-1 team-blue">
-            {team1.map(p => renderVerticalPlayer(p))}
+      <div className={`minimal-overlay mov-container match-style-${matchStyle}`}>
+        {/* Chart on top */}
+        <div className="mov-chart-top">
+          <MmrComparison
+            data={{
+              teamOneMmrs: team1.map(p => p.currentMmr || p.oldMmr || 0),
+              teamTwoMmrs: team2.map(p => p.currentMmr || p.oldMmr || 0),
+              teamOneAT: team1.map(p => getATGroupId(p.battleTag)),
+              teamTwoAT: team2.map(p => getATGroupId(p.battleTag)),
+            }}
+            compact={true}
+            atStyle="combined"
+            showMean={false}
+            showStdDev={false}
+            hideLabels={true}
+            transposed={false}
+            fitToData={true}
+          />
+        </div>
+
+        {/* Player rows: 2 columns */}
+        <div className="mov-cols">
+          <div className="mov-col mov-col-left">
+            {team1Sorted.map(p => renderRow(p, false))}
           </div>
-          <div className="mo-vertical-center">
-            <div className="mo-vertical-chart">
-              <MmrComparison
-                data={{
-                  teamOneMmrs: team1.map(p => p.currentMmr || p.oldMmr || 0),
-                  teamTwoMmrs: team2.map(p => p.currentMmr || p.oldMmr || 0),
-                  teamOneAT: team1.map(p => getATGroupId(p.battleTag)),
-                  teamTwoAT: team2.map(p => getATGroupId(p.battleTag)),
-                }}
-                compact={false}
-                atStyle="combined"
-                showMean={false}
-                showStdDev={false}
-                hideLabels={true}
-                transposed={true}
-                fitToData={true}
-              />
-            </div>
-          </div>
-          <div className="mo-team mo-team-2 team-red">
-            {team2.map(p => renderVerticalPlayer(p))}
+          <div className="mov-col mov-col-right">
+            {team2Sorted.map(p => renderRow(p, true))}
           </div>
         </div>
       </div>
