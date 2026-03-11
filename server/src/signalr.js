@@ -12,6 +12,28 @@ let connection = null;
 let currentToken = null;
 let state = 'Disconnected';
 let onlineUsers = new Map(); // battleTag → { battleTag, name, clanTag }
+let reconnectTimer = null;
+let reconnectAttempt = 0;
+
+function scheduleReconnect() {
+  if (state === 'auth_failed' || state === 'banned' || state === 'stopped') return;
+  if (reconnectTimer) return; // already scheduled
+
+  const delay = Math.min(60000 * Math.pow(2, reconnectAttempt), 600000); // 1m, 2m, 4m, 8m, 10m max
+  reconnectAttempt++;
+  console.log(`[SignalR] Scheduling reconnect attempt ${reconnectAttempt} in ${delay / 1000}s`);
+
+  reconnectTimer = setTimeout(async () => {
+    reconnectTimer = null;
+    try {
+      await connect();
+      reconnectAttempt = 0; // reset on success
+    } catch (err) {
+      console.error('[SignalR] Reconnect failed:', err.message);
+      // onclose will fire and schedule the next attempt
+    }
+  }, delay);
+}
 
 function normalizeMessage(raw, room) {
   return {
@@ -72,6 +94,9 @@ async function connect() {
     state = 'Disconnected';
     console.log('[SignalR] Disconnected', err?.message || '');
     broadcast('status', { state });
+
+    // Retry indefinitely with exponential backoff (unless auth failed or banned)
+    scheduleReconnect();
   });
 
   // StartChat — (usersOfRoom, messages, chatRoom, defaultRooms?)
@@ -177,6 +202,8 @@ async function connect() {
   try {
     await connection.start();
     state = 'Connected';
+    reconnectAttempt = 0;
+    if (reconnectTimer) { clearTimeout(reconnectTimer); reconnectTimer = null; }
     console.log('[SignalR] Connected to chat hub');
     broadcast('status', { state });
 
@@ -191,16 +218,20 @@ async function connect() {
 
 export async function updateToken(jwt) {
   currentToken = jwt;
+  if (reconnectTimer) { clearTimeout(reconnectTimer); reconnectTimer = null; }
+  reconnectAttempt = 0;
   console.log('[SignalR] Token updated, reconnecting...');
   await connect();
 }
 
 export async function stopSignalR() {
+  if (reconnectTimer) { clearTimeout(reconnectTimer); reconnectTimer = null; }
+  // Set 'stopped' before .stop() — onclose fires synchronously and checks this
+  state = 'stopped';
   if (connection) {
     try { await connection.stop(); } catch {}
     connection = null;
   }
-  state = 'Disconnected';
 }
 
 export function getStatus() {

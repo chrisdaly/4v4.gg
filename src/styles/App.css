@@ -4370,6 +4370,42 @@ a.neighbor-name-sm:hover {
   padding: 16px 20px;
   border-radius: 8px;
   display: inline-block;
+  /* Simple fade with golden glow */
+  animation: mo-fade-in 1.5s ease-out forwards;
+}
+
+.minimal-overlay.slide-out {
+  animation: mo-fade-out 1s ease-in forwards;
+}
+
+/* WC3-style fade - simple, elegant, warm glow */
+@keyframes mo-fade-in {
+  0% {
+    opacity: 0;
+    filter: drop-shadow(0 0 30px rgba(252, 219, 51, 0.6));
+  }
+  50% {
+    opacity: 0.8;
+    filter: drop-shadow(0 0 20px rgba(252, 219, 51, 0.4));
+  }
+  100% {
+    opacity: 1;
+    filter: drop-shadow(0 0 0 transparent);
+  }
+}
+
+@keyframes mo-fade-out {
+  0% {
+    opacity: 1;
+    filter: drop-shadow(0 0 0 transparent);
+  }
+  50% {
+    filter: drop-shadow(0 0 20px rgba(252, 219, 51, 0.4));
+  }
+  100% {
+    opacity: 0;
+    filter: drop-shadow(0 0 30px rgba(252, 219, 51, 0.6));
+  }
 }
 
 /* Style 1: Semi-transparent dark with gold border */
@@ -4933,13 +4969,62 @@ a.neighbor-name-sm:hover {
 /* ===== NEW Vertical Layout (mov-) - Stacked cards ===== */
 
 .mov-container {
-  padding: 4px;
+  position: relative;
+  width: 240px;
+  /* Override base minimal-overlay padding & background */
+  padding: 16px 14px 32px 40px !important;
+  /* More opaque gradient for readability on bright scenes */
+  background: radial-gradient(
+    ellipse 180% 180% at -30% 130%,
+    transparent 0%,
+    transparent 35%,
+    rgba(0, 0, 0, 0.4) 55%,
+    rgba(0, 0, 0, 0.55) 75%,
+    rgba(0, 0, 0, 0.65) 100%
+  ) !important;
+  border-radius: 0 !important;
+  /* Simple fade with golden glow */
+  animation: mov-fade-in 1.5s ease-out forwards;
 }
 
-/* Chart at top */
+.mov-container.slide-out {
+  animation: mov-fade-out 1s ease-in forwards;
+}
+
+/* Simple WC3-style fade with warm glow */
+@keyframes mov-fade-in {
+  0% {
+    opacity: 0;
+    filter: drop-shadow(0 0 30px rgba(252, 219, 51, 0.6));
+  }
+  50% {
+    opacity: 0.8;
+    filter: drop-shadow(0 0 20px rgba(252, 219, 51, 0.4));
+  }
+  100% {
+    opacity: 1;
+    filter: drop-shadow(0 0 0 transparent);
+  }
+}
+
+@keyframes mov-fade-out {
+  0% {
+    opacity: 1;
+    filter: drop-shadow(0 0 0 transparent);
+  }
+  50% {
+    filter: drop-shadow(0 0 20px rgba(252, 219, 51, 0.4));
+  }
+  100% {
+    opacity: 0;
+    filter: drop-shadow(0 0 30px rgba(252, 219, 51, 0.6));
+  }
+}
+
+/* Chart at top - taller to reduce circle stacking */
 .mov-chart-top {
   width: 100%;
-  height: 70px;
+  height: 90px;
   margin-bottom: 4px;
 }
 
@@ -4953,15 +5038,15 @@ a.neighbor-name-sm:hover {
 /* Two-column layout */
 .mov-cols {
   display: flex;
-  gap: 6px;
+  gap: 4px;
 }
 
 .mov-col {
   flex: 1;
   display: flex;
   flex-direction: column;
-  gap: 8px;
-  padding-top: 4px;
+  gap: 14px;
+  padding-top: 8px;
   min-width: 0;
   overflow: hidden;
 }
@@ -4986,33 +5071,31 @@ a.neighbor-name-sm:hover {
 
 /* Race icon */
 .mov-race {
-  width: 26px;
-  height: 26px;
+  width: 24px;
+  height: 24px;
 }
 
-/* Player name - truncate long names */
+/* Player name - gold like horizontal, truncate at ~12 chars */
 .mov-name {
   font-family: var(--font-display);
   font-size: var(--text-sm);
-  color: #fff;
+  color: var(--gold);
   line-height: 1.1;
-  max-width: 100%;
+  max-width: 12ch;
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
 }
 
-.mov-name.is-at {
-  color: var(--gold);
-}
-
-/* Bottom row: flag + MMR */
+/* Bottom row: flag/MMR/session - fixed height to prevent layout shift */
 .mov-bottom {
   display: flex;
   align-items: center;
   justify-content: center;
   gap: 3px;
   margin-top: 2px;
+  height: 16px;
+  min-height: 16px;
 }
 
 /* Country flag */
@@ -5021,17 +5104,44 @@ a.neighbor-name-sm:hover {
   height: 10px;
 }
 
-/* MMR value - team colored */
-.mov-col:first-child .mov-mmr {
+/* MMR value - white for readability */
+.mov-mmr {
   font-family: var(--font-mono);
   font-size: var(--text-xs);
-  color: var(--blue);
+  color: #fff;
 }
 
-.mov-col:last-child .mov-mmr {
-  font-family: var(--font-mono);
-  font-size: var(--text-xs);
-  color: var(--red);
+/* Fade transition for cycling stats */
+.mov-bottom.fading {
+  opacity: 0;
+  transition: opacity 0.4s ease-out;
+}
+
+.mov-bottom:not(.fading) {
+  opacity: 1;
+  transition: opacity 0.4s ease-in;
+}
+
+/* Session dots for vertical layout */
+.mov-session-dots {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 3px;
+}
+
+.mov-dot {
+  width: 6px;
+  height: 6px;
+  border-radius: 50%;
+}
+
+.mov-dot.win {
+  background: var(--green);
+}
+
+.mov-dot.loss {
+  background: var(--red);
 }
 
 /* Player cells - stacked vertical: race, name, mmr */

@@ -40,6 +40,7 @@ const ReplayLab = lazy(() => import("./pages/ReplayLab"));
 // Overlay pages (lazy-loaded)
 const OverlayIndex = lazy(() => import("./pages/overlay/OverlayIndex"));
 const MatchOverlayPage = lazy(() => import("./pages/overlay/MatchOverlayPage"));
+const OverlayGuide = lazy(() => import("./pages/overlay/OverlayGuide"));
 // Future: Player and Last Game overlays (components kept in pages/overlay/)
 // const PlayerOverlayPage = lazy(() => import("./pages/overlay/PlayerOverlayPage"));
 // const LastGameOverlayPage = lazy(() => import("./pages/overlay/LastGameOverlayPage"));
@@ -85,12 +86,9 @@ const Router = () => (
     <ThemeProvider>
       <Preloader />
       <Switch>
-        {/* Stream overlays - no Navbar */}
+        {/* Stream overlays - no Navbar (actual OBS sources) */}
         <Route path="/overlay/match">
           <Suspense fallback={<PageLoader />}><MatchOverlayPage /></Suspense>
-        </Route>
-        <Route exact path="/overlay">
-          <Suspense fallback={<PageLoader />}><OverlayIndex /></Suspense>
         </Route>
         <Route path="/stream">
           <Suspense fallback={<PageLoader />}><PlayerStream /></Suspense>
@@ -132,6 +130,10 @@ const Router = () => (
 
                 <Route path="/replay-lab" component={ReplayLab} />
                 <Route path="/replay" component={Replay} />
+
+                {/* Overlay setup pages (with navbar) */}
+                <Route exact path="/overlay" component={OverlayIndex} />
+                <Route exact path="/overlay/guide" component={OverlayGuide} />
 
                 {/* 404 catch-all */}
                 <Route>

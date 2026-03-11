@@ -9,7 +9,7 @@ const PHASE_FLAG = 1;
 const PHASE_SESSION = 2;
 const PHASE_COUNT = 3;
 
-const MatchOverlay = ({ matchData, atGroups = {}, sessionData = {}, countries = {}, mmrDuration = 8000, flagDuration = 4000, sessionDuration = 4000, streamerTag = "", matchStyle = "default", layout = "horizontal" }) => {
+const MatchOverlay = ({ matchData, atGroups = {}, sessionData = {}, countries = {}, mmrDuration = 8000, flagDuration = 4000, sessionDuration = 4000, streamerTag = "", matchStyle = "default", layout = "horizontal", slideOut = false }) => {
   const [phase, setPhase] = useState(PHASE_MMR);
   const [fading, setFading] = useState(false);
 
@@ -163,23 +163,45 @@ const MatchOverlay = ({ matchData, atGroups = {}, sessionData = {}, countries = 
     const team1Sorted = [...team1].sort((a, b) => (b.currentMmr || b.oldMmr || 0) - (a.currentMmr || a.oldMmr || 0));
     const team2Sorted = [...team2].sort((a, b) => (b.currentMmr || b.oldMmr || 0) - (a.currentMmr || a.oldMmr || 0));
 
-    const renderCard = (player) => {
+    // Render the cycling stat (MMR, flag, or session) for vertical layout
+    const renderVerticalStat = (player) => {
       const mmr = player.currentMmr || player.oldMmr || 0;
       const country = countries[player.battleTag];
+
+      if (phase === PHASE_FLAG && country) {
+        return <CountryFlag name={country.toLowerCase()} className="mov-flag" />;
+      }
+      if (phase === PHASE_SESSION) {
+        const session = sessionData[player.battleTag];
+        if (!session?.recentGames || session.recentGames.length === 0) {
+          return <span className="mov-mmr">—</span>;
+        }
+        const games = session.recentGames.slice(0, 5);
+        return (
+          <div className="mov-session-dots">
+            {games.map((won, i) => (
+              <span key={i} className={`mov-dot ${won ? 'win' : 'loss'}`} />
+            ))}
+          </div>
+        );
+      }
+      return <span className="mov-mmr">{mmr}</span>;
+    };
+
+    const renderCard = (player) => {
       return (
         <div key={player.battleTag} className="mov-card">
           <img src={raceMapping[player.race]} alt="" className="mov-race" />
-          <span className={`mov-name ${isAT(player.battleTag) ? "is-at" : ""}`}>{player.name}</span>
-          <div className="mov-bottom">
-            {country && <CountryFlag name={country.toLowerCase()} className="mov-flag" />}
-            <span className="mov-mmr">{mmr}</span>
+          <span className="mov-name">{player.name}</span>
+          <div className={`mov-bottom ${fading ? 'fading' : ''}`}>
+            {renderVerticalStat(player)}
           </div>
         </div>
       );
     };
 
     return (
-      <div className={`minimal-overlay mov-container match-style-${matchStyle}`}>
+      <div className={`minimal-overlay mov-container match-style-${matchStyle}${slideOut ? ' slide-out' : ''}`}>
         {/* Chart on top */}
         <div className="mov-chart-top">
           <MmrComparison
@@ -213,7 +235,7 @@ const MatchOverlay = ({ matchData, atGroups = {}, sessionData = {}, countries = 
   }
 
   return (
-    <div className={`minimal-overlay match-style-${matchStyle}`}>
+    <div className={`minimal-overlay match-style-${matchStyle}${slideOut ? ' slide-out' : ''}`}>
       {/* Single row: Team1 | Chart | Team2 */}
       <div className="mo-players-row">
         <div className="mo-team mo-team-1 team-blue">
