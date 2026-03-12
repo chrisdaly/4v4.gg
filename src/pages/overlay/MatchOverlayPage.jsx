@@ -147,15 +147,16 @@ const MatchOverlayPage = () => {
       return;
     }
 
-    // Preview mode - show demo initially but still poll for live games
+    // Preview mode - show demo data for OBS positioning, no polling
     if (isPreview()) {
       setOngoingGame(DEMO_MATCH_DATA);
       setAtGroups(DEMO_AT_GROUPS);
       setCountries(DEMO_COUNTRIES);
       setIsLoaded(true);
+      return; // Don't poll - preview is for static OBS positioning
     }
 
-    // Normal/Preview mode - poll for live game
+    // Normal mode - poll for live game
     loadData();
     const interval = setInterval(fetchOngoingGames, 30000);
     return () => clearInterval(interval);

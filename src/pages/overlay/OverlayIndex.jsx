@@ -976,7 +976,17 @@ const OverlayIndex = () => {
 
   const baseUrl = window.location.origin;
   const encodedTag = encodeURIComponent(battleTag || "YourTag#1234");
-  const overlayUrl = `${baseUrl}/overlay/match/${encodedTag}?style=${matchStyle}${layout === "vertical" ? "&layout=vertical" : ""}${previewMode ? "&preview=true" : ""}`;
+
+  // Build preview params: use matchId if a real game is selected, otherwise fall back to demo
+  const getPreviewParams = () => {
+    if (!previewMode) return "";
+    if (selectedGame && selectedGame !== "demo") {
+      return `&matchId=${selectedGame}`;
+    }
+    return "&preview=true";
+  };
+
+  const overlayUrl = `${baseUrl}/overlay/match/${encodedTag}?style=${matchStyle}${layout === "vertical" ? "&layout=vertical" : ""}${getPreviewParams()}`;
 
   const styleOptions = [
     { value: "default", label: "Default" },
@@ -1204,7 +1214,7 @@ const OverlayIndex = () => {
               />
               <CheckboxLabel>
                 <CheckboxTitle $active={previewMode}>Preview Mode</CheckboxTitle>
-                <CheckboxDesc>Shows demo data in OBS for positioning</CheckboxDesc>
+                <CheckboxDesc>Shows selected game in OBS for positioning</CheckboxDesc>
               </CheckboxLabel>
             </CheckboxRow>
           </Panel>
