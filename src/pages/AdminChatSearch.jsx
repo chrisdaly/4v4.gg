@@ -138,12 +138,35 @@ const SearchMeta = styled.div`
 
 // Utility functions
 function loadSearchHistory() {
-  try { return JSON.parse(localStorage.getItem(SEARCH_HISTORY_KEY)) || []; }
-  catch { return []; }
+  try {
+    const raw = localStorage.getItem(SEARCH_HISTORY_KEY);
+    // Safety: if stored data is suspiciously large (>10KB), clear it
+    if (raw && raw.length > 10000) {
+      localStorage.removeItem(SEARCH_HISTORY_KEY);
+      return [];
+    }
+    return JSON.parse(raw) || [];
+  } catch {
+    localStorage.removeItem(SEARCH_HISTORY_KEY);
+    return [];
+  }
 }
 
 function saveSearchHistory(history) {
-  localStorage.setItem(SEARCH_HISTORY_KEY, JSON.stringify(history.slice(0, MAX_HISTORY)));
+  const data = history.slice(0, MAX_HISTORY);
+  try {
+    localStorage.setItem(SEARCH_HISTORY_KEY, JSON.stringify(data));
+  } catch (e) {
+    // QuotaExceededError — clear this key and retry with minimal history
+    if (e.name === "QuotaExceededError") {
+      try {
+        localStorage.removeItem(SEARCH_HISTORY_KEY);
+        localStorage.setItem(SEARCH_HISTORY_KEY, JSON.stringify(data.slice(0, 5)));
+      } catch {
+        // Storage completely full — just skip saving
+      }
+    }
+  }
 }
 
 const ModeToggle = styled.button`
