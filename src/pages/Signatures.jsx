@@ -1,7 +1,8 @@
 import React, { useState, useEffect, useCallback, useId, useRef, useMemo, Suspense } from "react";
 import styled from "styled-components";
+import { Link } from "react-router-dom";
 import { PageLayout } from "../components/PageLayout";
-import { PageHero } from "../components/ui";
+import { PageHero, Button } from "../components/ui";
 import PeonLoader from "../components/PeonLoader";
 import CompareView from "./signatures/CompareView";
 import { VIZ_REGISTRY } from "./signatures/vizRegistry";
@@ -15,6 +16,15 @@ const TEST_PLAYERS = [
   { tag: "Boyzinho#11456", label: "Boyzinho", race: "Orc" },
   { tag: "XIIINostra#2552", label: "XIIINostra", race: "Orc" },
 ];
+
+// Race colors for mini-glyphs
+const RACE_BADGE_COLORS = {
+  Human: "#3b82f6",
+  Orc: "#ef4444",
+  "Night Elf": "#a855f7",
+  Undead: "#22c55e",
+  Random: "#888",
+};
 
 // ── Color palette ──────────────────────────────────────
 const GOLD = "#fcdb33";
@@ -1609,6 +1619,554 @@ const NeuralNote = styled.div`
   }
 `;
 
+// ── Player Gallery Styles ──────────────────────────────
+
+const GalleryControls = styled.div`
+  display: flex;
+  gap: var(--space-4);
+  margin-bottom: var(--space-6);
+  flex-wrap: wrap;
+  align-items: center;
+`;
+
+const GallerySearch = styled.input`
+  font-family: var(--font-mono);
+  font-size: var(--text-xs);
+  background: var(--surface-1);
+  border: 1px solid var(--grey-mid);
+  border-radius: var(--radius-md);
+  color: var(--white);
+  padding: 10px 16px;
+  width: 280px;
+  outline: none;
+  transition: var(--transition);
+
+  &:focus {
+    border-color: var(--gold);
+    background: var(--surface-2);
+  }
+  &::placeholder {
+    color: var(--grey-mid);
+  }
+`;
+
+const RaceFilter = styled.div`
+  display: flex;
+  gap: 4px;
+`;
+
+const RaceButton = styled.button`
+  background: ${p => p.$active ? "rgba(252, 219, 51, 0.15)" : "transparent"};
+  border: 1px solid ${p => p.$active ? "var(--gold)" : "var(--grey-mid)"};
+  border-radius: var(--radius-sm);
+  color: ${p => p.$active ? "var(--gold)" : "var(--grey-light)"};
+  padding: 6px 12px;
+  font-family: var(--font-mono);
+  font-size: var(--text-xxs);
+  cursor: pointer;
+  transition: all 0.15s;
+
+  &:hover {
+    border-color: var(--gold);
+    color: var(--white);
+  }
+`;
+
+const SortSelect = styled.select`
+  font-family: var(--font-mono);
+  font-size: var(--text-xxs);
+  background: var(--surface-1);
+  border: 1px solid var(--grey-mid);
+  border-radius: var(--radius-sm);
+  color: var(--grey-light);
+  padding: 6px 10px;
+  cursor: pointer;
+
+  &:focus {
+    outline: none;
+    border-color: var(--gold);
+  }
+`;
+
+const GalleryGrid = styled.div`
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(200px, 1fr));
+  gap: var(--space-4);
+`;
+
+const PlayerCard = styled(Link)`
+  display: flex;
+  flex-direction: column;
+  border: 1px solid var(--grey-mid);
+  border-radius: var(--radius-md);
+  background: rgba(0, 0, 0, 0.3);
+  padding: var(--space-4);
+  text-decoration: none;
+  transition: all 0.15s;
+
+  &:hover {
+    border-color: var(--gold);
+    background: rgba(252, 219, 51, 0.03);
+    transform: translateY(-2px);
+  }
+`;
+
+const PlayerCardHeader = styled.div`
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin-bottom: 12px;
+`;
+
+const RaceDot = styled.span`
+  width: 10px;
+  height: 10px;
+  border-radius: 50%;
+  background: ${p => p.$color || "#888"};
+  flex-shrink: 0;
+`;
+
+const PlayerName = styled.span`
+  font-family: var(--font-display);
+  color: var(--white);
+  font-size: var(--text-base);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+`;
+
+const PlayerMeta = styled.div`
+  font-family: var(--font-mono);
+  font-size: var(--text-xxs);
+  color: var(--grey-light);
+`;
+
+const MiniGlyphWrap = styled.div`
+  height: 80px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  margin-bottom: 8px;
+`;
+
+const PlayerStats = styled.div`
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 8px;
+  margin-top: auto;
+`;
+
+const StatCell = styled.div`
+  text-align: center;
+
+  .value {
+    font-family: var(--font-mono);
+    font-size: var(--text-sm);
+    color: var(--gold);
+    font-weight: bold;
+  }
+  .label {
+    font-family: var(--font-mono);
+    font-size: 9px;
+    color: var(--grey-mid);
+    text-transform: uppercase;
+    letter-spacing: 0.05em;
+  }
+`;
+
+const GalleryEmpty = styled.div`
+  text-align: center;
+  padding: var(--space-8);
+  color: var(--grey-light);
+  font-family: var(--font-mono);
+  font-size: var(--text-sm);
+`;
+
+const GalleryCount = styled.div`
+  font-family: var(--font-mono);
+  font-size: var(--text-xxs);
+  color: var(--grey-mid);
+  margin-left: auto;
+`;
+
+// ── Upload Section Styles ──────────────────────────────
+
+const UploadArea = styled.div`
+  border: 2px dashed var(--grey-mid);
+  border-radius: var(--radius-md);
+  padding: var(--space-8);
+  text-align: center;
+  transition: all 0.2s;
+  cursor: pointer;
+
+  &:hover, &.dragover {
+    border-color: var(--gold);
+    background: rgba(252, 219, 51, 0.03);
+  }
+
+  input[type="file"] {
+    display: none;
+  }
+`;
+
+const UploadIcon = styled.div`
+  font-size: 48px;
+  margin-bottom: var(--space-4);
+  opacity: 0.5;
+`;
+
+const UploadText = styled.div`
+  font-family: var(--font-mono);
+  font-size: var(--text-sm);
+  color: var(--grey-light);
+  margin-bottom: var(--space-2);
+`;
+
+const UploadHint = styled.div`
+  font-family: var(--font-mono);
+  font-size: var(--text-xxs);
+  color: var(--grey-mid);
+`;
+
+const UploadStatus = styled.div`
+  margin-top: var(--space-4);
+  padding: var(--space-4);
+  border-radius: var(--radius-md);
+  font-family: var(--font-mono);
+  font-size: var(--text-xs);
+
+  &.success {
+    background: rgba(74, 222, 128, 0.1);
+    border: 1px solid var(--green);
+    color: var(--green);
+  }
+  &.error {
+    background: rgba(248, 113, 113, 0.1);
+    border: 1px solid var(--red);
+    color: var(--red);
+  }
+  &.uploading {
+    background: rgba(252, 219, 51, 0.1);
+    border: 1px solid var(--gold);
+    color: var(--gold);
+  }
+`;
+
+const UploadResult = styled.div`
+  margin-top: var(--space-4);
+  padding: var(--space-4);
+  border: 1px solid var(--grey-mid);
+  border-radius: var(--radius-md);
+  background: rgba(0, 0, 0, 0.3);
+
+  h4 {
+    font-family: var(--font-display);
+    color: var(--gold);
+    margin: 0 0 var(--space-2);
+  }
+
+  .players {
+    display: flex;
+    flex-wrap: wrap;
+    gap: var(--space-2);
+  }
+`;
+
+const UploadPlayerChip = styled.div`
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  padding: 4px 10px;
+  background: rgba(0, 0, 0, 0.3);
+  border: 1px solid var(--grey-mid);
+  border-radius: var(--radius-full);
+  font-family: var(--font-mono);
+  font-size: var(--text-xxs);
+  color: var(--white);
+`;
+
+// ── Mini Glyph Component ───────────────────────────────
+
+function MiniGlyph({ glyph }) {
+  const W = 80, H = 80;
+  const cx = W / 2, cy = H / 2;
+  const r = 30;
+
+  if (!glyph?.hotkey) return null;
+
+  const hotkey = glyph.hotkey || [];
+  const maxHk = Math.max(...hotkey, 0.01);
+
+  // Draw a simple radial bar chart for hotkey usage
+  return (
+    <svg viewBox={`0 0 ${W} ${H}`} width="100%" height="100%">
+      {hotkey.slice(0, 10).map((v, i) => {
+        const angle = (i / 10) * Math.PI * 2 - Math.PI / 2;
+        const len = 8 + (v / maxHk) * 20;
+        const x1 = cx + Math.cos(angle) * 12;
+        const y1 = cy + Math.sin(angle) * 12;
+        const x2 = cx + Math.cos(angle) * (12 + len);
+        const y2 = cy + Math.sin(angle) * (12 + len);
+        const opacity = 0.3 + (v / maxHk) * 0.6;
+        return (
+          <line
+            key={i}
+            x1={x1} y1={y1} x2={x2} y2={y2}
+            stroke={GOLD}
+            strokeWidth={3}
+            strokeLinecap="round"
+            opacity={opacity}
+          />
+        );
+      })}
+      <text
+        x={cx} y={cy + 2}
+        textAnchor="middle"
+        dominantBaseline="central"
+        fill={GOLD}
+        fontSize="11"
+        fontWeight="bold"
+        fontFamily="var(--font-mono)"
+      >
+        {Math.round(glyph.apm * 300)}
+      </text>
+    </svg>
+  );
+}
+
+// ── Player Gallery Component ───────────────────────────
+
+function PlayerGallery({ players, loading }) {
+  const [search, setSearch] = useState("");
+  const [raceFilter, setRaceFilter] = useState(null);
+  const [sortBy, setSortBy] = useState("replays");
+
+  const filtered = useMemo(() => {
+    let result = [...players];
+
+    // Filter by search
+    if (search.trim()) {
+      const q = search.toLowerCase();
+      result = result.filter(p =>
+        p.battleTag.toLowerCase().includes(q)
+      );
+    }
+
+    // Filter by race
+    if (raceFilter) {
+      result = result.filter(p => p.race === raceFilter);
+    }
+
+    // Sort
+    switch (sortBy) {
+      case "replays":
+        result.sort((a, b) => b.replayCount - a.replayCount);
+        break;
+      case "apm":
+        result.sort((a, b) => (b.metrics?.meanApm || 0) - (a.metrics?.meanApm || 0));
+        break;
+      case "groups":
+        result.sort((a, b) => (b.metrics?.activeGroups || 0) - (a.metrics?.activeGroups || 0));
+        break;
+      case "name":
+        result.sort((a, b) => a.battleTag.localeCompare(b.battleTag));
+        break;
+    }
+
+    return result;
+  }, [players, search, raceFilter, sortBy]);
+
+  if (loading) {
+    return <PeonLoader />;
+  }
+
+  return (
+    <>
+      <GalleryControls>
+        <GallerySearch
+          value={search}
+          onChange={e => setSearch(e.target.value)}
+          placeholder="Search players..."
+        />
+        <RaceFilter>
+          <RaceButton $active={!raceFilter} onClick={() => setRaceFilter(null)}>All</RaceButton>
+          <RaceButton $active={raceFilter === "Human"} onClick={() => setRaceFilter("Human")}>HU</RaceButton>
+          <RaceButton $active={raceFilter === "Orc"} onClick={() => setRaceFilter("Orc")}>ORC</RaceButton>
+          <RaceButton $active={raceFilter === "Night Elf"} onClick={() => setRaceFilter("Night Elf")}>NE</RaceButton>
+          <RaceButton $active={raceFilter === "Undead"} onClick={() => setRaceFilter("Undead")}>UD</RaceButton>
+        </RaceFilter>
+        <SortSelect value={sortBy} onChange={e => setSortBy(e.target.value)}>
+          <option value="replays">Most Replays</option>
+          <option value="apm">Highest APM</option>
+          <option value="groups">Most Groups</option>
+          <option value="name">Name A-Z</option>
+        </SortSelect>
+        <GalleryCount>{filtered.length} players</GalleryCount>
+      </GalleryControls>
+
+      {filtered.length === 0 ? (
+        <GalleryEmpty>
+          {players.length === 0
+            ? "No player signatures yet. Upload a replay to get started!"
+            : "No players match your search."}
+        </GalleryEmpty>
+      ) : (
+        <GalleryGrid>
+          {filtered.slice(0, 60).map(p => (
+            <PlayerCard key={p.battleTag} to={`/player?battleTag=${encodeURIComponent(p.battleTag)}`}>
+              <PlayerCardHeader>
+                <RaceDot $color={RACE_BADGE_COLORS[p.race]} />
+                <PlayerName>{p.battleTag.split("#")[0]}</PlayerName>
+              </PlayerCardHeader>
+              <MiniGlyphWrap>
+                <MiniGlyph glyph={p.glyph} />
+              </MiniGlyphWrap>
+              <PlayerMeta>{p.race} · {p.replayCount} replays</PlayerMeta>
+              <PlayerStats>
+                <StatCell>
+                  <div className="value">{p.metrics?.meanApm || "?"}</div>
+                  <div className="label">APM</div>
+                </StatCell>
+                <StatCell>
+                  <div className="value">{p.metrics?.activeGroups || "?"}</div>
+                  <div className="label">Groups</div>
+                </StatCell>
+                <StatCell>
+                  <div className="value">{p.metrics?.selectPct || "?"}%</div>
+                  <div className="label">Hotkey</div>
+                </StatCell>
+              </PlayerStats>
+            </PlayerCard>
+          ))}
+        </GalleryGrid>
+      )}
+
+      {filtered.length > 60 && (
+        <NeuralNote style={{ marginTop: "var(--space-4)", textAlign: "center" }}>
+          Showing 60 of {filtered.length} players. Use search to find specific players.
+        </NeuralNote>
+      )}
+    </>
+  );
+}
+
+// ── Upload Section Component ───────────────────────────
+
+function UploadSection({ onUploadComplete }) {
+  const [status, setStatus] = useState(null); // 'uploading' | 'success' | 'error'
+  const [message, setMessage] = useState("");
+  const [result, setResult] = useState(null);
+  const [dragOver, setDragOver] = useState(false);
+  const inputRef = useRef(null);
+
+  const handleFile = async (file) => {
+    if (!file.name.toLowerCase().endsWith(".w3g")) {
+      setStatus("error");
+      setMessage("Only .w3g replay files are accepted");
+      return;
+    }
+
+    setStatus("uploading");
+    setMessage(`Uploading ${file.name}...`);
+    setResult(null);
+
+    const formData = new FormData();
+    formData.append("replay", file);
+
+    try {
+      const res = await fetch(`${RELAY_URL}/api/fingerprints/upload`, {
+        method: "POST",
+        body: formData,
+      });
+
+      const data = await res.json();
+
+      if (!res.ok) {
+        throw new Error(data.error || data.detail || "Upload failed");
+      }
+
+      setStatus("success");
+      setMessage(data.duplicate
+        ? "This replay was already uploaded!"
+        : "Replay processed successfully!");
+      setResult(data);
+
+      if (onUploadComplete) {
+        onUploadComplete(data);
+      }
+    } catch (err) {
+      setStatus("error");
+      setMessage(err.message || "Upload failed");
+    }
+  };
+
+  const handleDrop = (e) => {
+    e.preventDefault();
+    setDragOver(false);
+    const file = e.dataTransfer?.files?.[0];
+    if (file) handleFile(file);
+  };
+
+  const handleChange = (e) => {
+    const file = e.target.files?.[0];
+    if (file) handleFile(file);
+  };
+
+  return (
+    <>
+      <UploadArea
+        className={dragOver ? "dragover" : ""}
+        onDragOver={e => { e.preventDefault(); setDragOver(true); }}
+        onDragLeave={() => setDragOver(false)}
+        onDrop={handleDrop}
+        onClick={() => inputRef.current?.click()}
+      >
+        <input
+          ref={inputRef}
+          type="file"
+          accept=".w3g"
+          onChange={handleChange}
+        />
+        <UploadIcon>📁</UploadIcon>
+        <UploadText>Drop a .w3g replay file here or click to upload</UploadText>
+        <UploadHint>
+          Replays are parsed to extract player fingerprints based on APM, hotkey usage, action patterns, and timing
+        </UploadHint>
+      </UploadArea>
+
+      {status && (
+        <UploadStatus className={status}>
+          {status === "uploading" && "⏳ "}
+          {status === "success" && "✓ "}
+          {status === "error" && "✗ "}
+          {message}
+        </UploadStatus>
+      )}
+
+      {result && (
+        <UploadResult>
+          <h4>
+            {result.replay?.mapName || "Unknown Map"}
+            {result.replay?.gameDuration && (
+              <span style={{ color: "var(--grey-light)", fontWeight: "normal", marginLeft: 8 }}>
+                {Math.floor(result.replay.gameDuration / 60)}:{String(result.replay.gameDuration % 60).padStart(2, "0")}
+              </span>
+            )}
+          </h4>
+          <div className="players">
+            {result.players?.map((p, i) => (
+              <UploadPlayerChip key={i}>
+                <RaceDot $color={RACE_BADGE_COLORS[p.race]} />
+                {p.playerName}
+              </UploadPlayerChip>
+            ))}
+          </div>
+        </UploadResult>
+      )}
+    </>
+  );
+}
+
 const ErrorMsg = styled.div`
   font-family: var(--font-mono);
   color: var(--red);
@@ -1660,9 +2218,9 @@ const VizCount = styled.span`
 
 const sigHeader = (
   <PageHero
-    eyebrow="Fingerprint Lab"
+    eyebrow="Playstyle Analysis"
     title="Player Signatures"
-    lead="Generative visualizations from replay fingerprints. Each style encodes the same 48-dimensional player vector into a different visual form."
+    lead="Every player has a unique fingerprint based on their APM, hotkey usage, and action patterns. Upload replays to build the database and explore how players compare."
     lg
   />
 );
@@ -1675,7 +2233,38 @@ export default function Signatures() {
   const [errors, setErrors] = useState({});
   const [embeddingMap, setEmbeddingMap] = useState(null);
   const [suspects, setSuspects] = useState(null);
-  const [mode, setMode] = useState("gallery"); // "gallery" | "compare"
+  const [mode, setMode] = useState("players"); // "players" | "upload" | "gallery" | "compare"
+
+  // Gallery data (all players)
+  const [galleryPlayers, setGalleryPlayers] = useState([]);
+  const [galleryLoading, setGalleryLoading] = useState(true);
+
+  // Fetch gallery data (all players with fingerprints)
+  useEffect(() => {
+    fetch(`${RELAY_URL}/api/fingerprints/gallery`)
+      .then(r => r.ok ? r.json() : null)
+      .then(data => {
+        if (data?.players) {
+          setGalleryPlayers(data.players);
+        }
+        setGalleryLoading(false);
+      })
+      .catch(() => setGalleryLoading(false));
+  }, []);
+
+  // Refresh gallery after upload
+  const handleUploadComplete = useCallback(() => {
+    setGalleryLoading(true);
+    fetch(`${RELAY_URL}/api/fingerprints/gallery`)
+      .then(r => r.ok ? r.json() : null)
+      .then(data => {
+        if (data?.players) {
+          setGalleryPlayers(data.players);
+        }
+        setGalleryLoading(false);
+      })
+      .catch(() => setGalleryLoading(false));
+  }, []);
 
   useEffect(() => {
     async function fetchAll() {
@@ -1725,16 +2314,41 @@ export default function Signatures() {
 
         {/* ── Mode Toggle ── */}
         <ModeToggle>
+          <ModeButton $active={mode === "players"} onClick={() => setMode("players")}>
+            Players
+          </ModeButton>
+          <ModeButton $active={mode === "upload"} onClick={() => setMode("upload")}>
+            Upload
+          </ModeButton>
           <ModeButton $active={mode === "gallery"} onClick={() => setMode("gallery")}>
-            Gallery
+            Visualizations
           </ModeButton>
           <ModeButton $active={mode === "compare"} onClick={() => setMode("compare")}>
             Compare
           </ModeButton>
-          <VizCount>{VIZ_REGISTRY.length + 5} vizzes</VizCount>
+          <VizCount>{galleryPlayers.length} players · {VIZ_REGISTRY.length + 5} vizzes</VizCount>
         </ModeToggle>
 
-        {mode === "compare" ? (
+        {mode === "players" ? (
+          /* ── Players Mode (searchable gallery of all players) ── */
+          <Section>
+            <SectionTitle>All Players</SectionTitle>
+            <NeuralNote style={{ marginBottom: 16 }}>
+              Browse all players with fingerprint data. Click a player card to view their full profile and signature details.
+            </NeuralNote>
+            <PlayerGallery players={galleryPlayers} loading={galleryLoading} />
+          </Section>
+        ) : mode === "upload" ? (
+          /* ── Upload Mode ── */
+          <Section>
+            <SectionTitle>Upload Replay</SectionTitle>
+            <NeuralNote style={{ marginBottom: 16 }}>
+              Upload a Warcraft III replay file (.w3g) to extract player fingerprints.
+              Each player's actions are analyzed to build a unique playstyle signature.
+            </NeuralNote>
+            <UploadSection onUploadComplete={handleUploadComplete} />
+          </Section>
+        ) : mode === "compare" ? (
           /* ── Compare Mode ── */
           <Suspense fallback={<PeonLoader />}>
             <CompareView players={players} testPlayers={TEST_PLAYERS} />

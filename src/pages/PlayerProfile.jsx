@@ -14,6 +14,7 @@ import { gateway } from "../lib/params";
 import { GameRow } from "../components/game/index";
 import ActivityGraph from "../components/ActivityGraph";
 import OngoingGame from "../components/OngoingGame";
+import SignatureCard from "../components/SignatureCard";
 import { raceMapping, LEAGUES } from "../lib/constants";
 import { parseDigestSections, splitQuotes } from "../lib/digestUtils";
 
@@ -117,6 +118,8 @@ const PlayerProfile = () => {
       currentPage: 0,
       playerClips: [],
       playerMentions: [],
+      signatureProfile: null,
+      signatureLoading: true,
     }
   );
 
@@ -127,6 +130,7 @@ const PlayerProfile = () => {
     allAllies, allWorstAllies, allNemesis, statsSampleSize,
     selectedSeason, availableSeasons, currentPage,
     playerClips, playerMentions,
+    signatureProfile, signatureLoading,
   } = state;
 
   const prevBattleTagRef = useRef(battleTag);
@@ -301,6 +305,26 @@ const PlayerProfile = () => {
       }
     };
     fetchPlayerMedia();
+  }, [battleTag]);
+
+  // Fetch player signature/fingerprint data
+  useEffect(() => {
+    const fetchSignature = async () => {
+      updateState({ signatureLoading: true });
+      try {
+        const res = await fetch(`${RELAY_URL}/api/fingerprints/profile/${encodeURIComponent(battleTag)}`);
+        if (res.ok) {
+          const data = await res.json();
+          updateState({ signatureProfile: data, signatureLoading: false });
+        } else {
+          updateState({ signatureProfile: null, signatureLoading: false });
+        }
+      } catch (e) {
+        console.error("Failed to fetch signature:", e);
+        updateState({ signatureProfile: null, signatureLoading: false });
+      }
+    };
+    fetchSignature();
   }, [battleTag]);
 
   const seasonParam = selectedSeason > 0 ? `&season=${selectedSeason}` : '';
@@ -977,6 +1001,13 @@ const PlayerProfile = () => {
                 </div>
               </div>
             )}
+
+            {/* Playstyle Signature */}
+            <SignatureCard
+              profile={signatureProfile}
+              battleTag={battleTag}
+              loading={signatureLoading}
+            />
 
             {/* Session Summary Card */}
             {sessionGames.length > 0 && (() => {
