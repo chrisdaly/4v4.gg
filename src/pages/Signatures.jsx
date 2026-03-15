@@ -2,11 +2,12 @@ import React, { useState, useEffect, useCallback, useId, useRef, useMemo, Suspen
 import styled from "styled-components";
 import { Link } from "react-router-dom";
 import { PageLayout } from "../components/PageLayout";
-import { PageHero, Button } from "../components/ui";
+import { PageHero, Button, CountryFlag } from "../components/ui";
 import PeonLoader from "../components/PeonLoader";
 import CompareView from "./signatures/CompareView";
 import { VIZ_REGISTRY } from "./signatures/vizRegistry";
 import TransitionGlyph from "../components/replay-lab/TransitionGlyph";
+import { getPlayerProfile } from "../lib/api";
 
 const RELAY_URL =
   import.meta.env.VITE_CHAT_RELAY_URL || "https://4v4gg-chat-relay.fly.dev";
@@ -1558,6 +1559,75 @@ const SortSelect = styled.select`
   }
 `;
 
+const CountryDropdownWrap = styled.div`
+  position: relative;
+`;
+
+const CountryDropdownBtn = styled.button`
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  font-family: var(--font-mono);
+  font-size: var(--text-xxs);
+  background: ${p => p.$active ? "rgba(252, 219, 51, 0.1)" : "var(--surface-1)"};
+  border: 1px solid ${p => p.$active ? "var(--gold)" : "var(--grey-mid)"};
+  border-radius: var(--radius-sm);
+  color: ${p => p.$active ? "var(--gold)" : "var(--grey-light)"};
+  padding: 6px 10px;
+  cursor: pointer;
+  min-width: 130px;
+  transition: all 0.15s;
+
+  &:hover {
+    border-color: var(--gold);
+    color: var(--white);
+  }
+
+  .chevron {
+    margin-left: auto;
+    font-size: 10px;
+    transition: transform 0.15s;
+    &.open {
+      transform: rotate(180deg);
+    }
+  }
+`;
+
+const CountryDropdownList = styled.div`
+  position: absolute;
+  top: 100%;
+  left: 0;
+  margin-top: 4px;
+  min-width: 160px;
+  max-height: 280px;
+  overflow-y: auto;
+  background: rgba(10, 10, 10, 0.95);
+  border: 1px solid var(--grey-mid);
+  border-radius: var(--radius-sm);
+  z-index: 50;
+`;
+
+const CountryDropdownItem = styled.button`
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  width: 100%;
+  padding: 8px 12px;
+  font-family: var(--font-mono);
+  font-size: var(--text-xxs);
+  background: ${p => p.$active ? "rgba(252, 219, 51, 0.12)" : "transparent"};
+  border: none;
+  color: ${p => p.$active ? "var(--gold)" : "var(--grey-light)"};
+  cursor: pointer;
+  text-align: left;
+  transition: background 0.1s;
+
+  &:hover {
+    background: rgba(252, 219, 51, 0.08);
+    color: var(--white);
+  }
+`;
+
 const GalleryGrid = styled.div`
   display: grid;
   grid-template-columns: repeat(auto-fill, minmax(280px, 1fr));
@@ -1610,6 +1680,16 @@ const PlayerMmr = styled.span`
   font-size: var(--text-xs);
   color: #fff;
   margin-left: auto;
+  display: flex;
+  align-items: center;
+  gap: 4px;
+
+  .label {
+    font-size: 10px;
+    color: var(--grey-mid);
+    text-transform: uppercase;
+    letter-spacing: 0.05em;
+  }
 `;
 
 const PlayerMeta = styled.div`
@@ -1791,8 +1871,71 @@ const SEGMENTS = [
 function PlayerGallery({ players, loading }) {
   const [search, setSearch] = useState("");
   const [raceFilter, setRaceFilter] = useState(null);
+  const [countryFilter, setCountryFilter] = useState(null);
   const [segmentFilter, setSegmentFilter] = useState(null);
   const [sortBy, setSortBy] = useState("mmr");
+  const [profiles, setProfiles] = useState({});
+  const [countryDropdownOpen, setCountryDropdownOpen] = useState(false);
+  const countryDropdownRef = useRef(null);
+
+  // Close country dropdown on outside click
+  useEffect(() => {
+    if (!countryDropdownOpen) return;
+    const handler = (e) => {
+      if (countryDropdownRef.current && !countryDropdownRef.current.contains(e.target)) {
+        setCountryDropdownOpen(false);
+      }
+    };
+    document.addEventListener("mousedown", handler);
+    return () => document.removeEventListener("mousedown", handler);
+  }, [countryDropdownOpen]);
+
+  // Fetch profiles for visible players to get country data
+  useEffect(() => {
+    const fetchProfiles = async () => {
+      // Fetch for first 100 players initially
+      const toFetch = players.slice(0, 100).filter(p => !profiles[p.battleTag]);
+      for (const p of toFetch) {
+        try {
+          const profile = await getPlayerProfile(p.battleTag);
+          if (profile) {
+            setProfiles(prev => ({ ...prev, [p.battleTag]: profile }));
+          }
+        } catch {}
+      }
+    };
+    if (players.length > 0) {
+      fetchProfiles();
+    }
+  }, [players]);
+
+  // Fetch profiles for filtered results that we don't have yet
+  useEffect(() => {
+    const fetchFilteredProfiles = async () => {
+      const visible = filtered.slice(0, 60);
+      const toFetch = visible.filter(p => !profiles[p.battleTag]);
+      for (const p of toFetch) {
+        try {
+          const profile = await getPlayerProfile(p.battleTag);
+          if (profile) {
+            setProfiles(prev => ({ ...prev, [p.battleTag]: profile }));
+          }
+        } catch {}
+      }
+    };
+    if (filtered.length > 0) {
+      fetchFilteredProfiles();
+    }
+  }, [filtered]);
+
+  // Get unique countries from fetched profiles
+  const countries = useMemo(() => {
+    const countrySet = new Set();
+    Object.values(profiles).forEach(p => {
+      if (p?.country) countrySet.add(p.country);
+    });
+    return Array.from(countrySet).sort();
+  }, [profiles]);
 
   // Compute segment counts
   const segmentCounts = useMemo(() => {
@@ -1819,6 +1962,11 @@ function PlayerGallery({ players, loading }) {
       result = result.filter(p => p.race === raceFilter);
     }
 
+    // Filter by country
+    if (countryFilter) {
+      result = result.filter(p => profiles[p.battleTag]?.country === countryFilter);
+    }
+
     // Filter by segment
     if (segmentFilter) {
       const seg = SEGMENTS.find(s => s.id === segmentFilter);
@@ -1841,7 +1989,7 @@ function PlayerGallery({ players, loading }) {
     }
 
     return result;
-  }, [players, search, raceFilter, segmentFilter, sortBy]);
+  }, [players, search, raceFilter, countryFilter, segmentFilter, sortBy, profiles]);
 
   if (loading) {
     return <PeonLoader />;
@@ -1867,6 +2015,44 @@ function PlayerGallery({ players, loading }) {
           <option value="apm">Highest APM</option>
           <option value="name">Name A-Z</option>
         </SortSelect>
+        {countries.length > 0 && (
+          <CountryDropdownWrap ref={countryDropdownRef}>
+            <CountryDropdownBtn
+              $active={!!countryFilter}
+              onClick={() => setCountryDropdownOpen(v => !v)}
+            >
+              {countryFilter ? (
+                <>
+                  <CountryFlag name={countryFilter.toLowerCase()} style={{ width: 16, height: 12 }} />
+                  <span>{countryFilter}</span>
+                </>
+              ) : (
+                <span>All Countries</span>
+              )}
+              <span className={`chevron ${countryDropdownOpen ? "open" : ""}`}>▾</span>
+            </CountryDropdownBtn>
+            {countryDropdownOpen && (
+              <CountryDropdownList>
+                <CountryDropdownItem
+                  $active={!countryFilter}
+                  onClick={() => { setCountryFilter(null); setCountryDropdownOpen(false); }}
+                >
+                  All Countries
+                </CountryDropdownItem>
+                {countries.map(c => (
+                  <CountryDropdownItem
+                    key={c}
+                    $active={countryFilter === c}
+                    onClick={() => { setCountryFilter(c); setCountryDropdownOpen(false); }}
+                  >
+                    <CountryFlag name={c.toLowerCase()} style={{ width: 16, height: 12 }} />
+                    <span>{c}</span>
+                  </CountryDropdownItem>
+                ))}
+              </CountryDropdownList>
+            )}
+          </CountryDropdownWrap>
+        )}
         <GalleryCount>{filtered.length} players</GalleryCount>
       </GalleryControls>
 
@@ -1897,8 +2083,11 @@ function PlayerGallery({ players, loading }) {
             <PlayerCard key={p.battleTag} to={`/player/${encodeURIComponent(p.battleTag)}?tab=playstyle`}>
               <PlayerCardHeader>
                 <RaceDot $color={RACE_BADGE_COLORS[p.race]} />
+                {profiles[p.battleTag]?.country && (
+                  <CountryFlag name={profiles[p.battleTag].country.toLowerCase()} style={{ width: 16, height: 12 }} />
+                )}
                 <PlayerName>{p.battleTag.split("#")[0]}</PlayerName>
-                {p.mmr > 0 && <PlayerMmr>{p.mmr}</PlayerMmr>}
+                {p.mmr > 0 && <PlayerMmr>{p.mmr} <span className="label">MMR</span></PlayerMmr>}
               </PlayerCardHeader>
               <MiniGlyphWrap>
                 <TransitionGlyph
