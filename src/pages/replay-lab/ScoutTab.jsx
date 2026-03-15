@@ -1,12 +1,11 @@
 import React, { useState, useEffect, useCallback, useRef } from "react";
-import { useHistory, useLocation } from "react-router-dom";
+import { useHistory, useLocation, Link } from "react-router-dom";
 import styled from "styled-components";
 import { Input, CountryFlag } from "../../components/ui";
 import PeonLoader from "../../components/PeonLoader";
 import TransitionGlyph from "../../components/replay-lab/TransitionGlyph";
 import PlaystyleReport from "../../components/replay-lab/PlaystyleReport";
 import PersonaSplit from "../../components/replay-lab/PersonaSplit";
-import { DropZone, DropLabel, DropIcon } from "./shared-styles";
 import { raceIcons } from "../../lib/constants";
 import { getPlayerProfile } from "../../lib/api";
 
@@ -71,12 +70,6 @@ export default function ScoutTab({ initialPlayer = null, initialProfileData = nu
   const [importStatus, setImportStatus] = useState(null); // null | 'importing' | 'done' | 'error'
   const [importResult, setImportResult] = useState(null);
 
-  // Upload state
-  const [uploadStatus, setUploadStatus] = useState(null); // null | 'uploading' | 'done' | 'error'
-  const [uploadResult, setUploadResult] = useState(null);
-  const [dragActive, setDragActive] = useState(false);
-  const fileRef = useRef(null);
-
   // Close dropdown on outside click (same pattern as Navbar)
   useEffect(() => {
     if (!showDropdown) return;
@@ -111,8 +104,8 @@ export default function ScoutTab({ initialPlayer = null, initialProfileData = nu
   );
 
   const selectPlayer = useCallback(
-    async (battleTag) => {
-      if (battleTag === selectedTag) return;
+    async (battleTag, force = false) => {
+      if (!force && battleTag === selectedTag) return;
       setSelectedTag(battleTag);
       setProfileData(null);
       setPersonaData(null);
@@ -121,8 +114,6 @@ export default function ScoutTab({ initialPlayer = null, initialProfileData = nu
       setReplayProfileData(null);
       setImportStatus(null);
       setImportResult(null);
-      setUploadStatus(null);
-      setUploadResult(null);
       replayCache.current = new Map();
       setProfileLoading(true);
       setSearchQuery("");
@@ -165,7 +156,8 @@ export default function ScoutTab({ initialPlayer = null, initialProfileData = nu
           })
           .catch(() => {});
       } else {
-        selectPlayer(initialPlayer);
+        // Force fetch even if selectedTag matches (initial mount case)
+        selectPlayer(initialPlayer, true);
       }
     }
   }, [initialPlayer, initialProfileData]); // eslint-disable-line react-hooks/exhaustive-deps
@@ -264,52 +256,6 @@ export default function ScoutTab({ initialPlayer = null, initialProfileData = nu
     }
   }, [selectedTag, importStatus, selectPlayer]);
 
-  const handleUpload = useCallback(async (file) => {
-    if (!file || uploadStatus === 'uploading') return;
-    setUploadStatus('uploading');
-    setUploadResult(null);
-    try {
-      const form = new FormData();
-      form.append('replay', file);
-      const res = await fetch(`${RELAY_URL}/api/fingerprints/upload`, {
-        method: 'POST',
-        body: form,
-      });
-      const data = await res.json();
-      if (!res.ok) {
-        setUploadStatus('error');
-        setUploadResult(data.error || data.detail || 'Upload failed');
-        return;
-      }
-      setUploadResult(data);
-      setUploadStatus('done');
-      // If a player is selected and they're in this replay, refresh their profile
-      if (selectedTag && data.players) {
-        const match = data.players.find(p => p.battleTag === selectedTag);
-        if (match) {
-          setSelectedTag(null);
-          setTimeout(() => selectPlayer(selectedTag), 300);
-        }
-      }
-    } catch (err) {
-      setUploadStatus('error');
-      setUploadResult(err.message);
-    }
-  }, [uploadStatus, selectedTag, selectPlayer]);
-
-  const handleFileDrop = useCallback((e) => {
-    e.preventDefault();
-    setDragActive(false);
-    const file = e.dataTransfer?.files?.[0];
-    if (file) handleUpload(file);
-  }, [handleUpload]);
-
-  const handleFileSelect = useCallback((e) => {
-    const file = e.target.files?.[0];
-    if (file) handleUpload(file);
-    e.target.value = '';
-  }, [handleUpload]);
-
   const dismiss = useCallback(() => {
     setSelectedTag(null);
     setProfileData(null);
@@ -320,8 +266,6 @@ export default function ScoutTab({ initialPlayer = null, initialProfileData = nu
     setReplayProfileData(null);
     setImportStatus(null);
     setImportResult(null);
-    setUploadStatus(null);
-    setUploadResult(null);
     replayCache.current = new Map();
     pushPlayerParam(null);
   }, [pushPlayerParam]);
@@ -607,6 +551,11 @@ export default function ScoutTab({ initialPlayer = null, initialProfileData = nu
                     </ArtCard>
                     <PlaystyleReport profileData={activeData} />
                   </ProfileGrid>
+                  {embedded && (
+                    <SeeOthersLink to="/signatures">
+                      Browse other signatures
+                    </SeeOthersLink>
+                  )}
                   {!embedded && !selectedReplayId &&
                     (personaData?.split ? (
                       <PersonaSplit personaData={personaData} />
@@ -647,10 +596,10 @@ export default function ScoutTab({ initialPlayer = null, initialProfileData = nu
                       }}
                     >
                       <ReplayAll>
-                        All ({replayList.length} games)
+                        All{replayList.length > 10 ? ` (showing 10 of ${replayList.length})` : ` (${replayList.length} games)`}
                       </ReplayAll>
                     </ReplayRow>
-                    {replayList.map((r) => {
+                    {replayList.slice(0, 10).map((r) => {
                       const mapClean = cleanMapName(r.mapName);
                       const stats = getCachedStats(r.replayId);
                       // Show actual race with random badge if they queued random
@@ -738,67 +687,11 @@ export default function ScoutTab({ initialPlayer = null, initialProfileData = nu
               ) : (
                 <>
                   <span>No data yet for {queryName}</span>
-                  <ImportBtn onClick={handleImport}>
-                    Import replays
-                  </ImportBtn>
+                  <UploadBtn to="/upload">
+                    Upload a replay
+                  </UploadBtn>
                 </>
               )}
-
-              {/* Upload drop zone — always visible as fallback */}
-              <UploadSection>
-                {uploadStatus === 'uploading' ? (
-                  <PeonLoader size="sm" />
-                ) : uploadStatus === 'done' && uploadResult ? (
-                  <UploadResultBox>
-                    {uploadResult.duplicate ? (
-                      <span>Replay already imported.</span>
-                    ) : (
-                      <span>Replay processed!</span>
-                    )}
-                    {uploadResult.players && uploadResult.players.length > 0 && (
-                      <UploadPlayerList>
-                        {uploadResult.players.map((p, i) => (
-                          <UploadPlayerBtn
-                            key={i}
-                            onClick={() => { if (p.battleTag) selectPlayer(p.battleTag); }}
-                            $clickable={!!p.battleTag}
-                          >
-                            {p.playerName}{p.race ? ` (${p.race})` : ''}
-                          </UploadPlayerBtn>
-                        ))}
-                      </UploadPlayerList>
-                    )}
-                  </UploadResultBox>
-                ) : uploadStatus === 'error' ? (
-                  <UploadResultBox>
-                    <span style={{ color: 'var(--red)' }}>
-                      Upload failed: {typeof uploadResult === 'string' ? uploadResult : 'Unknown error'}
-                    </span>
-                  </UploadResultBox>
-                ) : null}
-
-                {uploadStatus !== 'uploading' && (
-                  <CompactDropZone
-                    $active={dragActive}
-                    onDrop={handleFileDrop}
-                    onDragOver={(e) => { e.preventDefault(); setDragActive(true); }}
-                    onDragLeave={() => setDragActive(false)}
-                    onClick={() => fileRef.current?.click()}
-                  >
-                    <DropIcon size={18} $active={dragActive} />
-                    <DropLabel $active={dragActive} style={{ marginTop: 'var(--space-1)' }}>
-                      {dragActive ? 'Drop .w3g file here' : 'or drop a .w3g file'}
-                    </DropLabel>
-                    <input
-                      ref={fileRef}
-                      type="file"
-                      accept=".w3g"
-                      style={{ display: 'none' }}
-                      onChange={handleFileSelect}
-                    />
-                  </CompactDropZone>
-                )}
-              </UploadSection>
             </NoData>
           )}
         </ProfilePanel>
@@ -1108,45 +1001,39 @@ const ImportBtn = styled.button`
   }
 `;
 
-const UploadSection = styled.div`
-  margin-top: var(--space-4);
-  padding-top: var(--space-4);
-  border-top: 1px solid rgba(255, 255, 255, 0.06);
-`;
-
-const CompactDropZone = styled(DropZone)`
-  padding: var(--space-4) var(--space-4);
-`;
-
-const UploadResultBox = styled.div`
-  font-family: var(--font-mono);
-  font-size: var(--text-xxs);
-  color: var(--grey-light);
-  margin-bottom: var(--space-3);
-`;
-
-const UploadPlayerList = styled.div`
-  display: flex;
-  flex-wrap: wrap;
-  gap: var(--space-2);
-  margin-top: var(--space-2);
-  justify-content: center;
-`;
-
-const UploadPlayerBtn = styled.button`
+const UploadBtn = styled(Link)`
+  display: block;
+  margin: var(--space-4) auto 0;
+  padding: var(--space-2) var(--space-6);
   font: var(--text-xxs) var(--font-mono);
-  color: ${(p) => (p.$clickable ? "var(--gold)" : "var(--grey-light)")};
-  background: rgba(255, 255, 255, 0.04);
-  border: var(--border-thin) solid ${(p) => (p.$clickable ? "rgba(252, 219, 51, 0.3)" : "var(--grey-mid)")};
-  border-radius: var(--radius-sm);
-  padding: 3px 10px;
-  cursor: ${(p) => (p.$clickable ? "pointer" : "default")};
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+  color: var(--gold);
+  background: transparent;
+  border: var(--border-thin) solid var(--gold);
+  border-radius: var(--radius-md);
+  text-decoration: none;
   transition: all 0.2s ease;
 
-  ${(p) =>
-    p.$clickable &&
-    `&:hover {
-      background: var(--gold-tint);
-      border-color: var(--gold);
-    }`}
+  &:hover {
+    background: var(--gold);
+    color: #000;
+  }
+`;
+
+const SeeOthersLink = styled(Link)`
+  display: block;
+  margin: var(--space-6) auto 0;
+  padding: var(--space-2) var(--space-6);
+  font: var(--text-xxs) var(--font-mono);
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+  color: var(--grey-light);
+  text-decoration: none;
+  text-align: center;
+  transition: color 0.2s ease;
+
+  &:hover {
+    color: var(--gold);
+  }
 `;

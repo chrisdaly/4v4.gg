@@ -1,5 +1,5 @@
 import React, { Suspense, lazy, useEffect } from "react";
-import { BrowserRouter, Route, Switch, Link } from "react-router-dom";
+import { BrowserRouter, Route, Switch, Link, Redirect } from "react-router-dom";
 import ErrorBoundary from "./components/ErrorBoundary";
 import Navbar from "./components/Navbar";
 import PeonLoader from "./components/PeonLoader";
@@ -36,6 +36,7 @@ const BlogPost = lazy(() => import("./pages/BlogPost"));
 const Clips = lazy(pageImports.clips);
 const Replay = lazy(() => import("./pages/Replay"));
 const ReplayLab = lazy(() => import("./pages/ReplayLab"));
+const Upload = lazy(() => import("./pages/Upload"));
 
 // Overlay pages (lazy-loaded)
 const OverlayIndex = lazy(() => import("./pages/overlay/OverlayIndex"));
@@ -107,7 +108,7 @@ const Router = () => (
                 <Route path="/observatory" component={Observatory} />
                 <Route path="/news" component={News} />
                 <Route path="/live" component={OngoingGames} />
-                <Route path="/ongoing" component={OngoingGames} />
+                <Redirect from="/ongoing" to="/live" />
                 <Route path="/finished" component={RecentlyFinished} />
                 <Route path="/ladder" component={Ladder} />
                 <Route path="/stats" component={Stats} />
@@ -129,6 +130,7 @@ const Router = () => (
                 <Route path="/icon-picker" component={IconPicker} />
 
                 <Route path="/replay-lab" component={ReplayLab} />
+                <Route path="/upload" component={Upload} />
                 <Route path="/replay" component={Replay} />
 
                 {/* Overlay setup pages (with navbar) */}

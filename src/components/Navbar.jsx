@@ -19,9 +19,9 @@ const Navbar = () => {
   const mobileRef = useRef(null);
   const { adminKey, adminViewActive, toggleAdminView, isKeyValid } = useAdmin();
 
-  const isActive = (path) => {
-    if (path === "/live") {
-      return location.pathname === "/live" || location.pathname === "/ongoing";
+  const isActive = (path, matchPaths) => {
+    if (matchPaths) {
+      return matchPaths.some((p) => location.pathname.startsWith(p));
     }
     return location.pathname.startsWith(path);
   };
@@ -97,24 +97,51 @@ const Navbar = () => {
     setShowSearch(false);
   };
 
+  const [showMore, setShowMore] = useState(false);
+  const moreRef = useRef(null);
+
+  // Close More dropdown on outside click
+  useEffect(() => {
+    if (!showMore) return;
+    const handler = (e) => {
+      if (moreRef.current && !moreRef.current.contains(e.target)) {
+        setShowMore(false);
+      }
+    };
+    document.addEventListener("mousedown", handler);
+    return () => document.removeEventListener("mousedown", handler);
+  }, [showMore]);
+
+  // Close More dropdown on route change
+  useEffect(() => {
+    setShowMore(false);
+  }, [location.pathname]);
+
   const prefetch = {
     ongoing: () => getOngoingMatches(),
     finished: () => getFinishedMatches(),
     ladder: () => { getSeasons(); getLadder(0); },
   };
 
-  const navLinks = [
-    { to: "/news", label: "News" },
-    { to: "/clips", label: "Clips" },
-    { to: "/live", label: "Live", prefetch: prefetch.ongoing },
-    { to: "/finished", label: "Finished", prefetch: prefetch.finished },
+  const primaryLinks = [
+    { to: "/live", label: "Games", prefetch: prefetch.ongoing, matchPaths: ["/live", "/ongoing", "/finished"] },
     { to: "/ladder", label: "Ladder", prefetch: prefetch.ladder },
-    { to: "/stats", label: "Stats" },
+    { to: "/news", label: "News" },
     { to: "/chat", label: "Chat" },
+    { to: "/upload", label: "Upload" },
+  ];
+
+  const moreLinks = [
+    { to: "/stats", label: "Stats" },
+    { to: "/signatures", label: "Signatures" },
+    { to: "/observatory", label: "Observatory" },
+    { to: "/clips", label: "Clips" },
     { to: "/blog", label: "Blog" },
     { to: "/overlay", label: "Overlay" },
     { to: "/themes", label: "Themes" },
   ];
+
+  const isMoreActive = moreLinks.some((link) => isActive(link.to));
 
   return (
     <nav className="navbar" ref={mobileRef}>
@@ -123,16 +150,38 @@ const Navbar = () => {
           4v4.GG
         </Link>
         <div className="navbar-links">
-          {navLinks.map((link) => (
+          {primaryLinks.map((link) => (
             <Link
               key={link.to}
               to={link.to}
-              className={`navbar-link ${isActive(link.to) ? "active" : ""}`}
+              className={`navbar-link ${isActive(link.to, link.matchPaths) ? "active" : ""}`}
               onMouseEnter={link.prefetch}
             >
               {link.label}
             </Link>
           ))}
+          <div className="navbar-more" ref={moreRef}>
+            <button
+              className={`navbar-more-btn ${isMoreActive ? "active" : ""}`}
+              onClick={() => setShowMore((v) => !v)}
+            >
+              More <span className={`navbar-more-chevron ${showMore ? "open" : ""}`}>&#9662;</span>
+            </button>
+            {showMore && (
+              <div className="navbar-more-dropdown">
+                {moreLinks.map((link) => (
+                  <Link
+                    key={link.to}
+                    to={link.to}
+                    className={`navbar-more-link ${isActive(link.to) ? "active" : ""}`}
+                    onClick={() => setShowMore(false)}
+                  >
+                    {link.label}
+                  </Link>
+                ))}
+              </div>
+            )}
+          </div>
           <div className="navbar-search" ref={searchRef}>
             <Input
               className="navbar-search-input"
@@ -232,11 +281,11 @@ const Navbar = () => {
       </div>
       {mobileOpen && (
         <div className="navbar-mobile-menu">
-          {navLinks.map((link) => (
+          {[...primaryLinks, ...moreLinks].map((link) => (
             <Link
               key={link.to}
               to={link.to}
-              className={`navbar-mobile-link ${isActive(link.to) ? "active" : ""}`}
+              className={`navbar-mobile-link ${isActive(link.to, link.matchPaths) ? "active" : ""}`}
               onClick={() => setMobileOpen(false)}
             >
               {link.label}

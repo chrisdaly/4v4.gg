@@ -7,6 +7,7 @@ import { join } from 'path';
 import config from '../config.js';
 import {
   getPlayerFingerprints,
+  getPlayerFingerprintsByName,
   getPlayerFingerprintsFiltered,
   getAllAveragedFingerprintsWithEmbeddings,
   getFingerprintCount,
@@ -19,6 +20,7 @@ import {
   countFingerprintsWithoutEmbeddings,
   updateFingerprintEmbedding,
   getPlayerActionData,
+  getPlayerActionDataByName,
   getPlayerActionDataForReplay,
   getPlayerActionDataByReplayIds,
   deleteReplayFingerprints,
@@ -492,9 +494,19 @@ router.get('/explore/similar/:battleTag', (req, res) => {
 router.get('/profile/:battleTag', (req, res) => {
   const { battleTag } = req.params;
   const minDuration = parseInt(req.query.minDuration) || 0;
-  const rows = minDuration > 0
+
+  // Try battle_tag first, then fall back to player_name (for uploaded replays without full battleTag)
+  let rows = minDuration > 0
     ? getPlayerFingerprintsFiltered(battleTag, { minDuration })
     : getPlayerFingerprints(battleTag);
+
+  let lookupByName = false;
+  const playerName = battleTag.split('#')[0];
+
+  if (rows.length === 0 && playerName) {
+    rows = getPlayerFingerprintsByName(playerName);
+    lookupByName = true;
+  }
 
   if (rows.length === 0) {
     return res.status(404).json({ error: 'No fingerprints found', battleTag });
@@ -507,7 +519,9 @@ router.get('/profile/:battleTag', (req, res) => {
   const confidence = computeConfidence(fingerprints);
 
   // Build action profile from raw action sequences (cap at 50 most recent to avoid blocking)
-  const allActionRows = getPlayerActionData(battleTag);
+  const allActionRows = lookupByName
+    ? getPlayerActionDataByName(playerName)
+    : getPlayerActionData(battleTag);
   const actionRows = allActionRows.length > 10 ? allActionRows.slice(-10) : allActionRows;
   const { transitionPairs, groupUsage, groupCompositions, actionCounts } = computeActionProfile(actionRows);
 
@@ -528,7 +542,13 @@ router.get('/profile/:battleTag', (req, res) => {
 // GET /api/fingerprints/profile/:battleTag/replays — Lightweight replay list (public)
 router.get('/profile/:battleTag/replays', (req, res) => {
   const { battleTag } = req.params;
-  const rows = getPlayerFingerprints(battleTag);
+  let rows = getPlayerFingerprints(battleTag);
+
+  // Fallback: lookup by player_name if battle_tag lookup fails
+  const playerName = battleTag.split('#')[0];
+  if (rows.length === 0 && playerName) {
+    rows = getPlayerFingerprintsByName(playerName);
+  }
 
   if (rows.length === 0) {
     return res.status(404).json({ error: 'No fingerprints found', battleTag });
@@ -551,14 +571,26 @@ router.get('/profile/:battleTag/replays/:replayId', (req, res) => {
   const { battleTag, replayId } = req.params;
   const rid = parseInt(replayId);
 
-  const rows = getPlayerFingerprints(battleTag);
+  let rows = getPlayerFingerprints(battleTag);
+  let lookupByName = false;
+  const playerName = battleTag.split('#')[0];
+
+  // Fallback: lookup by player_name if battle_tag lookup fails
+  if (rows.length === 0 && playerName) {
+    rows = getPlayerFingerprintsByName(playerName);
+    lookupByName = true;
+  }
+
   const row = rows.find(r => r.replay_id === rid);
   if (!row) {
     return res.status(404).json({ error: 'No fingerprint found for this replay', battleTag, replayId: rid });
   }
 
   const fp = parseDbFingerprint(row);
-  const actionRows = getPlayerActionDataForReplay(battleTag, rid);
+  // Use the actual player_name from the row for action data lookup
+  const actionRows = lookupByName
+    ? getPlayerActionDataByName(playerName, rid)
+    : getPlayerActionDataForReplay(battleTag, rid);
   const { transitionPairs, groupUsage, groupCompositions, actionCounts } = computeActionProfile(actionRows);
 
   res.json({
@@ -577,6 +609,68 @@ router.get('/profile/:battleTag/replays/:replayId', (req, res) => {
       race: row.race,
     },
   });
+});
+
+// GET /api/fingerprints/replay/:replayId/profiles — All player profiles for a replay (public)
+router.get('/replay/:replayId/profiles', (req, res) => {
+  const replayId = parseInt(req.params.replayId);
+  const replay = getReplay(replayId);
+  if (!replay) {
+    return res.status(404).json({ error: 'Replay not found', replayId });
+  }
+
+  const players = getReplayPlayers(replayId);
+  const actionRows = getReplayPlayerActions(replayId);
+  if (players.length === 0 || actionRows.length === 0) {
+    return res.json({ profiles: [] });
+  }
+
+  // Match players to action rows 1:1 by index. Both are ordered by player_id,
+  // and some replays have duplicate player_ids (e.g. 2v2 where both slots share id=1).
+  // Consuming rows in order ensures each player gets their own action data.
+  const usedActionIdx = new Set();
+  const profiles = [];
+  for (const player of players) {
+    // Find the first unused action row matching this player_id
+    const idx = actionRows.findIndex((a, i) => !usedActionIdx.has(i) && a.player_id === player.player_id);
+    if (idx === -1) continue;
+    usedActionIdx.add(idx);
+    const actionRow = actionRows[idx];
+
+    // Build fingerprint segments from raw action data
+    const parsed = {
+      rightclick: actionRow.rightclick,
+      ability: actionRow.ability,
+      buildtrain: actionRow.buildtrain,
+      item: actionRow.item,
+      selecthotkey: actionRow.selecthotkey,
+      assigngroup: actionRow.assigngroup,
+      timed_segments: tryParse(actionRow.timed_segments),
+      group_hotkeys: tryParse(actionRow.group_hotkeys),
+      full_action_sequence: tryParse(actionRow.full_action_sequence),
+    };
+    const fp = buildServerFingerprint(parsed);
+
+    // Build action profile (transitions, groups, compositions, action counts)
+    const { transitionPairs, groupUsage, groupCompositions, actionCounts } = computeActionProfile([actionRow]);
+
+    profiles.push({
+      playerId: player.player_id,
+      playerName: player.player_name,
+      race: player.race,
+      teamId: player.team_id,
+      profileData: {
+        replayCount: 1,
+        averaged: fp,
+        transitionPairs,
+        groupUsage,
+        groupCompositions,
+        actionCounts,
+      },
+    });
+  }
+
+  res.json({ profiles });
 });
 
 // GET /api/fingerprints/profile/:battleTag/personas — Detect account sharing (public)
@@ -680,8 +774,44 @@ let galleryCache = null;
 let galleryAge = 0;
 const GALLERY_TTL = 60 * 60 * 1000; // 1 hour (expensive to compute)
 
+// Fetch W3C 4v4 ladder for MMR lookup
+async function fetchLadderMmr() {
+  const W3C_API = 'https://website-backend.w3champions.com/api';
+  const mmrMap = new Map();
+  try {
+    // Get current season
+    const sRes = await fetch(`${W3C_API}/ladder/seasons`);
+    if (!sRes.ok) return mmrMap;
+    const seasons = await sRes.json();
+    const season = seasons?.[0]?.id || 21;
+
+    // Fetch all leagues (0-6) for 4v4 mode to get comprehensive MMR data
+    const leagues = [0, 1, 2, 3, 4, 5, 6];
+    for (const league of leagues) {
+      try {
+        const url = `${W3C_API}/ladder/${league}?gateway=20&season=${season}&gameMode=4&pageSize=200`;
+        const lRes = await fetch(url);
+        if (!lRes.ok) continue;
+        const data = await lRes.json();
+
+        for (const entry of (data || [])) {
+          const tag = entry.player?.playerIds?.[0]?.battleTag;
+          if (tag && entry.player?.mmr) {
+            mmrMap.set(tag.toLowerCase(), entry.player.mmr);
+          }
+        }
+      } catch (e) {
+        // Skip failed league fetches
+      }
+    }
+  } catch (e) {
+    console.error('Failed to fetch ladder MMR:', e.message);
+  }
+  return mmrMap;
+}
+
 // GET /api/fingerprints/gallery — Public gallery of player extremes (no auth)
-router.get('/gallery', (req, res) => {
+router.get('/gallery', async (req, res) => {
   const now = Date.now();
   if (galleryCache && (now - galleryAge) < GALLERY_TTL) {
     return res.json(galleryCache);
@@ -691,6 +821,9 @@ router.get('/gallery', (req, res) => {
   if (allParsed.length === 0) {
     return res.json({ players: [] });
   }
+
+  // Fetch MMR data from W3C ladder
+  const mmrMap = await fetchLadderMmr();
 
   const players = [];
   for (const p of allParsed) {
@@ -725,15 +858,38 @@ router.get('/gallery', (req, res) => {
 
     const r2 = v => Math.round(v * 100) / 100;
 
+    // Extract tempo and intensity for visualization
+    const tempoSeg = fp.segments.tempo || [];
+    const intensitySeg = fp.segments.intensity || [];
+
+    // Get action profile for TransitionGlyph (cap at 10 most recent replays)
+    const allActionRows = getPlayerActionData(p.battleTag);
+    const actionRows = allActionRows.length > 10 ? allActionRows.slice(-10) : allActionRows;
+    const { transitionPairs, groupUsage, groupCompositions } = computeActionProfile(actionRows);
+
+    // Lookup MMR from W3C ladder
+    const mmr = mmrMap.get(p.battleTag.toLowerCase()) || 0;
+
     players.push({
       battleTag: p.battleTag,
       race: p.race,
       replayCount: p.replayCount,
+      mmr,
       glyph: {
         hotkey: hotkeySeg.slice(0, 10).map(r2),
         apm: r2(apmSeg[0] || 0),
         action: actionSeg.slice(0, 6).map(r2),
       },
+      segments: {
+        action: actionSeg.slice(0, 6).map(r2),
+        apm: apmSeg.slice(0, 3).map(r2),
+        hotkey: hotkeySeg.slice(0, 20).map(r2),
+        tempo: tempoSeg.slice(0, 7).map(r2),
+        intensity: intensitySeg.slice(0, 2).map(r2),
+      },
+      transitionPairs,
+      groupUsage,
+      groupCompositions,
       metrics: {
         meanApm,
         activeGroups,

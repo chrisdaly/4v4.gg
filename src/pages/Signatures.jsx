@@ -6,6 +6,7 @@ import { PageHero, Button } from "../components/ui";
 import PeonLoader from "../components/PeonLoader";
 import CompareView from "./signatures/CompareView";
 import { VIZ_REGISTRY } from "./signatures/vizRegistry";
+import TransitionGlyph from "../components/replay-lab/TransitionGlyph";
 
 const RELAY_URL =
   import.meta.env.VITE_CHAT_RELAY_URL || "https://4v4gg-chat-relay.fly.dev";
@@ -48,142 +49,11 @@ const FEATURES = [
 ];
 const TOTAL_WEIGHT = FEATURES.reduce((s, f) => s + f.weight, 0);
 
-// ── Helpers ────────────────────────────────────────────
-
-function seededRandom(seed) {
-  let s = seed;
-  return () => {
-    s = (s * 16807 + 0) % 2147483647;
-    return (s - 1) / 2147483646;
-  };
-}
-
-function hashCode(str) {
-  let hash = 0;
-  for (let i = 0; i < str.length; i++) {
-    hash = (hash << 5) - hash + str.charCodeAt(i);
-    hash |= 0;
-  }
-  return Math.abs(hash);
-}
-
 // ── 1. Penstroke Signature ─────────────────────────────
-
-function PenstrokeSignature({ segments, battleTag }) {
-  const W = 300, H = 140;
-  const { action, apm, hotkey, tempo, intensity } = segments;
-
-  const speed = apm[0] || 0;
-  const burst = apm[2] || 0;
-  const smoothness = tempo?.[2] || 0;
-  const weight = intensity?.[0] || 0;
-  const loops = Math.max(1, Math.round((hotkey?.slice(0, 10).filter(v => v > 0.05).length || 3)));
-  const actionBias = action[0] || 0;
-
-  const rand = seededRandom(hashCode(battleTag));
-  const strokes = [];
-
-  for (let s = 0; s < 6; s++) {
-    const baseY = 30 + s * 14 + (rand() - 0.5) * 20;
-    const startX = 20 + rand() * 30;
-    const length = 60 + speed * 200 + rand() * 40;
-    const amp = 10 + burst * 40 + rand() * 10;
-    const sw = 1.2 + weight * 4 + s * 0.3;
-
-    const points = [];
-    const segCount = loops + 1;
-    for (let i = 0; i <= segCount; i++) {
-      const t = i / segCount;
-      points.push({
-        x: startX + t * length + actionBias * 20 * (rand() - 0.5),
-        y: baseY + Math.sin(t * Math.PI * loops) * amp * (1 - smoothness * 0.5) + (rand() - 0.5) * 8,
-      });
-    }
-
-    let d = `M ${points[0].x} ${points[0].y}`;
-    for (let i = 1; i < points.length; i++) {
-      const prev = points[i - 1];
-      const curr = points[i];
-      const cpx1 = prev.x + (curr.x - prev.x) * (0.3 + smoothness * 0.3);
-      const cpy1 = prev.y + (rand() - 0.5) * amp * 0.5;
-      const cpx2 = curr.x - (curr.x - prev.x) * (0.3 + smoothness * 0.3);
-      const cpy2 = curr.y + (rand() - 0.5) * amp * 0.5;
-      d += ` C ${cpx1} ${cpy1}, ${cpx2} ${cpy2}, ${curr.x} ${curr.y}`;
-    }
-
-    strokes.push(
-      <path key={s} d={d} fill="none" stroke={GOLD} strokeWidth={sw} strokeLinecap="round" opacity={0.6 + s * 0.06} />
-    );
-  }
-
-  return (
-    <svg viewBox={`0 0 ${W} ${H}`} width="100%">
-      {strokes}
-    </svg>
-  );
-}
+// (Imported from ../components/PenstrokeSignature)
 
 // ── 2. Transition Glyph ───────────────────────────────
-
-function TransitionGlyph({ segments }) {
-  const W = 220, H = 220;
-  const cx = W / 2, cy = H / 2, radius = 80;
-  const { hotkey, transitions } = segments;
-
-  const nodes = [];
-  const selectFreqs = hotkey?.slice(0, 10) || Array(10).fill(0);
-  const maxFreq = Math.max(...selectFreqs, 0.01);
-
-  for (let i = 0; i < 10; i++) {
-    const angle = (i / 10) * Math.PI * 2 - Math.PI / 2;
-    nodes.push({
-      x: cx + Math.cos(angle) * radius,
-      y: cy + Math.sin(angle) * radius,
-      freq: selectFreqs[i],
-      r: 3 + (selectFreqs[i] / maxFreq) * 9,
-    });
-  }
-
-  const arcs = [];
-  const trans = transitions || Array(10).fill(0);
-  const maxTrans = Math.max(...trans, 0.01);
-
-  for (let i = 0; i < trans.length; i++) {
-    if (trans[i] < 0.01) continue;
-    const from = i % 10;
-    const to = (i + 1 + Math.floor(i / 2)) % 10;
-    if (from === to) continue;
-
-    const thickness = 0.5 + (trans[i] / maxTrans) * 3;
-    const opacity = 0.3 + (trans[i] / maxTrans) * 0.5;
-    const mx = (nodes[from].x + nodes[to].x) / 2;
-    const my = (nodes[from].y + nodes[to].y) / 2;
-    const dx = nodes[to].x - nodes[from].x;
-    const dy = nodes[to].y - nodes[from].y;
-    const dist = Math.sqrt(dx * dx + dy * dy) || 1;
-    const curveOffset = 15 + i * 2;
-    const cpx = mx + (-dy / dist) * curveOffset;
-    const cpy = my + (dx / dist) * curveOffset;
-
-    arcs.push(
-      <path key={`arc-${i}`} d={`M ${nodes[from].x} ${nodes[from].y} Q ${cpx} ${cpy} ${nodes[to].x} ${nodes[to].y}`}
-        fill="none" stroke={GOLD} strokeWidth={thickness} opacity={opacity} strokeLinecap="round" />
-    );
-  }
-
-  return (
-    <svg viewBox={`0 0 ${W} ${H}`} width="100%">
-      {arcs}
-      {nodes.map((n, i) => (
-        <g key={i}>
-          <circle cx={n.x} cy={n.y} r={n.r} fill={n.freq > 0 ? GOLD : GREY_MID} opacity={0.8} />
-          <text x={n.x} y={n.y + 1} textAnchor="middle" dominantBaseline="central" fill="#000"
-            fontSize="8" fontWeight="bold" fontFamily="Inconsolata, monospace">{i}</text>
-        </g>
-      ))}
-    </svg>
-  );
-}
+// (Imported from ../components/replay-lab/TransitionGlyph)
 
 // ── 3. Tempo Waveform ─────────────────────────────────
 
@@ -1690,8 +1560,8 @@ const SortSelect = styled.select`
 
 const GalleryGrid = styled.div`
   display: grid;
-  grid-template-columns: repeat(auto-fill, minmax(200px, 1fr));
-  gap: var(--space-4);
+  grid-template-columns: repeat(auto-fill, minmax(280px, 1fr));
+  gap: var(--space-6);
 `;
 
 const PlayerCard = styled(Link)`
@@ -1728,11 +1598,18 @@ const RaceDot = styled.span`
 
 const PlayerName = styled.span`
   font-family: var(--font-display);
-  color: var(--white);
+  color: var(--gold);
   font-size: var(--text-base);
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
+`;
+
+const PlayerMmr = styled.span`
+  font-family: var(--font-mono);
+  font-size: var(--text-xs);
+  color: #fff;
+  margin-left: auto;
 `;
 
 const PlayerMeta = styled.div`
@@ -1742,11 +1619,11 @@ const PlayerMeta = styled.div`
 `;
 
 const MiniGlyphWrap = styled.div`
-  height: 80px;
+  height: 180px;
   display: flex;
   align-items: center;
   justify-content: center;
-  margin-bottom: 8px;
+  margin-bottom: 12px;
 `;
 
 const PlayerStats = styled.div`
@@ -1789,157 +1666,142 @@ const GalleryCount = styled.div`
   margin-left: auto;
 `;
 
-// ── Upload Section Styles ──────────────────────────────
-
-const UploadArea = styled.div`
-  border: 2px dashed var(--grey-mid);
-  border-radius: var(--radius-md);
-  padding: var(--space-8);
-  text-align: center;
-  transition: all 0.2s;
-  cursor: pointer;
-
-  &:hover, &.dragover {
-    border-color: var(--gold);
-    background: rgba(252, 219, 51, 0.03);
-  }
-
-  input[type="file"] {
-    display: none;
-  }
+const SegmentRow = styled.div`
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  margin-bottom: var(--space-6);
 `;
 
-const UploadIcon = styled.div`
-  font-size: 48px;
-  margin-bottom: var(--space-4);
-  opacity: 0.5;
-`;
-
-const UploadText = styled.div`
-  font-family: var(--font-mono);
-  font-size: var(--text-sm);
-  color: var(--grey-light);
-  margin-bottom: var(--space-2);
-`;
-
-const UploadHint = styled.div`
-  font-family: var(--font-mono);
-  font-size: var(--text-xxs);
-  color: var(--grey-mid);
-`;
-
-const UploadStatus = styled.div`
-  margin-top: var(--space-4);
-  padding: var(--space-4);
-  border-radius: var(--radius-md);
-  font-family: var(--font-mono);
-  font-size: var(--text-xs);
-
-  &.success {
-    background: rgba(74, 222, 128, 0.1);
-    border: 1px solid var(--green);
-    color: var(--green);
-  }
-  &.error {
-    background: rgba(248, 113, 113, 0.1);
-    border: 1px solid var(--red);
-    color: var(--red);
-  }
-  &.uploading {
-    background: rgba(252, 219, 51, 0.1);
-    border: 1px solid var(--gold);
-    color: var(--gold);
-  }
-`;
-
-const UploadResult = styled.div`
-  margin-top: var(--space-4);
-  padding: var(--space-4);
-  border: 1px solid var(--grey-mid);
-  border-radius: var(--radius-md);
-  background: rgba(0, 0, 0, 0.3);
-
-  h4 {
-    font-family: var(--font-display);
-    color: var(--gold);
-    margin: 0 0 var(--space-2);
-  }
-
-  .players {
-    display: flex;
-    flex-wrap: wrap;
-    gap: var(--space-2);
-  }
-`;
-
-const UploadPlayerChip = styled.div`
+const SegmentTag = styled.button`
   display: flex;
   align-items: center;
   gap: 6px;
-  padding: 4px 10px;
-  background: rgba(0, 0, 0, 0.3);
-  border: 1px solid var(--grey-mid);
-  border-radius: var(--radius-full);
+  padding: 6px 12px;
   font-family: var(--font-mono);
   font-size: var(--text-xxs);
-  color: var(--white);
+  background: ${p => p.$active ? `${p.$color}20` : "transparent"};
+  border: 1px solid ${p => p.$active ? p.$color : "var(--grey-mid)"};
+  border-radius: var(--radius-full);
+  color: ${p => p.$active ? p.$color : "var(--grey-light)"};
+  cursor: pointer;
+  transition: all 0.15s;
+
+  &:hover {
+    border-color: ${p => p.$color};
+    color: ${p => p.$color};
+    background: ${p => `${p.$color}10`};
+  }
+
+  .label {
+    font-weight: 500;
+  }
+
+  .count {
+    font-size: 10px;
+    opacity: 0.7;
+    background: ${p => p.$active ? `${p.$color}30` : "rgba(255,255,255,0.08)"};
+    padding: 1px 6px;
+    border-radius: 10px;
+  }
 `;
 
-// ── Mini Glyph Component ───────────────────────────────
+// ── Segment Definitions ────────────────────────────────
 
-function MiniGlyph({ glyph }) {
-  const W = 80, H = 80;
-  const cx = W / 2, cy = H / 2;
-  const r = 30;
+// Building IDs from WC3 (all races)
+const BUILDINGS = new Set([
+  'htow','hkee','hcas','halt','hbar','hbla','hars','hlum','hwtw','hatw','hgtw','hctw','harm','hgra','hvlt','hhou','hrtt',
+  'ogre','ostr','ofrt','oalt','obar','ofor','osld','obea','otrb','otto','owtw','ovln','ohou',
+  'etol','etoa','etoe','eate','eaom','eaow','eaoe','edob','emow','etrp','eden',
+  'unpl','unp1','unp2','uaod','usep','ugrv','utod','uslh','ubon','utom','uzig','uzg1','uzg2','ugol',
+]);
 
-  if (!glyph?.hotkey) return null;
+// Check if player only uses building groups (4-9), no army groups (1-3)
+const hasNoArmyHotkeys = (p) => {
+  const groupUsage = p.groupUsage || [];
+  const armyGroups = groupUsage.filter(g => g.group >= 1 && g.group <= 3);
+  const totalArmyUsage = armyGroups.reduce((sum, g) => sum + (g.used || 0) + (g.assigned || 0), 0);
+  const totalUsage = groupUsage.reduce((sum, g) => sum + (g.used || 0) + (g.assigned || 0), 0);
+  return totalUsage > 10 && totalArmyUsage < 5;
+};
 
-  const hotkey = glyph.hotkey || [];
-  const maxHk = Math.max(...hotkey, 0.01);
+// Check if group 1 has mostly buildings (classic RTS habit)
+const hasBuildingsOnOne = (p) => {
+  const comp = p.groupCompositions?.["1"];
+  if (!comp || comp.length === 0) return false;
+  const totalCount = comp.reduce((s, u) => s + u.count, 0);
+  const buildingCount = comp.filter(u => BUILDINGS.has(u.id)).reduce((s, u) => s + u.count, 0);
+  return totalCount > 0 && (buildingCount / totalCount) > 0.5;
+};
 
-  // Draw a simple radial bar chart for hotkey usage
-  return (
-    <svg viewBox={`0 0 ${W} ${H}`} width="100%" height="100%">
-      {hotkey.slice(0, 10).map((v, i) => {
-        const angle = (i / 10) * Math.PI * 2 - Math.PI / 2;
-        const len = 8 + (v / maxHk) * 20;
-        const x1 = cx + Math.cos(angle) * 12;
-        const y1 = cy + Math.sin(angle) * 12;
-        const x2 = cx + Math.cos(angle) * (12 + len);
-        const y2 = cy + Math.sin(angle) * (12 + len);
-        const opacity = 0.3 + (v / maxHk) * 0.6;
-        return (
-          <line
-            key={i}
-            x1={x1} y1={y1} x2={x2} y2={y2}
-            stroke={GOLD}
-            strokeWidth={3}
-            strokeLinecap="round"
-            opacity={opacity}
-          />
-        );
-      })}
-      <text
-        x={cx} y={cy + 2}
-        textAnchor="middle"
-        dominantBaseline="central"
-        fill={GOLD}
-        fontSize="11"
-        fontWeight="bold"
-        fontFamily="var(--font-mono)"
-      >
-        {Math.round(glyph.apm * 300)}
-      </text>
-    </svg>
-  );
-}
+const SEGMENTS = [
+  {
+    id: "speed-demons",
+    label: "Speed Demons",
+    desc: "200+ APM average",
+    filter: p => (p.metrics?.meanApm || 0) >= 200,
+    color: "#f97316", // orange
+  },
+  {
+    id: "slow-steady",
+    label: "Slow & Steady",
+    desc: "Under 120 APM",
+    filter: p => (p.metrics?.meanApm || 999) < 120 && (p.metrics?.meanApm || 0) > 0,
+    color: "#64748b", // slate
+  },
+  {
+    id: "control-masters",
+    label: "Control Masters",
+    desc: "6+ hotkey groups active",
+    filter: p => (p.metrics?.activeGroups || 0) >= 6,
+    color: "#8b5cf6", // purple
+  },
+  {
+    id: "selection-addicts",
+    label: "Selection Addicts",
+    desc: "40%+ actions are re-selects",
+    filter: p => (p.metrics?.selectPct || 0) >= 40,
+    color: "#ec4899", // pink
+  },
+  {
+    id: "buildings-on-1",
+    label: "Buildings on 1",
+    desc: "Classic RTS habit - production on group 1",
+    filter: hasBuildingsOnOne,
+    color: "#14b8a6", // teal
+  },
+  {
+    id: "no-army-hotkeys",
+    label: "No Army Hotkeys",
+    desc: "Only buildings on control groups",
+    filter: hasNoArmyHotkeys,
+    color: "#06b6d4", // cyan
+  },
+  {
+    id: "one-group-wonders",
+    label: "One-Group Wonders",
+    desc: "70%+ on single group",
+    filter: p => (p.metrics?.topGroupPct || 0) >= 70,
+    color: "#ef4444", // red
+  },
+];
 
 // ── Player Gallery Component ───────────────────────────
 
 function PlayerGallery({ players, loading }) {
   const [search, setSearch] = useState("");
   const [raceFilter, setRaceFilter] = useState(null);
-  const [sortBy, setSortBy] = useState("replays");
+  const [segmentFilter, setSegmentFilter] = useState(null);
+  const [sortBy, setSortBy] = useState("mmr");
+
+  // Compute segment counts
+  const segmentCounts = useMemo(() => {
+    const counts = {};
+    for (const seg of SEGMENTS) {
+      counts[seg.id] = players.filter(seg.filter).length;
+    }
+    return counts;
+  }, [players]);
 
   const filtered = useMemo(() => {
     let result = [...players];
@@ -1957,16 +1819,21 @@ function PlayerGallery({ players, loading }) {
       result = result.filter(p => p.race === raceFilter);
     }
 
+    // Filter by segment
+    if (segmentFilter) {
+      const seg = SEGMENTS.find(s => s.id === segmentFilter);
+      if (seg) {
+        result = result.filter(seg.filter);
+      }
+    }
+
     // Sort
     switch (sortBy) {
-      case "replays":
-        result.sort((a, b) => b.replayCount - a.replayCount);
+      case "mmr":
+        result.sort((a, b) => (b.mmr || 0) - (a.mmr || 0));
         break;
       case "apm":
         result.sort((a, b) => (b.metrics?.meanApm || 0) - (a.metrics?.meanApm || 0));
-        break;
-      case "groups":
-        result.sort((a, b) => (b.metrics?.activeGroups || 0) - (a.metrics?.activeGroups || 0));
         break;
       case "name":
         result.sort((a, b) => a.battleTag.localeCompare(b.battleTag));
@@ -1974,7 +1841,7 @@ function PlayerGallery({ players, loading }) {
     }
 
     return result;
-  }, [players, search, raceFilter, sortBy]);
+  }, [players, search, raceFilter, segmentFilter, sortBy]);
 
   if (loading) {
     return <PeonLoader />;
@@ -1996,13 +1863,27 @@ function PlayerGallery({ players, loading }) {
           <RaceButton $active={raceFilter === "Undead"} onClick={() => setRaceFilter("Undead")}>UD</RaceButton>
         </RaceFilter>
         <SortSelect value={sortBy} onChange={e => setSortBy(e.target.value)}>
-          <option value="replays">Most Replays</option>
+          <option value="mmr">Highest MMR</option>
           <option value="apm">Highest APM</option>
-          <option value="groups">Most Groups</option>
           <option value="name">Name A-Z</option>
         </SortSelect>
         <GalleryCount>{filtered.length} players</GalleryCount>
       </GalleryControls>
+
+      <SegmentRow>
+        {SEGMENTS.map(seg => (
+          <SegmentTag
+            key={seg.id}
+            $active={segmentFilter === seg.id}
+            $color={seg.color}
+            onClick={() => setSegmentFilter(segmentFilter === seg.id ? null : seg.id)}
+            title={seg.desc}
+          >
+            <span className="label">{seg.label}</span>
+            <span className="count">{segmentCounts[seg.id]}</span>
+          </SegmentTag>
+        ))}
+      </SegmentRow>
 
       {filtered.length === 0 ? (
         <GalleryEmpty>
@@ -2013,29 +1894,23 @@ function PlayerGallery({ players, loading }) {
       ) : (
         <GalleryGrid>
           {filtered.slice(0, 60).map(p => (
-            <PlayerCard key={p.battleTag} to={`/player?battleTag=${encodeURIComponent(p.battleTag)}`}>
+            <PlayerCard key={p.battleTag} to={`/player/${encodeURIComponent(p.battleTag)}?tab=playstyle`}>
               <PlayerCardHeader>
                 <RaceDot $color={RACE_BADGE_COLORS[p.race]} />
                 <PlayerName>{p.battleTag.split("#")[0]}</PlayerName>
+                {p.mmr > 0 && <PlayerMmr>{p.mmr}</PlayerMmr>}
               </PlayerCardHeader>
               <MiniGlyphWrap>
-                <MiniGlyph glyph={p.glyph} />
+                <TransitionGlyph
+                  transitionPairs={p.transitionPairs || []}
+                  groupUsage={p.groupUsage || []}
+                  groupCompositions={p.groupCompositions || {}}
+                  segments={p.segments}
+                  playerName={p.battleTag}
+                  mini
+                />
               </MiniGlyphWrap>
-              <PlayerMeta>{p.race} · {p.replayCount} replays</PlayerMeta>
-              <PlayerStats>
-                <StatCell>
-                  <div className="value">{p.metrics?.meanApm || "?"}</div>
-                  <div className="label">APM</div>
-                </StatCell>
-                <StatCell>
-                  <div className="value">{p.metrics?.activeGroups || "?"}</div>
-                  <div className="label">Groups</div>
-                </StatCell>
-                <StatCell>
-                  <div className="value">{p.metrics?.selectPct || "?"}%</div>
-                  <div className="label">Hotkey</div>
-                </StatCell>
-              </PlayerStats>
+              <PlayerMeta>{p.race} · {p.replayCount} games</PlayerMeta>
             </PlayerCard>
           ))}
         </GalleryGrid>
@@ -2050,122 +1925,6 @@ function PlayerGallery({ players, loading }) {
   );
 }
 
-// ── Upload Section Component ───────────────────────────
-
-function UploadSection({ onUploadComplete }) {
-  const [status, setStatus] = useState(null); // 'uploading' | 'success' | 'error'
-  const [message, setMessage] = useState("");
-  const [result, setResult] = useState(null);
-  const [dragOver, setDragOver] = useState(false);
-  const inputRef = useRef(null);
-
-  const handleFile = async (file) => {
-    if (!file.name.toLowerCase().endsWith(".w3g")) {
-      setStatus("error");
-      setMessage("Only .w3g replay files are accepted");
-      return;
-    }
-
-    setStatus("uploading");
-    setMessage(`Uploading ${file.name}...`);
-    setResult(null);
-
-    const formData = new FormData();
-    formData.append("replay", file);
-
-    try {
-      const res = await fetch(`${RELAY_URL}/api/fingerprints/upload`, {
-        method: "POST",
-        body: formData,
-      });
-
-      const data = await res.json();
-
-      if (!res.ok) {
-        throw new Error(data.error || data.detail || "Upload failed");
-      }
-
-      setStatus("success");
-      setMessage(data.duplicate
-        ? "This replay was already uploaded!"
-        : "Replay processed successfully!");
-      setResult(data);
-
-      if (onUploadComplete) {
-        onUploadComplete(data);
-      }
-    } catch (err) {
-      setStatus("error");
-      setMessage(err.message || "Upload failed");
-    }
-  };
-
-  const handleDrop = (e) => {
-    e.preventDefault();
-    setDragOver(false);
-    const file = e.dataTransfer?.files?.[0];
-    if (file) handleFile(file);
-  };
-
-  const handleChange = (e) => {
-    const file = e.target.files?.[0];
-    if (file) handleFile(file);
-  };
-
-  return (
-    <>
-      <UploadArea
-        className={dragOver ? "dragover" : ""}
-        onDragOver={e => { e.preventDefault(); setDragOver(true); }}
-        onDragLeave={() => setDragOver(false)}
-        onDrop={handleDrop}
-        onClick={() => inputRef.current?.click()}
-      >
-        <input
-          ref={inputRef}
-          type="file"
-          accept=".w3g"
-          onChange={handleChange}
-        />
-        <UploadIcon>📁</UploadIcon>
-        <UploadText>Drop a .w3g replay file here or click to upload</UploadText>
-        <UploadHint>
-          Replays are parsed to extract player fingerprints based on APM, hotkey usage, action patterns, and timing
-        </UploadHint>
-      </UploadArea>
-
-      {status && (
-        <UploadStatus className={status}>
-          {status === "uploading" && "⏳ "}
-          {status === "success" && "✓ "}
-          {status === "error" && "✗ "}
-          {message}
-        </UploadStatus>
-      )}
-
-      {result && (
-        <UploadResult>
-          <h4>
-            {result.replay?.mapName || "Unknown Map"}
-            {result.replay?.gameDuration && (
-              <span style={{ color: "var(--grey-light)", fontWeight: "normal", marginLeft: 8 }}>
-                {Math.floor(result.replay.gameDuration / 60)}:{String(result.replay.gameDuration % 60).padStart(2, "0")}
-              </span>
-            )}
-          </h4>
-          <div className="players">
-            {result.players?.map((p, i) => (
-              <UploadPlayerChip key={i}>
-                <RaceDot $color={RACE_BADGE_COLORS[p.race]} />
-                {p.playerName}
-              </UploadPlayerChip>
-            ))}
-          </div>
-        </UploadResult>
-      )}
-    </>
-  );
-}
 
 const ErrorMsg = styled.div`
   font-family: var(--font-mono);
@@ -2228,282 +1987,25 @@ const sigHeader = (
 // ── Page Component ─────────────────────────────────────
 
 export default function Signatures() {
-  const [players, setPlayers] = useState({});
+  const [players, setPlayers] = useState([]);
   const [loading, setLoading] = useState(true);
-  const [errors, setErrors] = useState({});
-  const [embeddingMap, setEmbeddingMap] = useState(null);
-  const [suspects, setSuspects] = useState(null);
-  const [mode, setMode] = useState("players"); // "players" | "upload" | "gallery" | "compare"
 
-  // Gallery data (all players)
-  const [galleryPlayers, setGalleryPlayers] = useState([]);
-  const [galleryLoading, setGalleryLoading] = useState(true);
-
-  // Fetch gallery data (all players with fingerprints)
   useEffect(() => {
     fetch(`${RELAY_URL}/api/fingerprints/gallery`)
       .then(r => r.ok ? r.json() : null)
       .then(data => {
         if (data?.players) {
-          setGalleryPlayers(data.players);
+          setPlayers(data.players);
         }
-        setGalleryLoading(false);
+        setLoading(false);
       })
-      .catch(() => setGalleryLoading(false));
+      .catch(() => setLoading(false));
   }, []);
-
-  // Refresh gallery after upload
-  const handleUploadComplete = useCallback(() => {
-    setGalleryLoading(true);
-    fetch(`${RELAY_URL}/api/fingerprints/gallery`)
-      .then(r => r.ok ? r.json() : null)
-      .then(data => {
-        if (data?.players) {
-          setGalleryPlayers(data.players);
-        }
-        setGalleryLoading(false);
-      })
-      .catch(() => setGalleryLoading(false));
-  }, []);
-
-  useEffect(() => {
-    async function fetchAll() {
-      const results = {};
-      const errs = {};
-      await Promise.all(
-        TEST_PLAYERS.map(async ({ tag }) => {
-          try {
-            const res = await fetch(
-              `${RELAY_URL}/api/fingerprints/profile/${encodeURIComponent(tag)}`
-            );
-            if (!res.ok) { errs[tag] = `HTTP ${res.status}`; return; }
-            results[tag] = await res.json();
-          } catch (err) { errs[tag] = err.message; }
-        })
-      );
-      setPlayers(results);
-      setErrors(errs);
-      setLoading(false);
-    }
-    fetchAll();
-
-    fetch(`${RELAY_URL}/api/fingerprints/embedding-map`)
-      .then(r => r.ok ? r.json() : null)
-      .then(data => setEmbeddingMap(data))
-      .catch(() => {});
-
-    fetch(`${RELAY_URL}/api/fingerprints/suspects?limit=50`)
-      .then(r => r.ok ? r.json() : null)
-      .then(data => setSuspects(data))
-      .catch(() => {});
-  }, []);
-
-  if (loading) {
-    return (
-      <PageLayout maxWidth="1200px" bare header={sigHeader}>
-        <div style={{ maxWidth: 1200, margin: "0 auto" }}>
-          <PeonLoader />
-        </div>
-      </PageLayout>
-    );
-  }
 
   return (
     <PageLayout maxWidth="1200px" bare header={sigHeader}>
       <div style={{ maxWidth: 1200, margin: "0 auto" }}>
-
-        {/* ── Mode Toggle ── */}
-        <ModeToggle>
-          <ModeButton $active={mode === "players"} onClick={() => setMode("players")}>
-            Players
-          </ModeButton>
-          <ModeButton $active={mode === "upload"} onClick={() => setMode("upload")}>
-            Upload
-          </ModeButton>
-          <ModeButton $active={mode === "gallery"} onClick={() => setMode("gallery")}>
-            Visualizations
-          </ModeButton>
-          <ModeButton $active={mode === "compare"} onClick={() => setMode("compare")}>
-            Compare
-          </ModeButton>
-          <VizCount>{galleryPlayers.length} players · {VIZ_REGISTRY.length + 5} vizzes</VizCount>
-        </ModeToggle>
-
-        {mode === "players" ? (
-          /* ── Players Mode (searchable gallery of all players) ── */
-          <Section>
-            <SectionTitle>All Players</SectionTitle>
-            <NeuralNote style={{ marginBottom: 16 }}>
-              Browse all players with fingerprint data. Click a player card to view their full profile and signature details.
-            </NeuralNote>
-            <PlayerGallery players={galleryPlayers} loading={galleryLoading} />
-          </Section>
-        ) : mode === "upload" ? (
-          /* ── Upload Mode ── */
-          <Section>
-            <SectionTitle>Upload Replay</SectionTitle>
-            <NeuralNote style={{ marginBottom: 16 }}>
-              Upload a Warcraft III replay file (.w3g) to extract player fingerprints.
-              Each player's actions are analyzed to build a unique playstyle signature.
-            </NeuralNote>
-            <UploadSection onUploadComplete={handleUploadComplete} />
-          </Section>
-        ) : mode === "compare" ? (
-          /* ── Compare Mode ── */
-          <Suspense fallback={<PeonLoader />}>
-            <CompareView players={players} testPlayers={TEST_PLAYERS} />
-          </Suspense>
-        ) : (
-          /* ── Gallery Mode (original layout) ── */
-          <>
-            {/* ── Feature Importance Summary ── */}
-            <Section>
-              <SectionTitle>What Makes Players Distinct</SectionTitle>
-              <SummaryGrid>
-                {FEATURES.map(f => (
-                  <FeatureCard key={f.name}>
-                    <div className="feat-header">
-                      <span className="feat-name">{f.name}</span>
-                      <span className="feat-weight">{Math.round((f.weight / TOTAL_WEIGHT) * 100)}%</span>
-                    </div>
-                    <div className="feat-bar">
-                      <div className="feat-bar-fill" style={{ width: `${(f.weight / 4) * 100}%` }} />
-                    </div>
-                    <div className="feat-desc">{f.desc}</div>
-                    <div className="feat-dims">{f.dims} dimensions &middot; weight {f.weight}</div>
-                  </FeatureCard>
-                ))}
-              </SummaryGrid>
-              <NeuralNote style={{ marginTop: 12 }}>
-                <strong>Handcrafted model</strong> (above) is fully interpretable — 48 dimensions, 6 weighted segments.
-                Combined 50/50 with a <span className="gold">neural embedding</span> (64-dim black box from action sequence encoder).
-                The neural model captures sequential patterns the handcrafted features miss.
-              </NeuralNote>
-            </Section>
-
-            {/* ── Embedding Scatter Plot ── */}
-            <Section>
-              <SectionTitle>Neural Embedding Space</SectionTitle>
-              <NeuralNote style={{ marginBottom: 16 }}>
-                All player embeddings projected to 2D via PCA. Players with similar playstyles cluster together.
-                Hover to inspect, click to expand replay clusters.
-              </NeuralNote>
-              <EmbeddingScatter
-                mapData={embeddingMap}
-                highlightTags={TEST_PLAYERS.map(p => p.tag)}
-                suspects={suspects}
-              />
-            </Section>
-
-            {/* ── Player Viz Grid (Original 5) ── */}
-            <Section>
-              <SectionTitle>Original Signatures</SectionTitle>
-              {TEST_PLAYERS.map(({ tag, label, race }) => {
-                const data = players[tag];
-                const err = errors[tag];
-
-                if (err) {
-                  return (
-                    <PlayerRow key={tag}>
-                      <PlayerHeader><h3>{label}</h3><span className="meta">{race}</span></PlayerHeader>
-                      <ErrorMsg>Error: {err}</ErrorMsg>
-                    </PlayerRow>
-                  );
-                }
-                if (!data?.averaged?.segments) {
-                  return (
-                    <PlayerRow key={tag}>
-                      <PlayerHeader><h3>{label}</h3><span className="meta">{race}</span></PlayerHeader>
-                      <ErrorMsg>No fingerprint data</ErrorMsg>
-                    </PlayerRow>
-                  );
-                }
-
-                const seg = data.averaged.segments;
-                const conf = data.confidence;
-                const emb = data.averagedEmbedding;
-
-                return (
-                  <PlayerRow key={tag}>
-                    <PlayerHeader>
-                      <h3>{label}</h3>
-                      <span className="meta">{race} &middot; {data.replayCount} replays</span>
-                      {conf && <span className="confidence">{Math.round(conf.confidence * 100)}% confidence</span>}
-                    </PlayerHeader>
-                    <Grid>
-                      <VizCard>
-                        <h4>Penstroke</h4>
-                        <PenstrokeSignature segments={seg} battleTag={tag} />
-                      </VizCard>
-                      <VizCard>
-                        <h4>Transition Glyph</h4>
-                        <TransitionGlyph segments={seg} />
-                      </VizCard>
-                      <VizCard>
-                        <h4>Tempo Waveform</h4>
-                        <TempoWaveform segments={seg} />
-                      </VizCard>
-                      <VizCard>
-                        <h4>Radial Rhythm</h4>
-                        <RadialRhythm segments={seg} />
-                      </VizCard>
-                    </Grid>
-                    <VizCard style={{ marginTop: 8 }}>
-                      <h4>Neural Embedding</h4>
-                      <EmbeddingHeatmap embedding={emb} label={label} />
-                    </VizCard>
-                  </PlayerRow>
-                );
-              })}
-            </Section>
-
-            {/* ── Viz Gallery (viz-first: each viz across all players) ── */}
-            <Section>
-              <SectionTitle>Visualization Gallery</SectionTitle>
-              <NeuralNote style={{ marginBottom: 16 }}>
-                {VIZ_REGISTRY.length} visualization styles — each row shows the same viz for all test players,
-                making it easy to see how the style captures differences between playstyles.
-              </NeuralNote>
-              <Suspense fallback={<PeonLoader />}>
-                {VIZ_REGISTRY.map((viz) => {
-                  const VizComp = viz.component;
-                  return (
-                    <VizRow key={viz.id}>
-                      <VizRowHeader>
-                        <span className="name">{viz.name}</span>
-                        <span className="desc">{viz.desc}</span>
-                      </VizRowHeader>
-                      <Grid>
-                        {TEST_PLAYERS.map(({ tag, label, race }) => {
-                          const data = players[tag];
-                          if (!data?.averaged?.segments) {
-                            return (
-                              <VizCard key={tag}>
-                                <h4>{label}</h4>
-                                <ErrorMsg>No data</ErrorMsg>
-                              </VizCard>
-                            );
-                          }
-                          return (
-                            <VizCard key={tag}>
-                              <h4>{label}</h4>
-                              <VizComp
-                                segments={data.averaged.segments}
-                                embedding={data.averagedEmbedding}
-                                battleTag={tag}
-                              />
-                            </VizCard>
-                          );
-                        })}
-                      </Grid>
-                    </VizRow>
-                  );
-                })}
-              </Suspense>
-            </Section>
-          </>
-        )}
-
+        <PlayerGallery players={players} loading={loading} />
       </div>
     </PageLayout>
   );

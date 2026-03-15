@@ -1534,10 +1534,13 @@ export function getMessagesAroundTime(receivedAt, minutesPadding = 3, limit = 60
 // ── Replays ──────────────────────────────────────────
 
 export function insertReplay({ filename, filePath, fileSize, fileHash }) {
-  const result = db.prepare(`
-    INSERT INTO replays (filename, file_path, file_size, file_hash) VALUES (?, ?, ?, ?)
-  `).run(filename, filePath, fileSize, fileHash || null);
-  return result.lastInsertRowid;
+  // Production DB schema has `id INT` (not AUTOINCREMENT), so we must assign manually
+  const nextId = (db.prepare('SELECT COALESCE(MAX(id), 0) + 1 AS next FROM replays').get()).next;
+  db.prepare(`
+    INSERT INTO replays (id, filename, file_path, file_size, file_hash, uploaded_at, parse_status)
+    VALUES (?, ?, ?, ?, ?, datetime('now'), 'pending')
+  `).run(nextId, filename, filePath, fileSize, fileHash || null);
+  return nextId;
 }
 
 export function getReplayByFileHash(hash) {
@@ -1731,6 +1734,36 @@ export function getPlayerActionData(battleTag) {
   `).all(battleTag);
 }
 
+export function getPlayerActionDataByName(playerName, replayId = null) {
+  // Match exact name OR name with battle tag suffix (e.g., "Klotervan" matches "Klotervan#2162")
+  // Optionally filter by replayId if provided
+  if (replayId !== null) {
+    return db.prepare(`
+      SELECT rpa.timed_segments, rpa.full_action_sequence, rpa.group_hotkeys,
+             rpa.esc, rpa.subgroup, rpa.removeunit, rpa.basic,
+             rpa.rightclick, rpa.ability, rpa.buildtrain, rpa.item,
+             rpa.select_count, rpa.assigngroup, rpa.selecthotkey,
+             rpa.group_compositions, r.game_duration
+      FROM replay_player_actions rpa
+      JOIN replay_players rp ON rp.replay_id = rpa.replay_id AND rp.player_id = rpa.player_id
+      JOIN replays r ON r.id = rpa.replay_id
+      WHERE (rp.player_name = ? OR rp.player_name LIKE ? || '#%')
+        AND rpa.replay_id = ?
+    `).all(playerName, playerName, replayId);
+  }
+  return db.prepare(`
+    SELECT rpa.timed_segments, rpa.full_action_sequence, rpa.group_hotkeys,
+           rpa.esc, rpa.subgroup, rpa.removeunit, rpa.basic,
+           rpa.rightclick, rpa.ability, rpa.buildtrain, rpa.item,
+           rpa.select_count, rpa.assigngroup, rpa.selecthotkey,
+           rpa.group_compositions, r.game_duration
+    FROM replay_player_actions rpa
+    JOIN replay_players rp ON rp.replay_id = rpa.replay_id AND rp.player_id = rpa.player_id
+    JOIN replays r ON r.id = rpa.replay_id
+    WHERE rp.player_name = ? OR rp.player_name LIKE ? || '#%'
+  `).all(playerName, playerName);
+}
+
 export function getPlayerActionDataByReplayIds(battleTag, replayIds) {
   if (!replayIds || replayIds.length === 0) return [];
   const placeholders = replayIds.map(() => '?').join(',');
@@ -1781,6 +1814,17 @@ export function getPlayerFingerprints(battleTag) {
     WHERE pf.battle_tag = ?
     ORDER BY r.match_date DESC
   `).all(battleTag);
+}
+
+export function getPlayerFingerprintsByName(playerName) {
+  // Match exact name OR name with battle tag suffix (e.g., "Klotervan" matches "Klotervan#2162")
+  return db.prepare(`
+    SELECT pf.*, r.map_name, r.match_date, r.game_duration
+    FROM player_fingerprints pf
+    JOIN replays r ON r.id = pf.replay_id
+    WHERE pf.player_name = ? OR pf.player_name LIKE ? || '#%'
+    ORDER BY r.match_date DESC
+  `).all(playerName, playerName);
 }
 
 export function getPlayerFingerprintsFiltered(battleTag, { minDuration = 0 } = {}) {
