@@ -14,7 +14,8 @@ import { gateway } from "../lib/params";
 import { GameRow } from "../components/game/index";
 import ActivityGraph from "../components/ActivityGraph";
 import OngoingGame from "../components/OngoingGame";
-import SignatureCard from "../components/SignatureCard";
+import ScoutTab from "./replay-lab/ScoutTab";
+import RecentConversations from "../components/RecentConversations";
 import { raceMapping, LEAGUES } from "../lib/constants";
 import { parseDigestSections, splitQuotes } from "../lib/digestUtils";
 
@@ -136,6 +137,7 @@ const PlayerProfile = () => {
   const prevBattleTagRef = useRef(battleTag);
   const hasLoadedProfileRef = useRef(false);
   const [activeClip, setActiveClip] = useState(null);
+  const [activeTab, setActiveTab] = useState('matches'); // 'matches' | 'playstyle'
   const [expandedSections, setExpandedSections] = useState({});
   const [playerFilter, setPlayerFilter] = useState("");
   const toggleSection = (key) => setExpandedSections(prev => ({ ...prev, [key]: !prev[key] }));
@@ -236,9 +238,13 @@ const PlayerProfile = () => {
           fetch(`${RELAY_URL}/api/admin/stats/today`),
         ]);
         const clipsData = clipsRes.ok ? await clipsRes.json() : { clips: [] };
-        // Client-side filter: only clips actually tagged with this player
+        // Client-side filter: only valid Twitch clips (with clip_id, thumbnail) tagged with this player
         const taggedClips = (clipsData.clips || []).filter(c =>
-          c.player_tag && c.player_tag.toLowerCase().includes(battleTag.toLowerCase())
+          c.clip_id &&
+          c.thumbnail_url &&
+          c.twitch_login &&
+          c.player_tag &&
+          c.player_tag.toLowerCase().includes(battleTag.toLowerCase())
         ).slice(0, 4);
 
         // Parse digests client-side to find individual items mentioning this player
@@ -305,7 +311,7 @@ const PlayerProfile = () => {
       }
     };
     fetchPlayerMedia();
-  }, [battleTag]);
+  }, [battleTag, playerName]);
 
   // Fetch player signature/fingerprint data
   useEffect(() => {
@@ -814,63 +820,32 @@ const PlayerProfile = () => {
           </div>
         </header>
 
-      {/* Highlights Strip */}
-      {(playerClips.length > 0 || playerMentions.length > 0) && (
-        <div className="player-highlights reveal" style={{ "--delay": "0.10s" }}>
-          {playerMentions.length > 0 && (
-            <div className="ph-group ph-group--news">
-              <div className="section-header">
-                <h2 className="section-title">In the News</h2>
-                <Link to="/news"><Button $secondary>More</Button></Link>
-              </div>
-              <div className="ph-news-list">
-                {playerMentions.flatMap((mention) =>
-                  mention.sections.map((sec, i) => ({
-                    key: `${mention.date}-${i}`,
-                    date: mention.date,
-                    sec,
-                  }))
-                ).slice(0, 4).map(({ key, date, sec }) => {
-                  const dateStr = new Date(date + 'T00:00:00').toLocaleDateString('en-US', { month: 'short', day: 'numeric' });
-                  return (
-                    <Link key={key} to={`/news?day=${date}#${sec.key.toLowerCase()}`} className="ph-news-item">
-                      <span className={`ph-badge ph-badge--${sec.key.toLowerCase()}`}>{sec.key}</span>
-                      <span className="ph-news-snippet">{renderSnippet(sec.snippet)}</span>
-                      <span className="ph-news-date">{dateStr}</span>
-                    </Link>
-                  );
-                })}
-              </div>
-            </div>
-          )}
-          {playerClips.length > 0 && (
-            <div className="ph-group ph-group--clips">
-              <div className="section-header">
-                <h2 className="section-title">Clips</h2>
-                <Link to={`/clips?player=${encodeURIComponent(battleTag)}`}><Button $secondary>More</Button></Link>
-              </div>
-              <div className="ph-clips">
-                {playerClips.slice(0, 4).map((clip) => (
-                  <button
-                    key={clip.clip_id}
-                    className="ph-clip"
-                    onClick={() => setActiveClip(clip)}
-                    title={clip.title}
-                  >
-                    <img src={clip.thumbnail_url} alt="" loading="lazy" />
-                    <div className="ph-clip-overlay">
-                      <div className="ph-clip-play">&#9654;</div>
-                    </div>
-                    <span className="ph-clip-title">{clip.title}</span>
-                  </button>
-                ))}
-              </div>
-            </div>
-          )}
-        </div>
-      )}
+      {/* Profile Tabs */}
+      <div className="profile-tabs reveal" style={{ "--delay": "0.08s" }}>
+        <button
+          className={`profile-tab ${activeTab === 'matches' ? 'active' : ''}`}
+          onClick={() => setActiveTab('matches')}
+        >
+          Matches
+        </button>
+        <button
+          className={`profile-tab ${activeTab === 'playstyle' ? 'active' : ''}`}
+          onClick={() => setActiveTab('playstyle')}
+        >
+          Playstyle
+        </button>
+        <button
+          className={`profile-tab ${activeTab === 'activity' ? 'active' : ''}`}
+          onClick={() => setActiveTab('activity')}
+        >
+          Activity
+        </button>
+      </div>
 
-      <div className="player-content reveal" style={{ "--delay": "0.15s" }}>
+      {/* Matches Tab Content */}
+      {activeTab === 'matches' && (
+        <>
+      <div className="player-content reveal" style={{ "--delay": "0.10s" }}>
           {/* Main Content */}
           <main className="player-main">
             {/* Live Game Section */}
@@ -1001,13 +976,6 @@ const PlayerProfile = () => {
                 </div>
               </div>
             )}
-
-            {/* Playstyle Signature */}
-            <SignatureCard
-              profile={signatureProfile}
-              battleTag={battleTag}
-              loading={signatureLoading}
-            />
 
             {/* Session Summary Card */}
             {sessionGames.length > 0 && (() => {
@@ -1235,6 +1203,89 @@ const PlayerProfile = () => {
 
           </aside>
         </div>
+        </>
+      )}
+
+      {/* Playstyle Tab Content */}
+      {activeTab === 'playstyle' && (
+        <div className="playstyle-tab-content reveal" style={{ "--delay": "0.1s" }}>
+          <ScoutTab initialPlayer={battleTag} initialProfileData={signatureProfile} embedded />
+        </div>
+      )}
+
+      {/* Activity Tab Content */}
+      {activeTab === 'activity' && (
+        <div className="activity-tab-content reveal" style={{ "--delay": "0.1s" }}>
+          {/* Clips - at top */}
+          {playerClips.length > 0 && (
+            <section className="activity-section">
+              <div className="section-header">
+                <h2 className="section-title">Clips</h2>
+                <Link to={`/clips?player=${encodeURIComponent(battleTag)}`}><Button $secondary>View All</Button></Link>
+              </div>
+              <div className="activity-clips-grid">
+                {playerClips.map((clip) => (
+                  <button
+                    key={clip.clip_id}
+                    className="ph-clip"
+                    onClick={() => setActiveClip(clip)}
+                    title={clip.title}
+                  >
+                    <img src={clip.thumbnail_url} alt="" loading="lazy" />
+                    <div className="ph-clip-overlay">
+                      <div className="ph-clip-play">&#9654;</div>
+                    </div>
+                    <span className="ph-clip-title">{clip.title}</span>
+                  </button>
+                ))}
+              </div>
+            </section>
+          )}
+
+          {/* News Mentions - limited to 5 */}
+          {playerMentions.length > 0 && (
+            <section className="activity-section">
+              <div className="section-header">
+                <h2 className="section-title">In the News</h2>
+                <Link to="/news"><Button $secondary>View All</Button></Link>
+              </div>
+              <div className="activity-news-list">
+                {playerMentions.flatMap((mention) =>
+                  mention.sections.map((sec, i) => ({
+                    key: `${mention.date}-${i}`,
+                    date: mention.date,
+                    sec,
+                  }))
+                ).slice(0, 5).map(({ key, date, sec }) => {
+                  const dateStr = new Date(date + 'T00:00:00').toLocaleDateString('en-US', { month: 'short', day: 'numeric' });
+                  return (
+                    <Link key={key} to={`/news?day=${date}#${sec.key.toLowerCase()}`} className="ph-news-item">
+                      <span className={`ph-badge ph-badge--${sec.key.toLowerCase()}`}>{sec.key}</span>
+                      <span className="ph-news-snippet">{renderSnippet(sec.snippet)}</span>
+                      <span className="ph-news-date">{dateStr}</span>
+                    </Link>
+                  );
+                })}
+              </div>
+            </section>
+          )}
+
+          {/* Recent Conversations */}
+          <section className="activity-section">
+            <div className="section-header">
+              <h2 className="section-title">Recent Conversations</h2>
+            </div>
+            <RecentConversations battleTag={battleTag} playerName={playerName} />
+          </section>
+
+          {/* Empty State - only show if no news and no clips (conversations component handles its own empty state) */}
+          {playerMentions.length === 0 && playerClips.length === 0 && (
+            <div className="activity-empty">
+              <span className="activity-empty-text">No news or clips for this player yet.</span>
+            </div>
+          )}
+        </div>
+      )}
 
       {/* Clip Modal */}
       {activeClip && (

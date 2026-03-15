@@ -15,10 +15,17 @@ const RELAY_URL =
 
 const RACE_ICON_MAP = {
   Human: raceIcons.human,
+  human: raceIcons.human,
   Orc: raceIcons.orc,
+  orc: raceIcons.orc,
   "Night Elf": raceIcons.elf,
+  "night elf": raceIcons.elf,
+  NightElf: raceIcons.elf,
+  nightelf: raceIcons.elf,
   Undead: raceIcons.undead,
+  undead: raceIcons.undead,
   Random: raceIcons.random,
+  random: raceIcons.random,
 };
 
 /** Extract clean map name from replay filename like "w3c_s12.2_Deadlock_LV" → "DeadlockLV" */
@@ -32,21 +39,23 @@ const cleanMapName = (raw) => {
   return name.replace(/[_ ]/g, "");
 };
 
-export default function ScoutTab({ initialPlayer = null }) {
+export default function ScoutTab({ initialPlayer = null, initialProfileData = null, embedded = false }) {
   const history = useHistory();
   const location = useLocation();
 
   const [allPlayers, setAllPlayers] = useState(null);
-  const [selectedTag, setSelectedTag] = useState(null);
-  const [profileData, setProfileData] = useState(null);
+  const [selectedTag, setSelectedTag] = useState(initialPlayer);
+  const [profileData, setProfileData] = useState(initialProfileData);
   const [profileLoading, setProfileLoading] = useState(false);
   const [personaData, setPersonaData] = useState(null);
   const [personaLoading, setPersonaLoading] = useState(false);
   const [replayList, setReplayList] = useState(null);
   const [selectedReplayId, setSelectedReplayId] = useState(null);
   const [replayProfileData, setReplayProfileData] = useState(null);
+  const [cacheVersion, setCacheVersion] = useState(0); // trigger re-render when cache updates
   const replayCache = useRef(new Map());
   const didAutoSelect = useRef(false);
+  const replayListRef = useRef(null);
 
   const [searchQuery, setSearchQuery] = useState("");
   const [showDropdown, setShowDropdown] = useState(false);
@@ -146,9 +155,20 @@ export default function ScoutTab({ initialPlayer = null }) {
   useEffect(() => {
     if (initialPlayer && !didAutoSelect.current) {
       didAutoSelect.current = true;
-      selectPlayer(initialPlayer);
+      // If we have pre-fetched profile data, just load the replay list
+      if (initialProfileData) {
+        const tag = encodeURIComponent(initialPlayer);
+        fetch(`${RELAY_URL}/api/fingerprints/profile/${tag}/replays`)
+          .then((r) => (r.ok ? r.json() : null))
+          .then((data) => {
+            if (data?.replays) setReplayList(data.replays);
+          })
+          .catch(() => {});
+      } else {
+        selectPlayer(initialPlayer);
+      }
     }
-  }, [initialPlayer]); // eslint-disable-line react-hooks/exhaustive-deps
+  }, [initialPlayer, initialProfileData]); // eslint-disable-line react-hooks/exhaustive-deps
 
   const loadPersonas = useCallback(async () => {
     if (!selectedTag || personaData || personaLoading) return;
@@ -180,6 +200,7 @@ export default function ScoutTab({ initialPlayer = null }) {
       replayCache.current.set(replayId, promise);
       const data = await promise;
       replayCache.current.set(replayId, data || false);
+      setCacheVersion(v => v + 1); // trigger re-render to show stats
       return data;
     },
     [selectedTag]
@@ -195,6 +216,16 @@ export default function ScoutTab({ initialPlayer = null }) {
   const selectReplay = useCallback(
     async (replayId) => {
       if (replayId === selectedReplayId) return;
+
+      // Check cache first - if we have data, set it immediately without clearing
+      const cached = replayCache.current.get(replayId);
+      if (cached && !(cached instanceof Promise)) {
+        setSelectedReplayId(replayId);
+        setReplayProfileData(cached);
+        return;
+      }
+
+      // Not cached - need to fetch
       setSelectedReplayId(replayId);
       setReplayProfileData(null);
       const data = await fetchReplayProfile(replayId);
@@ -384,9 +415,64 @@ export default function ScoutTab({ initialPlayer = null }) {
     return d.slice(0, 10);
   };
 
+  // Get cached stats for a replay (APM, groups count, actual race)
+  const getCachedStats = (replayId) => {
+    const cached = replayCache.current.get(replayId);
+    if (!cached || cached instanceof Promise) return null;
+
+    // APM: segments.apm[0] * 300
+    const segments = cached.averaged?.segments;
+    const apmRaw = segments?.apm?.[0];
+    const apm = apmRaw != null ? Math.round(apmRaw * 300) : null;
+
+    // Groups: count active groups from groupUsage
+    const groupUsage = cached.groupUsage || [];
+    const activeGroups = groupUsage.filter(g => (g.used + g.assigned) > 0);
+    const groupsUsed = activeGroups.length > 0 ? activeGroups.length : null;
+
+    // Actual race played (for random players) - race is nested in replay object from API
+    const actualRace = cached.replay?.race || null;
+
+    return { apm, groupsUsed, actualRace };
+  };
+
+  // Keyboard navigation for replay list
+  useEffect(() => {
+    if (!replayList || replayList.length === 0) return;
+
+    const handleKeyDown = (e) => {
+      if (e.target.tagName === 'INPUT' || e.target.tagName === 'TEXTAREA') return;
+      if (e.key !== 'ArrowUp' && e.key !== 'ArrowDown') return;
+
+      e.preventDefault();
+      const currentIdx = selectedReplayId
+        ? replayList.findIndex(r => r.replayId === selectedReplayId)
+        : -1;
+
+      let newIdx;
+      if (e.key === 'ArrowDown') {
+        newIdx = currentIdx < replayList.length - 1 ? currentIdx + 1 : 0;
+      } else {
+        newIdx = currentIdx > 0 ? currentIdx - 1 : replayList.length - 1;
+      }
+
+      const newReplay = replayList[newIdx];
+      if (newReplay) {
+        selectReplay(newReplay.replayId);
+        // Scroll into view
+        const row = replayListRef.current?.querySelector(`[data-replay-id="${newReplay.replayId}"]`);
+        row?.scrollIntoView({ block: 'nearest', behavior: 'smooth' });
+      }
+    };
+
+    document.addEventListener('keydown', handleKeyDown);
+    return () => document.removeEventListener('keydown', handleKeyDown);
+  }, [replayList, selectedReplayId, selectReplay]);
+
   return (
     <>
-      {/* Search bar */}
+      {/* Search bar - hidden in embedded mode */}
+      {!embedded && (
       <SearchSection>
         <SearchInputWrap ref={searchRef}>
           <Input
@@ -484,14 +570,17 @@ export default function ScoutTab({ initialPlayer = null }) {
           <PlayerCount>{allPlayers.length} players indexed</PlayerCount>
         )}
       </SearchSection>
+      )}
 
       {/* Player profile panel */}
       {selectedTag && (
-        <ProfilePanel>
-          <ProfileHeader>
-            <ProfileTitle>{queryName}</ProfileTitle>
-            <DismissBtn onClick={dismiss}>×</DismissBtn>
-          </ProfileHeader>
+        <ProfilePanel $embedded={embedded}>
+          {!embedded && (
+            <ProfileHeader>
+              <ProfileTitle>{queryName}</ProfileTitle>
+              <DismissBtn onClick={dismiss}>×</DismissBtn>
+            </ProfileHeader>
+          )}
 
           {profileLoading && (
             <div
@@ -518,7 +607,7 @@ export default function ScoutTab({ initialPlayer = null }) {
                     </ArtCard>
                     <PlaystyleReport profileData={activeData} />
                   </ProfileGrid>
-                  {!selectedReplayId &&
+                  {!embedded && !selectedReplayId &&
                     (personaData?.split ? (
                       <PersonaSplit personaData={personaData} />
                     ) : (
@@ -545,11 +634,11 @@ export default function ScoutTab({ initialPlayer = null }) {
                 </div>
               ) : null}
 
-              {/* Replay list */}
+              {/* Replay list - cacheVersion={cacheVersion} triggers re-render for stats */}
               {replayList && replayList.length > 0 && (
                 <ReplayListSection>
                   <ReplayListHeader>Replays</ReplayListHeader>
-                  <ReplayListScroll>
+                  <ReplayListScroll ref={replayListRef}>
                     <ReplayRow
                       $active={!selectedReplayId}
                       onClick={() => {
@@ -563,14 +652,27 @@ export default function ScoutTab({ initialPlayer = null }) {
                     </ReplayRow>
                     {replayList.map((r) => {
                       const mapClean = cleanMapName(r.mapName);
+                      const stats = getCachedStats(r.replayId);
+                      // Show actual race with random badge if they queued random
+                      const isRandom = r.race?.toLowerCase() === 'random';
+                      const actualRace = stats?.actualRace;
+                      const displayRace = actualRace || r.race;
                       return (
                         <ReplayRow
                           key={r.replayId}
+                          data-replay-id={r.replayId}
                           $active={selectedReplayId === r.replayId}
                           onClick={() => selectReplay(r.replayId)}
                           onMouseEnter={() => prefetchReplay(r.replayId)}
                         >
-                          {RACE_ICON_MAP[r.race] && (
+                          {isRandom && actualRace && RACE_ICON_MAP[actualRace] ? (
+                            <span className="rnd-race-wrapper">
+                              <ReplayRaceIcon src={RACE_ICON_MAP[actualRace]} alt={actualRace} />
+                              <img src={RACE_ICON_MAP.Random} alt="random" className="rnd-badge-icon" />
+                            </span>
+                          ) : RACE_ICON_MAP[displayRace] ? (
+                            <ReplayRaceIcon src={RACE_ICON_MAP[displayRace]} alt={displayRace} />
+                          ) : RACE_ICON_MAP[r.race] && (
                             <ReplayRaceIcon src={RACE_ICON_MAP[r.race]} alt={r.race} />
                           )}
                           {mapClean && (
@@ -581,7 +683,14 @@ export default function ScoutTab({ initialPlayer = null }) {
                             />
                           )}
                           <ReplayMapName>{mapClean || r.mapName || "—"}</ReplayMapName>
-                          <ReplayDate>{fmtDate(r.matchDate)}</ReplayDate>
+                          <ReplayStat $dim={!stats}>
+                            {stats?.apm ?? "—"}
+                            <span className="label">APM</span>
+                          </ReplayStat>
+                          <ReplayStat $dim={!stats}>
+                            {stats?.groupsUsed ?? "—"}
+                            <span className="label">GRP</span>
+                          </ReplayStat>
                           <ReplayDuration>
                             {fmtDuration(r.gameDuration)}
                           </ReplayDuration>
@@ -748,10 +857,10 @@ const PersonaBtn = styled.button`
 `;
 
 const ProfilePanel = styled.div`
-  margin-top: var(--space-4);
-  padding: var(--space-6) 0;
-  border-top: var(--border-thin) solid var(--grey-mid);
-  animation: reveal-up 600ms cubic-bezier(0.17, 0.76, 0.28, 1) both;
+  margin-top: ${(p) => p.$embedded ? '0' : 'var(--space-4)'};
+  padding: ${(p) => p.$embedded ? '0' : 'var(--space-6) 0'};
+  border-top: ${(p) => p.$embedded ? 'none' : 'var(--border-thin) solid var(--grey-mid)'};
+  animation: ${(p) => p.$embedded ? 'none' : 'reveal-up 600ms cubic-bezier(0.17, 0.76, 0.28, 1) both'};
   animation-delay: 0.1s;
 
   @keyframes reveal-up {
@@ -930,6 +1039,24 @@ const ReplayDate = styled.span`
 const ReplayDuration = styled.span`
   min-width: 44px;
   text-align: right;
+`;
+
+const ReplayStat = styled.span`
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  min-width: 40px;
+  font-family: var(--font-mono);
+  font-size: var(--text-xs);
+  color: ${(p) => p.$dim ? 'var(--grey-mid)' : 'var(--white)'};
+  transition: color 0.2s ease;
+
+  .label {
+    font-size: 9px;
+    color: var(--grey-mid);
+    text-transform: uppercase;
+    letter-spacing: 0.06em;
+  }
 `;
 
 const W3cBadge = styled.span`
