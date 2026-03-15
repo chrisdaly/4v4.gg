@@ -384,15 +384,19 @@ const CoverHero = ({ weekly, coverBg, headline, editorial, onPickCover, coverPos
           <h1 className="mg-header-title">{headline}</h1>
         )
       )}
-      <div className={`mg-header-image${repositioning ? " mg-header-image--repositioning" : ""}`}>
-        <img
-          src={coverBg}
-          alt=""
-          className="mg-header-img"
-          style={{ objectPosition: `50% ${posY}%` }}
-          onMouseDown={repositioning ? handleDragStart : undefined}
-          onTouchStart={repositioning ? handleDragStart : undefined}
-        />
+      <div className={`mg-header-image${repositioning ? " mg-header-image--repositioning" : ""}${!coverBg ? " mg-header-image--loading" : ""}`}>
+        {coverBg && (
+          <img
+            key={coverBg}
+            src={coverBg}
+            alt=""
+            className="mg-header-img"
+            style={{ objectPosition: `50% ${posY}%` }}
+            onMouseDown={repositioning ? handleDragStart : undefined}
+            onTouchStart={repositioning ? handleDragStart : undefined}
+            onLoad={(e) => e.target.classList.add("mg-img-loaded")}
+          />
+        )}
         {repositioning && (
           <div className="mg-header-reposition-bar">
             <Button $ghost className="mg-header-reposition-btn" onClick={handleCancelReposition}><FiX size={14} /> Cancel</Button>
@@ -2424,15 +2428,17 @@ const WeeklyMagazine = ({ weekParam, isAdmin = false, apiKey = "" }) => {
     );
   }, [weekly, knownNames, digestData.atSpotlight]);
 
-  const [coverBg, setCoverBg] = useState(COVER_BACKGROUNDS[0]);
+  const [coverBg, setCoverBg] = useState(null);
 
   useEffect(() => {
     if (!weekly?.week_start) return;
     const fallback = COVER_BACKGROUNDS[hashDate(weekly.week_start) % COVER_BACKGROUNDS.length];
+    // Don't show anything while loading - prevents flash of fallback image
+    setCoverBg(null);
     const coverUrl = `${RELAY_URL}/api/admin/weekly-digest/${weekly.week_start}/cover.jpg?t=${Date.now()}`;
     const img = new Image();
     img.onload = () => setCoverBg(coverUrl);
-    img.onerror = () => setCoverBg(fallback);
+    img.onerror = () => setCoverBg(fallback); // Only show fallback if custom cover fails
     img.src = coverUrl;
   }, [weekly?.week_start]);
 

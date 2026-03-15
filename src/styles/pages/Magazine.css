@@ -16,6 +16,7 @@
 
 .mg-page {
   min-height: 100vh;
+  overflow-x: hidden;
 }
 
 /* ── Page Nav Wrap ─────────────────────────────────── */
@@ -109,11 +110,22 @@
   color: var(--gold) !important;
 }
 
+.mg-header-image--loading {
+  aspect-ratio: 21 / 9;
+  background: var(--surface-1);
+}
+
 .mg-header-img {
   display: block;
   width: 100%;
   aspect-ratio: 21 / 9;
   object-fit: cover;
+  opacity: 0;
+  transition: opacity 0.3s ease-out;
+}
+
+.mg-header-img.mg-img-loaded {
+  opacity: 1;
 }
 
 /* Reposition toggle button — stacked above Pick Cover */
@@ -2698,11 +2710,22 @@ a.mg-stack-player-name:hover {
     z-index: 0;
   }
 
+  .mg-header-image--loading {
+    aspect-ratio: auto;
+    background: var(--surface-1);
+  }
+
   .mg-header-img {
     width: 100%;
     height: 100%;
     aspect-ratio: auto;
     object-fit: cover;
+    opacity: 0;
+    transition: opacity 0.3s ease-out;
+  }
+
+  .mg-header-img.mg-img-loaded {
+    opacity: 1;
   }
 
   /* Cinematic gradient — heavy at bottom for text, subtle vignette at top */
