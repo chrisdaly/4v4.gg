@@ -983,8 +983,12 @@ const QuoteBrowser = ({ statKey, battleTag, editorial, label, text, nameToTag, d
   const [messages, setMessages] = useState(null);
   const [loading, setLoading] = useState(false);
   const [loadingMore, setLoadingMore] = useState(false);
+  const [loadingNewer, setLoadingNewer] = useState(false);
   const [hasMore, setHasMore] = useState(false);
-  const [offset, setOffset] = useState(0);
+  const [hasNewer, setHasNewer] = useState(false);
+  // Track bidirectional window: startOffset is where our current window begins, endOffset is where it ends
+  const [startOffset, setStartOffset] = useState(0);
+  const [endOffset, setEndOffset] = useState(0);
   const [open, setOpen] = useState(!!inline);
 
   // Determine mode: scored (has editorial.browseMessages + statKey + battleTag) vs search
@@ -1029,11 +1033,14 @@ const QuoteBrowser = ({ statKey, battleTag, editorial, label, text, nameToTag, d
       const result = await editorial.browseMessages(statKey, battleTag);
       setMessages(result);
       setHasMore(false);
+      setHasNewer(false);
     } else {
       const results = await fetchSearch(0);
       setMessages(results);
-      setOffset(SEARCH_PAGE_SIZE);
+      setStartOffset(0);
+      setEndOffset(SEARCH_PAGE_SIZE);
       setHasMore(results.length >= SEARCH_PAGE_SIZE);
+      setHasNewer(false); // We start at newest, nothing newer
     }
     setLoading(false);
   };
@@ -1043,15 +1050,28 @@ const QuoteBrowser = ({ statKey, battleTag, editorial, label, text, nameToTag, d
     if (inline && !messages && !loading) handleToggle();
   }, [inline]); // eslint-disable-line react-hooks/exhaustive-deps
 
+  // Load older messages (scroll down)
   const handleLoadMore = useCallback(async () => {
     if (loadingMore || !hasMore || isScored) return;
     setLoadingMore(true);
-    const results = await fetchSearch(offset);
+    const results = await fetchSearch(endOffset);
     setMessages((prev) => [...(prev || []), ...results]);
-    setOffset((prev) => prev + SEARCH_PAGE_SIZE);
+    setEndOffset((prev) => prev + SEARCH_PAGE_SIZE);
     setHasMore(results.length >= SEARCH_PAGE_SIZE);
     setLoadingMore(false);
-  }, [loadingMore, hasMore, isScored, offset, fetchSearch]);
+  }, [loadingMore, hasMore, isScored, endOffset, fetchSearch]);
+
+  // Load newer messages (scroll up) - only if we started from middle
+  const handleLoadNewer = useCallback(async () => {
+    if (loadingNewer || !hasNewer || isScored || startOffset <= 0) return;
+    setLoadingNewer(true);
+    const newStart = Math.max(0, startOffset - SEARCH_PAGE_SIZE);
+    const results = await fetchSearch(newStart);
+    setMessages((prev) => [...results, ...(prev || [])]);
+    setStartOffset(newStart);
+    setHasNewer(newStart > 0);
+    setLoadingNewer(false);
+  }, [loadingNewer, hasNewer, isScored, startOffset, fetchSearch]);
 
   const handleApply = (items) => {
     const quotes = items.map((m) => `${m.name}: ${m.text}`);
@@ -1085,6 +1105,9 @@ const QuoteBrowser = ({ statKey, battleTag, editorial, label, text, nameToTag, d
           onLoadMore={hasMore ? handleLoadMore : undefined}
           hasMore={hasMore}
           loadingMore={loadingMore}
+          onLoadNewer={hasNewer ? handleLoadNewer : undefined}
+          hasNewer={hasNewer}
+          loadingNewer={loadingNewer}
         />
       </div>
     );
@@ -1116,6 +1139,9 @@ const QuoteBrowser = ({ statKey, battleTag, editorial, label, text, nameToTag, d
             onLoadMore={hasMore ? handleLoadMore : undefined}
             hasMore={hasMore}
             loadingMore={loadingMore}
+            onLoadNewer={hasNewer ? handleLoadNewer : undefined}
+            hasNewer={hasNewer}
+            loadingNewer={loadingNewer}
           />
         </div>
       )}

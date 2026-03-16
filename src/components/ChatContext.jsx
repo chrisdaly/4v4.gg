@@ -81,9 +81,12 @@ function getDateKey(ts) {
  * @param {Array}    targetTags        - battle_tags to highlight as gold (target players)
  * @param {boolean}  compact           - Minimal mode: no filter input, no panel border
  * @param {boolean}  showDates         - Show full dates in timestamps (auto-enabled when messages span multiple days)
- * @param {Function} onLoadMore        - Callback to fetch more messages (infinite scroll)
- * @param {boolean}  hasMore           - Whether more messages are available to load
- * @param {boolean}  loadingMore       - Whether a load-more fetch is in progress
+ * @param {Function} onLoadMore        - Callback to fetch older messages (scroll down)
+ * @param {boolean}  hasMore           - Whether older messages are available
+ * @param {boolean}  loadingMore       - Whether loading older messages
+ * @param {Function} onLoadNewer       - Callback to fetch newer messages (scroll up)
+ * @param {boolean}  hasNewer          - Whether newer messages are available
+ * @param {boolean}  loadingNewer      - Whether loading newer messages
  */
 const ChatContext = ({
   messages,
@@ -104,6 +107,9 @@ const ChatContext = ({
   onLoadMore,
   hasMore = false,
   loadingMore = false,
+  onLoadNewer,
+  hasNewer = false,
+  loadingNewer = false,
 }) => {
   const [filter, setFilter] = useState("");
   const [sortBy, setSortBy] = useState("score"); // "score" or "date"
@@ -137,19 +143,36 @@ const ChatContext = ({
   const [contextAvatars, setContextAvatars] = useState(new Map());
   const matchRef = useRef(null);
   const sentinelRef = useRef(null);
+  const topSentinelRef = useRef(null);
+  const listRef = useRef(null);
 
-  // Infinite scroll — observe sentinel at bottom of list
+  // Infinite scroll — observe sentinel at bottom of list (older messages)
   useEffect(() => {
     if (!onLoadMore || !hasMore || loadingMore) return;
     const el = sentinelRef.current;
-    if (!el) return;
+    const root = listRef.current;
+    if (!el || !root) return;
     const observer = new IntersectionObserver(
       ([entry]) => { if (entry.isIntersecting) onLoadMore(); },
-      { rootMargin: "100px" }
+      { root, rootMargin: "100px" }
     );
     observer.observe(el);
     return () => observer.disconnect();
   }, [onLoadMore, hasMore, loadingMore]);
+
+  // Infinite scroll — observe sentinel at top of list (newer messages)
+  useEffect(() => {
+    if (!onLoadNewer || !hasNewer || loadingNewer) return;
+    const el = topSentinelRef.current;
+    const root = listRef.current;
+    if (!el || !root) return;
+    const observer = new IntersectionObserver(
+      ([entry]) => { if (entry.isIntersecting) onLoadNewer(); },
+      { root, rootMargin: "100px" }
+    );
+    observer.observe(el);
+    return () => observer.disconnect();
+  }, [onLoadNewer, hasNewer, loadingNewer]);
 
   // Reset selection when messages change
   useEffect(() => { setSelected(new Set()); }, [messages]);
@@ -436,7 +459,13 @@ const ChatContext = ({
 
       {/* Message list */}
       {filtered.length > 0 && (
-        <div className="cc-list">
+        <div className="cc-list" ref={listRef}>
+          {/* Top sentinel for loading newer messages */}
+          {hasNewer && (
+            <div ref={topSentinelRef} className="cc-load-more cc-load-more--top">
+              {loadingNewer && <span className="cc-status">Loading newer...</span>}
+            </div>
+          )}
           {(() => {
             const groups = groupMessages(filtered);
             let lastDateKey = null;
@@ -583,13 +612,13 @@ const ChatContext = ({
             );
           });
           })()}
-        </div>
-      )}
 
-      {/* Infinite scroll sentinel */}
-      {hasMore && (
-        <div ref={sentinelRef} className="cc-load-more">
-          {loadingMore && <span className="cc-status">Loading more...</span>}
+          {/* Infinite scroll sentinel (bottom - older messages) */}
+          {hasMore && (
+            <div ref={sentinelRef} className="cc-load-more">
+              {loadingMore && <span className="cc-status">Loading more...</span>}
+            </div>
+          )}
         </div>
       )}
 
