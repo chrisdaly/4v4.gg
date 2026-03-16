@@ -1,12 +1,14 @@
-import React, { useState, useCallback, useReducer, useMemo } from "react";
+import React, { useState, useCallback, useReducer, useMemo, useEffect } from "react";
+import styled from "styled-components";
 import { FiX } from "react-icons/fi";
 import { useReplayLabStore, useReplayUpload } from "../../lib/useReplayLabStore";
 import { Button } from "../../components/ui";
 import SimilarityMatrix from "../../components/replay-lab/SimilarityMatrix";
 import ComparisonPanel from "../../components/replay-lab/ComparisonPanel";
-import { EarlyGameSequence } from "../../components/replay/PlayerFingerprint";
-import OverlaySparkline from "../../components/replay-lab/OverlaySparkline";
-import OverlayRadar from "../../components/replay-lab/OverlayRadar";
+import TransitionGlyph from "../../components/replay-lab/TransitionGlyph";
+import PlaystyleReport from "../../components/replay-lab/PlaystyleReport";
+import PeonLoader from "../../components/PeonLoader";
+import { raceIcons } from "../../lib/constants";
 import {
   buildFingerprint,
   computeBigramBasis,
@@ -49,20 +51,26 @@ import {
   DetailBarLabel,
   DetailBarTrack,
   DetailBarFill,
-  DetailSectionLabel,
-  OverlayRow,
-  HotkeyTable,
-  HkCell,
-  HkHeader,
-  HkBar,
-  HkBarFill,
-  HkRole,
-  CompareGrid,
-  CompareColumn,
-  CompareLabel,
   MergedGrid,
-  getGroupData,
 } from "./shared-styles";
+
+const RELAY_URL =
+  import.meta.env.VITE_CHAT_RELAY_URL || "https://4v4gg-chat-relay.fly.dev";
+
+const RACE_ICON_MAP = {
+  Human: raceIcons.human,
+  human: raceIcons.human,
+  Orc: raceIcons.orc,
+  orc: raceIcons.orc,
+  "Night Elf": raceIcons.elf,
+  "night elf": raceIcons.elf,
+  NightElf: raceIcons.elf,
+  nightelf: raceIcons.elf,
+  Undead: raceIcons.undead,
+  undead: raceIcons.undead,
+  Random: raceIcons.random,
+  random: raceIcons.random,
+};
 
 // ── Identity merge reducer ──────────────────────
 
@@ -108,11 +116,37 @@ export default function CompareTab() {
   const [threshold, setThreshold] = useState(0.60);
   const [selectedCell, setSelectedCell] = useState(null);
   const [mergedIdentities, dispatchMerge] = useReducer(identityReducer, []);
+  const [replayProfiles, setReplayProfiles] = useState({});
+  const [profilesLoading, setProfilesLoading] = useState({});
+
+  // ── Fetch replay profiles from server ─────────
+  useEffect(() => {
+    for (const r of replays) {
+      if (replayProfiles[r.id] || profilesLoading[r.id]) continue;
+      setProfilesLoading((prev) => ({ ...prev, [r.id]: true }));
+      fetch(`${RELAY_URL}/api/fingerprints/replay/${r.id}/profiles`)
+        .then((res) => (res.ok ? res.json() : null))
+        .then((data) => {
+          if (data?.profiles) {
+            setReplayProfiles((prev) => ({ ...prev, [r.id]: data.profiles }));
+          }
+        })
+        .catch(() => {})
+        .finally(() => {
+          setProfilesLoading((prev) => ({ ...prev, [r.id]: false }));
+        });
+    }
+  }, [replays]);
 
   const removeReplay = useCallback(
     (replayId) => {
       setReplays((prev) => prev.filter((r) => r.id !== replayId));
       setSelectedCell(null);
+      setReplayProfiles((prev) => {
+        const next = { ...prev };
+        delete next[replayId];
+        return next;
+      });
     },
     [setReplays]
   );
@@ -191,8 +225,15 @@ export default function CompareTab() {
     if (!pA || !pB) return null;
     const sim = playerSimilarity(pA, pB);
     const breakdown = computeBreakdown(pA.fingerprint, pB.fingerprint);
-    return { pA, pB, sim, breakdown };
-  }, [selectedCell, allPlayers]);
+
+    // Find server-side profiles for the two players
+    const profilesA = replayProfiles[pA.replayId];
+    const profilesB = replayProfiles[pB.replayId];
+    const profileA = profilesA?.find((p) => p.playerId === pA.playerId);
+    const profileB = profilesB?.find((p) => p.playerId === pB.playerId);
+
+    return { pA, pB, sim, breakdown, profileA, profileB };
+  }, [selectedCell, allPlayers, replayProfiles]);
 
   // ── Handlers ────────────────────────────────────
 
@@ -221,6 +262,9 @@ export default function CompareTab() {
 
   // ── Render ──────────────────────────────────────
 
+  const hasAnyProfiles = replays.some((r) => replayProfiles[r.id]?.length > 0);
+  const anyLoading = replays.some((r) => profilesLoading[r.id]);
+
   return (
     <>
       {/* Drop zone */}
@@ -228,7 +272,7 @@ export default function CompareTab() {
         <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: "var(--space-4)" }}>
           <SectionTitle style={{ marginBottom: 0 }}>Upload Replays</SectionTitle>
           {replays.length > 0 && (
-            <Button $secondary onClick={() => { clearSession(); dispatchMerge({ type: "RESET" }); setSelectedCell(null); }} style={{ fontSize: "10px", padding: "3px 10px" }}>
+            <Button $secondary onClick={() => { clearSession(); dispatchMerge({ type: "RESET" }); setSelectedCell(null); setReplayProfiles({}); }} style={{ fontSize: "10px", padding: "3px 10px" }}>
               Clear All
             </Button>
           )}
@@ -284,6 +328,64 @@ export default function CompareTab() {
         )}
       </Section>
 
+      {/* Replay Signatures */}
+      {replays.length > 0 && (hasAnyProfiles || anyLoading) && (
+        <Section>
+          <SectionTitle>Replay Signatures</SectionTitle>
+          {replays.map((r) => {
+            const profiles = replayProfiles[r.id];
+            const loading = profilesLoading[r.id];
+            if (!profiles && !loading) return null;
+
+            // Split into teams
+            const team1 = profiles?.filter((p) => p.teamId === 0) || [];
+            const team2 = profiles?.filter((p) => p.teamId === 1) || [];
+
+            return (
+              <ReplaySignatureBlock key={r.id}>
+                <ReplaySignatureTitle>
+                  {replayLabels[r.id]}: {r.filename}
+                </ReplaySignatureTitle>
+                {loading && !profiles ? (
+                  <PeonLoader size="sm" />
+                ) : (
+                  <>
+                    {[team1, team2].map((team, teamIdx) => (
+                      team.length > 0 && (
+                        <PlayerGrid key={teamIdx} $count={team.length}>
+                          {team.map((p) => (
+                            <PlayerCard key={p.playerId}>
+                              <PlayerCardHeader>
+                                {RACE_ICON_MAP[p.race] && (
+                                  <RaceImg src={RACE_ICON_MAP[p.race]} alt={p.race} />
+                                )}
+                                <PlayerCardName>
+                                  {p.playerName?.split("#")[0] || `Player ${p.playerId}`}
+                                </PlayerCardName>
+                              </PlayerCardHeader>
+                              <GlyphWrap>
+                                <TransitionGlyph
+                                  mini
+                                  transitionPairs={p.profileData.transitionPairs}
+                                  groupUsage={p.profileData.groupUsage}
+                                  groupCompositions={p.profileData.groupCompositions}
+                                  segments={p.profileData.averaged?.segments}
+                                />
+                              </GlyphWrap>
+                              <PlaystyleReport profileData={p.profileData} />
+                            </PlayerCard>
+                          ))}
+                        </PlayerGrid>
+                      )
+                    ))}
+                  </>
+                )}
+              </ReplaySignatureBlock>
+            );
+          })}
+        </Section>
+      )}
+
       {/* Similarity matrix */}
       {allPlayers.length >= 2 && matrix && (
         <Section>
@@ -322,98 +424,39 @@ export default function CompareTab() {
                 ))}
               </DetailBars>
 
-              <DetailSectionLabel>APM Over Time (overlaid)</DetailSectionLabel>
-              <OverlaySparkline
-                series={[
-                  {
-                    label: `${cellDetail.pA.playerName} (${replayLabels[cellDetail.pA.replayId]})`,
-                    timedSegments: cellDetail.pA.actions?.timed_segments || [],
-                  },
-                  {
-                    label: `${cellDetail.pB.playerName} (${replayLabels[cellDetail.pB.replayId]})`,
-                    timedSegments: cellDetail.pB.actions?.timed_segments || [],
-                  },
-                ]}
-              />
-
-              <OverlayRow>
-                <div>
-                  <DetailSectionLabel>Actions (overlaid)</DetailSectionLabel>
-                  <OverlayRadar
-                    series={[
-                      { label: cellDetail.pA.playerName, actions: cellDetail.pA.actions || {} },
-                      { label: cellDetail.pB.playerName, actions: cellDetail.pB.actions || {} },
-                    ]}
-                  />
-                </div>
-
-                <div style={{ flex: 1 }}>
-                  <DetailSectionLabel>Control Groups</DetailSectionLabel>
-                  <HotkeyTable>
-                    <HkHeader>Grp</HkHeader>
-                    <HkHeader>
-                      {cellDetail.pA.playerName.split("#")[0]} ({replayLabels[cellDetail.pA.replayId]})
-                    </HkHeader>
-                    <HkHeader>
-                      {cellDetail.pB.playerName.split("#")[0]} ({replayLabels[cellDetail.pB.replayId]})
-                    </HkHeader>
-                    {Array.from({ length: 10 }, (_, i) => {
-                      const gA = getGroupData(cellDetail.pA.actions?.group_hotkeys)[i] || {};
-                      const gB = getGroupData(cellDetail.pB.actions?.group_hotkeys)[i] || {};
-                      const maxVal = Math.max(
-                        gA.used || 0, gB.used || 0, gA.assigned || 0, gB.assigned || 0, 1
-                      );
-                      const inactive =
-                        (gA.assigned || 0) === 0 &&
-                        (gA.used || 0) === 0 &&
-                        (gB.assigned || 0) === 0 &&
-                        (gB.used || 0) === 0;
-                      if (inactive) return null;
-                      return (
-                        <React.Fragment key={i}>
-                          <HkCell $color="rgba(255,255,255,0.5)">{i}</HkCell>
-                          <HkCell>
-                            <HkBar>
-                              <HkBarFill $color="#00bcd4" style={{ width: `${((gA.assigned || 0) / maxVal) * 100}%` }} />
-                            </HkBar>
-                            <HkBar>
-                              <HkBarFill $color="var(--gold)" style={{ width: `${((gA.used || 0) / maxVal) * 100}%` }} />
-                            </HkBar>
-                            <HkRole $color="#00bcd4">{gA.assigned || ""}</HkRole>
-                            <HkRole $color="var(--gold)">{gA.used || ""}</HkRole>
-                          </HkCell>
-                          <HkCell>
-                            <HkBar>
-                              <HkBarFill $color="#00bcd4" style={{ width: `${((gB.assigned || 0) / maxVal) * 100}%` }} />
-                            </HkBar>
-                            <HkBar>
-                              <HkBarFill $color="var(--gold)" style={{ width: `${((gB.used || 0) / maxVal) * 100}%` }} />
-                            </HkBar>
-                            <HkRole $color="#00bcd4">{gB.assigned || ""}</HkRole>
-                            <HkRole $color="var(--gold)">{gB.used || ""}</HkRole>
-                          </HkCell>
-                        </React.Fragment>
-                      );
-                    })}
-                  </HotkeyTable>
-                </div>
-              </OverlayRow>
-
-              <DetailSectionLabel>Early Game Sequences</DetailSectionLabel>
-              <CompareGrid>
-                <CompareColumn>
-                  <CompareLabel>
-                    {cellDetail.pA.playerName} ({replayLabels[cellDetail.pA.replayId]})
-                  </CompareLabel>
-                  <EarlyGameSequence sequence={cellDetail.pA.actions?.early_game_sequence} />
-                </CompareColumn>
-                <CompareColumn>
-                  <CompareLabel>
-                    {cellDetail.pB.playerName} ({replayLabels[cellDetail.pB.replayId]})
-                  </CompareLabel>
-                  <EarlyGameSequence sequence={cellDetail.pB.actions?.early_game_sequence} />
-                </CompareColumn>
-              </CompareGrid>
+              {/* Side-by-side signature comparison */}
+              {(cellDetail.profileA || cellDetail.profileB) && (
+                <CompareSignatures>
+                  {[
+                    { profile: cellDetail.profileA, player: cellDetail.pA },
+                    { profile: cellDetail.profileB, player: cellDetail.pB },
+                  ].map(({ profile, player }) => (
+                    <CompareColumn key={player.uid}>
+                      <CompareColumnLabel>
+                        {player.playerName?.split("#")[0]} ({replayLabels[player.replayId]})
+                      </CompareColumnLabel>
+                      {profile ? (
+                        <>
+                          <GlyphWrap>
+                            <TransitionGlyph
+                              mini
+                              transitionPairs={profile.profileData.transitionPairs}
+                              groupUsage={profile.profileData.groupUsage}
+                              groupCompositions={profile.profileData.groupCompositions}
+                              segments={profile.profileData.averaged?.segments}
+                            />
+                          </GlyphWrap>
+                          <PlaystyleReport profileData={profile.profileData} />
+                        </>
+                      ) : (
+                        <EmptyState style={{ padding: "var(--space-4)" }}>
+                          No profile data
+                        </EmptyState>
+                      )}
+                    </CompareColumn>
+                  ))}
+                </CompareSignatures>
+              )}
             </DetailPanel>
           )}
         </Section>
@@ -527,3 +570,90 @@ export default function CompareTab() {
     </>
   );
 }
+
+// ── Styled Components ────────────────────────────
+
+const ReplaySignatureBlock = styled.div`
+  margin-bottom: var(--space-6);
+  padding: var(--space-4);
+  border: 1px solid var(--grey-mid);
+  border-radius: var(--radius-md);
+  background: var(--surface-1);
+`;
+
+const ReplaySignatureTitle = styled.div`
+  font-family: var(--font-display);
+  font-size: var(--text-sm);
+  color: var(--gold);
+  margin-bottom: var(--space-4);
+`;
+
+const PlayerGrid = styled.div`
+  display: grid;
+  grid-template-columns: repeat(${(p) => Math.min(p.$count, 4)}, 1fr);
+  gap: var(--space-4);
+  margin-bottom: var(--space-4);
+
+  @media (max-width: 900px) {
+    grid-template-columns: repeat(2, 1fr);
+  }
+  @media (max-width: 500px) {
+    grid-template-columns: 1fr;
+  }
+`;
+
+const PlayerCard = styled.div`
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-2);
+`;
+
+const PlayerCardHeader = styled.div`
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+  padding-bottom: var(--space-1);
+`;
+
+const RaceImg = styled.img`
+  width: 20px;
+  height: 20px;
+  object-fit: contain;
+`;
+
+const PlayerCardName = styled.span`
+  font-family: var(--font-display);
+  font-size: var(--text-sm);
+  color: var(--gold);
+`;
+
+const GlyphWrap = styled.div`
+  max-width: 240px;
+  margin: 0 auto;
+`;
+
+const CompareSignatures = styled.div`
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: var(--space-6);
+  margin-top: var(--space-4);
+
+  @media (max-width: 700px) {
+    grid-template-columns: 1fr;
+  }
+`;
+
+const CompareColumn = styled.div`
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-2);
+`;
+
+const CompareColumnLabel = styled.div`
+  font-family: var(--font-mono);
+  font-size: var(--text-xs);
+  color: var(--grey-light);
+  text-transform: uppercase;
+  letter-spacing: 0.1em;
+  margin-bottom: var(--space-1);
+`;

@@ -2,7 +2,7 @@ import React, { useState, useEffect, useMemo, useCallback } from "react";
 
 import LadderRow from "../components/LadderRow";
 import PeonLoader from "../components/PeonLoader";
-import { PageLayout } from "../components/PageLayout";
+import { PageLayout, PageHero } from "../components/PageLayout";
 import { Select, Input, Button } from "../components/ui";
 import { gateway } from "../lib/params";
 import { fetchPlayerSessionData } from "../lib/utils";
@@ -377,19 +377,17 @@ const Ladder = () => {
   const currentLeague = LEAGUES.find((l) => l.id === selectedLeague);
 
   const ladderHeader = (
-    <div className="page-header">
-      <div className="page-title-section">
-        {searchResults !== null ? (
-          <>
-            <h1 className="page-title">Search Results</h1>
-            <div className="page-stats">
-              <span className="stat-item">{searchResults.length} players found</span>
-            </div>
-          </>
-        ) : (
-          <>
-            <h1 className="page-title">{currentLeague?.name}</h1>
-            <div className="page-stats">
+    <>
+      <PageHero
+        eyebrow="4v4.gg Ladder"
+        title={searchResults !== null ? "Search Results" : currentLeague?.name}
+        lg
+      >
+        <div className="page-stats">
+          {searchResults !== null ? (
+            <span className="stat-item">{searchResults.length} players found</span>
+          ) : (
+            <>
               <span className="stat-item">{rankings.length} players</span>
               {inGameCount > 0 && (
                 <span className="stat-item in-game">
@@ -397,11 +395,11 @@ const Ladder = () => {
                   {inGameCount} in game
                 </span>
               )}
-            </div>
-          </>
-        )}
-      </div>
-      <div className="page-controls ladder-controls">
+            </>
+          )}
+        </div>
+      </PageHero>
+      <div className="ladder-controls-row">
         <div className="ladder-search">
           <Input
             type="text"
@@ -445,11 +443,11 @@ const Ladder = () => {
           </div>
         </div>
       </div>
-    </div>
+    </>
   );
 
   return (
-    <PageLayout maxWidth="1000px" fullHeight header={ladderHeader}>
+    <PageLayout fullHeight header={ladderHeader}>
       {isLoading || isSearching ? (
         <div className="page-loader">
           <PeonLoader />

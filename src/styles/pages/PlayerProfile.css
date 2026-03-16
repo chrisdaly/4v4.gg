@@ -254,6 +254,15 @@
   box-shadow: var(--theme-shadow, none);
 }
 
+.penstroke-section {
+  max-width: 500px;
+  margin: 0 auto var(--space-6);
+  padding: var(--space-4);
+  background: rgba(0, 0, 0, 0.2);
+  border-radius: var(--radius-md);
+  border: 1px solid rgba(255, 255, 255, 0.06);
+}
+
 /* Activity Tab Content */
 .activity-tab-content {
   display: flex;

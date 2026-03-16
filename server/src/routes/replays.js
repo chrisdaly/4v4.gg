@@ -89,13 +89,19 @@ router.post('/upload', requireApiKey, (req, res, next) => {
       rawParsed: JSON.stringify(parsed),
     });
 
-    insertReplayPlayers(replayId, parsed.players);
+    // In WC3 replays, player names ARE battleTags (e.g. "FOALS#11315")
+    const playersWithTags = parsed.players.map(p => ({
+      ...p,
+      battleTag: p.playerName.includes('#') ? p.playerName : null,
+    }));
+
+    insertReplayPlayers(replayId, playersWithTags);
     insertReplayChat(replayId, parsed.chat);
     insertReplayPlayerActions(replayId, parsed.actions);
 
     // Compute and store fingerprints
     try {
-      const fingerprints = computeFingerprints(parsed.actions, parsed.players);
+      const fingerprints = computeFingerprints(parsed.actions, playersWithTags);
       if (fingerprints.length > 0) insertPlayerFingerprints(replayId, fingerprints);
       // Fire-and-forget: compute neural embeddings if sidecar is up
       computeEmbeddingsAsync(replayId, parsed.actions);
@@ -121,7 +127,7 @@ router.post('/upload', requireApiKey, (req, res, next) => {
       },
     });
   } catch (err) {
-    console.error(`[Replay] Parse error for ${originalname}:`, err.message);
+    console.error(`[Replay] Parse error for ${originalname}:`, err.message, err.stack);
     updateReplayError(replayId, err.message);
     res.status(422).json({
       ok: false,

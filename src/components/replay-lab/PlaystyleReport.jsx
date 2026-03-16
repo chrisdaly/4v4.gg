@@ -39,7 +39,7 @@ const SHORT_NAMES = {
   // Alternate IDs / upgraded forms
   owyv: 'WR', ehpr: 'HippoR', ospw: 'SW', ospm: 'SW',
   ucrm: 'Fiend', esen: 'Hunt', ebal: 'Glaive', hphx: 'Phoenix',
-  nzep: 'Zep', nass: 'Assassin',
+  nzep: 'Zep', nass: 'Assassin', nftb: 'Troll',
 };
 
 const BUILDINGS = new Set([
@@ -82,12 +82,12 @@ const UNIT_ICONS = new Set([
   // Human units + buildings
   'halt','Hamg','harm','hars','hatw','hbar','hbla','Hblm','hcas','hctw','hdhw','hfoo',
   'hgra','hgry','hgtw','hgyr','hhou','hkee','hkni','hlum','hmil','Hmkg','hmpr','hmtm',
-  'Hpal','hpea','hrif','hsie','hsor','hspt','htow','hvlt','hwtw',
-  // Neutral heroes
-  'Nalc','Nbrn','Nbst','Nfir','Nngs','Npbm','Nplh','Ntin','ngsp',
+  'Hpal','hpea','hrif','hsie','hsor','hspt','htow','hvlt','hwat','hwt2','hwt3','hwtw',
+  // Neutral heroes + mercs
+  'Nalc','Nbrn','Nbst','Nfir','Nngs','Npbm','Nplh','Ntin','nftb','ngsp',
   // Orc units + buildings
   'oalt','obar','obea','Obla','ocat','odoc','Ofar','ofor','ofrt','ogre','ogru','ohou','ohun','okod','opeo',
-  'orai','Oshd','oshm','osld','osp1','ostr','otau','otbk','otbr','Otch','otrb','otto','ovln','owtw','owvy',
+  'orai','Oshd','oshm','osld','osp1','ostr','osw1','osw2','osw3','otau','otbk','otbr','Otch','otrb','otto','ovln','owtw','owvy',
   // UD units + buildings
   'uabo','uaco','uaod','uban','ubon','ubsp','Ucrl','ucry','ucs1','ucs2','ucs3',
   'Udea','Udre','udth','ufro','ugar','ugho','ugrv','Ulic','umtw','unec','unp1','unp2','unpl',

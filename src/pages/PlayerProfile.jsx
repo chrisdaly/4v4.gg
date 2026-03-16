@@ -137,7 +137,26 @@ const PlayerProfile = () => {
   const prevBattleTagRef = useRef(battleTag);
   const hasLoadedProfileRef = useRef(false);
   const [activeClip, setActiveClip] = useState(null);
-  const [activeTab, setActiveTab] = useState('matches'); // 'matches' | 'playstyle'
+
+  // Read initial tab from URL, default to 'matches'
+  const getInitialTab = () => {
+    const params = new URLSearchParams(window.location.search);
+    const tab = params.get('tab');
+    return ['matches', 'playstyle', 'activity'].includes(tab) ? tab : 'matches';
+  };
+  const [activeTab, setActiveTabState] = useState(getInitialTab);
+
+  // Update URL when tab changes
+  const setActiveTab = (tab) => {
+    setActiveTabState(tab);
+    const url = new URL(window.location.href);
+    if (tab === 'matches') {
+      url.searchParams.delete('tab');
+    } else {
+      url.searchParams.set('tab', tab);
+    }
+    window.history.replaceState({}, '', url);
+  };
   const [expandedSections, setExpandedSections] = useState({});
   const [playerFilter, setPlayerFilter] = useState("");
   const toggleSection = (key) => setExpandedSections(prev => ({ ...prev, [key]: !prev[key] }));

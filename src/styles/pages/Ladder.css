@@ -190,6 +190,14 @@
   animation: pulse 1.5s infinite;
 }
 
+.ladder-controls-row {
+  display: flex;
+  align-items: center;
+  justify-content: flex-start;
+  gap: var(--space-4);
+  margin-bottom: var(--space-6);
+}
+
 .ladder-controls {
   align-items: center;
 }
@@ -527,6 +535,11 @@
 @media (max-width: 768px) {
   .page-stats .stat-item.in-game {
     justify-content: center;
+  }
+
+  .ladder-controls-row {
+    flex-direction: column;
+    gap: 12px;
   }
 
   .ladder-controls {

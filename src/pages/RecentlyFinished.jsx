@@ -1,8 +1,9 @@
 import React, { useState, useEffect, useMemo } from "react";
+import { Link } from "react-router-dom";
 
 import GameCard from "../components/game/GameCard";
 import PeonLoader from "../components/PeonLoader";
-import { PageLayout } from "../components/PageLayout";
+import { PageLayout, PageHero } from "../components/PageLayout";
 import { Select, Button } from "../components/ui";
 import { calculateTeamMMR } from "../lib/utils";
 import { gameMode, gateway, season } from "../lib/params";
@@ -190,16 +191,19 @@ const RecentlyFinished = () => {
         <PageLayout
           maxWidth="1200px"
           header={
-            <div className="page-header">
-              <div className="page-title-section">
-                <h1 className="page-title">Recently Finished</h1>
+            <>
+              <PageHero eyebrow="4v4.gg Games" title="Games" lg>
+                <div className="games-nav">
+                  <Link to="/live" className="games-nav-tab">Live</Link>
+                  <Link to="/finished" className="games-nav-tab active">Finished</Link>
+                </div>
                 <div className="page-stats">
                   <span className="stat-item">
                     {filteredMatches.length} games
                     {totalPages > 1 && ` · Page ${currentPage} of ${totalPages}`}
                   </span>
                 </div>
-              </div>
+              </PageHero>
               <div className="page-controls">
                 <div className="filter-group">
                   <label>Time Range</label>
@@ -260,7 +264,7 @@ const RecentlyFinished = () => {
                   </Button>
                 )}
               </div>
-            </div>
+            </>
           }
         >
           <div className="game-tiles reveal" style={{ "--delay": "0.05s" }}>

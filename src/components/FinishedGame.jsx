@@ -1,6 +1,8 @@
 import React, { useState, useEffect } from "react";
+import styled from "styled-components";
 import Game from "./Game";
 import PeonLoader from "./PeonLoader";
+import PlayerPlaystyleCard from "./PlayerPlaystyleCard";
 import { preprocessPlayerScores } from "../lib/utils";
 import { cache } from "../lib/cache";
 import { enrichPlayerData } from "../lib/gameDataUtils";
@@ -81,6 +83,11 @@ const FinishedGame = ({ data, compact = false }) => {
     }
   };
 
+  // Reorder players: team 1 reversed, team 2 normal (same logic as Game component)
+  const displayPlayers = playerData
+    ? [...playerData.slice(0, 4).reverse(), ...playerData.slice(4)]
+    : [];
+
   return (
     <>
       {isLoading ? (
@@ -88,12 +95,114 @@ const FinishedGame = ({ data, compact = false }) => {
           <PeonLoader />
         </div>
       ) : playerData ? (
-        <Game playerData={playerData} metaData={metaData} profilePics={profilePics} playerCountries={playerCountries} sessionData={sessionData} compact={compact} />
+        <>
+          <Game playerData={playerData} metaData={metaData} profilePics={profilePics} playerCountries={playerCountries} sessionData={sessionData} compact={compact} />
+
+          {/* Playstyle Section */}
+          {!compact && (
+            <PlaystyleSection>
+              <SectionHeader>
+                <SectionTitle>Player Playstyles</SectionTitle>
+                <SectionSubtitle>Behavioral fingerprints from APM, hotkey usage, and action patterns</SectionSubtitle>
+              </SectionHeader>
+
+              <TeamsContainer>
+                {/* Team 1 */}
+                <TeamColumn>
+                  <TeamLabel $team={1}>Team 1</TeamLabel>
+                  <PlaystyleGrid>
+                    {displayPlayers.slice(0, 4).map((player) => (
+                      <PlayerPlaystyleCard
+                        key={player.battleTag}
+                        battleTag={player.battleTag}
+                        race={player.race}
+                        compact
+                      />
+                    ))}
+                  </PlaystyleGrid>
+                </TeamColumn>
+
+                {/* Team 2 */}
+                <TeamColumn>
+                  <TeamLabel $team={2}>Team 2</TeamLabel>
+                  <PlaystyleGrid>
+                    {displayPlayers.slice(4).map((player) => (
+                      <PlayerPlaystyleCard
+                        key={player.battleTag}
+                        battleTag={player.battleTag}
+                        race={player.race}
+                        compact
+                      />
+                    ))}
+                  </PlaystyleGrid>
+                </TeamColumn>
+              </TeamsContainer>
+            </PlaystyleSection>
+          )}
+        </>
       ) : (
         <div>Error: Failed to load match data</div>
       )}
     </>
   );
 };
+
+// ── Styled Components ────────────────────────────
+
+const PlaystyleSection = styled.section`
+  max-width: 1400px;
+  margin: var(--space-8) auto 0;
+  padding: 0 var(--space-4);
+`;
+
+const SectionHeader = styled.div`
+  text-align: center;
+  margin-bottom: var(--space-6);
+`;
+
+const SectionTitle = styled.h2`
+  font-family: var(--font-display);
+  font-size: var(--text-lg);
+  color: var(--gold);
+  margin-bottom: var(--space-2);
+`;
+
+const SectionSubtitle = styled.p`
+  font-family: var(--font-mono);
+  font-size: var(--text-xs);
+  color: var(--grey-light);
+`;
+
+const TeamsContainer = styled.div`
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: var(--space-8);
+
+  @media (max-width: 1024px) {
+    grid-template-columns: 1fr;
+    gap: var(--space-6);
+  }
+`;
+
+const TeamColumn = styled.div``;
+
+const TeamLabel = styled.h3`
+  font-family: var(--font-display);
+  font-size: var(--text-sm);
+  color: ${(p) => (p.$team === 1 ? "var(--blue, #4a9eff)" : "var(--red)")};
+  margin-bottom: var(--space-4);
+  text-transform: uppercase;
+  letter-spacing: 0.1em;
+`;
+
+const PlaystyleGrid = styled.div`
+  display: grid;
+  grid-template-columns: repeat(2, 1fr);
+  gap: var(--space-4);
+
+  @media (max-width: 600px) {
+    grid-template-columns: 1fr;
+  }
+`;
 
 export default FinishedGame;

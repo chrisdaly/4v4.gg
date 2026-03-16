@@ -190,10 +190,10 @@ export default function Upload() {
   };
 
   return (
-    <PageLayout bare>
+    <PageLayout bare header={
+      <PageHero eyebrow="4v4.gg Replay Lab" title="Upload Replay" lead="Drop a .w3g file to analyze" lg />
+    }>
       <Inner>
-        <PageHero title="Upload Replay" lead="Drop a .w3g file to analyze" />
-
         {result ? (
           // Success state
           <SuccessCard>

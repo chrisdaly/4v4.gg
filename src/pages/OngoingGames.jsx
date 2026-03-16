@@ -4,7 +4,7 @@ import { GiCrossedSwords } from "react-icons/gi";
 
 import OngoingGame from "../components/OngoingGame";
 import PeonLoader from "../components/PeonLoader";
-import { PageLayout } from "../components/PageLayout";
+import { PageLayout, PageHero } from "../components/PageLayout";
 import { calculateTeamMMR } from "../lib/utils";
 import { getOngoingMatches, getOngoingMatchesCached } from "../lib/api";
 
@@ -69,22 +69,41 @@ const OngoingGames = () => {
   const hasGames = ongoingGameData && ongoingGameData.length > 0;
   const showLoader = isLoading || (hasGames && !allReady);
 
+  const gamesNav = (
+    <div className="games-nav">
+      <Link to="/live" className="games-nav-tab active">Live</Link>
+      <Link to="/finished" className="games-nav-tab">Finished</Link>
+    </div>
+  );
+
   if (isLoading) {
     return (
-      <div className="page-loader">
-        <PeonLoader />
-      </div>
+      <PageLayout bare header={
+        <PageHero eyebrow="4v4.gg Games" title="Games" lg>
+          {gamesNav}
+        </PageHero>
+      }>
+        <div className="page-loader">
+          <PeonLoader />
+        </div>
+      </PageLayout>
     );
   }
 
   if (!hasGames && ongoingGameData) {
     return (
-      <div className="empty-state">
-        <GiCrossedSwords className="empty-state-icon" />
-        <h2 className="empty-state-title">No Live Games</h2>
-        <p className="empty-state-text">No 4v4 matches are being played right now</p>
-        <Link to="/finished" className="empty-state-link">View recently finished games</Link>
-      </div>
+      <PageLayout bare header={
+        <PageHero eyebrow="4v4.gg Games" title="Games" lg>
+          {gamesNav}
+        </PageHero>
+      }>
+        <div className="empty-state" style={{ borderTop: 'none' }}>
+          <GiCrossedSwords className="empty-state-icon" />
+          <h2 className="empty-state-title">No Live Games</h2>
+          <p className="empty-state-text">No 4v4 matches are being played right now</p>
+          <Link to="/finished" className="empty-state-link">View recently finished games</Link>
+        </div>
+      </PageLayout>
     );
   }
 
@@ -98,17 +117,15 @@ const OngoingGames = () => {
   }
 
   const liveHeader = (
-    <div className="page-header">
-      <div className="page-title-section">
-        <h1 className="page-title">Live Games</h1>
-        <div className="page-stats">
-          <span className="stat-item live-stat">
-            <span className="live-dot" />
-            {ongoingGameData.length} {ongoingGameData.length === 1 ? 'game' : 'games'} in progress
-          </span>
-        </div>
+    <PageHero eyebrow="4v4.gg Games" title="Games" lg>
+      {gamesNav}
+      <div className="page-stats">
+        <span className="stat-item live-stat">
+          <span className="live-dot" />
+          {ongoingGameData.length} {ongoingGameData.length === 1 ? 'game' : 'games'} in progress
+        </span>
       </div>
-    </div>
+    </PageHero>
   );
 
   return (

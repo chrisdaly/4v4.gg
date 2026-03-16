@@ -18,6 +18,7 @@ const PageOuter = styled.div`
 `;
 
 const HeaderWrap = styled.div`
+  width: 100%;
   max-width: ${props => props.$maxWidth || "1200px"};
   margin: 0 auto;
 `;
@@ -80,6 +81,7 @@ export const PageLayout = ({ maxWidth, fullHeight, bare, overlay, header, classN
  */
 const HeroWrap = styled.header`
   margin-bottom: var(--space-8);
+  text-align: left;
 `;
 
 const HeroEyebrow = styled.span`

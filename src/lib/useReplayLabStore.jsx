@@ -169,7 +169,7 @@ export function useReplayUpload() {
 
   const uploadFile = useCallback(
     async (file) => {
-      if (!file || !apiKey) return;
+      if (!file) return;
       if (!file.name.toLowerCase().endsWith(".w3g")) return;
 
       const filename = file.name;
@@ -181,10 +181,16 @@ export function useReplayUpload() {
       const form = new FormData();
       form.append("replay", file);
 
+      // Use authenticated endpoint if API key available, otherwise public endpoint
+      const endpoint = apiKey
+        ? `${RELAY_URL}/api/replays/upload`
+        : `${RELAY_URL}/api/fingerprints/upload`;
+      const headers = apiKey ? { "X-API-Key": apiKey } : {};
+
       try {
-        const res = await fetch(`${RELAY_URL}/api/replays/upload`, {
+        const res = await fetch(endpoint, {
           method: "POST",
-          headers: { "X-API-Key": apiKey },
+          headers,
           body: form,
         });
         const data = await res.json();
@@ -199,26 +205,37 @@ export function useReplayUpload() {
           return;
         }
 
-        const detailRes = await fetch(
-          `${RELAY_URL}/api/replays/${data.replay.id}`,
-          { headers: { "X-API-Key": apiKey } }
-        );
-        const detail = await detailRes.json();
+        // Try to fetch detailed replay info if API key available
+        let detail = {};
+        if (apiKey) {
+          try {
+            const detailRes = await fetch(
+              `${RELAY_URL}/api/replays/${data.replay.id}`,
+              { headers: { "X-API-Key": apiKey } }
+            );
+            if (detailRes.ok) {
+              detail = await detailRes.json();
+            }
+          } catch {
+            // Use data from upload response
+          }
+        }
 
         setUploadProgress((prev) => ({
           ...prev,
           [filename]: { status: "done", replayId: data.replay.id },
         }));
 
+        // Use data from upload response, supplement with detail if available
         setReplays((prev) => [
           ...prev,
           {
             id: data.replay.id,
-            filename: data.replay.filename,
+            filename: data.replay.filename || filename,
             mapName: data.replay.mapName,
             duration: data.replay.gameDuration,
-            playerCount: data.replay.playerCount,
-            players: detail.players || [],
+            playerCount: data.replay.playerCount || data.players?.length || 0,
+            players: detail.players || data.players || [],
             actions: detail.actions || [],
           },
         ]);
