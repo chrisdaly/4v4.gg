@@ -17,6 +17,10 @@
 .cc-panel--split {
   max-width: none;
   padding: var(--space-4);
+  display: flex;
+  flex-direction: column;
+  flex: 1;
+  min-height: 0;
 }
 
 .cc-split-layout {
@@ -24,6 +28,7 @@
   grid-template-columns: 1fr 1fr;
   gap: var(--space-3);
   min-height: 400px;
+  flex: 1;
 }
 
 .cc-split-left {
@@ -31,23 +36,47 @@
   max-height: 70vh;
   border-right: 1px solid var(--grey-mid);
   padding-right: var(--space-3);
+  display: flex;
+  flex-direction: column;
+}
+
+.cc-split-left .cc-list {
+  flex: 1;
+  min-height: 0;
+}
+
+.cc-split-left .cc-apply {
+  position: sticky;
+  bottom: 0;
+  background: rgba(15, 12, 8, 0.95);
+  padding: var(--space-2) 0;
+  margin-top: auto;
+  z-index: 2;
 }
 
 .cc-split-right {
-  overflow-y: auto;
+  display: flex;
+  flex-direction: column;
   max-height: 70vh;
+  min-height: 0;
 }
 
 .cc-context-side {
   display: flex;
   flex-direction: column;
   gap: var(--space-2);
+  flex: 1;
+  min-height: 0;
+  overflow: hidden;
 }
 
 .cc-context-side .cc-context-scroll {
   display: flex;
   flex-direction: column;
   gap: var(--space-2);
+  flex: 1;
+  min-height: 0;
+  overflow-y: auto;
 }
 
 .cc-panel--compact {
@@ -255,7 +284,7 @@
 .cc-name {
   font-family: var(--font-display);
   font-size: var(--text-xs);
-  color: #fff;
+  color: var(--gold);
   flex-shrink: 0;
   white-space: nowrap;
 }
@@ -301,14 +330,82 @@
 }
 
 .cc-msg--in-quotes {
-  background: rgba(252, 219, 51, 0.05);
-  border-left: 2px solid rgba(252, 219, 51, 0.3);
+  background: rgba(100, 200, 100, 0.08);
+  border-left: 2px solid var(--green);
   padding-left: 6px;
+  opacity: 0.6;
+}
+
+.cc-msg--in-quotes::after {
+  content: "ADDED";
+  font-family: var(--font-mono);
+  font-size: 9px;
+  color: var(--green);
+  margin-left: auto;
+  padding-left: var(--space-2);
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
 }
 
 .cc-msg--in-quotes .cc-check {
+  background: var(--green);
+  border-color: var(--green);
+  opacity: 1;
+}
+
+.cc-msg--in-quotes .cc-check::after {
+  content: "";
+  width: 4px;
+  height: 8px;
+  border: solid #000;
+  border-width: 0 2px 2px 0;
+  transform: rotate(45deg);
+  margin-top: -2px;
+}
+
+/* Add button for quote collection (non-instant mode) */
+.cc-add-btn {
+  flex-shrink: 0;
+  margin-left: auto;
+  padding: 3px;
+  width: 22px;
+  height: 22px;
+  background: transparent;
+  border: 1.5px solid var(--grey-mid);
+  border-radius: 4px;
+  color: var(--grey-mid);
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  opacity: 0.3;
+  transition: all 0.15s;
+}
+
+.cc-msg:hover .cc-add-btn {
+  opacity: 1;
+  border-color: var(--gold);
   color: var(--gold);
-  opacity: 0.6;
+}
+
+.cc-add-btn:hover {
+  background: rgba(252, 219, 51, 0.2);
+  transform: scale(1.1);
+}
+
+/* Added state - always visible with green checkmark */
+.cc-add-btn--added {
+  background: var(--green);
+  border-color: var(--green);
+  color: #000;
+  opacity: 1;
+}
+
+.cc-add-btn--added:hover {
+  background: var(--red);
+  border-color: var(--red);
+  color: #fff;
+  transform: scale(1.1);
 }
 
 .cc-msg--expandable {
@@ -338,25 +435,45 @@
 }
 
 .cc-check {
-  font-family: var(--font-mono);
-  font-size: var(--text-xxxs);
-  color: var(--gold);
+  display: flex;
+  align-items: center;
+  justify-content: center;
   width: 16px;
+  height: 16px;
   flex-shrink: 0;
-  text-align: center;
   border-radius: 2px;
+  border: 1px solid rgba(255, 255, 255, 0.15);
+  transition: all 0.1s;
+  opacity: 0.5;
+  cursor: pointer;
+  box-sizing: border-box;
+}
+
+.cc-check:hover {
+  border-color: rgba(255, 255, 255, 0.3);
+  opacity: 0.8;
 }
 
 .cc-check--active {
-  background: rgba(252, 219, 51, 0.15);
+  background: var(--gold);
+  border-color: var(--gold);
+  opacity: 1;
 }
 
-.cc-panel--split .cc-check {
-  cursor: pointer;
+.cc-check--active::after {
+  content: "";
+  width: 4px;
+  height: 8px;
+  border: solid #000;
+  border-width: 0 2px 2px 0;
+  transform: rotate(45deg);
+  margin-top: -2px;
 }
 
-.cc-panel--split .cc-check:hover {
-  background: rgba(252, 219, 51, 0.2);
+/* Star for items already in quote list */
+.cc-check:not(.cc-check--active) {
+  font-size: 10px;
+  color: var(--gold);
 }
 
 .cc-score {
@@ -386,8 +503,20 @@
 /* ── Apply button ──────────────────────────────── */
 
 .cc-apply {
-  align-self: flex-start;
-  margin-top: var(--space-1);
+  align-self: stretch;
+  margin-top: var(--space-2);
+  background: var(--gold) !important;
+  color: #000 !important;
+  font-weight: 600;
+  padding: var(--space-2) var(--space-4) !important;
+  font-size: var(--text-sm) !important;
+  border: none !important;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+}
+
+.cc-apply:hover {
+  background: #e6c84a !important;
 }
 
 /* ── Context expansion panel ───────────────────── */
@@ -442,12 +571,22 @@
 }
 
 .cc-context-scroll {
-  max-height: 400px;
+  flex: 1;
+  min-height: 0;
   overflow-y: auto;
   display: flex;
   flex-direction: column;
   gap: 0;
   padding: 0 var(--space-3);
+}
+
+/* Context panel infinite scroll sentinels */
+.cc-ctx-sentinel {
+  min-height: 24px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: var(--space-1) 0;
 }
 
 .cc-context-scroll::-webkit-scrollbar {

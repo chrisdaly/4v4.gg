@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useRef, useMemo, useCallback } from "react";
-import { FiChevronUp, FiChevronDown } from "react-icons/fi";
+import { FiChevronUp, FiChevronDown, FiPlus, FiCheck } from "react-icons/fi";
 import { fetchAndCacheProfile, getCachedProfile } from "../lib/profileCache";
 import { Button } from "./ui";
 import "./ChatContext.css";
@@ -72,6 +72,7 @@ function getDateKey(ts) {
  * @param {boolean}  loading           - Show loading state
  * @param {Function} onApply           - (selectedItems) => void — multi-select apply button callback
  * @param {Function} onSelectionChange - (selectedItems) => void — fires on every selection toggle
+ * @param {Object}   clearSelectionRef - Ref object; will be assigned a function to clear selection
  * @param {boolean}  selectable        - Enable multi-select checkboxes
  * @param {boolean}  expandable        - Enable context expansion on message click
  * @param {boolean}  showScores        - Show score column
@@ -93,6 +94,7 @@ const ChatContext = ({
   loading = false,
   onApply,
   onSelectionChange,
+  clearSelectionRef,
   selectable = false,
   expandable = false,
   showScores = false,
@@ -110,6 +112,14 @@ const ChatContext = ({
   onLoadNewer,
   hasNewer = false,
   loadingNewer = false,
+  existingQuotes = [],
+  // Instant-add mode props
+  instantAddMode = false,
+  onInstantAdd,
+  isQuoteAdded,
+  // External expand handler (alternative to internal splitView)
+  onExpand,
+  expandedTimestamp,
 }) => {
   const [filter, setFilter] = useState("");
   const [sortBy, setSortBy] = useState("score"); // "score" or "date"
@@ -141,10 +151,20 @@ const ChatContext = ({
   const [contextPadding, setContextPadding] = useState(5);
   const [contextWindow, setContextWindow] = useState({ start: null, end: null });
   const [contextAvatars, setContextAvatars] = useState(new Map());
+  const [loadingCtxEarlier, setLoadingCtxEarlier] = useState(false);
+  const [loadingCtxLater, setLoadingCtxLater] = useState(false);
+  const [ctxHasEarlier, setCtxHasEarlier] = useState(true);
+  const [ctxHasLater, setCtxHasLater] = useState(true);
   const matchRef = useRef(null);
   const sentinelRef = useRef(null);
   const topSentinelRef = useRef(null);
   const listRef = useRef(null);
+  const contextScrollRef = useRef(null);
+  const ctxTopSentinelRef = useRef(null);
+  const ctxBottomSentinelRef = useRef(null);
+  const ctxLoadCooldownRef = useRef(false);
+  const ctxEarlierAttempts = useRef(0);
+  const ctxLaterAttempts = useRef(0);
 
   // Infinite scroll — observe sentinel at bottom of list (older messages)
   useEffect(() => {
@@ -176,6 +196,17 @@ const ChatContext = ({
 
   // Reset selection when messages change
   useEffect(() => { setSelected(new Set()); }, [messages]);
+
+  // Expose clear selection function via ref
+  useEffect(() => {
+    if (clearSelectionRef) {
+      clearSelectionRef.current = () => {
+        setSelected(new Set());
+        setSelectedCtx(new Set());
+        if (onSelectionChange) onSelectionChange([]);
+      };
+    }
+  }, [clearSelectionRef, onSelectionChange]);
 
   // Fetch profiles for top-level messages
   useEffect(() => {
@@ -230,7 +261,7 @@ const ChatContext = ({
     return result;
   }, [messages, filter, sortBy, msgFilter]);
 
-  // Toggle selection
+  // Toggle selection (only used in non-split view)
   const toggle = useCallback((origIdx) => {
     setSelected((prev) => {
       const next = new Set(prev);
@@ -245,15 +276,23 @@ const ChatContext = ({
     });
   }, [onSelectionChange, messages]);
 
-  // Toggle context selection (by index into contextMessages)
+  // Toggle context selection (by index into contextMessages) - used in split view
   const toggleCtx = useCallback((idx) => {
     setSelectedCtx((prev) => {
       const next = new Set(prev);
       if (next.has(idx)) next.delete(idx);
       else next.add(idx);
+      // Fire onSelectionChange with context selections
+      if (onSelectionChange) {
+        const items = [...next].sort((a, b) => a - b).map((i) => {
+          const cm = contextMessages[i];
+          return { name: cm.user_name || cm.name, text: cm.message || cm.text, received_at: cm.received_at };
+        });
+        onSelectionChange(items);
+      }
       return next;
     });
-  }, []);
+  }, [onSelectionChange, contextMessages]);
 
   // Total selection count (main + context)
   const totalSelected = selected.size + selectedCtx.size;
@@ -313,17 +352,150 @@ const ChatContext = ({
     setExpandedMsg({ idx: origIdx, receivedAt });
     setContextPadding(5);
     setSelectedCtx(new Set());
+    setCtxHasEarlier(true);
+    setCtxHasLater(true);
+    ctxLoadCooldownRef.current = false;
+    // Reset infinite scroll attempt counters
+    ctxEarlierAttempts.current = 0;
+    ctxLaterAttempts.current = 0;
     fetchContext(receivedAt, 5);
   }, [expandedMsg, fetchContext]);
 
+  // Load earlier context messages (infinite scroll up)
+  const loadCtxEarlier = useCallback(async () => {
+    if (loadingCtxEarlier || loadingCtxLater || !ctxHasEarlier || ctxLoadCooldownRef.current || contextMessages.length === 0 || !contextWindow.start) return;
+    ctxLoadCooldownRef.current = true;
+    setLoadingCtxEarlier(true);
+    try {
+      // Increase shift based on attempts (15min, 30min, 60min, etc.)
+      const shiftMinutes = 15 * (ctxEarlierAttempts.current + 1);
+      const refDate = new Date(contextWindow.start.endsWith?.("Z") ? contextWindow.start : contextWindow.start + "Z");
+      const shifted = new Date(refDate.getTime() - shiftMinutes * 60000);
+      const shiftedStr = shifted.toISOString().replace("T", " ").replace(/\.\d{3}Z$/, "");
+      const res = await fetch(
+        `${RELAY_URL}/api/admin/messages/search/context?received_at=${encodeURIComponent(shiftedStr)}&padding=${Math.max(contextPadding, 10)}`
+      );
+      if (!res.ok) throw new Error("Failed");
+      const data = await res.json();
+      if (data && data.length > 0) {
+        const existingTimes = new Set(contextMessages.map(m => m.received_at));
+        const newMsgs = data.filter(m => !existingTimes.has(m.received_at));
+        if (newMsgs.length > 0) {
+          // Reset attempts on success
+          ctxEarlierAttempts.current = 0;
+          setContextMessages(prev => [...newMsgs, ...prev]);
+          setContextWindow(prev => ({ ...prev, start: data[0].received_at }));
+          const tags = [...new Set(newMsgs.map(m => m.battle_tag).filter(Boolean))];
+          for (const tag of tags.filter(t => !contextAvatars.has(t))) {
+            fetchAndCacheProfile(tag).then(profile => {
+              setContextAvatars(prev => new Map(prev).set(tag, profile?.pic || null));
+            });
+          }
+        } else {
+          // No new messages, try shifting further next time (up to 3 attempts)
+          ctxEarlierAttempts.current++;
+          if (ctxEarlierAttempts.current >= 3) {
+            setCtxHasEarlier(false);
+          }
+        }
+      } else {
+        // Empty response, try once more with larger shift
+        ctxEarlierAttempts.current++;
+        if (ctxEarlierAttempts.current >= 3) {
+          setCtxHasEarlier(false);
+        }
+      }
+    } catch {
+      setCtxHasEarlier(false);
+    }
+    setLoadingCtxEarlier(false);
+    setTimeout(() => { ctxLoadCooldownRef.current = false; }, 500); // 500ms cooldown
+  }, [loadingCtxEarlier, loadingCtxLater, ctxHasEarlier, contextMessages, contextWindow, contextPadding, contextAvatars]);
+
+  // Load later context messages (infinite scroll down)
+  const loadCtxLater = useCallback(async () => {
+    if (loadingCtxLater || loadingCtxEarlier || !ctxHasLater || ctxLoadCooldownRef.current || contextMessages.length === 0 || !contextWindow.end) return;
+    ctxLoadCooldownRef.current = true;
+    setLoadingCtxLater(true);
+    try {
+      // Increase shift based on attempts (15min, 30min, 60min, etc.)
+      const shiftMinutes = 15 * (ctxLaterAttempts.current + 1);
+      const refDate = new Date(contextWindow.end.endsWith?.("Z") ? contextWindow.end : contextWindow.end + "Z");
+      const shifted = new Date(refDate.getTime() + shiftMinutes * 60000);
+      const shiftedStr = shifted.toISOString().replace("T", " ").replace(/\.\d{3}Z$/, "");
+      const res = await fetch(
+        `${RELAY_URL}/api/admin/messages/search/context?received_at=${encodeURIComponent(shiftedStr)}&padding=${Math.max(contextPadding, 10)}`
+      );
+      if (!res.ok) throw new Error("Failed");
+      const data = await res.json();
+      if (data && data.length > 0) {
+        const existingTimes = new Set(contextMessages.map(m => m.received_at));
+        const newMsgs = data.filter(m => !existingTimes.has(m.received_at));
+        if (newMsgs.length > 0) {
+          // Reset attempts on success
+          ctxLaterAttempts.current = 0;
+          setContextMessages(prev => [...prev, ...newMsgs]);
+          setContextWindow(prev => ({ ...prev, end: data[data.length - 1].received_at }));
+          const tags = [...new Set(newMsgs.map(m => m.battle_tag).filter(Boolean))];
+          for (const tag of tags.filter(t => !contextAvatars.has(t))) {
+            fetchAndCacheProfile(tag).then(profile => {
+              setContextAvatars(prev => new Map(prev).set(tag, profile?.pic || null));
+            });
+          }
+        } else {
+          // No new messages, try shifting further next time (up to 3 attempts)
+          ctxLaterAttempts.current++;
+          if (ctxLaterAttempts.current >= 3) {
+            setCtxHasLater(false);
+          }
+        }
+      } else {
+        // Empty response, try once more with larger shift
+        ctxLaterAttempts.current++;
+        if (ctxLaterAttempts.current >= 3) {
+          setCtxHasLater(false);
+        }
+      }
+    } catch {
+      setCtxHasLater(false);
+    }
+    setLoadingCtxLater(false);
+    setTimeout(() => { ctxLoadCooldownRef.current = false; }, 500); // 500ms cooldown
+  }, [loadingCtxLater, loadingCtxEarlier, ctxHasLater, contextMessages, contextWindow, contextPadding, contextAvatars]);
+
+  // Legacy shiftContext for manual buttons (still available as fallback)
   const shiftContext = useCallback((direction) => {
-    if (contextMessages.length === 0 || !contextWindow.start || !contextWindow.end) return;
-    const referenceTime = direction === "earlier" ? contextWindow.start : contextWindow.end;
-    const refDate = new Date(referenceTime.endsWith?.("Z") ? referenceTime : referenceTime + "Z");
-    const shifted = new Date(refDate.getTime() + (direction === "earlier" ? -5 * 60000 : 5 * 60000));
-    const shiftedStr = shifted.toISOString().replace("T", " ").replace(/\.\d{3}Z$/, "");
-    fetchContext(shiftedStr, contextPadding);
-  }, [contextMessages, contextPadding, contextWindow, fetchContext]);
+    if (direction === "earlier") loadCtxEarlier();
+    else loadCtxLater();
+  }, [loadCtxEarlier, loadCtxLater]);
+
+  // Infinite scroll for context panel — earlier (top)
+  useEffect(() => {
+    if (!expandedMsg || loadingCtxEarlier || contextLoading || !ctxHasEarlier) return;
+    const el = ctxTopSentinelRef.current;
+    const root = contextScrollRef.current;
+    if (!el || !root) return;
+    const observer = new IntersectionObserver(
+      ([entry]) => { if (entry.isIntersecting) loadCtxEarlier(); },
+      { root, rootMargin: "20px", threshold: 0 }
+    );
+    observer.observe(el);
+    return () => observer.disconnect();
+  }, [expandedMsg, loadingCtxEarlier, contextLoading, ctxHasEarlier, loadCtxEarlier]);
+
+  // Infinite scroll for context panel — later (bottom)
+  useEffect(() => {
+    if (!expandedMsg || loadingCtxLater || contextLoading || !ctxHasLater) return;
+    const el = ctxBottomSentinelRef.current;
+    const root = contextScrollRef.current;
+    if (!el || !root) return;
+    const observer = new IntersectionObserver(
+      ([entry]) => { if (entry.isIntersecting) loadCtxLater(); },
+      { root, rootMargin: "20px", threshold: 0 }
+    );
+    observer.observe(el);
+    return () => observer.disconnect();
+  }, [expandedMsg, loadingCtxLater, contextLoading, ctxHasLater, loadCtxLater]);
 
   const handlePaddingChange = useCallback((delta) => {
     if (!expandedMsg) return;
@@ -334,12 +506,21 @@ const ChatContext = ({
     });
   }, [expandedMsg, fetchContext]);
 
-  // Scroll to match when context loads
+  // Scroll to match when context initially loads (not during infinite scroll)
+  const lastExpandedRef = useRef(null);
   useEffect(() => {
-    if (matchRef.current && contextMessages.length > 0 && !contextLoading) {
-      matchRef.current.scrollIntoView({ behavior: "smooth", block: "center" });
+    if (matchRef.current && contextMessages.length > 0 && !contextLoading && expandedMsg) {
+      // Only scroll to center on initial expansion, not during infinite scroll
+      const expandKey = `${expandedMsg.idx}-${expandedMsg.receivedAt}`;
+      if (lastExpandedRef.current !== expandKey) {
+        lastExpandedRef.current = expandKey;
+        // Small delay to ensure DOM is rendered
+        setTimeout(() => {
+          matchRef.current?.scrollIntoView({ behavior: "smooth", block: "center" });
+        }, 50);
+      }
     }
-  }, [contextMessages, contextLoading]);
+  }, [contextMessages, contextLoading, expandedMsg]);
 
   // Determine the highlight query — use `highlight` prop, or fall back to filter
   const highlightQuery = highlight || filter;
@@ -354,7 +535,8 @@ const ChatContext = ({
     if (!expandedMsg) return false;
     const origMsg = messages?.[expandedMsg.idx];
     if (!origMsg) return false;
-    return cm.received_at === (origMsg.received_at || origMsg.sentAt) &&
+    const origTs = origMsg.received_at || origMsg.sentAt || origMsg.sent_at || "";
+    return cm.received_at === origTs &&
            (cm.message || cm.text) === (origMsg.text || origMsg.message);
   }, [expandedMsg, messages]);
 
@@ -369,27 +551,34 @@ const ChatContext = ({
     return ts;
   }, [messages, selected]);
 
+  // Build set of already-added quote timestamps
+  const existingTimestamps = useMemo(() => {
+    if (!existingQuotes || existingQuotes.length === 0) return new Set();
+    return new Set(existingQuotes.map((q) => q.received_at || "").filter(Boolean));
+  }, [existingQuotes]);
+
   const isSelectedInContext = useCallback((cm) => {
     if (selectedTimestamps.size === 0) return false;
     return selectedTimestamps.has(cm.received_at || "");
   }, [selectedTimestamps]);
 
+  const isAlreadyAdded = useCallback((cm) => {
+    if (existingTimestamps.size === 0) return false;
+    return existingTimestamps.has(cm.received_at || "");
+  }, [existingTimestamps]);
+
   /* ── Render helpers ──────────────────────────────── */
 
   const contextPanel = expandable && expandedMsg && (
     <div className="cc-context-side">
-      <div className="cc-context-toolbar">
-        <button className="cc-context-btn" onClick={(e) => { e.stopPropagation(); handlePaddingChange(-2); }} disabled={contextPadding <= 1}>-</button>
-        <span className="cc-context-padding">{contextPadding}m</span>
-        <button className="cc-context-btn" onClick={(e) => { e.stopPropagation(); handlePaddingChange(2); }} disabled={contextPadding >= 60}>+</button>
-      </div>
       {contextLoading ? (
         <div className="cc-status" style={{ padding: "var(--space-4)" }}>Loading...</div>
       ) : (
-        <div className="cc-context-scroll">
-          <button className="cc-edge-btn" onClick={(e) => { e.stopPropagation(); shiftContext("earlier"); }}>
-            <FiChevronUp size={12} /> Earlier
-          </button>
+        <div className="cc-context-scroll" ref={contextScrollRef}>
+          {/* Top sentinel for infinite scroll (earlier) */}
+          <div ref={ctxTopSentinelRef} className="cc-ctx-sentinel">
+            {loadingCtxEarlier && <span className="cc-status">Loading earlier...</span>}
+          </div>
           {groupMessages(contextMessages.map((cm, i) => ({
             ...cm,
             _ctxIdx: i,
@@ -421,14 +610,14 @@ const ChatContext = ({
                   {cGroup.lines.map((cl, cli) => {
                     const ctxIdx = cl._ctxIdx;
                     const isCtxSelected = selectedCtx.has(ctxIdx);
-                    const isInQuoteList = isSelectedInContext(cl);
+                    const alreadyAdded = isAlreadyAdded(cl);
                     return (
                       <div
                         key={cli}
-                        className={`cc-msg cc-msg--selectable ${isOriginMsg(cl) ? "cc-msg--origin" : ""} ${isCtxSelected ? "cc-msg--selected" : ""} ${isInQuoteList ? "cc-msg--in-quotes" : ""}`}
+                        className={`cc-msg cc-msg--selectable ${isOriginMsg(cl) ? "cc-msg--origin" : ""} ${isCtxSelected ? "cc-msg--selected" : ""} ${alreadyAdded ? "cc-msg--in-quotes" : ""}`}
                         onClick={(e) => { e.stopPropagation(); toggleCtx(ctxIdx); }}
                       >
-                        <span className="cc-check">{isCtxSelected ? "\u2713" : isInQuoteList ? "\u2605" : ""}</span>
+                        <span className={`cc-check${isCtxSelected ? " cc-check--active" : ""}`}>{alreadyAdded && !isCtxSelected ? "\u2713" : ""}</span>
                         <span className="cc-text">
                           <HighlightText text={cl.message || cl.text || ""} query={highlightQuery} />
                         </span>
@@ -439,9 +628,10 @@ const ChatContext = ({
               </div>
             );
           })}
-          <button className="cc-edge-btn" onClick={(e) => { e.stopPropagation(); shiftContext("later"); }}>
-            <FiChevronDown size={12} /> Later
-          </button>
+          {/* Bottom sentinel for infinite scroll (later) */}
+          <div ref={ctxBottomSentinelRef} className="cc-ctx-sentinel">
+            {loadingCtxLater && <span className="cc-status">Loading later...</span>}
+          </div>
         </div>
       )}
     </div>
@@ -503,33 +693,46 @@ const ChatContext = ({
                     const text = line.text || line.message || "";
                     const isSelected = selected.has(origIdx);
                     const isExpanded = expandedMsg?.idx === origIdx;
-                    const receivedAt = line.received_at || line.sentAt || "";
+                    const receivedAt = line.received_at || line.sentAt || line.sent_at || "";
+                    const alreadyAdded = isAlreadyAdded(line);
+
+                    // In instant-add mode, check if this message is already added
+                    const isInstantAdded = instantAddMode && isQuoteAdded ? isQuoteAdded(line) : false;
+                    // Check if this message matches the external expandedTimestamp
+                    const isExternalExpanded = expandedTimestamp && receivedAt === expandedTimestamp;
 
                     return (
                       <React.Fragment key={origIdx}>
                         <div
                           className={[
                             "cc-msg",
-                            selectable && "cc-msg--selectable",
+                            (selectable && !splitView || instantAddMode) && "cc-msg--selectable",
                             isSelected && "cc-msg--selected",
-                            expandable && "cc-msg--expandable",
-                            isExpanded && "cc-msg--expanded",
+                            (expandable || onExpand) && !instantAddMode && "cc-msg--expandable",
+                            (isExpanded || isExternalExpanded) && "cc-msg--expanded",
                             line.isMention && "cc-msg--mention",
+                            (alreadyAdded || isInstantAdded) && "cc-msg--in-quotes",
                           ].filter(Boolean).join(" ")}
                           onClick={() => {
-                            if (expandable && splitView && receivedAt) {
+                            if (instantAddMode && onInstantAdd) {
+                              // Instant-add mode: click to toggle quote
+                              onInstantAdd(line);
+                            } else if (onExpand && receivedAt) {
+                              // External expand handler
+                              onExpand(line);
+                            } else if (expandable && splitView && receivedAt) {
                               handleExpand(origIdx, receivedAt);
-                            } else if (selectable) {
+                            } else if (selectable && !splitView) {
                               toggle(origIdx);
                             }
                           }}
                         >
-                          {selectable && (
-                            <span
-                              className={`cc-check${isSelected ? " cc-check--active" : ""}`}
-                              onClick={expandable && splitView ? (e) => { e.stopPropagation(); toggle(origIdx); } : undefined}
-                            >{isSelected ? "\u2713" : ""}</span>
-                          )}
+                          {/* Show checkmark for instant-add mode or selection mode */}
+                          {instantAddMode ? (
+                            <span className={`cc-check${isInstantAdded ? " cc-check--active" : ""}`} />
+                          ) : selectable && !splitView ? (
+                            <span className={`cc-check${isSelected ? " cc-check--active" : ""}`} />
+                          ) : null}
                           {showScores && (
                             sortBy === "date" ? (
                               <span className="cc-score cc-score--date">{formatTimeShort(receivedAt)}</span>
@@ -541,6 +744,19 @@ const ChatContext = ({
                           <span className="cc-text">
                             <HighlightText text={text} query={highlightQuery} />
                           </span>
+                          {/* Add button when onInstantAdd is provided but not in instantAddMode */}
+                          {!instantAddMode && onInstantAdd && (
+                            <button
+                              className={`cc-add-btn${isInstantAdded ? " cc-add-btn--added" : ""}`}
+                              onClick={(e) => {
+                                e.stopPropagation();
+                                onInstantAdd(line);
+                              }}
+                              title={isInstantAdded ? "Remove quote" : "Add quote"}
+                            >
+                              {isInstantAdded ? <FiCheck size={12} /> : <FiPlus size={12} />}
+                            </button>
+                          )}
                         </div>
 
                         {/* Inline context (non-split mode only) */}

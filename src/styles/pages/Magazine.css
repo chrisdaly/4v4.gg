@@ -381,6 +381,13 @@
   gap: var(--space-4);
 }
 
+.mg-feature-quotes {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-4);
+  margin-top: var(--space-2);
+}
+
 .mg-feature-lead {
   font-family: var(--font-body, Georgia, serif);
   font-size: var(--text-base);
@@ -1111,6 +1118,20 @@ a.mg-inline-name:hover {
   color: var(--gold);
 }
 
+/* Action row containing Add + Browse buttons */
+.mg-quote-actions {
+  display: flex;
+  align-items: center;
+  gap: var(--space-4);
+  margin-top: var(--space-3);
+  padding-top: var(--space-3);
+  border-top: 1px solid rgba(255, 255, 255, 0.06);
+}
+
+.mg-quote-actions .mg-quote-browser {
+  margin-left: auto;
+}
+
 .mg-quote-add-row {
   display: flex;
   gap: var(--space-2);
@@ -1155,54 +1176,488 @@ a.mg-inline-name:hover {
   background: rgba(var(--gold-rgb, 212, 175, 55), 0.1);
 }
 
-/* ── Quote Browser (wraps shared ChatContext) ── */
+/* ── Quote Browser — Full-screen modal ── */
 
 .mg-quote-browser {
-  margin-top: var(--space-3);
+  display: inline-block;
+}
+
+.mg-quote-browser-panel {
+  position: fixed;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  z-index: 9999;
+  background: rgb(12, 10, 8);
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+  padding: var(--space-4);
+  gap: var(--space-4);
+}
+
+/* Header */
+.mg-qb-header {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: var(--space-6);
+  padding: var(--space-4) var(--space-6);
+  background: var(--surface-1);
+  border-radius: var(--radius-md);
+  flex-shrink: 0;
+}
+
+.mg-qb-header-left {
+  flex: 1;
+  min-width: 0;
+}
+
+.mg-qb-title {
+  font-family: var(--font-display);
+  font-size: var(--text-xl);
+  color: var(--gold);
+  margin-bottom: var(--space-2);
+}
+
+.mg-qb-story {
+  font-family: var(--font-display);
+  font-size: var(--text-sm);
+  color: var(--grey-light);
+  margin: 0;
+  line-height: 1.5;
+  max-width: 900px;
+  opacity: 0.85;
+}
+
+.mg-qb-close {
+  background: none;
+  border: 1px solid var(--grey-mid);
+  border-radius: var(--radius-sm);
+  color: var(--grey-light);
+  cursor: pointer;
+  padding: var(--space-2) var(--space-4);
+  font-family: var(--font-mono);
+  font-size: var(--text-sm);
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+  transition: all 0.15s;
+}
+
+.mg-qb-close:hover {
+  border-color: var(--gold);
+  color: #fff;
+}
+
+/* Main content area - fills remaining space */
+.mg-qb-body {
+  flex: 1;
+  display: flex;
+  min-height: 0;
+  overflow: hidden;
+  border-radius: var(--radius-md);
+  border: 1px solid rgba(255, 255, 255, 0.06);
+}
+
+/* Split layout: messages left, quotes sidebar right */
+.mg-qb-body--split {
+  display: grid;
+  grid-template-columns: 1fr 320px;
+  gap: 0;
+}
+
+/* 3-column layout: collected | messages | context */
+.mg-qb-body--three-col {
+  display: grid;
+  grid-template-columns: 260px 1fr 1fr;
+  gap: 1px;
+  background: rgba(255, 255, 255, 0.06);
+}
+
+/* Messages area */
+.mg-qb-messages {
+  display: flex;
+  flex-direction: column;
+  min-height: 0;
+  overflow: hidden;
+  background: rgb(12, 10, 8);
+}
+
+/* Quotes sidebar */
+.mg-qb-sidebar {
+  display: flex;
+  flex-direction: column;
+  background: rgb(18, 15, 12);
+  min-height: 0;
+}
+
+/* Left sidebar variant (for 3-col layout) */
+.mg-qb-sidebar--left {
+  /* No extra styles needed, gap handles separation */
+}
+
+.mg-qb-sidebar-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: var(--space-3) var(--space-4);
+  border-bottom: 1px solid rgba(255, 255, 255, 0.06);
+  flex-shrink: 0;
+}
+
+.mg-qb-sidebar-title {
+  font-family: var(--font-mono);
+  font-size: var(--text-xs);
+  color: var(--grey-light);
+  text-transform: uppercase;
+  letter-spacing: 0.1em;
+}
+
+.mg-qb-sidebar-count {
+  font-family: var(--font-mono);
+  font-size: var(--text-sm);
+  color: var(--gold);
+  font-weight: 600;
+}
+
+.mg-qb-sidebar-list {
+  flex: 1;
+  overflow-y: auto;
+  padding: var(--space-2);
   display: flex;
   flex-direction: column;
   gap: var(--space-2);
 }
 
-.mg-quote-browser-panel {
-  max-height: 600px;
-  overflow-y: auto;
-  border: 1px solid var(--grey-mid);
-  border-radius: var(--radius-md);
+.mg-qb-sidebar-empty {
+  color: var(--grey-mid);
+  font-family: var(--font-mono);
+  font-size: var(--text-xs);
+  text-align: center;
+  padding: var(--space-4);
 }
 
-.mg-quote-browser-close {
-  position: sticky;
-  top: 0;
-  z-index: 1;
+/* Quote group (speaker + their messages) */
+.mg-qb-sidebar-group {
+  background: rgba(252, 219, 51, 0.06);
+  border: 1px solid rgba(252, 219, 51, 0.15);
+  border-radius: var(--radius-sm);
+  overflow: hidden;
+}
+
+.mg-qb-sidebar-group-header {
   display: flex;
   align-items: center;
   justify-content: space-between;
   padding: var(--space-2) var(--space-3);
-  background: var(--surface-2);
-  border-bottom: 1px solid var(--grey-mid);
+  background: rgba(252, 219, 51, 0.08);
+  border-bottom: 1px solid rgba(252, 219, 51, 0.1);
 }
 
-.mg-quote-browser-label {
-  font-family: var(--font-mono);
-  font-size: var(--text-xxs);
-  text-transform: uppercase;
-  letter-spacing: 0.1em;
-  color: var(--grey-light);
-}
-
-.mg-quote-browser-close button {
-  background: none;
-  border: none;
-  color: var(--grey-light);
-  cursor: pointer;
-  padding: 2px;
+.mg-qb-sidebar-group-remove {
   display: flex;
   align-items: center;
+  justify-content: center;
+  width: 18px;
+  height: 18px;
+  background: none;
+  border: none;
+  border-radius: 3px;
+  color: var(--grey-mid);
+  cursor: pointer;
+  opacity: 0;
+  transition: all 0.15s;
 }
 
-.mg-quote-browser-close button:hover {
+.mg-qb-sidebar-group:hover .mg-qb-sidebar-group-remove {
+  opacity: 1;
+}
+
+.mg-qb-sidebar-group-remove:hover {
   color: var(--red);
+  background: rgba(255, 100, 100, 0.15);
+}
+
+.mg-qb-sidebar-quote {
+  display: flex;
+  align-items: flex-start;
+  gap: var(--space-2);
+  padding: var(--space-1) var(--space-3);
+  border-bottom: 1px solid rgba(255, 255, 255, 0.03);
+}
+
+.mg-qb-sidebar-quote:last-child {
+  border-bottom: none;
+}
+
+.mg-qb-sidebar-quote-content {
+  flex: 1;
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.mg-qb-sidebar-quote-speaker {
+  font-family: var(--font-display);
+  font-size: var(--text-xs);
+  color: var(--gold);
+}
+
+.mg-qb-sidebar-quote-text {
+  flex: 1;
+  font-size: var(--text-xxs);
+  color: var(--grey-light);
+  line-height: 1.4;
+}
+
+.mg-qb-sidebar-quote-remove {
+  flex-shrink: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 16px;
+  height: 16px;
+  background: none;
+  border: none;
+  border-radius: 3px;
+  color: var(--grey-mid);
+  cursor: pointer;
+  opacity: 0;
+  transition: all 0.15s;
+}
+
+.mg-qb-sidebar-quote:hover .mg-qb-sidebar-quote-remove {
+  opacity: 1;
+}
+
+.mg-qb-sidebar-quote-remove:hover {
+  color: var(--red);
+  background: rgba(255, 100, 100, 0.15);
+}
+
+/* Context column (right side in 3-col layout) */
+.mg-qb-context {
+  display: flex;
+  flex-direction: column;
+  min-height: 0;
+  overflow: hidden;
+  background: rgb(8, 6, 4);
+}
+
+.mg-qb-context-header {
+  display: flex;
+  align-items: center;
+  padding: var(--space-3) var(--space-4);
+  border-bottom: 1px solid rgba(255, 255, 255, 0.06);
+  flex-shrink: 0;
+}
+
+.mg-qb-context-title {
+  font-family: var(--font-mono);
+  font-size: var(--text-xs);
+  color: var(--grey-light);
+  text-transform: uppercase;
+  letter-spacing: 0.1em;
+}
+
+.mg-qb-context-body {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  min-height: 0;
+  overflow: hidden;
+}
+
+.mg-qb-context-empty {
+  color: var(--grey-mid);
+  font-family: var(--font-mono);
+  font-size: var(--text-xs);
+  text-align: center;
+  padding: var(--space-8);
+}
+
+/* Context body ChatContext overrides */
+.mg-qb-context-body .cc-panel {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  max-height: none !important;
+  height: 100%;
+  border: none;
+  border-radius: 0;
+  background: transparent;
+  padding: var(--space-3);
+}
+
+.mg-qb-context-body .cc-toolbar {
+  display: none; /* Hide filter in context panel */
+}
+
+/* Override ChatContext styles inside quote browser */
+.mg-qb-messages .cc-panel,
+.mg-quote-browser-panel .cc-panel {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  max-height: none !important;
+  height: 100%;
+  border: none;
+  border-radius: 0;
+  background: transparent;
+  padding: var(--space-3);
+}
+
+.mg-quote-browser-panel .cc-panel--split {
+  padding: 0;
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  height: 100%;
+}
+
+.mg-quote-browser-panel .cc-split-layout {
+  flex: 1;
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 0;
+  min-height: 0;
+  height: 100%;
+}
+
+/* Left column - scrolls independently */
+.mg-quote-browser-panel .cc-split-left {
+  display: flex;
+  flex-direction: column;
+  height: 100%;
+  max-height: 100%;
+  overflow: hidden;
+  border-right: 1px solid var(--grey-mid);
+  padding: var(--space-3);
+}
+
+/* Right column - scrolls independently */
+.mg-quote-browser-panel .cc-split-right {
+  display: flex;
+  flex-direction: column;
+  height: 100%;
+  max-height: 100%;
+  overflow: hidden;
+  padding: var(--space-3);
+  background: rgba(0, 0, 0, 0.3);
+}
+
+/* Toolbar stays at top */
+.mg-quote-browser-panel .cc-toolbar {
+  flex-shrink: 0;
+  padding-bottom: var(--space-3);
+  border-bottom: 1px solid rgba(255, 255, 255, 0.06);
+  margin-bottom: var(--space-3);
+}
+
+/* Message list scrolls */
+.mg-quote-browser-panel .cc-list {
+  flex: 1;
+  overflow-y: auto;
+  max-height: none !important;
+}
+
+.mg-quote-browser-panel .cc-context-side {
+  display: flex;
+  flex-direction: column;
+  height: 100%;
+  min-height: 0;
+}
+
+.mg-quote-browser-panel .cc-context-scroll {
+  flex: 1;
+  overflow-y: auto;
+  min-height: 0;
+}
+
+/* Selection tray at bottom */
+.mg-qb-tray {
+  border-top: 1px solid var(--gold);
+  background: var(--surface-2);
+  padding: var(--space-3) var(--space-4);
+  display: flex;
+  align-items: center;
+  gap: var(--space-4);
+}
+
+.mg-qb-tray-empty {
+  flex: 1;
+  font-family: var(--font-mono);
+  font-size: var(--text-xs);
+  color: var(--grey-mid);
+}
+
+.mg-qb-tray-quotes {
+  flex: 1;
+  display: flex;
+  gap: var(--space-2);
+  flex-wrap: wrap;
+  max-height: 80px;
+  overflow-y: auto;
+}
+
+.mg-qb-tray-quote {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+  background: rgba(252, 219, 51, 0.1);
+  border: 1px solid rgba(252, 219, 51, 0.3);
+  border-radius: var(--radius-sm);
+  padding: var(--space-1) var(--space-2);
+  font-size: var(--text-xxs);
+  max-width: 300px;
+}
+
+.mg-qb-tray-quote-text {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  color: var(--text-body);
+}
+
+.mg-qb-tray-more {
+  font-family: var(--font-mono);
+  font-size: var(--text-xxs);
+  color: var(--grey-light);
+  padding: var(--space-1) var(--space-2);
+}
+
+.mg-qb-add-btn {
+  background: var(--gold);
+  color: #000;
+  border: none;
+  border-radius: var(--radius-sm);
+  padding: var(--space-2) var(--space-6);
+  font-family: var(--font-mono);
+  font-size: var(--text-sm);
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  cursor: pointer;
+  transition: all 0.15s;
+  white-space: nowrap;
+}
+
+.mg-qb-add-btn:hover {
+  background: #e6c84a;
+}
+
+.mg-qb-add-btn:disabled {
+  background: var(--grey-mid);
+  color: var(--grey-dark);
+  cursor: default;
+}
+
+/* Hide the default apply button inside ChatContext */
+.mg-quote-browser-panel .cc-apply {
+  display: none;
 }
 
 /* ── Streak Cards (full-width HOTSTREAK/COLDSTREAK) ── */

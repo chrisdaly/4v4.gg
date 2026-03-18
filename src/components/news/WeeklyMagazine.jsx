@@ -1,6 +1,7 @@
 import React, { useState, useEffect, useMemo, useCallback, useRef } from "react";
+import { createPortal } from "react-dom";
 import { Link } from "react-router-dom";
-import { FiRefreshCw, FiX, FiPlus, FiMenu, FiShare2, FiCamera, FiMessageSquare, FiImage, FiMove } from "react-icons/fi";
+import { FiRefreshCw, FiX, FiPlus, FiMenu, FiShare2, FiCamera, FiMessageSquare, FiImage, FiMove, FiCheck } from "react-icons/fi";
 import html2canvas from "html2canvas";
 import ChatContext from "../ChatContext";
 import { fetchAndCacheProfile } from "../../lib/profileCache";
@@ -537,10 +538,12 @@ const FeatureStory = ({ lead, quotes, curated, nameToTag, editorial }) => {
   // Show all quotes from the lead story (already scoped to first item)
   const attributed = quotes;
 
-  // For QuoteBrowser in editorial mode — extract mentioned battle tags
+  // For QuoteBrowser in editorial mode — get the primary mentioned player
   const mentionedTags = editorial?.browseMessages && nameToTag
     ? extractMentionedTags(lead, nameToTag)
     : [];
+  const primaryTag = mentionedTags[0]; // Use first mentioned player for the quote browser
+  const primaryName = primaryTag?.split("#")[0];
 
   return (
     <section className="mg-feature reveal" style={{ "--delay": "0.10s" }}>
@@ -556,15 +559,12 @@ const FeatureStory = ({ lead, quotes, curated, nameToTag, editorial }) => {
           <p className="mg-feature-lead">{highlightNames(lead, nameToTag)}</p>
         )}
         {editorial?.handleEditSection ? (
-          <>
-            <EditableQuotes quotes={quotes} statKey="DRAMA" editorial={editorial} />
-            {mentionedTags.map((tag) => {
-              const name = tag.split("#")[0];
-              return (
-                <QuoteBrowser key={tag} statKey="DRAMA" battleTag={tag} editorial={editorial} label={name} />
-              );
-            })}
-          </>
+          <EditableQuotes
+            quotes={quotes}
+            statKey="DRAMA"
+            editorial={editorial}
+            browserProps={primaryTag ? { statKey: "DRAMA", battleTag: primaryTag, editorial, label: primaryName, text: lead } : null}
+          />
         ) : (
           <QuoteBlock quotes={attributed} />
         )}
@@ -619,9 +619,8 @@ const StoriesGrid = ({ stories, highlights, bans, nameToTag, editorial }) => {
             ) : (
               highlightNames(text.trim(), nameToTag)
             )}
-            {isContextOpen && (
+            {editorial && (
               <QuoteBrowser
-                inline
                 text={text}
                 nameToTag={nameToTag}
                 dateRange={dateRange}
@@ -680,9 +679,8 @@ const StoriesGrid = ({ stories, highlights, bans, nameToTag, editorial }) => {
                         ))}
                       </div>
                     )}
-                    {isContextOpen && (
+                    {editorial && (
                       <QuoteBrowser
-                        inline
                         text={`${item.summary} ${item.quotes.map(q => `"${q.speaker}: ${q.text}"`).join(" ")}`}
                         nameToTag={nameToTag}
                         dateRange={dateRange}
@@ -740,9 +738,8 @@ const StoriesGrid = ({ stories, highlights, bans, nameToTag, editorial }) => {
                           ))}
                         </div>
                       )}
-                      {isContextOpen && (
+                      {editorial && (
                         <QuoteBrowser
-                          inline
                           text={typeof h === "string" ? h : `${item.summary} ${item.quotes.map(q => `"${q.speaker}: ${q.text}"`).join(" ")}`}
                           nameToTag={nameToTag}
                           dateRange={dateRange}
@@ -836,7 +833,7 @@ const RecapSection = ({ content, editorial }) => {
    ═══════════════════════════════════════════════════════ */
 
 /* ── EditableQuotes: drag-to-reorder groups & quotes, remove, add, inline edit ── */
-const EditableQuotes = ({ quotes = [], statKey, editorial }) => {
+const EditableQuotes = ({ quotes = [], statKey, editorial, browserProps }) => {
   const [dragFrom, setDragFrom] = useState(null);
   const [dragOver, setDragOver] = useState(null);
   const [dragGroupFrom, setDragGroupFrom] = useState(null);
@@ -954,7 +951,10 @@ const EditableQuotes = ({ quotes = [], statKey, editorial }) => {
           <button className="mg-quote-add-confirm" onClick={addQuote}>Add</button>
         </div>
       ) : (
-        <button className="mg-quote-add-btn" onClick={() => setAdding(true)}><FiPlus size={12} /> Add quote</button>
+        <div className="mg-quote-actions">
+          <button className="mg-quote-add-btn" onClick={() => setAdding(true)}><FiPlus size={12} /> Add manually</button>
+          {browserProps && <QuoteBrowser {...browserProps} />}
+        </div>
       )}
     </div>
   );
@@ -975,32 +975,98 @@ const EditableQuotes = ({ quotes = [], statKey, editorial }) => {
  *   nameToTag  — Map/object of player name → battle tag
  *   dateRange  — date range string for toolbar
  *   onApplyQuotes — (quotes: string[]) => void — callback for search mode
- *   inline     — render inline (no toggle button), for StoriesGrid items
+ *   text       — story text to display in header for context
  */
 const SEARCH_PAGE_SIZE = 50;
 
-const QuoteBrowser = ({ statKey, battleTag, editorial, label, text, nameToTag, dateRange: dateRangeProp, onApplyQuotes, inline }) => {
+const QuoteBrowser = ({ statKey, battleTag, editorial, label, text, nameToTag, dateRange: dateRangeProp, onApplyQuotes, currentQuotes }) => {
   const [messages, setMessages] = useState(null);
   const [loading, setLoading] = useState(false);
   const [loadingMore, setLoadingMore] = useState(false);
   const [loadingNewer, setLoadingNewer] = useState(false);
   const [hasMore, setHasMore] = useState(false);
   const [hasNewer, setHasNewer] = useState(false);
-  // Track bidirectional window: startOffset is where our current window begins, endOffset is where it ends
   const [startOffset, setStartOffset] = useState(0);
   const [endOffset, setEndOffset] = useState(0);
-  const [open, setOpen] = useState(!!inline);
+  const [open, setOpen] = useState(false);
+  // Local copy of quotes for instant updates
+  const [localQuotes, setLocalQuotes] = useState([]);
 
-  // Determine mode: scored (has editorial.browseMessages + statKey + battleTag) vs search
-  const isScored = !!(editorial?.browseMessages && statKey && battleTag && !text);
+  // Sync localQuotes with currentQuotes when opening or when currentQuotes changes
+  useEffect(() => {
+    if (open && currentQuotes) {
+      setLocalQuotes(currentQuotes);
+    }
+  }, [open, currentQuotes]);
 
-  // Derive search params from text + nameToTag (search mode)
+  // Browser history integration - back button closes quote browser
+  const historyStateId = useRef(null);
+
+  useEffect(() => {
+    if (!open) return;
+
+    // Push history entry when opening
+    const stateId = `quote-browser-${Date.now()}`;
+    historyStateId.current = stateId;
+    window.history.pushState({ quoteBrowser: stateId }, "");
+
+    // Handle back button
+    const handlePopState = (e) => {
+      if (!e.state?.quoteBrowser || e.state.quoteBrowser !== historyStateId.current) {
+        setOpen(false);
+      }
+    };
+    window.addEventListener("popstate", handlePopState);
+
+    // Handle Escape key
+    const handleEsc = (e) => {
+      if (e.key === "Escape") {
+        window.history.back();
+      }
+    };
+    window.addEventListener("keydown", handleEsc);
+
+    // Completely lock page scroll
+    const savedScrollY = window.scrollY;
+    const html = document.documentElement;
+    const body = document.body;
+
+    // Lock both html and body
+    html.style.overflow = "hidden";
+    body.style.overflow = "hidden";
+    body.style.position = "fixed";
+    body.style.top = `-${savedScrollY}px`;
+    body.style.left = "0";
+    body.style.right = "0";
+
+    // Restore page scroll when closing
+    const restoreScroll = () => {
+      html.style.overflow = "";
+      body.style.overflow = "";
+      body.style.position = "";
+      body.style.top = "";
+      body.style.left = "";
+      body.style.right = "";
+      window.scrollTo(0, savedScrollY);
+    };
+
+    return () => {
+      window.removeEventListener("popstate", handlePopState);
+      window.removeEventListener("keydown", handleEsc);
+      document.body.style.overflow = "";
+      restoreScroll();
+    };
+  }, [open]);
+
+  // Scored mode: use browseMessages when we have a battleTag (pre-scored messages)
+  // text can still be passed for header display without switching to search mode
+  const isScored = !!(editorial?.browseMessages && statKey && battleTag);
+
   const searchParams = useMemo(() => {
     if (isScored || !text) return null;
     const ntMap = nameToTag instanceof Map ? Object.fromEntries(nameToTag) : (nameToTag || {});
     const names = Object.keys(ntMap).filter((n) => text.includes(n));
     if (names.length === 0) {
-      // Fallback: first significant word
       const words = text.split(/\s+/).filter((w) => w.length > 4 && /^[A-Za-z]/.test(w));
       if (words[0]) return { q: words[0] };
       return null;
@@ -1010,7 +1076,6 @@ const QuoteBrowser = ({ statKey, battleTag, editorial, label, text, nameToTag, d
     return { q: names[0] };
   }, [isScored, text, nameToTag]);
 
-  // Fetch search results with offset
   const fetchSearch = useCallback(async (off) => {
     if (!searchParams) return [];
     const params = new URLSearchParams({ ...searchParams, limit: String(SEARCH_PAGE_SIZE), offset: String(off) });
@@ -1025,13 +1090,15 @@ const QuoteBrowser = ({ statKey, battleTag, editorial, label, text, nameToTag, d
   }, [searchParams]);
 
   const handleToggle = async () => {
-    if (open && !inline) { setOpen(false); return; }
+    if (open) { window.history.back(); return; }
     setOpen(true);
+    setLocalQuotes(currentQuotes || []);
     if (messages) return;
     setLoading(true);
     if (isScored) {
       const result = await editorial.browseMessages(statKey, battleTag);
-      setMessages(result);
+      // Add battle_tag to each message so ChatContext can fetch avatars
+      setMessages(result.map((m) => ({ ...m, battle_tag: m.battle_tag || battleTag })));
       setHasMore(false);
       setHasNewer(false);
     } else {
@@ -1040,17 +1107,11 @@ const QuoteBrowser = ({ statKey, battleTag, editorial, label, text, nameToTag, d
       setStartOffset(0);
       setEndOffset(SEARCH_PAGE_SIZE);
       setHasMore(results.length >= SEARCH_PAGE_SIZE);
-      setHasNewer(false); // We start at newest, nothing newer
+      setHasNewer(false);
     }
     setLoading(false);
   };
 
-  // Auto-fetch on mount for inline mode
-  useEffect(() => {
-    if (inline && !messages && !loading) handleToggle();
-  }, [inline]); // eslint-disable-line react-hooks/exhaustive-deps
-
-  // Load older messages (scroll down)
   const handleLoadMore = useCallback(async () => {
     if (loadingMore || !hasMore || isScored) return;
     setLoadingMore(true);
@@ -1061,7 +1122,6 @@ const QuoteBrowser = ({ statKey, battleTag, editorial, label, text, nameToTag, d
     setLoadingMore(false);
   }, [loadingMore, hasMore, isScored, endOffset, fetchSearch]);
 
-  // Load newer messages (scroll up) - only if we started from middle
   const handleLoadNewer = useCallback(async () => {
     if (loadingNewer || !hasNewer || isScored || startOffset <= 0) return;
     setLoadingNewer(true);
@@ -1073,77 +1133,318 @@ const QuoteBrowser = ({ statKey, battleTag, editorial, label, text, nameToTag, d
     setLoadingNewer(false);
   }, [loadingNewer, hasNewer, isScored, startOffset, fetchSearch]);
 
-  const handleApply = (items) => {
-    const quotes = items.map((m) => `${m.name}: ${m.text}`);
-    if (onApplyQuotes) {
-      onApplyQuotes(quotes);
-    } else if (editorial?.setQuotes && statKey) {
-      editorial.setQuotes(statKey, quotes, { append: true });
+  // Instant add: click a message to immediately add it as a quote
+  const handleInstantAdd = useCallback((msg) => {
+    const quoteText = `${msg.name}: ${msg.text || msg.message}`;
+    const newQuote = { name: msg.name, text: msg.text || msg.message, received_at: msg.received_at };
+
+    // Check if already added (by matching text)
+    const isAdded = localQuotes.some(q =>
+      (typeof q === 'string' ? q : `${q.name}: ${q.text}`) === quoteText
+    );
+
+    if (isAdded) {
+      // Remove it
+      const newQuotes = localQuotes.filter(q =>
+        (typeof q === 'string' ? q : `${q.name}: ${q.text}`) !== quoteText
+      );
+      setLocalQuotes(newQuotes);
+      // Persist immediately
+      if (onApplyQuotes) {
+        onApplyQuotes(newQuotes.map(q => typeof q === 'string' ? q : `${q.name}: ${q.text}`));
+      } else if (editorial?.setQuotes && statKey) {
+        editorial.setQuotes(statKey, newQuotes.map(q => typeof q === 'string' ? q : `${q.name}: ${q.text}`), { replace: true });
+      }
+    } else {
+      // Add it
+      const newQuotes = [...localQuotes, newQuote];
+      setLocalQuotes(newQuotes);
+      // Persist immediately
+      if (onApplyQuotes) {
+        onApplyQuotes(newQuotes.map(q => typeof q === 'string' ? q : `${q.name}: ${q.text}`));
+      } else if (editorial?.setQuotes && statKey) {
+        editorial.setQuotes(statKey, newQuotes.map(q => typeof q === 'string' ? q : `${q.name}: ${q.text}`), { replace: true });
+      }
     }
-    if (!inline) setOpen(false);
-  };
+  }, [localQuotes, onApplyQuotes, editorial, statKey]);
+
+  // Remove quote from sidebar
+  const handleRemoveQuote = useCallback((idx) => {
+    const newQuotes = localQuotes.filter((_, i) => i !== idx);
+    setLocalQuotes(newQuotes);
+    // Persist immediately
+    if (onApplyQuotes) {
+      onApplyQuotes(newQuotes.map(q => typeof q === 'string' ? q : `${q.name}: ${q.text}`));
+    } else if (editorial?.setQuotes && statKey) {
+      editorial.setQuotes(statKey, newQuotes.map(q => typeof q === 'string' ? q : `${q.name}: ${q.text}`), { replace: true });
+    }
+  }, [localQuotes, onApplyQuotes, editorial, statKey]);
 
   const resolvedDateRange = dateRangeProp
     || (editorial?.weekStart && editorial?.weekEnd ? formatWeekRange(editorial.weekStart, editorial.weekEnd) : undefined);
 
-  // Inline mode: render directly without toggle button
-  if (inline) {
-    return (
-      <div className="mg-item-context-panel">
-        <ChatContext
-          messages={messages}
-          loading={loading}
-          onApply={onApplyQuotes || editorial?.setQuotes ? handleApply : undefined}
-          selectable={!!(onApplyQuotes || editorial?.setQuotes)}
-          expandable
-          splitView
-          showScores={isScored}
-          showDates
-          placeholder="Filter context..."
-          dateRange={resolvedDateRange}
-          applyLabel={(n) => `Add ${n} quote${n !== 1 ? "s" : ""}`}
-          onLoadMore={hasMore ? handleLoadMore : undefined}
-          hasMore={hasMore}
-          loadingMore={loadingMore}
-          onLoadNewer={hasNewer ? handleLoadNewer : undefined}
-          hasNewer={hasNewer}
-          loadingNewer={loadingNewer}
-        />
-      </div>
+  // Check if a message is already added as a quote
+  const isQuoteAdded = useCallback((msg) => {
+    const quoteText = `${msg.name || msg.user_name}: ${msg.text || msg.message}`;
+    return localQuotes.some(q =>
+      (typeof q === 'string' ? q : `${q.name}: ${q.text}`) === quoteText
     );
-  }
+  }, [localQuotes]);
 
+  // Context panel state (right column)
+  const [contextMessages, setContextMessages] = useState(null);
+  const [contextLoading, setContextLoading] = useState(false);
+  const [expandedMsg, setExpandedMsg] = useState(null);
+  const [ctxHasMore, setCtxHasMore] = useState(false);
+  const [ctxHasNewer, setCtxHasNewer] = useState(false);
+  const [ctxLoadingMore, setCtxLoadingMore] = useState(false);
+  const [ctxLoadingNewer, setCtxLoadingNewer] = useState(false);
+  const [ctxPadding, setCtxPadding] = useState(10); // padding in minutes
+
+  // Load context when clicking a message
+  const handleExpandMessage = useCallback(async (msg) => {
+    const timestamp = msg.received_at || msg.sent_at || msg.sentAt;
+    console.log("[Context] Message clicked:", { msg, timestamp });
+    if (!timestamp) {
+      console.warn("[Context] No timestamp found on message");
+      return;
+    }
+
+    setExpandedMsg(msg);
+    setContextLoading(true);
+    setContextMessages(null);
+    setCtxPadding(10); // reset padding
+
+    try {
+      const params = new URLSearchParams({
+        received_at: timestamp,
+        padding: "10"
+      });
+      const url = `${RELAY_URL}/api/admin/messages/search/context?${params}`;
+      console.log("[Context] Fetching:", url);
+      const res = await fetch(url);
+      const data = await res.json();
+      console.log("[Context] Response:", data);
+      // API returns array directly with user_name/message fields - normalize to name/text
+      const messages = (Array.isArray(data) ? data : data.messages || []).map(m => ({
+        name: m.user_name || m.name,
+        text: m.message || m.text,
+        battle_tag: m.battle_tag,
+        received_at: m.received_at,
+        sent_at: m.sent_at,
+      }));
+      console.log("[Context] Normalized messages:", messages.length);
+      setContextMessages(messages);
+      setCtxHasMore(true);
+      setCtxHasNewer(true);
+    } catch (err) {
+      console.error("[Context] Failed to load:", err);
+      setContextMessages([]);
+    }
+    setContextLoading(false);
+  }, []);
+
+  // Load earlier context by increasing padding
+  const handleCtxLoadMore = useCallback(async () => {
+    if (ctxLoadingMore || !expandedMsg) return;
+    const timestamp = expandedMsg.received_at || expandedMsg.sent_at || expandedMsg.sentAt;
+    if (!timestamp) return;
+
+    setCtxLoadingMore(true);
+    const newPadding = ctxPadding + 15;
+    try {
+      const params = new URLSearchParams({
+        received_at: timestamp,
+        padding: String(newPadding)
+      });
+      const res = await fetch(`${RELAY_URL}/api/admin/messages/search/context?${params}`);
+      const data = await res.json();
+      const messages = (Array.isArray(data) ? data : data.messages || []).map(m => ({
+        name: m.user_name || m.name,
+        text: m.message || m.text,
+        battle_tag: m.battle_tag,
+        received_at: m.received_at,
+        sent_at: m.sent_at,
+      }));
+      if (messages.length > (contextMessages?.length || 0)) {
+        setContextMessages(messages);
+        setCtxPadding(newPadding);
+      } else {
+        setCtxHasMore(false);
+      }
+    } catch (err) {
+      console.error("Failed to load earlier context:", err);
+    }
+    setCtxLoadingMore(false);
+  }, [ctxLoadingMore, expandedMsg, ctxPadding, contextMessages?.length]);
+
+  // Load newer context (same as earlier - just extend padding)
+  const handleCtxLoadNewer = useCallback(async () => {
+    if (ctxLoadingNewer || !expandedMsg) return;
+    const timestamp = expandedMsg.received_at || expandedMsg.sent_at || expandedMsg.sentAt;
+    if (!timestamp) return;
+
+    setCtxLoadingNewer(true);
+    const newPadding = ctxPadding + 15;
+    try {
+      const params = new URLSearchParams({
+        received_at: timestamp,
+        padding: String(newPadding)
+      });
+      const res = await fetch(`${RELAY_URL}/api/admin/messages/search/context?${params}`);
+      const data = await res.json();
+      const messages = (Array.isArray(data) ? data : data.messages || []).map(m => ({
+        name: m.user_name || m.name,
+        text: m.message || m.text,
+        battle_tag: m.battle_tag,
+        received_at: m.received_at,
+        sent_at: m.sent_at,
+      }));
+      if (messages.length > (contextMessages?.length || 0)) {
+        setContextMessages(messages);
+        setCtxPadding(newPadding);
+      } else {
+        setCtxHasNewer(false);
+      }
+    } catch (err) {
+      console.error("Failed to load newer context:", err);
+    }
+    setCtxLoadingNewer(false);
+  }, [ctxLoadingNewer, expandedMsg, ctxPadding, contextMessages?.length]);
+
+  // 3-column layout: quotes | messages | context
   return (
     <div className="mg-quote-browser">
       <Button $secondary onClick={handleToggle}>
-        {open ? "Close" : label ? `Browse ${label}` : "Browse Messages"}
+        {label ? `${label} Quotes` : text ? "Find Quotes" : "Browse Quotes"}
       </Button>
-      {open && (
+      {open && createPortal(
         <div className="mg-quote-browser-panel">
-          <div className="mg-quote-browser-close">
-            <span className="mg-quote-browser-label">{label || "Messages"}</span>
-            <button onClick={() => setOpen(false)} title="Close"><FiX size={14} /></button>
+          {/* Header */}
+          <div className="mg-qb-header">
+            <div className="mg-qb-header-left">
+              <span className="mg-qb-title">{label || "Find Quotes"}</span>
+              {text && <p className="mg-qb-story">{text}</p>}
+            </div>
+            <button className="mg-qb-close" onClick={() => window.history.back()}>
+              Close <FiX size={16} />
+            </button>
           </div>
-          <ChatContext
-            messages={messages}
-            loading={loading}
-            onApply={handleApply}
-            selectable
-            expandable
-            splitView
-            showScores={isScored}
-            showDates={!isScored}
-            placeholder="Filter by keyword..."
-            applyLabel={(n) => `Use ${n} quote${n !== 1 ? "s" : ""}`}
-            dateRange={resolvedDateRange}
-            onLoadMore={hasMore ? handleLoadMore : undefined}
-            hasMore={hasMore}
-            loadingMore={loadingMore}
-            onLoadNewer={hasNewer ? handleLoadNewer : undefined}
-            hasNewer={hasNewer}
-            loadingNewer={loadingNewer}
-          />
-        </div>
+
+          {/* Body - 3 columns: quotes | messages | context */}
+          <div className="mg-qb-body mg-qb-body--three-col">
+            {/* Left: Collected quotes - grouped by speaker */}
+            <div className="mg-qb-sidebar mg-qb-sidebar--left">
+              <div className="mg-qb-sidebar-header">
+                <span className="mg-qb-sidebar-title">Collected</span>
+                <span className="mg-qb-sidebar-count">{localQuotes.length}</span>
+              </div>
+              <div className="mg-qb-sidebar-list">
+                {localQuotes.length === 0 ? (
+                  <p className="mg-qb-sidebar-empty">Click <FiCheck size={10} /> to add quotes</p>
+                ) : (
+                  // Group consecutive quotes by speaker
+                  (() => {
+                    const groups = [];
+                    let currentGroup = null;
+                    localQuotes.forEach((q, i) => {
+                      const qText = typeof q === 'string' ? q : `${q.name}: ${q.text}`;
+                      const [speaker, ...rest] = qText.split(': ');
+                      const content = rest.join(': ');
+                      if (currentGroup && currentGroup.speaker === speaker) {
+                        currentGroup.messages.push({ content, idx: i });
+                      } else {
+                        currentGroup = { speaker, messages: [{ content, idx: i }] };
+                        groups.push(currentGroup);
+                      }
+                    });
+                    return groups.map((group, gi) => (
+                      <div key={gi} className="mg-qb-sidebar-group">
+                        <div className="mg-qb-sidebar-group-header">
+                          <span className="mg-qb-sidebar-quote-speaker">{group.speaker}</span>
+                          <button
+                            className="mg-qb-sidebar-group-remove"
+                            onClick={() => {
+                              // Remove all messages in this group (in reverse order to preserve indices)
+                              const indices = group.messages.map(m => m.idx).sort((a, b) => b - a);
+                              indices.forEach(idx => handleRemoveQuote(idx));
+                            }}
+                            title="Remove all"
+                          >
+                            <FiX size={12} />
+                          </button>
+                        </div>
+                        {group.messages.map((m, mi) => (
+                          <div key={mi} className="mg-qb-sidebar-quote">
+                            <span className="mg-qb-sidebar-quote-text">{m.content}</span>
+                            <button
+                              className="mg-qb-sidebar-quote-remove"
+                              onClick={() => handleRemoveQuote(m.idx)}
+                              title="Remove"
+                            >
+                              <FiX size={10} />
+                            </button>
+                          </div>
+                        ))}
+                      </div>
+                    ));
+                  })()
+                )}
+              </div>
+            </div>
+
+            {/* Middle: Relevant messages */}
+            <div className="mg-qb-messages">
+              <ChatContext
+                messages={messages}
+                loading={loading}
+                showScores={isScored}
+                showDates={!isScored}
+                placeholder="Filter by keyword..."
+                dateRange={resolvedDateRange}
+                onLoadMore={hasMore ? handleLoadMore : undefined}
+                hasMore={hasMore}
+                loadingMore={loadingMore}
+                onLoadNewer={hasNewer ? handleLoadNewer : undefined}
+                hasNewer={hasNewer}
+                loadingNewer={loadingNewer}
+                expandable
+                onExpand={handleExpandMessage}
+                expandedTimestamp={expandedMsg?.received_at || expandedMsg?.sent_at}
+                onInstantAdd={handleInstantAdd}
+                isQuoteAdded={isQuoteAdded}
+              />
+            </div>
+
+            {/* Right: Context panel */}
+            <div className="mg-qb-context">
+              <div className="mg-qb-context-header">
+                <span className="mg-qb-context-title">Context</span>
+              </div>
+              <div className="mg-qb-context-body">
+                {!expandedMsg ? (
+                  <p className="mg-qb-context-empty">Click a message to see context</p>
+                ) : (
+                  <ChatContext
+                    messages={contextMessages}
+                    loading={contextLoading}
+                    showDates
+                    originTimestamp={expandedMsg.received_at || expandedMsg.sent_at}
+                    onLoadMore={ctxHasMore ? handleCtxLoadMore : undefined}
+                    hasMore={ctxHasMore}
+                    loadingMore={ctxLoadingMore}
+                    onLoadNewer={ctxHasNewer ? handleCtxLoadNewer : undefined}
+                    hasNewer={ctxHasNewer}
+                    loadingNewer={ctxLoadingNewer}
+                    onInstantAdd={handleInstantAdd}
+                    isQuoteAdded={isQuoteAdded}
+                  />
+                )}
+              </div>
+            </div>
+          </div>
+        </div>,
+        document.body
       )}
     </div>
   );
