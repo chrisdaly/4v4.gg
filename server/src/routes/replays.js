@@ -57,6 +57,170 @@ const upload = multer({
   },
 });
 
+// Memory-only upload for ephemeral parsing (no disk storage)
+const memoryUpload = multer({
+  storage: multer.memoryStorage(),
+  limits: { fileSize: 20 * 1024 * 1024 },
+  fileFilter: (_req, file, cb) => {
+    if (file.originalname.toLowerCase().endsWith('.w3g')) {
+      cb(null, true);
+    } else {
+      cb(new Error('Only .w3g replay files are accepted'));
+    }
+  },
+});
+
+// Skip first 2 minutes of action sequences (build order, not player signature)
+const EARLY_GAME_CUTOFF_MS = 2 * 60 * 1000;
+
+/**
+ * Compute transition pairs and group usage from a single replay's action sequence.
+ * Similar to computeActionProfile but for ephemeral/single-replay use.
+ */
+function computeEphemeralProfile(fullActionSequence, groupCompositions) {
+  const transitionPairs = [];
+  const groupUsage = [];
+
+  if (!fullActionSequence || fullActionSequence.length < 2) {
+    return { transitionPairs, groupUsage, groupCompositions: {} };
+  }
+
+  const groupTransitions = {};
+  const groupStats = {};
+
+  let lastGroup = null;
+  for (const a of fullActionSequence) {
+    if (a.ms < EARLY_GAME_CUTOFF_MS) continue;
+
+    const isHotkey = (a.id === 0x17 || a.id === 0x18 || a.id === 23 || a.id === 24) && a.g != null;
+    if (isHotkey) {
+      const isAssign = (a.id === 0x17 || a.id === 23);
+      if (!groupStats[a.g]) groupStats[a.g] = { used: 0, assigned: 0 };
+      if (isAssign) groupStats[a.g].assigned++;
+      else groupStats[a.g].used++;
+
+      if (lastGroup !== null && lastGroup !== a.g) {
+        const key = `${lastGroup}->${a.g}`;
+        groupTransitions[key] = (groupTransitions[key] || 0) + 1;
+      }
+      lastGroup = a.g;
+    }
+  }
+
+  // Build transitionPairs array sorted by count
+  const pairs = Object.entries(groupTransitions)
+    .sort((a, b) => b[1] - a[1])
+    .slice(0, 10)
+    .map(([k, v]) => ({
+      from: parseInt(k),
+      to: parseInt(k.split('->')[1]),
+      count: v,
+    }));
+
+  // Build groupUsage array sorted by total usage
+  const usage = Object.entries(groupStats)
+    .map(([g, s]) => ({ group: parseInt(g), used: s.used, assigned: s.assigned }))
+    .sort((a, b) => (b.used + b.assigned) - (a.used + a.assigned));
+
+  // Process group compositions (convert to array format with counts)
+  const processedComps = {};
+  if (groupCompositions) {
+    for (const [g, units] of Object.entries(groupCompositions)) {
+      const unitCounts = {};
+      for (const unitId of units) {
+        if (unitId) unitCounts[unitId] = (unitCounts[unitId] || 0) + 1;
+      }
+      const sorted = Object.entries(unitCounts)
+        .sort((a, b) => b[1] - a[1])
+        .slice(0, 8)
+        .map(([id, count]) => ({ id, count }));
+      if (sorted.length > 0) processedComps[g] = sorted;
+    }
+  }
+
+  return { transitionPairs: pairs, groupUsage: usage, groupCompositions: processedComps };
+}
+
+// POST /api/replays/parse — Ephemeral parse: returns chat + fingerprints, stores nothing
+router.post('/parse', (req, res, next) => {
+  memoryUpload.single('replay')(req, res, (err) => {
+    if (err) {
+      if (err instanceof multer.MulterError) return res.status(400).json({ error: err.message });
+      return res.status(400).json({ error: err.message });
+    }
+    next();
+  });
+}, async (req, res) => {
+  if (!req.file) {
+    return res.status(400).json({ error: 'No replay file provided' });
+  }
+
+  try {
+    // Import buffer parser dynamically to avoid circular deps
+    const { parseReplayBuffer } = await import('../replayParser.js');
+    const parsed = await parseReplayBuffer(req.file.buffer);
+
+    // Build player list with potential battletags from names
+    const players = parsed.players.map(p => ({
+      playerId: p.playerId,
+      playerName: p.playerName,
+      teamId: p.teamId,
+      race: p.race,
+      apm: p.apm,
+      color: p.color,
+      // In old replays, names might be battletags or just names
+      battleTag: p.playerName.includes('#') ? p.playerName : null,
+    }));
+
+    // Compute fingerprints (playstyle data)
+    const fingerprints = computeFingerprints(parsed.actions, players);
+
+    // Build profile data for each player (matching Upload page format)
+    const profiles = players.map(player => {
+      const fp = fingerprints.find(f => f.playerId === player.playerId);
+      const action = parsed.actions.find(a => a.playerId === player.playerId);
+
+      // Compute transition pairs and group usage from full action sequence
+      const ephemeralProfile = action
+        ? computeEphemeralProfile(action.fullActionSequence, action.groupCompositions)
+        : { transitionPairs: [], groupUsage: [], groupCompositions: {} };
+
+      return {
+        playerId: player.playerId,
+        playerName: player.playerName,
+        race: player.race,
+        apm: player.apm,
+        teamId: player.teamId,
+        profileData: fp ? {
+          averaged: { segments: fp.segments },
+          transitionPairs: ephemeralProfile.transitionPairs,
+          groupUsage: ephemeralProfile.groupUsage,
+          groupCompositions: ephemeralProfile.groupCompositions,
+          actionCounts: {
+            reassignRatio: action ? Math.round((action.assigngroup / Math.max(1, action.selecthotkey + action.assigngroup)) * 100) : 0,
+          },
+        } : null,
+      };
+    });
+
+    res.json({
+      ok: true,
+      filename: req.file.originalname,
+      metadata: parsed.metadata,
+      players,
+      chat: parsed.chat,
+      profiles,
+    });
+  } catch (err) {
+    console.error(`[Parse] Error for ${req.file.originalname}:`, err.message);
+    res.status(422).json({
+      ok: false,
+      error: 'Failed to parse replay',
+      detail: err.message,
+    });
+  }
+});
+
 // POST /api/replays/upload — Upload and parse a .w3g file
 router.post('/upload', requireApiKey, (req, res, next) => {
   upload.single('replay')(req, res, (err) => {

@@ -37,6 +37,7 @@ const Clips = lazy(pageImports.clips);
 const Replay = lazy(() => import("./pages/Replay"));
 const ReplayLab = lazy(() => import("./pages/ReplayLab"));
 const Upload = lazy(() => import("./pages/Upload"));
+const ReplayViewer = lazy(() => import("./pages/ReplayViewer"));
 
 // Overlay pages (lazy-loaded)
 const OverlayIndex = lazy(() => import("./pages/overlay/OverlayIndex"));
@@ -132,6 +133,7 @@ const Router = () => (
                 <Route path="/replay-lab" component={ReplayLab} />
                 <Route path="/upload" component={Upload} />
                 <Route path="/replay" component={Replay} />
+                <Route path="/replay-viewer" component={ReplayViewer} />
 
                 {/* Overlay setup pages (with navbar) */}
                 <Route exact path="/overlay" component={OverlayIndex} />
