@@ -1,9 +1,6 @@
 import { readFileSync } from 'fs';
-import w3gjs from 'w3gjs';
+import W3GReplay from 'w3gjs';
 
-// w3gjs.default is the high-level W3GReplay class that aggregates
-// players, actions, chat, and metadata from raw replay blocks.
-const W3GReplay = w3gjs.default;
 const parser = new W3GReplay();
 
 // Capture early-game (first 60s) hotkey sequences from raw gamedatablock events.

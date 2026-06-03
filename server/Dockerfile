@@ -1,5 +1,7 @@
 FROM node:20-slim
 
+RUN apt-get update && apt-get install -y sqlite3 && rm -rf /var/lib/apt/lists/*
+
 WORKDIR /app
 
 # Node.js dependencies

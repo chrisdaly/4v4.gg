@@ -1,5 +1,6 @@
 import Database from 'better-sqlite3';
-import { mkdirSync } from 'fs';
+import { mkdirSync, existsSync, unlinkSync } from 'fs';
+import { execSync } from 'child_process';
 import { dirname } from 'path';
 import config from './config.js';
 
@@ -8,8 +9,46 @@ let db;
 export function initDb() {
   mkdirSync(dirname(config.DB_PATH), { recursive: true });
 
-  db = new Database(config.DB_PATH);
-  db.pragma('journal_mode = WAL');
+  // Recovery: handle corrupted WAL/SHM or DB file
+  // Strategy: try to open normally, if IOERR remove WAL/SHM, if CORRUPT rebuild via .dump
+  try {
+    db = new Database(config.DB_PATH);
+    db.pragma('journal_mode = WAL');
+  } catch (err) {
+    const code = err.code || '';
+    if (code.startsWith('SQLITE_IOERR')) {
+      console.log(`[DB] SQLite I/O error (${code}), removing WAL/SHM files and retrying...`);
+      try { if (db) db.close(); } catch { /* ignore */ }
+      const shmPath = config.DB_PATH + '-shm';
+      const walPath = config.DB_PATH + '-wal';
+      if (existsSync(shmPath)) unlinkSync(shmPath);
+      if (existsSync(walPath)) unlinkSync(walPath);
+      db = new Database(config.DB_PATH);
+      db.pragma('journal_mode = WAL');
+      console.log('[DB] WAL recovery successful');
+    } else if (code === 'SQLITE_CORRUPT') {
+      console.log('[DB] Database is corrupt, attempting rebuild via .recover...');
+      try { if (db) db.close(); } catch { /* ignore */ }
+      // execSync imported at top
+      const backupPath = config.DB_PATH + '.corrupt';
+      const recoveredPath = config.DB_PATH + '.recovered';
+      // Rename corrupt DB, dump what's recoverable, and recreate
+      execSync(`mv "${config.DB_PATH}" "${backupPath}"`);
+      try {
+        execSync(`sqlite3 "${backupPath}" ".recover" | sqlite3 "${recoveredPath}"`, { timeout: 300000 });
+        execSync(`mv "${recoveredPath}" "${config.DB_PATH}"`);
+        console.log('[DB] Rebuild from .recover successful');
+      } catch (rebuildErr) {
+        console.error('[DB] .recover failed, starting fresh:', rebuildErr.message);
+        // If recovery fails completely, start with empty DB
+        if (existsSync(recoveredPath)) unlinkSync(recoveredPath);
+      }
+      db = new Database(config.DB_PATH);
+      db.pragma('journal_mode = WAL');
+    } else {
+      throw err;
+    }
+  }
   db.pragma('busy_timeout = 5000');
   db.pragma('cache_size = -20000'); // limit SQLite page cache to ~20MB
 
