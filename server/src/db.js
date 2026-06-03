@@ -558,6 +558,13 @@ export function initDb() {
   return db;
 }
 
+// ── WAL checkpoint ──────────────────────────────────
+
+export function walCheckpoint() {
+  const row = db.pragma('wal_checkpoint(TRUNCATE)');
+  return row[0]; // { busy, log, checkpointed }
+}
+
 // ── Variant generation CRUD ──────────────────────────
 
 export function createGenJob(weekStart, total = 3) {

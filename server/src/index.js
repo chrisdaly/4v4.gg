@@ -79,6 +79,19 @@ const runCleanup = () => {
 runCleanup();
 setInterval(runCleanup, 6 * 60 * 60 * 1000);
 
+// WAL checkpoint — flush WAL data into main DB file every 4 hours
+// so Fly volume snapshots capture a consistent database
+import { walCheckpoint } from './db.js';
+const runCheckpoint = () => {
+  try {
+    const result = walCheckpoint();
+    console.log(`[Checkpoint] WAL flushed (busy: ${result.busy}, log: ${result.log}, checkpointed: ${result.checkpointed})`);
+  } catch (err) {
+    console.error('[Checkpoint] Error:', err.message);
+  }
+};
+setInterval(runCheckpoint, 4 * 60 * 60 * 1000);
+
 app.listen(config.PORT, () => {
   console.log(`[Server] Chat relay listening on :${config.PORT}`);
 
