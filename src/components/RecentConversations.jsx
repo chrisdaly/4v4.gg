@@ -60,7 +60,12 @@ export default function RecentConversations({ battleTag, playerName }) {
 
   // Fetch player messages and build conversations
   useEffect(() => {
-    if (!playerName) return;
+    setActiveIdx(0);
+    if (!playerName) {
+      setConversations([]);
+      setLoading(false);
+      return;
+    }
 
     const fetchConversations = async () => {
       setLoading(true);

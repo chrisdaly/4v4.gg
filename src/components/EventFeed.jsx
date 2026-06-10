@@ -49,7 +49,7 @@ const EventFeed = ({ events, onEventClick, title = "Activity", className = "home
               )}
               {e.type === "game_end" && (
                 <div className="event-game-results">
-                  {(e.results?.length > 0 ? e.results : (e.gamePlayers || []).map((p) => ({ name: p.name, mmr: p.mmr, delta: null })))
+                  {(e.results?.length > 0 ? [...e.results] : (e.gamePlayers || []).map((p) => ({ name: p.name, mmr: p.mmr, delta: null })))
                     .sort((a, b) => (b.delta ?? 0) - (a.delta ?? 0))
                     .map((r, j) => (
                       <div key={j} className="event-game-row">

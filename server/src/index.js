@@ -14,6 +14,7 @@ import replayRoutes from './routes/replays.js';
 import fingerprintRoutes, { warmCaches } from './routes/fingerprints.js';
 import blogRoutes from './routes/blog.js';
 import ogRoutes from './routes/og.js';
+import twitchRoutes from './routes/twitch.js';
 import { startClipScheduler } from './clips.js';
 import { startFeedbackScheduler } from './feedback.js';
 import { startReplayImporter } from './replayImporter.js';
@@ -30,6 +31,7 @@ app.use('/api/clips', clipRoutes);
 app.use('/api/replays', replayRoutes);
 app.use('/api/fingerprints', fingerprintRoutes);
 app.use('/api/blog', blogRoutes);
+app.use('/api/twitch', twitchRoutes);
 app.use('/og', ogRoutes);
 // Lightweight health check for Fly proxy (must respond fast)
 app.get('/api/health', (_req, res) => {

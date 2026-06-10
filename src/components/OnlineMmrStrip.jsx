@@ -322,15 +322,19 @@ const OnlineMmrStrip = ({
         staticG.append("path")
           .datum(visibleBins)
           .attr("d", areaLeft)
-          .attr("fill", "rgba(252, 219, 51, 0.04)")
-          .attr("stroke", "rgba(252, 219, 51, 0.08)")
+          .attr("fill", colors.gold.value)
+          .attr("fill-opacity", 0.04)
+          .attr("stroke", colors.gold.value)
+          .attr("stroke-opacity", 0.08)
           .attr("stroke-width", 1);
 
         staticG.append("path")
           .datum(visibleBins)
           .attr("d", areaRight)
-          .attr("fill", "rgba(252, 219, 51, 0.04)")
-          .attr("stroke", "rgba(252, 219, 51, 0.08)")
+          .attr("fill", colors.gold.value)
+          .attr("fill-opacity", 0.04)
+          .attr("stroke", colors.gold.value)
+          .attr("stroke-opacity", 0.08)
           .attr("stroke-width", 1);
       }
     }
@@ -351,7 +355,7 @@ const OnlineMmrStrip = ({
       staticG.append("line")
         .attr("y1", y(v)).attr("y2", y(v))
         .attr("x1", padding.left).attr("x2", width - padding.right)
-        .attr("stroke", "#222").attr("stroke-width", 1);
+        .attr("stroke", colors.greyDark.value).attr("stroke-width", 1);
     }
 
     const axisLabels = axisLabelG.selectAll(".axis-tick").data(gridValues, (d) => d);
@@ -362,7 +366,7 @@ const OnlineMmrStrip = ({
       .attr("text-anchor", "end")
       .attr("font-size", "10px")
       .attr("font-family", "var(--font-mono)")
-      .attr("fill", "#555")
+      .attr("fill", colors.greyMid.value)
       .text((d) => d);
     axisEnter.append("rect")
       .attr("width", 48).attr("height", 16)
@@ -375,7 +379,7 @@ const OnlineMmrStrip = ({
       const g = d3.select(this);
       const isActive = mmrFilter === v;
       const isAbove = mmrFilter != null && v >= mmrFilter;
-      const targetFill = isActive ? "var(--gold)" : isAbove ? "rgba(255, 255, 255, 0.5)" : "#555";
+      const targetFill = isActive ? "var(--gold)" : isAbove ? "rgba(255, 255, 255, 0.5)" : colors.greyMid.value;
 
       g.select("text")
         .attr("y", y(v) + 3).attr("x", width - 4)
@@ -754,8 +758,8 @@ const OnlineMmrStrip = ({
         else opponents.add(p.tag);
       }
 
-      const myColor = TEAM_COLORS[hoveredPos.teamIdx] || "#4da6ff";
-      const enemyColor = TEAM_COLORS[hoveredPos.teamIdx === 0 ? 1 : 0] || "#ef4444";
+      const myColor = TEAM_COLORS[hoveredPos.teamIdx] || colors.teamBlue.value;
+      const enemyColor = TEAM_COLORS[hoveredPos.teamIdx === 0 ? 1 : 0] || colors.teamRed.value;
 
       allDots.each(function (od) {
         d3.select(this).interrupt();

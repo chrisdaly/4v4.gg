@@ -1,8 +1,6 @@
 import { readFileSync } from 'fs';
 import W3GReplay from 'w3gjs';
 
-const parser = new W3GReplay();
-
 // Capture early-game (first 60s) hotkey sequences from raw gamedatablock events.
 // Actions 0x17 = assign group, 0x18 = select group. groupNumber is mapped via (n+1)%10.
 const EARLY_GAME_MS = 60000;
@@ -35,7 +33,14 @@ function netTagKey(tag) {
  * Parse a .w3g replay file and return structured data.
  */
 export async function parseReplayFile(filePath) {
-  const buffer = readFileSync(filePath);
+  return parseReplayBuffer(readFileSync(filePath));
+}
+
+/**
+ * Parse a .w3g replay buffer and return structured data.
+ */
+export async function parseReplayBuffer(buffer) {
+  const parser = new W3GReplay();
 
   // Collect early-game hotkey sequences per player from raw blocks
   const earlySeqs = {}; // playerId -> [{ ms, group, type }]
@@ -97,8 +102,12 @@ export async function parseReplayFile(filePath) {
   };
 
   parser.on('gamedatablock', onBlock);
-  const result = await parser.parse(buffer);
-  parser.removeListener('gamedatablock', onBlock);
+  let result;
+  try {
+    result = await parser.parse(buffer);
+  } finally {
+    parser.removeListener('gamedatablock', onBlock);
+  }
 
   // Build final group compositions with backfilled ObjectID→ItemID
   const groupComps = {}; // playerId -> { g: [itemId, ...] }

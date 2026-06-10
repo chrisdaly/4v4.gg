@@ -6,6 +6,7 @@ import { searchLadder, getPlayerProfile } from "../lib/api";
 import { Select, Badge, Button, Input, PageHero } from "../components/ui";
 import { PageLayout } from "../components/PageLayout";
 import PeonLoader from "../components/PeonLoader";
+import ClipModal from "../components/ClipModal";
 import "../styles/pages/Clips.css";
 
 const RELAY_URL =
@@ -308,9 +309,9 @@ function ClipAdminActions({ clip, apiKey, onUpdate, onOptimistic }) {
     const prev = localPlayerTag;
     const newValue = [...existing, battleTag].join(",");
     setLocalPlayerTag(newValue);
-    clip.player_tag = newValue;
+    onOptimistic(clip.clip_id, { player_tag: newValue });
     adminAction("tag-player", { clipId: clip.clip_id, playerTag: newValue }, apiKey)
-      .then((ok) => { if (!ok) { setLocalPlayerTag(prev); clip.player_tag = prev; } });
+      .then((ok) => { if (!ok) { setLocalPlayerTag(prev); onOptimistic(clip.clip_id, { player_tag: prev }); } });
   };
 
   const handlePlayerRemove = (battleTag) => {
@@ -318,9 +319,9 @@ function ClipAdminActions({ clip, apiKey, onUpdate, onOptimistic }) {
     const prev = localPlayerTag;
     const newValue = existing.filter((t) => t !== battleTag).join(",") || null;
     setLocalPlayerTag(newValue);
-    clip.player_tag = newValue;
+    onOptimistic(clip.clip_id, { player_tag: newValue });
     adminAction("tag-player", { clipId: clip.clip_id, playerTag: newValue }, apiKey)
-      .then((ok) => { if (!ok) { setLocalPlayerTag(prev); clip.player_tag = prev; } });
+      .then((ok) => { if (!ok) { setLocalPlayerTag(prev); onOptimistic(clip.clip_id, { player_tag: prev }); } });
   };
 
   const handleFeature = () => {
@@ -417,47 +418,6 @@ function ClipGridCard({ clip, onClick }) {
       <div className="clip-info">
         <h3 className="clip-title">{clip.title}</h3>
         <ClipMeta clip={clip} />
-      </div>
-    </div>
-  );
-}
-
-// ── Expanded modal ────────────────────────────
-
-function ClipModal({ clip, onClose, apiKey, onUpdate, onOptimistic }) {
-  const backdropRef = useRef(null);
-  const embedSrc = clip.embed_url
-    ? `${clip.embed_url}&parent=4v4.gg&parent=localhost&autoplay=true`
-    : `https://clips.twitch.tv/embed?clip=${clip.clip_id}&parent=4v4.gg&parent=localhost&autoplay=true`;
-
-  useEffect(() => {
-    backdropRef.current?.focus();
-    const handler = (e) => {
-      if (e.key === "Escape") onClose();
-    };
-    window.addEventListener("keydown", handler, true);
-    return () => window.removeEventListener("keydown", handler, true);
-  }, [onClose]);
-
-  return (
-    <div className="clip-modal-backdrop" ref={backdropRef} tabIndex={-1} onClick={onClose} onKeyDown={(e) => e.key === "Escape" && onClose()}>
-      <div className="clip-modal" onClick={(e) => e.stopPropagation()}>
-        <button className="clip-modal-close" onClick={onClose}>
-          &times;
-        </button>
-        <iframe
-          className="clip-modal-embed"
-          src={embedSrc}
-          allowFullScreen
-          title={clip.title}
-        />
-        <div className="clip-modal-info">
-          <h2 className="clip-modal-title">{clip.title}</h2>
-          <ClipMeta clip={clip} />
-          {apiKey && (
-            <ClipAdminActions clip={clip} apiKey={apiKey} onUpdate={onUpdate} onOptimistic={onOptimistic} />
-          )}
-        </div>
       </div>
     </div>
   );
@@ -654,7 +614,17 @@ export default function Clips() {
       </PageLayout>
 
       {activeClip && (
-        <ClipModal clip={activeClip} onClose={() => setActiveClip(null)} apiKey={isAdmin ? adminKey : null} onUpdate={() => { setActiveClip(null); refreshClips(); }} onOptimistic={optimisticUpdate} />
+        <ClipModal clip={activeClip} onClose={() => setActiveClip(null)}>
+          <ClipMeta clip={activeClip} />
+          {isAdmin && (
+            <ClipAdminActions
+              clip={activeClip}
+              apiKey={adminKey}
+              onUpdate={() => { setActiveClip(null); refreshClips(); }}
+              onOptimistic={optimisticUpdate}
+            />
+          )}
+        </ClipModal>
       )}
     </>
   );

@@ -1,6 +1,7 @@
 import React from "react";
+import { chartColors } from "../lib/design-tokens";
 
-const GOLD = "#fcdb33";
+const GOLD = chartColors.gold;
 
 function seededRandom(seed) {
   let s = seed;

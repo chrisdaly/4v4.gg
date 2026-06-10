@@ -84,7 +84,7 @@ export const geometricMean = (arr) => {
 export const stdDev = (arr, mean) => {
   const filtered = arr.filter((v) => v && v > 0);
   if (filtered.length === 0) return 0;
-  const calculatedMean = mean ?? geometricMean(arr);
+  const calculatedMean = mean ?? filtered.reduce((a, b) => a + b, 0) / filtered.length;
   const squaredDiffs = filtered.map((v) => Math.pow(v - calculatedMean, 2));
   return Math.round(Math.sqrt(squaredDiffs.reduce((a, b) => a + b, 0) / filtered.length));
 };

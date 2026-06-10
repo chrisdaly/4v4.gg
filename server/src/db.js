@@ -6,6 +6,14 @@ import config from './config.js';
 
 let db;
 
+function tryAddColumn(sql) {
+  try {
+    db.exec(sql);
+  } catch (err) {
+    if (!String(err.message).includes('duplicate column')) throw err;
+  }
+}
+
 export function initDb() {
   mkdirSync(dirname(config.DB_PATH), { recursive: true });
 
@@ -34,14 +42,21 @@ export function initDb() {
       const recoveredPath = config.DB_PATH + '.recovered';
       // Rename corrupt DB, dump what's recoverable, and recreate
       execSync(`mv "${config.DB_PATH}" "${backupPath}"`);
+      let recovered = false;
       try {
         execSync(`sqlite3 "${backupPath}" ".recover" | sqlite3 "${recoveredPath}"`, { timeout: 300000 });
         execSync(`mv "${recoveredPath}" "${config.DB_PATH}"`);
+        recovered = true;
         console.log('[DB] Rebuild from .recover successful');
       } catch (rebuildErr) {
-        console.error('[DB] .recover failed, starting fresh:', rebuildErr.message);
-        // If recovery fails completely, start with empty DB
+        console.error(`[DB] .recover failed, starting fresh (corrupt backup kept at ${backupPath}):`, rebuildErr.message);
         if (existsSync(recoveredPath)) unlinkSync(recoveredPath);
+      }
+      if (recovered) {
+        // Clean up corrupt backup to avoid filling disk
+        for (const suffix of ['', '-shm', '-wal']) {
+          if (existsSync(backupPath + suffix)) unlinkSync(backupPath + suffix);
+        }
       }
       db = new Database(config.DB_PATH);
       db.pragma('journal_mode = WAL');
@@ -135,58 +150,26 @@ export function initDb() {
   `);
 
   // Migration: add player_tag column to clips
-  try {
-    db.exec(`ALTER TABLE clips ADD COLUMN player_tag TEXT`);
-  } catch {
-    // Column already exists — ignore
-  }
+  tryAddColumn(`ALTER TABLE clips ADD COLUMN player_tag TEXT`);
 
   // Migration: add auto_feature column to streamers
-  try {
-    db.exec(`ALTER TABLE streamers ADD COLUMN auto_feature INTEGER NOT NULL DEFAULT 0`);
-  } catch {
-    // Column already exists — ignore
-  }
+  tryAddColumn(`ALTER TABLE streamers ADD COLUMN auto_feature INTEGER NOT NULL DEFAULT 0`);
 
   // Migration: add draft column to daily_digests
-  try {
-    db.exec(`ALTER TABLE daily_digests ADD COLUMN draft TEXT`);
-  } catch {
-    // Column already exists — ignore
-  }
+  tryAddColumn(`ALTER TABLE daily_digests ADD COLUMN draft TEXT`);
 
   // Migration: add match_context column to daily_digests
-  try {
-    db.exec(`ALTER TABLE daily_digests ADD COLUMN match_context TEXT`);
-  } catch {
-    // Column already exists — ignore
-  }
+  tryAddColumn(`ALTER TABLE daily_digests ADD COLUMN match_context TEXT`);
 
   // Migration: add hidden_avatars column to daily_digests
-  try {
-    db.exec(`ALTER TABLE daily_digests ADD COLUMN hidden_avatars TEXT`);
-  } catch {
-    // Column already exists — ignore
-  }
+  tryAddColumn(`ALTER TABLE daily_digests ADD COLUMN hidden_avatars TEXT`);
 
   // Migration: add clips column to daily_digests (JSON array of clip data)
-  try {
-    db.exec(`ALTER TABLE daily_digests ADD COLUMN clips TEXT`);
-  } catch {
-    // Column already exists — ignore
-  }
+  tryAddColumn(`ALTER TABLE daily_digests ADD COLUMN clips TEXT`);
 
   // Migration: add is_4v4 and match_id columns to clips
-  try {
-    db.exec(`ALTER TABLE clips ADD COLUMN is_4v4 INTEGER DEFAULT NULL`);
-  } catch {
-    // Column already exists — ignore
-  }
-  try {
-    db.exec(`ALTER TABLE clips ADD COLUMN match_id TEXT`);
-  } catch {
-    // Column already exists — ignore
-  }
+  tryAddColumn(`ALTER TABLE clips ADD COLUMN is_4v4 INTEGER DEFAULT NULL`);
+  tryAddColumn(`ALTER TABLE clips ADD COLUMN match_id TEXT`);
 
   // Migration: daily_player_stats table for weekly aggregation
   db.exec(`
@@ -230,63 +213,27 @@ export function initDb() {
   db.exec(`CREATE UNIQUE INDEX IF NOT EXISTS idx_dm_match_id ON daily_matches(match_id)`);
 
   // Migration: add individual MMR columns to daily_matches
-  try {
-    db.exec(`ALTER TABLE daily_matches ADD COLUMN team1_mmrs TEXT`);
-  } catch {
-    // Column already exists — ignore
-  }
-  try {
-    db.exec(`ALTER TABLE daily_matches ADD COLUMN team2_mmrs TEXT`);
-  } catch {
-    // Column already exists — ignore
-  }
+  tryAddColumn(`ALTER TABLE daily_matches ADD COLUMN team1_mmrs TEXT`);
+  tryAddColumn(`ALTER TABLE daily_matches ADD COLUMN team2_mmrs TEXT`);
 
   // Migration: add clips and stats columns to weekly_digests
-  try {
-    db.exec(`ALTER TABLE weekly_digests ADD COLUMN clips TEXT`);
-  } catch {
-    // Column already exists — ignore
-  }
-  try {
-    db.exec(`ALTER TABLE weekly_digests ADD COLUMN stats TEXT`);
-  } catch {
-    // Column already exists — ignore
-  }
+  tryAddColumn(`ALTER TABLE weekly_digests ADD COLUMN clips TEXT`);
+  tryAddColumn(`ALTER TABLE weekly_digests ADD COLUMN stats TEXT`);
 
   // Migration: add cover_image BLOB column to weekly_digests
-  try {
-    db.exec(`ALTER TABLE weekly_digests ADD COLUMN cover_image BLOB`);
-  } catch {
-    // Column already exists — ignore
-  }
+  tryAddColumn(`ALTER TABLE weekly_digests ADD COLUMN cover_image BLOB`);
 
   // Migration: add draft column to weekly_digests (editorial mode)
-  try {
-    db.exec(`ALTER TABLE weekly_digests ADD COLUMN draft TEXT`);
-  } catch {
-    // Column already exists — ignore
-  }
+  tryAddColumn(`ALTER TABLE weekly_digests ADD COLUMN draft TEXT`);
 
   // Migration: add digest_json column to weekly_digests (structured JSON format)
-  try {
-    db.exec(`ALTER TABLE weekly_digests ADD COLUMN digest_json TEXT`);
-  } catch {
-    // Column already exists — ignore
-  }
+  tryAddColumn(`ALTER TABLE weekly_digests ADD COLUMN digest_json TEXT`);
 
   // Migration: add published column to weekly_digests (0 = draft, 1 = published)
-  try {
-    db.exec(`ALTER TABLE weekly_digests ADD COLUMN published INTEGER NOT NULL DEFAULT 0`);
-  } catch {
-    // Column already exists — ignore
-  }
+  tryAddColumn(`ALTER TABLE weekly_digests ADD COLUMN published INTEGER NOT NULL DEFAULT 0`);
 
   // Migration: add cover_position column (CSS object-position value, e.g. "50% 30%")
-  try {
-    db.exec(`ALTER TABLE weekly_digests ADD COLUMN cover_position TEXT`);
-  } catch {
-    // Column already exists — ignore
-  }
+  tryAddColumn(`ALTER TABLE weekly_digests ADD COLUMN cover_position TEXT`);
 
   // Migration: ensure week_start has a unique index (table may have been created without PRIMARY KEY)
   db.exec(`CREATE UNIQUE INDEX IF NOT EXISTS idx_weekly_digests_week_start ON weekly_digests(week_start)`);
@@ -315,11 +262,7 @@ export function initDb() {
   `);
 
   // Migration: add duration_seconds column to match_player_scores
-  try {
-    db.exec(`ALTER TABLE match_player_scores ADD COLUMN duration_seconds INTEGER DEFAULT 0`);
-  } catch {
-    // Column already exists — ignore
-  }
+  tryAddColumn(`ALTER TABLE match_player_scores ADD COLUMN duration_seconds INTEGER DEFAULT 0`);
 
   // Cover image generations — stores every generated image with metadata
   db.exec(`
@@ -428,17 +371,12 @@ export function initDb() {
   `);
 
   // Migration: add file_hash column to replays for dedup
-  try {
-    db.exec(`ALTER TABLE replays ADD COLUMN file_hash TEXT`);
-  } catch { /* column already exists */ }
+  tryAddColumn(`ALTER TABLE replays ADD COLUMN file_hash TEXT`);
   db.exec(`CREATE UNIQUE INDEX IF NOT EXISTS idx_replays_file_hash ON replays(file_hash)`);
+  db.exec(`CREATE INDEX IF NOT EXISTS idx_replays_w3c ON replays(w3c_match_id)`);
 
   // Migration: add group_compositions column if missing
-  try {
-    db.prepare('SELECT group_compositions FROM replay_player_actions LIMIT 1').get();
-  } catch {
-    db.exec('ALTER TABLE replay_player_actions ADD COLUMN group_compositions TEXT');
-  }
+  tryAddColumn('ALTER TABLE replay_player_actions ADD COLUMN group_compositions TEXT');
 
   // ── Player fingerprints table ─────────────────────
   db.exec(`
@@ -475,25 +413,17 @@ export function initDb() {
   `);
 
   // Migration: add early_game_sequence column to replay_player_actions
-  try {
-    db.exec(`ALTER TABLE replay_player_actions ADD COLUMN early_game_sequence TEXT`);
-  } catch (_) { /* column already exists */ }
+  tryAddColumn(`ALTER TABLE replay_player_actions ADD COLUMN early_game_sequence TEXT`);
 
   // Migration: add full_action_sequence column for nanoGPT training data
-  try {
-    db.exec(`ALTER TABLE replay_player_actions ADD COLUMN full_action_sequence TEXT`);
-  } catch (_) { /* column already exists */ }
+  tryAddColumn(`ALTER TABLE replay_player_actions ADD COLUMN full_action_sequence TEXT`);
 
   // Migration: add embedding column for nanoGPT embeddings
-  try {
-    db.exec(`ALTER TABLE player_fingerprints ADD COLUMN embedding TEXT`);
-  } catch (_) { /* column already exists */ }
+  tryAddColumn(`ALTER TABLE player_fingerprints ADD COLUMN embedding TEXT`);
 
   // Migration: add new fingerprint segment columns (tempo, intensity, transitions, rhythm)
   for (const col of ['tempo_seg', 'intensity_seg', 'transitions_seg', 'rhythm_seg']) {
-    try {
-      db.exec(`ALTER TABLE player_fingerprints ADD COLUMN ${col} TEXT`);
-    } catch (_) { /* column already exists */ }
+    tryAddColumn(`ALTER TABLE player_fingerprints ADD COLUMN ${col} TEXT`);
   }
 
   // Blog posts — markdown content with publish/draft workflow
@@ -512,11 +442,7 @@ export function initDb() {
   `);
 
   // Migration: add cover_image column to blog_posts
-  try {
-    db.exec(`ALTER TABLE blog_posts ADD COLUMN cover_image TEXT`);
-  } catch {
-    // Column already exists — ignore
-  }
+  tryAddColumn(`ALTER TABLE blog_posts ADD COLUMN cover_image TEXT`);
 
   // Style thumbnails — preview images for style presets
   db.exec(`

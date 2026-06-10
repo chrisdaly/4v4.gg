@@ -119,7 +119,7 @@ describe('calculatePercentiles', () => {
 
   it('handles single element array', () => {
     const result = calculatePercentiles([42]);
-    expect(result).toEqual([NaN]); // 0/0
+    expect(result).toEqual([100]);
   });
 
   it('handles two elements', () => {

@@ -1,4 +1,4 @@
-import { gateway, season } from "./params";
+import { detectSessionGames, filterMatchesByRace } from "./session";
 
 export const akaLookup = (aka) => {
   const mapping = {
@@ -63,6 +63,7 @@ export const processMatchData = (match, battleTag) => {
 export const calculatePercentiles = (arr) => {
   const sortedArr = arr.slice().sort((a, b) => a - b);
   const n = sortedArr.length;
+  if (n === 1) return [100];
   return arr.map((num) => {
     const index = sortedArr.indexOf(num);
     return (index / (n - 1)) * 100;
@@ -101,14 +102,14 @@ export const preprocessPlayerScores = (match, playerScores) => {
 
   let mvpData = {};
   const mvpKeys = ["Heroes Killed", "Experience Gained", "Gold Mined", "Units Killed", "Largest Army"];
-  for (let i = 0; i < 8; i++) {
-    const playerName = playerScores[i].battleTag.split("#")[0];
+  for (let i = 0; i < playerScores.length; i++) {
+    const playerTag = playerScores[i].battleTag;
     let summed = 0;
     for (const dataType of mvpKeys) {
       const percentiles = stats[dataType].percentiles;
       summed += percentiles[i];
     }
-    mvpData[playerName] = summed;
+    mvpData[playerTag] = summed;
   }
 
   const [mvp, maxValue] = Object.entries(mvpData).reduce((acc, [key, value]) => (value > acc[1] ? [key, value] : acc), ["", -Infinity]);
@@ -116,8 +117,8 @@ export const preprocessPlayerScores = (match, playerScores) => {
   const playerData = match.teams.flatMap((team, teamIndex) => {
     return team.players.map((playerData) => {
       const playerScore = playerScores.find((score) => score.battleTag === playerData.battleTag);
-      const { oldMmr, mmrChange } = calcPlayerMmrAndChange(playerData.battleTag, match);
-      const isMvp = playerData.battleTag.split("#")[0] === mvp ? true : false;
+      const { oldMmr, mmrChange } = calcPlayerMmrAndChange(playerData.battleTag, match) ?? {};
+      const isMvp = playerData.battleTag === mvp;
       return {
         ...playerScore,
         ...playerData,
@@ -205,83 +206,6 @@ export const findPlayerInOngoingMatches = (allMatchData, playerBattleTag) => {
   return null; // Player not found in the match
 };
 
-// Detect session boundary - if 1+ hour gap between consecutive games, session ends
-const SESSION_GAP_MINUTES = 60;
-
-const detectSessionGames = (matches, battleTag) => {
-  if (!matches || matches.length === 0) return [];
-
-  const battleTagLower = battleTag.toLowerCase();
-  const sessionGapMs = SESSION_GAP_MINUTES * 60 * 1000; // 1 hour in ms
-  const sessionMatches = [];
-
-  for (let i = 0; i < matches.length; i++) {
-    const match = matches[i];
-
-    // Find player data in this match
-    let playerData = null;
-    for (const team of match.teams) {
-      const player = team.players.find((p) => p.battleTag.toLowerCase() === battleTagLower);
-      if (player) {
-        playerData = player;
-        break;
-      }
-    }
-    if (!playerData) continue;
-
-    // Check actual idle time between games
-    if (i > 0) {
-      const prevEndTime = new Date(matches[i - 1].endTime);
-      const thisStartTime = new Date(match.startTime);
-      // matches are newest-first, so prev game ended AFTER this game started
-      // gapMs = time between this game starting and prev game ending (idle time)
-      const gapMs = prevEndTime - thisStartTime;
-
-      if (gapMs > sessionGapMs) {
-        break; // Found session boundary
-      }
-    }
-
-    sessionMatches.push({
-      won: playerData.won,
-      oldMmr: playerData.oldMmr,
-      currentMmr: playerData.currentMmr,
-      mmrGain: playerData.currentMmr - playerData.oldMmr,
-      endTime: match.endTime,
-    });
-  }
-
-  return sessionMatches;
-};
-
-export const fetchRecentForm = async (battleTag) => {
-  try {
-    const url = `https://website-backend.w3champions.com/api/matches?playerId=${encodeURIComponent(battleTag)}&offset=0&gameMode=4&season=${season}&gateway=${gateway}`;
-    const response = await fetch(url);
-    if (!response.ok) {
-      return [];
-    }
-    const result = await response.json();
-    if (!result.matches || result.matches.length === 0) {
-      return [];
-    }
-    // Get last 5 games and return array of booleans (true = win)
-    const battleTagLower = battleTag.toLowerCase();
-    const recentGames = result.matches.slice(0, 5).map((match) => {
-      for (const team of match.teams) {
-        const player = team.players.find((p) => p.battleTag.toLowerCase() === battleTagLower);
-        if (player) {
-          return player.won;
-        }
-      }
-      return false;
-    });
-    return recentGames;
-  } catch (error) {
-    return [];
-  }
-};
-
 // New combined function - fetches session data + season timeline
 // Now uses cached API layer to avoid redundant calls
 export const fetchPlayerSessionData = async (battleTag, raceOverride) => {
@@ -292,11 +216,13 @@ export const fetchPlayerSessionData = async (battleTag, raceOverride) => {
     const battleTagLower = battleTag.toLowerCase();
 
     // Fetch recent matches (cached, deduplicated)
-    const { matches } = await getPlayerMatches(battleTag, 50);
+    const { matches: allMatches } = await getPlayerMatches(battleTag, 50);
 
-    if (!matches || matches.length === 0) {
+    if (!allMatches || allMatches.length === 0) {
       return { session: null, seasonMmrs: [], currentMmrFallback: null, rank: null, lastPlayed: null };
     }
+
+    const matches = raceOverride != null ? filterMatchesByRace(allMatches, battleTag, raceOverride) : allMatches;
 
     // Fetch timeline (cached per-race, then merged)
     let seasonMmrs = await getPlayerTimelineMerged(battleTag);
@@ -401,7 +327,7 @@ export function calculateElapsedTime(utcDate) {
   const localDate = new Date(utcDate);
   const now = new Date();
   const diffMs = now - localDate;
-  const diffMins = Math.round(((diffMs % 86400000) % 3600000) / 60000); // minutes
+  const diffMins = Math.floor(diffMs / 60000); // total minutes
   return diffMins;
 }
 
@@ -428,11 +354,10 @@ export const findPotentialATGroups = (players, teamIndex) => {
 // Confirm AT status by checking game-mode-stats API
 export const confirmATPartners = async (battleTag) => {
   try {
-    const url = `https://website-backend.w3champions.com/api/players/${encodeURIComponent(battleTag)}/game-mode-stats?gateway=${gateway}&season=${season}`;
-    const response = await fetch(url);
-    if (!response.ok) return [];
+    const { getPlayerGameModeStatsRaw } = await import('./api');
+    const stats = await getPlayerGameModeStatsRaw(battleTag);
+    if (!stats) return [];
 
-    const stats = await response.json();
     const atPartners = [];
 
     for (const stat of stats) {

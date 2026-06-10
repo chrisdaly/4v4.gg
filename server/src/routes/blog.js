@@ -1,18 +1,12 @@
 import { Router } from 'express';
 import config from '../config.js';
 import { getBlogPosts, getBlogPost, createBlogPost, updateBlogPost, toggleBlogPostPublished, deleteBlogPost } from '../db.js';
+import { requireApiKey } from '../middleware/auth.js';
 
 const router = Router();
 
 function isAdmin(req) {
   return req.headers['x-api-key'] === config.ADMIN_API_KEY && !!config.ADMIN_API_KEY;
-}
-
-function requireApiKey(req, res, next) {
-  if (!isAdmin(req)) {
-    return res.status(401).json({ error: 'Invalid or missing API key' });
-  }
-  next();
 }
 
 // List posts — admins see drafts too

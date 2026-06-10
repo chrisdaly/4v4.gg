@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useCallback, useRef } from "react";
+import React, { useState, useEffect, useCallback, useMemo, useRef } from "react";
 import { Link, useHistory } from "react-router-dom";
 import { GiCrossedSwords } from "react-icons/gi";
 
@@ -6,7 +6,8 @@ import OngoingGame from "../components/OngoingGame";
 import PeonLoader from "../components/PeonLoader";
 import { PageLayout, PageHero } from "../components/PageLayout";
 import { calculateTeamMMR } from "../lib/utils";
-import { getOngoingMatches, getOngoingMatchesCached } from "../lib/api";
+import { getOngoingMatchesCached } from "../lib/api";
+import useOngoingMatches from "../lib/useOngoingMatches";
 
 // Sort matches by team MMR (highest first)
 const sortByMMR = (matches) => {
@@ -29,16 +30,14 @@ const getInitialData = () => {
 
 const OngoingGames = () => {
   const history = useHistory();
-  const [ongoingGameData, setOngoingGameData] = useState(getInitialData);
-  const [isLoading, setIsLoading] = useState(() => getInitialData() === null);
+  const { data, error } = useOngoingMatches();
+  const ongoingGameData = useMemo(
+    () => (data?.matches ? sortByMMR(data.matches) : getInitialData()),
+    [data]
+  );
+  const isLoading = ongoingGameData === null && !error;
   const [allReady, setAllReady] = useState(false);
   const readySet = useRef(new Set());
-
-  useEffect(() => {
-    fetchOngoingMatchesData();
-    const interval = setInterval(fetchOngoingMatchesData, 30000);
-    return () => clearInterval(interval);
-  }, []);
 
   // Reset ready tracking when match list changes
   useEffect(() => {
@@ -53,18 +52,6 @@ const OngoingGames = () => {
       setAllReady(true);
     }
   }, [ongoingGameData]);
-
-  const fetchOngoingMatchesData = async () => {
-    try {
-      const data = await getOngoingMatches();
-      const sortedMatches = sortByMMR(data.matches);
-      setOngoingGameData(sortedMatches);
-      setIsLoading(false);
-    } catch (error) {
-      console.error("Error fetching match data:", error.message);
-      setIsLoading(false);
-    }
-  };
 
   const hasGames = ongoingGameData && ongoingGameData.length > 0;
   const showLoader = isLoading || (hasGames && !allReady);

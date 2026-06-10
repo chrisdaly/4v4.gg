@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useMemo } from "react";
+import React, { useState, useEffect, useMemo, useRef } from "react";
 import { Link } from "react-router-dom";
 
 import GameCard from "../components/game/GameCard";
@@ -66,9 +66,11 @@ const RecentlyFinished = () => {
   // Pagination - more games per page with compact table view
   const [currentPage, setCurrentPage] = useState(1);
   const GAMES_PER_PAGE = 20;
+  const latestReq = useRef(0);
 
   useEffect(() => {
-    fetchFinishedMatchesData();
+    const reqId = ++latestReq.current;
+    fetchFinishedMatchesData(reqId);
   }, [timeRangeIndex]);
 
   // Reset to page 1 when filters change
@@ -76,7 +78,8 @@ const RecentlyFinished = () => {
     setCurrentPage(1);
   }, [mapFilter, durationFilter, mmrFilter]);
 
-  const fetchFinishedMatchesData = async () => {
+  const fetchFinishedMatchesData = async (reqId) => {
+    const isStale = () => latestReq.current !== reqId;
     const timeRange = TIME_RANGES[timeRangeIndex];
     const listCacheKey = createCacheKey("finishedMatches", { timeRangeIndex, gateway, gameMode });
 
@@ -97,6 +100,7 @@ const RecentlyFinished = () => {
     try {
       // Use cached API for finished matches list
       const data = await getFinishedMatches(timeRange.pageSize, 0);
+      if (isStale()) return;
 
       // Filter the data by selected time range
       const filteredData = data.matches.filter((match) => isWithinTimeRange(match.endTime, timeRange.minutes));
@@ -112,6 +116,7 @@ const RecentlyFinished = () => {
       // Fetch match data for each gameId using cached API
       const matchDataPromises = sortedMatches.map((match) => getMatch(match.id));
       const matchDataResults = await Promise.all(matchDataPromises);
+      if (isStale()) return;
 
       setMatchesData(matchDataResults);
 
@@ -121,7 +126,7 @@ const RecentlyFinished = () => {
       setIsLoading(false);
     } catch (error) {
       console.error("Error fetching match data:", error.message);
-      setIsLoading(false);
+      if (!isStale()) setIsLoading(false);
     }
   };
 

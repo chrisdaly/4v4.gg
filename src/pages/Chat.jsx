@@ -1,9 +1,10 @@
-import React, { useState, useEffect, useMemo, useRef, useCallback } from "react";
+import React, { useState, useEffect, useMemo, useRef } from "react";
 import styled from "styled-components";
 import { HiUsers, HiChat } from "react-icons/hi";
 import { GiCrossedSwords } from "react-icons/gi";
 import useChatStream from "../lib/useChatStream";
-import { getPlayerProfile, getPlayerStats, getPlayerSessionLight, getOngoingMatches } from "../lib/api";
+import { getPlayerProfile, getPlayerStats, getPlayerSessionLight } from "../lib/api";
+import useOngoingMatches from "../lib/useOngoingMatches";
 import { useTheme } from "../lib/ThemeContext";
 import ChatPanel from "../components/ChatPanel";
 import ActiveGamesSidebar from "../components/ActiveGamesSidebar";
@@ -111,7 +112,7 @@ const Chat = () => {
   const [avatars, setAvatars] = useState(new Map());
   const [stats, setStats] = useState(new Map());
   const [sessions, setSessions] = useState(new Map());
-  const [ongoingMatches, setOngoingMatches] = useState([]);
+  const { matches: ongoingMatches } = useOngoingMatches();
   const [mobileTab, setMobileTab] = useState("chat"); // "games" | "chat" | "users"
   const [unreadCount, setUnreadCount] = useState(0);
   const [finishedMatches, setFinishedMatches] = useState([]);
@@ -121,6 +122,22 @@ const Chat = () => {
   const prevInGameRef = useRef(new Set());
   const prevMatchIdsRef = useRef(new Set());
   const prevMsgCountRef = useRef(0);
+  const matchTimersRef = useRef([]);
+
+  const addMatchTimer = (fn, ms) => {
+    const id = setTimeout(() => {
+      matchTimersRef.current = matchTimersRef.current.filter((t) => t !== id);
+      fn();
+    }, ms);
+    matchTimersRef.current.push(id);
+  };
+
+  // Clear pending match-end timers on unmount
+  useEffect(() => {
+    return () => {
+      for (const id of matchTimersRef.current) clearTimeout(id);
+    };
+  }, []);
 
   // Track unread messages when not on chat tab
   useEffect(() => {
@@ -132,20 +149,6 @@ const Chat = () => {
       if (newCount > 0) setUnreadCount(newCount);
     }
   }, [messages.length, mobileTab]);
-
-  // Poll ongoing matches every 30s
-  const fetchOngoing = useCallback(async () => {
-    try {
-      const data = await getOngoingMatches();
-      setOngoingMatches(data.matches || []);
-    } catch {}
-  }, []);
-
-  useEffect(() => {
-    fetchOngoing();
-    const interval = setInterval(fetchOngoing, 30000);
-    return () => clearInterval(interval);
-  }, [fetchOngoing]);
 
   // Tick for idle recomputation (once per minute)
   useEffect(() => {
@@ -177,7 +180,7 @@ const Chat = () => {
       );
 
       if (winnerTeamIndex < 0 && attempt < 3) {
-        setTimeout(() => fetchResult(id, attempt + 1), 5000);
+        addMatchTimer(() => fetchResult(id, attempt + 1), 5000);
         return;
       }
 
@@ -191,7 +194,7 @@ const Chat = () => {
             winnerTags.forEach((t) => next.add(t));
             return next;
           });
-          setTimeout(() => {
+          addMatchTimer(() => {
             setRecentWinners((prev) => {
               const next = new Set(prev);
               winnerTags.forEach((t) => next.delete(t));
@@ -205,13 +208,13 @@ const Chat = () => {
         ...prev,
         { ...match, id, _winnerTeam: winnerTeamIndex >= 0 ? winnerTeamIndex : null, _finishedAt: Date.now() },
       ]);
-      setTimeout(() => {
+      addMatchTimer(() => {
         setFinishedMatches((prev) => prev.filter((m) => m.id !== id));
       }, 8000);
     }
 
     for (const id of endedIds) {
-      setTimeout(() => fetchResult(id), 5000);
+      addMatchTimer(() => fetchResult(id), 5000);
     }
   }, [ongoingMatches]);
 

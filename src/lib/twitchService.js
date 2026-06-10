@@ -1,62 +1,11 @@
 // Twitch live stream detection service
-// Uses Client Credentials flow with your own Twitch app
+// Queries the chat relay server, which proxies the Twitch Helix API
 
-const TWITCH_TOKEN_URL = "https://id.twitch.tv/oauth2/token";
-const TWITCH_HELIX_URL = "https://api.twitch.tv/helix/streams";
+const RELAY_URL =
+  import.meta.env.VITE_CHAT_RELAY_URL || "https://4v4gg-chat-relay.fly.dev";
 
-// Credentials from environment variables (set in .env.local)
-const TWITCH_CLIENT_ID = import.meta.env.VITE_TWITCH_CLIENT_ID;
-const TWITCH_CLIENT_SECRET = import.meta.env.VITE_TWITCH_CLIENT_SECRET;
-
-let cachedToken = null;
-let tokenExpiry = 0;
-
-/**
- * Get Twitch OAuth token using Client Credentials flow
- * @returns {Promise<string|null>} Access token or null if unavailable
- */
-export const getTwitchToken = async () => {
-  // Check if credentials are configured
-  if (!TWITCH_CLIENT_ID || !TWITCH_CLIENT_SECRET) {
-    console.warn("Twitch credentials not configured. Set VITE_TWITCH_CLIENT_ID and VITE_TWITCH_CLIENT_SECRET in .env.local");
-    return null;
-  }
-
-  // Return cached token if still valid
-  if (cachedToken && Date.now() < tokenExpiry) {
-    return cachedToken;
-  }
-
-  try {
-    const params = new URLSearchParams({
-      client_id: TWITCH_CLIENT_ID,
-      client_secret: TWITCH_CLIENT_SECRET,
-      grant_type: "client_credentials",
-    });
-
-    const response = await fetch(TWITCH_TOKEN_URL, {
-      method: "POST",
-      body: params,
-    });
-
-    if (!response.ok) {
-      console.warn("Twitch OAuth failed:", response.status);
-      return null;
-    }
-
-    const data = await response.json();
-    if (data?.access_token) {
-      cachedToken = data.access_token;
-      // Cache for slightly less than the actual expiry (tokens last ~60 days)
-      tokenExpiry = Date.now() + (data.expires_in - 300) * 1000;
-      return cachedToken;
-    }
-  } catch (error) {
-    console.warn("Failed to get Twitch token:", error.message);
-  }
-
-  return null;
-};
+const sanitizeTwitchName = (name) =>
+  name.replace("https://twitch.tv/", "").toLowerCase();
 
 /**
  * Check which Twitch usernames are currently live
@@ -70,41 +19,31 @@ export const getLiveStreamers = async (twitchNames) => {
     return liveStreamers;
   }
 
-  const token = await getTwitchToken();
-  if (!token) {
-    return liveStreamers;
-  }
-
   try {
     // Twitch API allows up to 100 user_login params
     const sanitizedNames = twitchNames
       .filter(name => name && typeof name === "string")
-      .map(name => name.replace("https://twitch.tv/", "").toLowerCase())
+      .map(sanitizeTwitchName)
       .filter(name => name.length > 0);
 
     if (sanitizedNames.length === 0) {
       return liveStreamers;
     }
 
-    const params = sanitizedNames.map(name => `user_login=${encodeURIComponent(name)}`).join("&");
-    const url = `${TWITCH_HELIX_URL}?first=100&${params}`;
+    const logins = sanitizedNames.map(name => encodeURIComponent(name)).join(",");
+    const url = `${RELAY_URL}/api/twitch/streams?logins=${logins}`;
 
-    const response = await fetch(url, {
-      headers: {
-        "Client-ID": TWITCH_CLIENT_ID,
-        "Authorization": `Bearer ${token}`,
-      },
-    });
+    const response = await fetch(url);
 
     if (!response.ok) {
-      console.warn("Twitch API error:", response.status);
+      console.warn("Twitch relay error:", response.status);
       return liveStreamers;
     }
 
     const data = await response.json();
-    if (data?.data) {
-      data.data.forEach(stream => {
-        liveStreamers.set(stream.user_name.toLowerCase(), {
+    if (data?.streams) {
+      data.streams.forEach(stream => {
+        liveStreamers.set(stream.user_login.toLowerCase(), {
           viewerCount: stream.viewer_count,
           title: stream.title,
           gameName: stream.game_name,
@@ -126,7 +65,7 @@ export const getLiveStreamers = async (twitchNames) => {
  */
 export const isStreamerLive = async (twitchName) => {
   const liveStreamers = await getLiveStreamers([twitchName]);
-  const streamInfo = liveStreamers.get(twitchName.toLowerCase());
+  const streamInfo = liveStreamers.get(sanitizeTwitchName(twitchName));
 
   if (streamInfo) {
     return { isLive: true, ...streamInfo };

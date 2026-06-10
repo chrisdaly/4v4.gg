@@ -52,7 +52,7 @@ The relay server source is in `server/`. Token is injected via `POST /api/admin/
   - `processOngoingGameData()` - Live match formatting
   - `preprocessPlayerScores()` - Game stats percentile calculation
   - `fetchMMRTimeline()` - Historical MMR data
-  - `arithmeticMean()` / `standardDeviation()` - Team MMR calculations
+- `src/lib/formatters.js` - `geometricMean()` / `stdDev()` - Team MMR calculations
 
 ### Routing (React Router v5)
 Main user-facing routes (see `src/Router.jsx` for the full list, including internal tooling pages):

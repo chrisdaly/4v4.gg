@@ -21,16 +21,9 @@ import {
 } from '../db.js';
 import { buildServerFingerprint } from '../fingerprint.js';
 import { getEmbeddingBatch } from '../embedClient.js';
+import { requireApiKey } from '../middleware/auth.js';
 
 const router = Router();
-
-function requireApiKey(req, res, next) {
-  const key = req.headers['x-api-key'];
-  if (!config.ADMIN_API_KEY || key !== config.ADMIN_API_KEY) {
-    return res.status(401).json({ error: 'Invalid or missing API key' });
-  }
-  next();
-}
 
 // Set up multer for .w3g file uploads — use persistent volume in production
 const REPLAY_DIR = config.REPLAY_DIR.startsWith('/') ? config.REPLAY_DIR : join(process.cwd(), config.REPLAY_DIR);

@@ -6,8 +6,7 @@
  * and player relation detection logic.
  */
 
-import { getPlayerProfile } from "./api";
-import { fetchPlayerSessionData } from "./utils";
+import { getPlayerProfile, getPlayerSessionLight } from "./api";
 import { getLiveStreamers } from "./twitchService";
 
 /**
@@ -85,7 +84,7 @@ export const enrichPlayerData = async (players, options = {}) => {
     // Build parallel fetches for each player
     const fetches = [getPlayerProfile(battleTag)];
     if (fetchSessions) {
-      fetches.push(fetchPlayerSessionData(battleTag, race));
+      fetches.push(getPlayerSessionLight(battleTag, race));
     }
 
     const results = await Promise.all(fetches);

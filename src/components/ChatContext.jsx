@@ -263,39 +263,42 @@ const ChatContext = ({
 
   // Toggle selection (only used in non-split view)
   const toggle = useCallback((origIdx) => {
-    setSelected((prev) => {
-      const next = new Set(prev);
-      if (next.has(origIdx)) next.delete(origIdx);
-      else next.add(origIdx);
-      // Fire onSelectionChange with selected items
-      if (onSelectionChange && messages) {
-        const items = [...next].sort((a, b) => a - b).map((i) => messages[i]);
-        onSelectionChange(items);
-      }
-      return next;
-    });
-  }, [onSelectionChange, messages]);
+    const next = new Set(selected);
+    if (next.has(origIdx)) next.delete(origIdx);
+    else next.add(origIdx);
+    setSelected(next);
+    // Fire onSelectionChange with selected items
+    if (onSelectionChange && messages) {
+      const items = [...next].sort((a, b) => a - b).map((i) => messages[i]);
+      onSelectionChange(items);
+    }
+  }, [selected, onSelectionChange, messages]);
 
   // Toggle context selection (by index into contextMessages) - used in split view
   const toggleCtx = useCallback((idx) => {
-    setSelectedCtx((prev) => {
-      const next = new Set(prev);
-      if (next.has(idx)) next.delete(idx);
-      else next.add(idx);
-      // Fire onSelectionChange with context selections
-      if (onSelectionChange) {
-        const items = [...next].sort((a, b) => a - b).map((i) => {
-          const cm = contextMessages[i];
-          return { name: cm.user_name || cm.name, text: cm.message || cm.text, received_at: cm.received_at };
-        });
-        onSelectionChange(items);
-      }
-      return next;
-    });
-  }, [onSelectionChange, contextMessages]);
+    const next = new Set(selectedCtx);
+    if (next.has(idx)) next.delete(idx);
+    else next.add(idx);
+    setSelectedCtx(next);
+    // Fire onSelectionChange with context selections
+    if (onSelectionChange) {
+      const items = [...next].sort((a, b) => a - b).map((i) => {
+        const cm = contextMessages[i];
+        return { name: cm.user_name || cm.name, text: cm.message || cm.text, received_at: cm.received_at };
+      });
+      onSelectionChange(items);
+    }
+  }, [selectedCtx, onSelectionChange, contextMessages]);
 
   // Total selection count (main + context)
   const totalSelected = selected.size + selectedCtx.size;
+
+  // Message → original index lookup (avoids O(n²) indexOf in the render loop)
+  const messageIndex = useMemo(() => {
+    const map = new Map();
+    (messages || []).forEach((m, i) => map.set(m, i));
+    return map;
+  }, [messages]);
 
   // Apply selection — merge main list picks + context picks
   const handleApply = useCallback(() => {
@@ -689,7 +692,7 @@ const ChatContext = ({
                     <span className="cc-time">{formatTime(group.time)}</span>
                   </div>
                   {group.lines.map((line) => {
-                    const origIdx = messages.indexOf(line);
+                    const origIdx = messageIndex.get(line) ?? -1;
                     const text = line.text || line.message || "";
                     const isSelected = selected.has(origIdx);
                     const isExpanded = expandedMsg?.idx === origIdx;

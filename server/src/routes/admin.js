@@ -10,6 +10,7 @@ import { generateDigest, fetchDailyStats, generateLiveDigest, todayDigestCache, 
 import { generateCoverImage, buildImagePrompt, extractHeadline, buildImagePromptWithPlayers, generateImageFromPrompt, WC3_STYLE_SUFFIX, suggestScenes } from '../coverImage.js';
 import { runFeedbackScan, getRecentFeedback } from '../feedback.js';
 import { importPlayerMatches } from '../replayImporter.js';
+import { requireApiKey } from '../middleware/auth.js';
 
 const router = Router();
 
@@ -45,14 +46,6 @@ const publicLimiter = rateLimit({
   legacyHeaders: false,
   message: { error: 'Too many requests, try again in a minute' },
 });
-
-function requireApiKey(req, res, next) {
-  const key = req.headers['x-api-key'];
-  if (!config.ADMIN_API_KEY || key !== config.ADMIN_API_KEY) {
-    return res.status(401).json({ error: 'Invalid or missing API key' });
-  }
-  next();
-}
 
 // Verify API key is valid (used by frontend to show key status)
 router.get('/verify', requireApiKey, (_req, res) => {
@@ -508,8 +501,10 @@ router.get('/weekly-digests', publicLimiter, (req, res) => {
   res.json(weeklies);
 });
 
-// Single weekly digest — generates if missing (public)
+// Single weekly digest — public reads stored only, admin keys can trigger generation
 // Pass ?format=json to get the structured JSON version
+const weeklyGenInFlight = new Map(); // weekStart → Promise (dedupe concurrent generations)
+
 router.get('/weekly-digest/:weekStart', aiLimiter, async (req, res) => {
   const { weekStart } = req.params;
   if (!/^\d{4}-\d{2}-\d{2}$/.test(weekStart)) {
@@ -532,8 +527,24 @@ router.get('/weekly-digest/:weekStart', aiLimiter, async (req, res) => {
     return res.json({ weekStart, digestJson: null, reason: 'No JSON version available (run backfill)' });
   }
 
+  const stored = getWeeklyDigest(weekStart);
+  if (stored?.digest) {
+    return res.json({ weekStart, digest: stored.digest });
+  }
+
+  // Public requests get stored data only — generation requires the API key
+  const isAdmin = req.headers['x-api-key'] === config.ADMIN_API_KEY && !!config.ADMIN_API_KEY;
+  if (!isAdmin) {
+    return res.json({ weekStart, digest: null, reason: 'No weekly digest found' });
+  }
+
   try {
-    const digest = await generateWeeklyDigest(weekStart);
+    let pending = weeklyGenInFlight.get(weekStart);
+    if (!pending) {
+      pending = generateWeeklyDigest(weekStart).finally(() => weeklyGenInFlight.delete(weekStart));
+      weeklyGenInFlight.set(weekStart, pending);
+    }
+    const digest = await pending;
     if (!digest) {
       return res.json({ weekStart, digest: null, reason: 'Not enough daily digests (need 3+) or not a Monday' });
     }

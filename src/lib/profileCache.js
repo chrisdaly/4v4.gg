@@ -17,14 +17,14 @@ export async function fetchAndCacheProfile(battleTag) {
 
   const promise = getPlayerProfile(battleTag).then((p) => {
     const data = { pic: p?.profilePicUrl || null, country: p?.country || null };
-    cache.set(battleTag, data);
+    if (data.pic !== null || data.country !== null) {
+      cache.set(battleTag, data);
+    }
     pending.delete(battleTag);
     return data;
   }).catch(() => {
-    const data = { pic: null, country: null };
-    cache.set(battleTag, data);
     pending.delete(battleTag);
-    return data;
+    return { pic: null, country: null };
   });
 
   pending.set(battleTag, promise);

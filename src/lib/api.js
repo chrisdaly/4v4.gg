@@ -10,6 +10,7 @@
 
 import { fetchWithCache, TTL, cache, createCacheKey } from './cache';
 import { gateway, season, gameMode } from './params';
+import { detectSessionGames, filterMatchesByRace } from './session';
 
 const API_BASE = 'https://website-backend.w3champions.com/api';
 
@@ -72,12 +73,16 @@ export const getPlayerProfile = async (battleTag) => {
  * @param {number} seasonOverride - Optional season override
  * @returns {Promise<{mmr: number, wins: number, losses: number, rank: number, race: number}|null>}
  */
+export const getPlayerGameModeStatsRaw = async (battleTag, { seasonOverride = season, skipCache = false } = {}) => {
+  const url = `${API_BASE}/players/${encodeURIComponent(battleTag)}/game-mode-stats?gateway=${gateway}&season=${seasonOverride}`;
+  const cacheKey = `stats:${battleTag.toLowerCase()}:${seasonOverride}`;
+
+  return fetchWithCache(url, { cacheKey, ttl: TTL.GAME_MODE_STATS, skipCache });
+};
+
 export const getPlayerStats = async (battleTag, { seasonOverride = season, skipCache = false } = {}) => {
   try {
-    const url = `${API_BASE}/players/${encodeURIComponent(battleTag)}/game-mode-stats?gateway=${gateway}&season=${seasonOverride}`;
-    const cacheKey = `stats:${battleTag.toLowerCase()}:${seasonOverride}`;
-
-    const data = await fetchWithCache(url, { cacheKey, ttl: TTL.GAME_MODE_STATS, skipCache });
+    const data = await getPlayerGameModeStatsRaw(battleTag, { seasonOverride, skipCache });
 
     const fourVsFourStats = data.find(s => s.gameMode === 4);
     if (!fourVsFourStats) return null;
@@ -376,51 +381,20 @@ export const getPlayerProfilesBatch = async (battleTags) => {
  * @returns {Promise<{session, seasonMmrs, currentMmrFallback, rank, lastPlayed}>}
  */
 export const getPlayerSessionLight = async (battleTag, raceOverride = null) => {
-  const SESSION_GAP_MINUTES = 60;
   const battleTagLower = battleTag.toLowerCase();
 
   try {
     // Fetch matches (cached, deduplicated)
-    const { matches } = await getPlayerMatches(battleTag, 50);
+    const { matches: allMatches } = await getPlayerMatches(battleTag, 50);
 
-    if (!matches || matches.length === 0) {
+    if (!allMatches || allMatches.length === 0) {
       return { session: null, seasonMmrs: [], currentMmrFallback: null, rank: null, lastPlayed: null };
     }
 
+    const matches = raceOverride != null ? filterMatchesByRace(allMatches, battleTag, raceOverride) : allMatches;
+
     // Detect session from matches
-    const sessionGapMs = SESSION_GAP_MINUTES * 60 * 1000;
-    const sessionMatches = [];
-
-    for (let i = 0; i < matches.length; i++) {
-      const match = matches[i];
-
-      // Find player in match
-      let playerData = null;
-      for (const team of match.teams) {
-        const player = team.players.find(p => p.battleTag.toLowerCase() === battleTagLower);
-        if (player) {
-          playerData = player;
-          break;
-        }
-      }
-      if (!playerData) continue;
-
-      // Check time gap
-      if (i > 0) {
-        const prevEndTime = new Date(matches[i - 1].endTime);
-        const thisEndTime = new Date(match.endTime);
-        const gapMs = prevEndTime - thisEndTime;
-        if (gapMs > sessionGapMs) break;
-      }
-
-      sessionMatches.push({
-        won: playerData.won,
-        oldMmr: playerData.oldMmr,
-        currentMmr: playerData.currentMmr,
-        mmrGain: playerData.currentMmr - playerData.oldMmr,
-        endTime: match.endTime,
-      });
-    }
+    const sessionMatches = detectSessionGames(matches, battleTag);
 
     // Build session object
     let session = null;

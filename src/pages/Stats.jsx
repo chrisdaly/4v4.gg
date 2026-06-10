@@ -3,7 +3,8 @@ import { CountryFlag, Select, Button } from "../components/ui";
 import PeonLoader from "../components/PeonLoader";
 import { gateway } from "../lib/params";
 import { cache } from "../lib/cache";
-import { getSeasons, getLadder, getLadderCached } from "../lib/api";
+import { getLadder, getLadderCached } from "../lib/api";
+import useSeasons from "../lib/useSeasons";
 import "../styles/Stats.css";
 
 import { LEAGUES, raceIcons } from "../lib/constants";
@@ -721,7 +722,7 @@ const Stats = () => {
   const [selectedLeague, setSelectedLeague] = useState(null);
   const [selectedRace, setSelectedRace] = useState(null);
   const [selectedCountry, setSelectedCountry] = useState(null);
-  const [availableSeasons, setAvailableSeasons] = useState([]);
+  const { seasons: availableSeasons, currentSeason } = useSeasons();
   const [leagueData, setLeagueData] = useState({});
   const [playerCountries, setPlayerCountries] = useState({});
   const [isLoading, setIsLoading] = useState(true);
@@ -733,32 +734,20 @@ const Stats = () => {
   const [mapData, setMapData] = useState(cachedW3C?.maps || null);
   const [isLoadingStats, setIsLoadingStats] = useState(!cachedW3C);
 
-  // Fetch available seasons on mount
+  // Select the latest season once seasons load
   useEffect(() => {
-    const fetchSeasonsData = async () => {
-      try {
-        const seasons = await getSeasons();
-        if (seasons && seasons.length > 0) {
-          setAvailableSeasons(seasons);
-          const latestSeason = seasons[0].id;
-          setSelectedSeason(latestSeason);
+    if (currentSeason === null) return;
+    setSelectedSeason(currentSeason);
 
-          // Check if we have cached stats data for instant display
-          const cachedData = getCachedStatsData(latestSeason);
-          if (cachedData) {
-            setLeagueData(cachedData.leagueData || {});
-            setPlayerCountries(cachedData.countries || {});
-            setMmrData(cachedData.mmrData || null);
-            setIsLoading(false);
-          }
-        }
-      } catch (e) {
-        console.error("Failed to fetch seasons:", e);
-        setSelectedSeason(24);
-      }
-    };
-    fetchSeasonsData();
-  }, []);
+    // Check if we have cached stats data for instant display
+    const cachedData = getCachedStatsData(currentSeason);
+    if (cachedData) {
+      setLeagueData(cachedData.leagueData || {});
+      setPlayerCountries(cachedData.countries || {});
+      setMmrData(cachedData.mmrData || null);
+      setIsLoading(false);
+    }
+  }, [currentSeason]);
 
   // Fetch W3C stats (not season-dependent) - with caching
   useEffect(() => {

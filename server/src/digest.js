@@ -1,5 +1,5 @@
 import Anthropic from '@anthropic-ai/sdk';
-import { getMessagesByDate, getMessageBuckets, getDigest, setDigest, getRecentDigests, getWeeklyDigest, setWeeklyDigest, deleteDigest, setDigestWithDraft, updateDigestOnly, getDraftForDate, getMessagesByTimeWindow, getClipsByDateRange, updateClip4v4Status, updateDigestClips, setWeeklyDigestFull, getStreamers, saveDailyPlayerStats, getDailyPlayerStatsRange, hasDailyPlayerStats, saveDailyMatches, getDailyMatchesRange, getNewPlayersForWeek, saveMatchPlayerScores, hasMatchScores, getMatchPlayerScoresRange, getMatchIdsForDateRange, getDailyMatchesMissingMmrs, updateDailyMatchMmrs, getMessagesByDateRangeAndUser, getMessagesByDateRangeMentioning, getFirstAppearanceDate, getLastActiveDateBefore, getMessagesByDateAndUsers, updateGenJobStatus, updateGenJobProgress, saveWeeklyVariant, countMessagesByDateRange, updateWeeklyDigestOnly, updateWeeklyDraftOnly, getAllMessagesByDateRange } from './db.js';
+import { getMessagesByDate, getMessageBuckets, getDigest, setDigest, getRecentDigests, getWeeklyDigest, setWeeklyDigest, setDigestWithDraft, updateDigestOnly, getDraftForDate, getMessagesByTimeWindow, getClipsByDateRange, updateClip4v4Status, updateDigestClips, setWeeklyDigestFull, getStreamers, saveDailyPlayerStats, getDailyPlayerStatsRange, hasDailyPlayerStats, saveDailyMatches, getDailyMatchesRange, getNewPlayersForWeek, saveMatchPlayerScores, hasMatchScores, getMatchPlayerScoresRange, getMatchIdsForDateRange, getDailyMatchesMissingMmrs, updateDailyMatchMmrs, getMessagesByDateRangeAndUser, getMessagesByDateRangeMentioning, getFirstAppearanceDate, getLastActiveDateBefore, getMessagesByDateAndUsers, updateGenJobStatus, updateGenJobProgress, saveWeeklyVariant, countMessagesByDateRange, updateWeeklyDigestOnly, updateWeeklyDraftOnly, getAllMessagesByDateRange } from './db.js';
 import { runClipFetch } from './clips.js';
 import { generateCoverImage } from './coverImage.js';
 import { saveCoverGeneration, setWeeklyCoverImage } from './db.js';
@@ -81,6 +81,7 @@ async function computePlayerStats(date, chatterTags = null) {
   const playerStats = new Map();
   const rawMatches = [];
   const matchDataForDb = [];
+  let matchCount = 0;
   let offset = 0;
   const pageSize = 100;
   let done = false;
@@ -108,6 +109,8 @@ async function computePlayerStats(date, chatterTags = null) {
         done = true;
         break;
       }
+
+      matchCount++;
 
       // Collect raw match for context
       if (chatterSet) {
@@ -199,7 +202,7 @@ async function computePlayerStats(date, chatterTags = null) {
 
   const qualified = [...playerStats.values()].filter(p => p.wins + p.losses >= MIN_GAMES_TO_QUALIFY);
 
-  const totalGames = [...playerStats.values()].reduce((sum, p) => sum + p.wins, 0);
+  const totalGames = matchCount;
 
   // Format match summaries for AI context
   const matchSummaries = rawMatches.slice(0, 20).map(m => {
@@ -1098,10 +1101,12 @@ export async function generateLiveDigest(date) {
   return result.digest;
 }
 
-export async function generateDigest(date) {
+export async function generateDigest(date, { force = false } = {}) {
   // Return cached if exists
-  const existing = getDigest(date);
-  if (existing) return existing.digest;
+  if (!force) {
+    const existing = getDigest(date);
+    if (existing) return existing.digest;
+  }
 
   const messages = getMessagesByDate(date);
   const result = await assembleDigest(date, messages, false);
@@ -2216,7 +2221,7 @@ async function computeNewBlood(weekStart, weekEnd) {
 
   // Enrich with first appearance date + returning player detection
   const MIN_RETURN_GAP_DAYS = 14;
-  const enriched = (await Promise.all(pool.map(async (p) => {
+  const enrichPlayer = async (p) => {
     const wasActiveBefore = await wasActiveThisSeasonBeforeWeek(p.battle_tag, p.total_games);
 
     const entry = {
@@ -2256,7 +2261,17 @@ async function computeNewBlood(weekStart, weekEnd) {
       entry.lastActive = history.lastActive;
     }
     return entry;
-  }))).filter(Boolean);
+  };
+
+  // Process in small batches — each player can trigger ~7 W3C API calls
+  const CONCURRENCY = 3;
+  const enrichedRaw = [];
+  for (let i = 0; i < pool.length; i += CONCURRENCY) {
+    const batch = pool.slice(i, i + CONCURRENCY);
+    enrichedRaw.push(...await Promise.all(batch.map(enrichPlayer)));
+    if (i + CONCURRENCY < pool.length) await new Promise(r => setTimeout(r, 250));
+  }
+  const enriched = enrichedRaw.filter(Boolean);
 
   // Pick a mix: prioritize truly new players, fill remaining with returning
   const trulyNew = enriched.filter(p => !p.returning);
@@ -3690,12 +3705,9 @@ async function finalizeYesterday() {
     }
 
     const yesterday = new Date(Date.now() - 86400000).toISOString().slice(0, 10);
-    const existing = getDigest(yesterday);
-    if (existing) {
-      // Delete and regenerate to get final version with fresh draft
-      deleteDigest(yesterday);
-    }
-    const digest = await generateDigest(yesterday);
+    // Regenerate the final version with a fresh draft — setDigestWithDraft upserts,
+    // so the existing row is only replaced once generation succeeds
+    const digest = await generateDigest(yesterday, { force: true });
     if (digest) {
       console.log(`[Scheduler] Finalized yesterday's digest (${yesterday})`);
     }

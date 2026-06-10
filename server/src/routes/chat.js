@@ -2,8 +2,11 @@ import { Router } from 'express';
 import { getMessages, getStats, getEvents, getEventsSummary } from '../db.js';
 import { addClient } from '../sse.js';
 import { getOnlineUsers } from '../signalr.js';
+import { publicLimiter } from '../middleware/rateLimit.js';
 
 const router = Router();
+
+router.use(publicLimiter);
 
 // Paginated message history (cursor-based)
 router.get('/messages', (req, res) => {
@@ -22,10 +25,16 @@ router.get('/stream', (req, res) => {
   res.write(`event: users_init\ndata: ${JSON.stringify(getOnlineUsers())}\n\n`);
 });
 
-// Chat stats
+// Chat stats — cached for 60s (runs ~12 aggregate queries)
+const STATS_CACHE_TTL = 60_000;
+let statsCache = { data: null, expires: 0 };
+
 router.get('/stats', (_req, res) => {
-  const stats = getStats();
-  res.json(stats);
+  const now = Date.now();
+  if (!statsCache.data || statsCache.expires <= now) {
+    statsCache = { data: getStats(), expires: now + STATS_CACHE_TTL };
+  }
+  res.json(statsCache.data);
 });
 
 // ── Replay API ──────────────────────────────────────────

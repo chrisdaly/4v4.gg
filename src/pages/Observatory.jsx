@@ -90,6 +90,7 @@ const Observatory = () => {
   const [contentReady, setContentReady] = useState(false);
   const nextEventIdRef = useRef(0);
   const retryTimersRef = useRef([]);
+  const replayTimersRef = useRef([]);
 
   const onlineUsers = isDemo ? fake.onlineUsers : chatUsers;
   const matches = isDemo ? fake.matches : realMatches;
@@ -167,10 +168,11 @@ const Observatory = () => {
     return () => clearTimeout(timer);
   }, []);
 
-  // Clean up retry timers on unmount
+  // Clean up retry + replay timers on unmount
   useEffect(() => {
     return () => {
       for (const id of retryTimersRef.current) clearTimeout(id);
+      for (const id of replayTimersRef.current) clearTimeout(id);
     };
   }, []);
 
@@ -455,6 +457,13 @@ const Observatory = () => {
     isReplayingRef.current = true;
 
     const unlock = () => { isReplayingRef.current = false; };
+    const addReplayTimer = (fn, ms) => {
+      const id = setTimeout(() => {
+        replayTimersRef.current = replayTimersRef.current.filter((t) => t !== id);
+        fn();
+      }, ms);
+      replayTimersRef.current.push(id);
+    };
 
     switch (event.type) {
       case "join": {
@@ -464,9 +473,9 @@ const Observatory = () => {
         if (isOnStrip) {
           // Player visible on strip — suppress then restore to trigger enter anim
           setReplayMods({ suppressTags: new Set([event.tag]) });
-          setTimeout(() => {
+          addReplayTimer(() => {
             setReplayMods(null);
-            setTimeout(unlock, 3000);
+            addReplayTimer(unlock, 3000);
           }, 150);
         } else {
           // Player not on strip (no MMR yet) — inject with fallback MMR
@@ -482,9 +491,9 @@ const Observatory = () => {
             }],
           });
           // Clear after enter animation settles
-          setTimeout(() => {
+          addReplayTimer(() => {
             setReplayMods(null);
-            setTimeout(unlock, 3000);
+            addReplayTimer(unlock, 3000);
           }, 3000);
         }
         break;
@@ -504,9 +513,9 @@ const Observatory = () => {
           }],
         });
         // Wait for enter to mostly complete, then remove for exit anim
-        setTimeout(() => {
+        addReplayTimer(() => {
           setReplayMods(null);
-          setTimeout(unlock, 3000);
+          addReplayTimer(unlock, 3000);
         }, 2500);
         break;
       }
@@ -515,9 +524,9 @@ const Observatory = () => {
         const tags = new Set((event.gamePlayers || []).map((p) => p.battleTag).filter(Boolean));
         setReplayMods({ suppressTags: tags });
         // Phase 2: restore (enter animation triggers for all)
-        setTimeout(() => {
+        addReplayTimer(() => {
           setReplayMods(null);
-          setTimeout(unlock, 3000);
+          addReplayTimer(unlock, 3000);
         }, 150);
         break;
       }
@@ -536,13 +545,13 @@ const Observatory = () => {
         };
         setReplayMods({ injectMatch: fakeMatch });
         // Phase 2: remove match + fire deltas
-        setTimeout(() => {
+        addReplayTimer(() => {
           const deltas = results.filter((r) => r.delta != null).map((r) => ({ tag: r.tag, delta: r.delta }));
           setReplayMods(deltas.length > 0 ? { pendingDeltas: deltas } : null);
           // Phase 3: clear pendingDeltas
-          setTimeout(() => {
+          addReplayTimer(() => {
             setReplayMods(null);
-            setTimeout(unlock, 3000);
+            addReplayTimer(unlock, 3000);
           }, 50);
         }, 150);
         break;
@@ -553,9 +562,9 @@ const Observatory = () => {
         setReplayMods({
           pendingDeltas: [{ tag: event.tag, delta: event.delta }],
         });
-        setTimeout(() => {
+        addReplayTimer(() => {
           setReplayMods(null);
-          setTimeout(unlock, 3000);
+          addReplayTimer(unlock, 3000);
         }, 50);
         break;
       }

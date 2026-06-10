@@ -56,7 +56,7 @@ const ActivityGraph = ({ battleTag, currentSeason, gateway = 20 }) => {
     return { weeks: result, monthLabels: months };
   }, []);
 
-  const getCacheKey = () => `${CACHE_KEY_PREFIX}${battleTag}`;
+  const getCacheKey = () => `${CACHE_KEY_PREFIX}${battleTag}-s${currentSeason}-g${gateway}`;
 
   const loadFromCache = () => {
     try {
@@ -82,6 +82,8 @@ const ActivityGraph = ({ battleTag, currentSeason, gateway = 20 }) => {
   };
 
   useEffect(() => {
+    let cancelled = false;
+
     const fetchActivityData = async () => {
       setIsLoading(true);
 
@@ -101,6 +103,7 @@ const ActivityGraph = ({ battleTag, currentSeason, gateway = 20 }) => {
       try {
         const seasonsResponse = await fetch("https://website-backend.w3champions.com/api/ladder/seasons");
         const seasons = await seasonsResponse.json();
+        if (cancelled) return;
         const relevantSeasons = seasons.filter(s => s.id >= currentSeason - 1 && s.id <= currentSeason);
 
         for (const season of relevantSeasons) {
@@ -115,10 +118,10 @@ const ActivityGraph = ({ battleTag, currentSeason, gateway = 20 }) => {
           const pageSize = 100;
           let hasMore = true;
 
-          while (hasMore) {
+          while (hasMore && !cancelled) {
             const url = `https://website-backend.w3champions.com/api/matches/search?playerId=${encodeURIComponent(battleTag)}&offset=${offset}&gameMode=4&season=${season.id}&gateway=${gateway}&pageSize=${pageSize}`;
             const response = await fetch(url);
-            if (!response.ok) break;
+            if (cancelled || !response.ok) break;
 
             const data = await response.json();
             const matches = data.matches || [];
@@ -139,19 +142,24 @@ const ActivityGraph = ({ battleTag, currentSeason, gateway = 20 }) => {
           }
         }
 
+        if (cancelled) return;
         setActivityData(activityMap);
         setSeasonRanges(ranges);
         saveToCache(activityMap, ranges);
       } catch (error) {
         console.error("Error fetching activity:", error);
       } finally {
-        setIsLoading(false);
+        if (!cancelled) setIsLoading(false);
       }
     };
 
     if (battleTag) {
       fetchActivityData();
     }
+
+    return () => {
+      cancelled = true;
+    };
   }, [battleTag, currentSeason, gateway]);
 
   const getIntensity = (count) => {

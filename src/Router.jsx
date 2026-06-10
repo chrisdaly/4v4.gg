@@ -92,7 +92,7 @@ const Router = () => (
         <Route path="/overlay/match">
           <Suspense fallback={<PageLoader />}><MatchOverlayPage /></Suspense>
         </Route>
-        <Route path="/stream">
+        <Route path="/stream/:tag?">
           <Suspense fallback={<PageLoader />}><PlayerStream /></Suspense>
         </Route>
         <Route path="/mystream">
@@ -114,7 +114,7 @@ const Router = () => (
                 <Route path="/ladder" component={Ladder} />
                 <Route path="/stats" component={Stats} />
                 <Route path="/player" component={PlayerProfile} />
-                <Route path="/match" component={FinishedGamePage} />
+                <Route path="/match/:matchId?" component={FinishedGamePage} />
                 <Route exact path="/blog" component={Blog} />
                 <Route path="/blog/:slug" component={BlogPost} />
                 <Route path="/style" component={StyleReference} />

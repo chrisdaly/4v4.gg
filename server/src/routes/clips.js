@@ -1,17 +1,9 @@
 import { Router } from 'express';
-import config from '../config.js';
 import { getClips, getClipById, getFeaturedClips, updateClipCuration, insertClips, getStreamers, upsertStreamer, deactivateStreamer } from '../db.js';
 import { runClipFetch, twitchGet } from '../clips.js';
+import { requireApiKey } from '../middleware/auth.js';
 
 const router = Router();
-
-function requireApiKey(req, res, next) {
-  const key = req.headers['x-api-key'];
-  if (!config.ADMIN_API_KEY || key !== config.ADMIN_API_KEY) {
-    return res.status(401).json({ error: 'Invalid or missing API key' });
-  }
-  next();
-}
 
 // ── Public routes ───────────────────────────────
 

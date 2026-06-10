@@ -7,7 +7,7 @@ import React, { useState, useRef, useEffect, useCallback } from "react";
 import styled from "styled-components";
 import { Link } from "react-router-dom";
 import { PageLayout, PageHero } from "./PageLayout";
-import { raceMapping } from "../lib/constants";
+import { raceMapping, raceIcons } from "../lib/constants";
 
 // ============================================
 // BUTTON
@@ -913,15 +913,25 @@ const FlagImg = styled.img`
 /**
  * RaceIcon - Shows race icon, substituting the actual race when player randomed
  * Adds a "?" badge to indicate the player chose random
+ * Accepts numeric race ids (0/1/2/4/8) or string names ("human", "nightelf", ...)
  */
-export const RaceIcon = ({ race, rndRace, className = "" }) => {
+const resolveRaceIcon = (race) => {
+  if (raceMapping[race] !== undefined) return raceMapping[race];
+  const key = String(race).toLowerCase().replace(/\s/g, "");
+  if (key === "nightelf") return raceIcons.elf;
+  return raceIcons[key];
+};
+
+export const RaceIcon = ({ race, rndRace, className = "", size }) => {
   const displayRace = rndRace != null ? rndRace : race;
+  const src = resolveRaceIcon(displayRace);
+  const sizeStyle = size ? { width: size, height: size } : undefined;
   if (rndRace == null) {
-    return <img src={raceMapping[displayRace]} alt="" className={className} />;
+    return <img src={src} alt="" className={className} style={sizeStyle} />;
   }
   return (
     <span className="rnd-race-wrapper">
-      <img src={raceMapping[displayRace]} alt="" className={className} />
+      <img src={src} alt="" className={className} style={sizeStyle} />
       <img src={raceMapping[0]} alt="random" className="rnd-badge-icon" />
     </span>
   );

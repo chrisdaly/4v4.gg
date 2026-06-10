@@ -14,6 +14,7 @@ const Navbar = () => {
   const [showSearch, setShowSearch] = useState(false);
   const [isSearching, setIsSearching] = useState(false);
   const [profiles, setProfiles] = useState({});
+  const profilesRef = useRef(profiles);
   const searchRef = useRef(null);
   const [mobileOpen, setMobileOpen] = useState(false);
   const mobileRef = useRef(null);
@@ -55,39 +56,54 @@ const Navbar = () => {
     setMobileOpen(false);
   }, [location.pathname]);
 
+  useEffect(() => {
+    profilesRef.current = profiles;
+  }, [profiles]);
+
   // Debounced search
   useEffect(() => {
     if (searchQuery.length < 3) {
       setSearchResults([]);
       setShowSearch(false);
+      setIsSearching(false);
       return;
     }
     setIsSearching(true);
+    let cancelled = false;
     const timer = setTimeout(async () => {
-      const results = await searchLadder(searchQuery);
-      const deduped = [];
-      const seen = new Set();
-      for (const r of (Array.isArray(results) ? results : [])) {
-        const tag = r.playersInfo?.[0]?.battleTag || r.player?.playerIds?.[0]?.battleTag;
-        if (!tag || seen.has(tag)) continue;
-        seen.add(tag);
-        deduped.push(r);
-      }
-      const sliced = deduped.slice(0, 8);
-      setSearchResults(sliced);
-      setShowSearch(true);
-      setIsSearching(false);
-
-      for (const r of sliced) {
-        const tag = r.playersInfo?.[0]?.battleTag || r.player?.playerIds?.[0]?.battleTag;
-        if (tag && !profiles[tag]) {
-          getPlayerProfile(tag).then((p) => {
-            setProfiles((prev) => ({ ...prev, [tag]: p }));
-          });
+      try {
+        const results = await searchLadder(searchQuery);
+        if (cancelled) return;
+        const deduped = [];
+        const seen = new Set();
+        for (const r of (Array.isArray(results) ? results : [])) {
+          const tag = r.playersInfo?.[0]?.battleTag || r.player?.playerIds?.[0]?.battleTag;
+          if (!tag || seen.has(tag)) continue;
+          seen.add(tag);
+          deduped.push(r);
         }
+        const sliced = deduped.slice(0, 8);
+        setSearchResults(sliced);
+        setShowSearch(true);
+
+        for (const r of sliced) {
+          const tag = r.playersInfo?.[0]?.battleTag || r.player?.playerIds?.[0]?.battleTag;
+          if (tag && !profilesRef.current[tag]) {
+            getPlayerProfile(tag).then((p) => {
+              if (!cancelled) setProfiles((prev) => (prev[tag] ? prev : { ...prev, [tag]: p }));
+            });
+          }
+        }
+      } catch (error) {
+        console.error("Search failed:", error);
+      } finally {
+        if (!cancelled) setIsSearching(false);
       }
     }, 300);
-    return () => clearTimeout(timer);
+    return () => {
+      cancelled = true;
+      clearTimeout(timer);
+    };
   }, [searchQuery]);
 
   const handleResultClick = (battleTag) => {

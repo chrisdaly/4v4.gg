@@ -6,42 +6,8 @@ import { FaTwitch } from "react-icons/fa";
 import { MmrComparison } from "./MmrComparison";
 import { calculateElapsedTime, calculatePercentiles, detectArrangedTeams } from "../lib/utils";
 import { raceMapping } from "../lib/constants";
-import { getMapImageUrl, geometricMean, stdDev } from "../lib/formatters";
+import { getMapImageUrl, geometricMean } from "../lib/formatters";
 import FormDots from "./FormDots";
-
-// Line connecting AT players - calculates width dynamically
-const ATConnector = ({ relation }) => {
-  const lineRef = React.useRef(null);
-
-  React.useEffect(() => {
-    if (!lineRef.current) return;
-
-    const updateWidth = () => {
-      const line = lineRef.current;
-      const container = line.closest('div[style*="inline-block"]');
-      const sourcePic = container?.querySelector('.profile-pic');
-      const cell = container?.closest('th');
-      const nextCell = cell?.nextElementSibling;
-      // Skip the middle VS column if present
-      const targetCell = nextCell?.classList.contains('th-center') ? nextCell?.nextElementSibling : nextCell;
-      const nextPic = targetCell?.querySelector('.profile-pic');
-
-      if (sourcePic && nextPic) {
-        const sourceRect = sourcePic.getBoundingClientRect();
-        const nextRect = nextPic.getBoundingClientRect();
-        const gap = nextRect.left - sourceRect.right;
-        line.style.width = `${Math.max(0, gap)}px`;
-      }
-    };
-
-    // Delay to ensure DOM is ready
-    setTimeout(updateWidth, 50);
-    window.addEventListener('resize', updateWidth);
-    return () => window.removeEventListener('resize', updateWidth);
-  }, []);
-
-  return <div ref={lineRef} className={`at-line ${relation ? `at-line-${relation}` : ""}`} />;
-};
 
 const Game = ({ playerData: rawPlayerData, metaData, profilePics, playerCountries, sessionData, liveStreamers = {}, compact, streamerTag, initialATGroups }) => {
   const [atGroups, setAtGroups] = useState(initialATGroups || {});
@@ -54,14 +20,23 @@ const Game = ({ playerData: rawPlayerData, metaData, profilePics, playerCountrie
   );
 
   // Detect arranged teams (skip if initialATGroups provided)
+  const battleTagKey = useMemo(
+    () => rawPlayerData.map((p) => p.battleTag).join(","),
+    [rawPlayerData]
+  );
+
   useEffect(() => {
     if (initialATGroups) return;
+    let cancelled = false;
     const detect = async () => {
       const groups = await detectArrangedTeams(rawPlayerData);
-      setAtGroups(groups);
+      if (!cancelled) setAtGroups(groups);
     };
     detect();
-  }, [rawPlayerData, initialATGroups]);
+    return () => {
+      cancelled = true;
+    };
+  }, [battleTagKey, initialATGroups]);
 
   // Check if a player is in an AT group
   const isPlayerAT = (battleTag) => {

@@ -407,24 +407,9 @@ function getMatchAvgMmr(match) {
   return mmrs.length > 0 ? mmrs.reduce((s, v) => s + v, 0) / mmrs.length : 0;
 }
 
-/* ── Elapsed Timer ───────────────────────────── */
-
-function ElapsedTimer({ startTime }) {
-  const [elapsed, setElapsed] = useState(() => formatElapsedTime(startTime));
-
-  useEffect(() => {
-    const interval = setInterval(() => {
-      setElapsed(formatElapsedTime(startTime));
-    }, 1000);
-    return () => clearInterval(interval);
-  }, [startTime]);
-
-  return elapsed;
-}
-
 /* ── Match Card Component ────────────────────── */
 
-function MatchCard({ match, expanded, onToggle }) {
+function MatchCard({ match, expanded, onToggle, now }) {
   const history = useHistory();
   const mapName = match.mapName || match.match?.mapName;
   const cleanMapName = mapName?.replace(/^\(\d\)\s*/, "") || "Unknown";
@@ -467,7 +452,7 @@ function MatchCard({ match, expanded, onToggle }) {
           {startTime && (
             <CardElapsed>
               <LiveDot />
-              <ElapsedTimer startTime={startTime} />
+              {formatElapsedTime(startTime)}
             </CardElapsed>
           )}
         </CardStats>
@@ -577,6 +562,14 @@ function FinishedMatchCard({ match }) {
 export default function ActiveGamesSidebar({ matches = [], finishedMatches = [], $mobileVisible, onClose, borderTheme }) {
   const [sortBy, setSortBy] = useState("mmr");
   const [expandedIds, setExpandedIds] = useState(new Set());
+  const [now, setNow] = useState(() => Date.now());
+
+  // Single shared timer for all live match cards
+  useEffect(() => {
+    if (matches.length === 0) return;
+    const interval = setInterval(() => setNow(Date.now()), 1000);
+    return () => clearInterval(interval);
+  }, [matches.length]);
 
   const sortedMatches = useMemo(() => {
     const sorted = [...matches];
@@ -627,6 +620,7 @@ export default function ActiveGamesSidebar({ matches = [], finishedMatches = [],
                 <MatchCard
                   key={id}
                   match={match}
+                  now={now}
                   expanded={expandedIds.has(id)}
                   onToggle={() => setExpandedIds((prev) => {
                     const next = new Set(prev);

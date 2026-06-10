@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useMemo, useCallback } from "react";
+import React, { useState, useEffect, useMemo } from "react";
 
 import LadderRow from "../components/LadderRow";
 import PeonLoader from "../components/PeonLoader";
@@ -6,8 +6,10 @@ import { PageLayout, PageHero } from "../components/PageLayout";
 import { Select, Input, Button } from "../components/ui";
 import { gateway } from "../lib/params";
 import { fetchPlayerSessionData } from "../lib/utils";
-import { getPlayerProfile, getPlayerTimelineMerged, getLadder, getLadderCached, getSeasons, getOngoingMatches } from "../lib/api";
+import { getPlayerProfile, getPlayerTimelineMerged, getLadder, getLadderCached } from "../lib/api";
 import { cache } from "../lib/cache";
+import useSeasons from "../lib/useSeasons";
+import useOngoingMatches from "../lib/useOngoingMatches";
 import { getLiveStreamers } from "../lib/twitchService";
 import { LEAGUES } from "../lib/constants";
 import { GiCrossedSwords } from "react-icons/gi";
@@ -23,7 +25,7 @@ const Ladder = () => {
   // Try to get initial season from cache or use default
   const [selectedSeason, setSelectedSeason] = useState(null);
   const [selectedLeague, setSelectedLeague] = useState(0);
-  const [availableSeasons, setAvailableSeasons] = useState([]);
+  const { seasons: availableSeasons, currentSeason } = useSeasons();
 
   // Initialize rankings from cache for instant UI
   const [rankings, setRankings] = useState([]);
@@ -33,67 +35,40 @@ const Ladder = () => {
   const [detectedRaces, setDetectedRaces] = useState({});
   const [twitchLinks, setTwitchLinks] = useState({});
   const [liveStreamers, setLiveStreamers] = useState(new Map());
-  const [ongoingPlayers, setOngoingPlayers] = useState(new Set());
   const [searchQuery, setSearchQuery] = useState("");
   const [searchResults, setSearchResults] = useState(null);
   const [isSearching, setIsSearching] = useState(false);
   const [sortField, setSortField] = useState("rank");
   const [sortDirection, setSortDirection] = useState("asc");
 
-  // Fetch available seasons on mount
+  // Select the latest season once seasons load
   useEffect(() => {
-    const fetchSeasonsData = async () => {
-      try {
-        const seasons = await getSeasons();
-        if (seasons && seasons.length > 0) {
-          setAvailableSeasons(seasons);
-          const latestSeason = seasons[0].id;
-          setSelectedSeason(latestSeason);
+    if (currentSeason === null) return;
+    setSelectedSeason(currentSeason);
 
-          // Check if we have cached rankings for instant display
-          const cachedRankings = getLadderCached(0, latestSeason);
-          if (cachedRankings) {
-            setRankings(cachedRankings);
-            setIsLoading(false);
+    // Check if we have cached rankings for instant display
+    const cachedRankings = getLadderCached(0, currentSeason);
+    if (cachedRankings) {
+      setRankings(cachedRankings);
+      setIsLoading(false);
+    }
+  }, [currentSeason]);
+
+  // Ongoing games (30s poll) to check who's live
+  const { matches: ongoingMatches } = useOngoingMatches();
+  const ongoingPlayers = useMemo(() => {
+    const livePlayers = new Set();
+    ongoingMatches.forEach((match) => {
+      match.teams?.forEach((team) => {
+        team.players?.forEach((player) => {
+          if (player.battleTag) {
+            livePlayers.add(player.battleTag.toLowerCase());
           }
-        }
-      } catch (e) {
-        console.error("Failed to fetch seasons:", e);
-        setSelectedSeason(24);
-      }
-    };
-    fetchSeasonsData();
-  }, []);
-
-  // Fetch ongoing games to check who's live
-  useEffect(() => {
-    const fetchOngoing = async () => {
-      try {
-        const data = await getOngoingMatches();
-        const livePlayers = new Set();
-
-        if (data?.matches) {
-          data.matches.forEach((match) => {
-            match.teams?.forEach((team) => {
-              team.players?.forEach((player) => {
-                if (player.battleTag) {
-                  livePlayers.add(player.battleTag.toLowerCase());
-                }
-              });
-            });
-          });
-        }
-        setOngoingPlayers(livePlayers);
-      } catch (e) {
-        console.error("Failed to fetch ongoing games:", e);
-      }
-    };
-
-    fetchOngoing();
-    // Refresh ongoing status every 30 seconds
-    const interval = setInterval(fetchOngoing, 30000);
-    return () => clearInterval(interval);
-  }, []);
+        });
+      });
+    });
+    return livePlayers;
+  }, [ongoingMatches]);
 
   // Check Twitch live status for players with linked accounts
   useEffect(() => {
@@ -118,6 +93,8 @@ const Ladder = () => {
   useEffect(() => {
     if (selectedSeason === null) return;
 
+    let cancelled = false;
+    const isCancelled = () => cancelled;
     const playerDataCacheKey = `ladderPlayerData:${selectedLeague}:${selectedSeason}`;
 
     const fetchLadderData = async () => {
@@ -146,23 +123,27 @@ const Ladder = () => {
 
       try {
         const result = await getLadder(selectedLeague, selectedSeason);
+        if (cancelled) return;
         setRankings(result);
 
         // Batch fetch sparkline and session data for all players
-        fetchPlayerData(result, selectedSeason, playerDataCacheKey);
+        fetchPlayerData(result, selectedSeason, playerDataCacheKey, isCancelled);
       } catch (e) {
+        if (cancelled) return;
         console.error("Failed to fetch ladder:", e);
         setRankings([]);
       } finally {
-        setIsLoading(false);
+        if (!cancelled) setIsLoading(false);
       }
     };
     fetchLadderData();
+
+    return () => { cancelled = true; };
   }, [selectedSeason, selectedLeague]);
 
   // Batch fetch sparklines and session data for all players
   // Now uses cached API layer to avoid redundant calls
-  const fetchPlayerData = async (players, season, playerDataCacheKey) => {
+  const fetchPlayerData = async (players, season, playerDataCacheKey, isCancelled = () => false) => {
     const batchSize = 5;
 
     // Accumulate all data for caching at the end
@@ -172,6 +153,7 @@ const Ladder = () => {
     const allTwitch = {};
 
     for (let i = 0; i < players.length; i += batchSize) {
+      if (isCancelled()) return;
       const batch = players.slice(i, i + batchSize);
       const promises = batch.map(async (rank) => {
         const battleTag = rank.playersInfo[0]?.battleTag;
@@ -209,6 +191,7 @@ const Ladder = () => {
       });
 
       const results = await Promise.all(promises);
+      if (isCancelled()) return;
 
       results.forEach((result) => {
         if (result) {
@@ -229,6 +212,8 @@ const Ladder = () => {
       setDetectedRaces((prev) => ({ ...prev, ...allRaces }));
       setTwitchLinks((prev) => ({ ...prev, ...allTwitch }));
     }
+
+    if (isCancelled()) return;
 
     // Cache all player data together (5 minute TTL)
     cache.set(playerDataCacheKey, {
@@ -366,7 +351,7 @@ const Ladder = () => {
     }
 
     return sortDirection === "asc" ? aVal - bVal : bVal - aVal;
-  }), [displayRankings, sortField, sortDirection, sparklineData, ongoingPlayers]);
+  }), [displayRankings, sortField, sortDirection, sparklineData, sessionData, ongoingPlayers]);
 
   // Count how many players in this ladder are currently in game
   const inGameCount = useMemo(() => rankings.filter((rank) => {

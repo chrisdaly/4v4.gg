@@ -174,7 +174,10 @@ const NewsIndex = ({ isAdmin, adminKey: rawAdminKey }) => {
 
 const WeeklyHero = ({ weekly }) => {
   const fallbackBg = COVER_BACKGROUNDS[hashDate(weekly.week_start) % COVER_BACKGROUNDS.length];
-  const coverUrl = `${RELAY_URL}/api/admin/weekly-digest/${weekly.week_start}/cover.jpg?t=${Date.now()}`;
+  const coverUrl = useMemo(
+    () => `${RELAY_URL}/api/admin/weekly-digest/${weekly.week_start}/cover.jpg?v=${weekly.updated_at || weekly.week_start}`,
+    [weekly.week_start, weekly.updated_at]
+  );
   const [coverBg, setCoverBg] = useState(fallbackBg);
   const headline = weekly.digest ? extractHeadline(weekly.digest) : "";
 
@@ -201,7 +204,10 @@ const WeeklyHero = ({ weekly }) => {
 const TimelineWeekly = ({ weekly, delay }) => {
   const headline = weekly.digest ? extractHeadline(weekly.digest) : "";
   const fallbackBg = COVER_BACKGROUNDS[hashDate(weekly.week_start) % COVER_BACKGROUNDS.length];
-  const coverUrl = `${RELAY_URL}/api/admin/weekly-digest/${weekly.week_start}/cover.jpg?t=${Date.now()}`;
+  const coverUrl = useMemo(
+    () => `${RELAY_URL}/api/admin/weekly-digest/${weekly.week_start}/cover.jpg?v=${weekly.updated_at || weekly.week_start}`,
+    [weekly.week_start, weekly.updated_at]
+  );
   const [coverBg, setCoverBg] = useState(fallbackBg);
 
   useEffect(() => {

@@ -7,6 +7,14 @@ const PROFILE_CACHE_TTL = 24 * 60 * 60 * 1000; // 24 hours
 let previousMatches = new Map(); // matchId → match data
 let profileCache = new Map(); // battleTag → { country, fetchedAt }
 let pollTimer = null;
+let firstPoll = true;
+
+function pruneProfileCache() {
+  const now = Date.now();
+  for (const [tag, entry] of profileCache) {
+    if (now - entry.fetchedAt >= PROFILE_CACHE_TTL) profileCache.delete(tag);
+  }
+}
 
 async function fetchJSON(url) {
   const res = await fetch(url);
@@ -64,6 +72,8 @@ async function enrichWithCountries(players) {
 
 async function pollMatches() {
   try {
+    pruneProfileCache();
+
     const data = await fetchJSON(
       `${API_BASE}/matches/ongoing?offset=0&gameMode=4&pageSize=50`
     );
@@ -71,6 +81,14 @@ async function pollMatches() {
     const currentMatches = new Map();
     for (const match of data.matches || []) {
       currentMatches.set(match.id, match);
+    }
+
+    // First poll after boot: matches already in progress are not new games —
+    // seed the baseline without emitting game_start events
+    if (firstPoll) {
+      firstPoll = false;
+      previousMatches = currentMatches;
+      return;
     }
 
     // Detect new matches (game_start)

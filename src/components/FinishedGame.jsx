@@ -35,8 +35,9 @@ const FinishedGame = ({ data, compact = false }) => {
       }
       const processedData = preprocessPlayerScores(data.match, data.playerScores);
       const { playerData: newPlayerData, metaData: newMetaData } = processedData;
+      const fullMetaData = { ...newMetaData, matchId: data.match.id };
       setPlayerData(newPlayerData);
-      setMetaData({ ...newMetaData, matchId: data.match.id });
+      setMetaData(fullMetaData);
 
       // In compact mode, skip fetching extra player data for faster loading
       if (compact) {
@@ -46,7 +47,7 @@ const FinishedGame = ({ data, compact = false }) => {
         if (!cachedData) {
           setIsLoading(true);
         }
-        await fetchPlayerData(newPlayerData);
+        await fetchPlayerData(newPlayerData, fullMetaData);
       }
     } catch (error) {
       console.error("Error fetching match data:", error.message);
@@ -54,7 +55,7 @@ const FinishedGame = ({ data, compact = false }) => {
     }
   };
 
-  const fetchPlayerData = async (processedData) => {
+  const fetchPlayerData = async (processedData, freshMetaData) => {
     try {
       const result = await enrichPlayerData(processedData, {
         fetchSessions: true,
@@ -70,7 +71,7 @@ const FinishedGame = ({ data, compact = false }) => {
       if (matchId) {
         cache.set(`finishedMatchPlayers:${matchId}`, {
           playerData: processedData,
-          metaData: { ...metaData, matchId },
+          metaData: freshMetaData,
           profilePics: result.profilePics,
           countries: result.countries,
           sessions: result.sessions,

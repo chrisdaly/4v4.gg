@@ -27,6 +27,20 @@ export default function useChatStream() {
     });
   }, []);
 
+  useEffect(() => {
+    setTranslations((prev) => {
+      if (prev.size === 0) return prev;
+      const ids = new Set(messages.map((m) => m.id));
+      let changed = false;
+      const next = new Map();
+      for (const [id, translated] of prev) {
+        if (ids.has(id)) next.set(id, translated);
+        else changed = true;
+      }
+      return changed ? next : prev;
+    });
+  }, [messages]);
+
   const connect = useCallback(() => {
     // Fetch initial history
     fetch(`${RELAY_URL}/api/chat/messages?limit=100`)

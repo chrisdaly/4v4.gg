@@ -3,30 +3,9 @@ import styled from "styled-components";
 import { Link } from "react-router-dom";
 import { RaceIcon } from "./ui";
 import TransitionGlyph from "./replay-lab/TransitionGlyph";
-import { raceIcons } from "../lib/constants";
 
 const RELAY_URL =
   import.meta.env.VITE_CHAT_RELAY_URL || "https://4v4gg-chat-relay.fly.dev";
-
-const RACE_MAP = {
-  0: "random",
-  1: "human",
-  2: "orc",
-  4: "nightelf",
-  8: "undead",
-  Human: "human",
-  human: "human",
-  Orc: "orc",
-  orc: "orc",
-  "Night Elf": "nightelf",
-  "night elf": "nightelf",
-  NightElf: "nightelf",
-  nightelf: "nightelf",
-  Undead: "undead",
-  undead: "undead",
-  Random: "random",
-  random: "random",
-};
 
 export default function PlayerPlaystyleCard({ battleTag, race, compact = false }) {
   const [profileData, setProfileData] = useState(null);
@@ -34,7 +13,7 @@ export default function PlayerPlaystyleCard({ battleTag, race, compact = false }
   const [error, setError] = useState(false);
 
   const playerName = battleTag?.split("#")[0] || battleTag;
-  const raceKey = RACE_MAP[race] || "random";
+  const raceKey = race ?? 0;
 
   useEffect(() => {
     if (!battleTag) return;

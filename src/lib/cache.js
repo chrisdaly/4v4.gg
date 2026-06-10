@@ -31,11 +31,24 @@ const getStorage = () => {
 
 const storage = getStorage();
 
+// In-memory L1 cache (write-through to storage, populated on read miss)
+const memCache = new Map();
+
 /**
  * Cache object with TTL support
  */
 export const cache = {
   get(key) {
+    const memItem = memCache.get(key);
+    if (memItem !== undefined) {
+      if (Date.now() > memItem.expiry) {
+        memCache.delete(key);
+        storage.removeItem(`cache:${key}`);
+        return null;
+      }
+      return memItem.data;
+    }
+
     try {
       const item = storage.getItem(`cache:${key}`);
       if (!item) return null;
@@ -45,6 +58,7 @@ export const cache = {
         storage.removeItem(`cache:${key}`);
         return null;
       }
+      memCache.set(key, { data, expiry });
       return data;
     } catch (e) {
       return null;
@@ -52,20 +66,18 @@ export const cache = {
   },
 
   set(key, data, ttl = TTL.DEFAULT) {
+    const item = {
+      data,
+      expiry: Date.now() + ttl,
+    };
+    memCache.set(key, item);
     try {
-      const item = {
-        data,
-        expiry: Date.now() + ttl,
-      };
       storage.setItem(`cache:${key}`, JSON.stringify(item));
     } catch (e) {
       // Storage full - try to clear old entries
       this.cleanup();
       try {
-        storage.setItem(`cache:${key}`, JSON.stringify({
-          data,
-          expiry: Date.now() + ttl,
-        }));
+        storage.setItem(`cache:${key}`, JSON.stringify(item));
       } catch (e2) {
         // Still full, ignore
       }
@@ -73,10 +85,12 @@ export const cache = {
   },
 
   remove(key) {
+    memCache.delete(key);
     storage.removeItem(`cache:${key}`);
   },
 
   clear() {
+    memCache.clear();
     // Only clear cache entries (preserve other storage)
     const keysToRemove = [];
     for (let i = 0; i < storage.length; i++) {
@@ -93,6 +107,11 @@ export const cache = {
    */
   cleanup() {
     const now = Date.now();
+    for (const [key, item] of memCache) {
+      if (now > item.expiry) {
+        memCache.delete(key);
+      }
+    }
     const keysToRemove = [];
     for (let i = 0; i < storage.length; i++) {
       const key = storage.key(i);
@@ -110,6 +129,8 @@ export const cache = {
     keysToRemove.forEach(key => storage.removeItem(key));
   },
 };
+
+cache.cleanup();
 
 /**
  * Create a cache key from parameters

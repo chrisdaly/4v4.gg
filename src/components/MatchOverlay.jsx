@@ -19,16 +19,44 @@ const MatchOverlay = ({ matchData, atGroups = {}, sessionData = {}, countries = 
     if (!hasExtra) return;
 
     const durations = [mmrDuration, flagDuration, sessionDuration];
+    let fadeTimeout;
     const timeout = setTimeout(() => {
       setFading(true);
-      setTimeout(() => {
+      fadeTimeout = setTimeout(() => {
         setPhase(prev => (prev + 1) % PHASE_COUNT);
         setFading(false);
       }, 800);
     }, durations[phase]);
 
-    return () => clearTimeout(timeout);
+    return () => {
+      clearTimeout(timeout);
+      clearTimeout(fadeTimeout);
+    };
   }, [phase, sessionData, countries, mmrDuration, flagDuration, sessionDuration]);
+
+  // Get AT group ID (0 for solo, 1+ for AT groups)
+  // Returns the same ID for all members of the same AT group
+  const getATGroupId = React.useMemo(() => {
+    const cache = {};
+    let nextGroupId = 1;
+
+    Object.values(atGroups).forEach(group => {
+      if (!Array.isArray(group) || group.length === 0) return;
+      // Check if any member already has an ID
+      const existingId = group.find(tag => cache[tag.toLowerCase()]);
+      if (existingId) {
+        // Use existing ID for all members
+        const id = cache[existingId.toLowerCase()];
+        group.forEach(tag => { cache[tag.toLowerCase()] = id; });
+      } else {
+        // Assign new ID to all members
+        const id = nextGroupId++;
+        group.forEach(tag => { cache[tag.toLowerCase()] = id; });
+      }
+    });
+
+    return (battleTag) => cache[battleTag?.toLowerCase()] || 0;
+  }, [atGroups]);
 
   if (!matchData?.teams || matchData.teams.length < 2) return null;
 
@@ -74,30 +102,6 @@ const MatchOverlay = ({ matchData, atGroups = {}, sessionData = {}, countries = 
     }
     return false;
   };
-
-  // Get AT group ID (0 for solo, 1+ for AT groups)
-  // Returns the same ID for all members of the same AT group
-  const getATGroupId = React.useMemo(() => {
-    const cache = {};
-    let nextGroupId = 1;
-
-    Object.values(atGroups).forEach(group => {
-      if (!Array.isArray(group) || group.length === 0) return;
-      // Check if any member already has an ID
-      const existingId = group.find(tag => cache[tag.toLowerCase()]);
-      if (existingId) {
-        // Use existing ID for all members
-        const id = cache[existingId.toLowerCase()];
-        group.forEach(tag => { cache[tag.toLowerCase()] = id; });
-      } else {
-        // Assign new ID to all members
-        const id = nextGroupId++;
-        group.forEach(tag => { cache[tag.toLowerCase()] = id; });
-      }
-    });
-
-    return (battleTag) => cache[battleTag?.toLowerCase()] || 0;
-  }, [atGroups]);
 
   // Check if two adjacent players are AT partners
   const areATPartners = (p1, p2) => {

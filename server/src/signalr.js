@@ -23,15 +23,14 @@ function scheduleReconnect() {
   reconnectAttempt++;
   console.log(`[SignalR] Scheduling reconnect attempt ${reconnectAttempt} in ${delay / 1000}s`);
 
-  reconnectTimer = setTimeout(async () => {
+  reconnectTimer = setTimeout(() => {
     reconnectTimer = null;
-    try {
-      await connect();
-      reconnectAttempt = 0; // reset on success
-    } catch (err) {
+    // connect() resets reconnectAttempt on a successful start and
+    // schedules the next attempt itself if the start fails
+    connect().catch(err => {
       console.error('[SignalR] Reconnect failed:', err.message);
-      // onclose will fire and schedule the next attempt
-    }
+      scheduleReconnect();
+    });
   }, delay);
 }
 
@@ -41,7 +40,7 @@ function normalizeMessage(raw, room) {
     battleTag: raw.user?.battleTag || raw.battleTag || '',
     userName: raw.user?.name || raw.userName || '',
     clanTag: raw.user?.clanTag || raw.clanTag || '',
-    message: raw.message,
+    message: raw.message || '',
     sentAt: raw.time || raw.sentDate || raw.sentAt || new Date().toISOString(),
     room: room || ROOM,
   };
@@ -213,6 +212,9 @@ async function connect() {
     state = 'error';
     console.error('[SignalR] Connection failed:', err.message);
     broadcast('status', { state });
+    // onclose never fires for a connection that failed to start —
+    // schedule the next attempt here to keep the reconnect chain alive
+    scheduleReconnect();
   }
 }
 

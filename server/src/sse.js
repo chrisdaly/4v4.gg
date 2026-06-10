@@ -1,4 +1,5 @@
-const clients = new Set();
+const clients = new Map(); // res → consecutive failed-write count
+const MAX_FAILED_WRITES = 3;
 let heartbeatInterval;
 
 export function addClient(res) {
@@ -8,17 +9,36 @@ export function addClient(res) {
     Connection: 'keep-alive',
   });
 
-  clients.add(res);
+  clients.set(res, 0);
 
   res.on('close', () => {
     clients.delete(res);
   });
+  res.on('error', () => {
+    clients.delete(res);
+    res.destroy();
+  });
+}
+
+function dropClient(client) {
+  clients.delete(client);
+  client.destroy();
 }
 
 export function broadcast(event, data) {
   const payload = `event: ${event}\ndata: ${JSON.stringify(data)}\n\n`;
-  for (const client of clients) {
-    client.write(payload);
+  for (const [client, failedWrites] of clients) {
+    if (client.writableEnded || client.destroyed) {
+      dropClient(client);
+      continue;
+    }
+    if (client.write(payload)) {
+      clients.set(client, 0);
+    } else if (failedWrites + 1 >= MAX_FAILED_WRITES) {
+      dropClient(client);
+    } else {
+      clients.set(client, failedWrites + 1);
+    }
   }
 }
 

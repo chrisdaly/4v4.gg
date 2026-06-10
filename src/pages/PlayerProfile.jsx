@@ -1,9 +1,13 @@
-import React, { useState, useEffect, useReducer, useMemo, useRef, useCallback } from "react";
+import React, { useState, useEffect, useReducer, useMemo, useRef } from "react";
 import { Link } from "react-router-dom";
 import { CountryFlag, Select, Button, PageNav } from "../components/ui";
 import { findPlayerInOngoingMatches } from "../lib/utils";
-import { getPlayerProfile, getPlayerTimelineMerged, getPlayerStats, getSeasons } from "../lib/api";
+import { getPlayerProfile, getPlayerTimelineMerged, getPlayerStats } from "../lib/api";
 import { cache } from "../lib/cache";
+import { matchIdleGapMs } from "../lib/session";
+import useSeasons from "../lib/useSeasons";
+import useOngoingMatches from "../lib/useOngoingMatches";
+import ClipModal from "../components/ClipModal";
 import { isStreamerLive } from "../lib/twitchService";
 import { FaTwitch } from "react-icons/fa";
 import { GiCrossedSwords } from "react-icons/gi";
@@ -40,42 +44,6 @@ const getCachedPlayerData = (battleTag, season) => {
   const cacheKey = `playerPage:${battleTag.toLowerCase()}:${season}`;
   return cache.get(cacheKey);
 };
-
-function ClipModal({ clip, onClose }) {
-  const backdropRef = useRef(null);
-  const embedSrc = clip.embed_url
-    ? `${clip.embed_url}&parent=4v4.gg&parent=localhost&autoplay=true`
-    : `https://clips.twitch.tv/embed?clip=${clip.clip_id}&parent=4v4.gg&parent=localhost&autoplay=true`;
-
-  useEffect(() => {
-    backdropRef.current?.focus();
-    const handler = (e) => { if (e.key === "Escape") onClose(); };
-    window.addEventListener("keydown", handler, true);
-    return () => window.removeEventListener("keydown", handler, true);
-  }, [onClose]);
-
-  return (
-    <div className="clip-modal-backdrop" ref={backdropRef} tabIndex={-1} onClick={onClose}>
-      <div className="clip-modal" onClick={(e) => e.stopPropagation()}>
-        <button className="clip-modal-close" onClick={onClose}>&times;</button>
-        <iframe
-          className="clip-modal-embed"
-          src={embedSrc}
-          allowFullScreen
-          title={clip.title}
-        />
-        <div className="clip-modal-info">
-          <h2 className="clip-modal-title">{clip.title}</h2>
-          <div className="clip-modal-meta">
-            <span className="clip-modal-streamer">{clip.twitch_login}</span>
-            <span className="clip-modal-sep">&middot;</span>
-            <span className="clip-modal-views">{clip.view_count.toLocaleString()} views</span>
-          </div>
-        </div>
-      </div>
-    </div>
-  );
-}
 
 const PlayerProfile = () => {
   // Extract battleTag from URL
@@ -115,7 +83,6 @@ const PlayerProfile = () => {
       allNemesis: [],
       statsSampleSize: 0,
       selectedSeason: null,
-      availableSeasons: [],
       currentPage: 0,
       playerClips: [],
       playerMentions: [],
@@ -129,14 +96,17 @@ const PlayerProfile = () => {
     matches, totalMatches, sessionGames, seasonMmrs, ongoingGame, ladderStanding,
     isLoading, allyStats, worstAllyStats, mapStats, worstMapStats, nemesisStats,
     allAllies, allWorstAllies, allNemesis, statsSampleSize,
-    selectedSeason, availableSeasons, currentPage,
+    selectedSeason, currentPage,
     playerClips, playerMentions,
     signatureProfile, signatureLoading,
   } = state;
 
   const prevBattleTagRef = useRef(battleTag);
   const hasLoadedProfileRef = useRef(false);
+  const latestReq = useRef(0);
   const [activeClip, setActiveClip] = useState(null);
+  const { seasons: availableSeasons, currentSeason } = useSeasons();
+  const { data: ongoingData } = useOngoingMatches();
 
   // Read initial tab from URL, default to 'matches'
   const getInitialTab = () => {
@@ -187,30 +157,20 @@ const PlayerProfile = () => {
     });
   };
 
-  // Fetch available seasons on mount
+  // Reset to the latest season when the player changes or seasons load
   useEffect(() => {
-    const fetchSeasonsData = async () => {
-      try {
-        const seasons = await getSeasons();
-        if (seasons && seasons.length > 0) {
-          const latestSeason = seasons[0].id;
-          updateState({ availableSeasons: seasons, selectedSeason: latestSeason });
+    if (currentSeason === null) return;
+    updateState({ selectedSeason: currentSeason });
 
-          const cached = getCachedPlayerData(battleTag, latestSeason);
-          if (cached) restoreFromCache(cached);
-        }
-      } catch (e) {
-        console.error("Failed to fetch seasons:", e);
-        updateState({ selectedSeason: 24 });
-      }
-    };
-    fetchSeasonsData();
-  }, [battleTag]);
+    const cached = getCachedPlayerData(battleTag, currentSeason);
+    if (cached) restoreFromCache(cached);
+  }, [battleTag, currentSeason]);
 
   // Reset and reload when battleTag or season changes
   useEffect(() => {
     if (selectedSeason === null) return;
 
+    const reqId = ++latestReq.current;
     const isPlayerChange = prevBattleTagRef.current !== battleTag;
     prevBattleTagRef.current = battleTag;
     const needsProfile = isPlayerChange || !hasLoadedProfileRef.current;
@@ -240,12 +200,16 @@ const PlayerProfile = () => {
       });
     }
 
-    loadAllData(needsProfile);
-    fetchOngoingGames();
+    loadAllData(needsProfile, reqId);
 
-    const interval = setInterval(fetchOngoingGames, 30000);
-    return () => clearInterval(interval);
+    return () => { latestReq.current++; };
   }, [battleTag, selectedSeason]);
+
+  // Track the player's ongoing game from the shared 30s poll
+  useEffect(() => {
+    if (!ongoingData) return;
+    updateState({ ongoingGame: findPlayerInOngoingMatches(ongoingData, battleTag) });
+  }, [ongoingData, battleTag]);
 
   // Fetch player clips and news mentions from relay server
   useEffect(() => {
@@ -355,7 +319,8 @@ const PlayerProfile = () => {
   const seasonParam = selectedSeason > 0 ? `&season=${selectedSeason}` : '';
   const isAllSeasons = selectedSeason === ALL_SEASONS;
 
-  const loadAllData = async (fetchProfile = true) => {
+  const loadAllData = async (fetchProfile = true, reqId = latestReq.current) => {
+    const isStale = () => latestReq.current !== reqId;
     try {
       let newProfilePic = profilePic;
       let newCountry = country;
@@ -374,6 +339,7 @@ const PlayerProfile = () => {
           profileUpdate.isStreaming = streamStatus.isLive;
           profileUpdate.streamInfo = streamStatus.isLive ? streamStatus : null;
         }
+        if (isStale()) return;
         updateState(profileUpdate);
       }
 
@@ -389,21 +355,24 @@ const PlayerProfile = () => {
           if (fourVsFourStats) {
             newPlayerData = fourVsFourStats;
             newTotalMatches = (fourVsFourStats.wins || 0) + (fourVsFourStats.losses || 0);
+            if (isStale()) return;
             updateState({ playerData: newPlayerData, totalMatches: newTotalMatches });
           }
         }
       }
 
-      const newMatches = await fetchMatches(0, true);
+      const newMatches = await fetchMatches(0, true, reqId);
 
       // Skip season-specific data for all-seasons view
       let newSeasonMmrs = [];
       let newLadderStanding = null;
       if (!isAllSeasons) {
-        newSeasonMmrs = await fetchMmrTimeline(true);
-        newLadderStanding = await fetchLadderStanding(true);
+        newSeasonMmrs = await fetchMmrTimeline(true, reqId);
+        newLadderStanding = await fetchLadderStanding(true, reqId);
       }
-      const statsResult = await fetchStatistics(true);
+      const statsResult = await fetchStatistics(true, reqId);
+
+      if (isStale()) return;
 
       // For all-seasons, derive totalMatches from the stats fetch count
       if (isAllSeasons && statsResult) {
@@ -425,17 +394,18 @@ const PlayerProfile = () => {
     } catch (error) {
       console.error("Error loading player data:", error);
     } finally {
-      updateState({ isLoading: false });
+      if (!isStale()) updateState({ isLoading: false });
     }
   };
 
-  const fetchMatches = async (page, returnData = false) => {
+  const fetchMatches = async (page, returnData = false, reqId = latestReq.current) => {
     const offset = page * GAMES_PER_PAGE;
     const matchesUrl = `https://website-backend.w3champions.com/api/matches/search?playerId=${encodeURIComponent(battleTag)}&offset=${offset}&gameMode=4${seasonParam}&gateway=${gateway}&pageSize=${GAMES_PER_PAGE}`;
     const matchesResponse = await fetch(matchesUrl);
     if (matchesResponse.ok) {
       const matchesData = await matchesResponse.json();
       if (matchesData.matches) {
+        if (latestReq.current !== reqId) return returnData ? [] : undefined;
         const matchUpdate = { matches: matchesData.matches };
         if (isAllSeasons && page === 0 && matchesData.count) {
           matchUpdate.totalMatches = matchesData.count;
@@ -448,8 +418,9 @@ const PlayerProfile = () => {
     return returnData ? [] : undefined;
   };
 
-  const fetchMmrTimeline = async (returnData = false) => {
+  const fetchMmrTimeline = async (returnData = false, reqId = latestReq.current) => {
     const mmrs = await getPlayerTimelineMerged(battleTag, selectedSeason);
+    if (latestReq.current !== reqId) return returnData ? [] : undefined;
     updateState({ seasonMmrs: mmrs });
     if (returnData) return mmrs;
   };
@@ -477,7 +448,7 @@ const PlayerProfile = () => {
         }
         if (!playerInMatch) continue;
         if (i > 0) {
-          const gapMs = new Date(matchList[i - 1].endTime) - new Date(match.endTime);
+          const gapMs = matchIdleGapMs(matchList[i - 1], match);
           if (gapMs > sessionGapMs) break;
         }
         sessionMatches.push({ ...match, playerData: playerInMatch, won: playerWon });
@@ -486,18 +457,7 @@ const PlayerProfile = () => {
     }
   };
 
-  const fetchOngoingGames = async () => {
-    try {
-      const ongoingResponse = await fetch("https://website-backend.w3champions.com/api/matches/ongoing");
-      const ongoingResult = await ongoingResponse.json();
-      const game = findPlayerInOngoingMatches(ongoingResult, battleTag);
-      updateState({ ongoingGame: game });
-    } catch (error) {
-      console.error("Error fetching ongoing games:", error);
-    }
-  };
-
-  const fetchLadderStanding = async (returnData = false) => {
+  const fetchLadderStanding = async (returnData = false, reqId = latestReq.current) => {
     try {
       const searchUrl = `https://website-backend.w3champions.com/api/ladder/search?gateWay=${gateway}&searchFor=${encodeURIComponent(battleTag.split("#")[0])}&gameMode=4${seasonParam}`;
       const searchResponse = await fetch(searchUrl);
@@ -539,6 +499,7 @@ const PlayerProfile = () => {
         neighbors,
         totalInLeague: ladderData.length,
       };
+      if (latestReq.current !== reqId) return returnData ? null : undefined;
       updateState({ ladderStanding: standing });
       if (returnData) return standing;
     } catch (error) {
@@ -547,7 +508,7 @@ const PlayerProfile = () => {
     }
   };
 
-  const fetchStatistics = async (returnData = false) => {
+  const fetchStatistics = async (returnData = false, reqId = latestReq.current) => {
     try {
       // Check past-season stats cache first (not for "All" or current season)
       const currentSeasonId = availableSeasons[0]?.id;
@@ -557,6 +518,7 @@ const PlayerProfile = () => {
       if (isPastSeason) {
         const cached = cache.get(statsCacheKey);
         if (cached) {
+          if (latestReq.current !== reqId) return returnData ? null : undefined;
           updateState(cached);
           return returnData ? cached : undefined;
         }
@@ -707,12 +669,13 @@ const PlayerProfile = () => {
         statsSampleSize: sampleSize,
       };
 
-      updateState(result);
-
       // Cache past-season stats for 7 days (data never changes)
       if (isPastSeason) {
         cache.set(statsCacheKey, result, 7 * 24 * 60 * 60 * 1000);
       }
+
+      if (latestReq.current !== reqId) return returnData ? null : undefined;
+      updateState(result);
 
       if (returnData) return result;
     } catch (error) {
@@ -1308,7 +1271,13 @@ const PlayerProfile = () => {
 
       {/* Clip Modal */}
       {activeClip && (
-        <ClipModal clip={activeClip} onClose={() => setActiveClip(null)} />
+        <ClipModal clip={activeClip} onClose={() => setActiveClip(null)}>
+          <div className="clip-modal-meta">
+            <span className="clip-modal-streamer">{activeClip.twitch_login}</span>
+            <span className="clip-modal-sep">&middot;</span>
+            <span className="clip-modal-views">{activeClip.view_count.toLocaleString()} views</span>
+          </div>
+        </ClipModal>
       )}
     </div>
   );

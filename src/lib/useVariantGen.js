@@ -66,7 +66,7 @@ export default function useVariantGen({ weekStart, apiKey, isAdmin }) {
     }, POLL_INTERVAL);
 
     return () => { if (pollRef.current) clearInterval(pollRef.current); };
-  }, [job?.status, weekStart, apiKey]);
+  }, [job?.id, job?.status, weekStart, apiKey]);
 
   const fetchVariants = useCallback((jobId) => {
     fetch(`${RELAY_URL}/api/admin/weekly-digest/${weekStart}/variants`, { headers })

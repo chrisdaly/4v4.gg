@@ -10,7 +10,9 @@ import { colors } from "../lib/design-tokens";
 // showStdDev: show shaded region for standard deviation
 // hideLabels: hide the inline μ/σ text labels (keeps visual elements)
 // showValues: show MMR values next to each dot
-const MmrComparison = ({ data, compact = false, atStyle = "combined", pieConfig = {}, showMean = false, showStdDev = false, hideLabels = false, showValues = false, fitToData = false, transposed = false }) => {
+const DEFAULT_PIE_CONFIG = {};
+
+const MmrComparison = React.memo(({ data, compact = false, atStyle = "combined", pieConfig = DEFAULT_PIE_CONFIG, showMean = false, showStdDev = false, hideLabels = false, showValues = false, fitToData = false, transposed = false }) => {
   const { teamOneMmrs, teamTwoMmrs, teamOneAT = [], teamTwoAT = [] } = data;
   const svgRef = useRef(null);
 
@@ -344,8 +346,8 @@ const MmrComparison = ({ data, compact = false, atStyle = "combined", pieConfig 
     if (showMean || showStdDev) {
       const team1Mean = geometricMean(teamOneMmrs);
       const team2Mean = geometricMean(teamTwoMmrs);
-      const team1Std = stdDev(teamOneMmrs, team1Mean);
-      const team2Std = stdDev(teamTwoMmrs, team2Mean);
+      const team1Std = stdDev(teamOneMmrs);
+      const team2Std = stdDev(teamTwoMmrs);
 
       // Calculate actual dot spread width for each team
       const team1Xs = teamOnePositioned.map(d => d.x);
@@ -1055,22 +1057,22 @@ const MmrComparison = ({ data, compact = false, atStyle = "combined", pieConfig 
         svg.append("line")
           .attr("x1", tickMinX).attr("y1", middleLine - tickLen)
           .attr("x2", tickMinX).attr("y2", middleLine + tickLen)
-          .attr("stroke", "#aaa").attr("stroke-width", 1).attr("opacity", 0.7);
+          .attr("stroke", colors.greyLight.value).attr("stroke-width", 1).attr("opacity", 0.7);
         svg.append("text")
           .attr("x", tickMinX).attr("y", middleLine + tickLen + 10)
           .attr("text-anchor", "middle").attr("font-family", "var(--font-mono)")
-          .attr("font-size", 10).attr("fill", "#aaa").attr("opacity", 0.7)
+          .attr("font-size", 10).attr("fill", colors.greyLight.value).attr("opacity", 0.7)
           .text(Math.round(dataMin));
 
         // Right tick
         svg.append("line")
           .attr("x1", tickMaxX).attr("y1", middleLine - tickLen)
           .attr("x2", tickMaxX).attr("y2", middleLine + tickLen)
-          .attr("stroke", "#aaa").attr("stroke-width", 1).attr("opacity", 0.7);
+          .attr("stroke", colors.greyLight.value).attr("stroke-width", 1).attr("opacity", 0.7);
         svg.append("text")
           .attr("x", tickMaxX).attr("y", middleLine + tickLen + 10)
           .attr("text-anchor", "middle").attr("font-family", "var(--font-mono)")
-          .attr("font-size", 10).attr("fill", "#aaa").attr("opacity", 0.7)
+          .attr("font-size", 10).attr("fill", colors.greyLight.value).attr("opacity", 0.7)
           .text(Math.round(dataMax));
       }
     } else {
@@ -1088,7 +1090,7 @@ const MmrComparison = ({ data, compact = false, atStyle = "combined", pieConfig 
           .attr("text-anchor", "middle")
           .attr("font-family", "var(--font-display)")
           .attr("font-size", 11)
-          .attr("fill", "#aaa")
+          .attr("fill", colors.greyLight.value)
           .attr("letter-spacing", "0.1em")
           .text("vs");
       }
@@ -1096,6 +1098,6 @@ const MmrComparison = ({ data, compact = false, atStyle = "combined", pieConfig 
   }, [teamOneMmrs, teamTwoMmrs, teamOneAT, teamTwoAT, compact, atStyle, pieConfig, showMean, showStdDev, hideLabels, showValues, fitToData, transposed]);
 
   return <svg ref={svgRef} style={{ width: "100%", height: "100%" }}></svg>;
-};
+});
 
 export { MmrComparison };

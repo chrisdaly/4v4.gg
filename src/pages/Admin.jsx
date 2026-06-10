@@ -663,7 +663,7 @@ function formatDate(iso) {
 
 function AdminGate() {
   const [draft, setDraft] = useState("");
-  const { adminKey, setAdminKey } = useAdmin();
+  const { adminKey, setAdminKey, isKeyValid } = useAdmin();
 
   function handleSubmit(e) {
     e.preventDefault();
@@ -674,7 +674,19 @@ function AdminGate() {
     }
   }
 
-  if (adminKey) return <AdminDashboard />;
+  if (adminKey && isKeyValid) return <AdminDashboard />;
+
+  // Key stored but not yet confirmed by the server
+  if (adminKey && isKeyValid === null) {
+    return (
+      <PageLayout bare overlay>
+        <div style={{ maxWidth: 720, margin: '0 auto' }}>
+          <PageHero eyebrow="Dev Tools" title="Admin" />
+          <StatusText>Verifying API key…</StatusText>
+        </div>
+      </PageLayout>
+    );
+  }
 
   return (
     <PageLayout bare overlay>
@@ -693,6 +705,11 @@ function AdminGate() {
             <IoSend size={14} />
           </SubmitButton>
         </TokenForm>
+        {adminKey && isKeyValid === false && (
+          <div style={{ marginTop: 12 }}>
+            <StatusText $color="var(--red)">Invalid API key — the server rejected it.</StatusText>
+          </div>
+        )}
       </div>
     </PageLayout>
   );

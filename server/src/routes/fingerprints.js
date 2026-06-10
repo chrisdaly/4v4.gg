@@ -53,16 +53,9 @@ import {
 import { parseReplayFile } from '../replayParser.js';
 import { getEmbedding, getEmbeddingBatch, checkSidecar, getUmapProjection, getUmapTransform } from '../embedClient.js';
 import { importPlayerMatches } from '../replayImporter.js';
+import { requireApiKey } from '../middleware/auth.js';
 
 const router = Router();
-
-function requireApiKey(req, res, next) {
-  const key = req.headers['x-api-key'];
-  if (!config.ADMIN_API_KEY || key !== config.ADMIN_API_KEY) {
-    return res.status(401).json({ error: 'Invalid or missing API key' });
-  }
-  next();
-}
 
 function tryParse(json) {
   if (!json) return null;

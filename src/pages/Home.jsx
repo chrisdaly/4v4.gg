@@ -1,7 +1,8 @@
 import React, { useState, useEffect, useMemo } from "react";
 import { Link } from "react-router-dom";
 import useChatStream from "../lib/useChatStream";
-import { getOngoingMatches, getOngoingMatchesCached, getFinishedMatches, getPlayerProfile } from "../lib/api";
+import { getOngoingMatchesCached, getFinishedMatches, getPlayerProfile } from "../lib/api";
+import useOngoingMatches from "../lib/useOngoingMatches";
 import { getMapImageUrl, formatElapsedTime } from "../lib/formatters";
 import { RaceIcon, CountryFlag } from "../components/ui";
 import { MmrComparison } from "../components/MmrComparison";
@@ -382,7 +383,6 @@ const Home = () => {
   useEffect(() => {
     const fetchAll = async () => {
       const results = await Promise.allSettled([
-        getOngoingMatches(),
         getFinishedMatches(10, 0),
         fetch(`${RELAY_URL}/api/admin/stats/today`).then((r) => (r.ok ? r.json() : null)),
         fetch(`${RELAY_URL}/api/clips?limit=3`).then((r) => (r.ok ? r.json() : null)),
@@ -391,16 +391,13 @@ const Home = () => {
       ]);
 
       if (results[0].status === "fulfilled" && results[0].value?.matches) {
-        setLiveMatches(sortByMMR(results[0].value.matches));
-      }
-      if (results[1].status === "fulfilled" && results[1].value?.matches) {
-        setFinishedMatches(results[1].value.matches);
+        setFinishedMatches(results[0].value.matches);
       }
 
       // Today's digest — fallback to most recent from digests list
       let digestData = null;
-      if (results[2].status === "fulfilled" && results[2].value?.digest) {
-        digestData = results[2].value;
+      if (results[1].status === "fulfilled" && results[1].value?.digest) {
+        digestData = results[1].value;
       }
       if (!digestData) {
         // Fallback: fetch yesterday/recent
@@ -414,14 +411,14 @@ const Home = () => {
       }
       setDigest(digestData);
 
-      if (results[3].status === "fulfilled" && results[3].value?.clips) {
-        setClips(results[3].value.clips);
+      if (results[2].status === "fulfilled" && results[2].value?.clips) {
+        setClips(results[2].value.clips);
       }
-      if (results[4].status === "fulfilled" && results[4].value?.length > 0) {
-        setWeeklyDigests(results[4].value);
+      if (results[3].status === "fulfilled" && results[3].value?.length > 0) {
+        setWeeklyDigests(results[3].value);
       }
-      if (results[5].status === "fulfilled" && Array.isArray(results[5].value)) {
-        setDbBlogPosts(results[5].value);
+      if (results[4].status === "fulfilled" && Array.isArray(results[4].value)) {
+        setDbBlogPosts(results[4].value);
       }
 
       setLoading(false);
@@ -430,16 +427,11 @@ const Home = () => {
     fetchAll();
   }, []);
 
-  // Poll live games every 30s
+  // Live games (30s poll)
+  const { data: ongoingData } = useOngoingMatches();
   useEffect(() => {
-    const interval = setInterval(async () => {
-      try {
-        const data = await getOngoingMatches();
-        if (data?.matches) setLiveMatches(sortByMMR(data.matches));
-      } catch {}
-    }, 30000);
-    return () => clearInterval(interval);
-  }, []);
+    if (ongoingData?.matches) setLiveMatches(sortByMMR(ongoingData.matches));
+  }, [ongoingData]);
 
   const liveCount = liveMatches?.length || 0;
   const latestWeekly = weeklyDigests?.[0] || null;

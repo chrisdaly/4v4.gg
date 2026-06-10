@@ -30,6 +30,8 @@ const OnGoingGame = ({ ongoingGameData, compact, streamerTag, onReady }) => {
   useEffect(() => {
     if (!ongoingGameData) return;
 
+    let cancelled = false;
+
     const { playerData: newPlayerData, metaData: newMetaData } = processOngoingGameData(ongoingGameData);
     setPlayerData(newPlayerData);
     setMetaData(newMetaData);
@@ -38,38 +40,47 @@ const OnGoingGame = ({ ongoingGameData, compact, streamerTag, onReady }) => {
     if (!cachedData) {
       setIsLoading(true);
     }
-    fetchRemainingPlayerData(newPlayerData);
-  }, [ongoingGameData]);
 
-  const fetchRemainingPlayerData = async (processedData) => {
-    try {
-      const result = await enrichPlayerData(processedData, {
-        fetchSessions: true,
-        fetchTwitchStatus: true,
-      });
+    const fetchRemainingPlayerData = async (processedData, freshMetaData) => {
+      try {
+        const result = await enrichPlayerData(processedData, {
+          fetchSessions: true,
+          fetchTwitchStatus: true,
+        });
 
-      setProfilePics(result.profilePics);
-      setPlayerCountries(result.countries);
-      setSessionData(result.sessions);
-      setLiveStreamers(result.liveStreamers);
+        if (cancelled) return;
 
-      // Cache all player data for this match (2 minute TTL for ongoing matches)
-      if (matchId) {
-        cache.set(`matchPlayers:${matchId}`, {
-          playerData: processedData,
-          metaData,
-          profilePics: result.profilePics,
-          countries: result.countries,
-          sessions: result.sessions,
-        }, 2 * 60 * 1000);
+        setProfilePics(result.profilePics);
+        setPlayerCountries(result.countries);
+        setSessionData(result.sessions);
+        setLiveStreamers(result.liveStreamers);
+
+        // Cache all player data for this match (2 minute TTL for ongoing matches)
+        if (matchId) {
+          cache.set(`matchPlayers:${matchId}`, {
+            playerData: processedData,
+            metaData: freshMetaData,
+            profilePics: result.profilePics,
+            countries: result.countries,
+            sessions: result.sessions,
+          }, 2 * 60 * 1000);
+        }
+      } catch (error) {
+        console.error("Error fetching player data:", error);
+      } finally {
+        if (!cancelled) {
+          setIsLoading(false);
+          if (matchId && onReady) onReady(matchId);
+        }
       }
-    } catch (error) {
-      console.error("Error fetching player data:", error);
-    } finally {
-      setIsLoading(false);
-      if (matchId && onReady) onReady(matchId);
-    }
-  };
+    };
+
+    fetchRemainingPlayerData(newPlayerData, newMetaData);
+
+    return () => {
+      cancelled = true;
+    };
+  }, [ongoingGameData]);
 
   if (isLoading) return null;
 
