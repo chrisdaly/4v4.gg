@@ -5,7 +5,7 @@ import OverlayRadar from "./OverlayRadar";
 import { consistencyScore } from "../../lib/fingerprint";
 
 const Panel = styled.div`
-  border: 1px solid rgba(160, 130, 80, 0.25);
+  border: 1px solid rgba(var(--gold-muted-rgb), 0.25);
   border-radius: var(--radius-md);
   padding: var(--space-4);
   background: rgba(0, 0, 0, 0.2);

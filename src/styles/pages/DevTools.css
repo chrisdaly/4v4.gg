@@ -12,7 +12,7 @@
   position: relative;
   padding: var(--space-8);
   border-radius: 16px;
-  background: rgba(255, 255, 255, 0.02);
+  background: var(--surface-1);
   border: 1px solid var(--grey-mid);
   box-shadow: 0 18px 44px rgba(0, 0, 0, 0.3);
   margin-bottom: var(--space-12);
@@ -67,8 +67,8 @@
   display: inline-flex;
   align-items: center;
   padding: 0.35rem 0.8rem;
-  border-radius: 9999px;
-  border: 1px solid rgba(252, 219, 51, 0.3);
+  border-radius: var(--radius-full);
+  border: 1px solid var(--gold-border-hover);
   background: rgba(252, 219, 51, 0.06);
   font-size: 0.72rem;
   text-transform: uppercase;
@@ -104,7 +104,7 @@
 }
 
 .dt-btn:hover:not(:disabled) {
-  background: rgba(252, 219, 51, 0.1);
+  background: var(--gold-tint);
 }
 
 .dt-btn:disabled {
@@ -187,8 +187,8 @@
   letter-spacing: 0.3px;
   color: var(--grey-light);
   background: transparent;
-  border: 1px solid rgba(252, 219, 51, 0.3);
-  border-radius: 4px;
+  border: 1px solid var(--gold-border-hover);
+  border-radius: var(--radius-md);
   padding: 6px 28px 6px 28px;
   width: 100%;
   box-sizing: border-box;
@@ -236,7 +236,7 @@
   padding: 8px;
   background: rgba(10, 8, 6, 0.96);
   border: 1px solid rgba(184, 134, 11, 0.3);
-  border-radius: 8px;
+  border-radius: var(--radius-lg);
   backdrop-filter: blur(12px);
   box-shadow: 0 8px 32px rgba(0, 0, 0, 0.7);
   max-height: 280px;
@@ -330,7 +330,7 @@
   font-size: var(--text-xxs);
   color: var(--grey-light);
   background: rgba(255, 255, 255, 0.03);
-  border: 1px solid rgba(160, 130, 80, 0.1);
+  border: 1px solid rgba(var(--gold-muted-rgb), 0.1);
   border-radius: var(--radius-sm);
   padding: var(--space-4);
   white-space: pre-wrap;
@@ -372,7 +372,7 @@
 }
 
 .dt-style-bar {
-  border-top: 1px solid rgba(160, 130, 80, 0.12);
+  border-top: 1px solid rgba(var(--gold-muted-rgb), 0.12);
   padding-top: var(--space-4);
 }
 
@@ -385,7 +385,7 @@
   font-size: var(--text-sm);
   color: #fff;
   background: rgba(255, 255, 255, 0.03);
-  border: 1px solid rgba(160, 130, 80, 0.2);
+  border: 1px solid rgba(var(--gold-muted-rgb), 0.2);
   border-radius: var(--radius-md);
   padding: var(--space-4);
   outline: none;
@@ -402,8 +402,8 @@
 
 .dt-prompt-input:focus {
   border-color: var(--gold);
-  background: rgba(255, 255, 255, 0.05);
-  box-shadow: 0 0 12px rgba(252, 219, 51, 0.1);
+  background: var(--surface-2);
+  box-shadow: 0 0 12px var(--gold-tint);
 }
 
 .dt-suggest-chips {
@@ -428,7 +428,7 @@
   text-transform: uppercase;
   letter-spacing: 0.08em;
   padding: 6px 16px;
-  border-radius: 9999px;
+  border-radius: var(--radius-full);
   border: 1px solid var(--gold);
   background: transparent;
   color: var(--gold);
@@ -472,7 +472,7 @@
   gap: 12px;
   padding: var(--space-3, 12px) var(--space-4);
   background: rgba(255, 255, 255, 0.03);
-  border: 1px solid rgba(160, 130, 80, 0.15);
+  border: 1px solid rgba(var(--gold-muted-rgb), 0.15);
   border-radius: var(--radius-md);
   cursor: pointer;
   text-align: left;
@@ -541,7 +541,7 @@
   align-items: center;
   gap: 10px;
   background: rgba(255, 255, 255, 0.04);
-  border: 1px solid rgba(160, 130, 80, 0.2);
+  border: 1px solid rgba(var(--gold-muted-rgb), 0.2);
   border-radius: var(--radius-md);
   padding: 8px 12px;
   min-width: 180px;
@@ -553,7 +553,7 @@
   border-radius: 50%;
   overflow: hidden;
   flex-shrink: 0;
-  border: 1px solid rgba(252, 219, 51, 0.3);
+  border: 1px solid var(--gold-border-hover);
   background: rgba(255, 255, 255, 0.06);
 }
 
@@ -574,7 +574,7 @@
   display: block;
   width: 100%;
   height: 100%;
-  background: rgba(160, 130, 80, 0.15);
+  background: rgba(var(--gold-muted-rgb), 0.15);
 }
 
 .dt-player-card-info {
@@ -632,7 +632,7 @@
 }
 
 .dt-card {
-  border: 1px solid rgba(160, 130, 80, 0.12);
+  border: 1px solid rgba(var(--gold-muted-rgb), 0.12);
   border-radius: var(--radius-md);
   padding: var(--space-6) var(--space-4);
   background: rgba(255, 255, 255, 0.015);
@@ -643,7 +643,7 @@
 }
 
 .dt-card--ready {
-  border-color: rgba(160, 130, 80, 0.3);
+  border-color: rgba(var(--gold-muted-rgb), 0.3);
   background: rgba(252, 219, 51, 0.015);
 }
 
@@ -689,14 +689,14 @@
 }
 
 .dt-card-headline:hover {
-  border-color: rgba(160, 130, 80, 0.2);
+  border-color: rgba(var(--gold-muted-rgb), 0.2);
   background: rgba(255, 255, 255, 0.03);
 }
 
 .dt-card-headline:focus {
   border-color: var(--gold);
   background: rgba(255, 255, 255, 0.06);
-  box-shadow: 0 0 8px rgba(252, 219, 51, 0.1);
+  box-shadow: 0 0 8px var(--gold-tint);
 }
 
 .dt-card-prompt {
@@ -712,7 +712,7 @@
   font-size: var(--text-xxs);
   color: var(--grey-light);
   background: rgba(255, 255, 255, 0.03);
-  border: 1px solid rgba(160, 130, 80, 0.1);
+  border: 1px solid rgba(var(--gold-muted-rgb), 0.1);
   border-radius: var(--radius-sm);
   padding: var(--space-2) var(--space-4);
   outline: none;
@@ -722,12 +722,12 @@
 }
 
 .dt-card-prompt-input:hover {
-  border-color: rgba(160, 130, 80, 0.25);
+  border-color: rgba(var(--gold-muted-rgb), 0.25);
 }
 
 .dt-card-prompt-input:focus {
   border-color: rgba(252, 219, 51, 0.4);
-  background: rgba(255, 255, 255, 0.05);
+  background: var(--surface-2);
 }
 
 .dt-card-loading {
@@ -769,8 +769,8 @@
   text-transform: uppercase;
   letter-spacing: 0.06em;
   padding: 6px 14px;
-  border-radius: 9999px;
-  border: 1px solid rgba(160, 130, 80, 0.2);
+  border-radius: var(--radius-full);
+  border: 1px solid rgba(var(--gold-muted-rgb), 0.2);
   background: rgba(255, 255, 255, 0.03);
   color: var(--grey-light);
   cursor: pointer;
@@ -778,7 +778,7 @@
 }
 
 .dt-style-preset:hover {
-  border-color: rgba(160, 130, 80, 0.4);
+  border-color: rgba(var(--gold-muted-rgb), 0.4);
   color: var(--white);
 }
 
@@ -820,7 +820,7 @@
   font-size: var(--text-xxs);
   color: var(--grey-light);
   background: rgba(255, 255, 255, 0.03);
-  border: 1px solid rgba(160, 130, 80, 0.15);
+  border: 1px solid rgba(var(--gold-muted-rgb), 0.15);
   border-radius: var(--radius-sm);
   padding: var(--space-2) var(--space-4);
   outline: none;
@@ -831,7 +831,7 @@
 
 .dt-style-input:focus {
   border-color: rgba(252, 219, 51, 0.4);
-  background: rgba(255, 255, 255, 0.05);
+  background: var(--surface-2);
 }
 
 /* ─── Gallery ──────────────────────────────────────────────────────────────── */
@@ -863,7 +863,7 @@
 }
 
 .dt-gallery-card:hover {
-  border-color: rgba(252, 219, 51, 0.3);
+  border-color: var(--gold-border-hover);
 }
 
 .dt-gallery-card--published {
@@ -918,7 +918,7 @@
   letter-spacing: 0.06em;
   color: #fff;
   background: rgba(0, 180, 80, 0.8);
-  border-radius: 9999px;
+  border-radius: var(--radius-full);
   z-index: 1;
 }
 
@@ -1003,7 +1003,7 @@
   overflow-y: auto;
   overflow-x: hidden;
   background: rgba(18, 16, 14, 0.98);
-  border: 1px solid rgba(160, 130, 80, 0.3);
+  border: 1px solid rgba(var(--gold-muted-rgb), 0.3);
   border-radius: 16px;
   box-shadow: 0 24px 64px rgba(0, 0, 0, 0.8);
 }
@@ -1168,14 +1168,14 @@
   font-size: var(--text-base);
   padding: var(--space-6);
   min-height: 160px;
-  border: 1px solid rgba(160, 130, 80, 0.2);
+  border: 1px solid rgba(var(--gold-muted-rgb), 0.2);
   background: rgba(0, 0, 0, 0.4);
   border-radius: 12px;
   line-height: 1.6;
 }
 
 .dt-prompt-zen .dt-prompt-input:focus {
-  border-color: rgba(252, 219, 51, 0.3);
+  border-color: var(--gold-border-hover);
   background: rgba(255, 255, 255, 0.03);
 }
 
@@ -1267,7 +1267,7 @@
 .dt-style-footer {
   margin-top: var(--space-6);
   padding-top: var(--space-4);
-  border-top: 1px solid rgba(160, 130, 80, 0.08);
+  border-top: 1px solid rgba(var(--gold-muted-rgb), 0.08);
   display: flex;
   flex-direction: column;
   gap: var(--space-2);
@@ -1292,9 +1292,9 @@
   font-size: var(--text-xxxs);
   color: var(--grey-light);
   padding: 3px 10px;
-  border: 1px solid rgba(160, 130, 80, 0.15);
-  border-radius: 9999px;
-  background: rgba(255, 255, 255, 0.02);
+  border: 1px solid rgba(var(--gold-muted-rgb), 0.15);
+  border-radius: var(--radius-full);
+  background: var(--surface-1);
 }
 
 /* ─── Result ──────────────────────────────────────────────────────────────── */
@@ -1304,7 +1304,7 @@
 }
 
 .dt-result .dt-cover-img {
-  border: 1px solid rgba(160, 130, 80, 0.3);
+  border: 1px solid rgba(var(--gold-muted-rgb), 0.3);
   border-radius: 12px;
 }
 

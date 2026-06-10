@@ -3,6 +3,7 @@ import * as d3 from "d3";
 import styled from "styled-components";
 import { Link } from "react-router-dom";
 import { Button } from "./ui";
+import { chartColors } from "../lib/design-tokens";
 
 // ── Layout ──────────────────────────────────────────
 
@@ -155,7 +156,7 @@ function HotkeyRing({ groupUsage }) {
             startAngle,
             endAngle,
           }))
-          .attr("fill", "#00bcd4")
+          .attr("fill", chartColors.cyan)
           .attr("opacity", opacity);
       }
 
@@ -390,7 +391,7 @@ export default function SignatureCard({ profile, battleTag, loading, onUpload })
             <StatLabel>Select/min</StatLabel>
           </Stat>
           <Stat>
-            <StatValue $color="#00bcd4">{actionCounts.tabPerMin}</StatValue>
+            <StatValue $color="var(--cyan)">{actionCounts.tabPerMin}</StatValue>
             <StatLabel>Tab/min</StatLabel>
           </Stat>
           {actionCounts.rhythmMedianMs && (

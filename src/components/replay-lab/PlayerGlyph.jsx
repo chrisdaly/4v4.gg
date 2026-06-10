@@ -1,14 +1,15 @@
 import React from "react";
+import { colors, chartColors } from "../../lib/design-tokens";
 
-const GOLD = "#fcdb33";
+const GOLD = chartColors.gold;
 const GOLD_DIM = "#b89a1e";
 
 const RACE_COLORS = {
-  Human: "#4a9eff",
-  Orc: "#f87171",
-  "Night Elf": "#4ade80",
-  Undead: "#c084fc",
-  Random: "#fcdb33",
+  Human: chartColors.blue,
+  Orc: chartColors.red,
+  "Night Elf": chartColors.green,
+  Undead: colors.atPurple.value,
+  Random: chartColors.gold,
 };
 
 /**

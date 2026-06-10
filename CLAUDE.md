@@ -47,23 +47,34 @@ The relay server source is in `server/`. Token is injected via `POST /api/admin/
 3. Components consume processed data with 30-second polling intervals for live updates
 
 ### Key Files
-- `src/params.jsx` - API configuration (gameMode, gateway, season, map name mappings)
-- `src/utils.jsx` - Core data processing functions:
+- `src/lib/params.js` - API configuration (gameMode, gateway, season, map name mappings)
+- `src/lib/utils.js` - Core data processing functions:
   - `processOngoingGameData()` - Live match formatting
   - `preprocessPlayerScores()` - Game stats percentile calculation
   - `fetchMMRTimeline()` - Historical MMR data
   - `arithmeticMean()` / `standardDeviation()` - Team MMR calculations
 
 ### Routing (React Router v5)
+Main user-facing routes (see `src/Router.jsx` for the full list, including internal tooling pages):
+
 | Route | Component | Purpose |
 |-------|-----------|---------|
-| `/` | OnGoingGames | Homepage - all live matches |
-| `/queue` | Queue | Player queue statistics |
+| `/` | Home | Homepage |
+| `/live` | OngoingGames | All live matches |
 | `/finished` | RecentlyFinished | Recently completed games |
 | `/ladder` | Ladder | Player rankings by MMR |
-| `/player` | PlayerProfile | Specific player's ongoing game |
-| `/stream` | PlayerStream | Stream-optimized view |
+| `/stats` | Stats | Ladder statistics (league/race/country distribution) |
+| `/player` | PlayerProfile | Specific player's profile and ongoing game |
 | `/match` | FinishedGamePage | Finished game by ID |
+| `/observatory` | Observatory | Spectator dashboard |
+| `/news` | News | News/digest feed |
+| `/blog`, `/blog/:slug` | Blog, BlogPost | Blog listing and articles |
+| `/chat` | Chat | W3C chat (via relay) |
+| `/clips` | Clips | Video clips |
+| `/replay`, `/replay-lab` | Replay, ReplayLab | Replay analysis tools |
+| `/stream`, `/mystream` | PlayerStream, MyStreamPage | Stream-optimized views |
+| `/overlay/*` | OverlayIndex etc. | OBS overlays |
+| `/style` | StyleReference | Visual design-token reference |
 
 ### Component Patterns
 - **Functional components with hooks** for newer code (OnGoingGames, Game, PlayerProfile)
@@ -78,11 +89,11 @@ The relay server source is in `server/`. Token is injected via `POST /api/admin/
 
 ## Design System
 
-**Single source of truth:** `src/design-tokens.js`
+**Single source of truth:** `src/lib/design-tokens.js`
 
 All design tokens (colors, fonts, spacing, etc.) are defined in `design-tokens.js`. This file is imported by:
-- `StyleReference.jsx` - Visual reference at `/styles`
-- Components that need token values directly
+- `StyleReference.jsx` - Visual reference at `/style`
+- Components that need token values directly (e.g. d3 charts import `chartColors`/`chartSeries` instead of hardcoding hex)
 
 **Validate consistency:** `npm run validate-tokens` - Checks that App.css matches design-tokens.js
 
@@ -90,14 +101,16 @@ All design tokens (colors, fonts, spacing, etc.) are defined in `design-tokens.j
 
 | Category | Tokens |
 |----------|--------|
-| Colors | `--gold` `--green` `--red` `--grey-light` `--grey-mid` `--grey-dark` |
-| Fonts | `--font-display` (Friz Quadrata) `--font-mono` (Inconsolata) |
-| Type scale | `--text-xxs` (12px) `--text-xs` (14px) `--text-sm` (16px) `--text-base` (18px) `--text-lg` (24px) `--text-xl` (34px) |
-| Spacing | `--space-1` (4px) `--space-2` (8px) `--space-4` (16px) `--space-6` (24px) `--space-8` (32px) `--space-12` (48px) |
-| Borders | `--radius-sm` `--radius-md` `--radius-full` `--border-thin` `--border-thick` |
+| Colors | `--gold` `--green` `--red` `--blue` `--cyan` `--amber` `--at-purple` `--team-blue` `--team-red` `--grey-light` `--grey-mid` `--grey-dark` |
+| Fonts | `--font-display` (Friz Quadrata) `--font-mono` (Inconsolata) `--font-body` (Libre Baskerville) |
+| Type scale | `--text-xxxs` (11px) `--text-xxs` (12px) `--text-xs` (14px) `--text-sm` (16px) `--text-base` (18px) `--text-lg` (24px) `--text-xl` (34px) |
+| Spacing | `--space-1` (4px) `--space-2` (8px) `--space-3` (12px) `--space-4` (16px) `--space-6` (24px) `--space-8` (32px) `--space-12` (48px) |
+| Borders | `--radius-sm` (2px) `--radius-md` (4px) `--radius-lg` (8px) `--radius-full` `--border-thin` `--border-thick` |
 | Overlays | `--overlay-heavy` `--overlay-medium` `--overlay-light` |
-| Surfaces | `--surface-1` `--surface-2` `--surface-3` |
-| Tints | `--gold-tint` `--green-tint` `--red-tint` |
+| Surfaces | `--surface-1` `--surface-2` `--surface-3` `--panel-bg` `--panel-border` |
+| Tints | `--gold-tint` `--green-tint` `--red-tint` (`-subtle` variants) `--gold-muted-rgb` (use as `rgba(var(--gold-muted-rgb), alpha)`) |
+| League/race bars | `--league-grandmaster` … `--league-bronze`, `--race-human` … `--race-random` (gradients; same league = same color on every page) |
+| Charts (JS) | `chartColors` / `chartSeries` exports — import for d3/SVG attribute values |
 
 ### Usage Patterns
 

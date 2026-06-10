@@ -41,7 +41,7 @@ const RefreshButton = styled.button`
   align-items: center;
   gap: 6px;
   background: none;
-  border: 1px solid rgba(160, 130, 80, 0.2);
+  border: 1px solid rgba(var(--gold-muted-rgb), 0.2);
   border-radius: var(--radius-sm);
   padding: 4px 10px;
   color: var(--grey-light);
@@ -63,7 +63,7 @@ const LinkCard = styled.a`
   padding: var(--space-4);
   margin-bottom: var(--space-2);
   background: rgba(255, 255, 255, 0.04);
-  border: 1px solid rgba(160, 130, 80, 0.2);
+  border: 1px solid rgba(var(--gold-muted-rgb), 0.2);
   border-radius: var(--radius-md);
   color: var(--text-body);
   text-decoration: none;
@@ -107,7 +107,7 @@ const HealthGrid = styled.div`
 const HealthCard = styled.div`
   padding: var(--space-4);
   background: rgba(255, 255, 255, 0.04);
-  border: 1px solid rgba(160, 130, 80, 0.15);
+  border: 1px solid rgba(var(--gold-muted-rgb), 0.15);
   border-radius: var(--radius-md);
   text-align: center;
 `;
@@ -139,7 +139,7 @@ const TokenInput = styled.input`
   flex: 1;
   min-width: 0;
   background: rgba(255, 255, 255, 0.06);
-  border: 1px solid rgba(160, 130, 80, 0.2);
+  border: 1px solid rgba(var(--gold-muted-rgb), 0.2);
   border-radius: var(--radius-sm);
   padding: var(--space-2);
   color: var(--text-body);
@@ -162,7 +162,7 @@ const SubmitButton = styled.button`
   justify-content: center;
   width: 32px;
   height: 32px;
-  border: 1px solid rgba(160, 130, 80, 0.3);
+  border: 1px solid rgba(var(--gold-muted-rgb), 0.3);
   border-radius: var(--radius-sm);
   background: rgba(252, 219, 51, 0.08);
   color: var(--gold);
@@ -183,7 +183,7 @@ const SubmitButton = styled.button`
 
 const ToggleButton = styled.button`
   padding: 6px 16px;
-  border: 1px solid ${(p) => (p.$active ? "var(--green)" : "rgba(160, 130, 80, 0.3)")};
+  border: 1px solid ${(p) => (p.$active ? "var(--green)" : "rgba(var(--gold-muted-rgb), 0.3)")};
   border-radius: var(--radius-sm);
   background: ${(p) => (p.$active ? "rgba(76, 175, 80, 0.15)" : "rgba(255, 255, 255, 0.04)")};
   color: ${(p) => (p.$active ? "var(--green)" : "var(--grey-light)")};
@@ -215,7 +215,7 @@ const TopChatterRow = styled.div`
   align-items: center;
   justify-content: space-between;
   padding: 6px var(--space-4);
-  border-bottom: 1px solid rgba(160, 130, 80, 0.08);
+  border-bottom: 1px solid rgba(var(--gold-muted-rgb), 0.08);
 
   &:last-child {
     border-bottom: none;
@@ -249,7 +249,7 @@ const ChatterCount = styled.span`
 
 const TopChattersCard = styled.div`
   background: rgba(255, 255, 255, 0.04);
-  border: 1px solid rgba(160, 130, 80, 0.15);
+  border: 1px solid rgba(var(--gold-muted-rgb), 0.15);
   border-radius: var(--radius-md);
   padding: var(--space-2) 0;
   margin-top: var(--space-2);
@@ -266,7 +266,7 @@ const SubLabel = styled.div`
 
 const ChartContainer = styled.div`
   background: rgba(255, 255, 255, 0.04);
-  border: 1px solid rgba(160, 130, 80, 0.15);
+  border: 1px solid rgba(var(--gold-muted-rgb), 0.15);
   border-radius: var(--radius-md);
   padding: var(--space-4);
   margin-top: var(--space-2);
@@ -300,7 +300,7 @@ const Bar = styled.div`
     color: var(--white);
     background: rgba(0, 0, 0, 0.85);
     padding: 2px 6px;
-    border-radius: 3px;
+    border-radius: var(--radius-sm);
     white-space: nowrap;
     pointer-events: none;
   }
@@ -341,7 +341,7 @@ const WordTag = styled.span`
   font-size: ${(p) => p.$size || "var(--text-xs)"};
   color: ${(p) => p.$color || "var(--text-body)"};
   background: rgba(255, 255, 255, 0.04);
-  border: 1px solid rgba(160, 130, 80, 0.15);
+  border: 1px solid rgba(var(--gold-muted-rgb), 0.15);
   border-radius: var(--radius-sm);
   padding: 3px 8px;
   white-space: nowrap;
@@ -349,7 +349,7 @@ const WordTag = styled.span`
 
 const DigestCard = styled.div`
   background: rgba(255, 255, 255, 0.04);
-  border: 1px solid ${(p) => p.$error ? "rgba(255, 80, 80, 0.2)" : "rgba(160, 130, 80, 0.15)"};
+  border: 1px solid ${(p) => p.$error ? "rgba(255, 80, 80, 0.2)" : "rgba(var(--gold-muted-rgb), 0.15)"};
   border-radius: var(--radius-md);
   padding: var(--space-4);
   margin-bottom: var(--space-2);
@@ -433,7 +433,7 @@ const SearchInput = styled.input`
   flex: 1;
   min-width: 0;
   background: rgba(255, 255, 255, 0.06);
-  border: 1px solid rgba(160, 130, 80, 0.2);
+  border: 1px solid rgba(var(--gold-muted-rgb), 0.2);
   border-radius: var(--radius-sm);
   padding: var(--space-2) var(--space-4);
   color: var(--text-body);
@@ -455,7 +455,7 @@ const SearchToolbar = styled.div`
   align-items: center;
   gap: var(--space-2);
   padding: 4px var(--space-4);
-  border-top: 1px solid rgba(160, 130, 80, 0.08);
+  border-top: 1px solid rgba(var(--gold-muted-rgb), 0.08);
   background: rgba(0, 0, 0, 0.15);
 `;
 
@@ -475,7 +475,7 @@ const ContextBtn = styled.button`
 
 const PaddingBtn = styled.button`
   background: rgba(255, 255, 255, 0.06);
-  border: 1px solid rgba(160, 130, 80, 0.15);
+  border: 1px solid rgba(var(--gold-muted-rgb), 0.15);
   border-radius: var(--radius-sm);
   font-family: var(--font-mono);
   font-size: var(--text-xxxs);
@@ -512,8 +512,8 @@ const ScrollEdgeBtn = styled.button`
   padding: 8px;
   background: var(--surface-2);
   border: none;
-  border-bottom: ${(p) => p.$top ? "1px solid rgba(160, 130, 80, 0.08)" : "none"};
-  border-top: ${(p) => p.$top ? "none" : "1px solid rgba(160, 130, 80, 0.08)"};
+  border-bottom: ${(p) => p.$top ? "1px solid rgba(var(--gold-muted-rgb), 0.08)" : "none"};
+  border-top: ${(p) => p.$top ? "none" : "1px solid rgba(var(--gold-muted-rgb), 0.08)"};
   color: var(--grey-mid);
   font-family: var(--font-mono);
   font-size: var(--text-xxxs);
@@ -534,7 +534,7 @@ const ScrollEdgeBtn = styled.button`
 const HighlightMark = styled.mark`
   background: rgba(252, 219, 51, 0.25);
   color: var(--gold);
-  border-radius: 2px;
+  border-radius: var(--radius-sm);
   padding: 0 1px;
 `;
 
@@ -558,7 +558,7 @@ const HistoryChip = styled.button`
   align-items: center;
   gap: 4px;
   background: rgba(255, 255, 255, 0.04);
-  border: 1px solid rgba(160, 130, 80, 0.15);
+  border: 1px solid rgba(var(--gold-muted-rgb), 0.15);
   border-radius: var(--radius-full);
   padding: 3px 10px;
   font-family: var(--font-mono);
@@ -601,7 +601,7 @@ const LoadMoreButton = styled.button`
   width: 100%;
   padding: var(--space-2);
   background: rgba(255, 255, 255, 0.04);
-  border: 1px solid rgba(160, 130, 80, 0.15);
+  border: 1px solid rgba(var(--gold-muted-rgb), 0.15);
   border-radius: var(--radius-sm);
   color: var(--grey-light);
   font-family: var(--font-mono);

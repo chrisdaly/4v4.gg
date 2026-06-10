@@ -91,7 +91,7 @@ const TabBadge = styled.span`
   right: calc(50% - 18px);
   min-width: 16px;
   height: 16px;
-  border-radius: 8px;
+  border-radius: var(--radius-lg);
   background: var(--red);
   color: var(--white);
   font-family: var(--font-mono);

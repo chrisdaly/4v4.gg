@@ -1,8 +1,9 @@
 import React, { useEffect, useRef } from "react";
 import * as d3 from "d3";
 import styled from "styled-components";
+import { chartSeries } from "../../lib/design-tokens";
 
-const COLORS = ["#fcdb33", "#4a9eff", "#ff4a4a", "#4caf50"];
+const COLORS = chartSeries;
 
 const Wrap = styled.div`
   display: flex;

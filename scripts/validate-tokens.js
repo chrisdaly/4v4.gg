@@ -38,7 +38,7 @@ async function main() {
   const checked = new Set();
 
   // Check all token categories
-  const categories = ['colors', 'fonts', 'typeScale', 'spacing', 'borders', 'effects', 'overlays', 'surfaces', 'tints', 'zIndex'];
+  const categories = ['colors', 'fonts', 'typeScale', 'spacing', 'borders', 'effects', 'overlays', 'surfaces', 'tints', 'leagueColors', 'raceColors', 'zIndex'];
 
   for (const category of categories) {
     const tokenGroup = tokens[category];

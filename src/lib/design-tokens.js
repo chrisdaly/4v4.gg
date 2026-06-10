@@ -24,6 +24,7 @@ export const colors = {
   twitchPurple: { value: '#9146ff', css: '--twitch-purple', usage: 'Twitch branding' },
   atPurple: { value: '#8b5cf6', css: '--at-purple', usage: 'AT team indicators' },
   amber: { value: '#f59e0b', css: '--amber', usage: 'Warnings, bans, upsets' },
+  cyan: { value: '#00bcd4', css: '--cyan', usage: 'Stat accent (APM, fingerprint, traits)' },
 };
 
 export const fonts = {
@@ -55,6 +56,7 @@ export const spacing = {
 export const borders = {
   radiusSm: { value: '2px', css: '--radius-sm', usage: 'Subtle rounding' },
   radiusMd: { value: '4px', css: '--radius-md', usage: 'Cards, buttons' },
+  radiusLg: { value: '8px', css: '--radius-lg', usage: 'Large cards, panels, modals' },
   radiusFull: { value: '9999px', css: '--radius-full', usage: 'Pills, dots' },
   thin: { value: '1px', css: '--border-thin', usage: 'Subtle borders' },
   thick: { value: '2px', css: '--border-thick', usage: 'Emphasis borders' },
@@ -88,6 +90,27 @@ export const tints = {
   green: { value: 'rgba(74, 222, 128, 0.1)', css: '--green-tint', usage: 'Win highlight bg' },
   redSubtle: { value: 'rgba(248, 113, 113, 0.05)', css: '--red-tint-subtle', usage: 'Loss row hover' },
   red: { value: 'rgba(248, 113, 113, 0.1)', css: '--red-tint', usage: 'Loss highlight bg' },
+  goldMutedRgb: { value: '180, 150, 90', css: '--gold-muted-rgb', usage: 'Desaturated gold chrome (admin borders, dividers) — use as rgba(var(--gold-muted-rgb), alpha)' },
+};
+
+// League bar colors — match the league icons. Same league must look the same on every page.
+export const leagueColors = {
+  grandmaster: { value: 'linear-gradient(90deg, #c9a227, #f5d742)', css: '--league-grandmaster', usage: 'League 0 bar' },
+  master: { value: 'linear-gradient(90deg, #7b5dbd, #a78bfa)', css: '--league-master', usage: 'League 1 bar' },
+  diamond: { value: 'linear-gradient(90deg, #38bdf8, #67e8f9)', css: '--league-diamond', usage: 'League 2 bar' },
+  platinum: { value: 'linear-gradient(90deg, #22c55e, #4ade80)', css: '--league-platinum', usage: 'League 3 bar' },
+  gold: { value: 'linear-gradient(90deg, #eab308, #facc15)', css: '--league-gold', usage: 'League 4 bar' },
+  silver: { value: 'linear-gradient(90deg, #94a3b8, #cbd5e1)', css: '--league-silver', usage: 'League 5 bar' },
+  bronze: { value: 'linear-gradient(90deg, #b45309, #f59e0b)', css: '--league-bronze', usage: 'League 6 bar' },
+};
+
+// Race bar colors — classic WC3 faction colors.
+export const raceColors = {
+  human: { value: 'linear-gradient(90deg, #3b82f6, #60a5fa)', css: '--race-human', usage: 'Human bars' },
+  orc: { value: 'linear-gradient(90deg, #dc2626, #f87171)', css: '--race-orc', usage: 'Orc bars' },
+  nightelf: { value: 'linear-gradient(90deg, #22c55e, #4ade80)', css: '--race-nightelf', usage: 'Night Elf bars' },
+  undead: { value: 'linear-gradient(90deg, #7c3aed, #a78bfa)', css: '--race-undead', usage: 'Undead bars' },
+  random: { value: 'linear-gradient(90deg, #6b7280, #9ca3af)', css: '--race-random', usage: 'Random bars' },
 };
 
 export const zIndex = {
@@ -220,6 +243,20 @@ export const patterns = {
   },
 };
 
+// JS-side chart palette — for d3/SVG attribute values where CSS vars are awkward.
+// Always import these instead of hardcoding hex in chart components.
+export const chartColors = {
+  gold: colors.gold.value,
+  blue: colors.teamBlue.value,
+  red: colors.red.value,
+  green: colors.green.value,
+  cyan: colors.cyan.value,
+  amber: colors.amber.value,
+};
+
+// Default multi-series order (player 1..4 in overlay charts)
+export const chartSeries = [chartColors.gold, chartColors.blue, chartColors.red, chartColors.green];
+
 // Components that should exist in ui.jsx
 export const components = [
   { name: 'Button', description: 'Primary/secondary variants' },
@@ -241,6 +278,8 @@ export const allTokens = {
   overlays,
   surfaces,
   tints,
+  leagueColors,
+  raceColors,
   zIndex,
 };
 

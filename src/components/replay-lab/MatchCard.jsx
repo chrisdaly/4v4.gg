@@ -1,8 +1,9 @@
 import React from "react";
 import styled from "styled-components";
+import { chartColors } from "../../lib/design-tokens";
 
 const Card = styled.div`
-  border: 1px solid rgba(160, 130, 80, 0.2);
+  border: 1px solid rgba(var(--gold-muted-rgb), 0.2);
   border-radius: var(--radius-md);
   padding: var(--space-3) var(--space-4);
   background: rgba(255, 255, 255, 0.02);
@@ -37,7 +38,7 @@ const Arrow = styled.span`
 const ScoreBarTrack = styled.div`
   height: 6px;
   background: rgba(255, 255, 255, 0.06);
-  border-radius: 3px;
+  border-radius: var(--radius-sm);
   overflow: hidden;
   margin-bottom: var(--space-2);
 `;
@@ -45,7 +46,7 @@ const ScoreBarTrack = styled.div`
 const ScoreBarFill = styled.div`
   height: 100%;
   background: var(--gold);
-  border-radius: 3px;
+  border-radius: var(--radius-sm);
   transition: width 0.3s;
 `;
 
@@ -73,14 +74,14 @@ const MiniBarLabel = styled.div`
 const MiniBarTrack = styled.div`
   height: 3px;
   background: rgba(255, 255, 255, 0.06);
-  border-radius: 2px;
+  border-radius: var(--radius-sm);
   overflow: hidden;
 `;
 
 const MiniBarFill = styled.div`
   height: 100%;
   background: ${(p) => p.$color || "var(--gold)"};
-  border-radius: 2px;
+  border-radius: var(--radius-sm);
   opacity: 0.7;
 `;
 
@@ -115,10 +116,10 @@ const Btn = styled.button`
 `;
 
 const BREAKDOWN_COLORS = {
-  action: "#4a9eff",
-  apm: "#ffc107",
-  hotkey: "#4caf50",
-  ngram: "#ff4a4a",
+  action: chartColors.blue,
+  apm: chartColors.amber,
+  hotkey: chartColors.green,
+  ngram: chartColors.red,
 };
 
 /**

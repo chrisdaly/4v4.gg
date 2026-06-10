@@ -203,7 +203,7 @@ const ResizeHandle = styled.div`
   width: 16px;
   height: 16px;
   background: var(--gold);
-  border-radius: 2px;
+  border-radius: var(--radius-sm);
   cursor: se-resize;
   opacity: 0.7;
   transition: opacity 0.15s;

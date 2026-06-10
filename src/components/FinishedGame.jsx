@@ -189,7 +189,7 @@ const TeamColumn = styled.div``;
 const TeamLabel = styled.h3`
   font-family: var(--font-display);
   font-size: var(--text-sm);
-  color: ${(p) => (p.$team === 1 ? "var(--blue, #4a9eff)" : "var(--red)")};
+  color: ${(p) => (p.$team === 1 ? "var(--team-blue)" : "var(--red)")};
   margin-bottom: var(--space-4);
   text-transform: uppercase;
   letter-spacing: 0.1em;

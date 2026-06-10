@@ -67,7 +67,7 @@
 
 .replay-date-inputs input[type="datetime-local"] {
   background: rgba(255, 255, 255, 0.06);
-  border: 1px solid rgba(255, 255, 255, 0.1);
+  border: 1px solid var(--surface-3);
   border-radius: var(--radius-sm);
   color: var(--white);
   font-family: var(--font-mono);
@@ -82,7 +82,7 @@
 
 .replay-btn {
   background: rgba(255, 255, 255, 0.06);
-  border: 1px solid rgba(255, 255, 255, 0.1);
+  border: 1px solid var(--surface-3);
   border-radius: var(--radius-sm);
   color: var(--white);
   font-family: var(--font-mono);
@@ -93,7 +93,7 @@
 }
 
 .replay-btn:hover {
-  background: rgba(255, 255, 255, 0.1);
+  background: var(--surface-3);
 }
 
 .replay-btn:disabled {
@@ -103,7 +103,7 @@
 
 .replay-btn-load {
   background: rgba(252, 219, 51, 0.12);
-  border-color: rgba(252, 219, 51, 0.3);
+  border-color: var(--gold-border-hover);
   color: var(--gold);
 }
 
@@ -135,7 +135,7 @@
 
 .replay-btn-speed.active {
   background: rgba(252, 219, 51, 0.15);
-  border-color: rgba(252, 219, 51, 0.3);
+  border-color: var(--gold-border-hover);
   color: var(--gold);
 }
 
@@ -181,7 +181,7 @@
   width: 100%;
   height: 4px;
   background: rgba(255, 255, 255, 0.08);
-  border-radius: 2px;
+  border-radius: var(--radius-sm);
   outline: none;
   position: relative;
   z-index: 2;
@@ -214,7 +214,7 @@
   left: 0;
   height: 4px;
   background: var(--gold);
-  border-radius: 2px;
+  border-radius: var(--radius-sm);
   pointer-events: none;
   z-index: 1;
   opacity: 0.4;
@@ -306,7 +306,7 @@
   color: var(--gold);
   background: rgba(252, 219, 51, 0.12);
   padding: 2px 8px;
-  border-radius: 10px;
+  border-radius: var(--radius-lg);
 }
 
 .replay-empty {

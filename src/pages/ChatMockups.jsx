@@ -90,8 +90,8 @@ const ChatPanel = styled.div`
 
 const ChatHeader = styled.div`
   padding: var(--space-3) var(--space-4);
-  border-bottom: 1px solid rgba(160, 130, 80, 0.15);
-  background: linear-gradient(180deg, rgba(160, 130, 80, 0.04) 0%, transparent 100%);
+  border-bottom: 1px solid rgba(var(--gold-muted-rgb), 0.15);
+  background: linear-gradient(180deg, rgba(var(--gold-muted-rgb), 0.04) 0%, transparent 100%);
   box-shadow: 0 1px 0 rgba(0, 0, 0, 0.2);
   display: flex;
   justify-content: space-between;
@@ -131,7 +131,7 @@ const ChatMessages = styled.div`
 
   &::-webkit-scrollbar { width: 6px; }
   &::-webkit-scrollbar-track { background: transparent; }
-  &::-webkit-scrollbar-thumb { background: var(--grey-mid); border-radius: 3px; }
+  &::-webkit-scrollbar-thumb { background: var(--grey-mid); border-radius: var(--radius-sm); }
 `;
 
 /* ── Message Segment (matches real ChatPanel layout) ──── */
@@ -257,7 +257,7 @@ const SidebarPanel = styled.div`
 
 const SidebarHeader = styled.div`
   padding: var(--space-2) var(--space-4);
-  border-bottom: 1px solid rgba(160, 130, 80, 0.15);
+  border-bottom: 1px solid rgba(var(--gold-muted-rgb), 0.15);
   font-family: var(--font-mono);
   font-size: var(--text-xxs);
   text-transform: uppercase;
@@ -275,7 +275,7 @@ const ColumnHeaders = styled.div`
   align-items: center;
   padding: var(--space-1) var(--space-4);
   padding-left: calc(var(--space-4) + 28px + var(--space-4));
-  border-bottom: 1px solid rgba(160, 130, 80, 0.15);
+  border-bottom: 1px solid rgba(var(--gold-muted-rgb), 0.15);
   background: rgba(20, 16, 12, 0.6);
   font-family: var(--font-mono);
   font-size: var(--text-xxxs);
@@ -301,7 +301,7 @@ const SidebarList = styled.div`
 
   &::-webkit-scrollbar { width: 6px; }
   &::-webkit-scrollbar-track { background: transparent; }
-  &::-webkit-scrollbar-thumb { background: var(--grey-mid); border-radius: 3px; }
+  &::-webkit-scrollbar-thumb { background: var(--grey-mid); border-radius: var(--radius-sm); }
 `;
 
 const SidebarRow = styled.div`
@@ -586,7 +586,7 @@ const FRAME_STYLES = {
     backdrop-filter: blur(8px);
   `,
   simpleBorder: `
-    border: 1px solid rgba(160, 130, 80, 0.3);
+    border: 1px solid rgba(var(--gold-muted-rgb), 0.3);
     border-radius: var(--radius-md);
     background: rgba(10, 8, 6, 0.6);
     backdrop-filter: blur(8px);
@@ -748,7 +748,7 @@ const AGFrame = styled.div`
 
   &::-webkit-scrollbar { width: 6px; }
   &::-webkit-scrollbar-track { background: transparent; }
-  &::-webkit-scrollbar-thumb { background: var(--grey-mid); border-radius: 3px; }
+  &::-webkit-scrollbar-thumb { background: var(--grey-mid); border-radius: var(--radius-sm); }
 `;
 
 const AGHeader = styled.div`
@@ -757,7 +757,7 @@ const AGHeader = styled.div`
   justify-content: space-between;
   padding: 14px var(--space-4);
   border-bottom: 1px solid rgba(252, 219, 51, 0.15);
-  background: linear-gradient(180deg, rgba(160, 130, 80, 0.06) 0%, transparent 100%);
+  background: linear-gradient(180deg, rgba(var(--gold-muted-rgb), 0.06) 0%, transparent 100%);
   flex-shrink: 0;
 `;
 
@@ -779,7 +779,7 @@ const AGCard = styled.div`
   padding: var(--space-4) var(--space-3);
   margin: var(--space-3) var(--space-2);
   border-radius: var(--radius-md);
-  border: 1px solid rgba(160, 130, 80, 0.12);
+  border: 1px solid rgba(var(--gold-muted-rgb), 0.12);
   background: rgba(255, 255, 255, 0.02);
 `;
 
@@ -952,7 +952,7 @@ function LayoutB({ match }) {
 const SplitCard = styled.div`
   margin: var(--space-3) var(--space-2);
   border-radius: var(--radius-md);
-  border: 1px solid rgba(160, 130, 80, 0.12);
+  border: 1px solid rgba(var(--gold-muted-rgb), 0.12);
   overflow: hidden;
 `;
 
@@ -1062,7 +1062,7 @@ const MinimalRow = styled.div`
   align-items: center;
   gap: 10px;
   padding: 10px 12px;
-  border-bottom: 1px solid rgba(160, 130, 80, 0.08);
+  border-bottom: 1px solid rgba(var(--gold-muted-rgb), 0.08);
 
   &:last-child { border-bottom: none; }
   &:hover { background: rgba(255, 255, 255, 0.03); }
@@ -1111,7 +1111,7 @@ const FaceoffRow = styled.div`
   justify-content: center;
   gap: 6px;
   padding: 8px 0;
-  border-bottom: 1px solid rgba(160, 130, 80, 0.08);
+  border-bottom: 1px solid rgba(var(--gold-muted-rgb), 0.08);
   margin-bottom: var(--space-2);
 `;
 

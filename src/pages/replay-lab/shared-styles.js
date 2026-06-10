@@ -237,14 +237,14 @@ export const CandidateScore = styled.span`
 export const CandidateScoreBar = styled.div`
   height: 4px;
   background: rgba(255, 255, 255, 0.06);
-  border-radius: 2px;
+  border-radius: var(--radius-sm);
   overflow: hidden;
   width: 100%;
 `;
 
 export const CandidateScoreFill = styled.div`
   height: 100%;
-  border-radius: 2px;
+  border-radius: var(--radius-sm);
   background: ${(p) =>
     p.$val >= 0.75 ? "var(--gold)" :
     p.$val >= 0.60 ? "rgba(252,219,51,0.5)" :
@@ -280,14 +280,14 @@ export const MiniBar = styled.div`
   width: 40px;
   height: 4px;
   background: rgba(255, 255, 255, 0.06);
-  border-radius: 2px;
+  border-radius: var(--radius-sm);
   overflow: hidden;
   position: relative;
 `;
 
 export const MiniBarFill = styled.div`
   height: 100%;
-  border-radius: 2px;
+  border-radius: var(--radius-sm);
   background: ${(p) =>
     p.$val >= 0.75 ? "var(--gold)" :
     p.$val >= 0.60 ? "rgba(252,219,51,0.5)" :
@@ -306,7 +306,7 @@ export const MiniBarLabel = styled.span`
 // ── Match / Import Table ────────────────────────
 
 export const MatchTable = styled.div`
-  border: 1px solid rgba(160, 130, 80, 0.15);
+  border: 1px solid rgba(var(--gold-muted-rgb), 0.15);
   border-radius: var(--radius-md);
   overflow: hidden;
   margin-top: var(--space-4);
@@ -318,7 +318,7 @@ export const MatchTableHeader = styled.div`
   gap: var(--space-2);
   padding: var(--space-2) var(--space-4);
   background: rgba(0, 0, 0, 0.3);
-  border-bottom: 1px solid rgba(160, 130, 80, 0.15);
+  border-bottom: 1px solid rgba(var(--gold-muted-rgb), 0.15);
   font-family: var(--font-mono);
   font-size: 9px;
   color: var(--gold);
@@ -332,7 +332,7 @@ export const MatchRow = styled.div`
   gap: var(--space-2);
   padding: var(--space-2) var(--space-4);
   align-items: center;
-  border-bottom: 1px solid rgba(160, 130, 80, 0.06);
+  border-bottom: 1px solid rgba(var(--gold-muted-rgb), 0.06);
   &:last-child { border-bottom: none; }
 `;
 
@@ -367,7 +367,7 @@ export const ImportBadge = styled.span`
 export const ProgressBarTrack = styled.div`
   height: 6px;
   background: rgba(255, 255, 255, 0.06);
-  border-radius: 3px;
+  border-radius: var(--radius-sm);
   overflow: hidden;
   margin-top: var(--space-2);
   margin-bottom: var(--space-2);
@@ -375,7 +375,7 @@ export const ProgressBarTrack = styled.div`
 
 export const ProgressBarFill = styled.div`
   height: 100%;
-  border-radius: 3px;
+  border-radius: var(--radius-sm);
   background: var(--gold);
   transition: width 0.3s ease;
 `;
@@ -456,14 +456,14 @@ export const DetailBarLabel = styled.div`
 export const DetailBarTrack = styled.div`
   height: 8px;
   background: rgba(255, 255, 255, 0.08);
-  border-radius: 4px;
+  border-radius: var(--radius-md);
   overflow: hidden;
 `;
 
 export const DetailBarFill = styled.div`
   height: 100%;
   background: var(--gold);
-  border-radius: 4px;
+  border-radius: var(--radius-md);
 `;
 
 export const DetailSectionLabel = styled.div`
@@ -516,7 +516,7 @@ export const HkHeader = styled.div`
 
 export const HkBar = styled.div`
   height: 4px;
-  border-radius: 2px;
+  border-radius: var(--radius-sm);
   flex: 1;
   background: rgba(255, 255, 255, 0.06);
   position: relative;
@@ -528,7 +528,7 @@ export const HkBarFill = styled.div`
   left: 0;
   top: 0;
   height: 100%;
-  border-radius: 2px;
+  border-radius: var(--radius-sm);
   background: ${(p) => p.$color || "var(--gold)"};
 `;
 
@@ -560,7 +560,7 @@ export const CompareLabel = styled.div`
   font-size: var(--text-xs);
   color: var(--gold);
   padding-bottom: var(--space-1);
-  border-bottom: 1px solid rgba(160, 130, 80, 0.15);
+  border-bottom: 1px solid rgba(var(--gold-muted-rgb), 0.15);
 `;
 
 // ── Merge ───────────────────────────────────────
@@ -586,7 +586,7 @@ export const CloseBtn = styled.button`
   font-size: var(--text-xxs);
   color: var(--grey-light);
   background: none;
-  border: 1px solid rgba(160, 130, 80, 0.2);
+  border: 1px solid rgba(var(--gold-muted-rgb), 0.2);
   border-radius: var(--radius-sm);
   padding: 2px 8px;
   cursor: pointer;

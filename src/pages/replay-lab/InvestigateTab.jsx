@@ -92,10 +92,10 @@ const BreakdownLabel = styled.span`
 `;
 const BreakdownTrack = styled.div`
   width: 100px; height: 4px; background: rgba(255, 255, 255, 0.08);
-  border-radius: 2px; overflow: hidden;
+  border-radius: var(--radius-sm); overflow: hidden;
 `;
 const BreakdownFill = styled.div`
-  height: 100%; border-radius: 2px;
+  height: 100%; border-radius: var(--radius-sm);
   background: ${(p) =>
     p.$val >= 0.8 ? "var(--green)" : p.$val >= 0.6 ? "var(--gold)" : "rgba(255, 255, 255, 0.3)"};
 `;
@@ -153,11 +153,11 @@ const CLabel = styled.span`
   color: var(--grey-light); text-align: right;
 `;
 const CBar = styled.div`
-  height: 10px; border-radius: 2px; position: relative;
+  height: 10px; border-radius: var(--radius-sm); position: relative;
   overflow: hidden; background: rgba(255, 255, 255, 0.06);
 `;
 const CFill = styled.div`
-  position: absolute; top: 0; height: 100%; border-radius: 2px;
+  position: absolute; top: 0; height: 100%; border-radius: var(--radius-sm);
 `;
 const CVs = styled.span`
   font-family: var(--font-mono); font-size: var(--text-xxxs);
@@ -222,11 +222,11 @@ const TempoGrid = styled.div`
   gap: 3px 8px; align-items: center;
 `;
 const TempoBar = styled.div`
-  height: 8px; border-radius: 2px; background: rgba(255,255,255,0.06);
+  height: 8px; border-radius: var(--radius-sm); background: rgba(255,255,255,0.06);
   overflow: hidden; position: relative;
 `;
 const TempoFill = styled.div`
-  position: absolute; top: 0; height: 100%; border-radius: 2px;
+  position: absolute; top: 0; height: 100%; border-radius: var(--radius-sm);
 `;
 
 // ── Hotkey Cells ────────────────────────────────
@@ -242,18 +242,18 @@ const TransArrow = styled.span`
   white-space: nowrap;
 `;
 const TransBar = styled.div`
-  flex: 1; height: 6px; background: rgba(255,255,255,0.06); border-radius: 3px;
+  flex: 1; height: 6px; background: rgba(255,255,255,0.06); border-radius: var(--radius-sm);
   overflow: hidden; position: relative;
 `;
 const TransFill = styled.div`
-  position: absolute; top: 0; height: 100%; border-radius: 3px;
+  position: absolute; top: 0; height: 100%; border-radius: var(--radius-sm);
 `;
 
 // ── Early Game Timeline ─────────────────────────
 
 const TimelineWrap = styled.div`
   position: relative; height: 28px; background: rgba(255,255,255,0.03);
-  border-radius: 4px; overflow: hidden;
+  border-radius: var(--radius-md); overflow: hidden;
 `;
 const TimelineDot = styled.div`
   position: absolute; width: 3px; height: 12px; border-radius: 1px;
@@ -267,7 +267,7 @@ const LegendItem = styled.span`
   display: flex; align-items: center; gap: 3px;
 `;
 const LegendSwatch = styled.span`
-  width: 8px; height: 8px; border-radius: 2px; display: inline-block;
+  width: 8px; height: 8px; border-radius: var(--radius-sm); display: inline-block;
 `;
 
 // ── Early game action colors ────────────────────

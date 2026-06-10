@@ -150,7 +150,7 @@ const ColumnHeaders = styled.div`
   align-items: center;
   padding: var(--space-2) var(--space-4);
   padding-left: calc(var(--space-4) + 28px + var(--space-2));
-  border-bottom: 1px solid rgba(160, 130, 80, 0.2);
+  border-bottom: 1px solid rgba(var(--gold-muted-rgb), 0.2);
   background: rgba(20, 16, 12, 0.6);
   font-family: var(--font-mono);
   font-size: var(--text-xxxs);
@@ -191,7 +191,7 @@ const UserList = styled.div`
   }
   &::-webkit-scrollbar-thumb {
     background: var(--grey-mid);
-    border-radius: 3px;
+    border-radius: var(--radius-sm);
   }
 `;
 
@@ -297,7 +297,7 @@ const SectionHeader = styled.div`
   cursor: pointer;
   user-select: none;
   transition: color 0.15s;
-  border-top: 1px solid rgba(160, 130, 80, 0.12);
+  border-top: 1px solid rgba(var(--gold-muted-rgb), 0.12);
 
   &:first-child {
     border-top: none;

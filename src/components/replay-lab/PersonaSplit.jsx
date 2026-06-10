@@ -169,14 +169,14 @@ const DivTrack = styled.div`
   flex: 1;
   height: 6px;
   background: rgba(255, 255, 255, 0.08);
-  border-radius: 3px;
+  border-radius: var(--radius-sm);
   overflow: hidden;
 `;
 
 const DivFill = styled.div`
   height: 100%;
   background: var(--red);
-  border-radius: 3px;
+  border-radius: var(--radius-sm);
   opacity: 0.8;
 `;
 

@@ -911,7 +911,7 @@ const ReplayRaceIcon = styled.img`
 const ReplayMapThumb = styled.img`
   width: 28px;
   height: 28px;
-  border-radius: 3px;
+  border-radius: var(--radius-sm);
   object-fit: cover;
   flex-shrink: 0;
   opacity: 0.7;

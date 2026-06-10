@@ -22,8 +22,8 @@
   align-items: center;
   gap: 6px;
   padding: 4px 10px 4px 12px;
-  background: var(--gold-tint, rgba(252, 219, 51, 0.1));
-  border: 1px solid rgba(252, 219, 51, 0.3);
+  background: var(--gold-tint, var(--gold-tint));
+  border: 1px solid var(--gold-border-hover);
   border-radius: var(--radius-full);
   font-family: var(--font-display);
   font-size: var(--text-xs);
@@ -102,7 +102,7 @@
 }
 
 .clip-card:hover {
-  border-color: rgba(252, 219, 51, 0.3);
+  border-color: var(--gold-border-hover);
 }
 
 .clip-card--featured {
@@ -344,8 +344,8 @@
   letter-spacing: 0.3px;
   color: var(--grey-light);
   background: transparent;
-  border: 1px solid rgba(252, 219, 51, 0.3);
-  border-radius: 4px;
+  border: 1px solid var(--gold-border-hover);
+  border-radius: var(--radius-md);
   padding: 6px 26px 6px 10px;
   width: 130px;
   outline: none;
@@ -373,7 +373,7 @@
   padding: 8px;
   background: rgba(10, 8, 6, 0.96);
   border: 1px solid rgba(184, 134, 11, 0.3);
-  border-radius: 8px;
+  border-radius: var(--radius-lg);
   backdrop-filter: blur(12px);
   -webkit-backdrop-filter: blur(12px);
   box-shadow: 0 8px 32px rgba(0, 0, 0, 0.7);

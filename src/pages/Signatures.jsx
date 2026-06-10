@@ -1081,13 +1081,13 @@ const FeatureCard = styled.div`
   }
   .feat-bar {
     height: 4px;
-    border-radius: 2px;
+    border-radius: var(--radius-sm);
     background: var(--grey-mid);
     margin-bottom: 8px;
   }
   .feat-bar-fill {
     height: 100%;
-    border-radius: 2px;
+    border-radius: var(--radius-sm);
     background: var(--gold);
   }
   .feat-desc {
@@ -1782,7 +1782,7 @@ const SegmentTag = styled.button`
     opacity: 0.7;
     background: ${p => p.$active ? `${p.$color}30` : "rgba(255,255,255,0.08)"};
     padding: 1px 6px;
-    border-radius: 10px;
+    border-radius: var(--radius-lg);
   }
 `;
 

@@ -130,7 +130,7 @@
 .ag-cell {
   width: 12px;
   height: 12px;
-  border-radius: 2px;
+  border-radius: var(--radius-sm);
   background: var(--surface-2);
 }
 

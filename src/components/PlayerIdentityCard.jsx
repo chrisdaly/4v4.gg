@@ -61,11 +61,11 @@ export function extractSignature(segments) {
 // Trait thresholds calibrated from population distribution (193 players, 2026-02-22)
 // hiT ≈ p85, loT ≈ p15 — only truly distinctive players get badges
 export const TRAIT_DEFS = [
-  { key: "speed",       hi: "Fast",           lo: "Slow",         hiT: 0.55, loT: 0.31, color: "var(--green)",   bg: "rgba(76,175,80,0.08)",  border: "rgba(76,175,80,0.2)" },
-  { key: "burst",       hi: "Bursty",         lo: "Steady",       hiT: 0.28, loT: 0.11, color: "#ffa726",        bg: "rgba(255,167,38,0.08)", border: "rgba(255,167,38,0.2)" },
-  { key: "hkDiversity", hi: "Wide Spread",    lo: "Focused",      hiT: 0.65, loT: 0.30, color: "#ab47bc",        bg: "rgba(171,71,188,0.08)", border: "rgba(171,71,188,0.2)" },
-  { key: "assignRatio", hi: "Re-binder",      lo: null,           hiT: 0.20, loT: 0,    color: "var(--gold)",    bg: "rgba(252,219,51,0.08)", border: "rgba(252,219,51,0.2)" },
-  { key: "tempo",       hi: "Twitchy",        lo: "Deliberate",   hiT: 0.75, loT: 0.58, color: "#4fc3f7",        bg: "rgba(79,195,247,0.08)", border: "rgba(79,195,247,0.2)" },
+  { key: "speed",       hi: "Fast",           lo: "Slow",         hiT: 0.55, loT: 0.31, color: "var(--green)",     bg: "rgba(74,222,128,0.08)", border: "rgba(74,222,128,0.2)" },
+  { key: "burst",       hi: "Bursty",         lo: "Steady",       hiT: 0.28, loT: 0.11, color: "var(--amber)",     bg: "rgba(245,158,11,0.08)", border: "rgba(245,158,11,0.2)" },
+  { key: "hkDiversity", hi: "Wide Spread",    lo: "Focused",      hiT: 0.65, loT: 0.30, color: "var(--at-purple)", bg: "rgba(139,92,246,0.08)", border: "rgba(139,92,246,0.2)" },
+  { key: "assignRatio", hi: "Re-binder",      lo: null,           hiT: 0.20, loT: 0,    color: "var(--gold)",      bg: "rgba(252,219,51,0.08)", border: "rgba(252,219,51,0.2)" },
+  { key: "tempo",       hi: "Twitchy",        lo: "Deliberate",   hiT: 0.75, loT: 0.58, color: "var(--cyan)",      bg: "rgba(0,188,212,0.08)",  border: "rgba(0,188,212,0.2)" },
 ];
 
 export function describeTraits(sig) {

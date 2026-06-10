@@ -89,7 +89,7 @@ const MessageList = styled.div`
   }
   &::-webkit-scrollbar-thumb {
     background: var(--grey-mid);
-    border-radius: 3px;
+    border-radius: var(--radius-sm);
   }
 `;
 
@@ -346,7 +346,7 @@ const DateDivider = styled.div`
     content: "";
     flex: 1;
     height: 1px;
-    background: rgba(160, 130, 80, 0.15);
+    background: rgba(var(--gold-muted-rgb), 0.15);
   }
 `;
 
@@ -373,7 +373,7 @@ const ChatInput = styled.input`
   flex: 1;
   min-width: 0;
   background: rgba(255, 255, 255, 0.06);
-  border: 1px solid rgba(160, 130, 80, 0.2);
+  border: 1px solid rgba(var(--gold-muted-rgb), 0.2);
   border-radius: var(--radius-sm);
   padding: var(--space-2) var(--space-2);
   color: var(--text-body);
@@ -401,7 +401,7 @@ const SendButton = styled.button`
   justify-content: center;
   width: 32px;
   height: 32px;
-  border: 1px solid rgba(160, 130, 80, 0.3);
+  border: 1px solid rgba(var(--gold-muted-rgb), 0.3);
   border-radius: var(--radius-sm);
   background: rgba(252, 219, 51, 0.08);
   color: var(--gold);
@@ -426,7 +426,7 @@ const KeyButton = styled.button`
   justify-content: center;
   width: 32px;
   height: 32px;
-  border: 1px solid rgba(160, 130, 80, 0.2);
+  border: 1px solid rgba(var(--gold-muted-rgb), 0.2);
   border-radius: var(--radius-sm);
   background: ${(p) => (p.$active ? "rgba(252, 219, 51, 0.1)" : "transparent")};
   color: ${(p) => (p.$active ? "var(--gold)" : "var(--grey-mid)")};
@@ -436,7 +436,7 @@ const KeyButton = styled.button`
 
   &:hover {
     color: var(--gold);
-    border-color: rgba(160, 130, 80, 0.4);
+    border-color: rgba(var(--gold-muted-rgb), 0.4);
   }
 `;
 
@@ -454,7 +454,7 @@ const KeyInput = styled.input`
   flex: 1;
   min-width: 0;
   background: rgba(255, 255, 255, 0.06);
-  border: 1px solid rgba(160, 130, 80, 0.2);
+  border: 1px solid rgba(var(--gold-muted-rgb), 0.2);
   border-radius: var(--radius-sm);
   padding: var(--space-2) var(--space-2);
   color: var(--text-body);

@@ -1,6 +1,7 @@
 import React, { useEffect, useRef } from "react";
 import * as d3 from "d3";
 import styled from "styled-components";
+import { chartColors } from "../../lib/design-tokens";
 
 // ── Layout ──────────────────────────────────────────
 
@@ -35,7 +36,7 @@ const EscBadge = styled.span`
   font-size: 9px;
   color: var(--grey-light);
   background: rgba(255, 255, 255, 0.05);
-  border-radius: 3px;
+  border-radius: var(--radius-sm);
   padding: 0 4px;
   margin-top: 2px;
 `;
@@ -164,7 +165,7 @@ function HotkeyRing({ groupHotkeys }) {
             startAngle,
             endAngle,
           }))
-          .attr("fill", "#00bcd4")
+          .attr("fill", chartColors.cyan)
           .attr("opacity", opacity);
       }
 
@@ -505,7 +506,7 @@ function ControlStats({ actions }) {
         </StatRow>
         <StatRow>
           <StatLabel>Subgrp</StatLabel>
-          <StatValue $color={subgroups > 0 ? "#00bcd4" : undefined}>{subgroups.toLocaleString()}</StatValue>
+          <StatValue $color={subgroups > 0 ? "var(--cyan)" : undefined}>{subgroups.toLocaleString()}</StatValue>
         </StatRow>
         <StatRow>
           <StatLabel>ESC</StatLabel>

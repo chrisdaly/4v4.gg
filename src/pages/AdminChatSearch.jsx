@@ -58,7 +58,7 @@ const SubmitButton = styled.button`
   justify-content: center;
   width: 32px;
   height: 32px;
-  border: 1px solid rgba(160, 130, 80, 0.3);
+  border: 1px solid rgba(var(--gold-muted-rgb), 0.3);
   border-radius: var(--radius-sm);
   background: rgba(252, 219, 51, 0.08);
   color: var(--gold);
@@ -98,7 +98,7 @@ const HistoryChip = styled.button`
   align-items: center;
   gap: 4px;
   background: rgba(255, 255, 255, 0.04);
-  border: 1px solid rgba(160, 130, 80, 0.15);
+  border: 1px solid rgba(var(--gold-muted-rgb), 0.15);
   border-radius: var(--radius-full);
   padding: 3px 10px;
   font-family: var(--font-mono);

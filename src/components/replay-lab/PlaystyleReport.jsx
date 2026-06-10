@@ -487,14 +487,14 @@ const LoopBar = styled.div`
   width: 180px;
   height: 5px;
   background: rgba(255, 255, 255, 0.08);
-  border-radius: 3px;
+  border-radius: var(--radius-sm);
   overflow: hidden;
 `;
 
 const LoopBarRapid = styled.div`
   height: 100%;
   background: var(--gold);
-  border-radius: 3px;
+  border-radius: var(--radius-sm);
   opacity: 0.7;
 `;
 
@@ -600,14 +600,14 @@ const BarTrack = styled.div`
   width: 120px;
   height: 6px;
   background: rgba(255, 255, 255, 0.08);
-  border-radius: 3px;
+  border-radius: var(--radius-sm);
   overflow: hidden;
 `;
 
 const BarFill = styled.div`
   height: 100%;
   background: var(--gold);
-  border-radius: 3px;
+  border-radius: var(--radius-sm);
   opacity: 0.7;
 `;
 
@@ -642,7 +642,7 @@ const UnitChip = styled.div`
 const UnitPic = styled.img`
   width: 32px;
   height: 32px;
-  border-radius: 4px;
+  border-radius: var(--radius-md);
   border: 1px solid var(--grey-mid);
   object-fit: cover;
   display: block;
@@ -694,14 +694,14 @@ const ApmBar = styled.div`
   flex: 1;
   height: 6px;
   background: rgba(255, 255, 255, 0.08);
-  border-radius: 3px;
+  border-radius: var(--radius-sm);
   overflow: hidden;
 `;
 
 const ApmBarFill = styled.div`
   height: 100%;
   background: var(--gold);
-  border-radius: 3px;
+  border-radius: var(--radius-sm);
   opacity: 0.7;
 `;
 

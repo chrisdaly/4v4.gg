@@ -64,7 +64,7 @@ const HeaderCount = styled.span`
 
 const SortButton = styled.button`
   background: none;
-  border: 1px solid rgba(160, 130, 80, 0.2);
+  border: 1px solid rgba(var(--gold-muted-rgb), 0.2);
   border-radius: var(--radius-sm);
   color: var(--grey-light);
   font-family: var(--font-mono);
@@ -77,7 +77,7 @@ const SortButton = styled.button`
 
   &:hover {
     color: var(--gold);
-    border-color: rgba(160, 130, 80, 0.4);
+    border-color: rgba(var(--gold-muted-rgb), 0.4);
   }
 `;
 
@@ -113,7 +113,7 @@ const Content = styled.div`
   }
   &::-webkit-scrollbar-thumb {
     background: var(--grey-mid);
-    border-radius: 3px;
+    border-radius: var(--radius-sm);
   }
 `;
 
@@ -135,13 +135,13 @@ const EmptyState = styled.div`
 const Card = styled.div`
   margin: var(--space-3) 0;
   border-radius: var(--radius-md);
-  border: 1px solid rgba(160, 130, 80, 0.12);
+  border: 1px solid rgba(var(--gold-muted-rgb), 0.12);
   overflow: hidden;
   transition: all 0.15s;
   cursor: pointer;
 
   &:hover {
-    border-color: rgba(160, 130, 80, 0.25);
+    border-color: rgba(var(--gold-muted-rgb), 0.25);
   }
 `;
 
@@ -606,7 +606,7 @@ export default function ActiveGamesSidebar({ matches = [], finishedMatches = [],
         {sortedMatches.length === 0 && finishedMatches.length === 0 ? (
           <Content>
             {[...Array(5)].map((_, i) => (
-              <div key={i} style={{ margin: "var(--space-2) 0", borderRadius: "var(--radius-md)", border: "1px solid rgba(160, 130, 80, 0.12)", overflow: "hidden" }}>
+              <div key={i} style={{ margin: "var(--space-2) 0", borderRadius: "var(--radius-md)", border: "1px solid rgba(var(--gold-muted-rgb), 0.12)", overflow: "hidden" }}>
                 <div style={{ display: "flex", alignItems: "center", gap: "12px", padding: "var(--space-3) var(--space-4)" }}>
                   <Skeleton $w="36px" $h="36px" $radius="var(--radius-sm)" />
                   <Skeleton $w="100px" $h="14px" style={{ flex: 1 }} />

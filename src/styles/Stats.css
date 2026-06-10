@@ -194,21 +194,21 @@
   transition: width 0.3s ease;
 }
 
-/* League bar colors - match league icons */
-.stats-bar.league-0 { background: linear-gradient(90deg, #c9a227, #f5d742); } /* Grandmaster - gold */
-.stats-bar.league-1 { background: linear-gradient(90deg, #7b5dbd, #a78bfa); } /* Master - purple */
-.stats-bar.league-2 { background: linear-gradient(90deg, #38bdf8, #67e8f9); } /* Diamond - cyan */
-.stats-bar.league-3 { background: linear-gradient(90deg, #22c55e, #4ade80); } /* Platinum - green */
-.stats-bar.league-4 { background: linear-gradient(90deg, #eab308, #facc15); } /* Gold - yellow */
-.stats-bar.league-5 { background: linear-gradient(90deg, #94a3b8, #cbd5e1); } /* Silver - grey */
-.stats-bar.league-6 { background: linear-gradient(90deg, #b45309, #f59e0b); } /* Bronze - orange */
+/* League bar colors - tokens defined in App.css :root / design-tokens.js */
+.stats-bar.league-0 { background: var(--league-grandmaster); }
+.stats-bar.league-1 { background: var(--league-master); }
+.stats-bar.league-2 { background: var(--league-diamond); }
+.stats-bar.league-3 { background: var(--league-platinum); }
+.stats-bar.league-4 { background: var(--league-gold); }
+.stats-bar.league-5 { background: var(--league-silver); }
+.stats-bar.league-6 { background: var(--league-bronze); }
 
-/* Race bar colors - classic WC3 faction colors */
-.stats-bar.race-1 { background: linear-gradient(90deg, #3b82f6, #60a5fa); } /* Human - blue */
-.stats-bar.race-2 { background: linear-gradient(90deg, #dc2626, #f87171); } /* Orc - red */
-.stats-bar.race-4 { background: linear-gradient(90deg, #22c55e, #4ade80); } /* Night Elf - green */
-.stats-bar.race-8 { background: linear-gradient(90deg, #7c3aed, #a78bfa); } /* Undead - purple */
-.stats-bar.race-0 { background: linear-gradient(90deg, #6b7280, #9ca3af); } /* Random - gray */
+/* Race bar colors - tokens defined in App.css :root / design-tokens.js */
+.stats-bar.race-1 { background: var(--race-human); }
+.stats-bar.race-2 { background: var(--race-orc); }
+.stats-bar.race-4 { background: var(--race-nightelf); }
+.stats-bar.race-8 { background: var(--race-undead); }
+.stats-bar.race-0 { background: var(--race-random); }
 
 .stats-values {
   display: flex;

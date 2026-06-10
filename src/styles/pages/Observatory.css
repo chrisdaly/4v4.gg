@@ -70,8 +70,8 @@
 }
 
 .event-feed-list::-webkit-scrollbar-thumb {
-  background: rgba(255, 255, 255, 0.1);
-  border-radius: 2px;
+  background: var(--surface-3);
+  border-radius: var(--radius-sm);
 }
 
 .event-item {
@@ -253,7 +253,7 @@
   padding: 1px 6px;
   background: rgba(255, 255, 255, 0.04);
   border: 1px solid transparent;
-  border-radius: 4px;
+  border-radius: var(--radius-md);
   font-size: var(--text-xs);
   cursor: pointer;
   transition: background 0.15s, border-color 0.15s;
@@ -265,7 +265,7 @@
 
 .flag-badge-active {
   background: rgba(252, 219, 51, 0.12);
-  border-color: rgba(252, 219, 51, 0.3);
+  border-color: var(--gold-border-hover);
 }
 
 .flag-badge-clear {
@@ -316,7 +316,7 @@
   color: var(--gold);
   background: rgba(252, 219, 51, 0.12);
   padding: 2px 8px;
-  border-radius: 10px;
+  border-radius: var(--radius-lg);
 }
 
 /* ── Empty / loading states ────────────────────────── */

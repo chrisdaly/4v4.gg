@@ -2,178 +2,6 @@
    Ladder Page Styles
    ======================================== */
 
-/* League Distribution Chart */
-.league-distribution {
-  max-width: 1000px;
-  margin: 0 auto var(--space-6) auto;
-  padding: var(--space-4) var(--space-6);
-  background: linear-gradient(180deg, rgba(20, 20, 20, 0.9) 0%, rgba(10, 10, 10, 0.95) 100%);
-  border: var(--border-thin) solid var(--grey-mid);
-  border-radius: var(--radius-md);
-}
-
-.distribution-header {
-  display: flex;
-  justify-content: space-between;
-  align-items: center;
-  margin-bottom: var(--space-4);
-  padding-bottom: var(--space-4);
-  border-bottom: var(--border-thin) solid var(--grey-mid);
-}
-
-.distribution-title {
-  font-family: var(--font-display);
-  font-size: var(--text-base);
-  color: var(--gold);
-  letter-spacing: 0.5px;
-}
-
-.distribution-total {
-  font-family: var(--font-mono);
-  font-size: var(--text-sm);
-  color: var(--grey-light);
-}
-
-.distribution-bars {
-  display: flex;
-  flex-direction: column;
-  gap: var(--space-2);
-}
-
-.distribution-row {
-  display: grid;
-  grid-template-columns: 120px 1fr 100px;
-  align-items: center;
-  gap: 12px;
-  padding: 6px 8px;
-  border-radius: 4px;
-  cursor: pointer;
-  transition: all 0.2s ease;
-}
-
-.distribution-row:hover {
-  background: rgba(252, 219, 51, 0.05);
-}
-
-.distribution-row.selected {
-  background: rgba(252, 219, 51, 0.1);
-  border: 1px solid rgba(252, 219, 51, 0.3);
-  margin: -1px;
-}
-
-.distribution-label {
-  display: flex;
-  align-items: center;
-  gap: var(--space-2);
-}
-
-.distribution-icon {
-  width: 20px;
-  height: 20px;
-}
-
-.distribution-name {
-  font-family: var(--font-display);
-  font-size: var(--text-sm);
-  color: var(--white);
-}
-
-.distribution-bar-container {
-  height: 16px;
-  background: rgba(30, 30, 30, 0.8);
-  border-radius: 2px;
-  overflow: hidden;
-}
-
-.distribution-bar {
-  height: 100%;
-  border-radius: 2px;
-  transition: width 0.5s ease;
-}
-
-/* League-specific bar colors */
-.distribution-bar.league-0 {
-  background: linear-gradient(90deg, #9b59b6 0%, #8e44ad 100%);
-}
-
-.distribution-bar.league-1 {
-  background: linear-gradient(90deg, #e74c3c 0%, #c0392b 100%);
-}
-
-.distribution-bar.league-2 {
-  background: linear-gradient(90deg, #3498db 0%, #2980b9 100%);
-}
-
-.distribution-bar.league-3 {
-  background: linear-gradient(90deg, #1abc9c 0%, #16a085 100%);
-}
-
-.distribution-bar.league-4 {
-  background: linear-gradient(90deg, #f1c40f 0%, #d4a40a 100%);
-}
-
-.distribution-bar.league-5 {
-  background: linear-gradient(90deg, #95a5a6 0%, #7f8c8d 100%);
-}
-
-.distribution-bar.league-6 {
-  background: linear-gradient(90deg, #cd7f32 0%, #a36429 100%);
-}
-
-.distribution-stats {
-  display: flex;
-  justify-content: flex-end;
-  gap: 12px;
-  font-family: var(--font-mono);
-  font-size: var(--text-sm);
-}
-
-.distribution-count {
-  color: var(--white);
-  min-width: 40px;
-  text-align: right;
-}
-
-.distribution-percent {
-  color: var(--grey-light);
-  min-width: 45px;
-  text-align: right;
-}
-
-.distribution-loading {
-  text-align: center;
-  padding: 20px;
-  color: var(--grey-light);
-  font-family: var(--font-mono);
-  font-size: var(--text-sm);
-}
-
-/* Responsive distribution chart */
-@media (max-width: 600px) {
-  .distribution-row {
-    grid-template-columns: 100px 1fr 70px;
-    gap: var(--space-2);
-  }
-
-  .distribution-icon {
-    width: 16px;
-    height: 16px;
-  }
-
-  .distribution-name {
-    font-size: var(--text-xxxs);
-  }
-
-  .distribution-stats {
-    gap: 6px;
-    font-size: var(--text-xxxs);
-  }
-
-  .distribution-percent {
-    display: none;
-  }
-}
-
 /* Ladder-specific header elements */
 .page-stats .stat-item.in-game {
   color: var(--red);
@@ -330,11 +158,11 @@
 }
 
 .ladder-row.odd {
-  background: rgba(255, 255, 255, 0.02);
+  background: var(--surface-1);
 }
 
 .ladder-row:hover {
-  background: rgba(252, 219, 51, 0.05);
+  background: var(--gold-tint-subtle);
 }
 
 .ladder-row:last-child {
@@ -682,18 +510,18 @@
   align-items: center;
   gap: var(--space-2);
   padding: 6px 8px;
-  background: rgba(255, 255, 255, 0.02);
-  border-radius: 4px;
+  background: var(--surface-1);
+  border-radius: var(--radius-md);
   transition: background 0.2s;
 }
 
 .ladder-neighbor-row:hover {
-  background: rgba(255, 255, 255, 0.05);
+  background: var(--surface-2);
 }
 
 .ladder-neighbor-row.current-player {
-  background: rgba(252, 219, 51, 0.1);
-  border: 1px solid rgba(252, 219, 51, 0.3);
+  background: var(--gold-tint);
+  border: 1px solid var(--gold-border-hover);
 }
 
 .neighbor-rank {

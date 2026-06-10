@@ -58,7 +58,7 @@
   display: inline-flex;
   align-items: center;
   padding: 0.4rem 0.9rem;
-  border-radius: 9999px;
+  border-radius: var(--radius-full);
   border: 1px solid var(--grey-mid);
   background: rgba(255, 255, 255, 0.03);
   font-size: 0.72rem;
@@ -75,7 +75,7 @@
   display: grid;
   gap: var(--space-6);
   border-radius: 12px;
-  background: rgba(255, 255, 255, 0.02);
+  background: var(--surface-1);
   border: 1px solid var(--grey-mid);
   padding: var(--space-8);
   box-shadow: 0 18px 44px rgba(0, 0, 0, 0.4);
@@ -101,7 +101,7 @@
 
 .sr-token {
   background: rgba(255, 255, 255, 0.03);
-  border-radius: 8px;
+  border-radius: var(--radius-lg);
   border: 1px dashed var(--grey-mid);
   padding: 16px;
 }
@@ -127,7 +127,7 @@
   position: relative;
   padding: 48px;
   border-radius: 16px;
-  background: rgba(255, 255, 255, 0.02);
+  background: var(--surface-1);
   border: 1px solid var(--grey-mid);
   box-shadow: 0 18px 44px rgba(0, 0, 0, 0.3);
   margin-bottom: 64px;
@@ -172,7 +172,7 @@
   text-transform: uppercase;
   letter-spacing: 0.14em;
   padding: 0.35rem 0.8rem;
-  border-radius: 9999px;
+  border-radius: var(--radius-full);
   border: 1px solid var(--grey-mid);
   background: rgba(255, 255, 255, 0.03);
   color: var(--grey-light);
@@ -182,7 +182,7 @@
 .sr-badge.gold {
   background: rgba(252, 219, 51, 0.12);
   color: var(--gold);
-  border-color: rgba(252, 219, 51, 0.3);
+  border-color: var(--gold-border-hover);
 }
 .sr-badge.green {
   background: rgba(74, 222, 128, 0.12);
@@ -354,7 +354,7 @@
 .sr-space-bar {
   height: 16px;
   background: var(--gold);
-  border-radius: 2px;
+  border-radius: var(--radius-sm);
   opacity: 0.7;
 }
 
@@ -407,13 +407,13 @@
 }
 
 .sr-btn-secondary:hover {
-  background: rgba(252, 219, 51, 0.1);
+  background: var(--gold-tint);
 }
 
 /* Dots */
 .sr-dot {
   display: inline-block;
-  border-radius: 9999px;
+  border-radius: var(--radius-full);
 }
 
 .sr-dot.win { background: var(--green); }
@@ -486,8 +486,8 @@
 }
 
 .sr-stat {
-  background: rgba(255, 255, 255, 0.02);
-  border-radius: 8px;
+  background: var(--surface-1);
+  border-radius: var(--radius-lg);
   border: 1px solid var(--grey-mid);
   padding: 12px;
   text-align: center;
@@ -514,7 +514,7 @@
   width: 100%;
   border-collapse: collapse;
   font-size: 0.9rem;
-  background: rgba(255, 255, 255, 0.02);
+  background: var(--surface-1);
   border-radius: 12px;
   overflow: hidden;
   border: 1px solid var(--grey-mid);
@@ -524,7 +524,7 @@
 .sr-table td {
   text-align: left;
   padding: 12px 16px;
-  border-bottom: 1px solid rgba(255, 255, 255, 0.05);
+  border-bottom: 1px solid var(--surface-2);
   color: var(--white);
 }
 
@@ -563,7 +563,7 @@
   width: 100%;
   height: 50px;
   border: 1px solid var(--grey-mid);
-  border-radius: 8px;
+  border-radius: var(--radius-lg);
   display: flex;
   align-items: center;
   justify-content: center;
@@ -613,7 +613,7 @@
 .sr-code {
   background: var(--grey-dark);
   padding: 16px;
-  border-radius: 8px;
+  border-radius: var(--radius-lg);
   color: var(--grey-light);
   font-family: var(--font-mono);
   font-size: 0.78rem;
@@ -644,7 +644,7 @@
 
 .sr-mmr-box {
   height: 160px;
-  background: rgba(255, 255, 255, 0.02);
+  background: var(--surface-1);
   border-radius: 12px;
   border: 1px solid var(--grey-mid);
   padding: 8px;
