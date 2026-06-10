@@ -1,19 +1,19 @@
-# Litestream continuous SQLite replication.
-# Active only when LITESTREAM_REPLICA_URL is set (see docker-entrypoint.sh).
+# Litestream continuous SQLite replication to Tigris (Fly object storage).
+# Active only when BUCKET_NAME is set (see docker-entrypoint.sh).
 #
-# Required Fly secrets:
-#   fly secrets set -a 4v4gg-chat-relay \
-#     LITESTREAM_REPLICA_URL=s3://<bucket>/chat-db \
-#     LITESTREAM_ACCESS_KEY_ID=<key> \
-#     LITESTREAM_SECRET_ACCESS_KEY=<secret>
-#
-# For Cloudflare R2, also set the endpoint in the URL form:
-#   LITESTREAM_REPLICA_URL=s3://<bucket>.<account-id>.r2.cloudflarestorage.com/chat-db
+# Provisioning (sets BUCKET_NAME + AWS_* secrets on the app automatically):
+#   fly storage create -a 4v4gg-chat-relay -n 4v4gg-chat-db
 #
 # Restore (after data loss):
 #   litestream restore -config /etc/litestream.yml -o /data/chat.db /data/chat.db
 dbs:
   - path: /data/chat.db
     replicas:
-      - url: ${LITESTREAM_REPLICA_URL}
+      - type: s3
+        bucket: ${BUCKET_NAME}
+        path: chat-db
+        endpoint: ${AWS_ENDPOINT_URL_S3}
+        region: ${AWS_REGION}
+        access-key-id: ${AWS_ACCESS_KEY_ID}
+        secret-access-key: ${AWS_SECRET_ACCESS_KEY}
         sync-interval: 10s

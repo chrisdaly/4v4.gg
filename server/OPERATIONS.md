@@ -10,14 +10,13 @@ Runbook for the `4v4gg-chat-relay` Fly app (single machine, region `ewr`, SQLite
 
 ## Backups (Litestream)
 
-The Docker image bundles [Litestream](https://litestream.io). It activates when the replica URL secret is set:
+The Docker image bundles [Litestream](https://litestream.io), replicating to a Tigris bucket (Fly object storage). It activates when `BUCKET_NAME` is set, which happens automatically when the bucket is provisioned:
 
 ```bash
-fly secrets set -a 4v4gg-chat-relay \
-  LITESTREAM_REPLICA_URL=s3://<bucket>/chat-db \
-  LITESTREAM_ACCESS_KEY_ID=<key> \
-  LITESTREAM_SECRET_ACCESS_KEY=<secret>
+fly storage create -a 4v4gg-chat-relay -n 4v4gg-chat-db
 ```
+
+This sets `BUCKET_NAME` + `AWS_*` secrets on the app. Bucket `4v4gg-chat-db` was provisioned June 10, 2026.
 
 Startup logs show either `[Litestream] Replicating ...` or `running WITHOUT off-site backup`.
 

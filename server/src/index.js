@@ -92,9 +92,9 @@ const runCheckpoint = () => {
     console.error('[Checkpoint] Error:', err.message);
   }
 };
-// When Litestream is replicating, it owns WAL checkpointing — a competing
-// TRUNCATE checkpoint would only ever report busy.
-if (!process.env.LITESTREAM_REPLICA_URL) {
+// When Litestream is replicating (BUCKET_NAME set), it owns WAL
+// checkpointing — a competing TRUNCATE checkpoint would only ever report busy.
+if (!process.env.BUCKET_NAME) {
   setInterval(runCheckpoint, 30 * 60 * 1000);
 }
 
