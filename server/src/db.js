@@ -1034,6 +1034,18 @@ export function toggleWeeklyPublished(weekStart) {
   return db.prepare('SELECT published FROM weekly_digests WHERE week_start = ?').get(weekStart);
 }
 
+export function getSetting(key) {
+  const row = db.prepare('SELECT value FROM settings WHERE key = ?').get(key);
+  return row?.value ?? null;
+}
+
+export function setSetting(key, value) {
+  db.prepare(`
+    INSERT INTO settings (key, value) VALUES (?, ?)
+    ON CONFLICT(key) DO UPDATE SET value = excluded.value
+  `).run(key, value);
+}
+
 export function getToken() {
   const row = db.prepare("SELECT value FROM settings WHERE key = 'w3c_jwt'").get();
   return row?.value || null;

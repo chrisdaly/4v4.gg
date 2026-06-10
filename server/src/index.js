@@ -18,6 +18,7 @@ import twitchRoutes from './routes/twitch.js';
 import { startClipScheduler } from './clips.js';
 import { startFeedbackScheduler } from './feedback.js';
 import { startReplayImporter } from './replayImporter.js';
+import { startTokenMonitor, getTokenHealth } from './tokenMonitor.js';
 
 const app = express();
 app.set('trust proxy', 1);
@@ -35,7 +36,9 @@ app.use('/api/twitch', twitchRoutes);
 app.use('/og', ogRoutes);
 // Lightweight health check for Fly proxy (must respond fast)
 app.get('/api/health', (_req, res) => {
-  res.json({ status: 'ok', uptime: process.uptime() });
+  let token = {};
+  try { token = getTokenHealth(); } catch { /* keep health fast and infallible */ }
+  res.json({ status: 'ok', uptime: process.uptime(), ...token });
 });
 
 initDb();
@@ -68,6 +71,9 @@ startFeedbackScheduler();
 
 // Replay importer — drip-import replays from W3C ladder players
 startReplayImporter();
+
+// Token monitor — warn + file GitHub issue before the weekly W3C JWT expires
+startTokenMonitor();
 
 // Event cleanup — delete events older than 14 days, run every 6 hours
 const runCleanup = () => {

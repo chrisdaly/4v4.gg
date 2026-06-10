@@ -45,7 +45,11 @@ If the machine crash-loops, that is intentional: a crash-looping server is recov
 
 ## W3C chat token
 
-The SignalR token expires periodically. Symptom: `[SignalR] Authorization failed — token is invalid` repeating every 60s in logs — **chat messages are silently not captured while this persists.** Fix: obtain a fresh W3C JWT and inject it:
+The SignalR JWT expires **7 days after issue** (hardcoded in W3C's identification-service; no refresh endpoint exists). It is only validated at connection handshake, so a stable connection can outlive its token — but any reconnect after expiry fails with `[SignalR] Authorization failed` and **chat capture silently stops**.
+
+Monitoring: the server checks the token every 30 min, exposes `signalr` / `tokenExpiresAt` / `tokenExpiresInHours` in `GET /api/health`, and files a GitHub issue (label `relay-ops`) once per token when expiry is <24h away or auth has failed.
+
+Renewal: log into w3champions.com with the relay account, copy the `eyJ…` JWT from localStorage (DevTools → Application), and inject it:
 
 ```bash
 curl -X POST https://4v4gg-chat-relay.fly.dev/api/admin/token \

@@ -14,6 +14,7 @@ let state = 'Disconnected';
 let onlineUsers = new Map(); // battleTag → { battleTag, name, clanTag }
 let reconnectTimer = null;
 let reconnectAttempt = 0;
+let lastAuthFailureAt = null;
 
 function scheduleReconnect() {
   if (state === 'auth_failed' || state === 'banned' || state === 'stopped') return;
@@ -159,9 +160,11 @@ async function connect() {
     broadcast('bulk_delete', { ids: messageIds });
   });
 
-  // AuthorizationFailed — token invalid
+  // AuthorizationFailed — token invalid. connection.stop() fires onclose,
+  // which overwrites `state`, so the failure is tracked in its own timestamp.
   connection.on('AuthorizationFailed', () => {
     state = 'auth_failed';
+    lastAuthFailureAt = Date.now();
     console.error('[SignalR] Authorization failed — token is invalid');
     broadcast('status', { state });
     connection.stop();
@@ -202,6 +205,7 @@ async function connect() {
     await connection.start();
     state = 'Connected';
     reconnectAttempt = 0;
+    lastAuthFailureAt = null;
     if (reconnectTimer) { clearTimeout(reconnectTimer); reconnectTimer = null; }
     console.log('[SignalR] Connected to chat hub');
     broadcast('status', { state });
@@ -240,6 +244,7 @@ export function getStatus() {
   return {
     state,
     hasToken: !!currentToken,
+    lastAuthFailureAt,
   };
 }
 
