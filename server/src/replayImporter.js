@@ -11,7 +11,7 @@
  */
 
 import config from './config.js';
-import { writeFileSync } from 'fs';
+import { writeFileSync, unlinkSync, statfsSync } from 'fs';
 import { join } from 'path';
 import { parseReplayFile } from './replayParser.js';
 import {
@@ -43,6 +43,24 @@ let isRunning = false;
 let discoverCooldown = 0; // skip discover if we recently filled the queue
 
 const sleep = (ms) => new Promise(r => setTimeout(r, ms));
+
+// The importer must never starve the database of disk (a full volume is what
+// corrupted the DB in June 2026). Pause imports when free space drops below 15%.
+const MIN_FREE_RATIO = 0.15;
+
+function diskHasHeadroom() {
+  try {
+    const s = statfsSync(REPLAY_DIR);
+    const free = s.bavail / s.blocks;
+    if (free < MIN_FREE_RATIO) {
+      console.warn(`[Importer] Low disk space (${Math.round(free * 100)}% free) — pausing imports until space is freed`);
+      return false;
+    }
+    return true;
+  } catch {
+    return true; // guard failure shouldn't block imports
+  }
+}
 
 /** Fisher-Yates shuffle (in-place) */
 function shuffle(arr) {
@@ -155,7 +173,9 @@ async function importMatch({ matchId, players: w3cPlayers }) {
   // Insert DB record
   const replayId = insertReplayWithW3c({ filename, filePath, fileSize: replayBuffer.length, w3cMatchId: matchId });
 
-  // Parse
+  // Parse. raw_parsed is intentionally not stored — nothing reads it, and at
+  // ~1MB per replay it was the main driver of DB bloat. W3C can re-serve any
+  // replay by match ID if a re-parse is ever needed.
   const parsed = await parseReplayFile(filePath);
   updateReplayParsed(replayId, {
     gameName: parsed.metadata.gameName,
@@ -163,7 +183,7 @@ async function importMatch({ matchId, players: w3cPlayers }) {
     mapName: parsed.metadata.mapName,
     matchType: parsed.metadata.matchType,
     matchDate: parsed.metadata.matchDate,
-    rawParsed: JSON.stringify(parsed),
+    rawParsed: null,
   });
 
   // Match battletags
@@ -211,6 +231,11 @@ async function importMatch({ matchId, players: w3cPlayers }) {
     computeEmbeddingsAsync(replayId, parsed.actions).catch(() => {});
   } catch { /* fingerprint error is non-fatal */ }
 
+  // Everything useful is extracted — drop the .w3g to keep the volume from
+  // filling up (root cause of the June 2026 corruption). Only delete the file
+  // THIS import wrote; orphaned files from older imports are left alone.
+  try { unlinkSync(filePath); } catch { /* already gone */ }
+
   return { status: 'imported', replayId, playerCount: playersWithTags.length };
 }
 
@@ -237,6 +262,7 @@ async function computeEmbeddingsAsync(replayId, actions) {
  */
 async function runCycle() {
   if (isRunning) return;
+  if (!diskHasHeadroom()) return;
   isRunning = true;
 
   try {
@@ -300,6 +326,7 @@ async function runCycle() {
  * Returns { discovered, alreadyImported, imported, errors, noReplay, filteredShort }.
  */
 export async function importPlayerMatches(battleTag, targetImports = 3, seasonOverride = null) {
+  if (!diskHasHeadroom()) throw new Error('Disk space low — imports are paused');
   let season = seasonOverride;
   if (!season) {
     season = 24;

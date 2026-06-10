@@ -81,9 +81,9 @@ const runCleanup = () => {
 runCleanup();
 setInterval(runCleanup, 6 * 60 * 60 * 1000);
 
-// WAL checkpoint — flush WAL data into main DB file every 4 hours
-// so Fly volume snapshots capture a consistent database
-import { walCheckpoint } from './db.js';
+// WAL checkpoint — flush WAL data into main DB file every 30 minutes
+// so volume snapshots capture a consistent database and the WAL stays small
+import { walCheckpoint, closeDb } from './db.js';
 const runCheckpoint = () => {
   try {
     const result = walCheckpoint();
@@ -92,7 +92,24 @@ const runCheckpoint = () => {
     console.error('[Checkpoint] Error:', err.message);
   }
 };
-setInterval(runCheckpoint, 4 * 60 * 60 * 1000);
+// When Litestream is replicating, it owns WAL checkpointing — a competing
+// TRUNCATE checkpoint would only ever report busy.
+if (!process.env.LITESTREAM_REPLICA_URL) {
+  setInterval(runCheckpoint, 30 * 60 * 1000);
+}
+
+// Graceful shutdown — checkpoint + close the DB so deploys never leave a
+// mid-write WAL behind
+let shuttingDown = false;
+const shutdown = (signal) => {
+  if (shuttingDown) return;
+  shuttingDown = true;
+  console.log(`[Server] ${signal} received, closing DB and exiting...`);
+  closeDb();
+  process.exit(0);
+};
+process.on('SIGTERM', () => shutdown('SIGTERM'));
+process.on('SIGINT', () => shutdown('SIGINT'));
 
 app.listen(config.PORT, () => {
   console.log(`[Server] Chat relay listening on :${config.PORT}`);

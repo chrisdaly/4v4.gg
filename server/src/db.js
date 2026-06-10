@@ -17,46 +17,38 @@ function tryAddColumn(sql) {
 export function initDb() {
   mkdirSync(dirname(config.DB_PATH), { recursive: true });
 
-  // Recovery: handle corrupted WAL/SHM or DB file
-  // Strategy: try to open normally, if IOERR remove WAL/SHM, if CORRUPT rebuild via .dump
+  // Recovery: never destroy data automatically. The WAL holds committed
+  // transactions, and a failed .recover must not be replaced by an empty DB —
+  // both cases need an operator (restore from Litestream/snapshot, or run
+  // .recover by hand with enough free disk).
   try {
     db = new Database(config.DB_PATH);
     db.pragma('journal_mode = WAL');
   } catch (err) {
     const code = err.code || '';
     if (code.startsWith('SQLITE_IOERR')) {
-      console.log(`[DB] SQLite I/O error (${code}), removing WAL/SHM files and retrying...`);
-      try { if (db) db.close(); } catch { /* ignore */ }
-      const shmPath = config.DB_PATH + '-shm';
-      const walPath = config.DB_PATH + '-wal';
-      if (existsSync(shmPath)) unlinkSync(shmPath);
-      if (existsSync(walPath)) unlinkSync(walPath);
-      db = new Database(config.DB_PATH);
-      db.pragma('journal_mode = WAL');
-      console.log('[DB] WAL recovery successful');
+      console.error(`[DB] FATAL: SQLite I/O error (${code}) opening ${config.DB_PATH}.`);
+      console.error('[DB] Likely cause: disk full or unreadable WAL/SHM. NOT deleting the WAL — it contains committed writes.');
+      console.error('[DB] Operator action: free disk space (check /data/replays), then restart. If the WAL itself is damaged, copy db+wal+shm aside before any repair attempt.');
+      process.exit(1);
     } else if (code === 'SQLITE_CORRUPT') {
       console.log('[DB] Database is corrupt, attempting rebuild via .recover...');
       try { if (db) db.close(); } catch { /* ignore */ }
-      // execSync imported at top
       const backupPath = config.DB_PATH + '.corrupt';
       const recoveredPath = config.DB_PATH + '.recovered';
       // Rename corrupt DB, dump what's recoverable, and recreate
       execSync(`mv "${config.DB_PATH}" "${backupPath}"`);
-      let recovered = false;
       try {
         execSync(`sqlite3 "${backupPath}" ".recover" | sqlite3 "${recoveredPath}"`, { timeout: 300000 });
         execSync(`mv "${recoveredPath}" "${config.DB_PATH}"`);
-        recovered = true;
-        console.log('[DB] Rebuild from .recover successful');
+        console.log(`[DB] Rebuild from .recover successful (corrupt original kept at ${backupPath})`);
       } catch (rebuildErr) {
-        console.error(`[DB] .recover failed, starting fresh (corrupt backup kept at ${backupPath}):`, rebuildErr.message);
+        // Put the corrupt DB back so the operator sees the original state.
         if (existsSync(recoveredPath)) unlinkSync(recoveredPath);
-      }
-      if (recovered) {
-        // Clean up corrupt backup to avoid filling disk
-        for (const suffix of ['', '-shm', '-wal']) {
-          if (existsSync(backupPath + suffix)) unlinkSync(backupPath + suffix);
-        }
+        if (!existsSync(config.DB_PATH)) execSync(`mv "${backupPath}" "${config.DB_PATH}"`);
+        console.error('[DB] FATAL: .recover failed:', rebuildErr.message);
+        console.error('[DB] Refusing to start with an empty database. Restore from Litestream/snapshot, or run .recover manually with enough free disk.');
+        process.exit(1);
       }
       db = new Database(config.DB_PATH);
       db.pragma('journal_mode = WAL');
@@ -489,6 +481,15 @@ export function initDb() {
 export function walCheckpoint() {
   const row = db.pragma('wal_checkpoint(TRUNCATE)');
   return row[0]; // { busy, log, checkpointed }
+}
+
+// Graceful shutdown: flush the WAL and close cleanly so deploys/restarts
+// always leave a consistent DB file on disk.
+export function closeDb() {
+  if (!db) return;
+  try { db.pragma('wal_checkpoint(TRUNCATE)'); } catch { /* best effort */ }
+  try { db.close(); } catch { /* best effort */ }
+  db = null;
 }
 
 // ── Variant generation CRUD ──────────────────────────

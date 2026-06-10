@@ -39,6 +39,8 @@ VITE_CHAT_RELAY_URL=http://localhost:3002
 
 The relay server source is in `server/`. Token is injected via `POST /api/admin/token` with `X-API-Key` header.
 
+**Operations:** see `server/OPERATIONS.md` for the production runbook — backups (Litestream), DB corruption recovery, disk management, token refresh, and the June 2026 data-loss incident. Key rules: never scale the relay above 1 machine (volume split-brain), and the server intentionally exits rather than auto-repairing a corrupt DB.
+
 ## Architecture
 
 ### Data Flow
