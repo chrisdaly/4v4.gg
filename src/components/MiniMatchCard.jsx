@@ -21,6 +21,7 @@ const TeamCol = styled.div`
   min-width: 0;
   display: flex;
   flex-direction: column;
+  justify-content: center;
   gap: 5px;
   ${(p) => p.$right && "align-items: flex-end; text-align: right;"}
   ${(p) => p.$dim && "opacity: 0.55;"}
@@ -29,10 +30,7 @@ const TeamCol = styled.div`
 const TeamHeader = styled.div`
   display: flex;
   align-items: center;
-  gap: 5px;
-  font-family: var(--font-mono);
-  font-size: var(--text-xxs);
-  color: var(--white);
+  min-height: 13px;
   margin-bottom: 2px;
 `;
 
@@ -85,9 +83,10 @@ const ChartMid = styled.div`
 `;
 
 /**
- * teamA / teamB: { players: [{battleTag, name, race, mmr}], mmr, winner }
+ * teamA / teamB: { players: [{battleTag, name, race, mmr}], winner }
  * dimLosers: fade the non-winner column (finished games)
  * showChart: render the vertical MMR dot chart between the columns
+ *            (fixed 700–2700 scale so dot height compares across games)
  * hoverData: optional { avatars, stats, sessions, inGameTags, inGameInfoMap }
  *            — enables PlayerHoverCard on names when the caller has the maps
  */
@@ -116,12 +115,15 @@ export default function MiniTeamsRow({ teamA, teamB, dimLosers = false, showChar
     );
   };
 
+  const showHeader = teamA.winner || teamB.winner;
+
   const renderTeamCol = (team, { right = false } = {}) => (
     <TeamCol $right={right} $dim={dimLosers && !team.winner}>
-      <TeamHeader>
-        {team.winner && <Crown src={crownIcon} alt="winners" />}
-        {team.mmr != null && <span>{team.mmr} MMR</span>}
-      </TeamHeader>
+      {showHeader && (
+        <TeamHeader>
+          {team.winner && <Crown src={crownIcon} alt="winners" />}
+        </TeamHeader>
+      )}
       {(team.players || []).map((p, i) => (
         <PlayerRow key={p.battleTag || i} $reverse={right}>
           <RaceImg
@@ -148,7 +150,6 @@ export default function MiniTeamsRow({ teamA, teamB, dimLosers = false, showChar
               teamTwoMmrs: (teamB.players || []).map((p) => p.mmr || 0),
             }}
             compact
-            fitToData
             hideLabels
           />
         </ChartMid>

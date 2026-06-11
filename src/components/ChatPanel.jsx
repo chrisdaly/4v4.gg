@@ -629,9 +629,9 @@ const eventSlideIn = keyframes`
 `;
 
 const finishGlow = keyframes`
-  0% { box-shadow: 0 0 0 rgba(252, 219, 51, 0); }
-  30% { box-shadow: 0 0 14px rgba(252, 219, 51, 0.35); }
-  100% { box-shadow: 0 0 0 rgba(252, 219, 51, 0); }
+  0% { box-shadow: 0 0 0 rgba(194, 52, 52, 0); }
+  30% { box-shadow: 0 0 14px rgba(194, 52, 52, 0.35); }
+  100% { box-shadow: 0 0 0 rgba(194, 52, 52, 0); }
 `;
 
 const GameEventCard = styled.div`
@@ -642,8 +642,8 @@ const GameEventCard = styled.div`
   box-sizing: border-box;
   margin: var(--space-3) var(--space-4);
   padding: var(--space-2) var(--space-3);
-  border-left: 2px solid ${(p) => (p.$end ? "rgba(var(--gold-muted-rgb), 0.5)" : "rgba(194, 52, 52, 0.5)")};
-  background: ${(p) => (p.$end ? "rgba(var(--gold-muted-rgb), 0.04)" : "rgba(255, 255, 255, 0.02)")};
+  border-left: 2px solid ${(p) => (p.$end ? "rgba(248, 113, 113, 0.5)" : "rgba(74, 222, 128, 0.5)")};
+  background: rgba(255, 255, 255, 0.02);
   border-radius: 0 var(--radius-sm) var(--radius-sm) 0;
   font-family: var(--font-mono);
   font-size: var(--text-xxs);
@@ -656,7 +656,7 @@ const GameEventCard = styled.div`
     `}
 
   &:hover {
-    background: ${(p) => (p.$end ? "rgba(var(--gold-muted-rgb), 0.08)" : "rgba(255, 255, 255, 0.04)")};
+    background: rgba(255, 255, 255, 0.04);
   }
 
   a {
@@ -669,10 +669,14 @@ const GameEventCard = styled.div`
 `;
 
 const EventTagCol = styled.div`
+  width: 84px;
   flex-shrink: 0;
   display: flex;
+  flex-direction: column;
   align-items: center;
-  align-self: stretch;
+  justify-content: center;
+  gap: 4px;
+  text-align: center;
 `;
 
 const EventMapBlock = styled.div`
@@ -724,8 +728,8 @@ const EventTag = styled.span`
   letter-spacing: 0.08em;
   padding: 3px 7px;
   border-radius: var(--radius-sm);
-  color: ${(p) => (p.$end ? "var(--gold)" : "var(--red)")};
-  background: ${(p) => (p.$end ? "var(--gold-tint)" : "var(--red-tint)")};
+  color: ${(p) => (p.$end ? "var(--red)" : "var(--green)")};
+  background: ${(p) => (p.$end ? "var(--red-tint)" : "var(--green-tint)")};
 `;
 
 const EventLiveDot = styled.span`
@@ -1537,8 +1541,6 @@ export default function ChatPanel({
                     const teamA = isEnd ? ev.winners : ev.teams?.[0];
                     const teamB = isEnd ? ev.losers : ev.teams?.[1];
                     const eventLink = isEnd ? `/match/${ev.matchId}` : "/live";
-                    const teamAMmr = isEnd ? ev.winnersMmr : ev.teamMmrs?.[0];
-                    const teamBMmr = isEnd ? ev.losersMmr : ev.teamMmrs?.[1];
                     const hasChart = (teamA || []).some((p) => p.mmr > 0);
                     const stillRunning = !isEnd && ongoingMatchIds?.has(ev.matchId);
                     const liveMins = stillRunning ? formatGameMinutes(ev.time) : null;
@@ -1552,18 +1554,6 @@ export default function ChatPanel({
                       >
                         <EventTagCol>
                           <EventTag $end={isEnd}>{isEnd ? "Finish" : "Start"}</EventTag>
-                        </EventTagCol>
-                        <EventMapBlock>
-                          {mapImg && (
-                            <Link to={eventLink} onClick={(e) => e.stopPropagation()}>
-                              <EventMapImg src={mapImg} alt="" onError={(e) => { e.target.style.display = "none"; }} />
-                            </Link>
-                          )}
-                          {ev.mapName && (
-                            <EventMapName to={eventLink} onClick={(e) => e.stopPropagation()}>
-                              {ev.mapName}
-                            </EventMapName>
-                          )}
                           {isEnd ? (
                             <>
                               {duration && <EventMapMeta>{duration}</EventMapMeta>}
@@ -1577,11 +1567,23 @@ export default function ChatPanel({
                           ) : (
                             <EventMapMeta>started {formatTime(ev.time)}</EventMapMeta>
                           )}
+                        </EventTagCol>
+                        <EventMapBlock>
+                          {mapImg && (
+                            <Link to={eventLink} onClick={(e) => e.stopPropagation()}>
+                              <EventMapImg src={mapImg} alt="" onError={(e) => { e.target.style.display = "none"; }} />
+                            </Link>
+                          )}
+                          {ev.mapName && (
+                            <EventMapName to={eventLink} onClick={(e) => e.stopPropagation()}>
+                              {ev.mapName}
+                            </EventMapName>
+                          )}
                         </EventMapBlock>
                         <EventBody>
                           <MiniTeamsRow
-                            teamA={{ players: teamA, mmr: teamAMmr, winner: isEnd }}
-                            teamB={{ players: teamB, mmr: teamBMmr, winner: false }}
+                            teamA={{ players: teamA, winner: isEnd }}
+                            teamB={{ players: teamB, winner: false }}
                             dimLosers={isEnd}
                             showChart={hasChart}
                             hoverData={{ avatars, stats, sessions, inGameTags, inGameInfoMap }}
