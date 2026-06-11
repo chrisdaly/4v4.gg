@@ -638,6 +638,8 @@ const GameEventCard = styled.div`
   display: flex;
   align-items: center;
   gap: var(--space-3);
+  max-width: 560px;
+  box-sizing: border-box;
   margin: var(--space-3) var(--space-4);
   padding: var(--space-2) var(--space-3);
   border-left: 2px solid ${(p) => (p.$end ? "rgba(var(--gold-muted-rgb), 0.5)" : "rgba(194, 52, 52, 0.5)")};
@@ -728,7 +730,7 @@ const EventMeta = styled.span`
 const EventTeamsRow = styled.div`
   display: flex;
   align-items: stretch;
-  gap: var(--space-2);
+  gap: var(--space-3);
 `;
 
 const EventTeamCol = styled.div`
