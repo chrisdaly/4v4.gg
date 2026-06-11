@@ -1,6 +1,6 @@
 import React, { useRef, useEffect, useState, useCallback, useMemo } from "react";
 import { Link } from "react-router-dom";
-import styled from "styled-components";
+import styled, { keyframes, css } from "styled-components";
 import { GiCrossedSwords } from "react-icons/gi";
 import { HiKey, HiBell, HiSearch, HiTranslate } from "react-icons/hi";
 import { IoSend } from "react-icons/io5";
@@ -621,6 +621,17 @@ const EmptyState = styled.div`
 
 /* ── Game events woven into the stream ─────────── */
 
+const eventSlideIn = keyframes`
+  from { opacity: 0; transform: translateY(6px); }
+  to { opacity: 1; transform: translateY(0); }
+`;
+
+const finishGlow = keyframes`
+  0% { box-shadow: 0 0 0 rgba(252, 219, 51, 0); }
+  30% { box-shadow: 0 0 14px rgba(252, 219, 51, 0.35); }
+  100% { box-shadow: 0 0 0 rgba(252, 219, 51, 0); }
+`;
+
 const GameEventRow = styled.div`
   display: flex;
   align-items: center;
@@ -628,15 +639,20 @@ const GameEventRow = styled.div`
   margin: var(--space-2) var(--space-4);
   padding: var(--space-1) var(--space-2);
   border-left: 2px solid ${(p) => (p.$end ? "rgba(var(--gold-muted-rgb), 0.5)" : "rgba(194, 52, 52, 0.5)")};
-  background: rgba(255, 255, 255, 0.02);
+  background: ${(p) => (p.$end ? "rgba(var(--gold-muted-rgb), 0.04)" : "rgba(255, 255, 255, 0.02)")};
   border-radius: 0 var(--radius-sm) var(--radius-sm) 0;
   font-family: var(--font-mono);
   font-size: var(--text-xxs);
   color: var(--grey-light);
+  ${(p) =>
+    p.$live &&
+    css`
+      animation: ${eventSlideIn} 0.4s ease-out${p.$end ? css`, ${finishGlow} 2s ease-out 0.2s` : ""};
+    `}
 
   svg {
     flex-shrink: 0;
-    color: ${(p) => (p.$end ? "var(--gold)" : "var(--red)")};
+    color: var(--red);
   }
 
   a {
@@ -648,15 +664,30 @@ const GameEventRow = styled.div`
   }
 `;
 
+const EventTag = styled.span`
+  flex-shrink: 0;
+  font-family: var(--font-mono);
+  font-size: var(--text-xxxs);
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+  padding: 1px 5px;
+  border-radius: var(--radius-sm);
+  color: ${(p) => (p.$end ? "var(--gold)" : "var(--red)")};
+  background: ${(p) => (p.$end ? "var(--gold-tint)" : "var(--red-tint)")};
+`;
+
+const EventCrown = styled.img`
+  width: 13px;
+  height: 13px;
+  flex-shrink: 0;
+  filter: drop-shadow(0 0 3px rgba(252, 219, 51, 0.4));
+`;
+
 const EventName = styled.span`
   font-family: var(--font-display);
   color: ${(p) => (p.$dim ? "var(--grey-light)" : "var(--gold)")};
   ${(p) => p.$dim && "opacity: 0.7;"}
-`;
-
-const EventDelta = styled.span`
-  font-weight: 700;
-  color: ${(p) => (p.$won ? "var(--green)" : "var(--red)")};
 `;
 
 const EventVs = styled.span`
@@ -1427,42 +1458,39 @@ export default function ChatPanel({
                   // Game event woven into the stream
                   if (item.kind === "event") {
                     const ev = item.ev;
-                    const renderNames = (players, withDelta) =>
+                    const isEnd = ev.type === "game_end";
+                    const renderNames = (players) =>
                       (players || []).map((p, i) => (
                         <React.Fragment key={p.battleTag || i}>
                           {i > 0 && ", "}
                           <EventName $dim={!p.inChannel}>{p.name}</EventName>
-                          {withDelta && p.mmrGain != null && (
-                            <>
-                              {" "}
-                              <EventDelta $won={p.mmrGain >= 0}>
-                                {p.mmrGain >= 0 ? `+${p.mmrGain}` : p.mmrGain}
-                              </EventDelta>
-                            </>
-                          )}
                         </React.Fragment>
                       ));
                     const duration =
                       ev.durationInSeconds != null
-                        ? `${Math.floor(ev.durationInSeconds / 60)}:${String(ev.durationInSeconds % 60).padStart(2, "0")}`
+                        ? `${Math.round(ev.durationInSeconds / 60)} min`
                         : null;
                     return (
-                      <GameEventRow key={ev.id} $end={ev.type === "game_end"}>
-                        <GiCrossedSwords size={12} />
-                        {ev.type === "game_start" ? (
+                      <GameEventRow key={ev.id} $end={isEnd} $live={ev.live}>
+                        {isEnd ? <EventCrown src={crownIcon} alt="" /> : <GiCrossedSwords size={12} />}
+                        <EventTag $end={isEnd}>{isEnd ? "Final" : "Game"}</EventTag>
+                        {isEnd ? (
                           <span>
-                            {renderNames(ev.teams?.[0], false)} <EventVs>vs</EventVs>{" "}
-                            {renderNames(ev.teams?.[1], false)} queued
-                            {ev.mapName ? <> on <Link to="/live">{ev.mapName}</Link></> : null}
-                          </span>
-                        ) : (
-                          <span>
-                            {renderNames(ev.winners, true)} <EventVs>def.</EventVs>{" "}
-                            {renderNames(ev.losers, true)}
+                            {renderNames(ev.winners)} <EventVs>def.</EventVs>{" "}
+                            {renderNames(ev.losers)}
                             {ev.mapName ? <> on <Link to={`/match/${ev.matchId}`}>{ev.mapName}</Link></> : null}
                             <EventMeta>
                               {duration && ` · ${duration}`}
-                              {ev.time && ` · ${formatTime(ev.time)}`}
+                              {ev.time && ` · ended ${formatTime(ev.time)}`}
+                            </EventMeta>
+                          </span>
+                        ) : (
+                          <span>
+                            {renderNames(ev.teams?.[0])} <EventVs>vs</EventVs>{" "}
+                            {renderNames(ev.teams?.[1])}
+                            {ev.mapName ? <> on <Link to="/live">{ev.mapName}</Link></> : null}
+                            <EventMeta>
+                              {ev.time && ` · started ${formatTime(ev.time)}`}
                             </EventMeta>
                           </span>
                         )}

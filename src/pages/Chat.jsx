@@ -296,7 +296,7 @@ const Chat = () => {
         const id = match.id || match.match?.id;
         if (!id || prevIds.has(id)) continue;
         const ev = buildStartEvent(match, channelTagsRef.current);
-        if (ev) addGameEvent(ev);
+        if (ev) addGameEvent({ ...ev, live: true });
       }
     }
 
@@ -343,7 +343,7 @@ const Chat = () => {
         // Inline chat event + transient MMR-delta pills for channel members
         const ev = buildEndEvent(match, id, channelTagsRef.current);
         if (ev) {
-          addGameEvent(ev);
+          addGameEvent({ ...ev, live: true });
           const withDelta = [...ev.winners, ...ev.losers].filter(
             (p) => p.inChannel && p.mmrGain != null
           );
