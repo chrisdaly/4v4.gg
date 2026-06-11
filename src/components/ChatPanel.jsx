@@ -638,7 +638,7 @@ const GameEventCard = styled.div`
   display: flex;
   align-items: center;
   gap: var(--space-3);
-  max-width: 560px;
+  max-width: 640px;
   box-sizing: border-box;
   margin: var(--space-3) var(--space-4);
   padding: var(--space-2) var(--space-3);
@@ -675,13 +675,36 @@ const EventTagCol = styled.div`
   align-self: stretch;
 `;
 
+const EventMapBlock = styled.div`
+  width: 96px;
+  flex-shrink: 0;
+  align-self: center;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 3px;
+  text-align: center;
+`;
+
 const EventMapImg = styled.img`
-  width: 44px;
-  height: 44px;
+  width: 64px;
+  height: 64px;
   border-radius: var(--radius-sm);
   object-fit: cover;
-  flex-shrink: 0;
   display: block;
+`;
+
+const EventMapName = styled(Link)`
+  font-family: var(--font-display);
+  font-size: var(--text-xxs);
+  line-height: 1.2;
+`;
+
+const EventMapMeta = styled.div`
+  font-family: var(--font-mono);
+  font-size: var(--text-xxxs);
+  color: var(--grey-light);
+  opacity: 0.8;
 `;
 
 const EventBody = styled.div`
@@ -690,13 +713,6 @@ const EventBody = styled.div`
   display: flex;
   flex-direction: column;
   gap: 4px;
-`;
-
-const EventHeaderLine = styled.div`
-  display: flex;
-  align-items: center;
-  gap: var(--space-2);
-  flex-wrap: wrap;
 `;
 
 const EventTag = styled.span`
@@ -718,12 +734,6 @@ const EventCrown = styled.img`
   filter: drop-shadow(0 0 3px rgba(252, 219, 51, 0.4));
 `;
 
-const EventMeta = styled.span`
-  color: var(--grey-light);
-  opacity: 0.7;
-  white-space: nowrap;
-`;
-
 /* Compact version of the full match card: two vertical team columns
    with the MMR dot chart between them */
 
@@ -738,9 +748,25 @@ const EventTeamCol = styled.div`
   min-width: 0;
   display: flex;
   flex-direction: column;
-  gap: 2px;
+  gap: 5px;
   ${(p) => p.$right && "align-items: flex-end; text-align: right;"}
   ${(p) => p.$dim && "opacity: 0.55;"}
+`;
+
+const EventPlayerRow = styled.div`
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  min-width: 0;
+  max-width: 100%;
+  flex-direction: ${(p) => (p.$reverse ? "row-reverse" : "row")};
+`;
+
+const EventRaceImg = styled.img`
+  width: 16px;
+  height: 16px;
+  flex-shrink: 0;
+  opacity: ${(p) => (p.$faded ? 0.4 : 0.85)};
 `;
 
 const EventTeamHeader = styled.div`
@@ -1547,7 +1573,14 @@ export default function ChatPanel({
                           {mmr != null && <span>{mmr} MMR</span>}
                         </EventTeamHeader>
                         {(players || []).map((p, i) => (
-                          <EventPlayerName key={p.battleTag || i}>{p.name}</EventPlayerName>
+                          <EventPlayerRow key={p.battleTag || i} $reverse={right}>
+                            <EventRaceImg
+                              src={(p.race != null && raceMapping[p.race]) || raceIcons.random}
+                              alt=""
+                              $faded={p.race == null}
+                            />
+                            <EventPlayerName>{p.name}</EventPlayerName>
+                          </EventPlayerRow>
                         ))}
                       </EventTeamCol>
                     );
@@ -1556,20 +1589,23 @@ export default function ChatPanel({
                         <EventTagCol>
                           <EventTag $end={isEnd}>{isEnd ? "Finish" : "Start"}</EventTag>
                         </EventTagCol>
-                        {mapImg && (
-                          <Link to={eventLink}>
-                            <EventMapImg src={mapImg} alt="" onError={(e) => { e.target.style.display = "none"; }} />
-                          </Link>
-                        )}
+                        <EventMapBlock>
+                          {mapImg && (
+                            <Link to={eventLink}>
+                              <EventMapImg src={mapImg} alt="" onError={(e) => { e.target.style.display = "none"; }} />
+                            </Link>
+                          )}
+                          {ev.mapName && <EventMapName to={eventLink}>{ev.mapName}</EventMapName>}
+                          {isEnd ? (
+                            <>
+                              {duration && <EventMapMeta>{duration}</EventMapMeta>}
+                              <EventMapMeta>ended {formatTime(ev.time)}</EventMapMeta>
+                            </>
+                          ) : (
+                            <EventMapMeta>started {formatTime(ev.time)}</EventMapMeta>
+                          )}
+                        </EventMapBlock>
                         <EventBody>
-                          <EventHeaderLine>
-                            {ev.mapName && <Link to={eventLink}>{ev.mapName}</Link>}
-                            <EventMeta>
-                              {isEnd
-                                ? `· ${duration ? `${duration} · ` : ""}ended ${formatTime(ev.time)}`
-                                : `· started ${formatTime(ev.time)}`}
-                            </EventMeta>
-                          </EventHeaderLine>
                           <EventTeamsRow>
                             {renderTeamCol(teamA, teamAMmr, { winners: true })}
                             {hasChart && (
