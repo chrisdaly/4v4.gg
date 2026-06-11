@@ -650,12 +650,25 @@ const GameEventRow = styled.div`
 
 const EventName = styled.span`
   font-family: var(--font-display);
-  color: var(--gold);
+  color: ${(p) => (p.$dim ? "var(--grey-light)" : "var(--gold)")};
+  ${(p) => p.$dim && "opacity: 0.7;"}
 `;
 
 const EventDelta = styled.span`
   font-weight: 700;
   color: ${(p) => (p.$won ? "var(--green)" : "var(--red)")};
+`;
+
+const EventVs = styled.span`
+  font-weight: 700;
+  color: var(--grey-light);
+  padding: 0 2px;
+`;
+
+const EventMeta = styled.span`
+  color: var(--grey-light);
+  opacity: 0.7;
+  white-space: nowrap;
 `;
 
 /* ── Name-row accessories ──────────────────────── */
@@ -1414,37 +1427,45 @@ export default function ChatPanel({
                   // Game event woven into the stream
                   if (item.kind === "event") {
                     const ev = item.ev;
-                    const names = ev.players.map((p, i) => (
-                      <React.Fragment key={p.battleTag}>
-                        {i > 0 && ", "}
-                        <EventName>{p.name}</EventName>
-                        {ev.type === "game_end" && p.mmrGain != null && (
-                          <>
-                            {" "}
-                            <EventDelta $won={p.won}>
-                              {p.mmrGain >= 0 ? `+${p.mmrGain}` : p.mmrGain}
-                            </EventDelta>
-                          </>
-                        )}
-                      </React.Fragment>
-                    ));
+                    const renderNames = (players, withDelta) =>
+                      (players || []).map((p, i) => (
+                        <React.Fragment key={p.battleTag || i}>
+                          {i > 0 && ", "}
+                          <EventName $dim={!p.inChannel}>{p.name}</EventName>
+                          {withDelta && p.mmrGain != null && (
+                            <>
+                              {" "}
+                              <EventDelta $won={p.mmrGain >= 0}>
+                                {p.mmrGain >= 0 ? `+${p.mmrGain}` : p.mmrGain}
+                              </EventDelta>
+                            </>
+                          )}
+                        </React.Fragment>
+                      ));
+                    const duration =
+                      ev.durationInSeconds != null
+                        ? `${Math.floor(ev.durationInSeconds / 60)}:${String(ev.durationInSeconds % 60).padStart(2, "0")}`
+                        : null;
                     return (
                       <GameEventRow key={ev.id} $end={ev.type === "game_end"}>
                         <GiCrossedSwords size={12} />
-                        <span>
-                          {names}
-                          {ev.type === "game_start" ? " queued into a game" : (
-                            ev.players.every((p) => p.won) ? " won" :
-                            ev.players.every((p) => !p.won) ? " lost" : " finished"
-                          )}
-                          {ev.mapName ? <> on{" "}
-                            {ev.type === "game_end" ? (
-                              <Link to={`/match/${ev.matchId}`}>{ev.mapName}</Link>
-                            ) : (
-                              <Link to="/live">{ev.mapName}</Link>
-                            )}
-                          </> : null}
-                        </span>
+                        {ev.type === "game_start" ? (
+                          <span>
+                            {renderNames(ev.teams?.[0], false)} <EventVs>vs</EventVs>{" "}
+                            {renderNames(ev.teams?.[1], false)} queued
+                            {ev.mapName ? <> on <Link to="/live">{ev.mapName}</Link></> : null}
+                          </span>
+                        ) : (
+                          <span>
+                            {renderNames(ev.winners, true)} <EventVs>def.</EventVs>{" "}
+                            {renderNames(ev.losers, true)}
+                            {ev.mapName ? <> on <Link to={`/match/${ev.matchId}`}>{ev.mapName}</Link></> : null}
+                            <EventMeta>
+                              {duration && ` · ${duration}`}
+                              {ev.time && ` · ${formatTime(ev.time)}`}
+                            </EventMeta>
+                          </span>
+                        )}
                       </GameEventRow>
                     );
                   }

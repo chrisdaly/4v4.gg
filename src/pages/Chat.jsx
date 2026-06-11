@@ -14,6 +14,53 @@ import UserListSidebar from "../components/UserListSidebar";
 
 const IDLE_MS = 3 * 60 * 60 * 1000; // 3 hours
 
+/* ── Game-event builders ──────────────────────────────
+   Events show the full lobby (all 8 players); `inChannel` marks the ones
+   in the chat room so the renderer can highlight them. Events are only
+   emitted when at least one player is in the channel. */
+
+const buildEventPlayers = (team, relevant) =>
+  (team.players || []).map((p) => ({
+    battleTag: p.battleTag,
+    name: p.name || p.battleTag?.split("#")[0],
+    mmrGain: p.mmrGain ?? null,
+    inChannel: relevant.has(p.battleTag?.toLowerCase()),
+  }));
+
+function buildStartEvent(match, relevant) {
+  const id = match.id || match.match?.id;
+  if (!id) return null;
+  const teams = (match.teams || []).map((t) => buildEventPlayers(t, relevant));
+  if (!teams.flat().some((p) => p.inChannel)) return null;
+  return {
+    id: `gs-${id}`,
+    type: "game_start",
+    time: match.startTime,
+    matchId: id,
+    mapName: match.mapName,
+    teams,
+  };
+}
+
+function buildEndEvent(match, id, relevant) {
+  const winnerIdx = match.teams?.findIndex(
+    (t) => t.players?.some((p) => p.won === true || p.won === 1)
+  );
+  if (winnerIdx == null || winnerIdx < 0) return null;
+  const teams = (match.teams || []).map((t) => buildEventPlayers(t, relevant));
+  if (!teams.flat().some((p) => p.inChannel)) return null;
+  return {
+    id: `ge-${id}`,
+    type: "game_end",
+    time: match.endTime || new Date().toISOString(),
+    matchId: id,
+    mapName: match.mapName,
+    durationInSeconds: match.durationInSeconds ?? null,
+    winners: teams[winnerIdx] || [],
+    losers: teams[1 - winnerIdx] || [],
+  };
+}
+
 const Page = styled.div`
   padding: var(--space-1) var(--space-2) 0;
   position: relative;
@@ -163,18 +210,7 @@ const Chat = () => {
     }
     const oldestMsgTime = new Date(messages[0].sent_at || messages[0].sentAt).getTime();
     const cutoff = Math.max(oldestMsgTime, Date.now() - 3 * 60 * 60 * 1000);
-    const chattersIn = (match) =>
-      (match.teams || []).flatMap((t) =>
-        (t.players || [])
-          .filter((p) => relevant.has(p.battleTag?.toLowerCase()))
-          .map((p) => ({
-            battleTag: p.battleTag,
-            name: p.name || p.battleTag?.split("#")[0],
-            won: p.won === true || p.won === 1,
-            mmrGain: p.mmrGain ?? null,
-          }))
-      );
-    return { cutoff, chattersIn };
+    return { cutoff, relevant };
   };
 
   const backfilledEndsRef = useRef(false);
@@ -183,21 +219,13 @@ const Chat = () => {
     if (messages.length === 0 || onlineUsers.length === 0) return;
     backfilledEndsRef.current = true;
 
-    const { cutoff, chattersIn } = backfillContext();
+    const { cutoff, relevant } = backfillContext();
     getFinishedMatches(100).then(({ matches: finished }) => {
       for (const match of finished || []) {
         const endTime = new Date(match.endTime).getTime();
         if (!endTime || endTime < cutoff) continue;
-        const players = chattersIn(match);
-        if (players.length === 0) continue;
-        addGameEvent({
-          id: `ge-${match.id}`,
-          type: "game_end",
-          time: match.endTime,
-          matchId: match.id,
-          mapName: match.mapName,
-          players,
-        });
+        const ev = buildEndEvent(match, match.id, relevant);
+        if (ev) addGameEvent(ev);
       }
     });
     // runs once when messages + users are first available
@@ -210,20 +238,12 @@ const Chat = () => {
     if (messages.length === 0 || onlineUsers.length === 0 || ongoingMatches.length === 0) return;
     backfilledStartsRef.current = true;
 
-    const { cutoff, chattersIn } = backfillContext();
+    const { cutoff, relevant } = backfillContext();
     for (const match of ongoingMatches) {
       const startTime = new Date(match.startTime).getTime();
       if (!startTime || startTime < cutoff) continue;
-      const players = chattersIn(match).map(({ battleTag, name }) => ({ battleTag, name }));
-      if (players.length === 0) continue;
-      addGameEvent({
-        id: `gs-${match.id}`,
-        type: "game_start",
-        time: match.startTime,
-        matchId: match.id,
-        mapName: match.mapName,
-        players,
-      });
+      const ev = buildStartEvent(match, relevant);
+      if (ev) addGameEvent(ev);
     }
     // runs once when messages + users + first ongoing poll are all available
     // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -275,22 +295,8 @@ const Chat = () => {
       for (const match of ongoingMatches) {
         const id = match.id || match.match?.id;
         if (!id || prevIds.has(id)) continue;
-        const chatters = (match.teams || []).flatMap((t) =>
-          (t.players || []).filter((p) => channelTagsRef.current.has(p.battleTag?.toLowerCase()))
-        );
-        if (chatters.length === 0) continue;
-        addGameEvent({
-          id: `gs-${id}`,
-          type: "game_start",
-          time: new Date().toISOString(),
-          matchId: id,
-          mapName: match.mapName,
-          players: chatters.map((p) => ({
-            battleTag: p.battleTag,
-            name: p.name || p.battleTag?.split("#")[0],
-            mmr: p.oldMmr,
-          })),
-        });
+        const ev = buildStartEvent(match, channelTagsRef.current);
+        if (ev) addGameEvent(ev);
       }
     }
 
@@ -335,26 +341,12 @@ const Chat = () => {
         }
 
         // Inline chat event + transient MMR-delta pills for channel members
-        const chatterResults = (match.teams || []).flatMap((t) =>
-          (t.players || [])
-            .filter((p) => channelTagsRef.current.has(p.battleTag?.toLowerCase()))
-            .map((p) => ({
-              battleTag: p.battleTag,
-              name: p.name || p.battleTag?.split("#")[0],
-              won: p.won === true || p.won === 1,
-              mmrGain: p.mmrGain ?? null,
-            }))
-        );
-        if (chatterResults.length > 0) {
-          addGameEvent({
-            id: `ge-${id}`,
-            type: "game_end",
-            time: new Date().toISOString(),
-            matchId: id,
-            mapName: match.mapName,
-            players: chatterResults,
-          });
-          const withDelta = chatterResults.filter((p) => p.mmrGain != null);
+        const ev = buildEndEvent(match, id, channelTagsRef.current);
+        if (ev) {
+          addGameEvent(ev);
+          const withDelta = [...ev.winners, ...ev.losers].filter(
+            (p) => p.inChannel && p.mmrGain != null
+          );
           if (withDelta.length > 0) {
             setRecentDeltas((prev) => {
               const next = new Map(prev);
