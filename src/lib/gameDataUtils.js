@@ -6,7 +6,7 @@
  * and player relation detection logic.
  */
 
-import { getPlayerProfile, getPlayerSessionLight } from "./api";
+import { getPlayerProfile, getPlayerProfilesBatch, getPlayerSessionLight } from "./api";
 import { getLiveStreamers } from "./twitchService";
 
 /**
@@ -78,23 +78,33 @@ export const calculateGameStatus = (match, playerBattleTag) => {
 export const enrichPlayerData = async (players, options = {}) => {
   const { fetchSessions = true, fetchTwitchStatus = false } = options;
 
+  // One batched profile request for the whole card instead of one per player
+  const profileMapPromise = getPlayerProfilesBatch(players.map((p) => p.battleTag));
+
   const promises = players.map(async (player) => {
     const { battleTag, race, location } = player;
 
-    // Build parallel fetches for each player
-    const fetches = [getPlayerProfile(battleTag)];
+    const fetches = [profileMapPromise];
     if (fetchSessions) {
       fetches.push(getPlayerSessionLight(battleTag, race));
     }
 
     const results = await Promise.all(fetches);
-    const profile = results[0];
+    const profile = results[0].get(battleTag) || {};
     const sessionInfo = fetchSessions ? results[1] : null;
+
+    // Match payloads carry the player's twitch name; the batch profile
+    // endpoint doesn't. Fall back to the full profile only when the
+    // payload predates the twitch field.
+    let twitch = player.twitch ?? null;
+    if (player.twitch === undefined && fetchTwitchStatus) {
+      twitch = (await getPlayerProfile(battleTag)).twitch;
+    }
 
     return {
       ...player,
-      profilePicUrl: profile.profilePicUrl,
-      twitch: profile.twitch,
+      profilePicUrl: profile.profilePicUrl || null,
+      twitch,
       // Use profile country if set, otherwise fall back to match location (IP-based)
       country: profile.country || location,
       sessionInfo,

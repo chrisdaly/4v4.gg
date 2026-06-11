@@ -9,6 +9,9 @@ import { raceMapping } from "../lib/constants";
 import { getMapImageUrl, geometricMean } from "../lib/formatters";
 import FormDots from "./FormDots";
 
+// 0.905 quantile → "top 10%" (clamped so the best players read "top 1%")
+const quantileToTopPercent = (quantile) => Math.max(1, Math.round((1 - quantile) * 100));
+
 const Game = ({ playerData: rawPlayerData, metaData, profilePics, playerCountries, sessionData, liveStreamers = {}, compact, streamerTag, initialATGroups }) => {
   const [atGroups, setAtGroups] = useState(initialATGroups || {});
 
@@ -310,11 +313,22 @@ const Game = ({ playerData: rawPlayerData, metaData, profilePics, playerCountrie
           <div className="player-mmr-line">
             {oldMmr && oldMmr > 0 ? (
               <>
-                <span className="mmr-value">{oldMmr}</span>
+                <span
+                  className="mmr-value"
+                  title={player.oldMmrQuantile != null ? `Top ${quantileToTopPercent(player.oldMmrQuantile)}% of the 4v4 ladder` : undefined}
+                >
+                  {oldMmr}
+                </span>
                 <span className="mmr-label"> MMR</span>
+                {!compact && player.oldMmrQuantile >= 0.75 && (
+                  <span className="mmr-quantile">top {quantileToTopPercent(player.oldMmrQuantile)}%</span>
+                )}
               </>
             ) : (
               <span className="mmr-label-muted">Unranked</span>
+            )}
+            {player.ping != null && (
+              <span className={`player-ping ${player.ping >= 180 ? "high" : ""}`}>{player.ping}ms</span>
             )}
           </div>
 
@@ -467,6 +481,9 @@ const Game = ({ playerData: rawPlayerData, metaData, profilePics, playerCountrie
                       <span className="meta-time">
                         {new Date(metaData.startTime).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
                       </span>
+                    )}
+                    {metaData.server && (
+                      <span className="meta-server">{metaData.server}</span>
                     )}
                   </div>
                 </div>

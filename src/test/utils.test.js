@@ -152,6 +152,27 @@ describe('processOngoingGameData', () => {
     expect(metaData.server).toBe('US-EAST');
     expect(metaData.mapName).toBe('(4)FEROCITY');
   });
+
+  it('attaches per-player ping from serverInfo.playerServerInfos', () => {
+    const matchWithPings = {
+      ...match,
+      serverInfo: {
+        ...match.serverInfo,
+        playerServerInfos: [
+          { battleTag: 'Alice#1234', averagePing: 60, currentPing: 55 },
+          { battleTag: 'Bob#5678', averagePing: 120 },
+        ],
+      },
+    };
+    const { playerData } = processOngoingGameData(matchWithPings);
+    expect(playerData[0].ping).toBe(55); // prefers currentPing
+    expect(playerData[1].ping).toBe(120); // falls back to averagePing
+  });
+
+  it('sets ping to null when serverInfo has no player entries', () => {
+    const { playerData } = processOngoingGameData(match);
+    expect(playerData[0].ping).toBeNull();
+  });
 });
 
 /* ── findPlayerInOngoingMatches ──────────────── */

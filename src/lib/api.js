@@ -21,6 +21,9 @@ const MEDIUM_TTL = 2 * 60 * 1000; // 2 minutes for match lists
 // Race ID to name mapping for avatar URLs
 const RACE_AVATAR_MAP = { 64: 'starter', 16: 'total', 8: 'undead', 0: 'random', 4: 'nightelf', 2: 'orc', 1: 'human' };
 
+// W3C EAvatarCategory.SPECIAL — profilePicture.race for special avatars
+const AVATAR_CATEGORY_SPECIAL = 32;
+
 /**
  * Build profile picture URL from profile data
  */
@@ -32,8 +35,10 @@ const buildProfilePicUrl = (profileData) => {
 
   const { pictureId, race } = profilePicture;
 
-  // Check if it's a special avatar
-  if (specialPictures?.map(d => d.pictureId).includes(pictureId)) {
+  // Check if it's a special avatar. The race field is authoritative; the
+  // specialPictures membership check covers responses that predate it
+  // (the /many batch endpoint omits specialPictures entirely).
+  if (race === AVATAR_CATEGORY_SPECIAL || specialPictures?.map(d => d.pictureId).includes(pictureId)) {
     return `https://w3champions.wc3.tools/prod/integration/icons/specialAvatars/SPECIAL_${pictureId}.jpg`;
   }
 
@@ -352,22 +357,55 @@ export const getSeasonsCached = () => {
 };
 
 /**
- * Batch fetch profiles for multiple players
- * Useful for match cards with 8 players
+ * Batch fetch profiles for multiple players via the /many endpoint —
+ * one request for a whole match card instead of 8.
+ *
+ * Note: /many returns only {id, countryCode, location, profilePicture},
+ * so unlike getPlayerProfile there is no twitch field here. Match payloads
+ * carry their own per-player twitch value for that use case.
  *
  * @param {string[]} battleTags
- * @returns {Promise<Map<string, {profilePicUrl, twitch, country}>>}
+ * @returns {Promise<Map<string, {profilePicUrl: string|null, country: string|null}>>}
  */
 export const getPlayerProfilesBatch = async (battleTags) => {
   const results = new Map();
+  const missing = [];
 
-  // Fetch all in parallel (deduplication handles concurrent calls)
-  await Promise.all(
-    battleTags.map(async (battleTag) => {
-      const profile = await getPlayerProfile(battleTag);
+  for (const battleTag of battleTags) {
+    const cached = cache.get(`profileLite:${battleTag.toLowerCase()}`);
+    if (cached) {
+      results.set(battleTag, cached);
+    } else {
+      missing.push(battleTag);
+    }
+  }
+
+  // /many takes comma-separated battleTags; chunk to keep URLs sane
+  const CHUNK = 40;
+  for (let i = 0; i < missing.length; i += CHUNK) {
+    const chunk = missing.slice(i, i + CHUNK);
+    let profiles = [];
+    try {
+      const tags = chunk.map(encodeURIComponent).join(',');
+      const res = await fetch(`${API_BASE}/personal-settings/${tags}/many`);
+      if (res.ok) profiles = await res.json();
+    } catch {
+      // fall through — missing players get null profiles below
+    }
+
+    const byTag = new Map(profiles.map(p => [p.id?.toLowerCase(), p]));
+    for (const battleTag of chunk) {
+      const data = byTag.get(battleTag.toLowerCase());
+      const profile = {
+        profilePicUrl: buildProfilePicUrl(data),
+        country: data?.location || null,
+      };
       results.set(battleTag, profile);
-    })
-  );
+      if (data) {
+        cache.set(`profileLite:${battleTag.toLowerCase()}`, profile, TTL.PERSONAL_SETTINGS);
+      }
+    }
+  }
 
   return results;
 };

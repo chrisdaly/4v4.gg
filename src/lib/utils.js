@@ -114,17 +114,21 @@ export const preprocessPlayerScores = (match, playerScores) => {
 
   const [mvp, maxValue] = Object.entries(mvpData).reduce((acc, [key, value]) => (value > acc[1] ? [key, value] : acc), ["", -Infinity]);
 
+  const pingMap = buildPingMap(match);
+
   const playerData = match.teams.flatMap((team, teamIndex) => {
     return team.players.map((playerData) => {
       const playerScore = playerScores.find((score) => score.battleTag === playerData.battleTag);
       const { oldMmr, mmrChange } = calcPlayerMmrAndChange(playerData.battleTag, match) ?? {};
       const isMvp = playerData.battleTag === mvp;
+      const serverData = pingMap.get(playerData.battleTag?.toLowerCase());
       return {
         ...playerScore,
         ...playerData,
         oldMmr,
         mmrChange,
         isMvp,
+        ping: serverData?.averagePing ?? null,
       };
     });
   });
@@ -158,12 +162,25 @@ export const preprocessPlayerScores = (match, playerScores) => {
   return { playerData, metaData, stats };
 };
 
+// Per-player ping from the match's serverInfo, keyed by lowercased battleTag
+export const buildPingMap = (match) => {
+  return new Map(
+    (match.serverInfo?.playerServerInfos || [])
+      .filter((p) => p.battleTag)
+      .map((p) => [p.battleTag.toLowerCase(), p])
+  );
+};
+
 export const processOngoingGameData = (match) => {
+  const pingMap = buildPingMap(match);
+
   // Process each ongoing game
   const playerData = match.teams.flatMap((team, teamIndex) => {
     return team.players.map((playerData) => {
+      const serverData = pingMap.get(playerData.battleTag?.toLowerCase());
       return {
         ...playerData,
+        ping: serverData?.currentPing ?? serverData?.averagePing ?? null,
       };
     });
   });

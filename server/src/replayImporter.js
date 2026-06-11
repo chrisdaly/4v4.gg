@@ -29,9 +29,13 @@ import { buildServerFingerprint } from './fingerprint.js';
 import { getEmbeddingBatch } from './embedClient.js';
 
 const W3C_API = 'https://website-backend.w3champions.com/api';
-const CYCLE_MS = 3 * 60 * 1000; // 3 minutes
-const IMPORTS_PER_CYCLE = 10;
+// W3C replay downloads are rate-limited to ~30/hr and ~70/day for matches
+// under 7 days old. 2 imports per 5-minute cycle stays under the hourly cap;
+// the daily cap surfaces as a 429, which pauses imports for an hour.
+const CYCLE_MS = 5 * 60 * 1000;
+const IMPORTS_PER_CYCLE = 2;
 const RATE_LIMIT_MS = 3000; // 3s between W3C API calls
+const RATE_LIMIT_PAUSE_CYCLES = 12; // ~1 hour
 
 const REPLAY_DIR = config.REPLAY_DIR.startsWith('/')
   ? config.REPLAY_DIR
@@ -41,6 +45,7 @@ const REPLAY_DIR = config.REPLAY_DIR.startsWith('/')
 let importQueue = [];
 let isRunning = false;
 let discoverCooldown = 0; // skip discover if we recently filled the queue
+let rateLimitCooldown = 0; // cycles to skip entirely after a 429
 
 const sleep = (ms) => new Promise(r => setTimeout(r, ms));
 
@@ -62,76 +67,40 @@ function diskHasHeadroom() {
   }
 }
 
-/** Fisher-Yates shuffle (in-place) */
-function shuffle(arr) {
-  for (let i = arr.length - 1; i > 0; i--) {
-    const j = Math.floor(Math.random() * (i + 1));
-    [arr[i], arr[j]] = [arr[j], arr[i]];
-  }
-  return arr;
-}
-
 /**
- * Discover new matches from GM + Master ladder players.
- * Returns array of { matchId, players } not yet in DB.
+ * Discover new matches from the recent finished-matches feed.
+ * Two pages of 100 cover the last ~200 4v4 games in 2 API calls — the old
+ * approach (4 ladder pages + a match-search per player) needed ~65 calls and
+ * only saw games involving top-league players.
+ *
+ * Short games are skipped (too little action data to fingerprint), and
+ * candidates are sorted by average match MMR so the tight replay-download
+ * budget (W3C allows ~70/day for fresh matches) goes to the games whose
+ * players matter most for smurf detection.
  */
 async function discoverMatches() {
-  const battleTags = new Set();
-
-  // Fetch current season
-  let season = 24;
-  try {
-    const res = await fetch(`${W3C_API}/ladder/seasons`);
-    if (res.ok) {
-      const seasons = await res.json();
-      if (seasons?.length > 0) season = seasons[0].id;
-    }
-  } catch { /* use default */ }
-
-  // Fetch GM (0), Master (1), Diamond (2), Platinum (3) players
-  for (const leagueId of [0, 1, 2, 3]) {
-    await sleep(RATE_LIMIT_MS);
-    try {
-      const url = `${W3C_API}/ladder/${leagueId}?gateWay=20&gameMode=4&season=${season}`;
-      const res = await fetch(url);
-      if (!res.ok) continue;
-      const entries = await res.json();
-      for (const entry of (Array.isArray(entries) ? entries : []).slice(0, 100)) {
-        const tag = entry?.player?.playerIds?.[0]?.battleTag
-          || entry?.playersInfo?.[0]?.battleTag;
-        if (tag) battleTags.add(tag);
-      }
-    } catch { /* skip */ }
-  }
-
-  if (battleTags.size === 0) {
-    console.log('[Importer] No ladder players found');
-    return [];
-  }
-
-  // Shuffle so different players get checked each cycle
-  const shuffledTags = shuffle([...battleTags]);
-
-  // Fetch recent matches for each player
   const matchMap = new Map();
-  let checked = 0;
-  for (const tag of shuffledTags) {
-    if (checked++ > 60) break; // check 60 random players per discover cycle
-    await sleep(RATE_LIMIT_MS);
+
+  for (const offset of [0, 100]) {
+    if (offset > 0) await sleep(RATE_LIMIT_MS);
     try {
-      const url = `${W3C_API}/matches/search?playerId=${encodeURIComponent(tag)}&offset=0&gameMode=4&season=${season}&gateway=20&pageSize=10`;
+      const url = `${W3C_API}/matches?offset=${offset}&gateway=20&pageSize=100&gameMode=4&map=Overall`;
       const res = await fetch(url);
       if (!res.ok) continue;
       const data = await res.json();
       for (const m of (data.matches || [])) {
         if (matchMap.has(m.id)) continue;
+        if (m.durationInSeconds != null && m.durationInSeconds < 300) continue;
         const players = [];
+        const mmrs = [];
         for (const team of m.teams || []) {
           for (const p of team.players || []) {
             players.push({ name: p.name || p.battleTag?.split('#')[0], battleTag: p.battleTag });
+            if (p.oldMmr > 0) mmrs.push(p.oldMmr);
           }
         }
-        matchMap.set(m.id, { matchId: m.id, players });
+        const avgMmr = mmrs.length ? mmrs.reduce((a, b) => a + b, 0) / mmrs.length : 0;
+        matchMap.set(m.id, { matchId: m.id, players, avgMmr });
       }
     } catch { /* skip */ }
   }
@@ -140,10 +109,13 @@ async function discoverMatches() {
   const allIds = [...matchMap.keys()];
   if (allIds.length === 0) return [];
   const existing = getExistingW3cMatchIds(allIds);
-  const newMatches = allIds.filter(id => !existing.has(id));
+  const newMatches = allIds
+    .filter(id => !existing.has(id))
+    .map(id => matchMap.get(id))
+    .sort((a, b) => b.avgMmr - a.avgMmr);
 
   console.log(`[Importer] Discovered ${matchMap.size} matches, ${existing.size} already imported, ${newMatches.length} new`);
-  return newMatches.map(id => matchMap.get(id));
+  return newMatches;
 }
 
 /**
@@ -263,6 +235,10 @@ async function computeEmbeddingsAsync(replayId, actions) {
 async function runCycle() {
   if (isRunning) return;
   if (!diskHasHeadroom()) return;
+  if (rateLimitCooldown > 0) {
+    rateLimitCooldown--;
+    return;
+  }
   isRunning = true;
 
   try {
@@ -296,10 +272,11 @@ async function runCycle() {
         const result = await importMatch(match);
         if (result.status === 'imported') imported++;
         else if (result.status === 'rate_limited') {
-          // Drop the queue and skip 3 cycles (~30 min cooldown)
-          importQueue = [];
-          discoverCooldown = 3;
-          console.log('[Importer] Rate limited — clearing queue, cooling down for 3 cycles');
+          // Keep the (MMR-sorted) queue and pause; the W3C daily budget
+          // resets on its own. Put the failed match back at the front.
+          importQueue.unshift(match, ...batch.slice(batch.indexOf(match) + 1));
+          rateLimitCooldown = RATE_LIMIT_PAUSE_CYCLES;
+          console.log(`[Importer] Rate limited — pausing imports for ${RATE_LIMIT_PAUSE_CYCLES} cycles (~1h), ${importQueue.length} queued`);
           break;
         } else {
           skipped++;

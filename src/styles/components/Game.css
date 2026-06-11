@@ -369,6 +369,14 @@ img.teamHeaderRace {
   opacity: 0.8;
 }
 
+.meta-server {
+  color: var(--grey-light);
+  font-family: var(--font-mono);
+  font-size: var(--text-xxs);
+  text-transform: uppercase;
+  letter-spacing: 0.1em;
+}
+
 .meta-item {
   color: var(--grey-light);
 }
@@ -709,6 +717,25 @@ h2.team-name {
 .mmr-label {
   color: var(--grey-light);
   font-size: var(--text-xs);
+}
+
+.mmr-quantile {
+  color: var(--gold);
+  font-family: var(--font-mono);
+  font-size: var(--text-xxs);
+  margin-left: 6px;
+  opacity: 0.8;
+}
+
+.player-ping {
+  color: var(--grey-light);
+  font-family: var(--font-mono);
+  font-size: var(--text-xxs);
+  margin-left: 6px;
+}
+
+.player-ping.high {
+  color: var(--red);
 }
 
 .win-prob {
