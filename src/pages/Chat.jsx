@@ -5,6 +5,7 @@ import { GiCrossedSwords } from "react-icons/gi";
 import useChatStream from "../lib/useChatStream";
 import { getPlayerProfile, getPlayerStats, getPlayerSessionLight, getFinishedMatches } from "../lib/api";
 import { getLiveStreamers } from "../lib/twitchService";
+import { geometricMean } from "../lib/formatters";
 import { useWatchList } from "../lib/chatExtras";
 import useOngoingMatches from "../lib/useOngoingMatches";
 import { useTheme } from "../lib/ThemeContext";
@@ -23,15 +24,15 @@ const buildEventPlayers = (team, relevant) =>
   (team.players || []).map((p) => ({
     battleTag: p.battleTag,
     name: p.name || p.battleTag?.split("#")[0],
+    race: p.race ?? null,
     mmrGain: p.mmrGain ?? null,
     inChannel: relevant.has(p.battleTag?.toLowerCase()),
   }));
 
-const matchAvgMmr = (match) => {
-  const mmrs = (match.teams || []).flatMap(
-    (t) => t.players?.map((p) => p.oldMmr).filter((m) => m > 0) || []
-  );
-  return mmrs.length > 0 ? Math.round(mmrs.reduce((s, v) => s + v, 0) / mmrs.length) : null;
+// Same metric as the big match card's team header
+const teamMmr = (team) => {
+  const mmrs = team?.players?.map((p) => p.oldMmr).filter((m) => m > 0) || [];
+  return mmrs.length > 0 ? Math.round(geometricMean(mmrs)) : null;
 };
 
 function buildStartEvent(match, relevant) {
@@ -45,7 +46,7 @@ function buildStartEvent(match, relevant) {
     time: match.startTime,
     matchId: id,
     mapName: match.mapName,
-    avgMmr: matchAvgMmr(match),
+    teamMmrs: [teamMmr(match.teams?.[0]), teamMmr(match.teams?.[1])],
     teams,
   };
 }
@@ -63,10 +64,11 @@ function buildEndEvent(match, id, relevant) {
     time: match.endTime || new Date().toISOString(),
     matchId: id,
     mapName: match.mapName,
-    avgMmr: matchAvgMmr(match),
     durationInSeconds: match.durationInSeconds ?? null,
     winners: teams[winnerIdx] || [],
     losers: teams[1 - winnerIdx] || [],
+    winnersMmr: teamMmr(match.teams?.[winnerIdx]),
+    losersMmr: teamMmr(match.teams?.[1 - winnerIdx]),
   };
 }
 

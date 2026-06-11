@@ -12,7 +12,7 @@ import { useMessageSegments, useBotResponseMap, formatDateDivider, getDateKey, f
 import { getMapImageUrl } from "../lib/formatters";
 import { linkifyMessage, playPing } from "../lib/chatExtras";
 import PlayerHoverCard from "./PlayerHoverCard";
-import { getPlayerProfile } from "../lib/api";
+import { getPlayerProfile, getPlayerProfilesBatch } from "../lib/api";
 import useAdmin from "../lib/useAdmin";
 
 const OuterFrame = styled.div`
@@ -712,16 +712,47 @@ const EventTag = styled.span`
 const EventCrown = styled.img`
   width: 13px;
   height: 13px;
-  flex-shrink: 0;
   filter: drop-shadow(0 0 3px rgba(252, 219, 51, 0.4));
+`;
+
+const EventLead = styled.span`
+  width: 14px;
+  flex-shrink: 0;
+  display: inline-flex;
+  align-items: center;
+`;
+
+const EventAvatars = styled.span`
+  display: inline-flex;
+  gap: 2px;
+  flex-shrink: 0;
+`;
+
+const EventAvatarImg = styled.img`
+  width: 18px;
+  height: 18px;
+  border-radius: 2px;
+  object-fit: cover;
+  display: block;
+  ${(p) => p.$placeholder && "padding: 2px; background: rgba(255,255,255,0.06); opacity: 0.7; box-sizing: border-box;"}
+`;
+
+const EventTeamMmr = styled.span`
+  margin-left: auto;
+  padding-left: var(--space-2);
+  flex-shrink: 0;
+  font-family: var(--font-mono);
+  font-size: var(--text-xxs);
+  color: var(--white);
 `;
 
 const EventTeamLine = styled.div`
   display: flex;
   align-items: center;
   gap: 6px;
+  min-width: 0;
   font-size: var(--text-xs);
-  ${(p) => p.$dim && "opacity: 0.5;"}
+  ${(p) => p.$dim && "opacity: 0.55;"}
 `;
 
 const EventName = styled.span`
@@ -1122,6 +1153,7 @@ export default function ChatPanel({
   const [loadingOlder, setLoadingOlder] = useState(false);
   const [newMarkerTime, setNewMarkerTime] = useState(null);
   const [searchAvatars, setSearchAvatars] = useState(new Map());
+  const [eventAvatars, setEventAvatars] = useState(new Map());
   const [flashId, setFlashId] = useState(null);
   const [jumping, setJumping] = useState(false);
   const lastNotifiedRef = useRef(null);
@@ -1140,6 +1172,30 @@ export default function ChatPanel({
     // searchAvatars intentionally omitted — it's the accumulator this effect fills
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [searchResults, avatars]);
+
+  // Batch-fetch profiles for game-event players the page doesn't know yet
+  // (one /many request per new lobby, cached 30 min)
+  useEffect(() => {
+    const tags = new Set();
+    for (const ev of gameEvents) {
+      const players = [...(ev.winners || []), ...(ev.losers || []), ...(ev.teams || []).flat()];
+      for (const p of players) {
+        if (p.battleTag && !avatars?.get(p.battleTag) && !eventAvatars.has(p.battleTag)) {
+          tags.add(p.battleTag);
+        }
+      }
+    }
+    if (tags.size === 0) return;
+    getPlayerProfilesBatch([...tags]).then((profiles) => {
+      setEventAvatars((prev) => {
+        const next = new Map(prev);
+        for (const [tag, profile] of profiles) next.set(tag, profile);
+        return next;
+      });
+    });
+    // eventAvatars intentionally omitted — it's the accumulator this effect fills
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [gameEvents, avatars]);
 
   // Jump from a search result to the message in the stream, paging in older
   // history as needed, then flash it
@@ -1517,6 +1573,28 @@ export default function ChatPanel({
                     const teamA = isEnd ? ev.winners : ev.teams?.[0];
                     const teamB = isEnd ? ev.losers : ev.teams?.[1];
                     const eventLink = isEnd ? `/match/${ev.matchId}` : "/live";
+                    const teamAMmr = isEnd ? ev.winnersMmr : ev.teamMmrs?.[0];
+                    const teamBMmr = isEnd ? ev.losersMmr : ev.teamMmrs?.[1];
+                    const eventAvatar = (p, i) => {
+                      const profile = avatars?.get(p.battleTag) || eventAvatars.get(p.battleTag);
+                      if (profile?.profilePicUrl) {
+                        return <EventAvatarImg key={p.battleTag || i} src={profile.profilePicUrl} alt="" />;
+                      }
+                      const raceIcon = p.race != null ? raceMapping[p.race] : null;
+                      return <EventAvatarImg key={p.battleTag || i} src={raceIcon || raceIcons.random} alt="" $placeholder />;
+                    };
+                    const renderTeamLine = (players, mmr, { winners = false, dim = false } = {}) => (
+                      <EventTeamLine $dim={dim}>
+                        {isEnd && (
+                          <EventLead>
+                            {winners && <EventCrown src={crownIcon} alt="winners" />}
+                          </EventLead>
+                        )}
+                        <EventAvatars>{(players || []).map(eventAvatar)}</EventAvatars>
+                        <span>{renderNames(players)}</span>
+                        {mmr != null && <EventTeamMmr>{mmr}</EventTeamMmr>}
+                      </EventTeamLine>
+                    );
                     return (
                       <GameEventCard key={ev.id} $end={isEnd} $live={ev.live}>
                         <EventTagCol>
@@ -1531,20 +1609,14 @@ export default function ChatPanel({
                           <EventHeaderLine>
                             {ev.mapName && <Link to={eventLink}>{ev.mapName}</Link>}
                             <EventMeta>
-                              {ev.avgMmr != null && `· avg ${ev.avgMmr} `}
                               {isEnd
                                 ? `· ${duration ? `${duration} · ` : ""}ended ${formatTime(ev.time)}`
                                 : `· started ${formatTime(ev.time)}`}
                             </EventMeta>
                           </EventHeaderLine>
-                          <EventTeamLine>
-                            {isEnd && <EventCrown src={crownIcon} alt="winners" />}
-                            <span>{renderNames(teamA)}</span>
-                          </EventTeamLine>
+                          {renderTeamLine(teamA, teamAMmr, { winners: true })}
                           <EventVsLine>vs</EventVsLine>
-                          <EventTeamLine $dim={isEnd}>
-                            <span>{renderNames(teamB)}</span>
-                          </EventTeamLine>
+                          {renderTeamLine(teamB, teamBMmr, { dim: isEnd })}
                         </EventBody>
                       </GameEventCard>
                     );
