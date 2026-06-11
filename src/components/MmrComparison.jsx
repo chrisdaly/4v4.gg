@@ -1058,22 +1058,25 @@ const MmrComparison = React.memo(({ data, compact = false, atStyle = "combined",
           .attr("x1", tickMinX).attr("y1", middleLine - tickLen)
           .attr("x2", tickMinX).attr("y2", middleLine + tickLen)
           .attr("stroke", colors.greyLight.value).attr("stroke-width", 1).attr("opacity", 0.7);
-        svg.append("text")
-          .attr("x", tickMinX).attr("y", middleLine + tickLen + 10)
-          .attr("text-anchor", "middle").attr("font-family", "var(--font-mono)")
-          .attr("font-size", 10).attr("fill", colors.greyLight.value).attr("opacity", 0.7)
-          .text(Math.round(dataMin));
 
         // Right tick
         svg.append("line")
           .attr("x1", tickMaxX).attr("y1", middleLine - tickLen)
           .attr("x2", tickMaxX).attr("y2", middleLine + tickLen)
           .attr("stroke", colors.greyLight.value).attr("stroke-width", 1).attr("opacity", 0.7);
-        svg.append("text")
-          .attr("x", tickMaxX).attr("y", middleLine + tickLen + 10)
-          .attr("text-anchor", "middle").attr("font-family", "var(--font-mono)")
-          .attr("font-size", 10).attr("fill", colors.greyLight.value).attr("opacity", 0.7)
-          .text(Math.round(dataMax));
+
+        if (!hideLabels) {
+          svg.append("text")
+            .attr("x", tickMinX).attr("y", middleLine + tickLen + 10)
+            .attr("text-anchor", "middle").attr("font-family", "var(--font-mono)")
+            .attr("font-size", 10).attr("fill", colors.greyLight.value).attr("opacity", 0.7)
+            .text(Math.round(dataMin));
+          svg.append("text")
+            .attr("x", tickMaxX).attr("y", middleLine + tickLen + 10)
+            .attr("text-anchor", "middle").attr("font-family", "var(--font-mono)")
+            .attr("font-size", 10).attr("fill", colors.greyLight.value).attr("opacity", 0.7)
+            .text(Math.round(dataMax));
+        }
       }
     } else {
       const middleLine = innerWidth / 2 + margin.left;

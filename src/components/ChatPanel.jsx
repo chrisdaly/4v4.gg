@@ -13,7 +13,7 @@ import { getMapImageUrl } from "../lib/formatters";
 import { linkifyMessage, playPing } from "../lib/chatExtras";
 import PlayerHoverCard from "./PlayerHoverCard";
 import { MmrComparison } from "./MmrComparison";
-import { getPlayerProfile, getPlayerProfilesBatch } from "../lib/api";
+import { getPlayerProfile } from "../lib/api";
 import useAdmin from "../lib/useAdmin";
 
 const OuterFrame = styled.div`
@@ -723,28 +723,24 @@ const EventLead = styled.span`
   align-items: center;
 `;
 
-const EventAvatars = styled.span`
+const EventRaces = styled.span`
   display: inline-flex;
   gap: 2px;
   flex-shrink: 0;
 `;
 
-const EventAvatarImg = styled.img`
-  width: 18px;
-  height: 18px;
-  border-radius: 2px;
-  object-fit: cover;
+const EventRaceIcon = styled.img`
+  width: 16px;
+  height: 16px;
   display: block;
-  ${(p) => p.$placeholder && "padding: 2px; background: rgba(255,255,255,0.06); opacity: 0.7; box-sizing: border-box;"}
+  opacity: ${(p) => (p.$faded ? 0.4 : 0.85)};
 `;
 
 const EventTeamMmr = styled.span`
-  margin-left: auto;
-  padding-left: var(--space-2);
-  flex-shrink: 0;
   font-family: var(--font-mono);
   font-size: var(--text-xxs);
   color: var(--white);
+  ${(p) => p.$dim && "opacity: 0.55;"}
 `;
 
 const EventTeamLine = styled.div`
@@ -777,15 +773,23 @@ const EventMeta = styled.span`
   white-space: nowrap;
 `;
 
-const EventChartCol = styled.div`
+const EventStatsCol = styled.div`
   width: 110px;
-  height: 48px;
   flex-shrink: 0;
   align-self: center;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 1px;
 
   @media (max-width: 560px) {
     display: none;
   }
+`;
+
+const EventChart = styled.div`
+  width: 100%;
+  height: 44px;
 `;
 
 /* ── Name-row accessories ──────────────────────── */
@@ -1165,7 +1169,6 @@ export default function ChatPanel({
   const [loadingOlder, setLoadingOlder] = useState(false);
   const [newMarkerTime, setNewMarkerTime] = useState(null);
   const [searchAvatars, setSearchAvatars] = useState(new Map());
-  const [eventAvatars, setEventAvatars] = useState(new Map());
   const [flashId, setFlashId] = useState(null);
   const [jumping, setJumping] = useState(false);
   const lastNotifiedRef = useRef(null);
@@ -1184,30 +1187,6 @@ export default function ChatPanel({
     // searchAvatars intentionally omitted — it's the accumulator this effect fills
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [searchResults, avatars]);
-
-  // Batch-fetch profiles for game-event players the page doesn't know yet
-  // (one /many request per new lobby, cached 30 min)
-  useEffect(() => {
-    const tags = new Set();
-    for (const ev of gameEvents) {
-      const players = [...(ev.winners || []), ...(ev.losers || []), ...(ev.teams || []).flat()];
-      for (const p of players) {
-        if (p.battleTag && !avatars?.get(p.battleTag) && !eventAvatars.has(p.battleTag)) {
-          tags.add(p.battleTag);
-        }
-      }
-    }
-    if (tags.size === 0) return;
-    getPlayerProfilesBatch([...tags]).then((profiles) => {
-      setEventAvatars((prev) => {
-        const next = new Map(prev);
-        for (const [tag, profile] of profiles) next.set(tag, profile);
-        return next;
-      });
-    });
-    // eventAvatars intentionally omitted — it's the accumulator this effect fills
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [gameEvents, avatars]);
 
   // Jump from a search result to the message in the stream, paging in older
   // history as needed, then flash it
@@ -1587,26 +1566,26 @@ export default function ChatPanel({
                     const eventLink = isEnd ? `/match/${ev.matchId}` : "/live";
                     const teamAMmr = isEnd ? ev.winnersMmr : ev.teamMmrs?.[0];
                     const teamBMmr = isEnd ? ev.losersMmr : ev.teamMmrs?.[1];
-                    const eventAvatar = (p, i) => {
-                      const profile = avatars?.get(p.battleTag) || eventAvatars.get(p.battleTag);
-                      if (profile?.profilePicUrl) {
-                        return <EventAvatarImg key={p.battleTag || i} src={profile.profilePicUrl} alt="" />;
-                      }
-                      const raceIcon = p.race != null ? raceMapping[p.race] : null;
-                      return <EventAvatarImg key={p.battleTag || i} src={raceIcon || raceIcons.random} alt="" $placeholder />;
-                    };
-                    const renderTeamLine = (players, mmr, { winners = false, dim = false } = {}) => (
+                    const raceIcon = (p, i) => (
+                      <EventRaceIcon
+                        key={p.battleTag || i}
+                        src={(p.race != null && raceMapping[p.race]) || raceIcons.random}
+                        alt=""
+                        $faded={p.race == null}
+                      />
+                    );
+                    const renderTeamLine = (players, { winners = false, dim = false } = {}) => (
                       <EventTeamLine $dim={dim}>
                         {isEnd && (
                           <EventLead>
                             {winners && <EventCrown src={crownIcon} alt="winners" />}
                           </EventLead>
                         )}
-                        <EventAvatars>{(players || []).map(eventAvatar)}</EventAvatars>
+                        <EventRaces>{(players || []).map(raceIcon)}</EventRaces>
                         <span>{renderNames(players)}</span>
-                        {mmr != null && <EventTeamMmr>{mmr}</EventTeamMmr>}
                       </EventTeamLine>
                     );
+                    const hasChart = (teamA || []).some((p) => p.mmr > 0);
                     return (
                       <GameEventCard key={ev.id} $end={isEnd} $live={ev.live}>
                         <EventTagCol>
@@ -1626,23 +1605,29 @@ export default function ChatPanel({
                                 : `· started ${formatTime(ev.time)}`}
                             </EventMeta>
                           </EventHeaderLine>
-                          {renderTeamLine(teamA, teamAMmr, { winners: true })}
+                          {renderTeamLine(teamA, { winners: true })}
                           <EventVsLine>vs</EventVsLine>
-                          {renderTeamLine(teamB, teamBMmr, { dim: isEnd })}
+                          {renderTeamLine(teamB, { dim: isEnd })}
                         </EventBody>
-                        {(teamA || []).some((p) => p.mmr > 0) && (
-                          <EventChartCol>
-                            <MmrComparison
-                              data={{
-                                teamOneMmrs: (teamA || []).map((p) => p.mmr || 0),
-                                teamTwoMmrs: (teamB || []).map((p) => p.mmr || 0),
-                              }}
-                              compact
-                              transposed
-                              fitToData
-                              hideLabels
-                            />
-                          </EventChartCol>
+                        {(teamAMmr != null || hasChart) && (
+                          <EventStatsCol>
+                            {teamAMmr != null && <EventTeamMmr>{teamAMmr}</EventTeamMmr>}
+                            {hasChart && (
+                              <EventChart>
+                                <MmrComparison
+                                  data={{
+                                    teamOneMmrs: (teamA || []).map((p) => p.mmr || 0),
+                                    teamTwoMmrs: (teamB || []).map((p) => p.mmr || 0),
+                                  }}
+                                  compact
+                                  transposed
+                                  fitToData
+                                  hideLabels
+                                />
+                              </EventChart>
+                            )}
+                            {teamBMmr != null && <EventTeamMmr $dim={isEnd}>{teamBMmr}</EventTeamMmr>}
+                          </EventStatsCol>
                         )}
                       </GameEventCard>
                     );
