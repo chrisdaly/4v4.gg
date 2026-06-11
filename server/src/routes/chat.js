@@ -3,6 +3,7 @@ import { getMessages, getStats, getEvents, getEventsSummary, searchMessages } fr
 import { addClient } from '../sse.js';
 import { getOnlineUsers } from '../signalr.js';
 import { publicLimiter } from '../middleware/rateLimit.js';
+import { generateMatchBlurb } from '../matchBlurb.js';
 
 const router = Router();
 
@@ -41,6 +42,16 @@ router.get('/search', (req, res) => {
     windowHours: PUBLIC_SEARCH_WINDOW_HOURS,
     results: searchMessages(q, limit, offset, PUBLIC_SEARCH_WINDOW_HOURS),
   });
+});
+
+// LLM one-liner for a finished match — generated once, cached forever
+router.get('/match-blurb/:matchId', async (req, res) => {
+  const { matchId } = req.params;
+  if (!/^[a-f0-9]{24}$/i.test(matchId)) {
+    return res.status(400).json({ error: 'Invalid match id' });
+  }
+  const blurb = await generateMatchBlurb(matchId);
+  res.json({ matchId, blurb: blurb || null });
 });
 
 // Chat stats — cached for 60s (runs ~12 aggregate queries)

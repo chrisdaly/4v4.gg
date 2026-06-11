@@ -2,7 +2,7 @@ import React, { useState, useEffect, useMemo, useRef } from "react";
 import styled from "styled-components";
 import { HiUsers, HiChat } from "react-icons/hi";
 import useChatStream from "../lib/useChatStream";
-import { getPlayerProfile, getPlayerStats, getPlayerSessionLight, getFinishedMatches, getMatch, getHeroStats4v4 } from "../lib/api";
+import { getPlayerProfile, getPlayerStats, getPlayerSessionLight, getFinishedMatches, getMatch, getHeroStats4v4, getMatchBlurb } from "../lib/api";
 import { computeMvp, computeNote } from "../lib/matchNotes";
 import { getLiveStreamers } from "../lib/twitchService";
 import { geometricMean } from "../lib/formatters";
@@ -214,6 +214,19 @@ const Chat = () => {
     });
   };
 
+  // When heuristics found nothing, ask the relay's LLM ticker for a drama
+  // angle (streaks, rivalries, chat callbacks). Cached forever per match.
+  const fillBlurb = (eventId, matchId) => {
+    getMatchBlurb(matchId).then((blurb) => {
+      if (!blurb) return;
+      setGameEvents((prev) =>
+        prev.map((e) =>
+          e.id === eventId && !e.note ? { ...e, note: { text: blurb, tag: null } } : e
+        )
+      );
+    });
+  };
+
   // Backfill game events retroactively on page load: recently finished games
   // (real endTime) and currently running games (real startTime) involving
   // channel members or recent chatters get injected into the stream, so the
@@ -253,6 +266,7 @@ const Chat = () => {
           setGameEvents((prev) =>
             prev.map((e) => (e.id === ev.id ? { ...e, mvp, note } : e))
           );
+          if (!note) fillBlurb(ev.id, match.id);
         });
       }
     });
@@ -375,12 +389,14 @@ const Chat = () => {
         if (ev) {
           const matchPlayers = (match.teams || []).flatMap((t) => t.players || []);
           const heroStats = await getHeroStats4v4();
+          const note = computeNote(ev, { playerScores, matchPlayers, heroStats });
           addGameEvent({
             ...ev,
             live: true,
             mvp: computeMvp(playerScores),
-            note: computeNote(ev, { playerScores, matchPlayers, heroStats }),
+            note,
           });
+          if (!note) fillBlurb(ev.id, id);
           const withDelta = [...ev.winners, ...ev.losers].filter(
             (p) => p.inChannel && p.mmrGain != null
           );

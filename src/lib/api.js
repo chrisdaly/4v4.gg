@@ -356,6 +356,23 @@ export const getSeasonsCached = () => {
   return cache.get('seasons');
 };
 
+const RELAY_BASE =
+  import.meta.env.VITE_CHAT_RELAY_URL || 'https://4v4gg-chat-relay.fly.dev';
+
+/**
+ * LLM-generated one-liner for a finished match (relay generates once and
+ * caches forever; empty/failed generations come back null).
+ */
+export const getMatchBlurb = async (matchId) => {
+  try {
+    const url = `${RELAY_BASE}/api/chat/match-blurb/${encodeURIComponent(matchId)}`;
+    const data = await fetchWithCache(url, { cacheKey: `blurb:${matchId}`, ttl: 24 * 60 * 60 * 1000 });
+    return data?.blurb || null;
+  } catch {
+    return null;
+  }
+};
+
 /**
  * 4v4 hero pick statistics (orderedPicks with per-hero counts per pick
  * position). Global aggregates that move slowly — cached for 24 hours.

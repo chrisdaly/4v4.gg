@@ -389,6 +389,15 @@ export function initDb() {
     CREATE INDEX IF NOT EXISTS idx_fp_battle_tag ON player_fingerprints(battle_tag);
   `);
 
+  // ── Match blurbs (LLM one-liners, immutable per match) ──
+  db.exec(`
+    CREATE TABLE IF NOT EXISTS match_blurbs (
+      match_id   TEXT PRIMARY KEY,
+      blurb      TEXT NOT NULL DEFAULT '',
+      created_at TEXT NOT NULL DEFAULT (datetime('now'))
+    );
+  `);
+
   // ── Feedback issues table ─────────────────────────
   db.exec(`
     CREATE TABLE IF NOT EXISTS feedback_issues (
@@ -1946,6 +1955,32 @@ export function searchMessagesByKeywords(keywords, sinceHours = 24) {
       AND (${conditions})
     ORDER BY received_at ASC
   `).all(sinceHours, ...params);
+}
+
+export function getMatchBlurb(matchId) {
+  return db.prepare('SELECT blurb FROM match_blurbs WHERE match_id = ?').get(matchId) ?? null;
+}
+
+export function setMatchBlurb(matchId, blurb) {
+  db.prepare(`
+    INSERT INTO match_blurbs (match_id, blurb) VALUES (?, ?)
+    ON CONFLICT(match_id) DO UPDATE SET blurb = excluded.blurb
+  `).run(matchId, blurb);
+}
+
+// Recent messages from a set of players — fuel for blurb trash-talk callbacks
+export function getRecentMessagesByTags(battleTags, hours = 12, limit = 30) {
+  if (!battleTags.length) return [];
+  const placeholders = battleTags.map(() => '?').join(',');
+  return db.prepare(`
+    SELECT user_name, message, received_at
+    FROM messages
+    WHERE deleted = 0
+      AND battle_tag IN (${placeholders})
+      AND received_at >= datetime('now', '-' || ? || ' hours')
+    ORDER BY received_at DESC
+    LIMIT ?
+  `).all(...battleTags, hours, limit);
 }
 
 export function getMessagesInTimeRange(from, to) {
