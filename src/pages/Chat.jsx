@@ -2,7 +2,8 @@ import React, { useState, useEffect, useMemo, useRef } from "react";
 import styled from "styled-components";
 import { HiUsers, HiChat } from "react-icons/hi";
 import useChatStream from "../lib/useChatStream";
-import { getPlayerProfile, getPlayerStats, getPlayerSessionLight, getFinishedMatches, getMatch } from "../lib/api";
+import { getPlayerProfile, getPlayerStats, getPlayerSessionLight, getFinishedMatches, getMatch, getHeroStats4v4 } from "../lib/api";
+import { computeMvp, computeNote } from "../lib/matchNotes";
 import { getLiveStreamers } from "../lib/twitchService";
 import { geometricMean } from "../lib/formatters";
 import { useWatchList } from "../lib/chatExtras";
@@ -35,128 +36,8 @@ const teamMmr = (team) => {
   return mmrs.length > 0 ? Math.round(geometricMean(mmrs)) : null;
 };
 
-// MVP: highest summed rank across the five headline stats — the same five
-// the big match card uses for its MVP badge
-const MVP_KEYS = [
-  ["heroScore", "heroesKilled"],
-  ["heroScore", "expGained"],
-  ["resourceScore", "goldCollected"],
-  ["unitScore", "unitsKilled"],
-  ["unitScore", "largestArmy"],
-];
-
-function mvpRankSum(ps, playerScores) {
-  let sum = 0;
-  for (const [group, key] of MVP_KEYS) {
-    const v = ps[group]?.[key] ?? 0;
-    sum += playerScores.filter((o) => (o[group]?.[key] ?? 0) <= v).length;
-  }
-  return sum;
-}
-
-function computeMvp(playerScores) {
-  if (!Array.isArray(playerScores) || playerScores.length === 0) return null;
-  let best = null;
-  let bestScore = -Infinity;
-  for (const ps of playerScores) {
-    const sum = mvpRankSum(ps, playerScores);
-    if (sum > bestScore) {
-      bestScore = sum;
-      best = ps.battleTag;
-    }
-  }
-  return best;
-}
-
-const RACE_NAMES = { 1: "Human", 2: "Orc", 4: "Night Elf", 8: "Undead" };
-
-// One-liner for finishes worth remarking on; null for ordinary games.
-// Called once at event build (match data only) and again when the match
-// detail arrives (playerScores/heroes unlock the analytics checks).
-function computeNote(ev, { playerScores = null, matchPlayers = null } = {}) {
-  const dur = ev.durationInSeconds;
-  const { winnersMmr: w, losersMmr: l } = ev;
-  const all = [...(ev.winners || []), ...(ev.losers || [])];
-  const nameOf = (tag) =>
-    all.find((p) => p.battleTag === tag)?.name || tag?.split("#")[0] || "someone";
-
-  // Race-stack victories (effective race, random rolls resolved)
-  const raceCounts = {};
-  for (const p of ev.winners || []) {
-    if (RACE_NAMES[p.race]) raceCounts[p.race] = (raceCounts[p.race] || 0) + 1;
-  }
-  for (const [race, n] of Object.entries(raceCounts)) {
-    if (n === 4) return `all-${RACE_NAMES[race]} victory`;
-  }
-
-  if (w != null && l != null && w <= l - 15) {
-    return `upset — the ${l} MMR favorites fell`;
-  }
-
-  const hasScores = Array.isArray(playerScores) && playerScores.length >= 4;
-
-  if (hasScores) {
-    // Scoreboard dominance: clear gap between best and second-best
-    const sums = playerScores
-      .map((ps) => ({ tag: ps.battleTag, sum: mvpRankSum(ps, playerScores) }))
-      .sort((a, b) => b.sum - a.sum);
-    if (sums[0].sum - sums[1].sum >= 8) {
-      return `${nameOf(sums[0].tag)} dominated the scoreboard`;
-    }
-  }
-
-  for (const [race, n] of Object.entries(raceCounts)) {
-    if (n === 3) return `triple ${RACE_NAMES[race]} win`;
-  }
-
-  if (hasScores) {
-    const top = (group, key) =>
-      playerScores.reduce(
-        (acc, ps) => {
-          const v = ps[group]?.[key] ?? 0;
-          return v > acc.v ? { tag: ps.battleTag, v } : acc;
-        },
-        { tag: null, v: 0 }
-      );
-
-    const army = top("unitScore", "largestArmy");
-    if (army.v >= 90) return `${nameOf(army.tag)} fielded a ${army.v}-supply army`;
-
-    const hunter = top("heroScore", "heroesKilled");
-    if (hunter.v >= 6) return `${nameOf(hunter.tag)} took down ${hunter.v} heroes`;
-  }
-
-  // Stunted heroes: in a long game, someone's heroes barely leveled
-  if (Array.isArray(matchPlayers) && dur != null && dur >= 18 * 60) {
-    const levels = matchPlayers
-      .filter((p) => Array.isArray(p.heroes) && p.heroes.length > 0)
-      .map((p) => ({
-        tag: p.battleTag,
-        total: p.heroes.reduce((s, h) => s + (h.level || 0), 0),
-      }));
-    if (levels.length >= 6) {
-      const sorted = [...levels].sort((a, b) => a.total - b.total);
-      const lowest = sorted[0];
-      const avgOthers =
-        sorted.slice(1).reduce((s, p) => s + p.total, 0) / (sorted.length - 1);
-      if (lowest.total <= avgOthers * 0.5) {
-        return `${nameOf(lowest.tag)} finished with only ${lowest.total} hero levels`;
-      }
-    }
-  }
-
-  if (dur != null && dur > 0 && dur < 12 * 60) {
-    return `over in ${Math.max(1, Math.round(dur / 60))} minutes`;
-  }
-  if (dur != null && dur > 35 * 60) {
-    return `${Math.round(dur / 60)}-minute marathon`;
-  }
-  const leaver = all.find((p) => p.mmrGain != null && p.mmrGain <= -30);
-  if (leaver) return `${leaver.name} dropped early (${leaver.mmrGain})`;
-  if (w != null && l != null && Math.abs(w - l) <= 5) return "dead-even lobby";
-  if (w != null && l != null && (w + l) / 2 >= 1800) return "high-level lobby";
-  return null;
-}
+// computeMvp / computeNote live in lib/matchNotes.js, shared with the
+// finished-match page.
 
 function buildStartEvent(match, relevant) {
   const id = match.id || match.match?.id;
@@ -364,11 +245,11 @@ const Chat = () => {
         addGameEvent(ev);
         // MVP + analytics notes need the match detail (cached 30 min);
         // only fetched for the handful of events that actually render
-        getMatch(match.id).then((detail) => {
+        Promise.all([getMatch(match.id), getHeroStats4v4()]).then(([detail, heroStats]) => {
           if (!detail?.playerScores) return;
           const matchPlayers = (detail.match?.teams || []).flatMap((t) => t.players || []);
           const mvp = computeMvp(detail.playerScores);
-          const note = computeNote(ev, { playerScores: detail.playerScores, matchPlayers });
+          const note = computeNote(ev, { playerScores: detail.playerScores, matchPlayers, heroStats });
           setGameEvents((prev) =>
             prev.map((e) => (e.id === ev.id ? { ...e, mvp, note } : e))
           );
@@ -493,11 +374,12 @@ const Chat = () => {
         const ev = buildEndEvent(match, id, channelTagsRef.current);
         if (ev) {
           const matchPlayers = (match.teams || []).flatMap((t) => t.players || []);
+          const heroStats = await getHeroStats4v4();
           addGameEvent({
             ...ev,
             live: true,
             mvp: computeMvp(playerScores),
-            note: computeNote(ev, { playerScores, matchPlayers }),
+            note: computeNote(ev, { playerScores, matchPlayers, heroStats }),
           });
           const withDelta = [...ev.winners, ...ev.losers].filter(
             (p) => p.inChannel && p.mmrGain != null

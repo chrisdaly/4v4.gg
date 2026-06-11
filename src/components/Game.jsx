@@ -471,6 +471,9 @@ const Game = ({ playerData: rawPlayerData, metaData, profilePics, playerCountrie
                     {metaData.server && (
                       <span className="meta-server">{metaData.server}</span>
                     )}
+                    {metaData.note && (
+                      <span className="meta-note">{metaData.note}</span>
+                    )}
                   </div>
                 </div>
                 {metaData.matchId && metaData.gameLength !== "0:00" && (

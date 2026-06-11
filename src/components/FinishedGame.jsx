@@ -6,6 +6,8 @@ import PlayerPlaystyleCard from "./PlayerPlaystyleCard";
 import { preprocessPlayerScores } from "../lib/utils";
 import { cache } from "../lib/cache";
 import { enrichPlayerData } from "../lib/gameDataUtils";
+import { getHeroStats4v4 } from "../lib/api";
+import { computeNote, noteContextFromMatch } from "../lib/matchNotes";
 
 // Get cached player data for a finished match
 const getCachedMatchPlayerData = (matchId) => {
@@ -38,6 +40,16 @@ const FinishedGame = ({ data, compact = false }) => {
       const fullMetaData = { ...newMetaData, matchId: data.match.id };
       setPlayerData(newPlayerData);
       setMetaData(fullMetaData);
+
+      // "Interesting game" blurb — same engine as the chat event cards
+      getHeroStats4v4().then((heroStats) => {
+        const note = computeNote(noteContextFromMatch(data.match), {
+          playerScores: data.playerScores,
+          matchPlayers: (data.match.teams || []).flatMap((t) => t.players || []),
+          heroStats,
+        });
+        if (note) setMetaData((prev) => (prev ? { ...prev, note } : prev));
+      });
 
       // In compact mode, skip fetching extra player data for faster loading
       if (compact) {

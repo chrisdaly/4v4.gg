@@ -357,6 +357,21 @@ export const getSeasonsCached = () => {
 };
 
 /**
+ * 4v4 hero pick statistics (orderedPicks with per-hero counts per pick
+ * position). Global aggregates that move slowly — cached for 24 hours.
+ * Used for rare-pick detection in match notes.
+ */
+export const getHeroStats4v4 = async () => {
+  try {
+    const url = `${API_BASE}/w3c-stats/heroes-played`;
+    const data = await fetchWithCache(url, { cacheKey: 'hero-stats', ttl: 24 * 60 * 60 * 1000 });
+    return (data || []).find((entry) => entry.gameMode === 4)?.orderedPicks || null;
+  } catch {
+    return null;
+  }
+};
+
+/**
  * Batch fetch profiles for multiple players via the /many endpoint —
  * one request for a whole match card instead of 8.
  *
