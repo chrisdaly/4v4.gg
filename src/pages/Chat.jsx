@@ -3,7 +3,7 @@ import styled from "styled-components";
 import { HiUsers, HiChat } from "react-icons/hi";
 import { GiCrossedSwords } from "react-icons/gi";
 import useChatStream from "../lib/useChatStream";
-import { getPlayerProfile, getPlayerStats, getPlayerSessionLight } from "../lib/api";
+import { getPlayerProfile, getPlayerStats, getPlayerSessionLight, getFinishedMatches } from "../lib/api";
 import { getLiveStreamers } from "../lib/twitchService";
 import { useWatchList } from "../lib/chatExtras";
 import useOngoingMatches from "../lib/useOngoingMatches";
@@ -150,6 +150,84 @@ const Chat = () => {
       return [...prev.slice(-99), event];
     });
   };
+
+  // Backfill game events retroactively on page load: recently finished games
+  // (real endTime) and currently running games (real startTime) involving
+  // channel members or recent chatters get injected into the stream, so the
+  // chat shows game context from before you opened the page.
+  const backfillContext = () => {
+    const relevant = new Set(channelTagsRef.current);
+    for (const m of messages) {
+      const tag = (m.battle_tag || m.battleTag || "")?.toLowerCase();
+      if (tag) relevant.add(tag);
+    }
+    const oldestMsgTime = new Date(messages[0].sent_at || messages[0].sentAt).getTime();
+    const cutoff = Math.max(oldestMsgTime, Date.now() - 3 * 60 * 60 * 1000);
+    const chattersIn = (match) =>
+      (match.teams || []).flatMap((t) =>
+        (t.players || [])
+          .filter((p) => relevant.has(p.battleTag?.toLowerCase()))
+          .map((p) => ({
+            battleTag: p.battleTag,
+            name: p.name || p.battleTag?.split("#")[0],
+            won: p.won === true || p.won === 1,
+            mmrGain: p.mmrGain ?? null,
+          }))
+      );
+    return { cutoff, chattersIn };
+  };
+
+  const backfilledEndsRef = useRef(false);
+  useEffect(() => {
+    if (backfilledEndsRef.current) return;
+    if (messages.length === 0 || onlineUsers.length === 0) return;
+    backfilledEndsRef.current = true;
+
+    const { cutoff, chattersIn } = backfillContext();
+    getFinishedMatches(100).then(({ matches: finished }) => {
+      for (const match of finished || []) {
+        const endTime = new Date(match.endTime).getTime();
+        if (!endTime || endTime < cutoff) continue;
+        const players = chattersIn(match);
+        if (players.length === 0) continue;
+        addGameEvent({
+          id: `ge-${match.id}`,
+          type: "game_end",
+          time: match.endTime,
+          matchId: match.id,
+          mapName: match.mapName,
+          players,
+        });
+      }
+    });
+    // runs once when messages + users are first available
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [messages, onlineUsers]);
+
+  const backfilledStartsRef = useRef(false);
+  useEffect(() => {
+    if (backfilledStartsRef.current) return;
+    if (messages.length === 0 || onlineUsers.length === 0 || ongoingMatches.length === 0) return;
+    backfilledStartsRef.current = true;
+
+    const { cutoff, chattersIn } = backfillContext();
+    for (const match of ongoingMatches) {
+      const startTime = new Date(match.startTime).getTime();
+      if (!startTime || startTime < cutoff) continue;
+      const players = chattersIn(match).map(({ battleTag, name }) => ({ battleTag, name }));
+      if (players.length === 0) continue;
+      addGameEvent({
+        id: `gs-${match.id}`,
+        type: "game_start",
+        time: match.startTime,
+        matchId: match.id,
+        mapName: match.mapName,
+        players,
+      });
+    }
+    // runs once when messages + users + first ongoing poll are all available
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [messages, onlineUsers, ongoingMatches]);
 
   const addMatchTimer = (fn, ms) => {
     const id = setTimeout(() => {
