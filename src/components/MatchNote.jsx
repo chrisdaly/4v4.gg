@@ -10,21 +10,35 @@ import { raceMapping } from "../lib/constants";
 const Wrap = styled.span`
   display: inline-flex;
   align-items: center;
-  gap: 5px;
+  gap: 6px;
   flex-wrap: wrap;
   font-family: var(--font-mono);
-  font-size: var(--text-xxs);
+  font-size: var(--text-xs);
   font-style: italic;
   color: var(--gold);
-  opacity: 0.9;
 `;
 
 const Avatar = styled.img`
-  width: 18px;
-  height: 18px;
+  width: 22px;
+  height: 22px;
   border-radius: var(--radius-sm);
   object-fit: cover;
   ${(p) => p.$raceIcon && "padding: 1px; background: rgba(255,255,255,0.06); box-sizing: border-box;"}
+`;
+
+const RaceIconImg = styled.img`
+  width: 20px;
+  height: 20px;
+`;
+
+const Quote = styled.span`
+  color: var(--grey-light);
+  &::before {
+    content: "— “";
+  }
+  &::after {
+    content: "”";
+  }
 `;
 
 const Name = styled(Link)`
@@ -50,8 +64,8 @@ const HeroIcons = styled.span`
 `;
 
 const HeroImg = styled.img`
-  width: 18px;
-  height: 18px;
+  width: 22px;
+  height: 22px;
   border-radius: var(--radius-sm);
   border: 1px solid rgba(var(--gold-muted-rgb), 0.4);
   box-sizing: border-box;
@@ -61,7 +75,16 @@ export default function MatchNote({ note, avatarUrl = null }) {
   if (!note) return null;
   // Events built before the structured-note change may still hold strings
   if (typeof note === "string") return <Wrap>{note}</Wrap>;
-  if (!note.tag) return <Wrap>{note.text}</Wrap>;
+  if (!note.tag) {
+    const stackIcon = note.raceId != null ? raceMapping[note.raceId] : null;
+    return (
+      <Wrap>
+        {stackIcon && <RaceIconImg src={stackIcon} alt="" />}
+        <span>{note.text}</span>
+        {note.quote && <Quote>{note.quote}</Quote>}
+      </Wrap>
+    );
+  }
 
   const raceIcon = note.race != null ? raceMapping[note.race] : null;
 

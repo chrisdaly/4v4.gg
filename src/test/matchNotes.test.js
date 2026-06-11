@@ -41,14 +41,26 @@ describe('computeNote', () => {
     expect(computeNote(ctx({ winnersMmr: 1500, losersMmr: 1510 }))).toBeNull();
   });
 
-  it('flags all-race victories above everything', () => {
+  it('flags all-race victories above everything, with race icon and war cry', () => {
     const c = ctx({
       winners: [player('A', 8), player('B', 8), player('C', 8), player('D', 8)],
       winnersMmr: 1400,
       losersMmr: 1500, // would also be an upset
     });
-    expect(computeNote(c).text).toBe('all-Undead victory');
-    expect(computeNote(c).tag).toBeNull();
+    const note = computeNote(c);
+    expect(note.text).toBe('all-Undead victory');
+    expect(note.tag).toBeNull();
+    expect(note.raceId).toBe(8);
+    expect(note.quote).toBe("My life for Ner'zhul!");
+  });
+
+  it('decorates triple-race wins with the war cry', () => {
+    const c = ctx({
+      winners: [player('A', 2), player('B', 2), player('C', 2), player('D', 8)],
+    });
+    const note = computeNote(c);
+    expect(note.text).toBe('triple Orc win');
+    expect(note.quote).toBe('For the Horde!');
   });
 
   it('prefers upsets over triple-race wins', () => {
@@ -82,52 +94,23 @@ describe('computeNote', () => {
     expect(note.name).toBe('A');
   });
 
-  it('flags rare first-hero picks', () => {
-    const heroStats = [
-      {
-        pick: 0,
-        stats: [
-          { icon: 'archmage', count: 9950 },
-          { icon: 'beastmaster', count: 50 },
-        ],
-      },
-    ];
-    const matchPlayers = [
-      { battleTag: 'A#1', heroes: [{ icon: 'beastmaster', level: 5 }] },
-      { battleTag: 'B#1', heroes: [{ icon: 'archmage', level: 5 }] },
-    ];
-    const note = computeNote(ctx(), { matchPlayers, heroStats });
-    expect(note.text).toBe('opened Beastmaster — a 0.5% first pick');
-    expect(note.tag).toBe('A#1');
-    expect(note.heroes).toEqual([{ icon: 'beastmaster' }]);
-  });
-
-  it('ignores rare heroes at later pick positions (position data is unreliable)', () => {
-    const heroStats = [
-      { pick: 0, stats: [{ icon: 'archmage', count: 10000 }] },
-      {
-        pick: 1,
-        stats: [
-          { icon: 'archmage', count: 9990 },
-          { icon: 'seawitch', count: 10 },
-        ],
-      },
-    ];
-    const matchPlayers = [
-      { battleTag: 'A#1', heroes: [{ icon: 'archmage', level: 5 }, { icon: 'seawitch', level: 3 }] },
-    ];
-    expect(computeNote(ctx({ winnersMmr: 1500, losersMmr: 1510 }), { matchPlayers, heroStats })).toBeNull();
-  });
-
-  it('flags stunted hero levels in long games', () => {
-    const matchPlayers = 'ABCDEFGH'.split('').map((tag, i) => ({
-      battleTag: `${tag}#1`,
-      heroes: [{ icon: 'archmage', level: i === 0 ? 3 : 12 }],
-    }));
-    const note = computeNote(ctx({ durationInSeconds: 25 * 60 }), { matchPlayers });
-    expect(note.text).toBe('finished with only 3 hero levels');
-    expect(note.tag).toBe('A#1');
-    expect(note.heroes).toEqual([{ icon: 'archmage', level: 3 }]);
+  it('attaches the subject hero loadout from match players', () => {
+    const c = ctx({
+      winners: [player('A', 1), player('B', 1), player('C', 1), player('D', 8)],
+    });
+    const dominant = scores([
+      ['A', 9, 9000, 90000, 99, 89],
+      ['B', 2, 2000, 15000, 30, 70],
+      ['C', 3, 2500, 11000, 50, 55],
+      ['D', 0, 3000, 12000, 35, 65],
+      ['E', 4, 1800, 13000, 45, 50],
+      ['F', 1, 2200, 10000, 55, 60],
+      ['G', 5, 2800, 14000, 25, 75],
+      ['H', 2, 2600, 9000, 60, 45],
+    ]);
+    const matchPlayers = [{ battleTag: 'A#1', heroes: [{ icon: 'archmage', level: 5 }] }];
+    const note = computeNote(c, { playerScores: dominant, matchPlayers });
+    expect(note.heroes).toEqual([{ icon: 'archmage', level: 5 }]);
   });
 
   it('flags stomps and marathons', () => {

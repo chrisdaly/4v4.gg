@@ -6,7 +6,7 @@ import PlayerPlaystyleCard from "./PlayerPlaystyleCard";
 import { preprocessPlayerScores } from "../lib/utils";
 import { cache } from "../lib/cache";
 import { enrichPlayerData } from "../lib/gameDataUtils";
-import { getHeroStats4v4, getMatchBlurb } from "../lib/api";
+import { getMatchBlurb } from "../lib/api";
 import { computeNote, noteContextFromMatch } from "../lib/matchNotes";
 
 // Get cached player data for a finished match
@@ -43,21 +43,19 @@ const FinishedGame = ({ data, compact = false }) => {
 
       // "Interesting game" blurb — heuristics first; when they find nothing,
       // ask the relay's LLM ticker for a drama angle (streaks, rivalries)
-      getHeroStats4v4().then(async (heroStats) => {
-        const note = computeNote(noteContextFromMatch(data.match), {
-          playerScores: data.playerScores,
-          matchPlayers: (data.match.teams || []).flatMap((t) => t.players || []),
-          heroStats,
-        });
-        if (note) {
-          setMetaData((prev) => (prev ? { ...prev, note } : prev));
-          return;
-        }
-        const blurb = await getMatchBlurb(data.match.id);
-        if (blurb) {
-          setMetaData((prev) => (prev ? { ...prev, note: { text: blurb, tag: null } } : prev));
-        }
+      const note = computeNote(noteContextFromMatch(data.match), {
+        playerScores: data.playerScores,
+        matchPlayers: (data.match.teams || []).flatMap((t) => t.players || []),
       });
+      if (note) {
+        setMetaData((prev) => (prev ? { ...prev, note } : prev));
+      } else {
+        getMatchBlurb(data.match.id).then((blurb) => {
+          if (blurb) {
+            setMetaData((prev) => (prev ? { ...prev, note: { text: blurb, tag: null } } : prev));
+          }
+        });
+      }
 
       // In compact mode, skip fetching extra player data for faster loading
       if (compact) {

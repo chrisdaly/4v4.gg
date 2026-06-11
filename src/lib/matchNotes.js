@@ -39,34 +39,13 @@ export function computeMvp(playerScores) {
 
 export const RACE_NAMES = { 1: "Human", 2: "Orc", 4: "Night Elf", 8: "Undead" };
 
-const HERO_NAMES = {
-  alchemist: "Alchemist",
-  archmage: "Archmage",
-  avatarofflame: "Firelord",
-  bansheeranger: "Dark Ranger",
-  beastmaster: "Beastmaster",
-  blademaster: "Blademaster",
-  cryptlord: "Crypt Lord",
-  deathknight: "Death Knight",
-  demonhunter: "Demon Hunter",
-  dreadlord: "Dreadlord",
-  farseer: "Far Seer",
-  keeperofthegrove: "Keeper of the Grove",
-  lich: "Lich",
-  mountainking: "Mountain King",
-  paladin: "Paladin",
-  pandarenbrewmaster: "Pandaren Brewmaster",
-  pitlord: "Pit Lord",
-  priestessofthemoon: "Priestess of the Moon",
-  seawitch: "Naga Sea Witch",
-  shadowhunter: "Shadow Hunter",
-  sorceror: "Blood Mage",
-  taurenchieftain: "Tauren Chieftain",
-  tinker: "Tinker",
-  warden: "Warden",
+// WC3 war cries for race-stack victories
+const RACE_QUOTES = {
+  1: "For the Alliance!",
+  2: "For the Horde!",
+  4: "By the light of Elune!",
+  8: "My life for Ner'zhul!",
 };
-
-const RARE_PICK_THRESHOLD = 0.01; // < 1% of first-hero picks
 
 const effectiveRace = (p) => p.rndRace ?? p.race ?? null;
 
@@ -101,47 +80,42 @@ export function noteContextFromMatch(match) {
   };
 }
 
-// heroStats: the gameMode-4 orderedPicks array from /api/w3c-stats/heroes-played
-function heroPickRate(heroStats, pickIndex, icon) {
-  const position = heroStats?.find((p) => p.pick === pickIndex);
-  if (!position?.stats?.length) return null;
-  const total = position.stats.reduce((s, h) => s + h.count, 0);
-  if (!total) return null;
-  const entry = position.stats.find((h) => h.icon === icon);
-  return (entry?.count ?? 0) / total;
-}
-
 /**
  * One-liner for finishes worth remarking on; null for ordinary games.
  * ctx: { winners, losers, winnersMmr, losersMmr, durationInSeconds }
  * extras unlock analytics checks: playerScores (match detail), matchPlayers
- * (flat players with heroes), heroStats (4v4 orderedPicks for rarity).
+ * (flat players with heroes).
  *
- * Returns { text, tag, name, mmr, race, heroes } — tag/name/mmr/race/heroes
- * are null for notes without a subject player. When tag is set, `text` is
- * the predicate only ("took down 12 heroes"); renderers prepend the
- * player's identity however they like, or fall back to `${name} ${text}`.
+ * Returns { text, tag, name, mmr, race, heroes, raceId, quote } —
+ * subject fields are null for notes without a subject player; raceId/quote
+ * decorate race-stack notes. When tag is set, `text` is the predicate only
+ * ("took down 12 heroes"); renderers prepend the player's identity.
  */
-export function computeNote(ctx, { playerScores = null, matchPlayers = null, heroStats = null } = {}) {
+export function computeNote(ctx, { playerScores = null, matchPlayers = null } = {}) {
   if (!ctx) return null;
   const dur = ctx.durationInSeconds;
   const { winnersMmr: w, losersMmr: l } = ctx;
   const all = [...(ctx.winners || []), ...(ctx.losers || [])];
 
-  const plain = (text) => ({ text, tag: null, name: null, mmr: null, race: null, heroes: null });
-  const subject = (tag, text, highlightHero = null) => {
+  const plain = (text) => ({
+    text, tag: null, name: null, mmr: null, race: null, heroes: null, raceId: null, quote: null,
+  });
+  const raceNote = (race, text) => ({
+    ...plain(text),
+    raceId: Number(race),
+    quote: RACE_QUOTES[race] || null,
+  });
+  const subject = (tag, text) => {
     const p = all.find((x) => x.battleTag === tag);
     const mp = (matchPlayers || []).find((x) => x.battleTag === tag);
-    const heroes = highlightHero
-      ? [{ icon: highlightHero }]
-      : mp?.heroes?.map((h) => ({ icon: h.icon, level: h.level })) || null;
     return {
+      ...plain(text),
       text,
       tag,
       name: p?.name || tag?.split("#")[0] || "someone",
       mmr: p?.mmr ?? null,
       race: p?.race ?? null,
-      heroes,
+      heroes: mp?.heroes?.map((h) => ({ icon: h.icon, level: h.level })) || null,
     };
   };
 
@@ -151,7 +125,7 @@ export function computeNote(ctx, { playerScores = null, matchPlayers = null, her
     if (RACE_NAMES[p.race]) raceCounts[p.race] = (raceCounts[p.race] || 0) + 1;
   }
   for (const [race, n] of Object.entries(raceCounts)) {
-    if (n === 4) return plain(`all-${RACE_NAMES[race]} victory`);
+    if (n === 4) return raceNote(race, `all-${RACE_NAMES[race]} victory`);
   }
 
   if (w != null && l != null && w <= l - 15) {
@@ -171,33 +145,7 @@ export function computeNote(ctx, { playerScores = null, matchPlayers = null, her
   }
 
   for (const [race, n] of Object.entries(raceCounts)) {
-    if (n === 3) return plain(`triple ${RACE_NAMES[race]} win`);
-  }
-
-  // Rare FIRST hero pick (< 1%; rarest wins). Later pick positions are
-  // skipped: the W3C position data is unreliable there (e.g. it claims
-  // Naga second is 0.15% but Naga third is 3.8%, which no one who has
-  // played 4v4 would recognize). First-pick rates match the known meta.
-  if (Array.isArray(matchPlayers) && heroStats) {
-    let rarest = null;
-    for (const p of matchPlayers) {
-      const first = p.heroes?.[0];
-      if (!first) continue;
-      const rate = heroPickRate(heroStats, 0, first.icon);
-      if (rate == null || rate >= RARE_PICK_THRESHOLD) continue;
-      if (!rarest || rate < rarest.rate) {
-        rarest = { tag: p.battleTag, icon: first.icon, rate };
-      }
-    }
-    if (rarest) {
-      const pct = rarest.rate < 0.001 ? (rarest.rate * 100).toFixed(2) : (rarest.rate * 100).toFixed(1);
-      const heroName = HERO_NAMES[rarest.icon] || rarest.icon;
-      return subject(
-        rarest.tag,
-        `opened ${heroName} — a ${pct}% first pick`,
-        rarest.icon
-      );
-    }
+    if (n === 3) return raceNote(race, `triple ${RACE_NAMES[race]} win`);
   }
 
   if (hasScores) {
@@ -215,25 +163,6 @@ export function computeNote(ctx, { playerScores = null, matchPlayers = null, her
 
     const hunter = top("heroScore", "heroesKilled");
     if (hunter.v >= 6) return subject(hunter.tag, `took down ${hunter.v} heroes`);
-  }
-
-  // Stunted heroes: in a long game, someone's heroes barely leveled
-  if (Array.isArray(matchPlayers) && dur != null && dur >= 18 * 60) {
-    const levels = matchPlayers
-      .filter((p) => Array.isArray(p.heroes) && p.heroes.length > 0)
-      .map((p) => ({
-        tag: p.battleTag,
-        total: p.heroes.reduce((s, h) => s + (h.level || 0), 0),
-      }));
-    if (levels.length >= 6) {
-      const sorted = [...levels].sort((a, b) => a.total - b.total);
-      const lowest = sorted[0];
-      const avgOthers =
-        sorted.slice(1).reduce((s, p) => s + p.total, 0) / (sorted.length - 1);
-      if (lowest.total <= avgOthers * 0.5) {
-        return subject(lowest.tag, `finished with only ${lowest.total} hero levels`);
-      }
-    }
   }
 
   if (dur != null && dur > 0 && dur < 12 * 60) {

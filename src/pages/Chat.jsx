@@ -2,7 +2,7 @@ import React, { useState, useEffect, useMemo, useRef } from "react";
 import styled from "styled-components";
 import { HiUsers, HiChat } from "react-icons/hi";
 import useChatStream from "../lib/useChatStream";
-import { getPlayerProfile, getPlayerStats, getPlayerSessionLight, getFinishedMatches, getMatch, getHeroStats4v4, getMatchBlurb } from "../lib/api";
+import { getPlayerProfile, getPlayerStats, getPlayerSessionLight, getFinishedMatches, getMatch, getMatchBlurb } from "../lib/api";
 import { computeMvp, computeNote } from "../lib/matchNotes";
 import { getLiveStreamers } from "../lib/twitchService";
 import { geometricMean } from "../lib/formatters";
@@ -258,11 +258,11 @@ const Chat = () => {
         addGameEvent(ev);
         // MVP + analytics notes need the match detail (cached 30 min);
         // only fetched for the handful of events that actually render
-        Promise.all([getMatch(match.id), getHeroStats4v4()]).then(([detail, heroStats]) => {
+        getMatch(match.id).then((detail) => {
           if (!detail?.playerScores) return;
           const matchPlayers = (detail.match?.teams || []).flatMap((t) => t.players || []);
           const mvp = computeMvp(detail.playerScores);
-          const note = computeNote(ev, { playerScores: detail.playerScores, matchPlayers, heroStats });
+          const note = computeNote(ev, { playerScores: detail.playerScores, matchPlayers });
           setGameEvents((prev) =>
             prev.map((e) => (e.id === ev.id ? { ...e, mvp, note } : e))
           );
@@ -388,8 +388,7 @@ const Chat = () => {
         const ev = buildEndEvent(match, id, channelTagsRef.current);
         if (ev) {
           const matchPlayers = (match.teams || []).flatMap((t) => t.players || []);
-          const heroStats = await getHeroStats4v4();
-          const note = computeNote(ev, { playerScores, matchPlayers, heroStats });
+          const note = computeNote(ev, { playerScores, matchPlayers });
           addGameEvent({
             ...ev,
             live: true,
