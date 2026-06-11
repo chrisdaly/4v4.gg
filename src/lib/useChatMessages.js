@@ -86,7 +86,7 @@ export function getDateKey(isoString) {
 
 export function formatTime(isoString) {
   const d = new Date(isoString);
-  return d.toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" });
+  return d.toLocaleTimeString([], { hour: "numeric", minute: "2-digit" });
 }
 
 export function formatDateTime(isoString) {

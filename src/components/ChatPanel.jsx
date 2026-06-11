@@ -645,11 +645,16 @@ const GameEventCard = styled.div`
   font-family: var(--font-mono);
   font-size: var(--text-xxs);
   color: var(--grey-light);
+  transition: background 0.15s;
   ${(p) =>
     p.$live &&
     css`
       animation: ${eventSlideIn} 0.4s ease-out${p.$end ? css`, ${finishGlow} 2s ease-out 0.2s` : ""};
     `}
+
+  &:hover {
+    background: ${(p) => (p.$end ? "rgba(var(--gold-muted-rgb), 0.08)" : "rgba(255, 255, 255, 0.04)")};
+  }
 
   a {
     color: var(--gold);
@@ -1501,21 +1506,23 @@ export default function ChatPanel({
                     const mapImg = ev.mapName ? getMapImageUrl(ev.mapName) : null;
                     const teamA = isEnd ? ev.winners : ev.teams?.[0];
                     const teamB = isEnd ? ev.losers : ev.teams?.[1];
+                    const eventLink = isEnd ? `/match/${ev.matchId}` : "/live";
                     return (
                       <GameEventCard key={ev.id} $end={isEnd} $live={ev.live}>
                         {mapImg && (
-                          <EventMapImg src={mapImg} alt="" onError={(e) => { e.target.style.display = "none"; }} />
+                          <Link to={eventLink}>
+                            <EventMapImg src={mapImg} alt="" onError={(e) => { e.target.style.display = "none"; }} />
+                          </Link>
                         )}
                         <EventBody>
                           <EventHeaderLine>
                             <EventTag $end={isEnd}>{isEnd ? "Finish" : "Start"}</EventTag>
-                            {ev.mapName && (
-                              <Link to={isEnd ? `/match/${ev.matchId}` : "/live"}>{ev.mapName}</Link>
-                            )}
+                            {ev.mapName && <Link to={eventLink}>{ev.mapName}</Link>}
                             <EventMeta>
+                              {ev.avgMmr != null && `· avg ${ev.avgMmr} `}
                               {isEnd
-                                ? `${duration ? `${duration} · ` : ""}ended ${formatTime(ev.time)}`
-                                : `started ${formatTime(ev.time)}`}
+                                ? `· ${duration ? `${duration} · ` : ""}ended ${formatTime(ev.time)}`
+                                : `· started ${formatTime(ev.time)}`}
                             </EventMeta>
                           </EventHeaderLine>
                           <EventTeamLine>

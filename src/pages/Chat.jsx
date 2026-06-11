@@ -27,6 +27,13 @@ const buildEventPlayers = (team, relevant) =>
     inChannel: relevant.has(p.battleTag?.toLowerCase()),
   }));
 
+const matchAvgMmr = (match) => {
+  const mmrs = (match.teams || []).flatMap(
+    (t) => t.players?.map((p) => p.oldMmr).filter((m) => m > 0) || []
+  );
+  return mmrs.length > 0 ? Math.round(mmrs.reduce((s, v) => s + v, 0) / mmrs.length) : null;
+};
+
 function buildStartEvent(match, relevant) {
   const id = match.id || match.match?.id;
   if (!id) return null;
@@ -38,6 +45,7 @@ function buildStartEvent(match, relevant) {
     time: match.startTime,
     matchId: id,
     mapName: match.mapName,
+    avgMmr: matchAvgMmr(match),
     teams,
   };
 }
@@ -55,6 +63,7 @@ function buildEndEvent(match, id, relevant) {
     time: match.endTime || new Date().toISOString(),
     matchId: id,
     mapName: match.mapName,
+    avgMmr: matchAvgMmr(match),
     durationInSeconds: match.durationInSeconds ?? null,
     winners: teams[winnerIdx] || [],
     losers: teams[1 - winnerIdx] || [],
