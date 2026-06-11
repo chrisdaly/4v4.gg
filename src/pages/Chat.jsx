@@ -25,6 +25,7 @@ const buildEventPlayers = (team, relevant) =>
     battleTag: p.battleTag,
     name: p.name || p.battleTag?.split("#")[0],
     race: p.race ?? null,
+    mmr: p.oldMmr ?? null,
     mmrGain: p.mmrGain ?? null,
     inChannel: relevant.has(p.battleTag?.toLowerCase()),
   }));

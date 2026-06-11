@@ -12,6 +12,7 @@ import { useMessageSegments, useBotResponseMap, formatDateDivider, getDateKey, f
 import { getMapImageUrl } from "../lib/formatters";
 import { linkifyMessage, playPing } from "../lib/chatExtras";
 import PlayerHoverCard from "./PlayerHoverCard";
+import { MmrComparison } from "./MmrComparison";
 import { getPlayerProfile, getPlayerProfilesBatch } from "../lib/api";
 import useAdmin from "../lib/useAdmin";
 
@@ -774,6 +775,17 @@ const EventMeta = styled.span`
   color: var(--grey-light);
   opacity: 0.7;
   white-space: nowrap;
+`;
+
+const EventChartCol = styled.div`
+  width: 110px;
+  height: 48px;
+  flex-shrink: 0;
+  align-self: center;
+
+  @media (max-width: 560px) {
+    display: none;
+  }
 `;
 
 /* ── Name-row accessories ──────────────────────── */
@@ -1618,6 +1630,20 @@ export default function ChatPanel({
                           <EventVsLine>vs</EventVsLine>
                           {renderTeamLine(teamB, teamBMmr, { dim: isEnd })}
                         </EventBody>
+                        {(teamA || []).some((p) => p.mmr > 0) && (
+                          <EventChartCol>
+                            <MmrComparison
+                              data={{
+                                teamOneMmrs: (teamA || []).map((p) => p.mmr || 0),
+                                teamTwoMmrs: (teamB || []).map((p) => p.mmr || 0),
+                              }}
+                              compact
+                              transposed
+                              fitToData
+                              hideLabels
+                            />
+                          </EventChartCol>
+                        )}
                       </GameEventCard>
                     );
                   }
