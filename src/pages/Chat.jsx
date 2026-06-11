@@ -4,6 +4,8 @@ import { HiUsers, HiChat } from "react-icons/hi";
 import { GiCrossedSwords } from "react-icons/gi";
 import useChatStream from "../lib/useChatStream";
 import { getPlayerProfile, getPlayerStats, getPlayerSessionLight } from "../lib/api";
+import { getLiveStreamers } from "../lib/twitchService";
+import { useWatchList } from "../lib/chatExtras";
 import useOngoingMatches from "../lib/useOngoingMatches";
 import { useTheme } from "../lib/ThemeContext";
 import ChatPanel from "../components/ChatPanel";
@@ -107,7 +109,7 @@ const TabBadge = styled.span`
 /* ── Main component ───────────────────────────────────────────── */
 
 const Chat = () => {
-  const { messages, status, onlineUsers, botResponses, translations, sendMessage } = useChatStream();
+  const { messages, status, onlineUsers, botResponses, translations, sendMessage, loadOlder, hasMoreHistory } = useChatStream();
   const { borderTheme } = useTheme();
   const [avatars, setAvatars] = useState(new Map());
   const [stats, setStats] = useState(new Map());
@@ -117,12 +119,37 @@ const Chat = () => {
   const [unreadCount, setUnreadCount] = useState(0);
   const [finishedMatches, setFinishedMatches] = useState([]);
   const [recentWinners, setRecentWinners] = useState(new Set());
+  const [gameEvents, setGameEvents] = useState([]);
+  const [recentDeltas, setRecentDeltas] = useState(new Map());
+  const [liveStreamers, setLiveStreamers] = useState(new Map());
+  const { watchList, toggleWatch } = useWatchList();
   const [tick, setTick] = useState(0);
   const fetchedRef = useRef(new Set());
   const prevInGameRef = useRef(new Set());
   const prevMatchIdsRef = useRef(new Set());
   const prevMsgCountRef = useRef(0);
   const matchTimersRef = useRef([]);
+  const channelTagsRef = useRef(new Set());
+  const avatarsRef = useRef(avatars);
+
+  // Lowercased battleTags of everyone in the channel — used to decide which
+  // game events are relevant enough to show inline in the chat
+  useEffect(() => {
+    channelTagsRef.current = new Set(
+      onlineUsers.map((u) => u.battleTag?.toLowerCase()).filter(Boolean)
+    );
+  }, [onlineUsers]);
+
+  useEffect(() => {
+    avatarsRef.current = avatars;
+  }, [avatars]);
+
+  const addGameEvent = (event) => {
+    setGameEvents((prev) => {
+      if (prev.some((e) => e.id === event.id)) return prev;
+      return [...prev.slice(-99), event];
+    });
+  };
 
   const addMatchTimer = (fn, ms) => {
     const id = setTimeout(() => {
@@ -156,12 +183,38 @@ const Chat = () => {
     return () => clearInterval(id);
   }, []);
 
-  // Detect matches that just ended, fetch results with retry, show briefly then remove
+  // Detect matches that just started/ended. Started games with channel members
+  // become inline chat events; ended games fetch results with retry.
   useEffect(() => {
     const currentIds = new Set(ongoingMatches.map((m) => m.id || m.match?.id));
     const prevIds = prevMatchIdsRef.current;
     const endedIds = [...prevIds].filter((id) => id && !currentIds.has(id));
+    const isFirstLoad = prevIds.size === 0;
     prevMatchIdsRef.current = currentIds;
+
+    // Game-start events for matches involving channel members
+    if (!isFirstLoad) {
+      for (const match of ongoingMatches) {
+        const id = match.id || match.match?.id;
+        if (!id || prevIds.has(id)) continue;
+        const chatters = (match.teams || []).flatMap((t) =>
+          (t.players || []).filter((p) => channelTagsRef.current.has(p.battleTag?.toLowerCase()))
+        );
+        if (chatters.length === 0) continue;
+        addGameEvent({
+          id: `gs-${id}`,
+          type: "game_start",
+          time: new Date().toISOString(),
+          matchId: id,
+          mapName: match.mapName,
+          players: chatters.map((p) => ({
+            battleTag: p.battleTag,
+            name: p.name || p.battleTag?.split("#")[0],
+            mmr: p.oldMmr,
+          })),
+        });
+      }
+    }
 
     if (endedIds.length === 0) return;
 
@@ -201,6 +254,43 @@ const Chat = () => {
               return next;
             });
           }, 120_000);
+        }
+
+        // Inline chat event + transient MMR-delta pills for channel members
+        const chatterResults = (match.teams || []).flatMap((t) =>
+          (t.players || [])
+            .filter((p) => channelTagsRef.current.has(p.battleTag?.toLowerCase()))
+            .map((p) => ({
+              battleTag: p.battleTag,
+              name: p.name || p.battleTag?.split("#")[0],
+              won: p.won === true || p.won === 1,
+              mmrGain: p.mmrGain ?? null,
+            }))
+        );
+        if (chatterResults.length > 0) {
+          addGameEvent({
+            id: `ge-${id}`,
+            type: "game_end",
+            time: new Date().toISOString(),
+            matchId: id,
+            mapName: match.mapName,
+            players: chatterResults,
+          });
+          const withDelta = chatterResults.filter((p) => p.mmrGain != null);
+          if (withDelta.length > 0) {
+            setRecentDeltas((prev) => {
+              const next = new Map(prev);
+              withDelta.forEach((p) => next.set(p.battleTag, p.mmrGain));
+              return next;
+            });
+            addMatchTimer(() => {
+              setRecentDeltas((prev) => {
+                const next = new Map(prev);
+                withDelta.forEach((p) => next.delete(p.battleTag));
+                return next;
+              });
+            }, 120_000);
+          }
         }
       }
 
@@ -282,6 +372,52 @@ const Chat = () => {
     }
     return map;
   }, [ongoingMatches]);
+
+  // In-game battleTag → match context (for chips and hover cards)
+  const inGameInfoMap = useMemo(() => {
+    const map = new Map();
+    for (const match of ongoingMatches) {
+      for (const team of match.teams) {
+        for (const player of team.players) {
+          if (player.battleTag) {
+            map.set(player.battleTag, {
+              mapName: match.mapName,
+              startTime: match.startTime,
+              matchId: match.id,
+            });
+          }
+        }
+      }
+    }
+    return map;
+  }, [ongoingMatches]);
+
+  // Check which online users are live on Twitch (once a minute via tick;
+  // twitch names come from the profiles we already fetch per chatter)
+  useEffect(() => {
+    const entries = onlineUsers
+      .map((u) => [u.battleTag, avatarsRef.current.get(u.battleTag)?.twitch])
+      .filter(([, tw]) => tw);
+    if (entries.length === 0) return;
+
+    let cancelled = false;
+    getLiveStreamers(entries.map(([, tw]) => tw)).then((live) => {
+      if (cancelled) return;
+      const map = new Map();
+      for (const [tag, tw] of entries) {
+        const login = tw.replace("https://twitch.tv/", "").toLowerCase();
+        const info = live.get(login);
+        if (info) map.set(tag, { ...info, twitchName: login });
+      }
+      setLiveStreamers(map);
+    });
+    return () => {
+      cancelled = true;
+    };
+    // Deliberately keyed on count + tick, not the arrays themselves — avatars
+    // and onlineUsers churn on every profile fetch during initial load
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [onlineUsers.length, tick]);
 
   // Re-fetch sessions for players who just left a game
   useEffect(() => {
@@ -371,20 +507,34 @@ const Chat = () => {
           stats={stats}
           sessions={sessions}
           inGameTags={inGameTags}
+          inGameInfoMap={inGameInfoMap}
           recentWinners={recentWinners}
+          recentDeltas={recentDeltas}
+          gameEvents={gameEvents}
+          liveStreamers={liveStreamers}
+          watchList={watchList}
+          onlineUsers={onlineUsers}
           botResponses={botResponses}
           translations={translations}
           borderTheme={borderTheme}
           sendMessage={sendMessage}
+          loadOlder={loadOlder}
+          hasMoreHistory={hasMoreHistory}
         />
         <UserListSidebar
           users={onlineUsers}
           avatars={avatars}
           stats={stats}
+          sessions={sessions}
           inGameTags={inGameTags}
+          inGameInfoMap={inGameInfoMap}
           idleTags={idleTags}
           inGameMatchMap={inGameMatchMap}
           recentWinners={recentWinners}
+          recentDeltas={recentDeltas}
+          liveStreamers={liveStreamers}
+          watchList={watchList}
+          onToggleWatch={toggleWatch}
           recentChatters={recentChatters}
           $mobileVisible={mobileTab === "users"}
           onClose={() => setMobileTab("chat")}

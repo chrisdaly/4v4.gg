@@ -1482,15 +1482,22 @@ export function deleteCoverGeneration(id) {
 
 // ── Full-text message search ──────────────────────────
 
-export function searchMessages(query, limit = 50, offset = 0) {
+export function searchMessages(query, limit = 50, offset = 0, sinceHours = null) {
   const like = `%${query}%`;
+  const sinceClause = sinceHours
+    ? `AND received_at >= datetime('now', '-' || ? || ' hours')`
+    : '';
+  const params = sinceHours
+    ? [like, like, like, sinceHours, Math.min(limit, 200), offset]
+    : [like, like, like, Math.min(limit, 200), offset];
   return db.prepare(`
     SELECT user_name, message, sent_at, battle_tag, received_at
     FROM messages
     WHERE deleted = 0 AND (message LIKE ? OR user_name LIKE ? OR battle_tag LIKE ?)
+    ${sinceClause}
     ORDER BY received_at DESC
     LIMIT ? OFFSET ?
-  `).all(like, like, like, Math.min(limit, 200), offset);
+  `).all(...params);
 }
 
 export function searchMessagesByPlayer(playerQuery, limit = 50, offset = 0) {

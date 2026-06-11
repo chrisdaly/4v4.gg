@@ -1,9 +1,11 @@
 import React, { useMemo, useState } from "react";
 import { Link } from "react-router-dom";
 import styled from "styled-components";
+import { FaTwitch } from "react-icons/fa";
 import crownIcon from "../assets/icons/king.svg";
 import { raceMapping, raceIcons } from "../lib/constants";
 import { CountryFlag, Skeleton, SkeletonCircle } from "./ui";
+import PlayerHoverCard from "./PlayerHoverCard";
 
 const Sidebar = styled.aside`
   width: 268px;
@@ -338,7 +340,56 @@ const QuietRow = styled.div`
   opacity: 0.5;
 `;
 
-function UserRowItem({ user, avatars, stats, inGame, matchUrl, isRecentWinner, isIdle, isQuiet }) {
+const StarButton = styled.button`
+  background: none;
+  border: none;
+  padding: 0 2px;
+  flex-shrink: 0;
+  cursor: pointer;
+  font-size: var(--text-xs);
+  line-height: 1;
+  color: ${(p) => (p.$watched ? "var(--gold)" : "var(--grey-mid)")};
+  opacity: ${(p) => (p.$watched ? 1 : 0)};
+  transition: opacity 0.15s, color 0.15s;
+
+  ${UserRowBase}:hover &,
+  ${UserLink}:hover & {
+    opacity: 1;
+  }
+
+  &:hover {
+    color: var(--gold);
+  }
+`;
+
+const SidebarDeltaPill = styled.span`
+  font-family: var(--font-mono);
+  font-size: var(--text-xxxs);
+  font-weight: 700;
+  flex-shrink: 0;
+  padding: 0 4px;
+  border-radius: var(--radius-sm);
+  color: ${(p) => (p.$positive ? "var(--green)" : "var(--red)")};
+  background: ${(p) => (p.$positive ? "var(--green-tint)" : "var(--red-tint)")};
+`;
+
+const SidebarTwitchLink = styled.a`
+  display: inline-flex;
+  align-items: center;
+  flex-shrink: 0;
+
+  svg {
+    width: 12px;
+    height: 12px;
+    fill: #9146ff;
+  }
+
+  &:hover svg {
+    fill: #a970ff;
+  }
+`;
+
+function UserRowItem({ user, avatars, stats, sessions, inGameInfoMap, inGame, matchUrl, isRecentWinner, isIdle, isQuiet, delta, liveInfo, isWatched, onToggleWatch }) {
   const playerStats = stats?.get(user.battleTag);
   const mmr = playerStats?.mmr;
   const raceIcon = playerStats?.race != null ? raceMapping[playerStats.race] : null;
@@ -356,7 +407,46 @@ function UserRowItem({ user, avatars, stats, inGame, matchUrl, isRecentWinner, i
       </AvatarWrapper>
       {isRecentWinner && <WinnerCrown />}
       {raceIcon && <RaceIcon src={raceIcon} alt="" />}
-      <Name>{user.name}</Name>
+      <PlayerHoverCard
+        battleTag={user.battleTag}
+        avatars={avatars}
+        stats={stats}
+        sessions={sessions}
+        inGameInfo={inGame ? inGameInfoMap?.get(user.battleTag) : null}
+        style={{ flex: 1, minWidth: 0 }}
+      >
+        <Name>{user.name}</Name>
+      </PlayerHoverCard>
+      {liveInfo && (
+        <SidebarTwitchLink
+          href={`https://twitch.tv/${liveInfo.twitchName}`}
+          target="_blank"
+          rel="noopener noreferrer"
+          title={liveInfo.title || "Live on Twitch"}
+          onClick={(e) => e.stopPropagation()}
+        >
+          <FaTwitch />
+        </SidebarTwitchLink>
+      )}
+      {delta != null && (
+        <SidebarDeltaPill $positive={delta >= 0}>
+          {delta >= 0 ? `+${delta}` : delta}
+        </SidebarDeltaPill>
+      )}
+      {onToggleWatch && (
+        <StarButton
+          type="button"
+          $watched={isWatched}
+          title={isWatched ? "Unwatch player" : "Watch player (pin to top, enable pings)"}
+          onClick={(e) => {
+            e.preventDefault();
+            e.stopPropagation();
+            onToggleWatch(user.battleTag);
+          }}
+        >
+          {isWatched ? "★" : "☆"}
+        </StarButton>
+      )}
       {mmr != null && (
         <MmrNum>{Math.round(mmr)}</MmrNum>
       )}
@@ -376,10 +466,16 @@ export default function UserListSidebar({
   users,
   avatars,
   stats,
+  sessions,
   inGameTags,
+  inGameInfoMap,
   idleTags,
   inGameMatchMap,
   recentWinners,
+  recentDeltas,
+  liveStreamers,
+  watchList,
+  onToggleWatch,
   recentChatters,
   $mobileVisible,
   onClose,
@@ -397,6 +493,10 @@ export default function UserListSidebar({
 
   const sortedUsers = useMemo(() => {
     return [...users].sort((a, b) => {
+      // Watched players always sort to the top of their section
+      const aWatched = watchList?.has(a.battleTag?.toLowerCase()) ? 1 : 0;
+      const bWatched = watchList?.has(b.battleTag?.toLowerCase()) ? 1 : 0;
+      if (aWatched !== bWatched) return bWatched - aWatched;
       if (sortField === "live") {
         const aLive = inGameTags?.has(a.battleTag) ? 1 : 0;
         const bLive = inGameTags?.has(b.battleTag) ? 1 : 0;
@@ -411,7 +511,7 @@ export default function UserListSidebar({
       if (aMmr !== bMmr) return bMmr - aMmr;
       return (a.name || "").localeCompare(b.name || "", undefined, { sensitivity: "base" });
     });
-  }, [users, stats, inGameTags, sortField]);
+  }, [users, stats, inGameTags, sortField, watchList]);
 
   const filteredUsers = useMemo(() => {
     if (!search.trim()) return sortedUsers;
@@ -482,9 +582,15 @@ export default function UserListSidebar({
                 user={user}
                 avatars={avatars}
                 stats={stats}
+                sessions={sessions}
+                inGameInfoMap={inGameInfoMap}
                 inGame
                 matchUrl={inGameMatchMap?.get(user.battleTag)}
                 isRecentWinner={recentWinners?.has(user.battleTag)}
+                delta={recentDeltas?.get(user.battleTag)}
+                liveInfo={liveStreamers?.get(user.battleTag)}
+                isWatched={watchList?.has(user.battleTag?.toLowerCase())}
+                onToggleWatch={onToggleWatch}
               />
             ))}
           </>
@@ -499,10 +605,15 @@ export default function UserListSidebar({
             user={user}
             avatars={avatars}
             stats={stats}
+            sessions={sessions}
             inGame={false}
             matchUrl={null}
             isRecentWinner={recentWinners?.has(user.battleTag)}
             isQuiet={recentChatters && recentChatters.size > 0 && !recentChatters.has(user.battleTag)}
+            delta={recentDeltas?.get(user.battleTag)}
+            liveInfo={liveStreamers?.get(user.battleTag)}
+            isWatched={watchList?.has(user.battleTag?.toLowerCase())}
+            onToggleWatch={onToggleWatch}
           />
         ))}
         {awayUsers.length > 0 && (
@@ -517,10 +628,15 @@ export default function UserListSidebar({
                 user={user}
                 avatars={avatars}
                 stats={stats}
+                sessions={sessions}
                 inGame={false}
                 matchUrl={null}
                 isRecentWinner={recentWinners?.has(user.battleTag)}
                 isIdle
+                delta={recentDeltas?.get(user.battleTag)}
+                liveInfo={liveStreamers?.get(user.battleTag)}
+                isWatched={watchList?.has(user.battleTag?.toLowerCase())}
+                onToggleWatch={onToggleWatch}
               />
             ))}
           </>

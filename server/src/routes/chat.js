@@ -1,5 +1,5 @@
 import { Router } from 'express';
-import { getMessages, getStats, getEvents, getEventsSummary } from '../db.js';
+import { getMessages, getStats, getEvents, getEventsSummary, searchMessages } from '../db.js';
 import { addClient } from '../sse.js';
 import { getOnlineUsers } from '../signalr.js';
 import { publicLimiter } from '../middleware/rateLimit.js';
@@ -23,6 +23,24 @@ router.get('/stream', (req, res) => {
   const history = getMessages({ limit: 50 });
   res.write(`event: history\ndata: ${JSON.stringify(history.reverse())}\n\n`);
   res.write(`event: users_init\ndata: ${JSON.stringify(getOnlineUsers())}\n\n`);
+});
+
+// Public message search, limited to the last 24h (the admin variant under
+// /api/admin searches the full archive with player filters)
+const PUBLIC_SEARCH_WINDOW_HOURS = 24;
+
+router.get('/search', (req, res) => {
+  const q = (req.query.q || '').trim();
+  if (q.length < 2) {
+    return res.status(400).json({ error: 'q must be at least 2 characters' });
+  }
+  const limit = Math.min(parseInt(req.query.limit || '50', 10) || 50, 100);
+  const offset = parseInt(req.query.offset || '0', 10) || 0;
+  res.json({
+    query: q,
+    windowHours: PUBLIC_SEARCH_WINDOW_HOURS,
+    results: searchMessages(q, limit, offset, PUBLIC_SEARCH_WINDOW_HOURS),
+  });
 });
 
 // Chat stats — cached for 60s (runs ~12 aggregate queries)

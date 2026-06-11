@@ -1,13 +1,16 @@
-import React, { useRef, useEffect, useState, useCallback } from "react";
+import React, { useRef, useEffect, useState, useCallback, useMemo } from "react";
 import { Link } from "react-router-dom";
 import styled from "styled-components";
 import { GiCrossedSwords } from "react-icons/gi";
-import { HiKey } from "react-icons/hi";
+import { HiKey, HiBell, HiSearch, HiTranslate } from "react-icons/hi";
 import { IoSend } from "react-icons/io5";
+import { FaTwitch } from "react-icons/fa";
 import crownIcon from "../assets/icons/king.svg";
 import { raceMapping, raceIcons } from "../lib/constants";
 import { CountryFlag, Skeleton, SkeletonCircle } from "./ui";
 import { useMessageSegments, useBotResponseMap, formatDateDivider, getDateKey, formatTime, formatDateTime } from "../lib/useChatMessages";
+import { linkifyMessage, playPing } from "../lib/chatExtras";
+import PlayerHoverCard from "./PlayerHoverCard";
 import useAdmin from "../lib/useAdmin";
 
 const OuterFrame = styled.div`
@@ -360,6 +363,7 @@ const DateLabel = styled.span`
 `;
 
 const InputBar = styled.form`
+  position: relative;
   display: flex;
   align-items: center;
   gap: var(--space-2);
@@ -610,6 +614,288 @@ const EmptyState = styled.div`
   letter-spacing: 0.1em;
 `;
 
+/* ── Game events woven into the stream ─────────── */
+
+const GameEventRow = styled.div`
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+  margin: var(--space-2) var(--space-4);
+  padding: var(--space-1) var(--space-2);
+  border-left: 2px solid ${(p) => (p.$end ? "rgba(var(--gold-muted-rgb), 0.5)" : "rgba(194, 52, 52, 0.5)")};
+  background: rgba(255, 255, 255, 0.02);
+  border-radius: 0 var(--radius-sm) var(--radius-sm) 0;
+  font-family: var(--font-mono);
+  font-size: var(--text-xxs);
+  color: var(--grey-light);
+
+  svg {
+    flex-shrink: 0;
+    color: ${(p) => (p.$end ? "var(--gold)" : "var(--red)")};
+  }
+
+  a {
+    color: var(--gold);
+    text-decoration: none;
+    &:hover {
+      text-decoration: underline;
+    }
+  }
+`;
+
+const EventName = styled.span`
+  font-family: var(--font-display);
+  color: var(--gold);
+`;
+
+const EventDelta = styled.span`
+  font-weight: 700;
+  color: ${(p) => (p.$won ? "var(--green)" : "var(--red)")};
+`;
+
+/* ── Name-row accessories ──────────────────────── */
+
+const ClanTagChip = styled.span`
+  font-family: var(--font-mono);
+  font-size: var(--text-xxxs);
+  color: var(--grey-light);
+  margin-left: 5px;
+  opacity: 0.8;
+
+  &::before {
+    content: "[";
+  }
+  &::after {
+    content: "]";
+  }
+`;
+
+const DeltaPill = styled.span`
+  font-family: var(--font-mono);
+  font-size: var(--text-xxxs);
+  font-weight: 700;
+  margin-left: 6px;
+  padding: 1px 5px;
+  border-radius: var(--radius-sm);
+  color: ${(p) => (p.$positive ? "var(--green)" : "var(--red)")};
+  background: ${(p) => (p.$positive ? "var(--green-tint)" : "var(--red-tint)")};
+`;
+
+const InGameChip = styled(Link)`
+  display: inline-flex;
+  align-items: center;
+  gap: 3px;
+  margin-left: 6px;
+  padding: 1px 6px;
+  border-radius: var(--radius-sm);
+  background: rgba(194, 52, 52, 0.12);
+  font-family: var(--font-mono);
+  font-size: var(--text-xxxs);
+  color: var(--red);
+  text-decoration: none;
+
+  svg {
+    width: 10px;
+    height: 10px;
+    animation: pulse 1.5s infinite;
+  }
+
+  &:hover {
+    background: rgba(194, 52, 52, 0.25);
+  }
+`;
+
+const LiveTwitchLink = styled.a`
+  display: inline-flex;
+  align-items: center;
+  margin-left: 6px;
+
+  svg {
+    width: 13px;
+    height: 13px;
+    fill: #9146ff;
+  }
+
+  &:hover svg {
+    fill: #a970ff;
+  }
+`;
+
+const WatchedBar = styled.div`
+  border-left: 2px solid rgba(var(--gold-muted-rgb), 0.6);
+`;
+
+/* ── Header toggles + search ───────────────────── */
+
+const HeaderActions = styled.div`
+  display: flex;
+  align-items: center;
+  gap: var(--space-1);
+`;
+
+const HeaderToggle = styled.button`
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 26px;
+  height: 26px;
+  background: ${(p) => (p.$active ? "rgba(252, 219, 51, 0.12)" : "none")};
+  border: none;
+  border-radius: var(--radius-sm);
+  color: ${(p) => (p.$active ? "var(--gold)" : "var(--grey-mid)")};
+  cursor: pointer;
+  transition: color 0.15s;
+
+  &:hover {
+    color: var(--gold);
+  }
+`;
+
+const SearchBar = styled.div`
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+  padding: var(--space-2) var(--space-4);
+  border-bottom: 1px solid rgba(252, 219, 51, 0.15);
+  flex-shrink: 0;
+`;
+
+const SearchField = styled.input`
+  flex: 1;
+  min-width: 0;
+  background: rgba(255, 255, 255, 0.06);
+  border: 1px solid rgba(var(--gold-muted-rgb), 0.2);
+  border-radius: var(--radius-sm);
+  padding: 6px var(--space-2);
+  color: var(--text-body);
+  font-family: var(--font-mono);
+  font-size: var(--text-xs);
+  outline: none;
+
+  &:focus {
+    border-color: rgba(252, 219, 51, 0.4);
+  }
+
+  &::placeholder {
+    color: var(--grey-mid);
+  }
+`;
+
+const SearchResults = styled.div`
+  flex: 1;
+  overflow-y: auto;
+  padding: var(--space-2) var(--space-4);
+`;
+
+const SearchResultRow = styled.div`
+  padding: var(--space-1) 0;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.04);
+  font-size: var(--text-xs);
+`;
+
+const SearchResultMeta = styled.div`
+  font-family: var(--font-mono);
+  font-size: var(--text-xxxs);
+  color: var(--grey-light);
+  margin-bottom: 2px;
+
+  a {
+    color: var(--gold);
+    text-decoration: none;
+    &:hover {
+      text-decoration: underline;
+    }
+  }
+`;
+
+const SearchEmpty = styled.div`
+  padding: var(--space-4);
+  text-align: center;
+  font-family: var(--font-mono);
+  font-size: var(--text-xxs);
+  color: var(--grey-light);
+`;
+
+/* ── History + unread markers ──────────────────── */
+
+const LoadOlderButton = styled.button`
+  display: block;
+  margin: var(--space-2) auto;
+  padding: var(--space-1) var(--space-4);
+  background: rgba(255, 255, 255, 0.04);
+  border: 1px solid rgba(var(--gold-muted-rgb), 0.25);
+  border-radius: var(--radius-md);
+  color: var(--grey-light);
+  font-family: var(--font-mono);
+  font-size: var(--text-xxs);
+  cursor: pointer;
+  transition: all 0.15s;
+
+  &:hover:not(:disabled) {
+    color: var(--gold);
+    border-color: var(--gold);
+  }
+
+  &:disabled {
+    opacity: 0.4;
+    cursor: default;
+  }
+`;
+
+const NewDivider = styled.div`
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+  margin: var(--space-2) var(--space-4);
+
+  &::before,
+  &::after {
+    content: "";
+    flex: 1;
+    height: 1px;
+    background: rgba(194, 52, 52, 0.5);
+  }
+`;
+
+const NewDividerLabel = styled.span`
+  font-family: var(--font-mono);
+  font-size: var(--text-xxxs);
+  text-transform: uppercase;
+  letter-spacing: 0.1em;
+  color: var(--red);
+`;
+
+/* ── @mention autocomplete ─────────────────────── */
+
+const MentionMenu = styled.div`
+  position: absolute;
+  bottom: 100%;
+  left: 48px;
+  margin-bottom: 4px;
+  background: rgba(15, 12, 8, 0.98);
+  border: 1px solid rgba(var(--gold-muted-rgb), 0.4);
+  border-radius: var(--radius-md);
+  overflow: hidden;
+  z-index: 100;
+`;
+
+const MentionItem = styled.button`
+  display: block;
+  width: 100%;
+  text-align: left;
+  padding: var(--space-1) var(--space-3);
+  background: ${(p) => (p.$active ? "rgba(252, 219, 51, 0.12)" : "none")};
+  border: none;
+  color: var(--gold);
+  font-family: var(--font-display);
+  font-size: var(--text-xs);
+  cursor: pointer;
+
+  &:hover {
+    background: rgba(252, 219, 51, 0.12);
+  }
+`;
+
 // formatDateDivider, getDateKey, formatTime, formatDateTime
 // are now imported from ../lib/useChatMessages
 
@@ -627,7 +913,51 @@ function getAvatarElement(tag, avatars, stats) {
 
 const RELAY_URL =
   import.meta.env.VITE_CHAT_RELAY_URL || "https://4v4gg-chat-relay.fly.dev";
-export default function ChatPanel({ messages, status, avatars, stats, sessions, inGameTags, recentWinners, botResponses = [], translations = new Map(), borderTheme, sendMessage }) {
+
+function formatGameMinutes(startTime) {
+  if (!startTime) return null;
+  const mins = Math.floor((Date.now() - new Date(startTime).getTime()) / 60000);
+  return mins >= 0 && mins < 180 ? `${mins}m` : null;
+}
+
+function readPref(key, fallback) {
+  try {
+    const v = localStorage.getItem(key);
+    return v === null ? fallback : v === "1";
+  } catch {
+    return fallback;
+  }
+}
+
+function writePref(key, value) {
+  try {
+    localStorage.setItem(key, value ? "1" : "0");
+  } catch {
+    // non-persistent is fine
+  }
+}
+
+export default function ChatPanel({
+  messages,
+  status,
+  avatars,
+  stats,
+  sessions,
+  inGameTags,
+  inGameInfoMap,
+  recentWinners,
+  recentDeltas,
+  gameEvents = [],
+  liveStreamers,
+  watchList,
+  onlineUsers = [],
+  botResponses = [],
+  translations = new Map(),
+  borderTheme,
+  sendMessage,
+  loadOlder,
+  hasMoreHistory,
+}) {
   const listRef = useRef(null);
   const inputRef = useRef(null);
   const [autoScroll, setAutoScroll] = useState(true);
@@ -639,6 +969,107 @@ export default function ChatPanel({ messages, status, avatars, stats, sessions, 
   const [sendError, setSendError] = useState(null);
   const [botDraft, setBotDraft] = useState("");
   const [botTesting, setBotTesting] = useState(false);
+  const [showTranslations, setShowTranslations] = useState(() => readPref("chat:showTranslations", true));
+  const [notifyOn, setNotifyOn] = useState(() => readPref("chat:notify", false));
+  const [searchOpen, setSearchOpen] = useState(false);
+  const [searchQuery, setSearchQuery] = useState("");
+  const [searchResults, setSearchResults] = useState(null);
+  const [searching, setSearching] = useState(false);
+  const [loadingOlder, setLoadingOlder] = useState(false);
+  const [newMarkerTime, setNewMarkerTime] = useState(null);
+  const lastNotifiedRef = useRef(null);
+
+  // Notification blip for watched players' messages
+  useEffect(() => {
+    if (!notifyOn || !watchList || watchList.size === 0 || messages.length === 0) return;
+    const last = messages[messages.length - 1];
+    if (last.id === lastNotifiedRef.current) return;
+    lastNotifiedRef.current = last.id;
+    const tag = (last.battle_tag || last.battleTag || "").toLowerCase();
+    if (watchList.has(tag)) playPing();
+  }, [messages, notifyOn, watchList]);
+
+  // "— new —" marker: remember where you were when the tab went hidden
+  useEffect(() => {
+    let clearTimer = null;
+    const onVisibility = () => {
+      if (document.hidden) {
+        clearTimeout(clearTimer);
+        const last = messages[messages.length - 1];
+        if (last) setNewMarkerTime(new Date(last.sent_at || last.sentAt).getTime());
+      } else {
+        clearTimer = setTimeout(() => setNewMarkerTime(null), 120_000);
+      }
+    };
+    document.addEventListener("visibilitychange", onVisibility);
+    return () => {
+      clearTimeout(clearTimer);
+      document.removeEventListener("visibilitychange", onVisibility);
+    };
+  }, [messages]);
+
+  const toggleTranslations = () => {
+    setShowTranslations((v) => {
+      writePref("chat:showTranslations", !v);
+      return !v;
+    });
+  };
+
+  const toggleNotify = () => {
+    setNotifyOn((v) => {
+      writePref("chat:notify", !v);
+      return !v;
+    });
+  };
+
+  // Debounced public search against the relay
+  useEffect(() => {
+    if (!searchOpen) return;
+    const q = searchQuery.trim();
+    if (q.length < 2) {
+      setSearchResults(null);
+      return;
+    }
+    setSearching(true);
+    const t = setTimeout(() => {
+      fetch(`${RELAY_URL}/api/chat/search?q=${encodeURIComponent(q)}&limit=50`)
+        .then((r) => r.json())
+        .then((data) => setSearchResults(data.results || []))
+        .catch(() => setSearchResults([]))
+        .finally(() => setSearching(false));
+    }, 350);
+    return () => clearTimeout(t);
+  }, [searchQuery, searchOpen]);
+
+  const handleLoadOlder = useCallback(async () => {
+    if (!loadOlder || loadingOlder) return;
+    setLoadingOlder(true);
+    const el = listRef.current;
+    const prevHeight = el?.scrollHeight || 0;
+    const prevTop = el?.scrollTop || 0;
+    await loadOlder();
+    // Keep the viewport anchored on the message the user was reading
+    requestAnimationFrame(() => {
+      if (el) el.scrollTop = el.scrollHeight - prevHeight + prevTop;
+      setLoadingOlder(false);
+    });
+  }, [loadOlder, loadingOlder]);
+
+  // @mention autocomplete state derived from the draft
+  const mentionMatch = useMemo(() => {
+    const m = draft.match(/@([\w#]*)$/);
+    if (!m) return null;
+    const q = m[1].toLowerCase();
+    const candidates = onlineUsers
+      .filter((u) => (u.name || "").toLowerCase().startsWith(q))
+      .slice(0, 6);
+    return candidates.length > 0 ? { prefix: m[1], candidates } : null;
+  }, [draft, onlineUsers]);
+
+  const insertMention = useCallback((name) => {
+    setDraft((d) => d.replace(/@([\w#]*)$/, `@${name} `));
+    inputRef.current?.focus();
+  }, []);
 
   const handleSend = useCallback(async (e) => {
     e.preventDefault();
@@ -698,11 +1129,31 @@ export default function ChatPanel({ messages, status, avatars, stats, sessions, 
   const { botResponseMap, unmatchedBotResponses } = useBotResponseMap(botResponses, messages);
   const messageSegments = useMessageSegments(messages);
 
-  // Auto-scroll to bottom when new messages arrive
+  // Weave game events into the message stream by timestamp
+  const renderItems = useMemo(() => {
+    const items = messageSegments.map((seg) => ({
+      kind: "seg",
+      time: new Date(seg.start.sent_at || seg.start.sentAt).getTime(),
+      seg,
+    }));
+    const oldestLoaded = items.length > 0 ? items[0].time : 0;
+    for (const ev of gameEvents) {
+      const t = new Date(ev.time).getTime();
+      if (t >= oldestLoaded) items.push({ kind: "event", time: t, ev });
+    }
+    return items.sort((a, b) => a.time - b.time);
+  }, [messageSegments, gameEvents]);
+
+  // Auto-scroll to bottom when new messages arrive (paging in older history
+  // changes `messages` too, so key off the newest message id)
+  const lastMsgIdRef = useRef(null);
   useEffect(() => {
+    const lastId = messages[messages.length - 1]?.id ?? null;
+    const isNewTail = lastId !== lastMsgIdRef.current;
+    lastMsgIdRef.current = lastId;
     if (autoScroll && listRef.current) {
       listRef.current.scrollTo({ top: listRef.current.scrollHeight, behavior: "smooth" });
-    } else if (!autoScroll && messages.length > 0) {
+    } else if (!autoScroll && isNewTail && messages.length > 0) {
       setShowNotice(true);
     }
   }, [messages, autoScroll]);
@@ -728,16 +1179,72 @@ export default function ChatPanel({ messages, status, avatars, stats, sessions, 
       <Wrapper $theme={borderTheme}>
         <Header $theme={borderTheme}>
           <Title>4v4 Chat</Title>
-          <StatusBadge>
-            <StatusDot $connected={status === "connected"} />
-            {status === "connected"
-              ? messages.length
-              : status === "reconnecting"
-                ? "Reconnecting..."
-                : "Connecting..."}
-          </StatusBadge>
+          <HeaderActions>
+            <HeaderToggle
+              $active={showTranslations}
+              onClick={toggleTranslations}
+              title={showTranslations ? "Hide translations" : "Show translations"}
+            >
+              <HiTranslate size={15} />
+            </HeaderToggle>
+            <HeaderToggle
+              $active={notifyOn}
+              onClick={toggleNotify}
+              title={notifyOn ? "Mute watched-player pings" : "Ping when watched players chat"}
+            >
+              <HiBell size={15} />
+            </HeaderToggle>
+            <HeaderToggle
+              $active={searchOpen}
+              onClick={() => setSearchOpen((v) => !v)}
+              title="Search chat history"
+            >
+              <HiSearch size={15} />
+            </HeaderToggle>
+            <StatusBadge>
+              <StatusDot $connected={status === "connected"} />
+              {status === "connected"
+                ? messages.length
+                : status === "reconnecting"
+                  ? "Reconnecting..."
+                  : "Connecting..."}
+            </StatusBadge>
+          </HeaderActions>
         </Header>
-        {messages.length === 0 ? (
+        {searchOpen && (
+          <SearchBar>
+            <SearchField
+              type="text"
+              placeholder="Search the last 24 hours..."
+              value={searchQuery}
+              onChange={(e) => setSearchQuery(e.target.value)}
+              autoFocus
+            />
+          </SearchBar>
+        )}
+        {searchOpen ? (
+          <SearchResults>
+            {searching && <SearchEmpty>Searching...</SearchEmpty>}
+            {!searching && searchResults && searchResults.length === 0 && (
+              <SearchEmpty>No messages found</SearchEmpty>
+            )}
+            {!searching && !searchResults && (
+              <SearchEmpty>Type at least 2 characters to search the last 24 hours</SearchEmpty>
+            )}
+            {!searching &&
+              searchResults?.map((r, i) => (
+                <SearchResultRow key={`${r.received_at}-${i}`}>
+                  <SearchResultMeta>
+                    <Link to={`/player/${encodeURIComponent(r.battle_tag)}`}>{r.user_name}</Link>
+                    {" · "}
+                    {formatDateTime(r.sent_at || r.received_at)}
+                  </SearchResultMeta>
+                  <MessageText>{r.message}</MessageText>
+                </SearchResultRow>
+              ))}
+          </SearchResults>
+        ) : null}
+        {searchOpen ? null : messages.length === 0 ? (
           status !== "connected" ? (
             <MessageList>
               {[...Array(6)].map((_, i) => (
@@ -760,112 +1267,206 @@ export default function ChatPanel({ messages, status, avatars, stats, sessions, 
         ) : (
           <ScrollContainer>
             <MessageList ref={listRef} onScroll={handleScroll}>
-              {messageSegments.map((segment, segIdx) => {
-                const msg = segment.start;
-                const tag = msg.battle_tag || msg.battleTag;
-                const userName = msg.user_name || msg.userName;
-                const msgTime = msg.sent_at || msg.sentAt;
-                const msgDateKey = getDateKey(msgTime);
+              {hasMoreHistory && loadOlder && (
+                <LoadOlderButton onClick={handleLoadOlder} disabled={loadingOlder}>
+                  {loadingOlder ? "Loading..." : "Load earlier messages"}
+                </LoadOlderButton>
+              )}
+              {(() => {
+                let prevSegTime = null;
+                let newMarkerShown = false;
+                return renderItems.map((item) => {
+                  // Game event woven into the stream
+                  if (item.kind === "event") {
+                    const ev = item.ev;
+                    const names = ev.players.map((p, i) => (
+                      <React.Fragment key={p.battleTag}>
+                        {i > 0 && ", "}
+                        <EventName>{p.name}</EventName>
+                        {ev.type === "game_end" && p.mmrGain != null && (
+                          <>
+                            {" "}
+                            <EventDelta $won={p.won}>
+                              {p.mmrGain >= 0 ? `+${p.mmrGain}` : p.mmrGain}
+                            </EventDelta>
+                          </>
+                        )}
+                      </React.Fragment>
+                    ));
+                    return (
+                      <GameEventRow key={ev.id} $end={ev.type === "game_end"}>
+                        <GiCrossedSwords size={12} />
+                        <span>
+                          {names}
+                          {ev.type === "game_start" ? " queued into a game" : (
+                            ev.players.every((p) => p.won) ? " won" :
+                            ev.players.every((p) => !p.won) ? " lost" : " finished"
+                          )}
+                          {ev.mapName ? <> on{" "}
+                            {ev.type === "game_end" ? (
+                              <Link to={`/match/${ev.matchId}`}>{ev.mapName}</Link>
+                            ) : (
+                              <Link to="/live">{ev.mapName}</Link>
+                            )}
+                          </> : null}
+                        </span>
+                      </GameEventRow>
+                    );
+                  }
 
-                // Check if we need a date divider
-                let showDateDivider = segIdx === 0;
-                if (!showDateDivider && segIdx > 0) {
-                  const prevMsg = messageSegments[segIdx - 1].start;
-                  const prevTime = prevMsg.sent_at || prevMsg.sentAt;
-                  showDateDivider = getDateKey(prevTime) !== msgDateKey;
-                }
+                  const segment = item.seg;
+                  const msg = segment.start;
+                  const tag = msg.battle_tag || msg.battleTag;
+                  const userName = msg.user_name || msg.userName;
+                  const msgTime = msg.sent_at || msg.sentAt;
+                  const msgDateKey = getDateKey(msgTime);
 
-                // System message
-                if (!tag || tag === "system") {
-                  return (
-                    <React.Fragment key={msg.id}>
+                  const showDateDivider = prevSegTime === null || getDateKey(prevSegTime) !== msgDateKey;
+                  const showNewMarker =
+                    !newMarkerShown && newMarkerTime != null && item.time > newMarkerTime;
+                  if (showNewMarker) newMarkerShown = true;
+                  prevSegTime = msgTime;
+
+                  const dividers = (
+                    <>
                       {showDateDivider && (
                         <DateDivider><DateLabel>{formatDateDivider(msgTime)}</DateLabel></DateDivider>
                       )}
-                      <SystemMessageRow>
-                        {msg.message}
-                      </SystemMessageRow>
-                    </React.Fragment>
+                      {showNewMarker && (
+                        <NewDivider><NewDividerLabel>new</NewDividerLabel></NewDivider>
+                      )}
+                    </>
                   );
-                }
 
-                return (
-                  <React.Fragment key={msg.id}>
-                    {showDateDivider && (
-                      <DateDivider><DateLabel>{formatDateDivider(msgTime)}</DateLabel></DateDivider>
-                    )}
-                  <MessageSegment>
-                    <AvatarContainer>
-                      <AvatarImgWrap>
-                        {getAvatarElement(tag, avatars, stats)}
-                        {avatars?.get(tag)?.country && (
-                          <AvatarFlag>
-                            <CountryFlag name={avatars.get(tag).country.toLowerCase()} />
-                          </AvatarFlag>
-                        )}
-                      </AvatarImgWrap>
-                    </AvatarContainer>
-                    <GroupStartRow>
-                      <MessageContent>
-                        <div>
-                          <NameWrapper>
-                            <UserNameLink to={`/player/${encodeURIComponent(tag)}`}>
-                              {userName}
-                            </UserNameLink>
-                            {stats?.get(tag)?.mmr != null && (
-                              <InlineMmr>{Math.round(stats.get(tag).mmr)} <MmrSuffix>MMR</MmrSuffix></InlineMmr>
-                            )}
-                            {inGameTags?.has(tag) && <InGameIcon />}
-                            {recentWinners?.has(tag) && <WinCrown src={crownIcon} alt="" />}
-                            <Timestamp>{formatDateTime(msg.sent_at || msg.sentAt)}</Timestamp>
-                          </NameWrapper>
-                        </div>
-                        <MessageText>{msg.message}</MessageText>
-                        {translations.has(msg.id) && (
-                          <TranslationRow style={{ margin: '2px 0', padding: '2px 0' }}>
-                            <TranslationLabel>EN</TranslationLabel>
-                            {translations.get(msg.id)}
-                          </TranslationRow>
-                        )}
-                      </MessageContent>
-                    </GroupStartRow>
-                    {botResponseMap.has(msg.id) && (
-                      <BotResponseRow>
-                        <BotLabel>BOT</BotLabel>
-                        {!botResponseMap.get(msg.id).botEnabled && <BotPreviewTag>(preview)</BotPreviewTag>}
-                        <BotText>{botResponseMap.get(msg.id).response}</BotText>
-                      </BotResponseRow>
-                    )}
-                    {segment.continuations.map((cMsg) => {
-                      const cBotResp = botResponseMap.get(cMsg.id);
-                      return (
-                        <React.Fragment key={cMsg.id}>
-                          <ContinuationRow>
-                            <HoverTimestamp className="hover-timestamp">
-                              {formatTime(cMsg.sent_at || cMsg.sentAt)}
-                            </HoverTimestamp>
-                            <MessageText>{cMsg.message}</MessageText>
-                          </ContinuationRow>
-                          {translations.has(cMsg.id) && (
-                            <TranslationRow>
+                  // System message
+                  if (!tag || tag === "system") {
+                    return (
+                      <React.Fragment key={msg.id}>
+                        {dividers}
+                        <SystemMessageRow>
+                          {msg.message}
+                        </SystemMessageRow>
+                      </React.Fragment>
+                    );
+                  }
+
+                  const isWatched = watchList?.has(tag.toLowerCase());
+                  const clanTag = msg.clan_tag || msg.clanTag;
+                  const delta = recentDeltas?.get(tag);
+                  const live = liveStreamers?.get(tag);
+                  const gameInfo = inGameTags?.has(tag) ? inGameInfoMap?.get(tag) : null;
+                  const gameMins = gameInfo ? formatGameMinutes(gameInfo.startTime) : null;
+                  const SegmentWrap = isWatched ? WatchedBar : React.Fragment;
+
+                  return (
+                    <React.Fragment key={msg.id}>
+                      {dividers}
+                    <SegmentWrap>
+                    <MessageSegment>
+                      <AvatarContainer>
+                        <AvatarImgWrap>
+                          {getAvatarElement(tag, avatars, stats)}
+                          {avatars?.get(tag)?.country && (
+                            <AvatarFlag>
+                              <CountryFlag name={avatars.get(tag).country.toLowerCase()} />
+                            </AvatarFlag>
+                          )}
+                        </AvatarImgWrap>
+                      </AvatarContainer>
+                      <GroupStartRow>
+                        <MessageContent>
+                          <div>
+                            <NameWrapper>
+                              <PlayerHoverCard
+                                battleTag={tag}
+                                avatars={avatars}
+                                stats={stats}
+                                sessions={sessions}
+                                inGameInfo={gameInfo}
+                              >
+                                <UserNameLink to={`/player/${encodeURIComponent(tag)}`}>
+                                  {userName}
+                                </UserNameLink>
+                              </PlayerHoverCard>
+                              {clanTag && <ClanTagChip>{clanTag}</ClanTagChip>}
+                              {stats?.get(tag)?.mmr != null && (
+                                <InlineMmr>{Math.round(stats.get(tag).mmr)} <MmrSuffix>MMR</MmrSuffix></InlineMmr>
+                              )}
+                              {delta != null && (
+                                <DeltaPill $positive={delta >= 0}>
+                                  {delta >= 0 ? `+${delta}` : delta}
+                                </DeltaPill>
+                              )}
+                              {gameInfo ? (
+                                <InGameChip to={`/player/${encodeURIComponent(tag)}`} title={`In game on ${gameInfo.mapName || "unknown map"}`}>
+                                  <GiCrossedSwords />
+                                  {gameMins || "in game"}
+                                </InGameChip>
+                              ) : (
+                                inGameTags?.has(tag) && <InGameIcon />
+                              )}
+                              {live && (
+                                <LiveTwitchLink
+                                  href={`https://twitch.tv/${live.twitchName}`}
+                                  target="_blank"
+                                  rel="noopener noreferrer"
+                                  title={live.title || "Live on Twitch"}
+                                >
+                                  <FaTwitch />
+                                </LiveTwitchLink>
+                              )}
+                              {recentWinners?.has(tag) && <WinCrown src={crownIcon} alt="" />}
+                              <Timestamp>{formatDateTime(msg.sent_at || msg.sentAt)}</Timestamp>
+                            </NameWrapper>
+                          </div>
+                          <MessageText>{linkifyMessage(msg.message)}</MessageText>
+                          {showTranslations && translations.has(msg.id) && (
+                            <TranslationRow style={{ margin: '2px 0', padding: '2px 0' }}>
                               <TranslationLabel>EN</TranslationLabel>
-                              {translations.get(cMsg.id)}
+                              {translations.get(msg.id)}
                             </TranslationRow>
                           )}
-                          {cBotResp && (
-                            <BotResponseRow>
-                              <BotLabel>BOT</BotLabel>
-                              {!cBotResp.botEnabled && <BotPreviewTag>(preview)</BotPreviewTag>}
-                              <BotText>{cBotResp.response}</BotText>
-                            </BotResponseRow>
-                          )}
-                        </React.Fragment>
-                      );
-                    })}
-                  </MessageSegment>
-                  </React.Fragment>
-                );
-              })}
+                        </MessageContent>
+                      </GroupStartRow>
+                      {botResponseMap.has(msg.id) && (
+                        <BotResponseRow>
+                          <BotLabel>BOT</BotLabel>
+                          {!botResponseMap.get(msg.id).botEnabled && <BotPreviewTag>(preview)</BotPreviewTag>}
+                          <BotText>{botResponseMap.get(msg.id).response}</BotText>
+                        </BotResponseRow>
+                      )}
+                      {segment.continuations.map((cMsg) => {
+                        const cBotResp = botResponseMap.get(cMsg.id);
+                        return (
+                          <React.Fragment key={cMsg.id}>
+                            <ContinuationRow>
+                              <HoverTimestamp className="hover-timestamp">
+                                {formatTime(cMsg.sent_at || cMsg.sentAt)}
+                              </HoverTimestamp>
+                              <MessageText>{linkifyMessage(cMsg.message)}</MessageText>
+                            </ContinuationRow>
+                            {showTranslations && translations.has(cMsg.id) && (
+                              <TranslationRow>
+                                <TranslationLabel>EN</TranslationLabel>
+                                {translations.get(cMsg.id)}
+                              </TranslationRow>
+                            )}
+                            {cBotResp && (
+                              <BotResponseRow>
+                                <BotLabel>BOT</BotLabel>
+                                {!cBotResp.botEnabled && <BotPreviewTag>(preview)</BotPreviewTag>}
+                                <BotText>{cBotResp.response}</BotText>
+                              </BotResponseRow>
+                            )}
+                          </React.Fragment>
+                        );
+                      })}
+                    </MessageSegment>
+                    </SegmentWrap>
+                    </React.Fragment>
+                  );
+                });
+              })()}
               {unmatchedBotResponses.map((br, i) => (
                 <BotResponseRow key={`bot-${i}`} style={{ marginLeft: "var(--space-4)" }}>
                   <BotLabel>BOT</BotLabel>
@@ -902,12 +1503,31 @@ export default function ChatPanel({ messages, status, avatars, stats, sessions, 
           </KeyButton>
           {apiKey ? (
             <>
+              {mentionMatch && (
+                <MentionMenu>
+                  {mentionMatch.candidates.map((u) => (
+                    <MentionItem
+                      key={u.battleTag}
+                      type="button"
+                      onClick={() => insertMention(u.name)}
+                    >
+                      {u.name}
+                    </MentionItem>
+                  ))}
+                </MentionMenu>
+              )}
               <ChatInput
                 ref={inputRef}
                 type="text"
                 placeholder="Send a message..."
                 value={draft}
                 onChange={(e) => { setDraft(e.target.value); setSendError(null); }}
+                onKeyDown={(e) => {
+                  if (e.key === "Tab" && mentionMatch) {
+                    e.preventDefault();
+                    insertMention(mentionMatch.candidates[0].name);
+                  }
+                }}
                 disabled={sending}
                 maxLength={500}
               />

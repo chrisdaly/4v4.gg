@@ -4,7 +4,11 @@ import react from '@vitejs/plugin-react'
 export default defineConfig({
   plugins: [react()],
   server: {
-    port: 3000,
+    // 3001, not 3000 — the tgr dev server owns 3000, and its Next.js IPv6
+    // wildcard listener lets both bind "successfully" while the browser
+    // silently routes localhost:3000 to the wrong app
+    port: 3001,
+    strictPort: true,
     open: true
   },
   build: {

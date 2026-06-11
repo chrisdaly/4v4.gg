@@ -9,7 +9,7 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 ## Development Commands
 
 ```bash
-# Start development server (port 3000)
+# Start development server (port 3001; 3000 is conventionally tgr's)
 npm run dev
 
 # Production build (outputs to /build)

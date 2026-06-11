@@ -11,9 +11,19 @@ export default function useChatStream() {
   const [onlineUsers, setOnlineUsers] = useState([]);
   const [botResponses, setBotResponses] = useState([]);
   const [translations, setTranslations] = useState(new Map());
+  const [hasMoreHistory, setHasMoreHistory] = useState(true);
   const eventSourceRef = useRef(null);
   const retriesRef = useRef(0);
   const reconnectTimerRef = useRef(null);
+  const loadingOlderRef = useRef(false);
+  // Messages the user explicitly paged in — exempt from the live cap so a
+  // new message arriving doesn't trim away history they scrolled back to
+  const historyExtraRef = useRef(0);
+  const messagesRef = useRef([]);
+
+  useEffect(() => {
+    messagesRef.current = messages;
+  }, [messages]);
 
   const addMessages = useCallback((newMsgs) => {
     setMessages((prev) => {
@@ -21,10 +31,47 @@ export default function useChatStream() {
       const unique = newMsgs.filter((m) => !ids.has(m.id));
       if (unique.length === 0) return prev;
       const combined = [...prev, ...unique];
-      return combined.length > MAX_MESSAGES
-        ? combined.slice(combined.length - MAX_MESSAGES)
+      const cap = MAX_MESSAGES + historyExtraRef.current;
+      return combined.length > cap
+        ? combined.slice(combined.length - cap)
         : combined;
     });
+  }, []);
+
+  // Page in older history (cursor on received_at of the oldest loaded message)
+  const loadOlder = useCallback(async () => {
+    if (loadingOlderRef.current) return 0;
+    loadingOlderRef.current = true;
+    try {
+      const oldest = messagesRef.current[0];
+      const cursor = oldest?.received_at || oldest?.sent_at || oldest?.sentAt;
+      if (!cursor) return 0;
+
+      const res = await fetch(
+        `${RELAY_URL}/api/chat/messages?limit=100&before=${encodeURIComponent(cursor)}`
+      );
+      const data = await res.json();
+      if (!Array.isArray(data) || data.length === 0) {
+        setHasMoreHistory(false);
+        return 0;
+      }
+      const older = data.reverse();
+      let added = 0;
+      setMessages((prev) => {
+        const ids = new Set(prev.map((m) => m.id));
+        const unique = older.filter((m) => !ids.has(m.id));
+        added = unique.length;
+        if (unique.length === 0) return prev;
+        historyExtraRef.current += unique.length;
+        return [...unique, ...prev];
+      });
+      if (data.length < 100) setHasMoreHistory(false);
+      return added;
+    } catch {
+      return 0;
+    } finally {
+      loadingOlderRef.current = false;
+    }
   }, []);
 
   useEffect(() => {
@@ -163,5 +210,5 @@ export default function useChatStream() {
     }
   }, []);
 
-  return { messages, status, onlineUsers, botResponses, translations, sendMessage };
+  return { messages, status, onlineUsers, botResponses, translations, sendMessage, loadOlder, hasMoreHistory };
 }
