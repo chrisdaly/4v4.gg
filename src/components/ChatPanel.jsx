@@ -723,24 +723,13 @@ const EventLead = styled.span`
   align-items: center;
 `;
 
-const EventRaces = styled.span`
-  display: inline-flex;
-  gap: 2px;
-  flex-shrink: 0;
-`;
-
-const EventRaceIcon = styled.img`
-  width: 16px;
-  height: 16px;
-  display: block;
-  opacity: ${(p) => (p.$faded ? 0.4 : 0.85)};
-`;
-
 const EventTeamMmr = styled.span`
+  margin-left: auto;
+  padding-left: var(--space-2);
+  flex-shrink: 0;
   font-family: var(--font-mono);
   font-size: var(--text-xxs);
-  color: ${(p) => (p.$team === 2 ? "var(--team-red)" : "var(--team-blue)")};
-  ${(p) => p.$dim && "opacity: 0.6;"}
+  color: var(--white);
 `;
 
 const EventTeamLine = styled.div`
@@ -773,29 +762,15 @@ const EventMeta = styled.span`
   white-space: nowrap;
 `;
 
-const EventStatsCol = styled.div`
-  width: 84px;
+const EventChartCol = styled.div`
+  width: 60px;
+  height: 64px;
   flex-shrink: 0;
   align-self: center;
-  display: flex;
-  flex-direction: column;
-  align-items: stretch;
-  gap: 2px;
 
   @media (max-width: 560px) {
     display: none;
   }
-`;
-
-const EventMmrRow = styled.div`
-  display: flex;
-  justify-content: space-between;
-  padding: 0 var(--space-1);
-`;
-
-const EventChart = styled.div`
-  width: 100%;
-  height: 64px;
 `;
 
 /* ── Name-row accessories ──────────────────────── */
@@ -1572,23 +1547,15 @@ export default function ChatPanel({
                     const eventLink = isEnd ? `/match/${ev.matchId}` : "/live";
                     const teamAMmr = isEnd ? ev.winnersMmr : ev.teamMmrs?.[0];
                     const teamBMmr = isEnd ? ev.losersMmr : ev.teamMmrs?.[1];
-                    const raceIcon = (p, i) => (
-                      <EventRaceIcon
-                        key={p.battleTag || i}
-                        src={(p.race != null && raceMapping[p.race]) || raceIcons.random}
-                        alt=""
-                        $faded={p.race == null}
-                      />
-                    );
-                    const renderTeamLine = (players, { winners = false, dim = false } = {}) => (
+                    const renderTeamLine = (players, mmr, { winners = false, dim = false } = {}) => (
                       <EventTeamLine $dim={dim}>
                         {isEnd && (
                           <EventLead>
                             {winners && <EventCrown src={crownIcon} alt="winners" />}
                           </EventLead>
                         )}
-                        <EventRaces>{(players || []).map(raceIcon)}</EventRaces>
                         <span>{renderNames(players)}</span>
+                        {mmr != null && <EventTeamMmr>{mmr}</EventTeamMmr>}
                       </EventTeamLine>
                     );
                     const hasChart = (teamA || []).some((p) => p.mmr > 0);
@@ -1611,30 +1578,22 @@ export default function ChatPanel({
                                 : `· started ${formatTime(ev.time)}`}
                             </EventMeta>
                           </EventHeaderLine>
-                          {renderTeamLine(teamA, { winners: true })}
+                          {renderTeamLine(teamA, teamAMmr, { winners: true })}
                           <EventVsLine>vs</EventVsLine>
-                          {renderTeamLine(teamB, { dim: isEnd })}
+                          {renderTeamLine(teamB, teamBMmr, { dim: isEnd })}
                         </EventBody>
-                        {(teamAMmr != null || hasChart) && (
-                          <EventStatsCol>
-                            <EventMmrRow>
-                              {teamAMmr != null && <EventTeamMmr>{teamAMmr}</EventTeamMmr>}
-                              {teamBMmr != null && <EventTeamMmr $team={2} $dim={isEnd}>{teamBMmr}</EventTeamMmr>}
-                            </EventMmrRow>
-                            {hasChart && (
-                              <EventChart>
-                                <MmrComparison
-                                  data={{
-                                    teamOneMmrs: (teamA || []).map((p) => p.mmr || 0),
-                                    teamTwoMmrs: (teamB || []).map((p) => p.mmr || 0),
-                                  }}
-                                  compact
-                                  fitToData
-                                  hideLabels
-                                />
-                              </EventChart>
-                            )}
-                          </EventStatsCol>
+                        {hasChart && (
+                          <EventChartCol>
+                            <MmrComparison
+                              data={{
+                                teamOneMmrs: (teamA || []).map((p) => p.mmr || 0),
+                                teamTwoMmrs: (teamB || []).map((p) => p.mmr || 0),
+                              }}
+                              compact
+                              fitToData
+                              hideLabels
+                            />
+                          </EventChartCol>
                         )}
                       </GameEventCard>
                     );
