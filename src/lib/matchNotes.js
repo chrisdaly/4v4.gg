@@ -66,8 +66,7 @@ const HERO_NAMES = {
   warden: "Warden",
 };
 
-const PICK_ORDINALS = ["first", "second", "third", "fourth"];
-const RARE_PICK_THRESHOLD = 0.01; // < 1% of picks at that position
+const RARE_PICK_THRESHOLD = 0.01; // < 1% of first-hero picks
 
 const effectiveRace = (p) => p.rndRace ?? p.race ?? null;
 
@@ -175,24 +174,27 @@ export function computeNote(ctx, { playerScores = null, matchPlayers = null, her
     if (n === 3) return plain(`triple ${RACE_NAMES[race]} win`);
   }
 
-  // Rare hero pick (< 1% at its position; rarest wins)
+  // Rare FIRST hero pick (< 1%; rarest wins). Later pick positions are
+  // skipped: the W3C position data is unreliable there (e.g. it claims
+  // Naga second is 0.15% but Naga third is 3.8%, which no one who has
+  // played 4v4 would recognize). First-pick rates match the known meta.
   if (Array.isArray(matchPlayers) && heroStats) {
     let rarest = null;
     for (const p of matchPlayers) {
-      (p.heroes || []).forEach((h, i) => {
-        const rate = heroPickRate(heroStats, i, h.icon);
-        if (rate == null || rate >= RARE_PICK_THRESHOLD) return;
-        if (!rarest || rate < rarest.rate) {
-          rarest = { tag: p.battleTag, icon: h.icon, pick: i, rate };
-        }
-      });
+      const first = p.heroes?.[0];
+      if (!first) continue;
+      const rate = heroPickRate(heroStats, 0, first.icon);
+      if (rate == null || rate >= RARE_PICK_THRESHOLD) continue;
+      if (!rarest || rate < rarest.rate) {
+        rarest = { tag: p.battleTag, icon: first.icon, rate };
+      }
     }
     if (rarest) {
       const pct = rarest.rate < 0.001 ? (rarest.rate * 100).toFixed(2) : (rarest.rate * 100).toFixed(1);
       const heroName = HERO_NAMES[rarest.icon] || rarest.icon;
       return subject(
         rarest.tag,
-        `went ${heroName} ${PICK_ORDINALS[rarest.pick] || ""} — a ${pct}% pick`,
+        `opened ${heroName} — a ${pct}% first pick`,
         rarest.icon
       );
     }

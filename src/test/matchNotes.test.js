@@ -82,7 +82,7 @@ describe('computeNote', () => {
     expect(note.name).toBe('A');
   });
 
-  it('flags rare hero picks', () => {
+  it('flags rare first-hero picks', () => {
     const heroStats = [
       {
         pick: 0,
@@ -97,9 +97,26 @@ describe('computeNote', () => {
       { battleTag: 'B#1', heroes: [{ icon: 'archmage', level: 5 }] },
     ];
     const note = computeNote(ctx(), { matchPlayers, heroStats });
-    expect(note.text).toBe('went Beastmaster first — a 0.5% pick');
+    expect(note.text).toBe('opened Beastmaster — a 0.5% first pick');
     expect(note.tag).toBe('A#1');
     expect(note.heroes).toEqual([{ icon: 'beastmaster' }]);
+  });
+
+  it('ignores rare heroes at later pick positions (position data is unreliable)', () => {
+    const heroStats = [
+      { pick: 0, stats: [{ icon: 'archmage', count: 10000 }] },
+      {
+        pick: 1,
+        stats: [
+          { icon: 'archmage', count: 9990 },
+          { icon: 'seawitch', count: 10 },
+        ],
+      },
+    ];
+    const matchPlayers = [
+      { battleTag: 'A#1', heroes: [{ icon: 'archmage', level: 5 }, { icon: 'seawitch', level: 3 }] },
+    ];
+    expect(computeNote(ctx({ winnersMmr: 1500, losersMmr: 1510 }), { matchPlayers, heroStats })).toBeNull();
   });
 
   it('flags stunted hero levels in long games', () => {
