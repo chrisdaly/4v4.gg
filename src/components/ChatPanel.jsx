@@ -9,6 +9,7 @@ import crownIcon from "../assets/icons/king.svg";
 import { raceMapping, raceIcons } from "../lib/constants";
 import { CountryFlag, Skeleton, SkeletonCircle } from "./ui";
 import { useMessageSegments, useBotResponseMap, formatDateDivider, getDateKey, formatTime, formatDateTime } from "../lib/useChatMessages";
+import { getMapImageUrl } from "../lib/formatters";
 import { linkifyMessage, playPing } from "../lib/chatExtras";
 import PlayerHoverCard from "./PlayerHoverCard";
 import { getPlayerProfile } from "../lib/api";
@@ -632,9 +633,9 @@ const finishGlow = keyframes`
   100% { box-shadow: 0 0 0 rgba(252, 219, 51, 0); }
 `;
 
-const GameEventRow = styled.div`
+const GameEventCard = styled.div`
   display: flex;
-  align-items: center;
+  align-items: flex-start;
   gap: var(--space-2);
   margin: var(--space-2) var(--space-4);
   padding: var(--space-1) var(--space-2);
@@ -650,11 +651,6 @@ const GameEventRow = styled.div`
       animation: ${eventSlideIn} 0.4s ease-out${p.$end ? css`, ${finishGlow} 2s ease-out 0.2s` : ""};
     `}
 
-  svg {
-    flex-shrink: 0;
-    color: var(--red);
-  }
-
   a {
     color: var(--gold);
     text-decoration: none;
@@ -662,6 +658,29 @@ const GameEventRow = styled.div`
       text-decoration: underline;
     }
   }
+`;
+
+const EventMapImg = styled.img`
+  width: 34px;
+  height: 34px;
+  border-radius: var(--radius-sm);
+  object-fit: cover;
+  flex-shrink: 0;
+  margin-top: 2px;
+`;
+
+const EventBody = styled.div`
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+`;
+
+const EventHeaderLine = styled.div`
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+  flex-wrap: wrap;
 `;
 
 const EventTag = styled.span`
@@ -678,22 +697,31 @@ const EventTag = styled.span`
 `;
 
 const EventCrown = styled.img`
-  width: 13px;
-  height: 13px;
+  width: 12px;
+  height: 12px;
   flex-shrink: 0;
   filter: drop-shadow(0 0 3px rgba(252, 219, 51, 0.4));
 `;
 
+const EventTeamLine = styled.div`
+  display: flex;
+  align-items: center;
+  gap: 5px;
+  ${(p) => p.$dim && "opacity: 0.5;"}
+`;
+
 const EventName = styled.span`
   font-family: var(--font-display);
-  color: ${(p) => (p.$dim ? "var(--grey-light)" : "var(--gold)")};
-  ${(p) => p.$dim && "opacity: 0.7;"}
+  color: var(--gold);
 `;
 
 const EventVs = styled.span`
   font-weight: 700;
   color: var(--grey-light);
-  padding: 0 2px;
+  font-size: var(--text-xxxs);
+  width: 12px;
+  flex-shrink: 0;
+  text-align: center;
 `;
 
 const EventMeta = styled.span`
@@ -1463,38 +1491,43 @@ export default function ChatPanel({
                       (players || []).map((p, i) => (
                         <React.Fragment key={p.battleTag || i}>
                           {i > 0 && ", "}
-                          <EventName $dim={!p.inChannel}>{p.name}</EventName>
+                          <EventName>{p.name}</EventName>
                         </React.Fragment>
                       ));
                     const duration =
                       ev.durationInSeconds != null
                         ? `${Math.round(ev.durationInSeconds / 60)} min`
                         : null;
+                    const mapImg = ev.mapName ? getMapImageUrl(ev.mapName) : null;
+                    const teamA = isEnd ? ev.winners : ev.teams?.[0];
+                    const teamB = isEnd ? ev.losers : ev.teams?.[1];
                     return (
-                      <GameEventRow key={ev.id} $end={isEnd} $live={ev.live}>
-                        {isEnd ? <EventCrown src={crownIcon} alt="" /> : <GiCrossedSwords size={12} />}
-                        <EventTag $end={isEnd}>{isEnd ? "Final" : "Game"}</EventTag>
-                        {isEnd ? (
-                          <span>
-                            {renderNames(ev.winners)} <EventVs>def.</EventVs>{" "}
-                            {renderNames(ev.losers)}
-                            {ev.mapName ? <> on <Link to={`/match/${ev.matchId}`}>{ev.mapName}</Link></> : null}
-                            <EventMeta>
-                              {duration && ` · ${duration}`}
-                              {ev.time && ` · ended ${formatTime(ev.time)}`}
-                            </EventMeta>
-                          </span>
-                        ) : (
-                          <span>
-                            {renderNames(ev.teams?.[0])} <EventVs>vs</EventVs>{" "}
-                            {renderNames(ev.teams?.[1])}
-                            {ev.mapName ? <> on <Link to="/live">{ev.mapName}</Link></> : null}
-                            <EventMeta>
-                              {ev.time && ` · started ${formatTime(ev.time)}`}
-                            </EventMeta>
-                          </span>
+                      <GameEventCard key={ev.id} $end={isEnd} $live={ev.live}>
+                        {mapImg && (
+                          <EventMapImg src={mapImg} alt="" onError={(e) => { e.target.style.display = "none"; }} />
                         )}
-                      </GameEventRow>
+                        <EventBody>
+                          <EventHeaderLine>
+                            <EventTag $end={isEnd}>{isEnd ? "Finish" : "Start"}</EventTag>
+                            {ev.mapName && (
+                              <Link to={isEnd ? `/match/${ev.matchId}` : "/live"}>{ev.mapName}</Link>
+                            )}
+                            <EventMeta>
+                              {isEnd
+                                ? `${duration ? `${duration} · ` : ""}ended ${formatTime(ev.time)}`
+                                : `started ${formatTime(ev.time)}`}
+                            </EventMeta>
+                          </EventHeaderLine>
+                          <EventTeamLine>
+                            {isEnd ? <EventCrown src={crownIcon} alt="winners" /> : <EventVs />}
+                            <span>{renderNames(teamA)}</span>
+                          </EventTeamLine>
+                          <EventTeamLine $dim={isEnd}>
+                            <EventVs>vs</EventVs>
+                            <span>{renderNames(teamB)}</span>
+                          </EventTeamLine>
+                        </EventBody>
+                      </GameEventCard>
                     );
                   }
 
