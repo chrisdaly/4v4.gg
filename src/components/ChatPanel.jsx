@@ -738,6 +738,31 @@ const EventLiveDot = styled.span`
   animation: pulse 1.5s infinite;
 `;
 
+const LiveGamesChip = styled(Link)`
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  padding: 2px 8px;
+  border: 1px solid rgba(194, 52, 52, 0.4);
+  border-radius: var(--radius-md);
+  font-family: var(--font-mono);
+  font-size: var(--text-xxs);
+  color: var(--grey-light);
+  text-decoration: none;
+  transition: all 0.15s;
+
+  svg {
+    width: 12px;
+    height: 12px;
+    color: var(--red);
+  }
+
+  &:hover {
+    border-color: var(--red);
+    color: var(--white);
+  }
+`;
+
 /* ── Name-row accessories ──────────────────────── */
 
 const ClanTagChip = styled.span`
@@ -1086,6 +1111,7 @@ export default function ChatPanel({
   recentDeltas,
   gameEvents = [],
   ongoingMatchIds,
+  liveGameCount = 0,
   liveStreamers,
   watchList,
   onlineUsers = [],
@@ -1376,6 +1402,12 @@ export default function ChatPanel({
         <Header $theme={borderTheme}>
           <Title>4v4 Chat</Title>
           <HeaderActions>
+            {liveGameCount > 0 && (
+              <LiveGamesChip to="/live" title="Watch live games">
+                <GiCrossedSwords />
+                {liveGameCount} live
+              </LiveGamesChip>
+            )}
             <HeaderToggle
               $active={showTranslations}
               onClick={toggleTranslations}

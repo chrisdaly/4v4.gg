@@ -1,7 +1,6 @@
 import React, { useState, useEffect, useMemo, useRef } from "react";
 import styled from "styled-components";
 import { HiUsers, HiChat } from "react-icons/hi";
-import { GiCrossedSwords } from "react-icons/gi";
 import useChatStream from "../lib/useChatStream";
 import { getPlayerProfile, getPlayerStats, getPlayerSessionLight, getFinishedMatches } from "../lib/api";
 import { getLiveStreamers } from "../lib/twitchService";
@@ -10,7 +9,6 @@ import { useWatchList } from "../lib/chatExtras";
 import useOngoingMatches from "../lib/useOngoingMatches";
 import { useTheme } from "../lib/ThemeContext";
 import ChatPanel from "../components/ChatPanel";
-import ActiveGamesSidebar from "../components/ActiveGamesSidebar";
 import UserListSidebar from "../components/UserListSidebar";
 
 const IDLE_MS = 3 * 60 * 60 * 1000; // 3 hours
@@ -174,9 +172,8 @@ const Chat = () => {
   const [stats, setStats] = useState(new Map());
   const [sessions, setSessions] = useState(new Map());
   const { matches: ongoingMatches } = useOngoingMatches();
-  const [mobileTab, setMobileTab] = useState("chat"); // "games" | "chat" | "users"
+  const [mobileTab, setMobileTab] = useState("chat"); // "chat" | "users"
   const [unreadCount, setUnreadCount] = useState(0);
-  const [finishedMatches, setFinishedMatches] = useState([]);
   const [recentWinners, setRecentWinners] = useState(new Set());
   const [gameEvents, setGameEvents] = useState([]);
   const [recentDeltas, setRecentDeltas] = useState(new Map());
@@ -376,13 +373,6 @@ const Chat = () => {
         }
       }
 
-      setFinishedMatches((prev) => [
-        ...prev,
-        { ...match, id, _winnerTeam: winnerTeamIndex >= 0 ? winnerTeamIndex : null, _finishedAt: Date.now() },
-      ]);
-      addMatchTimer(() => {
-        setFinishedMatches((prev) => prev.filter((m) => m.id !== id));
-      }, 8000);
     }
 
     for (const id of endedIds) {
@@ -581,14 +571,8 @@ const Chat = () => {
   return (
     <Page>
       <Layout>
-        <ActiveGamesSidebar
-          matches={ongoingMatches}
-          finishedMatches={finishedMatches}
-          $mobileVisible={mobileTab === "games"}
-          onClose={() => setMobileTab("chat")}
-          borderTheme={borderTheme}
-        />
         <ChatPanel
+          liveGameCount={ongoingMatches.length}
           messages={messages}
           status={status}
           avatars={avatars}
@@ -631,10 +615,6 @@ const Chat = () => {
         />
       </Layout>
       <MobileTabBar>
-        <Tab $active={mobileTab === "games"} onClick={() => setMobileTab("games")}>
-          <GiCrossedSwords />
-          <span>Games{ongoingMatches.length > 0 ? ` (${ongoingMatches.length})` : ""}</span>
-        </Tab>
         <Tab $active={mobileTab === "chat"} onClick={() => setMobileTab("chat")}>
           <HiChat />
           <span>Chat</span>
