@@ -1,7 +1,6 @@
 import React from "react";
 import { Link } from "react-router-dom";
 import styled from "styled-components";
-import crownIcon from "../assets/icons/king.svg";
 import { raceMapping, raceIcons } from "../lib/constants";
 import { MmrComparison } from "./MmrComparison";
 import PlayerHoverCard from "./PlayerHoverCard";
@@ -27,18 +26,16 @@ const TeamCol = styled.div`
   ${(p) => p.$dim && "opacity: 0.55;"}
 `;
 
-const TeamHeader = styled.div`
-  display: flex;
-  align-items: center;
-  min-height: 13px;
-  margin-bottom: 2px;
-`;
-
-const Crown = styled.img`
-  width: 13px;
-  height: 13px;
+const MvpBadge = styled.span`
   flex-shrink: 0;
-  filter: drop-shadow(0 0 3px rgba(252, 219, 51, 0.4));
+  font-family: var(--font-mono);
+  font-size: 9px;
+  font-weight: 700;
+  letter-spacing: 0.08em;
+  padding: 1px 4px;
+  border-radius: var(--radius-sm);
+  color: var(--gold);
+  background: var(--gold-tint);
 `;
 
 const PlayerRow = styled.div`
@@ -87,10 +84,11 @@ const ChartMid = styled.div`
  * dimLosers: fade the non-winner column (finished games)
  * showChart: render the vertical MMR dot chart between the columns
  *            (fixed 700–2700 scale so dot height compares across games)
+ * mvpTag: battleTag of the match MVP — gets a gold chip on their row
  * hoverData: optional { avatars, stats, sessions, inGameTags, inGameInfoMap }
  *            — enables PlayerHoverCard on names when the caller has the maps
  */
-export default function MiniTeamsRow({ teamA, teamB, dimLosers = false, showChart = true, hoverData = null }) {
+export default function MiniTeamsRow({ teamA, teamB, dimLosers = false, showChart = true, mvpTag = null, hoverData = null }) {
   const renderName = (p) => {
     const link = (
       <PlayerNameLink
@@ -115,15 +113,8 @@ export default function MiniTeamsRow({ teamA, teamB, dimLosers = false, showChar
     );
   };
 
-  const showHeader = teamA.winner || teamB.winner;
-
   const renderTeamCol = (team, { right = false } = {}) => (
     <TeamCol $right={right} $dim={dimLosers && !team.winner}>
-      {showHeader && (
-        <TeamHeader>
-          {team.winner && <Crown src={crownIcon} alt="winners" />}
-        </TeamHeader>
-      )}
       {(team.players || []).map((p, i) => (
         <PlayerRow key={p.battleTag || i} $reverse={right}>
           <RaceImg
@@ -132,6 +123,7 @@ export default function MiniTeamsRow({ teamA, teamB, dimLosers = false, showChar
             $faded={p.race == null}
           />
           {renderName(p)}
+          {mvpTag && p.battleTag === mvpTag && <MvpBadge>MVP</MvpBadge>}
         </PlayerRow>
       ))}
     </TeamCol>

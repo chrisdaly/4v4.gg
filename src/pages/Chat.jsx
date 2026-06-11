@@ -2,7 +2,7 @@ import React, { useState, useEffect, useMemo, useRef } from "react";
 import styled from "styled-components";
 import { HiUsers, HiChat } from "react-icons/hi";
 import useChatStream from "../lib/useChatStream";
-import { getPlayerProfile, getPlayerStats, getPlayerSessionLight, getFinishedMatches } from "../lib/api";
+import { getPlayerProfile, getPlayerStats, getPlayerSessionLight, getFinishedMatches, getMatch } from "../lib/api";
 import { getLiveStreamers } from "../lib/twitchService";
 import { geometricMean } from "../lib/formatters";
 import { useWatchList } from "../lib/chatExtras";
@@ -34,6 +34,56 @@ const teamMmr = (team) => {
   return mmrs.length > 0 ? Math.round(geometricMean(mmrs)) : null;
 };
 
+// MVP: highest summed rank across the five headline stats — the same five
+// the big match card uses for its MVP badge
+const MVP_KEYS = [
+  ["heroScore", "heroesKilled"],
+  ["heroScore", "expGained"],
+  ["resourceScore", "goldCollected"],
+  ["unitScore", "unitsKilled"],
+  ["unitScore", "largestArmy"],
+];
+
+function computeMvp(playerScores) {
+  if (!Array.isArray(playerScores) || playerScores.length === 0) return null;
+  let best = null;
+  let bestScore = -Infinity;
+  for (const ps of playerScores) {
+    let sum = 0;
+    for (const [group, key] of MVP_KEYS) {
+      const v = ps[group]?.[key] ?? 0;
+      sum += playerScores.filter((o) => (o[group]?.[key] ?? 0) <= v).length;
+    }
+    if (sum > bestScore) {
+      bestScore = sum;
+      best = ps.battleTag;
+    }
+  }
+  return best;
+}
+
+// One-liner for finishes worth remarking on; null for ordinary games
+function gameNote(ev) {
+  const dur = ev.durationInSeconds;
+  const { winnersMmr: w, losersMmr: l } = ev;
+  if (w != null && l != null && w <= l - 15) {
+    return `upset — the ${l} MMR favorites fell`;
+  }
+  if (dur != null && dur > 0 && dur < 12 * 60) {
+    return `over in ${Math.max(1, Math.round(dur / 60))} minutes`;
+  }
+  if (dur != null && dur > 35 * 60) {
+    return `${Math.round(dur / 60)}-minute marathon`;
+  }
+  const leaver = [...(ev.winners || []), ...(ev.losers || [])].find(
+    (p) => p.mmrGain != null && p.mmrGain <= -30
+  );
+  if (leaver) return `${leaver.name} dropped early (${leaver.mmrGain})`;
+  if (w != null && l != null && Math.abs(w - l) <= 5) return "dead-even lobby";
+  if (w != null && l != null && (w + l) / 2 >= 1800) return "high-level lobby";
+  return null;
+}
+
 function buildStartEvent(match, relevant) {
   const id = match.id || match.match?.id;
   if (!id) return null;
@@ -57,7 +107,7 @@ function buildEndEvent(match, id, relevant) {
   if (winnerIdx == null || winnerIdx < 0) return null;
   const teams = (match.teams || []).map((t) => buildEventPlayers(t, relevant));
   if (!teams.flat().some((p) => p.inChannel)) return null;
-  return {
+  const ev = {
     id: `ge-${id}`,
     type: "game_end",
     time: match.endTime || new Date().toISOString(),
@@ -69,6 +119,8 @@ function buildEndEvent(match, id, relevant) {
     winnersMmr: teamMmr(match.teams?.[winnerIdx]),
     losersMmr: teamMmr(match.teams?.[1 - winnerIdx]),
   };
+  ev.note = gameNote(ev);
+  return ev;
 }
 
 const Page = styled.div`
@@ -234,7 +286,17 @@ const Chat = () => {
         const endTime = new Date(match.endTime).getTime();
         if (!endTime || endTime < cutoff) continue;
         const ev = buildEndEvent(match, match.id, relevant);
-        if (ev) addGameEvent(ev);
+        if (!ev) continue;
+        addGameEvent(ev);
+        // MVP needs playerScores from the match detail (cached 30 min);
+        // only fetched for the handful of events that actually render
+        getMatch(match.id).then((detail) => {
+          const mvp = computeMvp(detail?.playerScores);
+          if (!mvp) return;
+          setGameEvents((prev) =>
+            prev.map((e) => (e.id === ev.id ? { ...e, mvp } : e))
+          );
+        });
       }
     });
     // runs once when messages + users are first available
@@ -313,11 +375,13 @@ const Chat = () => {
 
     async function fetchResult(id, attempt = 0) {
       let match;
+      let playerScores;
       try {
         const res = await fetch(`https://website-backend.w3champions.com/api/matches/${encodeURIComponent(id)}`);
         if (!res.ok) return;
         const result = await res.json();
         match = result?.match;
+        playerScores = result?.playerScores;
       } catch { return; }
       if (!match) return;
 
@@ -352,7 +416,7 @@ const Chat = () => {
         // Inline chat event + transient MMR-delta pills for channel members
         const ev = buildEndEvent(match, id, channelTagsRef.current);
         if (ev) {
-          addGameEvent({ ...ev, live: true });
+          addGameEvent({ ...ev, live: true, mvp: computeMvp(playerScores) });
           const withDelta = [...ev.winners, ...ev.losers].filter(
             (p) => p.inChannel && p.mmrGain != null
           );

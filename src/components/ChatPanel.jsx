@@ -732,6 +732,15 @@ const EventTag = styled.span`
   background: ${(p) => (p.$end ? "var(--red-tint)" : "var(--green-tint)")};
 `;
 
+const EventNote = styled.div`
+  font-family: var(--font-mono);
+  font-size: var(--text-xxxs);
+  font-style: italic;
+  color: var(--gold);
+  opacity: 0.75;
+  margin-top: 4px;
+`;
+
 const EventLiveDot = styled.span`
   display: inline-block;
   width: 6px;
@@ -1586,8 +1595,10 @@ export default function ChatPanel({
                             teamB={{ players: teamB, winner: false }}
                             dimLosers={isEnd}
                             showChart={hasChart}
+                            mvpTag={ev.mvp}
                             hoverData={{ avatars, stats, sessions, inGameTags, inGameInfoMap }}
                           />
+                          {ev.note && <EventNote>{ev.note}</EventNote>}
                         </EventBody>
                       </GameEventCard>
                     );
