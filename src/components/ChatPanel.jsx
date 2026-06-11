@@ -716,57 +716,54 @@ const EventCrown = styled.img`
   filter: drop-shadow(0 0 3px rgba(252, 219, 51, 0.4));
 `;
 
-const EventLead = styled.span`
-  width: 14px;
-  flex-shrink: 0;
-  display: inline-flex;
-  align-items: center;
-`;
-
-const EventTeamMmr = styled.span`
-  margin-left: auto;
-  padding-left: var(--space-2);
-  flex-shrink: 0;
-  font-family: var(--font-mono);
-  font-size: var(--text-xxs);
-  color: var(--white);
-`;
-
-const EventTeamLine = styled.div`
-  display: flex;
-  align-items: center;
-  gap: 6px;
-  min-width: 0;
-  font-size: var(--text-xs);
-  ${(p) => p.$dim && "opacity: 0.55;"}
-`;
-
-const EventName = styled.span`
-  font-family: var(--font-display);
-  color: var(--gold);
-`;
-
-const EventVsLine = styled.div`
-  font-weight: 700;
-  color: var(--grey-light);
-  font-size: var(--text-xxxs);
-  text-transform: uppercase;
-  letter-spacing: 0.1em;
-  opacity: 0.6;
-  padding-left: 1px;
-`;
-
 const EventMeta = styled.span`
   color: var(--grey-light);
   opacity: 0.7;
   white-space: nowrap;
 `;
 
-const EventChartCol = styled.div`
-  width: 60px;
-  height: 64px;
+/* Compact version of the full match card: two vertical team columns
+   with the MMR dot chart between them */
+
+const EventTeamsRow = styled.div`
+  display: flex;
+  align-items: stretch;
+  gap: var(--space-2);
+`;
+
+const EventTeamCol = styled.div`
+  flex: 1;
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  ${(p) => p.$right && "align-items: flex-end; text-align: right;"}
+  ${(p) => p.$dim && "opacity: 0.55;"}
+`;
+
+const EventTeamHeader = styled.div`
+  display: flex;
+  align-items: center;
+  gap: 5px;
+  font-family: var(--font-mono);
+  font-size: var(--text-xxs);
+  color: var(--white);
+  margin-bottom: 2px;
+`;
+
+const EventPlayerName = styled.div`
+  font-family: var(--font-display);
+  font-size: var(--text-xs);
+  color: var(--gold);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  max-width: 100%;
+`;
+
+const EventChartMid = styled.div`
+  width: 64px;
   flex-shrink: 0;
-  align-self: center;
 
   @media (max-width: 560px) {
     display: none;
@@ -1530,13 +1527,6 @@ export default function ChatPanel({
                   if (item.kind === "event") {
                     const ev = item.ev;
                     const isEnd = ev.type === "game_end";
-                    const renderNames = (players) =>
-                      (players || []).map((p, i) => (
-                        <React.Fragment key={p.battleTag || i}>
-                          {i > 0 && ", "}
-                          <EventName>{p.name}</EventName>
-                        </React.Fragment>
-                      ));
                     const duration =
                       ev.durationInSeconds != null
                         ? `${Math.round(ev.durationInSeconds / 60)} min`
@@ -1547,18 +1537,18 @@ export default function ChatPanel({
                     const eventLink = isEnd ? `/match/${ev.matchId}` : "/live";
                     const teamAMmr = isEnd ? ev.winnersMmr : ev.teamMmrs?.[0];
                     const teamBMmr = isEnd ? ev.losersMmr : ev.teamMmrs?.[1];
-                    const renderTeamLine = (players, mmr, { winners = false, dim = false } = {}) => (
-                      <EventTeamLine $dim={dim}>
-                        {isEnd && (
-                          <EventLead>
-                            {winners && <EventCrown src={crownIcon} alt="winners" />}
-                          </EventLead>
-                        )}
-                        <span>{renderNames(players)}</span>
-                        {mmr != null && <EventTeamMmr>{mmr}</EventTeamMmr>}
-                      </EventTeamLine>
-                    );
                     const hasChart = (teamA || []).some((p) => p.mmr > 0);
+                    const renderTeamCol = (players, mmr, { winners = false, right = false } = {}) => (
+                      <EventTeamCol $right={right} $dim={isEnd && !winners}>
+                        <EventTeamHeader>
+                          {winners && isEnd && <EventCrown src={crownIcon} alt="winners" />}
+                          {mmr != null && <span>{mmr} MMR</span>}
+                        </EventTeamHeader>
+                        {(players || []).map((p, i) => (
+                          <EventPlayerName key={p.battleTag || i}>{p.name}</EventPlayerName>
+                        ))}
+                      </EventTeamCol>
+                    );
                     return (
                       <GameEventCard key={ev.id} $end={isEnd} $live={ev.live}>
                         <EventTagCol>
@@ -1578,23 +1568,24 @@ export default function ChatPanel({
                                 : `· started ${formatTime(ev.time)}`}
                             </EventMeta>
                           </EventHeaderLine>
-                          {renderTeamLine(teamA, teamAMmr, { winners: true })}
-                          <EventVsLine>vs</EventVsLine>
-                          {renderTeamLine(teamB, teamBMmr, { dim: isEnd })}
+                          <EventTeamsRow>
+                            {renderTeamCol(teamA, teamAMmr, { winners: true })}
+                            {hasChart && (
+                              <EventChartMid>
+                                <MmrComparison
+                                  data={{
+                                    teamOneMmrs: (teamA || []).map((p) => p.mmr || 0),
+                                    teamTwoMmrs: (teamB || []).map((p) => p.mmr || 0),
+                                  }}
+                                  compact
+                                  fitToData
+                                  hideLabels
+                                />
+                              </EventChartMid>
+                            )}
+                            {renderTeamCol(teamB, teamBMmr, { right: true })}
+                          </EventTeamsRow>
                         </EventBody>
-                        {hasChart && (
-                          <EventChartCol>
-                            <MmrComparison
-                              data={{
-                                teamOneMmrs: (teamA || []).map((p) => p.mmr || 0),
-                                teamTwoMmrs: (teamB || []).map((p) => p.mmr || 0),
-                              }}
-                              compact
-                              fitToData
-                              hideLabels
-                            />
-                          </EventChartCol>
-                        )}
                       </GameEventCard>
                     );
                   }
