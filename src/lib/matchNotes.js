@@ -90,6 +90,7 @@ export function noteContextFromMatch(match) {
       battleTag: p.battleTag,
       name: p.name || p.battleTag?.split("#")[0],
       race: effectiveRace(p),
+      mmr: p.oldMmr ?? null,
       mmrGain: p.mmrGain ?? null,
     }));
   return {
@@ -111,37 +112,39 @@ function heroPickRate(heroStats, pickIndex, icon) {
   return (entry?.count ?? 0) / total;
 }
 
-function rareHeroNote(matchPlayers, heroStats, nameOf) {
-  if (!Array.isArray(matchPlayers) || !heroStats) return null;
-  let rarest = null;
-  for (const p of matchPlayers) {
-    (p.heroes || []).forEach((h, i) => {
-      const rate = heroPickRate(heroStats, i, h.icon);
-      if (rate == null || rate >= RARE_PICK_THRESHOLD) return;
-      if (!rarest || rate < rarest.rate) {
-        rarest = { tag: p.battleTag, icon: h.icon, pick: i, rate };
-      }
-    });
-  }
-  if (!rarest) return null;
-  const pct = rarest.rate < 0.001 ? (rarest.rate * 100).toFixed(2) : (rarest.rate * 100).toFixed(1);
-  const heroName = HERO_NAMES[rarest.icon] || rarest.icon;
-  return `${nameOf(rarest.tag)} went ${heroName} ${PICK_ORDINALS[rarest.pick] || ""} — a ${pct}% pick`;
-}
-
 /**
  * One-liner for finishes worth remarking on; null for ordinary games.
  * ctx: { winners, losers, winnersMmr, losersMmr, durationInSeconds }
  * extras unlock analytics checks: playerScores (match detail), matchPlayers
  * (flat players with heroes), heroStats (4v4 orderedPicks for rarity).
+ *
+ * Returns { text, tag, name, mmr, race, heroes } — tag/name/mmr/race/heroes
+ * are null for notes without a subject player. When tag is set, `text` is
+ * the predicate only ("took down 12 heroes"); renderers prepend the
+ * player's identity however they like, or fall back to `${name} ${text}`.
  */
 export function computeNote(ctx, { playerScores = null, matchPlayers = null, heroStats = null } = {}) {
   if (!ctx) return null;
   const dur = ctx.durationInSeconds;
   const { winnersMmr: w, losersMmr: l } = ctx;
   const all = [...(ctx.winners || []), ...(ctx.losers || [])];
-  const nameOf = (tag) =>
-    all.find((p) => p.battleTag === tag)?.name || tag?.split("#")[0] || "someone";
+
+  const plain = (text) => ({ text, tag: null, name: null, mmr: null, race: null, heroes: null });
+  const subject = (tag, text, highlightHero = null) => {
+    const p = all.find((x) => x.battleTag === tag);
+    const mp = (matchPlayers || []).find((x) => x.battleTag === tag);
+    const heroes = highlightHero
+      ? [{ icon: highlightHero }]
+      : mp?.heroes?.map((h) => ({ icon: h.icon, level: h.level })) || null;
+    return {
+      text,
+      tag,
+      name: p?.name || tag?.split("#")[0] || "someone",
+      mmr: p?.mmr ?? null,
+      race: p?.race ?? null,
+      heroes,
+    };
+  };
 
   // Race-stack victories (effective race, random rolls resolved)
   const raceCounts = {};
@@ -149,11 +152,11 @@ export function computeNote(ctx, { playerScores = null, matchPlayers = null, her
     if (RACE_NAMES[p.race]) raceCounts[p.race] = (raceCounts[p.race] || 0) + 1;
   }
   for (const [race, n] of Object.entries(raceCounts)) {
-    if (n === 4) return `all-${RACE_NAMES[race]} victory`;
+    if (n === 4) return plain(`all-${RACE_NAMES[race]} victory`);
   }
 
   if (w != null && l != null && w <= l - 15) {
-    return `upset — the ${l} MMR favorites fell`;
+    return plain(`upset — the ${l} MMR favorites fell`);
   }
 
   const hasScores = Array.isArray(playerScores) && playerScores.length >= 4;
@@ -164,16 +167,36 @@ export function computeNote(ctx, { playerScores = null, matchPlayers = null, her
       .map((ps) => ({ tag: ps.battleTag, sum: mvpRankSum(ps, playerScores) }))
       .sort((a, b) => b.sum - a.sum);
     if (sums[0].sum - sums[1].sum >= 8) {
-      return `${nameOf(sums[0].tag)} dominated the scoreboard`;
+      return subject(sums[0].tag, "dominated the scoreboard");
     }
   }
 
   for (const [race, n] of Object.entries(raceCounts)) {
-    if (n === 3) return `triple ${RACE_NAMES[race]} win`;
+    if (n === 3) return plain(`triple ${RACE_NAMES[race]} win`);
   }
 
-  const rarePick = rareHeroNote(matchPlayers, heroStats, nameOf);
-  if (rarePick) return rarePick;
+  // Rare hero pick (< 1% at its position; rarest wins)
+  if (Array.isArray(matchPlayers) && heroStats) {
+    let rarest = null;
+    for (const p of matchPlayers) {
+      (p.heroes || []).forEach((h, i) => {
+        const rate = heroPickRate(heroStats, i, h.icon);
+        if (rate == null || rate >= RARE_PICK_THRESHOLD) return;
+        if (!rarest || rate < rarest.rate) {
+          rarest = { tag: p.battleTag, icon: h.icon, pick: i, rate };
+        }
+      });
+    }
+    if (rarest) {
+      const pct = rarest.rate < 0.001 ? (rarest.rate * 100).toFixed(2) : (rarest.rate * 100).toFixed(1);
+      const heroName = HERO_NAMES[rarest.icon] || rarest.icon;
+      return subject(
+        rarest.tag,
+        `went ${heroName} ${PICK_ORDINALS[rarest.pick] || ""} — a ${pct}% pick`,
+        rarest.icon
+      );
+    }
+  }
 
   if (hasScores) {
     const top = (group, key) =>
@@ -186,10 +209,10 @@ export function computeNote(ctx, { playerScores = null, matchPlayers = null, her
       );
 
     const army = top("unitScore", "largestArmy");
-    if (army.v >= 90) return `${nameOf(army.tag)} fielded a ${army.v}-supply army`;
+    if (army.v >= 90) return subject(army.tag, `fielded a ${army.v}-supply army`);
 
     const hunter = top("heroScore", "heroesKilled");
-    if (hunter.v >= 6) return `${nameOf(hunter.tag)} took down ${hunter.v} heroes`;
+    if (hunter.v >= 6) return subject(hunter.tag, `took down ${hunter.v} heroes`);
   }
 
   // Stunted heroes: in a long game, someone's heroes barely leveled
@@ -206,20 +229,20 @@ export function computeNote(ctx, { playerScores = null, matchPlayers = null, her
       const avgOthers =
         sorted.slice(1).reduce((s, p) => s + p.total, 0) / (sorted.length - 1);
       if (lowest.total <= avgOthers * 0.5) {
-        return `${nameOf(lowest.tag)} finished with only ${lowest.total} hero levels`;
+        return subject(lowest.tag, `finished with only ${lowest.total} hero levels`);
       }
     }
   }
 
   if (dur != null && dur > 0 && dur < 12 * 60) {
-    return `over in ${Math.max(1, Math.round(dur / 60))} minutes`;
+    return plain(`over in ${Math.max(1, Math.round(dur / 60))} minutes`);
   }
   if (dur != null && dur > 35 * 60) {
-    return `${Math.round(dur / 60)}-minute marathon`;
+    return plain(`${Math.round(dur / 60)}-minute marathon`);
   }
   const leaver = all.find((p) => p.mmrGain != null && p.mmrGain <= -30);
-  if (leaver) return `${leaver.name} dropped early (${leaver.mmrGain})`;
-  if (w != null && l != null && Math.abs(w - l) <= 5) return "dead-even lobby";
-  if (w != null && l != null && (w + l) / 2 >= 1800) return "high-level lobby";
+  if (leaver) return subject(leaver.battleTag, `dropped early (${leaver.mmrGain})`);
+  if (w != null && l != null && Math.abs(w - l) <= 5) return plain("dead-even lobby");
+  if (w != null && l != null && (w + l) / 2 >= 1800) return plain("high-level lobby");
   return null;
 }

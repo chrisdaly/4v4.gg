@@ -47,7 +47,8 @@ describe('computeNote', () => {
       winnersMmr: 1400,
       losersMmr: 1500, // would also be an upset
     });
-    expect(computeNote(c)).toBe('all-Undead victory');
+    expect(computeNote(c).text).toBe('all-Undead victory');
+    expect(computeNote(c).tag).toBeNull();
   });
 
   it('prefers upsets over triple-race wins', () => {
@@ -56,7 +57,7 @@ describe('computeNote', () => {
       winnersMmr: 1400,
       losersMmr: 1500,
     });
-    expect(computeNote(c)).toMatch(/^upset/);
+    expect(computeNote(c).text).toMatch(/^upset/);
   });
 
   it('prefers scoreboard dominance over triple-race wins', () => {
@@ -75,7 +76,10 @@ describe('computeNote', () => {
       ['G', 5, 2800, 14000, 25, 75],
       ['H', 2, 2600, 9000, 60, 45],
     ]);
-    expect(computeNote(c, { playerScores: dominant })).toBe('A dominated the scoreboard');
+    const note = computeNote(c, { playerScores: dominant });
+    expect(note.text).toBe('dominated the scoreboard');
+    expect(note.tag).toBe('A#1');
+    expect(note.name).toBe('A');
   });
 
   it('flags rare hero picks', () => {
@@ -92,9 +96,10 @@ describe('computeNote', () => {
       { battleTag: 'A#1', heroes: [{ icon: 'beastmaster', level: 5 }] },
       { battleTag: 'B#1', heroes: [{ icon: 'archmage', level: 5 }] },
     ];
-    expect(computeNote(ctx(), { matchPlayers, heroStats })).toBe(
-      'A went Beastmaster first — a 0.5% pick'
-    );
+    const note = computeNote(ctx(), { matchPlayers, heroStats });
+    expect(note.text).toBe('went Beastmaster first — a 0.5% pick');
+    expect(note.tag).toBe('A#1');
+    expect(note.heroes).toEqual([{ icon: 'beastmaster' }]);
   });
 
   it('flags stunted hero levels in long games', () => {
@@ -102,14 +107,15 @@ describe('computeNote', () => {
       battleTag: `${tag}#1`,
       heroes: [{ icon: 'archmage', level: i === 0 ? 3 : 12 }],
     }));
-    expect(computeNote(ctx({ durationInSeconds: 25 * 60 }), { matchPlayers })).toBe(
-      'A finished with only 3 hero levels'
-    );
+    const note = computeNote(ctx({ durationInSeconds: 25 * 60 }), { matchPlayers });
+    expect(note.text).toBe('finished with only 3 hero levels');
+    expect(note.tag).toBe('A#1');
+    expect(note.heroes).toEqual([{ icon: 'archmage', level: 3 }]);
   });
 
   it('flags stomps and marathons', () => {
-    expect(computeNote(ctx({ durationInSeconds: 9 * 60, winnersMmr: 1500, losersMmr: 1510 }))).toBe('over in 9 minutes');
-    expect(computeNote(ctx({ durationInSeconds: 40 * 60, winnersMmr: 1500, losersMmr: 1510 }))).toBe('40-minute marathon');
+    expect(computeNote(ctx({ durationInSeconds: 9 * 60, winnersMmr: 1500, losersMmr: 1510 })).text).toBe('over in 9 minutes');
+    expect(computeNote(ctx({ durationInSeconds: 40 * 60, winnersMmr: 1500, losersMmr: 1510 })).text).toBe('40-minute marathon');
   });
 
   it('skips score checks gracefully when scores are even', () => {

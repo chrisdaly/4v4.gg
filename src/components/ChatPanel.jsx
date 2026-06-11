@@ -13,6 +13,7 @@ import { getMapImageUrl } from "../lib/formatters";
 import { linkifyMessage, playPing } from "../lib/chatExtras";
 import PlayerHoverCard from "./PlayerHoverCard";
 import MiniTeamsRow from "./MiniMatchCard";
+import MatchNote from "./MatchNote";
 import { getPlayerProfile } from "../lib/api";
 import useAdmin from "../lib/useAdmin";
 
@@ -733,12 +734,7 @@ const EventTag = styled.span`
 `;
 
 const EventNote = styled.div`
-  font-family: var(--font-mono);
-  font-size: var(--text-xxxs);
-  font-style: italic;
-  color: var(--gold);
-  opacity: 0.75;
-  margin-top: 4px;
+  margin-top: 5px;
 `;
 
 const EventLiveDot = styled.span`
@@ -1598,7 +1594,14 @@ export default function ChatPanel({
                             mvpTag={ev.mvp}
                             hoverData={{ avatars, stats, sessions, inGameTags, inGameInfoMap }}
                           />
-                          {ev.note && <EventNote>{ev.note}</EventNote>}
+                          {ev.note && (
+                            <EventNote>
+                              <MatchNote
+                                note={ev.note}
+                                avatarUrl={ev.note.tag ? avatars?.get(ev.note.tag)?.profilePicUrl : null}
+                              />
+                            </EventNote>
+                          )}
                         </EventBody>
                       </GameEventCard>
                     );

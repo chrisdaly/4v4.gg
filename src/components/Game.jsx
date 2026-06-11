@@ -4,6 +4,7 @@ import { CountryFlag, RaceIcon } from "./ui";
 import { FaTwitch } from "react-icons/fa";
 
 import { MmrComparison } from "./MmrComparison";
+import MatchNote from "./MatchNote";
 import { calculateElapsedTime, calculatePercentiles, detectArrangedTeams } from "../lib/utils";
 import { raceMapping } from "../lib/constants";
 import { getMapImageUrl, geometricMean } from "../lib/formatters";
@@ -472,7 +473,10 @@ const Game = ({ playerData: rawPlayerData, metaData, profilePics, playerCountrie
                       <span className="meta-server">{metaData.server}</span>
                     )}
                     {metaData.note && (
-                      <span className="meta-note">{metaData.note}</span>
+                      <MatchNote
+                        note={metaData.note}
+                        avatarUrl={metaData.note.tag ? profilePics[metaData.note.tag] : null}
+                      />
                     )}
                   </div>
                 </div>

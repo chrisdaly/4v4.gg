@@ -377,14 +377,6 @@ img.teamHeaderRace {
   letter-spacing: 0.1em;
 }
 
-.meta-note {
-  color: var(--gold);
-  font-family: var(--font-mono);
-  font-size: var(--text-xxs);
-  font-style: italic;
-  opacity: 0.85;
-}
-
 .meta-item {
   color: var(--grey-light);
 }
