@@ -23,6 +23,7 @@ const SYSTEM_PROMPT = `You write one-line tickers for finished Warcraft 3 4v4 ma
 Rules:
 - ONE line, max 90 characters, plain text, no quotes around the whole line, no emoji, no markdown.
 - Use ONLY facts from the fact sheet. Quote numbers and names exactly as given.
+- Chat lines come from the community lounge, NOT from inside the game. Only describe when something was said if the timestamps prove it (match start/end times are given); otherwise say "in the lounge" or leave the timing out.
 - Prefer drama: win/loss streaks, repeat encounters between players, chat trash-talk that aged well or badly, big stat gaps. Plain stat trivia is the last resort.
 - Refer to players by name only (no battle tag numbers).
 - If genuinely nothing is notable, reply with exactly: PASS`;
@@ -108,7 +109,10 @@ async function buildFactSheet(matchId) {
   );
 
   const lines = [];
-  lines.push(`Map: ${match.mapName}, duration ${Math.round(match.durationInSeconds / 60)} min.`);
+  lines.push(
+    `Map: ${match.mapName}, duration ${Math.round(match.durationInSeconds / 60)} min, ` +
+    `started ${match.startTime} (UTC), ended ${match.endTime} (UTC).`
+  );
 
   for (const ti of [winnerIdx, 1 - winnerIdx]) {
     const label = ti === winnerIdx ? 'WINNERS' : 'LOSERS';
@@ -160,9 +164,9 @@ async function buildFactSheet(matchId) {
   try {
     const msgs = getRecentMessagesByTags(tags, 12, 20);
     if (msgs.length > 0) {
-      lines.push('Recent chat lines from these players (newest first):');
+      lines.push('Recent LOUNGE chat from these players (newest first, times UTC):');
       for (const m of msgs.slice(0, 12)) {
-        lines.push(`  ${m.user_name}: "${m.message.slice(0, 120)}"`);
+        lines.push(`  [${m.received_at}] ${m.user_name}: "${m.message.slice(0, 120)}"`);
       }
     }
   } catch {
