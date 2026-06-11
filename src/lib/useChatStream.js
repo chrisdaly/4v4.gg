@@ -38,14 +38,15 @@ export default function useChatStream() {
     });
   }, []);
 
-  // Page in older history (cursor on received_at of the oldest loaded message)
+  // Page in older history (cursor on received_at of the oldest loaded message).
+  // Returns { added, oldestCursor } so callers can page toward a target time.
   const loadOlder = useCallback(async () => {
-    if (loadingOlderRef.current) return 0;
+    if (loadingOlderRef.current) return { added: 0, oldestCursor: null };
     loadingOlderRef.current = true;
     try {
       const oldest = messagesRef.current[0];
       const cursor = oldest?.received_at || oldest?.sent_at || oldest?.sentAt;
-      if (!cursor) return 0;
+      if (!cursor) return { added: 0, oldestCursor: null };
 
       const res = await fetch(
         `${RELAY_URL}/api/chat/messages?limit=100&before=${encodeURIComponent(cursor)}`
@@ -53,7 +54,7 @@ export default function useChatStream() {
       const data = await res.json();
       if (!Array.isArray(data) || data.length === 0) {
         setHasMoreHistory(false);
-        return 0;
+        return { added: 0, oldestCursor: cursor };
       }
       const older = data.reverse();
       let added = 0;
@@ -66,9 +67,9 @@ export default function useChatStream() {
         return [...unique, ...prev];
       });
       if (data.length < 100) setHasMoreHistory(false);
-      return added;
+      return { added, oldestCursor: older[0]?.received_at || cursor };
     } catch {
-      return 0;
+      return { added: 0, oldestCursor: null };
     } finally {
       loadingOlderRef.current = false;
     }

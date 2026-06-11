@@ -11,6 +11,7 @@ import { CountryFlag, Skeleton, SkeletonCircle } from "./ui";
 import { useMessageSegments, useBotResponseMap, formatDateDivider, getDateKey, formatTime, formatDateTime } from "../lib/useChatMessages";
 import { linkifyMessage, playPing } from "../lib/chatExtras";
 import PlayerHoverCard from "./PlayerHoverCard";
+import { getPlayerProfile } from "../lib/api";
 import useAdmin from "../lib/useAdmin";
 
 const OuterFrame = styled.div`
@@ -115,6 +116,8 @@ const MessageSegment = styled.div`
 const GroupStartRow = styled.div`
   padding: 2px var(--space-4) 2px 64px;
   line-height: 1.375;
+  transition: background 0.6s;
+  ${(p) => p.$flash && "background: rgba(252, 219, 51, 0.14) !important;"}
 
   @media (max-width: 480px) {
     padding-left: 56px;
@@ -129,6 +132,8 @@ const ContinuationRow = styled.div`
   position: relative;
   padding: 2px var(--space-4) 2px 64px;
   line-height: 1.375;
+  transition: background 0.6s;
+  ${(p) => p.$flash && "background: rgba(252, 219, 51, 0.14) !important;"}
 
   @media (max-width: 480px) {
     padding-left: 56px;
@@ -787,10 +792,42 @@ const SearchResults = styled.div`
   padding: var(--space-2) var(--space-4);
 `;
 
-const SearchResultRow = styled.div`
-  padding: var(--space-1) 0;
+const SearchResultRow = styled.button`
+  display: flex;
+  align-items: flex-start;
+  gap: var(--space-2);
+  width: 100%;
+  text-align: left;
+  background: none;
+  border: none;
   border-bottom: 1px solid rgba(255, 255, 255, 0.04);
+  padding: var(--space-2) var(--space-1);
   font-size: var(--text-xs);
+  cursor: pointer;
+  border-radius: var(--radius-sm);
+
+  &:hover {
+    background: rgba(255, 255, 255, 0.04);
+  }
+`;
+
+const SearchAvatar = styled.img`
+  width: 28px;
+  height: 28px;
+  border-radius: var(--radius-sm);
+  flex-shrink: 0;
+  ${(p) => p.$placeholder && "padding: 4px; background: rgba(255,255,255,0.06); opacity: 0.5; box-sizing: border-box;"}
+`;
+
+const SearchResultBody = styled.div`
+  min-width: 0;
+`;
+
+const Mark = styled.span`
+  background: rgba(252, 219, 51, 0.25);
+  color: var(--gold);
+  border-radius: 2px;
+  padding: 0 1px;
 `;
 
 const SearchResultMeta = styled.div`
@@ -920,6 +957,26 @@ function formatGameMinutes(startTime) {
   return mins >= 0 && mins < 180 ? `${mins}m` : null;
 }
 
+// Wrap case-insensitive matches of `query` in a highlight mark
+function highlightMatches(text, query) {
+  const q = query.trim();
+  if (!q || !text) return text;
+  const lower = text.toLowerCase();
+  const ql = q.toLowerCase();
+  const parts = [];
+  let i = 0;
+  for (;;) {
+    const j = lower.indexOf(ql, i);
+    if (j === -1) break;
+    if (j > i) parts.push(text.slice(i, j));
+    parts.push(<Mark key={j}>{text.slice(j, j + q.length)}</Mark>);
+    i = j + q.length;
+  }
+  if (parts.length === 0) return text;
+  if (i < text.length) parts.push(text.slice(i));
+  return parts;
+}
+
 function readPref(key, fallback) {
   try {
     const v = localStorage.getItem(key);
@@ -977,7 +1034,64 @@ export default function ChatPanel({
   const [searching, setSearching] = useState(false);
   const [loadingOlder, setLoadingOlder] = useState(false);
   const [newMarkerTime, setNewMarkerTime] = useState(null);
+  const [searchAvatars, setSearchAvatars] = useState(new Map());
+  const [flashId, setFlashId] = useState(null);
+  const [jumping, setJumping] = useState(false);
   const lastNotifiedRef = useRef(null);
+  const flashTimerRef = useRef(null);
+
+  // Fetch profiles for search-result authors not already known to the page
+  useEffect(() => {
+    if (!searchResults) return;
+    const missing = [...new Set(searchResults.map((r) => r.battle_tag))]
+      .filter((tag) => tag && !avatars?.get(tag) && !searchAvatars.has(tag));
+    for (const tag of missing) {
+      getPlayerProfile(tag).then((profile) => {
+        setSearchAvatars((prev) => new Map(prev).set(tag, profile));
+      });
+    }
+    // searchAvatars intentionally omitted — it's the accumulator this effect fills
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [searchResults, avatars]);
+
+  // Jump from a search result to the message in the stream, paging in older
+  // history as needed, then flash it
+  const jumpToMessage = useCallback(async (result) => {
+    if (jumping) return;
+    setJumping(true);
+    try {
+      const target = result.received_at;
+      let oldest = messages[0]?.received_at;
+      let pages = 0;
+      const isLoaded = () => messages.some((m) => m.id === result.id);
+      // Page back until the stream reaches the target time (sqlite datetime
+      // strings compare lexicographically). Bounded so a miss can't spin.
+      while (!isLoaded() && loadOlder && oldest && target < oldest && pages < 20) {
+        const r = await loadOlder();
+        if (!r || r.added === 0) break;
+        oldest = r.oldestCursor || oldest;
+        pages++;
+      }
+      setSearchOpen(false);
+      setAutoScroll(false);
+      setFlashId(result.id);
+      clearTimeout(flashTimerRef.current);
+      flashTimerRef.current = setTimeout(() => setFlashId(null), 2500);
+      // Retry until React has rendered the paged-in rows
+      let attempts = 0;
+      const tryScroll = () => {
+        const el = document.getElementById(`msg-${result.id}`);
+        if (el) {
+          el.scrollIntoView({ block: "center" });
+        } else if (attempts++ < 10) {
+          setTimeout(tryScroll, 100);
+        }
+      };
+      requestAnimationFrame(tryScroll);
+    } finally {
+      setJumping(false);
+    }
+  }, [jumping, messages, loadOlder]);
 
   // Notification blip for watched players' messages
   useEffect(() => {
@@ -1232,16 +1346,37 @@ export default function ChatPanel({
               <SearchEmpty>Type at least 2 characters to search the last 24 hours</SearchEmpty>
             )}
             {!searching &&
-              searchResults?.map((r, i) => (
-                <SearchResultRow key={`${r.received_at}-${i}`}>
-                  <SearchResultMeta>
-                    <Link to={`/player/${encodeURIComponent(r.battle_tag)}`}>{r.user_name}</Link>
-                    {" · "}
-                    {formatDateTime(r.sent_at || r.received_at)}
-                  </SearchResultMeta>
-                  <MessageText>{r.message}</MessageText>
-                </SearchResultRow>
-              ))}
+              searchResults?.map((r, i) => {
+                const profile = avatars?.get(r.battle_tag) || searchAvatars.get(r.battle_tag);
+                return (
+                  <SearchResultRow
+                    key={`${r.id ?? r.received_at}-${i}`}
+                    type="button"
+                    title="Jump to message"
+                    disabled={jumping}
+                    onClick={() => jumpToMessage(r)}
+                  >
+                    {profile?.profilePicUrl ? (
+                      <SearchAvatar src={profile.profilePicUrl} alt="" />
+                    ) : (
+                      <SearchAvatar src={raceIcons.random} alt="" $placeholder />
+                    )}
+                    <SearchResultBody>
+                      <SearchResultMeta>
+                        <Link
+                          to={`/player/${encodeURIComponent(r.battle_tag)}`}
+                          onClick={(e) => e.stopPropagation()}
+                        >
+                          {highlightMatches(r.user_name, searchQuery)}
+                        </Link>
+                        {" · "}
+                        {formatDateTime(r.sent_at || r.received_at)}
+                      </SearchResultMeta>
+                      <MessageText>{highlightMatches(r.message, searchQuery)}</MessageText>
+                    </SearchResultBody>
+                  </SearchResultRow>
+                );
+              })}
           </SearchResults>
         ) : null}
         {searchOpen ? null : messages.length === 0 ? (
@@ -1373,7 +1508,7 @@ export default function ChatPanel({
                           )}
                         </AvatarImgWrap>
                       </AvatarContainer>
-                      <GroupStartRow>
+                      <GroupStartRow id={`msg-${msg.id}`} $flash={flashId === msg.id}>
                         <MessageContent>
                           <div>
                             <NameWrapper>
@@ -1439,7 +1574,7 @@ export default function ChatPanel({
                         const cBotResp = botResponseMap.get(cMsg.id);
                         return (
                           <React.Fragment key={cMsg.id}>
-                            <ContinuationRow>
+                            <ContinuationRow id={`msg-${cMsg.id}`} $flash={flashId === cMsg.id}>
                               <HoverTimestamp className="hover-timestamp">
                                 {formatTime(cMsg.sent_at || cMsg.sentAt)}
                               </HoverTimestamp>

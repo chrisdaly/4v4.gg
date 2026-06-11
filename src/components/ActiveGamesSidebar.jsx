@@ -7,7 +7,7 @@ import { getMapImageUrl, formatElapsedTime } from "../lib/formatters";
 import { Skeleton } from "./ui";
 
 const Sidebar = styled.aside`
-  width: 460px;
+  width: 300px;
   height: 100%;
   box-sizing: border-box;
   display: flex;
@@ -148,8 +148,8 @@ const Card = styled.div`
 const CardTop = styled.div`
   display: flex;
   align-items: center;
-  gap: var(--space-4);
-  padding: var(--space-4);
+  gap: var(--space-2);
+  padding: var(--space-2) var(--space-3);
   background: rgba(255, 255, 255, 0.02);
 `;
 
@@ -175,7 +175,7 @@ const CardName = styled.span`
 const CardStats = styled.div`
   display: flex;
   align-items: baseline;
-  gap: var(--space-4);
+  gap: var(--space-2);
   flex-shrink: 0;
 `;
 
@@ -217,7 +217,7 @@ const CardNameLink = styled(Link)`
 `;
 
 const ChartCol = styled.div`
-  width: 80px;
+  width: 32px;
   flex-shrink: 0;
   align-self: stretch;
   padding: var(--space-2) 0;
@@ -292,8 +292,7 @@ const LiveDot = styled.span`
 const TeamsSection = styled.div`
   display: flex;
   align-items: center;
-  padding: var(--space-1) var(--space-4) var(--space-4);
-  padding-left: 68px; /* 16px card padding + 36px map + 16px gap = aligns under name */
+  padding: var(--space-1) var(--space-3) var(--space-3);
   gap: 0;
 `;
 
@@ -305,8 +304,8 @@ const TeamCol = styled.div`
 const PlayerRow = styled.div`
   display: flex;
   align-items: center;
-  gap: 8px;
-  margin-bottom: 8px;
+  gap: 6px;
+  margin-bottom: 6px;
   flex-direction: ${(p) => (p.$reverse ? "row-reverse" : "row")};
 
   &:last-child {
@@ -315,14 +314,14 @@ const PlayerRow = styled.div`
 `;
 
 const RaceIcon = styled.img`
-  width: 22px;
-  height: 22px;
+  width: 18px;
+  height: 18px;
   flex-shrink: 0;
 `;
 
 const PlayerName = styled.span`
   font-family: var(--font-display);
-  font-size: var(--text-sm);
+  font-size: var(--text-xs);
   color: var(--gold);
   white-space: nowrap;
   overflow: hidden;

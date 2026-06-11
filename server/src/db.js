@@ -1491,7 +1491,7 @@ export function searchMessages(query, limit = 50, offset = 0, sinceHours = null)
     ? [like, like, like, sinceHours, Math.min(limit, 200), offset]
     : [like, like, like, Math.min(limit, 200), offset];
   return db.prepare(`
-    SELECT user_name, message, sent_at, battle_tag, received_at
+    SELECT id, user_name, message, sent_at, battle_tag, received_at
     FROM messages
     WHERE deleted = 0 AND (message LIKE ? OR user_name LIKE ? OR battle_tag LIKE ?)
     ${sinceClause}
