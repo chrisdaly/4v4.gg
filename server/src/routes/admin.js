@@ -10,6 +10,8 @@ import { generateDigest, fetchDailyStats, generateLiveDigest, todayDigestCache, 
 import { generateCoverImage, buildImagePrompt, extractHeadline, buildImagePromptWithPlayers, generateImageFromPrompt, WC3_STYLE_SUFFIX, suggestScenes } from '../coverImage.js';
 import { runFeedbackScan, getRecentFeedback } from '../feedback.js';
 import { importPlayerMatches } from '../replayImporter.js';
+import { buildFactSheet, generateWithPrompt, SYSTEM_PROMPT } from '../matchBlurb.js';
+import { getMatchBlurb } from '../db.js';
 import { requireApiKey } from '../middleware/auth.js';
 
 const router = Router();
@@ -45,6 +47,60 @@ const publicLimiter = rateLimit({
   standardHeaders: true,
   legacyHeaders: false,
   message: { error: 'Too many requests, try again in a minute' },
+});
+
+// ── Blurb lab: inspect fact sheets and iterate on the ticker prompt ──
+
+const W3C_API = 'https://website-backend.w3champions.com/api';
+
+// Recent finished 4v4 matches with their cached production blurbs
+router.get('/blurb-lab/sample', requireApiKey, contextLimiter, async (req, res) => {
+  const count = Math.min(parseInt(req.query.count || '20', 10) || 20, 50);
+  try {
+    const r = await fetch(`${W3C_API}/matches?offset=0&gateway=20&pageSize=${count}&gameMode=4&map=Overall`);
+    const data = await r.json();
+    const matches = (data.matches || []).map((m) => ({
+      id: m.id,
+      mapName: m.mapName,
+      endTime: m.endTime,
+      durationInSeconds: m.durationInSeconds,
+      players: (m.teams || []).map((t) => (t.players || []).map((p) => p.name).join(', ')),
+      cachedBlurb: getMatchBlurb(m.id)?.blurb ?? null,
+    }));
+    res.json({ defaultPrompt: SYSTEM_PROMPT, matches });
+  } catch (err) {
+    res.status(502).json({ error: `W3C fetch failed: ${err.message}` });
+  }
+});
+
+// Fact sheet only (memoized 15 min server-side; no LLM call)
+router.get('/blurb-lab/fact-sheet/:matchId', requireApiKey, contextLimiter, async (req, res) => {
+  const { matchId } = req.params;
+  if (!/^[a-f0-9]{24}$/i.test(matchId)) return res.status(400).json({ error: 'Invalid match id' });
+  try {
+    const factSheet = await buildFactSheet(matchId);
+    if (!factSheet) return res.status(404).json({ error: 'No finished match found' });
+    res.json({ matchId, factSheet });
+  } catch (err) {
+    res.status(502).json({ error: err.message });
+  }
+});
+
+// Run the model with an experimental prompt — never persisted
+router.post('/blurb-lab/preview', requireApiKey, aiLimiter, async (req, res) => {
+  const { matchId, systemPrompt } = req.body || {};
+  if (!/^[a-f0-9]{24}$/i.test(matchId || '')) return res.status(400).json({ error: 'Invalid match id' });
+  if (systemPrompt != null && (typeof systemPrompt !== 'string' || systemPrompt.length > 4000)) {
+    return res.status(400).json({ error: 'systemPrompt must be a string under 4000 chars' });
+  }
+  try {
+    const factSheet = await buildFactSheet(matchId);
+    if (!factSheet) return res.status(404).json({ error: 'No finished match found' });
+    const blurb = await generateWithPrompt(factSheet, systemPrompt || SYSTEM_PROMPT);
+    res.json({ matchId, blurb: blurb || null, passed: !blurb });
+  } catch (err) {
+    res.status(502).json({ error: err.message });
+  }
 });
 
 // Verify API key is valid (used by frontend to show key status)

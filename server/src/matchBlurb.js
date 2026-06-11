@@ -18,7 +18,11 @@ const RACE_NAMES = { 0: 'Random', 1: 'Human', 2: 'Orc', 4: 'Night Elf', 8: 'Unde
 // Dedupe concurrent generations per match
 const inFlight = new Map();
 
-const SYSTEM_PROMPT = `You write one-line tickers for finished Warcraft 3 4v4 matches on a community site. Voice: dry sports-desk, a little wry, never cruel.
+// Fact sheets are expensive (~9 W3C calls) — memoized for the blurb lab
+const sheetCache = new Map();
+const SHEET_TTL_MS = 15 * 60 * 1000;
+
+export const SYSTEM_PROMPT = `You write one-line tickers for finished Warcraft 3 4v4 matches on a community site. Voice: dry sports-desk, a little wry, never cruel.
 
 Rules:
 - ONE line, max 90 characters, plain text, no quotes around the whole line, no emoji, no markdown.
@@ -80,7 +84,19 @@ function recentMeetings(history, battleTag, opponentTag, currentMatchId) {
   return { meetings, wins };
 }
 
-async function buildFactSheet(matchId) {
+export async function buildFactSheet(matchId) {
+  const cached = sheetCache.get(matchId);
+  if (cached && Date.now() - cached.ts < SHEET_TTL_MS) return cached.sheet;
+  const sheet = await buildFactSheetUncached(matchId);
+  sheetCache.set(matchId, { sheet, ts: Date.now() });
+  if (sheetCache.size > 100) {
+    const oldest = [...sheetCache.keys()][0];
+    sheetCache.delete(oldest);
+  }
+  return sheet;
+}
+
+async function buildFactSheetUncached(matchId) {
   const detail = await fetchJson(`${W3C_API}/matches/${encodeURIComponent(matchId)}`);
   const match = detail?.match;
   if (!match?.teams || !match.endTime) return null;
@@ -176,6 +192,22 @@ async function buildFactSheet(matchId) {
   return lines.join('\n');
 }
 
+// Run the model over a fact sheet with an arbitrary system prompt —
+// used by both production generation and the blurb lab. Never persists.
+export async function generateWithPrompt(factSheet, systemPrompt = SYSTEM_PROMPT) {
+  if (!config.ANTHROPIC_API_KEY) return '';
+  const client = new Anthropic({ apiKey: config.ANTHROPIC_API_KEY });
+  const msg = await client.messages.create({
+    model: MODEL,
+    max_tokens: 120,
+    system: systemPrompt,
+    messages: [{ role: 'user', content: `Fact sheet:\n${factSheet}\n\nWrite the ticker line.` }],
+  });
+  let blurb = msg.content[0]?.text?.trim() || '';
+  if (blurb === 'PASS' || blurb.length > 140) blurb = '';
+  return blurb;
+}
+
 export async function generateMatchBlurb(matchId) {
   const cached = getMatchBlurb(matchId);
   if (cached) return cached.blurb;
@@ -188,16 +220,7 @@ export async function generateMatchBlurb(matchId) {
     try {
       const factSheet = await buildFactSheet(matchId);
       if (!factSheet) return '';
-
-      const client = new Anthropic({ apiKey: config.ANTHROPIC_API_KEY });
-      const msg = await client.messages.create({
-        model: MODEL,
-        max_tokens: 120,
-        system: SYSTEM_PROMPT,
-        messages: [{ role: 'user', content: `Fact sheet:\n${factSheet}\n\nWrite the ticker line.` }],
-      });
-      let blurb = msg.content[0]?.text?.trim() || '';
-      if (blurb === 'PASS' || blurb.length > 140) blurb = '';
+      const blurb = await generateWithPrompt(factSheet);
       setMatchBlurb(matchId, blurb);
       return blurb;
     } catch (err) {
