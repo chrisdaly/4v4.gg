@@ -739,8 +739,8 @@ const EventRaceIcon = styled.img`
 const EventTeamMmr = styled.span`
   font-family: var(--font-mono);
   font-size: var(--text-xxs);
-  color: var(--white);
-  ${(p) => p.$dim && "opacity: 0.55;"}
+  color: ${(p) => (p.$team === 2 ? "var(--team-red)" : "var(--team-blue)")};
+  ${(p) => p.$dim && "opacity: 0.6;"}
 `;
 
 const EventTeamLine = styled.div`
@@ -774,22 +774,28 @@ const EventMeta = styled.span`
 `;
 
 const EventStatsCol = styled.div`
-  width: 110px;
+  width: 84px;
   flex-shrink: 0;
   align-self: center;
   display: flex;
   flex-direction: column;
-  align-items: center;
-  gap: 1px;
+  align-items: stretch;
+  gap: 2px;
 
   @media (max-width: 560px) {
     display: none;
   }
 `;
 
+const EventMmrRow = styled.div`
+  display: flex;
+  justify-content: space-between;
+  padding: 0 var(--space-1);
+`;
+
 const EventChart = styled.div`
   width: 100%;
-  height: 44px;
+  height: 64px;
 `;
 
 /* ── Name-row accessories ──────────────────────── */
@@ -1611,7 +1617,10 @@ export default function ChatPanel({
                         </EventBody>
                         {(teamAMmr != null || hasChart) && (
                           <EventStatsCol>
-                            {teamAMmr != null && <EventTeamMmr>{teamAMmr}</EventTeamMmr>}
+                            <EventMmrRow>
+                              {teamAMmr != null && <EventTeamMmr>{teamAMmr}</EventTeamMmr>}
+                              {teamBMmr != null && <EventTeamMmr $team={2} $dim={isEnd}>{teamBMmr}</EventTeamMmr>}
+                            </EventMmrRow>
                             {hasChart && (
                               <EventChart>
                                 <MmrComparison
@@ -1620,13 +1629,11 @@ export default function ChatPanel({
                                     teamTwoMmrs: (teamB || []).map((p) => p.mmr || 0),
                                   }}
                                   compact
-                                  transposed
                                   fitToData
                                   hideLabels
                                 />
                               </EventChart>
                             )}
-                            {teamBMmr != null && <EventTeamMmr $dim={isEnd}>{teamBMmr}</EventTeamMmr>}
                           </EventStatsCol>
                         )}
                       </GameEventCard>
