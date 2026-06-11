@@ -635,10 +635,10 @@ const finishGlow = keyframes`
 
 const GameEventCard = styled.div`
   display: flex;
-  align-items: flex-start;
-  gap: var(--space-2);
-  margin: var(--space-2) var(--space-4);
-  padding: var(--space-1) var(--space-2);
+  align-items: center;
+  gap: var(--space-3);
+  margin: var(--space-3) var(--space-4);
+  padding: var(--space-2) var(--space-3);
   border-left: 2px solid ${(p) => (p.$end ? "rgba(var(--gold-muted-rgb), 0.5)" : "rgba(194, 52, 52, 0.5)")};
   background: ${(p) => (p.$end ? "rgba(var(--gold-muted-rgb), 0.04)" : "rgba(255, 255, 255, 0.02)")};
   border-radius: 0 var(--radius-sm) var(--radius-sm) 0;
@@ -665,20 +665,28 @@ const GameEventCard = styled.div`
   }
 `;
 
+const EventTagCol = styled.div`
+  flex-shrink: 0;
+  display: flex;
+  align-items: center;
+  align-self: stretch;
+`;
+
 const EventMapImg = styled.img`
-  width: 34px;
-  height: 34px;
+  width: 44px;
+  height: 44px;
   border-radius: var(--radius-sm);
   object-fit: cover;
   flex-shrink: 0;
-  margin-top: 2px;
+  display: block;
 `;
 
 const EventBody = styled.div`
   min-width: 0;
+  flex: 1;
   display: flex;
   flex-direction: column;
-  gap: 2px;
+  gap: 4px;
 `;
 
 const EventHeaderLine = styled.div`
@@ -695,15 +703,15 @@ const EventTag = styled.span`
   font-weight: 700;
   text-transform: uppercase;
   letter-spacing: 0.08em;
-  padding: 1px 5px;
+  padding: 3px 7px;
   border-radius: var(--radius-sm);
   color: ${(p) => (p.$end ? "var(--gold)" : "var(--red)")};
   background: ${(p) => (p.$end ? "var(--gold-tint)" : "var(--red-tint)")};
 `;
 
 const EventCrown = styled.img`
-  width: 12px;
-  height: 12px;
+  width: 13px;
+  height: 13px;
   flex-shrink: 0;
   filter: drop-shadow(0 0 3px rgba(252, 219, 51, 0.4));
 `;
@@ -711,7 +719,8 @@ const EventCrown = styled.img`
 const EventTeamLine = styled.div`
   display: flex;
   align-items: center;
-  gap: 5px;
+  gap: 6px;
+  font-size: var(--text-xs);
   ${(p) => p.$dim && "opacity: 0.5;"}
 `;
 
@@ -720,13 +729,14 @@ const EventName = styled.span`
   color: var(--gold);
 `;
 
-const EventVs = styled.span`
+const EventVsLine = styled.div`
   font-weight: 700;
   color: var(--grey-light);
   font-size: var(--text-xxxs);
-  width: 12px;
-  flex-shrink: 0;
-  text-align: center;
+  text-transform: uppercase;
+  letter-spacing: 0.1em;
+  opacity: 0.6;
+  padding-left: 1px;
 `;
 
 const EventMeta = styled.span`
@@ -1509,6 +1519,9 @@ export default function ChatPanel({
                     const eventLink = isEnd ? `/match/${ev.matchId}` : "/live";
                     return (
                       <GameEventCard key={ev.id} $end={isEnd} $live={ev.live}>
+                        <EventTagCol>
+                          <EventTag $end={isEnd}>{isEnd ? "Finish" : "Start"}</EventTag>
+                        </EventTagCol>
                         {mapImg && (
                           <Link to={eventLink}>
                             <EventMapImg src={mapImg} alt="" onError={(e) => { e.target.style.display = "none"; }} />
@@ -1516,7 +1529,6 @@ export default function ChatPanel({
                         )}
                         <EventBody>
                           <EventHeaderLine>
-                            <EventTag $end={isEnd}>{isEnd ? "Finish" : "Start"}</EventTag>
                             {ev.mapName && <Link to={eventLink}>{ev.mapName}</Link>}
                             <EventMeta>
                               {ev.avgMmr != null && `· avg ${ev.avgMmr} `}
@@ -1526,11 +1538,11 @@ export default function ChatPanel({
                             </EventMeta>
                           </EventHeaderLine>
                           <EventTeamLine>
-                            {isEnd ? <EventCrown src={crownIcon} alt="winners" /> : <EventVs />}
+                            {isEnd && <EventCrown src={crownIcon} alt="winners" />}
                             <span>{renderNames(teamA)}</span>
                           </EventTeamLine>
+                          <EventVsLine>vs</EventVsLine>
                           <EventTeamLine $dim={isEnd}>
-                            <EventVs>vs</EventVs>
                             <span>{renderNames(teamB)}</span>
                           </EventTeamLine>
                         </EventBody>
