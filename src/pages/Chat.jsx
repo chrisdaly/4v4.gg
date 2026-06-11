@@ -455,6 +455,12 @@ const Chat = () => {
     return map;
   }, [ongoingMatches]);
 
+  // Ids of currently running matches (lets event cards show live progress)
+  const ongoingMatchIds = useMemo(
+    () => new Set(ongoingMatches.map((m) => m.id || m.match?.id).filter(Boolean)),
+    [ongoingMatches]
+  );
+
   // In-game battleTag → match context (for chips and hover cards)
   const inGameInfoMap = useMemo(() => {
     const map = new Map();
@@ -593,6 +599,7 @@ const Chat = () => {
           recentWinners={recentWinners}
           recentDeltas={recentDeltas}
           gameEvents={gameEvents}
+          ongoingMatchIds={ongoingMatchIds}
           liveStreamers={liveStreamers}
           watchList={watchList}
           onlineUsers={onlineUsers}

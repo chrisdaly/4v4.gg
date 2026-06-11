@@ -1,10 +1,11 @@
 import React, { useState, useEffect, useMemo } from "react";
-import { Link, useHistory } from "react-router-dom";
+import { Link } from "react-router-dom";
 import styled, { keyframes } from "styled-components";
 import crownIcon from "../assets/icons/king.svg";
 import { raceMapping } from "../lib/constants";
-import { getMapImageUrl, formatElapsedTime } from "../lib/formatters";
+import { getMapImageUrl, formatElapsedTime, geometricMean } from "../lib/formatters";
 import { Skeleton } from "./ui";
+import MiniTeamsRow from "./MiniMatchCard";
 
 const Sidebar = styled.aside`
   width: 300px;
@@ -115,19 +116,6 @@ const Content = styled.div`
     background: var(--grey-mid);
     border-radius: var(--radius-sm);
   }
-`;
-
-const EmptyState = styled.div`
-  flex: 1;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  font-family: var(--font-mono);
-  font-size: var(--text-xxs);
-  color: var(--grey-light);
-  text-transform: uppercase;
-  letter-spacing: 0.1em;
-  padding: var(--space-4);
 `;
 
 /* ── Match Card (Layout C: Split Team Tint) ──── */
@@ -263,15 +251,6 @@ const MmrLabel = styled.span`
   margin-left: 4px;
 `;
 
-const VsSpacer = styled.div`
-  font-family: var(--font-mono);
-  font-size: var(--text-xxs);
-  color: var(--grey-light);
-  text-align: center;
-  padding: 0 var(--space-2);
-  flex-shrink: 0;
-`;
-
 const Elapsed = styled.div`
   font-family: var(--font-mono);
   font-size: var(--text-xs);
@@ -294,11 +273,6 @@ const TeamsSection = styled.div`
   align-items: center;
   padding: var(--space-1) var(--space-3) var(--space-3);
   gap: 0;
-`;
-
-const TeamCol = styled.div`
-  flex: 1;
-  min-width: 0;
 `;
 
 const PlayerRow = styled.div`
@@ -408,8 +382,7 @@ function getMatchAvgMmr(match) {
 
 /* ── Match Card Component ────────────────────── */
 
-function MatchCard({ match, expanded, onToggle, now }) {
-  const history = useHistory();
+function MatchCard({ match, expanded, onToggle }) {
   const mapName = match.mapName || match.match?.mapName;
   const cleanMapName = mapName?.replace(/^\(\d\)\s*/, "") || "Unknown";
   const mapUrl = getMapImageUrl(mapName);
@@ -458,23 +431,17 @@ function MatchCard({ match, expanded, onToggle, now }) {
       </CardTop>
       {expanded && (
         <TeamsSection>
-          <TeamCol $team={1}>
-            {team1?.players?.map((p, i) => (
-              <PlayerRow key={i}>
-                <RaceIcon src={raceMapping[p.race]} alt="" />
-                <PlayerName onClick={(e) => { e.stopPropagation(); history.push(`/player/${encodeURIComponent(p.battleTag)}`); }}>{p.name}</PlayerName>
-              </PlayerRow>
-            ))}
-          </TeamCol>
-          <VsSpacer>vs</VsSpacer>
-          <TeamCol $team={2}>
-            {team2?.players?.map((p, i) => (
-              <PlayerRow key={i} $reverse>
-                <RaceIcon src={raceMapping[p.race]} alt="" />
-                <PlayerName $right onClick={(e) => { e.stopPropagation(); history.push(`/player/${encodeURIComponent(p.battleTag)}`); }}>{p.name}</PlayerName>
-              </PlayerRow>
-            ))}
-          </TeamCol>
+          <MiniTeamsRow
+            teamA={{
+              players: team1?.players || [],
+              mmr: team1Mmrs.some((m) => m > 0) ? Math.round(geometricMean(team1Mmrs.filter((m) => m > 0))) : null,
+            }}
+            teamB={{
+              players: team2?.players || [],
+              mmr: team2Mmrs.some((m) => m > 0) ? Math.round(geometricMean(team2Mmrs.filter((m) => m > 0))) : null,
+            }}
+            showChart={false}
+          />
         </TeamsSection>
       )}
     </Card>

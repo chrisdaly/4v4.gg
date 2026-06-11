@@ -1,5 +1,5 @@
 import React, { useRef, useEffect, useState, useCallback, useMemo } from "react";
-import { Link } from "react-router-dom";
+import { Link, useHistory } from "react-router-dom";
 import styled, { keyframes, css } from "styled-components";
 import { GiCrossedSwords } from "react-icons/gi";
 import { HiKey, HiBell, HiSearch, HiTranslate } from "react-icons/hi";
@@ -12,7 +12,7 @@ import { useMessageSegments, useBotResponseMap, formatDateDivider, getDateKey, f
 import { getMapImageUrl } from "../lib/formatters";
 import { linkifyMessage, playPing } from "../lib/chatExtras";
 import PlayerHoverCard from "./PlayerHoverCard";
-import { MmrComparison } from "./MmrComparison";
+import MiniTeamsRow from "./MiniMatchCard";
 import { getPlayerProfile } from "../lib/api";
 import useAdmin from "../lib/useAdmin";
 
@@ -728,74 +728,14 @@ const EventTag = styled.span`
   background: ${(p) => (p.$end ? "var(--gold-tint)" : "var(--red-tint)")};
 `;
 
-const EventCrown = styled.img`
-  width: 13px;
-  height: 13px;
-  filter: drop-shadow(0 0 3px rgba(252, 219, 51, 0.4));
-`;
-
-/* Compact version of the full match card: two vertical team columns
-   with the MMR dot chart between them */
-
-const EventTeamsRow = styled.div`
-  display: flex;
-  align-items: stretch;
-  gap: var(--space-3);
-`;
-
-const EventTeamCol = styled.div`
-  flex: 1;
-  min-width: 0;
-  display: flex;
-  flex-direction: column;
-  gap: 5px;
-  ${(p) => p.$right && "align-items: flex-end; text-align: right;"}
-  ${(p) => p.$dim && "opacity: 0.55;"}
-`;
-
-const EventPlayerRow = styled.div`
-  display: flex;
-  align-items: center;
-  gap: 6px;
-  min-width: 0;
-  max-width: 100%;
-  flex-direction: ${(p) => (p.$reverse ? "row-reverse" : "row")};
-`;
-
-const EventRaceImg = styled.img`
-  width: 16px;
-  height: 16px;
-  flex-shrink: 0;
-  opacity: ${(p) => (p.$faded ? 0.4 : 0.85)};
-`;
-
-const EventTeamHeader = styled.div`
-  display: flex;
-  align-items: center;
-  gap: 5px;
-  font-family: var(--font-mono);
-  font-size: var(--text-xxs);
-  color: var(--white);
-  margin-bottom: 2px;
-`;
-
-const EventPlayerName = styled.div`
-  font-family: var(--font-display);
-  font-size: var(--text-xs);
-  color: var(--gold);
-  white-space: nowrap;
-  overflow: hidden;
-  text-overflow: ellipsis;
-  max-width: 100%;
-`;
-
-const EventChartMid = styled.div`
-  width: 64px;
-  flex-shrink: 0;
-
-  @media (max-width: 560px) {
-    display: none;
-  }
+const EventLiveDot = styled.span`
+  display: inline-block;
+  width: 6px;
+  height: 6px;
+  border-radius: 50%;
+  background: var(--red);
+  margin-right: 4px;
+  animation: pulse 1.5s infinite;
 `;
 
 /* ── Name-row accessories ──────────────────────── */
@@ -1145,6 +1085,7 @@ export default function ChatPanel({
   recentWinners,
   recentDeltas,
   gameEvents = [],
+  ongoingMatchIds,
   liveStreamers,
   watchList,
   onlineUsers = [],
@@ -1155,6 +1096,7 @@ export default function ChatPanel({
   loadOlder,
   hasMoreHistory,
 }) {
+  const history = useHistory();
   const listRef = useRef(null);
   const inputRef = useRef(null);
   const [autoScroll, setAutoScroll] = useState(true);
@@ -1566,63 +1508,52 @@ export default function ChatPanel({
                     const teamAMmr = isEnd ? ev.winnersMmr : ev.teamMmrs?.[0];
                     const teamBMmr = isEnd ? ev.losersMmr : ev.teamMmrs?.[1];
                     const hasChart = (teamA || []).some((p) => p.mmr > 0);
-                    const renderTeamCol = (players, mmr, { winners = false, right = false } = {}) => (
-                      <EventTeamCol $right={right} $dim={isEnd && !winners}>
-                        <EventTeamHeader>
-                          {winners && isEnd && <EventCrown src={crownIcon} alt="winners" />}
-                          {mmr != null && <span>{mmr} MMR</span>}
-                        </EventTeamHeader>
-                        {(players || []).map((p, i) => (
-                          <EventPlayerRow key={p.battleTag || i} $reverse={right}>
-                            <EventRaceImg
-                              src={(p.race != null && raceMapping[p.race]) || raceIcons.random}
-                              alt=""
-                              $faded={p.race == null}
-                            />
-                            <EventPlayerName>{p.name}</EventPlayerName>
-                          </EventPlayerRow>
-                        ))}
-                      </EventTeamCol>
-                    );
+                    const stillRunning = !isEnd && ongoingMatchIds?.has(ev.matchId);
+                    const liveMins = stillRunning ? formatGameMinutes(ev.time) : null;
                     return (
-                      <GameEventCard key={ev.id} $end={isEnd} $live={ev.live}>
+                      <GameEventCard
+                        key={ev.id}
+                        $end={isEnd}
+                        $live={ev.live}
+                        onClick={() => history.push(eventLink)}
+                        style={{ cursor: "pointer" }}
+                      >
                         <EventTagCol>
                           <EventTag $end={isEnd}>{isEnd ? "Finish" : "Start"}</EventTag>
                         </EventTagCol>
                         <EventMapBlock>
                           {mapImg && (
-                            <Link to={eventLink}>
+                            <Link to={eventLink} onClick={(e) => e.stopPropagation()}>
                               <EventMapImg src={mapImg} alt="" onError={(e) => { e.target.style.display = "none"; }} />
                             </Link>
                           )}
-                          {ev.mapName && <EventMapName to={eventLink}>{ev.mapName}</EventMapName>}
+                          {ev.mapName && (
+                            <EventMapName to={eventLink} onClick={(e) => e.stopPropagation()}>
+                              {ev.mapName}
+                            </EventMapName>
+                          )}
                           {isEnd ? (
                             <>
                               {duration && <EventMapMeta>{duration}</EventMapMeta>}
                               <EventMapMeta>ended {formatTime(ev.time)}</EventMapMeta>
                             </>
+                          ) : stillRunning ? (
+                            <EventMapMeta>
+                              <EventLiveDot />
+                              in progress{liveMins ? ` · ${liveMins}` : ""}
+                            </EventMapMeta>
                           ) : (
                             <EventMapMeta>started {formatTime(ev.time)}</EventMapMeta>
                           )}
                         </EventMapBlock>
                         <EventBody>
-                          <EventTeamsRow>
-                            {renderTeamCol(teamA, teamAMmr, { winners: true })}
-                            {hasChart && (
-                              <EventChartMid>
-                                <MmrComparison
-                                  data={{
-                                    teamOneMmrs: (teamA || []).map((p) => p.mmr || 0),
-                                    teamTwoMmrs: (teamB || []).map((p) => p.mmr || 0),
-                                  }}
-                                  compact
-                                  fitToData
-                                  hideLabels
-                                />
-                              </EventChartMid>
-                            )}
-                            {renderTeamCol(teamB, teamBMmr, { right: true })}
-                          </EventTeamsRow>
+                          <MiniTeamsRow
+                            teamA={{ players: teamA, mmr: teamAMmr, winner: isEnd }}
+                            teamB={{ players: teamB, mmr: teamBMmr, winner: false }}
+                            dimLosers={isEnd}
+                            showChart={hasChart}
+                            hoverData={{ avatars, stats, sessions, inGameTags, inGameInfoMap }}
+                          />
                         </EventBody>
                       </GameEventCard>
                     );
