@@ -150,9 +150,19 @@ async function buildFactSheetUncached(matchId) {
       ];
       if (heroes) bits.push(`heroes ${heroes}`);
       if (ps) {
-        bits.push(
-          `heroKills ${ps.heroScore?.heroesKilled ?? 0}, unitsKilled ${ps.unitScore?.unitsKilled ?? 0}, largestArmy ${ps.unitScore?.largestArmy ?? 0}, gold ${ps.resourceScore?.goldCollected ?? 0}`
-        );
+        // Only surface stats worth talking about — low values are omitted
+        // entirely so the model can't build a "0 kills" line. Labels are
+        // plain English so the model never quotes a raw field name.
+        const stats = [];
+        const hk = ps.heroScore?.heroesKilled ?? 0;
+        const uk = ps.unitScore?.unitsKilled ?? 0;
+        const army = ps.unitScore?.largestArmy ?? 0;
+        const gold = ps.resourceScore?.goldCollected ?? 0;
+        if (hk >= 4) stats.push(`${hk} hero kills`);
+        if (uk >= 60) stats.push(`${uk} units killed`);
+        if (army >= 80) stats.push(`${army} largest army`);
+        if (gold >= 15000) stats.push(`${gold} gold mined`);
+        if (stats.length) bits.push(stats.join(', '));
       }
       const streak = streakFromHistory(histories.get(p.battleTag) || [], p.battleTag, matchId);
       if (streak) {
