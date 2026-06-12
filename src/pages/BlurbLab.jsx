@@ -199,6 +199,7 @@ const ResetButton = styled.button`
 
 const Output = styled.div`
   padding: var(--space-3);
+  margin-bottom: var(--space-2);
   border-left: 2px solid ${(p) => (p.$passed ? "var(--grey-mid)" : "var(--gold)")};
   background: ${(p) => (p.$passed ? "rgba(255,255,255,0.02)" : "var(--gold-tint)")};
   border-radius: 0 var(--radius-md) var(--radius-md) 0;
@@ -206,6 +207,22 @@ const Output = styled.div`
   font-size: var(--text-sm);
   font-style: italic;
   color: ${(p) => (p.$passed ? "var(--grey-light)" : "var(--gold)")};
+  ${(p) => p.$same && "opacity: 0.6;"}
+`;
+
+const PhaseLabel = styled.div`
+  font-family: var(--font-mono);
+  font-size: var(--text-xxxs);
+  text-transform: uppercase;
+  letter-spacing: 0.1em;
+  color: var(--grey-light);
+  margin-bottom: var(--space-1);
+`;
+
+const Unchanged = styled.span`
+  font-style: normal;
+  font-size: var(--text-xxs);
+  color: var(--grey-light);
 `;
 
 const History = styled.div`
@@ -369,7 +386,7 @@ export default function BlurbLab() {
         body: JSON.stringify({ matchId: selected.id, systemPrompt: prompt }),
       });
       if (output) setHistory((h) => [output, ...h].slice(0, 8));
-      setOutput({ blurb: data.blurb, passed: data.passed });
+      setOutput({ instant: data.instant, reactions: data.reactions });
     } catch (e) {
       setError(e.message);
     } finally {
@@ -443,14 +460,27 @@ export default function BlurbLab() {
             <Section>
               <Label>Output</Label>
               {output && (
-                <Output $passed={output.passed}>
-                  {output.passed ? "PASS — model found nothing notable" : renderBlurbText(output.blurb)}
-                </Output>
+                <>
+                  <PhaseLabel>At the whistle (instant)</PhaseLabel>
+                  <Output $passed={!output.instant}>
+                    {output.instant ? renderBlurbText(output.instant) : "PASS — nothing notable yet"}
+                  </Output>
+                  <PhaseLabel>After reactions (5 min)</PhaseLabel>
+                  <Output
+                    $passed={!output.reactions}
+                    $same={output.instant === output.reactions}
+                  >
+                    {output.reactions ? renderBlurbText(output.reactions) : "PASS — nothing notable"}
+                    {output.instant === output.reactions && output.reactions && (
+                      <Unchanged> (unchanged)</Unchanged>
+                    )}
+                  </Output>
+                </>
               )}
               {history.length > 0 && (
                 <History>
                   {history.map((h, i) => (
-                    <HistoryRow key={i}>{h.passed ? "PASS" : renderBlurbText(h.blurb)}</HistoryRow>
+                    <HistoryRow key={i}>{h.reactions ? renderBlurbText(h.reactions) : "PASS"}</HistoryRow>
                   ))}
                 </History>
               )}

@@ -86,18 +86,34 @@ router.get('/blurb-lab/fact-sheet/:matchId', requireApiKey, contextLimiter, asyn
   }
 });
 
-// Run the model with an experimental prompt — never persisted
+// Run the model with an experimental prompt — never persisted. Returns
+// both phases: `instant` (written at the whistle, pre-game chat only) and
+// `reactions` (the 5-min rewrite that sees post-game lounge chat).
 router.post('/blurb-lab/preview', requireApiKey, aiLimiter, async (req, res) => {
   const { matchId, systemPrompt } = req.body || {};
   if (!/^[a-f0-9]{24}$/i.test(matchId || '')) return res.status(400).json({ error: 'Invalid match id' });
   if (systemPrompt != null && (typeof systemPrompt !== 'string' || systemPrompt.length > 4000)) {
     return res.status(400).json({ error: 'systemPrompt must be a string under 4000 chars' });
   }
+  const prompt = systemPrompt || SYSTEM_PROMPT;
   try {
-    const data = await buildFactSheet(matchId);
-    if (!data) return res.status(404).json({ error: 'No finished match found' });
-    const blurb = await generateWithPrompt(data.factSheet, systemPrompt || SYSTEM_PROMPT);
-    res.json({ matchId, blurb: blurb || null, passed: !blurb });
+    const [instantData, fullData] = await Promise.all([
+      buildFactSheet(matchId, 'instant'),
+      buildFactSheet(matchId, 'full'),
+    ]);
+    if (!fullData) return res.status(404).json({ error: 'No finished match found' });
+    const [instant, reactions] = await Promise.all([
+      generateWithPrompt(instantData.factSheet, prompt),
+      generateWithPrompt(fullData.factSheet, prompt),
+    ]);
+    res.json({
+      matchId,
+      instant: instant || null,
+      reactions: reactions || null,
+      // back-compat: scripts that read `blurb` still get the final version
+      blurb: reactions || null,
+      passed: !reactions,
+    });
   } catch (err) {
     res.status(502).json({ error: err.message });
   }

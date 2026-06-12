@@ -91,12 +91,14 @@ function recentMeetings(history, battleTag, opponentTag, currentMatchId) {
   return { meetings, wins };
 }
 
-// Returns { factSheet, endTimeMs } or null
-export async function buildFactSheet(matchId) {
-  const cached = sheetCache.get(matchId);
+// Returns { factSheet, endTimeMs } or null.
+// phase 'instant' excludes post-match-end chat; 'full' (default) includes it.
+export async function buildFactSheet(matchId, phase = 'full') {
+  const key = `${matchId}:${phase}`;
+  const cached = sheetCache.get(key);
   if (cached && Date.now() - cached.ts < SHEET_TTL_MS) return cached.sheet;
-  const sheet = await buildFactSheetUncached(matchId);
-  sheetCache.set(matchId, { sheet, ts: Date.now() });
+  const sheet = await buildFactSheetUncached(matchId, phase);
+  sheetCache.set(key, { sheet, ts: Date.now() });
   if (sheetCache.size > 100) {
     const oldest = [...sheetCache.keys()][0];
     sheetCache.delete(oldest);
@@ -104,7 +106,7 @@ export async function buildFactSheet(matchId) {
   return sheet;
 }
 
-async function buildFactSheetUncached(matchId) {
+async function buildFactSheetUncached(matchId, phase = 'full') {
   const detail = await fetchJson(`${W3C_API}/matches/${encodeURIComponent(matchId)}`);
   const match = detail?.match;
   if (!match?.teams || !match.endTime) return null;
@@ -161,7 +163,7 @@ async function buildFactSheetUncached(matchId) {
         if (hk >= 4) stats.push(`${hk} hero kills`);
         if (uk >= 60) stats.push(`${uk} units killed`);
         if (army >= 80) stats.push(`${army} largest army`);
-        if (gold >= 15000) stats.push(`${gold} gold mined`);
+        if (gold >= 15000) stats.push(`${Math.round(gold / 1000)}k gold mined`);
         if (stats.length) bits.push(stats.join(', '));
       }
       const streak = streakFromHistory(histories.get(p.battleTag) || [], p.battleTag, matchId);
@@ -194,9 +196,15 @@ async function buildFactSheetUncached(matchId) {
     lines.push('Recent head-to-heads (before this game): ' + rivalries.slice(0, 4).join(' | '));
   }
 
-  // Recent chat from these players (the relay's chat archive)
+  // Recent chat from these players (the relay's chat archive). In the
+  // "instant" phase (the blurb written at the whistle) we exclude anything
+  // said after the match ended — only the 5-min rewrite sees reactions.
   try {
-    const msgs = getRecentMessagesByTags(tags, 12, 20);
+    let msgs = getRecentMessagesByTags(tags, 12, 20);
+    const endMs = new Date(match.endTime).getTime();
+    if (phase === 'instant') {
+      msgs = msgs.filter((m) => new Date(m.received_at + ' UTC').getTime() <= endMs);
+    }
     if (msgs.length > 0) {
       lines.push('Recent LOUNGE chat from these players (newest first, times UTC):');
       for (const m of msgs.slice(0, 12)) {

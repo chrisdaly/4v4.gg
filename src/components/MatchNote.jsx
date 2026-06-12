@@ -65,7 +65,7 @@ export function renderBlurbText(text) {
     if (m.index > last) parts.push(text.slice(last, m.index));
     const src = entityIconSrc(m[1]);
     parts.push(
-      <span key={m.index} style={{ whiteSpace: "nowrap" }}>
+      <span key={m.index} style={{ whiteSpace: "nowrap", color: "inherit" }}>
         {labelFor(m[1], m[2])}
         {src && (
           <EntityIcon
