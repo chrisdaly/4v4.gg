@@ -6,6 +6,7 @@ import { getMapImageUrl } from "../lib/formatters";
 import { getMatch } from "../lib/api";
 import { formatTime } from "../lib/useChatMessages";
 import MiniTeamsRow from "../components/MiniMatchCard";
+import { renderBlurbText, stripBlurbMarkup } from "../components/MatchNote";
 
 const RELAY_URL =
   import.meta.env.VITE_CHAT_RELAY_URL || "https://4v4gg-chat-relay.fly.dev";
@@ -419,7 +420,7 @@ export default function BlurbLab() {
                   {m.mapName} · {Math.round(m.durationInSeconds / 60)} min · ended {formatTime(m.endTime)}
                 </GameTitle>
                 <GamePlayers>{m.players?.join(" vs ")}</GamePlayers>
-                {m.cachedBlurb && <GameBlurbHint>{m.cachedBlurb}</GameBlurbHint>}
+                {m.cachedBlurb && <GameBlurbHint>{stripBlurbMarkup(m.cachedBlurb)}</GameBlurbHint>}
               </GameInfo>
             </GameRow>
           ))}
@@ -443,13 +444,13 @@ export default function BlurbLab() {
               <Label>Output</Label>
               {output && (
                 <Output $passed={output.passed}>
-                  {output.passed ? "PASS — model found nothing notable" : output.blurb}
+                  {output.passed ? "PASS — model found nothing notable" : renderBlurbText(output.blurb)}
                 </Output>
               )}
               {history.length > 0 && (
                 <History>
                   {history.map((h, i) => (
-                    <HistoryRow key={i}>{h.passed ? "PASS" : h.blurb}</HistoryRow>
+                    <HistoryRow key={i}>{h.passed ? "PASS" : renderBlurbText(h.blurb)}</HistoryRow>
                   ))}
                 </History>
               )}

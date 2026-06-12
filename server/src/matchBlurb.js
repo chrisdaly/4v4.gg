@@ -33,6 +33,9 @@ Rules:
 - A stat is only quotable if it's an outlier — far ahead of everyone else in this lobby, or absurdly large. NEVER remark on low or zero stats (0 hero kills, few units, low gold) — those are normal, not stories.
 - Chat lines come from the community lounge, NOT from inside the game. Only describe when something was said if the timestamps prove it (match start/end times are given); otherwise say "in the lounge" or leave the timing out. Messages timestamped AFTER the match ended are reactions to this game.
 - Refer to players by name only (no battle tag numbers).
+- When your line mentions a Warcraft unit or hero — including slang ("frosties" = frostwyrm, "dks" = deathknight, "bm" = blademaster, "tanks" = siegeengine) — tag the words like [[frostwyrm|frosties]] so the site can show its icon. Tag only words you already wrote; never add words just to tag them. Markup does not count toward the 90-character limit.
+  Allowed unit ids: footman, rifleman, knight, priest, sorceress, spellbreaker, gryphon, mortarteam, siegeengine, dragonhawk, gyrocopter, waterelemental, peasant, grunt, headhunter, raider, shaman, witchdoctor, kodo, tauren, windrider, batrider, demolisher, peon, ghoul, cryptfiend, gargoyle, abomination, necromancer, banshee, meatwagon, frostwyrm, destroyer, obsidianstatue, acolyte, archer, huntress, dryad, druidoftheclaw, druidofthetalon, hippogryph, chimaera, mountaingiant, faeriedragon, wisp.
+  Allowed hero ids: archmage, mountainking, paladin, sorceror, blademaster, farseer, shadowhunter, taurenchieftain, deathknight, lich, dreadlord, cryptlord, demonhunter, keeperofthegrove, priestessofthemoon, warden, alchemist, avatarofflame, bansheeranger, beastmaster, pandarenbrewmaster, pitlord, seawitch, tinker.
 - PASS is a good outcome and most games deserve it. If the best you can do is restate the result, describe an ordinary stat, or pad with the map name, reply with exactly: PASS`;
 
 async function fetchJson(url) {
@@ -207,12 +210,14 @@ export async function generateWithPrompt(factSheet, systemPrompt = SYSTEM_PROMPT
   const client = new Anthropic({ apiKey: config.ANTHROPIC_API_KEY });
   const msg = await client.messages.create({
     model: MODEL,
-    max_tokens: 120,
+    max_tokens: 200,
     system: systemPrompt,
     messages: [{ role: 'user', content: `Fact sheet:\n${factSheet}\n\nWrite the ticker line.` }],
   });
   let blurb = msg.content[0]?.text?.trim() || '';
-  if (blurb === 'PASS' || blurb.length > 140) blurb = '';
+  // Length check on the rendered text — [[id|words]] markup is free
+  const rendered = blurb.replace(/\[\[\w+\|([^\]]+)\]\]/g, '$1');
+  if (blurb === 'PASS' || rendered.length > 140) blurb = '';
   return blurb;
 }
 
