@@ -4,6 +4,7 @@ import styled from "styled-components";
 import useAdmin from "../lib/useAdmin";
 import { getMapImageUrl } from "../lib/formatters";
 import { getMatch } from "../lib/api";
+import { formatTime } from "../lib/useChatMessages";
 import MiniTeamsRow from "../components/MiniMatchCard";
 
 const RELAY_URL =
@@ -415,7 +416,7 @@ export default function BlurbLab() {
               <GameMap src={getMapImageUrl(m.mapName)} alt="" onError={(e) => { e.target.style.display = "none"; }} />
               <GameInfo>
                 <GameTitle>
-                  {m.mapName} · {Math.round(m.durationInSeconds / 60)} min
+                  {m.mapName} · {Math.round(m.durationInSeconds / 60)} min · ended {formatTime(m.endTime)}
                 </GameTitle>
                 <GamePlayers>{m.players?.join(" vs ")}</GamePlayers>
                 {m.cachedBlurb && <GameBlurbHint>{m.cachedBlurb}</GameBlurbHint>}

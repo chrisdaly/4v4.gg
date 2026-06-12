@@ -50,11 +50,15 @@ const FinishedGame = ({ data, compact = false }) => {
       if (note) {
         setMetaData((prev) => (prev ? { ...prev, note } : prev));
       } else {
-        getMatchBlurb(data.match.id).then((blurb) => {
-          if (blurb) {
-            setMetaData((prev) => (prev ? { ...prev, note: { text: blurb, tag: null } } : prev));
-          }
-        });
+        const tryBlurb = (attempt = 0) =>
+          getMatchBlurb(data.match.id).then(({ blurb, pending, retryInMs }) => {
+            if (blurb) {
+              setMetaData((prev) => (prev ? { ...prev, note: { text: blurb, tag: null } } : prev));
+            } else if (pending && attempt < 2) {
+              setTimeout(() => tryBlurb(attempt + 1), retryInMs || 5 * 60 * 1000);
+            }
+          });
+        tryBlurb();
       }
 
       // In compact mode, skip fetching extra player data for faster loading

@@ -215,15 +215,21 @@ const Chat = () => {
   };
 
   // When heuristics found nothing, ask the relay's LLM ticker for a drama
-  // angle (streaks, rivalries, chat callbacks). Cached forever per match.
-  const fillBlurb = (eventId, matchId) => {
-    getMatchBlurb(matchId).then((blurb) => {
-      if (!blurb) return;
-      setGameEvents((prev) =>
-        prev.map((e) =>
-          e.id === eventId && !e.note ? { ...e, note: { text: blurb, tag: null } } : e
-        )
-      );
+  // angle (streaks, rivalries, chat callbacks). Fresh finishes come back
+  // `pending` while post-game reactions accumulate — retry when told to.
+  const fillBlurb = (eventId, matchId, attempt = 0) => {
+    getMatchBlurb(matchId).then(({ blurb, pending, retryInMs }) => {
+      if (blurb) {
+        setGameEvents((prev) =>
+          prev.map((e) =>
+            e.id === eventId && !e.note ? { ...e, note: { text: blurb, tag: null } } : e
+          )
+        );
+        return;
+      }
+      if (pending && attempt < 3) {
+        addMatchTimer(() => fillBlurb(eventId, matchId, attempt + 1), retryInMs || 5 * 60 * 1000);
+      }
     });
   };
 

@@ -78,9 +78,9 @@ router.get('/blurb-lab/fact-sheet/:matchId', requireApiKey, contextLimiter, asyn
   const { matchId } = req.params;
   if (!/^[a-f0-9]{24}$/i.test(matchId)) return res.status(400).json({ error: 'Invalid match id' });
   try {
-    const factSheet = await buildFactSheet(matchId);
-    if (!factSheet) return res.status(404).json({ error: 'No finished match found' });
-    res.json({ matchId, factSheet });
+    const data = await buildFactSheet(matchId);
+    if (!data) return res.status(404).json({ error: 'No finished match found' });
+    res.json({ matchId, factSheet: data.factSheet });
   } catch (err) {
     res.status(502).json({ error: err.message });
   }
@@ -94,9 +94,9 @@ router.post('/blurb-lab/preview', requireApiKey, aiLimiter, async (req, res) => 
     return res.status(400).json({ error: 'systemPrompt must be a string under 4000 chars' });
   }
   try {
-    const factSheet = await buildFactSheet(matchId);
-    if (!factSheet) return res.status(404).json({ error: 'No finished match found' });
-    const blurb = await generateWithPrompt(factSheet, systemPrompt || SYSTEM_PROMPT);
+    const data = await buildFactSheet(matchId);
+    if (!data) return res.status(404).json({ error: 'No finished match found' });
+    const blurb = await generateWithPrompt(data.factSheet, systemPrompt || SYSTEM_PROMPT);
     res.json({ matchId, blurb: blurb || null, passed: !blurb });
   } catch (err) {
     res.status(502).json({ error: err.message });

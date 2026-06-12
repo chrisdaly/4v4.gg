@@ -50,8 +50,13 @@ router.get('/match-blurb/:matchId', async (req, res) => {
   if (!/^[a-f0-9]{24}$/i.test(matchId)) {
     return res.status(400).json({ error: 'Invalid match id' });
   }
-  const blurb = await generateMatchBlurb(matchId);
-  res.json({ matchId, blurb: blurb || null });
+  const result = await generateMatchBlurb(matchId);
+  res.json({
+    matchId,
+    blurb: result.blurb || null,
+    pending: result.pending || false,
+    retryInMs: result.retryInMs,
+  });
 });
 
 // Chat stats — cached for 60s (runs ~12 aggregate queries)

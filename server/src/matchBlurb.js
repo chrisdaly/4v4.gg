@@ -28,6 +28,7 @@ Rules:
 - ONE line, max 90 characters, plain text, no quotes around the whole line, no emoji, no markdown.
 - Use ONLY facts from the fact sheet. Quote numbers and names exactly as given.
 - Chat lines come from the community lounge, NOT from inside the game. Only describe when something was said if the timestamps prove it (match start/end times are given); otherwise say "in the lounge" or leave the timing out.
+- Lounge messages timestamped AFTER the match ended are post-game reactions — often the best material (blame, gloating, debate). You may describe those as reactions to this game.
 - Prefer drama: win/loss streaks, repeat encounters between players, chat trash-talk that aged well or badly, big stat gaps. Plain stat trivia is the last resort.
 - Refer to players by name only (no battle tag numbers).
 - If genuinely nothing is notable, reply with exactly: PASS`;
@@ -84,6 +85,7 @@ function recentMeetings(history, battleTag, opponentTag, currentMatchId) {
   return { meetings, wins };
 }
 
+// Returns { factSheet, endTimeMs } or null
 export async function buildFactSheet(matchId) {
   const cached = sheetCache.get(matchId);
   if (cached && Date.now() - cached.ts < SHEET_TTL_MS) return cached.sheet;
@@ -189,7 +191,7 @@ async function buildFactSheetUncached(matchId) {
     // chat context is a bonus, never a blocker
   }
 
-  return lines.join('\n');
+  return { factSheet: lines.join('\n'), endTimeMs: new Date(match.endTime).getTime() };
 }
 
 // Run the model over a fact sheet with an arbitrary system prompt —
@@ -208,25 +210,42 @@ export async function generateWithPrompt(factSheet, systemPrompt = SYSTEM_PROMPT
   return blurb;
 }
 
+// Let post-game lounge reactions accumulate before writing the ticker —
+// the debate after a game is usually better material than the game itself
+const POST_GAME_WAIT_MS = 8 * 60 * 1000;
+
+const DONE = (blurb) => ({ blurb, pending: false });
+
 export async function generateMatchBlurb(matchId) {
   const cached = getMatchBlurb(matchId);
-  if (cached) return cached.blurb;
+  if (cached) return DONE(cached.blurb);
 
-  if (!config.ANTHROPIC_API_KEY) return '';
+  if (!config.ANTHROPIC_API_KEY) return DONE('');
 
   if (inFlight.has(matchId)) return inFlight.get(matchId);
 
   const promise = (async () => {
     try {
-      const factSheet = await buildFactSheet(matchId);
-      if (!factSheet) return '';
-      const blurb = await generateWithPrompt(factSheet);
+      // Cheap freshness probe (1 call) before the expensive sheet build
+      const detail = await fetchJson(`${W3C_API}/matches/${encodeURIComponent(matchId)}`);
+      const endTimeMs = detail?.match?.endTime ? new Date(detail.match.endTime).getTime() : null;
+      if (!endTimeMs) return DONE('');
+
+      const sinceEnd = Date.now() - endTimeMs;
+      if (sinceEnd >= 0 && sinceEnd < POST_GAME_WAIT_MS) {
+        return { blurb: '', pending: true, retryInMs: POST_GAME_WAIT_MS - sinceEnd + 30_000 };
+      }
+
+      const data = await buildFactSheet(matchId);
+      if (!data) return DONE('');
+
+      const blurb = await generateWithPrompt(data.factSheet);
       setMatchBlurb(matchId, blurb);
-      return blurb;
+      return DONE(blurb);
     } catch (err) {
       console.warn(`[Blurb] Generation failed for ${matchId}: ${err.message}`);
       // Don't cache failures — a later request can retry
-      return '';
+      return DONE('');
     } finally {
       inFlight.delete(matchId);
     }
