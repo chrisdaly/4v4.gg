@@ -1,7 +1,10 @@
-import React, { useState, useEffect, useCallback } from "react";
+import React, { useState, useEffect, useCallback, useMemo } from "react";
+import { Link } from "react-router-dom";
 import styled from "styled-components";
 import useAdmin from "../lib/useAdmin";
 import { getMapImageUrl } from "../lib/formatters";
+import { getMatch } from "../lib/api";
+import MiniTeamsRow from "../components/MiniMatchCard";
 
 const RELAY_URL =
   import.meta.env.VITE_CHAT_RELAY_URL || "https://4v4gg-chat-relay.fly.dev";
@@ -228,6 +231,26 @@ const ErrorText = styled.div`
   color: var(--red);
 `;
 
+const ScoreboardBox = styled.div`
+  background: var(--surface-1);
+  border: 1px solid var(--grey-mid);
+  border-radius: var(--radius-md);
+  padding: var(--space-3);
+  max-width: 640px;
+`;
+
+const ScoreScreenLink = styled(Link)`
+  font-family: var(--font-mono);
+  font-size: var(--text-xxs);
+  color: var(--gold);
+  text-decoration: none;
+  margin-left: var(--space-2);
+
+  &:hover {
+    text-decoration: underline;
+  }
+`;
+
 const KeyGate = styled.div`
   max-width: 480px;
   margin: 15vh auto;
@@ -256,6 +279,7 @@ export default function BlurbLab() {
   const [defaultPrompt, setDefaultPrompt] = useState("");
   const [prompt, setPrompt] = useState("");
   const [selected, setSelected] = useState(null);
+  const [matchDetail, setMatchDetail] = useState(null);
   const [factSheet, setFactSheet] = useState(null);
   const [sheetLoading, setSheetLoading] = useState(false);
   const [output, setOutput] = useState(null); // { blurb, passed }
@@ -300,7 +324,9 @@ export default function BlurbLab() {
     setHistory([]);
     setError(null);
     setFactSheet(null);
+    setMatchDetail(null);
     setSheetLoading(true);
+    getMatch(m.id).then((detail) => setMatchDetail(detail?.match || null));
     try {
       const data = await api(`blurb-lab/fact-sheet/${m.id}`);
       setFactSheet(data.factSheet);
@@ -310,6 +336,26 @@ export default function BlurbLab() {
       setSheetLoading(false);
     }
   };
+
+  // Mini scoreboard data (same shape the chat event cards use)
+  const scoreboard = useMemo(() => {
+    if (!matchDetail?.teams) return null;
+    const winnerIdx = matchDetail.teams.findIndex((t) =>
+      t.players?.some((p) => p.won === true || p.won === 1)
+    );
+    if (winnerIdx < 0) return null;
+    const toPlayers = (team) =>
+      (team?.players || []).map((p) => ({
+        battleTag: p.battleTag,
+        name: p.name || p.battleTag?.split("#")[0],
+        race: p.rndRace ?? p.race ?? null,
+        mmr: p.oldMmr ?? null,
+      }));
+    return {
+      teamA: { players: toPlayers(matchDetail.teams[winnerIdx]), winner: true },
+      teamB: { players: toPlayers(matchDetail.teams[1 - winnerIdx]), winner: false },
+    };
+  }, [matchDetail]);
 
   const generate = async () => {
     if (!selected || generating) return;
@@ -406,6 +452,18 @@ export default function BlurbLab() {
                   ))}
                 </History>
               )}
+            </Section>
+          )}
+
+          {selected && scoreboard && (
+            <Section>
+              <Label>
+                Match
+                <ScoreScreenLink to={`/match/${selected.id}`}>open score screen →</ScoreScreenLink>
+              </Label>
+              <ScoreboardBox>
+                <MiniTeamsRow teamA={scoreboard.teamA} teamB={scoreboard.teamB} dimLosers />
+              </ScoreboardBox>
             </Section>
           )}
 
