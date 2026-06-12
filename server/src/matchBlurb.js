@@ -9,7 +9,7 @@
 
 import Anthropic from '@anthropic-ai/sdk';
 import config from './config.js';
-import { getMatchBlurb, setMatchBlurb, getRecentMessagesByTags } from './db.js';
+import { getMatchBlurb, setMatchBlurb, getRecentMessagesByTags, countMessagesByTagsSince } from './db.js';
 
 const W3C_API = 'https://website-backend.w3champions.com/api';
 const MODEL = 'claude-haiku-4-5-20251001';
@@ -191,7 +191,11 @@ async function buildFactSheetUncached(matchId) {
     // chat context is a bonus, never a blocker
   }
 
-  return { factSheet: lines.join('\n'), endTimeMs: new Date(match.endTime).getTime() };
+  return {
+    factSheet: lines.join('\n'),
+    endTimeMs: new Date(match.endTime).getTime(),
+    tags,
+  };
 }
 
 // Run the model over a fact sheet with an arbitrary system prompt —
@@ -210,42 +214,71 @@ export async function generateWithPrompt(factSheet, systemPrompt = SYSTEM_PROMPT
   return blurb;
 }
 
-// Let post-game lounge reactions accumulate before writing the ticker —
-// the debate after a game is usually better material than the game itself
-const POST_GAME_WAIT_MS = 8 * 60 * 1000;
+/* Two-phase blurbs:
+   Phase 1 — immediately on first request: ticker from game data, streaks,
+   rivalries, and pre-game chat. Stored provisional if the match is fresh.
+   Phase 2 — once REACTION_WAIT_MS has passed since the match ended: if the
+   players actually said anything in the lounge since, rebuild the sheet
+   (now containing their reactions) and rewrite; otherwise keep phase 1.
+   Either way the blurb is then finalized. */
+
+const REACTION_WAIT_MS = 5 * 60 * 1000;
+const MIN_REACTIONS = 2;
 
 const DONE = (blurb) => ({ blurb, pending: false });
 
 export async function generateMatchBlurb(matchId) {
-  const cached = getMatchBlurb(matchId);
-  if (cached) return DONE(cached.blurb);
-
   if (!config.ANTHROPIC_API_KEY) return DONE('');
-
   if (inFlight.has(matchId)) return inFlight.get(matchId);
+
+  const row = getMatchBlurb(matchId);
+  const now = Date.now();
+
+  if (row?.finalized) return DONE(row.blurb);
+
+  if (row && !row.finalized) {
+    const due = (row.end_time_ms || 0) + REACTION_WAIT_MS;
+    if (now < due) {
+      // Provisional blurb is live; phase 2 isn't due yet
+      return { blurb: row.blurb, pending: true, retryInMs: due - now + 15_000 };
+    }
+  }
 
   const promise = (async () => {
     try {
-      // Cheap freshness probe (1 call) before the expensive sheet build
-      const detail = await fetchJson(`${W3C_API}/matches/${encodeURIComponent(matchId)}`);
-      const endTimeMs = detail?.match?.endTime ? new Date(detail.match.endTime).getTime() : null;
-      if (!endTimeMs) return DONE('');
-
-      const sinceEnd = Date.now() - endTimeMs;
-      if (sinceEnd >= 0 && sinceEnd < POST_GAME_WAIT_MS) {
-        return { blurb: '', pending: true, retryInMs: POST_GAME_WAIT_MS - sinceEnd + 30_000 };
+      if (!row) {
+        // Phase 1: write the ticker now, from what's known at the whistle
+        const data = await buildFactSheet(matchId);
+        if (!data) return DONE('');
+        const blurb = await generateWithPrompt(data.factSheet);
+        const fresh = data.endTimeMs && now - data.endTimeMs < REACTION_WAIT_MS;
+        setMatchBlurb(matchId, blurb, { finalized: !fresh, endTimeMs: data.endTimeMs });
+        return fresh
+          ? { blurb, pending: true, retryInMs: data.endTimeMs + REACTION_WAIT_MS - now + 15_000 }
+          : DONE(blurb);
       }
 
+      // Phase 2: did anyone in the lobby react since the game ended?
+      sheetCache.delete(matchId);
       const data = await buildFactSheet(matchId);
-      if (!data) return DONE('');
-
-      const blurb = await generateWithPrompt(data.factSheet);
-      setMatchBlurb(matchId, blurb);
+      if (!data) {
+        setMatchBlurb(matchId, row.blurb, { finalized: 1 });
+        return DONE(row.blurb);
+      }
+      let blurb = row.blurb;
+      const reactions = countMessagesByTagsSince(data.tags, row.end_time_ms);
+      if (reactions >= MIN_REACTIONS) {
+        const rewritten = await generateWithPrompt(
+          `${data.factSheet}\n\nNote: lounge messages timestamped after the match end are the players' reactions to THIS game — prioritize them if they carry any drama.`
+        );
+        if (rewritten) blurb = rewritten;
+      }
+      setMatchBlurb(matchId, blurb, { finalized: 1 });
       return DONE(blurb);
     } catch (err) {
       console.warn(`[Blurb] Generation failed for ${matchId}: ${err.message}`);
       // Don't cache failures — a later request can retry
-      return DONE('');
+      return row ? DONE(row.blurb) : DONE('');
     } finally {
       inFlight.delete(matchId);
     }

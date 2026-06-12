@@ -360,10 +360,11 @@ const RELAY_BASE =
   import.meta.env.VITE_CHAT_RELAY_URL || 'https://4v4gg-chat-relay.fly.dev';
 
 /**
- * LLM-generated one-liner for a finished match. The relay waits ~8 min
- * after a match ends before generating (so post-game reactions land in
- * the fact sheet) and signals `pending` with a `retryInMs` until then.
- * Final blurbs are cached client-side; pending responses never are.
+ * LLM-generated one-liner for a finished match. Two-phase on the relay:
+ * an immediate provisional blurb (game data + pre-game chat), then —
+ * ~5 min after the match ends — a rewrite IF the players reacted in the
+ * lounge. While provisional, responses carry `pending` + `retryInMs`;
+ * only finalized blurbs are cached client-side.
  *
  * @returns {Promise<{blurb: string|null, pending: boolean, retryInMs?: number}>}
  */
@@ -375,11 +376,10 @@ export const getMatchBlurb = async (matchId) => {
     const res = await fetch(`${RELAY_BASE}/api/chat/match-blurb/${encodeURIComponent(matchId)}`);
     if (!res.ok) return { blurb: null, pending: false };
     const data = await res.json();
-    if (data?.blurb) {
+    if (data?.blurb && !data.pending) {
       cache.set(cacheKey, data.blurb, 24 * 60 * 60 * 1000);
-      return { blurb: data.blurb, pending: false };
     }
-    return { blurb: null, pending: !!data?.pending, retryInMs: data?.retryInMs };
+    return { blurb: data?.blurb || null, pending: !!data?.pending, retryInMs: data?.retryInMs };
   } catch {
     return { blurb: null, pending: false };
   }

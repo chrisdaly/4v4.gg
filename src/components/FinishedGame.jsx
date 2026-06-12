@@ -54,7 +54,8 @@ const FinishedGame = ({ data, compact = false }) => {
           getMatchBlurb(data.match.id).then(({ blurb, pending, retryInMs }) => {
             if (blurb) {
               setMetaData((prev) => (prev ? { ...prev, note: { text: blurb, tag: null } } : prev));
-            } else if (pending && attempt < 2) {
+            }
+            if (pending && attempt < 2) {
               setTimeout(() => tryBlurb(attempt + 1), retryInMs || 5 * 60 * 1000);
             }
           });

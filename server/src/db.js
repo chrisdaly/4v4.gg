@@ -389,7 +389,9 @@ export function initDb() {
     CREATE INDEX IF NOT EXISTS idx_fp_battle_tag ON player_fingerprints(battle_tag);
   `);
 
-  // ── Match blurbs (LLM one-liners, immutable per match) ──
+  // ── Match blurbs (LLM one-liners) ──
+  // Two-phase: an immediate provisional blurb at match end, optionally
+  // rewritten once post-game lounge reactions arrive, then finalized.
   db.exec(`
     CREATE TABLE IF NOT EXISTS match_blurbs (
       match_id   TEXT PRIMARY KEY,
@@ -397,6 +399,8 @@ export function initDb() {
       created_at TEXT NOT NULL DEFAULT (datetime('now'))
     );
   `);
+  tryAddColumn(`ALTER TABLE match_blurbs ADD COLUMN finalized INTEGER NOT NULL DEFAULT 1`);
+  tryAddColumn(`ALTER TABLE match_blurbs ADD COLUMN end_time_ms INTEGER`);
 
   // ── Feedback issues table ─────────────────────────
   db.exec(`
@@ -1958,14 +1962,29 @@ export function searchMessagesByKeywords(keywords, sinceHours = 24) {
 }
 
 export function getMatchBlurb(matchId) {
-  return db.prepare('SELECT blurb FROM match_blurbs WHERE match_id = ?').get(matchId) ?? null;
+  return db.prepare('SELECT blurb, finalized, end_time_ms FROM match_blurbs WHERE match_id = ?').get(matchId) ?? null;
 }
 
-export function setMatchBlurb(matchId, blurb) {
+export function setMatchBlurb(matchId, blurb, { finalized = 1, endTimeMs = null } = {}) {
   db.prepare(`
-    INSERT INTO match_blurbs (match_id, blurb) VALUES (?, ?)
-    ON CONFLICT(match_id) DO UPDATE SET blurb = excluded.blurb
-  `).run(matchId, blurb);
+    INSERT INTO match_blurbs (match_id, blurb, finalized, end_time_ms) VALUES (?, ?, ?, ?)
+    ON CONFLICT(match_id) DO UPDATE SET
+      blurb = excluded.blurb,
+      finalized = excluded.finalized,
+      end_time_ms = COALESCE(excluded.end_time_ms, end_time_ms)
+  `).run(matchId, blurb, finalized ? 1 : 0, endTimeMs);
+}
+
+// How many lounge messages these players sent after a moment in time —
+// the "did anyone react to this game?" check for blurb phase 2
+export function countMessagesByTagsSince(battleTags, sinceMs) {
+  if (!battleTags.length || !sinceMs) return 0;
+  const since = new Date(sinceMs).toISOString().replace('T', ' ').slice(0, 19);
+  const placeholders = battleTags.map(() => '?').join(',');
+  return db.prepare(`
+    SELECT COUNT(*) AS n FROM messages
+    WHERE deleted = 0 AND battle_tag IN (${placeholders}) AND received_at > ?
+  `).get(...battleTags, since)?.n ?? 0;
 }
 
 // Recent messages from a set of players — fuel for blurb trash-talk callbacks
