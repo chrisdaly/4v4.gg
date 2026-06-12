@@ -3,6 +3,9 @@ import { useState, useEffect, useRef, useCallback } from "react";
 const RELAY_URL =
   import.meta.env.VITE_CHAT_RELAY_URL || "https://4v4gg-chat-relay.fly.dev";
 const MAX_MESSAGES = 500;
+// Cap how far back scrollback can page in — keeps the DOM and memory bounded.
+// ~2000 messages is days of history; beyond that, use search instead.
+const MAX_HISTORY_EXTRA = 1500;
 const BACKOFF_DELAYS = [1000, 2000, 4000, 8000, 16000, 30000];
 
 export default function useChatStream() {
@@ -66,7 +69,9 @@ export default function useChatStream() {
         historyExtraRef.current += unique.length;
         return [...unique, ...prev];
       });
-      if (data.length < 100) setHasMoreHistory(false);
+      if (data.length < 100 || historyExtraRef.current >= MAX_HISTORY_EXTRA) {
+        setHasMoreHistory(false);
+      }
       return { added, oldestCursor: older[0]?.received_at || cursor };
     } catch {
       return { added: 0, oldestCursor: null };

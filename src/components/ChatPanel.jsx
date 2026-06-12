@@ -1133,6 +1133,7 @@ export default function ChatPanel({
 }) {
   const history = useHistory();
   const listRef = useRef(null);
+  const contentRef = useRef(null);
   const inputRef = useRef(null);
   const [autoScroll, setAutoScroll] = useState(true);
   const [showNotice, setShowNotice] = useState(false);
@@ -1378,29 +1379,59 @@ export default function ChatPanel({
   // Auto-scroll to bottom when new messages arrive (paging in older history
   // changes `messages` too, so key off the newest message id)
   const lastMsgIdRef = useRef(null);
+  const autoScrollRef = useRef(true);
+  const programmaticUntil = useRef(0);
+  useEffect(() => { autoScrollRef.current = autoScroll; }, [autoScroll]);
+
+  // Programmatic jump to bottom that doesn't get misread as a user scroll
+  const stickToBottom = useCallback((smooth) => {
+    const el = listRef.current;
+    if (!el) return;
+    programmaticUntil.current = Date.now() + 200;
+    el.scrollTo({ top: el.scrollHeight, behavior: smooth ? "smooth" : "auto" });
+  }, []);
+
   useEffect(() => {
     const lastId = messages[messages.length - 1]?.id ?? null;
     const isNewTail = lastId !== lastMsgIdRef.current;
     lastMsgIdRef.current = lastId;
-    if (autoScroll && listRef.current) {
-      listRef.current.scrollTo({ top: listRef.current.scrollHeight, behavior: "smooth" });
-    } else if (!autoScroll && isNewTail && messages.length > 0) {
+    if (autoScroll) {
+      stickToBottom(true);
+    } else if (isNewTail && messages.length > 0) {
       setShowNotice(true);
     }
-  }, [messages, autoScroll]);
+  }, [messages, autoScroll, stickToBottom]);
+
+  // Re-pin to bottom whenever content height grows while pinned — game-event
+  // cards, avatars, MMR charts and images all load AFTER the initial render,
+  // so a one-shot scroll lands short. Instant (not smooth) so it can't be
+  // outrun by the next height change.
+  useEffect(() => {
+    const el = listRef.current;
+    const content = contentRef.current;
+    if (!el || !content || typeof ResizeObserver === "undefined") return;
+    const ro = new ResizeObserver(() => {
+      if (autoScrollRef.current) {
+        programmaticUntil.current = Date.now() + 200;
+        el.scrollTop = el.scrollHeight;
+      }
+    });
+    ro.observe(content);
+    return () => ro.disconnect();
+  }, []);
 
   function handleScroll() {
     const el = listRef.current;
     if (!el) return;
+    // Ignore scroll events we caused ourselves (sticking to bottom)
+    if (Date.now() < programmaticUntil.current) return;
     const atBottom = el.scrollHeight - el.scrollTop - el.clientHeight < 40;
     setAutoScroll(atBottom);
     if (atBottom) setShowNotice(false);
   }
 
   function scrollToBottom() {
-    if (listRef.current) {
-      listRef.current.scrollTo({ top: listRef.current.scrollHeight, behavior: "smooth" });
-    }
+    stickToBottom(true);
     setAutoScroll(true);
     setShowNotice(false);
   }
@@ -1525,6 +1556,7 @@ export default function ChatPanel({
         ) : (
           <ScrollContainer>
             <MessageList ref={listRef} onScroll={handleScroll}>
+              <div ref={contentRef}>
               {hasMoreHistory && loadOlder && (
                 <LoadOlderButton onClick={handleLoadOlder} disabled={loadingOlder}>
                   {loadingOlder ? "Loading..." : "Load earlier messages"}
@@ -1768,6 +1800,7 @@ export default function ChatPanel({
                   <BotText>{br.response}</BotText>
                 </BotResponseRow>
               ))}
+              </div>
             </MessageList>
             {showNotice && (
               <ScrollNotice onClick={scrollToBottom}>
