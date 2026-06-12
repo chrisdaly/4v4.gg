@@ -18,6 +18,7 @@ import twitchRoutes from './routes/twitch.js';
 import { startClipScheduler } from './clips.js';
 import { startFeedbackScheduler } from './feedback.js';
 import { startReplayImporter } from './replayImporter.js';
+import { startGameAnnouncer } from './gameAnnouncer.js';
 import { startTokenMonitor, getTokenHealth } from './tokenMonitor.js';
 
 const app = express();
@@ -71,6 +72,7 @@ startFeedbackScheduler();
 
 // Replay importer — drip-import replays from W3C ladder players
 startReplayImporter();
+startGameAnnouncer();
 
 // Token monitor — warn + file GitHub issue before the weekly W3C JWT expires
 startTokenMonitor();

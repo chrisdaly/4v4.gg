@@ -6,6 +6,7 @@ import { setToken, getStats, getTopWords, getRecentDigests, deleteDigest, getDig
 import { updateToken, getStatus } from '../signalr.js';
 import { getClientCount } from '../sse.js';
 import { setBotEnabled, isBotEnabled, testCommand } from '../bot.js';
+import { setAnnounceEnabled, isAnnounceEnabled } from '../gameAnnouncer.js';
 import { generateDigest, fetchDailyStats, generateLiveDigest, todayDigestCache, setTodayDigestCache, generateWeeklyDigest, curateDigest, fetchDailyStatCandidates, analyzeSpike, generateMoreItems, appendItemsToDraft, backfillDailyStats, backfillMatchScores, backfillMatchMmrs, generateWeeklyVariants, regenerateSection, regenerateSpotlights, regeneratePlayerQuotes, regenerateMatchStatBlurbs, getPlayerMessageCandidates, computeNewBlood, formatNewBloodLine, digestToJSON } from '../digest.js';
 import { generateCoverImage, buildImagePrompt, extractHeadline, buildImagePromptWithPlayers, generateImageFromPrompt, WC3_STYLE_SUFFIX, suggestScenes } from '../coverImage.js';
 import { runFeedbackScan, getRecentFeedback } from '../feedback.js';
@@ -161,6 +162,20 @@ router.post('/bot', requireApiKey, (req, res) => {
 // Get bot status
 router.get('/bot', requireApiKey, (_req, res) => {
   res.json({ botEnabled: isBotEnabled() });
+});
+
+// Game announcer: post 🟢 GAME START / 🏆 GAME OVER tickers to the 4v4 room
+router.post('/announce', requireApiKey, (req, res) => {
+  const { enabled } = req.body;
+  if (typeof enabled !== 'boolean') {
+    return res.status(400).json({ error: 'enabled (boolean) is required' });
+  }
+  setAnnounceEnabled(enabled);
+  res.json({ ok: true, announceEnabled: isAnnounceEnabled() });
+});
+
+router.get('/announce', requireApiKey, (_req, res) => {
+  res.json({ announceEnabled: isAnnounceEnabled() });
 });
 
 // Top words (public)
