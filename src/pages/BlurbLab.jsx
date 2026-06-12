@@ -329,15 +329,25 @@ export default function BlurbLab() {
     }
   };
 
-  if (!authed) {
+  const keyRejected = !!error && /api key/i.test(error);
+
+  if (!authed || keyRejected) {
     return (
       <KeyGate>
-        <div>Blurb Lab needs the relay admin key.</div>
+        {keyRejected ? (
+          <ErrorText>The stored admin key was rejected by the relay — enter it again.</ErrorText>
+        ) : (
+          <div>Blurb Lab needs the relay admin key.</div>
+        )}
         <input
           type="password"
           placeholder="Admin API key"
+          autoFocus
           onKeyDown={(e) => {
-            if (e.key === "Enter" && e.target.value.trim()) setAdminKey(e.target.value.trim());
+            if (e.key === "Enter" && e.target.value.trim()) {
+              setError(null);
+              setAdminKey(e.target.value.trim());
+            }
           }}
         />
       </KeyGate>
