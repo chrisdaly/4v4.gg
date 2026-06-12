@@ -40,10 +40,20 @@ function entityIconSrc(id) {
   return null;
 }
 
-const ENTITY_RE = /\[\[(\w+)\|([^\]]+)\]\]/g;
+// [[id|words]] or [[id]] (pipe-less fallback uses the id's display name)
+const ENTITY_RE = /\[\[(\w+)(?:\|([^\]]+))?\]\]/g;
+
+const DISPLAY_NAMES = {
+  frostwyrm: "frost wyrms", deathknight: "death knight", keeperofthegrove: "keeper",
+  archmage: "archmage", mountainking: "mountain king", blademaster: "blademaster",
+};
+
+const labelFor = (id, words) => words || DISPLAY_NAMES[id] || id;
 
 export function stripBlurbMarkup(text) {
-  return typeof text === "string" ? text.replace(ENTITY_RE, "$2") : text;
+  return typeof text === "string"
+    ? text.replace(ENTITY_RE, (_, id, words) => labelFor(id, words))
+    : text;
 }
 
 /** Parses [[id|words]] markup into text + inline entity icons. */
@@ -56,7 +66,7 @@ export function renderBlurbText(text) {
     const src = entityIconSrc(m[1]);
     parts.push(
       <span key={m.index} style={{ whiteSpace: "nowrap" }}>
-        {m[2]}
+        {labelFor(m[1], m[2])}
         {src && (
           <EntityIcon
             src={src}
