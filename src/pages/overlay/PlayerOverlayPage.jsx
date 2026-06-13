@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from "react";
 import { fetchPlayerSessionData } from "../../lib/utils";
-import { getPlayerProfile } from "../../lib/api";
+import { getPlayerProfile, getPlayerTimelineAllTime } from "../../lib/api";
 import { gateway, season } from "../../lib/params";
 import PlayerOverlay from "../../components/PlayerOverlay";
 
@@ -46,54 +46,6 @@ const fetchOverallRank = async (battleTag) => {
     console.error("Error calculating overall rank:", error);
     return null;
   }
-};
-
-// Fetch ALL-TIME MMR timeline (across all seasons)
-const fetchAllTimeMmrTimeline = async (battleTag) => {
-  const races = [0, 1, 2, 4, 8]; // random, human, orc, elf, undead
-  const allPoints = [];
-
-  // Fetch seasons list first
-  let seasons = [];
-  try {
-    const seasonsResponse = await fetch("https://website-backend.w3champions.com/api/ladder/seasons");
-    if (seasonsResponse.ok) {
-      seasons = await seasonsResponse.json();
-    }
-  } catch (e) {
-    // Fall back to current season only
-    seasons = [{ id: season }];
-  }
-
-  // Fetch timeline for each season and race combination (in parallel)
-  const promises = [];
-  for (const s of seasons) {
-    for (const race of races) {
-      promises.push(
-        fetch(`https://website-backend.w3champions.com/api/players/${encodeURIComponent(battleTag)}/mmr-rp-timeline?gateway=${gateway}&season=${s.id}&race=${race}&gameMode=4`)
-          .then(r => r.ok ? r.json() : null)
-          .then(data => data?.mmrRpAtDates || [])
-          .catch(() => [])
-      );
-    }
-  }
-
-  const results = await Promise.all(promises);
-  for (const points of results) {
-    allPoints.push(...points);
-  }
-
-  // Dedupe by date and sort chronologically
-  const uniqueByDate = {};
-  for (const point of allPoints) {
-    // Keep the point with highest MMR for each date (in case of multiple races)
-    if (!uniqueByDate[point.date] || point.mmr > uniqueByDate[point.date].mmr) {
-      uniqueByDate[point.date] = point;
-    }
-  }
-
-  const sorted = Object.values(uniqueByDate).sort((a, b) => new Date(a.date) - new Date(b.date));
-  return sorted.map(d => d.mmr);
 };
 
 /**
@@ -153,7 +105,7 @@ const PlayerOverlayPage = () => {
         getPlayerProfile(battleTag),
         fetchPlayerSessionData(battleTag),
         fetch(`https://website-backend.w3champions.com/api/players/${encodeURIComponent(battleTag)}/game-mode-stats?gateway=${gateway}&season=${season}`),
-        fetchAllTimeMmrTimeline(battleTag),
+        getPlayerTimelineAllTime(battleTag),
         fetchOverallRank(battleTag),
       ]);
 

@@ -31,6 +31,7 @@ const News = lazy(pageImports.news);
 const FinishedGamePage = lazy(() => import("./pages/FinishedGamePage"));
 const PlayerStream = lazy(() => import("./pages/PlayerStream"));
 const MyStreamPage = lazy(() => import("./pages/MyStreamPage"));
+const Search = lazy(() => import("./pages/Search"));
 const Blog = lazy(() => import("./pages/Blog"));
 const BlogPost = lazy(() => import("./pages/BlogPost"));
 const Clips = lazy(pageImports.clips);
@@ -122,6 +123,7 @@ const Router = () => (
                 <Route path="/icons" component={IconDemo} />
                 <Route path="/assets" component={Assets} />
                 <Route path="/chat" component={Chat} />
+                <Route path="/search" component={Search} />
                 <Route path="/clips" component={Clips} />
                 <Route path="/mockups" component={ChatMockups} />
                 <Route path="/themes" component={Themes} />

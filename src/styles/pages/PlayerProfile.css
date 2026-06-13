@@ -890,70 +890,9 @@
   letter-spacing: 0.5px;
 }
 
-.mtc-bar {
-  width: 100%;
-}
-
-.mtc-bar-track {
-  position: relative;
-  height: var(--space-2);
-  background: linear-gradient(to right, var(--red), var(--grey-light), var(--green));
-  border-radius: var(--radius-md);
-  margin-bottom: 10px;
-}
-
-.mtc-bar-marker {
-  position: absolute;
-  top: 50%;
-  transform: translate(-50%, -50%);
-  width: 14px;
-  height: 14px;
-  background: var(--gold);
-  border: 2px solid #000;
-  border-radius: var(--radius-full);
-  box-shadow: 0 0 6px rgba(252, 219, 51, 0.5);
-}
-
-.mtc-bar-labels {
-  display: flex;
-  justify-content: space-between;
-}
-
-.mtc-label-group {
-  display: flex;
-  flex-direction: column;
-  align-items: flex-start;
-}
-
-.mtc-label-group:last-child {
-  align-items: flex-end;
-}
-
-.mtc-label-group.current {
-  align-items: center;
-}
-
-.mtc-value {
-  font-family: var(--font-mono);
-  font-size: var(--text-xs);
-  font-weight: bold;
-  color: var(--white);
-}
-
-.mtc-value.low {
-  color: var(--red);
-}
-
-.mtc-value.high {
-  color: var(--green);
-}
-
-.mtc-label {
-  font-size: var(--text-xxxs);
-  color: var(--grey-light);
-  text-transform: uppercase;
-  letter-spacing: 0.5px;
-  margin-top: 2px;
+.mtc-sparkline {
+  display: block;
+  margin-bottom: var(--space-3);
 }
 
 /* Player Highlights Strip (below header) */

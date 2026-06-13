@@ -1,6 +1,7 @@
 import React from "react";
 import { CountryFlag } from "./ui";
 import FormDots from "./FormDots";
+import MmrRangeBar from "./MmrRangeBar";
 
 /**
  * PlayerOverlay - Compact player card for stream overlay
@@ -23,9 +24,6 @@ const PlayerOverlay = ({ playerData, layout = "default", bgStyle = "bg-gradient-
     rank,
   } = playerData;
 
-  // Calculate MMR bar position (where current MMR sits between all-time low and peak)
-  const mmrRange = allTimePeak && allTimeLow ? allTimePeak - allTimeLow : 0;
-  const mmrPosition = mmrRange > 0 ? ((mmr - allTimeLow) / mmrRange) * 100 : 50;
   const winrate = (wins + losses) > 0 ? Math.round((wins / (wins + losses)) * 100) : 0;
 
   // ============================================
@@ -206,17 +204,9 @@ const PlayerOverlay = ({ playerData, layout = "default", bgStyle = "bg-gradient-
         <span className="po-winrate"> ({winrate}%)</span>
       </div>
 
-      {/* MMR gradient bar */}
+      {/* MMR gradient bar (all-time low → peak) */}
       {allTimePeak && allTimeLow && (
-        <div className="po-mmr-bar">
-          <div className="po-mmr-bar-track">
-            <div className="po-mmr-bar-marker" style={{ left: `${mmrPosition}%` }} />
-          </div>
-          <div className="po-mmr-bar-labels">
-            <span className="po-mmr-low">{allTimeLow}</span>
-            <span className="po-mmr-peak">{allTimePeak}</span>
-          </div>
-        </div>
+        <MmrRangeBar className="po-mmr-bar" low={allTimeLow} peak={allTimePeak} current={mmr} detail="minimal" />
       )}
 
       {/* Session row */}

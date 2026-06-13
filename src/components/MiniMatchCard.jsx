@@ -4,6 +4,7 @@ import styled from "styled-components";
 import { raceMapping, raceIcons } from "../lib/constants";
 import { MmrComparison } from "./MmrComparison";
 import PlayerHoverCard from "./PlayerHoverCard";
+import useATGroupIds from "../lib/useATGroupIds";
 
 /* Compact match scoreboard: two vertical team columns with the MMR dot
    chart between them. Shared by chat game-event cards and the Active
@@ -89,6 +90,8 @@ const ChartMid = styled.div`
  *            — enables PlayerHoverCard on names when the caller has the maps
  */
 export default function MiniTeamsRow({ teamA, teamB, dimLosers = false, showChart = true, mvpTag = null, hoverData = null }) {
+  const { teamOneAT, teamTwoAT } = useATGroupIds(teamA.players, teamB.players);
+
   const renderName = (p) => {
     const link = (
       <PlayerNameLink
@@ -140,9 +143,10 @@ export default function MiniTeamsRow({ teamA, teamB, dimLosers = false, showChar
             data={{
               teamOneMmrs: (teamA.players || []).map((p) => p.mmr || 0),
               teamTwoMmrs: (teamB.players || []).map((p) => p.mmr || 0),
+              teamOneAT,
+              teamTwoAT,
             }}
-            compact
-            hideLabels
+            variant="micro"
           />
         </ChartMid>
       )}

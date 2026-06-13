@@ -5,7 +5,7 @@ import { FaTwitch } from "react-icons/fa";
 
 import { MmrComparison } from "./MmrComparison";
 import MatchNote from "./MatchNote";
-import { calculateElapsedTime, calculatePercentiles, detectArrangedTeams } from "../lib/utils";
+import { calculateElapsedTime, calculatePercentiles, detectArrangedTeams, buildATGroupIdMap } from "../lib/utils";
 import { raceMapping } from "../lib/constants";
 import { getMapImageUrl, geometricMean } from "../lib/formatters";
 import FormDots from "./FormDots";
@@ -57,27 +57,7 @@ const Game = ({ playerData: rawPlayerData, metaData, profilePics, playerCountrie
 
   // Get AT group ID (0 for solo, 1+ for AT groups)
   // Returns the same ID for all members of the same AT group
-  const atGroupIdCache = React.useMemo(() => {
-    const cache = {};
-    let nextGroupId = 1;
-
-    // Get all unique AT groups
-    Object.keys(atGroups).forEach(tag => {
-      if (cache[tag]) return; // Already assigned
-
-      const partners = atGroups[tag] || [];
-      if (partners.length === 0) return; // Not in an AT
-
-      // Assign same ID to this player and all partners
-      const groupId = nextGroupId++;
-      cache[tag] = groupId;
-      partners.forEach(partner => {
-        cache[partner.toLowerCase()] = groupId;
-      });
-    });
-
-    return cache;
-  }, [atGroups]);
+  const atGroupIdCache = React.useMemo(() => buildATGroupIdMap(atGroups), [atGroups]);
 
   const getATGroupId = (battleTag) => {
     return atGroupIdCache[battleTag.toLowerCase()] || 0;
@@ -415,10 +395,8 @@ const Game = ({ playerData: rawPlayerData, metaData, profilePics, playerCountrie
                             teamOneAT: playerData.slice(0, 4).map((d) => getATGroupId(d.battleTag)),
                             teamTwoAT: playerData.slice(4).map((d) => getATGroupId(d.battleTag)),
                           }}
+                          variant="scorecard"
                           compact={compact}
-                          atStyle="combined"
-                          showMean={false}
-                          showStdDev={false}
                         />
                       </div>
                     </th>

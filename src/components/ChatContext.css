@@ -26,13 +26,15 @@
 .cc-split-layout {
   display: grid;
   grid-template-columns: 1fr 1fr;
-  gap: var(--space-3);
+  column-gap: var(--space-3);
+  row-gap: var(--space-2);
   min-height: 400px;
   flex: 1;
 }
 
 .cc-split-left {
   overflow-y: auto;
+  overflow-x: hidden;
   max-height: 70vh;
   border-right: 1px solid var(--grey-mid);
   padding-right: var(--space-3);
@@ -79,12 +81,184 @@
   overflow-y: auto;
 }
 
+/* ── Column headers (split view, outside the frosted panels) ──────── */
+
+/* One grid row above the panels; both cells share the same row so they
+   are pixel-perfect aligned regardless of what the panels do. */
+.cc-split-col-header {
+  display: flex;
+  align-items: center;
+  justify-content: flex-start;
+  gap: var(--space-2);
+  padding-bottom: var(--space-2);
+  border-bottom: 1px solid rgba(255, 255, 255, 0.06);
+}
+
+/* Right header: push close button to the far end */
+.cc-split-col-header--right {
+  justify-content: space-between;
+}
+
+.cc-col-label {
+  font-family: var(--font-mono);
+  font-size: var(--text-xxxs);
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+  color: rgba(255, 255, 255, 0.55);
+}
+
+.cc-col-close {
+  background: none;
+  border: none;
+  color: var(--grey-mid);
+  font-size: var(--text-base);
+  cursor: pointer;
+  padding: 0 4px;
+  line-height: 1;
+  transition: color 0.15s;
+}
+
+.cc-col-close:hover {
+  color: #fff;
+}
+
+.cc-col-meta-text {
+  font-family: var(--font-mono);
+  font-size: var(--text-xxxs);
+  color: var(--grey-light);
+  line-height: 1;
+}
+
+.cc-col-label--conversation {
+  color: rgba(252, 219, 51, 0.65);
+}
+
+.cc-col-label--ghost {
+  color: rgba(255, 255, 255, 0.2);
+}
+
+.cc-split-ghost-hint {
+  display: none;
+}
+
+
+/* Collapsed split view — no conversation open, results take a single
+   centered column and the right pane occupies no space */
+.cc-split-layout--collapsed {
+  grid-template-columns: 1fr;
+}
+
+.cc-split-layout--collapsed .cc-split-col-header--right,
+.cc-split-layout--collapsed .cc-split-right {
+  display: none;
+}
+
+.cc-split-layout--collapsed .cc-split-col-header--left,
+.cc-split-layout--collapsed .cc-split-left {
+  border-right: none;
+  padding-right: 0;
+  max-width: 640px;
+  width: 100%;
+  margin: 0 auto;
+}
+
+.cc-loading {
+  display: flex;
+  justify-content: center;
+  padding: var(--space-6) 0;
+}
+
+/* Stack the split panes on narrow screens */
+@media (max-width: 860px) {
+  .cc-split-layout {
+    grid-template-columns: 1fr;
+  }
+
+  .cc-split-left {
+    border-right: none;
+    padding-right: 0;
+    border-bottom: 1px solid var(--grey-mid);
+    padding-bottom: var(--space-3);
+    max-height: 45vh;
+  }
+
+  .cc-split-right {
+    max-height: 50vh;
+  }
+
+  .cc-fullpage .cc-split-left,
+  .cc-fullpage .cc-list {
+    max-height: 45vh;
+  }
+
+  .cc-fullpage .cc-split-right {
+    max-height: 50vh;
+  }
+}
+
 .cc-panel--compact {
   background: rgba(0, 0, 0, 0.3);
   backdrop-filter: blur(8px);
   -webkit-backdrop-filter: blur(8px);
   border: 1px solid rgba(255, 255, 255, 0.06);
   padding: var(--space-2) var(--space-4);
+}
+
+/* ── Full-page search (/search) ─────────────────── */
+
+/* Use more of the viewport — less conservative than the embedded default */
+.cc-fullpage .cc-split-left,
+.cc-fullpage .cc-split-right {
+  max-height: max(400px, calc(100vh - 300px));
+}
+
+.cc-fullpage .cc-list {
+  max-height: max(380px, calc(100vh - 330px));
+}
+
+/* Frosted dark backdrop so text stays readable on any artwork background */
+.cc-fullpage .cc-split-left {
+  background: rgba(8, 6, 4, 0.55);
+  backdrop-filter: blur(10px);
+  -webkit-backdrop-filter: blur(10px);
+  border-radius: var(--radius-sm);
+  border-right: none;
+  padding: var(--space-3);
+}
+
+.cc-fullpage .cc-split-right--active {
+  background: rgba(8, 6, 4, 0.40);
+  backdrop-filter: blur(10px);
+  -webkit-backdrop-filter: blur(10px);
+  border-radius: var(--radius-sm);
+  border-left: 1px solid rgba(252, 219, 51, 0.12);
+  padding: var(--space-3);
+}
+
+/* Panel handles horizontal spacing — don't double-indent messages */
+.cc-fullpage .cc-split-right--active .cc-context-scroll {
+  padding: 0;
+}
+
+/* Indent headers to align with panel content (panels have 12px padding) */
+.cc-fullpage .cc-split-col-header {
+  padding-left: var(--space-3);
+  padding-right: var(--space-3);
+}
+
+/* Panel container transparent — individual columns carry their own bg */
+.cc-fullpage .cc-panel {
+  border: none;
+  border-radius: 0;
+  background: transparent;
+  backdrop-filter: none;
+  -webkit-backdrop-filter: none;
+  padding: 0;
+}
+
+/* The big search bar already filters — hide the inner toolbar */
+.cc-fullpage .cc-toolbar {
+  display: none;
 }
 
 /* ── Toolbar ───────────────────────────────────── */
@@ -203,6 +377,7 @@
   gap: 0;
   max-height: 500px;
   overflow-y: auto;
+  overflow-x: hidden;
 }
 
 .cc-list::-webkit-scrollbar {
@@ -488,6 +663,7 @@
 .cc-text {
   color: var(--text-body);
   word-break: break-word;
+  overflow-wrap: break-word;
   min-width: 0;
 }
 
@@ -570,14 +746,20 @@
   text-align: center;
 }
 
+
 .cc-context-scroll {
   flex: 1;
   min-height: 0;
   overflow-y: auto;
+  overflow-x: hidden;
   display: flex;
   flex-direction: column;
   gap: 0;
   padding: 0 var(--space-3);
+  /* We compensate scroll position manually when history is prepended;
+     the browser's native scroll anchoring fights that and causes jumps */
+  overflow-anchor: none;
+  overscroll-behavior: contain;
 }
 
 /* Context panel infinite scroll sentinels */
@@ -637,30 +819,10 @@
   font-size: var(--text-xxxs);
   text-transform: uppercase;
   letter-spacing: 0.08em;
-  color: var(--grey-mid);
+  color: rgba(255, 255, 255, 0.28);
   text-align: center;
-  padding: var(--space-2) 0;
+  padding: var(--space-1) 0;
   margin: var(--space-1) 0;
-  border-top: 1px solid rgba(255, 255, 255, 0.06);
-  position: relative;
-}
-
-.cc-date-separator::before,
-.cc-date-separator::after {
-  content: "";
-  position: absolute;
-  top: 50%;
-  width: 30%;
-  height: 1px;
-  background: rgba(255, 255, 255, 0.06);
-}
-
-.cc-date-separator::before {
-  left: 0;
-}
-
-.cc-date-separator::after {
-  right: 0;
 }
 
 /* ── Mentions ─────────────────────────────────────── */

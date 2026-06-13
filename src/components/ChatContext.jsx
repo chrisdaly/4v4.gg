@@ -1,7 +1,8 @@
-import React, { useState, useEffect, useRef, useMemo, useCallback } from "react";
+import React, { useState, useEffect, useLayoutEffect, useRef, useMemo, useCallback } from "react";
 import { FiChevronUp, FiChevronDown, FiPlus, FiCheck } from "react-icons/fi";
 import { fetchAndCacheProfile, getCachedProfile } from "../lib/profileCache";
 import { Button } from "./ui";
+import PeonLoader from "./PeonLoader";
 import "./ChatContext.css";
 
 const RELAY_URL =
@@ -20,23 +21,43 @@ function HighlightText({ text, query }) {
   );
 }
 
-function groupMessages(messages) {
+// Consecutive same-author messages merge into one group, but only when close
+// in time — search results can put the same author hours apart back to back,
+// and a single group header timestamp would misrepresent them.
+const GROUP_GAP_MS = 5 * 60 * 1000;
+
+function groupMessages(messages, gapMs = GROUP_GAP_MS) {
   const groups = [];
   for (const msg of messages) {
     const tag = msg.battle_tag || "";
+    const ts = msg.sentAt || msg.received_at || msg.sent_at || "";
     const last = groups[groups.length - 1];
-    if (last && last.battle_tag === tag) {
+    let merge = false;
+    if (gapMs > 0 && last && last.battle_tag === tag) {
+      const prev = parseTimestamp(last.lastTime);
+      const cur = parseTimestamp(ts);
+      merge = !prev || !cur || Math.abs(cur - prev) <= gapMs;
+    }
+    if (merge) {
       last.lines.push(msg);
+      last.lastTime = ts;
     } else {
       groups.push({
         battle_tag: tag,
         name: msg.name || msg.user_name || tag.split("#")[0],
-        time: msg.sentAt || msg.received_at || msg.sent_at || "",
+        time: ts,
+        lastTime: ts,
         lines: [msg],
       });
     }
   }
   return groups;
+}
+
+// Identity key for context messages — received_at alone collides when two
+// users post in the same second, so include author and text.
+function ctxMsgKey(m) {
+  return `${m.received_at}|${m.battle_tag || ""}|${m.message || m.text || ""}`;
 }
 
 function parseTimestamp(ts) {
@@ -60,7 +81,12 @@ function formatDateShort(ts) {
 function getDateKey(ts) {
   const d = parseTimestamp(ts);
   if (!d) return "";
-  return d.toISOString().slice(0, 10);
+  // Use local date components — toISOString() returns UTC which disagrees with
+  // the local date shown in the separator label, causing duplicate headings.
+  const y = d.getFullYear();
+  const m = String(d.getMonth() + 1).padStart(2, "0");
+  const day = String(d.getDate()).padStart(2, "0");
+  return `${y}-${m}-${day}`;
 }
 
 /* ── ChatContext ────────────────────────────────────── */
@@ -88,6 +114,9 @@ function getDateKey(ts) {
  * @param {Function} onLoadNewer       - Callback to fetch newer messages (scroll up)
  * @param {boolean}  hasNewer          - Whether newer messages are available
  * @param {boolean}  loadingNewer      - Whether loading newer messages
+ * @param {any}      resetKey          - When this changes, expansion/selection state resets.
+ *                                       Pass a stable per-search key so pagination appends
+ *                                       don't collapse an open context panel.
  */
 const ChatContext = ({
   messages,
@@ -112,6 +141,7 @@ const ChatContext = ({
   onLoadNewer,
   hasNewer = false,
   loadingNewer = false,
+  resetKey,
   existingQuotes = [],
   // Instant-add mode props
   instantAddMode = false,
@@ -120,6 +150,8 @@ const ChatContext = ({
   // External expand handler (alternative to internal splitView)
   onExpand,
   expandedTimestamp,
+  leftHeader = null,
+  groupGapMs,
 }) => {
   const [filter, setFilter] = useState("");
   const [sortBy, setSortBy] = useState("score"); // "score" or "date"
@@ -155,6 +187,11 @@ const ChatContext = ({
   const [loadingCtxLater, setLoadingCtxLater] = useState(false);
   const [ctxHasEarlier, setCtxHasEarlier] = useState(true);
   const [ctxHasLater, setCtxHasLater] = useState(true);
+  // Sentinels stay disarmed until the origin message has been centered —
+  // otherwise the top sentinel is visible on first paint and immediately
+  // prepends earlier history, scrolling the origin out of view.
+  const [ctxCentered, setCtxCentered] = useState(false);
+  const pendingPrependRef = useRef(null);
   const matchRef = useRef(null);
   const sentinelRef = useRef(null);
   const topSentinelRef = useRef(null);
@@ -165,6 +202,7 @@ const ChatContext = ({
   const ctxLoadCooldownRef = useRef(false);
   const ctxEarlierAttempts = useRef(0);
   const ctxLaterAttempts = useRef(0);
+  const lastExpandedRef = useRef(null);
 
   // Infinite scroll — observe sentinel at bottom of list (older messages)
   useEffect(() => {
@@ -196,6 +234,22 @@ const ChatContext = ({
 
   // Reset selection when messages change
   useEffect(() => { setSelected(new Set()); }, [messages]);
+
+  // Collapse the context panel when the underlying dataset changes — otherwise
+  // a new search leaves the panel showing the previous conversation and the
+  // expanded highlight lands on whatever row now sits at the stale index.
+  // resetKey (when provided) keeps the panel open across pagination appends.
+  const expansionKey = resetKey !== undefined ? resetKey : messages;
+  const prevExpansionKeyRef = useRef(expansionKey);
+  useEffect(() => {
+    if (prevExpansionKeyRef.current === expansionKey) return;
+    prevExpansionKeyRef.current = expansionKey;
+    setExpandedMsg(null);
+    setContextMessages([]);
+    setSelectedCtx(new Set());
+    setCtxCentered(false);
+    lastExpandedRef.current = null;
+  }, [expansionKey]);
 
   // Expose clear selection function via ref
   useEffect(() => {
@@ -352,17 +406,23 @@ const ChatContext = ({
       setSelectedCtx(new Set());
       return;
     }
-    setExpandedMsg({ idx: origIdx, receivedAt });
+    const origMsg = messages?.[origIdx];
+    setExpandedMsg({
+      idx: origIdx,
+      receivedAt,
+      text: origMsg ? (origMsg.text || origMsg.message || "") : "",
+    });
     setContextPadding(5);
     setSelectedCtx(new Set());
     setCtxHasEarlier(true);
     setCtxHasLater(true);
+    setCtxCentered(false);
     ctxLoadCooldownRef.current = false;
     // Reset infinite scroll attempt counters
     ctxEarlierAttempts.current = 0;
     ctxLaterAttempts.current = 0;
     fetchContext(receivedAt, 5);
-  }, [expandedMsg, fetchContext]);
+  }, [expandedMsg, messages, fetchContext]);
 
   // Load earlier context messages (infinite scroll up)
   const loadCtxEarlier = useCallback(async () => {
@@ -381,11 +441,15 @@ const ChatContext = ({
       if (!res.ok) throw new Error("Failed");
       const data = await res.json();
       if (data && data.length > 0) {
-        const existingTimes = new Set(contextMessages.map(m => m.received_at));
-        const newMsgs = data.filter(m => !existingTimes.has(m.received_at));
+        const existingKeys = new Set(contextMessages.map(ctxMsgKey));
+        const newMsgs = data.filter(m => !existingKeys.has(ctxMsgKey(m)));
         if (newMsgs.length > 0) {
           // Reset attempts on success
           ctxEarlierAttempts.current = 0;
+          // Snapshot scroll metrics so the layout effect can keep the
+          // viewport anchored after content is prepended above it
+          const root = contextScrollRef.current;
+          if (root) pendingPrependRef.current = { prevHeight: root.scrollHeight, prevTop: root.scrollTop };
           setContextMessages(prev => [...newMsgs, ...prev]);
           setContextWindow(prev => ({ ...prev, start: data[0].received_at }));
           const tags = [...new Set(newMsgs.map(m => m.battle_tag).filter(Boolean))];
@@ -432,8 +496,8 @@ const ChatContext = ({
       if (!res.ok) throw new Error("Failed");
       const data = await res.json();
       if (data && data.length > 0) {
-        const existingTimes = new Set(contextMessages.map(m => m.received_at));
-        const newMsgs = data.filter(m => !existingTimes.has(m.received_at));
+        const existingKeys = new Set(contextMessages.map(ctxMsgKey));
+        const newMsgs = data.filter(m => !existingKeys.has(ctxMsgKey(m)));
         if (newMsgs.length > 0) {
           // Reset attempts on success
           ctxLaterAttempts.current = 0;
@@ -466,6 +530,16 @@ const ChatContext = ({
     setTimeout(() => { ctxLoadCooldownRef.current = false; }, 500); // 500ms cooldown
   }, [loadingCtxLater, loadingCtxEarlier, ctxHasLater, contextMessages, contextWindow, contextPadding, contextAvatars]);
 
+  // Keep the viewport anchored when earlier messages are prepended
+  useLayoutEffect(() => {
+    const pending = pendingPrependRef.current;
+    if (!pending) return;
+    pendingPrependRef.current = null;
+    const root = contextScrollRef.current;
+    if (!root) return;
+    root.scrollTop = pending.prevTop + (root.scrollHeight - pending.prevHeight);
+  }, [contextMessages]);
+
   // Legacy shiftContext for manual buttons (still available as fallback)
   const shiftContext = useCallback((direction) => {
     if (direction === "earlier") loadCtxEarlier();
@@ -474,7 +548,7 @@ const ChatContext = ({
 
   // Infinite scroll for context panel — earlier (top)
   useEffect(() => {
-    if (!expandedMsg || loadingCtxEarlier || contextLoading || !ctxHasEarlier) return;
+    if (!expandedMsg || !ctxCentered || loadingCtxEarlier || contextLoading || !ctxHasEarlier) return;
     const el = ctxTopSentinelRef.current;
     const root = contextScrollRef.current;
     if (!el || !root) return;
@@ -484,11 +558,11 @@ const ChatContext = ({
     );
     observer.observe(el);
     return () => observer.disconnect();
-  }, [expandedMsg, loadingCtxEarlier, contextLoading, ctxHasEarlier, loadCtxEarlier]);
+  }, [expandedMsg, ctxCentered, loadingCtxEarlier, contextLoading, ctxHasEarlier, loadCtxEarlier]);
 
   // Infinite scroll for context panel — later (bottom)
   useEffect(() => {
-    if (!expandedMsg || loadingCtxLater || contextLoading || !ctxHasLater) return;
+    if (!expandedMsg || !ctxCentered || loadingCtxLater || contextLoading || !ctxHasLater) return;
     const el = ctxBottomSentinelRef.current;
     const root = contextScrollRef.current;
     if (!el || !root) return;
@@ -498,31 +572,47 @@ const ChatContext = ({
     );
     observer.observe(el);
     return () => observer.disconnect();
-  }, [expandedMsg, loadingCtxLater, contextLoading, ctxHasLater, loadCtxLater]);
+  }, [expandedMsg, ctxCentered, loadingCtxLater, contextLoading, ctxHasLater, loadCtxLater]);
 
   const handlePaddingChange = useCallback((delta) => {
     if (!expandedMsg) return;
-    setContextPadding((prev) => {
-      const next = Math.max(1, Math.min(60, prev + delta));
-      fetchContext(expandedMsg.receivedAt, next);
-      return next;
-    });
-  }, [expandedMsg, fetchContext]);
+    const next = Math.max(1, Math.min(60, contextPadding + delta));
+    if (next === contextPadding) return;
+    setContextPadding(next);
+    setCtxHasEarlier(true);
+    setCtxHasLater(true);
+    setCtxCentered(false);
+    ctxEarlierAttempts.current = 0;
+    ctxLaterAttempts.current = 0;
+    lastExpandedRef.current = null; // re-center on the refetched window
+    fetchContext(expandedMsg.receivedAt, next);
+  }, [expandedMsg, contextPadding, fetchContext]);
 
-  // Scroll to match when context initially loads (not during infinite scroll)
-  const lastExpandedRef = useRef(null);
-  useEffect(() => {
-    if (matchRef.current && contextMessages.length > 0 && !contextLoading && expandedMsg) {
-      // Only scroll to center on initial expansion, not during infinite scroll
-      const expandKey = `${expandedMsg.idx}-${expandedMsg.receivedAt}`;
-      if (lastExpandedRef.current !== expandKey) {
-        lastExpandedRef.current = expandKey;
-        // Small delay to ensure DOM is rendered
-        setTimeout(() => {
-          matchRef.current?.scrollIntoView({ behavior: "smooth", block: "center" });
-        }, 50);
-      }
+  // Center the origin message when context initially loads (not during
+  // infinite scroll). Must be instant and must finish BEFORE the sentinels
+  // arm (ctxCentered) — a smooth scroll leaves the top sentinel visible long
+  // enough to prepend earlier history and lose the origin off-screen.
+  useLayoutEffect(() => {
+    if (contextMessages.length === 0 || contextLoading || !expandedMsg) return;
+    const expandKey = `${expandedMsg.idx}-${expandedMsg.receivedAt}`;
+    if (lastExpandedRef.current === expandKey) return;
+    lastExpandedRef.current = expandKey;
+    const root = contextScrollRef.current;
+    const target = matchRef.current;
+    if (root && target) {
+      // Scroll within the panel only — scrollIntoView would also scroll the page
+      const rootRect = root.getBoundingClientRect();
+      const targetRect = target.getBoundingClientRect();
+      root.scrollTop += (targetRect.top - rootRect.top) - (root.clientHeight - targetRect.height) / 2;
+    } else if (target) {
+      // Inline (non-split) mode has no panel ref
+      target.scrollIntoView({ behavior: "auto", block: "center" });
+    } else if (root) {
+      // Origin missing from the window (e.g. deleted) — show the middle,
+      // which is the closest content to the clicked timestamp
+      root.scrollTop = (root.scrollHeight - root.clientHeight) / 2;
     }
+    setCtxCentered(true);
   }, [contextMessages, contextLoading, expandedMsg]);
 
   // Determine the highlight query — use `highlight` prop, or fall back to filter
@@ -533,15 +623,13 @@ const ChatContext = ({
     ? applyLabel(totalSelected)
     : `Use ${totalSelected} item${totalSelected !== 1 ? "s" : ""}`;
 
-  // Match check for context origin highlighting
+  // Match check for context origin highlighting — compares against the stored
+  // center point (not messages[idx]) so re-centering on a context message works
   const isOriginMsg = useCallback((cm) => {
     if (!expandedMsg) return false;
-    const origMsg = messages?.[expandedMsg.idx];
-    if (!origMsg) return false;
-    const origTs = origMsg.received_at || origMsg.sentAt || origMsg.sent_at || "";
-    return cm.received_at === origTs &&
-           (cm.message || cm.text) === (origMsg.text || origMsg.message);
-  }, [expandedMsg, messages]);
+    return cm.received_at === expandedMsg.receivedAt &&
+           (cm.message || cm.text || "") === (expandedMsg.text || "");
+  }, [expandedMsg]);
 
   // Build set of selected message timestamps for highlighting in context panel
   const selectedTimestamps = useMemo(() => {
@@ -572,10 +660,15 @@ const ChatContext = ({
 
   /* ── Render helpers ──────────────────────────────── */
 
+  // Context messages are only clickable when a selection consumer exists
+  // (quote picking); otherwise they're inert \u2014 scrolling loads more history,
+  // same as the chat page.
+  const ctxSelectable = !!(onApply || onSelectionChange);
+
   const contextPanel = expandable && expandedMsg && (
     <div className="cc-context-side">
       {contextLoading ? (
-        <div className="cc-status" style={{ padding: "var(--space-4)" }}>Loading...</div>
+        <div className="cc-loading"><PeonLoader size="sm" /></div>
       ) : (
         <div className="cc-context-scroll" ref={contextScrollRef}>
           {/* Top sentinel for infinite scroll (earlier) */}
@@ -614,13 +707,16 @@ const ChatContext = ({
                     const ctxIdx = cl._ctxIdx;
                     const isCtxSelected = selectedCtx.has(ctxIdx);
                     const alreadyAdded = isAlreadyAdded(cl);
+                    const isOrigin = isOriginMsg(cl);
                     return (
                       <div
                         key={cli}
-                        className={`cc-msg cc-msg--selectable ${isOriginMsg(cl) ? "cc-msg--origin" : ""} ${isCtxSelected ? "cc-msg--selected" : ""} ${alreadyAdded ? "cc-msg--in-quotes" : ""}`}
-                        onClick={(e) => { e.stopPropagation(); toggleCtx(ctxIdx); }}
+                        className={`cc-msg ${ctxSelectable ? "cc-msg--selectable" : ""} ${isOrigin ? "cc-msg--origin" : ""} ${isCtxSelected ? "cc-msg--selected" : ""} ${alreadyAdded ? "cc-msg--in-quotes" : ""}`}
+                        onClick={ctxSelectable ? (e) => { e.stopPropagation(); toggleCtx(ctxIdx); } : undefined}
                       >
-                        <span className={`cc-check${isCtxSelected ? " cc-check--active" : ""}`}>{alreadyAdded && !isCtxSelected ? "\u2713" : ""}</span>
+                        {ctxSelectable && (
+                          <span className={`cc-check${isCtxSelected ? " cc-check--active" : ""}`}>{alreadyAdded && !isCtxSelected ? "\u2713" : ""}</span>
+                        )}
                         <span className="cc-text">
                           <HighlightText text={cl.message || cl.text || ""} query={highlightQuery} />
                         </span>
@@ -643,7 +739,8 @@ const ChatContext = ({
   const messageList = (
     <>
       {/* Loading */}
-      {loading && <span className="cc-status">Loading...</span>}
+      {loading && !compact && messages == null && <div className="cc-loading"><PeonLoader size="sm" /></div>}
+      {loading && (compact || messages != null) && <span className="cc-status">Loading...</span>}
 
       {/* Empty */}
       {!loading && messages && messages.length === 0 && (
@@ -660,7 +757,7 @@ const ChatContext = ({
             </div>
           )}
           {(() => {
-            const groups = groupMessages(filtered);
+            const groups = groupMessages(filtered, groupGapMs);
             let lastDateKey = null;
             return groups.map((group, gi) => {
             const profile = profiles.get(group.battle_tag);
@@ -897,10 +994,37 @@ const ChatContext = ({
       )}
 
       {splitView ? (
-        <div className="cc-split-layout">
+        // The right column only takes space while a conversation is open;
+        // the DOM stays stable either way so the list keeps its scroll position
+        <div className={`cc-split-layout${expandedMsg ? "" : " cc-split-layout--collapsed"}`}>
+          <div className="cc-split-col-header cc-split-col-header--left">
+            {leftHeader && (
+              <>
+                <span className="cc-col-label">Results</span>
+                {leftHeader}
+              </>
+            )}
+          </div>
+          <div className="cc-split-col-header cc-split-col-header--right">
+            <span className={`cc-col-label${expandedMsg ? " cc-col-label--conversation" : " cc-col-label--ghost"}`}>
+              {expandedMsg ? "Conversation" : "Context"}
+            </span>
+            {expandedMsg && (
+              <button
+                className="cc-col-close"
+                title="Close conversation"
+                onClick={() => {
+                  setExpandedMsg(null);
+                  setContextMessages([]);
+                  setSelectedCtx(new Set());
+                  setCtxCentered(false);
+                }}
+              >×</button>
+            )}
+          </div>
           <div className="cc-split-left">{messageList}</div>
-          <div className="cc-split-right">
-            {contextPanel || <span className="cc-status">Click a message to see context</span>}
+          <div className={`cc-split-right${expandedMsg ? " cc-split-right--active" : ""}`}>
+            {contextPanel}
           </div>
         </div>
       ) : messageList}

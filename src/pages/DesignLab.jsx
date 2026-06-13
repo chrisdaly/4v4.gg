@@ -2,13 +2,11 @@ import React from "react";
 import { MmrComparison } from "../components/MmrComparison";
 import "../styles/pages/Blog.css";
 
-const pieConfig = { combinedGap: 5, areaMultiplier: 1.6 };
-
 // Chart wrapper component
 const Chart = ({ data, width = 200, height = 160, showMean = false, showStdDev = false, showValues = false }) => (
   <div className="blog-chart">
     <div style={{ width, height }}>
-      <MmrComparison data={data} atStyle="combined" pieConfig={pieConfig} compact={true} showMean={showMean} showStdDev={showStdDev} showValues={showValues} />
+      <MmrComparison data={data} compact={true} showMean={showMean} showStdDev={showStdDev} showValues={showValues} />
     </div>
   </div>
 );

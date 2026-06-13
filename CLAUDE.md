@@ -53,8 +53,17 @@ The relay server source is in `server/`. Token is injected via `POST /api/admin/
 - `src/lib/utils.js` - Core data processing functions:
   - `processOngoingGameData()` - Live match formatting
   - `preprocessPlayerScores()` - Game stats percentile calculation
-  - `fetchMMRTimeline()` - Historical MMR data
+- `src/lib/api.js` - W3C API calls: `getPlayerTimelineMerged()` (season MMR timeline), `getPlayerTimelineAllTime()` (all seasons)
 - `src/lib/formatters.js` - `geometricMean()` / `stdDev()` - Team MMR calculations
+
+### MMR Chart Components
+
+One component per MMR visualization — reuse these, don't hand-roll new ones:
+- `src/components/MmrComparison.jsx` - Team-vs-team dot chart (D3). Fixed 700–2700 y-scale everywhere. Use the `variant` prop: `card` (home hero, news cards), `scorecard` (match tables), `micro` (chat/mini cards), `overlay` (OBS)
+- `src/components/MmrSparkline.jsx` - MMR-over-time trend line (ladder rows, player profile)
+- `src/components/MmrRangeBar.jsx` - Low/current/peak gradient bar (profile thermometer, player overlay)
+- `src/components/OnlineMmrStrip.jsx` - Online-population beeswarm strip (Observatory, Replay)
+- `src/lib/useATGroupIds.js` - Hook: arranged-team detection → AT group-ID arrays for MmrComparison
 
 ### Routing (React Router v5)
 Main user-facing routes (see `src/Router.jsx` for the full list, including internal tooling pages):

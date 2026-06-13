@@ -19,7 +19,6 @@ import "../components/ChatContext.css";
 import "../styles/pages/DevTools.css";
 import "../styles/pages/StyleReference.css";
 
-const pieConfig = { combinedGap: 5, areaMultiplier: 1.6 };
 
 // Colors that need dark text on their swatch
 const lightSwatches = new Set(["gold", "green", "greyLight", "textBody", "white"]);
@@ -1044,8 +1043,6 @@ const StyleReference = () => {
                   teamOneAT: [1, 1, 0, 0],
                   teamTwoAT: [1, 1, 0, 0],
                 }}
-                atStyle="combined"
-                pieConfig={pieConfig}
               />
             </div>
             <div className="sr-mmr-label">2-stack</div>
@@ -1059,8 +1056,6 @@ const StyleReference = () => {
                   teamOneAT: [1, 1, 1, 0],
                   teamTwoAT: [1, 1, 1, 0],
                 }}
-                atStyle="combined"
-                pieConfig={pieConfig}
               />
             </div>
             <div className="sr-mmr-label">3-stack</div>
@@ -1074,8 +1069,6 @@ const StyleReference = () => {
                   teamOneAT: [1, 1, 1, 1],
                   teamTwoAT: [1, 1, 1, 1],
                 }}
-                atStyle="combined"
-                pieConfig={pieConfig}
               />
             </div>
             <div className="sr-mmr-label">4-stack</div>
@@ -1089,8 +1082,6 @@ const StyleReference = () => {
                   teamOneAT: [0, 0, 0, 0],
                   teamTwoAT: [0, 0, 0, 0],
                 }}
-                atStyle="combined"
-                pieConfig={pieConfig}
               />
             </div>
             <div className="sr-mmr-label">No AT</div>
@@ -1107,8 +1098,6 @@ const StyleReference = () => {
                   teamOneAT: [1, 1, 0, 0],
                   teamTwoAT: [1, 1, 0, 0],
                 }}
-                atStyle="combined"
-                pieConfig={pieConfig}
               />
             </div>
             <div className="sr-mmr-label">2-stack + solo collision</div>
@@ -1122,8 +1111,6 @@ const StyleReference = () => {
                   teamOneAT: [1, 1, 1, 1],
                   teamTwoAT: [0, 0, 0, 0],
                 }}
-                atStyle="combined"
-                pieConfig={pieConfig}
               />
             </div>
             <div className="sr-mmr-label">4-stack vs all solo</div>

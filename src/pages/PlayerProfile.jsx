@@ -17,6 +17,8 @@ import PeonLoader from "../components/PeonLoader";
 import { gateway } from "../lib/params";
 import { GameRow } from "../components/game/index";
 import ActivityGraph from "../components/ActivityGraph";
+import MmrRangeBar from "../components/MmrRangeBar";
+import MmrSparkline from "../components/MmrSparkline";
 import OngoingGame from "../components/OngoingGame";
 import ScoutTab from "./replay-lab/ScoutTab";
 import RecentConversations from "../components/RecentConversations";
@@ -1002,37 +1004,17 @@ const PlayerProfile = () => {
             })()}
 
             {/* MMR Thermometer */}
-            {seasonMmrs.length > 2 && (() => {
-              const low = Math.min(...seasonMmrs);
-              const peak = Math.max(...seasonMmrs);
-              const current = seasonMmrs[seasonMmrs.length - 1];
-              const range = peak - low;
-              const position = range > 0 ? ((current - low) / range) * 100 : 50;
-              return (
-                <div className="mmr-thermometer-card">
-                  <h3 className="mtc-title">Season {selectedSeason} MMR</h3>
-                  <div className="mtc-bar">
-                    <div className="mtc-bar-track">
-                      <div className="mtc-bar-marker" style={{ left: `${position}%` }} />
-                    </div>
-                    <div className="mtc-bar-labels">
-                      <div className="mtc-label-group">
-                        <span className="mtc-value low">{low}</span>
-                        <span className="mtc-label">LOW</span>
-                      </div>
-                      <div className="mtc-label-group current">
-                        <span className="mtc-value">{current}</span>
-                        <span className="mtc-label">CURRENT</span>
-                      </div>
-                      <div className="mtc-label-group">
-                        <span className="mtc-value high">{peak}</span>
-                        <span className="mtc-label">PEAK</span>
-                      </div>
-                    </div>
-                  </div>
-                </div>
-              );
-            })()}
+            {seasonMmrs.length > 2 && (
+              <div className="mmr-thermometer-card">
+                <h3 className="mtc-title">Season {selectedSeason} MMR</h3>
+                <MmrSparkline data={seasonMmrs} width="100%" height={36} className="mtc-sparkline" />
+                <MmrRangeBar
+                  low={Math.min(...seasonMmrs)}
+                  peak={Math.max(...seasonMmrs)}
+                  current={seasonMmrs[seasonMmrs.length - 1]}
+                />
+              </div>
+            )}
 
             {/* Activity Graph */}
             {!isAllSeasons && (

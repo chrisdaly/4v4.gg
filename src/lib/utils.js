@@ -314,11 +314,6 @@ export const fetchPlayerSessionData = async (battleTag, raceOverride) => {
 };
 
 // Now uses cached API layer
-export const fetchMMRTimeline = async (battleTag, race) => {
-  const { getPlayerTimeline } = await import('./api');
-  return getPlayerTimeline(battleTag, race);
-};
-
 // Legacy export - re-export from api.js for backward compatibility
 export const getPlayerCountry = async (battleTag) => {
   const { getPlayerProfile } = await import('./api');
@@ -436,6 +431,29 @@ export const detectArrangedTeams = async (players) => {
 
   return atGroups;
 }
+
+// Convert detectArrangedTeams output (battleTag -> [partnerTags]) into stable
+// numeric group IDs: 0 = solo, 1+ = AT group, same ID for all members.
+// Keys are lowercased battleTags. This is the format MmrComparison expects.
+export const buildATGroupIdMap = (atGroups) => {
+  const idMap = {};
+  let nextGroupId = 1;
+
+  Object.keys(atGroups).forEach(tag => {
+    if (idMap[tag]) return;
+
+    const partners = atGroups[tag] || [];
+    if (partners.length === 0) return;
+
+    const groupId = nextGroupId++;
+    idMap[tag] = groupId;
+    partners.forEach(partner => {
+      idMap[partner.toLowerCase()] = groupId;
+    });
+  });
+
+  return idMap;
+};
 
 /* ── Shared formatting helpers ─────────────────────── */
 

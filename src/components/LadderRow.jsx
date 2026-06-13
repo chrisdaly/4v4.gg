@@ -1,10 +1,10 @@
 import React from "react";
 import { Link } from "react-router-dom";
-import { Sparklines, SparklinesLine } from "react-sparklines";
 import { GiCrossedSwords } from "react-icons/gi";
 import { FaTwitch } from "react-icons/fa";
 
 import { raceMapping } from "../lib/constants";
+import MmrSparkline from "./MmrSparkline";
 
 const LadderRow = ({ rank, sparklineData, session, detectedRace, twitch, isStreaming, streamInfo, isLive, isEven }) => {
   const { name, mmr, wins, losses, winrate, race: playerRace } = rank.player || {};
@@ -80,12 +80,8 @@ const LadderRow = ({ rank, sparklineData, session, detectedRace, twitch, isStrea
         )}
       </div>
       <div className="col-form">
-        {sparklineData.length > 0 ? (
-          <Sparklines data={sparklineData.slice(-50)} width={80} height={18}>
-            <SparklinesLine
-              style={{ strokeWidth: 1.5, stroke: "var(--gold)", fill: "none" }}
-            />
-          </Sparklines>
+        {sparklineData.length >= 2 ? (
+          <MmrSparkline data={sparklineData} maxPoints={50} width={80} height={18} />
         ) : (
           <div className="sparkline-placeholder" />
         )}

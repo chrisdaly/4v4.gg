@@ -159,8 +159,7 @@ const UpsetCard = ({ item, profiles }) => {
                 teamOneAT: zeros(validWinnerMmrs.length),
                 teamTwoAT: zeros(validLoserMmrs.length),
               }}
-              compact={true}
-              fitToData={true}
+              variant="card"
             />
           </div>
         )}
@@ -223,8 +222,7 @@ const ATSpotlightCard = ({ item, profiles }) => {
                 teamOneAT: new Array(validMmrs.length).fill(1),
                 teamTwoAT: [],
               }}
-              compact={true}
-              fitToData={true}
+              variant="card"
             />
           </div>
         )}

@@ -5,6 +5,7 @@ import { FiRefreshCw, FiX, FiPlus, FiMenu, FiShare2, FiCamera, FiMessageSquare, 
 import html2canvas from "html2canvas";
 import ChatContext from "../ChatContext";
 import { fetchAndCacheProfile } from "../../lib/profileCache";
+import useAdmin from "../../lib/useAdmin";
 import { CountryFlag, ConfirmModal, PageNav, Button } from "../ui";
 import FormDots from "../FormDots";
 import PeonLoader from "../PeonLoader";
@@ -980,6 +981,7 @@ const EditableQuotes = ({ quotes = [], statKey, editorial, browserProps }) => {
 const SEARCH_PAGE_SIZE = 50;
 
 const QuoteBrowser = ({ statKey, battleTag, editorial, label, text, nameToTag, dateRange: dateRangeProp, onApplyQuotes, currentQuotes }) => {
+  const { adminKey: searchAdminKey } = useAdmin();
   const [messages, setMessages] = useState(null);
   const [loading, setLoading] = useState(false);
   const [loadingMore, setLoadingMore] = useState(false);
@@ -1079,7 +1081,11 @@ const QuoteBrowser = ({ statKey, battleTag, editorial, label, text, nameToTag, d
   const fetchSearch = useCallback(async (off) => {
     if (!searchParams) return [];
     const params = new URLSearchParams({ ...searchParams, limit: String(SEARCH_PAGE_SIZE), offset: String(off) });
-    const res = await fetch(`${RELAY_URL}/api/admin/messages/search?${params}`);
+    // Anonymous search is capped to 24h server-side; the admin key unlocks
+    // the archive so quote browsing works for older weeks
+    const res = await fetch(`${RELAY_URL}/api/admin/messages/search?${params}`, {
+      headers: searchAdminKey ? { "x-api-key": searchAdminKey } : {},
+    });
     const data = await res.json();
     return (data.results || []).map((m) => ({
       name: m.user_name || m.battle_tag?.split("#")[0] || "",
@@ -1087,7 +1093,7 @@ const QuoteBrowser = ({ statKey, battleTag, editorial, label, text, nameToTag, d
       battle_tag: m.battle_tag || "",
       received_at: m.received_at || "",
     }));
-  }, [searchParams]);
+  }, [searchParams, searchAdminKey]);
 
   const handleToggle = async () => {
     if (open) { window.history.back(); return; }

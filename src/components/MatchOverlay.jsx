@@ -215,13 +215,7 @@ const MatchOverlay = ({ matchData, atGroups = {}, sessionData = {}, countries = 
               teamOneAT: team1.map(p => getATGroupId(p.battleTag)),
               teamTwoAT: team2.map(p => getATGroupId(p.battleTag)),
             }}
-            compact={true}
-            atStyle="combined"
-            showMean={false}
-            showStdDev={false}
-            hideLabels={true}
-            transposed={false}
-            fitToData={true}
+            variant="overlay"
           />
         </div>
 
@@ -255,11 +249,7 @@ const MatchOverlay = ({ matchData, atGroups = {}, sessionData = {}, countries = 
                 teamOneAT: team1.map(p => getATGroupId(p.battleTag)),
                 teamTwoAT: team2.map(p => getATGroupId(p.battleTag)),
               }}
-              compact={true}
-              atStyle="combined"
-              showMean={false}
-              showStdDev={false}
-              hideLabels={true}
+              variant="overlay"
             />
           </div>
         </div>

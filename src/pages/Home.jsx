@@ -6,6 +6,7 @@ import useOngoingMatches from "../lib/useOngoingMatches";
 import { getMapImageUrl, formatElapsedTime } from "../lib/formatters";
 import { RaceIcon, CountryFlag } from "../components/ui";
 import { MmrComparison } from "../components/MmrComparison";
+import useATGroupIds from "../lib/useATGroupIds";
 import GameCard from "../components/game/GameCard";
 import PeonLoader from "../components/PeonLoader";
 import { blogPosts } from "../lib/blogPosts";
@@ -76,7 +77,8 @@ const HeroLive = ({ match }) => {
 
   const teamOneMmrs = (teams[0]?.players || []).map((p) => p.oldMmr || p.currentMmr || 0);
   const teamTwoMmrs = (teams[1]?.players || []).map((p) => p.oldMmr || p.currentMmr || 0);
-  const mmrData = { teamOneMmrs, teamTwoMmrs, teamOneAT: [], teamTwoAT: [] };
+  const { teamOneAT, teamTwoAT } = useATGroupIds(teams[0]?.players, teams[1]?.players);
+  const mmrData = { teamOneMmrs, teamTwoMmrs, teamOneAT, teamTwoAT };
 
   return (
     <Link to="/live" className="sc-hero sc-hero-live sc-panel">
@@ -107,7 +109,7 @@ const HeroLive = ({ match }) => {
             </div>
           )}
           <div className="sc-hero-chart">
-            <MmrComparison data={mmrData} compact fitToData />
+            <MmrComparison data={mmrData} variant="card" />
           </div>
           {teams[1] && (
             <div className="sc-hero-team-col">
