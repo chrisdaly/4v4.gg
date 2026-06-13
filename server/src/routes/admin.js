@@ -2,7 +2,7 @@ import { Router } from 'express';
 import rateLimit from 'express-rate-limit';
 import multer from 'multer';
 import config from '../config.js';
-import { setToken, getStats, getTopWords, getRecentDigests, deleteDigest, getDigest, getRecentWeeklyDigests, deleteWeeklyDigest, getWeeklyDigest, getWeeklyCoverImage, setWeeklyCoverImage, updateWeeklyCoverPosition, getDraftForDate, updateDigestOnly, updateDraftOnly, updateHiddenAvatars, getContextAroundQuotes, getMessagesByTimeWindow, getMessagesByDateAndUsers, getMessageBuckets, getGameStats, getMatchContext, getClipsByDateRange, saveCoverGeneration, getCoverGenerations, getAllCoverGenerations, getCoverGenerationImage, deleteCoverGeneration, getWeeklyDraftForWeek, updateWeeklyDraftOnly, updateWeeklyDigestOnly, createGenJob, getActiveGenJob, getLatestGenJob, getVariantsForJob, searchMessages, searchMessagesByPlayer, getMessagesAroundTime, countMessagesByDateRange, updateWeeklyDigestJson, updateWeeklyClips, getDigestsByDateRange, saveStyleThumbnail, getStyleThumbnail, toggleWeeklyPublished, hasDailyPlayerStats, setDigestWithDraft, setWeeklyDigest } from '../db.js';
+import { setToken, getStats, getTopWords, getRecentDigests, deleteDigest, getDigest, getRecentWeeklyDigests, deleteWeeklyDigest, getWeeklyDigest, getWeeklyCoverImage, setWeeklyCoverImage, updateWeeklyCoverPosition, getDraftForDate, updateDigestOnly, updateDraftOnly, updateHiddenAvatars, getContextAroundQuotes, getMessagesByTimeWindow, getMessagesByDateAndUsers, getMessageBuckets, getGameStats, getMatchContext, getClipsByDateRange, saveCoverGeneration, getCoverGenerations, getAllCoverGenerations, getCoverGenerationImage, deleteCoverGeneration, getWeeklyDraftForWeek, updateWeeklyDraftOnly, updateWeeklyDigestOnly, createGenJob, getActiveGenJob, getLatestGenJob, getVariantsForJob, searchMessages, countSearchMessages, searchMessagesByPlayer, countMessagesByPlayer, getMessagesAroundTime, countMessagesByDateRange, updateWeeklyDigestJson, updateWeeklyClips, getDigestsByDateRange, saveStyleThumbnail, getStyleThumbnail, toggleWeeklyPublished, hasDailyPlayerStats, setDigestWithDraft, setWeeklyDigest } from '../db.js';
 import { updateToken, getStatus } from '../signalr.js';
 import { getClientCount } from '../sse.js';
 import { setBotEnabled, isBotEnabled, testCommand } from '../bot.js';
@@ -1433,27 +1433,42 @@ router.get('/messages/context', contextLimiter, (req, res) => {
 
 // ── Full-text message search ──────────────────────────
 router.get('/messages/search', contextLimiter, (req, res) => {
-  const { q, player, limit = 50, offset = 0 } = req.query;
+  const { q, player, limit = 50, offset = 0, since } = req.query;
   const lim = Math.min(Number(limit), 200);
   const off = Number(offset);
+  // since = lookback window in hours (e.g. 24, 168); absent/invalid = full archive.
+  // Anonymous callers are capped at 7 days; a valid admin key unlocks the
+  // full archive.
+  const PUBLIC_WINDOW_HOURS = 168;
+  const isAdmin = !!config.ADMIN_API_KEY && req.headers['x-api-key'] === config.ADMIN_API_KEY;
+  const requested = since && Number(since) > 0 ? Number(since) : null;
+  const sinceHours = isAdmin ? requested : Math.min(requested || PUBLIC_WINDOW_HOURS, PUBLIC_WINDOW_HOURS);
+  // fields=message restricts q to message text (the admin UI has a separate
+  // player mode); default keeps name/tag matching for older consumers
+  const fields = req.query.fields === 'message' ? 'message' : 'all';
 
   if (!q && !player) return res.status(400).json({ error: 'Query (q) or player param is required' });
   if (q && q.length < 2) return res.status(400).json({ error: 'Query must be at least 2 characters' });
   if (player && player.length < 2) return res.status(400).json({ error: 'Player query must be at least 2 characters' });
 
   let results;
+  let total = null;
   if (player && q) {
     // Combined: messages by player matching text
-    const playerResults = searchMessagesByPlayer(player, 500, 0);
+    const playerResults = searchMessagesByPlayer(player, 500, 0, sinceHours);
     const lower = q.toLowerCase();
-    results = playerResults.filter(r => r.message.toLowerCase().includes(lower)).slice(off, off + lim);
+    const matched = playerResults.filter(r => r.message.toLowerCase().includes(lower));
+    total = matched.length;
+    results = matched.slice(off, off + lim);
   } else if (player) {
-    results = searchMessagesByPlayer(player, lim, off);
+    results = searchMessagesByPlayer(player, lim, off, sinceHours);
+    total = countMessagesByPlayer(player, sinceHours);
   } else {
-    results = searchMessages(q, lim, off);
+    results = searchMessages(q, lim, off, sinceHours, fields);
+    total = countSearchMessages(q, sinceHours, fields);
   }
 
-  res.json({ query: q || null, player: player || null, count: results.length, results });
+  res.json({ query: q || null, player: player || null, count: results.length, total, windowHours: sinceHours, results });
 });
 
 router.get('/messages/search/context', contextLimiter, (req, res) => {

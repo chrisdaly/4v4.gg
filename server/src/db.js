@@ -1495,45 +1495,97 @@ export function deleteCoverGeneration(id) {
 
 // ── Full-text message search ──────────────────────────
 
-export function searchMessages(query, limit = 50, offset = 0, sinceHours = null) {
+// fields: 'all' matches message + user_name + battle_tag (public chat search);
+// 'message' matches message text only (admin search has a separate player mode)
+function searchMessagesWhere(fields, sinceHours) {
+  const matchClause = fields === 'message'
+    ? '(message LIKE ?)'
+    : '(message LIKE ? OR user_name LIKE ? OR battle_tag LIKE ?)';
+  const sinceClause = sinceHours
+    ? `AND received_at >= datetime('now', '-' || ? || ' hours')`
+    : '';
+  return `WHERE deleted = 0 AND ${matchClause} ${sinceClause}`;
+}
+
+function searchMessagesParams(query, fields, sinceHours) {
   const like = `%${query}%`;
+  const params = fields === 'message' ? [like] : [like, like, like];
+  if (sinceHours) params.push(sinceHours);
+  return params;
+}
+
+export function searchMessages(query, limit = 50, offset = 0, sinceHours = null, fields = 'all') {
+  return db.prepare(`
+    SELECT id, user_name, message, sent_at, battle_tag, received_at
+    FROM messages
+    ${searchMessagesWhere(fields, sinceHours)}
+    ORDER BY received_at DESC
+    LIMIT ? OFFSET ?
+  `).all(...searchMessagesParams(query, fields, sinceHours), Math.min(limit, 200), offset);
+}
+
+export function countSearchMessages(query, sinceHours = null, fields = 'all') {
+  return db.prepare(`
+    SELECT COUNT(*) AS n FROM messages
+    ${searchMessagesWhere(fields, sinceHours)}
+  `).get(...searchMessagesParams(query, fields, sinceHours)).n;
+}
+
+export function searchMessagesByPlayer(playerQuery, limit = 50, offset = 0, sinceHours = null) {
+  const like = `%${playerQuery}%`;
   const sinceClause = sinceHours
     ? `AND received_at >= datetime('now', '-' || ? || ' hours')`
     : '';
   const params = sinceHours
-    ? [like, like, like, sinceHours, Math.min(limit, 200), offset]
-    : [like, like, like, Math.min(limit, 200), offset];
+    ? [like, like, sinceHours, Math.min(limit, 200), offset]
+    : [like, like, Math.min(limit, 200), offset];
   return db.prepare(`
     SELECT id, user_name, message, sent_at, battle_tag, received_at
     FROM messages
-    WHERE deleted = 0 AND (message LIKE ? OR user_name LIKE ? OR battle_tag LIKE ?)
+    WHERE deleted = 0 AND (user_name LIKE ? OR battle_tag LIKE ?)
     ${sinceClause}
     ORDER BY received_at DESC
     LIMIT ? OFFSET ?
   `).all(...params);
 }
 
-export function searchMessagesByPlayer(playerQuery, limit = 50, offset = 0) {
+export function countMessagesByPlayer(playerQuery, sinceHours = null) {
   const like = `%${playerQuery}%`;
+  const sinceClause = sinceHours
+    ? `AND received_at >= datetime('now', '-' || ? || ' hours')`
+    : '';
+  const params = sinceHours ? [like, like, sinceHours] : [like, like];
   return db.prepare(`
-    SELECT user_name, message, sent_at, battle_tag, received_at
-    FROM messages
+    SELECT COUNT(*) AS n FROM messages
     WHERE deleted = 0 AND (user_name LIKE ? OR battle_tag LIKE ?)
-    ORDER BY received_at DESC
-    LIMIT ? OFFSET ?
-  `).all(like, like, Math.min(limit, 200), offset);
+    ${sinceClause}
+  `).get(...params).n;
 }
 
 export function getMessagesAroundTime(receivedAt, minutesPadding = 3, limit = 60) {
-  return db.prepare(`
-    SELECT user_name, message, sent_at, battle_tag, received_at
+  // Center-out: spend half the row budget on each side of the anchor.
+  // A single ASC query with LIMIT can exhaust the budget before reaching
+  // the anchor timestamp in a busy window, dropping the clicked message.
+  const half = Math.max(5, Math.floor(limit / 2));
+  const before = db.prepare(`
+    SELECT id, user_name, message, sent_at, battle_tag, received_at
     FROM messages
     WHERE deleted = 0
+      AND received_at <= ?
       AND received_at >= datetime(?, '-' || ? || ' minutes')
+    ORDER BY received_at DESC
+    LIMIT ?
+  `).all(receivedAt, receivedAt, minutesPadding, half);
+  const after = db.prepare(`
+    SELECT id, user_name, message, sent_at, battle_tag, received_at
+    FROM messages
+    WHERE deleted = 0
+      AND received_at > ?
       AND received_at <= datetime(?, '+' || ? || ' minutes')
     ORDER BY received_at ASC
     LIMIT ?
-  `).all(receivedAt, minutesPadding, receivedAt, minutesPadding, limit);
+  `).all(receivedAt, receivedAt, minutesPadding, half);
+  return [...before.reverse(), ...after];
 }
 
 // ── Replays ──────────────────────────────────────────

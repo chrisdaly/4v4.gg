@@ -17,7 +17,9 @@ primary_region = "ewr"
   min_machines_running = 1
 
 [[http_service.checks]]
-  grace_period = "60s"
+  # Startup backfill is synchronous and can block the health probe past 60s,
+  # making the fly proxy refuse traffic for ~90s after a deploy
+  grace_period = "180s"
   interval = "30s"
   method = "GET"
   path = "/api/health"

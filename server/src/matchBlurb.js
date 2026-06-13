@@ -91,6 +91,40 @@ function recentMeetings(history, battleTag, opponentTag, currentMatchId) {
   return { meetings, wins };
 }
 
+const STREAK_BADGE_MIN = 5;
+const MILESTONE_MMRS = [1000, 1500, 1800, 2000, 2200, 2400, 2600];
+
+function computeBadges(allPlayers, histories, matchId) {
+  const badges = [];
+  const winStreaks = [];
+  const lossStreaks = [];
+
+  for (const p of allPlayers) {
+    const streak = streakFromHistory(histories.get(p.battleTag) || [], p.battleTag, matchId);
+    if (streak && streak.length >= STREAK_BADGE_MIN) {
+      const entry = { type: 'streak', won: streak.won, length: streak.length, name: p.name || p.battleTag?.split('#')[0], tag: p.battleTag, mmrGain: p.mmrGain ?? null };
+      if (streak.won) winStreaks.push(entry);
+      else lossStreaks.push(entry);
+    }
+
+    const oldMmr = p.oldMmr ?? 0;
+    const newMmr = oldMmr + (p.mmrGain ?? 0);
+    for (const m of MILESTONE_MMRS) {
+      if (oldMmr < m && newMmr >= m) {
+        badges.push({ type: 'milestone', name: p.name || p.battleTag?.split('#')[0], tag: p.battleTag, milestone: m, newMmr: Math.round(newMmr) });
+      }
+    }
+  }
+
+  // Best HOT and COLD only
+  winStreaks.sort((a, b) => b.length - a.length);
+  lossStreaks.sort((a, b) => b.length - a.length);
+  if (winStreaks[0]) badges.unshift(winStreaks[0]);
+  if (lossStreaks[0]) badges.push(lossStreaks[0]);
+
+  return badges;
+}
+
 // Returns { factSheet, endTimeMs } or null.
 // phase 'instant' excludes post-match-end chat; 'full' (default) includes it.
 export async function buildFactSheet(matchId, phase = 'full') {
@@ -219,6 +253,7 @@ async function buildFactSheetUncached(matchId, phase = 'full') {
     factSheet: lines.join('\n'),
     endTimeMs: new Date(match.endTime).getTime(),
     tags,
+    badges: computeBadges(allPlayers, histories, matchId),
   };
 }
 
@@ -251,7 +286,7 @@ export async function generateWithPrompt(factSheet, systemPrompt = SYSTEM_PROMPT
 const REACTION_WAIT_MS = 5 * 60 * 1000;
 const MIN_REACTIONS = 2;
 
-const DONE = (blurb) => ({ blurb, pending: false });
+const DONE = (blurb, badges = []) => ({ blurb, pending: false, badges });
 
 export async function generateMatchBlurb(matchId) {
   if (!config.ANTHROPIC_API_KEY) return DONE('');
@@ -280,8 +315,8 @@ export async function generateMatchBlurb(matchId) {
         const fresh = data.endTimeMs && now - data.endTimeMs < REACTION_WAIT_MS;
         setMatchBlurb(matchId, blurb, { finalized: !fresh, endTimeMs: data.endTimeMs });
         return fresh
-          ? { blurb, pending: true, retryInMs: data.endTimeMs + REACTION_WAIT_MS - now + 15_000 }
-          : DONE(blurb);
+          ? { blurb, pending: true, badges: data.badges, retryInMs: data.endTimeMs + REACTION_WAIT_MS - now + 15_000 }
+          : DONE(blurb, data.badges);
       }
 
       // Phase 2: did anyone in the lobby react since the game ended?
@@ -300,7 +335,7 @@ export async function generateMatchBlurb(matchId) {
         if (rewritten) blurb = rewritten;
       }
       setMatchBlurb(matchId, blurb, { finalized: 1 });
-      return DONE(blurb);
+      return DONE(blurb, data.badges);
     } catch (err) {
       console.warn(`[Blurb] Generation failed for ${matchId}: ${err.message}`);
       // Don't cache failures — a later request can retry

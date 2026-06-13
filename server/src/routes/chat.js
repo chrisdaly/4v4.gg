@@ -56,6 +56,7 @@ router.get('/match-blurb/:matchId', async (req, res) => {
     blurb: result.blurb || null,
     pending: result.pending || false,
     retryInMs: result.retryInMs,
+    badges: result.badges || [],
   });
 });
 
