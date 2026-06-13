@@ -173,7 +173,5 @@ export function computeNote(ctx, { playerScores = null, matchPlayers = null } = 
   }
   const leaver = all.find((p) => p.mmrGain != null && p.mmrGain <= -30);
   if (leaver) return subject(leaver.battleTag, `dropped early (${leaver.mmrGain})`);
-  if (w != null && l != null && Math.abs(w - l) <= 5) return plain("dead-even lobby");
-  if (w != null && l != null && (w + l) / 2 >= 1800) return plain("high-level lobby");
   return null;
 }

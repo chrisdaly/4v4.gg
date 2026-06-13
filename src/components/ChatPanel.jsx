@@ -14,6 +14,7 @@ import { linkifyMessage, playPing } from "../lib/chatExtras";
 import PlayerHoverCard from "./PlayerHoverCard";
 import MiniTeamsRow from "./MiniMatchCard";
 import MatchNote from "./MatchNote";
+import StreakBadges from "./StreakBadges";
 import { getPlayerProfile } from "../lib/api";
 import useAdmin from "../lib/useAdmin";
 
@@ -1394,9 +1395,12 @@ export default function ChatPanel({
   useEffect(() => {
     const lastId = messages[messages.length - 1]?.id ?? null;
     const isNewTail = lastId !== lastMsgIdRef.current;
+    const isInitialLoad = lastMsgIdRef.current === null;
     lastMsgIdRef.current = lastId;
     if (autoScroll) {
-      stickToBottom(true);
+      // Initial load: instant scroll so the 200ms programmatic window can't
+      // expire mid-animation and misread it as a user scroll → autoScroll=false
+      stickToBottom(!isInitialLoad);
     } else if (isNewTail && messages.length > 0) {
       setShowNotice(true);
     }
@@ -1632,6 +1636,11 @@ export default function ChatPanel({
                                 note={ev.note}
                                 avatarUrl={ev.note.tag ? avatars?.get(ev.note.tag)?.profilePicUrl : null}
                               />
+                            </EventNote>
+                          )}
+                          {isEnd && ev.badges?.length > 0 && (
+                            <EventNote>
+                              <StreakBadges badges={ev.badges} />
                             </EventNote>
                           )}
                         </EventBody>

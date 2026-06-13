@@ -178,6 +178,30 @@ export const getPlayerTimelineMerged = async (battleTag, seasonOverride = season
 };
 
 /**
+ * Get a player's ALL-TIME MMR timeline: getPlayerTimelineMerged across every
+ * season, concatenated chronologically. Per-race/per-season calls are cached,
+ * so refreshes (e.g. the OBS overlay's 30s poll) are cheap.
+ *
+ * @param {string} battleTag
+ * @returns {Promise<number[]>} - MMR values, oldest season first
+ */
+export const getPlayerTimelineAllTime = async (battleTag) => {
+  try {
+    let seasons = await getSeasons();
+    if (!seasons || seasons.length === 0) seasons = [{ id: season }];
+
+    const sortedSeasons = [...seasons].sort((a, b) => a.id - b.id);
+    const perSeason = await Promise.all(
+      sortedSeasons.map((s) => getPlayerTimelineMerged(battleTag, s.id))
+    );
+    return perSeason.flat();
+  } catch (error) {
+    console.error(`Error fetching all-time timeline for ${battleTag}:`, error);
+    return [];
+  }
+};
+
+/**
  * Get player's recent matches
  *
  * @param {string} battleTag
@@ -366,22 +390,22 @@ const RELAY_BASE =
  * lounge. While provisional, responses carry `pending` + `retryInMs`;
  * only finalized blurbs are cached client-side.
  *
- * @returns {Promise<{blurb: string|null, pending: boolean, retryInMs?: number}>}
+ * @returns {Promise<{blurb: string|null, pending: boolean, retryInMs?: number, badges?: Array}>}
  */
 export const getMatchBlurb = async (matchId) => {
   const cacheKey = `blurb:${matchId}`;
   const cached = cache.get(cacheKey);
-  if (cached) return { blurb: cached, pending: false };
+  if (cached) return { blurb: cached.blurb, badges: cached.badges || [], pending: false };
   try {
     const res = await fetch(`${RELAY_BASE}/api/chat/match-blurb/${encodeURIComponent(matchId)}`);
-    if (!res.ok) return { blurb: null, pending: false };
+    if (!res.ok) return { blurb: null, badges: [], pending: false };
     const data = await res.json();
     if (data?.blurb && !data.pending) {
-      cache.set(cacheKey, data.blurb, 24 * 60 * 60 * 1000);
+      cache.set(cacheKey, { blurb: data.blurb, badges: data.badges || [] }, 24 * 60 * 60 * 1000);
     }
-    return { blurb: data?.blurb || null, pending: !!data?.pending, retryInMs: data?.retryInMs };
+    return { blurb: data?.blurb || null, badges: data?.badges || [], pending: !!data?.pending, retryInMs: data?.retryInMs };
   } catch {
-    return { blurb: null, pending: false };
+    return { blurb: null, badges: [], pending: false };
   }
 };
 
