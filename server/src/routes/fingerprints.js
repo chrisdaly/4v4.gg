@@ -898,32 +898,12 @@ async function fetchPlayerSeasonTimeline(battleTag, season) {
 }
 
 async function fetchPlayerRecentInfo(battleTag) {
-  const W3C_API = 'https://website-backend.w3champions.com/api';
   const seasons = [24, 23, 22, 21, 20, 19, 18, 17, 16];
   const results = await Promise.all(seasons.map(async (season) => {
     try {
-      if (season === 24) {
-        // Current season: full timeline across all races for per-day granularity
-        const tl = await fetchPlayerSeasonTimeline(battleTag, season);
-        if (!tl) return null;
-        return { season, lastPlayed: tl.lastPlayed, mmr: tl.mmr, matchDays: tl.matchDays };
-      }
-      // Historical seasons: just need lastPlayed + MMR
-      const url = `${W3C_API}/matches/search?playerId=${encodeURIComponent(battleTag)}&offset=0&gameMode=4&season=${season}&gateway=20&pageSize=1`;
-      const res = await fetch(url, { signal: AbortSignal.timeout(3500) });
-      if (!res.ok) return null;
-      const data = await res.json();
-      const matches = data?.matches || [];
-      if (matches.length === 0) return null;
-      const match = matches[0];
-      let mmr = null;
-      for (const team of match.teams || []) {
-        for (const p of team.players || []) {
-          if (p.battleTag === battleTag) { mmr = p.currentMmr; break; }
-        }
-        if (mmr != null) break;
-      }
-      return { season, lastPlayed: match.startTime || match.endTime, mmr, matchDays: null };
+      const tl = await fetchPlayerSeasonTimeline(battleTag, season);
+      if (!tl) return null;
+      return { season, lastPlayed: tl.lastPlayed, mmr: tl.mmr, matchDays: tl.matchDays };
     } catch (_e) { return null; }
   }));
   const seasonActivity = results.filter(r => r != null);
