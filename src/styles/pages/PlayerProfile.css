@@ -1596,6 +1596,10 @@
 }
 
 @media (max-width: 768px) {
+  .player-container {
+    padding: 0 12px 40px 12px;
+  }
+
   .player-highlights {
     flex-direction: column;
     gap: 16px;
@@ -1632,6 +1636,10 @@
 }
 
 @media (max-width: 480px) {
+  .player-container {
+    padding: 0 8px 40px 8px;
+  }
+
   .player-page .player-name {
     font-size: var(--text-lg);
   }

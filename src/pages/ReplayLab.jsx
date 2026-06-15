@@ -9,12 +9,14 @@ import SmurfsTab from "./replay-lab/SmurfsTab";
 import CompareTab from "./replay-lab/CompareTab";
 import GalleryTab from "./replay-lab/GalleryTab";
 import ValidationTab from "./replay-lab/ValidationTab";
+import InvestigateTab from "./replay-lab/InvestigateTab";
 
 const TABS = [
   { key: "scout", label: "Scout" },
   { key: "explore", label: "Explore" },
   { key: "gallery", label: "Gallery" },
   { key: "smurfs", label: "Smurfs" },
+  { key: "identify", label: "Identify" },
   { key: "compare", label: "Compare" },
   { key: "validation", label: "Validation" },
 ];
@@ -35,6 +37,10 @@ const TAB_CONTENT = {
   smurfs: {
     title: "Smurf Detection",
     lead: "Suspect pairs ranked by playstyle similarity. High scores indicate players who may share an account or be the same person.",
+  },
+  identify: {
+    title: "Identify",
+    lead: "Search any player to get a smurf verdict — confident, possible, or no match — backed by fingerprint + neural similarity.",
   },
   compare: {
     title: "Compare Replays",
@@ -112,6 +118,7 @@ function ReplayLabInner() {
         {activeTab === "explore" && <ExploreTab initialPlayer={initialPlayer} />}
         {activeTab === "gallery" && <GalleryTab />}
         {activeTab === "smurfs" && <SmurfsTab />}
+        {activeTab === "identify" && <InvestigateTab />}
         {activeTab === "compare" && <CompareTab />}
         {activeTab === "validation" && <ValidationTab />}
       </Inner>

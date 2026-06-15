@@ -473,6 +473,82 @@ router.get('/:id', requireApiKey, (req, res) => {
   });
 });
 
+// GET /api/replays/:id/detail — Re-parse file for full action detail (ability code, target, coords)
+router.get('/:id/detail', requireApiKey, async (req, res) => {
+  const id = parseInt(req.params.id);
+  if (isNaN(id)) return res.status(400).json({ error: 'Invalid ID' });
+
+  const replay = getReplay(id);
+  if (!replay) return res.status(404).json({ error: 'Replay not found' });
+  if (!replay.file_path) return res.status(404).json({ error: 'Replay file path not stored' });
+
+  const fromMs = parseInt(req.query.from) || 0;
+  const toMs = parseInt(req.query.to) || Infinity;
+  const filterPlayerId = req.query.playerId ? parseInt(req.query.playerId) : null;
+
+  // Re-parse from disk to get full action detail
+  const W3GReplay = (await import('w3gjs')).default;
+  const { readFileSync } = await import('fs');
+
+  const parser = new W3GReplay();
+  const detailActions = []; // { ms, playerId, id, abilityCode, x, y, targetObj, flags }
+  let elapsed = 0;
+
+  const ACTION_NAMES = {
+    0x10: 'no-target', 0x11: 'point-target', 0x12: 'unit-target',
+    0x13: 'two-target', 0x14: 'pos+obj-target',
+    0x16: 'selection-change', 0x17: 'assign-group', 0x18: 'select-group',
+    0x19: 'select-subgroup', 0x61: 'esc', 0x66: 'hero-skill', 0x67: 'build', 0x68: 'minimap-ping',
+  };
+
+  function fourCC(arr) {
+    if (!arr || arr.length !== 4) return null;
+    return String.fromCharCode(arr[3], arr[2], arr[1], arr[0]);
+  }
+
+  parser.on('gamedatablock', (block) => {
+    if (block.id !== 0x1f && block.id !== 0x1e) return;
+    elapsed += block.timeIncrement;
+    if (elapsed < fromMs || elapsed > toMs) return;
+
+    for (const cmd of block.commandBlocks || []) {
+      if (filterPlayerId !== null && cmd.playerId !== filterPlayerId) continue;
+      for (const action of cmd.actions || []) {
+        // Dump all keys w3gjs exposes so we can find where abilityCode lives
+        const raw = {};
+        for (const k of Object.keys(action)) {
+          const v = action[k];
+          raw[k] = Array.isArray(v) ? v : v;
+        }
+        detailActions.push({
+          ms: elapsed,
+          playerId: cmd.playerId,
+          id: action.id,
+          type: ACTION_NAMES[action.id] || `0x${action.id.toString(16)}`,
+          abilityCode: fourCC(action.itemId) || null,
+          flags: action.abilityFlags ?? null,
+          x: action.x ?? null,
+          y: action.y ?? null,
+          targetObj: action.object ? `${action.object[0]}:${action.object[1]}` : null,
+          groupNumber: action.groupNumber != null ? (action.groupNumber + 1) % 10 : null,
+          _raw: raw,
+        });
+      }
+    }
+  });
+
+  try {
+    const buffer = readFileSync(replay.file_path);
+    await parser.parse(buffer);
+  } catch (err) {
+    return res.status(422).json({ error: 'Failed to re-parse replay', detail: err.message });
+  } finally {
+    parser.removeAllListeners('gamedatablock');
+  }
+
+  res.json({ replayId: id, fromMs, toMs, filterPlayerId, count: detailActions.length, actions: detailActions });
+});
+
 // GET /api/replays/:id/chat — Chat messages for a replay
 router.get('/:id/chat', requireApiKey, (req, res) => {
   const id = parseInt(req.params.id);

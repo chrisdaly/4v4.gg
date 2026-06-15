@@ -310,6 +310,91 @@ const Game = ({ playerData: rawPlayerData, metaData, profilePics, playerCountrie
     );
   };
 
+  const renderMobilePlayer = (player, teamClassName) => {
+    const { oldMmr } = player;
+    const playerSession = sessionData?.[player.battleTag];
+    const playerIsAT = isPlayerAT(player.battleTag);
+
+    return (
+      <div key={player.battleTag} className={`gm-player ${teamClassName} ${playerIsAT ? "is-at" : ""} ${player.isMvp ? "is-mvp" : ""}`}>
+        <div style={{ position: "relative", display: "inline-block" }}>
+          {profilePics[player.battleTag] && (
+            <img
+              src={profilePics[player.battleTag]}
+              alt=""
+              className={`profile-pic ${player.isMvp ? "mvp" : ""}`}
+            />
+          )}
+          {playerCountries[player.battleTag] && (
+            <CountryFlag
+              name={playerCountries[player.battleTag].toLowerCase()}
+              className={`${teamClassName} flag player-flag`}
+            />
+          )}
+          {player.isMvp && (
+            <div className={`mvp-badge ${teamClassName}`}>
+              <span className="mvp-text">MVP</span>
+            </div>
+          )}
+          <img src={raceMapping[player.race]} alt="" className="race-overlay" />
+        </div>
+        <Link to={`/player/${player.battleTag.replace("#", "%23")}`} className="gm-player-name">
+          {player.name}
+        </Link>
+        <div className="gm-player-mmr">
+          {oldMmr && oldMmr > 0 ? (
+            <span className="mmr-value">{oldMmr}</span>
+          ) : (
+            <span className="mmr-label-muted">—</span>
+          )}
+        </div>
+        <FormDots form={playerSession?.form} size="small" />
+      </div>
+    );
+  };
+
+  const renderMobileStats = () => {
+    if (!playerData[0]?.unitScore) return null;
+
+    const team1 = playerData.slice(0, 4);
+    const team2 = playerData.slice(4);
+    const sumTeam = (players, scoreType, statName) =>
+      players.reduce((acc, p) => acc + (p[scoreType]?.[statName] || 0), 0);
+
+    const statGroups = [
+      { type: "heroScore", stats: Object.keys(playerData[0].heroScore || {}) },
+      { type: "unitScore", stats: Object.keys(playerData[0].unitScore).filter(k => !excludedKeys.includes(k)) },
+      { type: "resourceScore", stats: Object.keys(playerData[0].resourceScore || {}).filter(k => !excludedKeys.includes(k)) },
+    ];
+
+    return (
+      <div className="gm-stats">
+        <div className="gm-stats-title">Match Stats</div>
+        {statGroups.map(({ type, stats }) =>
+          stats.map(statName => {
+            const t1 = sumTeam(team1, type, statName);
+            const t2 = sumTeam(team2, type, statName);
+            const label = keyDisplayNameMapping[statName] || statName;
+            const lowerIsBetter = statName === "goldUpkeepLost";
+            const t1Win = lowerIsBetter ? t1 <= t2 : t1 >= t2;
+            const t2Win = lowerIsBetter ? t2 <= t1 : t2 >= t1;
+            return (
+              <div key={`${type}-${statName}`} className="gm-stat-row">
+                <span className={`gm-stat-value ${t1Win ? "green-text" : "red-text"}`}>
+                  {t1.toLocaleString("en-US")}
+                </span>
+                <span className="gm-stat-label">{label}</span>
+                <span className={`gm-stat-value ${t2Win ? "green-text" : "red-text"}`}>
+                  {t2.toLocaleString("en-US")}
+                </span>
+              </div>
+            );
+          })
+        )}
+      </div>
+    );
+  };
+
   // Calculate team MMRs (geometric mean) and standard deviation
   const { team1MmrArray, team2MmrArray, team1AvgMmr, team2AvgMmr } = useMemo(() => {
     if (!playerData || playerData.length < 8) return { team1MmrArray: [], team2MmrArray: [], team1AvgMmr: 0, team2AvgMmr: 0 };
@@ -468,6 +553,83 @@ const Game = ({ playerData: rawPlayerData, metaData, profilePics, playerCountrie
           </tr>
         </tbody>
       </table>
+
+      {/* Mobile layout — stacked, no horizontal scroll */}
+      <div className="game-mobile">
+        <div className={`gm-team-header ${team1Won ? "winner" : ""}`}>
+          {team1Won && <span className="winner-badge">W</span>}
+          <span className="gm-team-label">TEAM 1</span>
+          <span className="gm-team-mmr">
+            <span className="mmr-value">{team1AvgMmr}</span>
+            <span className="mmr-label"> MMR</span>
+          </span>
+          <div className="gm-race-icons">
+            {playerData.slice(0, 4).map((d, i) => (
+              <RaceIcon key={i} race={d.race} rndRace={d.rndRace} className="race teamHeaderRace" />
+            ))}
+          </div>
+        </div>
+
+        <div className="gm-players">
+          {playerData.slice(0, 4).map((player) => renderMobilePlayer(player, "team-0"))}
+        </div>
+
+        <div className="gm-chart">
+          <MmrComparison
+            data={{
+              teamOneMmrs: team1MmrArray,
+              teamTwoMmrs: team2MmrArray,
+              teamOneAT: playerData.slice(0, 4).map((d) => getATGroupId(d.battleTag)),
+              teamTwoAT: playerData.slice(4).map((d) => getATGroupId(d.battleTag)),
+            }}
+            variant="scorecard"
+            compact={true}
+          />
+        </div>
+
+        <div className="gm-players">
+          {playerData.slice(4).map((player) => renderMobilePlayer(player, "team-1"))}
+        </div>
+        <div className={`gm-team-header ${team2Won ? "winner" : ""}`}>
+          <span className="gm-team-label">TEAM 2</span>
+          <span className="gm-team-mmr">
+            <span className="mmr-value">{team2AvgMmr}</span>
+            <span className="mmr-label"> MMR</span>
+          </span>
+          {team2Won && <span className="winner-badge">W</span>}
+          <div className="gm-race-icons">
+            {playerData.slice(4).map((d, i) => (
+              <RaceIcon key={i} race={d.race} rndRace={d.rndRace} className="race teamHeaderRace" />
+            ))}
+          </div>
+        </div>
+
+        {renderMobileStats()}
+
+        <div className="gm-meta">
+          <img
+            src={getMapImageUrl(metaData.mapId)}
+            alt="map"
+            className="gm-meta-map"
+            onError={(e) => { e.target.style.display = "none"; }}
+          />
+          <div className="gm-meta-info">
+            <span className="meta-map-name">{metaData.mapName}</span>
+            <span className="meta-details">
+              {metaData.gameLength === "0:00"
+                ? calculateElapsedTime(metaData.startTime)
+                : metaData.gameLength} mins
+              {metaData.gameLength === "0:00" && <span className="live-dot"></span>}
+            </span>
+            {metaData.server && <span className="meta-server">{metaData.server}</span>}
+          </div>
+          {metaData.matchId && metaData.gameLength !== "0:00" && (
+            <Link to={`/match/${metaData.matchId}`} className="meta-match-id gm-meta-link">
+              #{metaData.matchId}
+            </Link>
+          )}
+        </div>
+      </div>
     </div>
   );
 };

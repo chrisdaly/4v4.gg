@@ -102,17 +102,15 @@ export default function PlaystyleReport({ profileData }) {
   if (!profileData?.averaged?.segments) return null;
 
   const { segments } = profileData.averaged;
-  const { transitionPairs = [], groupUsage = [], groupCompositions = {}, actionCounts } = profileData;
-
-  const notes = buildNotes({ segments, transitionPairs, groupUsage, actionCounts });
+  const { transitionPairs = [], groupUsage = [], groupCompositions = {}, actionCounts, heroBuilds = {} } = profileData;
 
   return (
     <Wrap>
-      {notes.length > 0 && <NotesSection notes={notes} />}
-      <LoopInfo transitionPairs={transitionPairs} />
       <GroupRoster groupUsage={groupUsage} groupCompositions={groupCompositions} />
+      <LoopInfo transitionPairs={transitionPairs} />
       <SpeedProfile segments={segments} actionCounts={actionCounts} />
       <SignalSection actionCounts={actionCounts} />
+      <HeroBuildsSection heroBuilds={heroBuilds} />
     </Wrap>
   );
 }
@@ -192,6 +190,14 @@ function buildNotes({ segments, transitionPairs, groupUsage, actionCounts }) {
     }
   }
 
+  // Surround habit — meaningful smurf signal (skilled players surround constantly)
+  if (actionCounts?.surroundPerMin >= 8) {
+    const sizeNote = actionCounts.surroundAvgSize >= 4 ? `, avg ${actionCounts.surroundAvgSize} clicks per burst` : "";
+    notes.push({ text: `Active surrounder — ${actionCounts.surroundPerMin}/min move bursts${sizeNote}`, tone: "green" });
+  } else if (actionCounts?.surroundPerMin > 0 && actionCounts.surroundPerMin < 2 && actionCounts.replayCount >= 3) {
+    notes.push({ text: `Rarely surrounds — only ${actionCounts.surroundPerMin} move bursts/min`, tone: "neutral" });
+  }
+
   // Speed + tempo combos
   if (meanApm >= 250 && burst < 1.3) notes.push({ text: "Machine-gun pace — extremely fast AND steady", tone: "gold" });
   else if (meanApm >= 250 && burst >= 2.0) notes.push({ text: "Explosive — extremely fast with huge fight-mode spikes", tone: "gold" });
@@ -213,83 +219,163 @@ function NotesSection({ notes }) {
   );
 }
 
-/* ── Section 1: Loop Info (tick vs functional) ─────── */
+/* ── Section 1: Loop Info — visual mini glyph ───────── */
+
+function LoopGlyph({ nodeA, nodeB, rapidPct }) {
+  const W = 130, H = 64, r = 16;
+  const ax = r + 4, ay = H / 2;
+  const bx = W - r - 4, by = H / 2;
+  const midX = (ax + bx) / 2;
+  const BOW = 18;
+  const gold = "#eab308";
+
+  return (
+    <svg width={W} height={H} style={{ display: "block", overflow: "visible" }}>
+      {/* A→B arc bowing up */}
+      <path d={`M${ax},${ay} Q${midX},${ay - BOW} ${bx},${by}`}
+        fill="none" stroke={gold} strokeWidth={2} opacity={0.8} strokeLinecap="round" />
+      {/* B→A arc bowing down */}
+      <path d={`M${bx},${by} Q${midX},${ay + BOW} ${ax},${ay}`}
+        fill="none" stroke={gold} strokeWidth={1.5} opacity={0.45} strokeLinecap="round" />
+      {/* Node A */}
+      <circle cx={ax} cy={ay} r={r} fill="#0f172a" />
+      <circle cx={ax} cy={ay} r={r} fill="none" stroke={gold} strokeWidth={2.5} opacity={0.85} />
+      <text x={ax} y={ay} textAnchor="middle" dominantBaseline="central"
+        fill={gold} fontSize="14" fontFamily="Inconsolata,monospace" fontWeight="700">{nodeA}</text>
+      {/* Node B */}
+      <circle cx={bx} cy={by} r={r} fill="#0f172a" />
+      <circle cx={bx} cy={by} r={r} fill="none" stroke={gold} strokeWidth={2.5} opacity={0.85} />
+      <text x={bx} y={by} textAnchor="middle" dominantBaseline="central"
+        fill={gold} fontSize="14" fontFamily="Inconsolata,monospace" fontWeight="700">{nodeB}</text>
+    </svg>
+  );
+}
+
+function detectLoops(transitionPairs, total) {
+  const seen = new Set();
+  const loops = [];
+  for (const t of transitionPairs) {
+    const key = `${Math.min(t.from, t.to)}-${Math.max(t.from, t.to)}`;
+    if (seen.has(key)) continue;
+    const rev = transitionPairs.find(r => r.from === t.to && r.to === t.from);
+    if (!rev) continue;
+    seen.add(key);
+    const oscPct = Math.round(((t.count + rev.count) / total) * 100);
+    if (oscPct < 5) continue;
+    const avgRapidPct = (t.rapidPct != null || rev.rapidPct != null)
+      ? Math.round(((t.rapidPct || 0) + (rev.rapidPct || 0)) / 2)
+      : null;
+    const medGap = t.medianGapMs || rev.medianGapMs || null;
+    loops.push({ a: t.from, b: t.to, oscPct, avgRapidPct, medGap });
+  }
+  return loops;
+}
 
 function LoopInfo({ transitionPairs }) {
   if (!transitionPairs || transitionPairs.length === 0) return null;
-
   const total = transitionPairs.reduce((s, t) => s + t.count, 0);
   if (total === 0) return null;
 
-  const top = transitionPairs[0];
-  const reverse = transitionPairs.find(
-    (t, i) => i > 0 && t.from === top.to && t.to === top.from
-  );
-  const isOscillation = reverse && transitionPairs.indexOf(reverse) <= 2;
-  if (!isOscillation) return null;
+  const loops = detectLoops(transitionPairs, total);
+  if (loops.length === 0) return null;
 
-  const oscPct = Math.round(((top.count + reverse.count) / total) * 100);
-  const hasRapid = top.rapidPct != null || (reverse && reverse.rapidPct != null);
-  const avgRapidPct = hasRapid
-    ? Math.round(((top.rapidPct || 0) + ((reverse && reverse.rapidPct) || 0)) / 2)
-    : null;
-  const medGap = top.medianGapMs || (reverse && reverse.medianGapMs) || null;
-
-  // Only show if we have the tick/functional breakdown — that's the signal
-  if (avgRapidPct == null) return null;
+  const [primary, ...secondary] = loops;
+  const { a, b, oscPct, avgRapidPct, medGap } = primary;
 
   return (
-    <LoopSection>
-      <SectionLabel>LOOP</SectionLabel>
-      <LoopContent>
-        <LoopBreakdown>
-          <LoopBar>
-            <LoopBarRapid style={{ width: `${avgRapidPct}%` }} />
-          </LoopBar>
-          <LoopLabels>
-            <LoopLabel $color={avgRapidPct >= 40 ? "var(--gold)" : "var(--grey-light)"}>
-              {avgRapidPct}% nervous tick
-            </LoopLabel>
-            <LoopLabel $color="var(--grey-mid)">
-              {100 - avgRapidPct}% functional
-            </LoopLabel>
-            {medGap != null && (
-              <LoopLabel $color="var(--grey-mid)">
-                ~{medGap}ms gap
-              </LoopLabel>
-            )}
-            <LoopLabel $color="var(--grey-mid)">
-              {oscPct}% of switches
-            </LoopLabel>
-          </LoopLabels>
-        </LoopBreakdown>
-      </LoopContent>
-    </LoopSection>
+    <Section>
+      <SectionLabel>LOOP{loops.length > 1 ? `S` : ""}</SectionLabel>
+      <SectionBody>
+        {/* Primary loop — full detail */}
+        <PrimaryLoopRow>
+          <LoopLeft>
+            <LoopPct>{oscPct}%</LoopPct>
+            <LoopPctLabel>of switches</LoopPctLabel>
+          </LoopLeft>
+          <LoopGlyph nodeA={a} nodeB={b} />
+          {avgRapidPct != null && (
+            <LoopBreakdown>
+              <LoopRow>
+                <LoopRowLabel $color="var(--gold)">SPAM</LoopRowLabel>
+                <LoopRowTrack>
+                  <LoopRowFill $color="var(--gold)" style={{ width: `${avgRapidPct}%` }} />
+                </LoopRowTrack>
+                <LoopRowVal>{avgRapidPct}%</LoopRowVal>
+              </LoopRow>
+              <LoopRow>
+                <LoopRowLabel $color="var(--green)">FUNC</LoopRowLabel>
+                <LoopRowTrack>
+                  <LoopRowFill $color="var(--green)" style={{ width: `${100 - avgRapidPct}%` }} />
+                </LoopRowTrack>
+                <LoopRowVal>{100 - avgRapidPct}%</LoopRowVal>
+              </LoopRow>
+            </LoopBreakdown>
+          )}
+        </PrimaryLoopRow>
+        {medGap != null && <LoopGapLabel>~{medGap}ms avg gap</LoopGapLabel>}
+        {/* Secondary loops — compact single line each */}
+        {secondary.length > 0 && (
+          <SecondaryLoops>
+            {secondary.map(l => (
+              <SecondaryLoop key={`${l.a}-${l.b}`}>
+                <SecondaryPct>{l.oscPct}%</SecondaryPct>
+                <SecondaryNodes>{l.a} ↔ {l.b}</SecondaryNodes>
+              </SecondaryLoop>
+            ))}
+          </SecondaryLoops>
+        )}
+      </SectionBody>
+    </Section>
   );
 }
 
 /* ── Section 2: Group Roster ─────────────────────────── */
 
-/**
- * Infer group role from composition. Binary: Units or Buildings.
- */
+// Kept in sync with TransitionGlyph.jsx SUPPORT_UNITS
+const SUPPORT_IDS = new Set([
+  'hmpr', 'hsor', 'hdhw',
+  'oshm', 'odoc', 'osp1', 'owvy',
+  'edry', 'edoc', 'efdr',
+  'unec', 'uban', 'uobs', 'umtw',
+  'hpea', 'opeo', 'uaco', 'ewsp',
+  'nzep', 'ushd',
+]);
+
+const VIOLET = "#a78bfa";
+
 function inferRole(units) {
-  if (units && units.length > 0) {
-    const buildingCount = units.filter(u => u.isBuilding).reduce((s, u) => s + u.count, 0);
-    const totalCount = units.reduce((s, u) => s + u.count, 0);
-    if (totalCount > 0 && buildingCount / totalCount > 0.5) {
-      return { label: "Buildings", color: "var(--grey-mid)" };
-    }
+  if (!units || units.length === 0) return { label: "Units", color: "var(--gold)" };
+  const totalCount = units.reduce((s, u) => s + u.count, 0);
+  if (totalCount === 0) return { label: "Units", color: "var(--gold)" };
+
+  const buildingCount = units.filter(u => u.isBuilding).reduce((s, u) => s + u.count, 0);
+  if (buildingCount / totalCount > 0.5) return { label: "Buildings", color: "var(--grey-light)" };
+
+  const supportCount = units.filter(u => SUPPORT_IDS.has(u.id)).reduce((s, u) => s + u.count, 0);
+  const nonBuildingCount = totalCount - buildingCount;
+  if (nonBuildingCount > 0 && supportCount / nonBuildingCount > 0.3) {
+    return { label: "Support", color: VIOLET };
   }
+
   return { label: "Units", color: "var(--gold)" };
 }
 
-function getUnitImage(id) {
-  if (UNIT_ICONS.has(id)) return `/units/${id}.png`;
+// Alternate unit IDs that map to the same icon file
+const ICON_ALIASES = {
+  owyv: 'owvy',  // Wind Rider alternate ID → owvy.png
+  ospw: 'osp1',  // Spirit Walker upgraded → osp1.png
+  ospm: 'osp1',  // Spirit Walker variant → osp1.png
+};
+
+export function getUnitImage(id) {
+  const resolved = ICON_ALIASES[id] || id;
+  if (UNIT_ICONS.has(resolved)) return `/units/${resolved}.png`;
   return null;
 }
 
-function getGroupUnits(items) {
+export { HERO_IMAGES, BUILDINGS, SHORT_NAMES, UNIT_ICONS };
+
+export function getGroupUnits(items) {
   if (!items || items.length === 0) return [];
   const units = [];
   for (const { id, count } of items) {
@@ -321,17 +407,22 @@ function GroupRoster({ groupUsage, groupCompositions }) {
   const active = (groupUsage || []).filter(g => (g.used + g.assigned) > 0);
   if (active.length === 0) return null;
 
-  const sorted = [...active].sort((a, b) => a.group - b.group);
+  const sorted = [...active].sort((a, b) => {
+    if (a.group === 0) return 1;
+    if (b.group === 0) return -1;
+    return a.group - b.group;
+  });
+  const grandTotal = sorted.reduce((s, g) => s + g.used + g.assigned, 0) || 1;
   const topTotal = Math.max(...sorted.map(g => g.used + g.assigned));
 
   return (
-    <GroupSection>
+    <Section>
       <SectionLabel>GROUPS</SectionLabel>
       <GroupGrid>
         {sorted.map((g) => {
           const total = g.used + g.assigned;
-          const selectPct = total > 0 ? Math.round((g.used / total) * 100) : 0;
-          const volumePct = Math.round((total / topTotal) * 100);
+          const volumePct = Math.round((total / grandTotal) * 100);
+          const barPct = Math.round((total / topTotal) * 100);
           const compItems = groupCompositions[String(g.group)];
           const units = getGroupUnits(compItems);
           const role = inferRole(units);
@@ -341,7 +432,7 @@ function GroupRoster({ groupUsage, groupCompositions }) {
             <GroupRow key={g.group}>
               <GroupNum>{g.group}</GroupNum>
               <BarTrack>
-                <BarFill style={{ width: `${volumePct}%` }} />
+                <BarFill style={{ width: `${barPct}%` }} />
               </BarTrack>
               <GroupPct>{volumePct}%</GroupPct>
               <RoleBadge $color={role.color}>{role.label}</RoleBadge>
@@ -360,52 +451,49 @@ function GroupRoster({ groupUsage, groupCompositions }) {
           );
         })}
       </GroupGrid>
-    </GroupSection>
+    </Section>
   );
 }
 
 /* ── Section 3: Speed Profile ────────────────────────── */
 
 function SpeedProfile({ segments, actionCounts }) {
-  const { apm = [0, 0, 0], tempo = [] } = segments;
+  const { apm = [0, 0, 0] } = segments;
 
   const meanApm = Math.round(apm[0] * 300);
-  const burstRatio = apm[0] > 0 ? apm[2] / apm[0] : 0;
-  const burstLabel =
-    burstRatio >= 2.5 ? "Very bursty" :
-    burstRatio >= 1.5 ? "Bursty" :
-    "Steady";
+  const stdApm = Math.round(apm[2] * 300);
+  const lowApm = Math.max(0, meanApm - stdApm);
+  const highApm = meanApm + stdApm;
+  const barMax = Math.max(highApm + 20, 300);
 
-  const fastPct = tempo.length >= 3
-    ? Math.round((tempo[0] + tempo[1] + tempo[2]) * 100)
-    : null;
-
-  // Simple filled bar: 0–300 APM range
-  const barMax = 300;
-  const fillPct = Math.min((meanApm / barMax) * 100, 100);
+  const lowPct = (lowApm / barMax) * 100;
+  const avgPct = (meanApm / barMax) * 100;
+  const highPct = (highApm / barMax) * 100;
 
   const rhythm = actionCounts?.rhythmMedianMs;
-  const rhythmStd = actionCounts?.rhythmStdMs;
 
   return (
-    <SpeedSection>
+    <Section>
       <SectionLabel>SPEED</SectionLabel>
-      <SpeedContent>
+      <SectionBody>
         <SpeedRow>
           <ApmValue>{meanApm}</ApmValue>
-          <ApmUnit>APM</ApmUnit>
-          <ApmBar>
-            <ApmBarFill style={{ width: `${fillPct}%` }} />
-          </ApmBar>
+          <ApmUnit>APM avg</ApmUnit>
         </SpeedRow>
-        <SpeedMeta>
-          <span>{burstLabel} ({burstRatio.toFixed(1)}x)</span>
-          {fastPct != null && <><Muted> · </Muted><span>{fastPct}% sub-200ms</span></>}
-          {rhythm != null && <><Muted> · </Muted><span>{rhythm}ms rhythm</span></>}
-          {rhythmStd != null && <><Muted> ±</Muted><span>{rhythmStd}ms</span></>}
-        </SpeedMeta>
-      </SpeedContent>
-    </SpeedSection>
+        <ApmRangeWrap>
+          <ApmRangeBar>
+            <ApmRangeFill style={{ left: `${lowPct}%`, right: `${100 - highPct}%` }} />
+            <ApmRangeMarker style={{ left: `${avgPct}%` }} />
+          </ApmRangeBar>
+          <ApmRangeLabels>
+            <ApmRangeLabel style={{ left: `${lowPct}%` }}>{lowApm}</ApmRangeLabel>
+            <ApmRangeLabel style={{ left: `${avgPct}%`, color: "#fff", fontWeight: 700 }}>{meanApm}</ApmRangeLabel>
+            <ApmRangeLabel style={{ left: `${highPct}%` }}>{highApm}</ApmRangeLabel>
+          </ApmRangeLabels>
+        </ApmRangeWrap>
+        {rhythm != null && <SpeedMeta>{rhythm}ms median between actions</SpeedMeta>}
+      </SectionBody>
+    </Section>
   );
 }
 
@@ -414,27 +502,101 @@ function SpeedProfile({ segments, actionCounts }) {
 function SignalSection({ actionCounts }) {
   if (!actionCounts) return null;
 
+  const surroundDesc = actionCounts.surroundAvgSize > 0
+    ? `surround bursts (avg ${actionCounts.surroundAvgSize} clicks)`
+    : "surround bursts";
   const items = [
-    { label: "Rebind", value: actionCounts.assignPerMin, desc: "group reassigns/min", quality: 6.93 },
-    { label: "Tab", value: actionCounts.tabPerMin, desc: "subgroup cycles/min", quality: 2.38 },
-    { label: "Reassign %", value: actionCounts.reassignRatio, desc: "of group actions", suffix: "%", quality: 0.96 },
-    { label: "A-move", value: actionCounts.attackMovePerMin, desc: "/min", quality: null },
+    { label: "Tab", value: actionCounts.tabPerMin, icon: "⇥", desc: "subgroup cycles" },
+    { label: "A-move", value: actionCounts.attackMovePerMin, icon: "⚔", desc: "attack-move" },
+    { label: "Surround", value: actionCounts.surroundPerMin, icon: "⟳", desc: surroundDesc },
   ].filter(i => i.value > 0);
 
   if (items.length === 0) return null;
 
   return (
-    <Row>
+    <Section>
       <SectionLabel>HABITS</SectionLabel>
-      <HabitPills>
-        {items.map(item => (
-          <HabitPill key={item.label}>
-            <HabitVal>{item.value}{item.suffix || "/min"}</HabitVal>
-            <HabitLabel>{item.label}</HabitLabel>
-          </HabitPill>
-        ))}
-      </HabitPills>
-    </Row>
+      <SectionBody>
+        <HabitList>
+          {items.map(item => (
+            <HabitRow key={item.label}>
+              <HabitIcon>{item.icon}</HabitIcon>
+              <HabitVal>{item.value}/min</HabitVal>
+              <HabitLabel>{item.desc}</HabitLabel>
+            </HabitRow>
+          ))}
+        </HabitList>
+      </SectionBody>
+    </Section>
+  );
+}
+
+/* ── Section 5: Hero Builds ──────────────────────────── */
+
+// Ability FourCC → short display name. Codes verified against
+// github.com/jcfieldsdev/warcraft3-hotkey-editor (lowercase → capitalize first two chars)
+const ABILITY_NAMES = {
+  // Death Knight
+  AUdc: 'Coil', AUau: 'Aura', AUdp: 'Pact', AUan: 'Animate',
+  // Lich
+  AUfn: 'Nova', AUfu: 'Armor', AUdr: 'Ritual', AUdd: 'Decay',
+  // Dread Lord
+  AUcs: 'Swarm', AUsl: 'Sleep', AUav: 'Vampiric', AUin: 'Inferno',
+  // Crypt Lord
+  AUim: 'Impale', AUcb: 'Beetles', AUts: 'Carapace', AUls: 'Locusts',
+  // Blademaster
+  AOmi: 'Mirror', AOcr: 'Crit', AOwk: 'Wind Walk', AOww: 'Bladestorm',
+  // Far Seer
+  AOcl: 'Chain', AOfs: 'Far Sight', AOsf: 'Wolves', AOeq: 'Earthquake',
+  // Tauren Chieftain
+  AOws: 'War Stomp', AOae: 'Endurance', AOsh: 'Shockwave', AOre: 'Reincarnate',
+  // Shadow Hunter
+  AOhx: 'Hex', AOhw: 'Wave', AOsw: 'Serpent Ward', AOvd: 'Big Bad',
+  // Archmage
+  AHbz: 'Blizzard', AHab: 'Brilliance', AHwe: 'Water Ele', AHmt: 'Mass TP',
+  // Mountain King
+  AHtb: 'Storm Bolt', AHtc: 'Thunder', AHbh: 'Bash', AHav: 'Avatar',
+  // Paladin
+  AHhb: 'Holy', AHad: 'Devotion', AHre: 'Resurrect', AHds: 'Divine Shield',
+  // Blood Mage
+  AHfs: 'Flame Strike', AHbn: 'Banish', AHdr: 'Siphon', AHpe: 'Phoenix',
+  // Keeper of the Grove
+  AEfn: 'Force', AEer: 'Roots', AEah: 'Thorns', AEtq: 'Tranquility',
+  // Priestess of the Moon
+  AEsn: 'Sentinel', AEar: 'Trueshot', AEev: 'Evasion', AEsf: 'Starfall',
+  // Demon Hunter
+  AEmb: 'Mana Burn', AEim: 'Immolation', AEll: 'Metamorphosis',
+  // Warden
+  AEfk: 'Fan', AEbl: 'Blink', AEsh: 'Shadow Strike', AEsv: 'Vengeance',
+};
+
+function formatBuild(path) {
+  if (!path) return '';
+  return path.split('-').map(code => ABILITY_NAMES[code] || code).join(' → ');
+}
+
+function HeroBuildsSection({ heroBuilds }) {
+  const entries = Object.entries(heroBuilds || {});
+  if (entries.length === 0) return null;
+
+  return (
+    <Section>
+      <SectionLabel>HERO BUILDS</SectionLabel>
+      <SectionBody>
+        <HeroBuildList>
+          {entries.map(([heroId, build]) => (
+            <HeroBuildRow key={heroId}>
+              <HeroBuildHero>{heroId}</HeroBuildHero>
+              <HeroBuildPath>{formatBuild(build.mostCommon)}</HeroBuildPath>
+              <HeroBuildMeta>
+                {build.consistency}% consistent
+                {build.games > 1 && ` · ${build.games} games`}
+              </HeroBuildMeta>
+            </HeroBuildRow>
+          ))}
+        </HeroBuildList>
+      </SectionBody>
+    </Section>
   );
 }
 
@@ -447,7 +609,7 @@ const Wrap = styled.div`
   padding: var(--space-6);
   display: flex;
   flex-direction: column;
-  gap: var(--space-4);
+  gap: 0;
   font-family: var(--font-mono);
   font-size: var(--text-sm);
   color: var(--grey-light);
@@ -464,17 +626,71 @@ const Row = styled.div`
   gap: var(--space-4);
 `;
 
-/* Loop breakdown */
+/* Shared section layout */
 
-const LoopSection = styled.div`
-  display: flex;
-  gap: var(--space-4);
+const Section = styled.div`
+  padding: var(--space-4) 0;
+  border-bottom: 1px solid rgba(255,255,255,0.06);
+  &:last-child { border-bottom: none; }
 `;
 
-const LoopContent = styled.div`
+const SectionBody = styled.div`
+  padding-top: var(--space-2);
+`;
+
+/* Loop */
+
+const PrimaryLoopRow = styled.div`
+  display: flex;
+  flex-direction: row;
+  align-items: center;
+  gap: var(--space-4);
+  min-height: 64px;
+`;
+
+const SecondaryLoops = styled.div`
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--space-4);
+  padding-top: var(--space-2);
+  padding-left: 4px;
+`;
+
+const SecondaryLoop = styled.div`
+  display: flex;
+  align-items: baseline;
+  gap: 6px;
+`;
+
+const SecondaryPct = styled.span`
+  font-size: var(--text-xs);
+  font-weight: 700;
+  color: #fff;
+`;
+
+const SecondaryNodes = styled.span`
+  font-size: var(--text-xs);
+  color: var(--grey-light);
+`;
+
+const LoopLeft = styled.div`
   display: flex;
   flex-direction: column;
-  gap: 6px;
+  align-items: flex-end;
+  min-width: 48px;
+`;
+
+const LoopPct = styled.div`
+  font-size: var(--text-lg);
+  font-weight: 700;
+  color: #fff;
+  line-height: 1;
+`;
+
+const LoopPctLabel = styled.div`
+  font-size: 10px;
+  color: var(--grey-light);
+  white-space: nowrap;
 `;
 
 const LoopBreakdown = styled.div`
@@ -483,30 +699,53 @@ const LoopBreakdown = styled.div`
   gap: 3px;
 `;
 
-const LoopBar = styled.div`
-  width: 180px;
+const LoopRow = styled.div`
+  display: flex;
+  align-items: center;
+  gap: 6px;
+`;
+
+const LoopRowLabel = styled.span`
+  font-size: 10px;
+  font-family: var(--font-mono);
+  color: ${p => p.$color || "var(--grey-light)"};
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+  width: 72px;
+  flex-shrink: 0;
+`;
+
+const LoopRowTrack = styled.div`
+  width: 120px;
   height: 5px;
-  background: rgba(255, 255, 255, 0.08);
+  background: rgba(255,255,255,0.08);
   border-radius: var(--radius-sm);
   overflow: hidden;
+  flex-shrink: 0;
 `;
 
-const LoopBarRapid = styled.div`
+const LoopRowFill = styled.div`
   height: 100%;
-  background: var(--gold);
+  background: ${p => p.$color || "var(--gold)"};
   border-radius: var(--radius-sm);
-  opacity: 0.7;
+  opacity: 0.75;
 `;
 
-const LoopLabels = styled.div`
-  display: flex;
-  gap: 8px;
+const LoopRowVal = styled.span`
   font-size: var(--text-xs);
+  color: #fff;
+  font-weight: 600;
+  width: 28px;
+  text-align: right;
 `;
 
-const LoopLabel = styled.span`
-  color: ${p => p.$color || "var(--grey-light)"};
+const LoopGapLabel = styled.div`
+  font-size: var(--text-xs);
+  color: var(--grey-light);
+  padding-top: 3px;
+  padding-left: 78px;
 `;
+
 
 const SectionLabel = styled.span`
   font-family: var(--font-mono);
@@ -569,17 +808,11 @@ const Note = styled.div`
 
 /* Group Roster */
 
-const GroupSection = styled.div`
-  display: flex;
-  flex-direction: column;
-  gap: 6px;
-`;
-
 const GroupGrid = styled.div`
   display: flex;
   flex-direction: column;
   gap: 5px;
-  padding-left: 80px;
+  padding-top: var(--space-2);
 `;
 
 const GroupRow = styled.div`
@@ -657,17 +890,10 @@ const UnitName = styled.span`
 
 /* Speed */
 
-const SpeedSection = styled.div`
-  display: flex;
-  gap: var(--space-4);
-`;
-
 const SpeedContent = styled.div`
-  flex: 1;
-  min-width: 0;
   display: flex;
   flex-direction: column;
-  gap: 4px;
+  gap: 6px;
 `;
 
 const SpeedRow = styled.div`
@@ -690,19 +916,52 @@ const ApmUnit = styled.span`
   letter-spacing: 0.08em;
 `;
 
-const ApmBar = styled.div`
-  flex: 1;
+const ApmRangeWrap = styled.div`
+  position: relative;
+  padding-bottom: 16px;
+  margin-top: var(--space-2);
+`;
+
+const ApmRangeBar = styled.div`
+  position: relative;
   height: 6px;
   background: rgba(255, 255, 255, 0.08);
   border-radius: var(--radius-sm);
-  overflow: hidden;
 `;
 
-const ApmBarFill = styled.div`
-  height: 100%;
+const ApmRangeFill = styled.div`
+  position: absolute;
+  top: 0;
+  bottom: 0;
   background: var(--gold);
+  opacity: 0.45;
   border-radius: var(--radius-sm);
-  opacity: 0.7;
+`;
+
+const ApmRangeMarker = styled.div`
+  position: absolute;
+  top: -3px;
+  width: 3px;
+  height: 12px;
+  background: var(--gold);
+  border-radius: 2px;
+  transform: translateX(-50%);
+`;
+
+const ApmRangeLabels = styled.div`
+  position: absolute;
+  top: 10px;
+  left: 0;
+  right: 0;
+  height: 14px;
+`;
+
+const ApmRangeLabel = styled.span`
+  position: absolute;
+  font-size: 10px;
+  color: var(--grey-light);
+  transform: translateX(-50%);
+  white-space: nowrap;
 `;
 
 const SpeedMeta = styled.div`
@@ -711,38 +970,71 @@ const SpeedMeta = styled.div`
   padding-left: 0;
 `;
 
-/* Habit Pills */
+/* Habits */
 
-const HabitPills = styled.div`
+const HabitList = styled.div`
   display: flex;
-  gap: 8px;
-  flex-wrap: wrap;
+  flex-direction: column;
+  gap: 4px;
 `;
 
-const HabitPill = styled.div`
+const HabitRow = styled.div`
   display: flex;
   align-items: center;
-  gap: 5px;
-  padding: 3px 8px 3px 5px;
-  background: rgba(255, 255, 255, 0.05);
-  border: 1px solid rgba(255, 255, 255, 0.08);
-  border-radius: var(--radius-sm);
+  gap: 10px;
 `;
 
-const HabitKey = styled.span`
-  font-size: 11px;
-  color: var(--grey-mid);
+const HabitIcon = styled.span`
+  font-size: 28px;
   line-height: 1;
+  color: var(--gold);
+  width: 32px;
+  text-align: center;
+  flex-shrink: 0;
 `;
 
 const HabitVal = styled.span`
-  font-size: var(--text-xs);
+  font-size: var(--text-base);
   color: #fff;
-  font-weight: 600;
+  font-weight: 700;
+  min-width: 72px;
 `;
 
 const HabitLabel = styled.span`
   font-size: var(--text-xs);
+  color: var(--grey-light);
+  letter-spacing: 0.04em;
+`;
+
+/* Hero Builds */
+
+const HeroBuildList = styled.div`
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-3);
+`;
+
+const HeroBuildRow = styled.div`
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+`;
+
+const HeroBuildHero = styled.span`
+  font-size: var(--text-xxs);
+  color: var(--grey-light);
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+`;
+
+const HeroBuildPath = styled.span`
+  font-size: var(--text-xs);
+  color: var(--gold);
+  font-family: var(--font-mono);
+`;
+
+const HeroBuildMeta = styled.span`
+  font-size: var(--text-xxs);
   color: var(--grey-mid);
 `;
 

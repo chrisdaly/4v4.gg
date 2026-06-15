@@ -918,6 +918,39 @@ h2.team-name {
   text-align: center;
 }
 
+@media (max-width: 640px) {
+  .Game {
+    padding: 10px 6px;
+    margin: 10px 4px 20px 4px;
+  }
+
+  .game-clickable,
+  .match-page .Game {
+    padding: 12px 8px;
+  }
+
+  .playerDiv {
+    width: 88px;
+    min-height: 120px;
+  }
+
+  .compact {
+    width: 70px;
+  }
+
+  .profile-pic {
+    width: 52px !important;
+  }
+
+  .player-name-row h2 {
+    font-size: var(--text-xxs) !important;
+  }
+
+  .mmr-value {
+    font-size: var(--text-sm);
+  }
+}
+
 /* Sparkline container */
 .sparkline-container {
   margin-top: 5px;
@@ -993,5 +1026,174 @@ th.team-header.winner {
 
 .match-link:hover .key {
   color: var(--gold);
+}
+
+/* ========================================
+   Mobile game layout (≤640px)
+   Replaces the 9-column table with a
+   stacked Team1 → Chart → Team2 layout.
+   ======================================== */
+
+.game-mobile {
+  display: none;
+}
+
+@media (max-width: 640px) {
+  .game-table {
+    display: none;
+  }
+
+  .game-mobile {
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+  }
+
+  .gm-team-header {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    padding: 4px 0;
+  }
+
+  .gm-team-header.winner .gm-team-label {
+    color: var(--gold);
+  }
+
+  .gm-team-label {
+    font-family: var(--font-display);
+    font-size: var(--text-sm);
+    color: var(--white);
+  }
+
+  .gm-team-mmr {
+    font-family: var(--font-mono);
+    font-size: var(--text-sm);
+    color: var(--white);
+  }
+
+  .gm-race-icons {
+    display: flex;
+    gap: 2px;
+    margin-left: auto;
+  }
+
+  .gm-players {
+    display: grid;
+    grid-template-columns: repeat(4, 1fr);
+    gap: 4px;
+  }
+
+  .gm-player {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    text-align: center;
+    gap: 3px;
+  }
+
+  .gm-player .profile-pic {
+    width: 56px !important;
+  }
+
+  .gm-player-name {
+    font-family: var(--font-display);
+    font-size: 10px;
+    color: var(--gold);
+    text-decoration: none;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+    max-width: 100%;
+    display: block;
+  }
+
+  .gm-player-name:hover {
+    color: var(--white);
+  }
+
+  .gm-player-mmr .mmr-value {
+    font-size: var(--text-xxs);
+  }
+
+  .gm-chart {
+    width: 100%;
+    height: 160px;
+  }
+
+  .gm-meta {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    padding: 8px 0 4px;
+    border-top: 1px solid var(--grey-mid);
+    margin-top: 4px;
+  }
+
+  .gm-meta-map {
+    width: 52px;
+    height: 52px;
+    border-radius: var(--radius-md);
+    border: 1px solid var(--grey-mid);
+    flex-shrink: 0;
+  }
+
+  .gm-meta-info {
+    display: flex;
+    flex-direction: column;
+    gap: 2px;
+    flex: 1;
+  }
+
+  .gm-meta-link {
+    position: static;
+    font-size: var(--text-xxs);
+    color: var(--grey-mid);
+  }
+
+  .game-clickable {
+    overflow-x: hidden;
+  }
+
+  .gm-stats {
+    border-top: 1px solid var(--grey-mid);
+    padding-top: 8px;
+    margin-top: 4px;
+  }
+
+  .gm-stats-title {
+    font-family: var(--font-mono);
+    font-size: var(--text-xxxs);
+    text-transform: uppercase;
+    letter-spacing: 0.12em;
+    color: var(--grey-light);
+    text-align: center;
+    margin-bottom: 6px;
+  }
+
+  .gm-stat-row {
+    display: grid;
+    grid-template-columns: 1fr auto 1fr;
+    gap: 4px;
+    padding: 3px 0;
+    border-bottom: 1px solid rgba(255, 255, 255, 0.04);
+    font-family: var(--font-mono);
+    font-size: var(--text-xxs);
+    align-items: center;
+  }
+
+  .gm-stat-value {
+    text-align: center;
+  }
+
+  .gm-stat-label {
+    text-align: center;
+    color: var(--grey-light);
+    font-size: var(--text-xxxs);
+    text-transform: uppercase;
+    letter-spacing: 0.05em;
+    white-space: nowrap;
+    padding: 0 6px;
+  }
 }
 

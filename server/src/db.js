@@ -367,6 +367,10 @@ export function initDb() {
   db.exec(`CREATE UNIQUE INDEX IF NOT EXISTS idx_replays_file_hash ON replays(file_hash)`);
   db.exec(`CREATE INDEX IF NOT EXISTS idx_replays_w3c ON replays(w3c_match_id)`);
 
+  // Indexes for replay_players and replay_player_actions lookup by battle_tag
+  db.exec(`CREATE INDEX IF NOT EXISTS idx_rp_battle_tag ON replay_players(battle_tag)`);
+  db.exec(`CREATE INDEX IF NOT EXISTS idx_rpa_replay_id ON replay_player_actions(replay_id)`);
+
   // Migration: add group_compositions column if missing
   tryAddColumn('ALTER TABLE replay_player_actions ADD COLUMN group_compositions TEXT');
 
@@ -1750,6 +1754,81 @@ export function updatePlayerActionSequence(replayId, playerId, fullActionSequenc
   `).run(JSON.stringify(fullActionSequence), replayId, playerId);
 }
 
+// Backfill all sequence-derived columns for a single player row
+export function updatePlayerActionData(replayId, playerId, data) {
+  db.prepare(`
+    UPDATE replay_player_actions SET
+      full_action_sequence = ?,
+      group_hotkeys        = ?,
+      group_compositions   = ?,
+      timed_segments       = ?,
+      early_game_sequence  = ?
+    WHERE replay_id = ? AND player_id = ?
+  `).run(
+    JSON.stringify(data.fullActionSequence  || []),
+    JSON.stringify(data.groupHotkeys        || {}),
+    JSON.stringify(data.groupCompositions   || {}),
+    JSON.stringify(data.timedSegments       || []),
+    JSON.stringify(data.earlyGameSequence   || []),
+    replayId, playerId
+  );
+}
+
+// Find all players (by battle_tag) that have zero non-NULL full_action_sequence rows
+export function getPlayersWithoutSequences() {
+  return db.prepare(`
+    SELECT DISTINCT pf.battle_tag
+    FROM player_fingerprints pf
+    WHERE pf.battle_tag IS NOT NULL
+      AND NOT EXISTS (
+        SELECT 1
+        FROM replay_player_actions rpa
+        JOIN replay_players rp ON rp.replay_id = rpa.replay_id AND rp.player_id = rpa.player_id
+        WHERE rp.battle_tag = pf.battle_tag
+          AND rpa.full_action_sequence IS NOT NULL
+          AND rpa.full_action_sequence != '[]'
+      )
+  `).all().map(r => r.battle_tag);
+}
+
+// For a set of battle_tags, return each replay that contains at least one of them,
+// together with the full list of uncovered players in that replay.
+// Returns [{replayId, w3cMatchId, players: [battleTag, ...]}]
+export function getReplayMatchesForPlayers(battleTags) {
+  if (battleTags.length === 0) return [];
+  const placeholders = battleTags.map(() => '?').join(',');
+  // Find replay_ids that have at least one of the uncovered players
+  const replayRows = db.prepare(`
+    SELECT DISTINCT rp.replay_id, r.w3c_match_id
+    FROM replay_players rp
+    JOIN replays r ON r.id = rp.replay_id
+    WHERE rp.battle_tag IN (${placeholders})
+      AND r.w3c_match_id IS NOT NULL
+    ORDER BY rp.replay_id DESC
+  `).all(...battleTags);
+
+  if (replayRows.length === 0) return [];
+
+  // For each replay, find which of the uncovered players are in it
+  const tagSet = new Set(battleTags);
+  const replayIds = replayRows.map(r => r.replay_id);
+  const idPlaceholders = replayIds.map(() => '?').join(',');
+  const playerRows = db.prepare(`
+    SELECT rp.replay_id, rp.battle_tag
+    FROM replay_players rp
+    WHERE rp.replay_id IN (${idPlaceholders})
+      AND rp.battle_tag IS NOT NULL
+  `).all(...replayIds);
+
+  const replayMap = new Map(replayRows.map(r => [r.replay_id, { replayId: r.replay_id, w3cMatchId: r.w3c_match_id, players: [] }]));
+  for (const row of playerRows) {
+    if (tagSet.has(row.battle_tag)) {
+      replayMap.get(row.replay_id)?.players.push(row.battle_tag);
+    }
+  }
+  return [...replayMap.values()].filter(m => m.players.length > 0);
+}
+
 export function getActionSequencesForExport() {
   return db.prepare(`
     SELECT rpa.replay_id, rpa.player_id, rpa.full_action_sequence,
@@ -1769,7 +1848,7 @@ export function getPlayerActionDataForReplay(battleTag, replayId) {
            rpa.esc, rpa.subgroup, rpa.removeunit, rpa.basic,
            rpa.rightclick, rpa.ability, rpa.buildtrain, rpa.item,
            rpa.select_count, rpa.assigngroup, rpa.selecthotkey,
-           rpa.group_compositions, r.game_duration
+           rpa.group_compositions, rpa.heroes, r.game_duration
     FROM replay_player_actions rpa
     JOIN replay_players rp ON rp.replay_id = rpa.replay_id AND rp.player_id = rpa.player_id
     JOIN replays r ON r.id = rpa.replay_id
@@ -1777,17 +1856,37 @@ export function getPlayerActionDataForReplay(battleTag, replayId) {
   `).all(battleTag, replayId);
 }
 
+// Lightweight variant for gallery: fetches at most `limit` rows, preferring rows
+// with full_action_sequence first (for transition computation on the first row only).
+export function getPlayerActionDataTop(battleTag, limit = 10) {
+  return db.prepare(`
+    SELECT rpa.group_hotkeys, rpa.group_compositions, rpa.full_action_sequence,
+           rpa.removeunit, rpa.basic, rpa.heroes, r.game_duration
+    FROM replay_player_actions rpa
+    JOIN replay_players rp ON rp.replay_id = rpa.replay_id AND rp.player_id = rpa.player_id
+    JOIN replays r ON r.id = rpa.replay_id
+    WHERE rp.battle_tag = ?
+    ORDER BY (CASE WHEN rpa.full_action_sequence IS NOT NULL
+                        AND rpa.full_action_sequence != '[]' THEN 1 ELSE 0 END) DESC,
+             rpa.replay_id DESC
+    LIMIT ?
+  `).all(battleTag, limit);
+}
+
 export function getPlayerActionData(battleTag) {
+  // Fetch newest rows first (replay_id DESC uses the existing PK index — fast).
+  // Callers that need sequence-rich rows first should sort in JS after fetching.
   return db.prepare(`
     SELECT rpa.timed_segments, rpa.full_action_sequence, rpa.group_hotkeys,
            rpa.esc, rpa.subgroup, rpa.removeunit, rpa.basic,
            rpa.rightclick, rpa.ability, rpa.buildtrain, rpa.item,
            rpa.select_count, rpa.assigngroup, rpa.selecthotkey,
-           rpa.group_compositions, r.game_duration
+           rpa.group_compositions, rpa.heroes, r.game_duration
     FROM replay_player_actions rpa
     JOIN replay_players rp ON rp.replay_id = rpa.replay_id AND rp.player_id = rpa.player_id
     JOIN replays r ON r.id = rpa.replay_id
     WHERE rp.battle_tag = ?
+    ORDER BY rpa.replay_id DESC
   `).all(battleTag);
 }
 
@@ -1800,7 +1899,7 @@ export function getPlayerActionDataByName(playerName, replayId = null) {
              rpa.esc, rpa.subgroup, rpa.removeunit, rpa.basic,
              rpa.rightclick, rpa.ability, rpa.buildtrain, rpa.item,
              rpa.select_count, rpa.assigngroup, rpa.selecthotkey,
-             rpa.group_compositions, r.game_duration
+             rpa.group_compositions, rpa.heroes, r.game_duration
       FROM replay_player_actions rpa
       JOIN replay_players rp ON rp.replay_id = rpa.replay_id AND rp.player_id = rpa.player_id
       JOIN replays r ON r.id = rpa.replay_id
@@ -1813,7 +1912,7 @@ export function getPlayerActionDataByName(playerName, replayId = null) {
            rpa.esc, rpa.subgroup, rpa.removeunit, rpa.basic,
            rpa.rightclick, rpa.ability, rpa.buildtrain, rpa.item,
            rpa.select_count, rpa.assigngroup, rpa.selecthotkey,
-           rpa.group_compositions, r.game_duration
+           rpa.group_compositions, rpa.heroes, r.game_duration
     FROM replay_player_actions rpa
     JOIN replay_players rp ON rp.replay_id = rpa.replay_id AND rp.player_id = rpa.player_id
     JOIN replays r ON r.id = rpa.replay_id
@@ -2054,6 +2153,23 @@ export function getRecentMessagesByTags(battleTags, hours = 12, limit = 30) {
   `).all(...battleTags, hours, limit);
 }
 
+export function getPlayerAvgApm(battleTag) {
+  const row = db.prepare(`
+    SELECT ROUND(AVG(apm)) as avg_apm FROM replay_players WHERE battle_tag = ?
+  `).get(battleTag);
+  return row?.avg_apm ?? null;
+}
+
+export function getPlayerMessages(battleTag, limit = 10) {
+  return db.prepare(`
+    SELECT user_name, message, received_at
+    FROM messages
+    WHERE deleted = 0 AND battle_tag = ?
+    ORDER BY received_at DESC
+    LIMIT ?
+  `).all(battleTag, limit);
+}
+
 export function getMessagesInTimeRange(from, to) {
   return db.prepare(`
     SELECT id, battle_tag, user_name, clan_tag, message, sent_at, received_at
@@ -2186,4 +2302,48 @@ export function deleteValidationPair(id) {
 
 export function updateValidationPairNotes(id, notes) {
   return db.prepare('UPDATE validation_pairs SET notes = ? WHERE id = ?').run(notes, id);
+}
+
+export function getPlayerLatestMmr(battleTag) {
+  const row = db.prepare(`
+    SELECT current_mmr FROM daily_player_stats
+    WHERE battle_tag = ? AND current_mmr > 0
+    ORDER BY date DESC LIMIT 1
+  `).get(battleTag);
+  return row?.current_mmr || null;
+}
+
+export function getPlayerMostPlayedRace(battleTag) {
+  const rows = db.prepare(`
+    SELECT race, COUNT(*) as n FROM replay_players
+    WHERE battle_tag = ? AND race IS NOT NULL AND race != ''
+    GROUP BY race ORDER BY n DESC
+  `).all(battleTag);
+  if (!rows || rows.length === 0) return null;
+  // W3C sometimes stores 'Random' explicitly
+  if (rows[0].race === 'Random') return 'Random';
+  // Look at resolved races only
+  const resolved = rows.filter(r => r.race !== 'Random');
+  if (resolved.length === 0) return 'Random';
+  const total = resolved.reduce((s, r) => s + r.n, 0);
+  // No single race >= 50% → player picks random
+  return resolved[0].n / total >= 0.5 ? resolved[0].race : 'Random';
+}
+
+export function getPlayerActivityDates(battleTag) {
+  const row = db.prepare(`
+    SELECT MIN(date) as first_date, MAX(date) as last_date
+    FROM daily_player_stats WHERE battle_tag = ?
+  `).get(battleTag);
+  return { first: row?.first_date || null, last: row?.last_date || null };
+}
+
+export function getSharedReplayCount(tagA, tagB) {
+  const row = db.prepare(`
+    SELECT COUNT(DISTINCT a.replay_id) as n
+    FROM replay_players a
+    JOIN replay_players b ON a.replay_id = b.replay_id
+    WHERE a.battle_tag = ? AND b.battle_tag = ?
+  `).get(tagA, tagB);
+  return row?.n || 0;
 }

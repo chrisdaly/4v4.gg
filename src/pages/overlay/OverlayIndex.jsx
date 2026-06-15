@@ -5,6 +5,7 @@ import { BiFullscreen, BiExitFullscreen } from "react-icons/bi";
 import { PageLayout, PageHero } from "../../components/PageLayout";
 import { Button, CountryFlag, Select } from "../../components/ui";
 import MatchOverlay from "../../components/MatchOverlay";
+import PlayerOverlay from "../../components/PlayerOverlay";
 import PeonLoader from "../../components/PeonLoader";
 import { getPlayerProfile, getSeasons, searchLadder } from "../../lib/api";
 import { fetchPlayerSessionData } from "../../lib/utils";
@@ -522,6 +523,7 @@ const STORAGE_KEY = "overlay_recent_tags";
 const SETTINGS_KEY = "overlay_settings";
 const POSITION_KEY_H = "overlay_position_horizontal";
 const POSITION_KEY_V = "overlay_position_vertical";
+const POSITION_KEY_P = "overlay_position_player";
 
 // Demo match data
 const DEMO_MATCH = {
@@ -556,6 +558,26 @@ const DEMO_COUNTRIES = {
   "sjow#1773": "de",
   "lllllllinVleh#1796": "cn",
   "CrocBlanc#1746": "fr",
+};
+
+const DEMO_PLAYER = {
+  name: "FOALS",
+  profilePic: null,
+  country: "us",
+  mmr: 2235,
+  allTimeLow: 1890,
+  allTimePeak: 2450,
+  seasonMmrs: [1890, 1940, 2010, 2080, 2150, 2120, 2180, 2200, 2235],
+  wins: 45,
+  losses: 32,
+  sessionChange: 23,
+  form: [true, true, true, false, true, true],
+  rank: 52,
+  ladderNeighbors: {
+    above: { name: "Lynfan", mmr: 2241, rank: 51 },
+    below: { name: "Lakers", mmr: 2228, rank: 53 },
+  },
+  lastGame: { mapName: "Nightopia", won: true, durationInSeconds: 1472 },
 };
 
 const OverlayIndex = () => {
@@ -597,6 +619,7 @@ const OverlayIndex = () => {
   const [previewMatch, setPreviewMatch] = useState(null);
   const [previewCountries, setPreviewCountries] = useState({});
   const [previewSession, setPreviewSession] = useState({});
+  const [playerPreviewData, setPlayerPreviewData] = useState(DEMO_PLAYER);
 
   // UI settings
   const [layout, setLayout] = useState(() => {
@@ -613,6 +636,7 @@ const OverlayIndex = () => {
   // Separate position state for each layout
   const DEFAULT_POSITION_H = { top: 4, left: 50, scale: 1 };
   const DEFAULT_POSITION_V = { top: 10, left: 90, scale: 1 };
+  const DEFAULT_POSITION_P = { top: 10, left: 10, scale: 1 };
 
   const [positionH, setPositionH] = useState(() => {
     try {
@@ -628,9 +652,16 @@ const OverlayIndex = () => {
     } catch { return DEFAULT_POSITION_V; }
   });
 
+  const [positionP, setPositionP] = useState(() => {
+    try {
+      const saved = JSON.parse(localStorage.getItem(POSITION_KEY_P));
+      return saved || DEFAULT_POSITION_P;
+    } catch { return DEFAULT_POSITION_P; }
+  });
+
   // Derived: current position based on layout
-  const position = layout === "vertical" ? positionV : positionH;
-  const setPosition = layout === "vertical" ? setPositionV : setPositionH;
+  const position = layout === "vertical" ? positionV : layout === "player-rich" ? positionP : positionH;
+  const setPosition = layout === "vertical" ? setPositionV : layout === "player-rich" ? setPositionP : setPositionH;
 
   const [dragging, setDragging] = useState(false);
   const [resizing, setResizing] = useState(false);
@@ -648,6 +679,11 @@ const OverlayIndex = () => {
   useEffect(() => {
     localStorage.setItem(POSITION_KEY_V, JSON.stringify(positionV));
   }, [positionV]);
+
+  // Save player card position to localStorage
+  useEffect(() => {
+    localStorage.setItem(POSITION_KEY_P, JSON.stringify(positionP));
+  }, [positionP]);
 
   // Track if user's games were already fetched
   const userGamesFetched = useRef("");
@@ -830,6 +866,24 @@ const OverlayIndex = () => {
     fetchPlayerGames();
   }, [battleTag, currentSeason]);
 
+  // Update player preview with real name + profile pic when battleTag changes
+  useEffect(() => {
+    if (!battleTag || !battleTag.includes("#")) {
+      setPlayerPreviewData(DEMO_PLAYER);
+      return;
+    }
+    const name = battleTag.split("#")[0];
+    setPlayerPreviewData(prev => ({ ...DEMO_PLAYER, ...prev, name }));
+    getPlayerProfile(battleTag).then((p) => {
+      setPlayerPreviewData(prev => ({
+        ...prev,
+        name,
+        profilePic: p?.profilePicUrl || null,
+        country: p?.country || null,
+      }));
+    }).catch(() => {});
+  }, [battleTag]);
+
   // Load game for preview
   const loadGame = async (game) => {
     setSelectedGame(game.id);
@@ -977,6 +1031,8 @@ const OverlayIndex = () => {
   const baseUrl = window.location.origin;
   const encodedTag = encodeURIComponent(battleTag || "YourTag#1234");
 
+  const isPlayerCard = layout === "player-rich";
+
   // Build preview params: use matchId if a real game is selected, otherwise fall back to demo
   const getPreviewParams = () => {
     if (!previewMode) return "";
@@ -986,7 +1042,9 @@ const OverlayIndex = () => {
     return "&preview=true";
   };
 
-  const overlayUrl = `${baseUrl}/overlay/match/${encodedTag}?style=${matchStyle}${layout === "vertical" ? "&layout=vertical" : ""}${getPreviewParams()}`;
+  const overlayUrl = isPlayerCard
+    ? `${baseUrl}/overlay/player/${encodedTag}?layout=rich&bg=bg-gradient-fade`
+    : `${baseUrl}/overlay/match/${encodedTag}?style=${matchStyle}${layout === "vertical" ? "&layout=vertical" : ""}${getPreviewParams()}`;
 
   const styleOptions = [
     { value: "default", label: "Default" },
@@ -1194,29 +1252,34 @@ const OverlayIndex = () => {
               <Select value={layout} onChange={(e) => setLayout(e.target.value)}>
                 <option value="horizontal">Horizontal</option>
                 <option value="vertical">Vertical</option>
+                <option value="player-rich">Player Card</option>
               </Select>
             </div>
 
-            <div style={{ marginBottom: "var(--space-4)" }}>
-              <Label>Style</Label>
-              <Select value={matchStyle} onChange={(e) => setMatchStyle(e.target.value)}>
-                {styleOptions.map(opt => (
-                  <option key={opt.value} value={opt.value}>{opt.label}</option>
-                ))}
-              </Select>
-            </div>
+            {!isPlayerCard && (
+              <div style={{ marginBottom: "var(--space-4)" }}>
+                <Label>Style</Label>
+                <Select value={matchStyle} onChange={(e) => setMatchStyle(e.target.value)}>
+                  {styleOptions.map(opt => (
+                    <option key={opt.value} value={opt.value}>{opt.label}</option>
+                  ))}
+                </Select>
+              </div>
+            )}
 
-            <CheckboxRow $active={previewMode}>
-              <input
-                type="checkbox"
-                checked={previewMode}
-                onChange={(e) => setPreviewMode(e.target.checked)}
-              />
-              <CheckboxLabel>
-                <CheckboxTitle $active={previewMode}>Preview Mode</CheckboxTitle>
-                <CheckboxDesc>Shows selected game in OBS for positioning</CheckboxDesc>
-              </CheckboxLabel>
-            </CheckboxRow>
+            {!isPlayerCard && (
+              <CheckboxRow $active={previewMode}>
+                <input
+                  type="checkbox"
+                  checked={previewMode}
+                  onChange={(e) => setPreviewMode(e.target.checked)}
+                />
+                <CheckboxLabel>
+                  <CheckboxTitle $active={previewMode}>Preview Mode</CheckboxTitle>
+                  <CheckboxDesc>Shows selected game in OBS for positioning</CheckboxDesc>
+                </CheckboxLabel>
+              </CheckboxRow>
+            )}
           </Panel>
         </Sidebar>
 
@@ -1240,7 +1303,7 @@ const OverlayIndex = () => {
               </div>
             )}
 
-            {previewMatch && !loadingGame && (
+            {isPlayerCard ? (
               <OverlayWrapper
                 $top={position.top}
                 $left={position.left}
@@ -1255,51 +1318,100 @@ const OverlayIndex = () => {
                   }));
                 }}
               >
-                <MatchOverlay
-                  matchData={previewMatch}
-                  atGroups={{}}
-                  sessionData={previewSession}
-                  countries={previewCountries}
-                  streamerTag={battleTag}
-                  matchStyle={matchStyle}
-                  layout={layout}
-                />
+                <PlayerOverlay playerData={playerPreviewData} layout="rich" bgStyle="bg-gradient-fade" />
                 <ResizeHandle onMouseDown={handleResizeStart} title="Drag to resize" />
               </OverlayWrapper>
-            )}
+            ) : (
+              <>
+                {previewMatch && !loadingGame && (
+                  <OverlayWrapper
+                    $top={position.top}
+                    $left={position.left}
+                    $scale={position.scale}
+                    onMouseDown={handleDragStart}
+                    onWheel={(e) => {
+                      e.preventDefault();
+                      const delta = e.deltaY > 0 ? -0.05 : 0.05;
+                      setPosition(prev => ({
+                        ...prev,
+                        scale: Math.max(0.5, Math.min(1.5, prev.scale + delta))
+                      }));
+                    }}
+                  >
+                    <MatchOverlay
+                      matchData={previewMatch}
+                      atGroups={{}}
+                      sessionData={previewSession}
+                      countries={previewCountries}
+                      streamerTag={battleTag}
+                      matchStyle={matchStyle}
+                      layout={layout}
+                    />
+                    <ResizeHandle onMouseDown={handleResizeStart} title="Drag to resize" />
+                  </OverlayWrapper>
+                )}
 
-            {!previewMatch && !loadingGame && (
-              <div style={{
-                position: "absolute",
-                inset: 0,
-                display: "flex",
-                alignItems: "center",
-                justifyContent: "center",
-                color: "var(--grey-mid)",
-                fontFamily: "var(--font-mono)",
-                fontSize: "var(--text-sm)",
-              }}>
-                Select a game to preview
-              </div>
+                {!previewMatch && !loadingGame && (
+                  <div style={{
+                    position: "absolute",
+                    inset: 0,
+                    display: "flex",
+                    alignItems: "center",
+                    justifyContent: "center",
+                    color: "var(--grey-mid)",
+                    fontFamily: "var(--font-mono)",
+                    fontSize: "var(--text-sm)",
+                  }}>
+                    Select a game to preview
+                  </div>
+                )}
+              </>
             )}
           </MockScreen>
 
           {/* URL Output */}
           <UrlPanel>
-            <PanelTitle style={{ marginBottom: "var(--space-3)" }}>OBS Browser Source URL</PanelTitle>
-            <UrlCode>{overlayUrl}</UrlCode>
-            <DimRow>
-              <DimItem><span>Width:</span>{layout === "vertical" ? "240" : "1200"}</DimItem>
-              <DimItem><span>Height:</span>{layout === "vertical" ? "450" : "200"}</DimItem>
-            </DimRow>
+            <PanelTitle style={{ marginBottom: "var(--space-3)" }}>
+              {isPlayerCard ? "Widget URLs — add each as a separate OBS Browser Source" : "OBS Browser Source URL"}
+            </PanelTitle>
 
-            {previewMode && (
-              <Tip>
-                <span>⚠️</span>
-                <span>
-                  <strong>Preview mode is ON</strong> — Turn it off before going live so the overlay only shows during actual games.
-                </span>
-              </Tip>
+            {isPlayerCard ? (
+              <div style={{ display: "flex", flexDirection: "column", gap: "var(--space-3)" }}>
+                {[
+                  { label: "Player Card", layout: "widget-card", w: 240, h: 80 },
+                  { label: "MMR Trend", layout: "widget-sparkline", w: 240, h: 40 },
+                  { label: "Session", layout: "widget-session", w: 240, h: 60 },
+                  { label: "Ladder", layout: "widget-ladder", w: 240, h: 90 },
+                  { label: "Last Game", layout: "widget-lastgame", w: 240, h: 36 },
+                ].map(({ label, layout: wl, w, h }) => (
+                  <div key={wl}>
+                    <Label style={{ marginBottom: 4 }}>{label} — {w} × {h}</Label>
+                    <UrlCode style={{ marginBottom: 0 }}>
+                      {`${baseUrl}/overlay/player/${encodedTag}?layout=${wl}&bg=bg-gradient-fade`}
+                    </UrlCode>
+                  </div>
+                ))}
+                <Tip>
+                  <span>💡</span>
+                  <span>Add each URL as a separate Browser Source in OBS so you can drag them independently. Use custom CSS: <strong>body {"{"} background: transparent !important; {"}"}</strong></span>
+                </Tip>
+              </div>
+            ) : (
+              <>
+                <UrlCode>{overlayUrl}</UrlCode>
+                <DimRow>
+                  <DimItem><span>Width:</span>{layout === "vertical" ? "240" : "1200"}</DimItem>
+                  <DimItem><span>Height:</span>{layout === "vertical" ? "450" : "200"}</DimItem>
+                </DimRow>
+                {previewMode && (
+                  <Tip>
+                    <span>⚠️</span>
+                    <span>
+                      <strong>Preview mode is ON</strong> — Turn it off before going live so the overlay only shows during actual games.
+                    </span>
+                  </Tip>
+                )}
+              </>
             )}
           </UrlPanel>
 
@@ -1319,7 +1431,7 @@ const OverlayIndex = () => {
                   Paste the URL above into the URL field
                 </GuideStep>
                 <GuideStep>
-                  Set dimensions: <strong>{layout === "vertical" ? "240 × 450" : "1200 × 200"}</strong>
+                  Set dimensions: <strong>{isPlayerCard ? "320 × 380" : layout === "vertical" ? "240 × 450" : "1200 × 200"}</strong>
                 </GuideStep>
                 <GuideStep>
                   Add this custom CSS for transparency:

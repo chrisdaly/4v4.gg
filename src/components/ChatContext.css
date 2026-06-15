@@ -196,6 +196,41 @@
   }
 }
 
+/* On mobile: swap panes instead of stacking them.
+   When no context is open → full-height results list.
+   When context is open    → hide results, show context only.
+   The existing × button closes context and restores results. */
+@media (max-width: 640px) {
+  /* Context open: hide results col */
+  .cc-split-layout:not(.cc-split-layout--collapsed) .cc-split-col-header--left,
+  .cc-split-layout:not(.cc-split-layout--collapsed) .cc-split-left {
+    display: none;
+  }
+
+  .cc-split-right--active {
+    max-height: calc(100vh - 220px);
+  }
+
+  /* No context: give results full room */
+  .cc-split-left {
+    max-height: 65vh;
+    border-bottom: none;
+    padding-bottom: 0;
+  }
+
+  .cc-fullpage .cc-split-left,
+  .cc-fullpage .cc-list {
+    max-height: 65vh;
+  }
+
+  /* Right header: "Context" label as a back-affordance */
+  .cc-split-layout:not(.cc-split-layout--collapsed) .cc-split-col-header--right {
+    padding-bottom: var(--space-3);
+    border-bottom: 1px solid rgba(255, 255, 255, 0.08);
+    margin-bottom: var(--space-2);
+  }
+}
+
 .cc-panel--compact {
   background: rgba(0, 0, 0, 0.3);
   backdrop-filter: blur(8px);

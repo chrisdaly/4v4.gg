@@ -1,7 +1,9 @@
 import React from "react";
+import { GiCrossedSwords } from "react-icons/gi";
 import { CountryFlag } from "./ui";
 import FormDots from "./FormDots";
 import MmrRangeBar from "./MmrRangeBar";
+import MmrSparkline from "./MmrSparkline";
 
 /**
  * PlayerOverlay - Compact player card for stream overlay
@@ -9,6 +11,13 @@ import MmrRangeBar from "./MmrRangeBar";
  * layout options: "default", "horizontal", "minimal", "compact", "session", "banner"
  * bgStyle options: bg-gradient-fade, bg-dark-gold, bg-frosted, bg-none, bg-minimal
  */
+const formatDuration = (seconds) => {
+  if (!seconds) return null;
+  const m = Math.floor(seconds / 60);
+  const s = seconds % 60;
+  return `${m}:${String(s).padStart(2, '0')}`;
+};
+
 const PlayerOverlay = ({ playerData, layout = "default", bgStyle = "bg-gradient-fade" }) => {
   const {
     name,
@@ -17,11 +26,14 @@ const PlayerOverlay = ({ playerData, layout = "default", bgStyle = "bg-gradient-
     mmr,
     allTimeLow,
     allTimePeak,
+    seasonMmrs,
     wins,
     losses,
     sessionChange,
     form,
     rank,
+    ladderNeighbors,
+    lastGame,
   } = playerData;
 
   const winrate = (wins + losses) > 0 ? Math.round((wins / (wins + losses)) * 100) : 0;
@@ -161,6 +173,163 @@ const PlayerOverlay = ({ playerData, layout = "default", bgStyle = "bg-gradient-
             {sessionChange >= 0 ? '+' : ''}{sessionChange}
           </span>
           <FormDots form={form} size="small" />
+        </div>
+      </div>
+    );
+  }
+
+  // ============================================
+  // LAYOUT: RICH - Profile panel with sparkline, ladder strip, last game
+  // ============================================
+  if (layout === "rich") {
+    return (
+      <div className={`player-overlay po-rich ${bgStyle}`}>
+        <div className="hd-info">
+          <div className="hd-name-row">
+            <span className="hd-name">{name}</span>
+          </div>
+          <div className="hd-stats-row">
+            {rank && <span className="hd-rank">#{rank}</span>}
+            <span className="hd-mmr">{mmr}</span>
+            <span className="hd-mmr-label">MMR</span>
+          </div>
+        </div>
+
+        <div className="po-rich-divider" />
+
+        <div className="po-rich-session">
+          <span className="po-rich-session-label">SESSION</span>
+          <span className={`po-rich-session-change ${sessionChange >= 0 ? 'positive' : 'negative'}`}>
+            {sessionChange >= 0 ? '+' : ''}{sessionChange}
+          </span>
+          {form.length > 0 && <FormDots form={form} size="small" />}
+        </div>
+
+        {lastGame && (
+          <>
+            <div className="po-rich-divider" />
+            <div className="po-rich-last-game">
+              <GiCrossedSwords className="po-rich-last-icon" />
+              <span className="po-rich-last-map">{lastGame.mapName}</span>
+              {lastGame.won != null && (
+                <span className={`po-rich-last-result ${lastGame.won ? 'positive' : 'negative'}`}>
+                  {lastGame.won ? 'W' : 'L'}
+                </span>
+              )}
+              {formatDuration(lastGame.durationInSeconds) && (
+                <span className="po-rich-last-duration">{formatDuration(lastGame.durationInSeconds)}</span>
+              )}
+            </div>
+          </>
+        )}
+      </div>
+    );
+  }
+
+  // ============================================
+  // WIDGET LAYOUTS - standalone modules for independent OBS positioning
+  // ============================================
+
+  if (layout === "widget-card") {
+    return (
+      <div className={`player-overlay po-rich po-widget ${bgStyle}`}>
+        <div className="po-rich-header">
+          <div className="hd-pic-wrapper">
+            {profilePic
+              ? <img src={profilePic} alt="" className="hd-pic" />
+              : <div className="hd-pic po-pic-placeholder" />
+            }
+            {country && <CountryFlag name={country.toLowerCase()} className="hd-flag" />}
+          </div>
+          <div className="hd-info">
+            <div className="hd-name-row">
+              <span className="hd-name">{name}</span>
+            </div>
+            <div className="hd-stats-row">
+              {rank && <span className="hd-rank">#{rank}</span>}
+              <span className="hd-mmr">{mmr}</span>
+              <span className="hd-mmr-label">MMR</span>
+            </div>
+            <div className="hd-record-row">
+              <span className="hd-wins">{wins}W</span>
+              <span className="hd-losses">-{losses}L</span>
+              <span className="hd-sep">·</span>
+              <span className="hd-winrate">{winrate}%</span>
+            </div>
+          </div>
+        </div>
+      </div>
+    );
+  }
+
+  if (layout === "widget-sparkline") {
+    return (
+      <div className={`player-overlay po-rich po-widget ${bgStyle}`}>
+        {seasonMmrs && seasonMmrs.length >= 2
+          ? <MmrSparkline data={seasonMmrs} width="100%" height={24} className="po-rich-sparkline" />
+          : null
+        }
+      </div>
+    );
+  }
+
+  if (layout === "widget-session") {
+    return (
+      <div className={`player-overlay po-rich po-widget ${bgStyle}`}>
+        <div className="po-rich-session">
+          <span className="po-rich-session-label">SESSION</span>
+          <span className={`po-rich-session-change ${sessionChange >= 0 ? 'positive' : 'negative'}`}>
+            {sessionChange >= 0 ? '+' : ''}{sessionChange}
+          </span>
+          {form.length > 0 && <FormDots form={form} size="small" />}
+        </div>
+      </div>
+    );
+  }
+
+  if (layout === "widget-ladder") {
+    if (!rank || (!ladderNeighbors?.above && !ladderNeighbors?.below)) return null;
+    return (
+      <div className={`player-overlay po-rich po-widget ${bgStyle}`}>
+        <div className="po-rich-ladder">
+          {ladderNeighbors?.above && (
+            <div className="po-rich-ladder-row po-rich-ladder-neighbor">
+              <span className="po-rich-ladder-rank">#{ladderNeighbors.above.rank}</span>
+              <span className="po-rich-ladder-name">{ladderNeighbors.above.name}</span>
+              <span className="po-rich-ladder-mmr">{ladderNeighbors.above.mmr}</span>
+            </div>
+          )}
+          <div className="po-rich-ladder-row po-rich-ladder-self">
+            <span className="po-rich-ladder-rank">#{rank}</span>
+            <span className="po-rich-ladder-name">{name}</span>
+            <span className="po-rich-ladder-mmr">{mmr}</span>
+          </div>
+          {ladderNeighbors?.below && (
+            <div className="po-rich-ladder-row po-rich-ladder-neighbor">
+              <span className="po-rich-ladder-rank">#{ladderNeighbors.below.rank}</span>
+              <span className="po-rich-ladder-name">{ladderNeighbors.below.name}</span>
+              <span className="po-rich-ladder-mmr">{ladderNeighbors.below.mmr}</span>
+            </div>
+          )}
+        </div>
+      </div>
+    );
+  }
+
+  if (layout === "widget-lastgame") {
+    if (!lastGame) return null;
+    const duration = formatDuration(lastGame.durationInSeconds);
+    return (
+      <div className={`player-overlay po-rich po-widget ${bgStyle}`}>
+        <div className="po-rich-last-game">
+          <GiCrossedSwords className="po-rich-last-icon" />
+          <span className="po-rich-last-map">{lastGame.mapName}</span>
+          {lastGame.won != null && (
+            <span className={`po-rich-last-result ${lastGame.won ? 'positive' : 'negative'}`}>
+              {lastGame.won ? 'W' : 'L'}
+            </span>
+          )}
+          {duration && <span className="po-rich-last-duration">{duration}</span>}
         </div>
       </div>
     );

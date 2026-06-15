@@ -5,7 +5,7 @@ import { PageLayout } from "../components/PageLayout";
 import { PageHero, CountryFlag } from "../components/ui";
 import PeonLoader from "../components/PeonLoader";
 import TransitionGlyph from "../components/replay-lab/TransitionGlyph";
-import { getPlayerProfile } from "../lib/api";
+import { getPlayerProfilesBatch } from "../lib/api";
 
 const RELAY_URL =
   import.meta.env.VITE_CHAT_RELAY_URL || "https://4v4gg-chat-relay.fly.dev";
@@ -398,7 +398,7 @@ function PlayerGallery({ players, loading }) {
   const [search, setSearch] = useState("");
   const [raceFilter, setRaceFilter] = useState(null);
   const [countryFilter, setCountryFilter] = useState(null);
-  const [segmentFilter, setSegmentFilter] = useState(null);
+  const [segmentFilter, setSegmentFilter] = useState("speed-demons");
   const [sortBy, setSortBy] = useState("mmr");
   const [profiles, setProfiles] = useState({});
   const [countryDropdownOpen, setCountryDropdownOpen] = useState(false);
@@ -416,24 +416,19 @@ function PlayerGallery({ players, loading }) {
     return () => document.removeEventListener("mousedown", handler);
   }, [countryDropdownOpen]);
 
-  // Fetch profiles for visible players to get country data
+  // Fetch profiles in batch when country dropdown opens
   useEffect(() => {
-    const fetchProfiles = async () => {
-      // Fetch for first 100 players initially
-      const toFetch = players.slice(0, 100).filter(p => !profiles[p.battleTag]);
-      for (const p of toFetch) {
-        try {
-          const profile = await getPlayerProfile(p.battleTag);
-          if (profile) {
-            setProfiles(prev => ({ ...prev, [p.battleTag]: profile }));
-          }
-        } catch {}
-      }
-    };
-    if (players.length > 0) {
-      fetchProfiles();
-    }
-  }, [players]);
+    if (!countryDropdownOpen) return;
+    const toFetch = players.slice(0, 100).filter(p => !profiles[p.battleTag]);
+    if (toFetch.length === 0) return;
+    getPlayerProfilesBatch(toFetch.map(p => p.battleTag)).then(map => {
+      setProfiles(prev => {
+        const next = { ...prev };
+        for (const [tag, profile] of map) next[tag] = profile;
+        return next;
+      });
+    });
+  }, [countryDropdownOpen, players]);
 
   // Get unique countries from fetched profiles
   const countries = useMemo(() => {
@@ -498,24 +493,6 @@ function PlayerGallery({ players, loading }) {
     return result;
   }, [players, search, raceFilter, countryFilter, segmentFilter, sortBy, profiles]);
 
-  // Fetch profiles for filtered results that we don't have yet
-  useEffect(() => {
-    const fetchFilteredProfiles = async () => {
-      const visible = filtered.slice(0, 60);
-      const toFetch = visible.filter(p => !profiles[p.battleTag]);
-      for (const p of toFetch) {
-        try {
-          const profile = await getPlayerProfile(p.battleTag);
-          if (profile) {
-            setProfiles(prev => ({ ...prev, [p.battleTag]: profile }));
-          }
-        } catch {}
-      }
-    };
-    if (filtered.length > 0) {
-      fetchFilteredProfiles();
-    }
-  }, [filtered]);
 
   if (loading) {
     return <PeonLoader />;
@@ -579,7 +556,7 @@ function PlayerGallery({ players, loading }) {
             )}
           </CountryDropdownWrap>
         )}
-        <GalleryCount>{filtered.length} players</GalleryCount>
+        {(segmentFilter || search) && <GalleryCount>{filtered.length} players</GalleryCount>}
       </GalleryControls>
 
       <SegmentRow>
@@ -597,13 +574,19 @@ function PlayerGallery({ players, loading }) {
         ))}
       </SegmentRow>
 
-      {filtered.length === 0 ? (
+      {!segmentFilter && !search && (
+        <GalleryEmpty style={{ paddingTop: "var(--space-8)" }}>
+          Select a segment above to explore players.
+        </GalleryEmpty>
+      )}
+
+      {(segmentFilter || search) && filtered.length === 0 ? (
         <GalleryEmpty>
           {players.length === 0
             ? "No player signatures yet. Upload a replay to get started!"
             : "No players match your search."}
         </GalleryEmpty>
-      ) : (
+      ) : (segmentFilter || search) ? (
         <GalleryGrid>
           {filtered.slice(0, 60).map(p => (
             <PlayerCard key={p.battleTag} to={`/player/${encodeURIComponent(p.battleTag)}?tab=playstyle`}>
@@ -629,9 +612,9 @@ function PlayerGallery({ players, loading }) {
             </PlayerCard>
           ))}
         </GalleryGrid>
-      )}
+      ) : null}
 
-      {filtered.length > 60 && (
+      {(segmentFilter || search) && filtered.length > 60 && (
         <NeuralNote style={{ marginTop: "var(--space-4)", textAlign: "center" }}>
           Showing 60 of {filtered.length} players. Use search to find specific players.
         </NeuralNote>
@@ -659,15 +642,33 @@ export default function Signatures() {
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
-    fetch(`${RELAY_URL}/api/fingerprints/gallery`)
-      .then(r => r.ok ? r.json() : null)
-      .then(data => {
-        if (data?.players) {
+    let cancelled = false;
+    let retryTimeout = null;
+
+    async function fetchGallery(attempt = 0) {
+      try {
+        const r = await fetch(`${RELAY_URL}/api/fingerprints/gallery`);
+        const data = r.ok ? await r.json() : null;
+        if (cancelled) return;
+        if (data?.players?.length > 0) {
           setPlayers(data.players);
+          setLoading(false);
+        } else if (attempt < 12) {
+          // Gallery cache is warming up server-side — retry every 5s (up to 1 min)
+          retryTimeout = setTimeout(() => fetchGallery(attempt + 1), 5000);
+        } else {
+          setLoading(false);
         }
-        setLoading(false);
-      })
-      .catch(() => setLoading(false));
+      } catch {
+        if (!cancelled) setLoading(false);
+      }
+    }
+
+    fetchGallery();
+    return () => {
+      cancelled = true;
+      if (retryTimeout) clearTimeout(retryTimeout);
+    };
   }, []);
 
   return (

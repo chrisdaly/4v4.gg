@@ -2,7 +2,7 @@ import { Router } from 'express';
 import rateLimit from 'express-rate-limit';
 import multer from 'multer';
 import { createHash } from 'crypto';
-import { readFileSync, mkdirSync } from 'fs';
+import { readFileSync, mkdirSync, writeFileSync, unlinkSync } from 'fs';
 import { join } from 'path';
 import config from '../config.js';
 import {
@@ -10,6 +10,7 @@ import {
   getPlayerFingerprintsByName,
   getPlayerFingerprintsFiltered,
   getAllAveragedFingerprintsWithEmbeddings,
+  getAllAveragedFingerprints,
   getFingerprintCount,
   getIndexedPlayers,
   getReplaysWithoutFingerprints,
@@ -20,6 +21,7 @@ import {
   countFingerprintsWithoutEmbeddings,
   updateFingerprintEmbedding,
   getPlayerActionData,
+  getPlayerActionDataTop,
   getPlayerActionDataByName,
   getPlayerActionDataForReplay,
   getPlayerActionDataByReplayIds,
@@ -38,6 +40,13 @@ import {
   insertReplayChat,
   insertReplayPlayerActions,
   getReplayByFileHash,
+  updatePlayerActionData,
+  getPlayersWithoutSequences,
+  getReplayMatchesForPlayers,
+  getPlayerMessages,
+  getPlayerAvgApm,
+  getPlayerMostPlayedRace,
+  getSharedReplayCount,
 } from '../db.js';
 import {
   buildServerFingerprint,
@@ -249,7 +258,7 @@ function computeActionProfile(actionRows) {
   let groupCompositions = {};
   let actionCounts = null;
 
-  if (actionRows.length === 0) return { transitionPairs, groupUsage, groupCompositions, actionCounts };
+  if (actionRows.length === 0) return { transitionPairs, groupUsage, groupCompositions, actionCounts, heroBuilds: {} };
 
   const allSeqs = actionRows.map(r => tryParse(r.full_action_sequence)).filter(a => a && a.length > 1);
   const groupTransitions = {};
@@ -365,6 +374,24 @@ function computeActionProfile(actionRows) {
     }
   }
 
+  // Surround burst detection: 3+ point/unit-target ability actions (0x11 or 0x12) within 400ms
+  // 0x11 = point-target move (terrain click), 0x12 = unit-target move (clicking enemy unit)
+  // Both appear in M-key surrounding; real spell-cast bursts are rare at this cadence
+  let surroundBursts = 0, surroundTotalClicks = 0;
+  for (const seq of allSeqs) {
+    const moves = seq.filter(a => a.ms >= 120000 && (a.id === 0x11 || a.id === 0x12));
+    for (let i = 0; i < moves.length; i++) {
+      const windowEnd = moves[i].ms + 400;
+      let count = 1;
+      for (let j = i + 1; j < moves.length && moves[j].ms <= windowEnd; j++) count++;
+      if (count >= 3) {
+        surroundBursts++;
+        surroundTotalClicks += count;
+        i += count - 1;
+      }
+    }
+  }
+
   // Action counts (per-minute averages)
   const totals = { removeunit: 0, basic: 0, totalDuration: 0 };
   for (const r of actionRows) {
@@ -400,10 +427,43 @@ function computeActionProfile(actionRows) {
     // Tier 2
     attackMovePerMin: +(totals.basic / avgMins).toFixed(1),
     cancelPerMin: +(totals.removeunit / avgMins).toFixed(1),
+    surroundPerMin: +(surroundBursts / avgMins).toFixed(1),
+    surroundAvgSize: surroundBursts > 0 ? +(surroundTotalClicks / surroundBursts).toFixed(1) : 0,
     replayCount: actionRows.length,
   };
 
-  return { transitionPairs, groupUsage, groupCompositions, actionCounts };
+  // Hero ability build order — extracted from stored abilityOrder sequences
+  // Groups by hero ID; each entry: { mostCommon, consistency, games, medianFirstLevelMs }
+  const heroBuilds = {};
+  const heroBuildRaw = {}; // heroId -> { paths, firstLevelTimes }
+  for (const r of actionRows) {
+    const heroes = tryParse(r.heroes);
+    if (!Array.isArray(heroes)) continue;
+    for (const hero of heroes) {
+      if (!hero?.id || !Array.isArray(hero.abilityOrder)) continue;
+      const levelUps = hero.abilityOrder.filter(ao => ao.type === 'ability' && ao.value);
+      if (levelUps.length === 0) continue;
+      const path = levelUps.map(ao => ao.value).join('-');
+      if (!heroBuildRaw[hero.id]) heroBuildRaw[hero.id] = { paths: [], firstLevelTimes: [] };
+      heroBuildRaw[hero.id].paths.push(path);
+      heroBuildRaw[hero.id].firstLevelTimes.push(levelUps[0].time);
+    }
+  }
+  for (const [heroId, raw] of Object.entries(heroBuildRaw)) {
+    if (raw.paths.length === 0) continue;
+    const pathCounts = {};
+    for (const p of raw.paths) pathCounts[p] = (pathCounts[p] || 0) + 1;
+    const [topPath, topCount] = Object.entries(pathCounts).sort((a, b) => b[1] - a[1])[0];
+    const sortedTimes = [...raw.firstLevelTimes].sort((a, b) => a - b);
+    heroBuilds[heroId] = {
+      mostCommon: topPath,
+      consistency: Math.round((topCount / raw.paths.length) * 100),
+      games: raw.paths.length,
+      medianFirstLevelMs: sortedTimes[Math.floor(sortedTimes.length / 2)],
+    };
+  }
+
+  return { transitionPairs, groupUsage, groupCompositions, actionCounts, heroBuilds };
 }
 
 // GET /api/fingerprints/explore/players — Public player directory (no auth)
@@ -464,7 +524,7 @@ router.get('/explore/similar/:battleTag', (req, res) => {
   // Enrich top results with glyph data (transition pairs, group usage, compositions, APM)
   for (const r of topResults) {
     const allActionRows = getPlayerActionData(r.battleTag);
-    const actionRows = allActionRows.length > 10 ? allActionRows.slice(-10) : allActionRows;
+    const actionRows = allActionRows.slice(0, 10);
     if (actionRows.length > 0) {
       const { transitionPairs, groupUsage, groupCompositions } = computeActionProfile(actionRows);
       r.glyph = { transitionPairs, groupUsage, groupCompositions };
@@ -511,16 +571,17 @@ router.get('/profile/:battleTag', (req, res) => {
   const avgEmb = averageEmbeddings(embeddings);
   const confidence = computeConfidence(fingerprints);
 
-  // Build action profile from raw action sequences (cap at 50 most recent to avoid blocking)
-  const allActionRows = lookupByName
-    ? getPlayerActionDataByName(playerName)
-    : getPlayerActionData(battleTag);
-  const actionRows = allActionRows.length > 10 ? allActionRows.slice(-10) : allActionRows;
-  const { transitionPairs, groupUsage, groupCompositions, actionCounts } = computeActionProfile(actionRows);
+  // Build action profile from most-recent 300 replays (sequences-first, then by recency).
+  // Using a DB-level LIMIT avoids fetching thousands of large JSON blobs.
+  const actionRows = lookupByName
+    ? getPlayerActionDataByName(playerName).slice(0, 300)
+    : getPlayerActionDataTop(battleTag, 300);
+  const { transitionPairs, groupUsage, groupCompositions, actionCounts, heroBuilds } = computeActionProfile(actionRows);
 
   res.json({
     battleTag,
     replayCount: rows.length,
+    sampleCount: actionRows.length,
     embeddingCount: embeddings.length,
     confidence,
     averaged: avgFp,
@@ -529,6 +590,7 @@ router.get('/profile/:battleTag', (req, res) => {
     groupUsage,
     groupCompositions,
     actionCounts,
+    heroBuilds,
   });
 });
 
@@ -584,7 +646,7 @@ router.get('/profile/:battleTag/replays/:replayId', (req, res) => {
   const actionRows = lookupByName
     ? getPlayerActionDataByName(playerName, rid)
     : getPlayerActionDataForReplay(battleTag, rid);
-  const { transitionPairs, groupUsage, groupCompositions, actionCounts } = computeActionProfile(actionRows);
+  const { transitionPairs, groupUsage, groupCompositions, actionCounts, heroBuilds } = computeActionProfile(actionRows);
 
   res.json({
     battleTag,
@@ -594,6 +656,7 @@ router.get('/profile/:battleTag/replays/:replayId', (req, res) => {
     groupUsage,
     groupCompositions,
     actionCounts,
+    heroBuilds,
     replay: {
       replayId: rid,
       matchDate: row.match_date,
@@ -645,7 +708,7 @@ router.get('/replay/:replayId/profiles', (req, res) => {
     const fp = buildServerFingerprint(parsed);
 
     // Build action profile (transitions, groups, compositions, action counts)
-    const { transitionPairs, groupUsage, groupCompositions, actionCounts } = computeActionProfile([actionRow]);
+    const { transitionPairs, groupUsage, groupCompositions, actionCounts, heroBuilds } = computeActionProfile([actionRow]);
 
     profiles.push({
       playerId: player.player_id,
@@ -659,6 +722,7 @@ router.get('/replay/:replayId/profiles', (req, res) => {
         groupUsage,
         groupCompositions,
         actionCounts,
+        heroBuilds,
       },
     });
   }
@@ -765,6 +829,7 @@ router.get('/profile/:battleTag/personas', (req, res) => {
 // ── Gallery Cache ──────────────────────────────────
 let galleryCache = null;
 let galleryAge = 0;
+let galleryBuilding = false;
 const GALLERY_TTL = 60 * 60 * 1000; // 1 hour (expensive to compute)
 
 // Fetch W3C 4v4 ladder for MMR lookup
@@ -772,29 +837,31 @@ async function fetchLadderMmr() {
   const W3C_API = 'https://website-backend.w3champions.com/api';
   const mmrMap = new Map();
   try {
-    // Get current season
-    const sRes = await fetch(`${W3C_API}/ladder/seasons`);
+    // Get current season (10s timeout)
+    const sRes = await fetch(`${W3C_API}/ladder/seasons`, { signal: AbortSignal.timeout(10000) });
     if (!sRes.ok) return mmrMap;
     const seasons = await sRes.json();
     const season = seasons?.[0]?.id || 21;
 
-    // Fetch all leagues (0-6) for 4v4 mode to get comprehensive MMR data
+    // Fetch all leagues (0-6) for 4v4 mode in parallel (10s timeout each)
     const leagues = [0, 1, 2, 3, 4, 5, 6];
-    for (const league of leagues) {
+    const leagueResults = await Promise.all(leagues.map(async (league) => {
       try {
         const url = `${W3C_API}/ladder/${league}?gateway=20&season=${season}&gameMode=4&pageSize=200`;
-        const lRes = await fetch(url);
-        if (!lRes.ok) continue;
-        const data = await lRes.json();
-
-        for (const entry of (data || [])) {
-          const tag = entry.player?.playerIds?.[0]?.battleTag;
-          if (tag && entry.player?.mmr) {
-            mmrMap.set(tag.toLowerCase(), entry.player.mmr);
-          }
-        }
+        const lRes = await fetch(url, { signal: AbortSignal.timeout(10000) });
+        if (!lRes.ok) return [];
+        return await lRes.json();
       } catch (e) {
-        // Skip failed league fetches
+        return [];
+      }
+    }));
+
+    for (const data of leagueResults) {
+      for (const entry of (data || [])) {
+        const tag = entry.player?.playerIds?.[0]?.battleTag;
+        if (tag && entry.player?.mmr) {
+          mmrMap.set(tag.toLowerCase(), entry.player.mmr);
+        }
       }
     }
   } catch (e) {
@@ -803,103 +870,247 @@ async function fetchLadderMmr() {
   return mmrMap;
 }
 
-// GET /api/fingerprints/gallery — Public gallery of player extremes (no auth)
-router.get('/gallery', async (req, res) => {
-  const now = Date.now();
-  if (galleryCache && (now - galleryAge) < GALLERY_TTL) {
-    return res.json(galleryCache);
+// Fetch the most recent match info for a player across seasons (for inactive players).
+// Tries seasons in parallel and returns the highest season with any 4v4 data.
+async function fetchPlayerRecentInfo(battleTag) {
+  const W3C_API = 'https://website-backend.w3champions.com/api';
+  const seasons = [24, 23, 22, 21, 20, 19, 18, 17, 16];
+  const results = await Promise.all(seasons.map(async (season) => {
+    try {
+      const url = `${W3C_API}/matches/search?playerId=${encodeURIComponent(battleTag)}&offset=0&gameMode=4&season=${season}&gateway=20&pageSize=1`;
+      const res = await fetch(url, { signal: AbortSignal.timeout(3500) });
+      if (!res.ok) return null;
+      const data = await res.json();
+      const matches = data?.matches || [];
+      if (matches.length === 0) return null;
+      const match = matches[0];
+      let mmr = null;
+      for (const team of match.teams || []) {
+        for (const p of team.players || []) {
+          if (p.battleTag === battleTag) { mmr = p.currentMmr; break; }
+        }
+        if (mmr != null) break;
+      }
+      return { season, lastPlayed: match.startTime || match.endTime, mmr };
+    } catch (_e) { return null; }
+  }));
+  // All seasons with activity (ordered by season desc — highest season first)
+  const seasonActivity = results.filter(r => r != null);
+  const mostRecent = seasonActivity[0] || null;
+  return {
+    lastPlayed: mostRecent?.lastPlayed || null,
+    season: mostRecent?.season || null,
+    mmr: mostRecent?.mmr || null,
+    seasonActivity,
+  };
+}
+
+function yieldToEventLoop() {
+  return new Promise(resolve => setImmediate(resolve));
+}
+
+// Lightweight alternative to computeActionProfile for gallery builds.
+// Derives groupUsage and groupCompositions from pre-aggregated columns only —
+// skips full_action_sequence iteration which is O(millions of actions) across
+// all players and makes the gallery build take 10+ minutes.
+function computeActionProfileLight(actionRows) {
+  const groupStats = {};
+  const groupUnitCounts = {};
+  const groupTransitions = {};
+  const ACTION_CAP = 5000;
+
+  for (const row of actionRows) {
+    const hk = tryParse(row.group_hotkeys);
+    if (hk) {
+      for (const [g, stats] of Object.entries(hk)) {
+        const gi = parseInt(g);
+        if (!groupStats[gi]) groupStats[gi] = { used: 0, assigned: 0 };
+        groupStats[gi].used += stats.used || 0;
+        groupStats[gi].assigned += stats.assigned || 0;
+      }
+    }
+    const gc = tryParse(row.group_compositions);
+    if (gc) {
+      for (const [g, units] of Object.entries(gc)) {
+        if (!Array.isArray(units)) continue;
+        if (!groupUnitCounts[g]) groupUnitCounts[g] = {};
+        for (const unitId of units) {
+          if (!unitId) continue;
+          groupUnitCounts[g][unitId] = (groupUnitCounts[g][unitId] || 0) + 1;
+        }
+      }
+    }
   }
 
-  const allParsed = getParsedPlayers();
-  if (allParsed.length === 0) {
-    return res.json({ players: [] });
+  // Compute transitions from the first row that has a sequence, capped at ACTION_CAP actions.
+  const seqRow = actionRows.find(r => r.full_action_sequence && r.full_action_sequence !== '[]');
+  if (seqRow) {
+    const seq = tryParse(seqRow.full_action_sequence);
+    if (seq) {
+      let lastGroup = null;
+      const cap = Math.min(seq.length, ACTION_CAP);
+      for (let i = 0; i < cap; i++) {
+        const a = seq[i];
+        if (a.ms < 120000) continue;
+        const isHotkey = (a.id === 0x17 || a.id === 0x18 || a.id === 23 || a.id === 24) && a.g != null;
+        if (isHotkey && lastGroup !== null && lastGroup !== a.g) {
+          const key = `${lastGroup}->${a.g}`;
+          groupTransitions[key] = (groupTransitions[key] || 0) + 1;
+        }
+        if (isHotkey) lastGroup = a.g;
+      }
+    }
   }
 
-  // Fetch MMR data from W3C ladder
-  const mmrMap = await fetchLadderMmr();
+  const transitionPairs = Object.entries(groupTransitions)
+    .sort((a, b) => b[1] - a[1])
+    .slice(0, 10)
+    .map(([k, v]) => ({ from: parseInt(k), to: parseInt(k.split('->')[1]), count: v }));
 
-  const players = [];
-  for (const p of allParsed) {
-    if (p.replayCount < 2) continue;
+  const groupUsage = Object.entries(groupStats)
+    .map(([g, s]) => ({ group: parseInt(g), used: s.used, assigned: s.assigned }))
+    .filter(g => g.used + g.assigned > 0)
+    .sort((a, b) => a.group - b.group);
 
-    const fp = p.fp;
+  const groupCompositions = {};
+  for (const [g, counts] of Object.entries(groupUnitCounts)) {
+    const sorted = Object.entries(counts)
+      .sort((a, b) => b[1] - a[1])
+      .slice(0, 8)
+      .map(([unitId, count]) => ({ id: unitId, count }));
+    if (sorted.length > 0) groupCompositions[g] = sorted;
+  }
 
-    // Extract metrics from fingerprint segments
-    const apmSeg = fp.segments.apm || []; // [meanNorm, stdNorm, burstiness]
-    const meanApm = Math.round((apmSeg[0] || 0) * 300); // denormalize
+  return { transitionPairs, groupUsage, groupCompositions };
+}
 
-    const actionSeg = fp.segments.action || []; // [rc, ability, build, item, selecthk, assigngrp]
-    const totalAction = actionSeg.reduce((a, b) => a + b, 0) || 1;
-    const selectPct = Math.round(((actionSeg[4] || 0) / totalAction) * 100);
-    const abilityPct = Math.round(((actionSeg[1] || 0) / totalAction) * 100);
-    const rightclickPct = Math.round(((actionSeg[0] || 0) / totalAction) * 100);
-
-    const hotkeySeg = fp.segments.hotkey || []; // [used0-9, assigned0-9]
-    let activeGroups = 0;
-    for (let i = 0; i < 10; i++) {
-      if ((hotkeySeg[i] || 0) > 0.02 || (hotkeySeg[i + 10] || 0) > 0.02) activeGroups++;
+async function buildGalleryCache() {
+  if (galleryBuilding) return;
+  galleryBuilding = true;
+  try {
+    console.log('[gallery] Building cache...');
+    // Use the no-embedding query — gallery never uses embeddings, and the
+    // embedding GROUP_CONCAT pulls 300MB+ blocking the event loop for 20s.
+    const allRows = getAllAveragedFingerprints();
+    const allParsed = allRows.map(row => ({
+      battleTag: row.battle_tag,
+      playerName: row.player_name,
+      race: row.race,
+      replayCount: row.replay_count,
+      fp: parseAveragedRow(row),
+    })).filter(p => p.fp);
+    console.log(`[gallery] loaded ${allParsed.length} players (no-embedding query)`);
+    if (allParsed.length === 0) {
+      galleryCache = { players: [] };
+      galleryAge = Date.now();
+      return;
     }
 
-    // Check if buildings are on hotkeys (assign activity on groups 6-9 suggests buildings)
-    const buildingsOnHotkey = [6, 7, 8, 9].some(g => (hotkeySeg[g + 10] || 0) > 0.05);
+    const mmrMap = await fetchLadderMmr();
+    console.log(`[gallery] fetchLadderMmr returned ${mmrMap.size} entries`);
 
-    const buildPct = Math.round(((actionSeg[2] || 0) / totalAction) * 100);
-    const assignPct = Math.round(((actionSeg[5] || 0) / totalAction) * 100);
+    const players = [];
+    for (const p of allParsed) {
+      if (p.replayCount < 2) continue;
 
-    const sortedHk = [...hotkeySeg.slice(0, 10)].sort((a, b) => b - a);
-    const topGroupPct = Math.round((sortedHk[0] || 0) * 100);
+      const fp = p.fp;
 
-    const r2 = v => Math.round(v * 100) / 100;
+      // Extract metrics from fingerprint segments
+      const apmSeg = fp.segments.apm || []; // [meanNorm, stdNorm, burstiness]
+      const meanApm = Math.round((apmSeg[0] || 0) * 300); // denormalize
 
-    // Extract tempo and intensity for visualization
-    const tempoSeg = fp.segments.tempo || [];
-    const intensitySeg = fp.segments.intensity || [];
+      const actionSeg = fp.segments.action || []; // [rc, ability, build, item, selecthk, assigngrp]
+      const totalAction = actionSeg.reduce((a, b) => a + b, 0) || 1;
+      const selectPct = Math.round(((actionSeg[4] || 0) / totalAction) * 100);
+      const abilityPct = Math.round(((actionSeg[1] || 0) / totalAction) * 100);
+      const rightclickPct = Math.round(((actionSeg[0] || 0) / totalAction) * 100);
 
-    // Get action profile for TransitionGlyph (cap at 10 most recent replays)
-    const allActionRows = getPlayerActionData(p.battleTag);
-    const actionRows = allActionRows.length > 10 ? allActionRows.slice(-10) : allActionRows;
-    const { transitionPairs, groupUsage, groupCompositions } = computeActionProfile(actionRows);
+      const hotkeySeg = fp.segments.hotkey || []; // [used0-9, assigned0-9]
+      let activeGroups = 0;
+      for (let i = 0; i < 10; i++) {
+        if ((hotkeySeg[i] || 0) > 0.02 || (hotkeySeg[i + 10] || 0) > 0.02) activeGroups++;
+      }
 
-    // Lookup MMR from W3C ladder
-    const mmr = mmrMap.get(p.battleTag.toLowerCase()) || 0;
+      // Check if buildings are on hotkeys (assign activity on groups 6-9 suggests buildings)
+      const buildingsOnHotkey = [6, 7, 8, 9].some(g => (hotkeySeg[g + 10] || 0) > 0.05);
 
-    players.push({
-      battleTag: p.battleTag,
-      race: p.race,
-      replayCount: p.replayCount,
-      mmr,
-      glyph: {
-        hotkey: hotkeySeg.slice(0, 10).map(r2),
-        apm: r2(apmSeg[0] || 0),
-        action: actionSeg.slice(0, 6).map(r2),
-      },
-      segments: {
-        action: actionSeg.slice(0, 6).map(r2),
-        apm: apmSeg.slice(0, 3).map(r2),
-        hotkey: hotkeySeg.slice(0, 20).map(r2),
-        tempo: tempoSeg.slice(0, 7).map(r2),
-        intensity: intensitySeg.slice(0, 2).map(r2),
-      },
-      transitionPairs,
-      groupUsage,
-      groupCompositions,
-      metrics: {
-        meanApm,
-        activeGroups,
-        selectPct,
-        abilityPct,
-        rightclickPct,
-        buildPct,
-        assignPct,
-        topGroupPct,
-        buildingsOnHotkey,
-      },
-    });
+      const buildPct = Math.round(((actionSeg[2] || 0) / totalAction) * 100);
+      const assignPct = Math.round(((actionSeg[5] || 0) / totalAction) * 100);
+
+      const sortedHk = [...hotkeySeg.slice(0, 10)].sort((a, b) => b - a);
+      const topGroupPct = Math.round((sortedHk[0] || 0) * 100);
+
+      const r2 = v => Math.round(v * 100) / 100;
+
+      // Extract tempo and intensity for visualization
+      const tempoSeg = fp.segments.tempo || [];
+      const intensitySeg = fp.segments.intensity || [];
+
+      // Derive action profile from pre-aggregated columns — avoids iterating
+      // full_action_sequence (can be millions of actions across 2500+ players).
+      const actionRows = getPlayerActionDataTop(p.battleTag, 10);
+      const { transitionPairs, groupUsage, groupCompositions } = computeActionProfileLight(actionRows);
+
+      // Lookup MMR from W3C ladder
+      const mmr = mmrMap.get(p.battleTag.toLowerCase()) || 0;
+
+      players.push({
+        battleTag: p.battleTag,
+        race: p.race,
+        replayCount: p.replayCount,
+        mmr,
+        glyph: {
+          hotkey: hotkeySeg.slice(0, 10).map(r2),
+          apm: r2(apmSeg[0] || 0),
+          action: actionSeg.slice(0, 6).map(r2),
+        },
+        segments: {
+          action: actionSeg.slice(0, 6).map(r2),
+          apm: apmSeg.slice(0, 3).map(r2),
+          hotkey: hotkeySeg.slice(0, 20).map(r2),
+          tempo: tempoSeg.slice(0, 7).map(r2),
+          intensity: intensitySeg.slice(0, 2).map(r2),
+        },
+        transitionPairs,
+        groupUsage,
+        groupCompositions,
+        metrics: {
+          meanApm,
+          activeGroups,
+          selectPct,
+          abilityPct,
+          rightclickPct,
+          buildPct,
+          assignPct,
+          topGroupPct,
+          buildingsOnHotkey,
+        },
+      });
+
+      // Yield every 5 players so the event loop stays responsive during the build
+      if (players.length % 5 === 0) await yieldToEventLoop();
+    }
+
+    galleryCache = { players };
+    galleryAge = Date.now();
+    console.log(`[gallery] Cache built: ${players.length} players`);
+  } finally {
+    galleryBuilding = false;
+  }
+}
+
+// GET /api/fingerprints/gallery — Public gallery of player extremes (no auth)
+// Stale-while-revalidate: serve cached data immediately, rebuild in background when stale.
+router.get('/gallery', async (req, res) => {
+  const now = Date.now();
+  const isStale = !galleryCache || (now - galleryAge) >= GALLERY_TTL;
+
+  if (isStale) {
+    // Kick off rebuild without awaiting — caller gets whatever is cached (possibly empty)
+    buildGalleryCache().catch(e => console.error('[gallery] build error:', e.message));
   }
 
-  galleryCache = { players };
-  galleryAge = now;
-  res.json(galleryCache);
+  res.json(galleryCache || { players: [] });
 });
 
 // ── Rate limiters for public endpoints ──────────────
@@ -1060,7 +1271,7 @@ router.post('/upload', uploadLimiter, (req, res, next) => {
 
     // Invalidate caches
     parsedPlayersCache = null;
-    galleryCache = null;
+    galleryAge = 0; // mark stale, keep old data serving
 
     const replay = getReplay(replayId);
     const players = getReplayPlayers(replayId);
@@ -1147,7 +1358,7 @@ router.post('/import', importLimiter, async (req, res) => {
     const result = await importPlayerMatches(battleTag, 3);
     // Invalidate caches so new data shows up immediately
     parsedPlayersCache = null;
-    galleryCache = null;
+    galleryAge = 0; // mark stale, keep old data serving
     res.json(result);
   } catch (err) {
     console.error('[import] Error:', err.message);
@@ -1294,7 +1505,7 @@ router.get('/compare/:tagA/:tagB', requireApiKey, (req, res) => {
   function buildProfile(battleTag) {
     const allRows = getPlayerActionData(battleTag);
     if (allRows.length === 0) return null;
-    const rows = allRows.length > 10 ? allRows.slice(-10) : allRows;
+    const rows = allRows.slice(0, 10);
 
     // Average timed_segments across replays (APM curve)
     const allTs = rows.map(r => tryParse(r.timed_segments)).filter(Boolean);
@@ -1439,7 +1650,7 @@ router.post('/rebuild', requireApiKey, (req, res) => {
   suspectsCache = null;
   pcaCache = null;
   umapCache = null;
-  galleryCache = null;
+  galleryAge = 0; // mark stale, keep old data serving
   const deleted = deleteAllFingerprints();
   const allReplays = getAllReplayIds();
 
@@ -1516,6 +1727,124 @@ router.post('/backfill-embeddings', requireApiKey, async (req, res) => {
 
   res.json({ ok: true, processed, errors, total: missing.length });
 });
+
+// POST /api/fingerprints/backfill-sequences — Re-download replays to populate missing full_action_sequence
+// Uses greedy set cover so one 4v4 replay can fix up to 8 players at once.
+router.post('/backfill-sequences', requireApiKey, async (req, res) => {
+  const uncovered = getPlayersWithoutSequences();
+  if (uncovered.length === 0) {
+    return res.json({ message: 'All players already have sequence data', uncovered: 0, replaysNeeded: 0 });
+  }
+
+  const replayMatches = getReplayMatchesForPlayers(uncovered);
+
+  // Greedy set cover: each iteration picks the replay covering the most uncovered players
+  const remaining = new Set(uncovered);
+  const selected = [];
+  const available = [...replayMatches];
+  while (remaining.size > 0 && available.length > 0) {
+    let bestIdx = -1, bestCount = 0;
+    for (let i = 0; i < available.length; i++) {
+      const count = available[i].players.filter(p => remaining.has(p)).length;
+      if (count > bestCount) { bestCount = count; bestIdx = i; }
+    }
+    if (bestIdx === -1 || bestCount === 0) break;
+    const pick = available.splice(bestIdx, 1)[0];
+    selected.push(pick);
+    for (const p of pick.players) remaining.delete(p);
+  }
+
+  const uncoverableTags = [...remaining];
+
+  res.json({
+    uncoveredPlayers: uncovered.length,
+    replaysToDownload: selected.length,
+    willCover: uncovered.length - remaining.size,
+    notCoverable: uncoverableTags.length,
+    searchBackfill: uncoverableTags.length, // phase 2 via W3C search API
+  });
+
+  // Phase 1: re-download replays already in DB (set-cover)
+  // Phase 2: search W3C API for a fresh replay for each uncoverable player
+  (async () => {
+    await sequenceBackfill(selected);
+    if (uncoverableTags.length > 0) await backfillViaSearch(uncoverableTags);
+  })().catch(err => console.error('[Backfill]', err.message));
+});
+
+const W3C_REPLAY_API = 'https://website-backend.w3champions.com/api/replays';
+const sleep = ms => new Promise(r => setTimeout(r, ms));
+
+async function sequenceBackfill(selected) {
+  let done = 0, failed = 0;
+  for (const match of selected) {
+    await sleep(3000);
+    try {
+      const res = await fetch(`${W3C_REPLAY_API}/${encodeURIComponent(match.w3cMatchId)}`);
+      if (res.status === 429) {
+        const retryAfter = parseInt(res.headers.get('Retry-After') || '0', 10);
+        console.log(`[Backfill] 429 rate limited — aborting (${done} done, ${failed} failed). Retry-After: ${retryAfter}s`);
+        galleryAge = 0; // mark stale, keep old data serving
+        return;
+      }
+      if (!res.ok) {
+        console.log(`[Backfill] ${match.w3cMatchId} HTTP ${res.status} — skipping`);
+        failed++;
+        continue;
+      }
+      const buf = Buffer.from(await res.arrayBuffer());
+      const tmpPath = join(REPLAY_DIR, `backfill-${Date.now()}.w3g`);
+      writeFileSync(tmpPath, buf);
+      try {
+        const parsed = await parseReplayFile(tmpPath);
+        for (const action of parsed.actions) {
+          updatePlayerActionData(match.replayId, action.playerId, action);
+        }
+        done++;
+        console.log(`[Backfill] ${match.w3cMatchId} — updated ${parsed.actions.length} players (${done}/${selected.length})`);
+      } finally {
+        try { unlinkSync(tmpPath); } catch {}
+      }
+    } catch (err) {
+      console.error(`[Backfill] ${match.w3cMatchId}:`, err.message);
+      failed++;
+    }
+  }
+  // Expire gallery so it rebuilds with fresh sequence data
+  galleryAge = 0; // mark stale, keep old data serving
+  console.log(`[Backfill] Done — ${done} succeeded, ${failed} failed`);
+}
+
+// Phase 2: for players with no usable replay in DB, search W3C API for a fresh one.
+// Uses importPlayerMatches() which handles download → parse → fingerprint → embed.
+async function backfillViaSearch(battleTags) {
+  let done = 0, noReplay = 0, failed = 0;
+  console.log(`[Backfill-Search] Starting phase 2 — ${battleTags.length} players to search`);
+  for (const battleTag of battleTags) {
+    await sleep(3000);
+    try {
+      const result = await importPlayerMatches(battleTag, 1);
+      if (result.rateLimited) {
+        console.log(`[Backfill-Search] 429 rate limited — aborting (${done} done, ${failed} failed)`);
+        galleryAge = 0; // mark stale, keep old data serving
+        return;
+      }
+      if (result.imported > 0) {
+        done++;
+        console.log(`[Backfill-Search] ${battleTag} — imported (${done}/${battleTags.length})`);
+      } else if (result.noReplay > 0 || result.discovered === 0) {
+        noReplay++;
+      } else {
+        failed++;
+      }
+    } catch (err) {
+      console.error(`[Backfill-Search] ${battleTag}:`, err.message);
+      failed++;
+    }
+  }
+  galleryAge = 0; // mark stale, keep old data serving
+  console.log(`[Backfill-Search] Done — ${done} imported, ${noReplay} no replay, ${failed} failed`);
+}
 
 // POST /api/fingerprints/blind-test — Split a player's data and test if system can re-identify
 router.post('/blind-test', requireApiKey, (req, res) => {
@@ -1666,11 +1995,11 @@ function seededLCG(seed) {
 // ── Embedding map caches ────────────────────────
 let umapCache = null;
 let umapAge = 0;
-const UMAP_TTL = 5 * 60 * 1000; // 5 min
+const UMAP_TTL = 45 * 60 * 1000; // 45 min
 
 let pcaCache = null;
 let pcaAge = 0;
-const PCA_TTL = 5 * 60 * 1000; // 5 min
+const PCA_TTL = 45 * 60 * 1000; // 45 min
 
 // ── Extracted embedding-map computation (for coalescing) ──
 async function computeEmbeddingMapResult(method) {
@@ -1986,7 +2315,191 @@ function getSuspectsData() {
   return suspectsCache;
 }
 
+// GET /api/fingerprints/identify/:battleTag — Smurf verdict for one account
+// Returns the top similar account with a confidence verdict.
+// Thresholds calibrated against 14 ground-truth validation pairs (all score p99.8+).
+//   confident  → percentile >= 99.5 (all known smurfs land here)
+//   possible   → percentile >= 97
+//   no_match   → below that
+router.get('/identify/:battleTag', async (req, res) => {
+  const { battleTag } = req.params;
+  const allPlayers = getParsedPlayers();
+  const cal = getCalibration();
+
+  const suspect = allPlayers.find(p => p.battleTag === battleTag);
+  if (!suspect) {
+    return res.status(404).json({ error: 'Player not indexed', battleTag });
+  }
+  if (suspect.replayCount < 3) {
+    return res.json({
+      battleTag, verdict: 'insufficient_data',
+      reason: `Only ${suspect.replayCount} replay(s) indexed — need at least 3 for a reliable fingerprint`,
+      replayCount: suspect.replayCount,
+      topMatches: [],
+    });
+  }
+
+  const results = [];
+  for (const p of allPlayers) {
+    if (p.battleTag === battleTag) continue;
+    if (p.replayCount < 3) continue;
+    const hybrid = computeHybridSimilarity(suspect.fp, p.fp, suspect.embedding, p.embedding);
+    const percentile = cal ? scoreToPercentile(hybrid.similarity, cal) : null;
+    const zScore = cal ? scoreToZScore(hybrid.similarity, cal) : null;
+    const breakdown = computeServerBreakdown(suspect.fp, p.fp);
+    results.push({
+      battleTag: p.battleTag,
+      playerName: p.playerName,
+      race: p.race,
+      replayCount: p.replayCount,
+      similarity: r3(hybrid.similarity),
+      handcrafted: r3(hybrid.handcrafted),
+      embedding: r3(hybrid.embedding),
+      hybrid: hybrid.hybrid,
+      percentile,
+      zScore,
+      breakdown: formatBreakdown(breakdown, hybrid),
+    });
+  }
+
+  results.sort((a, b) => b.similarity - a.similarity);
+  const similar = results.slice(0, 5);
+
+  const top = similar[0];
+  let verdict = 'no_match';
+  if (top) {
+    if (top.percentile != null && top.percentile >= 99.5) verdict = 'confident';
+    else if (top.percentile != null && top.percentile >= 97) verdict = 'possible';
+  }
+
+  // Enrich query player with glyph + APM
+  let queryGlyph = null;
+  const queryActionRows = getPlayerActionDataTop(battleTag, 10);
+  if (queryActionRows.length > 0) {
+    const { transitionPairs, groupUsage, groupCompositions } = computeActionProfileLight(queryActionRows);
+    queryGlyph = { transitionPairs, groupUsage, groupCompositions };
+  }
+  const queryApm = getPlayerAvgApm(battleTag);
+
+  // Enrich top matches with glyph, APM, race, shared replays
+  const mmrMap = await fetchLadderMmr();
+  for (const s of similar) {
+    s.race = getPlayerMostPlayedRace(s.battleTag);
+    s.sharedReplays = getSharedReplayCount(battleTag, s.battleTag);
+    const actionRows = getPlayerActionDataTop(s.battleTag, 10);
+    if (actionRows.length > 0) {
+      const { transitionPairs, groupUsage, groupCompositions } = computeActionProfileLight(actionRows);
+      s.glyph = { transitionPairs, groupUsage, groupCompositions };
+    }
+    s.apm = getPlayerAvgApm(s.battleTag);
+    const msgs = getPlayerMessages(s.battleTag, 8);
+    s.recentChat = msgs.map(m => ({ message: m.message, receivedAt: m.received_at }));
+  }
+
+  // Fetch season history for all players (ranked + unranked) — needed for lastSeen + timeline
+  const allTags = [battleTag, ...similar.map(s => s.battleTag)];
+  const enrichmentResults = await Promise.all(allTags.map(async tag => ({
+    tag, info: await fetchPlayerRecentInfo(tag),
+  })));
+  const enrichmentMap = new Map(enrichmentResults.map(({ tag, info }) => [tag, info]));
+
+  // Apply MMR + lastSeen to candidates (ladder MMR takes priority for ranked players)
+  const queryLadderMmr = mmrMap.get(battleTag.toLowerCase()) || null;
+  for (const s of similar) {
+    const ladderMmr = mmrMap.get(s.battleTag.toLowerCase()) || null;
+    const enriched = enrichmentMap.get(s.battleTag);
+    s.mmr = ladderMmr ?? enriched?.mmr ?? null;
+    s.lastSeen = enriched?.lastPlayed || null;
+    s.lastSeasonActive = enriched?.season || null;
+    s.seasonActivity = enriched?.seasonActivity || [];
+  }
+
+  // Played-together matrix across all 4 players (query + top 3 candidates)
+  const topTags = [battleTag, ...similar.slice(0, 5).map(s => s.battleTag)];
+  const matrix = {};
+  for (let i = 0; i < topTags.length; i++) {
+    for (let j = i + 1; j < topTags.length; j++) {
+      const key = `${topTags[i]}|${topTags[j]}`;
+      matrix[key] = getSharedReplayCount(topTags[i], topTags[j]);
+    }
+  }
+
+  const queryEnriched = enrichmentMap.get(battleTag);
+  res.json({
+    battleTag,
+    verdict,
+    query: {
+      replayCount: suspect.replayCount,
+      hasEmbedding: !!suspect.embedding,
+      glyph: queryGlyph,
+      apm: queryApm,
+      race: getPlayerMostPlayedRace(battleTag),
+      mmr: queryLadderMmr ?? queryEnriched?.mmr ?? null,
+      lastSeen: queryEnriched?.lastPlayed || null,
+      lastSeasonActive: queryEnriched?.season || null,
+      seasonActivity: queryEnriched?.seasonActivity || [],
+    },
+    similar,
+    matrix,
+    calibration: cal ? { mean: r3(cal.mean), stddev: r3(cal.stddev), playerCount: allPlayers.length } : null,
+  });
+
+  // Background: pull 1 replay for any player (query or candidate) missing glyph arc data
+  const queryNeedsSequence = !queryGlyph || queryGlyph.transitionPairs.length === 0;
+  const candidatesNeedSequence = similar.filter(s => !s.glyph || s.glyph.transitionPairs.length === 0);
+  const tagsToFetch = [
+    ...(queryNeedsSequence ? [battleTag] : []),
+    ...candidatesNeedSequence.map(s => s.battleTag),
+  ];
+  const newTags = tagsToFetch.filter(t => !sequenceFetchingTags.has(t));
+  if (newTags.length > 0) {
+    newTags.forEach(t => sequenceFetchingTags.add(t));
+    setImmediate(async () => {
+      try {
+        // Players already in DB (old parse, no sequence) → re-download one existing replay each
+        const replayMatches = getReplayMatchesForPlayers(newTags);
+        const coveredTags = new Set(replayMatches.flatMap(m => m.players));
+        const needNewDownload = newTags.filter(t => !coveredTags.has(t));
+
+        if (replayMatches.length > 0) {
+          // Pick the most recent replay covering each uncovered tag (replayMatches is desc by id)
+          const selected = [];
+          const seen = new Set();
+          for (const match of replayMatches) {
+            const fresh = match.players.filter(p => !seen.has(p));
+            if (fresh.length > 0) {
+              selected.push(match);
+              for (const p of fresh) seen.add(p);
+            }
+          }
+          console.log(`[identify-backfill] re-parsing ${selected.length} existing replays for ${coveredTags.size} players`);
+          await sequenceBackfill(selected);
+          for (const tag of coveredTags) sequenceFetchingTags.delete(tag);
+        }
+
+        // Players with no replay in DB → search W3C for a new one
+        for (const tag of needNewDownload) {
+          try {
+            const result = await importPlayerMatches(tag, 1);
+            console.log(`[identify-backfill] ${tag}: imported=${result.imported} rateLimited=${result.rateLimited}`);
+            if (result.rateLimited) break;
+          } catch (e) {
+            console.error(`[identify-backfill] ${tag}: ${e.message}`);
+          } finally {
+            sequenceFetchingTags.delete(tag);
+          }
+        }
+      } catch (e) {
+        console.error('[identify-backfill]', e.message);
+        for (const tag of newTags) sequenceFetchingTags.delete(tag);
+      }
+    });
+  }
+});
+
 // ── Request coalescing for suspects ──
+const sequenceFetchingTags = new Set(); // dedup concurrent identify-triggered backfills
+
 let suspectsInflight = null; // Promise
 
 // GET /api/fingerprints/suspects — Top similar player pairs (public, no auth)
@@ -2211,17 +2724,11 @@ router.patch('/validation/:id', requireApiKey, (req, res) => {
 });
 
 export async function warmCaches() {
-  console.log('[Cache] Warming parsed players...');
-  getParsedPlayers();
-  console.log(`[Cache] Parsed ${parsedPlayersCache.length} players`);
-
-  console.log('[Cache] Warming calibration...');
-  getCalibration();
-  console.log('[Cache] Calibration ready');
-
-  console.log('[Cache] Warming PCA embedding map...');
-  await computeEmbeddingMapResult('pca');
-  console.log('[Cache] PCA ready');
+  // getParsedPlayers() and getCalibration() are synchronous better-sqlite3
+  // calls that block the event loop for 30-40s when the DB is large — long
+  // enough to fail the Fly.io health check and crash the machine.
+  // All caches warm lazily on first request instead.
+  console.log('[Cache] Deferred — parsed players, calibration, and PCA will warm on first request');
 }
 
 export default router;

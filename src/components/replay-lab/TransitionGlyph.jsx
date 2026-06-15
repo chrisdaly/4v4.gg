@@ -2,6 +2,18 @@ import React from "react";
 import { GOLD, GREY, GREY_MID } from "../../pages/signatures/vizUtils";
 
 const ASSIGN_COLOR = "#7eb8da";
+const VIOLET = "#a78bfa";
+const GREY_NODE = "#6b7280";
+const HERO_COLOR = "#fcd34d";
+
+const ROLE_RING_COLOR = {
+  hero: HERO_COLOR,
+  main: GOLD,
+  second: GOLD,
+  support: VIOLET,
+  production: GREY_NODE,
+  altar: GREY_NODE,
+};
 const MIN_NODE_R_FULL = 20;
 const MIN_NODE_R_MINI = 10;
 const FONT = "Inconsolata, monospace";
@@ -90,12 +102,14 @@ const HERO_IDS = new Set([
 // Altar building IDs (one per race)
 const ALTARS = new Set(['halt', 'oalt', 'eate', 'uaod']);
 
-// Caster / support unit IDs
+// Caster / support / utility unit IDs
 const SUPPORT_UNITS = new Set([
   'hmpr', 'hsor', 'hdhw',         // Human: Priest, Sorceress, Dragonhawk
   'oshm', 'odoc', 'osp1', 'owvy', // Orc: Shaman, Witch Doctor, Spirit Walker, Wind Rider
   'edry', 'edoc', 'efdr',         // NE: Dryad, DotC, Faerie Dragon
-  'unec', 'uban', 'uobs',         // UD: Necromancer, Banshee, Statue
+  'unec', 'uban', 'uobs', 'umtw', // UD: Necromancer, Banshee, Statue, Meat Wagon
+  'hpea', 'opeo', 'uaco', 'ewsp', // Workers
+  'nzep', 'ushd',                  // Utility: Zeppelin, Shade
 ]);
 
 // ── Role icon SVG paths (game-icons.net, CC BY 3.0) ──
@@ -187,9 +201,25 @@ function getNodeR(sizeFactor, mini = false) {
   return Math.max(MIN_NODE_R_FULL, 16 + sizeFactor * 28);
 }
 
+// Derive synthetic groupUsage from the hotkey fingerprint segment when raw
+// action sequence data is missing (e.g. early imports before full_action_sequence
+// was stored, or a player who disconnected early in every captured replay).
+function groupUsageFromHotkey(hotkey) {
+  if (!hotkey || hotkey.length < 20) return [];
+  const result = [];
+  for (let i = 0; i < 10; i++) {
+    const sel = hotkey[i] || 0;
+    const asgn = hotkey[10 + i] || 0;
+    if (sel + asgn > 0.01) {
+      result.push({ group: i, used: Math.round(sel * 1000), assigned: Math.round(asgn * 1000) });
+    }
+  }
+  return result;
+}
+
 export default function TransitionGlyph({
   transitionPairs = [], groupUsage = [], groupCompositions = {},
-  segments = null, playerName = "", replayCount = null,
+  segments = null, playerName = "", replayCount = null, sampleCount = null,
   mini = false,
 }) {
   const W = mini ? 240 : 520, H = mini ? 240 : 520;
@@ -198,11 +228,15 @@ export default function TransitionGlyph({
   const pad = 12;
   const elements = [];
 
-  const activeGroups = groupUsage
+  const effectiveGroupUsage = groupUsage.length > 0
+    ? groupUsage
+    : groupUsageFromHotkey(segments?.hotkey);
+
+  const activeGroups = effectiveGroupUsage
     .filter(g => (g.used + g.assigned) > 0)
     .sort((a, b) => a.group - b.group);
 
-  if (activeGroups.length === 0 || transitionPairs.length === 0) {
+  if (activeGroups.length === 0) {
     // Fallback: show muted ghost nodes for groups 0-9 + APM in center
     const fallbackEls = [];
     const { apm: fallbackApm = [0, 0, 0] } = segments || {};
@@ -294,7 +328,9 @@ export default function TransitionGlyph({
         <text key="fb-games" x={W - pad} y={H - pad}
           textAnchor="end" dominantBaseline="auto"
           fill={GREY} fontSize="10" fontFamily={FONT} opacity="0.35">
-          {replayCount} game{replayCount !== 1 ? "s" : ""}
+          {sampleCount != null && sampleCount < replayCount
+        ? `${sampleCount} of ${replayCount} games`
+        : `${replayCount} game${replayCount !== 1 ? "s" : ""}`}
         </text>
       );
     }
@@ -305,9 +341,13 @@ export default function TransitionGlyph({
   const totalUsage = Math.max(1, activeGroups.reduce((s, g) => s + g.used + g.assigned, 0));
   const topTotal = Math.max(...activeGroups.map(g => g.used + g.assigned));
 
+  // Pin group 1 at north (12 o'clock); fall back to lowest-numbered active group
+  const n = activeGroups.length;
+  const pinGroup = activeGroups.some(g => g.group === 1) ? 1 : activeGroups[0]?.group ?? 0;
+  const pinIdx = activeGroups.findIndex(g => g.group === pinGroup);
   const groupAngles = {};
   activeGroups.forEach((g, i) => {
-    const angle = (i / activeGroups.length) * Math.PI * 2 - Math.PI / 2;
+    const angle = -Math.PI / 2 + (2 * Math.PI * ((i - pinIdx + n) % n)) / n;
     groupAngles[g.group] = angle;
   });
 
@@ -321,54 +361,88 @@ export default function TransitionGlyph({
     );
   }
 
-  // ── Merge bidirectional pairs into single arcs ──
-  const merged = [];
-  const seen = new Set();
+  // ── Aggregate directed pairs (sum counts per from→to) ──
+  const pairMap = new Map();
   for (const t of transitionPairs) {
-    const key = Math.min(t.from, t.to) + "-" + Math.max(t.from, t.to);
-    if (seen.has(key)) {
-      const existing = merged.find(m => m.key === key);
-      if (existing) existing.count += t.count;
-      continue;
-    }
-    seen.add(key);
-    merged.push({ from: t.from, to: t.to, count: t.count, key });
+    const key = `${t.from}-${t.to}`;
+    pairMap.set(key, (pairMap.get(key) || 0) + t.count);
   }
-  merged.sort((a, b) => a.count - b.count);
 
-  const maxCount = Math.max(1, ...merged.map(t => t.count));
-  const topCount = merged.length > 0 ? merged[merged.length - 1].count : 0;
+  // Build undirected edges — always render TWO arcs per connected pair
+  const edgeSeen = new Set();
+  const edges = [];
+  for (const [key] of pairMap) {
+    const [a, b] = key.split('-').map(Number);
+    const edgeKey = `${Math.min(a, b)}-${Math.max(a, b)}`;
+    if (edgeSeen.has(edgeKey)) continue;
+    edgeSeen.add(edgeKey);
+    const lo = Math.min(a, b), hi = Math.max(a, b);
+    edges.push({
+      lo, hi,
+      loCount: pairMap.get(`${lo}-${hi}`) || 0, // lo→hi arc
+      hiCount: pairMap.get(`${hi}-${lo}`) || 0, // hi→lo arc
+    });
+  }
+
+  const allCounts = edges.flatMap(e => [e.loCount, e.hiCount]).filter(c => c > 0);
+  const maxCount = Math.max(1, ...allCounts);
+  const topCount = allCounts.length > 0 ? Math.max(...allCounts) : 0;
+  const BOW = mini ? 14 : 28;
+
+  // Sort edges low-count first so heaviest arcs render on top
+  edges.sort((a, b) => (a.loCount + a.hiCount) - (b.loCount + b.hiCount));
 
   // ── Arcs (drawn first, nodes cover endpoints) ──
-  for (let i = 0; i < merged.length; i++) {
-    const t = merged[i];
-    const fromAngle = groupAngles[t.from];
-    const toAngle = groupAngles[t.to];
-    if (fromAngle === undefined || toAngle === undefined) continue;
+  for (const e of edges) {
+    for (const [from, to, count] of [[e.lo, e.hi, e.loCount], [e.hi, e.lo, e.hiCount]]) {
+      if (count === 0) continue; // skip directions with no data
 
-    const intensity = t.count / maxCount;
-    const isTop = t.count === topCount;
+      const fromAngle = groupAngles[from];
+      const toAngle = groupAngles[to];
+      if (fromAngle === undefined || toAngle === undefined) continue;
 
-    const x1 = cx + Math.cos(fromAngle) * R;
-    const y1 = cy + Math.sin(fromAngle) * R;
-    const x2 = cx + Math.cos(toAngle) * R;
-    const y2 = cy + Math.sin(toAngle) * R;
+      const x1 = cx + Math.cos(fromAngle) * R;
+      const y1 = cy + Math.sin(fromAngle) * R;
+      const x2 = cx + Math.cos(toAngle) * R;
+      const y2 = cy + Math.sin(toAngle) * R;
 
-    const pull = 0.15 + intensity * 0.15;
-    const cpx = cx + (x1 + x2 - 2 * cx) * pull;
-    const cpy = cy + (y1 + y2 - 2 * cy) * pull;
+      const isBidirectional = e.loCount > 0 && e.hiCount > 0;
+      let cpx, cpy;
+      if (isBidirectional) {
+        // Always compute perpendicular from lo→hi so the side flip actually works
+        const side = from === e.lo ? 1 : -1;
+        const mx = (x1 + x2) / 2, my = (y1 + y2) / 2;
+        const lx = cx + Math.cos(groupAngles[e.lo]) * R;
+        const ly = cy + Math.sin(groupAngles[e.lo]) * R;
+        const hx = cx + Math.cos(groupAngles[e.hi]) * R;
+        const hy = cy + Math.sin(groupAngles[e.hi]) * R;
+        const ddx = hx - lx, ddy = hy - ly;
+        const len = Math.sqrt(ddx * ddx + ddy * ddy) || 1;
+        cpx = mx + (-ddy / len) * BOW * side;
+        cpy = my + (ddx / len) * BOW * side;
+      } else {
+        // Single direction — bow toward center
+        const intensity = count / maxCount;
+        const pull = 0.15 + intensity * 0.15;
+        cpx = cx + (x1 + x2 - 2 * cx) * pull;
+        cpy = cy + (y1 + y2 - 2 * cy) * pull;
+      }
 
-    const strokeWidth = mini
-      ? (isTop ? 3 + intensity * 2 : 0.5 + intensity * 2)
-      : (isTop ? 5 + intensity * 3 : 1 + intensity * 3);
-    const opacity = isTop ? 0.9 : 0.2 + intensity * 0.45;
+      const intensity = count / maxCount;
+      const isTop = count === topCount;
+      const strokeWidth = mini
+        ? (isTop ? 3 + intensity * 2 : 0.5 + intensity * 2)
+        : (isTop ? 5 + intensity * 3 : 1 + intensity * 3);
+      const baseOpacity = isTop ? 0.9 : 0.2 + intensity * 0.45;
+      const opacity = isBidirectional ? Math.max(baseOpacity, 0.45) : baseOpacity;
 
-    elements.push(
-      <path key={`arc-${t.key}`}
-        d={`M ${x1} ${y1} Q ${cpx} ${cpy} ${x2} ${y2}`}
-        fill="none" stroke={GOLD} strokeWidth={strokeWidth}
-        opacity={opacity} strokeLinecap="round" />
-    );
+      elements.push(
+        <path key={`arc-${from}-${to}`}
+          d={`M ${x1} ${y1} Q ${cpx} ${cpy} ${x2} ${y2}`}
+          fill="none" stroke={GOLD} strokeWidth={strokeWidth}
+          opacity={opacity} strokeLinecap="round" />
+      );
+    }
   }
 
   // ── Nodes ──
@@ -387,10 +461,26 @@ export default function TransitionGlyph({
     const selectLen = circumference * selectFrac;
     const assignLen = circumference - selectLen;
 
+    // Classify group role from composition (must come before ring rendering)
+    const compItems = groupCompositions[String(g.group)];
+    const unitGroups = activeGroups
+      .map(ag => {
+        const ci = groupCompositions[String(ag.group)];
+        const bldg = ci ? ci.reduce((s, u) => s + (BUILDINGS.has(u.id) ? u.count : 0), 0) : 0;
+        const tot = ci ? ci.reduce((s, u) => s + u.count, 0) : 1;
+        return { group: ag.group, usage: ag.used + ag.assigned, isBldg: tot > 0 && bldg / tot > 0.5 };
+      })
+      .filter(x => !x.isBldg)
+      .sort((a, b) => b.usage - a.usage);
+    const isTopUnitGroup = unitGroups.length > 0 && unitGroups[0].group === g.group;
+    const role = classifyGroupRole(compItems, isTopUnitGroup);
+    const iconPath = ROLE_ICONS[role];
+    const ringColor = ROLE_RING_COLOR[role] || GOLD;
+
     if (!mini && sizeFactor > 0.15) {
       elements.push(
         <circle key={`glow-${g.group}`} cx={nx} cy={ny} r={nR + 9}
-          fill={GOLD} opacity={0.05} />
+          fill={ringColor} opacity={0.05} />
       );
     }
 
@@ -404,18 +494,18 @@ export default function TransitionGlyph({
         fill="#0a0a0a" stroke="none" />
     );
 
-    // Assign ring (full circle, underneath)
+    // Assign ring (full circle, underneath) — tinted by role color
     elements.push(
       <circle key={`ring-assign-${g.group}`} cx={nx} cy={ny} r={ringR}
-        fill="none" stroke={ASSIGN_COLOR} strokeWidth={ringStroke}
-        opacity={0.4} />
+        fill="none" stroke={ringColor} strokeWidth={ringStroke}
+        opacity={0.2} />
     );
 
-    // Select ring (gold, starts at top)
+    // Select ring (role color, starts at top)
     if (selectFrac > 0.01) {
       elements.push(
         <circle key={`ring-select-${g.group}`} cx={nx} cy={ny} r={ringR}
-          fill="none" stroke={GOLD} strokeWidth={ringStroke}
+          fill="none" stroke={ringColor} strokeWidth={ringStroke}
           opacity={0.7 + sizeFactor * 0.3}
           strokeDasharray={`${selectLen} ${assignLen}`}
           strokeDashoffset={circumference * 0.25}
@@ -423,22 +513,6 @@ export default function TransitionGlyph({
           style={{ transform: `rotate(-90deg)`, transformOrigin: `${nx}px ${ny}px` }} />
       );
     }
-
-    // Classify group role from composition
-    const compItems = groupCompositions[String(g.group)];
-    // Determine if this is the highest-usage non-building group (for main vs second)
-    const unitGroups = activeGroups
-      .map(ag => {
-        const ci = groupCompositions[String(ag.group)];
-        const bldg = ci ? ci.reduce((s, u) => s + (BUILDINGS.has(u.id) ? u.count : 0), 0) : 0;
-        const tot = ci ? ci.reduce((s, u) => s + u.count, 0) : 1;
-        return { group: ag.group, usage: ag.used + ag.assigned, isBldg: tot > 0 && bldg / tot > 0.5 };
-      })
-      .filter(x => !x.isBldg)
-      .sort((a, b) => b.usage - a.usage);
-    const isTopUnitGroup = unitGroups.length > 0 && unitGroups[0].group === g.group;
-    const role = classifyGroupRole(compItems, isTopUnitGroup);
-    const iconPath = ROLE_ICONS[role];
 
     // Group number — shift up slightly to make room for role icon
     const numOffset = mini ? -3 : -5;
@@ -451,7 +525,7 @@ export default function TransitionGlyph({
       </text>
     );
 
-    // Role icon — tiny silhouette below the number
+    // Role icon — tiny silhouette below the number, tinted by role color
     if (iconPath) {
       const iconS = mini ? 10 : 16;
       const iconY = ny + (mini ? 6 : 10);
@@ -459,8 +533,8 @@ export default function TransitionGlyph({
       elements.push(
         <path key={`role-${g.group}`}
           d={iconPath}
-          fill={GREY}
-          opacity="0.45"
+          fill={ringColor}
+          opacity="0.5"
           transform={`translate(${nx - iconS / 2}, ${iconY - iconS / 2}) scale(${scale})`}
         />
       );
@@ -527,7 +601,9 @@ export default function TransitionGlyph({
       <text key="corner-games" x={W - pad} y={H - pad}
         textAnchor="end" dominantBaseline="auto"
         fill={GREY} fontSize="10" fontFamily={FONT} opacity="0.5">
-        {replayCount} game{replayCount !== 1 ? "s" : ""}
+        {sampleCount != null && sampleCount < replayCount
+        ? `${sampleCount} of ${replayCount} games`
+        : `${replayCount} game${replayCount !== 1 ? "s" : ""}`}
       </text>
     );
   }

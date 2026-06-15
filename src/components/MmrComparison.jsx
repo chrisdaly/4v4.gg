@@ -38,6 +38,11 @@ const MmrComparison = React.memo(({ data, variant, compact, hideLabels, showMean
   useEffect(() => {
     if (!svgRef.current) return;
 
+    const parent = svgRef.current.parentElement;
+
+    const draw = () => {
+      if (!svgRef.current) return;
+
     // Calculate group sizes from group IDs
     const calcGroupSizes = (atArray) => {
       const counts = {};
@@ -71,7 +76,6 @@ const MmrComparison = React.memo(({ data, variant, compact, hideLabels, showMean
     const svg = d3.select(svgRef.current);
     svg.selectAll("*").remove();
 
-    const parent = svgRef.current.parentElement;
     const width = parent.clientWidth;
     const height = parent.clientHeight;
 
@@ -84,7 +88,8 @@ const MmrComparison = React.memo(({ data, variant, compact, hideLabels, showMean
       .domain(MMR_DOMAIN)
       .range([innerHeight, margin.top]);
 
-    const dotRadius = isCompact ? 4 : 5;
+    const dotRadius = width < 150 ? 3 : (isCompact ? 4 : 5);
+    const beeswarmStep = dotRadius * 2;
     const teamOneX = innerWidth / 3 + margin.left;
     const teamTwoX = (2 * innerWidth) / 3 + margin.left;
 
@@ -136,7 +141,7 @@ const MmrComparison = React.memo(({ data, variant, compact, hideLabels, showMean
           if (!collision) break;
 
           attempts++;
-          teamPos = baseX + offsetDirection * attempts * 8;
+          teamPos = baseX + offsetDirection * attempts * beeswarmStep;
         }
 
         // Clamp team position to stay within bounds
@@ -196,7 +201,7 @@ const MmrComparison = React.memo(({ data, variant, compact, hideLabels, showMean
           if (!soloCollision && !combinedCollision) break;
 
           attempts++;
-          teamPos = baseX + offsetDirection * attempts * 8;
+          teamPos = baseX + offsetDirection * attempts * beeswarmStep;
         }
 
         positioned.push({ ...d, x: teamPos, y: mmrPos });
@@ -546,6 +551,13 @@ const MmrComparison = React.memo(({ data, variant, compact, hideLabels, showMean
         .attr("letter-spacing", "0.1em")
         .text("vs");
     }
+    }; // end draw
+
+    draw();
+
+    const observer = new ResizeObserver(draw);
+    observer.observe(parent);
+    return () => observer.disconnect();
   }, [teamOneMmrs, teamTwoMmrs, teamOneAT, teamTwoAT, isCompact, showMean, showStdDev, labelsHidden, showValues]);
 
   return <svg ref={svgRef} style={{ width: "100%", height: "100%" }}></svg>;

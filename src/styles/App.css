@@ -4364,6 +4364,13 @@ a.neighbor-name-sm:hover {
   display: inline-block;
 }
 
+@media (max-width: 640px) {
+  .mmr-chart-container {
+    height: 160px;
+    width: 120px;
+  }
+}
+
 /* MMR chart in stream overlay - extend beyond row */
 #StreamOverlay .mmr-chart-container {
   height: 180px;
@@ -6547,6 +6554,264 @@ a.neighbor-name:hover {
 
 .po-banner-session-change.negative {
   color: var(--red);
+}
+
+/* ── Rich overlay layout ── */
+.po-rich {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-2);
+  padding: var(--space-3);
+  width: 280px;
+  border-radius: var(--radius-md);
+}
+
+.po-rich-header {
+  display: flex;
+  align-items: center;
+  gap: var(--space-3);
+}
+
+.po-rich-pic-wrap {
+  position: relative;
+  flex-shrink: 0;
+}
+
+.po-rich-pic {
+  width: 56px;
+  height: 56px;
+  border-radius: var(--radius-sm);
+  object-fit: cover;
+  border: 1px solid rgba(var(--gold-muted-rgb), 0.4);
+}
+
+.po-rich-flag {
+  display: inline-block;
+  width: 16px !important;
+  height: 12px !important;
+  border-radius: 2px;
+  flex-shrink: 0;
+}
+
+.po-rich-identity {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-1);
+  min-width: 0;
+}
+
+.po-rich-name {
+  font-family: var(--font-display);
+  font-size: var(--text-sm);
+  color: var(--gold);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.po-rich-mmr-row {
+  display: flex;
+  align-items: baseline;
+  gap: var(--space-2);
+}
+
+.po-rich-rank {
+  font-family: var(--font-mono);
+  font-size: var(--text-xs);
+  color: var(--gold);
+}
+
+.po-rich-mmr {
+  font-family: var(--font-mono);
+  font-size: var(--text-lg);
+  color: #fff;
+  line-height: 1;
+}
+
+.po-rich-mmr-label {
+  font-family: var(--font-mono);
+  font-size: var(--text-xxs);
+  color: var(--grey-light);
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+}
+
+.po-rich-divider {
+  height: 1px;
+  background: rgba(255, 255, 255, 0.08);
+  margin: var(--space-1) 0;
+}
+
+.po-rich-sparkline {
+  display: block;
+}
+
+.po-rich-range {
+  margin-top: var(--space-1);
+}
+
+.po-rich-record {
+  display: flex;
+  align-items: center;
+  gap: 3px;
+  font-family: var(--font-mono);
+  font-size: var(--text-xxs);
+}
+
+.po-rich-dot {
+  color: var(--grey-light);
+}
+
+.po-rich-session {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+}
+
+.po-rich-session-label {
+  font-family: var(--font-mono);
+  font-size: var(--text-xxxs);
+  color: var(--grey-light);
+  text-transform: uppercase;
+  letter-spacing: 0.1em;
+}
+
+.po-rich-session-change {
+  font-family: var(--font-mono);
+  font-size: var(--text-sm);
+  font-weight: 700;
+}
+
+.po-rich-session-change.positive { color: var(--green); }
+.po-rich-session-change.negative { color: var(--red); }
+
+/* Ladder strip */
+.po-rich-ladder {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.po-rich-ladder-row {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+  padding: 3px var(--space-2);
+  border-radius: var(--radius-sm);
+}
+
+.po-rich-ladder-neighbor {
+  opacity: 0.55;
+}
+
+.po-rich-ladder-self {
+  background: rgba(252, 219, 51, 0.1);
+  border: 1px solid rgba(252, 219, 51, 0.25);
+}
+
+.po-rich-ladder-rank {
+  font-family: var(--font-mono);
+  font-size: var(--text-xxs);
+  color: var(--gold);
+  width: 32px;
+  flex-shrink: 0;
+}
+
+.po-rich-ladder-name {
+  font-family: var(--font-display);
+  font-size: var(--text-xxs);
+  color: #fff;
+  flex: 1;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.po-rich-ladder-mmr {
+  font-family: var(--font-mono);
+  font-size: var(--text-xxs);
+  color: var(--grey-light);
+  flex-shrink: 0;
+}
+
+/* Last game row */
+.po-rich-last-game {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+  font-size: var(--text-xxs);
+}
+
+.po-rich-last-label {
+  font-family: var(--font-mono);
+  color: var(--grey-light);
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+  flex-shrink: 0;
+}
+
+.po-rich-last-map {
+  font-family: var(--font-display);
+  color: #fff;
+  flex: 1;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.po-rich-last-result {
+  font-family: var(--font-mono);
+  font-weight: 700;
+  font-size: var(--text-xs);
+  flex-shrink: 0;
+}
+
+.po-rich-last-result.positive { color: var(--green); }
+.po-rich-last-result.negative { color: var(--red); }
+
+.po-rich-last-duration {
+  font-family: var(--font-mono);
+  color: var(--grey-light);
+  flex-shrink: 0;
+}
+
+.po-rich-last-icon {
+  width: 12px;
+  height: 12px;
+  color: var(--grey-light);
+  flex-shrink: 0;
+}
+
+/* Widget mode — same styles, no min-width */
+.po-rich.po-widget {
+  width: auto;
+  min-width: 0;
+}
+
+/* Scale down profile-page hd-* elements for overlay context */
+.po-rich .hd-pic {
+  width: 72px;
+  height: 72px;
+}
+
+.po-rich .hd-name-row {
+  margin-bottom: var(--space-2);
+  gap: var(--space-2);
+}
+
+.po-rich .hd-name {
+  font-size: var(--text-lg);
+}
+
+.po-rich .hd-mmr,
+.po-rich .hd-rank {
+  font-size: var(--text-base);
+}
+
+.po-rich .hd-record-row {
+  font-size: var(--text-xs);
 }
 
 /* NOTE: Session History Overlay and Last Game Overlay styles removed.

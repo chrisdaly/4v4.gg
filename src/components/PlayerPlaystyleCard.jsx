@@ -39,21 +39,33 @@ export default function PlayerPlaystyleCard({ battleTag, race, compact = false }
     fetchProfile();
   }, [battleTag]);
 
+  // When full_action_sequence is missing in the DB (old imports), derive group
+  // usage from the averaged hotkey fingerprint segment instead.
+  const getEffectiveGroupUsage = () => {
+    if (profileData?.groupUsage?.length > 0) return profileData.groupUsage;
+    const hotkey = profileData?.averaged?.segments?.hotkey;
+    if (!hotkey) return [];
+    const synthetic = [];
+    for (let i = 0; i < 10; i++) {
+      const sel = hotkey[i] || 0;
+      const asgn = hotkey[10 + i] || 0;
+      if (sel + asgn > 0.01) {
+        synthetic.push({ group: i, used: Math.round(sel * 1000), assigned: Math.round(asgn * 1000) });
+      }
+    }
+    return synthetic;
+  };
+
   // Extract key metrics from profile
   const getMetrics = () => {
     if (!profileData?.averaged?.segments) return null;
     const { segments } = profileData.averaged;
     const { apm = [0, 0, 0] } = segments;
     const meanApm = Math.round(apm[0] * 300);
-
-    // Count active groups
-    const activeGroups = (profileData.groupUsage || []).filter(
+    const activeGroups = getEffectiveGroupUsage().filter(
       (g) => (g.used + g.assigned) > 0
     ).length;
-
-    // Get reassign ratio
     const reassignRatio = profileData.actionCounts?.reassignRatio || 0;
-
     return { meanApm, activeGroups, reassignRatio };
   };
 

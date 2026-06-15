@@ -1,5 +1,6 @@
 import express from 'express';
 import cors from 'cors';
+import compression from 'compression';
 import config from './config.js';
 import { initDb, deleteOldEvents } from './db.js';
 import { startHeartbeat } from './sse.js';
@@ -24,6 +25,13 @@ import { startTokenMonitor, getTokenHealth } from './tokenMonitor.js';
 const app = express();
 app.set('trust proxy', 1);
 
+app.use(compression({
+  filter: (req, res) => {
+    // Never compress SSE streams — buffering breaks event delivery
+    if (req.headers.accept === 'text/event-stream') return false;
+    return compression.filter(req, res);
+  },
+}));
 app.use(cors({ origin: config.CORS_ORIGINS }));
 app.use(express.json());
 

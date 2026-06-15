@@ -1,17 +1,29 @@
 import React, { useState, useCallback, useEffect, useRef } from "react";
 import styled from "styled-components";
-import { FiChevronDown, FiChevronUp } from "react-icons/fi";
+import { useHistory, useLocation } from "react-router-dom";
 import { useReplayLabStore } from "../../lib/useReplayLabStore";
 import PeonLoader from "../../components/PeonLoader";
 import PlayerIdentityCard, {
   polarToCart, RADAR_GROUPS, RADAR_SIZE, RADAR_CX, RADAR_CY, RADAR_R,
   SIG_AXES, extractSignature,
 } from "../../components/PlayerIdentityCard";
-import { searchLadder } from "../../lib/api";
+import TransitionGlyph from "../../components/replay-lab/TransitionGlyph";
+import { getGroupUnits, HERO_IMAGES, BUILDINGS } from "../../components/replay-lab/PlaystyleReport";
+import { searchLadder, getPlayerProfilesBatch } from "../../lib/api";
 import { raceMapping } from "../../lib/constants";
+import { Input, CountryFlag } from "../../components/ui";
+import { raceIcons } from "../../lib/constants";
 import { EmptyState, CloseBtn } from "./shared-styles";
 
 // ── Constants ───────────────────────────────────
+
+const RACE_ICON_MAP = {
+  Human: raceIcons.human, human: raceIcons.human,
+  Orc: raceIcons.orc, orc: raceIcons.orc,
+  "Night Elf": raceIcons.elf, NightElf: raceIcons.elf, nightelf: raceIcons.elf,
+  Undead: raceIcons.undead, undead: raceIcons.undead,
+  Random: raceIcons.random, random: raceIcons.random,
+};
 
 const ACTION_LABELS = ["Right-click", "Ability", "Build/Train", "Item", "Select HK", "Assign HK"];
 const TEMPO_LABELS = ["<50ms", "50-100", "100-200", "200-500", "500ms-1s", "1-2s", "2-5s", "5s+"];
@@ -20,6 +32,26 @@ const ACTION_ID_LABELS = {
   22: "Select", 23: "Assign HK", 24: "Select HK", 25: "Tab",
   30: "Dequeue", 97: "ESC", 102: "Skill", 103: "Build", 104: "Ping",
 };
+
+function getIdentifyVerdict(verdict, topMatch, queryName) {
+  const matchName = topMatch ? (topMatch.playerName || topMatch.battleTag || "").split("#")[0] : null;
+  if (verdict === 'confident') return {
+    icon: "🚨", color: "#f87171",
+    heading: `Likely smurf of ${matchName}`,
+    sub: `p${Math.round(topMatch.percentile)} similarity — above the confident threshold`,
+  };
+  if (verdict === 'possible') return {
+    icon: "⚠️", color: "var(--gold)",
+    heading: matchName ? `Possibly related to ${matchName}` : "Possible match found",
+    sub: `p${Math.round(topMatch.percentile)} similarity — warrants investigation`,
+  };
+  if (verdict === 'no_match') return {
+    icon: "✓", color: "var(--grey-light)",
+    heading: `${queryName} — no confident match`,
+    sub: "Playstyle does not closely match any indexed player",
+  };
+  return null;
+}
 
 function getVerdict(score, percentile, zScore) {
   // Use percentile if available (population-calibrated), fall back to raw score
@@ -38,88 +70,297 @@ function getVerdict(score, percentile, zScore) {
 
 // ── Styled components ───────────────────────────
 
-const ResultsHeader = styled.div`text-align: center; margin-bottom: var(--space-4);`;
-const ResultsTitle = styled.h3`
-  font-family: var(--font-display); font-size: var(--text-base); color: var(--gold);
-  margin: 0 0 var(--space-1) 0;
+const NewSearchRow = styled.div`
+  display: flex; align-items: center; gap: var(--space-3);
+  margin-bottom: var(--space-4);
 `;
-const ResultsSubtitle = styled.div`
-  font-family: var(--font-mono); font-size: var(--text-xxs); color: var(--grey-light);
-  text-transform: uppercase; letter-spacing: 0.08em;
-`;
-
-const HybridBadge = styled.span`
-  display: inline-block; font-size: 0.65rem; color: var(--green);
-  border: 1px solid rgba(76, 175, 80, 0.3); background: rgba(76, 175, 80, 0.08);
-  border-radius: var(--radius-sm); padding: 1px 5px; margin-left: 6px;
-  vertical-align: middle; letter-spacing: 0.06em;
-`;
-
-const ResultCard = styled.div`
-  background: var(--theme-bg, var(--surface-1));
-  backdrop-filter: var(--theme-blur, none);
-  border: var(--theme-border, 1px solid ${(p) => p.$active ? "var(--gold)" : "var(--grey-mid)"});
-  border-image: var(--theme-border-image, none);
-  border-radius: var(--radius-md);
-  box-shadow: var(--theme-shadow, none);
-  padding: var(--space-4); margin-bottom: ${(p) => p.$active ? "0" : "var(--space-3)"};
-  display: grid; grid-template-columns: 32px 1fr auto; gap: var(--space-4);
-  align-items: flex-start; cursor: pointer; transition: border-color 0.15s;
-  ${(p) => !p.$active && `&:hover { border-color: var(--gold); }`}
-  ${(p) => p.$active && `border-bottom-left-radius: 0; border-bottom-right-radius: 0;`}
-`;
-
-const ResultRank = styled.div`
-  display: flex; align-items: center; justify-content: center;
-  width: 24px; height: 24px; font-family: var(--font-mono); font-size: var(--text-xxs);
-  color: var(--gold); background: rgba(252, 219, 51, 0.08);
-  border: 1px solid rgba(252, 219, 51, 0.2); border-radius: 50%; font-weight: 600;
-`;
-const ResultInfo = styled.div`min-width: 0;`;
-const ResultName = styled.div`
-  font-family: var(--font-display); font-size: var(--text-base);
-  color: var(--gold); margin-bottom: var(--space-1);
-`;
-const ResultMeta = styled.div`
+const BackLink = styled.button`
+  background: none; border: none; padding: 0; cursor: pointer;
   font-family: var(--font-mono); font-size: var(--text-xxs);
-  color: var(--grey-light); margin-bottom: var(--space-3);
+  color: var(--grey-light); text-transform: uppercase; letter-spacing: 0.1em;
+  opacity: 0.6; transition: opacity 0.15s;
+  &:hover { opacity: 1; }
 `;
-const BreakdownWrap = styled.div`display: flex; flex-direction: column; gap: 4px;`;
-const BreakdownRow = styled.div`display: flex; align-items: center; gap: 8px;`;
-const BreakdownLabel = styled.span`
+/* ── Compare table — players as columns, features as rows ── */
+const CompareTable = styled.div`
+  display: grid;
+  grid-template-columns: 100px repeat(${p => p.$cols}, 1fr);
+  margin-bottom: var(--space-6);
+`;
+const TH = styled.div`
+  padding: var(--space-4) var(--space-4) var(--space-3);
+  display: flex; flex-direction: column; align-items: center; gap: var(--space-2);
+  border-bottom: 1px solid rgba(255,255,255,0.08);
+  ${p => p.$query && `border-left: 2px solid rgba(252,219,51,0.3); background: rgba(252,219,51,0.03);`}
+  ${p => p.$active && `border-left: 2px solid var(--gold);`}
+  ${p => p.$clickable && `cursor: pointer; &:hover { background: rgba(252,219,51,0.05); }`}
+`;
+const THLabel = styled.div`
   font-family: var(--font-mono); font-size: var(--text-xxxs);
-  color: var(--grey-light); text-transform: uppercase; width: 52px;
+  text-transform: uppercase; letter-spacing: 0.12em;
+  color: var(--grey-light); opacity: 0.4;
+  align-self: flex-start;
 `;
-const BreakdownTrack = styled.div`
-  width: 100px; height: 4px; background: rgba(255, 255, 255, 0.08);
-  border-radius: var(--radius-sm); overflow: hidden;
+const THName = styled.div`
+  font-family: var(--font-display); font-size: var(--text-base); color: var(--gold);
+  white-space: nowrap; overflow: hidden; text-overflow: ellipsis; max-width: 100%;
 `;
-const BreakdownFill = styled.div`
-  height: 100%; border-radius: var(--radius-sm);
-  background: ${(p) =>
-    p.$val >= 0.8 ? "var(--green)" : p.$val >= 0.6 ? "var(--gold)" : "rgba(255, 255, 255, 0.3)"};
+const RowLabel = styled.div`
+  display: flex; align-items: center;
+  padding: var(--space-3) var(--space-2) var(--space-3) 0;
+  font-family: var(--font-mono); font-size: var(--text-xxs);
+  text-transform: uppercase; letter-spacing: 0.1em;
+  color: var(--grey-light); opacity: 0.5;
+  border-bottom: 1px solid rgba(255,255,255,0.04);
 `;
-const ResultScoreWrap = styled.div`text-align: center;`;
-const ResultScore = styled.div`
-  font-family: var(--font-mono); font-size: var(--text-lg);
-  color: ${(p) => p.$color || "var(--white)"}; font-weight: 700; margin-bottom: var(--space-1);
+const TD = styled.div`
+  display: flex; align-items: center; justify-content: center;
+  padding: var(--space-3) var(--space-2);
+  font-family: var(--font-mono); font-size: var(--text-xs); color: #fff;
+  border-bottom: 1px solid rgba(255,255,255,0.04);
+  text-align: center;
+  ${p => p.$query && `background: rgba(252,219,51,0.03);`}
+  ${p => p.$active && `background: rgba(252,219,51,0.06);`}
+  ${p => p.$clickable && `cursor: pointer; &:hover { background: rgba(252,219,51,0.05); }`}
 `;
-const VerdictBadge = styled.div`
+const GlyphTD = styled(TD)`
+  align-items: center; justify-content: center;
+  padding: var(--space-4) var(--space-2);
+  border-bottom: 1px solid rgba(255,255,255,0.08);
+`;
+const GlyphRowLabel = styled(RowLabel)`
+  border-bottom: 1px solid rgba(255,255,255,0.08);
+  align-items: flex-start; padding-top: var(--space-4);
+`;
+const ColSectionLabel = styled.div`
+  font-family: var(--font-mono); font-size: var(--text-xxxs); color: var(--grey-light);
+  text-transform: uppercase; letter-spacing: 0.1em; margin-bottom: var(--space-2);
+  opacity: 0.45;
+`;
+const ColName = styled.div`
+  font-family: var(--font-display); font-size: var(--text-base); color: var(--gold);
+  white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+  margin: var(--space-1) 0;
+`;
+const ColMeta = styled.div`
+  font-family: var(--font-mono); font-size: var(--text-xs); color: var(--grey-light);
+  margin-bottom: var(--space-3);
+`;
+const ColScoreRow = styled.div`
+  display: flex; align-items: baseline; gap: var(--space-2); margin-bottom: var(--space-3);
+`;
+const ColScore = styled.div`
+  font-family: var(--font-mono); font-size: var(--text-xl);
+  color: ${p => p.$color || 'var(--white)'}; font-weight: 700; line-height: 1;
+`;
+const ColScoreBadge = styled.div`
   font-family: var(--font-mono); font-size: var(--text-xxxs);
-  color: ${(p) => p.$color || "var(--grey-light)"}; background: rgba(255, 255, 255, 0.04);
-  border: 1px solid rgba(255, 255, 255, 0.08); border-radius: var(--radius-sm);
-  padding: 3px 6px; text-transform: uppercase; letter-spacing: 0.06em; text-align: center;
+  color: ${p => p.$color || 'var(--grey-light)'};
+  border: 1px solid ${p => p.$color ? `${p.$color}50` : 'rgba(255,255,255,0.1)'};
+  border-radius: var(--radius-sm); padding: 2px 6px;
+  text-transform: uppercase; letter-spacing: 0.06em;
+`;
+const RankPill = styled.div`
+  display: inline-block; font-family: var(--font-mono); font-size: var(--text-xxxs);
+  color: var(--grey-light); background: rgba(255,255,255,0.05);
+  border: 1px solid rgba(255,255,255,0.1); border-radius: var(--radius-full);
+  padding: 1px 7px; margin-bottom: var(--space-2);
+`;
+const ChatLog = styled.div`
+  max-height: 130px; overflow-y: auto;
+  scrollbar-width: thin; scrollbar-color: var(--grey-dark) transparent;
+`;
+const ChatLine = styled.div`
+  font-family: var(--font-mono); font-size: 11px; color: rgba(255,255,255,0.65);
+  padding: 2px 0 2px 8px; border-left: 2px solid rgba(255,255,255,0.1);
+  margin-bottom: 4px; line-height: 1.35;
+  display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden;
 `;
 const NoDataText = styled.div`
   font-family: var(--font-mono); font-size: var(--text-xs); color: var(--grey-light);
   text-align: center; padding: var(--space-8) var(--space-4);
 `;
-const ExpandToggle = styled.button`
-  display: flex; align-items: center; gap: 6px; font-family: var(--font-mono);
-  font-size: var(--text-xxs); color: var(--grey-light); background: none; border: none;
-  cursor: pointer; padding: 0; margin-top: var(--space-3);
-  &:hover { color: var(--gold); }
+const SearchSection = styled.div`
+  position: relative; margin-bottom: var(--space-6);
 `;
+const SearchInputWrap = styled.div`
+  position: relative;
+`;
+const VerdictBanner = styled.div`
+  display: flex; align-items: center; gap: var(--space-3);
+  padding: var(--space-3) var(--space-4); margin-bottom: var(--space-4);
+  border-radius: var(--radius-md);
+  background: ${p => p.$verdict === 'confident' ? 'rgba(248,113,113,0.08)' : p.$verdict === 'possible' ? 'rgba(252,219,51,0.07)' : 'rgba(255,255,255,0.04)'};
+  border: 1px solid ${p => p.$verdict === 'confident' ? 'rgba(248,113,113,0.3)' : p.$verdict === 'possible' ? 'rgba(252,219,51,0.25)' : 'rgba(255,255,255,0.08)'};
+`;
+const VerdictIcon = styled.div`
+  font-size: 20px; line-height: 1; flex-shrink: 0;
+`;
+const VerdictText = styled.div`flex: 1; min-width: 0;`;
+const VerdictHeading = styled.div`
+  font-family: var(--font-display); font-size: var(--text-sm);
+  color: ${p => p.$verdict === 'confident' ? '#f87171' : p.$verdict === 'possible' ? 'var(--gold)' : 'var(--grey-light)'};
+  margin-bottom: 2px;
+`;
+const VerdictSub = styled.div`
+  font-family: var(--font-mono); font-size: var(--text-xxxs); color: var(--grey-light);
+  text-transform: uppercase; letter-spacing: 0.07em;
+`;
+
+// ── Activity Timeline ────────────────────────────
+
+// Approximate W3C season start dates (used only for the timeline x-axis)
+const SEASON_STARTS = {
+  16: new Date(2022, 8, 1),
+  17: new Date(2023, 2, 1),
+  18: new Date(2023, 9, 1),
+  19: new Date(2024, 0, 1),
+  20: new Date(2024, 8, 1),
+  21: new Date(2025, 0, 1),
+  22: new Date(2025, 4, 1),
+  23: new Date(2025, 7, 1),
+  24: new Date(2025, 11, 1),
+};
+const TIMELINE_START = new Date(2022, 8, 1).getTime();
+const SHOWN_SEASONS = [16, 17, 18, 19, 20, 21, 22, 23, 24];
+
+function toPct(dateStr) {
+  if (!dateStr) return null;
+  const t = new Date(dateStr).getTime();
+  const end = Date.now();
+  const total = end - TIMELINE_START;
+  return Math.max(0, Math.min(100, ((t - TIMELINE_START) / total) * 100));
+}
+
+function ActivityTimeline({ players, matchProfiles }) {
+  const nowPct = 100;
+  const tickLabels = [
+    { label: '2023', date: new Date(2023, 0, 1) },
+    { label: '2024', date: new Date(2024, 0, 1) },
+    { label: '2025', date: new Date(2025, 0, 1) },
+    { label: '2026', date: new Date(2026, 0, 1) },
+  ];
+
+  return (
+    <div style={{ marginBottom: 'var(--space-6)' }}>
+      <div style={{ fontFamily: 'var(--font-mono)', fontSize: 'var(--text-xxxs)', color: 'var(--grey-light)', textTransform: 'uppercase', letterSpacing: '0.1em', opacity: 0.5, marginBottom: 'var(--space-3)' }}>
+        Activity Timeline
+      </div>
+
+      {/* Time axis ticks */}
+      <div style={{ position: 'relative', marginLeft: 100, height: 18, marginBottom: 2 }}>
+        {tickLabels.map(({ label, date }) => {
+          const pct = toPct(date.toISOString());
+          if (pct === null) return null;
+          return (
+            <div key={label} style={{ position: 'absolute', left: `${pct}%`, transform: 'translateX(-50%)', fontFamily: 'var(--font-mono)', fontSize: 9, color: 'rgba(255,255,255,0.2)', whiteSpace: 'nowrap' }}>
+              {label}
+            </div>
+          );
+        })}
+      </div>
+
+      {/* Player rows */}
+      {players.map((player) => {
+        const activityByS = new Map((player.seasonActivity || []).map(sa => [sa.season, sa]));
+        const activeSeasonsNums = [...activityByS.keys()].sort((a, b) => a - b);
+        const latestSeason = activeSeasonsNums[activeSeasonsNums.length - 1];
+        const isCurrentlyActive = activityByS.has(24);
+        const profile = matchProfiles?.[player.tag];
+
+        const barColor = player.isQuery
+          ? { fill: 'rgba(252,219,51,0.35)', border: 'rgba(252,219,51,0.6)', dot: '#fcdb33' }
+          : { fill: 'rgba(100,200,255,0.25)', border: 'rgba(100,200,255,0.5)', dot: '#64c8ff' };
+
+        // One bar segment per active season — ends at lastPlayed for that season (more granular)
+        const seasonBars = activeSeasonsNums.map(s => {
+          const startPct = SEASON_STARTS[s] ? toPct(SEASON_STARTS[s].toISOString()) : null;
+          if (startPct === null) return null;
+          const sa = activityByS.get(s);
+          // End at lastPlayed within this season (or season end if no date available)
+          const endDate = sa?.lastPlayed || (SEASON_STARTS[s + 1] ? SEASON_STARTS[s + 1].toISOString() : null);
+          const endPct = endDate ? toPct(endDate) : null;
+          if (endPct === null) return null;
+          const isLast = s === latestSeason;
+          return { s, startPct, endPct, isLast, lastPlayed: sa?.lastPlayed };
+        }).filter(Boolean);
+
+        return (
+          <div key={player.tag} style={{ display: 'flex', alignItems: 'center', height: 40, marginBottom: 6 }}>
+            {/* Player label */}
+            <div style={{ width: 100, flexShrink: 0, paddingRight: 8, display: 'flex', alignItems: 'center', gap: 5, overflow: 'hidden' }}>
+              {profile?.profilePicUrl
+                ? <img src={profile.profilePicUrl} alt="" style={{ width: 20, height: 20, borderRadius: 2, flexShrink: 0 }} />
+                : <span style={{ width: 20, height: 20, flexShrink: 0 }} />}
+              <span style={{ fontFamily: 'var(--font-display)', fontSize: 12, color: player.isQuery ? 'var(--gold)' : 'var(--grey-light)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+                {player.name}
+              </span>
+            </div>
+
+            {/* Track */}
+            <div style={{ flex: 1, position: 'relative', height: 40 }}>
+              {/* Background */}
+              <div style={{ position: 'absolute', top: '50%', left: 0, right: 0, height: 1, background: 'rgba(255,255,255,0.07)', transform: 'translateY(-50%)' }} />
+              {/* Season ticks */}
+              {SHOWN_SEASONS.map(s => {
+                const pct = SEASON_STARTS[s] ? toPct(SEASON_STARTS[s].toISOString()) : null;
+                if (pct === null) return null;
+                return <div key={s} style={{ position: 'absolute', left: `${pct}%`, top: '25%', height: '50%', width: 1, background: 'rgba(255,255,255,0.1)' }} />;
+              })}
+              {/* One bar per active season (with gaps) */}
+              {seasonBars.map(({ s, startPct, endPct, isLast }) => (
+                <div key={s} style={{
+                  position: 'absolute',
+                  left: `${startPct}%`,
+                  width: `${Math.max(endPct - startPct - 0.3, 0.5)}%`,
+                  top: 'calc(50% - 5px)',
+                  height: 10,
+                  borderRadius: 3,
+                  background: (isLast && isCurrentlyActive)
+                    ? `linear-gradient(to right, ${barColor.fill}, ${barColor.border})`
+                    : barColor.fill,
+                  border: `1px solid ${barColor.border}`,
+                }} />
+              ))}
+              {/* Active "now" pulse dot */}
+              {isCurrentlyActive && (
+                <div style={{ position: 'absolute', right: 2, top: 'calc(50% - 5px)', width: 10, height: 10, borderRadius: '50%', background: 'var(--green)', boxShadow: '0 0 6px var(--green)', animation: 'pulse 1.5s infinite' }} />
+              )}
+              {/* Season labels above each active bar */}
+              {seasonBars.map(({ s, startPct }) => (
+                <div key={s} style={{ position: 'absolute', left: `${startPct + 0.5}%`, top: 2, fontFamily: 'var(--font-mono)', fontSize: 9, color: barColor.dot, opacity: 0.8 }}>
+                  S{s}
+                </div>
+              ))}
+              {/* "Last seen" callout for inactive players */}
+              {!isCurrentlyActive && latestSeason && seasonBars.length > 0 && (() => {
+                const lastBar = seasonBars[seasonBars.length - 1];
+                return (
+                  <div style={{ position: 'absolute', left: `${lastBar.endPct}%`, bottom: 2, transform: 'translateX(-50%)', fontFamily: 'var(--font-mono)', fontSize: 9, color: 'rgba(255,255,255,0.35)', whiteSpace: 'nowrap' }}>
+                    S{latestSeason} · {lastBar.lastPlayed?.slice(0, 7)}
+                  </div>
+                );
+              })()}
+            </div>
+          </div>
+        );
+      })}
+
+      {/* Season legend at bottom */}
+      <div style={{ marginLeft: 100, position: 'relative', height: 16 }}>
+        {SHOWN_SEASONS.map(s => {
+          const pct = SEASON_STARTS[s] ? toPct(SEASON_STARTS[s].toISOString()) : null;
+          if (pct === null) return null;
+          return (
+            <div key={s} style={{ position: 'absolute', left: `${pct}%`, top: 0, fontFamily: 'var(--font-mono)', fontSize: 9, color: 'rgba(255,255,255,0.2)', transform: 'translateX(-50%)' }}>
+              S{s}
+            </div>
+          );
+        })}
+      </div>
+    </div>
+  );
+}
 
 // ── Compare Panel Styles ────────────────────────
 
@@ -697,8 +938,13 @@ function CompareDetail({ fpDataA, fpDataB, compareData, nameA, nameB }) {
 
 // ── Main Component ──────────────────────────────
 
+const RELAY_URL_DEFAULT = import.meta.env.VITE_CHAT_RELAY_URL || "https://4v4gg-chat-relay.fly.dev";
+
 export default function InvestigateTab() {
-  const { apiKey, RELAY_URL } = useReplayLabStore();
+  const { apiKey, RELAY_URL: storeRelay } = useReplayLabStore();
+  const RELAY_URL = storeRelay || RELAY_URL_DEFAULT;
+  const history = useHistory();
+  const location = useLocation();
 
   const [query, setQuery] = useState("");
   const [searchResults, setSearchResults] = useState([]);
@@ -709,13 +955,19 @@ export default function InvestigateTab() {
   const [selectedTag, setSelectedTag] = useState(null);
   const [playstyleData, setPlaystyleData] = useState(null);
   const [loading, setLoading] = useState(false);
-  const [showAllResults, setShowAllResults] = useState(false);
-
   const [expandedTag, setExpandedTag] = useState(null);
   const [queryFpData, setQueryFpData] = useState(null);
   const [matchFpData, setMatchFpData] = useState(null);
   const [compareData, setCompareData] = useState(null);
   const [compareLoading, setCompareLoading] = useState(false);
+  const [matchProfiles, setMatchProfiles] = useState({});
+  const [demotedTags, setDemotedTags] = useState(new Set());
+
+  const toggleDemote = (tag) => setDemotedTags(prev => {
+    const next = new Set(prev);
+    next.has(tag) ? next.delete(tag) : next.add(tag);
+    return next;
+  });
 
   useEffect(() => {
     if (!showDropdown) return;
@@ -746,24 +998,43 @@ export default function InvestigateTab() {
     return () => clearTimeout(timer);
   }, [query]);
 
+  // Sync URL → auto-search on mount / back-nav
+  useEffect(() => {
+    const params = new URLSearchParams(location.search);
+    const qTag = params.get("q");
+    if (qTag && qTag !== selectedTag) selectPlayer(qTag);
+  }, []); // eslint-disable-line react-hooks/exhaustive-deps
+
   const selectPlayer = useCallback(async (battleTag) => {
+    history.replace({ search: `?tab=identify&q=${encodeURIComponent(battleTag)}` });
+
     setQuery(""); setSearchResults([]); setShowDropdown(false); setIsSearching(false);
     setSelectedTag(battleTag); setPlaystyleData(null); setLoading(true);
-    setShowAllResults(false); setExpandedTag(null); setQueryFpData(null);
+    setDemotedTags(new Set());
+    setExpandedTag(null); setQueryFpData(null);
     setMatchFpData(null); setCompareData(null);
 
-    if (apiKey) {
-      try {
-        const [simRes, fpRes] = await Promise.all([
-          fetch(`${RELAY_URL}/api/fingerprints/similar/${encodeURIComponent(battleTag)}`, { headers: { "X-API-Key": apiKey } }),
-          fetch(`${RELAY_URL}/api/fingerprints/player/${encodeURIComponent(battleTag)}`, { headers: { "X-API-Key": apiKey } }),
-        ]);
-        if (simRes.ok) setPlaystyleData(await simRes.json());
+    try {
+      const identifyRes = await fetch(`${RELAY_URL}/api/fingerprints/identify/${encodeURIComponent(battleTag)}`);
+      if (identifyRes.ok) {
+        const data = await identifyRes.json();
+        setPlaystyleData(data);
+        const tags = (data.similar || []).map(s => s.battleTag).filter(Boolean);
+        if (tags.length > 0) {
+          getPlayerProfilesBatch([battleTag, ...tags]).then(profileMap => {
+            const obj = {};
+            for (const [tag, profile] of profileMap) obj[tag] = profile;
+            setMatchProfiles(obj);
+          });
+        }
+      }
+      if (apiKey) {
+        const fpRes = await fetch(`${RELAY_URL}/api/fingerprints/player/${encodeURIComponent(battleTag)}`, { headers: { "X-API-Key": apiKey } });
         if (fpRes.ok) setQueryFpData(await fpRes.json());
-      } catch (err) { console.error("Playstyle fetch failed:", err); }
-    }
+      }
+    } catch (err) { console.error("Playstyle fetch failed:", err); }
     setLoading(false);
-  }, [apiKey, RELAY_URL]);
+  }, [apiKey, RELAY_URL, history]);
 
   const toggleCompare = useCallback(async (battleTag) => {
     if (expandedTag === battleTag) {
@@ -782,25 +1053,31 @@ export default function InvestigateTab() {
   }, [expandedTag, apiKey, RELAY_URL, selectedTag]);
 
   const dismiss = useCallback(() => {
+    const params = new URLSearchParams(location.search);
+    params.delete("q");
+    history.replace({ search: params.toString() ? `?${params}` : "" });
     setSelectedTag(null); setPlaystyleData(null); setExpandedTag(null);
-    setQueryFpData(null); setMatchFpData(null); setCompareData(null);
-  }, []);
+    setQueryFpData(null); setMatchFpData(null); setCompareData(null); setMatchProfiles({});
+  }, [history, location.search]);
 
   const queryGames = playstyleData?.query?.replayCount || 0;
   const queryName = selectedTag ? selectedTag.split("#")[0] : "";
 
   return (
     <>
-      {!loading && (
-        <div className="navbar-search" ref={searchRef} style={{ marginLeft: 0, maxWidth: 560 }}>
-          <input className="navbar-search-input" type="text" placeholder="Search a player to investigate..."
-            value={query} onChange={(e) => setQuery(e.target.value)}
-            onFocus={() => searchResults.length > 0 && setShowDropdown(true)}
-            style={{ width: "100%", fontSize: "18px", padding: "14px 20px", background: "rgba(0,0,0,0.7)" }}
-          />
-          {query && (
-            <button className="navbar-search-clear" onClick={() => { setQuery(""); setSearchResults([]); setShowDropdown(false); }}>&times;</button>
-          )}
+      {!selectedTag && !loading && (
+        <SearchSection ref={searchRef}>
+          <SearchInputWrap>
+            <Input
+              $fullWidth
+              value={query}
+              onChange={(e) => setQuery(e.target.value)}
+              onKeyDown={(e) => e.key === "Escape" && setQuery("")}
+              onFocus={() => searchResults.length > 0 && setShowDropdown(true)}
+              placeholder="Search a player to investigate…"
+              autoFocus
+            />
+          </SearchInputWrap>
           {showDropdown && searchResults.length > 0 && (
             <div className="navbar-search-dropdown">
               {searchResults.map((r) => {
@@ -810,10 +1087,13 @@ export default function InvestigateTab() {
                 const wins = p.wins || 0;
                 const losses = p.losses || 0;
                 const [name, hashNum] = (tag || "").split("#");
+                const raceIcon = RACE_ICON_MAP[p.race];
                 return (
                   <button key={tag} className="navbar-search-result" onClick={() => selectPlayer(tag)}>
                     <span className="navbar-search-avatar-wrap">
-                      {raceMapping[p.race] ? <img src={raceMapping[p.race]} alt="" className="navbar-search-avatar race-fallback" /> : <span className="navbar-search-avatar placeholder" />}
+                      {raceIcon
+                        ? <img src={raceIcon} alt="" className="navbar-search-avatar race-fallback" />
+                        : <span className="navbar-search-avatar placeholder" />}
                     </span>
                     <span className="navbar-search-info">
                       <span className="navbar-search-name-row">
@@ -834,7 +1114,7 @@ export default function InvestigateTab() {
           {isSearching && query.length >= 2 && !showDropdown && (
             <div className="navbar-search-dropdown"><div className="navbar-search-loading"><PeonLoader size="sm" /></div></div>
           )}
-        </div>
+        </SearchSection>
       )}
 
       {loading && (
@@ -845,95 +1125,292 @@ export default function InvestigateTab() {
 
       {selectedTag && !loading && (
         <>
+          <NewSearchRow>
+            <BackLink onClick={dismiss}>← Search again</BackLink>
+          </NewSearchRow>
           {queryGames === 0 && (
             <NoDataText>
               No replay data for <span style={{ color: "var(--gold)", fontFamily: "var(--font-display)" }}>{queryName}</span> yet.
-              {" • "}<CloseBtn onClick={dismiss}>Dismiss</CloseBtn>
             </NoDataText>
           )}
           {playstyleData && queryGames > 0 && (
             <>
-              <ResultsHeader>
-                <ResultsTitle>Most Similar Players</ResultsTitle>
-                <ResultsSubtitle>
-                  {queryGames} replay{queryGames !== 1 ? "s" : ""} analyzed for {queryName}
-                  {playstyleData.query?.hasEmbedding && <HybridBadge>Neural</HybridBadge>}
-                  {playstyleData.calibration && (
-                    <span style={{ color: "var(--grey-mid)", marginLeft: 8 }}>
-                      {playstyleData.calibration.playerCount} players calibrated
-                    </span>
-                  )}
-                  {" • "}<CloseBtn onClick={dismiss}>Dismiss</CloseBtn>
-                </ResultsSubtitle>
-              </ResultsHeader>
-              {queryFpData && <PlayerIdentityCard fpData={queryFpData} name={queryName} />}
+
               {playstyleData.similar.length > 0 ? (
                 <>
-                  {playstyleData.similar.slice(0, showAllResults ? undefined : 3).map((s, i) => {
-                    const verdict = getVerdict(s.similarity, s.percentile, s.zScore);
-                    const name = (s.playerName || s.battleTag || "").split("#")[0];
-                    const hasCalibration = s.percentile != null;
-                    const displayScore = hasCalibration
-                      ? `p${Math.round(s.percentile)}`
-                      : `${Math.round(s.similarity * 100)}%`;
-                    const bd = s.breakdown || {};
-                    const isExpanded = expandedTag === s.battleTag;
-                    return (
-                      <React.Fragment key={s.battleTag}>
-                        <ResultCard $active={isExpanded} onClick={() => toggleCompare(s.battleTag)}>
-                          <ResultRank>{i + 1}</ResultRank>
-                          <ResultInfo>
-                            <ResultName>{name}</ResultName>
-                            <ResultMeta>
-                              {s.race || "Unknown"} • {s.replayCount} game{s.replayCount !== 1 ? "s" : ""}
-                              {s.hybrid && <HybridBadge>Hybrid</HybridBadge>}
-                              {hasCalibration && s.zScore != null && (
-                                <span style={{ color: "var(--grey-mid)", marginLeft: 6 }}>
-                                  z={s.zScore > 0 ? "+" : ""}{s.zScore}
-                                </span>
-                              )}
-                            </ResultMeta>
-                            <BreakdownWrap>
-                              {[
-                                { key: "action", label: "Actions", val: bd.action },
-                                { key: "apm", label: "APM", val: bd.apm },
-                                { key: "hotkey", label: "Hotkeys", val: bd.hotkey },
-                                { key: "tempo", label: "Tempo", val: bd.tempo },
-                                { key: "intensity", label: "Intens.", val: bd.intensity },
-                                { key: "trans", label: "Switch", val: bd.transitions },
-                                ...(bd.embedding != null ? [{ key: "embedding", label: "Neural", val: bd.embedding }] : []),
-                              ].filter(({ val }) => val != null && val > 0).map(({ key, label, val }) => (
-                                <BreakdownRow key={key}>
-                                  <BreakdownLabel>{label}</BreakdownLabel>
-                                  <BreakdownTrack>
-                                    <BreakdownFill $val={val || 0} style={{ width: `${Math.round((val || 0) * 100)}%` }} />
-                                  </BreakdownTrack>
-                                </BreakdownRow>
-                              ))}
-                            </BreakdownWrap>
-                          </ResultInfo>
-                          <ResultScoreWrap>
-                            <ResultScore $color={verdict.color}>{displayScore}</ResultScore>
-                            <VerdictBadge $color={verdict.color}>{verdict.label}</VerdictBadge>
-                          </ResultScoreWrap>
-                        </ResultCard>
-                        {isExpanded && (
-                          compareLoading ? (
-                            <ComparePanel><div style={{ textAlign: "center", padding: "var(--space-4)" }}><PeonLoader size="sm" /></div></ComparePanel>
-                          ) : (
-                            <CompareDetail fpDataA={queryFpData} fpDataB={matchFpData} compareData={compareData} nameA={queryName} nameB={name} />
-                          )
-                        )}
-                      </React.Fragment>
+                  {(() => {
+                    const qGlyph = playstyleData.query?.glyph;
+                    const qApm = playstyleData.query?.apm;
+                    const qRace = playstyleData.query?.race;
+                    const qMmr = playstyleData.query?.mmr;
+                    const qProfile = matchProfiles[selectedTag];
+                    const qCountry = qProfile?.country;
+                    const qAvatar = qProfile?.profilePicUrl;
+                    const qRaceIcon = RACE_ICON_MAP[qRace];
+
+                    const rawCandidates = playstyleData.similar.slice(0, 5);
+                    // Demoted candidates move to the end, preserving relative order within each group
+                    const candidates = [
+                      ...rawCandidates.filter(s => !demotedTags.has(s.battleTag)),
+                      ...rawCandidates.filter(s => demotedTags.has(s.battleTag)),
+                    ];
+                    const numCols = 1 + candidates.length;
+
+                    const renderAvatar = (avatarUrl, raceIcon, size = 44) => (
+                      <span className="navbar-search-avatar-wrap" style={{ position: "relative", flexShrink: 0 }}>
+                        {avatarUrl
+                          ? <img src={avatarUrl} alt="" className="navbar-search-avatar" style={{ width: size, height: size, borderRadius: "var(--radius-sm)" }} />
+                          : raceIcon
+                            ? <img src={raceIcon} alt="" className="navbar-search-avatar race-fallback" style={{ width: size, height: size, borderRadius: "var(--radius-sm)" }} />
+                            : <span className="navbar-search-avatar placeholder" style={{ width: size, height: size, borderRadius: "var(--radius-sm)" }} />}
+                      </span>
                     );
-                  })}
-                  {playstyleData.similar.length > 3 && (
-                    <div style={{ textAlign: "center" }}>
-                      <ExpandToggle onClick={() => setShowAllResults((v) => !v)}>
-                        {showAllResults ? <FiChevronUp size={14} /> : <FiChevronDown size={14} />}
-                        {showAllResults ? "Show top 3" : `Show all ${playstyleData.similar.length} results`}
-                      </ExpandToggle>
-                    </div>
+
+                    const fmtDate = (d) => {
+                      if (!d) return '—';
+                      const [y, m] = d.split('-');
+                      return new Date(parseInt(y), parseInt(m) - 1).toLocaleString('default', { month: 'short', year: 'numeric' });
+                    };
+
+                    // Collect all active group numbers across query + candidates
+                    const allGlyphs = [qGlyph, ...candidates.map(s => s.glyph)];
+                    const activeGroupNums = new Set();
+                    for (const glyph of allGlyphs) {
+                      if (!glyph?.groupCompositions) continue;
+                      for (const [g, items] of Object.entries(glyph.groupCompositions)) {
+                        if (items && items.length > 0) activeGroupNums.add(parseInt(g));
+                      }
+                    }
+                    const sortedGroupNums = [...activeGroupNums].filter(n => !isNaN(n)).sort((a, b) => a - b);
+
+                    const renderGroupUnits = (glyph, groupNum) => {
+                      const items = glyph?.groupCompositions?.[String(groupNum)] || [];
+                      const units = getGroupUnits(items).slice(0, 5);
+                      if (units.length === 0) return <span style={{ color: "var(--grey-mid)" }}>—</span>;
+                      return units.map(u => {
+                        const isHero = !!HERO_IMAGES[u.id];
+                        const isBuilding = BUILDINGS.has(u.id);
+                        const img = u.img || (isHero ? `/heroes/${HERO_IMAGES[u.id]}.png` : null);
+                        return img
+                          ? <img key={u.id} src={img} alt={u.name} title={u.name} style={{ width: isHero ? 28 : 22, height: isHero ? 28 : 22, objectFit: "contain" }} onError={e => { e.target.style.display = 'none'; }} />
+                          : <span key={u.id} title={u.name} style={{ fontFamily: "var(--font-mono)", fontSize: 10, color: isBuilding ? "var(--amber)" : "var(--grey-light)", padding: "0 2px" }}>{u.name}</span>;
+                      });
+                    };
+
+                    // Played-together matrix (all pairs among query + candidates)
+                    const matrixTags = [selectedTag, ...candidates.map(s => s.battleTag)];
+                    const matrixNames = [queryName, ...candidates.map(s => (s.playerName || s.battleTag || "").split("#")[0])];
+                    const sharedMatrix = playstyleData.matrix || {};
+                    const getShared = (t1, t2) => {
+                      const k1 = `${t1}|${t2}`;
+                      const k2 = `${t2}|${t1}`;
+                      return sharedMatrix[k1] ?? sharedMatrix[k2] ?? 0;
+                    };
+
+                    return (
+                      <>
+                      <CompareTable $cols={numCols}>
+                        {/* ── Header row: player names ── */}
+                        <div />
+                        <TH $query>
+                          {renderAvatar(qAvatar, qRaceIcon)}
+                          <THName>{queryName}</THName>
+                          {qCountry && <CountryFlag name={qCountry.toLowerCase()} style={{ width: 16, height: 12 }} />}
+                        </TH>
+                        {candidates.map(s => {
+                          const name = (s.playerName || s.battleTag || "").split("#")[0];
+                          const isExpanded = expandedTag === s.battleTag;
+                          const isDemoted = demotedTags.has(s.battleTag);
+                          const mp = matchProfiles[s.battleTag];
+                          return (
+                            <TH key={s.battleTag} $active={isExpanded} $clickable onClick={() => toggleCompare(s.battleTag)} style={{ opacity: isDemoted ? 0.55 : 1 }}>
+                              {renderAvatar(mp?.profilePicUrl, RACE_ICON_MAP[s.race])}
+                              <THName>{name}</THName>
+                              {mp?.country && <CountryFlag name={mp.country.toLowerCase()} style={{ width: 16, height: 12 }} />}
+                              <button
+                                title={isDemoted ? "Restore to top" : "Move to comparison"}
+                                onClick={e => { e.stopPropagation(); toggleDemote(s.battleTag); }}
+                                style={{ marginTop: 2, background: 'none', border: 'none', cursor: 'pointer', padding: 0, fontSize: 10, color: isDemoted ? 'var(--gold)' : 'rgba(255,255,255,0.3)', lineHeight: 1 }}
+                              >
+                                {isDemoted ? '↑' : '↓'}
+                              </button>
+                            </TH>
+                          );
+                        })}
+
+                        {/* ── Fingerprint row ── */}
+                        <GlyphRowLabel>Fingerprint</GlyphRowLabel>
+                        <GlyphTD $query>
+                          <TransitionGlyph
+                            transitionPairs={qGlyph?.transitionPairs || []}
+                            groupUsage={qGlyph?.groupUsage || []}
+                            groupCompositions={qGlyph?.groupCompositions || {}}
+                            segments={qApm ? { apm: [qApm / 300, 0, 0] } : null}
+                            playerName={queryName}
+                            replayCount={queryGames}
+                            mini
+                          />
+                        </GlyphTD>
+                        {candidates.map(s => {
+                          const name = (s.playerName || s.battleTag || "").split("#")[0];
+                          const isExpanded = expandedTag === s.battleTag;
+                          const hasArcs = s.glyph?.transitionPairs?.length > 0;
+                          return (
+                            <GlyphTD key={s.battleTag} $active={isExpanded} $clickable onClick={() => toggleCompare(s.battleTag)}>
+                              <div style={{ position: "relative", width: "100%" }}>
+                                <TransitionGlyph
+                                  transitionPairs={s.glyph?.transitionPairs || []}
+                                  groupUsage={s.glyph?.groupUsage || []}
+                                  groupCompositions={s.glyph?.groupCompositions || {}}
+                                  segments={s.apm ? { apm: [s.apm / 300, 0, 0] } : null}
+                                  playerName={name}
+                                  replayCount={s.replayCount}
+                                  mini
+                                />
+                                {!hasArcs && (
+                                  <div style={{ position: "absolute", bottom: 4, left: 0, right: 0, textAlign: "center", fontFamily: "var(--font-mono)", fontSize: 10, color: "var(--grey-mid)", fontStyle: "italic" }}>
+                                    fetching sequence…
+                                  </div>
+                                )}
+                              </div>
+                            </GlyphTD>
+                          );
+                        })}
+
+                        {/* ── Feature rows ── */}
+                        <RowLabel>MMR</RowLabel>
+                        <TD $query>{qMmr != null ? Math.round(qMmr) : '—'}</TD>
+                        {candidates.map(s => (
+                          <TD key={s.battleTag} $active={expandedTag === s.battleTag}>{s.mmr != null ? Math.round(s.mmr) : '—'}</TD>
+                        ))}
+
+                        <RowLabel>Country</RowLabel>
+                        <TD $query>
+                          {qCountry ? <CountryFlag name={qCountry.toLowerCase()} style={{ width: 22, height: 16 }} /> : '—'}
+                        </TD>
+                        {candidates.map(s => {
+                          const c = matchProfiles[s.battleTag]?.country;
+                          return (
+                            <TD key={s.battleTag} $active={expandedTag === s.battleTag}>
+                              {c ? <CountryFlag name={c.toLowerCase()} style={{ width: 22, height: 16 }} /> : '—'}
+                            </TD>
+                          );
+                        })}
+
+                        <RowLabel>Race</RowLabel>
+                        <TD $query>
+                          {qRaceIcon ? <img src={qRaceIcon} alt={qRace || ''} style={{ width: 22, height: 22 }} /> : (qRace || '—')}
+                        </TD>
+                        {candidates.map(s => {
+                          const ri = RACE_ICON_MAP[s.race];
+                          return (
+                            <TD key={s.battleTag} $active={expandedTag === s.battleTag}>
+                              {ri ? <img src={ri} alt={s.race || ''} style={{ width: 22, height: 22 }} /> : (s.race || '—')}
+                            </TD>
+                          );
+                        })}
+
+                        {/* ── One row per active group across all players ── */}
+                        {sortedGroupNums.map(groupNum => (
+                          <React.Fragment key={`group-${groupNum}`}>
+                            <RowLabel>Group {groupNum}</RowLabel>
+                            <TD $query style={{ gap: 3, flexWrap: "wrap", justifyContent: "center" }}>
+                              {renderGroupUnits(qGlyph, groupNum)}
+                            </TD>
+                            {candidates.map(s => (
+                              <TD key={s.battleTag} $active={expandedTag === s.battleTag} style={{ gap: 3, flexWrap: "wrap", justifyContent: "center" }}>
+                                {renderGroupUnits(s.glyph, groupNum)}
+                              </TD>
+                            ))}
+                          </React.Fragment>
+                        ))}
+
+                        <RowLabel>APM</RowLabel>
+                        <TD $query>{qApm ?? '—'}</TD>
+                        {candidates.map(s => (
+                          <TD key={s.battleTag} $active={expandedTag === s.battleTag}>{s.apm ?? '—'}</TD>
+                        ))}
+
+                        <RowLabel>Last seen</RowLabel>
+                        <TD $query>{fmtDate(playstyleData.query?.lastSeen)}</TD>
+                        {candidates.map(s => (
+                          <TD key={s.battleTag} $active={expandedTag === s.battleTag}>{fmtDate(s.lastSeen)}</TD>
+                        ))}
+
+                        <RowLabel>Replays</RowLabel>
+                        <TD $query>{queryGames}</TD>
+                        {candidates.map(s => (
+                          <TD key={s.battleTag} $active={expandedTag === s.battleTag}>{s.replayCount}</TD>
+                        ))}
+                      </CompareTable>
+
+                      {/* ── Played-together matrix (outside the column grid) ── */}
+                      {matrixTags.length > 1 && (
+                        <div style={{ marginBottom: "var(--space-6)" }}>
+                          <div style={{ fontFamily: "var(--font-mono)", fontSize: "var(--text-xxxs)", color: "var(--grey-light)", textTransform: "uppercase", letterSpacing: "0.1em", opacity: 0.5, marginBottom: "var(--space-2)" }}>Played together</div>
+                          <div style={{ display: "grid", gridTemplateColumns: `120px repeat(${matrixTags.length}, 1fr)`, gap: 1 }}>
+                            {/* header */}
+                            <div />
+                            {matrixNames.map((n, i) => (
+                              <div key={i} style={{ fontFamily: "var(--font-display)", fontSize: "var(--text-xs)", color: i === 0 ? "var(--gold)" : "var(--grey-light)", padding: "4px 6px", textAlign: "center", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{n}</div>
+                            ))}
+                            {/* rows */}
+                            {matrixTags.map((tagA, i) => (
+                              <React.Fragment key={tagA}>
+                                <div style={{ fontFamily: "var(--font-display)", fontSize: "var(--text-xs)", color: i === 0 ? "var(--gold)" : "var(--grey-light)", padding: "4px 0", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{matrixNames[i]}</div>
+                                {matrixTags.map((tagB, j) => {
+                                  if (i === j) return <div key={j} style={{ textAlign: "center", padding: "4px 6px", fontFamily: "var(--font-mono)", fontSize: "var(--text-xs)", color: "rgba(255,255,255,0.15)" }}>—</div>;
+                                  const count = getShared(tagA, tagB);
+                                  return (
+                                    <div key={j} style={{ textAlign: "center", padding: "4px 6px", fontFamily: "var(--font-mono)", fontSize: "var(--text-xs)", color: count > 0 ? "var(--gold)" : "rgba(255,255,255,0.25)", fontWeight: count > 0 ? 700 : 400 }}>
+                                      {count > 0 ? `${count}×` : "0"}
+                                    </div>
+                                  );
+                                })}
+                              </React.Fragment>
+                            ))}
+                          </div>
+                        </div>
+                      )}
+                      </>
+                    );
+                  })()}
+
+                  {/* Activity timeline — shows when each player was active across seasons */}
+                  {(() => {
+                    const tlCandidates = playstyleData.similar.slice(0, 5);
+                    const tlPlayers = [
+                      {
+                        tag: selectedTag,
+                        name: queryName,
+                        isQuery: true,
+                        seasonActivity: playstyleData.query?.seasonActivity || [],
+                      },
+                      ...tlCandidates.map(s => ({
+                        tag: s.battleTag,
+                        name: (s.playerName || s.battleTag || "").split("#")[0],
+                        isQuery: false,
+                        seasonActivity: s.seasonActivity || [],
+                      })),
+                    ];
+                    const hasAnyActivity = tlPlayers.some(p => p.seasonActivity.length > 0);
+                    if (!hasAnyActivity) return null;
+                    return <ActivityTimeline players={tlPlayers} matchProfiles={matchProfiles} />;
+                  })()}
+
+                  {/* Compare panel spans below the whole grid */}
+                  {expandedTag && (
+                    compareLoading ? (
+                      <ComparePanel><div style={{ textAlign: "center", padding: "var(--space-4)" }}><PeonLoader size="sm" /></div></ComparePanel>
+                    ) : (
+                      <CompareDetail
+                        fpDataA={queryFpData}
+                        fpDataB={matchFpData}
+                        compareData={compareData}
+                        nameA={queryName}
+                        nameB={(playstyleData.similar.find(s => s.battleTag === expandedTag)?.playerName || expandedTag || "").split("#")[0]}
+                      />
+                    )
                   )}
                 </>
               ) : (

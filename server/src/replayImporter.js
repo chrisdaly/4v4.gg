@@ -343,7 +343,7 @@ export async function importPlayerMatches(battleTag, targetImports = 3, seasonOv
   const existing = getExistingW3cMatchIds(allIds);
   const newMatches = candidates.filter(c => !existing.has(c.matchId));
 
-  let imported = 0, errors = 0, noReplay = 0, attempts = 0;
+  let imported = 0, errors = 0, noReplay = 0, attempts = 0, rateLimited = false;
   for (const match of newMatches) {
     if (imported >= targetImports || attempts >= maxAttempts) break;
     await sleep(RATE_LIMIT_MS);
@@ -352,6 +352,7 @@ export async function importPlayerMatches(battleTag, targetImports = 3, seasonOv
       const result = await importMatch(match);
       if (result.status === 'imported') imported++;
       else if (result.status === 'no_replay') noReplay++;
+      else if (result.status === 'rate_limited') { rateLimited = true; break; }
     } catch (err) {
       console.error(`[Importer] Manual import error ${match.matchId}:`, err.message);
       errors++;
@@ -359,7 +360,7 @@ export async function importPlayerMatches(battleTag, targetImports = 3, seasonOv
   }
 
   console.log(`[Importer] Manual import for ${battleTag}: ${candidates.length} candidates, ${filteredShort} short filtered, ${existing.size} existing, ${imported} imported, ${noReplay} no replay, ${errors} errors`);
-  return { discovered: candidates.length, alreadyImported: existing.size, imported, errors, noReplay, filteredShort };
+  return { discovered: candidates.length, alreadyImported: existing.size, imported, errors, noReplay, filteredShort, rateLimited };
 }
 
 /**

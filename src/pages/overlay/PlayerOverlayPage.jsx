@@ -1,18 +1,17 @@
 import React, { useState, useEffect } from "react";
 import { fetchPlayerSessionData } from "../../lib/utils";
-import { getPlayerProfile, getPlayerTimelineAllTime } from "../../lib/api";
+import { getPlayerProfile, getPlayerTimelineAllTime, getPlayerTimelineMerged, getPlayerMatches } from "../../lib/api";
 import { gateway, season } from "../../lib/params";
 import PlayerOverlay from "../../components/PlayerOverlay";
 
-// Calculate overall rank by counting players in higher leagues
-const fetchOverallRank = async (battleTag) => {
+// Fetch overall rank + adjacent ladder entries in one pass
+const fetchLadderContext = async (battleTag) => {
   try {
     const battleTagLower = battleTag.toLowerCase();
 
-    // First find the player's league
     const searchUrl = `https://website-backend.w3champions.com/api/ladder/search?gateWay=${gateway}&searchFor=${encodeURIComponent(battleTag.split("#")[0])}&gameMode=4&season=${season}`;
     const searchResponse = await fetch(searchUrl);
-    if (!searchResponse.ok) return null;
+    if (!searchResponse.ok) return { overallRank: null, ladderNeighbors: null };
 
     const searchResults = await searchResponse.json();
     const playerResult = searchResults.find(r => {
@@ -21,31 +20,61 @@ const fetchOverallRank = async (battleTag) => {
       return tag1 === battleTagLower || tag2 === battleTagLower;
     });
 
-    if (!playerResult) return null;
+    if (!playerResult) return { overallRank: null, ladderNeighbors: null };
 
-    const playerLeague = playerResult.league; // 0=GM, 1=Master, 2=Diamond, etc.
+    const playerLeague = playerResult.league;
     const leagueRank = playerResult.rankNumber;
 
-    // Count players in all leagues above this one
-    let playersAbove = 0;
-    for (let league = 0; league < playerLeague; league++) {
-      try {
-        const ladderUrl = `https://website-backend.w3champions.com/api/ladder/${league}?gateWay=${gateway}&gameMode=4&season=${season}`;
-        const ladderResponse = await fetch(ladderUrl);
-        if (ladderResponse.ok) {
-          const ladderData = await ladderResponse.json();
-          playersAbove += ladderData.length;
-        }
-      } catch (e) {
-        // Skip if league fetch fails
-      }
-    }
+    // Fetch above-league counts + player's league ladder in parallel
+    const leaguesAbove = Array.from({ length: playerLeague }, (_, i) => i);
+    const [ladderResponse, ...aboveCountResults] = await Promise.all([
+      fetch(`https://website-backend.w3champions.com/api/ladder/${playerLeague}?gateWay=${gateway}&gameMode=4&season=${season}`),
+      ...leaguesAbove.map(l =>
+        fetch(`https://website-backend.w3champions.com/api/ladder/${l}?gateWay=${gateway}&gameMode=4&season=${season}`)
+          .then(r => r.ok ? r.json().then(d => d.length) : 0)
+          .catch(() => 0)
+      )
+    ]);
 
-    return playersAbove + leagueRank;
+    const playersAbove = aboveCountResults.reduce((sum, n) => sum + n, 0);
+    const overallRank = playersAbove + leagueRank;
+
+    if (!ladderResponse.ok) return { overallRank, ladderNeighbors: null };
+
+    const ladderData = await ladderResponse.json();
+    const sorted = [...ladderData].sort((a, b) => a.rankNumber - b.rankNumber);
+    const playerIdx = sorted.findIndex(e => e.rankNumber === leagueRank);
+
+    const entryToNeighbor = (entry, rank) => {
+      if (!entry) return null;
+      const name = entry.player?.name || entry.playersInfo?.[0]?.battleTag?.split('#')[0];
+      const mmr = Math.round(entry.player?.mmr || 0);
+      return { name, mmr, rank };
+    };
+
+    return {
+      overallRank,
+      ladderNeighbors: {
+        above: playerIdx > 0 ? entryToNeighbor(sorted[playerIdx - 1], overallRank - 1) : null,
+        below: playerIdx < sorted.length - 1 ? entryToNeighbor(sorted[playerIdx + 1], overallRank + 1) : null,
+      }
+    };
   } catch (error) {
-    console.error("Error calculating overall rank:", error);
-    return null;
+    console.error("Error fetching ladder context:", error);
+    return { overallRank: null, ladderNeighbors: null };
   }
+};
+
+const extractLastGame = (matches, battleTagLower) => {
+  if (!matches || matches.length === 0) return null;
+  const match = matches[0];
+  let won = null;
+  for (const team of match.teams || []) {
+    const player = team.players?.find(p => p.battleTag?.toLowerCase() === battleTagLower);
+    if (player) { won = player.won; break; }
+  }
+  const mapName = match.mapName?.replace(/^\(\d\)\s*/, '') || 'Unknown';
+  return { mapName, won, durationInSeconds: match.durationInSeconds || null };
 };
 
 /**
@@ -55,7 +84,7 @@ const fetchOverallRank = async (battleTag) => {
  * Usage in OBS/Streamlabs:
  * 1. Add Browser Source
  * 2. URL: https://yoursite.com/overlay/player/YourTag%23123
- * 3. Width: 400, Height: 150 (adjust as needed)
+ * 3. Width: 320, Height: 380 (for layout=rich)
  * 4. Custom CSS: body { background: transparent !important; }
  */
 const PlayerOverlayPage = () => {
@@ -84,13 +113,11 @@ const PlayerOverlayPage = () => {
     document.body.style.overflow = 'hidden';
     document.body.style.backgroundColor = 'transparent';
     document.body.style.background = 'transparent';
-    // Remove the ::before pseudo-element background
     document.body.classList.add('overlay-mode');
   }, []);
 
   useEffect(() => {
     loadData();
-    // Refresh every 30 seconds
     const interval = setInterval(loadData, 30000);
     return () => clearInterval(interval);
   }, []);
@@ -100,18 +127,18 @@ const PlayerOverlayPage = () => {
       const battleTag = getBattleTag();
       const name = battleTag.split("#")[0];
 
-      // Fetch profile (consolidated), session data, game-mode-stats, all-time MMR, and overall rank in parallel
-      const [profile, sessionInfo, statsResponse, allTimeMmrs, overallRank] = await Promise.all([
+      const [profile, sessionInfo, statsResponse, allTimeMmrs, seasonMmrs, recentMatches, ladderContext] = await Promise.all([
         getPlayerProfile(battleTag),
         fetchPlayerSessionData(battleTag),
         fetch(`https://website-backend.w3champions.com/api/players/${encodeURIComponent(battleTag)}/game-mode-stats?gateway=${gateway}&season=${season}`),
         getPlayerTimelineAllTime(battleTag),
-        fetchOverallRank(battleTag),
+        getPlayerTimelineMerged(battleTag),
+        getPlayerMatches(battleTag, 5),
+        fetchLadderContext(battleTag),
       ]);
 
       const session = sessionInfo?.session || {};
 
-      // Get 4v4 stats from game-mode-stats API
       let mmr = 0;
       let wins = 0;
       let losses = 0;
@@ -126,9 +153,10 @@ const PlayerOverlayPage = () => {
         }
       }
 
-      // Calculate ALL-TIME peak and low from MMR timeline
       const allTimePeak = allTimeMmrs.length > 0 ? Math.max(...allTimeMmrs) : null;
       const allTimeLow = allTimeMmrs.length > 0 ? Math.min(...allTimeMmrs) : null;
+
+      const lastGame = extractLastGame(recentMatches?.matches || [], battleTag.toLowerCase());
 
       setPlayerData({
         name,
@@ -138,11 +166,14 @@ const PlayerOverlayPage = () => {
         mmr,
         allTimeLow,
         allTimePeak,
+        seasonMmrs,
         wins,
         losses,
         sessionChange: session.mmrChange || 0,
         form: session.form || [],
-        rank: overallRank,
+        rank: ladderContext.overallRank,
+        ladderNeighbors: ladderContext.ladderNeighbors,
+        lastGame,
       });
 
       setIsLoaded(true);
@@ -152,7 +183,6 @@ const PlayerOverlayPage = () => {
     }
   };
 
-  // Transparent background - ready for OBS/Streamlabs
   return (
     <div style={{
       background: 'transparent',

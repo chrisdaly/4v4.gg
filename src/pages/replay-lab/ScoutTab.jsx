@@ -142,6 +142,36 @@ export default function ScoutTab({ initialPlayer = null, initialProfileData = nu
     [selectedTag, pushPlayerParam]
   );
 
+  const handleImport = useCallback(async () => {
+    if (!selectedTag || importStatus === 'importing') return;
+    const tag = selectedTag;
+    setImportStatus('importing');
+    setImportResult(null);
+    try {
+      const res = await fetch(`${RELAY_URL}/api/fingerprints/import`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ battleTag: tag }),
+      });
+      const data = await res.json();
+      if (!res.ok) {
+        setImportStatus('error');
+        setImportResult(data.error || 'Import failed');
+        return;
+      }
+      setImportResult(data);
+      setImportStatus('done');
+      if (data.imported > 0) {
+        // Re-fetch profile now that data exists
+        setSelectedTag(null); // force selectPlayer to re-run
+        setTimeout(() => selectPlayer(tag), 300);
+      }
+    } catch (err) {
+      setImportStatus('error');
+      setImportResult(err.message);
+    }
+  }, [selectedTag, importStatus, selectPlayer]);
+
   // Auto-select player from URL param on mount
   useEffect(() => {
     if (initialPlayer && !didAutoSelect.current) {
@@ -161,6 +191,13 @@ export default function ScoutTab({ initialPlayer = null, initialProfileData = nu
       }
     }
   }, [initialPlayer, initialProfileData]); // eslint-disable-line react-hooks/exhaustive-deps
+
+  // Auto-import when embedded in a player profile and no fingerprint data exists
+  useEffect(() => {
+    if (embedded && selectedTag && !profileData && !profileLoading && importStatus === null) {
+      handleImport();
+    }
+  }, [embedded, selectedTag, profileData, profileLoading, importStatus, handleImport]);
 
   const loadPersonas = useCallback(async () => {
     if (!selectedTag || personaData || personaLoading) return;
@@ -225,36 +262,6 @@ export default function ScoutTab({ initialPlayer = null, initialProfileData = nu
     },
     [selectedReplayId, fetchReplayProfile]
   );
-
-  const handleImport = useCallback(async () => {
-    if (!selectedTag || importStatus === 'importing') return;
-    const tag = selectedTag;
-    setImportStatus('importing');
-    setImportResult(null);
-    try {
-      const res = await fetch(`${RELAY_URL}/api/fingerprints/import`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ battleTag: tag }),
-      });
-      const data = await res.json();
-      if (!res.ok) {
-        setImportStatus('error');
-        setImportResult(data.error || 'Import failed');
-        return;
-      }
-      setImportResult(data);
-      setImportStatus('done');
-      if (data.imported > 0) {
-        // Re-fetch profile now that data exists
-        setSelectedTag(null); // force selectPlayer to re-run
-        setTimeout(() => selectPlayer(tag), 300);
-      }
-    } catch (err) {
-      setImportStatus('error');
-      setImportResult(err.message);
-    }
-  }, [selectedTag, importStatus, selectPlayer]);
 
   const dismiss = useCallback(() => {
     setSelectedTag(null);
@@ -547,6 +554,7 @@ export default function ScoutTab({ initialPlayer = null, initialProfileData = nu
                         segments={activeData.averaged.segments}
                         playerName={selectedTag}
                         replayCount={activeData.replayCount}
+                        sampleCount={activeData.sampleCount}
                       />
                     </ArtCard>
                     <PlaystyleReport profileData={activeData} />
@@ -684,6 +692,8 @@ export default function ScoutTab({ initialPlayer = null, initialProfileData = nu
                     Retry import
                   </ImportBtn>
                 </>
+              ) : embedded ? (
+                <PeonLoader size="sm" subject={queryName} />
               ) : (
                 <>
                   <span>No data yet for {queryName}</span>
