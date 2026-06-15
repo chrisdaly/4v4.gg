@@ -272,19 +272,20 @@ function ActivityTimeline({ players, matchProfiles }) {
           ? { fill: 'rgba(252,219,51,0.35)', border: 'rgba(252,219,51,0.6)', dot: '#fcdb33' }
           : { fill: 'rgba(100,200,255,0.25)', border: 'rgba(100,200,255,0.5)', dot: '#64c8ff' };
 
-        // One bar segment per active season — ends at lastPlayed for that season (more granular)
-        const seasonBars = activeSeasonsNums.map(s => {
+        // One bar per season, plus per-day dots for S24 (where we have full timeline data)
+        const seasonBars = activeSeasonsNums.filter(s => s !== 24).map(s => {
           const startPct = SEASON_STARTS[s] ? toPct(SEASON_STARTS[s].toISOString()) : null;
           if (startPct === null) return null;
           const sa = activityByS.get(s);
           const endDate = sa?.lastPlayed || (SEASON_STARTS[s + 1] ? SEASON_STARTS[s + 1].toISOString() : null);
           const endPct = endDate ? toPct(endDate) : null;
           if (endPct === null) return null;
-          const isLast = s === latestSeason;
-          // recentClusterStart: marks where recent activity resumed (if gap > 30d detected)
-          const clusterPct = sa?.recentClusterStart ? toPct(sa.recentClusterStart) : null;
-          return { s, startPct, endPct, isLast, lastPlayed: sa?.lastPlayed, clusterPct };
+          return { s, startPct, endPct, lastPlayed: sa?.lastPlayed };
         }).filter(Boolean);
+
+        // S24 dots — one per unique play-day from the timeline
+        const s24 = activityByS.get(24);
+        const s24Dots = (s24?.matchDays || []).map(day => toPct(day + 'T12:00:00Z')).filter(p => p !== null);
 
         return (
           <div key={player.tag} style={{ display: 'flex', alignItems: 'center', height: 40, marginBottom: 6 }}>
@@ -308,58 +309,66 @@ function ActivityTimeline({ players, matchProfiles }) {
                 if (pct === null) return null;
                 return <div key={s} style={{ position: 'absolute', left: `${pct}%`, top: '25%', height: '50%', width: 1, background: 'rgba(255,255,255,0.1)' }} />;
               })}
-              {/* One bar per active season (with gaps) */}
-              {seasonBars.map(({ s, startPct, endPct, isLast, lastPlayed: lp, clusterPct }) => (
-                <React.Fragment key={s}>
-                  <div
-                    title={lp ? `S${s}: last played ${lp.slice(0, 10)}` : `S${s}`}
-                    style={{
-                      position: 'absolute',
-                      left: `${startPct}%`,
-                      width: `${Math.max(endPct - startPct - 0.3, 0.5)}%`,
-                      top: 'calc(50% - 5px)',
-                      height: 10,
-                      borderRadius: 3,
-                      background: barColor.fill,
-                      border: `1px solid ${barColor.border}`,
-                      cursor: 'default',
-                    }}
-                  />
-                  {/* Recent activity cluster overlay — brighter section within the bar */}
-                  {clusterPct !== null && clusterPct < endPct && (
-                    <div
-                      title={`Recent activity from ${lp?.slice(0, 7)}`}
-                      style={{
-                        position: 'absolute',
-                        left: `${clusterPct}%`,
-                        width: `${Math.max(endPct - clusterPct, 0.5)}%`,
-                        top: 'calc(50% - 5px)',
-                        height: 10,
-                        borderRadius: 3,
-                        background: isCurrentlyActive
-                          ? `linear-gradient(to right, ${barColor.fill}, ${barColor.border})`
-                          : barColor.border,
-                        border: `1px solid ${barColor.border}`,
-                        cursor: 'default',
-                      }}
-                    />
-                  )}
-                </React.Fragment>
-              ))}
-              {/* Active this season pulse dot */}
-              {isCurrentlyActive && (
+              {/* Bars for historical seasons (S16–S23) */}
+              {seasonBars.map(({ s, startPct, endPct, lastPlayed: lp }) => (
                 <div
-                  title="Active in current season (S24)"
-                  style={{ position: 'absolute', right: 2, top: 'calc(50% - 5px)', width: 10, height: 10, borderRadius: '50%', background: 'var(--green)', boxShadow: '0 0 6px var(--green)', animation: 'pulse 1.5s infinite', cursor: 'default' }}
+                  key={s}
+                  title={lp ? `S${s}: last played ${lp.slice(0, 10)}` : `S${s}`}
+                  style={{
+                    position: 'absolute',
+                    left: `${startPct}%`,
+                    width: `${Math.max(endPct - startPct - 0.3, 0.5)}%`,
+                    top: 'calc(50% - 5px)',
+                    height: 10,
+                    borderRadius: 3,
+                    background: barColor.fill,
+                    border: `1px solid ${barColor.border}`,
+                    cursor: 'default',
+                  }}
                 />
-              )}
-              {/* Season labels above each active bar */}
+              ))}
+              {/* S24: per-day dots showing exact activity — gaps are real gaps */}
+              {s24Dots.map((pct, i) => (
+                <div
+                  key={i}
+                  style={{
+                    position: 'absolute',
+                    left: `${pct}%`,
+                    top: 'calc(50% - 4px)',
+                    width: 3,
+                    height: 8,
+                    borderRadius: 1,
+                    background: barColor.border,
+                    transform: 'translateX(-50%)',
+                  }}
+                />
+              ))}
+              {/* S24 bar (fallback if no matchDays) */}
+              {s24Dots.length === 0 && s24?.lastPlayed && (() => {
+                const startPct = SEASON_STARTS[24] ? toPct(SEASON_STARTS[24].toISOString()) : null;
+                const endPct = toPct(s24.lastPlayed);
+                if (startPct === null || endPct === null) return null;
+                return (
+                  <div style={{
+                    position: 'absolute', left: `${startPct}%`,
+                    width: `${Math.max(endPct - startPct - 0.3, 0.5)}%`,
+                    top: 'calc(50% - 5px)', height: 10, borderRadius: 3,
+                    background: barColor.fill, border: `1px solid ${barColor.border}`,
+                  }} />
+                );
+              })()}
+              {/* Season labels */}
               {seasonBars.map(({ s, startPct }) => (
                 <div key={s} style={{ position: 'absolute', left: `${startPct + 0.5}%`, top: 2, fontFamily: 'var(--font-mono)', fontSize: 9, color: barColor.dot, opacity: 0.8 }}>
                   S{s}
                 </div>
               ))}
-              {/* "Last seen" callout for inactive players */}
+              {s24 && SEASON_STARTS[24] && (
+                <div style={{ position: 'absolute', left: `${toPct(SEASON_STARTS[24].toISOString()) + 0.5}%`, top: 2, fontFamily: 'var(--font-mono)', fontSize: 9, color: barColor.dot, opacity: 0.8 }}>
+                  S24
+                </div>
+              )}
+              {/* "Last seen" callout for inactive players (no S24) */}
               {!isCurrentlyActive && latestSeason && seasonBars.length > 0 && (() => {
                 const lastBar = seasonBars[seasonBars.length - 1];
                 return (

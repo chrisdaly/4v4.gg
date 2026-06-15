@@ -872,45 +872,60 @@ async function fetchLadderMmr() {
 
 // Fetch the most recent match info for a player across seasons (for inactive players).
 // Tries seasons in parallel and returns the highest season with any 4v4 data.
+async function fetchPlayerSeasonTimeline(battleTag, season) {
+  const W3C_API = 'https://website-backend.w3champions.com/api';
+  const races = [0, 1, 2, 4, 8];
+  const raceResults = await Promise.all(races.map(async (race) => {
+    try {
+      const url = `${W3C_API}/players/${encodeURIComponent(battleTag)}/mmr-rp-timeline?season=${season}&gateWay=20&gameMode=4&race=${race}`;
+      const res = await fetch(url, { signal: AbortSignal.timeout(4000) });
+      if (!res.ok) return [];
+      const data = await res.json();
+      return data?.mmrRpAtDates || [];
+    } catch { return []; }
+  }));
+  const all = raceResults.flat();
+  if (all.length === 0) return null;
+  // Sort descending, deduplicate by day, return last MMR
+  all.sort((a, b) => new Date(b.date) - new Date(a.date));
+  const daySet = new Set();
+  const matchDays = [];
+  for (const entry of all) {
+    const day = entry.date.slice(0, 10);
+    if (!daySet.has(day)) { daySet.add(day); matchDays.push(day); }
+  }
+  return { lastPlayed: all[0].date, mmr: all[0].mmr, matchDays };
+}
+
 async function fetchPlayerRecentInfo(battleTag) {
   const W3C_API = 'https://website-backend.w3champions.com/api';
   const seasons = [24, 23, 22, 21, 20, 19, 18, 17, 16];
   const results = await Promise.all(seasons.map(async (season) => {
     try {
-      // For current season, fetch more matches to find the recent activity cluster start
-      const pageSize = season === 24 ? 30 : 1;
-      const url = `${W3C_API}/matches/search?playerId=${encodeURIComponent(battleTag)}&offset=0&gameMode=4&season=${season}&gateway=20&pageSize=${pageSize}`;
-      const res = await fetch(url, { signal: AbortSignal.timeout(5000) });
+      if (season === 24) {
+        // Current season: full timeline across all races for per-day granularity
+        const tl = await fetchPlayerSeasonTimeline(battleTag, season);
+        if (!tl) return null;
+        return { season, lastPlayed: tl.lastPlayed, mmr: tl.mmr, matchDays: tl.matchDays };
+      }
+      // Historical seasons: just need lastPlayed + MMR
+      const url = `${W3C_API}/matches/search?playerId=${encodeURIComponent(battleTag)}&offset=0&gameMode=4&season=${season}&gateway=20&pageSize=1`;
+      const res = await fetch(url, { signal: AbortSignal.timeout(3500) });
       if (!res.ok) return null;
       const data = await res.json();
       const matches = data?.matches || [];
       if (matches.length === 0) return null;
-      const latest = matches[0];
+      const match = matches[0];
       let mmr = null;
-      for (const team of latest.teams || []) {
+      for (const team of match.teams || []) {
         for (const p of team.players || []) {
           if (p.battleTag === battleTag) { mmr = p.currentMmr; break; }
         }
         if (mmr != null) break;
       }
-      const lastPlayed = latest.startTime || latest.endTime;
-      // For current season: find start of most recent activity cluster (gap > 30 days = new cluster)
-      let recentClusterStart = null;
-      if (season === 24 && matches.length > 1) {
-        const GAP_MS = 30 * 24 * 60 * 60 * 1000;
-        let clusterStart = new Date(lastPlayed);
-        for (let i = 1; i < matches.length; i++) {
-          const prev = new Date(matches[i - 1].startTime || matches[i - 1].endTime);
-          const curr = new Date(matches[i].startTime || matches[i].endTime);
-          if (prev - curr > GAP_MS) break; // gap found — stop here
-          clusterStart = curr;
-        }
-        recentClusterStart = clusterStart.toISOString();
-      }
-      return { season, lastPlayed, mmr, recentClusterStart };
+      return { season, lastPlayed: match.startTime || match.endTime, mmr, matchDays: null };
     } catch (_e) { return null; }
   }));
-  // All seasons with activity (ordered by season desc — highest season first)
   const seasonActivity = results.filter(r => r != null);
   const mostRecent = seasonActivity[0] || null;
   return {
