@@ -877,21 +877,37 @@ async function fetchPlayerRecentInfo(battleTag) {
   const seasons = [24, 23, 22, 21, 20, 19, 18, 17, 16];
   const results = await Promise.all(seasons.map(async (season) => {
     try {
-      const url = `${W3C_API}/matches/search?playerId=${encodeURIComponent(battleTag)}&offset=0&gameMode=4&season=${season}&gateway=20&pageSize=1`;
-      const res = await fetch(url, { signal: AbortSignal.timeout(3500) });
+      // For current season, fetch more matches to find the recent activity cluster start
+      const pageSize = season === 24 ? 30 : 1;
+      const url = `${W3C_API}/matches/search?playerId=${encodeURIComponent(battleTag)}&offset=0&gameMode=4&season=${season}&gateway=20&pageSize=${pageSize}`;
+      const res = await fetch(url, { signal: AbortSignal.timeout(5000) });
       if (!res.ok) return null;
       const data = await res.json();
       const matches = data?.matches || [];
       if (matches.length === 0) return null;
-      const match = matches[0];
+      const latest = matches[0];
       let mmr = null;
-      for (const team of match.teams || []) {
+      for (const team of latest.teams || []) {
         for (const p of team.players || []) {
           if (p.battleTag === battleTag) { mmr = p.currentMmr; break; }
         }
         if (mmr != null) break;
       }
-      return { season, lastPlayed: match.startTime || match.endTime, mmr };
+      const lastPlayed = latest.startTime || latest.endTime;
+      // For current season: find start of most recent activity cluster (gap > 30 days = new cluster)
+      let recentClusterStart = null;
+      if (season === 24 && matches.length > 1) {
+        const GAP_MS = 30 * 24 * 60 * 60 * 1000;
+        let clusterStart = new Date(lastPlayed);
+        for (let i = 1; i < matches.length; i++) {
+          const prev = new Date(matches[i - 1].startTime || matches[i - 1].endTime);
+          const curr = new Date(matches[i].startTime || matches[i].endTime);
+          if (prev - curr > GAP_MS) break; // gap found — stop here
+          clusterStart = curr;
+        }
+        recentClusterStart = clusterStart.toISOString();
+      }
+      return { season, lastPlayed, mmr, recentClusterStart };
     } catch (_e) { return null; }
   }));
   // All seasons with activity (ordered by season desc — highest season first)

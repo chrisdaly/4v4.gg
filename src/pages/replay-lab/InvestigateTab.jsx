@@ -277,12 +277,13 @@ function ActivityTimeline({ players, matchProfiles }) {
           const startPct = SEASON_STARTS[s] ? toPct(SEASON_STARTS[s].toISOString()) : null;
           if (startPct === null) return null;
           const sa = activityByS.get(s);
-          // End at lastPlayed within this season (or season end if no date available)
           const endDate = sa?.lastPlayed || (SEASON_STARTS[s + 1] ? SEASON_STARTS[s + 1].toISOString() : null);
           const endPct = endDate ? toPct(endDate) : null;
           if (endPct === null) return null;
           const isLast = s === latestSeason;
-          return { s, startPct, endPct, isLast, lastPlayed: sa?.lastPlayed };
+          // recentClusterStart: marks where recent activity resumed (if gap > 30d detected)
+          const clusterPct = sa?.recentClusterStart ? toPct(sa.recentClusterStart) : null;
+          return { s, startPct, endPct, isLast, lastPlayed: sa?.lastPlayed, clusterPct };
         }).filter(Boolean);
 
         return (
@@ -308,23 +309,49 @@ function ActivityTimeline({ players, matchProfiles }) {
                 return <div key={s} style={{ position: 'absolute', left: `${pct}%`, top: '25%', height: '50%', width: 1, background: 'rgba(255,255,255,0.1)' }} />;
               })}
               {/* One bar per active season (with gaps) */}
-              {seasonBars.map(({ s, startPct, endPct, isLast }) => (
-                <div key={s} style={{
-                  position: 'absolute',
-                  left: `${startPct}%`,
-                  width: `${Math.max(endPct - startPct - 0.3, 0.5)}%`,
-                  top: 'calc(50% - 5px)',
-                  height: 10,
-                  borderRadius: 3,
-                  background: (isLast && isCurrentlyActive)
-                    ? `linear-gradient(to right, ${barColor.fill}, ${barColor.border})`
-                    : barColor.fill,
-                  border: `1px solid ${barColor.border}`,
-                }} />
+              {seasonBars.map(({ s, startPct, endPct, isLast, lastPlayed: lp, clusterPct }) => (
+                <React.Fragment key={s}>
+                  <div
+                    title={lp ? `S${s}: last played ${lp.slice(0, 10)}` : `S${s}`}
+                    style={{
+                      position: 'absolute',
+                      left: `${startPct}%`,
+                      width: `${Math.max(endPct - startPct - 0.3, 0.5)}%`,
+                      top: 'calc(50% - 5px)',
+                      height: 10,
+                      borderRadius: 3,
+                      background: barColor.fill,
+                      border: `1px solid ${barColor.border}`,
+                      cursor: 'default',
+                    }}
+                  />
+                  {/* Recent activity cluster overlay — brighter section within the bar */}
+                  {clusterPct !== null && clusterPct < endPct && (
+                    <div
+                      title={`Recent activity from ${lp?.slice(0, 7)}`}
+                      style={{
+                        position: 'absolute',
+                        left: `${clusterPct}%`,
+                        width: `${Math.max(endPct - clusterPct, 0.5)}%`,
+                        top: 'calc(50% - 5px)',
+                        height: 10,
+                        borderRadius: 3,
+                        background: isCurrentlyActive
+                          ? `linear-gradient(to right, ${barColor.fill}, ${barColor.border})`
+                          : barColor.border,
+                        border: `1px solid ${barColor.border}`,
+                        cursor: 'default',
+                      }}
+                    />
+                  )}
+                </React.Fragment>
               ))}
-              {/* Active "now" pulse dot */}
+              {/* Active this season pulse dot */}
               {isCurrentlyActive && (
-                <div style={{ position: 'absolute', right: 2, top: 'calc(50% - 5px)', width: 10, height: 10, borderRadius: '50%', background: 'var(--green)', boxShadow: '0 0 6px var(--green)', animation: 'pulse 1.5s infinite' }} />
+                <div
+                  title="Active in current season (S24)"
+                  style={{ position: 'absolute', right: 2, top: 'calc(50% - 5px)', width: 10, height: 10, borderRadius: '50%', background: 'var(--green)', boxShadow: '0 0 6px var(--green)', animation: 'pulse 1.5s infinite', cursor: 'default' }}
+                />
               )}
               {/* Season labels above each active bar */}
               {seasonBars.map(({ s, startPct }) => (
