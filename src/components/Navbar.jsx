@@ -1,7 +1,7 @@
 import React, { useState, useRef, useEffect } from "react";
 import { Link, useLocation, useHistory } from "react-router-dom";
 import { raceMapping } from "../lib/constants";
-import { searchLadder, getPlayerProfile, getOngoingMatches, getFinishedMatches, getLadder, getSeasons } from "../lib/api";
+import { searchLadderWithFallback, getPlayerProfile, getOngoingMatches, getFinishedMatches, getLadder, getSeasons } from "../lib/api";
 import { CountryFlag, Input } from "./ui";
 import PeonLoader from "./PeonLoader";
 import useAdmin from "../lib/useAdmin";
@@ -72,7 +72,7 @@ const Navbar = () => {
     let cancelled = false;
     const timer = setTimeout(async () => {
       try {
-        const results = await searchLadder(searchQuery);
+        const results = await searchLadderWithFallback(searchQuery);
         if (cancelled) return;
         const deduped = [];
         const seen = new Set();
@@ -82,6 +82,7 @@ const Navbar = () => {
           seen.add(tag);
           deduped.push(r);
         }
+        deduped.sort((a, b) => ((b.player?.wins || 0) + (b.player?.losses || 0)) - ((a.player?.wins || 0) + (a.player?.losses || 0)));
         const sliced = deduped.slice(0, 8);
         setSearchResults(sliced);
         setShowSearch(true);
@@ -150,7 +151,7 @@ const Navbar = () => {
   const moreLinks = [
     { to: "/search", label: "Search" },
     { to: "/stats", label: "Stats" },
-    { to: "/signatures", label: "Signatures" },
+    { to: "/lab", label: "Lab" },
     { to: "/observatory", label: "Observatory" },
     { to: "/clips", label: "Clips" },
     { to: "/blog", label: "Blog" },

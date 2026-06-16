@@ -9,7 +9,7 @@ import PlayerIdentityCard, {
 } from "../../components/PlayerIdentityCard";
 import TransitionGlyph from "../../components/replay-lab/TransitionGlyph";
 import { getGroupUnits, HERO_IMAGES, BUILDINGS } from "../../components/replay-lab/PlaystyleReport";
-import { searchLadder, getPlayerProfilesBatch } from "../../lib/api";
+import { searchLadderWithFallback, getPlayerProfilesBatch } from "../../lib/api";
 import { raceMapping } from "../../lib/constants";
 import { Input, CountryFlag } from "../../components/ui";
 import { raceIcons } from "../../lib/constants";
@@ -84,7 +84,7 @@ const BackLink = styled.button`
 /* ── Compare table — players as columns, features as rows ── */
 const CompareTable = styled.div`
   display: grid;
-  grid-template-columns: 100px repeat(${p => p.$cols}, 1fr);
+  grid-template-columns: 100px repeat(${p => p.$cols}, 220px);
   margin-bottom: var(--space-6);
 `;
 const TH = styled.div`
@@ -232,28 +232,69 @@ function toPct(dateStr) {
   return Math.max(0, Math.min(100, ((t - TIMELINE_START) / total) * 100));
 }
 
+function toWeekStart(dayStr) {
+  const d = new Date(dayStr + 'T12:00:00Z');
+  const dow = d.getUTCDay() || 7;
+  d.setUTCDate(d.getUTCDate() - (dow - 1));
+  return d.toISOString().slice(0, 10);
+}
+
 function ActivityTimeline({ players, matchProfiles }) {
-  const nowPct = 100;
-  const tickLabels = [
-    { label: '2023', date: new Date(2023, 0, 1) },
-    { label: '2024', date: new Date(2024, 0, 1) },
-    { label: '2025', date: new Date(2025, 0, 1) },
-    { label: '2026', date: new Date(2026, 0, 1) },
-  ];
+  // Build raw day sets per player for shared-day detection
+  const daySetByTag = new Map(players.map(p => [
+    p.tag,
+    new Set((p.seasonActivity || []).flatMap(sa => sa.matchDays || [])),
+  ]));
+  const queryDays = players[0] ? (daySetByTag.get(players[0].tag) || new Set()) : new Set();
+
+  const sharedDays = new Set();
+  for (const p of players.slice(1)) {
+    for (const d of (daySetByTag.get(p.tag) || [])) {
+      if (queryDays.has(d)) sharedDays.add(d);
+    }
+  }
+  const totalShared = sharedDays.size;
+
+  // Only show seasons where at least one player has activity
+  const usedSeasons = new Set(players.flatMap(p => (p.seasonActivity || []).map(sa => sa.season)));
+  const visibleSeasons = SHOWN_SEASONS.filter(s => usedSeasons.has(s));
+
+  // Clip the timeline to the earliest active season so we don't waste left-side space
+  const earliestSeason = visibleSeasons[0] ?? 16;
+  const effectiveStart = (SEASON_STARTS[earliestSeason] ?? new Date(2022, 8, 1)).getTime();
+  const effectiveEnd = Date.now();
+  const tl = (dateStr) => {
+    if (!dateStr) return null;
+    const t = new Date(dateStr).getTime();
+    return Math.max(0, Math.min(100, ((t - effectiveStart) / (effectiveEnd - effectiveStart)) * 100));
+  };
+
+  // Year labels that fall within the visible range
+  const allYearLabels = [2022, 2023, 2024, 2025, 2026].map(y => ({ label: String(y), date: new Date(y, 0, 1) }));
+  const yearLabels = allYearLabels.filter(({ date }) => date.getTime() > effectiveStart && date.getTime() < effectiveEnd);
+
+  const LABEL_W = 140;
 
   return (
     <div style={{ marginBottom: 'var(--space-6)' }}>
-      <div style={{ fontFamily: 'var(--font-mono)', fontSize: 'var(--text-xxxs)', color: 'var(--grey-light)', textTransform: 'uppercase', letterSpacing: '0.1em', opacity: 0.5, marginBottom: 'var(--space-3)' }}>
-        Activity Timeline
+      <div style={{ display: 'flex', alignItems: 'center', gap: 14, marginBottom: 'var(--space-4)' }}>
+        <div style={{ fontFamily: 'var(--font-mono)', fontSize: 'var(--text-xxs)', color: 'var(--grey-light)', textTransform: 'uppercase', letterSpacing: '0.1em', opacity: 0.6 }}>
+          Activity Timeline
+        </div>
+        {totalShared > 0 && (
+          <div style={{ fontFamily: 'var(--font-mono)', fontSize: 'var(--text-xxs)', color: 'var(--gold)' }}>
+            {totalShared} shared day{totalShared !== 1 ? 's' : ''}
+          </div>
+        )}
       </div>
 
-      {/* Time axis ticks */}
-      <div style={{ position: 'relative', marginLeft: 100, height: 18, marginBottom: 2 }}>
-        {tickLabels.map(({ label, date }) => {
-          const pct = toPct(date.toISOString());
+      {/* Year labels */}
+      <div style={{ position: 'relative', marginLeft: LABEL_W, height: 20, marginBottom: 4 }}>
+        {yearLabels.map(({ label, date }) => {
+          const pct = tl(date.toISOString());
           if (pct === null) return null;
           return (
-            <div key={label} style={{ position: 'absolute', left: `${pct}%`, transform: 'translateX(-50%)', fontFamily: 'var(--font-mono)', fontSize: 9, color: 'rgba(255,255,255,0.2)', whiteSpace: 'nowrap' }}>
+            <div key={label} style={{ position: 'absolute', left: `${pct}%`, transform: 'translateX(-50%)', fontFamily: 'var(--font-mono)', fontSize: 12, color: 'rgba(255,255,255,0.35)', whiteSpace: 'nowrap' }}>
               {label}
             </div>
           );
@@ -263,93 +304,110 @@ function ActivityTimeline({ players, matchProfiles }) {
       {/* Player rows */}
       {players.map((player) => {
         const activityByS = new Map((player.seasonActivity || []).map(sa => [sa.season, sa]));
-        const activeSeasonsNums = [...activityByS.keys()].sort((a, b) => a - b);
-        const latestSeason = activeSeasonsNums[activeSeasonsNums.length - 1];
+        const playerActiveSeasonsNums = [...activityByS.keys()].sort((a, b) => a - b);
+        const latestSeason = playerActiveSeasonsNums[playerActiveSeasonsNums.length - 1];
         const isCurrentlyActive = activityByS.has(24);
         const profile = matchProfiles?.[player.tag];
 
-        const barColor = player.isQuery
-          ? { fill: 'rgba(252,219,51,0.35)', border: 'rgba(252,219,51,0.6)', dot: '#fcdb33' }
-          : { fill: 'rgba(100,200,255,0.25)', border: 'rgba(100,200,255,0.5)', dot: '#64c8ff' };
+        const baseColor = player.isQuery ? '#fcdb33' : '#64c8ff';
+        const fillColor = player.isQuery ? 'rgba(252,219,51,0.25)' : 'rgba(100,200,255,0.2)';
 
-        // Per-day dots for all seasons that have matchDays; bars as fallback
-        const seasonDots = activeSeasonsNums.map(s => {
+        const seasonDots = playerActiveSeasonsNums.map(s => {
           const sa = activityByS.get(s);
-          const dots = (sa?.matchDays || []).map(day => toPct(day + 'T12:00:00Z')).filter(p => p !== null);
-          // Fallback bar if no matchDays
-          const startPct = SEASON_STARTS[s] ? toPct(SEASON_STARTS[s].toISOString()) : null;
+          const rawDays = sa?.matchDays || [];
+          let dotDays;
+          if (rawDays.length > 20) {
+            const weekSet = new Set(rawDays.map(toWeekStart));
+            dotDays = [...weekSet].sort();
+          } else {
+            dotDays = [...rawDays].sort();
+          }
+          const dots = dotDays.map(day => ({
+            pct: tl(day + 'T12:00:00Z'),
+            shared: rawDays.some(rd => sharedDays.has(rd) && toWeekStart(rd) === toWeekStart(day)),
+          })).filter(d => d.pct !== null);
+          const startPct = SEASON_STARTS[s] ? tl(SEASON_STARTS[s].toISOString()) : null;
           const endDate = sa?.lastPlayed || (SEASON_STARTS[s + 1]?.toISOString() || null);
-          const endPct = endDate ? toPct(endDate) : null;
-          return { s, dots, startPct, endPct, lastPlayed: sa?.lastPlayed };
+          const endPct = endDate ? tl(endDate) : null;
+          return { s, dots, rawDays, startPct, endPct, lastPlayed: sa?.lastPlayed };
         });
 
+        const playerSharedCount = [...(daySetByTag.get(player.tag) || [])].filter(d => sharedDays.has(d)).length;
+
         return (
-          <div key={player.tag} style={{ display: 'flex', alignItems: 'center', height: 40, marginBottom: 6 }}>
-            {/* Player label */}
-            <div style={{ width: 100, flexShrink: 0, paddingRight: 8, display: 'flex', alignItems: 'center', gap: 5, overflow: 'hidden' }}>
+          <div key={player.tag} style={{ display: 'flex', alignItems: 'center', height: 64, marginBottom: 6 }}>
+            {/* Label */}
+            <div style={{ width: LABEL_W, flexShrink: 0, paddingRight: 10, display: 'flex', alignItems: 'center', gap: 7, overflow: 'hidden' }}>
               {profile?.profilePicUrl
-                ? <img src={profile.profilePicUrl} alt="" style={{ width: 20, height: 20, borderRadius: 2, flexShrink: 0 }} />
-                : <span style={{ width: 20, height: 20, flexShrink: 0 }} />}
-              <span style={{ fontFamily: 'var(--font-display)', fontSize: 12, color: player.isQuery ? 'var(--gold)' : 'var(--grey-light)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
-                {player.name}
-              </span>
+                ? <img src={profile.profilePicUrl} alt="" style={{ width: 28, height: 28, borderRadius: 2, flexShrink: 0 }} />
+                : <span style={{ width: 28, height: 28, flexShrink: 0 }} />}
+              <div style={{ overflow: 'hidden', minWidth: 0 }}>
+                <div style={{ fontFamily: 'var(--font-display)', fontSize: 'var(--text-xs)', color: player.isQuery ? 'var(--gold)' : '#fff', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+                  {player.name}
+                </div>
+                {!player.isQuery && playerSharedCount > 0 && (
+                  <div style={{ fontFamily: 'var(--font-mono)', fontSize: 11, color: 'var(--gold)', opacity: 0.85 }}>
+                    {playerSharedCount}d overlap
+                  </div>
+                )}
+              </div>
             </div>
 
             {/* Track */}
-            <div style={{ flex: 1, position: 'relative', height: 40 }}>
-              {/* Background */}
+            <div style={{ flex: 1, position: 'relative', height: 64 }}>
               <div style={{ position: 'absolute', top: '50%', left: 0, right: 0, height: 1, background: 'rgba(255,255,255,0.07)', transform: 'translateY(-50%)' }} />
-              {/* Season ticks */}
-              {SHOWN_SEASONS.map(s => {
-                const pct = SEASON_STARTS[s] ? toPct(SEASON_STARTS[s].toISOString()) : null;
+              {visibleSeasons.map(s => {
+                const pct = SEASON_STARTS[s] ? tl(SEASON_STARTS[s].toISOString()) : null;
                 if (pct === null) return null;
-                return <div key={s} style={{ position: 'absolute', left: `${pct}%`, top: '25%', height: '50%', width: 1, background: 'rgba(255,255,255,0.1)' }} />;
+                return <div key={s} style={{ position: 'absolute', left: `${pct}%`, top: '15%', height: '70%', width: 1, background: 'rgba(255,255,255,0.09)' }} />;
               })}
-              {/* Per-season: dots if we have matchDays, bar as fallback */}
+              {/* Ticks */}
               {seasonDots.map(({ s, dots, startPct, endPct, lastPlayed: lp }) => (
                 <React.Fragment key={s}>
                   {dots.length > 0
-                    ? dots.map((pct, i) => (
-                        <div key={i} style={{
-                          position: 'absolute', left: `${pct}%`,
-                          top: 'calc(50% - 4px)', width: 3, height: 8,
-                          borderRadius: 1, background: barColor.border,
+                    ? dots.map((dot, i) => (
+                        <div key={i} title={dot.shared ? 'Played same day as query' : undefined} style={{
+                          position: 'absolute', left: `${dot.pct}%`,
+                          top: 'calc(50% - 8px)',
+                          width: dot.shared ? 4 : 3,
+                          height: dot.shared ? 18 : 14,
+                          borderRadius: 1,
+                          background: dot.shared ? 'var(--gold)' : baseColor,
+                          opacity: dot.shared ? 1 : 0.65,
                           transform: 'translateX(-50%)',
+                          zIndex: dot.shared ? 2 : 1,
                         }} />
                       ))
                     : (startPct !== null && endPct !== null && (
-                        <div
-                          title={lp ? `S${s}: last played ${lp.slice(0, 10)}` : `S${s}`}
-                          style={{
-                            position: 'absolute', left: `${startPct}%`,
-                            width: `${Math.max(endPct - startPct - 0.3, 0.5)}%`,
-                            top: 'calc(50% - 5px)', height: 10, borderRadius: 3,
-                            background: barColor.fill, border: `1px solid ${barColor.border}`,
-                            cursor: 'default',
-                          }}
-                        />
+                        <div title={lp ? `S${s}: last played ${lp.slice(0, 10)}` : `S${s}`} style={{
+                          position: 'absolute', left: `${startPct}%`,
+                          width: `${Math.max(endPct - startPct - 0.3, 0.5)}%`,
+                          top: 'calc(50% - 6px)', height: 12, borderRadius: 3,
+                          background: fillColor, border: `1px solid ${baseColor}`,
+                          opacity: 0.7,
+                        }} />
                       ))
                   }
                 </React.Fragment>
               ))}
-              {/* Season labels at season start */}
+              {/* Season labels */}
               {seasonDots.map(({ s }) => {
-                const pct = SEASON_STARTS[s] ? toPct(SEASON_STARTS[s].toISOString()) : null;
+                const pct = SEASON_STARTS[s] ? tl(SEASON_STARTS[s].toISOString()) : null;
                 if (pct === null) return null;
                 return (
-                  <div key={s} style={{ position: 'absolute', left: `${pct + 0.5}%`, top: 2, fontFamily: 'var(--font-mono)', fontSize: 9, color: barColor.dot, opacity: 0.8 }}>
+                  <div key={s} style={{ position: 'absolute', left: `${pct + 0.3}%`, top: 5, fontFamily: 'var(--font-mono)', fontSize: 10, color: baseColor, opacity: 0.75 }}>
                     S{s}
                   </div>
                 );
               })}
-              {/* "Last seen" callout for inactive players */}
+              {/* Last-seen callout */}
               {!isCurrentlyActive && latestSeason && (() => {
                 const last = seasonDots.find(d => d.s === latestSeason);
                 if (!last?.lastPlayed) return null;
-                const endPct = last.dots.length > 0 ? last.dots[0] : last.endPct;
+                const endPct = last.dots.length > 0 ? last.dots[0].pct : last.endPct;
                 if (endPct === null) return null;
                 return (
-                  <div style={{ position: 'absolute', left: `${endPct}%`, bottom: 2, transform: 'translateX(-50%)', fontFamily: 'var(--font-mono)', fontSize: 9, color: 'rgba(255,255,255,0.35)', whiteSpace: 'nowrap' }}>
+                  <div style={{ position: 'absolute', left: `${endPct}%`, bottom: 5, transform: 'translateX(-50%)', fontFamily: 'var(--font-mono)', fontSize: 10, color: 'rgba(255,255,255,0.4)', whiteSpace: 'nowrap' }}>
                     S{latestSeason} · {last.lastPlayed.slice(0, 7)}
                   </div>
                 );
@@ -358,19 +416,6 @@ function ActivityTimeline({ players, matchProfiles }) {
           </div>
         );
       })}
-
-      {/* Season legend at bottom */}
-      <div style={{ marginLeft: 100, position: 'relative', height: 16 }}>
-        {SHOWN_SEASONS.map(s => {
-          const pct = SEASON_STARTS[s] ? toPct(SEASON_STARTS[s].toISOString()) : null;
-          if (pct === null) return null;
-          return (
-            <div key={s} style={{ position: 'absolute', left: `${pct}%`, top: 0, fontFamily: 'var(--font-mono)', fontSize: 9, color: 'rgba(255,255,255,0.2)', transform: 'translateX(-50%)' }}>
-              S{s}
-            </div>
-          );
-        })}
-      </div>
     </div>
   );
 }
@@ -378,16 +423,17 @@ function ActivityTimeline({ players, matchProfiles }) {
 // ── Compare Panel Styles ────────────────────────
 
 const ComparePanel = styled.div`
-  background: rgba(0, 0, 0, 0.4); border: 1px solid var(--gold); border-top: none;
-  border-radius: 0 0 var(--radius-md) var(--radius-md);
-  padding: var(--space-4) var(--space-6); margin-bottom: var(--space-3);
+  border-top: 1px solid rgba(255,255,255,0.06);
+  padding: var(--space-5) 0 var(--space-3);
+  margin-bottom: var(--space-3);
 `;
 const CompareSection = styled.div`
   margin-bottom: var(--space-5); &:last-child { margin-bottom: 0; }
 `;
 const CompareSectionTitle = styled.div`
-  font-family: var(--font-mono); font-size: var(--text-xxxs); color: var(--gold);
+  font-family: var(--font-mono); font-size: var(--text-xxxs); color: var(--grey-light);
   text-transform: uppercase; letter-spacing: 0.1em; margin-bottom: var(--space-2);
+  opacity: 0.6;
 `;
 const PlayerTag = styled.div`
   font-family: var(--font-mono); font-size: var(--text-xxxs);
@@ -398,6 +444,19 @@ const TagRight = styled.span`color: var(--red);`;
 
 // ── Compare Grid (butterfly bars) ───────────────
 
+const MetricsTable = styled.table`
+  width: 100%; border-collapse: collapse;
+  font-family: var(--font-mono); font-size: var(--text-xxs);
+  th { padding: 2px 8px 6px; text-align: left; font-weight: normal; font-size: 10px; }
+  td { padding: 3px 8px; }
+  tr + tr td { border-top: 1px solid rgba(255,255,255,0.04); }
+`;
+const MetricsHead = styled.thead``;
+const MetricsTd = styled.td`
+  color: ${p => p.$label ? 'var(--grey-light)' : '#fff'};
+  font-size: ${p => p.$label ? '10px' : 'var(--text-xxs)'};
+  opacity: ${p => p.$label ? 0.7 : 1};
+`;
 const CompareGrid = styled.div`
   display: grid; grid-template-columns: 80px 1fr 28px 1fr;
   gap: 4px 8px; align-items: center;
@@ -782,26 +841,62 @@ function CompareDetail({ fpDataA, fpDataB, compareData, nameA, nameB }) {
   const sigA = extractSignature(qSeg);
   const sigB = extractSignature(mSeg);
 
+  const qBurst = qApm[0] > 0 ? +(qApm[2] / qApm[0]).toFixed(2) : null;
+  const mBurst = mApm[0] > 0 ? +(mApm[2] / mApm[0]).toFixed(2) : null;
+  const qAcounts = fpDataA.actionCounts;
+  const mAcounts = fpDataB.actionCounts;
+
   return (
     <ComparePanel>
-      <PlayerTag>
-        <TagLeft>{nameA}</TagLeft>
-        <TagRight>{nameB}</TagRight>
-      </PlayerTag>
+      {/* Key Metrics */}
+      <CompareSection>
+        <MetricsTable>
+          <MetricsHead>
+            <th />
+            <th style={{ color: "#4fc3f7" }}>{nameA}</th>
+            <th style={{ color: "#ef5350" }}>{nameB}</th>
+          </MetricsHead>
+          <tbody>
+            <tr>
+              <MetricsTd $label>APM</MetricsTd>
+              <MetricsTd>{qMeanApm || '—'}</MetricsTd>
+              <MetricsTd>{mMeanApm || '—'}</MetricsTd>
+            </tr>
+            <tr>
+              <MetricsTd $label>Burst ratio</MetricsTd>
+              <MetricsTd>{qBurst ?? '—'}</MetricsTd>
+              <MetricsTd>{mBurst ?? '—'}</MetricsTd>
+            </tr>
+            {(qAcounts || mAcounts) && (
+              <tr>
+                <MetricsTd $label>Rebind %</MetricsTd>
+                <MetricsTd>{qAcounts?.reassignRatio ?? '—'}%</MetricsTd>
+                <MetricsTd>{mAcounts?.reassignRatio ?? '—'}%</MetricsTd>
+              </tr>
+            )}
+            {(qAcounts || mAcounts) && (
+              <tr>
+                <MetricsTd $label>Tab/min</MetricsTd>
+                <MetricsTd>{qAcounts?.tabPerMin ?? '—'}</MetricsTd>
+                <MetricsTd>{mAcounts?.tabPerMin ?? '—'}</MetricsTd>
+              </tr>
+            )}
+            {(qAcounts?.attackMovePerMin > 0 || mAcounts?.attackMovePerMin > 0) && (
+              <tr>
+                <MetricsTd $label>A-move/min</MetricsTd>
+                <MetricsTd>{qAcounts?.attackMovePerMin ?? '—'}</MetricsTd>
+                <MetricsTd>{mAcounts?.attackMovePerMin ?? '—'}</MetricsTd>
+              </tr>
+            )}
+          </tbody>
+        </MetricsTable>
+      </CompareSection>
 
       {/* Player Signature */}
       <CompareSection>
         <CompareSectionTitle>Player Signature</CompareSectionTitle>
         <SignatureRadar sigA={sigA} sigB={sigB} nameA={nameA} nameB={nameB} />
       </CompareSection>
-
-      {/* APM Curve */}
-      {hasDeep && pA.apmCurve?.length > 1 && pB.apmCurve?.length > 1 && (
-        <CompareSection>
-          <CompareSectionTitle>APM Over Time</CompareSectionTitle>
-          <ApmSparkline curveA={pA.apmCurve} curveB={pB.apmCurve} nameA={nameA} nameB={nameB} />
-        </CompareSection>
-      )}
 
       {/* Action Distribution */}
       <CompareSection>
@@ -820,6 +915,37 @@ function CompareDetail({ fpDataA, fpDataB, compareData, nameA, nameB }) {
             </React.Fragment>
           ))}
         </CompareGrid>
+      </CompareSection>
+
+      {/* APM Profile */}
+      <CompareSection>
+        <CompareSectionTitle>APM Profile</CompareSectionTitle>
+        <CompareGrid>
+          <CLabel>Mean APM</CLabel>
+          <div style={{ textAlign: "right", fontFamily: "var(--font-mono)", fontSize: "var(--text-xxs)", color: "#fff" }}>{qMeanApm}</div>
+          <CVs>vs</CVs>
+          <div style={{ fontFamily: "var(--font-mono)", fontSize: "var(--text-xxs)", color: "#fff" }}>{mMeanApm}</div>
+
+          <CLabel>Variability</CLabel>
+          <div style={{ textAlign: "right", fontFamily: "var(--font-mono)", fontSize: "var(--text-xxs)", color: "#fff" }}>{(qApm[1] * 100).toFixed(0)}</div>
+          <CVs>vs</CVs>
+          <div style={{ fontFamily: "var(--font-mono)", fontSize: "var(--text-xxs)", color: "#fff" }}>{(mApm[1] * 100).toFixed(0)}</div>
+
+          <CLabel>Burstiness</CLabel>
+          <div style={{ textAlign: "right", fontFamily: "var(--font-mono)", fontSize: "var(--text-xxs)", color: "#fff" }}>{(qApm[2] || 0).toFixed(2)}</div>
+          <CVs>vs</CVs>
+          <div style={{ fontFamily: "var(--font-mono)", fontSize: "var(--text-xxs)", color: "#fff" }}>{(mApm[2] || 0).toFixed(2)}</div>
+        </CompareGrid>
+      </CompareSection>
+
+      {/* Hotkey Fingerprint */}
+      <CompareSection>
+        <CompareSectionTitle>Hotkey Fingerprint</CompareSectionTitle>
+        <HotkeyRadar
+          selectA={qSelect} selectB={mSelect}
+          assignA={qAssign} assignB={mAssign}
+          nameA={nameA} nameB={nameB}
+        />
       </CompareSection>
 
       {/* Action Tempo */}
@@ -842,37 +968,6 @@ function CompareDetail({ fpDataA, fpDataB, compareData, nameA, nameB }) {
           </TempoGrid>
         </CompareSection>
       )}
-
-      {/* APM Summary */}
-      <CompareSection>
-        <CompareSectionTitle>APM Profile</CompareSectionTitle>
-        <CompareGrid>
-          <CLabel>Mean APM</CLabel>
-          <div style={{ textAlign: "right", fontFamily: "var(--font-mono)", fontSize: "var(--text-xxs)", color: "#fff" }}>{qMeanApm}</div>
-          <CVs>vs</CVs>
-          <div style={{ fontFamily: "var(--font-mono)", fontSize: "var(--text-xxs)", color: "#fff" }}>{mMeanApm}</div>
-
-          <CLabel>Variability</CLabel>
-          <div style={{ textAlign: "right", fontFamily: "var(--font-mono)", fontSize: "var(--text-xxs)", color: "#fff" }}>{(qApm[1] * 100).toFixed(0)}</div>
-          <CVs>vs</CVs>
-          <div style={{ fontFamily: "var(--font-mono)", fontSize: "var(--text-xxs)", color: "#fff" }}>{(mApm[1] * 100).toFixed(0)}</div>
-
-          <CLabel>Burstiness</CLabel>
-          <div style={{ textAlign: "right", fontFamily: "var(--font-mono)", fontSize: "var(--text-xxs)", color: "#fff" }}>{(qApm[2] || 0).toFixed(2)}</div>
-          <CVs>vs</CVs>
-          <div style={{ fontFamily: "var(--font-mono)", fontSize: "var(--text-xxs)", color: "#fff" }}>{(mApm[2] || 0).toFixed(2)}</div>
-        </CompareGrid>
-      </CompareSection>
-
-      {/* Hotkey Radar */}
-      <CompareSection>
-        <CompareSectionTitle>Hotkey Fingerprint</CompareSectionTitle>
-        <HotkeyRadar
-          selectA={qSelect} selectB={mSelect}
-          assignA={qAssign} assignB={mAssign}
-          nameA={nameA} nameB={nameB}
-        />
-      </CompareSection>
 
       {/* Hotkey Switching Patterns */}
       {hasDeep && (transA.length > 0 || transB.length > 0) && (
@@ -965,22 +1060,28 @@ export default function InvestigateTab() {
   const [isSearching, setIsSearching] = useState(false);
   const searchRef = useRef(null);
 
+  // "Add player" search — injects a manual candidate into the grid
+  const [addQuery, setAddQuery] = useState("");
+  const [addResults, setAddResults] = useState([]);
+  const [addShowDropdown, setAddShowDropdown] = useState(false);
+  const [addIsSearching, setAddIsSearching] = useState(false);
+  const [addLoading, setAddLoading] = useState(false);
+  const addRef = useRef(null);
+  const [manualCandidates, setManualCandidates] = useState(new Map()); // tag → candidate shape
+
   const [selectedTag, setSelectedTag] = useState(null);
   const [playstyleData, setPlaystyleData] = useState(null);
+  const [identifyError, setIdentifyError] = useState(null); // 'not_indexed' | 'server_error'
   const [loading, setLoading] = useState(false);
-  const [expandedTag, setExpandedTag] = useState(null);
-  const [queryFpData, setQueryFpData] = useState(null);
-  const [matchFpData, setMatchFpData] = useState(null);
-  const [compareData, setCompareData] = useState(null);
-  const [compareLoading, setCompareLoading] = useState(false);
   const [matchProfiles, setMatchProfiles] = useState({});
-  const [demotedTags, setDemotedTags] = useState(new Set());
+  const [candidateOrder, setCandidateOrder] = useState([]);
+  const [removedTags, setRemovedTags] = useState(new Set());
+  const dragTagRef = useRef(null);
 
-  const toggleDemote = (tag) => setDemotedTags(prev => {
-    const next = new Set(prev);
-    next.has(tag) ? next.delete(tag) : next.add(tag);
-    return next;
-  });
+  const removeCandidate = (tag) => {
+    setRemovedTags(prev => new Set([...prev, tag]));
+    setCandidateOrder(prev => prev.filter(t => t !== tag));
+  };
 
   useEffect(() => {
     if (!showDropdown) return;
@@ -991,11 +1092,12 @@ export default function InvestigateTab() {
     return () => document.removeEventListener("mousedown", handler);
   }, [showDropdown]);
 
+
   useEffect(() => {
     if (query.length < 2) { setSearchResults([]); setShowDropdown(false); return; }
     setIsSearching(true);
     const timer = setTimeout(async () => {
-      const results = await searchLadder(query);
+      const results = await searchLadderWithFallback(query);
       const deduped = [];
       const seen = new Set();
       for (const r of Array.isArray(results) ? results : []) {
@@ -1004,12 +1106,34 @@ export default function InvestigateTab() {
         seen.add(tag);
         deduped.push(r);
       }
-      setSearchResults(deduped.slice(0, 8));
+      deduped.sort((a, b) => ((b.player?.wins || 0) + (b.player?.losses || 0)) - ((a.player?.wins || 0) + (a.player?.losses || 0)));
+      setSearchResults(deduped.slice(0, 15));
       setShowDropdown(true);
       setIsSearching(false);
     }, 300);
     return () => clearTimeout(timer);
   }, [query]);
+
+  useEffect(() => {
+    if (addQuery.length < 2) { setAddResults([]); setAddShowDropdown(false); return; }
+    setAddIsSearching(true);
+    const timer = setTimeout(async () => {
+      const results = await searchLadderWithFallback(addQuery);
+      const deduped = [];
+      const seen = new Set();
+      for (const r of Array.isArray(results) ? results : []) {
+        const tag = r.player?.playerIds?.[0]?.battleTag || r.player1Id;
+        if (!tag || seen.has(tag)) continue;
+        seen.add(tag);
+        deduped.push(r);
+      }
+      deduped.sort((a, b) => ((b.player?.wins || 0) + (b.player?.losses || 0)) - ((a.player?.wins || 0) + (a.player?.losses || 0)));
+      setAddResults(deduped.slice(0, 15));
+      setAddShowDropdown(true);
+      setAddIsSearching(false);
+    }, 300);
+    return () => clearTimeout(timer);
+  }, [addQuery]);
 
   // Sync URL → auto-search on mount / back-nav
   useEffect(() => {
@@ -1020,18 +1144,18 @@ export default function InvestigateTab() {
 
   const selectPlayer = useCallback(async (battleTag) => {
     history.replace({ search: `?tab=identify&q=${encodeURIComponent(battleTag)}` });
-
     setQuery(""); setSearchResults([]); setShowDropdown(false); setIsSearching(false);
-    setSelectedTag(battleTag); setPlaystyleData(null); setLoading(true);
-    setDemotedTags(new Set());
-    setExpandedTag(null); setQueryFpData(null);
-    setMatchFpData(null); setCompareData(null);
+    setSelectedTag(battleTag); setPlaystyleData(null); setIdentifyError(null); setLoading(true);
+    setCandidateOrder([]); setRemovedTags(new Set()); setManualCandidates(new Map());
+    
+    
 
     try {
-      const identifyRes = await fetch(`${RELAY_URL}/api/fingerprints/identify/${encodeURIComponent(battleTag)}`);
+      const identifyRes = await fetch(`${RELAY_URL}/api/fingerprints/identify/${encodeURIComponent(battleTag)}`, { headers: { "X-API-Key": apiKey } });
       if (identifyRes.ok) {
         const data = await identifyRes.json();
         setPlaystyleData(data);
+        setCandidateOrder((data.similar || []).slice(0, 5).map(s => s.battleTag).filter(Boolean));
         const tags = (data.similar || []).map(s => s.battleTag).filter(Boolean);
         if (tags.length > 0) {
           getPlayerProfilesBatch([battleTag, ...tags]).then(profileMap => {
@@ -1040,41 +1164,97 @@ export default function InvestigateTab() {
             setMatchProfiles(obj);
           });
         }
-      }
-      if (apiKey) {
-        const fpRes = await fetch(`${RELAY_URL}/api/fingerprints/player/${encodeURIComponent(battleTag)}`, { headers: { "X-API-Key": apiKey } });
-        if (fpRes.ok) setQueryFpData(await fpRes.json());
+      } else if (identifyRes.status === 404) {
+        setIdentifyError('not_indexed');
+      } else {
+        setIdentifyError(`server_error:${identifyRes.status}`);
       }
     } catch (err) { console.error("Playstyle fetch failed:", err); }
     setLoading(false);
   }, [apiKey, RELAY_URL, history]);
 
-  const toggleCompare = useCallback(async (battleTag) => {
-    if (expandedTag === battleTag) {
-      setExpandedTag(null); setMatchFpData(null); setCompareData(null); return;
-    }
-    setExpandedTag(battleTag); setMatchFpData(null); setCompareData(null); setCompareLoading(true);
+  const addPlayerToList = useCallback(async (battleTag, ladderMmr, ladderRace) => {
+    setAddQuery(""); setAddResults([]); setAddShowDropdown(false); setAddIsSearching(false);
+    if (!battleTag || manualCandidates.has(battleTag)) return;
+    setAddLoading(true);
     try {
-      const [fpRes, cmpRes] = await Promise.all([
-        fetch(`${RELAY_URL}/api/fingerprints/player/${encodeURIComponent(battleTag)}`, { headers: { "X-API-Key": apiKey } }),
-        fetch(`${RELAY_URL}/api/fingerprints/compare/${encodeURIComponent(selectedTag)}/${encodeURIComponent(battleTag)}`, { headers: { "X-API-Key": apiKey } }),
-      ]);
-      if (fpRes.ok) setMatchFpData(await fpRes.json());
-      if (cmpRes.ok) setCompareData(await cmpRes.json());
-    } catch (err) { console.error("Compare fetch failed:", err); }
-    setCompareLoading(false);
-  }, [expandedTag, apiKey, RELAY_URL, selectedTag]);
+      const res = await fetch(`${RELAY_URL}/api/fingerprints/identify/${encodeURIComponent(battleTag)}`, { headers: { "X-API-Key": apiKey } });
+      if (res.ok) {
+        const data = await res.json();
+        const q = data.query || {};
+        const candidate = {
+          battleTag,
+          playerName: battleTag.split("#")[0],
+          score: null, percentile: null,
+          apm: q.apm ?? null,
+          mmr: q.mmr ?? ladderMmr ?? null,
+          race: q.race ?? ladderRace ?? null,
+          replayCount: q.replayCount || 0,
+          lastSeen: q.lastSeen || null,
+          glyph: q.glyph || { transitionPairs: [], groupUsage: [], groupCompositions: {} },
+          seasonActivity: q.seasonActivity || [],
+          isManual: true,
+        };
+        setManualCandidates(prev => new Map([...prev, [battleTag, candidate]]));
+        setCandidateOrder(prev => [...prev, battleTag]);
+        getPlayerProfilesBatch([battleTag]).then(profileMap => {
+          setMatchProfiles(prev => {
+            const obj = { ...prev };
+            for (const [tag, profile] of profileMap) obj[tag] = profile;
+            return obj;
+          });
+        });
+      }
+    } catch (err) { console.error("Add player failed:", err); }
+    setAddLoading(false);
+  }, [RELAY_URL, manualCandidates]);
+
 
   const dismiss = useCallback(() => {
     const params = new URLSearchParams(location.search);
     params.delete("q");
     history.replace({ search: params.toString() ? `?${params}` : "" });
-    setSelectedTag(null); setPlaystyleData(null); setExpandedTag(null);
-    setQueryFpData(null); setMatchFpData(null); setCompareData(null); setMatchProfiles({});
+    setSelectedTag(null); setPlaystyleData(null); setMatchProfiles({});
+    setManualCandidates(new Map());
   }, [history, location.search]);
 
   const queryGames = playstyleData?.query?.replayCount || 0;
   const queryName = selectedTag ? selectedTag.split("#")[0] : "";
+
+  // Reusable search dropdown renderer; passLadder=true forwards mmr/race to onSelect
+  const renderSearchDropdown = (results, onSelect, passLadder = false) => results.length > 0 && (
+    <div className="navbar-search-dropdown">
+      {results.map((r) => {
+        const p = r.player || {};
+        const tag = p.playerIds?.[0]?.battleTag || r.player1Id || "";
+        const mmr = p.mmr;
+        const wins = p.wins || 0;
+        const losses = p.losses || 0;
+        const [name, hashNum] = (tag || "").split("#");
+        const raceIcon = RACE_ICON_MAP[p.race];
+        return (
+          <button key={tag} className="navbar-search-result" onClick={() => passLadder ? onSelect(tag, mmr, p.race) : onSelect(tag)}>
+            <span className="navbar-search-avatar-wrap">
+              {raceIcon
+                ? <img src={raceIcon} alt="" className="navbar-search-avatar race-fallback" />
+                : <span className="navbar-search-avatar placeholder" />}
+            </span>
+            <span className="navbar-search-info">
+              <span className="navbar-search-name-row">
+                <span className="navbar-search-name">{name}</span>
+                {hashNum && <span className="navbar-search-tag">#{hashNum}</span>}
+              </span>
+              <span className="navbar-search-meta">
+                <span className="navbar-search-w">{wins}W</span>
+                <span className="navbar-search-l">{losses}L</span>
+              </span>
+            </span>
+            <span className="navbar-search-mmr">{mmr != null ? `${Math.round(mmr)} MMR` : "—"}</span>
+          </button>
+        );
+      })}
+    </div>
+  );
 
   return (
     <>
@@ -1091,39 +1271,7 @@ export default function InvestigateTab() {
               autoFocus
             />
           </SearchInputWrap>
-          {showDropdown && searchResults.length > 0 && (
-            <div className="navbar-search-dropdown">
-              {searchResults.map((r) => {
-                const p = r.player || {};
-                const tag = p.playerIds?.[0]?.battleTag || r.player1Id || "";
-                const mmr = p.mmr;
-                const wins = p.wins || 0;
-                const losses = p.losses || 0;
-                const [name, hashNum] = (tag || "").split("#");
-                const raceIcon = RACE_ICON_MAP[p.race];
-                return (
-                  <button key={tag} className="navbar-search-result" onClick={() => selectPlayer(tag)}>
-                    <span className="navbar-search-avatar-wrap">
-                      {raceIcon
-                        ? <img src={raceIcon} alt="" className="navbar-search-avatar race-fallback" />
-                        : <span className="navbar-search-avatar placeholder" />}
-                    </span>
-                    <span className="navbar-search-info">
-                      <span className="navbar-search-name-row">
-                        <span className="navbar-search-name">{name}</span>
-                        {hashNum && <span className="navbar-search-tag">#{hashNum}</span>}
-                      </span>
-                      <span className="navbar-search-meta">
-                        <span className="navbar-search-w">{wins}W</span>
-                        <span className="navbar-search-l">{losses}L</span>
-                      </span>
-                    </span>
-                    <span className="navbar-search-mmr">{mmr != null ? `${Math.round(mmr)} MMR` : "—"}</span>
-                  </button>
-                );
-              })}
-            </div>
-          )}
+          {showDropdown && renderSearchDropdown(searchResults, selectPlayer)}
           {isSearching && query.length >= 2 && !showDropdown && (
             <div className="navbar-search-dropdown"><div className="navbar-search-loading"><PeonLoader size="sm" /></div></div>
           )}
@@ -1141,7 +1289,19 @@ export default function InvestigateTab() {
           <NewSearchRow>
             <BackLink onClick={dismiss}>← Search again</BackLink>
           </NewSearchRow>
-          {queryGames === 0 && (
+          {identifyError === 'not_indexed' && (
+            <NoDataText>
+              <span style={{ color: "var(--gold)", fontFamily: "var(--font-display)" }}>{queryName}</span> isn't in the index yet — no replays uploaded for this player.
+            </NoDataText>
+          )}
+          {identifyError?.startsWith('server_error') && (
+            <NoDataText>
+              Error loading <span style={{ color: "var(--gold)", fontFamily: "var(--font-display)" }}>{queryName}</span>
+              {identifyError.includes(':') && <span style={{ color: 'var(--grey-light)', fontFamily: 'var(--font-mono)', fontSize: 'var(--text-xxs)', marginLeft: 6 }}>({identifyError.split(':')[1]})</span>}.{" "}
+              <BackLink as="button" onClick={() => selectPlayer(selectedTag)} style={{ display: "inline", fontSize: "inherit" }}>Retry</BackLink>
+            </NoDataText>
+          )}
+          {!identifyError && queryGames === 0 && (
             <NoDataText>
               No replay data for <span style={{ color: "var(--gold)", fontFamily: "var(--font-display)" }}>{queryName}</span> yet.
             </NoDataText>
@@ -1161,13 +1321,22 @@ export default function InvestigateTab() {
                     const qAvatar = qProfile?.profilePicUrl;
                     const qRaceIcon = RACE_ICON_MAP[qRace];
 
-                    const rawCandidates = playstyleData.similar.slice(0, 5);
-                    // Demoted candidates move to the end, preserving relative order within each group
-                    const candidates = [
-                      ...rawCandidates.filter(s => !demotedTags.has(s.battleTag)),
-                      ...rawCandidates.filter(s => demotedTags.has(s.battleTag)),
-                    ];
-                    const numCols = 1 + candidates.length;
+                    const rawByTag = new Map([
+                      ...playstyleData.similar.slice(0, 5).map(s => [s.battleTag, s]),
+                      ...manualCandidates,
+                    ]);
+                    const candidates = candidateOrder
+                      .filter(tag => !removedTags.has(tag) && rawByTag.has(tag))
+                      .map(tag => rawByTag.get(tag));
+                    // Grid always has the same number of columns regardless of removals
+                    const numCols = 1 + candidateOrder.filter(t => rawByTag.has(t)).length;
+                    // Renders one grid cell per candidateOrder slot; empty div for removed tags
+                    const renderCandidateCells = (fn) => candidateOrder
+                      .filter(t => rawByTag.has(t))
+                      .map(tag => removedTags.has(tag)
+                        ? <div key={tag} />
+                        : fn(rawByTag.get(tag))
+                      );
 
                     const renderAvatar = (avatarUrl, raceIcon, size = 44) => (
                       <span className="navbar-search-avatar-wrap" style={{ position: "relative", flexShrink: 0 }}>
@@ -1222,31 +1391,79 @@ export default function InvestigateTab() {
 
                     return (
                       <>
+                      {/* ── Add player to comparison ── */}
+                      <div style={{ position: 'relative', zIndex: 20, display: 'flex', alignItems: 'center', gap: 'var(--space-2)', marginBottom: 'var(--space-3)' }}>
+                        <SearchInputWrap style={{ width: 220 }}>
+                          <Input
+                            value={addQuery}
+                            onChange={e => setAddQuery(e.target.value)}
+                            onKeyDown={e => e.key === "Escape" && (setAddQuery(""), setAddShowDropdown(false))}
+                            onFocus={() => addResults.length > 0 && setAddShowDropdown(true)}
+                            onBlur={() => setTimeout(() => setAddShowDropdown(false), 200)}
+                            placeholder="+ Add player to list…"
+                            style={{ fontSize: 'var(--text-xxs)', padding: '6px 10px' }}
+                          />
+                        </SearchInputWrap>
+                        {addLoading && <PeonLoader size="sm" />}
+                        {addShowDropdown && renderSearchDropdown(addResults, addPlayerToList, true)}
+                        {addIsSearching && addQuery.length >= 2 && !addShowDropdown && (
+                          <div className="navbar-search-dropdown" style={{ width: 220 }}><div className="navbar-search-loading"><PeonLoader size="sm" /></div></div>
+                        )}
+                      </div>
                       <CompareTable $cols={numCols}>
-                        {/* ── Header row: player names ── */}
+                        {/* ── Remove row: × above each candidate column ── */}
+                        <div />
+                        <div />
+                        {renderCandidateCells(s => (
+                          <div key={s.battleTag} style={{ display: 'flex', justifyContent: 'center', paddingBottom: 2 }}>
+                            <button
+                              title="Remove from list"
+                              onClick={e => { e.stopPropagation(); removeCandidate(s.battleTag); }}
+                              style={{ background: 'rgba(255,60,60,0.15)', border: '1px solid rgba(255,60,60,0.4)', borderRadius: 3, cursor: 'pointer', padding: '2px 7px', fontSize: 13, color: 'rgba(255,110,110,0.9)', lineHeight: 1, fontWeight: 600 }}
+                            >
+                              ×
+                            </button>
+                          </div>
+                        ))}
+
+                        {/* ── Header row: player names (draggable to reorder) ── */}
                         <div />
                         <TH $query>
                           {renderAvatar(qAvatar, qRaceIcon)}
                           <THName>{queryName}</THName>
                           {qCountry && <CountryFlag name={qCountry.toLowerCase()} style={{ width: 16, height: 12 }} />}
                         </TH>
-                        {candidates.map(s => {
+                        {renderCandidateCells(s => {
                           const name = (s.playerName || s.battleTag || "").split("#")[0];
-                          const isExpanded = expandedTag === s.battleTag;
-                          const isDemoted = demotedTags.has(s.battleTag);
+                          
                           const mp = matchProfiles[s.battleTag];
                           return (
-                            <TH key={s.battleTag} $active={isExpanded} $clickable onClick={() => toggleCompare(s.battleTag)} style={{ opacity: isDemoted ? 0.55 : 1 }}>
+                            <TH
+                              key={s.battleTag}
+                              draggable
+                              onDragStart={e => { dragTagRef.current = s.battleTag; e.dataTransfer.effectAllowed = 'move'; }}
+                              onDragOver={e => e.preventDefault()}
+                              onDrop={e => {
+                                e.preventDefault();
+                                const from = dragTagRef.current;
+                                const to = s.battleTag;
+                                if (!from || from === to) return;
+                                setCandidateOrder(prev => {
+                                  const next = [...prev];
+                                  const fi = next.indexOf(from);
+                                  const ti = next.indexOf(to);
+                                  if (fi < 0 || ti < 0) return prev;
+                                  next.splice(fi, 1);
+                                  next.splice(ti, 0, from);
+                                  return next;
+                                });
+                              }}
+                              style={{ cursor: 'grab' }}
+                            >
                               {renderAvatar(mp?.profilePicUrl, RACE_ICON_MAP[s.race])}
                               <THName>{name}</THName>
                               {mp?.country && <CountryFlag name={mp.country.toLowerCase()} style={{ width: 16, height: 12 }} />}
-                              <button
-                                title={isDemoted ? "Restore to top" : "Move to comparison"}
-                                onClick={e => { e.stopPropagation(); toggleDemote(s.battleTag); }}
-                                style={{ marginTop: 2, background: 'none', border: 'none', cursor: 'pointer', padding: 0, fontSize: 10, color: isDemoted ? 'var(--gold)' : 'rgba(255,255,255,0.3)', lineHeight: 1 }}
-                              >
-                                {isDemoted ? '↑' : '↓'}
-                              </button>
+                              {s.isManual && <THLabel style={{ color: 'var(--cyan)', opacity: 1 }}>added</THLabel>}
                             </TH>
                           );
                         })}
@@ -1264,12 +1481,12 @@ export default function InvestigateTab() {
                             mini
                           />
                         </GlyphTD>
-                        {candidates.map(s => {
+                        {renderCandidateCells(s => {
                           const name = (s.playerName || s.battleTag || "").split("#")[0];
-                          const isExpanded = expandedTag === s.battleTag;
+                          
                           const hasArcs = s.glyph?.transitionPairs?.length > 0;
                           return (
-                            <GlyphTD key={s.battleTag} $active={isExpanded} $clickable onClick={() => toggleCompare(s.battleTag)}>
+                            <GlyphTD key={s.battleTag}>
                               <div style={{ position: "relative", width: "100%" }}>
                                 <TransitionGlyph
                                   transitionPairs={s.glyph?.transitionPairs || []}
@@ -1293,18 +1510,18 @@ export default function InvestigateTab() {
                         {/* ── Feature rows ── */}
                         <RowLabel>MMR</RowLabel>
                         <TD $query>{qMmr != null ? Math.round(qMmr) : '—'}</TD>
-                        {candidates.map(s => (
-                          <TD key={s.battleTag} $active={expandedTag === s.battleTag}>{s.mmr != null ? Math.round(s.mmr) : '—'}</TD>
+                        {renderCandidateCells(s => (
+                          <TD key={s.battleTag} >{s.mmr != null ? Math.round(s.mmr) : '—'}</TD>
                         ))}
 
                         <RowLabel>Country</RowLabel>
                         <TD $query>
                           {qCountry ? <CountryFlag name={qCountry.toLowerCase()} style={{ width: 22, height: 16 }} /> : '—'}
                         </TD>
-                        {candidates.map(s => {
+                        {renderCandidateCells(s => {
                           const c = matchProfiles[s.battleTag]?.country;
                           return (
-                            <TD key={s.battleTag} $active={expandedTag === s.battleTag}>
+                            <TD key={s.battleTag} >
                               {c ? <CountryFlag name={c.toLowerCase()} style={{ width: 22, height: 16 }} /> : '—'}
                             </TD>
                           );
@@ -1314,10 +1531,10 @@ export default function InvestigateTab() {
                         <TD $query>
                           {qRaceIcon ? <img src={qRaceIcon} alt={qRace || ''} style={{ width: 22, height: 22 }} /> : (qRace || '—')}
                         </TD>
-                        {candidates.map(s => {
+                        {renderCandidateCells(s => {
                           const ri = RACE_ICON_MAP[s.race];
                           return (
-                            <TD key={s.battleTag} $active={expandedTag === s.battleTag}>
+                            <TD key={s.battleTag} >
                               {ri ? <img src={ri} alt={s.race || ''} style={{ width: 22, height: 22 }} /> : (s.race || '—')}
                             </TD>
                           );
@@ -1330,8 +1547,8 @@ export default function InvestigateTab() {
                             <TD $query style={{ gap: 3, flexWrap: "wrap", justifyContent: "center" }}>
                               {renderGroupUnits(qGlyph, groupNum)}
                             </TD>
-                            {candidates.map(s => (
-                              <TD key={s.battleTag} $active={expandedTag === s.battleTag} style={{ gap: 3, flexWrap: "wrap", justifyContent: "center" }}>
+                            {renderCandidateCells(s => (
+                              <TD key={s.battleTag} style={{ gap: 3, flexWrap: "wrap", justifyContent: "center" }}>
                                 {renderGroupUnits(s.glyph, groupNum)}
                               </TD>
                             ))}
@@ -1340,20 +1557,54 @@ export default function InvestigateTab() {
 
                         <RowLabel>APM</RowLabel>
                         <TD $query>{qApm ?? '—'}</TD>
-                        {candidates.map(s => (
-                          <TD key={s.battleTag} $active={expandedTag === s.battleTag}>{s.apm ?? '—'}</TD>
+                        {renderCandidateCells(s => (
+                          <TD key={s.battleTag}>{s.apm ?? '—'}</TD>
+                        ))}
+
+                        <RowLabel>Loop</RowLabel>
+                        <TD $query>{playstyleData.query?.dominantLoop ?? '—'}</TD>
+                        {renderCandidateCells(s => (
+                          <TD key={s.battleTag}>{s.dominantLoop ?? '—'}</TD>
+                        ))}
+
+                        <RowLabel>Rebind %</RowLabel>
+                        <TD $query>{playstyleData.query?.reassignRatio != null ? `${playstyleData.query.reassignRatio}%` : '—'}</TD>
+                        {renderCandidateCells(s => (
+                          <TD key={s.battleTag}>{s.reassignRatio != null ? `${s.reassignRatio}%` : '—'}</TD>
+                        ))}
+
+                        <RowLabel>Variability</RowLabel>
+                        <TD $query>{playstyleData.query?.variability ?? '—'}</TD>
+                        {renderCandidateCells(s => (
+                          <TD key={s.battleTag}>{s.variability ?? '—'}</TD>
+                        ))}
+
+                        <RowLabel>Burstiness</RowLabel>
+                        <TD $query>{playstyleData.query?.burstiness ?? '—'}</TD>
+                        {renderCandidateCells(s => (
+                          <TD key={s.battleTag}>{s.burstiness ?? '—'}</TD>
+                        ))}
+
+                        {ACTION_LABELS.map((label, i) => (
+                          <React.Fragment key={label}>
+                            <RowLabel>{label} %</RowLabel>
+                            <TD $query>{playstyleData.query?.actionDist?.[i] != null ? `${Math.round(playstyleData.query.actionDist[i] * 100)}%` : '—'}</TD>
+                            {renderCandidateCells(s => (
+                              <TD key={s.battleTag}>{s.actionDist?.[i] != null ? `${Math.round(s.actionDist[i] * 100)}%` : '—'}</TD>
+                            ))}
+                          </React.Fragment>
                         ))}
 
                         <RowLabel>Last seen</RowLabel>
                         <TD $query>{fmtDate(playstyleData.query?.lastSeen)}</TD>
-                        {candidates.map(s => (
-                          <TD key={s.battleTag} $active={expandedTag === s.battleTag}>{fmtDate(s.lastSeen)}</TD>
+                        {renderCandidateCells(s => (
+                          <TD key={s.battleTag} >{fmtDate(s.lastSeen)}</TD>
                         ))}
 
                         <RowLabel>Replays</RowLabel>
                         <TD $query>{queryGames}</TD>
-                        {candidates.map(s => (
-                          <TD key={s.battleTag} $active={expandedTag === s.battleTag}>{s.replayCount}</TD>
+                        {renderCandidateCells(s => (
+                          <TD key={s.battleTag} >{s.replayCount}</TD>
                         ))}
                       </CompareTable>
 
@@ -1391,7 +1642,13 @@ export default function InvestigateTab() {
 
                   {/* Activity timeline — shows when each player was active across seasons */}
                   {(() => {
-                    const tlCandidates = playstyleData.similar.slice(0, 5);
+                    const tlMap = new Map([
+                      ...playstyleData.similar.slice(0, 5).map(s => [s.battleTag, s]),
+                      ...manualCandidates,
+                    ]);
+                    const tlCandidates = candidateOrder
+                      .filter(t => !removedTags.has(t) && tlMap.has(t))
+                      .map(t => tlMap.get(t));
                     const tlPlayers = [
                       {
                         tag: selectedTag,
@@ -1410,21 +1667,6 @@ export default function InvestigateTab() {
                     if (!hasAnyActivity) return null;
                     return <ActivityTimeline players={tlPlayers} matchProfiles={matchProfiles} />;
                   })()}
-
-                  {/* Compare panel spans below the whole grid */}
-                  {expandedTag && (
-                    compareLoading ? (
-                      <ComparePanel><div style={{ textAlign: "center", padding: "var(--space-4)" }}><PeonLoader size="sm" /></div></ComparePanel>
-                    ) : (
-                      <CompareDetail
-                        fpDataA={queryFpData}
-                        fpDataB={matchFpData}
-                        compareData={compareData}
-                        nameA={queryName}
-                        nameB={(playstyleData.similar.find(s => s.battleTag === expandedTag)?.playerName || expandedTag || "").split("#")[0]}
-                      />
-                    )
-                  )}
                 </>
               ) : (
                 <EmptyState>No similar players found in the database yet.</EmptyState>

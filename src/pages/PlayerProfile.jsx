@@ -17,6 +17,7 @@ import PeonLoader from "../components/PeonLoader";
 import { gateway } from "../lib/params";
 import { GameRow } from "../components/game/index";
 import ActivityGraph from "../components/ActivityGraph";
+import SeasonTimeline from "../components/SeasonTimeline";
 import MmrRangeBar from "../components/MmrRangeBar";
 import MmrSparkline from "../components/MmrSparkline";
 import OngoingGame from "../components/OngoingGame";
@@ -88,8 +89,6 @@ const PlayerProfile = () => {
       currentPage: 0,
       playerClips: [],
       playerMentions: [],
-      signatureProfile: null,
-      signatureLoading: true,
     }
   );
 
@@ -100,7 +99,6 @@ const PlayerProfile = () => {
     allAllies, allWorstAllies, allNemesis, statsSampleSize,
     selectedSeason, currentPage,
     playerClips, playerMentions,
-    signatureProfile, signatureLoading,
   } = state;
 
   const prevBattleTagRef = useRef(battleTag);
@@ -298,25 +296,6 @@ const PlayerProfile = () => {
     fetchPlayerMedia();
   }, [battleTag, playerName]);
 
-  // Fetch player signature/fingerprint data
-  useEffect(() => {
-    const fetchSignature = async () => {
-      updateState({ signatureLoading: true });
-      try {
-        const res = await fetch(`${RELAY_URL}/api/fingerprints/profile/${encodeURIComponent(battleTag)}`);
-        if (res.ok) {
-          const data = await res.json();
-          updateState({ signatureProfile: data, signatureLoading: false });
-        } else {
-          updateState({ signatureProfile: null, signatureLoading: false });
-        }
-      } catch (e) {
-        console.error("Failed to fetch signature:", e);
-        updateState({ signatureProfile: null, signatureLoading: false });
-      }
-    };
-    fetchSignature();
-  }, [battleTag]);
 
   const seasonParam = selectedSeason > 0 ? `&season=${selectedSeason}` : '';
   const isAllSeasons = selectedSeason === ALL_SEASONS;
@@ -1173,13 +1152,22 @@ const PlayerProfile = () => {
       {/* Playstyle Tab Content */}
       {activeTab === 'playstyle' && (
         <div className="playstyle-tab-content reveal" style={{ "--delay": "0.1s" }}>
-          <ScoutTab initialPlayer={battleTag} initialProfileData={signatureProfile} embedded />
+          <ScoutTab initialPlayer={battleTag} embedded />
         </div>
       )}
 
       {/* Activity Tab Content */}
       {activeTab === 'activity' && (
         <div className="activity-tab-content reveal" style={{ "--delay": "0.1s" }}>
+
+          {/* Season history timeline */}
+          <section className="activity-section">
+            <div className="section-header">
+              <h2 className="section-title">Season History</h2>
+            </div>
+            <SeasonTimeline battleTag={battleTag} />
+          </section>
+
           {/* Clips - at top */}
           {playerClips.length > 0 && (
             <section className="activity-section">

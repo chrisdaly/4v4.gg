@@ -1,10 +1,12 @@
 import React, { useState, useCallback, useRef } from "react";
+import { useHistory } from "react-router-dom";
 import styled from "styled-components";
 import { FiUpload, FiCheck, FiChevronDown, FiChevronUp } from "react-icons/fi";
 import { PageLayout, PageHero, RaceIcon } from "../components/ui";
 import PeonLoader from "../components/PeonLoader";
 import TransitionGlyph from "../components/replay-lab/TransitionGlyph";
 import PlaystyleReport from "../components/replay-lab/PlaystyleReport";
+import ActionTimeline from "../components/replay-lab/ActionTimeline";
 
 const RELAY_URL =
   import.meta.env.VITE_CHAT_RELAY_URL || "https://4v4gg-chat-relay.fly.dev";
@@ -15,6 +17,7 @@ const RACE_MAP = {
 };
 
 export default function Upload() {
+  const history = useHistory();
   const fileRef = useRef(null);
   const [dragActive, setDragActive] = useState(false);
   const [uploading, setUploading] = useState(false);
@@ -57,7 +60,13 @@ export default function Upload() {
           return;
         }
 
-        // Show success state with replay info
+        // Redirect to dedicated replay analysis page
+        if (data.replay?.id) {
+          history.push(`/replay/${data.replay.id}`);
+          return;
+        }
+
+        // Fallback: show inline success state if no ID returned
         setResult({
           id: data.replay?.id,
           filename: file.name,
@@ -224,6 +233,17 @@ export default function Upload() {
                 <InfoValue>{result.players.length}</InfoValue>
               </InfoRow>
             </ReplayInfo>
+
+            {profiles.length > 0 && result.duration && (
+              <ActionTimeline
+                players={profiles.map((p) => ({
+                  playerName: p.playerName,
+                  race: p.race,
+                  timeline: p.profileData?.timeline,
+                }))}
+                durationMs={(result.duration || 0) * 1000}
+              />
+            )}
 
             {profiles.length > 0 ? (
               <PlayerSection>

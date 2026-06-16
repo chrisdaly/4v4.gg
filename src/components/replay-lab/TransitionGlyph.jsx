@@ -55,12 +55,13 @@ const SHORT_NAMES = {
   // Summons
   hwat: 'WE', hwt2: 'WE', hwt3: 'WE',
   efon: 'Treant', osw1: 'Wolf', osw2: 'Wolf', osw3: 'Wolf',
-  uske: 'Skel', uskm: 'Skel',
+  uske: 'Skel', uskm: 'Skel', uske1: 'Skel', uske2: 'Skel',
   ucs1: 'Beetle', ucs2: 'Beetle', ucs3: 'Beetle',
   // Alternate IDs / upgraded forms
   owyv: 'WR', ehpr: 'HippoR', ospw: 'SW', ospm: 'SW',
   ucrm: 'Fiend', esen: 'Hunt', ebal: 'Glaive', hphx: 'Phoenix',
   nzep: 'Zep', nass: 'Assassin',
+  nnwl: 'Spider', emrc: 'Spider',
 };
 
 // Detect if a unit ID is a building

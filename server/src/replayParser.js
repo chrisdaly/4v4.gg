@@ -22,7 +22,15 @@ const TRACKED_ACTION_IDS = new Set([
 // FourCC bytes are stored little-endian in w3gjs — reverse to get standard unit ID
 function fourCCToString(arr) {
   if (!arr || arr.length !== 4) return null;
-  return String.fromCharCode(arr[3], arr[2], arr[1], arr[0]);
+  // Right-click (smart command) uses a non-ASCII numeric order ID 0x000D0003
+  if (arr[0] === 0x03 && arr[1] === 0x00 && arr[2] === 0x0D && arr[3] === 0x00) return 'smart';
+  const str = String.fromCharCode(arr[3], arr[2], arr[1], arr[0]);
+  // Only return printable ASCII — non-printable results are numeric IDs, not FourCCs
+  for (let i = 0; i < str.length; i++) {
+    const c = str.charCodeAt(i);
+    if (c < 32 || c > 126) return null;
+  }
+  return str;
 }
 
 function netTagKey(tag) {
@@ -75,9 +83,18 @@ export async function parseReplayBuffer(buffer) {
         if (TRACKED_ACTION_IDS.has(action.id)) {
           if (!fullSeqs[cmd.playerId]) fullSeqs[cmd.playerId] = [];
           const entry = { ms: elapsed, id: action.id };
-          // Include group number for hotkey actions
+          // Group number for hotkey actions
           if (action.id === 0x17 || action.id === 0x18) {
             entry.g = (action.groupNumber + 1) % 10;
+          }
+          // Order/ability ID for targeted actions (move, attack, spells)
+          if ((action.id >= 0x10 && action.id <= 0x14) && action.itemId) {
+            const oid = fourCCToString(action.itemId);
+            if (oid) entry.oid = oid;
+          }
+          // Unit count for select actions
+          if (action.id === 0x16 && action.units) {
+            entry.n = action.units.length;
           }
           fullSeqs[cmd.playerId].push(entry);
         }

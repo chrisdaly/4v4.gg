@@ -4,6 +4,7 @@ import ErrorBoundary from "./components/ErrorBoundary";
 import Navbar from "./components/Navbar";
 import PeonLoader from "./components/PeonLoader";
 import { ThemeProvider } from "./lib/ThemeContext";
+import useAdmin from "./lib/useAdmin";
 
 // Homepage loaded eagerly (initial route)
 import Home from "./pages/Home";
@@ -40,6 +41,7 @@ const ReplayLab = lazy(() => import("./pages/ReplayLab"));
 const BlurbLab = lazy(() => import("./pages/BlurbLab"));
 const Upload = lazy(() => import("./pages/Upload"));
 const ReplayViewer = lazy(() => import("./pages/ReplayViewer"));
+const ReplayAnalysis = lazy(() => import("./pages/ReplayAnalysis"));
 
 // Overlay pages (lazy-loaded)
 const OverlayIndex = lazy(() => import("./pages/overlay/OverlayIndex"));
@@ -59,6 +61,7 @@ const DevTools = lazy(() => import("./pages/DevTools"));
 const Themes = lazy(() => import("./pages/Themes"));
 const FaviconMockups = lazy(() => import("./pages/FaviconMockups"));
 const Signatures = lazy(() => import("./pages/Signatures"));
+const Lab = lazy(() => import("./pages/Lab"));
 const GlyphLab = lazy(() => import("./pages/GlyphLab"));
 const IconPicker = lazy(() => import("./pages/IconPicker"));
 
@@ -84,6 +87,13 @@ const PageLoader = () => (
 const Preloader = () => {
   useEffect(() => { preloadCorePages(); }, []);
   return null;
+};
+
+const PrivateRoute = ({ component: Component, ...rest }) => {
+  const { adminKey } = useAdmin();
+  return (
+    <Route {...rest} render={() => adminKey ? <Component /> : <Redirect to="/" />} />
+  );
 };
 
 const Router = () => (
@@ -131,14 +141,17 @@ const Router = () => (
                 <Route path="/admin" component={Admin} />
                 <Route path="/cover-art" component={DevTools} />
                 <Route path="/favicons" component={FaviconMockups} />
-                <Route path="/signatures" component={Signatures} />
-                <Route path="/glyph-lab" component={GlyphLab} />
+                <PrivateRoute path="/lab" component={Lab} />
+                <PrivateRoute path="/signatures" component={Signatures} />
+                <PrivateRoute path="/glyph-lab" component={GlyphLab} />
                 <Route path="/icon-picker" component={IconPicker} />
 
-                <Route path="/replay-lab" component={ReplayLab} />
-                <Route path="/blurb-lab" component={BlurbLab} />
+                <PrivateRoute path="/truesight" component={ReplayLab} />
+                <Redirect from="/replay-lab" to="/truesight" />
+                <PrivateRoute path="/blurb-lab" component={BlurbLab} />
                 <Route path="/upload" component={Upload} />
-                <Route path="/replay" component={Replay} />
+                <Route path="/replay/:id" component={ReplayAnalysis} />
+                <Route exact path="/replay" component={Replay} />
                 <Route path="/replay-viewer" component={ReplayViewer} />
 
                 {/* Overlay setup pages (with navbar) */}

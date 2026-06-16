@@ -690,6 +690,13 @@ function AdminDashboard() {
 
       <Section>
         <SectionTitle>Tools</SectionTitle>
+        <LinkCard as={Link} to="/lab">
+          <LinkInfo>
+            <LinkTitle>Lab</LinkTitle>
+            <LinkDesc>All internal tools — replay analysis, signatures, glyph lab, blurb lab</LinkDesc>
+          </LinkInfo>
+          <LinkIcon size={16} />
+        </LinkCard>
         <LinkCard as={Link} to="/blurb-lab">
           <LinkInfo>
             <LinkTitle>Blurb Lab</LinkTitle>
@@ -697,10 +704,17 @@ function AdminDashboard() {
           </LinkInfo>
           <LinkIcon size={16} />
         </LinkCard>
-        <LinkCard as={Link} to="/replay-lab">
+        <LinkCard as={Link} to="/truesight">
           <LinkInfo>
-            <LinkTitle>Replay Lab</LinkTitle>
-            <LinkDesc>Upload, import from W3C, and analyze replays</LinkDesc>
+            <LinkTitle>True Sight</LinkTitle>
+            <LinkDesc>Analyze playstyles, fingerprint players, identify smurfs</LinkDesc>
+          </LinkInfo>
+          <LinkIcon size={16} />
+        </LinkCard>
+        <LinkCard as={Link} to="/signatures">
+          <LinkInfo>
+            <LinkTitle>Signatures</LinkTitle>
+            <LinkDesc>Browse all fingerprinted player profiles</LinkDesc>
           </LinkInfo>
           <LinkIcon size={16} />
         </LinkCard>

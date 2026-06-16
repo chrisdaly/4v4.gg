@@ -202,6 +202,39 @@ export const getPlayerTimelineAllTime = async (battleTag) => {
 };
 
 /**
+ * Get per-day activity across all seasons for a player.
+ * Returns [{season, matchDays: ['2025-01-01', ...]}, ...] sorted oldest-first.
+ */
+export const getPlayerAllSeasonActivity = async (battleTag) => {
+  try {
+    let seasons = await getSeasons();
+    if (!seasons || seasons.length === 0) seasons = [{ id: season }];
+    const races = [0, 1, 2, 4, 8];
+    const sortedSeasons = [...seasons].sort((a, b) => a.id - b.id);
+
+    const perSeason = await Promise.all(sortedSeasons.map(async ({ id }) => {
+      const raceResults = await Promise.all(races.map(async (race) => {
+        try {
+          const url = `${API_BASE}/players/${encodeURIComponent(battleTag)}/mmr-rp-timeline?gateway=${gateway}&season=${id}&race=${race}&gameMode=4`;
+          const cacheKey = `timeline-days:${battleTag.toLowerCase()}:${race}:${id}`;
+          const data = await fetchWithCache(url, { cacheKey, ttl: TTL.MMR_TIMELINE });
+          return data?.mmrRpAtDates || [];
+        } catch { return []; }
+      }));
+      const all = raceResults.flat();
+      if (all.length === 0) return null;
+      const daySet = new Set(all.map(e => e.date.slice(0, 10)));
+      return { season: id, matchDays: [...daySet].sort() };
+    }));
+
+    return perSeason.filter(Boolean);
+  } catch (error) {
+    console.error(`Error fetching all-season activity for ${battleTag}:`, error);
+    return [];
+  }
+};
+
+/**
  * Get player's recent matches
  *
  * @param {string} battleTag
@@ -326,6 +359,38 @@ export const searchLadder = async (searchTerm, seasonOverride = season, gameMode
     console.error(`Error searching ladder for ${searchTerm}:`, error);
     return [];
   }
+};
+
+// Search current season, falling back to previous season when current is empty/all-zero.
+// Handles the early-season window where nobody has played yet.
+export const searchLadderWithFallback = async (searchTerm, gameMode = 4) => {
+  const [current, prev] = await Promise.all([
+    searchLadder(searchTerm, season, gameMode),
+    searchLadder(searchTerm, season - 1, gameMode),
+  ]);
+
+  const totalCurrentGames = (current || []).reduce(
+    (sum, r) => sum + (r.player?.wins || 0) + (r.player?.losses || 0), 0
+  );
+
+  // Early season: no one has played yet — use previous season results directly
+  if (totalCurrentGames === 0 && (prev || []).length > 0) return prev;
+
+  // Mid season: enrich any 0-game players with their previous season stats
+  const prevByTag = new Map();
+  for (const r of (prev || [])) {
+    const tag = r.player?.playerIds?.[0]?.battleTag || r.playersInfo?.[0]?.battleTag;
+    if (tag) prevByTag.set(tag.toLowerCase(), r);
+  }
+
+  return (current || []).map(r => {
+    const tag = r.player?.playerIds?.[0]?.battleTag || r.playersInfo?.[0]?.battleTag;
+    const games = (r.player?.wins || 0) + (r.player?.losses || 0);
+    if (games > 0 || !tag) return r;
+    const fallback = prevByTag.get(tag.toLowerCase());
+    if (!fallback) return r;
+    return { ...r, player: { ...r.player, wins: fallback.player?.wins, losses: fallback.player?.losses, mmr: fallback.player?.mmr } };
+  });
 };
 
 /**

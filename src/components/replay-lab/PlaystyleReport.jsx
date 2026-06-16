@@ -34,12 +34,13 @@ const SHORT_NAMES = {
   ufro: 'Wyrm', udth: 'Dest', ubsp: 'Dest', ushd: 'Shade', uaco: 'Aco',
   hwat: 'WE', hwt2: 'WE', hwt3: 'WE',
   efon: 'Treant', osw1: 'Wolf', osw2: 'Wolf', osw3: 'Wolf',
-  uske: 'Skel', uskm: 'Skel',
+  uske: 'Skel', uskm: 'Skel', uske1: 'Skel', uske2: 'Skel',
   ucs1: 'Beetle', ucs2: 'Beetle', ucs3: 'Beetle',
   // Alternate IDs / upgraded forms
   owyv: 'WR', ehpr: 'HippoR', ospw: 'SW', ospm: 'SW',
   ucrm: 'Fiend', esen: 'Hunt', ebal: 'Glaive', hphx: 'Phoenix',
   nzep: 'Zep', nass: 'Assassin', nftb: 'Troll',
+  nnwl: 'Spider', emrc: 'Spider',
 };
 
 const BUILDINGS = new Set([
