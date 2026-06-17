@@ -1432,11 +1432,12 @@ export default function InvestigateTab() {
                           {renderAvatar(qAvatar, qRaceIcon)}
                           <THName>{queryName}</THName>
                           {qCountry && <CountryFlag name={qCountry.toLowerCase()} style={{ width: 16, height: 12 }} />}
+                          <THLabel style={{ color: queryGames >= 100 ? 'var(--green)' : queryGames >= 20 ? 'var(--amber)' : 'var(--red)', opacity: 1 }}>{queryGames} reps</THLabel>
                         </TH>
                         {renderCandidateCells(s => {
                           const name = (s.playerName || s.battleTag || "").split("#")[0];
-                          
                           const mp = matchProfiles[s.battleTag];
+                          const repColor = s.replayCount >= 100 ? 'var(--green)' : s.replayCount >= 20 ? 'var(--amber)' : 'var(--red)';
                           return (
                             <TH
                               key={s.battleTag}
@@ -1463,6 +1464,7 @@ export default function InvestigateTab() {
                               {renderAvatar(mp?.profilePicUrl, RACE_ICON_MAP[s.race])}
                               <THName>{name}</THName>
                               {mp?.country && <CountryFlag name={mp.country.toLowerCase()} style={{ width: 16, height: 12 }} />}
+                              <THLabel style={{ color: repColor, opacity: 1 }}>{s.replayCount} reps</THLabel>
                               {s.isManual && <THLabel style={{ color: 'var(--cyan)', opacity: 1 }}>added</THLabel>}
                             </TH>
                           );
@@ -1561,10 +1563,20 @@ export default function InvestigateTab() {
                           <TD key={s.battleTag}>{s.apm ?? '—'}</TD>
                         ))}
 
-                        <RowLabel>Loop</RowLabel>
-                        <TD $query>{playstyleData.query?.dominantLoop ?? '—'}</TD>
+                        <RowLabel>Loops</RowLabel>
+                        <TD $query style={{ flexDirection: 'column', gap: 2, alignItems: 'center' }}>
+                          {(qGlyph?.transitionPairs?.slice(0, 3) || []).map((p, i) => (
+                            <span key={i} style={{ fontFamily: 'var(--font-mono)', fontSize: 'var(--text-xxxs)', opacity: i === 0 ? 1 : 0.55 }}>{p.from}↔{p.to}</span>
+                          ))}
+                          {!qGlyph?.transitionPairs?.length && '—'}
+                        </TD>
                         {renderCandidateCells(s => (
-                          <TD key={s.battleTag}>{s.dominantLoop ?? '—'}</TD>
+                          <TD key={s.battleTag} style={{ flexDirection: 'column', gap: 2, alignItems: 'center' }}>
+                            {(s.glyph?.transitionPairs?.slice(0, 3) || []).map((p, i) => (
+                              <span key={i} style={{ fontFamily: 'var(--font-mono)', fontSize: 'var(--text-xxxs)', opacity: i === 0 ? 1 : 0.55 }}>{p.from}↔{p.to}</span>
+                            ))}
+                            {!s.glyph?.transitionPairs?.length && '—'}
+                          </TD>
                         ))}
 
                         <RowLabel>Rebind %</RowLabel>
@@ -1572,62 +1584,30 @@ export default function InvestigateTab() {
                         {renderCandidateCells(s => (
                           <TD key={s.battleTag}>{s.reassignRatio != null ? `${s.reassignRatio}%` : '—'}</TD>
                         ))}
-
-                        <RowLabel>Variability</RowLabel>
-                        <TD $query>{playstyleData.query?.variability ?? '—'}</TD>
-                        {renderCandidateCells(s => (
-                          <TD key={s.battleTag}>{s.variability ?? '—'}</TD>
-                        ))}
-
-                        <RowLabel>Burstiness</RowLabel>
-                        <TD $query>{playstyleData.query?.burstiness ?? '—'}</TD>
-                        {renderCandidateCells(s => (
-                          <TD key={s.battleTag}>{s.burstiness ?? '—'}</TD>
-                        ))}
-
-                        {ACTION_LABELS.map((label, i) => (
-                          <React.Fragment key={label}>
-                            <RowLabel>{label} %</RowLabel>
-                            <TD $query>{playstyleData.query?.actionDist?.[i] != null ? `${Math.round(playstyleData.query.actionDist[i] * 100)}%` : '—'}</TD>
-                            {renderCandidateCells(s => (
-                              <TD key={s.battleTag}>{s.actionDist?.[i] != null ? `${Math.round(s.actionDist[i] * 100)}%` : '—'}</TD>
-                            ))}
-                          </React.Fragment>
-                        ))}
-
-                        <RowLabel>Last seen</RowLabel>
-                        <TD $query>{fmtDate(playstyleData.query?.lastSeen)}</TD>
-                        {renderCandidateCells(s => (
-                          <TD key={s.battleTag} >{fmtDate(s.lastSeen)}</TD>
-                        ))}
-
-                        <RowLabel>Replays</RowLabel>
-                        <TD $query>{queryGames}</TD>
-                        {renderCandidateCells(s => (
-                          <TD key={s.battleTag} >{s.replayCount}</TD>
-                        ))}
                       </CompareTable>
 
-                      {/* ── Played-together matrix (outside the column grid) ── */}
+                      {/* ── Played-together matrix (upper triangle only) ── */}
                       {matrixTags.length > 1 && (
                         <div style={{ marginBottom: "var(--space-6)" }}>
                           <div style={{ fontFamily: "var(--font-mono)", fontSize: "var(--text-xxxs)", color: "var(--grey-light)", textTransform: "uppercase", letterSpacing: "0.1em", opacity: 0.5, marginBottom: "var(--space-2)" }}>Played together</div>
-                          <div style={{ display: "grid", gridTemplateColumns: `120px repeat(${matrixTags.length}, 1fr)`, gap: 1 }}>
-                            {/* header */}
+                          <div style={{ display: "grid", gridTemplateColumns: `120px repeat(${matrixTags.length - 1}, 1fr)`, gap: 1 }}>
+                            {/* header — skip first col (row labels cover it) */}
                             <div />
-                            {matrixNames.map((n, i) => (
+                            {matrixNames.slice(1).map((n, i) => (
                               <div key={i} style={{ fontFamily: "var(--font-display)", fontSize: "var(--text-xs)", color: i === 0 ? "var(--gold)" : "var(--grey-light)", padding: "4px 6px", textAlign: "center", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{n}</div>
                             ))}
-                            {/* rows */}
-                            {matrixTags.map((tagA, i) => (
+                            {/* rows — only show i < last row (last row has no upper-triangle cells) */}
+                            {matrixTags.slice(0, -1).map((tagA, i) => (
                               <React.Fragment key={tagA}>
                                 <div style={{ fontFamily: "var(--font-display)", fontSize: "var(--text-xs)", color: i === 0 ? "var(--gold)" : "var(--grey-light)", padding: "4px 0", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{matrixNames[i]}</div>
-                                {matrixTags.map((tagB, j) => {
-                                  if (i === j) return <div key={j} style={{ textAlign: "center", padding: "4px 6px", fontFamily: "var(--font-mono)", fontSize: "var(--text-xs)", color: "rgba(255,255,255,0.15)" }}>—</div>;
+                                {matrixTags.slice(1).map((tagB, jj) => {
+                                  const j = jj + 1;
+                                  if (j <= i) return <div key={jj} />;
                                   const count = getShared(tagA, tagB);
+                                  const involvesQuery = i === 0 || j === 0;
                                   return (
-                                    <div key={j} style={{ textAlign: "center", padding: "4px 6px", fontFamily: "var(--font-mono)", fontSize: "var(--text-xs)", color: count > 0 ? "var(--gold)" : "rgba(255,255,255,0.25)", fontWeight: count > 0 ? 700 : 400 }}>
-                                      {count > 0 ? `${count}×` : "0"}
+                                    <div key={jj} style={{ textAlign: "center", padding: "4px 6px", fontFamily: "var(--font-mono)", fontSize: "var(--text-xs)", color: count > 0 ? (involvesQuery ? "var(--gold)" : "#fff") : "rgba(255,255,255,0.3)", fontWeight: count > 0 ? 700 : 400 }}>
+                                      {count > 0 ? `${count}×` : "·"}
                                     </div>
                                   );
                                 })}
