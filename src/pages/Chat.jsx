@@ -193,6 +193,7 @@ const Chat = () => {
   const prevMsgCountRef = useRef(0);
   const matchTimersRef = useRef([]);
   const channelTagsRef = useRef(new Set());
+  const startedMatchPlayersRef = useRef(new Map());
   const avatarsRef = useRef(avatars);
 
   // Lowercased battleTags of everyone in the channel — used to decide which
@@ -224,7 +225,7 @@ const Chat = () => {
         prev.map((e) => {
           if (e.id !== eventId) return e;
           const next = { ...e };
-          if (blurb && (!e.note || e.note.blurb)) next.note = { text: blurb, tag: null, blurb: true };
+          if (blurb) next.note = { text: blurb, tag: null, blurb: true };
           if (badges?.length) next.badges = badges;
           return next;
         })
@@ -274,7 +275,7 @@ const Chat = () => {
           setGameEvents((prev) =>
             prev.map((e) => (e.id === ev.id ? { ...e, mvp, note } : e))
           );
-          if (!note) fillBlurb(ev.id, match.id);
+          fillBlurb(ev.id, match.id);
         });
       }
     });
@@ -293,7 +294,14 @@ const Chat = () => {
       const startTime = new Date(match.startTime).getTime();
       if (!startTime || startTime < cutoff) continue;
       const ev = buildStartEvent(match, relevant);
-      if (ev) addGameEvent(ev);
+      if (ev) {
+        addGameEvent(ev);
+        const id = match.id || match.match?.id;
+        startedMatchPlayersRef.current.set(
+          id,
+          new Set(ev.teams.flat().map((p) => p.battleTag?.toLowerCase()).filter(Boolean))
+        );
+      }
     }
     // runs once when messages + users + first ongoing poll are all available
     // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -346,7 +354,13 @@ const Chat = () => {
         const id = match.id || match.match?.id;
         if (!id || prevIds.has(id)) continue;
         const ev = buildStartEvent(match, channelTagsRef.current);
-        if (ev) addGameEvent({ ...ev, live: true });
+        if (ev) {
+          addGameEvent({ ...ev, live: true });
+          startedMatchPlayersRef.current.set(
+            id,
+            new Set(ev.teams.flat().map((p) => p.battleTag?.toLowerCase()).filter(Boolean))
+          );
+        }
       }
     }
 
@@ -392,8 +406,14 @@ const Chat = () => {
           }, 120_000);
         }
 
-        // Inline chat event + transient MMR-delta pills for channel members
-        const ev = buildEndEvent(match, id, channelTagsRef.current);
+        // Inline chat event + transient MMR-delta pills for channel members.
+        // Include tracked start-event players so the end card shows even if
+        // they left the channel mid-game.
+        const tracked = startedMatchPlayersRef.current.get(id);
+        const effectiveRelevant = tracked
+          ? new Set([...channelTagsRef.current, ...tracked])
+          : channelTagsRef.current;
+        const ev = buildEndEvent(match, id, effectiveRelevant);
         if (ev) {
           const matchPlayers = (match.teams || []).flatMap((t) => t.players || []);
           const note = computeNote(ev, { playerScores, matchPlayers });
@@ -403,7 +423,8 @@ const Chat = () => {
             mvp: computeMvp(playerScores),
             note,
           });
-          if (!note) fillBlurb(ev.id, id);
+          fillBlurb(ev.id, id);
+          startedMatchPlayersRef.current.delete(id);
           const withDelta = [...ev.winners, ...ev.losers].filter(
             (p) => p.inChannel && p.mmrGain != null
           );
