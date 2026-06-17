@@ -2343,7 +2343,8 @@ export function getSharedReplayCount(tagA, tagB) {
     SELECT COUNT(DISTINCT a.replay_id) as n
     FROM replay_players a
     JOIN replay_players b ON a.replay_id = b.replay_id
-    WHERE a.battle_tag = ? AND b.battle_tag = ?
+    JOIN replays r ON r.id = a.replay_id
+    WHERE a.battle_tag = ? AND b.battle_tag = ? AND r.match_type = '4on4'
   `).get(tagA, tagB);
   return row?.n || 0;
 }
