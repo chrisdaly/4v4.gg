@@ -22,6 +22,7 @@ import {
   updateFingerprintEmbedding,
   getPlayerActionData,
   getPlayerActionDataTop,
+  getPlayerActionDataTopFiltered,
   getPlayerActionDataByName,
   getPlayerActionDataForReplay,
   getPlayerActionDataByReplayIds,
@@ -62,7 +63,7 @@ import {
 } from '../fingerprint.js';
 import { parseReplayFile } from '../replayParser.js';
 import { getEmbedding, getEmbeddingBatch, checkSidecar, getUmapProjection, getUmapTransform } from '../embedClient.js';
-import { importPlayerMatches } from '../replayImporter.js';
+import { importPlayerMatches, importPlayerMatchesBulk } from '../replayImporter.js';
 import { requireApiKey } from '../middleware/auth.js';
 
 const router = Router();
@@ -653,6 +654,7 @@ router.get('/profile/:battleTag/replays', (req, res) => {
   const replays = rows.map(r => ({
     replayId: r.replay_id,
     matchDate: r.match_date,
+    uploadedAt: r.uploaded_at,
     mapName: r.map_name,
     gameDuration: r.game_duration,
     race: r.race,
@@ -1079,23 +1081,23 @@ function computeActionProfileLight(actionRows) {
     }
   }
 
-  // Compute transitions from the first row that has a sequence, capped at ACTION_CAP actions.
-  const seqRow = actionRows.find(r => r.full_action_sequence && r.full_action_sequence !== '[]');
-  if (seqRow) {
-    const seq = tryParse(seqRow.full_action_sequence);
-    if (seq) {
-      let lastGroup = null;
-      const cap = Math.min(seq.length, ACTION_CAP);
-      for (let i = 0; i < cap; i++) {
-        const a = seq[i];
-        if (a.ms < 120000) continue;
-        const isHotkey = (a.id === 0x17 || a.id === 0x18 || a.id === 23 || a.id === 24) && a.g != null;
-        if (isHotkey && lastGroup !== null && lastGroup !== a.g) {
-          const key = `${lastGroup}->${a.g}`;
-          groupTransitions[key] = (groupTransitions[key] || 0) + 1;
-        }
-        if (isHotkey) lastGroup = a.g;
+  // Compute transitions across all rows with sequences (capped per-row to avoid bias from longer games).
+  const perRowCap = Math.max(1000, Math.floor(ACTION_CAP / Math.max(1, actionRows.length)));
+  for (const row of actionRows) {
+    if (!row.full_action_sequence || row.full_action_sequence === '[]') continue;
+    const seq = tryParse(row.full_action_sequence);
+    if (!seq) continue;
+    let lastGroup = null;
+    const cap = Math.min(seq.length, perRowCap);
+    for (let i = 0; i < cap; i++) {
+      const a = seq[i];
+      if (a.ms < 120000) continue;
+      const isHotkey = (a.id === 0x17 || a.id === 0x18 || a.id === 23 || a.id === 24) && a.g != null;
+      if (isHotkey && lastGroup !== null && lastGroup !== a.g) {
+        const key = `${lastGroup}->${a.g}`;
+        groupTransitions[key] = (groupTransitions[key] || 0) + 1;
       }
+      if (isHotkey) lastGroup = a.g;
     }
   }
 
@@ -1349,8 +1351,12 @@ async function computeEmbeddingsAsync(replayId, actions) {
   }
 }
 
-// POST /api/fingerprints/upload — Public replay upload (rate-limited, no API key)
-router.post('/upload', uploadLimiter, (req, res, next) => {
+// POST /api/fingerprints/upload — Public replay upload (rate-limited; API key bypasses limit)
+router.post('/upload', (req, res, next) => {
+  const key = req.headers['x-api-key'];
+  if (key && key === process.env.ADMIN_API_KEY) return next(); // admin bypass
+  uploadLimiter(req, res, next);
+}, (req, res, next) => {
   uploadMulter.single('replay')(req, res, (err) => {
     if (err) {
       if (err instanceof multer.MulterError) return res.status(400).json({ error: err.message });
@@ -1386,7 +1392,9 @@ router.post('/upload', uploadLimiter, (req, res, next) => {
     });
   }
 
-  const replayId = insertReplay({ filename: originalname, filePath, fileSize: size, fileHash });
+  const w3cMatchId = req.body?.w3cMatchId || null;
+  const hintBattleTag = req.body?.battleTag || null;
+  const replayId = insertReplay({ filename: originalname, filePath, fileSize: size, fileHash, w3cMatchId });
 
   try {
     const parsed = await parseReplayFile(filePath);
@@ -1400,13 +1408,22 @@ router.post('/upload', uploadLimiter, (req, res, next) => {
       rawParsed: JSON.stringify(parsed),
     });
 
-    insertReplayPlayers(replayId, parsed.players);
+    // If a battleTag hint was provided, match it to the parsed player by name
+    const playersWithTags = parsed.players.map(p => {
+      if (hintBattleTag) {
+        const hintName = hintBattleTag.split('#')[0].toLowerCase();
+        if (p.playerName.toLowerCase() === hintName) return { ...p, battleTag: hintBattleTag };
+      }
+      return p;
+    });
+
+    insertReplayPlayers(replayId, playersWithTags);
     insertReplayChat(replayId, parsed.chat);
     insertReplayPlayerActions(replayId, parsed.actions);
 
-    // Compute and store fingerprints
+    // Compute and store fingerprints (use enriched player list for battle tag matching)
     try {
-      const fingerprints = computeFingerprints(parsed.actions, parsed.players);
+      const fingerprints = computeFingerprints(parsed.actions, playersWithTags);
       if (fingerprints.length > 0) insertPlayerFingerprints(replayId, fingerprints);
       computeEmbeddingsAsync(replayId, parsed.actions);
     } catch (fpErr) {
@@ -1507,6 +1524,23 @@ router.post('/import', importLimiter, async (req, res) => {
   } catch (err) {
     console.error('[import] Error:', err.message);
     res.status(500).json({ error: 'Import failed: ' + err.message });
+  }
+});
+
+// POST /api/fingerprints/import-bulk — Import all recent matches for a player (admin, rate-limited)
+router.post('/import-bulk', requireApiKey, async (req, res) => {
+  const { battleTag, daysBack = 7, maxImports = 50 } = req.body;
+  if (!battleTag || typeof battleTag !== 'string') {
+    return res.status(400).json({ error: 'battleTag is required' });
+  }
+  try {
+    const result = await importPlayerMatchesBulk(battleTag, { daysBack, maxImports });
+    parsedPlayersCache = null;
+    galleryAge = 0;
+    res.json(result);
+  } catch (err) {
+    console.error('[import-bulk] Error:', err.message);
+    res.status(500).json({ error: err.message });
   }
 });
 
@@ -2467,6 +2501,13 @@ function getSuspectsData() {
 //   no_match   → below that
 router.get('/identify/:battleTag', requireApiKey, async (req, res) => {
   const { battleTag } = req.params;
+  const filterRace = req.query.race || null;
+  const filterAfter = req.query.after || null;
+  const filterReplayIds = req.query.replayIds
+    ? req.query.replayIds.split(',').map(Number).filter(n => n > 0)
+    : null;
+  const hasFilter = !!(filterRace || filterAfter || filterReplayIds?.length);
+
   const allPlayers = getParsedPlayers();
   const cal = getCalibration();
 
@@ -2474,7 +2515,29 @@ router.get('/identify/:battleTag', requireApiKey, async (req, res) => {
   if (!suspect) {
     return res.status(404).json({ error: 'Player not indexed', battleTag });
   }
-  if (suspect.replayCount < 3) {
+
+  // Re-compute fingerprint from filtered data when filters are active
+  let suspectFp = suspect.fp;
+  let suspectEmbedding = suspect.embedding;
+  let suspectReplayCount = suspect.replayCount;
+  const suspectTotalCount = suspect.replayCount;
+
+  if (hasFilter) {
+    const filteredRows = getPlayerFingerprintsFiltered(battleTag, { race: filterRace, after: filterAfter, replayIds: filterReplayIds });
+    suspectReplayCount = filteredRows.length;
+    if (suspectReplayCount < 1) {
+      return res.json({
+        battleTag, verdict: 'insufficient_data',
+        reason: `Only ${suspectReplayCount} filtered replay(s) — need at least 1`,
+        replayCount: suspectReplayCount,
+        totalReplayCount: suspectTotalCount,
+        filters: { race: filterRace, after: filterAfter, replayIds: filterReplayIds },
+        topMatches: [],
+      });
+    }
+    suspectFp = averageFingerprints(filteredRows.map(parseDbFingerprint));
+    suspectEmbedding = null; // no pre-computed embedding for filtered subset
+  } else if (suspect.replayCount < 3) {
     return res.json({
       battleTag, verdict: 'insufficient_data',
       reason: `Only ${suspect.replayCount} replay(s) indexed — need at least 3 for a reliable fingerprint`,
@@ -2487,10 +2550,10 @@ router.get('/identify/:battleTag', requireApiKey, async (req, res) => {
   for (const p of allPlayers) {
     if (p.battleTag === battleTag) continue;
     if (p.replayCount < 3) continue;
-    const hybrid = computeHybridSimilarity(suspect.fp, p.fp, suspect.embedding, p.embedding);
+    const hybrid = computeHybridSimilarity(suspectFp, p.fp, suspectEmbedding, p.embedding);
     const percentile = cal ? scoreToPercentile(hybrid.similarity, cal) : null;
     const zScore = cal ? scoreToZScore(hybrid.similarity, cal) : null;
-    const breakdown = computeServerBreakdown(suspect.fp, p.fp);
+    const breakdown = computeServerBreakdown(suspectFp, p.fp);
     results.push({
       battleTag: p.battleTag,
       playerName: p.playerName,
@@ -2516,18 +2579,22 @@ router.get('/identify/:battleTag', requireApiKey, async (req, res) => {
     else if (top.percentile != null && top.percentile >= 97) verdict = 'possible';
   }
 
-  // Enrich query player with glyph + APM
+  // Enrich query player with glyph + APM (filtered if filters active)
   let queryGlyph = null;
   let queryReassignRatio = null;
   let queryDominantLoop = null;
-  const queryActionRows = getPlayerActionDataTop(battleTag, 10);
+  const queryActionRows = filterReplayIds?.length
+    ? getPlayerActionDataByReplayIds(battleTag, filterReplayIds)
+    : hasFilter
+      ? getPlayerActionDataTopFiltered(battleTag, 10, { race: filterRace, after: filterAfter })
+      : getPlayerActionDataTop(battleTag, 10);
   if (queryActionRows.length > 0) {
     const { transitionPairs, groupUsage, groupCompositions, reassignRatio, dominantLoop } = computeActionProfileLight(queryActionRows);
     queryGlyph = { transitionPairs, groupUsage, groupCompositions };
     queryReassignRatio = reassignRatio;
     queryDominantLoop = dominantLoop;
   }
-  const queryApm = getPlayerAvgApm(battleTag);
+  const queryApm = getPlayerAvgApm(battleTag, filterReplayIds?.length ? filterReplayIds : null);
   const queryApmSeg = suspect.fp?.segments?.apm || [];
 
   // Enrich top matches with glyph, APM, race, shared replays
@@ -2586,8 +2653,10 @@ router.get('/identify/:battleTag', requireApiKey, async (req, res) => {
   res.json({
     battleTag,
     verdict,
+    filters: hasFilter ? { race: filterRace, after: filterAfter, replayIds: filterReplayIds } : null,
     query: {
-      replayCount: suspect.replayCount,
+      replayCount: suspectReplayCount,
+      totalReplayCount: suspectTotalCount,
       hasEmbedding: !!suspect.embedding,
       glyph: queryGlyph,
       apm: queryApm,
@@ -2600,7 +2669,7 @@ router.get('/identify/:battleTag', requireApiKey, async (req, res) => {
       dominantLoop: queryDominantLoop,
       variability: queryApmSeg[1] != null ? Math.round(queryApmSeg[1] * 100) : null,
       burstiness: queryApmSeg[2] != null ? +queryApmSeg[2].toFixed(2) : null,
-      actionDist: suspect.fp?.segments?.action || null,
+      actionDist: suspectFp?.segments?.action || null,
     },
     similar,
     matrix,

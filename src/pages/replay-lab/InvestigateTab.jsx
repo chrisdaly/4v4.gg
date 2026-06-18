@@ -84,40 +84,45 @@ const BackLink = styled.button`
 /* ── Compare table — players as columns, features as rows ── */
 const CompareTable = styled.div`
   display: grid;
-  grid-template-columns: 100px repeat(${p => p.$cols}, 220px);
+  grid-template-columns: 90px repeat(${p => p.$cols}, 200px);
   margin-bottom: var(--space-6);
 `;
 const TH = styled.div`
-  padding: var(--space-4) var(--space-4) var(--space-3);
+  position: relative;
+  padding: var(--space-4) var(--space-3) var(--space-3);
   display: flex; flex-direction: column; align-items: center; gap: var(--space-2);
-  border-bottom: 1px solid rgba(255,255,255,0.08);
-  ${p => p.$query && `border-left: 2px solid rgba(252,219,51,0.3); background: rgba(252,219,51,0.03);`}
-  ${p => p.$active && `border-left: 2px solid var(--gold);`}
+  border-bottom: 2px solid rgba(255,255,255,0.12);
+  border-left: 1px solid rgba(255,255,255,0.07);
+  ${p => p.$query && `
+    border-left: 3px solid rgba(252,219,51,0.55);
+    background: rgba(252,219,51,0.04);
+  `}
+  ${p => p.$active && `border-left: 3px solid var(--gold);`}
   ${p => p.$clickable && `cursor: pointer; &:hover { background: rgba(252,219,51,0.05); }`}
 `;
 const THLabel = styled.div`
   font-family: var(--font-mono); font-size: var(--text-xxxs);
-  text-transform: uppercase; letter-spacing: 0.12em;
-  color: var(--grey-light); opacity: 0.4;
-  align-self: flex-start;
+  text-transform: uppercase; letter-spacing: 0.1em;
+  color: var(--grey-light); opacity: 0.55;
 `;
 const THName = styled.div`
-  font-family: var(--font-display); font-size: var(--text-base); color: var(--gold);
+  font-family: var(--font-display); font-size: var(--text-sm); color: var(--gold);
   white-space: nowrap; overflow: hidden; text-overflow: ellipsis; max-width: 100%;
 `;
 const RowLabel = styled.div`
   display: flex; align-items: center;
-  padding: var(--space-3) var(--space-2) var(--space-3) 0;
-  font-family: var(--font-mono); font-size: var(--text-xxs);
-  text-transform: uppercase; letter-spacing: 0.1em;
-  color: var(--grey-light); opacity: 0.5;
-  border-bottom: 1px solid rgba(255,255,255,0.04);
+  padding: var(--space-2) var(--space-2) var(--space-2) 0;
+  font-family: var(--font-mono); font-size: 10px;
+  text-transform: uppercase; letter-spacing: 0.08em;
+  color: rgba(255,255,255,0.5);
+  border-bottom: 1px solid rgba(255,255,255,0.05);
 `;
 const TD = styled.div`
   display: flex; align-items: center; justify-content: center;
-  padding: var(--space-3) var(--space-2);
+  padding: var(--space-2) var(--space-2);
   font-family: var(--font-mono); font-size: var(--text-xs); color: #fff;
-  border-bottom: 1px solid rgba(255,255,255,0.04);
+  border-bottom: 1px solid rgba(255,255,255,0.05);
+  border-left: 1px solid rgba(255,255,255,0.06);
   text-align: center;
   ${p => p.$query && `background: rgba(252,219,51,0.03);`}
   ${p => p.$active && `background: rgba(252,219,51,0.06);`}
@@ -125,12 +130,34 @@ const TD = styled.div`
 `;
 const GlyphTD = styled(TD)`
   align-items: center; justify-content: center;
-  padding: var(--space-4) var(--space-2);
-  border-bottom: 1px solid rgba(255,255,255,0.08);
+  padding: var(--space-3) var(--space-2);
+  border-bottom: 2px solid rgba(255,255,255,0.1);
 `;
 const GlyphRowLabel = styled(RowLabel)`
-  border-bottom: 1px solid rgba(255,255,255,0.08);
-  align-items: flex-start; padding-top: var(--space-4);
+  border-bottom: 2px solid rgba(255,255,255,0.1);
+  align-items: flex-start; padding-top: var(--space-3);
+`;
+const FilterBtn = styled.button`
+  width: 100%; margin-top: var(--space-1);
+  padding: 5px 8px;
+  display: flex; align-items: center; justify-content: space-between; gap: 4px;
+  background: ${p => p.$active ? 'rgba(212,175,55,0.12)' : 'rgba(255,255,255,0.05)'};
+  border: 1px solid ${p => p.$active ? 'rgba(212,175,55,0.4)' : 'rgba(255,255,255,0.1)'};
+  border-radius: var(--radius-sm); cursor: pointer;
+  color: ${p => p.$active ? 'var(--gold)' : 'var(--grey-mid)'};
+  font-size: 10px; font-family: var(--font-mono);
+  &:hover { border-color: ${p => p.$active ? 'rgba(212,175,55,0.6)' : 'rgba(255,255,255,0.2)'}; }
+`;
+const RemoveBtn = styled.button`
+  position: absolute; top: 6px; right: 6px;
+  width: 18px; height: 18px; padding: 0;
+  display: flex; align-items: center; justify-content: center;
+  background: rgba(255,60,60,0.1); border: 1px solid rgba(255,60,60,0.25);
+  border-radius: var(--radius-sm); cursor: pointer;
+  font-size: 12px; font-weight: 700; line-height: 1;
+  color: rgba(255,100,100,0.7);
+  opacity: 0.6; transition: opacity 0.15s;
+  &:hover { opacity: 1; background: rgba(255,60,60,0.2); }
 `;
 const ColSectionLabel = styled.div`
   font-family: var(--font-mono); font-size: var(--text-xxxs); color: var(--grey-light);
@@ -239,16 +266,28 @@ function toWeekStart(dayStr) {
   return d.toISOString().slice(0, 10);
 }
 
-function ActivityTimeline({ players, matchProfiles }) {
+function ActivityTimeline({ players, matchProfiles, startDate = null }) {
+  // When a date filter is active, clip matchDays to only those on/after startDate
+  const filterMs = startDate ? new Date(startDate).getTime() : null;
+  const filteredPlayers = filterMs
+    ? players.map(p => ({
+        ...p,
+        seasonActivity: (p.seasonActivity || []).map(sa => ({
+          ...sa,
+          matchDays: (sa.matchDays || []).filter(d => new Date(d + 'T12:00:00Z').getTime() >= filterMs),
+        })).filter(sa => sa.matchDays.length > 0),
+      }))
+    : players;
+
   // Build raw day sets per player for shared-day detection
-  const daySetByTag = new Map(players.map(p => [
+  const daySetByTag = new Map(filteredPlayers.map(p => [
     p.tag,
     new Set((p.seasonActivity || []).flatMap(sa => sa.matchDays || [])),
   ]));
-  const queryDays = players[0] ? (daySetByTag.get(players[0].tag) || new Set()) : new Set();
+  const queryDays = filteredPlayers[0] ? (daySetByTag.get(filteredPlayers[0].tag) || new Set()) : new Set();
 
   const sharedDays = new Set();
-  for (const p of players.slice(1)) {
+  for (const p of filteredPlayers.slice(1)) {
     for (const d of (daySetByTag.get(p.tag) || [])) {
       if (queryDays.has(d)) sharedDays.add(d);
     }
@@ -256,12 +295,14 @@ function ActivityTimeline({ players, matchProfiles }) {
   const totalShared = sharedDays.size;
 
   // Only show seasons where at least one player has activity
-  const usedSeasons = new Set(players.flatMap(p => (p.seasonActivity || []).map(sa => sa.season)));
+  const usedSeasons = new Set(filteredPlayers.flatMap(p => (p.seasonActivity || []).map(sa => sa.season)));
   const visibleSeasons = SHOWN_SEASONS.filter(s => usedSeasons.has(s));
 
-  // Clip the timeline to the earliest active season so we don't waste left-side space
+  // Clip x-axis: use filterDate when active, otherwise earliest season
   const earliestSeason = visibleSeasons[0] ?? 16;
-  const effectiveStart = (SEASON_STARTS[earliestSeason] ?? new Date(2022, 8, 1)).getTime();
+  const effectiveStart = filterMs
+    ? filterMs
+    : (SEASON_STARTS[earliestSeason] ?? new Date(2022, 8, 1)).getTime();
   const effectiveEnd = Date.now();
   const tl = (dateStr) => {
     if (!dateStr) return null;
@@ -302,7 +343,7 @@ function ActivityTimeline({ players, matchProfiles }) {
       </div>
 
       {/* Player rows */}
-      {players.map((player) => {
+      {filteredPlayers.map((player) => {
         const activityByS = new Map((player.seasonActivity || []).map(sa => [sa.season, sa]));
         const playerActiveSeasonsNums = [...activityByS.keys()].sort((a, b) => a - b);
         const latestSeason = playerActiveSeasonsNums[playerActiveSeasonsNums.length - 1];
@@ -1077,6 +1118,23 @@ export default function InvestigateTab() {
   const [candidateOrder, setCandidateOrder] = useState([]);
   const [removedTags, setRemovedTags] = useState(new Set());
   const dragTagRef = useRef(null);
+  const [playerRaceFilters, setPlayerRaceFilters] = useState(new Map()); // tag → race | null (per-player)
+  const [playerDateFilters, setPlayerDateFilters] = useState(new Map()); // tag → afterDate
+  const [showResults, setShowResults] = useState(false);
+  const [resultsTab, setResultsTab] = useState('fingerprint'); // 'fingerprint' | 'replays'
+  const [refetchingTags, setRefetchingTags] = useState(new Set()); // tags currently re-fetching
+  const [importingTags, setImportingTags] = useState(new Set()); // tags being imported
+  const [playerReplayLists, setPlayerReplayLists] = useState(new Map()); // tag → replay[]
+  const [playerReplaySelections, setPlayerReplaySelections] = useState(new Map()); // tag → Set<replayId> | null
+  const [openReplayPicker, setOpenReplayPicker] = useState(null); // tag with picker open
+  const [expandedCards, setExpandedCards] = useState(new Set()); // tags with controls visible (setup phase)
+  const [openResultsFilter, setOpenResultsFilter] = useState(null); // tag with filter panel open (results phase)
+  const playerReplaySelectionsRef = useRef(new Map());
+  const playerRaceFiltersRef = useRef(new Map());
+  const playerDateFiltersRef = useRef(new Map());
+  const selectedTagRef = useRef(null);
+  const manualCandidatesRef = useRef(new Map());
+  const fetchedReplayListTagsRef = useRef(new Set()); // prevent duplicate fetches
 
   const removeCandidate = (tag) => {
     setRemovedTags(prev => new Set([...prev, tag]));
@@ -1135,6 +1193,119 @@ export default function InvestigateTab() {
     return () => clearTimeout(timer);
   }, [addQuery]);
 
+  // Keep refs in sync so fetch callbacks can read current values without closure staleness
+  useEffect(() => { playerRaceFiltersRef.current = playerRaceFilters; }, [playerRaceFilters]);
+  useEffect(() => { playerDateFiltersRef.current = playerDateFilters; }, [playerDateFilters]);
+  useEffect(() => { playerReplaySelectionsRef.current = playerReplaySelections; }, [playerReplaySelections]);
+  useEffect(() => { selectedTagRef.current = selectedTag; }, [selectedTag]);
+  useEffect(() => { manualCandidatesRef.current = manualCandidates; }, [manualCandidates]);
+
+  const markRefetching = useCallback((tags) => {
+    setRefetchingTags(prev => { const s = new Set(prev); tags.forEach(t => s.add(t)); return s; });
+  }, []);
+  const unmarkRefetching = useCallback((tag) => {
+    setRefetchingTags(prev => { const s = new Set(prev); s.delete(tag); return s; });
+  }, []);
+
+  // Auto-fetch replay lists for the query player + all suggested candidates when playstyleData loads
+  useEffect(() => {
+    if (!playstyleData || !selectedTag) return;
+    const tags = [selectedTag, ...playstyleData.similar.slice(0, 5).map(s => s.battleTag)];
+    for (const tag of tags) {
+      if (fetchedReplayListTagsRef.current.has(tag)) continue;
+      fetchedReplayListTagsRef.current.add(tag);
+      fetch(`${RELAY_URL}/api/fingerprints/profile/${encodeURIComponent(tag)}/replays`)
+        .then(r => r.ok ? r.json() : null)
+        .then(d => { if (d?.replays) setPlayerReplayLists(prev => new Map([...prev, [tag, d.replays]])); })
+        .catch(() => {});
+    }
+  }, [playstyleData, selectedTag, RELAY_URL]);
+
+  // Shared refetch for a single player using current filter state from refs
+  const refetchPlayer = useCallback((tag) => {
+    const race = playerRaceFiltersRef.current.get(tag) || null;
+    const after = playerDateFiltersRef.current.get(tag) || null;
+    const replayIds = playerReplaySelectionsRef.current.get(tag);
+    const ids = replayIds ? [...replayIds] : null;
+    const p = new URLSearchParams();
+    if (race) p.set('race', race);
+    if (after) p.set('after', after);
+    if (ids?.length) p.set('replayIds', ids.join(','));
+    const qs = p.toString() ? `?${p}` : '';
+    const isQuery = tag === selectedTagRef.current;
+    markRefetching([tag]);
+    fetch(`${RELAY_URL}/api/fingerprints/identify/${encodeURIComponent(tag)}${qs}`, { headers: { 'X-API-Key': apiKey } })
+      .then(r => r.ok ? r.json() : null)
+      .then(data => {
+        unmarkRefetching(tag);
+        if (!data) return;
+        if (isQuery) {
+          if (data.verdict === 'insufficient_data') {
+            setPlaystyleData(prev => prev ? { ...prev, query: { ...prev.query, replayCount: data.replayCount ?? 0, totalReplayCount: data.totalReplayCount ?? prev.query?.totalReplayCount } } : prev);
+          } else {
+            setPlaystyleData(data);
+          }
+        } else {
+          const prev = manualCandidatesRef.current.get(tag) || {};
+          const replayCount = data.verdict === 'insufficient_data' ? (data.replayCount ?? 0) : (data.query?.replayCount ?? prev.replayCount);
+          const q = data.query || {};
+          setManualCandidates(m => new Map([...m, [tag, { ...prev, apm: q.apm ?? prev.apm, race: q.race ?? prev.race, replayCount, glyph: data.verdict === 'insufficient_data' ? { transitionPairs: [], groupUsage: [], groupCompositions: {} } : (q.glyph || prev.glyph), seasonActivity: q.seasonActivity ?? prev.seasonActivity }]]));
+        }
+      })
+      .catch(() => unmarkRefetching(tag));
+  }, [RELAY_URL, apiKey, markRefetching, unmarkRefetching]);
+
+  // Per-player race filter
+  const setPlayerRace = useCallback((tag, race) => {
+    setPlayerRaceFilters(prev => {
+      const next = new Map(prev);
+      if (!race) next.delete(tag); else next.set(tag, race);
+      return next;
+    });
+    // Trigger refetch after state update; use setTimeout so ref is current
+    setTimeout(() => refetchPlayer(tag), 0);
+  }, [refetchPlayer]);
+
+  // Per-player date filter
+  const setPlayerDate = useCallback((tag, afterDate) => {
+    setPlayerDateFilters(prev => {
+      const next = new Map(prev);
+      if (afterDate === null) next.delete(tag); else next.set(tag, afterDate);
+      return next;
+    });
+    setTimeout(() => refetchPlayer(tag), 0);
+  }, [refetchPlayer]);
+
+  // Import replays for a player on demand
+  const importReplays = useCallback(async (tag) => {
+    setImportingTags(prev => { const s = new Set(prev); s.add(tag); return s; });
+    try {
+      await fetch(`${RELAY_URL}/api/fingerprints/import`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ battleTag: tag }),
+      });
+      // Re-fetch identify after import using current filter state
+      refetchPlayer(tag);
+    } catch { /* silent */ }
+    setImportingTags(prev => { const s = new Set(prev); s.delete(tag); return s; });
+  }, [RELAY_URL, refetchPlayer]);
+
+  // Set specific replay IDs for a player and refetch
+  const setPlayerReplaySelection = useCallback((tag, replayIds) => {
+    const ids = replayIds ? [...replayIds] : null;
+    const newSet = ids?.length ? new Set(ids) : null;
+    // Update ref immediately so refetchPlayer reads the new value (not after useEffect delay)
+    const newMap = new Map(playerReplaySelectionsRef.current);
+    if (!newSet) newMap.delete(tag); else newMap.set(tag, newSet);
+    playerReplaySelectionsRef.current = newMap;
+    setPlayerReplaySelections(newMap);
+    refetchPlayer(tag);
+  }, [refetchPlayer]);
+
+  // Capture URL candidates before mount so we can restore after query loads
+  const urlCandidatesPending = useRef(new URLSearchParams(location.search).getAll("c"));
+
   // Sync URL → auto-search on mount / back-nav
   useEffect(() => {
     const params = new URLSearchParams(location.search);
@@ -1142,16 +1313,41 @@ export default function InvestigateTab() {
     if (qTag && qTag !== selectedTag) selectPlayer(qTag);
   }, []); // eslint-disable-line react-hooks/exhaustive-deps
 
+  // Restore URL candidates once query player data loads (runs once, clears ref after)
+  useEffect(() => {
+    if (!playstyleData || !urlCandidatesPending.current.length) return;
+    const tags = [...urlCandidatesPending.current];
+    urlCandidatesPending.current = [];
+    tags.forEach(tag => addPlayerToList(tag));
+  }, [playstyleData]); // eslint-disable-line react-hooks/exhaustive-deps
+
+  // Write manual candidates back to URL whenever they change
+  useEffect(() => {
+    if (!selectedTag) return;
+    const activeCandidates = [...manualCandidates.keys()].filter(t => !removedTags.has(t));
+    const params = new URLSearchParams();
+    params.set("tab", "identify");
+    params.set("q", selectedTag);
+    activeCandidates.forEach(t => params.append("c", t));
+    history.replace({ search: `?${params}` });
+  }, [manualCandidates, removedTags, selectedTag, history]);
+
   const selectPlayer = useCallback(async (battleTag) => {
     history.replace({ search: `?tab=identify&q=${encodeURIComponent(battleTag)}` });
     setQuery(""); setSearchResults([]); setShowDropdown(false); setIsSearching(false);
     setSelectedTag(battleTag); setPlaystyleData(null); setIdentifyError(null); setLoading(true);
     setCandidateOrder([]); setRemovedTags(new Set()); setManualCandidates(new Map());
-    
-    
+    setPlayerReplayLists(new Map()); setPlayerReplaySelections(new Map()); setOpenReplayPicker(null);
+    setShowResults(false); setPlayerRaceFilters(new Map()); setPlayerDateFilters(new Map()); setExpandedCards(new Set()); setOpenResultsFilter(null);
+    fetchedReplayListTagsRef.current = new Set();
+    fetch(`${RELAY_URL}/api/fingerprints/profile/${encodeURIComponent(battleTag)}/replays`)
+      .then(r => r.ok ? r.json() : null)
+      .then(d => { if (d?.replays) setPlayerReplayLists(prev => new Map([...prev, [battleTag, d.replays]])); })
+      .catch(() => {});
 
+    const qs = ''; // new player always loads with no filters
     try {
-      const identifyRes = await fetch(`${RELAY_URL}/api/fingerprints/identify/${encodeURIComponent(battleTag)}`, { headers: { "X-API-Key": apiKey } });
+      const identifyRes = await fetch(`${RELAY_URL}/api/fingerprints/identify/${encodeURIComponent(battleTag)}${qs}`, { headers: { "X-API-Key": apiKey } });
       if (identifyRes.ok) {
         const data = await identifyRes.json();
         setPlaystyleData(data);
@@ -1178,7 +1374,9 @@ export default function InvestigateTab() {
     if (!battleTag || manualCandidates.has(battleTag)) return;
     setAddLoading(true);
     try {
-      const res = await fetch(`${RELAY_URL}/api/fingerprints/identify/${encodeURIComponent(battleTag)}`, { headers: { "X-API-Key": apiKey } });
+      const ap = new URLSearchParams(); // candidates also load unfiltered initially
+      const qs = ap.toString() ? `?${ap}` : '';
+      const res = await fetch(`${RELAY_URL}/api/fingerprints/identify/${encodeURIComponent(battleTag)}${qs}`, { headers: { "X-API-Key": apiKey } });
       if (res.ok) {
         const data = await res.json();
         const q = data.query || {};
@@ -1204,6 +1402,10 @@ export default function InvestigateTab() {
             return obj;
           });
         });
+        fetch(`${RELAY_URL}/api/fingerprints/profile/${encodeURIComponent(battleTag)}/replays`)
+          .then(r => r.ok ? r.json() : null)
+          .then(d => { if (d?.replays) setPlayerReplayLists(prev => new Map([...prev, [battleTag, d.replays]])); })
+          .catch(() => {});
       }
     } catch (err) { console.error("Add player failed:", err); }
     setAddLoading(false);
@@ -1379,6 +1581,213 @@ export default function InvestigateTab() {
                       });
                     };
 
+                    const fmtDuration = (s) => {
+                      if (!s) return '';
+                      const m = Math.floor(s / 60), sec = s % 60;
+                      return `${m}:${String(sec).padStart(2, '0')}`;
+                    };
+                    const fmtReplayDate = (r) => {
+                      const raw = r.matchDate || r.uploadedAt;
+                      if (!raw) return '—';
+                      const d = new Date(raw);
+                      const diffDays = Math.floor((Date.now() - d.getTime()) / 86400000);
+                      if (diffDays === 0) return 'today';
+                      if (diffDays === 1) return 'yesterday';
+                      if (diffDays < 14) return `${diffDays}d ago`;
+                      return d.toLocaleDateString('en', { month: 'short', day: 'numeric', year: diffDays > 365 ? 'numeric' : undefined });
+                    };
+
+                    const parseMapName = (rawName) => {
+                      if (!rawName) return null;
+                      // W3C lobby format: {num}_w3c_{date}_{time}_{MapName}[_{version}]
+                      const w3c = rawName.match(/^\d+_w3c_\d+_\d+_(.+?)(?:_v[\d.]+)?$/i);
+                      if (w3c) return w3c[1].replace(/_/g, ' ');
+                      // Standard: strip (4) prefix, extension, lobby noise
+                      return rawName.replace(/^\(4\)\s*/, '').replace(/\.w3x$/i, '').replace(/^4v4[_\s].*/i, '').trim() || null;
+                    };
+                    const getMapThumb = (rawName) => {
+                      const name = parseMapName(rawName);
+                      if (!name) return null;
+                      // Strip spaces, apostrophes, minor version decimals (v2.1 → v2)
+                      const file = name.replace(/\s/g, '').replace(/'/g, '').replace(/\.\d+$/, '');
+                      return `/maps/${file}.png`;
+                    };
+                    const getMapName = parseMapName;
+
+                    const renderReplayPicker = (tag) => {
+                      const replays = playerReplayLists.get(tag) || [];
+                      const selection = playerReplaySelections.get(tag);
+                      const hasSelection = selection && selection.size > 0;
+                      const allSelected = !hasSelection;
+                      const toggleReplay = (rid) => {
+                        const current = playerReplaySelectionsRef.current.get(tag) || new Set();
+                        const next = new Set(current);
+                        if (next.has(rid)) next.delete(rid); else next.add(rid);
+                        setPlayerReplaySelection(tag, next.size === 0 ? null : [...next]);
+                      };
+                      return (
+                        <div onClick={e => e.stopPropagation()} style={{ width: '100%', marginTop: 4 }}>
+                          {/* All / selected count header */}
+                          <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 4, padding: '0 2px' }}>
+                            <button
+                              onClick={() => setPlayerReplaySelection(tag, null)}
+                              style={{ padding: '3px 10px', background: allSelected ? 'rgba(212,175,55,0.15)' : 'rgba(255,255,255,0.06)', border: allSelected ? '1px solid rgba(212,175,55,0.5)' : '1px solid rgba(255,255,255,0.12)', borderRadius: 3, cursor: 'pointer', color: allSelected ? 'var(--gold)' : 'var(--grey-light)', fontSize: 11, fontFamily: 'var(--font-mono)' }}
+                            >
+                              All ({replays.length})
+                            </button>
+                            <div style={{ display: 'flex', alignItems: 'center', gap: 4 }}>
+                              {hasSelection && (
+                                <span style={{ fontFamily: 'var(--font-mono)', fontSize: 11, color: 'var(--gold)' }}>
+                                  {selection.size} sel
+                                </span>
+                              )}
+                              {/* Prev / Next step-through arrows */}
+                              {(() => {
+                                const currentIdx = hasSelection
+                                  ? replays.findIndex(r => selection.has(r.replayId))
+                                  : -1;
+                                const step = (dir) => {
+                                  const nextIdx = currentIdx === -1
+                                    ? (dir > 0 ? 0 : replays.length - 1)
+                                    : Math.max(0, Math.min(replays.length - 1, currentIdx + dir));
+                                  setPlayerReplaySelection(tag, [replays[nextIdx].replayId]);
+                                };
+                                const navBtn = (label, dir, disabled) => (
+                                  <button
+                                    key={label}
+                                    onClick={() => step(dir)}
+                                    disabled={disabled}
+                                    style={{ width: 22, height: 22, padding: 0, display: 'flex', alignItems: 'center', justifyContent: 'center', background: 'rgba(255,255,255,0.06)', border: '1px solid rgba(255,255,255,0.12)', borderRadius: 3, cursor: disabled ? 'default' : 'pointer', color: disabled ? 'rgba(255,255,255,0.2)' : 'var(--grey-light)', fontSize: 14, lineHeight: 1 }}
+                                  >{label}</button>
+                                );
+                                return (
+                                  <div style={{ display: 'flex', gap: 2 }}>
+                                    {navBtn('‹', -1, currentIdx <= 0)}
+                                    {navBtn('›', +1, currentIdx >= replays.length - 1)}
+                                  </div>
+                                );
+                              })()}
+                            </div>
+                          </div>
+                          <div style={{ maxHeight: 280, overflowY: 'auto', display: 'flex', flexDirection: 'column', gap: 2, scrollbarWidth: 'thin', scrollbarColor: 'rgba(255,255,255,0.15) transparent' }}>
+                            {replays.map(r => {
+                              const rid = r.replayId;
+                              const checked = allSelected ? false : (selection?.has(rid) ?? false);
+                              const ri = RACE_ICON_MAP[r.race];
+                              const thumb = getMapThumb(r.mapName);
+                              const mapName = getMapName(r.mapName);
+                              return (
+                                <label
+                                  key={rid}
+                                  style={{ display: 'flex', alignItems: 'center', gap: 8, padding: '6px 8px', cursor: 'pointer', borderRadius: 'var(--radius-sm)', background: checked ? 'rgba(212,175,55,0.1)' : 'rgba(255,255,255,0.03)', border: `1px solid ${checked ? 'rgba(212,175,55,0.35)' : 'rgba(255,255,255,0.06)'}`, transition: 'background 0.1s' }}
+                                >
+                                  <input type="checkbox" checked={checked} onChange={() => toggleReplay(rid)} style={{ accentColor: 'var(--gold)', width: 13, height: 13, flexShrink: 0 }} />
+                                  {/* Map thumbnail */}
+                                  {thumb ? (
+                                    <img src={thumb} alt="" style={{ width: 36, height: 36, objectFit: 'cover', borderRadius: 2, flexShrink: 0, opacity: 0.85 }} onError={e => { e.target.style.display = 'none'; }} />
+                                  ) : (
+                                    <div style={{ width: 36, height: 36, flexShrink: 0, background: 'rgba(255,255,255,0.06)', borderRadius: 2 }} />
+                                  )}
+                                  {/* Map name + date */}
+                                  <div style={{ flex: 1, minWidth: 0 }}>
+                                    <div style={{ fontFamily: 'var(--font-display)', fontSize: 13, color: checked ? 'var(--gold)' : '#fff', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis', lineHeight: 1.2 }}>
+                                      {mapName || '—'}
+                                    </div>
+                                    <div style={{ display: 'flex', alignItems: 'center', gap: 5, marginTop: 3 }}>
+                                      {ri && <img src={ri} alt="" style={{ width: 12, height: 12, flexShrink: 0 }} />}
+                                      <span style={{ fontFamily: 'var(--font-mono)', fontSize: 10, color: 'var(--grey-light)' }}>{fmtReplayDate(r)}</span>
+                                    </div>
+                                  </div>
+                                  {/* Duration */}
+                                  <span style={{ fontFamily: 'var(--font-mono)', fontSize: 11, color: 'var(--grey-mid)', flexShrink: 0, minWidth: 32, textAlign: 'right' }}>{fmtDuration(r.gameDuration)}</span>
+                                </label>
+                              );
+                            })}
+                          </div>
+                        </div>
+                      );
+                    };
+
+                    // Column header controls: time tabs + single-replay nav strip
+                    const renderTHControls = (tag) => {
+                      const replays = playerReplayLists.get(tag) || [];
+                      const afterDate = playerDateFilters.get(tag) || null;
+                      const sel = playerReplaySelections.get(tag);
+                      const hasSel = sel && sel.size > 0;
+                      const currentIdx = hasSel ? replays.findIndex(r => sel.has(r.replayId)) : -1;
+                      const current = currentIdx >= 0 ? replays[currentIdx] : null;
+
+                      // Selecting a date clears replay selection; selecting a replay clears date
+                      const selectDate = (val) => {
+                        setPlayerDate(tag, val);
+                        if (hasSel) setPlayerReplaySelection(tag, null);
+                      };
+                      const step = (dir) => {
+                        setPlayerDate(tag, null); // single replay mode clears date filter
+                        const nextIdx = currentIdx === -1
+                          ? (dir > 0 ? 0 : replays.length - 1)
+                          : Math.max(0, Math.min(replays.length - 1, currentIdx + dir));
+                        setPlayerReplaySelection(tag, [replays[nextIdx].replayId]);
+                      };
+                      const exitSingleMode = () => setPlayerReplaySelection(tag, null);
+
+                      const tabStyle = (active) => ({
+                        padding: '4px 9px', fontSize: 12, fontFamily: 'var(--font-mono)',
+                        background: active ? 'rgba(212,175,55,0.18)' : 'rgba(255,255,255,0.06)',
+                        border: active ? '1px solid rgba(212,175,55,0.5)' : '1px solid rgba(255,255,255,0.1)',
+                        borderRadius: 3, cursor: 'pointer',
+                        color: active ? 'var(--gold)' : 'rgba(255,255,255,0.55)',
+                        opacity: hasSel ? 0.45 : 1,
+                        transition: 'opacity 0.15s',
+                      });
+                      const arrowStyle = (disabled) => ({
+                        width: 28, height: 28, padding: 0, flexShrink: 0,
+                        display: 'flex', alignItems: 'center', justifyContent: 'center',
+                        background: 'rgba(255,255,255,0.07)', border: '1px solid rgba(255,255,255,0.15)',
+                        borderRadius: 4, cursor: disabled ? 'default' : 'pointer',
+                        color: disabled ? 'rgba(255,255,255,0.15)' : 'rgba(255,255,255,0.7)',
+                        fontSize: 16, lineHeight: 1,
+                      });
+
+                      const mapLabel = hasSel
+                        ? (getMapName(current?.mapName) || `replay ${current?.replayId}`)
+                        : null;
+                      const dateLabel = afterDate
+                        ? DATE_FILTERS.find(d => d.value === afterDate)?.label
+                        : null;
+                      const centerLabel = mapLabel || (dateLabel ? `all · ${dateLabel}` : `all ${replays.length > 0 ? replays.length : ''}`);
+
+                      return (
+                        <div style={{ width: '100%', display: 'flex', flexDirection: 'column', gap: 6, marginTop: 6 }} onClick={e => e.stopPropagation()}>
+                          {/* Time tabs */}
+                          <div style={{ display: 'flex', gap: 3, justifyContent: 'center' }}>
+                            {DATE_FILTERS.map(df => (
+                              <button key={df.label} onClick={() => selectDate(df.value)} style={tabStyle(!hasSel && afterDate === df.value)}>
+                                {df.label}
+                              </button>
+                            ))}
+                          </div>
+                          {/* Single-replay nav */}
+                          {replays.length > 0 && (
+                            <div style={{ display: 'flex', alignItems: 'center', gap: 4 }}>
+                              <button style={arrowStyle(!hasSel || currentIdx <= 0)} onClick={() => step(-1)}>‹</button>
+                              <button
+                                onClick={hasSel ? exitSingleMode : () => step(+1)}
+                                title={hasSel ? 'Exit single-replay mode' : 'Step into replays one by one'}
+                                style={{ flex: 1, padding: '4px 6px', fontFamily: 'var(--font-mono)', background: hasSel ? 'rgba(212,175,55,0.12)' : 'rgba(255,255,255,0.04)', border: hasSel ? '1px solid rgba(212,175,55,0.4)' : '1px solid rgba(255,255,255,0.12)', borderRadius: 4, cursor: 'pointer', textAlign: 'center', lineHeight: 1.3, display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 1 }}
+                              >
+                                <span style={{ fontSize: 11, color: hasSel ? 'var(--gold)' : 'rgba(255,255,255,0.4)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', maxWidth: '100%' }}>{centerLabel}</span>
+                                {hasSel && current && (
+                                  <span style={{ fontSize: 10, color: 'rgba(255,255,255,0.45)' }}>{fmtReplayDate(current)}</span>
+                                )}
+                              </button>
+                              <button style={arrowStyle(hasSel && currentIdx >= replays.length - 1)} onClick={() => step(+1)}>›</button>
+                            </div>
+                          )}
+                        </div>
+                      );
+                    };
+
                     // Played-together matrix (all pairs among query + candidates)
                     const matrixTags = [selectedTag, ...candidates.map(s => s.battleTag)];
                     const matrixNames = [queryName, ...candidates.map(s => (s.playerName || s.battleTag || "").split("#")[0])];
@@ -1389,42 +1798,247 @@ export default function InvestigateTab() {
                       return sharedMatrix[k1] ?? sharedMatrix[k2] ?? 0;
                     };
 
+                    const RACE_FILTERS = [
+                      { label: 'All', value: null },
+                      { label: 'Orc', value: 'Orc', icon: raceIcons.orc },
+                      { label: 'Human', value: 'Human', icon: raceIcons.human },
+                      { label: 'NE', value: 'Night Elf', icon: raceIcons.elf },
+                      { label: 'UD', value: 'Undead', icon: raceIcons.undead },
+                    ];
+                    const now = new Date();
+                    const daysAgo = d => new Date(now - d * 864e5).toISOString().slice(0, 10);
+                    const DATE_FILTERS = [
+                      { label: 'All time', value: null },
+                      { label: '1d', value: daysAgo(1) },
+                      { label: '7d', value: daysAgo(7) },
+                      { label: '30d', value: daysAgo(30) },
+                    ];
+
+                    // ── Shared per-player config card (used in setup phase) ──
+                    const renderSetupCard = (tag, { isQuery = false, similarity = null, percentile = null, replayCount = 0, totalCount = null, race = null, mmr = null, isManual = false } = {}) => {
+                      const profile = matchProfiles[tag];
+                      const name = tag.split('#')[0];
+                      const avatar = profile?.profilePicUrl;
+                      const raceIcon = RACE_ICON_MAP[race];
+                      const afterDate = playerDateFilters.get(tag) || null;
+                      const sel = playerReplaySelections.get(tag);
+                      const hasSel = sel && sel.size > 0;
+                      const isOpen = openReplayPicker === tag;
+                      const repCount = isQuery ? queryGames : replayCount;
+                      const total = isQuery ? playstyleData.query?.totalReplayCount : totalCount;
+                      const repColor = repCount >= 100 ? 'var(--green)' : repCount >= 20 ? 'var(--amber)' : 'var(--red)';
+                      const included = !removedTags.has(tag);
+                      // Candidate cards are collapsed until the user opts in; query card always expanded
+                      const isExpanded = isQuery || expandedCards.has(tag);
+                      const toggleExpand = () => setExpandedCards(prev => {
+                        const next = new Set(prev);
+                        if (next.has(tag)) next.delete(tag); else next.add(tag);
+                        return next;
+                      });
+                      // Active filter summary for collapsed state
+                      const activeRace = playerRaceFilters.get(tag);
+                      const hasFilters = !!(activeRace || afterDate || hasSel);
+                      return (
+                        <div key={tag} style={{ width: 200, flexShrink: 0, display: 'flex', flexDirection: 'column', gap: 10, padding: 14, borderRadius: 'var(--radius-lg)', background: isQuery ? 'rgba(212,175,55,0.05)' : 'rgba(255,255,255,0.03)', border: isQuery ? '1px solid rgba(212,175,55,0.25)' : included ? '1px solid rgba(255,255,255,0.12)' : '1px solid rgba(255,255,255,0.06)', opacity: included ? 1 : 0.5 }}>
+                          {/* Identity */}
+                          <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+                            {renderAvatar(avatar, raceIcon, 40)}
+                            <div style={{ minWidth: 0 }}>
+                              <div style={{ fontFamily: 'var(--font-display)', fontSize: 'var(--text-sm)', color: isQuery ? 'var(--gold)' : '#fff', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{name}</div>
+                              <div style={{ fontFamily: 'var(--font-mono)', fontSize: 10, color: repColor, marginTop: 1 }}>
+                                {repCount} reps{total && total !== repCount ? <span style={{ color: 'var(--grey-light)' }}> / {total}</span> : ''}
+                              </div>
+                            </div>
+                            {!isQuery && (
+                              <button title={included ? 'Remove' : 'Add'} onClick={() => included ? removeCandidate(tag) : (setRemovedTags(prev => { const s = new Set(prev); s.delete(tag); return s; }))} style={{ marginLeft: 'auto', flexShrink: 0, width: 20, height: 20, display: 'flex', alignItems: 'center', justifyContent: 'center', background: included ? 'rgba(255,60,60,0.12)' : 'rgba(100,200,100,0.12)', border: included ? '1px solid rgba(255,80,80,0.35)' : '1px solid rgba(100,200,100,0.35)', borderRadius: 4, cursor: 'pointer', fontSize: 11, color: included ? 'rgba(255,110,110,0.9)' : 'var(--green)' }}>
+                                {included ? '×' : '+'}
+                              </button>
+                            )}
+                          </div>
+                          {/* Similarity badge */}
+                          {!isQuery && similarity != null && (
+                            <div style={{ fontFamily: 'var(--font-mono)', fontSize: 11, color: percentile >= 99 ? 'var(--gold)' : percentile >= 97 ? 'var(--green)' : 'var(--grey-light)' }}>
+                              {Math.round(similarity * 100)}% match · {percentile != null ? `p${Math.round(percentile)}` : ''}
+                            </div>
+                          )}
+                          {isManual && <div style={{ fontFamily: 'var(--font-mono)', fontSize: 10, color: 'var(--cyan)' }}>manually added</div>}
+                          {/* Expand/collapse toggle for candidate controls */}
+                          {!isQuery && (
+                            <button onClick={toggleExpand} style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '3px 6px', background: hasFilters ? 'rgba(212,175,55,0.1)' : 'rgba(255,255,255,0.05)', border: hasFilters ? '1px solid rgba(212,175,55,0.3)' : '1px solid rgba(255,255,255,0.1)', borderRadius: 3, cursor: 'pointer', color: hasFilters ? 'var(--gold)' : 'var(--grey-mid)', fontSize: 9, fontFamily: 'var(--font-mono)', textTransform: 'uppercase', letterSpacing: '0.08em', width: '100%' }}>
+                              <span>{hasFilters ? 'filters active' : 'configure filters'}</span>
+                              <span>{isExpanded ? '▲' : '▼'}</span>
+                            </button>
+                          )}
+                          {/* Per-player filters — hidden for candidates until expanded */}
+                          {isExpanded && <>
+                            {/* Race filter (per-player) */}
+                            <div>
+                              <div style={{ fontFamily: 'var(--font-mono)', fontSize: 9, textTransform: 'uppercase', letterSpacing: '0.1em', color: 'var(--grey-light)', opacity: 0.5, marginBottom: 4 }}>Race</div>
+                              <div style={{ display: 'flex', gap: 3, flexWrap: 'wrap' }}>
+                                {RACE_FILTERS.map(rf => {
+                                  const active = activeRace === rf.value;
+                                  return (
+                                    <button key={rf.label} title={rf.label} onClick={() => setPlayerRace(tag, rf.value)} style={{ display: 'flex', alignItems: 'center', gap: 3, padding: '2px 7px', background: active ? 'rgba(212,175,55,0.18)' : 'rgba(255,255,255,0.06)', border: active ? '1px solid var(--gold)' : '1px solid rgba(255,255,255,0.1)', borderRadius: 3, cursor: 'pointer', color: active ? 'var(--gold)' : 'var(--grey-light)', fontSize: 10, fontFamily: 'var(--font-mono)' }}>
+                                      {rf.icon && <img src={rf.icon} alt="" style={{ width: 11, height: 11 }} />}
+                                      {rf.label}
+                                    </button>
+                                  );
+                                })}
+                              </div>
+                            </div>
+                            {/* Date filter */}
+                            <div>
+                              <div style={{ fontFamily: 'var(--font-mono)', fontSize: 9, textTransform: 'uppercase', letterSpacing: '0.1em', color: 'var(--grey-light)', opacity: 0.5, marginBottom: 4 }}>Date range</div>
+                              <div style={{ display: 'flex', gap: 3, flexWrap: 'wrap' }}>
+                                {DATE_FILTERS.map(df => {
+                                  const active = afterDate === df.value;
+                                  return <button key={df.label} onClick={() => setPlayerDate(tag, df.value)} style={{ padding: '2px 7px', background: active ? 'rgba(212,175,55,0.18)' : 'rgba(255,255,255,0.06)', border: active ? '1px solid var(--gold)' : '1px solid rgba(255,255,255,0.1)', borderRadius: 3, cursor: 'pointer', color: active ? 'var(--gold)' : 'var(--grey-light)', fontSize: 10, fontFamily: 'var(--font-mono)' }}>{df.label}</button>;
+                                })}
+                              </div>
+                            </div>
+                            {/* Replay picker */}
+                            <div>
+                              <button onClick={() => setOpenReplayPicker(isOpen ? null : tag)} style={{ display: 'flex', alignItems: 'center', gap: 4, padding: '3px 8px', background: hasSel ? 'rgba(212,175,55,0.12)' : 'rgba(255,255,255,0.06)', border: hasSel ? '1px solid var(--gold)' : '1px solid rgba(255,255,255,0.1)', borderRadius: 3, cursor: 'pointer', color: hasSel ? 'var(--gold)' : 'var(--grey-light)', fontSize: 10, fontFamily: 'var(--font-mono)', width: '100%', justifyContent: 'space-between' }}>
+                                <span>{hasSel ? `${sel.size} replays selected` : 'Pick specific replays'}</span>
+                                <span>{isOpen ? '▲' : '▼'}</span>
+                              </button>
+                              {isOpen && renderReplayPicker(tag)}
+                            </div>
+                          </>}
+                        </div>
+                      );
+                    };
+
+                    // ── SETUP PHASE (shown before running the comparison) ──
+                    if (!showResults) {
+                      const suggestedAll = playstyleData.similar.slice(0, 5).filter(s => !removedTags.has(s.battleTag));
+                      const manualAll = [...manualCandidates.values()].filter(s => !removedTags.has(s.battleTag));
+                      const includedCount = suggestedAll.length + manualAll.length;
+                      return (
+                        <div style={{ maxWidth: 900 }}>
+                          {/* Section: Player of interest */}
+                          <div style={{ fontFamily: 'var(--font-mono)', fontSize: 'var(--text-xxs)', textTransform: 'uppercase', letterSpacing: '0.1em', color: 'var(--grey-light)', opacity: 0.5, marginBottom: 8 }}>Player of interest</div>
+                          <div style={{ display: 'flex', gap: 12, marginBottom: 24 }}>
+                            {renderSetupCard(selectedTag, { isQuery: true, replayCount: queryGames, totalCount: playstyleData.query?.totalReplayCount, race: qRace })}
+                          </div>
+
+                          {/* Section: Compare against */}
+                          <div style={{ fontFamily: 'var(--font-mono)', fontSize: 'var(--text-xxs)', textTransform: 'uppercase', letterSpacing: '0.1em', color: 'var(--grey-light)', opacity: 0.5, marginBottom: 8 }}>Compare against</div>
+                          <div style={{ display: 'flex', gap: 12, flexWrap: 'wrap', marginBottom: 24 }}>
+                            {suggestedAll.map(s => renderSetupCard(s.battleTag, { similarity: s.similarity, percentile: s.percentile, replayCount: s.replayCount, race: s.race }))}
+                            {manualAll.map(s => renderSetupCard(s.battleTag, { similarity: s.score, percentile: s.percentile, replayCount: s.replayCount, race: s.race, isManual: true }))}
+                            {/* Add player search card */}
+                            <div style={{ width: 200, flexShrink: 0, padding: 14, borderRadius: 'var(--radius-lg)', border: '1px dashed rgba(255,255,255,0.12)', display: 'flex', flexDirection: 'column', gap: 8, justifyContent: 'center', alignItems: 'center' }}>
+                              <div style={{ fontFamily: 'var(--font-mono)', fontSize: 10, color: 'var(--grey-mid)', textAlign: 'center' }}>+ Specific player</div>
+                              <div style={{ position: 'relative', width: '100%' }}>
+                                <SearchInputWrap>
+                                  <Input value={addQuery} onChange={e => setAddQuery(e.target.value)} onKeyDown={e => e.key === 'Escape' && (setAddQuery(''), setAddShowDropdown(false))} onFocus={() => addResults.length > 0 && setAddShowDropdown(true)} onBlur={() => setTimeout(() => setAddShowDropdown(false), 200)} placeholder="Search player…" style={{ fontSize: 'var(--text-xxs)', padding: '5px 8px' }} />
+                                </SearchInputWrap>
+                                {addLoading && <PeonLoader size="sm" />}
+                                {addShowDropdown && renderSearchDropdown(addResults, addPlayerToList, true)}
+                              </div>
+                            </div>
+                          </div>
+
+                          {/* Compare button */}
+                          <button
+                            onClick={() => setShowResults(true)}
+                            disabled={includedCount === 0}
+                            style={{ padding: '10px 28px', background: includedCount > 0 ? 'rgba(212,175,55,0.18)' : 'rgba(255,255,255,0.04)', border: includedCount > 0 ? '1px solid var(--gold)' : '1px solid rgba(255,255,255,0.1)', borderRadius: 'var(--radius-md)', cursor: includedCount > 0 ? 'pointer' : 'not-allowed', color: includedCount > 0 ? 'var(--gold)' : 'var(--grey-mid)', fontFamily: 'var(--font-mono)', fontSize: 'var(--text-sm)', letterSpacing: '0.05em' }}
+                          >
+                            Compare {includedCount > 0 ? `${includedCount} player${includedCount !== 1 ? 's' : ''}` : '(select players)'} →
+                          </button>
+                        </div>
+                      );
+                    }
+
                     return (
                       <>
-                      {/* ── Add player to comparison ── */}
-                      <div style={{ position: 'relative', zIndex: 20, display: 'flex', alignItems: 'center', gap: 'var(--space-2)', marginBottom: 'var(--space-3)' }}>
-                        <SearchInputWrap style={{ width: 220 }}>
-                          <Input
-                            value={addQuery}
-                            onChange={e => setAddQuery(e.target.value)}
-                            onKeyDown={e => e.key === "Escape" && (setAddQuery(""), setAddShowDropdown(false))}
-                            onFocus={() => addResults.length > 0 && setAddShowDropdown(true)}
-                            onBlur={() => setTimeout(() => setAddShowDropdown(false), 200)}
-                            placeholder="+ Add player to list…"
-                            style={{ fontSize: 'var(--text-xxs)', padding: '6px 10px' }}
-                          />
-                        </SearchInputWrap>
-                        {addLoading && <PeonLoader size="sm" />}
-                        {addShowDropdown && renderSearchDropdown(addResults, addPlayerToList, true)}
-                        {addIsSearching && addQuery.length >= 2 && !addShowDropdown && (
-                          <div className="navbar-search-dropdown" style={{ width: 220 }}><div className="navbar-search-loading"><PeonLoader size="sm" /></div></div>
-                        )}
-                      </div>
-                      <CompareTable $cols={numCols}>
-                        {/* ── Remove row: × above each candidate column ── */}
-                        <div />
-                        <div />
-                        {renderCandidateCells(s => (
-                          <div key={s.battleTag} style={{ display: 'flex', justifyContent: 'center', paddingBottom: 2 }}>
-                            <button
-                              title="Remove from list"
-                              onClick={e => { e.stopPropagation(); removeCandidate(s.battleTag); }}
-                              style={{ background: 'rgba(255,60,60,0.15)', border: '1px solid rgba(255,60,60,0.4)', borderRadius: 3, cursor: 'pointer', padding: '2px 7px', fontSize: 13, color: 'rgba(255,110,110,0.9)', lineHeight: 1, fontWeight: 600 }}
-                            >
-                              ×
+                      {/* ── Nav: back link + tabs ── */}
+                      <div style={{ marginBottom: 'var(--space-4)', display: 'flex', alignItems: 'center', gap: 16 }}>
+                        <BackLink as="button" onClick={() => setShowResults(false)} style={{ fontSize: 'var(--text-xxs)', flexShrink: 0 }}>← Setup</BackLink>
+                        <div style={{ display: 'flex', gap: 2, background: 'rgba(255,255,255,0.04)', borderRadius: 'var(--radius-md)', padding: 3 }}>
+                          {[['fingerprint', 'Fingerprint'], ['replays', 'Replays']].map(([id, label]) => (
+                            <button key={id} onClick={() => setResultsTab(id)} style={{ padding: '5px 14px', background: resultsTab === id ? 'rgba(212,175,55,0.18)' : 'transparent', border: resultsTab === id ? '1px solid rgba(212,175,55,0.4)' : '1px solid transparent', borderRadius: 'var(--radius-sm)', cursor: 'pointer', color: resultsTab === id ? 'var(--gold)' : 'var(--grey-light)', fontFamily: 'var(--font-mono)', fontSize: 11, letterSpacing: '0.06em', textTransform: 'uppercase', transition: 'all 0.15s' }}>
+                              {label}
                             </button>
+                          ))}
+                        </div>
+                      </div>
+                      {/* ── Toolbar: add player ── */}
+                      <div style={{ position: 'relative', zIndex: 30, display: 'flex', alignItems: 'center', gap: 'var(--space-3)', marginBottom: 'var(--space-3)', flexWrap: 'wrap' }}>
+                        <div style={{ position: 'relative', zIndex: 30, display: 'flex', alignItems: 'center', gap: 'var(--space-2)' }}>
+                          <SearchInputWrap style={{ width: 220 }}>
+                            <Input
+                              value={addQuery}
+                              onChange={e => setAddQuery(e.target.value)}
+                              onKeyDown={e => e.key === "Escape" && (setAddQuery(""), setAddShowDropdown(false))}
+                              onFocus={() => addResults.length > 0 && setAddShowDropdown(true)}
+                              onBlur={() => setTimeout(() => setAddShowDropdown(false), 200)}
+                              placeholder="+ Add player to list…"
+                              style={{ fontSize: 'var(--text-xxs)', padding: '6px 10px' }}
+                            />
+                          </SearchInputWrap>
+                          {addLoading && <PeonLoader size="sm" />}
+                          {addShowDropdown && renderSearchDropdown(addResults, addPlayerToList, true)}
+                          {addIsSearching && addQuery.length >= 2 && !addShowDropdown && (
+                            <div className="navbar-search-dropdown" style={{ width: 220 }}><div className="navbar-search-loading"><PeonLoader size="sm" /></div></div>
+                          )}
+                        </div>
+                      </div>
+
+                      {/* ── REPLAYS TAB ── */}
+                      {resultsTab === 'replays' && (() => {
+                        const allPlayers = [
+                          { tag: selectedTag, name: queryName, isQuery: true },
+                          ...candidates.map(s => ({ tag: s.battleTag, name: (s.playerName || s.battleTag || '').split('#')[0], isQuery: false })),
+                        ];
+                        return (
+                          <div style={{ display: 'flex', gap: 'var(--space-4)', alignItems: 'flex-start', flexWrap: 'wrap' }}>
+                            {allPlayers.map(p => {
+                              const replays = playerReplayLists.get(p.tag) || [];
+                              const selection = playerReplaySelections.get(p.tag);
+                              const hasSelection = selection && selection.size > 0;
+                              return (
+                                <div key={p.tag} style={{ flex: '0 0 240px', display: 'flex', flexDirection: 'column', gap: 8 }}>
+                                  {/* Player header */}
+                                  <div style={{ display: 'flex', alignItems: 'center', gap: 8, paddingBottom: 8, borderBottom: p.isQuery ? '2px solid rgba(212,175,55,0.4)' : '1px solid rgba(255,255,255,0.1)' }}>
+                                    <span style={{ fontFamily: 'var(--font-display)', fontSize: 'var(--text-sm)', color: p.isQuery ? 'var(--gold)' : '#fff' }}>{p.name}</span>
+                                    {hasSelection && (
+                                      <span style={{ fontFamily: 'var(--font-mono)', fontSize: 10, color: 'var(--gold)', marginLeft: 'auto' }}>{selection.size} sel</span>
+                                    )}
+                                    {hasSelection && (
+                                      <button onClick={() => setPlayerReplaySelection(p.tag, null)} style={{ fontFamily: 'var(--font-mono)', fontSize: 9, color: 'var(--grey-mid)', background: 'none', border: 'none', cursor: 'pointer', padding: 0 }}>clear</button>
+                                    )}
+                                  </div>
+                                  {/* Race + date filters */}
+                                  <div style={{ display: 'flex', gap: 3, flexWrap: 'wrap' }}>
+                                    {RACE_FILTERS.map(rf => {
+                                      const active = playerRaceFilters.get(p.tag) === rf.value;
+                                      return (
+                                        <button key={rf.label} onClick={() => setPlayerRace(p.tag, rf.value)}
+                                          style={{ display: 'flex', alignItems: 'center', gap: 2, padding: '2px 6px', background: active ? 'rgba(212,175,55,0.18)' : 'rgba(255,255,255,0.06)', border: active ? '1px solid var(--gold)' : '1px solid rgba(255,255,255,0.1)', borderRadius: 3, cursor: 'pointer', color: active ? 'var(--gold)' : 'var(--grey-light)', fontSize: 10, fontFamily: 'var(--font-mono)' }}>
+                                          {rf.icon && <img src={rf.icon} alt="" style={{ width: 11, height: 11 }} />}{rf.label}
+                                        </button>
+                                      );
+                                    })}
+                                  </div>
+                                  <div style={{ display: 'flex', gap: 3 }}>
+                                    {DATE_FILTERS.map(df => {
+                                      const active = playerDateFilters.get(p.tag) === df.value;
+                                      return <button key={df.label} onClick={() => setPlayerDate(p.tag, df.value)} style={{ padding: '2px 8px', background: active ? 'rgba(212,175,55,0.18)' : 'rgba(255,255,255,0.06)', border: active ? '1px solid var(--gold)' : '1px solid rgba(255,255,255,0.1)', borderRadius: 3, cursor: 'pointer', color: active ? 'var(--gold)' : 'var(--grey-light)', fontSize: 10, fontFamily: 'var(--font-mono)' }}>{df.label}</button>;
+                                    })}
+                                  </div>
+                                  {/* Replay list */}
+                                  {renderReplayPicker(p.tag)}
+                                </div>
+                              );
+                            })}
                           </div>
-                        ))}
+                        );
+                      })()}
+
+                      {resultsTab === 'fingerprint' && <CompareTable $cols={numCols}>
 
                         {/* ── Header row: player names (draggable to reorder) ── */}
                         <div />
@@ -1432,7 +2046,12 @@ export default function InvestigateTab() {
                           {renderAvatar(qAvatar, qRaceIcon)}
                           <THName>{queryName}</THName>
                           {qCountry && <CountryFlag name={qCountry.toLowerCase()} style={{ width: 16, height: 12 }} />}
-                          <THLabel style={{ color: queryGames >= 100 ? 'var(--green)' : queryGames >= 20 ? 'var(--amber)' : 'var(--red)', opacity: 1 }}>{queryGames} reps</THLabel>
+                          <THLabel style={{ color: queryGames >= 100 ? 'var(--green)' : queryGames >= 20 ? 'var(--amber)' : 'var(--red)', opacity: 1 }}>
+                            {queryGames} reps{playstyleData.query?.totalReplayCount != null && playstyleData.query.totalReplayCount !== queryGames && (
+                              <span style={{ color: 'var(--grey-light)', marginLeft: 3 }}>/ {playstyleData.query.totalReplayCount}</span>
+                            )}
+                          </THLabel>
+                          {renderTHControls(selectedTag)}
                         </TH>
                         {renderCandidateCells(s => {
                           const name = (s.playerName || s.battleTag || "").split("#")[0];
@@ -1461,18 +2080,19 @@ export default function InvestigateTab() {
                               }}
                               style={{ cursor: 'grab' }}
                             >
+                              <RemoveBtn title="Remove" onClick={e => { e.stopPropagation(); removeCandidate(s.battleTag); }}>×</RemoveBtn>
                               {renderAvatar(mp?.profilePicUrl, RACE_ICON_MAP[s.race])}
                               <THName>{name}</THName>
                               {mp?.country && <CountryFlag name={mp.country.toLowerCase()} style={{ width: 16, height: 12 }} />}
                               <THLabel style={{ color: repColor, opacity: 1 }}>{s.replayCount} reps</THLabel>
-                              {s.isManual && <THLabel style={{ color: 'var(--cyan)', opacity: 1 }}>added</THLabel>}
+                              {renderTHControls(s.battleTag)}
                             </TH>
                           );
                         })}
 
                         {/* ── Fingerprint row ── */}
                         <GlyphRowLabel>Fingerprint</GlyphRowLabel>
-                        <GlyphTD $query>
+                        <GlyphTD $query style={{ position: 'relative' }}>
                           <TransitionGlyph
                             transitionPairs={qGlyph?.transitionPairs || []}
                             groupUsage={qGlyph?.groupUsage || []}
@@ -1482,13 +2102,22 @@ export default function InvestigateTab() {
                             replayCount={queryGames}
                             mini
                           />
+                          {refetchingTags.has(selectedTag) && (
+                            <div style={{ position: 'absolute', inset: 0, display: 'flex', alignItems: 'center', justifyContent: 'center', background: 'rgba(0,0,0,0.45)', borderRadius: 'var(--radius-md)' }}>
+                              <PeonLoader size="sm" />
+                            </div>
+                          )}
                         </GlyphTD>
                         {renderCandidateCells(s => {
                           const name = (s.playerName || s.battleTag || "").split("#")[0];
-                          
                           const hasArcs = s.glyph?.transitionPairs?.length > 0;
+                          const isRefetching = refetchingTags.has(s.battleTag);
+                          const isImporting = importingTags.has(s.battleTag);
+                          const hasReplayFilter = !!(playerReplaySelections.get(s.battleTag)?.size);
+                          const minReps = hasReplayFilter ? 1 : 3;
+                          const needsImport = s.replayCount < minReps && !isImporting && !isRefetching;
                           return (
-                            <GlyphTD key={s.battleTag}>
+                            <GlyphTD key={s.battleTag} style={{ position: 'relative' }}>
                               <div style={{ position: "relative", width: "100%" }}>
                                 <TransitionGlyph
                                   transitionPairs={s.glyph?.transitionPairs || []}
@@ -1499,12 +2128,26 @@ export default function InvestigateTab() {
                                   replayCount={s.replayCount}
                                   mini
                                 />
-                                {!hasArcs && (
+                                {!hasArcs && !isRefetching && !needsImport && !isImporting && (
                                   <div style={{ position: "absolute", bottom: 4, left: 0, right: 0, textAlign: "center", fontFamily: "var(--font-mono)", fontSize: 10, color: "var(--grey-mid)", fontStyle: "italic" }}>
                                     fetching sequence…
                                   </div>
                                 )}
                               </div>
+                              {(isRefetching || isImporting) && (
+                                <div style={{ position: 'absolute', inset: 0, display: 'flex', alignItems: 'center', justifyContent: 'center', background: 'rgba(0,0,0,0.45)', borderRadius: 'var(--radius-md)' }}>
+                                  <PeonLoader size="sm" />
+                                  {isImporting && <span style={{ marginLeft: 6, fontFamily: 'var(--font-mono)', fontSize: 10, color: 'var(--grey-light)' }}>importing…</span>}
+                                </div>
+                              )}
+                              {needsImport && (
+                                <div style={{ position: 'absolute', inset: 0, display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', background: 'rgba(0,0,0,0.55)', borderRadius: 'var(--radius-md)', gap: 6 }}>
+                                  <span style={{ fontFamily: 'var(--font-mono)', fontSize: 10, color: 'var(--grey-light)' }}>{s.replayCount} rep{s.replayCount !== 1 ? 's' : ''} — not enough</span>
+                                  <button onClick={() => importReplays(s.battleTag)} style={{ padding: '4px 10px', background: 'rgba(212,175,55,0.15)', border: '1px solid var(--gold)', borderRadius: 'var(--radius-md)', cursor: 'pointer', color: 'var(--gold)', fontSize: 10, fontFamily: 'var(--font-mono)' }}>
+                                    ↓ Import replays
+                                  </button>
+                                </div>
+                              )}
                             </GlyphTD>
                           );
                         })}
@@ -1584,10 +2227,10 @@ export default function InvestigateTab() {
                         {renderCandidateCells(s => (
                           <TD key={s.battleTag}>{s.reassignRatio != null ? `${s.reassignRatio}%` : '—'}</TD>
                         ))}
-                      </CompareTable>
+                      </CompareTable>}
 
                       {/* ── Played-together matrix (upper triangle only) ── */}
-                      {matrixTags.length > 1 && (
+                      {resultsTab === 'fingerprint' && matrixTags.length > 1 && (
                         <div style={{ marginBottom: "var(--space-6)" }}>
                           <div style={{ fontFamily: "var(--font-mono)", fontSize: "var(--text-xxxs)", color: "var(--grey-light)", textTransform: "uppercase", letterSpacing: "0.1em", opacity: 0.5, marginBottom: "var(--space-2)" }}>Played together</div>
                           <div style={{ display: "grid", gridTemplateColumns: `120px repeat(${matrixTags.length - 1}, 1fr)`, gap: 1 }}>
@@ -1620,8 +2263,8 @@ export default function InvestigateTab() {
                     );
                   })()}
 
-                  {/* Activity timeline — shows when each player was active across seasons */}
-                  {(() => {
+                  {/* Activity timeline — results phase only */}
+                  {showResults && (() => {
                     const tlMap = new Map([
                       ...playstyleData.similar.slice(0, 5).map(s => [s.battleTag, s]),
                       ...manualCandidates,
@@ -1645,7 +2288,7 @@ export default function InvestigateTab() {
                     ];
                     const hasAnyActivity = tlPlayers.some(p => p.seasonActivity.length > 0);
                     if (!hasAnyActivity) return null;
-                    return <ActivityTimeline players={tlPlayers} matchProfiles={matchProfiles} />;
+                    return <ActivityTimeline players={tlPlayers} matchProfiles={matchProfiles} startDate={playerDateFilters.get(selectedTag) || null} />;
                   })()}
                 </>
               ) : (

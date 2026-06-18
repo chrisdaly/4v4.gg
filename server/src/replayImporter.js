@@ -364,6 +364,77 @@ export async function importPlayerMatches(battleTag, targetImports = 3, seasonOv
 }
 
 /**
+ * Bulk-import all recent matches for a player up to daysBack days ago.
+ * Pages through W3C results until we hit the cutoff date or exhaust results.
+ * Returns { discovered, alreadyImported, imported, errors, noReplay, rateLimited }.
+ */
+export async function importPlayerMatchesBulk(battleTag, { daysBack = 7, maxImports = 50, seasonOverride = null } = {}) {
+  if (!diskHasHeadroom()) throw new Error('Disk space low — imports are paused');
+  let season = seasonOverride;
+  if (!season) {
+    season = 24;
+    try {
+      const res = await fetch(`${W3C_API}/ladder/seasons`);
+      if (res.ok) {
+        const seasons = await res.json();
+        if (seasons?.length > 0) season = seasons[0].id;
+      }
+    } catch { /* use default */ }
+  }
+
+  const cutoffMs = Date.now() - daysBack * 86400000;
+  const allCandidates = [];
+
+  for (let offset = 0; offset < 400; offset += 100) {
+    if (offset > 0) await sleep(RATE_LIMIT_MS);
+    const url = `${W3C_API}/matches/search?playerId=${encodeURIComponent(battleTag)}&offset=${offset}&gameMode=4&season=${season}&gateway=20&pageSize=100`;
+    let res;
+    try { res = await fetch(url); } catch { break; }
+    if (!res.ok) break;
+    const data = await res.json();
+    const matches = data.matches || [];
+    if (matches.length === 0) break;
+
+    let hitCutoff = false;
+    for (const m of matches) {
+      const matchMs = m.endTime ? new Date(m.endTime).getTime() : null;
+      if (matchMs && matchMs < cutoffMs) { hitCutoff = true; break; }
+      if (m.durationInSeconds != null && m.durationInSeconds < 300) continue;
+      const players = [];
+      for (const team of m.teams || []) {
+        for (const p of team.players || []) {
+          players.push({ name: p.name || p.battleTag?.split('#')[0], battleTag: p.battleTag });
+        }
+      }
+      allCandidates.push({ matchId: m.id, players });
+    }
+    if (hitCutoff || matches.length < 100) break;
+  }
+
+  const allIds = allCandidates.map(c => c.matchId);
+  const existing = getExistingW3cMatchIds(allIds);
+  const newMatches = allCandidates.filter(c => !existing.has(c.matchId));
+
+  let imported = 0, errors = 0, noReplay = 0, rateLimited = false;
+  for (const match of newMatches) {
+    if (imported >= maxImports) break;
+    await sleep(RATE_LIMIT_MS);
+    try {
+      const result = await importMatch(match);
+      if (result.status === 'imported') imported++;
+      else if (result.status === 'no_replay') noReplay++;
+      else if (result.status === 'rate_limited') { rateLimited = true; break; }
+    } catch (err) {
+      console.error(`[Importer] Bulk import error ${match.matchId}:`, err.message);
+      errors++;
+    }
+  }
+
+  console.log(`[Importer] Bulk import for ${battleTag} (${daysBack}d): ${allCandidates.length} found, ${existing.size} existing, ${imported} imported, ${noReplay} no replay, ${errors} errors`);
+  return { discovered: allCandidates.length, alreadyImported: existing.size, newFound: newMatches.length, imported, errors, noReplay, rateLimited };
+}
+
+/**
  * Start the background importer. Call once at server startup.
  */
 export function startReplayImporter() {

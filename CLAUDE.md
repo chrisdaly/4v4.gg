@@ -153,7 +153,8 @@ Import from `src/components/ui.jsx`:
 
 All data from W3Champions API:
 - `GET /api/matches/ongoing` - Live games
-- `GET /api/matches` - Finished games
+- `GET /api/matches` - Finished games (global feed; `playerId` param is **ignored** — do NOT use this to get a player's matches)
+- `GET /api/matches/search?playerId={tag}&gameMode=4&season={n}&gateway=20&pageSize={n}` - **Player match history** (the only endpoint that filters by player). Requires `season` param; omitting it returns 0 results. Current seasons: 24 (ended ~June 15 2026), 25 (started June 16 2026).
 - `GET /api/matches/{id}` - Specific game details
 - `GET /api/ladder/{race}` - Player rankings
 - `GET /api/players/{battleTag}/mmr-rp-timeline` - MMR history

@@ -1594,13 +1594,13 @@ export function getMessagesAroundTime(receivedAt, minutesPadding = 3, limit = 60
 
 // ── Replays ──────────────────────────────────────────
 
-export function insertReplay({ filename, filePath, fileSize, fileHash }) {
+export function insertReplay({ filename, filePath, fileSize, fileHash, w3cMatchId = null }) {
   // Production DB schema has `id INT` (not AUTOINCREMENT), so we must assign manually
   const nextId = (db.prepare('SELECT COALESCE(MAX(id), 0) + 1 AS next FROM replays').get()).next;
   db.prepare(`
-    INSERT INTO replays (id, filename, file_path, file_size, file_hash, uploaded_at, parse_status)
-    VALUES (?, ?, ?, ?, ?, datetime('now'), 'pending')
-  `).run(nextId, filename, filePath, fileSize, fileHash || null);
+    INSERT INTO replays (id, filename, file_path, file_size, file_hash, w3c_match_id, uploaded_at, parse_status)
+    VALUES (?, ?, ?, ?, ?, ?, datetime('now'), 'pending')
+  `).run(nextId, filename, filePath, fileSize, fileHash || null, w3cMatchId || null);
   return nextId;
 }
 
@@ -1923,6 +1923,7 @@ export function getPlayerActionDataByName(playerName, replayId = null) {
 export function getPlayerActionDataByReplayIds(battleTag, replayIds) {
   if (!replayIds || replayIds.length === 0) return [];
   const placeholders = replayIds.map(() => '?').join(',');
+  const playerName = battleTag.split('#')[0];
   return db.prepare(`
     SELECT rpa.replay_id, r.match_date,
            rpa.timed_segments, rpa.full_action_sequence, rpa.group_hotkeys,
@@ -1933,8 +1934,9 @@ export function getPlayerActionDataByReplayIds(battleTag, replayIds) {
     FROM replay_player_actions rpa
     JOIN replay_players rp ON rp.replay_id = rpa.replay_id AND rp.player_id = rpa.player_id
     JOIN replays r ON r.id = rpa.replay_id
-    WHERE rp.battle_tag = ? AND r.id IN (${placeholders})
-  `).all(battleTag, ...replayIds);
+    WHERE (rp.battle_tag = ? OR rp.player_name = ? OR rp.player_name LIKE ? || '#%')
+      AND r.id IN (${placeholders})
+  `).all(battleTag, playerName, playerName, ...replayIds);
 }
 
 // ── Player Fingerprints ─────────────────────────────
@@ -1964,36 +1966,65 @@ export function insertPlayerFingerprints(replayId, fingerprints) {
 
 export function getPlayerFingerprints(battleTag) {
   return db.prepare(`
-    SELECT pf.*, r.map_name, r.match_date, r.game_duration
+    SELECT pf.*, r.map_name, r.match_date, r.uploaded_at, r.game_duration
     FROM player_fingerprints pf
     JOIN replays r ON r.id = pf.replay_id
     WHERE pf.battle_tag = ?
-    ORDER BY r.match_date DESC
+    ORDER BY COALESCE(r.match_date, r.uploaded_at) DESC
   `).all(battleTag);
 }
 
 export function getPlayerFingerprintsByName(playerName) {
-  // Match exact name OR name with battle tag suffix (e.g., "Klotervan" matches "Klotervan#2162")
   return db.prepare(`
-    SELECT pf.*, r.map_name, r.match_date, r.game_duration
+    SELECT pf.*, r.map_name, r.match_date, r.uploaded_at, r.game_duration
     FROM player_fingerprints pf
     JOIN replays r ON r.id = pf.replay_id
     WHERE pf.player_name = ? OR pf.player_name LIKE ? || '#%'
-    ORDER BY r.match_date DESC
+    ORDER BY COALESCE(r.match_date, r.uploaded_at) DESC
   `).all(playerName, playerName);
 }
 
-export function getPlayerFingerprintsFiltered(battleTag, { minDuration = 0 } = {}) {
-  if (minDuration > 0) {
-    return db.prepare(`
-      SELECT pf.*, r.map_name, r.match_date, r.game_duration
-      FROM player_fingerprints pf
-      JOIN replays r ON r.id = pf.replay_id
-      WHERE pf.battle_tag = ? AND r.game_duration >= ?
-      ORDER BY r.match_date DESC
-    `).all(battleTag, minDuration);
+export function getPlayerFingerprintsFiltered(battleTag, { minDuration = 0, race = null, after = null, replayIds = null } = {}) {
+  const playerName = battleTag.split('#')[0];
+  // Match by battle_tag OR player_name — replays imported without a full battleTag only have player_name set
+  const conditions = ['(pf.battle_tag = ? OR pf.player_name = ? OR pf.player_name LIKE ? || \'#%\')'];
+  const params = [battleTag, playerName, playerName];
+  if (minDuration > 0) { conditions.push('r.game_duration >= ?'); params.push(minDuration); }
+  if (race) { conditions.push('pf.race = ?'); params.push(race); }
+  if (after) { conditions.push('COALESCE(r.match_date, r.uploaded_at) >= ?'); params.push(after); }
+  if (replayIds?.length) {
+    conditions.push(`pf.replay_id IN (${replayIds.map(() => '?').join(',')})`);
+    params.push(...replayIds);
   }
-  return getPlayerFingerprints(battleTag);
+  if (conditions.length === 1) return getPlayerFingerprints(battleTag);
+  return db.prepare(`
+    SELECT pf.*, r.map_name, r.match_date, r.uploaded_at, r.game_duration
+    FROM player_fingerprints pf
+    JOIN replays r ON r.id = pf.replay_id
+    WHERE ${conditions.join(' AND ')}
+    ORDER BY COALESCE(r.match_date, r.uploaded_at) DESC
+  `).all(...params);
+}
+
+
+export function getPlayerActionDataTopFiltered(battleTag, limit = 10, { race = null, after = null } = {}) {
+  const conditions = ['rp.battle_tag = ?'];
+  const params = [battleTag];
+  if (race) { conditions.push('rp.race = ?'); params.push(race); }
+  if (after) { conditions.push('COALESCE(r.match_date, r.uploaded_at) >= ?'); params.push(after); }
+  params.push(limit);
+  return db.prepare(`
+    SELECT rpa.group_hotkeys, rpa.group_compositions, rpa.full_action_sequence,
+           rpa.removeunit, rpa.basic, rpa.heroes, r.game_duration
+    FROM replay_player_actions rpa
+    JOIN replay_players rp ON rp.replay_id = rpa.replay_id AND rp.player_id = rpa.player_id
+    JOIN replays r ON r.id = rpa.replay_id
+    WHERE ${conditions.join(' AND ')}
+    ORDER BY (CASE WHEN rpa.full_action_sequence IS NOT NULL
+                        AND rpa.full_action_sequence != '[]' THEN 1 ELSE 0 END) DESC,
+             rpa.replay_id DESC
+    LIMIT ?
+  `).all(...params);
 }
 
 export function getAllAveragedFingerprints() {
@@ -2153,7 +2184,18 @@ export function getRecentMessagesByTags(battleTags, hours = 12, limit = 30) {
   `).all(...battleTags, hours, limit);
 }
 
-export function getPlayerAvgApm(battleTag) {
+export function getPlayerAvgApm(battleTag, replayIds = null) {
+  if (replayIds?.length) {
+    const placeholders = replayIds.map(() => '?').join(',');
+    const playerName = battleTag.split('#')[0];
+    const row = db.prepare(`
+      SELECT ROUND(AVG(rp.apm)) as avg_apm
+      FROM replay_players rp
+      WHERE (rp.battle_tag = ? OR rp.player_name = ? OR rp.player_name LIKE ? || '#%')
+        AND rp.replay_id IN (${placeholders})
+    `).get(battleTag, playerName, playerName, ...replayIds);
+    return row?.avg_apm ?? null;
+  }
   const row = db.prepare(`
     SELECT ROUND(AVG(apm)) as avg_apm FROM replay_players WHERE battle_tag = ?
   `).get(battleTag);
