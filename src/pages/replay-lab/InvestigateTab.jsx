@@ -9,7 +9,7 @@ import PlayerIdentityCard, {
 } from "../../components/PlayerIdentityCard";
 import TransitionGlyph from "../../components/replay-lab/TransitionGlyph";
 import { getGroupUnits, HERO_IMAGES, BUILDINGS } from "../../components/replay-lab/PlaystyleReport";
-import { searchLadderWithFallback, getPlayerProfilesBatch } from "../../lib/api";
+import { searchLadderWithFallback, getPlayerProfilesBatch, getLadder } from "../../lib/api";
 import { raceMapping } from "../../lib/constants";
 import { Input, CountryFlag } from "../../components/ui";
 import { raceIcons } from "../../lib/constants";
@@ -1135,6 +1135,9 @@ export default function InvestigateTab() {
   const selectedTagRef = useRef(null);
   const manualCandidatesRef = useRef(new Map());
   const fetchedReplayListTagsRef = useRef(new Set()); // prevent duplicate fetches
+  const [countryMates, setCountryMates] = useState([]);
+  const [countryMatesLoading, setCountryMatesLoading] = useState(false);
+  const countryMatesFetchedRef = useRef(null);
 
   const removeCandidate = (tag) => {
     setRemovedTags(prev => new Set([...prev, tag]));
@@ -1220,6 +1223,41 @@ export default function InvestigateTab() {
         .catch(() => {});
     }
   }, [playstyleData, selectedTag, RELAY_URL]);
+
+  // Fetch same-country players from the ladder once we know the query player's country
+  useEffect(() => {
+    const qCountry = matchProfiles[selectedTag]?.country;
+    const qMmr = playstyleData?.query?.mmr;
+    if (!selectedTag || !qCountry || !qMmr) return;
+    if (countryMatesFetchedRef.current === selectedTag) return;
+    countryMatesFetchedRef.current = selectedTag;
+    setCountryMatesLoading(true);
+    (async () => {
+      try {
+        const ladderPages = await Promise.all([0,1,2,3,4,5,6].map(id => getLadder(id)));
+        const allPlayers = ladderPages.flat();
+        const tags = [...new Set(allPlayers.map(r => r.playersInfo?.[0]?.battleTag).filter(Boolean))];
+        const profileMap = await getPlayerProfilesBatch(tags);
+        setMatchProfiles(prev => { const next = { ...prev }; for (const [t, p] of profileMap) next[t] = p; return next; });
+        const matches = [];
+        for (const rank of allPlayers) {
+          const tag = rank.playersInfo?.[0]?.battleTag;
+          if (!tag || tag === selectedTag) continue;
+          const profile = profileMap.get(tag);
+          if (!profile?.country || profile.country !== qCountry) continue;
+          const mmr = rank.player?.mmr;
+          const race = rank.player?.race;
+          matches.push({ battleTag: tag, mmr, race, mmrDist: Math.abs((mmr || 0) - qMmr) });
+        }
+        matches.sort((a, b) => a.mmrDist - b.mmrDist);
+        setCountryMates(matches);
+      } catch (e) {
+        console.error('countryMates fetch failed', e);
+      } finally {
+        setCountryMatesLoading(false);
+      }
+    })();
+  }, [selectedTag, matchProfiles, playstyleData]);
 
   // Shared refetch for a single player using current filter state from refs
   const refetchPlayer = useCallback((tag) => {
@@ -1339,6 +1377,7 @@ export default function InvestigateTab() {
     setCandidateOrder([]); setRemovedTags(new Set()); setManualCandidates(new Map());
     setPlayerReplayLists(new Map()); setPlayerReplaySelections(new Map()); setOpenReplayPicker(null);
     setShowResults(false); setPlayerRaceFilters(new Map()); setPlayerDateFilters(new Map()); setExpandedCards(new Set()); setOpenResultsFilter(null);
+    setCountryMates([]); setCountryMatesLoading(false); countryMatesFetchedRef.current = null;
     fetchedReplayListTagsRef.current = new Set();
     fetch(`${RELAY_URL}/api/fingerprints/profile/${encodeURIComponent(battleTag)}/replays`)
       .then(r => r.ok ? r.json() : null)
@@ -1417,7 +1456,8 @@ export default function InvestigateTab() {
     params.delete("q");
     history.replace({ search: params.toString() ? `?${params}` : "" });
     setSelectedTag(null); setPlaystyleData(null); setMatchProfiles({});
-    setManualCandidates(new Map());
+    setManualCandidates(new Map()); setCountryMates([]); setCountryMatesLoading(false);
+    countryMatesFetchedRef.current = null;
   }, [history, location.search]);
 
   const queryGames = playstyleData?.query?.replayCount || 0;
@@ -1909,27 +1949,78 @@ export default function InvestigateTab() {
                       );
                     };
 
+                    // ── Discovery card: lightweight "+Add" card for country-mate suggestions ──
+                    const renderDiscoveryCard = (mate) => {
+                      const mName = mate.battleTag.split('#')[0];
+                      const mProfile = matchProfiles[mate.battleTag];
+                      const mRaceIcon = RACE_ICON_MAP[mate.race];
+                      const alreadyIn = candidateOrder.includes(mate.battleTag) || playstyleData.similar.slice(0,5).some(s => s.battleTag === mate.battleTag);
+                      return (
+                        <div key={mate.battleTag} style={{ width: 200, flexShrink: 0, padding: '12px 14px', borderRadius: 'var(--radius-lg)', border: '1px solid rgba(255,255,255,0.1)', background: 'rgba(255,255,255,0.02)', display: 'flex', flexDirection: 'column', gap: 8 }}>
+                          <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+                            {renderAvatar(mProfile?.profilePicUrl, mRaceIcon, 36)}
+                            <div style={{ minWidth: 0 }}>
+                              <div style={{ fontFamily: 'var(--font-display)', fontSize: 'var(--text-sm)', color: '#fff', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{mName}</div>
+                              <div style={{ fontFamily: 'var(--font-mono)', fontSize: 10, color: 'var(--grey-light)' }}>
+                                {mate.mmr} MMR {mate.mmrDist > 0 && <span style={{ color: 'var(--grey-mid)' }}>(±{mate.mmrDist})</span>}
+                              </div>
+                            </div>
+                          </div>
+                          <button
+                            disabled={alreadyIn || addLoading}
+                            onClick={() => !alreadyIn && addPlayerToList(mate.battleTag, mate.mmr, mate.race)}
+                            style={{ padding: '4px 0', background: alreadyIn ? 'rgba(100,200,100,0.08)' : 'rgba(255,255,255,0.06)', border: alreadyIn ? '1px solid rgba(100,200,100,0.25)' : '1px solid rgba(255,255,255,0.12)', borderRadius: 3, cursor: alreadyIn ? 'default' : 'pointer', color: alreadyIn ? 'var(--green)' : 'var(--grey-light)', fontFamily: 'var(--font-mono)', fontSize: 10, textTransform: 'uppercase', letterSpacing: '0.06em', textAlign: 'center' }}
+                          >
+                            {alreadyIn ? '✓ Added' : '+ Add'}
+                          </button>
+                        </div>
+                      );
+                    };
+
                     // ── SETUP PHASE (shown before running the comparison) ──
                     if (!showResults) {
                       const suggestedAll = playstyleData.similar.slice(0, 5).filter(s => !removedTags.has(s.battleTag));
                       const manualAll = [...manualCandidates.values()].filter(s => !removedTags.has(s.battleTag));
                       const includedCount = suggestedAll.length + manualAll.length;
+                      const sectionLabel = (text, extra) => (
+                        <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 10 }}>
+                          <span style={{ fontFamily: 'var(--font-mono)', fontSize: 'var(--text-xxs)', textTransform: 'uppercase', letterSpacing: '0.1em', color: 'var(--grey-light)', opacity: 0.5 }}>{text}</span>
+                          {extra}
+                        </div>
+                      );
                       return (
-                        <div style={{ maxWidth: 900 }}>
+                        <div style={{ maxWidth: 960 }}>
                           {/* Section: Player of interest */}
-                          <div style={{ fontFamily: 'var(--font-mono)', fontSize: 'var(--text-xxs)', textTransform: 'uppercase', letterSpacing: '0.1em', color: 'var(--grey-light)', opacity: 0.5, marginBottom: 8 }}>Player of interest</div>
-                          <div style={{ display: 'flex', gap: 12, marginBottom: 24 }}>
+                          {sectionLabel('Player of interest')}
+                          <div style={{ display: 'flex', gap: 12, marginBottom: 28 }}>
                             {renderSetupCard(selectedTag, { isQuery: true, replayCount: queryGames, totalCount: playstyleData.query?.totalReplayCount, race: qRace })}
                           </div>
 
-                          {/* Section: Compare against */}
-                          <div style={{ fontFamily: 'var(--font-mono)', fontSize: 'var(--text-xxs)', textTransform: 'uppercase', letterSpacing: '0.1em', color: 'var(--grey-light)', opacity: 0.5, marginBottom: 8 }}>Compare against</div>
-                          <div style={{ display: 'flex', gap: 12, flexWrap: 'wrap', marginBottom: 24 }}>
+                          {/* Section: Top 5 similar */}
+                          {sectionLabel('Top 5 similar')}
+                          <div style={{ display: 'flex', gap: 12, flexWrap: 'wrap', marginBottom: 28 }}>
                             {suggestedAll.map(s => renderSetupCard(s.battleTag, { similarity: s.similarity, percentile: s.percentile, replayCount: s.replayCount, race: s.race }))}
+                          </div>
+
+                          {/* Section: Same country */}
+                          {qCountry && sectionLabel(
+                            `Same country · ${qCountry}`,
+                            countryMatesLoading && <span style={{ fontFamily: 'var(--font-mono)', fontSize: 10, color: 'var(--grey-mid)', opacity: 0.6 }}>loading…</span>
+                          )}
+                          {qCountry && (
+                            <div style={{ display: 'flex', gap: 12, flexWrap: 'wrap', marginBottom: 28, minHeight: 20 }}>
+                              {!countryMatesLoading && countryMates.length === 0 && (
+                                <span style={{ fontFamily: 'var(--font-mono)', fontSize: 11, color: 'var(--grey-mid)', alignSelf: 'center' }}>No ladder players from {qCountry}</span>
+                              )}
+                              {countryMates.slice(0, 6).map(renderDiscoveryCard)}
+                            </div>
+                          )}
+
+                          {/* Section: Manually added + add search */}
+                          {sectionLabel('Add manually')}
+                          <div style={{ display: 'flex', gap: 12, flexWrap: 'wrap', marginBottom: 28 }}>
                             {manualAll.map(s => renderSetupCard(s.battleTag, { similarity: s.score, percentile: s.percentile, replayCount: s.replayCount, race: s.race, isManual: true }))}
-                            {/* Add player search card */}
                             <div style={{ width: 200, flexShrink: 0, padding: 14, borderRadius: 'var(--radius-lg)', border: '1px dashed rgba(255,255,255,0.12)', display: 'flex', flexDirection: 'column', gap: 8, justifyContent: 'center', alignItems: 'center' }}>
-                              <div style={{ fontFamily: 'var(--font-mono)', fontSize: 10, color: 'var(--grey-mid)', textAlign: 'center' }}>+ Specific player</div>
                               <div style={{ position: 'relative', width: '100%' }}>
                                 <SearchInputWrap>
                                   <Input value={addQuery} onChange={e => setAddQuery(e.target.value)} onKeyDown={e => e.key === 'Escape' && (setAddQuery(''), setAddShowDropdown(false))} onFocus={() => addResults.length > 0 && setAddShowDropdown(true)} onBlur={() => setTimeout(() => setAddShowDropdown(false), 200)} placeholder="Search player…" style={{ fontSize: 'var(--text-xxs)', padding: '5px 8px' }} />
