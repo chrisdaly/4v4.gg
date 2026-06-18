@@ -1136,6 +1136,7 @@ export default function InvestigateTab() {
   const manualCandidatesRef = useRef(new Map());
   const fetchedReplayListTagsRef = useRef(new Set()); // prevent duplicate fetches
   const [countryMates, setCountryMates] = useState([]);
+  const [newAccounts, setNewAccounts] = useState([]);
   const [countryMatesLoading, setCountryMatesLoading] = useState(false);
   const countryMatesFetchedRef = useRef(null);
 
@@ -1224,40 +1225,83 @@ export default function InvestigateTab() {
     }
   }, [playstyleData, selectedTag, RELAY_URL]);
 
-  // Fetch same-country players from the ladder once we know the query player's country
+  // Discover candidates: ladder (for MMR) + recent finished games (for unranked/new accounts)
   useEffect(() => {
-    const qCountry = matchProfiles[selectedTag]?.country;
     const qMmr = playstyleData?.query?.mmr;
-    if (!selectedTag || !qCountry || !qMmr) return;
+    if (!selectedTag || !qMmr) return;
     if (countryMatesFetchedRef.current === selectedTag) return;
     countryMatesFetchedRef.current = selectedTag;
     setCountryMatesLoading(true);
+    const W3C = 'https://website-backend.w3champions.com/api';
+    const fiveDaysAgo = Date.now() - 5 * 24 * 60 * 60 * 1000;
     (async () => {
       try {
+        // 1. Current-season ladder → ranked players with MMR
         const ladderPages = await Promise.all([0,1,2,3,4,5,6].map(id => getLadder(id)));
-        const allPlayers = ladderPages.flat();
-        const tags = [...new Set(allPlayers.map(r => r.playersInfo?.[0]?.battleTag).filter(Boolean))];
-        const profileMap = await getPlayerProfilesBatch(tags);
-        setMatchProfiles(prev => { const next = { ...prev }; for (const [t, p] of profileMap) next[t] = p; return next; });
-        const matches = [];
-        for (const rank of allPlayers) {
+        const ladderByTag = new Map();
+        for (const rank of ladderPages.flat()) {
           const tag = rank.playersInfo?.[0]?.battleTag;
-          if (!tag || tag === selectedTag) continue;
-          const profile = profileMap.get(tag);
-          if (!profile?.country || profile.country !== qCountry) continue;
-          const mmr = rank.player?.mmr;
-          const race = rank.player?.race;
-          matches.push({ battleTag: tag, mmr, race, mmrDist: Math.abs((mmr || 0) - qMmr) });
+          if (tag) ladderByTag.set(tag, rank.player?.mmr ?? null);
         }
-        matches.sort((a, b) => a.mmrDist - b.mmrDist);
-        setCountryMates(matches);
+
+        // 2. Recent finished games (last 5 days) → everyone who played, ranked or not
+        const tagAppearances = new Map();
+        for (let page = 0; page < 10; page++) {
+          let hitOld = false;
+          try {
+            const res = await fetch(`${W3C}/matches?gameMode=4&gateway=20&pageSize=50&offset=${page * 50}`);
+            if (!res.ok) break;
+            const { items = [] } = await res.json();
+            if (!items.length) break;
+            for (const m of items) {
+              const t = new Date(m.endTime || m.startTime || 0).getTime();
+              if (t < fiveDaysAgo) { hitOld = true; break; }
+              for (const team of m.teams || []) {
+                for (const p of team.players || []) {
+                  if (p.battleTag) tagAppearances.set(p.battleTag, (tagAppearances.get(p.battleTag) || 0) + 1);
+                }
+              }
+            }
+          } catch { break; }
+          if (hitOld) break;
+        }
+
+        // 3. Batch-enrich profiles for all unique tags (include query player for their country)
+        const allTags = [...new Set([selectedTag, ...ladderByTag.keys(), ...tagAppearances.keys()])];
+        const profileMap = await getPlayerProfilesBatch(allTags);
+        setMatchProfiles(prev => { const next = { ...prev }; for (const [t, p] of profileMap) next[t] = p; return next; });
+
+        const qCountry = profileMap.get(selectedTag)?.country;
+
+        // 4. Same-country: ladder + recent games, ranked first then by MMR distance
+        if (qCountry) {
+          const matches = [];
+          for (const tag of allTags) {
+            if (tag === selectedTag) continue;
+            const profile = profileMap.get(tag);
+            if (profile?.country !== qCountry) continue;
+            const mmr = ladderByTag.get(tag) ?? null;
+            matches.push({ battleTag: tag, mmr, mmrDist: mmr != null ? Math.abs(mmr - qMmr) : Infinity, isRanked: ladderByTag.has(tag) });
+          }
+          matches.sort((a, b) => a.isRanked !== b.isRanked ? (a.isRanked ? -1 : 1) : a.mmrDist - b.mmrDist);
+          setCountryMates(matches);
+        }
+
+        // 5. New / unranked: played in last 5 days but not on current ladder
+        //    sorted ascending by appearance count (1 game ≈ brand new)
+        const newUnranked = [...tagAppearances.entries()]
+          .filter(([tag]) => tag !== selectedTag && !ladderByTag.has(tag))
+          .sort(([, a], [, b]) => a - b)
+          .map(([tag, recentGames]) => ({ battleTag: tag, recentGames, country: profileMap.get(tag)?.country ?? null }));
+        setNewAccounts(newUnranked);
+
       } catch (e) {
-        console.error('countryMates fetch failed', e);
+        console.error('candidate discovery failed', e);
       } finally {
         setCountryMatesLoading(false);
       }
     })();
-  }, [selectedTag, matchProfiles, playstyleData]);
+  }, [selectedTag, playstyleData]);
 
   // Shared refetch for a single player using current filter state from refs
   const refetchPlayer = useCallback((tag) => {
@@ -1377,7 +1421,7 @@ export default function InvestigateTab() {
     setCandidateOrder([]); setRemovedTags(new Set()); setManualCandidates(new Map());
     setPlayerReplayLists(new Map()); setPlayerReplaySelections(new Map()); setOpenReplayPicker(null);
     setShowResults(false); setPlayerRaceFilters(new Map()); setPlayerDateFilters(new Map()); setExpandedCards(new Set()); setOpenResultsFilter(null);
-    setCountryMates([]); setCountryMatesLoading(false); countryMatesFetchedRef.current = null;
+    setCountryMates([]); setNewAccounts([]); setCountryMatesLoading(false); countryMatesFetchedRef.current = null;
     fetchedReplayListTagsRef.current = new Set();
     fetch(`${RELAY_URL}/api/fingerprints/profile/${encodeURIComponent(battleTag)}/replays`)
       .then(r => r.ok ? r.json() : null)
@@ -1456,7 +1500,7 @@ export default function InvestigateTab() {
     params.delete("q");
     history.replace({ search: params.toString() ? `?${params}` : "" });
     setSelectedTag(null); setPlaystyleData(null); setMatchProfiles({});
-    setManualCandidates(new Map()); setCountryMates([]); setCountryMatesLoading(false);
+    setManualCandidates(new Map()); setCountryMates([]); setNewAccounts([]); setCountryMatesLoading(false);
     countryMatesFetchedRef.current = null;
   }, [history, location.search]);
 
@@ -1890,26 +1934,32 @@ export default function InvestigateTab() {
                       );
                     };
 
-                    // ── Discovery card: lightweight "+Add" card for country-mate suggestions ──
-                    const renderDiscoveryCard = (mate) => {
-                      const mName = mate.battleTag.split('#')[0];
-                      const mProfile = matchProfiles[mate.battleTag];
-                      const mRaceIcon = RACE_ICON_MAP[mate.race];
-                      const alreadyIn = candidateOrder.includes(mate.battleTag) || playstyleData.similar.slice(0,5).some(s => s.battleTag === mate.battleTag);
+                    // ── Discovery card: lightweight "+Add" card for country-mate / new-account suggestions ──
+                    const renderDiscoveryCard = (entry) => {
+                      const mName = entry.battleTag.split('#')[0];
+                      const mProfile = matchProfiles[entry.battleTag];
+                      const mRaceIcon = RACE_ICON_MAP[entry.race];
+                      const alreadyIn = candidateOrder.includes(entry.battleTag) || playstyleData.similar.slice(0,5).some(s => s.battleTag === entry.battleTag);
+                      const subtitle = entry.mmr != null
+                        ? <>{entry.mmr} MMR {entry.mmrDist > 0 && entry.mmrDist !== Infinity && <span style={{ color: 'var(--grey-mid)' }}>(±{entry.mmrDist})</span>}</>
+                        : entry.recentGames != null
+                          ? <>{entry.recentGames} game{entry.recentGames !== 1 ? 's' : ''} · <span style={{ color: 'var(--amber)' }}>unranked</span></>
+                          : <span style={{ color: 'var(--amber)' }}>unranked</span>;
                       return (
-                        <div key={mate.battleTag} style={{ width: 200, flexShrink: 0, padding: '12px 14px', borderRadius: 'var(--radius-lg)', border: '1px solid rgba(255,255,255,0.1)', background: 'rgba(255,255,255,0.02)', display: 'flex', flexDirection: 'column', gap: 8 }}>
+                        <div key={entry.battleTag} style={{ width: 200, flexShrink: 0, padding: '12px 14px', borderRadius: 'var(--radius-lg)', border: '1px solid rgba(255,255,255,0.1)', background: 'rgba(255,255,255,0.02)', display: 'flex', flexDirection: 'column', gap: 8 }}>
                           <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
                             {renderAvatar(mProfile?.profilePicUrl, mRaceIcon, 36)}
                             <div style={{ minWidth: 0 }}>
-                              <div style={{ fontFamily: 'var(--font-display)', fontSize: 'var(--text-sm)', color: '#fff', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{mName}</div>
-                              <div style={{ fontFamily: 'var(--font-mono)', fontSize: 10, color: 'var(--grey-light)' }}>
-                                {mate.mmr} MMR {mate.mmrDist > 0 && <span style={{ color: 'var(--grey-mid)' }}>(±{mate.mmrDist})</span>}
+                              <div style={{ display: 'flex', alignItems: 'center', gap: 5 }}>
+                                <div style={{ fontFamily: 'var(--font-display)', fontSize: 'var(--text-sm)', color: '#fff', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{mName}</div>
+                                {entry.country && <CountryFlag name={entry.country.toLowerCase()} style={{ width: 14, height: 10, flexShrink: 0 }} />}
                               </div>
+                              <div style={{ fontFamily: 'var(--font-mono)', fontSize: 10, color: 'var(--grey-light)', marginTop: 1 }}>{subtitle}</div>
                             </div>
                           </div>
                           <button
                             disabled={alreadyIn || addLoading}
-                            onClick={() => !alreadyIn && addPlayerToList(mate.battleTag, mate.mmr, mate.race)}
+                            onClick={() => !alreadyIn && addPlayerToList(entry.battleTag, entry.mmr, entry.race)}
                             style={{ padding: '4px 0', background: alreadyIn ? 'rgba(100,200,100,0.08)' : 'rgba(255,255,255,0.06)', border: alreadyIn ? '1px solid rgba(100,200,100,0.25)' : '1px solid rgba(255,255,255,0.12)', borderRadius: 3, cursor: alreadyIn ? 'default' : 'pointer', color: alreadyIn ? 'var(--green)' : 'var(--grey-light)', fontFamily: 'var(--font-mono)', fontSize: 10, textTransform: 'uppercase', letterSpacing: '0.06em', textAlign: 'center' }}
                           >
                             {alreadyIn ? '✓ Added' : '+ Add'}
@@ -1948,21 +1998,33 @@ export default function InvestigateTab() {
                           </div>
 
                           {/* Section: Same country */}
-                          {qCountry && sectionLabel(
-                            <span style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
-                              <CountryFlag name={qCountry.toLowerCase()} style={{ width: 18, height: 13, verticalAlign: 'middle', borderRadius: 2 }} />
-                              <span>Same country · {getCountryName(qCountry)}</span>
-                            </span>,
+                          {sectionLabel(
+                            qCountry
+                              ? <span style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
+                                  <CountryFlag name={qCountry.toLowerCase()} style={{ width: 18, height: 13, verticalAlign: 'middle', borderRadius: 2 }} />
+                                  <span>Same country · {getCountryName(qCountry)}</span>
+                                </span>
+                              : 'Same country',
                             countryMatesLoading && <span style={{ fontFamily: 'var(--font-mono)', fontSize: 10, color: 'var(--grey-mid)' }}>loading…</span>
                           )}
-                          {qCountry && (
-                            <div style={{ display: 'flex', gap: 12, flexWrap: 'wrap', marginBottom: 28, minHeight: 20 }}>
-                              {!countryMatesLoading && countryMates.length === 0 && (
-                                <span style={{ fontFamily: 'var(--font-mono)', fontSize: 11, color: 'var(--grey-mid)', alignSelf: 'center' }}>No ladder players from {getCountryName(qCountry)}</span>
-                              )}
-                              {countryMates.slice(0, 6).map(renderDiscoveryCard)}
-                            </div>
+                          <div style={{ display: 'flex', gap: 12, flexWrap: 'wrap', marginBottom: 28, minHeight: 20 }}>
+                            {!countryMatesLoading && qCountry && countryMates.length === 0 && (
+                              <span style={{ fontFamily: 'var(--font-mono)', fontSize: 11, color: 'var(--grey-mid)', alignSelf: 'center' }}>No players from {getCountryName(qCountry)} found</span>
+                            )}
+                            {countryMates.slice(0, 6).map(renderDiscoveryCard)}
+                          </div>
+
+                          {/* Section: New accounts (unranked, played in last 5 days) */}
+                          {sectionLabel(
+                            'New accounts · last 5 days',
+                            countryMatesLoading && <span style={{ fontFamily: 'var(--font-mono)', fontSize: 10, color: 'var(--grey-mid)' }}>loading…</span>
                           )}
+                          <div style={{ display: 'flex', gap: 12, flexWrap: 'wrap', marginBottom: 28, minHeight: 20 }}>
+                            {!countryMatesLoading && newAccounts.length === 0 && (
+                              <span style={{ fontFamily: 'var(--font-mono)', fontSize: 11, color: 'var(--grey-mid)', alignSelf: 'center' }}>No new unranked accounts found</span>
+                            )}
+                            {newAccounts.slice(0, 10).map(renderDiscoveryCard)}
+                          </div>
 
                           {/* Section: Manually added + add search */}
                           {sectionLabel('Add manually')}
