@@ -1251,7 +1251,8 @@ export default function InvestigateTab() {
           try {
             const res = await fetch(`${W3C}/matches?gameMode=4&gateway=20&pageSize=50&offset=${page * 50}`);
             if (!res.ok) break;
-            const { items = [] } = await res.json();
+            const data = await res.json();
+            const items = data.matches || [];
             if (!items.length) break;
             for (const m of items) {
               const t = new Date(m.endTime || m.startTime || 0).getTime();
