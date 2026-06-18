@@ -2289,7 +2289,7 @@ export default function InvestigateTab() {
                                   const involvesQuery = i === 0 || j === 0;
                                   return (
                                     <div key={jj} style={{ textAlign: "center", padding: "4px 6px", fontFamily: "var(--font-mono)", fontSize: "var(--text-xs)", color: count > 0 ? (involvesQuery ? "var(--gold)" : "#fff") : "rgba(255,255,255,0.3)", fontWeight: count > 0 ? 700 : 400 }}>
-                                      {count > 0 ? `${count}×` : "·"}
+                                      {count > 0 ? `${count}×` : "0"}
                                     </div>
                                   );
                                 })}
