@@ -1855,32 +1855,17 @@ export default function InvestigateTab() {
                     ];
 
                     // ── Shared per-player config card (used in setup phase) ──
-                    const renderSetupCard = (tag, { isQuery = false, similarity = null, percentile = null, replayCount = 0, totalCount = null, race = null, mmr = null, isManual = false } = {}) => {
+                    const renderSetupCard = (tag, { isQuery = false, similarity = null, percentile = null, replayCount = 0, totalCount = null, race = null, isManual = false } = {}) => {
                       const profile = matchProfiles[tag];
                       const name = tag.split('#')[0];
                       const avatar = profile?.profilePicUrl;
                       const raceIcon = RACE_ICON_MAP[race];
-                      const afterDate = playerDateFilters.get(tag) || null;
-                      const sel = playerReplaySelections.get(tag);
-                      const hasSel = sel && sel.size > 0;
-                      const isOpen = openReplayPicker === tag;
                       const repCount = isQuery ? queryGames : replayCount;
                       const total = isQuery ? playstyleData.query?.totalReplayCount : totalCount;
                       const repColor = repCount >= 100 ? 'var(--green)' : repCount >= 20 ? 'var(--amber)' : 'var(--red)';
                       const included = !removedTags.has(tag);
-                      // Candidate cards are collapsed until the user opts in; query card always expanded
-                      const isExpanded = isQuery || expandedCards.has(tag);
-                      const toggleExpand = () => setExpandedCards(prev => {
-                        const next = new Set(prev);
-                        if (next.has(tag)) next.delete(tag); else next.add(tag);
-                        return next;
-                      });
-                      // Active filter summary for collapsed state
-                      const activeRace = playerRaceFilters.get(tag);
-                      const hasFilters = !!(activeRace || afterDate || hasSel);
                       return (
                         <div key={tag} style={{ width: 200, flexShrink: 0, display: 'flex', flexDirection: 'column', gap: 10, padding: 14, borderRadius: 'var(--radius-lg)', background: isQuery ? 'rgba(212,175,55,0.05)' : 'rgba(255,255,255,0.03)', border: isQuery ? '1px solid rgba(212,175,55,0.25)' : included ? '1px solid rgba(255,255,255,0.12)' : '1px solid rgba(255,255,255,0.06)', opacity: included ? 1 : 0.5 }}>
-                          {/* Identity */}
                           <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
                             {renderAvatar(avatar, raceIcon, 40)}
                             <div style={{ minWidth: 0 }}>
@@ -1890,61 +1875,17 @@ export default function InvestigateTab() {
                               </div>
                             </div>
                             {!isQuery && (
-                              <button title={included ? 'Remove' : 'Add'} onClick={() => included ? removeCandidate(tag) : (setRemovedTags(prev => { const s = new Set(prev); s.delete(tag); return s; }))} style={{ marginLeft: 'auto', flexShrink: 0, width: 20, height: 20, display: 'flex', alignItems: 'center', justifyContent: 'center', background: included ? 'rgba(255,60,60,0.12)' : 'rgba(100,200,100,0.12)', border: included ? '1px solid rgba(255,80,80,0.35)' : '1px solid rgba(100,200,100,0.35)', borderRadius: 4, cursor: 'pointer', fontSize: 11, color: included ? 'rgba(255,110,110,0.9)' : 'var(--green)' }}>
+                              <button title={included ? 'Remove' : 'Add back'} onClick={() => included ? removeCandidate(tag) : (setRemovedTags(prev => { const s = new Set(prev); s.delete(tag); return s; }))} style={{ marginLeft: 'auto', flexShrink: 0, width: 20, height: 20, display: 'flex', alignItems: 'center', justifyContent: 'center', background: included ? 'rgba(255,60,60,0.12)' : 'rgba(100,200,100,0.12)', border: included ? '1px solid rgba(255,80,80,0.35)' : '1px solid rgba(100,200,100,0.35)', borderRadius: 4, cursor: 'pointer', fontSize: 11, color: included ? 'rgba(255,110,110,0.9)' : 'var(--green)' }}>
                                 {included ? '×' : '+'}
                               </button>
                             )}
                           </div>
-                          {/* Similarity badge */}
                           {!isQuery && similarity != null && (
                             <div style={{ fontFamily: 'var(--font-mono)', fontSize: 11, color: percentile >= 99 ? 'var(--gold)' : percentile >= 97 ? 'var(--green)' : 'var(--grey-light)' }}>
                               {Math.round(similarity * 100)}% match · {percentile != null ? `p${Math.round(percentile)}` : ''}
                             </div>
                           )}
                           {isManual && <div style={{ fontFamily: 'var(--font-mono)', fontSize: 10, color: 'var(--cyan)' }}>manually added</div>}
-                          {/* Expand/collapse toggle for candidate controls */}
-                          {!isQuery && (
-                            <button onClick={toggleExpand} style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '3px 6px', background: hasFilters ? 'rgba(212,175,55,0.1)' : 'rgba(255,255,255,0.05)', border: hasFilters ? '1px solid rgba(212,175,55,0.3)' : '1px solid rgba(255,255,255,0.1)', borderRadius: 3, cursor: 'pointer', color: hasFilters ? 'var(--gold)' : 'var(--grey-mid)', fontSize: 9, fontFamily: 'var(--font-mono)', textTransform: 'uppercase', letterSpacing: '0.08em', width: '100%' }}>
-                              <span>{hasFilters ? 'filters active' : 'configure filters'}</span>
-                              <span>{isExpanded ? '▲' : '▼'}</span>
-                            </button>
-                          )}
-                          {/* Per-player filters — hidden for candidates until expanded */}
-                          {isExpanded && <>
-                            {/* Race filter (per-player) */}
-                            <div>
-                              <div style={{ fontFamily: 'var(--font-mono)', fontSize: 9, textTransform: 'uppercase', letterSpacing: '0.1em', color: 'var(--grey-light)', opacity: 0.5, marginBottom: 4 }}>Race</div>
-                              <div style={{ display: 'flex', gap: 3, flexWrap: 'wrap' }}>
-                                {RACE_FILTERS.map(rf => {
-                                  const active = activeRace === rf.value;
-                                  return (
-                                    <button key={rf.label} title={rf.label} onClick={() => setPlayerRace(tag, rf.value)} style={{ display: 'flex', alignItems: 'center', gap: 3, padding: '2px 7px', background: active ? 'rgba(212,175,55,0.18)' : 'rgba(255,255,255,0.06)', border: active ? '1px solid var(--gold)' : '1px solid rgba(255,255,255,0.1)', borderRadius: 3, cursor: 'pointer', color: active ? 'var(--gold)' : 'var(--grey-light)', fontSize: 10, fontFamily: 'var(--font-mono)' }}>
-                                      {rf.icon && <img src={rf.icon} alt="" style={{ width: 11, height: 11 }} />}
-                                      {rf.label}
-                                    </button>
-                                  );
-                                })}
-                              </div>
-                            </div>
-                            {/* Date filter */}
-                            <div>
-                              <div style={{ fontFamily: 'var(--font-mono)', fontSize: 9, textTransform: 'uppercase', letterSpacing: '0.1em', color: 'var(--grey-light)', opacity: 0.5, marginBottom: 4 }}>Date range</div>
-                              <div style={{ display: 'flex', gap: 3, flexWrap: 'wrap' }}>
-                                {DATE_FILTERS.map(df => {
-                                  const active = afterDate === df.value;
-                                  return <button key={df.label} onClick={() => setPlayerDate(tag, df.value)} style={{ padding: '2px 7px', background: active ? 'rgba(212,175,55,0.18)' : 'rgba(255,255,255,0.06)', border: active ? '1px solid var(--gold)' : '1px solid rgba(255,255,255,0.1)', borderRadius: 3, cursor: 'pointer', color: active ? 'var(--gold)' : 'var(--grey-light)', fontSize: 10, fontFamily: 'var(--font-mono)' }}>{df.label}</button>;
-                                })}
-                              </div>
-                            </div>
-                            {/* Replay picker */}
-                            <div>
-                              <button onClick={() => setOpenReplayPicker(isOpen ? null : tag)} style={{ display: 'flex', alignItems: 'center', gap: 4, padding: '3px 8px', background: hasSel ? 'rgba(212,175,55,0.12)' : 'rgba(255,255,255,0.06)', border: hasSel ? '1px solid var(--gold)' : '1px solid rgba(255,255,255,0.1)', borderRadius: 3, cursor: 'pointer', color: hasSel ? 'var(--gold)' : 'var(--grey-light)', fontSize: 10, fontFamily: 'var(--font-mono)', width: '100%', justifyContent: 'space-between' }}>
-                                <span>{hasSel ? `${sel.size} replays selected` : 'Pick specific replays'}</span>
-                                <span>{isOpen ? '▲' : '▼'}</span>
-                              </button>
-                              {isOpen && renderReplayPicker(tag)}
-                            </div>
-                          </>}
                         </div>
                       );
                     };
@@ -1982,12 +1923,16 @@ export default function InvestigateTab() {
                       const suggestedAll = playstyleData.similar.slice(0, 5).filter(s => !removedTags.has(s.battleTag));
                       const manualAll = [...manualCandidates.values()].filter(s => !removedTags.has(s.battleTag));
                       const includedCount = suggestedAll.length + manualAll.length;
-                      const sectionLabel = (text, extra) => (
-                        <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 10 }}>
-                          <span style={{ fontFamily: 'var(--font-mono)', fontSize: 'var(--text-xxs)', textTransform: 'uppercase', letterSpacing: '0.1em', color: 'var(--grey-light)', opacity: 0.5 }}>{text}</span>
+                      const sectionLabel = (content, extra) => (
+                        <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 12 }}>
+                          <span style={{ fontFamily: 'var(--font-mono)', fontSize: 11, textTransform: 'uppercase', letterSpacing: '0.12em', color: 'rgba(255,255,255,0.55)', fontWeight: 600 }}>{content}</span>
                           {extra}
                         </div>
                       );
+                      const getCountryName = (code) => {
+                        try { return new Intl.DisplayNames(['en'], { type: 'region' }).of(code.toUpperCase()); }
+                        catch { return code; }
+                      };
                       return (
                         <div style={{ maxWidth: 960 }}>
                           {/* Section: Player of interest */}
@@ -2004,13 +1949,16 @@ export default function InvestigateTab() {
 
                           {/* Section: Same country */}
                           {qCountry && sectionLabel(
-                            `Same country · ${qCountry}`,
-                            countryMatesLoading && <span style={{ fontFamily: 'var(--font-mono)', fontSize: 10, color: 'var(--grey-mid)', opacity: 0.6 }}>loading…</span>
+                            <span style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
+                              <CountryFlag name={qCountry.toLowerCase()} style={{ width: 18, height: 13, verticalAlign: 'middle', borderRadius: 2 }} />
+                              <span>Same country · {getCountryName(qCountry)}</span>
+                            </span>,
+                            countryMatesLoading && <span style={{ fontFamily: 'var(--font-mono)', fontSize: 10, color: 'var(--grey-mid)' }}>loading…</span>
                           )}
                           {qCountry && (
                             <div style={{ display: 'flex', gap: 12, flexWrap: 'wrap', marginBottom: 28, minHeight: 20 }}>
                               {!countryMatesLoading && countryMates.length === 0 && (
-                                <span style={{ fontFamily: 'var(--font-mono)', fontSize: 11, color: 'var(--grey-mid)', alignSelf: 'center' }}>No ladder players from {qCountry}</span>
+                                <span style={{ fontFamily: 'var(--font-mono)', fontSize: 11, color: 'var(--grey-mid)', alignSelf: 'center' }}>No ladder players from {getCountryName(qCountry)}</span>
                               )}
                               {countryMates.slice(0, 6).map(renderDiscoveryCard)}
                             </div>
