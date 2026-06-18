@@ -1,7 +1,8 @@
 import React, { useState, useCallback, useEffect, useRef } from "react";
 import styled from "styled-components";
-import { useHistory, useLocation } from "react-router-dom";
+import { useHistory, useLocation, Link } from "react-router-dom";
 import { useReplayLabStore } from "../../lib/useReplayLabStore";
+import { ADMIN_KEY_401_EVENT } from "../../lib/useAdmin";
 import PeonLoader from "../../components/PeonLoader";
 import PlayerIdentityCard, {
   polarToCart, RADAR_GROUPS, RADAR_SIZE, RADAR_CX, RADAR_CY, RADAR_R,
@@ -1236,10 +1237,16 @@ export default function InvestigateTab() {
     const fiveDaysAgo = Date.now() - 5 * 24 * 60 * 60 * 1000;
     (async () => {
       try {
-        // 1. Current-season ladder → ranked players with MMR
-        const ladderPages = await Promise.all([0,1,2,3,4,5,6].map(id => getLadder(id)));
+        // 1. Current + previous season ladders → veteran players (not new accounts)
+        // W3C uses league IDs 0-16 (divisions across all tiers). Fetch both seasons in parallel
+        // so veterans who haven't played the new season yet aren't mistaken for new accounts.
+        const leagueIds = Array.from({ length: 20 }, (_, i) => i); // 0-19, empty leagues return []
+        const [curPages, prevPages] = await Promise.all([
+          Promise.all(leagueIds.map(id => getLadder(id))),
+          Promise.all(leagueIds.map(id => getLadder(id, 24))),
+        ]);
         const ladderByTag = new Map();
-        for (const rank of ladderPages.flat()) {
+        for (const rank of [...curPages.flat(), ...prevPages.flat()]) {
           const tag = rank.playersInfo?.[0]?.battleTag;
           if (tag) ladderByTag.set(tag, rank.player?.mmr ?? null);
         }
@@ -1435,7 +1442,7 @@ export default function InvestigateTab() {
       if (identifyRes.ok) {
         const data = await identifyRes.json();
         setPlaystyleData(data);
-        setCandidateOrder((data.similar || []).slice(0, 5).map(s => s.battleTag).filter(Boolean));
+        setCandidateOrder([]);
         const tags = (data.similar || []).map(s => s.battleTag).filter(Boolean);
         if (tags.length > 0) {
           getPlayerProfilesBatch([battleTag, ...tags]).then(profileMap => {
@@ -1444,6 +1451,9 @@ export default function InvestigateTab() {
             setMatchProfiles(obj);
           });
         }
+      } else if (identifyRes.status === 401) {
+        window.dispatchEvent(new Event(ADMIN_KEY_401_EVENT));
+        setIdentifyError('auth_401');
       } else if (identifyRes.status === 404) {
         setIdentifyError('not_indexed');
       } else {
@@ -1490,6 +1500,30 @@ export default function InvestigateTab() {
           .then(r => r.ok ? r.json() : null)
           .then(d => { if (d?.replays) setPlayerReplayLists(prev => new Map([...prev, [battleTag, d.replays]])); })
           .catch(() => {});
+      } else if (res.status === 404) {
+        // Not indexed yet — add with empty fingerprint so they appear in the comparison
+        const candidate = {
+          battleTag,
+          playerName: battleTag.split("#")[0],
+          score: null, percentile: null,
+          apm: null,
+          mmr: ladderMmr ?? null,
+          race: ladderRace ?? null,
+          replayCount: 0,
+          lastSeen: null,
+          glyph: { transitionPairs: [], groupUsage: [], groupCompositions: {} },
+          seasonActivity: [],
+          isManual: true,
+        };
+        setManualCandidates(prev => new Map([...prev, [battleTag, candidate]]));
+        setCandidateOrder(prev => [...prev, battleTag]);
+        getPlayerProfilesBatch([battleTag]).then(profileMap => {
+          setMatchProfiles(prev => {
+            const obj = { ...prev };
+            for (const [tag, profile] of profileMap) obj[tag] = profile;
+            return obj;
+          });
+        });
       }
     } catch (err) { console.error("Add player failed:", err); }
     setAddLoading(false);
@@ -1576,6 +1610,12 @@ export default function InvestigateTab() {
           <NewSearchRow>
             <BackLink onClick={dismiss}>← Search again</BackLink>
           </NewSearchRow>
+          {identifyError === 'auth_401' && (
+            <NoDataText>
+              Admin key invalid or expired —{" "}
+              <Link to="/admin" style={{ color: "var(--gold)", fontFamily: "var(--font-display)" }}>update it in the Admin panel</Link>.
+            </NoDataText>
+          )}
           {identifyError === 'not_indexed' && (
             <NoDataText>
               <span style={{ color: "var(--gold)", fontFamily: "var(--font-display)" }}>{queryName}</span> isn't in the index yet — no replays uploaded for this player.
@@ -1909,62 +1949,67 @@ export default function InvestigateTab() {
                       const total = isQuery ? playstyleData.query?.totalReplayCount : totalCount;
                       const repColor = repCount >= 100 ? 'var(--green)' : repCount >= 20 ? 'var(--amber)' : 'var(--red)';
                       const included = !removedTags.has(tag);
+                      const matchColor = percentile >= 99 ? 'var(--gold)' : percentile >= 95 ? 'var(--green)' : 'var(--grey-light)';
                       return (
-                        <div key={tag} style={{ width: 200, flexShrink: 0, display: 'flex', flexDirection: 'column', gap: 10, padding: 14, borderRadius: 'var(--radius-lg)', background: isQuery ? 'rgba(212,175,55,0.05)' : 'rgba(255,255,255,0.03)', border: isQuery ? '1px solid rgba(212,175,55,0.25)' : included ? '1px solid rgba(255,255,255,0.12)' : '1px solid rgba(255,255,255,0.06)', opacity: included ? 1 : 0.5 }}>
-                          <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+                        <div key={tag} style={{ width: 200, flexShrink: 0, display: 'flex', flexDirection: 'column', gap: 10, padding: '14px 16px', borderRadius: 'var(--radius-lg)', background: isQuery ? 'rgba(212,175,55,0.06)' : 'var(--surface-1)', border: isQuery ? '2px solid rgba(212,175,55,0.35)' : included ? '1px solid rgba(255,255,255,0.1)' : '1px solid var(--panel-border)', opacity: included ? 1 : 0.45 }}>
+                          <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
                             {renderAvatar(avatar, raceIcon, 40)}
-                            <div style={{ minWidth: 0 }}>
-                              {isQuery
-                                ? <div style={{ fontFamily: 'var(--font-display)', fontSize: 'var(--text-sm)', color: 'var(--gold)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{name}</div>
-                                : <a href={`/player?tag=${encodeURIComponent(tag)}`} target="_blank" rel="noreferrer" style={{ fontFamily: 'var(--font-display)', fontSize: 'var(--text-sm)', color: '#fff', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', textDecoration: 'none', display: 'block' }} onMouseEnter={e => e.target.style.color = 'var(--gold)'} onMouseLeave={e => e.target.style.color = '#fff'}>{name}</a>
-                              }
-                              <div style={{ fontFamily: 'var(--font-mono)', fontSize: 10, color: repColor, marginTop: 1 }}>
-                                {repCount} reps{total && total !== repCount ? <span style={{ color: 'var(--grey-light)' }}> / {total}</span> : ''}
+                            <div style={{ minWidth: 0, flex: 1 }}>
+                              <a href={`/player/${encodeURIComponent(tag)}`} target="_blank" rel="noreferrer" style={{ fontFamily: 'var(--font-display)', fontSize: 'var(--text-sm)', color: 'var(--gold)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', textDecoration: 'none', display: 'block', transition: 'opacity 0.1s' }} onMouseEnter={e => e.target.style.opacity = '0.75'} onMouseLeave={e => e.target.style.opacity = '1'}>{name}</a>
+                              <div style={{ fontFamily: 'var(--font-mono)', fontSize: 'var(--text-xxxs)', color: repColor, marginTop: 2 }}>
+                                {repCount} reps{total && total !== repCount ? <span style={{ color: 'var(--grey-light)', opacity: 0.6 }}> / {total}</span> : ''}
                               </div>
                             </div>
                             {!isQuery && (
-                              <button title={included ? 'Remove' : 'Add back'} onClick={() => included ? removeCandidate(tag) : (setRemovedTags(prev => { const s = new Set(prev); s.delete(tag); return s; }))} style={{ marginLeft: 'auto', flexShrink: 0, width: 20, height: 20, display: 'flex', alignItems: 'center', justifyContent: 'center', background: included ? 'rgba(255,60,60,0.12)' : 'rgba(100,200,100,0.12)', border: included ? '1px solid rgba(255,80,80,0.35)' : '1px solid rgba(100,200,100,0.35)', borderRadius: 4, cursor: 'pointer', fontSize: 11, color: included ? 'rgba(255,110,110,0.9)' : 'var(--green)' }}>
-                                {included ? '×' : '+'}
+                              <button title={included ? 'Remove' : 'Add back'} onClick={() => included ? removeCandidate(tag) : (setRemovedTags(prev => { const s = new Set(prev); s.delete(tag); return s; }))} style={{ flexShrink: 0, width: 22, height: 22, display: 'flex', alignItems: 'center', justifyContent: 'center', background: 'transparent', border: '1px solid rgba(255,80,80,0.3)', borderRadius: 'var(--radius-sm)', cursor: 'pointer', fontSize: 13, color: 'rgba(255,110,110,0.7)', transition: 'all 0.1s' }} onMouseEnter={e => { e.currentTarget.style.background = 'rgba(255,60,60,0.15)'; e.currentTarget.style.color = '#f87171'; }} onMouseLeave={e => { e.currentTarget.style.background = 'transparent'; e.currentTarget.style.color = 'rgba(255,110,110,0.7)'; }}>
+                                ×
                               </button>
                             )}
                           </div>
                           {!isQuery && similarity != null && (
-                            <div style={{ fontFamily: 'var(--font-mono)', fontSize: 11, color: percentile >= 99 ? 'var(--gold)' : percentile >= 97 ? 'var(--green)' : 'var(--grey-light)' }}>
-                              {Math.round(similarity * 100)}% match · {percentile != null ? `p${Math.round(percentile)}` : ''}
+                            <div style={{ fontFamily: 'var(--font-mono)', fontSize: 'var(--text-xxs)', color: matchColor, borderTop: '1px solid var(--panel-border)', paddingTop: 8 }}>
+                              <span style={{ fontSize: 13, fontWeight: 600 }}>{Math.round(similarity * 100)}%</span>
+                              <span style={{ color: 'var(--grey-light)', marginLeft: 4 }}>match</span>
+                              {percentile != null && <span style={{ marginLeft: 6, color: matchColor, opacity: 0.8 }}>p{Math.round(percentile)}</span>}
                             </div>
                           )}
-                          {isManual && <div style={{ fontFamily: 'var(--font-mono)', fontSize: 10, color: 'var(--cyan)' }}>manually added</div>}
+                          {isManual && <div style={{ fontFamily: 'var(--font-mono)', fontSize: 'var(--text-xxxs)', color: 'var(--cyan)', textTransform: 'uppercase', letterSpacing: '0.08em' }}>manually added</div>}
                         </div>
                       );
                     };
 
-                    // ── Discovery card: lightweight "+Add" card for country-mate / new-account suggestions ──
+                    // ── Discovery card: lightweight "+Add" for all candidate suggestions ──
                     const renderDiscoveryCard = (entry) => {
                       const mName = entry.battleTag.split('#')[0];
                       const mProfile = matchProfiles[entry.battleTag];
                       const mRaceIcon = RACE_ICON_MAP[entry.race];
-                      const alreadyIn = candidateOrder.includes(entry.battleTag) || playstyleData.similar.slice(0,5).some(s => s.battleTag === entry.battleTag);
-                      const subtitle = entry.mmr != null
-                        ? <>{entry.mmr} MMR {entry.mmrDist > 0 && entry.mmrDist !== Infinity && <span style={{ color: 'var(--grey-mid)' }}>(±{entry.mmrDist})</span>}</>
-                        : entry.recentGames != null
-                          ? <>{entry.recentGames} game{entry.recentGames !== 1 ? 's' : ''} · <span style={{ color: 'var(--amber)' }}>unranked</span></>
-                          : <span style={{ color: 'var(--amber)' }}>unranked</span>;
+                      const alreadyIn = candidateOrder.includes(entry.battleTag);
+                      const matchColor = entry.percentile >= 99 ? 'var(--gold)' : entry.percentile >= 95 ? 'var(--green)' : 'var(--cyan)';
+                      const subtitle = entry.similarity != null
+                        ? <><span style={{ color: matchColor, fontWeight: 600 }}>{Math.round(entry.similarity * 100)}%</span> <span style={{ color: 'var(--grey-light)' }}>match</span>{entry.percentile != null && <span style={{ color: matchColor, opacity: 0.8, marginLeft: 5 }}>p{Math.round(entry.percentile)}</span>}</>
+                        : entry.mmr != null
+                          ? <><span style={{ color: '#fff' }}>{entry.mmr}</span> <span style={{ color: 'var(--grey-light)' }}>MMR</span>{entry.mmrDist > 0 && entry.mmrDist !== Infinity && <span style={{ color: 'var(--grey-light)', opacity: 0.5 }}> ±{entry.mmrDist}</span>}</>
+                          : entry.recentGames != null
+                            ? <><span style={{ color: '#fff' }}>{entry.recentGames}</span> <span style={{ color: 'var(--grey-light)' }}>game{entry.recentGames !== 1 ? 's' : ''}</span> · <span style={{ color: 'var(--amber)' }}>unranked</span></>
+                            : <span style={{ color: 'var(--amber)' }}>unranked</span>;
                       return (
-                        <div key={entry.battleTag} style={{ width: 200, flexShrink: 0, padding: '12px 14px', borderRadius: 'var(--radius-lg)', border: '1px solid rgba(255,255,255,0.1)', background: 'rgba(255,255,255,0.02)', display: 'flex', flexDirection: 'column', gap: 8 }}>
-                          <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
-                            {renderAvatar(mProfile?.profilePicUrl, mRaceIcon, 36)}
-                            <div style={{ minWidth: 0 }}>
-                              <div style={{ display: 'flex', alignItems: 'center', gap: 5 }}>
-                                <a href={`/player?tag=${encodeURIComponent(entry.battleTag)}`} target="_blank" rel="noreferrer" style={{ fontFamily: 'var(--font-display)', fontSize: 'var(--text-sm)', color: '#fff', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', textDecoration: 'none' }} onMouseEnter={e => e.target.style.color = 'var(--gold)'} onMouseLeave={e => e.target.style.color = '#fff'}>{mName}</a>
+                        <div key={entry.battleTag} style={{ width: 200, flexShrink: 0, padding: '12px 14px', borderRadius: 'var(--radius-lg)', border: '1px solid rgba(255,255,255,0.1)', background: 'var(--surface-1)', display: 'flex', flexDirection: 'column', gap: 10 }}>
+                          <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
+                            {renderAvatar(mProfile?.profilePicUrl, mRaceIcon, 34)}
+                            <div style={{ minWidth: 0, flex: 1 }}>
+                              <div style={{ display: 'flex', alignItems: 'center', gap: 5, marginBottom: 2 }}>
+                                <a href={`/player/${encodeURIComponent(entry.battleTag)}`} target="_blank" rel="noreferrer" style={{ fontFamily: 'var(--font-display)', fontSize: 'var(--text-sm)', color: 'var(--gold)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', textDecoration: 'none', minWidth: 0, transition: 'opacity 0.1s' }} onMouseEnter={e => e.target.style.opacity = '0.75'} onMouseLeave={e => e.target.style.opacity = '1'}>{mName}</a>
                                 {entry.country && <CountryFlag name={entry.country.toLowerCase()} style={{ width: 14, height: 10, flexShrink: 0 }} />}
                               </div>
-                              <div style={{ fontFamily: 'var(--font-mono)', fontSize: 10, color: 'var(--grey-light)', marginTop: 1 }}>{subtitle}</div>
+                              <div style={{ fontFamily: 'var(--font-mono)', fontSize: 'var(--text-xxxs)' }}>{subtitle}</div>
                             </div>
                           </div>
                           <button
                             disabled={alreadyIn || addLoading}
                             onClick={() => !alreadyIn && addPlayerToList(entry.battleTag, entry.mmr, entry.race)}
-                            style={{ padding: '4px 0', background: alreadyIn ? 'rgba(100,200,100,0.08)' : 'rgba(255,255,255,0.06)', border: alreadyIn ? '1px solid rgba(100,200,100,0.25)' : '1px solid rgba(255,255,255,0.12)', borderRadius: 3, cursor: alreadyIn ? 'default' : 'pointer', color: alreadyIn ? 'var(--green)' : 'var(--grey-light)', fontFamily: 'var(--font-mono)', fontSize: 10, textTransform: 'uppercase', letterSpacing: '0.06em', textAlign: 'center' }}
+                            style={{ padding: '6px 0', background: alreadyIn ? 'rgba(100,200,100,0.1)' : 'rgba(212,175,55,0.08)', border: alreadyIn ? '1px solid rgba(100,200,100,0.3)' : '1px solid rgba(212,175,55,0.3)', borderRadius: 'var(--radius-sm)', cursor: alreadyIn ? 'default' : 'pointer', color: alreadyIn ? 'var(--green)' : 'var(--gold)', fontFamily: 'var(--font-mono)', fontSize: 'var(--text-xxxs)', textTransform: 'uppercase', letterSpacing: '0.1em', textAlign: 'center', transition: 'all 0.1s' }}
+                            onMouseEnter={e => { if (!alreadyIn) { e.currentTarget.style.background = 'rgba(212,175,55,0.2)'; e.currentTarget.style.borderColor = 'rgba(212,175,55,0.6)'; }}}
+                            onMouseLeave={e => { if (!alreadyIn) { e.currentTarget.style.background = 'rgba(212,175,55,0.08)'; e.currentTarget.style.borderColor = 'rgba(212,175,55,0.3)'; }}}
                           >
                             {alreadyIn ? '✓ Added' : '+ Add'}
                           </button>
@@ -1974,12 +2019,18 @@ export default function InvestigateTab() {
 
                     // ── SETUP PHASE (shown before running the comparison) ──
                     if (!showResults) {
-                      const suggestedAll = playstyleData.similar.slice(0, 5).filter(s => !removedTags.has(s.battleTag));
-                      const manualAll = [...manualCandidates.values()].filter(s => !removedTags.has(s.battleTag));
-                      const includedCount = suggestedAll.length + manualAll.length;
+                      // Players added via any "+ Add" button go into candidateOrder
+                      const includedCount = candidateOrder.filter(t => !removedTags.has(t)).length;
+                      // "Add manually" section only shows search-added players not already in discovery sections
+                      const similarTags = new Set(playstyleData.similar.slice(0, 5).map(s => s.battleTag));
+                      const discoveryTags = new Set([...countryMates.map(c => c.battleTag), ...newAccounts.map(n => n.battleTag)]);
+                      const manualOnlyAdded = [...manualCandidates.values()].filter(s =>
+                        !removedTags.has(s.battleTag) && !similarTags.has(s.battleTag) && !discoveryTags.has(s.battleTag)
+                      );
+                      // Section label — design system: --text-xxs, --font-mono, --grey-light, uppercase
                       const sectionLabel = (content, extra) => (
-                        <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 12 }}>
-                          <span style={{ fontFamily: 'var(--font-mono)', fontSize: 11, textTransform: 'uppercase', letterSpacing: '0.12em', color: 'rgba(255,255,255,0.55)', fontWeight: 600 }}>{content}</span>
+                        <div style={{ display: 'flex', alignItems: 'center', gap: 10, marginBottom: 12, paddingBottom: 8, paddingLeft: 10, borderBottom: '1px solid var(--panel-border)', borderLeft: '2px solid rgba(212,175,55,0.4)' }}>
+                          <span style={{ fontFamily: 'var(--font-mono)', fontSize: 'var(--text-xxs)', textTransform: 'uppercase', letterSpacing: '0.12em', color: 'rgba(255,255,255,0.65)' }}>{content}</span>
                           {extra}
                         </div>
                       );
@@ -1991,14 +2042,22 @@ export default function InvestigateTab() {
                         <div style={{ maxWidth: 960 }}>
                           {/* Section: Player of interest */}
                           {sectionLabel('Player of interest')}
-                          <div style={{ display: 'flex', gap: 12, marginBottom: 28 }}>
-                            {renderSetupCard(selectedTag, { isQuery: true, replayCount: queryGames, totalCount: playstyleData.query?.totalReplayCount, race: qRace })}
+                          <div style={{ display: 'flex', alignItems: 'center', gap: 16, padding: '16px 20px', borderRadius: 'var(--radius-lg)', background: 'rgba(212,175,55,0.06)', border: '2px solid rgba(212,175,55,0.35)', marginBottom: 28, maxWidth: 480 }}>
+                            {renderAvatar(qAvatar, qRaceIcon, 52)}
+                            <div style={{ flex: 1, minWidth: 0 }}>
+                              <a href={`/player/${encodeURIComponent(selectedTag)}`} target="_blank" rel="noreferrer" style={{ fontFamily: 'var(--font-display)', fontSize: 'var(--text-base)', color: 'var(--gold)', textDecoration: 'none', display: 'block', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis', transition: 'opacity 0.1s' }} onMouseEnter={e => e.target.style.opacity = '0.75'} onMouseLeave={e => e.target.style.opacity = '1'}>{queryName}</a>
+                              <div style={{ fontFamily: 'var(--font-mono)', fontSize: 'var(--text-xxs)', color: queryGames >= 100 ? 'var(--green)' : queryGames >= 20 ? 'var(--amber)' : 'var(--red)', marginTop: 4 }}>
+                                {queryGames} reps{playstyleData.query?.totalReplayCount != null && playstyleData.query.totalReplayCount !== queryGames && <span style={{ color: 'var(--grey-light)', opacity: 0.6 }}> / {playstyleData.query.totalReplayCount}</span>}
+                              </div>
+                            </div>
+                            {qCountry && <CountryFlag name={qCountry.toLowerCase()} style={{ width: 22, height: 16, flexShrink: 0 }} />}
+                            {qMmr != null && <div style={{ fontFamily: 'var(--font-mono)', fontSize: 'var(--text-sm)', color: 'rgba(255,255,255,0.75)', flexShrink: 0, textAlign: 'right' }}>{Math.round(qMmr)}<div style={{ fontSize: 10, color: 'var(--grey-light)', lineHeight: 1.2 }}>MMR</div></div>}
                           </div>
 
                           {/* Section: Top 5 similar */}
                           {sectionLabel('Top 5 similar')}
                           <div style={{ display: 'flex', gap: 12, flexWrap: 'wrap', marginBottom: 28 }}>
-                            {suggestedAll.map(s => renderSetupCard(s.battleTag, { similarity: s.similarity, percentile: s.percentile, replayCount: s.replayCount, race: s.race }))}
+                            {playstyleData.similar.slice(0, 5).map(s => renderDiscoveryCard({ battleTag: s.battleTag, mmr: s.mmr, similarity: s.similarity, percentile: s.percentile, recentGames: null, country: null, race: s.race }))}
                           </div>
 
                           {/* Section: Same country */}
@@ -2033,7 +2092,7 @@ export default function InvestigateTab() {
                           {/* Section: Manually added + add search */}
                           {sectionLabel('Add manually')}
                           <div style={{ display: 'flex', gap: 12, flexWrap: 'wrap', marginBottom: 28 }}>
-                            {manualAll.map(s => renderSetupCard(s.battleTag, { similarity: s.score, percentile: s.percentile, replayCount: s.replayCount, race: s.race, isManual: true }))}
+                            {manualOnlyAdded.map(s => renderSetupCard(s.battleTag, { similarity: s.score, percentile: s.percentile, replayCount: s.replayCount, race: s.race, isManual: true }))}
                             <div style={{ width: 200, flexShrink: 0, padding: 14, borderRadius: 'var(--radius-lg)', border: '1px dashed rgba(255,255,255,0.12)', display: 'flex', flexDirection: 'column', gap: 8, justifyContent: 'center', alignItems: 'center' }}>
                               <div style={{ position: 'relative', width: '100%' }}>
                                 <SearchInputWrap>

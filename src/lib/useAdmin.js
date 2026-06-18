@@ -4,6 +4,7 @@ import { useLocation } from "react-router-dom";
 const STORAGE_KEY = "admin_api_key";
 const VIEW_KEY = "admin_view_active";
 const VIEW_EVENT = "admin-view-changed";
+export const ADMIN_KEY_401_EVENT = "admin-key-401";
 const RELAY_URL =
   import.meta.env.VITE_CHAT_RELAY_URL || "https://4v4gg-chat-relay.fly.dev";
 
@@ -75,6 +76,13 @@ export default function useAdmin() {
     };
     window.addEventListener(VIEW_EVENT, handler);
     return () => window.removeEventListener(VIEW_EVENT, handler);
+  }, []);
+
+  // Any protected endpoint that gets a 401 dispatches this event → dot turns red immediately
+  useEffect(() => {
+    const handler = () => setIsKeyValid(false);
+    window.addEventListener(ADMIN_KEY_401_EVENT, handler);
+    return () => window.removeEventListener(ADMIN_KEY_401_EVENT, handler);
   }, []);
 
   // Verify key against server on mount and when key changes
