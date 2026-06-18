@@ -21,6 +21,7 @@ import { startFeedbackScheduler } from './feedback.js';
 import { startReplayImporter } from './replayImporter.js';
 import { startGameAnnouncer } from './gameAnnouncer.js';
 import { startTokenMonitor, getTokenHealth } from './tokenMonitor.js';
+import { startMapSync } from './mapSync.js';
 
 const app = express();
 app.set('trust proxy', 1);
@@ -84,6 +85,9 @@ startGameAnnouncer();
 
 // Token monitor — warn + file GitHub issue before the weekly W3C JWT expires
 startTokenMonitor();
+
+// Map sync — download missing minimap PNGs from Liquipedia when season updates
+startMapSync();
 
 // Event cleanup — delete events older than 14 days, run every 6 hours
 const runCleanup = () => {

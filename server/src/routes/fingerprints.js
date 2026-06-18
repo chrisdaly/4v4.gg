@@ -1026,7 +1026,12 @@ async function fetchPlayerSeasonTimeline(battleTag, season) {
 }
 
 async function fetchPlayerRecentInfo(battleTag) {
-  const seasons = [24, 23, 22, 21, 20, 19, 18, 17, 16];
+  let currentSeason = 25;
+  try {
+    const res = await fetch('https://website-backend.w3champions.com/api/ladder/seasons', { signal: AbortSignal.timeout(4000) });
+    if (res.ok) { const s = await res.json(); if (s?.[0]?.id) currentSeason = s[0].id; }
+  } catch { /* use default */ }
+  const seasons = Array.from({ length: 9 }, (_, i) => currentSeason - i);
   const results = await Promise.all(seasons.map(async (season) => {
     try {
       const tl = await fetchPlayerSeasonTimeline(battleTag, season);

@@ -43,7 +43,6 @@ function buildStartEvent(match, relevant) {
   const id = match.id || match.match?.id;
   if (!id) return null;
   const teams = (match.teams || []).map((t) => buildEventPlayers(t, relevant));
-  if (!teams.flat().some((p) => p.inChannel)) return null;
   return {
     id: `gs-${id}`,
     type: "game_start",
@@ -61,7 +60,6 @@ function buildEndEvent(match, id, relevant) {
   );
   if (winnerIdx == null || winnerIdx < 0) return null;
   const teams = (match.teams || []).map((t) => buildEventPlayers(t, relevant));
-  if (!teams.flat().some((p) => p.inChannel)) return null;
   const ev = {
     id: `ge-${id}`,
     type: "game_end",
