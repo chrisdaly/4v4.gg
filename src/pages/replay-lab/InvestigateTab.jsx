@@ -1914,7 +1914,10 @@ export default function InvestigateTab() {
                           <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
                             {renderAvatar(avatar, raceIcon, 40)}
                             <div style={{ minWidth: 0 }}>
-                              <div style={{ fontFamily: 'var(--font-display)', fontSize: 'var(--text-sm)', color: isQuery ? 'var(--gold)' : '#fff', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{name}</div>
+                              {isQuery
+                                ? <div style={{ fontFamily: 'var(--font-display)', fontSize: 'var(--text-sm)', color: 'var(--gold)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{name}</div>
+                                : <a href={`/player?tag=${encodeURIComponent(tag)}`} target="_blank" rel="noreferrer" style={{ fontFamily: 'var(--font-display)', fontSize: 'var(--text-sm)', color: '#fff', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', textDecoration: 'none', display: 'block' }} onMouseEnter={e => e.target.style.color = 'var(--gold)'} onMouseLeave={e => e.target.style.color = '#fff'}>{name}</a>
+                              }
                               <div style={{ fontFamily: 'var(--font-mono)', fontSize: 10, color: repColor, marginTop: 1 }}>
                                 {repCount} reps{total && total !== repCount ? <span style={{ color: 'var(--grey-light)' }}> / {total}</span> : ''}
                               </div>
@@ -1952,7 +1955,7 @@ export default function InvestigateTab() {
                             {renderAvatar(mProfile?.profilePicUrl, mRaceIcon, 36)}
                             <div style={{ minWidth: 0 }}>
                               <div style={{ display: 'flex', alignItems: 'center', gap: 5 }}>
-                                <div style={{ fontFamily: 'var(--font-display)', fontSize: 'var(--text-sm)', color: '#fff', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{mName}</div>
+                                <a href={`/player?tag=${encodeURIComponent(entry.battleTag)}`} target="_blank" rel="noreferrer" style={{ fontFamily: 'var(--font-display)', fontSize: 'var(--text-sm)', color: '#fff', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', textDecoration: 'none' }} onMouseEnter={e => e.target.style.color = 'var(--gold)'} onMouseLeave={e => e.target.style.color = '#fff'}>{mName}</a>
                                 {entry.country && <CountryFlag name={entry.country.toLowerCase()} style={{ width: 14, height: 10, flexShrink: 0 }} />}
                               </div>
                               <div style={{ fontFamily: 'var(--font-mono)', fontSize: 10, color: 'var(--grey-light)', marginTop: 1 }}>{subtitle}</div>
