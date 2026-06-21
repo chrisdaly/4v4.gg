@@ -15,6 +15,7 @@ import PlayerHoverCard from "./PlayerHoverCard";
 import MiniTeamsRow from "./MiniMatchCard";
 import MatchNote from "./MatchNote";
 import StreakBadges from "./StreakBadges";
+import RivalryBadge from "./RivalryBadge";
 import { getPlayerProfile } from "../lib/api";
 import useAdmin from "../lib/useAdmin";
 
@@ -1638,9 +1639,10 @@ export default function ChatPanel({
                               />
                             </EventNote>
                           )}
-                          {isEnd && ev.badges?.length > 0 && (
+                          {isEnd && (ev.badges?.length > 0 || ev.rivals?.length > 0) && (
                             <EventNote>
                               <StreakBadges badges={ev.badges} />
+                              <RivalryBadge rivals={ev.rivals} />
                             </EventNote>
                           )}
                         </EventBody>

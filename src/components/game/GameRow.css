@@ -4,7 +4,7 @@
 
 .game-row {
   display: grid;
-  grid-template-columns: 50px minmax(140px, 1.2fr) 70px 55px minmax(150px, 1fr) minmax(200px, 1.2fr) 70px 70px;
+  grid-template-columns: 50px minmax(120px, 0.5fr) 70px 50px minmax(160px, 1.1fr) minmax(160px, 1.1fr) 65px 65px;
   padding: var(--space-2) var(--space-4);
   align-items: center;
   border-bottom: 1px solid rgba(255, 255, 255, 0.03);
@@ -113,6 +113,15 @@
 }
 
 .gr-player:hover .gr-player-name {
+  color: var(--gold);
+}
+
+.gr-player-self {
+  cursor: default;
+  pointer-events: none;
+}
+
+.gr-player-self-name {
   color: var(--gold);
 }
 

@@ -393,6 +393,16 @@ export function initDb() {
     CREATE INDEX IF NOT EXISTS idx_fp_battle_tag ON player_fingerprints(battle_tag);
   `);
 
+  // ── On-demand import priority queue ──────────────────
+  // Survives restarts; drip drains this before regular discovery each cycle.
+  db.exec(`
+    CREATE TABLE IF NOT EXISTS import_priority_queue (
+      battle_tag   TEXT PRIMARY KEY,
+      requested_at INTEGER NOT NULL DEFAULT (strftime('%s', 'now')),
+      attempts     INTEGER NOT NULL DEFAULT 0
+    );
+  `);
+
   // ── Match blurbs (LLM one-liners) ──
   // Two-phase: an immediate provisional blurb at match end, optionally
   // rewritten once post-game lounge reactions arrive, then finalized.
@@ -405,6 +415,7 @@ export function initDb() {
   `);
   tryAddColumn(`ALTER TABLE match_blurbs ADD COLUMN finalized INTEGER NOT NULL DEFAULT 1`);
   tryAddColumn(`ALTER TABLE match_blurbs ADD COLUMN end_time_ms INTEGER`);
+  tryAddColumn(`ALTER TABLE match_blurbs ADD COLUMN rivals TEXT`);
 
   // ── Feedback issues table ─────────────────────────
   db.exec(`
@@ -2144,17 +2155,23 @@ export function searchMessagesByKeywords(keywords, sinceHours = 24) {
 }
 
 export function getMatchBlurb(matchId) {
-  return db.prepare('SELECT blurb, finalized, end_time_ms FROM match_blurbs WHERE match_id = ?').get(matchId) ?? null;
+  const row = db.prepare('SELECT blurb, finalized, end_time_ms, rivals FROM match_blurbs WHERE match_id = ?').get(matchId);
+  if (!row) return null;
+  return {
+    ...row,
+    rivals: row.rivals ? (() => { try { return JSON.parse(row.rivals); } catch { return []; } })() : [],
+  };
 }
 
-export function setMatchBlurb(matchId, blurb, { finalized = 1, endTimeMs = null } = {}) {
+export function setMatchBlurb(matchId, blurb, { finalized = 1, endTimeMs = null, rivals = null } = {}) {
   db.prepare(`
-    INSERT INTO match_blurbs (match_id, blurb, finalized, end_time_ms) VALUES (?, ?, ?, ?)
+    INSERT INTO match_blurbs (match_id, blurb, finalized, end_time_ms, rivals) VALUES (?, ?, ?, ?, ?)
     ON CONFLICT(match_id) DO UPDATE SET
       blurb = excluded.blurb,
       finalized = excluded.finalized,
-      end_time_ms = COALESCE(excluded.end_time_ms, end_time_ms)
-  `).run(matchId, blurb, finalized ? 1 : 0, endTimeMs);
+      end_time_ms = COALESCE(excluded.end_time_ms, end_time_ms),
+      rivals = COALESCE(excluded.rivals, rivals)
+  `).run(matchId, blurb, finalized ? 1 : 0, endTimeMs, rivals ? JSON.stringify(rivals) : null);
 }
 
 // How many lounge messages these players sent after a moment in time —
@@ -2389,4 +2406,28 @@ export function getSharedReplayCount(tagA, tagB) {
     WHERE a.battle_tag = ? AND b.battle_tag = ? AND r.match_type = '4on4'
   `).get(tagA, tagB);
   return row?.n || 0;
+}
+
+// ── Import priority queue ─────────────────────────────
+
+export function enqueueImportPriority(battleTag) {
+  db.prepare(`
+    INSERT INTO import_priority_queue (battle_tag) VALUES (?)
+    ON CONFLICT(battle_tag) DO NOTHING
+  `).run(battleTag);
+}
+
+export function getPriorityQueueHead(n = 1) {
+  return db.prepare(`
+    SELECT battle_tag, attempts FROM import_priority_queue
+    ORDER BY requested_at ASC LIMIT ?
+  `).all(n);
+}
+
+export function incrementPriorityAttempts(battleTag) {
+  db.prepare(`UPDATE import_priority_queue SET attempts = attempts + 1 WHERE battle_tag = ?`).run(battleTag);
+}
+
+export function removeFromPriorityQueue(battleTag) {
+  db.prepare(`DELETE FROM import_priority_queue WHERE battle_tag = ?`).run(battleTag);
 }

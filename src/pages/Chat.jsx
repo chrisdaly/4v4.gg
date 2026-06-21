@@ -218,13 +218,14 @@ const Chat = () => {
   // rewrite it once post-game reactions land — so keep polling while
   // pending and swap the text in place (only blurb notes get replaced).
   const fillBlurb = (eventId, matchId, attempt = 0) => {
-    getMatchBlurb(matchId).then(({ blurb, badges, pending, retryInMs }) => {
+    getMatchBlurb(matchId).then(({ blurb, badges, rivals, pending, retryInMs }) => {
       setGameEvents((prev) =>
         prev.map((e) => {
           if (e.id !== eventId) return e;
           const next = { ...e };
           if (blurb) next.note = { text: blurb, tag: null, blurb: true };
           if (badges?.length) next.badges = badges;
+          if (rivals?.length) next.rivals = rivals;
           return next;
         })
       );

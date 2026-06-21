@@ -529,6 +529,7 @@ function AdminDashboard() {
   const [tokenDraft, setTokenDraft] = useState("");
   const [tokenStatus, setTokenStatus] = useState(null);
   const [expandedDigests, setExpandedDigests] = useState(new Set());
+  const [importQueue, setImportQueue] = useState(null);
   const { adminKey: apiKey } = useAdmin();
 
   const fetchHealth = useCallback(() => {
@@ -545,10 +546,27 @@ function AdminDashboard() {
       .catch(() => {});
   }, []);
 
+  const fetchImportQueue = useCallback(() => {
+    if (!apiKey) return;
+    fetch(`${RELAY_URL}/api/admin/import-queue`, { headers: { "X-API-Key": apiKey } })
+      .then((r) => r.json())
+      .then((d) => setImportQueue(d.items || []))
+      .catch(() => setImportQueue([]));
+  }, [apiKey]);
+
+  async function handleRemoveFromQueue(battleTag) {
+    await fetch(`${RELAY_URL}/api/admin/import-queue/${encodeURIComponent(battleTag)}`, {
+      method: "DELETE",
+      headers: { "X-API-Key": apiKey },
+    });
+    fetchImportQueue();
+  }
+
   useEffect(() => {
     fetchHealth();
     fetchAnalytics();
-  }, [fetchHealth, fetchAnalytics]);
+    fetchImportQueue();
+  }, [fetchHealth, fetchAnalytics, fetchImportQueue]);
 
   async function handleGenerateDigest(date) {
     setDigestLoading(date);
@@ -851,6 +869,33 @@ function AdminDashboard() {
               </TopChatterRow>
             ))}
           </TopChattersCard>
+        )}
+      </Section>
+
+      <Section>
+        <SectionHeader>
+          <SectionTitle>Import Queue</SectionTitle>
+          <RefreshButton onClick={fetchImportQueue}><FiRefreshCw size={11} /> Refresh</RefreshButton>
+        </SectionHeader>
+        {importQueue === null ? (
+          <SubLabel>Loading…</SubLabel>
+        ) : importQueue.length === 0 ? (
+          <SubLabel style={{ color: "var(--grey-mid)" }}>Empty — no pending on-demand imports</SubLabel>
+        ) : (
+          <div style={{ display: "flex", flexDirection: "column", gap: 4 }}>
+            {importQueue.map((item) => (
+              <div key={item.battle_tag} style={{ display: "flex", alignItems: "center", justifyContent: "space-between", padding: "8px 12px", background: "rgba(255,255,255,0.04)", border: "1px solid rgba(255,255,255,0.1)", borderRadius: "var(--radius-md)" }}>
+                <span style={{ fontFamily: "var(--font-display)", fontSize: "var(--text-sm)", color: "var(--gold)" }}>
+                  {item.battle_tag.split("#")[0]}
+                  <span style={{ fontFamily: "var(--font-mono)", fontSize: "var(--text-xxxs)", color: "var(--grey-mid)", marginLeft: 8 }}>#{item.battle_tag.split("#")[1]}</span>
+                </span>
+                <div style={{ display: "flex", alignItems: "center", gap: 12 }}>
+                  <span style={{ fontFamily: "var(--font-mono)", fontSize: "var(--text-xxxs)", color: "var(--grey-light)" }}>{item.attempts} attempt{item.attempts !== 1 ? "s" : ""}</span>
+                  <button onClick={() => { if (window.confirm(`Remove ${item.battle_tag} from the import queue?`)) handleRemoveFromQueue(item.battle_tag); }} style={{ background: "none", border: "none", cursor: "pointer", fontFamily: "var(--font-mono)", fontSize: "var(--text-xxxs)", color: "var(--red)", padding: 0, opacity: 0.7 }}>✕ cancel</button>
+                </div>
+              </div>
+            ))}
+          </div>
         )}
       </Section>
 

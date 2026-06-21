@@ -1393,7 +1393,7 @@ export default function InvestigateTab() {
       const result = res.ok ? await res.json() : null;
       if (result) {
         let msg;
-        if (result.rateLimited) msg = 'Rate limited — try again in ~1h';
+        if (result.rateLimited) msg = result.queued ? 'Rate limited — queued for next available slot' : (result.discovered > 0 ? 'Replays found on W3C — rate limited, retry in ~1h' : 'Rate limited — retry in ~1h');
         else if (result.imported > 0) msg = null; // success, no message needed
         else if (result.discovered === 0) msg = 'No matches found on W3C';
         else if (result.noReplay >= result.discovered - result.alreadyImported) msg = 'No replays stored on W3C';
@@ -1851,6 +1851,23 @@ export default function InvestigateTab() {
                               })()}
                             </div>
                           </div>
+                          {allReplays.length === 0 && (
+                            <div style={{ padding: '12px 4px', display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 6 }}>
+                              {importingTags.has(tag) ? (
+                                <span style={{ fontFamily: 'var(--font-mono)', fontSize: 'var(--text-xxxs)', color: 'var(--grey-light)' }}>importing…</span>
+                              ) : importMessages.has(tag) ? (
+                                <>
+                                  <span style={{ fontFamily: 'var(--font-mono)', fontSize: 'var(--text-xxxs)', color: 'var(--grey-light)' }}>{importMessages.get(tag)}</span>
+                                  {/* Only show retry if not already queued (queued message handles itself) */}
+                                  {!importMessages.get(tag).includes('queued') && (
+                                    <button onClick={() => importReplays(tag)} style={{ background: 'none', border: 'none', cursor: 'pointer', padding: 0, fontFamily: 'var(--font-mono)', fontSize: 'var(--text-xxxs)', color: 'var(--grey-mid)', textDecoration: 'underline' }}>retry</button>
+                                  )}
+                                </>
+                              ) : (
+                                <button onClick={() => importReplays(tag)} style={{ background: 'none', border: 'none', cursor: 'pointer', padding: 0, fontFamily: 'var(--font-display)', fontSize: 'var(--text-xs)', color: 'var(--gold)' }}>↓ Import replays</button>
+                              )}
+                            </div>
+                          )}
                           <div style={{ maxHeight: 280, overflowY: 'auto', display: 'flex', flexDirection: 'column', gap: 2, scrollbarWidth: 'thin', scrollbarColor: 'rgba(255,255,255,0.15) transparent' }}>
                             {replays.map(r => {
                               const rid = r.replayId;
@@ -2410,10 +2427,12 @@ export default function InvestigateTab() {
                                 <div style={{ position: 'absolute', inset: 0, display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', background: 'rgba(0,0,0,0.55)', borderRadius: 'var(--radius-md)', gap: 6 }}>
                                   {importMessages.has(s.battleTag) ? (
                                     <>
-                                      <span style={{ fontFamily: 'var(--font-mono)', fontSize: 'var(--text-xxxs)', color: 'var(--red)', textAlign: 'center', padding: '0 8px' }}>{importMessages.get(s.battleTag)}</span>
-                                      <button onClick={() => importReplays(s.battleTag)} style={{ padding: '4px 10px', background: 'rgba(255,255,255,0.06)', border: '1px solid rgba(255,255,255,0.15)', borderRadius: 'var(--radius-md)', cursor: 'pointer', color: 'var(--grey-light)', fontSize: 'var(--text-xxxs)', fontFamily: 'var(--font-mono)' }}>
-                                        retry
-                                      </button>
+                                      <span style={{ fontFamily: 'var(--font-mono)', fontSize: 'var(--text-xxxs)', color: importMessages.get(s.battleTag).includes('queued') ? 'var(--grey-light)' : 'var(--red)', textAlign: 'center', padding: '0 8px' }}>{importMessages.get(s.battleTag)}</span>
+                                      {!importMessages.get(s.battleTag).includes('queued') && (
+                                        <button onClick={() => importReplays(s.battleTag)} style={{ padding: '4px 10px', background: 'rgba(255,255,255,0.06)', border: '1px solid rgba(255,255,255,0.15)', borderRadius: 'var(--radius-md)', cursor: 'pointer', color: 'var(--grey-light)', fontSize: 'var(--text-xxxs)', fontFamily: 'var(--font-mono)' }}>
+                                          retry
+                                        </button>
+                                      )}
                                     </>
                                   ) : (
                                     <>

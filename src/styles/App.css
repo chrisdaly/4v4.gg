@@ -6965,6 +6965,24 @@ a.neighbor-name:hover {
   animation: pulse 1.5s infinite;
 }
 
+.w3c-link {
+  display: inline-flex;
+  align-items: center;
+  opacity: 0.5;
+  text-decoration: none;
+  transition: opacity 0.15s;
+  margin-top: var(--space-2);
+}
+
+.w3c-link:hover {
+  opacity: 0.9;
+}
+
+.w3c-logo {
+  height: 16px;
+  width: auto;
+}
+
 /* In-game icon in player header */
 .hd-name-row .in-game-icon {
   width: 20px;

@@ -10,7 +10,8 @@ import { setAnnounceEnabled, isAnnounceEnabled } from '../gameAnnouncer.js';
 import { generateDigest, fetchDailyStats, generateLiveDigest, todayDigestCache, setTodayDigestCache, generateWeeklyDigest, curateDigest, fetchDailyStatCandidates, analyzeSpike, generateMoreItems, appendItemsToDraft, backfillDailyStats, backfillMatchScores, backfillMatchMmrs, generateWeeklyVariants, regenerateSection, regenerateSpotlights, regeneratePlayerQuotes, regenerateMatchStatBlurbs, getPlayerMessageCandidates, computeNewBlood, formatNewBloodLine, digestToJSON } from '../digest.js';
 import { generateCoverImage, buildImagePrompt, extractHeadline, buildImagePromptWithPlayers, generateImageFromPrompt, WC3_STYLE_SUFFIX, suggestScenes } from '../coverImage.js';
 import { runFeedbackScan, getRecentFeedback } from '../feedback.js';
-import { importPlayerMatches } from '../replayImporter.js';
+import { importPlayerMatches, enqueueImport } from '../replayImporter.js';
+import { getPriorityQueueHead, removeFromPriorityQueue } from '../db.js';
 import { buildFactSheet, generateWithPrompt, SYSTEM_PROMPT } from '../matchBlurb.js';
 import { getMatchBlurb } from '../db.js';
 import { requireApiKey } from '../middleware/auth.js';
@@ -60,14 +61,18 @@ router.get('/blurb-lab/sample', requireApiKey, contextLimiter, async (req, res) 
   try {
     const r = await fetch(`${W3C_API}/matches?offset=0&gateway=20&pageSize=${count}&gameMode=4&map=Overall`);
     const data = await r.json();
-    const matches = (data.matches || []).map((m) => ({
-      id: m.id,
-      mapName: m.mapName,
-      endTime: m.endTime,
-      durationInSeconds: m.durationInSeconds,
-      players: (m.teams || []).map((t) => (t.players || []).map((p) => p.name).join(', ')),
-      cachedBlurb: getMatchBlurb(m.id)?.blurb ?? null,
-    }));
+    const matches = (data.matches || []).map((m) => {
+      const stored = getMatchBlurb(m.id);
+      return {
+        id: m.id,
+        mapName: m.mapName,
+        endTime: m.endTime,
+        durationInSeconds: m.durationInSeconds,
+        players: (m.teams || []).map((t) => (t.players || []).map((p) => p.name).join(', ')),
+        cachedBlurb: stored?.blurb ?? null,
+        cachedRivals: stored?.rivals ?? [],
+      };
+    });
     res.json({ defaultPrompt: SYSTEM_PROMPT, matches });
   } catch (err) {
     res.status(502).json({ error: `W3C fetch failed: ${err.message}` });
@@ -81,7 +86,7 @@ router.get('/blurb-lab/fact-sheet/:matchId', requireApiKey, contextLimiter, asyn
   try {
     const data = await buildFactSheet(matchId);
     if (!data) return res.status(404).json({ error: 'No finished match found' });
-    res.json({ matchId, factSheet: data.factSheet });
+    res.json({ matchId, factSheet: data.factSheet, badges: data.badges || [] });
   } catch (err) {
     res.status(502).json({ error: err.message });
   }
@@ -93,8 +98,8 @@ router.get('/blurb-lab/fact-sheet/:matchId', requireApiKey, contextLimiter, asyn
 router.post('/blurb-lab/preview', requireApiKey, aiLimiter, async (req, res) => {
   const { matchId, systemPrompt } = req.body || {};
   if (!/^[a-f0-9]{24}$/i.test(matchId || '')) return res.status(400).json({ error: 'Invalid match id' });
-  if (systemPrompt != null && (typeof systemPrompt !== 'string' || systemPrompt.length > 4000)) {
-    return res.status(400).json({ error: 'systemPrompt must be a string under 4000 chars' });
+  if (systemPrompt != null && (typeof systemPrompt !== 'string' || systemPrompt.length > 8000)) {
+    return res.status(400).json({ error: 'systemPrompt must be a string under 8000 chars' });
   }
   const prompt = systemPrompt || SYSTEM_PROMPT;
   try {
@@ -1605,6 +1610,18 @@ router.post('/import-player', requireApiKey, async (req, res) => {
     console.error('[Admin] import-player error:', err.message);
     res.status(500).json({ error: err.message });
   }
+});
+
+// GET /api/admin/import-queue — Return the on-demand priority queue
+router.get('/import-queue', requireApiKey, (_req, res) => {
+  const items = getPriorityQueueHead(50);
+  res.json({ items });
+});
+
+// DELETE /api/admin/import-queue/:battleTag — Remove a tag from the priority queue
+router.delete('/import-queue/:battleTag', requireApiKey, (req, res) => {
+  removeFromPriorityQueue(decodeURIComponent(req.params.battleTag));
+  res.json({ ok: true });
 });
 
 export default router;

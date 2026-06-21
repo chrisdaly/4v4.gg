@@ -766,6 +766,15 @@ const PlayerProfile = () => {
                   </div>
                 </>
               )}
+              <a
+                href={`https://www.w3champions.com/player/${encodeURIComponent(battleTag)}`}
+                target="_blank"
+                rel="noopener noreferrer"
+                className="w3c-link"
+                title="View on W3Champions"
+              >
+                <img src="/frames/w3c-logos/small-logo.png" alt="W3Champions" className="w3c-logo" />
+              </a>
             </div>
           </div>
 

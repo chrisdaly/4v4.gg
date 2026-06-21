@@ -24,6 +24,10 @@ import {
   insertPlayerFingerprints,
   updateFingerprintEmbedding,
   getExistingW3cMatchIds,
+  enqueueImportPriority,
+  getPriorityQueueHead,
+  incrementPriorityAttempts,
+  removeFromPriorityQueue,
 } from './db.js';
 import { buildServerFingerprint } from './fingerprint.js';
 import { getEmbeddingBatch } from './embedClient.js';
@@ -43,6 +47,12 @@ const REPLAY_DIR = config.REPLAY_DIR.startsWith('/')
 
 // In-memory queue (simple — no need for a DB table since it's rebuilt each discover cycle)
 let importQueue = [];
+
+// Add a player to the persistent priority queue. The drip drains this first
+// each cycle so manually-requested imports get a guaranteed slot.
+export function enqueueImport(battleTag) {
+  enqueueImportPriority(battleTag);
+}
 let isRunning = false;
 let discoverCooldown = 0; // skip discover if we recently filled the queue
 let rateLimitCooldown = 0; // cycles to skip entirely after a 429
@@ -242,6 +252,31 @@ async function runCycle() {
   isRunning = true;
 
   try {
+    // ── Priority queue: drain one slot before regular discovery ──
+    // On-demand imports (from the UI) land here. We reserve 1 of the N
+    // IMPORTS_PER_CYCLE slots so a queued player gets a replay within one cycle
+    // regardless of what the background drip is doing.
+    let prioritySlotUsed = 0;
+    const priorityHead = getPriorityQueueHead(1);
+    if (priorityHead.length > 0) {
+      const { battle_tag: priorityTag } = priorityHead[0];
+      console.log(`[Importer] Priority queue: trying ${priorityTag}`);
+      const priorityResult = await importPlayerMatches(priorityTag, 1);
+      incrementPriorityAttempts(priorityTag);
+      if (priorityResult.imported > 0 || priorityResult.noReplay > 0 || priorityResult.discovered === 0) {
+        // Success or no replays available — either way, done with this tag
+        removeFromPriorityQueue(priorityTag);
+        console.log(`[Importer] Priority queue: ${priorityTag} done (imported=${priorityResult.imported} noReplay=${priorityResult.noReplay} discovered=${priorityResult.discovered})`);
+      } else if (priorityResult.rateLimited) {
+        // Still rate limited — leave in queue, pause the whole cycle
+        rateLimitCooldown = RATE_LIMIT_PAUSE_CYCLES;
+        console.log(`[Importer] Priority queue: rate limited on ${priorityTag}, pausing ${RATE_LIMIT_PAUSE_CYCLES} cycles`);
+        isRunning = false;
+        return;
+      }
+      prioritySlotUsed = 1;
+    }
+
     // Discover new matches if queue is low
     if (importQueue.length < IMPORTS_PER_CYCLE) {
       if (discoverCooldown <= 0) {
@@ -254,7 +289,8 @@ async function runCycle() {
       }
     }
 
-    if (importQueue.length === 0) {
+    const regularSlots = IMPORTS_PER_CYCLE - prioritySlotUsed;
+    if (importQueue.length === 0 || regularSlots === 0) {
       isRunning = false;
       return;
     }
@@ -262,8 +298,8 @@ async function runCycle() {
     // Cool down after discovery before starting downloads
     await sleep(30_000);
 
-    // Import up to N matches
-    const batch = importQueue.splice(0, IMPORTS_PER_CYCLE);
+    // Import up to remaining slots
+    const batch = importQueue.splice(0, regularSlots);
     let imported = 0, skipped = 0, errors = 0;
 
     for (const match of batch) {

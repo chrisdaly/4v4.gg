@@ -460,17 +460,17 @@ const RELAY_BASE =
 export const getMatchBlurb = async (matchId) => {
   const cacheKey = `blurb:${matchId}`;
   const cached = cache.get(cacheKey);
-  if (cached) return { blurb: cached.blurb, badges: cached.badges || [], pending: false };
+  if (cached) return { blurb: cached.blurb, badges: cached.badges || [], rivals: cached.rivals || [], pending: false };
   try {
     const res = await fetch(`${RELAY_BASE}/api/chat/match-blurb/${encodeURIComponent(matchId)}`);
-    if (!res.ok) return { blurb: null, badges: [], pending: false };
+    if (!res.ok) return { blurb: null, badges: [], rivals: [], pending: false };
     const data = await res.json();
     if (data?.blurb && !data.pending) {
-      cache.set(cacheKey, { blurb: data.blurb, badges: data.badges || [] }, 24 * 60 * 60 * 1000);
+      cache.set(cacheKey, { blurb: data.blurb, badges: data.badges || [], rivals: data.rivals || [] }, 24 * 60 * 60 * 1000);
     }
-    return { blurb: data?.blurb || null, badges: data?.badges || [], pending: !!data?.pending, retryInMs: data?.retryInMs };
+    return { blurb: data?.blurb || null, badges: data?.badges || [], rivals: data?.rivals || [], pending: !!data?.pending, retryInMs: data?.retryInMs };
   } catch {
-    return { blurb: null, badges: [], pending: false };
+    return { blurb: null, badges: [], rivals: [], pending: false };
   }
 };
 

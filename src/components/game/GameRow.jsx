@@ -102,6 +102,10 @@ const GameRow = ({
       {showAllies && (
         <div className="gr-col gr-allies">
           <div className="gr-players-list">
+            <span className="gr-player gr-player-self">
+              <RaceIcon race={playerData.race} rndRace={playerData.rndRace} className="gr-race" />
+              <span className="gr-player-name gr-player-self-name">{playerData.name}</span>
+            </span>
             {allies.slice(0, 3).map((ally, i) => (
               <span
                 key={i}

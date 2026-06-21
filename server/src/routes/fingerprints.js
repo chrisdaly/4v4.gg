@@ -63,7 +63,7 @@ import {
 } from '../fingerprint.js';
 import { parseReplayFile } from '../replayParser.js';
 import { getEmbedding, getEmbeddingBatch, checkSidecar, getUmapProjection, getUmapTransform } from '../embedClient.js';
-import { importPlayerMatches, importPlayerMatchesBulk } from '../replayImporter.js';
+import { importPlayerMatches, importPlayerMatchesBulk, enqueueImport } from '../replayImporter.js';
 import { requireApiKey } from '../middleware/auth.js';
 
 const router = Router();
@@ -1525,6 +1525,11 @@ router.post('/import', importLimiter, async (req, res) => {
     // Invalidate caches so new data shows up immediately
     parsedPlayersCache = null;
     galleryAge = 0; // mark stale, keep old data serving
+    // If rate limited, queue the tag so the drip retries it next available slot
+    if (result.rateLimited) {
+      enqueueImport(battleTag);
+      result.queued = true;
+    }
     res.json(result);
   } catch (err) {
     console.error('[import] Error:', err.message);
