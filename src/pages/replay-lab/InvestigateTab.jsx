@@ -104,7 +104,7 @@ const TH = styled.div`
 const THLabel = styled.div`
   font-family: var(--font-mono); font-size: var(--text-xxxs);
   text-transform: uppercase; letter-spacing: 0.1em;
-  color: var(--grey-light); opacity: 0.55;
+  color: var(--grey-mid);
 `;
 const THName = styled.div`
   font-family: var(--font-display); font-size: var(--text-sm); color: var(--gold);
@@ -113,9 +113,9 @@ const THName = styled.div`
 const RowLabel = styled.div`
   display: flex; align-items: center;
   padding: var(--space-2) var(--space-2) var(--space-2) 0;
-  font-family: var(--font-mono); font-size: 10px;
-  text-transform: uppercase; letter-spacing: 0.08em;
-  color: rgba(255,255,255,0.5);
+  font-family: var(--font-mono); font-size: var(--text-xxxs);
+  text-transform: uppercase; letter-spacing: 0.1em;
+  color: var(--grey-mid);
   border-bottom: 1px solid rgba(255,255,255,0.05);
 `;
 const TD = styled.div`
@@ -146,7 +146,7 @@ const FilterBtn = styled.button`
   border: 1px solid ${p => p.$active ? 'rgba(212,175,55,0.4)' : 'rgba(255,255,255,0.1)'};
   border-radius: var(--radius-sm); cursor: pointer;
   color: ${p => p.$active ? 'var(--gold)' : 'var(--grey-mid)'};
-  font-size: 10px; font-family: var(--font-mono);
+  font-size: var(--text-xxxs); font-family: var(--font-mono);
   &:hover { border-color: ${p => p.$active ? 'rgba(212,175,55,0.6)' : 'rgba(255,255,255,0.2)'}; }
 `;
 const RemoveBtn = styled.button`
@@ -161,9 +161,8 @@ const RemoveBtn = styled.button`
   &:hover { opacity: 1; background: rgba(255,60,60,0.2); }
 `;
 const ColSectionLabel = styled.div`
-  font-family: var(--font-mono); font-size: var(--text-xxxs); color: var(--grey-light);
+  font-family: var(--font-mono); font-size: var(--text-xxxs); color: var(--grey-mid);
   text-transform: uppercase; letter-spacing: 0.1em; margin-bottom: var(--space-2);
-  opacity: 0.45;
 `;
 const ColName = styled.div`
   font-family: var(--font-display); font-size: var(--text-base); color: var(--gold);
@@ -199,7 +198,7 @@ const ChatLog = styled.div`
   scrollbar-width: thin; scrollbar-color: var(--grey-dark) transparent;
 `;
 const ChatLine = styled.div`
-  font-family: var(--font-mono); font-size: 11px; color: rgba(255,255,255,0.65);
+  font-family: var(--font-mono); font-size: var(--text-xxxs); color: var(--grey-light);
   padding: 2px 0 2px 8px; border-left: 2px solid rgba(255,255,255,0.1);
   margin-bottom: 4px; line-height: 1.35;
   display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden;
@@ -214,6 +213,19 @@ const SearchSection = styled.div`
 const SearchInputWrap = styled.div`
   position: relative;
 `;
+const SkeletonCard = () => (
+  <div style={{ width: 210, flexShrink: 0, padding: '14px', borderRadius: 'var(--radius-lg)', border: '1px solid rgba(255,255,255,0.06)', background: 'var(--surface-1)', display: 'flex', flexDirection: 'column', gap: 12 }}>
+    <div style={{ display: 'flex', gap: 12 }}>
+      <div className="loader-skeleton" style={{ width: 56, height: 56, borderRadius: 'var(--radius-sm)', flexShrink: 0 }} />
+      <div style={{ flex: 1, display: 'flex', flexDirection: 'column', justifyContent: 'center', gap: 8 }}>
+        <div className="loader-skeleton text" style={{ height: 14, width: '75%' }} />
+        <div className="loader-skeleton text" style={{ height: 10, width: '45%' }} />
+        <div className="loader-skeleton text" style={{ height: 14, width: '55%' }} />
+      </div>
+    </div>
+    <div className="loader-skeleton" style={{ height: 30, borderRadius: 'var(--radius-sm)' }} />
+  </div>
+);
 const VerdictBanner = styled.div`
   display: flex; align-items: center; gap: var(--space-3);
   padding: var(--space-3) var(--space-4); margin-bottom: var(--space-4);
@@ -320,7 +332,7 @@ function ActivityTimeline({ players, matchProfiles, startDate = null }) {
   return (
     <div style={{ marginBottom: 'var(--space-6)' }}>
       <div style={{ display: 'flex', alignItems: 'center', gap: 14, marginBottom: 'var(--space-4)' }}>
-        <div style={{ fontFamily: 'var(--font-mono)', fontSize: 'var(--text-xxs)', color: 'var(--grey-light)', textTransform: 'uppercase', letterSpacing: '0.1em', opacity: 0.6 }}>
+        <div style={{ fontFamily: 'var(--font-mono)', fontSize: 'var(--text-xxxs)', color: 'var(--grey-mid)', textTransform: 'uppercase', letterSpacing: '0.1em' }}>
           Activity Timeline
         </div>
         {totalShared > 0 && (
@@ -336,7 +348,7 @@ function ActivityTimeline({ players, matchProfiles, startDate = null }) {
           const pct = tl(date.toISOString());
           if (pct === null) return null;
           return (
-            <div key={label} style={{ position: 'absolute', left: `${pct}%`, transform: 'translateX(-50%)', fontFamily: 'var(--font-mono)', fontSize: 12, color: 'rgba(255,255,255,0.35)', whiteSpace: 'nowrap' }}>
+            <div key={label} style={{ position: 'absolute', left: `${pct}%`, transform: 'translateX(-50%)', fontFamily: 'var(--font-mono)', fontSize: 'var(--text-xxs)', color: 'var(--grey-mid)', whiteSpace: 'nowrap' }}>
               {label}
             </div>
           );
@@ -388,7 +400,7 @@ function ActivityTimeline({ players, matchProfiles, startDate = null }) {
                   {player.name}
                 </div>
                 {!player.isQuery && playerSharedCount > 0 && (
-                  <div style={{ fontFamily: 'var(--font-mono)', fontSize: 11, color: 'var(--gold)', opacity: 0.85 }}>
+                  <div style={{ fontFamily: 'var(--font-mono)', fontSize: 'var(--text-xxxs)', color: 'var(--gold)' }}>
                     {playerSharedCount}d overlap
                   </div>
                 )}
@@ -437,7 +449,7 @@ function ActivityTimeline({ players, matchProfiles, startDate = null }) {
                 const pct = SEASON_STARTS[s] ? tl(SEASON_STARTS[s].toISOString()) : null;
                 if (pct === null) return null;
                 return (
-                  <div key={s} style={{ position: 'absolute', left: `${pct + 0.3}%`, top: 5, fontFamily: 'var(--font-mono)', fontSize: 10, color: baseColor, opacity: 0.75 }}>
+                  <div key={s} style={{ position: 'absolute', left: `${pct + 0.3}%`, top: 5, fontFamily: 'var(--font-mono)', fontSize: 'var(--text-xxxs)', color: baseColor, opacity: 0.75 }}>
                     S{s}
                   </div>
                 );
@@ -449,7 +461,7 @@ function ActivityTimeline({ players, matchProfiles, startDate = null }) {
                 const endPct = last.dots.length > 0 ? last.dots[0].pct : last.endPct;
                 if (endPct === null) return null;
                 return (
-                  <div style={{ position: 'absolute', left: `${endPct}%`, bottom: 5, transform: 'translateX(-50%)', fontFamily: 'var(--font-mono)', fontSize: 10, color: 'rgba(255,255,255,0.4)', whiteSpace: 'nowrap' }}>
+                  <div style={{ position: 'absolute', left: `${endPct}%`, bottom: 5, transform: 'translateX(-50%)', fontFamily: 'var(--font-mono)', fontSize: 'var(--text-xxxs)', color: 'var(--grey-mid)', whiteSpace: 'nowrap' }}>
                     S{latestSeason} · {last.lastPlayed.slice(0, 7)}
                   </div>
                 );
@@ -473,9 +485,8 @@ const CompareSection = styled.div`
   margin-bottom: var(--space-5); &:last-child { margin-bottom: 0; }
 `;
 const CompareSectionTitle = styled.div`
-  font-family: var(--font-mono); font-size: var(--text-xxxs); color: var(--grey-light);
+  font-family: var(--font-mono); font-size: var(--text-xxxs); color: var(--grey-mid);
   text-transform: uppercase; letter-spacing: 0.1em; margin-bottom: var(--space-2);
-  opacity: 0.6;
 `;
 const PlayerTag = styled.div`
   font-family: var(--font-mono); font-size: var(--text-xxxs);
@@ -671,7 +682,7 @@ function HotkeyRadar({ selectA, selectB, assignA, assignB, nameA, nameB }) {
     <div style={{ display: "flex", gap: 16, alignItems: "flex-start", flexWrap: "wrap" }}>
       {/* Select Hotkeys Radar */}
       <div>
-        <div style={{ fontFamily: "var(--font-mono)", fontSize: 9, color: "var(--grey-light)", textTransform: "uppercase", letterSpacing: "0.1em", marginBottom: 4, textAlign: "center" }}>
+        <div style={{ fontFamily: "var(--font-mono)", fontSize: "var(--text-xxxs)", color: "var(--grey-mid)", textTransform: "uppercase", letterSpacing: "0.1em", marginBottom: 4, textAlign: "center" }}>
           Select Hotkeys
         </div>
         <svg width={RADAR_SIZE} height={RADAR_SIZE} viewBox={`0 0 ${RADAR_SIZE} ${RADAR_SIZE}`}>
@@ -705,7 +716,7 @@ function HotkeyRadar({ selectA, selectB, assignA, assignB, nameA, nameB }) {
       {/* Assign Hotkeys Radar */}
       {assignA && assignB && (
         <div>
-          <div style={{ fontFamily: "var(--font-mono)", fontSize: 9, color: "var(--grey-light)", textTransform: "uppercase", letterSpacing: "0.1em", marginBottom: 4, textAlign: "center" }}>
+          <div style={{ fontFamily: "var(--font-mono)", fontSize: "var(--text-xxxs)", color: "var(--grey-mid)", textTransform: "uppercase", letterSpacing: "0.1em", marginBottom: 4, textAlign: "center" }}>
             Assign Hotkeys
           </div>
           <svg width={RADAR_SIZE} height={RADAR_SIZE} viewBox={`0 0 ${RADAR_SIZE} ${RADAR_SIZE}`}>
@@ -737,11 +748,11 @@ function HotkeyRadar({ selectA, selectB, assignA, assignB, nameA, nameB }) {
       <div style={{ display: "flex", flexDirection: "column", gap: 6, justifyContent: "center", minWidth: 80 }}>
         <div style={{ display: "flex", alignItems: "center", gap: 6 }}>
           <div style={{ width: 12, height: 12, borderRadius: 2, background: "#4fc3f7", opacity: 0.7 }} />
-          <span style={{ fontFamily: "var(--font-mono)", fontSize: 10, color: "#4fc3f7" }}>{nameA}</span>
+          <span style={{ fontFamily: "var(--font-mono)", fontSize: "var(--text-xxxs)", color: "#4fc3f7" }}>{nameA}</span>
         </div>
         <div style={{ display: "flex", alignItems: "center", gap: 6 }}>
           <div style={{ width: 12, height: 12, borderRadius: 2, background: "#ef5350", opacity: 0.7 }} />
-          <span style={{ fontFamily: "var(--font-mono)", fontSize: 10, color: "#ef5350" }}>{nameB}</span>
+          <span style={{ fontFamily: "var(--font-mono)", fontSize: "var(--text-xxxs)", color: "#ef5350" }}>{nameB}</span>
         </div>
       </div>
     </div>
@@ -816,13 +827,13 @@ function SignatureRadar({ sigA, sigB, nameA, nameB }) {
         {sigA && (
           <div style={{ display: "flex", alignItems: "center", gap: 6 }}>
             <div style={{ width: 12, height: 12, borderRadius: 2, background: "#4fc3f7", opacity: 0.7 }} />
-            <span style={{ fontFamily: "var(--font-mono)", fontSize: 10, color: "#4fc3f7" }}>{nameA}</span>
+            <span style={{ fontFamily: "var(--font-mono)", fontSize: "var(--text-xxxs)", color: "#4fc3f7" }}>{nameA}</span>
           </div>
         )}
         {sigB && (
           <div style={{ display: "flex", alignItems: "center", gap: 6 }}>
             <div style={{ width: 12, height: 12, borderRadius: 2, background: "#ef5350", opacity: 0.7 }} />
-            <span style={{ fontFamily: "var(--font-mono)", fontSize: 10, color: "#ef5350" }}>{nameB}</span>
+            <span style={{ fontFamily: "var(--font-mono)", fontSize: "var(--text-xxxs)", color: "#ef5350" }}>{nameB}</span>
           </div>
         )}
       </div>
@@ -1017,7 +1028,7 @@ function CompareDetail({ fpDataA, fpDataB, compareData, nameA, nameB }) {
           <CompareSectionTitle>Hotkey Switching Patterns</CompareSectionTitle>
           <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: "0 24px" }}>
             <div>
-              <div style={{ fontFamily: "var(--font-mono)", fontSize: 9, color: "#4fc3f7", marginBottom: 4 }}>{nameA}</div>
+              <div style={{ fontFamily: "var(--font-mono)", fontSize: "var(--text-xxxs)", color: "#4fc3f7", marginBottom: 4 }}>{nameA}</div>
               {transA.map((t, i) => (
                 <TransRow key={i}>
                   <TransArrow>{t.from}→{t.to}</TransArrow>
@@ -1028,7 +1039,7 @@ function CompareDetail({ fpDataA, fpDataB, compareData, nameA, nameB }) {
               ))}
             </div>
             <div>
-              <div style={{ fontFamily: "var(--font-mono)", fontSize: 9, color: "#ef5350", marginBottom: 4 }}>{nameB}</div>
+              <div style={{ fontFamily: "var(--font-mono)", fontSize: "var(--text-xxxs)", color: "#ef5350", marginBottom: 4 }}>{nameB}</div>
               {transB.map((t, i) => (
                 <TransRow key={i}>
                   <TransArrow>{t.from}→{t.to}</TransArrow>
@@ -1122,7 +1133,7 @@ export default function InvestigateTab() {
   const [playerRaceFilters, setPlayerRaceFilters] = useState(new Map()); // tag → race | null (per-player)
   const [playerDateFilters, setPlayerDateFilters] = useState(new Map()); // tag → afterDate
   const [showResults, setShowResults] = useState(false);
-  const [resultsTab, setResultsTab] = useState('fingerprint'); // 'fingerprint' | 'replays'
+  const [resultsTab, setResultsTab] = useState('replays'); // 'replays' | 'fingerprint'
   const [refetchingTags, setRefetchingTags] = useState(new Set()); // tags currently re-fetching
   const [importingTags, setImportingTags] = useState(new Set()); // tags being imported
   const [playerReplayLists, setPlayerReplayLists] = useState(new Map()); // tag → replay[]
@@ -1275,7 +1286,9 @@ export default function InvestigateTab() {
         }
 
         // 3. Batch-enrich profiles for all unique tags (include query player for their country)
-        const allTags = [...new Set([selectedTag, ...ladderByTag.keys(), ...tagAppearances.keys()])];
+        // Also include similar players — they may be off-ladder but still share country
+        const similarTags = playstyleData?.similar?.map(s => s.battleTag) || [];
+        const allTags = [...new Set([selectedTag, ...similarTags, ...ladderByTag.keys(), ...tagAppearances.keys()])];
         const profileMap = await getPlayerProfilesBatch(allTags);
         setMatchProfiles(prev => { const next = { ...prev }; for (const [t, p] of profileMap) next[t] = p; return next; });
 
@@ -1465,7 +1478,7 @@ export default function InvestigateTab() {
 
   const addPlayerToList = useCallback(async (battleTag, ladderMmr, ladderRace) => {
     setAddQuery(""); setAddResults([]); setAddShowDropdown(false); setAddIsSearching(false);
-    if (!battleTag || manualCandidates.has(battleTag)) return;
+    if (!battleTag) return;
     setAddLoading(true);
     try {
       const ap = new URLSearchParams(); // candidates also load unfiltered initially
@@ -1488,7 +1501,7 @@ export default function InvestigateTab() {
           isManual: true,
         };
         setManualCandidates(prev => new Map([...prev, [battleTag, candidate]]));
-        setCandidateOrder(prev => [...prev, battleTag]);
+        setCandidateOrder(prev => prev.includes(battleTag) ? prev : [...prev, battleTag]);
         getPlayerProfilesBatch([battleTag]).then(profileMap => {
           setMatchProfiles(prev => {
             const obj = { ...prev };
@@ -1516,7 +1529,7 @@ export default function InvestigateTab() {
           isManual: true,
         };
         setManualCandidates(prev => new Map([...prev, [battleTag, candidate]]));
-        setCandidateOrder(prev => [...prev, battleTag]);
+        setCandidateOrder(prev => prev.includes(battleTag) ? prev : [...prev, battleTag]);
         getPlayerProfilesBatch([battleTag]).then(profileMap => {
           setMatchProfiles(prev => {
             const obj = { ...prev };
@@ -1527,7 +1540,7 @@ export default function InvestigateTab() {
       }
     } catch (err) { console.error("Add player failed:", err); }
     setAddLoading(false);
-  }, [RELAY_URL, manualCandidates]);
+  }, [RELAY_URL, apiKey]);
 
 
   const dismiss = useCallback(() => {
@@ -1618,7 +1631,30 @@ export default function InvestigateTab() {
           )}
           {identifyError === 'not_indexed' && (
             <NoDataText>
-              <span style={{ color: "var(--gold)", fontFamily: "var(--font-display)" }}>{queryName}</span> isn't in the index yet — no replays uploaded for this player.
+              <span style={{ color: "var(--gold)", fontFamily: "var(--font-display)" }}>{queryName}</span> isn't in the index yet.{" "}
+              {importingTags.has(selectedTag) ? (
+                <span style={{ fontFamily: 'var(--font-mono)', fontSize: 'var(--text-xxxs)', color: 'var(--grey-light)' }}>
+                  <PeonLoader size="sm" /> importing…
+                </span>
+              ) : (
+                <button
+                  onClick={async () => {
+                    setImportingTags(prev => { const s = new Set(prev); s.add(selectedTag); return s; });
+                    try {
+                      await fetch(`${RELAY_URL}/api/fingerprints/import`, {
+                        method: 'POST',
+                        headers: { 'Content-Type': 'application/json', 'X-API-Key': apiKey },
+                        body: JSON.stringify({ battleTag: selectedTag }),
+                      });
+                      await selectPlayer(selectedTag);
+                    } catch { /* silent */ }
+                    setImportingTags(prev => { const s = new Set(prev); s.delete(selectedTag); return s; });
+                  }}
+                  style={{ background: 'none', border: 'none', padding: 0, cursor: 'pointer', color: 'var(--gold)', fontFamily: 'var(--font-display)', fontSize: 'inherit', textDecoration: 'underline' }}
+                >
+                  Import replays
+                </button>
+              )}
             </NoDataText>
           )}
           {identifyError?.startsWith('server_error') && (
@@ -1666,12 +1702,12 @@ export default function InvestigateTab() {
                       );
 
                     const renderAvatar = (avatarUrl, raceIcon, size = 44) => (
-                      <span className="navbar-search-avatar-wrap" style={{ position: "relative", flexShrink: 0 }}>
+                      <span style={{ position: "relative", flexShrink: 0, display: 'inline-block', width: size, height: size }}>
                         {avatarUrl
-                          ? <img src={avatarUrl} alt="" className="navbar-search-avatar" style={{ width: size, height: size, borderRadius: "var(--radius-sm)" }} />
+                          ? <img src={avatarUrl} alt="" style={{ width: size, height: size, borderRadius: "var(--radius-sm)", objectFit: 'cover', display: 'block' }} />
                           : raceIcon
-                            ? <img src={raceIcon} alt="" className="navbar-search-avatar race-fallback" style={{ width: size, height: size, borderRadius: "var(--radius-sm)" }} />
-                            : <span className="navbar-search-avatar placeholder" style={{ width: size, height: size, borderRadius: "var(--radius-sm)" }} />}
+                            ? <img src={raceIcon} alt="" style={{ width: size, height: size, borderRadius: "var(--radius-sm)", objectFit: 'cover', display: 'block', padding: size > 36 ? 8 : 4, background: 'rgba(255,255,255,0.06)', opacity: 0.85, boxSizing: 'border-box' }} />
+                            : <span style={{ display: 'block', width: size, height: size, borderRadius: "var(--radius-sm)", background: 'rgba(255,255,255,0.06)' }} />}
                       </span>
                     );
 
@@ -1702,7 +1738,7 @@ export default function InvestigateTab() {
                         const img = u.img || (isHero ? `/heroes/${HERO_IMAGES[u.id]}.png` : null);
                         return img
                           ? <img key={u.id} src={img} alt={u.name} title={u.name} style={{ width: isHero ? 28 : 22, height: isHero ? 28 : 22, objectFit: "contain" }} onError={e => { e.target.style.display = 'none'; }} />
-                          : <span key={u.id} title={u.name} style={{ fontFamily: "var(--font-mono)", fontSize: 10, color: isBuilding ? "var(--amber)" : "var(--grey-light)", padding: "0 2px" }}>{u.name}</span>;
+                          : <span key={u.id} title={u.name} style={{ fontFamily: "var(--font-mono)", fontSize: "var(--text-xxxs)", color: isBuilding ? "var(--amber)" : "var(--grey-light)", padding: "0 2px" }}>{u.name}</span>;
                       });
                     };
 
@@ -1740,7 +1776,17 @@ export default function InvestigateTab() {
                     const getMapName = parseMapName;
 
                     const renderReplayPicker = (tag) => {
-                      const replays = playerReplayLists.get(tag) || [];
+                      const allReplays = playerReplayLists.get(tag) || [];
+                      const raceFilter = playerRaceFilters.get(tag) || null;
+                      const dateFilter = playerDateFilters.get(tag) || null;
+                      const replays = allReplays.filter(r => {
+                        if (raceFilter && r.race !== raceFilter) return false;
+                        if (dateFilter) {
+                          const d = r.matchDate || r.uploadedAt;
+                          if (!d || d < dateFilter) return false;
+                        }
+                        return true;
+                      });
                       const selection = playerReplaySelections.get(tag);
                       const hasSelection = selection && selection.size > 0;
                       const allSelected = !hasSelection;
@@ -1756,13 +1802,13 @@ export default function InvestigateTab() {
                           <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 4, padding: '0 2px' }}>
                             <button
                               onClick={() => setPlayerReplaySelection(tag, null)}
-                              style={{ padding: '3px 10px', background: allSelected ? 'rgba(212,175,55,0.15)' : 'rgba(255,255,255,0.06)', border: allSelected ? '1px solid rgba(212,175,55,0.5)' : '1px solid rgba(255,255,255,0.12)', borderRadius: 3, cursor: 'pointer', color: allSelected ? 'var(--gold)' : 'var(--grey-light)', fontSize: 11, fontFamily: 'var(--font-mono)' }}
+                              style={{ padding: '3px 10px', background: allSelected ? 'rgba(212,175,55,0.15)' : 'rgba(255,255,255,0.06)', border: allSelected ? '1px solid rgba(212,175,55,0.5)' : '1px solid rgba(255,255,255,0.12)', borderRadius: 3, cursor: 'pointer', color: allSelected ? 'var(--gold)' : 'var(--grey-light)', fontSize: 'var(--text-xxxs)', fontFamily: 'var(--font-mono)' }}
                             >
-                              All ({replays.length})
+                              {replays.length < allReplays.length ? `${replays.length} / ${allReplays.length}` : `All (${replays.length})`}
                             </button>
                             <div style={{ display: 'flex', alignItems: 'center', gap: 4 }}>
                               {hasSelection && (
-                                <span style={{ fontFamily: 'var(--font-mono)', fontSize: 11, color: 'var(--gold)' }}>
+                                <span style={{ fontFamily: 'var(--font-mono)', fontSize: 'var(--text-xxxs)', color: 'var(--gold)' }}>
                                   {selection.size} sel
                                 </span>
                               )}
@@ -1815,16 +1861,16 @@ export default function InvestigateTab() {
                                   )}
                                   {/* Map name + date */}
                                   <div style={{ flex: 1, minWidth: 0 }}>
-                                    <div style={{ fontFamily: 'var(--font-display)', fontSize: 13, color: checked ? 'var(--gold)' : '#fff', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis', lineHeight: 1.2 }}>
+                                    <div style={{ fontFamily: 'var(--font-display)', fontSize: 'var(--text-xxs)', color: checked ? 'var(--gold)' : '#fff', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis', lineHeight: 1.2 }}>
                                       {mapName || '—'}
                                     </div>
                                     <div style={{ display: 'flex', alignItems: 'center', gap: 5, marginTop: 3 }}>
                                       {ri && <img src={ri} alt="" style={{ width: 12, height: 12, flexShrink: 0 }} />}
-                                      <span style={{ fontFamily: 'var(--font-mono)', fontSize: 10, color: 'var(--grey-light)' }}>{fmtReplayDate(r)}</span>
+                                      <span style={{ fontFamily: 'var(--font-mono)', fontSize: 'var(--text-xxxs)', color: 'var(--grey-light)' }}>{fmtReplayDate(r)}</span>
                                     </div>
                                   </div>
                                   {/* Duration */}
-                                  <span style={{ fontFamily: 'var(--font-mono)', fontSize: 11, color: 'var(--grey-mid)', flexShrink: 0, minWidth: 32, textAlign: 'right' }}>{fmtDuration(r.gameDuration)}</span>
+                                  <span style={{ fontFamily: 'var(--font-mono)', fontSize: 'var(--text-xxxs)', color: 'var(--grey-mid)', flexShrink: 0, minWidth: 32, textAlign: 'right' }}>{fmtDuration(r.gameDuration)}</span>
                                 </label>
                               );
                             })}
@@ -1857,7 +1903,7 @@ export default function InvestigateTab() {
                       const exitSingleMode = () => setPlayerReplaySelection(tag, null);
 
                       const tabStyle = (active) => ({
-                        padding: '4px 9px', fontSize: 12, fontFamily: 'var(--font-mono)',
+                        padding: '4px 9px', fontSize: 'var(--text-xxs)', fontFamily: 'var(--font-mono)',
                         background: active ? 'rgba(212,175,55,0.18)' : 'rgba(255,255,255,0.06)',
                         border: active ? '1px solid rgba(212,175,55,0.5)' : '1px solid rgba(255,255,255,0.1)',
                         borderRadius: 3, cursor: 'pointer',
@@ -1874,13 +1920,15 @@ export default function InvestigateTab() {
                         fontSize: 16, lineHeight: 1,
                       });
 
-                      const mapLabel = hasSel
-                        ? (getMapName(current?.mapName) || `replay ${current?.replayId}`)
-                        : null;
                       const dateLabel = afterDate
                         ? DATE_FILTERS.find(d => d.value === afterDate)?.label
                         : null;
-                      const centerLabel = mapLabel || (dateLabel ? `all · ${dateLabel}` : `all ${replays.length > 0 ? replays.length : ''}`);
+                      // When stepping through single replays, show position counter; otherwise show total
+                      const centerLabel = hasSel && currentIdx >= 0
+                        ? `${currentIdx + 1} / ${replays.length}`
+                        : dateLabel
+                          ? `${replays.length} · ${dateLabel}`
+                          : `${replays.length || '—'}`;
 
                       return (
                         <div style={{ width: '100%', display: 'flex', flexDirection: 'column', gap: 6, marginTop: 6 }} onClick={e => e.stopPropagation()}>
@@ -1898,13 +1946,10 @@ export default function InvestigateTab() {
                               <button style={arrowStyle(!hasSel || currentIdx <= 0)} onClick={() => step(-1)}>‹</button>
                               <button
                                 onClick={hasSel ? exitSingleMode : () => step(+1)}
-                                title={hasSel ? 'Exit single-replay mode' : 'Step into replays one by one'}
-                                style={{ flex: 1, padding: '4px 6px', fontFamily: 'var(--font-mono)', background: hasSel ? 'rgba(212,175,55,0.12)' : 'rgba(255,255,255,0.04)', border: hasSel ? '1px solid rgba(212,175,55,0.4)' : '1px solid rgba(255,255,255,0.12)', borderRadius: 4, cursor: 'pointer', textAlign: 'center', lineHeight: 1.3, display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 1 }}
+                                title={hasSel ? 'Back to all replays' : 'Step through replays one by one'}
+                                style={{ flex: 1, padding: '4px 6px', fontFamily: 'var(--font-mono)', fontSize: 'var(--text-xxs)', background: hasSel ? 'rgba(212,175,55,0.12)' : 'rgba(255,255,255,0.04)', border: hasSel ? '1px solid rgba(212,175,55,0.4)' : '1px solid rgba(255,255,255,0.12)', borderRadius: 4, cursor: 'pointer', textAlign: 'center', color: hasSel ? 'var(--gold)' : 'var(--grey-mid)', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}
                               >
-                                <span style={{ fontSize: 11, color: hasSel ? 'var(--gold)' : 'rgba(255,255,255,0.4)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', maxWidth: '100%' }}>{centerLabel}</span>
-                                {hasSel && current && (
-                                  <span style={{ fontSize: 10, color: 'rgba(255,255,255,0.45)' }}>{fmtReplayDate(current)}</span>
-                                )}
+                                {centerLabel}
                               </button>
                               <button style={arrowStyle(hasSel && currentIdx >= replays.length - 1)} onClick={() => step(+1)}>›</button>
                             </div>
@@ -1961,14 +2006,14 @@ export default function InvestigateTab() {
                               </div>
                             </div>
                             {!isQuery && (
-                              <button title={included ? 'Remove' : 'Add back'} onClick={() => included ? removeCandidate(tag) : (setRemovedTags(prev => { const s = new Set(prev); s.delete(tag); return s; }))} style={{ flexShrink: 0, width: 22, height: 22, display: 'flex', alignItems: 'center', justifyContent: 'center', background: 'transparent', border: '1px solid rgba(255,80,80,0.3)', borderRadius: 'var(--radius-sm)', cursor: 'pointer', fontSize: 13, color: 'rgba(255,110,110,0.7)', transition: 'all 0.1s' }} onMouseEnter={e => { e.currentTarget.style.background = 'rgba(255,60,60,0.15)'; e.currentTarget.style.color = '#f87171'; }} onMouseLeave={e => { e.currentTarget.style.background = 'transparent'; e.currentTarget.style.color = 'rgba(255,110,110,0.7)'; }}>
+                              <button title={included ? 'Remove' : 'Add back'} onClick={() => included ? removeCandidate(tag) : (setRemovedTags(prev => { const s = new Set(prev); s.delete(tag); return s; }))} style={{ flexShrink: 0, width: 22, height: 22, display: 'flex', alignItems: 'center', justifyContent: 'center', background: 'transparent', border: '1px solid rgba(255,80,80,0.3)', borderRadius: 'var(--radius-sm)', cursor: 'pointer', fontSize: 'var(--text-xxs)', color: 'rgba(255,110,110,0.7)', transition: 'all 0.1s' }} onMouseEnter={e => { e.currentTarget.style.background = 'rgba(255,60,60,0.15)'; e.currentTarget.style.color = '#f87171'; }} onMouseLeave={e => { e.currentTarget.style.background = 'transparent'; e.currentTarget.style.color = 'rgba(255,110,110,0.7)'; }}>
                                 ×
                               </button>
                             )}
                           </div>
                           {!isQuery && similarity != null && (
                             <div style={{ fontFamily: 'var(--font-mono)', fontSize: 'var(--text-xxs)', color: matchColor, borderTop: '1px solid var(--panel-border)', paddingTop: 8 }}>
-                              <span style={{ fontSize: 13, fontWeight: 600 }}>{Math.round(similarity * 100)}%</span>
+                              <span style={{ fontSize: 'var(--text-xxs)', fontWeight: 600 }}>{Math.round(similarity * 100)}%</span>
                               <span style={{ color: 'var(--grey-light)', marginLeft: 4 }}>match</span>
                               {percentile != null && <span style={{ marginLeft: 6, color: matchColor, opacity: 0.8 }}>p{Math.round(percentile)}</span>}
                             </div>
@@ -1978,36 +2023,60 @@ export default function InvestigateTab() {
                       );
                     };
 
-                    // ── Discovery card: lightweight "+Add" for all candidate suggestions ──
+                    // ── Discovery card: profile-style opt-in card ──
                     const renderDiscoveryCard = (entry) => {
                       const mName = entry.battleTag.split('#')[0];
                       const mProfile = matchProfiles[entry.battleTag];
-                      const mRaceIcon = RACE_ICON_MAP[entry.race];
+                      const mRace = entry.race || mProfile?.race;
+                      const mRaceIcon = RACE_ICON_MAP[mRace];
+                      const mCountry = entry.country || mProfile?.country;
+                      const mMmr = entry.mmr;
+                      const isNew = (entry.recentGames != null) || (entry.replayCount != null && entry.replayCount < 20 && mMmr == null);
                       const alreadyIn = candidateOrder.includes(entry.battleTag);
-                      const matchColor = entry.percentile >= 99 ? 'var(--gold)' : entry.percentile >= 95 ? 'var(--green)' : 'var(--cyan)';
-                      const subtitle = entry.similarity != null
-                        ? <><span style={{ color: matchColor, fontWeight: 600 }}>{Math.round(entry.similarity * 100)}%</span> <span style={{ color: 'var(--grey-light)' }}>match</span>{entry.percentile != null && <span style={{ color: matchColor, opacity: 0.8, marginLeft: 5 }}>p{Math.round(entry.percentile)}</span>}</>
-                        : entry.mmr != null
-                          ? <><span style={{ color: '#fff' }}>{entry.mmr}</span> <span style={{ color: 'var(--grey-light)' }}>MMR</span>{entry.mmrDist > 0 && entry.mmrDist !== Infinity && <span style={{ color: 'var(--grey-light)', opacity: 0.5 }}> ±{entry.mmrDist}</span>}</>
-                          : entry.recentGames != null
-                            ? <><span style={{ color: '#fff' }}>{entry.recentGames}</span> <span style={{ color: 'var(--grey-light)' }}>game{entry.recentGames !== 1 ? 's' : ''}</span> · <span style={{ color: 'var(--amber)' }}>unranked</span></>
-                            : <span style={{ color: 'var(--amber)' }}>unranked</span>;
+
+                      const handleAdd = () => {
+                        if (alreadyIn) return;
+                        const optimistic = {
+                          battleTag: entry.battleTag,
+                          playerName: mName,
+                          score: null, percentile: null,
+                          apm: null,
+                          mmr: mMmr ?? null,
+                          race: mRace ?? null,
+                          replayCount: 0,
+                          lastSeen: null,
+                          glyph: { transitionPairs: [], groupUsage: [], groupCompositions: {} },
+                          seasonActivity: [],
+                          isManual: true,
+                        };
+                        setManualCandidates(prev => new Map([...prev, [entry.battleTag, optimistic]]));
+                        setCandidateOrder(prev => prev.includes(entry.battleTag) ? prev : [...prev, entry.battleTag]);
+                        addPlayerToList(entry.battleTag, mMmr, mRace);
+                      };
+
                       return (
-                        <div key={entry.battleTag} style={{ width: 200, flexShrink: 0, padding: '12px 14px', borderRadius: 'var(--radius-lg)', border: '1px solid rgba(255,255,255,0.1)', background: 'var(--surface-1)', display: 'flex', flexDirection: 'column', gap: 10 }}>
-                          <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
-                            {renderAvatar(mProfile?.profilePicUrl, mRaceIcon, 34)}
-                            <div style={{ minWidth: 0, flex: 1 }}>
-                              <div style={{ display: 'flex', alignItems: 'center', gap: 5, marginBottom: 2 }}>
-                                <a href={`/player/${encodeURIComponent(entry.battleTag)}`} target="_blank" rel="noreferrer" style={{ fontFamily: 'var(--font-display)', fontSize: 'var(--text-sm)', color: 'var(--gold)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', textDecoration: 'none', minWidth: 0, transition: 'opacity 0.1s' }} onMouseEnter={e => e.target.style.opacity = '0.75'} onMouseLeave={e => e.target.style.opacity = '1'}>{mName}</a>
-                                {entry.country && <CountryFlag name={entry.country.toLowerCase()} style={{ width: 14, height: 10, flexShrink: 0 }} />}
+                        <div key={entry.battleTag} style={{ width: 210, flexShrink: 0, padding: '14px', borderRadius: 'var(--radius-lg)', border: alreadyIn ? '1px solid rgba(100,200,100,0.3)' : '1px solid rgba(255,255,255,0.1)', background: alreadyIn ? 'rgba(100,200,100,0.04)' : 'var(--surface-1)', display: 'flex', flexDirection: 'column', gap: 12, transition: 'border-color 0.15s, background 0.15s' }}>
+                          <div style={{ display: 'flex', gap: 12 }}>
+                            {renderAvatar(mProfile?.profilePicUrl, mRaceIcon, 56)}
+                            <div style={{ minWidth: 0, flex: 1, display: 'flex', flexDirection: 'column', justifyContent: 'center', gap: 6 }}>
+                              <a href={`/player/${encodeURIComponent(entry.battleTag)}`} target="_blank" rel="noreferrer" style={{ fontFamily: 'var(--font-display)', fontSize: 'var(--text-sm)', color: 'var(--gold)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', textDecoration: 'none', display: 'block', lineHeight: 1.1, transition: 'opacity 0.1s' }} onMouseEnter={e => e.target.style.opacity = '0.75'} onMouseLeave={e => e.target.style.opacity = '1'}>{mName}</a>
+                              <div style={{ display: 'flex', alignItems: 'center', gap: 5 }}>
+                                {mRaceIcon && <img src={mRaceIcon} alt="" style={{ width: 15, height: 15, opacity: 0.8, flexShrink: 0 }} />}
+                                {mCountry && <CountryFlag name={mCountry.toLowerCase()} style={{ width: 16, height: 11, flexShrink: 0 }} />}
+                                {isNew && <span style={{ fontFamily: 'var(--font-mono)', fontSize: 'var(--text-xxxs)', background: 'rgba(251,191,36,0.12)', border: '1px solid rgba(251,191,36,0.3)', borderRadius: 2, padding: '1px 4px', color: 'var(--amber)', textTransform: 'uppercase', letterSpacing: '0.04em' }}>new</span>}
                               </div>
-                              <div style={{ fontFamily: 'var(--font-mono)', fontSize: 'var(--text-xxxs)' }}>{subtitle}</div>
+                              {mMmr != null
+                                ? <div style={{ fontFamily: 'var(--font-mono)', fontSize: 'var(--text-sm)', fontWeight: 700, color: '#fff', lineHeight: 1 }}>{mMmr} <span style={{ fontWeight: 400, fontSize: 10, color: 'var(--grey-light)' }}>MMR</span></div>
+                                : entry.recentGames != null
+                                  ? <div style={{ fontFamily: 'var(--font-mono)', fontSize: 'var(--text-xxs)', color: 'var(--amber)' }}>{entry.recentGames}g played</div>
+                                  : null
+                              }
                             </div>
                           </div>
                           <button
-                            disabled={alreadyIn || addLoading}
-                            onClick={() => !alreadyIn && addPlayerToList(entry.battleTag, entry.mmr, entry.race)}
-                            style={{ padding: '6px 0', background: alreadyIn ? 'rgba(100,200,100,0.1)' : 'rgba(212,175,55,0.08)', border: alreadyIn ? '1px solid rgba(100,200,100,0.3)' : '1px solid rgba(212,175,55,0.3)', borderRadius: 'var(--radius-sm)', cursor: alreadyIn ? 'default' : 'pointer', color: alreadyIn ? 'var(--green)' : 'var(--gold)', fontFamily: 'var(--font-mono)', fontSize: 'var(--text-xxxs)', textTransform: 'uppercase', letterSpacing: '0.1em', textAlign: 'center', transition: 'all 0.1s' }}
+                            disabled={alreadyIn}
+                            onClick={handleAdd}
+                            style={{ padding: '7px 0', background: alreadyIn ? 'rgba(100,200,100,0.1)' : 'rgba(212,175,55,0.08)', border: alreadyIn ? '1px solid rgba(100,200,100,0.3)' : '1px solid rgba(212,175,55,0.3)', borderRadius: 'var(--radius-sm)', cursor: alreadyIn ? 'default' : 'pointer', color: alreadyIn ? 'var(--green)' : 'var(--gold)', fontFamily: 'var(--font-mono)', fontSize: 'var(--text-xxxs)', textTransform: 'uppercase', letterSpacing: '0.1em', textAlign: 'center', transition: 'all 0.1s' }}
                             onMouseEnter={e => { if (!alreadyIn) { e.currentTarget.style.background = 'rgba(212,175,55,0.2)'; e.currentTarget.style.borderColor = 'rgba(212,175,55,0.6)'; }}}
                             onMouseLeave={e => { if (!alreadyIn) { e.currentTarget.style.background = 'rgba(212,175,55,0.08)'; e.currentTarget.style.borderColor = 'rgba(212,175,55,0.3)'; }}}
                           >
@@ -2029,8 +2098,8 @@ export default function InvestigateTab() {
                       );
                       // Section label — design system: --text-xxs, --font-mono, --grey-light, uppercase
                       const sectionLabel = (content, extra) => (
-                        <div style={{ display: 'flex', alignItems: 'center', gap: 10, marginBottom: 12, paddingBottom: 8, paddingLeft: 10, borderBottom: '1px solid var(--panel-border)', borderLeft: '2px solid rgba(212,175,55,0.4)' }}>
-                          <span style={{ fontFamily: 'var(--font-mono)', fontSize: 'var(--text-xxs)', textTransform: 'uppercase', letterSpacing: '0.12em', color: 'rgba(255,255,255,0.65)' }}>{content}</span>
+                        <div style={{ display: 'flex', alignItems: 'center', gap: 10, marginBottom: 12, paddingBottom: 8, borderBottom: '1px solid var(--panel-border)' }}>
+                          <span style={{ fontFamily: 'var(--font-mono)', fontSize: 'var(--text-xs)', textTransform: 'uppercase', letterSpacing: '0.1em', color: 'var(--grey-light)' }}>{content}</span>
                           {extra}
                         </div>
                       );
@@ -2042,16 +2111,23 @@ export default function InvestigateTab() {
                         <div style={{ maxWidth: 960 }}>
                           {/* Section: Player of interest */}
                           {sectionLabel('Player of interest')}
-                          <div style={{ display: 'flex', alignItems: 'center', gap: 16, padding: '16px 20px', borderRadius: 'var(--radius-lg)', background: 'rgba(212,175,55,0.06)', border: '2px solid rgba(212,175,55,0.35)', marginBottom: 28, maxWidth: 480 }}>
-                            {renderAvatar(qAvatar, qRaceIcon, 52)}
-                            <div style={{ flex: 1, minWidth: 0 }}>
-                              <a href={`/player/${encodeURIComponent(selectedTag)}`} target="_blank" rel="noreferrer" style={{ fontFamily: 'var(--font-display)', fontSize: 'var(--text-base)', color: 'var(--gold)', textDecoration: 'none', display: 'block', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis', transition: 'opacity 0.1s' }} onMouseEnter={e => e.target.style.opacity = '0.75'} onMouseLeave={e => e.target.style.opacity = '1'}>{queryName}</a>
-                              <div style={{ fontFamily: 'var(--font-mono)', fontSize: 'var(--text-xxs)', color: queryGames >= 100 ? 'var(--green)' : queryGames >= 20 ? 'var(--amber)' : 'var(--red)', marginTop: 4 }}>
-                                {queryGames} reps{playstyleData.query?.totalReplayCount != null && playstyleData.query.totalReplayCount !== queryGames && <span style={{ color: 'var(--grey-light)', opacity: 0.6 }}> / {playstyleData.query.totalReplayCount}</span>}
+                          <div style={{ display: 'flex', gap: 12, flexWrap: 'wrap', marginBottom: 28 }}>
+                            <div style={{ width: 210, flexShrink: 0, padding: '14px', borderRadius: 'var(--radius-lg)', border: '2px solid rgba(212,175,55,0.4)', background: 'rgba(212,175,55,0.05)', display: 'flex', flexDirection: 'column', gap: 12 }}>
+                              <div style={{ display: 'flex', gap: 12 }}>
+                                {renderAvatar(qAvatar, qRaceIcon, 56)}
+                                <div style={{ minWidth: 0, flex: 1, display: 'flex', flexDirection: 'column', justifyContent: 'center', gap: 6 }}>
+                                  <a href={`/player/${encodeURIComponent(selectedTag)}`} target="_blank" rel="noreferrer" style={{ fontFamily: 'var(--font-display)', fontSize: 'var(--text-sm)', color: 'var(--gold)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', textDecoration: 'none', display: 'block', lineHeight: 1.1, transition: 'opacity 0.1s' }} onMouseEnter={e => e.target.style.opacity = '0.75'} onMouseLeave={e => e.target.style.opacity = '1'}>{queryName}</a>
+                                  <div style={{ display: 'flex', alignItems: 'center', gap: 5 }}>
+                                    {qRaceIcon && <img src={qRaceIcon} alt="" style={{ width: 15, height: 15, opacity: 0.8, flexShrink: 0 }} />}
+                                    {qCountry && <CountryFlag name={qCountry.toLowerCase()} style={{ width: 16, height: 11, flexShrink: 0 }} />}
+                                  </div>
+                                  {qMmr != null && <div style={{ fontFamily: 'var(--font-mono)', fontSize: 'var(--text-sm)', fontWeight: 700, color: '#fff', lineHeight: 1 }}>{Math.round(qMmr)} <span style={{ fontWeight: 400, fontSize: 10, color: 'var(--grey-light)' }}>MMR</span></div>}
+                                </div>
+                              </div>
+                              <div style={{ padding: '7px 0', border: '1px solid rgba(212,175,55,0.25)', borderRadius: 'var(--radius-sm)', color: 'rgba(212,175,55,0.5)', fontFamily: 'var(--font-mono)', fontSize: 'var(--text-xxxs)', textTransform: 'uppercase', letterSpacing: '0.1em', textAlign: 'center' }}>
+                                Query player
                               </div>
                             </div>
-                            {qCountry && <CountryFlag name={qCountry.toLowerCase()} style={{ width: 22, height: 16, flexShrink: 0 }} />}
-                            {qMmr != null && <div style={{ fontFamily: 'var(--font-mono)', fontSize: 'var(--text-sm)', color: 'rgba(255,255,255,0.75)', flexShrink: 0, textAlign: 'right' }}>{Math.round(qMmr)}<div style={{ fontSize: 10, color: 'var(--grey-light)', lineHeight: 1.2 }}>MMR</div></div>}
                           </div>
 
                           {/* Section: Top 5 similar */}
@@ -2067,32 +2143,32 @@ export default function InvestigateTab() {
                                   <CountryFlag name={qCountry.toLowerCase()} style={{ width: 18, height: 13, verticalAlign: 'middle', borderRadius: 2 }} />
                                   <span>Same country · {getCountryName(qCountry)}</span>
                                 </span>
-                              : 'Same country',
-                            countryMatesLoading && <span style={{ fontFamily: 'var(--font-mono)', fontSize: 10, color: 'var(--grey-mid)' }}>loading…</span>
+                              : 'Same country'
                           )}
                           <div style={{ display: 'flex', gap: 12, flexWrap: 'wrap', marginBottom: 28, minHeight: 20 }}>
-                            {!countryMatesLoading && qCountry && countryMates.length === 0 && (
-                              <span style={{ fontFamily: 'var(--font-mono)', fontSize: 11, color: 'var(--grey-mid)', alignSelf: 'center' }}>No players from {getCountryName(qCountry)} found</span>
-                            )}
-                            {countryMates.slice(0, 6).map(renderDiscoveryCard)}
+                            {countryMatesLoading
+                              ? Array.from({ length: 4 }).map((_, i) => <SkeletonCard key={i} />)
+                              : qCountry && countryMates.length === 0
+                                ? <span style={{ fontFamily: 'var(--font-mono)', fontSize: 'var(--text-xxxs)', color: 'var(--grey-mid)', alignSelf: 'center' }}>No players from {getCountryName(qCountry)} found</span>
+                                : countryMates.slice(0, 6).map(renderDiscoveryCard)
+                            }
                           </div>
 
                           {/* Section: New accounts (unranked, played in last 5 days) */}
-                          {sectionLabel(
-                            'New accounts · last 5 days',
-                            countryMatesLoading && <span style={{ fontFamily: 'var(--font-mono)', fontSize: 10, color: 'var(--grey-mid)' }}>loading…</span>
-                          )}
+                          {sectionLabel('New accounts · last 5 days')}
                           <div style={{ display: 'flex', gap: 12, flexWrap: 'wrap', marginBottom: 28, minHeight: 20 }}>
-                            {!countryMatesLoading && newAccounts.length === 0 && (
-                              <span style={{ fontFamily: 'var(--font-mono)', fontSize: 11, color: 'var(--grey-mid)', alignSelf: 'center' }}>No new unranked accounts found</span>
-                            )}
-                            {newAccounts.slice(0, 10).map(renderDiscoveryCard)}
+                            {countryMatesLoading
+                              ? Array.from({ length: 4 }).map((_, i) => <SkeletonCard key={i} />)
+                              : newAccounts.length === 0
+                                ? <span style={{ fontFamily: 'var(--font-mono)', fontSize: 'var(--text-xxxs)', color: 'var(--grey-mid)', alignSelf: 'center' }}>No new unranked accounts found</span>
+                                : newAccounts.slice(0, 10).map(renderDiscoveryCard)
+                            }
                           </div>
 
                           {/* Section: Manually added + add search */}
                           {sectionLabel('Add manually')}
                           <div style={{ display: 'flex', gap: 12, flexWrap: 'wrap', marginBottom: 28 }}>
-                            {manualOnlyAdded.map(s => renderSetupCard(s.battleTag, { similarity: s.score, percentile: s.percentile, replayCount: s.replayCount, race: s.race, isManual: true }))}
+                            {manualOnlyAdded.map(s => renderDiscoveryCard(s))}
                             <div style={{ width: 200, flexShrink: 0, padding: 14, borderRadius: 'var(--radius-lg)', border: '1px dashed rgba(255,255,255,0.12)', display: 'flex', flexDirection: 'column', gap: 8, justifyContent: 'center', alignItems: 'center' }}>
                               <div style={{ position: 'relative', width: '100%' }}>
                                 <SearchInputWrap>
@@ -2118,46 +2194,47 @@ export default function InvestigateTab() {
 
                     return (
                       <>
-                      {/* ── Nav: back link + tabs ── */}
-                      <div style={{ marginBottom: 'var(--space-4)', display: 'flex', alignItems: 'center', gap: 16 }}>
+                      {/* ── Nav: back + tabs + add player, single row ── */}
+                      <div style={{ marginBottom: 20, display: 'flex', alignItems: 'center', gap: 12, flexWrap: 'wrap' }}>
                         <BackLink as="button" onClick={() => setShowResults(false)} style={{ fontSize: 'var(--text-xxs)', flexShrink: 0 }}>← Setup</BackLink>
+                        <div style={{ width: 1, height: 18, background: 'rgba(255,255,255,0.12)', flexShrink: 0 }} />
                         <div style={{ display: 'flex', gap: 2, background: 'rgba(255,255,255,0.04)', borderRadius: 'var(--radius-md)', padding: 3 }}>
-                          {[['fingerprint', 'Fingerprint'], ['replays', 'Replays']].map(([id, label]) => (
-                            <button key={id} onClick={() => setResultsTab(id)} style={{ padding: '5px 14px', background: resultsTab === id ? 'rgba(212,175,55,0.18)' : 'transparent', border: resultsTab === id ? '1px solid rgba(212,175,55,0.4)' : '1px solid transparent', borderRadius: 'var(--radius-sm)', cursor: 'pointer', color: resultsTab === id ? 'var(--gold)' : 'var(--grey-light)', fontFamily: 'var(--font-mono)', fontSize: 11, letterSpacing: '0.06em', textTransform: 'uppercase', transition: 'all 0.15s' }}>
+                          {[['replays', 'Replays'], ['fingerprint', 'Fingerprint']].map(([id, label]) => (
+                            <button key={id} onClick={() => setResultsTab(id)} style={{ padding: '5px 16px', background: resultsTab === id ? 'rgba(212,175,55,0.18)' : 'transparent', border: resultsTab === id ? '1px solid rgba(212,175,55,0.4)' : '1px solid transparent', borderRadius: 'var(--radius-sm)', cursor: 'pointer', color: resultsTab === id ? 'var(--gold)' : 'var(--grey-light)', fontFamily: 'var(--font-mono)', fontSize: 'var(--text-xxxs)', letterSpacing: '0.06em', textTransform: 'uppercase', transition: 'all 0.15s' }}>
                               {label}
                             </button>
                           ))}
                         </div>
-                      </div>
-                      {/* ── Toolbar: add player ── */}
-                      <div style={{ position: 'relative', zIndex: 30, display: 'flex', alignItems: 'center', gap: 'var(--space-3)', marginBottom: 'var(--space-3)', flexWrap: 'wrap' }}>
-                        <div style={{ position: 'relative', zIndex: 30, display: 'flex', alignItems: 'center', gap: 'var(--space-2)' }}>
-                          <SearchInputWrap style={{ width: 220 }}>
+                        <div style={{ width: 1, height: 18, background: 'rgba(255,255,255,0.12)', flexShrink: 0 }} />
+                        <div style={{ position: 'relative', zIndex: 30 }}>
+                          <SearchInputWrap style={{ width: 200 }}>
                             <Input
                               value={addQuery}
                               onChange={e => setAddQuery(e.target.value)}
                               onKeyDown={e => e.key === "Escape" && (setAddQuery(""), setAddShowDropdown(false))}
                               onFocus={() => addResults.length > 0 && setAddShowDropdown(true)}
                               onBlur={() => setTimeout(() => setAddShowDropdown(false), 200)}
-                              placeholder="+ Add player to list…"
-                              style={{ fontSize: 'var(--text-xxs)', padding: '6px 10px' }}
+                              placeholder="+ Add player…"
+                              style={{ fontSize: 'var(--text-xxs)', padding: '5px 10px' }}
                             />
                           </SearchInputWrap>
                           {addLoading && <PeonLoader size="sm" />}
                           {addShowDropdown && renderSearchDropdown(addResults, addPlayerToList, true)}
                           {addIsSearching && addQuery.length >= 2 && !addShowDropdown && (
-                            <div className="navbar-search-dropdown" style={{ width: 220 }}><div className="navbar-search-loading"><PeonLoader size="sm" /></div></div>
+                            <div className="navbar-search-dropdown" style={{ width: 200 }}><div className="navbar-search-loading"><PeonLoader size="sm" /></div></div>
                           )}
                         </div>
                       </div>
 
                       {/* ── REPLAYS TAB ── */}
-                      {resultsTab === 'replays' && (() => {
+                      <div style={{ display: resultsTab === 'replays' ? 'block' : 'none' }}>
+                      {(() => {
                         const allPlayers = [
                           { tag: selectedTag, name: queryName, isQuery: true },
                           ...candidates.map(s => ({ tag: s.battleTag, name: (s.playerName || s.battleTag || '').split('#')[0], isQuery: false })),
                         ];
                         return (
+                          <>
                           <div style={{ display: 'flex', gap: 'var(--space-4)', alignItems: 'flex-start', flexWrap: 'wrap' }}>
                             {allPlayers.map(p => {
                               const replays = playerReplayLists.get(p.tag) || [];
@@ -2169,10 +2246,10 @@ export default function InvestigateTab() {
                                   <div style={{ display: 'flex', alignItems: 'center', gap: 8, paddingBottom: 8, borderBottom: p.isQuery ? '2px solid rgba(212,175,55,0.4)' : '1px solid rgba(255,255,255,0.1)' }}>
                                     <span style={{ fontFamily: 'var(--font-display)', fontSize: 'var(--text-sm)', color: p.isQuery ? 'var(--gold)' : '#fff' }}>{p.name}</span>
                                     {hasSelection && (
-                                      <span style={{ fontFamily: 'var(--font-mono)', fontSize: 10, color: 'var(--gold)', marginLeft: 'auto' }}>{selection.size} sel</span>
+                                      <span style={{ fontFamily: 'var(--font-mono)', fontSize: 'var(--text-xxxs)', color: 'var(--gold)', marginLeft: 'auto' }}>{selection.size} sel</span>
                                     )}
                                     {hasSelection && (
-                                      <button onClick={() => setPlayerReplaySelection(p.tag, null)} style={{ fontFamily: 'var(--font-mono)', fontSize: 9, color: 'var(--grey-mid)', background: 'none', border: 'none', cursor: 'pointer', padding: 0 }}>clear</button>
+                                      <button onClick={() => setPlayerReplaySelection(p.tag, null)} style={{ fontFamily: 'var(--font-mono)', fontSize: 'var(--text-xxxs)', color: 'var(--grey-mid)', background: 'none', border: 'none', cursor: 'pointer', padding: 0 }}>clear</button>
                                     )}
                                   </div>
                                   {/* Race + date filters */}
@@ -2181,7 +2258,7 @@ export default function InvestigateTab() {
                                       const active = playerRaceFilters.get(p.tag) === rf.value;
                                       return (
                                         <button key={rf.label} onClick={() => setPlayerRace(p.tag, rf.value)}
-                                          style={{ display: 'flex', alignItems: 'center', gap: 2, padding: '2px 6px', background: active ? 'rgba(212,175,55,0.18)' : 'rgba(255,255,255,0.06)', border: active ? '1px solid var(--gold)' : '1px solid rgba(255,255,255,0.1)', borderRadius: 3, cursor: 'pointer', color: active ? 'var(--gold)' : 'var(--grey-light)', fontSize: 10, fontFamily: 'var(--font-mono)' }}>
+                                          style={{ display: 'flex', alignItems: 'center', gap: 2, padding: '2px 6px', background: active ? 'rgba(212,175,55,0.18)' : 'rgba(255,255,255,0.06)', border: active ? '1px solid var(--gold)' : '1px solid rgba(255,255,255,0.1)', borderRadius: 3, cursor: 'pointer', color: active ? 'var(--gold)' : 'var(--grey-light)', fontSize: 'var(--text-xxxs)', fontFamily: 'var(--font-mono)' }}>
                                           {rf.icon && <img src={rf.icon} alt="" style={{ width: 11, height: 11 }} />}{rf.label}
                                         </button>
                                       );
@@ -2190,7 +2267,7 @@ export default function InvestigateTab() {
                                   <div style={{ display: 'flex', gap: 3 }}>
                                     {DATE_FILTERS.map(df => {
                                       const active = playerDateFilters.get(p.tag) === df.value;
-                                      return <button key={df.label} onClick={() => setPlayerDate(p.tag, df.value)} style={{ padding: '2px 8px', background: active ? 'rgba(212,175,55,0.18)' : 'rgba(255,255,255,0.06)', border: active ? '1px solid var(--gold)' : '1px solid rgba(255,255,255,0.1)', borderRadius: 3, cursor: 'pointer', color: active ? 'var(--gold)' : 'var(--grey-light)', fontSize: 10, fontFamily: 'var(--font-mono)' }}>{df.label}</button>;
+                                      return <button key={df.label} onClick={() => setPlayerDate(p.tag, df.value)} style={{ padding: '2px 8px', background: active ? 'rgba(212,175,55,0.18)' : 'rgba(255,255,255,0.06)', border: active ? '1px solid var(--gold)' : '1px solid rgba(255,255,255,0.1)', borderRadius: 3, cursor: 'pointer', color: active ? 'var(--gold)' : 'var(--grey-light)', fontSize: 'var(--text-xxxs)', fontFamily: 'var(--font-mono)' }}>{df.label}</button>;
                                     })}
                                   </div>
                                   {/* Replay list */}
@@ -2199,10 +2276,23 @@ export default function InvestigateTab() {
                               );
                             })}
                           </div>
+                          <div style={{ marginTop: 20, paddingTop: 16, borderTop: '1px solid var(--panel-border)' }}>
+                            <button
+                              onClick={() => setResultsTab('fingerprint')}
+                              style={{ padding: '9px 24px', background: 'rgba(212,175,55,0.15)', border: '1px solid rgba(212,175,55,0.5)', borderRadius: 'var(--radius-md)', cursor: 'pointer', color: 'var(--gold)', fontFamily: 'var(--font-mono)', fontSize: 'var(--text-xs)', letterSpacing: '0.05em' }}
+                              onMouseEnter={e => { e.currentTarget.style.background = 'rgba(212,175,55,0.25)'; }}
+                              onMouseLeave={e => { e.currentTarget.style.background = 'rgba(212,175,55,0.15)'; }}
+                            >
+                              Compare fingerprints →
+                            </button>
+                          </div>
+                          </>
                         );
                       })()}
+                      </div>
 
-                      {resultsTab === 'fingerprint' && <CompareTable $cols={numCols}>
+                      <div style={{ display: resultsTab === 'fingerprint' ? 'block' : 'none' }}>
+                      <CompareTable $cols={numCols}>
 
                         {/* ── Header row: player names (draggable to reorder) ── */}
                         <div />
@@ -2210,12 +2300,13 @@ export default function InvestigateTab() {
                           {renderAvatar(qAvatar, qRaceIcon)}
                           <THName>{queryName}</THName>
                           {qCountry && <CountryFlag name={qCountry.toLowerCase()} style={{ width: 16, height: 12 }} />}
-                          <THLabel style={{ color: queryGames >= 100 ? 'var(--green)' : queryGames >= 20 ? 'var(--amber)' : 'var(--red)', opacity: 1 }}>
-                            {queryGames} reps{playstyleData.query?.totalReplayCount != null && playstyleData.query.totalReplayCount !== queryGames && (
-                              <span style={{ color: 'var(--grey-light)', marginLeft: 3 }}>/ {playstyleData.query.totalReplayCount}</span>
-                            )}
-                          </THLabel>
-                          {renderTHControls(selectedTag)}
+                          {(() => {
+                            const sel = playerReplaySelections.get(selectedTag);
+                            const hasSel = sel && sel.size > 0;
+                            return hasSel
+                              ? <THLabel style={{ color: 'var(--gold)', opacity: 1 }}>{sel.size} replays selected</THLabel>
+                              : <THLabel style={{ color: queryGames >= 100 ? 'var(--green)' : queryGames >= 20 ? 'var(--amber)' : 'var(--red)', opacity: 1 }}>{queryGames} reps</THLabel>;
+                          })()}
                         </TH>
                         {renderCandidateCells(s => {
                           const name = (s.playerName || s.battleTag || "").split("#")[0];
@@ -2248,8 +2339,13 @@ export default function InvestigateTab() {
                               {renderAvatar(mp?.profilePicUrl, RACE_ICON_MAP[s.race])}
                               <THName>{name}</THName>
                               {mp?.country && <CountryFlag name={mp.country.toLowerCase()} style={{ width: 16, height: 12 }} />}
-                              <THLabel style={{ color: repColor, opacity: 1 }}>{s.replayCount} reps</THLabel>
-                              {renderTHControls(s.battleTag)}
+                              {(() => {
+                                const sel = playerReplaySelections.get(s.battleTag);
+                                const hasSel = sel && sel.size > 0;
+                                return hasSel
+                                  ? <THLabel style={{ color: 'var(--gold)', opacity: 1 }}>{sel.size} replays selected</THLabel>
+                                  : <THLabel style={{ color: repColor, opacity: 1 }}>{s.replayCount} reps</THLabel>;
+                              })()}
                             </TH>
                           );
                         })}
@@ -2292,22 +2388,17 @@ export default function InvestigateTab() {
                                   replayCount={s.replayCount}
                                   mini
                                 />
-                                {!hasArcs && !isRefetching && !needsImport && !isImporting && (
-                                  <div style={{ position: "absolute", bottom: 4, left: 0, right: 0, textAlign: "center", fontFamily: "var(--font-mono)", fontSize: 10, color: "var(--grey-mid)", fontStyle: "italic" }}>
-                                    fetching sequence…
-                                  </div>
-                                )}
                               </div>
                               {(isRefetching || isImporting) && (
                                 <div style={{ position: 'absolute', inset: 0, display: 'flex', alignItems: 'center', justifyContent: 'center', background: 'rgba(0,0,0,0.45)', borderRadius: 'var(--radius-md)' }}>
                                   <PeonLoader size="sm" />
-                                  {isImporting && <span style={{ marginLeft: 6, fontFamily: 'var(--font-mono)', fontSize: 10, color: 'var(--grey-light)' }}>importing…</span>}
+                                  {isImporting && <span style={{ marginLeft: 6, fontFamily: 'var(--font-mono)', fontSize: 'var(--text-xxxs)', color: 'var(--grey-light)' }}>importing…</span>}
                                 </div>
                               )}
                               {needsImport && (
                                 <div style={{ position: 'absolute', inset: 0, display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', background: 'rgba(0,0,0,0.55)', borderRadius: 'var(--radius-md)', gap: 6 }}>
-                                  <span style={{ fontFamily: 'var(--font-mono)', fontSize: 10, color: 'var(--grey-light)' }}>{s.replayCount} rep{s.replayCount !== 1 ? 's' : ''} — not enough</span>
-                                  <button onClick={() => importReplays(s.battleTag)} style={{ padding: '4px 10px', background: 'rgba(212,175,55,0.15)', border: '1px solid var(--gold)', borderRadius: 'var(--radius-md)', cursor: 'pointer', color: 'var(--gold)', fontSize: 10, fontFamily: 'var(--font-mono)' }}>
+                                  <span style={{ fontFamily: 'var(--font-mono)', fontSize: 'var(--text-xxxs)', color: 'var(--grey-light)' }}>{s.replayCount} rep{s.replayCount !== 1 ? 's' : ''} — not enough</span>
+                                  <button onClick={() => importReplays(s.battleTag)} style={{ padding: '4px 10px', background: 'rgba(212,175,55,0.15)', border: '1px solid var(--gold)', borderRadius: 'var(--radius-md)', cursor: 'pointer', color: 'var(--gold)', fontSize: 'var(--text-xxxs)', fontFamily: 'var(--font-mono)' }}>
                                     ↓ Import replays
                                   </button>
                                 </div>
@@ -2391,10 +2482,10 @@ export default function InvestigateTab() {
                         {renderCandidateCells(s => (
                           <TD key={s.battleTag}>{s.reassignRatio != null ? `${s.reassignRatio}%` : '—'}</TD>
                         ))}
-                      </CompareTable>}
+                      </CompareTable>
 
                       {/* ── Played-together matrix (upper triangle only) ── */}
-                      {resultsTab === 'fingerprint' && matrixTags.length > 1 && (
+                      {matrixTags.length > 1 && (
                         <div style={{ marginBottom: "var(--space-6)" }}>
                           <div style={{ fontFamily: "var(--font-mono)", fontSize: "var(--text-xxxs)", color: "var(--grey-light)", textTransform: "uppercase", letterSpacing: "0.1em", opacity: 0.5, marginBottom: "var(--space-2)" }}>Played together</div>
                           <div style={{ display: "grid", gridTemplateColumns: `120px repeat(${matrixTags.length - 1}, 1fr)`, gap: 1 }}>
@@ -2423,6 +2514,7 @@ export default function InvestigateTab() {
                           </div>
                         </div>
                       )}
+                      </div>
                       </>
                     );
                   })()}
