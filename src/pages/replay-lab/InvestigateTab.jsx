@@ -1136,6 +1136,7 @@ export default function InvestigateTab() {
   const [resultsTab, setResultsTab] = useState('replays'); // 'replays' | 'fingerprint'
   const [refetchingTags, setRefetchingTags] = useState(new Set()); // tags currently re-fetching
   const [importingTags, setImportingTags] = useState(new Set()); // tags being imported
+  const [importMessages, setImportMessages] = useState(new Map()); // tag → result message
   const [playerReplayLists, setPlayerReplayLists] = useState(new Map()); // tag → replay[]
   const [playerReplaySelections, setPlayerReplaySelections] = useState(new Map()); // tag → Set<replayId> | null
   const [openReplayPicker, setOpenReplayPicker] = useState(null); // tag with picker open
@@ -1382,13 +1383,23 @@ export default function InvestigateTab() {
   // Import replays for a player on demand
   const importReplays = useCallback(async (tag) => {
     setImportingTags(prev => { const s = new Set(prev); s.add(tag); return s; });
+    setImportMessages(prev => { const m = new Map(prev); m.delete(tag); return m; });
     try {
-      await fetch(`${RELAY_URL}/api/fingerprints/import`, {
+      const res = await fetch(`${RELAY_URL}/api/fingerprints/import`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ battleTag: tag }),
       });
-      // Re-fetch identify after import using current filter state
+      const result = res.ok ? await res.json() : null;
+      if (result) {
+        let msg;
+        if (result.rateLimited) msg = 'Rate limited — try again in ~1h';
+        else if (result.imported > 0) msg = null; // success, no message needed
+        else if (result.discovered === 0) msg = 'No matches found on W3C';
+        else if (result.noReplay >= result.discovered - result.alreadyImported) msg = 'No replays stored on W3C';
+        else msg = 'Nothing new to import';
+        if (msg) setImportMessages(prev => new Map([...prev, [tag, msg]]));
+      }
       refetchPlayer(tag);
     } catch { /* silent */ }
     setImportingTags(prev => { const s = new Set(prev); s.delete(tag); return s; });
@@ -2397,10 +2408,21 @@ export default function InvestigateTab() {
                               )}
                               {needsImport && (
                                 <div style={{ position: 'absolute', inset: 0, display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', background: 'rgba(0,0,0,0.55)', borderRadius: 'var(--radius-md)', gap: 6 }}>
-                                  <span style={{ fontFamily: 'var(--font-mono)', fontSize: 'var(--text-xxxs)', color: 'var(--grey-light)' }}>{s.replayCount} rep{s.replayCount !== 1 ? 's' : ''} — not enough</span>
-                                  <button onClick={() => importReplays(s.battleTag)} style={{ padding: '4px 10px', background: 'rgba(212,175,55,0.15)', border: '1px solid var(--gold)', borderRadius: 'var(--radius-md)', cursor: 'pointer', color: 'var(--gold)', fontSize: 'var(--text-xxxs)', fontFamily: 'var(--font-mono)' }}>
-                                    ↓ Import replays
-                                  </button>
+                                  {importMessages.has(s.battleTag) ? (
+                                    <>
+                                      <span style={{ fontFamily: 'var(--font-mono)', fontSize: 'var(--text-xxxs)', color: 'var(--red)', textAlign: 'center', padding: '0 8px' }}>{importMessages.get(s.battleTag)}</span>
+                                      <button onClick={() => importReplays(s.battleTag)} style={{ padding: '4px 10px', background: 'rgba(255,255,255,0.06)', border: '1px solid rgba(255,255,255,0.15)', borderRadius: 'var(--radius-md)', cursor: 'pointer', color: 'var(--grey-light)', fontSize: 'var(--text-xxxs)', fontFamily: 'var(--font-mono)' }}>
+                                        retry
+                                      </button>
+                                    </>
+                                  ) : (
+                                    <>
+                                      <span style={{ fontFamily: 'var(--font-mono)', fontSize: 'var(--text-xxxs)', color: 'var(--grey-light)' }}>{s.replayCount} rep{s.replayCount !== 1 ? 's' : ''} — not enough</span>
+                                      <button onClick={() => importReplays(s.battleTag)} style={{ padding: '4px 10px', background: 'rgba(212,175,55,0.15)', border: '1px solid var(--gold)', borderRadius: 'var(--radius-md)', cursor: 'pointer', color: 'var(--gold)', fontSize: 'var(--text-xxxs)', fontFamily: 'var(--font-mono)' }}>
+                                        ↓ Import replays
+                                      </button>
+                                    </>
+                                  )}
                                 </div>
                               )}
                             </GlyphTD>
