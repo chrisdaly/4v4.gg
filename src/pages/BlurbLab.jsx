@@ -957,14 +957,29 @@ export default function BlurbLab() {
       .catch((e) => setError(e.message));
   }, [authed, api]);
 
-  // Auto-select from ?id= on load once matches are available
+  // Auto-select from ?id= on load once matches are available.
+  // Falls back to fetching from W3C API if the ID isn't in the 20-game sample.
   useEffect(() => {
     if (!matches.length) return;
     const params = new URLSearchParams(location.search);
     const id = params.get("id");
-    if (id && !selected) {
-      const m = matches.find((x) => x.id === id);
-      if (m) selectMatch(m);
+    if (!id || selected) return;
+    const m = matches.find((x) => x.id === id);
+    if (m) {
+      selectMatch(m);
+    } else {
+      getMatch(id).then((detail) => {
+        if (!detail?.match) return;
+        const mt = detail.match;
+        selectMatch({
+          id,
+          mapName: mt.mapId || mt.mapName || "",
+          durationInSeconds: mt.durationInSeconds || 0,
+          endTime: mt.endTime || null,
+          cachedBlurb: null,
+          cachedRivals: [],
+        });
+      });
     }
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [matches]);

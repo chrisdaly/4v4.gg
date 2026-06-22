@@ -1,0 +1,15 @@
+Hi folks, love what you've built with W3Champions. I run 4v4.gg, a stats/spectator site for the 4v4 ladder, and I've been digging into the API.
+
+Would it be possible to expose a few extra per-player stats via GET /api/matches/{id}?
+
+The WC3 game engine reports these to your backend and they're stored in the DB, but they're currently decorated with [JsonIgnore] in MatchEventDtos.cs so they don't appear in the API response. Removing those annotations would be enough to expose them — one-liner per field.
+
+Fields I'd love to see:
+
+- structuresRazed — buildings destroyed per player. The BNet score screen already shows this. Would be really useful for detecting laming (e.g. solo TC rushing the enemy base early).
+- structuresProduced — buildings built per player.
+- resourcesSent / resourcesReceived — gold/lumber traded to teammates. Especially interesting for 4v4 — tells you who's bankrolling the team vs who's being subsidised.
+
+The relevant file is W3C.Domain/MatchmakingService/MatchEventDtos.cs in the website-backend repo if you want to take a look.
+
+Happy to submit a PR if that's easier. Thanks for considering it.
