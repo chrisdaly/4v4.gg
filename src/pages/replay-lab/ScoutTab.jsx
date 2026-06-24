@@ -545,8 +545,8 @@ export default function ScoutTab({ initialPlayer = null, initialProfileData = nu
             <>
               {activeData.averaged?.segments ? (
                 <>
-                  <ProfileGrid>
-                    <ArtCard>
+                  <ProfileCard>
+                    <GlyphPanel>
                       <TransitionGlyph
                         transitionPairs={activeData.transitionPairs}
                         groupUsage={activeData.groupUsage}
@@ -556,9 +556,9 @@ export default function ScoutTab({ initialPlayer = null, initialProfileData = nu
                         replayCount={activeData.replayCount}
                         sampleCount={activeData.sampleCount}
                       />
-                    </ArtCard>
+                    </GlyphPanel>
                     <PlaystyleReport profileData={activeData} />
-                  </ProfileGrid>
+                  </ProfileCard>
                   {embedded && (
                     <SeeOthersLink to="/signatures">
                       Browse other signatures
@@ -778,17 +778,6 @@ const ProfilePanel = styled.div`
   }
 `;
 
-const ProfileGrid = styled.div`
-  display: grid;
-  grid-template-columns: minmax(0, 3fr) minmax(0, 2fr);
-  gap: var(--space-6);
-  align-items: start;
-
-  @media (max-width: 900px) {
-    grid-template-columns: 1fr;
-    gap: var(--space-4);
-  }
-`;
 
 const ProfileHeader = styled.div`
   display: flex;
@@ -830,24 +819,40 @@ const DismissBtn = styled.button`
   }
 `;
 
-const ArtCard = styled.div`
-  background: var(--surface-1);
+const ProfileCard = styled.div`
+  display: grid;
+  grid-template-columns: minmax(0, 3fr) minmax(0, 2fr);
   border: var(--border-thin) solid var(--grey-mid);
   border-radius: var(--radius-md);
-  padding: var(--space-4);
-  display: flex;
-  flex-direction: column;
-  align-items: center;
+  overflow: hidden;
+  backdrop-filter: blur(6px);
   transition: border-color 0.2s ease;
 
   &:hover {
     border-color: var(--gold);
   }
 
+  @media (max-width: 900px) {
+    grid-template-columns: 1fr;
+  }
+`;
+
+const GlyphPanel = styled.div`
+  border-right: 1px solid rgba(255, 255, 255, 0.04);
+  padding: var(--space-6);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+
   svg {
     width: 100%;
     height: auto;
-    max-width: 480px;
+    max-width: 580px;
+  }
+
+  @media (max-width: 900px) {
+    border-right: none;
+    border-bottom: 1px solid rgba(255, 255, 255, 0.04);
   }
 `;
 

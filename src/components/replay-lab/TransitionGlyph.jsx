@@ -6,7 +6,7 @@ const VIOLET = "#a78bfa";
 const GREY_NODE = "#6b7280";
 const HERO_COLOR = "#fcd34d";
 
-const ROLE_RING_COLOR = {
+export const ROLE_RING_COLOR = {
   hero: HERO_COLOR,
   main: GOLD,
   second: GOLD,
@@ -14,7 +14,7 @@ const ROLE_RING_COLOR = {
   production: GREY_NODE,
   altar: GREY_NODE,
 };
-const MIN_NODE_R_FULL = 20;
+const MIN_NODE_R_FULL = 18;
 const MIN_NODE_R_MINI = 10;
 const FONT = "Inconsolata, monospace";
 const DISPLAY_FONT = "Friz_Quadrata_Bold, Georgia, serif";
@@ -128,7 +128,7 @@ const ROLE_ICONS = {
  * Classify a hotkey group's role from its composition data.
  * Returns: 'hero' | 'altar' | 'production' | 'support' | 'main' | 'second'
  */
-function classifyGroupRole(compItems, isTopUnitGroup) {
+export function classifyGroupRole(compItems, isTopUnitGroup) {
   if (!compItems || compItems.length === 0) return isTopUnitGroup ? 'main' : 'second';
 
   const byId = {};
@@ -199,7 +199,7 @@ function getCompUnits(items) {
 
 function getNodeR(sizeFactor, mini = false) {
   if (mini) return Math.max(MIN_NODE_R_MINI, 8 + sizeFactor * 14);
-  return Math.max(MIN_NODE_R_FULL, 16 + sizeFactor * 28);
+  return Math.max(MIN_NODE_R_FULL, 16 + sizeFactor * 52);
 }
 
 // Derive synthetic groupUsage from the hotkey fingerprint segment when raw
@@ -223,9 +223,9 @@ export default function TransitionGlyph({
   segments = null, playerName = "", replayCount = null, sampleCount = null,
   mini = false,
 }) {
-  const W = mini ? 240 : 520, H = mini ? 240 : 520;
+  const W = mini ? 240 : 620, H = mini ? 240 : 620;
   const cx = W / 2, cy = H / 2;
-  const R = mini ? 70 : 150;
+  const R = mini ? 70 : 185;
   const pad = 12;
   const elements = [];
 
@@ -323,18 +323,6 @@ export default function TransitionGlyph({
       }
     }
 
-    // Bottom-right: replay count
-    if (!mini && replayCount != null && replayCount > 0) {
-      fallbackEls.push(
-        <text key="fb-games" x={W - pad} y={H - pad}
-          textAnchor="end" dominantBaseline="auto"
-          fill={GREY} fontSize="10" fontFamily={FONT} opacity="0.35">
-          {sampleCount != null && sampleCount < replayCount
-        ? `${sampleCount} of ${replayCount} games`
-        : `${replayCount} game${replayCount !== 1 ? "s" : ""}`}
-        </text>
-      );
-    }
 
     return <svg viewBox={`0 0 ${W} ${H}`} width="100%">{fallbackEls}</svg>;
   }
@@ -357,7 +345,7 @@ export default function TransitionGlyph({
   // Outer ring (hidden in mini mode)
   if (!mini) {
     elements.push(
-      <circle key="ring" cx={cx} cy={cy} r={R + 18}
+      <circle key="ring" cx={cx} cy={cy} r={R + 24}
         fill="none" stroke={GREY_MID} strokeWidth="0.5" opacity="0.15" />
     );
   }
@@ -388,7 +376,7 @@ export default function TransitionGlyph({
   const allCounts = edges.flatMap(e => [e.loCount, e.hiCount]).filter(c => c > 0);
   const maxCount = Math.max(1, ...allCounts);
   const topCount = allCounts.length > 0 ? Math.max(...allCounts) : 0;
-  const BOW = mini ? 14 : 28;
+  const BOW = mini ? 14 : 36;
 
   // Sort edges low-count first so heaviest arcs render on top
   edges.sort((a, b) => (a.loCount + a.hiCount) - (b.loCount + b.hiCount));
@@ -432,10 +420,10 @@ export default function TransitionGlyph({
       const intensity = count / maxCount;
       const isTop = count === topCount;
       const strokeWidth = mini
-        ? (isTop ? 3 + intensity * 2 : 0.5 + intensity * 2)
-        : (isTop ? 5 + intensity * 3 : 1 + intensity * 3);
-      const baseOpacity = isTop ? 0.9 : 0.2 + intensity * 0.45;
-      const opacity = isBidirectional ? Math.max(baseOpacity, 0.45) : baseOpacity;
+        ? (isTop ? 4 + intensity * 2 : 0.4 + intensity * 1.5)
+        : (isTop ? 8 + intensity * 5 : 0.6 + intensity * 2);
+      const baseOpacity = isTop ? 0.95 : 0.15 + intensity * 0.4;
+      const opacity = isBidirectional ? Math.max(baseOpacity, 0.4) : baseOpacity;
 
       elements.push(
         <path key={`arc-${from}-${to}`}
@@ -453,10 +441,11 @@ export default function TransitionGlyph({
     const ny = cy + Math.sin(angle) * R;
     const usage = g.used + g.assigned;
     const sizeFactor = usage / totalUsage;
+    const dormant = sizeFactor < 0.04;
     const nR = getNodeR(sizeFactor, mini);
     const selectPct = usage > 0 ? Math.round((g.used / usage) * 100) : 100;
-    const ringR = nR + (mini ? 2 : 3.5);
-    const ringStroke = mini ? 2.5 : 4;
+    const ringR = nR + (mini ? 2 : 5);
+    const ringStroke = mini ? 2.5 : 5.5;
     const circumference = 2 * Math.PI * ringR;
     const selectFrac = selectPct / 100;
     const selectLen = circumference * selectFrac;
@@ -507,39 +496,22 @@ export default function TransitionGlyph({
       elements.push(
         <circle key={`ring-select-${g.group}`} cx={nx} cy={ny} r={ringR}
           fill="none" stroke={ringColor} strokeWidth={ringStroke}
-          opacity={0.7 + sizeFactor * 0.3}
-          strokeDasharray={`${selectLen} ${assignLen}`}
+          opacity={dormant ? 0.28 : 0.7 + sizeFactor * 0.3}
+          strokeDasharray={dormant ? "3 4" : `${selectLen} ${assignLen}`}
           strokeDashoffset={circumference * 0.25}
           strokeLinecap="round"
           style={{ transform: `rotate(-90deg)`, transformOrigin: `${nx}px ${ny}px` }} />
       );
     }
 
-    // Group number — shift up slightly to make room for role icon
-    const numOffset = mini ? -3 : -5;
     elements.push(
-      <text key={`label-${g.group}`} x={nx} y={ny + numOffset}
+      <text key={`label-${g.group}`} x={nx} y={ny}
         textAnchor="middle" dominantBaseline="central"
         fill={GOLD} fontSize={mini ? "11" : "20"} fontFamily={FONT} fontWeight="700"
-        opacity={0.85 + sizeFactor * 0.15}>
+        opacity={dormant ? 0.4 : 0.85 + sizeFactor * 0.15}>
         {g.group}
       </text>
     );
-
-    // Role icon — tiny silhouette below the number, tinted by role color
-    if (iconPath) {
-      const iconS = mini ? 10 : 16;
-      const iconY = ny + (mini ? 6 : 10);
-      const scale = iconS / 512;
-      elements.push(
-        <path key={`role-${g.group}`}
-          d={iconPath}
-          fill={ringColor}
-          opacity="0.5"
-          transform={`translate(${nx - iconS / 2}, ${iconY - iconS / 2}) scale(${scale})`}
-        />
-      );
-    }
   }
 
   // ── Center: Name + APM ──
@@ -550,7 +522,7 @@ export default function TransitionGlyph({
     elements.push(
       <text key="player-name" x={cx} y={cy - 24}
         textAnchor="middle" dominantBaseline="central"
-        fill={GOLD} fontSize="16" fontFamily={DISPLAY_FONT}
+        fill={GOLD} fontSize="22" fontFamily={DISPLAY_FONT}
         opacity="0.65">
         {displayName}
       </text>
@@ -577,17 +549,17 @@ export default function TransitionGlyph({
       );
     } else {
       elements.push(
-        <text key="apm-val" x={cx} y={cy + (displayName ? 6 : -2)}
+        <text key="apm-val" x={cx} y={cy + (displayName ? 8 : -2)}
           textAnchor="middle" dominantBaseline="central"
-          fill="#fff" fontSize="38" fontFamily={FONT} fontWeight="700"
+          fill="#fff" fontSize="46" fontFamily={FONT} fontWeight="700"
           opacity="0.85">
           {meanApm}
         </text>
       );
       elements.push(
-        <text key="apm-label" x={cx} y={cy + (displayName ? 28 : 22)}
+        <text key="apm-label" x={cx} y={cy + (displayName ? 36 : 26)}
           textAnchor="middle" dominantBaseline="central"
-          fill={GREY} fontSize="11" fontFamily={FONT}
+          fill={GREY} fontSize="13" fontFamily={FONT}
           opacity="0.6">
           APM
         </text>
@@ -596,17 +568,31 @@ export default function TransitionGlyph({
   }
 
 
-  // Bottom-right: Replay count
-  if (!mini && replayCount != null && replayCount > 0) {
-    elements.push(
-      <text key="corner-games" x={W - pad} y={H - pad}
-        textAnchor="end" dominantBaseline="auto"
-        fill={GREY} fontSize="10" fontFamily={FONT} opacity="0.5">
-        {sampleCount != null && sampleCount < replayCount
-        ? `${sampleCount} of ${replayCount} games`
-        : `${replayCount} game${replayCount !== 1 ? "s" : ""}`}
-      </text>
-    );
+  // Bottom: role colour legend (centered)
+  if (!mini) {
+    const legend = [
+      { label: "Units",     color: GOLD },
+      { label: "Support",   color: "#a78bfa" },
+      { label: "Buildings", color: "#6b7280" },
+    ];
+    const itemW = (label) => 18 + label.length * 8.5; // dot(12) + gap(6) + text
+    const gap = 28;
+    const totalW = legend.reduce((s, e, i) => s + itemW(e.label) + (i < legend.length - 1 ? gap : 0), 0);
+    let lx = W / 2 - totalW / 2;
+    for (const entry of legend) {
+      elements.push(
+        <circle key={`leg-dot-${entry.label}`} cx={lx + 6} cy={H - pad - 5}
+          r={6} fill={entry.color} opacity="0.9" />
+      );
+      elements.push(
+        <text key={`leg-label-${entry.label}`} x={lx + 18} y={H - pad}
+          textAnchor="start" dominantBaseline="auto"
+          fill="#fff" fontSize="14" fontFamily={FONT} opacity="0.85">
+          {entry.label}
+        </text>
+      );
+      lx += itemW(entry.label) + gap;
+    }
   }
 
 

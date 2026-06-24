@@ -19,6 +19,20 @@ const VideoBackground = styled.video`
   height: 100vh;
   object-fit: cover;
   transform: translate(-55%, -50%) scale(1); /* Slight scale to cover potential gaps */
+  filter: saturate(0.9) brightness(0.8);
+`;
+
+const Scrim = styled.div`
+  position: fixed;
+  inset: 0;
+  z-index: -999;
+  pointer-events: none;
+  background: linear-gradient(
+    180deg,
+    rgba(10, 8, 6, 0.65) 0%,
+    rgba(10, 8, 6, 0.74) 45%,
+    rgba(8, 6, 5, 0.85) 100%
+  );
 `;
 
 const ContentWrapper = styled.div`
@@ -54,6 +68,7 @@ const ResponsiveFullscreenVideoBackground = ({ children }) => {
           Your browser does not support the video tag.
         </VideoBackground>
       </VideoContainer>
+      <Scrim />
       <ContentWrapper>{children}</ContentWrapper>
     </>
   );

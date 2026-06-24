@@ -103,15 +103,13 @@ export default function PlaystyleReport({ profileData }) {
   if (!profileData?.averaged?.segments) return null;
 
   const { segments } = profileData.averaged;
-  const { transitionPairs = [], groupUsage = [], groupCompositions = {}, actionCounts, heroBuilds = {} } = profileData;
+  const { transitionPairs = [], groupUsage = [], groupCompositions = {}, actionCounts } = profileData;
 
   return (
     <Wrap>
       <GroupRoster groupUsage={groupUsage} groupCompositions={groupCompositions} />
-      <LoopInfo transitionPairs={transitionPairs} />
+      <LoopInfo transitionPairs={transitionPairs} actionCounts={actionCounts} />
       <SpeedProfile segments={segments} actionCounts={actionCounts} />
-      <SignalSection actionCounts={actionCounts} />
-      <HeroBuildsSection heroBuilds={heroBuilds} />
     </Wrap>
   );
 }
@@ -605,8 +603,6 @@ function HeroBuildsSection({ heroBuilds }) {
 
 const Wrap = styled.div`
   background: var(--surface-1);
-  border: var(--border-thin) solid var(--grey-mid);
-  border-radius: var(--radius-md);
   padding: var(--space-6);
   display: flex;
   flex-direction: column;
@@ -614,11 +610,6 @@ const Wrap = styled.div`
   font-family: var(--font-mono);
   font-size: var(--text-sm);
   color: var(--grey-light);
-  transition: border-color 0.2s ease;
-
-  &:hover {
-    border-color: var(--gold);
-  }
 `;
 
 const Row = styled.div`

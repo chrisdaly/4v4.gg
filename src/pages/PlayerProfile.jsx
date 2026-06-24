@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useReducer, useMemo, useRef } from "react";
-import { Link } from "react-router-dom";
+import { Link, useHistory, useLocation } from "react-router-dom";
 import { CountryFlag, Select, Button, PageNav } from "../components/ui";
 import { findPlayerInOngoingMatches } from "../lib/utils";
 import { getPlayerProfile, getPlayerTimelineMerged, getPlayerStats } from "../lib/api";
@@ -59,6 +59,9 @@ const PlayerProfile = () => {
   const battleTagLower = battleTag.toLowerCase();
   const playerName = battleTag.split("#")[0];
 
+  const rrHistory = useHistory();
+  const rrLocation = useLocation();
+
   // Consolidated state - batches updates to avoid multiple re-renders
   const [state, updateState] = useReducer(
     (prev, next) => ({ ...prev, ...next }),
@@ -69,6 +72,9 @@ const PlayerProfile = () => {
       twitchName: null,
       isStreaming: false,
       streamInfo: null,
+      homePage: null,
+      profileMessage: null,
+      totalGames: null,
       matches: [],
       totalMatches: 0,
       sessionGames: [],
@@ -94,6 +100,7 @@ const PlayerProfile = () => {
 
   const {
     playerData, profilePic, country, twitchName, isStreaming, streamInfo,
+    homePage, profileMessage, totalGames,
     matches, totalMatches, sessionGames, seasonMmrs, ongoingGame, ladderStanding,
     isLoading, allyStats, worstAllyStats, mapStats, worstMapStats, nemesisStats,
     allAllies, allWorstAllies, allNemesis, statsSampleSize,
@@ -109,23 +116,19 @@ const PlayerProfile = () => {
   const { data: ongoingData } = useOngoingMatches();
 
   // Read initial tab from URL, default to 'matches'
-  const getInitialTab = () => {
-    const params = new URLSearchParams(window.location.search);
+  const [activeTab, setActiveTabState] = useState(() => {
+    const params = new URLSearchParams(rrLocation.search);
     const tab = params.get('tab');
     return ['matches', 'playstyle', 'activity'].includes(tab) ? tab : 'matches';
-  };
-  const [activeTab, setActiveTabState] = useState(getInitialTab);
+  });
 
-  // Update URL when tab changes
+  // Update URL via React Router so other components (ScoutTab) see the change
   const setActiveTab = (tab) => {
     setActiveTabState(tab);
-    const url = new URL(window.location.href);
-    if (tab === 'matches') {
-      url.searchParams.delete('tab');
-    } else {
-      url.searchParams.set('tab', tab);
-    }
-    window.history.replaceState({}, '', url);
+    const p = new URLSearchParams(window.location.search);
+    if (tab === 'matches') p.delete('tab');
+    else p.set('tab', tab);
+    rrHistory.replace({ search: p.toString() ? `?${p}` : '' });
   };
   const [expandedSections, setExpandedSections] = useState({});
   const [playerFilter, setPlayerFilter] = useState("");
@@ -140,6 +143,9 @@ const PlayerProfile = () => {
       profilePic: cached.profilePic,
       country: cached.country,
       twitchName: cached.twitchName,
+      homePage: cached.homePage || null,
+      profileMessage: cached.profileMessage || null,
+      totalGames: cached.totalGames || null,
       matches: cached.matches || [],
       totalMatches: cached.totalMatches || 0,
       seasonMmrs: cached.seasonMmrs || [],
@@ -313,7 +319,14 @@ const PlayerProfile = () => {
         newCountry = profile?.country;
         newTwitchName = profile?.twitch || null;
 
-        const profileUpdate = { profilePic: newProfilePic, country: newCountry, twitchName: newTwitchName };
+        const profileUpdate = {
+          profilePic: newProfilePic,
+          country: newCountry,
+          twitchName: newTwitchName,
+          homePage: profile?.homePage || null,
+          profileMessage: profile?.profileMessage || null,
+          totalGames: profile?.totalGames || null,
+        };
 
         if (newTwitchName) {
           const streamStatus = await isStreamerLive(newTwitchName);
@@ -364,7 +377,8 @@ const PlayerProfile = () => {
       // Cache all player data for instant display on next visit (5 min TTL)
       cache.set(`playerPage:${battleTagLower}:${selectedSeason}`, {
         playerData: newPlayerData, profilePic: newProfilePic, country: newCountry,
-        twitchName: newTwitchName, matches: newMatches || [], totalMatches: newTotalMatches,
+        twitchName: newTwitchName, homePage, profileMessage, totalGames,
+        matches: newMatches || [], totalMatches: newTotalMatches,
         seasonMmrs: newSeasonMmrs || [], ladderStanding: newLadderStanding,
         allyStats: statsResult?.allyStats || [], worstAllyStats: statsResult?.worstAllyStats || [],
         mapStats: statsResult?.mapStats || [], worstMapStats: statsResult?.worstMapStats || [],
@@ -707,6 +721,15 @@ const PlayerProfile = () => {
   const winrate = playerData && (playerData.wins + playerData.losses) > 0
     ? Math.round((playerData.wins / (playerData.wins + playerData.losses)) * 100)
     : 0;
+  const lastSeen = (() => {
+    if (!matches[0]?.endTime) return null;
+    const diffMs = Date.now() - new Date(matches[0].endTime);
+    const diffDays = Math.floor(diffMs / 86400000);
+    const diffHours = Math.floor(diffMs / 3600000);
+    if (diffHours < 1) return "< 1h ago";
+    if (diffHours < 24) return `${diffHours}h ago`;
+    return `${diffDays}d ago`;
+  })();
   const totalPages = Math.ceil(totalMatches / GAMES_PER_PAGE);
 
   // Render news snippet, replacing W/L streaks with FormDots
@@ -748,48 +771,65 @@ const PlayerProfile = () => {
                     <FaTwitch className="twitch-icon" style={{ fill: '#9146ff' }} />
                   </a>
                 )}
+                <div className="season-selector hd-season">
+                  <Select value={selectedSeason ?? ""} onChange={handleSeasonChange}>
+                    {availableSeasons.map((s) => (
+                      <option key={s.id} value={s.id}>
+                        S{s.id}
+                      </option>
+                    ))}
+                    <option value={ALL_SEASONS}>All</option>
+                  </Select>
+                </div>
               </div>
               {playerData && (
                 <>
-                  <div className="hd-stats-row">
+                  <div className="hd-primary-row">
                     {ladderStanding && (
                       <span className="hd-rank">#{ladderStanding.playerRank}</span>
                     )}
                     <span className="hd-mmr">{playerData.mmr}</span>
                     <span className="hd-mmr-label">MMR</span>
                   </div>
-                  <div className="hd-record-row">
+                  <div className="hd-meta-row">
                     <span className="hd-wins">{playerData.wins}W</span>
-                    <span className="hd-losses">-{playerData.losses}L</span>
+                    <span className="hd-losses">–{playerData.losses}L</span>
                     <span className="hd-sep">·</span>
                     <span className="hd-winrate">{winrate}%</span>
+                    {totalGames && <>
+                      <span className="hd-sep">·</span>
+                      <span className="hd-games">{totalGames.toLocaleString()} games</span>
+                    </>}
+                    <a
+                      href={`https://www.w3champions.com/player/${encodeURIComponent(battleTag)}`}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      className="w3c-link"
+                      title="View on W3Champions"
+                    >
+                      <img src="/frames/w3c-logos/small-logo.png" alt="W3Champions" className="w3c-logo" />
+                    </a>
                   </div>
                 </>
               )}
-              <a
-                href={`https://www.w3champions.com/player/${encodeURIComponent(battleTag)}`}
-                target="_blank"
-                rel="noopener noreferrer"
-                className="w3c-link"
-                title="View on W3Champions"
-              >
-                <img src="/frames/w3c-logos/small-logo.png" alt="W3Champions" className="w3c-logo" />
-              </a>
             </div>
           </div>
 
-          <div className="player-header-right">
-            <div className="season-selector">
-              <Select value={selectedSeason ?? ""} onChange={handleSeasonChange}>
-                {availableSeasons.map((s) => (
-                  <option key={s.id} value={s.id}>
-                    S{s.id}
-                  </option>
-                ))}
-                <option value={ALL_SEASONS}>All</option>
-              </Select>
+          {playerData && (
+            <div className="hd-stat-pills">
+              {homePage && (
+                <a href={homePage} target="_blank" rel="noopener noreferrer" className="hd-pill hd-pill--link">
+                  {homePage.replace(/^https?:\/\//, '')}
+                </a>
+              )}
+              {profileMessage && (
+                <span className="hd-pill">{profileMessage}</span>
+              )}
+              {lastSeen && (
+                <span className="hd-pill hd-pill--muted">Last seen {lastSeen}</span>
+              )}
             </div>
-          </div>
+          )}
         </header>
 
       {/* Profile Tabs */}

@@ -61,13 +61,20 @@ export const getPlayerProfile = async (battleTag) => {
 
     const data = await fetchWithCache(url, { cacheKey, ttl: TTL.PERSONAL_SETTINGS });
 
+    const totalGames = Array.isArray(data.winLosses)
+      ? data.winLosses.reduce((sum, r) => sum + (r.games || 0), 0)
+      : null;
+
     return {
       profilePicUrl: buildProfilePicUrl(data),
       twitch: data.twitch || null,
       country: data.location || null,
+      homePage: data.homePage || null,
+      profileMessage: data.profileMessage || null,
+      totalGames: totalGames || null,
     };
   } catch {
-    return { profilePicUrl: null, twitch: null, country: null };
+    return { profilePicUrl: null, twitch: null, country: null, homePage: null, profileMessage: null, totalGames: null };
   }
 };
 

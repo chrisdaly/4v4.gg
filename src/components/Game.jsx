@@ -239,7 +239,7 @@ const Game = ({ playerData: rawPlayerData, metaData, profilePics, playerCountrie
     return (
       <th key={player.battleTag} style={{ position: 'relative', overflow: 'visible' }} className={`${playerRelation ? `at-${playerRelation}` : ""} ${playerIsAT ? "is-at" : ""}`}>
         <div
-          className={`playerDiv ${compact ? "compact" : ""} ${playerRelation ? `at-${playerRelation}` : ""} ${playerIsAT ? "is-at" : ""}`}
+          className={`playerDiv ${teamClassName} ${compact ? "compact" : ""} ${playerRelation ? `at-${playerRelation}` : ""} ${playerIsAT ? "is-at" : ""} ${streamerTag && player.battleTag?.toLowerCase() === streamerTag.toLowerCase() ? "streamer-highlight" : ""}`}
         >
           {/* Profile pic with flag and MVP badge */}
           <div style={{ position: "relative", display: "inline-block" }}>
@@ -291,7 +291,7 @@ const Game = ({ playerData: rawPlayerData, metaData, profilePics, playerCountrie
           <div className="player-mmr-line">
             {oldMmr && oldMmr > 0 ? (
               <>
-                <span className="mmr-value">{oldMmr}</span>
+                <span className="mmr-value">{oldMmr.toLocaleString('en-US')}</span>
                 <span className="mmr-label"> MMR</span>
               </>
             ) : (
@@ -426,7 +426,7 @@ const Game = ({ playerData: rawPlayerData, metaData, profilePics, playerCountrie
               <div>
                 <h2 className="team-name">{team1Won && <span className="winner-badge">W</span>} TEAM 1</h2>
                 <div className="team-mmr-line">
-                  <span className="mmr-value">{team1AvgMmr}</span>
+                  <span className="mmr-value">{team1AvgMmr.toLocaleString('en-US')}</span>
                   <span className="mmr-label"> MMR</span>
                 </div>
                 <div className="image-container">
@@ -445,7 +445,7 @@ const Game = ({ playerData: rawPlayerData, metaData, profilePics, playerCountrie
               <div>
                 <h2 className="team-name">TEAM 2 {team2Won && <span className="winner-badge">W</span>}</h2>
                 <div className="team-mmr-line">
-                  <span className="mmr-value">{team2AvgMmr}</span>
+                  <span className="mmr-value">{team2AvgMmr.toLocaleString('en-US')}</span>
                   <span className="mmr-label"> MMR</span>
                 </div>
                 <div className="image-container">
@@ -621,7 +621,7 @@ const Game = ({ playerData: rawPlayerData, metaData, profilePics, playerCountrie
                 : metaData.gameLength} mins
               {metaData.gameLength === "0:00" && <span className="live-dot"></span>}
             </span>
-            {metaData.server && <span className="meta-server">{metaData.server}</span>}
+            {metaData.server && metaData.gameLength !== "0:00" && <span className="meta-server">{metaData.server}</span>}
           </div>
           {metaData.matchId && metaData.gameLength !== "0:00" && (
             <Link to={`/match/${metaData.matchId}`} className="meta-match-id gm-meta-link">

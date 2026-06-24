@@ -150,11 +150,6 @@
   color: var(--grey-light);
 }
 
-.player-header-right {
-  display: flex;
-  align-items: center;
-  gap: 20px;
-}
 
 /* Session Summary Inline */
 .session-summary-inline {
@@ -422,6 +417,27 @@
   font-family: var(--font-mono);
   font-size: var(--text-xs);
   color: var(--grey-light);
+}
+
+/* Live dot on the section title */
+.live-game-section .section-title::before {
+  content: '';
+  display: inline-block;
+  width: 8px;
+  height: 8px;
+  background: var(--red);
+  border-radius: 50%;
+  margin-right: 8px;
+  vertical-align: middle;
+  animation: pulse 1.5s infinite;
+}
+
+/* Highlight the profile player's card */
+.playerDiv.streamer-highlight {
+  border: 2px solid var(--gold);
+  border-radius: var(--radius-md);
+  padding: 6px;
+  background: rgba(var(--gold-muted-rgb), 0.06);
 }
 
 /* Live Game Section (styled like Match History) */
@@ -1618,11 +1634,6 @@
   .player-header {
     flex-direction: column;
     align-items: flex-start;
-  }
-
-  .player-header-right {
-    width: 100%;
-    justify-content: space-between;
   }
 
   .mh-header,

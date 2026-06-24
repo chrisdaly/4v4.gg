@@ -23,15 +23,16 @@ const COMBINED_GAP = 5; // px gap between combined AT circle segments
 
 const VARIANTS = {
   card: { compact: true }, // home hero card, news digest cards
-  scorecard: {}, // match scorecards (/live, /match, profile) — pass compact through
+  scorecard: { hideVs: true }, // match scorecards (/live, /match, profile) — pass compact through
   micro: { compact: true, hideLabels: true }, // narrow charts in chat / mini match cards
   overlay: { compact: true, hideLabels: true }, // OBS overlays
 };
 
-const MmrComparison = React.memo(({ data, variant, compact, hideLabels, showMean = false, showStdDev = false, showValues = false }) => {
+const MmrComparison = React.memo(({ data, variant, compact, hideLabels, hideVs, showMean = false, showStdDev = false, showValues = false }) => {
   const preset = VARIANTS[variant] || {};
   const isCompact = compact ?? preset.compact ?? false;
   const labelsHidden = hideLabels ?? preset.hideLabels ?? false;
+  const vsHidden = hideVs ?? preset.hideVs ?? false;
   const { teamOneMmrs, teamTwoMmrs, teamOneAT = [], teamTwoAT = [] } = data;
   const svgRef = useRef(null);
 
@@ -539,8 +540,8 @@ const MmrComparison = React.memo(({ data, variant, compact, hideLabels, showMean
       .attr("x1", middleLine).attr("y1", 0)
       .attr("x2", middleLine).attr("y2", height);
 
-    // "vs" label centered on the middle line (hidden when labels are hidden)
-    if (!labelsHidden) {
+    // "vs" label centered on the middle line (hidden when labels are hidden or vsHidden)
+    if (!labelsHidden && !vsHidden) {
       svg.append("text")
         .attr("x", middleLine)
         .attr("y", height - 4)
@@ -558,7 +559,7 @@ const MmrComparison = React.memo(({ data, variant, compact, hideLabels, showMean
     const observer = new ResizeObserver(draw);
     observer.observe(parent);
     return () => observer.disconnect();
-  }, [teamOneMmrs, teamTwoMmrs, teamOneAT, teamTwoAT, isCompact, showMean, showStdDev, labelsHidden, showValues]);
+  }, [teamOneMmrs, teamTwoMmrs, teamOneAT, teamTwoAT, isCompact, showMean, showStdDev, labelsHidden, vsHidden, showValues]);
 
   return <svg ref={svgRef} style={{ width: "100%", height: "100%" }}></svg>;
 });

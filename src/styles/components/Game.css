@@ -143,6 +143,7 @@ img.race {
   vertical-align: middle;
 }
 
+
 .max-width-cell {
   width: 100px;
   overflow: hidden;
@@ -183,6 +184,28 @@ img.race {
   width: 100px;
   overflow: hidden;
   background: rgba(0, 0, 0, 0);
+}
+
+/* Race icon on player portrait — opposite corner from country flag */
+.Game .race-overlay {
+  display: block;
+  position: absolute;
+  width: 22px;
+  height: 22px;
+  bottom: 3px;
+  z-index: 10;
+  background: rgba(0, 0, 0, 0.65);
+  border-radius: var(--radius-sm);
+  padding: 2px;
+  box-sizing: content-box;
+}
+
+.Game .team-0 .race-overlay {
+  left: 4px;
+}
+
+.Game .team-1 .race-overlay {
+  right: 4px;
 }
 
 .games {
@@ -716,7 +739,7 @@ h2.team-name {
 
 .mmr-label {
   color: var(--grey-light);
-  font-size: var(--text-xs);
+  font-size: var(--text-xxs);
 }
 
 .win-prob {
@@ -732,6 +755,8 @@ h2.team-name {
   align-items: center;
   justify-content: center;
   gap: 6px;
+  max-width: 100%;
+  overflow: hidden;
 }
 
 .player-name-row a {
@@ -746,6 +771,23 @@ h2.team-name {
 .player-name-row h2 {
   margin: 0;
   font-size: var(--text-xs);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  max-width: 100%;
+}
+
+.team-0 .player-name-row {
+  justify-content: flex-end;
+  direction: rtl;
+}
+
+.team-0 .player-name-row h2 {
+  direction: ltr;
+}
+
+.team-1 .player-name-row {
+  justify-content: flex-start;
 }
 
 .twitch-link {
