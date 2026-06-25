@@ -815,7 +815,7 @@ const PlayerProfile = () => {
             </div>
           </div>
 
-          {playerData && (
+          {(homePage || profileMessage || lastSeen) && (
             <div className="hd-stat-pills">
               {homePage && (
                 <a href={homePage} target="_blank" rel="noopener noreferrer" className="hd-pill hd-pill--link">

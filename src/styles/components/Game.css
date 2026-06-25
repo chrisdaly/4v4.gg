@@ -476,11 +476,11 @@ img.teamHeaderRace {
 }
 
 .mvp-badge.team-0 {
-  left: -5px;
+  right: -5px;
 }
 
 .mvp-badge.team-1 {
-  right: -5px;
+  left: -5px;
 }
 
 .mvp-text {
@@ -778,16 +778,11 @@ h2.team-name {
 }
 
 .team-0 .player-name-row {
-  justify-content: flex-end;
-  direction: rtl;
-}
-
-.team-0 .player-name-row h2 {
-  direction: ltr;
+  justify-content: center;
 }
 
 .team-1 .player-name-row {
-  justify-content: flex-start;
+  justify-content: center;
 }
 
 .twitch-link {
