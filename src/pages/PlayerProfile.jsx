@@ -2,7 +2,7 @@ import React, { useState, useEffect, useReducer, useMemo, useRef } from "react";
 import { Link, useHistory, useLocation } from "react-router-dom";
 import { CountryFlag, Select, Button, PageNav } from "../components/ui";
 import { findPlayerInOngoingMatches } from "../lib/utils";
-import { getPlayerProfile, getPlayerTimelineMerged, getPlayerStats } from "../lib/api";
+import { getPlayerProfile, getPlayerTimelineMerged, getPlayerStats, getPlayerProfilesBatch } from "../lib/api";
 import { cache } from "../lib/cache";
 import { matchIdleGapMs } from "../lib/session";
 import useSeasons from "../lib/useSeasons";
@@ -27,7 +27,7 @@ import { raceMapping, LEAGUES } from "../lib/constants";
 import { parseDigestSections, splitQuotes } from "../lib/digestUtils";
 
 const RELAY_URL = import.meta.env.VITE_CHAT_RELAY_URL || "https://4v4gg-chat-relay.fly.dev";
-const GAMES_PER_PAGE = 20;
+const GAMES_PER_PAGE = 10;
 const ALL_SEASONS = 0;
 
 const MIN_GAMES_FOR_STATS = 3;
@@ -75,6 +75,7 @@ const PlayerProfile = () => {
       homePage: null,
       profileMessage: null,
       totalGames: null,
+      mostPlayedRace: null,
       matches: [],
       totalMatches: 0,
       sessionGames: [],
@@ -87,9 +88,11 @@ const PlayerProfile = () => {
       mapStats: [],
       worstMapStats: [],
       nemesisStats: [],
+      preyStats: [],
       allAllies: [],
       allWorstAllies: [],
       allNemesis: [],
+      allPrey: [],
       statsSampleSize: 0,
       selectedSeason: null,
       currentPage: 0,
@@ -100,10 +103,10 @@ const PlayerProfile = () => {
 
   const {
     playerData, profilePic, country, twitchName, isStreaming, streamInfo,
-    homePage, profileMessage, totalGames,
+    homePage, profileMessage, totalGames, mostPlayedRace,
     matches, totalMatches, sessionGames, seasonMmrs, ongoingGame, ladderStanding,
-    isLoading, allyStats, worstAllyStats, mapStats, worstMapStats, nemesisStats,
-    allAllies, allWorstAllies, allNemesis, statsSampleSize,
+    isLoading, allyStats, worstAllyStats, mapStats, worstMapStats, nemesisStats, preyStats,
+    allAllies, allWorstAllies, allNemesis, allPrey, statsSampleSize,
     selectedSeason, currentPage,
     playerClips, playerMentions,
   } = state;
@@ -132,6 +135,7 @@ const PlayerProfile = () => {
   };
   const [expandedSections, setExpandedSections] = useState({});
   const [playerFilter, setPlayerFilter] = useState("");
+  const [statAvatars, setStatAvatars] = useState(new Map());
   const toggleSection = (key) => setExpandedSections(prev => ({ ...prev, [key]: !prev[key] }));
 
   const SESSION_GAP_MINUTES = 60;
@@ -146,6 +150,7 @@ const PlayerProfile = () => {
       homePage: cached.homePage || null,
       profileMessage: cached.profileMessage || null,
       totalGames: cached.totalGames || null,
+      mostPlayedRace: cached.mostPlayedRace ?? null,
       matches: cached.matches || [],
       totalMatches: cached.totalMatches || 0,
       seasonMmrs: cached.seasonMmrs || [],
@@ -155,9 +160,11 @@ const PlayerProfile = () => {
       mapStats: cached.mapStats || [],
       worstMapStats: cached.worstMapStats || [],
       nemesisStats: cached.nemesisStats || [],
+      preyStats: cached.preyStats || [],
       allAllies: cached.allAllies || [],
       allWorstAllies: cached.allWorstAllies || [],
       allNemesis: cached.allNemesis || [],
+      allPrey: cached.allPrey || [],
       statsSampleSize: cached.statsSampleSize || 0,
       isLoading: false,
     });
@@ -192,7 +199,7 @@ const PlayerProfile = () => {
         isStreaming: false, streamInfo: null, matches: [], totalMatches: 0,
         sessionGames: [], seasonMmrs: [], ongoingGame: null, ladderStanding: null,
         allyStats: [], worstAllyStats: [], mapStats: [], worstMapStats: [],
-        nemesisStats: [], allAllies: [], allWorstAllies: [], allNemesis: [],
+        nemesisStats: [], preyStats: [], allAllies: [], allWorstAllies: [], allNemesis: [], allPrey: [],
         statsSampleSize: 0, currentPage: 0, isLoading: true,
       });
     } else {
@@ -201,7 +208,7 @@ const PlayerProfile = () => {
         playerData: null, matches: [], totalMatches: 0,
         sessionGames: [], seasonMmrs: [], ladderStanding: null,
         allyStats: [], worstAllyStats: [], mapStats: [], worstMapStats: [],
-        nemesisStats: [], allAllies: [], allWorstAllies: [], allNemesis: [],
+        nemesisStats: [], preyStats: [], allAllies: [], allWorstAllies: [], allNemesis: [], allPrey: [],
         statsSampleSize: 0, currentPage: 0,
       });
     }
@@ -302,6 +309,15 @@ const PlayerProfile = () => {
     fetchPlayerMedia();
   }, [battleTag, playerName]);
 
+  // Fetch avatars for stats tab players (single batch call)
+  useEffect(() => {
+    if (activeTab !== 'stats') return;
+    const tags = [
+      ...allyStats, ...worstAllyStats, ...nemesisStats, ...preyStats
+    ].map(p => p.battleTag).filter(Boolean);
+    if (tags.length === 0) return;
+    getPlayerProfilesBatch(tags).then(map => setStatAvatars(map));
+  }, [activeTab, allyStats, worstAllyStats, nemesisStats, preyStats]);
 
   const seasonParam = selectedSeason > 0 ? `&season=${selectedSeason}` : '';
   const isAllSeasons = selectedSeason === ALL_SEASONS;
@@ -326,6 +342,7 @@ const PlayerProfile = () => {
           homePage: profile?.homePage || null,
           profileMessage: profile?.profileMessage || null,
           totalGames: profile?.totalGames || null,
+          mostPlayedRace: profile?.mostPlayedRace ?? null,
         };
 
         if (newTwitchName) {
@@ -377,14 +394,15 @@ const PlayerProfile = () => {
       // Cache all player data for instant display on next visit (5 min TTL)
       cache.set(`playerPage:${battleTagLower}:${selectedSeason}`, {
         playerData: newPlayerData, profilePic: newProfilePic, country: newCountry,
-        twitchName: newTwitchName, homePage, profileMessage, totalGames,
+        twitchName: newTwitchName, homePage, profileMessage, totalGames, mostPlayedRace,
         matches: newMatches || [], totalMatches: newTotalMatches,
         seasonMmrs: newSeasonMmrs || [], ladderStanding: newLadderStanding,
         allyStats: statsResult?.allyStats || [], worstAllyStats: statsResult?.worstAllyStats || [],
         mapStats: statsResult?.mapStats || [], worstMapStats: statsResult?.worstMapStats || [],
-        nemesisStats: statsResult?.nemesisStats || [],
+        nemesisStats: statsResult?.nemesisStats || [], preyStats: statsResult?.preyStats || [],
         allAllies: statsResult?.allAllies || [], allWorstAllies: statsResult?.allWorstAllies || [],
-        allNemesis: statsResult?.allNemesis || [], statsSampleSize: statsResult?.statsSampleSize || 0,
+        allNemesis: statsResult?.allNemesis || [], allPrey: statsResult?.allPrey || [],
+        statsSampleSize: statsResult?.statsSampleSize || 0,
       }, 5 * 60 * 1000);
     } catch (error) {
       console.error("Error loading player data:", error);
@@ -626,13 +644,13 @@ const PlayerProfile = () => {
       // Best allies: Wilson-scored win rate (full sorted list + top 3)
       const allAlliesSorted = [...alliesWithRates]
         .sort((a, b) => wilsonLB(b.wins, b.total) - wilsonLB(a.wins, a.total));
-      const bestAllies = allAlliesSorted.slice(0, 3);
+      const bestAllies = allAlliesSorted.slice(0, 5);
 
       // Worst allies: Wilson-scored loss rate (full sorted list + top 3)
       const allWorstAlliesSorted = [...alliesWithRates]
         .filter(a => a.losses > 0)
         .sort((a, b) => wilsonLB(b.losses, b.total) - wilsonLB(a.losses, a.total));
-      const worstAllies = allWorstAlliesSorted.slice(0, 3);
+      const worstAllies = allWorstAlliesSorted.slice(0, 5);
 
       // Process maps with win rates
       const mapsWithRates = Object.values(maps)
@@ -655,12 +673,20 @@ const PlayerProfile = () => {
         .filter(o => o.total >= MIN_GAMES_FOR_STATS && o.wins > 0)
         .map(o => ({ ...o, winRate: Math.round((o.wins / o.total) * 100) }))
         .sort((a, b) => wilsonLB(b.wins, b.total) - wilsonLB(a.wins, a.total));
-      const nemesisList = allNemesisSorted.slice(0, 3);
+      const nemesisList = allNemesisSorted.slice(0, 5);
+
+      // Prey: opponents we beat the most (Wilson-scored our win rate against them)
+      const allPreySorted = Object.values(opponents)
+        .filter(o => o.total >= MIN_GAMES_FOR_STATS && o.losses > 0)
+        .map(o => ({ ...o, winRate: Math.round((o.losses / o.total) * 100) }))
+        .sort((a, b) => wilsonLB(b.losses, b.total) - wilsonLB(a.losses, a.total));
+      const preyList = allPreySorted.slice(0, 5);
 
       const result = {
         allyStats: bestAllies, worstAllyStats: worstAllies,
-        mapStats: bestMaps, worstMapStats: worstMaps, nemesisStats: nemesisList,
-        allAllies: allAlliesSorted, allWorstAllies: allWorstAlliesSorted, allNemesis: allNemesisSorted,
+        mapStats: bestMaps, worstMapStats: worstMaps, nemesisStats: nemesisList, preyStats: preyList,
+        allAllies: allAlliesSorted, allWorstAllies: allWorstAlliesSorted,
+        allNemesis: allNemesisSorted, allPrey: allPreySorted,
         statsSampleSize: sampleSize,
       };
 
@@ -771,16 +797,6 @@ const PlayerProfile = () => {
                     <FaTwitch className="twitch-icon" style={{ fill: '#9146ff' }} />
                   </a>
                 )}
-                <div className="season-selector hd-season">
-                  <Select value={selectedSeason ?? ""} onChange={handleSeasonChange}>
-                    {availableSeasons.map((s) => (
-                      <option key={s.id} value={s.id}>
-                        S{s.id}
-                      </option>
-                    ))}
-                    <option value={ALL_SEASONS}>All</option>
-                  </Select>
-                </div>
               </div>
               {playerData && (
                 <>
@@ -788,48 +804,60 @@ const PlayerProfile = () => {
                     {ladderStanding && (
                       <span className="hd-rank">#{ladderStanding.playerRank}</span>
                     )}
-                    <span className="hd-mmr">{playerData.mmr}</span>
+                    <span className="hd-mmr">{playerData.mmr?.toLocaleString('en-US')}</span>
                     <span className="hd-mmr-label">MMR</span>
                   </div>
                   <div className="hd-meta-row">
                     <span className="hd-wins">{playerData.wins}W</span>
-                    <span className="hd-losses">–{playerData.losses}L</span>
+                    <span className="hd-losses">– {playerData.losses}L</span>
                     <span className="hd-sep">·</span>
                     <span className="hd-winrate">{winrate}%</span>
-                    {totalGames && <>
-                      <span className="hd-sep">·</span>
-                      <span className="hd-games">{totalGames.toLocaleString()} games</span>
-                    </>}
-                    <a
-                      href={`https://www.w3champions.com/player/${encodeURIComponent(battleTag)}`}
-                      target="_blank"
-                      rel="noopener noreferrer"
-                      className="w3c-link"
-                      title="View on W3Champions"
-                    >
-                      <img src="/frames/w3c-logos/small-logo.png" alt="W3Champions" className="w3c-logo" />
-                    </a>
                   </div>
+                  {totalGames && (
+                    <div className="hd-games-row">
+                      <span className="hd-games">{totalGames.toLocaleString()} games</span>
+                    </div>
+                  )}
+                  {lastSeen && (
+                    <div className="hd-footer-row">
+                      <span className="hd-lastseen-inline">Last seen <strong>{lastSeen}</strong></span>
+                    </div>
+                  )}
                 </>
               )}
             </div>
           </div>
 
-          {(homePage || profileMessage || lastSeen) && (
-            <div className="hd-stat-pills">
-              {homePage && (
-                <a href={homePage} target="_blank" rel="noopener noreferrer" className="hd-pill hd-pill--link">
-                  {homePage.replace(/^https?:\/\//, '')}
-                </a>
-              )}
+          {(homePage || profileMessage) && (
+            <div className="hd-bio">
               {profileMessage && (
-                <span className="hd-pill">{profileMessage}</span>
+                <p className="hd-quote">{profileMessage}</p>
               )}
-              {lastSeen && (
-                <span className="hd-pill hd-pill--muted">Last seen {lastSeen}</span>
+              {homePage && (
+                <div className="hd-bio-meta">
+                  <a href={homePage} target="_blank" rel="noopener noreferrer" className="hd-bio-link">
+                    {homePage.replace(/^https?:\/\//, '')}
+                  </a>
+                </div>
               )}
             </div>
           )}
+          <div className="season-selector hd-season hd-season-corner">
+            <Select value={selectedSeason ?? ""} onChange={handleSeasonChange}>
+              {availableSeasons.map((s) => (
+                <option key={s.id} value={s.id}>S{s.id}</option>
+              ))}
+              <option value={ALL_SEASONS}>All</option>
+            </Select>
+          </div>
+          <a
+            href={`https://www.w3champions.com/player/${encodeURIComponent(battleTag)}`}
+            target="_blank"
+            rel="noopener noreferrer"
+            className="hd-w3c-corner"
+          >
+            <img src="/frames/w3c-logos/small-logo.png" alt="" className="hd-w3c-logo" />
+          </a>
         </header>
 
       {/* Profile Tabs */}
@@ -839,6 +867,12 @@ const PlayerProfile = () => {
           onClick={() => setActiveTab('matches')}
         >
           Matches
+        </button>
+        <button
+          className={`profile-tab ${activeTab === 'stats' ? 'active' : ''}`}
+          onClick={() => setActiveTab('stats')}
+        >
+          Stats
         </button>
         <button
           className={`profile-tab ${activeTab === 'playstyle' ? 'active' : ''}`}
@@ -981,7 +1015,7 @@ const PlayerProfile = () => {
                         <span className="ls-rank">#{n.rankNumber}</span>
                         <img src={raceMapping[n.playersInfo?.[0]?.calculatedRace]} alt="" className="ls-race" />
                         <span className="ls-name">{n.player?.name}</span>
-                        <span className="ls-mmr">{n.player?.mmr}</span>
+                        <span className="ls-mmr">{n.player?.mmr?.toLocaleString('en-US')}</span>
                       </Link>
                     );
                   })}
@@ -1053,31 +1087,40 @@ const PlayerProfile = () => {
               />
             )}
 
-            {/* Best Allies */}
+          </aside>
+        </div>
+        </>
+      )}
+
+      {/* Stats Tab Content */}
+      {activeTab === 'stats' && (
+        <div className="stats-tab-content reveal" style={{ "--delay": "0.1s" }}>
+          {statsSampleSize > 0 && (
+            <p className="stats-sample-header">Based on last {statsSampleSize} games</p>
+          )}
+          <div className="stats-tab-grid">
             {allyStats.length > 0 && (() => {
               const expanded = expandedSections.bestAllies;
               const displayList = expanded ? allAllies : allyStats;
               return (
-                <div className="best-allies-card">
-                  <h3 className="bac-title">Best Allies</h3>
-                  {statsSampleSize > 0 && <span className="card-sample-label">{statsSampleSize} games</span>}
-                  <div className="bac-list">
-                    {displayList.map((ally, idx) => (
-                      <Link
-                        key={ally.battleTag}
-                        to={`/player/${encodeURIComponent(ally.battleTag)}`}
-                        className="bac-row"
-                      >
-                        <span className="bac-rank">#{idx + 1}</span>
-                        <span className="bac-name">{ally.name}</span>
-                        <span className="bac-stats">
-                          <span className="bac-winrate">{ally.winRate}%</span>
-                          <span className="bac-record">({ally.wins}W-{ally.losses}L)</span>
-                        </span>
-                      </Link>
-                    ))}
+                <div className="stat-card stat-card--green">
+                  <h3 className="stat-card-title">Best Allies</h3>
+                  <p className="stat-card-subtitle">Teammates you win with most</p>
+                  <div className="stat-card-list">
+                    {displayList.map((ally, idx) => {
+                      const pic = statAvatars.get(ally.battleTag)?.profilePicUrl;
+                      return (
+                        <Link key={ally.battleTag} to={`/player/${encodeURIComponent(ally.battleTag)}`} className="stat-row">
+                          <span className="stat-rank">#{idx + 1}</span>
+                          {pic ? <img src={pic} alt="" className="stat-avatar-img" /> : <span className="stat-avatar stat-avatar--green">{ally.name[0]}</span>}
+                          <span className="stat-name">{ally.name}</span>
+                          <span className="stat-rate stat-rate--green">{ally.winRate}%</span>
+                          <span className="stat-record">({ally.wins}W-{ally.losses}L)</span>
+                        </Link>
+                      );
+                    })}
                   </div>
-                  {allAllies.length > 3 && (
+                  {allAllies.length > 5 && (
                     <button className="card-toggle-btn" onClick={() => toggleSection('bestAllies')}>
                       {expanded ? 'Show less' : `Show all (${allAllies.length})`}
                     </button>
@@ -1086,50 +1129,28 @@ const PlayerProfile = () => {
               );
             })()}
 
-            {/* Best Maps */}
-            {mapStats.length > 0 && (
-              <div className="best-maps-card">
-                <h3 className="bmc-title">Best Maps</h3>
-                <div className="bmc-list">
-                  {mapStats.map((map, idx) => (
-                    <div key={map.name} className="bmc-row">
-                      <span className="bmc-rank">#{idx + 1}</span>
-                      <span className="bmc-name">{map.name}</span>
-                      <span className="bmc-stats">
-                        <span className="bmc-winrate">{map.winRate}%</span>
-                        <span className="bmc-record">({map.wins}W-{map.losses}L)</span>
-                      </span>
-                    </div>
-                  ))}
-                </div>
-              </div>
-            )}
-
-            {/* Worst Allies */}
             {worstAllyStats.length > 0 && (() => {
               const expanded = expandedSections.worstAllies;
               const displayList = expanded ? allWorstAllies : worstAllyStats;
               return (
-                <div className="worst-allies-card">
-                  <h3 className="wac-title">Worst Allies</h3>
-                  {statsSampleSize > 0 && <span className="card-sample-label">{statsSampleSize} games</span>}
-                  <div className="wac-list">
-                    {displayList.map((ally, idx) => (
-                      <Link
-                        key={ally.battleTag}
-                        to={`/player/${encodeURIComponent(ally.battleTag)}`}
-                        className="wac-row"
-                      >
-                        <span className="wac-rank">#{idx + 1}</span>
-                        <span className="wac-name">{ally.name}</span>
-                        <span className="wac-stats">
-                          <span className="wac-winrate">{ally.winRate}%</span>
-                          <span className="wac-record">({ally.wins}W-{ally.losses}L)</span>
-                        </span>
-                      </Link>
-                    ))}
+                <div className="stat-card stat-card--red">
+                  <h3 className="stat-card-title">Worst Allies</h3>
+                  <p className="stat-card-subtitle">Teammates you lose with most</p>
+                  <div className="stat-card-list">
+                    {displayList.map((ally, idx) => {
+                      const pic = statAvatars.get(ally.battleTag)?.profilePicUrl;
+                      return (
+                        <Link key={ally.battleTag} to={`/player/${encodeURIComponent(ally.battleTag)}`} className="stat-row">
+                          <span className="stat-rank">#{idx + 1}</span>
+                          {pic ? <img src={pic} alt="" className="stat-avatar-img" /> : <span className="stat-avatar stat-avatar--red">{ally.name[0]}</span>}
+                          <span className="stat-name">{ally.name}</span>
+                          <span className="stat-rate stat-rate--red">{ally.winRate}%</span>
+                          <span className="stat-record">({ally.wins}W-{ally.losses}L)</span>
+                        </Link>
+                      );
+                    })}
                   </div>
-                  {allWorstAllies.length > 3 && (
+                  {allWorstAllies.length > 5 && (
                     <button className="card-toggle-btn" onClick={() => toggleSection('worstAllies')}>
                       {expanded ? 'Show less' : `Show all (${allWorstAllies.length})`}
                     </button>
@@ -1138,53 +1159,28 @@ const PlayerProfile = () => {
               );
             })()}
 
-            {/* Worst Maps */}
-            {worstMapStats.length > 0 && (
-              <div className="worst-maps-card">
-                <h3 className="wmc-title">Worst Maps</h3>
-                <div className="wmc-list">
-                  {worstMapStats.map((map, idx) => (
-                    <div key={map.name} className="wmc-row">
-                      <span className="wmc-rank">#{idx + 1}</span>
-                      <span className="wmc-name">{map.name}</span>
-                      <span className="wmc-stats">
-                        <span className="wmc-winrate">{map.winRate}%</span>
-                        <span className="wmc-record">({map.wins}W-{map.losses}L)</span>
-                      </span>
-                    </div>
-                  ))}
-                </div>
-              </div>
-            )}
-
-            {/* Nemesis */}
             {nemesisStats.length > 0 && (() => {
               const expanded = expandedSections.nemesis;
               const displayList = expanded ? allNemesis : nemesisStats;
               return (
-                <div className="nemesis-card">
-                  <h3 className="nc-title">Nemesis</h3>
-                  {statsSampleSize > 0 && <span className="card-sample-label">{statsSampleSize} games</span>}
-                  <div className="nc-list">
+                <div className="stat-card stat-card--red">
+                  <h3 className="stat-card-title">Nemesis</h3>
+                  <p className="stat-card-subtitle">Opponents who beat you most</p>
+                  <div className="stat-card-list">
                     {displayList.map((enemy, idx) => {
-                      const yourWinRate = enemy.total > 0 ? Math.round((enemy.losses / enemy.total) * 100) : 0;
+                      const pic = statAvatars.get(enemy.battleTag)?.profilePicUrl;
                       return (
-                        <Link
-                          key={enemy.battleTag}
-                          to={`/player/${encodeURIComponent(enemy.battleTag)}`}
-                          className="nc-row"
-                        >
-                          <span className="nc-rank">#{idx + 1}</span>
-                          <span className="nc-name">{enemy.name}</span>
-                          <span className="nc-stats">
-                            <span className="nc-winrate">{yourWinRate}%</span>
-                            <span className="nc-record">({enemy.losses}W-{enemy.wins}L)</span>
-                          </span>
+                        <Link key={enemy.battleTag} to={`/player/${encodeURIComponent(enemy.battleTag)}`} className="stat-row">
+                          <span className="stat-rank">#{idx + 1}</span>
+                          {pic ? <img src={pic} alt="" className="stat-avatar-img" /> : <span className="stat-avatar stat-avatar--red">{enemy.name[0]}</span>}
+                          <span className="stat-name">{enemy.name}</span>
+                          <span className="stat-rate stat-rate--red">{enemy.winRate}%</span>
+                          <span className="stat-record">({enemy.wins}W-{enemy.losses}L)</span>
                         </Link>
                       );
                     })}
                   </div>
-                  {allNemesis.length > 3 && (
+                  {allNemesis.length > 5 && (
                     <button className="card-toggle-btn" onClick={() => toggleSection('nemesis')}>
                       {expanded ? 'Show less' : `Show all (${allNemesis.length})`}
                     </button>
@@ -1193,9 +1189,73 @@ const PlayerProfile = () => {
               );
             })()}
 
-          </aside>
+            {preyStats.length > 0 && (() => {
+              const expanded = expandedSections.prey;
+              const displayList = expanded ? allPrey : preyStats;
+              return (
+                <div className="stat-card stat-card--green">
+                  <h3 className="stat-card-title">Punching Bag</h3>
+                  <p className="stat-card-subtitle">Opponents you beat most</p>
+                  <div className="stat-card-list">
+                    {displayList.map((enemy, idx) => {
+                      const pic = statAvatars.get(enemy.battleTag)?.profilePicUrl;
+                      return (
+                        <Link key={enemy.battleTag} to={`/player/${encodeURIComponent(enemy.battleTag)}`} className="stat-row">
+                          <span className="stat-rank">#{idx + 1}</span>
+                          {pic ? <img src={pic} alt="" className="stat-avatar-img" /> : <span className="stat-avatar stat-avatar--green">{enemy.name[0]}</span>}
+                          <span className="stat-name">{enemy.name}</span>
+                          <span className="stat-rate stat-rate--green">{enemy.winRate}%</span>
+                          <span className="stat-record">({enemy.losses}W-{enemy.wins}L)</span>
+                        </Link>
+                      );
+                    })}
+                  </div>
+                  {allPrey.length > 5 && (
+                    <button className="card-toggle-btn" onClick={() => toggleSection('prey')}>
+                      {expanded ? 'Show less' : `Show all (${allPrey.length})`}
+                    </button>
+                  )}
+                </div>
+              );
+            })()}
+
+            {mapStats.length > 0 && (
+              <div className="stat-card stat-card--green">
+                <h3 className="stat-card-title">Best Maps</h3>
+                <p className="stat-card-subtitle">Where you dominate</p>
+                <div className="stat-card-list">
+                  {mapStats.map((map, idx) => (
+                    <div key={map.name} className="stat-row">
+                      <span className="stat-rank">#{idx + 1}</span>
+                      <img src={`/maps/${map.name.replace(/ /g, '').replace(/'/g, '')}.png`} alt="" className="stat-map-img" />
+                      <span className="stat-name">{map.name}</span>
+                      <span className="stat-rate stat-rate--green">{map.winRate}%</span>
+                      <span className="stat-record">({map.wins}W-{map.losses}L)</span>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            )}
+
+            {worstMapStats.length > 0 && (
+              <div className="stat-card stat-card--red">
+                <h3 className="stat-card-title">Worst Maps</h3>
+                <p className="stat-card-subtitle">Where you struggle</p>
+                <div className="stat-card-list">
+                  {worstMapStats.map((map, idx) => (
+                    <div key={map.name} className="stat-row">
+                      <span className="stat-rank">#{idx + 1}</span>
+                      <img src={`/maps/${map.name.replace(/ /g, '').replace(/'/g, '')}.png`} alt="" className="stat-map-img" />
+                      <span className="stat-name">{map.name}</span>
+                      <span className="stat-rate stat-rate--red">{map.winRate}%</span>
+                      <span className="stat-record">({map.wins}W-{map.losses}L)</span>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            )}
+          </div>
         </div>
-        </>
       )}
 
       {/* Playstyle Tab Content */}

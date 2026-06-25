@@ -65,16 +65,21 @@ export const getPlayerProfile = async (battleTag) => {
       ? data.winLosses.reduce((sum, r) => sum + (r.games || 0), 0)
       : null;
 
+    const mostPlayedRace = Array.isArray(data.winLosses)
+      ? (data.winLosses.sort((a, b) => b.games - a.games)[0]?.race ?? null)
+      : null;
+
     return {
       profilePicUrl: buildProfilePicUrl(data),
       twitch: data.twitch || null,
       country: data.location || null,
-      homePage: data.homePage || null,
+      homePage: (data.homePage && !/localhost|127\.0\.0\.1/.test(data.homePage)) ? data.homePage : null,
       profileMessage: data.profileMessage || null,
       totalGames: totalGames || null,
+      mostPlayedRace,
     };
   } catch {
-    return { profilePicUrl: null, twitch: null, country: null, homePage: null, profileMessage: null, totalGames: null };
+    return { profilePicUrl: null, twitch: null, country: null, homePage: null, profileMessage: null, totalGames: null, mostPlayedRace: null };
   }
 };
 

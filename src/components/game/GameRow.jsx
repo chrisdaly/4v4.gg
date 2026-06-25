@@ -42,13 +42,16 @@ const GameRow = ({
     );
     if (player) {
       playerData = player;
-      allies = team.players.filter(
-        (p) => p.battleTag?.toLowerCase() !== battleTagLower
-      );
+      allies = team.players
+        .filter((p) => p.battleTag?.toLowerCase() !== battleTagLower)
+        .sort((a, b) => (b.oldMmr || 0) - (a.oldMmr || 0));
     } else {
-      opponents = team.players || [];
+      opponents = [...(team.players || [])].sort((a, b) => (b.oldMmr || 0) - (a.oldMmr || 0));
     }
   }
+
+  // Sort full team (self + allies) by MMR — don't pin self first
+  const teamMembers = [playerData, ...allies].sort((a, b) => (b.oldMmr || 0) - (a.oldMmr || 0));
 
   if (!playerData) return null;
 
@@ -91,7 +94,7 @@ const GameRow = ({
         <span className="gr-map-name">{cleanMapName}</span>
       </div>
       <div className="gr-col gr-avg-mmr">
-        {avgMmr && <span className="gr-avg-mmr-value">{avgMmr}</span>}
+        {avgMmr && <span className="gr-avg-mmr-value">{avgMmr.toLocaleString('en-US')}</span>}
       </div>
       <div className="gr-col gr-mmr">
         <span className={`gr-mmr-change ${mmrChange >= 0 ? "positive" : "negative"}`}>
@@ -102,24 +105,23 @@ const GameRow = ({
       {showAllies && (
         <div className="gr-col gr-allies">
           <div className="gr-players-list">
-            <span className="gr-player gr-player-self">
-              <RaceIcon race={playerData.race} rndRace={playerData.rndRace} className="gr-race" />
-              <span className="gr-player-name gr-player-self-name">{playerData.name}</span>
-            </span>
-            {allies.slice(0, 3).map((ally, i) => (
-              <span
-                key={i}
-                className="gr-player"
-                onClick={(e) => {
-                  e.preventDefault();
-                  e.stopPropagation();
-                  history.push(`/player/${encodeURIComponent(ally.battleTag)}`);
-                }}
-              >
-                <RaceIcon race={ally.race} rndRace={ally.rndRace} className="gr-race" />
-                <span className="gr-player-name">{ally.name}</span>
-              </span>
-            ))}
+            {teamMembers.slice(0, 4).map((p, i) => {
+              const isSelf = p.battleTag?.toLowerCase() === battleTagLower;
+              return (
+                <span
+                  key={i}
+                  className={`gr-player${isSelf ? " gr-player-self" : ""}`}
+                  onClick={isSelf ? undefined : (e) => {
+                    e.preventDefault();
+                    e.stopPropagation();
+                    history.push(`/player/${encodeURIComponent(p.battleTag)}`);
+                  }}
+                >
+                  <RaceIcon race={p.race} rndRace={p.rndRace} className="gr-race" />
+                  <span className={`gr-player-name${isSelf ? " gr-player-self-name" : ""}`}>{p.name}</span>
+                </span>
+              );
+            })}
           </div>
         </div>
       )}
