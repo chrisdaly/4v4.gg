@@ -19,7 +19,7 @@
   justify-content: space-between;
   max-width: 1200px;
   margin: 0 auto;
-  height: 48px;
+  height: 54px;
 }
 
 .navbar-logo {
@@ -38,7 +38,8 @@
 
 .navbar-links {
   display: flex;
-  align-items: center;
+  align-items: stretch;
+  align-self: stretch;
   gap: 2px;
 }
 
@@ -47,14 +48,30 @@
   font-size: var(--text-xs);
   color: var(--grey-light);
   text-decoration: none;
-  padding: 6px 14px;
+  padding: 0 14px;
   border: none;
   background: none;
-  border-radius: var(--radius-md);
+  border-radius: 0;
   cursor: pointer;
-  transition: all 0.2s ease;
+  transition: color 0.2s ease, background 0.2s ease;
   letter-spacing: 0.5px;
   text-transform: uppercase;
+  display: inline-flex;
+  align-items: center;
+  position: relative;
+}
+
+.navbar-link::after {
+  content: '';
+  position: absolute;
+  bottom: 0;
+  left: 6px;
+  right: 6px;
+  height: 2px;
+  background: var(--gold);
+  border-radius: 1px 1px 0 0;
+  opacity: 0;
+  transition: opacity 0.2s ease;
 }
 
 .navbar-link:hover {
@@ -64,13 +81,17 @@
 
 .navbar-link.active {
   color: var(--gold);
-  background: var(--gold-tint);
+  background: none;
+}
+
+.navbar-link.active::after {
+  opacity: 1;
 }
 
 .navbar-right {
   display: flex;
   align-items: center;
-  gap: 4px;
+  gap: 8px;
 }
 
 /* ============================================
@@ -79,23 +100,40 @@
 
 .navbar-more {
   position: relative;
+  display: flex;
+  align-items: stretch;
 }
 
 .navbar-more-btn {
   font-family: var(--font-display);
   font-size: var(--text-xs);
   color: var(--grey-light);
-  padding: 6px 14px;
+  padding: 0 14px;
   border: none;
   background: none;
-  border-radius: var(--radius-md);
+  border-radius: 0;
   cursor: pointer;
-  transition: all 0.2s ease;
+  transition: color 0.2s ease, background 0.2s ease;
   letter-spacing: 0.5px;
   text-transform: uppercase;
-  display: flex;
+  display: inline-flex;
   align-items: center;
+  align-self: stretch;
   gap: 4px;
+  position: relative;
+}
+
+.navbar-more-btn::after {
+  content: '';
+  position: absolute;
+  bottom: 0;
+  left: 6px;
+  right: 6px;
+  height: 2px;
+  background: var(--gold);
+  border-radius: 1px 1px 0 0;
+  opacity: 0;
+  transition: opacity 0.2s ease;
 }
 
 .navbar-more-btn:hover {
@@ -105,7 +143,11 @@
 
 .navbar-more-btn.active {
   color: var(--gold);
-  background: var(--gold-tint);
+  background: none;
+}
+
+.navbar-more-btn.active::after {
+  opacity: 1;
 }
 
 .navbar-more-chevron {
@@ -164,16 +206,35 @@
 
 .navbar-search {
   position: relative;
-  margin-left: 8px;
+}
+
+.navbar-search-input-wrap {
+  position: relative;
+  display: flex;
+  align-items: center;
+}
+
+.navbar-search-icon {
+  position: absolute;
+  left: 11px;
+  color: var(--grey-light);
+  pointer-events: none;
+  flex-shrink: 0;
+  transition: color 0.2s ease;
+}
+
+.navbar-search-input-wrap:focus-within .navbar-search-icon {
+  color: rgba(184, 134, 11, 0.7);
 }
 
 .navbar-search-input {
-  width: 180px;
+  width: 190px;
+  padding-left: 32px !important;
 }
 
 .navbar-search-clear {
   position: absolute;
-  right: 6px;
+  right: 10px;
   top: 50%;
   transform: translateY(-50%);
   background: none;
@@ -197,7 +258,7 @@
 .navbar-search-dropdown {
   position: absolute;
   top: calc(100% + 6px);
-  left: 0;
+  right: 0;
   z-index: 10001;
   display: flex;
   flex-direction: column;
@@ -344,11 +405,9 @@
 
 .admin-key-dot {
   display: inline-block;
-  width: 6px;
-  height: 6px;
+  width: 8px;
+  height: 8px;
   border-radius: 50%;
-  margin-right: 6px;
-  vertical-align: middle;
   flex-shrink: 0;
 }
 
@@ -362,37 +421,32 @@
 .navbar-admin-toggle {
   display: inline-flex;
   align-items: center;
-  font-family: var(--font-mono);
-  font-size: var(--text-xxxs);
-  text-transform: uppercase;
-  letter-spacing: 0.14em;
-  padding: 6px 12px;
-  border-radius: var(--radius-full);
-  background: transparent;
-  border: 1px solid var(--grey-mid);
-  color: var(--grey-mid);
+  justify-content: center;
+  width: 24px;
+  height: 24px;
+  padding: 0;
+  border-radius: var(--radius-sm);
+  background: rgba(0, 0, 0, 0.35);
+  border: 1px solid rgba(255, 255, 255, 0.1);
   cursor: pointer;
   transition: all 0.2s ease;
-  white-space: nowrap;
-  opacity: 0.7;
+  opacity: 0.6;
+  box-shadow: inset 0 1px 3px rgba(0, 0, 0, 0.4);
 }
 
 .navbar-admin-toggle:hover {
   opacity: 1;
-  border-color: var(--grey-light);
-  color: var(--grey-light);
+  border-color: rgba(255, 255, 255, 0.2);
 }
 
-/* On state: gold badge — admin features visible */
 .navbar-admin-toggle.active {
-  background: rgba(252, 219, 51, 0.12);
-  border-color: var(--gold-border-hover);
-  color: var(--gold);
+  background: rgba(252, 219, 51, 0.1);
+  border-color: rgba(184, 134, 11, 0.4);
   opacity: 1;
 }
 
 .navbar-admin-toggle.active:hover {
-  background: rgba(252, 219, 51, 0.18);
+  background: rgba(252, 219, 51, 0.15);
 }
 
 .navbar-admin-toggle-mobile {
@@ -501,7 +555,7 @@
   }
 
   .navbar-content {
-    height: 44px;
+    height: 48px;
   }
 
   .navbar-logo {

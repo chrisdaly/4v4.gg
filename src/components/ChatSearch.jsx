@@ -46,8 +46,8 @@ const SearchForm = styled.form`
 const SearchInput = styled.input`
   flex: 1;
   min-width: 0;
-  background: var(--surface-1);
-  border: 1px solid var(--grey-mid);
+  background: rgba(0, 0, 0, 0.35);
+  border: 1px solid rgba(184, 134, 11, 0.3);
   border-radius: var(--radius-sm);
   padding: var(--space-2) var(--space-4);
   color: var(--white);
@@ -55,19 +55,19 @@ const SearchInput = styled.input`
   font-size: var(--text-xs);
   outline: none;
   transition: var(--transition);
+  box-shadow: inset 0 1px 4px rgba(0, 0, 0, 0.5);
 
   &:focus {
     border-color: var(--gold);
-    background: var(--surface-2);
+    box-shadow: inset 0 1px 4px rgba(0, 0, 0, 0.5), 0 0 8px rgba(184, 134, 11, 0.15);
   }
 
-  &:hover {
-    border-color: rgba(252,219,51,0.5);
+  &:hover:not(:focus) {
+    border-color: rgba(184, 134, 11, 0.55);
   }
 
   &::placeholder {
-    color: var(--grey-mid);
-    opacity: 0.8;
+    color: var(--grey-light);
   }
 `;
 

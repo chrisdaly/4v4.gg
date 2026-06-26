@@ -884,21 +884,28 @@ const SearchBar = styled.div`
 const SearchField = styled.input`
   flex: 1;
   min-width: 0;
-  background: rgba(255, 255, 255, 0.06);
-  border: 1px solid rgba(var(--gold-muted-rgb), 0.2);
+  background: rgba(0, 0, 0, 0.35);
+  border: 1px solid rgba(184, 134, 11, 0.3);
   border-radius: var(--radius-sm);
   padding: 6px var(--space-2);
-  color: var(--text-body);
+  color: var(--white);
   font-family: var(--font-mono);
   font-size: var(--text-xs);
   outline: none;
+  box-shadow: inset 0 1px 4px rgba(0, 0, 0, 0.5);
+  transition: var(--transition);
 
   &:focus {
-    border-color: rgba(252, 219, 51, 0.4);
+    border-color: var(--gold);
+    box-shadow: inset 0 1px 4px rgba(0, 0, 0, 0.5), 0 0 8px rgba(184, 134, 11, 0.15);
+  }
+
+  &:hover:not(:focus) {
+    border-color: rgba(184, 134, 11, 0.55);
   }
 
   &::placeholder {
-    color: var(--grey-mid);
+    color: var(--grey-light);
   }
 `;
 

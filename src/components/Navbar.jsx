@@ -145,10 +145,10 @@ const Navbar = () => {
     { to: "/ladder", label: "Ladder", prefetch: prefetch.ladder },
     { to: "/news", label: "News" },
     { to: "/chat", label: "Chat" },
-    { to: "/upload", label: "Upload" },
   ];
 
   const moreLinks = [
+    { to: "/upload", label: "Upload" },
     { to: "/search", label: "Search" },
     { to: "/stats", label: "Stats" },
     { to: "/lab", label: "Lab" },
@@ -200,18 +200,26 @@ const Navbar = () => {
               </div>
             )}
           </div>
+        </div>
+        <div className="navbar-right">
           <div className="navbar-search" ref={searchRef}>
-            <Input
-              className="navbar-search-input"
-              type="text"
-              placeholder="Search player..."
-              value={searchQuery}
-              onChange={(e) => setSearchQuery(e.target.value)}
-              onFocus={() => searchResults.length > 0 && setShowSearch(true)}
-            />
-            {searchQuery && (
-              <button className="navbar-search-clear" onClick={() => { setSearchQuery(""); setSearchResults([]); setShowSearch(false); }}>&times;</button>
-            )}
+            <div className="navbar-search-input-wrap">
+              <svg className="navbar-search-icon" width="14" height="14" viewBox="0 0 14 14" fill="none">
+                <circle cx="5.5" cy="5.5" r="4" stroke="currentColor" strokeWidth="1.5"/>
+                <line x1="8.7" y1="8.7" x2="13" y2="13" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round"/>
+              </svg>
+              <Input
+                className="navbar-search-input"
+                type="text"
+                placeholder="Search player..."
+                value={searchQuery}
+                onChange={(e) => setSearchQuery(e.target.value)}
+                onFocus={() => searchResults.length > 0 && setShowSearch(true)}
+              />
+              {searchQuery && (
+                <button className="navbar-search-clear" onClick={() => { setSearchQuery(""); setSearchResults([]); setShowSearch(false); }}>&times;</button>
+              )}
+            </div>
             {showSearch && searchResults.length > 0 && (
               <div className="navbar-search-dropdown">
                 {searchResults.map((p) => {
@@ -271,19 +279,16 @@ const Navbar = () => {
               </div>
             )}
           </div>
-        </div>
-        <div className="navbar-right">
           {adminKey && (
             <button
               className={`navbar-admin-toggle ${adminViewActive ? "active" : ""}`}
               onClick={toggleAdminView}
-              title={adminViewActive ? "Admin view on — click to preview as user" : "Admin view off — click to enable"}
+              title={adminViewActive ? "Admin view on — click to disable" : "Admin view off — click to enable"}
             >
               <span
                 className="admin-key-dot"
                 data-status={isKeyValid === true ? "valid" : isKeyValid === false ? "invalid" : "unknown"}
               />
-              {adminViewActive ? "Admin" : "Admin Off"}
             </button>
           )}
           <button
@@ -318,7 +323,7 @@ const Navbar = () => {
                 className="admin-key-dot"
                 data-status={isKeyValid === true ? "valid" : isKeyValid === false ? "invalid" : "unknown"}
               />
-              {adminViewActive ? "Admin" : "Admin Off"}
+              {adminViewActive ? "Admin On" : "Admin Off"}
             </button>
           )}
         </div>

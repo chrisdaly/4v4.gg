@@ -559,14 +559,15 @@ export const Select = React.forwardRef(function Select(
 export const Input = styled.input`
   font-family: var(--font-mono);
   font-size: var(--text-xs);
-  background: var(--surface-1);
-  border: 1px solid ${p => p.$error ? 'var(--red)' : 'var(--grey-mid)'};
-  border-radius: var(--radius-md);
+  background: rgba(0, 0, 0, 0.35);
+  border: 1px solid ${p => p.$error ? 'var(--red)' : 'rgba(184, 134, 11, 0.3)'};
+  border-radius: var(--radius-sm);
   color: var(--white);
   padding: var(--space-2) var(--space-4);
   width: ${p => p.$fullWidth ? '100%' : 'auto'};
   transition: var(--transition);
   box-sizing: border-box;
+  box-shadow: inset 0 1px 4px rgba(0, 0, 0, 0.5);
 
   &::placeholder {
     color: var(--grey-light);
@@ -575,10 +576,11 @@ export const Input = styled.input`
   &:focus {
     outline: none;
     border-color: ${p => p.$error ? 'var(--red)' : 'var(--gold)'};
+    box-shadow: inset 0 1px 4px rgba(0, 0, 0, 0.5), 0 0 8px rgba(184, 134, 11, 0.15);
   }
 
   &:hover:not(:focus) {
-    border-color: ${p => p.$error ? 'var(--red)' : 'rgba(252,219,51,0.4)'};
+    border-color: ${p => p.$error ? 'var(--red)' : 'rgba(184, 134, 11, 0.55)'};
   }
 `;
 

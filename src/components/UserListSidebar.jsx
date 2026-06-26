@@ -105,27 +105,26 @@ const SearchInput = styled.input`
   font-size: var(--text-xs);
   letter-spacing: 0.3px;
   color: var(--white);
-  background: var(--surface-1);
-  border: 1px solid var(--grey-mid);
-  border-radius: var(--radius-md);
+  background: rgba(0, 0, 0, 0.35);
+  border: 1px solid rgba(184, 134, 11, 0.3);
+  border-radius: var(--radius-sm);
   outline: none;
   box-sizing: border-box;
   transition: var(--transition);
+  box-shadow: inset 0 1px 4px rgba(0, 0, 0, 0.5);
 
   &::placeholder {
-    color: var(--grey-mid);
-    opacity: 0.8;
+    color: var(--grey-light);
     font-size: var(--text-xxs);
   }
 
   &:focus {
     border-color: var(--gold);
-    background: var(--surface-2);
-    box-shadow: 0 0 8px rgba(252, 219, 51, 0.1);
+    box-shadow: inset 0 1px 4px rgba(0, 0, 0, 0.5), 0 0 8px rgba(184, 134, 11, 0.15);
   }
 
-  &:hover {
-    border-color: rgba(252,219,51,0.5);
+  &:hover:not(:focus) {
+    border-color: rgba(184, 134, 11, 0.55);
   }
 `;
 

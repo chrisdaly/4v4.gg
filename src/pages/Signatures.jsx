@@ -54,21 +54,25 @@ const GalleryControls = styled.div`
 const GallerySearch = styled.input`
   font-family: var(--font-mono);
   font-size: var(--text-xs);
-  background: var(--surface-1);
-  border: 1px solid var(--grey-mid);
-  border-radius: var(--radius-md);
+  background: rgba(0, 0, 0, 0.35);
+  border: 1px solid rgba(184, 134, 11, 0.3);
+  border-radius: var(--radius-sm);
   color: var(--white);
   padding: 10px 16px;
   width: 280px;
   outline: none;
   transition: var(--transition);
+  box-shadow: inset 0 1px 4px rgba(0, 0, 0, 0.5);
 
   &:focus {
     border-color: var(--gold);
-    background: var(--surface-2);
+    box-shadow: inset 0 1px 4px rgba(0, 0, 0, 0.5), 0 0 8px rgba(184, 134, 11, 0.15);
+  }
+  &:hover:not(:focus) {
+    border-color: rgba(184, 134, 11, 0.55);
   }
   &::placeholder {
-    color: var(--grey-mid);
+    color: var(--grey-light);
   }
 `;
 
