@@ -854,12 +854,12 @@ h2 {
   letter-spacing: 0.5px;
 }
 
-.stat-row td {
+.game-stat-row td {
   padding: 8px 4px !important;
   text-align: center !important;
 }
 
-.stat-row:nth-child(odd) {
+.game-stat-row:nth-child(odd) {
   background: var(--surface-1);
 }
 

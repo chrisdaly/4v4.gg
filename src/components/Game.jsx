@@ -170,7 +170,7 @@ const Game = ({ playerData: rawPlayerData, metaData, profilePics, playerCountrie
         }
 
         return (
-          <tr key={statName} className="stat-row">
+          <tr key={statName} className="game-stat-row">
             {renderTableCells(scoreType, statName, 0, percentiles)}
             <td className="th-center stat-label">
               {keyDisplayNameMapping[statName] || statName}
@@ -419,10 +419,7 @@ const Game = ({ playerData: rawPlayerData, metaData, profilePics, playerCountrie
       <table className={`game-table ${compact ? "compactTable" : ""}`}>
         <thead>
           <tr>
-            <th> </th>
-            <th> </th>
-            <th> </th>
-            <th className={`team-0 team-header ${team1Won ? "winner" : ""}`}>
+            <th colSpan={4} className={`team-0 team-header ${team1Won ? "winner" : ""}`}>
               <div>
                 <h2 className="team-name">{team1Won && <span className="winner-badge">W</span>} TEAM 1</h2>
                 <div className="team-mmr-line">
@@ -441,7 +438,7 @@ const Game = ({ playerData: rawPlayerData, metaData, profilePics, playerCountrie
             <th className="th-center" style={{ position: "relative" }}>
               <h2>VS</h2>
             </th>
-            <th className={`team-1 team-header ${team2Won ? "winner" : ""}`}>
+            <th colSpan={4} className={`team-1 team-header ${team2Won ? "winner" : ""}`}>
               <div>
                 <h2 className="team-name">TEAM 2 {team2Won && <span className="winner-badge">W</span>}</h2>
                 <div className="team-mmr-line">
@@ -457,12 +454,7 @@ const Game = ({ playerData: rawPlayerData, metaData, profilePics, playerCountrie
                 </div>
               </div>
             </th>
-            <th> </th>
-            <th> </th>
-            <th> </th>
           </tr>
-        </thead>
-        <thead>
           <tr>
             {playerData.map((playerScore, index) => {
               const teamIndex = index < 4 ? 0 : 1;
