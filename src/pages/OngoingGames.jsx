@@ -6,8 +6,25 @@ import OngoingGame from "../components/OngoingGame";
 import PeonLoader from "../components/PeonLoader";
 import { PageLayout, PageHero } from "../components/PageLayout";
 import { calculateTeamMMR } from "../lib/utils";
-import { getOngoingMatchesCached } from "../lib/api";
+import { getOngoingMatchesCached, getMatch } from "../lib/api";
+import { cache } from "../lib/cache";
 import useOngoingMatches from "../lib/useOngoingMatches";
+
+const EXITING_DISPLAY_MS = 30000;
+const EXITING_FADE_MS = 1500;
+const WINNER_RETRY_DELAY_MS = 20000;
+const WINNER_MAX_RETRIES = 2;
+
+const WinnerBanner = ({ winnerTeamIndex }) => {
+  const isBlue = winnerTeamIndex === 0;
+  const cls = winnerTeamIndex === null ? "winner-pending" : isBlue ? "winner-blue" : "winner-red";
+  const label = winnerTeamIndex === null ? "Game Over" : isBlue ? "Blue Team Wins" : "Red Team Wins";
+  return (
+    <div className={`game-over-banner ${cls}`}>
+      {label}
+    </div>
+  );
+};
 
 // Sort matches by team MMR (highest first)
 const sortByMMR = (matches) => {
@@ -38,10 +55,12 @@ const OngoingGames = () => {
   const isLoading = ongoingGameData === null && !error;
   const [allReady, setAllReady] = useState(false);
   const readySet = useRef(new Set());
+  const hasInitiallyLoadedRef = useRef(false);
 
-  // Reset ready tracking when match list changes
+  // Only reset ready tracking on the very first load — not on re-polls
   useEffect(() => {
     if (!ongoingGameData || ongoingGameData.length === 0) return;
+    if (hasInitiallyLoadedRef.current) return;
     readySet.current = new Set();
     setAllReady(false);
   }, [ongoingGameData?.length]);
@@ -49,9 +68,103 @@ const OngoingGames = () => {
   const handleGameReady = useCallback((matchId) => {
     readySet.current.add(matchId);
     if (ongoingGameData && readySet.current.size >= ongoingGameData.length) {
+      hasInitiallyLoadedRef.current = true;
       setAllReady(true);
     }
   }, [ongoingGameData]);
+
+  // Track games that just finished
+  const [exitingGames, setExitingGames] = useState({});
+  const prevMatchDataRef = useRef({});
+  const prevMatchIdsRef = useRef(new Set());
+  const exitingIdsRef = useRef(new Set());
+  const exitingTimersRef = useRef({});
+
+  useEffect(() => {
+    if (!ongoingGameData) return;
+
+    const currentIds = new Set(ongoingGameData.map(d => d.id));
+
+    // Remember all current game data for when they disappear next poll
+    for (const d of ongoingGameData) {
+      prevMatchDataRef.current[d.id] = d;
+    }
+
+    // Find games that just disappeared
+    const goneIds = [...prevMatchIdsRef.current].filter(id => !currentIds.has(id) && !exitingIdsRef.current.has(id));
+
+    if (goneIds.length > 0) {
+      const newEntries = {};
+      for (const id of goneIds) {
+        const gameData = prevMatchDataRef.current[id];
+        if (!gameData) continue;
+        exitingIdsRef.current.add(id);
+        newEntries[id] = { data: gameData, winnerTeamIndex: null, fading: false };
+      }
+
+      if (Object.keys(newEntries).length > 0) {
+        setExitingGames(prev => ({ ...prev, ...newEntries }));
+
+        for (const id of Object.keys(newEntries)) {
+          // Fetch winner result with retries (W3C API takes 1-3 min to process finished games)
+          const tryFetchWinner = (attempt = 0) => {
+            // Clear stale cache before each attempt so retries get fresh data
+            if (attempt > 0) cache.remove(`match:${id}`);
+            getMatch(id).then(result => {
+              const winnerIdx = (result?.match?.teams || []).findIndex(t =>
+                (t.players || []).some(p => p.won === true || p.won === 1)
+              );
+              if (winnerIdx >= 0) {
+                setExitingGames(prev => {
+                  if (!prev[id]) return prev;
+                  return { ...prev, [id]: { ...prev[id], winnerTeamIndex: winnerIdx } };
+                });
+              } else if (attempt < WINNER_MAX_RETRIES && exitingIdsRef.current.has(id)) {
+                const retryTimer = setTimeout(() => tryFetchWinner(attempt + 1), WINNER_RETRY_DELAY_MS);
+                exitingTimersRef.current[`${id}_retry${attempt}`] = retryTimer;
+              }
+            }).catch(() => {
+              if (attempt < WINNER_MAX_RETRIES && exitingIdsRef.current.has(id)) {
+                const retryTimer = setTimeout(() => tryFetchWinner(attempt + 1), WINNER_RETRY_DELAY_MS);
+                exitingTimersRef.current[`${id}_retry${attempt}`] = retryTimer;
+              }
+            });
+          };
+          tryFetchWinner();
+
+          // Start fade timer
+          const fadeTimer = setTimeout(() => {
+            setExitingGames(prev => {
+              if (!prev[id]) return prev;
+              return { ...prev, [id]: { ...prev[id], fading: true } };
+            });
+            const removeTimer = setTimeout(() => {
+              setExitingGames(prev => {
+                const next = { ...prev };
+                delete next[id];
+                return next;
+              });
+              exitingIdsRef.current.delete(id);
+              delete prevMatchDataRef.current[id];
+            }, EXITING_FADE_MS);
+            exitingTimersRef.current[`${id}_remove`] = removeTimer;
+          }, EXITING_DISPLAY_MS);
+          exitingTimersRef.current[id] = fadeTimer;
+        }
+      }
+    }
+
+    prevMatchIdsRef.current = currentIds;
+  }, [ongoingGameData]);
+
+  // Cleanup timers on unmount
+  useEffect(() => {
+    return () => {
+      for (const timer of Object.values(exitingTimersRef.current)) {
+        clearTimeout(timer);
+      }
+    };
+  }, []);
 
   const hasGames = ongoingGameData && ongoingGameData.length > 0;
   const showLoader = isLoading || (hasGames && !allReady);
@@ -115,6 +228,8 @@ const OngoingGames = () => {
     </PageHero>
   );
 
+  const exitingList = Object.values(exitingGames);
+
   return (
     <>
       {showLoader && (
@@ -137,6 +252,29 @@ const OngoingGames = () => {
                 <OngoingGame ongoingGameData={d} onReady={handleGameReady} />
               </div>
             ))}
+            {exitingList.map(({ data, winnerTeamIndex, fading }) => {
+              const winnerCls = winnerTeamIndex === null ? "winner-pending" : winnerTeamIndex === 0 ? "winner-blue" : "winner-red";
+              return (
+                <div
+                  key={data.id}
+                  style={{ opacity: fading ? 0 : 1, transition: `opacity ${EXITING_FADE_MS}ms ease`, width: "100%" }}
+                >
+                  <div
+                    className={`game-clickable game-finished ${winnerCls}`}
+                    onClick={(e) => {
+                      if (e.target.closest("a")) return;
+                      history.push(`/match/${data.id}`);
+                    }}
+                  >
+                    <WinnerBanner winnerTeamIndex={winnerTeamIndex} />
+                    <div className="game-over-bar">
+                      <div className="game-over-bar-fill" />
+                    </div>
+                    <OngoingGame ongoingGameData={data} onReady={() => {}} />
+                  </div>
+                </div>
+              );
+            })}
           </div>
         </PageLayout>
       </div>

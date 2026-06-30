@@ -80,7 +80,9 @@ const OnGoingGame = ({ ongoingGameData, compact, streamerTag, onReady }) => {
     return () => {
       cancelled = true;
     };
-  }, [ongoingGameData]);
+  // Key on matchId only — player/session data doesn't change mid-game, and re-running
+  // on every 30s poll reference change causes MmrComparison to fully redraw each time.
+  }, [matchId]);
 
   if (isLoading) return null;
 

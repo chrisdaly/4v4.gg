@@ -13,6 +13,16 @@ import FormDots from "./FormDots";
 const Game = ({ playerData: rawPlayerData, metaData, profilePics, playerCountries, sessionData, liveStreamers = {}, compact, streamerTag, initialATGroups }) => {
   const [atGroups, setAtGroups] = useState(initialATGroups || {});
 
+  const isLive = metaData.gameLength === "0:00";
+  const [elapsedMins, setElapsedMins] = useState(() =>
+    isLive && metaData.startTime ? calculateElapsedTime(metaData.startTime) : null
+  );
+  useEffect(() => {
+    if (!isLive || !metaData.startTime) return;
+    const id = setInterval(() => setElapsedMins(calculateElapsedTime(metaData.startTime)), 60000);
+    return () => clearInterval(id);
+  }, [isLive, metaData.startTime]);
+
   const excludedKeys = ["mercsHired", "itemsObtained", "lumberCollected"];
   // Reorder team 1 players (reverse) for display, don't mutate props
   const playerData = useMemo(
@@ -514,10 +524,8 @@ const Game = ({ playerData: rawPlayerData, metaData, profilePics, playerCountrie
                   <div className="meta-map-info">
                     <span className="meta-map-name">{metaData.mapName}</span>
                     <span className="meta-details">
-                      {metaData.gameLength === "0:00"
-                        ? calculateElapsedTime(metaData.startTime)
-                        : metaData.gameLength} mins
-                      {metaData.gameLength === "0:00" && <span className="live-dot"></span>}
+                      {isLive ? elapsedMins : metaData.gameLength} mins
+                      {isLive && <span className="live-dot"></span>}
                     </span>
                     {metaData.startTime && metaData.gameLength !== "0:00" && (
                       <span className="meta-time">
@@ -608,10 +616,8 @@ const Game = ({ playerData: rawPlayerData, metaData, profilePics, playerCountrie
           <div className="gm-meta-info">
             <span className="meta-map-name">{metaData.mapName}</span>
             <span className="meta-details">
-              {metaData.gameLength === "0:00"
-                ? calculateElapsedTime(metaData.startTime)
-                : metaData.gameLength} mins
-              {metaData.gameLength === "0:00" && <span className="live-dot"></span>}
+              {isLive ? elapsedMins : metaData.gameLength} mins
+              {isLive && <span className="live-dot"></span>}
             </span>
             {metaData.server && metaData.gameLength !== "0:00" && <span className="meta-server">{metaData.server}</span>}
           </div>

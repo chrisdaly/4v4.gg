@@ -250,6 +250,83 @@ img.race {
   box-shadow: 0 0 12px var(--gold-tint);
 }
 
+.game-finished {
+  cursor: pointer;
+  border-color: var(--grey-mid) !important;
+  border-image: none !important;
+  opacity: 0.85;
+}
+
+.game-finished:hover {
+  border-color: var(--grey-mid) !important;
+  box-shadow: none !important;
+}
+
+.game-finished.winner-blue {
+  border-color: rgba(77, 166, 255, 0.4) !important;
+}
+
+.game-finished.winner-red {
+  border-color: rgba(239, 68, 68, 0.4) !important;
+}
+
+.game-over-banner {
+  font-family: var(--font-display);
+  font-size: var(--text-xxs);
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+  text-align: center;
+  padding: var(--space-1) var(--space-4);
+  border-radius: var(--radius-sm);
+  margin-bottom: var(--space-2);
+}
+
+.game-over-banner.winner-pending {
+  color: var(--grey-light);
+  background: rgba(255, 255, 255, 0.04);
+  border: 1px solid rgba(255, 255, 255, 0.1);
+}
+
+.game-over-banner.winner-blue {
+  color: var(--team-blue);
+  background: rgba(77, 166, 255, 0.07);
+  border: 1px solid rgba(77, 166, 255, 0.25);
+}
+
+.game-over-banner.winner-red {
+  color: var(--team-red);
+  background: rgba(239, 68, 68, 0.07);
+  border: 1px solid rgba(239, 68, 68, 0.25);
+}
+
+.game-over-bar {
+  height: 2px;
+  background: rgba(255, 255, 255, 0.06);
+  border-radius: var(--radius-full);
+  overflow: hidden;
+  margin-bottom: var(--space-4);
+}
+
+.game-over-bar-fill {
+  height: 100%;
+  border-radius: var(--radius-full);
+  animation: game-over-drain 10s linear forwards;
+  background: var(--grey-mid);
+}
+
+.winner-blue .game-over-bar-fill {
+  background: var(--team-blue);
+}
+
+.winner-red .game-over-bar-fill {
+  background: var(--team-red);
+}
+
+@keyframes game-over-drain {
+  from { width: 100%; }
+  to { width: 0%; }
+}
+
 .match-page {
   display: flex;
   flex-direction: column;
