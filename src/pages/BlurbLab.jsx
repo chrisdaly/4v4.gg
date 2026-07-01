@@ -205,9 +205,27 @@ const BackButton = styled.button`
   border: none;
   cursor: pointer;
   padding: 0;
-  margin-bottom: var(--space-4);
 
   &:hover { color: #fff; }
+`;
+
+const NavRow = styled.div`
+  display: flex;
+  align-items: center;
+  gap: var(--space-4);
+  margin-bottom: var(--space-4);
+`;
+
+const NavButton = styled.button`
+  font-family: var(--font-mono);
+  font-size: var(--text-xxs);
+  color: var(--grey-light);
+  background: none;
+  border: none;
+  cursor: pointer;
+  padding: 0;
+  &:hover:not(:disabled) { color: #fff; }
+  &:disabled { opacity: 0.25; cursor: default; }
 `;
 
 /* ── Legacy aliases (kept for lounge chat section) ── */
@@ -858,6 +876,13 @@ const PassBadge = styled.div`
   padding: var(--space-1) 0;
 `;
 
+const NullVal = styled.div`
+  font-family: var(--font-mono);
+  font-size: var(--text-xs);
+  color: var(--grey-mid);
+  opacity: 0.4;
+`;
+
 function StructuredPartsDisplay({ parts, $new }) {
   if (!parts) return <PassBadge>PASS — no structured parts</PassBadge>;
   const fields = [
@@ -866,18 +891,17 @@ function StructuredPartsDisplay({ parts, $new }) {
     { key: "h2h", label: "h2h" },
     { key: "drama", label: "drama" },
   ];
-  const hasAny = fields.some((f) => parts[f.key]);
-  if (!hasAny) return <PassBadge>PASS — all fields null</PassBadge>;
   return (
     <div style={{ marginBottom: "var(--space-1)" }}>
-      {fields.map(({ key, label }) =>
-        parts[key] ? (
-          <FieldRow key={key}>
-            <FieldKey>{label}</FieldKey>
-            <FieldVal $new={$new}>{renderBlurbText(parts[key])}</FieldVal>
-          </FieldRow>
-        ) : null
-      )}
+      {fields.map(({ key, label }) => (
+        <FieldRow key={key}>
+          <FieldKey>{label}</FieldKey>
+          {parts[key]
+            ? <FieldVal $new={$new}>{renderBlurbText(parts[key])}</FieldVal>
+            : <NullVal>—</NullVal>
+          }
+        </FieldRow>
+      ))}
     </div>
   );
 }
@@ -1019,32 +1043,25 @@ export default function BlurbLab() {
       .catch((e) => setError(e.message));
   }, [authed, api]);
 
-  // Auto-select from ?id= on load once matches are available.
-  // Falls back to fetching from W3C API if the ID isn't in the 20-game sample.
+  // Auto-select from ?id= immediately on auth — don't wait for the sample list.
   useEffect(() => {
-    if (!matches.length) return;
-    const params = new URLSearchParams(location.search);
-    const id = params.get("id");
-    if (!id || selected) return;
-    const m = matches.find((x) => x.id === id);
-    if (m) {
-      selectMatch(m);
-    } else {
-      getMatch(id).then((detail) => {
-        if (!detail?.match) return;
-        const mt = detail.match;
-        selectMatch({
-          id,
-          mapName: mt.mapName || "",
-          durationInSeconds: mt.durationInSeconds || 0,
-          endTime: mt.endTime || null,
-          cachedBlurb: null,
-          cachedRivals: [],
-        });
+    if (!authed) return;
+    const id = new URLSearchParams(location.search).get("id");
+    if (!id) return;
+    getMatch(id).then((detail) => {
+      if (!detail?.match) return;
+      const mt = detail.match;
+      selectMatch({
+        id,
+        mapName: mt.mapName || "",
+        durationInSeconds: mt.durationInSeconds || 0,
+        endTime: mt.endTime || null,
+        cachedBlurb: null,
+        cachedRivals: [],
       });
-    }
+    });
   // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [matches]);
+  }, [authed]);
 
   const selectMatch = async (m) => {
     routerHistory.replace(`/blurb-lab?id=${encodeURIComponent(m.id)}`);
@@ -1276,9 +1293,20 @@ export default function BlurbLab() {
       {/* ── Stage 2: blurb workbench ── */}
       {selected && (
         <WorkbenchWrap>
-          <BackButton onClick={() => { setSelected(null); setOutput(null); setFactSheet(null); setOutputHistory([]); }}>
-            ← all games
-          </BackButton>
+          <NavRow>
+            <BackButton onClick={() => { setSelected(null); setOutput(null); setFactSheet(null); setOutputHistory([]); }}>
+              ← all games
+            </BackButton>
+            {matches.length > 1 && (() => {
+              const idx = matches.findIndex(m => m.id === selected.id);
+              return (
+                <>
+                  <NavButton disabled={idx <= 0} onClick={() => selectMatch(matches[idx - 1])}>← prev</NavButton>
+                  <NavButton disabled={idx < 0 || idx >= matches.length - 1} onClick={() => selectMatch(matches[idx + 1])}>next →</NavButton>
+                </>
+              );
+            })()}
+          </NavRow>
 
           <WorkbenchColumns>
             {/* Left: lounge chat */}

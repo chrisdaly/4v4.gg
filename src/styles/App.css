@@ -788,7 +788,7 @@ td {
 }
 
 .profile-pic {
-  width: 80px;
+  width: 70px;
   position: relative;
   z-index: 1;
 }
@@ -855,7 +855,7 @@ h2 {
 }
 
 .game-stat-row td {
-  padding: 8px 4px !important;
+  padding: 5px 4px !important;
   text-align: center !important;
 }
 
@@ -864,7 +864,7 @@ h2 {
 }
 
 .section-divider td {
-  height: 16px !important;
+  height: 8px !important;
   border-bottom: 1px solid var(--surface-3) !important;
 }
 
@@ -4358,7 +4358,7 @@ a.neighbor-name-sm:hover {
 
 /* MMR chart container - default size */
 .mmr-chart-container {
-  height: 240px;
+  height: 190px;
   width: 200px;
   overflow: hidden;
   display: inline-block;

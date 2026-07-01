@@ -7,15 +7,16 @@ import TransitionGlyph from "./replay-lab/TransitionGlyph";
 const RELAY_URL =
   import.meta.env.VITE_CHAT_RELAY_URL || "https://4v4gg-chat-relay.fly.dev";
 
-export default function PlayerPlaystyleCard({ battleTag, race, compact = false }) {
-  const [profileData, setProfileData] = useState(null);
-  const [loading, setLoading] = useState(true);
+export default function PlayerPlaystyleCard({ battleTag, race, compact = false, preloadedProfile = null }) {
+  const [profileData, setProfileData] = useState(preloadedProfile);
+  const [loading, setLoading] = useState(!preloadedProfile);
   const [error, setError] = useState(false);
 
   const playerName = battleTag?.split("#")[0] || battleTag;
   const raceKey = race ?? 0;
 
   useEffect(() => {
+    if (preloadedProfile) return;
     if (!battleTag) return;
 
     const fetchProfile = async () => {
@@ -37,7 +38,7 @@ export default function PlayerPlaystyleCard({ battleTag, race, compact = false }
     };
 
     fetchProfile();
-  }, [battleTag]);
+  }, [battleTag, preloadedProfile]);
 
   // When full_action_sequence is missing in the DB (old imports), derive group
   // usage from the averaged hotkey fingerprint segment instead.

@@ -42,6 +42,7 @@ import {
   getReplayChat,
   insertReplayPlayerActions,
   getReplayByFileHash,
+  getReplayByW3cMatchId,
   updatePlayerActionData,
   getPlayersWithoutSequences,
   getReplayMatchesForPlayers,
@@ -783,6 +784,62 @@ router.get('/replay/:replayId/profiles', (req, res) => {
     },
     profiles,
   });
+});
+
+// GET /api/fingerprints/match/:matchId — Per-game profiles looked up by W3C match ID
+router.get('/match/:matchId', (req, res) => {
+  const replay = getReplayByW3cMatchId(req.params.matchId);
+  if (!replay) return res.status(404).json({ error: 'No replay for this match' });
+
+  const players = getReplayPlayers(replay.id);
+  const actionRows = getReplayPlayerActions(replay.id);
+  if (players.length === 0 || actionRows.length === 0) {
+    return res.status(404).json({ error: 'Replay has no parsed player data' });
+  }
+
+  const usedActionIdx = new Set();
+  const profiles = [];
+  for (const player of players) {
+    const idx = actionRows.findIndex((a, i) => !usedActionIdx.has(i) && a.player_id === player.player_id);
+    if (idx === -1) continue;
+    usedActionIdx.add(idx);
+    const actionRow = actionRows[idx];
+
+    const parsed = {
+      rightclick: actionRow.rightclick,
+      ability: actionRow.ability,
+      buildtrain: actionRow.buildtrain,
+      item: actionRow.item,
+      selecthotkey: actionRow.selecthotkey,
+      assigngroup: actionRow.assigngroup,
+      timed_segments: tryParse(actionRow.timed_segments),
+      group_hotkeys: tryParse(actionRow.group_hotkeys),
+      full_action_sequence: tryParse(actionRow.full_action_sequence),
+    };
+    const fp = buildServerFingerprint(parsed);
+    const { transitionPairs, groupUsage, groupCompositions, actionCounts, heroBuilds } = computeActionProfile([actionRow]);
+    const timeline = computeActionTimeline(actionRow);
+
+    profiles.push({
+      playerId: player.player_id,
+      playerName: player.player_name,
+      battleTag: player.battle_tag,
+      race: player.race,
+      teamId: player.team_id,
+      profileData: {
+        replayCount: 1,
+        averaged: fp,
+        transitionPairs,
+        groupUsage,
+        groupCompositions,
+        actionCounts,
+        heroBuilds,
+        timeline,
+      },
+    });
+  }
+
+  res.json({ replayId: replay.id, profiles });
 });
 
 // GET /api/fingerprints/replay/:replayId/chat — Chat log for a replay (public)

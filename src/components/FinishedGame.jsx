@@ -10,6 +10,7 @@ import { cache } from "../lib/cache";
 import { enrichPlayerData } from "../lib/gameDataUtils";
 import { getMatchBlurb } from "../lib/api";
 import { computeNote, noteContextFromMatch } from "../lib/matchNotes";
+import useAdmin from "../lib/useAdmin";
 
 // Get cached player data for a finished match
 const getCachedMatchPlayerData = (matchId) => {
@@ -27,6 +28,17 @@ const FinishedGame = ({ data, compact = false }) => {
   const [playerCountries, setPlayerCountries] = useState(cachedData?.countries || {});
   const [sessionData, setSessionData] = useState(cachedData?.sessions || {});
   const [isLoading, setIsLoading] = useState(!cachedData && !compact);
+  const [gameProfiles, setGameProfiles] = useState(null);
+  const { adminKey } = useAdmin();
+
+  useEffect(() => {
+    if (matchId && !compact) {
+      fetch(`${import.meta.env.VITE_CHAT_RELAY_URL || "https://4v4gg-chat-relay.fly.dev"}/api/fingerprints/match/${encodeURIComponent(matchId)}`)
+        .then(r => r.ok ? r.json() : null)
+        .then(d => { if (d?.profiles?.length) setGameProfiles(d.profiles); })
+        .catch(() => {});
+    }
+  }, [matchId, compact]);
 
   useEffect(() => {
     fetchMatchData();
@@ -142,47 +154,43 @@ const FinishedGame = ({ data, compact = false }) => {
               })()}
             </NoteHeadline>
           )}
+          {adminKey && !compact && data?.match?.id && (
+            <div style={{ textAlign: "center" }}>
+              <BlurbLabLink to={`/blurb-lab?id=${encodeURIComponent(data.match.id)}`}>
+                blurb lab →
+              </BlurbLabLink>
+            </div>
+          )}
           <Game playerData={playerData} metaData={metaData} profilePics={profilePics} playerCountries={playerCountries} sessionData={sessionData} compact={compact} />
 
-          {/* Playstyle Section */}
-          {!compact && (
+          {/* Playstyle Section — only shown when replay exists for this match */}
+          {!compact && gameProfiles && (
             <PlaystyleSection>
               <SectionHeader>
                 <SectionTitle>Player Playstyles</SectionTitle>
-                <SectionSubtitle>Behavioral fingerprints from APM, hotkey usage, and action patterns</SectionSubtitle>
+                <SectionSubtitle>Fingerprints from this game's replay — APM, hotkey usage, and action patterns</SectionSubtitle>
               </SectionHeader>
 
-              <TeamsContainer>
-                {/* Team 1 */}
-                <TeamColumn>
-                  <TeamLabel $team={1}>Team 1</TeamLabel>
-                  <PlaystyleGrid>
-                    {displayPlayers.slice(0, 4).map((player) => (
-                      <PlayerPlaystyleCard
-                        key={player.battleTag}
-                        battleTag={player.battleTag}
-                        race={player.race}
-                        compact
-                      />
-                    ))}
-                  </PlaystyleGrid>
-                </TeamColumn>
-
-                {/* Team 2 */}
-                <TeamColumn>
-                  <TeamLabel $team={2}>Team 2</TeamLabel>
-                  <PlaystyleGrid>
-                    {displayPlayers.slice(4).map((player) => (
-                      <PlayerPlaystyleCard
-                        key={player.battleTag}
-                        battleTag={player.battleTag}
-                        race={player.race}
-                        compact
-                      />
-                    ))}
-                  </PlaystyleGrid>
-                </TeamColumn>
-              </TeamsContainer>
+              {[1, 2].map((team) => {
+                const teamProfiles = gameProfiles.filter(p => p.teamId === team);
+                if (!teamProfiles.length) return null;
+                return (
+                  <TeamColumn key={team} style={{ marginBottom: "var(--space-6)" }}>
+                    <TeamLabel $team={team}>Team {team}</TeamLabel>
+                    <PlaystyleGrid>
+                      {teamProfiles.map((p) => (
+                        <PlayerPlaystyleCard
+                          key={p.battleTag || p.playerName}
+                          battleTag={p.battleTag}
+                          race={p.race}
+                          compact
+                          preloadedProfile={p.profileData}
+                        />
+                      ))}
+                    </PlaystyleGrid>
+                  </TeamColumn>
+                );
+              })}
             </PlaystyleSection>
           )}
         </>
@@ -223,6 +231,21 @@ const HeadlinePlayerName = styled(Link)`
   }
 `;
 
+const BlurbLabLink = styled(Link)`
+  display: inline-block;
+  margin: var(--space-3) auto var(--space-2);
+  padding: 3px var(--space-3);
+  font-family: var(--font-mono);
+  font-size: var(--text-xxs);
+  font-style: normal;
+  color: var(--grey-light);
+  text-decoration: none;
+  border: 1px solid rgba(255,255,255,0.12);
+  border-radius: var(--radius-sm);
+  background: rgba(0,0,0,0.25);
+  &:hover { color: var(--gold); border-color: rgba(184,134,11,0.4); }
+`;
+
 const PlaystyleSection = styled.section`
   max-width: 1400px;
   margin: var(--space-8) auto 0;
@@ -248,14 +271,9 @@ const SectionSubtitle = styled.p`
 `;
 
 const TeamsContainer = styled.div`
-  display: grid;
-  grid-template-columns: 1fr 1fr;
-  gap: var(--space-8);
-
-  @media (max-width: 1024px) {
-    grid-template-columns: 1fr;
-    gap: var(--space-6);
-  }
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-6);
 `;
 
 const TeamColumn = styled.div``;
@@ -264,18 +282,18 @@ const TeamLabel = styled.h3`
   font-family: var(--font-display);
   font-size: var(--text-sm);
   color: ${(p) => (p.$team === 1 ? "var(--team-blue)" : "var(--red)")};
-  margin-bottom: var(--space-4);
+  margin-bottom: var(--space-3);
   text-transform: uppercase;
   letter-spacing: 0.1em;
 `;
 
 const PlaystyleGrid = styled.div`
   display: grid;
-  grid-template-columns: repeat(2, 1fr);
-  gap: var(--space-4);
+  grid-template-columns: repeat(4, 1fr);
+  gap: var(--space-3);
 
-  @media (max-width: 600px) {
-    grid-template-columns: 1fr;
+  @media (max-width: 900px) {
+    grid-template-columns: repeat(2, 1fr);
   }
 `;
 

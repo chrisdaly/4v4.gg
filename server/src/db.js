@@ -2204,6 +2204,25 @@ export function getRecentMessagesByTags(battleTags, hours = 12, limit = 30) {
   `).all(...battleTags, hours, limit);
 }
 
+// Messages from a set of players within an absolute time window — used by
+// blurb fact sheet so historical matches aren't blocked by the rolling-hours cutoff.
+export function getMessagesByTagsInWindow(battleTags, sinceMs, untilMs, limit = 20) {
+  if (!battleTags.length) return [];
+  const since = new Date(sinceMs).toISOString().replace('T', ' ').slice(0, 19);
+  const until = new Date(untilMs).toISOString().replace('T', ' ').slice(0, 19);
+  const placeholders = battleTags.map(() => '?').join(',');
+  return db.prepare(`
+    SELECT user_name, message, received_at
+    FROM messages
+    WHERE deleted = 0
+      AND battle_tag IN (${placeholders})
+      AND received_at >= ?
+      AND received_at <= ?
+    ORDER BY received_at DESC
+    LIMIT ?
+  `).all(...battleTags, since, until, limit);
+}
+
 export function getPlayerAvgApm(battleTag, replayIds = null) {
   if (replayIds?.length) {
     const placeholders = replayIds.map(() => '?').join(',');

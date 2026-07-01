@@ -289,6 +289,7 @@ const Navbar = () => {
                 className="admin-key-dot"
                 data-status={isKeyValid === true ? "valid" : isKeyValid === false ? "invalid" : "unknown"}
               />
+              <span className="admin-toggle-label">ADMIN</span>
             </button>
           )}
           <button

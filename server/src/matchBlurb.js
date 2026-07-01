@@ -9,10 +9,11 @@
 
 import Anthropic from '@anthropic-ai/sdk';
 import config from './config.js';
-import { getMatchBlurb, setMatchBlurb, getRecentMessagesByTags, countMessagesByTagsSince } from './db.js';
+import { getMatchBlurb, setMatchBlurb, getRecentMessagesByTags, getMessagesByTagsInWindow, countMessagesByTagsSince } from './db.js';
 
 const W3C_API = 'https://website-backend.w3champions.com/api';
 const MODEL = 'claude-haiku-4-5-20251001';
+const STRUCTURED_MODEL = 'claude-sonnet-4-6';
 const RACE_NAMES = { 0: 'Random', 1: 'Human', 2: 'Orc', 4: 'Night Elf', 8: 'Undead' };
 
 // Dedupe concurrent generations per match
@@ -206,12 +207,36 @@ async function buildFactSheetUncached(matchId, phase = 'full') {
     return [];
   }
 
+  async function fetchPlayerMmrRange(tag) {
+    const races = [0, 1, 2, 4, 8];
+    const allMmrs = [];
+    await Promise.allSettled(
+      races.map(async (race) => {
+        try {
+          const data = await fetchJson(
+            `${W3C_API}/players/${encodeURIComponent(tag)}/mmr-rp-timeline?gateway=20&season=${currentSeason}&race=${race}&gameMode=4`
+          );
+          for (const pt of data?.mmrRpAtDates || []) {
+            if (pt.mmr) allMmrs.push(pt.mmr);
+          }
+        } catch { /* non-blocking */ }
+      })
+    );
+    if (allMmrs.length === 0) return null;
+    return { peak: Math.max(...allMmrs), trough: Math.min(...allMmrs) };
+  }
+
   const histories = new Map();
-  await Promise.all(
-    tags.map(async (tag) => {
+  const mmrRanges = new Map();
+  await Promise.all([
+    ...tags.map(async (tag) => {
       histories.set(tag, await fetchPlayerHistory(tag));
-    })
-  );
+    }),
+    ...tags.map(async (tag) => {
+      const range = await fetchPlayerMmrRange(tag);
+      if (range) mmrRanges.set(tag, range);
+    }),
+  ]);
 
   const lines = [];
   lines.push(
@@ -222,6 +247,10 @@ async function buildFactSheetUncached(matchId, phase = 'full') {
   // 1-base gold baseline: ~10g/sec. Above 1.3x = expanded to a second base.
   // Below 0.8x = suppressed/harassed. Gives the LLM a macro-vs-rush angle.
   const goldBaseline = (match.durationInSeconds || 900) * 10;
+  const durationMin = (match.durationInSeconds || 900) / 60;
+
+  // Track per-player gold for economy summary
+  const playerGoldPerMin = {};
 
   let winnersHeroKills = 0;
   let losersHeroKills = 0;
@@ -235,8 +264,10 @@ async function buildFactSheetUncached(matchId, phase = 'full') {
       const heroes = (p.heroes || [])
         .map((h) => `${h.name} lvl${h.level}`)
         .join('/');
+      const range = mmrRanges.get(p.battleTag);
+      const rangeSuffix = range ? `, season peak ${range.peak}, trough ${range.trough}` : '';
       const bits = [
-        `${label}: ${p.name} (${p.oldMmr} MMR)`,
+        `${label}: ${p.name} (${p.oldMmr} MMR${rangeSuffix})`,
       ];
       if (heroes) bits.push(`heroes ${heroes}`);
       if (ps) {
@@ -251,10 +282,11 @@ async function buildFactSheetUncached(matchId, phase = 'full') {
         else losersHeroKills += hk;
 
         // Economy: classify vs 1-base baseline
+        if (gold > 0) playerGoldPerMin[p.name || p.battleTag] = gold / durationMin;
         if (gold > goldBaseline * 1.3) {
-          stats.push(`expanded (${Math.round(gold / 1000)}k gold)`);
+          stats.push(`expanded`);
         } else if (gold > 0 && gold < goldBaseline * 0.8) {
-          stats.push(`suppressed (${Math.round(gold / 1000)}k gold)`);
+          stats.push(`suppressed`);
         }
         if (upkeep > 500) stats.push(`${upkeep}g to upkeep`);
         if (hk >= 2) stats.push(`${hk} hero kills`);
@@ -271,6 +303,17 @@ async function buildFactSheetUncached(matchId, phase = 'full') {
   }
 
   lines.push(`Hero kills: WINNERS ${winnersHeroKills}, LOSERS ${losersHeroKills}`);
+
+  // Economy summary: pre-compute the story so the model doesn't need to do math.
+  // Only emit when there's something meaningful to say.
+  const goldEntries = Object.entries(playerGoldPerMin).sort((a, b) => b[1] - a[1]);
+  if (goldEntries.length >= 2) {
+    const [topName, topRate] = goldEntries[0];
+    const [botName, botRate] = goldEntries[goldEntries.length - 1];
+    if (botRate > 0 && topRate / botRate >= 1.5) {
+      lines.push(`Economy: ${topName} clearly outearned ${botName} over the game.`);
+    }
+  }
 
   // Head-to-head: cross-team pairs that met recently.
   // rivalriesText → fed to LLM fact sheet.
@@ -299,32 +342,45 @@ async function buildFactSheetUncached(matchId, phase = 'full') {
     lines.push('Recent head-to-heads (before this game): ' + rivalriesText.slice(0, 4).join(' | '));
   }
 
-  // Recent chat from these players (the relay's chat archive). Only include
-  // messages in a tight window around the match: up to 30 min before end
-  // (banter during the game) plus up to 10 min of post-game reactions.
-  // The "instant" phase cuts off at match end; "full" allows the +10 min tail.
-  try {
-    let msgs = getRecentMessagesByTags(tags, 12, 20);
-    const endMs = new Date(match.endTime).getTime();
-    const PRE_WINDOW_MS  = 30 * 60 * 1000;  // 30 min before match end
-    const POST_WINDOW_MS = 10 * 60 * 1000;  // 10 min of reactions
-    msgs = msgs.filter((m) => {
-      const t = new Date(m.received_at + ' UTC').getTime();
-      if (phase === 'instant') return t <= endMs && t >= endMs - PRE_WINDOW_MS;
-      return t <= endMs + POST_WINDOW_MS && t >= endMs - PRE_WINDOW_MS;
-    });
-    if (msgs.length > 0) {
-      lines.push('Recent LOUNGE chat from these players (newest first, times UTC):');
-      for (const m of msgs.slice(0, 12)) {
-        lines.push(`  [${m.received_at}] ${m.user_name}: "${m.message.slice(0, 120)}"`);
+  // Lounge chat context — only for the "full" phase which runs after post-game
+  // reactions have had time to accumulate. The "instant" phase runs at the
+  // whistle before any reactions exist, so chat adds nothing and misleads the
+  // drama field into treating pre-match banter as post-game conflict.
+  let postMatchMsgs = [];
+  if (phase !== 'instant') {
+    try {
+      const endMs = new Date(match.endTime).getTime();
+      const PRE_WINDOW_MS  = 30 * 60 * 1000;
+      const POST_WINDOW_MS = 30 * 60 * 1000;
+      const sinceMs = endMs - PRE_WINDOW_MS;
+      const untilMs = endMs + POST_WINDOW_MS;
+      const msgs = getMessagesByTagsInWindow(tags, sinceMs, untilMs, 20);
+      if (msgs.length > 0) {
+        const fmt = (received_at) => received_at.slice(11, 19); // HH:MM:SS UTC
+        const postMsgsRaw = msgs.filter(m => new Date(m.received_at).getTime() > endMs);
+        const preMsgs     = msgs.filter(m => new Date(m.received_at).getTime() <= endMs);
+        if (postMsgsRaw.length > 0) {
+          postMatchMsgs = postMsgsRaw.slice(0, 8).map(
+            m => `  [${fmt(m.received_at)}] ${m.user_name}: "${m.message.slice(0, 120)}"`
+          );
+          lines.push(`POST-MATCH lounge reactions (after ${match.endTime} UTC match end):`);
+          for (const line of postMatchMsgs) lines.push(line);
+        }
+        if (preMsgs.length > 0) {
+          lines.push('PRE-MATCH / in-game lounge chat (before match ended):');
+          for (const m of preMsgs.slice(0, 6)) {
+            lines.push(`  [${fmt(m.received_at)}] ${m.user_name}: "${m.message.slice(0, 120)}"`);
+          }
+        }
       }
+    } catch {
+      // chat context is a bonus, never a blocker
     }
-  } catch {
-    // chat context is a bonus, never a blocker
   }
 
   return {
     factSheet: lines.join('\n'),
+    postMatchMsgs,
     endTimeMs: new Date(match.endTime).getTime(),
     tags,
     badges: computeBadges(allPlayers, histories, matchId),
@@ -373,7 +429,7 @@ const STRUCTURED_TOOL = {
   input_schema: {
     type: 'object',
     properties: {
-      headline: { type: ['string', 'null'], description: 'What happened in this game — heroes, kills, economy dominance. Timeless: no streak/H2H context. Max 120 rendered chars. Use [[id|text]] markup for WC3 units/heroes.' },
+      headline: { type: ['string', 'null'], description: 'What happened in this game — heroes, kills, economy. Timeless: no streak/H2H. Max 120 rendered chars. NEVER quote g/min figures or raw gold amounts. Use [[id|text]] markup for WC3 units/heroes.' },
       streaks: { type: ['string', 'null'], description: 'Active win/loss streak for a player if ≥5 games. Name the player and count. Null if nothing notable. Max 80 chars.' },
       h2h: { type: ['string', 'null'], description: 'Head-to-head context for a cross-team pair that met ≥5 times recently. State who leads. Null if nothing notable. Max 80 chars.' },
       drama: { type: ['string', 'null'], description: 'Post-game lounge reactions (messages after match end) — blame, gloating, beef. Describe drily. Null if nothing notable. Max 100 chars.' },
@@ -386,46 +442,87 @@ export const STRUCTURED_SYSTEM_PROMPT = `You analyze finished Warcraft 3 4v4 mat
 
 Call record_blurb with four independent fields — fill what's interesting, null the rest.
 
-HEADLINE (timeless):
-- What happened in THIS game: hero kill dominance, economy, outlier individual stats.
-- Never mention who won, team balance, MMR, race composition, streaks, or H2H history.
-- A stat is only worth quoting if it's an outlier far ahead of the lobby. Never quote zeros or low numbers.
-- Use [[unitId|text]] markup for WC3 units/heroes — markup doesn't count toward the 120-char limit.
-- Null if nothing interesting to say about the game itself.
+HEADLINE (timeless game stats):
+- Pick ONE angle and commit. Do not write two-clause sentences that cover everything — choose the best story.
+- Source: per-player stat lines, the "Economy:" summary line, and PRE-MATCH chat context (only if it explains a game stat, e.g. why a player was suppressed). POST-MATCH chat belongs in DRAMA, not headline.
+- Angle priority: (1) economy outlier — someone expanded while someone was suppressed; (2) hero kill lopsidedness — one side dominated kills; (3) a single standout individual stat.
+- Never mention who won, team balance, MMR, race composition, streaks, or H2H.
+- Never mention the map name or game duration — scoreboard has it.
+- Never mention hero levels ("lvl5") — scoreboard has it.
+- Never use "WINNERS" / "LOSERS" / "winners" / "losers" as labels — the scoreboard shows who won. Use player names or describe what happened.
+- Economy: the "Economy:" line is pre-computed. Describe qualitatively — "expanded while SifO was suppressed". Never write ratios or multipliers ("1.8×", "doubled") — you do not have those numbers.
+- Hero composition: never count how many players ran the same hero or role. Focus on what a single player did.
+- Never write vague aggregates: "economic advantage", "carried the win", "couldn't convert" are banned.
+- Use [[unitId|text]] markup for WC3 units/heroes. Use short display names: [[keeperofthegrove|Keeper]] not "Keeper of the Grove", [[blademaster|BM]] or [[blademaster|Blademaster]], [[shadowhunter|SH]] or [[shadowhunter|Shadowhunter]]. Markup doesn't count toward the char limit.
+- Max 90 rendered characters. This is intentionally tight — it forces a single decisive angle, not two hedged clauses. If you can't say it cleanly in 90 chars, pick a narrower angle or null.
+- When in doubt, null. One crisp sentence beats a muddled two-clause hedge.
 
 STREAKS: only if a player has ≥5-game win or loss streak. Name them and the count. Null otherwise.
 
 H2H: only if a cross-team pair met ≥5 times recently. State who leads and by how much. Null otherwise.
 
-DRAMA: lounge messages AFTER match end only. Describe the friction drily — name people, skip the quotes. Null if nothing interesting.
+DRAMA: What players said in the lounge AFTER the match. Source: the "POST-MATCH lounge reactions" section ONLY.
+- MANDATORY: if "POST-MATCH lounge reactions" exists in the fact sheet, drama MUST be non-null. Returning null when that section has messages is wrong.
+- Worthy drama: blame for a disconnect, a callout, taunting, heated accusation.
+- One dry sentence: name who said what to whom.
+- Do NOT use PRE-MATCH messages for drama.
+- Null only when the POST-MATCH section is absent entirely.
 
-General rules: quote names and numbers exactly as given. Never invent game events. Refer to players by name only (no battle tag numbers).`;
+General rules: quote names and numbers exactly as given. Never invent game events. Refer to players by name only (no battle tag numbers). This is 4v4 — there are no lane opponents or counterparts; describe economy relative to the whole lobby, not as a 1-on-1 matchup.`;
 
-export async function generateStructuredParts(factSheet, systemPrompt = STRUCTURED_SYSTEM_PROMPT) {
+export async function generateStructuredParts(factSheet, systemPrompt = STRUCTURED_SYSTEM_PROMPT, postMatchMsgs = []) {
   if (!config.ANTHROPIC_API_KEY) return { headline: null, streaks: null, h2h: null, drama: null };
   const client = new Anthropic({ apiKey: config.ANTHROPIC_API_KEY });
   try {
+    // If there are post-match messages, append them as an explicit reminder in
+    // the user turn so the model can't miss them when filling the drama field.
+    const dramaReminder = postMatchMsgs.length > 0
+      ? `\n\nIMPORTANT: the following post-game lounge messages exist and MUST produce a non-null drama field:\n${postMatchMsgs.join('\n')}`
+      : '';
     const msg = await client.messages.create({
-      model: MODEL,
-      max_tokens: 400,
+      model: STRUCTURED_MODEL,
+      max_tokens: 600,
       system: systemPrompt,
       tools: [STRUCTURED_TOOL],
       tool_choice: { type: 'tool', name: 'record_blurb' },
-      messages: [{ role: 'user', content: `Fact sheet:\n${factSheet}\n\nAnalyze this match.` }],
+      messages: [{ role: 'user', content: `Fact sheet:\n${factSheet}\n\nAnalyze this match.${dramaReminder}` }],
     });
     const toolUse = msg.content.find(c => c.type === 'tool_use');
     if (!toolUse?.input) return { headline: null, streaks: null, h2h: null, drama: null };
     const clean = (s, max) => {
       if (!s || typeof s !== 'string') return null;
-      const rendered = s.replace(/\[\[\w+\|([^\]]+)\]\]/g, '$1');
-      return rendered.length <= max ? s : null;
+      // Lowercase markup IDs so they match the allowed unit/hero registry
+      const normalized = s.replace(/\[\[([^\|]+)\|([^\]]+)\]\]/g, (_, id, text) => `[[${id.toLowerCase()}|${text}]]`);
+      const rendered = normalized.replace(/\[\[\w+\|([^\]]+)\]\]/g, '$1');
+      return rendered.length <= max ? normalized : null;
     };
-    return {
-      headline: clean(toolUse.input.headline, 150),
+    const result = {
+      headline: clean(toolUse.input.headline, 90),
       streaks: clean(toolUse.input.streaks, 100),
       h2h: clean(toolUse.input.h2h, 100),
       drama: clean(toolUse.input.drama, 130),
     };
+
+    // If drama is still null but post-match messages exist, do a focused
+    // single-purpose retry — simpler prompt, harder to fail.
+    if (!result.drama && postMatchMsgs.length > 0) {
+      try {
+        const dramaMsg = await client.messages.create({
+          model: STRUCTURED_MODEL,
+          max_tokens: 150,
+          messages: [{
+            role: 'user',
+            content: `Players exchanged these messages in the community lounge after their match:\n${postMatchMsgs.join('\n')}\n\nWrite ONE dry sentence (max 100 chars) describing what was said and by whom. Name names. If truly nothing notable: reply with the single word null.`,
+          }],
+        });
+        const txt = dramaMsg.content[0]?.text?.trim();
+        if (txt && txt.toLowerCase() !== 'null' && txt.length <= 130) {
+          result.drama = txt;
+        }
+      } catch { /* non-blocking */ }
+    }
+
+    return result;
   } catch (err) {
     console.warn('[Blurb] Structured generation failed:', err.message);
     return { headline: null, streaks: null, h2h: null, drama: null };
@@ -474,7 +571,7 @@ export async function generateMatchBlurb(matchId) {
       let parts = row.blurb_parts;
       const reactions = countMessagesByTagsSince(data.tags, row.end_time_ms);
       if (reactions >= MIN_REACTIONS || !parts) {
-        parts = await generateStructuredParts(data.factSheet);
+        parts = await generateStructuredParts(data.factSheet, STRUCTURED_SYSTEM_PROMPT, data.postMatchMsgs || []);
       }
       const blurb = parts?.headline || row.blurb || '';
       setMatchBlurb(matchId, blurb, { finalized: 1, rivals: data.rivals, parts });

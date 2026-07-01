@@ -109,8 +109,8 @@ router.post('/blurb-lab/preview', requireApiKey, aiLimiter, async (req, res) => 
     ]);
     if (!fullData) return res.status(404).json({ error: 'No finished match found' });
     const [instant, reactions] = await Promise.all([
-      instantData ? generateStructuredParts(instantData.factSheet, prompt) : Promise.resolve(null),
-      generateStructuredParts(fullData.factSheet, prompt),
+      instantData ? generateStructuredParts(instantData.factSheet, prompt, []) : Promise.resolve(null),
+      generateStructuredParts(fullData.factSheet, prompt, fullData.postMatchMsgs || []),
     ]);
     res.json({
       matchId,
