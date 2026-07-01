@@ -1,4 +1,5 @@
 import React, { useState, useEffect, useLayoutEffect, useRef, useMemo, useCallback } from "react";
+import { Link } from "react-router-dom";
 import { FiChevronUp, FiChevronDown, FiPlus, FiCheck } from "react-icons/fi";
 import { fetchAndCacheProfile, getCachedProfile } from "../lib/profileCache";
 import { Button } from "./ui";
@@ -152,6 +153,7 @@ const ChatContext = ({
   expandedTimestamp,
   leftHeader = null,
   groupGapMs,
+  total = null,
 }) => {
   const [filter, setFilter] = useState("");
   const [sortBy, setSortBy] = useState("score"); // "score" or "date"
@@ -698,9 +700,9 @@ const ChatContext = ({
                 </div>
                 <div className="cc-group-body">
                   <div className="cc-group-header">
-                    <span className={`cc-name ${groupHasOrigin ? "cc-name--origin" : ""}`}>
+                    <Link to={`/search?q=${encodeURIComponent(cGroup.battle_tag)}&qmode=player`} className={`cc-name cc-name--link ${groupHasOrigin ? "cc-name--origin" : ""}`}>
                       {cGroup.name}
-                    </span>
+                    </Link>
                     <span className="cc-time">{formatTimeShort(cGroup.time)}</span>
                   </div>
                   {cGroup.lines.map((cl, cli) => {
@@ -784,7 +786,7 @@ const ChatContext = ({
                 </div>
                 <div className="cc-group-body">
                   <div className="cc-group-header">
-                    <span className={`cc-name${isTarget ? " cc-name--target" : ""}`}>{group.name}</span>
+                    <Link to={`/player?player=${encodeURIComponent(group.battle_tag)}`} className={`cc-name cc-name--link${isTarget ? " cc-name--target" : ""}`}>{group.name}</Link>
                     {isMentionGroup && <span className="cc-mention-badge">mention</span>}
                     <span className="cc-time">{formatTime(group.time)}</span>
                   </div>
@@ -844,6 +846,9 @@ const ChatContext = ({
                           <span className="cc-text">
                             <HighlightText text={text} query={highlightQuery} />
                           </span>
+                          {(expandable || onExpand) && !instantAddMode && !onInstantAdd && (
+                            <span className="cc-expand-icon">{isExpanded ? "▸ open" : "▸ context"}</span>
+                          )}
                           {/* Add button when onInstantAdd is provided but not in instantAddMode */}
                           {!instantAddMode && onInstantAdd && (
                             <button
@@ -896,9 +901,9 @@ const ChatContext = ({
                                       </div>
                                       <div className="cc-group-body">
                                         <div className="cc-group-header">
-                                          <span className={`cc-name ${groupHasOrigin ? "cc-name--origin" : ""}`}>
+                                          <Link to={`/search?q=${encodeURIComponent(cGroup.battle_tag)}&qmode=player`} className={`cc-name cc-name--link ${groupHasOrigin ? "cc-name--origin" : ""}`}>
                                             {cGroup.name}
-                                          </span>
+                                          </Link>
                                           <span className="cc-time">{formatTimeShort(cGroup.time)}</span>
                                         </div>
                                         {cGroup.lines.map((cl, cli) => (
@@ -990,6 +995,12 @@ const ChatContext = ({
           {dateRange && (
             <span className="cc-date-range">{dateRange}</span>
           )}
+        </div>
+      )}
+
+      {!compact && filter.trim() && total != null && messages && messages.length < total && (
+        <div className="cc-filter-hint">
+          Filtering {messages.length.toLocaleString()} loaded of {total.toLocaleString()} — scroll down to load more
         </div>
       )}
 

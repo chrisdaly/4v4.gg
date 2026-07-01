@@ -633,7 +633,7 @@ export default function ChatSearch({ fullPage = false }) {
       hasMore={lastPageSize === PAGE_SIZE && (total == null || results.length < total)}
       loadingMore={loading && offset > 0}
       leftHeader={colHeader}
-      groupGapMs={mode === "player" ? 0 : undefined}
+      total={total}
     />
   );
 
@@ -654,7 +654,16 @@ export default function ChatSearch({ fullPage = false }) {
             autoFocus
           />
           {query && (
-            <ClearBtn type="button" title="Clear" onClick={() => { setQuery(""); setShowSuggests(false); }}>&times;</ClearBtn>
+            <ClearBtn type="button" title="Clear" onClick={() => {
+              setQuery("");
+              setShowSuggests(false);
+              setResults([]);
+              setTotal(null);
+              setSearched(false);
+              setError(false);
+              setOffset(0);
+              routerHistory.replace({ search: "" });
+            }}>&times;</ClearBtn>
           )}
           {showSuggests && (
             <div className="navbar-search-dropdown" style={{ width: "100%" }}>

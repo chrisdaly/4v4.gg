@@ -503,6 +503,23 @@
   color: var(--gold);
 }
 
+.cc-name--link {
+  text-decoration: none;
+  cursor: pointer;
+}
+
+.cc-name--link:hover {
+  text-decoration: underline;
+  opacity: 0.85;
+}
+
+.cc-filter-hint {
+  font-family: var(--font-mono);
+  font-size: var(--text-xxxs);
+  color: var(--grey-mid);
+  padding: var(--space-1) 0;
+}
+
 .cc-time {
   font-family: var(--font-mono);
   font-size: var(--text-xxxs);
@@ -622,18 +639,40 @@
   cursor: pointer;
   border-radius: var(--radius-sm);
   margin: 0 -4px;
-  padding: 1px 4px;
-  transition: background 0.1s;
+  padding: 1px 4px 1px 7px;
+  border-left: 3px solid transparent;
+  transition: background 0.1s, border-color 0.1s;
 }
 
 .cc-msg--expandable:hover {
-  background: rgba(255, 255, 255, 0.04);
+  background: rgba(252, 219, 51, 0.07);
+  border-left-color: rgba(252, 219, 51, 0.7);
+}
+
+.cc-expand-icon {
+  flex-shrink: 0;
+  margin-left: auto;
+  padding-left: var(--space-2);
+  font-family: var(--font-mono);
+  font-size: var(--text-xxxs);
+  color: var(--grey-mid);
+  white-space: nowrap;
+  transition: color 0.1s;
+  align-self: center;
+}
+
+.cc-msg--expandable:hover .cc-expand-icon {
+  color: var(--gold);
+}
+
+.cc-msg--expanded .cc-expand-icon {
+  color: var(--gold);
 }
 
 .cc-msg--expanded {
   background: rgba(252, 219, 51, 0.06) !important;
   border-left: 3px solid var(--gold);
-  padding-left: 5px;
+  padding-left: 7px;
 }
 
 .cc-msg--origin {
@@ -700,6 +739,7 @@
   word-break: break-word;
   overflow-wrap: break-word;
   min-width: 0;
+  flex: 1;
 }
 
 /* ── Highlight ─────────────────────────────────── */
