@@ -637,13 +637,48 @@ const finishGlow = keyframes`
   100% { box-shadow: 0 0 0 rgba(194, 52, 52, 0); }
 `;
 
+const EventPostWrap = styled.div`
+  margin-top: 14px;
+
+  &:first-child {
+    margin-top: 0;
+  }
+`;
+
+const EventAttribution = styled.div`
+  display: flex;
+  align-items: center;
+  gap: var(--space-1);
+  padding: 0 var(--space-4) 2px;
+  font-family: var(--font-mono);
+  font-size: var(--text-xxxs);
+  color: var(--gold);
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+
+  svg {
+    width: 12px;
+    height: 12px;
+    opacity: 0.8;
+  }
+`;
+
+const EventBotLabel = styled.span`
+  color: var(--grey-light);
+  font-size: 10px;
+  background: rgba(255, 255, 255, 0.06);
+  border-radius: var(--radius-sm);
+  padding: 1px 4px;
+  letter-spacing: 0.06em;
+`;
+
 const GameEventCard = styled.div`
   display: flex;
   align-items: center;
   gap: var(--space-3);
   max-width: 640px;
   box-sizing: border-box;
-  margin: var(--space-3) var(--space-4);
+  margin: 0 var(--space-4) var(--space-3);
   padding: var(--space-2) var(--space-3);
   border-left: 2px solid ${(p) => (p.$end ? "rgba(248, 113, 113, 0.5)" : "rgba(74, 222, 128, 0.5)")};
   background: rgba(255, 255, 255, 0.02);
@@ -1418,7 +1453,12 @@ export default function ChatPanel({
   // cards, avatars, MMR charts and images all load AFTER the initial render,
   // so a one-shot scroll lands short. Instant (not smooth) so it can't be
   // outrun by the next height change.
+  // Dependency on hasMessages: on first render messages=[] so the content div
+  // isn't mounted yet (contentRef is null). We re-run once messages arrive so
+  // the observer actually attaches to the real DOM node.
+  const hasMessages = messages.length > 0;
   useEffect(() => {
+    if (!hasMessages) return;
     const el = listRef.current;
     const content = contentRef.current;
     if (!el || !content || typeof ResizeObserver === "undefined") return;
@@ -1430,7 +1470,7 @@ export default function ChatPanel({
     });
     ro.observe(content);
     return () => ro.disconnect();
-  }, []);
+  }, [hasMessages]);
 
   function handleScroll() {
     const el = listRef.current;
@@ -1594,8 +1634,13 @@ export default function ChatPanel({
                     const stillRunning = !isEnd && ongoingMatchIds?.has(ev.matchId);
                     const liveMins = stillRunning ? formatGameMinutes(ev.time) : null;
                     return (
+                      <EventPostWrap key={ev.id}>
+                      <EventAttribution>
+                        <GiCrossedSwords />
+                        4v4.GG
+                        <EventBotLabel>AUTO</EventBotLabel>
+                      </EventAttribution>
                       <GameEventCard
-                        key={ev.id}
                         $end={isEnd}
                         $live={ev.live}
                         onClick={() => history.push(eventLink)}
@@ -1654,6 +1699,7 @@ export default function ChatPanel({
                           )}
                         </EventBody>
                       </GameEventCard>
+                      </EventPostWrap>
                     );
                   }
 
