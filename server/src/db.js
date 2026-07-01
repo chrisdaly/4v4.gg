@@ -416,6 +416,7 @@ export function initDb() {
   tryAddColumn(`ALTER TABLE match_blurbs ADD COLUMN finalized INTEGER NOT NULL DEFAULT 1`);
   tryAddColumn(`ALTER TABLE match_blurbs ADD COLUMN end_time_ms INTEGER`);
   tryAddColumn(`ALTER TABLE match_blurbs ADD COLUMN rivals TEXT`);
+  tryAddColumn(`ALTER TABLE match_blurbs ADD COLUMN blurb_parts TEXT`);
 
   // ── Feedback issues table ─────────────────────────
   db.exec(`
@@ -2155,23 +2156,25 @@ export function searchMessagesByKeywords(keywords, sinceHours = 24) {
 }
 
 export function getMatchBlurb(matchId) {
-  const row = db.prepare('SELECT blurb, finalized, end_time_ms, rivals FROM match_blurbs WHERE match_id = ?').get(matchId);
+  const row = db.prepare('SELECT blurb, finalized, end_time_ms, rivals, blurb_parts FROM match_blurbs WHERE match_id = ?').get(matchId);
   if (!row) return null;
   return {
     ...row,
     rivals: row.rivals ? (() => { try { return JSON.parse(row.rivals); } catch { return []; } })() : [],
+    blurb_parts: row.blurb_parts ? (() => { try { return JSON.parse(row.blurb_parts); } catch { return null; } })() : null,
   };
 }
 
-export function setMatchBlurb(matchId, blurb, { finalized = 1, endTimeMs = null, rivals = null } = {}) {
+export function setMatchBlurb(matchId, blurb, { finalized = 1, endTimeMs = null, rivals = null, parts = null } = {}) {
   db.prepare(`
-    INSERT INTO match_blurbs (match_id, blurb, finalized, end_time_ms, rivals) VALUES (?, ?, ?, ?, ?)
+    INSERT INTO match_blurbs (match_id, blurb, finalized, end_time_ms, rivals, blurb_parts) VALUES (?, ?, ?, ?, ?, ?)
     ON CONFLICT(match_id) DO UPDATE SET
       blurb = excluded.blurb,
       finalized = excluded.finalized,
       end_time_ms = COALESCE(excluded.end_time_ms, end_time_ms),
-      rivals = COALESCE(excluded.rivals, rivals)
-  `).run(matchId, blurb, finalized ? 1 : 0, endTimeMs, rivals ? JSON.stringify(rivals) : null);
+      rivals = COALESCE(excluded.rivals, rivals),
+      blurb_parts = excluded.blurb_parts
+  `).run(matchId, blurb, finalized ? 1 : 0, endTimeMs, rivals ? JSON.stringify(rivals) : null, parts ? JSON.stringify(parts) : null);
 }
 
 // How many lounge messages these players sent after a moment in time —

@@ -820,6 +820,68 @@ const KeyGate = styled.div`
   }
 `;
 
+/* ── Structured parts display ────────────────── */
+
+const FieldRow = styled.div`
+  display: grid;
+  grid-template-columns: 72px 1fr;
+  gap: var(--space-2);
+  align-items: baseline;
+  padding: 4px 0;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.04);
+  &:last-child { border-bottom: none; }
+`;
+
+const FieldKey = styled.div`
+  font-family: var(--font-mono);
+  font-size: var(--text-xxxs);
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+  color: var(--grey-light);
+  opacity: 0.6;
+  padding-top: 2px;
+`;
+
+const FieldVal = styled.div`
+  font-family: var(--font-mono);
+  font-size: var(--text-xs);
+  font-style: italic;
+  color: ${(p) => (p.$new ? "var(--gold)" : "#fff")};
+  line-height: 1.4;
+`;
+
+const PassBadge = styled.div`
+  font-family: var(--font-mono);
+  font-size: var(--text-xxxs);
+  color: var(--grey-mid);
+  letter-spacing: 0.06em;
+  padding: var(--space-1) 0;
+`;
+
+function StructuredPartsDisplay({ parts, $new }) {
+  if (!parts) return <PassBadge>PASS — no structured parts</PassBadge>;
+  const fields = [
+    { key: "headline", label: "headline" },
+    { key: "streaks", label: "streaks" },
+    { key: "h2h", label: "h2h" },
+    { key: "drama", label: "drama" },
+  ];
+  const hasAny = fields.some((f) => parts[f.key]);
+  if (!hasAny) return <PassBadge>PASS — all fields null</PassBadge>;
+  return (
+    <div style={{ marginBottom: "var(--space-1)" }}>
+      {fields.map(({ key, label }) =>
+        parts[key] ? (
+          <FieldRow key={key}>
+            <FieldKey>{label}</FieldKey>
+            <FieldVal $new={$new}>{renderBlurbText(parts[key])}</FieldVal>
+          </FieldRow>
+        ) : null
+      )}
+    </div>
+  );
+}
+
 /* ── Mini scorecard component ────────────────── */
 
 function statColor(all, val, lowerIsBetter = false) {
@@ -973,7 +1035,7 @@ export default function BlurbLab() {
         const mt = detail.match;
         selectMatch({
           id,
-          mapName: mt.mapId || mt.mapName || "",
+          mapName: mt.mapName || "",
           durationInSeconds: mt.durationInSeconds || 0,
           endTime: mt.endTime || null,
           cachedBlurb: null,
@@ -1081,7 +1143,13 @@ export default function BlurbLab() {
         body: JSON.stringify({ matchId: selected.id, systemPrompt: prompt }),
       });
       if (output) setOutputHistory((h) => [output, ...h].slice(0, 8));
-      setOutput({ instant: data.instant, reactions: data.reactions });
+      // Normalize: new relay returns objects; old relay returns strings (backward compat)
+      const normParts = (v) => {
+        if (!v) return null;
+        if (typeof v === "string") return { headline: v, streaks: null, h2h: null, drama: null };
+        return v;
+      };
+      setOutput({ instant: normParts(data.instant), reactions: normParts(data.reactions) });
     } catch (e) {
       setError(e.message);
     } finally {
@@ -1299,14 +1367,9 @@ export default function BlurbLab() {
                     {rivals.length > 0 && <RivalryBadge rivals={rivals} />}
                     {badges.length > 0 && <StreakBadges badges={badges} />}
                     <PhaseLabel>At the whistle (pre-reactions)</PhaseLabel>
-                    <CompareBlurb $new $passed={!output.instant}>
-                      {output.instant ? renderBlurbText(output.instant) : "PASS"}
-                    </CompareBlurb>
+                    <StructuredPartsDisplay parts={output.instant} $new />
                     <PhaseLabel>After reactions (5 min post-game)</PhaseLabel>
-                    <CompareBlurb $new $passed={!output.reactions}>
-                      {output.reactions ? renderBlurbText(output.reactions) : "PASS"}
-                      {output.reactions === output.instant && output.reactions && <Unchanged> (same)</Unchanged>}
-                    </CompareBlurb>
+                    <StructuredPartsDisplay parts={output.reactions} $new />
                   </CompareCard>
                   <button
                     onClick={() => setShowSaved((v) => !v)}
@@ -1336,9 +1399,10 @@ export default function BlurbLab() {
               )}
               {outputHistory.length > 0 && (
                 <History>
-                  {outputHistory.map((h, i) => (
-                    <HistoryRow key={i}>{h.reactions ? renderBlurbText(h.reactions) : "PASS"}</HistoryRow>
-                  ))}
+                  {outputHistory.map((h, i) => {
+                    const text = h.reactions?.headline || (typeof h.reactions === "string" ? h.reactions : null);
+                    return <HistoryRow key={i}>{text ? renderBlurbText(text) : "PASS"}</HistoryRow>;
+                  })}
                 </History>
               )}
             </Section>

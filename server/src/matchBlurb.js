@@ -361,7 +361,76 @@ export async function generateWithPrompt(factSheet, systemPrompt = SYSTEM_PROMPT
 const REACTION_WAIT_MS = 5 * 60 * 1000;
 const MIN_REACTIONS = 2;
 
-const DONE = (blurb, badges = [], rivals = []) => ({ blurb, pending: false, badges, rivals });
+const DONE = (blurb, badges = [], rivals = [], parts = null) => ({ blurb, pending: false, badges, rivals, parts });
+
+// ── Structured blurb parts ────────────────────────────────────────────────
+// Separate fields for headline (timeless), h2h, streaks, drama so callers
+// can choose which parts to show (match page: headline only; chat: all).
+
+const STRUCTURED_TOOL = {
+  name: 'record_blurb',
+  description: 'Record structured match blurb fields',
+  input_schema: {
+    type: 'object',
+    properties: {
+      headline: { type: ['string', 'null'], description: 'What happened in this game — heroes, kills, economy dominance. Timeless: no streak/H2H context. Max 120 rendered chars. Use [[id|text]] markup for WC3 units/heroes.' },
+      streaks: { type: ['string', 'null'], description: 'Active win/loss streak for a player if ≥5 games. Name the player and count. Null if nothing notable. Max 80 chars.' },
+      h2h: { type: ['string', 'null'], description: 'Head-to-head context for a cross-team pair that met ≥5 times recently. State who leads. Null if nothing notable. Max 80 chars.' },
+      drama: { type: ['string', 'null'], description: 'Post-game lounge reactions (messages after match end) — blame, gloating, beef. Describe drily. Null if nothing notable. Max 100 chars.' },
+    },
+    required: ['headline', 'streaks', 'h2h', 'drama'],
+  },
+};
+
+export const STRUCTURED_SYSTEM_PROMPT = `You analyze finished Warcraft 3 4v4 matches. Voice: dry sports-desk, a little wry, never cruel.
+
+Call record_blurb with four independent fields — fill what's interesting, null the rest.
+
+HEADLINE (timeless):
+- What happened in THIS game: hero kill dominance, economy, outlier individual stats.
+- Never mention who won, team balance, MMR, race composition, streaks, or H2H history.
+- A stat is only worth quoting if it's an outlier far ahead of the lobby. Never quote zeros or low numbers.
+- Use [[unitId|text]] markup for WC3 units/heroes — markup doesn't count toward the 120-char limit.
+- Null if nothing interesting to say about the game itself.
+
+STREAKS: only if a player has ≥5-game win or loss streak. Name them and the count. Null otherwise.
+
+H2H: only if a cross-team pair met ≥5 times recently. State who leads and by how much. Null otherwise.
+
+DRAMA: lounge messages AFTER match end only. Describe the friction drily — name people, skip the quotes. Null if nothing interesting.
+
+General rules: quote names and numbers exactly as given. Never invent game events. Refer to players by name only (no battle tag numbers).`;
+
+export async function generateStructuredParts(factSheet, systemPrompt = STRUCTURED_SYSTEM_PROMPT) {
+  if (!config.ANTHROPIC_API_KEY) return { headline: null, streaks: null, h2h: null, drama: null };
+  const client = new Anthropic({ apiKey: config.ANTHROPIC_API_KEY });
+  try {
+    const msg = await client.messages.create({
+      model: MODEL,
+      max_tokens: 400,
+      system: systemPrompt,
+      tools: [STRUCTURED_TOOL],
+      tool_choice: { type: 'tool', name: 'record_blurb' },
+      messages: [{ role: 'user', content: `Fact sheet:\n${factSheet}\n\nAnalyze this match.` }],
+    });
+    const toolUse = msg.content.find(c => c.type === 'tool_use');
+    if (!toolUse?.input) return { headline: null, streaks: null, h2h: null, drama: null };
+    const clean = (s, max) => {
+      if (!s || typeof s !== 'string') return null;
+      const rendered = s.replace(/\[\[\w+\|([^\]]+)\]\]/g, '$1');
+      return rendered.length <= max ? s : null;
+    };
+    return {
+      headline: clean(toolUse.input.headline, 150),
+      streaks: clean(toolUse.input.streaks, 100),
+      h2h: clean(toolUse.input.h2h, 100),
+      drama: clean(toolUse.input.drama, 130),
+    };
+  } catch (err) {
+    console.warn('[Blurb] Structured generation failed:', err.message);
+    return { headline: null, streaks: null, h2h: null, drama: null };
+  }
+}
 
 export async function generateMatchBlurb(matchId) {
   if (!config.ANTHROPIC_API_KEY) return DONE('');
@@ -370,7 +439,7 @@ export async function generateMatchBlurb(matchId) {
   const row = getMatchBlurb(matchId);
   const now = Date.now();
 
-  if (row?.finalized) return DONE(row.blurb);
+  if (row?.finalized) return DONE(row.blurb, [], row.rivals || [], row.blurb_parts || null);
 
   if (row && !row.finalized) {
     const due = (row.end_time_ms || 0) + REACTION_WAIT_MS;
@@ -383,34 +452,33 @@ export async function generateMatchBlurb(matchId) {
   const promise = (async () => {
     try {
       if (!row) {
-        // Phase 1: write the ticker now, from what's known at the whistle
+        // Phase 1: write structured parts from what's known at the whistle
         const data = await buildFactSheet(matchId);
         if (!data) return DONE('');
-        const blurb = await generateWithPrompt(data.factSheet);
+        const parts = await generateStructuredParts(data.factSheet);
+        const blurb = parts.headline || '';
         const fresh = data.endTimeMs && now - data.endTimeMs < REACTION_WAIT_MS;
-        setMatchBlurb(matchId, blurb, { finalized: !fresh, endTimeMs: data.endTimeMs, rivals: data.rivals });
+        setMatchBlurb(matchId, blurb, { finalized: !fresh, endTimeMs: data.endTimeMs, rivals: data.rivals, parts });
         return fresh
-          ? { blurb, pending: true, badges: data.badges, rivals: data.rivals, retryInMs: data.endTimeMs + REACTION_WAIT_MS - now + 15_000 }
-          : DONE(blurb, data.badges, data.rivals);
+          ? { blurb, parts, pending: true, badges: data.badges, rivals: data.rivals, retryInMs: data.endTimeMs + REACTION_WAIT_MS - now + 15_000 }
+          : DONE(blurb, data.badges, data.rivals, parts);
       }
 
-      // Phase 2: did anyone in the lobby react since the game ended?
+      // Phase 2: re-run with full fact sheet — drama field picks up reactions
       sheetCache.delete(matchId);
       const data = await buildFactSheet(matchId);
       if (!data) {
-        setMatchBlurb(matchId, row.blurb, { finalized: 1 });
-        return DONE(row.blurb, [], row.rivals);
+        setMatchBlurb(matchId, row.blurb, { finalized: 1, parts: row.blurb_parts });
+        return DONE(row.blurb, [], row.rivals, row.blurb_parts);
       }
-      let blurb = row.blurb;
+      let parts = row.blurb_parts;
       const reactions = countMessagesByTagsSince(data.tags, row.end_time_ms);
-      if (reactions >= MIN_REACTIONS) {
-        const rewritten = await generateWithPrompt(
-          `${data.factSheet}\n\nNote: lounge messages timestamped after the match end are the players' reactions to THIS game — prioritize them if they carry any drama.`
-        );
-        if (rewritten) blurb = rewritten;
+      if (reactions >= MIN_REACTIONS || !parts) {
+        parts = await generateStructuredParts(data.factSheet);
       }
-      setMatchBlurb(matchId, blurb, { finalized: 1, rivals: data.rivals });
-      return DONE(blurb, data.badges, data.rivals);
+      const blurb = parts?.headline || row.blurb || '';
+      setMatchBlurb(matchId, blurb, { finalized: 1, rivals: data.rivals, parts });
+      return DONE(blurb, data.badges, data.rivals, parts);
     } catch (err) {
       console.warn(`[Blurb] Generation failed for ${matchId}: ${err.message}`);
       // Don't cache failures — a later request can retry

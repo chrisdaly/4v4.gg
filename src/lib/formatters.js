@@ -9,7 +9,7 @@
  * @returns {string|null} URL path to map image
  */
 export const getMapImageUrl = (mapId) => {
-  if (!mapId) return null;
+  if (!mapId || typeof mapId !== "string") return null;
   // Strip parentheses prefix like "(4)", spaces, and apostrophes
   const cleanName = mapId.replace(/^\(\d\)/, "").replace(/ /g, "").replace(/'/g, "");
   return `/maps/${cleanName}.png`;

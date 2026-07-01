@@ -54,6 +54,7 @@ router.get('/match-blurb/:matchId', async (req, res) => {
   res.json({
     matchId,
     blurb: result.blurb || null,
+    parts: result.parts || null,
     pending: result.pending || false,
     retryInMs: result.retryInMs,
     badges: result.badges || [],

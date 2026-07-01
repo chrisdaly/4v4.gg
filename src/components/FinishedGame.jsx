@@ -1,8 +1,10 @@
 import React, { useState, useEffect } from "react";
 import styled from "styled-components";
+import { Link } from "react-router-dom";
 import Game from "./Game";
 import PeonLoader from "./PeonLoader";
 import PlayerPlaystyleCard from "./PlayerPlaystyleCard";
+import { renderBlurbText } from "./MatchNote";
 import { preprocessPlayerScores } from "../lib/utils";
 import { cache } from "../lib/cache";
 import { enrichPlayerData } from "../lib/gameDataUtils";
@@ -41,8 +43,9 @@ const FinishedGame = ({ data, compact = false }) => {
       setPlayerData(newPlayerData);
       setMetaData(fullMetaData);
 
-      // "Interesting game" blurb — heuristics first; when they find nothing,
-      // ask the relay's LLM ticker for a drama angle (streaks, rivalries)
+      // Heuristics describe the game itself and stay accurate forever.
+      // Relay blurb includes streak/H2H context that's only meaningful in the
+      // moment — only use it as a fallback when heuristics find nothing.
       const note = computeNote(noteContextFromMatch(data.match), {
         playerScores: data.playerScores,
         matchPlayers: (data.match.teams || []).flatMap((t) => t.players || []),
@@ -51,9 +54,11 @@ const FinishedGame = ({ data, compact = false }) => {
         setMetaData((prev) => (prev ? { ...prev, note } : prev));
       } else {
         const tryBlurb = (attempt = 0) =>
-          getMatchBlurb(data.match.id).then(({ blurb, pending, retryInMs }) => {
-            if (blurb) {
-              setMetaData((prev) => (prev ? { ...prev, note: { text: blurb, tag: null } } : prev));
+          getMatchBlurb(data.match.id).then(({ blurb, parts, pending, retryInMs }) => {
+            // Match page: show headline only (timeless). Fall back to blurb for old rows.
+            const text = parts?.headline || blurb;
+            if (text) {
+              setMetaData((prev) => (prev ? { ...prev, note: { text, tag: null } } : prev));
             }
             if (pending && attempt < 2) {
               setTimeout(() => tryBlurb(attempt + 1), retryInMs || 5 * 60 * 1000);
@@ -120,6 +125,23 @@ const FinishedGame = ({ data, compact = false }) => {
         </div>
       ) : playerData ? (
         <>
+          {metaData?.note && !compact && (
+            <NoteHeadline>
+              {(() => {
+                const note = metaData.note;
+                if (typeof note === "string") return renderBlurbText(note);
+                if (note.tag) return (
+                  <>
+                    <HeadlinePlayerName to={`/player/${encodeURIComponent(note.tag)}`}>
+                      {note.name}
+                    </HeadlinePlayerName>
+                    {" "}{renderBlurbText(note.text)}
+                  </>
+                );
+                return renderBlurbText(note.text);
+              })()}
+            </NoteHeadline>
+          )}
           <Game playerData={playerData} metaData={metaData} profilePics={profilePics} playerCountries={playerCountries} sessionData={sessionData} compact={compact} />
 
           {/* Playstyle Section */}
@@ -172,6 +194,34 @@ const FinishedGame = ({ data, compact = false }) => {
 };
 
 // ── Styled Components ────────────────────────────
+
+const NoteHeadline = styled.div`
+  text-align: center;
+  padding: var(--space-8) var(--space-8) var(--space-6);
+  max-width: 800px;
+  margin: 0 auto;
+  font-family: var(--font-mono);
+  font-size: var(--text-lg);
+  font-style: italic;
+  color: var(--gold);
+  line-height: 1.5;
+
+  @media (max-width: 768px) {
+    font-size: var(--text-base);
+    padding: var(--space-6) var(--space-4) var(--space-4);
+  }
+`;
+
+const HeadlinePlayerName = styled(Link)`
+  font-family: var(--font-display);
+  font-style: normal;
+  color: var(--gold);
+  text-decoration: none;
+
+  &:hover {
+    text-decoration: underline;
+  }
+`;
 
 const PlaystyleSection = styled.section`
   max-width: 1400px;

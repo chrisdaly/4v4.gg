@@ -535,7 +535,7 @@ const Game = ({ playerData: rawPlayerData, metaData, profilePics, playerCountrie
                     {metaData.server && (
                       <span className="meta-server">{metaData.server}</span>
                     )}
-                    {metaData.note && (
+                    {compact && metaData.note && (
                       <MatchNote
                         note={metaData.note}
                         avatarUrl={metaData.note.tag ? profilePics[metaData.note.tag] : null}
