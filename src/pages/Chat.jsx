@@ -88,7 +88,7 @@ const Page = styled.div`
 const Layout = styled.div`
   display: flex;
   gap: var(--space-2);
-  height: calc(100vh - 52px);
+  height: calc(100vh - 52px - var(--space-1));
 
   @media (max-width: 768px) {
     gap: 0;
@@ -218,12 +218,16 @@ const Chat = () => {
   // rewrite it once post-game reactions land — so keep polling while
   // pending and swap the text in place (only blurb notes get replaced).
   const fillBlurb = (eventId, matchId, attempt = 0) => {
-    getMatchBlurb(matchId).then(({ blurb, badges, rivals, pending, retryInMs }) => {
+    getMatchBlurb(matchId).then(({ blurb, parts, badges, rivals, pending, retryInMs }) => {
       setGameEvents((prev) =>
         prev.map((e) => {
           if (e.id !== eventId) return e;
           const next = { ...e };
-          if (blurb) next.note = { text: blurb, tag: null, blurb: true };
+          // Chat shows all parts: headline + h2h + streaks + drama
+          const chatText = parts
+            ? [parts.headline, parts.h2h, parts.streaks, parts.drama].filter(Boolean).join(' · ')
+            : blurb;
+          if (chatText) next.note = { text: chatText, tag: null, blurb: true };
           if (badges?.length) next.badges = badges;
           if (rivals?.length) next.rivals = rivals;
           return next;
