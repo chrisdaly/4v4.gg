@@ -638,47 +638,70 @@ const finishGlow = keyframes`
 `;
 
 const EventPostWrap = styled.div`
+  position: relative;
+  min-height: 56px;
   margin-top: 14px;
+  padding-bottom: var(--space-1);
 
   &:first-child {
     margin-top: 0;
   }
-`;
 
-const EventAttribution = styled.div`
-  display: flex;
-  align-items: center;
-  gap: var(--space-1);
-  padding: 0 var(--space-4) 2px;
-  font-family: var(--font-mono);
-  font-size: var(--text-xxxs);
-  color: var(--gold);
-  text-transform: uppercase;
-  letter-spacing: 0.08em;
-
-  svg {
-    width: 12px;
-    height: 12px;
-    opacity: 0.8;
+  @media (max-width: 480px) {
+    min-height: 48px;
+    margin-top: 10px;
   }
 `;
 
-const EventBotLabel = styled.span`
-  color: var(--grey-light);
-  font-size: 10px;
-  background: rgba(255, 255, 255, 0.06);
-  border-radius: var(--radius-sm);
-  padding: 1px 4px;
-  letter-spacing: 0.06em;
+const EventAvatarContainer = styled.div`
+  position: absolute;
+  left: var(--space-2);
+  top: 0;
+  width: 44px;
+
+  @media (max-width: 480px) {
+    width: 36px;
+  }
+`;
+
+const EventAvatarImg = styled.img`
+  width: 44px;
+  height: 44px;
+  border-radius: var(--radius-md);
+  display: block;
+
+  @media (max-width: 480px) {
+    width: 36px;
+    height: 36px;
+  }
+`;
+
+const EventAttribution = styled.div`
+  padding: 2px var(--space-4) 2px 64px;
+  line-height: 1.375;
+
+  @media (max-width: 480px) {
+    padding-left: 56px;
+  }
+`;
+
+const EventBotName = styled.span`
+  font-family: var(--font-display);
+  font-size: var(--text-xs);
+  color: var(--gold);
 `;
 
 const GameEventCard = styled.div`
   display: flex;
   align-items: center;
   gap: var(--space-3);
-  max-width: 640px;
+  max-width: 580px;
   box-sizing: border-box;
-  margin: 0 var(--space-4) var(--space-3);
+  margin: 2px 0 0 64px;
+
+  @media (max-width: 480px) {
+    margin-left: 56px;
+  }
   padding: var(--space-2) var(--space-3);
   border-left: 2px solid ${(p) => (p.$end ? "rgba(248, 113, 113, 0.5)" : "rgba(74, 222, 128, 0.5)")};
   background: rgba(255, 255, 255, 0.02);
@@ -1635,10 +1658,11 @@ export default function ChatPanel({
                     const liveMins = stillRunning ? formatGameMinutes(ev.time) : null;
                     return (
                       <EventPostWrap key={ev.id}>
+                      <EventAvatarContainer>
+                        <EventAvatarImg src="/favicon.svg" alt="4v4.GG" />
+                      </EventAvatarContainer>
                       <EventAttribution>
-                        <GiCrossedSwords />
-                        4v4.GG
-                        <EventBotLabel>AUTO</EventBotLabel>
+                        <EventBotName>4v4.GG</EventBotName>
                       </EventAttribution>
                       <GameEventCard
                         $end={isEnd}
