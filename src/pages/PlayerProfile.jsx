@@ -333,6 +333,7 @@ const PlayerProfile = () => {
         const profile = await getPlayerProfile(battleTag);
         newProfilePic = profile?.profilePicUrl;
         newCountry = profile?.country;
+        if (battleTag === "потоп#2562") newCountry = "ru";
         newTwitchName = profile?.twitch || null;
 
         const profileUpdate = {
