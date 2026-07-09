@@ -39,12 +39,12 @@ const buildProfilePicUrl = (profileData) => {
   // specialPictures membership check covers responses that predate it
   // (the /many batch endpoint omits specialPictures entirely).
   if (race === AVATAR_CATEGORY_SPECIAL || specialPictures?.map(d => d.pictureId).includes(pictureId)) {
-    return `https://w3champions.wc3.tools/prod/integration/icons/specialAvatars/SPECIAL_${pictureId}.jpg`;
+    return `https://storage.w3champions.com/prod/integration/icons/specialAvatars/SPECIAL_${pictureId}.jpg`;
   }
 
   // Regular race avatar
   const raceName = RACE_AVATAR_MAP[race] || 'random';
-  return `https://w3champions.wc3.tools/prod/integration/icons/raceAvatars/classic/${raceName.toUpperCase()}_${pictureId}.jpg`;
+  return `https://storage.w3champions.com/prod/integration/icons/raceAvatars/classic/${raceName.toUpperCase()}_${pictureId}.jpg`;
 };
 
 /**
