@@ -21,6 +21,9 @@ const MEDIUM_TTL = 2 * 60 * 1000; // 2 minutes for match lists
 // Race ID to name mapping for avatar URLs
 const RACE_AVATAR_MAP = { 64: 'starter', 16: 'total', 8: 'undead', 0: 'random', 4: 'nightelf', 2: 'orc', 1: 'human' };
 
+// Hardcoded country overrides (keyed by lowercase battleTag)
+const COUNTRY_OVERRIDES = { "потоп#2562": "RU" };
+
 // W3C EAvatarCategory.SPECIAL — profilePicture.race for special avatars
 const AVATAR_CATEGORY_SPECIAL = 32;
 
@@ -72,7 +75,7 @@ export const getPlayerProfile = async (battleTag) => {
     return {
       profilePicUrl: buildProfilePicUrl(data),
       twitch: data.twitch || null,
-      country: data.location || null,
+      country: COUNTRY_OVERRIDES[battleTag.toLowerCase()] || data.location || null,
       homePage: (data.homePage && !/localhost|127\.0\.0\.1/.test(data.homePage)) ? data.homePage : null,
       profileMessage: data.profileMessage || null,
       totalGames: totalGames || null,
@@ -528,7 +531,7 @@ export const getPlayerProfilesBatch = async (battleTags) => {
       const data = byTag.get(battleTag.toLowerCase());
       const profile = {
         profilePicUrl: buildProfilePicUrl(data),
-        country: data?.location || null,
+        country: COUNTRY_OVERRIDES[battleTag.toLowerCase()] || data?.location || null,
       };
       results.set(battleTag, profile);
       if (data) {
