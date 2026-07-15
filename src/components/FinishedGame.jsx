@@ -137,8 +137,16 @@ const FinishedGame = ({ data, compact = false }) => {
         </div>
       ) : playerData ? (
         <>
+          {adminKey && !compact && data?.match?.id && (
+            <MatchActions>
+              <BlurbLabLink to={`/blurb-lab?id=${encodeURIComponent(data.match.id)}`}>
+                blurb lab →
+              </BlurbLabLink>
+            </MatchActions>
+          )}
+          <Game playerData={playerData} metaData={metaData} profilePics={profilePics} playerCountries={playerCountries} sessionData={sessionData} compact={compact} />
           {metaData?.note && !compact && (
-            <NoteHeadline>
+            <NoteFooter>
               {(() => {
                 const note = metaData.note;
                 if (typeof note === "string") return renderBlurbText(note);
@@ -152,16 +160,8 @@ const FinishedGame = ({ data, compact = false }) => {
                 );
                 return renderBlurbText(note.text);
               })()}
-            </NoteHeadline>
+            </NoteFooter>
           )}
-          {adminKey && !compact && data?.match?.id && (
-            <div style={{ textAlign: "center" }}>
-              <BlurbLabLink to={`/blurb-lab?id=${encodeURIComponent(data.match.id)}`}>
-                blurb lab →
-              </BlurbLabLink>
-            </div>
-          )}
-          <Game playerData={playerData} metaData={metaData} profilePics={profilePics} playerCountries={playerCountries} sessionData={sessionData} compact={compact} />
 
           {/* Playstyle Section — only shown when replay exists for this match */}
           {!compact && gameProfiles && (
@@ -203,20 +203,43 @@ const FinishedGame = ({ data, compact = false }) => {
 
 // ── Styled Components ────────────────────────────
 
-const NoteHeadline = styled.div`
+const MatchActions = styled.div`
+  display: flex;
+  justify-content: flex-end;
+  align-items: center;
+  gap: var(--space-3);
+  padding: var(--space-2) var(--space-4) 0;
+
+  .match-w3c-link {
+    display: flex;
+    align-items: center;
+    opacity: 0.4;
+    transition: opacity 0.15s;
+    &:hover { opacity: 0.9; }
+  }
+
+  .match-w3c-logo {
+    height: 14px;
+    width: auto;
+    display: block;
+  }
+`;
+
+const NoteFooter = styled.div`
   text-align: center;
-  padding: var(--space-8) var(--space-8) var(--space-6);
-  max-width: 800px;
+  padding: var(--space-4) var(--space-8) var(--space-2);
+  max-width: 700px;
   margin: 0 auto;
-  font-family: var(--font-mono);
-  font-size: var(--text-lg);
+  font-family: var(--font-body);
+  font-size: var(--text-sm);
   font-style: italic;
   color: var(--gold);
+  opacity: 0.85;
   line-height: 1.5;
 
   @media (max-width: 768px) {
-    font-size: var(--text-base);
-    padding: var(--space-6) var(--space-4) var(--space-4);
+    font-size: var(--text-xs);
+    padding: var(--space-3) var(--space-4) var(--space-2);
   }
 `;
 
@@ -232,18 +255,11 @@ const HeadlinePlayerName = styled(Link)`
 `;
 
 const BlurbLabLink = styled(Link)`
-  display: inline-block;
-  margin: var(--space-3) auto var(--space-2);
-  padding: 3px var(--space-3);
   font-family: var(--font-mono);
-  font-size: var(--text-xxs);
-  font-style: normal;
-  color: var(--grey-light);
+  font-size: var(--text-xxxs);
+  color: var(--grey-dark);
   text-decoration: none;
-  border: 1px solid rgba(255,255,255,0.12);
-  border-radius: var(--radius-sm);
-  background: rgba(0,0,0,0.25);
-  &:hover { color: var(--gold); border-color: rgba(184,134,11,0.4); }
+  &:hover { color: var(--grey-light); }
 `;
 
 const PlaystyleSection = styled.section`

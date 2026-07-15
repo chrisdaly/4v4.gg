@@ -426,6 +426,17 @@ const Game = ({ playerData: rawPlayerData, metaData, profilePics, playerCountrie
 
   return (
     <div className="Game">
+      {!compact && metaData.matchId && (
+        <a
+          href={`https://www.w3champions.com/match/${metaData.matchId}`}
+          target="_blank"
+          rel="noopener noreferrer"
+          title="View on W3Champions"
+          className="game-w3c-link"
+        >
+          <img src="/frames/w3c-logos/small-logo.png" alt="W3Champions" className="game-w3c-logo" />
+        </a>
+      )}
       <table className={`game-table ${compact ? "compactTable" : ""}`}>
         <thead>
           <tr>

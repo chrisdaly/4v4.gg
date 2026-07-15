@@ -5,6 +5,28 @@
 /* Ensure table doesn't overflow */
 .Game {
   overflow-x: auto;
+  position: relative;
+}
+
+.game-w3c-link {
+  position: absolute;
+  top: 12px;
+  right: 16px;
+  z-index: 2;
+  display: flex;
+  align-items: center;
+  opacity: 0.35;
+  transition: opacity 0.15s;
+}
+
+.game-w3c-link:hover {
+  opacity: 0.9;
+}
+
+.game-w3c-logo {
+  height: 16px;
+  width: auto;
+  display: block;
 }
 
 .Game table {

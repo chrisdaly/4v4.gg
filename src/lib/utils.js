@@ -15,12 +15,10 @@ export const calcPlayerMmrAndChange = (battleTag, match) => {
   for (const team of match.teams) {
     for (const player of team.players) {
       if (player.battleTag === battleTag) {
-        const mmr = player.currentMmr;
         const oldMmr = player.oldMmr;
-        let mmrChange = player.mmrGain.toString(); // Convert mmrChange to a string
-        if (player.mmrGain > 0) {
-          mmrChange = `+${mmrChange}`;
-        }
+        const mmrChange = player.mmrGain == null ? null
+          : player.mmrGain > 0 ? `+${player.mmrGain}`
+          : player.mmrGain.toString();
         return { oldMmr, mmrChange };
       }
     }
