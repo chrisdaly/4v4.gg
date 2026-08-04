@@ -28,7 +28,7 @@ const VARIANTS = {
   overlay: { compact: true, hideLabels: true }, // OBS overlays
 };
 
-const MmrComparison = React.memo(({ data, variant, compact, hideLabels, hideVs, showMean = false, showStdDev = false, showValues = false }) => {
+const MmrComparison = React.memo(({ data, variant, compact, hideLabels, hideVs, showMean = false, showStdDev = false, showValues = false, localScale = false }) => {
   const preset = VARIANTS[variant] || {};
   const isCompact = compact ?? preset.compact ?? false;
   const labelsHidden = hideLabels ?? preset.hideLabels ?? false;
@@ -84,9 +84,18 @@ const MmrComparison = React.memo(({ data, variant, compact, hideLabels, hideVs, 
     const innerWidth = width - margin.left - margin.right;
     const innerHeight = height - margin.top - margin.bottom;
 
+    const yDomain = localScale
+      ? (() => {
+          const allMmrs = [...teamOneData, ...teamTwoData].map(d => d.mmr);
+          if (!allMmrs.length) return MMR_DOMAIN;
+          const pad = 80;
+          return [Math.max(0, Math.min(...allMmrs) - pad), Math.max(...allMmrs) + pad];
+        })()
+      : MMR_DOMAIN;
+
     const yScale = d3
       .scaleLinear()
-      .domain(MMR_DOMAIN)
+      .domain(yDomain)
       .range([innerHeight, margin.top]);
 
     const dotRadius = width < 150 ? 3 : (isCompact ? 4 : 5);
@@ -297,8 +306,8 @@ const MmrComparison = React.memo(({ data, variant, compact, hideLabels, hideVs, 
       // Draw std dev regions (shaded areas) - draw first so they're behind
       if (showStdDev) {
         // Team 1 std dev region
-        const t1Upper = Math.min(MMR_DOMAIN[1], team1Mean + team1Std);
-        const t1Lower = Math.max(MMR_DOMAIN[0], team1Mean - team1Std);
+        const t1Upper = Math.min(yDomain[1], team1Mean + team1Std);
+        const t1Lower = Math.max(yDomain[0], team1Mean - team1Std);
         svg.append("rect")
           .attr("x", team1CenterX - team1Width / 2)
           .attr("y", yScale(t1Upper))
@@ -309,8 +318,8 @@ const MmrComparison = React.memo(({ data, variant, compact, hideLabels, hideVs, 
           .attr("rx", 2);
 
         // Team 2 std dev region
-        const t2Upper = Math.min(MMR_DOMAIN[1], team2Mean + team2Std);
-        const t2Lower = Math.max(MMR_DOMAIN[0], team2Mean - team2Std);
+        const t2Upper = Math.min(yDomain[1], team2Mean + team2Std);
+        const t2Lower = Math.max(yDomain[0], team2Mean - team2Std);
         svg.append("rect")
           .attr("x", team2CenterX - team2Width / 2)
           .attr("y", yScale(t2Upper))
@@ -559,7 +568,7 @@ const MmrComparison = React.memo(({ data, variant, compact, hideLabels, hideVs, 
     const observer = new ResizeObserver(draw);
     observer.observe(parent);
     return () => observer.disconnect();
-  }, [teamOneMmrs, teamTwoMmrs, teamOneAT, teamTwoAT, isCompact, showMean, showStdDev, labelsHidden, vsHidden, showValues]);
+  }, [teamOneMmrs, teamTwoMmrs, teamOneAT, teamTwoAT, isCompact, showMean, showStdDev, labelsHidden, vsHidden, showValues, localScale]);
 
   return <svg ref={svgRef} style={{ width: "100%", height: "100%" }}></svg>;
 });

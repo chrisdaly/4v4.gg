@@ -18,17 +18,18 @@ const API_BASE = 'https://website-backend.w3champions.com/api';
 const SHORT_TTL = 30 * 1000; // 30 seconds for live data
 const MEDIUM_TTL = 2 * 60 * 1000; // 2 minutes for match lists
 
-// Race ID to name mapping for avatar URLs
-const RACE_AVATAR_MAP = { 64: 'starter', 16: 'total', 8: 'undead', 0: 'random', 4: 'nightelf', 2: 'orc', 1: 'human' };
+// W3C EAvatarCategory enum values (from w3champions/website src/store/types.ts)
+const EAvatarCategory = { RANDOM: 0, HUMAN: 1, ORC: 2, NIGHTELF: 4, UNDEAD: 8, TOTAL: 16, SPECIAL: 32, STARTER: 64 };
+const RACE_AVATAR_NAME = { 0: 'RANDOM', 1: 'HUMAN', 2: 'ORC', 4: 'NIGHTELF', 8: 'UNDEAD' };
 
 // Hardcoded country overrides (keyed by lowercase battleTag)
 const COUNTRY_OVERRIDES = { "потоп#2562": "RU" };
 
-// W3C EAvatarCategory.SPECIAL — profilePicture.race for special avatars
-const AVATAR_CATEGORY_SPECIAL = 32;
+const W3C_STORAGE = 'https://storage.w3champions.com/prod/integration/icons';
 
 /**
- * Build profile picture URL from profile data
+ * Build profile picture URL from profile data.
+ * Mirrors W3C frontend getAvatarUrl() from src/helpers/url-functions.ts.
  */
 const buildProfilePicUrl = (profileData) => {
   if (!profileData) return null;
@@ -36,18 +37,25 @@ const buildProfilePicUrl = (profileData) => {
   const { profilePicture, specialPictures } = profileData;
   if (!profilePicture?.pictureId) return null;
 
-  const { pictureId, race } = profilePicture;
+  const { pictureId, race, isClassic } = profilePicture;
+  const classicPrefix = isClassic ? 'classic/' : '';
 
-  // Check if it's a special avatar. The race field is authoritative; the
-  // specialPictures membership check covers responses that predate it
-  // (the /many batch endpoint omits specialPictures entirely).
-  if (race === AVATAR_CATEGORY_SPECIAL || specialPictures?.map(d => d.pictureId).includes(pictureId)) {
-    return `https://storage.w3champions.com/prod/integration/icons/specialAvatars/SPECIAL_${pictureId}.jpg`;
+  // SPECIAL avatars — achievement / premium portraits
+  if (race === EAvatarCategory.SPECIAL || specialPictures?.some(d => d.pictureId === pictureId)) {
+    return `${W3C_STORAGE}/specialAvatars/SPECIAL_${pictureId}.jpg`;
   }
 
-  // Regular race avatar
-  const raceName = RACE_AVATAR_MAP[race] || 'random';
-  return `https://storage.w3champions.com/prod/integration/icons/raceAvatars/classic/${raceName.toUpperCase()}_${pictureId}.jpg`;
+  // TOTAL (16) has no meaningful avatar
+  if (race === EAvatarCategory.TOTAL) return null;
+
+  // STARTER (64) — standard portraits from the starter kit (real images, not placeholders)
+  if (race === EAvatarCategory.STARTER) {
+    return `${W3C_STORAGE}/raceAvatars/${classicPrefix}STARTER_${pictureId}.jpg`;
+  }
+
+  // Regular race avatars (RANDOM, HUMAN, ORC, NIGHTELF, UNDEAD)
+  const raceName = RACE_AVATAR_NAME[race] || 'RANDOM';
+  return `${W3C_STORAGE}/raceAvatars/${classicPrefix}${raceName}_${pictureId}.jpg`;
 };
 
 /**
@@ -60,7 +68,7 @@ const buildProfilePicUrl = (profileData) => {
 export const getPlayerProfile = async (battleTag) => {
   try {
     const url = `${API_BASE}/personal-settings/${encodeURIComponent(battleTag)}`;
-    const cacheKey = `profile:${battleTag.toLowerCase()}`;
+    const cacheKey = `profile2:${battleTag.toLowerCase()}`;
 
     const data = await fetchWithCache(url, { cacheKey, ttl: TTL.PERSONAL_SETTINGS });
 
@@ -505,7 +513,7 @@ export const getPlayerProfilesBatch = async (battleTags) => {
   const missing = [];
 
   for (const battleTag of battleTags) {
-    const cached = cache.get(`profileLite:${battleTag.toLowerCase()}`);
+    const cached = cache.get(`profileLite2:${battleTag.toLowerCase()}`);
     if (cached) {
       results.set(battleTag, cached);
     } else {
@@ -535,7 +543,7 @@ export const getPlayerProfilesBatch = async (battleTags) => {
       };
       results.set(battleTag, profile);
       if (data) {
-        cache.set(`profileLite:${battleTag.toLowerCase()}`, profile, TTL.PERSONAL_SETTINGS);
+        cache.set(`profileLite2:${battleTag.toLowerCase()}`, profile, TTL.PERSONAL_SETTINGS);
       }
     }
   }

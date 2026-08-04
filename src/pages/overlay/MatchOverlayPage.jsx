@@ -1,75 +1,64 @@
-import React, { useState, useEffect } from "react";
+import React, { useState, useEffect, useRef } from "react";
 import { findPlayerInOngoingMatches, detectArrangedTeams, fetchPlayerSessionData } from "../../lib/utils";
-import { getPlayerProfile } from "../../lib/api";
+import { getPlayerProfile, getPlayerStats } from "../../lib/api";
 import MatchOverlay from "../../components/MatchOverlay";
+import GameIntroScreen from "../../components/GameIntroScreen";
+import GameOutroScreen from "../../components/GameOutroScreen";
 
-// Demo data for OBS setup - includes varied name lengths for testing truncation
 const DEMO_MATCH_DATA = {
+  mapName: "Painted World",
   teams: [
     {
       players: [
-        { battleTag: "HuyaYumiko0414#1234", name: "HuyaYumiko0414", race: 4, currentMmr: 2234 },
-        { battleTag: "Lynfan#1818", name: "Lynfan", race: 1, currentMmr: 2243 },
-        { battleTag: "bobbyog#1234", name: "bobbyog", race: 2, currentMmr: 2020 },
-        { battleTag: "Lacoste#1979", name: "Lacoste", race: 8, currentMmr: 2032 },
+        { battleTag: "Lacoste#22218", name: "Lacoste", race: 2, currentMmr: 2049 },
+        { battleTag: "bongzilla#21528", name: "bongzilla", race: 4, currentMmr: 1807 },
+        { battleTag: "ANALysis#21996", name: "ANALysis", race: 0, currentMmr: 1695 },
+        { battleTag: "riggen1337#2770", name: "riggen1337", race: 8, currentMmr: 1653 },
       ],
     },
     {
       players: [
-        { battleTag: "UnapologeticOne#1954", name: "UnapologeticOne", race: 2, currentMmr: 1954 },
-        { battleTag: "sjow#1773", name: "sjow", race: 4, currentMmr: 1986 },
-        { battleTag: "lllllllinVleh#1796", name: "lllllllinVleh", race: 8, currentMmr: 1796 },
-        { battleTag: "CrocBlanc#1746", name: "CrocBlanc", race: 1, currentMmr: 1746 },
+        { battleTag: "Tunafish#21774", name: "Tunafish", race: 2, currentMmr: 2037 },
+        { battleTag: "ThxForNothin#2370", name: "ThxForNothin", race: 1, currentMmr: 1826 },
+        { battleTag: "ThebestHum#1842", name: "ThebestHum", race: 8, currentMmr: 1661 },
+        { battleTag: "Heavenwaits#21353", name: "Heavenwaits", race: 1, currentMmr: 1616 },
       ],
     },
   ],
 };
 
-const DEMO_COUNTRIES = {
-  "HuyaYumiko0414#1234": "cn",
-  "Lynfan#1818": "cn",
-  "bobbyog#1234": "ca",
-  "Lacoste#1979": "de",
-  "UnapologeticOne#1954": "de",
-  "sjow#1773": "de",
-  "lllllllinVleh#1796": "cn",
-  "CrocBlanc#1746": "fr",
-};
+const DEMO_COUNTRIES = {};
+const DEMO_AT_GROUPS = {};
 
-const DEMO_AT_GROUPS = {
-  group1: ["HuyaYumiko0414#1234", "Lynfan#1818"],
-};
+// ── URL param helpers ────────────────────────────────────────────────────────
+const urlParam = (key) => new URLSearchParams(window.location.search).get(key);
 
-/**
- * Match Overlay Page - for OBS/Streamlabs browser source
- * URL: /overlay/match/{battleTag}
- *
- * Usage in OBS/Streamlabs:
- * 1. Add Browser Source
- * 2. URL: https://yoursite.com/overlay/match/YourTag%23123
- * 3. Width: 1200, Height: 200 (horizontal) or 240x450 (vertical)
- * 4. Custom CSS: body { background: transparent !important; }
- *
- * URL parameters:
- *   ?preview=true - shows demo data for OBS positioning (remove when done)
- *   ?demo=true    - same as preview
- *   ?matchId=xyz  - loads a specific finished match by ID
- *   ?layout=vertical - use vertical sidebar layout
- *   ?style=xxx    - overlay style (default, clean-gold, frame, etc.)
- */
 const MatchOverlayPage = () => {
+  // Core data
   const [isLoaded, setIsLoaded] = useState(false);
   const [ongoingGame, setOngoingGame] = useState(null);
   const [atGroups, setAtGroups] = useState({});
   const [sessionData, setSessionData] = useState({});
   const [countries, setCountries] = useState({});
+  const [avatarUrls, setAvatarUrls] = useState({});
+  const [playerStats, setPlayerStats] = useState({});
 
-  // Animation state
+  // Displayed game (lags ongoingGame to allow slide-out animation)
   const [displayedGame, setDisplayedGame] = useState(null);
-  const [isSliding, setIsSliding] = useState(false);
-  const [slideDirection, setSlideDirection] = useState('in'); // 'in' or 'out'
+  const [slideOut, setSlideOut] = useState(false);
 
-  // Make body fully transparent for OBS browser source
+  // Intro (splash)
+  const [introPhase, setIntroPhase] = useState(false);
+  const [introDismissing, setIntroDismissing] = useState(false);
+  const introGameId = useRef(null);
+
+  // Outro (score screen)
+  const [outroGame, setOutroGame] = useState(null);       // finished match data
+  const [outroPhase, setOutroPhase] = useState(false);
+  const [outroDismissing, setOutroDismissing] = useState(false);
+  const lastGameRef = useRef(null); // track live game to detect end
+
+  // OBS: transparent background
   useEffect(() => {
     document.documentElement.style.overflow = 'hidden';
     document.body.style.overflow = 'hidden';
@@ -78,61 +67,119 @@ const MatchOverlayPage = () => {
     document.body.classList.add('overlay-mode');
   }, []);
 
-  // Handle slide in/out transitions
+  // Slide in/out when game starts or ends
   useEffect(() => {
     if (ongoingGame && !displayedGame) {
-      // Game started - slide in
-      setSlideDirection('in');
+      setSlideOut(false);
       setDisplayedGame(ongoingGame);
     } else if (!ongoingGame && displayedGame) {
-      // Game ended - fade out, then remove
-      setSlideDirection('out');
-      setIsSliding(true);
-      const timer = setTimeout(() => {
+      setSlideOut(true);
+      const t = setTimeout(() => {
         setDisplayedGame(null);
-        setIsSliding(false);
-      }, 1000); // Match animation duration
-      return () => clearTimeout(timer);
+        setSlideOut(false);
+        introGameId.current = null;
+      }, 1000);
+      return () => clearTimeout(t);
     } else if (ongoingGame && displayedGame) {
-      // Game updated (same game, new data)
       setDisplayedGame(ongoingGame);
     }
   }, [ongoingGame]);
 
-  const getStreamerTag = () => {
-    const pageUrl = new URL(window.location.href);
-    const encoded = pageUrl.pathname.split("/").slice(-1)[0];
-    return decodeURIComponent(encoded);
+  // Intro/outro only fire when explicitly in screens-only mode
+  const introEnabled = urlParam("screens") === "only";
+  useEffect(() => {
+    if (!ongoingGame || !introEnabled) return;
+    const gameId = ongoingGame.id || JSON.stringify(ongoingGame.teams?.map(t => t.players?.map(p => p.battleTag)));
+    if (introGameId.current === gameId) return;
+    introGameId.current = gameId;
+
+    setIntroPhase(true);
+    setIntroDismissing(false);
+    const dismissTimer = setTimeout(() => setIntroDismissing(true), 10000);
+    const hideTimer = setTimeout(() => { setIntroPhase(false); setIntroDismissing(false); }, 11200);
+    return () => { clearTimeout(dismissTimer); clearTimeout(hideTimer); };
+  }, [ongoingGame]);
+
+  // Outro sequence — show score screen, auto-dismiss after 20s
+  // finishedMatch = { match, playerScores }
+  const showOutro = (finishedMatch) => {
+    setOutroGame(finishedMatch);
+    setOutroPhase(true);
+    setOutroDismissing(false);
+    const dismissTimer = setTimeout(() => setOutroDismissing(true), 9500);
+    const hideTimer = setTimeout(() => { setOutroPhase(false); setOutroDismissing(false); setOutroGame(null); }, 10700);
+    // store timers so cleanup could happen (not critical for demo)
+    return () => { clearTimeout(dismissTimer); clearTimeout(hideTimer); };
   };
 
-  const getMatchStyle = () => {
-    const params = new URLSearchParams(window.location.search);
-    return params.get("style") || "default";
+  const getStreamerTag = () => decodeURIComponent(window.location.pathname.split("/").slice(-1)[0]);
+  const getMatchStyle = () => urlParam("style") || "default";
+  const getLayout    = () => urlParam("layout") || "horizontal";
+  const getHudIntegrated = () => urlParam("hud") === "true";
+
+  // ── Fetch helpers ──────────────────────────────────────────────────────────
+
+  const fetchProfiles = async (battleTags) => {
+    const [profiles, stats, sessions] = await Promise.all([
+      Promise.all(battleTags.map(tag => getPlayerProfile(tag).catch(() => ({})))),
+      Promise.all(battleTags.map(tag => getPlayerStats(tag).catch(() => null))),
+      Promise.all(battleTags.map(tag => fetchPlayerSessionData(tag).catch(() => null))),
+    ]);
+    setAvatarUrls(Object.fromEntries(profiles.map((p, i) => [battleTags[i], p.profilePicUrl]).filter(([, u]) => u)));
+    setCountries(Object.fromEntries(profiles.map((p, i) => [battleTags[i], p.country]).filter(([, c]) => c)));
+    setPlayerStats(Object.fromEntries(stats.map((s, i) => [battleTags[i], s]).filter(([, s]) => s)));
+    setSessionData(Object.fromEntries(sessions.map((s, i) => [battleTags[i], {
+      recentGames: s?.session?.form || [],
+      wins: s?.session?.wins || 0,
+      losses: s?.session?.losses || 0,
+    }])));
   };
 
-  const getLayout = () => {
-    const params = new URLSearchParams(window.location.search);
-    return params.get("layout") || "horizontal";
+  const fetchOutroForTag = async (tag) => {
+    try {
+      const season = 25;
+      const search = await fetch(`https://website-backend.w3champions.com/api/matches/search?playerId=${encodeURIComponent(tag)}&gameMode=4&season=${season}&gateway=20&pageSize=1`).then(r => r.json());
+      const recentId = search?.matches?.[0]?.id;
+      if (!recentId) return null;
+      const full = await fetch(`https://website-backend.w3champions.com/api/matches/${recentId}`).then(r => r.json());
+      return { match: full.match || full, playerScores: full.playerScores || [] };
+    } catch { return null; }
   };
 
-  const isDemo = () => {
-    const params = new URLSearchParams(window.location.search);
-    return params.get("demo") === "true";
-  };
-
-  const isPreview = () => {
-    const params = new URLSearchParams(window.location.search);
-    return params.get("preview") === "true";
-  };
-
-  const getMatchId = () => {
-    const params = new URLSearchParams(window.location.search);
-    return params.get("matchId");
-  };
+  // ── Initialisation ────────────────────────────────────────────────────────
 
   useEffect(() => {
-    // Demo mode - use static data, no polling
-    if (isDemo()) {
+    const mode = urlParam("demo") === "true" ? "demo"
+      : urlParam("demoOutro") ? "demoOutro"
+      : urlParam("preview") === "true" ? "preview"
+      : urlParam("matchId") ? "matchId"
+      : "live";
+
+    if (mode === "demo") {
+      const tags = DEMO_MATCH_DATA.teams.flatMap(t => t.players).map(p => p.battleTag);
+      fetchProfiles(tags)
+        .catch(err => console.error("[demo] profiles failed:", err))
+        .finally(() => { setOngoingGame(DEMO_MATCH_DATA); setIsLoaded(true); });
+      return;
+    }
+
+    if (mode === "demoOutro") {
+      const matchId = urlParam("demoOutro");
+      (async () => {
+        const res = await fetch(`https://website-backend.w3champions.com/api/matches/${matchId}`).then(r => r.json()).catch(() => null);
+        const match = res?.match || res;
+        if (match?.teams) {
+          const tags = match.teams.flatMap(t => t.players).map(p => p.battleTag);
+          await fetchProfiles(tags).catch(() => {});
+          setOutroGame({ match, playerScores: res?.playerScores || [] });
+          setOutroPhase(true);
+        }
+        setIsLoaded(true);
+      })();
+      return;
+    }
+
+    if (mode === "preview") {
       setOngoingGame(DEMO_MATCH_DATA);
       setAtGroups(DEMO_AT_GROUPS);
       setCountries(DEMO_COUNTRIES);
@@ -140,132 +187,121 @@ const MatchOverlayPage = () => {
       return;
     }
 
-    // Match ID mode - fetch specific finished match
-    const matchId = getMatchId();
-    if (matchId) {
-      fetchFinishedMatch(matchId);
+    if (mode === "matchId") {
+      (async () => {
+        const matchId = urlParam("matchId");
+        const res = await fetch(`https://website-backend.w3champions.com/api/matches/${matchId}`).then(r => r.json()).catch(() => null);
+        const match = res?.match || res;
+        if (match?.teams) {
+          const tags = match.teams.flatMap(t => t.players).map(p => p.battleTag);
+          await fetchProfiles(tags).catch(() => {});
+          const groups = await detectArrangedTeams(match.teams.flatMap(t => t.players)).catch(() => ({}));
+          setAtGroups(groups || {});
+          setOngoingGame({ ...match, mapName: match.mapName || match.map });
+        }
+        setIsLoaded(true);
+      })();
       return;
     }
 
-    // Preview mode - show demo data for OBS positioning, no polling
-    if (isPreview()) {
-      setOngoingGame(DEMO_MATCH_DATA);
-      setAtGroups(DEMO_AT_GROUPS);
-      setCountries(DEMO_COUNTRIES);
-      setIsLoaded(true);
-      return; // Don't poll - preview is for static OBS positioning
-    }
-
-    // Normal mode - poll for live game
-    loadData();
+    // Live mode — poll for streamer's game
+    fetchOngoingGames().finally(() => setIsLoaded(true));
     const interval = setInterval(fetchOngoingGames, 30000);
     return () => clearInterval(interval);
   }, []);
 
-  const loadData = async () => {
-    try {
-      await fetchOngoingGames();
-      setIsLoaded(true);
-    } catch (error) {
-      console.error("Error loading data:", error);
-    }
-  };
-
-  const fetchFinishedMatch = async (matchId) => {
-    try {
-      const response = await fetch(`https://website-backend.w3champions.com/api/matches/${matchId}`);
-      const match = await response.json();
-      if (match?.teams) {
-        setOngoingGame(match);
-
-        // Fetch countries for all players
-        const playerObjects = match.teams.flatMap(team => team.players);
-        const battleTags = playerObjects.map(p => p.battleTag);
-
-        const profilePromises = battleTags.map(async (battleTag) => {
-          try {
-            const profile = await getPlayerProfile(battleTag);
-            return [battleTag, profile.country];
-          } catch {
-            return [battleTag, null];
-          }
-        });
-
-        const profileResults = await Promise.all(profilePromises);
-        setCountries(Object.fromEntries(profileResults.filter(([, c]) => c)));
-      }
-      setIsLoaded(true);
-    } catch (error) {
-      console.error("Error fetching match:", error);
-      setIsLoaded(true);
-    }
-  };
-
   const fetchOngoingGames = async () => {
     try {
-      const ongoingResponse = await fetch("https://website-backend.w3champions.com/api/matches/ongoing");
-      const ongoingResult = await ongoingResponse.json();
+      const res = await fetch("https://website-backend.w3champions.com/api/matches/ongoing");
+      const data = await res.json();
       const tag = getStreamerTag();
-      const game = findPlayerInOngoingMatches(ongoingResult, tag);
-      setOngoingGame(game);
+      const game = findPlayerInOngoingMatches(data, tag);
 
-      // Detect AT groups and fetch session data
-      if (game?.teams) {
-        const playerObjects = game.teams.flatMap(team => team.players);
-        const battleTags = playerObjects.map(p => p.battleTag);
-
-        const groups = await detectArrangedTeams(playerObjects);
-        setAtGroups(groups || {});
-
-        // Fetch session data and profiles for all players (in parallel)
-        const sessionPromises = battleTags.map(async (battleTag) => {
-          const data = await fetchPlayerSessionData(battleTag);
-          return [battleTag, {
-            recentGames: data?.session?.form || [],
-            wins: data?.session?.wins || 0,
-            losses: data?.session?.losses || 0,
-          }];
-        });
-        const profilePromises = battleTags.map(async (battleTag) => {
-          const profile = await getPlayerProfile(battleTag);
-          return [battleTag, profile.country];
-        });
-
-        const [sessionResults, profileResults] = await Promise.all([
-          Promise.all(sessionPromises),
-          Promise.all(profilePromises),
-        ]);
-        setSessionData(Object.fromEntries(sessionResults));
-        setCountries(Object.fromEntries(profileResults.filter(([, c]) => c)));
+      // Game ended — fire outro
+      if (!game && lastGameRef.current && introEnabled) {
+        const finished = await fetchOutroForTag(tag);
+        if (finished) showOutro(finished);
       }
-    } catch (error) {
-      console.error("Error fetching ongoing games:", error);
+      lastGameRef.current = game || null;
+
+      if (game?.teams) {
+        const playerObjects = game.teams.flatMap(t => t.players);
+        const tags = playerObjects.map(p => p.battleTag);
+        const [groups] = await Promise.all([
+          detectArrangedTeams(playerObjects),
+          fetchProfiles(tags),
+        ]);
+        setAtGroups(groups || {});
+        setOngoingGame(game);
+      } else {
+        setOngoingGame(null);
+      }
+    } catch (err) {
+      console.error("fetchOngoingGames failed:", err);
     }
   };
 
-  // Transparent background - ready for OBS/Streamlabs
-  // Renders nothing when no game (auto-hide behavior)
+  // ── Render ────────────────────────────────────────────────────────────────
+
+  const layout = getLayout();
+  const matchStyle = getMatchStyle();
+  const streamerTag = getStreamerTag();
+  const screensOnly = urlParam("screens") === "only";
+
   return (
-    <div style={{
-      background: 'transparent',
-      minHeight: '100vh',
-      display: 'flex',
-      alignItems: 'center',
-      justifyContent: 'center',
-      padding: '20px',
-    }}>
-      {isLoaded && displayedGame && (
-        <MatchOverlay
+    <div style={{ position: 'fixed', inset: 0, background: 'transparent', overflow: 'hidden' }}>
+
+      {/* Fullscreen intro — fires when a new game starts (screens source only) */}
+      {introPhase && displayedGame && (
+        <GameIntroScreen
           matchData={displayedGame}
-          atGroups={atGroups}
-          sessionData={sessionData}
+          avatarUrls={avatarUrls}
           countries={countries}
-          streamerTag={getStreamerTag()}
-          matchStyle={getMatchStyle()}
-          layout={getLayout()}
-          slideOut={slideDirection === 'out'}
+          sessionData={sessionData}
+          playerStats={playerStats}
+          matchStyle={matchStyle}
+          dismissing={introDismissing}
         />
       )}
+
+      {/* Fullscreen score screen — fires when game ends (screens source only) */}
+      {outroPhase && outroGame && (
+        <GameOutroScreen
+          matchData={outroGame}
+          avatarUrls={avatarUrls}
+          countries={countries}
+          sessionData={sessionData}
+          matchStyle={matchStyle}
+          dismissing={outroDismissing}
+          streamerTag={streamerTag}
+        />
+      )}
+
+      {/* HUD strip — bottom bar, hidden in screens-only mode */}
+      {!screensOnly && isLoaded && displayedGame && (
+        <div style={{
+          position: 'absolute',
+          bottom: 0, left: 0, right: 0,
+          display: 'flex',
+          justifyContent: 'center',
+          padding: '0 0 20px',
+        }}>
+          <MatchOverlay
+            matchData={displayedGame}
+            atGroups={atGroups}
+            sessionData={sessionData}
+            countries={countries}
+            avatarUrls={avatarUrls}
+            streamerTag={streamerTag}
+            matchStyle={matchStyle}
+            layout={layout}
+            hudIntegrated={getHudIntegrated()}
+            slideOut={slideOut}
+            hidden={(introPhase && !introDismissing) || outroPhase}
+          />
+        </div>
+      )}
+
     </div>
   );
 };
