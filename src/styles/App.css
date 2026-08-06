@@ -5191,10 +5191,33 @@ a.neighbor-name-sm:hover {
   align-items: center;
   justify-content: center;
   z-index: 200;
-  background: rgba(8, 5, 2, 0.72);
+  background: rgba(8, 5, 2, 0.88);
   gap: 20px;
   padding: 32px 48px;
+  overflow: hidden;
 }
+
+/* Split race backgrounds */
+.gi-bg {
+  position: absolute;
+  inset: 0;
+  z-index: 0;
+  display: flex;
+}
+.gi-bg-left,
+.gi-bg-right {
+  flex: 1;
+  background-size: cover;
+  background-position: center top;
+  opacity: 0.14;
+}
+.gi-bg-left  { -webkit-mask-image: linear-gradient(to right, black 0%, black 35%, transparent 100%); mask-image: linear-gradient(to right, black 0%, black 35%, transparent 100%); }
+.gi-bg-right { -webkit-mask-image: linear-gradient(to left,  black 0%, black 35%, transparent 100%); mask-image: linear-gradient(to left,  black 0%, black 35%, transparent 100%); }
+
+/* Ensure all content sits above the bg */
+.gi-found,
+.gi-map-name-top,
+.gi-body { position: relative; z-index: 1; }
 
 .gi-screen.gi-in  { animation: gi-in  0.7s cubic-bezier(0.22, 1, 0.36, 1) forwards; }
 .gi-screen.gi-out { animation: gi-out 1.2s ease-in forwards; }
@@ -5423,19 +5446,40 @@ a.neighbor-name-sm:hover {
   align-items: center;
   justify-content: center;
   z-index: 200;
+  overflow: hidden;
 }
 
-.go-screen.go-win {
-  background: radial-gradient(ellipse 70% 60% at 50% 48%, rgba(10, 6, 0, 0.85) 0%, rgba(40, 24, 0, 0.3) 60%, transparent 100%);
+/* Race background — full-bleed atmospheric layer */
+.go-bg-race {
+  position: absolute;
+  inset: 0;
+  z-index: 0;
 }
+.go-bg-race img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  object-position: center top;
+  display: block;
+}
+.go-screen.go-win  .go-bg-race img { opacity: 0.22; filter: brightness(0.85); }
+.go-screen.go-loss .go-bg-race img { opacity: 0.12; filter: brightness(0.45) saturate(0.2); }
 
-.go-screen.go-loss {
-  background: radial-gradient(ellipse 70% 60% at 50% 48%, rgba(8, 0, 0, 0.88) 0%, rgba(50, 5, 5, 0.3) 60%, transparent 100%);
+/* Dark centre vignette — keeps text readable above the bg */
+.go-vignette {
+  position: absolute;
+  inset: 0;
+  z-index: 1;
+  pointer-events: none;
 }
+.go-screen.go-win  .go-vignette { background: radial-gradient(ellipse 70% 60% at 50% 48%, rgba(10, 6, 0, 0.88) 0%, rgba(40, 24, 0, 0.35) 60%, transparent 100%); }
+.go-screen.go-loss .go-vignette { background: radial-gradient(ellipse 70% 60% at 50% 48%, rgba(8, 0, 0, 0.92) 0%, rgba(50, 5, 5, 0.35) 60%, transparent 100%); }
 
 /* ── Phase 2: scoreboard wraps the real Game component ── */
 
 .go-game-wrap {
+  position: relative;
+  z-index: 2;
   width: 100%;
   height: 100%;
   overflow-y: auto;
@@ -5466,6 +5510,8 @@ a.neighbor-name-sm:hover {
 /* ── Phase 1: Announcement ── */
 
 .go-announcement {
+  position: relative;
+  z-index: 2;
   display: flex;
   flex-direction: column;
   align-items: center;

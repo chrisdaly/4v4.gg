@@ -1,5 +1,6 @@
 import React, { useState, useEffect, useMemo } from "react";
 import { preprocessPlayerScores } from "../lib/utils";
+import { RACE_BACKGROUND } from "../lib/constants";
 import Game from "./Game";
 
 const fmtDuration = (secs) => {
@@ -123,8 +124,18 @@ const GameOutroScreen = ({
 
   const duration = fmtDuration(matchData.match.durationInSeconds);
 
+  const streamerRace = streamerPlayer?.race ?? 0;
+  const raceBg = RACE_BACKGROUND[streamerRace] || RACE_BACKGROUND[0];
+
   return (
     <div className={`go-screen ${streamerWon ? "go-win" : "go-loss"} ${dismissing ? "gi-out" : "gi-in"}`}>
+      {/* Atmospheric race background */}
+      <div className="go-bg-race">
+        <img src={raceBg} alt="" />
+      </div>
+      {/* Dark centre vignette — keeps text readable */}
+      <div className="go-vignette" />
+
       {!showScoreboard && (
         <Announcement
           won={streamerWon}

@@ -100,6 +100,27 @@ const MatchOverlayPage = () => {
     return () => { clearTimeout(dismissTimer); clearTimeout(hideTimer); };
   }, [ongoingGame]);
 
+  // HUD sync — when syncScreens=true, delay HUD appearance to match intro screen duration (11.2s)
+  const syncScreens = urlParam("syncScreens") === "true";
+  const hudGameId = useRef(null);
+  const [hudReady, setHudReady] = useState(!syncScreens);
+
+  useEffect(() => {
+    if (!displayedGame) {
+      if (syncScreens) setHudReady(false);
+      hudGameId.current = null;
+      return;
+    }
+    const gameId = displayedGame.id || JSON.stringify(displayedGame.teams?.map(t => t.players?.map(p => p.battleTag)));
+    if (hudGameId.current === gameId) return;
+    hudGameId.current = gameId;
+    if (syncScreens) {
+      setHudReady(false);
+      const t = setTimeout(() => setHudReady(true), 12200);
+      return () => clearTimeout(t);
+    }
+  }, [displayedGame]);
+
   // Outro sequence — show score screen, auto-dismiss after 20s
   // finishedMatch = { match, playerScores }
   const showOutro = (finishedMatch) => {
@@ -277,8 +298,8 @@ const MatchOverlayPage = () => {
         />
       )}
 
-      {/* HUD strip — bottom bar, hidden in screens-only mode */}
-      {!screensOnly && isLoaded && displayedGame && (
+      {/* HUD strip — bottom bar, hidden in screens-only mode; delayed when syncScreens=true */}
+      {!screensOnly && isLoaded && displayedGame && hudReady && (
         <div style={{
           position: 'absolute',
           bottom: 0, left: 0, right: 0,

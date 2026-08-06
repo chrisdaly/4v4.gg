@@ -45,6 +45,15 @@ export const LEAGUES = [
   { id: 6, name: "Bronze", icon: bronzeIcon },
 ];
 
+// Race ID → full-bleed background (public/backgrounds/)
+export const RACE_BACKGROUND = {
+  0: '/backgrounds/orc.jpg',
+  1: '/backgrounds/human.jpg',
+  2: '/backgrounds/orc.jpg',
+  4: '/backgrounds/nightelf.jpg',
+  8: '/backgrounds/undead.jpg',
+};
+
 // League icons for direct import
 export const leagueIcons = {
   grandmaster: grandmasterIcon,

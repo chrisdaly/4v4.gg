@@ -1542,7 +1542,7 @@ const OverlayIndex = () => {
               <div style={{ display: "flex", flexDirection: "column", gap: "var(--space-3)" }}>
                 <div>
                   <Label style={{ marginBottom: 4 }}>Source 1 — HUD Strip &nbsp;·&nbsp; 900 × 160</Label>
-                  <UrlCode style={{ marginBottom: 0 }}>{overlayUrl}</UrlCode>
+                  <UrlCode style={{ marginBottom: 0 }}>{overlayUrl + "&syncScreens=true"}</UrlCode>
                 </div>
                 <div>
                   <Label style={{ marginBottom: 4 }}>Source 2 — Fullscreen Screens &nbsp;·&nbsp; 1920 × 1080</Label>

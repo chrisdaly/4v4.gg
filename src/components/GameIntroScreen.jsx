@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from "react";
-import { raceMapping } from "../lib/constants";
+import { raceMapping, RACE_BACKGROUND } from "../lib/constants";
 import { CountryFlag } from "./ui";
 import { MmrComparison } from "./MmrComparison";
 
@@ -161,8 +161,19 @@ const GameIntroScreen = ({
   const splashParam = new URLSearchParams(window.location.search).get("splash") || "chart";
   const CenterLayout = CENTER_VARIANTS[splashParam] || CenterChart;
 
+  const team1Race = team1[0]?.race ?? 0;
+  const team2Race = team2[0]?.race ?? 0;
+  const team1Bg = RACE_BACKGROUND[team1Race] || RACE_BACKGROUND[0];
+  const team2Bg = RACE_BACKGROUND[team2Race] || RACE_BACKGROUND[0];
+
   return (
     <div className={`gi-screen ${dismissing ? "gi-out" : "gi-in"}`}>
+      {/* Split race backgrounds — team 1 left, team 2 right */}
+      <div className="gi-bg">
+        <div className="gi-bg-left" style={{ backgroundImage: `url(${team1Bg})` }} />
+        <div className="gi-bg-right" style={{ backgroundImage: `url(${team2Bg})` }} />
+      </div>
+
       {!showCards && (
         <div className="gi-found go-fade-in">GAME FOUND</div>
       )}
