@@ -45,8 +45,10 @@ const buildProfilePicUrl = (profileData) => {
     return `${W3C_STORAGE}/specialAvatars/SPECIAL_${pictureId}.jpg`;
   }
 
-  // TOTAL (16) has no meaningful avatar
-  if (race === EAvatarCategory.TOTAL) return null;
+  // TOTAL (16) — total-wins portraits (e.g. TOTAL_9.jpg)
+  if (race === EAvatarCategory.TOTAL) {
+    return `${W3C_STORAGE}/raceAvatars/${classicPrefix}TOTAL_${pictureId}.jpg`;
+  }
 
   // STARTER (64) — standard portraits from the starter kit (real images, not placeholders)
   if (race === EAvatarCategory.STARTER) {

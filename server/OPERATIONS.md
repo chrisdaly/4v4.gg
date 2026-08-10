@@ -45,11 +45,15 @@ If the machine crash-loops, that is intentional: a crash-looping server is recov
 
 ## W3C chat token
 
-The SignalR JWT expires **7 days after issue** (hardcoded in W3C's identification-service; no refresh endpoint exists). It is only validated at connection handshake, so a stable connection can outlive its token — but any reconnect after expiry fails with `[SignalR] Authorization failed` and **chat capture silently stops**.
+The SignalR JWT expires **7 days after issue** (hardcoded in W3C's identification-service; no refresh endpoint exists).
 
-Monitoring: the server checks the token every 30 min, exposes `signalr` / `tokenExpiresAt` / `tokenExpiresInHours` in `GET /api/health`, and files a GitHub issue (label `relay-ops`) once per token when expiry is <24h away or auth has failed.
+**August 2026 change:** W3C's chat service now requires a one-time ticket instead of a raw JWT. The relay handles this automatically — on every connect/reconnect it calls `POST https://chat-service.w3champions.com/auth/session` with the stored JWT to get a short-lived ticket (60s TTL, single-use), then passes the ticket as `access_token` to the WebSocket. You never need to update the connection code; just keep the JWT current.
 
-Renewal: log into w3champions.com with the relay account, copy the `eyJ…` JWT from localStorage (DevTools → Application), and inject it:
+**How to find the JWT:** W3C moved away from localStorage. Use the Network tab in DevTools on w3champions.com → look for requests to `identification-service.w3champions.com` → copy the `Authorization: Bearer eyJ…` value, or look for the JWT in a POST response body after login.
+
+Monitoring: the server checks the token every 30 min and files a GitHub issue (label `relay-ops`) once per token when expiry is <24h away or auth has failed.
+
+Renewal: obtain a fresh `eyJ…` JWT and inject it:
 
 ```bash
 curl -X POST https://4v4gg-chat-relay.fly.dev/api/admin/token \
