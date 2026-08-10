@@ -5191,7 +5191,7 @@ a.neighbor-name-sm:hover {
   align-items: center;
   justify-content: center;
   z-index: 200;
-  background: rgba(8, 5, 2, 0.88);
+  background: rgba(8, 5, 2, 1);
   gap: 20px;
   padding: 32px 48px;
   overflow: hidden;
