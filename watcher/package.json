@@ -1,0 +1,13 @@
+{
+  "name": "wc3-watcher",
+  "version": "1.0.0",
+  "type": "module",
+  "description": "Watches LastReplay.w3g and pushes game-end events to the overlay via SSE",
+  "scripts": {
+    "start": "node wc3-watcher.mjs"
+  },
+  "dependencies": {
+    "chokidar": "^3.6.0",
+    "w3gjs": "^2.4.1"
+  }
+}

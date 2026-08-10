@@ -121,6 +121,46 @@ const MatchOverlayPage = () => {
     }
   }, [displayedGame]);
 
+  // Dedup guard — prevents watcher + polling both firing the outro for the same game
+  const lastOutroRef = useRef(0);
+
+  const tryShowOutro = async () => {
+    const now = Date.now();
+    if (now - lastOutroRef.current < 30000) return; // ignore if outro fired within last 30s
+    lastOutroRef.current = now;
+    const tag = getStreamerTag();
+    const finished = await fetchOutroForTag(tag);
+    if (finished) showOutro(finished);
+  };
+
+  // Local watcher SSE — connects to wc3-watcher.mjs running on the streaming machine.
+  // Only active on the Screens source (?screens=only) since that's where the outro renders.
+  // Falls back to polling (below) if watcher is unavailable.
+  useEffect(() => {
+    const watcherBase = urlParam("watcher");
+    if (!watcherBase || !screensOnly) return;
+
+    let es;
+    const connect = () => {
+      es = new EventSource(`${watcherBase}/events`);
+      es.onmessage = (e) => {
+        try {
+          const data = JSON.parse(e.data);
+          if (data.type === 'game_end') {
+            console.log('[watcher] game_end received:', data);
+            tryShowOutro();
+          }
+        } catch {}
+      };
+      es.onerror = () => {
+        es.close();
+        setTimeout(connect, 5000); // reconnect on drop
+      };
+    };
+    connect();
+    return () => es?.close();
+  }, []);
+
   // Outro sequence — show score screen, auto-dismiss after 20s
   // finishedMatch = { match, playerScores }
   const showOutro = (finishedMatch) => {
@@ -238,10 +278,9 @@ const MatchOverlayPage = () => {
       const tag = getStreamerTag();
       const game = findPlayerInOngoingMatches(data, tag);
 
-      // Game ended — fire outro
+      // Game ended — fire outro via polling (watcher SSE is preferred when available)
       if (!game && lastGameRef.current && introEnabled) {
-        const finished = await fetchOutroForTag(tag);
-        if (finished) showOutro(finished);
+        tryShowOutro();
       }
       lastGameRef.current = game || null;
 

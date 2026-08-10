@@ -1547,6 +1547,9 @@ const OverlayIndex = () => {
                 <div>
                   <Label style={{ marginBottom: 4 }}>Source 2 — Fullscreen Screens &nbsp;·&nbsp; 1920 × 1080</Label>
                   <UrlCode style={{ marginBottom: 0 }}>{overlayUrl + "&screens=only"}</UrlCode>
+                  <div style={{ fontSize: "var(--text-xxs)", color: "var(--grey-light)", marginTop: 6, opacity: 0.7 }}>
+                    Running the local watcher? Append <code style={{ background: "rgba(255,255,255,0.08)", padding: "1px 4px", borderRadius: 3 }}>&amp;watcher=http://localhost:3456</code> for accurate game-end detection.
+                  </div>
                 </div>
                 {previewMode && (
                   <Tip>
