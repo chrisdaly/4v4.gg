@@ -1,0 +1,369 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>WC3 Control Groups</title>
+  <style>
+    @import url('https://fonts.googleapis.com/css2?family=Inconsolata:wght@400;600;700&display=swap');
+
+    :root {
+      --bg:       #0d0b08;
+      --surface:  #181410;
+      --border:   #2e2820;
+      --gold:     #c89b3c;
+      --gold-dim: rgba(200,155,60,0.25);
+      --gold-glow:rgba(200,155,60,0.15);
+      --text:     #c8bfb0;
+      --dim:      #4a4038;
+      --green:    #4a9;
+      --red:      #c44;
+    }
+
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+
+    html, body {
+      width: 100%; height: 100%;
+      background: var(--bg);
+      color: var(--text);
+      font-family: 'Inconsolata', 'Courier New', monospace;
+      overflow: hidden;
+    }
+
+    body {
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      gap: 16px;
+      padding: 20px;
+    }
+
+    /* ── Status bar ── */
+    #status-bar {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      font-size: 11px;
+      letter-spacing: 0.12em;
+      text-transform: uppercase;
+      color: var(--dim);
+      user-select: none;
+    }
+
+    #status-dot {
+      width: 8px; height: 8px;
+      border-radius: 50%;
+      background: #2a2820;
+      flex-shrink: 0;
+      transition: background 0.3s;
+    }
+    #status-dot.connected  { background: var(--green); }
+    #status-dot.game       { background: var(--gold); animation: pulse 2s ease-in-out infinite; }
+    #status-dot.error      { background: var(--red); }
+
+    @keyframes pulse { 0%,100% { opacity:1 } 50% { opacity:0.35 } }
+
+    #game-time {
+      font-variant-numeric: tabular-nums;
+      color: var(--gold);
+      opacity: 0;
+      transition: opacity 0.3s;
+    }
+    #game-time.visible { opacity: 1; }
+
+    /* ── Group grid ── */
+    #groups {
+      display: flex;
+      gap: 8px;
+      width: 100%;
+      max-width: 900px;
+    }
+
+    .group {
+      flex: 1;
+      min-width: 0;
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: 4px;
+      padding: 10px 6px 8px;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      gap: 7px;
+      transition: border-color 0.25s, box-shadow 0.25s, background 0.25s;
+      cursor: default;
+      user-select: none;
+    }
+
+    .group.has-units {
+      border-color: var(--gold-dim);
+    }
+
+    .group.selected {
+      border-color: var(--gold);
+      box-shadow: 0 0 14px var(--gold-glow), inset 0 0 20px var(--gold-glow);
+      background: rgba(200,155,60,0.05);
+    }
+
+    .group.flash {
+      animation: flash 0.6s ease-out;
+    }
+
+    @keyframes flash {
+      0%   { background: rgba(200,155,60,0.35); border-color: var(--gold); }
+      60%  { background: rgba(200,155,60,0.10); }
+      100% { background: var(--surface); }
+    }
+
+    /* Key number */
+    .group-key {
+      font-size: 22px;
+      font-weight: 700;
+      line-height: 1;
+      color: var(--gold);
+      transition: color 0.25s;
+    }
+    .group.empty .group-key { color: #2e2820; }
+    .group.selected .group-key { text-shadow: 0 0 10px rgba(200,155,60,0.7); }
+
+    /* Unit dots */
+    .group-dots {
+      display: grid;
+      grid-template-columns: repeat(6, 1fr);
+      gap: 2px;
+      width: 100%;
+      max-width: 48px;
+      min-height: 16px;
+    }
+
+    .unit-dot {
+      aspect-ratio: 1;
+      background: var(--gold);
+      border-radius: 1px;
+      opacity: 0.65;
+    }
+
+    /* Unit count */
+    .group-count {
+      font-size: 14px;
+      font-weight: 600;
+      line-height: 1;
+      color: #fff;
+      transition: color 0.25s;
+      font-variant-numeric: tabular-nums;
+    }
+    .group.empty .group-count { color: #252018; }
+
+    /* Timestamp */
+    .group-time {
+      font-size: 10px;
+      letter-spacing: 0.05em;
+      color: var(--dim);
+      font-variant-numeric: tabular-nums;
+      line-height: 1;
+    }
+    .group.empty .group-time { color: #1e1a14; }
+
+    /* ── Disconnected overlay ── */
+    #disconnected {
+      position: fixed;
+      inset: 0;
+      background: rgba(13,11,8,0.85);
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      gap: 10px;
+      font-size: 13px;
+      letter-spacing: 0.1em;
+      text-transform: uppercase;
+      color: var(--dim);
+      opacity: 0;
+      pointer-events: none;
+      transition: opacity 0.5s;
+      z-index: 10;
+    }
+    #disconnected.visible { opacity: 1; pointer-events: auto; }
+    #disconnected .disc-icon { font-size: 28px; margin-bottom: 4px; }
+
+    /* ── Player ID hint (shown if PLAYER_ID not set) ── */
+    #player-hint {
+      font-size: 10px;
+      letter-spacing: 0.08em;
+      color: #2e2820;
+      text-transform: uppercase;
+    }
+  </style>
+</head>
+<body>
+
+  <div id="status-bar">
+    <div id="status-dot"></div>
+    <span id="status-text">connecting…</span>
+    <span id="game-time">0:00</span>
+  </div>
+
+  <div id="groups"></div>
+
+  <div id="player-hint"></div>
+
+  <div id="disconnected">
+    <div class="disc-icon">◌</div>
+    <span id="disc-msg">disconnected — retrying…</span>
+  </div>
+
+  <script>
+    // Key labels for groups 0–9: group index 0 = key 1, index 9 = key 0
+    const KEY_LABEL = ['1','2','3','4','5','6','7','8','9','0'];
+
+    const groupsEl    = document.getElementById('groups');
+    const dotEl       = document.getElementById('status-dot');
+    const statusEl    = document.getElementById('status-text');
+    const gameTimeEl  = document.getElementById('game-time');
+    const discEl      = document.getElementById('disconnected');
+    const discMsgEl   = document.getElementById('disc-msg');
+    const hintEl      = document.getElementById('player-hint');
+
+    let prevGroups    = null;
+    let gameTimeMs    = 0;
+    let gameTimeTimer = null;
+
+    // ── Build initial group elements ─────────────────────────────────────────
+
+    for (let i = 0; i < 10; i++) {
+      const el = document.createElement('div');
+      el.id = `g${i}`;
+      el.className = 'group empty';
+      el.innerHTML = `
+        <div class="group-key">${KEY_LABEL[i]}</div>
+        <div class="group-dots" id="dots${i}"></div>
+        <div class="group-count" id="count${i}">—</div>
+        <div class="group-time"  id="time${i}">—</div>
+      `;
+      groupsEl.appendChild(el);
+    }
+
+    // ── Rendering ─────────────────────────────────────────────────────────────
+
+    function renderState(msg) {
+      const { groups, selectedGroup, gameTime, gameRunning } = msg;
+
+      // Status dot + time
+      dotEl.className = gameRunning ? 'game' : 'connected';
+      statusEl.textContent = gameRunning ? 'game running' : 'connected — waiting for game';
+      gameTimeEl.classList.toggle('visible', gameRunning);
+      updateGameTime(gameTime, gameRunning);
+
+      // Groups
+      for (let i = 0; i < 10; i++) {
+        const g      = groups[i];
+        const prev   = prevGroups?.[i];
+        const el     = document.getElementById(`g${i}`);
+        const dotsEl = document.getElementById(`dots${i}`);
+        const countEl= document.getElementById(`count${i}`);
+        const timeEl = document.getElementById(`time${i}`);
+
+        const isEmpty    = g.count === 0;
+        const isSelected = selectedGroup === i;
+        const changed    = prev && prev.assignedAt !== g.assignedAt && !isEmpty;
+
+        // Classes
+        let cls = 'group';
+        if (!isEmpty)   cls += ' has-units';
+        if (isSelected) cls += ' selected';
+        el.className = cls;
+
+        // Flash animation on assignment
+        if (changed) {
+          el.classList.remove('flash');
+          void el.offsetWidth; // force reflow to restart animation
+          el.classList.add('flash');
+        }
+
+        // Dots — up to 12, arranged in rows of 6
+        dotsEl.innerHTML = '';
+        const dotCount = Math.min(g.count, 12);
+        for (let d = 0; d < dotCount; d++) {
+          const dot = document.createElement('div');
+          dot.className = 'unit-dot';
+          dotsEl.appendChild(dot);
+        }
+        if (g.count > 12) {
+          // Show +N for overflow
+          const ov = document.createElement('div');
+          ov.style.cssText = 'grid-column:span 6;font-size:9px;color:var(--gold);text-align:center;opacity:.7';
+          ov.textContent = `+${g.count - 12}`;
+          dotsEl.appendChild(ov);
+        }
+
+        countEl.textContent = g.count > 0 ? `${g.count}u` : '—';
+        timeEl.textContent  = g.assignedAt !== null ? fmtMs(g.assignedAt) : '—';
+      }
+
+      prevGroups = groups.map(g => ({ ...g }));
+    }
+
+    // ── Game clock (ticks locally between WS updates) ─────────────────────────
+
+    function updateGameTime(ms, running) {
+      gameTimeMs = ms;
+      clearInterval(gameTimeTimer);
+      gameTimeEl.textContent = fmtMs(ms);
+      if (running) {
+        gameTimeTimer = setInterval(() => {
+          gameTimeMs += 1000;
+          gameTimeEl.textContent = fmtMs(gameTimeMs);
+        }, 1000);
+      }
+    }
+
+    function fmtMs(ms) {
+      const s = Math.floor((ms || 0) / 1000);
+      return `${Math.floor(s / 60)}:${String(s % 60).padStart(2, '0')}`;
+    }
+
+    // ── WebSocket connection ──────────────────────────────────────────────────
+
+    function connect() {
+      discEl.classList.remove('visible');
+      const ws = new WebSocket(`ws://${location.host}`);
+
+      ws.onopen = () => {
+        dotEl.className = 'connected';
+        statusEl.textContent = 'connected — waiting for game';
+        discEl.classList.remove('visible');
+        console.log('[cg] WebSocket connected');
+      };
+
+      ws.onmessage = (e) => {
+        try {
+          const msg = JSON.parse(e.data);
+          if (msg.type === 'state') renderState(msg);
+        } catch (err) {
+          console.warn('[cg] Bad message:', err);
+        }
+      };
+
+      ws.onclose = () => {
+        dotEl.className = 'error';
+        statusEl.textContent = 'disconnected';
+        discMsgEl.textContent = 'watcher not running — start cg-watcher.mjs';
+        discEl.classList.add('visible');
+        clearInterval(gameTimeTimer);
+        setTimeout(connect, 3000);
+      };
+
+      ws.onerror = () => ws.close();
+    }
+
+    connect();
+
+    // ── Hint: show player ID info when not filtered ───────────────────────────
+    // The watcher logs all players' group actions when PLAYER_ID is not set.
+    // On first use, open DevTools console → watch the cg-watcher terminal output
+    // and press Ctrl+1 in-game — the player ID that logs is yours.
+    hintEl.textContent = 'tip: set PLAYER_ID=n in .env if multiple players\' groups overlap';
+  </script>
+</body>
+</html>

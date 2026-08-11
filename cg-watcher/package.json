@@ -1,0 +1,13 @@
+{
+  "name": "wc3-cg-watcher",
+  "version": "1.0.0",
+  "type": "module",
+  "description": "Live control group visualizer for Warcraft III Reforged — parses TempReplay.w3g during gameplay",
+  "scripts": {
+    "start": "node cg-watcher.mjs"
+  },
+  "dependencies": {
+    "chokidar": "^3.6.0",
+    "ws": "^8.18.0"
+  }
+}
