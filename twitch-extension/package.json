@@ -1,0 +1,19 @@
+{
+  "name": "4v4gg-twitch-extension",
+  "version": "1.0.0",
+  "private": true,
+  "scripts": {
+    "dev:viewer": "vite --config vite.config.js",
+    "build": "vite build",
+    "zip": "npm run build && cd dist && zip -r ../extension.zip . && echo 'extension.zip ready for Twitch upload'"
+  },
+  "dependencies": {
+    "d3": "^7.9.0",
+    "react": "^18.3.1",
+    "react-dom": "^18.3.1"
+  },
+  "devDependencies": {
+    "@vitejs/plugin-react": "^4.3.1",
+    "vite": "^5.4.0"
+  }
+}

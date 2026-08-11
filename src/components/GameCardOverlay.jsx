@@ -350,16 +350,15 @@ const GameCardOverlay = ({ matchData, avatarUrls = {}, countries = {}, sessionDa
   const atGroupIdMap = useMemo(() => buildATGroupIdMap(atGroups), [atGroups]);
   const getATGroupId = (tag) => atGroupIdMap[tag.toLowerCase()] || 0;
 
-  const mapName   = matchData.mapName || matchData.map || "";
-  const mapImgUrl = getMapImageUrl(mapName);
+  const mapName     = matchData.mapName || matchData.map || "";
+  const mapImgUrl   = getMapImageUrl(mapName);
+  const serverLabel = matchData.serverInfo?.name || "";
 
   const Header = HEADER_VARIANTS[headerVariant] || HeaderVariant1;
 
   return (
     <Overlay className={slideOut ? "slide-out" : "slide-in"}>
       <Card className="Game">
-        {mapName && <MapLabel>{mapName}</MapLabel>}
-
         <Header team1={team1} team2={team2} team1Mmr={team1Mmr} team2Mmr={team2Mmr} />
 
         <Body>
@@ -384,6 +383,12 @@ const GameCardOverlay = ({ matchData, avatarUrls = {}, countries = {}, sessionDa
             </ChartWrap>
             {mapImgUrl && (
               <MapImg src={mapImgUrl} alt={mapName} onError={e => { e.target.style.display = "none"; }} />
+            )}
+            {(mapName || serverLabel) && (
+              <div style={{ display:"flex", flexDirection:"column", alignItems:"center", gap:3, marginTop:4 }}>
+                {mapName     && <div style={{ fontFamily:"var(--font-display)", fontSize:13, color:"#fff", textTransform:"uppercase", letterSpacing:"0.12em", textAlign:"center", lineHeight:1.2 }}>{mapName}</div>}
+                {serverLabel && <div style={{ fontFamily:"var(--font-mono)", fontSize:11, color:"rgba(255,255,255,0.5)", textTransform:"uppercase", letterSpacing:"0.1em" }}>{serverLabel}</div>}
+              </div>
             )}
           </Center>
 

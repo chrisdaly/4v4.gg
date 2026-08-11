@@ -14,7 +14,8 @@ const GATEWAY_LABELS = { 20: "Europe", 10: "Americas", 30: "Asia" };
 
 const MATCH = {
   mapName: "Painted World",
-  gateway: 20,
+  gateWay: 20,
+  serverName: "Germany Central 4",
   teams: [
     { players: [
       { battleTag: "Lacoste#22218",   name: "Lacoste",   race: 2, currentMmr: 2049 },
@@ -52,7 +53,8 @@ const mmr2  = Math.round(geometricMean(team2.map(p => p.currentMmr)));
 // Highest MMR closest to center: team1 ascending (highest rightmost), team2 descending (highest leftmost)
 const team1Sorted = [...team1].sort((a, b) => a.currentMmr - b.currentMmr);
 const team2Sorted = [...team2].sort((a, b) => b.currentMmr - a.currentMmr);
-const mapImgUrl = getMapImageUrl(MATCH.mapName);
+const mapImgUrl   = getMapImageUrl(MATCH.mapName);
+const serverLabel = MATCH.serverName || GATEWAY_LABELS[MATCH.gateWay] || "";
 
 const ChartData = {
   teamOneMmrs: team1.map(p => p.currentMmr),
@@ -129,10 +131,10 @@ const PlayerCard = ({ player, teamClass, avatarSize = 80, avatarUrls = {}, count
 
 const CardA = styled.div`
   background: linear-gradient(90deg,
-    rgba(77,166,255,0.07) 0%,
-    rgba(6,4,2,0.94) 28%,
-    rgba(6,4,2,0.94) 72%,
-    rgba(239,68,68,0.07) 100%
+    rgba(77,166,255,0.12) 0%,
+    rgba(6,4,2,0.94) 25%,
+    rgba(6,4,2,0.94) 75%,
+    rgba(239,68,68,0.12) 100%
   );
   border-radius: 12px;
   padding: 0;
@@ -238,7 +240,7 @@ const VariantA = ({ avatarUrls, countries }) => (
                 {MATCH.mapName}
               </div>
               <div style={{ fontFamily:"var(--font-mono)", fontSize:11, color:"rgba(255,255,255,0.5)", textTransform:"uppercase", letterSpacing:"0.1em" }}>
-                {GATEWAY_LABELS[MATCH.gateway] || ""}
+                {serverLabel}
               </div>
             </div>
           </div>
@@ -384,7 +386,7 @@ const VariantB = ({ avatarUrls, countries }) => (
                 {MATCH.mapName}
               </div>
               <div style={{ fontFamily:"var(--font-mono)", fontSize:11, color:"rgba(255,255,255,0.5)", textTransform:"uppercase", letterSpacing:"0.1em" }}>
-                {GATEWAY_LABELS[MATCH.gateway] || ""}
+                {serverLabel}
               </div>
             </div>
           </div>

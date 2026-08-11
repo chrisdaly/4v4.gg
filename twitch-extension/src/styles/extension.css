@@ -1,0 +1,551 @@
+/* Font faces — served from /fonts/ in the extension public folder */
+@font-face {
+  font-family: "Friz_Quadrata_Bold";
+  src: url('/fonts/friz-quadrata-std-bold-587034a220f9f-webfont.woff2') format('woff2'),
+       url('/fonts/friz-quadrata-std-bold-587034a220f9f-webfont.woff') format('woff');
+  font-weight: bold;
+  font-display: swap;
+}
+
+@font-face {
+  font-family: "Inconsolata";
+  src: local("Inconsolata"),
+       url('/fonts/Inconsolata-Medium.ttf') format('truetype');
+  font-display: swap;
+}
+
+/* CSS custom properties */
+:root {
+  --gold: #fcdb33;
+  --green: #4ade80;
+  --red: #f87171;
+  --blue: #3b82f6;
+  --grey-light: #bbb;
+  --grey-mid: #444;
+  --grey-dark: #1a1a1a;
+  --white: #fff;
+  --team-blue: #4da6ff;
+  --team-red: #ef4444;
+  --at-purple: #8b5cf6;
+  --surface-1: #2a2a2a;
+  --surface-2: #333;
+  --surface-3: rgba(255,255,255,0.1);
+  --radius-sm: 2px;
+  --radius-md: 4px;
+  --radius-lg: 8px;
+  --font-display: "Friz_Quadrata_Bold", Georgia, serif;
+  --font-mono: "Inconsolata", "SF Mono", Consolas, monospace;
+  --text-xxxs: 11px;
+  --text-xxs: 12px;
+  --text-xs: 14px;
+  --text-sm: 16px;
+  --text-base: 18px;
+}
+
+* {
+  margin: 0;
+  padding: 0;
+  box-sizing: border-box;
+}
+
+h1, h2, h3 {
+  font-family: var(--font-display) !important;
+}
+
+html, body {
+  background: transparent !important;
+  overflow: hidden;
+  width: 100%;
+  height: 100%;
+}
+
+body::before {
+  display: none !important;
+}
+
+#root {
+  width: 100%;
+  height: 100%;
+  background: transparent;
+}
+
+/* ─── D3 Chart SVG styles ─── */
+circle.dot {
+  stroke: var(--gold);
+  fill: var(--gold);
+  stroke-width: 0.5px;
+  stroke-opacity: 0.8;
+}
+
+.dot.dot-team-one {
+  fill: #4da6ff;
+  stroke: #4da6ff;
+}
+
+.dot.dot-team-two {
+  fill: var(--red);
+  stroke: var(--red);
+}
+
+path.line.team-one {
+  stroke: #4da6ff;
+  stroke-width: 1px;
+  stroke-opacity: 0.5;
+}
+
+path.line.team-two {
+  stroke: var(--red);
+  stroke-width: 1px;
+  stroke-opacity: 0.5;
+}
+
+line.team-middle {
+  stroke: rgba(255, 255, 255, 0.12);
+  stroke-width: 1px;
+}
+
+/* ─── Overlay base ─── */
+.minimal-overlay {
+  padding: 16px 20px;
+  border-radius: var(--radius-lg);
+  display: inline-block;
+  animation: mo-fade-in 1.5s ease-out forwards;
+}
+
+.minimal-overlay.slide-out {
+  animation: mo-fade-out 1s ease-in forwards;
+}
+
+@keyframes mo-fade-in {
+  0%   { opacity: 0; filter: drop-shadow(0 0 30px rgba(252,219,51,0.6)); }
+  50%  { opacity: 0.8; filter: drop-shadow(0 0 20px rgba(252,219,51,0.4)); }
+  100% { opacity: 1; filter: none; }
+}
+
+@keyframes mo-fade-out {
+  0%   { opacity: 1; filter: none; }
+  50%  { filter: drop-shadow(0 0 20px rgba(252,219,51,0.4)); }
+  100% { opacity: 0; filter: drop-shadow(0 0 30px rgba(252,219,51,0.6)); }
+}
+
+/* Match style variants */
+.minimal-overlay.match-style-default {
+  background: radial-gradient(ellipse at center, rgba(0,0,0,0.85) 0%, rgba(0,0,0,0.6) 60%, transparent 100%);
+  padding: 20px 40px;
+}
+
+.minimal-overlay.match-style-clean-gold {
+  background: rgba(10,10,12,0.92);
+  border: 1px solid var(--gold);
+  border-radius: var(--radius-md);
+}
+
+.minimal-overlay.match-style-frost {
+  background: rgba(40,50,70,0.55);
+  backdrop-filter: blur(12px);
+  -webkit-backdrop-filter: blur(12px);
+  border: 1px solid rgba(255,255,255,0.12);
+  border-radius: var(--radius-lg);
+}
+
+/* ─── Player row ─── */
+.mo-players-row {
+  display: flex;
+  align-items: center;
+}
+
+.mo-team {
+  display: flex;
+}
+
+.mo-player {
+  width: 100px;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  position: relative;
+  padding: 0 4px;
+}
+
+.mo-race {
+  width: 32px;
+  height: 32px;
+  border-radius: var(--radius-md);
+  margin-bottom: 6px;
+}
+
+.mo-flag-inline {
+  width: 22px;
+  height: 16px;
+  border-radius: var(--radius-sm);
+  box-shadow: 0 1px 3px rgba(0,0,0,0.6);
+}
+
+.mo-name {
+  font-family: var(--font-display);
+  font-size: var(--text-sm);
+  color: var(--gold);
+  margin-bottom: 4px;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  max-width: 95px;
+  text-align: center;
+}
+
+.mo-name.is-at {
+  border-bottom: 2px solid #9b59b6;
+  padding-bottom: 2px;
+}
+
+.mo-team.team-blue {
+  border-left: 3px solid var(--blue);
+  padding-left: 8px;
+}
+
+.mo-team.team-red {
+  border-right: 3px solid #ef4444;
+  padding-right: 8px;
+}
+
+.mo-mmr {
+  font-family: var(--font-mono);
+  font-size: var(--text-sm);
+  color: var(--white);
+}
+
+.mo-at-line {
+  position: absolute;
+  right: -8px;
+  top: 40%;
+  width: 16px;
+  height: 3px;
+  background: #9b59b6;
+  border-radius: var(--radius-sm);
+  z-index: 5;
+}
+
+.mo-stat {
+  height: 20px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  transition: opacity 0.8s ease;
+}
+
+.mo-stat.fading {
+  opacity: 0;
+}
+
+/* ─── Chart ─── */
+.mo-center {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  flex-shrink: 0;
+  position: relative;
+}
+
+.mo-chart {
+  width: 200px;
+  height: 80px;
+  position: relative;
+  flex-shrink: 0;
+  overflow: visible;
+  padding: 0 6px;
+}
+
+.mo-chart svg {
+  display: block;
+  width: 100%;
+  overflow: visible;
+  height: 100%;
+}
+
+/* ─── Session dots ─── */
+.mo-session-dots {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 2px;
+  justify-content: center;
+  align-items: center;
+  max-width: 60px;
+}
+
+.mo-dot {
+  width: 6px;
+  height: 6px;
+  border-radius: 50%;
+}
+
+.mo-dot.latest {
+  width: 8px;
+  height: 8px;
+}
+
+.mo-dot.win  { background: var(--green); }
+.mo-dot.loss { background: var(--red); }
+
+/* ─── Config page ─── */
+.ext-config {
+  min-height: 100vh;
+  background: #0e0e10;
+  color: #fff;
+  padding: 24px;
+  font-family: -apple-system, BlinkMacSystemFont, "Helvetica Neue", Arial, sans-serif;
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+}
+
+.ext-config-logo {
+  font-family: var(--font-display);
+  font-size: 28px;
+  color: var(--gold);
+}
+
+.ext-config-desc {
+  color: #adadb8;
+  font-size: 14px;
+  line-height: 1.5;
+}
+
+.ext-config-current {
+  background: #1f1f23;
+  border: 1px solid #444;
+  border-radius: 4px;
+  padding: 12px;
+  font-size: 14px;
+  color: #adadb8;
+}
+
+.ext-config-form {
+  display: flex;
+  gap: 8px;
+}
+
+.ext-config-input {
+  flex: 1;
+  background: #1f1f23;
+  border: 1px solid #444;
+  border-radius: 4px;
+  padding: 8px 12px;
+  color: #fff;
+  font-size: 14px;
+  outline: none;
+}
+
+.ext-config-input:focus {
+  border-color: #9146ff;
+}
+
+.ext-config-btn {
+  background: #9146ff;
+  border: none;
+  border-radius: 4px;
+  padding: 8px 16px;
+  color: #fff;
+  font-size: 14px;
+  cursor: pointer;
+  font-weight: 600;
+  white-space: nowrap;
+}
+
+.ext-config-btn:hover {
+  background: #772ce8;
+}
+
+.ext-config-btn.saved {
+  background: var(--green);
+  color: #000;
+}
+
+.ext-config-note {
+  color: #adadb8;
+  font-size: 12px;
+  line-height: 1.5;
+}
+
+/* ─── GameFoundScreen layout (gi-) ─── */
+/* Player card internals use Game.css classes directly — no duplication here */
+
+.gi-screen {
+  position: fixed;
+  inset: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 200;
+  background: transparent;
+}
+
+.gi-screen.gi-in  { animation: gi-in  0.7s cubic-bezier(0.22, 1, 0.36, 1) forwards; }
+.gi-screen.gi-out { animation: gi-out 1.2s ease-in forwards; }
+
+@keyframes gi-in  { from { opacity: 0; transform: translateY(10px); } to { opacity: 1; transform: none; } }
+@keyframes gi-out { from { opacity: 1; } to { opacity: 0; } }
+
+.gi-card {
+  background: linear-gradient(90deg,
+    rgba(77,166,255,0.12) 0%,
+    rgba(6,4,2,0.94) 25%,
+    rgba(6,4,2,0.94) 75%,
+    rgba(239,68,68,0.12) 100%
+  );
+  border: 1px solid rgba(252, 219, 51, 0.3);
+  border-radius: var(--radius-lg);
+  padding: 14px 20px 20px;
+  width: 96%;
+  max-width: 980px;
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  backdrop-filter: blur(8px);
+  -webkit-backdrop-filter: blur(8px);
+}
+
+/* ─── Team header row ─── */
+.gi-header-row {
+  display: flex;
+  align-items: center;
+  padding-bottom: 8px;
+}
+
+.gi-team-header {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 8px;
+  flex: 1;
+}
+
+.gi-header-vs {
+  font-family: var(--font-display);
+  font-size: var(--text-lg);
+  color: rgba(255,255,255,0.28);
+  padding: 0 20px;
+  flex-shrink: 0;
+}
+
+/* ─── Body: players + center ─── */
+.gi-body {
+  display: flex;
+  align-items: flex-start;
+  padding: 18px 0 0;
+  gap: 0;
+}
+
+.gi-team {
+  display: flex;
+  flex-direction: row;
+  align-items: flex-start;
+  flex: 1;
+  min-width: 0;
+  overflow: hidden;
+  gap: 4px;
+}
+
+.gi-team-1 { padding-right: 12px; }
+.gi-team-2 { padding-left:  12px; }
+
+/* ─── Center: chart + minimap ─── */
+.gi-center {
+  flex-shrink: 0;
+  width: 160px;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 10px;
+  padding: 0 10px;
+}
+
+.gi-chart-wrap {
+  width: 100%;
+  height: 130px;
+}
+
+.gi-map-img {
+  width: 88px;
+  height: 88px;
+  object-fit: cover;
+  border-radius: var(--radius-md);
+  border: 1px solid rgba(184, 134, 11, 0.4);
+  opacity: 0.88;
+}
+
+.gi-map-info {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 3px;
+  margin-top: 4px;
+}
+
+.gi-map-name {
+  font-family: var(--font-display);
+  font-size: 13px;
+  color: #fff;
+  text-transform: uppercase;
+  letter-spacing: 0.12em;
+  text-align: center;
+  line-height: 1.2;
+}
+
+.gi-server-label {
+  font-family: var(--font-mono);
+  font-size: 11px;
+  color: rgba(255,255,255,0.5);
+  text-transform: uppercase;
+  letter-spacing: 0.1em;
+}
+
+.gi-game-time {
+  font-family: var(--font-mono);
+  font-size: var(--text-base);
+  color: rgba(255,255,255,0.55);
+  letter-spacing: 0.08em;
+}
+
+/* ─── Game.css overrides for extension context ─── */
+
+/* profile-pic base size — match lab (80px) */
+.gi-card .profile-pic {
+  width: 80px;
+  position: relative;
+  z-index: 1;
+}
+
+/* playerDiv: fluid width instead of fixed 160px */
+.gi-card .playerDiv {
+  width: auto;
+  flex: 1;
+  min-width: 0;
+  padding: 0 4px;
+}
+
+/* race icon fallback (no avatar) */
+.gi-card .gi-race-avatar {
+  object-fit: contain;
+  background: rgba(0,0,0,0.3);
+  padding: 10px;
+  border: 2px solid rgba(255,255,255,0.08);
+  border-radius: var(--radius-md);
+}
+
+/* player name: gold + size match lab (font-family comes from global h2 rule) */
+.gi-card .player-name-row h2 {
+  color: var(--gold);
+  font-size: var(--text-sm);
+  font-family: var(--font-display) !important;
+}
+
+/* MMR number */
+.gi-card .mmr-value {
+  font-size: var(--text-base);
+}
+
+/* team header name: gold */
+.gi-card h2.team-name {
+  color: var(--gold);
+  font-family: var(--font-display);
+}
