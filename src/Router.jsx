@@ -47,6 +47,8 @@ const ReplayAnalysis = lazy(() => import("./pages/ReplayAnalysis"));
 const OverlayIndex = lazy(() => import("./pages/overlay/OverlayIndex"));
 const MatchOverlayPage = lazy(() => import("./pages/overlay/MatchOverlayPage"));
 const OverlayGuide = lazy(() => import("./pages/overlay/OverlayGuide"));
+const CardOverlayPage = lazy(() => import("./pages/overlay/CardOverlayPage"));
+const CardOverlayLab  = lazy(() => import("./pages/overlay/CardOverlayLab"));
 // Future: Player and Last Game overlays (components kept in pages/overlay/)
 // const PlayerOverlayPage = lazy(() => import("./pages/overlay/PlayerOverlayPage"));
 // const LastGameOverlayPage = lazy(() => import("./pages/overlay/LastGameOverlayPage"));
@@ -104,6 +106,12 @@ const Router = () => (
         {/* Stream overlays - no Navbar (actual OBS sources) */}
         <Route path="/overlay/match">
           <Suspense fallback={<PageLoader />}><MatchOverlayPage /></Suspense>
+        </Route>
+        <Route path="/overlay/card/:tag?">
+          <Suspense fallback={null}><CardOverlayPage /></Suspense>
+        </Route>
+        <Route path="/overlay/card-lab">
+          <Suspense fallback={null}><CardOverlayLab /></Suspense>
         </Route>
         <Route path="/stream/:tag?">
           <Suspense fallback={<PageLoader />}><PlayerStream /></Suspense>
