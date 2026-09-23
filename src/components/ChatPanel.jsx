@@ -1398,16 +1398,21 @@ export default function ChatPanel({
   }, []);
 
   // Prepends go through Virtuoso's firstItemIndex (see the memo below), so
-  // the viewport stays anchored without any scrollHeight arithmetic here
+  // the viewport stays anchored without any scrollHeight arithmetic here.
+  // The ref guard is synchronous: startReached and the button can both fire
+  // before the loading state has rendered.
+  const olderInFlightRef = useRef(false);
   const handleLoadOlder = useCallback(async () => {
-    if (!loadOlder || loadingOlder) return;
+    if (!loadOlder || olderInFlightRef.current) return;
+    olderInFlightRef.current = true;
     setLoadingOlder(true);
     try {
       await loadOlder();
     } finally {
+      olderInFlightRef.current = false;
       setLoadingOlder(false);
     }
-  }, [loadOlder, loadingOlder]);
+  }, [loadOlder]);
 
   const handleBotTest = useCallback(async (e) => {
     e.preventDefault();
@@ -1436,7 +1441,27 @@ export default function ChatPanel({
   }, [botDraft, apiKey, botTesting]);
 
   const { botResponseMap, unmatchedBotResponses } = useBotResponseMap(botResponses, messages);
-  const messageSegments = useMessageSegments(messages);
+  // Prepend boundaries: the id of the earliest message before each page of
+  // older history. Grouping never merges across one, so the row that was
+  // first before the prepend keeps its key and its lines; Virtuoso anchors
+  // the viewport to that row by index (see the firstItemIndex memo). A
+  // prepend is recognised by the previous first message still being loaded
+  // but no longer first; a replaced window resets.
+  const boundaryRef = useRef({ windowId, firstId: null, ids: new Set() });
+  const boundaryIds = useMemo(() => {
+    const firstId = messages[0]?.id ?? null;
+    if (boundaryRef.current.windowId !== windowId) {
+      boundaryRef.current = { windowId, firstId, ids: new Set() };
+      return boundaryRef.current.ids;
+    }
+    const b = boundaryRef.current;
+    if (b.firstId !== null && firstId !== b.firstId && messages.some((m) => m.id === b.firstId)) {
+      b.ids = new Set(b.ids).add(b.firstId);
+    }
+    b.firstId = firstId;
+    return b.ids;
+  }, [messages, windowId]);
+  const messageSegments = useMessageSegments(messages, boundaryIds);
 
   // One list row per message group (author + consecutive lines within 2 min)
   // or system message, plus game events woven in by timestamp when the Games
@@ -1463,53 +1488,65 @@ export default function ChatPanel({
     return items.sort((a, b) => a.time - b.time);
   }, [messageSegments, gameEvents, showTickers]);
 
-  // Date divider + "new" marker flags, decided across group-start rows only.
-  // Event rows learn whether they open or close a run of consecutive
-  // tickers (GameTicker draws one block per run).
+  // Day dividers are rows of their own (keyed by day) ahead of the first
+  // message or system row of each day, so paging in older history from the
+  // same day never changes an existing row's height. The "new" marker is a
+  // flag on the first message row past newMarkerTime. Event rows learn
+  // whether they open or close a run of consecutive tickers (GameTicker
+  // draws one block per run).
   const rows = useMemo(() => {
-    let prevSegTime = null;
+    const out = [];
+    let prevDay = null;
     let newMarkerShown = false;
-    return renderItems.map((item, i) => {
+    renderItems.forEach((item, i) => {
       if (item.kind === "event") {
-        return {
+        out.push({
           ...item,
           runStart: renderItems[i - 1]?.kind !== "event",
           runEnd: renderItems[i + 1]?.kind !== "event",
-        };
+        });
+        return;
       }
-      if (item.kind !== "group" && item.kind !== "system") return item;
-      const msgTime = item.msg.sentAt;
-      const showDateDivider = prevSegTime === null || getDateKey(prevSegTime) !== getDateKey(msgTime);
+      if (item.kind !== "group" && item.kind !== "system") {
+        out.push(item);
+        return;
+      }
+      const day = getDateKey(item.msg.sentAt);
+      if (day !== prevDay) {
+        out.push({ kind: "divider", key: `day:${day}`, time: item.time, sentAt: item.msg.sentAt });
+        prevDay = day;
+      }
       const showNewMarker = !newMarkerShown && newMarkerTime != null && item.time > newMarkerTime;
       if (showNewMarker) newMarkerShown = true;
-      prevSegTime = msgTime;
-      return { ...item, showDateDivider, showNewMarker };
+      out.push({ ...item, showNewMarker });
     });
+    return out;
   }, [renderItems, newMarkerTime]);
 
-  // Virtuoso keeps the viewport anchored across prepends when firstItemIndex
-  // drops by the number of rows added ahead of the previous first row, in
-  // the same render as the data change. Removals at the head leave it alone.
-  const headRef = useRef({ key: null, time: 0, index: FIRST_ITEM_BASE, windowId });
+  // Virtuoso keeps the viewport still across changes at the head of the
+  // list as long as firstItemIndex moves, in the same render as the data,
+  // by exactly the number of rows added ahead of (or removed from ahead
+  // of) a row that survives the change. The anchor is the first message or
+  // event row of the new list that was already in the previous one; day
+  // divider rows are skipped because a divider moves ahead of older rows
+  // from its own day. Prepends decrease the index, head trims (live cap,
+  // deletions) increase it, appends leave it alone.
+  const headRef = useRef({ keys: null, index: FIRST_ITEM_BASE, windowId });
   const firstItemIndex = useMemo(() => {
     // A replaced window (jump to date, back to live) remounts the list, so
     // its anchor starts over
     if (headRef.current.windowId !== windowId) {
-      headRef.current = { key: null, time: 0, index: FIRST_ITEM_BASE, windowId };
+      headRef.current = { keys: null, index: FIRST_ITEM_BASE, windowId };
     }
     const head = headRef.current;
-    const first = rows[0];
-    if (!first) return head.index;
     let index = head.index;
-    if (head.key !== null && head.key !== first.key) {
-      let added = rows.findIndex((r) => r.key === head.key);
-      if (added === -1) {
-        added = 0;
-        while (added < rows.length && rows[added].time < head.time) added++;
-      }
-      index -= added;
+    if (head.keys) {
+      const at = rows.findIndex((r) => r.kind !== "divider" && head.keys.has(r.key));
+      if (at !== -1) index += head.keys.get(rows[at].key) - at;
     }
-    headRef.current = { key: first.key, time: first.time, index, windowId };
+    const keys = new Map();
+    rows.forEach((r, i) => keys.set(r.key, i));
+    headRef.current = { keys, index, windowId };
     return index;
   }, [rows, windowId]);
 
@@ -1616,21 +1653,19 @@ export default function ChatPanel({
       );
     }
 
+    if (row.kind === "divider") {
+      const isFirstRow = index - firstItemIndex === 0;
+      return (
+        <DateDivider $first={isFirstRow && !showLoadOlder}>
+          <DateLabel>{formatDateDivider(row.sentAt)}</DateLabel>
+        </DateDivider>
+      );
+    }
+
     const msg = row.msg;
-    const msgTime = msg.sentAt;
-    const isFirstRow = index - firstItemIndex === 0;
-    const dividers = (
-      <>
-        {row.showDateDivider && (
-          <DateDivider $first={isFirstRow && !showLoadOlder}>
-            <DateLabel>{formatDateDivider(msgTime)}</DateLabel>
-          </DateDivider>
-        )}
-        {row.showNewMarker && (
-          <NewDivider><NewDividerLabel>new</NewDividerLabel></NewDivider>
-        )}
-      </>
-    );
+    const dividers = row.showNewMarker ? (
+      <NewDivider><NewDividerLabel>new</NewDividerLabel></NewDivider>
+    ) : null;
 
     // System message
     if (row.kind === "system") {

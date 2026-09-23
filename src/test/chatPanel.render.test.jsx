@@ -20,7 +20,7 @@ vi.mock('react-virtuoso', () => ({
       <div data-testid="virtuoso">
         {Header && <Header context={context} />}
         {data.map((row, i) => (
-          <div key={computeItemKey(firstItemIndex + i, row)} data-index={firstItemIndex + i}>
+          <div key={computeItemKey(firstItemIndex + i, row)} data-key={computeItemKey(firstItemIndex + i, row)} data-index={firstItemIndex + i}>
             {itemContent(firstItemIndex + i, row, context)}
           </div>
         ))}
@@ -131,6 +131,102 @@ function resetHidden() {
   delete document.hidden;
   delete document.visibilityState;
 }
+
+describe('ChatPanel history prepend', () => {
+  // Rows as the fake Virtuoso renders them: absolute index and key
+  const domRows = () => Array.from(document.querySelectorAll('[data-index]')).map((el) => ({
+    el, index: Number(el.dataset.index), key: el.dataset.key,
+  }));
+  const rowOf = (msgId) => document.getElementById(`msg-${msgId}`).closest('[data-index]');
+  const lineCount = (rowEl) => rowEl.querySelectorAll('[id^="msg-"]').length;
+
+  it('keeps the viewport anchor when older history loads, even from the same author', async () => {
+    // Earliest loaded row is a Grubby group (a1, a2). The page of older
+    // history ends with 3 Grubby lines within 2 min of a1: without a
+    // boundary they would merge into that group, changing its key and its
+    // height, and the anchor row would slide.
+    const initial = messages.filter((m) => m.id !== 'sys1');
+    const older = [];
+    for (let i = 0; i < 27; i++) {
+      const tag = ['Alpha#1', 'Beta#2', 'Gamma#3'][i % 3];
+      older.push(msg(`o${i}`, tag, -600000 + i * 10000, `older ${i}`));
+    }
+    older.push(msg('g1', 'Grubby#1', -90000, 'grubby earlier 1'));
+    older.push(msg('g2', 'Grubby#1', -60000, 'grubby earlier 2'));
+    older.push(msg('g3', 'Grubby#1', -30000, 'grubby earlier 3'));
+
+    const loadOlder = vi.fn();
+    let resolveLoad;
+    function Harness() {
+      const [msgs, setMsgs] = React.useState(initial);
+      const load = React.useCallback(() => {
+        loadOlder();
+        return new Promise((resolve) => {
+          resolveLoad = () => {
+            setMsgs((prev) => [...older, ...prev]);
+            resolve({ added: older.length });
+          };
+        });
+      }, []);
+      return (
+        <MemoryRouter>
+          <ChatPanel
+            messages={msgs} status="connected" avatars={avatars} stats={stats} sessions={new Map()}
+            inGameTags={new Set()} inGameInfoMap={new Map()} recentWinners={new Set()} recentDeltas={new Map()}
+            gameEvents={[]} ongoingMatchIds={new Set()} liveStreamers={new Map()} watchList={new Set()}
+            onlineUsers={[]} botResponses={[]} translations={new Map()}
+            loadOlder={load} hasMoreHistory
+          />
+        </MemoryRouter>
+      );
+    }
+    const keyWarnings = vi.spyOn(console, 'error').mockImplementation(() => {});
+    render(<Harness />);
+
+    const before = domRows();
+    const firstBefore = before[0].index;
+    const anchorBefore = rowOf('a1');
+    const anchorIndexBefore = Number(anchorBefore.dataset.index);
+    const anchorKeyBefore = anchorBefore.dataset.key;
+    expect(lineCount(anchorBefore)).toBe(2);
+    // Day divider is its own row ahead of the first message row
+    expect(before[0].key).toMatch(/^day:/);
+    expect(anchorIndexBefore).toBe(firstBefore + 1);
+
+    // Two triggers while the fetch is in flight load once
+    const button = screen.getByRole('button', { name: 'Load earlier messages' });
+    fireEvent.click(button);
+    fireEvent.click(button);
+    expect(loadOlder).toHaveBeenCalledTimes(1);
+
+    await act(async () => {
+      resolveLoad();
+    });
+    await waitFor(() => expect(document.getElementById('msg-o0')).toBeInTheDocument());
+
+    const after = domRows();
+    const added = after.length - before.length;
+    // 27 single-line groups + 1 separate Grubby group; the divider moved
+    expect(added).toBe(28);
+    expect(after[0].index).toBe(firstBefore - added);
+
+    // The previously first message row keeps its key, its index and its lines
+    const anchorAfter = rowOf('a1');
+    expect(anchorAfter.dataset.key).toBe(anchorKeyBefore);
+    expect(Number(anchorAfter.dataset.index)).toBe(anchorIndexBefore);
+    expect(lineCount(anchorAfter)).toBe(2);
+    // The same-author page forms its own group right above it
+    const grubbyOlder = rowOf('g1');
+    expect(lineCount(grubbyOlder)).toBe(3);
+    expect(Number(grubbyOlder.dataset.index)).toBe(anchorIndexBefore - 1);
+
+    // No duplicate keys, indices consecutive
+    const keys = after.map((r) => r.key);
+    expect(new Set(keys).size).toBe(keys.length);
+    after.forEach((r, i) => expect(r.index).toBe(after[0].index + i));
+    expect(keyWarnings.mock.calls.filter((c) => String(c[0]).includes('same key'))).toHaveLength(0);
+  });
+});
 
 describe('ChatPanel rows', () => {
   it('renders groups, system rows, tickers, bot rows, translations and chips', () => {

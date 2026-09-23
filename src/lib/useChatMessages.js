@@ -3,13 +3,19 @@ import { useMemo } from "react";
 /**
  * Groups consecutive messages from the same user (within 2 min)
  * into message segments for Discord-style rendering.
+ *
+ * `boundaryIds` (optional Set of message ids) forces a group to start at
+ * those messages even when the author matches: the chat list anchors its
+ * viewport to the row that was first before a page of older history came
+ * in, so that row must keep its key and its lines rather than being merged
+ * into a group that starts among the prepended messages.
  */
-export function useMessageSegments(messages) {
+export function useMessageSegments(messages, boundaryIds = null) {
   return useMemo(() => {
     const segments = [];
     for (let i = 0; i < messages.length; i++) {
       const msg = messages[i];
-      let isGroupStart = i === 0;
+      let isGroupStart = i === 0 || Boolean(boundaryIds?.has(msg.id));
       if (!isGroupStart) {
         const prev = messages[i - 1];
         if (prev.battleTag !== msg.battleTag) {
@@ -27,7 +33,7 @@ export function useMessageSegments(messages) {
       }
     }
     return segments;
-  }, [messages]);
+  }, [messages, boundaryIds]);
 }
 
 /**
