@@ -19,8 +19,8 @@ import { formatGameMinutes } from "./chat/chip";
  * (joined over 3h ago, not in a game) are dimmed.
  */
 
-const ROW_HEIGHT = 36; // px, one roster row
-const AVATAR = 28; // px, row avatar (radius-sm)
+const ROW_HEIGHT = 40; // px, one roster row
+const AVATAR = 32; // px, row avatar (radius-sm)
 
 /* ── Frame ─────────────────────────────────────────────────────────── */
 
@@ -170,7 +170,7 @@ const WatchingLabel = styled.div`
 const rowStyles = css`
   display: flex;
   align-items: center;
-  gap: var(--space-3);
+  gap: var(--space-2);
   height: ${ROW_HEIGHT}px;
   padding: 0 var(--space-2);
   border-radius: var(--radius-sm);
