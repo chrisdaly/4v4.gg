@@ -5,12 +5,11 @@ import styled from "styled-components";
 import { GiCrossedSwords } from "react-icons/gi";
 import { HiKey, HiBell, HiSearch, HiTranslate, HiOutlineArrowsExpand } from "react-icons/hi";
 import { IoSend } from "react-icons/io5";
-import { raceIcons } from "../lib/constants";
 import { Button, Skeleton, Input } from "./ui";
-import { useMessageSegments, useBotResponseMap, formatDateDivider, getDateKey, formatDateTime } from "../lib/useChatMessages";
+import { useMessageSegments, useBotResponseMap, formatDateDivider, getDateKey } from "../lib/useChatMessages";
 import { linkifyMessage, playPing } from "../lib/chatExtras";
 import PlayerHoverCard from "./PlayerHoverCard";
-import ChatMessage, { FeedText } from "./chat/ChatMessage";
+import ChatMessage from "./chat/ChatMessage";
 import GameTicker from "./chat/GameTicker";
 import { chipForTag } from "./chat/chip";
 import { getPlayerProfile } from "../lib/api";
@@ -569,57 +568,124 @@ const SystemWrap = styled.div`
   padding-top: var(--space-2);
 `;
 
-const SearchBar = styled.div`
+const SearchPanel = styled.div`
   display: flex;
-  align-items: center;
+  flex-direction: column;
   gap: var(--space-2);
   padding: var(--space-2) var(--space-4);
   border-bottom: 1px solid rgba(252, 219, 51, 0.15);
   flex-shrink: 0;
+
+  @media (max-width: 768px) {
+    padding: var(--space-2) var(--space-2);
+  }
+`;
+
+const SearchRow = styled.div`
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: var(--space-2);
 `;
 
 const SearchField = styled(Input)`
-  flex: 1;
+  flex: 1 1 200px;
   min-width: 0;
   padding: 6px var(--space-2);
   outline: none;
+`;
+
+const PlayerFieldWrap = styled.div`
+  position: relative;
+  flex: 0 1 200px;
+  min-width: 0;
+
+  @media (max-width: 640px) {
+    flex: 1 1 100%;
+  }
+`;
+
+const PlayerField = styled(Input)`
+  width: 100%;
+  padding: 6px var(--space-2);
+  outline: none;
+`;
+
+const RangeGroup = styled.div`
+  display: flex;
+  align-items: center;
+  gap: var(--space-1);
+`;
+
+const RangePill = styled(Button)`
+  font-size: var(--text-xxxs);
+  letter-spacing: 0.1em;
+  padding: 2px var(--space-3);
+  white-space: nowrap;
+`;
+
+const ResultCount = styled.span`
+  margin-left: auto;
+  font: var(--text-xxs) var(--font-mono);
+  text-transform: uppercase;
+  letter-spacing: 0.1em;
+  color: var(--grey-light);
+  white-space: nowrap;
 `;
 
 const SearchResults = styled.div`
   flex: 1;
   overflow-y: auto;
   padding: var(--space-2) var(--space-4);
-`;
 
-const SearchResultRow = styled.button`
-  display: flex;
-  align-items: flex-start;
-  gap: var(--space-2);
-  width: 100%;
-  text-align: left;
-  background: none;
-  border: none;
-  border-bottom: 1px solid rgba(255, 255, 255, 0.04);
-  padding: var(--space-2) var(--space-1);
-  font-size: var(--text-xs);
-  cursor: pointer;
-  border-radius: var(--radius-sm);
+  @media (max-width: 768px) {
+    padding: var(--space-2) var(--space-2);
+  }
 
-  &:hover {
-    background: rgba(255, 255, 255, 0.04);
+  &::-webkit-scrollbar {
+    width: 6px;
+  }
+  &::-webkit-scrollbar-track {
+    background: transparent;
+  }
+  &::-webkit-scrollbar-thumb {
+    background: var(--grey-mid);
+    border-radius: var(--radius-sm);
   }
 `;
 
-const SearchAvatar = styled.img`
-  width: 28px;
-  height: 28px;
-  border-radius: var(--radius-sm);
-  flex-shrink: 0;
-  ${(p) => p.$placeholder && "padding: 4px; background: rgba(255,255,255,0.06); opacity: 0.5; box-sizing: border-box;"}
+/* A result is the transcript row itself; the whole row jumps into the
+   stream, the name inside it filters by that player instead */
+const SearchResultRow = styled.div`
+  border-radius: var(--radius-md);
+  cursor: pointer;
+  transition: background var(--transition);
+
+  &:hover,
+  &:focus-visible {
+    background: rgba(255, 255, 255, 0.04);
+    outline: none;
+  }
+
+  &[aria-disabled="true"] {
+    cursor: progress;
+    opacity: 0.7;
+  }
 `;
 
-const SearchResultBody = styled.div`
-  min-width: 0;
+const ResultDivider = styled.div`
+  display: flex;
+  align-items: center;
+  gap: var(--space-4);
+  margin: ${(p) => (p.$first ? "var(--space-1)" : "var(--space-4)")} 0 var(--space-1);
+
+  &::before,
+  &::after {
+    content: "";
+    flex: 1;
+    height: 1px;
+    background: rgba(var(--gold-muted-rgb), 0.15);
+  }
 `;
 
 const Mark = styled.span`
@@ -629,27 +695,26 @@ const Mark = styled.span`
   padding: 0 1px;
 `;
 
-const SearchResultMeta = styled.div`
-  font-family: var(--font-mono);
-  font-size: var(--text-xxxs);
+const SearchEmpty = styled.div`
+  padding: var(--space-6) var(--space-4);
+  text-align: center;
+  font-family: var(--font-body);
+  font-size: var(--text-xs);
+  line-height: 1.5;
   color: var(--grey-light);
-  margin-bottom: 2px;
-
-  a {
-    color: var(--gold);
-    text-decoration: none;
-    &:hover {
-      text-decoration: underline;
-    }
-  }
 `;
 
-const SearchEmpty = styled.div`
-  padding: var(--space-4);
-  text-align: center;
-  font-family: var(--font-mono);
-  font-size: var(--text-xxs);
-  color: var(--grey-light);
+const MoreRow = styled.div`
+  display: flex;
+  justify-content: center;
+  padding: var(--space-3) 0 var(--space-2);
+`;
+
+const SkeletonRow = styled.div`
+  display: flex;
+  gap: var(--space-3);
+  align-items: flex-start;
+  padding: var(--space-2) var(--space-2);
 `;
 
 /* ── History + unread markers ──────────────────── */
@@ -705,9 +770,7 @@ const NewDividerLabel = styled.span`
 
 const MentionMenu = styled.div`
   position: absolute;
-  bottom: 100%;
-  left: 48px;
-  margin-bottom: 4px;
+  ${(p) => (p.$below ? "top: 100%; left: 0; right: 0; margin-top: 4px;" : "bottom: 100%; left: 48px; margin-bottom: 4px;")}
   background: rgba(15, 12, 8, 0.98);
   border: 1px solid rgba(var(--gold-muted-rgb), 0.4);
   border-radius: var(--radius-md);
@@ -750,6 +813,54 @@ function highlightMatches(text, query) {
   if (parts.length === 0) return text;
   if (i < text.length) parts.push(text.slice(i));
   return parts;
+}
+
+// Online users whose name starts with `prefix`: the composer's @mention
+// menu and the search panel's player filter share this
+function matchMentionCandidates(prefix, onlineUsers) {
+  const q = prefix.toLowerCase();
+  return onlineUsers.filter((u) => (u.name || "").toLowerCase().startsWith(q)).slice(0, 6);
+}
+
+/* ── Search panel ──────────────────────────────── */
+
+const SEARCH_RANGES = [
+  { key: "24h", label: "24h" },
+  { key: "7d", label: "7d" },
+  { key: "30d", label: "30d" },
+  { key: "all", label: "All" },
+];
+const SEARCH_DEFAULT_SINCE = "7d";
+const SEARCH_PAGE_SIZE = 50;
+const SEARCH_DEBOUNCE_MS = 300;
+const SEARCH_MIN_CHARS = 2;
+
+// /chat?q=&player=&since= is the shareable form of a search
+function readSearchUrl() {
+  try {
+    const sp = new URLSearchParams(window.location.search);
+    const q = sp.get("q") || "";
+    const player = sp.get("player") || "";
+    const sinceRaw = sp.get("since");
+    const since = SEARCH_RANGES.some((r) => r.key === sinceRaw) ? sinceRaw : SEARCH_DEFAULT_SINCE;
+    return { q, player, since, open: Boolean(q.trim() || player.trim()) };
+  } catch {
+    return { q: "", player: "", since: SEARCH_DEFAULT_SINCE, open: false };
+  }
+}
+
+async function fetchSearchPage({ q, player, since, offset }) {
+  const sp = new URLSearchParams();
+  if (q) sp.set("q", q);
+  if (player) sp.set("player", player);
+  sp.set("since", since);
+  sp.set("limit", String(SEARCH_PAGE_SIZE));
+  sp.set("offset", String(offset));
+  const res = await relayFetch(`/api/chat/search?${sp.toString()}`);
+  if (!res.ok) throw new Error(`search failed: ${res.status}`);
+  const data = await res.json();
+  const results = normalizeMessages(data.results || []);
+  return { results, total: typeof data.total === "number" ? data.total : results.length };
 }
 
 // Relay-side states (server/src/signalr.js) that are not a client reconnect
@@ -886,10 +997,24 @@ export default function ChatPanel({
   const [focusOn, setFocusOn] = useState(() => readPref("chat:focus", false));
   // Expanded game tickers, per event id (not persisted)
   const [expandedEvents, setExpandedEvents] = useState(() => new Set());
-  const [searchOpen, setSearchOpen] = useState(false);
-  const [searchQuery, setSearchQuery] = useState("");
+  // Search panel; the initial state comes from the URL so a shared link
+  // opens straight onto its results
+  const [initialSearch] = useState(readSearchUrl);
+  const [searchOpen, setSearchOpen] = useState(initialSearch.open);
+  const [searchQuery, setSearchQuery] = useState(initialSearch.q);
+  const [searchPlayer, setSearchPlayer] = useState(initialSearch.player);
+  const [searchSince, setSearchSince] = useState(initialSearch.since);
+  // null = nothing searched yet; [] = searched, no hits
   const [searchResults, setSearchResults] = useState(null);
+  const [searchTotal, setSearchTotal] = useState(0);
   const [searching, setSearching] = useState(false);
+  const [searchingMore, setSearchingMore] = useState(false);
+  const [searchError, setSearchError] = useState(false);
+  const [playerFieldFocused, setPlayerFieldFocused] = useState(false);
+  // A result outside the loaded window: replace the window, then jump once
+  // the new one is in (windowId bumps)
+  const [windowJump, setWindowJump] = useState(null);
+  const searchReqRef = useRef(0);
   const [loadingOlder, setLoadingOlder] = useState(false);
   const [newMarkerTime, setNewMarkerTime] = useState(null);
   const [searchAvatars, setSearchAvatars] = useState(new Map());
@@ -968,10 +1093,40 @@ export default function ChatPanel({
     }
   }, [loadOlder]);
 
-  const jumpToMessage = useCallback(async (result) => {
-    await jumpToId(result.id, result.receivedAt);
+  // Search hit -> the stream. A hit whose message is already loaded scrolls
+  // straight to it; anything outside the loaded window (older, or newer
+  // than an archive window) replaces the window with the 100 messages up
+  // to the hit, and the windowJump effect finishes the jump once the new
+  // window has rendered.
+  const jumpToResult = useCallback(async (result) => {
+    if (result.id == null) return;
     setSearchOpen(false);
-  }, [jumpToId]);
+    const at = result.receivedAt ? new Date(`${String(result.receivedAt).replace(" ", "T")}Z`) : null;
+    const canReload = Boolean(loadWindow) && at && !Number.isNaN(at.getTime());
+    if (messagesRef.current.some((m) => m.id === result.id) || !canReload) {
+      jumpToId(result.id, result.receivedAt);
+      return;
+    }
+    setLoadingWindow(true);
+    setWindowJump({ id: result.id, receivedAt: result.receivedAt, fromWindowId: windowId });
+    try {
+      // `before` is exclusive and received_at has second precision: +1s
+      // keeps the hit itself inside the window
+      await loadWindow(toRelayCursor(new Date(at.getTime() + 1000)));
+    } catch {
+      setWindowJump(null);
+    } finally {
+      setLoadingWindow(false);
+    }
+  }, [jumpToId, loadWindow, windowId]);
+
+  // messagesRef is refreshed by an earlier effect, so jumpToId sees the
+  // replaced window here
+  useEffect(() => {
+    if (!windowJump || windowId === windowJump.fromWindowId) return;
+    setWindowJump(null);
+    jumpToId(windowJump.id, windowJump.receivedAt);
+  }, [windowJump, windowId, jumpToId]);
 
   // /chat?m=<id>: resolve once the first window is in, paging back if needed
   useEffect(() => {
@@ -988,15 +1143,16 @@ export default function ChatPanel({
   }, [focusOn]);
 
   useEffect(() => {
-    if (!focusOn && !dayPickerOpen) return;
+    if (!focusOn && !dayPickerOpen && !searchOpen) return;
     const onKey = (e) => {
       if (e.key !== "Escape") return;
       if (dayPickerOpen) setDayPickerOpen(false);
+      else if (searchOpen) setSearchOpen(false);
       else setFocusOn(false);
     };
     window.addEventListener("keydown", onKey);
     return () => window.removeEventListener("keydown", onKey);
-  }, [focusOn, dayPickerOpen]);
+  }, [focusOn, dayPickerOpen, searchOpen]);
 
   // Close the date popover on an outside click
   useEffect(() => {
@@ -1172,24 +1328,97 @@ export default function ChatPanel({
     });
   }, []);
 
-  // Debounced public search against the relay
+  // The effective search: each field counts once it has enough characters
+  const searchQ = searchQuery.trim().length >= SEARCH_MIN_CHARS ? searchQuery.trim() : "";
+  const searchP = searchPlayer.trim().length >= SEARCH_MIN_CHARS ? searchPlayer.trim() : "";
+  const searchActive = Boolean(searchQ || searchP);
+
+  // Debounced search against the relay; a stale response never lands
   useEffect(() => {
     if (!searchOpen) return;
-    const q = searchQuery.trim();
-    if (q.length < 2) {
+    if (!searchActive) {
       setSearchResults(null);
+      setSearchTotal(0);
+      setSearching(false);
       return;
     }
+    const reqId = ++searchReqRef.current;
     setSearching(true);
+    setSearchError(false);
     const t = setTimeout(() => {
-      relayFetch(`/api/chat/search?q=${encodeURIComponent(q)}&limit=50`)
-        .then((r) => r.json())
-        .then((data) => setSearchResults(normalizeMessages(data.results || [])))
-        .catch(() => setSearchResults([]))
-        .finally(() => setSearching(false));
-    }, 350);
+      fetchSearchPage({ q: searchQ, player: searchP, since: searchSince, offset: 0 })
+        .then(({ results, total }) => {
+          if (reqId !== searchReqRef.current) return;
+          setSearchResults(results);
+          setSearchTotal(total);
+        })
+        .catch(() => {
+          if (reqId !== searchReqRef.current) return;
+          setSearchResults([]);
+          setSearchTotal(0);
+          setSearchError(true);
+        })
+        .finally(() => {
+          if (reqId === searchReqRef.current) setSearching(false);
+        });
+    }, SEARCH_DEBOUNCE_MS);
     return () => clearTimeout(t);
-  }, [searchQuery, searchOpen]);
+  }, [searchOpen, searchActive, searchQ, searchP, searchSince]);
+
+  const loadMoreResults = useCallback(async () => {
+    if (!searchResults || searchingMore) return;
+    const reqId = searchReqRef.current;
+    setSearchingMore(true);
+    try {
+      const { results, total } = await fetchSearchPage({ q: searchQ, player: searchP, since: searchSince, offset: searchResults.length });
+      if (reqId !== searchReqRef.current) return;
+      setSearchResults((prev) => {
+        const ids = new Set(prev.map((r) => r.id));
+        return [...prev, ...results.filter((r) => !ids.has(r.id))];
+      });
+      setSearchTotal(total);
+    } catch {
+      // keep the page already on screen
+    } finally {
+      setSearchingMore(false);
+    }
+  }, [searchResults, searchingMore, searchQ, searchP, searchSince]);
+
+  // Mirror the search into the address bar (?q=&player=&since=) so it can
+  // be shared; replaceState keeps the router out of it, like permalinks
+  useEffect(() => {
+    const sp = new URLSearchParams(window.location.search);
+    if (searchOpen && searchActive) {
+      if (searchQ) sp.set("q", searchQ);
+      else sp.delete("q");
+      if (searchP) sp.set("player", searchP);
+      else sp.delete("player");
+      sp.set("since", searchSince);
+    } else {
+      sp.delete("q");
+      sp.delete("player");
+      sp.delete("since");
+    }
+    const qs = sp.toString();
+    const next = `${window.location.pathname}${qs ? `?${qs}` : ""}${window.location.hash}`;
+    const current = `${window.location.pathname}${window.location.search}${window.location.hash}`;
+    if (next !== current) window.history.replaceState(window.history.state, "", next);
+  }, [searchOpen, searchActive, searchQ, searchP, searchSince]);
+
+  // Player filter suggestions from the online list, like composer @mentions.
+  // A picked suggestion is a full battleTag, which the relay matches exactly.
+  const playerSuggestions = useMemo(() => {
+    if (!playerFieldFocused) return null;
+    const p = searchPlayer.trim();
+    if (!p || p.includes("#")) return null;
+    const candidates = matchMentionCandidates(p, onlineUsers);
+    return candidates.length > 0 ? candidates : null;
+  }, [playerFieldFocused, searchPlayer, onlineUsers]);
+
+  const pickPlayer = useCallback((user) => {
+    setSearchPlayer(user.battleTag || user.name);
+    setPlayerFieldFocused(false);
+  }, []);
 
   // Prepends go through Virtuoso's firstItemIndex (see the memo below), so
   // the viewport stays anchored without any scrollHeight arithmetic here
@@ -1207,10 +1436,7 @@ export default function ChatPanel({
   const mentionMatch = useMemo(() => {
     const m = draft.match(/@([\w#]*)$/);
     if (!m) return null;
-    const q = m[1].toLowerCase();
-    const candidates = onlineUsers
-      .filter((u) => (u.name || "").toLowerCase().startsWith(q))
-      .slice(0, 6);
+    const candidates = matchMentionCandidates(m[1], onlineUsers);
     return candidates.length > 0 ? { prefix: m[1], candidates } : null;
   }, [draft, onlineUsers]);
 
@@ -1398,6 +1624,11 @@ export default function ChatPanel({
 
   const hoverData = { avatars, stats, sessions, inGameTags, inGameInfoMap };
   const renderLine = (line) => linkifyMessage(line.text);
+  const renderSearchLine = (line) => highlightMatches(line.text, searchQ);
+  // Name inside a result narrows the search to that player (the row itself
+  // jumps into the stream, see SearchResultRow)
+  const filterByAuthor = (author) => setSearchPlayer(author.battleTag || author.userName || "");
+  const jumpBusy = jumping || loadingWindow;
   const permalinkHref = (line) => `${window.location.origin}/chat?m=${encodeURIComponent(line.id)}`;
   const renderAfterLine = (line) => {
     const br = botResponseMap.get(line.id);
@@ -1604,57 +1835,155 @@ export default function ChatPanel({
           </HeaderActions>
         </Header>
         {searchOpen && (
-          <SearchBar>
-            <SearchField
-              type="text"
-              placeholder="Search the last 24 hours..."
-              value={searchQuery}
-              onChange={(e) => setSearchQuery(e.target.value)}
-              autoFocus
-            />
-          </SearchBar>
+          <SearchPanel role="search" aria-label="Search chat history">
+            <SearchRow>
+              <SearchField
+                type="text"
+                placeholder="Search messages..."
+                aria-label="Search messages"
+                value={searchQuery}
+                onChange={(e) => setSearchQuery(e.target.value)}
+                autoFocus={!initialSearch.open}
+              />
+              <PlayerFieldWrap>
+                <PlayerField
+                  type="text"
+                  placeholder="Player"
+                  aria-label="Filter by player"
+                  value={searchPlayer}
+                  onChange={(e) => setSearchPlayer(e.target.value)}
+                  onFocus={() => setPlayerFieldFocused(true)}
+                  onBlur={() => setPlayerFieldFocused(false)}
+                  onKeyDown={(e) => {
+                    if (e.key === "Tab" && playerSuggestions) {
+                      e.preventDefault();
+                      pickPlayer(playerSuggestions[0]);
+                    }
+                  }}
+                />
+                {playerSuggestions && (
+                  <MentionMenu $below role="listbox" aria-label="Player suggestions">
+                    {playerSuggestions.map((u) => (
+                      <MentionItem
+                        key={u.battleTag}
+                        type="button"
+                        role="option"
+                        aria-selected={false}
+                        onMouseDown={(e) => e.preventDefault()}
+                        onClick={() => pickPlayer(u)}
+                      >
+                        {u.name}
+                      </MentionItem>
+                    ))}
+                  </MentionMenu>
+                )}
+              </PlayerFieldWrap>
+            </SearchRow>
+            <SearchRow>
+              <RangeGroup role="group" aria-label="Search range">
+                {SEARCH_RANGES.map((r) => (
+                  <RangePill
+                    key={r.key}
+                    type="button"
+                    $pill
+                    data-active={searchSince === r.key}
+                    aria-pressed={searchSince === r.key}
+                    onClick={() => setSearchSince(r.key)}
+                  >
+                    {r.label}
+                  </RangePill>
+                ))}
+              </RangeGroup>
+              {!searching && searchResults && !searchError && (
+                <ResultCount aria-live="polite">
+                  {searchTotal} {searchTotal === 1 ? "result" : "results"}
+                </ResultCount>
+              )}
+            </SearchRow>
+          </SearchPanel>
         )}
         {searchOpen ? (
           <SearchResults>
-            {searching && <SearchEmpty>Searching...</SearchEmpty>}
-            {!searching && searchResults && searchResults.length === 0 && (
-              <SearchEmpty>No messages found</SearchEmpty>
+            {searching &&
+              [...Array(5)].map((_, i) => (
+                <SkeletonRow key={i} data-testid="search-skeleton">
+                  <Skeleton $w="24px" $h="24px" $radius="var(--radius-md)" style={{ flexShrink: 0 }} />
+                  <div style={{ flex: 1, display: "flex", flexDirection: "column", gap: 6, paddingTop: 2 }}>
+                    <Skeleton $w="90px" $h="12px" />
+                    <Skeleton $w={`${40 + ((i * 17) % 45)}%`} $h="14px" />
+                  </div>
+                </SkeletonRow>
+              ))}
+            {!searching && searchError && (
+              <SearchEmpty>Search failed. The relay may be offline, try again in a moment.</SearchEmpty>
             )}
-            {!searching && !searchResults && (
-              <SearchEmpty>Type at least 2 characters to search the last 24 hours</SearchEmpty>
+            {!searching && !searchError && !searchResults && (
+              <SearchEmpty>
+                Search messages, filter by player, or both. At least {SEARCH_MIN_CHARS} characters.
+              </SearchEmpty>
+            )}
+            {!searching && !searchError && searchResults && searchResults.length === 0 && (
+              <SearchEmpty>
+                No messages match{searchSince !== "all" ? " in this range. Try a wider one." : "."}
+              </SearchEmpty>
             )}
             {!searching &&
               searchResults?.map((r, i) => {
+                const prev = i > 0 ? searchResults[i - 1] : null;
+                const when = r.sentAt || r.receivedAt;
+                const showDay = !prev || getDateKey(prev.sentAt || prev.receivedAt) !== getDateKey(when);
                 const profile = avatars?.get(r.battleTag) || searchAvatars.get(r.battleTag);
+                const playerStats = stats?.get(r.battleTag);
+                const group = {
+                  author: { battleTag: r.battleTag, userName: r.userName, clanTag: r.clanTag },
+                  lines: [{ id: r.id, text: r.text, sentAt: r.sentAt, kind: r.kind }],
+                };
+                const meta = {
+                  avatarUrl: profile?.profilePicUrl,
+                  race: playerStats?.race,
+                  countryCode: profile?.country,
+                  mmr: playerStats?.mmr,
+                };
                 return (
-                  <SearchResultRow
-                    key={`${r.id ?? r.receivedAt}-${i}`}
-                    type="button"
-                    title="Jump to message"
-                    disabled={jumping}
-                    onClick={() => jumpToMessage(r)}
-                  >
-                    {profile?.profilePicUrl ? (
-                      <SearchAvatar src={profile.profilePicUrl} alt="" />
-                    ) : (
-                      <SearchAvatar src={raceIcons.random} alt="" $placeholder />
+                  <React.Fragment key={r.id ?? `${r.receivedAt}-${i}`}>
+                    {showDay && (
+                      <ResultDivider $first={i === 0}>
+                        <DateLabel>{formatDateDivider(when)}</DateLabel>
+                      </ResultDivider>
                     )}
-                    <SearchResultBody>
-                      <SearchResultMeta>
-                        <Link
-                          to={`/player/${encodeURIComponent(r.battleTag)}`}
-                          onClick={(e) => e.stopPropagation()}
-                        >
-                          {highlightMatches(r.userName, searchQuery)}
-                        </Link>
-                        {" · "}
-                        {formatDateTime(r.sentAt || r.receivedAt)}
-                      </SearchResultMeta>
-                      <FeedText>{highlightMatches(r.text, searchQuery)}</FeedText>
-                    </SearchResultBody>
-                  </SearchResultRow>
+                    <SearchResultRow
+                      role="button"
+                      tabIndex={0}
+                      title="Jump to message"
+                      aria-disabled={jumpBusy}
+                      onClick={(e) => {
+                        if (jumpBusy || e.target.closest("button, a")) return;
+                        jumpToResult(r);
+                      }}
+                      onKeyDown={(e) => {
+                        if (e.target !== e.currentTarget || (e.key !== "Enter" && e.key !== " ")) return;
+                        e.preventDefault();
+                        if (!jumpBusy) jumpToResult(r);
+                      }}
+                    >
+                      <ChatMessage
+                        variant="transcript"
+                        group={group}
+                        meta={meta}
+                        onNameClick={filterByAuthor}
+                        renderLine={renderSearchLine}
+                      />
+                    </SearchResultRow>
+                  </React.Fragment>
                 );
               })}
+            {!searching && searchResults && searchResults.length < searchTotal && (
+              <MoreRow>
+                <Button type="button" $pill disabled={searchingMore} onClick={loadMoreResults}>
+                  {searchingMore ? "Loading..." : "More"}
+                </Button>
+              </MoreRow>
+            )}
           </SearchResults>
         ) : null}
         {searchOpen ? null : messages.length === 0 ? (

@@ -1,11 +1,89 @@
 import { Router } from 'express';
-import { getMessages, getStats, getEvents, getEventsSummary, searchMessages } from '../db.js';
+import rateLimit from 'express-rate-limit';
+import { getMessages, getStats, getEvents, getEventsSummary, queryMessages, countMessages } from '../db.js';
 import { addClient } from '../sse.js';
 import { getOnlineUsers, getStatus } from '../signalr.js';
 import { publicLimiter } from '../middleware/rateLimit.js';
 import { generateMatchBlurb } from '../matchBlurb.js';
 
 const router = Router();
+
+// ── Public message search ───────────────────────────────
+// Registered ahead of the router-wide publicLimiter: the /chat search panel
+// fires a request per (debounced) keystroke, so it gets its own budget
+// instead of eating the one shared with /messages and /stream.
+
+const searchLimiter = rateLimit({
+  windowMs: 60 * 1000,
+  max: 60,
+  standardHeaders: true,
+  legacyHeaders: false,
+  message: { error: 'Too many search requests, try again in a minute' },
+});
+
+const SEARCH_SINCE_HOURS = { '24h': 24, '7d': 168, '30d': 720, all: null };
+const SEARCH_MAX_LIMIT = 50;
+
+// ISO date -> received_at cursor (sqlite datetime('now') format, UTC).
+// null when absent, undefined when unparseable.
+function toCursor(value) {
+  if (!value) return null;
+  const d = new Date(String(value));
+  if (Number.isNaN(d.getTime())) return undefined;
+  return d.toISOString().slice(0, 19).replace('T', ' ');
+}
+
+// GET /api/chat/search?q=&player=&since=24h|7d|30d|all&before=&after=&offset=&limit=
+//   q       message text substring (optional when player is given)
+//   player  battleTag (exact) or name prefix
+//   since   lookback, default 7d
+//   before/after  ISO bounds on received_at (optional)
+// -> { query, player, since, windowHours, results, total, offset, limit }
+router.get('/search', searchLimiter, (req, res) => {
+  const q = String(req.query.q || '').trim();
+  const player = String(req.query.player || '').trim();
+  if (!q && !player) {
+    return res.status(400).json({ error: 'q or player is required' });
+  }
+  if (q && q.length < 2) {
+    return res.status(400).json({ error: 'q must be at least 2 characters' });
+  }
+  if (player && player.length < 2) {
+    return res.status(400).json({ error: 'player must be at least 2 characters' });
+  }
+  const since = req.query.since === undefined ? '7d' : String(req.query.since);
+  if (!(since in SEARCH_SINCE_HOURS)) {
+    return res.status(400).json({ error: 'since must be one of 24h, 7d, 30d, all' });
+  }
+  const before = toCursor(req.query.before);
+  const after = toCursor(req.query.after);
+  if (before === undefined || after === undefined) {
+    return res.status(400).json({ error: 'before/after must be ISO dates' });
+  }
+  const limit = Math.min(Math.max(parseInt(req.query.limit || '50', 10) || 50, 1), SEARCH_MAX_LIMIT);
+  const offset = Math.max(parseInt(req.query.offset || '0', 10) || 0, 0);
+
+  const windowHours = SEARCH_SINCE_HOURS[since];
+  const filters = {
+    q: q || null,
+    fields: 'message',
+    player: player || null,
+    playerMatch: 'prefix',
+    sinceHours: windowHours,
+    before,
+    after,
+  };
+  res.json({
+    query: q || null,
+    player: player || null,
+    since,
+    windowHours,
+    results: queryMessages(filters, limit, offset),
+    total: countMessages(filters),
+    offset,
+    limit,
+  });
+});
 
 router.use(publicLimiter);
 
@@ -26,24 +104,6 @@ router.get('/stream', (req, res) => {
   res.write(`event: users_init\ndata: ${JSON.stringify(getOnlineUsers())}\n\n`);
   // Current relay state so a fresh client sees auth_failed / banned at once
   res.write(`event: status\ndata: ${JSON.stringify({ state: getStatus().state })}\n\n`);
-});
-
-// Public message search, limited to the last 24h (the admin variant under
-// /api/admin searches the full archive with player filters)
-const PUBLIC_SEARCH_WINDOW_HOURS = 24;
-
-router.get('/search', (req, res) => {
-  const q = (req.query.q || '').trim();
-  if (q.length < 2) {
-    return res.status(400).json({ error: 'q must be at least 2 characters' });
-  }
-  const limit = Math.min(parseInt(req.query.limit || '50', 10) || 50, 100);
-  const offset = parseInt(req.query.offset || '0', 10) || 0;
-  res.json({
-    query: q,
-    windowHours: PUBLIC_SEARCH_WINDOW_HOURS,
-    results: searchMessages(q, limit, offset, PUBLIC_SEARCH_WINDOW_HOURS),
-  });
 });
 
 // LLM one-liner for a finished match - generated once, cached forever

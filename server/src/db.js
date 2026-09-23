@@ -1511,71 +1511,91 @@ export function deleteCoverGeneration(id) {
 
 // ── Full-text message search ──────────────────────────
 
-// fields: 'all' matches message + user_name + battle_tag (public chat search);
-// 'message' matches message text only (admin search has a separate player mode)
-function searchMessagesWhere(fields, sinceHours) {
-  const matchClause = fields === 'message'
-    ? '(message LIKE ?)'
-    : '(message LIKE ? OR user_name LIKE ? OR battle_tag LIKE ?)';
-  const sinceClause = sinceHours
-    ? `AND received_at >= datetime('now', '-' || ? || ' hours')`
-    : '';
-  return `WHERE deleted = 0 AND ${matchClause} ${sinceClause}`;
+const SEARCH_COLUMNS = 'id, user_name, clan_tag, message, sent_at, battle_tag, received_at';
+
+/**
+ * One WHERE clause for every message search. Filters compose with AND:
+ *   q            substring of the message text; fields='all' also matches
+ *                user_name / battle_tag (legacy public search)
+ *   player       playerMatch='contains' (default, admin search): substring of
+ *                user_name / battle_tag. playerMatch='prefix' (public search):
+ *                exact battle_tag when the value has a '#', else a name /
+ *                tag prefix
+ *   sinceHours   lookback from now
+ *   after/before received_at bounds (sqlite "YYYY-MM-DD HH:MM:SS", exclusive)
+ */
+function buildMessageFilter({ q = null, fields = 'all', player = null, playerMatch = 'contains', sinceHours = null, before = null, after = null } = {}) {
+  const clauses = ['deleted = 0'];
+  const params = [];
+  if (q) {
+    const like = `%${q}%`;
+    if (fields === 'message') {
+      clauses.push('(message LIKE ?)');
+      params.push(like);
+    } else {
+      clauses.push('(message LIKE ? OR user_name LIKE ? OR battle_tag LIKE ?)');
+      params.push(like, like, like);
+    }
+  }
+  if (player) {
+    if (playerMatch === 'prefix' && player.includes('#')) {
+      clauses.push('battle_tag = ? COLLATE NOCASE');
+      params.push(player);
+    } else {
+      const like = playerMatch === 'prefix' ? `${player}%` : `%${player}%`;
+      clauses.push('(user_name LIKE ? OR battle_tag LIKE ?)');
+      params.push(like, like);
+    }
+  }
+  if (sinceHours) {
+    clauses.push(`received_at >= datetime('now', '-' || ? || ' hours')`);
+    params.push(sinceHours);
+  }
+  if (after) {
+    clauses.push('received_at > ?');
+    params.push(after);
+  }
+  if (before) {
+    clauses.push('received_at < ?');
+    params.push(before);
+  }
+  return { where: `WHERE ${clauses.join(' AND ')}`, params };
 }
 
-function searchMessagesParams(query, fields, sinceHours) {
-  const like = `%${query}%`;
-  const params = fields === 'message' ? [like] : [like, like, like];
-  if (sinceHours) params.push(sinceHours);
-  return params;
-}
-
-export function searchMessages(query, limit = 50, offset = 0, sinceHours = null, fields = 'all') {
+// Newest first, paged. `filters` as for buildMessageFilter.
+export function queryMessages(filters, limit = 50, offset = 0) {
+  const { where, params } = buildMessageFilter(filters);
   return db.prepare(`
-    SELECT id, user_name, message, sent_at, battle_tag, received_at
+    SELECT ${SEARCH_COLUMNS}
     FROM messages
-    ${searchMessagesWhere(fields, sinceHours)}
+    ${where}
     ORDER BY received_at DESC
     LIMIT ? OFFSET ?
-  `).all(...searchMessagesParams(query, fields, sinceHours), Math.min(limit, 200), offset);
+  `).all(...params, Math.min(limit, 200), offset);
+}
+
+export function countMessages(filters) {
+  const { where, params } = buildMessageFilter(filters);
+  return db.prepare(`SELECT COUNT(*) AS n FROM messages ${where}`).get(...params).n;
+}
+
+// fields: 'all' matches message + user_name + battle_tag (legacy public chat
+// search); 'message' matches message text only (admin search has a separate
+// player mode)
+export function searchMessages(query, limit = 50, offset = 0, sinceHours = null, fields = 'all') {
+  return queryMessages({ q: query, fields, sinceHours }, limit, offset);
 }
 
 export function countSearchMessages(query, sinceHours = null, fields = 'all') {
-  return db.prepare(`
-    SELECT COUNT(*) AS n FROM messages
-    ${searchMessagesWhere(fields, sinceHours)}
-  `).get(...searchMessagesParams(query, fields, sinceHours)).n;
+  return countMessages({ q: query, fields, sinceHours });
 }
 
 export function searchMessagesByPlayer(playerQuery, limit = 50, offset = 0, sinceHours = null) {
-  const like = `%${playerQuery}%`;
-  const sinceClause = sinceHours
-    ? `AND received_at >= datetime('now', '-' || ? || ' hours')`
-    : '';
-  const params = sinceHours
-    ? [like, like, sinceHours, Math.min(limit, 200), offset]
-    : [like, like, Math.min(limit, 200), offset];
-  return db.prepare(`
-    SELECT id, user_name, message, sent_at, battle_tag, received_at
-    FROM messages
-    WHERE deleted = 0 AND (user_name LIKE ? OR battle_tag LIKE ?)
-    ${sinceClause}
-    ORDER BY received_at DESC
-    LIMIT ? OFFSET ?
-  `).all(...params);
+  return queryMessages({ player: playerQuery, sinceHours }, limit, offset);
 }
 
 export function countMessagesByPlayer(playerQuery, sinceHours = null) {
-  const like = `%${playerQuery}%`;
-  const sinceClause = sinceHours
-    ? `AND received_at >= datetime('now', '-' || ? || ' hours')`
-    : '';
-  const params = sinceHours ? [like, like, sinceHours] : [like, like];
-  return db.prepare(`
-    SELECT COUNT(*) AS n FROM messages
-    WHERE deleted = 0 AND (user_name LIKE ? OR battle_tag LIKE ?)
-    ${sinceClause}
-  `).get(...params).n;
+  return countMessages({ player: playerQuery, sinceHours });
 }
 
 export function getMessagesAroundTime(receivedAt, minutesPadding = 3, limit = 60) {

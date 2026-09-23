@@ -149,7 +149,6 @@ const Navbar = () => {
 
   const moreLinks = [
     { to: "/upload", label: "Upload" },
-    { to: "/search", label: "Search" },
     { to: "/stats", label: "Stats" },
     { to: "/lab", label: "Lab" },
     { to: "/observatory", label: "Observatory" },
