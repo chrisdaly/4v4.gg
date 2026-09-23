@@ -155,7 +155,126 @@ const computeLabelLayout = (positions, bounds) => {
   return { labelPositions, labeledTags };
 };
 
-const OnlineMmrStrip = ({
+/* ── Compact mode ──────────────────────────────────────────────────
+ * Horizontal beeswarm for narrow hosts (chat roster): dots only, min/max
+ * MMR as mono tick text at either end, fixed 28px height. In-game dots
+ * come from `inGameTags` (a Set) or from `matches` like the full strip.
+ */
+const C = {
+  HEIGHT: 28,
+  R: 2.5,
+  ROW: 5.5,       // vertical spacing between beeswarm rows
+  MAX_ROWS: 2,    // rows either side of the center line
+  TICK_W: 30,     // room for a 4-digit tick at either end
+};
+
+const computeCompactPositions = (players, x, centerY) => {
+  const placed = [];
+  const minDist = C.R * 2 + 0.5;
+  for (const p of [...players].sort((a, b) => a.mmr - b.mmr)) {
+    const px = x(p.mmr);
+    let py = centerY;
+    for (let k = 0; k <= C.MAX_ROWS * 2; k++) {
+      const dy = (k % 2 === 0 ? 1 : -1) * Math.ceil(k / 2) * C.ROW;
+      py = centerY + dy;
+      if (!placed.some((q) => Math.hypot(q.x - px, q.y - py) < minDist)) break;
+    }
+    placed.push({ ...p, x: px, y: py });
+  }
+  return placed;
+};
+
+const CompactMmrStrip = ({ players, matches = [], inGameTags = null, onPlayerClick = null }) => {
+  const containerRef = useRef(null);
+  const svgRef = useRef(null);
+  const [width, setWidth] = useState(0);
+
+  useEffect(() => {
+    if (!containerRef.current) return;
+    const observer = new ResizeObserver((entries) => {
+      const rect = entries[0]?.contentRect;
+      if (rect) setWidth(Math.floor(rect.width));
+    });
+    observer.observe(containerRef.current);
+    return () => observer.disconnect();
+  }, []);
+
+  const inGameSet = useMemo(() => {
+    const set = new Set(inGameTags || []);
+    for (const match of (matches || [])) {
+      match.teams?.forEach((team) => team.players?.forEach((p) => p.battleTag && set.add(p.battleTag)));
+    }
+    return set;
+  }, [matches, inGameTags]);
+
+  useEffect(() => {
+    if (!svgRef.current || width < C.TICK_W * 2 + 20 || !players || players.length === 0) return;
+    const svg = d3.select(svgRef.current);
+    const mmrs = players.map((p) => p.mmr);
+    const minMmr = d3.min(mmrs);
+    const maxMmr = d3.max(mmrs);
+    const x = d3.scaleLinear()
+      .domain(minMmr === maxMmr ? [minMmr - 1, maxMmr + 1] : [minMmr, maxMmr])
+      .range([C.TICK_W + C.R, width - C.TICK_W - C.R]);
+    const centerY = C.HEIGHT / 2;
+
+    const positions = computeCompactPositions(
+      players.map((p) => ({ tag: p.battleTag, mmr: p.mmr, inGame: inGameSet.has(p.battleTag) })),
+      x, centerY,
+    );
+
+    svg.selectAll(".static-layer").remove();
+    const staticG = svg.append("g").attr("class", "static-layer").attr("pointer-events", "none");
+    staticG.append("line")
+      .attr("x1", C.TICK_W).attr("x2", width - C.TICK_W)
+      .attr("y1", centerY).attr("y2", centerY)
+      .attr("stroke", chartColors.grid).attr("stroke-width", 1);
+    const tick = (value, px, anchor) => staticG.append("text")
+      .attr("class", "compact-tick")
+      .attr("x", px).attr("y", centerY + 4)
+      .attr("text-anchor", anchor)
+      .attr("font-size", "11px")
+      .attr("font-family", "var(--font-mono)")
+      .attr("fill", "var(--grey-light)")
+      .text(Math.round(value));
+    tick(minMmr, 0, "start");
+    tick(maxMmr, width, "end");
+
+    let dotG = svg.select(".dot-group");
+    if (dotG.empty()) dotG = svg.append("g").attr("class", "dot-group");
+    dotG.raise();
+
+    const dots = dotG.selectAll("circle.player-dot").data(positions, (d) => d.tag);
+    dots.exit().transition().duration(T.FAST).attr("r", 0).attr("opacity", 0).remove();
+    const entered = dots.enter().append("circle")
+      .attr("class", "player-dot")
+      .attr("cx", (d) => d.x).attr("cy", (d) => d.y)
+      .attr("r", 0).attr("opacity", 0)
+      .attr("cursor", onPlayerClick ? "pointer" : "default");
+    entered.append("title");
+    entered.transition().duration(T.FAST).attr("r", C.R).attr("opacity", 1);
+
+    const all = entered.merge(dots);
+    all.attr("data-ingame", (d) => (d.inGame ? "true" : null))
+      .attr("fill", (d) => (d.inGame ? colors.gold.value : DOT_COLOR))
+      .on("click", (e, d) => onPlayerClick?.(d.tag));
+    all.select("title").text((d) => `${d.tag.split("#")[0]} · ${Math.round(d.mmr)}${d.inGame ? " · in game" : ""}`);
+    dots.transition().duration(T.MOVE).ease(d3.easeCubicInOut)
+      .attr("cx", (d) => d.x).attr("cy", (d) => d.y).attr("r", C.R);
+  }, [players, inGameSet, width, onPlayerClick]);
+
+  if (!players || players.length === 0) return null;
+
+  return (
+    <div ref={containerRef} className="mmr-strip-container mmr-strip-compact" style={{ position: "relative", height: C.HEIGHT }}>
+      <svg ref={svgRef} width={width} height={C.HEIGHT} style={{ display: "block" }} />
+    </div>
+  );
+};
+
+const OnlineMmrStrip = (props) => (props.compact ? <CompactMmrStrip {...props} /> : <FullMmrStrip {...props} />);
+
+const FullMmrStrip = ({
   players,
   matches = [],
   histogram = null,
@@ -892,7 +1011,7 @@ const OnlineMmrStrip = ({
           }
         }
       })
-      .on("mouseleave", function (e, d) {
+      .on("mouseleave", function () {
         if (animatingRef.current) return;
         hoveredTagRef.current = null;
         clearHighlight();

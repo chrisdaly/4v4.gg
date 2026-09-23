@@ -1,11 +1,14 @@
-import React, { useMemo, useState } from "react";
+import React, { useCallback, useMemo, useState } from "react";
 import { Link } from "react-router-dom";
 import styled, { css } from "styled-components";
 import { FaTwitch } from "react-icons/fa";
 import { GiCrossedSwords } from "react-icons/gi";
+import { HiChevronDown, HiChevronRight } from "react-icons/hi";
 import { raceMapping, raceIcons } from "../lib/constants";
 import { Button, CountryFlag, Input, Skeleton } from "./ui";
 import PlayerHoverCard from "./PlayerHoverCard";
+import OnlineMmrStrip from "./OnlineMmrStrip";
+import WorldMap from "./WorldMap";
 import useIdleTags from "../lib/chat/useIdleTags";
 import { formatGameMinutes } from "./chat/chip";
 
@@ -17,10 +20,34 @@ import { formatGameMinutes } from "./chat/chip";
  * tooltip) and opens the game (onOpenGame with the inGameInfoMap entry);
  * the name text still links to the player page (inGameMatchMap). Idle rows
  * (joined over 3h ago, not in a game) are dimmed.
+ *
+ * Between the header and the filter sits the collapsible "Pulse" block:
+ * the online-population MMR strip and the world map from /observatory in
+ * compact form, plus a countries caption. Open state persists at
+ * localStorage chat:showPulse (default open); the map hides below 480px.
  */
 
 const ROW_HEIGHT = 40; // px, one roster row
 const AVATAR = 32; // px, row avatar (radius-sm)
+const MAP_HEIGHT = 130; // px, pulse world map box
+const PULSE_KEY = "chat:showPulse"; // localStorage: "1" (default) / "0"
+
+function readPref(key, fallback) {
+  try {
+    const v = localStorage.getItem(key);
+    return v === null ? fallback : v === "1";
+  } catch {
+    return fallback;
+  }
+}
+
+function writePref(key, value) {
+  try {
+    localStorage.setItem(key, value ? "1" : "0");
+  } catch {
+    // non-persistent is fine
+  }
+}
 
 /* ── Frame ─────────────────────────────────────────────────────────── */
 
@@ -131,6 +158,70 @@ const label = css`
   text-transform: uppercase;
   letter-spacing: 0.1em;
   color: var(--grey-light);
+`;
+
+/* ── Pulse (MMR strip + world map) ─────────────────────────────────── */
+
+const Pulse = styled.div`
+  display: flex;
+  flex-direction: column;
+  padding: 0 var(--space-3);
+  border-bottom: 1px solid rgba(var(--gold-muted-rgb), 0.2);
+  flex-shrink: 0;
+`;
+
+const PulseHeader = styled.div`
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+  height: 28px;
+  padding: 0 var(--space-1);
+`;
+
+const PulseLabel = styled.span`
+  ${label}
+`;
+
+const PulseToggle = styled(Button)`
+  width: 24px;
+  height: 24px;
+  margin-left: auto;
+  svg {
+    width: 14px;
+    height: 14px;
+  }
+`;
+
+const PulseBody = styled.div`
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-1);
+  padding: 0 0 var(--space-2);
+`;
+
+const StripBox = styled.div`
+  width: 100%;
+  height: 28px;
+`;
+
+const MapBox = styled.div`
+  width: 100%;
+  height: ${MAP_HEIGHT}px;
+  display: flex;
+
+  @media (max-width: 480px) {
+    display: none;
+  }
+`;
+
+const Caption = styled.div`
+  font-family: var(--font-mono);
+  font-size: var(--text-xxxs);
+  color: var(--grey-light);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  padding: 0 var(--space-1);
 `;
 
 /* ── List and rows ─────────────────────────────────────────────────── */
@@ -326,6 +417,39 @@ function Avatar({ tag, avatars, stats }) {
 
 const byName = (a, b) => (a.name || "").localeCompare(b.name || "", undefined, { sensitivity: "base" });
 
+/**
+ * Data for the pulse block, in the shapes Observatory feeds OnlineMmrStrip
+ * and WorldMap: stripPlayers (users with a known MMR), playerCountries
+ * (code -> { online, inGame }), mapPlayers, and the caption line
+ * "<K> countries · top: DE 9, FR 6, CN 5".
+ */
+function buildPulseData(users, stats, avatars, inGameTags) {
+  const stripPlayers = [];
+  const playerCountries = new Map();
+  const mapPlayers = [];
+  for (const u of users) {
+    const tag = u.battleTag;
+    const s = stats?.get(tag);
+    const mmr = s?.mmr;
+    const inGame = Boolean(inGameTags?.has(tag));
+    if (mmr != null) stripPlayers.push({ battleTag: tag, mmr, wins: s.wins || 0, losses: s.losses || 0 });
+    const country = avatars?.get(tag)?.country;
+    if (!country) continue;
+    const code = country.toUpperCase();
+    if (!playerCountries.has(code)) playerCountries.set(code, { online: 0, inGame: 0 });
+    playerCountries.get(code)[inGame ? "inGame" : "online"]++;
+    mapPlayers.push({ battleTag: tag, name: u.name || tag.split("#")[0], country: code, mmr: mmr ?? null, inGame });
+  }
+  const top = [...playerCountries]
+    .map(([code, c]) => [code, c.online + c.inGame])
+    .sort((a, b) => b[1] - a[1] || a[0].localeCompare(b[0]))
+    .slice(0, 3);
+  const k = playerCountries.size;
+  let caption = `${k} ${k === 1 ? "country" : "countries"}`;
+  if (top.length) caption += ` · top: ${top.map(([code, n]) => `${code} ${n}`).join(", ")}`;
+  return { stripPlayers, playerCountries, mapPlayers, caption };
+}
+
 /** Number of distinct games in progress among the given users. */
 function countLiveGames(users, inGameInfoMap) {
   const keys = new Set();
@@ -439,8 +563,18 @@ export default function UserListSidebar({
   borderTheme,
 }) {
   const [search, setSearch] = useState("");
+  const [showPulse, setShowPulse] = useState(() => readPref(PULSE_KEY, true));
+  const togglePulse = () => {
+    const next = !showPulse;
+    writePref(PULSE_KEY, next);
+    setShowPulse(next);
+  };
   // Owns the once-a-minute idle tick so only the roster re-renders for it
   const idleTags = useIdleTags(users, inGameTags);
+
+  const pulse = useMemo(() => buildPulseData(users, stats, avatars, inGameTags), [users, stats, avatars, inGameTags]);
+  // Clicking a strip dot filters the roster to that player
+  const filterToPlayer = useCallback((tag) => setSearch(tag.split("#")[0]), []);
 
   const sortedUsers = useMemo(() => {
     const mmrOf = (u) => stats?.get(u.battleTag)?.mmr ?? -Infinity;
@@ -505,6 +639,31 @@ export default function UserListSidebar({
             &times;
           </CloseButton>
         </Header>
+        <Pulse data-pulse data-open={showPulse ? "true" : "false"}>
+          <PulseHeader>
+            <PulseLabel>Pulse</PulseLabel>
+            <PulseToggle
+              $icon
+              type="button"
+              aria-label={showPulse ? "Collapse pulse" : "Expand pulse"}
+              aria-expanded={showPulse}
+              onClick={togglePulse}
+            >
+              {showPulse ? <HiChevronDown /> : <HiChevronRight />}
+            </PulseToggle>
+          </PulseHeader>
+          {showPulse && (
+            <PulseBody data-pulse-body>
+              <StripBox data-pulse-strip>
+                <OnlineMmrStrip compact players={pulse.stripPlayers} inGameTags={inGameTags} onPlayerClick={filterToPlayer} />
+              </StripBox>
+              <MapBox data-pulse-map>
+                <WorldMap compact instant playerCountries={pulse.playerCountries} players={pulse.mapPlayers} />
+              </MapBox>
+              <Caption data-pulse-caption>{pulse.caption}</Caption>
+            </PulseBody>
+          )}
+        </Pulse>
         <Toolbar>
           <FilterInput
             type="text"

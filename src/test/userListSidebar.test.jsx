@@ -4,6 +4,31 @@ import { render, screen, fireEvent, cleanup, within } from '@testing-library/rea
 import { MemoryRouter } from 'react-router-dom';
 import UserListSidebar from '../components/UserListSidebar';
 
+// The strip and map are d3 + ResizeObserver (and the map fetches topojson):
+// stub both and expose the props they were given
+vi.mock('../components/OnlineMmrStrip', () => ({
+  default: (props) => (
+    <div
+      data-mock-strip
+      data-compact={String(Boolean(props.compact))}
+      data-players={props.players.map((p) => `${p.battleTag}:${p.mmr}`).join(',')}
+      data-ingame-tags={[...(props.inGameTags || [])].join(",")}
+      onClick={() => props.onPlayerClick?.(props.players[0]?.battleTag)}
+    />
+  ),
+}));
+vi.mock('../components/WorldMap', () => ({
+  default: (props) => (
+    <div
+      data-mock-map
+      data-compact={String(Boolean(props.compact))}
+      data-instant={String(Boolean(props.instant))}
+      data-countries={JSON.stringify([...props.playerCountries])}
+      data-players={props.players.map((p) => `${p.battleTag}:${p.country}:${p.mmr}:${p.inGame}`).join(',')}
+    />
+  ),
+}));
+
 const NOW = Date.now();
 const minsAgo = (m) => new Date(NOW - m * 60 * 1000).toISOString();
 const HOURS_4 = 4 * 60 * 60 * 1000;
@@ -62,7 +87,10 @@ function renderSidebar(overrides = {}) {
 const rowNames = (scope = document) => [...scope.querySelectorAll('[data-row]')].map((el) => el.getAttribute('data-row'));
 const row = (tag) => document.querySelector(`[data-row="${tag}"]`);
 
-afterEach(cleanup);
+afterEach(() => {
+  cleanup();
+  localStorage.clear();
+});
 
 describe('UserListSidebar flat list', () => {
   it('renders one flat list ordered by MMR descending, unknown MMR last, with no sections or dividers', () => {
@@ -276,5 +304,77 @@ describe('UserListSidebar mobile sheet', () => {
     renderSidebar({ onClose, $mobileVisible: true });
     fireEvent.click(document.querySelector('button[aria-label="Close roster"]'));
     expect(onClose).toHaveBeenCalled();
+  });
+});
+
+describe('UserListSidebar pulse', () => {
+  it('renders the compact strip with every known MMR and the in-game tags', () => {
+    renderSidebar();
+    const strip = document.querySelector('[data-pulse-strip] [data-mock-strip]');
+    expect(strip).toHaveAttribute('data-compact', 'true');
+    expect(strip.getAttribute('data-players').split(',').sort()).toEqual(
+      ['Grubby#1:1950', 'Happy#1:2100', 'Lyn#1:1700', 'Moon#1:1800.4'],
+    );
+    expect(strip.getAttribute("data-ingame-tags").split(',').sort()).toEqual(['Lyn#1', 'Moon#1']);
+  });
+
+  it('renders the compact map instantly from the channel users countries and MMRs', () => {
+    renderSidebar();
+    const map = document.querySelector('[data-pulse-map] [data-mock-map]');
+    expect(map).toHaveAttribute('data-compact', 'true');
+    expect(map).toHaveAttribute('data-instant', 'true');
+    // Moon is Korean and in a game; nobody else has a country yet
+    expect(JSON.parse(map.getAttribute('data-countries'))).toEqual([['KR', { online: 0, inGame: 1 }]]);
+    expect(map).toHaveAttribute('data-players', 'Moon#1:KR:1800.4:true');
+    expect(document.querySelector('[data-pulse-caption]')).toHaveTextContent('1 country · top: KR 1');
+  });
+
+  it('captions the country count and the top three countries by headcount', () => {
+    const roster = ['A', 'B', 'C', 'D', 'E', 'F', 'G', 'H'].map((n) => user(n));
+    const countries = { A: 'de', B: 'de', C: 'de', D: 'fr', E: 'fr', F: 'cn', G: 'us' };
+    const av = new Map(Object.entries(countries).map(([n, c]) => [`${n}#1`, { country: c }]));
+    renderSidebar({ users: roster, avatars: av, stats: new Map(), inGameTags: new Set(), inGameInfoMap: new Map(), inGameMatchMap: new Map() });
+    expect(document.querySelector('[data-pulse-caption]')).toHaveTextContent('4 countries · top: DE 3, FR 2, CN 1');
+    const map = document.querySelector('[data-mock-map]');
+    expect(JSON.parse(map.getAttribute('data-countries'))).toEqual([
+      ['DE', { online: 3, inGame: 0 }],
+      ['FR', { online: 2, inGame: 0 }],
+      ['CN', { online: 1, inGame: 0 }],
+      ['US', { online: 1, inGame: 0 }],
+    ]);
+  });
+
+  it('is open by default, collapses from the chevron and persists the choice', () => {
+    renderSidebar();
+    const pulse = document.querySelector('[data-pulse]');
+    expect(pulse).toHaveAttribute('data-open', 'true');
+    expect(pulse).toHaveTextContent('Pulse');
+    const toggle = screen.getByRole('button', { name: 'Collapse pulse' });
+    expect(toggle).toHaveAttribute('aria-expanded', 'true');
+    fireEvent.click(toggle);
+    expect(pulse).toHaveAttribute('data-open', 'false');
+    expect(document.querySelector('[data-pulse-body]')).toBeNull();
+    expect(document.querySelector('[data-mock-strip]')).toBeNull();
+    expect(document.querySelector('[data-mock-map]')).toBeNull();
+    expect(screen.getByRole('button', { name: 'Expand pulse' })).toHaveAttribute('aria-expanded', 'false');
+    expect(localStorage.getItem('chat:showPulse')).toBe('0');
+    // header line stays, and the roster is untouched
+    expect(pulse).toHaveTextContent('Pulse');
+    expect(rowNames()).toEqual(['Happy#1', 'Grubby#1', 'Moon#1', 'Lyn#1', 'Sleepy#1']);
+
+    cleanup();
+    renderSidebar();
+    expect(document.querySelector('[data-pulse]')).toHaveAttribute('data-open', 'false');
+    fireEvent.click(screen.getByRole('button', { name: 'Expand pulse' }));
+    expect(document.querySelector('[data-pulse-body]')).not.toBeNull();
+    expect(localStorage.getItem('chat:showPulse')).toBe('1');
+  });
+
+  it('filters the roster to a player clicked on the strip', () => {
+    renderSidebar();
+    // the stub clicks its first player, Moon (users order, known MMR)
+    fireEvent.click(document.querySelector('[data-mock-strip]'));
+    expect(rowNames()).toEqual(['Moon#1']);
+    expect(screen.getByLabelText('Filter players')).toHaveValue('Moon');
   });
 });
