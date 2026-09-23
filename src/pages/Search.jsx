@@ -1,11 +1,34 @@
 import React from "react";
-import PageLayout from "../components/PageLayout";
-import ChatSearch from "../components/ChatSearch";
+import { Redirect, useLocation } from "react-router-dom";
 
-const Search = () => (
-  <PageLayout bare>
-    <ChatSearch fullPage />
-  </PageLayout>
-);
+// /search moved into the /chat search panel. Old links carried ?q=, ?qmode=
+// player and ?qsince=; map them onto the panel's ?q=, ?player=, ?since=.
+const SINCE_KEYS = new Set(["24h", "7d", "30d", "all"]);
+
+export function searchRedirectTarget(search) {
+  const sp = new URLSearchParams(search);
+  const out = new URLSearchParams();
+  const q = (sp.get("q") || "").trim();
+  const player = (sp.get("player") || "").trim();
+  if (sp.get("qmode") === "player") {
+    if (q) out.set("player", q);
+  } else {
+    if (q) out.set("q", q);
+    if (player) out.set("player", player);
+  }
+  const sinceRaw = sp.has("since") ? sp.get("since") : sp.get("qsince");
+  if (sinceRaw !== null) {
+    // the old page's empty qsince meant "all time"
+    const since = sinceRaw === "" ? "all" : sinceRaw;
+    if (SINCE_KEYS.has(since)) out.set("since", since);
+  }
+  const qs = out.toString();
+  return `/chat${qs ? `?${qs}` : ""}`;
+}
+
+const Search = () => {
+  const { search } = useLocation();
+  return <Redirect to={searchRedirectTarget(search)} />;
+};
 
 export default Search;

@@ -135,7 +135,7 @@ export const layout = {
   navHeight: { value: '54px', css: '--nav-height', usage: 'Fixed navbar height; use calc(100vh - var(--nav-height))' },
 };
 
-// Quote block spacing - set on :root, consumed by mg-quote, digest-quote and cc-* transcripts
+// Quote block spacing - set on :root, consumed by the ChatMessage quote variant
 export const quote = {
   groupGap: { value: 'var(--space-4)', css: '--quote-group-gap' },
   itemGap: { value: 'var(--space-1)', css: '--quote-item-gap' },
@@ -333,7 +333,8 @@ export const chartText = {
 // Default multi-series order (player 1..4 in overlay charts)
 export const chartSeries = [chartColors.gold, chartColors.blue, chartColors.red, chartColors.green];
 
-// Shared components in ui.jsx that pages should reuse (documented on /style)
+// Shared components pages should reuse (documented on /style). All live in
+// ui.jsx except ChatMessage (components/chat/ChatMessage).
 export const components = [
   { name: 'Button', description: 'Variants: $primary, $secondary, $ghost, $pill' },
   { name: 'ResultBadge', description: 'WIN / LOSS / W chip; $won, $lost, $winner; $size sm|md|lg; $square' },
@@ -349,6 +350,7 @@ export const components = [
   { name: 'Skeleton', description: 'Loading placeholders: Skeleton, SkeletonCircle' },
   { name: 'RaceIcon', description: 'Race icon by race id' },
   { name: 'CountryFlag', description: 'Country flag by ISO code' },
+  { name: 'ChatMessage', description: 'Chat message group; variants feed / transcript / quote (components/chat)' },
 ];
 
 // Export all tokens for iteration

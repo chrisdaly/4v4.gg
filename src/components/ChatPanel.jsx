@@ -1,94 +1,52 @@
 import React, { useRef, useEffect, useState, useCallback, useMemo } from "react";
-import { Link, useHistory } from "react-router-dom";
-import styled, { keyframes, css } from "styled-components";
-import { GiCrossedSwords } from "react-icons/gi";
-import { HiKey, HiBell, HiSearch, HiTranslate } from "react-icons/hi";
+import { Virtuoso } from "react-virtuoso";
+import styled from "styled-components";
 import { IoSend } from "react-icons/io5";
-import { FaTwitch } from "react-icons/fa";
-import crownIcon from "../assets/icons/king.svg";
-import { raceMapping, raceIcons } from "../lib/constants";
-import { CountryFlag, Skeleton, SkeletonCircle, Input } from "./ui";
-import { useMessageSegments, useBotResponseMap, formatDateDivider, getDateKey, formatTime, formatDateTime } from "../lib/useChatMessages";
-import { getMapImageUrl } from "../lib/formatters";
-import { linkifyMessage, playPing } from "../lib/chatExtras";
+import { Button, Skeleton, Input } from "./ui";
+import { useMessageSegments, useBotResponseMap, formatDateDivider, getDateKey } from "../lib/useChatMessages";
+import { linkifyMessage } from "../lib/chatExtras";
 import PlayerHoverCard from "./PlayerHoverCard";
-import MiniTeamsRow from "./MiniMatchCard";
-import MatchNote from "./MatchNote";
-import StreakBadges from "./StreakBadges";
-import RivalryBadge from "./RivalryBadge";
+import ChatMessage from "./chat/ChatMessage";
+import GameRow from "./chat/GameRow";
+import StatsStrip from "./chat/StatsStrip";
+import UnfurlCard from "./chat/UnfurlCard";
+import { findWatchedMentions, splitByMentions } from "../lib/chat/mentions";
+import { detectUnfurl } from "../lib/chat/unfurl";
+import { notifyChat } from "../lib/chat/notify";
+import { applyTabBadge } from "../lib/chat/tabBadge";
+import { useUnreadCount, useDocumentVisible } from "../lib/chat/useUnread";
+import { chipForTag } from "./chat/chip";
 import { getPlayerProfile } from "../lib/api";
+import { relayFetch } from "../lib/relay";
+import { normalizeMessages } from "../lib/chat/normalize";
 import useAdmin from "../lib/useAdmin";
+import { Panel } from "./chat/panel";
+
+/* The list's box is padding 6px 18px 12px (Chat v2 handoff); the panel
+   frame is the one all four /chat panels share (chat/panel.js) */
+const LIST_PAD_X = "18px";
+const LIST_PAD_TOP = "6px";
+const LIST_PAD_BOTTOM = "12px";
 
 const OuterFrame = styled.div`
   position: relative;
   flex: 1;
+  height: 100%;
   min-height: 0;
   min-width: 0;
   display: flex;
   flex-direction: column;
-`;
-
-const Wrapper = styled.div`
-  display: flex;
-  flex-direction: column;
-  flex: 1;
-  min-height: 0;
-  min-width: 0;
-  box-sizing: border-box;
-  background: ${(p) => p.$theme?.bg || "rgba(10, 8, 6, 0.25)"};
-  backdrop-filter: ${(p) => p.$theme?.blur || "blur(1px)"};
-  overflow: hidden;
   font-family: var(--font-body);
-  border: ${(p) => p.$theme?.border || "8px solid transparent"};
-  border-image: ${(p) => p.$theme?.borderImage || 'url("/frames/chat/ChatFrameBorder.png") 30 / 8px stretch'};
-  box-shadow: ${(p) => p.$theme?.shadow || "none"};
 `;
 
-const Header = styled.div`
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  padding: var(--space-4);
-  border-bottom: 1px solid rgba(252, 219, 51, 0.15);
-  flex-shrink: 0;
-
-  @media (max-width: 480px) {
-    padding: 10px var(--space-2);
-  }
-`;
-
-const Title = styled.span`
-  font-family: var(--font-display);
-  font-size: var(--text-sm);
-  color: var(--gold);
-  letter-spacing: 1px;
-`;
-
-const StatusBadge = styled.span`
-  display: flex;
-  align-items: center;
-  gap: 6px;
-  font-family: var(--font-mono);
-  font-size: var(--text-xxs);
-  color: var(--grey-light);
-`;
-
-const StatusDot = styled.span`
-  width: 6px;
-  height: 6px;
-  border-radius: 50%;
-  background: ${(p) => (p.$connected ? "var(--green)" : "var(--grey-mid)")};
-  ${(p) => p.$connected && "animation: pulse 1.5s infinite;"}
+const Wrapper = styled(Panel).attrs({ as: "div" })`
+  flex: 1;
 `;
 
 const MessageList = styled.div`
   flex: 1;
   overflow-y: auto;
-  padding: var(--space-2) var(--space-4);
-
-  @media (max-width: 768px) {
-    padding: var(--space-2) var(--space-2);
-  }
+  padding: ${LIST_PAD_TOP} ${LIST_PAD_X} ${LIST_PAD_BOTTOM};
 
   &::-webkit-scrollbar {
     width: 6px;
@@ -102,203 +60,44 @@ const MessageList = styled.div`
   }
 `;
 
-const MessageSegment = styled.div`
-  position: relative;
-  min-height: 56px;
-  margin-top: 14px;
-  padding-bottom: var(--space-1);
+/* The virtualized list splits MessageList's box across react-virtuoso's
+   parts: scrollbar on the Scroller, horizontal padding on the List (Virtuoso
+   owns the List's vertical padding for the virtual offsets), vertical
+   padding on the Header/Footer. Same rendered box as MessageList. */
+const noContextProp = { shouldForwardProp: (prop) => prop !== "context" };
 
-  &:first-child {
-    margin-top: 0;
+const ChatScroller = styled.div.withConfig(noContextProp)`
+  &::-webkit-scrollbar {
+    width: 6px;
   }
-
-  @media (max-width: 480px) {
-    min-height: 48px;
-    margin-top: 10px;
+  &::-webkit-scrollbar-track {
+    background: transparent;
   }
-`;
-
-const GroupStartRow = styled.div`
-  padding: 2px var(--space-4) 2px 64px;
-  line-height: 1.375;
-  transition: background 0.6s;
-  ${(p) => p.$flash && "background: rgba(252, 219, 51, 0.14) !important;"}
-
-  @media (max-width: 480px) {
-    padding-left: 56px;
-  }
-
-  &:hover {
-    background: var(--surface-2);
+  &::-webkit-scrollbar-thumb {
+    background: var(--grey-mid);
+    border-radius: var(--radius-sm);
   }
 `;
 
-const ContinuationRow = styled.div`
-  position: relative;
-  padding: 2px var(--space-4) 2px 64px;
-  line-height: 1.375;
-  transition: background 0.6s;
-  ${(p) => p.$flash && "background: rgba(252, 219, 51, 0.14) !important;"}
-
-  @media (max-width: 480px) {
-    padding-left: 56px;
-  }
-
-  &:hover {
-    background: var(--surface-2);
-  }
-
-  &:hover > .hover-timestamp {
-    opacity: 0.5;
-  }
+const ChatList = styled.div.withConfig(noContextProp)`
+  padding-left: ${LIST_PAD_X};
+  padding-right: ${LIST_PAD_X};
 `;
 
-const HoverTimestamp = styled.span`
-  position: absolute;
-  right: var(--space-4);
-  top: 50%;
-  transform: translateY(-50%);
-  font-family: var(--font-mono);
-  font-size: var(--text-xxxs);
-  color: var(--grey-light);
-  opacity: 0;
-  transition: opacity 0.15s;
-  pointer-events: none;
+const ListTop = styled.div`
+  padding: ${LIST_PAD_TOP} ${LIST_PAD_X} 0;
 `;
 
-const Avatar = styled.img`
-  width: 44px;
-  height: 44px;
-  border-radius: var(--radius-md);
-  flex-shrink: 0;
-
-  @media (max-width: 480px) {
-    width: 36px;
-    height: 36px;
-  }
+const ListBottom = styled.div`
+  padding: 0 ${LIST_PAD_X} ${LIST_PAD_BOTTOM};
 `;
 
-const AvatarRaceIcon = styled.img`
-  width: 44px;
-  height: 44px;
-  box-sizing: border-box;
-  border-radius: var(--radius-md);
-  flex-shrink: 0;
-  padding: 8px;
-  background: rgba(255, 255, 255, 0.06);
-  opacity: ${(p) => p.$faded ? 0.3 : 0.85};
-
-  @media (max-width: 480px) {
-    width: 36px;
-    height: 36px;
-    padding: 6px;
-  }
-`;
-
-const MessageContent = styled.div`
-  min-width: 0;
-`;
-
-const InlineMmr = styled.span`
-  font-family: var(--font-mono);
-  font-size: var(--text-xs);
-  color: #fff;
-  margin-left: var(--space-2);
-  font-weight: 600;
-`;
-
-const MmrSuffix = styled.span`
-  font-size: var(--text-xxxs);
-  color: var(--grey-light);
-  font-weight: 400;
-  opacity: 0.7;
-`;
-
-const Timestamp = styled.span`
+/* Indented to the message text column: 38px avatar + 12px gap */
+const SystemMessageRow = styled.div`
+  padding: var(--space-1) 0 var(--space-1) 50px;
+  line-height: 1.5;
   font-family: var(--font-mono);
   font-size: var(--text-xxs);
-  color: var(--grey-light);
-  margin-left: var(--space-2);
-`;
-
-const NameWrapper = styled.span`
-  display: inline-flex;
-  align-items: center;
-`;
-
-const WinCrown = styled.img`
-  width: 16px;
-  height: 16px;
-  margin-left: 4px;
-  filter: drop-shadow(0 0 4px rgba(252, 219, 51, 0.4));
-`;
-
-const UserNameLink = styled(Link)`
-  font-family: var(--font-display);
-  font-size: var(--text-sm);
-  color: var(--gold);
-  text-decoration: none;
-
-  &:hover {
-    text-decoration: underline;
-  }
-`;
-
-const AvatarContainer = styled.div`
-  position: absolute;
-  left: var(--space-2);
-  top: 0;
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  width: 44px;
-
-  @media (max-width: 480px) {
-    width: 36px;
-  }
-`;
-
-const AvatarImgWrap = styled.div`
-  position: relative;
-  display: inline-block;
-`;
-
-const AvatarFlag = styled.div`
-  position: absolute;
-  bottom: -1px;
-  right: -3px;
-  line-height: 0;
-`;
-
-
-const InGameIcon = styled(GiCrossedSwords)`
-  width: 14px;
-  height: 14px;
-  color: var(--red);
-  fill: var(--red);
-  margin-left: 6px;
-  animation: pulse 1.5s infinite;
-  flex-shrink: 0;
-`;
-
-const MessageText = styled.span`
-  font-family: var(--font-body);
-  color: var(--text-body);
-  font-size: var(--text-sm);
-  line-height: 1.6;
-  word-break: break-word;
-
-  @media (max-width: 480px) {
-    font-size: var(--text-xs);
-    line-height: 1.5;
-  }
-`;
-
-const SystemMessageRow = styled.div`
-  padding: 2px var(--space-4) 2px 64px;
-  line-height: 1.375;
-  font-family: var(--font-mono);
-  font-size: var(--text-xs);
   color: var(--grey-light);
   font-style: italic;
   opacity: 0.7;
@@ -348,12 +147,7 @@ const DateDivider = styled.div`
   display: flex;
   align-items: center;
   gap: var(--space-4);
-  margin: var(--space-6) 0 var(--space-2);
-  padding: 0 var(--space-4);
-
-  &:first-child {
-    margin-top: var(--space-2);
-  }
+  margin: ${(p) => (p.$first ? "var(--space-2)" : "var(--space-6)")} 0 var(--space-2);
 
   &::before,
   &::after {
@@ -373,31 +167,79 @@ const DateLabel = styled.span`
   white-space: nowrap;
 `;
 
-const InputBar = styled.form`
+/* ── Sticky day bar (current day at the top of the viewport) ── */
+
+const StickyBar = styled.div`
+  position: absolute;
+  top: var(--space-2);
+  left: 0;
+  right: 0;
+  z-index: 2;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: var(--space-2);
+  pointer-events: none;
+
+  > * {
+    pointer-events: auto;
+  }
+`;
+
+const DayPicker = styled.div`
   position: relative;
   display: flex;
   align-items: center;
   gap: var(--space-2);
-  padding: var(--space-2) var(--space-4);
-  background: rgba(10, 8, 6, 0.4);
-  border-top: 1px solid rgba(252, 219, 51, 0.15);
-  flex-shrink: 0;
 `;
 
-const ChatInput = styled(Input)`
-  flex: 1;
-  min-width: 0;
-  padding: var(--space-2) var(--space-2);
-  font-family: var(--font-body);
-  outline: none;
+/* Panel-ish pills over the list: mono 11px on the panel background */
+const DayButton = styled(Button)`
+  font-size: var(--text-xxxs);
+  letter-spacing: 0.1em;
+  padding: 2px 10px;
+  background: rgba(10, 8, 6, 0.85);
+  border-color: rgba(255, 255, 255, 0.1);
+  border-radius: var(--radius-sm);
+  backdrop-filter: blur(4px);
+  white-space: nowrap;
+`;
 
-  &::placeholder {
-    color: var(--grey-mid);
+const BackToLiveButton = styled(DayButton)`
+  &[data-active="true"] {
+    background: rgba(10, 8, 6, 0.85);
   }
+`;
 
-  &:disabled {
-    opacity: 0.5;
-  }
+const DayPopover = styled.div`
+  position: absolute;
+  top: calc(100% + var(--space-1));
+  left: 50%;
+  transform: translateX(-50%);
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-2);
+  padding: var(--space-3);
+  /* patterns.popover */
+  background: rgba(10, 8, 6, 0.96);
+  border: 1px solid var(--grey-mid);
+  border-radius: var(--radius-md);
+  box-shadow: 0 8px 24px var(--overlay-light);
+  z-index: var(--z-popover);
+  animation: fadeIn 120ms ease-out;
+`;
+
+const DayPopoverLabel = styled.label`
+  font: var(--text-xxs) var(--font-mono);
+  text-transform: uppercase;
+  letter-spacing: 0.1em;
+  color: var(--grey-light);
+  white-space: nowrap;
+`;
+
+const DateInput = styled(Input)`
+  color-scheme: dark;
+  padding: var(--space-1) var(--space-2);
 `;
 
 const SendButton = styled.button`
@@ -425,64 +267,6 @@ const SendButton = styled.button`
   }
 `;
 
-const KeyButton = styled.button`
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  width: 32px;
-  height: 32px;
-  border: 1px solid rgba(var(--gold-muted-rgb), 0.2);
-  border-radius: var(--radius-sm);
-  background: ${(p) => (p.$active ? "rgba(252, 219, 51, 0.1)" : "transparent")};
-  color: ${(p) => (p.$active ? "var(--gold)" : "var(--grey-mid)")};
-  cursor: pointer;
-  flex-shrink: 0;
-  transition: all 0.15s;
-
-  &:hover {
-    color: var(--gold);
-    border-color: rgba(var(--gold-muted-rgb), 0.4);
-  }
-`;
-
-const KeyPrompt = styled.div`
-  display: flex;
-  align-items: center;
-  gap: var(--space-2);
-  padding: var(--space-2) var(--space-4);
-  background: rgba(10, 8, 6, 0.4);
-  border-top: 1px solid rgba(252, 219, 51, 0.15);
-  flex-shrink: 0;
-`;
-
-const KeyInput = styled.input`
-  flex: 1;
-  min-width: 0;
-  background: rgba(255, 255, 255, 0.06);
-  border: 1px solid rgba(var(--gold-muted-rgb), 0.2);
-  border-radius: var(--radius-sm);
-  padding: var(--space-2) var(--space-2);
-  color: var(--text-body);
-  font-family: var(--font-mono);
-  font-size: var(--text-xxs);
-  outline: none;
-
-  &:focus {
-    border-color: rgba(252, 219, 51, 0.4);
-  }
-
-  &::placeholder {
-    color: var(--grey-mid);
-  }
-`;
-
-const KeyLabel = styled.span`
-  font-family: var(--font-mono);
-  font-size: var(--text-xxxs);
-  color: var(--grey-light);
-  white-space: nowrap;
-`;
-
 const SendError = styled.span`
   font-family: var(--font-mono);
   font-size: var(--text-xxxs);
@@ -492,43 +276,12 @@ const SendError = styled.span`
   text-overflow: ellipsis;
 `;
 
-const TranslationRow = styled.div`
-  margin: 2px 0 2px 64px;
-  padding: 2px 10px;
-  font-family: var(--font-mono);
-  font-size: var(--text-xs);
-  color: var(--grey-light);
-  font-style: italic;
-  opacity: 0.8;
-  line-height: 1.4;
-
-  @media (max-width: 480px) {
-    margin-left: 56px;
-  }
-`;
-
-const TranslationLabel = styled.span`
-  font-family: var(--font-mono);
-  font-size: var(--text-xxxs);
-  font-weight: 700;
-  color: var(--grey-light);
-  text-transform: uppercase;
-  letter-spacing: 0.08em;
-  margin-right: 6px;
-  font-style: normal;
-  opacity: 0.6;
-`;
-
 const BotResponseRow = styled.div`
-  margin: 4px 0 4px 64px;
+  margin: 4px 0;
   padding: 6px 10px;
   border-left: 3px solid var(--gold);
   background: rgba(252, 219, 51, 0.04);
   border-radius: 0 var(--radius-sm) var(--radius-sm) 0;
-
-  @media (max-width: 480px) {
-    margin-left: 56px;
-  }
 `;
 
 const BotLabel = styled.span`
@@ -562,9 +315,9 @@ const BotTestBar = styled.form`
   display: flex;
   align-items: center;
   gap: var(--space-2);
-  padding: var(--space-1) var(--space-4);
+  padding: var(--space-1) ${LIST_PAD_X};
   background: rgba(252, 219, 51, 0.03);
-  border-top: 1px solid rgba(252, 219, 51, 0.1);
+  border-top: 1px solid rgba(255, 255, 255, 0.06);
   flex-shrink: 0;
 `;
 
@@ -615,363 +368,122 @@ const EmptyState = styled.div`
   letter-spacing: 0.1em;
 `;
 
-/* ── Game events woven into the stream ─────────── */
+/* ── Search ────────────────────────────────────── */
 
-const eventSlideIn = keyframes`
-  from { opacity: 0; transform: translateY(6px); }
-  to { opacity: 1; transform: translateY(0); }
+const SystemWrap = styled.div`
+  padding-top: var(--space-2);
 `;
 
-const finishGlow = keyframes`
-  0% { box-shadow: 0 0 0 rgba(194, 52, 52, 0); }
-  30% { box-shadow: 0 0 14px rgba(194, 52, 52, 0.35); }
-  100% { box-shadow: 0 0 0 rgba(194, 52, 52, 0); }
-`;
-
-const EventPostWrap = styled.div`
-  position: relative;
-  min-height: 56px;
-  margin-top: 14px;
-  padding-bottom: var(--space-1);
-
-  &:first-child {
-    margin-top: 0;
-  }
-
-  @media (max-width: 480px) {
-    min-height: 48px;
-    margin-top: 10px;
-  }
-`;
-
-const EventAvatarContainer = styled.div`
-  position: absolute;
-  left: var(--space-2);
-  top: 0;
-  width: 44px;
-
-  @media (max-width: 480px) {
-    width: 36px;
-  }
-`;
-
-const EventAvatarImg = styled.img`
-  width: 44px;
-  height: 44px;
-  border-radius: var(--radius-md);
-  display: block;
-
-  @media (max-width: 480px) {
-    width: 36px;
-    height: 36px;
-  }
-`;
-
-const EventAttribution = styled.div`
-  padding: 2px var(--space-4) 2px 64px;
-  line-height: 1.375;
-
-  @media (max-width: 480px) {
-    padding-left: 56px;
-  }
-`;
-
-const EventBotName = styled.span`
-  font-family: var(--font-display);
-  font-size: var(--text-xs);
-  color: var(--gold);
-`;
-
-const GameEventCard = styled.div`
-  display: flex;
-  align-items: center;
-  gap: var(--space-3);
-  max-width: 580px;
-  box-sizing: border-box;
-  margin: 2px 0 0 64px;
-
-  @media (max-width: 480px) {
-    margin-left: 56px;
-  }
-  padding: var(--space-2) var(--space-3);
-  border-left: 2px solid ${(p) => (p.$end ? "rgba(248, 113, 113, 0.5)" : "rgba(74, 222, 128, 0.5)")};
-  background: rgba(255, 255, 255, 0.02);
-  border-radius: 0 var(--radius-sm) var(--radius-sm) 0;
-  font-family: var(--font-mono);
-  font-size: var(--text-xxs);
-  color: var(--grey-light);
-  transition: background 0.15s;
-  ${(p) =>
-    p.$live &&
-    css`
-      animation: ${eventSlideIn} 0.4s ease-out${p.$end ? css`, ${finishGlow} 2s ease-out 0.2s` : ""};
-    `}
-
-  &:hover {
-    background: rgba(255, 255, 255, 0.04);
-  }
-
-  a {
-    color: var(--gold);
-    text-decoration: none;
-    &:hover {
-      text-decoration: underline;
-    }
-  }
-`;
-
-const EventTagCol = styled.div`
-  width: 84px;
-  flex-shrink: 0;
+const SearchPanel = styled.div`
   display: flex;
   flex-direction: column;
-  align-items: center;
-  justify-content: center;
-  gap: 4px;
-  text-align: center;
-`;
-
-const EventMapBlock = styled.div`
-  width: 96px;
-  flex-shrink: 0;
-  align-self: center;
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  gap: 3px;
-  text-align: center;
-`;
-
-const EventMapImg = styled.img`
-  width: 64px;
-  height: 64px;
-  border-radius: var(--radius-sm);
-  object-fit: cover;
-  display: block;
-`;
-
-const EventMapName = styled(Link)`
-  font-family: var(--font-display);
-  font-size: var(--text-xxs);
-  line-height: 1.2;
-`;
-
-const EventMapMeta = styled.div`
-  font-family: var(--font-mono);
-  font-size: var(--text-xxxs);
-  color: var(--grey-light);
-  opacity: 0.8;
-`;
-
-const EventBody = styled.div`
-  min-width: 0;
-  flex: 1;
-  display: flex;
-  flex-direction: column;
-  gap: 4px;
-`;
-
-const EventTag = styled.span`
-  flex-shrink: 0;
-  font-family: var(--font-mono);
-  font-size: var(--text-xxxs);
-  font-weight: 700;
-  text-transform: uppercase;
-  letter-spacing: 0.08em;
-  padding: 3px 7px;
-  border-radius: var(--radius-sm);
-  color: ${(p) => (p.$end ? "var(--red)" : "var(--green)")};
-  background: ${(p) => (p.$end ? "var(--red-tint)" : "var(--green-tint)")};
-`;
-
-const EventNote = styled.div`
-  margin-top: 5px;
-`;
-
-const EventLiveDot = styled.span`
-  display: inline-block;
-  width: 6px;
-  height: 6px;
-  border-radius: 50%;
-  background: var(--red);
-  margin-right: 4px;
-  animation: pulse 1.5s infinite;
-`;
-
-const LiveGamesChip = styled(Link)`
-  display: inline-flex;
-  align-items: center;
-  gap: 5px;
-  padding: 2px 8px;
-  border: 1px solid rgba(194, 52, 52, 0.4);
-  border-radius: var(--radius-md);
-  font-family: var(--font-mono);
-  font-size: var(--text-xxs);
-  color: var(--grey-light);
-  text-decoration: none;
-  transition: all 0.15s;
-
-  svg {
-    width: 12px;
-    height: 12px;
-    color: var(--red);
-  }
-
-  &:hover {
-    border-color: var(--red);
-    color: var(--white);
-  }
-`;
-
-/* ── Name-row accessories ──────────────────────── */
-
-const ClanTagChip = styled.span`
-  font-family: var(--font-mono);
-  font-size: var(--text-xxxs);
-  color: var(--grey-light);
-  margin-left: 5px;
-  opacity: 0.8;
-
-  &::before {
-    content: "[";
-  }
-  &::after {
-    content: "]";
-  }
-`;
-
-const DeltaPill = styled.span`
-  font-family: var(--font-mono);
-  font-size: var(--text-xxxs);
-  font-weight: 700;
-  margin-left: 6px;
-  padding: 1px 5px;
-  border-radius: var(--radius-sm);
-  color: ${(p) => (p.$positive ? "var(--green)" : "var(--red)")};
-  background: ${(p) => (p.$positive ? "var(--green-tint)" : "var(--red-tint)")};
-`;
-
-const InGameChip = styled(Link)`
-  display: inline-flex;
-  align-items: center;
-  gap: 3px;
-  margin-left: 6px;
-  padding: 1px 6px;
-  border-radius: var(--radius-sm);
-  background: rgba(194, 52, 52, 0.12);
-  font-family: var(--font-mono);
-  font-size: var(--text-xxxs);
-  color: var(--red);
-  text-decoration: none;
-
-  svg {
-    width: 10px;
-    height: 10px;
-    animation: pulse 1.5s infinite;
-  }
-
-  &:hover {
-    background: rgba(194, 52, 52, 0.25);
-  }
-`;
-
-const LiveTwitchLink = styled.a`
-  display: inline-flex;
-  align-items: center;
-  margin-left: 6px;
-
-  svg {
-    width: 13px;
-    height: 13px;
-    fill: var(--twitch-purple);
-  }
-
-  &:hover svg {
-    opacity: 0.8;
-  }
-`;
-
-const WatchedBar = styled.div`
-  border-left: 2px solid rgba(var(--gold-muted-rgb), 0.6);
-`;
-
-/* ── Header toggles + search ───────────────────── */
-
-const HeaderActions = styled.div`
-  display: flex;
-  align-items: center;
-  gap: var(--space-1);
-`;
-
-const HeaderToggle = styled.button`
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  width: 26px;
-  height: 26px;
-  background: ${(p) => (p.$active ? "rgba(252, 219, 51, 0.12)" : "none")};
-  border: none;
-  border-radius: var(--radius-sm);
-  color: ${(p) => (p.$active ? "var(--gold)" : "var(--grey-mid)")};
-  cursor: pointer;
-  transition: color 0.15s;
-
-  &:hover {
-    color: var(--gold);
-  }
-`;
-
-const SearchBar = styled.div`
-  display: flex;
-  align-items: center;
   gap: var(--space-2);
-  padding: var(--space-2) var(--space-4);
-  border-bottom: 1px solid rgba(252, 219, 51, 0.15);
+  padding: 10px ${LIST_PAD_X};
+  border-bottom: 1px solid rgba(255, 255, 255, 0.06);
   flex-shrink: 0;
+`;
+
+const SearchRow = styled.div`
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: var(--space-2);
 `;
 
 const SearchField = styled(Input)`
-  flex: 1;
+  flex: 1 1 200px;
   min-width: 0;
   padding: 6px var(--space-2);
   outline: none;
 `;
 
-const SearchResults = styled.div`
-  flex: 1;
-  overflow-y: auto;
-  padding: var(--space-2) var(--space-4);
-`;
+const PlayerFieldWrap = styled.div`
+  position: relative;
+  flex: 0 1 200px;
+  min-width: 0;
 
-const SearchResultRow = styled.button`
-  display: flex;
-  align-items: flex-start;
-  gap: var(--space-2);
-  width: 100%;
-  text-align: left;
-  background: none;
-  border: none;
-  border-bottom: 1px solid rgba(255, 255, 255, 0.04);
-  padding: var(--space-2) var(--space-1);
-  font-size: var(--text-xs);
-  cursor: pointer;
-  border-radius: var(--radius-sm);
-
-  &:hover {
-    background: rgba(255, 255, 255, 0.04);
+  @media (max-width: 640px) {
+    flex: 1 1 100%;
   }
 `;
 
-const SearchAvatar = styled.img`
-  width: 28px;
-  height: 28px;
-  border-radius: var(--radius-sm);
-  flex-shrink: 0;
-  ${(p) => p.$placeholder && "padding: 4px; background: rgba(255,255,255,0.06); opacity: 0.5; box-sizing: border-box;"}
+const PlayerField = styled(Input)`
+  width: 100%;
+  padding: 6px var(--space-2);
+  outline: none;
 `;
 
-const SearchResultBody = styled.div`
-  min-width: 0;
+const RangeGroup = styled.div`
+  display: flex;
+  align-items: center;
+  gap: var(--space-1);
+`;
+
+const RangePill = styled(Button)`
+  font-size: var(--text-xxxs);
+  letter-spacing: 0.1em;
+  padding: 2px var(--space-3);
+  white-space: nowrap;
+`;
+
+const ResultCount = styled.span`
+  margin-left: auto;
+  font: var(--text-xxs) var(--font-mono);
+  text-transform: uppercase;
+  letter-spacing: 0.1em;
+  color: var(--grey-light);
+  white-space: nowrap;
+`;
+
+const SearchResults = styled.div`
+  flex: 1;
+  overflow-y: auto;
+  padding: ${LIST_PAD_TOP} ${LIST_PAD_X} ${LIST_PAD_BOTTOM};
+
+  &::-webkit-scrollbar {
+    width: 6px;
+  }
+  &::-webkit-scrollbar-track {
+    background: transparent;
+  }
+  &::-webkit-scrollbar-thumb {
+    background: var(--grey-mid);
+    border-radius: var(--radius-sm);
+  }
+`;
+
+/* A result is the transcript row itself; the whole row jumps into the
+   stream, the name inside it filters by that player instead */
+const SearchResultRow = styled.div`
+  border-radius: var(--radius-md);
+  cursor: pointer;
+  transition: background var(--transition);
+
+  &:hover,
+  &:focus-visible {
+    background: rgba(255, 255, 255, 0.04);
+    outline: none;
+  }
+
+  &[aria-disabled="true"] {
+    cursor: progress;
+    opacity: 0.7;
+  }
+`;
+
+const ResultDivider = styled.div`
+  display: flex;
+  align-items: center;
+  gap: var(--space-4);
+  margin: ${(p) => (p.$first ? "var(--space-1)" : "var(--space-4)")} 0 var(--space-1);
+
+  &::before,
+  &::after {
+    content: "";
+    flex: 1;
+    height: 1px;
+    background: rgba(var(--gold-muted-rgb), 0.15);
+  }
 `;
 
 const Mark = styled.span`
@@ -981,27 +493,48 @@ const Mark = styled.span`
   padding: 0 1px;
 `;
 
-const SearchResultMeta = styled.div`
-  font-family: var(--font-mono);
-  font-size: var(--text-xxxs);
-  color: var(--grey-light);
-  margin-bottom: 2px;
-
-  a {
-    color: var(--gold);
-    text-decoration: none;
-    &:hover {
-      text-decoration: underline;
-    }
-  }
+/* A watched player's name inside someone else's line */
+const MentionMark = styled(Mark).attrs({ "data-mention": "true" })`
+  font-family: var(--font-display);
+  background: rgba(252, 219, 51, 0.16);
 `;
 
+// Wrap watched-player names in a line (already linkified: a string or an
+// array of strings and anchors) in a gold mark
+function markMentions(node, watchList) {
+  if (!watchList || watchList.size === 0) return node;
+  const markString = (text, keyBase) => {
+    const parts = splitByMentions(text, watchList);
+    if (parts.length === 1 && typeof parts[0] === "string") return text;
+    return parts.map((part, i) =>
+      typeof part === "string" ? part : <MentionMark key={`${keyBase}-${i}`}>{part.mention}</MentionMark>
+    );
+  };
+  if (typeof node === "string") return markString(node, "m");
+  if (Array.isArray(node)) return node.flatMap((part, i) => (typeof part === "string" ? markString(part, `m${i}`) : part));
+  return node;
+}
+
 const SearchEmpty = styled.div`
-  padding: var(--space-4);
+  padding: var(--space-6) var(--space-4);
   text-align: center;
-  font-family: var(--font-mono);
-  font-size: var(--text-xxs);
+  font-family: var(--font-body);
+  font-size: var(--text-xs);
+  line-height: 1.5;
   color: var(--grey-light);
+`;
+
+const MoreRow = styled.div`
+  display: flex;
+  justify-content: center;
+  padding: var(--space-3) 0 var(--space-2);
+`;
+
+const SkeletonRow = styled.div`
+  display: flex;
+  gap: var(--space-3);
+  align-items: flex-start;
+  padding: var(--space-2) var(--space-2);
 `;
 
 /* ── History + unread markers ──────────────────── */
@@ -1034,7 +567,7 @@ const NewDivider = styled.div`
   display: flex;
   align-items: center;
   gap: var(--space-2);
-  margin: var(--space-2) var(--space-4);
+  margin: var(--space-2) 0;
 
   &::before,
   &::after {
@@ -1057,9 +590,7 @@ const NewDividerLabel = styled.span`
 
 const MentionMenu = styled.div`
   position: absolute;
-  bottom: 100%;
-  left: 48px;
-  margin-bottom: 4px;
+  ${(p) => (p.$below ? "top: 100%; left: 0; right: 0; margin-top: 4px;" : "bottom: 100%; left: 48px; margin-bottom: 4px;")}
   background: rgba(15, 12, 8, 0.98);
   border: 1px solid rgba(var(--gold-muted-rgb), 0.4);
   border-radius: var(--radius-md);
@@ -1084,30 +615,6 @@ const MentionItem = styled.button`
   }
 `;
 
-// formatDateDivider, getDateKey, formatTime, formatDateTime
-// are now imported from ../lib/useChatMessages
-
-function getAvatarElement(tag, avatars, stats) {
-  const avatarUrl = avatars?.get(tag)?.profilePicUrl;
-  if (avatarUrl) return <Avatar src={avatarUrl} alt="" />;
-
-  const playerStats = stats?.get(tag);
-  const raceIcon = playerStats?.race != null ? raceMapping[playerStats.race] : null;
-  if (raceIcon) return <AvatarRaceIcon src={raceIcon} alt="" />;
-
-  return <AvatarRaceIcon src={raceIcons.random} alt="" $faded />;
-}
-
-
-const RELAY_URL =
-  import.meta.env.VITE_CHAT_RELAY_URL || "https://4v4gg-chat-relay.fly.dev";
-
-function formatGameMinutes(startTime) {
-  if (!startTime) return null;
-  const mins = Math.floor((Date.now() - new Date(startTime).getTime()) / 60000);
-  return mins >= 0 && mins < 180 ? `${mins}m` : null;
-}
-
 // Wrap case-insensitive matches of `query` in a highlight mark
 function highlightMatches(text, query) {
   const q = query.trim();
@@ -1128,23 +635,134 @@ function highlightMatches(text, query) {
   return parts;
 }
 
-function readPref(key, fallback) {
+// Online users whose name starts with `prefix`: the search panel's player
+// filter suggestions
+function matchMentionCandidates(prefix, onlineUsers) {
+  const q = prefix.toLowerCase();
+  return onlineUsers.filter((u) => (u.name || "").toLowerCase().startsWith(q)).slice(0, 6);
+}
+
+/* ── Search panel ──────────────────────────────── */
+
+const SEARCH_RANGES = [
+  { key: "24h", label: "24h" },
+  { key: "7d", label: "7d" },
+  { key: "30d", label: "30d" },
+  { key: "all", label: "All" },
+];
+const SEARCH_DEFAULT_SINCE = "7d";
+const SEARCH_PAGE_SIZE = 50;
+const SEARCH_DEBOUNCE_MS = 300;
+const SEARCH_MIN_CHARS = 2;
+
+// /chat?q=&player=&since= is the shareable form of a search
+function readSearchUrl() {
   try {
-    const v = localStorage.getItem(key);
-    return v === null ? fallback : v === "1";
+    const sp = new URLSearchParams(window.location.search);
+    const q = sp.get("q") || "";
+    const player = sp.get("player") || "";
+    const sinceRaw = sp.get("since");
+    const since = SEARCH_RANGES.some((r) => r.key === sinceRaw) ? sinceRaw : SEARCH_DEFAULT_SINCE;
+    return { q, player, since, open: Boolean(q.trim() || player.trim()) };
   } catch {
-    return fallback;
+    return { q: "", player: "", since: SEARCH_DEFAULT_SINCE, open: false };
   }
 }
 
-function writePref(key, value) {
-  try {
-    localStorage.setItem(key, value ? "1" : "0");
-  } catch {
-    // non-persistent is fine
-  }
+async function fetchSearchPage({ q, player, since, offset }) {
+  const sp = new URLSearchParams();
+  if (q) sp.set("q", q);
+  if (player) sp.set("player", player);
+  sp.set("since", since);
+  sp.set("limit", String(SEARCH_PAGE_SIZE));
+  sp.set("offset", String(offset));
+  const res = await relayFetch(`/api/chat/search?${sp.toString()}`);
+  if (!res.ok) throw new Error(`search failed: ${res.status}`);
+  const data = await res.json();
+  const results = normalizeMessages(data.results || []);
+  return { results, total: typeof data.total === "number" ? data.total : results.length };
 }
 
+// firstItemIndex base for react-virtuoso: prepends (load earlier) decrease
+// it by the number of rows added at the head so the viewport stays put
+const FIRST_ITEM_BASE = 1_000_000;
+
+// How many pages of older history a jump (search hit, permalink) pages in
+// before giving up
+const MAX_JUMP_PAGES = 20;
+
+// Local "YYYY-MM-DD" for a native date input
+function toInputDate(d) {
+  const pad = (n) => String(n).padStart(2, "0");
+  return `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}`;
+}
+
+// The relay's received_at cursor format: sqlite datetime('now'), UTC
+function toRelayCursor(d) {
+  return d.toISOString().slice(0, 19).replace("T", " ");
+}
+
+// Find the row that holds a message id (a group row holds several lines)
+function findRowIndex(rows, id) {
+  if (id == null) return -1;
+  return rows.findIndex((r) => (r.msgs ? r.msgs.some((m) => m.id === id) : r.msg?.id === id));
+}
+
+// Virtuoso renders these outside the virtual window; dynamic state comes in
+// through the `context` prop so the component references stay stable
+function ListHeader({ context }) {
+  const { showLoadOlder, loadingOlder, onLoadOlder } = context;
+  return (
+    <ListTop>
+      {showLoadOlder && (
+        <LoadOlderButton onClick={onLoadOlder} disabled={loadingOlder}>
+          {loadingOlder ? "Loading..." : "Load earlier messages"}
+        </LoadOlderButton>
+      )}
+    </ListTop>
+  );
+}
+
+function ListFooter({ context }) {
+  return (
+    <ListBottom>
+      {context.unmatchedBotResponses.map((br, i) => (
+        <BotResponseRow key={`bot-${i}`} style={{ marginLeft: "var(--space-4)" }}>
+          <BotLabel>BOT</BotLabel>
+          {!br.botEnabled && <BotPreviewTag>(preview)</BotPreviewTag>}
+          <BotPreviewTag style={{ marginLeft: 6 }}>{br.command}</BotPreviewTag>
+          <BotText>{br.response}</BotText>
+        </BotResponseRow>
+      ))}
+    </ListBottom>
+  );
+}
+
+const listComponents = {
+  Scroller: ChatScroller,
+  List: ChatList,
+  Header: ListHeader,
+  Footer: ListFooter,
+};
+
+const rowKey = (index, row) => row.key;
+
+/**
+ * The /chat message stream (Chat v2). No header of its own: the Search,
+ * Stats and Games toggles live in the map panel header and come in as
+ * controlled props; the relay status shows there too.
+ *
+ * Props (data): messages, status, avatars, stats, sessions, inGameTags,
+ *   inGameInfoMap, recentWinners, recentDeltas, gameEvents, ongoingMatchIds,
+ *   liveStreamers, watchList, onlineUsers, botResponses, translations
+ * Props (history): loadOlder, hasMoreHistory, loadWindow, loadLatest,
+ *   windowMode, windowId, permalinkId
+ * Props (controls): searchOpen / onSearchOpenChange(bool), statsOpen /
+ *   onStatsOpenChange(bool), showGames, showTranslations, onOpenGame.
+ *   The panel closes the search itself (Esc, a jump to a hit, and it asks
+ *   for it open on a shared /chat?q= link); it never closes the stats, so
+ *   onStatsOpenChange is accepted for symmetry and left unread.
+ */
 export default function ChatPanel({
   messages,
   status,
@@ -1157,48 +775,88 @@ export default function ChatPanel({
   recentDeltas,
   gameEvents = [],
   ongoingMatchIds,
-  liveGameCount = 0,
   liveStreamers,
   watchList,
   onlineUsers = [],
   botResponses = [],
   translations = new Map(),
-  borderTheme,
-  sendMessage,
   loadOlder,
   hasMoreHistory,
+  loadWindow,
+  loadLatest,
+  windowMode = "live",
+  windowId = 0,
+  permalinkId = null,
+  onOpenGame,
+  searchOpen = false,
+  onSearchOpenChange,
+  statsOpen = false,
+  showGames = true,
+  showTranslations = true,
 }) {
-  const history = useHistory();
-  const listRef = useRef(null);
-  const contentRef = useRef(null);
-  const inputRef = useRef(null);
-  const [autoScroll, setAutoScroll] = useState(true);
+  const virtuosoRef = useRef(null);
   const [showNotice, setShowNotice] = useState(false);
-  const { adminKey: apiKey, isAdmin, setAdminKey: setApiKeyHook } = useAdmin();
-  const [showKeyPrompt, setShowKeyPrompt] = useState(false);
-  const [draft, setDraft] = useState("");
-  const [sending, setSending] = useState(false);
-  const [sendError, setSendError] = useState(null);
+  const { adminKey: apiKey, isAdmin } = useAdmin();
   const [botDraft, setBotDraft] = useState("");
+  const [botError, setBotError] = useState(null);
   const [botTesting, setBotTesting] = useState(false);
-  const [showTranslations, setShowTranslations] = useState(() => readPref("chat:showTranslations", true));
-  const [notifyOn, setNotifyOn] = useState(() => readPref("chat:notify", false));
-  const [searchOpen, setSearchOpen] = useState(false);
-  const [searchQuery, setSearchQuery] = useState("");
+  // Browser tab badge: unread while the document is hidden
+  const visible = useDocumentVisible();
+  const hiddenUnread = useUnreadCount(messages, visible);
+  // Expanded game rows, per event id (not persisted)
+  const [expandedEvents, setExpandedEvents] = useState(() => new Set());
+  // Search panel; the fields' initial state comes from the URL so a shared
+  // link opens straight onto its results (the open flag is asked of the
+  // owner below)
+  const [initialSearch] = useState(readSearchUrl);
+  const [searchQuery, setSearchQuery] = useState(initialSearch.q);
+  const [searchPlayer, setSearchPlayer] = useState(initialSearch.player);
+  const [searchSince, setSearchSince] = useState(initialSearch.since);
+  // null = nothing searched yet; [] = searched, no hits
   const [searchResults, setSearchResults] = useState(null);
+  const [searchTotal, setSearchTotal] = useState(0);
   const [searching, setSearching] = useState(false);
+  const [searchingMore, setSearchingMore] = useState(false);
+  const [searchError, setSearchError] = useState(false);
+  const [playerFieldFocused, setPlayerFieldFocused] = useState(false);
+  // A result outside the loaded window: replace the window, then jump once
+  // the new one is in (windowId bumps)
+  const [windowJump, setWindowJump] = useState(null);
+  const searchReqRef = useRef(0);
   const [loadingOlder, setLoadingOlder] = useState(false);
   const [newMarkerTime, setNewMarkerTime] = useState(null);
   const [searchAvatars, setSearchAvatars] = useState(new Map());
   const [flashId, setFlashId] = useState(null);
   const [jumping, setJumping] = useState(false);
+  // { id, align } - scroll to this message's row once it exists in `rows`
+  const [pendingJump, setPendingJump] = useState(null);
+  // Sticky day bar: absolute Virtuoso index of the topmost visible row
+  const [topIndex, setTopIndex] = useState(null);
+  const [dayPickerOpen, setDayPickerOpen] = useState(false);
+  const [archiveMin, setArchiveMin] = useState(null);
+  const [loadingWindow, setLoadingWindow] = useState(false);
   const lastNotifiedRef = useRef(null);
   const flashTimerRef = useRef(null);
+  const jumpingRef = useRef(false);
+  const permalinkDoneRef = useRef(null);
+  const dayPickerRef = useRef(null);
+  const scrollerElRef = useRef(null);
+  const rangeRef = useRef(null);
+  const topRowRafRef = useRef(null);
+  const messagesRef = useRef(messages);
+  // Whether the viewport is pinned to the newest row. Fed by Virtuoso's
+  // followOutput decision (which already treats an in-progress programmatic
+  // scroll as "at bottom") and by atBottomStateChange.
+  const atBottomRef = useRef(true);
+
+  useEffect(() => {
+    messagesRef.current = messages;
+  }, [messages]);
 
   // Fetch profiles for search-result authors not already known to the page
   useEffect(() => {
     if (!searchResults) return;
-    const missing = [...new Set(searchResults.map((r) => r.battle_tag))]
+    const missing = [...new Set(searchResults.map((r) => r.battleTag))]
       .filter((tag) => tag && !avatars?.get(tag) && !searchAvatars.has(tag));
     for (const tag of missing) {
       getPlayerProfile(tag).then((profile) => {
@@ -1209,54 +867,235 @@ export default function ChatPanel({
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [searchResults, avatars]);
 
-  // Jump from a search result to the message in the stream, paging in older
-  // history as needed, then flash it
-  const jumpToMessage = useCallback(async (result) => {
-    if (jumping) return;
+  // Jump to a message in the stream (search hit, permalink). The stream
+  // holds the newest few hundred messages, so page older history in until
+  // the target is loaded (bounded), then let the list scroll to its row
+  // once it renders (see the pendingJump effect). `targetTime` (a search
+  // hit's receivedAt) stops the paging early once history is older than
+  // the target; a permalink has no timestamp and pages until found.
+  const jumpToId = useCallback(async (id, targetTime = null) => {
+    if (jumpingRef.current || id == null) return false;
+    jumpingRef.current = true;
     setJumping(true);
     try {
-      const target = result.received_at;
-      let oldest = messages[0]?.received_at;
+      let oldest = messagesRef.current[0]?.receivedAt;
       let pages = 0;
-      const isLoaded = () => messages.some((m) => m.id === result.id);
-      // Page back until the stream reaches the target time (sqlite datetime
-      // strings compare lexicographically). Bounded so a miss can't spin.
-      while (!isLoaded() && loadOlder && oldest && target < oldest && pages < 20) {
+      const isLoaded = () => messagesRef.current.some((m) => m.id === id);
+      // sqlite datetime strings compare lexicographically
+      const pastTarget = () => Boolean(targetTime && oldest && !(targetTime < oldest));
+      while (!isLoaded() && loadOlder && !pastTarget() && pages < MAX_JUMP_PAGES) {
         const r = await loadOlder();
         if (!r || r.added === 0) break;
         oldest = r.oldestCursor || oldest;
         pages++;
       }
-      setSearchOpen(false);
-      setAutoScroll(false);
-      setFlashId(result.id);
+      if (!isLoaded()) return false;
+      setFlashId(id);
       clearTimeout(flashTimerRef.current);
       flashTimerRef.current = setTimeout(() => setFlashId(null), 2500);
-      // Retry until React has rendered the paged-in rows
-      let attempts = 0;
-      const tryScroll = () => {
-        const el = document.getElementById(`msg-${result.id}`);
-        if (el) {
-          el.scrollIntoView({ block: "center" });
-        } else if (attempts++ < 10) {
-          setTimeout(tryScroll, 100);
-        }
-      };
-      requestAnimationFrame(tryScroll);
+      setPendingJump({ id, align: "center" });
+      return true;
     } finally {
+      jumpingRef.current = false;
       setJumping(false);
     }
-  }, [jumping, messages, loadOlder]);
+  }, [loadOlder]);
 
-  // Notification blip for watched players' messages
+  // Search hit -> the stream. A hit whose message is already loaded scrolls
+  // straight to it; anything outside the loaded window (older, or newer
+  // than an archive window) replaces the window with the 100 messages up
+  // to the hit, and the windowJump effect finishes the jump once the new
+  // window has rendered.
+  const jumpToResult = useCallback(async (result) => {
+    if (result.id == null) return;
+    onSearchOpenChange?.(false);
+    const at = result.receivedAt ? new Date(`${String(result.receivedAt).replace(" ", "T")}Z`) : null;
+    const canReload = Boolean(loadWindow) && at && !Number.isNaN(at.getTime());
+    if (messagesRef.current.some((m) => m.id === result.id) || !canReload) {
+      jumpToId(result.id, result.receivedAt);
+      return;
+    }
+    setLoadingWindow(true);
+    setWindowJump({ id: result.id, receivedAt: result.receivedAt, fromWindowId: windowId });
+    try {
+      // `before` is exclusive and received_at has second precision: +1s
+      // keeps the hit itself inside the window
+      await loadWindow(toRelayCursor(new Date(at.getTime() + 1000)));
+    } catch {
+      setWindowJump(null);
+    } finally {
+      setLoadingWindow(false);
+    }
+  }, [jumpToId, loadWindow, windowId, onSearchOpenChange]);
+
+  // messagesRef is refreshed by an earlier effect, so jumpToId sees the
+  // replaced window here
   useEffect(() => {
-    if (!notifyOn || !watchList || watchList.size === 0 || messages.length === 0) return;
+    if (!windowJump || windowId === windowJump.fromWindowId) return;
+    setWindowJump(null);
+    jumpToId(windowJump.id, windowJump.receivedAt);
+  }, [windowJump, windowId, jumpToId]);
+
+  // /chat?m=<id>: resolve once the first window is in, paging back if needed
+  useEffect(() => {
+    if (!permalinkId || messages.length === 0 || permalinkDoneRef.current === permalinkId) return;
+    permalinkDoneRef.current = permalinkId;
+    jumpToId(permalinkId);
+  }, [permalinkId, messages.length, jumpToId]);
+
+  // A shared /chat?q=... link opens the search panel on load
+  useEffect(() => {
+    if (initialSearch.open) onSearchOpenChange?.(true);
+    // once, on mount
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+
+  // Esc closes the date popover first, then the search panel
+  useEffect(() => {
+    if (!dayPickerOpen && !searchOpen) return;
+    const onKey = (e) => {
+      if (e.key !== "Escape") return;
+      if (dayPickerOpen) setDayPickerOpen(false);
+      else onSearchOpenChange?.(false);
+    };
+    window.addEventListener("keydown", onKey);
+    return () => window.removeEventListener("keydown", onKey);
+  }, [dayPickerOpen, searchOpen, onSearchOpenChange]);
+
+  // Close the date popover on an outside click
+  useEffect(() => {
+    if (!dayPickerOpen) return;
+    const onDown = (e) => {
+      if (!dayPickerRef.current?.contains(e.target)) setDayPickerOpen(false);
+    };
+    document.addEventListener("mousedown", onDown);
+    return () => document.removeEventListener("mousedown", onDown);
+  }, [dayPickerOpen]);
+
+  // Archive range for the date input, fetched the first time it opens
+  useEffect(() => {
+    if (!dayPickerOpen || archiveMin) return;
+    let cancelled = false;
+    relayFetch("/api/chat/stats")
+      .then((r) => r.json())
+      .then((data) => {
+        if (cancelled || !data?.oldestMessage) return;
+        const d = new Date(`${String(data.oldestMessage).replace(" ", "T")}Z`);
+        if (!Number.isNaN(d.getTime())) setArchiveMin(toInputDate(d));
+      })
+      .catch(() => {});
+    return () => {
+      cancelled = true;
+    };
+  }, [dayPickerOpen, archiveMin]);
+
+  // Jump to date: load the window that ends at the start of the next local
+  // day and scroll to that day's first message (or the window's last row
+  // when the day is empty). Today is the live tail.
+  const jumpToDate = useCallback(async (ymd) => {
+    if (!ymd || !loadWindow || loadingWindow) return;
+    const [y, m, d] = ymd.split("-").map(Number);
+    if (!y || !m || !d) return;
+    const dayStart = new Date(y, m - 1, d);
+    const nextDay = new Date(y, m - 1, d + 1);
+    const key = getDateKey(dayStart);
+    const isToday = key === getDateKey(Date.now());
+    setDayPickerOpen(false);
+    setLoadingWindow(true);
+    try {
+      const loaded = isToday ? await loadLatest() : await loadWindow(toRelayCursor(nextDay));
+      const first = loaded.find((msg) => getDateKey(msg.sentAt) === key) || loaded[loaded.length - 1];
+      setPendingJump(first ? { id: first.id, align: "start" } : null);
+    } catch {
+      // relay unreachable; the current window stays
+    } finally {
+      setLoadingWindow(false);
+    }
+  }, [loadWindow, loadLatest, loadingWindow]);
+
+  const backToLive = useCallback(async () => {
+    if (!loadLatest || loadingWindow) return;
+    setLoadingWindow(true);
+    setPendingJump(null);
+    try {
+      await loadLatest();
+      setShowNotice(false);
+    } catch {
+      // relay unreachable; the current window stays
+    } finally {
+      setLoadingWindow(false);
+    }
+  }, [loadLatest, loadingWindow]);
+
+  // Sticky day bar: which row is at the top of the viewport. Measured from
+  // the rendered rows (Virtuoso stamps data-index on each), falling back to
+  // the rendered range's start when nothing has a box yet (first paint,
+  // tests). Scroll events are coalesced into one frame.
+  const updateTopRow = useCallback(() => {
+    const el = scrollerElRef.current;
+    let idx = null;
+    if (el) {
+      const top = el.getBoundingClientRect().top;
+      const nodes = el.querySelectorAll("[data-index]");
+      for (const n of nodes) {
+        const r = n.getBoundingClientRect();
+        if (r.height > 0 && r.bottom > top + 1) {
+          idx = Number(n.dataset.index);
+          break;
+        }
+      }
+    }
+    if (idx === null && rangeRef.current) idx = rangeRef.current.startIndex;
+    setTopIndex(idx);
+  }, []);
+
+  const scheduleTopRow = useCallback(() => {
+    cancelAnimationFrame(topRowRafRef.current);
+    topRowRafRef.current = requestAnimationFrame(updateTopRow);
+  }, [updateTopRow]);
+
+  const handleRangeChanged = useCallback((range) => {
+    rangeRef.current = range;
+    updateTopRow();
+  }, [updateTopRow]);
+
+  const handleScrollerRef = useCallback((el) => {
+    const prev = scrollerElRef.current;
+    if (prev && prev !== el) prev.removeEventListener("scroll", scheduleTopRow);
+    scrollerElRef.current = el;
+    if (el && el !== prev) el.addEventListener("scroll", scheduleTopRow, { passive: true });
+  }, [scheduleTopRow]);
+
+  useEffect(() => () => cancelAnimationFrame(topRowRafRef.current), []);
+
+  // "(N) 4v4 Chat" + red-dot favicon while hidden; restored on return
+  useEffect(() => {
+    applyTabBadge(hiddenUnread);
+  }, [hiddenUnread]);
+  useEffect(() => () => applyTabBadge(0), []);
+
+  // Watched players' lines (by them, or naming them): a desktop notification
+  // while the tab is hidden, if the user granted permission (asked when they
+  // starred their first player, see useWatchList). Click brings the tab back
+  // and jumps to the line the same way a permalink does.
+  useEffect(() => {
+    if (!watchList || watchList.size === 0 || messages.length === 0) return;
     const last = messages[messages.length - 1];
     if (last.id === lastNotifiedRef.current) return;
     lastNotifiedRef.current = last.id;
-    const tag = (last.battle_tag || last.battleTag || "").toLowerCase();
-    if (watchList.has(tag)) playPing();
-  }, [messages, notifyOn, watchList]);
+    if (last.kind === "system" || !last.battleTag) return;
+    const byWatched = watchList.has(last.battleTag.toLowerCase());
+    const mentionsWatched = !byWatched && findWatchedMentions(last.text, watchList).length > 0;
+    if (!byWatched && !mentionsWatched) return;
+    if (!document.hidden) return;
+    const id = last.id;
+    notifyChat({
+      name: last.userName || last.battleTag.split("#")[0],
+      text: last.text,
+      icon: avatars?.get(last.battleTag)?.profilePicUrl || "/favicon.svg",
+      onClick: () => jumpToId(id),
+    });
+  }, [messages, watchList, avatars, jumpToId]);
 
   // "- new -" marker: remember where you were when the tab went hidden
   useEffect(() => {
@@ -1265,7 +1104,7 @@ export default function ChatPanel({
       if (document.hidden) {
         clearTimeout(clearTimer);
         const last = messages[messages.length - 1];
-        if (last) setNewMarkerTime(new Date(last.sent_at || last.sentAt).getTime());
+        if (last) setNewMarkerTime(new Date(last.sentAt).getTime());
       } else {
         clearTimer = setTimeout(() => setNewMarkerTime(null), 120_000);
       }
@@ -1277,98 +1116,123 @@ export default function ChatPanel({
     };
   }, [messages]);
 
-  const toggleTranslations = () => {
-    setShowTranslations((v) => {
-      writePref("chat:showTranslations", !v);
-      return !v;
+  const toggleEvent = useCallback((id) => {
+    setExpandedEvents((prev) => {
+      const next = new Set(prev);
+      if (next.has(id)) next.delete(id);
+      else next.add(id);
+      return next;
     });
-  };
-
-  const toggleNotify = () => {
-    setNotifyOn((v) => {
-      writePref("chat:notify", !v);
-      return !v;
-    });
-  };
-
-  // Debounced public search against the relay
-  useEffect(() => {
-    if (!searchOpen) return;
-    const q = searchQuery.trim();
-    if (q.length < 2) {
-      setSearchResults(null);
-      return;
-    }
-    setSearching(true);
-    const t = setTimeout(() => {
-      fetch(`${RELAY_URL}/api/chat/search?q=${encodeURIComponent(q)}&limit=50`)
-        .then((r) => r.json())
-        .then((data) => setSearchResults(data.results || []))
-        .catch(() => setSearchResults([]))
-        .finally(() => setSearching(false));
-    }, 350);
-    return () => clearTimeout(t);
-  }, [searchQuery, searchOpen]);
-
-  const handleLoadOlder = useCallback(async () => {
-    if (!loadOlder || loadingOlder) return;
-    setLoadingOlder(true);
-    const el = listRef.current;
-    const prevHeight = el?.scrollHeight || 0;
-    const prevTop = el?.scrollTop || 0;
-    await loadOlder();
-    // Keep the viewport anchored on the message the user was reading
-    requestAnimationFrame(() => {
-      if (el) el.scrollTop = el.scrollHeight - prevHeight + prevTop;
-      setLoadingOlder(false);
-    });
-  }, [loadOlder, loadingOlder]);
-
-  // @mention autocomplete state derived from the draft
-  const mentionMatch = useMemo(() => {
-    const m = draft.match(/@([\w#]*)$/);
-    if (!m) return null;
-    const q = m[1].toLowerCase();
-    const candidates = onlineUsers
-      .filter((u) => (u.name || "").toLowerCase().startsWith(q))
-      .slice(0, 6);
-    return candidates.length > 0 ? { prefix: m[1], candidates } : null;
-  }, [draft, onlineUsers]);
-
-  const insertMention = useCallback((name) => {
-    setDraft((d) => d.replace(/@([\w#]*)$/, `@${name} `));
-    inputRef.current?.focus();
   }, []);
 
-  const handleSend = useCallback(async (e) => {
-    e.preventDefault();
-    if (!draft.trim() || !apiKey || sending || !sendMessage) return;
-    setSending(true);
-    setSendError(null);
+  // The effective search: each field counts once it has enough characters
+  const searchQ = searchQuery.trim().length >= SEARCH_MIN_CHARS ? searchQuery.trim() : "";
+  const searchP = searchPlayer.trim().length >= SEARCH_MIN_CHARS ? searchPlayer.trim() : "";
+  const searchActive = Boolean(searchQ || searchP);
+
+  // Debounced search against the relay; a stale response never lands
+  useEffect(() => {
+    if (!searchOpen) return;
+    if (!searchActive) {
+      setSearchResults(null);
+      setSearchTotal(0);
+      setSearching(false);
+      return;
+    }
+    const reqId = ++searchReqRef.current;
+    setSearching(true);
+    setSearchError(false);
+    const t = setTimeout(() => {
+      fetchSearchPage({ q: searchQ, player: searchP, since: searchSince, offset: 0 })
+        .then(({ results, total }) => {
+          if (reqId !== searchReqRef.current) return;
+          setSearchResults(results);
+          setSearchTotal(total);
+        })
+        .catch(() => {
+          if (reqId !== searchReqRef.current) return;
+          setSearchResults([]);
+          setSearchTotal(0);
+          setSearchError(true);
+        })
+        .finally(() => {
+          if (reqId === searchReqRef.current) setSearching(false);
+        });
+    }, SEARCH_DEBOUNCE_MS);
+    return () => clearTimeout(t);
+  }, [searchOpen, searchActive, searchQ, searchP, searchSince]);
+
+  const loadMoreResults = useCallback(async () => {
+    if (!searchResults || searchingMore) return;
+    const reqId = searchReqRef.current;
+    setSearchingMore(true);
     try {
-      await sendMessage(draft.trim(), apiKey);
-      setDraft("");
-      inputRef.current?.focus();
-    } catch (err) {
-      setSendError(err.message);
+      const { results, total } = await fetchSearchPage({ q: searchQ, player: searchP, since: searchSince, offset: searchResults.length });
+      if (reqId !== searchReqRef.current) return;
+      setSearchResults((prev) => {
+        const ids = new Set(prev.map((r) => r.id));
+        return [...prev, ...results.filter((r) => !ids.has(r.id))];
+      });
+      setSearchTotal(total);
+    } catch {
+      // keep the page already on screen
     } finally {
-      setSending(false);
+      setSearchingMore(false);
     }
-  }, [draft, apiKey, sending, sendMessage]);
+  }, [searchResults, searchingMore, searchQ, searchP, searchSince]);
 
-  function handleSaveKey(e) {
-    e.preventDefault();
-    const input = e.target.elements?.apiKeyInput?.value?.trim();
-    if (input) {
-      setApiKeyHook(input);
+  // Mirror the search into the address bar (?q=&player=&since=) so it can
+  // be shared; replaceState keeps the router out of it, like permalinks
+  useEffect(() => {
+    const sp = new URLSearchParams(window.location.search);
+    if (searchOpen && searchActive) {
+      if (searchQ) sp.set("q", searchQ);
+      else sp.delete("q");
+      if (searchP) sp.set("player", searchP);
+      else sp.delete("player");
+      sp.set("since", searchSince);
+    } else {
+      sp.delete("q");
+      sp.delete("player");
+      sp.delete("since");
     }
-    setShowKeyPrompt(false);
-  }
+    const qs = sp.toString();
+    const next = `${window.location.pathname}${qs ? `?${qs}` : ""}${window.location.hash}`;
+    const current = `${window.location.pathname}${window.location.search}${window.location.hash}`;
+    if (next !== current) window.history.replaceState(window.history.state, "", next);
+  }, [searchOpen, searchActive, searchQ, searchP, searchSince]);
 
-  function handleClearKey() {
-    setApiKeyHook("");
-    setShowKeyPrompt(false);
-  }
+  // Player filter suggestions from the online list.
+  // A picked suggestion is a full battleTag, which the relay matches exactly.
+  const playerSuggestions = useMemo(() => {
+    if (!playerFieldFocused) return null;
+    const p = searchPlayer.trim();
+    if (!p || p.includes("#")) return null;
+    const candidates = matchMentionCandidates(p, onlineUsers);
+    return candidates.length > 0 ? candidates : null;
+  }, [playerFieldFocused, searchPlayer, onlineUsers]);
+
+  const pickPlayer = useCallback((user) => {
+    setSearchPlayer(user.battleTag || user.name);
+    setPlayerFieldFocused(false);
+  }, []);
+
+  // Prepends go through Virtuoso's firstItemIndex (see the memo below), so
+  // the viewport stays anchored without any scrollHeight arithmetic here.
+  // The ref guard is synchronous: startReached and the button can both fire
+  // before the loading state has rendered.
+  const olderInFlightRef = useRef(false);
+  const handleLoadOlder = useCallback(async () => {
+    if (!loadOlder || olderInFlightRef.current) return;
+    olderInFlightRef.current = true;
+    setLoadingOlder(true);
+    try {
+      await loadOlder();
+    } finally {
+      olderInFlightRef.current = false;
+      setLoadingOlder(false);
+    }
+  }, [loadOlder]);
 
   const handleBotTest = useCallback(async (e) => {
     e.preventDefault();
@@ -1376,9 +1240,10 @@ export default function ChatPanel({
     if (!cmd || botTesting) return;
     const command = cmd.startsWith("!") ? cmd : `!${cmd}`;
     setBotTesting(true);
+    setBotError(null);
     try {
       const key = apiKey;
-      const res = await fetch(`${RELAY_URL}/api/admin/bot/test`, {
+      const res = await relayFetch(`/api/admin/bot/test`, {
         method: "POST",
         headers: { "Content-Type": "application/json", "X-API-Key": key },
         body: JSON.stringify({ command }),
@@ -1389,202 +1254,461 @@ export default function ChatPanel({
       }
       setBotDraft("");
     } catch (err) {
-      setSendError(err.message);
+      setBotError(err.message);
     } finally {
       setBotTesting(false);
     }
   }, [botDraft, apiKey, botTesting]);
 
   const { botResponseMap, unmatchedBotResponses } = useBotResponseMap(botResponses, messages);
-  const messageSegments = useMessageSegments(messages);
+  // Prepend boundaries: the id of the earliest message before each page of
+  // older history. Grouping never merges across one, so the row that was
+  // first before the prepend keeps its key and its lines; Virtuoso anchors
+  // the viewport to that row by index (see the firstItemIndex memo). A
+  // prepend is recognised by the previous first message still being loaded
+  // but no longer first; a replaced window resets.
+  const boundaryRef = useRef({ windowId, firstId: null, ids: new Set() });
+  const boundaryIds = useMemo(() => {
+    const firstId = messages[0]?.id ?? null;
+    if (boundaryRef.current.windowId !== windowId) {
+      boundaryRef.current = { windowId, firstId, ids: new Set() };
+      return boundaryRef.current.ids;
+    }
+    const b = boundaryRef.current;
+    if (b.firstId !== null && firstId !== b.firstId && messages.some((m) => m.id === b.firstId)) {
+      b.ids = new Set(b.ids).add(b.firstId);
+    }
+    b.firstId = firstId;
+    return b.ids;
+  }, [messages, windowId]);
+  const messageSegments = useMessageSegments(messages, boundaryIds);
 
-  // Weave game events into the message stream by timestamp
+  // One list row per message group (author + consecutive lines within 2 min)
+  // or system message, plus game events woven in by timestamp when the Games
+  // toggle is on. A group sorts by its first line, so an event never lands
+  // inside a group.
   const renderItems = useMemo(() => {
-    const items = messageSegments.map((seg) => ({
-      kind: "seg",
-      time: new Date(seg.start.sent_at || seg.start.sentAt).getTime(),
-      seg,
-    }));
-    const oldestLoaded = items.length > 0 ? items[0].time : 0;
-    for (const ev of gameEvents) {
-      const t = new Date(ev.time).getTime();
-      if (t >= oldestLoaded) items.push({ kind: "event", time: t, ev });
+    const items = [];
+    for (const seg of messageSegments) {
+      const start = seg.start;
+      const time = new Date(start.sentAt).getTime();
+      if (start.kind === "system") {
+        items.push({ kind: "system", key: start.id, msg: start, time });
+      } else {
+        items.push({ kind: "group", key: start.id, msg: start, msgs: [start, ...seg.continuations], time });
+      }
+    }
+    if (showGames) {
+      const oldestLoaded = items.length > 0 ? items[0].time : 0;
+      for (const ev of gameEvents) {
+        const t = new Date(ev.time).getTime();
+        if (t >= oldestLoaded) items.push({ kind: "event", key: ev.id, ev, time: t });
+      }
     }
     return items.sort((a, b) => a.time - b.time);
-  }, [messageSegments, gameEvents]);
+  }, [messageSegments, gameEvents, showGames]);
 
-  // Auto-scroll to bottom when new messages arrive (paging in older history
-  // changes `messages` too, so key off the newest message id)
+  // Day dividers are rows of their own (keyed by day) ahead of the first
+  // message or system row of each day, so paging in older history from the
+  // same day never changes an existing row's height. The "new" marker is a
+  // flag on the first message row past newMarkerTime.
+  const rows = useMemo(() => {
+    const out = [];
+    let prevDay = null;
+    let newMarkerShown = false;
+    renderItems.forEach((item) => {
+      if (item.kind !== "group" && item.kind !== "system") {
+        out.push(item);
+        return;
+      }
+      const day = getDateKey(item.msg.sentAt);
+      if (day !== prevDay) {
+        out.push({ kind: "divider", key: `day:${day}`, time: item.time, sentAt: item.msg.sentAt });
+        prevDay = day;
+      }
+      const showNewMarker = !newMarkerShown && newMarkerTime != null && item.time > newMarkerTime;
+      if (showNewMarker) newMarkerShown = true;
+      out.push({ ...item, showNewMarker });
+    });
+    return out;
+  }, [renderItems, newMarkerTime]);
+
+  // Virtuoso keeps the viewport still across changes at the head of the
+  // list as long as firstItemIndex moves, in the same render as the data,
+  // by exactly the number of rows added ahead of (or removed from ahead
+  // of) a row that survives the change. The anchor is the first message or
+  // event row of the new list that was already in the previous one; day
+  // divider rows are skipped because a divider moves ahead of older rows
+  // from its own day. Prepends decrease the index, head trims (live cap,
+  // deletions) increase it, appends leave it alone.
+  const headRef = useRef({ keys: null, index: FIRST_ITEM_BASE, windowId });
+  const firstItemIndex = useMemo(() => {
+    // A replaced window (jump to date, back to live) remounts the list, so
+    // its anchor starts over
+    if (headRef.current.windowId !== windowId) {
+      headRef.current = { keys: null, index: FIRST_ITEM_BASE, windowId };
+    }
+    const head = headRef.current;
+    let index = head.index;
+    if (head.keys) {
+      const at = rows.findIndex((r) => r.kind !== "divider" && head.keys.has(r.key));
+      if (at !== -1) index += head.keys.get(rows[at].key) - at;
+    }
+    const keys = new Map();
+    rows.forEach((r, i) => keys.set(r.key, i));
+    headRef.current = { keys, index, windowId };
+    return index;
+  }, [rows, windowId]);
+
+  // Jump (search hit, permalink, date): scroll to the row once it exists.
+  // If the list is about to (re)mount (search closing, window replaced),
+  // the initial position handles it instead.
+  const pendingJumpIndex = pendingJump ? findRowIndex(rows, pendingJump.id) : -1;
+  const pendingJumpAlign = pendingJump?.align || "center";
+  useEffect(() => {
+    if (pendingJumpIndex === -1 || searchOpen) return;
+    const raf = requestAnimationFrame(() => {
+      virtuosoRef.current?.scrollToIndex({ index: pendingJumpIndex, align: pendingJumpAlign });
+      setPendingJump(null);
+    });
+    return () => cancelAnimationFrame(raf);
+  }, [pendingJumpIndex, pendingJumpAlign, searchOpen]);
+
+  // "New messages below" when a new tail arrives while scrolled up. Paging
+  // in older history changes `messages` too, so key off the newest id; a
+  // replaced window is not a new tail either.
   const lastMsgIdRef = useRef(null);
-  const autoScrollRef = useRef(true);
-  const programmaticUntil = useRef(0);
-  useEffect(() => { autoScrollRef.current = autoScroll; }, [autoScroll]);
-
-  // Programmatic jump to bottom that doesn't get misread as a user scroll
-  const stickToBottom = useCallback((smooth) => {
-    const el = listRef.current;
-    if (!el) return;
-    programmaticUntil.current = Date.now() + 200;
-    el.scrollTo({ top: el.scrollHeight, behavior: smooth ? "smooth" : "auto" });
-  }, []);
-
+  const noticeWindowRef = useRef(windowId);
   useEffect(() => {
     const lastId = messages[messages.length - 1]?.id ?? null;
-    const isNewTail = lastId !== lastMsgIdRef.current;
-    const isInitialLoad = lastMsgIdRef.current === null;
+    const isNewTail = lastId !== lastMsgIdRef.current && noticeWindowRef.current === windowId;
     lastMsgIdRef.current = lastId;
-    if (autoScroll) {
-      // Initial load: instant scroll so the 200ms programmatic window can't
-      // expire mid-animation and misread it as a user scroll → autoScroll=false
-      stickToBottom(!isInitialLoad);
-    } else if (isNewTail && messages.length > 0) {
-      setShowNotice(true);
-    }
-  }, [messages, autoScroll, stickToBottom]);
+    noticeWindowRef.current = windowId;
+    if (isNewTail && messages.length > 0 && !atBottomRef.current) setShowNotice(true);
+  }, [messages, windowId]);
 
-  // Re-pin to bottom whenever content height grows while pinned - game-event
-  // cards, avatars, MMR charts and images all load AFTER the initial render,
-  // so a one-shot scroll lands short. Instant (not smooth) so it can't be
-  // outrun by the next height change.
-  // Dependency on hasMessages: on first render messages=[] so the content div
-  // isn't mounted yet (contentRef is null). We re-run once messages arrive so
-  // the observer actually attaches to the real DOM node.
-  const hasMessages = messages.length > 0;
-  useEffect(() => {
-    if (!hasMessages) return;
-    const el = listRef.current;
-    const content = contentRef.current;
-    if (!el || !content || typeof ResizeObserver === "undefined") return;
-    const ro = new ResizeObserver(() => {
-      if (autoScrollRef.current) {
-        programmaticUntil.current = Date.now() + 200;
-        el.scrollTop = el.scrollHeight;
-      }
-    });
-    ro.observe(content);
-    return () => ro.disconnect();
-  }, [hasMessages]);
+  const followOutput = useCallback((isAtBottom) => {
+    atBottomRef.current = isAtBottom;
+    return isAtBottom ? "smooth" : false;
+  }, []);
 
-  function handleScroll() {
-    const el = listRef.current;
-    if (!el) return;
-    // Ignore scroll events we caused ourselves (sticking to bottom)
-    if (Date.now() < programmaticUntil.current) return;
-    const atBottom = el.scrollHeight - el.scrollTop - el.clientHeight < 40;
-    setAutoScroll(atBottom);
+  const handleAtBottomChange = useCallback((atBottom) => {
+    atBottomRef.current = atBottom;
     if (atBottom) setShowNotice(false);
-  }
+  }, []);
 
   function scrollToBottom() {
-    stickToBottom(true);
-    setAutoScroll(true);
+    virtuosoRef.current?.scrollToIndex({ index: "LAST", align: "end", behavior: "smooth" });
     setShowNotice(false);
   }
 
+  const showLoadOlder = Boolean(hasMoreHistory && loadOlder);
+
+  // Reaching the top pages older history in automatically; the button stays
+  // for keyboard and screen-reader users
+  const handleStartReached = useCallback(() => {
+    if (showLoadOlder) handleLoadOlder();
+  }, [showLoadOlder, handleLoadOlder]);
+
+  // Status chip for a name row, shared with the roster (chat/chip.js)
+  const chipCtx = { inGameTags, recentDeltas, recentWinners, startTimes: inGameInfoMap };
+
+  const hoverData = { avatars, stats, sessions, inGameTags, inGameInfoMap };
+  const renderLine = (line) => markMentions(linkifyMessage(line.text), watchList);
+  const renderSearchLine = (line) => highlightMatches(line.text, searchQ);
+  // Name inside a result narrows the search to that player (the row itself
+  // jumps into the stream, see SearchResultRow)
+  const filterByAuthor = (author) => setSearchPlayer(author.battleTag || author.userName || "");
+  const jumpBusy = jumping || loadingWindow;
+  const permalinkHref = (line) => `${window.location.origin}/chat?m=${encodeURIComponent(line.id)}`;
+  const renderAfterLine = (line) => {
+    const unfurl = detectUnfurl(line.text);
+    const br = botResponseMap.get(line.id);
+    if (!unfurl && !br) return null;
+    return (
+      <>
+        {unfurl && <UnfurlCard target={unfurl} />}
+        {br && (
+          <BotResponseRow>
+            <BotLabel>BOT</BotLabel>
+            {!br.botEnabled && <BotPreviewTag>(preview)</BotPreviewTag>}
+            <BotText>{br.response}</BotText>
+          </BotResponseRow>
+        )}
+      </>
+    );
+  };
+
+  const listContext = useMemo(
+    () => ({ showLoadOlder, loadingOlder, onLoadOlder: handleLoadOlder, unmatchedBotResponses }),
+    [showLoadOlder, loadingOlder, handleLoadOlder, unmatchedBotResponses]
+  );
+
+  const renderRow = (index, row) => {
+    // Game event woven into the stream: one quiet row, the card on click
+    if (row.kind === "event") {
+      const ev = row.ev;
+      const stillRunning = ev.type !== "game_end" && Boolean(ongoingMatchIds?.has(ev.matchId));
+      return (
+        <GameRow
+          event={ev}
+          expanded={expandedEvents.has(ev.id)}
+          onToggle={toggleEvent}
+          stillRunning={stillRunning}
+          hoverData={hoverData}
+        />
+      );
+    }
+
+    if (row.kind === "divider") {
+      const isFirstRow = index - firstItemIndex === 0;
+      return (
+        <DateDivider $first={isFirstRow && !showLoadOlder}>
+          <DateLabel>{formatDateDivider(row.sentAt)}</DateLabel>
+        </DateDivider>
+      );
+    }
+
+    const msg = row.msg;
+    const dividers = row.showNewMarker ? (
+      <NewDivider><NewDividerLabel>new</NewDividerLabel></NewDivider>
+    ) : null;
+
+    // System message
+    if (row.kind === "system") {
+      return (
+        <>
+          {dividers}
+          <SystemWrap>
+            <SystemMessageRow>{msg.text}</SystemMessageRow>
+          </SystemWrap>
+        </>
+      );
+    }
+
+    const tag = msg.battleTag;
+    const isWatched =
+      (Boolean(tag) && Boolean(watchList?.has(tag.toLowerCase()))) ||
+      row.msgs.some((m) => findWatchedMentions(m.text, watchList).length > 0);
+    const profile = avatars?.get(tag);
+    const playerStats = stats?.get(tag);
+    const live = liveStreamers?.get(tag);
+    const gameInfo = inGameTags?.has(tag) ? inGameInfoMap?.get(tag) : null;
+
+    const group = {
+      author: { battleTag: tag, userName: msg.userName, clanTag: msg.clanTag },
+      lines: row.msgs.map((m) => ({
+        id: m.id,
+        text: m.text,
+        sentAt: m.sentAt,
+        kind: m.kind,
+        translation: showTranslations ? translations.get(m.id) : undefined,
+        highlight: flashId === m.id,
+      })),
+    };
+    const chip = chipForTag(tag, chipCtx);
+    if (chip?.kind === "ingame" && gameInfo && onOpenGame) chip.onClick = () => onOpenGame(gameInfo);
+    const meta = {
+      avatarUrl: profile?.profilePicUrl,
+      race: playerStats?.race,
+      countryCode: profile?.country,
+      mmr: playerStats?.mmr,
+      chip,
+      twitchLogin: live?.twitchName,
+      twitchTitle: live?.title,
+    };
+    const wrapName = (node) => (
+      <PlayerHoverCard battleTag={tag} avatars={avatars} stats={stats} sessions={sessions} inGameInfo={gameInfo}>
+        {node}
+      </PlayerHoverCard>
+    );
+
+    return (
+      <>
+        {dividers}
+        <ChatMessage
+          variant="feed"
+          group={group}
+          meta={meta}
+          watched={isWatched}
+          wrapName={wrapName}
+          renderLine={renderLine}
+          renderAfterLine={renderAfterLine}
+          permalinkHref={permalinkHref}
+        />
+      </>
+    );
+  };
+
+  // Sticky day bar label: the day of the topmost visible row
+  const topRow = topIndex == null ? null : rows[topIndex - firstItemIndex];
+  const topDayLabel = topRow ? formatDateDivider(new Date(topRow.time).toISOString()) : null;
+  const topDayInput = topRow ? toInputDate(new Date(topRow.time)) : toInputDate(new Date());
+  const todayInput = toInputDate(new Date());
+
   return (
-    <OuterFrame>
-      <Wrapper $theme={borderTheme}>
-        <Header $theme={borderTheme}>
-          <Title>4v4 Chat</Title>
-          <HeaderActions>
-            {liveGameCount > 0 && (
-              <LiveGamesChip to="/live" title="Watch live games">
-                <GiCrossedSwords />
-                {liveGameCount} live
-              </LiveGamesChip>
-            )}
-            <HeaderToggle
-              $active={showTranslations}
-              onClick={toggleTranslations}
-              title={showTranslations ? "Hide translations" : "Show translations"}
-            >
-              <HiTranslate size={15} />
-            </HeaderToggle>
-            <HeaderToggle
-              $active={notifyOn}
-              onClick={toggleNotify}
-              title={notifyOn ? "Mute watched-player pings" : "Ping when watched players chat"}
-            >
-              <HiBell size={15} />
-            </HeaderToggle>
-            <HeaderToggle
-              $active={searchOpen}
-              onClick={() => setSearchOpen((v) => !v)}
-              title="Search chat history"
-            >
-              <HiSearch size={15} />
-            </HeaderToggle>
-            <StatusBadge>
-              <StatusDot $connected={status === "connected"} />
-              {status === "connected"
-                ? messages.length
-                : status === "reconnecting"
-                  ? "Reconnecting..."
-                  : "Connecting..."}
-            </StatusBadge>
-          </HeaderActions>
-        </Header>
+    <OuterFrame data-chat-panel>
+      <Wrapper>
+        <StatsStrip open={statsOpen} />
         {searchOpen && (
-          <SearchBar>
-            <SearchField
-              type="text"
-              placeholder="Search the last 24 hours..."
-              value={searchQuery}
-              onChange={(e) => setSearchQuery(e.target.value)}
-              autoFocus
-            />
-          </SearchBar>
+          <SearchPanel role="search" aria-label="Search chat history">
+            <SearchRow>
+              <SearchField
+                type="text"
+                placeholder="Search messages..."
+                aria-label="Search messages"
+                value={searchQuery}
+                onChange={(e) => setSearchQuery(e.target.value)}
+                autoFocus={!initialSearch.open}
+              />
+              <PlayerFieldWrap>
+                <PlayerField
+                  type="text"
+                  placeholder="Player"
+                  aria-label="Filter by player"
+                  value={searchPlayer}
+                  onChange={(e) => setSearchPlayer(e.target.value)}
+                  onFocus={() => setPlayerFieldFocused(true)}
+                  onBlur={() => setPlayerFieldFocused(false)}
+                  onKeyDown={(e) => {
+                    if (e.key === "Tab" && playerSuggestions) {
+                      e.preventDefault();
+                      pickPlayer(playerSuggestions[0]);
+                    }
+                  }}
+                />
+                {playerSuggestions && (
+                  <MentionMenu $below role="listbox" aria-label="Player suggestions">
+                    {playerSuggestions.map((u) => (
+                      <MentionItem
+                        key={u.battleTag}
+                        type="button"
+                        role="option"
+                        aria-selected={false}
+                        onMouseDown={(e) => e.preventDefault()}
+                        onClick={() => pickPlayer(u)}
+                      >
+                        {u.name}
+                      </MentionItem>
+                    ))}
+                  </MentionMenu>
+                )}
+              </PlayerFieldWrap>
+            </SearchRow>
+            <SearchRow>
+              <RangeGroup role="group" aria-label="Search range">
+                {SEARCH_RANGES.map((r) => (
+                  <RangePill
+                    key={r.key}
+                    type="button"
+                    $pill
+                    data-active={searchSince === r.key}
+                    aria-pressed={searchSince === r.key}
+                    onClick={() => setSearchSince(r.key)}
+                  >
+                    {r.label}
+                  </RangePill>
+                ))}
+              </RangeGroup>
+              {!searching && searchResults && !searchError && (
+                <ResultCount aria-live="polite">
+                  {searchTotal} {searchTotal === 1 ? "result" : "results"}
+                </ResultCount>
+              )}
+            </SearchRow>
+          </SearchPanel>
         )}
         {searchOpen ? (
           <SearchResults>
-            {searching && <SearchEmpty>Searching...</SearchEmpty>}
-            {!searching && searchResults && searchResults.length === 0 && (
-              <SearchEmpty>No messages found</SearchEmpty>
+            {searching &&
+              [...Array(5)].map((_, i) => (
+                <SkeletonRow key={i} data-testid="search-skeleton">
+                  <Skeleton $w="24px" $h="24px" $radius="var(--radius-md)" style={{ flexShrink: 0 }} />
+                  <div style={{ flex: 1, display: "flex", flexDirection: "column", gap: 6, paddingTop: 2 }}>
+                    <Skeleton $w="90px" $h="12px" />
+                    <Skeleton $w={`${40 + ((i * 17) % 45)}%`} $h="14px" />
+                  </div>
+                </SkeletonRow>
+              ))}
+            {!searching && searchError && (
+              <SearchEmpty>Search failed. The relay may be offline, try again in a moment.</SearchEmpty>
             )}
-            {!searching && !searchResults && (
-              <SearchEmpty>Type at least 2 characters to search the last 24 hours</SearchEmpty>
+            {!searching && !searchError && !searchResults && (
+              <SearchEmpty>
+                Search messages, filter by player, or both. At least {SEARCH_MIN_CHARS} characters.
+              </SearchEmpty>
+            )}
+            {!searching && !searchError && searchResults && searchResults.length === 0 && (
+              <SearchEmpty>
+                No messages match{searchSince !== "all" ? " in this range. Try a wider one." : "."}
+              </SearchEmpty>
             )}
             {!searching &&
               searchResults?.map((r, i) => {
-                const profile = avatars?.get(r.battle_tag) || searchAvatars.get(r.battle_tag);
+                const prev = i > 0 ? searchResults[i - 1] : null;
+                const when = r.sentAt || r.receivedAt;
+                const showDay = !prev || getDateKey(prev.sentAt || prev.receivedAt) !== getDateKey(when);
+                const profile = avatars?.get(r.battleTag) || searchAvatars.get(r.battleTag);
+                const playerStats = stats?.get(r.battleTag);
+                const group = {
+                  author: { battleTag: r.battleTag, userName: r.userName, clanTag: r.clanTag },
+                  lines: [{ id: r.id, text: r.text, sentAt: r.sentAt, kind: r.kind }],
+                };
+                const meta = {
+                  avatarUrl: profile?.profilePicUrl,
+                  race: playerStats?.race,
+                  countryCode: profile?.country,
+                  mmr: playerStats?.mmr,
+                };
                 return (
-                  <SearchResultRow
-                    key={`${r.id ?? r.received_at}-${i}`}
-                    type="button"
-                    title="Jump to message"
-                    disabled={jumping}
-                    onClick={() => jumpToMessage(r)}
-                  >
-                    {profile?.profilePicUrl ? (
-                      <SearchAvatar src={profile.profilePicUrl} alt="" />
-                    ) : (
-                      <SearchAvatar src={raceIcons.random} alt="" $placeholder />
+                  <React.Fragment key={r.id ?? `${r.receivedAt}-${i}`}>
+                    {showDay && (
+                      <ResultDivider $first={i === 0}>
+                        <DateLabel>{formatDateDivider(when)}</DateLabel>
+                      </ResultDivider>
                     )}
-                    <SearchResultBody>
-                      <SearchResultMeta>
-                        <Link
-                          to={`/player/${encodeURIComponent(r.battle_tag)}`}
-                          onClick={(e) => e.stopPropagation()}
-                        >
-                          {highlightMatches(r.user_name, searchQuery)}
-                        </Link>
-                        {" · "}
-                        {formatDateTime(r.sent_at || r.received_at)}
-                      </SearchResultMeta>
-                      <MessageText>{highlightMatches(r.message, searchQuery)}</MessageText>
-                    </SearchResultBody>
-                  </SearchResultRow>
+                    <SearchResultRow
+                      role="button"
+                      tabIndex={0}
+                      title="Jump to message"
+                      aria-disabled={jumpBusy}
+                      onClick={(e) => {
+                        if (jumpBusy || e.target.closest("button, a")) return;
+                        jumpToResult(r);
+                      }}
+                      onKeyDown={(e) => {
+                        if (e.target !== e.currentTarget || (e.key !== "Enter" && e.key !== " ")) return;
+                        e.preventDefault();
+                        if (!jumpBusy) jumpToResult(r);
+                      }}
+                    >
+                      <ChatMessage
+                        variant="transcript"
+                        group={group}
+                        meta={meta}
+                        onNameClick={filterByAuthor}
+                        renderLine={renderSearchLine}
+                      />
+                    </SearchResultRow>
+                  </React.Fragment>
                 );
               })}
+            {!searching && searchResults && searchResults.length < searchTotal && (
+              <MoreRow>
+                <Button type="button" $pill disabled={searchingMore} onClick={loadMoreResults}>
+                  {searchingMore ? "Loading..." : "More"}
+                </Button>
+              </MoreRow>
+            )}
           </SearchResults>
         ) : null}
         {searchOpen ? null : messages.length === 0 ? (
           status !== "connected" ? (
             <MessageList>
               {[...Array(6)].map((_, i) => (
-                <div key={i} style={{ display: "flex", gap: "var(--space-2)", padding: "var(--space-4) var(--space-4)", alignItems: "flex-start" }}>
-                  <SkeletonCircle $size="44px" style={{ borderRadius: "var(--radius-md)" }} />
-                  <div style={{ flex: 1, display: "flex", flexDirection: "column", gap: 6, paddingTop: 4 }}>
+                <div key={i} style={{ display: "flex", gap: 12, padding: "10px 0", alignItems: "flex-start" }}>
+                  <Skeleton $w="38px" $h="38px" $radius="3px" style={{ flexShrink: 0 }} />
+                  <div style={{ flex: 1, display: "flex", flexDirection: "column", gap: 6, paddingTop: 2 }}>
                     <div style={{ display: "flex", gap: "var(--space-2)", alignItems: "center" }}>
                       <Skeleton $w="100px" $h="14px" />
                       <Skeleton $w="50px" $h="10px" />
@@ -1600,266 +1724,71 @@ export default function ChatPanel({
           )
         ) : (
           <ScrollContainer>
-            <MessageList ref={listRef} onScroll={handleScroll}>
-              <div ref={contentRef}>
-              {hasMoreHistory && loadOlder && (
-                <LoadOlderButton onClick={handleLoadOlder} disabled={loadingOlder}>
-                  {loadingOlder ? "Loading..." : "Load earlier messages"}
-                </LoadOlderButton>
+            <Virtuoso
+              key={windowId}
+              ref={virtuosoRef}
+              style={{ flex: 1, height: "100%" }}
+              data={rows}
+              context={listContext}
+              components={listComponents}
+              computeItemKey={rowKey}
+              itemContent={renderRow}
+              firstItemIndex={firstItemIndex}
+              initialTopMostItemIndex={
+                pendingJumpIndex !== -1 ? { index: pendingJumpIndex, align: pendingJumpAlign } : rows.length - 1
+              }
+              followOutput={followOutput}
+              atBottomStateChange={handleAtBottomChange}
+              startReached={handleStartReached}
+              rangeChanged={handleRangeChanged}
+              scrollerRef={handleScrollerRef}
+              atBottomThreshold={40}
+              increaseViewportBy={{ top: 400, bottom: 400 }}
+            />
+            <StickyBar>
+              <DayPicker ref={dayPickerRef}>
+                {topDayLabel && (
+                  <DayButton
+                    type="button"
+                    $pill
+                    data-active={dayPickerOpen}
+                    aria-haspopup="dialog"
+                    aria-expanded={dayPickerOpen}
+                    title="Jump to date"
+                    onClick={() => setDayPickerOpen((v) => !v)}
+                  >
+                    {topDayLabel}
+                  </DayButton>
+                )}
+                {dayPickerOpen && (
+                  <DayPopover role="dialog" aria-label="Jump to date">
+                    <DayPopoverLabel htmlFor="chat-jump-date">Jump to date</DayPopoverLabel>
+                    <DateInput
+                      id="chat-jump-date"
+                      type="date"
+                      defaultValue={topDayInput}
+                      min={archiveMin || undefined}
+                      max={todayInput}
+                      disabled={loadingWindow}
+                      onChange={(e) => jumpToDate(e.target.value)}
+                      autoFocus
+                    />
+                  </DayPopover>
+                )}
+              </DayPicker>
+              {windowMode !== "live" && (
+                <BackToLiveButton
+                  type="button"
+                  $pill
+                  data-active="true"
+                  disabled={loadingWindow}
+                  onClick={backToLive}
+                  title="Reload the latest messages"
+                >
+                  {loadingWindow ? "Loading..." : "Back to live"}
+                </BackToLiveButton>
               )}
-              {(() => {
-                let prevSegTime = null;
-                let newMarkerShown = false;
-                return renderItems.map((item) => {
-                  // Game event woven into the stream
-                  if (item.kind === "event") {
-                    const ev = item.ev;
-                    const isEnd = ev.type === "game_end";
-                    const duration =
-                      ev.durationInSeconds != null
-                        ? `${Math.round(ev.durationInSeconds / 60)} min`
-                        : null;
-                    const mapImg = ev.mapName ? getMapImageUrl(ev.mapName) : null;
-                    const teamA = isEnd ? ev.winners : ev.teams?.[0];
-                    const teamB = isEnd ? ev.losers : ev.teams?.[1];
-                    const eventLink = isEnd ? `/match/${ev.matchId}` : "/live";
-                    const hasChart = (teamA || []).some((p) => p.mmr > 0);
-                    const stillRunning = !isEnd && ongoingMatchIds?.has(ev.matchId);
-                    const liveMins = stillRunning ? formatGameMinutes(ev.time) : null;
-                    return (
-                      <EventPostWrap key={ev.id}>
-                      <EventAvatarContainer>
-                        <EventAvatarImg src="/favicon.svg" alt="4v4.GG" />
-                      </EventAvatarContainer>
-                      <EventAttribution>
-                        <EventBotName>4v4.GG</EventBotName>
-                      </EventAttribution>
-                      <GameEventCard
-                        $end={isEnd}
-                        $live={ev.live}
-                        onClick={() => history.push(eventLink)}
-                        style={{ cursor: "pointer" }}
-                      >
-                        <EventTagCol>
-                          <EventTag $end={isEnd}>{isEnd ? "Finish" : "Start"}</EventTag>
-                          {isEnd ? (
-                            <>
-                              {duration && <EventMapMeta>{duration}</EventMapMeta>}
-                              <EventMapMeta>ended {formatTime(ev.time)}</EventMapMeta>
-                            </>
-                          ) : stillRunning ? (
-                            <EventMapMeta>
-                              <EventLiveDot />
-                              in progress{liveMins ? ` · ${liveMins}` : ""}
-                            </EventMapMeta>
-                          ) : (
-                            <EventMapMeta>started {formatTime(ev.time)}</EventMapMeta>
-                          )}
-                        </EventTagCol>
-                        <EventMapBlock>
-                          {mapImg && (
-                            <Link to={eventLink} onClick={(e) => e.stopPropagation()}>
-                              <EventMapImg src={mapImg} alt="" onError={(e) => { e.target.style.display = "none"; }} />
-                            </Link>
-                          )}
-                          {ev.mapName && (
-                            <EventMapName to={eventLink} onClick={(e) => e.stopPropagation()}>
-                              {ev.mapName}
-                            </EventMapName>
-                          )}
-                        </EventMapBlock>
-                        <EventBody>
-                          <MiniTeamsRow
-                            teamA={{ players: teamA, winner: isEnd }}
-                            teamB={{ players: teamB, winner: false }}
-                            dimLosers={isEnd}
-                            showChart={hasChart}
-                            mvpTag={ev.mvp}
-                            hoverData={{ avatars, stats, sessions, inGameTags, inGameInfoMap }}
-                          />
-                          {ev.note && (
-                            <EventNote>
-                              <MatchNote
-                                note={ev.note}
-                                avatarUrl={ev.note.tag ? avatars?.get(ev.note.tag)?.profilePicUrl : null}
-                              />
-                            </EventNote>
-                          )}
-                          {isEnd && (ev.badges?.length > 0 || ev.rivals?.length > 0) && (
-                            <EventNote>
-                              <StreakBadges badges={ev.badges} />
-                              <RivalryBadge rivals={ev.rivals} />
-                            </EventNote>
-                          )}
-                        </EventBody>
-                      </GameEventCard>
-                      </EventPostWrap>
-                    );
-                  }
-
-                  const segment = item.seg;
-                  const msg = segment.start;
-                  const tag = msg.battle_tag || msg.battleTag;
-                  const userName = msg.user_name || msg.userName;
-                  const msgTime = msg.sent_at || msg.sentAt;
-                  const msgDateKey = getDateKey(msgTime);
-
-                  const showDateDivider = prevSegTime === null || getDateKey(prevSegTime) !== msgDateKey;
-                  const showNewMarker =
-                    !newMarkerShown && newMarkerTime != null && item.time > newMarkerTime;
-                  if (showNewMarker) newMarkerShown = true;
-                  prevSegTime = msgTime;
-
-                  const dividers = (
-                    <>
-                      {showDateDivider && (
-                        <DateDivider><DateLabel>{formatDateDivider(msgTime)}</DateLabel></DateDivider>
-                      )}
-                      {showNewMarker && (
-                        <NewDivider><NewDividerLabel>new</NewDividerLabel></NewDivider>
-                      )}
-                    </>
-                  );
-
-                  // System message
-                  if (!tag || tag === "system") {
-                    return (
-                      <React.Fragment key={msg.id}>
-                        {dividers}
-                        <SystemMessageRow>
-                          {msg.message}
-                        </SystemMessageRow>
-                      </React.Fragment>
-                    );
-                  }
-
-                  const isWatched = watchList?.has(tag.toLowerCase());
-                  const clanTag = msg.clan_tag || msg.clanTag;
-                  const delta = recentDeltas?.get(tag);
-                  const live = liveStreamers?.get(tag);
-                  const gameInfo = inGameTags?.has(tag) ? inGameInfoMap?.get(tag) : null;
-                  const gameMins = gameInfo ? formatGameMinutes(gameInfo.startTime) : null;
-                  const SegmentWrap = isWatched ? WatchedBar : React.Fragment;
-
-                  return (
-                    <React.Fragment key={msg.id}>
-                      {dividers}
-                    <SegmentWrap>
-                    <MessageSegment>
-                      <AvatarContainer>
-                        <AvatarImgWrap>
-                          {getAvatarElement(tag, avatars, stats)}
-                          {avatars?.get(tag)?.country && (
-                            <AvatarFlag>
-                              <CountryFlag name={avatars.get(tag).country.toLowerCase()} />
-                            </AvatarFlag>
-                          )}
-                        </AvatarImgWrap>
-                      </AvatarContainer>
-                      <GroupStartRow id={`msg-${msg.id}`} $flash={flashId === msg.id}>
-                        <MessageContent>
-                          <div>
-                            <NameWrapper>
-                              <PlayerHoverCard
-                                battleTag={tag}
-                                avatars={avatars}
-                                stats={stats}
-                                sessions={sessions}
-                                inGameInfo={gameInfo}
-                              >
-                                <UserNameLink to={`/player/${encodeURIComponent(tag)}`}>
-                                  {userName}
-                                </UserNameLink>
-                              </PlayerHoverCard>
-                              {clanTag && <ClanTagChip>{clanTag}</ClanTagChip>}
-                              {stats?.get(tag)?.mmr != null && (
-                                <InlineMmr>{Math.round(stats.get(tag).mmr)} <MmrSuffix>MMR</MmrSuffix></InlineMmr>
-                              )}
-                              {delta != null && (
-                                <DeltaPill $positive={delta >= 0}>
-                                  {delta >= 0 ? `+${delta}` : delta}
-                                </DeltaPill>
-                              )}
-                              {gameInfo ? (
-                                <InGameChip to={`/player/${encodeURIComponent(tag)}`} title={`In game on ${gameInfo.mapName || "unknown map"}`}>
-                                  <GiCrossedSwords />
-                                  {gameMins || "in game"}
-                                </InGameChip>
-                              ) : (
-                                inGameTags?.has(tag) && <InGameIcon />
-                              )}
-                              {live && (
-                                <LiveTwitchLink
-                                  href={`https://twitch.tv/${live.twitchName}`}
-                                  target="_blank"
-                                  rel="noopener noreferrer"
-                                  title={live.title || "Live on Twitch"}
-                                >
-                                  <FaTwitch />
-                                </LiveTwitchLink>
-                              )}
-                              {recentWinners?.has(tag) && <WinCrown src={crownIcon} alt="" />}
-                              <Timestamp>{formatDateTime(msg.sent_at || msg.sentAt)}</Timestamp>
-                            </NameWrapper>
-                          </div>
-                          <MessageText>{linkifyMessage(msg.message)}</MessageText>
-                          {showTranslations && translations.has(msg.id) && (
-                            <TranslationRow style={{ margin: '2px 0', padding: '2px 0' }}>
-                              <TranslationLabel>EN</TranslationLabel>
-                              {translations.get(msg.id)}
-                            </TranslationRow>
-                          )}
-                        </MessageContent>
-                      </GroupStartRow>
-                      {botResponseMap.has(msg.id) && (
-                        <BotResponseRow>
-                          <BotLabel>BOT</BotLabel>
-                          {!botResponseMap.get(msg.id).botEnabled && <BotPreviewTag>(preview)</BotPreviewTag>}
-                          <BotText>{botResponseMap.get(msg.id).response}</BotText>
-                        </BotResponseRow>
-                      )}
-                      {segment.continuations.map((cMsg) => {
-                        const cBotResp = botResponseMap.get(cMsg.id);
-                        return (
-                          <React.Fragment key={cMsg.id}>
-                            <ContinuationRow id={`msg-${cMsg.id}`} $flash={flashId === cMsg.id}>
-                              <HoverTimestamp className="hover-timestamp">
-                                {formatTime(cMsg.sent_at || cMsg.sentAt)}
-                              </HoverTimestamp>
-                              <MessageText>{linkifyMessage(cMsg.message)}</MessageText>
-                            </ContinuationRow>
-                            {showTranslations && translations.has(cMsg.id) && (
-                              <TranslationRow>
-                                <TranslationLabel>EN</TranslationLabel>
-                                {translations.get(cMsg.id)}
-                              </TranslationRow>
-                            )}
-                            {cBotResp && (
-                              <BotResponseRow>
-                                <BotLabel>BOT</BotLabel>
-                                {!cBotResp.botEnabled && <BotPreviewTag>(preview)</BotPreviewTag>}
-                                <BotText>{cBotResp.response}</BotText>
-                              </BotResponseRow>
-                            )}
-                          </React.Fragment>
-                        );
-                      })}
-                    </MessageSegment>
-                    </SegmentWrap>
-                    </React.Fragment>
-                  );
-                });
-              })()}
-              {unmatchedBotResponses.map((br, i) => (
-                <BotResponseRow key={`bot-${i}`} style={{ marginLeft: "var(--space-4)" }}>
-                  <BotLabel>BOT</BotLabel>
-                  {!br.botEnabled && <BotPreviewTag>(preview)</BotPreviewTag>}
-                  <BotPreviewTag style={{ marginLeft: 6 }}>{br.command}</BotPreviewTag>
-                  <BotText>{br.response}</BotText>
-                </BotResponseRow>
-              ))}
-              </div>
-            </MessageList>
+            </StickyBar>
             {showNotice && (
               <ScrollNotice onClick={scrollToBottom}>
                 New messages below
@@ -1868,63 +1797,6 @@ export default function ChatPanel({
           </ScrollContainer>
         )}
       </Wrapper>
-      {isAdmin && sendMessage && showKeyPrompt && !apiKey && (
-        <KeyPrompt as="form" onSubmit={handleSaveKey}>
-          <KeyLabel>API Key:</KeyLabel>
-          <KeyInput name="apiKeyInput" type="password" placeholder="Enter admin API key" autoFocus />
-          <SendButton type="submit"><IoSend size={14} /></SendButton>
-        </KeyPrompt>
-      )}
-      {isAdmin && sendMessage && (apiKey || !showKeyPrompt) && (
-        <InputBar onSubmit={handleSend}>
-          <KeyButton
-            type="button"
-            $active={!!apiKey}
-            onClick={() => apiKey ? handleClearKey() : setShowKeyPrompt(true)}
-            title={apiKey ? "Clear API key" : "Set API key"}
-          >
-            <HiKey size={16} />
-          </KeyButton>
-          {apiKey ? (
-            <>
-              {mentionMatch && (
-                <MentionMenu>
-                  {mentionMatch.candidates.map((u) => (
-                    <MentionItem
-                      key={u.battleTag}
-                      type="button"
-                      onClick={() => insertMention(u.name)}
-                    >
-                      {u.name}
-                    </MentionItem>
-                  ))}
-                </MentionMenu>
-              )}
-              <ChatInput
-                ref={inputRef}
-                type="text"
-                placeholder="Send a message..."
-                value={draft}
-                onChange={(e) => { setDraft(e.target.value); setSendError(null); }}
-                onKeyDown={(e) => {
-                  if (e.key === "Tab" && mentionMatch) {
-                    e.preventDefault();
-                    insertMention(mentionMatch.candidates[0].name);
-                  }
-                }}
-                disabled={sending}
-                maxLength={500}
-              />
-              {sendError && <SendError title={sendError}>!</SendError>}
-              <SendButton type="submit" disabled={sending || !draft.trim()}>
-                <IoSend size={14} />
-              </SendButton>
-            </>
-          ) : (
-            <KeyLabel>Set API key to send messages</KeyLabel>
-          )}
-        </InputBar>
-      )}
       {isAdmin && (
         <BotTestBar onSubmit={handleBotTest}>
           <BotTestPrefix>BOT</BotTestPrefix>
@@ -1932,10 +1804,11 @@ export default function ChatPanel({
             type="text"
             placeholder="!games, !stats name, !recap topic 50, !help"
             value={botDraft}
-            onChange={(e) => setBotDraft(e.target.value)}
+            onChange={(e) => { setBotDraft(e.target.value); setBotError(null); }}
             disabled={botTesting}
             maxLength={200}
           />
+          {botError && <SendError title={botError}>!</SendError>}
           <SendButton type="submit" disabled={botTesting || !botDraft.trim()}>
             <IoSend size={14} />
           </SendButton>

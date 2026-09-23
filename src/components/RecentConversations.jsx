@@ -1,10 +1,9 @@
 import React, { useState, useEffect } from "react";
-import { Link } from "react-router-dom";
 import { fetchAndCacheProfile, getCachedProfile } from "../lib/profileCache";
+import ChatMessage from "./chat/ChatMessage";
 import "./RecentConversations.css";
 
-const RELAY_URL =
-  import.meta.env.VITE_CHAT_RELAY_URL || "https://4v4gg-chat-relay.fly.dev";
+import { RELAY_URL } from "../lib/relay";
 
 const SESSION_GAP_MS = 30 * 60 * 1000; // 30 minutes = new conversation
 const MAX_CONVERSATIONS = 3;
@@ -15,10 +14,10 @@ function parseTimestamp(ts) {
   return new Date(ts.endsWith?.("Z") ? ts : ts + "Z");
 }
 
-function formatTimeShort(ts) {
+// Relay timestamps are "YYYY-MM-DD HH:MM:SS" UTC; ChatMessage wants ISO
+function toIso(ts) {
   const d = parseTimestamp(ts);
-  if (!d) return "";
-  return d.toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" });
+  return d && !Number.isNaN(d.getTime()) ? d.toISOString() : undefined;
 }
 
 function formatDateShort(ts) {
@@ -27,22 +26,26 @@ function formatDateShort(ts) {
   return d.toLocaleDateString([], { month: "short", day: "numeric" });
 }
 
-function groupMessages(messages) {
+// Consecutive same-author messages -> one ChatMessage group
+export function groupMessages(messages) {
   const groups = [];
-  for (const msg of messages) {
+  messages.forEach((msg, i) => {
     const tag = msg.battle_tag || "";
+    const line = {
+      id: `rc-${i}`,
+      text: msg.message || msg.text || "",
+      sentAt: toIso(msg.received_at || msg.sent_at),
+    };
     const last = groups[groups.length - 1];
-    if (last && last.battle_tag === tag) {
-      last.lines.push(msg);
+    if (last && last.author.battleTag === tag) {
+      last.lines.push(line);
     } else {
       groups.push({
-        battle_tag: tag,
-        name: msg.name || msg.user_name || tag.split("#")[0],
-        time: msg.received_at || msg.sent_at || "",
-        lines: [msg],
+        author: { battleTag: tag, userName: msg.user_name || msg.name || tag.split("#")[0] },
+        lines: [line],
       });
     }
-  }
+  });
   return groups;
 }
 
@@ -213,15 +216,7 @@ export default function RecentConversations({ battleTag, playerName }) {
   }
 
   const activeConvo = conversations[activeIdx];
-  const groups = activeConvo
-    ? groupMessages(
-        activeConvo.contextMessages.map((m) => ({
-          ...m,
-          name: m.user_name || m.name,
-          text: m.message || m.text,
-        }))
-      )
-    : [];
+  const groups = activeConvo ? groupMessages(activeConvo.contextMessages) : [];
 
   // Get unique participants for each conversation (for tab labels)
   const getParticipants = (convo) => {
@@ -268,48 +263,15 @@ export default function RecentConversations({ battleTag, playerName }) {
         {groups.length === 0 ? (
           <div className="rc-empty">No messages</div>
         ) : (
-          groups.map((group, gi) => {
-            const profile = profiles.get(group.battle_tag);
-            const pic = profile?.pic;
-            const isTarget = group.name?.toLowerCase() === playerNameLower;
-
-            return (
-              <div
-                key={gi}
-                className={`rc-group ${isTarget ? "rc-group--target" : ""}`}
-              >
-                <div className="rc-avatar">
-                  {pic ? (
-                    <img src={pic} alt="" className="rc-avatar-img" />
-                  ) : (
-                    <span className="rc-avatar-placeholder" />
-                  )}
-                </div>
-                <div className="rc-body">
-                  <div className="rc-group-header">
-                    {group.battle_tag ? (
-                      <Link
-                        to={`/player/${encodeURIComponent(group.battle_tag)}`}
-                        className={`rc-name ${isTarget ? "rc-name--target" : ""}`}
-                      >
-                        {group.name}
-                      </Link>
-                    ) : (
-                      <span className={`rc-name ${isTarget ? "rc-name--target" : ""}`}>
-                        {group.name}
-                      </span>
-                    )}
-                    <span className="rc-time">{formatTimeShort(group.time)}</span>
-                  </div>
-                  {group.lines.map((line, li) => (
-                    <div key={li} className="rc-msg">
-                      {line.message || line.text}
-                    </div>
-                  ))}
-                </div>
-              </div>
-            );
-          })
+          groups.map((group, gi) => (
+            <ChatMessage
+              key={gi}
+              variant="transcript"
+              group={group}
+              meta={{ avatarUrl: profiles.get(group.author.battleTag)?.pic }}
+              target={group.author.userName?.toLowerCase() === playerNameLower}
+            />
+          ))
         )}
       </div>
     </div>

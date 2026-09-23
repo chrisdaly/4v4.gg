@@ -3,22 +3,26 @@ import { useMemo } from "react";
 /**
  * Groups consecutive messages from the same user (within 2 min)
  * into message segments for Discord-style rendering.
+ *
+ * `boundaryIds` (optional Set of message ids) forces a group to start at
+ * those messages even when the author matches: the chat list anchors its
+ * viewport to the row that was first before a page of older history came
+ * in, so that row must keep its key and its lines rather than being merged
+ * into a group that starts among the prepended messages.
  */
-export function useMessageSegments(messages) {
+export function useMessageSegments(messages, boundaryIds = null) {
   return useMemo(() => {
     const segments = [];
     for (let i = 0; i < messages.length; i++) {
       const msg = messages[i];
-      const tag = msg.battle_tag || msg.battleTag;
-      let isGroupStart = i === 0;
+      let isGroupStart = i === 0 || Boolean(boundaryIds?.has(msg.id));
       if (!isGroupStart) {
         const prev = messages[i - 1];
-        const prevTag = prev.battle_tag || prev.battleTag;
-        if (prevTag !== tag) {
+        if (prev.battleTag !== msg.battleTag) {
           isGroupStart = true;
         } else {
-          const prevTime = new Date(prev.sent_at || prev.sentAt).getTime();
-          const currTime = new Date(msg.sent_at || msg.sentAt).getTime();
+          const prevTime = new Date(prev.sentAt).getTime();
+          const currTime = new Date(msg.sentAt).getTime();
           if (currTime - prevTime > 2 * 60 * 1000) isGroupStart = true;
         }
       }
@@ -29,34 +33,43 @@ export function useMessageSegments(messages) {
       }
     }
     return segments;
-  }, [messages]);
+  }, [messages, boundaryIds]);
 }
 
 /**
  * Indexes bot responses by their triggering message ID.
  * Returns { botResponseMap, unmatchedBotResponses }.
+ *
+ * Single pass over the messages: every "!command" message is indexed by
+ * (author, command word) and later messages overwrite earlier ones, so the
+ * lookup lands on the newest matching message - the same message the old
+ * tail-first scan found. The relay derives `command` from the first word
+ * of the message (server/src/bot.js), so a first-word index is exact.
  */
+export function indexBotResponses(botResponses, messages) {
+  const map = new Map();
+  if (botResponses.length === 0) {
+    return { botResponseMap: map, unmatchedBotResponses: botResponses };
+  }
+  const latestCommand = new Map(); // `${tag}\u0000${command}` -> message
+  for (const msg of messages) {
+    const text = msg.text;
+    if (!text || text[0] !== "!") continue;
+    const end = text.search(/\s/);
+    const command = (end === -1 ? text : text.slice(0, end)).toLowerCase();
+    latestCommand.set(`${msg.battleTag}\u0000${command}`, msg);
+  }
+  const unmatched = [];
+  for (const br of botResponses) {
+    const msg = latestCommand.get(`${br.triggeredByTag}\u0000${br.command}`);
+    if (msg) map.set(msg.id, br);
+    else unmatched.push(br);
+  }
+  return { botResponseMap: map, unmatchedBotResponses: unmatched };
+}
+
 export function useBotResponseMap(botResponses, messages) {
-  return useMemo(() => {
-    const map = new Map();
-    const matched = new Set();
-    for (const br of botResponses) {
-      for (let i = messages.length - 1; i >= 0; i--) {
-        const msg = messages[i];
-        const tag = msg.battle_tag || msg.battleTag;
-        if (
-          tag === br.triggeredByTag &&
-          msg.message.toLowerCase().startsWith(br.command)
-        ) {
-          map.set(msg.id, br);
-          matched.add(br);
-          break;
-        }
-      }
-    }
-    const unmatched = botResponses.filter((br) => !matched.has(br));
-    return { botResponseMap: map, unmatchedBotResponses: unmatched };
-  }, [botResponses, messages]);
+  return useMemo(() => indexBotResponses(botResponses, messages), [botResponses, messages]);
 }
 
 /* ── Formatting helpers ─────────────────────── */

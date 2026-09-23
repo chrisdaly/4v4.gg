@@ -1,13 +1,20 @@
 import { useState, useEffect, useRef, useCallback } from "react";
+import { RELAY_URL, relayFetch } from "./relay";
+import { normalizeMessage, normalizeMessages } from "./chat/normalize";
 
-const RELAY_URL =
-  import.meta.env.VITE_CHAT_RELAY_URL || "https://4v4gg-chat-relay.fly.dev";
 const MAX_MESSAGES = 500;
 // Cap how far back scrollback can page in - keeps the DOM and memory bounded.
 // ~2000 messages is days of history; beyond that, use search instead.
 const MAX_HISTORY_EXTRA = 1500;
 const BACKOFF_DELAYS = [1000, 2000, 4000, 8000, 16000, 30000];
+// Relay-side SignalR states (server/src/signalr.js) other than Connected
+const RELAY_STATES = new Set(["auth_failed", "banned", "no_token", "error", "Disconnected", "stopped"]);
 
+/**
+ * Transport layer for the chat relay: REST history + SSE live stream.
+ * Every message crosses the wire boundary through normalizeMessage, so
+ * consumers only ever see the camelCase feed shape (see chat/normalize.js).
+ */
 export default function useChatStream() {
   const [messages, setMessages] = useState([]);
   const [status, setStatus] = useState("connecting");
@@ -15,6 +22,12 @@ export default function useChatStream() {
   const [botResponses, setBotResponses] = useState([]);
   const [translations, setTranslations] = useState(new Map());
   const [hasMoreHistory, setHasMoreHistory] = useState(true);
+  // Which window of the archive is loaded: the live tail (default) or a
+  // window ending at some past time (jump to date). Live SSE messages
+  // append in both modes. windowId changes whenever the window is replaced
+  // wholesale so the list can remount instead of diffing a prepend.
+  const [windowMode, setWindowMode] = useState("live");
+  const [windowId, setWindowId] = useState(0);
   const eventSourceRef = useRef(null);
   const retriesRef = useRef(0);
   const reconnectTimerRef = useRef(null);
@@ -28,6 +41,7 @@ export default function useChatStream() {
     messagesRef.current = messages;
   }, [messages]);
 
+  // Append already-normalized messages, deduped by id, trimmed to the cap
   const addMessages = useCallback((newMsgs) => {
     setMessages((prev) => {
       const ids = new Set(prev.map((m) => m.id));
@@ -41,25 +55,25 @@ export default function useChatStream() {
     });
   }, []);
 
-  // Page in older history (cursor on received_at of the oldest loaded message).
+  // Page in older history (cursor on receivedAt of the oldest loaded message).
   // Returns { added, oldestCursor } so callers can page toward a target time.
   const loadOlder = useCallback(async () => {
     if (loadingOlderRef.current) return { added: 0, oldestCursor: null };
     loadingOlderRef.current = true;
     try {
       const oldest = messagesRef.current[0];
-      const cursor = oldest?.received_at || oldest?.sent_at || oldest?.sentAt;
+      const cursor = oldest?.receivedAt || oldest?.sentAt;
       if (!cursor) return { added: 0, oldestCursor: null };
 
-      const res = await fetch(
-        `${RELAY_URL}/api/chat/messages?limit=100&before=${encodeURIComponent(cursor)}`
+      const res = await relayFetch(
+        `/api/chat/messages?limit=100&before=${encodeURIComponent(cursor)}`
       );
       const data = await res.json();
       if (!Array.isArray(data) || data.length === 0) {
         setHasMoreHistory(false);
         return { added: 0, oldestCursor: cursor };
       }
-      const older = data.reverse();
+      const older = normalizeMessages(data.reverse());
       let added = 0;
       setMessages((prev) => {
         const ids = new Set(prev.map((m) => m.id));
@@ -72,13 +86,31 @@ export default function useChatStream() {
       if (data.length < 100 || historyExtraRef.current >= MAX_HISTORY_EXTRA) {
         setHasMoreHistory(false);
       }
-      return { added, oldestCursor: older[0]?.received_at || cursor };
+      return { added, oldestCursor: older[0]?.receivedAt || cursor };
     } catch {
       return { added: 0, oldestCursor: null };
     } finally {
       loadingOlderRef.current = false;
     }
   }, []);
+
+  // Replace the loaded window with the newest `limit` messages received
+  // before `before` (sqlite UTC "YYYY-MM-DD HH:MM:SS", or omitted for the
+  // live tail). Resolves to the normalized messages that were loaded.
+  const loadWindow = useCallback(async (before = null) => {
+    const query = before ? `&before=${encodeURIComponent(before)}` : "";
+    const res = await relayFetch(`/api/chat/messages?limit=100${query}`);
+    const data = await res.json();
+    const loaded = Array.isArray(data) ? normalizeMessages(data.reverse()) : [];
+    historyExtraRef.current = 0;
+    setHasMoreHistory(loaded.length >= 100);
+    setWindowMode(before ? "archive" : "live");
+    setWindowId((id) => id + 1);
+    setMessages(loaded);
+    return loaded;
+  }, []);
+
+  const loadLatest = useCallback(() => loadWindow(null), [loadWindow]);
 
   useEffect(() => {
     setTranslations((prev) => {
@@ -96,10 +128,10 @@ export default function useChatStream() {
 
   const connect = useCallback(() => {
     // Fetch initial history
-    fetch(`${RELAY_URL}/api/chat/messages?limit=100`)
+    relayFetch(`/api/chat/messages?limit=100`)
       .then((r) => r.json())
       .then((data) => {
-        addMessages(data.reverse());
+        addMessages(normalizeMessages(data.reverse()));
       })
       .catch(() => {});
 
@@ -109,12 +141,12 @@ export default function useChatStream() {
 
     es.addEventListener("history", (e) => {
       const data = JSON.parse(e.data);
-      addMessages(data);
+      addMessages(normalizeMessages(data));
     });
 
     es.addEventListener("message", (e) => {
-      const msg = JSON.parse(e.data);
-      addMessages([msg]);
+      const msg = normalizeMessage(JSON.parse(e.data));
+      if (msg) addMessages([msg]);
     });
 
     es.addEventListener("delete", (e) => {
@@ -167,13 +199,15 @@ export default function useChatStream() {
       setStatus(state === "Connected" ? "connected" : state);
     });
 
+    // Heartbeats and onopen only prove the SSE pipe is alive; a relay-side
+    // fault (auth_failed, banned, ...) stays until the relay reports otherwise
     es.addEventListener("heartbeat", () => {
-      setStatus("connected");
+      setStatus((s) => (RELAY_STATES.has(s) ? s : "connected"));
     });
 
     es.onopen = () => {
       retriesRef.current = 0;
-      setStatus("connected");
+      setStatus((s) => (RELAY_STATES.has(s) ? s : "connected"));
     };
 
     es.onerror = () => {
@@ -201,20 +235,17 @@ export default function useChatStream() {
     };
   }, [connect]);
 
-  const sendMessage = useCallback(async (text, apiKey) => {
-    const res = await fetch(`${RELAY_URL}/api/admin/send`, {
-      method: "POST",
-      headers: {
-        "Content-Type": "application/json",
-        "X-API-Key": apiKey,
-      },
-      body: JSON.stringify({ message: text }),
-    });
-    if (!res.ok) {
-      const data = await res.json().catch(() => ({}));
-      throw new Error(data.error || `Send failed (${res.status})`);
-    }
-  }, []);
-
-  return { messages, status, onlineUsers, botResponses, translations, sendMessage, loadOlder, hasMoreHistory };
+  return {
+    messages,
+    status,
+    onlineUsers,
+    botResponses,
+    translations,
+    loadOlder,
+    hasMoreHistory,
+    loadWindow,
+    loadLatest,
+    windowMode,
+    windowId,
+  };
 }

@@ -57,7 +57,6 @@ const CardOverlayLab  = lazy(() => import("./pages/overlay/CardOverlayLab"));
 const StyleReference = lazy(() => import("./pages/StyleReference"));
 const IconDemo = lazy(() => import("./pages/IconDemo"));
 const Assets = lazy(() => import("./pages/Assets"));
-const ChatMockups = lazy(() => import("./pages/ChatMockups"));
 const Admin = lazy(() => import("./pages/Admin"));
 const DevTools = lazy(() => import("./pages/DevTools"));
 const Themes = lazy(() => import("./pages/Themes"));
@@ -119,6 +118,12 @@ const Router = () => (
         <Route path="/mystream">
           <Suspense fallback={<PageLoader />}><MyStreamPage /></Suspense>
         </Route>
+        {/* Chat v2 owns the full viewport: no Navbar (Chat.jsx assumes --nav-height 0) */}
+        <Route path="/chat">
+          <ErrorBoundary>
+            <Suspense fallback={<PageLoader />}><Chat /></Suspense>
+          </ErrorBoundary>
+        </Route>
 
         {/* All other pages - Navbar stays mounted, only content suspends */}
         <Route>
@@ -141,10 +146,8 @@ const Router = () => (
                 <Route path="/style" component={StyleReference} />
                 <Route path="/icons" component={IconDemo} />
                 <Route path="/assets" component={Assets} />
-                <Route path="/chat" component={Chat} />
                 <Route path="/search" component={Search} />
                 <Route path="/clips" component={Clips} />
-                <Route path="/mockups" component={ChatMockups} />
                 <Route path="/themes" component={Themes} />
                 <Route path="/admin" component={Admin} />
                 <Route path="/cover-art" component={DevTools} />

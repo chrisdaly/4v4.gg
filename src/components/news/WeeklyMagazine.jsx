@@ -4,6 +4,8 @@ import { Link } from "react-router-dom";
 import { FiRefreshCw, FiX, FiPlus, FiMenu, FiShare2, FiCamera, FiMessageSquare, FiImage, FiMove, FiCheck } from "react-icons/fi";
 import html2canvas from "html2canvas";
 import ChatContext from "../ChatContext";
+import ChatMessage from "../chat/ChatMessage";
+import QuoteBlock from "../chat/QuoteBlock";
 import { fetchAndCacheProfile } from "../../lib/profileCache";
 import useAdmin from "../../lib/useAdmin";
 import { CountryFlag, ConfirmModal, PageNav, Button } from "../ui";
@@ -514,24 +516,6 @@ const TopicPills = ({ topics, editorial }) => {
   );
 };
 
-/** Read-only quote block - renders grouped speaker quotes. Used by FeatureStory, SpotlightCard, StreakCard. */
-const QuoteBlock = ({ quotes, compact, className = "" }) => {
-  if (!quotes || quotes.length === 0) return null;
-  const groups = groupQuotesBySpeaker(quotes);
-  return (
-    <div className={`mg-quotes${compact ? " mg-quotes--compact" : ""} ${className}`.trim()}>
-      {groups.map((group, i) => (
-        <div key={i} className="mg-quote-group">
-          {group.name && <span className="mg-quote-name">{group.name}</span>}
-          {group.messages.map((msg, j) => (
-            <blockquote key={j} className="mg-quote">{msg}</blockquote>
-          ))}
-        </div>
-      ))}
-    </div>
-  );
-};
-
 /** Big lead story - headline + attributed pull quotes */
 const FeatureStory = ({ lead, quotes, curated, nameToTag, editorial }) => {
   if (!lead) return null;
@@ -567,7 +551,7 @@ const FeatureStory = ({ lead, quotes, curated, nameToTag, editorial }) => {
             browserProps={primaryTag ? { statKey: "DRAMA", battleTag: primaryTag, editorial, label: primaryName, text: lead } : null}
           />
         ) : (
-          <QuoteBlock quotes={attributed} />
+          <QuoteBlock quotes={attributed} marginTop="var(--space-4)" />
         )}
       </div>
     </section>
@@ -900,59 +884,67 @@ const EditableQuotes = ({ quotes = [], statKey, editorial, browserProps }) => {
     <div className="mg-spotlight-quotes">
       {groups.map((group, gi) => {
         const startIdx = quoteIdx;
+        quoteIdx += group.messages.length;
+        const cmGroup = {
+          author: { userName: group.name || "" },
+          lines: group.messages.map((msg, mi) => ({ text: msg, idx: startIdx + mi })),
+        };
         return (
           <div
             key={gi}
-            className={`mg-quote-group${dragGroupOver === gi ? " mg-quote-group--dragover" : ""}`}
+            className={`mg-qedit-group${dragGroupOver === gi ? " mg-qedit-group--dragover" : ""}`}
             onDragOver={(e) => { if (dragGroupFrom != null) { e.preventDefault(); setDragGroupOver(gi); } }}
             onDragLeave={() => setDragGroupOver((v) => v === gi ? null : v)}
             onDrop={(e) => { if (dragGroupFrom != null) { e.preventDefault(); handleGroupDrop(gi); } }}
           >
-            <div className="mg-quote-group-header">
-              {groups.length > 1 && (
-                <span
-                  className="mg-quote-drag mg-quote-drag--group"
-                  draggable
-                  onDragStart={(e) => { e.stopPropagation(); setDragGroupFrom(gi); }}
-                  onDragEnd={() => { setDragGroupFrom(null); setDragGroupOver(null); }}
-                  title="Drag to reorder group"
-                ><FiMenu size={14} /></span>
+            <ChatMessage
+              variant="quote"
+              group={cmGroup}
+              wrapName={(node) => (
+                <span className="mg-qedit-group-head">
+                  {groups.length > 1 && (
+                    <span
+                      className="mg-qedit-drag mg-qedit-drag--group"
+                      draggable
+                      onDragStart={(e) => { e.stopPropagation(); setDragGroupFrom(gi); }}
+                      onDragEnd={() => { setDragGroupFrom(null); setDragGroupOver(null); }}
+                      title="Drag to reorder group"
+                    ><FiMenu size={14} /></span>
+                  )}
+                  {node}
+                </span>
               )}
-              {group.name && <span className="mg-quote-name">{group.name}</span>}
-            </div>
-            {group.messages.map((msg, mi) => {
-              const idx = startIdx + mi;
-              quoteIdx++;
-              return (
-                <div
-                  key={mi}
-                  className={`mg-quote-editable-row${dragOver === idx ? " mg-quote-editable-row--dragover" : ""}`}
-                  onDragOver={(e) => { if (dragFrom != null) { e.preventDefault(); setDragOver(idx); } }}
-                  onDragLeave={() => setDragOver((v) => v === idx ? null : v)}
-                  onDrop={(e) => { if (dragFrom != null) { e.preventDefault(); handleDrop(idx); } }}
-                  onDragEnd={() => { setDragFrom(null); setDragOver(null); }}
-                >
-                  <span className="mg-quote-drag" draggable onDragStart={(e) => { e.stopPropagation(); setDragFrom(idx); }} title="Drag to reorder"><FiMenu size={12} /></span>
-                  <Button $icon className="mg-quote-remove" onClick={() => removeQuote(idx)} title="Remove quote" aria-label="Remove quote"><FiX size={12} /></Button>
-                  <EditableText
-                    value={msg}
-                    onSave={(t) => editQuote(idx, group.name ? `${group.name}: ${t}` : t)}
-                    tag="blockquote"
-                    className="mg-quote"
-                  />
-                </div>
-              );
-            })}
+              renderLine={(line) => {
+                const idx = line.idx;
+                return (
+                  <span
+                    className={`mg-qedit-row${dragOver === idx ? " mg-qedit-row--dragover" : ""}`}
+                    onDragOver={(e) => { if (dragFrom != null) { e.preventDefault(); setDragOver(idx); } }}
+                    onDragLeave={() => setDragOver((v) => v === idx ? null : v)}
+                    onDrop={(e) => { if (dragFrom != null) { e.preventDefault(); handleDrop(idx); } }}
+                    onDragEnd={() => { setDragFrom(null); setDragOver(null); }}
+                  >
+                    <span className="mg-qedit-drag" draggable onDragStart={(e) => { e.stopPropagation(); setDragFrom(idx); }} title="Drag to reorder"><FiMenu size={12} /></span>
+                    <Button $icon className="mg-qedit-remove" onClick={() => removeQuote(idx)} title="Remove quote" aria-label="Remove quote"><FiX size={12} /></Button>
+                    <EditableText
+                      value={line.text}
+                      onSave={(t) => editQuote(idx, group.name ? `${group.name}: ${t}` : t)}
+                      className="mg-qedit-text"
+                    />
+                  </span>
+                );
+              }}
+            />
           </div>
         );
       })}
       {adding ? (
-        <div className="mg-quote-add-row">
-          <input ref={addRef} className="mg-quote-add-input" placeholder="Speaker: message text" autoFocus onKeyDown={(e) => { if (e.key === "Enter") addQuote(); if (e.key === "Escape") setAdding(false); }} />
+        <div className="mg-qedit-add-row">
+          <input ref={addRef} className="mg-qedit-add-input" placeholder="Speaker: message text" autoFocus onKeyDown={(e) => { if (e.key === "Enter") addQuote(); if (e.key === "Escape") setAdding(false); }} />
           <Button $secondary onClick={addQuote}>Add</Button>
         </div>
       ) : (
-        <div className="mg-quote-actions">
+        <div className="mg-qedit-actions">
           <Button $pill onClick={() => setAdding(true)}><FiPlus size={12} /> Add manually</Button>
           {browserProps && <QuoteBrowser {...browserProps} />}
         </div>
@@ -1320,12 +1312,12 @@ const QuoteBrowser = ({ statKey, battleTag, editorial, label, text, nameToTag, d
 
   // 3-column layout: quotes | messages | context
   return (
-    <div className="mg-quote-browser">
+    <div className="mg-qb">
       <Button $secondary onClick={handleToggle}>
         {label ? `${label} Quotes` : text ? "Find Quotes" : "Browse Quotes"}
       </Button>
       {open && createPortal(
-        <div className="mg-quote-browser-panel">
+        <div className="mg-qb-panel">
           {/* Header */}
           <div className="mg-qb-header">
             <div className="mg-qb-header-left">
@@ -1531,7 +1523,7 @@ const SpotlightCard = ({ stat, profile, accent, role, blurb, quotes, statKey, he
         {editorial?.handleEditSection ? (
           <EditableQuotes quotes={quotes} statKey={statKey} editorial={editorial} />
         ) : (
-          <QuoteBlock quotes={quotes} className="mg-spotlight-quotes" compact />
+          <QuoteBlock quotes={quotes} marginTop="var(--space-3)" />
         )}
         {editorial?.browseMessages && (
           <QuoteBrowser statKey={statKey} battleTag={stat.battleTag} editorial={editorial} currentQuotes={quotes} />
@@ -1729,7 +1721,7 @@ const StreakCard = ({ stat, profile, accent, role, blurb, quotes, dailyData, typ
         {editorial?.handleEditSection ? (
           <EditableQuotes quotes={quotes} statKey={type} editorial={editorial} />
         ) : (
-          <QuoteBlock quotes={quotes} className="mg-spotlight-quotes" compact />
+          <QuoteBlock quotes={quotes} marginTop="var(--space-3)" />
         )}
         {editorial?.browseMessages && (
           <QuoteBrowser statKey={type} battleTag={stat.battleTag} editorial={editorial} currentQuotes={quotes} />

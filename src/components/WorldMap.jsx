@@ -3,6 +3,7 @@ import * as d3 from "d3";
 import { feature } from "topojson-client";
 import countryCentroids from "../lib/countryCentroids";
 import { chartColors } from "../lib/design-tokens";
+import { regionOf } from "../lib/chat/regions";
 import "../styles/components/WorldMap.css";
 
 /** Compute the subsolar point (no library needed). */
@@ -135,9 +136,37 @@ const placeLabels = (g, candidates, dotPositions, existingRects, bounds, fontSiz
   return placed;
 };
 
-const WorldMap = ({ playerCountries, players = [], instant = false, animationScale = 1, time = null }) => {
+/**
+ * `compact`: dots only (gold when the country has someone in game, white
+ * otherwise, fixed radius), no name/time labels, no organic enter/exit
+ * effects, land at low opacity. For small hosts.
+ *
+ * `dimOutside`: a region name (lib/chat/regions regionOf); dots in other
+ * regions drop to opacity .15 and lose their name labels. `onDotClick(code)`
+ * makes dots clickable (the /chat map toggles a region filter with it).
+ * `highlightInGame`: gold 1.2px stroke on dots whose country has someone in
+ * a game. All three are optional and off by default.
+ */
+const COMPACT_R = 3;
+const DIM_OPACITY = 0.15;
+
+const WorldMap = ({
+  playerCountries,
+  players = [],
+  instant = false,
+  animationScale = 1,
+  time = null,
+  compact = false,
+  dimOutside = null,
+  onDotClick = null,
+  highlightInGame = false,
+}) => {
   const containerRef = useRef(null);
   const svgRef = useRef(null);
+  // Latest click handler without re-running the render effect per render
+  const onDotClickRef = useRef(onDotClick);
+  onDotClickRef.current = onDotClick;
+  const clickable = Boolean(onDotClick);
   const [dimensions, setDimensions] = useState({ width: 0, height: 0 });
   const [worldData, setWorldData] = useState(null);
   const introReadyRef = useRef(instant);
@@ -191,6 +220,7 @@ const WorldMap = ({ playerCountries, players = [], instant = false, animationSca
         lon: coords[0],
         lat: coords[1],
         total: (counts.online || 0) + (counts.inGame || 0),
+        inGame: counts.inGame || 0,
       });
     }
     return result;
@@ -229,18 +259,20 @@ const WorldMap = ({ playerCountries, players = [], instant = false, animationSca
       .data(worldData.features)
       .join("path")
       .attr("d", path)
-      .attr("fill", "rgba(60, 60, 55, 0.5)")
-      .attr("stroke", "rgba(100, 100, 90, 0.3)")
-      .attr("stroke-width", 0.5);
+      .attr("fill", compact ? "rgba(255, 255, 255, 0.08)" : "rgba(60, 60, 55, 0.5)")
+      .attr("stroke", compact ? "rgba(255, 255, 255, 0.1)" : "rgba(100, 100, 90, 0.3)")
+      .attr("stroke-width", compact ? 0.3 : 0.5);
 
     // 3. Graticule
-    const graticule = d3.geoGraticule().stepMinor([30, 30]).extentMinor([[LON_WEST, LAT_SOUTH], [LON_EAST, LAT_NORTH]])();
-    staticG.append("path")
-      .datum(graticule)
-      .attr("d", path)
-      .attr("fill", "none")
-      .attr("stroke", "rgba(255, 255, 255, 0.04)")
-      .attr("stroke-width", 0.5);
+    if (!compact) {
+      const graticule = d3.geoGraticule().stepMinor([30, 30]).extentMinor([[LON_WEST, LAT_SOUTH], [LON_EAST, LAT_NORTH]])();
+      staticG.append("path")
+        .datum(graticule)
+        .attr("d", path)
+        .attr("fill", "none")
+        .attr("stroke", "rgba(255, 255, 255, 0.04)")
+        .attr("stroke-width", 0.5);
+    }
 
     // 4. Night overlay
     const subsolar = getSubsolarPoint(time);
@@ -252,7 +284,7 @@ const WorldMap = ({ playerCountries, players = [], instant = false, animationSca
       .datum(nightCircle)
       .attr("class", "night-overlay")
       .attr("d", path)
-      .attr("fill", "rgba(0, 0, 0, 0.35)")
+      .attr("fill", compact ? "rgba(0, 0, 0, 0.25)" : "rgba(0, 0, 0, 0.35)")
       .attr("stroke", "none");
 
     // 5. Player dots - D3 data join for enter/exit transitions
@@ -262,8 +294,14 @@ const WorldMap = ({ playerCountries, players = [], instant = false, animationSca
     // Compute projected positions
     const dotData = dots.map((d) => {
       const pt = projection([d.lon, d.lat]);
-      return pt ? { ...d, px: pt[0], py: pt[1], r: rScale(d.total) } : null;
+      const dim = Boolean(dimOutside) && regionOf(d.code) !== dimOutside;
+      return pt ? { ...d, px: pt[0], py: pt[1], r: compact ? COMPACT_R : rScale(d.total), dim } : null;
     }).filter(Boolean);
+    const dotOpacity = (d) => (d.dim ? DIM_OPACITY : 1);
+    const inGameStroke = (d) => highlightInGame && d.inGame > 0;
+    const restStroke = compact ? "rgba(0, 0, 0, 0.4)" : "rgba(255, 255, 255, 0.3)";
+    const dotStroke = (d) => (inGameStroke(d) ? "var(--gold)" : restStroke);
+    const dotStrokeWidth = (d) => (inGameStroke(d) ? 1.2 : 0.5);
 
     // Build dotPositions for label placement
     const dotPositions = dotData.map((d) => ({ x: d.px, y: d.py, r: d.r, code: d.code }));
@@ -286,11 +324,20 @@ const WorldMap = ({ playerCountries, players = [], instant = false, animationSca
       .attr("opacity", 0)
       .remove();
 
+    const dotFill = (d) => (compact ? (d.inGame > 0 ? "var(--gold)" : "var(--white)") : DOT_COLOR);
+
     // Update - move smoothly
-    dotSel.transition().duration(1000 * s).ease(d3.easeSinInOut)
+    dotSel
+      .attr("data-ingame", (d) => (compact && d.inGame > 0 ? "true" : null))
+      .attr("data-dim", (d) => (d.dim ? "true" : null))
+      .transition().duration(1000 * s).ease(d3.easeSinInOut)
       .attr("cx", (d) => d.px)
       .attr("cy", (d) => d.py)
-      .attr("r", (d) => d.r);
+      .attr("r", (d) => d.r)
+      .attr("fill", dotFill)
+      .attr("opacity", dotOpacity)
+      .attr("stroke", dotStroke)
+      .attr("stroke-width", dotStrokeWidth);
 
     // Build a map of country code → top player name for enter labels
     const countryTopPlayer = new Map();
@@ -307,7 +354,8 @@ const WorldMap = ({ playerCountries, players = [], instant = false, animationSca
     const enteringCodes = new Set();
     dotSel.enter().each(function (d) { enteringCodes.add(d.code); });
 
-    const isBulkEnter = dotSel.enter().size() > 3;
+    // Compact hosts never get the floating-name enter effect
+    const isBulkEnter = compact || dotSel.enter().size() > 3;
 
     // Enter - fast for filter, slow + dramatic for real events
     const enteringDots = dotSel.enter()
@@ -316,17 +364,28 @@ const WorldMap = ({ playerCountries, players = [], instant = false, animationSca
       .attr("cx", (d) => d.px)
       .attr("cy", (d) => d.py)
       .attr("r", 0)
-      .attr("fill", DOT_COLOR)
-      .attr("stroke", "rgba(255, 255, 255, 0.3)")
-      .attr("stroke-width", 0.5)
+      .attr("fill", dotFill)
+      .attr("data-ingame", (d) => (compact && d.inGame > 0 ? "true" : null))
+      .attr("data-dim", (d) => (d.dim ? "true" : null))
+      .attr("stroke", dotStroke)
+      .attr("stroke-width", dotStrokeWidth)
       .attr("opacity", 0);
+
+    // Click-to-filter (the /chat map): every dot, entering or not
+    dotG.selectAll("circle.map-dot")
+      .style("cursor", clickable ? "pointer" : null)
+      .on("click", clickable ? (event, d) => onDotClickRef.current?.(d.code) : null);
+    dotG.selectAll("circle.map-dot").each(function (d) {
+      const title = d3.select(this).selectAll("title").data([0]).join("title");
+      title.text(`${d.code} · ${d.total} online · ${d.inGame} in game`);
+    });
 
     if (isBulkEnter) {
       // Fast filter enter - simple fade in
       enteringDots
         .transition().duration(400 * s).ease(d3.easeCubicOut)
         .attr("r", (d) => d.r)
-        .attr("opacity", 1);
+        .attr("opacity", dotOpacity);
     } else {
       // Organic enter - floating name label + glow pulse
       enteringDots.each(function (d) {
@@ -346,7 +405,7 @@ const WorldMap = ({ playerCountries, players = [], instant = false, animationSca
       enteringDots
         .transition().duration(2000 * s).ease(d3.easeCubicOut)
         .attr("r", (d) => d.r)
-        .attr("opacity", 1)
+        .attr("opacity", dotOpacity)
         .each(function (d) {
           enterLabelG.select(`.enter-label-${d.code}`)
             .transition().duration(800 * s)
@@ -356,8 +415,8 @@ const WorldMap = ({ playerCountries, players = [], instant = false, animationSca
         .attr("stroke", "rgba(255, 255, 255, 0.6)")
         .attr("stroke-width", 2)
         .transition().duration(800 * s)
-        .attr("stroke", "rgba(255, 255, 255, 0.3)")
-        .attr("stroke-width", 0.5)
+        .attr("stroke", dotStroke)
+        .attr("stroke-width", dotStrokeWidth)
         .on("end", function (d) {
           enterLabelG.select(`.enter-label-${d.code}`)
             .transition().delay(5000 * s).duration(1500 * s)
@@ -386,7 +445,7 @@ const WorldMap = ({ playerCountries, players = [], instant = false, animationSca
     }
     const isBulkPlayerChange = playerExitCount > 3 || playerEnterCount > 3;
 
-    if (!isFirstRender && !isBulkPlayerChange) {
+    if (!compact && !isFirstRender && !isBulkPlayerChange) {
       // Ensure event layer exists (persists across renders)
       let eventG = svg.select(".player-event-layer");
       if (eventG.empty()) eventG = svg.append("g").attr("class", "player-event-layer").attr("pointer-events", "none");
@@ -469,12 +528,17 @@ const WorldMap = ({ playerCountries, players = [], instant = false, animationSca
       }
     }
 
+    // Compact: dots only, no name or time labels
+    if (compact) return;
+
     // 7. Player name labels - skip countries with active enter labels to avoid doubling
     //    Only suppress for organic (non-bulk) enters where animated labels are shown
     const labelG = svg.append("g").attr("class", "label-layer").attr("pointer-events", "none");
-    const staticCandidates = enteringCodes.size > 0 && !isBulkEnter
+    const inRegion = enteringCodes.size > 0 && !isBulkEnter
       ? labelCandidates.filter((p) => !enteringCodes.has(p.country.toUpperCase()))
       : labelCandidates;
+    // Dimmed countries keep no name labels
+    const staticCandidates = dimOutside ? inRegion.filter((p) => regionOf(p.country) === dimOutside) : inRegion;
     const placedLabels = placeLabels(
       labelG, staticCandidates, dotPositions, [],
       { left: 0, top: 0, right: width, bottom: height },
@@ -517,7 +581,7 @@ const WorldMap = ({ playerCountries, players = [], instant = false, animationSca
         .text(timeStr);
     }
 
-  }, [introReady, dimensions, worldData, dots, labelCandidates, players, animationScale, time]);
+  }, [introReady, dimensions, worldData, dots, labelCandidates, players, animationScale, time, compact, dimOutside, highlightInGame, clickable]);
 
   // Update terminator every 60s (live mode only - replay re-renders via time dep)
   useEffect(() => {
@@ -540,7 +604,7 @@ const WorldMap = ({ playerCountries, players = [], instant = false, animationSca
   }, [worldData, dimensions, time]);
 
   return (
-    <div ref={containerRef} className="world-map-container">
+    <div ref={containerRef} className={`world-map-container${compact ? " world-map-compact" : ""}`}>
       <svg ref={svgRef} width={dimensions.width} height={dimensions.height} />
     </div>
   );

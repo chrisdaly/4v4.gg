@@ -4,6 +4,7 @@ import { fetchAndCacheProfile } from "../../lib/profileCache";
 import { CountryFlag, Button } from "../ui";
 import { FiExternalLink, FiCamera, FiEdit2 } from "react-icons/fi";
 import ChatContext from "./ChatContext";
+import QuoteBlock from "../chat/QuoteBlock";
 import StatPicker from "./StatPicker";
 import PeonLoader from "../PeonLoader";
 import useEditorial, { EDITABLE_SECTIONS } from "../../lib/useEditorial";
@@ -15,7 +16,6 @@ import {
   parseStatLine,
   extractMentionedTags,
   splitQuotes,
-  groupQuotesBySpeaker,
   parsePowerRankings,
   parseAwards,
 } from "../../lib/digestUtils";
@@ -232,33 +232,6 @@ const ATSpotlightCard = ({ item, profiles }) => {
         {avgMatch && <span className="at-card-avg">{avgMatch[1]} MMR</span>}
         {recordMatch && <span className="at-card-record">{recordMatch[1]}</span>}
       </div>
-    </div>
-  );
-};
-
-const DigestQuotes = ({ quotes }) => {
-  if (!quotes || quotes.length === 0) return null;
-  const groups = groupQuotesBySpeaker(quotes);
-  const hasAttribution = groups.some((g) => g.name);
-  if (!hasAttribution) {
-    return (
-      <div className="digest-quotes">
-        {quotes.map((q, qi) => (
-          <div key={qi} className="digest-quote">{q}</div>
-        ))}
-      </div>
-    );
-  }
-  return (
-    <div className="digest-quotes digest-quotes--chat">
-      {groups.map((g, gi) => (
-        <div key={gi} className="digest-quote-group">
-          {g.name && <span className="digest-quote-name">{g.name}</span>}
-          {g.messages.map((text, ti) => (
-            <div key={ti} className="digest-quote digest-quote--attributed">{text}</div>
-          ))}
-        </div>
-      ))}
     </div>
   );
 };
@@ -898,7 +871,7 @@ const DigestBanner = ({ digest, nameSet, nameToTag, label = "Yesterday in 4v4", 
                           )}
                         </div>
                         <div className="digest-bullet-content">
-                          <DigestQuotes quotes={quotes} />
+                          <QuoteBlock quotes={quotes} />
                           {key === "UPSET" && <UpsetCard item={item} profiles={profiles} />}
                           {isClickable && !isDataSection && (
                             <ChatContext
@@ -985,7 +958,7 @@ const DigestBanner = ({ digest, nameSet, nameToTag, label = "Yesterday in 4v4", 
                             {highlightNames(summary, combinedNameSet)}
                           </span>
                         )}
-                        <DigestQuotes quotes={quotes} />
+                        <QuoteBlock quotes={quotes} />
                         {key === "UPSET" && <UpsetCard item={content} profiles={profiles} />}
                         {isClickable && !DATA_SECTIONS.has(key) && (
                           <ChatContext

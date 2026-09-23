@@ -892,7 +892,7 @@ const OnlineMmrStrip = ({
           }
         }
       })
-      .on("mouseleave", function (e, d) {
+      .on("mouseleave", function () {
         if (animatingRef.current) return;
         hoveredTagRef.current = null;
         clearHighlight();

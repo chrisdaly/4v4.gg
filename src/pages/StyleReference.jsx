@@ -42,11 +42,40 @@ import {
   LossSurface,
 } from "../components/ui";
 import { raceIcons } from "../lib/constants";
-import "../components/ChatContext.css";
+import ChatMessage from "../components/chat/ChatMessage";
+import QuoteBlock from "../components/chat/QuoteBlock";
 import "../styles/pages/DevTools.css";
 import "../styles/pages/News.css";
 import "../styles/pages/StyleReference.css";
 
+
+// Sample groups for the ChatMessage section
+const SR_CHAT_GROUPS = [
+  {
+    group: {
+      author: { battleTag: "ToD#2412", userName: "ToD", clanTag: "4K" },
+      lines: [
+        { id: "sr-1", text: "gg wp that was close", sentAt: "2026-09-23T21:34:00Z" },
+        { id: "sr-2", text: "human mirror is pain", sentAt: "2026-09-23T21:34:20Z" },
+      ],
+    },
+    meta: { race: 1, countryCode: "FR", mmr: 2140, chip: { kind: "won", label: "won +12" } },
+  },
+  {
+    group: {
+      author: { battleTag: "Mubarak#1123", userName: "Mubarak" },
+      lines: [{ id: "sr-3", text: "you got lucky with that expo timing", sentAt: "2026-09-23T21:35:00Z" }],
+    },
+    meta: { race: 2, countryCode: "AE", mmr: 1980, chip: { kind: "ingame", label: "in game 12m" } },
+  },
+  {
+    group: {
+      author: { battleTag: "ToD#2412", userName: "ToD", clanTag: "4K" },
+      lines: [{ id: "sr-4", text: "lucky? that was calculated", sentAt: "2026-09-23T21:35:40Z" }],
+    },
+    meta: { race: 1, countryCode: "FR", mmr: 2140 },
+  },
+];
 
 // Colors that need dark text on their swatch
 const lightSwatches = new Set(["gold", "green", "greyLight", "textBody", "white", "amber", "cyan"]);
@@ -627,90 +656,45 @@ const StyleReference = () => {
       <section className="sr-section reveal" style={{ "--delay": "0.1s" }}>
         <div className="sr-section-head">
           <div>
-            <h2>Chat transcripts</h2>
-            <p>Grouped messages with square avatars for conversation context. Two sizes: full (32px) for chat panels, compact (22px) for digest quotes.</p>
+            <h2>Chat messages</h2>
+            <p>One message group (author + consecutive lines) rendered by <code>ChatMessage</code> in three variants: <code>feed</code> for the /chat stream, <code>transcript</code> for conversation context (profile, digest pickers), <code>quote</code> for digest pull-quotes. Import from <code>components/chat/ChatMessage</code>.</p>
+          </div>
+          <div className="sr-tag-row">
+            <span className="sr-tag gold">ChatMessage</span>
           </div>
         </div>
 
         <div className="sr-layout-grid">
-          {/* Full-size chat context */}
-          <div className="sr-surface" style={{ padding: 0, overflow: "hidden" }}>
-            <div style={{ padding: "var(--space-3) var(--space-4) var(--space-1)" }}>
-              <div className="meta">Chat context (32px avatars)</div>
-            </div>
-            <div className="cc-panel cc-panel--compact" style={{ margin: 0, border: "none", borderRadius: 0 }}>
-              <div className="cc-list" style={{ maxHeight: "none" }}>
-                <div className="cc-group cc-group--target">
-                  <div className="cc-group-avatar">
-                    <span className="cc-avatar-placeholder" />
-                  </div>
-                  <div className="cc-group-body">
-                    <div className="cc-group-header">
-                      <span className="cc-name cc-name--target">ToD</span>
-                      <span className="cc-time">21:34</span>
-                    </div>
-                    <div className="cc-msg">
-                      <span className="cc-text">gg wp that was close</span>
-                    </div>
-                    <div className="cc-msg">
-                      <span className="cc-text">human mirror is pain</span>
-                    </div>
-                  </div>
-                </div>
-                <div className="cc-group">
-                  <div className="cc-group-avatar">
-                    <span className="cc-avatar-placeholder" />
-                  </div>
-                  <div className="cc-group-body">
-                    <div className="cc-group-header">
-                      <span className="cc-name">Mubarak</span>
-                      <span className="cc-time">21:35</span>
-                    </div>
-                    <div className="cc-msg">
-                      <span className="cc-text">you got lucky with that expo timing</span>
-                    </div>
-                  </div>
-                </div>
-                <div className="cc-group cc-group--target">
-                  <div className="cc-group-avatar">
-                    <span className="cc-avatar-placeholder" />
-                  </div>
-                  <div className="cc-group-body">
-                    <div className="cc-group-header">
-                      <span className="cc-name cc-name--target">ToD</span>
-                      <span className="cc-time">21:35</span>
-                    </div>
-                    <div className="cc-msg">
-                      <span className="cc-text">lucky? that was calculated</span>
-                    </div>
-                  </div>
-                </div>
-              </div>
+          {/* Feed */}
+          <div className="sr-surface">
+            <div className="meta">variant=&quot;feed&quot; (32px avatar, mono lines, chip)</div>
+            <div style={{ marginTop: "var(--space-2)" }}>
+              {SR_CHAT_GROUPS.map((g, i) => (
+                <ChatMessage key={i} variant="feed" group={g.group} meta={g.meta} watched={i === 1} />
+              ))}
             </div>
           </div>
 
-          {/* Compact digest quotes */}
+          {/* Transcript */}
           <div className="sr-surface">
-            <div className="meta">Digest quotes (name + text, no avatars)</div>
-            <div style={{ marginTop: "var(--space-3)" }}>
-              <div className="digest-quotes digest-quotes--chat">
-                <div className="digest-quote-group">
-                  <span className="digest-quote-name">ToD</span>
-                  <div className="digest-quote digest-quote--attributed">gg wp that was close</div>
-                  <div className="digest-quote digest-quote--attributed">human mirror is pain</div>
-                </div>
-                <div className="digest-quote-group">
-                  <span className="digest-quote-name">Mubarak</span>
-                  <div className="digest-quote digest-quote--attributed">you got lucky with that expo timing</div>
-                </div>
-              </div>
+            <div className="meta">variant=&quot;transcript&quot; (serif lines; target tints the focus author)</div>
+            <div style={{ marginTop: "var(--space-2)" }}>
+              {SR_CHAT_GROUPS.map((g, i) => (
+                <ChatMessage key={i} variant="transcript" group={g.group} meta={{ avatarUrl: g.meta.avatarUrl }} target={g.group.author.userName === "ToD"} />
+              ))}
             </div>
+          </div>
+
+          {/* Quote */}
+          <div className="sr-surface">
+            <div className="meta">variant=&quot;quote&quot; via QuoteBlock (name + pull-quotes, no avatar)</div>
+            <QuoteBlock
+              marginTop="var(--space-2)"
+              quotes={["ToD: gg wp that was close", "ToD: human mirror is pain", "Mubarak: you got lucky with that expo timing"]}
+            />
             <div style={{ marginTop: "var(--space-4)" }}>
               <div className="meta">Plain quotes (no attribution)</div>
-              <div className="digest-quotes" style={{ marginTop: "var(--space-2)" }}>
-                <div className="digest-quote">gg wp that was close</div>
-                <div className="digest-quote">human mirror is pain</div>
-              </div>
+              <QuoteBlock marginTop="var(--space-2)" quotes={["gg wp that was close", "human mirror is pain"]} />
             </div>
           </div>
         </div>
@@ -724,20 +708,32 @@ const StyleReference = () => {
           </thead>
           <tbody>
             <tr>
-              <td style={cellName}>Chat avatar (32px)</td>
-              <td><code>width: 32px; height: 32px; border-radius: var(--radius-md); object-fit: cover</code></td>
+              <td style={cellName}>Avatar (feed, transcript)</td>
+              <td><code>width: 32px; height: 32px; border-radius: var(--radius-md); object-fit: cover</code> (race icon fallback on var(--surface-2))</td>
             </tr>
             <tr>
-              <td style={cellName}>Speaker name</td>
-              <td><code>font-family: var(--font-display); font-size: var(--text-xxs); color: var(--gold)</code></td>
+              <td style={cellName}>Author name</td>
+              <td><code>font-family: var(--font-display); color: var(--gold); font-size: var(--text-xs)</code> (feed, quote) / <code>var(--text-xxs)</code> (transcript)</td>
             </tr>
             <tr>
-              <td style={cellName}>Target highlight</td>
-              <td><code>background: var(--gold-tint-subtle); name color: var(--gold)</code></td>
+              <td style={cellName}>Feed line</td>
+              <td><code>font-family: var(--font-mono); font-size: var(--text-xs); color: var(--text-body); line-height: 1.5</code></td>
             </tr>
             <tr>
-              <td style={cellName}>Message text</td>
-              <td><code>font-size: var(--text-xs); color: var(--text-body); line-height: 1.5</code></td>
+              <td style={cellName}>Transcript line</td>
+              <td><code>font-family: var(--font-body); font-size: var(--text-xs); color: var(--text-body); line-height: 1.5</code></td>
+            </tr>
+            <tr>
+              <td style={cellName}>Quote line</td>
+              <td><code>margin-left: var(--quote-indent); padding-left: var(--quote-pad-left); border-left: var(--quote-border); font-family: var(--font-body); font-style: italic; color: var(--grey-light)</code></td>
+            </tr>
+            <tr>
+              <td style={cellName}>Target group (transcript)</td>
+              <td><code>background: var(--gold-tint); border-radius: var(--radius-md)</code></td>
+            </tr>
+            <tr>
+              <td style={cellName}>Watched group (feed)</td>
+              <td><code>box-shadow: inset 2px 0 0 rgba(var(--gold-muted-rgb), 0.6)</code></td>
             </tr>
             <tr>
               <td style={cellName}>Timestamp</td>

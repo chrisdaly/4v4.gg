@@ -1,4 +1,6 @@
-/* ── ChatContext - unified chat message browser ─── */
+/* ── ChatContext - chat message picker (news digest, magazine) ─── */
+/* Rows render through ChatMessage (transcript variant); these rules cover
+   the panel chrome and the per-line pick affordances inside a row. */
 
 .cc-panel {
   background: rgba(15, 12, 8, 0.95);
@@ -12,205 +14,6 @@
   gap: var(--space-2);
 }
 
-/* ── Split view layout ─────────────────────────── */
-
-.cc-panel--split {
-  max-width: none;
-  padding: var(--space-4);
-  display: flex;
-  flex-direction: column;
-  flex: 1;
-  min-height: 0;
-}
-
-.cc-split-layout {
-  display: grid;
-  grid-template-columns: 1fr 1fr;
-  column-gap: var(--space-3);
-  row-gap: var(--space-2);
-  min-height: 400px;
-  flex: 1;
-}
-
-.cc-split-left {
-  overflow-y: auto;
-  overflow-x: hidden;
-  max-height: 70vh;
-  border-right: 1px solid var(--grey-mid);
-  padding-right: var(--space-3);
-  display: flex;
-  flex-direction: column;
-}
-
-.cc-split-left .cc-list {
-  flex: 1;
-  min-height: 0;
-}
-
-/* Sticky placement only; visuals come from ui.jsx Button $primary */
-.cc-split-left .cc-apply {
-  position: sticky;
-  bottom: 0;
-  margin-top: auto;
-  z-index: 2;
-}
-
-.cc-split-right {
-  display: flex;
-  flex-direction: column;
-  max-height: 70vh;
-  min-height: 0;
-}
-
-.cc-context-side {
-  display: flex;
-  flex-direction: column;
-  gap: var(--space-2);
-  flex: 1;
-  min-height: 0;
-  overflow: hidden;
-}
-
-.cc-context-side .cc-context-scroll {
-  display: flex;
-  flex-direction: column;
-  gap: var(--space-2);
-  flex: 1;
-  min-height: 0;
-  overflow-y: auto;
-}
-
-/* ── Column headers (split view, outside the frosted panels) ──────── */
-
-/* One grid row above the panels; both cells share the same row so they
-   are pixel-perfect aligned regardless of what the panels do. */
-.cc-split-col-header {
-  display: flex;
-  align-items: center;
-  justify-content: flex-start;
-  gap: var(--space-2);
-  padding-bottom: var(--space-2);
-  border-bottom: 1px solid rgba(255, 255, 255, 0.06);
-}
-
-/* Right header: push close button to the far end */
-.cc-split-col-header--right {
-  justify-content: space-between;
-}
-
-.cc-col-label {
-  font-family: var(--font-mono);
-  font-size: var(--text-xxxs);
-  text-transform: uppercase;
-  letter-spacing: 0.1em;
-  color: var(--grey-light);
-}
-
-.cc-col-meta-text {
-  font-family: var(--font-mono);
-  font-size: var(--text-xxxs);
-  color: var(--grey-light);
-  line-height: 1;
-}
-
-.cc-col-label--conversation {
-  color: rgba(252, 219, 51, 0.65);
-}
-
-.cc-col-label--ghost {
-  color: rgba(255, 255, 255, 0.2);
-}
-
-
-/* Collapsed split view - no conversation open, results take a single
-   centered column and the right pane occupies no space */
-.cc-split-layout--collapsed {
-  grid-template-columns: 1fr;
-}
-
-.cc-split-layout--collapsed .cc-split-col-header--right,
-.cc-split-layout--collapsed .cc-split-right {
-  display: none;
-}
-
-.cc-split-layout--collapsed .cc-split-col-header--left,
-.cc-split-layout--collapsed .cc-split-left {
-  border-right: none;
-  padding-right: 0;
-  max-width: 640px;
-  width: 100%;
-  margin: 0 auto;
-}
-
-.cc-loading {
-  display: flex;
-  justify-content: center;
-  padding: var(--space-6) 0;
-}
-
-/* Stack the split panes on narrow screens */
-@media (max-width: 860px) {
-  .cc-split-layout {
-    grid-template-columns: 1fr;
-  }
-
-  .cc-split-left {
-    border-right: none;
-    padding-right: 0;
-    border-bottom: 1px solid var(--grey-mid);
-    padding-bottom: var(--space-3);
-    max-height: 45vh;
-  }
-
-  .cc-split-right {
-    max-height: 50vh;
-  }
-
-  .cc-fullpage .cc-split-left,
-  .cc-fullpage .cc-list {
-    max-height: 45vh;
-  }
-
-  .cc-fullpage .cc-split-right {
-    max-height: 50vh;
-  }
-}
-
-/* On mobile: swap panes instead of stacking them.
-   When no context is open → full-height results list.
-   When context is open    → hide results, show context only.
-   The existing × button closes context and restores results. */
-@media (max-width: 640px) {
-  /* Context open: hide results col */
-  .cc-split-layout:not(.cc-split-layout--collapsed) .cc-split-col-header--left,
-  .cc-split-layout:not(.cc-split-layout--collapsed) .cc-split-left {
-    display: none;
-  }
-
-  .cc-split-right--active {
-    max-height: calc(100vh - 220px);
-  }
-
-  /* No context: give results full room */
-  .cc-split-left {
-    max-height: 65vh;
-    border-bottom: none;
-    padding-bottom: 0;
-  }
-
-  .cc-fullpage .cc-split-left,
-  .cc-fullpage .cc-list {
-    max-height: 65vh;
-  }
-
-  /* Right header: "Context" label as a back-affordance */
-  .cc-split-layout:not(.cc-split-layout--collapsed) .cc-split-col-header--right {
-    padding-bottom: var(--space-3);
-    border-bottom: 1px solid rgba(255, 255, 255, 0.08);
-    margin-bottom: var(--space-2);
-  }
-}
-
 .cc-panel--compact {
   background: rgba(0, 0, 0, 0.3);
   backdrop-filter: blur(8px);
@@ -219,61 +22,10 @@
   padding: var(--space-2) var(--space-4);
 }
 
-/* ── Full-page search (/search) ─────────────────── */
-
-/* Use more of the viewport - less conservative than the embedded default */
-.cc-fullpage .cc-split-left,
-.cc-fullpage .cc-split-right {
-  max-height: max(400px, calc(100vh - 300px));
-}
-
-.cc-fullpage .cc-list {
-  max-height: max(380px, calc(100vh - 330px));
-}
-
-/* Frosted dark backdrop so text stays readable on any artwork background */
-.cc-fullpage .cc-split-left {
-  background: rgba(8, 6, 4, 0.55);
-  backdrop-filter: blur(10px);
-  -webkit-backdrop-filter: blur(10px);
-  border-radius: var(--radius-sm);
-  border-right: none;
-  padding: var(--space-3);
-}
-
-.cc-fullpage .cc-split-right--active {
-  background: rgba(8, 6, 4, 0.40);
-  backdrop-filter: blur(10px);
-  -webkit-backdrop-filter: blur(10px);
-  border-radius: var(--radius-sm);
-  border-left: 1px solid rgba(252, 219, 51, 0.12);
-  padding: var(--space-3);
-}
-
-/* Panel handles horizontal spacing - don't double-indent messages */
-.cc-fullpage .cc-split-right--active .cc-context-scroll {
-  padding: 0;
-}
-
-/* Indent headers to align with panel content (panels have 12px padding) */
-.cc-fullpage .cc-split-col-header {
-  padding-left: var(--space-3);
-  padding-right: var(--space-3);
-}
-
-/* Panel container transparent - individual columns carry their own bg */
-.cc-fullpage .cc-panel {
-  border: none;
-  border-radius: 0;
-  background: transparent;
-  backdrop-filter: none;
-  -webkit-backdrop-filter: none;
-  padding: 0;
-}
-
-/* The big search bar already filters - hide the inner toolbar */
-.cc-fullpage .cc-toolbar {
-  display: none;
+.cc-loading {
+  display: flex;
+  justify-content: center;
+  padding: var(--space-6) 0;
 }
 
 /* ── Toolbar ───────────────────────────────────── */
@@ -300,8 +52,6 @@
   white-space: nowrap;
   margin-left: auto;
 }
-
-/* ── Filter input ──────────────────────────────── */
 
 .cc-filter {
   flex: 1;
@@ -358,143 +108,40 @@
   border-radius: var(--radius-sm);
 }
 
-/* ── Message groups ────────────────────────────── */
+/* ── Pick affordances inside a transcript line ─── */
 
-.cc-group {
-  display: flex;
-  gap: 10px;
-  padding: 8px 0;
-}
-
-.cc-group + .cc-group {
-  border-top: 1px solid rgba(255, 255, 255, 0.04);
-}
-
-.cc-group--target {
-  background: rgba(252, 219, 51, 0.03);
-  margin: 0 -8px;
-  padding: 6px 8px;
-  border-radius: var(--radius-sm);
-}
-
-.cc-name--target {
-  color: var(--gold);
-}
-
-.cc-group--origin {
-  background: rgba(252, 219, 51, 0.04);
-  margin: 0 -8px;
-  padding: 6px 8px;
-  border-radius: var(--radius-sm);
-}
-
-.cc-group-avatar {
-  flex-shrink: 0;
-  width: 32px;
-  padding-top: 1px;
-}
-
-.cc-avatar {
-  width: 32px;
-  height: 32px;
-  border-radius: var(--radius-md);
-  object-fit: cover;
-}
-
-.cc-avatar-placeholder {
-  display: block;
-  width: 32px;
-  height: 32px;
-  border-radius: var(--radius-md);
-  background: rgba(255, 255, 255, 0.06);
-}
-
-.cc-group-body {
-  flex: 1;
-  min-width: 0;
-}
-
-.cc-group-header {
-  display: flex;
-  align-items: baseline;
-  gap: 8px;
-  margin-bottom: 1px;
-}
-
-.cc-name {
-  font-family: var(--font-display);
-  font-size: var(--text-xxs);
-  color: var(--gold);
-  flex-shrink: 0;
-  white-space: nowrap;
-}
-
-.cc-name--origin {
-  color: var(--gold);
-}
-
-.cc-name--link {
-  text-decoration: none;
-  cursor: pointer;
-}
-
-.cc-name--link:hover {
-  text-decoration: underline;
-  opacity: 0.85;
-}
-
-.cc-filter-hint {
-  font-family: var(--font-mono);
-  font-size: var(--text-xxxs);
-  color: var(--grey-mid);
-  padding: var(--space-1) 0;
-}
-
-.cc-time {
-  font-family: var(--font-mono);
-  font-size: var(--text-xxxs);
-  color: var(--grey-mid);
-  flex-shrink: 0;
-}
-
-/* ── Individual messages ───────────────────────── */
-
-.cc-msg {
+.cc-row {
   display: flex;
   align-items: baseline;
   gap: 6px;
-  padding: 1px 0;
-  font-size: var(--text-xs);
-  color: var(--text-body);
-  line-height: 1.5;
-}
-
-.cc-msg--selectable {
-  cursor: pointer;
   border-radius: var(--radius-sm);
-  margin: 0 -4px;
-  padding: 1px 4px;
-  transition: background 0.1s;
+  border-left: 2px solid transparent;
+  margin-left: -6px;
+  padding-left: 4px;
+  transition: background 0.1s, border-color 0.1s;
 }
 
-.cc-msg--selectable:hover {
+.cc-row--clickable {
+  cursor: pointer;
+}
+
+.cc-row--clickable:hover {
   background: rgba(255, 255, 255, 0.04);
 }
 
-.cc-msg--selected {
-  background: rgba(252, 219, 51, 0.08) !important;
-  border-left: 2px solid var(--gold);
-  padding-left: 6px;
+.cc-row--selected,
+.cc-row--expanded {
+  background: rgba(252, 219, 51, 0.08);
+  border-left-color: var(--gold);
 }
 
-.cc-msg--in-quotes {
+.cc-row--in-quotes {
   background: var(--green-tint-subtle);
-  border-left: 2px solid var(--green);
-  padding-left: 6px;
+  border-left-color: var(--green);
   opacity: 0.6;
 }
 
-.cc-msg--in-quotes::after {
+.cc-row--in-quotes::after {
   content: "ADDED";
   font-family: var(--font-mono);
   font-size: var(--text-xxxs);
@@ -505,13 +152,13 @@
   letter-spacing: 0.05em;
 }
 
-.cc-msg--in-quotes .cc-check {
+.cc-row--in-quotes .cc-check {
   background: var(--green);
   border-color: var(--green);
   opacity: 1;
 }
 
-.cc-msg--in-quotes .cc-check::after {
+.cc-row--in-quotes .cc-check::after {
   content: "";
   width: 4px;
   height: 8px;
@@ -521,97 +168,8 @@
   margin-top: -2px;
 }
 
-/* Add button for quote collection (non-instant mode) */
-.cc-add-btn {
-  flex-shrink: 0;
-  margin-left: auto;
-  padding: 3px;
-  width: 22px;
-  height: 22px;
-  background: transparent;
-  border: 1.5px solid var(--grey-mid);
-  border-radius: var(--radius-md);
-  color: var(--grey-mid);
-  cursor: pointer;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  opacity: 0.3;
-  transition: all 0.15s;
-}
-
-.cc-msg:hover .cc-add-btn {
-  opacity: 1;
-  border-color: var(--gold);
-  color: var(--gold);
-}
-
-.cc-add-btn:hover {
-  background: rgba(252, 219, 51, 0.2);
-  transform: scale(1.1);
-}
-
-/* Added state - always visible with green checkmark */
-.cc-add-btn--added {
-  background: var(--green);
-  border-color: var(--green);
-  color: #000;
-  opacity: 1;
-}
-
-.cc-add-btn--added:hover {
-  background: var(--red);
-  border-color: var(--red);
-  color: #fff;
-  transform: scale(1.1);
-}
-
-.cc-msg--expandable {
-  cursor: pointer;
-  border-radius: var(--radius-sm);
-  margin: 0 -4px;
-  padding: 1px 4px 1px 7px;
-  border-left: 3px solid transparent;
-  transition: background 0.1s, border-color 0.1s;
-}
-
-.cc-msg--expandable:hover {
-  background: rgba(252, 219, 51, 0.07);
-  border-left-color: rgba(252, 219, 51, 0.7);
-}
-
-.cc-expand-icon {
-  flex-shrink: 0;
-  margin-left: auto;
-  padding-left: var(--space-2);
-  font-family: var(--font-mono);
-  font-size: var(--text-xxxs);
-  color: var(--grey-mid);
-  white-space: nowrap;
-  transition: color 0.1s;
-  align-self: center;
-}
-
-.cc-msg--expandable:hover .cc-expand-icon {
-  color: var(--gold);
-}
-
-.cc-msg--expanded .cc-expand-icon {
-  color: var(--gold);
-}
-
-.cc-msg--expanded {
-  background: rgba(252, 219, 51, 0.06) !important;
-  border-left: 3px solid var(--gold);
-  padding-left: 7px;
-}
-
-.cc-msg--origin {
-  background: rgba(252, 219, 51, 0.06);
-  border-left: 3px solid var(--gold);
-  margin: 0 -4px;
-  padding: 1px 4px 1px 5px;
-  border-radius: var(--radius-sm);
+.cc-row--mention {
+  opacity: 0.85;
 }
 
 .cc-check {
@@ -621,6 +179,7 @@
   width: 16px;
   height: 16px;
   flex-shrink: 0;
+  align-self: center;
   border-radius: var(--radius-sm);
   border: 1px solid rgba(255, 255, 255, 0.15);
   transition: all 0.1s;
@@ -650,12 +209,6 @@
   margin-top: -2px;
 }
 
-/* Star for items already in quote list */
-.cc-check:not(.cc-check--active) {
-  font-size: var(--text-xxxs);
-  color: var(--gold);
-}
-
 .cc-score {
   font-family: var(--font-mono);
   font-size: var(--text-xxs);
@@ -666,11 +219,79 @@
 }
 
 .cc-text {
-  color: var(--text-body);
-  word-break: break-word;
-  overflow-wrap: break-word;
   min-width: 0;
   flex: 1;
+}
+
+.cc-mention-tag {
+  font-family: var(--font-mono);
+  font-size: var(--text-xxxs);
+  color: rgba(77, 166, 255, 0.6);
+  flex-shrink: 0;
+  width: 14px;
+  text-align: center;
+}
+
+.cc-expand-icon {
+  flex-shrink: 0;
+  margin-left: auto;
+  padding-left: var(--space-2);
+  font-family: var(--font-mono);
+  font-size: var(--text-xxxs);
+  color: var(--grey-mid);
+  white-space: nowrap;
+  transition: color 0.1s;
+  align-self: center;
+}
+
+.cc-row--clickable:hover .cc-expand-icon,
+.cc-row--expanded .cc-expand-icon {
+  color: var(--gold);
+}
+
+/* Add button for quote collection */
+.cc-add-btn {
+  flex-shrink: 0;
+  margin-left: auto;
+  align-self: center;
+  padding: 3px;
+  width: 22px;
+  height: 22px;
+  background: transparent;
+  border: 1.5px solid var(--grey-mid);
+  border-radius: var(--radius-md);
+  color: var(--grey-mid);
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  opacity: 0.3;
+  transition: all 0.15s;
+}
+
+.cc-row:hover .cc-add-btn {
+  opacity: 1;
+  border-color: var(--gold);
+  color: var(--gold);
+}
+
+.cc-add-btn:hover {
+  background: rgba(252, 219, 51, 0.2);
+  transform: scale(1.1);
+}
+
+.cc-add-btn--added {
+  background: var(--green);
+  border-color: var(--green);
+  color: #000;
+  opacity: 1;
+}
+
+.cc-add-btn--added:hover {
+  background: var(--red);
+  border-color: var(--red);
+  color: #fff;
+  transform: scale(1.1);
 }
 
 /* ── Highlight ─────────────────────────────────── */
@@ -680,92 +301,6 @@
   color: var(--gold);
   border-radius: var(--radius-sm);
   padding: 0 1px;
-}
-
-/* ── Apply button ──────────────────────────────── */
-
-/* Layout only; visuals come from ui.jsx Button $primary */
-.cc-apply {
-  align-self: stretch;
-  margin-top: var(--space-2);
-}
-
-/* ── Context expansion panel ───────────────────── */
-
-.cc-context {
-  margin: var(--space-1) 0 var(--space-2);
-  background: rgba(0, 0, 0, 0.3);
-  backdrop-filter: blur(8px);
-  -webkit-backdrop-filter: blur(8px);
-  border: 1px solid rgba(255, 255, 255, 0.06);
-  border-radius: var(--radius-sm);
-  overflow: hidden;
-}
-
-.cc-context-toolbar {
-  display: flex;
-  align-items: center;
-  gap: var(--space-2);
-  padding: 4px var(--space-3);
-  background: rgba(0, 0, 0, 0.15);
-  border-bottom: 1px solid rgba(var(--gold-muted-rgb), 0.08);
-}
-
-.cc-context-padding {
-  font-family: var(--font-mono);
-  font-size: var(--text-xxxs);
-  color: var(--grey-mid);
-  min-width: 38px;
-  text-align: center;
-}
-
-
-.cc-context-scroll {
-  flex: 1;
-  min-height: 0;
-  overflow-y: auto;
-  overflow-x: hidden;
-  display: flex;
-  flex-direction: column;
-  gap: 0;
-  padding: 0 var(--space-3);
-  /* We compensate scroll position manually when history is prepended;
-     the browser's native scroll anchoring fights that and causes jumps */
-  overflow-anchor: none;
-  overscroll-behavior: contain;
-}
-
-/* Context panel infinite scroll sentinels */
-.cc-ctx-sentinel {
-  min-height: 24px;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  padding: var(--space-1) 0;
-}
-
-.cc-context-scroll::-webkit-scrollbar {
-  width: 4px;
-}
-
-.cc-context-scroll::-webkit-scrollbar-track {
-  background: transparent;
-}
-
-.cc-context-scroll::-webkit-scrollbar-thumb {
-  background: rgba(255, 255, 255, 0.1);
-  border-radius: var(--radius-sm);
-}
-
-/* ── Earlier/Later buttons ─────────────────────── */
-
-/* Earlier/Later (ui.jsx Button $pill; layout only) */
-.cc-edge-btn {
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  gap: 4px;
-  width: 100%;
 }
 
 /* ── Date separators ──────────────────────────────── */
@@ -779,39 +314,6 @@
   text-align: center;
   padding: var(--space-1) 0;
   margin: var(--space-1) 0;
-}
-
-/* ── Mentions ─────────────────────────────────────── */
-
-.cc-group--mention {
-  border-left: 2px solid rgba(77, 166, 255, 0.3);
-  padding-left: 6px;
-}
-
-.cc-mention-badge {
-  font-family: var(--font-mono);
-  font-size: var(--text-xxxs);
-  text-transform: uppercase;
-  letter-spacing: 0.05em;
-  color: rgba(77, 166, 255, 0.7);
-  background: var(--blue-tint);
-  border: 1px solid rgba(77, 166, 255, 0.15);
-  border-radius: var(--radius-sm);
-  padding: 0 4px;
-  line-height: 1.4;
-}
-
-.cc-mention-tag {
-  font-family: var(--font-mono);
-  font-size: var(--text-xxxs);
-  color: rgba(77, 166, 255, 0.6);
-  flex-shrink: 0;
-  width: 14px;
-  text-align: center;
-}
-
-.cc-msg--mention {
-  opacity: 0.85;
 }
 
 /* ── Infinite scroll load-more ───────────────────── */

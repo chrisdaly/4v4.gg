@@ -307,44 +307,7 @@ a.mg-inline-name:hover {
   text-decoration: underline;
 }
 
-/* ── Quotes (shared) ──────────────────────────────── */
-
-.mg-quotes {
-  display: flex;
-  flex-direction: column;
-  gap: var(--quote-group-gap);
-  margin-top: var(--space-4);
-}
-
-.mg-quotes--compact {
-  margin-top: var(--space-2);
-  gap: var(--quote-group-gap);
-}
-
-.mg-quote-group {
-  display: flex;
-  flex-direction: column;
-  gap: var(--quote-item-gap);
-}
-
-.mg-quote-name {
-  font-family: var(--font-display);
-  font-size: var(--text-xs);
-  color: var(--gold);
-  margin-bottom: var(--quote-name-gap);
-}
-
-.mg-quote {
-  margin: 0;
-  margin-left: var(--quote-indent);
-  padding: var(--space-1) 0 var(--space-1) var(--quote-pad-left);
-  border-left: var(--quote-border);
-  font-family: var(--font-body, Georgia, serif);
-  font-size: var(--text-sm);
-  font-style: italic;
-  color: var(--grey-light);
-  line-height: 1.5;
-}
+/* Quotes render through ChatMessage (quote variant, chat/QuoteBlock) */
 
 /* ── Stories Grid (2-column) ──────────────────────── */
 
@@ -794,72 +757,47 @@ a.mg-inline-name:hover {
   margin-top: var(--space-3);
 }
 
-.mg-spotlight-quotes .mg-quote-group {
-  margin-bottom: var(--quote-group-gap);
+/* ── Editable Quotes (drag reorder, remove, add) ── */
+/* Each group is a ChatMessage quote variant; the head and rows carry the
+   drag handles, remove buttons and inline editor */
+
+.mg-qedit-group + .mg-qedit-group {
+  margin-top: var(--quote-group-gap);
 }
 
-.mg-spotlight-quotes .mg-quote-group:last-child {
-  margin-bottom: 0;
-}
-
-.mg-quote-group-header {
-  display: flex;
+.mg-qedit-group-head {
+  display: inline-flex;
   align-items: center;
   gap: 6px;
 }
 
-.mg-quote-group--dragover {
+.mg-qedit-group--dragover {
   border-top: var(--border-thick) solid var(--gold);
 }
 
-.mg-spotlight-quotes .mg-quote-name {
-  font-size: var(--text-xs);
-  margin-bottom: var(--quote-name-gap);
-}
-
-.mg-spotlight-quotes .mg-quote {
-  font-size: var(--text-xs);
-  margin: 0;
-  margin-left: var(--quote-indent);
-  padding: var(--space-1) 0 var(--space-1) var(--quote-pad-left);
-  border-left: var(--quote-border);
-  color: rgba(255, 255, 255, 0.8);
-  line-height: 1.5;
-}
-
-/* ── Editable Quotes (drag reorder, remove, add) ── */
-
-/* Indent quote rows within a named group */
-.mg-quote-group:has(.mg-quote-name) > .mg-quote-editable-row {
-  padding-left: var(--space-4);
-}
-
-.mg-quote-editable-row {
+.mg-qedit-row {
   display: flex;
   align-items: center;
   gap: 6px;
-  padding: 4px 0;
   border-top: var(--border-thick) solid transparent;
   transition: background 0.1s;
 }
 
-.mg-quote-editable-row:hover {
+.mg-qedit-row:hover {
   background: rgba(255, 255, 255, 0.03);
 }
 
-.mg-quote-editable-row--dragover {
+.mg-qedit-row--dragover {
   border-top-color: var(--gold);
 }
 
-.mg-quote-editable-row .mg-quote {
+.mg-qedit-text {
   flex: 1;
   min-width: 0;
-  font-size: var(--text-xs);
-  line-height: 1.5;
 }
 
 /* Drag handle */
-.mg-quote-drag {
+.mg-qedit-drag {
   flex-shrink: 0;
   cursor: grab;
   color: var(--grey-mid);
@@ -871,26 +809,26 @@ a.mg-inline-name:hover {
   align-items: center;
 }
 
-.mg-quote-editable-row:hover .mg-quote-drag {
+.mg-qedit-row:hover .mg-qedit-drag {
   opacity: 1;
   color: var(--grey-light);
 }
 
-.mg-quote-drag--group {
+.mg-qedit-drag--group {
   opacity: 0.3;
 }
 
-.mg-quote-group:hover .mg-quote-drag--group {
+.mg-qedit-group:hover .mg-qedit-drag--group {
   opacity: 0.8;
 }
 
-.mg-quote-drag--group:hover {
+.mg-qedit-drag--group:hover {
   color: var(--gold) !important;
 }
 
 /* Remove button - always visible, matches editorial-delete pattern */
 /* ui.jsx Button $icon; sized down to the quote row, dims until hover */
-.mg-quote-editable-row .mg-quote-remove {
+.mg-qedit-remove {
   flex-shrink: 0;
   width: 20px;
   height: 20px;
@@ -898,13 +836,13 @@ a.mg-inline-name:hover {
   opacity: 0.5;
 }
 
-.mg-quote-editable-row .mg-quote-remove:hover {
+.mg-qedit-remove:hover {
   opacity: 1;
   color: var(--red);
 }
 
 /* Action row containing Add + Browse buttons */
-.mg-quote-actions {
+.mg-qedit-actions {
   display: flex;
   align-items: center;
   gap: var(--space-4);
@@ -913,18 +851,18 @@ a.mg-inline-name:hover {
   border-top: 1px solid rgba(255, 255, 255, 0.06);
 }
 
-.mg-quote-actions .mg-quote-browser {
+.mg-qedit-actions .mg-qb {
   margin-left: auto;
 }
 
-.mg-quote-add-row {
+.mg-qedit-add-row {
   display: flex;
   gap: var(--space-2);
   margin-top: var(--space-1);
   align-items: center;
 }
 
-.mg-quote-add-input {
+.mg-qedit-add-input {
   flex: 1;
   background: rgba(255, 255, 255, 0.04);
   border: 1px solid var(--grey-mid);
@@ -936,21 +874,21 @@ a.mg-inline-name:hover {
   transition: border-color var(--transition);
 }
 
-.mg-quote-add-input:focus {
+.mg-qedit-add-input:focus {
   border-color: var(--gold);
 }
 
-.mg-quote-add-input::placeholder {
+.mg-qedit-add-input::placeholder {
   color: var(--grey-mid);
 }
 
 /* ── Quote Browser - Full-screen modal ── */
 
-.mg-quote-browser {
+.mg-qb {
   display: inline-block;
 }
 
-.mg-quote-browser-panel {
+.mg-qb-panel {
   position: fixed;
   top: 0;
   left: 0;
@@ -1241,7 +1179,7 @@ a.mg-inline-name:hover {
 
 /* Override ChatContext styles inside quote browser */
 .mg-qb-messages .cc-panel,
-.mg-quote-browser-panel .cc-panel {
+.mg-qb-panel .cc-panel {
   flex: 1;
   display: flex;
   flex-direction: column;
@@ -1253,47 +1191,8 @@ a.mg-inline-name:hover {
   padding: var(--space-3);
 }
 
-.mg-quote-browser-panel .cc-panel--split {
-  padding: 0;
-  flex: 1;
-  display: flex;
-  flex-direction: column;
-  height: 100%;
-}
-
-.mg-quote-browser-panel .cc-split-layout {
-  flex: 1;
-  display: grid;
-  grid-template-columns: 1fr 1fr;
-  gap: 0;
-  min-height: 0;
-  height: 100%;
-}
-
-/* Left column - scrolls independently */
-.mg-quote-browser-panel .cc-split-left {
-  display: flex;
-  flex-direction: column;
-  height: 100%;
-  max-height: 100%;
-  overflow: hidden;
-  border-right: 1px solid var(--grey-mid);
-  padding: var(--space-3);
-}
-
-/* Right column - scrolls independently */
-.mg-quote-browser-panel .cc-split-right {
-  display: flex;
-  flex-direction: column;
-  height: 100%;
-  max-height: 100%;
-  overflow: hidden;
-  padding: var(--space-3);
-  background: rgba(0, 0, 0, 0.3);
-}
-
 /* Toolbar stays at top */
-.mg-quote-browser-panel .cc-toolbar {
+.mg-qb-panel .cc-toolbar {
   flex-shrink: 0;
   padding-bottom: var(--space-3);
   border-bottom: 1px solid rgba(255, 255, 255, 0.06);
@@ -1301,28 +1200,10 @@ a.mg-inline-name:hover {
 }
 
 /* Message list scrolls */
-.mg-quote-browser-panel .cc-list {
+.mg-qb-panel .cc-list {
   flex: 1;
   overflow-y: auto;
   max-height: none !important;
-}
-
-.mg-quote-browser-panel .cc-context-side {
-  display: flex;
-  flex-direction: column;
-  height: 100%;
-  min-height: 0;
-}
-
-.mg-quote-browser-panel .cc-context-scroll {
-  flex: 1;
-  overflow-y: auto;
-  min-height: 0;
-}
-
-/* Hide the default apply button inside ChatContext */
-.mg-quote-browser-panel .cc-apply {
-  display: none;
 }
 
 /* ── Streak Cards (full-width HOTSTREAK/COLDSTREAK) ── */

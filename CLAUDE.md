@@ -26,7 +26,7 @@ The frontend connects to a chat relay server that bridges the W3Champions Signal
 | Environment | URL | Notes |
 |-------------|-----|-------|
 | **Production** | `https://4v4gg-chat-relay.fly.dev` | Fly.io, persistent SQLite, always-on |
-| **Dev (default)** | `https://4v4gg-chat-relay.fly.dev` | Uses fly.io relay — more stable than local |
+| **Dev (default)** | `https://4v4gg-chat-relay.fly.dev` | Uses fly.io relay - more stable than local |
 | **Dev (local relay)** | `http://localhost:3002` | Only for developing the relay server itself |
 
 Controlled by `VITE_CHAT_RELAY_URL` in `.env.local`. The fly.io relay is preferred for dev because the local server can crash or serve stale data.
@@ -39,7 +39,7 @@ VITE_CHAT_RELAY_URL=http://localhost:3002
 
 The relay server source is in `server/`. Token is injected via `POST /api/admin/token` with `X-API-Key` header.
 
-**Operations:** see `server/OPERATIONS.md` for the production runbook — backups (Litestream), DB corruption recovery, disk management, token refresh, and the June 2026 data-loss incident. Key rules: never scale the relay above 1 machine (volume split-brain), and the server intentionally exits rather than auto-repairing a corrupt DB.
+**Operations:** see `server/OPERATIONS.md` for the production runbook - backups (Litestream), DB corruption recovery, disk management, token refresh, and the June 2026 data-loss incident. Key rules: never scale the relay above 1 machine (volume split-brain), and the server intentionally exits rather than auto-repairing a corrupt DB.
 
 ## Architecture
 
@@ -58,7 +58,7 @@ The relay server source is in `server/`. Token is injected via `POST /api/admin/
 
 ### MMR Chart Components
 
-One component per MMR visualization — reuse these, don't hand-roll new ones:
+One component per MMR visualization - reuse these, don't hand-roll new ones:
 - `src/components/MmrComparison.jsx` - Team-vs-team dot chart (D3). Fixed 700–2700 y-scale everywhere. Use the `variant` prop: `card` (home hero, news cards), `scorecard` (match tables), `micro` (chat/mini cards), `overlay` (OBS)
 - `src/components/MmrSparkline.jsx` - MMR-over-time trend line (ladder rows, player profile)
 - `src/components/MmrRangeBar.jsx` - Low/current/peak gradient bar (profile thermometer, player overlay)
@@ -121,7 +121,7 @@ All design tokens (colors, fonts, spacing, etc.) are defined in `design-tokens.j
 | Surfaces | `--surface-1` `--surface-2` `--surface-3` `--panel-bg` `--panel-border` |
 | Tints | `--gold-tint` `--green-tint` `--red-tint` (`-subtle` variants) `--gold-muted-rgb` (use as `rgba(var(--gold-muted-rgb), alpha)`) |
 | League/race bars | `--league-grandmaster` … `--league-bronze`, `--race-human` … `--race-random` (gradients; same league = same color on every page) |
-| Charts (JS) | `chartColors` / `chartSeries` exports — import for d3/SVG attribute values |
+| Charts (JS) | `chartColors` / `chartSeries` exports - import for d3/SVG attribute values |
 
 ### Usage Patterns
 
@@ -142,18 +142,26 @@ Defined in `design-tokens.js` under `patterns`:
 
 ### Shared Components
 
-Import from `src/components/ui.jsx`:
-- `Button` - Primary/secondary variants
-- `Badge` - Status badges (win/loss/default)
-- `Card` - Gold-bordered container
+Import from `src/components/ui.jsx` (full list with variants: `components` in `design-tokens.js`, rendered on `/style`):
+- `Button` - `$primary` / `$secondary` / `$ghost` / `$pill` variants
+- `ResultBadge` - WIN / LOSS / W chip (`$won`, `$lost`, `$winner`)
+- `Card`, `CardSubtle`, `ThemedCard` - gold / grey / border-theme containers
 - `Dot` - Win/loss form indicator
+- `Delta` - Signed MMR change chip
 - `TeamBar` - Blue/red team indicator
+- `PageNav`, `PageHero` - back link + sibling tabs; page eyebrow + title
+- `Skeleton`, `SkeletonCircle` - loading placeholders
+- `Select`, `Input`, `ConfirmModal`, `RaceIcon`, `CountryFlag`
+
+Chat components live in `src/components/chat/`:
+- `ChatMessage` - one message group (author + consecutive lines) in three variants: `feed` (/chat stream), `transcript` (profile recent conversations, digest pickers), `quote` (digest pull-quotes). Reuse it instead of hand-rolling message rows.
+- `QuoteBlock` - "Speaker: text" strings grouped by speaker, rendered through the quote variant
 
 ## API Integration
 
 All data from W3Champions API:
 - `GET /api/matches/ongoing` - Live games
-- `GET /api/matches` - Finished games (global feed; `playerId` param is **ignored** — do NOT use this to get a player's matches)
+- `GET /api/matches` - Finished games (global feed; `playerId` param is **ignored** - do NOT use this to get a player's matches)
 - `GET /api/matches/search?playerId={tag}&gameMode=4&season={n}&gateway=20&pageSize={n}` - **Player match history** (the only endpoint that filters by player). Requires `season` param; omitting it returns 0 results. Current seasons: 24 (ended ~June 15 2026), 25 (started June 16 2026).
 - `GET /api/matches/{id}` - Specific game details
 - `GET /api/ladder/{race}` - Player rankings
@@ -179,18 +187,18 @@ Themes are defined in `src/lib/borderThemes.js`. Each theme has: border style, b
 
 ### Theme Background Sources
 
-Best source: **warcraft.wiki.gg** — direct download, high-res, no authentication.
+Best source: **warcraft.wiki.gg** - direct download, high-res, no authentication.
 
 **Finding clean backgrounds (no logos/watermarks):**
 
-1. Search for "No_text" login screens — these are the cleanest:
+1. Search for "No_text" login screens - these are the cleanest:
    - Pattern: `https://warcraft.wiki.gg/images/{Expansion}_Login_No_text.jpg`
    - Examples: `Wrath_Login_No_Text.jpg`, `Cataclysm_Login_No_text.jpg`, `Burning_Crusade_Login_No_Text.jpg`
    - Usually 1920x1080, sometimes 3840x2160 (4K)
 
 2. Search for Chronicle/concept art by known artists:
-   - Peter Lee (Chronicle volumes) — massive res (3000-5000px), stunning paintings
-   - Astri Lohne, Bayard Wu, Glenn Rane — WC3 Reforged key art
+   - Peter Lee (Chronicle volumes) - massive res (3000-5000px), stunning paintings
+   - Astri Lohne, Bayard Wu, Glenn Rane - WC3 Reforged key art
    - Pattern: `https://warcraft.wiki.gg/images/Chronicle3_{Subject}.jpg`
 
 3. Search for WC3 Reforged wallpapers/key art:
