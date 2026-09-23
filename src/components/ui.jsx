@@ -1,6 +1,6 @@
 /**
  * Shared UI Components
- * Import: import { Button, Badge, Card, ThemedCard, Dot, Delta, TeamBar, Label, PageLayout } from './components/ui';
+ * Import: import { Button, Badge, Card, ThemedCard, Dot, Delta, TeamBar, Select, Input, PageNav, PageLayout } from './components/ui';
  */
 
 import React, { useState, useRef, useEffect, useCallback } from "react";
@@ -56,6 +56,22 @@ export const Button = styled.button`
     transition: color var(--transition), border-color var(--transition);
     &:hover { color: var(--white); border-color: var(--grey-light); }
     &[data-active="true"], &.active { color: var(--gold); border-color: var(--gold-border-hover); background: var(--gold-tint-subtle); }
+  `}
+
+  /* Icon-only square button (close, toggle, prev/next). Pass an aria-label. */
+  ${p => p.$icon && `
+    padding: var(--space-1);
+    width: 32px;
+    height: 32px;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    line-height: 1;
+    font-size: var(--text-sm);
+    background: transparent;
+    color: var(--grey-light);
+    border: var(--border-thin) solid transparent;
+    &:hover { color: var(--white); background: var(--surface-2); }
   `}
 
   &:disabled {
@@ -167,169 +183,8 @@ export const TeamBar = styled.div`
 `;
 
 // ============================================
-// LABEL (Column headers, section titles)
-// ============================================
-
-export const Label = styled.span`
-  font-family: var(--font-mono);
-  font-size: var(--text-xxs);
-  text-transform: uppercase;
-  letter-spacing: 0.1em;
-  color: var(--grey-light);
-`;
-
-// ============================================
-// STAT ROW
-// ============================================
-
-export const StatRow = styled.div`
-  display: flex;
-  justify-content: space-between;
-  align-items: center;
-  padding: var(--space-2) var(--space-4);
-
-  ${p => p.$alt && `background: var(--surface-1);`}
-
-  &:hover {
-    background: var(--surface-2);
-  }
-`;
-
-export const StatLabel = styled.span`
-  font-family: var(--font-mono);
-  font-size: var(--text-xs);
-  text-transform: uppercase;
-  letter-spacing: 0.1em;
-  color: var(--grey-light);
-`;
-
-export const StatValue = styled.span`
-  font-family: var(--font-mono);
-  font-size: var(--text-base);
-  color: ${p => p.$color || 'var(--white)'};
-`;
-
-// ============================================
-// PLAYER NAME
-// ============================================
-
-export const PlayerName = styled.span`
-  font-family: var(--font-display);
-  color: var(--gold);
-  font-size: ${p => p.$size || 'var(--text-lg)'};
-`;
-
-// ============================================
-// MMR VALUE
-// ============================================
-
-export const MMR = styled.span`
-  font-family: var(--font-mono);
-  color: var(--white);
-  font-size: ${p => p.$size || 'var(--text-base)'};
-`;
-
-// ============================================
-// WIN/LOSS TEXT
-// ============================================
-
-export const Win = styled.span`
-  color: var(--green);
-`;
-
-export const Loss = styled.span`
-  color: var(--red);
-`;
-
-// ============================================
-// FLEX UTILITIES
-// ============================================
-
-export const Row = styled.div`
-  display: flex;
-  align-items: ${p => p.$align || 'center'};
-  justify-content: ${p => p.$justify || 'flex-start'};
-  gap: ${p => p.$gap || 'var(--space-2)'};
-  flex-wrap: ${p => p.$wrap ? 'wrap' : 'nowrap'};
-`;
-
-export const Stack = styled.div`
-  display: flex;
-  flex-direction: column;
-  gap: ${p => p.$gap || 'var(--space-2)'};
-`;
-
-// ============================================
-// OVERLAY CONTAINERS
-// ============================================
-// For stream overlays (OBS/Streamlabs browser sources)
-// Use transparent body: body { background: transparent !important; }
-
-/**
- * OverlayCard - Main container for stream overlays
- * Uses --overlay-medium by default, can override with $bg prop
- * Border uses gold with 0.4 opacity for subtle framing
- */
-export const OverlayCard = styled.div`
-  background: ${p => p.$bg || 'var(--overlay-medium)'};
-  border: 1px solid rgba(252, 219, 51, 0.4);
-  border-radius: var(--radius-md);
-  padding: var(--space-4);
-  text-align: ${p => p.$center ? 'center' : 'left'};
-`;
-
-/**
- * OverlayGradient - Radial gradient fade for less harsh edges
- * Good for centered content that fades to transparent
- */
-export const OverlayGradient = styled.div`
-  background: radial-gradient(
-    ellipse at center,
-    var(--overlay-medium) 0%,
-    var(--overlay-light) 60%,
-    transparent 100%
-  );
-  padding: var(--space-6);
-  text-align: center;
-`;
-
-/**
- * OverlayFrosted - Frosted glass effect
- * Uses backdrop-filter blur for modern browsers
- */
-export const OverlayFrosted = styled.div`
-  background: var(--overlay-light);
-  backdrop-filter: blur(8px);
-  border: var(--border-thin) solid var(--surface-3);
-  border-radius: var(--radius-md);
-  padding: var(--space-4);
-`;
-
-/**
- * OverlayMinimal - Minimal dark panel with gradient
- * Subtle gold border, good for match overlays
- */
-export const OverlayMinimal = styled.div`
-  background: linear-gradient(
-    180deg,
-    rgba(30, 30, 30, 0.95) 0%,
-    rgba(15, 15, 15, 0.98) 100%
-  );
-  border: var(--border-thin) solid rgba(252, 219, 51, 0.3);
-  border-radius: var(--radius-sm);
-  padding: var(--space-2) var(--space-4);
-`;
-
-// ============================================
 // TINTED SURFACES
 // ============================================
-
-export const GoldSurface = styled.div`
-  background: var(--gold-tint);
-  border: var(--border-thin) solid rgba(252, 219, 51, 0.3);
-  border-radius: var(--radius-md);
-  padding: var(--space-2) var(--space-4);
-`;
 
 export const WinSurface = styled.div`
   background: var(--green-tint);
@@ -343,97 +198,6 @@ export const LossSurface = styled.div`
   border: var(--border-thin) solid var(--red-border);
   border-radius: var(--radius-md);
   padding: var(--space-2) var(--space-4);
-`;
-
-// ============================================
-// MMR BAR
-// ============================================
-// Gradient bar showing current MMR between all-time low/peak
-
-export const MmrBarTrack = styled.div`
-  position: relative;
-  height: var(--space-2);
-  background: linear-gradient(to right, var(--red), var(--grey-light), var(--green));
-  border-radius: var(--radius-full);
-`;
-
-export const MmrBarMarker = styled.div`
-  position: absolute;
-  top: 50%;
-  left: ${p => p.$position || '50%'};
-  transform: translate(-50%, -50%);
-  width: var(--space-4);
-  height: var(--space-4);
-  background: var(--gold);
-  border: var(--border-thick) solid var(--grey-dark);
-  border-radius: var(--radius-full);
-`;
-
-export const MmrBarLabels = styled.div`
-  display: flex;
-  justify-content: space-between;
-  font-family: var(--font-mono);
-  font-size: var(--text-xs);
-  color: var(--grey-light);
-  margin-top: var(--space-1);
-`;
-
-// ============================================
-// TYPOGRAPHY
-// ============================================
-
-export const H1 = styled.h1`
-  font-family: var(--font-display);
-  font-size: var(--text-xl);
-  color: var(--gold);
-  margin: 0;
-  line-height: 1.2;
-`;
-
-export const H2 = styled.h2`
-  font-family: var(--font-display);
-  font-size: var(--text-lg);
-  color: ${p => p.$gold ? 'var(--gold)' : 'var(--white)'};
-  margin: 0;
-  line-height: 1.3;
-`;
-
-export const H3 = styled.h3`
-  font-family: var(--font-display);
-  font-size: var(--text-base);
-  color: ${p => p.$gold ? 'var(--gold)' : 'var(--white)'};
-  margin: 0;
-  line-height: 1.4;
-`;
-
-export const Text = styled.p`
-  font-family: ${p => p.$mono ? 'var(--font-mono)' : 'inherit'};
-  font-size: ${p => p.$size || 'var(--text-base)'};
-  color: ${p => p.$muted ? 'var(--grey-light)' : 'var(--white)'};
-  margin: 0;
-  line-height: 1.6;
-`;
-
-export const Code = styled.code`
-  font-family: var(--font-mono);
-  font-size: ${p => p.$size || 'var(--text-sm)'};
-  background: ${p => p.$block ? 'var(--grey-dark)' : 'var(--surface-3)'};
-  color: ${p => p.$dim ? 'var(--grey-light)' : 'var(--white)'};
-  padding: ${p => p.$block ? 'var(--space-4)' : 'var(--space-1) var(--space-2)'};
-  border-radius: var(--radius-sm);
-  ${p => p.$block && `display: block; overflow-x: auto;`}
-  ${p => p.$url && `word-break: break-all;`}
-`;
-
-export const Pre = styled.pre`
-  font-family: var(--font-mono);
-  font-size: var(--text-sm);
-  background: var(--grey-dark);
-  color: var(--white);
-  padding: var(--space-4);
-  border-radius: var(--radius-md);
-  overflow-x: auto;
-  margin: 0;
 `;
 
 // ============================================
@@ -638,81 +402,6 @@ export const FieldLabel = styled.label`
 `;
 
 // ============================================
-// LAYOUT COMPONENTS
-// ============================================
-
-export const Grid = styled.div`
-  display: grid;
-  grid-template-columns: ${p => p.$cols ? `repeat(${p.$cols}, 1fr)` : '1fr'};
-  gap: ${p => p.$gap || 'var(--space-4)'};
-  ${p => p.$responsive && `
-    @media (max-width: 768px) {
-      grid-template-columns: 1fr;
-    }
-  `}
-`;
-
-export const Page = styled.div`
-  min-height: 100vh;
-  padding: var(--space-6);
-  max-width: 1200px;
-  margin: 0 auto;
-`;
-
-export const Section = styled.section`
-  padding: var(--space-6) 0;
-  ${p => p.$border && `border-bottom: 1px solid var(--grey-mid);`}
-`;
-
-export const Container = styled.div`
-  max-width: ${p => p.$width || '1200px'};
-  margin: 0 auto;
-  padding: 0 var(--space-4);
-`;
-
-// ============================================
-// FEEDBACK COMPONENTS
-// ============================================
-
-export const TipBox = styled.div`
-  padding: var(--space-4);
-  border-radius: var(--radius-md);
-  border: 1px solid ${p =>
-    p.$variant === 'gold' ? 'rgba(252, 219, 51, 0.3)' :
-    p.$variant === 'green' ? 'var(--green-border)' :
-    p.$variant === 'red' ? 'var(--red-border)' :
-    'var(--grey-mid)'
-  };
-  background: ${p =>
-    p.$variant === 'gold' ? 'var(--gold-tint)' :
-    p.$variant === 'green' ? 'var(--green-tint)' :
-    p.$variant === 'red' ? 'var(--red-tint)' :
-    'var(--surface-1)'
-  };
-`;
-
-export const Note = styled.p`
-  font-family: var(--font-mono);
-  font-size: var(--text-xs);
-  color: var(--grey-light);
-  margin: 0;
-`;
-
-export const StepIndicator = styled.div`
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  width: var(--space-6);
-  height: var(--space-6);
-  border-radius: 50%;
-  background: ${p => p.$active ? 'var(--gold)' : 'var(--grey-mid)'};
-  color: ${p => p.$active ? 'var(--grey-dark)' : 'var(--white)'};
-  font-family: var(--font-mono);
-  font-size: var(--text-xs);
-  font-weight: bold;
-`;
-
-// ============================================
 // MODAL COMPONENTS
 // ============================================
 
@@ -898,49 +587,6 @@ export const ConfirmModal = ({
 };
 
 // ============================================
-// TABLE COMPONENTS
-// ============================================
-
-export const Table = styled.table`
-  width: 100%;
-  border-collapse: collapse;
-  background: transparent;
-`;
-
-export const TableRow = styled.tr`
-  border-bottom: 1px solid var(--surface-3);
-  ${p => p.$hover && `
-    &:hover {
-      background: var(--surface-2);
-    }
-  `}
-  ${p => p.$striped && `
-    &:nth-child(odd) {
-      background: var(--surface-1);
-    }
-  `}
-`;
-
-export const TableCell = styled.td`
-  padding: var(--space-2) var(--space-4);
-  text-align: ${p => p.$align || 'left'};
-  font-family: ${p => p.$mono ? 'var(--font-mono)' : 'inherit'};
-  color: ${p => p.$muted ? 'var(--grey-light)' : 'var(--white)'};
-`;
-
-export const TableHeaderCell = styled.th`
-  padding: var(--space-2) var(--space-4);
-  text-align: ${p => p.$align || 'left'};
-  font-family: var(--font-mono);
-  font-size: var(--text-xs);
-  text-transform: uppercase;
-  letter-spacing: 0.1em;
-  color: var(--grey-light);
-  font-weight: normal;
-  border-bottom: 1px solid var(--grey-mid);
-`;
-
-// ============================================
 // COUNTRY FLAG
 // ============================================
 
@@ -1031,13 +677,6 @@ export const SkeletonCircle = styled(Skeleton)`
   width: ${(p) => p.$size || "40px"};
   height: ${(p) => p.$size || "40px"};
   flex-shrink: 0;
-`;
-
-export const SkeletonMessage = styled.div`
-  display: flex;
-  gap: var(--space-2);
-  padding: var(--space-2) var(--space-4);
-  align-items: flex-start;
 `;
 
 // ============================================

@@ -4,7 +4,7 @@ import { FaTwitch } from "react-icons/fa";
 import styled from "styled-components";
 import useAdmin from "../lib/useAdmin";
 import { searchLadder, getPlayerProfile } from "../lib/api";
-import { Select, Badge, Button, Input, PageHero } from "../components/ui";
+import { Select, Button, Input, PageHero } from "../components/ui";
 import { PageLayout } from "../components/PageLayout";
 import PeonLoader from "../components/PeonLoader";
 import ClipModal from "../components/ClipModal";
@@ -533,11 +533,13 @@ export default function Clips() {
         {urlPlayer && (
           <div className="clips-player-filter">
             <span className="clips-player-tag">{urlPlayer.split("#")[0]}</span>
-            <button
+            <Button
+              $icon
               className="clips-player-clear"
               onClick={() => history.push("/clips")}
               title="Clear player filter"
-            >&times;</button>
+              aria-label="Clear player filter"
+            >&times;</Button>
           </div>
         )}
         <Select
@@ -599,12 +601,13 @@ export default function Clips() {
 
               {isAdmin && hiddenClips.length > 0 && (
                 <div className="clips-hidden-drawer">
-                  <button
+                  <Button
+                    $pill
                     className="clips-hidden-toggle"
                     onClick={() => setShowHidden((v) => !v)}
                   >
                     {showHidden ? "Hide" : "Show"} irrelevant ({hiddenClips.length})
-                  </button>
+                  </Button>
                   {showHidden && (
                     <div className="clips-grid clips-grid--hidden">
                       {hiddenClips.map((clip) => (
