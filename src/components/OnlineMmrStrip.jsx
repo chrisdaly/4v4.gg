@@ -1,13 +1,13 @@
 import React, { useRef, useEffect, useState, useMemo } from "react";
 import * as d3 from "d3";
-import { colors } from "../lib/design-tokens";
+import { colors, chartColors } from "../lib/design-tokens";
 
-const DOT_COLOR = "rgba(255, 255, 255, 0.75)";
-const DOT_COLOR_INGAME = "rgba(255, 255, 255, 0.85)";
-const LABEL_COLOR = "rgba(255, 255, 255, 0.6)";
+const DOT_COLOR = chartColors.dot;
+const DOT_COLOR_INGAME = chartColors.dotActive;
+const LABEL_COLOR = chartColors.label;
 const TEAM_COLORS = [colors.teamBlue.value, colors.teamRed.value];
 
-// Transition timing tiers (ms) — multiply by animationScale `s` before use
+// Transition timing tiers (ms) - multiply by animationScale `s` before use
 const T = {
   FAST: 300,     // bulk ops, fades, quick appear/disappear
   MOVE: 1500,    // repositioning existing elements (dots, labels, arcs)
@@ -38,7 +38,7 @@ const rectOverlapsDot = (rect, dots) => {
   return false;
 };
 
-// Beeswarm layout — stable: reuses X for dots with unchanged MMR
+// Beeswarm layout - stable: reuses X for dots with unchanged MMR
 const computePositions = (sorted, y, centerX, rScale, inGameMap, prevPos) => {
   const positions = [];
   const deferred = [];
@@ -162,9 +162,9 @@ const OnlineMmrStrip = ({
   onPlayerClick = null,
   mmrFilter = null,
   onMmrFilter = null,
-  mmrRange = null,       // [min, max] — lock Y-axis scale (replay mode)
+  mmrRange = null,       // [min, max] - lock Y-axis scale (replay mode)
   animationScale = 1,    // multiply all transition durations (< 1 = faster)
-  pendingDeltas = null,  // [{tag, delta}] — fire delta animations directly (replay)
+  pendingDeltas = null,  // [{tag, delta}] - fire delta animations directly (replay)
 }) => {
   const containerRef = useRef(null);
   const svgRef = useRef(null);
@@ -174,12 +174,12 @@ const OnlineMmrStrip = ({
   const [width, setWidth] = useState(0);
   const [height, setHeight] = useState(0);
 
-  // Track when first render happens — enters during settling use bulk animation
+  // Track when first render happens - enters during settling use bulk animation
   const firstRenderTimeRef = useRef(null);
   // Cache beeswarm X positions so dots don't shift when others join/leave
   const prevPositionsRef = useRef(new Map());
 
-  // Resize observer — track both width and height
+  // Resize observer - track both width and height
   useEffect(() => {
     if (!containerRef.current) return;
     const observer = new ResizeObserver((entries) => {
@@ -715,7 +715,7 @@ const OnlineMmrStrip = ({
       .attr("opacity", 0)
       .transition().duration(T.FAST * s).ease(d3.easeCubicOut)
       .attr("opacity", (d) => {
-        // Hide static labels for entering players — the enter label handles it
+        // Hide static labels for entering players - the enter label handles it
         if (enteringTags.has(d.tag)) return 0;
         if (isLabelLayerNew && enterCount > 0 && !isBulkLoad) return 0;
         return 1;
@@ -777,7 +777,7 @@ const OnlineMmrStrip = ({
             .attr("stroke-width", 2).attr("r", od.r + 1).attr("opacity", 1);
         } else {
           d3.select(this)
-            .attr("fill", "rgba(255,255,255,0.1)")
+            .attr("fill", chartColors.grid)
             .attr("opacity", 1)
             .attr("stroke", "none").attr("stroke-width", 0);
         }

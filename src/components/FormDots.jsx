@@ -1,10 +1,13 @@
 import React from "react";
+import { Dot } from "./ui";
+
+const DOT_SIZES = { small: 6, medium: 8, large: 12 };
 
 /**
  * FormDots - Displays win/loss form as colored dots
  * @param {boolean[]} form - Array of booleans (true = win, false = loss), oldest first
  * @param {string} size - "small" (default), "medium", or "large"
- * @param {number} maxDots - Maximum dots to show (default 8), shows most recent
+ * @param {number} maxDots - Maximum dots to show (default 25), shows most recent
  * @param {boolean} showSummary - Show W-L summary when many games (default true)
  */
 const FormDots = ({ form, size = "small", maxDots = 25, showSummary = true }) => {
@@ -22,9 +25,11 @@ const FormDots = ({ form, size = "small", maxDots = 25, showSummary = true }) =>
     <div className={`form-dots-container ${hasMore ? "has-summary" : ""}`}>
       <div className={`form-dots ${size}`}>
         {displayForm.map((won, i) => (
-          <span
+          <Dot
             key={i}
-            className={`form-dot ${won ? "win" : "loss"} ${i === displayForm.length - 1 ? "latest" : ""}`}
+            $win={won}
+            $size={DOT_SIZES[size] || DOT_SIZES.small}
+            $recent={i === displayForm.length - 1}
           />
         ))}
       </div>

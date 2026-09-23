@@ -30,7 +30,7 @@ const TeamCol = styled.div`
 const MvpBadge = styled.span`
   flex-shrink: 0;
   font-family: var(--font-mono);
-  font-size: 9px;
+  font-size: var(--text-xxxs);
   font-weight: 700;
   letter-spacing: 0.08em;
   padding: 1px 4px;
@@ -85,9 +85,9 @@ const ChartMid = styled.div`
  * dimLosers: fade the non-winner column (finished games)
  * showChart: render the vertical MMR dot chart between the columns
  *            (fixed 700–2700 scale so dot height compares across games)
- * mvpTag: battleTag of the match MVP — gets a gold chip on their row
+ * mvpTag: battleTag of the match MVP - gets a gold chip on their row
  * hoverData: optional { avatars, stats, sessions, inGameTags, inGameInfoMap }
- *            — enables PlayerHoverCard on names when the caller has the maps
+ *            - enables PlayerHoverCard on names when the caller has the maps
  */
 export default function MiniTeamsRow({ teamA, teamB, dimLosers = false, showChart = true, mvpTag = null, hoverData = null }) {
   const { teamOneAT, teamTwoAT } = useATGroupIds(teamA.players, teamB.players);

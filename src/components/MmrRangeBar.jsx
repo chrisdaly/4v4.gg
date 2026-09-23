@@ -1,7 +1,7 @@
 import React from "react";
 
 /**
- * MmrRangeBar — gradient low→peak bar with a gold marker at the current MMR.
+ * MmrRangeBar - gradient low→peak bar with a gold marker at the current MMR.
  * Shared by the player profile thermometer card and the OBS player overlay.
  *
  * detail: "full" shows low/current/peak values with sub-labels (profile);

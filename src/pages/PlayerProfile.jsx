@@ -1,8 +1,8 @@
 import React, { useState, useEffect, useReducer, useMemo, useRef } from "react";
 import { Link, useHistory, useLocation } from "react-router-dom";
-import { CountryFlag, Select, Button, PageNav } from "../components/ui";
+import { CountryFlag, Select, Button, Input, Delta, PageNav } from "../components/ui";
 import { findPlayerInOngoingMatches } from "../lib/utils";
-import { getPlayerProfile, getPlayerTimelineMerged, getPlayerStats, getPlayerProfilesBatch } from "../lib/api";
+import { getPlayerProfile, getPlayerTimelineMerged, getPlayerProfilesBatch } from "../lib/api";
 import { cache } from "../lib/cache";
 import { matchIdleGapMs } from "../lib/session";
 import useSeasons from "../lib/useSeasons";
@@ -26,6 +26,13 @@ import RecentConversations from "../components/RecentConversations";
 import { raceMapping, LEAGUES } from "../lib/constants";
 import { parseDigestSections, splitQuotes } from "../lib/digestUtils";
 
+const PROFILE_TABS = [
+  { key: "matches", label: "Matches" },
+  { key: "stats", label: "Stats" },
+  { key: "playstyle", label: "Playstyle" },
+  { key: "activity", label: "Activity" },
+];
+
 const RELAY_URL = import.meta.env.VITE_CHAT_RELAY_URL || "https://4v4gg-chat-relay.fly.dev";
 const GAMES_PER_PAGE = 10;
 const ALL_SEASONS = 0;
@@ -33,7 +40,7 @@ const ALL_SEASONS = 0;
 const MIN_GAMES_FOR_STATS = 3;
 
 // Wilson score lower bound (95% confidence interval)
-// Ranks by "lowest plausible rate" — small samples naturally sort lower
+// Ranks by "lowest plausible rate" - small samples naturally sort lower
 const wilsonLB = (wins, total) => {
   if (total === 0) return 0;
   const z = 1.96;
@@ -716,7 +723,7 @@ const PlayerProfile = () => {
     window.scrollTo({ top: document.querySelector('.match-history-section')?.offsetTop - 100 || 0, behavior: 'smooth' });
   };
 
-  // Filter matches by player name (allies + opponents) — must be before early return to preserve hook order
+  // Filter matches by player name (allies + opponents) - must be before early return to preserve hook order
   const filteredMatches = useMemo(() => {
     const q = playerFilter.trim().toLowerCase();
     if (!q) return matches;
@@ -775,7 +782,7 @@ const PlayerProfile = () => {
 
   return (
     <div className="player-page">
-        <PageNav backTo="/ladder" backLabel="Ladder" />
+        <PageNav backTo="/ladder" backLabel="Ladder" tabs={PROFILE_TABS} activeTab={activeTab} onTab={setActiveTab} />
         <header className="player-header reveal" style={{ "--delay": "0.05s" }}>
           <div className="player-header-left">
             <div className="hd-pic-wrapper">
@@ -794,7 +801,7 @@ const PlayerProfile = () => {
                     className="twitch-link"
                     title={streamInfo?.title || "Live on Twitch"}
                   >
-                    <FaTwitch className="twitch-icon" style={{ fill: '#9146ff' }} />
+                    <FaTwitch className="twitch-icon" style={{ fill: 'var(--twitch-purple)' }} />
                   </a>
                 )}
               </div>
@@ -860,34 +867,6 @@ const PlayerProfile = () => {
           </a>
         </header>
 
-      {/* Profile Tabs */}
-      <div className="profile-tabs reveal" style={{ "--delay": "0.08s" }}>
-        <button
-          className={`profile-tab ${activeTab === 'matches' ? 'active' : ''}`}
-          onClick={() => setActiveTab('matches')}
-        >
-          Matches
-        </button>
-        <button
-          className={`profile-tab ${activeTab === 'stats' ? 'active' : ''}`}
-          onClick={() => setActiveTab('stats')}
-        >
-          Stats
-        </button>
-        <button
-          className={`profile-tab ${activeTab === 'playstyle' ? 'active' : ''}`}
-          onClick={() => setActiveTab('playstyle')}
-        >
-          Playstyle
-        </button>
-        <button
-          className={`profile-tab ${activeTab === 'activity' ? 'active' : ''}`}
-          onClick={() => setActiveTab('activity')}
-        >
-          Activity
-        </button>
-      </div>
-
       {/* Matches Tab Content */}
       {activeTab === 'matches' && (
         <>
@@ -913,9 +892,8 @@ const PlayerProfile = () => {
               <div className="section-header">
                 <h2 className="section-title">Match History</h2>
                 <div className="mh-controls">
-                  <input
+                  <Input
                     type="text"
-                    className="mh-player-filter"
                     placeholder="Filter by player..."
                     value={playerFilter}
                     onChange={(e) => setPlayerFilter(e.target.value)}
@@ -950,13 +928,13 @@ const PlayerProfile = () => {
               {/* Pagination */}
               {totalPages > 1 && (
                 <div className="pagination">
-                  <button
-                    className="page-btn"
+                  <Button
+                    $ghost
                     disabled={currentPage === 0}
                     onClick={() => handlePageChange(currentPage - 1)}
                   >
                     Prev
-                  </button>
+                  </Button>
                   <div className="page-numbers">
                     {[...Array(Math.min(5, totalPages))].map((_, i) => {
                       let pageNum;
@@ -970,23 +948,24 @@ const PlayerProfile = () => {
                         pageNum = currentPage - 2 + i;
                       }
                       return (
-                        <button
+                        <Button
+                          $pill
                           key={pageNum}
-                          className={`page-num ${currentPage === pageNum ? 'active' : ''}`}
+                          data-active={currentPage === pageNum ? "true" : undefined}
                           onClick={() => handlePageChange(pageNum)}
                         >
                           {pageNum + 1}
-                        </button>
+                        </Button>
                       );
                     })}
                   </div>
-                  <button
-                    className="page-btn"
+                  <Button
+                    $ghost
                     disabled={currentPage >= totalPages - 1}
                     onClick={() => handlePageChange(currentPage + 1)}
                   >
                     Next
-                  </button>
+                  </Button>
                 </div>
               )}
             </section>
@@ -1053,9 +1032,7 @@ const PlayerProfile = () => {
                     </div>
                     <div className="sc-stat">
                       <span className="sc-label">MMR</span>
-                      <span className={`sc-value ${sessionMmrChange >= 0 ? 'positive' : 'negative'}`}>
-                        {sessionMmrChange >= 0 ? '+' : ''}{sessionMmrChange}
-                      </span>
+                      <Delta value={sessionMmrChange} />
                     </div>
                   </div>
                   <div className="sc-form">
@@ -1121,9 +1098,9 @@ const PlayerProfile = () => {
                     })}
                   </div>
                   {allAllies.length > 5 && (
-                    <button className="card-toggle-btn" onClick={() => toggleSection('bestAllies')}>
+                    <Button $pill className="card-toggle-btn" onClick={() => toggleSection('bestAllies')}>
                       {expanded ? 'Show less' : `Show all (${allAllies.length})`}
-                    </button>
+                    </Button>
                   )}
                 </div>
               );
@@ -1151,9 +1128,9 @@ const PlayerProfile = () => {
                     })}
                   </div>
                   {allWorstAllies.length > 5 && (
-                    <button className="card-toggle-btn" onClick={() => toggleSection('worstAllies')}>
+                    <Button $pill className="card-toggle-btn" onClick={() => toggleSection('worstAllies')}>
                       {expanded ? 'Show less' : `Show all (${allWorstAllies.length})`}
-                    </button>
+                    </Button>
                   )}
                 </div>
               );
@@ -1181,9 +1158,9 @@ const PlayerProfile = () => {
                     })}
                   </div>
                   {allNemesis.length > 5 && (
-                    <button className="card-toggle-btn" onClick={() => toggleSection('nemesis')}>
+                    <Button $pill className="card-toggle-btn" onClick={() => toggleSection('nemesis')}>
                       {expanded ? 'Show less' : `Show all (${allNemesis.length})`}
-                    </button>
+                    </Button>
                   )}
                 </div>
               );
@@ -1211,9 +1188,9 @@ const PlayerProfile = () => {
                     })}
                   </div>
                   {allPrey.length > 5 && (
-                    <button className="card-toggle-btn" onClick={() => toggleSection('prey')}>
+                    <Button $pill className="card-toggle-btn" onClick={() => toggleSection('prey')}>
                       {expanded ? 'Show less' : `Show all (${allPrey.length})`}
-                    </button>
+                    </Button>
                   )}
                 </div>
               );

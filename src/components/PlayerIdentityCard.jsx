@@ -59,13 +59,13 @@ export function extractSignature(segments) {
 // ── Trait Definitions ───────────────────────────
 
 // Trait thresholds calibrated from population distribution (193 players, 2026-02-22)
-// hiT ≈ p85, loT ≈ p15 — only truly distinctive players get badges
+// hiT ≈ p85, loT ≈ p15 - only truly distinctive players get badges
 export const TRAIT_DEFS = [
-  { key: "speed",       hi: "Fast",           lo: "Slow",         hiT: 0.55, loT: 0.31, color: "var(--green)",     bg: "rgba(74,222,128,0.08)", border: "rgba(74,222,128,0.2)" },
-  { key: "burst",       hi: "Bursty",         lo: "Steady",       hiT: 0.28, loT: 0.11, color: "var(--amber)",     bg: "rgba(245,158,11,0.08)", border: "rgba(245,158,11,0.2)" },
-  { key: "hkDiversity", hi: "Wide Spread",    lo: "Focused",      hiT: 0.65, loT: 0.30, color: "var(--at-purple)", bg: "rgba(139,92,246,0.08)", border: "rgba(139,92,246,0.2)" },
-  { key: "assignRatio", hi: "Re-binder",      lo: null,           hiT: 0.20, loT: 0,    color: "var(--gold)",      bg: "rgba(252,219,51,0.08)", border: "rgba(252,219,51,0.2)" },
-  { key: "tempo",       hi: "Twitchy",        lo: "Deliberate",   hiT: 0.75, loT: 0.58, color: "var(--cyan)",      bg: "rgba(0,188,212,0.08)",  border: "rgba(0,188,212,0.2)" },
+  { key: "speed",       hi: "Fast",           lo: "Slow",         hiT: 0.55, loT: 0.31, color: "var(--green)",     bg: "var(--green-tint)",  border: "rgba(74,222,128,0.2)" },
+  { key: "burst",       hi: "Bursty",         lo: "Steady",       hiT: 0.28, loT: 0.11, color: "var(--amber)",     bg: "var(--amber-tint)",  border: "rgba(245,158,11,0.2)" },
+  { key: "hkDiversity", hi: "Wide Spread",    lo: "Focused",      hiT: 0.65, loT: 0.30, color: "var(--at-purple)", bg: "var(--purple-tint)", border: "rgba(139,92,246,0.2)" },
+  { key: "assignRatio", hi: "Re-binder",      lo: null,           hiT: 0.20, loT: 0,    color: "var(--gold)",      bg: "var(--gold-tint)",   border: "rgba(252,219,51,0.2)" },
+  { key: "tempo",       hi: "Twitchy",        lo: "Deliberate",   hiT: 0.75, loT: 0.58, color: "var(--cyan)",      bg: "var(--cyan-tint)",   border: "rgba(0,188,212,0.2)" },
 ];
 
 export function describeTraits(sig) {
@@ -78,8 +78,8 @@ export function describeTraits(sig) {
     return {
       text: isHigh ? d.hi : d.lo,
       color: isHigh ? d.color : "var(--grey-light)",
-      bg: isHigh ? d.bg : "rgba(255,255,255,0.04)",
-      border: isHigh ? d.border : "rgba(255,255,255,0.08)",
+      bg: isHigh ? d.bg : "var(--surface-2)",
+      border: isHigh ? d.border : "var(--surface-3)",
       extremeness: isHigh ? val - d.hiT : d.loT - val,
     };
   }).filter(Boolean);
@@ -113,7 +113,7 @@ export function SoloHotkeyRadar({ select, assign, color = "var(--gold)" }) {
   return (
     <div style={{ display: "flex", gap: 12, flexWrap: "wrap" }}>
       <div>
-        <div style={{ fontFamily: "var(--font-mono)", fontSize: 9, color: "var(--grey-light)", textTransform: "uppercase", letterSpacing: "0.1em", marginBottom: 4, textAlign: "center" }}>Select</div>
+        <div style={{ fontFamily: "var(--font-mono)", fontSize: "var(--text-xxxs)", color: "var(--grey-light)", textTransform: "uppercase", letterSpacing: "0.1em", marginBottom: 4, textAlign: "center" }}>Select</div>
         <svg width={160} height={160} viewBox={`0 0 ${RADAR_SIZE} ${RADAR_SIZE}`}>
           {rings.map(r => <circle key={r} cx={RADAR_CX} cy={RADAR_CY} r={RADAR_R * r} fill="none" stroke="rgba(255,255,255,0.06)" strokeWidth="0.5" />)}
           {RADAR_GROUPS.map((g, i) => {
@@ -132,7 +132,7 @@ export function SoloHotkeyRadar({ select, assign, color = "var(--gold)" }) {
       </div>
       {assign && (
         <div>
-          <div style={{ fontFamily: "var(--font-mono)", fontSize: 9, color: "var(--grey-light)", textTransform: "uppercase", letterSpacing: "0.1em", marginBottom: 4, textAlign: "center" }}>Assign</div>
+          <div style={{ fontFamily: "var(--font-mono)", fontSize: "var(--text-xxxs)", color: "var(--grey-light)", textTransform: "uppercase", letterSpacing: "0.1em", marginBottom: 4, textAlign: "center" }}>Assign</div>
           <svg width={160} height={160} viewBox={`0 0 ${RADAR_SIZE} ${RADAR_SIZE}`}>
             {rings.map(r => <circle key={r} cx={RADAR_CX} cy={RADAR_CY} r={RADAR_R * r} fill="none" stroke="rgba(255,255,255,0.06)" strokeWidth="0.5" />)}
             {RADAR_GROUPS.map((g, i) => {
@@ -206,7 +206,7 @@ const IdCard = styled.div`
   backdrop-filter: var(--theme-blur, none);
   border: var(--theme-border, var(--border-thick) solid var(--gold));
   border-image: var(--theme-border-image, none);
-  border-radius: var(--radius-md);
+  border-radius: var(--radius-xl);
   box-shadow: var(--theme-shadow, none);
   padding: var(--space-6);
   margin-bottom: var(--space-6);
@@ -225,9 +225,9 @@ const IdCardTraits = styled.div`
 `;
 const Trait = styled.span`
   font-family: var(--font-mono); font-size: var(--text-xxxs); color: ${p => p.$color || "var(--grey-light)"};
-  background: ${p => p.$bg || "rgba(255,255,255,0.04)"};
-  border: 1px solid ${p => p.$border || "rgba(255,255,255,0.08)"};
-  border-radius: var(--radius-sm); padding: 2px 8px;
+  background: ${p => p.$bg || "var(--surface-2)"};
+  border: 1px solid ${p => p.$border || "var(--surface-3)"};
+  border-radius: var(--radius-sm); padding: 2px var(--space-2);
   text-transform: uppercase; letter-spacing: 0.06em;
 `;
 const IdCardRadars = styled.div`
@@ -267,7 +267,7 @@ export default function PlayerIdentityCard({ fpData, name }) {
       </IdCardHeader>
       <IdCardRadars>
         <div>
-          <div style={{ fontFamily: "var(--font-mono)", fontSize: 9, color: "var(--grey-light)", textTransform: "uppercase", letterSpacing: "0.1em", marginBottom: 4 }}>Signature</div>
+          <div style={{ fontFamily: "var(--font-mono)", fontSize: "var(--text-xxxs)", color: "var(--grey-light)", textTransform: "uppercase", letterSpacing: "0.1em", marginBottom: 4 }}>Signature</div>
           <SoloSignatureRadar sig={sig} />
         </div>
         <SoloHotkeyRadar select={select} assign={assign} />

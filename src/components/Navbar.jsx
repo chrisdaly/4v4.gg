@@ -265,7 +265,7 @@ const Navbar = () => {
                           <span className="navbar-search-l">{losses}L</span>
                         </span>
                       </span>
-                      <span className="navbar-search-mmr">{mmr != null ? `${Math.round(mmr)} MMR` : "—"}</span>
+                      <span className="navbar-search-mmr">{mmr != null ? `${Math.round(mmr)} MMR` : "-"}</span>
                     </button>
                   );
                 })}
@@ -283,7 +283,7 @@ const Navbar = () => {
             <button
               className={`navbar-admin-toggle ${adminViewActive ? "active" : ""}`}
               onClick={toggleAdminView}
-              title={adminViewActive ? "Admin view on — click to disable" : "Admin view off — click to enable"}
+              title={adminViewActive ? "Admin view on: click to disable" : "Admin view off: click to enable"}
             >
               <span
                 className="admin-key-dot"
