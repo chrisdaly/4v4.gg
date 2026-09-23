@@ -6,6 +6,7 @@ import PeonLoader from "../components/PeonLoader";
 import { blogPosts } from "../lib/blogPosts";
 import useAdmin from "../lib/useAdmin";
 import { PageLayout } from "../components/PageLayout";
+import { Button } from "../components/ui";
 import "../styles/pages/Blog.css";
 
 const RELAY_URL =
@@ -97,28 +98,29 @@ const BlogPost = () => {
     );
   }
 
-  // Markdown post from DB — compact article header matching legacy posts
+  // Markdown post from DB - compact article header matching legacy posts
   return (
     <PageLayout maxWidth="1200px" bare>
       <div className="bl-content">
         <Link to="/blog" className="bl-back">&larr; Blog</Link>
-        <div className="bl-card-tags" style={{ marginBottom: 16 }}>
+        <div className="bl-card-tags" style={{ marginBottom: "var(--space-4)" }}>
           {dbPost.tags?.map((tag) => (
             <span key={tag} className="bl-card-tag">{tag}</span>
           ))}
         </div>
         <h1 className="bl-article-title">{dbPost.title}</h1>
         {dbPost.description && <p className="bl-article-lead">{dbPost.description}</p>}
-        <div style={{ marginBottom: 24 }}>
+        <div style={{ marginBottom: "var(--space-6)" }}>
           <span className="bl-card-tag">{dbPost.date}</span>
           {isAdmin && (
-            <button
-              className={`bl-publish-btn ${dbPost.published ? "bl-publish-btn--published" : ""}`}
+            <Button
+              $pill
+              data-active={dbPost.published ? undefined : "true"}
               onClick={handleTogglePublish}
-              style={{ marginLeft: 12 }}
+              style={{ marginLeft: "var(--space-3)" }}
             >
               {dbPost.published ? "Unpublish" : "Publish"}
-            </button>
+            </Button>
           )}
         </div>
         <div className="bl-section bl-markdown">

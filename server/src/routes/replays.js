@@ -25,7 +25,7 @@ import { requireApiKey } from '../middleware/auth.js';
 
 const router = Router();
 
-// Set up multer for .w3g file uploads — use persistent volume in production
+// Set up multer for .w3g file uploads - use persistent volume in production
 const REPLAY_DIR = config.REPLAY_DIR.startsWith('/') ? config.REPLAY_DIR : join(process.cwd(), config.REPLAY_DIR);
 mkdirSync(REPLAY_DIR, { recursive: true });
 
@@ -134,7 +134,7 @@ function computeEphemeralProfile(fullActionSequence, groupCompositions) {
   return { transitionPairs: pairs, groupUsage: usage, groupCompositions: processedComps };
 }
 
-// POST /api/replays/parse — Ephemeral parse: returns chat + fingerprints, stores nothing
+// POST /api/replays/parse - Ephemeral parse: returns chat + fingerprints, stores nothing
 router.post('/parse', (req, res, next) => {
   memoryUpload.single('replay')(req, res, (err) => {
     if (err) {
@@ -214,7 +214,7 @@ router.post('/parse', (req, res, next) => {
   }
 });
 
-// POST /api/replays/upload — Upload and parse a .w3g file
+// POST /api/replays/upload - Upload and parse a .w3g file
 router.post('/upload', requireApiKey, (req, res, next) => {
   upload.single('replay')(req, res, (err) => {
     if (err) {
@@ -295,7 +295,7 @@ router.post('/upload', requireApiKey, (req, res, next) => {
   }
 });
 
-// POST /api/replays/import-w3c — Import a replay from W3Champions
+// POST /api/replays/import-w3c - Import a replay from W3Champions
 router.post('/import-w3c', requireApiKey, async (req, res) => {
   const { matchId, players: w3cPlayers } = req.body;
   if (!matchId) {
@@ -415,7 +415,7 @@ router.post('/import-w3c', requireApiKey, async (req, res) => {
   }
 });
 
-// GET /api/replays — List replays (paginated)
+// GET /api/replays - List replays (paginated)
 router.get('/', requireApiKey, (req, res) => {
   const limit = Math.min(parseInt(req.query.limit) || 50, 200);
   const offset = parseInt(req.query.offset) || 0;
@@ -424,7 +424,7 @@ router.get('/', requireApiKey, (req, res) => {
   res.json({ replays, total, limit, offset });
 });
 
-// GET /api/replays/action-sequences — Export action sequences for ML training
+// GET /api/replays/action-sequences - Export action sequences for ML training
 router.get('/action-sequences', requireApiKey, (req, res) => {
   const rows = getActionSequencesForExport();
   const result = rows.map(r => ({
@@ -438,7 +438,7 @@ router.get('/action-sequences', requireApiKey, (req, res) => {
   res.json({ count: result.length, sequences: result });
 });
 
-// GET /api/replays/:id — Single replay with players + actions
+// GET /api/replays/:id - Single replay with players + actions
 router.get('/:id', requireApiKey, (req, res) => {
   const id = parseInt(req.params.id);
   if (isNaN(id)) return res.status(400).json({ error: 'Invalid ID' });
@@ -473,7 +473,7 @@ router.get('/:id', requireApiKey, (req, res) => {
   });
 });
 
-// GET /api/replays/:id/detail — Re-parse file for full action detail (ability code, target, coords)
+// GET /api/replays/:id/detail - Re-parse file for full action detail (ability code, target, coords)
 router.get('/:id/detail', requireApiKey, async (req, res) => {
   const id = parseInt(req.params.id);
   if (isNaN(id)) return res.status(400).json({ error: 'Invalid ID' });
@@ -549,7 +549,7 @@ router.get('/:id/detail', requireApiKey, async (req, res) => {
   res.json({ replayId: id, fromMs, toMs, filterPlayerId, count: detailActions.length, actions: detailActions });
 });
 
-// GET /api/replays/:id/chat — Chat messages for a replay
+// GET /api/replays/:id/chat - Chat messages for a replay
 router.get('/:id/chat', requireApiKey, (req, res) => {
   const id = parseInt(req.params.id);
   if (isNaN(id)) return res.status(400).json({ error: 'Invalid ID' });
@@ -561,7 +561,7 @@ router.get('/:id/chat', requireApiKey, (req, res) => {
   res.json({ replayId: id, chat });
 });
 
-// DELETE /api/replays/:id — Delete replay + file
+// DELETE /api/replays/:id - Delete replay + file
 router.delete('/:id', requireApiKey, (req, res) => {
   const id = parseInt(req.params.id);
   if (isNaN(id)) return res.status(400).json({ error: 'Invalid ID' });
@@ -573,14 +573,14 @@ router.delete('/:id', requireApiKey, (req, res) => {
   try {
     unlinkSync(replay.file_path);
   } catch {
-    // File may already be gone — that's fine
+    // File may already be gone - that's fine
   }
 
   deleteReplay(id);
   res.json({ ok: true, message: `Replay ${id} deleted` });
 });
 
-// POST /api/replays/batch-import — Bulk import replays from top W3C ladder players
+// POST /api/replays/batch-import - Bulk import replays from top W3C ladder players
 router.post('/batch-import', requireApiKey, async (req, res) => {
   const W3C_API = 'https://website-backend.w3champions.com/api';
   const RATE_LIMIT_MS = 500;
@@ -763,7 +763,7 @@ router.post('/batch-import', requireApiKey, async (req, res) => {
   res.end();
 });
 
-// POST /api/replays/backfill-actions — Re-parse existing replays for full action sequences
+// POST /api/replays/backfill-actions - Re-parse existing replays for full action sequences
 router.post('/backfill-actions', requireApiKey, async (req, res) => {
   const { parseReplayFile: reparse } = await import('../replayParser.js');
   const missing = getReplaysNeedingActionSequences();
@@ -792,7 +792,7 @@ router.post('/backfill-actions', requireApiKey, async (req, res) => {
 });
 
 
-// POST /api/replays/check-existing — Check which W3C match IDs already exist
+// POST /api/replays/check-existing - Check which W3C match IDs already exist
 router.post('/check-existing', requireApiKey, (req, res) => {
   const { matchIds } = req.body;
   if (!Array.isArray(matchIds)) return res.status(400).json({ error: 'matchIds array required' });

@@ -33,10 +33,6 @@
   width: 100%;
 }
 
-.value {
-  color: white;
-}
-
 /* Hero styling in stats section */
 .heroes-row .hero-cell {
   vertical-align: middle;
@@ -58,14 +54,14 @@
   width: 48px;
   height: 48px;
   border-radius: var(--radius-md);
-  border: 1px solid #444;
+  border: 1px solid var(--grey-mid);
 }
 
 .hero-level {
   position: absolute;
   bottom: 4px;
   right: 4px;
-  background: linear-gradient(135deg, #1a1a1a 0%, #333 100%);
+  background: linear-gradient(135deg, var(--grey-dark) 0%, #333 100%);
   color: var(--white);
   font-family: var(--font-mono);
   font-size: var(--text-xs);
@@ -75,14 +71,6 @@
   border: 1px solid var(--grey-dark);
   text-shadow: 0 1px 2px rgba(0, 0, 0, 0.9);
   box-shadow: 0 1px 3px rgba(0, 0, 0, 0.5);
-}
-
-.hero-bit .team-0 {
-  float: right;
-}
-
-.hero-bit team-1 {
-  float: left;
 }
 
 .matchDetails {
@@ -135,7 +123,7 @@ path.line {
 }
 
 line.line.team-middle {
-  stroke: var(--grey);
+  stroke: var(--grey-light);
   stroke-width: 0.5px;
 }
 
@@ -145,10 +133,9 @@ img.race {
 }
 
 .Game {
-  padding: 20px;
-  padding-bottom: 20px;
+  padding: var(--space-4);
   border-radius: var(--radius-lg);
-  margin: 20px 10px 40px 10px;
+  margin: var(--space-4) var(--space-2) var(--space-8);
 }
 
 /* Game table - replaces Semantic UI Table */
@@ -156,7 +143,7 @@ img.race {
   width: 100%;
   border-collapse: collapse;
   background: transparent;
-  color: #fafafa;
+  color: var(--white);
 }
 
 .game-table th,
@@ -173,42 +160,13 @@ img.race {
   white-space: nowrap;
 }
 
-.live-indicator {
-  width: 10px;
-  height: 10px;
-  border-radius: 50%;
-  background-color: red;
-  display: inline-block; /* Ensures it's displayed inline */
-  vertical-align: middle; /* Vertically aligns it with the text */
-  margin-left: 5px; /* Adjust the margin as needed */
-  animation: pulse 1s infinite alternate;
-  margin-bottom: 2px !important;
-}
-
-@keyframes pulse {
-  from {
-    transform: scale(1);
-  }
-  to {
-    transform: scale(1.2);
-  }
-}
-
-#PlayerProfile {
-  /* background-color: magenta; */
-}
-
-.playerDiv {
-  width: 160px;
-}
-
 .compact {
   width: 100px;
   overflow: hidden;
   background: rgba(0, 0, 0, 0);
 }
 
-/* Race icon on player portrait — opposite corner from country flag */
+/* Race icon on player portrait - opposite corner from country flag */
 .Game .race-overlay {
   display: block;
   position: absolute;
@@ -240,23 +198,15 @@ img.race {
   gap: 6px;
 }
 
-.live-dot {
-  width: 10px;
-  height: 10px;
-  background: var(--red);
-  border-radius: 50%;
-  animation: pulse 1.5s infinite;
-}
-
 .game-clickable,
 .match-page .Game {
   background: var(--theme-bg, var(--surface-1));
   border: var(--theme-border, 1px solid var(--grey-mid));
   border-image: var(--theme-border-image, none);
-  border-radius: 12px;
+  border-radius: var(--radius-xl);
   backdrop-filter: var(--theme-blur, none);
   box-shadow: var(--theme-shadow, none);
-  padding: 20px;
+  padding: var(--space-4);
   margin: 0;
   width: 100%;
   overflow-x: auto;
@@ -264,7 +214,7 @@ img.race {
 
 .game-clickable {
   cursor: pointer;
-  transition: border-color 0.15s, box-shadow 0.15s;
+  transition: border-color var(--transition), box-shadow var(--transition);
 }
 
 .game-clickable:hover {
@@ -295,7 +245,7 @@ img.race {
 .game-over-banner {
   font-family: var(--font-display);
   font-size: var(--text-xxs);
-  letter-spacing: 0.12em;
+  letter-spacing: 0.1em;
   text-transform: uppercase;
   text-align: center;
   padding: var(--space-1) var(--space-4);
@@ -353,17 +303,12 @@ img.race {
   display: flex;
   flex-direction: column;
   align-items: center;
-  padding: 20px 20px 40px;
-  min-height: calc(100vh - 52px);
+  padding: var(--space-4) var(--space-4) var(--space-8);
+  min-height: calc(100vh - var(--nav-height));
 }
 
 th {
   border: none !important;
-}
-
-.image-container {
-  /* overflow-x: auto; */
-  /* white-space: nowrap; */
 }
 
 .image-container {
@@ -453,8 +398,8 @@ img.teamHeaderRace {
 .meta-map-img {
   width: 100px;
   height: 100px;
-  border-radius: 6px;
-  border: 2px solid #3d3422;
+  border-radius: var(--radius-md);
+  border: 1px solid var(--grey-mid);
   box-shadow: 0 2px 8px rgba(0, 0, 0, 0.4);
 }
 
@@ -521,22 +466,10 @@ img.teamHeaderRace {
   gap: 6px;
 }
 
-.live-dot {
+/* Smaller live dot in the meta bar (base .live-dot lives in base/animations.css) */
+.meta-details .live-dot {
   width: 8px;
   height: 8px;
-  background: #c23434;
-  border-radius: 50%;
-  animation: pulse 1.5s infinite;
-}
-
-@keyframes pulse {
-  0%,
-  100% {
-    opacity: 1;
-  }
-  50% {
-    opacity: 0.5;
-  }
 }
 
 .meta-link {
@@ -599,16 +532,16 @@ img.teamHeaderRace {
   left: calc(100% + 6px);
   width: 0; /* Set dynamically by JS */
   height: 4px;
-  background: #8b5cf6;
-  z-index: 1000;
+  background: var(--at-purple);
+  z-index: 6; /* above .profile-pic.at (5), below flags (10) */
   box-shadow: 0 0 8px rgba(139, 92, 246, 0.9);
   border-radius: var(--radius-sm);
-  transition: width 0.15s ease-out;
+  transition: width var(--transition);
 }
 
 /* AT ring in MMR chart */
 circle.dot.at-ring {
-  stroke: #8b5cf6;
+  stroke: var(--at-purple);
   stroke-width: 3px;
   stroke-opacity: 1;
 }
@@ -616,7 +549,7 @@ circle.dot.at-ring {
 /* AT connecting line in MMR chart */
 .at-connect-line {
   fill: none;
-  stroke: #8b5cf6;
+  stroke: var(--at-purple);
   stroke-width: 4px;
   stroke-opacity: 0.9;
 }
@@ -638,20 +571,14 @@ th.team-header .image-container {
 
 /* Team name with winner badge */
 h2.team-name {
-  font-size: 1.6rem !important;
-  margin-bottom: 0 !important;
+  font-size: var(--text-lg);
+  margin-bottom: 0;
 }
 
+/* Layout only: the visual lives in ui.jsx ResultBadge ($winner) */
 .winner-badge {
-  background: var(--gold);
-  color: #000;
-  font-size: var(--text-xxs);
-  font-weight: bold;
-  padding: 2px 6px;
-  border-radius: var(--radius-sm);
-  margin-right: 8px;
+  margin-right: var(--space-2);
   vertical-align: middle;
-  letter-spacing: 0.5px;
 }
 
 /* Recent form display - subtle dots */
@@ -726,59 +653,7 @@ h2.team-name {
   min-width: 30px;
 }
 
-/* Base dot styles */
-.form-dot {
-  width: 8px;
-  height: 8px;
-  border-radius: 50%;
-  opacity: 0.6;
-  transition: transform 0.15s ease;
-}
-
-.form-dot.win {
-  background: var(--green);
-}
-
-.form-dot.loss {
-  background: var(--red);
-}
-
-.form-dot.latest {
-  opacity: 1;
-  width: 10px;
-  height: 10px;
-}
-
-/* Size variants */
-.form-dots.small .form-dot {
-  width: 6px;
-  height: 6px;
-}
-
-.form-dots.small .form-dot.latest {
-  width: 8px;
-  height: 8px;
-}
-
-.form-dots.medium .form-dot {
-  width: 8px;
-  height: 8px;
-}
-
-.form-dots.medium .form-dot.latest {
-  width: 11px;
-  height: 11px;
-}
-
-.form-dots.large .form-dot {
-  width: 12px;
-  height: 12px;
-}
-
-.form-dots.large .form-dot.latest {
-  width: 16px;
-  height: 16px;
-}
+/* Individual dots are rendered by the ui.jsx Dot component (FormDots.jsx) */
 
 /* Form dots container */
 .form-dots-container {
@@ -845,7 +720,7 @@ h2.team-name {
 }
 
 .win-prob {
-  color: var(--grey);
+  color: var(--grey-light);
   font-size: var(--text-xxs);
   margin-left: 6px;
   font-family: var(--font-mono);
@@ -870,9 +745,9 @@ h2.team-name {
   color: var(--white);
 }
 
-.player-name-row h2 {
+/* Player name in the scorecard. Desktop size comes from the default h2 rule in App.css. */
+.player-name-row .player-name {
   margin: 0;
-  font-size: var(--text-xs);
   white-space: nowrap;
   overflow: hidden;
   text-overflow: ellipsis;
@@ -888,11 +763,6 @@ h2.team-name {
 }
 
 .twitch-link {
-  display: flex;
-  align-items: center;
-}
-
-.twitch-link {
   display: inline-flex;
   align-items: center;
 }
@@ -900,21 +770,14 @@ h2.team-name {
 .twitch-icon {
   width: 16px;
   height: 16px;
-  fill: #9146ff !important;
-  color: #9146ff !important;
-  transition: fill 0.2s;
+  fill: var(--twitch-purple);
+  color: var(--twitch-purple);
+  transition: fill var(--transition);
 }
 
 .twitch-link:hover .twitch-icon {
-  fill: #a970ff !important;
-  color: #a970ff !important;
-}
-
-/* Twitch icon in Game player cards */
-.playerDiv .twitch-icon,
-.player-name-row .twitch-icon {
-  fill: #9146ff !important;
-  color: #9146ff !important;
+  fill: #a970ff;
+  color: #a970ff;
 }
 
 /* Twitch live streaming state */
@@ -936,7 +799,7 @@ h2.team-name {
   background: #eb0400;
   padding: 1px 4px;
   border-radius: var(--radius-sm);
-  letter-spacing: 0.5px;
+  letter-spacing: 0.08em;
   animation: pulse-twitch 1.5s ease-in-out infinite;
 }
 
@@ -1048,8 +911,9 @@ h2.team-name {
   color: var(--red);
 }
 
-/* Fix player card alignment - all centered */
+/* Player card - all centered */
 .playerDiv {
+  width: 160px;
   min-height: 110px;
   display: flex;
   flex-direction: column;
@@ -1081,8 +945,8 @@ h2.team-name {
     width: 52px !important;
   }
 
-  .player-name-row h2 {
-    font-size: var(--text-xxs) !important;
+  .player-name-row .player-name {
+    font-size: var(--text-xxs);
   }
 
   .mmr-value {
@@ -1126,7 +990,7 @@ h2.team-name {
 td.key,
 .key {
   opacity: 0.6;
-  font-size: 0.85rem;
+  font-size: var(--text-xs);
 }
 
 /* Keep value keys fully visible */
@@ -1237,7 +1101,7 @@ th.team-header.winner {
 
   .gm-player-name {
     font-family: var(--font-display);
-    font-size: 10px;
+    font-size: var(--text-xxxs);
     color: var(--gold);
     text-decoration: none;
     overflow: hidden;
@@ -1304,7 +1168,7 @@ th.team-header.winner {
     font-family: var(--font-mono);
     font-size: var(--text-xxxs);
     text-transform: uppercase;
-    letter-spacing: 0.12em;
+    letter-spacing: 0.1em;
     color: var(--grey-light);
     text-align: center;
     margin-bottom: 6px;
@@ -1330,7 +1194,7 @@ th.team-header.winner {
     color: var(--grey-light);
     font-size: var(--text-xxxs);
     text-transform: uppercase;
-    letter-spacing: 0.05em;
+    letter-spacing: 0.1em;
     white-space: nowrap;
     padding: 0 6px;
   }

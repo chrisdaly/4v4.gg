@@ -23,7 +23,7 @@ const RELAY_URL =
 function parseFactSheet(factSheet, winnerNames = new Set()) {
   if (!factSheet) return { main: null, chat: [], rivals: [] };
 
-  // Extract H2H rivalries — winner-team players always become playerA so their
+  // Extract H2H rivalries - winner-team players always become playerA so their
   // dots read left-to-right as wins (makes the underdog story obvious visually).
   const rivals = [];
   const h2hMatch = factSheet.match(/Recent head-to-heads \(before this game\): (.+)/);
@@ -130,7 +130,7 @@ const PickerCardBody = styled.div`
 const PickerMapName = styled.div`
   font-family: var(--font-display);
   font-size: var(--text-xs);
-  color: #fff;
+  color: var(--white);
   margin-bottom: 2px;
 `;
 
@@ -206,7 +206,7 @@ const BackButton = styled.button`
   cursor: pointer;
   padding: 0;
 
-  &:hover { color: #fff; }
+  &:hover { color: var(--white); }
 `;
 
 const NavRow = styled.div`
@@ -224,7 +224,7 @@ const NavButton = styled.button`
   border: none;
   cursor: pointer;
   padding: 0;
-  &:hover:not(:disabled) { color: #fff; }
+  &:hover:not(:disabled) { color: var(--white); }
   &:disabled { opacity: 0.25; cursor: default; }
 `;
 
@@ -517,7 +517,7 @@ const ScorecardNameCell = styled.div`
 const ScorecardCell = styled.div`
   font-family: var(--font-mono);
   font-size: 11px;
-  color: ${(p) => p.$color || "#fff"};
+  color: ${(p) => p.$color || "var(--white)"};
   text-align: center;
   padding: 3px 4px;
   border-left: ${(p) => p.$divider ? "1px solid rgba(255,255,255,0.12)" : "none"};
@@ -552,7 +552,7 @@ const HeroLvl = styled.span`
   font-family: var(--font-mono);
   font-size: 8px;
   font-weight: 700;
-  color: #fff;
+  color: var(--white);
   background: rgba(0,0,0,0.75);
   padding: 0 2px;
   line-height: 1.4;
@@ -772,7 +772,7 @@ const CompareBlurb = styled.div`
   font-size: var(--text-xs);
   font-style: italic;
   line-height: 1.5;
-  color: ${(p) => (p.$passed ? "var(--grey-light)" : p.$new ? "var(--gold)" : "#fff")};
+  color: ${(p) => (p.$passed ? "var(--grey-light)" : p.$new ? "var(--gold)" : "var(--white)")};
 `;
 
 const History = styled.div`
@@ -864,7 +864,7 @@ const FieldVal = styled.div`
   font-family: var(--font-mono);
   font-size: var(--text-xs);
   font-style: italic;
-  color: ${(p) => (p.$new ? "var(--gold)" : "#fff")};
+  color: ${(p) => (p.$new ? "var(--gold)" : "var(--white)")};
   line-height: 1.4;
 `;
 
@@ -884,7 +884,7 @@ const NullVal = styled.div`
 `;
 
 function StructuredPartsDisplay({ parts, $new }) {
-  if (!parts) return <PassBadge>PASS — no structured parts</PassBadge>;
+  if (!parts) return <PassBadge>PASS - no structured parts</PassBadge>;
   const fields = [
     { key: "headline", label: "headline" },
     { key: "streaks", label: "streaks" },
@@ -898,7 +898,7 @@ function StructuredPartsDisplay({ parts, $new }) {
           <FieldKey>{label}</FieldKey>
           {parts[key]
             ? <FieldVal $new={$new}>{renderBlurbText(parts[key])}</FieldVal>
-            : <NullVal>—</NullVal>
+            : <NullVal>-</NullVal>
           }
         </FieldRow>
       ))}
@@ -912,10 +912,10 @@ function statColor(all, val, lowerIsBetter = false) {
   if (val == null) return "var(--grey-mid)";
   const valid = all.filter((v) => v != null).sort((a, b) => lowerIsBetter ? a - b : b - a);
   const rank = valid.indexOf(val);
-  if (rank < 0) return "#fff";
+  if (rank < 0) return "var(--white)";
   if (rank <= 1) return "var(--green)";
   if (rank >= valid.length - 2) return "var(--red)";
-  return "#fff";
+  return "var(--white)";
 }
 
 function MiniScorecard({ winners, losers }) {
@@ -928,11 +928,11 @@ function MiniScorecard({ winners, losers }) {
         <ScorecardLabel>{label}</ScorecardLabel>
         {winners.map((p, i) => {
           const v = get(p);
-          return <ScorecardCell key={i} $color={statColor(vals, v, lower)}>{v != null ? fmt(v) : "—"}</ScorecardCell>;
+          return <ScorecardCell key={i} $color={statColor(vals, v, lower)}>{v != null ? fmt(v) : "-"}</ScorecardCell>;
         })}
         {losers.map((p, i) => {
           const v = get(p);
-          return <ScorecardCell key={i} $divider={i === 0} $color={statColor(vals, v, lower)}>{v != null ? fmt(v) : "—"}</ScorecardCell>;
+          return <ScorecardCell key={i} $divider={i === 0} $color={statColor(vals, v, lower)}>{v != null ? fmt(v) : "-"}</ScorecardCell>;
         })}
       </ScorecardRow>
     );
@@ -1043,7 +1043,7 @@ export default function BlurbLab() {
       .catch((e) => setError(e.message));
   }, [authed, api]);
 
-  // Auto-select from ?id= immediately on auth — don't wait for the sample list.
+  // Auto-select from ?id= immediately on auth - don't wait for the sample list.
   useEffect(() => {
     if (!authed) return;
     const id = new URLSearchParams(location.search).get("id");
@@ -1234,7 +1234,7 @@ export default function BlurbLab() {
     return (
       <KeyGate>
         {keyRejected ? (
-          <ErrorText>The stored admin key was rejected by the relay — enter it again.</ErrorText>
+          <ErrorText>The stored admin key was rejected by the relay - enter it again.</ErrorText>
         ) : (
           <div>Blurb Lab needs the relay admin key.</div>
         )}
@@ -1264,7 +1264,7 @@ export default function BlurbLab() {
       <Title>Blurb Lab</Title>
       <Subtitle>
         Pick a game to inspect the fact sheet and blurb, then edit the prompt and regenerate.
-        Lab runs are never saved — production blurbs are unaffected.
+        Lab runs are never saved - production blurbs are unaffected.
       </Subtitle>
       {error && <ErrorText>{error}</ErrorText>}
       {/* ── Stage 1: pick a game ── */}
@@ -1351,7 +1351,7 @@ export default function BlurbLab() {
           {selected && (
             <Section>
               <FactSheetToggle $open={factSheetOpen} onClick={() => setFactSheetOpen((v) => !v)}>
-                {sheetLoading ? "Building fact sheet…" : "Fact sheet — stats & head-to-heads"}
+                {sheetLoading ? "Building fact sheet…" : "Fact sheet - stats & head-to-heads"}
                 <ToggleArrow $open={factSheetOpen}>▶</ToggleArrow>
               </FactSheetToggle>
               {factSheetOpen && (
@@ -1421,7 +1421,7 @@ export default function BlurbLab() {
                 <>
                   <PhaseLabel>Stored blurb (final)</PhaseLabel>
                   <Output $passed={!output.reactions}>
-                    {output.reactions ? renderBlurbText(output.reactions) : "PASS — nothing notable"}
+                    {output.reactions ? renderBlurbText(output.reactions) : "PASS - nothing notable"}
                   </Output>
                 </>
               )}

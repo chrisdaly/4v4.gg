@@ -41,7 +41,7 @@
   text-decoration: none;
   padding: var(--space-1) var(--space-2);
   border-radius: var(--radius-sm);
-  transition: all 0.15s ease;
+  transition: all var(--transition);
   letter-spacing: 0.5px;
 }
 
@@ -71,20 +71,6 @@
   flex-wrap: wrap;
 }
 
-.filter-group {
-  display: flex;
-  flex-direction: column;
-  gap: var(--space-1);
-}
-
-.filter-group label {
-  font-family: var(--font-mono);
-  font-size: var(--text-xxs);
-  text-transform: uppercase;
-  letter-spacing: 0.1em;
-  color: var(--grey-light);
-}
-
 /* ========================================
    Recently Finished Page Content Styles
    ======================================== */
@@ -93,12 +79,12 @@
 .game-tiles {
   display: flex;
   flex-direction: column;
-  gap: 8px;
+  gap: var(--space-2);
 }
 
 .no-results {
   text-align: center;
-  padding: 60px 20px;
+  padding: var(--space-12) var(--space-4);
   color: var(--grey-light);
   font-family: var(--font-body);
   font-size: var(--text-base);
@@ -109,16 +95,16 @@
   display: flex;
   justify-content: center;
   align-items: center;
-  gap: 8px;
-  padding: 24px 0;
-  margin-top: 16px;
+  gap: var(--space-2);
+  padding: var(--space-6) 0;
+  margin-top: var(--space-4);
 }
 
 .pagination-info {
   font-family: var(--font-mono);
   font-size: var(--text-sm);
   color: var(--grey-light);
-  padding: 0 12px;
+  padding: 0 var(--space-3);
 }
 
 /* Responsive styles */
@@ -134,12 +120,9 @@
     align-items: stretch;
   }
 
-  .filter-group {
-    width: 100%;
-  }
-
-  .filter-group select,
-  .filter-group > div {
+  /* FieldGroup wrappers (ui.jsx) and their selects go full width */
+  .page-controls > div,
+  .page-controls select {
     width: 100%;
   }
 }

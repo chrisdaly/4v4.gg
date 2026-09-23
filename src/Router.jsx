@@ -10,7 +10,7 @@ import useAdmin from "./lib/useAdmin";
 import Home from "./pages/Home";
 const Observatory = lazy(() => import("./pages/Observatory"));
 
-// Core nav pages — lazy-loaded but preloaded after first paint
+// Core nav pages - lazy-loaded but preloaded after first paint
 const pageImports = {
   ongoing: () => import("./pages/OngoingGames"),
   finished: () => import("./pages/RecentlyFinished"),
@@ -83,7 +83,7 @@ const PageLoader = () => (
   </div>
 );
 
-// Theme overlay removed — new visitors get the default theme
+// Theme overlay removed - new visitors get the default theme
 // and can pick one from the Themes page whenever they want.
 
 const Preloader = () => {

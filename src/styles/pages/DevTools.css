@@ -1,4 +1,4 @@
-/* DevTools page — prefix: dt- */
+/* DevTools page - prefix: dt- */
 
 /* ─── Hero (extra spacing beyond PageHero default) ──────────────────────── */
 
@@ -11,7 +11,7 @@
 .dt-section {
   position: relative;
   padding: var(--space-8);
-  border-radius: 16px;
+  border-radius: var(--radius-xl);
   background: var(--surface-1);
   border: 1px solid var(--grey-mid);
   box-shadow: 0 18px 44px rgba(0, 0, 0, 0.3);
@@ -114,7 +114,7 @@
 
 .dt-btn-gold {
   background: var(--gold);
-  color: #0a0a0a;
+  color: var(--grey-dark);
   border: none;
 }
 
@@ -141,7 +141,7 @@
 
 .dt-btn-xs:hover {
   background: rgba(180, 40, 40, 0.5);
-  color: #fff;
+  color: var(--white);
   border-color: rgba(180, 40, 40, 0.8);
 }
 
@@ -235,13 +235,13 @@
   gap: 2px;
   padding: 8px;
   background: rgba(10, 8, 6, 0.96);
-  border: 1px solid rgba(184, 134, 11, 0.3);
+  border: 1px solid rgba(var(--gold-dark-rgb), 0.3);
   border-radius: var(--radius-lg);
   backdrop-filter: blur(12px);
   box-shadow: 0 8px 32px rgba(0, 0, 0, 0.7);
   max-height: 280px;
   overflow-y: auto;
-  z-index: 1000;
+  z-index: var(--z-dropdown);
 }
 
 .dt-weekly-search-result {
@@ -383,7 +383,7 @@
   box-sizing: border-box;
   font-family: var(--font-display);
   font-size: var(--text-sm);
-  color: #fff;
+  color: var(--white);
   background: rgba(255, 255, 255, 0.03);
   border: 1px solid rgba(var(--gold-muted-rgb), 0.2);
   border-radius: var(--radius-md);
@@ -476,7 +476,7 @@
   border-radius: var(--radius-md);
   cursor: pointer;
   text-align: left;
-  color: #fff;
+  color: var(--white);
   transition: border-color 0.15s, background 0.15s;
 }
 
@@ -671,7 +671,7 @@
   font-weight: 700;
   border-radius: var(--radius-sm);
   background: var(--gold);
-  color: #0a0a0a;
+  color: var(--grey-dark);
 }
 
 .dt-card-headline {
@@ -797,7 +797,7 @@
   display: flex;
   align-items: flex-end;
   justify-content: flex-start;
-  color: #fff;
+  color: var(--white);
   text-shadow: 0 1px 4px rgba(0, 0, 0, 0.8);
   border-radius: var(--radius-md);
 }
@@ -916,7 +916,7 @@
   font-size: 10px;
   text-transform: uppercase;
   letter-spacing: 0.06em;
-  color: #fff;
+  color: var(--white);
   background: rgba(0, 180, 80, 0.8);
   border-radius: var(--radius-full);
   z-index: 1;
@@ -980,7 +980,7 @@
 .dt-modal {
   position: fixed;
   inset: 0;
-  z-index: 9999;
+  z-index: var(--z-modal);
   background: rgba(0, 0, 0, 0.85);
   backdrop-filter: blur(8px);
   display: flex;
@@ -1004,7 +1004,7 @@
   overflow-x: hidden;
   background: rgba(18, 16, 14, 0.98);
   border: 1px solid rgba(var(--gold-muted-rgb), 0.3);
-  border-radius: 16px;
+  border-radius: var(--radius-xl);
   box-shadow: 0 24px 64px rgba(0, 0, 0, 0.8);
 }
 
@@ -1012,7 +1012,7 @@
   width: 100%;
   max-height: 60vh;
   display: block;
-  border-radius: 16px 16px 0 0;
+  border-radius: var(--radius-xl) var(--radius-xl) 0 0;
   object-fit: cover;
 }
 
@@ -1026,7 +1026,7 @@
 .dt-modal-headline {
   font-family: var(--font-display);
   font-size: clamp(1.2rem, 3vw, 1.6rem);
-  color: #fff;
+  color: var(--white);
   margin: 0;
   line-height: 1.2;
 }
@@ -1090,7 +1090,7 @@
   background: rgba(0, 0, 0, 0.6);
   border: 1px solid rgba(255, 255, 255, 0.15);
   border-radius: 50%;
-  color: #fff;
+  color: var(--white);
   font-size: 20px;
   cursor: pointer;
   z-index: 2;
@@ -1113,7 +1113,7 @@
   background: rgba(0, 0, 0, 0.5);
   border: 1px solid rgba(255, 255, 255, 0.15);
   border-radius: 50%;
-  color: #fff;
+  color: var(--white);
   font-size: 28px;
   cursor: pointer;
   z-index: 2;
@@ -1170,7 +1170,7 @@
   min-height: 160px;
   border: 1px solid rgba(var(--gold-muted-rgb), 0.2);
   background: rgba(0, 0, 0, 0.4);
-  border-radius: 12px;
+  border-radius: var(--radius-xl);
   line-height: 1.6;
 }
 
@@ -1305,7 +1305,7 @@
 
 .dt-result .dt-cover-img {
   border: 1px solid rgba(var(--gold-muted-rgb), 0.3);
-  border-radius: 12px;
+  border-radius: var(--radius-xl);
 }
 
 /* ─── Gallery Tab ─────────────────────────────────────────────────────────── */

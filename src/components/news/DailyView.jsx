@@ -2,7 +2,7 @@ import React, { useState, useEffect, useMemo, useCallback } from "react";
 import { FiRefreshCw } from "react-icons/fi";
 import useChatStream from "../../lib/useChatStream";
 import useAdmin from "../../lib/useAdmin";
-import { PageNav } from "../ui";
+import { PageNav, Input, Button } from "../ui";
 import DigestBanner from "./DigestBanner";
 import PeonLoader from "../PeonLoader";
 
@@ -184,14 +184,15 @@ const DailyView = ({ dayParam }) => {
       )}
 
       {isAdmin && isViewingToday && (
-        <button
+        <Button
+          $pill
           className="digest-editor-refresh"
           onClick={handleRefreshToday}
           disabled={refreshing}
         >
           <FiRefreshCw size={12} className={refreshing ? "spin" : ""} />
           {refreshing ? "Refreshing..." : "Refresh today"}
-        </button>
+        </Button>
       )}
 
       {showAdmin && !adminKey && (
@@ -200,7 +201,7 @@ const DailyView = ({ dayParam }) => {
             <span className="digest-editor-title">Admin Key Required</span>
           </div>
           <div className="digest-editor-key-prompt">
-            <input
+            <Input
               type="password"
               className="digest-editor-key-input"
               placeholder="Paste admin API key..."
@@ -208,9 +209,9 @@ const DailyView = ({ dayParam }) => {
               onChange={(e) => { setKeyInput(e.target.value); setKeyError(null); }}
               onKeyDown={(e) => e.key === "Enter" && handleKeySubmit()}
             />
-            <button className="digest-editor-key-btn" onClick={handleKeySubmit} disabled={!keyInput.trim()}>
+            <Button $primary onClick={handleKeySubmit} disabled={!keyInput.trim()}>
               Save
-            </button>
+            </Button>
           </div>
           {keyError && <div className="digest-editor-key-error">{keyError}</div>}
         </div>
@@ -218,7 +219,7 @@ const DailyView = ({ dayParam }) => {
 
       {isAdmin && isViewingToday && (
         <span className="digest-today-notice">
-          Live digest — editing available after the day ends
+          Live digest - editing available after the day ends
         </span>
       )}
     </div>

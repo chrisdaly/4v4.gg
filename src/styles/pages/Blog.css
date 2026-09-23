@@ -1,27 +1,4 @@
-/* ============================================
-   Blog Pages
-   Scoped with .bl- prefix to avoid conflicts
-   ============================================ */
 
-.bl-pills {
-  display: flex;
-  flex-wrap: wrap;
-  gap: var(--space-2);
-}
-
-.bl-pill {
-  display: inline-flex;
-  align-items: center;
-  padding: 0.4rem 0.9rem;
-  border-radius: var(--radius-full);
-  border: 1px solid var(--grey-mid);
-  background: rgba(255, 255, 255, 0.03);
-  font-size: var(--text-xxs);
-  text-transform: uppercase;
-  letter-spacing: 0.12em;
-  color: var(--grey-light);
-  font-family: var(--font-mono);
-}
 
 /* ── Article header (DB posts) ────────── */
 
@@ -61,7 +38,7 @@
   transition: border-color var(--transition);
 }
 
-/* Card with preview image — horizontal layout */
+/* Card with preview image - horizontal layout */
 .bl-post-card--has-preview {
   display: flex;
   gap: var(--space-12);
@@ -108,12 +85,13 @@
   margin-bottom: 12px;
 }
 
+/* Tag / date pill (patterns.blogTag) - used for tags AND the date */
 .bl-card-tag {
   display: inline-flex;
   font-family: var(--font-mono);
   font-size: var(--text-xxs);
   text-transform: uppercase;
-  letter-spacing: 0.06em;
+  letter-spacing: 0.08em;
   color: var(--grey-light);
   background: none;
   border: var(--border-thin) solid rgba(255, 255, 255, 0.08);
@@ -124,8 +102,8 @@
 
 .bl-post-card .bl-card-title {
   font-family: var(--font-display);
-  font-size: clamp(1.5rem, 3vw, 2rem);
-  color: var(--white);
+  font-size: var(--text-lg);
+  color: var(--gold);
   margin: 0 0 12px 0;
   line-height: 1.2;
   transition: color var(--transition);
@@ -152,136 +130,8 @@
   align-items: center;
 }
 
-.bl-post-card .bl-card-date {
-  font-family: var(--font-mono);
-  font-size: var(--text-xxs);
-  text-transform: uppercase;
-  letter-spacing: 0.06em;
-  color: var(--grey-light);
-  background: none;
-  border: var(--border-thin) solid rgba(255, 255, 255, 0.08);
-  padding: 4px 12px;
-  border-radius: var(--radius-full);
-  white-space: nowrap;
-}
-
-.bl-post-card .bl-card-read {
-  font-family: var(--font-mono);
-  font-size: var(--text-xxs);
-  color: var(--gold);
-  opacity: 0;
-  transition: opacity var(--transition);
-}
-
-.bl-post-card:hover .bl-card-read {
-  opacity: 1;
-}
-
-/* ── Magazine-style hero card (posts with coverImage) ── */
-
-.bl-hero-card {
-  display: block;
-  position: relative;
-  text-decoration: none;
-  border-radius: var(--radius-md);
-  overflow: hidden;
-  min-height: 240px;
-  border: var(--border-thin) solid var(--surface-2);
-  transition: border-color var(--transition), box-shadow var(--transition);
-}
-
-.bl-hero-card:hover {
-  border-color: var(--gold);
-  box-shadow: 0 8px 32px var(--overlay-light);
-}
-
-.bl-hero-card-bg {
-  position: absolute;
-  inset: 0;
-  background-size: cover;
-  background-position: center;
-  transition: transform 600ms ease;
-}
-
-.bl-hero-card:hover .bl-hero-card-bg {
-  transform: scale(1.03);
-}
-
-.bl-hero-card-overlay {
-  position: absolute;
-  inset: 0;
-  background: linear-gradient(
-    to right,
-    rgba(0, 0, 0, 0.85) 0%,
-    rgba(0, 0, 0, 0.5) 50%,
-    rgba(0, 0, 0, 0.15) 100%
-  );
-}
-
-.bl-hero-card-content {
-  position: relative;
-  z-index: 1;
-  padding: var(--space-8);
-  display: flex;
-  flex-direction: column;
-  justify-content: center;
-  min-height: 240px;
-}
-
-.bl-hero-card-tags {
-  display: flex;
-  flex-wrap: wrap;
-  gap: 6px;
-  margin-bottom: var(--space-2);
-}
-
-.bl-hero-card-title {
-  font-family: var(--font-display);
-  font-size: clamp(1.6rem, 3.5vw, 2.4rem);
-  color: var(--gold);
-  margin: 0 0 var(--space-2) 0;
-  line-height: 1.15;
-  font-weight: normal;
-  text-shadow: 0 2px 16px rgba(0, 0, 0, 0.8);
-  max-width: 50ch;
-}
-
-.bl-hero-card-desc {
-  font-family: var(--font-body);
-  font-size: var(--text-sm);
-  color: var(--grey-light);
-  line-height: 1.5;
-  margin: 0 0 var(--space-4) 0;
-  max-width: 45ch;
-  text-shadow: 0 1px 8px rgba(0, 0, 0, 0.7);
-}
-
-.bl-hero-card-date {
-  font-family: var(--font-mono);
-  font-size: var(--text-xxs);
-  text-transform: uppercase;
-  letter-spacing: 0.06em;
-  color: var(--grey-light);
-}
-
 @media (max-width: 600px) {
-  .bl-hero-card {
-    min-height: 200px;
-  }
 
-  .bl-hero-card-content {
-    padding: var(--space-6) var(--space-4);
-    min-height: 200px;
-  }
-
-  .bl-hero-card-overlay {
-    background: linear-gradient(
-      to top,
-      rgba(0, 0, 0, 0.85) 0%,
-      rgba(0, 0, 0, 0.5) 50%,
-      rgba(0, 0, 0, 0.15) 100%
-    );
-  }
 }
 
 /* ── Article layout ──────────────────── */
@@ -304,20 +154,7 @@
   opacity: 0.7;
 }
 
-.bl-meta {
-  display: flex;
-  align-items: center;
-  gap: var(--space-4);
-  margin-bottom: var(--space-6);
-}
-
-.bl-date {
-  font-family: var(--font-mono);
-  font-size: var(--text-xxs);
-  color: var(--grey-light);
-}
-
-/* Article body section (no panel — text on background) */
+/* Article body section (no panel - text on background) */
 .bl-section {
   position: relative;
   padding: 0;
@@ -333,8 +170,8 @@
 
 .bl-section h2 {
   font-family: var(--font-display);
-  font-size: clamp(1.4rem, 3vw, 2rem);
-  color: var(--white);
+  font-size: var(--text-lg);
+  color: var(--gold);
   line-height: 1.1;
   margin: var(--space-12) 0 var(--space-6) 0;
   font-weight: normal;
@@ -476,41 +313,8 @@
   text-transform: uppercase;
 }
 
-/* ── Publish button ──────────────────── */
-
-.bl-publish-btn {
-  font-family: var(--font-mono);
-  font-size: var(--text-xxs);
-  text-transform: uppercase;
-  letter-spacing: 0.1em;
-  padding: 8px 20px;
-  border-radius: var(--radius-full);
-  border: 1px solid var(--gold);
-  background: var(--gold-tint);
-  color: var(--gold);
-  cursor: pointer;
-  margin-top: var(--space-4);
-  transition: background var(--transition), color var(--transition);
-}
-
-.bl-publish-btn:hover {
-  background: var(--gold);
-  color: var(--grey-dark);
-}
-
-.bl-publish-btn--published {
-  border-color: var(--grey-mid);
-  color: var(--grey-light);
-  background: none;
-}
-
-.bl-publish-btn--published:hover {
-  background: rgba(255, 255, 255, 0.06);
-  color: var(--white);
-}
-
 /* ── Chart / content styles ──────────── */
-/* (blog-* prefixed — content-specific, not layout) */
+/* (blog-* prefixed - content-specific, not layout) */
 
 .blog-chart {
   display: inline-block;
@@ -626,121 +430,6 @@
   width: 40px;
 }
 
-/* Blog post article wrapper */
-.blog-post {
-  max-width: 1200px;
-  margin: 0 auto;
-  padding: 64px var(--space-8) 96px;
-}
-
-.blog-hero {
-  margin-bottom: 64px; /* intentional — blog hero needs extra space */
-}
-
-.blog-eyebrow {
-  text-transform: uppercase;
-  letter-spacing: 0.32em;
-  font-size: var(--text-xxs);
-  color: var(--gold);
-  font-family: var(--font-mono);
-  margin-bottom: var(--space-4);
-}
-
-.blog-hero h1 {
-  font-family: var(--font-display);
-  font-size: clamp(2.4rem, 5.5vw, 3.8rem);
-  color: var(--gold);
-  line-height: 1.1;
-  margin: 0 0 var(--space-4) 0;
-  text-shadow: 0 2px 16px rgba(0, 0, 0, 0.8);
-}
-
-.blog-lead {
-  font-family: var(--font-body);
-  font-size: var(--text-sm);
-  color: var(--grey-light);
-  max-width: 55ch;
-  line-height: 1.6;
-  text-shadow: 0 1px 8px rgba(0, 0, 0, 0.7);
-}
-
-.blog-content {
-  max-width: 720px;
-  margin: 0 auto;
-}
-
-.blog-content h2 {
-  font-family: var(--font-display);
-  font-size: clamp(1.4rem, 3vw, 2rem);
-  color: var(--white);
-  line-height: 1.1;
-  margin: var(--space-12) 0 var(--space-6) 0;
-  font-weight: normal;
-  text-shadow: 0 2px 12px rgba(0, 0, 0, 0.8);
-}
-
-.blog-content h2:first-child {
-  margin-top: 0;
-}
-
-.blog-content p {
-  font-family: var(--font-body);
-  color: var(--text-body);
-  font-size: var(--text-base);
-  line-height: 1.85;
-  margin: 0 0 var(--space-6) 0;
-  text-shadow: 0 1px 8px rgba(0, 0, 0, 0.7);
-}
-
-.blog-content p:last-child {
-  margin-bottom: 0;
-}
-
-/* Stats example (mean +/-std) */
-.blog-stats-example {
-  display: flex;
-  justify-content: center;
-  align-items: center;
-  gap: var(--space-8);
-  margin: var(--space-8) 0;
-  padding: var(--space-6) var(--space-8);
-  background: var(--surface-1);
-  border-radius: var(--radius-md);
-}
-
-.blog-stats-team {
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  gap: var(--space-1);
-}
-
-.blog-stats-team .mean {
-  font-family: var(--font-mono);
-  font-size: var(--text-lg);
-  font-weight: 500;
-}
-
-.blog-stats-team .std {
-  font-family: var(--font-mono);
-  font-size: var(--text-xs);
-  color: rgba(255, 255, 255, 0.5);
-}
-
-.blog-stats-team.blue .mean {
-  color: var(--team-blue);
-}
-
-.blog-stats-team.red .mean {
-  color: var(--team-red);
-}
-
-.blog-stats-vs {
-  font-family: var(--font-display);
-  font-size: var(--text-sm);
-  color: var(--grey-mid);
-}
-
 /* Visual math equations */
 .blog-visual-math {
   display: flex;
@@ -800,27 +489,6 @@
   padding-left: 16px;
 }
 
-/* LaTeX-style formula */
-.blog-formula {
-  font-family: "Times New Roman", Times, serif;
-  font-size: var(--text-lg);
-  text-align: center;
-  color: var(--text-body);
-  margin: var(--space-8) 0;
-  letter-spacing: 0.02em;
-}
-
-.blog-formula .var {
-  font-style: italic;
-}
-
-.blog-formula sub {
-  font-size: 0.7em;
-  vertical-align: baseline;
-  position: relative;
-  bottom: -0.3em;
-}
-
 /* ── Responsive ──────────────────────── */
 
 @media (max-width: 900px) {
@@ -858,11 +526,6 @@
     gap: var(--space-4);
   }
 
-  .blog-stats-example {
-    flex-direction: column;
-    gap: var(--space-4);
-  }
-
   .blog-visual-math {
     padding: var(--space-6) 0;
     margin: var(--space-8) 0;
@@ -874,20 +537,10 @@
     max-width: 100%;
   }
 
-  .blog-formula {
-    font-size: var(--text-base);
-    margin: var(--space-6) 0;
-  }
-
   .blog-chart {
     max-width: 100%;
     overflow-x: auto;
   }
 
-  .bl-meta {
-    flex-direction: column;
-    align-items: flex-start;
-    gap: var(--space-3);
-  }
 }
 

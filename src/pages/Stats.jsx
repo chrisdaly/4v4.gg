@@ -683,7 +683,7 @@ const ChatActivity = () => {
               key={b.bucket}
               className={`chat-activity-bar-wrap${isSelected ? " chat-activity-bar-wrap--selected" : ""}`}
               onClick={() => handleBarClick(b.bucket)}
-              title={`${b.bucket} — ${b.count} msgs, ${b.users} users`}
+              title={`${b.bucket} - ${b.count} msgs, ${b.users} users`}
             >
               <div
                 className={`chat-activity-bar${b.isSpike ? " chat-activity-bar--spike" : ""}`}

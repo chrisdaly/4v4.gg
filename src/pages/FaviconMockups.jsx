@@ -1,11 +1,14 @@
 import React from "react";
+import { colors } from "../lib/design-tokens";
 
 const DARK = "#1a1a2e";
-const GOLD = "#D4A843";
+const GOLD = colors.gold.value;
 const GOLD_LIGHT = "#e8c96a";
-const WHITE = "#ffffff";
-const RED = "#cc3333";
-const GREEN = "#5cb85c";
+const WHITE = colors.white.value;
+const RED = colors.red.value;
+const GREEN = colors.green.value;
+const BLUE = colors.teamBlue.value;
+const PURPLE = colors.atPurple.value;
 const GREY = "#666";
 
 const SIZE = 128;
@@ -14,10 +17,10 @@ const SMALL = 32;
 const IconFrame = ({ title, children, note }) => (
   <div style={{
     display: "flex", flexDirection: "column", alignItems: "center", gap: 12,
-    padding: 24, background: "rgba(255,255,255,0.03)", borderRadius: 12,
+    padding: 24, background: "rgba(255,255,255,0.03)", borderRadius: "var(--radius-xl)",
     border: "1px solid rgba(255,255,255,0.08)",
   }}>
-    <svg width={SIZE} height={SIZE} viewBox={`0 0 ${SIZE} ${SIZE}`} style={{ borderRadius: 12 }}>
+    <svg width={SIZE} height={SIZE} viewBox={`0 0 ${SIZE} ${SIZE}`} style={{ borderRadius: "var(--radius-xl)" }}>
       <rect width={SIZE} height={SIZE} fill={DARK} rx={16} />
       {children}
     </svg>
@@ -40,14 +43,14 @@ const IconFrame = ({ title, children, note }) => (
 // 1. "4v4" typographic
 const Icon4v4Text = () => (
   <IconFrame title='"4v4" Text' note="Direct brand recognition, Friz Quadrata">
-    <text x="64" y="82" textAnchor="middle" fontFamily="'Friz Quadrata', serif" fontSize="52" fontWeight="bold" fill={GOLD}>4v4</text>
+    <text x="64" y="82" textAnchor="middle" fontFamily="var(--font-display)" fontSize="52" fontWeight="bold" fill={GOLD}>4v4</text>
   </IconFrame>
 );
 
 // 2. Single "4"
 const IconSingle4 = () => (
   <IconFrame title='Bold "4"' note="Minimal, reads at tiny sizes">
-    <text x="64" y="92" textAnchor="middle" fontFamily="'Friz Quadrata', serif" fontSize="80" fontWeight="bold" fill={GOLD}>4</text>
+    <text x="64" y="92" textAnchor="middle" fontFamily="var(--font-display)" fontSize="80" fontWeight="bold" fill={GOLD}>4</text>
   </IconFrame>
 );
 
@@ -78,7 +81,7 @@ const IconShield = () => (
       fill="none" stroke={GOLD} strokeWidth="5" />
     <path d="M64 22 L100 38 L100 68 Q100 94 64 110 Q28 94 28 68 L28 38 Z"
       fill="rgba(212,168,67,0.08)" />
-    <text x="64" y="78" textAnchor="middle" fontFamily="'Friz Quadrata', serif" fontSize="34" fontWeight="bold" fill={GOLD}>4v4</text>
+    <text x="64" y="78" textAnchor="middle" fontFamily="var(--font-display)" fontSize="34" fontWeight="bold" fill={GOLD}>4v4</text>
   </IconFrame>
 );
 
@@ -102,7 +105,7 @@ const IconVersusArrows = () => (
       <polygon points="8,-30 -22,-30 -32,0 -22,30 8,30 -2,0" fill={GOLD} opacity="0.5" transform="translate(0,0) scale(-1,1)" />
       {/* VS text */}
     </g>
-    <text x="64" y="72" textAnchor="middle" fontFamily="'Friz Quadrata', serif" fontSize="22" fontWeight="bold" fill={DARK}>VS</text>
+    <text x="64" y="72" textAnchor="middle" fontFamily="var(--font-display)" fontSize="22" fontWeight="bold" fill={DARK}>VS</text>
   </IconFrame>
 );
 
@@ -126,18 +129,18 @@ const IconGoldMine = () => (
 
 // 8. Mini race icon grid (2x2 letters)
 const IconRaceGrid = () => (
-  <IconFrame title="Race Grid" note="H/O/E/U — 4 races, 4v4">
-    <text x="44" y="52" textAnchor="middle" fontFamily="'Friz Quadrata', serif" fontSize="30" fontWeight="bold" fill="#4488ff">H</text>
-    <text x="84" y="52" textAnchor="middle" fontFamily="'Friz Quadrata', serif" fontSize="30" fontWeight="bold" fill={RED}>O</text>
-    <text x="44" y="92" textAnchor="middle" fontFamily="'Friz Quadrata', serif" fontSize="30" fontWeight="bold" fill={GREEN}>E</text>
-    <text x="84" y="92" textAnchor="middle" fontFamily="'Friz Quadrata', serif" fontSize="30" fontWeight="bold" fill="#9966cc">U</text>
+  <IconFrame title="Race Grid" note="H/O/E/U - 4 races, 4v4">
+    <text x="44" y="52" textAnchor="middle" fontFamily="var(--font-display)" fontSize="30" fontWeight="bold" fill={BLUE}>H</text>
+    <text x="84" y="52" textAnchor="middle" fontFamily="var(--font-display)" fontSize="30" fontWeight="bold" fill={RED}>O</text>
+    <text x="44" y="92" textAnchor="middle" fontFamily="var(--font-display)" fontSize="30" fontWeight="bold" fill={GREEN}>E</text>
+    <text x="84" y="92" textAnchor="middle" fontFamily="var(--font-display)" fontSize="30" fontWeight="bold" fill={PURPLE}>U</text>
   </IconFrame>
 );
 
 // 9. "4" with a sword through it
 const Icon4Sword = () => (
   <IconFrame title='"4" + Sword' note="Brand + battle hybrid">
-    <text x="64" y="92" textAnchor="middle" fontFamily="'Friz Quadrata', serif" fontSize="80" fontWeight="bold" fill={GOLD}>4</text>
+    <text x="64" y="92" textAnchor="middle" fontFamily="var(--font-display)" fontSize="80" fontWeight="bold" fill={GOLD}>4</text>
     {/* Diagonal sword through the 4 */}
     <g transform="translate(64,64) rotate(-30)">
       <rect x="-3" y="-52" width="6" height="104" rx="2" fill={WHITE} opacity="0.7" />
@@ -150,17 +153,17 @@ const Icon4Sword = () => (
 const IconTeamDots = () => (
   <IconFrame title="Team Dots" note="Blue team vs Red team, 4v4 literal">
     {/* Blue team */}
-    <circle cx="38" cy="38" r="13" fill="#4488ff" />
-    <circle cx="38" cy="68" r="13" fill="#4488ff" />
-    <circle cx="38" cy="98" r="13" fill="#4488ff" />
-    <circle cx="38" cy="53" r="13" fill="#4488ff" />
+    <circle cx="38" cy="38" r="13" fill={BLUE} />
+    <circle cx="38" cy="68" r="13" fill={BLUE} />
+    <circle cx="38" cy="98" r="13" fill={BLUE} />
+    <circle cx="38" cy="53" r="13" fill={BLUE} />
     {/* Rearrange to 2x2 per team */}
     {/* Actually let's do left 4 blue, right 4 red in columns */}
     <rect x="0" y="0" width={SIZE} height={SIZE} fill={DARK} rx={16} />
-    <circle cx="36" cy="36" r="11" fill="#4488ff" />
-    <circle cx="60" cy="36" r="11" fill="#4488ff" />
-    <circle cx="36" cy="60" r="11" fill="#4488ff" />
-    <circle cx="60" cy="60" r="11" fill="#4488ff" />
+    <circle cx="36" cy="36" r="11" fill={BLUE} />
+    <circle cx="60" cy="36" r="11" fill={BLUE} />
+    <circle cx="36" cy="60" r="11" fill={BLUE} />
+    <circle cx="60" cy="60" r="11" fill={BLUE} />
     {/* VS divider */}
     <line x1="64" y1="24" x2="64" y2="104" stroke={GOLD} strokeWidth="2" opacity="0.4" />
     <circle cx="68" cy="72" r="11" fill={RED} />
@@ -172,8 +175,8 @@ const IconTeamDots = () => (
 
 // 11. Stylized "GG"
 const IconGG = () => (
-  <IconFrame title='"GG"' note='From the domain — "good game"'>
-    <text x="64" y="84" textAnchor="middle" fontFamily="'Friz Quadrata', serif" fontSize="56" fontWeight="bold" fill={GOLD}>GG</text>
+  <IconFrame title='"GG"' note='From the domain - "good game"'>
+    <text x="64" y="84" textAnchor="middle" fontFamily="var(--font-display)" fontSize="56" fontWeight="bold" fill={GOLD}>GG</text>
   </IconFrame>
 );
 
@@ -183,7 +186,7 @@ const IconStar = () => (
     <g transform="translate(64,64)">
       <polygon points="0,-44 10,-10 44,0 10,10 0,44 -10,10 -44,0 -10,-10" fill={GOLD} />
       <circle cx="0" cy="0" r="10" fill={DARK} />
-      <text x="0" y="5" textAnchor="middle" fontFamily="'Friz Quadrata', serif" fontSize="14" fontWeight="bold" fill={GOLD}>4</text>
+      <text x="0" y="5" textAnchor="middle" fontFamily="var(--font-display)" fontSize="14" fontWeight="bold" fill={GOLD}>4</text>
     </g>
   </IconFrame>
 );

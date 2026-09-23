@@ -94,7 +94,7 @@ export async function getUmapProjection(embeddings, options = {}) {
       return null;
     }
     const data = await res.json();
-    console.log(`[UMAP] Fit complete in ${((Date.now() - start) / 1000).toFixed(1)}s — ${data.points?.length} points`);
+    console.log(`[UMAP] Fit complete in ${((Date.now() - start) / 1000).toFixed(1)}s - ${data.points?.length} points`);
     return data;
   } catch (err) {
     console.error(`[UMAP] Fit failed:`, err.message || err);

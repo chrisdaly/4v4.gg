@@ -17,7 +17,7 @@ router.get('/messages', (req, res) => {
   res.json(messages);
 });
 
-// SSE stream — sends last 50 messages as initial history event, then live updates
+// SSE stream - sends last 50 messages as initial history event, then live updates
 router.get('/stream', (req, res) => {
   addClient(res);
 
@@ -44,7 +44,7 @@ router.get('/search', (req, res) => {
   });
 });
 
-// LLM one-liner for a finished match — generated once, cached forever
+// LLM one-liner for a finished match - generated once, cached forever
 router.get('/match-blurb/:matchId', async (req, res) => {
   const { matchId } = req.params;
   if (!/^[a-f0-9]{24}$/i.test(matchId)) {
@@ -62,7 +62,7 @@ router.get('/match-blurb/:matchId', async (req, res) => {
   });
 });
 
-// Chat stats — cached for 60s (runs ~12 aggregate queries)
+// Chat stats - cached for 60s (runs ~12 aggregate queries)
 const STATS_CACHE_TTL = 60_000;
 let statsCache = { data: null, expires: 0 };
 
@@ -97,7 +97,7 @@ router.get('/events', (req, res) => {
   res.json({ events: parsed });
 });
 
-// GET /api/chat/events/summary — available date ranges and event counts
+// GET /api/chat/events/summary - available date ranges and event counts
 router.get('/events/summary', (_req, res) => {
   const summary = getEventsSummary();
   res.json(summary);

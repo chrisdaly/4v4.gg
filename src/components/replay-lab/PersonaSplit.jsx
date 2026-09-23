@@ -13,7 +13,7 @@ const SEGMENT_LABELS = {
 };
 
 function formatDate(d) {
-  if (!d) return "—";
+  if (!d) return "-";
   return new Date(d).toLocaleDateString("en-US", { month: "short", day: "numeric" });
 }
 
@@ -128,7 +128,7 @@ const StatLabel = styled.div`
 const StatValue = styled.div`
   font-family: var(--font-mono);
   font-size: var(--text-sm);
-  color: #fff;
+  color: var(--white);
   font-weight: 600;
 `;
 
@@ -211,7 +211,7 @@ const PersonaHeader = styled.div`
 const PersonaLabel = styled.div`
   font-family: var(--font-display);
   font-size: var(--text-base);
-  color: #fff;
+  color: var(--white);
 `;
 
 const PersonaMeta = styled.div`

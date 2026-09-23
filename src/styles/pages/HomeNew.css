@@ -1,5 +1,5 @@
 /* ========================================
-   SportsCenter Homepage — sc- prefix
+   SportsCenter Homepage - sc- prefix
    ======================================== */
 
 .sc-home {
@@ -96,7 +96,7 @@
   z-index: 1;
 }
 
-/* Live hero — centered layout with positioned metadata */
+/* Live hero - centered layout with positioned metadata */
 .sc-hero-live {
   justify-content: center;
   align-items: center;
@@ -165,7 +165,7 @@
   object-fit: cover;
 }
 
-/* bottomright removed — avg MMR no longer shown */
+/* bottomright removed - avg MMR no longer shown */
 
 .sc-hero-badge {
   display: inline-flex;
@@ -181,8 +181,8 @@
 
 .sc-hero-title {
   font-family: var(--font-display);
-  font-size: var(--text-xl);
-  color: #fff;
+  font-size: var(--text-lg);
+  color: var(--gold);
   margin: 0 0 var(--space-2) 0;
   line-height: 1.2;
 }
@@ -228,7 +228,7 @@
   font-size: var(--text-xxs);
   color: var(--grey-light);
   text-transform: uppercase;
-  letter-spacing: 0.05em;
+  letter-spacing: 0.1em;
 }
 
 .sc-hero-team {
@@ -256,7 +256,7 @@
   flex-direction: row;
 }
 
-/* sc-hero-vs removed — chart replaces the "vs" divider */
+/* sc-hero-vs removed - chart replaces the "vs" divider */
 
 .sc-hero-meta {
   display: flex;
@@ -313,9 +313,9 @@
 }
 
 .sc-empty {
-  color: var(--grey-mid);
-  font-size: var(--text-xs);
-  font-family: var(--font-mono);
+  color: var(--grey-light);
+  font-size: var(--text-base);
+  font-family: var(--font-body);
   padding: var(--space-4) 0;
 }
 

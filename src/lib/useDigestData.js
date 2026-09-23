@@ -273,7 +273,7 @@ function normalizeQuotes(quotes) {
 /* ── Main hook ──────────────────────────────────────────── */
 
 /**
- * useDigestData — dual-path hook that returns normalized digest data.
+ * useDigestData - dual-path hook that returns normalized digest data.
  *
  * - Reader mode + `digestJson` available → use JSON directly (no parsing)
  * - Editorial mode OR no JSON → fall back to text parsing (existing behavior)
@@ -282,7 +282,7 @@ function normalizeQuotes(quotes) {
  * @returns {object} Normalized digest data
  */
 export default function useDigestData({ weekly, isEditorial, draft }) {
-  // Text-path sections — always computed for editorial panel UI
+  // Text-path sections - always computed for editorial panel UI
   const sections = useMemo(() => {
     const source = isEditorial && draft ? draft : weekly?.digest;
     if (!source) return [];
@@ -366,7 +366,7 @@ export default function useDigestData({ weekly, isEditorial, draft }) {
       heroMeta: parseMatchStatsFromText(sections, "HEROES"),
       newBlood: parseNewBloodFromText(sections),
       upsets: parseUpsetsFromText(sections),
-      // Prefer JSON atSpotlight in editorial mode — text format lacks individual MMR/battleTags
+      // Prefer JSON atSpotlight in editorial mode - text format lacks individual MMR/battleTags
       atSpotlight: weekly?.digestJson?.atSpotlight?.length
         ? weekly.digestJson.atSpotlight
         : parseATSpotlightFromText(sections),
@@ -413,7 +413,7 @@ export default function useDigestData({ weekly, isEditorial, draft }) {
       }
     }
 
-    // Mentions (overrides — most authoritative source)
+    // Mentions (overrides - most authoritative source)
     for (const [name, tag] of Object.entries(d.mentions)) {
       names.set(name, tag);
     }

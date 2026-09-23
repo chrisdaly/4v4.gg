@@ -8,6 +8,7 @@ import { calculateTeamMMR, toFlag } from "../lib/utils";
 import OnlineMmrStrip from "../components/OnlineMmrStrip";
 import WorldMap from "../components/WorldMap";
 import EventFeed from "../components/EventFeed";
+import { Skeleton } from "../components/ui";
 
 // Sort matches by team MMR (highest first)
 const sortByMMR = (matches) => {
@@ -144,7 +145,7 @@ const Observatory = () => {
       .catch((err) => console.warn("[Home] Failed to fetch ladder histogram:", err.message));
   }, [isDemo]);
 
-  // Content settle timer — wait for profiles/stats to accumulate before revealing panels
+  // Content settle timer - wait for profiles/stats to accumulate before revealing panels
   const hasAnyData = onlineUsers.length > 0 || (matches !== null && matches.length > 0);
   useEffect(() => {
     if (contentReady || !hasAnyData) return;
@@ -253,7 +254,7 @@ const Observatory = () => {
         newEvents.push({ type: "game_start", gamePlayers, avgMmr, matchId: match.id, time: now });
       }
     }
-    // Ended matches — include player data, trigger stat refresh
+    // Ended matches - include player data, trigger stat refresh
     const prevMatchMap = new Map(prevMatchesRef.current.map((m) => [m.id, m]));
     for (const [id, match] of prevMatchMap) {
       if (!currentMatchIds.has(id)) {
@@ -294,7 +295,7 @@ const Observatory = () => {
       if (newEvents.some((e) => e.type === "game_end")) {
         // Immediate re-fetch (may get stale data if API hasn't processed yet)
         setStatsVersion((v) => v + 1);
-        // Delayed retry — W3C API typically updates within 15-30s after game end
+        // Delayed retry - W3C API typically updates within 15-30s after game end
         const gameEndTags = newEvents
           .filter((e) => e.type === "game_end")
           .flatMap((e) => e.gamePlayers?.map((p) => p.battleTag).filter(Boolean) || []);
@@ -308,13 +309,13 @@ const Observatory = () => {
     }
   }, [onlineUsers, matches]);
 
-  // MMR change tracking — fold game-end deltas into game_end events
+  // MMR change tracking - fold game-end deltas into game_end events
   useEffect(() => {
     const now = new Date();
     const newEvents = [];
     const gameEndUpdates = new Map(); // eventId → [{ name, tag, delta, mmr, teamIdx }]
 
-    // Expire stale pending entries (>2 min — API should have updated by now)
+    // Expire stale pending entries (>2 min - API should have updated by now)
     const expiryCutoff = Date.now() - 2 * 60 * 1000;
     for (const [tag, entry] of gameEndPendingRef.current) {
       if (entry.createdAt < expiryCutoff) gameEndPendingRef.current.delete(tag);
@@ -471,14 +472,14 @@ const Observatory = () => {
         const mmr = event.mmr ?? stats?.mmr ?? 1500;
         const isOnStrip = filteredStripPlayers.some((p) => p.battleTag === event.tag);
         if (isOnStrip) {
-          // Player visible on strip — suppress then restore to trigger enter anim
+          // Player visible on strip - suppress then restore to trigger enter anim
           setReplayMods({ suppressTags: new Set([event.tag]) });
           addReplayTimer(() => {
             setReplayMods(null);
             addReplayTimer(unlock, 3000);
           }, 150);
         } else {
-          // Player not on strip (no MMR yet) — inject with fallback MMR
+          // Player not on strip (no MMR yet) - inject with fallback MMR
           setReplayMods({
             injectPlayers: [{
               battleTag: event.tag,
@@ -558,7 +559,7 @@ const Observatory = () => {
       }
       case "mmr_gain":
       case "mmr_loss": {
-        // Direct delta fire — no phase 1 needed
+        // Direct delta fire - no phase 1 needed
         setReplayMods({
           pendingDeltas: [{ tag: event.tag, delta: event.delta }],
         });
@@ -634,7 +635,7 @@ const Observatory = () => {
     return countries;
   }, [filteredPlayerCountries, replayMods, effectiveMapPlayers]);
 
-  // Status events — loading milestones for activity feed
+  // Status events - loading milestones for activity feed
   const statusMilestonesRef = useRef({ online: false, games: false, countries: false });
   useEffect(() => {
     const m = statusMilestonesRef.current;
@@ -672,7 +673,7 @@ const Observatory = () => {
         </div>
         {!contentReady ? (
           <div className="home-skeleton-map">
-            <div className="loader-skeleton" style={{ width: "100%", height: "100%", borderRadius: "var(--radius-md)" }} />
+            <Skeleton $w="100%" $h="100%" $radius="var(--radius-md)" />
           </div>
         ) : (
           <>
@@ -711,10 +712,8 @@ const Observatory = () => {
           </div>
           <div className="home-skeleton-chart">
             {[52, 38, 45, 28, 55, 33, 48, 40].map((w, i) => (
-              <div key={i} className="loader-skeleton" style={{
-                width: `${w}%`,
-                height: 6,
-                marginBottom: 12,
+              <Skeleton key={i} $w={`${w}%`} $h="6px" style={{
+                marginBottom: "var(--space-3)",
                 alignSelf: i % 2 === 0 ? "flex-start" : "flex-end",
               }} />
             ))}

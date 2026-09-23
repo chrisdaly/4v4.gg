@@ -66,7 +66,7 @@ const ImageWrapper = styled.div`
   justify-content: center;
   min-height: ${(p) => p.$minHeight || "120px"};
   padding: var(--space-4);
-  background: ${(p) => p.$bg || "repeating-conic-gradient(#1a1a1a 0% 25%, #111 0% 50%) 0 0 / 16px 16px"};
+  background: ${(p) => p.$bg || "repeating-conic-gradient(var(--grey-dark) 0% 25%, #111 0% 50%) 0 0 / 16px 16px"};
 `;
 
 const AssetImage = styled.img`
@@ -291,52 +291,52 @@ const SECTIONS = [
       {
         label: "Frozen Throne",
         items: [
-          { name: "Chronicle — Arthas Ascending (4584x3056)", src: "/backgrounds/themes/frozen-throne-chronicle.jpg", note: "Peter Lee, massive res" },
+          { name: "Chronicle - Arthas Ascending (4584x3056)", src: "/backgrounds/themes/frozen-throne-chronicle.jpg", note: "Peter Lee, massive res" },
           { name: "Fall of the Lich King (1920x1200)", src: "/backgrounds/themes/frozen-throne-lichking.jpg", note: "clean" },
-          { name: "Undead Campaign — Northrend", src: "/backgrounds/themes/frozen-throne-alt.jpg", note: "clean" },
-          { name: "Wrath Login — Icecrown (1920x1080)", src: "/backgrounds/themes/blight-alt.jpg", note: "clean, no text" },
+          { name: "Undead Campaign - Northrend", src: "/backgrounds/themes/frozen-throne-alt.jpg", note: "clean" },
+          { name: "Wrath Login - Icecrown (1920x1080)", src: "/backgrounds/themes/blight-alt.jpg", note: "clean, no text" },
         ],
       },
       {
         label: "Dalaran / Arcane",
         items: [
-          { name: "Peter Lee — Floating City", src: "/backgrounds/themes/dalaran.jpg", note: "stunning" },
+          { name: "Peter Lee - Floating City", src: "/backgrounds/themes/dalaran.jpg", note: "stunning" },
           { name: "Dalaran Overview", src: "/backgrounds/themes/dalaran-alt.jpg" },
         ],
       },
       {
         label: "Lordaeron",
         items: [
-          { name: "Human Campaign — Knight in Gates", src: "/backgrounds/themes/lordaeron.jpg" },
-          { name: "The Culling — Arthas at Stratholme (1920x1080)", src: "/backgrounds/themes/culling-clean.jpg", note: "clean, Ken Wong/Lemon Sky" },
+          { name: "Human Campaign - Knight in Gates", src: "/backgrounds/themes/lordaeron.jpg" },
+          { name: "The Culling - Arthas at Stratholme (1920x1080)", src: "/backgrounds/themes/culling-clean.jpg", note: "clean, Ken Wong/Lemon Sky" },
         ],
       },
       {
         label: "Ashenvale",
         items: [
-          { name: "Night Elf Campaign — Moonlit Forest", src: "/backgrounds/themes/ashenvale.jpg" },
+          { name: "Night Elf Campaign - Moonlit Forest", src: "/backgrounds/themes/ashenvale.jpg" },
         ],
       },
       {
         label: "Blackrock",
         items: [
           { name: "Blackrock Mountain Concept", src: "/backgrounds/themes/blackrock-alt.jpg", note: "incredible painting" },
-          { name: "Cataclysm Login — Volcanic (1920x1080)", src: "/backgrounds/themes/blackrock-cataclysm.jpg", note: "clean, no text" },
-          { name: "Rage of the Firelands — Ragnaros (1920x1200)", src: "/backgrounds/themes/blackrock-firelands.jpg", note: "clean" },
+          { name: "Cataclysm Login - Volcanic (1920x1080)", src: "/backgrounds/themes/blackrock-cataclysm.jpg", note: "clean, no text" },
+          { name: "Rage of the Firelands - Ragnaros (1920x1200)", src: "/backgrounds/themes/blackrock-firelands.jpg", note: "clean" },
         ],
       },
       {
         label: "Fel / Burning Legion",
         items: [
-          { name: "BC Login — Dark Portal (1920x1080)", src: "/backgrounds/themes/fel-alt.jpg", note: "clean" },
-          { name: "Legion Login — Tomb of Sargeras (1920x1080)", src: "/backgrounds/themes/arcane-legion-login.jpg", note: "clean" },
+          { name: "BC Login - Dark Portal (1920x1080)", src: "/backgrounds/themes/fel-alt.jpg", note: "clean" },
+          { name: "Legion Login - Tomb of Sargeras (1920x1080)", src: "/backgrounds/themes/arcane-legion-login.jpg", note: "clean" },
           { name: "Outland WC3 Map", src: "/backgrounds/themes/outland.jpg", note: "map style" },
         ],
       },
       {
         label: "Holy Light",
         items: [
-          { name: "Cathedral of Light — Hearthstone", src: "/backgrounds/themes/holy-light.jpg" },
+          { name: "Cathedral of Light - Hearthstone", src: "/backgrounds/themes/holy-light.jpg" },
           { name: "Uther the Lightbringer", src: "/backgrounds/themes/holy-light-alt.jpg" },
         ],
       },
@@ -345,22 +345,22 @@ const SECTIONS = [
         items: [
           { name: "WC3R Undead Wallpaper (4096x2160)", src: "/backgrounds/themes/blight-undead-4k.jpg", note: "4K, official Scourge" },
           { name: "Naxxramas Classic (3840x2160)", src: "/backgrounds/themes/blight-naxx-clean.jpg", note: "4K, clean" },
-          { name: "Wrath Login — Icecrown (1920x1080)", src: "/backgrounds/themes/blight-alt.jpg", note: "clean, no text" },
+          { name: "Wrath Login - Icecrown (1920x1080)", src: "/backgrounds/themes/blight-alt.jpg", note: "clean, no text" },
         ],
       },
       {
         label: "Arena / Combat",
         items: [
-          { name: "WC3 Reforged — Humans vs Orcs (3640x2048)", src: "/backgrounds/themes/arena-reforged.jpg", note: "clean, iconic" },
-          { name: "Tyrande and Illidan — Astri Lohne (3413x1920)", src: "/backgrounds/themes/arena-tyrande-illidan.jpg", note: "clean, ultrawide" },
+          { name: "WC3 Reforged - Humans vs Orcs (3640x2048)", src: "/backgrounds/themes/arena-reforged.jpg", note: "clean, iconic" },
+          { name: "Tyrande and Illidan - Astri Lohne (3413x1920)", src: "/backgrounds/themes/arena-tyrande-illidan.jpg", note: "clean, ultrawide" },
           { name: "Arthas Taking Frostmourne (2062x1160)", src: "/backgrounds/themes/arena-frostmourne.jpg", note: "clean, iconic scene" },
-          { name: "Ring of Valor — Horde Banners", src: "/backgrounds/themes/arena-alt.jpg", note: "clean" },
+          { name: "Ring of Valor - Horde Banners", src: "/backgrounds/themes/arena-alt.jpg", note: "clean" },
         ],
       },
       {
         label: "Midnight / Dark",
         items: [
-          { name: "Shadowlands Login — Shattered Sky (3500x1969)", src: "/backgrounds/themes/midnight.png", note: "clean, no text" },
+          { name: "Shadowlands Login - Shattered Sky (3500x1969)", src: "/backgrounds/themes/midnight.png", note: "clean, no text" },
           { name: "Campfire Under Stars (existing)", src: "/frames/launcher/Static_Background.png" },
         ],
       },
@@ -407,7 +407,7 @@ const SECTIONS = [
   {
     id: "stone",
     title: "Stone / Bronze / Marble Corners",
-    desc: "ItemTextFrame corner pieces — 4 variants",
+    desc: "ItemTextFrame corner pieces - 4 variants",
     items: [
       { name: "Stone TL", src: "/frames/stone/Stone-TL.png" },
       { name: "Stone TR", src: "/frames/stone/Stone-TR.png" },
@@ -554,7 +554,7 @@ const SECTIONS = [
   {
     id: "kenney",
     title: "Kenney Fantasy UI Borders",
-    desc: "CC0 licensed 9-slice borders — kenney.nl/assets/fantasy-ui-borders",
+    desc: "CC0 licensed 9-slice borders - kenney.nl/assets/fantasy-ui-borders",
     minWidth: "120px",
     items: [
       { name: "Preview Sheet", src: "/frames/external/kenney/Preview.png" },
@@ -588,7 +588,7 @@ const SECTIONS = [
   {
     id: "hive-workshop",
     title: "Hive Workshop Custom UIs",
-    desc: "Custom WC3 UI packs — hiveworkshop.com/repositories/user-interface.779",
+    desc: "Custom WC3 UI packs - hiveworkshop.com/repositories/user-interface.779",
     minWidth: "280px",
     items: [
       { name: "Dragon Scales UI", src: "/frames/external/hive/dragon-scales.jpg" },
@@ -634,7 +634,7 @@ export default function Assets() {
           <SectionTitle>{section.title}</SectionTitle>
           <SectionDesc>{section.desc}</SectionDesc>
 
-          {/* Theme backgrounds — grouped by theme */}
+          {/* Theme backgrounds - grouped by theme */}
           {section.isThemeBackgrounds ? (
             <>
               {section.groups.map((group) => (
@@ -649,7 +649,7 @@ export default function Assets() {
                         <AssetInfo>
                           <AssetName>{item.name}</AssetName>
                           <AssetPath onClick={() => copyPath(item.src)}>
-                            {item.src}{item.note ? ` — ${item.note}` : ""}
+                            {item.src}{item.note ? ` - ${item.note}` : ""}
                           </AssetPath>
                         </AssetInfo>
                       </Card>
@@ -793,7 +793,7 @@ export default function Assets() {
                   src={item.src}
                   name={item.name}
                   path={item.src}
-                  bg="#222"
+                  bg="var(--grey-dark)"
                   maxH={item.name.startsWith("Preview") || item.name.startsWith("Sample") ? "300px" : "120px"}
                   minHeight={item.name.startsWith("Preview") || item.name.startsWith("Sample") ? "200px" : "80px"}
                 />
@@ -821,35 +821,35 @@ export default function Assets() {
         <ExternalLinks>
           <ExtLink href="https://kenney.nl/assets/fantasy-ui-borders" target="_blank" rel="noopener">
             <ExtLinkTitle>Kenney Fantasy UI Borders</ExtLinkTitle>
-            <ExtLinkMeta>CC0 — 140 sprites, 9-slice, free commercial use</ExtLinkMeta>
+            <ExtLinkMeta>CC0 - 140 sprites, 9-slice, free commercial use</ExtLinkMeta>
           </ExtLink>
           <ExtLink href="https://gaming-tools.com/warcraft-3/warcraft-3-fansite-kit-free-download/" target="_blank" rel="noopener">
             <ExtLinkTitle>WC3 Fansite Kit</ExtLinkTitle>
-            <ExtLinkMeta>Free — Race-specific borders (Human, Orc, NE, UD) + Lifecraft font</ExtLinkMeta>
+            <ExtLinkMeta>Free - Race-specific borders (Human, Orc, NE, UD) + Lifecraft font</ExtLinkMeta>
           </ExtLink>
           <ExtLink href="https://www.hiveworkshop.com/repositories/user-interface.779/" target="_blank" rel="noopener">
             <ExtLinkTitle>Hive Workshop Custom UIs</ExtLinkTitle>
-            <ExtLinkMeta>Community — 9+ pages of custom WC3 UI replacement packs</ExtLinkMeta>
+            <ExtLinkMeta>Community - 9+ pages of custom WC3 UI replacement packs</ExtLinkMeta>
           </ExtLink>
           <ExtLink href="https://ronenness.github.io/RPGUI/" target="_blank" rel="noopener">
             <ExtLinkTitle>RPGUI Framework</ExtLinkTitle>
-            <ExtLinkMeta>zlib license — CSS/JS RPG frames (framed-golden, framed-golden-2)</ExtLinkMeta>
+            <ExtLinkMeta>zlib license - CSS/JS RPG frames (framed-golden, framed-golden-2)</ExtLinkMeta>
           </ExtLink>
           <ExtLink href="https://opengameart.org/content/golden-ui" target="_blank" rel="noopener">
             <ExtLinkTitle>OpenGameArt: Golden UI</ExtLinkTitle>
-            <ExtLinkMeta>CC0 — Panels, bars, buttons, inventory by Buch</ExtLinkMeta>
+            <ExtLinkMeta>CC0 - Panels, bars, buttons, inventory by Buch</ExtLinkMeta>
           </ExtLink>
           <ExtLink href="https://free-game-assets.itch.io/fantasy-rpg-user-interface" target="_blank" rel="noopener">
             <ExtLinkTitle>Fantasy RPG UI (itch.io)</ExtLinkTitle>
-            <ExtLinkMeta>$0.90 — Includes chat interface assets, gold frames</ExtLinkMeta>
+            <ExtLinkMeta>$0.90 - Includes chat interface assets, gold frames</ExtLinkMeta>
           </ExtLink>
           <ExtLink href="https://codepen.io/kevinmcullen/pen/PVmwVz" target="_blank" rel="noopener">
             <ExtLinkTitle>Gold Shimmer Border (CodePen)</ExtLinkTitle>
-            <ExtLinkMeta>CSS-only — Animated gold border sweep effect</ExtLinkMeta>
+            <ExtLinkMeta>CSS-only - Animated gold border sweep effect</ExtLinkMeta>
           </ExtLink>
           <ExtLink href="https://codepen.io/propjockey/pen/poqKrGe" target="_blank" rel="noopener">
             <ExtLinkTitle>CSS Fantasy Buttons (CodePen)</ExtLinkTitle>
-            <ExtLinkMeta>CSS-only — Metallic gradient border techniques</ExtLinkMeta>
+            <ExtLinkMeta>CSS-only - Metallic gradient border techniques</ExtLinkMeta>
           </ExtLink>
         </ExternalLinks>
       </Section>

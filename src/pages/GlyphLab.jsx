@@ -1,14 +1,15 @@
 import React, { useState, useEffect } from "react";
 import styled from "styled-components";
+import { chartColors } from "../lib/design-tokens";
 
 const RELAY_URL = import.meta.env.VITE_CHAT_RELAY_URL || "https://4v4gg-chat-relay.fly.dev";
 
 // ── Colors ────────────────────────────────────────────────────────────────────
 const GOLD   = "#eab308";
-const HERO_C = "#fcd34d"; // brighter amber for hero groups
+const HERO_C = chartColors.gold; // brighter gold for hero groups
 const VIOLET = "#a78bfa";
 const GREY_N = "#6b7280";
-const ASSIGN = "#7eb8da";
+const ASSIGN = chartColors.blue;
 
 // ── WC3 unit data ─────────────────────────────────────────────────────────────
 const SHORT_NAMES = {
@@ -125,7 +126,7 @@ export function GlyphScaled({
   if (active.length === 0) {
     return (
       <svg width={W} height={H}>
-        <text x={CX} y={CY} textAnchor="middle" fill="#374151" fontSize="12" fontFamily="var(--font-mono)">no data</text>
+        <text x={CX} y={CY} textAnchor="middle" fill="var(--grey-mid)" fontSize="12" fontFamily="var(--font-mono)">no data</text>
       </svg>
     );
   }
@@ -195,8 +196,8 @@ export function GlyphScaled({
             onMouseLeave={() => !mini && setHoveredGroup(null)}>
             {/* Hero glow ring (outside the background clear circle) */}
             {isHero && <circle r={r + 9} fill="none" stroke={HERO_C} strokeWidth={2.5} opacity={0.35} />}
-            <circle r={r + 5} fill="#0d1117" />
-            <circle r={r} fill="#0f172a" />
+            <circle r={r + 5} fill="var(--grey-dark)" />
+            <circle r={r} fill="var(--grey-dark)" />
             {/* Selected arc */}
             <g transform="rotate(-90)">
               <circle r={r} fill="none" stroke={color} strokeWidth={mini ? 3 : 5}
@@ -226,7 +227,7 @@ export function GlyphScaled({
             {apm}
           </text>
           <text x={CX} y={CY + 14} textAnchor="middle"
-            fill="#6b7280" fontSize="10" fontFamily="var(--font-mono)">APM</text>
+            fill="var(--grey-light)" fontSize="10" fontFamily="var(--font-mono)">APM</text>
         </g>
       )}
 
@@ -242,7 +243,7 @@ export function GlyphScaled({
         return (
           <g pointerEvents="none">
             <rect x={tx} y={ty} width={w} height={h} rx={5}
-              fill="#0f172a" stroke="#374151" strokeWidth={1} opacity={0.96} />
+              fill="var(--grey-dark)" stroke="var(--grey-mid)" strokeWidth={1} opacity={0.96} />
             {tooltipUnits.map((u, i) => {
               const hasIcon = UNIT_ICONS_SET.has(u.id);
               const name = SHORT_NAMES[u.id] || u.id;
@@ -252,7 +253,7 @@ export function GlyphScaled({
                   x={ix} y={ty + pad} width={iconS} height={iconS} />
               ) : (
                 <text key={i} x={ix + 4} y={ty + pad + 15}
-                  fill="#9ca3af" fontSize="8" fontFamily="var(--font-mono)">{name}</text>
+                  fill="var(--grey-light)" fontSize="8" fontFamily="var(--font-mono)">{name}</text>
               );
             })}
           </g>
@@ -303,7 +304,7 @@ function GroupBreakdown({ groupUsage = [], groupCompositions = {} }) {
                   </UnitChip>
                 );
               })}
-              {topUnits.length === 0 && <NoData>—</NoData>}
+              {topUnits.length === 0 && <NoData>-</NoData>}
             </UnitsCell>
           </BreakdownRow>
         );
@@ -553,7 +554,7 @@ const Stats = styled.div`
 
 const StatRow = styled.div`display: flex; gap: var(--space-4); flex-wrap: wrap;`;
 const StatItem = styled.div`display: flex; flex-direction: column; gap: 2px;`;
-const StatVal = styled.div`font-family: var(--font-mono); font-size: var(--text-sm); color: #fff;`;
+const StatVal = styled.div`font-family: var(--font-mono); font-size: var(--text-sm); color: var(--white);`;
 const StatKey = styled.div`
   font: var(--text-xxs) var(--font-mono);
   text-transform: uppercase;
@@ -637,10 +638,10 @@ const RoleCell = styled.div`font: 10px var(--font-mono); letter-spacing: 0.1em; 
 const RatioCell = styled.div`display: flex; align-items: center; gap: 6px;`;
 const RatioBars = styled.div`
   display: flex; width: 56px; height: 5px;
-  border-radius: 3px; overflow: hidden; background: #1f2937;
+  border-radius: var(--radius-sm); overflow: hidden; background: var(--grey-dark);
 `;
 const RatioBar = styled.div`height: 100%;`;
-const RatioText = styled.div`font: 10px var(--font-mono); color: var(--grey-light); white-space: nowrap;`;
+const RatioText = styled.div`font: var(--text-xxxs) var(--font-mono); color: var(--grey-light); white-space: nowrap;`;
 
 const UnitsCell = styled.div`display: flex; flex-wrap: wrap; gap: 3px;`;
 const UnitChip = styled.span`
@@ -649,7 +650,7 @@ const UnitChip = styled.span`
   border-radius: 3px;
   background: ${p => p.$hero ? "rgba(252,211,77,0.12)" : p.$bldg ? "rgba(107,114,128,0.15)" : "rgba(255,255,255,0.05)"};
   border: 1px solid ${p => p.$hero ? "rgba(252,211,77,0.3)" : "rgba(255,255,255,0.06)"};
-  span { font: 10px var(--font-mono); padding: 0 3px; color: ${p => p.$hero ? HERO_C : p.$bldg ? "#9ca3af" : "#d1d5db"}; }
+  span { font: var(--text-xxxs) var(--font-mono); padding: 0 3px; color: ${p => p.$hero ? HERO_C : p.$bldg ? "var(--grey-light)" : "var(--text-body)"}; }
 `;
 const UnitIcon = styled.img`width: 22px; height: 22px; object-fit: contain; image-rendering: pixelated; display: block;`;
-const NoData = styled.span`font: 11px var(--font-mono); color: #374151;`;
+const NoData = styled.span`font: var(--text-xxxs) var(--font-mono); color: var(--grey-mid);`;

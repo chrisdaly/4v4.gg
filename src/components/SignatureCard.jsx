@@ -145,7 +145,7 @@ function HotkeyRing({ groupUsage }) {
         .attr("stroke", "rgba(255, 255, 255, 0.06)")
         .attr("stroke-width", 0.5);
 
-      // Outer arc — assigned (cyan)
+      // Outer arc - assigned (cyan)
       if (g.assigned > 0) {
         const opacity = 0.3 + 0.7 * (g.assigned / maxAssigned);
         const thickness = 4 + 10 * (g.assigned / maxAssigned);
@@ -160,7 +160,7 @@ function HotkeyRing({ groupUsage }) {
           .attr("opacity", opacity);
       }
 
-      // Inner arc — used (gold)
+      // Inner arc - used (gold)
       if (g.used > 0) {
         const opacity = 0.3 + 0.7 * (g.used / maxUsed);
         const thickness = 4 + 8 * (g.used / maxUsed);
@@ -171,7 +171,7 @@ function HotkeyRing({ groupUsage }) {
             startAngle,
             endAngle,
           }))
-          .attr("fill", "var(--gold, #fcdb33)")
+          .attr("fill", "var(--gold)")
           .attr("opacity", opacity);
       }
 
@@ -190,14 +190,14 @@ function HotkeyRing({ groupUsage }) {
         .text(g.id);
     });
 
-    // Center text — hotkey diversity
+    // Center text - hotkey diversity
     const diversity = groups.filter(g => g.used > 0).length;
     container.append("text")
       .attr("text-anchor", "middle")
       .attr("dominant-baseline", "central")
       .attr("font-family", "var(--font-mono, monospace)")
       .attr("font-size", 20)
-      .attr("fill", "var(--gold, #fcdb33)")
+      .attr("fill", "var(--gold)")
       .attr("font-weight", "bold")
       .text(diversity);
 
@@ -298,9 +298,9 @@ function ActionRadar({ actionSegment }) {
 
     g.append("path")
       .attr("d", lineGen(points))
-      .attr("fill", "var(--gold, #fcdb33)")
+      .attr("fill", "var(--gold)")
       .attr("fill-opacity", 0.15)
-      .attr("stroke", "var(--gold, #fcdb33)")
+      .attr("stroke", "var(--gold)")
       .attr("stroke-width", 1.5)
       .attr("stroke-opacity", 0.8);
 
@@ -309,7 +309,7 @@ function ActionRadar({ actionSegment }) {
       g.append("circle")
         .attr("cx", px).attr("cy", py)
         .attr("r", 2.5)
-        .attr("fill", "var(--gold, #fcdb33)")
+        .attr("fill", "var(--gold)")
         .attr("fill-opacity", 0.7);
     });
 

@@ -29,7 +29,7 @@ const LEGACY_KEYS = {
 const TAB_CONTENT = {
   identify: {
     title: "Identify",
-    lead: "Search any player to find similar-fingerprint candidates — backed by playstyle fingerprint + neural similarity.",
+    lead: "Search any player to find similar-fingerprint candidates - backed by playstyle fingerprint + neural similarity.",
   },
   map: {
     title: "Player Map",
@@ -37,7 +37,7 @@ const TAB_CONTENT = {
   },
   signatures: {
     title: "Signatures",
-    lead: "The most distinctive playstyles in the indexed population — player extremes across every behavioral dimension.",
+    lead: "The most distinctive playstyles in the indexed population - player extremes across every behavioral dimension.",
   },
   confirmed: {
     title: "Confirmed",

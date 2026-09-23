@@ -5,7 +5,7 @@ import { raceMapping } from "../lib/constants";
 
 /* Renders a match note from lib/matchNotes.js. Subject notes get the
    player's avatar (or race icon), linked name, match MMR, and the hero
-   icons they played — plain notes render as text. LLM blurbs may tag
+   icons they played - plain notes render as text. LLM blurbs may tag
    game entities like [[frostwyrm|frosties]]; we render the unit/hero
    icon inline after the tagged words. */
 
@@ -110,7 +110,7 @@ const RaceIconImg = styled.img`
 const Quote = styled.span`
   color: var(--grey-light);
   &::before {
-    content: "— “";
+    content: "- “";
   }
   &::after {
     content: "”";

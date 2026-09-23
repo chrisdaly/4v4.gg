@@ -2,7 +2,7 @@
   background: var(--theme-bg, var(--surface-1));
   border: var(--theme-border, 1px solid var(--grey-mid));
   border-image: var(--theme-border-image, none);
-  border-radius: var(--radius-md);
+  border-radius: var(--radius-xl);
   padding: var(--space-4);
   backdrop-filter: var(--theme-blur, none);
   box-shadow: var(--theme-shadow, none);
@@ -175,7 +175,7 @@
   font-size: var(--text-xs);
   color: var(--white);
   pointer-events: none;
-  z-index: 1000;
+  z-index: var(--z-popover);
   white-space: nowrap;
   box-shadow: 0 4px 12px rgba(0, 0, 0, 0.5);
 }

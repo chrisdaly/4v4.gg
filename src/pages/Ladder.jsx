@@ -12,7 +12,6 @@ import useSeasons from "../lib/useSeasons";
 import useOngoingMatches from "../lib/useOngoingMatches";
 import { getLiveStreamers } from "../lib/twitchService";
 import { LEAGUES } from "../lib/constants";
-import { GiCrossedSwords } from "react-icons/gi";
 import "../styles/pages/Ladder.css";
 
 // Initialize rankings from cache for instant UI on navigation
@@ -376,7 +375,7 @@ const Ladder = () => {
               <span className="stat-item">{rankings.length} players</span>
               {inGameCount > 0 && (
                 <span className="stat-item in-game">
-                  <GiCrossedSwords className="in-game-icon-small" />
+                  <span className="live-dot" />
                   {inGameCount} in game
                 </span>
               )}
@@ -393,7 +392,7 @@ const Ladder = () => {
             onChange={(e) => setSearchQuery(e.target.value)}
           />
           {searchQuery && (
-            <button className="search-clear" onClick={() => { setSearchQuery(""); setSearchResults(null); }}>×</button>
+            <Button $icon className="search-clear" onClick={() => { setSearchQuery(""); setSearchResults(null); }} aria-label="Clear search">×</Button>
           )}
         </div>
         <div className="ladder-selectors">

@@ -23,7 +23,7 @@ const buildEventPlayers = (team, relevant) =>
   (team.players || []).map((p) => ({
     battleTag: p.battleTag,
     name: p.name || p.battleTag?.split("#")[0],
-    // effective race — finished games resolve what Random rolled
+    // effective race - finished games resolve what Random rolled
     race: p.rndRace ?? p.race ?? null,
     mmr: p.oldMmr ?? null,
     mmrGain: p.mmrGain ?? null,
@@ -104,7 +104,7 @@ const MobileTabBar = styled.div`
   bottom: 0;
   left: 0;
   right: 0;
-  z-index: 10000;
+  z-index: var(--z-nav);
   height: 48px;
   background: rgba(10, 8, 6, 0.95);
   backdrop-filter: blur(8px);
@@ -194,7 +194,7 @@ const Chat = () => {
   const startedMatchPlayersRef = useRef(new Map());
   const avatarsRef = useRef(avatars);
 
-  // Lowercased battleTags of everyone in the channel — used to decide which
+  // Lowercased battleTags of everyone in the channel - used to decide which
   // game events are relevant enough to show inline in the chat
   useEffect(() => {
     channelTagsRef.current = new Set(
@@ -215,7 +215,7 @@ const Chat = () => {
 
   // When heuristics found nothing, ask the relay's LLM ticker for a drama
   // angle. The relay answers immediately with a provisional blurb, then may
-  // rewrite it once post-game reactions land — so keep polling while
+  // rewrite it once post-game reactions land - so keep polling while
   // pending and swap the text in place (only blurb notes get replaced).
   const fillBlurb = (eventId, matchId, attempt = 0) => {
     getMatchBlurb(matchId).then(({ blurb, parts, badges, rivals, pending, retryInMs }) => {
@@ -567,7 +567,7 @@ const Chat = () => {
     return () => {
       cancelled = true;
     };
-    // Deliberately keyed on count + tick, not the arrays themselves — avatars
+    // Deliberately keyed on count + tick, not the arrays themselves - avatars
     // and onlineUsers churn on every profile fetch during initial load
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [onlineUsers.length, tick]);

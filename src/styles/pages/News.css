@@ -1,5 +1,5 @@
 /* ========================================
-   News Page — Editorial Layout
+   News Page - Editorial Layout
    ======================================== */
 
 /* ── News Index (nw- prefix) ─────────────────────── */
@@ -11,8 +11,8 @@
 
 .nw-section-title {
   font-family: var(--font-display);
-  font-size: clamp(1.4rem, 3vw, 1.8rem);
-  color: var(--white);
+  font-size: var(--text-lg);
+  color: var(--gold);
   font-weight: normal;
   margin: 0 0 var(--space-6) 0;
   text-shadow: 0 2px 12px rgba(0, 0, 0, 0.8);
@@ -92,7 +92,7 @@
 
 .nw-hero-card-title {
   font-family: var(--font-display);
-  font-size: clamp(1.4rem, 3vw, 2rem);
+  font-size: var(--text-lg);
   color: var(--gold);
   margin: 0;
   line-height: 1.2;
@@ -124,7 +124,7 @@
   background: var(--surface-1);
 }
 
-/* Timeline dot — centered on the 2px border-left line
+/* Timeline dot - centered on the 2px border-left line
    dot = 8px content + 2px border each side = 12px total
    border-left center is at -1px from child edge
    so dot left = -1 - 6 = -7px */
@@ -139,7 +139,7 @@
   height: var(--space-2);
   border-radius: var(--radius-full);
   background: var(--grey-mid);
-  border: var(--border-thick) solid var(--surface-1, #0a0a0f);
+  border: var(--border-thick) solid var(--grey-dark);
   transition: background var(--transition);
 }
 
@@ -289,27 +289,10 @@
   color: var(--white);
 }
 
-/* Show more button */
+/* Show more button (ui.jsx Button $pill; layout only) */
 .nw-show-more {
   display: block;
   margin: var(--space-4) auto 0;
-  font-family: var(--font-mono);
-  font-size: var(--text-xxs);
-  text-transform: uppercase;
-  letter-spacing: 0.08em;
-  color: var(--grey-light);
-  background: none;
-  border: var(--border-thin) solid var(--surface-2);
-  padding: var(--space-2) var(--space-6);
-  border-radius: var(--radius-full);
-  cursor: pointer;
-  transition: all var(--transition);
-}
-
-.nw-show-more:hover {
-  color: var(--gold);
-  border-color: var(--gold);
-  background: var(--gold-tint);
 }
 
 .nw-empty {
@@ -354,110 +337,11 @@
   padding: 0 var(--space-8) 96px;
 }
 
-/* ── Day navigation (daily view) ──────────────────── */
-
-.news-day-nav {
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  gap: var(--space-4);
-  padding: var(--space-4) 0;
-  margin-bottom: var(--space-4);
-}
-
 .news-empty {
   color: var(--grey-mid);
   font-size: var(--text-xs);
   padding: var(--space-4) 0;
   text-align: center;
-}
-
-/* ── Controls row (toggle + month nav) ────────────── */
-
-.news-controls {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  gap: var(--space-4);
-  margin-bottom: var(--space-6);
-}
-
-/* ── View toggle (Daily / Weekly) ─────────────────── */
-
-.news-view-toggle {
-  display: flex;
-  gap: var(--space-1);
-}
-
-/* ── Month Navigation ─────────────────────────────── */
-
-.month-nav {
-  display: flex;
-  align-items: center;
-  gap: var(--space-4);
-}
-
-.month-nav-btn {
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  width: 40px;
-  height: 40px;
-  font-family: var(--font-mono);
-  font-size: var(--text-lg);
-  font-weight: 600;
-  color: var(--gold);
-  background: transparent;
-  border: var(--border-thin) solid var(--gold);
-  border-radius: var(--radius-md);
-  cursor: pointer;
-  transition: all var(--transition);
-}
-
-.month-nav-btn:hover:not(:disabled) {
-  background: var(--gold-tint);
-  transform: translateY(-1px);
-}
-
-.month-nav-btn:disabled {
-  opacity: 0.3;
-  cursor: not-allowed;
-  color: var(--grey-mid);
-  border-color: var(--grey-mid);
-}
-
-.month-nav-label {
-  font-family: var(--font-display);
-  font-size: var(--text-lg);
-  color: var(--gold);
-  font-weight: 400;
-  min-width: 120px;
-  text-align: center;
-}
-
-.news-view-btn {
-  font-family: var(--font-mono);
-  font-size: var(--text-xxs);
-  text-transform: uppercase;
-  letter-spacing: 0.08em;
-  color: var(--grey-light);
-  background: none;
-  border: var(--border-thin) solid rgba(255, 255, 255, 0.08);
-  padding: 5px 18px;
-  border-radius: var(--radius-full);
-  cursor: pointer;
-  transition: all var(--transition);
-}
-
-.news-view-btn:hover {
-  color: var(--white);
-  border-color: rgba(255, 255, 255, 0.2);
-}
-
-.news-view-btn--active {
-  color: var(--gold);
-  border-color: var(--gold);
-  background: var(--gold-tint);
 }
 
 /* ── Digest panel (panelless editorial) ──────────── */
@@ -468,29 +352,31 @@
 
 /* Valentine's Day theme (Feb 14) */
 .news-digest--valentines {
+  --seasonal-accent: #ff4d6a;
+  --seasonal-accent-rgb: 255, 77, 106;
   position: relative;
   overflow: hidden;
-  border-color: rgba(255, 77, 106, 0.4);
+  border-color: rgba(var(--seasonal-accent-rgb), 0.4);
   background:
-    radial-gradient(ellipse at 10% 0%, rgba(255, 77, 106, 0.12) 0%, transparent 50%),
+    radial-gradient(ellipse at 10% 0%, rgba(var(--seasonal-accent-rgb), 0.12) 0%, transparent 50%),
     radial-gradient(ellipse at 90% 0%, rgba(180, 40, 80, 0.10) 0%, transparent 45%),
-    radial-gradient(ellipse at 50% 100%, rgba(255, 77, 106, 0.06) 0%, transparent 50%),
+    radial-gradient(ellipse at 50% 100%, rgba(var(--seasonal-accent-rgb), 0.06) 0%, transparent 50%),
     radial-gradient(ellipse at 50% 50%, rgba(100, 20, 40, 0.08) 0%, transparent 70%),
     rgba(15, 6, 10, 0.4);
 }
 
 .news-digest--valentines .news-digest-label,
-.news-digest--valentines .digest-date-tab--active {
-  color: #ff4d6a;
+.news-digest--valentines .digest-date-tab[data-active="true"] {
+  color: var(--seasonal-accent);
 }
 
-.news-digest--valentines .digest-date-tab--active {
-  border-color: #ff4d6a;
-  background: rgba(255, 77, 106, 0.1);
+.news-digest--valentines .digest-date-tab[data-active="true"] {
+  border-color: var(--seasonal-accent);
+  background: rgba(var(--seasonal-accent-rgb), 0.1);
 }
 
 .news-digest--valentines .digest-section--drama .digest-section-label {
-  color: #ff4d6a;
+  color: var(--seasonal-accent);
 }
 
 .news-digest--valentines::before {
@@ -501,11 +387,11 @@
   font-size: var(--text-lg);
   letter-spacing: 0.18em;
   text-transform: uppercase;
-  color: #ff4d6a;
-  text-shadow: 0 0 30px rgba(255, 77, 106, 0.4);
+  color: var(--seasonal-accent);
+  text-shadow: 0 0 30px rgba(var(--seasonal-accent-rgb), 0.4);
   padding: var(--space-6) 0 var(--space-4);
   margin-bottom: var(--space-4);
-  border-bottom: 1px solid rgba(255, 77, 106, 0.2);
+  border-bottom: 1px solid rgba(var(--seasonal-accent-rgb), 0.2);
 }
 
 /* Floating hearts */
@@ -541,7 +427,7 @@
   bottom: -20px;
   opacity: 0;
   animation: heartRise linear infinite;
-  color: #ff4d6a;
+  color: var(--seasonal-accent);
   font-size: var(--text-xs);
 }
 
@@ -595,7 +481,7 @@
   color: var(--gold);
 }
 
-/* Date tabs — horizontal scroll */
+/* Date tabs - horizontal scroll */
 .digest-date-tabs-wrap {
   display: flex;
   align-items: center;
@@ -616,30 +502,9 @@
   display: none;
 }
 
+/* Date tabs are ui.jsx Button $pill (data-active for the selected day); layout only */
 .digest-date-tab {
-  font-family: var(--font-mono);
-  font-size: var(--text-xxs);
-  text-transform: uppercase;
-  letter-spacing: 0.06em;
-  color: var(--grey-light);
-  background: none;
-  border: var(--border-thin) solid rgba(255, 255, 255, 0.08);
-  padding: 4px 12px;
-  border-radius: var(--radius-full);
-  cursor: pointer;
-  transition: all var(--transition);
   white-space: nowrap;
-}
-
-.digest-date-tab:hover {
-  color: var(--white);
-  border-color: rgba(255, 255, 255, 0.2);
-}
-
-.digest-date-tab--active {
-  color: var(--gold);
-  border-color: var(--gold);
-  background: var(--gold-tint);
 }
 
 .digest-player-filter {
@@ -695,7 +560,7 @@
   font-family: var(--font-mono);
   font-size: var(--text-xxs);
   text-transform: uppercase;
-  letter-spacing: 0.08em;
+  letter-spacing: 0.1em;
   color: var(--grey-light);
   padding-top: 3px;
   position: sticky;
@@ -814,7 +679,7 @@
   color: var(--gold);
 }
 
-/* ── Upset Card — [Team1] [Chart] [Team2] ─────────── */
+/* ── Upset Card - [Team1] [Chart] [Team2] ─────────── */
 
 .digest-upset-cards {
   display: flex;
@@ -1064,7 +929,7 @@
   white-space: nowrap;
 }
 
-/* Digest section body — wraps avatars + text */
+/* Digest section body - wraps avatars + text */
 .digest-section-body {
   display: flex;
   align-items: flex-start;
@@ -1166,14 +1031,6 @@
   height: 16px;
   opacity: 0.7;
   flex-shrink: 0;
-}
-
-/* Game link chips */
-.digest-game-links {
-  display: flex;
-  gap: var(--space-1);
-  flex-wrap: wrap;
-  margin-top: 2px;
 }
 
 /* Form dots (W/L session indicators) */
@@ -1290,15 +1147,17 @@
   margin-top: 6px;
 }
 
+/* Quote blocks share the :root --quote-* vars with mg-quote and cc-* */
 .digest-quotes {
   display: flex;
   flex-direction: column;
-  gap: 2px;
-  padding-left: 12px;
-  border-left: var(--border-thick) solid var(--surface-3);
+  gap: var(--quote-item-gap);
 }
 
 .digest-quote {
+  margin-left: var(--quote-indent);
+  padding-left: var(--quote-pad-left);
+  border-left: var(--quote-border);
   font-family: var(--font-body);
   font-size: var(--text-xs);
   font-style: italic;
@@ -1306,66 +1165,31 @@
   line-height: 1.5;
 }
 
-.digest-quote::before {
-  content: "\201C";
-  color: var(--grey-mid);
-}
-
-.digest-quote::after {
-  content: "\201D";
-  color: var(--grey-mid);
-}
-
 /* Chat-style quotes (with speaker attribution) */
 .digest-quotes--chat {
-  border-left: var(--border-thick) solid rgba(255, 255, 255, 0.06);
-  padding-left: var(--space-4);
-  margin-left: var(--space-2);
-  gap: var(--space-2);
+  gap: var(--quote-group-gap);
 }
 
 .digest-quote-group {
   display: flex;
   flex-direction: column;
-  gap: 1px;
+  gap: var(--quote-item-gap);
 }
 
 .digest-quote-name {
   font-family: var(--font-display);
-  font-size: var(--text-xxs);
+  font-size: var(--text-xs);
   color: var(--gold);
   line-height: 1.4;
+  margin-bottom: var(--quote-name-gap);
 }
 
-.digest-quote--attributed {
-  font-style: italic;
-}
-
-.digest-quote--attributed::before,
-.digest-quote--attributed::after {
-  content: none;
-}
-
-/* Screenshot button */
+/* Screenshot button (ui.jsx Button $pill; layout only) */
 .digest-screenshot-btn {
   display: inline-flex;
   align-items: center;
   justify-content: center;
-  background: none;
-  border: var(--border-thin) solid rgba(255, 255, 255, 0.08);
-  color: var(--grey-light);
-  padding: 4px 10px;
-  border-radius: var(--radius-full);
-  cursor: pointer;
-  font-family: var(--font-mono);
-  font-size: var(--text-xxs);
-  transition: all var(--transition);
   white-space: nowrap;
-}
-
-.digest-screenshot-btn:hover {
-  color: var(--white);
-  border-color: rgba(255, 255, 255, 0.2);
 }
 
 /* ── Admin key prompt & editor shell ────────────────── */
@@ -1410,29 +1234,9 @@
   color: var(--grey-mid);
 }
 
+/* "More" button (ui.jsx Button $secondary; layout only) */
 .digest-admin-more-btn {
-  display: inline-flex;
-  align-items: center;
-  gap: 4px;
-  font-family: var(--font-display);
-  font-size: var(--text-xxs);
-  color: var(--gold);
-  background: transparent;
-  border: var(--border-thin) solid var(--gold);
-  border-radius: var(--radius-md);
-  padding: 4px 10px;
-  cursor: pointer;
-  transition: all var(--transition);
   align-self: flex-start;
-}
-
-.digest-admin-more-btn:hover:not(:disabled) {
-  background: var(--gold-tint);
-}
-
-.digest-admin-more-btn:disabled {
-  opacity: 0.3;
-  cursor: not-allowed;
 }
 
 /* Admin controls row on each bullet item */
@@ -1645,31 +1449,22 @@
   flex-wrap: wrap;
 }
 
-.stat-picker-candidate {
+/* ui.jsx Button $pill; layout + dim states only (children set their own type) */
+.stat-picker-candidates .stat-picker-candidate {
   display: flex;
   align-items: center;
   gap: 6px;
-  padding: 4px 10px;
-  font: inherit;
-  color: inherit;
-  background: rgba(255, 255, 255, 0.03);
-  border: var(--border-thin) solid rgba(255, 255, 255, 0.08);
-  border-radius: var(--radius-full);
-  cursor: pointer;
-  transition: all var(--transition);
+  text-transform: none;
   white-space: nowrap;
   opacity: 0.5;
 }
 
-.stat-picker-candidate:hover {
+.stat-picker-candidates .stat-picker-candidate:hover {
   opacity: 0.8;
-  border-color: rgba(255, 255, 255, 0.2);
 }
 
-.stat-picker-candidate--selected {
+.stat-picker-candidates .stat-picker-candidate--selected {
   opacity: 1;
-  border-color: var(--gold);
-  background: rgba(252, 219, 51, 0.08);
 }
 
 .stat-picker-candidate-name {
@@ -1684,18 +1479,6 @@
   color: var(--grey-light);
 }
 
-.stat-picker-streak {
-  font-weight: 600;
-}
-
-.stat-picker-streak--hot {
-  color: var(--green);
-}
-
-.stat-picker-streak--cold {
-  color: var(--red);
-}
-
 .stat-picker-candidate .digest-form-dots {
   margin-left: 2px;
 }
@@ -1706,43 +1489,9 @@
   gap: var(--space-2);
 }
 
+/* Admin key field is ui.jsx Input; layout only */
 .digest-editor-key-input {
   flex: 1;
-  padding: 8px 12px;
-  font-family: var(--font-mono);
-  font-size: var(--text-xs);
-  color: var(--white);
-  background: var(--surface-2);
-  border: 1px solid rgba(255, 255, 255, 0.15);
-  border-radius: var(--radius-sm);
-  outline: none;
-}
-
-.digest-editor-key-input:focus {
-  border-color: var(--gold);
-}
-
-.digest-editor-key-btn {
-  padding: 8px 16px;
-  font-family: var(--font-mono);
-  font-size: var(--text-xxs);
-  text-transform: uppercase;
-  letter-spacing: 0.1em;
-  color: var(--white);
-  background: rgba(252, 219, 51, 0.15);
-  border: 1px solid var(--gold);
-  border-radius: var(--radius-sm);
-  cursor: pointer;
-  transition: all var(--transition);
-}
-
-.digest-editor-key-btn:hover:not(:disabled) {
-  background: rgba(252, 219, 51, 0.25);
-}
-
-.digest-editor-key-btn:disabled {
-  opacity: 0.4;
-  cursor: not-allowed;
 }
 
 .digest-today-notice {
@@ -1754,32 +1503,12 @@
   font-style: italic;
 }
 
+/* Refresh button (ui.jsx Button $pill; layout only) */
 .digest-editor-refresh {
   display: flex;
   align-items: center;
   gap: 6px;
   margin: var(--space-2) auto 0;
-  padding: 6px 16px;
-  font-family: var(--font-mono);
-  font-size: var(--text-xxs);
-  text-transform: uppercase;
-  letter-spacing: 0.08em;
-  color: var(--grey-light);
-  background: none;
-  border: var(--border-thin) solid rgba(255, 255, 255, 0.08);
-  border-radius: var(--radius-full);
-  cursor: pointer;
-  transition: all var(--transition);
-}
-
-.digest-editor-refresh:hover:not(:disabled) {
-  color: var(--white);
-  border-color: rgba(255, 255, 255, 0.2);
-}
-
-.digest-editor-refresh:disabled {
-  opacity: 0.5;
-  cursor: not-allowed;
 }
 
 .spin {
@@ -1802,25 +1531,6 @@
   align-items: center;
   justify-content: space-between;
   margin-top: var(--space-2);
-}
-
-.digest-admin-reset-btn {
-  font-family: var(--font-mono);
-  font-size: var(--text-xxs);
-  text-transform: uppercase;
-  letter-spacing: 0.08em;
-  color: var(--grey-light);
-  background: none;
-  border: var(--border-thin) solid rgba(255, 255, 255, 0.08);
-  padding: 5px 14px;
-  border-radius: var(--radius-full);
-  cursor: pointer;
-  transition: all var(--transition);
-}
-
-.digest-admin-reset-btn:hover {
-  color: var(--white);
-  border-color: rgba(255, 255, 255, 0.2);
 }
 
 /* Admin key validation error */
@@ -2017,76 +1727,6 @@
   color: var(--grey-light);
   min-width: 56px;
   text-align: right;
-}
-
-/* ── Meta Report Section ────────────────────────────── */
-
-.digest-meta-report {
-  display: flex;
-  flex-direction: column;
-  gap: var(--space-2);
-}
-
-.digest-meta-races {
-  display: flex;
-  gap: var(--space-4);
-  flex-wrap: wrap;
-}
-
-.digest-meta-race {
-  display: flex;
-  align-items: center;
-  gap: var(--space-1);
-}
-
-.digest-meta-race-icon {
-  width: 20px;
-  height: 20px;
-  object-fit: contain;
-}
-
-.digest-meta-race-name {
-  font-family: var(--font-mono);
-  font-size: var(--text-xxs);
-  color: var(--grey-light);
-  text-transform: uppercase;
-  letter-spacing: 0.05em;
-}
-
-.digest-meta-race-pick {
-  font-family: var(--font-mono);
-  font-size: var(--text-xs);
-  color: var(--white);
-}
-
-.digest-meta-race-wr {
-  font-family: var(--font-mono);
-  font-size: var(--text-xxs);
-  color: var(--grey-light);
-}
-
-.digest-meta-race-wr--high {
-  color: var(--green);
-}
-
-.digest-meta-maps {
-  display: flex;
-  gap: var(--space-2);
-  flex-wrap: wrap;
-}
-
-.digest-meta-map {
-  font-family: var(--font-mono);
-  font-size: var(--text-xxs);
-  color: var(--grey-light);
-  background: var(--surface-2);
-  padding: 2px var(--space-1);
-  border-radius: var(--radius-sm);
-}
-
-.digest-meta-map-count {
-  color: var(--white);
-  font-weight: 600;
 }
 
 /* ── Awards Section ─────────────────────────────────── */

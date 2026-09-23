@@ -3,7 +3,7 @@ import { useLocation } from "react-router-dom";
 import useAdmin from "../lib/useAdmin";
 import { searchLadder, getPlayerProfile } from "../lib/api";
 import { raceMapping } from "../lib/constants";
-import { CountryFlag, PageHero } from "../components/ui";
+import { Button, CountryFlag, PageHero } from "../components/ui";
 import { PageLayout } from "../components/PageLayout";
 import PeonLoader from "../components/PeonLoader";
 import "../styles/pages/DevTools.css";
@@ -132,7 +132,7 @@ function PlayerSearch({ selectedPlayers, onAdd, onRemove, profiles }) {
           onFocus={() => searchResults.length > 0 && setShowSearch(true)}
         />
         {searchQuery && (
-          <button className="navbar-search-clear" onClick={() => { setSearchQuery(""); setSearchResults([]); setShowSearch(false); }}>&times;</button>
+          <Button $icon className="navbar-search-clear" aria-label="Clear search" onClick={() => { setSearchQuery(""); setSearchResults([]); setShowSearch(false); }}>&times;</Button>
         )}
         {showSearch && searchResults.length > 0 && (
           <div className="navbar-search-dropdown">
@@ -181,7 +181,7 @@ function PlayerSearch({ selectedPlayers, onAdd, onRemove, profiles }) {
                       <span className="navbar-search-l">{losses}L</span>
                     </span>
                   </span>
-                  <span className="navbar-search-mmr">{mmr != null ? `${Math.round(mmr)} MMR` : "—"}</span>
+                  <span className="navbar-search-mmr">{mmr != null ? `${Math.round(mmr)} MMR` : "-"}</span>
                 </button>
               );
             })}
@@ -655,7 +655,7 @@ export default function DevTools() {
     setCards((prev) => prev.map((c, i) => (i === idx ? { ...c, ...patch } : c)));
   }
 
-  // Current week's Monday (for "This week" shortcut) — must be before early return
+  // Current week's Monday (for "This week" shortcut) - must be before early return
   const currentMonday = useMemo(() => {
     const now = new Date();
     const day = now.getDay();

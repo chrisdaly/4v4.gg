@@ -23,7 +23,7 @@ const NAMES = [
   "RazorX", "Helix", "Pulse", "AtlasX", "CruxX",
 ];
 
-// Weighted towards EU — reflects real 4v4 population
+// Weighted towards EU - reflects real 4v4 population
 const COUNTRIES = [
   "DE", "DE", "DE", "DE", "DE",
   "RU", "RU", "RU", "RU",

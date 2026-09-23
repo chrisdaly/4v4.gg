@@ -133,7 +133,7 @@ const GameOutroScreen = ({
       <div className="go-bg-race">
         <img src={raceBg} alt="" />
       </div>
-      {/* Dark centre vignette — keeps text readable */}
+      {/* Dark centre vignette - keeps text readable */}
       <div className="go-vignette" />
 
       {!showScoreboard && (

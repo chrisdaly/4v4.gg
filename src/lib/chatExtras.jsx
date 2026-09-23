@@ -27,7 +27,7 @@ export function useWatchList() {
       try {
         localStorage.setItem(WATCH_KEY, JSON.stringify([...next]));
       } catch {
-        // storage full/unavailable — watch list just won't persist
+        // storage full/unavailable - watch list just won't persist
       }
       return next;
     });
@@ -83,6 +83,6 @@ export function playPing() {
     osc.start();
     osc.stop(audioCtx.currentTime + 0.3);
   } catch {
-    // audio blocked until user interaction — fine, stay silent
+    // audio blocked until user interaction - fine, stay silent
   }
 }

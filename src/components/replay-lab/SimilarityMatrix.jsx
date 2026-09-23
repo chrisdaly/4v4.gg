@@ -7,7 +7,7 @@ const Wrap = styled.div`
 `;
 
 /**
- * Cross-replay similarity matrix — only shows cross-replay pairs.
+ * Cross-replay similarity matrix - only shows cross-replay pairs.
  * Rows = replay A players, Columns = replay B players (or grouped by replay).
  *
  * players: [{ uid, playerName, replayId }]
@@ -179,12 +179,12 @@ export default function SimilarityMatrix({
               .attr("width", cellSize - 2)
               .attr("height", cellSize - 2)
               .attr("fill", "none")
-              .attr("stroke", "#fff")
+              .attr("stroke", "var(--white)")
               .attr("stroke-width", 2)
               .attr("rx", 3);
           }
 
-          // Percentage text — always show
+          // Percentage text - always show
           cellG
             .append("text")
             .attr("x", (cellSize - 2) / 2)

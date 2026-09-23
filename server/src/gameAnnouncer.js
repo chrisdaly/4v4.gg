@@ -1,12 +1,12 @@
 /**
- * Game Announcer — posts a plain-text ticker to the 4v4 chat room when a
+ * Game Announcer - posts a plain-text ticker to the 4v4 chat room when a
  * game starts and finishes. Default OFF; toggle via /api/admin/announce.
  *
  *   🟢 GAME START · 1994 MMR · Ferocity · A, B, C, D vs E, F, G, H
  *   🏆 GAME OVER · 1994 MMR · Ferocity · A, B, C, D won (18min)
  *
  * Posts go to W3Champions' own "4 vs 4" room via the same bot connection
- * we use for chat capture — keep this conservative. The connection is our
+ * we use for chat capture - keep this conservative. The connection is our
  * capture lifeline; a mute/ban would cost us the chat feed.
  */
 
@@ -55,7 +55,7 @@ async function post(text) {
   const now = Date.now();
   if (now - lastPostAt < MIN_GAP_MS) return; // throttle
   // Only post on a healthy connection. If the account is banned/auth-failed,
-  // stay silent — never hammer a dead or muted connection.
+  // stay silent - never hammer a dead or muted connection.
   if (getStatus().state !== 'Connected') return;
   try {
     await sendMessage(text);
@@ -91,7 +91,7 @@ async function poll() {
       const t2 = teamNames(m.teams?.[1]);
       liveGames.set(id, { mapName: map, avgMmr: mmr, t1, t2 });
       // Don't announce starts for games already running when the relay
-      // (re)started — only genuinely new ones.
+      // (re)started - only genuinely new ones.
       if (!firstPoll) {
         await post(`🟢 GAME START · ${mmr ?? '?'} MMR · ${map} · ${t1} vs ${t2}`);
       }

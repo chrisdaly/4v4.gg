@@ -3,7 +3,7 @@ import styled from "styled-components";
 import { Link } from "react-router-dom";
 
 const Page = styled.div`
-  background: #0a0a0a;
+  background: var(--grey-dark);
   min-height: 100vh;
   padding: var(--space-6);
   color: var(--white);

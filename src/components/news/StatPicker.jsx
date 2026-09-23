@@ -1,5 +1,6 @@
 import React from "react";
 import { STAT_CATEGORIES } from "../../lib/useEditorial";
+import { Button } from "../ui";
 
 const FormDots = ({ form }) => {
   if (!form) return null;
@@ -52,15 +53,17 @@ const StatPicker = ({ candidates, selectedStats, onToggle }) => {
               {items.map((c, i) => {
                 const isSelected = selectedIdx === i;
                 return (
-                  <button
+                  <Button
+                    $pill
                     key={c.battleTag}
                     className={`stat-picker-candidate${isSelected ? " stat-picker-candidate--selected" : ""}`}
+                    data-active={isSelected ? "true" : undefined}
                     onClick={() => onToggle(key, i)}
                   >
                     <span className="stat-picker-candidate-name">{c.name}</span>
                     <span className="stat-picker-candidate-record">{getRecord(key, c)}</span>
                     <FormDots form={c.form} />
-                  </button>
+                  </Button>
                 );
               })}
             </div>

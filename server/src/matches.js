@@ -83,7 +83,7 @@ async function pollMatches() {
       currentMatches.set(match.id, match);
     }
 
-    // First poll after boot: matches already in progress are not new games —
+    // First poll after boot: matches already in progress are not new games -
     // seed the baseline without emitting game_start events
     if (firstPoll) {
       firstPoll = false;
@@ -106,7 +106,7 @@ async function pollMatches() {
           players: enriched,
         });
 
-        console.log(`[Matches] game_start: ${id} — ${enriched.length} players on ${mapName}`);
+        console.log(`[Matches] game_start: ${id} - ${enriched.length} players on ${mapName}`);
       }
     }
 
@@ -125,7 +125,7 @@ async function pollMatches() {
           players: enriched,
         });
 
-        console.log(`[Matches] game_end: ${id} — ${enriched.length} players`);
+        console.log(`[Matches] game_end: ${id} - ${enriched.length} players`);
       }
     }
 

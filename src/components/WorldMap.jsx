@@ -2,6 +2,7 @@ import React, { useRef, useEffect, useState, useMemo } from "react";
 import * as d3 from "d3";
 import { feature } from "topojson-client";
 import countryCentroids from "../lib/countryCentroids";
+import { chartColors } from "../lib/design-tokens";
 import "../styles/components/WorldMap.css";
 
 /** Compute the subsolar point (no library needed). */
@@ -15,7 +16,7 @@ const getSubsolarPoint = (time) => {
   return [longitude, declination];
 };
 
-// Visible bounds — cropped to focus on player regions (NA, SA, Europe, Asia)
+// Visible bounds - cropped to focus on player regions (NA, SA, Europe, Asia)
 // Shifted east to center on Atlantic, tighter south crop
 const LAT_SOUTH = -42;
 const LAT_NORTH = 72;
@@ -33,12 +34,12 @@ const INTRO_BUFFER_MS = 2500;
 
 // Label layout constants
 const LABEL_FONT_SIZE = 11;
-const DOT_COLOR = "rgba(255, 255, 255, 0.75)";
+const DOT_COLOR = chartColors.dot;
 
 const rectsOverlap = (a, b) =>
   a.x < b.x + b.w && a.x + a.w > b.x && a.y < b.y + b.h && a.y + a.h > b.y;
 
-// Time zone cities — lat set to bottom of visible area
+// Time zone cities - lat set to bottom of visible area
 const TIME_ZONES = [
   { label: "LA", lon: -118.24, offset: -8 },
   { label: "NYC", lon: -74.0, offset: -5 },
@@ -195,7 +196,7 @@ const WorldMap = ({ playerCountries, players = [], instant = false, animationSca
     return result;
   }, [playerCountries]);
 
-  // ALL players sorted by MMR desc — collision detection naturally limits density
+  // ALL players sorted by MMR desc - collision detection naturally limits density
   const labelCandidates = useMemo(() => {
     if (!players || players.length === 0) return [];
     return [...players]
@@ -211,7 +212,7 @@ const WorldMap = ({ playerCountries, players = [], instant = false, animationSca
     const s = animationScale;
     const svg = d3.select(svgRef.current);
 
-    // Only clear static layers — keep dot group for transitions
+    // Only clear static layers - keep dot group for transitions
     svg.selectAll(".static-layer").remove();
     svg.selectAll(".label-layer").remove();
     svg.selectAll(".time-layer").remove();
@@ -219,7 +220,7 @@ const WorldMap = ({ playerCountries, players = [], instant = false, animationSca
     const projection = buildProjection(width, height);
     const path = d3.geoPath(projection);
 
-    // Static group — land, graticule, night
+    // Static group - land, graticule, night
     const staticG = svg.append("g").attr("class", "static-layer").attr("pointer-events", "none");
 
     // Land polygons
@@ -254,7 +255,7 @@ const WorldMap = ({ playerCountries, players = [], instant = false, animationSca
       .attr("fill", "rgba(0, 0, 0, 0.35)")
       .attr("stroke", "none");
 
-    // 5. Player dots — D3 data join for enter/exit transitions
+    // 5. Player dots - D3 data join for enter/exit transitions
     const maxTotal = d3.max(dots, (d) => d.total) || 1;
     const rScale = d3.scaleSqrt().domain([1, Math.max(maxTotal, 2)]).range([3, 12]);
 
@@ -277,7 +278,7 @@ const WorldMap = ({ playerCountries, players = [], instant = false, animationSca
     const dotSel = dotG.selectAll("circle.map-dot")
       .data(dotData, (d) => d.code);
 
-    // Exit — fast fade for bulk exits (filtering), slower for organic
+    // Exit - fast fade for bulk exits (filtering), slower for organic
     const mapExitDuration = dotSel.exit().size() > 3 ? 300 : 1500;
     dotSel.exit()
       .transition().duration(mapExitDuration * s).ease(d3.easeCubicIn)
@@ -285,7 +286,7 @@ const WorldMap = ({ playerCountries, players = [], instant = false, animationSca
       .attr("opacity", 0)
       .remove();
 
-    // Update — move smoothly
+    // Update - move smoothly
     dotSel.transition().duration(1000 * s).ease(d3.easeSinInOut)
       .attr("cx", (d) => d.px)
       .attr("cy", (d) => d.py)
@@ -298,7 +299,7 @@ const WorldMap = ({ playerCountries, players = [], instant = false, animationSca
       if (!countryTopPlayer.has(code)) countryTopPlayer.set(code, p.name);
     }
 
-    // Enter label group — lives above dots, cleared on each render
+    // Enter label group - lives above dots, cleared on each render
     svg.selectAll(".enter-label-layer").remove();
     const enterLabelG = svg.append("g").attr("class", "enter-label-layer").attr("pointer-events", "none");
 
@@ -308,7 +309,7 @@ const WorldMap = ({ playerCountries, players = [], instant = false, animationSca
 
     const isBulkEnter = dotSel.enter().size() > 3;
 
-    // Enter — fast for filter, slow + dramatic for real events
+    // Enter - fast for filter, slow + dramatic for real events
     const enteringDots = dotSel.enter()
       .append("circle")
       .attr("class", "map-dot")
@@ -321,13 +322,13 @@ const WorldMap = ({ playerCountries, players = [], instant = false, animationSca
       .attr("opacity", 0);
 
     if (isBulkEnter) {
-      // Fast filter enter — simple fade in
+      // Fast filter enter - simple fade in
       enteringDots
         .transition().duration(400 * s).ease(d3.easeCubicOut)
         .attr("r", (d) => d.r)
         .attr("opacity", 1);
     } else {
-      // Organic enter — floating name label + glow pulse
+      // Organic enter - floating name label + glow pulse
       enteringDots.each(function (d) {
         const name = countryTopPlayer.get(d.code);
         if (!name) return;
@@ -365,7 +366,7 @@ const WorldMap = ({ playerCountries, players = [], instant = false, animationSca
         });
     }
 
-    // 6. Per-player enter/exit animations — only for organic events, not filtering
+    // 6. Per-player enter/exit animations - only for organic events, not filtering
     const currentPlayerMap = new Map();
     for (const p of (players || [])) {
       if (p.battleTag && p.country) {
@@ -391,7 +392,7 @@ const WorldMap = ({ playerCountries, players = [], instant = false, animationSca
       if (eventG.empty()) eventG = svg.append("g").attr("class", "player-event-layer").attr("pointer-events", "none");
       eventG.raise();
 
-      // Player exits — name drifts up and fades
+      // Player exits - name drifts up and fades
       for (const [tag, info] of prevMap) {
         if (currentPlayerMap.has(tag)) continue;
         const coords = countryCentroids[info.country];
@@ -413,7 +414,7 @@ const WorldMap = ({ playerCountries, players = [], instant = false, animationSca
           .remove();
       }
 
-      // Player enters at existing countries — ripple + gold name label
+      // Player enters at existing countries - ripple + gold name label
       const prevCountries = new Set([...prevMap.values()].map((v) => v.country));
       for (const [tag, info] of currentPlayerMap) {
         if (prevMap.has(tag)) continue;
@@ -468,7 +469,7 @@ const WorldMap = ({ playerCountries, players = [], instant = false, animationSca
       }
     }
 
-    // 7. Player name labels — skip countries with active enter labels to avoid doubling
+    // 7. Player name labels - skip countries with active enter labels to avoid doubling
     //    Only suppress for organic (non-bulk) enters where animated labels are shown
     const labelG = svg.append("g").attr("class", "label-layer").attr("pointer-events", "none");
     const staticCandidates = enteringCodes.size > 0 && !isBulkEnter
@@ -518,7 +519,7 @@ const WorldMap = ({ playerCountries, players = [], instant = false, animationSca
 
   }, [introReady, dimensions, worldData, dots, labelCandidates, players, animationScale, time]);
 
-  // Update terminator every 60s (live mode only — replay re-renders via time dep)
+  // Update terminator every 60s (live mode only - replay re-renders via time dep)
   useEffect(() => {
     if (time || !svgRef.current || !worldData || !dimensions.width) return;
 

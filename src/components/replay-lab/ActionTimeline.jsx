@@ -1,6 +1,7 @@
 import React, { useState, useRef, useCallback, useMemo } from "react";
 import styled from "styled-components";
 import { RaceIcon } from "../ui";
+import { chartColors } from "../../lib/design-tokens";
 
 const VIEWBOX_W = 1000;
 const LABEL_W = 120;
@@ -10,12 +11,12 @@ const ROW_GAP = 6;
 const TICK_H = 26;
 
 const TYPE_COLORS = {
-  cmd:     "#4a9eff",
-  instant: "#26c6da",
-  hotkey:  "#c8a84b",
-  assign:  "#e67e22",
-  select:  "#5a5a6a",
-  other:   "#333344",
+  cmd:     "var(--team-blue)",
+  instant: "var(--cyan)",
+  hotkey:  "var(--gold)",
+  assign:  "var(--amber)",
+  select:  "var(--grey-mid)",
+  other:   "var(--grey-mid)",
 };
 
 const TYPE_LABELS = {
@@ -40,7 +41,7 @@ function formatMs(ms) {
   return `${m}:${String(s % 60).padStart(2, "0")}`;
 }
 
-// brushMs / onBrushChange are optional — if provided, brush state is controlled externally
+// brushMs / onBrushChange are optional - if provided, brush state is controlled externally
 export default function ActionTimeline({ players, durationMs, brushMs: externalBrushMs, onBrushChange }) {
   const svgRef = useRef(null);
   const [dragStart, setDragStart] = useState(null);
@@ -330,7 +331,7 @@ export default function ActionTimeline({ players, durationMs, brushMs: externalB
               x={LABEL_W + msToX(ms)}
               y={totalH - 5}
               textAnchor="middle"
-              fill="#666677"
+              fill={chartColors.label}
               fontSize={11}
               fontFamily="var(--font-mono)"
             >
@@ -439,8 +440,8 @@ const SvgWrap = styled.div`
 const DragHint = styled.div`
   margin-top: var(--space-2);
   font-family: var(--font-mono);
-  font-size: 10px;
-  color: #3a3a4a;
+  font-size: var(--text-xxxs);
+  color: var(--grey-mid);
   text-align: center;
   padding: var(--space-2) 0;
 `;
@@ -498,7 +499,7 @@ const BdName = styled.span`
 const BdApm = styled.div`
   font-family: var(--font-mono);
   font-size: var(--text-lg);
-  color: #fff;
+  color: var(--white);
   text-align: right;
 `;
 

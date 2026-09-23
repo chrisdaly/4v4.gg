@@ -57,6 +57,7 @@ export const borders = {
   radiusSm: { value: '2px', css: '--radius-sm', usage: 'Subtle rounding' },
   radiusMd: { value: '4px', css: '--radius-md', usage: 'Cards, buttons' },
   radiusLg: { value: '8px', css: '--radius-lg', usage: 'Large cards, panels, modals' },
+  radiusXl: { value: '12px', css: '--radius-xl', usage: 'Page containers, themed cards' },
   radiusFull: { value: '9999px', css: '--radius-full', usage: 'Pills, dots' },
   thin: { value: '1px', css: '--border-thin', usage: 'Subtle borders' },
   thick: { value: '2px', css: '--border-thick', usage: 'Emphasis borders' },
@@ -86,14 +87,23 @@ export const tints = {
   goldSubtle: { value: 'rgba(252, 219, 51, 0.05)', css: '--gold-tint-subtle', usage: 'Gold row hover' },
   gold: { value: 'rgba(252, 219, 51, 0.1)', css: '--gold-tint', usage: 'Gold highlight bg' },
   goldBorderHover: { value: 'rgba(252, 219, 51, 0.3)', css: '--gold-border-hover', usage: 'Gold border on hover/focus' },
+  greenStrong: { value: 'rgba(74, 222, 128, 0.18)', css: '--green-tint-strong', usage: 'Win badge bg' },
+  redStrong: { value: 'rgba(248, 113, 113, 0.18)', css: '--red-tint-strong', usage: 'Loss badge bg' },
+  greenBorder: { value: 'rgba(74, 222, 128, 0.3)', css: '--green-border', usage: 'Win card/badge border' },
+  redBorder: { value: 'rgba(248, 113, 113, 0.3)', css: '--red-border', usage: 'Loss card/badge border' },
   greenSubtle: { value: 'rgba(74, 222, 128, 0.05)', css: '--green-tint-subtle', usage: 'Win row hover' },
   green: { value: 'rgba(74, 222, 128, 0.1)', css: '--green-tint', usage: 'Win highlight bg' },
   redSubtle: { value: 'rgba(248, 113, 113, 0.05)', css: '--red-tint-subtle', usage: 'Loss row hover' },
   red: { value: 'rgba(248, 113, 113, 0.1)', css: '--red-tint', usage: 'Loss highlight bg' },
-  goldMutedRgb: { value: '180, 150, 90', css: '--gold-muted-rgb', usage: 'Desaturated gold chrome (admin borders, dividers) — use as rgba(var(--gold-muted-rgb), alpha)' },
+  goldMutedRgb: { value: '180, 150, 90', css: '--gold-muted-rgb', usage: 'Desaturated gold chrome (admin borders, dividers) - use as rgba(var(--gold-muted-rgb), alpha)' },
+  goldDarkRgb: { value: '184, 134, 11', css: '--gold-dark-rgb', usage: 'Dark goldenrod for input and nav borders - use as rgba(var(--gold-dark-rgb), alpha)' },
+  blue: { value: 'rgba(77, 166, 255, 0.1)', css: '--blue-tint', usage: 'Blue highlight bg (mentions, team 1)' },
+  amber: { value: 'rgba(245, 158, 11, 0.1)', css: '--amber-tint', usage: 'Amber chip bg (warnings, upsets)' },
+  cyan: { value: 'rgba(0, 188, 212, 0.1)', css: '--cyan-tint', usage: 'Cyan chip bg (stat accents, traits)' },
+  purple: { value: 'rgba(139, 92, 246, 0.1)', css: '--purple-tint', usage: 'Purple chip bg (AT groups)' },
 };
 
-// League bar colors — match the league icons. Same league must look the same on every page.
+// League bar colors - match the league icons. Same league must look the same on every page.
 export const leagueColors = {
   grandmaster: { value: 'linear-gradient(90deg, #c9a227, #f5d742)', css: '--league-grandmaster', usage: 'League 0 bar' },
   master: { value: 'linear-gradient(90deg, #7b5dbd, #a78bfa)', css: '--league-master', usage: 'League 1 bar' },
@@ -104,7 +114,7 @@ export const leagueColors = {
   bronze: { value: 'linear-gradient(90deg, #b45309, #f59e0b)', css: '--league-bronze', usage: 'League 6 bar' },
 };
 
-// Race bar colors — classic WC3 faction colors.
+// Race bar colors - classic WC3 faction colors.
 export const raceColors = {
   human: { value: 'linear-gradient(90deg, #3b82f6, #60a5fa)', css: '--race-human', usage: 'Human bars' },
   orc: { value: 'linear-gradient(90deg, #dc2626, #f87171)', css: '--race-orc', usage: 'Orc bars' },
@@ -114,9 +124,25 @@ export const raceColors = {
 };
 
 export const zIndex = {
-  dropdown: { value: 100, css: '--z-dropdown' },
-  overlay: { value: 200, css: '--z-overlay' },
-  modal: { value: 300, css: '--z-modal' },
+  dropdown: { value: 100, css: '--z-dropdown', usage: 'Select lists, inline dropdowns' },
+  nav: { value: 150, css: '--z-nav', usage: 'Fixed navbar' },
+  overlay: { value: 200, css: '--z-overlay', usage: 'Page overlays, stream overlays' },
+  popover: { value: 250, css: '--z-popover', usage: 'Navbar dropdowns, hover cards, tooltips' },
+  modal: { value: 300, css: '--z-modal', usage: 'Modals and modal backdrops' },
+};
+
+export const layout = {
+  navHeight: { value: '54px', css: '--nav-height', usage: 'Fixed navbar height; use calc(100vh - var(--nav-height))' },
+};
+
+// Quote block spacing - set on :root, consumed by mg-quote, digest-quote and cc-* transcripts
+export const quote = {
+  groupGap: { value: 'var(--space-4)', css: '--quote-group-gap' },
+  itemGap: { value: 'var(--space-1)', css: '--quote-item-gap' },
+  nameGap: { value: 'var(--space-1)', css: '--quote-name-gap' },
+  padLeft: { value: 'var(--space-4)', css: '--quote-pad-left' },
+  indent: { value: 'var(--space-4)', css: '--quote-indent' },
+  border: { value: '2px solid rgba(255, 255, 255, 0.15)', css: '--quote-border' },
 };
 
 // Usage patterns - common combinations
@@ -127,11 +153,23 @@ export const patterns = {
   },
   statsMmr: {
     description: 'Stats/MMR values',
-    css: 'font-family: var(--font-mono); color: #fff',
+    css: 'font-family: var(--font-mono); color: var(--white)',
   },
   label: {
-    description: 'Labels, column headers',
+    description: 'Labels, column headers, chips, section eyebrows (default)',
+    css: 'font: var(--text-xxs) var(--font-mono); text-transform: uppercase; letter-spacing: 0.1em; color: var(--grey-light)',
+  },
+  labelLarge: {
+    description: 'Large labels (form field labels, filter headings)',
     css: 'font: var(--text-xs) var(--font-mono); text-transform: uppercase; letter-spacing: 0.1em; color: var(--grey-light)',
+  },
+  sectionTitle: {
+    description: 'Card/section titles',
+    css: 'font-family: var(--font-display); font-size: var(--text-sm); color: var(--gold); text-transform: uppercase; letter-spacing: 0.05em',
+  },
+  heroEyebrow: {
+    description: 'Page hero eyebrow (above the h1)',
+    css: 'font-family: var(--font-mono); font-size: var(--text-xxs); color: var(--gold); text-transform: uppercase; letter-spacing: 0.32em',
   },
   winValue: {
     description: 'Win values',
@@ -142,8 +180,20 @@ export const patterns = {
     css: 'color: var(--red)',
   },
   liveIndicator: {
-    description: 'Live/ongoing indicator',
+    description: 'Live/ongoing indicator (.live-dot in base/animations.css)',
     css: 'width: 10px; height: 10px; background: var(--red); border-radius: 50%; animation: pulse 1.5s infinite',
+  },
+  deltaChip: {
+    description: 'MMR delta (+12 / -8) - Delta in ui.jsx',
+    css: 'font-family: var(--font-mono); font-size: var(--text-xs); font-weight: 700; color: var(--green) or var(--red); signed value',
+  },
+  tagChip: {
+    description: 'Tag chip (MVP, ADMIN, traits)',
+    css: 'font: var(--text-xxxs) var(--font-mono); text-transform: uppercase; letter-spacing: 0.08em; padding: 2px var(--space-2); border-radius: var(--radius-sm); background: var(--<color>-tint); border: 1px solid <color>',
+  },
+  ghostPill: {
+    description: 'Ghost pill button (tags, date tabs, show more) - Button $pill in ui.jsx',
+    css: 'font: var(--text-xxs) var(--font-mono); text-transform: uppercase; letter-spacing: 0.08em; padding: var(--space-1) var(--space-3); border: 1px solid var(--surface-3); border-radius: var(--radius-full); background: transparent; color: var(--grey-light); hover: color var(--white), border-color var(--grey-light)',
   },
   cardGold: {
     description: 'Primary cards',
@@ -151,44 +201,48 @@ export const patterns = {
   },
   cardSubtle: {
     description: 'Secondary cards',
-    css: 'border: 1px solid var(--grey-mid); border-radius: var(--radius-md)',
+    css: 'border: var(--border-thin) solid var(--grey-mid); border-radius: var(--radius-md)',
+  },
+  cardThemed: {
+    description: 'Theme-aware card (ThemedCard in ui.jsx) - follows the active border theme',
+    css: 'background: var(--theme-bg, var(--surface-1)); border: var(--theme-border, 1px solid var(--grey-mid)); border-image: var(--theme-border-image, none); border-radius: var(--radius-xl); backdrop-filter: var(--theme-blur, none); box-shadow: var(--theme-shadow, none)',
+  },
+  popover: {
+    description: 'Popover surface (navbar dropdowns, hover cards, select lists)',
+    css: 'background: rgba(10, 8, 6, 0.96); border: 1px solid var(--grey-mid); border-radius: var(--radius-md); box-shadow: 0 8px 24px var(--overlay-light); z-index: var(--z-popover); animation: fadeIn 120ms ease-out',
   },
   selectGold: {
-    description: 'Dropdown/select',
-    css: 'font-family: var(--font-display); background: linear-gradient(180deg, rgba(30,30,30,0.95), rgba(15,15,15,0.98)); border: 1px solid rgba(252,219,51,0.3); border-radius: 4px; color: var(--gold); padding: 8px 28px 8px 12px',
+    description: 'Dropdown/select (Select in ui.jsx)',
+    css: 'font-family: var(--font-display); font-size: var(--text-sm); background: transparent; border: 1px solid var(--grey-mid); border-radius: var(--radius-md); color: var(--grey-light); padding: var(--space-2) 28px var(--space-2) var(--space-4); focus: border-color var(--gold); selected option: var(--gold)',
   },
   input: {
-    description: 'Text input (search, filter, form)',
-    css: 'font-family: var(--font-mono); font-size: var(--text-xs); background: var(--surface-1); border: 1px solid var(--grey-mid); border-radius: var(--radius-md); color: var(--white); padding: var(--space-2) var(--space-4); placeholder: var(--grey-light); focus: border-color var(--gold)',
+    description: 'Text input (Input in ui.jsx)',
+    css: 'font-family: var(--font-mono); font-size: var(--text-xs); background: rgba(0, 0, 0, 0.35); border: 1px solid rgba(var(--gold-dark-rgb), 0.3); border-radius: var(--radius-sm); color: var(--white); padding: var(--space-2) var(--space-4); placeholder: var(--grey-light); focus: border-color var(--gold)',
   },
   listItemName: {
     description: 'List item names (leagues, races, countries)',
-    css: 'font-family: var(--font-display); font-size: var(--text-base); color: #fff',
+    css: 'font-family: var(--font-display); font-size: var(--text-base); color: var(--white)',
   },
   listItemValue: {
     description: 'List item values (counts, percentages)',
-    css: 'font-family: var(--font-mono); font-size: var(--text-base); color: #fff',
+    css: 'font-family: var(--font-mono); font-size: var(--text-base); color: var(--white)',
   },
   // Blog patterns
   blogPageTitle: {
-    description: 'Blog page/article h1',
-    css: 'font-family: var(--font-display); font-size: var(--text-xl); color: var(--gold)',
+    description: 'Blog article h1 (fluid)',
+    css: 'font-family: var(--font-display); font-size: clamp(2rem, 5vw, 3.2rem); color: var(--gold)',
   },
   blogSectionTitle: {
     description: 'Blog h2 (article sections)',
-    css: 'font-family: var(--font-display); font-size: var(--text-lg); color: var(--white)',
+    css: 'font-family: var(--font-display); font-size: var(--text-lg); color: var(--gold)',
   },
   blogPostTitle: {
     description: 'Blog post title in listing',
-    css: 'font-family: var(--font-display); font-size: 28px; color: var(--white)',
+    css: 'font-family: var(--font-display); font-size: var(--text-lg); color: var(--gold)',
   },
   blogTag: {
-    description: 'Blog tags/categories',
-    css: 'font-family: var(--font-mono); font-size: var(--text-xxs); color: var(--grey-light); text-transform: uppercase; letter-spacing: 0.1em',
-  },
-  blogDate: {
-    description: 'Blog dates',
-    css: 'font-family: var(--font-mono); font-size: var(--text-xxs); color: var(--grey-light)',
+    description: 'Blog tags and dates (ghost pill)',
+    css: 'font-family: var(--font-mono); font-size: var(--text-xxs); color: var(--grey-light); text-transform: uppercase; letter-spacing: 0.08em; border: 1px solid var(--surface-3); border-radius: var(--radius-full); padding: var(--space-1) var(--space-3)',
   },
   blogBody: {
     description: 'Blog article body text',
@@ -196,7 +250,7 @@ export const patterns = {
   },
   blogDesc: {
     description: 'Blog post description in listing',
-    css: 'font-family: var(--font-body); font-size: var(--text-base); color: var(--text-body); line-height: 1.7',
+    css: 'font-family: var(--font-body); font-size: var(--text-sm); color: var(--grey-light); line-height: 1.6',
   },
   // Quote patterns (Magazine)
   quoteText: {
@@ -208,8 +262,8 @@ export const patterns = {
     css: 'font-family: var(--font-display); font-size: var(--text-xs); color: var(--gold); margin-bottom: var(--quote-name-gap)',
   },
   quoteSpacing: {
-    description: 'Quote spacing constants (set on .mg-page)',
-    css: '--quote-group-gap: var(--space-4); --quote-item-gap: var(--space-1); --quote-name-gap: var(--space-1); --quote-pad-left: var(--space-4); --quote-indent: var(--space-4); --quote-border: 2px solid rgba(255,255,255,0.15)',
+    description: 'Quote spacing constants (set on :root, see the quote export)',
+    css: '--quote-group-gap; --quote-item-gap; --quote-name-gap; --quote-pad-left; --quote-indent; --quote-border',
   },
   // Content text patterns
   mapName: {
@@ -243,7 +297,7 @@ export const patterns = {
   },
 };
 
-// JS-side chart palette — for d3/SVG attribute values where CSS vars are awkward.
+// JS-side chart palette - for d3/SVG attribute values where CSS vars are awkward.
 // Always import these instead of hardcoding hex in chart components.
 export const chartColors = {
   gold: colors.gold.value,
@@ -252,19 +306,49 @@ export const chartColors = {
   green: colors.green.value,
   cyan: colors.cyan.value,
   amber: colors.amber.value,
+  // Neutral chart chrome (dots, labels, gridlines)
+  dot: 'rgba(255, 255, 255, 0.75)',
+  dotActive: 'rgba(255, 255, 255, 0.85)',
+  label: 'rgba(255, 255, 255, 0.6)',
+  grid: 'rgba(255, 255, 255, 0.1)',
+};
+
+// Solid race colours for JS/SVG use (same hues as raceColors gradients: Night Elf green, Undead purple)
+export const raceSolid = {
+  human: '#3b82f6',
+  orc: '#dc2626',
+  nightelf: '#22c55e',
+  undead: '#7c3aed',
+  random: '#6b7280',
+};
+
+// Chart typography (SVG text)
+export const chartText = {
+  labelFont: fonts.display.value,
+  labelSize: 11,
+  valueFont: fonts.mono.value,
+  valueSize: 11,
 };
 
 // Default multi-series order (player 1..4 in overlay charts)
 export const chartSeries = [chartColors.gold, chartColors.blue, chartColors.red, chartColors.green];
 
-// Components that should exist in ui.jsx
+// Shared components in ui.jsx that pages should reuse (documented on /style)
 export const components = [
-  { name: 'Button', description: 'Primary/secondary variants' },
-  { name: 'Badge', description: 'Status badges (win/loss/default)' },
-  { name: 'Card', description: 'Gold-bordered container' },
-  { name: 'Dot', description: 'Win/loss form indicator' },
+  { name: 'Button', description: 'Variants: $primary, $secondary, $ghost, $pill' },
+  { name: 'ResultBadge', description: 'WIN / LOSS / W chip; $won, $lost, $winner; $size sm|md|lg; $square' },
+  { name: 'Card', description: 'Card (gold), CardSubtle (grey), ThemedCard (follows border theme)' },
+  { name: 'Dot', description: 'Win/loss form indicator; $size, $recent, $dim' },
+  { name: 'Delta', description: 'Signed MMR change chip' },
   { name: 'TeamBar', description: 'Blue/red team indicator' },
-  { name: 'Select', description: 'Gold dropdown with custom arrow' },
+  { name: 'Select', description: 'Dropdown with custom arrow' },
+  { name: 'Input', description: 'Text input; $fullWidth, $error' },
+  { name: 'PageNav', description: 'Back link + sibling tabs' },
+  { name: 'PageHero', description: 'Page eyebrow + title + lead' },
+  { name: 'ConfirmModal', description: 'window.confirm replacement; danger/gold/success' },
+  { name: 'Skeleton', description: 'Loading placeholders: Skeleton, SkeletonCircle' },
+  { name: 'RaceIcon', description: 'Race icon by race id' },
+  { name: 'CountryFlag', description: 'Country flag by ISO code' },
 ];
 
 // Export all tokens for iteration
@@ -281,6 +365,8 @@ export const allTokens = {
   leagueColors,
   raceColors,
   zIndex,
+  layout,
+  quote,
 };
 
 export default allTokens;

@@ -4,7 +4,7 @@ import { useHistory, useLocation } from "react-router-dom";
 import { IoSend, IoSearch } from "react-icons/io5";
 import { FiLock } from "react-icons/fi";
 import ChatContext from "./ChatContext";
-import { Input } from "./ui";
+import { Input, Button } from "./ui";
 import useAdmin from "../lib/useAdmin";
 import { searchLadder, getPlayerProfile } from "../lib/api";
 import { raceMapping } from "../lib/constants";
@@ -26,7 +26,7 @@ const sinceHoursFor = (key) => SINCE_OPTIONS.find((o) => o.key === key)?.hours ?
 // Windows available without the admin key (server enforces the same cap)
 const PUBLIC_SINCE_KEYS = ["24h", "7d"];
 
-// Styled components — search form only
+// Styled components - search form only
 const Section = styled.div`
   margin-bottom: var(--space-8);
 `;
@@ -43,32 +43,10 @@ const SearchForm = styled.form`
   margin-bottom: var(--space-4);
 `;
 
-const SearchInput = styled.input`
+const SearchInput = styled(Input)`
   flex: 1;
   min-width: 0;
-  background: rgba(0, 0, 0, 0.35);
-  border: 1px solid rgba(184, 134, 11, 0.3);
-  border-radius: var(--radius-sm);
-  padding: var(--space-2) var(--space-4);
-  color: var(--white);
-  font-family: var(--font-mono);
-  font-size: var(--text-xs);
   outline: none;
-  transition: var(--transition);
-  box-shadow: inset 0 1px 4px rgba(0, 0, 0, 0.5);
-
-  &:focus {
-    border-color: var(--gold);
-    box-shadow: inset 0 1px 4px rgba(0, 0, 0, 0.5), 0 0 8px rgba(184, 134, 11, 0.15);
-  }
-
-  &:hover:not(:focus) {
-    border-color: rgba(184, 134, 11, 0.55);
-  }
-
-  &::placeholder {
-    color: var(--grey-light);
-  }
 `;
 
 const SubmitButton = styled.button`
@@ -112,33 +90,20 @@ const HistoryLabel = styled.span`
   letter-spacing: 0.06em;
 `;
 
-const HistoryChip = styled.button`
+/* Ghost pill (ui.jsx Button $pill); user-typed queries keep their case */
+const HistoryChip = styled(Button).attrs({ $pill: true, type: "button" })`
   display: inline-flex;
   align-items: center;
-  gap: 4px;
-  background: rgba(255, 255, 255, 0.04);
-  border: 1px solid rgba(var(--gold-muted-rgb), 0.15);
-  border-radius: var(--radius-full);
-  padding: 3px 10px;
-  font-family: var(--font-mono);
-  font-size: var(--text-xxxs);
-  color: var(--grey-light);
-  cursor: pointer;
-  transition: all 0.15s;
+  gap: var(--space-1);
+  text-transform: none;
   max-width: 200px;
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
-
-  &:hover {
-    border-color: var(--gold);
-    color: var(--gold);
-    background: rgba(252, 219, 51, 0.06);
-  }
 `;
 
 const HistoryX = styled.span`
-  font-size: 10px;
+  font-size: var(--text-xxxs);
   opacity: 0.5;
   margin-left: 2px;
 
@@ -176,13 +141,13 @@ function saveSearchHistory(history) {
   try {
     localStorage.setItem(SEARCH_HISTORY_KEY, JSON.stringify(data));
   } catch (e) {
-    // QuotaExceededError — clear this key and retry with minimal history
+    // QuotaExceededError - clear this key and retry with minimal history
     if (e.name === "QuotaExceededError") {
       try {
         localStorage.removeItem(SEARCH_HISTORY_KEY);
         localStorage.setItem(SEARCH_HISTORY_KEY, JSON.stringify(data.slice(0, 5)));
       } catch {
-        // Storage completely full — just skip saving
+        // Storage completely full - just skip saving
       }
     }
   }
@@ -195,29 +160,11 @@ const SinceRow = styled.div`
   margin-bottom: var(--space-4);
 `;
 
-const SinceChip = styled.button`
+/* Ghost pill (ui.jsx Button $pill); selected state via data-active */
+const SinceChip = styled(Button).attrs((p) => ({ $pill: true, "data-active": p.$active ? "true" : undefined }))`
   display: inline-flex;
   align-items: center;
-  gap: 4px;
-  background: none;
-  border: 1px solid var(--grey-mid);
-  border-radius: var(--radius-full);
-  color: var(--grey-light);
-  font-family: var(--font-mono);
-  font-size: var(--text-xxxs);
-  padding: 2px 10px;
-  cursor: pointer;
-  transition: border-color 0.15s, color 0.15s;
-
-  &:hover:not(:disabled) {
-    border-color: var(--gold);
-    color: #fff;
-  }
-
-  ${({ $active }) => $active && `
-    border-color: var(--gold);
-    color: var(--gold);
-  `}
+  gap: var(--space-1);
 
   ${({ $locked }) => $locked && `
     opacity: 0.45;
@@ -348,13 +295,13 @@ const ModeBtn = styled.button`
   `}
 `;
 
-// fullPage: dedicated /search page — no section title (the page hero covers it)
+// fullPage: dedicated /search page - no section title (the page hero covers it)
 // and viewport-height result panels
 export default function ChatSearch({ fullPage = false }) {
   const { adminKey, isAdmin } = useAdmin();
   const [query, setQuery] = useState("");
   const [mode, setMode] = useState("text"); // "text" | "player"
-  // Default: widest allowed — admins get the archive, the server clamps
+  // Default: widest allowed - admins get the archive, the server clamps
   // anonymous searches to the public window (7 days)
   const [since, setSince] = useState(""); // key into SINCE_OPTIONS
   const [effectiveWindow, setEffectiveWindow] = useState(null); // hours, from the server
@@ -370,14 +317,14 @@ export default function ChatSearch({ fullPage = false }) {
   const routerHistory = useHistory();
   const location = useLocation();
 
-  // Player typeahead (full page only) — same source as the navbar search
+  // Player typeahead (full page only) - same source as the navbar search
   const [suggests, setSuggests] = useState([]);
   const [showSuggests, setShowSuggests] = useState(false);
   const [suggProfiles, setSuggProfiles] = useState({});
   const suggProfilesRef = useRef(suggProfiles);
   useEffect(() => { suggProfilesRef.current = suggProfiles; }, [suggProfiles]);
   const suggWrapRef = useRef(null);
-  // The query we just executed — suppresses the dropdown reopening on it
+  // The query we just executed - suppresses the dropdown reopening on it
   const lastRanRef = useRef("");
 
   const addToHistory = useCallback((q, m) => {
@@ -413,7 +360,7 @@ export default function ChatSearch({ fullPage = false }) {
   const runSearch = useCallback(async (q, newOffset = 0, searchMode, sinceKey) => {
     if (!q || q.length < 2) return;
     const m = searchMode || mode;
-    // Non-admins are capped at 7 days — the server enforces this regardless,
+    // Non-admins are capped at 7 days - the server enforces this regardless,
     // so an empty window just means "widest allowed"
     const requested = sinceKey !== undefined ? sinceKey : since;
     const s = isAdmin || PUBLIC_SINCE_KEYS.includes(requested) ? requested : "";
@@ -564,7 +511,7 @@ export default function ChatSearch({ fullPage = false }) {
         $active={since === opt.key}
         $locked={locked}
         disabled={locked}
-        title={locked ? "Public search covers the last 7 days — the older archive is admin-only" : undefined}
+        title={locked ? "Public search covers the last 7 days - the older archive is admin-only" : undefined}
         onClick={() => {
           if (locked || opt.key === since) return;
           setSince(opt.key);
@@ -599,7 +546,7 @@ export default function ChatSearch({ fullPage = false }) {
         : effectiveWindow
           ? ` · last ${{ 24: "24h", 168: "7 days", 720: "30 days" }[effectiveWindow] || `${effectiveWindow}h`}`
           : ""}
-      {error && <ErrorNote> — search request failed, try again</ErrorNote>}
+      {error && <ErrorNote> - search request failed, try again</ErrorNote>}
     </SearchMeta>
   );
 
@@ -615,7 +562,7 @@ export default function ChatSearch({ fullPage = false }) {
         : effectiveWindow
           ? ` · last ${{ 24: "24h", 168: "7d", 720: "30d" }[effectiveWindow] || `${effectiveWindow}h`}`
           : ""}
-      {error && <ErrorNote> — failed</ErrorNote>}
+      {error && <ErrorNote> - failed</ErrorNote>}
     </span>
   ) : null;
 

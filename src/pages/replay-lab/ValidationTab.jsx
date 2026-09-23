@@ -2,13 +2,14 @@ import React, { useState, useEffect, useCallback } from "react";
 import styled from "styled-components";
 import PeonLoader from "../../components/PeonLoader";
 import useAdmin from "../../lib/useAdmin";
+import { chartColors } from "../../lib/design-tokens";
 
 const RELAY_URL =
   import.meta.env.VITE_CHAT_RELAY_URL || "https://4v4gg-chat-relay.fly.dev";
 
-const RED = "#f87171";
-const GOLD = "#fcdb33";
-const GREEN = "#4ade80";
+const RED = chartColors.red;
+const GOLD = chartColors.gold;
+const GREEN = chartColors.green;
 const GREY = "var(--grey-light)";
 
 function getVerdict(similarity, percentile) {
@@ -189,7 +190,7 @@ export default function ValidationTab() {
             const isExpanded = expandedIdx === i;
             const bd = pair.breakdown || {};
             const displayScore = isMissing
-              ? "—"
+              ? "-"
               : pair.percentile != null
                 ? `p${Math.round(pair.percentile)}`
                 : `${Math.round(pair.similarity * 100)}%`;

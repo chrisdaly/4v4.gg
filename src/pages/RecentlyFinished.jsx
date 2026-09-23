@@ -4,7 +4,7 @@ import { Link } from "react-router-dom";
 import GameCard from "../components/game/GameCard";
 import PeonLoader from "../components/PeonLoader";
 import { PageLayout, PageHero } from "../components/PageLayout";
-import { Select, Button } from "../components/ui";
+import { Select, Button, FieldGroup, FieldLabel } from "../components/ui";
 import { calculateTeamMMR } from "../lib/utils";
 import { gameMode, gateway, season } from "../lib/params";
 import { cache, createCacheKey } from "../lib/cache";
@@ -210,8 +210,8 @@ const RecentlyFinished = () => {
                 </div>
               </PageHero>
               <div className="page-controls">
-                <div className="filter-group">
-                  <label>Time Range</label>
+                <FieldGroup>
+                  <FieldLabel>Time Range</FieldLabel>
                   <Select
                     value={timeRangeIndex}
                     onChange={(e) => setTimeRangeIndex(Number(e.target.value))}
@@ -222,9 +222,9 @@ const RecentlyFinished = () => {
                       </option>
                     ))}
                   </Select>
-                </div>
-                <div className="filter-group">
-                  <label>Map</label>
+                </FieldGroup>
+                <FieldGroup>
+                  <FieldLabel>Map</FieldLabel>
                   <Select
                     value={mapFilter}
                     onChange={(e) => setMapFilter(e.target.value)}
@@ -236,9 +236,9 @@ const RecentlyFinished = () => {
                       </option>
                     ))}
                   </Select>
-                </div>
-                <div className="filter-group">
-                  <label>Duration</label>
+                </FieldGroup>
+                <FieldGroup>
+                  <FieldLabel>Duration</FieldLabel>
                   <Select
                     value={durationFilter}
                     onChange={(e) => setDurationFilter(Number(e.target.value))}
@@ -249,9 +249,9 @@ const RecentlyFinished = () => {
                       </option>
                     ))}
                   </Select>
-                </div>
-                <div className="filter-group">
-                  <label>Avg MMR</label>
+                </FieldGroup>
+                <FieldGroup>
+                  <FieldLabel>Avg MMR</FieldLabel>
                   <Select
                     value={mmrFilter}
                     onChange={(e) => setMmrFilter(Number(e.target.value))}
@@ -262,7 +262,7 @@ const RecentlyFinished = () => {
                       </option>
                     ))}
                   </Select>
-                </div>
+                </FieldGroup>
                 {hasActiveFilters && (
                   <Button $ghost className="clear-filters" onClick={clearFilters}>
                     Clear

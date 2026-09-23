@@ -71,7 +71,7 @@ router.get('/news', (req, res) => {
   <meta name="twitter:description" content="${escHtml(description)}">
   <meta name="twitter:image" content="${escHtml(imageUrl)}">
   <meta http-equiv="refresh" content="0;url=${escHtml(pageUrl)}">
-  <title>${escHtml(title)} — 4v4.gg</title>
+  <title>${escHtml(title)} - 4v4.gg</title>
 </head>
 <body>
   <p>Redirecting to <a href="${escHtml(pageUrl)}">4v4.gg</a>...</p>

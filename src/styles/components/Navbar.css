@@ -5,11 +5,11 @@
 .navbar {
   position: sticky;
   top: 0;
-  z-index: 10000;
-  padding: 0 24px;
-  background: rgba(10, 8, 6, 0.25);
+  z-index: var(--z-nav);
+  padding: 0 var(--space-6);
+  background: var(--panel-bg);
   backdrop-filter: blur(12px);
-  border-bottom: 2px solid rgba(184, 134, 11, 0.35);
+  border-bottom: 2px solid rgba(var(--gold-dark-rgb), 0.35);
   box-shadow: 0 2px 16px rgba(0, 0, 0, 0.6);
 }
 
@@ -19,7 +19,7 @@
   justify-content: space-between;
   max-width: 1200px;
   margin: 0 auto;
-  height: 54px;
+  height: var(--nav-height);
 }
 
 .navbar-logo {
@@ -28,7 +28,7 @@
   color: var(--gold);
   text-decoration: none;
   letter-spacing: 2px;
-  transition: opacity 0.2s;
+  transition: opacity var(--transition);
 }
 
 .navbar-logo:hover {
@@ -48,12 +48,12 @@
   font-size: var(--text-xs);
   color: var(--grey-light);
   text-decoration: none;
-  padding: 0 14px;
+  padding: 0 var(--space-3);
   border: none;
   background: none;
   border-radius: 0;
   cursor: pointer;
-  transition: color 0.2s ease, background 0.2s ease;
+  transition: color var(--transition), background var(--transition);
   letter-spacing: 0.5px;
   text-transform: uppercase;
   display: inline-flex;
@@ -69,14 +69,14 @@
   right: 6px;
   height: 2px;
   background: var(--gold);
-  border-radius: 1px 1px 0 0;
+  border-radius: var(--radius-sm) var(--radius-sm) 0 0;
   opacity: 0;
-  transition: opacity 0.2s ease;
+  transition: opacity var(--transition);
 }
 
 .navbar-link:hover {
   color: var(--white);
-  background: rgba(255, 255, 255, 0.06);
+  background: var(--surface-2);
 }
 
 .navbar-link.active {
@@ -91,7 +91,7 @@
 .navbar-right {
   display: flex;
   align-items: center;
-  gap: 8px;
+  gap: var(--space-2);
 }
 
 /* ============================================
@@ -108,12 +108,12 @@
   font-family: var(--font-display);
   font-size: var(--text-xs);
   color: var(--grey-light);
-  padding: 0 14px;
+  padding: 0 var(--space-3);
   border: none;
   background: none;
   border-radius: 0;
   cursor: pointer;
-  transition: color 0.2s ease, background 0.2s ease;
+  transition: color var(--transition), background var(--transition);
   letter-spacing: 0.5px;
   text-transform: uppercase;
   display: inline-flex;
@@ -131,14 +131,14 @@
   right: 6px;
   height: 2px;
   background: var(--gold);
-  border-radius: 1px 1px 0 0;
+  border-radius: var(--radius-sm) var(--radius-sm) 0 0;
   opacity: 0;
-  transition: opacity 0.2s ease;
+  transition: opacity var(--transition);
 }
 
 .navbar-more-btn:hover {
   color: var(--white);
-  background: rgba(255, 255, 255, 0.06);
+  background: var(--surface-2);
 }
 
 .navbar-more-btn.active {
@@ -151,8 +151,8 @@
 }
 
 .navbar-more-chevron {
-  font-size: 10px;
-  transition: transform 0.2s ease;
+  font-size: var(--text-xxxs);
+  transition: transform var(--transition);
   line-height: 1;
 }
 
@@ -164,17 +164,17 @@
   position: absolute;
   top: calc(100% + 10px);
   right: 0;
-  z-index: 10001;
+  z-index: var(--z-popover);
   display: flex;
   flex-direction: column;
   padding: var(--space-1);
-  background: rgba(10, 8, 6, 0.96);
+  background: rgba(10, 8, 6, 0.96); /* popover surface (patterns.popover) */
   border: 1px solid var(--grey-mid);
   border-radius: var(--radius-md);
   backdrop-filter: blur(12px);
-  box-shadow: 0 8px 32px rgba(0, 0, 0, 0.7);
+  box-shadow: 0 8px 24px var(--overlay-light);
   min-width: 160px;
-  animation: dropdownIn 120ms ease;
+  animation: fadeIn 120ms ease-out;
 }
 
 .navbar-more-link {
@@ -182,9 +182,9 @@
   font-size: var(--text-xs);
   color: var(--grey-light);
   text-decoration: none;
-  padding: 8px 14px;
+  padding: var(--space-2) var(--space-3);
   border-radius: var(--radius-sm);
-  transition: all 0.15s ease;
+  transition: color var(--transition), background var(--transition);
   letter-spacing: 0.5px;
   text-transform: uppercase;
   white-space: nowrap;
@@ -192,7 +192,7 @@
 
 .navbar-more-link:hover {
   color: var(--white);
-  background: rgba(255, 255, 255, 0.08);
+  background: var(--surface-3);
 }
 
 .navbar-more-link.active {
@@ -220,11 +220,11 @@
   color: var(--grey-light);
   pointer-events: none;
   flex-shrink: 0;
-  transition: color 0.2s ease;
+  transition: color var(--transition);
 }
 
 .navbar-search-input-wrap:focus-within .navbar-search-icon {
-  color: rgba(184, 134, 11, 0.7);
+  color: rgba(var(--gold-dark-rgb), 0.7);
 }
 
 .navbar-search-input {
@@ -233,53 +233,41 @@
 }
 
 .navbar-search-clear {
+  /* Visuals come from Button $icon; this only positions it inside the input */
   position: absolute;
-  right: 10px;
+  right: 6px;
   top: 50%;
   transform: translateY(-50%);
-  background: none;
-  border: none;
-  color: var(--grey-light);
-  font-size: var(--text-base);
-  cursor: pointer;
-  padding: 0 4px;
-  line-height: 1;
+  width: 24px;
+  height: 24px;
 }
 
-.navbar-search-clear:hover {
-  color: var(--white);
-}
-
-@keyframes dropdownIn {
-  from { opacity: 0; transform: translateY(-4px); }
-  to   { opacity: 1; transform: translateY(0); }
-}
 
 .navbar-search-dropdown {
   position: absolute;
   top: calc(100% + 6px);
   right: 0;
-  z-index: 10001;
+  z-index: var(--z-popover);
   display: flex;
   flex-direction: column;
   gap: 2px;
   padding: var(--space-2);
-  background: rgba(10, 8, 6, 0.96);
+  background: rgba(10, 8, 6, 0.96); /* popover surface (patterns.popover) */
   border: 1px solid var(--grey-mid);
   border-radius: var(--radius-md);
   backdrop-filter: blur(12px);
-  box-shadow: 0 8px 32px rgba(0, 0, 0, 0.7);
+  box-shadow: 0 8px 24px var(--overlay-light);
   min-width: 340px;
   max-height: 480px;
   overflow-y: auto;
-  animation: dropdownIn 120ms ease;
+  animation: fadeIn 120ms ease-out;
 }
 
 .navbar-search-result {
   display: flex;
   align-items: center;
   gap: 10px;
-  padding: 8px 12px;
+  padding: var(--space-2) var(--space-3);
   background: none;
   border: none;
   border-radius: var(--radius-sm);
@@ -291,7 +279,7 @@
 }
 
 .navbar-search-result:hover {
-  background: rgba(255, 255, 255, 0.08);
+  background: var(--surface-3);
 }
 
 .navbar-search-avatar-wrap {
@@ -310,7 +298,7 @@
 
 .navbar-search-avatar.race-fallback {
   padding: 6px;
-  background: rgba(255, 255, 255, 0.06);
+  background: var(--surface-2);
   opacity: 0.85;
 }
 
@@ -319,7 +307,7 @@
   width: 36px;
   height: 36px;
   border-radius: var(--radius-sm);
-  background: rgba(255, 255, 255, 0.06);
+  background: var(--surface-2);
 }
 
 .navbar-search-flag {
@@ -417,50 +405,35 @@
 
 /* ── Admin view toggle ─────────────────────────────── */
 
-/* Off state: ghost / dimmed — "previewing as user" */
-.navbar-admin-toggle {
+/* ui.jsx Button $pill (data-active). Off state is dimmed: "previewing as user" */
+.navbar-right .navbar-admin-toggle {
   display: inline-flex;
   align-items: center;
   gap: 5px;
-  height: 24px;
-  padding: 0 8px;
-  border-radius: var(--radius-sm);
-  background: rgba(0, 0, 0, 0.35);
-  border: 1px solid rgba(255, 255, 255, 0.1);
-  cursor: pointer;
-  transition: all 0.2s ease;
   opacity: 0.45;
-  box-shadow: inset 0 1px 3px rgba(0, 0, 0, 0.4);
 }
 
-.navbar-admin-toggle:hover {
+.navbar-right .navbar-admin-toggle:hover {
   opacity: 0.8;
-  border-color: rgba(255, 255, 255, 0.2);
 }
 
-.navbar-admin-toggle.active {
-  background: rgba(252, 219, 51, 0.1);
-  border-color: rgba(184, 134, 11, 0.4);
+.navbar-right .navbar-admin-toggle[data-active="true"] {
   opacity: 1;
-}
-
-.navbar-admin-toggle.active:hover {
-  background: rgba(252, 219, 51, 0.15);
 }
 
 .admin-toggle-label {
   font-family: var(--font-mono);
-  font-size: 10px;
+  font-size: var(--text-xxxs);
   letter-spacing: 0.08em;
   color: var(--grey-light);
 }
 
-.navbar-admin-toggle.active .admin-toggle-label {
+.navbar-admin-toggle[data-active="true"] .admin-toggle-label {
   color: var(--gold);
 }
 
 .navbar-admin-toggle-mobile {
-  border-top: 1px solid rgba(184, 134, 11, 0.1);
+  border-top: 1px solid rgba(var(--gold-dark-rgb), 0.1);
   display: flex;
   align-items: center;
 }
@@ -481,14 +454,14 @@
   padding: 6px;
   background: none;
   border: 1px solid transparent;
-  border-radius: 6px;
+  border-radius: var(--radius-md);
   cursor: pointer;
-  transition: all 0.15s;
+  transition: background var(--transition), border-color var(--transition);
 }
 
 .navbar-hamburger:hover {
-  background: rgba(255, 255, 255, 0.06);
-  border-color: rgba(184, 134, 11, 0.3);
+  background: var(--surface-2);
+  border-color: rgba(var(--gold-dark-rgb), 0.3);
 }
 
 .hamburger-bar {
@@ -496,8 +469,8 @@
   width: 100%;
   height: 2px;
   background: var(--gold);
-  border-radius: 1px;
-  transition: all 0.25s ease;
+  border-radius: var(--radius-sm);
+  transition: transform 0.25s ease, opacity 0.25s ease;
   transform-origin: center;
 }
 
@@ -518,17 +491,17 @@
 .navbar-mobile-menu {
   display: none;
   flex-direction: column;
-  padding: 4px 0 12px;
-  border-top: 1px solid rgba(184, 134, 11, 0.15);
+  padding: var(--space-1) 0 var(--space-3);
+  border-top: 1px solid rgba(var(--gold-dark-rgb), 0.15);
   position: absolute;
   top: 100%;
   left: 0;
   right: 0;
-  background: rgba(10, 8, 6, 0.85);
+  background: rgba(10, 8, 6, 0.85); /* opaque popover surface (mobile menu) */
   backdrop-filter: blur(12px);
-  border-bottom: 2px solid rgba(184, 134, 11, 0.35);
+  border-bottom: 2px solid rgba(var(--gold-dark-rgb), 0.35);
   box-shadow: 0 8px 32px rgba(0, 0, 0, 0.5);
-  z-index: 10000;
+  z-index: var(--z-nav);
 }
 
 .navbar-mobile-link {
@@ -536,36 +509,37 @@
   font-size: var(--text-xs);
   color: var(--grey-light);
   text-decoration: none;
-  padding: 12px 16px;
+  padding: var(--space-3) var(--space-4);
   border: none;
   background: none;
   cursor: pointer;
   text-align: left;
   letter-spacing: 0.5px;
   text-transform: uppercase;
-  transition: all 0.15s ease;
+  transition: color var(--transition), background var(--transition);
 }
 
 .navbar-mobile-link:hover {
   color: var(--white);
-  background: rgba(255, 255, 255, 0.04);
+  background: var(--surface-2);
 }
 
 .navbar-mobile-link.active {
   color: var(--gold);
-  background: rgba(252, 219, 51, 0.06);
+  background: var(--gold-tint-subtle);
 }
 
 /* ── Navbar responsive - mobile ─────────────────────── */
 
 @media (max-width: 768px) {
-  .navbar {
-    padding: 0 12px;
-    background: rgba(10, 8, 6, 0.85);
+  /* Mobile navbar is shorter; override the layout token so calc(100vh - var(--nav-height)) stays correct */
+  :root {
+    --nav-height: 48px;
   }
 
-  .navbar-content {
-    height: 48px;
+  .navbar {
+    padding: 0 var(--space-3);
+    background: rgba(10, 8, 6, 0.85); /* opaque popover surface (mobile) */
   }
 
   .navbar-logo {
@@ -593,7 +567,7 @@
 
 @media (max-width: 480px) {
   .navbar {
-    padding: 0 8px;
+    padding: 0 var(--space-2);
   }
 
   .navbar-logo {

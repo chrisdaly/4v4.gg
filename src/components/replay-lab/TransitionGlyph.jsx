@@ -1,10 +1,11 @@
 import React from "react";
 import { GOLD, GREY, GREY_MID } from "../../pages/signatures/vizUtils";
+import { chartColors } from "../../lib/design-tokens";
 
-const ASSIGN_COLOR = "#7eb8da";
+const ASSIGN_COLOR = chartColors.blue;
 const VIOLET = "#a78bfa";
 const GREY_NODE = "#6b7280";
-const HERO_COLOR = "#fcd34d";
+const HERO_COLOR = chartColors.gold;
 
 export const ROLE_RING_COLOR = {
   hero: HERO_COLOR,
@@ -16,8 +17,8 @@ export const ROLE_RING_COLOR = {
 };
 const MIN_NODE_R_FULL = 18;
 const MIN_NODE_R_MINI = 10;
-const FONT = "Inconsolata, monospace";
-const DISPLAY_FONT = "Friz_Quadrata_Bold, Georgia, serif";
+const FONT = "var(--font-mono)";
+const DISPLAY_FONT = "var(--font-display)";
 
 // Short display names for WC3 unit IDs
 const SHORT_NAMES = {
@@ -263,11 +264,11 @@ export default function TransitionGlyph({
 
       fallbackEls.push(
         <circle key={`ghost-bg-${i}`} cx={nx} cy={ny} r={nodeR + 2}
-          fill="#111" stroke="none" />
+          fill="var(--grey-dark)" stroke="none" />
       );
       fallbackEls.push(
         <circle key={`ghost-${i}`} cx={nx} cy={ny} r={nodeR}
-          fill="#0a0a0a" stroke={GREY_MID} strokeWidth={mini ? 1 : 1.5} opacity="0.2" />
+          fill="var(--grey-dark)" stroke={GREY_MID} strokeWidth={mini ? 1 : 1.5} opacity="0.2" />
       );
       fallbackEls.push(
         <text key={`ghost-label-${i}`} x={nx} y={ny}
@@ -294,7 +295,7 @@ export default function TransitionGlyph({
         fallbackEls.push(
           <text key="fb-apm" x={cx} y={cy - 2}
             textAnchor="middle" dominantBaseline="central"
-            fill="#fff" fontSize="20" fontFamily={FONT} fontWeight="700" opacity="0.65">
+            fill="var(--white)" fontSize="20" fontFamily={FONT} fontWeight="700" opacity="0.65">
             {fallbackMeanApm}
           </text>
         );
@@ -309,7 +310,7 @@ export default function TransitionGlyph({
         fallbackEls.push(
           <text key="fb-apm" x={cx} y={cy + (fallbackDisplayName ? 6 : -2)}
             textAnchor="middle" dominantBaseline="central"
-            fill="#fff" fontSize="38" fontFamily={FONT} fontWeight="700" opacity="0.65">
+            fill="var(--white)" fontSize="38" fontFamily={FONT} fontWeight="700" opacity="0.65">
             {fallbackMeanApm}
           </text>
         );
@@ -357,7 +358,7 @@ export default function TransitionGlyph({
     pairMap.set(key, (pairMap.get(key) || 0) + t.count);
   }
 
-  // Build undirected edges — always render TWO arcs per connected pair
+  // Build undirected edges - always render TWO arcs per connected pair
   const edgeSeen = new Set();
   const edges = [];
   for (const [key] of pairMap) {
@@ -410,7 +411,7 @@ export default function TransitionGlyph({
         cpx = mx + (-ddy / len) * BOW * side;
         cpy = my + (ddx / len) * BOW * side;
       } else {
-        // Single direction — bow toward center
+        // Single direction - bow toward center
         const intensity = count / maxCount;
         const pull = 0.15 + intensity * 0.15;
         cpx = cx + (x1 + x2 - 2 * cx) * pull;
@@ -474,17 +475,17 @@ export default function TransitionGlyph({
       );
     }
 
-    // Node background — solid fill to fully mask arcs underneath
+    // Node background - solid fill to fully mask arcs underneath
     elements.push(
       <circle key={`node-bg-${g.group}`} cx={nx} cy={ny} r={ringR + 2}
-        stroke="none" fill="#111" />
+        stroke="none" fill="var(--grey-dark)" />
     );
     elements.push(
       <circle key={`node-${g.group}`} cx={nx} cy={ny} r={nR}
-        fill="#0a0a0a" stroke="none" />
+        fill="var(--grey-dark)" stroke="none" />
     );
 
-    // Assign ring (full circle, underneath) — tinted by role color
+    // Assign ring (full circle, underneath) - tinted by role color
     elements.push(
       <circle key={`ring-assign-${g.group}`} cx={nx} cy={ny} r={ringR}
         fill="none" stroke={ringColor} strokeWidth={ringStroke}
@@ -534,7 +535,7 @@ export default function TransitionGlyph({
       elements.push(
         <text key="apm-val" x={cx} y={cy - 2}
           textAnchor="middle" dominantBaseline="central"
-          fill="#fff" fontSize="20" fontFamily={FONT} fontWeight="700"
+          fill="var(--white)" fontSize="20" fontFamily={FONT} fontWeight="700"
           opacity="0.85">
           {meanApm}
         </text>
@@ -551,7 +552,7 @@ export default function TransitionGlyph({
       elements.push(
         <text key="apm-val" x={cx} y={cy + (displayName ? 8 : -2)}
           textAnchor="middle" dominantBaseline="central"
-          fill="#fff" fontSize="46" fontFamily={FONT} fontWeight="700"
+          fill="var(--white)" fontSize="46" fontFamily={FONT} fontWeight="700"
           opacity="0.85">
           {meanApm}
         </text>
@@ -572,8 +573,8 @@ export default function TransitionGlyph({
   if (!mini) {
     const legend = [
       { label: "Units",     color: GOLD },
-      { label: "Support",   color: "#a78bfa" },
-      { label: "Buildings", color: "#6b7280" },
+      { label: "Support",   color: VIOLET },
+      { label: "Buildings", color: GREY_NODE },
     ];
     const itemW = (label) => 18 + label.length * 8.5; // dot(12) + gap(6) + text
     const gap = 28;
@@ -587,7 +588,7 @@ export default function TransitionGlyph({
       elements.push(
         <text key={`leg-label-${entry.label}`} x={lx + 18} y={H - pad}
           textAnchor="start" dominantBaseline="auto"
-          fill="#fff" fontSize="14" fontFamily={FONT} opacity="0.85">
+          fill="var(--white)" fontSize="14" fontFamily={FONT} opacity="0.85">
           {entry.label}
         </text>
       );

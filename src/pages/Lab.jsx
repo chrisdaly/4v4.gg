@@ -39,7 +39,7 @@ const CardBody = styled.div`
 const CardTitle = styled.span`
   font-family: var(--font-display);
   font-size: var(--text-sm);
-  color: #fff;
+  color: var(--white);
 `;
 
 const CardDesc = styled.span`
@@ -67,13 +67,13 @@ const TOOLS = [
   {
     to: "/blurb-lab",
     title: "Blurb Lab",
-    desc: "Tune the LLM match ticker — inspect fact sheets, tweak the prompt",
+    desc: "Tune the LLM match ticker - inspect fact sheets, tweak the prompt",
   },
 ];
 
 const Lab = () => (
   <PageLayout>
-    <PageHero title="Lab" subtitle="Internal tools — admin only" />
+    <PageHero title="Lab" subtitle="Internal tools - admin only" />
     <Grid>
       {TOOLS.map(({ to, title, desc }) => (
         <ToolCard key={to} to={to}>

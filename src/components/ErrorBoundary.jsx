@@ -1,4 +1,5 @@
 import React from "react";
+import { Button } from "./ui";
 
 class ErrorBoundary extends React.Component {
   constructor(props) {
@@ -45,38 +46,12 @@ class ErrorBoundary extends React.Component {
             {this.state.error?.message || "An unexpected error occurred."}
           </div>
           <div style={{ display: "flex", gap: "var(--space-4)", marginTop: "var(--space-4)" }}>
-            <button
-              onClick={() => this.setState({ hasError: false, error: null })}
-              style={{
-                fontFamily: "var(--font-display)",
-                fontSize: "var(--text-xs)",
-                color: "var(--gold)",
-                background: "rgba(252, 219, 51, 0.08)",
-                border: "1px solid var(--gold)",
-                borderRadius: "var(--radius-md)",
-                padding: "var(--space-2) var(--space-6)",
-                cursor: "pointer",
-                letterSpacing: "0.5px",
-              }}
-            >
+            <Button $secondary onClick={() => this.setState({ hasError: false, error: null })}>
               Try again
-            </button>
-            <button
-              onClick={() => { window.location.href = "/"; }}
-              style={{
-                fontFamily: "var(--font-display)",
-                fontSize: "var(--text-xs)",
-                color: "var(--grey-light)",
-                background: "transparent",
-                border: "1px solid var(--grey-mid)",
-                borderRadius: "var(--radius-md)",
-                padding: "var(--space-2) var(--space-6)",
-                cursor: "pointer",
-                letterSpacing: "0.5px",
-              }}
-            >
+            </Button>
+            <Button $ghost onClick={() => { window.location.href = "/"; }}>
               Go home
-            </button>
+            </Button>
           </div>
         </div>
       );

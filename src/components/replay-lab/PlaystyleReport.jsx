@@ -1,5 +1,6 @@
 import React from "react";
 import styled from "styled-components";
+import { chartColors } from "../../lib/design-tokens";
 
 // Map WC3 hero IDs to /heroes/ image filenames
 const HERO_IMAGES = {
@@ -96,7 +97,7 @@ const UNIT_ICONS = new Set([
 ]);
 
 /**
- * PlaystyleReport — Scouting dossier derived from fingerprint profile data.
+ * PlaystyleReport - Scouting dossier derived from fingerprint profile data.
  * Shows loop pattern, group roster, speed profile, and action mix.
  */
 export default function PlaystyleReport({ profileData }) {
@@ -128,16 +129,16 @@ function buildNotes({ segments, transitionPairs, groupUsage, actionCounts }) {
   const actionTotal = action.reduce((s, v) => s + v, 0);
   const active = (groupUsage || []).filter(g => (g.used + g.assigned) > 0);
 
-  // ── Behavioral tells — things that matter for scouting ──
+  // ── Behavioral tells - things that matter for scouting ──
 
-  // Selection spam — a strong fingerprint if extreme
+  // Selection spam - a strong fingerprint if extreme
   if (actionTotal > 0) {
     const selectPct = (action[4] / actionTotal) * 100;
-    if (selectPct >= 50) notes.push({ text: `Selection addict — ${Math.round(selectPct)}% of all actions are re-selects`, tone: "gold" });
-    else if (selectPct >= 40) notes.push({ text: `Selection-heavy — re-selects units constantly (${Math.round(selectPct)}%)`, tone: "neutral" });
+    if (selectPct >= 50) notes.push({ text: `Selection addict - ${Math.round(selectPct)}% of all actions are re-selects`, tone: "gold" });
+    else if (selectPct >= 40) notes.push({ text: `Selection-heavy - re-selects units constantly (${Math.round(selectPct)}%)`, tone: "neutral" });
   }
 
-  // Strong loop pattern — distinguish nervous tick from functional switching
+  // Strong loop pattern - distinguish nervous tick from functional switching
   if (transitionPairs.length > 0) {
     const total = transitionPairs.reduce((s, t) => s + t.count, 0);
     const top = transitionPairs[0];
@@ -146,61 +147,61 @@ function buildNotes({ segments, transitionPairs, groupUsage, actionCounts }) {
       const oscPct = Math.round(((top.count + reverse.count) / total) * 100);
       const avgRapid = Math.round(((top.rapidPct || 0) + (reverse.rapidPct || 0)) / 2);
       if (oscPct >= 40 && avgRapid >= 40) {
-        notes.push({ text: `Nervous tick — ${top.from}↔${top.to} spam, ${avgRapid}% are instant switches with no actions between`, tone: "gold" });
+        notes.push({ text: `Nervous tick - ${top.from}↔${top.to} spam, ${avgRapid}% are instant switches with no actions between`, tone: "gold" });
       } else if (oscPct >= 60) {
-        notes.push({ text: `Locked loop — ${top.from}↔${top.to} is ${oscPct}% of all switches (mostly functional)`, tone: "neutral" });
+        notes.push({ text: `Locked loop - ${top.from}↔${top.to} is ${oscPct}% of all switches (mostly functional)`, tone: "neutral" });
       } else if (oscPct >= 40) {
         notes.push({ text: `${top.from}↔${top.to} loop accounts for ${oscPct}% of switches`, tone: "neutral" });
       }
     }
   }
 
-  // Dominant group — one group absorbs most attention
+  // Dominant group - one group absorbs most attention
   if (active.length >= 2) {
     const sorted = [...active].sort((a, b) => (b.used + b.assigned) - (a.used + a.assigned));
     const topTotal = sorted[0].used + sorted[0].assigned;
     const allTotal = sorted.reduce((s, g) => s + g.used + g.assigned, 0);
     const topPct = allTotal > 0 ? (topTotal / allTotal) * 100 : 0;
-    if (topPct >= 75) notes.push({ text: `Group ${sorted[0].group} hog — ${Math.round(topPct)}% of all hotkey traffic`, tone: "neutral" });
+    if (topPct >= 75) notes.push({ text: `Group ${sorted[0].group} hog - ${Math.round(topPct)}% of all hotkey traffic`, tone: "neutral" });
   }
 
   // Extreme hotkey usage
   if (active.length <= 2 && active.length > 0) notes.push({ text: `Only uses ${active.length} control group${active.length === 1 ? "" : "s"}`, tone: "neutral" });
 
-  // Group rebinding — THE strongest fingerprint signal (Quality 6.93)
+  // Group rebinding - THE strongest fingerprint signal (Quality 6.93)
   if (actionCounts?.assignPerMin >= 20) {
-    notes.push({ text: `Compulsive rebinder — ${actionCounts.assignPerMin}/min group reassigns (${actionCounts.reassignRatio}% of group actions)`, tone: "gold" });
+    notes.push({ text: `Compulsive rebinder - ${actionCounts.assignPerMin}/min group reassigns (${actionCounts.reassignRatio}% of group actions)`, tone: "gold" });
   } else if (actionCounts?.reassignRatio <= 3 && actionCounts?.selectPerMin > 0) {
-    notes.push({ text: `Set-and-forget — binds groups once, almost never rebinds (${actionCounts.reassignRatio}%)`, tone: "neutral" });
+    notes.push({ text: `Set-and-forget - binds groups once, almost never rebinds (${actionCounts.reassignRatio}%)`, tone: "neutral" });
   }
 
-  // Tab cycling — strong signal (Quality 2.38)
+  // Tab cycling - strong signal (Quality 2.38)
   if (actionCounts?.tabPerMin >= 50) {
-    notes.push({ text: `Tab masher — cycles subgroups ${actionCounts.tabPerMin}/min`, tone: "green" });
+    notes.push({ text: `Tab masher - cycles subgroups ${actionCounts.tabPerMin}/min`, tone: "green" });
   }
 
-  // Rhythm — reveals mechanical fingerprint (Quality 2.9)
+  // Rhythm - reveals mechanical fingerprint (Quality 2.9)
   if (actionCounts?.rhythmMedianMs != null && actionCounts?.rhythmStdMs != null) {
     const ratio = actionCounts.rhythmStdMs / actionCounts.rhythmMedianMs;
     if (ratio < 0.8 && actionCounts.rhythmMedianMs < 150) {
-      notes.push({ text: `Metronome — extremely consistent rhythm (${actionCounts.rhythmMedianMs}ms ±${actionCounts.rhythmStdMs}ms)`, tone: "gold" });
+      notes.push({ text: `Metronome - extremely consistent rhythm (${actionCounts.rhythmMedianMs}ms ±${actionCounts.rhythmStdMs}ms)`, tone: "gold" });
     } else if (ratio >= 3.0) {
-      notes.push({ text: `Burst/idle cycles — erratic rhythm (${actionCounts.rhythmMedianMs}ms ±${actionCounts.rhythmStdMs}ms)`, tone: "neutral" });
+      notes.push({ text: `Burst/idle cycles - erratic rhythm (${actionCounts.rhythmMedianMs}ms ±${actionCounts.rhythmStdMs}ms)`, tone: "neutral" });
     }
   }
 
-  // Surround habit — meaningful smurf signal (skilled players surround constantly)
+  // Surround habit - meaningful smurf signal (skilled players surround constantly)
   if (actionCounts?.surroundPerMin >= 8) {
     const sizeNote = actionCounts.surroundAvgSize >= 4 ? `, avg ${actionCounts.surroundAvgSize} clicks per burst` : "";
-    notes.push({ text: `Active surrounder — ${actionCounts.surroundPerMin}/min move bursts${sizeNote}`, tone: "green" });
+    notes.push({ text: `Active surrounder - ${actionCounts.surroundPerMin}/min move bursts${sizeNote}`, tone: "green" });
   } else if (actionCounts?.surroundPerMin > 0 && actionCounts.surroundPerMin < 2 && actionCounts.replayCount >= 3) {
-    notes.push({ text: `Rarely surrounds — only ${actionCounts.surroundPerMin} move bursts/min`, tone: "neutral" });
+    notes.push({ text: `Rarely surrounds - only ${actionCounts.surroundPerMin} move bursts/min`, tone: "neutral" });
   }
 
   // Speed + tempo combos
-  if (meanApm >= 250 && burst < 1.3) notes.push({ text: "Machine-gun pace — extremely fast AND steady", tone: "gold" });
-  else if (meanApm >= 250 && burst >= 2.0) notes.push({ text: "Explosive — extremely fast with huge fight-mode spikes", tone: "gold" });
-  else if (meanApm <= 80 && meanApm > 0) notes.push({ text: "Very slow pace — macro/turtle style", tone: "neutral" });
+  if (meanApm >= 250 && burst < 1.3) notes.push({ text: "Machine-gun pace - extremely fast AND steady", tone: "gold" });
+  else if (meanApm >= 250 && burst >= 2.0) notes.push({ text: "Explosive - extremely fast with huge fight-mode spikes", tone: "gold" });
+  else if (meanApm <= 80 && meanApm > 0) notes.push({ text: "Very slow pace - macro/turtle style", tone: "neutral" });
 
   return notes;
 }
@@ -218,7 +219,7 @@ function NotesSection({ notes }) {
   );
 }
 
-/* ── Section 1: Loop Info — visual mini glyph ───────── */
+/* ── Section 1: Loop Info - visual mini glyph ───────── */
 
 function LoopGlyph({ nodeA, nodeB, rapidPct }) {
   const W = 130, H = 64, r = 16;
@@ -226,7 +227,7 @@ function LoopGlyph({ nodeA, nodeB, rapidPct }) {
   const bx = W - r - 4, by = H / 2;
   const midX = (ax + bx) / 2;
   const BOW = 18;
-  const gold = "#eab308";
+  const gold = chartColors.gold;
 
   return (
     <svg width={W} height={H} style={{ display: "block", overflow: "visible" }}>
@@ -237,15 +238,15 @@ function LoopGlyph({ nodeA, nodeB, rapidPct }) {
       <path d={`M${bx},${by} Q${midX},${ay + BOW} ${ax},${ay}`}
         fill="none" stroke={gold} strokeWidth={1.5} opacity={0.45} strokeLinecap="round" />
       {/* Node A */}
-      <circle cx={ax} cy={ay} r={r} fill="#0f172a" />
+      <circle cx={ax} cy={ay} r={r} fill="var(--grey-dark)" />
       <circle cx={ax} cy={ay} r={r} fill="none" stroke={gold} strokeWidth={2.5} opacity={0.85} />
       <text x={ax} y={ay} textAnchor="middle" dominantBaseline="central"
-        fill={gold} fontSize="14" fontFamily="Inconsolata,monospace" fontWeight="700">{nodeA}</text>
+        fill={gold} fontSize="14" fontFamily="var(--font-mono)" fontWeight="700">{nodeA}</text>
       {/* Node B */}
-      <circle cx={bx} cy={by} r={r} fill="#0f172a" />
+      <circle cx={bx} cy={by} r={r} fill="var(--grey-dark)" />
       <circle cx={bx} cy={by} r={r} fill="none" stroke={gold} strokeWidth={2.5} opacity={0.85} />
       <text x={bx} y={by} textAnchor="middle" dominantBaseline="central"
-        fill={gold} fontSize="14" fontFamily="Inconsolata,monospace" fontWeight="700">{nodeB}</text>
+        fill={gold} fontSize="14" fontFamily="var(--font-mono)" fontWeight="700">{nodeB}</text>
     </svg>
   );
 }
@@ -285,7 +286,7 @@ function LoopInfo({ transitionPairs }) {
     <Section>
       <SectionLabel>LOOP{loops.length > 1 ? `S` : ""}</SectionLabel>
       <SectionBody>
-        {/* Primary loop — full detail */}
+        {/* Primary loop - full detail */}
         <PrimaryLoopRow>
           <LoopLeft>
             <LoopPct>{oscPct}%</LoopPct>
@@ -312,7 +313,7 @@ function LoopInfo({ transitionPairs }) {
           )}
         </PrimaryLoopRow>
         {medGap != null && <LoopGapLabel>~{medGap}ms avg gap</LoopGapLabel>}
-        {/* Secondary loops — compact single line each */}
+        {/* Secondary loops - compact single line each */}
         {secondary.length > 0 && (
           <SecondaryLoops>
             {secondary.map(l => (
@@ -486,7 +487,7 @@ function SpeedProfile({ segments, actionCounts }) {
           </ApmRangeBar>
           <ApmRangeLabels>
             <ApmRangeLabel style={{ left: `${lowPct}%` }}>{lowApm}</ApmRangeLabel>
-            <ApmRangeLabel style={{ left: `${avgPct}%`, color: "#fff", fontWeight: 700 }}>{meanApm}</ApmRangeLabel>
+            <ApmRangeLabel style={{ left: `${avgPct}%`, color: "var(--white)", fontWeight: 700 }}>{meanApm}</ApmRangeLabel>
             <ApmRangeLabel style={{ left: `${highPct}%` }}>{highApm}</ApmRangeLabel>
           </ApmRangeLabels>
         </ApmRangeWrap>
@@ -657,7 +658,7 @@ const SecondaryLoop = styled.div`
 const SecondaryPct = styled.span`
   font-size: var(--text-xs);
   font-weight: 700;
-  color: #fff;
+  color: var(--white);
 `;
 
 const SecondaryNodes = styled.span`
@@ -675,7 +676,7 @@ const LoopLeft = styled.div`
 const LoopPct = styled.div`
   font-size: var(--text-lg);
   font-weight: 700;
-  color: #fff;
+  color: var(--white);
   line-height: 1;
 `;
 
@@ -725,7 +726,7 @@ const LoopRowFill = styled.div`
 
 const LoopRowVal = styled.span`
   font-size: var(--text-xs);
-  color: #fff;
+  color: var(--white);
   font-weight: 600;
   width: 28px;
   text-align: right;
@@ -897,7 +898,7 @@ const SpeedRow = styled.div`
 const ApmValue = styled.span`
   font-size: var(--text-lg);
   font-weight: 700;
-  color: #fff;
+  color: var(--white);
   line-height: 1;
 `;
 
@@ -987,7 +988,7 @@ const HabitIcon = styled.span`
 
 const HabitVal = styled.span`
   font-size: var(--text-base);
-  color: #fff;
+  color: var(--white);
   font-weight: 700;
   min-width: 72px;
 `;

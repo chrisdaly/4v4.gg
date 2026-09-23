@@ -1,12 +1,13 @@
 import React, { useState, useEffect } from "react";
 import styled from "styled-components";
 import PeonLoader from "../../components/PeonLoader";
+import { chartColors } from "../../lib/design-tokens";
 
 const RELAY_URL =
   import.meta.env.VITE_CHAT_RELAY_URL || "https://4v4gg-chat-relay.fly.dev";
 
-const RED = "#f87171";
-const GOLD = "#fcdb33";
+const RED = chartColors.red;
+const GOLD = chartColors.gold;
 const GREY = "var(--grey-light)";
 
 function getVerdict(similarity, percentile) {

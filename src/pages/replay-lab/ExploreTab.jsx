@@ -90,7 +90,7 @@ export default function ExploreTab({ initialPlayer = null }) {
 
     const tag = encodeURIComponent(battleTag);
 
-    // Show profile immediately — don't wait for personas/replays
+    // Show profile immediately - don't wait for personas/replays
     try {
       const profileRes = await fetch(`${RELAY_URL}/api/fingerprints/profile/${tag}`);
       if (profileRes.ok) setProfileData(await profileRes.json());
@@ -166,20 +166,20 @@ export default function ExploreTab({ initialPlayer = null }) {
   const activeData = selectedReplayId && replayProfileData ? replayProfileData : profileData;
 
   const fmtDuration = (s) => {
-    if (!s) return "—";
+    if (!s) return "-";
     const m = Math.floor(s / 60);
     const sec = s % 60;
     return `${m}:${String(sec).padStart(2, "0")}`;
   };
 
   const fmtDate = (d) => {
-    if (!d) return "—";
+    if (!d) return "-";
     return d.slice(0, 10);
   };
 
   return (
     <>
-      {/* Scatter — always visible as the hero */}
+      {/* Scatter - always visible as the hero */}
       {scatterLoading ? (
         <div className="page-loader" style={{ minHeight: "60vh" }}>
           <PeonLoader />
@@ -198,7 +198,7 @@ export default function ExploreTab({ initialPlayer = null }) {
         />
       )}
 
-      {/* Player profile panel — slides in below scatter when selected */}
+      {/* Player profile panel - slides in below scatter when selected */}
       {selectedTag && (
         <ProfilePanel>
           <ProfileHeader>
@@ -214,7 +214,7 @@ export default function ExploreTab({ initialPlayer = null }) {
 
           {!profileLoading && activeData && (
             <>
-              {/* Transition glyph + scouting report — side by side */}
+              {/* Transition glyph + scouting report - side by side */}
               {activeData.averaged?.segments ? (
                 <>
                   <ProfileGrid>
@@ -265,9 +265,9 @@ export default function ExploreTab({ initialPlayer = null }) {
                         onMouseEnter={() => prefetchReplay(r.replayId)}
                       >
                         <ReplayDate>{fmtDate(r.matchDate)}</ReplayDate>
-                        <ReplayMap>{r.mapName || "—"}</ReplayMap>
+                        <ReplayMap>{r.mapName || "-"}</ReplayMap>
                         <ReplayDuration>{fmtDuration(r.gameDuration)}</ReplayDuration>
-                        <ReplayRace>{r.race || "—"}</ReplayRace>
+                        <ReplayRace>{r.race || "-"}</ReplayRace>
                       </ReplayRow>
                     ))}
                   </ReplayListScroll>
@@ -443,14 +443,14 @@ const ReplayRow = styled.div`
   cursor: pointer;
   font-family: var(--font-mono);
   font-size: var(--text-xxs);
-  color: ${(p) => (p.$active ? "var(--gold)" : "#ccc")};
+  color: ${(p) => (p.$active ? "var(--gold)" : "var(--grey-light)")};
   background: ${(p) => (p.$active ? "var(--gold-tint)" : "transparent")};
   border-left: 2px solid ${(p) => (p.$active ? "var(--gold)" : "transparent")};
   transition: all 0.15s ease;
 
   &:hover {
     background: rgba(255, 255, 255, 0.04);
-    color: #fff;
+    color: var(--white);
   }
 
   & + & {

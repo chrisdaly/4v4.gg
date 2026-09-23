@@ -1,20 +1,13 @@
 /* ========================================
-   Magazine Page — Editorial Weekly Digest
+   Magazine Page - Editorial Weekly Digest
    Three acts: Stories → Players → Numbers
    All classes prefixed with .mg-
    ======================================== */
 
-/* ── Quote spacing constants ──────────────────────── */
+/* Quote spacing vars live on :root (design-tokens quote); the magazine
+   only overrides the in-group gap so the quote bar is continuous */
 .mg-page {
-  --quote-group-gap: var(--space-4);    /* between speaker groups (16px) */
-  --quote-item-gap: 0px;               /* between quotes within a group — 0 for continuous bar */
-  --quote-name-gap: var(--space-1);     /* below speaker name (4px) */
-  --quote-pad-left: var(--space-4);     /* space between border and text (16px) */
-  --quote-indent: var(--space-4);       /* left margin indent for whole quote block (16px) */
-  --quote-border: var(--border-thick) solid rgba(255, 255, 255, 0.15);
-}
-
-.mg-page {
+  --quote-item-gap: 0;
   min-height: 100vh;
   overflow-x: hidden;
 }
@@ -39,7 +32,7 @@
   font-family: var(--font-mono);
   font-size: var(--text-xs);
   text-transform: uppercase;
-  letter-spacing: 0.12em;
+  letter-spacing: 0.1em;
   color: var(--grey-light);
 }
 
@@ -128,7 +121,7 @@
   opacity: 1;
 }
 
-/* Reposition toggle button — stacked above Pick Cover */
+/* Reposition toggle button - stacked above Pick Cover */
 .mg-header-reposition-toggle {
   bottom: 44px !important;
 }
@@ -214,36 +207,15 @@
   color: var(--white);
 }
 
+/* ui.jsx Button $icon; sized down to sit inside the pill */
 .mg-topic-pill--editable .mg-topic-pill-delete {
-  background: none;
-  border: none;
-  color: rgba(255, 255, 255, 0.3);
-  cursor: pointer;
+  width: 16px;
+  height: 16px;
   padding: 0;
-  line-height: 1;
-  display: flex;
-  align-items: center;
 }
 
 .mg-topic-pill--editable .mg-topic-pill-delete:hover {
   color: var(--red);
-}
-
-.mg-topic-pill--add {
-  background: none;
-  border: 1px dashed rgba(255, 255, 255, 0.2);
-  color: rgba(255, 255, 255, 0.3);
-  cursor: pointer;
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  width: 24px;
-  height: 24px;
-}
-
-.mg-topic-pill--add:hover {
-  border-color: var(--gold);
-  color: var(--gold);
 }
 
 .mg-topic-input {
@@ -256,59 +228,6 @@
   padding: 2px 12px;
   outline: none;
   width: 100px;
-}
-
-/* ── Side Navigation Arrows ────────────────────────── */
-
-.mg-side-nav {
-  position: fixed;
-  top: 0;
-  left: 0;
-  right: 0;
-  bottom: 0;
-  pointer-events: none;
-  z-index: 10;
-}
-
-.mg-side-btn {
-  position: fixed;
-  top: 50%;
-  transform: translateY(-50%);
-  pointer-events: auto;
-  width: 40px;
-  height: 72px;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  font-size: 28px;
-  color: var(--grey-light);
-  background: rgba(0, 0, 0, 0.4);
-  border: 1px solid rgba(255, 255, 255, 0.08);
-  cursor: pointer;
-  transition: all var(--transition);
-}
-
-.mg-side-btn--left {
-  left: 0;
-  border-radius: 0 var(--radius-md) var(--radius-md) 0;
-  border-left: none;
-}
-
-.mg-side-btn--right {
-  right: 0;
-  border-radius: var(--radius-md) 0 0 var(--radius-md);
-  border-right: none;
-}
-
-.mg-side-btn:hover:not(:disabled) {
-  color: var(--gold);
-  background: rgba(0, 0, 0, 0.6);
-  border-color: var(--gold-border-hover);
-}
-
-.mg-side-btn:disabled {
-  opacity: 0.15;
-  cursor: not-allowed;
 }
 
 /* ── Shared Section Styles ─────────────────────────── */
@@ -339,19 +258,6 @@
 .mg-section-label--green { color: var(--green); }
 .mg-section-label--gold { color: var(--gold); }
 
-.mg-section-add {
-  background: none;
-  border: 1px dashed rgba(255, 255, 255, 0.2);
-  border-radius: var(--radius-sm);
-  color: rgba(255, 255, 255, 0.4);
-  cursor: pointer;
-  padding: 2px 6px;
-  display: flex;
-  align-items: center;
-  transition: color var(--transition), border-color var(--transition);
-}
-.mg-section-add:hover { color: var(--gold); border-color: var(--gold); }
-
 .mg-section-rule {
   flex: 1;
   height: 1px;
@@ -362,11 +268,10 @@
 
 .mg-text-green { color: var(--green); }
 .mg-text-red { color: var(--red); }
-.mg-text-gold { color: var(--gold); }
 .mg-text-white { color: var(--white); }
 
 /* ═══════════════════════════════════════════════════════
-   ACT 1 — FEATURE STORY
+   ACT 1 - FEATURE STORY
    ═══════════════════════════════════════════════════════ */
 
 .mg-feature {
@@ -381,26 +286,11 @@
   gap: var(--space-4);
 }
 
-.mg-feature-quotes {
-  display: flex;
-  flex-direction: column;
-  gap: var(--space-4);
-  margin-top: var(--space-2);
-}
-
 .mg-feature-lead {
   font-family: var(--font-body, Georgia, serif);
   font-size: var(--text-base);
   line-height: 1.5;
   color: var(--white);
-  margin: 0;
-}
-
-.mg-feature-text {
-  font-family: var(--font-body, Georgia, serif);
-  font-size: var(--text-sm);
-  line-height: 1.6;
-  color: var(--grey-light);
   margin: 0;
 }
 
@@ -415,16 +305,6 @@ a.mg-inline-name {
 
 a.mg-inline-name:hover {
   text-decoration: underline;
-}
-
-.mg-feature-recap {
-  font-family: var(--font-body, Georgia, serif);
-  font-size: var(--text-sm);
-  line-height: 1.6;
-  color: var(--grey-light);
-  margin: 0;
-  padding-top: var(--space-4);
-  border-top: 1px solid rgba(255, 255, 255, 0.06);
 }
 
 /* ── Quotes (shared) ──────────────────────────────── */
@@ -478,25 +358,6 @@ a.mg-inline-name:hover {
   display: flex;
   flex-direction: column;
   gap: var(--space-4);
-}
-
-.mg-stories-list {
-  display: flex;
-  flex-direction: column;
-  gap: var(--space-4);
-}
-
-.mg-story-card {
-  padding-left: var(--space-4);
-  border-left: var(--border-thick) solid rgba(255, 255, 255, 0.08);
-}
-
-.mg-story-text {
-  font-family: var(--font-body, Georgia, serif);
-  font-size: var(--text-xs);
-  line-height: 1.6;
-  color: var(--grey-light);
-  margin: 0;
 }
 
 .mg-stories-sidebar {
@@ -661,7 +522,7 @@ a.mg-inline-name:hover {
 }
 
 /* ═══════════════════════════════════════════════════════
-   ACT 2 — PLAYER FEATURES
+   ACT 2 - PLAYER FEATURES
    ═══════════════════════════════════════════════════════ */
 
 /* ── Player Spotlights ─────────────────────────────── */
@@ -681,27 +542,22 @@ a.mg-inline-name:hover {
   background: var(--surface-1);
 }
 
-.mg-spotlight-dismiss {
+/* ui.jsx Button $icon; hover-reveal over the card, sized to 24px */
+.mg-spotlight-card .mg-spotlight-dismiss {
   position: absolute;
   top: 6px;
   right: 6px;
   z-index: 2;
-  background: rgba(0, 0, 0, 0.6);
-  border: 1px solid rgba(255, 255, 255, 0.15);
-  border-radius: var(--radius-full);
-  color: rgba(255, 255, 255, 0.6);
   width: 24px;
   height: 24px;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  cursor: pointer;
+  padding: 0;
+  background: rgba(0, 0, 0, 0.6);
+  border-radius: var(--radius-full);
   opacity: 0;
   transition: opacity var(--transition);
-  padding: 0;
 }
 .mg-spotlight-card:hover .mg-spotlight-dismiss { opacity: 1; }
-.mg-spotlight-dismiss:hover { color: var(--white); background: rgba(248, 113, 113, 0.7); }
+.mg-spotlight-card .mg-spotlight-dismiss:hover { color: var(--white); background: rgba(248, 113, 113, 0.7); }
 
 .mg-spotlight-card--green { border: var(--border-thick) solid rgba(74, 222, 128, 0.4); }
 .mg-spotlight-card--red { border: var(--border-thick) solid rgba(248, 113, 113, 0.4); }
@@ -759,7 +615,6 @@ a.mg-inline-name:hover {
 
 .mg-spotlight-name:hover { text-decoration: underline; }
 
-
 .mg-spotlight-stats {
   display: flex;
   align-items: center;
@@ -812,52 +667,6 @@ a.mg-inline-name:hover {
 .mg-spotlight-hero-victim {
   filter: grayscale(0.3) brightness(0.8);
   opacity: 0.85;
-}
-
-/* ── Killboard ── */
-.mg-killboard-chart {
-  display: flex;
-  align-items: flex-end;
-  gap: 3px;
-  margin: var(--space-3) 0 0;
-  height: 80px;
-  padding-bottom: 26px;
-  position: relative;
-}
-
-.mg-killboard-col {
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  flex: 1;
-  min-width: 0;
-  height: 100%;
-  justify-content: flex-end;
-  position: relative;
-}
-
-.mg-killboard-count {
-  font-family: var(--font-mono);
-  font-size: var(--text-xxxs);
-  color: rgba(255, 255, 255, 0.6);
-  margin-bottom: 2px;
-}
-
-.mg-killboard-bar {
-  width: 100%;
-  max-width: 28px;
-  min-height: 2px;
-  background: rgba(255, 255, 255, 0.2);
-  border-radius: var(--radius-sm) var(--radius-sm) 0 0;
-}
-
-.mg-killboard-icon {
-  width: 22px;
-  height: 22px;
-  border-radius: var(--radius-sm);
-  object-fit: cover;
-  position: absolute;
-  bottom: -26px;
 }
 
 /* ── Hero Kills Distribution ── */
@@ -1079,43 +888,19 @@ a.mg-inline-name:hover {
   color: var(--gold) !important;
 }
 
-/* Remove button — always visible, matches editorial-delete pattern */
-.mg-quote-remove {
+/* Remove button - always visible, matches editorial-delete pattern */
+/* ui.jsx Button $icon; sized down to the quote row, dims until hover */
+.mg-quote-editable-row .mg-quote-remove {
   flex-shrink: 0;
-  background: none;
-  border: none;
-  color: var(--grey-mid);
-  cursor: pointer;
-  padding: 2px 4px;
+  width: 20px;
+  height: 20px;
+  padding: 0;
   opacity: 0.5;
-  transition: opacity 0.15s, color 0.15s;
-  display: inline-flex;
-  align-items: center;
 }
 
-.mg-quote-remove:hover {
+.mg-quote-editable-row .mg-quote-remove:hover {
   opacity: 1;
   color: var(--red);
-}
-
-/* Add quote */
-.mg-quote-add-btn {
-  background: none;
-  border: none;
-  color: var(--grey-mid);
-  font: var(--text-xxs) var(--font-mono);
-  text-transform: uppercase;
-  letter-spacing: 0.06em;
-  padding: 6px 0;
-  cursor: pointer;
-  transition: color var(--transition);
-  display: inline-flex;
-  align-items: center;
-  gap: 4px;
-}
-
-.mg-quote-add-btn:hover {
-  color: var(--gold);
 }
 
 /* Action row containing Add + Browse buttons */
@@ -1159,24 +944,7 @@ a.mg-inline-name:hover {
   color: var(--grey-mid);
 }
 
-.mg-quote-add-confirm {
-  background: none;
-  border: 1px solid var(--gold);
-  border-radius: var(--radius-sm);
-  color: var(--gold);
-  font: var(--text-xxs) var(--font-mono);
-  text-transform: uppercase;
-  letter-spacing: 0.06em;
-  padding: 5px 14px;
-  cursor: pointer;
-  transition: background var(--transition);
-}
-
-.mg-quote-add-confirm:hover {
-  background: rgba(var(--gold-rgb, 212, 175, 55), 0.1);
-}
-
-/* ── Quote Browser — Full-screen modal ── */
+/* ── Quote Browser - Full-screen modal ── */
 
 .mg-quote-browser {
   display: inline-block;
@@ -1231,24 +999,11 @@ a.mg-inline-name:hover {
   opacity: 0.85;
 }
 
+/* ui.jsx Button $ghost; layout only */
 .mg-qb-close {
-  background: none;
-  border: 1px solid var(--grey-mid);
-  border-radius: var(--radius-sm);
-  color: var(--grey-light);
-  cursor: pointer;
-  padding: var(--space-2) var(--space-4);
-  font-family: var(--font-mono);
-  font-size: var(--text-sm);
-  display: flex;
+  display: inline-flex;
   align-items: center;
   gap: var(--space-2);
-  transition: all 0.15s;
-}
-
-.mg-qb-close:hover {
-  border-color: var(--gold);
-  color: #fff;
 }
 
 /* Main content area - fills remaining space */
@@ -1356,26 +1111,20 @@ a.mg-inline-name:hover {
   border-bottom: 1px solid var(--gold-tint);
 }
 
-.mg-qb-sidebar-group-remove {
-  display: flex;
-  align-items: center;
-  justify-content: center;
+/* ui.jsx Button $icon; sized down, hover-reveal */
+.mg-qb-sidebar-group .mg-qb-sidebar-group-remove {
   width: 18px;
   height: 18px;
-  background: none;
-  border: none;
-  border-radius: var(--radius-sm);
-  color: var(--grey-mid);
-  cursor: pointer;
+  padding: 0;
   opacity: 0;
-  transition: all 0.15s;
+  transition: opacity var(--transition);
 }
 
 .mg-qb-sidebar-group:hover .mg-qb-sidebar-group-remove {
   opacity: 1;
 }
 
-.mg-qb-sidebar-group-remove:hover {
+.mg-qb-sidebar-group .mg-qb-sidebar-group-remove:hover {
   color: var(--red);
   background: rgba(255, 100, 100, 0.15);
 }
@@ -1413,27 +1162,21 @@ a.mg-inline-name:hover {
   line-height: 1.4;
 }
 
-.mg-qb-sidebar-quote-remove {
+/* ui.jsx Button $icon; sized down, hover-reveal */
+.mg-qb-sidebar-quote .mg-qb-sidebar-quote-remove {
   flex-shrink: 0;
-  display: flex;
-  align-items: center;
-  justify-content: center;
   width: 16px;
   height: 16px;
-  background: none;
-  border: none;
-  border-radius: var(--radius-sm);
-  color: var(--grey-mid);
-  cursor: pointer;
+  padding: 0;
   opacity: 0;
-  transition: all 0.15s;
+  transition: opacity var(--transition);
 }
 
 .mg-qb-sidebar-quote:hover .mg-qb-sidebar-quote-remove {
   opacity: 1;
 }
 
-.mg-qb-sidebar-quote-remove:hover {
+.mg-qb-sidebar-quote .mg-qb-sidebar-quote-remove:hover {
   color: var(--red);
   background: rgba(255, 100, 100, 0.15);
 }
@@ -1575,84 +1318,6 @@ a.mg-inline-name:hover {
   flex: 1;
   overflow-y: auto;
   min-height: 0;
-}
-
-/* Selection tray at bottom */
-.mg-qb-tray {
-  border-top: 1px solid var(--gold);
-  background: var(--surface-2);
-  padding: var(--space-3) var(--space-4);
-  display: flex;
-  align-items: center;
-  gap: var(--space-4);
-}
-
-.mg-qb-tray-empty {
-  flex: 1;
-  font-family: var(--font-mono);
-  font-size: var(--text-xs);
-  color: var(--grey-mid);
-}
-
-.mg-qb-tray-quotes {
-  flex: 1;
-  display: flex;
-  gap: var(--space-2);
-  flex-wrap: wrap;
-  max-height: 80px;
-  overflow-y: auto;
-}
-
-.mg-qb-tray-quote {
-  display: flex;
-  align-items: center;
-  gap: var(--space-2);
-  background: var(--gold-tint);
-  border: 1px solid var(--gold-border-hover);
-  border-radius: var(--radius-sm);
-  padding: var(--space-1) var(--space-2);
-  font-size: var(--text-xxs);
-  max-width: 300px;
-}
-
-.mg-qb-tray-quote-text {
-  overflow: hidden;
-  text-overflow: ellipsis;
-  white-space: nowrap;
-  color: var(--text-body);
-}
-
-.mg-qb-tray-more {
-  font-family: var(--font-mono);
-  font-size: var(--text-xxs);
-  color: var(--grey-light);
-  padding: var(--space-1) var(--space-2);
-}
-
-.mg-qb-add-btn {
-  background: var(--gold);
-  color: #000;
-  border: none;
-  border-radius: var(--radius-sm);
-  padding: var(--space-2) var(--space-6);
-  font-family: var(--font-mono);
-  font-size: var(--text-sm);
-  font-weight: 600;
-  text-transform: uppercase;
-  letter-spacing: 0.05em;
-  cursor: pointer;
-  transition: all 0.15s;
-  white-space: nowrap;
-}
-
-.mg-qb-add-btn:hover {
-  background: #e6c84a;
-}
-
-.mg-qb-add-btn:disabled {
-  background: var(--grey-mid);
-  color: var(--grey-dark);
-  cursor: default;
 }
 
 /* Hide the default apply button inside ChatContext */
@@ -2019,7 +1684,7 @@ a.mg-inline-name:hover {
 }
 
 /* ═══════════════════════════════════════════════════════
-   ACT 3 — POWER RANKINGS (simplified)
+   ACT 3 - POWER RANKINGS (simplified)
    ═══════════════════════════════════════════════════════ */
 
 .mg-rank-split {
@@ -2141,79 +1806,6 @@ a.mg-inline-name:hover {
   white-space: nowrap;
 }
 
-/* ── Awards ────────────────────────────────────────── */
-
-.mg-awards-grid {
-  display: grid;
-  grid-template-columns: repeat(auto-fill, minmax(180px, 1fr));
-  gap: var(--space-3);
-}
-
-.mg-award-card {
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  gap: var(--space-2);
-  padding: var(--space-4);
-  background: rgba(255, 255, 255, 0.03);
-  border: 1px solid rgba(255, 255, 255, 0.08);
-  border-radius: var(--radius-md);
-  text-align: center;
-}
-
-.mg-award-icon { font-size: var(--text-xl); }
-
-.mg-award-category {
-  font-family: var(--font-mono);
-  font-size: var(--text-xxs);
-  color: var(--gold);
-  text-transform: uppercase;
-  letter-spacing: 0.08em;
-}
-
-.mg-award-player {
-  display: flex;
-  align-items: center;
-  gap: var(--space-2);
-}
-
-.mg-award-pic {
-  width: 36px;
-  height: 36px;
-  border-radius: var(--radius-md);
-  object-fit: cover;
-  border: 1px solid var(--grey-mid);
-}
-
-.mg-award-name {
-  font-family: var(--font-display);
-  font-size: var(--text-sm);
-  color: var(--gold);
-  text-decoration: none;
-}
-
-.mg-award-name:hover { text-decoration: underline; }
-
-.mg-award-detail {
-  font-family: var(--font-mono);
-  font-size: var(--text-xxs);
-  color: var(--grey-light);
-}
-
-.mg-award-combo {
-  font-family: var(--font-mono);
-  font-size: var(--text-xxs);
-  color: var(--gold);
-  opacity: 0.8;
-}
-
-.mg-award-runners {
-  font-family: var(--font-mono);
-  font-size: var(--text-xxxs);
-  color: var(--grey-mid);
-  line-height: 1.3;
-}
-
 /* ── Stats Ticker ──────────────────────────────────── */
 
 .mg-ticker-list {
@@ -2302,119 +1894,6 @@ a.mg-inline-name:hover {
   min-width: 0;
 }
 
-/* ── Meta Report ───────────────────────────────────── */
-
-.mg-meta-races {
-  display: flex;
-  flex-direction: column;
-  gap: var(--space-3);
-  margin-bottom: var(--space-6);
-}
-
-.mg-meta-race-row {
-  display: flex;
-  align-items: center;
-  gap: var(--space-3);
-}
-
-.mg-meta-race-left {
-  display: flex;
-  align-items: center;
-  gap: var(--space-2);
-  width: 64px;
-  flex-shrink: 0;
-}
-
-.mg-meta-race-icon { width: 24px; height: 24px; object-fit: contain; }
-
-.mg-meta-race-abbr {
-  font-family: var(--font-mono);
-  font-size: var(--text-xs);
-  color: var(--grey-light);
-  text-transform: uppercase;
-}
-
-.mg-meta-bar-wrap {
-  flex: 1;
-  display: flex;
-  align-items: center;
-  gap: var(--space-2);
-  height: 20px;
-  background: rgba(255, 255, 255, 0.04);
-  border-radius: var(--radius-sm);
-  overflow: hidden;
-  position: relative;
-}
-
-.mg-meta-bar {
-  height: 100%;
-  background: linear-gradient(90deg, var(--gold-border-hover), rgba(252, 219, 51, 0.15));
-  border-radius: var(--radius-sm);
-  min-width: 24px;
-  transition: width 0.4s ease;
-}
-
-.mg-meta-bar-label {
-  position: absolute;
-  right: var(--space-2);
-  font-family: var(--font-mono);
-  font-size: var(--text-xxs);
-  color: var(--white);
-}
-
-.mg-meta-wr {
-  font-family: var(--font-mono);
-  font-size: var(--text-xs);
-  color: var(--grey-light);
-  width: 68px;
-  text-align: right;
-  flex-shrink: 0;
-}
-
-.mg-meta-maps {
-  display: grid;
-  grid-template-columns: repeat(auto-fill, minmax(100px, 1fr));
-  gap: var(--space-3);
-}
-
-.mg-meta-map-card {
-  position: relative;
-  border-radius: var(--radius-md);
-  overflow: hidden;
-  aspect-ratio: 1;
-  background: var(--surface-2);
-}
-
-.mg-meta-map-img { width: 100%; height: 100%; object-fit: cover; }
-
-.mg-meta-map-overlay {
-  position: absolute;
-  inset: 0;
-  background: rgba(0, 0, 0, 0.5);
-  display: flex;
-  align-items: center;
-  justify-content: center;
-}
-
-.mg-meta-map-count {
-  font-family: var(--font-mono);
-  font-size: var(--text-lg);
-  color: var(--white);
-  font-weight: 600;
-}
-
-.mg-meta-map-name {
-  position: absolute;
-  bottom: var(--space-1);
-  left: var(--space-1);
-  right: var(--space-1);
-  font-family: var(--font-mono);
-  font-size: var(--text-xxs);
-  color: var(--grey-light);
-  text-align: center;
-  text-shadow: 0 1px 4px rgba(0, 0, 0, 0.8);
-}
-
 /* ── Compact Stats (New Blood + AT Stacks side by side) */
 
 .mg-compact-grid {
@@ -2429,8 +1908,6 @@ a.mg-inline-name:hover {
 }
 
 /* ── New Blood (compact) ──────────────────────────── */
-
-
 
 /* ── Welcome Back (returning players list) ─────────── */
 
@@ -2762,18 +2239,15 @@ a.mg-stack-player-name:hover {
 .mg-clip-featured:hover .mg-clip-editorial-overlay,
 .mg-clip-card:hover .mg-clip-editorial-overlay { opacity: 1; }
 
-.mg-clip-delete {
+/* ui.jsx Button $icon; dark backdrop so it reads over the clip thumbnail */
+.mg-clip-editorial-overlay .mg-clip-delete {
+  width: 24px;
+  height: 24px;
+  padding: 0;
   background: rgba(0, 0, 0, 0.7);
-  border: 1px solid rgba(255, 255, 255, 0.2);
-  border-radius: var(--radius-sm);
-  color: rgba(255, 255, 255, 0.6);
-  cursor: pointer;
-  padding: 2px 4px;
-  display: flex;
-  align-items: center;
 }
 
-.mg-clip-delete:hover { color: var(--red); border-color: var(--red); }
+.mg-clip-editorial-overlay .mg-clip-delete:hover { color: var(--red); }
 
 .mg-clip-drag-hint {
   background: rgba(0, 0, 0, 0.7);
@@ -2823,20 +2297,10 @@ a.mg-stack-player-name:hover {
   color: var(--grey-light);
 }
 
+/* ui.jsx Button $primary; layout only */
 .mg-generate-btn {
   margin-top: var(--space-4);
-  padding: var(--space-2) var(--space-6);
-  font-family: var(--font-mono);
-  font-size: var(--text-xs);
-  text-transform: uppercase;
-  letter-spacing: 0.1em;
-  color: #000;
-  background: var(--gold);
-  border: none;
-  border-radius: var(--radius-sm);
-  cursor: pointer;
 }
-.mg-generate-btn:hover { opacity: 0.85; }
 
 /* ── Responsive ────────────────────────────────────── */
 
@@ -2883,15 +2347,7 @@ a.mg-stack-player-name:hover {
     grid-template-columns: 1fr;
   }
 
-  .mg-meta-maps {
-    grid-template-columns: repeat(auto-fill, minmax(80px, 1fr));
-  }
-
-  .mg-awards-grid {
-    grid-template-columns: repeat(2, 1fr);
-  }
-
-  /* ── Ticker / Awards — stack vertically on mobile ── */
+  /* ── Ticker / Awards - stack vertically on mobile ── */
   .mg-ticker-item {
     flex-direction: column;
     align-items: flex-start;
@@ -2915,7 +2371,7 @@ a.mg-stack-player-name:hover {
     overflow: visible;
   }
 
-  /* ── Hero Kills Distribution — flip to horizontal bars ── */
+  /* ── Hero Kills Distribution - flip to horizontal bars ── */
   .mg-kills-dist-header {
     flex-direction: column;
     align-items: flex-start;
@@ -2972,7 +2428,7 @@ a.mg-stack-player-name:hover {
     visibility: hidden;
   }
 
-  /* ── Streak Spectrum — horizontal bars ── */
+  /* ── Streak Spectrum - horizontal bars ── */
   .mg-streak-spectrum {
     padding: var(--space-2);
   }
@@ -3064,7 +2520,7 @@ a.mg-stack-player-name:hover {
     margin: 2px 0;
   }
 
-  /* ── Spotlight — tighter padding on mobile ── */
+  /* ── Spotlight - tighter padding on mobile ── */
   .mg-spotlight-content {
     padding: var(--space-4);
   }
@@ -3086,7 +2542,6 @@ a.mg-stack-player-name:hover {
   .mg-spotlight-blurb {
     font-size: var(--text-xs);
   }
-
 
   .mg-upset-teams {
     grid-template-columns: 1fr;
@@ -3122,7 +2577,7 @@ a.mg-stack-player-name:hover {
 
 /* ── NYT-style full-bleed cover splash (phones + tablets) ── */
 @media (max-width: 900px) {
-  /* Always fixed, always out of flow — just toggle opacity */
+  /* Always fixed, always out of flow - just toggle opacity */
   .mg-page-nav-wrap {
     position: fixed;
     top: 0;
@@ -3183,7 +2638,7 @@ a.mg-stack-player-name:hover {
     opacity: 1;
   }
 
-  /* Cinematic gradient — heavy at bottom for text, subtle vignette at top */
+  /* Cinematic gradient - heavy at bottom for text, subtle vignette at top */
   .mg-header-image::after {
     content: "";
     position: absolute;
@@ -3255,21 +2710,7 @@ a.mg-stack-player-name:hover {
     padding: var(--space-4);
   }
 
-  .mg-side-btn {
-    width: 32px;
-    height: 56px;
-    font-size: 22px;
-  }
-
-  .mg-awards-grid {
-    grid-template-columns: 1fr;
-  }
-
-  .mg-meta-wr {
-    width: auto;
-  }
-
-  /* ── Spotlight — even tighter on narrow screens ── */
+  /* ── Spotlight - even tighter on narrow screens ── */
   .mg-spotlight-avatar {
     aspect-ratio: 4 / 1;
   }
@@ -3279,7 +2720,7 @@ a.mg-stack-player-name:hover {
     height: 26px;
   }
 
-  /* ── Horizontal bars — slightly smaller on narrow screens ── */
+  /* ── Horizontal bars - slightly smaller on narrow screens ── */
   .mg-kills-dist-bar-wrapper {
     height: 8px;
   }
@@ -3290,7 +2731,7 @@ a.mg-stack-player-name:hover {
 }
 
 /* ========================================
-   Editorial Mode — Admin Controls
+   Editorial Mode - Admin Controls
    ======================================== */
 
 .mg-page--editorial .mg-editable {
@@ -3445,34 +2886,23 @@ a.mg-stack-player-name:hover {
   opacity: 1;
 }
 
-.mg-editorial-delete {
-  background: none;
-  border: none;
-  color: var(--grey-light);
-  cursor: pointer;
-  padding: 0 2px;
-  display: inline-flex;
-  align-items: center;
-  margin-left: 2px;
+/* ui.jsx Button $icon; sized down to the item row */
+.mg-editorial-item-controls .mg-editorial-delete,
+.mg-editorial-item-controls .mg-editorial-context {
+  width: 20px;
+  height: 20px;
+  padding: 0;
 }
 
-.mg-editorial-delete:hover {
+.mg-editorial-item-controls .mg-editorial-delete:hover {
   color: var(--red);
 }
 
-.mg-editorial-context {
-  background: none;
-  border: none;
-  color: var(--grey-mid);
-  cursor: pointer;
-  padding: 0 2px;
-  display: inline-flex;
-  align-items: center;
+.mg-editorial-item-controls .mg-editorial-context {
   opacity: 0.5;
-  transition: opacity 0.15s, color 0.15s;
 }
 
-.mg-editorial-context:hover {
+.mg-editorial-item-controls .mg-editorial-context:hover {
   color: var(--gold);
   opacity: 1;
 }
@@ -3725,22 +3155,9 @@ a.mg-stack-player-name:hover {
   overflow: hidden;
 }
 
-.mg-variant-expand-btn,
-.mg-variant-collapse-btn {
-  background: none;
-  border: none;
-  color: var(--gold);
-  font-family: var(--font-mono);
-  font-size: var(--text-xxxs);
-  cursor: pointer;
-  padding: 0;
-  text-align: left;
-  opacity: 0.7;
-}
-
-.mg-variant-expand-btn:hover,
-.mg-variant-collapse-btn:hover {
-  opacity: 1;
+/* Expand/Collapse (ui.jsx Button $pill; layout only) */
+.mg-variant-toggle-btn {
+  align-self: flex-start;
 }
 
 .mg-variant-expanded {
@@ -3869,18 +3286,6 @@ a.mg-stack-player-name:hover {
 .mg-cover-save-state--saving { color: var(--grey-light); }
 .mg-cover-save-state--saved { color: var(--green); }
 .mg-cover-save-state--error { color: var(--red); }
-
-.mg-picker-close {
-  background: none;
-  border: none;
-  color: var(--grey-light);
-  cursor: pointer;
-  padding: var(--space-1);
-}
-
-.mg-picker-close:hover {
-  color: var(--white);
-}
 
 .mg-picker-loading {
   display: flex;

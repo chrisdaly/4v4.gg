@@ -4,6 +4,7 @@ import OnlineMmrStrip from "../components/OnlineMmrStrip";
 import WorldMap from "../components/WorldMap";
 import EventFeed from "../components/EventFeed";
 import PeonLoader from "../components/PeonLoader";
+import { Button } from "../components/ui";
 import "../styles/pages/Replay.css";
 
 const RELAY_URL =
@@ -546,14 +547,14 @@ const Replay = () => {
         <div className="replay-controls-row">
           <div className="replay-presets">
             {PRESETS.map((p) => (
-              <button
+              <Button
+                $pill
                 key={p.hours}
-                className="replay-btn replay-btn-preset"
                 onClick={() => handlePreset(p.hours)}
                 disabled={loading}
               >
                 {p.label}
-              </button>
+              </Button>
             ))}
           </div>
 
@@ -574,28 +575,30 @@ const Replay = () => {
                 onChange={(e) => setToStr(e.target.value)}
               />
             </label>
-            <button className="replay-btn replay-btn-load" onClick={() => fetchEvents()} disabled={loading}>
+            <Button $secondary onClick={() => fetchEvents()} disabled={loading}>
               {loading ? <PeonLoader size="sm" /> : "Load"}
-            </button>
+            </Button>
           </div>
 
           <div className="replay-playback">
-            <button
-              className="replay-btn replay-btn-play"
+            <Button
+              $icon
               onClick={togglePlay}
               disabled={rawEvents.length === 0}
+              aria-label={playing ? "Pause" : eventIndex >= rawEvents.length && rawEvents.length > 0 ? "Restart" : "Play"}
             >
               {playing ? "⏸" : eventIndex >= rawEvents.length && rawEvents.length > 0 ? "⟳" : "▶"}
-            </button>
+            </Button>
             <div className="replay-speed-btns">
               {SPEEDS.map((s) => (
-                <button
+                <Button
+                  $pill
                   key={s}
-                  className={`replay-btn replay-btn-speed ${speed === s ? "active" : ""}`}
+                  data-active={speed === s ? "true" : undefined}
                   onClick={() => setSpeed(s)}
                 >
                   {s}x
-                </button>
+                </Button>
               ))}
             </div>
           </div>

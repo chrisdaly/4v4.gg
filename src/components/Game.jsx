@@ -1,6 +1,6 @@
 import React, { useState, useEffect, useMemo } from "react";
 import { Link } from "react-router-dom";
-import { CountryFlag, RaceIcon } from "./ui";
+import { CountryFlag, RaceIcon, ResultBadge } from "./ui";
 import { FaTwitch } from "react-icons/fa";
 
 import { MmrComparison } from "./MmrComparison";
@@ -282,7 +282,7 @@ const Game = ({ playerData: rawPlayerData, metaData, profilePics, playerCountrie
           {/* Player name */}
           <div className="player-name-row">
             <Link to={`/player/${player.battleTag.replace("#", "%23")}`}>
-              <h2>{player.name}</h2>
+              <h2 className="player-name">{player.name}</h2>
             </Link>
             {liveStreamers[player.battleTag] && (
               <a
@@ -292,7 +292,7 @@ const Game = ({ playerData: rawPlayerData, metaData, profilePics, playerCountrie
                 className="twitch-link"
                 title={liveStreamers[player.battleTag].title || "Live on Twitch"}
               >
-                <FaTwitch className="twitch-icon" style={{ fill: '#9146ff' }} />
+                <FaTwitch className="twitch-icon" />
               </a>
             )}
           </div>
@@ -355,7 +355,7 @@ const Game = ({ playerData: rawPlayerData, metaData, profilePics, playerCountrie
           {oldMmr && oldMmr > 0 ? (
             <span className="mmr-value">{oldMmr}</span>
           ) : (
-            <span className="mmr-label-muted">—</span>
+            <span className="mmr-label-muted">-</span>
           )}
         </div>
         <FormDots form={playerSession?.form} size="small" />
@@ -442,7 +442,7 @@ const Game = ({ playerData: rawPlayerData, metaData, profilePics, playerCountrie
           <tr>
             <th colSpan={4} className={`team-0 team-header ${team1Won ? "winner" : ""}`}>
               <div>
-                <h2 className="team-name">{team1Won && <span className="winner-badge">W</span>} TEAM 1</h2>
+                <h2 className="team-name">{team1Won && <ResultBadge $winner $size="sm" className="winner-badge">W</ResultBadge>} TEAM 1</h2>
                 <div className="team-mmr-line">
                   <span className="mmr-value">{team1AvgMmr.toLocaleString('en-US')}</span>
                   <span className="mmr-label"> MMR</span>
@@ -461,7 +461,7 @@ const Game = ({ playerData: rawPlayerData, metaData, profilePics, playerCountrie
             </th>
             <th colSpan={4} className={`team-1 team-header ${team2Won ? "winner" : ""}`}>
               <div>
-                <h2 className="team-name">TEAM 2 {team2Won && <span className="winner-badge">W</span>}</h2>
+                <h2 className="team-name">TEAM 2 {team2Won && <ResultBadge $winner $size="sm" className="winner-badge">W</ResultBadge>}</h2>
                 <div className="team-mmr-line">
                   <span className="mmr-value">{team2AvgMmr.toLocaleString('en-US')}</span>
                   <span className="mmr-label"> MMR</span>
@@ -565,10 +565,10 @@ const Game = ({ playerData: rawPlayerData, metaData, profilePics, playerCountrie
         </tbody>
       </table>
 
-      {/* Mobile layout — stacked, no horizontal scroll */}
+      {/* Mobile layout - stacked, no horizontal scroll */}
       <div className="game-mobile">
         <div className={`gm-team-header ${team1Won ? "winner" : ""}`}>
-          {team1Won && <span className="winner-badge">W</span>}
+          {team1Won && <ResultBadge $winner $size="sm" className="winner-badge">W</ResultBadge>}
           <span className="gm-team-label">TEAM 1</span>
           <span className="gm-team-mmr">
             <span className="mmr-value">{team1AvgMmr}</span>
@@ -607,7 +607,7 @@ const Game = ({ playerData: rawPlayerData, metaData, profilePics, playerCountrie
             <span className="mmr-value">{team2AvgMmr}</span>
             <span className="mmr-label"> MMR</span>
           </span>
-          {team2Won && <span className="winner-badge">W</span>}
+          {team2Won && <ResultBadge $winner $size="sm" className="winner-badge">W</ResultBadge>}
           <div className="gm-race-icons">
             {playerData.slice(4).map((d, i) => (
               <RaceIcon key={i} race={d.race} rndRace={d.rndRace} className="race teamHeaderRace" />

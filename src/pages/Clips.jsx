@@ -1,13 +1,24 @@
 import React, { useState, useEffect, useCallback, useRef, useMemo } from "react";
 import { Link, useLocation, useHistory } from "react-router-dom";
 import { FaTwitch } from "react-icons/fa";
+import styled from "styled-components";
 import useAdmin from "../lib/useAdmin";
 import { searchLadder, getPlayerProfile } from "../lib/api";
-import { Select, Badge, Button, Input, PageHero } from "../components/ui";
+import { Select, Button, Input, PageHero } from "../components/ui";
 import { PageLayout } from "../components/PageLayout";
 import PeonLoader from "../components/PeonLoader";
 import ClipModal from "../components/ClipModal";
 import "../styles/pages/Clips.css";
+
+/* Player-tag search field: ui.jsx Input with room for the clear icon */
+const PlayerSearchInput = styled(Input)`
+  width: 130px;
+  padding: 6px 26px 6px 10px;
+
+  &::placeholder {
+    font-size: var(--text-xxxs);
+  }
+`;
 
 const RELAY_URL =
   import.meta.env.VITE_CHAT_RELAY_URL || "https://4v4gg-chat-relay.fly.dev";
@@ -125,8 +136,7 @@ function PlayerTagSearch({ value, onAdd, onRemove }) {
           ))}
         </div>
       )}
-      <input
-        className="clip-player-search-input"
+      <PlayerSearchInput
         type="text"
         value={query}
         onChange={(e) => setQuery(e.target.value)}
@@ -160,7 +170,7 @@ function PlayerTagSearch({ value, onAdd, onRemove }) {
                   </span>
                 </span>
                 <span className="clip-player-search-mmr">
-                  {r.mmr != null ? `${Math.round(r.mmr)} MMR` : "—"}
+                  {r.mmr != null ? `${Math.round(r.mmr)} MMR` : "-"}
                 </span>
               </button>
             );
@@ -523,11 +533,13 @@ export default function Clips() {
         {urlPlayer && (
           <div className="clips-player-filter">
             <span className="clips-player-tag">{urlPlayer.split("#")[0]}</span>
-            <button
+            <Button
+              $icon
               className="clips-player-clear"
               onClick={() => history.push("/clips")}
               title="Clear player filter"
-            >&times;</button>
+              aria-label="Clear player filter"
+            >&times;</Button>
           </div>
         )}
         <Select
@@ -589,12 +601,13 @@ export default function Clips() {
 
               {isAdmin && hiddenClips.length > 0 && (
                 <div className="clips-hidden-drawer">
-                  <button
+                  <Button
+                    $pill
                     className="clips-hidden-toggle"
                     onClick={() => setShowHidden((v) => !v)}
                   >
                     {showHidden ? "Hide" : "Show"} irrelevant ({hiddenClips.length})
-                  </button>
+                  </Button>
                   {showHidden && (
                     <div className="clips-grid clips-grid--hidden">
                       {hiddenClips.map((clip) => (

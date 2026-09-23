@@ -154,7 +154,7 @@ function HotkeyRing({ groupHotkeys }) {
         .attr("stroke", "rgba(255, 255, 255, 0.06)")
         .attr("stroke-width", 0.5);
 
-      // Outer arc — assigned (cyan)
+      // Outer arc - assigned (cyan)
       if (g.assigned > 0) {
         const opacity = 0.3 + 0.7 * (g.assigned / maxAssigned);
         const thickness = 4 + 10 * (g.assigned / maxAssigned);
@@ -169,7 +169,7 @@ function HotkeyRing({ groupHotkeys }) {
           .attr("opacity", opacity);
       }
 
-      // Inner arc — used (gold)
+      // Inner arc - used (gold)
       if (g.used > 0) {
         const opacity = 0.3 + 0.7 * (g.used / maxUsed);
         const thickness = 4 + 8 * (g.used / maxUsed);
@@ -180,7 +180,7 @@ function HotkeyRing({ groupHotkeys }) {
             startAngle,
             endAngle,
           }))
-          .attr("fill", "var(--gold, #fcdb33)")
+          .attr("fill", "var(--gold)")
           .attr("opacity", opacity);
       }
 
@@ -212,14 +212,14 @@ function HotkeyRing({ groupHotkeys }) {
         .text(g.id);
     });
 
-    // Center text — hotkey diversity (how many groups used)
+    // Center text - hotkey diversity (how many groups used)
     const diversity = groups.filter(g => g.used > 0).length;
     container.append("text")
       .attr("text-anchor", "middle")
       .attr("dominant-baseline", "central")
       .attr("font-family", "var(--font-mono, monospace)")
       .attr("font-size", 16)
-      .attr("fill", "var(--gold, #fcdb33)")
+      .attr("fill", "var(--gold)")
       .attr("font-weight", "bold")
       .text(diversity);
 
@@ -289,7 +289,7 @@ function ApmSparkline({ timedSegments }) {
     g.append("path")
       .datum(timedSegments)
       .attr("d", area)
-      .attr("fill", "var(--gold, #fcdb33)")
+      .attr("fill", "var(--gold)")
       .attr("fill-opacity", 0.2);
 
     // Line
@@ -302,7 +302,7 @@ function ApmSparkline({ timedSegments }) {
       .datum(timedSegments)
       .attr("d", line)
       .attr("fill", "none")
-      .attr("stroke", "var(--gold, #fcdb33)")
+      .attr("stroke", "var(--gold)")
       .attr("stroke-width", 1.5);
 
     // Mean line
@@ -433,9 +433,9 @@ function ActionRadar({ actions }) {
 
     g.append("path")
       .attr("d", lineGen(points))
-      .attr("fill", "var(--gold, #fcdb33)")
+      .attr("fill", "var(--gold)")
       .attr("fill-opacity", 0.15)
-      .attr("stroke", "var(--gold, #fcdb33)")
+      .attr("stroke", "var(--gold)")
       .attr("stroke-width", 1.5)
       .attr("stroke-opacity", 0.8);
 
@@ -444,7 +444,7 @@ function ActionRadar({ actions }) {
       g.append("circle")
         .attr("cx", px).attr("cy", py)
         .attr("r", 2.5)
-        .attr("fill", "var(--gold, #fcdb33)")
+        .attr("fill", "var(--gold)")
         .attr("fill-opacity", 0.7);
     });
 

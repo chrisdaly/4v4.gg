@@ -23,7 +23,7 @@ const COMBINED_GAP = 5; // px gap between combined AT circle segments
 
 const VARIANTS = {
   card: { compact: true }, // home hero card, news digest cards
-  scorecard: { hideVs: true }, // match scorecards (/live, /match, profile) — pass compact through
+  scorecard: { hideVs: true }, // match scorecards (/live, /match, profile) - pass compact through
   micro: { compact: true, hideLabels: true }, // narrow charts in chat / mini match cards
   overlay: { compact: true, hideLabels: true }, // OBS overlays
 };

@@ -254,7 +254,7 @@ export default function ComparisonPanel({ members, replayLabels, onUnlink }) {
         {members.map((m) => (
           <SequenceBlock key={m.uid}>
             <SeqLabel>
-              Opening — {m.playerName} ({replayLabels[m.replayId] || "?"})
+              Opening - {m.playerName} ({replayLabels[m.replayId] || "?"})
             </SeqLabel>
             <SeqChars>
               {(m.actions?.early_game_sequence || []).slice(0, 40).map((s, i) => (

@@ -37,18 +37,18 @@ const ACTION_ID_LABELS = {
 function getIdentifyVerdict(verdict, topMatch, queryName) {
   const matchName = topMatch ? (topMatch.playerName || topMatch.battleTag || "").split("#")[0] : null;
   if (verdict === 'confident') return {
-    icon: "🚨", color: "#f87171",
+    icon: "🚨", color: "var(--red)",
     heading: `Likely smurf of ${matchName}`,
-    sub: `p${Math.round(topMatch.percentile)} similarity — above the confident threshold`,
+    sub: `p${Math.round(topMatch.percentile)} similarity - above the confident threshold`,
   };
   if (verdict === 'possible') return {
     icon: "⚠️", color: "var(--gold)",
     heading: matchName ? `Possibly related to ${matchName}` : "Possible match found",
-    sub: `p${Math.round(topMatch.percentile)} similarity — warrants investigation`,
+    sub: `p${Math.round(topMatch.percentile)} similarity - warrants investigation`,
   };
   if (verdict === 'no_match') return {
     icon: "✓", color: "var(--grey-light)",
-    heading: `${queryName} — no confident match`,
+    heading: `${queryName} - no confident match`,
     sub: "Playstyle does not closely match any indexed player",
   };
   return null;
@@ -82,7 +82,7 @@ const BackLink = styled.button`
   opacity: 0.6; transition: opacity 0.15s;
   &:hover { opacity: 1; }
 `;
-/* ── Compare table — players as columns, features as rows ── */
+/* ── Compare table - players as columns, features as rows ── */
 const CompareTable = styled.div`
   display: grid;
   grid-template-columns: 90px repeat(${p => p.$cols}, 200px);
@@ -121,7 +121,7 @@ const RowLabel = styled.div`
 const TD = styled.div`
   display: flex; align-items: center; justify-content: center;
   padding: var(--space-2) var(--space-2);
-  font-family: var(--font-mono); font-size: var(--text-xs); color: #fff;
+  font-family: var(--font-mono); font-size: var(--text-xs); color: var(--white);
   border-bottom: 1px solid rgba(255,255,255,0.05);
   border-left: 1px solid rgba(255,255,255,0.06);
   text-align: center;
@@ -239,7 +239,7 @@ const VerdictIcon = styled.div`
 const VerdictText = styled.div`flex: 1; min-width: 0;`;
 const VerdictHeading = styled.div`
   font-family: var(--font-display); font-size: var(--text-sm);
-  color: ${p => p.$verdict === 'confident' ? '#f87171' : p.$verdict === 'possible' ? 'var(--gold)' : 'var(--grey-light)'};
+  color: ${p => p.$verdict === 'confident' ? 'var(--red)' : p.$verdict === 'possible' ? 'var(--gold)' : 'var(--grey-light)'};
   margin-bottom: 2px;
 `;
 const VerdictSub = styled.div`
@@ -363,7 +363,7 @@ function ActivityTimeline({ players, matchProfiles, startDate = null }) {
         const isCurrentlyActive = activityByS.has(24);
         const profile = matchProfiles?.[player.tag];
 
-        const baseColor = player.isQuery ? '#fcdb33' : '#64c8ff';
+        const baseColor = player.isQuery ? 'var(--gold)' : 'var(--team-blue)';
         const fillColor = player.isQuery ? 'rgba(252,219,51,0.25)' : 'rgba(100,200,255,0.2)';
 
         const seasonDots = playerActiveSeasonsNums.map(s => {
@@ -396,7 +396,7 @@ function ActivityTimeline({ players, matchProfiles, startDate = null }) {
                 ? <img src={profile.profilePicUrl} alt="" style={{ width: 28, height: 28, borderRadius: 2, flexShrink: 0 }} />
                 : <span style={{ width: 28, height: 28, flexShrink: 0 }} />}
               <div style={{ overflow: 'hidden', minWidth: 0 }}>
-                <div style={{ fontFamily: 'var(--font-display)', fontSize: 'var(--text-xs)', color: player.isQuery ? 'var(--gold)' : '#fff', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+                <div style={{ fontFamily: 'var(--font-display)', fontSize: 'var(--text-xs)', color: player.isQuery ? 'var(--gold)' : 'var(--white)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
                   {player.name}
                 </div>
                 {!player.isQuery && playerSharedCount > 0 && (
@@ -506,7 +506,7 @@ const MetricsTable = styled.table`
 `;
 const MetricsHead = styled.thead``;
 const MetricsTd = styled.td`
-  color: ${p => p.$label ? 'var(--grey-light)' : '#fff'};
+  color: ${p => p.$label ? 'var(--grey-light)' : 'var(--white)'};
   font-size: ${p => p.$label ? '10px' : 'var(--text-xxs)'};
   opacity: ${p => p.$label ? 0.7 : 1};
 `;
@@ -574,8 +574,8 @@ function ApmSparkline({ curveA, curveB, nameA, nameB }) {
         {/* grid lines */}
         <line x1={pad} y1={h / 2} x2={w - pad} y2={h / 2} stroke="rgba(255,255,255,0.06)" strokeWidth="0.5" />
         <line x1={pad} y1={pad} x2={w - pad} y2={pad} stroke="rgba(255,255,255,0.06)" strokeWidth="0.5" />
-        {toPath(curveA, "#4fc3f7")}
-        {toPath(curveB, "#ef5350")}
+        {toPath(curveA, "var(--team-blue)")}
+        {toPath(curveB, "var(--red)")}
       </svg>
     </SparkWrap>
   );
@@ -639,9 +639,9 @@ const LegendSwatch = styled.span`
 // ── Early game action colors ────────────────────
 
 const ACTION_COLORS = {
-  16: "#66bb6a", 17: "#66bb6a", 18: "#66bb6a", 19: "#66bb6a", 20: "#66bb6a",
-  22: "#78909c", 23: "#ffa726", 24: "#42a5f5", 25: "#ab47bc",
-  30: "#ef5350", 97: "#ef5350", 102: "#e0e0e0", 103: "#ffd54f", 104: "#ff7043",
+  16: "var(--green)", 17: "var(--green)", 18: "var(--green)", 19: "var(--green)", 20: "var(--green)",
+  22: "var(--grey-light)", 23: "var(--amber)", 24: "var(--team-blue)", 25: "var(--at-purple)",
+  30: "var(--red)", 97: "var(--red)", 102: "var(--text-body)", 103: "var(--gold)", 104: "#ff7043",
 };
 
 function getActionColor(id) { return ACTION_COLORS[id] || "rgba(255,255,255,0.3)"; }
@@ -708,8 +708,8 @@ function HotkeyRadar({ selectA, selectB, assignA, assignB, nameA, nameB }) {
             );
           })}
           {/* Data polygons */}
-          {radarPolygon(selectA, maxVal, "#4fc3f7", 0.2)}
-          {radarPolygon(selectB, maxVal, "#ef5350", 0.2)}
+          {radarPolygon(selectA, maxVal, "var(--team-blue)", 0.2)}
+          {radarPolygon(selectB, maxVal, "var(--red)", 0.2)}
         </svg>
       </div>
 
@@ -738,8 +738,8 @@ function HotkeyRadar({ selectA, selectB, assignA, assignB, nameA, nameB }) {
                 </g>
               );
             })}
-            {radarPolygon(assignA, maxVal, "#4fc3f7", 0.2)}
-            {radarPolygon(assignB, maxVal, "#ef5350", 0.2)}
+            {radarPolygon(assignA, maxVal, "var(--team-blue)", 0.2)}
+            {radarPolygon(assignB, maxVal, "var(--red)", 0.2)}
           </svg>
         </div>
       )}
@@ -747,12 +747,12 @@ function HotkeyRadar({ selectA, selectB, assignA, assignB, nameA, nameB }) {
       {/* Legend */}
       <div style={{ display: "flex", flexDirection: "column", gap: 6, justifyContent: "center", minWidth: 80 }}>
         <div style={{ display: "flex", alignItems: "center", gap: 6 }}>
-          <div style={{ width: 12, height: 12, borderRadius: 2, background: "#4fc3f7", opacity: 0.7 }} />
-          <span style={{ fontFamily: "var(--font-mono)", fontSize: "var(--text-xxxs)", color: "#4fc3f7" }}>{nameA}</span>
+          <div style={{ width: 12, height: 12, borderRadius: 2, background: "var(--team-blue)", opacity: 0.7 }} />
+          <span style={{ fontFamily: "var(--font-mono)", fontSize: "var(--text-xxxs)", color: "var(--team-blue)" }}>{nameA}</span>
         </div>
         <div style={{ display: "flex", alignItems: "center", gap: 6 }}>
-          <div style={{ width: 12, height: 12, borderRadius: 2, background: "#ef5350", opacity: 0.7 }} />
-          <span style={{ fontFamily: "var(--font-mono)", fontSize: "var(--text-xxxs)", color: "#ef5350" }}>{nameB}</span>
+          <div style={{ width: 12, height: 12, borderRadius: 2, background: "var(--red)", opacity: 0.7 }} />
+          <span style={{ fontFamily: "var(--font-mono)", fontSize: "var(--text-xxxs)", color: "var(--red)" }}>{nameB}</span>
         </div>
       </div>
     </div>
@@ -820,20 +820,20 @@ function SignatureRadar({ sigA, sigB, nameA, nameB }) {
             </g>
           );
         })}
-        {renderPoly(ptsA, "#4fc3f7", 0.15)}
-        {renderPoly(ptsB, "#ef5350", 0.15)}
+        {renderPoly(ptsA, "var(--team-blue)", 0.15)}
+        {renderPoly(ptsB, "var(--red)", 0.15)}
       </svg>
       <div style={{ display: "flex", flexDirection: "column", gap: 6, justifyContent: "center" }}>
         {sigA && (
           <div style={{ display: "flex", alignItems: "center", gap: 6 }}>
-            <div style={{ width: 12, height: 12, borderRadius: 2, background: "#4fc3f7", opacity: 0.7 }} />
-            <span style={{ fontFamily: "var(--font-mono)", fontSize: "var(--text-xxxs)", color: "#4fc3f7" }}>{nameA}</span>
+            <div style={{ width: 12, height: 12, borderRadius: 2, background: "var(--team-blue)", opacity: 0.7 }} />
+            <span style={{ fontFamily: "var(--font-mono)", fontSize: "var(--text-xxxs)", color: "var(--team-blue)" }}>{nameA}</span>
           </div>
         )}
         {sigB && (
           <div style={{ display: "flex", alignItems: "center", gap: 6 }}>
-            <div style={{ width: 12, height: 12, borderRadius: 2, background: "#ef5350", opacity: 0.7 }} />
-            <span style={{ fontFamily: "var(--font-mono)", fontSize: "var(--text-xxxs)", color: "#ef5350" }}>{nameB}</span>
+            <div style={{ width: 12, height: 12, borderRadius: 2, background: "var(--red)", opacity: 0.7 }} />
+            <span style={{ fontFamily: "var(--font-mono)", fontSize: "var(--text-xxxs)", color: "var(--red)" }}>{nameB}</span>
           </div>
         )}
       </div>
@@ -882,7 +882,7 @@ function CompareDetail({ fpDataA, fpDataB, compareData, nameA, nameB }) {
     ? Math.max(...(pA.tempo || []), ...(pB.tempo || []), 1)
     : 1;
 
-  // Transition flow — merge and show side by side
+  // Transition flow - merge and show side by side
   const transA = hasDeep ? (pA.topTransitions || []) : [];
   const transB = hasDeep ? (pB.topTransitions || []) : [];
   const transMax = Math.max(
@@ -906,39 +906,39 @@ function CompareDetail({ fpDataA, fpDataB, compareData, nameA, nameB }) {
         <MetricsTable>
           <MetricsHead>
             <th />
-            <th style={{ color: "#4fc3f7" }}>{nameA}</th>
-            <th style={{ color: "#ef5350" }}>{nameB}</th>
+            <th style={{ color: "var(--team-blue)" }}>{nameA}</th>
+            <th style={{ color: "var(--red)" }}>{nameB}</th>
           </MetricsHead>
           <tbody>
             <tr>
               <MetricsTd $label>APM</MetricsTd>
-              <MetricsTd>{qMeanApm || '—'}</MetricsTd>
-              <MetricsTd>{mMeanApm || '—'}</MetricsTd>
+              <MetricsTd>{qMeanApm || '-'}</MetricsTd>
+              <MetricsTd>{mMeanApm || '-'}</MetricsTd>
             </tr>
             <tr>
               <MetricsTd $label>Burst ratio</MetricsTd>
-              <MetricsTd>{qBurst ?? '—'}</MetricsTd>
-              <MetricsTd>{mBurst ?? '—'}</MetricsTd>
+              <MetricsTd>{qBurst ?? '-'}</MetricsTd>
+              <MetricsTd>{mBurst ?? '-'}</MetricsTd>
             </tr>
             {(qAcounts || mAcounts) && (
               <tr>
                 <MetricsTd $label>Rebind %</MetricsTd>
-                <MetricsTd>{qAcounts?.reassignRatio ?? '—'}%</MetricsTd>
-                <MetricsTd>{mAcounts?.reassignRatio ?? '—'}%</MetricsTd>
+                <MetricsTd>{qAcounts?.reassignRatio ?? '-'}%</MetricsTd>
+                <MetricsTd>{mAcounts?.reassignRatio ?? '-'}%</MetricsTd>
               </tr>
             )}
             {(qAcounts || mAcounts) && (
               <tr>
                 <MetricsTd $label>Tab/min</MetricsTd>
-                <MetricsTd>{qAcounts?.tabPerMin ?? '—'}</MetricsTd>
-                <MetricsTd>{mAcounts?.tabPerMin ?? '—'}</MetricsTd>
+                <MetricsTd>{qAcounts?.tabPerMin ?? '-'}</MetricsTd>
+                <MetricsTd>{mAcounts?.tabPerMin ?? '-'}</MetricsTd>
               </tr>
             )}
             {(qAcounts?.attackMovePerMin > 0 || mAcounts?.attackMovePerMin > 0) && (
               <tr>
                 <MetricsTd $label>A-move/min</MetricsTd>
-                <MetricsTd>{qAcounts?.attackMovePerMin ?? '—'}</MetricsTd>
-                <MetricsTd>{mAcounts?.attackMovePerMin ?? '—'}</MetricsTd>
+                <MetricsTd>{qAcounts?.attackMovePerMin ?? '-'}</MetricsTd>
+                <MetricsTd>{mAcounts?.attackMovePerMin ?? '-'}</MetricsTd>
               </tr>
             )}
           </tbody>
@@ -959,11 +959,11 @@ function CompareDetail({ fpDataA, fpDataB, compareData, nameA, nameB }) {
             <React.Fragment key={label}>
               <CLabel>{label}</CLabel>
               <CBar>
-                <CFill style={{ right: 0, width: `${(qAction[i] / maxAction) * 100}%`, background: "#4fc3f7", opacity: 0.7 }} />
+                <CFill style={{ right: 0, width: `${(qAction[i] / maxAction) * 100}%`, background: "var(--team-blue)", opacity: 0.7 }} />
               </CBar>
               <CVs>vs</CVs>
               <CBar>
-                <CFill style={{ left: 0, width: `${(mAction[i] / maxAction) * 100}%`, background: "#ef5350", opacity: 0.7 }} />
+                <CFill style={{ left: 0, width: `${(mAction[i] / maxAction) * 100}%`, background: "var(--red)", opacity: 0.7 }} />
               </CBar>
             </React.Fragment>
           ))}
@@ -975,19 +975,19 @@ function CompareDetail({ fpDataA, fpDataB, compareData, nameA, nameB }) {
         <CompareSectionTitle>APM Profile</CompareSectionTitle>
         <CompareGrid>
           <CLabel>Mean APM</CLabel>
-          <div style={{ textAlign: "right", fontFamily: "var(--font-mono)", fontSize: "var(--text-xxs)", color: "#fff" }}>{qMeanApm}</div>
+          <div style={{ textAlign: "right", fontFamily: "var(--font-mono)", fontSize: "var(--text-xxs)", color: "var(--white)" }}>{qMeanApm}</div>
           <CVs>vs</CVs>
-          <div style={{ fontFamily: "var(--font-mono)", fontSize: "var(--text-xxs)", color: "#fff" }}>{mMeanApm}</div>
+          <div style={{ fontFamily: "var(--font-mono)", fontSize: "var(--text-xxs)", color: "var(--white)" }}>{mMeanApm}</div>
 
           <CLabel>Variability</CLabel>
-          <div style={{ textAlign: "right", fontFamily: "var(--font-mono)", fontSize: "var(--text-xxs)", color: "#fff" }}>{(qApm[1] * 100).toFixed(0)}</div>
+          <div style={{ textAlign: "right", fontFamily: "var(--font-mono)", fontSize: "var(--text-xxs)", color: "var(--white)" }}>{(qApm[1] * 100).toFixed(0)}</div>
           <CVs>vs</CVs>
-          <div style={{ fontFamily: "var(--font-mono)", fontSize: "var(--text-xxs)", color: "#fff" }}>{(mApm[1] * 100).toFixed(0)}</div>
+          <div style={{ fontFamily: "var(--font-mono)", fontSize: "var(--text-xxs)", color: "var(--white)" }}>{(mApm[1] * 100).toFixed(0)}</div>
 
           <CLabel>Burstiness</CLabel>
-          <div style={{ textAlign: "right", fontFamily: "var(--font-mono)", fontSize: "var(--text-xxs)", color: "#fff" }}>{(qApm[2] || 0).toFixed(2)}</div>
+          <div style={{ textAlign: "right", fontFamily: "var(--font-mono)", fontSize: "var(--text-xxs)", color: "var(--white)" }}>{(qApm[2] || 0).toFixed(2)}</div>
           <CVs>vs</CVs>
-          <div style={{ fontFamily: "var(--font-mono)", fontSize: "var(--text-xxs)", color: "#fff" }}>{(mApm[2] || 0).toFixed(2)}</div>
+          <div style={{ fontFamily: "var(--font-mono)", fontSize: "var(--text-xxs)", color: "var(--white)" }}>{(mApm[2] || 0).toFixed(2)}</div>
         </CompareGrid>
       </CompareSection>
 
@@ -1010,11 +1010,11 @@ function CompareDetail({ fpDataA, fpDataB, compareData, nameA, nameB }) {
               <React.Fragment key={label}>
                 <CLabel>{label}</CLabel>
                 <TempoBar>
-                  <TempoFill style={{ right: 0, width: `${((pA.tempo?.[i] || 0) / tempoMax) * 100}%`, background: "#4fc3f7", opacity: 0.7 }} />
+                  <TempoFill style={{ right: 0, width: `${((pA.tempo?.[i] || 0) / tempoMax) * 100}%`, background: "var(--team-blue)", opacity: 0.7 }} />
                 </TempoBar>
                 <CVs>vs</CVs>
                 <TempoBar>
-                  <TempoFill style={{ left: 0, width: `${((pB.tempo?.[i] || 0) / tempoMax) * 100}%`, background: "#ef5350", opacity: 0.7 }} />
+                  <TempoFill style={{ left: 0, width: `${((pB.tempo?.[i] || 0) / tempoMax) * 100}%`, background: "var(--red)", opacity: 0.7 }} />
                 </TempoBar>
               </React.Fragment>
             ))}
@@ -1028,23 +1028,23 @@ function CompareDetail({ fpDataA, fpDataB, compareData, nameA, nameB }) {
           <CompareSectionTitle>Hotkey Switching Patterns</CompareSectionTitle>
           <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: "0 24px" }}>
             <div>
-              <div style={{ fontFamily: "var(--font-mono)", fontSize: "var(--text-xxxs)", color: "#4fc3f7", marginBottom: 4 }}>{nameA}</div>
+              <div style={{ fontFamily: "var(--font-mono)", fontSize: "var(--text-xxxs)", color: "var(--team-blue)", marginBottom: 4 }}>{nameA}</div>
               {transA.map((t, i) => (
                 <TransRow key={i}>
                   <TransArrow>{t.from}→{t.to}</TransArrow>
                   <TransBar>
-                    <TransFill style={{ left: 0, width: `${(t.count / transMax) * 100}%`, background: "#4fc3f7", opacity: 0.6 }} />
+                    <TransFill style={{ left: 0, width: `${(t.count / transMax) * 100}%`, background: "var(--team-blue)", opacity: 0.6 }} />
                   </TransBar>
                 </TransRow>
               ))}
             </div>
             <div>
-              <div style={{ fontFamily: "var(--font-mono)", fontSize: "var(--text-xxxs)", color: "#ef5350", marginBottom: 4 }}>{nameB}</div>
+              <div style={{ fontFamily: "var(--font-mono)", fontSize: "var(--text-xxxs)", color: "var(--red)", marginBottom: 4 }}>{nameB}</div>
               {transB.map((t, i) => (
                 <TransRow key={i}>
                   <TransArrow>{t.from}→{t.to}</TransArrow>
                   <TransBar>
-                    <TransFill style={{ left: 0, width: `${(t.count / transMax) * 100}%`, background: "#ef5350", opacity: 0.6 }} />
+                    <TransFill style={{ left: 0, width: `${(t.count / transMax) * 100}%`, background: "var(--red)", opacity: 0.6 }} />
                   </TransBar>
                 </TransRow>
               ))}
@@ -1067,7 +1067,7 @@ function CompareDetail({ fpDataA, fpDataB, compareData, nameA, nameB }) {
                   background: getActionColor(a.id),
                   opacity: 0.8,
                 }}
-                title={`${(a.ms / 1000).toFixed(1)}s — ${ACTION_ID_LABELS[a.id] || `0x${a.id.toString(16)}`}${a.g != null ? ` [${a.g}]` : ""}`}
+                title={`${(a.ms / 1000).toFixed(1)}s - ${ACTION_ID_LABELS[a.id] || `0x${a.id.toString(16)}`}${a.g != null ? ` [${a.g}]` : ""}`}
               />
             ))}
             {(pB.earlyGame || []).map((a, i) => (
@@ -1079,17 +1079,17 @@ function CompareDetail({ fpDataA, fpDataB, compareData, nameA, nameB }) {
                   background: getActionColor(a.id),
                   opacity: 0.8,
                 }}
-                title={`${(a.ms / 1000).toFixed(1)}s — ${ACTION_ID_LABELS[a.id] || `0x${a.id.toString(16)}`}${a.g != null ? ` [${a.g}]` : ""}`}
+                title={`${(a.ms / 1000).toFixed(1)}s - ${ACTION_ID_LABELS[a.id] || `0x${a.id.toString(16)}`}${a.g != null ? ` [${a.g}]` : ""}`}
               />
             ))}
           </TimelineWrap>
           <TimelineLegend>
-            <LegendItem><LegendSwatch style={{ background: "#66bb6a" }} />Ability</LegendItem>
-            <LegendItem><LegendSwatch style={{ background: "#42a5f5" }} />Select HK</LegendItem>
-            <LegendItem><LegendSwatch style={{ background: "#ffa726" }} />Assign HK</LegendItem>
-            <LegendItem><LegendSwatch style={{ background: "#ab47bc" }} />Tab</LegendItem>
-            <LegendItem><LegendSwatch style={{ background: "#78909c" }} />Select</LegendItem>
-            <LegendItem><LegendSwatch style={{ background: "#ef5350" }} />Cancel</LegendItem>
+            <LegendItem><LegendSwatch style={{ background: "var(--green)" }} />Ability</LegendItem>
+            <LegendItem><LegendSwatch style={{ background: "var(--team-blue)" }} />Select HK</LegendItem>
+            <LegendItem><LegendSwatch style={{ background: "var(--amber)" }} />Assign HK</LegendItem>
+            <LegendItem><LegendSwatch style={{ background: "var(--at-purple)" }} />Tab</LegendItem>
+            <LegendItem><LegendSwatch style={{ background: "var(--grey-light)" }} />Select</LegendItem>
+            <LegendItem><LegendSwatch style={{ background: "var(--red)" }} />Cancel</LegendItem>
           </TimelineLegend>
         </CompareSection>
       )}
@@ -1113,7 +1113,7 @@ export default function InvestigateTab() {
   const [isSearching, setIsSearching] = useState(false);
   const searchRef = useRef(null);
 
-  // "Add player" search — injects a manual candidate into the grid
+  // "Add player" search - injects a manual candidate into the grid
   const [addQuery, setAddQuery] = useState("");
   const [addResults, setAddResults] = useState([]);
   const [addShowDropdown, setAddShowDropdown] = useState(false);
@@ -1287,7 +1287,7 @@ export default function InvestigateTab() {
         }
 
         // 3. Batch-enrich profiles for all unique tags (include query player for their country)
-        // Also include similar players — they may be off-ladder but still share country
+        // Also include similar players - they may be off-ladder but still share country
         const similarTags = playstyleData?.similar?.map(s => s.battleTag) || [];
         const allTags = [...new Set([selectedTag, ...similarTags, ...ladderByTag.keys(), ...tagAppearances.keys()])];
         const profileMap = await getPlayerProfilesBatch(allTags);
@@ -1393,7 +1393,7 @@ export default function InvestigateTab() {
       const result = res.ok ? await res.json() : null;
       if (result) {
         let msg;
-        if (result.rateLimited) msg = result.queued ? 'Rate limited — queued for next available slot' : (result.discovered > 0 ? 'Replays found on W3C — rate limited, retry in ~1h' : 'Rate limited — retry in ~1h');
+        if (result.rateLimited) msg = result.queued ? 'Rate limited - queued for next available slot' : (result.discovered > 0 ? 'Replays found on W3C - rate limited, retry in ~1h' : 'Rate limited - retry in ~1h');
         else if (result.imported > 0) msg = null; // success, no message needed
         else if (result.discovered === 0) msg = 'No matches found on W3C';
         else if (result.noReplay >= result.discovered - result.alreadyImported) msg = 'No replays stored on W3C';
@@ -1525,7 +1525,7 @@ export default function InvestigateTab() {
           .then(d => { if (d?.replays) setPlayerReplayLists(prev => new Map([...prev, [battleTag, d.replays]])); })
           .catch(() => {});
       } else if (res.status === 404) {
-        // Not indexed yet — add with empty fingerprint so they appear in the comparison
+        // Not indexed yet - add with empty fingerprint so they appear in the comparison
         const candidate = {
           battleTag,
           playerName: battleTag.split("#")[0],
@@ -1594,7 +1594,7 @@ export default function InvestigateTab() {
                 <span className="navbar-search-l">{losses}L</span>
               </span>
             </span>
-            <span className="navbar-search-mmr">{mmr != null ? `${Math.round(mmr)} MMR` : "—"}</span>
+            <span className="navbar-search-mmr">{mmr != null ? `${Math.round(mmr)} MMR` : "-"}</span>
           </button>
         );
       })}
@@ -1636,7 +1636,7 @@ export default function InvestigateTab() {
           </NewSearchRow>
           {identifyError === 'auth_401' && (
             <NoDataText>
-              Admin key invalid or expired —{" "}
+              Admin key invalid or expired -{" "}
               <Link to="/admin" style={{ color: "var(--gold)", fontFamily: "var(--font-display)" }}>update it in the Admin panel</Link>.
             </NoDataText>
           )}
@@ -1723,7 +1723,7 @@ export default function InvestigateTab() {
                     );
 
                     const fmtDate = (d) => {
-                      if (!d) return '—';
+                      if (!d) return '-';
                       const [y, m] = d.split('-');
                       return new Date(parseInt(y), parseInt(m) - 1).toLocaleString('default', { month: 'short', year: 'numeric' });
                     };
@@ -1742,7 +1742,7 @@ export default function InvestigateTab() {
                     const renderGroupUnits = (glyph, groupNum) => {
                       const items = glyph?.groupCompositions?.[String(groupNum)] || [];
                       const units = getGroupUnits(items).slice(0, 5);
-                      if (units.length === 0) return <span style={{ color: "var(--grey-mid)" }}>—</span>;
+                      if (units.length === 0) return <span style={{ color: "var(--grey-mid)" }}>-</span>;
                       return units.map(u => {
                         const isHero = !!HERO_IMAGES[u.id];
                         const isBuilding = BUILDINGS.has(u.id);
@@ -1760,7 +1760,7 @@ export default function InvestigateTab() {
                     };
                     const fmtReplayDate = (r) => {
                       const raw = r.matchDate || r.uploadedAt;
-                      if (!raw) return '—';
+                      if (!raw) return '-';
                       const d = new Date(raw);
                       const diffDays = Math.floor((Date.now() - d.getTime()) / 86400000);
                       if (diffDays === 0) return 'today';
@@ -1889,8 +1889,8 @@ export default function InvestigateTab() {
                                   )}
                                   {/* Map name + date */}
                                   <div style={{ flex: 1, minWidth: 0 }}>
-                                    <div style={{ fontFamily: 'var(--font-display)', fontSize: 'var(--text-xxs)', color: checked ? 'var(--gold)' : '#fff', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis', lineHeight: 1.2 }}>
-                                      {mapName || '—'}
+                                    <div style={{ fontFamily: 'var(--font-display)', fontSize: 'var(--text-xxs)', color: checked ? 'var(--gold)' : 'var(--white)', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis', lineHeight: 1.2 }}>
+                                      {mapName || '-'}
                                     </div>
                                     <div style={{ display: 'flex', alignItems: 'center', gap: 5, marginTop: 3 }}>
                                       {ri && <img src={ri} alt="" style={{ width: 12, height: 12, flexShrink: 0 }} />}
@@ -1956,7 +1956,7 @@ export default function InvestigateTab() {
                         ? `${currentIdx + 1} / ${replays.length}`
                         : dateLabel
                           ? `${replays.length} · ${dateLabel}`
-                          : `${replays.length || '—'}`;
+                          : `${replays.length || '-'}`;
 
                       return (
                         <div style={{ width: '100%', display: 'flex', flexDirection: 'column', gap: 6, marginTop: 6 }} onClick={e => e.stopPropagation()}>
@@ -2034,7 +2034,7 @@ export default function InvestigateTab() {
                               </div>
                             </div>
                             {!isQuery && (
-                              <button title={included ? 'Remove' : 'Add back'} onClick={() => included ? removeCandidate(tag) : (setRemovedTags(prev => { const s = new Set(prev); s.delete(tag); return s; }))} style={{ flexShrink: 0, width: 22, height: 22, display: 'flex', alignItems: 'center', justifyContent: 'center', background: 'transparent', border: '1px solid rgba(255,80,80,0.3)', borderRadius: 'var(--radius-sm)', cursor: 'pointer', fontSize: 'var(--text-xxs)', color: 'rgba(255,110,110,0.7)', transition: 'all 0.1s' }} onMouseEnter={e => { e.currentTarget.style.background = 'rgba(255,60,60,0.15)'; e.currentTarget.style.color = '#f87171'; }} onMouseLeave={e => { e.currentTarget.style.background = 'transparent'; e.currentTarget.style.color = 'rgba(255,110,110,0.7)'; }}>
+                              <button title={included ? 'Remove' : 'Add back'} onClick={() => included ? removeCandidate(tag) : (setRemovedTags(prev => { const s = new Set(prev); s.delete(tag); return s; }))} style={{ flexShrink: 0, width: 22, height: 22, display: 'flex', alignItems: 'center', justifyContent: 'center', background: 'transparent', border: '1px solid rgba(255,80,80,0.3)', borderRadius: 'var(--radius-sm)', cursor: 'pointer', fontSize: 'var(--text-xxs)', color: 'rgba(255,110,110,0.7)', transition: 'all 0.1s' }} onMouseEnter={e => { e.currentTarget.style.background = 'rgba(255,60,60,0.15)'; e.currentTarget.style.color = 'var(--red)'; }} onMouseLeave={e => { e.currentTarget.style.background = 'transparent'; e.currentTarget.style.color = 'rgba(255,110,110,0.7)'; }}>
                                 ×
                               </button>
                             )}
@@ -2094,7 +2094,7 @@ export default function InvestigateTab() {
                                 {isNew && <span style={{ fontFamily: 'var(--font-mono)', fontSize: 'var(--text-xxxs)', background: 'rgba(251,191,36,0.12)', border: '1px solid rgba(251,191,36,0.3)', borderRadius: 2, padding: '1px 4px', color: 'var(--amber)', textTransform: 'uppercase', letterSpacing: '0.04em' }}>new</span>}
                               </div>
                               {mMmr != null
-                                ? <div style={{ fontFamily: 'var(--font-mono)', fontSize: 'var(--text-sm)', fontWeight: 700, color: '#fff', lineHeight: 1 }}>{mMmr} <span style={{ fontWeight: 400, fontSize: 10, color: 'var(--grey-light)' }}>MMR</span></div>
+                                ? <div style={{ fontFamily: 'var(--font-mono)', fontSize: 'var(--text-sm)', fontWeight: 700, color: 'var(--white)', lineHeight: 1 }}>{mMmr} <span style={{ fontWeight: 400, fontSize: 10, color: 'var(--grey-light)' }}>MMR</span></div>
                                 : entry.recentGames != null
                                   ? <div style={{ fontFamily: 'var(--font-mono)', fontSize: 'var(--text-xxs)', color: 'var(--amber)' }}>{entry.recentGames}g played</div>
                                   : null
@@ -2124,7 +2124,7 @@ export default function InvestigateTab() {
                       const manualOnlyAdded = [...manualCandidates.values()].filter(s =>
                         !removedTags.has(s.battleTag) && !similarTags.has(s.battleTag) && !discoveryTags.has(s.battleTag)
                       );
-                      // Section label — design system: --text-xxs, --font-mono, --grey-light, uppercase
+                      // Section label - design system: --text-xxs, --font-mono, --grey-light, uppercase
                       const sectionLabel = (content, extra) => (
                         <div style={{ display: 'flex', alignItems: 'center', gap: 10, marginBottom: 12, paddingBottom: 8, borderBottom: '1px solid var(--panel-border)' }}>
                           <span style={{ fontFamily: 'var(--font-mono)', fontSize: 'var(--text-xs)', textTransform: 'uppercase', letterSpacing: '0.1em', color: 'var(--grey-light)' }}>{content}</span>
@@ -2149,7 +2149,7 @@ export default function InvestigateTab() {
                                     {qRaceIcon && <img src={qRaceIcon} alt="" style={{ width: 15, height: 15, opacity: 0.8, flexShrink: 0 }} />}
                                     {qCountry && <CountryFlag name={qCountry.toLowerCase()} style={{ width: 16, height: 11, flexShrink: 0 }} />}
                                   </div>
-                                  {qMmr != null && <div style={{ fontFamily: 'var(--font-mono)', fontSize: 'var(--text-sm)', fontWeight: 700, color: '#fff', lineHeight: 1 }}>{Math.round(qMmr)} <span style={{ fontWeight: 400, fontSize: 10, color: 'var(--grey-light)' }}>MMR</span></div>}
+                                  {qMmr != null && <div style={{ fontFamily: 'var(--font-mono)', fontSize: 'var(--text-sm)', fontWeight: 700, color: 'var(--white)', lineHeight: 1 }}>{Math.round(qMmr)} <span style={{ fontWeight: 400, fontSize: 10, color: 'var(--grey-light)' }}>MMR</span></div>}
                                 </div>
                               </div>
                               <div style={{ padding: '7px 0', border: '1px solid rgba(212,175,55,0.25)', borderRadius: 'var(--radius-sm)', color: 'rgba(212,175,55,0.5)', fontFamily: 'var(--font-mono)', fontSize: 'var(--text-xxxs)', textTransform: 'uppercase', letterSpacing: '0.1em', textAlign: 'center' }}>
@@ -2272,7 +2272,7 @@ export default function InvestigateTab() {
                                 <div key={p.tag} style={{ flex: '0 0 240px', display: 'flex', flexDirection: 'column', gap: 8 }}>
                                   {/* Player header */}
                                   <div style={{ display: 'flex', alignItems: 'center', gap: 8, paddingBottom: 8, borderBottom: p.isQuery ? '2px solid rgba(212,175,55,0.4)' : '1px solid rgba(255,255,255,0.1)' }}>
-                                    <span style={{ fontFamily: 'var(--font-display)', fontSize: 'var(--text-sm)', color: p.isQuery ? 'var(--gold)' : '#fff' }}>{p.name}</span>
+                                    <span style={{ fontFamily: 'var(--font-display)', fontSize: 'var(--text-sm)', color: p.isQuery ? 'var(--gold)' : 'var(--white)' }}>{p.name}</span>
                                     {hasSelection && (
                                       <span style={{ fontFamily: 'var(--font-mono)', fontSize: 'var(--text-xxxs)', color: 'var(--gold)', marginLeft: 'auto' }}>{selection.size} sel</span>
                                     )}
@@ -2436,7 +2436,7 @@ export default function InvestigateTab() {
                                     </>
                                   ) : (
                                     <>
-                                      <span style={{ fontFamily: 'var(--font-mono)', fontSize: 'var(--text-xxxs)', color: 'var(--grey-light)' }}>{s.replayCount} rep{s.replayCount !== 1 ? 's' : ''} — not enough</span>
+                                      <span style={{ fontFamily: 'var(--font-mono)', fontSize: 'var(--text-xxxs)', color: 'var(--grey-light)' }}>{s.replayCount} rep{s.replayCount !== 1 ? 's' : ''} - not enough</span>
                                       <button onClick={() => importReplays(s.battleTag)} style={{ padding: '4px 10px', background: 'rgba(212,175,55,0.15)', border: '1px solid var(--gold)', borderRadius: 'var(--radius-md)', cursor: 'pointer', color: 'var(--gold)', fontSize: 'var(--text-xxxs)', fontFamily: 'var(--font-mono)' }}>
                                         ↓ Import replays
                                       </button>
@@ -2450,33 +2450,33 @@ export default function InvestigateTab() {
 
                         {/* ── Feature rows ── */}
                         <RowLabel>MMR</RowLabel>
-                        <TD $query>{qMmr != null ? Math.round(qMmr) : '—'}</TD>
+                        <TD $query>{qMmr != null ? Math.round(qMmr) : '-'}</TD>
                         {renderCandidateCells(s => (
-                          <TD key={s.battleTag} >{s.mmr != null ? Math.round(s.mmr) : '—'}</TD>
+                          <TD key={s.battleTag} >{s.mmr != null ? Math.round(s.mmr) : '-'}</TD>
                         ))}
 
                         <RowLabel>Country</RowLabel>
                         <TD $query>
-                          {qCountry ? <CountryFlag name={qCountry.toLowerCase()} style={{ width: 22, height: 16 }} /> : '—'}
+                          {qCountry ? <CountryFlag name={qCountry.toLowerCase()} style={{ width: 22, height: 16 }} /> : '-'}
                         </TD>
                         {renderCandidateCells(s => {
                           const c = matchProfiles[s.battleTag]?.country;
                           return (
                             <TD key={s.battleTag} >
-                              {c ? <CountryFlag name={c.toLowerCase()} style={{ width: 22, height: 16 }} /> : '—'}
+                              {c ? <CountryFlag name={c.toLowerCase()} style={{ width: 22, height: 16 }} /> : '-'}
                             </TD>
                           );
                         })}
 
                         <RowLabel>Race</RowLabel>
                         <TD $query>
-                          {qRaceIcon ? <img src={qRaceIcon} alt={qRace || ''} style={{ width: 22, height: 22 }} /> : (qRace || '—')}
+                          {qRaceIcon ? <img src={qRaceIcon} alt={qRace || ''} style={{ width: 22, height: 22 }} /> : (qRace || '-')}
                         </TD>
                         {renderCandidateCells(s => {
                           const ri = RACE_ICON_MAP[s.race];
                           return (
                             <TD key={s.battleTag} >
-                              {ri ? <img src={ri} alt={s.race || ''} style={{ width: 22, height: 22 }} /> : (s.race || '—')}
+                              {ri ? <img src={ri} alt={s.race || ''} style={{ width: 22, height: 22 }} /> : (s.race || '-')}
                             </TD>
                           );
                         })}
@@ -2497,9 +2497,9 @@ export default function InvestigateTab() {
                         ))}
 
                         <RowLabel>APM</RowLabel>
-                        <TD $query>{qApm ?? '—'}</TD>
+                        <TD $query>{qApm ?? '-'}</TD>
                         {renderCandidateCells(s => (
-                          <TD key={s.battleTag}>{s.apm ?? '—'}</TD>
+                          <TD key={s.battleTag}>{s.apm ?? '-'}</TD>
                         ))}
 
                         <RowLabel>Loops</RowLabel>
@@ -2507,21 +2507,21 @@ export default function InvestigateTab() {
                           {(qGlyph?.transitionPairs?.slice(0, 3) || []).map((p, i) => (
                             <span key={i} style={{ fontFamily: 'var(--font-mono)', fontSize: 'var(--text-xxxs)', opacity: i === 0 ? 1 : 0.55 }}>{p.from}↔{p.to}</span>
                           ))}
-                          {!qGlyph?.transitionPairs?.length && '—'}
+                          {!qGlyph?.transitionPairs?.length && '-'}
                         </TD>
                         {renderCandidateCells(s => (
                           <TD key={s.battleTag} style={{ flexDirection: 'column', gap: 2, alignItems: 'center' }}>
                             {(s.glyph?.transitionPairs?.slice(0, 3) || []).map((p, i) => (
                               <span key={i} style={{ fontFamily: 'var(--font-mono)', fontSize: 'var(--text-xxxs)', opacity: i === 0 ? 1 : 0.55 }}>{p.from}↔{p.to}</span>
                             ))}
-                            {!s.glyph?.transitionPairs?.length && '—'}
+                            {!s.glyph?.transitionPairs?.length && '-'}
                           </TD>
                         ))}
 
                         <RowLabel>Rebind %</RowLabel>
-                        <TD $query>{playstyleData.query?.reassignRatio != null ? `${playstyleData.query.reassignRatio}%` : '—'}</TD>
+                        <TD $query>{playstyleData.query?.reassignRatio != null ? `${playstyleData.query.reassignRatio}%` : '-'}</TD>
                         {renderCandidateCells(s => (
-                          <TD key={s.battleTag}>{s.reassignRatio != null ? `${s.reassignRatio}%` : '—'}</TD>
+                          <TD key={s.battleTag}>{s.reassignRatio != null ? `${s.reassignRatio}%` : '-'}</TD>
                         ))}
                       </CompareTable>
 
@@ -2530,12 +2530,12 @@ export default function InvestigateTab() {
                         <div style={{ marginBottom: "var(--space-6)" }}>
                           <div style={{ fontFamily: "var(--font-mono)", fontSize: "var(--text-xxxs)", color: "var(--grey-light)", textTransform: "uppercase", letterSpacing: "0.1em", opacity: 0.5, marginBottom: "var(--space-2)" }}>Played together</div>
                           <div style={{ display: "grid", gridTemplateColumns: `120px repeat(${matrixTags.length - 1}, 1fr)`, gap: 1 }}>
-                            {/* header — skip first col (row labels cover it) */}
+                            {/* header - skip first col (row labels cover it) */}
                             <div />
                             {matrixNames.slice(1).map((n, i) => (
                               <div key={i} style={{ fontFamily: "var(--font-display)", fontSize: "var(--text-xs)", color: i === 0 ? "var(--gold)" : "var(--grey-light)", padding: "4px 6px", textAlign: "center", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{n}</div>
                             ))}
-                            {/* rows — only show i < last row (last row has no upper-triangle cells) */}
+                            {/* rows - only show i < last row (last row has no upper-triangle cells) */}
                             {matrixTags.slice(0, -1).map((tagA, i) => (
                               <React.Fragment key={tagA}>
                                 <div style={{ fontFamily: "var(--font-display)", fontSize: "var(--text-xs)", color: i === 0 ? "var(--gold)" : "var(--grey-light)", padding: "4px 0", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{matrixNames[i]}</div>
@@ -2545,7 +2545,7 @@ export default function InvestigateTab() {
                                   const count = getShared(tagA, tagB);
                                   const involvesQuery = i === 0 || j === 0;
                                   return (
-                                    <div key={jj} style={{ textAlign: "center", padding: "4px 6px", fontFamily: "var(--font-mono)", fontSize: "var(--text-xs)", color: count > 0 ? (involvesQuery ? "var(--gold)" : "#fff") : "rgba(255,255,255,0.3)", fontWeight: count > 0 ? 700 : 400 }}>
+                                    <div key={jj} style={{ textAlign: "center", padding: "4px 6px", fontFamily: "var(--font-mono)", fontSize: "var(--text-xs)", color: count > 0 ? (involvesQuery ? "var(--gold)" : "var(--white)") : "rgba(255,255,255,0.3)", fontWeight: count > 0 ? 700 : 400 }}>
                                       {count > 0 ? `${count}×` : "0"}
                                     </div>
                                   );
@@ -2560,7 +2560,7 @@ export default function InvestigateTab() {
                     );
                   })()}
 
-                  {/* Activity timeline — results phase only */}
+                  {/* Activity timeline - results phase only */}
                   {showResults && (() => {
                     const tlMap = new Map([
                       ...playstyleData.similar.slice(0, 5).map(s => [s.battleTag, s]),

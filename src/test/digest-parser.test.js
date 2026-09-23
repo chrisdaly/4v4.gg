@@ -70,7 +70,7 @@ const splitQuotes = (text) => {
       .replace(/\bcalling him\s*$/gi, "")
       .replace(/\bcalling him\s+and\b/gi, "")
       .replace(/'\s+of\b/g, "'s")
-      .replace(/\s*[—:,]\s*$/g, "")
+      .replace(/\s*[\u2014:,]\s*$/g, "")
       .replace(/\s{2,}/g, " ")
       .trim();
   }

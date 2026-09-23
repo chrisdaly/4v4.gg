@@ -9,7 +9,7 @@ function isAdmin(req) {
   return req.headers['x-api-key'] === config.ADMIN_API_KEY && !!config.ADMIN_API_KEY;
 }
 
-// List posts — admins see drafts too
+// List posts - admins see drafts too
 router.get('/', (req, res) => {
   const admin = isAdmin(req);
   const posts = getBlogPosts(admin);

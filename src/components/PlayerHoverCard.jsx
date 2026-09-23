@@ -17,13 +17,15 @@ const Card = styled.div`
   position: absolute;
   top: calc(100% + 6px);
   left: 0;
-  z-index: 10010;
+  z-index: var(--z-popover);
   width: 230px;
   padding: var(--space-2) var(--space-3);
+  /* popover surface (patterns.popover); warm gradient kept deliberately for the chat hover card */
   background: linear-gradient(180deg, rgba(30, 24, 16, 0.98) 0%, rgba(15, 12, 8, 0.99) 100%);
-  border: 1px solid rgba(var(--gold-muted-rgb), 0.4);
+  border: 1px solid var(--grey-mid);
   border-radius: var(--radius-md);
-  box-shadow: 0 4px 20px rgba(0, 0, 0, 0.7);
+  box-shadow: 0 8px 24px var(--overlay-light);
+  animation: fadeIn 120ms ease-out;
   pointer-events: none;
 `;
 
@@ -108,7 +110,7 @@ const InGameLine = styled.div`
 
 /**
  * Wraps children with a delayed hover card showing player context.
- * All data comes from the maps the chat page already maintains — no fetches.
+ * All data comes from the maps the chat page already maintains - no fetches.
  */
 export default function PlayerHoverCard({ battleTag, avatars, stats, sessions, inGameInfo, style, children }) {
   const [open, setOpen] = useState(false);

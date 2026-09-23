@@ -16,7 +16,7 @@ const Overlay = styled.div`
   align-items: center;
   justify-content: center;
   background: transparent;
-  z-index: 200;
+  z-index: var(--z-overlay);
 
   &.slide-in  { animation: card-in  0.7s cubic-bezier(0.22, 1, 0.36, 1) forwards; }
   &.slide-out { animation: card-out 1.2s ease-in forwards; }
@@ -104,11 +104,11 @@ const MapImg = styled.img`
   height: 80px;
   object-fit: cover;
   border-radius: var(--radius-md);
-  border: 1px solid rgba(184, 134, 11, 0.4);
+  border: 1px solid rgba(var(--gold-dark-rgb), 0.4);
   opacity: 0.88;
 `;
 
-// ─── Player card — exact Game.jsx structure ───────────────────────────────────
+// ─── Player card - exact Game.jsx structure ───────────────────────────────────
 
 const PlayerCard = ({ player, avatarUrls, countries, sessionData, teamClass }) => {
   const avatarUrl = avatarUrls?.[player.battleTag];
@@ -159,7 +159,7 @@ const PlayerCard = ({ player, avatarUrls, countries, sessionData, teamClass }) =
 
 // ─── Header variants ──────────────────────────────────────────────────────────
 
-// Variant 1: two rows — name row / stats row (most breathing room)
+// Variant 1: two rows - name row / stats row (most breathing room)
 const Header1 = styled.div`
   display: flex;
   flex-direction: column;
@@ -233,7 +233,7 @@ const HeaderVariant1 = ({ team1, team2, team1Mmr, team2Mmr }) => (
   </Header1>
 );
 
-// Variant 2: stacked columns — each side is name / icons / mmr stacked
+// Variant 2: stacked columns - each side is name / icons / mmr stacked
 const Header2 = styled.div`
   display: flex;
   align-items: center;
@@ -386,7 +386,7 @@ const GameCardOverlay = ({ matchData, avatarUrls = {}, countries = {}, sessionDa
             )}
             {(mapName || serverLabel) && (
               <div style={{ display:"flex", flexDirection:"column", alignItems:"center", gap:3, marginTop:4 }}>
-                {mapName     && <div style={{ fontFamily:"var(--font-display)", fontSize:13, color:"#fff", textTransform:"uppercase", letterSpacing:"0.12em", textAlign:"center", lineHeight:1.2 }}>{mapName}</div>}
+                {mapName     && <div style={{ fontFamily:"var(--font-display)", fontSize:13, color:"var(--white)", textTransform:"uppercase", letterSpacing:"0.12em", textAlign:"center", lineHeight:1.2 }}>{mapName}</div>}
                 {serverLabel && <div style={{ fontFamily:"var(--font-mono)", fontSize:11, color:"rgba(255,255,255,0.5)", textTransform:"uppercase", letterSpacing:"0.1em" }}>{serverLabel}</div>}
               </div>
             )}

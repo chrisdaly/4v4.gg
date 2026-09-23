@@ -10,24 +10,12 @@
   gap: 6px;
 }
 
-.in-game-icon-small {
-  width: 12px;
-  height: 12px;
-  color: var(--red);
-  fill: var(--red);
-  animation: pulse 1.5s infinite;
-}
-
 .ladder-controls-row {
   display: flex;
   align-items: center;
   justify-content: flex-start;
   gap: var(--space-4);
   margin-bottom: var(--space-6);
-}
-
-.ladder-controls {
-  align-items: center;
 }
 
 .ladder-selectors {
@@ -65,7 +53,7 @@
   transform: translateY(-50%);
   width: 14px;
   height: 14px;
-  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='14' height='14' viewBox='0 0 14 14' fill='none'%3E%3Ccircle cx='5.5' cy='5.5' r='4' stroke='%23a09070' stroke-width='1.5'/%3E%3Cline x1='8.7' y1='8.7' x2='13' y2='13' stroke='%23a09070' stroke-width='1.5' stroke-linecap='round'/%3E%3C/svg%3E");
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='14' height='14' viewBox='0 0 14 14' fill='none'%3E%3Ccircle cx='5.5' cy='5.5' r='4' stroke='%23bbb' stroke-width='1.5'/%3E%3Cline x1='8.7' y1='8.7' x2='13' y2='13' stroke='%23bbb' stroke-width='1.5' stroke-linecap='round'/%3E%3C/svg%3E");
   background-repeat: no-repeat;
   background-size: contain;
   pointer-events: none;
@@ -73,33 +61,24 @@
 
 .ladder-search input {
   width: 200px;
-  padding-left: 32px !important;
+  padding-left: var(--space-8);
 }
 
+/* ui.jsx Button $icon; position only */
 .search-clear {
   position: absolute;
-  right: 8px;
+  right: var(--space-1);
   top: 50%;
   transform: translateY(-50%);
-  background: none;
-  border: none;
-  color: var(--grey-light);
-  font-size: var(--text-base);
-  cursor: pointer;
-  padding: 0 4px;
-  line-height: 1;
 }
 
-.search-clear:hover {
-  color: var(--white);
-}
-
+/* Match .no-results in Finished.css */
 .ladder-no-results {
   text-align: center;
-  padding: 40px;
+  padding: var(--space-12) var(--space-4);
   color: var(--grey-light);
   font-family: var(--font-body);
-  font-size: var(--text-xs);
+  font-size: var(--text-base);
 }
 
 .ladder-table {
@@ -120,7 +99,7 @@
   font-family: var(--font-mono);
   font-size: var(--text-xxxs);
   text-transform: uppercase;
-  letter-spacing: 0.12em;
+  letter-spacing: 0.1em;
   align-items: center;
   flex-shrink: 0;
 }
@@ -326,20 +305,6 @@
   gap: 2px;
 }
 
-.col-session .form-dots-inline .form-dot {
-  width: 5px;
-  height: 5px;
-  border-radius: 50%;
-}
-
-.col-session .form-dots-inline .form-dot.win {
-  background: var(--green);
-}
-
-.col-session .form-dots-inline .form-dot.loss {
-  background: var(--red);
-}
-
 .col-form {
   display: flex;
   justify-content: center;
@@ -382,12 +347,7 @@
 
   .ladder-controls-row {
     flex-direction: column;
-    gap: 12px;
-  }
-
-  .ladder-controls {
-    flex-direction: column;
-    gap: 12px;
+    gap: var(--space-3);
   }
 
   .ladder-search {

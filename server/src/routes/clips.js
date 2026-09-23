@@ -7,7 +7,7 @@ const router = Router();
 
 // ── Public routes ───────────────────────────────
 
-// GET /api/clips — paginated clip feed
+// GET /api/clips - paginated clip feed
 router.get('/', (req, res) => {
   const limit = Math.min(parseInt(req.query.limit) || 20, 100);
   const offset = parseInt(req.query.offset) || 0;
@@ -20,20 +20,20 @@ router.get('/', (req, res) => {
   res.json({ clips, count: clips.length, offset });
 });
 
-// GET /api/clips/streamers — active streamers for filter dropdown
+// GET /api/clips/streamers - active streamers for filter dropdown
 router.get('/streamers', (req, res) => {
   const streamers = getStreamers();
   res.json({ streamers: streamers.map(s => ({ twitch_login: s.twitch_login, display_name: s.display_name })) });
 });
 
-// GET /api/clips/:clipId — single clip
+// GET /api/clips/:clipId - single clip
 router.get('/:clipId', (req, res) => {
   const clip = getClipById(req.params.clipId);
   if (!clip) return res.status(404).json({ error: 'Clip not found' });
   res.json(clip);
 });
 
-// POST /api/clips/submit — public clip submission by URL
+// POST /api/clips/submit - public clip submission by URL
 router.post('/submit', async (req, res) => {
   const { url } = req.body;
   if (!url) return res.status(400).json({ error: 'url is required' });
@@ -91,7 +91,7 @@ router.post('/submit', async (req, res) => {
 
 // ── Admin routes ────────────────────────────────
 
-// GET /api/clips/admin/all — all clips including hidden (for admin triage)
+// GET /api/clips/admin/all - all clips including hidden (for admin triage)
 router.get('/admin/all', requireApiKey, (req, res) => {
   const limit = Math.min(parseInt(req.query.limit) || 50, 200);
   const offset = parseInt(req.query.offset) || 0;
@@ -99,7 +99,7 @@ router.get('/admin/all', requireApiKey, (req, res) => {
   res.json({ clips, count: clips.length, offset });
 });
 
-// POST /api/clips/admin/feature — feature a clip
+// POST /api/clips/admin/feature - feature a clip
 router.post('/admin/feature', requireApiKey, (req, res) => {
   const { clipId, tag, playerTag } = req.body;
   if (!clipId) return res.status(400).json({ error: 'clipId is required' });
@@ -113,7 +113,7 @@ router.post('/admin/feature', requireApiKey, (req, res) => {
   res.json({ ok: true, message: `Clip ${clipId} featured` });
 });
 
-// POST /api/clips/admin/hide — hide a clip from feed
+// POST /api/clips/admin/hide - hide a clip from feed
 router.post('/admin/hide', requireApiKey, (req, res) => {
   const { clipId } = req.body;
   if (!clipId) return res.status(400).json({ error: 'clipId is required' });
@@ -122,7 +122,7 @@ router.post('/admin/hide', requireApiKey, (req, res) => {
   res.json({ ok: true, message: `Clip ${clipId} hidden` });
 });
 
-// POST /api/clips/admin/unhide — restore a hidden clip
+// POST /api/clips/admin/unhide - restore a hidden clip
 router.post('/admin/unhide', requireApiKey, (req, res) => {
   const { clipId } = req.body;
   if (!clipId) return res.status(400).json({ error: 'clipId is required' });
@@ -131,7 +131,7 @@ router.post('/admin/unhide', requireApiKey, (req, res) => {
   res.json({ ok: true, message: `Clip ${clipId} restored` });
 });
 
-// POST /api/clips/admin/tag-player — set player tag on a clip
+// POST /api/clips/admin/tag-player - set player tag on a clip
 router.post('/admin/tag-player', requireApiKey, (req, res) => {
   const { clipId, playerTag } = req.body;
   if (!clipId) return res.status(400).json({ error: 'clipId is required' });
@@ -143,7 +143,7 @@ router.post('/admin/tag-player', requireApiKey, (req, res) => {
   res.json({ ok: true, message: `Clip ${clipId} player tagged as ${playerTag || 'none'}` });
 });
 
-// POST /api/clips/admin/streamers — add/update a streamer
+// POST /api/clips/admin/streamers - add/update a streamer
 router.post('/admin/streamers', requireApiKey, (req, res) => {
   const { twitch_login, display_name, battle_tag, auto_feature } = req.body;
   if (!twitch_login) return res.status(400).json({ error: 'twitch_login is required' });
@@ -152,13 +152,13 @@ router.post('/admin/streamers', requireApiKey, (req, res) => {
   res.json({ ok: true, message: `Streamer ${twitch_login} upserted` });
 });
 
-// DELETE /api/clips/admin/streamers/:login — deactivate a streamer
+// DELETE /api/clips/admin/streamers/:login - deactivate a streamer
 router.delete('/admin/streamers/:login', requireApiKey, (req, res) => {
   deactivateStreamer(req.params.login);
   res.json({ ok: true, message: `Streamer ${req.params.login} deactivated` });
 });
 
-// POST /api/clips/admin/add — add a clip by Twitch URL
+// POST /api/clips/admin/add - add a clip by Twitch URL
 router.post('/admin/add', requireApiKey, async (req, res) => {
   const { url, playerTag, tag, featured } = req.body;
   if (!url) return res.status(400).json({ error: 'url is required' });
@@ -222,7 +222,7 @@ router.post('/admin/add', requireApiKey, async (req, res) => {
   }
 });
 
-// POST /api/clips/admin/fetch — trigger manual fetch
+// POST /api/clips/admin/fetch - trigger manual fetch
 // Query params: days (default 2), force (bypass daily fetch log)
 router.post('/admin/fetch', requireApiKey, async (req, res) => {
   const days = Math.min(parseInt(req.query.days || req.body.days) || 2, 30);

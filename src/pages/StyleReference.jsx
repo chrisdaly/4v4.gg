@@ -9,19 +9,69 @@ import {
   overlays,
   surfaces,
   tints,
+  leagueColors,
+  raceColors,
+  zIndex,
+  layout,
+  quote,
   patterns,
+  chartColors,
   components,
 } from "../lib/design-tokens";
 import { MmrComparison } from "../components/MmrComparison";
 import PeonLoader from "../components/PeonLoader";
-import { CountryFlag, Select, Input, Button, ConfirmModal, PageNav } from "../components/ui";
+import {
+  Button,
+  ResultBadge,
+  Dot,
+  Delta,
+  TeamBar,
+  Card,
+  CardSubtle,
+  ThemedCard,
+  Select,
+  Input,
+  Skeleton,
+  SkeletonCircle,
+  RaceIcon,
+  CountryFlag,
+  ConfirmModal,
+  PageNav,
+  PageHero,
+  WinSurface,
+  LossSurface,
+} from "../components/ui";
+import { raceIcons } from "../lib/constants";
 import "../components/ChatContext.css";
 import "../styles/pages/DevTools.css";
+import "../styles/pages/News.css";
 import "../styles/pages/StyleReference.css";
 
 
 // Colors that need dark text on their swatch
-const lightSwatches = new Set(["gold", "green", "greyLight", "textBody", "white"]);
+const lightSwatches = new Set(["gold", "green", "greyLight", "textBody", "white", "amber", "cyan"]);
+
+const coreColorKeys = ["gold", "green", "red", "blue", "cyan", "amber", "greyLight", "greyMid", "greyDark", "white", "textBody"];
+const semanticColorKeys = ["teamBlue", "teamRed", "atPurple", "twitchPurple"];
+
+// Accent colour for each tint token (border + label on the tint swatch)
+const tintAccent = (key) => {
+  if (key.startsWith("gold")) return "var(--gold)";
+  if (key.startsWith("green")) return "var(--green)";
+  if (key.startsWith("red")) return "var(--red)";
+  if (key === "blue") return "var(--team-blue)";
+  if (key === "amber") return "var(--amber)";
+  if (key === "cyan") return "var(--cyan)";
+  if (key === "purple") return "var(--at-purple)";
+  return "var(--grey-light)";
+};
+
+// *Rgb tokens are triplets, so render them through rgba()
+const tintBackground = (key, token) =>
+  key.endsWith("Rgb") ? `rgba(var(${token.css}), 0.4)` : token.value;
+
+const mono = { fontFamily: "var(--font-mono)", color: "var(--grey-light)" };
+const cellName = { fontFamily: "var(--font-display)", color: "var(--gold)", whiteSpace: "nowrap" };
 
 const StyleReference = () => {
   const colorEntries = Object.entries(colors);
@@ -30,6 +80,20 @@ const StyleReference = () => {
   const [modalDanger, setModalDanger] = useState(false);
   const [modalGold, setModalGold] = useState(false);
   const [modalSuccess, setModalSuccess] = useState(false);
+
+  const renderSwatch = ([key, token]) => (
+    <div
+      key={key}
+      className={`sr-swatch ${lightSwatches.has(key) ? "light" : "dark"}`}
+      style={{ background: token.value }}
+    >
+      <span className="sr-swatch-name">{token.css}</span>
+      <div>
+        <span className="sr-swatch-hex">{token.value}</span>
+        <span className="sr-swatch-usage">{token.usage}</span>
+      </div>
+    </div>
+  );
 
   return (
     <div className="sr-page">
@@ -80,10 +144,10 @@ const StyleReference = () => {
             <h2>Design principles</h2>
             <p>Built for the competitive spectator. Fast reads, clear outcomes, cinematic atmosphere.</p>
           </div>
-          <div className="sr-badge-row">
-            <span className="sr-badge gold">Clarity</span>
-            <span className="sr-badge green">Speed</span>
-            <span className="sr-badge red">Immersion</span>
+          <div className="sr-tag-row">
+            <span className="sr-tag gold">Clarity</span>
+            <span className="sr-tag green">Speed</span>
+            <span className="sr-tag red">Immersion</span>
           </div>
         </div>
         <div className="sr-card-grid">
@@ -109,28 +173,64 @@ const StyleReference = () => {
             <h2>Color palette</h2>
             <p>Gold anchors the brand and highlights player names. White for primary content. Green and red signal outcomes.</p>
           </div>
-          <div className="sr-badge-row">
-            <span className="sr-badge gold">Brand & players</span>
-            <span className="sr-badge" style={{ backgroundColor: 'var(--white)', color: '#000' }}>Primary text</span>
-            <span className="sr-badge green">Wins</span>
-            <span className="sr-badge red">Losses</span>
+          <div className="sr-tag-row">
+            <span className="sr-tag gold">Brand & players</span>
+            <span className="sr-tag" style={{ backgroundColor: "var(--white)", color: "var(--grey-dark)" }}>Primary text</span>
+            <span className="sr-tag green">Wins</span>
+            <span className="sr-tag red">Losses</span>
           </div>
         </div>
-        <div className="sr-swatch-grid">
-          {colorEntries
-            .filter(([key]) => !["teamBlue", "teamRed", "twitchPurple", "atPurple", "textBody"].includes(key))
-            .map(([key, token]) => (
-            <div
-              key={key}
-              className={`sr-swatch ${lightSwatches.has(key) ? "light" : "dark"}`}
-              style={{ background: token.value }}
-            >
-              <span className="sr-swatch-name">{token.css}</span>
-              <div>
-                <span className="sr-swatch-hex">{token.value}</span>
+
+        <div className="sr-label" style={{ marginBottom: "var(--space-3)" }}>Core</div>
+        <div className="sr-swatch-grid" style={{ marginBottom: "var(--space-6)" }}>
+          {colorEntries.filter(([key]) => coreColorKeys.includes(key)).map(renderSwatch)}
+        </div>
+
+        <div className="sr-label" style={{ marginBottom: "var(--space-3)" }}>Semantic</div>
+        <div className="sr-swatch-grid" style={{ marginBottom: "var(--space-6)" }}>
+          {colorEntries.filter(([key]) => semanticColorKeys.includes(key)).map(renderSwatch)}
+        </div>
+
+        <div className="sr-label" style={{ marginBottom: "var(--space-3)" }}>Chart colours (chartColors, JS)</div>
+        <div className="sr-overlay-grid">
+          {Object.entries(chartColors).map(([key, value]) => (
+            <div className="sr-overlay-swatch" key={key}>
+              <div className="sr-overlay-box" style={{ background: value }}>
+                <span style={{ color: ["dot", "dotActive", "gold", "green", "cyan", "amber"].includes(key) ? "var(--grey-dark)" : "var(--white)" }}>{value}</span>
               </div>
+              <div className="sr-overlay-name">chartColors.{key}</div>
             </div>
           ))}
+        </div>
+      </section>
+
+      {/* ── League and race colours ──────── */}
+      <section className="sr-section reveal" style={{ "--delay": "0.1s" }}>
+        <div className="sr-section-head">
+          <div>
+            <h2>League and race colours</h2>
+            <p>Gradient bars for distribution charts. The same league or race must look the same on every page.</p>
+          </div>
+        </div>
+        <div className="sr-layout-grid">
+          <div className="sr-surface">
+            <div className="meta">Leagues (leagueColors)</div>
+            {Object.entries(leagueColors).map(([key, token]) => (
+              <div className="sr-bar-row" key={key}>
+                <span className="sr-bar-label">{token.css}</span>
+                <div className="sr-bar" style={{ background: token.value }} />
+              </div>
+            ))}
+          </div>
+          <div className="sr-surface">
+            <div className="meta">Races (raceColors)</div>
+            {Object.entries(raceColors).map(([key, token]) => (
+              <div className="sr-bar-row" key={key}>
+                <span className="sr-bar-label">{token.css}</span>
+                <div className="sr-bar" style={{ background: token.value }} />
+              </div>
+            ))}
+          </div>
         </div>
       </section>
 
@@ -197,82 +297,179 @@ const StyleReference = () => {
         <div className="sr-section-head">
           <div>
             <h2>Components</h2>
-            <p>Buttons, badges, team indicators, and form dots. The building blocks of match display.</p>
+            <p>The real shared exports from src/components/ui.jsx. Reuse these instead of hand-rolling lookalikes.</p>
+          </div>
+          <div className="sr-tag-row">
+            <span className="sr-tag gold">ui.jsx</span>
           </div>
         </div>
+
+        <table className="sr-table" style={{ marginBottom: "var(--space-8)" }}>
+          <thead>
+            <tr>
+              <th>Component</th>
+              <th>Description</th>
+            </tr>
+          </thead>
+          <tbody>
+            {components.map((c) => (
+              <tr key={c.name}>
+                <td style={cellName}>{c.name}</td>
+                <td><code>{c.description}</code></td>
+              </tr>
+            ))}
+          </tbody>
+        </table>
+
         <div className="sr-component-grid">
           <div className="sr-stack">
-            <div className="sr-label">Buttons</div>
-            <button className="sr-btn sr-btn-primary">Primary Action</button>
-            <button className="sr-btn sr-btn-secondary">Secondary</button>
-          </div>
-
-          <div className="sr-stack">
-            <div className="sr-label">Badges</div>
-            <div className="sr-badge-row">
-              <span className="sr-badge">Default</span>
-              <span className="sr-badge gold">Gold</span>
-              <span className="sr-badge green">Win</span>
-              <span className="sr-badge red">Loss</span>
+            <div className="sr-label">Button</div>
+            <Button $primary>Primary Action</Button>
+            <Button $secondary>Secondary</Button>
+            <Button $ghost>Ghost</Button>
+            <Button $primary disabled>Disabled</Button>
+            <div style={{ display: "flex", flexWrap: "wrap", gap: "var(--space-2)" }}>
+              <Button $pill>Pill</Button>
+              <Button $pill data-active="true">Active pill</Button>
+              <Button $pill>Show more</Button>
             </div>
           </div>
 
           <div className="sr-stack">
-            <div className="sr-label">Form dots</div>
-            <div style={{ display: "flex", alignItems: "center", gap: 4 }}>
-              <span className="sr-dot loss sm" />
-              <span className="sr-dot win sm" />
-              <span className="sr-dot loss sm" />
-              <span className="sr-dot win sm" />
-              <span className="sr-dot win lg" />
-              <span style={{ marginLeft: 8, fontFamily: "var(--font-mono)", fontSize: "0.9rem", color: "var(--grey-light)" }}>
+            <div className="sr-label">ResultBadge</div>
+            <div className="sr-tag-row">
+              <ResultBadge $won>WIN</ResultBadge>
+              <ResultBadge $lost>LOSS</ResultBadge>
+              <ResultBadge $won $square>W</ResultBadge>
+              <ResultBadge $lost $square>L</ResultBadge>
+              <ResultBadge $winner $size="sm">W</ResultBadge>
+              <ResultBadge>Neutral</ResultBadge>
+            </div>
+            <div className="sr-tag-row">
+              <ResultBadge $won $size="sm">SM</ResultBadge>
+              <ResultBadge $won>MD</ResultBadge>
+              <ResultBadge $won $size="lg">LG</ResultBadge>
+            </div>
+          </div>
+
+          <div className="sr-stack">
+            <div className="sr-label">Dot</div>
+            <div style={{ display: "flex", alignItems: "center", gap: "var(--space-3)" }}>
+              <span style={{ display: "inline-flex", alignItems: "center", gap: "var(--space-1)" }}>
+                <Dot $win $size={6} /><Dot $win /><Dot $win $size={12} />
+                <span className="sr-overlay-name" style={{ marginLeft: "var(--space-1)" }}>$size 6 / 8 / 12</span>
+              </span>
+            </div>
+            <div style={{ display: "flex", alignItems: "center", gap: "var(--space-3)" }}>
+              <span style={{ display: "inline-flex", alignItems: "center", gap: "var(--space-1)" }}>
+                <Dot $win $recent />
+                <span className="sr-overlay-name" style={{ marginLeft: "var(--space-1)" }}>$recent</span>
+              </span>
+              <span style={{ display: "inline-flex", alignItems: "center", gap: "var(--space-1)" }}>
+                <Dot $win $dim />
+                <span className="sr-overlay-name" style={{ marginLeft: "var(--space-1)" }}>$dim</span>
+              </span>
+            </div>
+            <div style={{ display: "flex", alignItems: "center", gap: "var(--space-1)" }}>
+              <Dot $dim />
+              <Dot $win />
+              <Dot />
+              <Dot $win />
+              <Dot $win $recent />
+              <span style={{ ...mono, marginLeft: "var(--space-2)", fontSize: "var(--text-xs)" }}>
                 3W-2L
               </span>
             </div>
           </div>
 
           <div className="sr-stack">
-            <div className="sr-label">Live indicator</div>
-            <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
+            <div className="sr-label">Delta</div>
+            <div style={{ display: "flex", alignItems: "center", gap: "var(--space-4)" }}>
+              <Delta value={12} />
+              <Delta value={-8} />
+              <Delta value={0} />
+            </div>
+          </div>
+
+          <div className="sr-stack">
+            <div className="sr-label">Live indicator (.live-dot)</div>
+            <div style={{ display: "flex", alignItems: "center", gap: "var(--space-2)" }}>
               <span className="live-dot" />
-              <span style={{ fontFamily: "var(--font-mono)", fontSize: "0.85rem", color: "var(--grey-light)" }}>
+              <span style={{ ...mono, fontSize: "var(--text-xs)" }}>
                 Pulsing red dot
               </span>
             </div>
           </div>
 
           <div className="sr-stack">
-            <div className="sr-label">Team indicators</div>
-            <div className="sr-team-bar blue">Blue Team Player</div>
-            <div className="sr-team-bar red">Red Team Player</div>
+            <div className="sr-label">TeamBar</div>
+            <TeamBar $blue><span style={{ fontFamily: "var(--font-display)", color: "var(--gold)" }}>Blue Team Player</span></TeamBar>
+            <TeamBar><span style={{ fontFamily: "var(--font-display)", color: "var(--gold)" }}>Red Team Player</span></TeamBar>
           </div>
 
           <div className="sr-stack">
-            <div className="sr-label">Select / Dropdown</div>
-            <Select defaultValue="S24">
+            <div className="sr-label">Card / CardSubtle / ThemedCard</div>
+            <Card><span style={{ fontFamily: "var(--font-display)", color: "var(--gold)" }}>Card</span></Card>
+            <CardSubtle><span style={{ fontFamily: "var(--font-display)", color: "var(--white)" }}>CardSubtle</span></CardSubtle>
+            <ThemedCard><span style={{ fontFamily: "var(--font-display)", color: "var(--white)" }}>ThemedCard</span></ThemedCard>
+          </div>
+
+          <div className="sr-stack">
+            <div className="sr-label">Select</div>
+            <Select defaultValue="S25">
+              <option>S25</option>
               <option>S24</option>
               <option>S23</option>
-              <option>S22</option>
             </Select>
           </div>
 
           <div className="sr-stack">
             <div className="sr-label">Input</div>
-            <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
+            <div style={{ display: "flex", flexDirection: "column", gap: "var(--space-2)" }}>
+              <Input placeholder="Plain input" />
               <div style={{ position: "relative", display: "inline-flex", alignItems: "center" }}>
-                <svg style={{ position: "absolute", left: 11, color: "var(--grey-light)", pointerEvents: "none" }} width="14" height="14" viewBox="0 0 14 14" fill="none">
+                <svg style={{ position: "absolute", left: "var(--space-3)", color: "var(--grey-light)", pointerEvents: "none" }} width="14" height="14" viewBox="0 0 14 14" fill="none">
                   <circle cx="5.5" cy="5.5" r="4" stroke="currentColor" strokeWidth="1.5"/>
                   <line x1="8.7" y1="8.7" x2="13" y2="13" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round"/>
                 </svg>
-                <Input style={{ paddingLeft: 32 }} placeholder="Search players..." />
+                <Input style={{ paddingLeft: "var(--space-8)" }} placeholder="Search players..." />
               </div>
-              <Input $fullWidth placeholder="Full width variant" />
+              <Input $fullWidth placeholder="Full width variant ($fullWidth)" />
+              <Input $fullWidth $error defaultValue="Invalid value ($error)" />
             </div>
           </div>
 
           <div className="sr-stack">
-            <div className="sr-label">Country flags</div>
-            <div style={{ display: "flex", alignItems: "center", gap: 12 }}>
+            <div className="sr-label">Skeleton / SkeletonCircle</div>
+            <div style={{ display: "flex", gap: "var(--space-3)", alignItems: "flex-start" }}>
+              <SkeletonCircle $size="40px" />
+              <div style={{ flex: 1, display: "flex", flexDirection: "column", gap: "var(--space-2)" }}>
+                <Skeleton $w="60%" />
+                <Skeleton $w="90%" $h="12px" />
+                <Skeleton $w="40%" $h="12px" />
+              </div>
+            </div>
+          </div>
+
+          <div className="sr-stack">
+            <div className="sr-label">RaceIcon</div>
+            <div style={{ display: "flex", alignItems: "flex-start", gap: "var(--space-4)" }}>
+              {["human", "orc", "nightelf", "undead", "random"].map((race) => (
+                <span key={race} style={{ display: "inline-flex", flexDirection: "column", alignItems: "center", gap: "var(--space-1)" }}>
+                  <RaceIcon race={race} size={28} />
+                  <span className="sr-overlay-name">{race}</span>
+                </span>
+              ))}
+              <span style={{ display: "inline-flex", flexDirection: "column", alignItems: "center", gap: "var(--space-1)" }}>
+                <RaceIcon race={0} rndRace={1} size={28} />
+                <span className="sr-overlay-name">rndRace</span>
+              </span>
+            </div>
+          </div>
+
+          <div className="sr-stack">
+            <div className="sr-label">CountryFlag</div>
+            <div style={{ display: "flex", alignItems: "center", gap: "var(--space-3)" }}>
               {[
                 { code: "us", label: "US" },
                 { code: "de", label: "DE" },
@@ -282,31 +479,23 @@ const StyleReference = () => {
                 { code: "fr", label: "FR" },
                 { code: "br", label: "BR" },
               ].map(({ code, label }) => (
-                <span key={code} style={{ display: "inline-flex", alignItems: "center", gap: 4 }}>
+                <span key={code} style={{ display: "inline-flex", alignItems: "center", gap: "var(--space-1)" }}>
                   <CountryFlag name={code} />
-                  <span style={{ fontFamily: "var(--font-mono)", fontSize: "var(--text-xs)", color: "var(--grey-light)" }}>{label}</span>
+                  <span style={{ ...mono, fontSize: "var(--text-xs)" }}>{label}</span>
                 </span>
               ))}
             </div>
           </div>
+        </div>
 
-          <div className="sr-stack">
-            <div className="sr-label">Peon loader sizes</div>
-            <div style={{ display: "flex", gap: 32, alignItems: "flex-start" }}>
-              <div style={{ textAlign: "center" }}>
-                <PeonLoader size="sm" />
-                <div className="sr-overlay-name" style={{ marginTop: 8 }}>sm</div>
-              </div>
-              <div style={{ textAlign: "center" }}>
-                <PeonLoader size="md" />
-                <div className="sr-overlay-name" style={{ marginTop: 8 }}>md</div>
-              </div>
-              <div style={{ textAlign: "center" }}>
-                <PeonLoader size="lg" />
-                <div className="sr-overlay-name" style={{ marginTop: 8 }}>lg</div>
-              </div>
-            </div>
-          </div>
+        <div className="sr-label" style={{ margin: "var(--space-8) 0 var(--space-3)" }}>PageHero</div>
+        <div className="sr-demo-box">
+          <PageHero
+            className="sr-hero-demo"
+            eyebrow="Season 25"
+            title="Ladder"
+            lead="Top 4v4 players ranked by MMR. Filter by race, country, or league."
+          />
         </div>
       </section>
 
@@ -321,21 +510,21 @@ const StyleReference = () => {
         <div className="sr-component-grid">
           <div className="sr-stack">
             <div className="sr-label">Danger</div>
-            <button className="sr-btn sr-btn-primary" style={{ background: "var(--red)", color: "#fff" }} onClick={() => setModalDanger(true)}>
+            <Button $primary style={{ background: "var(--red)", color: "var(--white)" }} onClick={() => setModalDanger(true)}>
               Delete Something
-            </button>
+            </Button>
           </div>
           <div className="sr-stack">
             <div className="sr-label">Gold</div>
-            <button className="sr-btn sr-btn-primary" onClick={() => setModalGold(true)}>
+            <Button $primary onClick={() => setModalGold(true)}>
               Confirm Action
-            </button>
+            </Button>
           </div>
           <div className="sr-stack">
             <div className="sr-label">Success</div>
-            <button className="sr-btn sr-btn-primary" style={{ background: "var(--green)", color: "#000" }} onClick={() => setModalSuccess(true)}>
+            <Button $primary style={{ background: "var(--green)", color: "var(--grey-dark)" }} onClick={() => setModalSuccess(true)}>
               Approve Change
-            </button>
+            </Button>
           </div>
         </div>
         <ConfirmModal
@@ -374,8 +563,8 @@ const StyleReference = () => {
             <h2>Player cards</h2>
             <p>Compact identity cards with avatar, name, race, and MMR. Used in cover art tools, could work for spotlights, leaderboards, or anywhere a player needs a visual identity.</p>
           </div>
-          <div className="sr-badge-row">
-            <span className="sr-badge">dt-player-card</span>
+          <div className="sr-tag-row">
+            <span className="sr-tag">dt-player-card</span>
           </div>
         </div>
 
@@ -385,7 +574,7 @@ const StyleReference = () => {
             <div className="dt-player-cards">
               <div className="dt-player-card">
                 <div className="dt-player-card-avatar">
-                  <img src="https://w3champions.wc3.tools/profile-pictures/anonymous.png" alt="" className="dt-player-card-img" />
+                  <img src="/heroes/archmage.jpeg" alt="" className="dt-player-card-img" />
                 </div>
                 <div className="dt-player-card-info">
                   <span className="dt-player-card-name">ToD</span>
@@ -395,7 +584,7 @@ const StyleReference = () => {
               </div>
               <div className="dt-player-card">
                 <div className="dt-player-card-avatar">
-                  <img src="https://w3champions.wc3.tools/profile-pictures/anonymous.png" alt="" className="dt-player-card-img" />
+                  <img src="/heroes/lich.jpeg" alt="" className="dt-player-card-img" />
                 </div>
                 <div className="dt-player-card-info">
                   <span className="dt-player-card-name">mubarak</span>
@@ -411,7 +600,7 @@ const StyleReference = () => {
             <div className="dt-player-cards">
               <div className="dt-player-card">
                 <div className="dt-player-card-avatar">
-                  <img src="/icons/human.png" alt="" className="dt-player-card-img dt-race-fallback" />
+                  <img src={raceIcons.human} alt="" className="dt-player-card-img dt-race-fallback" />
                 </div>
                 <div className="dt-player-card-info">
                   <span className="dt-player-card-name">Unknown</span>
@@ -425,7 +614,7 @@ const StyleReference = () => {
                 </div>
                 <div className="dt-player-card-info">
                   <span className="dt-player-card-name">No data</span>
-                  <span className="dt-player-card-meta">—</span>
+                  <span className="dt-player-card-meta">n/a</span>
                 </div>
                 <button className="dt-player-card-remove">&times;</button>
               </div>
@@ -446,7 +635,7 @@ const StyleReference = () => {
         <div className="sr-layout-grid">
           {/* Full-size chat context */}
           <div className="sr-surface" style={{ padding: 0, overflow: "hidden" }}>
-            <div style={{ padding: "12px 16px 4px" }}>
+            <div style={{ padding: "var(--space-3) var(--space-4) var(--space-1)" }}>
               <div className="meta">Chat context (32px avatars)</div>
             </div>
             <div className="cc-panel cc-panel--compact" style={{ margin: 0, border: "none", borderRadius: 0 }}>
@@ -503,7 +692,7 @@ const StyleReference = () => {
           {/* Compact digest quotes */}
           <div className="sr-surface">
             <div className="meta">Digest quotes (name + text, no avatars)</div>
-            <div style={{ marginTop: 12 }}>
+            <div style={{ marginTop: "var(--space-3)" }}>
               <div className="digest-quotes digest-quotes--chat">
                 <div className="digest-quote-group">
                   <span className="digest-quote-name">ToD</span>
@@ -516,9 +705,9 @@ const StyleReference = () => {
                 </div>
               </div>
             </div>
-            <div style={{ marginTop: 16 }}>
+            <div style={{ marginTop: "var(--space-4)" }}>
               <div className="meta">Plain quotes (no attribution)</div>
-              <div className="digest-quotes" style={{ marginTop: 8 }}>
+              <div className="digest-quotes" style={{ marginTop: "var(--space-2)" }}>
                 <div className="digest-quote">gg wp that was close</div>
                 <div className="digest-quote">human mirror is pain</div>
               </div>
@@ -526,7 +715,7 @@ const StyleReference = () => {
           </div>
         </div>
 
-        <table className="sr-table" style={{ marginTop: 24 }}>
+        <table className="sr-table" style={{ marginTop: "var(--space-6)" }}>
           <thead>
             <tr>
               <th>Element</th>
@@ -535,23 +724,23 @@ const StyleReference = () => {
           </thead>
           <tbody>
             <tr>
-              <td style={{ fontFamily: "var(--font-display)", color: "var(--gold)", whiteSpace: "nowrap" }}>Chat avatar (32px)</td>
+              <td style={cellName}>Chat avatar (32px)</td>
               <td><code>width: 32px; height: 32px; border-radius: var(--radius-md); object-fit: cover</code></td>
             </tr>
             <tr>
-              <td style={{ fontFamily: "var(--font-display)", color: "var(--gold)", whiteSpace: "nowrap" }}>Speaker name</td>
+              <td style={cellName}>Speaker name</td>
               <td><code>font-family: var(--font-display); font-size: var(--text-xxs); color: var(--gold)</code></td>
             </tr>
             <tr>
-              <td style={{ fontFamily: "var(--font-display)", color: "var(--gold)", whiteSpace: "nowrap" }}>Target highlight</td>
-              <td><code>background: rgba(252, 219, 51, 0.03); name color: var(--gold)</code></td>
+              <td style={cellName}>Target highlight</td>
+              <td><code>background: var(--gold-tint-subtle); name color: var(--gold)</code></td>
             </tr>
             <tr>
-              <td style={{ fontFamily: "var(--font-display)", color: "var(--gold)", whiteSpace: "nowrap" }}>Message text</td>
+              <td style={cellName}>Message text</td>
               <td><code>font-size: var(--text-xs); color: var(--text-body); line-height: 1.5</code></td>
             </tr>
             <tr>
-              <td style={{ fontFamily: "var(--font-display)", color: "var(--gold)", whiteSpace: "nowrap" }}>Timestamp</td>
+              <td style={cellName}>Timestamp</td>
               <td><code>font-family: var(--font-mono); font-size: var(--text-xxxs); color: var(--grey-mid)</code></td>
             </tr>
           </tbody>
@@ -567,46 +756,22 @@ const StyleReference = () => {
           </div>
         </div>
         <div className="sr-showcase-grid">
-          <div
-            className="sr-showcase-card"
-            style={{
-              background: surfaces.surface1.value,
-              border: `${borders.thick.value} solid ${colors.gold.value}`,
-            }}
-          >
+          <Card className="sr-showcase-card">
             <div className="card-title" style={{ color: "var(--gold)" }}>Gold Border</div>
-            <div className="card-sub">Primary cards</div>
-          </div>
-          <div
-            className="sr-showcase-card"
-            style={{
-              background: surfaces.surface1.value,
-              border: `1px solid ${colors.greyMid.value}`,
-            }}
-          >
+            <div className="card-sub">Card: primary cards</div>
+          </Card>
+          <CardSubtle className="sr-showcase-card">
             <div className="card-title" style={{ color: "var(--white)" }}>Grey Border</div>
-            <div className="card-sub">Secondary cards</div>
-          </div>
-          <div
-            className="sr-showcase-card"
-            style={{
-              background: tints.green.value,
-              border: "1px solid rgba(74,222,128,0.25)",
-            }}
-          >
+            <div className="card-sub">CardSubtle: secondary cards</div>
+          </CardSubtle>
+          <WinSurface className="sr-showcase-card">
             <div className="card-title" style={{ color: "var(--green)" }}>Win Card</div>
-            <div className="card-sub">Victory results</div>
-          </div>
-          <div
-            className="sr-showcase-card"
-            style={{
-              background: tints.red.value,
-              border: "1px solid rgba(248,113,113,0.25)",
-            }}
-          >
+            <div className="card-sub">WinSurface: victory results</div>
+          </WinSurface>
+          <LossSurface className="sr-showcase-card">
             <div className="card-title" style={{ color: "var(--red)" }}>Loss Card</div>
-            <div className="card-sub">Defeat results</div>
-          </div>
+            <div className="card-sub">LossSurface: defeat results</div>
+          </LossSurface>
         </div>
       </section>
 
@@ -620,10 +785,10 @@ const StyleReference = () => {
         </div>
         <div className="sr-layout-grid">
           <div className="sr-surface" style={{ padding: 0, overflow: "hidden" }}>
-            <div style={{ padding: "12px 16px 4px" }}>
+            <div style={{ padding: "var(--space-3) var(--space-4) var(--space-1)" }}>
               <div className="meta">Row hovers</div>
             </div>
-            <div style={{ padding: "0 16px 16px" }}>
+            <div style={{ padding: "0 var(--space-4) var(--space-4)" }}>
               {[
                 { label: "Neutral row", bg: "var(--surface-2)", desc: "Default list/table rows" },
                 { label: "Gold row", bg: "var(--gold-tint-subtle)", desc: "Ladder rows, branded items" },
@@ -633,30 +798,30 @@ const StyleReference = () => {
                 <div
                   key={label}
                   style={{
-                    padding: "10px 12px",
+                    padding: "var(--space-2) var(--space-3)",
                     background: bg,
-                    borderBottom: "1px solid rgba(255,255,255,0.04)",
+                    borderBottom: "1px solid var(--panel-border)",
                     display: "flex",
                     justifyContent: "space-between",
                     alignItems: "center",
                   }}
                 >
                   <span style={{ fontFamily: "var(--font-display)", color: "var(--white)", fontSize: "var(--text-sm)" }}>{label}</span>
-                  <span style={{ fontFamily: "var(--font-mono)", fontSize: "var(--text-xxs)", color: "var(--grey-light)" }}>{desc}</span>
+                  <span style={{ ...mono, fontSize: "var(--text-xxs)" }}>{desc}</span>
                 </div>
               ))}
             </div>
           </div>
           <div className="sr-surface">
             <div className="meta">Link hovers</div>
-            <div style={{ marginTop: 12, display: "flex", flexDirection: "column", gap: 12 }}>
+            <div style={{ marginTop: "var(--space-3)", display: "flex", flexDirection: "column", gap: "var(--space-3)" }}>
               <div>
                 <span style={{ fontFamily: "var(--font-display)", color: "var(--gold)" }}>Player Name</span>
-                <span style={{ fontFamily: "var(--font-mono)", fontSize: "var(--text-xxs)", color: "var(--grey-light)", marginLeft: 12 }}>color: var(--gold)</span>
+                <span style={{ ...mono, fontSize: "var(--text-xxs)", marginLeft: "var(--space-3)" }}>color: var(--gold)</span>
               </div>
               <div>
-                <span style={{ fontFamily: "var(--font-mono)", color: "var(--grey-light)", textDecoration: "underline" }}>underline link</span>
-                <span style={{ fontFamily: "var(--font-mono)", fontSize: "var(--text-xxs)", color: "var(--grey-light)", marginLeft: 12 }}>text-decoration: underline</span>
+                <span style={{ ...mono, textDecoration: "underline" }}>underline link</span>
+                <span style={{ ...mono, fontSize: "var(--text-xxs)", marginLeft: "var(--space-3)" }}>text-decoration: underline</span>
               </div>
             </div>
           </div>
@@ -672,8 +837,8 @@ const StyleReference = () => {
           </div>
         </div>
 
-        <div className="sr-label" style={{ marginBottom: 12 }}>Dark overlays</div>
-        <div className="sr-overlay-grid" style={{ marginBottom: 24 }}>
+        <div className="sr-label" style={{ marginBottom: "var(--space-3)" }}>Dark overlays</div>
+        <div className="sr-overlay-grid" style={{ marginBottom: "var(--space-6)" }}>
           {Object.entries(overlays).map(([key, token]) => (
             <div className="sr-overlay-swatch" key={key}>
               <div className="sr-overlay-box" style={{ background: token.value }}>
@@ -684,8 +849,8 @@ const StyleReference = () => {
           ))}
         </div>
 
-        <div className="sr-label" style={{ marginBottom: 12 }}>Surface tints</div>
-        <div className="sr-overlay-grid" style={{ marginBottom: 24 }}>
+        <div className="sr-label" style={{ marginBottom: "var(--space-3)" }}>Surface tints</div>
+        <div className="sr-overlay-grid" style={{ marginBottom: "var(--space-6)" }}>
           {Object.entries(surfaces).map(([key, token]) => (
             <div className="sr-overlay-swatch" key={key}>
               <div className="sr-overlay-box" style={{ background: token.value }}>
@@ -696,19 +861,31 @@ const StyleReference = () => {
           ))}
         </div>
 
-        <div className="sr-label" style={{ marginBottom: 12 }}>Color tints</div>
-        <div className="sr-overlay-grid">
+        <div className="sr-label" style={{ marginBottom: "var(--space-3)" }}>Color tints</div>
+        <div className="sr-overlay-grid" style={{ marginBottom: "var(--space-6)" }}>
           {Object.entries(tints).map(([key, token]) => {
-            const accent = key === "gold" ? "var(--gold)" : key === "green" ? "var(--green)" : "var(--red)";
+            const accent = tintAccent(key);
             return (
               <div className="sr-overlay-swatch" key={key}>
-                <div className="sr-overlay-box" style={{ background: token.value, borderColor: accent }}>
-                  <span style={{ color: accent, fontFamily: "var(--font-mono)", fontSize: "0.78rem" }}>{key}</span>
+                <div className="sr-overlay-box" style={{ background: tintBackground(key, token), borderColor: accent }}>
+                  <span style={{ color: accent, fontFamily: "var(--font-mono)", fontSize: "var(--text-xxs)" }}>{key}</span>
                 </div>
                 <div className="sr-overlay-name">{token.css}</div>
               </div>
             );
           })}
+        </div>
+
+        <div className="sr-label" style={{ marginBottom: "var(--space-3)" }}>Glow shadows</div>
+        <div className="sr-glow-grid">
+          <div className="sr-glow-card" style={{ boxShadow: effects.shadowGlow.value }}>
+            <span className="sr-overlay-name">{effects.shadowGlow.css}</span>
+            <span style={{ ...mono, fontSize: "var(--text-xxs)" }}>{effects.shadowGlow.usage}</span>
+          </div>
+          <div className="sr-glow-card" style={{ boxShadow: effects.shadowGlowSubtle.value }}>
+            <span className="sr-overlay-name">{effects.shadowGlowSubtle.css}</span>
+            <span style={{ ...mono, fontSize: "var(--text-xxs)" }}>{effects.shadowGlowSubtle.usage}</span>
+          </div>
         </div>
       </section>
 
@@ -773,21 +950,21 @@ const StyleReference = () => {
         <div className="sr-layout-grid">
           <div className="sr-surface">
             <div className="meta">Player and map examples</div>
-            <div style={{ marginTop: 12, display: 'flex', flexDirection: 'column', gap: 16 }}>
+            <div style={{ marginTop: "var(--space-3)", display: "flex", flexDirection: "column", gap: "var(--space-4)" }}>
               <div>
-                <div className="sr-label" style={{ marginBottom: 4 }}>Player names (gold display)</div>
+                <div className="sr-label" style={{ marginBottom: "var(--space-1)" }}>Player names (gold display)</div>
                 <div style={{ fontFamily: "var(--font-display)", color: "var(--gold)" }}>
                   ToD, Mubarak, Happy, 120
                 </div>
               </div>
               <div>
-                <div className="sr-label" style={{ marginBottom: 4 }}>Map names (white display)</div>
+                <div className="sr-label" style={{ marginBottom: "var(--space-1)" }}>Map names (white display)</div>
                 <div style={{ fontFamily: "var(--font-display)", color: "var(--white)", fontSize: "var(--text-sm)" }}>
-                  Northshire LV, Twilight Ruins LV, Ekrezem's Maze
+                  Northshire LV, Twilight Ruins LV, Ekrezem&apos;s Maze
                 </div>
               </div>
               <div>
-                <div className="sr-label" style={{ marginBottom: 4 }}>Data values (white mono)</div>
+                <div className="sr-label" style={{ marginBottom: "var(--space-1)" }}>Data values (white mono)</div>
                 <div style={{ fontFamily: "var(--font-mono)", color: "var(--white)" }}>
                   1847 MMR • 64% WR • 248 Games
                 </div>
@@ -796,18 +973,67 @@ const StyleReference = () => {
           </div>
           <div className="sr-surface">
             <div className="meta">Ladder patterns</div>
-            <div style={{ marginTop: 12, display: 'flex', flexDirection: 'column', gap: 12 }}>
-              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '8px 0', borderBottom: '1px solid var(--grey-mid)' }}>
+            <div style={{ marginTop: "var(--space-3)", display: "flex", flexDirection: "column", gap: "var(--space-3)" }}>
+              <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", padding: "var(--space-2) 0", borderBottom: "1px solid var(--grey-mid)" }}>
                 <div style={{ fontFamily: "var(--font-display)", color: "var(--gold)" }}>Happy</div>
-                <div style={{ fontFamily: "var(--font-mono)", color: "var(--white)", fontWeight: '500' }}>2156</div>
+                <div style={{ fontFamily: "var(--font-mono)", color: "var(--white)", fontWeight: "500" }}>2156</div>
               </div>
-              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '8px 0', borderBottom: '1px solid var(--grey-mid)' }}>
+              <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", padding: "var(--space-2) 0", borderBottom: "1px solid var(--grey-mid)" }}>
                 <div style={{ fontFamily: "var(--font-display)", color: "var(--gold)" }}>ToD</div>
-                <div style={{ fontFamily: "var(--font-mono)", color: "var(--white)", fontWeight: '500' }}>2089</div>
+                <div style={{ fontFamily: "var(--font-mono)", color: "var(--white)", fontWeight: "500" }}>2089</div>
               </div>
-              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '8px 0' }}>
+              <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", padding: "var(--space-2) 0" }}>
                 <div style={{ fontFamily: "var(--font-display)", color: "var(--gold)" }}>Mubarak</div>
-                <div style={{ fontFamily: "var(--font-mono)", color: "var(--white)", fontWeight: '500' }}>1943</div>
+                <div style={{ fontFamily: "var(--font-mono)", color: "var(--white)", fontWeight: "500" }}>1943</div>
+              </div>
+            </div>
+          </div>
+          <div className="sr-surface">
+            <div className="meta">Labels, titles and chips</div>
+            <div style={{ marginTop: "var(--space-3)", display: "flex", flexDirection: "column", gap: "var(--space-4)" }}>
+              <div>
+                <div className="sr-label" style={{ marginBottom: "var(--space-1)" }}>label (default, 12px)</div>
+                <div style={{ font: "var(--text-xxs) var(--font-mono)", textTransform: "uppercase", letterSpacing: "0.1em", color: "var(--grey-light)" }}>
+                  Rank / Player / MMR / Games
+                </div>
+              </div>
+              <div>
+                <div className="sr-label" style={{ marginBottom: "var(--space-1)" }}>sectionTitle</div>
+                <div style={{ fontFamily: "var(--font-display)", fontSize: "var(--text-sm)", color: "var(--gold)", textTransform: "uppercase", letterSpacing: "0.05em" }}>
+                  Recent form
+                </div>
+              </div>
+              <div>
+                <div className="sr-label" style={{ marginBottom: "var(--space-1)" }}>heroEyebrow</div>
+                <div className="sr-eyebrow">Season 25 ladder</div>
+              </div>
+              <div>
+                <div className="sr-label" style={{ marginBottom: "var(--space-1)" }}>tagChip</div>
+                <div style={{ display: "flex", gap: "var(--space-2)", flexWrap: "wrap" }}>
+                  <span className="sr-chip amber">Upset</span>
+                  <span className="sr-chip cyan">High APM</span>
+                  <span className="sr-chip purple">AT group</span>
+                </div>
+              </div>
+            </div>
+          </div>
+          <div className="sr-surface">
+            <div className="meta">Popover and themed card</div>
+            <div style={{ marginTop: "var(--space-3)", display: "flex", flexDirection: "column", gap: "var(--space-4)" }}>
+              <div>
+                <div className="sr-label" style={{ marginBottom: "var(--space-1)" }}>popover</div>
+                <div className="sr-popover-demo">
+                  <div className="sr-popover-item active">Season 25</div>
+                  <div className="sr-popover-item">Season 24</div>
+                  <div className="sr-popover-item">All time</div>
+                </div>
+              </div>
+              <div>
+                <div className="sr-label" style={{ marginBottom: "var(--space-1)" }}>cardThemed (ThemedCard)</div>
+                <ThemedCard>
+                  <div style={{ fontFamily: "var(--font-display)", color: "var(--gold)" }}>Follows the active border theme</div>
+                  <div style={{ ...mono, fontSize: "var(--text-xxs)", marginTop: "var(--space-1)" }}>var(--theme-bg / --theme-border / --theme-border-image / --theme-blur / --theme-shadow)</div>
+                </ThemedCard>
               </div>
             </div>
           </div>
@@ -832,7 +1058,7 @@ const StyleReference = () => {
           <tbody>
             {Object.entries(patterns).map(([key, pattern]) => (
               <tr key={key}>
-                <td style={{ fontFamily: "var(--font-display)", color: "var(--gold)", whiteSpace: "nowrap" }}>
+                <td style={cellName}>
                   {pattern.description}
                 </td>
                 <td><code>{pattern.css}</code></td>
@@ -852,30 +1078,41 @@ const StyleReference = () => {
         </div>
         <div className="sr-layout-grid">
           <div className="sr-surface">
-            <div className="meta">Spinner sizes</div>
-            <div style={{ display: "flex", gap: 32, alignItems: "center", marginTop: 12 }}>
+            <div className="meta">PeonLoader sizes</div>
+            <div style={{ display: "flex", gap: "var(--space-8)", alignItems: "flex-start", marginTop: "var(--space-3)" }}>
               <div style={{ textAlign: "center" }}>
-                <div className="loader-spinner sm" />
-                <div className="sr-overlay-name" style={{ marginTop: 8 }}>sm (16px)</div>
+                <PeonLoader size="sm" />
+                <div className="sr-overlay-name" style={{ marginTop: "var(--space-2)" }}>{'size="sm" (16px)'}</div>
               </div>
               <div style={{ textAlign: "center" }}>
-                <div className="loader-spinner" />
-                <div className="sr-overlay-name" style={{ marginTop: 8 }}>default (24px)</div>
+                <PeonLoader size="md" />
+                <div className="sr-overlay-name" style={{ marginTop: "var(--space-2)" }}>{'size="md" (24px)'}</div>
               </div>
               <div style={{ textAlign: "center" }}>
-                <div className="loader-spinner lg" />
-                <div className="sr-overlay-name" style={{ marginTop: 8 }}>lg (32px)</div>
+                <PeonLoader size="lg" />
+                <div className="sr-overlay-name" style={{ marginTop: "var(--space-2)" }}>{'size="lg" (32px, default)'}</div>
               </div>
             </div>
           </div>
           <div className="sr-surface">
-            <div className="meta">Page loader (PeonLoader)</div>
-            <div style={{ padding: 16 }}>
-              <PeonLoader />
+            <div className="meta">Bare spinner (.loader-spinner)</div>
+            <div style={{ display: "flex", gap: "var(--space-8)", alignItems: "center", marginTop: "var(--space-3)" }}>
+              <div style={{ textAlign: "center" }}>
+                <div className="loader-spinner sm" />
+                <div className="sr-overlay-name" style={{ marginTop: "var(--space-2)" }}>.sm (16px)</div>
+              </div>
+              <div style={{ textAlign: "center" }}>
+                <div className="loader-spinner" />
+                <div className="sr-overlay-name" style={{ marginTop: "var(--space-2)" }}>no modifier (24px)</div>
+              </div>
+              <div style={{ textAlign: "center" }}>
+                <div className="loader-spinner lg" />
+                <div className="sr-overlay-name" style={{ marginTop: "var(--space-2)" }}>.lg (32px)</div>
+              </div>
             </div>
           </div>
         </div>
-        <table className="sr-table" style={{ marginTop: 24 }}>
+        <table className="sr-table" style={{ marginTop: "var(--space-6)" }}>
           <thead>
             <tr>
               <th>Pattern</th>
@@ -884,16 +1121,16 @@ const StyleReference = () => {
           </thead>
           <tbody>
             <tr>
-              <td style={{ fontFamily: "var(--font-display)", color: "var(--gold)", whiteSpace: "nowrap" }}>Page-level centering</td>
-              <td><code>{'<div className="page-loader"><PeonLoader /></div>'}</code> — centers vertically (min-height: 60vh)</td>
+              <td style={cellName}>Page-level centering</td>
+              <td><code>{'<div className="page-loader"><PeonLoader /></div>'}</code> - centers vertically (min-height: 60vh); default size is lg (32px)</td>
             </tr>
             <tr>
-              <td style={{ fontFamily: "var(--font-display)", color: "var(--gold)", whiteSpace: "nowrap" }}>Inline / compact</td>
-              <td><code>{'<PeonLoader size="sm" />'}</code> — 16px spinner, for inside cards or rows</td>
+              <td style={cellName}>Inline / compact</td>
+              <td><code>{'<PeonLoader size="sm" />'}</code> - 16px spinner, for inside cards or rows</td>
             </tr>
             <tr>
-              <td style={{ fontFamily: "var(--font-display)", color: "var(--gold)", whiteSpace: "nowrap" }}>Custom interval</td>
-              <td><code>{'<PeonLoader interval={4000} />'}</code> — quote cycle speed in ms (default 3000)</td>
+              <td style={cellName}>Custom interval</td>
+              <td><code>{'<PeonLoader interval={4000} />'}</code> - quote cycle speed in ms (default 3000)</td>
             </tr>
           </tbody>
         </table>
@@ -906,38 +1143,38 @@ const StyleReference = () => {
             <h2>Entrance animation</h2>
             <p>Staggered fade-up reveals for page sections. Each element animates in with an incremental delay for a cascading effect.</p>
           </div>
-          <div className="sr-badge-row">
-            <span className="sr-badge gold">900ms</span>
-            <span className="sr-badge">cubic-bezier</span>
+          <div className="sr-tag-row">
+            <span className="sr-tag gold">900ms</span>
+            <span className="sr-tag">cubic-bezier</span>
           </div>
         </div>
 
         <div className="sr-layout-grid">
           <div className="sr-surface">
             <div className="meta">Live demo</div>
-            <div id="reveal-demo" style={{ display: "flex", flexDirection: "column", gap: 12, marginTop: 12 }}>
+            <div id="reveal-demo" style={{ display: "flex", flexDirection: "column", gap: "var(--space-3)", marginTop: "var(--space-3)" }}>
               {[0.05, 0.12, 0.20, 0.28].map((delay, i) => (
                 <div
                   key={i}
                   className="reveal"
                   style={{
                     "--delay": `${delay}s`,
-                    padding: "16px 20px",
-                    background: "rgba(252, 219, 51, 0.06)",
-                    border: "1px solid rgba(252, 219, 51, 0.15)",
+                    padding: "var(--space-4) var(--space-6)",
+                    background: "var(--gold-tint-subtle)",
+                    border: "1px solid var(--gold-border-hover)",
                     borderRadius: "var(--radius-md)",
                     fontFamily: "var(--font-mono)",
                     fontSize: "var(--text-xs)",
                     color: "var(--grey-light)",
                   }}
                 >
-                  Element {i + 1} — delay: {delay}s
+                  Element {i + 1} - delay: {delay}s
                 </div>
               ))}
             </div>
-            <button
-              className="sr-btn sr-btn-secondary"
-              style={{ marginTop: 16 }}
+            <Button
+              $secondary
+              style={{ marginTop: "var(--space-4)" }}
               onClick={() => {
                 const demo = document.getElementById("reveal-demo");
                 if (!demo) return;
@@ -950,11 +1187,11 @@ const StyleReference = () => {
               }}
             >
               Replay
-            </button>
+            </Button>
           </div>
           <div className="sr-surface">
             <div className="meta">Usage</div>
-            <pre className="sr-code" style={{ marginTop: 12 }}>{`<!-- Add .reveal class + --delay variable -->
+            <pre className="sr-code" style={{ marginTop: "var(--space-3)" }}>{`<!-- Add .reveal class + --delay variable -->
 <div class="reveal" style="--delay: 0.05s">
   First section
 </div>
@@ -967,7 +1204,7 @@ const StyleReference = () => {
           </div>
         </div>
 
-        <table className="sr-table" style={{ marginTop: 24 }}>
+        <table className="sr-table" style={{ marginTop: "var(--space-6)" }}>
           <thead>
             <tr>
               <th>Property</th>
@@ -976,23 +1213,23 @@ const StyleReference = () => {
           </thead>
           <tbody>
             <tr>
-              <td style={{ fontFamily: "var(--font-display)", color: "var(--gold)", whiteSpace: "nowrap" }}>Class</td>
+              <td style={cellName}>Class</td>
               <td><code>.reveal</code></td>
             </tr>
             <tr>
-              <td style={{ fontFamily: "var(--font-display)", color: "var(--gold)", whiteSpace: "nowrap" }}>Transform</td>
+              <td style={cellName}>Transform</td>
               <td><code>opacity: 0 → 1, translateY(18px) → 0</code></td>
             </tr>
             <tr>
-              <td style={{ fontFamily: "var(--font-display)", color: "var(--gold)", whiteSpace: "nowrap" }}>Duration</td>
+              <td style={cellName}>Duration</td>
               <td><code>900ms cubic-bezier(0.17, 0.76, 0.28, 1)</code></td>
             </tr>
             <tr>
-              <td style={{ fontFamily: "var(--font-display)", color: "var(--gold)", whiteSpace: "nowrap" }}>Delay</td>
-              <td><code>var(--delay, 0s)</code> — set via inline style</td>
+              <td style={cellName}>Delay</td>
+              <td><code>var(--delay, 0s)</code> - set via inline style</td>
             </tr>
             <tr>
-              <td style={{ fontFamily: "var(--font-display)", color: "var(--gold)", whiteSpace: "nowrap" }}>Reduced motion</td>
+              <td style={cellName}>Reduced motion</td>
               <td><code>animation: none; opacity: 1; transform: none</code></td>
             </tr>
           </tbody>
@@ -1007,23 +1244,77 @@ const StyleReference = () => {
             <p>Tight radius for a sharp, competitive feel. Two border weights for hierarchy.</p>
           </div>
         </div>
-        <div style={{ display: "flex", flexWrap: "wrap", gap: 32, alignItems: "flex-end" }}>
+        <div style={{ display: "flex", flexWrap: "wrap", gap: "var(--space-8)", alignItems: "flex-end" }}>
           {Object.entries(borders).filter(([k]) => k.startsWith("radius")).map(([key, token]) => (
             <div key={key} style={{ textAlign: "center" }}>
-              <div style={{ width: 48, height: 48, background: "var(--gold)", borderRadius: token.value, marginBottom: 8 }} />
+              <div style={{ width: "var(--space-12)", height: "var(--space-12)", background: "var(--gold)", borderRadius: token.value, marginBottom: "var(--space-2)" }} />
               <div className="sr-overlay-name">{token.css}</div>
               <div className="sr-overlay-name">{token.value}</div>
             </div>
           ))}
-          <div style={{ borderLeft: "1px solid var(--grey-mid)", height: 48, margin: "0 8px" }} />
+          <div style={{ borderLeft: "1px solid var(--grey-mid)", height: "var(--space-12)", margin: "0 var(--space-2)" }} />
           {Object.entries(borders).filter(([k]) => !k.startsWith("radius")).map(([key, token]) => (
             <div key={key} style={{ textAlign: "center" }}>
-              <div style={{ width: 56, height: 48, border: `${token.value} solid var(--gold)`, borderRadius: "var(--radius-md)", marginBottom: 8 }} />
+              <div style={{ width: 56, height: "var(--space-12)", border: `${token.value} solid var(--gold)`, borderRadius: "var(--radius-md)", marginBottom: "var(--space-2)" }} />
               <div className="sr-overlay-name">{token.css}</div>
               <div className="sr-overlay-name">{token.value}</div>
             </div>
           ))}
         </div>
+      </section>
+
+      {/* ── Z-index and layout ───────────── */}
+      <section className="sr-section reveal" style={{ "--delay": "0.1s" }}>
+        <div className="sr-section-head">
+          <div>
+            <h2>Z-index and layout</h2>
+            <p>Five stacking layers, lowest to highest. Never hardcode a z-index; pick the layer.</p>
+          </div>
+        </div>
+        <div className="sr-layout-grid">
+          <div className="sr-surface">
+            <div className="meta">Stacking order (zIndex)</div>
+            <div className="sr-z-stack">
+              {Object.entries(zIndex).map(([key, token], i) => (
+                <div key={key} className="sr-z-layer" style={{ "--i": i, zIndex: token.value }}>
+                  <span className="sr-z-name">{token.css}</span>
+                  <span className="sr-z-value">{token.value}</span>
+                </div>
+              ))}
+            </div>
+          </div>
+          <div className="sr-surface">
+            <div className="meta">Layout (layout.navHeight)</div>
+            <div className="sr-nav-height-demo">
+              <span className="sr-z-name">{layout.navHeight.css}</span>
+              <span className="sr-z-value">{layout.navHeight.value}</span>
+            </div>
+            <p style={{ marginTop: "var(--space-3)" }}>{layout.navHeight.usage}</p>
+          </div>
+        </div>
+        <table className="sr-table" style={{ marginTop: "var(--space-6)" }}>
+          <thead>
+            <tr>
+              <th>Token</th>
+              <th>Value</th>
+              <th>Usage</th>
+            </tr>
+          </thead>
+          <tbody>
+            {Object.entries(zIndex).map(([key, token]) => (
+              <tr key={key}>
+                <td style={cellName}>{token.css}</td>
+                <td><code>{token.value}</code></td>
+                <td><code>{token.usage}</code></td>
+              </tr>
+            ))}
+            <tr>
+              <td style={cellName}>{layout.navHeight.css}</td>
+              <td><code>{layout.navHeight.value}</code></td>
+              <td><code>{layout.navHeight.usage}</code></td>
+            </tr>
+          </tbody>
+        </table>
       </section>
 
       {/* ── MMR Charts ────────────────────── */}
@@ -1033,9 +1324,9 @@ const StyleReference = () => {
             <h2>MMR visualization</h2>
             <p>Combined circle style for AT groups. Area equals sum of individual player circles.</p>
           </div>
-          <div className="sr-badge-row">
-            <span className="sr-badge blue">AT groups</span>
-            <span className="sr-badge">Solo</span>
+          <div className="sr-tag-row">
+            <span className="sr-tag blue">AT groups</span>
+            <span className="sr-tag">Solo</span>
           </div>
         </div>
 
@@ -1134,22 +1425,40 @@ const StyleReference = () => {
         </div>
         <pre className="sr-code">
 {`/* COLORS */
-${colorEntries.map(([k, t]) => `${t.css.padEnd(18)} ${t.value.padEnd(10)} ${t.usage}`).join("\n")}
+${colorEntries.map(([, t]) => `${t.css.padEnd(18)} ${t.value.padEnd(10)} ${t.usage}`).join("\n")}
 
 /* FONTS */
-${Object.entries(fonts).map(([k, t]) => `${t.css.padEnd(18)} ${t.usage}`).join("\n")}
+${Object.entries(fonts).map(([, t]) => `${t.css.padEnd(18)} ${t.usage}`).join("\n")}
 
 /* TYPE SCALE */
-${typeEntries.map(([k, t]) => `${t.css.padEnd(14)} ${t.value.padEnd(6)} ${t.usage}`).join("\n")}
+${typeEntries.map(([, t]) => `${t.css.padEnd(14)} ${t.value.padEnd(6)} ${t.usage}`).join("\n")}
 
 /* SPACING */
-${spacingEntries.map(([k, t]) => `${t.css.padEnd(12)} ${t.value}`).join("\n")}
+${spacingEntries.map(([, t]) => `${t.css.padEnd(12)} ${t.value}`).join("\n")}
 
 /* BORDERS */
-${Object.entries(borders).map(([k, t]) => `${t.css.padEnd(16)} ${t.value}`).join("\n")}
+${Object.entries(borders).map(([, t]) => `${t.css.padEnd(16)} ${t.value}`).join("\n")}
 
 /* EFFECTS */
-${Object.entries(effects).map(([k, t]) => `${t.css.padEnd(16)} ${t.usage}`).join("\n")}`}
+${Object.entries(effects).map(([, t]) => `${t.css.padEnd(20)} ${t.value.padEnd(30)} ${t.usage}`).join("\n")}
+
+/* OVERLAYS */
+${Object.entries(overlays).map(([, t]) => `${t.css.padEnd(18)} ${t.value.padEnd(20)} ${t.usage}`).join("\n")}
+
+/* SURFACES */
+${Object.entries(surfaces).map(([, t]) => `${t.css.padEnd(18)} ${t.value.padEnd(26)} ${t.usage}`).join("\n")}
+
+/* TINTS */
+${Object.entries(tints).map(([, t]) => `${t.css.padEnd(22)} ${t.value.padEnd(26)} ${t.usage}`).join("\n")}
+
+/* Z-INDEX */
+${Object.entries(zIndex).map(([, t]) => `${t.css.padEnd(14)} ${String(t.value).padEnd(6)} ${t.usage}`).join("\n")}
+
+/* LAYOUT */
+${Object.entries(layout).map(([, t]) => `${t.css.padEnd(14)} ${t.value.padEnd(6)} ${t.usage}`).join("\n")}
+
+/* QUOTE */
+${Object.entries(quote).map(([, t]) => `${t.css.padEnd(20)} ${t.value}`).join("\n")}`}
         </pre>
       </section>
 
@@ -1160,71 +1469,71 @@ ${Object.entries(effects).map(([k, t]) => `${t.css.padEnd(16)} ${t.usage}`).join
             <h2>Page navigation</h2>
             <p>Combined back-link and sub-tabs. Gold arrow returns to parent page, tabs switch between siblings. Import from ui.jsx.</p>
           </div>
-          <div className="sr-badge-row">
-            <span className="sr-badge gold">PageNav</span>
+          <div className="sr-tag-row">
+            <span className="sr-tag gold">PageNav</span>
           </div>
         </div>
 
         {/* Live PageNav demos */}
-        <div className="sr-label" style={{ marginBottom: 12 }}>Live component</div>
-        <div style={{ display: "flex", flexDirection: "column", gap: 16, marginBottom: 32 }}>
+        <div className="sr-label" style={{ marginBottom: "var(--space-3)" }}>Live component</div>
+        <div style={{ display: "flex", flexDirection: "column", gap: "var(--space-4)", marginBottom: "var(--space-8)" }}>
           <div className="sr-surface" style={{ padding: 0, overflow: "hidden" }}>
-            <div style={{ padding: "12px 16px 4px" }}>
+            <div style={{ padding: "var(--space-3) var(--space-4) var(--space-1)" }}>
               <div className="meta">Ladder → Player profile</div>
             </div>
-            <div style={{ padding: "8px 20px 12px" }}>
+            <div style={{ padding: "var(--space-2) var(--space-6) var(--space-3)" }}>
               <PageNav backTo="/ladder" backLabel="Ladder" />
             </div>
           </div>
           <div className="sr-surface" style={{ padding: 0, overflow: "hidden" }}>
-            <div style={{ padding: "12px 16px 4px" }}>
+            <div style={{ padding: "var(--space-3) var(--space-4) var(--space-1)" }}>
               <div className="meta">News → Weekly issue (with sibling tabs)</div>
             </div>
-            <div style={{ padding: "8px 20px 12px" }}>
+            <div style={{ padding: "var(--space-2) var(--space-6) var(--space-3)" }}>
               <PageNav
                 backTo="/news"
                 backLabel="News"
                 tabs={[
-                  { key: "1", label: "Feb 9 – 15" },
-                  { key: "2", label: "Feb 2 – 8" },
-                  { key: "3", label: "Jan 26 – Feb 1" },
+                  { key: "1", label: "This week" },
+                  { key: "2", label: "Last week" },
+                  { key: "3", label: "2 weeks ago" },
                 ]}
                 activeTab="1"
               />
             </div>
           </div>
           <div className="sr-surface" style={{ padding: 0, overflow: "hidden" }}>
-            <div style={{ padding: "12px 16px 4px" }}>
+            <div style={{ padding: "var(--space-3) var(--space-4) var(--space-1)" }}>
               <div className="meta">News → Daily digest (with day tabs)</div>
             </div>
-            <div style={{ padding: "8px 20px 12px" }}>
+            <div style={{ padding: "var(--space-2) var(--space-6) var(--space-3)" }}>
               <PageNav
                 backTo="/news"
                 backLabel="News"
                 tabs={[
                   { key: "0", label: "Today" },
                   { key: "1", label: "Yesterday" },
-                  { key: "2", label: "Feb 15" },
-                  { key: "3", label: "Feb 14" },
-                  { key: "4", label: "Feb 13" },
+                  { key: "2", label: "2 days ago" },
+                  { key: "3", label: "3 days ago" },
+                  { key: "4", label: "4 days ago" },
                 ]}
                 activeTab="0"
               />
             </div>
           </div>
           <div className="sr-surface" style={{ padding: 0, overflow: "hidden" }}>
-            <div style={{ padding: "12px 16px 4px" }}>
+            <div style={{ padding: "var(--space-3) var(--space-4) var(--space-1)" }}>
               <div className="meta">Finished → Match detail (back only, no tabs)</div>
             </div>
-            <div style={{ padding: "8px 20px 12px" }}>
+            <div style={{ padding: "var(--space-2) var(--space-6) var(--space-3)" }}>
               <PageNav backTo="/finished" backLabel="Finished" />
             </div>
           </div>
         </div>
 
         {/* Usage */}
-        <div className="sr-label" style={{ marginBottom: 12 }}>Usage</div>
-        <pre className="sr-code" style={{ marginBottom: 24 }}>{`import { PageNav } from '../components/ui';
+        <div className="sr-label" style={{ marginBottom: "var(--space-3)" }}>Usage</div>
+        <pre className="sr-code" style={{ marginBottom: "var(--space-6)" }}>{`import { PageNav } from '../components/ui';
 
 // Back only (no tabs)
 <PageNav backTo="/ladder" backLabel="Ladder" />
@@ -1234,8 +1543,8 @@ ${Object.entries(effects).map(([k, t]) => `${t.css.padEnd(16)} ${t.usage}`).join
   backTo="/news"
   backLabel="News"
   tabs={[
-    { key: "0", label: "Feb 9 – 15" },
-    { key: "1", label: "Feb 2 – 8" },
+    { key: "0", label: "This week" },
+    { key: "1", label: "Last week" },
   ]}
   activeTab="0"
   onTab={(key) => setActiveIdx(Number(key))}
@@ -1250,19 +1559,19 @@ ${Object.entries(effects).map(([k, t]) => `${t.css.padEnd(16)} ${t.usage}`).join
           </thead>
           <tbody>
             <tr>
-              <td style={{ fontFamily: "var(--font-display)", color: "var(--gold)", whiteSpace: "nowrap" }}>Back arrow</td>
+              <td style={cellName}>Back arrow</td>
               <td><code>font-size: var(--text-sm); color: var(--gold); translateX(-3px) on hover</code></td>
             </tr>
             <tr>
-              <td style={{ fontFamily: "var(--font-display)", color: "var(--gold)", whiteSpace: "nowrap" }}>Back label</td>
+              <td style={cellName}>Back label</td>
               <td><code>font-family: var(--font-mono); font-size: var(--text-xxs); uppercase; letter-spacing: 0.08em</code></td>
             </tr>
             <tr>
-              <td style={{ fontFamily: "var(--font-display)", color: "var(--gold)", whiteSpace: "nowrap" }}>Tab (active)</td>
+              <td style={cellName}>Tab (active)</td>
               <td><code>color: var(--gold); border-bottom: 2px solid var(--gold)</code></td>
             </tr>
             <tr>
-              <td style={{ fontFamily: "var(--font-display)", color: "var(--gold)", whiteSpace: "nowrap" }}>Tab (inactive)</td>
+              <td style={cellName}>Tab (inactive)</td>
               <td><code>color: var(--grey-light); hover → var(--white)</code></td>
             </tr>
           </tbody>
@@ -1270,7 +1579,7 @@ ${Object.entries(effects).map(([k, t]) => `${t.css.padEnd(16)} ${t.usage}`).join
       </section>
 
       <footer className="sr-footer reveal" style={{ "--delay": "0.2s" }}>
-        4v4.gg design system — dark gold interfaces for competitive Warcraft III spectating.
+        4v4.gg design system - dark gold interfaces for competitive Warcraft III spectating.
       </footer>
     </div>
   );

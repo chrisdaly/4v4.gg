@@ -67,7 +67,7 @@ const ChartData = {
 
 const Lab = styled.div`
   min-height: 100vh;
-  background: #0a0a0c;
+  background: var(--grey-dark);
   padding: 40px 24px;
   display: flex;
   flex-direction: column;
@@ -136,7 +136,7 @@ const CardA = styled.div`
     rgba(6,4,2,0.94) 75%,
     rgba(239,68,68,0.12) 100%
   );
-  border-radius: 12px;
+  border-radius: var(--radius-xl);
   padding: 0;
   overflow: hidden;
   outline: 1px solid rgba(252,219,51,0.25);
@@ -234,9 +234,9 @@ const VariantA = ({ avatarUrls, countries }) => (
         </div>
         {mapImgUrl && (
           <div style={{ display:"flex", flexDirection:"column", alignItems:"center", gap:4 }}>
-            <img src={mapImgUrl} alt="" style={{ width:96, height:96, objectFit:"cover", borderRadius:6, border:"1px solid rgba(184,134,11,0.4)", opacity:0.88 }} onError={e=>{e.target.style.display="none"}} />
+            <img src={mapImgUrl} alt="" style={{ width:96, height:96, objectFit:"cover", borderRadius:"var(--radius-md)", border:"1px solid rgba(var(--gold-dark-rgb),0.4)", opacity:0.88 }} onError={e=>{e.target.style.display="none"}} />
             <div style={{ display:"flex", flexDirection:"column", alignItems:"center", gap:3, marginTop:4 }}>
-              <div style={{ fontFamily:"var(--font-display)", fontSize:13, color:"#fff", textTransform:"uppercase", letterSpacing:"0.12em", textAlign:"center", lineHeight:1.2 }}>
+              <div style={{ fontFamily:"var(--font-display)", fontSize:13, color:"var(--white)", textTransform:"uppercase", letterSpacing:"0.12em", textAlign:"center", lineHeight:1.2 }}>
                 {MATCH.mapName}
               </div>
               <div style={{ fontFamily:"var(--font-mono)", fontSize:11, color:"rgba(255,255,255,0.5)", textTransform:"uppercase", letterSpacing:"0.1em" }}>
@@ -380,9 +380,9 @@ const VariantB = ({ avatarUrls, countries }) => (
         </div>
         {mapImgUrl && (
           <div style={{ display:"flex", flexDirection:"column", alignItems:"center", gap:4 }}>
-            <img src={mapImgUrl} alt="" style={{ width:92, height:92, objectFit:"cover", borderRadius:6, border:"1px solid rgba(184,134,11,0.35)", opacity:0.82 }} onError={e=>{e.target.style.display="none"}} />
+            <img src={mapImgUrl} alt="" style={{ width:92, height:92, objectFit:"cover", borderRadius:"var(--radius-md)", border:"1px solid rgba(var(--gold-dark-rgb),0.35)", opacity:0.82 }} onError={e=>{e.target.style.display="none"}} />
             <div style={{ display:"flex", flexDirection:"column", alignItems:"center", gap:3, marginTop:4 }}>
-              <div style={{ fontFamily:"var(--font-display)", fontSize:13, color:"#fff", textTransform:"uppercase", letterSpacing:"0.12em", textAlign:"center", lineHeight:1.2 }}>
+              <div style={{ fontFamily:"var(--font-display)", fontSize:13, color:"var(--white)", textTransform:"uppercase", letterSpacing:"0.12em", textAlign:"center", lineHeight:1.2 }}>
                 {MATCH.mapName}
               </div>
               <div style={{ fontFamily:"var(--font-mono)", fontSize:11, color:"rgba(255,255,255,0.5)", textTransform:"uppercase", letterSpacing:"0.1em" }}>
@@ -519,7 +519,7 @@ const VariantC = () => (
         <div style={{ width:"100%", height:110 }}>
           <MmrComparison data={ChartData} variant="scorecard" localScale />
         </div>
-        {mapImgUrl && <img src={mapImgUrl} alt="" style={{ width:60, height:60, objectFit:"cover", borderRadius:4, border:"1px solid rgba(184,134,11,0.3)", opacity:0.85 }} onError={e=>{e.target.style.display="none"}} />}
+        {mapImgUrl && <img src={mapImgUrl} alt="" style={{ width:60, height:60, objectFit:"cover", borderRadius:4, border:"1px solid rgba(var(--gold-dark-rgb),0.3)", opacity:0.85 }} onError={e=>{e.target.style.display="none"}} />}
       </ScorecardCenter>
       <ScorecardTeam className="right">
         {team2.map(p => <PlayerCard key={p.battleTag} player={p} teamClass="team-1" avatarSize={76} />)}
@@ -699,7 +699,7 @@ const CardOverlayLab = () => {
       {VARIANTS.map(({ id, label, desc, Component }) => (
         <Variant key={id}>
           <VariantLabel>
-            <span>{id}</span>{label} — <span style={{ color:"var(--grey-light)", fontFamily:"var(--font-mono)", fontSize:11 }}>{desc}</span>
+            <span>{id}</span>{label} - <span style={{ color:"var(--grey-light)", fontFamily:"var(--font-mono)", fontSize:11 }}>{desc}</span>
           </VariantLabel>
           <Component avatarUrls={avatarUrls} countries={countries} />
         </Variant>

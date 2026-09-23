@@ -131,7 +131,7 @@ describe('fetchWithCache', () => {
     const p1 = fetchWithCache('https://api.test/dedup', { cacheKey: 'dedup-key' });
     const p2 = fetchWithCache('https://api.test/dedup', { cacheKey: 'dedup-key' });
 
-    // Both should return the same promise — only one fetch call
+    // Both should return the same promise - only one fetch call
     resolveOuter({
       ok: true,
       json: async () => ({ deduped: true }),
