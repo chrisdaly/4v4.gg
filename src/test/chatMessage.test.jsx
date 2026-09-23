@@ -3,7 +3,7 @@ import React from 'react';
 import { render, screen, fireEvent, cleanup } from '@testing-library/react';
 import { MemoryRouter } from 'react-router-dom';
 import ChatMessage from '../components/chat/ChatMessage';
-import { buildTickerText } from '../components/chat/GameTicker';
+import { buildTickerText, cardNotes } from '../components/chat/GameRow';
 import { Chip, chipForTag, formatGameMinutes } from '../components/chat/chip';
 
 const group = {
@@ -29,7 +29,7 @@ const renderIn = (ui) => render(<MemoryRouter>{ui}</MemoryRouter>);
 afterEach(cleanup);
 
 describe('ChatMessage feed variant', () => {
-  it('renders avatar, name link, clan, MMR, chip, twitch, lines, times, translation and extras', () => {
+  it('renders avatar, flag, name link, clan, MMR, local time, chip, twitch, lines, times, translation and extras', () => {
     renderIn(
       <ChatMessage
         variant="feed"
@@ -43,9 +43,12 @@ describe('ChatMessage feed variant', () => {
     const root = document.querySelector('[data-variant="feed"]');
     expect(root).not.toBeNull();
     expect(root.querySelector('img[src="https://x/toast.jpg"]')).not.toBeNull();
+    expect(root.querySelector('img[alt="de"]')).not.toBeNull();
     expect(screen.getByText('ToastBrot')).toHaveAttribute('href', '/player/ToastBrot%232101');
     expect(screen.getByText('FOALS')).toBeInTheDocument();
     expect(screen.getByText('1847 MMR')).toBeInTheDocument();
+    // the sender's clock from their country: 12:00Z in Germany (UTC+1)
+    expect(root.querySelector('[data-local-time]')).toHaveTextContent('1:00p local');
     expect(screen.getByText('in game 12m')).toHaveAttribute('data-chip', 'ingame');
     expect(screen.getByTitle('ladder grind')).toHaveAttribute('href', 'https://twitch.tv/toastbrot');
     expect(document.getElementById('msg-l1')).toContainElement(screen.getByText('gg wp'));
@@ -56,6 +59,7 @@ describe('ChatMessage feed variant', () => {
     expect(screen.getByText('bot reply')).toBeInTheDocument();
     // one timestamp per line
     expect(root.querySelectorAll('[id^="msg-"]').length).toBe(2);
+    expect(root.querySelectorAll('[data-line-end]').length).toBe(2);
   });
 
   it('falls back to a race icon without an avatar and omits missing accessories', () => {
@@ -63,11 +67,17 @@ describe('ChatMessage feed variant', () => {
     const root = document.querySelector('[data-variant="feed"]');
     expect(root.querySelector('img')).not.toBeNull();
     expect(root.querySelector('[data-chip]')).toBeNull();
+    expect(root.querySelector('[data-local-time]')).toBeNull();
     expect(root.querySelector('a[href^="https://twitch.tv"]')).toBeNull();
     expect(screen.queryByText(/MMR$/)).toBeNull();
   });
 
-  it('shows each chip state', () => {
+  it('omits the local time for a country it does not know', () => {
+    renderIn(<ChatMessage variant="feed" group={group} meta={{ countryCode: 'ZZ' }} />);
+    expect(document.querySelector('[data-local-time]')).toBeNull();
+  });
+
+  it('shows one chip, in each of its states', () => {
     for (const chip of [
       { kind: 'ingame', label: 'in game 12m' },
       { kind: 'won', label: 'won +12' },
@@ -75,6 +85,7 @@ describe('ChatMessage feed variant', () => {
     ]) {
       renderIn(<ChatMessage variant="feed" group={group} meta={{ chip }} />);
       expect(screen.getByText(chip.label)).toHaveAttribute('data-chip', chip.kind);
+      expect(document.querySelectorAll('[data-chip]')).toHaveLength(1);
       cleanup();
     }
   });
@@ -99,7 +110,7 @@ describe('ChatMessage feed variant', () => {
 });
 
 describe('ChatMessage transcript variant', () => {
-  it('renders avatar, name, lines and times; target flags the focus author', () => {
+  it('renders avatar, name, lines and times; target flags the focus author; no local time', () => {
     renderIn(<ChatMessage variant="transcript" group={group} meta={meta} target />);
     const root = document.querySelector('[data-variant="transcript"]');
     expect(root).not.toBeNull();
@@ -109,6 +120,7 @@ describe('ChatMessage transcript variant', () => {
     expect(screen.getByText('rematch?')).toBeInTheDocument();
     expect(screen.getByText('1847 MMR')).toBeInTheDocument();
     expect(screen.getByText('in game 12m')).toBeInTheDocument();
+    expect(root.querySelector('[data-local-time]')).toBeNull();
     // no twitch icon outside the feed
     expect(root.querySelector('a[href^="https://twitch.tv"]')).toBeNull();
     expect(root.querySelectorAll('[id^="msg-"]').length).toBe(2);
@@ -129,7 +141,7 @@ describe('ChatMessage quote variant', () => {
   });
 });
 
-describe('GameTicker text', () => {
+describe('GameRow text', () => {
   const lobby = (names, inChannel = []) =>
     names.map((n) => ({ battleTag: `${n}#1`, name: n, mmr: 1800, inChannel: inChannel.includes(n) }));
 
@@ -141,11 +153,45 @@ describe('GameTicker text', () => {
     expect(buildTickerText(ev)).toBe('ToastBrot, Shamiko +2 started on Royal Gardens, 1847 avg');
   });
 
+  it('names at most two players, the rest as +N', () => {
+    const ev = {
+      type: 'game_start', mapName: 'Ferocity', teamMmrs: [1700, 1690],
+      teams: [lobby(['A', 'B', 'C', 'D'], ['A', 'B', 'C']), lobby(['E', 'F', 'G', 'H'])],
+    };
+    expect(buildTickerText(ev)).toBe('A, B +2 started on Ferocity, 1700 avg');
+  });
+
   it('reports the channel side of a finish with duration and average gain', () => {
     const winners = lobby(['A', 'B', 'C', 'D']).map((p) => ({ ...p, mmrGain: 12 }));
     const losers = lobby(['Shamiko', 'E', 'F', 'G'], ['Shamiko']).map((p) => ({ ...p, mmrGain: -9 }));
     const ev = { type: 'game_end', mapName: 'Ferocity', durationInSeconds: 842, winners, losers };
     expect(buildTickerText(ev)).toBe('Shamiko +3 lost 14:02 on Ferocity, -9 avg');
+    const won = { ...ev, winners: winners.map((p) => ({ ...p, inChannel: p.name === 'A' || p.name === 'B' })), losers: losers.map((p) => ({ ...p, inChannel: false })) };
+    expect(buildTickerText(won)).toBe('A, B +2 won 14:02 on Ferocity, +12 avg');
+  });
+});
+
+describe('GameRow card notes', () => {
+  it('tags the note MVP when its subject is the match MVP, NOTE otherwise', () => {
+    const note = { text: 'fielded a 94-supply army', tag: 'Solana#1', name: 'Solana' };
+    expect(cardNotes({ note, mvp: 'Solana#1' })).toEqual([
+      { tag: 'MVP', name: 'Solana', href: '/player/Solana%231', text: 'fielded a 94-supply army', quote: null },
+    ]);
+    expect(cardNotes({ note, mvp: 'Other#1' })[0].tag).toBe('NOTE');
+  });
+
+  it('tags upsets and race stacks, and drops the upset prefix', () => {
+    expect(cardNotes({ note: { text: 'upset - the 1900 MMR favorites fell', tag: null } })).toEqual([
+      { tag: 'UPSET', name: null, href: null, text: 'the 1900 MMR favorites fell', quote: null },
+    ]);
+    expect(cardNotes({ note: { text: 'all-Human victory', tag: null, raceId: 1, quote: 'For the Alliance!' } })).toEqual([
+      { tag: 'STACK', name: null, href: null, text: 'all-Human victory', quote: 'For the Alliance!' },
+    ]);
+  });
+
+  it('keeps string notes and skips events without one', () => {
+    expect(cardNotes({ note: 'close one' })[0]).toMatchObject({ tag: 'NOTE', text: 'close one' });
+    expect(cardNotes({})).toEqual([]);
   });
 });
 

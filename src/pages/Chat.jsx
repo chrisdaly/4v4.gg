@@ -1,5 +1,5 @@
-import React, { useState, useMemo, useCallback } from "react";
-import styled from "styled-components";
+import React, { useState, useMemo, useCallback, useEffect } from "react";
+import styled, { createGlobalStyle } from "styled-components";
 import { useLocation } from "react-router-dom";
 import { HiUsers, HiChat } from "react-icons/hi";
 import useChatFeed from "../lib/chat/useChatFeed";
@@ -8,31 +8,86 @@ import { useUnreadCount } from "../lib/chat/useUnread";
 import { useTheme } from "../lib/ThemeContext";
 import ChatPanel from "../components/ChatPanel";
 import UserListSidebar from "../components/UserListSidebar";
-import PulseColumn from "../components/chat/PulseColumn";
+import MapPanel from "../components/chat/MapPanel";
+import RegionsPanel from "../components/chat/RegionsPanel";
 import GameModal from "../components/chat/GameModal";
-import { usePulsePref } from "../lib/chat/pulsePref";
+import { regionSummary } from "../lib/chat/regions";
 
-const Page = styled.div`
-  padding: var(--space-1) var(--space-2) 0;
-  position: relative;
+/**
+ * /chat (Chat v2): the full viewport, no navbar (Router.jsx renders this
+ * route outside the Navbar branch), as a CSS grid of four panels. Layout D
+ * from 1200px (chat | map over regions | roster), layout C below (chat |
+ * map, regions, roster stacked), and under 768px the chat alone with the
+ * roster as a sheet behind the mobile tab bar.
+ */
 
-  @media (max-width: 768px) {
-    padding: 0;
+const WIDE = 1200; // px, layout D from here
+const MOBILE = 768; // px, tab bar below this
+const TAB_BAR = 48; // px
+const SHOW_GAMES_KEY = "chat:showGames";
+const CLOCK_TICK_MS = 60_000; // region local-time refresh
+
+/* The theme paints the body background (App.css body::before); on /chat the
+   design fixes it to the night elf art under a darker overlay */
+const ChatBackground = createGlobalStyle`
+  body::before {
+    background-image: linear-gradient(rgba(8, 6, 5, 0.74), rgba(8, 6, 5, 0.86)), url("/backgrounds/nightelf.jpg");
   }
 `;
 
-/* Three columns: stream (flex 1, min-width 0) | Pulse (360px, desktop
-   only, off in Focus) | roster (300px). PulseColumn hides itself below
-   1100px so the stream takes the width back. */
-const Layout = styled.div`
-  display: flex;
+const Page = styled.div`
+  height: 100vh;
+  box-sizing: border-box;
+  padding: var(--space-2);
+  display: grid;
   gap: var(--space-2);
-  /* --nav-height is 0px while body.chat-focus hides the navbar (Navbar.css) */
-  height: calc(100vh - var(--nav-height) - var(--space-1));
+  grid-template-columns: minmax(0, 1fr) minmax(280px, 340px);
+  grid-template-rows: auto auto minmax(0, 1fr);
+  grid-template-areas:
+    "chat map"
+    "chat regions"
+    "chat roster";
 
-  @media (max-width: 768px) {
+  @media (min-width: ${WIDE}px) {
+    grid-template-columns: minmax(380px, 1fr) minmax(220px, 300px) minmax(240px, 320px);
+    grid-template-rows: auto minmax(0, 1fr);
+    grid-template-areas:
+      "chat map roster"
+      "chat regions roster";
+  }
+
+  @media (max-width: ${MOBILE}px) {
+    padding: 0;
     gap: 0;
-    height: calc(100dvh - var(--nav-height) - 48px); /* dvh handles mobile address bar; 48px tab bar */
+    height: calc(100dvh - ${TAB_BAR}px); /* dvh handles the mobile address bar */
+    grid-template-columns: minmax(0, 1fr);
+    grid-template-rows: minmax(0, 1fr);
+    grid-template-areas: "chat";
+  }
+`;
+
+const ChatArea = styled.div`
+  grid-area: chat;
+  display: flex;
+  min-width: 0;
+  min-height: 0;
+  > * {
+    flex: 1;
+    min-width: 0;
+  }
+`;
+
+const MapArea = styled(MapPanel)`
+  grid-area: map;
+  @media (max-width: ${MOBILE}px) {
+    display: none;
+  }
+`;
+
+const RegionsArea = styled(RegionsPanel)`
+  grid-area: regions;
+  @media (max-width: ${MOBILE}px) {
+    display: none;
   }
 `;
 
@@ -45,12 +100,12 @@ const MobileTabBar = styled.div`
   left: 0;
   right: 0;
   z-index: var(--z-nav);
-  height: 48px;
+  height: ${TAB_BAR}px;
   background: rgba(10, 8, 6, 0.95);
   backdrop-filter: blur(8px);
   border-top: 1px solid rgba(252, 219, 51, 0.15);
 
-  @media (max-width: 768px) {
+  @media (max-width: ${MOBILE}px) {
     display: flex;
   }
 `;
@@ -108,6 +163,25 @@ const TabBadge = styled.span`
   padding: 0 4px;
 `;
 
+/* ── Preferences ─────────────────────────────── */
+
+function readShowGames() {
+  try {
+    const v = localStorage.getItem(SHOW_GAMES_KEY);
+    return v === null ? true : v === "1";
+  } catch {
+    return true;
+  }
+}
+
+function writeShowGames(value) {
+  try {
+    localStorage.setItem(SHOW_GAMES_KEY, value ? "1" : "0");
+  } catch {
+    // non-persistent is fine
+  }
+}
+
 /* ── Main component ───────────────────────────────────────────── */
 
 const Chat = () => {
@@ -139,13 +213,19 @@ const Chat = () => {
   const { borderTheme } = useTheme();
   const { watchList, toggleWatch } = useWatchList();
   const [mobileTab, setMobileTab] = useState("chat"); // "chat" | "users"
-  // Pulse column preference (chat:showPulse), toggled from the ChatPanel header
-  const [showPulse, togglePulse] = usePulsePref();
-  // Roster name filter; a Pulse beeswarm dot click narrows it to that player
-  const [rosterFilter, setRosterFilter] = useState("");
-  const filterToPlayer = useCallback((tag) => setRosterFilter(tag.split("#")[0]), []);
-  // The ongoing game opened from an in-game chip, roster row or map divider:
-  // an inGameInfoMap entry { matchId, mapName, startTime }, null when closed
+  // Region filter (a regionOf name, or null): set from a region row or a map
+  // dot; narrows the roster, its histogram and the map dimming, never the chat
+  const [region, setRegion] = useState(null);
+  // Chat panel modes, driven from the map header's icon buttons
+  const [searchOpen, setSearchOpen] = useState(false);
+  const [statsOpen, setStatsOpen] = useState(false);
+  const [showGames, setShowGames] = useState(readShowGames);
+  const changeShowGames = useCallback((v) => {
+    writeShowGames(v);
+    setShowGames(v);
+  }, []);
+  // The ongoing game opened from an in-game chip or roster row: an
+  // inGameInfoMap entry { matchId, mapName, startTime }, null when closed
   const [openGame, setOpenGame] = useState(null);
   const openGameModal = useCallback((info) => {
     if (info) setOpenGame(info);
@@ -156,14 +236,23 @@ const Chat = () => {
   const { search } = useLocation();
   const permalinkId = useMemo(() => new URLSearchParams(search).get("m"), [search]);
 
+  // Once-a-minute clock for the region rows' local times
+  const [now, setNow] = useState(() => new Date());
+  useEffect(() => {
+    const id = setInterval(() => setNow(new Date()), CLOCK_TICK_MS);
+    return () => clearInterval(id);
+  }, []);
+  const regions = useMemo(() => regionSummary(onlineUsers, { stats, avatars }, now), [onlineUsers, stats, avatars, now]);
+
   // Unread badge for the mobile Chat tab: everything newer than the last
   // message that was on screen when the user left the chat tab (the panel
   // uses the same hook for the browser tab title while hidden)
   const unreadCount = useUnreadCount(messages, mobileTab === "chat");
 
   return (
-    <Page>
-      <Layout>
+    <Page data-chat-page>
+      <ChatBackground />
+      <ChatArea>
         <ChatPanel
           liveGameCount={ongoingMatches.length}
           messages={messages}
@@ -191,40 +280,46 @@ const Chat = () => {
           windowId={windowId}
           permalinkId={permalinkId}
           onOpenGame={openGameModal}
-          showPulse={showPulse}
-          onTogglePulse={togglePulse}
+          searchOpen={searchOpen}
+          onSearchOpenChange={setSearchOpen}
+          statsOpen={statsOpen}
+          onStatsOpenChange={setStatsOpen}
+          showGames={showGames}
         />
-        <PulseColumn
-          open={showPulse}
-          users={onlineUsers}
-          stats={stats}
-          avatars={avatars}
-          inGameTags={inGameTags}
-          watchList={watchList}
-          onPlayerClick={filterToPlayer}
-          borderTheme={borderTheme}
-        />
-        <UserListSidebar
-          users={onlineUsers}
-          avatars={avatars}
-          stats={stats}
-          sessions={sessions}
-          inGameTags={inGameTags}
-          inGameInfoMap={inGameInfoMap}
-          inGameMatchMap={inGameMatchMap}
-          recentWinners={recentWinners}
-          recentDeltas={recentDeltas}
-          liveStreamers={liveStreamers}
-          watchList={watchList}
-          onToggleWatch={toggleWatch}
-          onOpenGame={openGameModal}
-          $mobileVisible={mobileTab === "users"}
-          onClose={() => setMobileTab("chat")}
-          borderTheme={borderTheme}
-          filter={rosterFilter}
-          onFilterChange={setRosterFilter}
-        />
-      </Layout>
+      </ChatArea>
+      <MapArea
+        users={onlineUsers}
+        avatars={avatars}
+        stats={stats}
+        inGameTags={inGameTags}
+        status={status}
+        region={region}
+        onRegionChange={setRegion}
+        searchOpen={searchOpen}
+        onSearchOpenChange={setSearchOpen}
+        statsOpen={statsOpen}
+        onStatsOpenChange={setStatsOpen}
+        showGames={showGames}
+        onShowGamesChange={changeShowGames}
+      />
+      <RegionsArea rows={regions.rows} region={region} onRegionChange={setRegion} />
+      <UserListSidebar
+        users={onlineUsers}
+        avatars={avatars}
+        stats={stats}
+        sessions={sessions}
+        inGameTags={inGameTags}
+        inGameInfoMap={inGameInfoMap}
+        inGameMatchMap={inGameMatchMap}
+        recentDeltas={recentDeltas}
+        liveStreamers={liveStreamers}
+        watchList={watchList}
+        onToggleWatch={toggleWatch}
+        onOpenGame={openGameModal}
+        region={region}
+        $mobileVisible={mobileTab === "users"}
+        onClose={() => setMobileTab("chat")}
+      />
       {openGame && (
         <GameModal
           game={openGame}

@@ -33,7 +33,6 @@ vi.mock('react-virtuoso', () => ({
 import ChatPanel from '../components/ChatPanel';
 import GameModal, { resolveGame } from '../components/chat/GameModal';
 import { useWatchList } from '../lib/chatExtras';
-import { resetTodayDigestCache } from '../lib/chat/digestToday';
 import { resetNotifyThrottle } from '../lib/chat/notify';
 import { resetUnfurlCache } from '../lib/chat/unfurl';
 
@@ -72,39 +71,66 @@ const stats = new Map([['Grubby#1', { mmr: 1900.4, race: 2 }]]);
 const avatars = new Map([['Moon#2', { profilePicUrl: 'https://x/pic.jpg', country: 'KR' }]]);
 const fiveMinutesAgo = () => new Date(Date.now() - 5 * 60 * 1000).toISOString();
 
-function renderPanel(overrides = {}) {
-  return render(
+const baseProps = {
+  status: 'connected',
+  avatars,
+  stats,
+  sessions: new Map(),
+  inGameTags: new Set(['Moon#2']),
+  recentWinners: new Set(['Grubby#1']),
+  recentDeltas: new Map([['Watched#3', -9]]),
+  gameEvents,
+  ongoingMatchIds: new Set(['m2']),
+  liveStreamers: new Map([['Grubby#1', { twitchName: 'grubby', title: 'live', viewerCount: 3 }]]),
+  watchList: new Set(['watched#3']),
+  onlineUsers: [{ battleTag: 'Grubby#1', name: 'Grubby' }],
+  botResponses,
+  translations,
+  loadOlder: () => Promise.resolve({ added: 0 }),
+  hasMoreHistory: true,
+};
+
+// The Search and Stats toggles live in the map panel header (Chat.jsx);
+// this stands in for it: the panel gets controlled props and two buttons
+// flip them the way the header pills do.
+const searchToggle = vi.fn();
+function Owner({ initialSearchOpen = false, initialStatsOpen = false, ...props }) {
+  const [searchOpen, setSearchOpen] = React.useState(initialSearchOpen);
+  const [statsOpen, setStatsOpen] = React.useState(initialStatsOpen);
+  const onSearchOpenChange = React.useCallback((v) => {
+    searchToggle(v);
+    setSearchOpen(v);
+  }, []);
+  return (
     <MemoryRouter>
+      <button type="button" onClick={() => setSearchOpen((v) => !v)}>toggle search</button>
+      <button type="button" onClick={() => setStatsOpen((v) => !v)}>toggle stats</button>
       <ChatPanel
-        messages={messages}
-        status="connected"
-        avatars={avatars}
-        stats={stats}
-        sessions={new Map()}
-        inGameTags={new Set(['Moon#2'])}
-        inGameInfoMap={new Map([['Moon#2', { mapName: 'Ferocity', startTime: fiveMinutesAgo(), matchId: 'm2' }]])}
-        recentWinners={new Set(['Grubby#1'])}
-        recentDeltas={new Map([['Watched#3', -9]])}
-        gameEvents={gameEvents}
-        ongoingMatchIds={new Set(['m2'])}
-        liveStreamers={new Map([['Grubby#1', { twitchName: 'grubby', title: 'live', viewerCount: 3 }]])}
-        watchList={new Set(['watched#3'])}
-        onlineUsers={[{ battleTag: 'Grubby#1', name: 'Grubby' }]}
-        botResponses={botResponses}
-        translations={translations}
-        loadOlder={() => Promise.resolve({ added: 0 })}
-        hasMoreHistory
-        {...overrides}
+        {...props}
+        searchOpen={searchOpen}
+        onSearchOpenChange={onSearchOpenChange}
+        statsOpen={statsOpen}
+        onStatsOpenChange={setStatsOpen}
       />
     </MemoryRouter>
   );
 }
 
-// Every mount asks the relay for today's digest; keep that off the network
-// unless a test installs its own fetch mock
+function renderPanel(overrides = {}) {
+  return render(
+    <Owner
+      {...baseProps}
+      messages={messages}
+      inGameInfoMap={new Map([['Moon#2', { mapName: 'Ferocity', startTime: fiveMinutesAgo(), matchId: 'm2' }]])}
+      {...overrides}
+    />
+  );
+}
+
+// Keep the relay off the network unless a test installs its own fetch mock
 beforeEach(() => {
   scrollToIndex.mockClear();
-  resetTodayDigestCache();
+  searchToggle.mockClear();
   resetNotifyThrottle();
   resetUnfurlCache();
   if (!vi.isMockFunction(globalThis.fetch)) {
@@ -115,7 +141,6 @@ beforeEach(() => {
 afterEach(() => {
   cleanup();
   localStorage.clear();
-  document.body.classList.remove('chat-focus');
   vi.restoreAllMocks();
 });
 
@@ -229,7 +254,7 @@ describe('ChatPanel history prepend', () => {
 });
 
 describe('ChatPanel rows', () => {
-  it('renders groups, system rows, tickers, bot rows, translations and chips', () => {
+  it('renders groups, system rows, game rows, bot rows, translations and chips, with no header', () => {
     renderPanel();
 
     expect(screen.getByText('Connected to channel')).toBeInTheDocument();
@@ -244,7 +269,14 @@ describe('ChatPanel rows', () => {
     expect(screen.getAllByText('Today')).toHaveLength(2); // in-list divider + sticky day bar
     expect(document.getElementById('msg-a1')).not.toBeNull();
     expect(document.getElementById('msg-a2')).not.toBeNull();
-    expect(screen.getByText('5')).toBeInTheDocument(); // header message count
+
+    // No header: no title, no toggle pills, no status badge
+    expect(screen.queryByText('4v4 Chat')).toBeNull();
+    expect(screen.queryByTitle('Search chat history')).toBeNull();
+    expect(screen.queryByTitle(/game tickers/)).toBeNull();
+    expect(screen.queryByTitle(/Focus mode/)).toBeNull();
+    expect(screen.queryByTitle(/relay:/)).toBeNull();
+    expect(screen.queryByTitle(/pulse column/)).toBeNull();
 
     // Grubby's two lines share one group (one avatar column for both)
     const grubbyGroup = document.getElementById('msg-a1').closest('[data-variant="feed"]');
@@ -256,52 +288,112 @@ describe('ChatPanel rows', () => {
     expect(screen.getByText('won')).toHaveAttribute('data-chip', 'won');
     expect(screen.getByTitle('live')).toHaveAttribute('href', 'https://twitch.tv/grubby');
 
-    // Game events are one-line tickers until clicked
-    expect(screen.getByText('Finished')).toBeInTheDocument();
-    expect(screen.getByText('Live')).toBeInTheDocument();
+    // Game events are one-line rows until clicked
+    expect(screen.getByText('FINISHED')).toBeInTheDocument();
+    expect(screen.getByText('LIVE')).toBeInTheDocument();
     expect(screen.getByText(/Moon won 20:00 on Ferocity, \+12 avg/)).toBeInTheDocument();
     expect(screen.getByText(/Moon \+3 started on Royal Gardens, 1847 avg/)).toBeInTheDocument();
     expect(screen.queryByText('close one')).toBeNull();
-    fireEvent.click(screen.getByText('Finished'));
-    expect(screen.getByText('close one')).toBeInTheDocument();
-    fireEvent.click(screen.getByText('Finished'));
-    expect(screen.queryByText('close one')).toBeNull();
   });
 
-  it('renders tickers as system rows: icon slot, own block, and the same right-hand cell as a message line', () => {
+  it("shows each sender's local time from their profile country", () => {
     renderPanel();
-    const tickers = document.querySelectorAll('[data-ticker]');
-    expect(tickers).toHaveLength(2);
+    // Moon's profile says KR: 12:01Z is 9:01p in Seoul
+    const moon = document.getElementById('msg-b1').closest('[data-variant="feed"]');
+    expect(moon.querySelector('[data-local-time]')).toHaveTextContent('9:01p local');
+    // Grubby has no profile, so no country and no clock
+    const grubby = document.getElementById('msg-a1').closest('[data-variant="feed"]');
+    expect(grubby.querySelector('[data-local-time]')).toBeNull();
+  });
+
+  it('lays a game row on the message grid with a tone dot and the same right-hand cell as a message line', () => {
+    renderPanel();
+    const rows = document.querySelectorAll('[data-ticker]');
+    expect(rows).toHaveLength(2);
     const finished = document.querySelector('[data-ticker="finished"]');
     const live = document.querySelector('[data-ticker="live"]');
-    expect(finished.querySelector('[data-ticker-icon="trophy"] svg')).not.toBeNull();
-    expect(live.querySelector('[data-ticker-icon="swords"] svg')).not.toBeNull();
-    // each sits between message groups here, so each is a run of one
-    for (const t of tickers) {
-      expect(t).toHaveAttribute('data-run-start', 'true');
-      expect(t).toHaveAttribute('data-run-end', 'true');
-    }
-    // ticker and message line end with the same cell: time plus the 20px copy-link slot
+    expect(finished).toHaveAttribute('role', 'button');
+    expect(finished).toHaveAttribute('aria-expanded', 'false');
+    expect(finished).toHaveAttribute('data-event-id', 'ge-m1');
+    expect(live).toHaveAttribute('data-event-id', 'gs-m2');
+    expect(finished.querySelector('[aria-hidden="true"]')).not.toBeNull(); // the dot
+    // no old-style icon slot or run block
+    expect(document.querySelector('[data-ticker-icon]')).toBeNull();
+    expect(document.querySelector('[data-run-start]')).toBeNull();
+    // game row and message line end with the same cell: time plus the 20px copy-link slot
     const lineEnd = document.getElementById('msg-a1').querySelector('[data-line-end]');
-    const tickerEnd = live.querySelector('[data-line-end]');
+    const rowEnd = live.querySelector('[data-line-end]');
     expect(lineEnd.querySelector('[data-end-slot]')).not.toBeNull();
-    expect(tickerEnd.querySelector('[data-end-slot]')).not.toBeNull();
-    expect(lineEnd.className).toBe(tickerEnd.className);
-    expect(lineEnd.querySelector('[data-end-slot]').className).toBe(tickerEnd.querySelector('[data-end-slot]').className);
-    expect(tickerEnd.querySelector('a')).toBeNull(); // slot reserved, no copy link
+    expect(rowEnd.querySelector('[data-end-slot]')).not.toBeNull();
+    expect(lineEnd.className).toBe(rowEnd.className);
+    expect(lineEnd.querySelector('[data-end-slot]').className).toBe(rowEnd.querySelector('[data-end-slot]').className);
+    expect(rowEnd.querySelector('a')).toBeNull(); // slot reserved, no copy link
   });
 
-  it('draws consecutive tickers as one block: hairline flag only on the first', () => {
-    const back = [
-      { ...gameEvents[0], id: 'ge-x1', time: iso(31000) },
-      { ...gameEvents[0], id: 'ge-x2', time: iso(32000), matchId: 'x2' },
-      { ...gameEvents[1], id: 'gs-x3', time: iso(33000), matchId: 'x3' },
-    ];
-    renderPanel({ gameEvents: back, ongoingMatchIds: new Set(['x3']) });
-    const tickers = [...document.querySelectorAll('[data-ticker]')];
-    expect(tickers.map((t) => t.querySelector('[data-event-id]').getAttribute('data-event-id'))).toEqual(['ge-x1', 'ge-x2', 'gs-x3']);
-    expect(tickers.map((t) => t.getAttribute('data-run-start'))).toEqual(['true', null, null]);
-    expect(tickers.map((t) => t.getAttribute('data-run-end'))).toEqual([null, null, 'true']);
+  it('marks a start event whose game has ended as started, without the live dot', () => {
+    renderPanel({ ongoingMatchIds: new Set() });
+    expect(document.querySelector('[data-ticker="live"]')).toBeNull();
+    const started = document.querySelector('[data-ticker="started"]');
+    expect(started).toHaveTextContent('STARTED');
+    expect(started).toHaveTextContent(/Moon \+3 started on Royal Gardens/);
+  });
+
+  it('expands a row into the game card on click and collapses it from the card header', () => {
+    renderPanel();
+    fireEvent.click(screen.getByText('FINISHED'));
+    const card = document.querySelector('[data-game-card="ge-m1"]');
+    expect(card).not.toBeNull();
+    expect(document.querySelector('[data-ticker="finished"]')).toHaveAttribute('data-expanded', 'true');
+    // header: tag pill, duration, lobby average, time
+    const head = screen.getByTitle('Collapse');
+    expect(head).toHaveTextContent('FINISHED');
+    expect(head).toHaveTextContent('20:00');
+    expect(head).toHaveTextContent('1750 avg');
+    // map links to the match, teams with MMR and delta, losers dimmed
+    expect(screen.getByRole('link', { name: 'Ferocity' })).toHaveAttribute('href', '/match/m1');
+    expect(card.querySelector('[data-team="a"]')).toHaveTextContent('Moon');
+    expect(card.querySelector('[data-team="a"]')).toHaveTextContent('1800');
+    expect(card.querySelector('[data-team="a"]')).toHaveTextContent('+12');
+    expect(card.querySelector('[data-team="b"]')).toHaveTextContent('X');
+    expect(card.querySelector('[data-team="b"]')).toHaveTextContent('-9');
+    expect(card.querySelector('[data-mmr-strip]')).not.toBeNull();
+    // the note row below the hairline
+    const note = card.querySelector('[data-note="NOTE"]');
+    expect(note).toHaveTextContent('close one');
+    // streak and rivalry badges are gone from the card
+    expect(card.querySelector('[data-badge]')).toBeNull();
+
+    fireEvent.click(head);
+    expect(document.querySelector('[data-game-card="ge-m1"]')).toBeNull();
+    expect(screen.queryByText('close one')).toBeNull();
+    expect(document.querySelector('[data-ticker="finished"]')).toHaveAttribute('aria-expanded', 'false');
+
+    // keyboard: Enter on the row opens, Enter on the header closes
+    fireEvent.keyDown(document.querySelector('[data-ticker="live"]'), { key: 'Enter' });
+    const liveCard = document.querySelector('[data-game-card="gs-m2"]');
+    expect(liveCard).not.toBeNull();
+    expect(screen.getByTitle('Collapse')).toHaveTextContent('LIVE');
+    expect(screen.getByRole('link', { name: 'Royal Gardens' })).toHaveAttribute('href', '/live');
+    expect(liveCard.querySelector('[data-team="a"]').querySelectorAll('a')).toHaveLength(4);
+    fireEvent.keyDown(screen.getByTitle('Collapse'), { key: 'Enter' });
+    expect(document.querySelector('[data-game-card="gs-m2"]')).toBeNull();
+  });
+
+  it('shows the MVP badge and tags the MVP note', () => {
+    const mvpEvents = [{
+      ...gameEvents[0],
+      mvp: 'Moon#2',
+      note: { text: 'fielded a 94-supply army', tag: 'Moon#2', name: 'Moon', mmr: 1800, race: 4, heroes: null, raceId: null, quote: null },
+    }];
+    renderPanel({ gameEvents: mvpEvents });
+    fireEvent.click(screen.getByText('FINISHED'));
+    const card = document.querySelector('[data-game-card="ge-m1"]');
+    expect(card.querySelector('[data-team="a"] [data-mvp]')).toHaveTextContent('MVP');
+    expect(card.querySelector('[data-team="b"] [data-mvp]')).toBeNull();
+    const note = card.querySelector('[data-note="MVP"]');
+    expect(note).toHaveTextContent('MVP');
+    expect(note).toHaveTextContent('fielded a 94-supply army');
+    expect(note.querySelector('a')).toHaveAttribute('href', '/player/Moon%232');
   });
 
   it('opens the game from an in-game chip and keeps won/lost chips inert', () => {
@@ -318,59 +410,25 @@ describe('ChatPanel rows', () => {
     expect(screen.getByText('in game 5m').tagName).toBe('SPAN');
   });
 
-  it('hides tickers when the Games toggle is off and remembers it', () => {
-    renderPanel();
-    const games = screen.getByTitle('Hide game tickers');
-    expect(games).toHaveAttribute('data-active', 'true');
-    fireEvent.click(games);
-    expect(screen.queryByText('Finished')).toBeNull();
+  it('hides game rows when showGames is off', () => {
+    renderPanel({ showGames: false });
+    expect(document.querySelectorAll('[data-ticker]')).toHaveLength(0);
+    expect(screen.queryByText('FINISHED')).toBeNull();
     expect(screen.getByText('hola')).toBeInTheDocument();
-    expect(localStorage.getItem('chat:showGames')).toBe('0');
+    // the preference belongs to the owner now
+    expect(localStorage.getItem('chat:showGames')).toBeNull();
   });
 
-  it('shows relay faults instead of a generic reconnecting state', () => {
-    renderPanel({ status: 'auth_failed' });
-    expect(screen.getByText('relay auth failed')).toBeInTheDocument();
-    cleanup();
-    renderPanel({ status: 'banned' });
-    expect(screen.getByText('relay banned')).toBeInTheDocument();
-    cleanup();
-    renderPanel({ status: 'reconnecting' });
-    expect(screen.getByText('Reconnecting...')).toBeInTheDocument();
+  it('shows translations unless told not to', () => {
+    renderPanel({ showTranslations: false });
+    expect(screen.queryByText('hello')).toBeNull();
+    expect(screen.getByText('hola')).toBeInTheDocument();
   });
-});
 
-describe('ChatPanel focus mode', () => {
-  it('toggles body.chat-focus, compacts the feed, hides tickers and exits on Esc', () => {
+  it('never sets a focus-mode body class', () => {
     renderPanel();
     expect(document.body.classList.contains('chat-focus')).toBe(false);
-    expect(screen.getByText('Finished')).toBeInTheDocument();
-
-    const focus = screen.getByTitle(/Focus mode/);
-    fireEvent.click(focus);
-    expect(document.body.classList.contains('chat-focus')).toBe(true);
-    expect(localStorage.getItem('chat:focus')).toBe('1');
-    expect(screen.getByTitle('Exit focus mode (Esc)')).toHaveAttribute('data-active', 'true');
-    // tickers hidden without touching the Games preference
-    expect(screen.queryByText('Finished')).toBeNull();
-    expect(screen.getByTitle('Hide game tickers')).toHaveAttribute('data-active', 'true');
-    expect(localStorage.getItem('chat:showGames')).toBeNull();
-    // groups render compact
-    const grubbyGroup = document.getElementById('msg-a1').closest('[data-variant="feed"]');
-    expect(grubbyGroup).toHaveAttribute('data-compact', 'true');
-
     fireEvent.keyDown(window, { key: 'Escape' });
-    expect(document.body.classList.contains('chat-focus')).toBe(false);
-    expect(localStorage.getItem('chat:focus')).toBe('1'); // Esc exits the session, the persisted pref is untouched
-    expect(screen.getByText('Finished')).toBeInTheDocument();
-    expect(grubbyGroup).not.toHaveAttribute('data-compact');
-  });
-
-  it('restores Focus from localStorage and clears the class on unmount', () => {
-    localStorage.setItem('chat:focus', '1');
-    const { unmount } = renderPanel();
-    expect(document.body.classList.contains('chat-focus')).toBe(true);
-    unmount();
     expect(document.body.classList.contains('chat-focus')).toBe(false);
   });
 });
@@ -444,7 +502,7 @@ describe('ChatPanel permalinks', () => {
             onlineUsers={[]}
             botResponses={[]}
             translations={new Map()}
-                loadOlder={load}
+            loadOlder={load}
             hasMoreHistory
             permalinkId="a1"
           />
@@ -479,7 +537,7 @@ describe('ChatPanel sticky day bar', () => {
     expect(input).toHaveAttribute('max', ymd);
     await waitFor(() => expect(input).toHaveAttribute('min', '2026-06-01'));
     expect(globalThis.fetch.mock.calls.some((c) => /\/api\/chat\/stats$/.test(String(c[0])))).toBe(true);
-    // Esc closes the popover first; a second Esc would exit Focus
+    // Esc closes the popover
     fireEvent.keyDown(window, { key: 'Escape' });
     expect(document.getElementById('chat-jump-date')).toBeNull();
   });
@@ -545,9 +603,10 @@ describe('ChatPanel search', () => {
     window.history.replaceState(null, '', '/');
   });
 
-  it('searches with a debounce, renders transcript rows with the term marked, syncs the URL and switches range', async () => {
+  it('is closed until the owner opens it, then searches with a debounce, renders transcript rows with the term marked, syncs the URL and switches range', async () => {
     renderPanel();
-    fireEvent.click(screen.getByTitle('Search chat history'));
+    expect(screen.queryByLabelText('Search messages')).toBeNull();
+    fireEvent.click(screen.getByText('toggle search'));
     expect(screen.getByText(/Search messages, filter by player/)).toBeInTheDocument();
     expect(screen.queryByTestId('virtuoso')).toBeNull();
 
@@ -579,15 +638,17 @@ describe('ChatPanel search', () => {
     expect(pill7d).toHaveAttribute('data-active', 'false');
     await waitFor(() => expect(window.location.search).toBe('?q=hola&since=30d'));
 
-    // closing the panel clears the URL and brings the stream back
+    // Esc asks the owner to close the panel, which clears the URL and brings the stream back
     fireEvent.keyDown(window, { key: 'Escape' });
+    expect(searchToggle).toHaveBeenLastCalledWith(false);
     expect(screen.getByTestId('virtuoso')).toBeInTheDocument();
     expect(window.location.search).toBe('');
   });
 
-  it('opens from ?q=&player=&since= on load and filters by player with suggestions', async () => {
+  it('asks the owner to open from ?q=&player=&since= on load and filters by player with suggestions', async () => {
     window.history.replaceState(null, '', '/chat?q=gg&player=Moon%232&since=all');
     renderPanel();
+    expect(searchToggle).toHaveBeenCalledWith(true);
     expect(screen.getByLabelText('Search messages')).toHaveValue('gg');
     expect(screen.getByLabelText('Filter by player')).toHaveValue('Moon#2');
     expect(screen.getByRole('button', { name: 'All' })).toHaveAttribute('data-active', 'true');
@@ -612,9 +673,13 @@ describe('ChatPanel search', () => {
     expect(scrollToIndex).not.toHaveBeenCalled();
   });
 
-  it('pages with More until every result is in', async () => {
+  it('does not ask to open when the URL carries no search', () => {
     renderPanel();
-    fireEvent.click(screen.getByTitle('Search chat history'));
+    expect(searchToggle).not.toHaveBeenCalled();
+  });
+
+  it('pages with More until every result is in', async () => {
+    renderPanel({ initialSearchOpen: true });
     fireEvent.change(screen.getByLabelText('Search messages'), { target: { value: 'hola' } });
     const more = await screen.findByRole('button', { name: 'More' });
     fireEvent.click(more);
@@ -624,14 +689,14 @@ describe('ChatPanel search', () => {
     expect(screen.queryByRole('button', { name: 'More' })).toBeNull();
   });
 
-  it('jumps straight to a hit that is already in the stream', async () => {
+  it('jumps straight to a hit that is already in the stream and closes the panel', async () => {
     const loadWindow = vi.fn();
     fetchMock.mockImplementation(async () => ({ ok: true, json: async () => ({ results: [row('b1', 'Moon#2', '2026-09-23 12:01:00', 'hola')], total: 1, offset: 0, limit: 50 }) }));
-    renderPanel({ loadWindow });
-    fireEvent.click(screen.getByTitle('Search chat history'));
+    renderPanel({ loadWindow, initialSearchOpen: true });
     fireEvent.change(screen.getByLabelText('Search messages'), { target: { value: 'hola' } });
     const hit = await screen.findByTitle('Jump to message');
     fireEvent.click(hit);
+    expect(searchToggle).toHaveBeenLastCalledWith(false);
     await waitFor(() => expect(scrollToIndex).toHaveBeenCalled());
     expect(loadWindow).not.toHaveBeenCalled();
     expect(screen.getByTestId('virtuoso')).toBeInTheDocument();
@@ -651,36 +716,20 @@ describe('ChatPanel search', () => {
         return loaded;
       }, []);
       return (
-        <MemoryRouter>
-          <ChatPanel
-            messages={state.msgs}
-            status="connected"
-            avatars={avatars}
-            stats={stats}
-            sessions={new Map()}
-            inGameTags={new Set()}
-            inGameInfoMap={new Map()}
-            recentWinners={new Set()}
-            recentDeltas={new Map()}
-            gameEvents={[]}
-            ongoingMatchIds={new Set()}
-            liveStreamers={new Map()}
-            watchList={new Set()}
-            onlineUsers={[]}
-            botResponses={[]}
-            translations={new Map()}
-                loadOlder={() => Promise.resolve({ added: 0 })}
-            hasMoreHistory
-            loadWindow={load}
-            loadLatest={async () => messages}
-            windowMode={state.mode}
-            windowId={state.windowId}
-          />
-        </MemoryRouter>
+        <Owner
+          {...baseProps}
+          initialSearchOpen
+          messages={state.msgs}
+          inGameInfoMap={new Map()}
+          gameEvents={[]}
+          loadWindow={load}
+          loadLatest={async () => messages}
+          windowMode={state.mode}
+          windowId={state.windowId}
+        />
       );
     }
     render(<WindowHarness />);
-    fireEvent.click(screen.getByTitle('Search chat history'));
     fireEvent.change(screen.getByLabelText('Search messages'), { target: { value: 'hola' } });
     fireEvent.click(await screen.findByTitle('Jump to message'));
     await waitFor(() => expect(loadWindow).toHaveBeenCalledTimes(1));
@@ -707,7 +756,7 @@ describe('ChatPanel stats strip', () => {
     perDay: [],
   };
 
-  it('is off by default, toggles from the header pill, persists and fetches /api/chat/stats', async () => {
+  it('is closed until statsOpen, then fetches /api/chat/stats and renders the figures at the top of the list', async () => {
     let resolveStats;
     globalThis.fetch.mockImplementation(async (url) => {
       if (String(url).endsWith('/api/chat/stats')) {
@@ -717,15 +766,16 @@ describe('ChatPanel stats strip', () => {
     });
     renderPanel();
     expect(screen.queryByTestId('stats-strip')).toBeNull();
-    const pill = screen.getByTitle('Show chat stats');
-    expect(pill).toHaveAttribute('data-active', 'false');
-    fireEvent.click(pill);
-    expect(localStorage.getItem('chat:showStats')).toBe('1');
-    expect(screen.getByTitle('Hide chat stats')).toHaveAttribute('data-active', 'true');
+    expect(globalThis.fetch.mock.calls.filter((c) => String(c[0]).endsWith('/api/chat/stats'))).toHaveLength(0);
+    fireEvent.click(screen.getByText('toggle stats'));
     // skeleton until the relay answers
     const strip = screen.getByTestId('stats-strip');
     expect(strip).toHaveAttribute('aria-busy', 'true');
     expect(globalThis.fetch.mock.calls.filter((c) => String(c[0]).endsWith('/api/chat/stats'))).toHaveLength(1);
+    // the strip sits above the stream inside the panel
+    const panel = document.querySelector('[data-chat-panel]');
+    expect(panel).toContainElement(strip);
+    expect(strip.compareDocumentPosition(screen.getByTestId('virtuoso')) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
 
     resolveStats();
     await waitFor(() => expect(screen.getByText('1,234')).toBeInTheDocument());
@@ -748,50 +798,15 @@ describe('ChatPanel stats strip', () => {
     expect(current[0].getAttribute('fill-opacity')).toBe('1');
     expect(bars[(Number(current[0].getAttribute('data-hour')) + 1) % 24].getAttribute('fill-opacity')).toBe('0.35');
 
-    fireEvent.click(screen.getByTitle('Hide chat stats'));
+    fireEvent.click(screen.getByText('toggle stats'));
     expect(screen.queryByTestId('stats-strip')).toBeNull();
-    expect(localStorage.getItem('chat:showStats')).toBe('0');
+    // no preference of its own any more
+    expect(localStorage.getItem('chat:showStats')).toBeNull();
   });
 
-  it('restores the strip from localStorage', () => {
-    localStorage.setItem('chat:showStats', '1');
-    renderPanel();
+  it('renders straight away when mounted open', () => {
+    renderPanel({ initialStatsOpen: true });
     expect(screen.getByTestId('stats-strip')).toBeInTheDocument();
-  });
-});
-
-describe('ChatPanel digest pill', () => {
-  it('links to today\'s digest on /news when the relay has one', async () => {
-    globalThis.fetch.mockImplementation(async (url) => {
-      if (String(url).includes('/api/admin/stats/today')) {
-        return { ok: true, json: async () => ({ date: '2026-09-23', digest: '# Today\nstuff' }) };
-      }
-      return { ok: false, json: async () => ({}) };
-    });
-    renderPanel();
-    const pill = await screen.findByTitle("Today's digest on /news");
-    expect(pill).toHaveAttribute('href', '/news?day=2026-09-23');
-    expect(pill).toHaveTextContent('Digest');
-    expect(globalThis.fetch.mock.calls.filter((c) => String(c[0]).includes('/api/admin/stats/today'))).toHaveLength(1);
-
-    // module-scope cache: a second mount does not re-ask
-    cleanup();
-    renderPanel();
-    await screen.findByTitle("Today's digest on /news");
-    expect(globalThis.fetch.mock.calls.filter((c) => String(c[0]).includes('/api/admin/stats/today'))).toHaveLength(1);
-  });
-
-  it('is hidden when there is no digest for today', async () => {
-    globalThis.fetch.mockImplementation(async (url) => {
-      if (String(url).includes('/api/admin/stats/today')) {
-        return { ok: true, json: async () => ({ date: '2026-09-23', digest: null }) };
-      }
-      return { ok: false, json: async () => ({}) };
-    });
-    renderPanel();
-    await waitFor(() => expect(globalThis.fetch.mock.calls.some((c) => String(c[0]).includes('/api/admin/stats/today'))).toBe(true));
-    await new Promise((r) => setTimeout(r, 0));
-    expect(screen.queryByTitle("Today's digest on /news")).toBeNull();
   });
 });
 
@@ -982,7 +997,6 @@ describe('GameModal', () => {
           onlineUsers={[{ battleTag: 'Moon#2', name: 'Moon' }, { battleTag: 'Grubby#1', name: 'Grubby' }]}
           inGameInfoMap={hover.inGameInfoMap}
           stats={new Map([['Moon#2', { mmr: 1800 }]])}
-          avatars={avatars}
           hoverData={hover}
           onClose={onClose}
           {...overrides}
@@ -998,7 +1012,12 @@ describe('GameModal', () => {
     expect(dialog).toHaveAttribute('aria-label', 'Live · Royal Gardens · 5m');
     expect(screen.getByText('Royal Gardens')).toBeInTheDocument(); // card map name
     expect(screen.getByRole('link', { name: 'Moon' })).toHaveAttribute('href', '/player/Moon%232');
-    expect(screen.getByText(/in progress/)).toBeInTheDocument();
+    // the card's LIVE pill and its "N min in" meta (the start event's time is
+    // not recent here, so the meta falls back to "in progress")
+    expect(screen.getByText('LIVE')).toBeInTheDocument();
+    expect(screen.getByText(/in progress|min in/)).toBeInTheDocument();
+    // no collapse control inside the modal
+    expect(screen.queryByTitle('Collapse')).toBeNull();
     expect(document.querySelector('[data-game-roster]')).toBeNull();
 
     fireEvent.click(screen.getByRole('button', { name: 'Close game' }));
@@ -1041,7 +1060,7 @@ describe('GameModal', () => {
     expect(roster.querySelectorAll('li')).toHaveLength(2);
     expect(screen.getByRole('link', { name: 'Moon' })).toHaveAttribute('href', '/player/Moon%232');
     expect(screen.getByText('1800')).toBeInTheDocument();
-    expect(screen.queryByText(/in progress/)).toBeNull();
+    expect(screen.queryByText('LIVE')).toBeNull();
   });
 
   it('says Finished once the match leaves the ongoing set', () => {

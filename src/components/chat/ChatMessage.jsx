@@ -7,14 +7,17 @@ import { CountryFlag } from "../ui";
 import { Chip } from "./chip";
 import CopyLink, { CopyLinkButton } from "./CopyLink";
 import LineEnd, { Time } from "./LineEnd";
+import { localTimeLabel } from "../../lib/chat/localTime";
 
 /**
  * One message group (author + consecutive lines) in three looks:
  *
- *   feed        the /chat stream: 32px avatar, display name, mono lines
- *               with a right-aligned timestamp, one status chip
+ *   feed        the /chat stream (Chat v2 message group): 38px avatar with
+ *               a flag badge, display name, "{mmr} MMR", the sender's local
+ *               time, one status chip; mono lines with a right-aligned
+ *               timestamp per line
  *   transcript  compact serif transcript rows (RecentConversations,
- *               ChatContext); `target` tints the highlighted author
+ *               ChatContext, search results); `target` tints the focus author
  *   quote       no avatar, indented serif italic pull-quotes on the
  *               :root --quote-* vars (news digest, magazine)
  *
@@ -28,7 +31,8 @@ import LineEnd, { Time } from "./LineEnd";
  *                  chip: { kind: "ingame" | "won" | "lost", label, onClick? },
  *                  twitchLogin, twitchTitle }
  *                A chip with onClick renders as a button (in-game chip opens
- *                the game modal)
+ *                the game modal). The feed derives the sender's local time
+ *                from countryCode and the first line's sentAt (localTime.js).
  *   target       transcript only: gold tint background for the focus author
  *   watched      feed only: gold bar on the left for watch-listed authors
  *   onNameClick  (author) => void; when set the name is a button, else a /player link
@@ -37,29 +41,26 @@ import LineEnd, { Time } from "./LineEnd";
  *   renderAfterLine (line) => node; extra rows under a line (bot replies)
  *   permalinkHref (line) => string; feed only: when set, each line gets a
  *                hover-only copy-link anchor next to its timestamp
- *   $compact     feed only: tighter density (focus mode): 24px avatar,
- *                var(--space-2) group spacing, 1.4 line-height
  */
 
+const FEED_LINE_HEIGHT = 1.45;
 const LINE_HEIGHT = 1.5;
-const COMPACT_LINE_HEIGHT = 1.4;
 
-// Avatar size per variant. The feed avatar spans a header line plus one
-// message line (~44px); transcripts stay at 32px; focus mode is 24px.
-export const avatarSize = (variant, compact) =>
-  variant === "transcript" ? 32 : compact ? 24 : 44;
+// Avatar size per variant: the feed avatar spans the header row plus one
+// message line; transcripts stay at 32px.
+export const avatarSize = (variant) => (variant === "transcript" ? 32 : 38);
 
 const Group = styled.div`
   position: relative;
   display: grid;
-  grid-template-columns: ${(p) => (p.$variant === "quote" ? "1fr" : `${avatarSize(p.$variant, p.$compact)}px 1fr`)};
-  gap: ${(p) => (p.$variant === "quote" ? "0" : "var(--space-3)")};
+  grid-template-columns: ${(p) => (p.$variant === "quote" ? "1fr" : `${avatarSize(p.$variant)}px minmax(0, 1fr)`)};
+  gap: ${(p) => (p.$variant === "quote" ? "0" : p.$variant === "feed" ? "12px" : "var(--space-3)")};
   align-items: start;
   min-width: 0;
   ${(p) =>
     p.$variant === "feed" &&
     css`
-      padding-top: ${p.$compact ? "var(--space-2)" : "var(--space-3)"};
+      padding: 10px 0;
     `}
   ${(p) =>
     p.$variant === "transcript" &&
@@ -84,37 +85,53 @@ const AvatarCol = styled.div`
   width: ${(p) => p.$size}px;
   height: ${(p) => p.$size}px;
   flex-shrink: 0;
+`;
 
-  img {
-    width: 100%;
-    height: 100%;
-  }
+const avatarFrame = css`
+  width: 100%;
+  height: 100%;
+  box-sizing: border-box;
+  display: block;
+  border-radius: ${(p) => (p.$variant === "feed" ? "3px" : "var(--radius-md)")};
+  ${(p) =>
+    p.$variant === "feed" &&
+    css`
+      border: 1px solid rgba(var(--gold-muted-rgb), 0.45);
+    `}
 `;
 
 const AvatarImg = styled.img`
-  width: 100%;
-  height: 100%;
-  border-radius: var(--radius-md);
-  display: block;
+  ${avatarFrame}
   object-fit: cover;
 `;
 
 const AvatarRaceIcon = styled.img`
-  width: 100%;
-  height: 100%;
-  box-sizing: border-box;
-  border-radius: var(--radius-md);
-  display: block;
-  padding: ${(p) => (p.$compact ? "4px" : "8px")};
+  ${avatarFrame}
+  padding: ${(p) => (p.$variant === "feed" ? "7px" : "6px")};
   background: var(--surface-2);
   opacity: ${(p) => (p.$faded ? 0.3 : 0.85)};
 `;
 
+/* 16x11 flag badge over the avatar corner, ringed in the page background
+   colour (#0a0806, the body background under the panels) so it reads as a
+   badge on any avatar */
 const AvatarFlag = styled.div`
   position: absolute;
-  bottom: -2px;
+  bottom: -3px;
   right: -3px;
+  width: 16px;
+  height: 11px;
   line-height: 0;
+  border-radius: 1px;
+  box-shadow: 0 0 0 1px #0a0806;
+  overflow: hidden;
+
+  img {
+    width: 16px;
+    height: 11px;
+    display: block;
+    object-fit: cover;
+  }
 `;
 
 const Body = styled.div`
@@ -126,12 +143,12 @@ const Head = styled.div`
   align-items: baseline;
   flex-wrap: wrap;
   gap: var(--space-2);
-  margin-bottom: ${(p) => (p.$variant === "quote" ? "var(--quote-name-gap)" : p.$compact ? "0" : "2px")};
-  line-height: ${(p) => (p.$compact ? COMPACT_LINE_HEIGHT : 1.3)};
+  margin-bottom: ${(p) => (p.$variant === "quote" ? "var(--quote-name-gap)" : p.$variant === "feed" ? "4px" : "2px")};
+  line-height: 1.3;
 `;
 
 const nameFont = {
-  feed: "var(--text-xs)",
+  feed: "15px",
   transcript: "var(--text-xxs)",
   quote: "var(--text-xs)",
 };
@@ -185,6 +202,15 @@ const Mmr = styled.span`
   color: var(--grey-light);
 `;
 
+/* "{h:mm}{a|p} local": the sender's clock, mono 11px dimmed */
+const LocalTime = styled.span`
+  font-family: var(--font-mono);
+  font-size: var(--text-xxxs);
+  color: var(--grey-light);
+  opacity: 0.6;
+  white-space: nowrap;
+`;
+
 const TwitchLink = styled.a`
   display: inline-flex;
   align-items: center;
@@ -199,12 +225,17 @@ const TwitchLink = styled.a`
   }
 `;
 
+const Lines = styled.div`
+  display: flex;
+  flex-direction: column;
+  gap: ${(p) => (p.$variant === "feed" ? "3px" : "0")};
+`;
+
 const Line = styled.div`
   display: grid;
-  grid-template-columns: 1fr auto;
+  grid-template-columns: minmax(0, 1fr) auto;
   gap: var(--space-3);
   align-items: baseline;
-  padding: 1px 0;
   border-radius: var(--radius-sm);
   transition: background 0.6s;
   ${(p) =>
@@ -213,7 +244,7 @@ const Line = styled.div`
       background: rgba(252, 219, 51, 0.14) !important;
     `}
   &:hover ${Time} {
-    color: var(--grey-light);
+    opacity: 1;
   }
   &:hover ${CopyLinkButton},
   &:focus-within ${CopyLinkButton} {
@@ -224,7 +255,7 @@ const Line = styled.div`
 const FeedText = styled.span`
   font-family: var(--font-mono);
   font-size: var(--text-xs);
-  line-height: ${(p) => (p.$compact ? COMPACT_LINE_HEIGHT : LINE_HEIGHT)};
+  line-height: ${FEED_LINE_HEIGHT};
   color: var(--text-body);
   overflow-wrap: anywhere;
   word-break: break-word;
@@ -278,21 +309,21 @@ const TranslationLabel = styled.span`
   opacity: 0.6;
 `;
 
-function AvatarBlock({ meta, compact, variant }) {
+function AvatarBlock({ meta, variant }) {
   const { avatarUrl, race, countryCode } = meta || {};
   let img;
   if (avatarUrl) {
-    img = <AvatarImg src={avatarUrl} alt="" />;
+    img = <AvatarImg src={avatarUrl} alt="" $variant={variant} />;
   } else {
     const raceIcon = race != null ? raceMapping[race] : null;
     img = raceIcon ? (
-      <AvatarRaceIcon src={raceIcon} alt="" $compact={compact} />
+      <AvatarRaceIcon src={raceIcon} alt="" $variant={variant} />
     ) : (
-      <AvatarRaceIcon src={raceIcons.random} alt="" $faded $compact={compact} />
+      <AvatarRaceIcon src={raceIcons.random} alt="" $faded $variant={variant} />
     );
   }
   return (
-    <AvatarCol $size={avatarSize(variant, compact)}>
+    <AvatarCol $size={avatarSize(variant)}>
       {img}
       {countryCode && (
         <AvatarFlag>
@@ -316,7 +347,6 @@ export default function ChatMessage({
   renderLine = defaultRenderLine,
   renderAfterLine,
   permalinkHref,
-  $compact = false,
 }) {
   if (!group?.author) return null;
   const { author, lines = [] } = group;
@@ -324,7 +354,6 @@ export default function ChatMessage({
   const displayName = author.userName || tag.split("#")[0];
   const isQuote = variant === "quote";
   const isFeed = variant === "feed";
-  const compact = isFeed && Boolean($compact);
 
   let name = onNameClick ? (
     <NameButton type="button" $variant={variant} onClick={() => onNameClick(author)}>
@@ -341,16 +370,18 @@ export default function ChatMessage({
   const showHead = !isQuote || Boolean(displayName) || Boolean(wrapName);
 
   const chip = meta?.chip;
+  const localTime = isFeed && meta?.countryCode ? localTimeLabel(meta.countryCode, lines[0]?.sentAt) : null;
   const Text = variant === "transcript" ? TranscriptText : FeedText;
 
   return (
-    <Group $variant={variant} $target={target} $watched={watched} $compact={compact} data-variant={variant} data-compact={compact || undefined} data-watched={watched || undefined}>
-      {!isQuote && <AvatarBlock meta={meta} compact={compact} variant={variant} />}
+    <Group $variant={variant} $target={target} $watched={watched} data-variant={variant} data-watched={watched || undefined}>
+      {!isQuote && <AvatarBlock meta={meta} variant={variant} />}
       <Body>
-        {showHead && <Head $variant={variant} $compact={compact}>
+        {showHead && <Head $variant={variant}>
           {name}
           {author.clanTag && <ClanTag>{author.clanTag}</ClanTag>}
           {!isQuote && meta?.mmr != null && <Mmr>{Math.round(meta.mmr)} MMR</Mmr>}
+          {localTime && <LocalTime data-local-time title="The sender's local time">{localTime} local</LocalTime>}
           {!isQuote && chip?.label && (chip.onClick ? (
             <Chip as="button" type="button" $kind={chip.kind} $clickable onClick={chip.onClick} title="Show this game">
               {chip.label}
@@ -378,23 +409,25 @@ export default function ChatMessage({
             ))}
           </QuoteLines>
         ) : (
-          lines.map((line, i) => (
-            <React.Fragment key={line.id ?? line.sentAt ?? i}>
-              <Line id={line.id != null ? `msg-${line.id}` : undefined} $highlight={Boolean(line.highlight)}>
-                <Text $compact={compact}>{renderLine(line)}</Text>
-                <LineEnd time={line.sentAt} reserve={isFeed && Boolean(permalinkHref)}>
-                  {isFeed && permalinkHref && line.id != null && <CopyLink href={permalinkHref(line)} />}
-                </LineEnd>
-              </Line>
-              {line.translation && (
-                <Translation>
-                  <TranslationLabel>EN</TranslationLabel>
-                  {line.translation}
-                </Translation>
-              )}
-              {renderAfterLine ? renderAfterLine(line) : null}
-            </React.Fragment>
-          ))
+          <Lines $variant={variant}>
+            {lines.map((line, i) => (
+              <React.Fragment key={line.id ?? line.sentAt ?? i}>
+                <Line id={line.id != null ? `msg-${line.id}` : undefined} $highlight={Boolean(line.highlight)}>
+                  <Text>{renderLine(line)}</Text>
+                  <LineEnd time={line.sentAt} reserve={isFeed && Boolean(permalinkHref)}>
+                    {isFeed && permalinkHref && line.id != null && <CopyLink href={permalinkHref(line)} />}
+                  </LineEnd>
+                </Line>
+                {line.translation && (
+                  <Translation>
+                    <TranslationLabel>EN</TranslationLabel>
+                    {line.translation}
+                  </Translation>
+                )}
+                {renderAfterLine ? renderAfterLine(line) : null}
+              </React.Fragment>
+            ))}
+          </Lines>
         )}
       </Body>
     </Group>

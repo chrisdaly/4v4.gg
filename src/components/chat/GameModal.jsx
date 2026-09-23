@@ -2,7 +2,7 @@ import React, { useEffect, useMemo } from "react";
 import { Link } from "react-router-dom";
 import styled from "styled-components";
 import { Button, ModalBackdrop, ModalContent } from "../ui";
-import { GameEventCardView } from "./GameTicker";
+import { GameEventCardView } from "./GameRow";
 import { formatGameMinutes } from "./chip";
 import { buildStartEvent } from "../../lib/chat/useGameEvents";
 
@@ -23,7 +23,6 @@ import { buildStartEvent } from "../../lib/chat/useGameEvents";
  *   inGameInfoMap  battleTag -> { matchId, mapName, startTime }
  *   stats          battleTag -> { mmr }
  *   hoverData      { avatars, stats, sessions, inGameTags, inGameInfoMap }
- *   avatars        battleTag -> profile (note avatars on the card)
  *   onClose        () => void; the close button, the backdrop and Esc
  */
 
@@ -139,7 +138,6 @@ export default function GameModal({
   inGameInfoMap,
   stats,
   hoverData,
-  avatars,
   onClose,
 }) {
   const { event, players } = useMemo(
@@ -148,7 +146,7 @@ export default function GameModal({
   );
 
   // Esc closes this first; capture + stopPropagation keeps the chat panel's
-  // own Esc handling (focus mode, search) out of it
+  // own Esc handling (search, date picker) out of it
   useEffect(() => {
     const onKey = (e) => {
       if (e.key !== "Escape") return;
@@ -181,7 +179,7 @@ export default function GameModal({
           </CloseButton>
         </Head>
         {event ? (
-          <GameEventCardView event={event} stillRunning={live} hoverData={hoverData} avatars={avatars} flush />
+          <GameEventCardView event={event} stillRunning={live} hoverData={hoverData} flush />
         ) : (
           <>
             <Note>No lobby data yet; channel players in this game:</Note>

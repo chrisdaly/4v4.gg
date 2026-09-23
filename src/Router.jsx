@@ -118,6 +118,12 @@ const Router = () => (
         <Route path="/mystream">
           <Suspense fallback={<PageLoader />}><MyStreamPage /></Suspense>
         </Route>
+        {/* Chat v2 owns the full viewport: no Navbar (Chat.jsx assumes --nav-height 0) */}
+        <Route path="/chat">
+          <ErrorBoundary>
+            <Suspense fallback={<PageLoader />}><Chat /></Suspense>
+          </ErrorBoundary>
+        </Route>
 
         {/* All other pages - Navbar stays mounted, only content suspends */}
         <Route>
@@ -140,7 +146,6 @@ const Router = () => (
                 <Route path="/style" component={StyleReference} />
                 <Route path="/icons" component={IconDemo} />
                 <Route path="/assets" component={Assets} />
-                <Route path="/chat" component={Chat} />
                 <Route path="/search" component={Search} />
                 <Route path="/clips" component={Clips} />
                 <Route path="/themes" component={Themes} />

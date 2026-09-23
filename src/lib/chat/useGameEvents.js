@@ -7,6 +7,7 @@ const W3C_API = "https://website-backend.w3champions.com/api";
 const BACKFILL_WINDOW_MS = 3 * 60 * 60 * 1000;
 const RESULT_RETRY_MS = 5000;
 const HIGHLIGHT_MS = 120_000;
+const DELTA_MS = 10 * 60 * 1000; // roster "last game" delta column memory
 
 /* ── Game-event builders ──────────────────────────────
    Events show the full lobby (all 8 players); `inChannel` marks the ones
@@ -312,7 +313,7 @@ export default function useGameEvents({ messages, onlineUsers, ongoingMatches })
                 withDelta.forEach((p) => next.delete(p.battleTag));
                 return next;
               });
-            }, HIGHLIGHT_MS);
+            }, DELTA_MS);
           }
         }
       }

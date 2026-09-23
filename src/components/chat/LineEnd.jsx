@@ -5,23 +5,25 @@ import { formatTime } from "../../lib/useChatMessages";
 /**
  * The right-hand cell of a chat line: the timestamp plus a fixed 20px slot
  * for the hover-only copy-link control. Message lines (ChatMessage) and game
- * tickers (GameTicker) both end with this cell so their times sit in one
- * column; a ticker has no copy link but still reserves the slot.
+ * rows (GameRow) both end with this cell so their times sit in one column;
+ * a game row has no copy link but still reserves the slot.
  *
- *   time      ISO string, formatted with formatTime
+ *   time      ISO string, formatted with formatTime (12-hour)
  *   reserve   keep the 20px slot even when there is nothing to put in it
- *             (feed lines and tickers); transcript rows pass false
+ *             (feed lines and game rows); transcript rows pass false
  *   children  the control for the slot (CopyLink)
  */
 
 export const END_SLOT_PX = 20;
 
+/* mono 11px, dimmed grey-light (the design's #777) */
 export const Time = styled.span`
   font-family: var(--font-mono);
   font-size: var(--text-xxxs);
-  color: var(--grey-mid);
+  color: var(--grey-light);
+  opacity: 0.6;
   white-space: nowrap;
-  transition: color var(--transition);
+  transition: opacity var(--transition);
 `;
 
 const Cell = styled.span`

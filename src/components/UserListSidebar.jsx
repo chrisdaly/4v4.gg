@@ -1,108 +1,107 @@
-import React, { useMemo, useState } from "react";
+import React, { useMemo } from "react";
 import { Link } from "react-router-dom";
 import styled, { css } from "styled-components";
 import { FaTwitch } from "react-icons/fa";
-import { GiCrossedSwords } from "react-icons/gi";
 import { raceMapping, raceIcons } from "../lib/constants";
-import { Button, CountryFlag, Input, Skeleton } from "./ui";
+import { Button, CountryFlag, Skeleton } from "./ui";
 import PlayerHoverCard from "./PlayerHoverCard";
 import useIdleTags from "../lib/chat/useIdleTags";
 import { formatGameMinutes } from "./chat/chip";
+import { countryOf, regionOf } from "../lib/chat/regions";
+import { Panel, PanelHeader, CountPill, Hint, scrollStyles } from "./chat/panel";
 
 /**
- * The channel roster: one flat list of everyone in the channel ordered by
- * MMR descending (unknown MMR last, then by name), plus a name filter.
- * Watched players sit in a small "Watching" block at the top. An in-game
- * row carries a crossed-swords glyph after the name (map and elapsed in its
- * tooltip) and opens the game (onOpenGame with the inGameInfoMap entry);
- * the name text still links to the player page (inGameMatchMap). Idle rows
- * (joined over 3h ago, not in a game) are dimmed.
- *
- * The name filter is uncontrolled by default; pass `filter` and
- * `onFilterChange` to drive it from outside (the Pulse column's dot click
- * filters the roster this way).
+ * The channel roster on /chat (Chat v2): everyone online, MMR-sorted and
+ * grouped into brackets under an MMR histogram. `region` (a regionOf name)
+ * narrows the rows, the histogram and the header counts to that region;
+ * `filter` narrows rows by name (no input of its own any more). An in-game
+ * row shows a red dot, opens the game on click (onOpenGame with the
+ * inGameInfoMap entry) and links its name to the player page
+ * (inGameMatchMap). The last-game delta comes from recentDeltas. Idle rows
+ * (joined over 3h ago, not in a game) are dimmed. The watch star shows on
+ * hover and stays lit while watched.
  */
 
-const ROW_HEIGHT = 40; // px, one roster row
-const AVATAR = 32; // px, row avatar (radius-sm)
+const AVATAR = 28; // px
+const HIST_HEIGHT = 36; // px, tallest histogram bar
+const HIST_MIN = 1200;
+const HIST_BIN = 100;
+const HIST_BINS = 12; // 1200..2300+
+const BRACKETS = [
+  { min: 2000, label: "2000+" },
+  { min: 1800, label: "1800 - 1999" },
+  { min: 1600, label: "1600 - 1799" },
+  { min: 1400, label: "1400 - 1599" },
+  { min: -Infinity, label: "Under 1400" },
+];
+const UNRATED = "Unrated";
 
 /* ── Frame ─────────────────────────────────────────────────────────── */
 
-const Sidebar = styled.aside`
-  width: 300px;
+const Sidebar = styled(Panel).attrs({ as: "aside" })`
+  grid-area: roster;
   height: 100%;
-  box-sizing: border-box;
-  display: flex;
-  flex-direction: column;
-  overflow: hidden;
-  flex-shrink: 0;
 
   @media (max-width: 768px) {
     position: fixed;
     inset: 0;
     width: 100%;
     height: 100dvh;
+    border-radius: 0;
+    background: rgba(10, 8, 6, 0.96);
     z-index: var(--z-modal);
     transform: ${(p) => (p.$mobileVisible ? "translateY(0)" : "translateY(100%)")};
     transition: transform 0.25s ease;
   }
 `;
 
-const Frame = styled.div`
-  flex: 1;
-  min-height: 0;
-  display: flex;
-  flex-direction: column;
-  overflow: hidden;
-  box-sizing: border-box;
-  background: ${(p) => p.$theme?.bg || "var(--panel-bg)"};
-  backdrop-filter: ${(p) => p.$theme?.blur || "blur(1px)"};
-  border: ${(p) => p.$theme?.border || "8px solid transparent"};
-  border-image: ${(p) => p.$theme?.borderImage || 'url("/frames/chat/ChatFrameBorder.png") 30 / 8px stretch'};
-  box-shadow: ${(p) => p.$theme?.shadow || "none"};
-`;
-
-const Header = styled.div`
-  display: flex;
-  align-items: center;
+const Header = styled(PanelHeader)`
   gap: var(--space-2);
-  padding: var(--space-3) var(--space-4);
-  border-bottom: 1px solid rgba(var(--gold-muted-rgb), 0.2);
-  flex-shrink: 0;
 `;
 
-const HeaderTitle = styled.span`
+const Title = styled.span`
   font-family: var(--font-display);
   font-size: var(--text-sm);
   color: var(--gold);
-  letter-spacing: 0.05em;
+  white-space: nowrap;
 `;
 
-const headerStat = css`
+const InGame = styled.span`
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
   font-family: var(--font-mono);
   font-size: var(--text-xxs);
   color: var(--grey-light);
   white-space: nowrap;
 `;
 
-const HeaderCount = styled.span`
-  ${headerStat}
+const RedDot = styled.span`
+  width: 6px;
+  height: 6px;
+  border-radius: var(--radius-full);
+  background: var(--red);
+  flex-shrink: 0;
 `;
 
-const HeaderLive = styled(Link)`
-  ${headerStat}
-  text-decoration: none;
-  &:hover {
-    color: var(--white);
+const Scope = styled(Hint)`
+  margin-left: auto;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  min-width: 0;
+`;
+
+const ColumnHint = styled.span`
+  margin-left: auto;
+  font-family: var(--font-mono);
+  font-size: 10px;
+  letter-spacing: 0.1em;
+  color: var(--grey-light);
+  opacity: 0.6;
+  white-space: nowrap;
+  ${Scope} + & {
+    margin-left: 0;
   }
-`;
-
-const HeaderSpacer = styled.span`
-  flex: 1;
-`;
-
-const CountValue = styled.span`
-  color: var(--gold);
 `;
 
 const CloseButton = styled(Button)`
@@ -112,79 +111,76 @@ const CloseButton = styled(Button)`
   }
 `;
 
-const Toolbar = styled.div`
+/* ── Histogram ─────────────────────────────────────────────────────── */
+
+const Histogram = styled.div`
+  padding: 10px 14px 8px;
   display: flex;
-  align-items: center;
+  flex-direction: column;
   gap: var(--space-2);
-  padding: var(--space-2) var(--space-4);
+  border-bottom: 1px solid rgba(255, 255, 255, 0.06);
   flex-shrink: 0;
 `;
 
-const FilterInput = styled(Input)`
+const Bars = styled.div`
+  display: flex;
+  align-items: flex-end;
+  gap: 2px;
+  height: ${HIST_HEIGHT}px;
+`;
+
+const Bar = styled.div`
   flex: 1;
-  min-width: 0;
-  padding: var(--space-1) var(--space-2);
-  font-size: var(--text-xxs);
+  height: ${(p) => p.$pct}%;
+  min-height: 1px;
+  background: rgba(252, 219, 51, 0.7);
+  border-radius: 1px 1px 0 0;
 `;
 
-/* ── Labels ────────────────────────────────────────────────────────── */
-
-const label = css`
+const Axis = styled.div`
+  display: flex;
+  justify-content: space-between;
   font-family: var(--font-mono);
-  font-size: var(--text-xxs);
-  text-transform: uppercase;
-  letter-spacing: 0.1em;
+  font-size: 10px;
   color: var(--grey-light);
+  opacity: 0.6;
+  margin-top: -4px;
 `;
 
-/* ── List and rows ─────────────────────────────────────────────────── */
+/* ── List, brackets and rows ───────────────────────────────────────── */
 
 const List = styled.div`
+  ${scrollStyles}
   flex: 1;
-  overflow-y: auto;
-  padding: var(--space-2) var(--space-3) var(--space-3);
-  display: flex;
-  flex-direction: column;
-  gap: var(--space-2);
-
-  &::-webkit-scrollbar {
-    width: 6px;
-  }
-  &::-webkit-scrollbar-track {
-    background: transparent;
-  }
-  &::-webkit-scrollbar-thumb {
-    background: var(--grey-mid);
-    border-radius: var(--radius-sm);
-  }
+  min-height: 0;
+  padding: 0 8px 10px;
 `;
 
-const WatchingBlock = styled.div`
+const BracketHeader = styled.div`
   display: flex;
-  flex-direction: column;
-  padding-bottom: var(--space-2);
-  margin-bottom: var(--space-2);
-  border-bottom: 1px solid rgba(var(--gold-muted-rgb), 0.2);
-`;
-
-const WatchingLabel = styled.div`
-  ${label}
-  padding: var(--space-1) var(--space-2);
+  justify-content: space-between;
+  padding: 10px 6px 4px;
+  font-family: var(--font-mono);
+  font-size: var(--text-xxxs);
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+  color: var(--grey-light);
+  opacity: 0.7;
 `;
 
 const rowStyles = css`
-  display: flex;
+  display: grid;
+  grid-template-columns: ${AVATAR}px minmax(0, 1fr) 6px 24px 34px;
   align-items: center;
-  gap: var(--space-2);
-  height: ${ROW_HEIGHT}px;
-  padding: 0 var(--space-3);
-  border-radius: var(--radius-sm);
+  gap: 9px;
+  padding: 4px 6px;
+  border-radius: var(--radius-md);
   text-decoration: none;
   color: inherit;
-  opacity: ${(p) => (p.$dim === "idle" ? 0.4 : 1)};
+  opacity: ${(p) => (p.$dim === "idle" ? 0.6 : 1)};
+  transition: background var(--transition);
   &:hover {
-    background: var(--surface-2);
-    opacity: 1;
+    background: var(--gold-tint-subtle);
   }
 `;
 
@@ -197,29 +193,42 @@ const AvatarWrap = styled.span`
   position: relative;
   width: ${AVATAR}px;
   height: ${AVATAR}px;
-  flex-shrink: 0;
 `;
 
 const AvatarImg = styled.img`
   width: ${AVATAR}px;
   height: ${AVATAR}px;
-  border-radius: var(--radius-sm);
+  border-radius: 3px;
   display: block;
   object-fit: cover;
+  background: var(--surface-2);
 `;
 
 const AvatarRaceIcon = styled(AvatarImg)`
   box-sizing: border-box;
   padding: var(--space-1);
-  background: var(--surface-2);
   opacity: ${(p) => (p.$faded ? 0.3 : 0.85)};
 `;
 
 const AvatarFlag = styled.span`
   position: absolute;
   bottom: -2px;
-  right: -2px;
+  right: -3px;
   line-height: 0;
+  img {
+    width: 13px;
+    height: 9px;
+    border-radius: 1px;
+    box-shadow: 0 0 0 1px #0a0806;
+    display: block;
+  }
+`;
+
+const NameCell = styled.span`
+  display: flex;
+  align-items: center;
+  gap: var(--space-1);
+  min-width: 0;
 `;
 
 const nameStyles = css`
@@ -227,7 +236,7 @@ const nameStyles = css`
   min-width: 0;
   font-family: var(--font-display);
   font-size: var(--text-xs);
-  color: var(--gold);
+  color: ${(p) => (p.$dim === "idle" ? "rgba(var(--gold-muted-rgb), 0.8)" : "var(--gold)")};
   white-space: nowrap;
   overflow: hidden;
   text-overflow: ellipsis;
@@ -245,23 +254,25 @@ const NameLink = styled(Link)`
   }
 `;
 
-const Swords = styled.span`
-  display: inline-flex;
-  align-items: center;
-  flex-shrink: 0;
-  color: var(--grey-light);
-  svg {
-    width: 12px;
-    height: 12px;
-  }
+const GameDot = styled.span`
+  width: 6px;
+  height: 6px;
+  border-radius: var(--radius-full);
+  background: ${(p) => (p.$on ? "var(--red)" : "transparent")};
+`;
+
+const Delta = styled.span`
+  font-family: var(--font-mono);
+  font-size: var(--text-xxxs);
+  text-align: right;
+  color: ${(p) => (p.$sign > 0 ? "var(--green)" : "var(--red)")};
 `;
 
 const Mmr = styled.span`
-  margin-left: auto;
   font-family: var(--font-mono);
-  font-size: var(--text-xxs);
-  color: var(--grey-light);
-  flex-shrink: 0;
+  font-size: 13px;
+  color: var(--white);
+  text-align: right;
 `;
 
 const TwitchLink = styled.a`
@@ -298,8 +309,12 @@ const Star = styled.button`
 `;
 
 const Empty = styled.div`
-  ${label}
-  padding: var(--space-2);
+  font-family: var(--font-mono);
+  font-size: var(--text-xxs);
+  text-transform: uppercase;
+  letter-spacing: 0.1em;
+  color: var(--grey-light);
+  padding: var(--space-3) var(--space-2);
 `;
 
 const SkeletonRow = styled.div`
@@ -321,7 +336,7 @@ function Avatar({ tag, avatars, stats }) {
       )}
       {profile?.country && (
         <AvatarFlag>
-          <CountryFlag name={profile.country.toLowerCase()} style={{ width: 12, height: 9 }} />
+          <CountryFlag name={profile.country.toLowerCase()} />
         </AvatarFlag>
       )}
     </AvatarWrap>
@@ -330,20 +345,45 @@ function Avatar({ tag, avatars, stats }) {
 
 const byName = (a, b) => (a.name || "").localeCompare(b.name || "", undefined, { sensitivity: "base" });
 
-/** Number of distinct games in progress among the given users. */
-function countLiveGames(users, inGameInfoMap) {
-  const keys = new Set();
+/** 12 histogram bins (1200..2300+, 100 each) over users with a known MMR. */
+export function histogramBins(users, stats) {
+  const bins = new Array(HIST_BINS).fill(0);
   for (const u of users) {
-    const info = inGameInfoMap?.get(u.battleTag);
-    if (info) keys.add(info.matchId || `${info.mapName}|${info.startTime}`);
+    const mmr = stats?.get(u.battleTag)?.mmr;
+    if (mmr == null) continue;
+    const i = Math.max(0, Math.min(HIST_BINS - 1, Math.floor((mmr - HIST_MIN) / HIST_BIN)));
+    bins[i]++;
   }
-  return keys.size;
+  return bins;
 }
 
-function UserRow({ user, avatars, stats, sessions, inGameInfo, playerUrl, liveInfo, isWatched, onToggleWatch, onOpenGame, dim }) {
+const binTitle = (i, n) => {
+  const lo = HIST_MIN + i * HIST_BIN;
+  return `${i === HIST_BINS - 1 ? `${lo}+` : `${lo} - ${lo + HIST_BIN - 1}`}: ${n}`;
+};
+
+/** Bracket groups in display order; unrated players (no MMR) trail in their own group. */
+export function bracketGroups(sortedUsers, stats) {
+  const groups = BRACKETS.map((b, i) => ({ label: b.label, users: [], min: b.min, max: i === 0 ? Infinity : BRACKETS[i - 1].min }));
+  const unrated = { label: UNRATED, users: [] };
+  for (const u of sortedUsers) {
+    const mmr = stats?.get(u.battleTag)?.mmr;
+    if (mmr == null) {
+      unrated.users.push(u);
+      continue;
+    }
+    const g = groups.find((b) => mmr >= b.min && mmr < b.max);
+    if (g) g.users.push(u);
+  }
+  return [...groups, unrated].filter((g) => g.users.length);
+}
+
+const formatDelta = (d) => `${d > 0 ? "+" : "-"}${Math.abs(Math.round(d))}`;
+
+function UserRow({ user, avatars, stats, sessions, inGameInfo, playerUrl, liveInfo, delta, isWatched, onToggleWatch, onOpenGame, dim }) {
   const tag = user.battleTag;
   const mmr = stats?.get(tag)?.mmr;
-  const swordsTitle = inGameInfo
+  const gameTitle = inGameInfo
     ? ["in game", inGameInfo.mapName, formatGameMinutes(inGameInfo.startTime)].filter(Boolean).join(" · ")
     : null;
   const openGame = inGameInfo && onOpenGame ? () => onOpenGame(inGameInfo) : null;
@@ -351,54 +391,55 @@ function UserRow({ user, avatars, stats, sessions, inGameInfo, playerUrl, liveIn
   const content = (
     <>
       <Avatar tag={tag} avatars={avatars} stats={stats} />
-      <PlayerHoverCard
-        battleTag={tag}
-        avatars={avatars}
-        stats={stats}
-        sessions={sessions}
-        inGameInfo={inGameInfo}
-        style={{ flex: 1, minWidth: 0 }}
-      >
-        {playerUrl ? (
-          <NameLink to={playerUrl} onClick={(e) => e.stopPropagation()}>
-            {user.name}
-          </NameLink>
-        ) : (
-          <Name>{user.name}</Name>
+      <NameCell>
+        <PlayerHoverCard
+          battleTag={tag}
+          avatars={avatars}
+          stats={stats}
+          sessions={sessions}
+          inGameInfo={inGameInfo}
+          style={{ flex: 1, minWidth: 0, display: "flex" }}
+        >
+          {playerUrl ? (
+            <NameLink to={playerUrl} $dim={dim} onClick={(e) => e.stopPropagation()}>
+              {user.name}
+            </NameLink>
+          ) : (
+            <Name $dim={dim}>{user.name}</Name>
+          )}
+        </PlayerHoverCard>
+        {liveInfo && (
+          <TwitchLink
+            href={`https://twitch.tv/${liveInfo.twitchName}`}
+            target="_blank"
+            rel="noopener noreferrer"
+            title={liveInfo.title || "Live on Twitch"}
+            onClick={(e) => e.stopPropagation()}
+          >
+            <FaTwitch />
+          </TwitchLink>
         )}
-      </PlayerHoverCard>
-      {inGameInfo && (
-        <Swords data-in-game title={swordsTitle} aria-label={swordsTitle}>
-          <GiCrossedSwords />
-        </Swords>
-      )}
-      {liveInfo && (
-        <TwitchLink
-          href={`https://twitch.tv/${liveInfo.twitchName}`}
-          target="_blank"
-          rel="noopener noreferrer"
-          title={liveInfo.title || "Live on Twitch"}
-          onClick={(e) => e.stopPropagation()}
-        >
-          <FaTwitch />
-        </TwitchLink>
-      )}
-      {mmr != null && <Mmr>{Math.round(mmr)}</Mmr>}
-      {onToggleWatch && (
-        <Star
-          type="button"
-          $watched={isWatched}
-          aria-label={isWatched ? "Unwatch player" : "Watch player"}
-          title={isWatched ? "Unwatch player" : "Watch player (pin to top, notify while away)"}
-          onClick={(e) => {
-            e.preventDefault();
-            e.stopPropagation();
-            onToggleWatch(tag);
-          }}
-        >
-          {isWatched ? "★" : "☆"}
-        </Star>
-      )}
+        {onToggleWatch && (
+          <Star
+            type="button"
+            $watched={isWatched}
+            aria-label={isWatched ? "Unwatch player" : "Watch player"}
+            title={isWatched ? "Unwatch player" : "Watch player (notify while away)"}
+            onClick={(e) => {
+              e.preventDefault();
+              e.stopPropagation();
+              onToggleWatch(tag);
+            }}
+          >
+            {isWatched ? "★" : "☆"}
+          </Star>
+        )}
+      </NameCell>
+      <GameDot data-in-game={inGameInfo ? "true" : undefined} title={gameTitle || undefined} $on={Boolean(inGameInfo)} />
+      <Delta data-delta={delta != null ? formatDelta(delta) : undefined} title={delta != null ? "Last game" : undefined} $sign={delta}>
+        {delta != null ? formatDelta(delta) : ""}
+      </Delta>
+      <Mmr>{mmr != null ? Math.round(mmr) : ""}</Mmr>
     </>
   );
 
@@ -409,6 +450,7 @@ function UserRow({ user, avatars, stats, sessions, inGameInfo, playerUrl, liveIn
       $clickable
       role="button"
       tabIndex={0}
+      aria-label={`${user.name}: ${gameTitle}`}
       onClick={openGame}
       onKeyDown={(e) => {
         if (e.key === "Enter" || e.key === " ") {
@@ -434,44 +476,38 @@ export default function UserListSidebar({
   inGameTags,
   inGameInfoMap,
   inGameMatchMap,
+  recentDeltas,
   liveStreamers,
   watchList,
   onToggleWatch,
   onOpenGame,
   $mobileVisible,
   onClose,
-  borderTheme,
-  filter,
-  onFilterChange,
+  region = null,
+  filter = "",
 }) {
-  const [localSearch, setLocalSearch] = useState("");
-  const controlled = typeof filter === "string" && typeof onFilterChange === "function";
-  const search = controlled ? filter : localSearch;
-  const setSearch = controlled ? onFilterChange : setLocalSearch;
   // Owns the once-a-minute idle tick so only the roster re-renders for it
   const idleTags = useIdleTags(users, inGameTags);
 
-  const sortedUsers = useMemo(() => {
+  const visible = useMemo(() => {
+    const q = (filter || "").trim().toLowerCase();
     const mmrOf = (u) => stats?.get(u.battleTag)?.mmr ?? -Infinity;
-    return [...users].sort((a, b) => {
-      const aMmr = mmrOf(a);
-      const bMmr = mmrOf(b);
-      if (aMmr !== bMmr) return bMmr - aMmr;
-      return byName(a, b);
-    });
-  }, [users, stats]);
+    return users
+      .filter((u) => !region || regionOf(countryOf(u, avatars)) === region)
+      .filter((u) => !q || (u.name || "").toLowerCase().includes(q))
+      .sort((a, b) => {
+        const aMmr = mmrOf(a);
+        const bMmr = mmrOf(b);
+        if (aMmr !== bMmr) return bMmr - aMmr;
+        return byName(a, b);
+      });
+  }, [users, stats, avatars, region, filter]);
 
-  const filteredUsers = useMemo(() => {
-    const q = search.trim().toLowerCase();
-    if (!q) return sortedUsers;
-    return sortedUsers.filter((u) => (u.name || "").toLowerCase().includes(q));
-  }, [sortedUsers, search]);
-
+  const bins = useMemo(() => histogramBins(visible, stats), [visible, stats]);
+  const binMax = Math.max(1, ...bins);
+  const groups = useMemo(() => bracketGroups(visible, stats), [visible, stats]);
+  const inGameCount = visible.filter((u) => inGameTags?.has(u.battleTag)).length;
   const isWatched = (u) => Boolean(watchList?.has(u.battleTag?.toLowerCase()));
-  const watching = filteredUsers.filter(isWatched);
-  const rest = watching.length ? filteredUsers.filter((u) => !isWatched(u)) : filteredUsers;
-
-  const liveGames = useMemo(() => countLiveGames(users, inGameInfoMap), [users, inGameInfoMap]);
 
   const rowFor = (user) => {
     const tag = user.battleTag;
@@ -486,6 +522,7 @@ export default function UserListSidebar({
         inGameInfo={inGame ? inGameInfoMap?.get(tag) : null}
         playerUrl={inGame ? inGameMatchMap?.get(tag) : null}
         liveInfo={liveStreamers?.get(tag)}
+        delta={recentDeltas?.get(tag) ?? null}
         isWatched={isWatched(user)}
         onToggleWatch={onToggleWatch}
         onOpenGame={onOpenGame}
@@ -494,54 +531,58 @@ export default function UserListSidebar({
     );
   };
 
-  const nothingMatches = users.length > 0 && filteredUsers.length === 0;
+  const nothingMatches = users.length > 0 && visible.length === 0;
 
   return (
-    <Sidebar $mobileVisible={$mobileVisible} aria-label="Channel roster">
-      <Frame $theme={borderTheme}>
-        <Header>
-          <HeaderTitle>Channel</HeaderTitle>
-          <HeaderCount data-online-count>
-            <CountValue>{users.length}</CountValue> online
-          </HeaderCount>
-          {liveGames > 0 && (
-            <HeaderLive to="/live" data-live-count title="Live games">
-              <CountValue>{liveGames}</CountValue> live
-            </HeaderLive>
-          )}
-          <HeaderSpacer />
-          <CloseButton $icon type="button" aria-label="Close roster" onClick={onClose}>
-            &times;
-          </CloseButton>
-        </Header>
-        <Toolbar>
-          <FilterInput
-            type="text"
-            placeholder="Filter players"
-            aria-label="Filter players"
-            value={search}
-            onChange={(e) => setSearch(e.target.value)}
-          />
-        </Toolbar>
-        <List>
-          {users.length === 0 &&
-            [...Array(8)].map((_, i) => (
-              <SkeletonRow key={`skel-${i}`}>
-                <Skeleton $w={`${AVATAR}px`} $h={`${AVATAR}px`} />
-                <Skeleton $w={`${55 + ((i * 17) % 30)}%`} $h="12px" />
-                <Skeleton $w="28px" $h="10px" style={{ marginLeft: "auto" }} />
-              </SkeletonRow>
-            ))}
-          {nothingMatches && <Empty>No players match</Empty>}
-          {watching.length > 0 && (
-            <WatchingBlock data-watching>
-              <WatchingLabel>Watching</WatchingLabel>
-              {watching.map(rowFor)}
-            </WatchingBlock>
-          )}
-          {rest.map(rowFor)}
-        </List>
-      </Frame>
+    <Sidebar $mobileVisible={$mobileVisible} aria-label="Channel roster" data-roster>
+      <Header>
+        <Title>Online</Title>
+        <CountPill data-online-count>{visible.length}</CountPill>
+        <InGame data-in-game-count>
+          <RedDot />
+          {inGameCount} in game
+        </InGame>
+        {region && <Scope data-roster-scope title={region}>{region}</Scope>}
+        <ColumnHint title="MMR change from last game">LAST · MMR</ColumnHint>
+        <CloseButton $icon type="button" aria-label="Close roster" onClick={onClose}>
+          &times;
+        </CloseButton>
+      </Header>
+      <Histogram data-histogram>
+        <Bars>
+          {bins.map((n, i) => (
+            <Bar key={i} data-bin={n} title={binTitle(i, n)} $pct={Math.round((n / binMax) * 100)} />
+          ))}
+        </Bars>
+        <Axis>
+          <span>&lt;1300</span>
+          <span>1600</span>
+          <span>1900</span>
+          <span>2200+</span>
+        </Axis>
+      </Histogram>
+      <List>
+        {users.length === 0 &&
+          [...Array(8)].map((_, i) => (
+            <SkeletonRow key={`skel-${i}`}>
+              <Skeleton $w={`${AVATAR}px`} $h={`${AVATAR}px`} />
+              <Skeleton $w={`${55 + ((i * 17) % 30)}%`} $h="12px" />
+              <span />
+              <span />
+              <Skeleton $w="28px" $h="10px" style={{ marginLeft: "auto" }} />
+            </SkeletonRow>
+          ))}
+        {nothingMatches && <Empty>{region ? `Nobody online in ${region}` : "No players match"}</Empty>}
+        {groups.map((g) => (
+          <React.Fragment key={g.label}>
+            <BracketHeader data-bracket={g.label}>
+              <span>{g.label}</span>
+              <span>{g.users.length}</span>
+            </BracketHeader>
+            {g.users.map(rowFor)}
+          </React.Fragment>
+        ))}
+      </List>
     </Sidebar>
   );
 }

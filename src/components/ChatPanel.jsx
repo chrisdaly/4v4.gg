@@ -1,102 +1,52 @@
 import React, { useRef, useEffect, useState, useCallback, useMemo } from "react";
 import { Virtuoso } from "react-virtuoso";
-import { Link } from "react-router-dom";
 import styled from "styled-components";
-import { GiCrossedSwords } from "react-icons/gi";
-import { HiSearch, HiTranslate, HiOutlineArrowsExpand, HiChartBar, HiNewspaper, HiGlobeAlt } from "react-icons/hi";
 import { IoSend } from "react-icons/io5";
 import { Button, Skeleton, Input } from "./ui";
 import { useMessageSegments, useBotResponseMap, formatDateDivider, getDateKey } from "../lib/useChatMessages";
 import { linkifyMessage } from "../lib/chatExtras";
 import PlayerHoverCard from "./PlayerHoverCard";
 import ChatMessage from "./chat/ChatMessage";
-import GameTicker from "./chat/GameTicker";
+import GameRow from "./chat/GameRow";
 import StatsStrip from "./chat/StatsStrip";
 import UnfurlCard from "./chat/UnfurlCard";
 import { findWatchedMentions, splitByMentions } from "../lib/chat/mentions";
 import { detectUnfurl } from "../lib/chat/unfurl";
 import { notifyChat } from "../lib/chat/notify";
 import { applyTabBadge } from "../lib/chat/tabBadge";
-import { fetchTodayDigest } from "../lib/chat/digestToday";
 import { useUnreadCount, useDocumentVisible } from "../lib/chat/useUnread";
 import { chipForTag } from "./chat/chip";
 import { getPlayerProfile } from "../lib/api";
 import { relayFetch } from "../lib/relay";
 import { normalizeMessages } from "../lib/chat/normalize";
 import useAdmin from "../lib/useAdmin";
+import { Panel } from "./chat/panel";
+
+/* The list's box is padding 6px 18px 12px (Chat v2 handoff); the panel
+   frame is the one all four /chat panels share (chat/panel.js) */
+const LIST_PAD_X = "18px";
+const LIST_PAD_TOP = "6px";
+const LIST_PAD_BOTTOM = "12px";
 
 const OuterFrame = styled.div`
   position: relative;
   flex: 1;
+  height: 100%;
   min-height: 0;
   min-width: 0;
   display: flex;
   flex-direction: column;
-`;
-
-const Wrapper = styled.div`
-  display: flex;
-  flex-direction: column;
-  flex: 1;
-  min-height: 0;
-  min-width: 0;
-  box-sizing: border-box;
-  background: ${(p) => p.$theme?.bg || "rgba(10, 8, 6, 0.25)"};
-  backdrop-filter: ${(p) => p.$theme?.blur || "blur(1px)"};
-  overflow: hidden;
   font-family: var(--font-body);
-  border: ${(p) => p.$theme?.border || "8px solid transparent"};
-  border-image: ${(p) => p.$theme?.borderImage || 'url("/frames/chat/ChatFrameBorder.png") 30 / 8px stretch'};
-  box-shadow: ${(p) => p.$theme?.shadow || "none"};
 `;
 
-const Header = styled.div`
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  padding: var(--space-4);
-  border-bottom: 1px solid rgba(252, 219, 51, 0.15);
-  flex-shrink: 0;
-
-  @media (max-width: 480px) {
-    padding: 10px var(--space-2);
-  }
-`;
-
-const Title = styled.span`
-  font-family: var(--font-display);
-  font-size: var(--text-sm);
-  color: var(--gold);
-  letter-spacing: 1px;
-`;
-
-const StatusBadge = styled.span`
-  display: flex;
-  align-items: center;
-  gap: 6px;
-  margin-left: var(--space-1);
-  font-family: var(--font-mono);
-  font-size: var(--text-xxs);
-  color: ${(p) => (p.$fault ? "var(--red)" : "var(--grey-light)")};
-  white-space: nowrap;
-`;
-
-const StatusDot = styled.span`
-  width: 6px;
-  height: 6px;
-  border-radius: 50%;
-  background: ${(p) => (p.$connected ? "var(--green)" : p.$fault ? "var(--red)" : "var(--grey-mid)")};
-  ${(p) => p.$connected && "animation: pulse 1.5s infinite;"}
+const Wrapper = styled(Panel).attrs({ as: "div" })`
+  flex: 1;
 `;
 
 const MessageList = styled.div`
   flex: 1;
   overflow-y: auto;
-  padding: var(--space-2) var(--space-4);
-
-  @media (max-width: 768px) {
-    padding: var(--space-2) var(--space-2);
-  }
+  padding: ${LIST_PAD_TOP} ${LIST_PAD_X} ${LIST_PAD_BOTTOM};
 
   &::-webkit-scrollbar {
     width: 6px;
@@ -130,33 +80,21 @@ const ChatScroller = styled.div.withConfig(noContextProp)`
 `;
 
 const ChatList = styled.div.withConfig(noContextProp)`
-  padding-left: var(--space-4);
-  padding-right: var(--space-4);
-
-  @media (max-width: 768px) {
-    padding-left: var(--space-2);
-    padding-right: var(--space-2);
-  }
+  padding-left: ${LIST_PAD_X};
+  padding-right: ${LIST_PAD_X};
 `;
 
 const ListTop = styled.div`
-  padding: var(--space-2) var(--space-4) 0;
-
-  @media (max-width: 768px) {
-    padding: var(--space-2) var(--space-2) 0;
-  }
+  padding: ${LIST_PAD_TOP} ${LIST_PAD_X} 0;
 `;
 
 const ListBottom = styled.div`
-  padding: 0 var(--space-4) var(--space-2);
-
-  @media (max-width: 768px) {
-    padding: 0 var(--space-2) var(--space-2);
-  }
+  padding: 0 ${LIST_PAD_X} ${LIST_PAD_BOTTOM};
 `;
 
+/* Indented to the message text column: 38px avatar + 12px gap */
 const SystemMessageRow = styled.div`
-  padding: var(--space-1) 0 var(--space-1) 56px;
+  padding: var(--space-1) 0 var(--space-1) 50px;
   line-height: 1.5;
   font-family: var(--font-mono);
   font-size: var(--text-xxs);
@@ -210,7 +148,6 @@ const DateDivider = styled.div`
   align-items: center;
   gap: var(--space-4);
   margin: ${(p) => (p.$first ? "var(--space-2)" : "var(--space-6)")} 0 var(--space-2);
-  padding: 0 var(--space-4);
 
   &::before,
   &::after {
@@ -256,22 +193,19 @@ const DayPicker = styled.div`
   gap: var(--space-2);
 `;
 
+/* Panel-ish pills over the list: mono 11px on the panel background */
 const DayButton = styled(Button)`
   font-size: var(--text-xxxs);
   letter-spacing: 0.1em;
-  padding: 2px var(--space-3);
+  padding: 2px 10px;
   background: rgba(10, 8, 6, 0.85);
+  border-color: rgba(255, 255, 255, 0.1);
+  border-radius: var(--radius-sm);
   backdrop-filter: blur(4px);
   white-space: nowrap;
 `;
 
-const BackToLiveButton = styled(Button)`
-  font-size: var(--text-xxxs);
-  letter-spacing: 0.1em;
-  padding: 2px var(--space-3);
-  background: rgba(10, 8, 6, 0.85);
-  backdrop-filter: blur(4px);
-  white-space: nowrap;
+const BackToLiveButton = styled(DayButton)`
   &[data-active="true"] {
     background: rgba(10, 8, 6, 0.85);
   }
@@ -381,9 +315,9 @@ const BotTestBar = styled.form`
   display: flex;
   align-items: center;
   gap: var(--space-2);
-  padding: var(--space-1) var(--space-4);
+  padding: var(--space-1) ${LIST_PAD_X};
   background: rgba(252, 219, 51, 0.03);
-  border-top: 1px solid rgba(252, 219, 51, 0.1);
+  border-top: 1px solid rgba(255, 255, 255, 0.06);
   flex-shrink: 0;
 `;
 
@@ -434,65 +368,7 @@ const EmptyState = styled.div`
   letter-spacing: 0.1em;
 `;
 
-const LiveGamesChip = styled(Link)`
-  display: inline-flex;
-  align-items: center;
-  gap: 5px;
-  padding: 2px 8px;
-  border: 1px solid rgba(194, 52, 52, 0.4);
-  border-radius: var(--radius-md);
-  font-family: var(--font-mono);
-  font-size: var(--text-xxs);
-  color: var(--grey-light);
-  text-decoration: none;
-  transition: all 0.15s;
-
-  svg {
-    width: 12px;
-    height: 12px;
-    color: var(--red);
-  }
-
-  &:hover {
-    border-color: var(--red);
-    color: var(--white);
-  }
-`;
-
-/* ── Header toggles + search ───────────────────── */
-
-const HeaderActions = styled.div`
-  display: flex;
-  align-items: center;
-  gap: var(--space-1);
-  min-width: 0;
-`;
-
-const ToggleButton = styled(Button)`
-  display: inline-flex;
-  align-items: center;
-  gap: 5px;
-  padding: 3px var(--space-2);
-  line-height: 1;
-  svg {
-    width: 13px;
-    height: 13px;
-    flex-shrink: 0;
-  }
-`;
-
-const ToggleLabel = styled.span`
-  @media (max-width: 640px) {
-    display: none;
-  }
-`;
-
-/* The Pulse column itself is hidden below 1100px (PulseColumn.jsx) */
-const PulseToggle = styled(ToggleButton)`
-  @media (max-width: 1099px) {
-    display: none;
-  }
-`;
+/* ── Search ────────────────────────────────────── */
 
 const SystemWrap = styled.div`
   padding-top: var(--space-2);
@@ -502,13 +378,9 @@ const SearchPanel = styled.div`
   display: flex;
   flex-direction: column;
   gap: var(--space-2);
-  padding: var(--space-2) var(--space-4);
-  border-bottom: 1px solid rgba(252, 219, 51, 0.15);
+  padding: 10px ${LIST_PAD_X};
+  border-bottom: 1px solid rgba(255, 255, 255, 0.06);
   flex-shrink: 0;
-
-  @media (max-width: 768px) {
-    padding: var(--space-2) var(--space-2);
-  }
 `;
 
 const SearchRow = styled.div`
@@ -566,11 +438,7 @@ const ResultCount = styled.span`
 const SearchResults = styled.div`
   flex: 1;
   overflow-y: auto;
-  padding: var(--space-2) var(--space-4);
-
-  @media (max-width: 768px) {
-    padding: var(--space-2) var(--space-2);
-  }
+  padding: ${LIST_PAD_TOP} ${LIST_PAD_X} ${LIST_PAD_BOTTOM};
 
   &::-webkit-scrollbar {
     width: 6px;
@@ -699,7 +567,7 @@ const NewDivider = styled.div`
   display: flex;
   align-items: center;
   gap: var(--space-2);
-  margin: var(--space-2) var(--space-4);
+  margin: var(--space-2) 0;
 
   &::before,
   &::after {
@@ -815,32 +683,6 @@ async function fetchSearchPage({ q, player, since, offset }) {
   return { results, total: typeof data.total === "number" ? data.total : results.length };
 }
 
-// Relay-side states (server/src/signalr.js) that are not a client reconnect
-const RELAY_FAULTS = {
-  auth_failed: "relay auth failed",
-  banned: "relay banned",
-  no_token: "relay needs token",
-};
-const RELAY_OFFLINE = new Set(["error", "Disconnected", "stopped"]);
-
-function readPref(key, fallback) {
-  try {
-    const v = localStorage.getItem(key);
-    return v === null ? fallback : v === "1";
-  } catch {
-    return fallback;
-  }
-}
-
-function writePref(key, value) {
-  try {
-    localStorage.setItem(key, value ? "1" : "0");
-  } catch {
-    // non-persistent is fine
-  }
-}
-
-
 // firstItemIndex base for react-virtuoso: prepends (load earlier) decrease
 // it by the number of rows added at the head so the viewport stays put
 const FIRST_ITEM_BASE = 1_000_000;
@@ -905,6 +747,22 @@ const listComponents = {
 
 const rowKey = (index, row) => row.key;
 
+/**
+ * The /chat message stream (Chat v2). No header of its own: the Search,
+ * Stats and Games toggles live in the map panel header and come in as
+ * controlled props; the relay status shows there too.
+ *
+ * Props (data): messages, status, avatars, stats, sessions, inGameTags,
+ *   inGameInfoMap, recentWinners, recentDeltas, gameEvents, ongoingMatchIds,
+ *   liveStreamers, watchList, onlineUsers, botResponses, translations
+ * Props (history): loadOlder, hasMoreHistory, loadWindow, loadLatest,
+ *   windowMode, windowId, permalinkId
+ * Props (controls): searchOpen / onSearchOpenChange(bool), statsOpen /
+ *   onStatsOpenChange(bool), showGames, showTranslations, onOpenGame.
+ *   The panel closes the search itself (Esc, a jump to a hit, and it asks
+ *   for it open on a shared /chat?q= link); it never closes the stats, so
+ *   onStatsOpenChange is accepted for symmetry and left unread.
+ */
 export default function ChatPanel({
   messages,
   status,
@@ -917,13 +775,11 @@ export default function ChatPanel({
   recentDeltas,
   gameEvents = [],
   ongoingMatchIds,
-  liveGameCount = 0,
   liveStreamers,
   watchList,
   onlineUsers = [],
   botResponses = [],
   translations = new Map(),
-  borderTheme,
   loadOlder,
   hasMoreHistory,
   loadWindow,
@@ -932,8 +788,11 @@ export default function ChatPanel({
   windowId = 0,
   permalinkId = null,
   onOpenGame,
-  showPulse = true,
-  onTogglePulse = null,
+  searchOpen = false,
+  onSearchOpenChange,
+  statsOpen = false,
+  showGames = true,
+  showTranslations = true,
 }) {
   const virtuosoRef = useRef(null);
   const [showNotice, setShowNotice] = useState(false);
@@ -941,21 +800,15 @@ export default function ChatPanel({
   const [botDraft, setBotDraft] = useState("");
   const [botError, setBotError] = useState(null);
   const [botTesting, setBotTesting] = useState(false);
-  const [showTranslations, setShowTranslations] = useState(() => readPref("chat:showTranslations", true));
-  const [showGames, setShowGames] = useState(() => readPref("chat:showGames", true));
-  const [focusOn, setFocusOn] = useState(() => readPref("chat:focus", false));
-  const [showStats, setShowStats] = useState(() => readPref("chat:showStats", false));
-  // Today's daily digest on /news, null until the relay says there is one
-  const [todayDigest, setTodayDigest] = useState(null);
   // Browser tab badge: unread while the document is hidden
   const visible = useDocumentVisible();
   const hiddenUnread = useUnreadCount(messages, visible);
-  // Expanded game tickers, per event id (not persisted)
+  // Expanded game rows, per event id (not persisted)
   const [expandedEvents, setExpandedEvents] = useState(() => new Set());
-  // Search panel; the initial state comes from the URL so a shared link
-  // opens straight onto its results
+  // Search panel; the fields' initial state comes from the URL so a shared
+  // link opens straight onto its results (the open flag is asked of the
+  // owner below)
   const [initialSearch] = useState(readSearchUrl);
-  const [searchOpen, setSearchOpen] = useState(initialSearch.open);
   const [searchQuery, setSearchQuery] = useState(initialSearch.q);
   const [searchPlayer, setSearchPlayer] = useState(initialSearch.player);
   const [searchSince, setSearchSince] = useState(initialSearch.since);
@@ -1055,7 +908,7 @@ export default function ChatPanel({
   // window has rendered.
   const jumpToResult = useCallback(async (result) => {
     if (result.id == null) return;
-    setSearchOpen(false);
+    onSearchOpenChange?.(false);
     const at = result.receivedAt ? new Date(`${String(result.receivedAt).replace(" ", "T")}Z`) : null;
     const canReload = Boolean(loadWindow) && at && !Number.isNaN(at.getTime());
     if (messagesRef.current.some((m) => m.id === result.id) || !canReload) {
@@ -1073,7 +926,7 @@ export default function ChatPanel({
     } finally {
       setLoadingWindow(false);
     }
-  }, [jumpToId, loadWindow, windowId]);
+  }, [jumpToId, loadWindow, windowId, onSearchOpenChange]);
 
   // messagesRef is refreshed by an earlier effect, so jumpToId sees the
   // replaced window here
@@ -1090,24 +943,24 @@ export default function ChatPanel({
     jumpToId(permalinkId);
   }, [permalinkId, messages.length, jumpToId]);
 
-  // Focus mode: body class drives the navbar (Navbar.css), Esc exits
+  // A shared /chat?q=... link opens the search panel on load
   useEffect(() => {
-    if (!focusOn) return;
-    document.body.classList.add("chat-focus");
-    return () => document.body.classList.remove("chat-focus");
-  }, [focusOn]);
+    if (initialSearch.open) onSearchOpenChange?.(true);
+    // once, on mount
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
 
+  // Esc closes the date popover first, then the search panel
   useEffect(() => {
-    if (!focusOn && !dayPickerOpen && !searchOpen) return;
+    if (!dayPickerOpen && !searchOpen) return;
     const onKey = (e) => {
       if (e.key !== "Escape") return;
       if (dayPickerOpen) setDayPickerOpen(false);
-      else if (searchOpen) setSearchOpen(false);
-      else setFocusOn(false);
+      else onSearchOpenChange?.(false);
     };
     window.addEventListener("keydown", onKey);
     return () => window.removeEventListener("keydown", onKey);
-  }, [focusOn, dayPickerOpen, searchOpen]);
+  }, [dayPickerOpen, searchOpen, onSearchOpenChange]);
 
   // Close the date popover on an outside click
   useEffect(() => {
@@ -1215,17 +1068,6 @@ export default function ChatPanel({
 
   useEffect(() => () => cancelAnimationFrame(topRowRafRef.current), []);
 
-  // Digest pill: one cheap call, cached in module scope across mounts
-  useEffect(() => {
-    let cancelled = false;
-    fetchTodayDigest().then((d) => {
-      if (!cancelled) setTodayDigest(d);
-    });
-    return () => {
-      cancelled = true;
-    };
-  }, []);
-
   // "(N) 4v4 Chat" + red-dot favicon while hidden; restored on return
   useEffect(() => {
     applyTabBadge(hiddenUnread);
@@ -1273,37 +1115,6 @@ export default function ChatPanel({
       document.removeEventListener("visibilitychange", onVisibility);
     };
   }, [messages]);
-
-  const toggleTranslations = () => {
-    setShowTranslations((v) => {
-      writePref("chat:showTranslations", !v);
-      return !v;
-    });
-  };
-
-  const toggleStats = () => {
-    setShowStats((v) => {
-      writePref("chat:showStats", !v);
-      return !v;
-    });
-  };
-
-  const toggleGames = () => {
-    setShowGames((v) => {
-      writePref("chat:showGames", !v);
-      return !v;
-    });
-  };
-
-  const toggleFocus = () => {
-    setFocusOn((v) => {
-      writePref("chat:focus", !v);
-      return !v;
-    });
-  };
-
-  // Focus hides tickers without touching the persisted Games preference
-  const showTickers = showGames && !focusOn;
 
   const toggleEvent = useCallback((id) => {
     setExpandedEvents((prev) => {
@@ -1487,7 +1298,7 @@ export default function ChatPanel({
         items.push({ kind: "group", key: start.id, msg: start, msgs: [start, ...seg.continuations], time });
       }
     }
-    if (showTickers) {
+    if (showGames) {
       const oldestLoaded = items.length > 0 ? items[0].time : 0;
       for (const ev of gameEvents) {
         const t = new Date(ev.time).getTime();
@@ -1495,27 +1306,17 @@ export default function ChatPanel({
       }
     }
     return items.sort((a, b) => a.time - b.time);
-  }, [messageSegments, gameEvents, showTickers]);
+  }, [messageSegments, gameEvents, showGames]);
 
   // Day dividers are rows of their own (keyed by day) ahead of the first
   // message or system row of each day, so paging in older history from the
   // same day never changes an existing row's height. The "new" marker is a
-  // flag on the first message row past newMarkerTime. Event rows learn
-  // whether they open or close a run of consecutive tickers (GameTicker
-  // draws one block per run).
+  // flag on the first message row past newMarkerTime.
   const rows = useMemo(() => {
     const out = [];
     let prevDay = null;
     let newMarkerShown = false;
-    renderItems.forEach((item, i) => {
-      if (item.kind === "event") {
-        out.push({
-          ...item,
-          runStart: renderItems[i - 1]?.kind !== "event",
-          runEnd: renderItems[i + 1]?.kind !== "event",
-        });
-        return;
-      }
+    renderItems.forEach((item) => {
       if (item.kind !== "group" && item.kind !== "system") {
         out.push(item);
         return;
@@ -1644,20 +1445,17 @@ export default function ChatPanel({
   );
 
   const renderRow = (index, row) => {
-    // Game event woven into the stream: one-line ticker, card on click
+    // Game event woven into the stream: one quiet row, the card on click
     if (row.kind === "event") {
       const ev = row.ev;
       const stillRunning = ev.type !== "game_end" && Boolean(ongoingMatchIds?.has(ev.matchId));
       return (
-        <GameTicker
+        <GameRow
           event={ev}
           expanded={expandedEvents.has(ev.id)}
           onToggle={toggleEvent}
           stillRunning={stillRunning}
-          runStart={row.runStart}
-          runEnd={row.runEnd}
           hoverData={hoverData}
-          avatars={avatars}
         />
       );
     }
@@ -1737,7 +1535,6 @@ export default function ChatPanel({
           renderLine={renderLine}
           renderAfterLine={renderAfterLine}
           permalinkHref={permalinkHref}
-          $compact={focusOn}
         />
       </>
     );
@@ -1749,111 +1546,10 @@ export default function ChatPanel({
   const topDayInput = topRow ? toInputDate(new Date(topRow.time)) : toInputDate(new Date());
   const todayInput = toInputDate(new Date());
 
-  const fault = RELAY_FAULTS[status];
-  const statusText =
-    status === "connected"
-      ? messages.length
-      : fault
-        ? fault
-        : RELAY_OFFLINE.has(status)
-          ? "relay offline"
-          : status === "reconnecting"
-            ? "Reconnecting..."
-            : "Connecting...";
-
   return (
-    <OuterFrame>
-      <Wrapper $theme={borderTheme}>
-        <Header $theme={borderTheme}>
-          <Title>4v4 Chat</Title>
-          <HeaderActions>
-            {liveGameCount > 0 && (
-              <LiveGamesChip to="/live" title="Watch live games">
-                <GiCrossedSwords />
-                {liveGameCount} live
-              </LiveGamesChip>
-            )}
-            <ToggleButton
-              type="button"
-              $pill
-              data-active={showTranslations}
-              aria-pressed={showTranslations}
-              onClick={toggleTranslations}
-              title={showTranslations ? "Hide translations" : "Show translations"}
-            >
-              <HiTranslate />
-              <ToggleLabel>Translate</ToggleLabel>
-            </ToggleButton>
-            <ToggleButton
-              type="button"
-              $pill
-              data-active={searchOpen}
-              aria-pressed={searchOpen}
-              onClick={() => setSearchOpen((v) => !v)}
-              title="Search chat history"
-            >
-              <HiSearch />
-              <ToggleLabel>Search</ToggleLabel>
-            </ToggleButton>
-            <ToggleButton
-              type="button"
-              $pill
-              data-active={showGames}
-              aria-pressed={showGames}
-              onClick={toggleGames}
-              title={showGames ? "Hide game tickers" : "Show game tickers"}
-            >
-              <GiCrossedSwords />
-              <ToggleLabel>Games</ToggleLabel>
-            </ToggleButton>
-            {onTogglePulse && (
-              <PulseToggle
-                type="button"
-                $pill
-                data-active={showPulse}
-                aria-pressed={showPulse}
-                onClick={onTogglePulse}
-                title={showPulse ? "Hide the pulse column" : "Show the pulse column: world map and MMR beeswarm"}
-              >
-                <HiGlobeAlt />
-                <ToggleLabel>Pulse</ToggleLabel>
-              </PulseToggle>
-            )}
-            <ToggleButton
-              type="button"
-              $pill
-              data-active={focusOn}
-              aria-pressed={focusOn}
-              onClick={toggleFocus}
-              title={focusOn ? "Exit focus mode (Esc)" : "Focus mode: hide the navbar and tickers, compact feed"}
-            >
-              <HiOutlineArrowsExpand />
-              <ToggleLabel>Focus</ToggleLabel>
-            </ToggleButton>
-            <ToggleButton
-              type="button"
-              $pill
-              data-active={showStats}
-              aria-pressed={showStats}
-              onClick={toggleStats}
-              title={showStats ? "Hide chat stats" : "Show chat stats"}
-            >
-              <HiChartBar />
-              <ToggleLabel>Stats</ToggleLabel>
-            </ToggleButton>
-            {todayDigest && (
-              <ToggleButton as={Link} $pill to={todayDigest.href} title="Today's digest on /news">
-                <HiNewspaper />
-                <ToggleLabel>Digest</ToggleLabel>
-              </ToggleButton>
-            )}
-            <StatusBadge $fault={Boolean(fault)} title={`relay: ${status}`}>
-              <StatusDot $connected={status === "connected"} $fault={Boolean(fault)} />
-              {statusText}
-            </StatusBadge>
-          </HeaderActions>
-        </Header>
-        <StatsStrip open={showStats} />
+    <OuterFrame data-chat-panel>
+      <Wrapper>
+        <StatsStrip open={statsOpen} />
         {searchOpen && (
           <SearchPanel role="search" aria-label="Search chat history">
             <SearchRow>
@@ -2010,9 +1706,9 @@ export default function ChatPanel({
           status !== "connected" ? (
             <MessageList>
               {[...Array(6)].map((_, i) => (
-                <div key={i} style={{ display: "flex", gap: "var(--space-2)", padding: "var(--space-4) var(--space-4)", alignItems: "flex-start" }}>
-                  <Skeleton $w="44px" $h="44px" $radius="var(--radius-md)" style={{ flexShrink: 0 }} />
-                  <div style={{ flex: 1, display: "flex", flexDirection: "column", gap: 6, paddingTop: 4 }}>
+                <div key={i} style={{ display: "flex", gap: 12, padding: "10px 0", alignItems: "flex-start" }}>
+                  <Skeleton $w="38px" $h="38px" $radius="3px" style={{ flexShrink: 0 }} />
+                  <div style={{ flex: 1, display: "flex", flexDirection: "column", gap: 6, paddingTop: 2 }}>
                     <div style={{ display: "flex", gap: "var(--space-2)", alignItems: "center" }}>
                       <Skeleton $w="100px" $h="14px" />
                       <Skeleton $w="50px" $h="10px" />

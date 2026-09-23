@@ -6,22 +6,23 @@ import { chartColors } from "../../lib/design-tokens";
 import useChatStats, { toLocalHours, busiestHour, formatHour } from "../../lib/chat/useChatStats";
 
 /**
- * Collapsible strip under the /chat header: four tiles from
- * GET /api/chat/stats (messages 24h, chatters 24h, busiest hour today,
- * top chatters) and a 24-bar activity-by-hour sparkline.
+ * Collapsible strip at the top of the /chat list (opened from the map
+ * panel's Stats toggle): four figures from GET /api/chat/stats (messages
+ * 24h, chatters 24h, busiest hour today, top chatters) and a 24-bar
+ * activity-by-hour sparkline. Panel-less: bare labels and values on the
+ * list's own background, closed off by a hairline.
  */
 
 const Strip = styled.div`
   display: grid;
   grid-template-columns: repeat(3, minmax(0, 1fr)) minmax(0, 1.6fr);
-  gap: var(--space-2);
-  padding: var(--space-2) var(--space-4);
-  border-bottom: 1px solid rgba(252, 219, 51, 0.15);
+  gap: 10px 14px;
+  padding: 10px 18px 12px;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.06);
   flex-shrink: 0;
 
   @media (max-width: 768px) {
     grid-template-columns: repeat(3, minmax(0, 1fr));
-    padding: var(--space-2) var(--space-2);
   }
 `;
 
@@ -30,10 +31,6 @@ const Tile = styled.div`
   flex-direction: column;
   gap: 2px;
   min-width: 0;
-  padding: var(--space-1) var(--space-2);
-  background: rgba(255, 255, 255, 0.03);
-  border: 1px solid var(--surface-3);
-  border-radius: var(--radius-md);
 `;
 
 const TileLabel = styled.span`
@@ -41,6 +38,7 @@ const TileLabel = styled.span`
   text-transform: uppercase;
   letter-spacing: 0.1em;
   color: var(--grey-light);
+  opacity: 0.7;
   white-space: nowrap;
   overflow: hidden;
   text-overflow: ellipsis;
@@ -48,7 +46,7 @@ const TileLabel = styled.span`
 
 const TileValue = styled.span`
   font-family: var(--font-mono);
-  font-size: var(--text-base);
+  font-size: var(--text-sm);
   color: var(--white);
   line-height: 1.2;
   white-space: nowrap;
@@ -81,6 +79,7 @@ const SparkCaption = styled.span`
   text-transform: uppercase;
   letter-spacing: 0.1em;
   color: var(--grey-light);
+  opacity: 0.7;
   white-space: nowrap;
 `;
 
@@ -92,10 +91,6 @@ const TopList = styled.ol`
   flex-direction: column;
   gap: 1px;
   min-width: 0;
-
-  @media (max-width: 768px) {
-    grid-column: 1 / -1;
-  }
 `;
 
 const TopRow = styled.li`
@@ -110,6 +105,7 @@ const TopRow = styled.li`
 
 const TopName = styled(Link)`
   font-family: var(--font-display);
+  font-size: 13px;
   color: var(--gold);
   text-decoration: none;
   white-space: nowrap;
