@@ -142,12 +142,20 @@ Defined in `design-tokens.js` under `patterns`:
 
 ### Shared Components
 
-Import from `src/components/ui.jsx`:
-- `Button` - Primary/secondary variants
-- `Badge` - Status badges (win/loss/default)
-- `Card` - Gold-bordered container
+Import from `src/components/ui.jsx` (full list with variants: `components` in `design-tokens.js`, rendered on `/style`):
+- `Button` - `$primary` / `$secondary` / `$ghost` / `$pill` variants
+- `ResultBadge` - WIN / LOSS / W chip (`$won`, `$lost`, `$winner`)
+- `Card`, `CardSubtle`, `ThemedCard` - gold / grey / border-theme containers
 - `Dot` - Win/loss form indicator
+- `Delta` - Signed MMR change chip
 - `TeamBar` - Blue/red team indicator
+- `PageNav`, `PageHero` - back link + sibling tabs; page eyebrow + title
+- `Skeleton`, `SkeletonCircle` - loading placeholders
+- `Select`, `Input`, `ConfirmModal`, `RaceIcon`, `CountryFlag`
+
+Chat components live in `src/components/chat/`:
+- `ChatMessage` - one message group (author + consecutive lines) in three variants: `feed` (/chat stream), `transcript` (profile recent conversations, digest pickers), `quote` (digest pull-quotes). Reuse it instead of hand-rolling message rows.
+- `QuoteBlock` - "Speaker: text" strings grouped by speaker, rendered through the quote variant
 
 ## API Integration
 

@@ -111,7 +111,6 @@ const Chat = () => {
     onlineUsers,
     botResponses,
     translations,
-    sendMessage,
     loadOlder,
     hasMoreHistory,
     loadWindow,
@@ -167,7 +166,6 @@ const Chat = () => {
           botResponses={botResponses}
           translations={translations}
           borderTheme={borderTheme}
-          sendMessage={sendMessage}
           loadOlder={loadOlder}
           hasMoreHistory={hasMoreHistory}
           loadWindow={loadWindow}

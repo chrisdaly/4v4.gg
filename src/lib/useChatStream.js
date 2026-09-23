@@ -235,28 +235,12 @@ export default function useChatStream() {
     };
   }, [connect]);
 
-  const sendMessage = useCallback(async (text, apiKey) => {
-    const res = await relayFetch(`/api/admin/send`, {
-      method: "POST",
-      headers: {
-        "Content-Type": "application/json",
-        "X-API-Key": apiKey,
-      },
-      body: JSON.stringify({ message: text }),
-    });
-    if (!res.ok) {
-      const data = await res.json().catch(() => ({}));
-      throw new Error(data.error || `Send failed (${res.status})`);
-    }
-  }, []);
-
   return {
     messages,
     status,
     onlineUsers,
     botResponses,
     translations,
-    sendMessage,
     loadOlder,
     hasMoreHistory,
     loadWindow,

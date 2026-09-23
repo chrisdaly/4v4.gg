@@ -3,7 +3,7 @@ import { Virtuoso } from "react-virtuoso";
 import { Link } from "react-router-dom";
 import styled from "styled-components";
 import { GiCrossedSwords } from "react-icons/gi";
-import { HiKey, HiBell, HiSearch, HiTranslate, HiOutlineArrowsExpand, HiChartBar, HiNewspaper } from "react-icons/hi";
+import { HiBell, HiSearch, HiTranslate, HiOutlineArrowsExpand, HiChartBar, HiNewspaper } from "react-icons/hi";
 import { IoSend } from "react-icons/io5";
 import { Button, Skeleton, Input } from "./ui";
 import { useMessageSegments, useBotResponseMap, formatDateDivider, getDateKey } from "../lib/useChatMessages";
@@ -308,33 +308,6 @@ const DateInput = styled(Input)`
   padding: var(--space-1) var(--space-2);
 `;
 
-const InputBar = styled.form`
-  position: relative;
-  display: flex;
-  align-items: center;
-  gap: var(--space-2);
-  padding: var(--space-2) var(--space-4);
-  background: rgba(10, 8, 6, 0.4);
-  border-top: 1px solid rgba(252, 219, 51, 0.15);
-  flex-shrink: 0;
-`;
-
-const ChatInput = styled(Input)`
-  flex: 1;
-  min-width: 0;
-  padding: var(--space-2) var(--space-2);
-  font-family: var(--font-body);
-  outline: none;
-
-  &::placeholder {
-    color: var(--grey-mid);
-  }
-
-  &:disabled {
-    opacity: 0.5;
-  }
-`;
-
 const SendButton = styled.button`
   display: flex;
   align-items: center;
@@ -358,64 +331,6 @@ const SendButton = styled.button`
     opacity: 0.3;
     cursor: default;
   }
-`;
-
-const KeyButton = styled.button`
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  width: 32px;
-  height: 32px;
-  border: 1px solid rgba(var(--gold-muted-rgb), 0.2);
-  border-radius: var(--radius-sm);
-  background: ${(p) => (p.$active ? "rgba(252, 219, 51, 0.1)" : "transparent")};
-  color: ${(p) => (p.$active ? "var(--gold)" : "var(--grey-mid)")};
-  cursor: pointer;
-  flex-shrink: 0;
-  transition: all 0.15s;
-
-  &:hover {
-    color: var(--gold);
-    border-color: rgba(var(--gold-muted-rgb), 0.4);
-  }
-`;
-
-const KeyPrompt = styled.div`
-  display: flex;
-  align-items: center;
-  gap: var(--space-2);
-  padding: var(--space-2) var(--space-4);
-  background: rgba(10, 8, 6, 0.4);
-  border-top: 1px solid rgba(252, 219, 51, 0.15);
-  flex-shrink: 0;
-`;
-
-const KeyInput = styled.input`
-  flex: 1;
-  min-width: 0;
-  background: rgba(255, 255, 255, 0.06);
-  border: 1px solid rgba(var(--gold-muted-rgb), 0.2);
-  border-radius: var(--radius-sm);
-  padding: var(--space-2) var(--space-2);
-  color: var(--text-body);
-  font-family: var(--font-mono);
-  font-size: var(--text-xxs);
-  outline: none;
-
-  &:focus {
-    border-color: rgba(252, 219, 51, 0.4);
-  }
-
-  &::placeholder {
-    color: var(--grey-mid);
-  }
-`;
-
-const KeyLabel = styled.span`
-  font-family: var(--font-mono);
-  font-size: var(--text-xxxs);
-  color: var(--grey-light);
-  white-space: nowrap;
 `;
 
 const SendError = styled.span`
@@ -845,8 +760,8 @@ function highlightMatches(text, query) {
   return parts;
 }
 
-// Online users whose name starts with `prefix`: the composer's @mention
-// menu and the search panel's player filter share this
+// Online users whose name starts with `prefix`: the search panel's player
+// filter suggestions
 function matchMentionCandidates(prefix, onlineUsers) {
   const q = prefix.toLowerCase();
   return onlineUsers.filter((u) => (u.name || "").toLowerCase().startsWith(q)).slice(0, 6);
@@ -1002,7 +917,6 @@ export default function ChatPanel({
   botResponses = [],
   translations = new Map(),
   borderTheme,
-  sendMessage,
   loadOlder,
   hasMoreHistory,
   loadWindow,
@@ -1012,14 +926,10 @@ export default function ChatPanel({
   permalinkId = null,
 }) {
   const virtuosoRef = useRef(null);
-  const inputRef = useRef(null);
   const [showNotice, setShowNotice] = useState(false);
-  const { adminKey: apiKey, isAdmin, setAdminKey: setApiKeyHook } = useAdmin();
-  const [showKeyPrompt, setShowKeyPrompt] = useState(false);
-  const [draft, setDraft] = useState("");
-  const [sending, setSending] = useState(false);
-  const [sendError, setSendError] = useState(null);
+  const { adminKey: apiKey, isAdmin } = useAdmin();
   const [botDraft, setBotDraft] = useState("");
+  const [botError, setBotError] = useState(null);
   const [botTesting, setBotTesting] = useState(false);
   const [showTranslations, setShowTranslations] = useState(() => readPref("chat:showTranslations", true));
   const [notifyOn, setNotifyOn] = useState(() => readPref("chat:notify", false));
@@ -1481,7 +1391,7 @@ export default function ChatPanel({
     if (next !== current) window.history.replaceState(window.history.state, "", next);
   }, [searchOpen, searchActive, searchQ, searchP, searchSince]);
 
-  // Player filter suggestions from the online list, like composer @mentions.
+  // Player filter suggestions from the online list.
   // A picked suggestion is a full battleTag, which the relay matches exactly.
   const playerSuggestions = useMemo(() => {
     if (!playerFieldFocused) return null;
@@ -1508,55 +1418,13 @@ export default function ChatPanel({
     }
   }, [loadOlder, loadingOlder]);
 
-  // @mention autocomplete state derived from the draft
-  const mentionMatch = useMemo(() => {
-    const m = draft.match(/@([\w#]*)$/);
-    if (!m) return null;
-    const candidates = matchMentionCandidates(m[1], onlineUsers);
-    return candidates.length > 0 ? { prefix: m[1], candidates } : null;
-  }, [draft, onlineUsers]);
-
-  const insertMention = useCallback((name) => {
-    setDraft((d) => d.replace(/@([\w#]*)$/, `@${name} `));
-    inputRef.current?.focus();
-  }, []);
-
-  const handleSend = useCallback(async (e) => {
-    e.preventDefault();
-    if (!draft.trim() || !apiKey || sending || !sendMessage) return;
-    setSending(true);
-    setSendError(null);
-    try {
-      await sendMessage(draft.trim(), apiKey);
-      setDraft("");
-      inputRef.current?.focus();
-    } catch (err) {
-      setSendError(err.message);
-    } finally {
-      setSending(false);
-    }
-  }, [draft, apiKey, sending, sendMessage]);
-
-  function handleSaveKey(e) {
-    e.preventDefault();
-    const input = e.target.elements?.apiKeyInput?.value?.trim();
-    if (input) {
-      setApiKeyHook(input);
-    }
-    setShowKeyPrompt(false);
-  }
-
-  function handleClearKey() {
-    setApiKeyHook("");
-    setShowKeyPrompt(false);
-  }
-
   const handleBotTest = useCallback(async (e) => {
     e.preventDefault();
     const cmd = botDraft.trim();
     if (!cmd || botTesting) return;
     const command = cmd.startsWith("!") ? cmd : `!${cmd}`;
     setBotTesting(true);
+    setBotError(null);
     try {
       const key = apiKey;
       const res = await relayFetch(`/api/admin/bot/test`, {
@@ -1570,7 +1438,7 @@ export default function ChatPanel({
       }
       setBotDraft("");
     } catch (err) {
-      setSendError(err.message);
+      setBotError(err.message);
     } finally {
       setBotTesting(false);
     }
@@ -2183,63 +2051,6 @@ export default function ChatPanel({
           </ScrollContainer>
         )}
       </Wrapper>
-      {isAdmin && sendMessage && showKeyPrompt && !apiKey && (
-        <KeyPrompt as="form" onSubmit={handleSaveKey}>
-          <KeyLabel>API Key:</KeyLabel>
-          <KeyInput name="apiKeyInput" type="password" placeholder="Enter admin API key" autoFocus />
-          <SendButton type="submit"><IoSend size={14} /></SendButton>
-        </KeyPrompt>
-      )}
-      {isAdmin && sendMessage && (apiKey || !showKeyPrompt) && (
-        <InputBar onSubmit={handleSend}>
-          <KeyButton
-            type="button"
-            $active={!!apiKey}
-            onClick={() => apiKey ? handleClearKey() : setShowKeyPrompt(true)}
-            title={apiKey ? "Clear API key" : "Set API key"}
-          >
-            <HiKey size={16} />
-          </KeyButton>
-          {apiKey ? (
-            <>
-              {mentionMatch && (
-                <MentionMenu>
-                  {mentionMatch.candidates.map((u) => (
-                    <MentionItem
-                      key={u.battleTag}
-                      type="button"
-                      onClick={() => insertMention(u.name)}
-                    >
-                      {u.name}
-                    </MentionItem>
-                  ))}
-                </MentionMenu>
-              )}
-              <ChatInput
-                ref={inputRef}
-                type="text"
-                placeholder="Send a message..."
-                value={draft}
-                onChange={(e) => { setDraft(e.target.value); setSendError(null); }}
-                onKeyDown={(e) => {
-                  if (e.key === "Tab" && mentionMatch) {
-                    e.preventDefault();
-                    insertMention(mentionMatch.candidates[0].name);
-                  }
-                }}
-                disabled={sending}
-                maxLength={500}
-              />
-              {sendError && <SendError title={sendError}>!</SendError>}
-              <SendButton type="submit" disabled={sending || !draft.trim()}>
-                <IoSend size={14} />
-              </SendButton>
-            </>
-          ) : (
-            <KeyLabel>Set API key to send messages</KeyLabel>
-          )}
-        </InputBar>
-      )}
       {isAdmin && (
         <BotTestBar onSubmit={handleBotTest}>
           <BotTestPrefix>BOT</BotTestPrefix>
@@ -2247,10 +2058,11 @@ export default function ChatPanel({
             type="text"
             placeholder="!games, !stats name, !recap topic 50, !help"
             value={botDraft}
-            onChange={(e) => setBotDraft(e.target.value)}
+            onChange={(e) => { setBotDraft(e.target.value); setBotError(null); }}
             disabled={botTesting}
             maxLength={200}
           />
+          {botError && <SendError title={botError}>!</SendError>}
           <SendButton type="submit" disabled={botTesting || !botDraft.trim()}>
             <IoSend size={14} />
           </SendButton>

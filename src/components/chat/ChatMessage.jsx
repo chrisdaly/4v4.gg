@@ -21,6 +21,9 @@ import CopyLink, { CopyLinkButton } from "./CopyLink";
  * Props
  *   group        { author: { battleTag, userName, clanTag },
  *                  lines: [{ id, text, sentAt, kind, translation?, highlight? }] }
+ *                An author without a battleTag renders as plain text (digest
+ *                quotes carry names only); a quote group with no name at all
+ *                renders its lines with no header.
  *   meta         { avatarUrl, race, countryCode, mmr,
  *                  chip: { kind: "ingame" | "won" | "lost", label }, twitchLogin, twitchTitle }
  *   target       transcript only: gold tint background for the focus author
@@ -146,6 +149,12 @@ const NameButton = styled.button`
   &:hover {
     text-decoration: underline;
   }
+`;
+
+const NameText = styled.span`
+  font-family: var(--font-display);
+  font-size: ${(p) => nameFont[p.$variant] || nameFont.feed};
+  color: var(--gold);
 `;
 
 const ClanTag = styled.span`
@@ -327,12 +336,15 @@ export default function ChatMessage({
     <NameButton type="button" $variant={variant} onClick={() => onNameClick(author)}>
       {displayName}
     </NameButton>
-  ) : (
+  ) : tag ? (
     <NameLink $variant={variant} to={`/player/${encodeURIComponent(tag)}`}>
       {displayName}
     </NameLink>
+  ) : (
+    <NameText $variant={variant}>{displayName}</NameText>
   );
   if (wrapName) name = wrapName(name, author);
+  const showHead = !isQuote || Boolean(displayName) || Boolean(wrapName);
 
   const chip = meta?.chip;
   const Text = variant === "transcript" ? TranscriptText : FeedText;
@@ -341,7 +353,7 @@ export default function ChatMessage({
     <Group $variant={variant} $target={target} $watched={watched} $compact={compact} data-variant={variant} data-compact={compact || undefined} data-watched={watched || undefined}>
       {!isQuote && <AvatarBlock meta={meta} compact={compact} />}
       <Body>
-        <Head $variant={variant} $compact={compact}>
+        {showHead && <Head $variant={variant} $compact={compact}>
           {name}
           {author.clanTag && <ClanTag>{author.clanTag}</ClanTag>}
           {!isQuote && meta?.mmr != null && <Mmr>{Math.round(meta.mmr)} MMR</Mmr>}
@@ -358,18 +370,18 @@ export default function ChatMessage({
               <FaTwitch />
             </TwitchLink>
           )}
-        </Head>
+        </Head>}
         {isQuote ? (
           <QuoteLines>
-            {lines.map((line) => (
-              <QuoteText key={line.id ?? line.sentAt} id={line.id != null ? `msg-${line.id}` : undefined}>
+            {lines.map((line, i) => (
+              <QuoteText key={line.id ?? line.sentAt ?? i} id={line.id != null ? `msg-${line.id}` : undefined}>
                 {renderLine(line)}
               </QuoteText>
             ))}
           </QuoteLines>
         ) : (
-          lines.map((line) => (
-            <React.Fragment key={line.id ?? line.sentAt}>
+          lines.map((line, i) => (
+            <React.Fragment key={line.id ?? line.sentAt ?? i}>
               <Line id={line.id != null ? `msg-${line.id}` : undefined} $highlight={Boolean(line.highlight)}>
                 <Text $compact={compact}>{renderLine(line)}</Text>
                 <LineEnd>

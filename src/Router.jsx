@@ -55,10 +55,8 @@ const CardOverlayLab  = lazy(() => import("./pages/overlay/CardOverlayLab"));
 
 // Dev/demo pages (lazy-loaded)
 const StyleReference = lazy(() => import("./pages/StyleReference"));
-const ChatFontMockup = lazy(() => import("./pages/ChatFontMockup"));
 const IconDemo = lazy(() => import("./pages/IconDemo"));
 const Assets = lazy(() => import("./pages/Assets"));
-const ChatMockups = lazy(() => import("./pages/ChatMockups"));
 const Admin = lazy(() => import("./pages/Admin"));
 const DevTools = lazy(() => import("./pages/DevTools"));
 const Themes = lazy(() => import("./pages/Themes"));
@@ -140,13 +138,11 @@ const Router = () => (
                 <Route exact path="/blog" component={Blog} />
                 <Route path="/blog/:slug" component={BlogPost} />
                 <Route path="/style" component={StyleReference} />
-                <Route path="/chat-font-mockup" component={ChatFontMockup} />
                 <Route path="/icons" component={IconDemo} />
                 <Route path="/assets" component={Assets} />
                 <Route path="/chat" component={Chat} />
                 <Route path="/search" component={Search} />
                 <Route path="/clips" component={Clips} />
-                <Route path="/mockups" component={ChatMockups} />
                 <Route path="/themes" component={Themes} />
                 <Route path="/admin" component={Admin} />
                 <Route path="/cover-art" component={DevTools} />

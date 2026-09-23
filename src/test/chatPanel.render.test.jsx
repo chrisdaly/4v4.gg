@@ -90,7 +90,6 @@ function renderPanel(overrides = {}) {
         onlineUsers={[{ battleTag: 'Grubby#1', name: 'Grubby' }]}
         botResponses={botResponses}
         translations={translations}
-        sendMessage={() => {}}
         loadOlder={() => Promise.resolve({ added: 0 })}
         hasMoreHistory
         {...overrides}
@@ -297,8 +296,7 @@ describe('ChatPanel permalinks', () => {
             onlineUsers={[]}
             botResponses={[]}
             translations={new Map()}
-            sendMessage={() => {}}
-            loadOlder={load}
+                loadOlder={load}
             hasMoreHistory
             permalinkId="a1"
           />
@@ -523,8 +521,7 @@ describe('ChatPanel search', () => {
             onlineUsers={[]}
             botResponses={[]}
             translations={new Map()}
-            sendMessage={() => {}}
-            loadOlder={() => Promise.resolve({ added: 0 })}
+                loadOlder={() => Promise.resolve({ added: 0 })}
             hasMoreHistory
             loadWindow={load}
             loadLatest={async () => messages}
@@ -668,7 +665,7 @@ describe('ChatPanel tab badge', () => {
             messages={msgs} status="connected" avatars={avatars} stats={stats} sessions={new Map()}
             inGameTags={new Set()} inGameInfoMap={new Map()} recentWinners={new Set()} recentDeltas={new Map()}
             gameEvents={[]} ongoingMatchIds={new Set()} liveStreamers={new Map()} watchList={new Set()}
-            onlineUsers={[]} botResponses={[]} translations={new Map()} sendMessage={() => {}}
+            onlineUsers={[]} botResponses={[]} translations={new Map()}
             loadOlder={() => Promise.resolve({ added: 0 })} hasMoreHistory
           />
         </MemoryRouter>
@@ -728,7 +725,7 @@ describe('ChatPanel notifications', () => {
             messages={msgs} status="connected" avatars={new Map([['Watched#3', { profilePicUrl: 'https://x/w.jpg' }]])} stats={stats} sessions={new Map()}
             inGameTags={new Set()} inGameInfoMap={new Map()} recentWinners={new Set()} recentDeltas={new Map()}
             gameEvents={[]} ongoingMatchIds={new Set()} liveStreamers={new Map()} watchList={watchList}
-            onlineUsers={[]} botResponses={[]} translations={new Map()} sendMessage={() => {}}
+            onlineUsers={[]} botResponses={[]} translations={new Map()}
             loadOlder={() => Promise.resolve({ added: 0 })} hasMoreHistory
           />
         </MemoryRouter>
