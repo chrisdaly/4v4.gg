@@ -1,6 +1,6 @@
 /**
  * Shared UI Components
- * Import: import { Button, Badge, Card, Dot, TeamBar, Label, PageLayout } from './components/ui';
+ * Import: import { Button, Badge, Card, ThemedCard, Dot, Delta, TeamBar, Label, PageLayout } from './components/ui';
  */
 
 import React, { useState, useRef, useEffect, useCallback } from "react";
@@ -40,6 +40,22 @@ export const Button = styled.button`
     color: var(--grey-light);
     border: var(--border-thin) solid var(--grey-mid);
     &:hover { color: var(--white); border-color: var(--grey-light); }
+  `}
+
+  /* Ghost pill: tags, date tabs, "show more" (patterns.ghostPill) */
+  ${p => p.$pill && `
+    font-family: var(--font-mono);
+    font-size: var(--text-xxs);
+    text-transform: uppercase;
+    letter-spacing: 0.08em;
+    padding: var(--space-1) var(--space-3);
+    background: transparent;
+    color: var(--grey-light);
+    border: var(--border-thin) solid var(--surface-3);
+    border-radius: var(--radius-full);
+    transition: color var(--transition), border-color var(--transition);
+    &:hover { color: var(--white); border-color: var(--grey-light); }
+    &[data-active="true"], &.active { color: var(--gold); border-color: var(--gold-border-hover); background: var(--gold-tint-subtle); }
   `}
 
   &:disabled {
@@ -102,19 +118,42 @@ export const CardSubtle = styled.div`
   padding: var(--space-4);
 `;
 
+// Theme-aware card: follows the active border theme (patterns.cardThemed).
+// The most common card shape in the app; use instead of copying the var(--theme-*) block.
+export const ThemedCard = styled.div`
+  background: var(--theme-bg, var(--surface-1));
+  border: var(--theme-border, var(--border-thin) solid var(--grey-mid));
+  border-image: var(--theme-border-image, none);
+  border-radius: ${p => p.$radius || 'var(--radius-xl)'};
+  backdrop-filter: var(--theme-blur, none);
+  box-shadow: var(--theme-shadow, none);
+  padding: ${p => p.$padding || 'var(--space-4)'};
+`;
+
 // ============================================
 // DOT (Win/Loss indicator)
 // ============================================
-// Use $recent for most recent game (larger)
-// Default size: 8px, recent: 10px
+// The single form-dot implementation. $size overrides the base size in px
+// (default 8; $recent adds 2px). $dim fades older games.
 
 export const Dot = styled.span`
   display: inline-block;
-  width: ${p => p.$recent ? '10px' : '8px'};
-  height: ${p => p.$recent ? '10px' : '8px'};
+  width: ${p => (p.$size || 8) + (p.$recent ? 2 : 0)}px;
+  height: ${p => (p.$size || 8) + (p.$recent ? 2 : 0)}px;
   border-radius: var(--radius-full);
   background: ${p => p.$win ? 'var(--green)' : 'var(--red)'};
-  opacity: ${p => p.$recent ? 1 : 0.7};
+  opacity: ${p => p.$dim ? 0.35 : p.$recent ? 1 : 0.7};
+  flex-shrink: 0;
+`;
+
+// Signed MMR change chip (patterns.deltaChip): <Delta value={12} /> renders "+12" in green
+export const Delta = styled.span.attrs(p => ({
+  children: p.children ?? (p.value > 0 ? `+${p.value}` : p.value === 0 ? '0' : `${p.value}`),
+}))`
+  font-family: var(--font-mono);
+  font-size: ${p => p.$size || 'var(--text-xs)'};
+  font-weight: 700;
+  color: ${p => (p.value ?? 0) > 0 ? 'var(--green)' : (p.value ?? 0) < 0 ? 'var(--red)' : 'var(--grey-light)'};
 `;
 
 // ============================================
@@ -124,7 +163,7 @@ export const Dot = styled.span`
 export const TeamBar = styled.div`
   padding: var(--space-2) var(--space-4);
   border-left: 3px solid ${p => p.$blue ? 'var(--team-blue)' : 'var(--team-red)'};
-  background: ${p => p.$blue ? 'rgba(59, 130, 246, 0.1)' : 'rgba(239, 68, 68, 0.1)'};
+  background: ${p => p.$blue ? 'var(--blue-tint)' : 'rgba(239, 68, 68, 0.1)'};
 `;
 
 // ============================================
@@ -133,7 +172,7 @@ export const TeamBar = styled.div`
 
 export const Label = styled.span`
   font-family: var(--font-mono);
-  font-size: var(--text-xs);
+  font-size: var(--text-xxs);
   text-transform: uppercase;
   letter-spacing: 0.1em;
   color: var(--grey-light);
@@ -294,14 +333,14 @@ export const GoldSurface = styled.div`
 
 export const WinSurface = styled.div`
   background: var(--green-tint);
-  border: var(--border-thin) solid rgba(74, 222, 128, 0.3);
+  border: var(--border-thin) solid var(--green-border);
   border-radius: var(--radius-md);
   padding: var(--space-2) var(--space-4);
 `;
 
 export const LossSurface = styled.div`
   background: var(--red-tint);
-  border: var(--border-thin) solid rgba(248, 113, 113, 0.3);
+  border: var(--border-thin) solid var(--red-border);
   border-radius: var(--radius-md);
   padding: var(--space-2) var(--space-4);
 `;
@@ -447,7 +486,7 @@ const DropdownList = styled.div`
   box-shadow: 0 8px 24px rgba(0,0,0,0.5);
   max-height: 240px;
   overflow-y: auto;
-  z-index: 1000;
+  z-index: var(--z-dropdown);
 `;
 
 const OptionItem = styled.div`
@@ -560,7 +599,7 @@ export const Input = styled.input`
   font-family: var(--font-mono);
   font-size: var(--text-xs);
   background: rgba(0, 0, 0, 0.35);
-  border: 1px solid ${p => p.$error ? 'var(--red)' : 'rgba(184, 134, 11, 0.3)'};
+  border: 1px solid ${p => p.$error ? 'var(--red)' : 'rgba(var(--gold-dark-rgb), 0.3)'};
   border-radius: var(--radius-sm);
   color: var(--white);
   padding: var(--space-2) var(--space-4);
@@ -576,11 +615,11 @@ export const Input = styled.input`
   &:focus {
     outline: none;
     border-color: ${p => p.$error ? 'var(--red)' : 'var(--gold)'};
-    box-shadow: inset 0 1px 4px rgba(0, 0, 0, 0.5), 0 0 8px rgba(184, 134, 11, 0.15);
+    box-shadow: inset 0 1px 4px rgba(0, 0, 0, 0.5), 0 0 8px rgba(var(--gold-dark-rgb), 0.15);
   }
 
   &:hover:not(:focus) {
-    border-color: ${p => p.$error ? 'var(--red)' : 'rgba(184, 134, 11, 0.55)'};
+    border-color: ${p => p.$error ? 'var(--red)' : 'rgba(var(--gold-dark-rgb), 0.55)'};
   }
 `;
 
@@ -640,8 +679,8 @@ export const TipBox = styled.div`
   border-radius: var(--radius-md);
   border: 1px solid ${p =>
     p.$variant === 'gold' ? 'rgba(252, 219, 51, 0.3)' :
-    p.$variant === 'green' ? 'rgba(74, 222, 128, 0.3)' :
-    p.$variant === 'red' ? 'rgba(248, 113, 113, 0.3)' :
+    p.$variant === 'green' ? 'var(--green-border)' :
+    p.$variant === 'red' ? 'var(--red-border)' :
     'var(--grey-mid)'
   };
   background: ${p =>
@@ -778,7 +817,7 @@ const Tab = styled.button`
 `;
 
 /**
- * PageNav — Combined back-link + sub-tabs navigation.
+ * PageNav - Combined back-link + sub-tabs navigation.
  *
  * @param {string}   backTo    - Route path for the back link
  * @param {string}   backLabel - Label shown next to the arrow (e.g. "News")
@@ -804,7 +843,7 @@ export const PageNav = ({ backTo, backLabel, tabs, activeTab, onTab }) => (
   </PageNavWrap>
 );
 
-/** Confirm modal — drop-in replacement for window.confirm() */
+/** Confirm modal - drop-in replacement for window.confirm() */
 export const ConfirmModal = ({
   open,
   title = "Are you sure?",
@@ -847,7 +886,7 @@ export const ConfirmModal = ({
               onClick={onConfirm}
               style={{
                 background: confirmColor,
-                color: variant === "gold" ? "var(--grey-dark)" : "#fff",
+                color: variant === "gold" ? "var(--grey-dark)" : "var(--white)",
                 border: "none",
               }}
             >{confirmLabel}</Button>

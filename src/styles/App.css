@@ -58,6 +58,7 @@
   --radius-sm: 2px;
   --radius-md: 4px;
   --radius-lg: 8px;
+  --radius-xl: 12px;
   --radius-full: 9999px;
   --border-thin: 1px;
   --border-thick: 2px;
@@ -71,8 +72,13 @@
 
   /* Z-INDEX (3) */
   --z-dropdown: 100;
+  --z-nav: 150;
   --z-overlay: 200;
+  --z-popover: 250;
   --z-modal: 300;
+
+  /* LAYOUT */
+  --nav-height: 54px;
 
   /* TRANSPARENCY / OVERLAYS (9) */
   /* Dark overlays - for stream overlays, modals, popups */
@@ -93,7 +99,14 @@
   --green-tint: rgba(74, 222, 128, 0.1);
   --red-tint-subtle: rgba(248, 113, 113, 0.05);
   --red-tint: rgba(248, 113, 113, 0.1);
-  --gold-muted-rgb: 180, 150, 90; /* Desaturated gold chrome — use as rgba(var(--gold-muted-rgb), alpha) */
+  --green-border: rgba(74, 222, 128, 0.3);
+  --red-border: rgba(248, 113, 113, 0.3);
+  --gold-muted-rgb: 180, 150, 90; /* Desaturated gold chrome - use as rgba(var(--gold-muted-rgb), alpha) */
+  --gold-dark-rgb: 184, 134, 11; /* Dark goldenrod for input/nav borders - use as rgba(var(--gold-dark-rgb), alpha) */
+  --blue-tint: rgba(77, 166, 255, 0.1);
+  --amber-tint: rgba(245, 158, 11, 0.1);
+  --cyan-tint: rgba(0, 188, 212, 0.1);
+  --purple-tint: rgba(139, 92, 246, 0.1);
 
   /* League bar colors - match league icons (same league = same color on every page) */
   --league-grandmaster: linear-gradient(90deg, #c9a227, #f5d742);
@@ -114,6 +127,14 @@
   /* Panel glass - warm-black frosted panels */
   --panel-bg: rgba(10, 8, 6, 0.25);
   --panel-border: rgba(255, 255, 255, 0.06);
+
+  /* Quote block spacing (news, magazine, chat transcripts) */
+  --quote-group-gap: var(--space-4);
+  --quote-item-gap: var(--space-1);
+  --quote-name-gap: var(--space-1);
+  --quote-pad-left: var(--space-4);
+  --quote-indent: var(--space-4);
+  --quote-border: 2px solid rgba(255, 255, 255, 0.15);
 
   /* LEGACY ALIAS */
   --grey: var(--grey-light);
@@ -232,7 +253,7 @@ body {
   font-size: var(--text-sm);
 }
 
-/* Fixed background via pseudo-element — avoids the iOS compositing bug
+/* Fixed background via pseudo-element - avoids the iOS compositing bug
    where background-attachment:fixed on body breaks backdrop-filter on
    all child elements, making the entire UI invisible. */
 body::before {
@@ -246,7 +267,7 @@ body::before {
   background-repeat: no-repeat;
 }
 
-/* Overlay mode — fully transparent for OBS/Streamlabs browser sources */
+/* Overlay mode - fully transparent for OBS/Streamlabs browser sources */
 body.overlay-mode {
   background-color: transparent !important;
   background: transparent !important;
@@ -564,121 +585,6 @@ span.true {
   padding-top: 5px !important;
 }
 
-/* Demo-style player card */
-.player-card-demo {
-  text-align: center;
-  padding: 8px 4px;
-}
-
-.player-card-demo .player-name {
-  color: var(--gold);
-  font-family: var(--font-display);
-  font-size: var(--text-xs);
-  margin-bottom: 4px;
-}
-
-.player-card-demo .player-mmr-line {
-  margin-bottom: 4px;
-}
-
-.player-card-demo .mmr-value {
-  font-family: var(--font-mono);
-  font-size: var(--text-sm);
-  color: var(--white);
-}
-
-.player-card-demo .mmr-label {
-  color: var(--grey-light);
-  font-size: var(--text-xxs);
-}
-
-.player-card-demo .player-rank {
-  color: var(--grey-dark);
-  font-size: var(--text-xxs);
-}
-
-.player-card-demo .session-info {
-  margin-bottom: 4px;
-  font-size: var(--text-xxs);
-}
-
-.player-card-demo .session-label {
-  color: var(--grey-light);
-}
-
-.player-card-demo .session-record {
-  color: var(--white);
-  font-family: var(--font-mono);
-  font-size: var(--text-xxs);
-}
-
-.player-card-demo .session-label-muted {
-  color: var(--grey-dark);
-}
-
-.player-card-demo .session-delta {
-  font-family: var(--font-mono);
-  font-size: var(--text-xxs);
-}
-
-.player-card-demo .session-delta.positive {
-  color: var(--green);
-}
-
-.player-card-demo .session-delta.negative {
-  color: var(--red);
-}
-
-.player-card-demo .form-dots {
-  display: flex;
-  gap: 3px;
-  align-items: center;
-  justify-content: center;
-  margin-bottom: 6px;
-  min-height: 10px;
-}
-
-.player-card-demo .form-dot {
-  width: 6px;
-  height: 6px;
-  border-radius: 50%;
-  opacity: 0.6;
-}
-
-.player-card-demo .form-dot.win {
-  background: var(--green);
-}
-
-.player-card-demo .form-dot.loss {
-  background: var(--red);
-}
-
-.player-card-demo .form-dot.latest {
-  width: 8px;
-  height: 8px;
-  opacity: 1;
-}
-
-.player-card-demo .sparkline-container {
-  display: flex;
-  justify-content: center;
-  margin-bottom: 4px;
-}
-
-.player-card-demo .peak-mmr {
-  font-size: var(--text-xxs);
-}
-
-.player-card-demo .peak-label {
-  color: var(--grey-dark);
-}
-
-.player-card-demo .peak-value {
-  color: var(--green);
-  font-family: var(--font-mono);
-  font-size: var(--text-xxs);
-}
-
 .pulsating-circle {
   position: absolute;
   /* left: 50%; */
@@ -809,10 +715,11 @@ td.yellow-text.number.team-0 {
   color: var(--green);
 }
 
+/* Default h2. Pages override with their own class rules; no !important here. */
 h2 {
-  color: var(--gold) !important;
-  font-size: 1.4rem !important;
-  margin: 0.3em 0 !important;
+  color: var(--gold);
+  font-size: var(--text-lg);
+  margin: 0.3em 0;
 }
 
 .th-center {
@@ -930,15 +837,7 @@ h2 {
   animation: pulse 1.5s infinite;
   margin-right: 4px;
 }
-@keyframes pulse {
-  0%,
-  100% {
-    opacity: 1;
-  }
-  50% {
-    opacity: 0.4;
-  }
-}
+/* @keyframes pulse lives in base/animations.css */
 
 .layout-switcher {
   display: flex;
@@ -4229,7 +4128,7 @@ a.neighbor-name-sm:hover {
 
 #StreamOverlay.stream-style-broadcast .th-center h2 {
   font-size: var(--text-sm) !important;
-  color: var(--grey-light);
+  color: var(--gold);
 }
 
 #StreamOverlay.stream-style-broadcast .th-center > div {
@@ -5271,7 +5170,7 @@ a.neighbor-name-sm:hover {
   border-left: 3px solid var(--team-red);
 }
 
-/* Player row — fixed width so all rows align identically */
+/* Player row - fixed width so all rows align identically */
 .gi-player {
   display: flex;
   align-items: center;
@@ -5406,7 +5305,7 @@ a.neighbor-name-sm:hover {
   width: 100%;
 }
 
-/* Subtle avg MMR row — supporting info, not hero */
+/* Subtle avg MMR row - supporting info, not hero */
 .gi-avg-row {
   display: flex;
   align-items: center;
@@ -5449,7 +5348,7 @@ a.neighbor-name-sm:hover {
   overflow: hidden;
 }
 
-/* Race background — full-bleed atmospheric layer */
+/* Race background - full-bleed atmospheric layer */
 .go-bg-race {
   position: absolute;
   inset: 0;
@@ -5465,7 +5364,7 @@ a.neighbor-name-sm:hover {
 .go-screen.go-win  .go-bg-race img { opacity: 0.22; filter: brightness(0.85); }
 .go-screen.go-loss .go-bg-race img { opacity: 0.12; filter: brightness(0.45) saturate(0.2); }
 
-/* Dark centre vignette — keeps text readable above the bg */
+/* Dark centre vignette - keeps text readable above the bg */
 .go-vignette {
   position: absolute;
   inset: 0;
@@ -5977,7 +5876,7 @@ a.neighbor-name-sm:hover {
   overflow: hidden;
 }
 
-/* ===== Sides Layout (moas-) — vertical columns at screen edges ===== */
+/* ===== Sides Layout (moas-) - vertical columns at screen edges ===== */
 
 .moas-outer {
   display: flex;
@@ -6064,7 +5963,7 @@ a.neighbor-name-sm:hover {
 .moas-avg-blue { color: var(--team-blue); }
 .moas-avg-red { color: var(--team-red); }
 
-/* ===== Top Bar Layout (moatb-) — compact horizontal strip ===== */
+/* ===== Top Bar Layout (moatb-) - compact horizontal strip ===== */
 
 .moatb-container {
   display: flex;
@@ -6218,7 +6117,7 @@ a.neighbor-name-sm:hover {
   z-index: 0;
 }
 
-/* Top shimmer — catches the light like the WC3 button highlight */
+/* Top shimmer - catches the light like the WC3 button highlight */
 .match-style-ornate::after {
   content: "";
   position: absolute;
@@ -6568,7 +6467,7 @@ a.neighbor-name-sm:hover {
     1px 1px 2px rgba(0, 0, 0, 1);
 }
 
-/* Ladder Page Styles — moved to src/styles/pages/Ladder.css */
+/* Ladder Page Styles - moved to src/styles/pages/Ladder.css */
 
 /* ========================================
    Ladder Standing Box (Player Profile)
@@ -7219,7 +7118,7 @@ a.neighbor-name:hover {
   color: var(--grey-light);
 }
 
-/* MmrRangeBar — shared low → current → peak gradient bar
+/* MmrRangeBar - shared low → current → peak gradient bar
    (player profile thermometer card + OBS player overlay) */
 .mrb-track {
   position: relative;
@@ -7846,7 +7745,7 @@ a.neighbor-name:hover {
   flex-shrink: 0;
 }
 
-/* Widget mode — same styles, no min-width */
+/* Widget mode - same styles, no min-width */
 .po-rich.po-widget {
   width: auto;
   min-width: 0;
@@ -8043,7 +7942,7 @@ a.neighbor-name:hover {
   animation: pulse 1.5s infinite;
 }
 
-/* Primary stat row: rank + MMR — both prominent */
+/* Primary stat row: rank + MMR - both prominent */
 .hd-primary-row {
   display: flex;
   align-items: baseline;
@@ -8159,7 +8058,7 @@ a.neighbor-name:hover {
   display: block;
 }
 
-/* Bio quote block — fills header centre */
+/* Bio quote block - fills header centre */
 .hd-bio {
   flex: 1;
   padding: 0 var(--space-6);

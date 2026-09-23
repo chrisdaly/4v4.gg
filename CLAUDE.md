@@ -93,9 +93,9 @@ Main user-facing routes (see `src/Router.jsx` for the full list, including inter
 - Container/presenter pattern: OngoingGame (fetches/processes) → Game (renders)
 
 ### Styling Stack
-- Semantic UI React for pre-built components (Table, Grid, Header, Flag)
+- Shared components in `src/components/ui.jsx` (styled-components); no third-party UI kit
 - Styled Components for dynamic CSS-in-JS
-- Custom CSS variables in App.css (see Design System below)
+- Custom CSS variables in `src/styles/App.css` (see Design System below)
 - Custom fonts: Friz Quadrata (headings), Inconsolata (numbers)
 
 ## Design System
@@ -133,7 +133,7 @@ Defined in `design-tokens.js` under `patterns`:
 | List item names | `font-family: var(--font-display); font-size: var(--text-base); color: #fff` |
 | List item values | `font-family: var(--font-mono); font-size: var(--text-base); color: #fff` |
 | Stats/MMR | `font-family: var(--font-mono); color: #fff` |
-| Labels | `font: var(--text-xs) var(--font-mono); text-transform: uppercase; letter-spacing: 0.1em; color: var(--grey-light)` |
+| Labels | `font: var(--text-xxs) var(--font-mono); text-transform: uppercase; letter-spacing: 0.1em; color: var(--grey-light)` (14px `labelLarge` for form fields) |
 | Win values | `color: var(--green)` |
 | Loss values | `color: var(--red)` |
 | Live indicator | `width: 10px; height: 10px; background: var(--red); border-radius: 50%; animation: pulse 1.5s infinite` |

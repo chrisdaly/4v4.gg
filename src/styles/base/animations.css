@@ -12,13 +12,14 @@
   }
 }
 
-/* Pulse animations */
+/* Pulse - the single canonical definition. Do not redefine in page CSS. */
 @keyframes pulse {
-  from {
-    transform: scale(1);
+  0%,
+  100% {
+    opacity: 1;
   }
-  to {
-    transform: scale(1.2);
+  50% {
+    opacity: 0.4;
   }
 }
 
@@ -134,25 +135,20 @@
   animation: pulse 1.5s infinite;
 }
 
-/* Live indicator with pulse */
+/* Live indicator - canonical (patterns.liveIndicator). 10px red dot, pulse 1.5s. */
+.live-dot,
 .live-indicator {
+  display: inline-block;
   width: 10px;
   height: 10px;
   border-radius: 50%;
-  background-color: var(--red);
-  display: inline-block;
-  vertical-align: middle;
-  margin-left: 5px;
-  animation: pulse 1s infinite alternate;
-  margin-bottom: 2px !important;
+  background: var(--red);
+  animation: pulse 1.5s infinite;
+  flex-shrink: 0;
 }
 
 /* In-game icon pulse */
 .in-game-icon {
-  animation: pulse 1.5s infinite;
-}
-
-.in-game-icon-small {
   animation: pulse 1.5s infinite;
 }
 
@@ -161,7 +157,7 @@
   animation: pulse-twitch 1.5s ease-in-out infinite;
 }
 
-/* Reveal — staggered fade-up entrance */
+/* Reveal - staggered fade-up entrance */
 @keyframes fadeUp {
   to {
     opacity: 1;
@@ -257,7 +253,7 @@
 }
 
 /* ========================================
-   Peon Loader — spinner + WC3 quote
+   Peon Loader - spinner + WC3 quote
    ======================================== */
 
 @keyframes peon-text-pulse {
