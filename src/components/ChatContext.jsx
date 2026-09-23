@@ -868,17 +868,17 @@ const ChatContext = ({
                         {expandable && !splitView && isExpanded && (
                           <div className="cc-context">
                             <div className="cc-context-toolbar">
-                              <button className="cc-context-btn" onClick={(e) => { e.stopPropagation(); handlePaddingChange(-2); }} disabled={contextPadding <= 1}>-</button>
+                              <Button $icon onClick={(e) => { e.stopPropagation(); handlePaddingChange(-2); }} disabled={contextPadding <= 1} aria-label="Less context">-</Button>
                               <span className="cc-context-padding">{contextPadding}m</span>
-                              <button className="cc-context-btn" onClick={(e) => { e.stopPropagation(); handlePaddingChange(2); }} disabled={contextPadding >= 60}>+</button>
+                              <Button $icon onClick={(e) => { e.stopPropagation(); handlePaddingChange(2); }} disabled={contextPadding >= 60} aria-label="More context">+</Button>
                             </div>
                             {contextLoading ? (
                               <div className="cc-status" style={{ padding: "var(--space-4)" }}>Loading...</div>
                             ) : (
                               <div className="cc-context-scroll">
-                                <button className="cc-edge-btn" onClick={(e) => { e.stopPropagation(); shiftContext("earlier"); }}>
+                                <Button $pill className="cc-edge-btn" onClick={(e) => { e.stopPropagation(); shiftContext("earlier"); }}>
                                   <FiChevronUp size={12} /> Earlier
-                                </button>
+                                </Button>
                                 {groupMessages(contextMessages.map((cm) => ({
                                   ...cm,
                                   name: cm.user_name,
@@ -917,9 +917,9 @@ const ChatContext = ({
                                     </div>
                                   );
                                 })}
-                                <button className="cc-edge-btn" onClick={(e) => { e.stopPropagation(); shiftContext("later"); }}>
+                                <Button $pill className="cc-edge-btn" onClick={(e) => { e.stopPropagation(); shiftContext("later"); }}>
                                   <FiChevronDown size={12} /> Later
-                                </button>
+                                </Button>
                               </div>
                             )}
                           </div>
@@ -967,13 +967,14 @@ const ChatContext = ({
             onChange={(e) => setFilter(e.target.value)}
           />
           {showScores && (
-            <button
-              className={`cc-sort-toggle${sortBy === "date" ? " cc-sort-toggle--active" : ""}`}
+            <Button
+              $pill
+              data-active={sortBy === "date" ? "true" : undefined}
               onClick={() => setSortBy((s) => s === "score" ? "date" : "score")}
               title={sortBy === "score" ? "Click to sort chronologically" : "Click to sort by relevance"}
             >
               {sortBy === "score" ? "Sort: relevance" : "Sort: newest"}
-            </button>
+            </Button>
           )}
           {hasMentions && (
             <span className="cc-filter-tabs">
@@ -982,13 +983,14 @@ const ChatContext = ({
                 { key: "player", label: "from" },
                 { key: "mentions", label: "about" },
               ].map(({ key, label }) => (
-                <button
+                <Button
+                  $pill
                   key={key}
-                  className={`cc-filter-tab${msgFilter === key ? " cc-filter-tab--active" : ""}`}
+                  data-active={msgFilter === key ? "true" : undefined}
                   onClick={() => setMsgFilter(key)}
                 >
                   {label}
-                </button>
+                </Button>
               ))}
             </span>
           )}
@@ -1021,16 +1023,17 @@ const ChatContext = ({
               {expandedMsg ? "Conversation" : "Context"}
             </span>
             {expandedMsg && (
-              <button
-                className="cc-col-close"
+              <Button
+                $icon
                 title="Close conversation"
+                aria-label="Close conversation"
                 onClick={() => {
                   setExpandedMsg(null);
                   setContextMessages([]);
                   setSelectedCtx(new Set());
                   setCtxCentered(false);
                 }}
-              >×</button>
+              >×</Button>
             )}
           </div>
           <div className="cc-split-left">{messageList}</div>

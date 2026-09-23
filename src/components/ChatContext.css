@@ -106,21 +106,6 @@
   color: var(--grey-light);
 }
 
-.cc-col-close {
-  background: none;
-  border: none;
-  color: var(--grey-mid);
-  font-size: var(--text-base);
-  cursor: pointer;
-  padding: 0 4px;
-  line-height: 1;
-  transition: color 0.15s;
-}
-
-.cc-col-close:hover {
-  color: #fff;
-}
-
 .cc-col-meta-text {
   font-family: var(--font-mono);
   font-size: var(--text-xxxs);
@@ -299,60 +284,10 @@
   align-items: center;
 }
 
-.cc-sort-toggle {
-  background: none;
-  border: 1px solid var(--grey-mid);
-  border-radius: var(--radius-sm);
-  color: var(--grey-light);
-  font-family: var(--font-mono);
-  font-size: var(--text-xxs);
-  padding: var(--space-1) var(--space-2);
-  cursor: pointer;
-  white-space: nowrap;
-  transition: border-color 0.15s, color 0.15s;
-}
-
-.cc-sort-toggle:hover {
-  border-color: var(--gold);
-  color: #fff;
-}
-
-.cc-sort-toggle--active {
-  border-color: var(--gold);
-  color: var(--gold);
-}
-
+/* Sort toggle and all/from/about tabs are ui.jsx Button $pill */
 .cc-filter-tabs {
   display: flex;
-  border: 1px solid var(--grey-mid);
-  border-radius: var(--radius-sm);
-  overflow: hidden;
-}
-
-.cc-filter-tab {
-  background: none;
-  border: none;
-  border-right: 1px solid var(--grey-mid);
-  color: var(--grey-light);
-  font-family: var(--font-mono);
-  font-size: var(--text-xxs);
-  padding: var(--space-1) var(--space-2);
-  cursor: pointer;
-  white-space: nowrap;
-  transition: background 0.15s, color 0.15s;
-}
-
-.cc-filter-tab:last-child {
-  border-right: none;
-}
-
-.cc-filter-tab:hover {
-  color: #fff;
-}
-
-.cc-filter-tab--active {
-  background: rgba(255, 255, 255, 0.08);
-  color: var(--gold);
+  gap: var(--space-1);
 }
 
 .cc-date-range {
@@ -776,28 +711,6 @@
   border-bottom: 1px solid rgba(var(--gold-muted-rgb), 0.08);
 }
 
-.cc-context-btn {
-  background: rgba(255, 255, 255, 0.06);
-  border: 1px solid rgba(var(--gold-muted-rgb), 0.15);
-  border-radius: var(--radius-sm);
-  font-family: var(--font-mono);
-  font-size: var(--text-xxxs);
-  color: var(--grey-light);
-  cursor: pointer;
-  padding: 1px 8px;
-  min-width: 24px;
-}
-
-.cc-context-btn:hover {
-  border-color: var(--gold);
-  color: var(--gold);
-}
-
-.cc-context-btn:disabled {
-  opacity: 0.3;
-  cursor: default;
-}
-
 .cc-context-padding {
   font-family: var(--font-mono);
   font-size: var(--text-xxxs);
@@ -846,30 +759,13 @@
 
 /* ── Earlier/Later buttons ─────────────────────── */
 
+/* Earlier/Later (ui.jsx Button $pill; layout only) */
 .cc-edge-btn {
   display: flex;
   align-items: center;
   justify-content: center;
   gap: 4px;
   width: 100%;
-  padding: 8px;
-  background: transparent;
-  border: none;
-  color: var(--grey-mid);
-  font-family: var(--font-mono);
-  font-size: var(--text-xxxs);
-  cursor: pointer;
-  transition: all 0.15s;
-}
-
-.cc-edge-btn:hover {
-  background: var(--gold-tint);
-  color: var(--gold);
-}
-
-.cc-edge-btn:disabled {
-  opacity: 0.3;
-  cursor: default;
 }
 
 /* ── Date separators ──────────────────────────────── */

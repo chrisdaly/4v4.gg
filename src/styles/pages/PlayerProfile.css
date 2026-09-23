@@ -794,6 +794,7 @@
   to { transform: scale(1); opacity: 1; }
 }
 
+/* ui.jsx Button $icon; position + dark backdrop over the video only */
 .player-page .clip-modal-close {
   position: absolute;
   top: var(--space-2);
@@ -801,17 +802,7 @@
   z-index: 10;
   background: rgba(0, 0, 0, 0.7);
   color: var(--white);
-  border: none;
-  font-size: var(--text-lg);
-  line-height: 1;
-  width: 36px;
-  height: 36px;
-  border-radius: 50%;
-  cursor: pointer;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  transition: background var(--transition);
+  border-radius: var(--radius-full);
 }
 
 .player-page .clip-modal-close:hover {

@@ -1234,29 +1234,9 @@
   color: var(--grey-mid);
 }
 
+/* "More" button (ui.jsx Button $secondary; layout only) */
 .digest-admin-more-btn {
-  display: inline-flex;
-  align-items: center;
-  gap: 4px;
-  font-family: var(--font-display);
-  font-size: var(--text-xxs);
-  color: var(--gold);
-  background: transparent;
-  border: var(--border-thin) solid var(--gold);
-  border-radius: var(--radius-md);
-  padding: 4px 10px;
-  cursor: pointer;
-  transition: all var(--transition);
   align-self: flex-start;
-}
-
-.digest-admin-more-btn:hover:not(:disabled) {
-  background: var(--gold-tint);
-}
-
-.digest-admin-more-btn:disabled {
-  opacity: 0.3;
-  cursor: not-allowed;
 }
 
 /* Admin controls row on each bullet item */
@@ -1469,31 +1449,22 @@
   flex-wrap: wrap;
 }
 
-.stat-picker-candidate {
+/* ui.jsx Button $pill; layout + dim states only (children set their own type) */
+.stat-picker-candidates .stat-picker-candidate {
   display: flex;
   align-items: center;
   gap: 6px;
-  padding: 4px 10px;
-  font: inherit;
-  color: inherit;
-  background: rgba(255, 255, 255, 0.03);
-  border: var(--border-thin) solid rgba(255, 255, 255, 0.08);
-  border-radius: var(--radius-full);
-  cursor: pointer;
-  transition: all var(--transition);
+  text-transform: none;
   white-space: nowrap;
   opacity: 0.5;
 }
 
-.stat-picker-candidate:hover {
+.stat-picker-candidates .stat-picker-candidate:hover {
   opacity: 0.8;
-  border-color: rgba(255, 255, 255, 0.2);
 }
 
-.stat-picker-candidate--selected {
+.stat-picker-candidates .stat-picker-candidate--selected {
   opacity: 1;
-  border-color: var(--gold);
-  background: rgba(252, 219, 51, 0.08);
 }
 
 .stat-picker-candidate-name {
@@ -1523,29 +1494,6 @@
   flex: 1;
 }
 
-.digest-editor-key-btn {
-  padding: 8px 16px;
-  font-family: var(--font-mono);
-  font-size: var(--text-xxs);
-  text-transform: uppercase;
-  letter-spacing: 0.1em;
-  color: var(--white);
-  background: rgba(252, 219, 51, 0.15);
-  border: 1px solid var(--gold);
-  border-radius: var(--radius-sm);
-  cursor: pointer;
-  transition: all var(--transition);
-}
-
-.digest-editor-key-btn:hover:not(:disabled) {
-  background: rgba(252, 219, 51, 0.25);
-}
-
-.digest-editor-key-btn:disabled {
-  opacity: 0.4;
-  cursor: not-allowed;
-}
-
 .digest-today-notice {
   text-align: center;
   font-family: var(--font-mono);
@@ -1555,32 +1503,12 @@
   font-style: italic;
 }
 
+/* Refresh button (ui.jsx Button $pill; layout only) */
 .digest-editor-refresh {
   display: flex;
   align-items: center;
   gap: 6px;
   margin: var(--space-2) auto 0;
-  padding: 6px 16px;
-  font-family: var(--font-mono);
-  font-size: var(--text-xxs);
-  text-transform: uppercase;
-  letter-spacing: 0.08em;
-  color: var(--grey-light);
-  background: none;
-  border: var(--border-thin) solid rgba(255, 255, 255, 0.08);
-  border-radius: var(--radius-full);
-  cursor: pointer;
-  transition: all var(--transition);
-}
-
-.digest-editor-refresh:hover:not(:disabled) {
-  color: var(--white);
-  border-color: rgba(255, 255, 255, 0.2);
-}
-
-.digest-editor-refresh:disabled {
-  opacity: 0.5;
-  cursor: not-allowed;
 }
 
 .spin {
@@ -1603,25 +1531,6 @@
   align-items: center;
   justify-content: space-between;
   margin-top: var(--space-2);
-}
-
-.digest-admin-reset-btn {
-  font-family: var(--font-mono);
-  font-size: var(--text-xxs);
-  text-transform: uppercase;
-  letter-spacing: 0.08em;
-  color: var(--grey-light);
-  background: none;
-  border: var(--border-thin) solid rgba(255, 255, 255, 0.08);
-  padding: 5px 14px;
-  border-radius: var(--radius-full);
-  cursor: pointer;
-  transition: all var(--transition);
-}
-
-.digest-admin-reset-btn:hover {
-  color: var(--white);
-  border-color: rgba(255, 255, 255, 0.2);
 }
 
 /* Admin key validation error */

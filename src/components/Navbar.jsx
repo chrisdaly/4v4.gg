@@ -2,7 +2,7 @@ import React, { useState, useRef, useEffect } from "react";
 import { Link, useLocation, useHistory } from "react-router-dom";
 import { raceMapping } from "../lib/constants";
 import { searchLadderWithFallback, getPlayerProfile, getOngoingMatches, getFinishedMatches, getLadder, getSeasons } from "../lib/api";
-import { CountryFlag, Input } from "./ui";
+import { CountryFlag, Input, Button } from "./ui";
 import PeonLoader from "./PeonLoader";
 import useAdmin from "../lib/useAdmin";
 
@@ -217,7 +217,7 @@ const Navbar = () => {
                 onFocus={() => searchResults.length > 0 && setShowSearch(true)}
               />
               {searchQuery && (
-                <button className="navbar-search-clear" onClick={() => { setSearchQuery(""); setSearchResults([]); setShowSearch(false); }}>&times;</button>
+                <Button $icon className="navbar-search-clear" onClick={() => { setSearchQuery(""); setSearchResults([]); setShowSearch(false); }} aria-label="Clear search">&times;</Button>
               )}
             </div>
             {showSearch && searchResults.length > 0 && (
@@ -280,8 +280,10 @@ const Navbar = () => {
             )}
           </div>
           {adminKey && (
-            <button
-              className={`navbar-admin-toggle ${adminViewActive ? "active" : ""}`}
+            <Button
+              $pill
+              className="navbar-admin-toggle"
+              data-active={adminViewActive ? "true" : undefined}
               onClick={toggleAdminView}
               title={adminViewActive ? "Admin view on: click to disable" : "Admin view off: click to enable"}
             >
@@ -290,7 +292,7 @@ const Navbar = () => {
                 data-status={isKeyValid === true ? "valid" : isKeyValid === false ? "invalid" : "unknown"}
               />
               <span className="admin-toggle-label">ADMIN</span>
-            </button>
+            </Button>
           )}
           <button
             className="navbar-hamburger"

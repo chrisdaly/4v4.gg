@@ -3,7 +3,7 @@ import { useLocation } from "react-router-dom";
 import useAdmin from "../lib/useAdmin";
 import { searchLadder, getPlayerProfile } from "../lib/api";
 import { raceMapping } from "../lib/constants";
-import { CountryFlag, PageHero } from "../components/ui";
+import { Button, CountryFlag, PageHero } from "../components/ui";
 import { PageLayout } from "../components/PageLayout";
 import PeonLoader from "../components/PeonLoader";
 import "../styles/pages/DevTools.css";
@@ -132,7 +132,7 @@ function PlayerSearch({ selectedPlayers, onAdd, onRemove, profiles }) {
           onFocus={() => searchResults.length > 0 && setShowSearch(true)}
         />
         {searchQuery && (
-          <button className="navbar-search-clear" onClick={() => { setSearchQuery(""); setSearchResults([]); setShowSearch(false); }}>&times;</button>
+          <Button $icon className="navbar-search-clear" aria-label="Clear search" onClick={() => { setSearchQuery(""); setSearchResults([]); setShowSearch(false); }}>&times;</Button>
         )}
         {showSearch && searchResults.length > 0 && (
           <div className="navbar-search-dropdown">

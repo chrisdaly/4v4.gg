@@ -766,13 +766,14 @@ const DigestBanner = ({ digest, nameSet, nameToTag, label = "Yesterday in 4v4", 
             <div className="digest-section-admin-label">
               <span className="digest-section-label">{sectionLabel}</span>
               <span className="digest-admin-count">{sectionSel?.size || 0}/{items.length}</span>
-              <button
+              <Button
+                $secondary
                 className="digest-admin-more-btn"
                 onClick={(e) => { e.stopPropagation(); handleFetchMore(key); }}
                 disabled={fetchingMore === key}
               >
                 {fetchingMore === key ? "..." : "More"}
-              </button>
+              </Button>
             </div>
           ) : (
             <span className="digest-section-label">{sectionLabel}</span>
@@ -1027,9 +1028,9 @@ const DigestBanner = ({ digest, nameSet, nameToTag, label = "Yesterday in 4v4", 
             onToggle={toggleStat}
           />
           <div className="digest-admin-footer-actions">
-            <button className="digest-admin-reset-btn" onClick={resetToDraft}>
+            <Button $pill onClick={resetToDraft}>
               Reset to draft
-            </button>
+            </Button>
             {publishState !== "idle" && (
               <div className={`digest-admin-status${publishState === "saved" ? " digest-admin-status--saved" : ""}`}>
                 {publishState === "saving" ? "Saving..." : publishState === "saved" ? "\u2713 Saved" : publishState === "dirty" ? "Unsaved changes" : ""}

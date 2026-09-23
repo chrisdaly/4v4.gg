@@ -97,30 +97,32 @@ const VariantPicker = ({ variants, picks, onPick, onApply, onCancel, applyError 
                           ) : isExpanded ? (
                             <div className="mg-variant-expanded">
                               <p className="mg-variant-full-text">{content}</p>
-                              <button
-                                className="mg-variant-collapse-btn"
+                              <Button
+                                $pill
+                                className="mg-variant-toggle-btn"
                                 onClick={(e) => {
                                   e.stopPropagation();
                                   setExpanded(null);
                                 }}
                               >
                                 Collapse
-                              </button>
+                              </Button>
                             </div>
                           ) : (
                             <div className="mg-variant-preview">
                               <span className="mg-variant-preview-text">
                                 {meta.previewFn(content)}
                               </span>
-                              <button
-                                className="mg-variant-expand-btn"
+                              <Button
+                                $pill
+                                className="mg-variant-toggle-btn"
                                 onClick={(e) => {
                                   e.stopPropagation();
                                   setExpanded(expandKey);
                                 }}
                               >
                                 Expand
-                              </button>
+                              </Button>
                             </div>
                           )}
                         </div>

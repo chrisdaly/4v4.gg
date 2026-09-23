@@ -1,4 +1,5 @@
 import React, { useEffect, useRef } from "react";
+import { Button } from "./ui";
 
 const twitchParents = () => {
   const hosts = new Set([window.location.hostname, "localhost"]);
@@ -22,7 +23,7 @@ export default function ClipModal({ clip, onClose, children }) {
   return (
     <div className="clip-modal-backdrop" ref={backdropRef} tabIndex={-1} onClick={onClose}>
       <div className="clip-modal" onClick={(e) => e.stopPropagation()}>
-        <button className="clip-modal-close" onClick={onClose}>&times;</button>
+        <Button $icon className="clip-modal-close" onClick={onClose} aria-label="Close">&times;</Button>
         <iframe
           className="clip-modal-embed"
           src={embedSrc}

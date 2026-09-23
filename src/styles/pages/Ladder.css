@@ -64,22 +64,12 @@
   padding-left: var(--space-8);
 }
 
+/* ui.jsx Button $icon; position only */
 .search-clear {
   position: absolute;
-  right: 8px;
+  right: var(--space-1);
   top: 50%;
   transform: translateY(-50%);
-  background: none;
-  border: none;
-  color: var(--grey-light);
-  font-size: var(--text-base);
-  cursor: pointer;
-  padding: 0 4px;
-  line-height: 1;
-}
-
-.search-clear:hover {
-  color: var(--white);
 }
 
 /* Match .no-results in Finished.css */

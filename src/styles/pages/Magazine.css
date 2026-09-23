@@ -207,36 +207,15 @@
   color: var(--white);
 }
 
+/* ui.jsx Button $icon; sized down to sit inside the pill */
 .mg-topic-pill--editable .mg-topic-pill-delete {
-  background: none;
-  border: none;
-  color: rgba(255, 255, 255, 0.3);
-  cursor: pointer;
+  width: 16px;
+  height: 16px;
   padding: 0;
-  line-height: 1;
-  display: flex;
-  align-items: center;
 }
 
 .mg-topic-pill--editable .mg-topic-pill-delete:hover {
   color: var(--red);
-}
-
-.mg-topic-pill--add {
-  background: none;
-  border: 1px dashed rgba(255, 255, 255, 0.2);
-  color: rgba(255, 255, 255, 0.3);
-  cursor: pointer;
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  width: 24px;
-  height: 24px;
-}
-
-.mg-topic-pill--add:hover {
-  border-color: var(--gold);
-  color: var(--gold);
 }
 
 .mg-topic-input {
@@ -278,19 +257,6 @@
 .mg-section-label--red { color: var(--red); }
 .mg-section-label--green { color: var(--green); }
 .mg-section-label--gold { color: var(--gold); }
-
-.mg-section-add {
-  background: none;
-  border: 1px dashed rgba(255, 255, 255, 0.2);
-  border-radius: var(--radius-sm);
-  color: rgba(255, 255, 255, 0.4);
-  cursor: pointer;
-  padding: 2px 6px;
-  display: flex;
-  align-items: center;
-  transition: color var(--transition), border-color var(--transition);
-}
-.mg-section-add:hover { color: var(--gold); border-color: var(--gold); }
 
 .mg-section-rule {
   flex: 1;
@@ -576,27 +542,22 @@ a.mg-inline-name:hover {
   background: var(--surface-1);
 }
 
-.mg-spotlight-dismiss {
+/* ui.jsx Button $icon; hover-reveal over the card, sized to 24px */
+.mg-spotlight-card .mg-spotlight-dismiss {
   position: absolute;
   top: 6px;
   right: 6px;
   z-index: 2;
-  background: rgba(0, 0, 0, 0.6);
-  border: 1px solid rgba(255, 255, 255, 0.15);
-  border-radius: var(--radius-full);
-  color: rgba(255, 255, 255, 0.6);
   width: 24px;
   height: 24px;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  cursor: pointer;
+  padding: 0;
+  background: rgba(0, 0, 0, 0.6);
+  border-radius: var(--radius-full);
   opacity: 0;
   transition: opacity var(--transition);
-  padding: 0;
 }
 .mg-spotlight-card:hover .mg-spotlight-dismiss { opacity: 1; }
-.mg-spotlight-dismiss:hover { color: var(--white); background: rgba(248, 113, 113, 0.7); }
+.mg-spotlight-card .mg-spotlight-dismiss:hover { color: var(--white); background: rgba(248, 113, 113, 0.7); }
 
 .mg-spotlight-card--green { border: var(--border-thick) solid rgba(74, 222, 128, 0.4); }
 .mg-spotlight-card--red { border: var(--border-thick) solid rgba(248, 113, 113, 0.4); }
@@ -928,42 +889,18 @@ a.mg-inline-name:hover {
 }
 
 /* Remove button - always visible, matches editorial-delete pattern */
-.mg-quote-remove {
+/* ui.jsx Button $icon; sized down to the quote row, dims until hover */
+.mg-quote-editable-row .mg-quote-remove {
   flex-shrink: 0;
-  background: none;
-  border: none;
-  color: var(--grey-mid);
-  cursor: pointer;
-  padding: 2px 4px;
+  width: 20px;
+  height: 20px;
+  padding: 0;
   opacity: 0.5;
-  transition: opacity 0.15s, color 0.15s;
-  display: inline-flex;
-  align-items: center;
 }
 
-.mg-quote-remove:hover {
+.mg-quote-editable-row .mg-quote-remove:hover {
   opacity: 1;
   color: var(--red);
-}
-
-/* Add quote */
-.mg-quote-add-btn {
-  background: none;
-  border: none;
-  color: var(--grey-mid);
-  font: var(--text-xxs) var(--font-mono);
-  text-transform: uppercase;
-  letter-spacing: 0.06em;
-  padding: 6px 0;
-  cursor: pointer;
-  transition: color var(--transition);
-  display: inline-flex;
-  align-items: center;
-  gap: 4px;
-}
-
-.mg-quote-add-btn:hover {
-  color: var(--gold);
 }
 
 /* Action row containing Add + Browse buttons */
@@ -1005,23 +942,6 @@ a.mg-inline-name:hover {
 
 .mg-quote-add-input::placeholder {
   color: var(--grey-mid);
-}
-
-.mg-quote-add-confirm {
-  background: none;
-  border: 1px solid var(--gold);
-  border-radius: var(--radius-sm);
-  color: var(--gold);
-  font: var(--text-xxs) var(--font-mono);
-  text-transform: uppercase;
-  letter-spacing: 0.06em;
-  padding: 5px 14px;
-  cursor: pointer;
-  transition: background var(--transition);
-}
-
-.mg-quote-add-confirm:hover {
-  background: rgba(var(--gold-rgb, 212, 175, 55), 0.1);
 }
 
 /* ── Quote Browser - Full-screen modal ── */
@@ -1079,24 +999,11 @@ a.mg-inline-name:hover {
   opacity: 0.85;
 }
 
+/* ui.jsx Button $ghost; layout only */
 .mg-qb-close {
-  background: none;
-  border: 1px solid var(--grey-mid);
-  border-radius: var(--radius-sm);
-  color: var(--grey-light);
-  cursor: pointer;
-  padding: var(--space-2) var(--space-4);
-  font-family: var(--font-mono);
-  font-size: var(--text-sm);
-  display: flex;
+  display: inline-flex;
   align-items: center;
   gap: var(--space-2);
-  transition: all 0.15s;
-}
-
-.mg-qb-close:hover {
-  border-color: var(--gold);
-  color: #fff;
 }
 
 /* Main content area - fills remaining space */
@@ -1204,26 +1111,20 @@ a.mg-inline-name:hover {
   border-bottom: 1px solid var(--gold-tint);
 }
 
-.mg-qb-sidebar-group-remove {
-  display: flex;
-  align-items: center;
-  justify-content: center;
+/* ui.jsx Button $icon; sized down, hover-reveal */
+.mg-qb-sidebar-group .mg-qb-sidebar-group-remove {
   width: 18px;
   height: 18px;
-  background: none;
-  border: none;
-  border-radius: var(--radius-sm);
-  color: var(--grey-mid);
-  cursor: pointer;
+  padding: 0;
   opacity: 0;
-  transition: all 0.15s;
+  transition: opacity var(--transition);
 }
 
 .mg-qb-sidebar-group:hover .mg-qb-sidebar-group-remove {
   opacity: 1;
 }
 
-.mg-qb-sidebar-group-remove:hover {
+.mg-qb-sidebar-group .mg-qb-sidebar-group-remove:hover {
   color: var(--red);
   background: rgba(255, 100, 100, 0.15);
 }
@@ -1261,27 +1162,21 @@ a.mg-inline-name:hover {
   line-height: 1.4;
 }
 
-.mg-qb-sidebar-quote-remove {
+/* ui.jsx Button $icon; sized down, hover-reveal */
+.mg-qb-sidebar-quote .mg-qb-sidebar-quote-remove {
   flex-shrink: 0;
-  display: flex;
-  align-items: center;
-  justify-content: center;
   width: 16px;
   height: 16px;
-  background: none;
-  border: none;
-  border-radius: var(--radius-sm);
-  color: var(--grey-mid);
-  cursor: pointer;
+  padding: 0;
   opacity: 0;
-  transition: all 0.15s;
+  transition: opacity var(--transition);
 }
 
 .mg-qb-sidebar-quote:hover .mg-qb-sidebar-quote-remove {
   opacity: 1;
 }
 
-.mg-qb-sidebar-quote-remove:hover {
+.mg-qb-sidebar-quote .mg-qb-sidebar-quote-remove:hover {
   color: var(--red);
   background: rgba(255, 100, 100, 0.15);
 }
@@ -2344,18 +2239,15 @@ a.mg-stack-player-name:hover {
 .mg-clip-featured:hover .mg-clip-editorial-overlay,
 .mg-clip-card:hover .mg-clip-editorial-overlay { opacity: 1; }
 
-.mg-clip-delete {
+/* ui.jsx Button $icon; dark backdrop so it reads over the clip thumbnail */
+.mg-clip-editorial-overlay .mg-clip-delete {
+  width: 24px;
+  height: 24px;
+  padding: 0;
   background: rgba(0, 0, 0, 0.7);
-  border: 1px solid rgba(255, 255, 255, 0.2);
-  border-radius: var(--radius-sm);
-  color: rgba(255, 255, 255, 0.6);
-  cursor: pointer;
-  padding: 2px 4px;
-  display: flex;
-  align-items: center;
 }
 
-.mg-clip-delete:hover { color: var(--red); border-color: var(--red); }
+.mg-clip-editorial-overlay .mg-clip-delete:hover { color: var(--red); }
 
 .mg-clip-drag-hint {
   background: rgba(0, 0, 0, 0.7);
@@ -2405,20 +2297,10 @@ a.mg-stack-player-name:hover {
   color: var(--grey-light);
 }
 
+/* ui.jsx Button $primary; layout only */
 .mg-generate-btn {
   margin-top: var(--space-4);
-  padding: var(--space-2) var(--space-6);
-  font-family: var(--font-mono);
-  font-size: var(--text-xs);
-  text-transform: uppercase;
-  letter-spacing: 0.1em;
-  color: #000;
-  background: var(--gold);
-  border: none;
-  border-radius: var(--radius-sm);
-  cursor: pointer;
 }
-.mg-generate-btn:hover { opacity: 0.85; }
 
 /* ── Responsive ────────────────────────────────────── */
 
@@ -3004,34 +2886,23 @@ a.mg-stack-player-name:hover {
   opacity: 1;
 }
 
-.mg-editorial-delete {
-  background: none;
-  border: none;
-  color: var(--grey-light);
-  cursor: pointer;
-  padding: 0 2px;
-  display: inline-flex;
-  align-items: center;
-  margin-left: 2px;
+/* ui.jsx Button $icon; sized down to the item row */
+.mg-editorial-item-controls .mg-editorial-delete,
+.mg-editorial-item-controls .mg-editorial-context {
+  width: 20px;
+  height: 20px;
+  padding: 0;
 }
 
-.mg-editorial-delete:hover {
+.mg-editorial-item-controls .mg-editorial-delete:hover {
   color: var(--red);
 }
 
-.mg-editorial-context {
-  background: none;
-  border: none;
-  color: var(--grey-mid);
-  cursor: pointer;
-  padding: 0 2px;
-  display: inline-flex;
-  align-items: center;
+.mg-editorial-item-controls .mg-editorial-context {
   opacity: 0.5;
-  transition: opacity 0.15s, color 0.15s;
 }
 
-.mg-editorial-context:hover {
+.mg-editorial-item-controls .mg-editorial-context:hover {
   color: var(--gold);
   opacity: 1;
 }
@@ -3284,22 +3155,9 @@ a.mg-stack-player-name:hover {
   overflow: hidden;
 }
 
-.mg-variant-expand-btn,
-.mg-variant-collapse-btn {
-  background: none;
-  border: none;
-  color: var(--gold);
-  font-family: var(--font-mono);
-  font-size: var(--text-xxxs);
-  cursor: pointer;
-  padding: 0;
-  text-align: left;
-  opacity: 0.7;
-}
-
-.mg-variant-expand-btn:hover,
-.mg-variant-collapse-btn:hover {
-  opacity: 1;
+/* Expand/Collapse (ui.jsx Button $pill; layout only) */
+.mg-variant-toggle-btn {
+  align-self: flex-start;
 }
 
 .mg-variant-expanded {
@@ -3428,18 +3286,6 @@ a.mg-stack-player-name:hover {
 .mg-cover-save-state--saving { color: var(--grey-light); }
 .mg-cover-save-state--saved { color: var(--green); }
 .mg-cover-save-state--error { color: var(--red); }
-
-.mg-picker-close {
-  background: none;
-  border: none;
-  color: var(--grey-light);
-  cursor: pointer;
-  padding: var(--space-1);
-}
-
-.mg-picker-close:hover {
-  color: var(--white);
-}
 
 .mg-picker-loading {
   display: flex;

@@ -233,22 +233,15 @@
 }
 
 .navbar-search-clear {
+  /* Visuals come from Button $icon; this only positions it inside the input */
   position: absolute;
-  right: 10px;
+  right: 6px;
   top: 50%;
   transform: translateY(-50%);
-  background: none;
-  border: none;
-  color: var(--grey-light);
-  font-size: var(--text-base);
-  cursor: pointer;
-  padding: 0 4px;
-  line-height: 1;
+  width: 24px;
+  height: 24px;
 }
 
-.navbar-search-clear:hover {
-  color: var(--white);
-}
 
 .navbar-search-dropdown {
   position: absolute;
@@ -412,35 +405,20 @@
 
 /* ── Admin view toggle ─────────────────────────────── */
 
-/* Off state: ghost / dimmed - "previewing as user" */
-.navbar-admin-toggle {
+/* ui.jsx Button $pill (data-active). Off state is dimmed: "previewing as user" */
+.navbar-right .navbar-admin-toggle {
   display: inline-flex;
   align-items: center;
   gap: 5px;
-  height: 24px;
-  padding: 0 8px;
-  border-radius: var(--radius-sm);
-  background: rgba(0, 0, 0, 0.35);
-  border: 1px solid var(--surface-3);
-  cursor: pointer;
-  transition: opacity var(--transition), border-color var(--transition), background var(--transition);
   opacity: 0.45;
-  box-shadow: inset 0 1px 3px rgba(0, 0, 0, 0.4);
 }
 
-.navbar-admin-toggle:hover {
+.navbar-right .navbar-admin-toggle:hover {
   opacity: 0.8;
-  border-color: rgba(255, 255, 255, 0.2);
 }
 
-.navbar-admin-toggle.active {
-  background: var(--gold-tint);
-  border-color: rgba(var(--gold-dark-rgb), 0.4);
+.navbar-right .navbar-admin-toggle[data-active="true"] {
   opacity: 1;
-}
-
-.navbar-admin-toggle.active:hover {
-  background: rgba(252, 219, 51, 0.15);
 }
 
 .admin-toggle-label {
@@ -450,7 +428,7 @@
   color: var(--grey-light);
 }
 
-.navbar-admin-toggle.active .admin-toggle-label {
+.navbar-admin-toggle[data-active="true"] .admin-toggle-label {
   color: var(--gold);
 }
 

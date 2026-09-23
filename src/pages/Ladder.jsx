@@ -392,7 +392,7 @@ const Ladder = () => {
             onChange={(e) => setSearchQuery(e.target.value)}
           />
           {searchQuery && (
-            <button className="search-clear" onClick={() => { setSearchQuery(""); setSearchResults(null); }}>×</button>
+            <Button $icon className="search-clear" onClick={() => { setSearchQuery(""); setSearchResults(null); }} aria-label="Clear search">×</Button>
           )}
         </div>
         <div className="ladder-selectors">

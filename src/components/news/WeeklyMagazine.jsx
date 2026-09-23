@@ -163,8 +163,8 @@ const StatToggle = ({ label, statKey, hidden, onToggle }) => (
 const ItemControls = ({ onDelete, onContext, dragProps }) => (
   <div className="mg-editorial-item-controls">
     {dragProps && <span className="mg-editorial-drag" {...dragProps} title="Drag to reorder"><FiMenu size={12} /></span>}
-    {onDelete && <button className="mg-editorial-delete" onClick={onDelete} title="Delete item"><FiX size={12} /></button>}
-    {onContext && <button className="mg-editorial-context" onClick={onContext} title="View chat context"><FiMessageSquare size={12} /></button>}
+    {onDelete && <Button $icon className="mg-editorial-delete" onClick={onDelete} title="Delete item" aria-label="Delete item"><FiX size={12} /></Button>}
+    {onContext && <Button $icon className="mg-editorial-context" onClick={onContext} title="View chat context" aria-label="View chat context"><FiMessageSquare size={12} /></Button>}
   </div>
 );
 
@@ -446,7 +446,7 @@ const TopicPills = ({ topics, editorial }) => {
     // Editorial: show add button when no topics
     return (
       <div className="mg-topics">
-        <button className="mg-section-add" onClick={() => setAddingTopic(true)} title="Add topic"><FiPlus size={12} /> Add topic</button>
+        <Button $pill onClick={() => setAddingTopic(true)} title="Add topic"><FiPlus size={12} /> Add topic</Button>
         {addingTopic && (
           <input
             ref={addRef}
@@ -495,7 +495,7 @@ const TopicPills = ({ topics, editorial }) => {
       {topics.map((t, i) => (
         <span key={i} className="mg-topic-pill mg-topic-pill--editable">
           <EditableText value={t} onSave={(v) => handleEdit(i, v)} className="mg-topic-pill-text" />
-          <button className="mg-topic-pill-delete" onClick={() => handleDelete(i)} title="Remove topic"><FiX size={10} /></button>
+          <Button $icon className="mg-topic-pill-delete" onClick={() => handleDelete(i)} title="Remove topic" aria-label="Remove topic"><FiX size={10} /></Button>
         </span>
       ))}
       {addingTopic ? (
@@ -508,7 +508,7 @@ const TopicPills = ({ topics, editorial }) => {
           onBlur={handleAdd}
         />
       ) : (
-        <button className="mg-topic-pill mg-topic-pill--add" onClick={() => setAddingTopic(true)} title="Add topic"><FiPlus size={10} /></button>
+        <Button $pill onClick={() => setAddingTopic(true)} title="Add topic" aria-label="Add topic"><FiPlus size={10} /></Button>
       )}
     </div>
   );
@@ -642,7 +642,7 @@ const StoriesGrid = ({ stories, highlights, bans, nameToTag, editorial }) => {
           <div className="mg-stories-col">
             <div className="mg-section-header">
               <span className="mg-section-label">Also This Week</span>
-              {editorial?.addItem && <button className="mg-section-add" onClick={() => editorial.addItem("DRAMA")} title="Add item"><FiPlus size={12} /></button>}
+              {editorial?.addItem && <Button $pill onClick={() => editorial.addItem("DRAMA")} title="Add item" aria-label="Add item"><FiPlus size={12} /></Button>}
               {editorial && <SectionRegenButton sectionKey="DRAMA" regenLoading={editorial.regenLoading} onRegen={editorial.regenSection} />}
               <div className="mg-section-rule" />
             </div>
@@ -701,7 +701,7 @@ const StoriesGrid = ({ stories, highlights, bans, nameToTag, editorial }) => {
             <div className="mg-stories-sidebar">
               <div className="mg-section-header">
                 <span className="mg-section-label mg-section-label--green">Highlights</span>
-                {editorial?.addItem && <button className="mg-section-add" onClick={() => editorial.addItem("HIGHLIGHTS")} title="Add item"><FiPlus size={12} /></button>}
+                {editorial?.addItem && <Button $pill onClick={() => editorial.addItem("HIGHLIGHTS")} title="Add item" aria-label="Add item"><FiPlus size={12} /></Button>}
                 {editorial && <SectionRegenButton sectionKey="HIGHLIGHTS" regenLoading={editorial.regenLoading} onRegen={editorial.regenSection} />}
                 <div className="mg-section-rule" />
               </div>
@@ -757,7 +757,7 @@ const StoriesGrid = ({ stories, highlights, bans, nameToTag, editorial }) => {
             <div className="mg-stories-sidebar">
               <div className="mg-section-header">
                 <span className="mg-section-label mg-section-label--red">Bans</span>
-                {editorial?.addItem && <button className="mg-section-add" onClick={() => editorial.addItem("BANS")} title="Add item"><FiPlus size={12} /></button>}
+                {editorial?.addItem && <Button $pill onClick={() => editorial.addItem("BANS")} title="Add item" aria-label="Add item"><FiPlus size={12} /></Button>}
                 {editorial && <SectionRegenButton sectionKey="BANS" regenLoading={editorial.regenLoading} onRegen={editorial.regenSection} />}
                 <div className="mg-section-rule" />
               </div>
@@ -933,7 +933,7 @@ const EditableQuotes = ({ quotes = [], statKey, editorial, browserProps }) => {
                   onDragEnd={() => { setDragFrom(null); setDragOver(null); }}
                 >
                   <span className="mg-quote-drag" draggable onDragStart={(e) => { e.stopPropagation(); setDragFrom(idx); }} title="Drag to reorder"><FiMenu size={12} /></span>
-                  <button className="mg-quote-remove" onClick={() => removeQuote(idx)} title="Remove quote"><FiX size={12} /></button>
+                  <Button $icon className="mg-quote-remove" onClick={() => removeQuote(idx)} title="Remove quote" aria-label="Remove quote"><FiX size={12} /></Button>
                   <EditableText
                     value={msg}
                     onSave={(t) => editQuote(idx, group.name ? `${group.name}: ${t}` : t)}
@@ -949,11 +949,11 @@ const EditableQuotes = ({ quotes = [], statKey, editorial, browserProps }) => {
       {adding ? (
         <div className="mg-quote-add-row">
           <input ref={addRef} className="mg-quote-add-input" placeholder="Speaker: message text" autoFocus onKeyDown={(e) => { if (e.key === "Enter") addQuote(); if (e.key === "Escape") setAdding(false); }} />
-          <button className="mg-quote-add-confirm" onClick={addQuote}>Add</button>
+          <Button $secondary onClick={addQuote}>Add</Button>
         </div>
       ) : (
         <div className="mg-quote-actions">
-          <button className="mg-quote-add-btn" onClick={() => setAdding(true)}><FiPlus size={12} /> Add manually</button>
+          <Button $pill onClick={() => setAdding(true)}><FiPlus size={12} /> Add manually</Button>
           {browserProps && <QuoteBrowser {...browserProps} />}
         </div>
       )}
@@ -1332,9 +1332,9 @@ const QuoteBrowser = ({ statKey, battleTag, editorial, label, text, nameToTag, d
               <span className="mg-qb-title">{label || "Find Quotes"}</span>
               {text && <p className="mg-qb-story">{text}</p>}
             </div>
-            <button className="mg-qb-close" onClick={() => window.history.back()}>
+            <Button $ghost className="mg-qb-close" onClick={() => window.history.back()}>
               Close <FiX size={16} />
-            </button>
+            </Button>
           </div>
 
           {/* Body - 3 columns: quotes | messages | context */}
@@ -1368,7 +1368,8 @@ const QuoteBrowser = ({ statKey, battleTag, editorial, label, text, nameToTag, d
                       <div key={gi} className="mg-qb-sidebar-group">
                         <div className="mg-qb-sidebar-group-header">
                           <span className="mg-qb-sidebar-quote-speaker">{group.speaker}</span>
-                          <button
+                          <Button
+                            $icon
                             className="mg-qb-sidebar-group-remove"
                             onClick={() => {
                               // Remove all messages in this group (in reverse order to preserve indices)
@@ -1376,20 +1377,23 @@ const QuoteBrowser = ({ statKey, battleTag, editorial, label, text, nameToTag, d
                               indices.forEach(idx => handleRemoveQuote(idx));
                             }}
                             title="Remove all"
+                            aria-label="Remove all"
                           >
                             <FiX size={12} />
-                          </button>
+                          </Button>
                         </div>
                         {group.messages.map((m, mi) => (
                           <div key={mi} className="mg-qb-sidebar-quote">
                             <span className="mg-qb-sidebar-quote-text">{m.content}</span>
-                            <button
+                            <Button
+                              $icon
                               className="mg-qb-sidebar-quote-remove"
                               onClick={() => handleRemoveQuote(m.idx)}
                               title="Remove"
+                              aria-label="Remove"
                             >
                               <FiX size={10} />
-                            </button>
+                            </Button>
                           </div>
                         ))}
                       </div>
@@ -1470,9 +1474,9 @@ const SpotlightCard = ({ stat, profile, accent, role, blurb, quotes, statKey, he
   return (
     <div className={`mg-spotlight-card mg-spotlight-card--${accent}`}>
       {canDismiss && (
-        <button className="mg-spotlight-dismiss" onClick={() => editorial.toggleStat(statKey)} title="Hide this spotlight">
+        <Button $icon className="mg-spotlight-dismiss" onClick={() => editorial.toggleStat(statKey)} title="Hide this spotlight" aria-label="Hide this spotlight">
           <FiX size={14} />
-        </button>
+        </Button>
       )}
       {hasPic && (
         <div className="mg-spotlight-avatar">
@@ -1683,9 +1687,9 @@ const StreakCard = ({ stat, profile, accent, role, blurb, quotes, dailyData, typ
   return (
     <div className={`mg-spotlight-card mg-spotlight-card--${accent}`}>
       {canDismiss && (
-        <button className="mg-spotlight-dismiss" onClick={() => editorial.toggleStat(type)} title="Hide this spotlight">
+        <Button $icon className="mg-spotlight-dismiss" onClick={() => editorial.toggleStat(type)} title="Hide this spotlight" aria-label="Hide this spotlight">
           <FiX size={14} />
-        </button>
+        </Button>
       )}
       {hasPic && (
         <div className="mg-spotlight-avatar">
@@ -2343,7 +2347,7 @@ const ClipsSection = ({ clips, editorial, onClipsChanged }) => {
 
   const renderClipOverlay = (idx) => editorial && (
     <div className="mg-clip-editorial-overlay">
-      <button className="mg-clip-delete" onClick={(e) => { e.preventDefault(); e.stopPropagation(); handleDelete(idx); }} title="Remove clip"><FiX size={14} /></button>
+      <Button $icon className="mg-clip-delete" onClick={(e) => { e.preventDefault(); e.stopPropagation(); handleDelete(idx); }} title="Remove clip" aria-label="Remove clip"><FiX size={14} /></Button>
       <span className="mg-clip-drag-hint"><FiMenu size={12} /> drag to reorder</span>
     </div>
   );
@@ -2794,7 +2798,7 @@ const WeeklyMagazine = ({ weekParam, isAdmin = false, apiKey = "" }) => {
           {isAdmin ? (
             <>
               <p>This weekly digest hasn't been generated yet.</p>
-              <button className="mg-generate-btn" onClick={handleGenerate}>Generate Now</button>
+              <Button $primary className="mg-generate-btn" onClick={handleGenerate}>Generate Now</Button>
             </>
           ) : (
             <p>This issue hasn't been published yet. Check back soon.</p>
@@ -3125,7 +3129,7 @@ const WeeklyMagazine = ({ weekParam, isAdmin = false, apiKey = "" }) => {
           <div className="mg-picker-panel" onClick={(e) => e.stopPropagation()}>
             <div className="mg-picker-header">
               <span className="mg-section-label mg-section-label--gold">Pick a Headline</span>
-              <button className="mg-picker-close" onClick={() => setShowHeadlinePicker(false)}><FiX size={16} /></button>
+              <Button $icon onClick={() => setShowHeadlinePicker(false)} aria-label="Close"><FiX size={16} /></Button>
             </div>
             {headlineLoading ? (
               <div className="mg-picker-loading"><PeonLoader size="sm" /></div>
@@ -3170,7 +3174,7 @@ const WeeklyMagazine = ({ weekParam, isAdmin = false, apiKey = "" }) => {
                   {coverSaveState === "saving" ? "Saving..." : coverSaveState === "saved" ? "Saved!" : "Failed"}
                 </span>
               )}
-              <button className="mg-picker-close" onClick={coverSaveState === "saving" ? undefined : () => setShowCoverGallery(false)}><FiX size={16} /></button>
+              <Button $icon onClick={coverSaveState === "saving" ? undefined : () => setShowCoverGallery(false)} aria-label="Close"><FiX size={16} /></Button>
             </div>
             {coverGalleryLoading ? (
               <div className="mg-picker-loading"><PeonLoader size="sm" /></div>
