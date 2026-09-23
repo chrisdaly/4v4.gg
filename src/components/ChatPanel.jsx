@@ -1,22 +1,17 @@
 import React, { useRef, useEffect, useState, useCallback, useMemo } from "react";
 import { Virtuoso } from "react-virtuoso";
-import { Link, useHistory } from "react-router-dom";
-import styled, { keyframes, css } from "styled-components";
+import { Link } from "react-router-dom";
+import styled from "styled-components";
 import { GiCrossedSwords } from "react-icons/gi";
 import { HiKey, HiBell, HiSearch, HiTranslate } from "react-icons/hi";
 import { IoSend } from "react-icons/io5";
-import { FaTwitch } from "react-icons/fa";
-import crownIcon from "../assets/icons/king.svg";
-import { raceMapping, raceIcons } from "../lib/constants";
-import { CountryFlag, Skeleton, SkeletonCircle, Input } from "./ui";
-import { useMessageSegments, useBotResponseMap, formatDateDivider, getDateKey, formatTime, formatDateTime } from "../lib/useChatMessages";
-import { getMapImageUrl } from "../lib/formatters";
+import { raceIcons } from "../lib/constants";
+import { Button, Skeleton, Input } from "./ui";
+import { useMessageSegments, useBotResponseMap, formatDateDivider, getDateKey, formatDateTime } from "../lib/useChatMessages";
 import { linkifyMessage, playPing } from "../lib/chatExtras";
 import PlayerHoverCard from "./PlayerHoverCard";
-import MiniTeamsRow from "./MiniMatchCard";
-import MatchNote from "./MatchNote";
-import StreakBadges from "./StreakBadges";
-import RivalryBadge from "./RivalryBadge";
+import ChatMessage, { FeedText } from "./chat/ChatMessage";
+import GameTicker from "./chat/GameTicker";
 import { getPlayerProfile } from "../lib/api";
 import { relayFetch } from "../lib/relay";
 import { normalizeMessages } from "../lib/chat/normalize";
@@ -71,16 +66,18 @@ const StatusBadge = styled.span`
   display: flex;
   align-items: center;
   gap: 6px;
+  margin-left: var(--space-1);
   font-family: var(--font-mono);
   font-size: var(--text-xxs);
-  color: var(--grey-light);
+  color: ${(p) => (p.$fault ? "var(--red)" : "var(--grey-light)")};
+  white-space: nowrap;
 `;
 
 const StatusDot = styled.span`
   width: 6px;
   height: 6px;
   border-radius: 50%;
-  background: ${(p) => (p.$connected ? "var(--green)" : "var(--grey-mid)")};
+  background: ${(p) => (p.$connected ? "var(--green)" : p.$fault ? "var(--red)" : "var(--grey-mid)")};
   ${(p) => p.$connected && "animation: pulse 1.5s infinite;"}
 `;
 
@@ -150,209 +147,11 @@ const ListBottom = styled.div`
   }
 `;
 
-/* Group-start row. Under virtualization every message is its own list item,
-   so the segment's box is expressed per row: the 56px min-height only ever
-   bit for single-message groups (two rows always exceed it), the bottom
-   padding belongs to the group's last row, and $flush reproduces the
-   pre-existing no-top-margin for watched authors (the old :first-child rule
-   matched inside WatchedBar). */
-const MessageSegment = styled.div`
-  position: relative;
-  min-height: ${(p) => (p.$single ? "56px" : "0")};
-  margin-top: ${(p) => (p.$flush ? "0" : "14px")};
-  padding-bottom: ${(p) => (p.$last ? "var(--space-1)" : "0")};
-
-  @media (max-width: 480px) {
-    min-height: ${(p) => (p.$single ? "48px" : "0")};
-    margin-top: ${(p) => (p.$flush ? "0" : "10px")};
-  }
-`;
-
-const ContinuationBlock = styled.div`
-  padding-bottom: ${(p) => (p.$last ? "var(--space-1)" : "0")};
-`;
-
-const GroupStartRow = styled.div`
-  padding: 2px var(--space-4) 2px 64px;
-  line-height: 1.375;
-  transition: background 0.6s;
-  ${(p) => p.$flash && "background: rgba(252, 219, 51, 0.14) !important;"}
-
-  @media (max-width: 480px) {
-    padding-left: 56px;
-  }
-
-  &:hover {
-    background: var(--surface-2);
-  }
-`;
-
-const ContinuationRow = styled.div`
-  position: relative;
-  padding: 2px var(--space-4) 2px 64px;
-  line-height: 1.375;
-  transition: background 0.6s;
-  ${(p) => p.$flash && "background: rgba(252, 219, 51, 0.14) !important;"}
-
-  @media (max-width: 480px) {
-    padding-left: 56px;
-  }
-
-  &:hover {
-    background: var(--surface-2);
-  }
-
-  &:hover > .hover-timestamp {
-    opacity: 0.5;
-  }
-`;
-
-const HoverTimestamp = styled.span`
-  position: absolute;
-  right: var(--space-4);
-  top: 50%;
-  transform: translateY(-50%);
-  font-family: var(--font-mono);
-  font-size: var(--text-xxxs);
-  color: var(--grey-light);
-  opacity: 0;
-  transition: opacity 0.15s;
-  pointer-events: none;
-`;
-
-const Avatar = styled.img`
-  width: 44px;
-  height: 44px;
-  border-radius: var(--radius-md);
-  flex-shrink: 0;
-
-  @media (max-width: 480px) {
-    width: 36px;
-    height: 36px;
-  }
-`;
-
-const AvatarRaceIcon = styled.img`
-  width: 44px;
-  height: 44px;
-  box-sizing: border-box;
-  border-radius: var(--radius-md);
-  flex-shrink: 0;
-  padding: 8px;
-  background: rgba(255, 255, 255, 0.06);
-  opacity: ${(p) => p.$faded ? 0.3 : 0.85};
-
-  @media (max-width: 480px) {
-    width: 36px;
-    height: 36px;
-    padding: 6px;
-  }
-`;
-
-const MessageContent = styled.div`
-  min-width: 0;
-`;
-
-const InlineMmr = styled.span`
-  font-family: var(--font-mono);
-  font-size: var(--text-xs);
-  color: #fff;
-  margin-left: var(--space-2);
-  font-weight: 600;
-`;
-
-const MmrSuffix = styled.span`
-  font-size: var(--text-xxxs);
-  color: var(--grey-light);
-  font-weight: 400;
-  opacity: 0.7;
-`;
-
-const Timestamp = styled.span`
+const SystemMessageRow = styled.div`
+  padding: var(--space-1) 0 var(--space-1) 44px;
+  line-height: 1.5;
   font-family: var(--font-mono);
   font-size: var(--text-xxs);
-  color: var(--grey-light);
-  margin-left: var(--space-2);
-`;
-
-const NameWrapper = styled.span`
-  display: inline-flex;
-  align-items: center;
-`;
-
-const WinCrown = styled.img`
-  width: 16px;
-  height: 16px;
-  margin-left: 4px;
-  filter: drop-shadow(0 0 4px rgba(252, 219, 51, 0.4));
-`;
-
-const UserNameLink = styled(Link)`
-  font-family: var(--font-display);
-  font-size: var(--text-sm);
-  color: var(--gold);
-  text-decoration: none;
-
-  &:hover {
-    text-decoration: underline;
-  }
-`;
-
-const AvatarContainer = styled.div`
-  position: absolute;
-  left: var(--space-2);
-  top: 0;
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  width: 44px;
-
-  @media (max-width: 480px) {
-    width: 36px;
-  }
-`;
-
-const AvatarImgWrap = styled.div`
-  position: relative;
-  display: inline-block;
-`;
-
-const AvatarFlag = styled.div`
-  position: absolute;
-  bottom: -1px;
-  right: -3px;
-  line-height: 0;
-`;
-
-
-const InGameIcon = styled(GiCrossedSwords)`
-  width: 14px;
-  height: 14px;
-  color: var(--red);
-  fill: var(--red);
-  margin-left: 6px;
-  animation: pulse 1.5s infinite;
-  flex-shrink: 0;
-`;
-
-const MessageText = styled.span`
-  font-family: var(--font-body);
-  color: var(--text-body);
-  font-size: var(--text-sm);
-  line-height: 1.6;
-  word-break: break-word;
-
-  @media (max-width: 480px) {
-    font-size: var(--text-xs);
-    line-height: 1.5;
-  }
-`;
-
-const SystemMessageRow = styled.div`
-  padding: 2px var(--space-4) 2px 64px;
-  line-height: 1.375;
-  font-family: var(--font-mono);
-  font-size: var(--text-xs);
   color: var(--grey-light);
   font-style: italic;
   opacity: 0.7;
@@ -542,43 +341,12 @@ const SendError = styled.span`
   text-overflow: ellipsis;
 `;
 
-const TranslationRow = styled.div`
-  margin: 2px 0 2px 64px;
-  padding: 2px 10px;
-  font-family: var(--font-mono);
-  font-size: var(--text-xs);
-  color: var(--grey-light);
-  font-style: italic;
-  opacity: 0.8;
-  line-height: 1.4;
-
-  @media (max-width: 480px) {
-    margin-left: 56px;
-  }
-`;
-
-const TranslationLabel = styled.span`
-  font-family: var(--font-mono);
-  font-size: var(--text-xxxs);
-  font-weight: 700;
-  color: var(--grey-light);
-  text-transform: uppercase;
-  letter-spacing: 0.08em;
-  margin-right: 6px;
-  font-style: normal;
-  opacity: 0.6;
-`;
-
 const BotResponseRow = styled.div`
-  margin: 4px 0 4px 64px;
+  margin: 4px 0;
   padding: 6px 10px;
   border-left: 3px solid var(--gold);
   background: rgba(252, 219, 51, 0.04);
   border-radius: 0 var(--radius-sm) var(--radius-sm) 0;
-
-  @media (max-width: 480px) {
-    margin-left: 56px;
-  }
 `;
 
 const BotLabel = styled.span`
@@ -665,185 +433,6 @@ const EmptyState = styled.div`
   letter-spacing: 0.1em;
 `;
 
-/* ── Game events woven into the stream ─────────── */
-
-const eventSlideIn = keyframes`
-  from { opacity: 0; transform: translateY(6px); }
-  to { opacity: 1; transform: translateY(0); }
-`;
-
-const finishGlow = keyframes`
-  0% { box-shadow: 0 0 0 rgba(194, 52, 52, 0); }
-  30% { box-shadow: 0 0 14px rgba(194, 52, 52, 0.35); }
-  100% { box-shadow: 0 0 0 rgba(194, 52, 52, 0); }
-`;
-
-const EventPostWrap = styled.div`
-  position: relative;
-  min-height: 56px;
-  margin-top: 14px;
-  padding-bottom: var(--space-1);
-
-  @media (max-width: 480px) {
-    min-height: 48px;
-    margin-top: 10px;
-  }
-`;
-
-const EventAvatarContainer = styled.div`
-  position: absolute;
-  left: var(--space-2);
-  top: 0;
-  width: 44px;
-
-  @media (max-width: 480px) {
-    width: 36px;
-  }
-`;
-
-const EventAvatarImg = styled.img`
-  width: 44px;
-  height: 44px;
-  border-radius: var(--radius-md);
-  display: block;
-
-  @media (max-width: 480px) {
-    width: 36px;
-    height: 36px;
-  }
-`;
-
-const EventAttribution = styled.div`
-  padding: 2px var(--space-4) 2px 64px;
-  line-height: 1.375;
-
-  @media (max-width: 480px) {
-    padding-left: 56px;
-  }
-`;
-
-const EventBotName = styled.span`
-  font-family: var(--font-display);
-  font-size: var(--text-xs);
-  color: var(--gold);
-`;
-
-const GameEventCard = styled.div`
-  display: flex;
-  align-items: center;
-  gap: var(--space-3);
-  max-width: 580px;
-  box-sizing: border-box;
-  margin: 2px 0 0 64px;
-
-  @media (max-width: 480px) {
-    margin-left: 56px;
-  }
-  padding: var(--space-2) var(--space-3);
-  border-left: 2px solid ${(p) => (p.$end ? "rgba(248, 113, 113, 0.5)" : "rgba(74, 222, 128, 0.5)")};
-  background: rgba(255, 255, 255, 0.02);
-  border-radius: 0 var(--radius-sm) var(--radius-sm) 0;
-  font-family: var(--font-mono);
-  font-size: var(--text-xxs);
-  color: var(--grey-light);
-  transition: background 0.15s;
-  ${(p) =>
-    p.$live &&
-    css`
-      animation: ${eventSlideIn} 0.4s ease-out${p.$end ? css`, ${finishGlow} 2s ease-out 0.2s` : ""};
-    `}
-
-  &:hover {
-    background: rgba(255, 255, 255, 0.04);
-  }
-
-  a {
-    color: var(--gold);
-    text-decoration: none;
-    &:hover {
-      text-decoration: underline;
-    }
-  }
-`;
-
-const EventTagCol = styled.div`
-  width: 84px;
-  flex-shrink: 0;
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  justify-content: center;
-  gap: 4px;
-  text-align: center;
-`;
-
-const EventMapBlock = styled.div`
-  width: 96px;
-  flex-shrink: 0;
-  align-self: center;
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  gap: 3px;
-  text-align: center;
-`;
-
-const EventMapImg = styled.img`
-  width: 64px;
-  height: 64px;
-  border-radius: var(--radius-sm);
-  object-fit: cover;
-  display: block;
-`;
-
-const EventMapName = styled(Link)`
-  font-family: var(--font-display);
-  font-size: var(--text-xxs);
-  line-height: 1.2;
-`;
-
-const EventMapMeta = styled.div`
-  font-family: var(--font-mono);
-  font-size: var(--text-xxxs);
-  color: var(--grey-light);
-  opacity: 0.8;
-`;
-
-const EventBody = styled.div`
-  min-width: 0;
-  flex: 1;
-  display: flex;
-  flex-direction: column;
-  gap: 4px;
-`;
-
-const EventTag = styled.span`
-  flex-shrink: 0;
-  font-family: var(--font-mono);
-  font-size: var(--text-xxxs);
-  font-weight: 700;
-  text-transform: uppercase;
-  letter-spacing: 0.08em;
-  padding: 3px 7px;
-  border-radius: var(--radius-sm);
-  color: ${(p) => (p.$end ? "var(--red)" : "var(--green)")};
-  background: ${(p) => (p.$end ? "var(--red-tint)" : "var(--green-tint)")};
-`;
-
-const EventNote = styled.div`
-  margin-top: 5px;
-`;
-
-const EventLiveDot = styled.span`
-  display: inline-block;
-  width: 6px;
-  height: 6px;
-  border-radius: 50%;
-  background: var(--red);
-  margin-right: 4px;
-  animation: pulse 1.5s infinite;
-`;
-
 const LiveGamesChip = styled(Link)`
   display: inline-flex;
   align-items: center;
@@ -869,102 +458,36 @@ const LiveGamesChip = styled(Link)`
   }
 `;
 
-/* ── Name-row accessories ──────────────────────── */
-
-const ClanTagChip = styled.span`
-  font-family: var(--font-mono);
-  font-size: var(--text-xxxs);
-  color: var(--grey-light);
-  margin-left: 5px;
-  opacity: 0.8;
-
-  &::before {
-    content: "[";
-  }
-  &::after {
-    content: "]";
-  }
-`;
-
-const DeltaPill = styled.span`
-  font-family: var(--font-mono);
-  font-size: var(--text-xxxs);
-  font-weight: 700;
-  margin-left: 6px;
-  padding: 1px 5px;
-  border-radius: var(--radius-sm);
-  color: ${(p) => (p.$positive ? "var(--green)" : "var(--red)")};
-  background: ${(p) => (p.$positive ? "var(--green-tint)" : "var(--red-tint)")};
-`;
-
-const InGameChip = styled(Link)`
-  display: inline-flex;
-  align-items: center;
-  gap: 3px;
-  margin-left: 6px;
-  padding: 1px 6px;
-  border-radius: var(--radius-sm);
-  background: rgba(194, 52, 52, 0.12);
-  font-family: var(--font-mono);
-  font-size: var(--text-xxxs);
-  color: var(--red);
-  text-decoration: none;
-
-  svg {
-    width: 10px;
-    height: 10px;
-    animation: pulse 1.5s infinite;
-  }
-
-  &:hover {
-    background: rgba(194, 52, 52, 0.25);
-  }
-`;
-
-const LiveTwitchLink = styled.a`
-  display: inline-flex;
-  align-items: center;
-  margin-left: 6px;
-
-  svg {
-    width: 13px;
-    height: 13px;
-    fill: var(--twitch-purple);
-  }
-
-  &:hover svg {
-    opacity: 0.8;
-  }
-`;
-
-const WatchedBar = styled.div`
-  border-left: 2px solid rgba(var(--gold-muted-rgb), 0.6);
-`;
-
 /* ── Header toggles + search ───────────────────── */
 
 const HeaderActions = styled.div`
   display: flex;
   align-items: center;
   gap: var(--space-1);
+  min-width: 0;
 `;
 
-const HeaderToggle = styled.button`
-  display: flex;
+const ToggleButton = styled(Button)`
+  display: inline-flex;
   align-items: center;
-  justify-content: center;
-  width: 26px;
-  height: 26px;
-  background: ${(p) => (p.$active ? "rgba(252, 219, 51, 0.12)" : "none")};
-  border: none;
-  border-radius: var(--radius-sm);
-  color: ${(p) => (p.$active ? "var(--gold)" : "var(--grey-mid)")};
-  cursor: pointer;
-  transition: color 0.15s;
-
-  &:hover {
-    color: var(--gold);
+  gap: 5px;
+  padding: 3px var(--space-2);
+  line-height: 1;
+  svg {
+    width: 13px;
+    height: 13px;
+    flex-shrink: 0;
   }
+`;
+
+const ToggleLabel = styled.span`
+  @media (max-width: 640px) {
+    display: none;
+  }
+`;
+
+const SystemWrap = styled.div`
+  padding-top: var(--space-2);
 `;
 
 const SearchBar = styled.div`
@@ -1130,20 +653,6 @@ const MentionItem = styled.button`
   }
 `;
 
-// formatDateDivider, getDateKey, formatTime, formatDateTime
-// are now imported from ../lib/useChatMessages
-
-function getAvatarElement(tag, avatars, stats) {
-  const avatarUrl = avatars?.get(tag)?.profilePicUrl;
-  if (avatarUrl) return <Avatar src={avatarUrl} alt="" />;
-
-  const playerStats = stats?.get(tag);
-  const raceIcon = playerStats?.race != null ? raceMapping[playerStats.race] : null;
-  if (raceIcon) return <AvatarRaceIcon src={raceIcon} alt="" />;
-
-  return <AvatarRaceIcon src={raceIcons.random} alt="" $faded />;
-}
-
 function formatGameMinutes(startTime) {
   if (!startTime) return null;
   const mins = Math.floor((Date.now() - new Date(startTime).getTime()) / 60000);
@@ -1169,6 +678,14 @@ function highlightMatches(text, query) {
   if (i < text.length) parts.push(text.slice(i));
   return parts;
 }
+
+// Relay-side states (server/src/signalr.js) that are not a client reconnect
+const RELAY_FAULTS = {
+  auth_failed: "relay auth failed",
+  banned: "relay banned",
+  no_token: "relay needs token",
+};
+const RELAY_OFFLINE = new Set(["error", "Disconnected", "stopped"]);
 
 function readPref(key, fallback) {
   try {
@@ -1254,7 +771,6 @@ export default function ChatPanel({
   loadOlder,
   hasMoreHistory,
 }) {
-  const history = useHistory();
   const virtuosoRef = useRef(null);
   const inputRef = useRef(null);
   const [showNotice, setShowNotice] = useState(false);
@@ -1267,6 +783,9 @@ export default function ChatPanel({
   const [botTesting, setBotTesting] = useState(false);
   const [showTranslations, setShowTranslations] = useState(() => readPref("chat:showTranslations", true));
   const [notifyOn, setNotifyOn] = useState(() => readPref("chat:notify", false));
+  const [showGames, setShowGames] = useState(() => readPref("chat:showGames", true));
+  // Expanded game tickers, per event id (not persisted)
+  const [expandedEvents, setExpandedEvents] = useState(() => new Set());
   const [searchOpen, setSearchOpen] = useState(false);
   const [searchQuery, setSearchQuery] = useState("");
   const [searchResults, setSearchResults] = useState(null);
@@ -1374,6 +893,22 @@ export default function ChatPanel({
     });
   };
 
+  const toggleGames = () => {
+    setShowGames((v) => {
+      writePref("chat:showGames", !v);
+      return !v;
+    });
+  };
+
+  const toggleEvent = useCallback((id) => {
+    setExpandedEvents((prev) => {
+      const next = new Set(prev);
+      if (next.has(id)) next.delete(id);
+      else next.add(id);
+      return next;
+    });
+  }, []);
+
   // Debounced public search against the relay
   useEffect(() => {
     if (!searchOpen) return;
@@ -1479,38 +1014,37 @@ export default function ChatPanel({
   const { botResponseMap, unmatchedBotResponses } = useBotResponseMap(botResponses, messages);
   const messageSegments = useMessageSegments(messages);
 
-  // One list row per message (group start / continuation / system) plus game
-  // events woven in by timestamp. Rows of a group carry the group's start
-  // time so the stable sort never splits a group around an event, matching
-  // the old segment-level weave. System groups render only their first
-  // message, as before.
+  // One list row per message group (author + consecutive lines within 2 min)
+  // or system message, plus game events woven in by timestamp when the Games
+  // toggle is on. A group sorts by its first line, so an event never lands
+  // inside a group.
   const renderItems = useMemo(() => {
     const items = [];
     for (const seg of messageSegments) {
       const start = seg.start;
       const time = new Date(start.sentAt).getTime();
-      const isSystem = start.kind === "system";
-      const n = seg.continuations.length;
-      items.push({ kind: isSystem ? "system" : "start", key: start.id, msg: start, time, last: n === 0 });
-      if (isSystem) continue;
-      seg.continuations.forEach((m, i) => {
-        items.push({ kind: "cont", key: m.id, msg: m, time, last: i === n - 1 });
-      });
+      if (start.kind === "system") {
+        items.push({ kind: "system", key: start.id, msg: start, time });
+      } else {
+        items.push({ kind: "group", key: start.id, msg: start, msgs: [start, ...seg.continuations], time });
+      }
     }
-    const oldestLoaded = items.length > 0 ? items[0].time : 0;
-    for (const ev of gameEvents) {
-      const t = new Date(ev.time).getTime();
-      if (t >= oldestLoaded) items.push({ kind: "event", key: ev.id, ev, time: t });
+    if (showGames) {
+      const oldestLoaded = items.length > 0 ? items[0].time : 0;
+      for (const ev of gameEvents) {
+        const t = new Date(ev.time).getTime();
+        if (t >= oldestLoaded) items.push({ kind: "event", key: ev.id, ev, time: t });
+      }
     }
     return items.sort((a, b) => a.time - b.time);
-  }, [messageSegments, gameEvents]);
+  }, [messageSegments, gameEvents, showGames]);
 
   // Date divider + "new" marker flags, decided across group-start rows only
   const rows = useMemo(() => {
     let prevSegTime = null;
     let newMarkerShown = false;
     return renderItems.map((item) => {
-      if (item.kind !== "start" && item.kind !== "system") return item;
+      if (item.kind !== "group" && item.kind !== "system") return item;
       const msgTime = item.msg.sentAt;
       const showDateDivider = prevSegTime === null || getDateKey(prevSegTime) !== getDateKey(msgTime);
       const showNewMarker = !newMarkerShown && newMarkerTime != null && item.time > newMarkerTime;
@@ -1543,7 +1077,10 @@ export default function ChatPanel({
 
   // Search jump: scroll to the row once it exists. If the list is about to
   // (re)mount (search closing), the initial position handles it instead.
-  const pendingJumpIndex = pendingJumpId == null ? -1 : rows.findIndex((r) => r.msg?.id === pendingJumpId);
+  const pendingJumpIndex =
+    pendingJumpId == null
+      ? -1
+      : rows.findIndex((r) => (r.msgs ? r.msgs.some((m) => m.id === pendingJumpId) : r.msg?.id === pendingJumpId));
   useEffect(() => {
     if (pendingJumpId == null || pendingJumpIndex === -1 || searchOpen) return;
     const raf = requestAnimationFrame(() => {
@@ -1579,133 +1116,65 @@ export default function ChatPanel({
   }
 
   const showLoadOlder = Boolean(hasMoreHistory && loadOlder);
+
+  // Reaching the top pages older history in automatically; the button stays
+  // for keyboard and screen-reader users
+  const handleStartReached = useCallback(() => {
+    if (showLoadOlder) handleLoadOlder();
+  }, [showLoadOlder, handleLoadOlder]);
+
+  // Status chip for a name row: in game while playing, then won/lost for
+  // the two minutes recentWinners/recentDeltas stay lit, then nothing
+  const chipFor = (tag) => {
+    if (inGameTags?.has(tag)) {
+      const mins = formatGameMinutes(inGameInfoMap?.get(tag)?.startTime);
+      return { kind: "ingame", label: mins ? `in game ${mins}` : "in game" };
+    }
+    const delta = recentDeltas?.get(tag);
+    if (delta != null) {
+      return delta >= 0 ? { kind: "won", label: `won +${delta}` } : { kind: "lost", label: `lost ${delta}` };
+    }
+    if (recentWinners?.has(tag)) return { kind: "won", label: "won" };
+    return null;
+  };
+
+  const hoverData = { avatars, stats, sessions, inGameTags, inGameInfoMap };
+  const renderLine = (line) => linkifyMessage(line.text);
+  const renderAfterLine = (line) => {
+    const br = botResponseMap.get(line.id);
+    if (!br) return null;
+    return (
+      <BotResponseRow>
+        <BotLabel>BOT</BotLabel>
+        {!br.botEnabled && <BotPreviewTag>(preview)</BotPreviewTag>}
+        <BotText>{br.response}</BotText>
+      </BotResponseRow>
+    );
+  };
+
   const listContext = useMemo(
     () => ({ showLoadOlder, loadingOlder, onLoadOlder: handleLoadOlder, unmatchedBotResponses }),
     [showLoadOlder, loadingOlder, handleLoadOlder, unmatchedBotResponses]
   );
 
   const renderRow = (index, row) => {
-    // Game event woven into the stream
+    // Game event woven into the stream: one-line ticker, card on click
     if (row.kind === "event") {
       const ev = row.ev;
-      const isEnd = ev.type === "game_end";
-      const duration =
-        ev.durationInSeconds != null
-          ? `${Math.round(ev.durationInSeconds / 60)} min`
-          : null;
-      const mapImg = ev.mapName ? getMapImageUrl(ev.mapName) : null;
-      const teamA = isEnd ? ev.winners : ev.teams?.[0];
-      const teamB = isEnd ? ev.losers : ev.teams?.[1];
-      const eventLink = isEnd ? `/match/${ev.matchId}` : "/live";
-      const hasChart = (teamA || []).some((p) => p.mmr > 0);
-      const stillRunning = !isEnd && ongoingMatchIds?.has(ev.matchId);
-      const liveMins = stillRunning ? formatGameMinutes(ev.time) : null;
+      const stillRunning = ev.type !== "game_end" && Boolean(ongoingMatchIds?.has(ev.matchId));
       return (
-        <EventPostWrap>
-        <EventAvatarContainer>
-          <EventAvatarImg src="/favicon.svg" alt="4v4.GG" />
-        </EventAvatarContainer>
-        <EventAttribution>
-          <EventBotName>4v4.GG</EventBotName>
-        </EventAttribution>
-        <GameEventCard
-          $end={isEnd}
-          $live={ev.live}
-          onClick={() => history.push(eventLink)}
-          style={{ cursor: "pointer" }}
-        >
-          <EventTagCol>
-            <EventTag $end={isEnd}>{isEnd ? "Finish" : "Start"}</EventTag>
-            {isEnd ? (
-              <>
-                {duration && <EventMapMeta>{duration}</EventMapMeta>}
-                <EventMapMeta>ended {formatTime(ev.time)}</EventMapMeta>
-              </>
-            ) : stillRunning ? (
-              <EventMapMeta>
-                <EventLiveDot />
-                in progress{liveMins ? ` · ${liveMins}` : ""}
-              </EventMapMeta>
-            ) : (
-              <EventMapMeta>started {formatTime(ev.time)}</EventMapMeta>
-            )}
-          </EventTagCol>
-          <EventMapBlock>
-            {mapImg && (
-              <Link to={eventLink} onClick={(e) => e.stopPropagation()}>
-                <EventMapImg src={mapImg} alt="" onError={(e) => { e.target.style.display = "none"; }} />
-              </Link>
-            )}
-            {ev.mapName && (
-              <EventMapName to={eventLink} onClick={(e) => e.stopPropagation()}>
-                {ev.mapName}
-              </EventMapName>
-            )}
-          </EventMapBlock>
-          <EventBody>
-            <MiniTeamsRow
-              teamA={{ players: teamA, winner: isEnd }}
-              teamB={{ players: teamB, winner: false }}
-              dimLosers={isEnd}
-              showChart={hasChart}
-              mvpTag={ev.mvp}
-              hoverData={{ avatars, stats, sessions, inGameTags, inGameInfoMap }}
-            />
-            {ev.note && (
-              <EventNote>
-                <MatchNote
-                  note={ev.note}
-                  avatarUrl={ev.note.tag ? avatars?.get(ev.note.tag)?.profilePicUrl : null}
-                />
-              </EventNote>
-            )}
-            {isEnd && (ev.badges?.length > 0 || ev.rivals?.length > 0) && (
-              <EventNote>
-                <StreakBadges badges={ev.badges} />
-                <RivalryBadge rivals={ev.rivals} />
-              </EventNote>
-            )}
-          </EventBody>
-        </GameEventCard>
-        </EventPostWrap>
+        <GameTicker
+          event={ev}
+          expanded={expandedEvents.has(ev.id)}
+          onToggle={toggleEvent}
+          stillRunning={stillRunning}
+          hoverData={hoverData}
+          avatars={avatars}
+        />
       );
     }
 
     const msg = row.msg;
-    const tag = msg.battleTag;
-    const isWatched = Boolean(tag) && watchList?.has(tag.toLowerCase());
-    const SegmentWrap = isWatched ? WatchedBar : React.Fragment;
-
-    // Continuation of the group above (same author within 2 min)
-    if (row.kind === "cont") {
-      const cBotResp = botResponseMap.get(msg.id);
-      return (
-        <SegmentWrap>
-          <ContinuationBlock $last={row.last}>
-            <ContinuationRow id={`msg-${msg.id}`} $flash={flashId === msg.id}>
-              <HoverTimestamp className="hover-timestamp">
-                {formatTime(msg.sentAt)}
-              </HoverTimestamp>
-              <MessageText>{linkifyMessage(msg.text)}</MessageText>
-            </ContinuationRow>
-            {showTranslations && translations.has(msg.id) && (
-              <TranslationRow>
-                <TranslationLabel>EN</TranslationLabel>
-                {translations.get(msg.id)}
-              </TranslationRow>
-            )}
-            {cBotResp && (
-              <BotResponseRow>
-                <BotLabel>BOT</BotLabel>
-                {!cBotResp.botEnabled && <BotPreviewTag>(preview)</BotPreviewTag>}
-                <BotText>{cBotResp.response}</BotText>
-              </BotResponseRow>
-            )}
-          </ContinuationBlock>
-        </SegmentWrap>
-      );
-    }
-
     const msgTime = msg.sentAt;
     const isFirstRow = index - firstItemIndex === 0;
     const dividers = (
@@ -1726,102 +1195,73 @@ export default function ChatPanel({
       return (
         <>
           {dividers}
-          <SystemMessageRow>
-            {msg.text}
-          </SystemMessageRow>
+          <SystemWrap>
+            <SystemMessageRow>{msg.text}</SystemMessageRow>
+          </SystemWrap>
         </>
       );
     }
 
-    const userName = msg.userName;
-    const clanTag = msg.clanTag;
-    const delta = recentDeltas?.get(tag);
+    const tag = msg.battleTag;
+    const isWatched = Boolean(tag) && Boolean(watchList?.has(tag.toLowerCase()));
+    const profile = avatars?.get(tag);
+    const playerStats = stats?.get(tag);
     const live = liveStreamers?.get(tag);
     const gameInfo = inGameTags?.has(tag) ? inGameInfoMap?.get(tag) : null;
-    const gameMins = gameInfo ? formatGameMinutes(gameInfo.startTime) : null;
+
+    const group = {
+      author: { battleTag: tag, userName: msg.userName, clanTag: msg.clanTag },
+      lines: row.msgs.map((m) => ({
+        id: m.id,
+        text: m.text,
+        sentAt: m.sentAt,
+        kind: m.kind,
+        translation: showTranslations ? translations.get(m.id) : undefined,
+        highlight: flashId === m.id,
+      })),
+    };
+    const meta = {
+      avatarUrl: profile?.profilePicUrl,
+      race: playerStats?.race,
+      countryCode: profile?.country,
+      mmr: playerStats?.mmr,
+      chip: chipFor(tag),
+      twitchLogin: live?.twitchName,
+      twitchTitle: live?.title,
+    };
+    const wrapName = (node) => (
+      <PlayerHoverCard battleTag={tag} avatars={avatars} stats={stats} sessions={sessions} inGameInfo={gameInfo}>
+        {node}
+      </PlayerHoverCard>
+    );
 
     return (
       <>
         {dividers}
-      <SegmentWrap>
-      <MessageSegment $single={row.last} $last={row.last} $flush={isWatched}>
-        <AvatarContainer>
-          <AvatarImgWrap>
-            {getAvatarElement(tag, avatars, stats)}
-            {avatars?.get(tag)?.country && (
-              <AvatarFlag>
-                <CountryFlag name={avatars.get(tag).country.toLowerCase()} />
-              </AvatarFlag>
-            )}
-          </AvatarImgWrap>
-        </AvatarContainer>
-        <GroupStartRow id={`msg-${msg.id}`} $flash={flashId === msg.id}>
-          <MessageContent>
-            <div>
-              <NameWrapper>
-                <PlayerHoverCard
-                  battleTag={tag}
-                  avatars={avatars}
-                  stats={stats}
-                  sessions={sessions}
-                  inGameInfo={gameInfo}
-                >
-                  <UserNameLink to={`/player/${encodeURIComponent(tag)}`}>
-                    {userName}
-                  </UserNameLink>
-                </PlayerHoverCard>
-                {clanTag && <ClanTagChip>{clanTag}</ClanTagChip>}
-                {stats?.get(tag)?.mmr != null && (
-                  <InlineMmr>{Math.round(stats.get(tag).mmr)} <MmrSuffix>MMR</MmrSuffix></InlineMmr>
-                )}
-                {delta != null && (
-                  <DeltaPill $positive={delta >= 0}>
-                    {delta >= 0 ? `+${delta}` : delta}
-                  </DeltaPill>
-                )}
-                {gameInfo ? (
-                  <InGameChip to={`/player/${encodeURIComponent(tag)}`} title={`In game on ${gameInfo.mapName || "unknown map"}`}>
-                    <GiCrossedSwords />
-                    {gameMins || "in game"}
-                  </InGameChip>
-                ) : (
-                  inGameTags?.has(tag) && <InGameIcon />
-                )}
-                {live && (
-                  <LiveTwitchLink
-                    href={`https://twitch.tv/${live.twitchName}`}
-                    target="_blank"
-                    rel="noopener noreferrer"
-                    title={live.title || "Live on Twitch"}
-                  >
-                    <FaTwitch />
-                  </LiveTwitchLink>
-                )}
-                {recentWinners?.has(tag) && <WinCrown src={crownIcon} alt="" />}
-                <Timestamp>{formatDateTime(msg.sentAt)}</Timestamp>
-              </NameWrapper>
-            </div>
-            <MessageText>{linkifyMessage(msg.text)}</MessageText>
-            {showTranslations && translations.has(msg.id) && (
-              <TranslationRow style={{ margin: '2px 0', padding: '2px 0' }}>
-                <TranslationLabel>EN</TranslationLabel>
-                {translations.get(msg.id)}
-              </TranslationRow>
-            )}
-          </MessageContent>
-        </GroupStartRow>
-        {botResponseMap.has(msg.id) && (
-          <BotResponseRow>
-            <BotLabel>BOT</BotLabel>
-            {!botResponseMap.get(msg.id).botEnabled && <BotPreviewTag>(preview)</BotPreviewTag>}
-            <BotText>{botResponseMap.get(msg.id).response}</BotText>
-          </BotResponseRow>
-        )}
-      </MessageSegment>
-      </SegmentWrap>
+        <ChatMessage
+          variant="feed"
+          group={group}
+          meta={meta}
+          watched={isWatched}
+          wrapName={wrapName}
+          renderLine={renderLine}
+          renderAfterLine={renderAfterLine}
+        />
       </>
     );
   };
+
+  const fault = RELAY_FAULTS[status];
+  const statusText =
+    status === "connected"
+      ? messages.length
+      : fault
+        ? fault
+        : RELAY_OFFLINE.has(status)
+          ? "relay offline"
+          : status === "reconnecting"
+            ? "Reconnecting..."
+            : "Connecting...";
 
   return (
     <OuterFrame>
@@ -1835,34 +1275,53 @@ export default function ChatPanel({
                 {liveGameCount} live
               </LiveGamesChip>
             )}
-            <HeaderToggle
-              $active={showTranslations}
+            <ToggleButton
+              type="button"
+              $pill
+              data-active={showTranslations}
+              aria-pressed={showTranslations}
               onClick={toggleTranslations}
               title={showTranslations ? "Hide translations" : "Show translations"}
             >
-              <HiTranslate size={15} />
-            </HeaderToggle>
-            <HeaderToggle
-              $active={notifyOn}
+              <HiTranslate />
+              <ToggleLabel>Translate</ToggleLabel>
+            </ToggleButton>
+            <ToggleButton
+              type="button"
+              $pill
+              data-active={notifyOn}
+              aria-pressed={notifyOn}
               onClick={toggleNotify}
               title={notifyOn ? "Mute watched-player pings" : "Ping when watched players chat"}
             >
-              <HiBell size={15} />
-            </HeaderToggle>
-            <HeaderToggle
-              $active={searchOpen}
+              <HiBell />
+              <ToggleLabel>Ping</ToggleLabel>
+            </ToggleButton>
+            <ToggleButton
+              type="button"
+              $pill
+              data-active={searchOpen}
+              aria-pressed={searchOpen}
               onClick={() => setSearchOpen((v) => !v)}
               title="Search chat history"
             >
-              <HiSearch size={15} />
-            </HeaderToggle>
-            <StatusBadge>
-              <StatusDot $connected={status === "connected"} />
-              {status === "connected"
-                ? messages.length
-                : status === "reconnecting"
-                  ? "Reconnecting..."
-                  : "Connecting..."}
+              <HiSearch />
+              <ToggleLabel>Search</ToggleLabel>
+            </ToggleButton>
+            <ToggleButton
+              type="button"
+              $pill
+              data-active={showGames}
+              aria-pressed={showGames}
+              onClick={toggleGames}
+              title={showGames ? "Hide game tickers" : "Show game tickers"}
+            >
+              <GiCrossedSwords />
+              <ToggleLabel>Games</ToggleLabel>
+            </ToggleButton>
+            <StatusBadge $fault={Boolean(fault)} title={`relay: ${status}`}>
+              <StatusDot $connected={status === "connected"} $fault={Boolean(fault)} />
+              {statusText}
             </StatusBadge>
           </HeaderActions>
         </Header>
@@ -1913,7 +1372,7 @@ export default function ChatPanel({
                         {" · "}
                         {formatDateTime(r.sentAt || r.receivedAt)}
                       </SearchResultMeta>
-                      <MessageText>{highlightMatches(r.text, searchQuery)}</MessageText>
+                      <FeedText>{highlightMatches(r.text, searchQuery)}</FeedText>
                     </SearchResultBody>
                   </SearchResultRow>
                 );
@@ -1925,7 +1384,7 @@ export default function ChatPanel({
             <MessageList>
               {[...Array(6)].map((_, i) => (
                 <div key={i} style={{ display: "flex", gap: "var(--space-2)", padding: "var(--space-4) var(--space-4)", alignItems: "flex-start" }}>
-                  <SkeletonCircle $size="44px" style={{ borderRadius: "var(--radius-md)" }} />
+                  <Skeleton $w="32px" $h="32px" $radius="var(--radius-md)" style={{ flexShrink: 0 }} />
                   <div style={{ flex: 1, display: "flex", flexDirection: "column", gap: 6, paddingTop: 4 }}>
                     <div style={{ display: "flex", gap: "var(--space-2)", alignItems: "center" }}>
                       <Skeleton $w="100px" $h="14px" />
@@ -1956,6 +1415,7 @@ export default function ChatPanel({
               }
               followOutput={followOutput}
               atBottomStateChange={handleAtBottomChange}
+              startReached={handleStartReached}
               atBottomThreshold={40}
               increaseViewportBy={{ top: 400, bottom: 400 }}
             />

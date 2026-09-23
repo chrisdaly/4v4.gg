@@ -7,6 +7,8 @@ const MAX_MESSAGES = 500;
 // ~2000 messages is days of history; beyond that, use search instead.
 const MAX_HISTORY_EXTRA = 1500;
 const BACKOFF_DELAYS = [1000, 2000, 4000, 8000, 16000, 30000];
+// Relay-side SignalR states (server/src/signalr.js) other than Connected
+const RELAY_STATES = new Set(["auth_failed", "banned", "no_token", "error", "Disconnected", "stopped"]);
 
 /**
  * Transport layer for the chat relay: REST history + SSE live stream.
@@ -173,13 +175,15 @@ export default function useChatStream() {
       setStatus(state === "Connected" ? "connected" : state);
     });
 
+    // Heartbeats and onopen only prove the SSE pipe is alive; a relay-side
+    // fault (auth_failed, banned, ...) stays until the relay reports otherwise
     es.addEventListener("heartbeat", () => {
-      setStatus("connected");
+      setStatus((s) => (RELAY_STATES.has(s) ? s : "connected"));
     });
 
     es.onopen = () => {
       retriesRef.current = 0;
-      setStatus("connected");
+      setStatus((s) => (RELAY_STATES.has(s) ? s : "connected"));
     };
 
     es.onerror = () => {

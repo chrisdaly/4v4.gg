@@ -1,7 +1,7 @@
 import { Router } from 'express';
 import { getMessages, getStats, getEvents, getEventsSummary, searchMessages } from '../db.js';
 import { addClient } from '../sse.js';
-import { getOnlineUsers } from '../signalr.js';
+import { getOnlineUsers, getStatus } from '../signalr.js';
 import { publicLimiter } from '../middleware/rateLimit.js';
 import { generateMatchBlurb } from '../matchBlurb.js';
 
@@ -24,6 +24,8 @@ router.get('/stream', (req, res) => {
   const history = getMessages({ limit: 50 });
   res.write(`event: history\ndata: ${JSON.stringify(history.reverse())}\n\n`);
   res.write(`event: users_init\ndata: ${JSON.stringify(getOnlineUsers())}\n\n`);
+  // Current relay state so a fresh client sees auth_failed / banned at once
+  res.write(`event: status\ndata: ${JSON.stringify({ state: getStatus().state })}\n\n`);
 });
 
 // Public message search, limited to the last 24h (the admin variant under
