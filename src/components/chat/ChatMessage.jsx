@@ -45,9 +45,9 @@ const LINE_HEIGHT = 1.5;
 const COMPACT_LINE_HEIGHT = 1.4;
 
 // Avatar size per variant. The feed avatar spans a header line plus one
-// message line (~40px); transcripts stay at 32px; focus mode is 24px.
+// message line (~44px); transcripts stay at 32px; focus mode is 24px.
 export const avatarSize = (variant, compact) =>
-  variant === "transcript" ? 32 : compact ? 24 : 40;
+  variant === "transcript" ? 32 : compact ? 24 : 44;
 
 const Group = styled.div`
   position: relative;

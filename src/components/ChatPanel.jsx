@@ -156,7 +156,7 @@ const ListBottom = styled.div`
 `;
 
 const SystemMessageRow = styled.div`
-  padding: var(--space-1) 0 var(--space-1) 52px;
+  padding: var(--space-1) 0 var(--space-1) 56px;
   line-height: 1.5;
   font-family: var(--font-mono);
   font-size: var(--text-xxs);
@@ -1954,7 +1954,7 @@ export default function ChatPanel({
             <MessageList>
               {[...Array(6)].map((_, i) => (
                 <div key={i} style={{ display: "flex", gap: "var(--space-2)", padding: "var(--space-4) var(--space-4)", alignItems: "flex-start" }}>
-                  <Skeleton $w="40px" $h="40px" $radius="var(--radius-md)" style={{ flexShrink: 0 }} />
+                  <Skeleton $w="44px" $h="44px" $radius="var(--radius-md)" style={{ flexShrink: 0 }} />
                   <div style={{ flex: 1, display: "flex", flexDirection: "column", gap: 6, paddingTop: 4 }}>
                     <div style={{ display: "flex", gap: "var(--space-2)", alignItems: "center" }}>
                       <Skeleton $w="100px" $h="14px" />
