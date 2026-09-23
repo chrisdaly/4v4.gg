@@ -3,8 +3,7 @@ import { Link } from "react-router-dom";
 import { fetchAndCacheProfile, getCachedProfile } from "../lib/profileCache";
 import "./RecentConversations.css";
 
-const RELAY_URL =
-  import.meta.env.VITE_CHAT_RELAY_URL || "https://4v4gg-chat-relay.fly.dev";
+import { RELAY_URL } from "../lib/relay";
 
 const SESSION_GAP_MS = 30 * 60 * 1000; // 30 minutes = new conversation
 const MAX_CONVERSATIONS = 3;

@@ -1,4 +1,5 @@
 import React, { useRef, useEffect, useState, useCallback, useMemo } from "react";
+import { Virtuoso } from "react-virtuoso";
 import { Link, useHistory } from "react-router-dom";
 import styled, { keyframes, css } from "styled-components";
 import { GiCrossedSwords } from "react-icons/gi";
@@ -17,6 +18,8 @@ import MatchNote from "./MatchNote";
 import StreakBadges from "./StreakBadges";
 import RivalryBadge from "./RivalryBadge";
 import { getPlayerProfile } from "../lib/api";
+import { relayFetch } from "../lib/relay";
+import { normalizeMessages } from "../lib/chat/normalize";
 import useAdmin from "../lib/useAdmin";
 
 const OuterFrame = styled.div`
@@ -102,20 +105,71 @@ const MessageList = styled.div`
   }
 `;
 
+/* The virtualized list splits MessageList's box across react-virtuoso's
+   parts: scrollbar on the Scroller, horizontal padding on the List (Virtuoso
+   owns the List's vertical padding for the virtual offsets), vertical
+   padding on the Header/Footer. Same rendered box as MessageList. */
+const noContextProp = { shouldForwardProp: (prop) => prop !== "context" };
+
+const ChatScroller = styled.div.withConfig(noContextProp)`
+  &::-webkit-scrollbar {
+    width: 6px;
+  }
+  &::-webkit-scrollbar-track {
+    background: transparent;
+  }
+  &::-webkit-scrollbar-thumb {
+    background: var(--grey-mid);
+    border-radius: var(--radius-sm);
+  }
+`;
+
+const ChatList = styled.div.withConfig(noContextProp)`
+  padding-left: var(--space-4);
+  padding-right: var(--space-4);
+
+  @media (max-width: 768px) {
+    padding-left: var(--space-2);
+    padding-right: var(--space-2);
+  }
+`;
+
+const ListTop = styled.div`
+  padding: var(--space-2) var(--space-4) 0;
+
+  @media (max-width: 768px) {
+    padding: var(--space-2) var(--space-2) 0;
+  }
+`;
+
+const ListBottom = styled.div`
+  padding: 0 var(--space-4) var(--space-2);
+
+  @media (max-width: 768px) {
+    padding: 0 var(--space-2) var(--space-2);
+  }
+`;
+
+/* Group-start row. Under virtualization every message is its own list item,
+   so the segment's box is expressed per row: the 56px min-height only ever
+   bit for single-message groups (two rows always exceed it), the bottom
+   padding belongs to the group's last row, and $flush reproduces the
+   pre-existing no-top-margin for watched authors (the old :first-child rule
+   matched inside WatchedBar). */
 const MessageSegment = styled.div`
   position: relative;
-  min-height: 56px;
-  margin-top: 14px;
-  padding-bottom: var(--space-1);
-
-  &:first-child {
-    margin-top: 0;
-  }
+  min-height: ${(p) => (p.$single ? "56px" : "0")};
+  margin-top: ${(p) => (p.$flush ? "0" : "14px")};
+  padding-bottom: ${(p) => (p.$last ? "var(--space-1)" : "0")};
 
   @media (max-width: 480px) {
-    min-height: 48px;
-    margin-top: 10px;
+    min-height: ${(p) => (p.$single ? "48px" : "0")};
+    margin-top: ${(p) => (p.$flush ? "0" : "10px")};
   }
+`;
+
+const ContinuationBlock = styled.div`
+  padding-bottom: ${(p) => (p.$last ? "var(--space-1)" : "0")};
 `;
 
 const GroupStartRow = styled.div`
@@ -348,12 +402,8 @@ const DateDivider = styled.div`
   display: flex;
   align-items: center;
   gap: var(--space-4);
-  margin: var(--space-6) 0 var(--space-2);
+  margin: ${(p) => (p.$first ? "var(--space-2)" : "var(--space-6)")} 0 var(--space-2);
   padding: 0 var(--space-4);
-
-  &:first-child {
-    margin-top: var(--space-2);
-  }
 
   &::before,
   &::after {
@@ -633,10 +683,6 @@ const EventPostWrap = styled.div`
   min-height: 56px;
   margin-top: 14px;
   padding-bottom: var(--space-1);
-
-  &:first-child {
-    margin-top: 0;
-  }
 
   @media (max-width: 480px) {
     min-height: 48px;
@@ -1098,10 +1144,6 @@ function getAvatarElement(tag, avatars, stats) {
   return <AvatarRaceIcon src={raceIcons.random} alt="" $faded />;
 }
 
-
-const RELAY_URL =
-  import.meta.env.VITE_CHAT_RELAY_URL || "https://4v4gg-chat-relay.fly.dev";
-
 function formatGameMinutes(startTime) {
   if (!startTime) return null;
   const mins = Math.floor((Date.now() - new Date(startTime).getTime()) / 60000);
@@ -1145,6 +1187,50 @@ function writePref(key, value) {
   }
 }
 
+
+// firstItemIndex base for react-virtuoso: prepends (load earlier) decrease
+// it by the number of rows added at the head so the viewport stays put
+const FIRST_ITEM_BASE = 1_000_000;
+
+// Virtuoso renders these outside the virtual window; dynamic state comes in
+// through the `context` prop so the component references stay stable
+function ListHeader({ context }) {
+  const { showLoadOlder, loadingOlder, onLoadOlder } = context;
+  return (
+    <ListTop>
+      {showLoadOlder && (
+        <LoadOlderButton onClick={onLoadOlder} disabled={loadingOlder}>
+          {loadingOlder ? "Loading..." : "Load earlier messages"}
+        </LoadOlderButton>
+      )}
+    </ListTop>
+  );
+}
+
+function ListFooter({ context }) {
+  return (
+    <ListBottom>
+      {context.unmatchedBotResponses.map((br, i) => (
+        <BotResponseRow key={`bot-${i}`} style={{ marginLeft: "var(--space-4)" }}>
+          <BotLabel>BOT</BotLabel>
+          {!br.botEnabled && <BotPreviewTag>(preview)</BotPreviewTag>}
+          <BotPreviewTag style={{ marginLeft: 6 }}>{br.command}</BotPreviewTag>
+          <BotText>{br.response}</BotText>
+        </BotResponseRow>
+      ))}
+    </ListBottom>
+  );
+}
+
+const listComponents = {
+  Scroller: ChatScroller,
+  List: ChatList,
+  Header: ListHeader,
+  Footer: ListFooter,
+};
+
+const rowKey = (index, row) => row.key;
+
 export default function ChatPanel({
   messages,
   status,
@@ -1169,10 +1255,8 @@ export default function ChatPanel({
   hasMoreHistory,
 }) {
   const history = useHistory();
-  const listRef = useRef(null);
-  const contentRef = useRef(null);
+  const virtuosoRef = useRef(null);
   const inputRef = useRef(null);
-  const [autoScroll, setAutoScroll] = useState(true);
   const [showNotice, setShowNotice] = useState(false);
   const { adminKey: apiKey, isAdmin, setAdminKey: setApiKeyHook } = useAdmin();
   const [showKeyPrompt, setShowKeyPrompt] = useState(false);
@@ -1192,13 +1276,23 @@ export default function ChatPanel({
   const [searchAvatars, setSearchAvatars] = useState(new Map());
   const [flashId, setFlashId] = useState(null);
   const [jumping, setJumping] = useState(false);
+  const [pendingJumpId, setPendingJumpId] = useState(null);
   const lastNotifiedRef = useRef(null);
   const flashTimerRef = useRef(null);
+  const messagesRef = useRef(messages);
+  // Whether the viewport is pinned to the newest row. Fed by Virtuoso's
+  // followOutput decision (which already treats an in-progress programmatic
+  // scroll as "at bottom") and by atBottomStateChange.
+  const atBottomRef = useRef(true);
+
+  useEffect(() => {
+    messagesRef.current = messages;
+  }, [messages]);
 
   // Fetch profiles for search-result authors not already known to the page
   useEffect(() => {
     if (!searchResults) return;
-    const missing = [...new Set(searchResults.map((r) => r.battle_tag))]
+    const missing = [...new Set(searchResults.map((r) => r.battleTag))]
       .filter((tag) => tag && !avatars?.get(tag) && !searchAvatars.has(tag));
     for (const tag of missing) {
       getPlayerProfile(tag).then((profile) => {
@@ -1209,18 +1303,19 @@ export default function ChatPanel({
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [searchResults, avatars]);
 
-  // Jump from a search result to the message in the stream, paging in older
-  // history as needed, then flash it
+  // Jump from a search result to the message in the stream. Search covers
+  // 24h while the stream holds the newest few hundred messages, so page
+  // older history in until the target is loaded (bounded), then let the
+  // list scroll to its row once it renders (see the pendingJumpId effect).
   const jumpToMessage = useCallback(async (result) => {
     if (jumping) return;
     setJumping(true);
     try {
-      const target = result.received_at;
-      let oldest = messages[0]?.received_at;
+      const target = result.receivedAt;
+      let oldest = messagesRef.current[0]?.receivedAt;
       let pages = 0;
-      const isLoaded = () => messages.some((m) => m.id === result.id);
-      // Page back until the stream reaches the target time (sqlite datetime
-      // strings compare lexicographically). Bounded so a miss can't spin.
+      const isLoaded = () => messagesRef.current.some((m) => m.id === result.id);
+      // sqlite datetime strings compare lexicographically
       while (!isLoaded() && loadOlder && oldest && target < oldest && pages < 20) {
         const r = await loadOlder();
         if (!r || r.added === 0) break;
@@ -1228,25 +1323,14 @@ export default function ChatPanel({
         pages++;
       }
       setSearchOpen(false);
-      setAutoScroll(false);
       setFlashId(result.id);
       clearTimeout(flashTimerRef.current);
       flashTimerRef.current = setTimeout(() => setFlashId(null), 2500);
-      // Retry until React has rendered the paged-in rows
-      let attempts = 0;
-      const tryScroll = () => {
-        const el = document.getElementById(`msg-${result.id}`);
-        if (el) {
-          el.scrollIntoView({ block: "center" });
-        } else if (attempts++ < 10) {
-          setTimeout(tryScroll, 100);
-        }
-      };
-      requestAnimationFrame(tryScroll);
+      setPendingJumpId(result.id);
     } finally {
       setJumping(false);
     }
-  }, [jumping, messages, loadOlder]);
+  }, [jumping, loadOlder]);
 
   // Notification blip for watched players' messages
   useEffect(() => {
@@ -1254,8 +1338,7 @@ export default function ChatPanel({
     const last = messages[messages.length - 1];
     if (last.id === lastNotifiedRef.current) return;
     lastNotifiedRef.current = last.id;
-    const tag = (last.battle_tag || last.battleTag || "").toLowerCase();
-    if (watchList.has(tag)) playPing();
+    if (watchList.has(last.battleTag.toLowerCase())) playPing();
   }, [messages, notifyOn, watchList]);
 
   // "- new -" marker: remember where you were when the tab went hidden
@@ -1265,7 +1348,7 @@ export default function ChatPanel({
       if (document.hidden) {
         clearTimeout(clearTimer);
         const last = messages[messages.length - 1];
-        if (last) setNewMarkerTime(new Date(last.sent_at || last.sentAt).getTime());
+        if (last) setNewMarkerTime(new Date(last.sentAt).getTime());
       } else {
         clearTimer = setTimeout(() => setNewMarkerTime(null), 120_000);
       }
@@ -1301,27 +1384,25 @@ export default function ChatPanel({
     }
     setSearching(true);
     const t = setTimeout(() => {
-      fetch(`${RELAY_URL}/api/chat/search?q=${encodeURIComponent(q)}&limit=50`)
+      relayFetch(`/api/chat/search?q=${encodeURIComponent(q)}&limit=50`)
         .then((r) => r.json())
-        .then((data) => setSearchResults(data.results || []))
+        .then((data) => setSearchResults(normalizeMessages(data.results || [])))
         .catch(() => setSearchResults([]))
         .finally(() => setSearching(false));
     }, 350);
     return () => clearTimeout(t);
   }, [searchQuery, searchOpen]);
 
+  // Prepends go through Virtuoso's firstItemIndex (see the memo below), so
+  // the viewport stays anchored without any scrollHeight arithmetic here
   const handleLoadOlder = useCallback(async () => {
     if (!loadOlder || loadingOlder) return;
     setLoadingOlder(true);
-    const el = listRef.current;
-    const prevHeight = el?.scrollHeight || 0;
-    const prevTop = el?.scrollTop || 0;
-    await loadOlder();
-    // Keep the viewport anchored on the message the user was reading
-    requestAnimationFrame(() => {
-      if (el) el.scrollTop = el.scrollHeight - prevHeight + prevTop;
+    try {
+      await loadOlder();
+    } finally {
       setLoadingOlder(false);
-    });
+    }
   }, [loadOlder, loadingOlder]);
 
   // @mention autocomplete state derived from the draft
@@ -1378,7 +1459,7 @@ export default function ChatPanel({
     setBotTesting(true);
     try {
       const key = apiKey;
-      const res = await fetch(`${RELAY_URL}/api/admin/bot/test`, {
+      const res = await relayFetch(`/api/admin/bot/test`, {
         method: "POST",
         headers: { "Content-Type": "application/json", "X-API-Key": key },
         body: JSON.stringify({ command }),
@@ -1398,88 +1479,349 @@ export default function ChatPanel({
   const { botResponseMap, unmatchedBotResponses } = useBotResponseMap(botResponses, messages);
   const messageSegments = useMessageSegments(messages);
 
-  // Weave game events into the message stream by timestamp
+  // One list row per message (group start / continuation / system) plus game
+  // events woven in by timestamp. Rows of a group carry the group's start
+  // time so the stable sort never splits a group around an event, matching
+  // the old segment-level weave. System groups render only their first
+  // message, as before.
   const renderItems = useMemo(() => {
-    const items = messageSegments.map((seg) => ({
-      kind: "seg",
-      time: new Date(seg.start.sent_at || seg.start.sentAt).getTime(),
-      seg,
-    }));
+    const items = [];
+    for (const seg of messageSegments) {
+      const start = seg.start;
+      const time = new Date(start.sentAt).getTime();
+      const isSystem = start.kind === "system";
+      const n = seg.continuations.length;
+      items.push({ kind: isSystem ? "system" : "start", key: start.id, msg: start, time, last: n === 0 });
+      if (isSystem) continue;
+      seg.continuations.forEach((m, i) => {
+        items.push({ kind: "cont", key: m.id, msg: m, time, last: i === n - 1 });
+      });
+    }
     const oldestLoaded = items.length > 0 ? items[0].time : 0;
     for (const ev of gameEvents) {
       const t = new Date(ev.time).getTime();
-      if (t >= oldestLoaded) items.push({ kind: "event", time: t, ev });
+      if (t >= oldestLoaded) items.push({ kind: "event", key: ev.id, ev, time: t });
     }
     return items.sort((a, b) => a.time - b.time);
   }, [messageSegments, gameEvents]);
 
-  // Auto-scroll to bottom when new messages arrive (paging in older history
-  // changes `messages` too, so key off the newest message id)
+  // Date divider + "new" marker flags, decided across group-start rows only
+  const rows = useMemo(() => {
+    let prevSegTime = null;
+    let newMarkerShown = false;
+    return renderItems.map((item) => {
+      if (item.kind !== "start" && item.kind !== "system") return item;
+      const msgTime = item.msg.sentAt;
+      const showDateDivider = prevSegTime === null || getDateKey(prevSegTime) !== getDateKey(msgTime);
+      const showNewMarker = !newMarkerShown && newMarkerTime != null && item.time > newMarkerTime;
+      if (showNewMarker) newMarkerShown = true;
+      prevSegTime = msgTime;
+      return { ...item, showDateDivider, showNewMarker };
+    });
+  }, [renderItems, newMarkerTime]);
+
+  // Virtuoso keeps the viewport anchored across prepends when firstItemIndex
+  // drops by the number of rows added ahead of the previous first row, in
+  // the same render as the data change. Removals at the head leave it alone.
+  const headRef = useRef({ key: null, time: 0, index: FIRST_ITEM_BASE });
+  const firstItemIndex = useMemo(() => {
+    const head = headRef.current;
+    const first = rows[0];
+    if (!first) return head.index;
+    let index = head.index;
+    if (head.key !== null && head.key !== first.key) {
+      let added = rows.findIndex((r) => r.key === head.key);
+      if (added === -1) {
+        added = 0;
+        while (added < rows.length && rows[added].time < head.time) added++;
+      }
+      index -= added;
+    }
+    headRef.current = { key: first.key, time: first.time, index };
+    return index;
+  }, [rows]);
+
+  // Search jump: scroll to the row once it exists. If the list is about to
+  // (re)mount (search closing), the initial position handles it instead.
+  const pendingJumpIndex = pendingJumpId == null ? -1 : rows.findIndex((r) => r.msg?.id === pendingJumpId);
+  useEffect(() => {
+    if (pendingJumpId == null || pendingJumpIndex === -1 || searchOpen) return;
+    const raf = requestAnimationFrame(() => {
+      virtuosoRef.current?.scrollToIndex({ index: pendingJumpIndex, align: "center" });
+      setPendingJumpId(null);
+    });
+    return () => cancelAnimationFrame(raf);
+  }, [pendingJumpId, pendingJumpIndex, searchOpen]);
+
+  // "New messages below" when a new tail arrives while scrolled up. Paging
+  // in older history changes `messages` too, so key off the newest id.
   const lastMsgIdRef = useRef(null);
-  const autoScrollRef = useRef(true);
-  const programmaticUntil = useRef(0);
-  useEffect(() => { autoScrollRef.current = autoScroll; }, [autoScroll]);
-
-  // Programmatic jump to bottom that doesn't get misread as a user scroll
-  const stickToBottom = useCallback((smooth) => {
-    const el = listRef.current;
-    if (!el) return;
-    programmaticUntil.current = Date.now() + 200;
-    el.scrollTo({ top: el.scrollHeight, behavior: smooth ? "smooth" : "auto" });
-  }, []);
-
   useEffect(() => {
     const lastId = messages[messages.length - 1]?.id ?? null;
     const isNewTail = lastId !== lastMsgIdRef.current;
-    const isInitialLoad = lastMsgIdRef.current === null;
     lastMsgIdRef.current = lastId;
-    if (autoScroll) {
-      // Initial load: instant scroll so the 200ms programmatic window can't
-      // expire mid-animation and misread it as a user scroll → autoScroll=false
-      stickToBottom(!isInitialLoad);
-    } else if (isNewTail && messages.length > 0) {
-      setShowNotice(true);
-    }
-  }, [messages, autoScroll, stickToBottom]);
+    if (isNewTail && messages.length > 0 && !atBottomRef.current) setShowNotice(true);
+  }, [messages]);
 
-  // Re-pin to bottom whenever content height grows while pinned - game-event
-  // cards, avatars, MMR charts and images all load AFTER the initial render,
-  // so a one-shot scroll lands short. Instant (not smooth) so it can't be
-  // outrun by the next height change.
-  // Dependency on hasMessages: on first render messages=[] so the content div
-  // isn't mounted yet (contentRef is null). We re-run once messages arrive so
-  // the observer actually attaches to the real DOM node.
-  const hasMessages = messages.length > 0;
-  useEffect(() => {
-    if (!hasMessages) return;
-    const el = listRef.current;
-    const content = contentRef.current;
-    if (!el || !content || typeof ResizeObserver === "undefined") return;
-    const ro = new ResizeObserver(() => {
-      if (autoScrollRef.current) {
-        programmaticUntil.current = Date.now() + 200;
-        el.scrollTop = el.scrollHeight;
-      }
-    });
-    ro.observe(content);
-    return () => ro.disconnect();
-  }, [hasMessages]);
+  const followOutput = useCallback((isAtBottom) => {
+    atBottomRef.current = isAtBottom;
+    return isAtBottom ? "smooth" : false;
+  }, []);
 
-  function handleScroll() {
-    const el = listRef.current;
-    if (!el) return;
-    // Ignore scroll events we caused ourselves (sticking to bottom)
-    if (Date.now() < programmaticUntil.current) return;
-    const atBottom = el.scrollHeight - el.scrollTop - el.clientHeight < 40;
-    setAutoScroll(atBottom);
+  const handleAtBottomChange = useCallback((atBottom) => {
+    atBottomRef.current = atBottom;
     if (atBottom) setShowNotice(false);
-  }
+  }, []);
 
   function scrollToBottom() {
-    stickToBottom(true);
-    setAutoScroll(true);
+    virtuosoRef.current?.scrollToIndex({ index: "LAST", align: "end", behavior: "smooth" });
     setShowNotice(false);
   }
+
+  const showLoadOlder = Boolean(hasMoreHistory && loadOlder);
+  const listContext = useMemo(
+    () => ({ showLoadOlder, loadingOlder, onLoadOlder: handleLoadOlder, unmatchedBotResponses }),
+    [showLoadOlder, loadingOlder, handleLoadOlder, unmatchedBotResponses]
+  );
+
+  const renderRow = (index, row) => {
+    // Game event woven into the stream
+    if (row.kind === "event") {
+      const ev = row.ev;
+      const isEnd = ev.type === "game_end";
+      const duration =
+        ev.durationInSeconds != null
+          ? `${Math.round(ev.durationInSeconds / 60)} min`
+          : null;
+      const mapImg = ev.mapName ? getMapImageUrl(ev.mapName) : null;
+      const teamA = isEnd ? ev.winners : ev.teams?.[0];
+      const teamB = isEnd ? ev.losers : ev.teams?.[1];
+      const eventLink = isEnd ? `/match/${ev.matchId}` : "/live";
+      const hasChart = (teamA || []).some((p) => p.mmr > 0);
+      const stillRunning = !isEnd && ongoingMatchIds?.has(ev.matchId);
+      const liveMins = stillRunning ? formatGameMinutes(ev.time) : null;
+      return (
+        <EventPostWrap>
+        <EventAvatarContainer>
+          <EventAvatarImg src="/favicon.svg" alt="4v4.GG" />
+        </EventAvatarContainer>
+        <EventAttribution>
+          <EventBotName>4v4.GG</EventBotName>
+        </EventAttribution>
+        <GameEventCard
+          $end={isEnd}
+          $live={ev.live}
+          onClick={() => history.push(eventLink)}
+          style={{ cursor: "pointer" }}
+        >
+          <EventTagCol>
+            <EventTag $end={isEnd}>{isEnd ? "Finish" : "Start"}</EventTag>
+            {isEnd ? (
+              <>
+                {duration && <EventMapMeta>{duration}</EventMapMeta>}
+                <EventMapMeta>ended {formatTime(ev.time)}</EventMapMeta>
+              </>
+            ) : stillRunning ? (
+              <EventMapMeta>
+                <EventLiveDot />
+                in progress{liveMins ? ` · ${liveMins}` : ""}
+              </EventMapMeta>
+            ) : (
+              <EventMapMeta>started {formatTime(ev.time)}</EventMapMeta>
+            )}
+          </EventTagCol>
+          <EventMapBlock>
+            {mapImg && (
+              <Link to={eventLink} onClick={(e) => e.stopPropagation()}>
+                <EventMapImg src={mapImg} alt="" onError={(e) => { e.target.style.display = "none"; }} />
+              </Link>
+            )}
+            {ev.mapName && (
+              <EventMapName to={eventLink} onClick={(e) => e.stopPropagation()}>
+                {ev.mapName}
+              </EventMapName>
+            )}
+          </EventMapBlock>
+          <EventBody>
+            <MiniTeamsRow
+              teamA={{ players: teamA, winner: isEnd }}
+              teamB={{ players: teamB, winner: false }}
+              dimLosers={isEnd}
+              showChart={hasChart}
+              mvpTag={ev.mvp}
+              hoverData={{ avatars, stats, sessions, inGameTags, inGameInfoMap }}
+            />
+            {ev.note && (
+              <EventNote>
+                <MatchNote
+                  note={ev.note}
+                  avatarUrl={ev.note.tag ? avatars?.get(ev.note.tag)?.profilePicUrl : null}
+                />
+              </EventNote>
+            )}
+            {isEnd && (ev.badges?.length > 0 || ev.rivals?.length > 0) && (
+              <EventNote>
+                <StreakBadges badges={ev.badges} />
+                <RivalryBadge rivals={ev.rivals} />
+              </EventNote>
+            )}
+          </EventBody>
+        </GameEventCard>
+        </EventPostWrap>
+      );
+    }
+
+    const msg = row.msg;
+    const tag = msg.battleTag;
+    const isWatched = Boolean(tag) && watchList?.has(tag.toLowerCase());
+    const SegmentWrap = isWatched ? WatchedBar : React.Fragment;
+
+    // Continuation of the group above (same author within 2 min)
+    if (row.kind === "cont") {
+      const cBotResp = botResponseMap.get(msg.id);
+      return (
+        <SegmentWrap>
+          <ContinuationBlock $last={row.last}>
+            <ContinuationRow id={`msg-${msg.id}`} $flash={flashId === msg.id}>
+              <HoverTimestamp className="hover-timestamp">
+                {formatTime(msg.sentAt)}
+              </HoverTimestamp>
+              <MessageText>{linkifyMessage(msg.text)}</MessageText>
+            </ContinuationRow>
+            {showTranslations && translations.has(msg.id) && (
+              <TranslationRow>
+                <TranslationLabel>EN</TranslationLabel>
+                {translations.get(msg.id)}
+              </TranslationRow>
+            )}
+            {cBotResp && (
+              <BotResponseRow>
+                <BotLabel>BOT</BotLabel>
+                {!cBotResp.botEnabled && <BotPreviewTag>(preview)</BotPreviewTag>}
+                <BotText>{cBotResp.response}</BotText>
+              </BotResponseRow>
+            )}
+          </ContinuationBlock>
+        </SegmentWrap>
+      );
+    }
+
+    const msgTime = msg.sentAt;
+    const isFirstRow = index - firstItemIndex === 0;
+    const dividers = (
+      <>
+        {row.showDateDivider && (
+          <DateDivider $first={isFirstRow && !showLoadOlder}>
+            <DateLabel>{formatDateDivider(msgTime)}</DateLabel>
+          </DateDivider>
+        )}
+        {row.showNewMarker && (
+          <NewDivider><NewDividerLabel>new</NewDividerLabel></NewDivider>
+        )}
+      </>
+    );
+
+    // System message
+    if (row.kind === "system") {
+      return (
+        <>
+          {dividers}
+          <SystemMessageRow>
+            {msg.text}
+          </SystemMessageRow>
+        </>
+      );
+    }
+
+    const userName = msg.userName;
+    const clanTag = msg.clanTag;
+    const delta = recentDeltas?.get(tag);
+    const live = liveStreamers?.get(tag);
+    const gameInfo = inGameTags?.has(tag) ? inGameInfoMap?.get(tag) : null;
+    const gameMins = gameInfo ? formatGameMinutes(gameInfo.startTime) : null;
+
+    return (
+      <>
+        {dividers}
+      <SegmentWrap>
+      <MessageSegment $single={row.last} $last={row.last} $flush={isWatched}>
+        <AvatarContainer>
+          <AvatarImgWrap>
+            {getAvatarElement(tag, avatars, stats)}
+            {avatars?.get(tag)?.country && (
+              <AvatarFlag>
+                <CountryFlag name={avatars.get(tag).country.toLowerCase()} />
+              </AvatarFlag>
+            )}
+          </AvatarImgWrap>
+        </AvatarContainer>
+        <GroupStartRow id={`msg-${msg.id}`} $flash={flashId === msg.id}>
+          <MessageContent>
+            <div>
+              <NameWrapper>
+                <PlayerHoverCard
+                  battleTag={tag}
+                  avatars={avatars}
+                  stats={stats}
+                  sessions={sessions}
+                  inGameInfo={gameInfo}
+                >
+                  <UserNameLink to={`/player/${encodeURIComponent(tag)}`}>
+                    {userName}
+                  </UserNameLink>
+                </PlayerHoverCard>
+                {clanTag && <ClanTagChip>{clanTag}</ClanTagChip>}
+                {stats?.get(tag)?.mmr != null && (
+                  <InlineMmr>{Math.round(stats.get(tag).mmr)} <MmrSuffix>MMR</MmrSuffix></InlineMmr>
+                )}
+                {delta != null && (
+                  <DeltaPill $positive={delta >= 0}>
+                    {delta >= 0 ? `+${delta}` : delta}
+                  </DeltaPill>
+                )}
+                {gameInfo ? (
+                  <InGameChip to={`/player/${encodeURIComponent(tag)}`} title={`In game on ${gameInfo.mapName || "unknown map"}`}>
+                    <GiCrossedSwords />
+                    {gameMins || "in game"}
+                  </InGameChip>
+                ) : (
+                  inGameTags?.has(tag) && <InGameIcon />
+                )}
+                {live && (
+                  <LiveTwitchLink
+                    href={`https://twitch.tv/${live.twitchName}`}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    title={live.title || "Live on Twitch"}
+                  >
+                    <FaTwitch />
+                  </LiveTwitchLink>
+                )}
+                {recentWinners?.has(tag) && <WinCrown src={crownIcon} alt="" />}
+                <Timestamp>{formatDateTime(msg.sentAt)}</Timestamp>
+              </NameWrapper>
+            </div>
+            <MessageText>{linkifyMessage(msg.text)}</MessageText>
+            {showTranslations && translations.has(msg.id) && (
+              <TranslationRow style={{ margin: '2px 0', padding: '2px 0' }}>
+                <TranslationLabel>EN</TranslationLabel>
+                {translations.get(msg.id)}
+              </TranslationRow>
+            )}
+          </MessageContent>
+        </GroupStartRow>
+        {botResponseMap.has(msg.id) && (
+          <BotResponseRow>
+            <BotLabel>BOT</BotLabel>
+            {!botResponseMap.get(msg.id).botEnabled && <BotPreviewTag>(preview)</BotPreviewTag>}
+            <BotText>{botResponseMap.get(msg.id).response}</BotText>
+          </BotResponseRow>
+        )}
+      </MessageSegment>
+      </SegmentWrap>
+      </>
+    );
+  };
 
   return (
     <OuterFrame>
@@ -1546,10 +1888,10 @@ export default function ChatPanel({
             )}
             {!searching &&
               searchResults?.map((r, i) => {
-                const profile = avatars?.get(r.battle_tag) || searchAvatars.get(r.battle_tag);
+                const profile = avatars?.get(r.battleTag) || searchAvatars.get(r.battleTag);
                 return (
                   <SearchResultRow
-                    key={`${r.id ?? r.received_at}-${i}`}
+                    key={`${r.id ?? r.receivedAt}-${i}`}
                     type="button"
                     title="Jump to message"
                     disabled={jumping}
@@ -1563,15 +1905,15 @@ export default function ChatPanel({
                     <SearchResultBody>
                       <SearchResultMeta>
                         <Link
-                          to={`/player/${encodeURIComponent(r.battle_tag)}`}
+                          to={`/player/${encodeURIComponent(r.battleTag)}`}
                           onClick={(e) => e.stopPropagation()}
                         >
-                          {highlightMatches(r.user_name, searchQuery)}
+                          {highlightMatches(r.userName, searchQuery)}
                         </Link>
                         {" · "}
-                        {formatDateTime(r.sent_at || r.received_at)}
+                        {formatDateTime(r.sentAt || r.receivedAt)}
                       </SearchResultMeta>
-                      <MessageText>{highlightMatches(r.message, searchQuery)}</MessageText>
+                      <MessageText>{highlightMatches(r.text, searchQuery)}</MessageText>
                     </SearchResultBody>
                   </SearchResultRow>
                 );
@@ -1600,266 +1942,23 @@ export default function ChatPanel({
           )
         ) : (
           <ScrollContainer>
-            <MessageList ref={listRef} onScroll={handleScroll}>
-              <div ref={contentRef}>
-              {hasMoreHistory && loadOlder && (
-                <LoadOlderButton onClick={handleLoadOlder} disabled={loadingOlder}>
-                  {loadingOlder ? "Loading..." : "Load earlier messages"}
-                </LoadOlderButton>
-              )}
-              {(() => {
-                let prevSegTime = null;
-                let newMarkerShown = false;
-                return renderItems.map((item) => {
-                  // Game event woven into the stream
-                  if (item.kind === "event") {
-                    const ev = item.ev;
-                    const isEnd = ev.type === "game_end";
-                    const duration =
-                      ev.durationInSeconds != null
-                        ? `${Math.round(ev.durationInSeconds / 60)} min`
-                        : null;
-                    const mapImg = ev.mapName ? getMapImageUrl(ev.mapName) : null;
-                    const teamA = isEnd ? ev.winners : ev.teams?.[0];
-                    const teamB = isEnd ? ev.losers : ev.teams?.[1];
-                    const eventLink = isEnd ? `/match/${ev.matchId}` : "/live";
-                    const hasChart = (teamA || []).some((p) => p.mmr > 0);
-                    const stillRunning = !isEnd && ongoingMatchIds?.has(ev.matchId);
-                    const liveMins = stillRunning ? formatGameMinutes(ev.time) : null;
-                    return (
-                      <EventPostWrap key={ev.id}>
-                      <EventAvatarContainer>
-                        <EventAvatarImg src="/favicon.svg" alt="4v4.GG" />
-                      </EventAvatarContainer>
-                      <EventAttribution>
-                        <EventBotName>4v4.GG</EventBotName>
-                      </EventAttribution>
-                      <GameEventCard
-                        $end={isEnd}
-                        $live={ev.live}
-                        onClick={() => history.push(eventLink)}
-                        style={{ cursor: "pointer" }}
-                      >
-                        <EventTagCol>
-                          <EventTag $end={isEnd}>{isEnd ? "Finish" : "Start"}</EventTag>
-                          {isEnd ? (
-                            <>
-                              {duration && <EventMapMeta>{duration}</EventMapMeta>}
-                              <EventMapMeta>ended {formatTime(ev.time)}</EventMapMeta>
-                            </>
-                          ) : stillRunning ? (
-                            <EventMapMeta>
-                              <EventLiveDot />
-                              in progress{liveMins ? ` · ${liveMins}` : ""}
-                            </EventMapMeta>
-                          ) : (
-                            <EventMapMeta>started {formatTime(ev.time)}</EventMapMeta>
-                          )}
-                        </EventTagCol>
-                        <EventMapBlock>
-                          {mapImg && (
-                            <Link to={eventLink} onClick={(e) => e.stopPropagation()}>
-                              <EventMapImg src={mapImg} alt="" onError={(e) => { e.target.style.display = "none"; }} />
-                            </Link>
-                          )}
-                          {ev.mapName && (
-                            <EventMapName to={eventLink} onClick={(e) => e.stopPropagation()}>
-                              {ev.mapName}
-                            </EventMapName>
-                          )}
-                        </EventMapBlock>
-                        <EventBody>
-                          <MiniTeamsRow
-                            teamA={{ players: teamA, winner: isEnd }}
-                            teamB={{ players: teamB, winner: false }}
-                            dimLosers={isEnd}
-                            showChart={hasChart}
-                            mvpTag={ev.mvp}
-                            hoverData={{ avatars, stats, sessions, inGameTags, inGameInfoMap }}
-                          />
-                          {ev.note && (
-                            <EventNote>
-                              <MatchNote
-                                note={ev.note}
-                                avatarUrl={ev.note.tag ? avatars?.get(ev.note.tag)?.profilePicUrl : null}
-                              />
-                            </EventNote>
-                          )}
-                          {isEnd && (ev.badges?.length > 0 || ev.rivals?.length > 0) && (
-                            <EventNote>
-                              <StreakBadges badges={ev.badges} />
-                              <RivalryBadge rivals={ev.rivals} />
-                            </EventNote>
-                          )}
-                        </EventBody>
-                      </GameEventCard>
-                      </EventPostWrap>
-                    );
-                  }
-
-                  const segment = item.seg;
-                  const msg = segment.start;
-                  const tag = msg.battle_tag || msg.battleTag;
-                  const userName = msg.user_name || msg.userName;
-                  const msgTime = msg.sent_at || msg.sentAt;
-                  const msgDateKey = getDateKey(msgTime);
-
-                  const showDateDivider = prevSegTime === null || getDateKey(prevSegTime) !== msgDateKey;
-                  const showNewMarker =
-                    !newMarkerShown && newMarkerTime != null && item.time > newMarkerTime;
-                  if (showNewMarker) newMarkerShown = true;
-                  prevSegTime = msgTime;
-
-                  const dividers = (
-                    <>
-                      {showDateDivider && (
-                        <DateDivider><DateLabel>{formatDateDivider(msgTime)}</DateLabel></DateDivider>
-                      )}
-                      {showNewMarker && (
-                        <NewDivider><NewDividerLabel>new</NewDividerLabel></NewDivider>
-                      )}
-                    </>
-                  );
-
-                  // System message
-                  if (!tag || tag === "system") {
-                    return (
-                      <React.Fragment key={msg.id}>
-                        {dividers}
-                        <SystemMessageRow>
-                          {msg.message}
-                        </SystemMessageRow>
-                      </React.Fragment>
-                    );
-                  }
-
-                  const isWatched = watchList?.has(tag.toLowerCase());
-                  const clanTag = msg.clan_tag || msg.clanTag;
-                  const delta = recentDeltas?.get(tag);
-                  const live = liveStreamers?.get(tag);
-                  const gameInfo = inGameTags?.has(tag) ? inGameInfoMap?.get(tag) : null;
-                  const gameMins = gameInfo ? formatGameMinutes(gameInfo.startTime) : null;
-                  const SegmentWrap = isWatched ? WatchedBar : React.Fragment;
-
-                  return (
-                    <React.Fragment key={msg.id}>
-                      {dividers}
-                    <SegmentWrap>
-                    <MessageSegment>
-                      <AvatarContainer>
-                        <AvatarImgWrap>
-                          {getAvatarElement(tag, avatars, stats)}
-                          {avatars?.get(tag)?.country && (
-                            <AvatarFlag>
-                              <CountryFlag name={avatars.get(tag).country.toLowerCase()} />
-                            </AvatarFlag>
-                          )}
-                        </AvatarImgWrap>
-                      </AvatarContainer>
-                      <GroupStartRow id={`msg-${msg.id}`} $flash={flashId === msg.id}>
-                        <MessageContent>
-                          <div>
-                            <NameWrapper>
-                              <PlayerHoverCard
-                                battleTag={tag}
-                                avatars={avatars}
-                                stats={stats}
-                                sessions={sessions}
-                                inGameInfo={gameInfo}
-                              >
-                                <UserNameLink to={`/player/${encodeURIComponent(tag)}`}>
-                                  {userName}
-                                </UserNameLink>
-                              </PlayerHoverCard>
-                              {clanTag && <ClanTagChip>{clanTag}</ClanTagChip>}
-                              {stats?.get(tag)?.mmr != null && (
-                                <InlineMmr>{Math.round(stats.get(tag).mmr)} <MmrSuffix>MMR</MmrSuffix></InlineMmr>
-                              )}
-                              {delta != null && (
-                                <DeltaPill $positive={delta >= 0}>
-                                  {delta >= 0 ? `+${delta}` : delta}
-                                </DeltaPill>
-                              )}
-                              {gameInfo ? (
-                                <InGameChip to={`/player/${encodeURIComponent(tag)}`} title={`In game on ${gameInfo.mapName || "unknown map"}`}>
-                                  <GiCrossedSwords />
-                                  {gameMins || "in game"}
-                                </InGameChip>
-                              ) : (
-                                inGameTags?.has(tag) && <InGameIcon />
-                              )}
-                              {live && (
-                                <LiveTwitchLink
-                                  href={`https://twitch.tv/${live.twitchName}`}
-                                  target="_blank"
-                                  rel="noopener noreferrer"
-                                  title={live.title || "Live on Twitch"}
-                                >
-                                  <FaTwitch />
-                                </LiveTwitchLink>
-                              )}
-                              {recentWinners?.has(tag) && <WinCrown src={crownIcon} alt="" />}
-                              <Timestamp>{formatDateTime(msg.sent_at || msg.sentAt)}</Timestamp>
-                            </NameWrapper>
-                          </div>
-                          <MessageText>{linkifyMessage(msg.message)}</MessageText>
-                          {showTranslations && translations.has(msg.id) && (
-                            <TranslationRow style={{ margin: '2px 0', padding: '2px 0' }}>
-                              <TranslationLabel>EN</TranslationLabel>
-                              {translations.get(msg.id)}
-                            </TranslationRow>
-                          )}
-                        </MessageContent>
-                      </GroupStartRow>
-                      {botResponseMap.has(msg.id) && (
-                        <BotResponseRow>
-                          <BotLabel>BOT</BotLabel>
-                          {!botResponseMap.get(msg.id).botEnabled && <BotPreviewTag>(preview)</BotPreviewTag>}
-                          <BotText>{botResponseMap.get(msg.id).response}</BotText>
-                        </BotResponseRow>
-                      )}
-                      {segment.continuations.map((cMsg) => {
-                        const cBotResp = botResponseMap.get(cMsg.id);
-                        return (
-                          <React.Fragment key={cMsg.id}>
-                            <ContinuationRow id={`msg-${cMsg.id}`} $flash={flashId === cMsg.id}>
-                              <HoverTimestamp className="hover-timestamp">
-                                {formatTime(cMsg.sent_at || cMsg.sentAt)}
-                              </HoverTimestamp>
-                              <MessageText>{linkifyMessage(cMsg.message)}</MessageText>
-                            </ContinuationRow>
-                            {showTranslations && translations.has(cMsg.id) && (
-                              <TranslationRow>
-                                <TranslationLabel>EN</TranslationLabel>
-                                {translations.get(cMsg.id)}
-                              </TranslationRow>
-                            )}
-                            {cBotResp && (
-                              <BotResponseRow>
-                                <BotLabel>BOT</BotLabel>
-                                {!cBotResp.botEnabled && <BotPreviewTag>(preview)</BotPreviewTag>}
-                                <BotText>{cBotResp.response}</BotText>
-                              </BotResponseRow>
-                            )}
-                          </React.Fragment>
-                        );
-                      })}
-                    </MessageSegment>
-                    </SegmentWrap>
-                    </React.Fragment>
-                  );
-                });
-              })()}
-              {unmatchedBotResponses.map((br, i) => (
-                <BotResponseRow key={`bot-${i}`} style={{ marginLeft: "var(--space-4)" }}>
-                  <BotLabel>BOT</BotLabel>
-                  {!br.botEnabled && <BotPreviewTag>(preview)</BotPreviewTag>}
-                  <BotPreviewTag style={{ marginLeft: 6 }}>{br.command}</BotPreviewTag>
-                  <BotText>{br.response}</BotText>
-                </BotResponseRow>
-              ))}
-              </div>
-            </MessageList>
+            <Virtuoso
+              ref={virtuosoRef}
+              style={{ flex: 1, height: "100%" }}
+              data={rows}
+              context={listContext}
+              components={listComponents}
+              computeItemKey={rowKey}
+              itemContent={renderRow}
+              firstItemIndex={firstItemIndex}
+              initialTopMostItemIndex={
+                pendingJumpIndex !== -1 ? { index: pendingJumpIndex, align: "center" } : rows.length - 1
+              }
+              followOutput={followOutput}
+              atBottomStateChange={handleAtBottomChange}
+              atBottomThreshold={40}
+              increaseViewportBy={{ top: 400, bottom: 400 }}
+            />
             {showNotice && (
               <ScrollNotice onClick={scrollToBottom}>
                 New messages below

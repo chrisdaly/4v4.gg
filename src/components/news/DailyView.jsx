@@ -97,7 +97,7 @@ const DailyView = ({ dayParam }) => {
       }
     }
     for (const m of messages) {
-      const tag = m.battle_tag || m.battleTag;
+      const tag = m.battleTag;
       const name = tag?.split("#")[0];
       if (name) {
         names.add(name);

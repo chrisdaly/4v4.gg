@@ -8,8 +8,7 @@ import { Input, Button } from "./ui";
 import useAdmin from "../lib/useAdmin";
 import { searchLadder, getPlayerProfile } from "../lib/api";
 import { raceMapping } from "../lib/constants";
-
-const RELAY_URL = import.meta.env.VITE_CHAT_RELAY_URL || "https://4v4gg-chat-relay.fly.dev";
+import { RELAY_URL } from "../lib/relay";
 const SEARCH_HISTORY_KEY = "4v4gg_chat_search_history";
 const MAX_HISTORY = 15;
 const PAGE_SIZE = 50;

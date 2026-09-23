@@ -6,8 +6,7 @@ import { Button } from "./ui";
 import PeonLoader from "./PeonLoader";
 import "./ChatContext.css";
 
-const RELAY_URL =
-  import.meta.env.VITE_CHAT_RELAY_URL || "https://4v4gg-chat-relay.fly.dev";
+import { RELAY_URL } from "../lib/relay";
 
 /* ── Utilities ─────────────────────────────────────── */
 

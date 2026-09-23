@@ -6,6 +6,7 @@ import crownIcon from "../assets/icons/king.svg";
 import { raceMapping, raceIcons } from "../lib/constants";
 import { CountryFlag, Skeleton, SkeletonCircle, Input } from "./ui";
 import PlayerHoverCard from "./PlayerHoverCard";
+import useIdleTags from "../lib/chat/useIdleTags";
 
 const Sidebar = styled.aside`
   width: 268px;
@@ -448,7 +449,6 @@ export default function UserListSidebar({
   sessions,
   inGameTags,
   inGameInfoMap,
-  idleTags,
   inGameMatchMap,
   recentWinners,
   recentDeltas,
@@ -465,6 +465,8 @@ export default function UserListSidebar({
   const [inGameOpen, setInGameOpen] = useState(true);
   const [onlineOpen, setOnlineOpen] = useState(true);
   const [awayOpen, setAwayOpen] = useState(true);
+  // Owns the once-a-minute idle tick so only the roster re-renders for it
+  const idleTags = useIdleTags(users, inGameTags);
 
   function handleSort(field) {
     setSortField(field);

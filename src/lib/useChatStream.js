@@ -1,13 +1,18 @@
 import { useState, useEffect, useRef, useCallback } from "react";
+import { RELAY_URL, relayFetch } from "./relay";
+import { normalizeMessage, normalizeMessages } from "./chat/normalize";
 
-const RELAY_URL =
-  import.meta.env.VITE_CHAT_RELAY_URL || "https://4v4gg-chat-relay.fly.dev";
 const MAX_MESSAGES = 500;
 // Cap how far back scrollback can page in - keeps the DOM and memory bounded.
 // ~2000 messages is days of history; beyond that, use search instead.
 const MAX_HISTORY_EXTRA = 1500;
 const BACKOFF_DELAYS = [1000, 2000, 4000, 8000, 16000, 30000];
 
+/**
+ * Transport layer for the chat relay: REST history + SSE live stream.
+ * Every message crosses the wire boundary through normalizeMessage, so
+ * consumers only ever see the camelCase feed shape (see chat/normalize.js).
+ */
 export default function useChatStream() {
   const [messages, setMessages] = useState([]);
   const [status, setStatus] = useState("connecting");
@@ -28,6 +33,7 @@ export default function useChatStream() {
     messagesRef.current = messages;
   }, [messages]);
 
+  // Append already-normalized messages, deduped by id, trimmed to the cap
   const addMessages = useCallback((newMsgs) => {
     setMessages((prev) => {
       const ids = new Set(prev.map((m) => m.id));
@@ -41,25 +47,25 @@ export default function useChatStream() {
     });
   }, []);
 
-  // Page in older history (cursor on received_at of the oldest loaded message).
+  // Page in older history (cursor on receivedAt of the oldest loaded message).
   // Returns { added, oldestCursor } so callers can page toward a target time.
   const loadOlder = useCallback(async () => {
     if (loadingOlderRef.current) return { added: 0, oldestCursor: null };
     loadingOlderRef.current = true;
     try {
       const oldest = messagesRef.current[0];
-      const cursor = oldest?.received_at || oldest?.sent_at || oldest?.sentAt;
+      const cursor = oldest?.receivedAt || oldest?.sentAt;
       if (!cursor) return { added: 0, oldestCursor: null };
 
-      const res = await fetch(
-        `${RELAY_URL}/api/chat/messages?limit=100&before=${encodeURIComponent(cursor)}`
+      const res = await relayFetch(
+        `/api/chat/messages?limit=100&before=${encodeURIComponent(cursor)}`
       );
       const data = await res.json();
       if (!Array.isArray(data) || data.length === 0) {
         setHasMoreHistory(false);
         return { added: 0, oldestCursor: cursor };
       }
-      const older = data.reverse();
+      const older = normalizeMessages(data.reverse());
       let added = 0;
       setMessages((prev) => {
         const ids = new Set(prev.map((m) => m.id));
@@ -72,7 +78,7 @@ export default function useChatStream() {
       if (data.length < 100 || historyExtraRef.current >= MAX_HISTORY_EXTRA) {
         setHasMoreHistory(false);
       }
-      return { added, oldestCursor: older[0]?.received_at || cursor };
+      return { added, oldestCursor: older[0]?.receivedAt || cursor };
     } catch {
       return { added: 0, oldestCursor: null };
     } finally {
@@ -96,10 +102,10 @@ export default function useChatStream() {
 
   const connect = useCallback(() => {
     // Fetch initial history
-    fetch(`${RELAY_URL}/api/chat/messages?limit=100`)
+    relayFetch(`/api/chat/messages?limit=100`)
       .then((r) => r.json())
       .then((data) => {
-        addMessages(data.reverse());
+        addMessages(normalizeMessages(data.reverse()));
       })
       .catch(() => {});
 
@@ -109,12 +115,12 @@ export default function useChatStream() {
 
     es.addEventListener("history", (e) => {
       const data = JSON.parse(e.data);
-      addMessages(data);
+      addMessages(normalizeMessages(data));
     });
 
     es.addEventListener("message", (e) => {
-      const msg = JSON.parse(e.data);
-      addMessages([msg]);
+      const msg = normalizeMessage(JSON.parse(e.data));
+      if (msg) addMessages([msg]);
     });
 
     es.addEventListener("delete", (e) => {
@@ -202,7 +208,7 @@ export default function useChatStream() {
   }, [connect]);
 
   const sendMessage = useCallback(async (text, apiKey) => {
-    const res = await fetch(`${RELAY_URL}/api/admin/send`, {
+    const res = await relayFetch(`/api/admin/send`, {
       method: "POST",
       headers: {
         "Content-Type": "application/json",
