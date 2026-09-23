@@ -9,7 +9,7 @@
   align-items: center;
   border-bottom: 1px solid rgba(255, 255, 255, 0.03);
   text-decoration: none;
-  transition: background 0.2s;
+  transition: background var(--transition);
   min-height: 56px;
 }
 
@@ -18,10 +18,10 @@
 }
 
 .game-row:hover {
-  background: var(--gold-tint);
+  background: var(--gold-tint-subtle);
 }
 
-/* Result badge */
+/* Result badge - keep identical to .gc-badge in GameCard.css */
 .gr-badge {
   display: inline-flex;
   align-items: center;
@@ -36,12 +36,12 @@
 
 .gr-badge-won {
   color: var(--green);
-  background: rgba(74, 222, 128, 0.15);
+  background: var(--green-tint);
 }
 
 .gr-badge-lost {
   color: var(--red);
-  background: rgba(248, 113, 113, 0.15);
+  background: var(--red-tint);
 }
 
 /* Map column */
@@ -73,7 +73,7 @@
 .gr-avg-mmr-value {
   font-family: var(--font-mono);
   font-size: var(--text-xs);
-  color: #fff;
+  color: var(--white);
 }
 
 /* MMR change */
@@ -105,7 +105,7 @@
   gap: var(--space-1);
   flex-shrink: 0;
   text-decoration: none;
-  transition: opacity 0.15s;
+  transition: opacity var(--transition);
   cursor: pointer;
 }
 
@@ -140,7 +140,7 @@
   overflow: hidden;
   text-overflow: ellipsis;
   max-width: 90px;
-  transition: color 0.15s;
+  transition: color var(--transition);
 }
 
 /* Duration and time */

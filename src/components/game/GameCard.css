@@ -13,7 +13,7 @@
   border-image: var(--theme-border-image, none);
   border-radius: var(--radius-md);
   text-decoration: none;
-  transition: all 0.2s;
+  transition: all var(--transition);
   backdrop-filter: var(--theme-blur, none);
   box-shadow: var(--theme-shadow, none);
 }
@@ -29,17 +29,17 @@
 
 .game-card.gc-won {
   border-color: rgba(74, 222, 128, 0.25);
-  background: rgba(74, 222, 128, 0.05);
+  background: var(--green-tint-subtle);
 }
 
 .game-card.gc-lost {
   border-color: rgba(248, 113, 113, 0.25);
-  background: rgba(248, 113, 113, 0.05);
+  background: var(--red-tint-subtle);
 }
 
 .game-card.gc-live {
-  border-color: rgba(239, 68, 68, 0.25);
-  background: rgba(239, 68, 68, 0.05);
+  border-color: rgba(248, 113, 113, 0.25);
+  background: var(--red-tint-subtle);
 }
 
 a.game-card:hover {
@@ -57,8 +57,8 @@ a.game-card.gc-lost:hover {
 }
 
 a.game-card.gc-live:hover {
-  border-color: rgba(239, 68, 68, 0.4);
-  background: rgba(239, 68, 68, 0.08);
+  border-color: rgba(248, 113, 113, 0.4);
+  background: rgba(248, 113, 113, 0.08);
 }
 
 /* ============================================
@@ -118,9 +118,10 @@ a.game-card.gc-live:hover {
   gap: var(--space-2);
 }
 
+/* WIN/LOSS pill - keep identical to .gr-badge in GameRow.css */
 .gc-badge {
   font-family: var(--font-display);
-  font-size: var(--text-xs);
+  font-size: var(--text-xxs);
   font-weight: bold;
   padding: var(--space-1) var(--space-2);
   border-radius: var(--radius-md);
@@ -128,12 +129,12 @@ a.game-card.gc-live:hover {
 
 .gc-badge-won {
   color: var(--green);
-  background: rgba(74, 222, 128, 0.2);
+  background: var(--green-tint);
 }
 
 .gc-badge-lost {
   color: var(--red);
-  background: rgba(248, 113, 113, 0.2);
+  background: var(--red-tint);
 }
 
 .gc-badge-large {
@@ -156,17 +157,12 @@ a.game-card.gc-live:hover {
   animation: pulse 1.5s infinite;
 }
 
-@keyframes pulse {
-  0%, 100% { opacity: 1; transform: scale(1); }
-  50% { opacity: 0.6; transform: scale(0.9); }
-}
-
 .gc-live-text {
   font-family: var(--font-display);
   font-size: var(--text-xs);
   font-weight: bold;
   color: var(--red);
-  letter-spacing: 1px;
+  letter-spacing: 0.08em;
 }
 
 .gc-live-expanded .gc-live-text {
@@ -212,7 +208,9 @@ a.game-card.gc-live:hover {
 }
 
 .gc-map-name {
-  color: var(--grey-light);
+  font-family: var(--font-display);
+  font-size: var(--text-sm);
+  color: var(--white);
 }
 
 .gc-duration,
@@ -290,18 +288,23 @@ a.game-card.gc-live:hover {
 
 .gc-name {
   font-family: var(--font-display);
-  font-size: var(--text-xxs);
-  color: var(--grey-light);
+  font-size: var(--text-xs);
+  color: var(--gold);
   white-space: nowrap;
   overflow: hidden;
   text-overflow: ellipsis;
+}
+
+/* Player-centric mode (playerBattleTag set): opponents are intentionally muted */
+.gc-team-opponents .gc-name {
+  color: var(--grey-light);
 }
 
 .gc-vs {
   font-size: var(--text-xxs);
   color: var(--grey-light);
   text-transform: uppercase;
-  letter-spacing: 1px;
+  letter-spacing: 0.08em;
 }
 
 /* Team blocks (expanded size) */
@@ -340,6 +343,18 @@ a.game-card.gc-live:hover {
   justify-items: end;
 }
 
+/* Link arrow (right edge of clickable cards) */
+.gc-arrow {
+  align-self: center;
+  color: var(--grey-light);
+  font-size: var(--text-sm);
+  transition: color var(--transition);
+}
+
+a.game-card:hover .gc-arrow {
+  color: var(--gold);
+}
+
 /* ============================================
    OVERLAY MODE
    ============================================ */
@@ -362,7 +377,7 @@ a.game-card.gc-live:hover {
 
 .game-card.gc-overlay.gc-live {
   background: var(--overlay-medium, rgba(10, 10, 20, 0.85));
-  border-color: rgba(239, 68, 68, 0.3);
+  border-color: rgba(248, 113, 113, 0.3);
 }
 
 /* Overlay label */

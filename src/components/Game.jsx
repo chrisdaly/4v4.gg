@@ -282,7 +282,7 @@ const Game = ({ playerData: rawPlayerData, metaData, profilePics, playerCountrie
           {/* Player name */}
           <div className="player-name-row">
             <Link to={`/player/${player.battleTag.replace("#", "%23")}`}>
-              <h2>{player.name}</h2>
+              <h2 className="player-name">{player.name}</h2>
             </Link>
             {liveStreamers[player.battleTag] && (
               <a
@@ -292,7 +292,7 @@ const Game = ({ playerData: rawPlayerData, metaData, profilePics, playerCountrie
                 className="twitch-link"
                 title={liveStreamers[player.battleTag].title || "Live on Twitch"}
               >
-                <FaTwitch className="twitch-icon" style={{ fill: '#9146ff' }} />
+                <FaTwitch className="twitch-icon" />
               </a>
             )}
           </div>
@@ -355,7 +355,7 @@ const Game = ({ playerData: rawPlayerData, metaData, profilePics, playerCountrie
           {oldMmr && oldMmr > 0 ? (
             <span className="mmr-value">{oldMmr}</span>
           ) : (
-            <span className="mmr-label-muted">—</span>
+            <span className="mmr-label-muted">-</span>
           )}
         </div>
         <FormDots form={playerSession?.form} size="small" />
@@ -565,7 +565,7 @@ const Game = ({ playerData: rawPlayerData, metaData, profilePics, playerCountrie
         </tbody>
       </table>
 
-      {/* Mobile layout — stacked, no horizontal scroll */}
+      {/* Mobile layout - stacked, no horizontal scroll */}
       <div className="game-mobile">
         <div className={`gm-team-header ${team1Won ? "winner" : ""}`}>
           {team1Won && <span className="winner-badge">W</span>}

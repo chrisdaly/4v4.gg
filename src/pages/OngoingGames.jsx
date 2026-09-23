@@ -57,7 +57,7 @@ const OngoingGames = () => {
   const readySet = useRef(new Set());
   const hasInitiallyLoadedRef = useRef(false);
 
-  // Only reset ready tracking on the very first load — not on re-polls
+  // Only reset ready tracking on the very first load - not on re-polls
   useEffect(() => {
     if (!ongoingGameData || ongoingGameData.length === 0) return;
     if (hasInitiallyLoadedRef.current) return;

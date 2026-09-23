@@ -57,7 +57,7 @@ const FinishedGame = ({ data, compact = false }) => {
 
       // Heuristics describe the game itself and stay accurate forever.
       // Relay blurb includes streak/H2H context that's only meaningful in the
-      // moment — only use it as a fallback when heuristics find nothing.
+      // moment - only use it as a fallback when heuristics find nothing.
       const note = computeNote(noteContextFromMatch(data.match), {
         playerScores: data.playerScores,
         matchPlayers: (data.match.teams || []).flatMap((t) => t.players || []),
@@ -163,12 +163,12 @@ const FinishedGame = ({ data, compact = false }) => {
             </NoteFooter>
           )}
 
-          {/* Playstyle Section — only shown when replay exists for this match */}
+          {/* Playstyle Section - only shown when replay exists for this match */}
           {!compact && gameProfiles && (
             <PlaystyleSection>
               <SectionHeader>
                 <SectionTitle>Player Playstyles</SectionTitle>
-                <SectionSubtitle>Fingerprints from this game's replay — APM, hotkey usage, and action patterns</SectionSubtitle>
+                <SectionSubtitle>Fingerprints from this game's replay - APM, hotkey usage, and action patterns</SectionSubtitle>
               </SectionHeader>
 
               {[1, 2].map((team) => {
@@ -297,7 +297,7 @@ const TeamColumn = styled.div``;
 const TeamLabel = styled.h3`
   font-family: var(--font-display);
   font-size: var(--text-sm);
-  color: ${(p) => (p.$team === 1 ? "var(--team-blue)" : "var(--red)")};
+  color: ${(p) => (p.$team === 1 ? "var(--team-blue)" : "var(--team-red)")};
   margin-bottom: var(--space-3);
   text-transform: uppercase;
   letter-spacing: 0.1em;

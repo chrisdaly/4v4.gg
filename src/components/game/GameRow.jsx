@@ -50,7 +50,7 @@ const GameRow = ({
     }
   }
 
-  // Sort full team (self + allies) by MMR — don't pin self first
+  // Sort full team (self + allies) by MMR - don't pin self first
   const teamMembers = [playerData, ...allies].sort((a, b) => (b.oldMmr || 0) - (a.oldMmr || 0));
 
   if (!playerData) return null;

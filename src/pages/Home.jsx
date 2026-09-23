@@ -396,7 +396,7 @@ const Home = () => {
         setFinishedMatches(results[0].value.matches);
       }
 
-      // Today's digest — fallback to most recent from digests list
+      // Today's digest - fallback to most recent from digests list
       let digestData = null;
       if (results[1].status === "fulfilled" && results[1].value?.digest) {
         digestData = results[1].value;
@@ -476,7 +476,7 @@ const Home = () => {
         )
       )}
 
-      {/* Pulse — always visible, right after hero */}
+      {/* Pulse - always visible, right after hero */}
       <div className="sc-pulse sc-panel">
         <span className="sc-pulse-stat">
           <span className="sc-pulse-value">{onlineUsers.length}</span> players online

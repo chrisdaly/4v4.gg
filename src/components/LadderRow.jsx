@@ -4,6 +4,7 @@ import { GiCrossedSwords } from "react-icons/gi";
 import { FaTwitch } from "react-icons/fa";
 
 import { raceMapping } from "../lib/constants";
+import { Dot } from "./ui";
 import MmrSparkline from "./MmrSparkline";
 
 const LadderRow = ({ rank, sparklineData, session, detectedRace, twitch, isStreaming, streamInfo, isLive, isEven }) => {
@@ -67,10 +68,7 @@ const LadderRow = ({ rank, sparklineData, session, detectedRace, twitch, isStrea
             {session.form?.length > 0 && (
               <div className="form-dots-inline">
                 {session.form.map((won, idx) => (
-                  <span
-                    key={idx}
-                    className={`form-dot ${won ? "win" : "loss"}`}
-                  />
+                  <Dot key={idx} $win={won} $size={5} />
                 ))}
               </div>
             )}
