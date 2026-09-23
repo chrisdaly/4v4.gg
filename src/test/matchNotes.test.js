@@ -76,7 +76,7 @@ describe('computeNote', () => {
     const c = ctx({
       winners: [player('A', 1), player('B', 1), player('C', 1), player('D', 8)],
     });
-    // Different players top different stats — like real lobbies — so A's
+    // Different players top different stats - like real lobbies - so A's
     // sweep produces a wide rank-sum gap over second place
     const dominant = scores([
       ['A', 9, 9000, 90000, 99, 89],

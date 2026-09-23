@@ -2,7 +2,7 @@ import React from "react";
 import { colors, chartColors } from "../../lib/design-tokens";
 
 const GOLD = chartColors.gold;
-const GOLD_DIM = "#b89a1e";
+const GOLD_DIM = `${chartColors.gold}b3`; // gold at 70% alpha
 
 const RACE_COLORS = {
   Human: chartColors.blue,
@@ -13,7 +13,7 @@ const RACE_COLORS = {
 };
 
 /**
- * PlayerGlyph — a small radial glyph encoding a player's playstyle.
+ * PlayerGlyph - a small radial glyph encoding a player's playstyle.
  *
  * Visual mappings:
  *   - Spoke count = number of active control groups
@@ -32,7 +32,7 @@ export default function PlayerGlyph({
     return (
       <circle cx={cx} cy={cy} r={r}
         fill={GOLD} opacity={isHighlighted ? 0.9 : 0.4}
-        stroke={isHighlighted ? "#fff" : GOLD_DIM}
+        stroke={isHighlighted ? "var(--white)" : GOLD_DIM}
         strokeWidth={isHighlighted ? 1.5 : 0.5}
         pointerEvents="none" />
     );
@@ -178,7 +178,7 @@ export default function PlayerGlyph({
       <circle key="highlight-ring"
         cx={cx} cy={cy}
         r={finalR + 3}
-        fill="none" stroke="#fff"
+        fill="none" stroke="var(--white)"
         strokeWidth="1"
         opacity="0.4"
         pointerEvents="none" />

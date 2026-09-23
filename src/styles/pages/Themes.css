@@ -24,7 +24,7 @@
 }
 
 .themes-card:hover {
-  border-color: rgba(184, 134, 11, 0.5);
+  border-color: rgba(var(--gold-dark-rgb), 0.5);
   background: rgba(252, 219, 51, 0.04);
   transform: translateY(-2px);
   box-shadow: 0 8px 24px rgba(0, 0, 0, 0.4);

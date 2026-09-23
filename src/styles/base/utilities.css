@@ -2,7 +2,7 @@
    Base Utility Classes
    ======================================== */
 
-/* Thin scrollbar — matches WC3 theme */
+/* Thin scrollbar - matches WC3 theme */
 .scrollbar-thin {
   scrollbar-width: thin;
   scrollbar-color: var(--grey-mid) transparent;

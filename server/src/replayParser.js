@@ -19,13 +19,13 @@ const TRACKED_ACTION_IDS = new Set([
   0x68,                           // Minimap ping
 ]);
 
-// FourCC bytes are stored little-endian in w3gjs — reverse to get standard unit ID
+// FourCC bytes are stored little-endian in w3gjs - reverse to get standard unit ID
 function fourCCToString(arr) {
   if (!arr || arr.length !== 4) return null;
   // Right-click (smart command) uses a non-ASCII numeric order ID 0x000D0003
   if (arr[0] === 0x03 && arr[1] === 0x00 && arr[2] === 0x0D && arr[3] === 0x00) return 'smart';
   const str = String.fromCharCode(arr[3], arr[2], arr[1], arr[0]);
-  // Only return printable ASCII — non-printable results are numeric IDs, not FourCCs
+  // Only return printable ASCII - non-printable results are numeric IDs, not FourCCs
   for (let i = 0; i < str.length; i++) {
     const c = str.charCodeAt(i);
     if (c < 32 || c > 126) return null;
@@ -99,7 +99,7 @@ export async function parseReplayBuffer(buffer) {
           fullSeqs[cmd.playerId].push(entry);
         }
 
-        // 0x19: Select Subgroup — reveals ItemID ↔ ObjectID association
+        // 0x19: Select Subgroup - reveals ItemID ↔ ObjectID association
         if (action.id === 0x19 && action.itemId && action.object) {
           const gs = getGroupState(cmd.playerId);
           const itemStr = fourCCToString(action.itemId);
@@ -108,7 +108,7 @@ export async function parseReplayBuffer(buffer) {
           }
         }
 
-        // 0x17: Assign Group Hotkey — full unit list for this group
+        // 0x17: Assign Group Hotkey - full unit list for this group
         if (action.id === 0x17 && action.units) {
           const gs = getGroupState(cmd.playerId);
           const g = (action.groupNumber + 1) % 10;

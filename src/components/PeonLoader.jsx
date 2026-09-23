@@ -1,13 +1,13 @@
 import React, { useState, useEffect, useRef } from "react";
 
 /**
- * PeonLoader — Gold spinner + cycling WC3 peon quotes
+ * PeonLoader - Gold spinner + cycling WC3 peon quotes
  *
  * Usage:
- *   <PeonLoader />                   — default (page-level, lg spinner)
- *   <PeonLoader size="sm" />         — inline/compact
- *   <PeonLoader size="md" />         — medium
- *   <PeonLoader interval={4000} />   — custom cycle speed (ms)
+ *   <PeonLoader />                   - default (page-level, lg spinner)
+ *   <PeonLoader size="sm" />         - inline/compact
+ *   <PeonLoader size="md" />         - medium
+ *   <PeonLoader interval={4000} />   - custom cycle speed (ms)
  */
 
 const quotes = [
@@ -27,7 +27,7 @@ const quotes = [
   "Job's done.",
 ];
 
-// Quotes with optional {name} placeholder — used when `subject` prop is provided
+// Quotes with optional {name} placeholder - used when `subject` prop is provided
 // Mix of investigation-specific + WC3 unit lines that fit the scouting/detection vibe
 const subjectQuotes = [
   // Investigation-specific

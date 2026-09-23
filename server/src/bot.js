@@ -60,7 +60,7 @@ export function handleCommand(text, battleTag, userName) {
 
   // Allowlist check
   if (!ALLOWED_USERS.has(battleTag)) {
-    console.log(`[Bot] Ignored ${cmd} from ${userName} (${battleTag}) — not in allowlist`);
+    console.log(`[Bot] Ignored ${cmd} from ${userName} (${battleTag}) - not in allowlist`);
     return true;
   }
 
@@ -72,7 +72,7 @@ export function handleCommand(text, battleTag, userName) {
   }
   lastCommandTime = now;
 
-  // Run async — don't block ReceiveMessage
+  // Run async - don't block ReceiveMessage
   runCommand(handler, args, battleTag, userName, cmd).catch(err => {
     console.error(`[Bot] Error running ${cmd}:`, err.message);
   });
@@ -114,7 +114,7 @@ async function runCommand(handler, args, battleTag, userName, cmd) {
   }
 }
 
-// ── Test mode — run a command without sending to chat ─────────
+// ── Test mode - run a command without sending to chat ─────────
 
 export async function testCommand(text) {
   if (!text.startsWith('!')) return null;

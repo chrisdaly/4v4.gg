@@ -49,7 +49,7 @@ async function findLiquipediaImageUrl(mapName) {
   });
   if (!res.ok) return null;
   const html = await res.text();
-  // Match any /commons/images/.../Wc3*.png — the filename varies (underscores, suffixes)
+  // Match any /commons/images/.../Wc3*.png - the filename varies (underscores, suffixes)
   const match = html.match(/\/commons\/images\/[a-f0-9/]+\/Wc3[^"']+\.png/i);
   return match ? `https://liquipedia.net${match[0]}` : null;
 }
@@ -84,7 +84,7 @@ export async function runMapSync() {
   console.log('[MapSync] Checking map pool...');
 
   const [mapNames, season] = await Promise.all([fetchCurrentMaps(), fetchCurrentSeason()]);
-  console.log(`[MapSync] Season ${season ?? '?'} — ${mapNames.length} maps in pool`);
+  console.log(`[MapSync] Season ${season ?? '?'} - ${mapNames.length} maps in pool`);
 
   const missing = [];
   for (const name of mapNames) {
@@ -131,7 +131,7 @@ export async function runMapSync() {
     }
   }
 
-  console.log(`[MapSync] Done — added ${added.length}/${missing.length}`);
+  console.log(`[MapSync] Done - added ${added.length}/${missing.length}`);
   return { checked: mapNames.length, missing: missing.length, added: added.length };
 }
 

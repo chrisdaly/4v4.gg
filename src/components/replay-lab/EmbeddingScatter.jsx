@@ -2,16 +2,17 @@ import React, { useState, useCallback, useRef } from "react";
 import styled from "styled-components";
 import PeonLoader from "../PeonLoader";
 import PlayerGlyph from "./PlayerGlyph";
+import { chartColors } from "../../lib/design-tokens";
 
 const RELAY_URL =
   import.meta.env.VITE_CHAT_RELAY_URL || "https://4v4gg-chat-relay.fly.dev";
 
-const GOLD = "#fcdb33";
-const GOLD_DIM = "#b89a1e";
+const GOLD = chartColors.gold;
+const GOLD_DIM = `${chartColors.gold}b3`; // gold at 70% alpha
 const GREY = "var(--grey-light)";
 const GREY_MID = "var(--grey-mid)";
-const RED = "#f87171";
-const GREEN = "#4ade80";
+const RED = chartColors.red;
+const GREEN = chartColors.green;
 
 function projectEmbedding(embedding, pcaMean, pcaComponents) {
   const centered = embedding.map((v, d) => v - pcaMean[d]);
@@ -49,7 +50,7 @@ function covarianceEllipse(dots) {
 const HOVER_THRESHOLD = 25;
 
 /**
- * EmbeddingScatter — PCA scatter plot of neural player embeddings.
+ * EmbeddingScatter - PCA scatter plot of neural player embeddings.
  *
  * @param {object}   mapData        - { players, pca } from /api/fingerprints/embedding-map
  * @param {string[]} highlightTags  - battleTags to highlight as foreground
@@ -277,7 +278,7 @@ export default function EmbeddingScatter({ mapData, highlightTags = [], suspects
 
   const handleOverlayClick = () => {
     if (hoveredPlayer) {
-      // Always allow clicking any dot — highlight it and notify parent
+      // Always allow clicking any dot - highlight it and notify parent
       if (!highlightSet.has(hoveredPlayer.battleTag)) {
         setSearchedTags(prev => [...prev, hoveredPlayer.battleTag]);
       }
@@ -292,7 +293,7 @@ export default function EmbeddingScatter({ mapData, highlightTags = [], suspects
     if (dates.length === 0) return null;
     const min = new Date(Math.min(...dates));
     const max = new Date(Math.max(...dates));
-    return `${min.toLocaleDateString()} — ${max.toLocaleDateString()}`;
+    return `${min.toLocaleDateString()} - ${max.toLocaleDateString()}`;
   })() : null;
 
   const tightness = replayDots && popStdX > 0 ? (replayDots.stdX / popStdX) : null;
@@ -370,7 +371,7 @@ export default function EmbeddingScatter({ mapData, highlightTags = [], suspects
         {/* Plot background */}
         <rect x={PAD_L} y={PAD_T} width={plotW} height={plotH} fill="rgba(0, 0, 0, 0.35)" rx="4" />
 
-        {/* Density heatmap removed — was causing murky overlay */}
+        {/* Density heatmap removed - was causing murky overlay */}
 
         {/* Grid lines */}
         {xTicks.map((t, i) => (
@@ -379,7 +380,7 @@ export default function EmbeddingScatter({ mapData, highlightTags = [], suspects
               stroke={GREY_MID} strokeWidth="0.5" strokeDasharray="3 3" opacity="0.25" />
             {!isUmap && (
               <text x={t.px} y={H - PAD_B + 16} textAnchor="middle"
-                fill={GREY_MID} fontSize="9" fontFamily="Inconsolata, monospace">{t.val.toFixed(1)}</text>
+                fill={GREY_MID} fontSize="9" fontFamily="var(--font-mono)">{t.val.toFixed(1)}</text>
             )}
           </g>
         ))}
@@ -389,7 +390,7 @@ export default function EmbeddingScatter({ mapData, highlightTags = [], suspects
               stroke={GREY_MID} strokeWidth="0.5" strokeDasharray="3 3" opacity="0.25" />
             {!isUmap && (
               <text x={PAD_L - 8} y={t.px + 3} textAnchor="end"
-                fill={GREY_MID} fontSize="9" fontFamily="Inconsolata, monospace">{t.val.toFixed(1)}</text>
+                fill={GREY_MID} fontSize="9" fontFamily="var(--font-mono)">{t.val.toFixed(1)}</text>
             )}
           </g>
         ))}
@@ -419,7 +420,7 @@ export default function EmbeddingScatter({ mapData, highlightTags = [], suspects
           });
         })()}
 
-        {/* Background player glyphs — radial shapes encoding playstyle */}
+        {/* Background player glyphs - radial shapes encoding playstyle */}
         {bgPlayers.map((p, i) => {
           const { sx, sy } = scale(p.x, p.y);
           const isHovered = hoveredPlayer?.battleTag === p.battleTag;
@@ -496,27 +497,27 @@ export default function EmbeddingScatter({ mapData, highlightTags = [], suspects
                     <circle cx={sx} cy={sy}
                       r={isHovered ? 4.5 : isEndpoint ? 4 : 3}
                       fill={GOLD} opacity={isHovered ? 0.9 : isEndpoint ? 0.85 : 0.6}
-                      stroke={isEndpoint ? "#fff" : "rgba(255,255,255,0.3)"}
+                      stroke={isEndpoint ? "var(--white)" : "rgba(255,255,255,0.3)"}
                       strokeWidth={isEndpoint ? 1 : 0.5}
                       pointerEvents="none" />
                     {isFirst && sortedDated.length >= 2 && (
                       <text x={sx} y={sy - 7} textAnchor="middle"
                         fill="rgba(255,255,255,0.5)" fontSize="7"
-                        fontFamily="Inconsolata, monospace" pointerEvents="none">1</text>
+                        fontFamily="var(--font-mono)" pointerEvents="none">1</text>
                     )}
                     {isLast && sortedDated.length >= 2 && (
                       <text x={sx} y={sy - 7} textAnchor="middle"
                         fill="rgba(255,255,255,0.7)" fontSize="7"
-                        fontFamily="Inconsolata, monospace" pointerEvents="none">
+                        fontFamily="var(--font-mono)" pointerEvents="none">
                         {sortedDated.length}
                       </text>
                     )}
                   </g>
                 );
               })}
-              <circle cx={csx} cy={csy} r="2.5" fill="#fff" stroke={GOLD} strokeWidth="1" opacity="0.9" />
-              <line x1={csx - 5} y1={csy} x2={csx + 5} y2={csy} stroke="#fff" strokeWidth="0.8" opacity="0.6" />
-              <line x1={csx} y1={csy - 5} x2={csx} y2={csy + 5} stroke="#fff" strokeWidth="0.8" opacity="0.6" />
+              <circle cx={csx} cy={csy} r="2.5" fill="var(--white)" stroke={GOLD} strokeWidth="1" opacity="0.9" />
+              <line x1={csx - 5} y1={csy} x2={csx + 5} y2={csy} stroke="var(--white)" strokeWidth="0.8" opacity="0.6" />
+              <line x1={csx} y1={csy - 5} x2={csx} y2={csy + 5} stroke="var(--white)" strokeWidth="0.8" opacity="0.6" />
             </g>
           );
         })()}
@@ -540,7 +541,7 @@ export default function EmbeddingScatter({ mapData, highlightTags = [], suspects
                 baseR={14}
                 isHighlighted
               />
-              <text x={sx + 18} y={sy + 4} fill="#fff" fontSize="11"
+              <text x={sx + 18} y={sy + 4} fill="var(--white)" fontSize="11"
                 fontFamily="var(--font-display)" fontWeight="bold"
                 stroke="rgba(0,0,0,0.7)" strokeWidth="3" paintOrder="stroke">
                 {label}
@@ -562,10 +563,10 @@ export default function EmbeddingScatter({ mapData, highlightTags = [], suspects
                 <>
                   <text x={hoveredSc.sx} y={H - PAD_B + 28} textAnchor="middle"
                     fill={GOLD_DIM} fontSize="8"
-                    fontFamily="Inconsolata, monospace">{dx.toFixed(2)}</text>
+                    fontFamily="var(--font-mono)">{dx.toFixed(2)}</text>
                   <text x={PAD_L - 8} y={hoveredSc.sy + 3} textAnchor="end"
                     fill={GOLD_DIM} fontSize="8"
-                    fontFamily="Inconsolata, monospace">{dy.toFixed(2)}</text>
+                    fontFamily="var(--font-mono)">{dy.toFixed(2)}</text>
                 </>
               );
             })()}
@@ -593,18 +594,18 @@ export default function EmbeddingScatter({ mapData, highlightTags = [], suspects
         <line x1={PAD_L} y1={H - PAD_B} x2={W - PAD_R} y2={H - PAD_B} stroke={GREY_MID} strokeWidth="1" />
         <line x1={PAD_L} y1={PAD_T} x2={PAD_L} y2={H - PAD_B} stroke={GREY_MID} strokeWidth="1" />
         <text x={(PAD_L + W - PAD_R) / 2} y={H - 12} textAnchor="middle"
-          fill={GREY_MID} fontSize="10" fontFamily="Inconsolata, monospace">
+          fill={GREY_MID} fontSize="10" fontFamily="var(--font-mono)">
           {isUmap ? 'UMAP-1' : `${pc1Label ? `${pc1Label}  ·  ` : ''}PC1 (${pca?.varianceExplained?.[0]}% var)`}
         </text>
         <text x={16} y={(PAD_T + H - PAD_B) / 2} textAnchor="middle"
-          fill={GREY_MID} fontSize="10" fontFamily="Inconsolata, monospace"
+          fill={GREY_MID} fontSize="10" fontFamily="var(--font-mono)"
           transform={`rotate(-90, 16, ${(PAD_T + H - PAD_B) / 2})`}>
           {isUmap ? 'UMAP-2' : `${pc2Label ? `${pc2Label}  ·  ` : ''}PC2 (${pca?.varianceExplained?.[1]}% var)`}
         </text>
 
         {/* Player count label (no race legend) */}
         <text x={W - PAD_R - 8} y={PAD_T + 12} textAnchor="end" fill={GREY_MID}
-          fontSize="9" fontFamily="Inconsolata, monospace">
+          fontSize="9" fontFamily="var(--font-mono)">
           n={players.length}
         </text>
 
@@ -628,7 +629,7 @@ export default function EmbeddingScatter({ mapData, highlightTags = [], suspects
         <ScatterTooltip style={{ left: mousePos.clientX, top: mousePos.clientY }}>
           <span className="name">{hoveredReplay.mapName || "Unknown map"}</span>
           <span className="meta">
-            {hoveredReplay.matchDate ? new Date(hoveredReplay.matchDate).toLocaleDateString() : "?"} — {formatDuration(hoveredReplay.gameDuration)}
+            {hoveredReplay.matchDate ? new Date(hoveredReplay.matchDate).toLocaleDateString() : "?"} - {formatDuration(hoveredReplay.gameDuration)}
           </span>
         </ScatterTooltip>
       )}
@@ -700,7 +701,7 @@ export default function EmbeddingScatter({ mapData, highlightTags = [], suspects
                     {(pair.similarity * 100).toFixed(1)}%
                   </td>
                   <td className="pctl">
-                    {pair.percentile != null ? `${pair.percentile}%` : "—"}
+                    {pair.percentile != null ? `${pair.percentile}%` : "-"}
                   </td>
                 </tr>
               ))}
@@ -789,7 +790,7 @@ const SearchInput = styled.input`
   font-family: var(--font-mono);
   font-size: var(--text-xxs);
   background: rgba(0, 0, 0, 0.35);
-  border: 1px solid rgba(184, 134, 11, 0.3);
+  border: 1px solid rgba(var(--gold-dark-rgb), 0.3);
   border-radius: var(--radius-sm);
   color: var(--white);
   padding: 8px 14px;
@@ -800,9 +801,9 @@ const SearchInput = styled.input`
 
   &:focus {
     border-color: var(--gold);
-    box-shadow: inset 0 1px 4px rgba(0, 0, 0, 0.5), 0 0 8px rgba(184, 134, 11, 0.15);
+    box-shadow: inset 0 1px 4px rgba(0, 0, 0, 0.5), 0 0 8px rgba(var(--gold-dark-rgb), 0.15);
   }
-  &:hover:not(:focus) { border-color: rgba(184, 134, 11, 0.55); }
+  &:hover:not(:focus) { border-color: rgba(var(--gold-dark-rgb), 0.55); }
   &::placeholder { color: var(--grey-light); }
 `;
 
@@ -967,7 +968,7 @@ const ScatterTooltip = styled.div`
   display: flex;
   flex-direction: column;
   gap: 3px;
-  z-index: 100;
+  z-index: var(--z-popover);
   white-space: nowrap;
   font-family: var(--font-mono);
   font-size: var(--text-xxxs);

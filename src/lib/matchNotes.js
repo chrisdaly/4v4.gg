@@ -86,7 +86,7 @@ export function noteContextFromMatch(match) {
  * extras unlock analytics checks: playerScores (match detail), matchPlayers
  * (flat players with heroes).
  *
- * Returns { text, tag, name, mmr, race, heroes, raceId, quote } —
+ * Returns { text, tag, name, mmr, race, heroes, raceId, quote } -
  * subject fields are null for notes without a subject player; raceId/quote
  * decorate race-stack notes. When tag is set, `text` is the predicate only
  * ("took down 12 heroes"); renderers prepend the player's identity.
@@ -129,7 +129,7 @@ export function computeNote(ctx, { playerScores = null, matchPlayers = null } = 
   }
 
   if (w != null && l != null && w <= l - 15) {
-    return plain(`upset — the ${l} MMR favorites fell`);
+    return plain(`upset - the ${l} MMR favorites fell`);
   }
 
   const hasScores = Array.isArray(playerScores) && playerScores.length >= 4;

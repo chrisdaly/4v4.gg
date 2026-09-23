@@ -60,7 +60,7 @@ const MockupContainer = styled.div`
     background: ${(p) =>
       p.$bgTile ? `url(${p.$bgTile}) repeat center / 256px` :
       p.$bgImage ? `url(${p.$bgImage}) center / cover no-repeat` :
-      "#080808"};
+      "var(--grey-dark)"};
     z-index: 0;
   }
 
@@ -604,7 +604,7 @@ const FRAME_STYLES = {
 const MOCKUPS = [
   {
     label: "A: Parchment BG + Wood Frame",
-    desc: "Parchment page background + wood corner frame — tavern notice board",
+    desc: "Parchment page background + wood corner frame - tavern notice board",
     bg: "/frames/parchment/Parchment-H.png",
     overlay: "rgba(0, 0, 0, 0.3)",
     chatType: "wood",
@@ -612,7 +612,7 @@ const MOCKUPS = [
   },
   {
     label: "B: Parchment BG + WC3 Ornate Frame",
-    desc: "Parchment page + gold ornamental frame — royal decree",
+    desc: "Parchment page + gold ornamental frame - royal decree",
     bg: "/frames/parchment/Parchment-H.png",
     overlay: "rgba(0, 0, 0, 0.3)",
     chatFrame: FRAME_STYLES.wc3Frame,
@@ -628,7 +628,7 @@ const MOCKUPS = [
   },
   {
     label: "D: Parchment BG (dark) + Wood Frame",
-    desc: "Heavily darkened parchment + wood frame — aged scroll",
+    desc: "Heavily darkened parchment + wood frame - aged scroll",
     bg: "/frames/parchment/Parchment-H.png",
     overlay: "rgba(0, 0, 0, 0.65)",
     chatType: "wood",
@@ -652,7 +652,7 @@ const MOCKUPS = [
   },
   {
     label: "G: Campfire + Launcher Border (for comparison)",
-    desc: "Previous favorite — campfire + iron frame",
+    desc: "Previous favorite - campfire + iron frame",
     bg: "/frames/launcher/Static_Background.png",
     overlay: "rgba(0, 0, 0, 0.45)",
     chatFrame: FRAME_STYLES.launcherBorder,
@@ -830,7 +830,7 @@ const AGTeamLabel = styled.div`
   font-size: var(--text-xxxs);
   text-transform: uppercase;
   letter-spacing: 0.05em;
-  color: ${(p) => (p.$team === 1 ? "var(--blue, #4a9eff)" : "var(--red)")};
+  color: ${(p) => (p.$team === 1 ? "var(--team-blue)" : "var(--red)")};
   opacity: 0.6;
   margin-bottom: 2px;
   display: flex;
@@ -1196,7 +1196,7 @@ function ActiveGamesMockups() {
   return (
     <>
       <PageTitle>Active Games Layouts</PageTitle>
-      <PageSubtitle>Six layout options — same data, different presentations</PageSubtitle>
+      <PageSubtitle>Six layout options - same data, different presentations</PageSubtitle>
 
       <LayoutGrid>
         {/* A: Banner Map */}
@@ -1215,7 +1215,7 @@ function ActiveGamesMockups() {
         {/* B: Compact race icons */}
         <LayoutColumn>
           <LayoutLabel>B: Compact Race Icons</LayoutLabel>
-          <LayoutDesc>No player names — race icons + avg MMR as a visual shorthand. Fits more games.</LayoutDesc>
+          <LayoutDesc>No player names - race icons + avg MMR as a visual shorthand. Fits more games.</LayoutDesc>
           <AGFrame $width="100%">
             <AGHeader>
               <AGHeaderTitle>Active Games</AGHeaderTitle>
@@ -1254,7 +1254,7 @@ function ActiveGamesMockups() {
         {/* E: Minimal list */}
         <LayoutColumn>
           <LayoutLabel>E: Minimal List</LayoutLabel>
-          <LayoutDesc>One line per game — map, race icons, avg MMRs. Ultra-compact.</LayoutDesc>
+          <LayoutDesc>One line per game - map, race icons, avg MMRs. Ultra-compact.</LayoutDesc>
           <AGFrame $width="100%">
             <AGHeader>
               <AGHeaderTitle>Active Games</AGHeaderTitle>
@@ -1288,7 +1288,7 @@ export default function ChatMockups() {
 
       <PageTitle>Chat Mockups</PageTitle>
       <PageSubtitle>
-        Background + frame combinations — full transcript layout
+        Background + frame combinations - full transcript layout
       </PageSubtitle>
 
       {MOCKUPS.map((mockup, i) => {

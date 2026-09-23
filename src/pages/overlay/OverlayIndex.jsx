@@ -313,7 +313,7 @@ const GuideTitle = styled.div`
   justify-content: space-between;
 
   &:hover {
-    color: #ffe066;
+    color: var(--gold);
   }
 
   span:last-child {
@@ -419,12 +419,12 @@ const SearchDropdown = styled.div`
   top: 100%;
   left: 0;
   right: 0;
-  background: #1a1a1a;
+  background: var(--grey-dark);
   border: 1px solid var(--grey-mid);
   border-radius: var(--radius-sm);
   max-height: 300px;
   overflow-y: auto;
-  z-index: 1000;
+  z-index: var(--z-dropdown);
   margin-top: 4px;
   box-shadow: 0 8px 32px rgba(0, 0, 0, 0.6);
 `;
@@ -436,7 +436,7 @@ const SearchItem = styled.div`
   padding: var(--space-2) var(--space-3);
   cursor: pointer;
   transition: background 0.15s;
-  background: #1a1a1a;
+  background: var(--grey-dark);
 
   &:hover {
     background: #252525;
@@ -1190,7 +1190,7 @@ const OverlayIndex = () => {
                             <SearchLosses>{losses}L</SearchLosses>
                           </SearchMeta>
                         </SearchInfo>
-                        <SearchMmr>{mmr != null ? `${Math.round(mmr)} MMR` : "—"}</SearchMmr>
+                        <SearchMmr>{mmr != null ? `${Math.round(mmr)} MMR` : "-"}</SearchMmr>
                       </SearchItem>
                     );
                   })}
@@ -1317,9 +1317,9 @@ const OverlayIndex = () => {
               <Select value={layout} onChange={(e) => setLayout(e.target.value)}>
                 <option value="horizontal">Horizontal</option>
                 <option value="vertical">Vertical</option>
-                <option value="avatar">Avatar — Bottom Strip</option>
-                <option value="top-bar">Avatar — Top Bar</option>
-                <option value="sides">Avatar — Screen Sides</option>
+                <option value="avatar">Avatar - Bottom Strip</option>
+                <option value="top-bar">Avatar - Top Bar</option>
+                <option value="sides">Avatar - Screen Sides</option>
                 <option value="player-rich">Player Card</option>
               </Select>
             </div>
@@ -1405,7 +1405,7 @@ const OverlayIndex = () => {
               </div>
             )}
 
-            {/* Intro / Outro preview screens — position:fixed inside a transformed parent stays contained */}
+            {/* Intro / Outro preview screens - position:fixed inside a transformed parent stays contained */}
             {previewScreen === "intro" && previewMatch && (
               <>
                 <GameIntroScreen
@@ -1419,7 +1419,7 @@ const OverlayIndex = () => {
                 />
                 <div
                   onClick={dismissPreview}
-                  style={{ position: "fixed", inset: 0, zIndex: 201, cursor: "pointer" }}
+                  style={{ position: "fixed", inset: 0, zIndex: "var(--z-popover)", cursor: "pointer" }}
                   title="Click to dismiss"
                 />
               </>
@@ -1437,7 +1437,7 @@ const OverlayIndex = () => {
                 />
                 <div
                   onClick={dismissPreview}
-                  style={{ position: "fixed", inset: 0, zIndex: 201, cursor: "pointer" }}
+                  style={{ position: "fixed", inset: 0, zIndex: "var(--z-popover)", cursor: "pointer" }}
                   title="Click to dismiss"
                 />
               </>
@@ -1514,7 +1514,7 @@ const OverlayIndex = () => {
           {/* URL Output */}
           <UrlPanel>
             <PanelTitle style={{ marginBottom: "var(--space-3)" }}>
-              {isPlayerCard ? "Widget URLs — add each as a separate OBS Browser Source" : layout === "avatar" ? "OBS Browser Sources — add both separately" : "OBS Browser Source URL"}
+              {isPlayerCard ? "Widget URLs - add each as a separate OBS Browser Source" : layout === "avatar" ? "OBS Browser Sources - add both separately" : "OBS Browser Source URL"}
             </PanelTitle>
 
             {isPlayerCard ? (
@@ -1527,7 +1527,7 @@ const OverlayIndex = () => {
                   { label: "Last Game", layout: "widget-lastgame", w: 240, h: 36 },
                 ].map(({ label, layout: wl, w, h }) => (
                   <div key={wl}>
-                    <Label style={{ marginBottom: 4 }}>{label} — {w} × {h}</Label>
+                    <Label style={{ marginBottom: 4 }}>{label} - {w} × {h}</Label>
                     <UrlCode style={{ marginBottom: 0 }}>
                       {`${baseUrl}/overlay/player/${encodedTag}?layout=${wl}&bg=bg-gradient-fade`}
                     </UrlCode>
@@ -1541,11 +1541,11 @@ const OverlayIndex = () => {
             ) : layout === "avatar" ? (
               <div style={{ display: "flex", flexDirection: "column", gap: "var(--space-3)" }}>
                 <div>
-                  <Label style={{ marginBottom: 4 }}>Source 1 — HUD Strip &nbsp;·&nbsp; 900 × 160</Label>
+                  <Label style={{ marginBottom: 4 }}>Source 1 - HUD Strip &nbsp;·&nbsp; 900 × 160</Label>
                   <UrlCode style={{ marginBottom: 0 }}>{overlayUrl + "&syncScreens=true"}</UrlCode>
                 </div>
                 <div>
-                  <Label style={{ marginBottom: 4 }}>Source 2 — Fullscreen Screens &nbsp;·&nbsp; 1920 × 1080</Label>
+                  <Label style={{ marginBottom: 4 }}>Source 2 - Fullscreen Screens &nbsp;·&nbsp; 1920 × 1080</Label>
                   <UrlCode style={{ marginBottom: 0 }}>{overlayUrl + "&screens=only"}</UrlCode>
                   <div style={{ fontSize: "var(--text-xxs)", color: "var(--grey-light)", marginTop: 6, opacity: 0.7 }}>
                     Running the local watcher? Append <code style={{ background: "rgba(255,255,255,0.08)", padding: "1px 4px", borderRadius: 3 }}>&amp;watcher=http://localhost:3456</code> for accurate game-end detection.
@@ -1555,7 +1555,7 @@ const OverlayIndex = () => {
                   <Tip>
                     <span>⚠️</span>
                     <span>
-                      <strong>Preview mode is ON</strong> — Turn it off before going live so the overlay only shows during actual games.
+                      <strong>Preview mode is ON</strong> - Turn it off before going live so the overlay only shows during actual games.
                     </span>
                   </Tip>
                 )}
@@ -1571,7 +1571,7 @@ const OverlayIndex = () => {
                   <Tip>
                     <span>⚠️</span>
                     <span>
-                      <strong>Preview mode is ON</strong> — Turn it off before going live so the overlay only shows during actual games.
+                      <strong>Preview mode is ON</strong> - Turn it off before going live so the overlay only shows during actual games.
                     </span>
                   </Tip>
                 )}
@@ -1605,7 +1605,7 @@ const OverlayIndex = () => {
                   Position the overlay on your scene. Enable <strong>Preview Mode</strong> above to show demo data while positioning, then disable it before going live.
                 </GuideStep>
                 <GuideStep>
-                  The overlay auto-hides when you're not in a game — leave it enabled all the time!
+                  The overlay auto-hides when you're not in a game - leave it enabled all the time!
                 </GuideStep>
               </GuideSteps>
             )}

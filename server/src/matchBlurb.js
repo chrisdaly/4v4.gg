@@ -1,5 +1,5 @@
 /**
- * LLM match blurbs — one dramatic line per finished match, generated on
+ * LLM match blurbs - one dramatic line per finished match, generated on
  * demand and cached forever (matches are immutable).
  *
  * The model only sees a structured fact sheet (stats, streaks, recent
@@ -19,32 +19,32 @@ const RACE_NAMES = { 0: 'Random', 1: 'Human', 2: 'Orc', 4: 'Night Elf', 8: 'Unde
 // Dedupe concurrent generations per match
 const inFlight = new Map();
 
-// Fact sheets are expensive (~9 W3C calls) — memoized for the blurb lab
+// Fact sheets are expensive (~9 W3C calls) - memoized for the blurb lab
 const sheetCache = new Map();
 const SHEET_TTL_MS = 15 * 60 * 1000;
 
 export const SYSTEM_PROMPT = `You write one-line tickers for finished Warcraft 3 4v4 matches on a community site. Voice: dry sports-desk, a little wry, never cruel.
 
-The line appears NEXT TO a scoreboard that already shows the map, duration, end time, rosters, and who won. Never repeat any of that — your line must add something the scoreboard cannot show.
+The line appears NEXT TO a scoreboard that already shows the map, duration, end time, rosters, and who won. Never repeat any of that - your line must add something the scoreboard cannot show.
 
 Rules:
 - ONE line, max 90 characters, plain text, no quotes around the whole line, no emoji, no markdown.
 - Use ONLY facts from the fact sheet. Quote numbers and names exactly as given.
 - The story, in order of preference: post-game reactions (blame, gloating, debate), pre-game trash-talk that aged well or badly, win/loss streaks, repeat encounters between players, economy (who expanded vs who was suppressed, hero kill disparity), a genuinely extreme individual stat.
-- Post-game beef in the lounge is the best story there is. When players are clearly going at each other after the match — insults, blame, gloating, denial — write it. You don't have to quote the messages literally; name the people involved and describe the friction drily ("X and Y traded words after the whistle", "X celebrated loudly; Y disagreed"). "Never cruel" means don't pile on or editorialize — not that you must ignore drama.
-- A stat is only quotable if it's an outlier — far ahead of everyone else in this lobby, or absurdly large. NEVER write a zero or a small number as a stat. Do not write "0 hero kills", "scoreless", "went 0-66", or any phrasing built around a low count, even as contrast against something else. If a player's number is low, pretend you never saw it — pick a different player or a different angle.
-- Never mention or compare MMR values of any kind: no gains, no losses, no "+7", no "highest MMR player", no "3rd-lowest MMR on her team". The scoreboard shows MMR — treat it as if the numbers don't exist.
+- Post-game beef in the lounge is the best story there is. When players are clearly going at each other after the match - insults, blame, gloating, denial - write it. You don't have to quote the messages literally; name the people involved and describe the friction drily ("X and Y traded words after the whistle", "X celebrated loudly; Y disagreed"). "Never cruel" means don't pile on or editorialize - not that you must ignore drama.
+- A stat is only quotable if it's an outlier - far ahead of everyone else in this lobby, or absurdly large. NEVER write a zero or a small number as a stat. Do not write "0 hero kills", "scoreless", "went 0-66", or any phrasing built around a low count, even as contrast against something else. If a player's number is low, pretend you never saw it - pick a different player or a different angle.
+- Never mention or compare MMR values of any kind: no gains, no losses, no "+7", no "highest MMR player", no "3rd-lowest MMR on her team". The scoreboard shows MMR - treat it as if the numbers don't exist.
 - Do not mention team balance, "even teams", or "close match" unless one team's average MMR exceeds the other's by at least 200. A near-even game is the norm, not a story.
-- The scoreboard already shows each player's race. Never make race composition the story. "Ran 3 humans", "went orc", "Human-heavy team", "the only Orc" — these are not blurbs.
-- When you name players from both teams in the same sentence, make the sides legible. Use "winner X" / "loser Y", or group by side: "X and Y (winners) out-mined Z and W". Never list players from opposite teams as if they're peers with no side context — the reader can't tell who's who without the scoreboard.
-- Do not invent game events the fact sheet doesn't state: who killed whom, which units or spells did it, what happened on the map. The sheet has per-player totals only — anything more specific is fiction.
+- The scoreboard already shows each player's race. Never make race composition the story. "Ran 3 humans", "went orc", "Human-heavy team", "the only Orc" - these are not blurbs.
+- When you name players from both teams in the same sentence, make the sides legible. Use "winner X" / "loser Y", or group by side: "X and Y (winners) out-mined Z and W". Never list players from opposite teams as if they're peers with no side context - the reader can't tell who's who without the scoreboard.
+- Do not invent game events the fact sheet doesn't state: who killed whom, which units or spells did it, what happened on the map. The sheet has per-player totals only - anything more specific is fiction.
 - Chat lines come from the community lounge, NOT from inside the game. Only describe when something was said if the timestamps prove it (match start/end times are given); otherwise say "in the lounge" or leave the timing out. Messages timestamped AFTER the match ended are reactions to this game.
-- "Aged well/poorly" only applies to chat sent clearly BEFORE the match ended — a prediction or trash-talk that the result then confirmed or contradicted. To use "aged", the message must be from at least a few minutes before match end, must make a claim about the future (e.g. "we're winning this", "these guys are trash"), and the result must contradict or confirm it. A message sent at the whistle or after is a reaction to an outcome already known — it cannot age well or poorly, even if it sounds like a complaint or boast. Never write "aged poorly" or "aged well" about any message sent at or after match end.
+- "Aged well/poorly" only applies to chat sent clearly BEFORE the match ended - a prediction or trash-talk that the result then confirmed or contradicted. To use "aged", the message must be from at least a few minutes before match end, must make a claim about the future (e.g. "we're winning this", "these guys are trash"), and the result must contradict or confirm it. A message sent at the whistle or after is a reaction to an outcome already known - it cannot age well or poorly, even if it sounds like a complaint or boast. Never write "aged poorly" or "aged well" about any message sent at or after match end.
 - Refer to players by name only (no battle tag numbers).
-- When your line mentions a Warcraft unit or hero — including slang ("frosties" = frostwyrm, "dks" = deathknight, "bm" = blademaster, "tanks" = siegeengine) — write the markup INSTEAD of the plain word: [[frostwyrm|frosties]]. Do NOT write the word first and then tag it — that doubles the text. The format is [[id|words]] where "words" is exactly what you want displayed. Never write [[id]] without a pipe. Markup does not count toward the 90-character limit.
+- When your line mentions a Warcraft unit or hero - including slang ("frosties" = frostwyrm, "dks" = deathknight, "bm" = blademaster, "tanks" = siegeengine) - write the markup INSTEAD of the plain word: [[frostwyrm|frosties]]. Do NOT write the word first and then tag it - that doubles the text. The format is [[id|words]] where "words" is exactly what you want displayed. Never write [[id]] without a pipe. Markup does not count toward the 90-character limit.
   Allowed unit ids: footman, rifleman, knight, priest, sorceress, spellbreaker, gryphon, mortarteam, siegeengine, dragonhawk, gyrocopter, waterelemental, peasant, grunt, headhunter, raider, shaman, witchdoctor, kodo, tauren, windrider, batrider, demolisher, peon, ghoul, cryptfiend, gargoyle, abomination, necromancer, banshee, meatwagon, frostwyrm, destroyer, obsidianstatue, acolyte, archer, huntress, dryad, druidoftheclaw, druidofthetalon, hippogryph, chimaera, mountaingiant, faeriedragon, wisp.
   Allowed hero ids: archmage, mountainking, paladin, sorceror, blademaster, farseer, shadowhunter, taurenchieftain, deathknight, lich, dreadlord, cryptlord, demonhunter, keeperofthegrove, priestessofthemoon, warden, alchemist, avatarofflame, bansheeranger, beastmaster, pandarenbrewmaster, pitlord, seawitch, tinker.
-- PASS is a good outcome and most games deserve it. If the best you can do is restate the result, describe an ordinary stat, or pad with the map name, your ENTIRE response must be exactly the four characters: PASS — no sentence, no preamble, nothing else before or after.`;
+- PASS is a good outcome and most games deserve it. If the best you can do is restate the result, describe an ordinary stat, or pad with the map name, your ENTIRE response must be exactly the four characters: PASS - no sentence, no preamble, nothing else before or after.`;
 
 async function fetchJson(url) {
   const res = await fetch(url);
@@ -192,8 +192,8 @@ async function buildFactSheetUncached(matchId, phase = 'full') {
   const season25Start = new Date('2026-06-16T00:00:00Z');
   const currentSeason = endDate >= season25Start ? 25 : 24;
 
-  // Recent history per player (newest-first) — feeds streaks + head-to-heads.
-  // Must use /matches/search — the /matches global feed ignores playerId.
+  // Recent history per player (newest-first) - feeds streaks + head-to-heads.
+  // Must use /matches/search - the /matches global feed ignores playerId.
   async function fetchPlayerHistory(tag) {
     for (const season of [currentSeason, currentSeason - 1]) {
       try {
@@ -342,7 +342,7 @@ async function buildFactSheetUncached(matchId, phase = 'full') {
     lines.push('Recent head-to-heads (before this game): ' + rivalriesText.slice(0, 4).join(' | '));
   }
 
-  // Lounge chat context — only for the "full" phase which runs after post-game
+  // Lounge chat context - only for the "full" phase which runs after post-game
   // reactions have had time to accumulate. The "instant" phase runs at the
   // whistle before any reactions exist, so chat adds nothing and misleads the
   // drama field into treating pre-match banter as post-game conflict.
@@ -388,7 +388,7 @@ async function buildFactSheetUncached(matchId, phase = 'full') {
   };
 }
 
-// Run the model over a fact sheet with an arbitrary system prompt —
+// Run the model over a fact sheet with an arbitrary system prompt -
 // used by both production generation and the blurb lab. Never persists.
 export async function generateWithPrompt(factSheet, systemPrompt = SYSTEM_PROMPT) {
   if (!config.ANTHROPIC_API_KEY) return '';
@@ -400,16 +400,16 @@ export async function generateWithPrompt(factSheet, systemPrompt = SYSTEM_PROMPT
     messages: [{ role: 'user', content: `Fact sheet:\n${factSheet}\n\nWrite the ticker line.` }],
   });
   let blurb = msg.content[0]?.text?.trim() || '';
-  // Length check on the rendered text — [[id|words]] markup is free
+  // Length check on the rendered text - [[id|words]] markup is free
   const rendered = blurb.replace(/\[\[\w+\|([^\]]+)\]\]/g, '$1');
   if (blurb === 'PASS' || rendered.length > 140) blurb = '';
   return blurb;
 }
 
 /* Two-phase blurbs:
-   Phase 1 — immediately on first request: ticker from game data, streaks,
+   Phase 1 - immediately on first request: ticker from game data, streaks,
    rivalries, and pre-game chat. Stored provisional if the match is fresh.
-   Phase 2 — once REACTION_WAIT_MS has passed since the match ended: if the
+   Phase 2 - once REACTION_WAIT_MS has passed since the match ended: if the
    players actually said anything in the lounge since, rebuild the sheet
    (now containing their reactions) and rewrite; otherwise keep phase 1.
    Either way the blurb is then finalized. */
@@ -429,10 +429,10 @@ const STRUCTURED_TOOL = {
   input_schema: {
     type: 'object',
     properties: {
-      headline: { type: ['string', 'null'], description: 'What happened in this game — heroes, kills, economy. Timeless: no streak/H2H. Max 120 rendered chars. NEVER quote g/min figures or raw gold amounts. Use [[id|text]] markup for WC3 units/heroes.' },
+      headline: { type: ['string', 'null'], description: 'What happened in this game - heroes, kills, economy. Timeless: no streak/H2H. Max 120 rendered chars. NEVER quote g/min figures or raw gold amounts. Use [[id|text]] markup for WC3 units/heroes.' },
       streaks: { type: ['string', 'null'], description: 'Active win/loss streak for a player if ≥5 games. Name the player and count. Null if nothing notable. Max 80 chars.' },
       h2h: { type: ['string', 'null'], description: 'Head-to-head context for a cross-team pair that met ≥5 times recently. State who leads. Null if nothing notable. Max 80 chars.' },
-      drama: { type: ['string', 'null'], description: 'Post-game lounge reactions (messages after match end) — blame, gloating, beef. Describe drily. Null if nothing notable. Max 100 chars.' },
+      drama: { type: ['string', 'null'], description: 'Post-game lounge reactions (messages after match end) - blame, gloating, beef. Describe drily. Null if nothing notable. Max 100 chars.' },
     },
     required: ['headline', 'streaks', 'h2h', 'drama'],
   },
@@ -440,21 +440,21 @@ const STRUCTURED_TOOL = {
 
 export const STRUCTURED_SYSTEM_PROMPT = `You analyze finished Warcraft 3 4v4 matches. Voice: dry sports-desk, a little wry, never cruel.
 
-Call record_blurb with four independent fields — fill what's interesting, null the rest.
+Call record_blurb with four independent fields - fill what's interesting, null the rest.
 
 HEADLINE (timeless game stats):
-- Pick ONE angle and commit. Do not write two-clause sentences that cover everything — choose the best story.
+- Pick ONE angle and commit. Do not write two-clause sentences that cover everything - choose the best story.
 - Source: per-player stat lines, the "Economy:" summary line, and PRE-MATCH chat context (only if it explains a game stat, e.g. why a player was suppressed). POST-MATCH chat belongs in DRAMA, not headline.
-- Angle priority: (1) economy outlier — someone expanded while someone was suppressed; (2) hero kill lopsidedness — one side dominated kills; (3) a single standout individual stat.
+- Angle priority: (1) economy outlier - someone expanded while someone was suppressed; (2) hero kill lopsidedness - one side dominated kills; (3) a single standout individual stat.
 - Never mention who won, team balance, MMR, race composition, streaks, or H2H.
-- Never mention the map name or game duration — scoreboard has it.
-- Never mention hero levels ("lvl5") — scoreboard has it.
-- Never use "WINNERS" / "LOSERS" / "winners" / "losers" as labels — the scoreboard shows who won. Use player names or describe what happened.
-- Economy: the "Economy:" line is pre-computed. Describe qualitatively — "expanded while SifO was suppressed". Never write ratios or multipliers ("1.8×", "doubled") — you do not have those numbers.
+- Never mention the map name or game duration - scoreboard has it.
+- Never mention hero levels ("lvl5") - scoreboard has it.
+- Never use "WINNERS" / "LOSERS" / "winners" / "losers" as labels - the scoreboard shows who won. Use player names or describe what happened.
+- Economy: the "Economy:" line is pre-computed. Describe qualitatively - "expanded while SifO was suppressed". Never write ratios or multipliers ("1.8×", "doubled") - you do not have those numbers.
 - Hero composition: never count how many players ran the same hero or role. Focus on what a single player did.
 - Never write vague aggregates: "economic advantage", "carried the win", "couldn't convert" are banned.
 - Use [[unitId|text]] markup for WC3 units/heroes. Use short display names: [[keeperofthegrove|Keeper]] not "Keeper of the Grove", [[blademaster|BM]] or [[blademaster|Blademaster]], [[shadowhunter|SH]] or [[shadowhunter|Shadowhunter]]. Markup doesn't count toward the char limit.
-- Max 90 rendered characters. This is intentionally tight — it forces a single decisive angle, not two hedged clauses. If you can't say it cleanly in 90 chars, pick a narrower angle or null.
+- Max 90 rendered characters. This is intentionally tight - it forces a single decisive angle, not two hedged clauses. If you can't say it cleanly in 90 chars, pick a narrower angle or null.
 - When in doubt, null. One crisp sentence beats a muddled two-clause hedge.
 
 STREAKS: only if a player has ≥5-game win or loss streak. Name them and the count. Null otherwise.
@@ -468,7 +468,7 @@ DRAMA: What players said in the lounge AFTER the match. Source: the "POST-MATCH 
 - Do NOT use PRE-MATCH messages for drama.
 - Null only when the POST-MATCH section is absent entirely.
 
-General rules: quote names and numbers exactly as given. Never invent game events. Refer to players by name only (no battle tag numbers). This is 4v4 — there are no lane opponents or counterparts; describe economy relative to the whole lobby, not as a 1-on-1 matchup.`;
+General rules: quote names and numbers exactly as given. Never invent game events. Refer to players by name only (no battle tag numbers). This is 4v4 - there are no lane opponents or counterparts; describe economy relative to the whole lobby, not as a 1-on-1 matchup.`;
 
 export async function generateStructuredParts(factSheet, systemPrompt = STRUCTURED_SYSTEM_PROMPT, postMatchMsgs = []) {
   if (!config.ANTHROPIC_API_KEY) return { headline: null, streaks: null, h2h: null, drama: null };
@@ -504,7 +504,7 @@ export async function generateStructuredParts(factSheet, systemPrompt = STRUCTUR
     };
 
     // If drama is still null but post-match messages exist, do a focused
-    // single-purpose retry — simpler prompt, harder to fail.
+    // single-purpose retry - simpler prompt, harder to fail.
     if (!result.drama && postMatchMsgs.length > 0) {
       try {
         const dramaMsg = await client.messages.create({
@@ -561,7 +561,7 @@ export async function generateMatchBlurb(matchId) {
           : DONE(blurb, data.badges, data.rivals, parts);
       }
 
-      // Phase 2: re-run with full fact sheet — drama field picks up reactions
+      // Phase 2: re-run with full fact sheet - drama field picks up reactions
       sheetCache.delete(matchId);
       const data = await buildFactSheet(matchId);
       if (!data) {
@@ -578,7 +578,7 @@ export async function generateMatchBlurb(matchId) {
       return DONE(blurb, data.badges, data.rivals, parts);
     } catch (err) {
       console.warn(`[Blurb] Generation failed for ${matchId}: ${err.message}`);
-      // Don't cache failures — a later request can retry
+      // Don't cache failures - a later request can retry
       return row ? DONE(row.blurb) : DONE('');
     } finally {
       inFlight.delete(matchId);

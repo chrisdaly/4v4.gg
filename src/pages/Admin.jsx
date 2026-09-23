@@ -510,7 +510,7 @@ function AdminGate() {
         </TokenForm>
         {adminKey && isKeyValid === false && (
           <div style={{ marginTop: 12 }}>
-            <StatusText $color="var(--red)">Invalid API key — the server rejected it.</StatusText>
+            <StatusText $color="var(--red)">Invalid API key - the server rejected it.</StatusText>
           </div>
         )}
       </div>
@@ -711,14 +711,14 @@ function AdminDashboard() {
         <LinkCard as={Link} to="/lab">
           <LinkInfo>
             <LinkTitle>Lab</LinkTitle>
-            <LinkDesc>All internal tools — replay analysis, signatures, glyph lab, blurb lab</LinkDesc>
+            <LinkDesc>All internal tools - replay analysis, signatures, glyph lab, blurb lab</LinkDesc>
           </LinkInfo>
           <LinkIcon size={16} />
         </LinkCard>
         <LinkCard as={Link} to="/blurb-lab">
           <LinkInfo>
             <LinkTitle>Blurb Lab</LinkTitle>
-            <LinkDesc>Tune the LLM match ticker — inspect fact sheets, edit the prompt, regenerate</LinkDesc>
+            <LinkDesc>Tune the LLM match ticker - inspect fact sheets, edit the prompt, regenerate</LinkDesc>
           </LinkInfo>
           <LinkIcon size={16} />
         </LinkCard>
@@ -845,7 +845,7 @@ function AdminDashboard() {
                   <Bar
                     key={h}
                     $height={`${Math.max(pct, 2)}%`}
-                    $tooltip={`${h}:00 — ${count}`}
+                    $tooltip={`${h}:00 - ${count}`}
                     $color={count === max && max > 0 ? "var(--gold)" : undefined}
                   />
                 );
@@ -880,7 +880,7 @@ function AdminDashboard() {
         {importQueue === null ? (
           <SubLabel>Loading…</SubLabel>
         ) : importQueue.length === 0 ? (
-          <SubLabel style={{ color: "var(--grey-mid)" }}>Empty — no pending on-demand imports</SubLabel>
+          <SubLabel style={{ color: "var(--grey-mid)" }}>Empty - no pending on-demand imports</SubLabel>
         ) : (
           <div style={{ display: "flex", flexDirection: "column", gap: 4 }}>
             {importQueue.map((item) => (

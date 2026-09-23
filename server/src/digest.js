@@ -9,7 +9,7 @@ const API_BASE = 'https://website-backend.w3champions.com/api';
 const GATEWAY = 20;
 const GAME_MODE = 4;
 
-const SYSTEM_PROMPT = 'You are the voice of 4v4.gg, a Warcraft III 4v4 community zine. Your digests are published on a magazine-style frontend where the first DRAMA item is the featured "Top Story" with pull quotes. Write like a punk gaming zine — raw, punchy, factual, deadpan funny. Short sentences. Fragments OK. Plain verbs only. No flowery language, em-dashes, or AI-speak. State facts and let the absurdity speak for itself.';
+const SYSTEM_PROMPT = 'You are the voice of 4v4.gg, a Warcraft III 4v4 community zine. Your digests are published on a magazine-style frontend where the first DRAMA item is the featured "Top Story" with pull quotes. Write like a punk gaming zine - raw, punchy, factual, deadpan funny. Short sentences. Fragments OK. Plain verbs only. No flowery language, em-dashes, or AI-speak. State facts and let the absurdity speak for itself.';
 
 // Named constants
 const MIN_MESSAGES_FOR_DIGEST = 10;
@@ -320,7 +320,7 @@ function formatLossStreakLine(player) {
 }
 
 /**
- * Return top 3 candidates per stat category (no dedup — admin picks).
+ * Return top 3 candidates per stat category (no dedup - admin picks).
  */
 function buildCandidate(player, formatted) {
   const c = {
@@ -440,7 +440,7 @@ function splitQuotesFromText(text) {
   let summary = text
     .replace(/"[^"]+"/g, '')
     .replace(/\s{2,}/g, ' ')
-    .replace(/\s*[—:,]\s*$/g, '')
+    .replace(/\s*[\u2014:,]\s*$/g, '')
     .trim();
   return { summary, quotes };
 }
@@ -510,7 +510,7 @@ function parseBanItems(content) {
 }
 
 /**
- * Parse highlight items — same per-item approach as drama.
+ * Parse highlight items - same per-item approach as drama.
  */
 function parseHighlightItems(content) {
   return parseDramaItems(content);  // Same structure as drama items
@@ -763,7 +763,7 @@ function parseUpsetsJSON(content) {
     const e = entry.trim();
     if (!e) return null;
     const m = e.match(
-      /^(.+?)\s+\(avg\s+(\d+)\s*MMR\)\s+beat\s+favorites?\s+\(avg\s+(\d+)\s*MMR\)\s+on\s+(.+?)\s+[—-]\s+(\d+)\s*MMR\s*gap\s+([a-f0-9]+)\s+\[([^\]]+)\]/i
+      /^(.+?)\s+\(avg\s+(\d+)\s*MMR\)\s+beat\s+favorites?\s+\(avg\s+(\d+)\s*MMR\)\s+on\s+(.+?)\s+[\u2014-]\s+(\d+)\s*MMR\s*gap\s+([a-f0-9]+)\s+\[([^\]]+)\]/i
     );
     if (!m) return null;
     const parts = m[7].split('|');
@@ -953,23 +953,23 @@ function buildDigestPrompt(messages, matchSummaries, soFar = false, playerMmrs =
 
   let matchContext = '';
   if (matchSummaries && matchSummaries.length > 0) {
-    matchContext = `\n\nRecent 4v4 games involving these chatters (use to add context to drama — who was on whose team, who won/lost):\n${matchSummaries.join('\n')}\n`;
+    matchContext = `\n\nRecent 4v4 games involving these chatters (use to add context to drama - who was on whose team, who won/lost):\n${matchSummaries.join('\n')}\n`;
   }
 
   return `Summarize this Warcraft III 4v4 chat room's day${soFar ? ' SO FAR' : ''}. Write a digest with these sections (skip if nothing fits):
 
-TOPICS: 2-5 comma-separated tags capturing what people actually talked about. Be SPECIFIC — "tower rush debate", "undead nerf rage", "ToD vs Boyzinho beef" are good. "meta", "player beef", "balance" alone are too vague.
-DRAMA: Accusations, threats, heated personal attacks, AND juicy back-and-forth exchanges. Max 10 items separated by semicolons. CRITICAL FORMAT: each item is ONE unit — narrative text followed by quotes with NO semicolon between them. A semicolon ONLY separates one complete item from the next.
+TOPICS: 2-5 comma-separated tags capturing what people actually talked about. Be SPECIFIC - "tower rush debate", "undead nerf rage", "ToD vs Boyzinho beef" are good. "meta", "player beef", "balance" alone are too vague.
+DRAMA: Accusations, threats, heated personal attacks, AND juicy back-and-forth exchanges. Max 10 items separated by semicolons. CRITICAL FORMAT: each item is ONE unit - narrative text followed by quotes with NO semicolon between them. A semicolon ONLY separates one complete item from the next.
 
-  LEAD ITEM (first item): Write a 2-3 sentence mini-story about the day's biggest drama. Set the scene — what sparked it, who was involved, how it escalated or resolved. This becomes the "Top Story" headline on the site. Follow with 3-4 of the spiciest direct quotes. Example: "ToD and GhostGGGL went at it for hours after GhostGGGL accused ToD of building towers instead of fighting. The beef started when ToD lost a game and blamed his teammates, then GhostGGGL piled on. It ended with ToD threatening to report GhostGGGL for griefing. "ToD: you built zero towers all game" "GhostGGGL: Tod no eyes blocked by the nose" "ToD: enjoy your ban" "GhostGGGL: cry more""
+  LEAD ITEM (first item): Write a 2-3 sentence mini-story about the day's biggest drama. Set the scene - what sparked it, who was involved, how it escalated or resolved. This becomes the "Top Story" headline on the site. Follow with 3-4 of the spiciest direct quotes. Example: "ToD and GhostGGGL went at it for hours after GhostGGGL accused ToD of building towers instead of fighting. The beef started when ToD lost a game and blamed his teammates, then GhostGGGL piled on. It ended with ToD threatening to report GhostGGGL for griefing. "ToD: you built zero towers all game" "GhostGGGL: Tod no eyes blocked by the nose" "ToD: enjoy your ban" "GhostGGGL: cry more""
 
   REMAINING ITEMS (items 2-10): Short summary (max 10 words, NO quotes in it) then 2-3 direct quotes. Example: "PlayerA accused PlayerB of maphack "PlayerA: nice maphack" "PlayerB: cope""
 
   Every quote MUST have speaker attribution "Name: text".
 
 BANS: Who got banned, duration, reason (skip if none); semicolon-separated. Include the match ID if mentioned.
-HIGHLIGHTS: Funny, wholesome, or absurd moments (3-5 items, semicolon-separated). Each item MUST include 1-2 direct quotes with speaker attribution. Don't just describe what happened — show it with the actual quote that made it funny. Good: "Classic4 toasted nonamee mid-game "Classic4: cheers nonamee! micro and apm is faster" "Classic4: ( *u*)d". Bad: "Classic4 made a joke about drinking".
-RECAP: 1-2 sentences summarizing the day's overall vibe. Deadpan zine voice — state the facts, let the absurdity land.
+HIGHLIGHTS: Funny, wholesome, or absurd moments (3-5 items, semicolon-separated). Each item MUST include 1-2 direct quotes with speaker attribution. Don't just describe what happened - show it with the actual quote that made it funny. Good: "Classic4 toasted nonamee mid-game "Classic4: cheers nonamee! micro and apm is faster" "Classic4: ( *u*)d". Bad: "Classic4 made a joke about drinking".
+RECAP: 1-2 sentences summarizing the day's overall vibe. Deadpan zine voice - state the facts, let the absurdity land.
 
 Rules:
 1. No title, no date header, jump straight into TOPICS:
@@ -978,17 +978,17 @@ Rules:
 4. CRITICAL: Use EXACT player names as they appear in the chat log. Never shorten or abbreviate names. The player list is: ${names.join(', ')}
 5. Prioritize high-MMR players (1800+), their drama is more interesting.
 6. DRAMA: aim for 10 items. Include minor beefs and trash talk too, not just the biggest blowups. Every item needs 2-4 direct quotes from the chat log.
-7. DRAMA lead item (first): 2-3 sentence narrative, NO quoted text mixed in — all "quoted text" goes at the END only. Remaining items: summary under 10 words with NO quoted text in it — all "quoted text" goes at the END. NO semicolons between quotes within the same item.
+7. DRAMA lead item (first): 2-3 sentence narrative, NO quoted text mixed in - all "quoted text" goes at the END only. Remaining items: summary under 10 words with NO quoted text in it - all "quoted text" goes at the END. NO semicolons between quotes within the same item.
 8. CRITICAL: Every direct quote MUST be attributed with "SpeakerName: quote text" format. Example: "ToD: you are garbage" not just "you are garbage".
 9. DRAMA summaries use PLAIN verbs only: "flamed", "went off on", "called out", "blamed", "mocked", "accused". NEVER use: "unleashed", "eviscerated", "ripped into", "devolving", "decimated", "obliterated", "destroyed", "dismantled", "torched" or any dramatic/flowery synonyms.
 10. No filler like "engaged in", "exchanged", "calling him", "told him", "repeatedly calling". The quotes speak for themselves.
 11. Write like a punk gaming zine. Short punchy sentences. Fragments OK. Deadpan. No em-dashes. No AI-speak.
 12. Foreign language drama is GOLD. If someone posts threats or insults in Chinese/Korean/etc and another player translates it, that is top-tier content. Always include it. Use the English translation as the quote. If no translation exists in chat, translate it yourself. Always quote in English.
-13. BANS and DRAMA must not overlap — if someone got banned, put it in BANS only, not in DRAMA.
+13. BANS and DRAMA must not overlap - if someone got banned, put it in BANS only, not in DRAMA.
 14. State facts only, no commentary (no "classic", "brutal", "chaos", etc).
 15. ASCII only.
 16. DRAMA max 10 items, HIGHLIGHTS max 5 items, BANS max 2 items.
-17. Pick the SPICIEST quotes — insults, threats, trash talk, rage. Skip bland quotes like "ok" or "whatever". The best quotes make you laugh or gasp.
+17. Pick the SPICIEST quotes - insults, threats, trash talk, rage. Skip bland quotes like "ok" or "whatever". The best quotes make you laugh or gasp.
 18. Total under 4000 chars.
 ${mmrContext}${matchContext}
 Chat log (${messages.length} messages):
@@ -1206,7 +1206,7 @@ export async function generateMoreItems(date, section, existingItems = []) {
   const names = [...new Set(messages.map(m => m.user_name).filter(Boolean))];
 
   const existingContext = existingItems.length > 0
-    ? `\n\nALREADY COVERED (do NOT repeat these — find DIFFERENT moments):\n${existingItems.map((item, i) => `${i + 1}. ${item}`).join('\n')}\n`
+    ? `\n\nALREADY COVERED (do NOT repeat these - find DIFFERENT moments):\n${existingItems.map((item, i) => `${i + 1}. ${item}`).join('\n')}\n`
     : '';
 
   const prompt = `You are analyzing a Warcraft III 4v4 chat room for a daily digest. Find items for the ${section} section.
@@ -1287,7 +1287,7 @@ function scoreChatMessage(msg) {
   if (alpha > 5 && upper / alpha > 0.6) score += 15;
   if (/\b(lmao|omg|wtf|bruh)\b/i.test(text)) score += 15;
 
-  // First person — personal stakes
+  // First person - personal stakes
   if (/\b(I |my |im |i'm )\b/i.test(text)) score += 20;
 
   // Non-English bonus (CJK, Cyrillic, Arabic)
@@ -1568,8 +1568,8 @@ function buildSpotlightBlurb(type, player, dailyRows) {
     const mmr = player.mmrChange ? `+${Math.abs(Math.round(player.mmrChange))} MMR` : null;
     const best = [...dayBreakdown].sort((a, b) => b.wins - a.wins)[0];
     let line = mmr
-      ? `Climbed ${mmr} across ${total} games${raceStr} — ${wr}% win rate.`
-      : `Went ${player.wins}-${player.losses}${raceStr} across ${total} games — ${wr}% win rate.`;
+      ? `Climbed ${mmr} across ${total} games${raceStr} - ${wr}% win rate.`
+      : `Went ${player.wins}-${player.losses}${raceStr} across ${total} games - ${wr}% win rate.`;
     if (best && best.wins >= 5 && dayBreakdown.length > 1) {
       line += ` Best day: ${best.day}, going ${best.wins}-${best.losses}.`;
     }
@@ -1589,12 +1589,12 @@ function buildSpotlightBlurb(type, player, dailyRows) {
       if (total <= 6) {
         line = `Played ${total} games on ${dayName}, lost ${player.losses === total ? 'all' : player.losses} of them${raceStr}.`;
       } else {
-        line = `Crammed ${total} games into a single ${dayName} session${raceStr} — went ${player.wins}-${player.losses}.`;
+        line = `Crammed ${total} games into a single ${dayName} session${raceStr} - went ${player.wins}-${player.losses}.`;
       }
     } else if (total <= 6) {
       line = `A brutal ${player.wins}-${player.losses} week${raceStr}.`;
     } else {
-      line = `Went ${player.wins}-${player.losses}${raceStr} across ${total} games — just ${wr}% win rate.`;
+      line = `Went ${player.wins}-${player.losses}${raceStr} across ${total} games - just ${wr}% win rate.`;
     }
     if (mmr) {
       const perGame = total > 0 ? Math.round(mmr / total) : 0;
@@ -1607,7 +1607,7 @@ function buildSpotlightBlurb(type, player, dailyRows) {
       }
     }
     if (worst && worst.losses >= 5 && daysPlayed > 1) {
-      line = line.replace(/\.$/, '') + ` — worst day: ${worst.day} (${worst.wins}-${worst.losses}).`;
+      line = line.replace(/\.$/, '') + ` - worst day: ${worst.day} (${worst.wins}-${worst.losses}).`;
     }
     return line;
   }
@@ -1672,13 +1672,13 @@ function buildSpotlightBlurb(type, player, dailyRows) {
 
     let line = `${verb} ${streakLen} in a row`;
     if (streakDays.length === 1) {
-      line += ` — all in a single ${streakDays[0].day} session.`;
+      line += ` - all in a single ${streakDays[0].day} session.`;
     } else if (streakDays.length > 1) {
       const biggest = streakDays.reduce((a, b) => b.count > a.count ? b : a);
       if (biggest.count >= streakLen * 0.6) {
-        line += ` — ${biggest.count} of them on ${biggest.day}.`;
+        line += ` - ${biggest.count} of them on ${biggest.day}.`;
       } else {
-        line += ` — spanning ${streakDays[0].day} through ${streakDays[streakDays.length - 1].day}.`;
+        line += ` - spanning ${streakDays[0].day} through ${streakDays[streakDays.length - 1].day}.`;
       }
     } else {
       line += '.';
@@ -1821,7 +1821,7 @@ function scorePlayerMessages(battleTag, weekStart, weekEnd, spotlightType = null
 
   const tiers = spotlightType && KEYWORDS_BY_TYPE[spotlightType] ? KEYWORDS_BY_TYPE[spotlightType] : null;
 
-  // Detect non-ASCII (CJK, Arabic, Cyrillic, etc.) — these are distinctive and carry
+  // Detect non-ASCII (CJK, Arabic, Cyrillic, etc.) - these are distinctive and carry
   // more meaning per character than English, so use a lower min length
   const NON_ASCII_RE = /[^\x00-\x7F]/;
   const MIN_LEN_NON_ASCII = 4;
@@ -2071,7 +2071,7 @@ async function rewriteSpotlightBlurbs(candidates) {
     const prevLines = prevContext
       ? `Previous week context: ${prevContext}`
       : '(no previous week data)';
-    return `${key} — ${name} (${ROLE_LABELS[key] || key}):\nStat summary: ${blurb}\n${chatLines}\n${prevLines}`;
+    return `${key} - ${name} (${ROLE_LABELS[key] || key}):\nStat summary: ${blurb}\n${chatLines}\n${prevLines}`;
   }).join('\n\n');
 
   const client = new Anthropic({ apiKey: config.ANTHROPIC_API_KEY });
@@ -2083,18 +2083,18 @@ async function rewriteSpotlightBlurbs(candidates) {
       content: `You're writing player spotlight blurbs for a Warcraft III 4v4 weekly magazine. Each blurb is 1-2 short sentences shown under the player's name on their spotlight card.
 
 Rewrite each stat summary into a blurb. Rules:
-- Lead with the story, not the stats — what happened to this player this week? The stats support the narrative, not the other way around
-- If previous week context shows a narrative arc (last week's winner is this week's loser, race switch, power ranking swing), lead with that — it's the most interesting thing
-- Weave in chat personality when it adds color — a self-aware moment, an attitude, a detail that reveals who they are
+- Lead with the story, not the stats - what happened to this player this week? The stats support the narrative, not the other way around
+- If previous week context shows a narrative arc (last week's winner is this week's loser, race switch, power ranking swing), lead with that - it's the most interesting thing
+- Weave in chat personality when it adds color - a self-aware moment, an attitude, a detail that reveals who they are
 - Don't quote them directly (quotes are shown separately)
-- Keep key stats but fold them in naturally — don't list them
+- Keep key stats but fold them in naturally - don't list them
 - SHORT. One punchy sentence is better than two decent ones. Trust the reader to get it.
 - Tone: dry, observational. No clichés, no "impressive/remarkable/brutal". No exclamation marks.
 
 Examples of good blurbs:
 - "Last week's #2 power-ranked player had a massive swing back. Dropped 13 straight on Thursday, 9 in a row, switching from UD to HU."
-- "199 games in seven days on random and finished exactly where he started — +9 MMR."
-- "The Guatemalan grinder climbed +131 on NE across 42 games at 52% — pure volume."
+- "199 games in seven days on random and finished exactly where he started - +9 MMR."
+- "The Guatemalan grinder climbed +131 on NE across 42 games at 52% - pure volume."
 
 For each player, output exactly one line: KEY: rewritten blurb
 Nothing else.
@@ -2169,7 +2169,7 @@ async function computeNewBlood(weekStart, weekEnd) {
   // Enrich a larger pool first, then pick the best mix
   const pool = filtered.slice(0, 25);
 
-  // Check previous seasons — returns { lastSeason, lastActive (YYYY-MM-DD) } or null
+  // Check previous seasons - returns { lastSeason, lastActive (YYYY-MM-DD) } or null
   async function checkHistory(battleTag) {
     for (const season of seasonsToCheck) {
       try {
@@ -2213,7 +2213,7 @@ async function computeNewBlood(weekStart, weekEnd) {
       if (!stats) return false;
       const apiTotal = (stats.wins || 0) + (stats.losses || 0);
       // If API shows more games this season than they played this week,
-      // they were active before this week — not actually new/returning
+      // they were active before this week - not actually new/returning
       return apiTotal > weeklyGames;
     } catch {}
     return false;
@@ -2240,7 +2240,7 @@ async function computeNewBlood(weekStart, weekEnd) {
     } catch {}
 
     if (wasActiveBefore) {
-      // They were active earlier this season — check local DB for a gap
+      // They were active earlier this season - check local DB for a gap
       const lastDate = getLastActiveDateBefore(p.battle_tag, weekStart);
       if (lastDate) {
         const gapMs = new Date(weekStart).getTime() - new Date(lastDate).getTime();
@@ -2254,7 +2254,7 @@ async function computeNewBlood(weekStart, weekEnd) {
       return null; // Active recently, not a meaningful return
     }
 
-    // Not active this season before — check previous seasons
+    // Not active this season before - check previous seasons
     const history = await checkHistory(p.battle_tag);
     if (history) {
       entry.returning = true;
@@ -2263,7 +2263,7 @@ async function computeNewBlood(weekStart, weekEnd) {
     return entry;
   };
 
-  // Process in small batches — each player can trigger ~7 W3C API calls
+  // Process in small batches - each player can trigger ~7 W3C API calls
   const CONCURRENCY = 3;
   const enrichedRaw = [];
   for (let i = 0; i < pool.length; i += CONCURRENCY) {
@@ -2475,11 +2475,11 @@ function buildWeeklyPrompt(dailyDigests, aggregateStats, topChatMessages = []) {
 
   return `Summarize this week's Warcraft III 4v4 activity from ${dailyDigests.length} daily digests into a WEEKLY magazine recap. The first DRAMA item becomes the "Top Story" on the site with featured pull quotes, so make it count. Write a digest with these sections (skip if nothing fits):
 
-TOPICS: 3-6 comma-separated keywords capturing the week's themes. Be specific — name players and events.
+TOPICS: 3-6 comma-separated keywords capturing the week's themes. Be specific - name players and events.
 DRAMA: The week's biggest drama stories. Combine related daily items into story arcs. Max 5 items separated by semicolons. CRITICAL FORMAT: everything goes on ONE line after "DRAMA: ". Each item is narrative text followed by quotes, then a semicolon before the next item. NO line breaks, NO markdown, NO headers like "LEAD STORY". A semicolon ONLY separates one complete item from the next. NO semicolons between quotes within the same item. The FIRST item MUST start with a punchy zine-style headline (3-8 words, fragments OK, periods between phrases) followed by " | " (pipe with spaces), then a 3-4 sentence narrative about the week's biggest drama arc, followed by 3-4 of the best quotes. Headline examples: "ToD vs GhostGGGL. Towers. No Eyes." / "Napo Banned. Again. And Again." / "Three Griefers, One Ladder, Zero Chill". Remaining items: short summary (max 12 words, no quoted text in it) then 2-3 direct quotes. Example format: DRAMA: ToD vs GhostGGGL. Towers. Nose Jokes. War. | ToD and GhostGGGL feuded all week over tower building. It started Monday when GhostGGGL mocked ToD after a loss and escalated through Wednesday when ToD accused him of never building towers. By Friday both were threatening reports. "ToD: lynfan no spikes ghost no towers" "GhostGGGL: Tod no eyes blocked by the nose" "ToD: enjoy your ban"; Napo got banned twice for leaving with 1 worker "Napo: i COACHED MY SELF" "Napo: unfair ban"; GhostGGGL accused grimfoLf of streamcheating "GhostGGGL: you ALWAYS grief me"
 BANS: Notable bans this week (skip if none); semicolon-separated. Max 3 items.
 HIGHLIGHTS: Best 3-5 funny, wholesome, or absurd moments of the week, semicolon-separated. Include the funniest standalone quotes too. Each item MUST include 1-2 direct quotes with speaker attribution. Show the humor with actual quotes. Good: "Classic4 toasted nonamee mid-game "Classic4: cheers nonamee! micro and apm is faster"". Bad: "Classic4 made a joke about drinking".
-RECAP: 2-3 sentence narrative summary of the week's overall vibe. Deadpan zine voice — state the facts, name specific players, let the absurdity land on its own.
+RECAP: 2-3 sentence narrative summary of the week's overall vibe. Deadpan zine voice - state the facts, name specific players, let the absurdity land on its own.
 
 Rules:
 - CRITICAL: Output must be PLAIN TEXT ONLY. No markdown (no **, no ##, no *). No blank lines within a section. Each section is one line: "KEY: content".
@@ -2659,7 +2659,7 @@ export async function generateWeeklyDigest(weekStart) {
     parts.push(`GRINDER: ${weeklyGrinder.battleTag} ${weeklyGrinder.wins + weeklyGrinder.losses} games (${weeklyGrinder.wins}W-${weeklyGrinder.losses}L)`);
   }
 
-  // Weekly streaks (from concatenated daily form strings — can be longer than any single daily streak)
+  // Weekly streaks (from concatenated daily form strings - can be longer than any single daily streak)
   let weeklyHotStreak = null, weeklyColdStreak = null;
   if (weeklyMatchStats?.weeklyPlayerMap) {
     const usedStatTags = new Set([weeklyWinner?.battleTag, weeklyLoser?.battleTag, weeklyGrinder?.battleTag].filter(Boolean));
@@ -2725,7 +2725,7 @@ export async function generateWeeklyDigest(weekStart) {
         const winnerNames = u.winnerTags.split(',').map(t => t.split('#')[0]).join(', ');
         const mapStr = u.map ? ` on ${u.map}` : '';
         const mmrData = u.winnerMmrs && u.loserMmrs ? ` [${u.winnerMmrs}|${u.loserMmrs}|${u.winnerTags}|${u.loserTags}]` : '';
-        return `${winnerNames} (avg ${u.winnerAvgMmr} MMR) beat favorites (avg ${u.loserAvgMmr} MMR)${mapStr} — ${u.gap} MMR gap ${u.match_id}${mmrData}`;
+        return `${winnerNames} (avg ${u.winnerAvgMmr} MMR) beat favorites (avg ${u.loserAvgMmr} MMR)${mapStr} - ${u.gap} MMR gap ${u.match_id}${mmrData}`;
       });
       parts.push(`UPSET: ${entries.join('; ')}`);
     }
@@ -2904,7 +2904,7 @@ export async function regenerateSection(weekStart, sectionKey, existingItems) {
   const basePrompt = buildWeeklyPrompt(dailyDigests, aggregateText, topChatMessages);
 
   const existingClause = Array.isArray(existingItems) && existingItems.length > 0
-    ? `\n\nThe editor already has these ${sectionKey} items — do NOT repeat any of them or cover the same events/people:\n${existingItems.map((item, i) => `${i + 1}. ${item}`).join('\n')}\n\nGenerate NEW items about DIFFERENT events, players, and incidents not covered above.`
+    ? `\n\nThe editor already has these ${sectionKey} items - do NOT repeat any of them or cover the same events/people:\n${existingItems.map((item, i) => `${i + 1}. ${item}`).join('\n')}\n\nGenerate NEW items about DIFFERENT events, players, and incidents not covered above.`
     : '';
 
   const sectionPrompt = `${basePrompt}
@@ -2981,7 +2981,7 @@ export async function regenerateSpotlights(weekStart) {
     if (m) result[m[1]] = m[2];
   }
 
-  // Hero Slayer — promoted to spotlight: inject stat line + blurb + quotes
+  // Hero Slayer - promoted to spotlight: inject stat line + blurb + quotes
   try {
     const awards = computeWeeklyMatchScoreAwards(weekStart, weekEnd);
     if (awards?.heroSlayer && ctx.weeklyMatchStats?.weeklyPlayerMap) {
@@ -3029,7 +3029,7 @@ export async function regenerateSpotlights(weekStart) {
 }
 
 /**
- * Regenerate match stat blurbs + quotes (Unit Killer, etc. — Hero Slayer is now a spotlight).
+ * Regenerate match stat blurbs + quotes (Unit Killer, etc. - Hero Slayer is now a spotlight).
  * Returns an object like { "Unit Killer_BLURB": "...", ... }
  */
 export function regenerateMatchStatBlurbs(weekStart) {
@@ -3218,7 +3218,7 @@ async function fetchMatchScores(matchIds, date) {
       let data;
       const res = await fetch(`${API_BASE}/matches/${encodeURIComponent(matchId)}`);
       if (res.status === 429) {
-        // Rate limited — back off and retry once
+        // Rate limited - back off and retry once
         await new Promise(r => setTimeout(r, 2000));
         const retry = await fetch(`${API_BASE}/matches/${encodeURIComponent(matchId)}`);
         if (!retry.ok) { errors++; continue; }
@@ -3284,7 +3284,7 @@ async function collectMatchIdsForDate(date) {
   const result = await computePlayerStats(date);
   if (!result) return [];
 
-  // computePlayerStats already saves to daily_matches — read them back
+  // computePlayerStats already saves to daily_matches - read them back
   return getMatchIdsForDateRange(date, date);
 }
 
@@ -3483,7 +3483,7 @@ function computeWeeklyMatchScoreAwards(weekStart, weekEnd) {
 
   // ── MATCH_STATS (performance awards) ──
 
-  // 1. Hero Slayer — top 3 hero kills per game (rate)
+  // 1. Hero Slayer - top 3 hero kills per game (rate)
   const heroSlayers = rateQualified
     .map(p => ({ ...p, rate: p.totalHeroesKilled / p.games }))
     .filter(p => p.rate > 0)
@@ -3526,7 +3526,7 @@ function computeWeeklyMatchScoreAwards(weekStart, weekEnd) {
       matchStatBlurbs.push(`HEROSLAYER_MAX: ${top.maxHeroKillsInGame}`);
     }
 
-    // Output full killboard — all opponent heroes with counts (compact: name:count,name:count)
+    // Output full killboard - all opponent heroes with counts (compact: name:count,name:count)
     const allOpp = getTopOpponentHeroes(top.battleTag, 100);
     if (allOpp.length > 0) {
       matchStatBlurbs.push(`HEROSLAYER_KILLBOARD: ${allOpp.map(h => `${h.name}:${h.count}`).join(',')}`);
@@ -3550,7 +3550,7 @@ function computeWeeklyMatchScoreAwards(weekStart, weekEnd) {
     }
   }
 
-  // 2. Unit Killer — top 3 unit kills per game (rate)
+  // 2. Unit Killer - top 3 unit kills per game (rate)
   const unitKillers = rateQualified
     .map(p => ({ ...p, rate: p.totalUnitsKilled / p.games }))
     .filter(p => p.rate > 0)
@@ -3570,7 +3570,7 @@ function computeWeeklyMatchScoreAwards(weekStart, weekEnd) {
     matchStatBlurbs.push(`UNITKILLER_BLURB: ${blurb}`);
   }
 
-  // 3. Longest Game — only include if match players chatted that day (community interest proxy)
+  // 3. Longest Game - only include if match players chatted that day (community interest proxy)
   if (longestGame.durationSeconds > 0 && longestGame.matchId) {
     const matchRow = rows.find(r => r.match_id === longestGame.matchId);
     const matchDate = matchRow?.date;
@@ -3591,7 +3591,7 @@ function computeWeeklyMatchScoreAwards(weekStart, weekEnd) {
 
   // ── HEROES (hero meta awards) ──
 
-  // 4. Fan Favorite — most picked hero overall
+  // 4. Fan Favorite - most picked hero overall
   if (heroCounts.size > 0) {
     const [topHero, topCount] = [...heroCounts.entries()].sort((a, b) => b[1] - a[1])[0];
     const totalPicks = [...heroCounts.values()].reduce((s, v) => s + v, 0);
@@ -3613,7 +3613,7 @@ function computeWeeklyMatchScoreAwards(weekStart, weekEnd) {
     }
   }
 
-  // 5. Spicy Combo — rarest hero combo that won at least once
+  // 5. Spicy Combo - rarest hero combo that won at least once
   if (comboCounts.size > 0) {
     const rareWinners = [...comboCounts.entries()]
       .filter(([_, c]) => c.wins > 0 && c.count <= 2)
@@ -3626,7 +3626,7 @@ function computeWeeklyMatchScoreAwards(weekStart, weekEnd) {
     }
   }
 
-  // 6. One Trick — most committed to a single hero combo (80%+ same combo, 10+ games)
+  // 6. One Trick - most committed to a single hero combo (80%+ same combo, 10+ games)
   const oneTricks = [...playerHeroData.entries()]
     .filter(([_, d]) => d.games >= 10)
     .map(([tag, d]) => {
@@ -3642,7 +3642,7 @@ function computeWeeklyMatchScoreAwards(weekStart, weekEnd) {
     heroAwards.push(`One Trick ${ot.battleTag} ${displayCombo} ${ot.topCount} times in ${ot.games} games`);
   }
 
-  // 7. Wildcard — most unique heroes picked (10+ games)
+  // 7. Wildcard - most unique heroes picked (10+ games)
   const wildcards = [...playerHeroData.entries()]
     .filter(([_, d]) => d.games >= 10)
     .map(([tag, d]) => ({
@@ -3705,7 +3705,7 @@ async function finalizeYesterday() {
     }
 
     const yesterday = new Date(Date.now() - 86400000).toISOString().slice(0, 10);
-    // Regenerate the final version with a fresh draft — setDigestWithDraft upserts,
+    // Regenerate the final version with a fresh draft - setDigestWithDraft upserts,
     // so the existing row is only replaced once generation succeeds
     const digest = await generateDigest(yesterday, { force: true });
     if (digest) {

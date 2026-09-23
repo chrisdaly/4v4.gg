@@ -18,7 +18,7 @@ import { requireApiKey } from '../middleware/auth.js';
 
 const router = Router();
 
-// Rate limiters — three tiers based on cost
+// Rate limiters - three tiers based on cost
 const aiLimiter = rateLimit({
   windowMs: 60 * 1000,
   max: 5,
@@ -92,7 +92,7 @@ router.get('/blurb-lab/fact-sheet/:matchId', requireApiKey, contextLimiter, asyn
   }
 });
 
-// Run structured generation — never persisted. Returns both phases:
+// Run structured generation - never persisted. Returns both phases:
 // `instant` (at the whistle, pre-reaction chat) and `reactions` (5-min rewrite).
 // Each phase is { headline, streaks, h2h, drama } from the structured tool.
 router.post('/blurb-lab/preview', requireApiKey, aiLimiter, async (req, res) => {
@@ -139,7 +139,7 @@ router.post('/token', requireApiKey, (req, res) => {
   res.json({ ok: true, message: 'Token updated, SignalR reconnecting...' });
 });
 
-// Test a bot command — runs it and broadcasts via SSE, never sends to chat
+// Test a bot command - runs it and broadcasts via SSE, never sends to chat
 router.post('/bot/test', requireApiKey, async (req, res) => {
   const { command } = req.body;
   if (!command || typeof command !== 'string') {
@@ -187,7 +187,7 @@ router.get('/top-words', publicLimiter, (req, res) => {
   res.json(getTopWords(days));
 });
 
-// Daily digest — returns cached only (public)
+// Daily digest - returns cached only (public)
 router.get('/digest/:date', publicLimiter, (req, res) => {
   const { date } = req.params;
   if (!/^\d{4}-\d{2}-\d{2}$/.test(date)) {
@@ -204,7 +204,7 @@ router.get('/digest/:date', publicLimiter, (req, res) => {
   res.json(result);
 });
 
-// Generate a digest (admin, triggers AI) — generates if missing, returns result
+// Generate a digest (admin, triggers AI) - generates if missing, returns result
 router.post('/digest/:date/generate', requireApiKey, aiLimiter, async (req, res) => {
   const { date } = req.params;
   if (!/^\d{4}-\d{2}-\d{2}$/.test(date)) {
@@ -232,7 +232,7 @@ router.delete('/digest/:date', requireApiKey, (req, res) => {
   res.json({ ok: true, message: `Digest for ${date} cleared` });
 });
 
-// Directly set a digest (admin — for manual content injection)
+// Directly set a digest (admin - for manual content injection)
 router.post('/digest/:date/set', requireApiKey, (req, res) => {
   const { date } = req.params;
   if (!/^\d{4}-\d{2}-\d{2}$/.test(date)) {
@@ -246,7 +246,7 @@ router.post('/digest/:date/set', requireApiKey, (req, res) => {
   res.json({ ok: true, date });
 });
 
-// Get draft for a date (protected — editorial mode)
+// Get draft for a date (protected - editorial mode)
 router.get('/digest/:date/draft', requireApiKey, (req, res) => {
   const { date } = req.params;
   if (!/^\d{4}-\d{2}-\d{2}$/.test(date)) {
@@ -259,7 +259,7 @@ router.get('/digest/:date/draft', requireApiKey, (req, res) => {
   res.json(result);
 });
 
-// Update draft text (protected) — persists text edits, reorders, quote changes
+// Update draft text (protected) - persists text edits, reorders, quote changes
 router.put('/digest/:date/draft', requireApiKey, (req, res) => {
   const { date } = req.params;
   if (!/^\d{4}-\d{2}-\d{2}$/.test(date)) {
@@ -291,7 +291,7 @@ router.get('/digest/:date/stat-candidates', requireApiKey, async (req, res) => {
   }
 });
 
-// Curate a digest — select which drama items to publish (protected)
+// Curate a digest - select which drama items to publish (protected)
 router.put('/digest/:date/curate', requireApiKey, async (req, res) => {
   const { date } = req.params;
   if (!/^\d{4}-\d{2}-\d{2}$/.test(date)) {
@@ -356,7 +356,7 @@ router.put('/digest/:date/quotes', requireApiKey, (req, res) => {
   // Strip existing quotes from the item, keep the summary
   const oldItem = items[itemIndex];
   const summary = oldItem.replace(/"[^"]+"/g, '').replace(/\s{2,}/g, ' ').trim()
-    .replace(/\s*[—:,]\s*$/, '').trim();
+    .replace(/\s*[-:,]\s*$/, '').trim();
 
   // Rebuild item: summary + new quotes
   const quoteParts = newQuotes.map(q => `"${q}"`).join(' ');
@@ -384,7 +384,7 @@ router.get('/digest/:date/matches', (req, res) => {
   }
 });
 
-// Analyze a chat spike — returns suggested items per section (protected)
+// Analyze a chat spike - returns suggested items per section (protected)
 router.post('/digest/:date/analyze-spike', requireApiKey, aiLimiter, async (req, res) => {
   const { date } = req.params;
   if (!/^\d{4}-\d{2}-\d{2}$/.test(date)) {
@@ -433,7 +433,7 @@ router.post('/digest/:date/more-items', requireApiKey, aiLimiter, async (req, re
   }
 });
 
-// Recent digests (public) — parse clips JSON
+// Recent digests (public) - parse clips JSON
 router.get('/digests', publicLimiter, (_req, res) => {
   const digests = getRecentDigests(14).map(d => {
     const result = { ...d };
@@ -445,7 +445,7 @@ router.get('/digests', publicLimiter, (_req, res) => {
   res.json(digests);
 });
 
-// Player digest mentions (public) — find which digests mention a player
+// Player digest mentions (public) - find which digests mention a player
 router.get('/digests/by-player/:tag', (req, res) => {
   const tag = decodeURIComponent(req.params.tag);
   const playerName = tag.split('#')[0].toLowerCase();
@@ -496,7 +496,7 @@ router.get('/digests/by-player/:tag', (req, res) => {
 
 // Today's live digest (public read from cache, admin-only generation)
 // Cache is warmed by scheduler. Pass ?refresh=1 with API key to bust cache.
-// Public requests get cached data only — never trigger Claude.
+// Public requests get cached data only - never trigger Claude.
 router.get('/stats/today', aiLimiter, async (req, res) => {
   const isAdmin = req.headers['x-api-key'] === config.ADMIN_API_KEY;
   const forceRefresh = req.query.refresh === '1' && isAdmin;
@@ -504,7 +504,7 @@ router.get('/stats/today', aiLimiter, async (req, res) => {
   if (!forceRefresh && todayDigestCache.data && todayDigestCache.expires > now) {
     return res.json(todayDigestCache.data);
   }
-  // Public requests: return stale cache or empty — never trigger AI generation
+  // Public requests: return stale cache or empty - never trigger AI generation
   if (!isAdmin) {
     if (todayDigestCache.data) return res.json(todayDigestCache.data);
     return res.json({ date: new Date().toISOString().slice(0, 10), digest: null });
@@ -544,7 +544,7 @@ router.get('/messages/timeline/:date', (req, res) => {
   res.json({ buckets, games });
 });
 
-// Analytics bundle (public) — top words + recent digests in one call
+// Analytics bundle (public) - top words + recent digests in one call
 router.get('/analytics', publicLimiter, (_req, res) => {
   res.json({
     topWords: getTopWords(7),
@@ -552,7 +552,7 @@ router.get('/analytics', publicLimiter, (_req, res) => {
   });
 });
 
-// Recent weekly digests (public) — parse clips + stats + digest_json, backfill message count
+// Recent weekly digests (public) - parse clips + stats + digest_json, backfill message count
 router.get('/weekly-digests', publicLimiter, (req, res) => {
   const isAdmin = req.headers['x-api-key'] === config.ADMIN_API_KEY && !!config.ADMIN_API_KEY;
   const weeklies = getRecentWeeklyDigests(8, isAdmin).map(w => {
@@ -574,7 +574,7 @@ router.get('/weekly-digests', publicLimiter, (req, res) => {
         result.stats = { ...(result.stats || {}), totalMessages: count };
       }
     }
-    // Data coverage — admin only
+    // Data coverage - admin only
     if (isAdmin && w.week_start && w.week_end) {
       const coverage = {};
       const d = new Date(w.week_start + 'T00:00:00Z');
@@ -591,7 +591,7 @@ router.get('/weekly-digests', publicLimiter, (req, res) => {
   res.json(weeklies);
 });
 
-// Single weekly digest — public reads stored only, admin keys can trigger generation
+// Single weekly digest - public reads stored only, admin keys can trigger generation
 // Pass ?format=json to get the structured JSON version
 const weeklyGenInFlight = new Map(); // weekStart → Promise (dedupe concurrent generations)
 
@@ -622,7 +622,7 @@ router.get('/weekly-digest/:weekStart', aiLimiter, async (req, res) => {
     return res.json({ weekStart, digest: stored.digest });
   }
 
-  // Public requests get stored data only — generation requires the API key
+  // Public requests get stored data only - generation requires the API key
   const isAdmin = req.headers['x-api-key'] === config.ADMIN_API_KEY && !!config.ADMIN_API_KEY;
   if (!isAdmin) {
     return res.json({ weekStart, digest: null, reason: 'No weekly digest found' });
@@ -663,7 +663,7 @@ router.delete('/weekly-digest/:weekStart', requireApiKey, (req, res) => {
   res.json({ ok: true, message: `Weekly digest for ${weekStart} cleared` });
 });
 
-// Directly set a weekly digest (admin — for manual content injection)
+// Directly set a weekly digest (admin - for manual content injection)
 router.post('/weekly-digest/:weekStart/set', requireApiKey, (req, res) => {
   const { weekStart } = req.params;
   if (!/^\d{4}-\d{2}-\d{2}$/.test(weekStart)) {
@@ -692,7 +692,7 @@ router.put('/weekly-digest/:weekStart/publish', requireApiKey, (req, res) => {
 
   // When publishing (not unpublishing), rebuild digest_json from the curated digest
   // The curated digest (existing.digest) is maintained by the /curate endpoint during
-  // autosave — it has editorial selections, hidden sections, and item edits applied.
+  // autosave - it has editorial selections, hidden sections, and item edits applied.
   // Use that, not the raw draft (which contains all items including deselected ones).
   const isCurrentlyPublished = !!existing.published;
   if (!isCurrentlyPublished) {
@@ -740,7 +740,7 @@ router.put('/weekly-digest/:weekStart/draft', requireApiKey, (req, res) => {
   res.json({ ok: true, weekStart });
 });
 
-// Curate weekly digest — apply item selections + overrides → publish (protected)
+// Curate weekly digest - apply item selections + overrides → publish (protected)
 router.put('/weekly-digest/:weekStart/curate', requireApiKey, (req, res) => {
   const { weekStart } = req.params;
   if (!/^\d{4}-\d{2}-\d{2}$/.test(weekStart)) {
@@ -934,7 +934,7 @@ router.post('/weekly-digest/:weekStart/generate-variants', requireApiKey, (req, 
     return res.json({ ok: true, jobId: active.id, existing: true });
   }
   const jobId = createGenJob(weekStart, 3);
-  // Fire and forget — don't await
+  // Fire and forget - don't await
   generateWeeklyVariants(weekStart, jobId).catch(err => {
     console.error(`[Variants] Unhandled error for job ${jobId}:`, err.message);
   });
@@ -991,7 +991,7 @@ router.get('/weekly-digest/:weekStart/variants', requireApiKey, (req, res) => {
   res.json({ jobId: job.id, variants });
 });
 
-// Apply variant picks — mix-and-match sections from different variants (admin)
+// Apply variant picks - mix-and-match sections from different variants (admin)
 router.put('/weekly-digest/:weekStart/apply-variants', requireApiKey, (req, res) => {
   const { weekStart } = req.params;
   if (!/^\d{4}-\d{2}-\d{2}$/.test(weekStart)) {
@@ -1152,7 +1152,7 @@ router.post('/weekly-digest/:weekStart/suggest-scenes', requireApiKey, aiLimiter
   }
 });
 
-// Generate prompt only (admin) — returns Claude's visual prompt without generating image
+// Generate prompt only (admin) - returns Claude's visual prompt without generating image
 // Accepts optional headline + playerContext for enhanced prompts
 // Auto-enriches players with recent digest mentions for character depth
 router.post('/weekly-digest/:weekStart/prompt', requireApiKey, aiLimiter, async (req, res) => {
@@ -1189,7 +1189,7 @@ router.post('/weekly-digest/:weekStart/prompt', requireApiKey, aiLimiter, async 
   }
 });
 
-// Generate image from a prompt string — downloads, stores in DB, returns local URL
+// Generate image from a prompt string - downloads, stores in DB, returns local URL
 router.post('/generate-image', requireApiKey, imageLimiter, async (req, res) => {
   const { prompt, weekStart, headline, scene, style } = req.body || {};
   if (!prompt) {
@@ -1223,7 +1223,7 @@ router.get('/cover-generations/:weekStart', requireApiKey, (req, res) => {
   res.json(generations || []);
 });
 
-// Serve a saved cover generation image (public — no API key needed for <img> tags)
+// Serve a saved cover generation image (public - no API key needed for <img> tags)
 router.get('/cover-generation/:id/image', (req, res) => {
   const id = parseInt(req.params.id);
   if (isNaN(id)) return res.status(400).send('Invalid ID');
@@ -1386,7 +1386,7 @@ router.post('/backfill-digest-json', requireApiKey, (req, res) => {
   res.json({ ok: true, converted, failed, errors: errors.slice(0, 10) });
 });
 
-// Chat context — surrounding messages for drama items or time windows (public)
+// Chat context - surrounding messages for drama items or time windows (public)
 // Mode 1 (drama): ?date=...&players=Tag1,Tag2&quotes=["q1","q2"]
 //   Uses quotes to find the exact conversation, falls back to player activity window
 // Mode 2 (spikes): ?date=...&from=HH:MM&to=HH:MM
@@ -1415,7 +1415,7 @@ router.get('/messages/context', contextLimiter, (req, res) => {
     return res.status(400).json({ error: 'At least one player required' });
   }
 
-  // Player-only mode (for stat lines — just their messages, no surrounding context)
+  // Player-only mode (for stat lines - just their messages, no surrounding context)
   if (mode === 'player') {
     const messages = getMessagesByDateAndUsers(date, battleTags, maxLimit);
     return res.json(messages);
@@ -1587,7 +1587,7 @@ router.post('/style-thumbnail', requireApiKey, imageLimiter, async (req, res) =>
   }
 });
 
-// Serve a style thumbnail image (public — for <img> tags)
+// Serve a style thumbnail image (public - for <img> tags)
 router.get('/style-thumbnail/:styleId', (req, res) => {
   const { styleId } = req.params;
   const imageBuffer = getStyleThumbnail(styleId);
@@ -1597,7 +1597,7 @@ router.get('/style-thumbnail/:styleId', (req, res) => {
   res.send(imageBuffer);
 });
 
-// POST /api/admin/import-player — Import recent matches for a specific player
+// POST /api/admin/import-player - Import recent matches for a specific player
 router.post('/import-player', requireApiKey, async (req, res) => {
   const { battleTag, maxMatches, season } = req.body;
   if (!battleTag) return res.status(400).json({ error: 'battleTag required' });
@@ -1610,13 +1610,13 @@ router.post('/import-player', requireApiKey, async (req, res) => {
   }
 });
 
-// GET /api/admin/import-queue — Return the on-demand priority queue
+// GET /api/admin/import-queue - Return the on-demand priority queue
 router.get('/import-queue', requireApiKey, (_req, res) => {
   const items = getPriorityQueueHead(50);
   res.json({ items });
 });
 
-// DELETE /api/admin/import-queue/:battleTag — Remove a tag from the priority queue
+// DELETE /api/admin/import-queue/:battleTag - Remove a tag from the priority queue
 router.delete('/import-queue/:battleTag', requireApiKey, (req, res) => {
   removeFromPriorityQueue(decodeURIComponent(req.params.battleTag));
   res.json({ ok: true });

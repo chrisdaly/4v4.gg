@@ -70,7 +70,7 @@ async function mintTicket() {
     headers: { Authorization: `Bearer ${currentToken}` },
   });
   if (res.status === 401) {
-    const err = new Error('JWT invalid or expired (401) — inject a fresh token via /api/admin/token');
+    const err = new Error('JWT invalid or expired (401) - inject a fresh token via /api/admin/token');
     err.isAuthError = true;
     throw err;
   }
@@ -88,7 +88,7 @@ async function connect() {
     try { await connection.stop(); } catch {}
   }
 
-  // Mint a fresh one-time ticket — W3C no longer accepts raw JWTs at the hub
+  // Mint a fresh one-time ticket - W3C no longer accepts raw JWTs at the hub
   let ticket;
   try {
     ticket = await mintTicket();
@@ -100,7 +100,7 @@ async function connect() {
       lastAuthFailureAt = Date.now();
       broadcast('status', { state });
     } else {
-      // Transient error (network, rate limit, etc.) — retry with backoff
+      // Transient error (network, rate limit, etc.) - retry with backoff
       state = 'error';
       broadcast('status', { state });
       scheduleReconnect();
@@ -110,7 +110,7 @@ async function connect() {
 
   const hubUrl = `${CHAT_HUB_URL}?access_token=${encodeURIComponent(ticket)}`;
 
-  // No withAutomaticReconnect — tickets are single-use so any reconnect
+  // No withAutomaticReconnect - tickets are single-use so any reconnect
   // attempt by SignalR would reuse a consumed ticket. Our scheduleReconnect()
   // → connect() flow mints a fresh ticket on every attempt.
   connection = new signalR.HubConnectionBuilder()
@@ -126,7 +126,7 @@ async function connect() {
     scheduleReconnect();
   });
 
-  // MessageReceived — new message (was ReceiveMessage before Aug 2026)
+  // MessageReceived - new message (was ReceiveMessage before Aug 2026)
   connection.on('MessageReceived', (data) => {
     const msg = normalizeMessage(data);
     console.log(`[SignalR] Message from ${msg.userName}: ${msg.message.substring(0, 50)}`);
@@ -140,7 +140,7 @@ async function connect() {
     maybeTranslate(msg.id, msg.message);
   });
 
-  // ViewersChanged — roster delta (was UserEntered/UserLeft before Aug 2026)
+  // ViewersChanged - roster delta (was UserEntered/UserLeft before Aug 2026)
   // Payload: { ChannelId/channelId, Joined/joined: [{BattleTag, Name}], Left/left: [battleTag strings] }
   connection.on('ViewersChanged', (data) => {
     const joined = data?.Joined || data?.joined || [];
@@ -165,7 +165,7 @@ async function connect() {
     }
   });
 
-  // MessageDeleted — new payload: { ChannelId, MessageId } (was a bare messageId string)
+  // MessageDeleted - new payload: { ChannelId, MessageId } (was a bare messageId string)
   connection.on('MessageDeleted', (data) => {
     const messageId = data?.MessageId || data?.messageId || data;
     console.log(`[SignalR] Message deleted: ${messageId}`);
@@ -175,7 +175,7 @@ async function connect() {
     }
   });
 
-  // BulkMessagesDeleted — new plural name, payload: { ChannelId, MessageIds }
+  // BulkMessagesDeleted - new plural name, payload: { ChannelId, MessageIds }
   // Also keep old singular name in case the server still emits it
   const handleBulkDelete = (data) => {
     const ids = data?.MessageIds || data?.messageIds || (Array.isArray(data) ? data : []);
@@ -188,18 +188,18 @@ async function connect() {
   connection.on('BulkMessagesDeleted', handleBulkDelete);
   connection.on('BulkMessageDeleted', handleBulkDelete);
 
-  // AuthorizationFailed — hub rejected the ticket (e.g. it expired before the
+  // AuthorizationFailed - hub rejected the ticket (e.g. it expired before the
   // WebSocket connected). onclose fires next and scheduleReconnect() will mint
   // a fresh ticket on the next attempt.
   connection.on('AuthorizationFailed', () => {
     state = 'auth_failed';
     lastAuthFailureAt = Date.now();
-    console.error('[SignalR] Authorization failed — ticket rejected by hub');
+    console.error('[SignalR] Authorization failed - ticket rejected by hub');
     broadcast('status', { state });
     connection.stop();
   });
 
-  // PlayerBannedFromChat — relay account muted/banned
+  // PlayerBannedFromChat - relay account muted/banned
   connection.on('PlayerBannedFromChat', (mute) => {
     state = 'banned';
     console.error('[SignalR] Banned from chat:', JSON.stringify(mute));

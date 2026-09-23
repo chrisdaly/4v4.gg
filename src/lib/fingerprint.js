@@ -1,5 +1,5 @@
 /**
- * Replay Lab — Player Identity Fingerprinting
+ * Replay Lab - Player Identity Fingerprinting
  *
  * Pure functions for extracting behavioral fingerprints from replay action data
  * and computing cross-replay player similarity.
@@ -8,10 +8,10 @@
  * Segments with zero signal are excluded so missing data doesn't drag scores.
  *
  * Segments:
- *   Action distribution (6 dims, weight 1.0) — playstyle ratios
- *   APM profile (3 dims, weight 1.5) — speed + burstiness (L2 distance)
- *   Hotkey profile (20 dims, weight 5.0) — muscle memory (used + assigned)
- *   Early-game n-grams (20 dims, weight 1.0) — opening habits
+ *   Action distribution (6 dims, weight 1.0) - playstyle ratios
+ *   APM profile (3 dims, weight 1.5) - speed + burstiness (L2 distance)
+ *   Hotkey profile (20 dims, weight 5.0) - muscle memory (used + assigned)
+ *   Early-game n-grams (20 dims, weight 1.0) - opening habits
  */
 
 // ── Action Distribution (6 dims) ────────────────────
@@ -183,7 +183,7 @@ export function computeBreakdown(fpA, fpB) {
 function combinedSimilarity(fpA, fpB, sameRace) {
   const bd = computeBreakdown(fpA, fpB);
 
-  // Only include segments that have actual signal — if both players have
+  // Only include segments that have actual signal - if both players have
   // zero data for a segment (e.g. no early-game sequence → ngram 0%),
   // exclude it so it doesn't drag the score down as dead weight.
   const segments = [

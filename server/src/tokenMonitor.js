@@ -3,7 +3,7 @@
  *
  * W3C tokens are hardcoded to expire 7 days after issue (see
  * w3champions/identification-service) and are only validated at SignalR
- * handshake — so an expired token means silent chat-capture loss on the next
+ * handshake - so an expired token means silent chat-capture loss on the next
  * reconnect. This monitor logs loudly and files a GitHub issue once per token
  * when expiry is <24h away (or auth has already failed).
  */
@@ -71,15 +71,15 @@ async function check() {
     `[TokenMonitor] W3C JWT ${expired ? 'EXPIRED' : `expires in ${Math.round(remaining / 36e5)}h`} (${expIso}); signalr: ${status.state}${authFailedRecently ? ', auth recently failed' : ''}`
   );
 
-  // One issue per token — keyed on its exp timestamp, persisted across restarts
+  // One issue per token - keyed on its exp timestamp, persisted across restarts
   if (getSetting(ISSUE_DEDUPE_KEY) === String(expMs)) return;
 
   const title = expired || authFailedRecently
-    ? '[Relay] W3C chat token invalid — chat capture is DOWN'
+    ? '[Relay] W3C chat token invalid - chat capture is DOWN'
     : '[Relay] W3C chat token expires within 24h';
   const body = [
     `The W3C JWT used by the chat relay ${expired ? 'expired' : 'expires'} at **${expIso}**.`,
-    authFailedRecently ? `\nSignalR authorization is currently failing — messages are NOT being captured.` : '',
+    authFailedRecently ? `\nSignalR authorization is currently failing - messages are NOT being captured.` : '',
     `\n**Renewal** (tokens last 7 days, no refresh endpoint exists):`,
     `1. Log into w3champions.com, copy the \`eyJ…\` JWT from localStorage (DevTools → Application).`,
     `2. Inject it:`,

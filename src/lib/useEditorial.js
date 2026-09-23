@@ -170,7 +170,7 @@ export default function useEditorial({ digest, isAdmin, apiKey, onDigestUpdated 
       const items = sec.content.split(/;\s*/).map(s => s.trim()).filter(Boolean);
       if (itemIdx >= items.length) return prev;
       const summary = items[itemIdx].replace(/"[^"]+"/g, '').replace(/\s{2,}/g, ' ').trim()
-        .replace(/\s*[—:,]\s*$/, '').trim();
+        .replace(/\s*[\u2014:,]\s*$/, '').trim();
       const quoteParts = newQuotes.map(q => `"${q}"`).join(' ');
       const newItem = quoteParts ? `${summary} ${quoteParts}` : summary;
       items[itemIdx] = newItem;
@@ -412,7 +412,7 @@ export default function useEditorial({ digest, isAdmin, apiKey, onDigestUpdated 
     setDraftLoading(false);
   }, [digest?.date, apiKey]);
 
-  // Navigation guard — warn on unsaved changes
+  // Navigation guard - warn on unsaved changes
   useEffect(() => {
     if (!isDirty) return;
     const handler = (e) => {

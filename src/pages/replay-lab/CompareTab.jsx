@@ -507,7 +507,7 @@ export default function CompareTab() {
                       {c.nameMatch ? "=" : "→"}
                     </CandidateTag>
                     <div>
-                      <CandidateName $color={c.nameMatch ? "var(--green)" : "#fff"}>
+                      <CandidateName $color={c.nameMatch ? "var(--green)" : "var(--white)"}>
                         {c.bestMatch.playerName.split("#")[0]}
                       </CandidateName>
                       <CandidateTag> {replayLabels[c.bestMatch.replayId]}</CandidateTag>
@@ -539,7 +539,7 @@ export default function CompareTab() {
             <EmptyState>
               {replays.length < 2
                 ? "Upload at least 2 replays to see matches"
-                : "No matches above threshold — try lowering it"}
+                : "No matches above threshold - try lowering it"}
             </EmptyState>
           )}
         </Section>

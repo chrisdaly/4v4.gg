@@ -31,8 +31,8 @@ const ChartLabel = styled.div`
 `;
 
 /**
- * Overlay radar chart — ghost polygons for earlier replays, solid for latest.
- * series: [{ label, actions }] — actions has rightclick, ability, etc.
+ * Overlay radar chart - ghost polygons for earlier replays, solid for latest.
+ * series: [{ label, actions }] - actions has rightclick, ability, etc.
  */
 export default function OverlayRadar({ series }) {
   const svgRef = useRef(null);
@@ -96,7 +96,7 @@ export default function OverlayRadar({ series }) {
     const scale = d3.scaleLinear().domain([0, globalMax]).range([0, maxR]);
     const lineGen = d3.line().x((d) => d[0]).y((d) => d[1]);
 
-    // Draw polygons — earlier = ghost, latest = solid
+    // Draw polygons - earlier = ghost, latest = solid
     series.forEach((s, idx) => {
       const values = allValues[idx];
       const isLatest = idx === series.length - 1;

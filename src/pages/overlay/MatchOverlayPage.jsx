@@ -100,7 +100,7 @@ const MatchOverlayPage = () => {
     return () => { clearTimeout(dismissTimer); clearTimeout(hideTimer); };
   }, [ongoingGame]);
 
-  // HUD sync — when syncScreens=true, delay HUD appearance to match intro screen duration (11.2s)
+  // HUD sync - when syncScreens=true, delay HUD appearance to match intro screen duration (11.2s)
   const syncScreens = urlParam("syncScreens") === "true";
   const hudGameId = useRef(null);
   const [hudReady, setHudReady] = useState(!syncScreens);
@@ -121,7 +121,7 @@ const MatchOverlayPage = () => {
     }
   }, [displayedGame]);
 
-  // Dedup guard — prevents watcher + polling both firing the outro for the same game
+  // Dedup guard - prevents watcher + polling both firing the outro for the same game
   const lastOutroRef = useRef(0);
 
   const tryShowOutro = async () => {
@@ -133,7 +133,7 @@ const MatchOverlayPage = () => {
     if (finished) showOutro(finished);
   };
 
-  // Local watcher SSE — connects to wc3-watcher.mjs running on the streaming machine.
+  // Local watcher SSE - connects to wc3-watcher.mjs running on the streaming machine.
   // Only active on the Screens source (?screens=only) since that's where the outro renders.
   // Falls back to polling (below) if watcher is unavailable.
   useEffect(() => {
@@ -161,7 +161,7 @@ const MatchOverlayPage = () => {
     return () => es?.close();
   }, []);
 
-  // Outro sequence — show score screen, auto-dismiss after 20s
+  // Outro sequence - show score screen, auto-dismiss after 20s
   // finishedMatch = { match, playerScores }
   const showOutro = (finishedMatch) => {
     setOutroGame(finishedMatch);
@@ -265,7 +265,7 @@ const MatchOverlayPage = () => {
       return;
     }
 
-    // Live mode — poll for streamer's game
+    // Live mode - poll for streamer's game
     fetchOngoingGames().finally(() => setIsLoaded(true));
     const interval = setInterval(fetchOngoingGames, 30000);
     return () => clearInterval(interval);
@@ -278,7 +278,7 @@ const MatchOverlayPage = () => {
       const tag = getStreamerTag();
       const game = findPlayerInOngoingMatches(data, tag);
 
-      // Game ended — fire outro via polling (watcher SSE is preferred when available)
+      // Game ended - fire outro via polling (watcher SSE is preferred when available)
       if (!game && lastGameRef.current && introEnabled) {
         tryShowOutro();
       }
@@ -311,7 +311,7 @@ const MatchOverlayPage = () => {
   return (
     <div style={{ position: 'fixed', inset: 0, background: 'transparent', overflow: 'hidden' }}>
 
-      {/* Fullscreen intro — fires when a new game starts (screens source only) */}
+      {/* Fullscreen intro - fires when a new game starts (screens source only) */}
       {introPhase && displayedGame && (
         <GameIntroScreen
           matchData={displayedGame}
@@ -324,7 +324,7 @@ const MatchOverlayPage = () => {
         />
       )}
 
-      {/* Fullscreen score screen — fires when game ends (screens source only) */}
+      {/* Fullscreen score screen - fires when game ends (screens source only) */}
       {outroPhase && outroGame && (
         <GameOutroScreen
           matchData={outroGame}
@@ -337,7 +337,7 @@ const MatchOverlayPage = () => {
         />
       )}
 
-      {/* HUD strip — bottom bar, hidden in screens-only mode; delayed when syncScreens=true */}
+      {/* HUD strip - bottom bar, hidden in screens-only mode; delayed when syncScreens=true */}
       {!screensOnly && isLoaded && displayedGame && hudReady && (
         <div style={{
           position: 'absolute',

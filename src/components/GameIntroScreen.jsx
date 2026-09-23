@@ -89,7 +89,7 @@ const AvgMmrRow = ({ team1Mmr, team2Mmr }) => (
   </div>
 );
 
-// Option A — chart is the hero, map thumbnail below
+// Option A - chart is the hero, map thumbnail below
 const CenterChart = ({ team1, team2, mapImageUrl, mapName, team1Mmr, team2Mmr }) => (
   <>
     <ChartBlock team1={team1} team2={team2} height={230} />
@@ -98,7 +98,7 @@ const CenterChart = ({ team1, team2, mapImageUrl, mapName, team1Mmr, team2Mmr })
   </>
 );
 
-// Option B — map is the hero, chart below
+// Option B - map is the hero, chart below
 const CenterMap = ({ team1, team2, mapImageUrl, mapName, team1Mmr, team2Mmr }) => (
   <>
     <MapThumb mapImageUrl={mapImageUrl} mapName={mapName} size={180} />
@@ -107,7 +107,7 @@ const CenterMap = ({ team1, team2, mapImageUrl, mapName, team1Mmr, team2Mmr }) =
   </>
 );
 
-// Option C — equal split: chart on top, map on bottom, no avg MMR text
+// Option C - equal split: chart on top, map on bottom, no avg MMR text
 const CenterSplit = ({ team1, team2, mapImageUrl, mapName }) => (
   <>
     <ChartBlock team1={team1} team2={team2} height={160} />
@@ -115,7 +115,7 @@ const CenterSplit = ({ team1, team2, mapImageUrl, mapName }) => (
   </>
 );
 
-// Option D — pure chart only, no map image
+// Option D - pure chart only, no map image
 const CenterPure = ({ team1, team2, team1Mmr, team2Mmr }) => (
   <>
     <ChartBlock team1={team1} team2={team2} height={280} />
@@ -168,7 +168,7 @@ const GameIntroScreen = ({
 
   return (
     <div className={`gi-screen ${dismissing ? "gi-out" : "gi-in"}`}>
-      {/* Split race backgrounds — team 1 left, team 2 right */}
+      {/* Split race backgrounds - team 1 left, team 2 right */}
       <div className="gi-bg">
         <div className="gi-bg-left" style={{ backgroundImage: `url(${team1Bg})` }} />
         <div className="gi-bg-right" style={{ backgroundImage: `url(${team2Bg})` }} />

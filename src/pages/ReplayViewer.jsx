@@ -182,7 +182,7 @@ export default function ReplayViewer() {
             {error && <ErrorText>{error}</ErrorText>}
 
             <Hint>
-              Nothing is stored — purely ephemeral parsing for old replays.
+              Nothing is stored - purely ephemeral parsing for old replays.
             </Hint>
           </>
         )}
@@ -409,7 +409,7 @@ const ChatSender = styled.span`
 `;
 
 const ChatText = styled.span`
-  color: #fff;
+  color: var(--white);
   word-break: break-word;
 `;
 
@@ -500,7 +500,7 @@ const Metric = styled.div`
 const MetricValue = styled.div`
   font-family: var(--font-mono);
   font-size: var(--text-lg);
-  color: #fff;
+  color: var(--white);
   font-weight: 600;
 `;
 

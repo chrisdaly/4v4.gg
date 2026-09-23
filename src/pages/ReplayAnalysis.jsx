@@ -34,21 +34,21 @@ function formatMs(ms) {
 // Map order IDs to color categories for display
 const OID_COLOR = (oid, id) => {
   if (!oid) {
-    if (id === 0x18) return "#c8a84b";   // hotkey
-    if (id === 0x17) return "#e67e22";   // assign
-    if (id === 0x16) return "#5a5a6a";   // select
-    if (id === 0x19) return "#555";      // tab (noise)
-    if (id === 0x11 || id === 0x13) return "#4a9eff";  // point-target = move
-    if (id === 0x12 || id === 0x14) return "#ef5350";  // unit-target = attack
-    if (id === 0x10) return "#26c6da";   // instant ability
+    if (id === 0x18) return "var(--gold)";       // hotkey
+    if (id === 0x17) return "var(--amber)";      // assign
+    if (id === 0x16) return "var(--grey-mid)";   // select
+    if (id === 0x19) return "var(--grey-mid)";   // tab (noise)
+    if (id === 0x11 || id === 0x13) return "var(--team-blue)";  // point-target = move
+    if (id === 0x12 || id === 0x14) return "var(--red)";        // unit-target = attack
+    if (id === 0x10) return "var(--cyan)";       // instant ability
     return "rgba(255,255,255,0.4)";
   }
-  if (oid === "move" || oid === "smart" || oid === "ssto") return "#4a9eff";
-  if (oid === "amov" || oid === "Amov") return "#26c6da";
-  if (oid === "satt" || oid === "Aatk") return "#ef5350";
+  if (oid === "move" || oid === "smart" || oid === "ssto") return "var(--team-blue)";
+  if (oid === "amov" || oid === "Amov") return "var(--cyan)";
+  if (oid === "satt" || oid === "Aatk") return "var(--red)";
   if (oid === "stop" || oid === "hold") return "rgba(255,255,255,0.4)";
   // Hero abilities (start with uppercase letter then uppercase)
-  if (/^[A-Z][A-Z]/.test(oid)) return "#9b59b6";
+  if (/^[A-Z][A-Z]/.test(oid)) return "var(--at-purple)";
   return "rgba(255,255,255,0.6)";
 };
 
@@ -487,11 +487,11 @@ const TimeInputField = styled.input`
 
   &:focus {
     border-color: var(--gold);
-    color: #fff;
+    color: var(--white);
   }
 
   &::placeholder {
-    color: #3a3a4a;
+    color: var(--grey-mid);
   }
 `;
 

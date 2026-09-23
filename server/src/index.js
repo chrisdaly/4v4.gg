@@ -28,7 +28,7 @@ app.set('trust proxy', 1);
 
 app.use(compression({
   filter: (req, res) => {
-    // Never compress SSE streams — buffering breaks event delivery
+    // Never compress SSE streams - buffering breaks event delivery
     if (req.headers.accept === 'text/event-stream') return false;
     return compression.filter(req, res);
   },
@@ -55,7 +55,7 @@ initDb();
 console.log(`[DB] Initialized at ${config.DB_PATH}`);
 
 if (!config.ADMIN_API_KEY) {
-  console.warn('[SECURITY] ADMIN_API_KEY is empty — admin endpoints will reject all requests.');
+  console.warn('[SECURITY] ADMIN_API_KEY is empty - admin endpoints will reject all requests.');
 }
 
 startHeartbeat();
@@ -70,26 +70,26 @@ startSignalR().catch(err => {
 
 startScheduler();
 
-// Match polling — detects game_start/game_end events
+// Match polling - detects game_start/game_end events
 startMatchPolling();
 
-// Clips — fetch Twitch clips from WC3 streamers
+// Clips - fetch Twitch clips from WC3 streamers
 startClipScheduler();
 
-// Feedback — scan chat for site feedback, create GitHub issues
+// Feedback - scan chat for site feedback, create GitHub issues
 startFeedbackScheduler();
 
-// Replay importer — drip-import replays from W3C ladder players
+// Replay importer - drip-import replays from W3C ladder players
 startReplayImporter();
 startGameAnnouncer();
 
-// Token monitor — warn + file GitHub issue before the weekly W3C JWT expires
+// Token monitor - warn + file GitHub issue before the weekly W3C JWT expires
 startTokenMonitor();
 
-// Map sync — download missing minimap PNGs from Liquipedia when season updates
+// Map sync - download missing minimap PNGs from Liquipedia when season updates
 startMapSync();
 
-// Event cleanup — delete events older than 14 days, run every 6 hours
+// Event cleanup - delete events older than 14 days, run every 6 hours
 const runCleanup = () => {
   try {
     const deleted = deleteOldEvents(14);
@@ -101,7 +101,7 @@ const runCleanup = () => {
 runCleanup();
 setInterval(runCleanup, 6 * 60 * 60 * 1000);
 
-// WAL checkpoint — flush WAL data into main DB file every 30 minutes
+// WAL checkpoint - flush WAL data into main DB file every 30 minutes
 // so volume snapshots capture a consistent database and the WAL stays small
 import { walCheckpoint, closeDb } from './db.js';
 const runCheckpoint = () => {
@@ -113,12 +113,12 @@ const runCheckpoint = () => {
   }
 };
 // When Litestream is replicating (BUCKET_NAME set), it owns WAL
-// checkpointing — a competing TRUNCATE checkpoint would only ever report busy.
+// checkpointing - a competing TRUNCATE checkpoint would only ever report busy.
 if (!process.env.BUCKET_NAME) {
   setInterval(runCheckpoint, 30 * 60 * 1000);
 }
 
-// Graceful shutdown — checkpoint + close the DB so deploys never leave a
+// Graceful shutdown - checkpoint + close the DB so deploys never leave a
 // mid-write WAL behind
 let shuttingDown = false;
 const shutdown = (signal) => {

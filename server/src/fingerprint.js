@@ -2,13 +2,13 @@
  * Server-side Player Fingerprinting
  *
  * Fingerprint segments:
- *   action (6d)      — action type distribution
- *   apm (3d)         — mean APM, variability, burstiness
- *   hotkey (20d)     — group select/assign distribution
- *   tempo (7d)       — inter-action time delta histogram
- *   intensity (2d)   — hotkey actions per minute (select + assign rate)
- *   transitions (10d) — top-10 normalized hotkey group transition frequencies
- *   rhythm (15d)     — subconscious micro-routines: trigram patterns, oscillation, cycle lengths
+ *   action (6d)      - action type distribution
+ *   apm (3d)         - mean APM, variability, burstiness
+ *   hotkey (20d)     - group select/assign distribution
+ *   tempo (7d)       - inter-action time delta histogram
+ *   intensity (2d)   - hotkey actions per minute (select + assign rate)
+ *   transitions (10d) - top-10 normalized hotkey group transition frequencies
+ *   rhythm (15d)     - subconscious micro-routines: trigram patterns, oscillation, cycle lengths
  */
 
 const ACTION_KEYS = [
@@ -150,8 +150,8 @@ export function extractTransitionProfile(fullActionSequence) {
  *
  * 15 dimensions:
  *   [0-9]   top-5 trigram frequencies (each trigram = 2 values: encoded key + normalized freq)
- *   [10]    oscillation score — proportion of A→B→A patterns among all trigrams
- *   [11-14] cycle length distribution — how many actions before returning to same group
+ *   [10]    oscillation score - proportion of A→B→A patterns among all trigrams
+ *   [11-14] cycle length distribution - how many actions before returning to same group
  *           buckets: 2-3 (tight), 4-6 (medium), 7-12 (wide), 13+ (rare)
  */
 export function extractRhythmProfile(fullActionSequence) {
@@ -192,7 +192,7 @@ export function extractRhythmProfile(fullActionSequence) {
     profile[i * 2 + 1] = sorted[i][1] / totalTrigrams;   // frequency proportion
   }
 
-  // ── Oscillation score — A→B→A patterns ──
+  // ── Oscillation score - A→B→A patterns ──
   let oscillations = 0;
   for (let i = 0; i < groups.length - 2; i++) {
     if (groups[i] === groups[i + 2] && groups[i] !== groups[i + 1]) {
@@ -355,7 +355,7 @@ export function embeddingSimilarity(a, b) {
   }
   const denom = Math.sqrt(magA) * Math.sqrt(magB);
   if (denom === 0) return 0;
-  // Clamp to [0,1] — orthogonal or opposite vectors = 0
+  // Clamp to [0,1] - orthogonal or opposite vectors = 0
   return Math.max(0, dot / denom);
 }
 
@@ -575,7 +575,7 @@ export function detectPersonas(fingerprints, minSilhouette = 0.25) {
   const c0 = labels.filter(l => l === 0).length;
   const c1 = labels.filter(l => l === 1).length;
 
-  // Reject if either cluster is too small (< 10% of total) — likely outliers, not a second person
+  // Reject if either cluster is too small (< 10% of total) - likely outliers, not a second person
   const minCluster = Math.min(c0, c1);
   if (minCluster < 4 || minCluster / fingerprints.length < 0.10) return null;
 

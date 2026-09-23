@@ -19,7 +19,7 @@ function pruneStreamsCache() {
   }
 }
 
-// GET /api/twitch/streams?logins=login1,login2,... — proxy for Helix /streams
+// GET /api/twitch/streams?logins=login1,login2,... - proxy for Helix /streams
 router.get('/streams', async (req, res) => {
   if (!config.TWITCH_CLIENT_ID || !config.TWITCH_CLIENT_SECRET) {
     return res.status(503).json({ error: 'Twitch credentials are not configured' });

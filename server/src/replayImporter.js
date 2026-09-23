@@ -45,7 +45,7 @@ const REPLAY_DIR = config.REPLAY_DIR.startsWith('/')
   ? config.REPLAY_DIR
   : join(process.cwd(), config.REPLAY_DIR);
 
-// In-memory queue (simple — no need for a DB table since it's rebuilt each discover cycle)
+// In-memory queue (simple - no need for a DB table since it's rebuilt each discover cycle)
 let importQueue = [];
 
 // Add a player to the persistent priority queue. The drip drains this first
@@ -68,7 +68,7 @@ function diskHasHeadroom() {
     const s = statfsSync(REPLAY_DIR);
     const free = s.bavail / s.blocks;
     if (free < MIN_FREE_RATIO) {
-      console.warn(`[Importer] Low disk space (${Math.round(free * 100)}% free) — pausing imports until space is freed`);
+      console.warn(`[Importer] Low disk space (${Math.round(free * 100)}% free) - pausing imports until space is freed`);
       return false;
     }
     return true;
@@ -79,7 +79,7 @@ function diskHasHeadroom() {
 
 /**
  * Discover new matches from the recent finished-matches feed.
- * Two pages of 100 cover the last ~200 4v4 games in 2 API calls — the old
+ * Two pages of 100 cover the last ~200 4v4 games in 2 API calls - the old
  * approach (4 ladder pages + a match-search per player) needed ~65 calls and
  * only saw games involving top-league players.
  *
@@ -155,7 +155,7 @@ async function importMatch({ matchId, players: w3cPlayers }) {
   // Insert DB record
   const replayId = insertReplayWithW3c({ filename, filePath, fileSize: replayBuffer.length, w3cMatchId: matchId });
 
-  // Parse. raw_parsed is intentionally not stored — nothing reads it, and at
+  // Parse. raw_parsed is intentionally not stored - nothing reads it, and at
   // ~1MB per replay it was the main driver of DB bloat. W3C can re-serve any
   // replay by match ID if a re-parse is ever needed.
   const parsed = await parseReplayFile(filePath);
@@ -213,7 +213,7 @@ async function importMatch({ matchId, players: w3cPlayers }) {
     computeEmbeddingsAsync(replayId, parsed.actions).catch(() => {});
   } catch { /* fingerprint error is non-fatal */ }
 
-  // Everything useful is extracted — drop the .w3g to keep the volume from
+  // Everything useful is extracted - drop the .w3g to keep the volume from
   // filling up (root cause of the June 2026 corruption). Only delete the file
   // THIS import wrote; orphaned files from older imports are left alone.
   try { unlinkSync(filePath); } catch { /* already gone */ }
@@ -264,11 +264,11 @@ async function runCycle() {
       const priorityResult = await importPlayerMatches(priorityTag, 1);
       incrementPriorityAttempts(priorityTag);
       if (priorityResult.imported > 0 || priorityResult.noReplay > 0 || priorityResult.discovered === 0) {
-        // Success or no replays available — either way, done with this tag
+        // Success or no replays available - either way, done with this tag
         removeFromPriorityQueue(priorityTag);
         console.log(`[Importer] Priority queue: ${priorityTag} done (imported=${priorityResult.imported} noReplay=${priorityResult.noReplay} discovered=${priorityResult.discovered})`);
       } else if (priorityResult.rateLimited) {
-        // Still rate limited — leave in queue, pause the whole cycle
+        // Still rate limited - leave in queue, pause the whole cycle
         rateLimitCooldown = RATE_LIMIT_PAUSE_CYCLES;
         console.log(`[Importer] Priority queue: rate limited on ${priorityTag}, pausing ${RATE_LIMIT_PAUSE_CYCLES} cycles`);
         isRunning = false;
@@ -312,7 +312,7 @@ async function runCycle() {
           // resets on its own. Put the failed match back at the front.
           importQueue.unshift(match, ...batch.slice(batch.indexOf(match) + 1));
           rateLimitCooldown = RATE_LIMIT_PAUSE_CYCLES;
-          console.log(`[Importer] Rate limited — pausing imports for ${RATE_LIMIT_PAUSE_CYCLES} cycles (~1h), ${importQueue.length} queued`);
+          console.log(`[Importer] Rate limited - pausing imports for ${RATE_LIMIT_PAUSE_CYCLES} cycles (~1h), ${importQueue.length} queued`);
           break;
         } else {
           skipped++;
@@ -339,7 +339,7 @@ async function runCycle() {
  * Returns { discovered, alreadyImported, imported, errors, noReplay, filteredShort }.
  */
 export async function importPlayerMatches(battleTag, targetImports = 3, seasonOverride = null) {
-  if (!diskHasHeadroom()) throw new Error('Disk space low — imports are paused');
+  if (!diskHasHeadroom()) throw new Error('Disk space low - imports are paused');
   let season = seasonOverride;
   if (!season) {
     season = 24;
@@ -405,7 +405,7 @@ export async function importPlayerMatches(battleTag, targetImports = 3, seasonOv
  * Returns { discovered, alreadyImported, imported, errors, noReplay, rateLimited }.
  */
 export async function importPlayerMatchesBulk(battleTag, { daysBack = 7, maxImports = 50, seasonOverride = null } = {}) {
-  if (!diskHasHeadroom()) throw new Error('Disk space low — imports are paused');
+  if (!diskHasHeadroom()) throw new Error('Disk space low - imports are paused');
   let season = seasonOverride;
   if (!season) {
     season = 24;

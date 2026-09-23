@@ -212,7 +212,7 @@ export const CandidateRow = styled.div`
 export const CandidateName = styled.span`
   font-family: var(--font-display);
   font-size: var(--text-xs);
-  color: ${(p) => p.$color || "#fff"};
+  color: ${(p) => p.$color || "var(--white)"};
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
@@ -229,7 +229,7 @@ export const CandidateScore = styled.span`
   font-size: var(--text-xs);
   color: ${(p) =>
     p.$val >= 0.75 ? "var(--gold)" :
-    p.$val >= 0.60 ? "#fff" :
+    p.$val >= 0.60 ? "var(--white)" :
     "var(--grey-light)"};
   font-weight: ${(p) => p.$val >= 0.70 ? "bold" : "normal"};
 `;
@@ -425,7 +425,7 @@ export const DetailName = styled.span`
 export const DetailScore = styled.span`
   font-family: var(--font-mono);
   font-size: var(--text-sm);
-  color: #fff;
+  color: var(--white);
   background: rgba(252, 219, 51, 0.15);
   padding: 2px 10px;
   border-radius: var(--radius-sm);
@@ -448,7 +448,7 @@ export const DetailBar = styled.div`
 export const DetailBarLabel = styled.div`
   font-family: var(--font-mono);
   font-size: var(--text-xxs);
-  color: #fff;
+  color: var(--white);
   text-transform: uppercase;
   letter-spacing: 0.05em;
 `;
@@ -499,7 +499,7 @@ export const HotkeyTable = styled.div`
 export const HkCell = styled.div`
   padding: 5px 8px;
   background: rgba(0, 0, 0, 0.3);
-  color: ${(p) => p.$color || "#fff"};
+  color: ${(p) => p.$color || "var(--white)"};
   display: flex;
   align-items: center;
   gap: 6px;

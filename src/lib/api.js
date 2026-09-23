@@ -40,17 +40,17 @@ const buildProfilePicUrl = (profileData) => {
   const { pictureId, race, isClassic } = profilePicture;
   const classicPrefix = isClassic ? 'classic/' : '';
 
-  // SPECIAL avatars — achievement / premium portraits
+  // SPECIAL avatars - achievement / premium portraits
   if (race === EAvatarCategory.SPECIAL || specialPictures?.some(d => d.pictureId === pictureId)) {
     return `${W3C_STORAGE}/specialAvatars/SPECIAL_${pictureId}.jpg`;
   }
 
-  // TOTAL (16) — total-wins portraits (e.g. TOTAL_9.jpg)
+  // TOTAL (16) - total-wins portraits (e.g. TOTAL_9.jpg)
   if (race === EAvatarCategory.TOTAL) {
     return `${W3C_STORAGE}/raceAvatars/${classicPrefix}TOTAL_${pictureId}.jpg`;
   }
 
-  // STARTER (64) — standard portraits from the starter kit (real images, not placeholders)
+  // STARTER (64) - standard portraits from the starter kit (real images, not placeholders)
   if (race === EAvatarCategory.STARTER) {
     return `${W3C_STORAGE}/raceAvatars/${classicPrefix}STARTER_${pictureId}.jpg`;
   }
@@ -398,7 +398,7 @@ export const searchLadderWithFallback = async (searchTerm, gameMode = 4) => {
     (sum, r) => sum + (r.player?.wins || 0) + (r.player?.losses || 0), 0
   );
 
-  // Early season: no one has played yet — use previous season results directly
+  // Early season: no one has played yet - use previous season results directly
   if (totalCurrentGames === 0 && (prev || []).length > 0) return prev;
 
   // Mid season: enrich any 0-game players with their previous season stats
@@ -475,8 +475,8 @@ const RELAY_BASE =
 
 /**
  * LLM-generated one-liner for a finished match. Two-phase on the relay:
- * an immediate provisional blurb (game data + pre-game chat), then —
- * ~5 min after the match ends — a rewrite IF the players reacted in the
+ * an immediate provisional blurb (game data + pre-game chat), then -
+ * ~5 min after the match ends - a rewrite IF the players reacted in the
  * lounge. While provisional, responses carry `pending` + `retryInMs`;
  * only finalized blurbs are cached client-side.
  *
@@ -500,7 +500,7 @@ export const getMatchBlurb = async (matchId) => {
 };
 
 /**
- * Batch fetch profiles for multiple players via the /many endpoint —
+ * Batch fetch profiles for multiple players via the /many endpoint -
  * one request for a whole match card instead of 8.
  *
  * Note: /many returns only {id, countryCode, location, profilePicture},
@@ -533,7 +533,7 @@ export const getPlayerProfilesBatch = async (battleTags) => {
       const res = await fetch(`${API_BASE}/personal-settings/${tags}/many`);
       if (res.ok) profiles = await res.json();
     } catch {
-      // fall through — missing players get null profiles below
+      // fall through - missing players get null profiles below
     }
 
     const byTag = new Map(profiles.map(p => [p.id?.toLowerCase(), p]));

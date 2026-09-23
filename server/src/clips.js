@@ -5,7 +5,7 @@ const TWITCH_AUTH_URL = 'https://id.twitch.tv/oauth2/token';
 const TWITCH_API = 'https://api.twitch.tv/helix';
 const WC3_GAME_ID = '12924'; // Warcraft III on Twitch
 
-// Known WC3 streamers — seeded on first run if table is empty
+// Known WC3 streamers - seeded on first run if table is empty
 const SEED_STREAMERS = [
   { twitch_login: 'back2warcraft', display_name: 'Back2Warcraft' },
   { twitch_login: 'grubby', display_name: 'Grubby' },
@@ -168,7 +168,7 @@ async function fetchClipsForStreamer(streamer, startedAt, endedAt) {
 
 export async function runClipFetch({ days = 2, force = false } = {}) {
   if (!config.TWITCH_CLIENT_ID || !config.TWITCH_CLIENT_SECRET) {
-    console.log('[Clips] Skipping fetch — no Twitch credentials configured');
+    console.log('[Clips] Skipping fetch - no Twitch credentials configured');
     return { fetched: 0, inserted: 0 };
   }
 
@@ -228,7 +228,7 @@ let schedulerTimer = null;
 
 export function startClipScheduler() {
   if (!config.TWITCH_CLIENT_ID || !config.TWITCH_CLIENT_SECRET) {
-    console.log('[Clips] Scheduler disabled — no Twitch credentials');
+    console.log('[Clips] Scheduler disabled - no Twitch credentials');
     return;
   }
 

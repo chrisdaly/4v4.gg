@@ -355,14 +355,14 @@ export default function ScoutTab({ initialPlayer = null, initialProfileData = nu
     selectedReplayId && replayProfileData ? replayProfileData : profileData;
 
   const fmtDuration = (s) => {
-    if (!s) return "—";
+    if (!s) return "-";
     const m = Math.floor(s / 60);
     const sec = s % 60;
     return `${m}:${String(sec).padStart(2, "0")}`;
   };
 
   const fmtDate = (d) => {
-    if (!d) return "—";
+    if (!d) return "-";
     return d.slice(0, 10);
   };
 
@@ -639,13 +639,13 @@ export default function ScoutTab({ initialPlayer = null, initialProfileData = nu
                               onError={(e) => { e.target.style.display = "none"; }}
                             />
                           )}
-                          <ReplayMapName>{mapClean || r.mapName || "—"}</ReplayMapName>
+                          <ReplayMapName>{mapClean || r.mapName || "-"}</ReplayMapName>
                           <ReplayStat $dim={!stats}>
-                            {stats?.apm ?? "—"}
+                            {stats?.apm ?? "-"}
                             <span className="label">APM</span>
                           </ReplayStat>
                           <ReplayStat $dim={!stats}>
-                            {stats?.groupsUsed ?? "—"}
+                            {stats?.groupsUsed ?? "-"}
                             <span className="label">GRP</span>
                           </ReplayStat>
                           <ReplayDuration>
@@ -666,12 +666,12 @@ export default function ScoutTab({ initialPlayer = null, initialProfileData = nu
                 <PeonLoader size="sm" subject={queryName} />
               ) : importStatus === 'done' && importResult ? (
                 importResult.imported > 0 ? (
-                  <span>Imported {importResult.imported} replays — loading profile...</span>
+                  <span>Imported {importResult.imported} replays - loading profile...</span>
                 ) : importResult.discovered === 0 ? (
                   <span>No 4v4 matches found for this player.</span>
                 ) : importResult.noReplay > 0 ? (
                   <span>
-                    Searched {importResult.discovered} matches — replay files not available on W3C. This is normal.
+                    Searched {importResult.discovered} matches - replay files not available on W3C. This is normal.
                     {importResult.filteredShort > 0 && ` (${importResult.filteredShort} short games skipped)`}
                   </span>
                 ) : importResult.alreadyImported > 0 ? (
@@ -718,7 +718,7 @@ const SearchSection = styled.div`
   gap: var(--space-4);
   margin-bottom: var(--space-4);
   position: relative;
-  z-index: 200;
+  z-index: var(--z-dropdown);
 `;
 
 const SearchInputWrap = styled.div`
@@ -895,7 +895,7 @@ const ReplayRow = styled.div`
   cursor: pointer;
   font-family: var(--font-mono);
   font-size: var(--text-xxs);
-  color: ${(p) => (p.$active ? "var(--gold)" : "#ccc")};
+  color: ${(p) => (p.$active ? "var(--gold)" : "var(--grey-light)")};
   background: ${(p) => (p.$active ? "var(--gold-tint)" : "transparent")};
   border-left: 2px solid
     ${(p) => (p.$active ? "var(--gold)" : "transparent")};
@@ -903,7 +903,7 @@ const ReplayRow = styled.div`
 
   &:hover {
     background: rgba(255, 255, 255, 0.04);
-    color: #fff;
+    color: var(--white);
   }
 
   & + & {

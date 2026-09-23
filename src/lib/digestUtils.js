@@ -166,7 +166,7 @@ export const splitQuotes = (text) => {
       .replace(/\bcalling him\s*$/gi, "")
       .replace(/\bcalling him\s+and\b/gi, "")
       .replace(/'\s+of\b/g, "'s")
-      .replace(/\s*[—:,]\s*$/g, "")
+      .replace(/\s*[\u2014:,]\s*$/g, "")
       .replace(/\s{2,}/g, " ")
       .trim();
   }
@@ -229,14 +229,14 @@ export const parseAwards = (content) => {
 
 /**
  * Parse UPSET: semicolon-delimited upset entries.
- * Format: "Names (avg X MMR) beat favorites (avg Y MMR) on Map — Z MMR gap matchId [u1mmr,...|f1mmr,...|uTag1,...|fTag1,...]"
+ * Format: "Names (avg X MMR) beat favorites (avg Y MMR) on Map - Z MMR gap matchId [u1mmr,...|f1mmr,...|uTag1,...|fTag1,...]"
  */
 export const parseUpsets = (content) => {
   return content.split(/;\s*/).map((entry) => {
     const e = entry.trim();
     if (!e) return null;
     const m = e.match(
-      /^(.+?)\s+\(avg\s+(\d+)\s*MMR\)\s+beat\s+favorites?\s+\(avg\s+(\d+)\s*MMR\)\s+on\s+(.+?)\s+[—-]\s+(\d+)\s*MMR\s*gap\s+([a-f0-9]+)\s+\[([^\]]+)\]/i
+      /^(.+?)\s+\(avg\s+(\d+)\s*MMR\)\s+beat\s+favorites?\s+\(avg\s+(\d+)\s*MMR\)\s+on\s+(.+?)\s+[\u2014-]\s+(\d+)\s*MMR\s*gap\s+([a-f0-9]+)\s+\[([^\]]+)\]/i
     );
     if (!m) return null;
     const parts = m[7].split("|");
@@ -347,7 +347,7 @@ export const buildStatBlurb = (stat, accent) => {
 
   if (accent === "green") {
     const mmrPart = stat.mmrChange != null ? `Climbed +${Math.abs(stat.mmrChange)} MMR across ${totalGames} games on ${raceName}` : `Went ${stat.wins}-${stat.losses} on ${raceName} across ${totalGames} games`;
-    lines.push(`${mmrPart} \u2014 a ${winRate}% win rate.`);
+    lines.push(`${mmrPart} - a ${winRate}% win rate.`);
     if (run.char === "W" && run.len >= 4) {
       lines.push(`Closed the week on a ${run.len}-game win streak.`);
     }
@@ -355,7 +355,7 @@ export const buildStatBlurb = (stat, accent) => {
     if (totalGames <= 6) {
       lines.push(`A brutal ${stat.wins}-${stat.losses} week on ${raceName}.`);
     } else {
-      lines.push(`Went ${stat.wins}-${stat.losses} on ${raceName} across ${totalGames} games \u2014 just ${winRate}% win rate.`);
+      lines.push(`Went ${stat.wins}-${stat.losses} on ${raceName} across ${totalGames} games - just ${winRate}% win rate.`);
     }
     if (stat.mmrChange != null) {
       lines.push(`${Math.abs(stat.mmrChange)} MMR wiped in the process.`);
@@ -364,7 +364,7 @@ export const buildStatBlurb = (stat, accent) => {
       lines[lines.length - 1] = `${run.len} straight losses cost ${stat.mmrChange != null ? Math.abs(stat.mmrChange) + " MMR" : "dearly"}.`;
     }
   } else if (accent === "gold") {
-    lines.push(`Logged ${totalGames} games on ${raceName} this week \u2014 more than anyone else. Went ${stat.wins}-${stat.losses} (${winRate}% WR).`);
+    lines.push(`Logged ${totalGames} games on ${raceName} this week - more than anyone else. Went ${stat.wins}-${stat.losses} (${winRate}% WR).`);
   }
 
   return lines;

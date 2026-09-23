@@ -38,7 +38,7 @@ export default function IconPicker() {
   return (
     <Wrap>
       <Title>Role Icon Picker</Title>
-      <Subtitle>game-icons.net / CC BY 3.0 — pick one per role</Subtitle>
+      <Subtitle>game-icons.net / CC BY 3.0 - pick one per role</Subtitle>
 
       {CATEGORIES.map(cat => {
         const icons = ICONS.filter(i => i.category === cat);
@@ -63,7 +63,7 @@ export default function IconPicker() {
                       </SizeCell>
                     ))}
                   </SizeRow>
-                  {/* Show at gold color on dark bg — how it'd look in the glyph */}
+                  {/* Show at gold color on dark bg - how it'd look in the glyph */}
                   <GlyphPreview>
                     <img
                       src={`/icons/roles/${icon.file}.svg`}
@@ -142,7 +142,7 @@ const IconCard = styled.div`
 const IconName = styled.div`
   font-family: var(--font-display);
   font-size: var(--text-base);
-  color: #fff;
+  color: var(--white);
   margin-bottom: var(--space-3);
 `;
 

@@ -432,7 +432,7 @@ const Card = styled.button`
 `;
 
 const GlyphBox = styled.div`
-  background: #0a0a0a;
+  background: var(--grey-dark);
   width: 100%;
   aspect-ratio: 1;
 `;
@@ -443,7 +443,7 @@ const GlyphPlaceholder = styled.div`
   justify-content: center;
   width: 100%;
   aspect-ratio: 1;
-  background: #0a0a0a;
+  background: var(--grey-dark);
 `;
 
 const PlaceholderDot = styled.div`
@@ -526,7 +526,7 @@ const StatsRow = styled.div`
 const StatChip = styled.span`
   font-family: var(--font-mono);
   font-size: var(--text-xs);
-  color: #fff;
+  color: var(--white);
   & span { color: var(--grey-light); font-size: var(--text-xxs); }
 `;
 
@@ -576,7 +576,7 @@ const CompareInput = styled.input`
   background: var(--surface-1);
   border: var(--border-thin) solid var(--grey-mid);
   border-radius: var(--radius-sm);
-  color: #fff;
+  color: var(--white);
   font-family: var(--font-mono);
   font-size: var(--text-xs);
   padding: var(--space-2) var(--space-3);

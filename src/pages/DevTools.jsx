@@ -181,7 +181,7 @@ function PlayerSearch({ selectedPlayers, onAdd, onRemove, profiles }) {
                       <span className="navbar-search-l">{losses}L</span>
                     </span>
                   </span>
-                  <span className="navbar-search-mmr">{mmr != null ? `${Math.round(mmr)} MMR` : "—"}</span>
+                  <span className="navbar-search-mmr">{mmr != null ? `${Math.round(mmr)} MMR` : "-"}</span>
                 </button>
               );
             })}
@@ -655,7 +655,7 @@ export default function DevTools() {
     setCards((prev) => prev.map((c, i) => (i === idx ? { ...c, ...patch } : c)));
   }
 
-  // Current week's Monday (for "This week" shortcut) — must be before early return
+  // Current week's Monday (for "This week" shortcut) - must be before early return
   const currentMonday = useMemo(() => {
     const now = new Date();
     const day = now.getDay();

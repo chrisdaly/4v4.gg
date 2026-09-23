@@ -3,22 +3,24 @@
  * All viz components should import helpers from here instead of defining their own.
  */
 
+import { colors, chartColors, raceSolid } from "../../lib/design-tokens";
+
 // ── Color palette ──────────────────────────────────────
-export const GOLD = "#fcdb33";
-export const GOLD_DIM = "#b89a1e";
-export const GREEN = "#4ade80";
-export const RED = "#f87171";
-export const BLUE = "#3b82f6";
+export const GOLD = chartColors.gold;
+export const GOLD_DIM = `${chartColors.gold}b3`; // gold at 70% alpha (8-digit hex)
+export const GREEN = chartColors.green;
+export const RED = chartColors.red;
+export const BLUE = colors.blue.value;
 export const GREY = "var(--grey-light)";
 export const GREY_MID = "var(--grey-mid)";
 export const GREY_DARK = "var(--grey-dark)";
 export const TRAIT_COLORS = [GOLD, GREEN, BLUE, RED, "#c084fc", "#f472b6"];
 
 export const RACE_COLORS = {
-  Human: "#3b82f6",
-  Orc: "#ef4444",
-  "Night Elf": "#a855f7",
-  Undead: "#22c55e",
+  Human: raceSolid.human,
+  Orc: raceSolid.orc,
+  "Night Elf": raceSolid.nightelf,
+  Undead: raceSolid.undead,
   Random: GREY,
 };
 

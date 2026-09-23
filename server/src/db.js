@@ -18,7 +18,7 @@ export function initDb() {
   mkdirSync(dirname(config.DB_PATH), { recursive: true });
 
   // Recovery: never destroy data automatically. The WAL holds committed
-  // transactions, and a failed .recover must not be replaced by an empty DB —
+  // transactions, and a failed .recover must not be replaced by an empty DB -
   // both cases need an operator (restore from Litestream/snapshot, or run
   // .recover by hand with enough free disk).
   try {
@@ -28,7 +28,7 @@ export function initDb() {
     const code = err.code || '';
     if (code.startsWith('SQLITE_IOERR')) {
       console.error(`[DB] FATAL: SQLite I/O error (${code}) opening ${config.DB_PATH}.`);
-      console.error('[DB] Likely cause: disk full or unreadable WAL/SHM. NOT deleting the WAL — it contains committed writes.');
+      console.error('[DB] Likely cause: disk full or unreadable WAL/SHM. NOT deleting the WAL - it contains committed writes.');
       console.error('[DB] Operator action: free disk space (check /data/replays), then restart. If the WAL itself is damaged, copy db+wal+shm aside before any repair attempt.');
       process.exit(1);
     } else if (code === 'SQLITE_CORRUPT') {
@@ -256,7 +256,7 @@ export function initDb() {
   // Migration: add duration_seconds column to match_player_scores
   tryAddColumn(`ALTER TABLE match_player_scores ADD COLUMN duration_seconds INTEGER DEFAULT 0`);
 
-  // Cover image generations — stores every generated image with metadata
+  // Cover image generations - stores every generated image with metadata
   db.exec(`
     CREATE TABLE IF NOT EXISTS cover_generations (
       id          INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -447,7 +447,7 @@ export function initDb() {
     tryAddColumn(`ALTER TABLE player_fingerprints ADD COLUMN ${col} TEXT`);
   }
 
-  // Blog posts — markdown content with publish/draft workflow
+  // Blog posts - markdown content with publish/draft workflow
   db.exec(`
     CREATE TABLE IF NOT EXISTS blog_posts (
       slug        TEXT PRIMARY KEY,
@@ -465,7 +465,7 @@ export function initDb() {
   // Migration: add cover_image column to blog_posts
   tryAddColumn(`ALTER TABLE blog_posts ADD COLUMN cover_image TEXT`);
 
-  // Style thumbnails — preview images for style presets
+  // Style thumbnails - preview images for style presets
   db.exec(`
     CREATE TABLE IF NOT EXISTS style_thumbnails (
       style_id    TEXT PRIMARY KEY,
@@ -475,7 +475,7 @@ export function initDb() {
     );
   `);
 
-  // Validation pairs — known smurf-main pairs for ground-truth testing
+  // Validation pairs - known smurf-main pairs for ground-truth testing
   db.exec(`
     CREATE TABLE IF NOT EXISTS validation_pairs (
       id INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -904,7 +904,7 @@ export function getContextAroundQuotes(date, quotes, battleTags = [], paddingMin
     }
   }
 
-  // Step 2: Keyword match — find the densest cluster of keyword-matching messages from target players
+  // Step 2: Keyword match - find the densest cluster of keyword-matching messages from target players
   if (quotes && quotes.length > 0 && battleTags && battleTags.length > 0) {
     const keywords = extractKeywords(quotes);
     if (keywords.length > 0) {
@@ -928,7 +928,7 @@ export function getContextAroundQuotes(date, quotes, battleTags = [], paddingMin
     }
   }
 
-  // Step 3: Densest activity cluster — find where target players chatted most intensely
+  // Step 3: Densest activity cluster - find where target players chatted most intensely
   if (battleTags && battleTags.length > 0) {
     const placeholders = battleTags.map(() => '?').join(',');
     const playerMsgs = db.prepare(`
@@ -1886,7 +1886,7 @@ export function getPlayerActionDataTop(battleTag, limit = 10) {
 }
 
 export function getPlayerActionData(battleTag) {
-  // Fetch newest rows first (replay_id DESC uses the existing PK index — fast).
+  // Fetch newest rows first (replay_id DESC uses the existing PK index - fast).
   // Callers that need sequence-rich rows first should sort in JS after fetching.
   return db.prepare(`
     SELECT rpa.timed_segments, rpa.full_action_sequence, rpa.group_hotkeys,
@@ -1998,7 +1998,7 @@ export function getPlayerFingerprintsByName(playerName) {
 
 export function getPlayerFingerprintsFiltered(battleTag, { minDuration = 0, race = null, after = null, replayIds = null } = {}) {
   const playerName = battleTag.split('#')[0];
-  // Match by battle_tag OR player_name — replays imported without a full battleTag only have player_name set
+  // Match by battle_tag OR player_name - replays imported without a full battleTag only have player_name set
   const conditions = ['(pf.battle_tag = ? OR pf.player_name = ? OR pf.player_name LIKE ? || \'#%\')'];
   const params = [battleTag, playerName, playerName];
   if (minDuration > 0) { conditions.push('r.game_duration >= ?'); params.push(minDuration); }
@@ -2177,7 +2177,7 @@ export function setMatchBlurb(matchId, blurb, { finalized = 1, endTimeMs = null,
   `).run(matchId, blurb, finalized ? 1 : 0, endTimeMs, rivals ? JSON.stringify(rivals) : null, parts ? JSON.stringify(parts) : null);
 }
 
-// How many lounge messages these players sent after a moment in time —
+// How many lounge messages these players sent after a moment in time -
 // the "did anyone react to this game?" check for blurb phase 2
 export function countMessagesByTagsSince(battleTags, sinceMs) {
   if (!battleTags.length || !sinceMs) return 0;
@@ -2189,7 +2189,7 @@ export function countMessagesByTagsSince(battleTags, sinceMs) {
   `).get(...battleTags, since)?.n ?? 0;
 }
 
-// Recent messages from a set of players — fuel for blurb trash-talk callbacks
+// Recent messages from a set of players - fuel for blurb trash-talk callbacks
 export function getRecentMessagesByTags(battleTags, hours = 12, limit = 30) {
   if (!battleTags.length) return [];
   const placeholders = battleTags.map(() => '?').join(',');
@@ -2204,7 +2204,7 @@ export function getRecentMessagesByTags(battleTags, hours = 12, limit = 30) {
   `).all(...battleTags, hours, limit);
 }
 
-// Messages from a set of players within an absolute time window — used by
+// Messages from a set of players within an absolute time window - used by
 // blurb fact sheet so historical matches aren't blocked by the rolling-hours cutoff.
 export function getMessagesByTagsInWindow(battleTags, sinceMs, untilMs, limit = 20) {
   if (!battleTags.length) return [];

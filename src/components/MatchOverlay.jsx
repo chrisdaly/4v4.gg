@@ -123,7 +123,7 @@ const MatchOverlay = ({ matchData, atGroups = {}, sessionData = {}, countries = 
   const renderSessionDots = (battleTag) => {
     const session = sessionData[battleTag];
     if (!session?.recentGames || session.recentGames.length === 0) {
-      return <span className="mo-mmr">—</span>;
+      return <span className="mo-mmr">-</span>;
     }
 
     const games = session.recentGames.slice(0, 5);
@@ -149,7 +149,7 @@ const MatchOverlay = ({ matchData, atGroups = {}, sessionData = {}, countries = 
     if (phase === PHASE_SESSION) {
       return renderSessionDots(player.battleTag);
     }
-    return <span className="mo-mmr">{mmr ? mmr.toLocaleString() : "—"}</span>;
+    return <span className="mo-mmr">{mmr ? mmr.toLocaleString() : "-"}</span>;
   };
 
   const renderPlayer = (player, index, team, isStreamerTeam) => {
@@ -186,7 +186,7 @@ const MatchOverlay = ({ matchData, atGroups = {}, sessionData = {}, countries = 
       if (phase === PHASE_SESSION) {
         const session = sessionData[player.battleTag];
         if (!session?.recentGames || session.recentGames.length === 0) {
-          return <span className="mov-mmr">—</span>;
+          return <span className="mov-mmr">-</span>;
         }
         const games = session.recentGames.slice(0, 5);
         return (
@@ -197,7 +197,7 @@ const MatchOverlay = ({ matchData, atGroups = {}, sessionData = {}, countries = 
           </div>
         );
       }
-      return <span className="mov-mmr">{mmr ? mmr.toLocaleString() : "—"}</span>;
+      return <span className="mov-mmr">{mmr ? mmr.toLocaleString() : "-"}</span>;
     };
 
     const renderCard = (player) => {

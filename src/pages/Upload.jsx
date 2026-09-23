@@ -459,7 +459,7 @@ const InfoLabel = styled.span`
 const InfoValue = styled.span`
   font-family: var(--font-mono);
   font-size: var(--text-sm);
-  color: #fff;
+  color: var(--white);
 `;
 
 const PlayerSection = styled.div`
@@ -555,7 +555,7 @@ const Metric = styled.div`
 const MetricValue = styled.div`
   font-family: var(--font-mono);
   font-size: var(--text-lg);
-  color: #fff;
+  color: var(--white);
   font-weight: 600;
 `;
 
@@ -593,7 +593,7 @@ const PlayerCard = styled.div`
 const PlayerNameSimple = styled.span`
   font-family: var(--font-display);
   font-size: var(--text-sm);
-  color: #fff;
+  color: var(--white);
   flex: 1;
   overflow: hidden;
   text-overflow: ellipsis;

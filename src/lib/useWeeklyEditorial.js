@@ -36,7 +36,7 @@ export const STAT_LINES = [
 const ITEM_KEYS = new Set(ITEM_SECTIONS.map((s) => s.key));
 
 /**
- * Weekly editorial hook — manages draft state, item selections,
+ * Weekly editorial hook - manages draft state, item selections,
  * section visibility, inline edits, and autosave for weekly digests.
  */
 export default function useWeeklyEditorial({ weekly, isAdmin, apiKey, onDigestUpdated }) {
@@ -110,7 +110,7 @@ export default function useWeeklyEditorial({ weekly, isAdmin, apiKey, onDigestUp
           setDraft(data.draft);
           const draftSections = parseDigestSections(data.draft);
 
-          // Initialize item selections — match published items against draft items
+          // Initialize item selections - match published items against draft items
           const selections = {};
           for (const { key } of ITEM_SECTIONS) {
             const draftSec = draftSections.find((s) => s.key === key);
@@ -133,7 +133,7 @@ export default function useWeeklyEditorial({ weekly, isAdmin, apiKey, onDigestUp
           }
           setSectionSelections(selections);
 
-          // Initialize hidden sections — sections in draft but not in published
+          // Initialize hidden sections - sections in draft but not in published
           const hidden = new Set();
           for (const { key } of TOGGLEABLE_SECTIONS) {
             const inDraft = draftSections.some((s) => s.key === key);
@@ -149,7 +149,7 @@ export default function useWeeklyEditorial({ weekly, isAdmin, apiKey, onDigestUp
           }
           setHiddenStats(hidStats);
         } else {
-          // No draft — use published digest as draft, all items selected
+          // No draft - use published digest as draft, all items selected
           setDraft(pubDigest || null);
           if (pubDigest) {
             const selections = {};
@@ -249,13 +249,13 @@ export default function useWeeklyEditorial({ weekly, isAdmin, apiKey, onDigestUp
       const sections = parseDigestSections(prev);
       const sec = sections.find((s) => s.key === sectionKey);
       if (!sec) {
-        // Section doesn't exist yet — create it (unless text is empty)
+        // Section doesn't exist yet - create it (unless text is empty)
         if (!trimmed) return prev;
         sections.push({ key: sectionKey, content: trimmed });
         return sections.map((s) => `${s.key}: ${s.content}`).join("\n");
       }
       if (!trimmed) {
-        // Empty text — remove the section entirely
+        // Empty text - remove the section entirely
         return sections.filter((s) => s.key !== sectionKey).map((s) => `${s.key}: ${s.content}`).join("\n");
       }
       sec.content = trimmed;
@@ -309,7 +309,7 @@ export default function useWeeklyEditorial({ weekly, isAdmin, apiKey, onDigestUp
 
   // ── Add item to a section ──
 
-  const handleAddItem = useCallback((sectionKey, text = "New item — click to edit") => {
+  const handleAddItem = useCallback((sectionKey, text = "New item - click to edit") => {
     pushUndo();
     setDraft((prev) => {
       if (!prev) return prev;
@@ -677,7 +677,7 @@ export default function useWeeklyEditorial({ weekly, isAdmin, apiKey, onDigestUp
           if (sel) selectedItems[key] = [...sel].sort((a, b) => a - b);
         }
 
-        // Build selectedStats — hide stat lines by setting to null
+        // Build selectedStats - hide stat lines by setting to null
         const selectedStats = {};
         for (const { key } of STAT_LINES) {
           if (hiddenStats.has(key)) {
@@ -699,7 +699,7 @@ export default function useWeeklyEditorial({ weekly, isAdmin, apiKey, onDigestUp
           body: JSON.stringify({ draft }),
         }).catch(() => {});
 
-        // Curate — only show "saved" after curate completes
+        // Curate - only show "saved" after curate completes
         fetch(`${RELAY_URL}/api/admin/weekly-digest/${weekly.week_start}/curate`, {
           method: "PUT",
           headers: { "Content-Type": "application/json", "X-API-Key": apiKey },

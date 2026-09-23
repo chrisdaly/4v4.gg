@@ -13,11 +13,11 @@ const RELAY_URL =
 
 // Race colors for mini-glyphs
 const RACE_BADGE_COLORS = {
-  Human: "#3b82f6",
-  Orc: "#ef4444",
-  "Night Elf": "#a855f7",
-  Undead: "#22c55e",
-  Random: "#888",
+  Human: "var(--race-human)",
+  Orc: "var(--race-orc)",
+  "Night Elf": "var(--race-nightelf)",
+  Undead: "var(--race-undead)",
+  Random: "var(--race-random)",
 };
 
 // ── Styled Components ──────────────────────────────────
@@ -55,7 +55,7 @@ const GallerySearch = styled.input`
   font-family: var(--font-mono);
   font-size: var(--text-xs);
   background: rgba(0, 0, 0, 0.35);
-  border: 1px solid rgba(184, 134, 11, 0.3);
+  border: 1px solid rgba(var(--gold-dark-rgb), 0.3);
   border-radius: var(--radius-sm);
   color: var(--white);
   padding: 10px 16px;
@@ -66,10 +66,10 @@ const GallerySearch = styled.input`
 
   &:focus {
     border-color: var(--gold);
-    box-shadow: inset 0 1px 4px rgba(0, 0, 0, 0.5), 0 0 8px rgba(184, 134, 11, 0.15);
+    box-shadow: inset 0 1px 4px rgba(0, 0, 0, 0.5), 0 0 8px rgba(var(--gold-dark-rgb), 0.15);
   }
   &:hover:not(:focus) {
-    border-color: rgba(184, 134, 11, 0.55);
+    border-color: rgba(var(--gold-dark-rgb), 0.55);
   }
   &::placeholder {
     color: var(--grey-light);
@@ -217,7 +217,7 @@ const RaceDot = styled.span`
   width: 10px;
   height: 10px;
   border-radius: 50%;
-  background: ${p => p.$color || "#888"};
+  background: ${p => p.$color || "var(--grey-light)"};
   flex-shrink: 0;
 `;
 
@@ -233,7 +233,7 @@ const PlayerName = styled.span`
 const PlayerMmr = styled.span`
   font-family: var(--font-mono);
   font-size: var(--text-xs);
-  color: #fff;
+  color: var(--white);
   margin-left: auto;
   display: flex;
   align-items: center;
@@ -658,7 +658,7 @@ export default function Signatures() {
           setPlayers(data.players);
           setLoading(false);
         } else if (attempt < 12) {
-          // Gallery cache is warming up server-side — retry every 5s (up to 1 min)
+          // Gallery cache is warming up server-side - retry every 5s (up to 1 min)
           retryTimeout = setTimeout(() => fetchGallery(attempt + 1), 5000);
         } else {
           setLoading(false);
