@@ -1,4 +1,4 @@
-import React, { useState, useMemo } from "react";
+import React, { useState, useMemo, useCallback } from "react";
 import styled from "styled-components";
 import { useLocation } from "react-router-dom";
 import { HiUsers, HiChat } from "react-icons/hi";
@@ -8,6 +8,7 @@ import { useUnreadCount } from "../lib/chat/useUnread";
 import { useTheme } from "../lib/ThemeContext";
 import ChatPanel from "../components/ChatPanel";
 import UserListSidebar from "../components/UserListSidebar";
+import GameModal from "../components/chat/GameModal";
 
 const Page = styled.div`
   padding: var(--space-1) var(--space-2) 0;
@@ -134,6 +135,13 @@ const Chat = () => {
   const { borderTheme } = useTheme();
   const { watchList, toggleWatch } = useWatchList();
   const [mobileTab, setMobileTab] = useState("chat"); // "chat" | "users"
+  // The ongoing game opened from an in-game chip, roster row or map divider:
+  // an inGameInfoMap entry { matchId, mapName, startTime }, null when closed
+  const [openGame, setOpenGame] = useState(null);
+  const openGameModal = useCallback((info) => {
+    if (info) setOpenGame(info);
+  }, []);
+  const closeGameModal = useCallback(() => setOpenGame(null), []);
   // /chat?m=<messageId> permalink; read once per navigation, the copy-link
   // button updates the URL with replaceState so the router never sees it
   const { search } = useLocation();
@@ -173,6 +181,7 @@ const Chat = () => {
           windowMode={windowMode}
           windowId={windowId}
           permalinkId={permalinkId}
+          onOpenGame={openGameModal}
         />
         <UserListSidebar
           users={onlineUsers}
@@ -187,12 +196,27 @@ const Chat = () => {
           liveStreamers={liveStreamers}
           watchList={watchList}
           onToggleWatch={toggleWatch}
+          onOpenGame={openGameModal}
           recentChatters={recentChatters}
           $mobileVisible={mobileTab === "users"}
           onClose={() => setMobileTab("chat")}
           borderTheme={borderTheme}
         />
       </Layout>
+      {openGame && (
+        <GameModal
+          game={openGame}
+          gameEvents={gameEvents}
+          ongoingMatches={ongoingMatches}
+          ongoingMatchIds={ongoingMatchIds}
+          onlineUsers={onlineUsers}
+          inGameInfoMap={inGameInfoMap}
+          stats={stats}
+          avatars={avatars}
+          hoverData={{ avatars, stats, sessions, inGameTags, inGameInfoMap }}
+          onClose={closeGameModal}
+        />
+      )}
       <MobileTabBar>
         <Tab $active={mobileTab === "chat"} onClick={() => setMobileTab("chat")}>
           <HiChat />

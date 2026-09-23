@@ -4,9 +4,9 @@ import styled, { css } from "styled-components";
 import { FaTwitch } from "react-icons/fa";
 import { raceMapping, raceIcons } from "../../lib/constants";
 import { CountryFlag } from "../ui";
-import { formatTime } from "../../lib/useChatMessages";
 import { Chip } from "./chip";
 import CopyLink, { CopyLinkButton } from "./CopyLink";
+import LineEnd, { Time } from "./LineEnd";
 
 /**
  * One message group (author + consecutive lines) in three looks:
@@ -25,7 +25,10 @@ import CopyLink, { CopyLinkButton } from "./CopyLink";
  *                quotes carry names only); a quote group with no name at all
  *                renders its lines with no header.
  *   meta         { avatarUrl, race, countryCode, mmr,
- *                  chip: { kind: "ingame" | "won" | "lost", label }, twitchLogin, twitchTitle }
+ *                  chip: { kind: "ingame" | "won" | "lost", label, onClick? },
+ *                  twitchLogin, twitchTitle }
+ *                A chip with onClick renders as a button (in-game chip opens
+ *                the game modal)
  *   target       transcript only: gold tint background for the focus author
  *   watched      feed only: gold bar on the left for watch-listed authors
  *   onNameClick  (author) => void; when set the name is a button, else a /player link
@@ -191,20 +194,6 @@ const TwitchLink = styled.a`
   }
 `;
 
-const Time = styled.span`
-  font-family: var(--font-mono);
-  font-size: var(--text-xxxs);
-  color: var(--grey-mid);
-  white-space: nowrap;
-  transition: color var(--transition);
-`;
-
-const LineEnd = styled.span`
-  display: inline-flex;
-  align-items: center;
-  gap: var(--space-1);
-`;
-
 const Line = styled.div`
   display: grid;
   grid-template-columns: 1fr auto;
@@ -357,9 +346,13 @@ export default function ChatMessage({
           {name}
           {author.clanTag && <ClanTag>{author.clanTag}</ClanTag>}
           {!isQuote && meta?.mmr != null && <Mmr>{Math.round(meta.mmr)} MMR</Mmr>}
-          {!isQuote && chip?.label && (
+          {!isQuote && chip?.label && (chip.onClick ? (
+            <Chip as="button" type="button" $kind={chip.kind} $clickable onClick={chip.onClick} title="Show this game">
+              {chip.label}
+            </Chip>
+          ) : (
             <Chip $kind={chip.kind}>{chip.label}</Chip>
-          )}
+          ))}
           {isFeed && meta?.twitchLogin && (
             <TwitchLink
               href={`https://twitch.tv/${meta.twitchLogin}`}
@@ -384,8 +377,7 @@ export default function ChatMessage({
             <React.Fragment key={line.id ?? line.sentAt ?? i}>
               <Line id={line.id != null ? `msg-${line.id}` : undefined} $highlight={Boolean(line.highlight)}>
                 <Text $compact={compact}>{renderLine(line)}</Text>
-                <LineEnd>
-                  <Time>{line.sentAt ? formatTime(line.sentAt) : ""}</Time>
+                <LineEnd time={line.sentAt} reserve={isFeed && Boolean(permalinkHref)}>
                   {isFeed && permalinkHref && line.id != null && <CopyLink href={permalinkHref(line)} />}
                 </LineEnd>
               </Line>

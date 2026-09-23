@@ -2,8 +2,10 @@
  * Desktop notifications for watched-player chat lines.
  *
  * Permission is only ever requested from requestNotifyPermission(), which
- * the Ping toggle calls when it is switched on. Notifications coalesce: at
- * most one per 5s, and the same tag so a new one replaces the last.
+ * useWatchList (chatExtras) calls when a player is starred; a decided
+ * permission (granted or denied) is never asked for again. Notifications
+ * coalesce: at most one per 5s, and the same tag so a new one replaces the
+ * last.
  */
 
 const TAG = "4v4-chat";

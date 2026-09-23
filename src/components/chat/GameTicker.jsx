@@ -1,22 +1,32 @@
 import React from "react";
 import { Link, useHistory } from "react-router-dom";
 import styled, { keyframes, css } from "styled-components";
+import { GiCrossedSwords, GiTrophy } from "react-icons/gi";
 import { getMapImageUrl } from "../../lib/formatters";
 import { formatTime } from "../../lib/useChatMessages";
+import LineEnd, { Time } from "./LineEnd";
 import MiniTeamsRow from "../MiniMatchCard";
 import MatchNote from "../MatchNote";
 import StreakBadges from "../StreakBadges";
 import RivalryBadge from "../RivalryBadge";
 
 /**
- * One-line game event in the chat stream. Click toggles the full event
- * card (the pre-existing GameEventCard markup) below the line.
+ * One-line game event in the chat stream, laid out as a system row on the
+ * message grid: a 24px icon in the avatar column (swords for a start,
+ * trophy for a finish, in the tag colour), tag + text where author names
+ * start, and the same right-hand cell as a message line (LineEnd) so the
+ * time sits in the message-time column. Click toggles the full event card
+ * (the pre-existing GameEventCard markup) below the line.
  *
- *   LIVE      ToastBrot, Shamiko +2 started on Royal Gardens, 1847 avg
- *   FINISHED  ToastBrot, Shamiko +2 won 14:02 on Royal Gardens, +12 avg
+ *   [x]  LIVE      ToastBrot, Shamiko +2 started on Royal Gardens, 1847 avg
+ *   [y]  FINISHED  ToastBrot, Shamiko +2 won 14:02 on Royal Gardens, +12 avg
  *
- * Props: event, expanded, onToggle, stillRunning, hoverData ({ avatars,
- * stats, sessions, inGameTags, inGameInfoMap } for the card's hover cards).
+ * Consecutive tickers read as one block: runStart adds the hairline and
+ * top margin, runEnd the bottom margin (ChatPanel computes both).
+ *
+ * Props: event, expanded, onToggle, stillRunning, runStart, runEnd,
+ * hoverData ({ avatars, stats, sessions, inGameTags, inGameInfoMap } for
+ * the card's hover cards), avatars.
  */
 
 const MAX_NAMES = 3;
@@ -82,23 +92,35 @@ export function buildTickerText(ev) {
 
 /* ── Ticker row ──────────────────────────────────── */
 
-const Time = styled.span`
-  font-family: var(--font-mono);
-  font-size: var(--text-xxxs);
-  color: var(--grey-mid);
-  white-space: nowrap;
-  transition: color var(--transition);
+const toneColor = {
+  live: "var(--red)",
+  finished: "var(--green)",
+  started: "var(--grey-light)",
+};
+
+const Block = styled.div`
+  ${(p) =>
+    p.$runStart &&
+    css`
+      margin-top: var(--space-2);
+      padding-top: var(--space-1);
+      border-top: 1px solid var(--surface-3);
+    `}
+  ${(p) =>
+    p.$runEnd &&
+    css`
+      margin-bottom: var(--space-2);
+    `}
 `;
 
+/* Same grid as a message group (ChatMessage Group): 32px avatar column,
+   var(--space-3) gap, so the text starts where author names start */
 const Row = styled.div`
   display: grid;
-  grid-template-columns: auto 1fr auto;
-  align-items: baseline;
-  gap: var(--space-2);
-  padding: var(--space-1) 0 var(--space-1) 44px;
-  font-family: var(--font-mono);
-  font-size: var(--text-xxs);
-  line-height: 1.5;
+  grid-template-columns: 32px 1fr;
+  gap: var(--space-3);
+  align-items: center;
+  padding: var(--space-1) 0;
   color: var(--grey-light);
   cursor: pointer;
   user-select: none;
@@ -111,16 +133,45 @@ const Row = styled.div`
   }
 `;
 
+const IconSlot = styled.span`
+  width: 24px;
+  height: 24px;
+  margin: 0 auto;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: var(--radius-sm);
+  background: var(--surface-2);
+  color: ${(p) => toneColor[p.$tone] || toneColor.started};
+  svg {
+    width: 14px;
+    height: 14px;
+  }
+`;
+
+/* Same grid as a message line (ChatMessage Line): text, then LineEnd */
+const Body = styled.div`
+  min-width: 0;
+  display: grid;
+  grid-template-columns: 1fr auto;
+  gap: var(--space-3);
+  align-items: baseline;
+`;
+
 const Tag = styled.span`
+  margin-right: var(--space-2);
   font-family: var(--font-display);
   font-size: var(--text-xxxs);
   letter-spacing: 0.08em;
   text-transform: uppercase;
-  color: ${(p) => (p.$tone === "live" ? "var(--red)" : p.$tone === "finished" ? "var(--green)" : "var(--grey-light)")};
+  color: ${(p) => toneColor[p.$tone] || toneColor.started};
 `;
 
 const Text = styled.span`
   min-width: 0;
+  font-family: var(--font-mono);
+  font-size: var(--text-xxs);
+  line-height: 1.5;
   overflow-wrap: anywhere;
 `;
 
@@ -181,6 +232,13 @@ const GameEventCard = styled.div`
       text-decoration: underline;
     }
   }
+
+  ${(p) =>
+    p.$flush &&
+    css`
+      margin-left: 0;
+      max-width: none;
+    `}
 
   @media (max-width: 480px) {
     margin-left: 0;
@@ -261,7 +319,11 @@ function formatGameMinutes(startTime) {
   return mins >= 0 && mins < 180 ? `${mins}m` : null;
 }
 
-export function GameEventCardView({ event: ev, stillRunning, hoverData, avatars }) {
+/**
+ * The expanded event card. `flush` drops the 44px stream indent and the
+ * max-width so the card fills a modal (GameModal).
+ */
+export function GameEventCardView({ event: ev, stillRunning, hoverData, avatars, flush = false }) {
   const history = useHistory();
   const isEnd = ev.type === "game_end";
   const duration = ev.durationInSeconds != null ? `${Math.round(ev.durationInSeconds / 60)} min` : null;
@@ -273,7 +335,7 @@ export function GameEventCardView({ event: ev, stillRunning, hoverData, avatars 
   const liveMins = stillRunning ? formatGameMinutes(ev.time) : null;
 
   return (
-    <GameEventCard $end={isEnd} $live={ev.live} onClick={() => history.push(eventLink)}>
+    <GameEventCard $end={isEnd} $live={ev.live} $flush={flush} onClick={() => history.push(eventLink)}>
       <EventTagCol>
         <EventTag $end={isEnd}>{isEnd ? "Finish" : "Start"}</EventTag>
         {isEnd ? (
@@ -333,12 +395,21 @@ export function GameEventCardView({ event: ev, stillRunning, hoverData, avatars 
   );
 }
 
-export default function GameTicker({ event, expanded = false, onToggle, stillRunning = false, hoverData, avatars }) {
+export default function GameTicker({
+  event,
+  expanded = false,
+  onToggle,
+  stillRunning = false,
+  runStart = true,
+  runEnd = true,
+  hoverData,
+  avatars,
+}) {
   const isEnd = event.type === "game_end";
   const tone = isEnd ? "finished" : stillRunning ? "live" : "started";
   const label = isEnd ? "Finished" : stillRunning ? "Live" : "Started";
   return (
-    <>
+    <Block data-ticker={tone} data-run-start={runStart || undefined} data-run-end={runEnd || undefined} $runStart={runStart} $runEnd={runEnd}>
       <Row
         role="button"
         tabIndex={0}
@@ -352,14 +423,19 @@ export default function GameTicker({ event, expanded = false, onToggle, stillRun
           }
         }}
       >
-        <Tag $tone={tone}>{label}</Tag>
-        <Text>
-          {stillRunning && !isEnd && <LiveDot />}
-          {buildTickerText(event)}
-        </Text>
-        <Time>{event.time ? formatTime(event.time) : ""}</Time>
+        <IconSlot $tone={tone} data-ticker-icon={isEnd ? "trophy" : "swords"} aria-hidden="true">
+          {isEnd ? <GiTrophy /> : <GiCrossedSwords />}
+        </IconSlot>
+        <Body>
+          <Text>
+            <Tag $tone={tone}>{label}</Tag>
+            {stillRunning && !isEnd && <LiveDot />}
+            {buildTickerText(event)}
+          </Text>
+          <LineEnd time={event.time} reserve />
+        </Body>
       </Row>
       {expanded && <GameEventCardView event={event} stillRunning={stillRunning} hoverData={hoverData} avatars={avatars} />}
-    </>
+    </Block>
   );
 }

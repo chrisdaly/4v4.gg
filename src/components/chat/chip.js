@@ -39,6 +39,15 @@ export const Chip = styled.span.attrs((p) => ({ "data-chip": p.$kind }))`
   padding: 1px var(--space-1);
   white-space: nowrap;
   ${(p) => chipStyles[p.$kind] || chipStyles.ingame}
+  ${(p) =>
+    p.$clickable &&
+    css`
+      cursor: pointer;
+      transition: filter var(--transition);
+      &:hover {
+        filter: brightness(1.25);
+      }
+    `}
 `;
 
 /** "12m" for a game that started 12 minutes ago; null when unknown or stale. */

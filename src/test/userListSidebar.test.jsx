@@ -50,6 +50,7 @@ function renderSidebar(overrides = {}) {
         liveStreamers={new Map([['Grubby#1', { twitchName: 'grubby', title: 'live' }]])}
         watchList={new Set()}
         onToggleWatch={() => {}}
+        onOpenGame={() => {}}
         recentChatters={new Set(['Grubby#1'])}
         $mobileVisible={false}
         onClose={() => {}}
@@ -84,11 +85,13 @@ describe('UserListSidebar sections', () => {
     expect(ingameHeader).toHaveTextContent('In game 2');
   });
 
-  it('renders rows with avatar, flag, mmr, twitch link and a link for in-game players', () => {
+  it('renders rows with avatar, flag, mmr, twitch link and a player link on the name of in-game players', () => {
     renderSidebar();
     const moon = document.querySelector('[data-row="Moon#1"]');
-    expect(moon.tagName).toBe('A');
-    expect(moon).toHaveAttribute('href', '/player/Moon%231');
+    // the row itself opens the game; the player page stays reachable via the name
+    expect(moon.tagName).toBe('DIV');
+    expect(moon).toHaveAttribute('role', 'button');
+    expect(within(moon).getByRole('link', { name: 'Moon' })).toHaveAttribute('href', '/player/Moon%231');
     expect(moon).toHaveAttribute('title', 'Ferocity · 12m');
     expect(moon.querySelector('img[src="https://x/moon.jpg"]')).not.toBeNull();
     expect(moon.querySelector('img[alt="KR"], img[src*="kr"]')).not.toBeNull();
@@ -96,6 +99,8 @@ describe('UserListSidebar sections', () => {
 
     const grubby = document.querySelector('[data-row="Grubby#1"]');
     expect(grubby.tagName).toBe('DIV');
+    expect(grubby).not.toHaveAttribute('role');
+    expect(within(grubby).queryByRole('link', { name: 'Grubby' })).toBeNull();
     expect(within(grubby).getByTitle('live')).toHaveAttribute('href', 'https://twitch.tv/grubby');
   });
 
@@ -158,11 +163,13 @@ describe('UserListSidebar sort and filter', () => {
     expect(star).toHaveTextContent('★');
   });
 
-  it('calls onToggleWatch from the star without following the row link', () => {
+  it('calls onToggleWatch from the star without opening the game', () => {
     const onToggleWatch = vi.fn();
-    renderSidebar({ onToggleWatch });
+    const onOpenGame = vi.fn();
+    renderSidebar({ onToggleWatch, onOpenGame });
     fireEvent.click(within(document.querySelector('[data-row="Moon#1"]')).getByRole('button', { name: 'Watch player' }));
     expect(onToggleWatch).toHaveBeenCalledWith('Moon#1');
+    expect(onOpenGame).not.toHaveBeenCalled();
   });
 
   it('filters rows by name and reports when nothing matches', () => {
@@ -246,6 +253,44 @@ describe('UserListSidebar in game sub-groups', () => {
     expect(within(row).getByText('2345')).toBeInTheDocument();
     expect(within(row).getByRole('button', { name: 'Watch player' })).toBeInTheDocument();
     expect(row.querySelector('[data-chip]')).toBeNull();
+  });
+});
+
+describe('UserListSidebar game modal', () => {
+  it('opens the game from an in-game row (click and keyboard) with its ongoing-index entry', () => {
+    const onOpenGame = vi.fn();
+    renderSidebar({ onOpenGame });
+    const moon = document.querySelector('[data-row="Moon#1"]');
+    fireEvent.click(moon);
+    expect(onOpenGame).toHaveBeenCalledTimes(1);
+    expect(onOpenGame).toHaveBeenCalledWith(inGameInfoMap.get('Moon#1'));
+    fireEvent.keyDown(moon, { key: 'Enter' });
+    expect(onOpenGame).toHaveBeenCalledTimes(2);
+    // online rows are not games
+    fireEvent.click(document.querySelector('[data-row="Grubby#1"]'));
+    expect(onOpenGame).toHaveBeenCalledTimes(2);
+  });
+
+  it('opens the game from the map divider line', () => {
+    const onOpenGame = vi.fn();
+    renderSidebar({ onOpenGame });
+    const divider = document.querySelector('[data-game="m2"] [data-game-divider]');
+    expect(divider).toHaveAttribute('role', 'button');
+    fireEvent.click(divider);
+    expect(onOpenGame).toHaveBeenCalledWith({ matchId: 'm2', mapName: 'Royal Gardens', startTime: inGameInfoMap.get('Lyn#1').startTime });
+  });
+
+  it('leaves the name link to the player page without opening the game', () => {
+    const onOpenGame = vi.fn();
+    renderSidebar({ onOpenGame });
+    fireEvent.click(within(document.querySelector('[data-row="Lyn#1"]')).getByRole('link', { name: 'Lyn' }));
+    expect(onOpenGame).not.toHaveBeenCalled();
+  });
+
+  it('renders plain rows and dividers when no onOpenGame is given', () => {
+    renderSidebar({ onOpenGame: undefined });
+    expect(document.querySelector('[data-row="Moon#1"]')).not.toHaveAttribute('role');
+    expect(document.querySelector('[data-game-divider]')).not.toHaveAttribute('role');
   });
 });
 

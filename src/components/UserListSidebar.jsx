@@ -13,7 +13,9 @@ import { formatGameMinutes } from "./chat/chip";
  * a name filter and a Player/MMR sort. Rows are name + MMR only, no status
  * chip: the In game section is sub-grouped by match, each match introduced
  * by one divider line ("Ferocity · 12m · 3"), so the state is carried by
- * the grouping rather than repeated on every row.
+ * the grouping rather than repeated on every row. An in-game row and its
+ * divider open the game (onOpenGame with the inGameInfoMap entry); the name
+ * text on an in-game row still links to the player page (inGameMatchMap).
  */
 
 const ROW_HEIGHT = 28; // px, one roster row
@@ -183,6 +185,15 @@ const GameDivider = styled.div`
   overflow: hidden;
   text-overflow: ellipsis;
   padding: var(--space-1) var(--space-2) 0;
+  ${(p) =>
+    p.$clickable &&
+    css`
+      cursor: pointer;
+      transition: color var(--transition);
+      &:hover {
+        color: var(--white);
+      }
+    `}
 `;
 
 const rowStyles = css`
@@ -203,11 +214,7 @@ const rowStyles = css`
 
 const Row = styled.div`
   ${rowStyles}
-`;
-
-const RowLink = styled(Link)`
-  ${rowStyles}
-  cursor: pointer;
+  ${(p) => p.$clickable && "cursor: pointer;"}
 `;
 
 const AvatarWrap = styled.span`
@@ -239,7 +246,7 @@ const AvatarFlag = styled.span`
   line-height: 0;
 `;
 
-const Name = styled.span`
+const nameStyles = css`
   flex: 1;
   min-width: 0;
   font-family: var(--font-display);
@@ -248,6 +255,18 @@ const Name = styled.span`
   white-space: nowrap;
   overflow: hidden;
   text-overflow: ellipsis;
+`;
+
+const Name = styled.span`
+  ${nameStyles}
+`;
+
+const NameLink = styled(Link)`
+  ${nameStyles}
+  text-decoration: none;
+  &:hover {
+    text-decoration: underline;
+  }
 `;
 
 const Mmr = styled.span`
@@ -283,8 +302,7 @@ const Star = styled.button`
   color: ${(p) => (p.$watched ? "var(--gold)" : "var(--grey-mid)")};
   opacity: ${(p) => (p.$watched ? 1 : 0)};
   transition: opacity var(--transition), color var(--transition);
-  ${Row}:hover &,
-  ${RowLink}:hover & {
+  ${Row}:hover & {
     opacity: 1;
   }
   &:hover {
@@ -342,7 +360,7 @@ function groupByMatch(users, inGameInfoMap) {
     const key = info.matchId || `${info.mapName}|${info.startTime}`;
     let game = games.get(key);
     if (!game) {
-      game = { key, mapName: info.mapName, startTime: info.startTime, players: [] };
+      game = { key, matchId: info.matchId, mapName: info.mapName, startTime: info.startTime, players: [] };
       games.set(key, game);
     }
     game.players.push(u);
@@ -358,13 +376,14 @@ function gameDividerText(game) {
   return [game.mapName || "Unknown map", elapsed, game.players.length].filter(Boolean).join(" · ");
 }
 
-function UserRow({ user, avatars, stats, sessions, inGameInfo, matchUrl, liveInfo, isWatched, onToggleWatch, dim }) {
+function UserRow({ user, avatars, stats, sessions, inGameInfo, playerUrl, liveInfo, isWatched, onToggleWatch, onOpenGame, dim }) {
   const tag = user.battleTag;
   const mmr = stats?.get(tag)?.mmr;
   const elapsed = inGameInfo ? formatGameMinutes(inGameInfo.startTime) : null;
   const title = inGameInfo
     ? [inGameInfo.mapName, elapsed].filter(Boolean).join(" · ")
     : undefined;
+  const openGame = inGameInfo && onOpenGame ? () => onOpenGame(inGameInfo) : null;
 
   const content = (
     <>
@@ -377,7 +396,13 @@ function UserRow({ user, avatars, stats, sessions, inGameInfo, matchUrl, liveInf
         inGameInfo={inGameInfo}
         style={{ flex: 1, minWidth: 0 }}
       >
-        <Name>{user.name}</Name>
+        {playerUrl ? (
+          <NameLink to={playerUrl} onClick={(e) => e.stopPropagation()}>
+            {user.name}
+          </NameLink>
+        ) : (
+          <Name>{user.name}</Name>
+        )}
       </PlayerHoverCard>
       {liveInfo && (
         <TwitchLink
@@ -396,7 +421,7 @@ function UserRow({ user, avatars, stats, sessions, inGameInfo, matchUrl, liveInf
           type="button"
           $watched={isWatched}
           aria-label={isWatched ? "Unwatch player" : "Watch player"}
-          title={isWatched ? "Unwatch player" : "Watch player (pin to top, enable pings)"}
+          title={isWatched ? "Unwatch player" : "Watch player (pin to top, notify while away)"}
           onClick={(e) => {
             e.preventDefault();
             e.stopPropagation();
@@ -410,8 +435,22 @@ function UserRow({ user, avatars, stats, sessions, inGameInfo, matchUrl, liveInf
   );
 
   const shared = { "data-row": tag, "data-dim": dim, title, $dim: dim };
-  return matchUrl ? (
-    <RowLink to={matchUrl} {...shared}>{content}</RowLink>
+  return openGame ? (
+    <Row
+      {...shared}
+      $clickable
+      role="button"
+      tabIndex={0}
+      onClick={openGame}
+      onKeyDown={(e) => {
+        if (e.key === "Enter" || e.key === " ") {
+          e.preventDefault();
+          openGame();
+        }
+      }}
+    >
+      {content}
+    </Row>
   ) : (
     <Row {...shared}>{content}</Row>
   );
@@ -443,6 +482,7 @@ export default function UserListSidebar({
   liveStreamers,
   watchList,
   onToggleWatch,
+  onOpenGame,
   recentChatters,
   $mobileVisible,
   onClose,
@@ -506,10 +546,11 @@ export default function UserListSidebar({
         stats={stats}
         sessions={sessions}
         inGameInfo={inGame ? inGameInfoMap?.get(tag) : null}
-        matchUrl={inGame ? inGameMatchMap?.get(tag) : null}
+        playerUrl={inGame ? inGameMatchMap?.get(tag) : null}
         liveInfo={liveStreamers?.get(tag)}
         isWatched={Boolean(watchList?.has(tag?.toLowerCase()))}
         onToggleWatch={onToggleWatch}
+        onOpenGame={onOpenGame}
         dim={
           section === "away"
             ? "idle"
@@ -559,14 +600,36 @@ export default function UserListSidebar({
             ))}
           {nothingMatches && <Empty>No players match</Empty>}
           <RosterSection id="ingame" title="In game" count={sections.ingame.length} open={open.ingame} onToggle={() => toggle("ingame")}>
-            {inGameGroups.games.map((g) => (
-              <GameGroup key={g.key} data-game={g.key}>
-                <GameDivider data-game-divider title={gameDividerText(g)}>
-                  {gameDividerText(g)}
-                </GameDivider>
-                {g.players.map((u) => rowFor("ingame", u))}
-              </GameGroup>
-            ))}
+            {inGameGroups.games.map((g) => {
+              const openGame = onOpenGame
+                ? () => onOpenGame({ matchId: g.matchId, mapName: g.mapName, startTime: g.startTime })
+                : null;
+              return (
+                <GameGroup key={g.key} data-game={g.key}>
+                  <GameDivider
+                    data-game-divider
+                    title={gameDividerText(g)}
+                    $clickable={Boolean(openGame)}
+                    role={openGame ? "button" : undefined}
+                    tabIndex={openGame ? 0 : undefined}
+                    onClick={openGame || undefined}
+                    onKeyDown={
+                      openGame
+                        ? (e) => {
+                            if (e.key === "Enter" || e.key === " ") {
+                              e.preventDefault();
+                              openGame();
+                            }
+                          }
+                        : undefined
+                    }
+                  >
+                    {gameDividerText(g)}
+                  </GameDivider>
+                  {g.players.map((u) => rowFor("ingame", u))}
+                </GameGroup>
+              );
+            })}
             {inGameGroups.unknown.length > 0 && (
               <GameGroup data-game="unknown">{inGameGroups.unknown.map((u) => rowFor("ingame", u))}</GameGroup>
             )}

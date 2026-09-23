@@ -3,11 +3,11 @@ import { Virtuoso } from "react-virtuoso";
 import { Link } from "react-router-dom";
 import styled from "styled-components";
 import { GiCrossedSwords } from "react-icons/gi";
-import { HiBell, HiSearch, HiTranslate, HiOutlineArrowsExpand, HiChartBar, HiNewspaper } from "react-icons/hi";
+import { HiSearch, HiTranslate, HiOutlineArrowsExpand, HiChartBar, HiNewspaper } from "react-icons/hi";
 import { IoSend } from "react-icons/io5";
 import { Button, Skeleton, Input } from "./ui";
 import { useMessageSegments, useBotResponseMap, formatDateDivider, getDateKey } from "../lib/useChatMessages";
-import { linkifyMessage, playPing } from "../lib/chatExtras";
+import { linkifyMessage } from "../lib/chatExtras";
 import PlayerHoverCard from "./PlayerHoverCard";
 import ChatMessage from "./chat/ChatMessage";
 import GameTicker from "./chat/GameTicker";
@@ -15,7 +15,7 @@ import StatsStrip from "./chat/StatsStrip";
 import UnfurlCard from "./chat/UnfurlCard";
 import { findWatchedMentions, splitByMentions } from "../lib/chat/mentions";
 import { detectUnfurl } from "../lib/chat/unfurl";
-import { notifyChat, requestNotifyPermission } from "../lib/chat/notify";
+import { notifyChat } from "../lib/chat/notify";
 import { applyTabBadge } from "../lib/chat/tabBadge";
 import { fetchTodayDigest } from "../lib/chat/digestToday";
 import { useUnreadCount, useDocumentVisible } from "../lib/chat/useUnread";
@@ -924,6 +924,7 @@ export default function ChatPanel({
   windowMode = "live",
   windowId = 0,
   permalinkId = null,
+  onOpenGame,
 }) {
   const virtuosoRef = useRef(null);
   const [showNotice, setShowNotice] = useState(false);
@@ -932,7 +933,6 @@ export default function ChatPanel({
   const [botError, setBotError] = useState(null);
   const [botTesting, setBotTesting] = useState(false);
   const [showTranslations, setShowTranslations] = useState(() => readPref("chat:showTranslations", true));
-  const [notifyOn, setNotifyOn] = useState(() => readPref("chat:notify", false));
   const [showGames, setShowGames] = useState(() => readPref("chat:showGames", true));
   const [focusOn, setFocusOn] = useState(() => readPref("chat:focus", false));
   const [showStats, setShowStats] = useState(() => readPref("chat:showStats", false));
@@ -1223,11 +1223,12 @@ export default function ChatPanel({
   }, [hiddenUnread]);
   useEffect(() => () => applyTabBadge(0), []);
 
-  // Watched players' lines (by them, or naming them): audio ping, plus a
-  // desktop notification while the tab is hidden. Click brings the tab
-  // back and jumps to the line the same way a permalink does.
+  // Watched players' lines (by them, or naming them): a desktop notification
+  // while the tab is hidden, if the user granted permission (asked when they
+  // starred their first player, see useWatchList). Click brings the tab back
+  // and jumps to the line the same way a permalink does.
   useEffect(() => {
-    if (!notifyOn || !watchList || watchList.size === 0 || messages.length === 0) return;
+    if (!watchList || watchList.size === 0 || messages.length === 0) return;
     const last = messages[messages.length - 1];
     if (last.id === lastNotifiedRef.current) return;
     lastNotifiedRef.current = last.id;
@@ -1235,7 +1236,6 @@ export default function ChatPanel({
     const byWatched = watchList.has(last.battleTag.toLowerCase());
     const mentionsWatched = !byWatched && findWatchedMentions(last.text, watchList).length > 0;
     if (!byWatched && !mentionsWatched) return;
-    playPing();
     if (!document.hidden) return;
     const id = last.id;
     notifyChat({
@@ -1244,7 +1244,7 @@ export default function ChatPanel({
       icon: avatars?.get(last.battleTag)?.profilePicUrl || "/favicon.svg",
       onClick: () => jumpToId(id),
     });
-  }, [messages, notifyOn, watchList, avatars, jumpToId]);
+  }, [messages, watchList, avatars, jumpToId]);
 
   // "- new -" marker: remember where you were when the tab went hidden
   useEffect(() => {
@@ -1268,15 +1268,6 @@ export default function ChatPanel({
   const toggleTranslations = () => {
     setShowTranslations((v) => {
       writePref("chat:showTranslations", !v);
-      return !v;
-    });
-  };
-
-  const toggleNotify = () => {
-    // Permission is asked for here and nowhere else (never on load)
-    if (!notifyOn) requestNotifyPermission();
-    setNotifyOn((v) => {
-      writePref("chat:notify", !v);
       return !v;
     });
   };
@@ -1472,11 +1463,20 @@ export default function ChatPanel({
     return items.sort((a, b) => a.time - b.time);
   }, [messageSegments, gameEvents, showTickers]);
 
-  // Date divider + "new" marker flags, decided across group-start rows only
+  // Date divider + "new" marker flags, decided across group-start rows only.
+  // Event rows learn whether they open or close a run of consecutive
+  // tickers (GameTicker draws one block per run).
   const rows = useMemo(() => {
     let prevSegTime = null;
     let newMarkerShown = false;
-    return renderItems.map((item) => {
+    return renderItems.map((item, i) => {
+      if (item.kind === "event") {
+        return {
+          ...item,
+          runStart: renderItems[i - 1]?.kind !== "event",
+          runEnd: renderItems[i + 1]?.kind !== "event",
+        };
+      }
       if (item.kind !== "group" && item.kind !== "system") return item;
       const msgTime = item.msg.sentAt;
       const showDateDivider = prevSegTime === null || getDateKey(prevSegTime) !== getDateKey(msgTime);
@@ -1608,6 +1608,8 @@ export default function ChatPanel({
           expanded={expandedEvents.has(ev.id)}
           onToggle={toggleEvent}
           stillRunning={stillRunning}
+          runStart={row.runStart}
+          runEnd={row.runEnd}
           hoverData={hoverData}
           avatars={avatars}
         />
@@ -1662,12 +1664,14 @@ export default function ChatPanel({
         highlight: flashId === m.id,
       })),
     };
+    const chip = chipForTag(tag, chipCtx);
+    if (chip?.kind === "ingame" && gameInfo && onOpenGame) chip.onClick = () => onOpenGame(gameInfo);
     const meta = {
       avatarUrl: profile?.profilePicUrl,
       race: playerStats?.race,
       countryCode: profile?.country,
       mmr: playerStats?.mmr,
-      chip: chipForTag(tag, chipCtx),
+      chip,
       twitchLogin: live?.twitchName,
       twitchTitle: live?.title,
     };
@@ -1735,17 +1739,6 @@ export default function ChatPanel({
             >
               <HiTranslate />
               <ToggleLabel>Translate</ToggleLabel>
-            </ToggleButton>
-            <ToggleButton
-              type="button"
-              $pill
-              data-active={notifyOn}
-              aria-pressed={notifyOn}
-              onClick={toggleNotify}
-              title={notifyOn ? "Mute watched-player pings" : "Ping when watched players chat"}
-            >
-              <HiBell />
-              <ToggleLabel>Ping</ToggleLabel>
             </ToggleButton>
             <ToggleButton
               type="button"

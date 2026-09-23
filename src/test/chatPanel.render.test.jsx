@@ -31,6 +31,8 @@ vi.mock('react-virtuoso', () => ({
 }));
 
 import ChatPanel from '../components/ChatPanel';
+import GameModal, { resolveGame } from '../components/chat/GameModal';
+import { useWatchList } from '../lib/chatExtras';
 import { resetTodayDigestCache } from '../lib/chat/digestToday';
 import { resetNotifyThrottle } from '../lib/chat/notify';
 import { resetUnfurlCache } from '../lib/chat/unfurl';
@@ -161,13 +163,63 @@ describe('ChatPanel rows', () => {
     // Game events are one-line tickers until clicked
     expect(screen.getByText('Finished')).toBeInTheDocument();
     expect(screen.getByText('Live')).toBeInTheDocument();
-    expect(screen.getByText('Moon won 20:00 on Ferocity, +12 avg')).toBeInTheDocument();
-    expect(screen.getByText('Moon +3 started on Royal Gardens, 1847 avg')).toBeInTheDocument();
+    expect(screen.getByText(/Moon won 20:00 on Ferocity, \+12 avg/)).toBeInTheDocument();
+    expect(screen.getByText(/Moon \+3 started on Royal Gardens, 1847 avg/)).toBeInTheDocument();
     expect(screen.queryByText('close one')).toBeNull();
     fireEvent.click(screen.getByText('Finished'));
     expect(screen.getByText('close one')).toBeInTheDocument();
     fireEvent.click(screen.getByText('Finished'));
     expect(screen.queryByText('close one')).toBeNull();
+  });
+
+  it('renders tickers as system rows: icon slot, own block, and the same right-hand cell as a message line', () => {
+    renderPanel();
+    const tickers = document.querySelectorAll('[data-ticker]');
+    expect(tickers).toHaveLength(2);
+    const finished = document.querySelector('[data-ticker="finished"]');
+    const live = document.querySelector('[data-ticker="live"]');
+    expect(finished.querySelector('[data-ticker-icon="trophy"] svg')).not.toBeNull();
+    expect(live.querySelector('[data-ticker-icon="swords"] svg')).not.toBeNull();
+    // each sits between message groups here, so each is a run of one
+    for (const t of tickers) {
+      expect(t).toHaveAttribute('data-run-start', 'true');
+      expect(t).toHaveAttribute('data-run-end', 'true');
+    }
+    // ticker and message line end with the same cell: time plus the 20px copy-link slot
+    const lineEnd = document.getElementById('msg-a1').querySelector('[data-line-end]');
+    const tickerEnd = live.querySelector('[data-line-end]');
+    expect(lineEnd.querySelector('[data-end-slot]')).not.toBeNull();
+    expect(tickerEnd.querySelector('[data-end-slot]')).not.toBeNull();
+    expect(lineEnd.className).toBe(tickerEnd.className);
+    expect(lineEnd.querySelector('[data-end-slot]').className).toBe(tickerEnd.querySelector('[data-end-slot]').className);
+    expect(tickerEnd.querySelector('a')).toBeNull(); // slot reserved, no copy link
+  });
+
+  it('draws consecutive tickers as one block: hairline flag only on the first', () => {
+    const back = [
+      { ...gameEvents[0], id: 'ge-x1', time: iso(31000) },
+      { ...gameEvents[0], id: 'ge-x2', time: iso(32000), matchId: 'x2' },
+      { ...gameEvents[1], id: 'gs-x3', time: iso(33000), matchId: 'x3' },
+    ];
+    renderPanel({ gameEvents: back, ongoingMatchIds: new Set(['x3']) });
+    const tickers = [...document.querySelectorAll('[data-ticker]')];
+    expect(tickers.map((t) => t.querySelector('[data-event-id]').getAttribute('data-event-id'))).toEqual(['ge-x1', 'ge-x2', 'gs-x3']);
+    expect(tickers.map((t) => t.getAttribute('data-run-start'))).toEqual(['true', null, null]);
+    expect(tickers.map((t) => t.getAttribute('data-run-end'))).toEqual([null, null, 'true']);
+  });
+
+  it('opens the game from an in-game chip and keeps won/lost chips inert', () => {
+    const onOpenGame = vi.fn();
+    renderPanel({ onOpenGame });
+    const chip = screen.getByText('in game 5m');
+    expect(chip.tagName).toBe('BUTTON');
+    fireEvent.click(chip);
+    expect(onOpenGame).toHaveBeenCalledTimes(1);
+    expect(onOpenGame.mock.calls[0][0]).toMatchObject({ matchId: 'm2', mapName: 'Ferocity' });
+    expect(screen.getByText('lost -9').tagName).toBe('SPAN');
+    cleanup();
+    renderPanel();
+    expect(screen.getByText('in game 5m').tagName).toBe('SPAN');
   });
 
   it('hides tickers when the Games toggle is off and remembers it', () => {
@@ -734,12 +786,17 @@ describe('ChatPanel notifications', () => {
     return render(<Harness />);
   };
 
-  it('asks for permission only when Ping is switched on, and only notifies while hidden and granted', () => {
+  it('has no Ping pill and never asks for permission on load or on new lines', () => {
     harness(new Set(['watched#3']));
+    expect(screen.queryByTitle(/ping/i)).toBeNull();
+    expect(screen.queryByText('Ping')).toBeNull();
+    fireEvent.click(screen.getByText('watched'));
     expect(requestPermission).not.toHaveBeenCalled();
-    fireEvent.click(screen.getByTitle('Ping when watched players chat'));
-    expect(requestPermission).toHaveBeenCalledTimes(1);
-    expect(localStorage.getItem('chat:notify')).toBe('1');
+    expect(localStorage.getItem('chat:notify')).toBeNull();
+  });
+
+  it('notifies for a watched player only while hidden and granted', () => {
+    harness(new Set(['watched#3']));
 
     // not granted: no notification even while hidden
     setHidden(true);
@@ -770,17 +827,12 @@ describe('ChatPanel notifications', () => {
     expect(focus).toHaveBeenCalled();
     expect(created[0].closed).toBe(true);
     focus.mockRestore();
-
-    // switching Ping off does not ask again; switching on with a decided permission does not either
-    fireEvent.click(screen.getByTitle('Mute watched-player pings'));
-    fireEvent.click(screen.getByTitle('Ping when watched players chat'));
-    expect(requestPermission).toHaveBeenCalledTimes(1);
+    expect(requestPermission).not.toHaveBeenCalled();
   });
 
   it('notifies for a mention of a watched player and not for plain lines', () => {
     permission = 'granted';
     harness(new Set(['watched#3']));
-    fireEvent.click(screen.getByTitle('Ping when watched players chat'));
     setHidden(true);
     resetNotifyThrottle();
     fireEvent.click(screen.getByText('plain'));
@@ -789,6 +841,116 @@ describe('ChatPanel notifications', () => {
     expect(created).toHaveLength(1);
     expect(created[0].title).toBe('Moon in 4v4 chat');
     expect(created[0].options.icon).toBe('/favicon.svg');
+  });
+
+  it('asks for permission when the first player is starred, and not again once decided', () => {
+    function Stars() {
+      const { watchList, toggleWatch } = useWatchList();
+      return (
+        <>
+          <button type="button" onClick={() => toggleWatch('Moon#2')}>star moon</button>
+          <button type="button" onClick={() => toggleWatch('Grubby#1')}>star grubby</button>
+          <span data-testid="count">{watchList.size}</span>
+        </>
+      );
+    }
+    render(<Stars />);
+    expect(requestPermission).not.toHaveBeenCalled();
+    fireEvent.click(screen.getByText('star moon'));
+    expect(requestPermission).toHaveBeenCalledTimes(1);
+    expect(screen.getByTestId('count')).toHaveTextContent('1');
+    expect(JSON.parse(localStorage.getItem('chat:watchList'))).toEqual(['moon#2']);
+    // unstarring never asks
+    fireEvent.click(screen.getByText('star moon'));
+    expect(requestPermission).toHaveBeenCalledTimes(1);
+    // denied: starring again does nothing further
+    permission = 'denied';
+    fireEvent.click(screen.getByText('star grubby'));
+    expect(requestPermission).toHaveBeenCalledTimes(1);
+    expect(screen.getByTestId('count')).toHaveTextContent('1');
+  });
+});
+
+describe('GameModal', () => {
+  const info = { matchId: 'm2', mapName: 'Royal Gardens', startTime: fiveMinutesAgo() };
+  const hover = { avatars, stats, sessions: new Map(), inGameTags: new Set(['Moon#2']), inGameInfoMap: new Map([['Moon#2', info]]) };
+  const renderModal = (overrides = {}) => {
+    const onClose = vi.fn();
+    render(
+      <MemoryRouter>
+        <GameModal
+          game={info}
+          gameEvents={gameEvents}
+          ongoingMatches={[]}
+          ongoingMatchIds={new Set(['m2'])}
+          onlineUsers={[{ battleTag: 'Moon#2', name: 'Moon' }, { battleTag: 'Grubby#1', name: 'Grubby' }]}
+          inGameInfoMap={hover.inGameInfoMap}
+          stats={new Map([['Moon#2', { mmr: 1800 }]])}
+          avatars={avatars}
+          hoverData={hover}
+          onClose={onClose}
+          {...overrides}
+        />
+      </MemoryRouter>
+    );
+    return onClose;
+  };
+
+  it('shows the expanded card for the ongoing match with a Live header, closes on the button, backdrop and Esc', () => {
+    const onClose = renderModal();
+    const dialog = screen.getByRole('dialog');
+    expect(dialog).toHaveAttribute('aria-label', 'Live · Royal Gardens · 5m');
+    expect(screen.getByText('Royal Gardens')).toBeInTheDocument(); // card map name
+    expect(screen.getByRole('link', { name: 'Moon' })).toHaveAttribute('href', '/player/Moon%232');
+    expect(screen.getByText(/in progress/)).toBeInTheDocument();
+    expect(document.querySelector('[data-game-roster]')).toBeNull();
+
+    fireEvent.click(screen.getByRole('button', { name: 'Close game' }));
+    expect(onClose).toHaveBeenCalledTimes(1);
+    fireEvent.click(dialog);
+    expect(onClose).toHaveBeenCalledTimes(1);
+    fireEvent.click(document.querySelector('[data-game-modal="m2"]'));
+    expect(onClose).toHaveBeenCalledTimes(2);
+    fireEvent.keyDown(window, { key: 'Escape' });
+    expect(onClose).toHaveBeenCalledTimes(3);
+  });
+
+  it('builds the card from the ongoing poll when the start event was not seen', () => {
+    const match = {
+      id: 'm7', mapName: 'Snowblind', startTime: fiveMinutesAgo(),
+      teams: [
+        { players: [{ battleTag: 'Moon#2', name: 'Moon', race: 4, oldMmr: 1800 }] },
+        { players: [{ battleTag: 'Z#1', name: 'Z', race: 2, oldMmr: 1700 }] },
+      ],
+    };
+    const { event, players } = resolveGame({ matchId: 'm7', mapName: 'Snowblind' }, {
+      gameEvents, ongoingMatches: [match], onlineUsers: [{ battleTag: 'Moon#2', name: 'Moon' }],
+    });
+    expect(event).toMatchObject({ id: 'gs-m7', type: 'game_start', mapName: 'Snowblind' });
+    expect(event.teams[0][0]).toMatchObject({ battleTag: 'Moon#2', inChannel: true });
+    expect(players).toEqual([]);
+  });
+
+  it('lists the channel players in the game with their MMR when there is no card data', () => {
+    const unknown = { matchId: 'm9', mapName: 'Ferocity', startTime: fiveMinutesAgo() };
+    renderModal({
+      game: unknown,
+      ongoingMatchIds: new Set(['m9']),
+      inGameInfoMap: new Map([['Moon#2', unknown], ['Grubby#1', unknown]]),
+      stats: new Map([['Moon#2', { mmr: 1800.4 }]]),
+    });
+    expect(screen.getByRole('dialog')).toHaveAttribute('aria-label', 'Live · Ferocity · 5m');
+    const roster = document.querySelector('[data-game-roster]');
+    expect(roster).not.toBeNull();
+    expect(roster.querySelectorAll('li')).toHaveLength(2);
+    expect(screen.getByRole('link', { name: 'Moon' })).toHaveAttribute('href', '/player/Moon%232');
+    expect(screen.getByText('1800')).toBeInTheDocument();
+    expect(screen.queryByText(/in progress/)).toBeNull();
+  });
+
+  it('says Finished once the match leaves the ongoing set', () => {
+    renderModal({ ongoingMatchIds: new Set() });
+    expect(screen.getByRole('dialog')).toHaveAttribute('aria-label', 'Finished · Royal Gardens');
   });
 });
 
