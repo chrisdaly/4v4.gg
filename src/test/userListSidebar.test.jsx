@@ -51,7 +51,6 @@ function renderSidebar(overrides = {}) {
         watchList={new Set()}
         onToggleWatch={() => {}}
         onOpenGame={() => {}}
-        recentChatters={new Set(['Grubby#1'])}
         $mobileVisible={false}
         onClose={() => {}}
         {...overrides}
@@ -60,114 +59,156 @@ function renderSidebar(overrides = {}) {
   );
 }
 
-const rowNames = (sectionId) =>
-  [...document.querySelectorAll(`[data-section="${sectionId}"] [data-row]`)].map((el) => el.getAttribute('data-row'));
-
-/** [[divider text | null, [row tags]], ...] for every match sub-group in the In game section. */
-const inGameGroups = () =>
-  [...document.querySelectorAll('[data-section="ingame"] [data-game]')].map((g) => [
-    g.querySelector('[data-game-divider]')?.textContent ?? null,
-    [...g.querySelectorAll('[data-row]')].map((el) => el.getAttribute('data-row')),
-  ]);
+const rowNames = (scope = document) => [...scope.querySelectorAll('[data-row]')].map((el) => el.getAttribute('data-row'));
+const row = (tag) => document.querySelector(`[data-row="${tag}"]`);
 
 afterEach(cleanup);
 
-describe('UserListSidebar sections', () => {
-  it('splits the roster into in game, online and away with counts', () => {
+describe('UserListSidebar flat list', () => {
+  it('renders one flat list ordered by MMR descending, unknown MMR last, with no sections or dividers', () => {
     renderSidebar();
-    expect(screen.getByText('5 online')).toBeInTheDocument();
-    // in game rows follow match order (newest game first when head counts tie)
-    expect(rowNames('ingame')).toEqual(['Lyn#1', 'Moon#1']);
-    expect(rowNames('online')).toEqual(['Happy#1', 'Grubby#1']);
-    expect(rowNames('away')).toEqual(['Sleepy#1']);
+    expect(rowNames()).toEqual(['Happy#1', 'Grubby#1', 'Moon#1', 'Lyn#1', 'Sleepy#1']);
+    expect(document.querySelectorAll('[data-section]').length).toBe(0);
+    expect(document.querySelectorAll('[data-game-divider]').length).toBe(0);
+    expect(screen.queryByText(/In game/)).toBeNull();
+    expect(screen.queryByText(/^Away$/)).toBeNull();
+  });
 
-    const ingameHeader = within(document.querySelector('[data-section="ingame"]')).getByRole('button', { name: /In game/ });
-    expect(ingameHeader).toHaveTextContent('In game 2');
+  it('orders unknown MMR players by name after everyone with an MMR', () => {
+    const roster = [user('Zed'), user('Amy'), user('Bob'), user('Kim')];
+    renderSidebar({
+      users: roster,
+      stats: new Map([['Kim#1', { mmr: 1500 }]]),
+      inGameTags: new Set(),
+      inGameInfoMap: new Map(),
+      inGameMatchMap: new Map(),
+    });
+    expect(rowNames()).toEqual(['Kim#1', 'Amy#1', 'Bob#1', 'Zed#1']);
+  });
+
+  it('has no sort toggle', () => {
+    renderSidebar();
+    expect(screen.queryByRole('button', { name: 'Player' })).toBeNull();
+    expect(screen.queryByRole('button', { name: 'MMR' })).toBeNull();
   });
 
   it('renders rows with avatar, flag, mmr, twitch link and a player link on the name of in-game players', () => {
     renderSidebar();
-    const moon = document.querySelector('[data-row="Moon#1"]');
-    // the row itself opens the game; the player page stays reachable via the name
+    const moon = row('Moon#1');
     expect(moon.tagName).toBe('DIV');
     expect(moon).toHaveAttribute('role', 'button');
     expect(within(moon).getByRole('link', { name: 'Moon' })).toHaveAttribute('href', '/player/Moon%231');
-    expect(moon).toHaveAttribute('title', 'Ferocity · 12m');
     expect(moon.querySelector('img[src="https://x/moon.jpg"]')).not.toBeNull();
     expect(moon.querySelector('img[alt="KR"], img[src*="kr"]')).not.toBeNull();
     expect(within(moon).getByText('1800')).toBeInTheDocument();
 
-    const grubby = document.querySelector('[data-row="Grubby#1"]');
+    const grubby = row('Grubby#1');
     expect(grubby.tagName).toBe('DIV');
     expect(grubby).not.toHaveAttribute('role');
     expect(within(grubby).queryByRole('link', { name: 'Grubby' })).toBeNull();
     expect(within(grubby).getByTitle('live')).toHaveAttribute('href', 'https://twitch.tv/grubby');
   });
 
-  it('dims away rows and quiet online rows, never recent chatters', () => {
+  it('shows the crossed swords glyph with map and elapsed on in-game rows only', () => {
     renderSidebar();
-    expect(document.querySelector('[data-row="Sleepy#1"]')).toHaveAttribute('data-dim', 'idle');
-    expect(document.querySelector('[data-row="Happy#1"]')).toHaveAttribute('data-dim', 'quiet');
-    expect(document.querySelector('[data-row="Grubby#1"]')).not.toHaveAttribute('data-dim');
+    const swords = row('Moon#1').querySelector('[data-in-game]');
+    expect(swords).not.toBeNull();
+    expect(swords).toHaveAttribute('title', 'in game · Ferocity · 12m');
+    expect(swords.querySelector('svg')).not.toBeNull();
+    // glyph sits right after the name
+    expect(swords.previousElementSibling).toHaveTextContent('Moon');
+    expect(row('Lyn#1').querySelector('[data-in-game]')).toHaveAttribute('title', 'in game · Royal Gardens · 3m');
+    expect(row('Happy#1').querySelector('[data-in-game]')).toBeNull();
+    expect(row('Grubby#1').querySelector('[data-in-game]')).toBeNull();
+    expect(row('Sleepy#1').querySelector('[data-in-game]')).toBeNull();
+    expect(document.querySelectorAll('[data-in-game]').length).toBe(2);
   });
 
-  it('collapses a section on header click', () => {
+  it('renders no status chip on any row', () => {
     renderSidebar();
-    fireEvent.click(screen.getByRole('button', { name: /Online/ }));
-    expect(rowNames('online')).toEqual([]);
-    expect(rowNames('ingame')).toEqual(['Lyn#1', 'Moon#1']);
-    fireEvent.click(screen.getByRole('button', { name: /Online/ }));
-    expect(rowNames('online')).toEqual(['Happy#1', 'Grubby#1']);
+    expect(document.querySelectorAll('[data-chip]').length).toBe(0);
+    expect(document.querySelector('img[src*="king"]')).toBeNull();
+    expect(row('Moon#1')).not.toHaveTextContent(/in game/i);
+    expect(row('Moon#1')).toHaveTextContent('Moon');
+    expect(row('Moon#1')).toHaveTextContent('1800');
   });
 
   it('shows skeleton rows while the roster is empty', () => {
     renderSidebar({ users: [] });
-    expect(screen.getByText('0 online')).toBeInTheDocument();
+    expect(screen.getByText('online')).toBeInTheDocument();
+    expect(document.querySelector('[data-online-count]')).toHaveTextContent('0 online');
     expect(document.querySelectorAll('[data-row]').length).toBe(0);
-    expect(document.querySelectorAll('[data-section]').length).toBe(0);
   });
 });
 
-describe('UserListSidebar rows carry no status chip', () => {
-  it('renders name and MMR only, no in game, won or lost chip and no crown', () => {
-    renderSidebar({ recentWinners: new Set(['Happy#1']), recentDeltas: new Map([['Grubby#1', -9]]) });
-    expect(document.querySelectorAll('[data-chip]').length).toBe(0);
-    expect(document.querySelector('img[src*="king"]')).toBeNull();
-    const moon = document.querySelector('[data-row="Moon#1"]');
-    expect(moon).not.toHaveTextContent(/in game/i);
-    expect(moon).toHaveTextContent('Moon');
-    expect(moon).toHaveTextContent('1800');
-    expect(document.querySelector('[data-row="Grubby#1"]')).not.toHaveTextContent(/lost/i);
-    expect(document.querySelector('[data-row="Happy#1"]')).not.toHaveTextContent(/won/i);
-  });
-});
-
-describe('UserListSidebar sort and filter', () => {
-  it('sorts by MMR by default and by name when Player is active', () => {
+describe('UserListSidebar header', () => {
+  it('shows the online count and a live link counting distinct games in progress', () => {
     renderSidebar();
-    const player = screen.getByRole('button', { name: 'Player' });
-    const mmr = screen.getByRole('button', { name: 'MMR' });
-    expect(mmr).toHaveAttribute('data-active', 'true');
-    expect(rowNames('online')).toEqual(['Happy#1', 'Grubby#1']);
-    fireEvent.click(player);
-    expect(player).toHaveAttribute('data-active', 'true');
-    expect(mmr).toHaveAttribute('data-active', 'false');
-    expect(rowNames('online')).toEqual(['Grubby#1', 'Happy#1']);
-    expect(rowNames('ingame')).toEqual(['Lyn#1', 'Moon#1']);
+    expect(document.querySelector('[data-online-count]')).toHaveTextContent('5 online');
+    const live = document.querySelector('[data-live-count]');
+    expect(live).toHaveTextContent('2 live');
+    expect(live).toHaveAttribute('href', '/live');
   });
 
-  it('pins watched players to the top of their section', () => {
-    renderSidebar({ watchList: new Set(['grubby#1']) });
-    expect(rowNames('online')).toEqual(['Grubby#1', 'Happy#1']);
-    const star = within(document.querySelector('[data-row="Grubby#1"]')).getByRole('button', { name: 'Unwatch player' });
+  it('counts a shared game once and hides the live link when nobody is in a game', () => {
+    const roster = [user('A'), user('B'), user('C')];
+    const info = new Map([
+      ['A#1', { mapName: 'Ferocity', startTime: minsAgo(20), matchId: 'm1' }],
+      ['B#1', { mapName: 'Ferocity', startTime: minsAgo(20), matchId: 'm1' }],
+    ]);
+    renderSidebar({ users: roster, stats: new Map(), inGameTags: new Set(['A#1', 'B#1']), inGameInfoMap: info, inGameMatchMap: new Map() });
+    expect(document.querySelector('[data-live-count]')).toHaveTextContent('1 live');
+    cleanup();
+    renderSidebar({ users: roster, stats: new Map(), inGameTags: new Set(), inGameInfoMap: new Map(), inGameMatchMap: new Map() });
+    expect(document.querySelector('[data-live-count]')).toBeNull();
+  });
+});
+
+describe('UserListSidebar dimming', () => {
+  it('dims idle rows only; in-game and recently joined rows are normal', () => {
+    renderSidebar();
+    expect(row('Sleepy#1')).toHaveAttribute('data-dim', 'idle');
+    expect(row('Happy#1')).not.toHaveAttribute('data-dim');
+    expect(row('Grubby#1')).not.toHaveAttribute('data-dim');
+    expect(row('Moon#1')).not.toHaveAttribute('data-dim');
+    expect(document.querySelectorAll('[data-dim="quiet"]').length).toBe(0);
+  });
+
+  it('does not dim an idle-aged player who is in a game', () => {
+    const roster = [user('Old', { joinedAt: NOW - HOURS_4 })];
+    renderSidebar({
+      users: roster,
+      stats: new Map(),
+      inGameTags: new Set(['Old#1']),
+      inGameInfoMap: new Map([['Old#1', { mapName: 'Ferocity', startTime: minsAgo(5), matchId: 'm1' }]]),
+      inGameMatchMap: new Map(),
+    });
+    expect(row('Old#1')).not.toHaveAttribute('data-dim');
+  });
+});
+
+describe('UserListSidebar watch and filter', () => {
+  it('pins watched players in a Watching block above the list', () => {
+    renderSidebar({ watchList: new Set(['lyn#1']) });
+    const block = document.querySelector('[data-watching]');
+    expect(block).toHaveTextContent('Watching');
+    expect(rowNames(block)).toEqual(['Lyn#1']);
+    expect(rowNames()).toEqual(['Lyn#1', 'Happy#1', 'Grubby#1', 'Moon#1', 'Sleepy#1']);
+    const star = within(row('Lyn#1')).getByRole('button', { name: 'Unwatch player' });
     expect(star).toHaveTextContent('★');
+  });
+
+  it('renders no Watching block when nobody is watched', () => {
+    renderSidebar();
+    expect(document.querySelector('[data-watching]')).toBeNull();
+    expect(screen.queryByText('Watching')).toBeNull();
   });
 
   it('calls onToggleWatch from the star without opening the game', () => {
     const onToggleWatch = vi.fn();
     const onOpenGame = vi.fn();
     renderSidebar({ onToggleWatch, onOpenGame });
-    fireEvent.click(within(document.querySelector('[data-row="Moon#1"]')).getByRole('button', { name: 'Watch player' }));
+    fireEvent.click(within(row('Moon#1')).getByRole('button', { name: 'Watch player' }));
     expect(onToggleWatch).toHaveBeenCalledWith('Moon#1');
     expect(onOpenGame).not.toHaveBeenCalled();
   });
@@ -176,69 +217,14 @@ describe('UserListSidebar sort and filter', () => {
     renderSidebar();
     const input = screen.getByLabelText('Filter players');
     fireEvent.change(input, { target: { value: 'gru' } });
-    expect(rowNames('online')).toEqual(['Grubby#1']);
-    expect(document.querySelector('[data-section="ingame"]')).toBeNull();
-    expect(screen.getByText('5 online')).toBeInTheDocument();
+    expect(rowNames()).toEqual(['Grubby#1']);
+    expect(document.querySelector('[data-online-count]')).toHaveTextContent('5 online');
     fireEvent.change(input, { target: { value: 'zzz' } });
     expect(screen.getByText('No players match')).toBeInTheDocument();
     expect(document.querySelectorAll('[data-row]').length).toBe(0);
   });
-});
 
-describe('UserListSidebar in game sub-groups', () => {
-  it('has no live now strip', () => {
-    renderSidebar();
-    expect(document.querySelector('[data-live-strip]')).toBeNull();
-    expect(screen.queryByText(/Live now/)).toBeNull();
-  });
-
-  it('groups in-game rows by match with a divider of map, elapsed and channel head count', () => {
-    renderSidebar();
-    expect(inGameGroups()).toEqual([
-      ['Royal Gardens · 3m · 1', ['Lyn#1']],
-      ['Ferocity · 12m · 1', ['Moon#1']],
-    ]);
-    const divider = document.querySelector('[data-game="m2"] [data-game-divider]');
-    expect(divider).toHaveAttribute('title', 'Royal Gardens · 3m · 1');
-    // one divider per game, never one per row
-    expect(document.querySelectorAll('[data-game-divider]').length).toBe(2);
-  });
-
-  it('orders games by channel head count then newest, and rows within a game by the current sort', () => {
-    const roster = [user('A'), user('B'), user('C'), user('D'), user('E')];
-    const tags = new Set(['A#1', 'B#1', 'C#1', 'D#1', 'E#1']);
-    const info = new Map([
-      ['A#1', { mapName: 'Ferocity', startTime: minsAgo(20), matchId: 'm1' }],
-      ['B#1', { mapName: 'Ferocity', startTime: minsAgo(20), matchId: 'm1' }],
-      ['C#1', { mapName: 'Snowblind', startTime: minsAgo(1), matchId: 'm2' }],
-      ['D#1', { mapName: 'Gold Rush', startTime: minsAgo(9), matchId: 'm3' }],
-    ]);
-    const mmr = new Map([
-      ['A#1', { mmr: 1500 }],
-      ['B#1', { mmr: 1900 }],
-      ['C#1', { mmr: 1600 }],
-      ['D#1', { mmr: 1700 }],
-    ]);
-    renderSidebar({ users: roster, stats: mmr, inGameTags: tags, inGameInfoMap: info, inGameMatchMap: new Map() });
-    expect(inGameGroups()).toEqual([
-      ['Ferocity · 20m · 2', ['B#1', 'A#1']],
-      ['Snowblind · 1m · 1', ['C#1']],
-      ['Gold Rush · 9m · 1', ['D#1']],
-      [null, ['E#1']],
-    ]);
-    expect(document.querySelector('[data-game="unknown"] [data-game-divider]')).toBeNull();
-
-    fireEvent.click(screen.getByRole('button', { name: 'Player' }));
-    expect(inGameGroups()[0]).toEqual(['Ferocity · 20m · 2', ['A#1', 'B#1']]);
-  });
-
-  it('keeps the map and elapsed tooltip on in-game rows and leaves online rows without one', () => {
-    renderSidebar();
-    expect(document.querySelector('[data-row="Lyn#1"]')).toHaveAttribute('title', 'Royal Gardens · 3m');
-    expect(document.querySelector('[data-row="Happy#1"]')).not.toHaveAttribute('title');
-  });
-
-  it('shows a long name, a four digit MMR and the star in one row without a chip', () => {
+  it('shows a long name, a four digit MMR, the swords glyph and the star in one row', () => {
     const roster = [user('SergeyPenkin')];
     renderSidebar({
       users: roster,
@@ -247,12 +233,12 @@ describe('UserListSidebar in game sub-groups', () => {
       inGameInfoMap: new Map([['SergeyPenkin#1', { mapName: 'Ferocity', startTime: minsAgo(5), matchId: 'm9' }]]),
       inGameMatchMap: new Map(),
     });
-    const row = document.querySelector('[data-row="SergeyPenkin#1"]');
-    expect(row.children.length).toBe(4); // avatar, name anchor, mmr, star
-    expect(within(row).getByText('SergeyPenkin')).toBeInTheDocument();
-    expect(within(row).getByText('2345')).toBeInTheDocument();
-    expect(within(row).getByRole('button', { name: 'Watch player' })).toBeInTheDocument();
-    expect(row.querySelector('[data-chip]')).toBeNull();
+    const r = row('SergeyPenkin#1');
+    expect(r.children.length).toBe(5); // avatar, name anchor, swords, mmr, star
+    expect(within(r).getByText('SergeyPenkin')).toBeInTheDocument();
+    expect(within(r).getByText('2345')).toBeInTheDocument();
+    expect(within(r).getByRole('button', { name: 'Watch player' })).toBeInTheDocument();
+    expect(r.querySelector('[data-chip]')).toBeNull();
   });
 });
 
@@ -260,37 +246,27 @@ describe('UserListSidebar game modal', () => {
   it('opens the game from an in-game row (click and keyboard) with its ongoing-index entry', () => {
     const onOpenGame = vi.fn();
     renderSidebar({ onOpenGame });
-    const moon = document.querySelector('[data-row="Moon#1"]');
+    const moon = row('Moon#1');
     fireEvent.click(moon);
     expect(onOpenGame).toHaveBeenCalledTimes(1);
     expect(onOpenGame).toHaveBeenCalledWith(inGameInfoMap.get('Moon#1'));
     fireEvent.keyDown(moon, { key: 'Enter' });
     expect(onOpenGame).toHaveBeenCalledTimes(2);
-    // online rows are not games
-    fireEvent.click(document.querySelector('[data-row="Grubby#1"]'));
+    // rows for players not in a game are not games
+    fireEvent.click(row('Grubby#1'));
     expect(onOpenGame).toHaveBeenCalledTimes(2);
-  });
-
-  it('opens the game from the map divider line', () => {
-    const onOpenGame = vi.fn();
-    renderSidebar({ onOpenGame });
-    const divider = document.querySelector('[data-game="m2"] [data-game-divider]');
-    expect(divider).toHaveAttribute('role', 'button');
-    fireEvent.click(divider);
-    expect(onOpenGame).toHaveBeenCalledWith({ matchId: 'm2', mapName: 'Royal Gardens', startTime: inGameInfoMap.get('Lyn#1').startTime });
   });
 
   it('leaves the name link to the player page without opening the game', () => {
     const onOpenGame = vi.fn();
     renderSidebar({ onOpenGame });
-    fireEvent.click(within(document.querySelector('[data-row="Lyn#1"]')).getByRole('link', { name: 'Lyn' }));
+    fireEvent.click(within(row('Lyn#1')).getByRole('link', { name: 'Lyn' }));
     expect(onOpenGame).not.toHaveBeenCalled();
   });
 
-  it('renders plain rows and dividers when no onOpenGame is given', () => {
+  it('renders plain rows when no onOpenGame is given', () => {
     renderSidebar({ onOpenGame: undefined });
-    expect(document.querySelector('[data-row="Moon#1"]')).not.toHaveAttribute('role');
-    expect(document.querySelector('[data-game-divider]')).not.toHaveAttribute('role');
+    expect(row('Moon#1')).not.toHaveAttribute('role');
   });
 });
 

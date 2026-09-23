@@ -126,7 +126,6 @@ const Chat = () => {
     inGameInfoMap,
     inGameMatchMap,
     ongoingMatchIds,
-    recentChatters,
     gameEvents,
     recentWinners,
     recentDeltas,
@@ -197,7 +196,6 @@ const Chat = () => {
           watchList={watchList}
           onToggleWatch={toggleWatch}
           onOpenGame={openGameModal}
-          recentChatters={recentChatters}
           $mobileVisible={mobileTab === "users"}
           onClose={() => setMobileTab("chat")}
           borderTheme={borderTheme}
