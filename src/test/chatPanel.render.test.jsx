@@ -1,14 +1,20 @@
-import { describe, it, expect, vi, afterEach } from 'vitest';
+import { describe, it, expect, vi, afterEach, beforeEach } from 'vitest';
 import React from 'react';
-import { render, screen, fireEvent, cleanup } from '@testing-library/react';
+import { render, screen, fireEvent, cleanup, waitFor } from '@testing-library/react';
 import { MemoryRouter } from 'react-router-dom';
 
 // Render every row eagerly: happy-dom has no layout, so the real Virtuoso
 // would measure a 0px viewport and render nothing. This exercises the same
-// itemContent/Header/Footer wiring the real list uses.
+// itemContent/Header/Footer wiring the real list uses. rangeChanged fires
+// once per data change with the whole list "visible" (no boxes to measure),
+// which is what the sticky day bar falls back to.
+const scrollToIndex = vi.fn();
 vi.mock('react-virtuoso', () => ({
-  Virtuoso: React.forwardRef(function FakeVirtuoso({ data, itemContent, components, context, firstItemIndex = 0, computeItemKey }, ref) {
-    React.useImperativeHandle(ref, () => ({ scrollToIndex: () => {} }));
+  Virtuoso: React.forwardRef(function FakeVirtuoso({ data, itemContent, components, context, firstItemIndex = 0, computeItemKey, rangeChanged }, ref) {
+    React.useImperativeHandle(ref, () => ({ scrollToIndex }));
+    React.useEffect(() => {
+      rangeChanged?.({ startIndex: firstItemIndex, endIndex: firstItemIndex + data.length - 1 });
+    }, [rangeChanged, firstItemIndex, data.length]);
     const { Header, Footer } = components;
     return (
       <div data-testid="virtuoso">
@@ -90,9 +96,14 @@ function renderPanel(overrides = {}) {
   );
 }
 
+beforeEach(() => {
+  scrollToIndex.mockClear();
+});
+
 afterEach(() => {
   cleanup();
   localStorage.clear();
+  document.body.classList.remove('chat-focus');
 });
 
 describe('ChatPanel rows', () => {
@@ -108,7 +119,7 @@ describe('ChatPanel rows', () => {
     expect(screen.getByText('hello')).toBeInTheDocument();
     expect(screen.getByText('1900 MMR')).toBeInTheDocument();
     expect(screen.getByText('Load earlier messages')).toBeInTheDocument();
-    expect(screen.getByText('Today')).toBeInTheDocument();
+    expect(screen.getAllByText('Today')).toHaveLength(2); // in-list divider + sticky day bar
     expect(document.getElementById('msg-a1')).not.toBeNull();
     expect(document.getElementById('msg-a2')).not.toBeNull();
     expect(screen.getByText('5')).toBeInTheDocument(); // header message count
@@ -154,5 +165,180 @@ describe('ChatPanel rows', () => {
     cleanup();
     renderPanel({ status: 'reconnecting' });
     expect(screen.getByText('Reconnecting...')).toBeInTheDocument();
+  });
+});
+
+describe('ChatPanel focus mode', () => {
+  it('toggles body.chat-focus, compacts the feed, hides tickers and exits on Esc', () => {
+    renderPanel();
+    expect(document.body.classList.contains('chat-focus')).toBe(false);
+    expect(screen.getByText('Finished')).toBeInTheDocument();
+
+    const focus = screen.getByTitle(/Focus mode/);
+    fireEvent.click(focus);
+    expect(document.body.classList.contains('chat-focus')).toBe(true);
+    expect(localStorage.getItem('chat:focus')).toBe('1');
+    expect(screen.getByTitle('Exit focus mode (Esc)')).toHaveAttribute('data-active', 'true');
+    // tickers hidden without touching the Games preference
+    expect(screen.queryByText('Finished')).toBeNull();
+    expect(screen.getByTitle('Hide game tickers')).toHaveAttribute('data-active', 'true');
+    expect(localStorage.getItem('chat:showGames')).toBeNull();
+    // groups render compact
+    const grubbyGroup = document.getElementById('msg-a1').closest('[data-variant="feed"]');
+    expect(grubbyGroup).toHaveAttribute('data-compact', 'true');
+
+    fireEvent.keyDown(window, { key: 'Escape' });
+    expect(document.body.classList.contains('chat-focus')).toBe(false);
+    expect(localStorage.getItem('chat:focus')).toBe('1'); // Esc exits the session, the persisted pref is untouched
+    expect(screen.getByText('Finished')).toBeInTheDocument();
+    expect(grubbyGroup).not.toHaveAttribute('data-compact');
+  });
+
+  it('restores Focus from localStorage and clears the class on unmount', () => {
+    localStorage.setItem('chat:focus', '1');
+    const { unmount } = renderPanel();
+    expect(document.body.classList.contains('chat-focus')).toBe(true);
+    unmount();
+    expect(document.body.classList.contains('chat-focus')).toBe(false);
+  });
+});
+
+describe('ChatPanel permalinks', () => {
+  it('renders a copy-link anchor per line that copies and rewrites the URL', async () => {
+    const writeText = vi.fn().mockResolvedValue();
+    Object.defineProperty(navigator, 'clipboard', { value: { writeText }, configurable: true });
+    const replaceState = vi.spyOn(window.history, 'replaceState');
+    renderPanel();
+
+    const links = screen.getAllByLabelText('Copy link');
+    // one per non-system line: a1, a2, b1, c1
+    expect(links).toHaveLength(4);
+    const expected = `${window.location.origin}/chat?m=a2`;
+    const a2 = links.find((l) => l.getAttribute('href') === expected);
+    expect(a2).toBeTruthy();
+    expect(a2.tagName).toBe('A');
+    expect(document.getElementById('msg-a2')).toContainElement(a2);
+
+    fireEvent.click(a2);
+    await waitFor(() => expect(screen.getByText('Copied')).toBeInTheDocument());
+    expect(writeText).toHaveBeenCalledWith(expected);
+    expect(replaceState).toHaveBeenCalledTimes(1);
+    expect(replaceState.mock.calls[0].slice(1)).toEqual(['', '/chat?m=a2']);
+
+    // modified clicks keep the native anchor behaviour
+    fireEvent.click(a2, { ctrlKey: true });
+    expect(writeText).toHaveBeenCalledTimes(1);
+    replaceState.mockRestore();
+  });
+
+  it('resolves ?m= on load: scrolls to the row and flashes the line', async () => {
+    renderPanel({ permalinkId: 'b1' });
+    await waitFor(() => expect(scrollToIndex).toHaveBeenCalled());
+    const call = scrollToIndex.mock.calls[0][0];
+    expect(call.align).toBe('center');
+    // scrollToIndex takes the 0-based data index; data-index carries firstItemIndex
+    const row = document.getElementById('msg-b1').closest('[data-index]');
+    const rowsInOrder = Array.from(document.querySelectorAll('[data-index]'));
+    expect(call.index).toBe(rowsInOrder.indexOf(row));
+    expect(document.getElementById('msg-b1')).toHaveStyle({ background: 'rgba(252, 219, 51, 0.14)' });
+  });
+
+  it('pages older history until a permalinked message is loaded', async () => {
+    const loadOlder = vi.fn();
+    function PagingHarness() {
+      // b1, c1 in the initial window; a1 arrives with the first older page
+      const [msgs, setMsgs] = React.useState(messages.slice(2));
+      const load = React.useCallback(async () => {
+        loadOlder();
+        setMsgs(messages);
+        return { added: 2, oldestCursor: null };
+      }, []);
+      return (
+        <MemoryRouter>
+          <ChatPanel
+            messages={msgs}
+            status="connected"
+            avatars={avatars}
+            stats={stats}
+            sessions={new Map()}
+            inGameTags={new Set()}
+            inGameInfoMap={new Map()}
+            recentWinners={new Set()}
+            recentDeltas={new Map()}
+            gameEvents={[]}
+            ongoingMatchIds={new Set()}
+            liveStreamers={new Map()}
+            watchList={new Set()}
+            onlineUsers={[]}
+            botResponses={[]}
+            translations={new Map()}
+            sendMessage={() => {}}
+            loadOlder={load}
+            hasMoreHistory
+            permalinkId="a1"
+          />
+        </MemoryRouter>
+      );
+    }
+    render(<PagingHarness />);
+    await waitFor(() => expect(loadOlder).toHaveBeenCalledTimes(1));
+    await waitFor(() => expect(scrollToIndex).toHaveBeenCalled());
+    expect(document.getElementById('msg-a1')).not.toBeNull();
+  });
+});
+
+describe('ChatPanel sticky day bar', () => {
+  beforeEach(() => {
+    // /api/chat/stats supplies the archive's oldest day for the date input
+    vi.spyOn(globalThis, 'fetch').mockResolvedValue({ ok: true, json: async () => ({ oldestMessage: '2026-06-01 00:00:00' }) });
+  });
+  afterEach(() => {
+    vi.restoreAllMocks();
+  });
+
+  it('shows the top row\'s day and opens a date picker bounded by the archive', async () => {
+    renderPanel();
+    const day = screen.getByTitle('Jump to date');
+    expect(day).toHaveTextContent('Today');
+    fireEvent.click(day);
+    const input = document.getElementById('chat-jump-date');
+    expect(input).toHaveAttribute('type', 'date');
+    const today = new Date();
+    const ymd = `${today.getFullYear()}-${String(today.getMonth() + 1).padStart(2, '0')}-${String(today.getDate()).padStart(2, '0')}`;
+    expect(input).toHaveAttribute('max', ymd);
+    await waitFor(() => expect(input).toHaveAttribute('min', '2026-06-01'));
+    expect(globalThis.fetch.mock.calls[0][0]).toMatch(/\/api\/chat\/stats$/);
+    // Esc closes the popover first; a second Esc would exit Focus
+    fireEvent.keyDown(window, { key: 'Escape' });
+    expect(document.getElementById('chat-jump-date')).toBeNull();
+  });
+
+  it('loads a window ending at the picked day and offers Back to live', async () => {
+    const dayMsgs = [
+      msg('d1', 'Moon#2', -3 * 86400000, 'three days ago'),
+      msg('d2', 'Moon#2', -2 * 86400000, 'two days ago'),
+    ];
+    const loadWindow = vi.fn(async () => dayMsgs);
+    const loadLatest = vi.fn(async () => messages);
+    renderPanel({ loadWindow, loadLatest, windowMode: 'live' });
+    expect(screen.queryByText('Back to live')).toBeNull();
+
+    fireEvent.click(screen.getByTitle('Jump to date'));
+    const picked = new Date(T0 - 2 * 86400000);
+    const ymd = `${picked.getFullYear()}-${String(picked.getMonth() + 1).padStart(2, '0')}-${String(picked.getDate()).padStart(2, '0')}`;
+    fireEvent.change(document.getElementById('chat-jump-date'), { target: { value: ymd } });
+    await waitFor(() => expect(loadWindow).toHaveBeenCalledTimes(1));
+    // cursor is the start of the next local day in the relay's UTC format
+    const cursor = loadWindow.mock.calls[0][0];
+    const nextDay = new Date(picked.getFullYear(), picked.getMonth(), picked.getDate() + 1);
+    expect(cursor).toBe(nextDay.toISOString().slice(0, 19).replace('T', ' '));
+    expect(document.getElementById('chat-jump-date')).toBeNull();
+
+    cleanup();
+    renderPanel({ messages: dayMsgs, loadWindow, loadLatest, windowMode: 'archive', windowId: 1 });
+    const back = screen.getByText('Back to live');
+    expect(back).toBeInTheDocument();
+    fireEvent.click(back);
+    await waitFor(() => expect(loadLatest).toHaveBeenCalledTimes(1));
   });
 });

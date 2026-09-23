@@ -6,6 +6,7 @@ import { raceMapping, raceIcons } from "../../lib/constants";
 import { CountryFlag } from "../ui";
 import { formatTime } from "../../lib/useChatMessages";
 import { Chip } from "./chip";
+import CopyLink, { CopyLinkButton } from "./CopyLink";
 
 /**
  * One message group (author + consecutive lines) in three looks:
@@ -28,21 +29,26 @@ import { Chip } from "./chip";
  *   wrapName     (nameNode, author) => node; hover-card wrapper for the name
  *   renderLine   (line) => node; override the line text (linkify, search marks)
  *   renderAfterLine (line) => node; extra rows under a line (bot replies)
+ *   permalinkHref (line) => string; feed only: when set, each line gets a
+ *                hover-only copy-link anchor next to its timestamp
+ *   $compact     feed only: tighter density (focus mode): 24px avatar,
+ *                var(--space-2) group spacing, 1.4 line-height
  */
 
 const LINE_HEIGHT = 1.5;
+const COMPACT_LINE_HEIGHT = 1.4;
 
 const Group = styled.div`
   position: relative;
   display: grid;
-  grid-template-columns: ${(p) => (p.$variant === "quote" ? "1fr" : "32px 1fr")};
+  grid-template-columns: ${(p) => (p.$variant === "quote" ? "1fr" : p.$compact ? "24px 1fr" : "32px 1fr")};
   gap: ${(p) => (p.$variant === "quote" ? "0" : "var(--space-3)")};
   align-items: start;
   min-width: 0;
   ${(p) =>
     p.$variant === "feed" &&
     css`
-      padding-top: var(--space-3);
+      padding-top: ${p.$compact ? "var(--space-2)" : "var(--space-3)"};
     `}
   ${(p) =>
     p.$variant === "transcript" &&
@@ -64,9 +70,14 @@ const Group = styled.div`
 
 const AvatarCol = styled.div`
   position: relative;
-  width: 32px;
-  height: 32px;
+  width: ${(p) => (p.$compact ? "24px" : "32px")};
+  height: ${(p) => (p.$compact ? "24px" : "32px")};
   flex-shrink: 0;
+
+  img {
+    width: 100%;
+    height: 100%;
+  }
 `;
 
 const AvatarImg = styled.img`
@@ -83,7 +94,7 @@ const AvatarRaceIcon = styled.img`
   box-sizing: border-box;
   border-radius: var(--radius-md);
   display: block;
-  padding: 6px;
+  padding: ${(p) => (p.$compact ? "4px" : "6px")};
   background: var(--surface-2);
   opacity: ${(p) => (p.$faded ? 0.3 : 0.85)};
 `;
@@ -104,8 +115,8 @@ const Head = styled.div`
   align-items: baseline;
   flex-wrap: wrap;
   gap: var(--space-2);
-  margin-bottom: ${(p) => (p.$variant === "quote" ? "var(--quote-name-gap)" : "2px")};
-  line-height: 1.3;
+  margin-bottom: ${(p) => (p.$variant === "quote" ? "var(--quote-name-gap)" : p.$compact ? "0" : "2px")};
+  line-height: ${(p) => (p.$compact ? COMPACT_LINE_HEIGHT : 1.3)};
 `;
 
 const nameFont = {
@@ -179,6 +190,12 @@ const Time = styled.span`
   transition: color var(--transition);
 `;
 
+const LineEnd = styled.span`
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-1);
+`;
+
 const Line = styled.div`
   display: grid;
   grid-template-columns: 1fr auto;
@@ -195,12 +212,16 @@ const Line = styled.div`
   &:hover ${Time} {
     color: var(--grey-light);
   }
+  &:hover ${CopyLinkButton},
+  &:focus-within ${CopyLinkButton} {
+    opacity: 1;
+  }
 `;
 
 const FeedText = styled.span`
   font-family: var(--font-mono);
   font-size: var(--text-xs);
-  line-height: ${LINE_HEIGHT};
+  line-height: ${(p) => (p.$compact ? COMPACT_LINE_HEIGHT : LINE_HEIGHT)};
   color: var(--text-body);
   overflow-wrap: anywhere;
   word-break: break-word;
@@ -254,7 +275,7 @@ const TranslationLabel = styled.span`
   opacity: 0.6;
 `;
 
-function AvatarBlock({ meta }) {
+function AvatarBlock({ meta, compact }) {
   const { avatarUrl, race, countryCode } = meta || {};
   let img;
   if (avatarUrl) {
@@ -262,13 +283,13 @@ function AvatarBlock({ meta }) {
   } else {
     const raceIcon = race != null ? raceMapping[race] : null;
     img = raceIcon ? (
-      <AvatarRaceIcon src={raceIcon} alt="" />
+      <AvatarRaceIcon src={raceIcon} alt="" $compact={compact} />
     ) : (
-      <AvatarRaceIcon src={raceIcons.random} alt="" $faded />
+      <AvatarRaceIcon src={raceIcons.random} alt="" $faded $compact={compact} />
     );
   }
   return (
-    <AvatarCol>
+    <AvatarCol $compact={compact}>
       {img}
       {countryCode && (
         <AvatarFlag>
@@ -291,6 +312,8 @@ export default function ChatMessage({
   wrapName,
   renderLine = defaultRenderLine,
   renderAfterLine,
+  permalinkHref,
+  $compact = false,
 }) {
   if (!group?.author) return null;
   const { author, lines = [] } = group;
@@ -298,6 +321,7 @@ export default function ChatMessage({
   const displayName = author.userName || tag.split("#")[0];
   const isQuote = variant === "quote";
   const isFeed = variant === "feed";
+  const compact = isFeed && Boolean($compact);
 
   let name = onNameClick ? (
     <NameButton type="button" $variant={variant} onClick={() => onNameClick(author)}>
@@ -314,10 +338,10 @@ export default function ChatMessage({
   const Text = variant === "transcript" ? TranscriptText : FeedText;
 
   return (
-    <Group $variant={variant} $target={target} $watched={watched} data-variant={variant}>
-      {!isQuote && <AvatarBlock meta={meta} />}
+    <Group $variant={variant} $target={target} $watched={watched} $compact={compact} data-variant={variant} data-compact={compact || undefined}>
+      {!isQuote && <AvatarBlock meta={meta} compact={compact} />}
       <Body>
-        <Head $variant={variant}>
+        <Head $variant={variant} $compact={compact}>
           {name}
           {author.clanTag && <ClanTag>{author.clanTag}</ClanTag>}
           {!isQuote && meta?.mmr != null && <Mmr>{Math.round(meta.mmr)} MMR</Mmr>}
@@ -347,8 +371,11 @@ export default function ChatMessage({
           lines.map((line) => (
             <React.Fragment key={line.id ?? line.sentAt}>
               <Line id={line.id != null ? `msg-${line.id}` : undefined} $highlight={Boolean(line.highlight)}>
-                <Text>{renderLine(line)}</Text>
-                <Time>{line.sentAt ? formatTime(line.sentAt) : ""}</Time>
+                <Text $compact={compact}>{renderLine(line)}</Text>
+                <LineEnd>
+                  <Time>{line.sentAt ? formatTime(line.sentAt) : ""}</Time>
+                  {isFeed && permalinkHref && line.id != null && <CopyLink href={permalinkHref(line)} />}
+                </LineEnd>
               </Line>
               {line.translation && (
                 <Translation>

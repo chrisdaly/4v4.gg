@@ -13,6 +13,16 @@
   box-shadow: 0 2px 16px rgba(0, 0, 0, 0.6);
 }
 
+/* Chat focus mode (ChatPanel): the navbar goes away and the layout token
+   collapses so calc(100vh - var(--nav-height)) fills the viewport */
+body.chat-focus .navbar {
+  display: none;
+}
+
+body.chat-focus {
+  --nav-height: 0px;
+}
+
 .navbar-content {
   display: flex;
   align-items: center;

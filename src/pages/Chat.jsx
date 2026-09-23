@@ -1,5 +1,6 @@
 import React, { useState, useEffect, useMemo, useRef } from "react";
 import styled from "styled-components";
+import { useLocation } from "react-router-dom";
 import { HiUsers, HiChat } from "react-icons/hi";
 import useChatFeed from "../lib/chat/useChatFeed";
 import { useWatchList } from "../lib/chatExtras";
@@ -19,11 +20,12 @@ const Page = styled.div`
 const Layout = styled.div`
   display: flex;
   gap: var(--space-2);
-  height: calc(100vh - 52px - var(--space-1));
+  /* --nav-height is 0px while body.chat-focus hides the navbar (Navbar.css) */
+  height: calc(100vh - var(--nav-height) - var(--space-1));
 
   @media (max-width: 768px) {
     gap: 0;
-    height: calc(100dvh - 46px - 48px); /* dvh handles mobile address bar */
+    height: calc(100dvh - var(--nav-height) - 48px); /* dvh handles mobile address bar; 48px tab bar */
   }
 `;
 
@@ -111,6 +113,10 @@ const Chat = () => {
     sendMessage,
     loadOlder,
     hasMoreHistory,
+    loadWindow,
+    loadLatest,
+    windowMode,
+    windowId,
     ongoingMatches,
     avatars,
     stats,
@@ -128,6 +134,10 @@ const Chat = () => {
   const { borderTheme } = useTheme();
   const { watchList, toggleWatch } = useWatchList();
   const [mobileTab, setMobileTab] = useState("chat"); // "chat" | "users"
+  // /chat?m=<messageId> permalink; read once per navigation, the copy-link
+  // button updates the URL with replaceState so the router never sees it
+  const { search } = useLocation();
+  const permalinkId = useMemo(() => new URLSearchParams(search).get("m"), [search]);
 
   // Unread badge for the mobile Chat tab: everything newer than the last
   // message that was on screen when the user left the chat tab
@@ -172,6 +182,11 @@ const Chat = () => {
           sendMessage={sendMessage}
           loadOlder={loadOlder}
           hasMoreHistory={hasMoreHistory}
+          loadWindow={loadWindow}
+          loadLatest={loadLatest}
+          windowMode={windowMode}
+          windowId={windowId}
+          permalinkId={permalinkId}
         />
         <UserListSidebar
           users={onlineUsers}

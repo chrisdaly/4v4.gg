@@ -3,7 +3,7 @@ import { Virtuoso } from "react-virtuoso";
 import { Link } from "react-router-dom";
 import styled from "styled-components";
 import { GiCrossedSwords } from "react-icons/gi";
-import { HiKey, HiBell, HiSearch, HiTranslate } from "react-icons/hi";
+import { HiKey, HiBell, HiSearch, HiTranslate, HiOutlineArrowsExpand } from "react-icons/hi";
 import { IoSend } from "react-icons/io5";
 import { raceIcons } from "../lib/constants";
 import { Button, Skeleton, Input } from "./ui";
@@ -221,6 +221,84 @@ const DateLabel = styled.span`
   letter-spacing: 0.1em;
   color: var(--grey-light);
   white-space: nowrap;
+`;
+
+/* ── Sticky day bar (current day at the top of the viewport) ── */
+
+const StickyBar = styled.div`
+  position: absolute;
+  top: var(--space-2);
+  left: 0;
+  right: 0;
+  z-index: 2;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: var(--space-2);
+  pointer-events: none;
+
+  > * {
+    pointer-events: auto;
+  }
+`;
+
+const DayPicker = styled.div`
+  position: relative;
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+`;
+
+const DayButton = styled(Button)`
+  font-size: var(--text-xxxs);
+  letter-spacing: 0.1em;
+  padding: 2px var(--space-3);
+  background: rgba(10, 8, 6, 0.85);
+  backdrop-filter: blur(4px);
+  white-space: nowrap;
+`;
+
+const BackToLiveButton = styled(Button)`
+  font-size: var(--text-xxxs);
+  letter-spacing: 0.1em;
+  padding: 2px var(--space-3);
+  background: rgba(10, 8, 6, 0.85);
+  backdrop-filter: blur(4px);
+  white-space: nowrap;
+  &[data-active="true"] {
+    background: rgba(10, 8, 6, 0.85);
+  }
+`;
+
+const DayPopover = styled.div`
+  position: absolute;
+  top: calc(100% + var(--space-1));
+  left: 50%;
+  transform: translateX(-50%);
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-2);
+  padding: var(--space-3);
+  /* patterns.popover */
+  background: rgba(10, 8, 6, 0.96);
+  border: 1px solid var(--grey-mid);
+  border-radius: var(--radius-md);
+  box-shadow: 0 8px 24px var(--overlay-light);
+  z-index: var(--z-popover);
+  animation: fadeIn 120ms ease-out;
+`;
+
+const DayPopoverLabel = styled.label`
+  font: var(--text-xxs) var(--font-mono);
+  text-transform: uppercase;
+  letter-spacing: 0.1em;
+  color: var(--grey-light);
+  white-space: nowrap;
+`;
+
+const DateInput = styled(Input)`
+  color-scheme: dark;
+  padding: var(--space-1) var(--space-2);
 `;
 
 const InputBar = styled.form`
@@ -704,6 +782,27 @@ function writePref(key, value) {
 // it by the number of rows added at the head so the viewport stays put
 const FIRST_ITEM_BASE = 1_000_000;
 
+// How many pages of older history a jump (search hit, permalink) pages in
+// before giving up
+const MAX_JUMP_PAGES = 20;
+
+// Local "YYYY-MM-DD" for a native date input
+function toInputDate(d) {
+  const pad = (n) => String(n).padStart(2, "0");
+  return `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}`;
+}
+
+// The relay's received_at cursor format: sqlite datetime('now'), UTC
+function toRelayCursor(d) {
+  return d.toISOString().slice(0, 19).replace("T", " ");
+}
+
+// Find the row that holds a message id (a group row holds several lines)
+function findRowIndex(rows, id) {
+  if (id == null) return -1;
+  return rows.findIndex((r) => (r.msgs ? r.msgs.some((m) => m.id === id) : r.msg?.id === id));
+}
+
 // Virtuoso renders these outside the virtual window; dynamic state comes in
 // through the `context` prop so the component references stay stable
 function ListHeader({ context }) {
@@ -765,6 +864,11 @@ export default function ChatPanel({
   sendMessage,
   loadOlder,
   hasMoreHistory,
+  loadWindow,
+  loadLatest,
+  windowMode = "live",
+  windowId = 0,
+  permalinkId = null,
 }) {
   const virtuosoRef = useRef(null);
   const inputRef = useRef(null);
@@ -779,6 +883,7 @@ export default function ChatPanel({
   const [showTranslations, setShowTranslations] = useState(() => readPref("chat:showTranslations", true));
   const [notifyOn, setNotifyOn] = useState(() => readPref("chat:notify", false));
   const [showGames, setShowGames] = useState(() => readPref("chat:showGames", true));
+  const [focusOn, setFocusOn] = useState(() => readPref("chat:focus", false));
   // Expanded game tickers, per event id (not persisted)
   const [expandedEvents, setExpandedEvents] = useState(() => new Set());
   const [searchOpen, setSearchOpen] = useState(false);
@@ -790,9 +895,21 @@ export default function ChatPanel({
   const [searchAvatars, setSearchAvatars] = useState(new Map());
   const [flashId, setFlashId] = useState(null);
   const [jumping, setJumping] = useState(false);
-  const [pendingJumpId, setPendingJumpId] = useState(null);
+  // { id, align } - scroll to this message's row once it exists in `rows`
+  const [pendingJump, setPendingJump] = useState(null);
+  // Sticky day bar: absolute Virtuoso index of the topmost visible row
+  const [topIndex, setTopIndex] = useState(null);
+  const [dayPickerOpen, setDayPickerOpen] = useState(false);
+  const [archiveMin, setArchiveMin] = useState(null);
+  const [loadingWindow, setLoadingWindow] = useState(false);
   const lastNotifiedRef = useRef(null);
   const flashTimerRef = useRef(null);
+  const jumpingRef = useRef(false);
+  const permalinkDoneRef = useRef(null);
+  const dayPickerRef = useRef(null);
+  const scrollerElRef = useRef(null);
+  const rangeRef = useRef(null);
+  const topRowRafRef = useRef(null);
   const messagesRef = useRef(messages);
   // Whether the viewport is pinned to the newest row. Fed by Virtuoso's
   // followOutput decision (which already treats an in-progress programmatic
@@ -817,34 +934,175 @@ export default function ChatPanel({
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [searchResults, avatars]);
 
-  // Jump from a search result to the message in the stream. Search covers
-  // 24h while the stream holds the newest few hundred messages, so page
-  // older history in until the target is loaded (bounded), then let the
-  // list scroll to its row once it renders (see the pendingJumpId effect).
-  const jumpToMessage = useCallback(async (result) => {
-    if (jumping) return;
+  // Jump to a message in the stream (search hit, permalink). The stream
+  // holds the newest few hundred messages, so page older history in until
+  // the target is loaded (bounded), then let the list scroll to its row
+  // once it renders (see the pendingJump effect). `targetTime` (a search
+  // hit's receivedAt) stops the paging early once history is older than
+  // the target; a permalink has no timestamp and pages until found.
+  const jumpToId = useCallback(async (id, targetTime = null) => {
+    if (jumpingRef.current || id == null) return false;
+    jumpingRef.current = true;
     setJumping(true);
     try {
-      const target = result.receivedAt;
       let oldest = messagesRef.current[0]?.receivedAt;
       let pages = 0;
-      const isLoaded = () => messagesRef.current.some((m) => m.id === result.id);
+      const isLoaded = () => messagesRef.current.some((m) => m.id === id);
       // sqlite datetime strings compare lexicographically
-      while (!isLoaded() && loadOlder && oldest && target < oldest && pages < 20) {
+      const pastTarget = () => Boolean(targetTime && oldest && !(targetTime < oldest));
+      while (!isLoaded() && loadOlder && !pastTarget() && pages < MAX_JUMP_PAGES) {
         const r = await loadOlder();
         if (!r || r.added === 0) break;
         oldest = r.oldestCursor || oldest;
         pages++;
       }
-      setSearchOpen(false);
-      setFlashId(result.id);
+      if (!isLoaded()) return false;
+      setFlashId(id);
       clearTimeout(flashTimerRef.current);
       flashTimerRef.current = setTimeout(() => setFlashId(null), 2500);
-      setPendingJumpId(result.id);
+      setPendingJump({ id, align: "center" });
+      return true;
     } finally {
+      jumpingRef.current = false;
       setJumping(false);
     }
-  }, [jumping, loadOlder]);
+  }, [loadOlder]);
+
+  const jumpToMessage = useCallback(async (result) => {
+    await jumpToId(result.id, result.receivedAt);
+    setSearchOpen(false);
+  }, [jumpToId]);
+
+  // /chat?m=<id>: resolve once the first window is in, paging back if needed
+  useEffect(() => {
+    if (!permalinkId || messages.length === 0 || permalinkDoneRef.current === permalinkId) return;
+    permalinkDoneRef.current = permalinkId;
+    jumpToId(permalinkId);
+  }, [permalinkId, messages.length, jumpToId]);
+
+  // Focus mode: body class drives the navbar (Navbar.css), Esc exits
+  useEffect(() => {
+    if (!focusOn) return;
+    document.body.classList.add("chat-focus");
+    return () => document.body.classList.remove("chat-focus");
+  }, [focusOn]);
+
+  useEffect(() => {
+    if (!focusOn && !dayPickerOpen) return;
+    const onKey = (e) => {
+      if (e.key !== "Escape") return;
+      if (dayPickerOpen) setDayPickerOpen(false);
+      else setFocusOn(false);
+    };
+    window.addEventListener("keydown", onKey);
+    return () => window.removeEventListener("keydown", onKey);
+  }, [focusOn, dayPickerOpen]);
+
+  // Close the date popover on an outside click
+  useEffect(() => {
+    if (!dayPickerOpen) return;
+    const onDown = (e) => {
+      if (!dayPickerRef.current?.contains(e.target)) setDayPickerOpen(false);
+    };
+    document.addEventListener("mousedown", onDown);
+    return () => document.removeEventListener("mousedown", onDown);
+  }, [dayPickerOpen]);
+
+  // Archive range for the date input, fetched the first time it opens
+  useEffect(() => {
+    if (!dayPickerOpen || archiveMin) return;
+    let cancelled = false;
+    relayFetch("/api/chat/stats")
+      .then((r) => r.json())
+      .then((data) => {
+        if (cancelled || !data?.oldestMessage) return;
+        const d = new Date(`${String(data.oldestMessage).replace(" ", "T")}Z`);
+        if (!Number.isNaN(d.getTime())) setArchiveMin(toInputDate(d));
+      })
+      .catch(() => {});
+    return () => {
+      cancelled = true;
+    };
+  }, [dayPickerOpen, archiveMin]);
+
+  // Jump to date: load the window that ends at the start of the next local
+  // day and scroll to that day's first message (or the window's last row
+  // when the day is empty). Today is the live tail.
+  const jumpToDate = useCallback(async (ymd) => {
+    if (!ymd || !loadWindow || loadingWindow) return;
+    const [y, m, d] = ymd.split("-").map(Number);
+    if (!y || !m || !d) return;
+    const dayStart = new Date(y, m - 1, d);
+    const nextDay = new Date(y, m - 1, d + 1);
+    const key = getDateKey(dayStart);
+    const isToday = key === getDateKey(Date.now());
+    setDayPickerOpen(false);
+    setLoadingWindow(true);
+    try {
+      const loaded = isToday ? await loadLatest() : await loadWindow(toRelayCursor(nextDay));
+      const first = loaded.find((msg) => getDateKey(msg.sentAt) === key) || loaded[loaded.length - 1];
+      setPendingJump(first ? { id: first.id, align: "start" } : null);
+    } catch {
+      // relay unreachable; the current window stays
+    } finally {
+      setLoadingWindow(false);
+    }
+  }, [loadWindow, loadLatest, loadingWindow]);
+
+  const backToLive = useCallback(async () => {
+    if (!loadLatest || loadingWindow) return;
+    setLoadingWindow(true);
+    setPendingJump(null);
+    try {
+      await loadLatest();
+      setShowNotice(false);
+    } catch {
+      // relay unreachable; the current window stays
+    } finally {
+      setLoadingWindow(false);
+    }
+  }, [loadLatest, loadingWindow]);
+
+  // Sticky day bar: which row is at the top of the viewport. Measured from
+  // the rendered rows (Virtuoso stamps data-index on each), falling back to
+  // the rendered range's start when nothing has a box yet (first paint,
+  // tests). Scroll events are coalesced into one frame.
+  const updateTopRow = useCallback(() => {
+    const el = scrollerElRef.current;
+    let idx = null;
+    if (el) {
+      const top = el.getBoundingClientRect().top;
+      const nodes = el.querySelectorAll("[data-index]");
+      for (const n of nodes) {
+        const r = n.getBoundingClientRect();
+        if (r.height > 0 && r.bottom > top + 1) {
+          idx = Number(n.dataset.index);
+          break;
+        }
+      }
+    }
+    if (idx === null && rangeRef.current) idx = rangeRef.current.startIndex;
+    setTopIndex(idx);
+  }, []);
+
+  const scheduleTopRow = useCallback(() => {
+    cancelAnimationFrame(topRowRafRef.current);
+    topRowRafRef.current = requestAnimationFrame(updateTopRow);
+  }, [updateTopRow]);
+
+  const handleRangeChanged = useCallback((range) => {
+    rangeRef.current = range;
+    updateTopRow();
+  }, [updateTopRow]);
+
+  const handleScrollerRef = useCallback((el) => {
+    const prev = scrollerElRef.current;
+    if (prev && prev !== el) prev.removeEventListener("scroll", scheduleTopRow);
+    scrollerElRef.current = el;
+    if (el && el !== prev) el.addEventListener("scroll", scheduleTopRow, { passive: true });
+  }, [scheduleTopRow]);
+
+  useEffect(() => () => cancelAnimationFrame(topRowRafRef.current), []);
 
   // Notification blip for watched players' messages
   useEffect(() => {
@@ -894,6 +1152,16 @@ export default function ChatPanel({
       return !v;
     });
   };
+
+  const toggleFocus = () => {
+    setFocusOn((v) => {
+      writePref("chat:focus", !v);
+      return !v;
+    });
+  };
+
+  // Focus hides tickers without touching the persisted Games preference
+  const showTickers = showGames && !focusOn;
 
   const toggleEvent = useCallback((id) => {
     setExpandedEvents((prev) => {
@@ -1024,7 +1292,7 @@ export default function ChatPanel({
         items.push({ kind: "group", key: start.id, msg: start, msgs: [start, ...seg.continuations], time });
       }
     }
-    if (showGames) {
+    if (showTickers) {
       const oldestLoaded = items.length > 0 ? items[0].time : 0;
       for (const ev of gameEvents) {
         const t = new Date(ev.time).getTime();
@@ -1032,7 +1300,7 @@ export default function ChatPanel({
       }
     }
     return items.sort((a, b) => a.time - b.time);
-  }, [messageSegments, gameEvents, showGames]);
+  }, [messageSegments, gameEvents, showTickers]);
 
   // Date divider + "new" marker flags, decided across group-start rows only
   const rows = useMemo(() => {
@@ -1052,8 +1320,13 @@ export default function ChatPanel({
   // Virtuoso keeps the viewport anchored across prepends when firstItemIndex
   // drops by the number of rows added ahead of the previous first row, in
   // the same render as the data change. Removals at the head leave it alone.
-  const headRef = useRef({ key: null, time: 0, index: FIRST_ITEM_BASE });
+  const headRef = useRef({ key: null, time: 0, index: FIRST_ITEM_BASE, windowId });
   const firstItemIndex = useMemo(() => {
+    // A replaced window (jump to date, back to live) remounts the list, so
+    // its anchor starts over
+    if (headRef.current.windowId !== windowId) {
+      headRef.current = { key: null, time: 0, index: FIRST_ITEM_BASE, windowId };
+    }
     const head = headRef.current;
     const first = rows[0];
     if (!first) return head.index;
@@ -1066,34 +1339,36 @@ export default function ChatPanel({
       }
       index -= added;
     }
-    headRef.current = { key: first.key, time: first.time, index };
+    headRef.current = { key: first.key, time: first.time, index, windowId };
     return index;
-  }, [rows]);
+  }, [rows, windowId]);
 
-  // Search jump: scroll to the row once it exists. If the list is about to
-  // (re)mount (search closing), the initial position handles it instead.
-  const pendingJumpIndex =
-    pendingJumpId == null
-      ? -1
-      : rows.findIndex((r) => (r.msgs ? r.msgs.some((m) => m.id === pendingJumpId) : r.msg?.id === pendingJumpId));
+  // Jump (search hit, permalink, date): scroll to the row once it exists.
+  // If the list is about to (re)mount (search closing, window replaced),
+  // the initial position handles it instead.
+  const pendingJumpIndex = pendingJump ? findRowIndex(rows, pendingJump.id) : -1;
+  const pendingJumpAlign = pendingJump?.align || "center";
   useEffect(() => {
-    if (pendingJumpId == null || pendingJumpIndex === -1 || searchOpen) return;
+    if (pendingJumpIndex === -1 || searchOpen) return;
     const raf = requestAnimationFrame(() => {
-      virtuosoRef.current?.scrollToIndex({ index: pendingJumpIndex, align: "center" });
-      setPendingJumpId(null);
+      virtuosoRef.current?.scrollToIndex({ index: pendingJumpIndex, align: pendingJumpAlign });
+      setPendingJump(null);
     });
     return () => cancelAnimationFrame(raf);
-  }, [pendingJumpId, pendingJumpIndex, searchOpen]);
+  }, [pendingJumpIndex, pendingJumpAlign, searchOpen]);
 
   // "New messages below" when a new tail arrives while scrolled up. Paging
-  // in older history changes `messages` too, so key off the newest id.
+  // in older history changes `messages` too, so key off the newest id; a
+  // replaced window is not a new tail either.
   const lastMsgIdRef = useRef(null);
+  const noticeWindowRef = useRef(windowId);
   useEffect(() => {
     const lastId = messages[messages.length - 1]?.id ?? null;
-    const isNewTail = lastId !== lastMsgIdRef.current;
+    const isNewTail = lastId !== lastMsgIdRef.current && noticeWindowRef.current === windowId;
     lastMsgIdRef.current = lastId;
+    noticeWindowRef.current = windowId;
     if (isNewTail && messages.length > 0 && !atBottomRef.current) setShowNotice(true);
-  }, [messages]);
+  }, [messages, windowId]);
 
   const followOutput = useCallback((isAtBottom) => {
     atBottomRef.current = isAtBottom;
@@ -1123,6 +1398,7 @@ export default function ChatPanel({
 
   const hoverData = { avatars, stats, sessions, inGameTags, inGameInfoMap };
   const renderLine = (line) => linkifyMessage(line.text);
+  const permalinkHref = (line) => `${window.location.origin}/chat?m=${encodeURIComponent(line.id)}`;
   const renderAfterLine = (line) => {
     const br = botResponseMap.get(line.id);
     if (!br) return null;
@@ -1229,10 +1505,18 @@ export default function ChatPanel({
           wrapName={wrapName}
           renderLine={renderLine}
           renderAfterLine={renderAfterLine}
+          permalinkHref={permalinkHref}
+          $compact={focusOn}
         />
       </>
     );
   };
+
+  // Sticky day bar label: the day of the topmost visible row
+  const topRow = topIndex == null ? null : rows[topIndex - firstItemIndex];
+  const topDayLabel = topRow ? formatDateDivider(new Date(topRow.time).toISOString()) : null;
+  const topDayInput = topRow ? toInputDate(new Date(topRow.time)) : toInputDate(new Date());
+  const todayInput = toInputDate(new Date());
 
   const fault = RELAY_FAULTS[status];
   const statusText =
@@ -1301,6 +1585,17 @@ export default function ChatPanel({
             >
               <GiCrossedSwords />
               <ToggleLabel>Games</ToggleLabel>
+            </ToggleButton>
+            <ToggleButton
+              type="button"
+              $pill
+              data-active={focusOn}
+              aria-pressed={focusOn}
+              onClick={toggleFocus}
+              title={focusOn ? "Exit focus mode (Esc)" : "Focus mode: hide the navbar and tickers, compact feed"}
+            >
+              <HiOutlineArrowsExpand />
+              <ToggleLabel>Focus</ToggleLabel>
             </ToggleButton>
             <StatusBadge $fault={Boolean(fault)} title={`relay: ${status}`}>
               <StatusDot $connected={status === "connected"} $fault={Boolean(fault)} />
@@ -1385,6 +1680,7 @@ export default function ChatPanel({
         ) : (
           <ScrollContainer>
             <Virtuoso
+              key={windowId}
               ref={virtuosoRef}
               style={{ flex: 1, height: "100%" }}
               data={rows}
@@ -1394,14 +1690,60 @@ export default function ChatPanel({
               itemContent={renderRow}
               firstItemIndex={firstItemIndex}
               initialTopMostItemIndex={
-                pendingJumpIndex !== -1 ? { index: pendingJumpIndex, align: "center" } : rows.length - 1
+                pendingJumpIndex !== -1 ? { index: pendingJumpIndex, align: pendingJumpAlign } : rows.length - 1
               }
               followOutput={followOutput}
               atBottomStateChange={handleAtBottomChange}
               startReached={handleStartReached}
+              rangeChanged={handleRangeChanged}
+              scrollerRef={handleScrollerRef}
               atBottomThreshold={40}
               increaseViewportBy={{ top: 400, bottom: 400 }}
             />
+            <StickyBar>
+              <DayPicker ref={dayPickerRef}>
+                {topDayLabel && (
+                  <DayButton
+                    type="button"
+                    $pill
+                    data-active={dayPickerOpen}
+                    aria-haspopup="dialog"
+                    aria-expanded={dayPickerOpen}
+                    title="Jump to date"
+                    onClick={() => setDayPickerOpen((v) => !v)}
+                  >
+                    {topDayLabel}
+                  </DayButton>
+                )}
+                {dayPickerOpen && (
+                  <DayPopover role="dialog" aria-label="Jump to date">
+                    <DayPopoverLabel htmlFor="chat-jump-date">Jump to date</DayPopoverLabel>
+                    <DateInput
+                      id="chat-jump-date"
+                      type="date"
+                      defaultValue={topDayInput}
+                      min={archiveMin || undefined}
+                      max={todayInput}
+                      disabled={loadingWindow}
+                      onChange={(e) => jumpToDate(e.target.value)}
+                      autoFocus
+                    />
+                  </DayPopover>
+                )}
+              </DayPicker>
+              {windowMode !== "live" && (
+                <BackToLiveButton
+                  type="button"
+                  $pill
+                  data-active="true"
+                  disabled={loadingWindow}
+                  onClick={backToLive}
+                  title="Reload the latest messages"
+                >
+                  {loadingWindow ? "Loading..." : "Back to live"}
+                </BackToLiveButton>
+              )}
+            </StickyBar>
             {showNotice && (
               <ScrollNotice onClick={scrollToBottom}>
                 New messages below

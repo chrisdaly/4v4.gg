@@ -22,6 +22,12 @@ export default function useChatStream() {
   const [botResponses, setBotResponses] = useState([]);
   const [translations, setTranslations] = useState(new Map());
   const [hasMoreHistory, setHasMoreHistory] = useState(true);
+  // Which window of the archive is loaded: the live tail (default) or a
+  // window ending at some past time (jump to date). Live SSE messages
+  // append in both modes. windowId changes whenever the window is replaced
+  // wholesale so the list can remount instead of diffing a prepend.
+  const [windowMode, setWindowMode] = useState("live");
+  const [windowId, setWindowId] = useState(0);
   const eventSourceRef = useRef(null);
   const retriesRef = useRef(0);
   const reconnectTimerRef = useRef(null);
@@ -87,6 +93,24 @@ export default function useChatStream() {
       loadingOlderRef.current = false;
     }
   }, []);
+
+  // Replace the loaded window with the newest `limit` messages received
+  // before `before` (sqlite UTC "YYYY-MM-DD HH:MM:SS", or omitted for the
+  // live tail). Resolves to the normalized messages that were loaded.
+  const loadWindow = useCallback(async (before = null) => {
+    const query = before ? `&before=${encodeURIComponent(before)}` : "";
+    const res = await relayFetch(`/api/chat/messages?limit=100${query}`);
+    const data = await res.json();
+    const loaded = Array.isArray(data) ? normalizeMessages(data.reverse()) : [];
+    historyExtraRef.current = 0;
+    setHasMoreHistory(loaded.length >= 100);
+    setWindowMode(before ? "archive" : "live");
+    setWindowId((id) => id + 1);
+    setMessages(loaded);
+    return loaded;
+  }, []);
+
+  const loadLatest = useCallback(() => loadWindow(null), [loadWindow]);
 
   useEffect(() => {
     setTranslations((prev) => {
@@ -226,5 +250,18 @@ export default function useChatStream() {
     }
   }, []);
 
-  return { messages, status, onlineUsers, botResponses, translations, sendMessage, loadOlder, hasMoreHistory };
+  return {
+    messages,
+    status,
+    onlineUsers,
+    botResponses,
+    translations,
+    sendMessage,
+    loadOlder,
+    hasMoreHistory,
+    loadWindow,
+    loadLatest,
+    windowMode,
+    windowId,
+  };
 }
