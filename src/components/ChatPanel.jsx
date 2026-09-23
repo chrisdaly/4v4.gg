@@ -20,6 +20,7 @@ import { getPlayerProfile } from "../lib/api";
 import { relayFetch } from "../lib/relay";
 import { normalizeMessages } from "../lib/chat/normalize";
 import useAdmin from "../lib/useAdmin";
+import { setTrimPaused } from "../lib/chat/trimGate";
 import { Panel } from "./chat/panel";
 
 /* The list's box is padding 6px 18px 12px (Chat v2 handoff); the panel
@@ -39,8 +40,14 @@ const OuterFrame = styled.div`
   font-family: var(--font-body);
 `;
 
+/* Every level from the grid cell down to the Virtuoso scroller takes its
+   height from flex (basis 0, min-height 0), never from a percentage: a
+   percentage height inside a flex-sized item resolves to auto in some
+   engines, and the scroller would then grow to its content and push the
+   panel past the viewport. */
 const Wrapper = styled(Panel).attrs({ as: "div" })`
-  flex: 1;
+  flex: 1 1 0;
+  min-height: 0;
 `;
 
 const MessageList = styled.div`
@@ -137,11 +144,17 @@ const ScrollNotice = styled.button`
 
 const ScrollContainer = styled.div`
   position: relative;
-  flex: 1;
+  flex: 1 1 0;
+  min-height: 0;
   overflow: hidden;
   display: flex;
   flex-direction: column;
 `;
+
+// Virtuoso's scroller: flex-sized by ScrollContainer (see Wrapper). Its own
+// default is height: 100%, which is what the flex basis replaces. The scroll
+// never chains to the document when the list hits either end.
+const virtuosoStyle = { flex: "1 1 0", minHeight: 0, height: "auto", overscrollBehavior: "contain" };
 
 const DateDivider = styled.div`
   display: flex;
@@ -843,11 +856,17 @@ export default function ChatPanel({
   const scrollerElRef = useRef(null);
   const rangeRef = useRef(null);
   const topRowRafRef = useRef(null);
+  const topIndexRef = useRef(null);
   const messagesRef = useRef(messages);
-  // Whether the viewport is pinned to the newest row. Fed by Virtuoso's
-  // followOutput decision (which already treats an in-progress programmatic
-  // scroll as "at bottom") and by atBottomStateChange.
+  // Whether the viewport is pinned to the newest row, from Virtuoso's
+  // atBottomStateChange. It also gates the live cap: no head trim while the
+  // reader is scrolled up (lib/chat/trimGate.js).
   const atBottomRef = useRef(true);
+  // A followOutput scroll is in flight: the viewport left the bottom only
+  // because the list grew, not because the reader scrolled up
+  const followingRef = useRef(false);
+
+  useEffect(() => () => setTrimPaused(false), []);
 
   useEffect(() => {
     messagesRef.current = messages;
@@ -1046,6 +1065,9 @@ export default function ChatPanel({
       }
     }
     if (idx === null && rangeRef.current) idx = rangeRef.current.startIndex;
+    // Scroll ticks mostly land on the same row: no state update, no render
+    if (idx === topIndexRef.current) return;
+    topIndexRef.current = idx;
     setTopIndex(idx);
   }, []);
 
@@ -1384,17 +1406,32 @@ export default function ChatPanel({
     const isNewTail = lastId !== lastMsgIdRef.current && noticeWindowRef.current === windowId;
     lastMsgIdRef.current = lastId;
     noticeWindowRef.current = windowId;
-    if (isNewTail && messages.length > 0 && !atBottomRef.current) setShowNotice(true);
+    if (isNewTail && messages.length > 0 && !atBottomRef.current && !followingRef.current) setShowNotice(true);
   }, [messages, windowId]);
 
+  // Virtuoso asks on every append. Its isAtBottom is true both when the
+  // viewport sits at the bottom and while one of its own scrolls is still
+  // in flight. Only the former (atBottomRef, the state before this append)
+  // gets a smooth scroll; a follow that has not landed yet catches up
+  // instantly instead of stacking smooth scrolls, and a jump to a search
+  // hit or permalink is never hijacked.
   const followOutput = useCallback((isAtBottom) => {
-    atBottomRef.current = isAtBottom;
-    return isAtBottom ? "smooth" : false;
+    if (!isAtBottom || jumpingRef.current) {
+      followingRef.current = false;
+      return false;
+    }
+    const behavior = atBottomRef.current ? "smooth" : "auto";
+    followingRef.current = true;
+    return behavior;
   }, []);
 
   const handleAtBottomChange = useCallback((atBottom) => {
     atBottomRef.current = atBottom;
-    if (atBottom) setShowNotice(false);
+    setTrimPaused(!atBottom);
+    if (atBottom) {
+      followingRef.current = false;
+      setShowNotice(false);
+    }
   }, []);
 
   function scrollToBottom() {
@@ -1727,7 +1764,7 @@ export default function ChatPanel({
             <Virtuoso
               key={windowId}
               ref={virtuosoRef}
-              style={{ flex: 1, height: "100%" }}
+              style={virtuosoStyle}
               data={rows}
               context={listContext}
               components={listComponents}

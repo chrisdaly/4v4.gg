@@ -1,8 +1,15 @@
 import { useState, useEffect, useRef, useCallback } from "react";
 import { RELAY_URL, relayFetch } from "./relay";
 import { normalizeMessage, normalizeMessages } from "./chat/normalize";
+import { isTrimPaused } from "./chat/trimGate";
 
-const MAX_MESSAGES = 500;
+export const MAX_MESSAGES = 500;
+// The live cap trims with hysteresis: the list may grow this far past the
+// cap before one trim drops it back to MAX_MESSAGES. Trimming on every
+// append would shrink the head row (usually the first author group) on
+// each message, and a viewport anchored above the tail would jump by that
+// amount every time.
+export const TRIM_HYSTERESIS = 100;
 // Cap how far back scrollback can page in - keeps the DOM and memory bounded.
 // ~2000 messages is days of history; beyond that, use search instead.
 const MAX_HISTORY_EXTRA = 1500;
@@ -41,7 +48,10 @@ export default function useChatStream() {
     messagesRef.current = messages;
   }, [messages]);
 
-  // Append already-normalized messages, deduped by id, trimmed to the cap
+  // Append already-normalized messages, deduped by id, trimmed to the cap.
+  // The trim waits until the list is TRIM_HYSTERESIS past the cap and is
+  // skipped entirely while the reader is scrolled up (chat/trimGate.js);
+  // it catches up on the first append after the gate reopens.
   const addMessages = useCallback((newMsgs) => {
     setMessages((prev) => {
       const ids = new Set(prev.map((m) => m.id));
@@ -49,9 +59,8 @@ export default function useChatStream() {
       if (unique.length === 0) return prev;
       const combined = [...prev, ...unique];
       const cap = MAX_MESSAGES + historyExtraRef.current;
-      return combined.length > cap
-        ? combined.slice(combined.length - cap)
-        : combined;
+      if (combined.length <= cap + TRIM_HYSTERESIS || isTrimPaused()) return combined;
+      return combined.slice(combined.length - cap);
     });
   }, []);
 

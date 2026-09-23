@@ -28,15 +28,28 @@ const SHOW_GAMES_KEY = "chat:showGames";
 const CLOCK_TICK_MS = 60_000; // region local-time refresh
 
 /* The theme paints the body background (App.css body::before); on /chat the
-   design fixes it to the night elf art under a darker overlay */
+   design fixes it to the night elf art under a darker overlay.
+   The page is exactly the viewport and the only scrolling is inside the
+   panels, so the document never scrolls while /chat is mounted: App.css
+   gives html a permanent scrollbar (overflow-y: scroll), and any document
+   overflow, or scroll chaining from a list that has hit its end, would
+   move the whole page under the reader. Unmounting removes the rule. */
 const ChatBackground = createGlobalStyle`
+  html,
+  body {
+    overflow: hidden;
+    overscroll-behavior: none;
+  }
   body::before {
     background-image: linear-gradient(rgba(8, 6, 5, 0.74), rgba(8, 6, 5, 0.86)), url("/backgrounds/nightelf.jpg");
   }
 `;
 
+/* Exactly the viewport: dvh (where supported) tracks a mobile or tablet
+   browser's collapsing toolbar, vh is the fallback. Panels scroll inside. */
 const Page = styled.div`
   height: 100vh;
+  height: 100dvh;
   box-sizing: border-box;
   padding: var(--space-2);
   display: grid;
@@ -59,6 +72,7 @@ const Page = styled.div`
   @media (max-width: ${MOBILE}px) {
     padding: 0;
     gap: 0;
+    height: calc(100vh - ${TAB_BAR}px);
     height: calc(100dvh - ${TAB_BAR}px); /* dvh handles the mobile address bar */
     grid-template-columns: minmax(0, 1fr);
     grid-template-rows: minmax(0, 1fr);
