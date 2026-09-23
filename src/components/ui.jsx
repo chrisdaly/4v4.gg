@@ -1,6 +1,6 @@
 /**
  * Shared UI Components
- * Import: import { Button, Badge, Card, ThemedCard, Dot, Delta, TeamBar, Select, Input, PageNav, PageLayout } from './components/ui';
+ * Import: import { Button, ResultBadge, Card, ThemedCard, Dot, Delta, TeamBar, Select, Input, PageNav, PageLayout } from './components/ui';
  */
 
 import React, { useState, useRef, useEffect, useCallback } from "react";
@@ -81,39 +81,51 @@ export const Button = styled.button`
 `;
 
 // ============================================
-// BADGE
+// RESULT BADGE (the one badge family)
 // ============================================
+// Display-font pill for match outcomes. $won / $lost tint the pill,
+// $winner is the gold-filled "W" chip on scorecard team headers.
+// $size: "sm" (11px), default (12px), "lg" (16px). $square: fixed 28x24 box for W / L.
 
-export const Badge = styled.span`
+const badgeSizes = {
+  sm: 'font-size: var(--text-xxxs); padding: 2px var(--space-1);',
+  md: 'font-size: var(--text-xxs); padding: var(--space-1) var(--space-2);',
+  lg: 'font-size: var(--text-sm); padding: var(--space-2) var(--space-4);',
+};
+
+export const ResultBadge = styled.span`
   display: inline-flex;
   align-items: center;
-  padding: var(--space-1) var(--space-2);
-  font-family: var(--font-mono);
-  font-size: var(--text-xs);
-  text-transform: uppercase;
-  letter-spacing: 0.05em;
-  border-radius: var(--radius-full);
-  background: ${p => p.$bg || 'var(--grey-dark)'};
-  color: ${p => p.$color || 'var(--white)'};
-  border: var(--border-thin) solid ${p => p.$border || 'var(--grey-mid)'};
-`;
-
-export const WinBadge = styled(Badge)`
-  background: var(--green-tint);
-  color: var(--green);
-  border-color: var(--green);
-`;
-
-export const LossBadge = styled(Badge)`
-  background: var(--red-tint);
-  color: var(--red);
-  border-color: var(--red);
-`;
-
-export const GoldBadge = styled(Badge)`
-  background: var(--gold);
-  color: var(--grey-dark);
-  border-color: var(--gold);
+  justify-content: center;
+  font-family: var(--font-display);
+  font-weight: bold;
+  letter-spacing: 0.04em;
+  line-height: 1;
+  border-radius: var(--radius-md);
+  white-space: nowrap;
+  ${p => badgeSizes[p.$size] || badgeSizes.md}
+  ${p => p.$square && 'width: 28px; height: 24px; padding: 0;'}
+  ${p => p.$won && `
+    color: var(--green);
+    background: var(--green-tint-strong);
+    border: var(--border-thin) solid var(--green-border);
+  `}
+  ${p => p.$lost && `
+    color: var(--red);
+    background: var(--red-tint-strong);
+    border: var(--border-thin) solid var(--red-border);
+  `}
+  ${p => p.$winner && `
+    color: var(--grey-dark);
+    background: var(--gold);
+    border: var(--border-thin) solid var(--gold);
+    letter-spacing: 0.08em;
+  `}
+  ${p => !p.$won && !p.$lost && !p.$winner && `
+    color: var(--grey-light);
+    background: var(--surface-2);
+    border: var(--border-thin) solid var(--grey-mid);
+  `}
 `;
 
 // ============================================

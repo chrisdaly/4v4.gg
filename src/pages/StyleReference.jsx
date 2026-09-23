@@ -22,10 +22,7 @@ import { MmrComparison } from "../components/MmrComparison";
 import PeonLoader from "../components/PeonLoader";
 import {
   Button,
-  Badge,
-  WinBadge,
-  LossBadge,
-  GoldBadge,
+  ResultBadge,
   Dot,
   Delta,
   TeamBar,
@@ -339,12 +336,19 @@ const StyleReference = () => {
           </div>
 
           <div className="sr-stack">
-            <div className="sr-label">Badge</div>
+            <div className="sr-label">ResultBadge</div>
             <div className="sr-tag-row">
-              <Badge>Default</Badge>
-              <GoldBadge>Gold</GoldBadge>
-              <WinBadge>Win</WinBadge>
-              <LossBadge>Loss</LossBadge>
+              <ResultBadge $won>WIN</ResultBadge>
+              <ResultBadge $lost>LOSS</ResultBadge>
+              <ResultBadge $won $square>W</ResultBadge>
+              <ResultBadge $lost $square>L</ResultBadge>
+              <ResultBadge $winner $size="sm">W</ResultBadge>
+              <ResultBadge>Neutral</ResultBadge>
+            </div>
+            <div className="sr-tag-row">
+              <ResultBadge $won $size="sm">SM</ResultBadge>
+              <ResultBadge $won>MD</ResultBadge>
+              <ResultBadge $won $size="lg">LG</ResultBadge>
             </div>
           </div>
 

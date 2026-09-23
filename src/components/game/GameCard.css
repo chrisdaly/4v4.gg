@@ -118,30 +118,6 @@ a.game-card.gc-live:hover {
   gap: var(--space-2);
 }
 
-/* WIN/LOSS pill - keep identical to .gr-badge in GameRow.css */
-.gc-badge {
-  font-family: var(--font-display);
-  font-size: var(--text-xxs);
-  font-weight: bold;
-  padding: var(--space-1) var(--space-2);
-  border-radius: var(--radius-md);
-}
-
-.gc-badge-won {
-  color: var(--green);
-  background: var(--green-tint);
-}
-
-.gc-badge-lost {
-  color: var(--red);
-  background: var(--red-tint);
-}
-
-.gc-badge-large {
-  font-size: var(--text-sm);
-  padding: var(--space-2) var(--space-4);
-}
-
 /* Live badge */
 .gc-live-badge {
   display: flex;

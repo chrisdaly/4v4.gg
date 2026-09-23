@@ -3,7 +3,7 @@ import { Link } from "react-router-dom";
 import "./GameCard.css";
 
 import { raceMapping } from "../../lib/constants";
-import { RaceIcon } from "../ui";
+import { RaceIcon, ResultBadge } from "../ui";
 import { getMapImageUrl, formatDuration, formatTimeAgo, formatElapsedTime } from "../../lib/formatters";
 
 /**
@@ -431,9 +431,9 @@ const GameCard = ({
                 </>
               ) : (
                 <>
-                  <span className={`gc-badge gc-badge-${computedStatus}`}>
+                  <ResultBadge $won={computedStatus === "won"} $lost={computedStatus === "lost"}>
                     {computedStatus === "won" ? "WIN" : "LOSS"}
-                  </span>
+                  </ResultBadge>
                   <span className={`gc-mmr ${mmrChange >= 0 ? "positive" : "negative"}`}>
                     {mmrChange >= 0 ? "+" : ""}
                     {mmrChange}
@@ -508,9 +508,9 @@ const GameCard = ({
               </span>
             ) : (
               <>
-                <span className={`gc-badge gc-badge-large gc-badge-${computedStatus}`}>
+                <ResultBadge $size="lg" $won={computedStatus === "won"} $lost={computedStatus === "lost"}>
                   {computedStatus === "won" ? "WIN" : "LOSS"}
-                </span>
+                </ResultBadge>
                 <span className={`gc-mmr gc-mmr-large ${mmrChange >= 0 ? "positive" : "negative"}`}>
                   {mmrChange >= 0 ? "+" : ""}
                   {mmrChange}

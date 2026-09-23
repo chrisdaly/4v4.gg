@@ -87,6 +87,8 @@ export const tints = {
   goldSubtle: { value: 'rgba(252, 219, 51, 0.05)', css: '--gold-tint-subtle', usage: 'Gold row hover' },
   gold: { value: 'rgba(252, 219, 51, 0.1)', css: '--gold-tint', usage: 'Gold highlight bg' },
   goldBorderHover: { value: 'rgba(252, 219, 51, 0.3)', css: '--gold-border-hover', usage: 'Gold border on hover/focus' },
+  greenStrong: { value: 'rgba(74, 222, 128, 0.18)', css: '--green-tint-strong', usage: 'Win badge bg' },
+  redStrong: { value: 'rgba(248, 113, 113, 0.18)', css: '--red-tint-strong', usage: 'Loss badge bg' },
   greenBorder: { value: 'rgba(74, 222, 128, 0.3)', css: '--green-border', usage: 'Win card/badge border' },
   redBorder: { value: 'rgba(248, 113, 113, 0.3)', css: '--red-border', usage: 'Loss card/badge border' },
   greenSubtle: { value: 'rgba(74, 222, 128, 0.05)', css: '--green-tint-subtle', usage: 'Win row hover' },
@@ -334,7 +336,7 @@ export const chartSeries = [chartColors.gold, chartColors.blue, chartColors.red,
 // Shared components in ui.jsx that pages should reuse (documented on /style)
 export const components = [
   { name: 'Button', description: 'Variants: $primary, $secondary, $ghost, $pill' },
-  { name: 'Badge', description: 'Status badges: Badge, WinBadge, LossBadge, GoldBadge' },
+  { name: 'ResultBadge', description: 'WIN / LOSS / W chip; $won, $lost, $winner; $size sm|md|lg; $square' },
   { name: 'Card', description: 'Card (gold), CardSubtle (grey), ThemedCard (follows border theme)' },
   { name: 'Dot', description: 'Win/loss form indicator; $size, $recent, $dim' },
   { name: 'Delta', description: 'Signed MMR change chip' },

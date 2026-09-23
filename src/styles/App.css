@@ -99,6 +99,8 @@
   --green-tint: rgba(74, 222, 128, 0.1);
   --red-tint-subtle: rgba(248, 113, 113, 0.05);
   --red-tint: rgba(248, 113, 113, 0.1);
+  --green-tint-strong: rgba(74, 222, 128, 0.18);
+  --red-tint-strong: rgba(248, 113, 113, 0.18);
   --green-border: rgba(74, 222, 128, 0.3);
   --red-border: rgba(248, 113, 113, 0.3);
   --gold-muted-rgb: 180, 150, 90; /* Desaturated gold chrome - use as rgba(var(--gold-muted-rgb), alpha) */

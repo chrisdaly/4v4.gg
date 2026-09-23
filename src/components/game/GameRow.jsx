@@ -3,7 +3,7 @@ import { Link, useHistory } from "react-router-dom";
 import "./GameRow.css";
 
 import { raceMapping } from "../../lib/constants";
-import { RaceIcon } from "../ui";
+import { RaceIcon, ResultBadge } from "../ui";
 import { getMapImageUrl, formatDuration, formatTimeAgo } from "../../lib/formatters";
 
 /**
@@ -83,9 +83,9 @@ const GameRow = ({
   const content = (
     <>
       <div className="gr-col gr-result">
-        <span className={`gr-badge ${won ? "gr-badge-won" : "gr-badge-lost"}`}>
+        <ResultBadge $square $won={won} $lost={!won}>
           {won ? "W" : "L"}
-        </span>
+        </ResultBadge>
       </div>
       <div className="gr-col gr-map">
         {mapUrl && (

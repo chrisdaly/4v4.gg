@@ -575,16 +575,10 @@ h2.team-name {
   margin-bottom: 0;
 }
 
+/* Layout only: the visual lives in ui.jsx ResultBadge ($winner) */
 .winner-badge {
-  background: var(--gold);
-  color: var(--grey-dark);
-  font-size: var(--text-xxs);
-  font-weight: bold;
-  padding: 2px 6px;
-  border-radius: var(--radius-sm);
   margin-right: var(--space-2);
   vertical-align: middle;
-  letter-spacing: 0.08em;
 }
 
 /* Recent form display - subtle dots */
