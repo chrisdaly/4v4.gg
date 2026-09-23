@@ -54,7 +54,6 @@
   margin-left: auto;
 }
 
-
 .clips-add-clip-status {
   font-family: var(--font-mono);
   font-size: var(--text-xxs);
@@ -67,17 +66,6 @@
 
 .clips-add-clip-status--error {
   color: var(--red);
-}
-
-/* ── Featured label ────────────────────────── */
-
-.clips-featured-label {
-  font-family: var(--font-mono);
-  font-size: var(--text-xxs);
-  text-transform: uppercase;
-  letter-spacing: 0.1em;
-  color: var(--gold);
-  margin-bottom: var(--space-2);
 }
 
 /* ── Grid layout ───────────────────────────── */
@@ -258,7 +246,6 @@
   border-top: 1px solid rgba(255, 255, 255, 0.04);
 }
 
-
 /* Admin label + yes/no vote */
 .clip-admin-label {
   font-family: var(--font-mono);
@@ -268,7 +255,6 @@
   color: var(--grey-light);
   margin-right: var(--space-1);
 }
-
 
 .clip-admin-vote--active {
   border-color: rgba(74, 222, 128, 0.4) !important;
@@ -289,7 +275,6 @@
 .clip-admin-vote--no.clip-admin-vote--active:hover {
   border-color: var(--red) !important;
 }
-
 
 /* ── Player tag search ─────────────────────── */
 
@@ -338,30 +323,6 @@
   opacity: 1;
 }
 
-.clip-player-search-input {
-  font-family: var(--font-display);
-  font-size: var(--text-xxs);
-  letter-spacing: 0.3px;
-  color: var(--grey-light);
-  background: transparent;
-  border: 1px solid var(--gold-border-hover);
-  border-radius: var(--radius-md);
-  padding: 6px 26px 6px 10px;
-  width: 130px;
-  outline: none;
-  transition: all 0.2s ease;
-}
-
-.clip-player-search-input::placeholder {
-  color: var(--grey-light);
-  font-size: var(--text-xxxs);
-}
-
-.clip-player-search-input:focus {
-  border-color: var(--gold);
-  box-shadow: 0 0 8px rgba(252, 219, 51, 0.15);
-}
-
 .clip-player-search-dropdown {
   position: absolute;
   right: 0;
@@ -372,7 +333,7 @@
   gap: 2px;
   padding: 8px;
   background: rgba(10, 8, 6, 0.96);
-  border: 1px solid rgba(184, 134, 11, 0.3);
+  border: 1px solid rgba(var(--gold-dark-rgb), 0.3);
   border-radius: var(--radius-lg);
   backdrop-filter: blur(12px);
   -webkit-backdrop-filter: blur(12px);
@@ -409,7 +370,7 @@
 }
 
 .clip-player-search-result:hover {
-  background: rgba(255, 255, 255, 0.08);
+  background: var(--surface-2);
 }
 
 .clip-player-search-info {

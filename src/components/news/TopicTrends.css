@@ -8,10 +8,10 @@
 }
 
 .topic-trends-header {
-  font-family: var(--font-mono);
-  font-size: var(--text-xxxs);
+  font-family: var(--font-display);
+  font-size: var(--text-sm);
   text-transform: uppercase;
-  letter-spacing: 0.1em;
+  letter-spacing: 0.05em;
   color: var(--gold);
   margin-bottom: var(--space-4);
 }

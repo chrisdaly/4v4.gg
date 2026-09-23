@@ -77,7 +77,7 @@ const Blog = () => {
                   <h2 className="bl-card-title">{post.title}</h2>
                   <p className="bl-card-desc">{post.description}</p>
                   <div className="bl-card-footer">
-                    <span className="bl-card-date">{post.date}</span>
+                    <span className="bl-card-tag">{post.date}</span>
                   </div>
                 </div>
               </Link>

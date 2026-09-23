@@ -5,7 +5,7 @@ import DailyView from "../components/news/DailyView";
 import PeonLoader from "../components/PeonLoader";
 import useAdmin from "../lib/useAdmin";
 import { PageLayout } from "../components/PageLayout";
-import { PageHero } from "../components/ui";
+import { PageHero, Button } from "../components/ui";
 import {
   COVER_BACKGROUNDS,
   hashDate,
@@ -117,7 +117,7 @@ const NewsIndex = ({ isAdmin, adminKey: rawAdminKey }) => {
     <PageHero
       eyebrow="4v4.gg News"
       title="The Digest"
-      lead="Weekly roundups and daily recaps of 4v4 competitive Warcraft III — drama, stats, and highlights."
+      lead="Weekly roundups and daily recaps of 4v4 competitive Warcraft III - drama, stats, and highlights."
       lg
     />
   );
@@ -156,9 +156,9 @@ const NewsIndex = ({ isAdmin, adminKey: rawAdminKey }) => {
             )
           )}
           {hasMore && !showAll && (
-            <button className="nw-show-more" onClick={() => setShowAll(true)}>
+            <Button $pill className="nw-show-more" onClick={() => setShowAll(true)}>
               Show {timeline.length - INITIAL_COUNT} older
-            </button>
+            </Button>
           )}
           </div>
         </section>

@@ -81,7 +81,7 @@ const TopicTrends = ({ digests }) => {
               <div
                 key={`${topic}-${date}`}
                 className={`topic-trends-cell${matrix[topic][date] ? " topic-trends-cell--active" : ""}`}
-                title={`${topic} — ${date}`}
+                title={`${topic} - ${date}`}
               />
             ))}
           </React.Fragment>

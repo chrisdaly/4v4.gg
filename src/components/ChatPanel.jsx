@@ -7,7 +7,7 @@ import { IoSend } from "react-icons/io5";
 import { FaTwitch } from "react-icons/fa";
 import crownIcon from "../assets/icons/king.svg";
 import { raceMapping, raceIcons } from "../lib/constants";
-import { CountryFlag, Skeleton, SkeletonCircle } from "./ui";
+import { CountryFlag, Skeleton, SkeletonCircle, Input } from "./ui";
 import { useMessageSegments, useBotResponseMap, formatDateDivider, getDateKey, formatTime, formatDateTime } from "../lib/useChatMessages";
 import { getMapImageUrl } from "../lib/formatters";
 import { linkifyMessage, playPing } from "../lib/chatExtras";
@@ -38,7 +38,7 @@ const Wrapper = styled.div`
   background: ${(p) => p.$theme?.bg || "rgba(10, 8, 6, 0.25)"};
   backdrop-filter: ${(p) => p.$theme?.blur || "blur(1px)"};
   overflow: hidden;
-  font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+  font-family: var(--font-body);
   border: ${(p) => p.$theme?.border || "8px solid transparent"};
   border-image: ${(p) => p.$theme?.borderImage || 'url("/frames/chat/ChatFrameBorder.png") 30 / 8px stretch'};
   box-shadow: ${(p) => p.$theme?.shadow || "none"};
@@ -129,7 +129,7 @@ const GroupStartRow = styled.div`
   }
 
   &:hover {
-    background: rgba(255, 255, 255, 0.02);
+    background: var(--surface-2);
   }
 `;
 
@@ -145,7 +145,7 @@ const ContinuationRow = styled.div`
   }
 
   &:hover {
-    background: rgba(255, 255, 255, 0.02);
+    background: var(--surface-2);
   }
 
   &:hover > .hover-timestamp {
@@ -297,6 +297,7 @@ const MessageText = styled.span`
 const SystemMessageRow = styled.div`
   padding: 2px var(--space-4) 2px 64px;
   line-height: 1.375;
+  font-family: var(--font-mono);
   font-size: var(--text-xs);
   color: var(--grey-light);
   font-style: italic;
@@ -383,22 +384,12 @@ const InputBar = styled.form`
   flex-shrink: 0;
 `;
 
-const ChatInput = styled.input`
+const ChatInput = styled(Input)`
   flex: 1;
   min-width: 0;
-  background: rgba(255, 255, 255, 0.06);
-  border: 1px solid rgba(var(--gold-muted-rgb), 0.2);
-  border-radius: var(--radius-sm);
   padding: var(--space-2) var(--space-2);
-  color: var(--text-body);
   font-family: var(--font-body);
-  font-size: var(--text-xs);
   outline: none;
-  transition: border-color 0.15s;
-
-  &:focus {
-    border-color: rgba(252, 219, 51, 0.4);
-  }
 
   &::placeholder {
     color: var(--grey-mid);
@@ -892,11 +883,11 @@ const LiveTwitchLink = styled.a`
   svg {
     width: 13px;
     height: 13px;
-    fill: #9146ff;
+    fill: var(--twitch-purple);
   }
 
   &:hover svg {
-    fill: #a970ff;
+    opacity: 0.8;
   }
 `;
 
@@ -939,32 +930,11 @@ const SearchBar = styled.div`
   flex-shrink: 0;
 `;
 
-const SearchField = styled.input`
+const SearchField = styled(Input)`
   flex: 1;
   min-width: 0;
-  background: rgba(0, 0, 0, 0.35);
-  border: 1px solid rgba(184, 134, 11, 0.3);
-  border-radius: var(--radius-sm);
   padding: 6px var(--space-2);
-  color: var(--white);
-  font-family: var(--font-mono);
-  font-size: var(--text-xs);
   outline: none;
-  box-shadow: inset 0 1px 4px rgba(0, 0, 0, 0.5);
-  transition: var(--transition);
-
-  &:focus {
-    border-color: var(--gold);
-    box-shadow: inset 0 1px 4px rgba(0, 0, 0, 0.5), 0 0 8px rgba(184, 134, 11, 0.15);
-  }
-
-  &:hover:not(:focus) {
-    border-color: rgba(184, 134, 11, 0.55);
-  }
-
-  &::placeholder {
-    color: var(--grey-light);
-  }
 `;
 
 const SearchResults = styled.div`
@@ -1235,7 +1205,7 @@ export default function ChatPanel({
         setSearchAvatars((prev) => new Map(prev).set(tag, profile));
       });
     }
-    // searchAvatars intentionally omitted — it's the accumulator this effect fills
+    // searchAvatars intentionally omitted - it's the accumulator this effect fills
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [searchResults, avatars]);
 
@@ -1288,7 +1258,7 @@ export default function ChatPanel({
     if (watchList.has(tag)) playPing();
   }, [messages, notifyOn, watchList]);
 
-  // "— new —" marker: remember where you were when the tab went hidden
+  // "- new -" marker: remember where you were when the tab went hidden
   useEffect(() => {
     let clearTimer = null;
     const onVisibility = () => {
@@ -1472,7 +1442,7 @@ export default function ChatPanel({
     }
   }, [messages, autoScroll, stickToBottom]);
 
-  // Re-pin to bottom whenever content height grows while pinned — game-event
+  // Re-pin to bottom whenever content height grows while pinned - game-event
   // cards, avatars, MMR charts and images all load AFTER the initial render,
   // so a one-shot scroll lands short. Instant (not smooth) so it can't be
   // outrun by the next height change.

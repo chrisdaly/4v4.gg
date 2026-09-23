@@ -4,7 +4,7 @@ import styled from "styled-components";
 import { FaTwitch } from "react-icons/fa";
 import crownIcon from "../assets/icons/king.svg";
 import { raceMapping, raceIcons } from "../lib/constants";
-import { CountryFlag, Skeleton, SkeletonCircle } from "./ui";
+import { CountryFlag, Skeleton, SkeletonCircle, Input } from "./ui";
 import PlayerHoverCard from "./PlayerHoverCard";
 
 const Sidebar = styled.aside`
@@ -98,33 +98,13 @@ const SearchWrapper = styled.div`
   }
 `;
 
-const SearchInput = styled.input`
+const SearchInput = styled(Input)`
   width: 100%;
   padding: 10px 32px 10px 30px;
-  font-family: var(--font-mono);
-  font-size: var(--text-xs);
-  letter-spacing: 0.3px;
-  color: var(--white);
-  background: rgba(0, 0, 0, 0.35);
-  border: 1px solid rgba(184, 134, 11, 0.3);
-  border-radius: var(--radius-sm);
   outline: none;
-  box-sizing: border-box;
-  transition: var(--transition);
-  box-shadow: inset 0 1px 4px rgba(0, 0, 0, 0.5);
 
   &::placeholder {
-    color: var(--grey-light);
     font-size: var(--text-xxs);
-  }
-
-  &:focus {
-    border-color: var(--gold);
-    box-shadow: inset 0 1px 4px rgba(0, 0, 0, 0.5), 0 0 8px rgba(184, 134, 11, 0.15);
-  }
-
-  &:hover:not(:focus) {
-    border-color: rgba(184, 134, 11, 0.55);
   }
 `;
 
@@ -205,7 +185,7 @@ const UserRowBase = styled.div`
   border-radius: var(--radius-sm);
 
   &:hover {
-    background: rgba(255, 255, 255, 0.04);
+    background: var(--surface-2);
   }
 `;
 
@@ -220,7 +200,7 @@ const UserLink = styled(Link)`
   border-radius: var(--radius-sm);
 
   &:hover {
-    background: rgba(255, 255, 255, 0.04);
+    background: var(--surface-2);
   }
 `;
 
@@ -380,11 +360,11 @@ const SidebarTwitchLink = styled.a`
   svg {
     width: 12px;
     height: 12px;
-    fill: #9146ff;
+    fill: var(--twitch-purple);
   }
 
   &:hover svg {
-    fill: #a970ff;
+    opacity: 0.8;
   }
 `;
 
@@ -573,7 +553,7 @@ export default function UserListSidebar({
           <>
             <SectionHeader onClick={() => setInGameOpen((v) => !v)}>
               <Chevron $open={inGameOpen}>&#9654;</Chevron>
-              In Game — <SectionCount>{inGameUsers.length}</SectionCount>
+              In Game - <SectionCount>{inGameUsers.length}</SectionCount>
             </SectionHeader>
             {inGameOpen && inGameUsers.map((user) => (
               <UserRowItem
@@ -596,7 +576,7 @@ export default function UserListSidebar({
         )}
         <SectionHeader onClick={() => setOnlineOpen((v) => !v)}>
           <Chevron $open={onlineOpen}>&#9654;</Chevron>
-          Online — <SectionCount>{onlineOnly.length}</SectionCount>
+          Online - <SectionCount>{onlineOnly.length}</SectionCount>
         </SectionHeader>
         {onlineOpen && onlineOnly.map((user) => (
           <UserRowItem
@@ -619,7 +599,7 @@ export default function UserListSidebar({
           <>
             <SectionHeader onClick={() => setAwayOpen((v) => !v)}>
               <Chevron $open={awayOpen}>&#9654;</Chevron>
-              Away — <SectionCount>{awayUsers.length}</SectionCount>
+              Away - <SectionCount>{awayUsers.length}</SectionCount>
             </SectionHeader>
             {awayOpen && awayUsers.map((user) => (
               <UserRowItem

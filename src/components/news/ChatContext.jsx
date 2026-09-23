@@ -6,7 +6,7 @@ const RELAY_URL =
   import.meta.env.VITE_CHAT_RELAY_URL || "https://4v4gg-chat-relay.fly.dev";
 
 /**
- * Digest ChatContext — thin wrapper around the shared ChatContext.
+ * Digest ChatContext - thin wrapper around the shared ChatContext.
  * Handles date-based message fetching, caching, quote pre-selection,
  * and auto-save. Renders nothing when collapsed.
  */
@@ -20,7 +20,7 @@ const DigestChatContext = ({ date, battleTags, quotes, fromTime, toTime, playerO
   // Reset when transcript changes
   useEffect(() => { initializedRef.current = false; }, [expanded, date]);
 
-  // Derive a stable cache key — lock it once expanded so quote edits don't re-fetch
+  // Derive a stable cache key - lock it once expanded so quote edits don't re-fetch
   const lockedKeyRef = useRef(null);
   const cacheKey = useMemo(() => {
     if (!date) return null;
@@ -90,7 +90,7 @@ const DigestChatContext = ({ date, battleTags, quotes, fromTime, toTime, playerO
     }));
   }, [messages]);
 
-  // Handle selection changes — format as quotes and auto-save
+  // Handle selection changes - format as quotes and auto-save
   const handleSelectionChange = useCallback((selectedItems) => {
     if (skipNextChangeRef.current) {
       skipNextChangeRef.current = false;

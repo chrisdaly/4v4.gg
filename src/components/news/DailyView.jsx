@@ -2,7 +2,7 @@ import React, { useState, useEffect, useMemo, useCallback } from "react";
 import { FiRefreshCw } from "react-icons/fi";
 import useChatStream from "../../lib/useChatStream";
 import useAdmin from "../../lib/useAdmin";
-import { PageNav } from "../ui";
+import { PageNav, Input } from "../ui";
 import DigestBanner from "./DigestBanner";
 import PeonLoader from "../PeonLoader";
 
@@ -200,7 +200,7 @@ const DailyView = ({ dayParam }) => {
             <span className="digest-editor-title">Admin Key Required</span>
           </div>
           <div className="digest-editor-key-prompt">
-            <input
+            <Input
               type="password"
               className="digest-editor-key-input"
               placeholder="Paste admin API key..."
@@ -218,7 +218,7 @@ const DailyView = ({ dayParam }) => {
 
       {isAdmin && isViewingToday && (
         <span className="digest-today-notice">
-          Live digest — editing available after the day ends
+          Live digest - editing available after the day ends
         </span>
       )}
     </div>

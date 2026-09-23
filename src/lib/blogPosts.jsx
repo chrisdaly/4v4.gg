@@ -1,19 +1,19 @@
 import React from "react";
 
 /**
- * Blog post registry — single source of truth.
+ * Blog post registry - single source of truth.
  * Add new posts here; Blog index + Router consume this automatically.
  *
  * coverImage: optional path to a hero image (rendered as magazine-style card)
  */
 
-/** Four gold dots on dark — matches the "Dots, Not Numbers" theme */
+/** Four gold dots on dark - matches the "Dots, Not Numbers" theme */
 const DotsPreview = () => (
   <svg viewBox="0 0 320 160" className="bl-card-preview-svg">
-    <circle cx="120" cy="60" r="18" fill="#D4A843" />
-    <circle cx="200" cy="60" r="18" fill="#D4A843" />
-    <circle cx="120" cy="108" r="18" fill="#D4A843" />
-    <circle cx="200" cy="108" r="18" fill="#D4A843" />
+    <circle cx="120" cy="60" r="18" fill="var(--gold)" />
+    <circle cx="200" cy="60" r="18" fill="var(--gold)" />
+    <circle cx="120" cy="108" r="18" fill="var(--gold)" />
+    <circle cx="200" cy="108" r="18" fill="var(--gold)" />
   </svg>
 );
 
@@ -29,7 +29,7 @@ export const blogPosts = [
     preview: DotsPreview,
   },
 
-  // ── Draft mockups (skeletons — not published) ──────────────
+  // ── Draft mockups (skeletons - not published) ──────────────
   {
     slug: "can-ai-tell-who-you-are",
     title: "Can AI Tell Who You Are From Your Clicks?",
@@ -44,7 +44,7 @@ export const blogPosts = [
     slug: "4v4-meta-report",
     title: "The 4v4 Meta Report",
     description:
-      "Which race combos dominate? Which heroes get picked — and which ones win? A data-driven breakdown of the current 4v4 meta.",
+      "Which race combos dominate? Which heroes get picked - and which ones win? A data-driven breakdown of the current 4v4 meta.",
     date: "Draft",
     tags: ["meta", "stats", "wc3"],
     coverImage: "/blog/meta-cover.svg",
@@ -74,7 +74,7 @@ export const blogPosts = [
     slug: "reading-the-replay",
     title: "Reading the Replay",
     description:
-      "How we parse WC3 replay files — from raw hex bytes to action timelines, APM curves, and player behavior.",
+      "How we parse WC3 replay files - from raw hex bytes to action timelines, APM curves, and player behavior.",
     date: "Draft",
     tags: ["engineering", "replays", "wc3"],
     coverImage: "/blog/replay-cover.svg",

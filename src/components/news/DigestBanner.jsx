@@ -1,7 +1,7 @@
 import React, { useState, useEffect, useRef, useMemo, useCallback } from "react";
 import { Link } from "react-router-dom";
 import { fetchAndCacheProfile } from "../../lib/profileCache";
-import { CountryFlag } from "../ui";
+import { CountryFlag, Button } from "../ui";
 import { FiExternalLink, FiCamera, FiEdit2 } from "react-icons/fi";
 import ChatContext from "./ChatContext";
 import StatPicker from "./StatPicker";
@@ -24,7 +24,7 @@ import { MmrComparison } from "../MmrComparison";
 const RELAY_URL =
   import.meta.env.VITE_CHAT_RELAY_URL || "https://4v4gg-chat-relay.fly.dev";
 
-/* Data-derived sections — no ChatContext, no click-to-expand */
+/* Data-derived sections - no ChatContext, no click-to-expand */
 const DATA_SECTIONS = new Set(["UPSET", "MATCH_STATS", "NEW_BLOOD", "AT_SPOTLIGHT"]);
 
 /* ── Rendering helpers ──────────────────────────────── */
@@ -123,7 +123,7 @@ const UpsetCard = ({ item, profiles }) => {
   const zeros = (n) => new Array(n).fill(0);
 
   const displayText = item.replace(UPSET_DATA_RE, "");
-  const mapMatch = displayText.match(/on (.+?) —/);
+  const mapMatch = displayText.match(/on (.+?) -/);
   const gapMatch = displayText.match(/(\d+) MMR gap/);
   const matchId = displayText.match(/([a-f0-9]{24})/)?.[1];
 
@@ -581,9 +581,9 @@ const DigestBanner = ({ digest, nameSet, nameToTag, label = "Yesterday in 4v4", 
   }, [sections, combinedNameToTag]);
 
   const screenshotBtn = isAdmin ? (
-    <button className="digest-screenshot-btn" onClick={handleScreenshot} title="Copy as image">
+    <Button $pill className="digest-screenshot-btn" onClick={handleScreenshot} title="Copy as image">
       {copyState === "copying" ? "..." : copyState === "copied" ? "Copied!" : copyState === "saved" ? "Saved!" : <FiCamera size={14} />}
-    </button>
+    </Button>
   ) : null;
 
   const todayMD = new Date().toISOString().slice(5, 10);
@@ -613,13 +613,15 @@ const DigestBanner = ({ digest, nameSet, nameToTag, label = "Yesterday in 4v4", 
     <div className="digest-date-tabs-wrap">
       <div className="digest-date-tabs">
         {tabs.map((tab, i) => (
-          <button
+          <Button
+            $pill
             key={i}
-            className={`digest-date-tab${tab.active ? " digest-date-tab--active" : ""}`}
+            className="digest-date-tab"
+            data-active={tab.active ? "true" : undefined}
             onClick={() => isEditorial ? handleTabClick(tab.onClick) : tab.onClick()}
           >
             {tab.label}
-          </button>
+          </Button>
         ))}
       </div>
       {screenshotBtn}

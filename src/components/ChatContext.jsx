@@ -23,7 +23,7 @@ function HighlightText({ text, query }) {
 }
 
 // Consecutive same-author messages merge into one group, but only when close
-// in time — search results can put the same author hours apart back to back,
+// in time - search results can put the same author hours apart back to back,
 // and a single group header timestamp would misrepresent them.
 const GROUP_GAP_MS = 5 * 60 * 1000;
 
@@ -55,7 +55,7 @@ function groupMessages(messages, gapMs = GROUP_GAP_MS) {
   return groups;
 }
 
-// Identity key for context messages — received_at alone collides when two
+// Identity key for context messages - received_at alone collides when two
 // users post in the same second, so include author and text.
 function ctxMsgKey(m) {
   return `${m.received_at}|${m.battle_tag || ""}|${m.message || m.text || ""}`;
@@ -82,7 +82,7 @@ function formatDateShort(ts) {
 function getDateKey(ts) {
   const d = parseTimestamp(ts);
   if (!d) return "";
-  // Use local date components — toISOString() returns UTC which disagrees with
+  // Use local date components - toISOString() returns UTC which disagrees with
   // the local date shown in the separator label, causing duplicate headings.
   const y = d.getFullYear();
   const m = String(d.getMonth() + 1).padStart(2, "0");
@@ -97,13 +97,13 @@ function getDateKey(ts) {
  *
  * @param {Array}    messages          - [{ name, text, score?, sentAt?, battle_tag?, received_at? }]
  * @param {boolean}  loading           - Show loading state
- * @param {Function} onApply           - (selectedItems) => void — multi-select apply button callback
- * @param {Function} onSelectionChange - (selectedItems) => void — fires on every selection toggle
+ * @param {Function} onApply           - (selectedItems) => void - multi-select apply button callback
+ * @param {Function} onSelectionChange - (selectedItems) => void - fires on every selection toggle
  * @param {Object}   clearSelectionRef - Ref object; will be assigned a function to clear selection
  * @param {boolean}  selectable        - Enable multi-select checkboxes
  * @param {boolean}  expandable        - Enable context expansion on message click
  * @param {boolean}  showScores        - Show score column
- * @param {Function} applyLabel        - (count) => string — custom apply button label
+ * @param {Function} applyLabel        - (count) => string - custom apply button label
  * @param {string}   placeholder       - Filter input placeholder
  * @param {string}   highlight         - Text to highlight in messages
  * @param {Array}    targetTags        - battle_tags to highlight as gold (target players)
@@ -189,7 +189,7 @@ const ChatContext = ({
   const [loadingCtxLater, setLoadingCtxLater] = useState(false);
   const [ctxHasEarlier, setCtxHasEarlier] = useState(true);
   const [ctxHasLater, setCtxHasLater] = useState(true);
-  // Sentinels stay disarmed until the origin message has been centered —
+  // Sentinels stay disarmed until the origin message has been centered -
   // otherwise the top sentinel is visible on first paint and immediately
   // prepends earlier history, scrolling the origin out of view.
   const [ctxCentered, setCtxCentered] = useState(false);
@@ -206,7 +206,7 @@ const ChatContext = ({
   const ctxLaterAttempts = useRef(0);
   const lastExpandedRef = useRef(null);
 
-  // Infinite scroll — observe sentinel at bottom of list (older messages)
+  // Infinite scroll - observe sentinel at bottom of list (older messages)
   useEffect(() => {
     if (!onLoadMore || !hasMore || loadingMore) return;
     const el = sentinelRef.current;
@@ -220,7 +220,7 @@ const ChatContext = ({
     return () => observer.disconnect();
   }, [onLoadMore, hasMore, loadingMore]);
 
-  // Infinite scroll — observe sentinel at top of list (newer messages)
+  // Infinite scroll - observe sentinel at top of list (newer messages)
   useEffect(() => {
     if (!onLoadNewer || !hasNewer || loadingNewer) return;
     const el = topSentinelRef.current;
@@ -237,7 +237,7 @@ const ChatContext = ({
   // Reset selection when messages change
   useEffect(() => { setSelected(new Set()); }, [messages]);
 
-  // Collapse the context panel when the underlying dataset changes — otherwise
+  // Collapse the context panel when the underlying dataset changes - otherwise
   // a new search leaves the panel showing the previous conversation and the
   // expanded highlight lands on whatever row now sits at the stale index.
   // resetKey (when provided) keeps the panel open across pagination appends.
@@ -356,7 +356,7 @@ const ChatContext = ({
     return map;
   }, [messages]);
 
-  // Apply selection — merge main list picks + context picks
+  // Apply selection - merge main list picks + context picks
   const handleApply = useCallback(() => {
     if (totalSelected === 0 || !onApply) return;
     const mainPicked = messages ? [...selected].sort((a, b) => a - b).map((i) => messages[i]) : [];
@@ -369,7 +369,7 @@ const ChatContext = ({
     setSelectedCtx(new Set());
   }, [messages, selected, selectedCtx, contextMessages, totalSelected, onApply]);
 
-  // Context expansion — fetch surrounding messages
+  // Context expansion - fetch surrounding messages
   const fetchContext = useCallback(async (receivedAt, padding) => {
     setContextLoading(true);
     try {
@@ -548,7 +548,7 @@ const ChatContext = ({
     else loadCtxLater();
   }, [loadCtxEarlier, loadCtxLater]);
 
-  // Infinite scroll for context panel — earlier (top)
+  // Infinite scroll for context panel - earlier (top)
   useEffect(() => {
     if (!expandedMsg || !ctxCentered || loadingCtxEarlier || contextLoading || !ctxHasEarlier) return;
     const el = ctxTopSentinelRef.current;
@@ -562,7 +562,7 @@ const ChatContext = ({
     return () => observer.disconnect();
   }, [expandedMsg, ctxCentered, loadingCtxEarlier, contextLoading, ctxHasEarlier, loadCtxEarlier]);
 
-  // Infinite scroll for context panel — later (bottom)
+  // Infinite scroll for context panel - later (bottom)
   useEffect(() => {
     if (!expandedMsg || !ctxCentered || loadingCtxLater || contextLoading || !ctxHasLater) return;
     const el = ctxBottomSentinelRef.current;
@@ -592,7 +592,7 @@ const ChatContext = ({
 
   // Center the origin message when context initially loads (not during
   // infinite scroll). Must be instant and must finish BEFORE the sentinels
-  // arm (ctxCentered) — a smooth scroll leaves the top sentinel visible long
+  // arm (ctxCentered) - a smooth scroll leaves the top sentinel visible long
   // enough to prepend earlier history and lose the origin off-screen.
   useLayoutEffect(() => {
     if (contextMessages.length === 0 || contextLoading || !expandedMsg) return;
@@ -602,7 +602,7 @@ const ChatContext = ({
     const root = contextScrollRef.current;
     const target = matchRef.current;
     if (root && target) {
-      // Scroll within the panel only — scrollIntoView would also scroll the page
+      // Scroll within the panel only - scrollIntoView would also scroll the page
       const rootRect = root.getBoundingClientRect();
       const targetRect = target.getBoundingClientRect();
       root.scrollTop += (targetRect.top - rootRect.top) - (root.clientHeight - targetRect.height) / 2;
@@ -610,14 +610,14 @@ const ChatContext = ({
       // Inline (non-split) mode has no panel ref
       target.scrollIntoView({ behavior: "auto", block: "center" });
     } else if (root) {
-      // Origin missing from the window (e.g. deleted) — show the middle,
+      // Origin missing from the window (e.g. deleted) - show the middle,
       // which is the closest content to the clicked timestamp
       root.scrollTop = (root.scrollHeight - root.clientHeight) / 2;
     }
     setCtxCentered(true);
   }, [contextMessages, contextLoading, expandedMsg]);
 
-  // Determine the highlight query — use `highlight` prop, or fall back to filter
+  // Determine the highlight query - use `highlight` prop, or fall back to filter
   const highlightQuery = highlight || filter;
 
   // Apply button label
@@ -625,7 +625,7 @@ const ChatContext = ({
     ? applyLabel(totalSelected)
     : `Use ${totalSelected} item${totalSelected !== 1 ? "s" : ""}`;
 
-  // Match check for context origin highlighting — compares against the stored
+  // Match check for context origin highlighting - compares against the stored
   // center point (not messages[idx]) so re-centering on a context message works
   const isOriginMsg = useCallback((cm) => {
     if (!expandedMsg) return false;
@@ -1000,7 +1000,7 @@ const ChatContext = ({
 
       {!compact && filter.trim() && total != null && messages && messages.length < total && (
         <div className="cc-filter-hint">
-          Filtering {messages.length.toLocaleString()} loaded of {total.toLocaleString()} — scroll down to load more
+          Filtering {messages.length.toLocaleString()} loaded of {total.toLocaleString()} - scroll down to load more
         </div>
       )}
 
