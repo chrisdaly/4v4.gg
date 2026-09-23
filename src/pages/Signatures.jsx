@@ -350,49 +350,49 @@ const SEGMENTS = [
     label: "Speed Demons",
     desc: "200+ APM average",
     filter: p => (p.metrics?.meanApm || 0) >= 200,
-    color: "#f97316", // orange
+    color: "var(--amber)", // Speed Demons
   },
   {
     id: "slow-steady",
     label: "Slow & Steady",
     desc: "Under 120 APM",
     filter: p => (p.metrics?.meanApm || 999) < 120 && (p.metrics?.meanApm || 0) > 0,
-    color: "#64748b", // slate
+    color: "var(--team-blue)", // Slow & Steady
   },
   {
     id: "control-masters",
     label: "Control Masters",
     desc: "6+ hotkey groups active",
     filter: p => (p.metrics?.activeGroups || 0) >= 6,
-    color: "#8b5cf6", // purple
+    color: "var(--at-purple)", // Control Masters
   },
   {
     id: "selection-addicts",
     label: "Selection Addicts",
     desc: "40%+ actions are re-selects",
     filter: p => (p.metrics?.selectPct || 0) >= 40,
-    color: "#ec4899", // pink
+    color: "var(--red)", // Selection Addicts
   },
   {
     id: "buildings-on-1",
     label: "Buildings on 1",
     desc: "Classic RTS habit - production on group 1",
     filter: hasBuildingsOnOne,
-    color: "#14b8a6", // teal
+    color: "var(--green)", // Buildings on 1
   },
   {
     id: "no-army-hotkeys",
     label: "No Army Hotkeys",
     desc: "Only buildings on control groups",
     filter: hasNoArmyHotkeys,
-    color: "#06b6d4", // cyan
+    color: "var(--cyan)", // No Army Hotkeys
   },
   {
     id: "one-group-wonders",
     label: "One-Group Wonders",
     desc: "70%+ on single group",
     filter: p => (p.metrics?.topGroupPct || 0) >= 70,
-    color: "#ef4444", // red
+    color: "var(--gold)", // One-Group Wonders
   },
 ];
 

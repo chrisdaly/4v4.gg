@@ -14,8 +14,6 @@ export const BLUE = colors.blue.value;
 export const GREY = "var(--grey-light)";
 export const GREY_MID = "var(--grey-mid)";
 export const GREY_DARK = "var(--grey-dark)";
-export const TRAIT_COLORS = [GOLD, GREEN, BLUE, RED, "#c084fc", "#f472b6"];
-
 export const RACE_COLORS = {
   Human: raceSolid.human,
   Orc: raceSolid.orc,
