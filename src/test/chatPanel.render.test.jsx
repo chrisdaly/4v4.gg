@@ -9,8 +9,13 @@ import { MemoryRouter } from 'react-router-dom';
 // once per data change with the whole list "visible" (no boxes to measure),
 // which is what the sticky day bar falls back to.
 const scrollToIndex = vi.fn();
+// The latest props the panel handed the list, so a test can drive the
+// callbacks the real Virtuoso would call (atBottomStateChange, followOutput)
+const virtuosoProps = vi.hoisted(() => ({ current: null }));
 vi.mock('react-virtuoso', () => ({
-  Virtuoso: React.forwardRef(function FakeVirtuoso({ data, itemContent, components, context, firstItemIndex = 0, computeItemKey, rangeChanged }, ref) {
+  Virtuoso: React.forwardRef(function FakeVirtuoso(props, ref) {
+    const { data, itemContent, components, context, firstItemIndex = 0, computeItemKey, rangeChanged } = props;
+    virtuosoProps.current = props;
     React.useImperativeHandle(ref, () => ({ scrollToIndex }));
     React.useEffect(() => {
       rangeChanged?.({ startIndex: firstItemIndex, endIndex: firstItemIndex + data.length - 1 });
@@ -35,8 +40,13 @@ import GameModal, { resolveGame } from '../components/chat/GameModal';
 import { useWatchList } from '../lib/chatExtras';
 import { resetNotifyThrottle } from '../lib/chat/notify';
 import { resetUnfurlCache } from '../lib/chat/unfurl';
+import { isTrimPaused, setTrimPaused } from '../lib/chat/trimGate';
+import { localTimeLabel } from '../lib/chat/localTime';
 
-const T0 = Date.parse('2026-09-23T12:00:00Z');
+// Noon LOCAL time today (the day dividers use local dates), so 'Today' /
+// 'Yesterday' assertions never rot and do not depend on the machine's timezone
+const T0 = (() => { const d = new Date(); d.setHours(12, 0, 0, 0); return d.getTime(); })();
+const DAY = (n) => new Date(T0 - n * 86400000).toISOString().slice(0, 10);
 const iso = (ms) => new Date(T0 + ms).toISOString();
 const msg = (id, tag, ms, text, extra = {}) => ({
   id, battleTag: tag, userName: tag.split('#')[0], clanTag: '', text,
@@ -131,6 +141,7 @@ function renderPanel(overrides = {}) {
 beforeEach(() => {
   scrollToIndex.mockClear();
   searchToggle.mockClear();
+  setTrimPaused(false);
   resetNotifyThrottle();
   resetUnfurlCache();
   if (!vi.isMockFunction(globalThis.fetch)) {
@@ -253,6 +264,98 @@ describe('ChatPanel history prepend', () => {
   });
 });
 
+describe('ChatPanel head trim', () => {
+  const domRows = () => Array.from(document.querySelectorAll('[data-index]')).map((el) => ({
+    el, index: Number(el.dataset.index), key: el.dataset.key,
+  }));
+  const rowOf = (msgId) => document.getElementById(`msg-${msgId}`).closest('[data-index]');
+  const lineCount = (rowEl) => rowEl.querySelectorAll('[id^="msg-"]').length;
+
+  // The live cap drops the oldest messages. Rows: day divider, sys1, the
+  // Grubby group (a1, a2), b1, c1.
+  function Harness({ initial }) {
+    const [msgs, setMsgs] = React.useState(initial);
+    return (
+      <MemoryRouter>
+        <button type="button" onClick={() => setMsgs((m) => m.slice(1))}>drop one</button>
+        <button type="button" onClick={() => setMsgs((m) => m.slice(3))}>drop three</button>
+        <ChatPanel
+          messages={msgs} status="connected" avatars={avatars} stats={stats} sessions={new Map()}
+          inGameTags={new Set()} inGameInfoMap={new Map()} recentWinners={new Set()} recentDeltas={new Map()}
+          gameEvents={[]} ongoingMatchIds={new Set()} liveStreamers={new Map()} watchList={new Set()}
+          onlineUsers={[]} botResponses={[]} translations={new Map()}
+          loadOlder={() => Promise.resolve({ added: 0 })} hasMoreHistory={false}
+        />
+      </MemoryRouter>
+    );
+  }
+
+  it('raises firstItemIndex by the number of whole rows removed, so the surviving rows keep their index', () => {
+    render(<Harness initial={messages} />);
+    const before = domRows();
+    expect(before.map((r) => r.key.replace(/^day:.*/, 'day'))).toEqual(['day', 'sys1', 'a1', 'b1', 'c1']);
+    const bIndex = Number(rowOf('b1').dataset.index);
+
+    // sys1, a1, a2 gone: the system row and the whole Grubby group
+    fireEvent.click(screen.getByText('drop three'));
+    const after = domRows();
+    expect(after.map((r) => r.key.replace(/^day:.*/, 'day'))).toEqual(['day', 'b1', 'c1']);
+    expect(after[0].index).toBe(before[0].index + 2);
+    expect(Number(rowOf('b1').dataset.index)).toBe(bIndex);
+    after.forEach((r, i) => expect(r.index).toBe(after[0].index + i));
+  });
+
+  it('leaves firstItemIndex alone when only the head group shrinks', () => {
+    render(<Harness initial={messages.filter((m) => m.id !== 'sys1')} />);
+    const before = domRows();
+    expect(lineCount(rowOf('a1'))).toBe(2);
+    const bIndex = Number(rowOf('b1').dataset.index);
+
+    // a1 gone: the Grubby group is now keyed a2 with one line, no row removed
+    fireEvent.click(screen.getByText('drop one'));
+    const after = domRows();
+    expect(after.map((r) => r.key.replace(/^day:.*/, 'day'))).toEqual(['day', 'a2', 'b1', 'c1']);
+    expect(after[0].index).toBe(before[0].index);
+    expect(lineCount(rowOf('a2'))).toBe(1);
+    expect(Number(rowOf('b1').dataset.index)).toBe(bIndex);
+  });
+});
+
+describe('ChatPanel bottom state', () => {
+  it('pauses the live trim while the viewport is off the bottom, resumes on return and resets on unmount', () => {
+    const { unmount } = renderPanel();
+    expect(isTrimPaused()).toBe(false);
+    act(() => virtuosoProps.current.atBottomStateChange(false));
+    expect(isTrimPaused()).toBe(true);
+    act(() => virtuosoProps.current.atBottomStateChange(true));
+    expect(isTrimPaused()).toBe(false);
+    act(() => virtuosoProps.current.atBottomStateChange(false));
+    expect(isTrimPaused()).toBe(true);
+    unmount();
+    expect(isTrimPaused()).toBe(false);
+  });
+
+  it('follows output only from the bottom: smooth when the reader was there, instant catch-up mid-follow, never when away', () => {
+    renderPanel();
+    const { followOutput, atBottomStateChange } = virtuosoProps.current;
+    // Virtuoso reports not at bottom: never follow
+    expect(followOutput(false)).toBe(false);
+    // At rest at the bottom before the append
+    act(() => atBottomStateChange(true));
+    expect(followOutput(true)).toBe('smooth');
+    // The list grew and the follow scroll is still in flight (Virtuoso passes
+    // true while its own scroll runs): catch up instantly, no stacked smooth
+    act(() => atBottomStateChange(false));
+    expect(followOutput(true)).toBe('auto');
+    // Landed
+    act(() => atBottomStateChange(true));
+    expect(followOutput(true)).toBe('smooth');
+    // Reader scrolled up and no scroll in flight
+    act(() => atBottomStateChange(false));
+    expect(followOutput(false)).toBe(false);
+  });
+});
+
 describe('ChatPanel rows', () => {
   it('renders groups, system rows, game rows, bot rows, translations and chips, with no header', () => {
     renderPanel();
@@ -298,9 +401,9 @@ describe('ChatPanel rows', () => {
 
   it("shows each sender's local time from their profile country", () => {
     renderPanel();
-    // Moon's profile says KR: 12:01Z is 9:01p in Seoul
+    // Moon's profile says KR: the label is the send time shifted to Seoul (UTC+9)
     const moon = document.getElementById('msg-b1').closest('[data-variant="feed"]');
-    expect(moon.querySelector('[data-local-time]')).toHaveTextContent('9:01p local');
+    expect(moon.querySelector('[data-local-time]')).toHaveTextContent(`${localTimeLabel('KR', new Date(T0 + 60_000))} local`);
     // Grubby has no profile, so no country and no clock
     const grubby = document.getElementById('msg-a1').closest('[data-variant="feed"]');
     expect(grubby.querySelector('[data-local-time]')).toBeNull();
@@ -579,8 +682,8 @@ describe('ChatPanel search', () => {
     sent_at: `${receivedAt.replace(' ', 'T')}.000Z`, received_at: receivedAt,
   });
   const hits = [
-    row('s1', 'Moon#2', '2026-09-23 11:00:00', 'hola from moon'),
-    row('s2', 'Grubby#1', '2026-09-22 09:30:00', 'HOLA again'),
+    row('s1', 'Moon#2', `${DAY(0)} 11:00:00`, 'hola from moon'),
+    row('s2', 'Grubby#1', `${DAY(1)} 09:30:00`, 'HOLA again'),
   ];
   let fetchMock;
   const searchCalls = () => fetchMock.mock.calls.map((c) => String(c[0])).filter((u) => u.includes('/api/chat/search'));
@@ -593,7 +696,7 @@ describe('ChatPanel search', () => {
       if (u.includes('/api/chat/search')) {
         const sp = new URLSearchParams(u.split('?')[1]);
         const offset = Number(sp.get('offset') || 0);
-        return { ok: true, json: async () => ({ results: offset === 0 ? hits : [row('s3', 'Moon#2', '2026-09-20 08:00:00', 'hola three')], total: 3, offset, limit: 50 }) };
+        return { ok: true, json: async () => ({ results: offset === 0 ? hits : [row('s3', 'Moon#2', `${DAY(3)} 08:00:00`, 'hola three')], total: 3, offset, limit: 50 }) };
       }
       return { ok: true, json: async () => ({}) };
     });
@@ -691,7 +794,7 @@ describe('ChatPanel search', () => {
 
   it('jumps straight to a hit that is already in the stream and closes the panel', async () => {
     const loadWindow = vi.fn();
-    fetchMock.mockImplementation(async () => ({ ok: true, json: async () => ({ results: [row('b1', 'Moon#2', '2026-09-23 12:01:00', 'hola')], total: 1, offset: 0, limit: 50 }) }));
+    fetchMock.mockImplementation(async () => ({ ok: true, json: async () => ({ results: [row('b1', 'Moon#2', `${DAY(0)} 12:01:00`, 'hola')], total: 1, offset: 0, limit: 50 }) }));
     renderPanel({ loadWindow, initialSearchOpen: true });
     fireEvent.change(screen.getByLabelText('Search messages'), { target: { value: 'hola' } });
     const hit = await screen.findByTitle('Jump to message');
