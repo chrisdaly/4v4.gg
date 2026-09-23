@@ -25,7 +25,7 @@ const AVATAR = 32; // px, row avatar (radius-sm)
 /* ── Frame ─────────────────────────────────────────────────────────── */
 
 const Sidebar = styled.aside`
-  width: 268px;
+  width: 300px;
   height: 100%;
   box-sizing: border-box;
   display: flex;
@@ -138,9 +138,10 @@ const label = css`
 const List = styled.div`
   flex: 1;
   overflow-y: auto;
-  padding: var(--space-1) var(--space-2) var(--space-2);
+  padding: var(--space-2) var(--space-3) var(--space-3);
   display: flex;
   flex-direction: column;
+  gap: 2px;
 
   &::-webkit-scrollbar {
     width: 6px;
@@ -172,7 +173,7 @@ const rowStyles = css`
   align-items: center;
   gap: var(--space-2);
   height: ${ROW_HEIGHT}px;
-  padding: 0 var(--space-2);
+  padding: 0 var(--space-3);
   border-radius: var(--radius-sm);
   text-decoration: none;
   color: inherit;
