@@ -1,9 +1,10 @@
-import React, { useState, useEffect, useMemo, useRef } from "react";
+import React, { useState, useMemo } from "react";
 import styled from "styled-components";
 import { useLocation } from "react-router-dom";
 import { HiUsers, HiChat } from "react-icons/hi";
 import useChatFeed from "../lib/chat/useChatFeed";
 import { useWatchList } from "../lib/chatExtras";
+import { useUnreadCount } from "../lib/chat/useUnread";
 import { useTheme } from "../lib/ThemeContext";
 import ChatPanel from "../components/ChatPanel";
 import UserListSidebar from "../components/UserListSidebar";
@@ -140,22 +141,9 @@ const Chat = () => {
   const permalinkId = useMemo(() => new URLSearchParams(search).get("m"), [search]);
 
   // Unread badge for the mobile Chat tab: everything newer than the last
-  // message that was on screen when the user left the chat tab
-  const lastSeenIdRef = useRef(null);
-  const newestId = messages.length > 0 ? messages[messages.length - 1].id : null;
-  useEffect(() => {
-    if (mobileTab === "chat") lastSeenIdRef.current = newestId;
-  }, [mobileTab, newestId]);
-  const unreadCount = useMemo(() => {
-    if (mobileTab === "chat") return 0;
-    const lastSeen = lastSeenIdRef.current;
-    let count = 0;
-    for (let i = messages.length - 1; i >= 0; i--) {
-      if (messages[i].id === lastSeen) break;
-      count++;
-    }
-    return count;
-  }, [messages, mobileTab]);
+  // message that was on screen when the user left the chat tab (the panel
+  // uses the same hook for the browser tab title while hidden)
+  const unreadCount = useUnreadCount(messages, mobileTab === "chat");
 
   return (
     <Page>

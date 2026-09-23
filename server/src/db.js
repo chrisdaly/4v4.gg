@@ -651,6 +651,10 @@ export function getStats() {
     SELECT COUNT(*) as count FROM messages
     WHERE deleted = 0 AND received_at > datetime('now', '-7 days')
   `).get();
+  const usersLast24h = db.prepare(`
+    SELECT COUNT(DISTINCT battle_tag) as count FROM messages
+    WHERE deleted = 0 AND received_at > datetime('now', '-1 day')
+  `).get();
   const oldest = db.prepare('SELECT MIN(received_at) as ts FROM messages WHERE deleted = 0').get();
   const newest = db.prepare('SELECT MAX(received_at) as ts FROM messages WHERE deleted = 0').get();
   const topChatters = db.prepare(`
@@ -671,6 +675,12 @@ export function getStats() {
     FROM messages WHERE deleted = 0
     GROUP BY hour ORDER BY hour
   `).all();
+  // Today's messages per UTC hour (the /chat stats strip's busiest hour)
+  const byHourToday = db.prepare(`
+    SELECT CAST(strftime('%H', received_at) AS INTEGER) as hour, COUNT(*) as count
+    FROM messages WHERE deleted = 0 AND DATE(received_at) = DATE('now')
+    GROUP BY hour ORDER BY hour
+  `).all();
   const perDay = db.prepare(`
     SELECT DATE(received_at) as day, COUNT(*) as count
     FROM messages WHERE deleted = 0 AND received_at > datetime('now', '-14 days')
@@ -684,12 +694,14 @@ export function getStats() {
     uniqueUsers: users.count,
     messagesLast24h: last24h.count,
     messagesLast7d: last7d.count,
+    usersLast24h: usersLast24h.count,
     oldestMessage: oldest.ts,
     newestMessage: newest.ts,
     topChatters,
     avgMessageLength: avgLength?.avg ? Math.round(avgLength.avg) : 0,
     busiestDay: busiestDay || null,
     byHour,
+    byHourToday,
     perDay,
     dbSizeBytes: dbSize?.size || 0,
   };

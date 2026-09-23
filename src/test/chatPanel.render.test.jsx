@@ -1,6 +1,6 @@
 import { describe, it, expect, vi, afterEach, beforeEach } from 'vitest';
 import React from 'react';
-import { render, screen, fireEvent, cleanup, waitFor } from '@testing-library/react';
+import { render, screen, fireEvent, cleanup, waitFor, act } from '@testing-library/react';
 import { MemoryRouter } from 'react-router-dom';
 
 // Render every row eagerly: happy-dom has no layout, so the real Virtuoso
@@ -31,6 +31,9 @@ vi.mock('react-virtuoso', () => ({
 }));
 
 import ChatPanel from '../components/ChatPanel';
+import { resetTodayDigestCache } from '../lib/chat/digestToday';
+import { resetNotifyThrottle } from '../lib/chat/notify';
+import { resetUnfurlCache } from '../lib/chat/unfurl';
 
 const T0 = Date.parse('2026-09-23T12:00:00Z');
 const iso = (ms) => new Date(T0 + ms).toISOString();
@@ -96,15 +99,37 @@ function renderPanel(overrides = {}) {
   );
 }
 
+// Every mount asks the relay for today's digest; keep that off the network
+// unless a test installs its own fetch mock
 beforeEach(() => {
   scrollToIndex.mockClear();
+  resetTodayDigestCache();
+  resetNotifyThrottle();
+  resetUnfurlCache();
+  if (!vi.isMockFunction(globalThis.fetch)) {
+    vi.spyOn(globalThis, 'fetch').mockResolvedValue({ ok: false, json: async () => ({}) });
+  }
 });
 
 afterEach(() => {
   cleanup();
   localStorage.clear();
   document.body.classList.remove('chat-focus');
+  vi.restoreAllMocks();
 });
+
+// document.hidden is a prototype getter in happy-dom; override per test
+function setHidden(hidden) {
+  Object.defineProperty(document, 'hidden', { configurable: true, get: () => hidden });
+  Object.defineProperty(document, 'visibilityState', { configurable: true, get: () => (hidden ? 'hidden' : 'visible') });
+  act(() => {
+    document.dispatchEvent(new Event('visibilitychange'));
+  });
+}
+function resetHidden() {
+  delete document.hidden;
+  delete document.visibilityState;
+}
 
 describe('ChatPanel rows', () => {
   it('renders groups, system rows, tickers, bot rows, translations and chips', () => {
@@ -307,7 +332,7 @@ describe('ChatPanel sticky day bar', () => {
     const ymd = `${today.getFullYear()}-${String(today.getMonth() + 1).padStart(2, '0')}-${String(today.getDate()).padStart(2, '0')}`;
     expect(input).toHaveAttribute('max', ymd);
     await waitFor(() => expect(input).toHaveAttribute('min', '2026-06-01'));
-    expect(globalThis.fetch.mock.calls[0][0]).toMatch(/\/api\/chat\/stats$/);
+    expect(globalThis.fetch.mock.calls.some((c) => /\/api\/chat\/stats$/.test(String(c[0])))).toBe(true);
     // Esc closes the popover first; a second Esc would exit Focus
     fireEvent.keyDown(window, { key: 'Escape' });
     expect(document.getElementById('chat-jump-date')).toBeNull();
@@ -519,6 +544,303 @@ describe('ChatPanel search', () => {
     await waitFor(() => expect(scrollToIndex).toHaveBeenCalled());
     expect(document.getElementById('msg-old1')).toHaveStyle({ background: 'rgba(252, 219, 51, 0.14)' });
     expect(screen.getByText('Back to live')).toBeInTheDocument();
+  });
+});
+
+describe('ChatPanel stats strip', () => {
+  const statsPayload = {
+    totalMessages: 5000, uniqueUsers: 320, messagesLast24h: 1234, messagesLast7d: 8765, usersLast24h: 42,
+    oldestMessage: '2026-06-01 00:00:00',
+    topChatters: [
+      { user_name: 'Grubby', battle_tag: 'Grubby#1', count: 900 },
+      { user_name: 'Moon', battle_tag: 'Moon#2', count: 800 },
+      { user_name: 'C', battle_tag: 'C#3', count: 3 }, { user_name: 'D', battle_tag: 'D#4', count: 2 },
+      { user_name: 'E', battle_tag: 'E#5', count: 1 }, { user_name: 'F', battle_tag: 'F#6', count: 1 },
+    ],
+    byHour: [...Array(24)].map((_, hour) => ({ hour, count: hour + 1 })),
+    byHourToday: [{ hour: 12, count: 7 }],
+    perDay: [],
+  };
+
+  it('is off by default, toggles from the header pill, persists and fetches /api/chat/stats', async () => {
+    let resolveStats;
+    globalThis.fetch.mockImplementation(async (url) => {
+      if (String(url).endsWith('/api/chat/stats')) {
+        return new Promise((resolve) => { resolveStats = () => resolve({ ok: true, json: async () => statsPayload }); });
+      }
+      return { ok: false, json: async () => ({}) };
+    });
+    renderPanel();
+    expect(screen.queryByTestId('stats-strip')).toBeNull();
+    const pill = screen.getByTitle('Show chat stats');
+    expect(pill).toHaveAttribute('data-active', 'false');
+    fireEvent.click(pill);
+    expect(localStorage.getItem('chat:showStats')).toBe('1');
+    expect(screen.getByTitle('Hide chat stats')).toHaveAttribute('data-active', 'true');
+    // skeleton until the relay answers
+    const strip = screen.getByTestId('stats-strip');
+    expect(strip).toHaveAttribute('aria-busy', 'true');
+    expect(globalThis.fetch.mock.calls.filter((c) => String(c[0]).endsWith('/api/chat/stats'))).toHaveLength(1);
+
+    resolveStats();
+    await waitFor(() => expect(screen.getByText('1,234')).toBeInTheDocument());
+    expect(screen.getByText('Messages 24h')).toBeInTheDocument();
+    expect(screen.getByText('42')).toBeInTheDocument();
+    expect(screen.getByText('Chatters 24h')).toBeInTheDocument();
+    expect(screen.getByText('Busiest hour today')).toBeInTheDocument();
+    expect(screen.getByText('7 msgs')).toBeInTheDocument();
+    // top 5 of 6, names link to the player page
+    const top = screen.getByText('Top chatters').parentElement;
+    expect(top.querySelectorAll('li')).toHaveLength(5);
+    expect(screen.getByTitle('Grubby#1')).toHaveAttribute('href', '/player/Grubby%231');
+    expect(screen.getByText('900')).toBeInTheDocument();
+    // 24 bars, the current hour drawn full gold
+    const bars = screen.getByTestId('stats-sparkline').querySelectorAll('rect');
+    expect(bars).toHaveLength(24);
+    const current = [...bars].filter((r) => r.getAttribute('data-current') === 'true');
+    expect(current).toHaveLength(1);
+    expect(current[0].getAttribute('data-hour')).toBe(String(new Date().getHours()));
+    expect(current[0].getAttribute('fill-opacity')).toBe('1');
+    expect(bars[(Number(current[0].getAttribute('data-hour')) + 1) % 24].getAttribute('fill-opacity')).toBe('0.35');
+
+    fireEvent.click(screen.getByTitle('Hide chat stats'));
+    expect(screen.queryByTestId('stats-strip')).toBeNull();
+    expect(localStorage.getItem('chat:showStats')).toBe('0');
+  });
+
+  it('restores the strip from localStorage', () => {
+    localStorage.setItem('chat:showStats', '1');
+    renderPanel();
+    expect(screen.getByTestId('stats-strip')).toBeInTheDocument();
+  });
+});
+
+describe('ChatPanel digest pill', () => {
+  it('links to today\'s digest on /news when the relay has one', async () => {
+    globalThis.fetch.mockImplementation(async (url) => {
+      if (String(url).includes('/api/admin/stats/today')) {
+        return { ok: true, json: async () => ({ date: '2026-09-23', digest: '# Today\nstuff' }) };
+      }
+      return { ok: false, json: async () => ({}) };
+    });
+    renderPanel();
+    const pill = await screen.findByTitle("Today's digest on /news");
+    expect(pill).toHaveAttribute('href', '/news?day=2026-09-23');
+    expect(pill).toHaveTextContent('Digest');
+    expect(globalThis.fetch.mock.calls.filter((c) => String(c[0]).includes('/api/admin/stats/today'))).toHaveLength(1);
+
+    // module-scope cache: a second mount does not re-ask
+    cleanup();
+    renderPanel();
+    await screen.findByTitle("Today's digest on /news");
+    expect(globalThis.fetch.mock.calls.filter((c) => String(c[0]).includes('/api/admin/stats/today'))).toHaveLength(1);
+  });
+
+  it('is hidden when there is no digest for today', async () => {
+    globalThis.fetch.mockImplementation(async (url) => {
+      if (String(url).includes('/api/admin/stats/today')) {
+        return { ok: true, json: async () => ({ date: '2026-09-23', digest: null }) };
+      }
+      return { ok: false, json: async () => ({}) };
+    });
+    renderPanel();
+    await waitFor(() => expect(globalThis.fetch.mock.calls.some((c) => String(c[0]).includes('/api/admin/stats/today'))).toBe(true));
+    await new Promise((r) => setTimeout(r, 0));
+    expect(screen.queryByTitle("Today's digest on /news")).toBeNull();
+  });
+});
+
+describe('ChatPanel tab badge', () => {
+  afterEach(() => {
+    resetHidden();
+    document.title = '';
+    document.querySelector('link[rel="icon"]')?.remove();
+  });
+
+  it('counts unread while hidden in the title and favicon, restores on return', () => {
+    document.title = '4v4.GG';
+    function Harness() {
+      const [msgs, setMsgs] = React.useState(messages);
+      return (
+        <MemoryRouter>
+          <button type="button" onClick={() => setMsgs((m) => [...m, msg(`n${m.length}`, 'Moon#2', 200000 + m.length * 1000, 'later')])}>add</button>
+          <ChatPanel
+            messages={msgs} status="connected" avatars={avatars} stats={stats} sessions={new Map()}
+            inGameTags={new Set()} inGameInfoMap={new Map()} recentWinners={new Set()} recentDeltas={new Map()}
+            gameEvents={[]} ongoingMatchIds={new Set()} liveStreamers={new Map()} watchList={new Set()}
+            onlineUsers={[]} botResponses={[]} translations={new Map()} sendMessage={() => {}}
+            loadOlder={() => Promise.resolve({ added: 0 })} hasMoreHistory
+          />
+        </MemoryRouter>
+      );
+    }
+    render(<Harness />);
+    expect(document.title).toBe('4v4.GG');
+    // messages arriving while visible do not badge
+    fireEvent.click(screen.getByText('add'));
+    expect(document.title).toBe('4v4.GG');
+
+    setHidden(true);
+    expect(document.title).toBe('4v4.GG');
+    fireEvent.click(screen.getByText('add'));
+    expect(document.title).toBe('(1) 4v4 Chat');
+    expect(document.querySelector('link[rel="icon"]')).toHaveAttribute('href', '/favicon-unread.svg');
+    fireEvent.click(screen.getByText('add'));
+    expect(document.title).toBe('(2) 4v4 Chat');
+
+    setHidden(false);
+    expect(document.title).toBe('4v4.GG');
+    expect(document.querySelector('link[rel="icon"]')).toHaveAttribute('href', '/favicon.svg');
+  });
+});
+
+describe('ChatPanel notifications', () => {
+  let created;
+  let requestPermission;
+  let permission;
+  beforeEach(() => {
+    created = [];
+    permission = 'default';
+    requestPermission = vi.fn(async () => permission);
+    class FakeNotification {
+      static get permission() { return permission; }
+      static requestPermission(...args) { return requestPermission(...args); }
+      constructor(title, options) { this.title = title; this.options = options; created.push(this); }
+      close() { this.closed = true; }
+    }
+    vi.stubGlobal('Notification', FakeNotification);
+  });
+  afterEach(() => {
+    vi.unstubAllGlobals();
+    resetHidden();
+  });
+
+  const harness = (watchList) => {
+    function Harness() {
+      const [msgs, setMsgs] = React.useState(messages);
+      const add = (tag, text) => setMsgs((m) => [...m, msg(`n${m.length}`, tag, 200000 + m.length * 1000, text)]);
+      return (
+        <MemoryRouter>
+          <button type="button" onClick={() => add('Watched#3', 'ping me now, this is a fairly long message that goes on and on and on and on and on and on and on and on and on and on')}>watched</button>
+          <button type="button" onClick={() => add('Moon#2', 'hey Watched are you there')}>mention</button>
+          <button type="button" onClick={() => add('Moon#2', 'nothing to see')}>plain</button>
+          <ChatPanel
+            messages={msgs} status="connected" avatars={new Map([['Watched#3', { profilePicUrl: 'https://x/w.jpg' }]])} stats={stats} sessions={new Map()}
+            inGameTags={new Set()} inGameInfoMap={new Map()} recentWinners={new Set()} recentDeltas={new Map()}
+            gameEvents={[]} ongoingMatchIds={new Set()} liveStreamers={new Map()} watchList={watchList}
+            onlineUsers={[]} botResponses={[]} translations={new Map()} sendMessage={() => {}}
+            loadOlder={() => Promise.resolve({ added: 0 })} hasMoreHistory
+          />
+        </MemoryRouter>
+      );
+    }
+    return render(<Harness />);
+  };
+
+  it('asks for permission only when Ping is switched on, and only notifies while hidden and granted', () => {
+    harness(new Set(['watched#3']));
+    expect(requestPermission).not.toHaveBeenCalled();
+    fireEvent.click(screen.getByTitle('Ping when watched players chat'));
+    expect(requestPermission).toHaveBeenCalledTimes(1);
+    expect(localStorage.getItem('chat:notify')).toBe('1');
+
+    // not granted: no notification even while hidden
+    setHidden(true);
+    fireEvent.click(screen.getByText('watched'));
+    expect(created).toHaveLength(0);
+
+    // granted but visible: no notification
+    permission = 'granted';
+    setHidden(false);
+    fireEvent.click(screen.getByText('watched'));
+    expect(created).toHaveLength(0);
+
+    // granted and hidden: one notification, tagged, truncated body, avatar icon
+    setHidden(true);
+    fireEvent.click(screen.getByText('watched'));
+    expect(created).toHaveLength(1);
+    expect(created[0].title).toBe('Watched in 4v4 chat');
+    expect(created[0].options.tag).toBe('4v4-chat');
+    expect(created[0].options.icon).toBe('https://x/w.jpg');
+    expect(created[0].options.body.length).toBeLessThanOrEqual(120);
+    // coalesced: a second one inside 5s is dropped
+    fireEvent.click(screen.getByText('watched'));
+    expect(created).toHaveLength(1);
+
+    // click brings the tab back and jumps to the line
+    const focus = vi.spyOn(window, 'focus').mockImplementation(() => {});
+    created[0].onclick();
+    expect(focus).toHaveBeenCalled();
+    expect(created[0].closed).toBe(true);
+    focus.mockRestore();
+
+    // switching Ping off does not ask again; switching on with a decided permission does not either
+    fireEvent.click(screen.getByTitle('Mute watched-player pings'));
+    fireEvent.click(screen.getByTitle('Ping when watched players chat'));
+    expect(requestPermission).toHaveBeenCalledTimes(1);
+  });
+
+  it('notifies for a mention of a watched player and not for plain lines', () => {
+    permission = 'granted';
+    harness(new Set(['watched#3']));
+    fireEvent.click(screen.getByTitle('Ping when watched players chat'));
+    setHidden(true);
+    resetNotifyThrottle();
+    fireEvent.click(screen.getByText('plain'));
+    expect(created).toHaveLength(0);
+    fireEvent.click(screen.getByText('mention'));
+    expect(created).toHaveLength(1);
+    expect(created[0].title).toBe('Moon in 4v4 chat');
+    expect(created[0].options.icon).toBe('/favicon.svg');
+  });
+});
+
+describe('ChatPanel mentions and unfurls', () => {
+  it('tints a line that names a watched player and marks the name', () => {
+    renderPanel({ messages: [...messages, msg('m1', 'Moon#2', 120000, 'gg WATCHED nice one'), msg('m2', 'Grubby#1', 150000, 'watchedx is not a mention')] });
+    const mentioned = document.getElementById('msg-m1').closest('[data-variant="feed"]');
+    expect(mentioned).toHaveAttribute('data-watched', 'true');
+    const mark = mentioned.querySelector('[data-mention="true"]');
+    expect(mark).toHaveTextContent('WATCHED');
+    const plain = document.getElementById('msg-m2').closest('[data-variant="feed"]');
+    expect(plain.querySelector('[data-mention="true"]')).toBeNull();
+    expect(plain).not.toHaveAttribute('data-watched');
+    // the author's own row keeps its treatment
+    const own = document.getElementById('msg-c1').closest('[data-variant="feed"]');
+    expect(own).toHaveAttribute('data-watched', 'true');
+  });
+
+  it('renders the link first and one card per message once metadata arrives', async () => {
+    globalThis.fetch.mockImplementation(async (url) => {
+      const u = String(url);
+      if (u.includes('/api/twitch/clip/')) {
+        return { ok: true, json: async () => ({ title: 'Insane hold', thumbnail_url: 'https://t/c.jpg', broadcaster_name: 'Grubby', url: 'https://clips.twitch.tv/Slug-1' }) };
+      }
+      if (u.startsWith('https://www.youtube.com/oembed')) {
+        return { ok: true, json: async () => ({ title: 'A video', thumbnail_url: 'https://i.ytimg.com/v.jpg', author_name: 'Moon' }) };
+      }
+      return { ok: false, json: async () => ({}) };
+    });
+    renderPanel({
+      messages: [
+        ...messages,
+        msg('u1', 'Moon#2', 120000, 'clip https://clips.twitch.tv/Slug-1 and https://youtu.be/dQw4w9WgXcQ'),
+        msg('u2', 'Grubby#1', 150000, 'https://www.youtube.com/watch?v=dQw4w9WgXcQ'),
+      ],
+    });
+    expect(screen.getByText('https://clips.twitch.tv/Slug-1')).toHaveAttribute('href', 'https://clips.twitch.tv/Slug-1');
+    const cards = await screen.findAllByTestId('unfurl-card');
+    expect(cards).toHaveLength(2);
+    const twitch = cards.find((c) => c.getAttribute('data-kind') === 'twitch');
+    expect(twitch).toHaveAttribute('href', 'https://clips.twitch.tv/Slug-1');
+    expect(twitch).toHaveTextContent('Insane hold');
+    expect(twitch).toHaveTextContent('clips.twitch.tv');
+    expect(twitch.querySelector('img')).toHaveAttribute('src', 'https://t/c.jpg');
+    const yt = cards.find((c) => c.getAttribute('data-kind') === 'youtube');
+    expect(yt).toHaveAttribute('href', 'https://www.youtube.com/watch?v=dQw4w9WgXcQ');
+    expect(yt).toHaveTextContent('A video');
+    // u1 had two links but gets one card (the first); the card sits in the feed row
+    expect(document.getElementById('msg-u1').parentElement.querySelectorAll('[data-testid="unfurl-card"]')).toHaveLength(1);
   });
 });
 

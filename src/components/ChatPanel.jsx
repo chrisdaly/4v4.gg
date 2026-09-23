@@ -3,7 +3,7 @@ import { Virtuoso } from "react-virtuoso";
 import { Link } from "react-router-dom";
 import styled from "styled-components";
 import { GiCrossedSwords } from "react-icons/gi";
-import { HiKey, HiBell, HiSearch, HiTranslate, HiOutlineArrowsExpand } from "react-icons/hi";
+import { HiKey, HiBell, HiSearch, HiTranslate, HiOutlineArrowsExpand, HiChartBar, HiNewspaper } from "react-icons/hi";
 import { IoSend } from "react-icons/io5";
 import { Button, Skeleton, Input } from "./ui";
 import { useMessageSegments, useBotResponseMap, formatDateDivider, getDateKey } from "../lib/useChatMessages";
@@ -11,6 +11,14 @@ import { linkifyMessage, playPing } from "../lib/chatExtras";
 import PlayerHoverCard from "./PlayerHoverCard";
 import ChatMessage from "./chat/ChatMessage";
 import GameTicker from "./chat/GameTicker";
+import StatsStrip from "./chat/StatsStrip";
+import UnfurlCard from "./chat/UnfurlCard";
+import { findWatchedMentions, splitByMentions } from "../lib/chat/mentions";
+import { detectUnfurl } from "../lib/chat/unfurl";
+import { notifyChat, requestNotifyPermission } from "../lib/chat/notify";
+import { applyTabBadge } from "../lib/chat/tabBadge";
+import { fetchTodayDigest } from "../lib/chat/digestToday";
+import { useUnreadCount, useDocumentVisible } from "../lib/chat/useUnread";
 import { chipForTag } from "./chat/chip";
 import { getPlayerProfile } from "../lib/api";
 import { relayFetch } from "../lib/relay";
@@ -695,6 +703,28 @@ const Mark = styled.span`
   padding: 0 1px;
 `;
 
+/* A watched player's name inside someone else's line */
+const MentionMark = styled(Mark).attrs({ "data-mention": "true" })`
+  font-family: var(--font-display);
+  background: rgba(252, 219, 51, 0.16);
+`;
+
+// Wrap watched-player names in a line (already linkified: a string or an
+// array of strings and anchors) in a gold mark
+function markMentions(node, watchList) {
+  if (!watchList || watchList.size === 0) return node;
+  const markString = (text, keyBase) => {
+    const parts = splitByMentions(text, watchList);
+    if (parts.length === 1 && typeof parts[0] === "string") return text;
+    return parts.map((part, i) =>
+      typeof part === "string" ? part : <MentionMark key={`${keyBase}-${i}`}>{part.mention}</MentionMark>
+    );
+  };
+  if (typeof node === "string") return markString(node, "m");
+  if (Array.isArray(node)) return node.flatMap((part, i) => (typeof part === "string" ? markString(part, `m${i}`) : part));
+  return node;
+}
+
 const SearchEmpty = styled.div`
   padding: var(--space-6) var(--space-4);
   text-align: center;
@@ -995,6 +1025,12 @@ export default function ChatPanel({
   const [notifyOn, setNotifyOn] = useState(() => readPref("chat:notify", false));
   const [showGames, setShowGames] = useState(() => readPref("chat:showGames", true));
   const [focusOn, setFocusOn] = useState(() => readPref("chat:focus", false));
+  const [showStats, setShowStats] = useState(() => readPref("chat:showStats", false));
+  // Today's daily digest on /news, null until the relay says there is one
+  const [todayDigest, setTodayDigest] = useState(null);
+  // Browser tab badge: unread while the document is hidden
+  const visible = useDocumentVisible();
+  const hiddenUnread = useUnreadCount(messages, visible);
   // Expanded game tickers, per event id (not persisted)
   const [expandedEvents, setExpandedEvents] = useState(() => new Set());
   // Search panel; the initial state comes from the URL so a shared link
@@ -1260,14 +1296,45 @@ export default function ChatPanel({
 
   useEffect(() => () => cancelAnimationFrame(topRowRafRef.current), []);
 
-  // Notification blip for watched players' messages
+  // Digest pill: one cheap call, cached in module scope across mounts
+  useEffect(() => {
+    let cancelled = false;
+    fetchTodayDigest().then((d) => {
+      if (!cancelled) setTodayDigest(d);
+    });
+    return () => {
+      cancelled = true;
+    };
+  }, []);
+
+  // "(N) 4v4 Chat" + red-dot favicon while hidden; restored on return
+  useEffect(() => {
+    applyTabBadge(hiddenUnread);
+  }, [hiddenUnread]);
+  useEffect(() => () => applyTabBadge(0), []);
+
+  // Watched players' lines (by them, or naming them): audio ping, plus a
+  // desktop notification while the tab is hidden. Click brings the tab
+  // back and jumps to the line the same way a permalink does.
   useEffect(() => {
     if (!notifyOn || !watchList || watchList.size === 0 || messages.length === 0) return;
     const last = messages[messages.length - 1];
     if (last.id === lastNotifiedRef.current) return;
     lastNotifiedRef.current = last.id;
-    if (watchList.has(last.battleTag.toLowerCase())) playPing();
-  }, [messages, notifyOn, watchList]);
+    if (last.kind === "system" || !last.battleTag) return;
+    const byWatched = watchList.has(last.battleTag.toLowerCase());
+    const mentionsWatched = !byWatched && findWatchedMentions(last.text, watchList).length > 0;
+    if (!byWatched && !mentionsWatched) return;
+    playPing();
+    if (!document.hidden) return;
+    const id = last.id;
+    notifyChat({
+      name: last.userName || last.battleTag.split("#")[0],
+      text: last.text,
+      icon: avatars?.get(last.battleTag)?.profilePicUrl || "/favicon.svg",
+      onClick: () => jumpToId(id),
+    });
+  }, [messages, notifyOn, watchList, avatars, jumpToId]);
 
   // "- new -" marker: remember where you were when the tab went hidden
   useEffect(() => {
@@ -1296,8 +1363,17 @@ export default function ChatPanel({
   };
 
   const toggleNotify = () => {
+    // Permission is asked for here and nowhere else (never on load)
+    if (!notifyOn) requestNotifyPermission();
     setNotifyOn((v) => {
       writePref("chat:notify", !v);
+      return !v;
+    });
+  };
+
+  const toggleStats = () => {
+    setShowStats((v) => {
+      writePref("chat:showStats", !v);
       return !v;
     });
   };
@@ -1623,7 +1699,7 @@ export default function ChatPanel({
   const chipCtx = { inGameTags, recentDeltas, recentWinners, startTimes: inGameInfoMap };
 
   const hoverData = { avatars, stats, sessions, inGameTags, inGameInfoMap };
-  const renderLine = (line) => linkifyMessage(line.text);
+  const renderLine = (line) => markMentions(linkifyMessage(line.text), watchList);
   const renderSearchLine = (line) => highlightMatches(line.text, searchQ);
   // Name inside a result narrows the search to that player (the row itself
   // jumps into the stream, see SearchResultRow)
@@ -1631,14 +1707,20 @@ export default function ChatPanel({
   const jumpBusy = jumping || loadingWindow;
   const permalinkHref = (line) => `${window.location.origin}/chat?m=${encodeURIComponent(line.id)}`;
   const renderAfterLine = (line) => {
+    const unfurl = detectUnfurl(line.text);
     const br = botResponseMap.get(line.id);
-    if (!br) return null;
+    if (!unfurl && !br) return null;
     return (
-      <BotResponseRow>
-        <BotLabel>BOT</BotLabel>
-        {!br.botEnabled && <BotPreviewTag>(preview)</BotPreviewTag>}
-        <BotText>{br.response}</BotText>
-      </BotResponseRow>
+      <>
+        {unfurl && <UnfurlCard target={unfurl} />}
+        {br && (
+          <BotResponseRow>
+            <BotLabel>BOT</BotLabel>
+            {!br.botEnabled && <BotPreviewTag>(preview)</BotPreviewTag>}
+            <BotText>{br.response}</BotText>
+          </BotResponseRow>
+        )}
+      </>
     );
   };
 
@@ -1693,7 +1775,9 @@ export default function ChatPanel({
     }
 
     const tag = msg.battleTag;
-    const isWatched = Boolean(tag) && Boolean(watchList?.has(tag.toLowerCase()));
+    const isWatched =
+      (Boolean(tag) && Boolean(watchList?.has(tag.toLowerCase()))) ||
+      row.msgs.some((m) => findWatchedMentions(m.text, watchList).length > 0);
     const profile = avatars?.get(tag);
     const playerStats = stats?.get(tag);
     const live = liveStreamers?.get(tag);
@@ -1828,12 +1912,30 @@ export default function ChatPanel({
               <HiOutlineArrowsExpand />
               <ToggleLabel>Focus</ToggleLabel>
             </ToggleButton>
+            <ToggleButton
+              type="button"
+              $pill
+              data-active={showStats}
+              aria-pressed={showStats}
+              onClick={toggleStats}
+              title={showStats ? "Hide chat stats" : "Show chat stats"}
+            >
+              <HiChartBar />
+              <ToggleLabel>Stats</ToggleLabel>
+            </ToggleButton>
+            {todayDigest && (
+              <ToggleButton as={Link} $pill to={todayDigest.href} title="Today's digest on /news">
+                <HiNewspaper />
+                <ToggleLabel>Digest</ToggleLabel>
+              </ToggleButton>
+            )}
             <StatusBadge $fault={Boolean(fault)} title={`relay: ${status}`}>
               <StatusDot $connected={status === "connected"} $fault={Boolean(fault)} />
               {statusText}
             </StatusBadge>
           </HeaderActions>
         </Header>
+        <StatsStrip open={showStats} />
         {searchOpen && (
           <SearchPanel role="search" aria-label="Search chat history">
             <SearchRow>

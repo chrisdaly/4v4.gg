@@ -338,7 +338,7 @@ export default function ChatMessage({
   const Text = variant === "transcript" ? TranscriptText : FeedText;
 
   return (
-    <Group $variant={variant} $target={target} $watched={watched} $compact={compact} data-variant={variant} data-compact={compact || undefined}>
+    <Group $variant={variant} $target={target} $watched={watched} $compact={compact} data-variant={variant} data-compact={compact || undefined} data-watched={watched || undefined}>
       {!isQuote && <AvatarBlock meta={meta} compact={compact} />}
       <Body>
         <Head $variant={variant} $compact={compact}>
