@@ -44,10 +44,15 @@ import LineEnd, { Time } from "./LineEnd";
 const LINE_HEIGHT = 1.5;
 const COMPACT_LINE_HEIGHT = 1.4;
 
+// Avatar size per variant. The feed avatar spans a header line plus one
+// message line (~40px); transcripts stay at 32px; focus mode is 24px.
+export const avatarSize = (variant, compact) =>
+  variant === "transcript" ? 32 : compact ? 24 : 40;
+
 const Group = styled.div`
   position: relative;
   display: grid;
-  grid-template-columns: ${(p) => (p.$variant === "quote" ? "1fr" : p.$compact ? "24px 1fr" : "32px 1fr")};
+  grid-template-columns: ${(p) => (p.$variant === "quote" ? "1fr" : `${avatarSize(p.$variant, p.$compact)}px 1fr`)};
   gap: ${(p) => (p.$variant === "quote" ? "0" : "var(--space-3)")};
   align-items: start;
   min-width: 0;
@@ -76,8 +81,8 @@ const Group = styled.div`
 
 const AvatarCol = styled.div`
   position: relative;
-  width: ${(p) => (p.$compact ? "24px" : "32px")};
-  height: ${(p) => (p.$compact ? "24px" : "32px")};
+  width: ${(p) => p.$size}px;
+  height: ${(p) => p.$size}px;
   flex-shrink: 0;
 
   img {
@@ -87,20 +92,20 @@ const AvatarCol = styled.div`
 `;
 
 const AvatarImg = styled.img`
-  width: 32px;
-  height: 32px;
+  width: 100%;
+  height: 100%;
   border-radius: var(--radius-md);
   display: block;
   object-fit: cover;
 `;
 
 const AvatarRaceIcon = styled.img`
-  width: 32px;
-  height: 32px;
+  width: 100%;
+  height: 100%;
   box-sizing: border-box;
   border-radius: var(--radius-md);
   display: block;
-  padding: ${(p) => (p.$compact ? "4px" : "6px")};
+  padding: ${(p) => (p.$compact ? "4px" : "8px")};
   background: var(--surface-2);
   opacity: ${(p) => (p.$faded ? 0.3 : 0.85)};
 `;
@@ -273,7 +278,7 @@ const TranslationLabel = styled.span`
   opacity: 0.6;
 `;
 
-function AvatarBlock({ meta, compact }) {
+function AvatarBlock({ meta, compact, variant }) {
   const { avatarUrl, race, countryCode } = meta || {};
   let img;
   if (avatarUrl) {
@@ -287,7 +292,7 @@ function AvatarBlock({ meta, compact }) {
     );
   }
   return (
-    <AvatarCol $compact={compact}>
+    <AvatarCol $size={avatarSize(variant, compact)}>
       {img}
       {countryCode && (
         <AvatarFlag>
@@ -340,7 +345,7 @@ export default function ChatMessage({
 
   return (
     <Group $variant={variant} $target={target} $watched={watched} $compact={compact} data-variant={variant} data-compact={compact || undefined} data-watched={watched || undefined}>
-      {!isQuote && <AvatarBlock meta={meta} compact={compact} />}
+      {!isQuote && <AvatarBlock meta={meta} compact={compact} variant={variant} />}
       <Body>
         {showHead && <Head $variant={variant} $compact={compact}>
           {name}

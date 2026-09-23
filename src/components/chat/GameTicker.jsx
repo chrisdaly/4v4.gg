@@ -113,11 +113,11 @@ const Block = styled.div`
     `}
 `;
 
-/* Same grid as a message group (ChatMessage Group): 32px avatar column,
+/* Same grid as a message group (ChatMessage Group): 40px avatar column,
    var(--space-3) gap, so the text starts where author names start */
 const Row = styled.div`
   display: grid;
-  grid-template-columns: 32px 1fr;
+  grid-template-columns: 40px 1fr;
   gap: var(--space-3);
   align-items: center;
   padding: var(--space-1) 0;
@@ -205,7 +205,7 @@ const GameEventCard = styled.div`
   gap: var(--space-3);
   max-width: 580px;
   box-sizing: border-box;
-  margin: 0 0 var(--space-2) 44px;
+  margin: 0 0 var(--space-2) 52px;
   padding: var(--space-2) var(--space-3);
   border-left: 2px solid ${(p) => (p.$end ? "rgba(248, 113, 113, 0.5)" : "rgba(74, 222, 128, 0.5)")};
   background: rgba(255, 255, 255, 0.02);
@@ -320,7 +320,7 @@ function formatGameMinutes(startTime) {
 }
 
 /**
- * The expanded event card. `flush` drops the 44px stream indent and the
+ * The expanded event card. `flush` drops the 52px stream indent and the
  * max-width so the card fills a modal (GameModal).
  */
 export function GameEventCardView({ event: ev, stillRunning, hoverData, avatars, flush = false }) {
