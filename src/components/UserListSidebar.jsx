@@ -141,7 +141,7 @@ const List = styled.div`
   padding: var(--space-2) var(--space-3) var(--space-3);
   display: flex;
   flex-direction: column;
-  gap: 2px;
+  gap: var(--space-2);
 
   &::-webkit-scrollbar {
     width: 6px;
