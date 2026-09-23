@@ -3,22 +3,21 @@ import { Link } from "react-router-dom";
 import styled, { css } from "styled-components";
 import { FaTwitch } from "react-icons/fa";
 import { raceMapping, raceIcons } from "../lib/constants";
-import { Button, CountryFlag, Dot, Input, Skeleton } from "./ui";
+import { Button, CountryFlag, Input, Skeleton } from "./ui";
 import PlayerHoverCard from "./PlayerHoverCard";
 import useIdleTags from "../lib/chat/useIdleTags";
-import { Chip, chipForTag, formatGameMinutes } from "./chat/chip";
+import { formatGameMinutes } from "./chat/chip";
 
 /**
  * The channel roster. Three collapsible sections (In game, Online, Away),
- * a "Live now" strip of the games channel members are playing, a name
- * filter and a Player/MMR sort. Every row carries the same status chip as
- * the stream (chat/chip.js), so "in game 12m" / "won +12" / "lost -9" are
- * computed in one place.
+ * a name filter and a Player/MMR sort. Rows are name + MMR only, no status
+ * chip: the In game section is sub-grouped by match, each match introduced
+ * by one divider line ("Ferocity · 12m · 3"), so the state is carried by
+ * the grouping rather than repeated on every row.
  */
 
 const ROW_HEIGHT = 28; // px, one roster row
 const AVATAR = 24; // px, row avatar (radius-sm)
-const LIVE_STRIP_MAX_ROWS = 3;
 
 /* ── Frame ─────────────────────────────────────────────────────────── */
 
@@ -106,7 +105,7 @@ const SortButton = styled(Button)`
   font-size: var(--text-xxxs);
 `;
 
-/* ── Live now strip ────────────────────────────────────────────────── */
+/* ── Labels ────────────────────────────────────────────────────────── */
 
 const label = css`
   font-family: var(--font-mono);
@@ -114,65 +113,6 @@ const label = css`
   text-transform: uppercase;
   letter-spacing: 0.1em;
   color: var(--grey-light);
-`;
-
-const LiveStrip = styled.div`
-  padding: var(--space-1) var(--space-2) var(--space-2);
-  margin: 0 var(--space-2);
-  border-bottom: 1px solid rgba(var(--gold-muted-rgb), 0.15);
-  flex-shrink: 0;
-`;
-
-const LiveHeader = styled.button`
-  ${label}
-  display: flex;
-  align-items: center;
-  gap: var(--space-2);
-  width: 100%;
-  padding: var(--space-1) 0;
-  background: none;
-  border: none;
-  cursor: ${(p) => (p.$toggle ? "pointer" : "default")};
-  text-align: left;
-  &:hover {
-    color: ${(p) => (p.$toggle ? "var(--white)" : "var(--grey-light)")};
-  }
-`;
-
-const LiveCount = styled.span`
-  color: var(--gold);
-`;
-
-const LiveRow = styled(Link)`
-  display: flex;
-  align-items: center;
-  gap: var(--space-2);
-  height: ${ROW_HEIGHT - 4}px;
-  padding: 0 var(--space-1);
-  border-radius: var(--radius-sm);
-  text-decoration: none;
-  color: inherit;
-  &:hover {
-    background: var(--surface-2);
-  }
-`;
-
-const LiveMap = styled.span`
-  flex: 1;
-  min-width: 0;
-  font-family: var(--font-mono);
-  font-size: var(--text-xxs);
-  color: var(--white);
-  white-space: nowrap;
-  overflow: hidden;
-  text-overflow: ellipsis;
-`;
-
-const LiveMeta = styled.span`
-  font-family: var(--font-mono);
-  font-size: var(--text-xxxs);
-  color: var(--grey-light);
-  white-space: nowrap;
 `;
 
 /* ── Sections and rows ─────────────────────────────────────────────── */
@@ -230,6 +170,21 @@ const Chevron = styled.span`
   transition: transform 0.2s;
 `;
 
+const GameGroup = styled.div`
+  display: flex;
+  flex-direction: column;
+`;
+
+const GameDivider = styled.div`
+  font-family: var(--font-mono);
+  font-size: var(--text-xxs);
+  color: var(--grey-light);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  padding: var(--space-1) var(--space-2) 0;
+`;
+
 const rowStyles = css`
   display: flex;
   align-items: center;
@@ -285,13 +240,14 @@ const AvatarFlag = styled.span`
 `;
 
 const Name = styled.span`
+  flex: 1;
+  min-width: 0;
   font-family: var(--font-display);
   font-size: var(--text-xs);
   color: var(--gold);
   white-space: nowrap;
   overflow: hidden;
   text-overflow: ellipsis;
-  min-width: 0;
 `;
 
 const Mmr = styled.span`
@@ -370,30 +326,39 @@ function Avatar({ tag, avatars, stats }) {
 const byName = (a, b) => (a.name || "").localeCompare(b.name || "", undefined, { sensitivity: "base" });
 
 /**
- * Games in progress from the channel's point of view: one entry per match
- * with at least one channel member in it, most channel members first.
+ * In-game users sub-grouped by match, most channel players first, then the
+ * newest game. Row order inside a game follows the incoming (already sorted)
+ * order. Users whose match is unknown come back separately.
  */
-export function liveGamesFrom(users, inGameTags, inGameInfoMap, inGameMatchMap) {
+function groupByMatch(users, inGameInfoMap) {
   const games = new Map();
+  const unknown = [];
   for (const u of users) {
-    const tag = u.battleTag;
-    if (!inGameTags?.has(tag)) continue;
-    const info = inGameInfoMap?.get(tag);
-    if (!info) continue;
+    const info = inGameInfoMap?.get(u.battleTag);
+    if (!info) {
+      unknown.push(u);
+      continue;
+    }
     const key = info.matchId || `${info.mapName}|${info.startTime}`;
     let game = games.get(key);
     if (!game) {
-      game = { key, mapName: info.mapName, startTime: info.startTime, players: [], url: inGameMatchMap?.get(tag) };
+      game = { key, mapName: info.mapName, startTime: info.startTime, players: [] };
       games.set(key, game);
     }
-    game.players.push(u.name || tag.split("#")[0]);
+    game.players.push(u);
   }
-  return [...games.values()].sort(
+  const sorted = [...games.values()].sort(
     (a, b) => b.players.length - a.players.length || new Date(b.startTime) - new Date(a.startTime)
   );
+  return { games: sorted, unknown };
 }
 
-function UserRow({ user, avatars, stats, sessions, inGameInfo, matchUrl, chip, liveInfo, isWatched, onToggleWatch, dim }) {
+function gameDividerText(game) {
+  const elapsed = formatGameMinutes(game.startTime);
+  return [game.mapName || "Unknown map", elapsed, game.players.length].filter(Boolean).join(" · ");
+}
+
+function UserRow({ user, avatars, stats, sessions, inGameInfo, matchUrl, liveInfo, isWatched, onToggleWatch, dim }) {
   const tag = user.battleTag;
   const mmr = stats?.get(tag)?.mmr;
   const elapsed = inGameInfo ? formatGameMinutes(inGameInfo.startTime) : null;
@@ -410,11 +375,10 @@ function UserRow({ user, avatars, stats, sessions, inGameInfo, matchUrl, chip, l
         stats={stats}
         sessions={sessions}
         inGameInfo={inGameInfo}
-        style={{ minWidth: 0 }}
+        style={{ flex: 1, minWidth: 0 }}
       >
         <Name>{user.name}</Name>
       </PlayerHoverCard>
-      {chip && <Chip $kind={chip.kind}>{chip.label}</Chip>}
       {liveInfo && (
         <TwitchLink
           href={`https://twitch.tv/${liveInfo.twitchName}`}
@@ -466,49 +430,6 @@ function RosterSection({ id, title, count, open, onToggle, children }) {
   );
 }
 
-function LiveNow({ games }) {
-  const [openOverride, setOpenOverride] = useState(null);
-  if (games.length === 0) return null;
-  const many = games.length > LIVE_STRIP_MAX_ROWS;
-  const open = openOverride ?? !many;
-  const players = games.reduce((n, g) => n + g.players.length, 0);
-  return (
-    <LiveStrip data-live-strip data-live-count={games.length}>
-      <LiveHeader
-        type="button"
-        $toggle={many}
-        aria-expanded={open}
-        onClick={() => many && setOpenOverride((v) => !(v ?? !many))}
-        title={many ? (open ? "Collapse" : "Show games") : undefined}
-      >
-        <Dot $size={6} $recent />
-        Live now <LiveCount>{games.length}</LiveCount>
-        {many && !open && <LiveMeta>{players} from channel</LiveMeta>}
-      </LiveHeader>
-      {open && games.map((g) => {
-        const elapsed = formatGameMinutes(g.startTime);
-        const row = (
-          <>
-            <LiveMap>{g.mapName || "Unknown map"}</LiveMap>
-            <LiveMeta>
-              {g.players.length} from channel{elapsed ? ` · ${elapsed}` : ""}
-            </LiveMeta>
-          </>
-        );
-        return g.url ? (
-          <LiveRow key={g.key} to={g.url} title={g.players.join(", ")} data-live-row>
-            {row}
-          </LiveRow>
-        ) : (
-          <LiveRow as="div" key={g.key} title={g.players.join(", ")} data-live-row>
-            {row}
-          </LiveRow>
-        );
-      })}
-    </LiveStrip>
-  );
-}
-
 /* ── Component ─────────────────────────────────────────────────────── */
 
 export default function UserListSidebar({
@@ -519,8 +440,6 @@ export default function UserListSidebar({
   inGameTags,
   inGameInfoMap,
   inGameMatchMap,
-  recentWinners,
-  recentDeltas,
   liveStreamers,
   watchList,
   onToggleWatch,
@@ -572,12 +491,8 @@ export default function UserListSidebar({
     return { ingame, online, away };
   }, [filteredUsers, inGameTags, idleTags]);
 
-  const liveGames = useMemo(
-    () => liveGamesFrom(users, inGameTags, inGameInfoMap, inGameMatchMap),
-    [users, inGameTags, inGameInfoMap, inGameMatchMap]
-  );
+  const inGameGroups = useMemo(() => groupByMatch(sections.ingame, inGameInfoMap), [sections.ingame, inGameInfoMap]);
 
-  const chipCtx = { inGameTags, recentDeltas, recentWinners, startTimes: inGameInfoMap };
   const quietMode = Boolean(recentChatters && recentChatters.size > 0);
 
   const rowFor = (section, user) => {
@@ -592,7 +507,6 @@ export default function UserListSidebar({
         sessions={sessions}
         inGameInfo={inGame ? inGameInfoMap?.get(tag) : null}
         matchUrl={inGame ? inGameMatchMap?.get(tag) : null}
-        chip={chipForTag(tag, chipCtx)}
         liveInfo={liveStreamers?.get(tag)}
         isWatched={Boolean(watchList?.has(tag?.toLowerCase()))}
         onToggleWatch={onToggleWatch}
@@ -634,7 +548,6 @@ export default function UserListSidebar({
             MMR
           </SortButton>
         </Toolbar>
-        <LiveNow games={liveGames} />
         <List>
           {users.length === 0 &&
             [...Array(8)].map((_, i) => (
@@ -646,7 +559,17 @@ export default function UserListSidebar({
             ))}
           {nothingMatches && <Empty>No players match</Empty>}
           <RosterSection id="ingame" title="In game" count={sections.ingame.length} open={open.ingame} onToggle={() => toggle("ingame")}>
-            {sections.ingame.map((u) => rowFor("ingame", u))}
+            {inGameGroups.games.map((g) => (
+              <GameGroup key={g.key} data-game={g.key}>
+                <GameDivider data-game-divider title={gameDividerText(g)}>
+                  {gameDividerText(g)}
+                </GameDivider>
+                {g.players.map((u) => rowFor("ingame", u))}
+              </GameGroup>
+            ))}
+            {inGameGroups.unknown.length > 0 && (
+              <GameGroup data-game="unknown">{inGameGroups.unknown.map((u) => rowFor("ingame", u))}</GameGroup>
+            )}
           </RosterSection>
           <RosterSection id="online" title="Online" count={sections.online.length} open={open.online} onToggle={() => toggle("online")}>
             {sections.online.map((u) => rowFor("online", u))}
