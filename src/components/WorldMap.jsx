@@ -138,9 +138,9 @@ const placeLabels = (g, candidates, dotPositions, existingRects, bounds, fontSiz
 /**
  * `compact`: dots only (gold when the country has someone in game, white
  * otherwise, fixed radius), no name/time labels, no organic enter/exit
- * effects, land at low opacity. For small hosts such as the chat roster.
+ * effects, land at low opacity. For small hosts such as the chat pulse column.
  */
-const COMPACT_R = 2.5;
+const COMPACT_R = 3;
 
 const WorldMap = ({ playerCountries, players = [], instant = false, animationScale = 1, time = null, compact = false }) => {
   const containerRef = useRef(null);

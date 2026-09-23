@@ -3,7 +3,7 @@ import { Virtuoso } from "react-virtuoso";
 import { Link } from "react-router-dom";
 import styled from "styled-components";
 import { GiCrossedSwords } from "react-icons/gi";
-import { HiSearch, HiTranslate, HiOutlineArrowsExpand, HiChartBar, HiNewspaper } from "react-icons/hi";
+import { HiSearch, HiTranslate, HiOutlineArrowsExpand, HiChartBar, HiNewspaper, HiGlobeAlt } from "react-icons/hi";
 import { IoSend } from "react-icons/io5";
 import { Button, Skeleton, Input } from "./ui";
 import { useMessageSegments, useBotResponseMap, formatDateDivider, getDateKey } from "../lib/useChatMessages";
@@ -487,6 +487,13 @@ const ToggleLabel = styled.span`
   }
 `;
 
+/* The Pulse column itself is hidden below 1100px (PulseColumn.jsx) */
+const PulseToggle = styled(ToggleButton)`
+  @media (max-width: 1099px) {
+    display: none;
+  }
+`;
+
 const SystemWrap = styled.div`
   padding-top: var(--space-2);
 `;
@@ -925,6 +932,8 @@ export default function ChatPanel({
   windowId = 0,
   permalinkId = null,
   onOpenGame,
+  showPulse = true,
+  onTogglePulse = null,
 }) {
   const virtuosoRef = useRef(null);
   const [showNotice, setShowNotice] = useState(false);
@@ -1797,6 +1806,19 @@ export default function ChatPanel({
               <GiCrossedSwords />
               <ToggleLabel>Games</ToggleLabel>
             </ToggleButton>
+            {onTogglePulse && (
+              <PulseToggle
+                type="button"
+                $pill
+                data-active={showPulse}
+                aria-pressed={showPulse}
+                onClick={onTogglePulse}
+                title={showPulse ? "Hide the pulse column" : "Show the pulse column: world map and MMR beeswarm"}
+              >
+                <HiGlobeAlt />
+                <ToggleLabel>Pulse</ToggleLabel>
+              </PulseToggle>
+            )}
             <ToggleButton
               type="button"
               $pill

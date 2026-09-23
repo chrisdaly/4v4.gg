@@ -8,7 +8,9 @@ import { useUnreadCount } from "../lib/chat/useUnread";
 import { useTheme } from "../lib/ThemeContext";
 import ChatPanel from "../components/ChatPanel";
 import UserListSidebar from "../components/UserListSidebar";
+import PulseColumn from "../components/chat/PulseColumn";
 import GameModal from "../components/chat/GameModal";
+import { usePulsePref } from "../lib/chat/pulsePref";
 
 const Page = styled.div`
   padding: var(--space-1) var(--space-2) 0;
@@ -19,6 +21,9 @@ const Page = styled.div`
   }
 `;
 
+/* Three columns: stream (flex 1, min-width 0) | Pulse (360px, desktop
+   only, off in Focus) | roster (300px). PulseColumn hides itself below
+   1100px so the stream takes the width back. */
 const Layout = styled.div`
   display: flex;
   gap: var(--space-2);
@@ -134,6 +139,11 @@ const Chat = () => {
   const { borderTheme } = useTheme();
   const { watchList, toggleWatch } = useWatchList();
   const [mobileTab, setMobileTab] = useState("chat"); // "chat" | "users"
+  // Pulse column preference (chat:showPulse), toggled from the ChatPanel header
+  const [showPulse, togglePulse] = usePulsePref();
+  // Roster name filter; a Pulse beeswarm dot click narrows it to that player
+  const [rosterFilter, setRosterFilter] = useState("");
+  const filterToPlayer = useCallback((tag) => setRosterFilter(tag.split("#")[0]), []);
   // The ongoing game opened from an in-game chip, roster row or map divider:
   // an inGameInfoMap entry { matchId, mapName, startTime }, null when closed
   const [openGame, setOpenGame] = useState(null);
@@ -181,6 +191,18 @@ const Chat = () => {
           windowId={windowId}
           permalinkId={permalinkId}
           onOpenGame={openGameModal}
+          showPulse={showPulse}
+          onTogglePulse={togglePulse}
+        />
+        <PulseColumn
+          open={showPulse}
+          users={onlineUsers}
+          stats={stats}
+          avatars={avatars}
+          inGameTags={inGameTags}
+          watchList={watchList}
+          onPlayerClick={filterToPlayer}
+          borderTheme={borderTheme}
         />
         <UserListSidebar
           users={onlineUsers}
@@ -199,6 +221,8 @@ const Chat = () => {
           $mobileVisible={mobileTab === "users"}
           onClose={() => setMobileTab("chat")}
           borderTheme={borderTheme}
+          filter={rosterFilter}
+          onFilterChange={setRosterFilter}
         />
       </Layout>
       {openGame && (
