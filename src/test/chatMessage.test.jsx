@@ -4,6 +4,7 @@ import { render, screen, fireEvent, cleanup } from '@testing-library/react';
 import { MemoryRouter } from 'react-router-dom';
 import ChatMessage from '../components/chat/ChatMessage';
 import { buildTickerText } from '../components/chat/GameTicker';
+import { Chip, chipForTag, formatGameMinutes } from '../components/chat/chip';
 
 const group = {
   author: { battleTag: 'ToastBrot#2101', userName: 'ToastBrot', clanTag: 'FOALS' },
@@ -145,5 +146,38 @@ describe('GameTicker text', () => {
     const losers = lobby(['Shamiko', 'E', 'F', 'G'], ['Shamiko']).map((p) => ({ ...p, mmrGain: -9 }));
     const ev = { type: 'game_end', mapName: 'Ferocity', durationInSeconds: 842, winners, losers };
     expect(buildTickerText(ev)).toBe('Shamiko +3 lost 14:02 on Ferocity, -9 avg');
+  });
+});
+
+describe('chipForTag', () => {
+  const now = Date.parse('2026-09-23T12:00:00Z');
+  const ctx = {
+    inGameTags: new Set(['Toast#1']),
+    startTimes: new Map([['Toast#1', { startTime: new Date(now - 12 * 60 * 1000).toISOString() }]]),
+    recentDeltas: new Map([['Win#1', 12], ['Lose#1', -9]]),
+    recentWinners: new Set(['Win#1', 'Crown#1']),
+  };
+
+  it('prefers in game, then delta, then the bare winner crown', () => {
+    expect(chipForTag('Toast#1', ctx, now)).toEqual({ kind: 'ingame', label: 'in game 12m' });
+    expect(chipForTag('Win#1', ctx, now)).toEqual({ kind: 'won', label: 'won +12' });
+    expect(chipForTag('Lose#1', ctx, now)).toEqual({ kind: 'lost', label: 'lost -9' });
+    expect(chipForTag('Crown#1', ctx, now)).toEqual({ kind: 'won', label: 'won' });
+    expect(chipForTag('Nobody#1', ctx, now)).toBeNull();
+    expect(chipForTag(null, ctx, now)).toBeNull();
+  });
+
+  it('drops the elapsed suffix when the start time is missing or stale', () => {
+    const noTime = { ...ctx, startTimes: new Map() };
+    expect(chipForTag('Toast#1', noTime, now)).toEqual({ kind: 'ingame', label: 'in game' });
+    const stale = { ...ctx, startTimes: new Map([['Toast#1', new Date(now - 4 * 60 * 60 * 1000).toISOString()]]) };
+    expect(chipForTag('Toast#1', stale, now)).toEqual({ kind: 'ingame', label: 'in game' });
+    expect(formatGameMinutes(new Date(now - 60 * 1000).toISOString(), now)).toBe('1m');
+    expect(formatGameMinutes('garbage', now)).toBeNull();
+  });
+
+  it('renders the shared Chip with a data-chip attribute', () => {
+    renderIn(<Chip $kind="lost">lost -9</Chip>);
+    expect(screen.getByText('lost -9')).toHaveAttribute('data-chip', 'lost');
   });
 });

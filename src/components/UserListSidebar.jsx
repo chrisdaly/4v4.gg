@@ -1,12 +1,26 @@
 import React, { useMemo, useState } from "react";
 import { Link } from "react-router-dom";
-import styled from "styled-components";
+import styled, { css } from "styled-components";
 import { FaTwitch } from "react-icons/fa";
-import crownIcon from "../assets/icons/king.svg";
 import { raceMapping, raceIcons } from "../lib/constants";
-import { CountryFlag, Skeleton, SkeletonCircle, Input } from "./ui";
+import { Button, CountryFlag, Dot, Input, Skeleton } from "./ui";
 import PlayerHoverCard from "./PlayerHoverCard";
 import useIdleTags from "../lib/chat/useIdleTags";
+import { Chip, chipForTag, formatGameMinutes } from "./chat/chip";
+
+/**
+ * The channel roster. Three collapsible sections (In game, Online, Away),
+ * a "Live now" strip of the games channel members are playing, a name
+ * filter and a Player/MMR sort. Every row carries the same status chip as
+ * the stream (chat/chip.js), so "in game 12m" / "won +12" / "lost -9" are
+ * computed in one place.
+ */
+
+const ROW_HEIGHT = 28; // px, one roster row
+const AVATAR = 24; // px, row avatar (radius-sm)
+const LIVE_STRIP_MAX_ROWS = 3;
+
+/* ── Frame ─────────────────────────────────────────────────────────── */
 
 const Sidebar = styled.aside`
   width: 268px;
@@ -22,148 +36,154 @@ const Sidebar = styled.aside`
     inset: 0;
     width: 100%;
     height: 100dvh;
-    z-index: 10001;
+    z-index: var(--z-modal);
     transform: ${(p) => (p.$mobileVisible ? "translateY(0)" : "translateY(100%)")};
     transition: transform 0.25s ease;
   }
 `;
 
-const Header = styled.div`
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  padding: var(--space-4);
-  border-bottom: 1px solid rgba(252, 219, 51, 0.15);
-  flex-shrink: 0;
-`;
-
-const SidebarContent = styled.div`
+const Frame = styled.div`
   flex: 1;
   min-height: 0;
   display: flex;
   flex-direction: column;
   overflow: hidden;
   box-sizing: border-box;
-  background: ${(p) => p.$theme?.bg || "rgba(10, 8, 6, 0.25)"};
+  background: ${(p) => p.$theme?.bg || "var(--panel-bg)"};
   backdrop-filter: ${(p) => p.$theme?.blur || "blur(1px)"};
   border: ${(p) => p.$theme?.border || "8px solid transparent"};
   border-image: ${(p) => p.$theme?.borderImage || 'url("/frames/chat/ChatFrameBorder.png") 30 / 8px stretch'};
   box-shadow: ${(p) => p.$theme?.shadow || "none"};
 `;
 
+const Header = styled.div`
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+  padding: var(--space-3) var(--space-4);
+  border-bottom: 1px solid rgba(var(--gold-muted-rgb), 0.2);
+  flex-shrink: 0;
+`;
+
 const HeaderTitle = styled.span`
   font-family: var(--font-display);
   font-size: var(--text-sm);
   color: var(--gold);
-  letter-spacing: 1px;
+  letter-spacing: 0.05em;
 `;
 
 const HeaderCount = styled.span`
+  flex: 1;
   font-family: var(--font-mono);
   font-size: var(--text-xxs);
   color: var(--grey-light);
 `;
 
-const CloseButton = styled.button`
+const CloseButton = styled(Button)`
   display: none;
-  background: none;
-  border: none;
-  color: var(--grey-light);
-  font-size: var(--text-lg);
-  line-height: 1;
-  cursor: pointer;
-  padding: 4px;
-
-  &:hover {
-    color: var(--white);
-  }
-
   @media (max-width: 768px) {
-    display: block;
+    display: inline-flex;
   }
 `;
 
-const SearchWrapper = styled.div`
-  position: relative;
-  margin: 12px var(--space-4);
-
-  &::before {
-    content: "⌕";
-    position: absolute;
-    left: 10px;
-    top: 50%;
-    transform: translateY(-50%);
-    color: var(--grey-light);
-    font-size: var(--text-sm);
-    pointer-events: none;
-  }
-`;
-
-const SearchInput = styled(Input)`
-  width: 100%;
-  padding: 10px 32px 10px 30px;
-  outline: none;
-
-  &::placeholder {
-    font-size: var(--text-xxs);
-  }
-`;
-
-const SearchClear = styled.button`
-  position: absolute;
-  right: 8px;
-  top: 50%;
-  transform: translateY(-50%);
-  background: none;
-  border: none;
-  color: var(--grey-light);
-  font-size: var(--text-base);
-  cursor: pointer;
-  padding: 0 4px;
-  line-height: 1;
-
-  &:hover {
-    color: var(--white);
-  }
-`;
-
-const ColumnHeaders = styled.div`
+const Toolbar = styled.div`
   display: flex;
   align-items: center;
+  gap: var(--space-2);
   padding: var(--space-2) var(--space-4);
-  padding-left: calc(var(--space-4) + 28px + var(--space-2));
-  border-bottom: 1px solid rgba(var(--gold-muted-rgb), 0.2);
-  background: rgba(20, 16, 12, 0.6);
-  font-family: var(--font-mono);
+  flex-shrink: 0;
+`;
+
+const FilterInput = styled(Input)`
+  flex: 1;
+  min-width: 0;
+  padding: var(--space-1) var(--space-2);
+  font-size: var(--text-xxs);
+`;
+
+const SortButton = styled(Button)`
+  padding: var(--space-1) var(--space-2);
   font-size: var(--text-xxxs);
+`;
+
+/* ── Live now strip ────────────────────────────────────────────────── */
+
+const label = css`
+  font-family: var(--font-mono);
+  font-size: var(--text-xxs);
   text-transform: uppercase;
   letter-spacing: 0.1em;
   color: var(--grey-light);
 `;
 
-const ColHeader = styled.span`
-  cursor: pointer;
-  user-select: none;
-  transition: color 0.15s;
-  color: ${(p) => (p.$active ? "var(--gold)" : "var(--grey-light)")};
-
-  &:hover {
-    color: var(--gold);
-  }
-`;
-
-const ColPlayer = styled(ColHeader)`
-  flex: 1;
-`;
-
-const ColMmr = styled(ColHeader)`
+const LiveStrip = styled.div`
+  padding: var(--space-1) var(--space-2) var(--space-2);
+  margin: 0 var(--space-2);
+  border-bottom: 1px solid rgba(var(--gold-muted-rgb), 0.15);
   flex-shrink: 0;
 `;
 
-const UserList = styled.div`
+const LiveHeader = styled.button`
+  ${label}
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+  width: 100%;
+  padding: var(--space-1) 0;
+  background: none;
+  border: none;
+  cursor: ${(p) => (p.$toggle ? "pointer" : "default")};
+  text-align: left;
+  &:hover {
+    color: ${(p) => (p.$toggle ? "var(--white)" : "var(--grey-light)")};
+  }
+`;
+
+const LiveCount = styled.span`
+  color: var(--gold);
+`;
+
+const LiveRow = styled(Link)`
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+  height: ${ROW_HEIGHT - 4}px;
+  padding: 0 var(--space-1);
+  border-radius: var(--radius-sm);
+  text-decoration: none;
+  color: inherit;
+  &:hover {
+    background: var(--surface-2);
+  }
+`;
+
+const LiveMap = styled.span`
+  flex: 1;
+  min-width: 0;
+  font-family: var(--font-mono);
+  font-size: var(--text-xxs);
+  color: var(--white);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+`;
+
+const LiveMeta = styled.span`
+  font-family: var(--font-mono);
+  font-size: var(--text-xxxs);
+  color: var(--grey-light);
+  white-space: nowrap;
+`;
+
+/* ── Sections and rows ─────────────────────────────────────────────── */
+
+const List = styled.div`
   flex: 1;
   overflow-y: auto;
-  padding: var(--space-1) 0;
+  padding: var(--space-1) var(--space-2) var(--space-2);
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-2);
 
   &::-webkit-scrollbar {
     width: 6px;
@@ -177,115 +197,23 @@ const UserList = styled.div`
   }
 `;
 
-const UserRowBase = styled.div`
+const Section = styled.section`
   display: flex;
-  align-items: center;
-  gap: var(--space-2);
-  padding: var(--space-1) var(--space-4);
-  cursor: default;
-  border-radius: var(--radius-sm);
-
-  &:hover {
-    background: var(--surface-2);
-  }
+  flex-direction: column;
 `;
 
-const UserLink = styled(Link)`
+const SectionHeader = styled.button`
+  ${label}
   display: flex;
   align-items: center;
   gap: var(--space-2);
-  padding: var(--space-1) var(--space-4);
+  width: 100%;
+  padding: var(--space-1) var(--space-2);
+  background: none;
+  border: none;
   cursor: pointer;
-  text-decoration: none;
-  color: inherit;
-  border-radius: var(--radius-sm);
-
-  &:hover {
-    background: var(--surface-2);
-  }
-`;
-
-const AvatarWrapper = styled.div`
-  position: relative;
-  display: inline-block;
-  flex-shrink: 0;
-`;
-
-const AvatarFlag = styled.div`
-  position: absolute;
-  bottom: -2px;
-  right: -2px;
-  line-height: 0;
-`;
-
-const SidebarAvatar = styled.img`
-  width: 28px;
-  height: 28px;
-  border-radius: var(--radius-sm);
-`;
-
-const SidebarAvatarRace = styled.img`
-  width: 28px;
-  height: 28px;
-  border-radius: var(--radius-sm);
-  padding: 4px;
-  background: rgba(255, 255, 255, 0.06);
-  opacity: ${(p) => (p.$faded ? 0.2 : 0.85)};
-`;
-
-const WinnerCrown = styled.img.attrs({ src: crownIcon, alt: "" })`
-  width: 14px;
-  height: 14px;
-  flex-shrink: 0;
-  filter: drop-shadow(0 0 3px rgba(252, 219, 51, 0.4));
-`;
-
-const RaceIcon = styled.img`
-  width: 18px;
-  height: 18px;
-  flex-shrink: 0;
-  opacity: 0.85;
-`;
-
-const Name = styled.span`
-  font-family: var(--font-display);
-  font-size: var(--text-sm);
-  color: var(--gold);
-  white-space: nowrap;
-  overflow: hidden;
-  text-overflow: ellipsis;
-  min-width: 0;
-  flex: 1;
-`;
-
-const MmrNum = styled.span`
-  font-family: var(--font-mono);
-  font-size: var(--text-xxs);
-  color: var(--white);
-  flex-shrink: 0;
-`;
-
-const SectionHeader = styled.div`
-  padding: 12px var(--space-4) var(--space-2);
-  margin-top: var(--space-1);
-  font-family: var(--font-mono);
-  font-size: var(--text-xxxs);
-  text-transform: uppercase;
-  letter-spacing: 0.1em;
-  color: var(--grey-light);
-  display: flex;
-  align-items: center;
-  gap: var(--space-2);
-  cursor: pointer;
+  text-align: left;
   user-select: none;
-  transition: color 0.15s;
-  border-top: 1px solid rgba(var(--gold-muted-rgb), 0.12);
-
-  &:first-child {
-    border-top: none;
-    margin-top: 0;
-  }
-
   &:hover {
     color: var(--white);
   }
@@ -296,109 +224,199 @@ const SectionCount = styled.span`
 `;
 
 const Chevron = styled.span`
-  font-size: 8px;
+  display: inline-block;
+  font-size: var(--text-xxxs);
+  transform: ${(p) => (p.$open ? "rotate(90deg) scale(0.7)" : "scale(0.7)")};
   transition: transform 0.2s;
-  transform: ${(p) => (p.$open ? "rotate(90deg)" : "rotate(0deg)")};
 `;
 
-function getAvatarImg(tag, avatars, stats) {
-  const avatarUrl = avatars?.get(tag)?.profilePicUrl;
-  if (avatarUrl) return <SidebarAvatar src={avatarUrl} alt="" />;
-
-  const playerStats = stats?.get(tag);
-  const raceIcon = playerStats?.race != null ? raceMapping[playerStats.race] : null;
-  if (raceIcon) return <SidebarAvatarRace src={raceIcon} alt="" />;
-
-  return <SidebarAvatarRace src={raceIcons.random} alt="" $faded />;
-}
-
-const IdleRow = styled.div`
-  opacity: 0.4;
-`;
-
-const QuietRow = styled.div`
-  opacity: 0.5;
-`;
-
-const StarButton = styled.button`
-  background: none;
-  border: none;
-  padding: 0 2px;
-  flex-shrink: 0;
-  cursor: pointer;
-  font-size: var(--text-xs);
-  line-height: 1;
-  color: ${(p) => (p.$watched ? "var(--gold)" : "var(--grey-mid)")};
-  opacity: ${(p) => (p.$watched ? 1 : 0)};
-  transition: opacity 0.15s, color 0.15s;
-
-  ${UserRowBase}:hover &,
-  ${UserLink}:hover & {
+const rowStyles = css`
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+  height: ${ROW_HEIGHT}px;
+  padding: 0 var(--space-2);
+  border-radius: var(--radius-sm);
+  text-decoration: none;
+  color: inherit;
+  opacity: ${(p) => (p.$dim === "idle" ? 0.4 : p.$dim === "quiet" ? 0.55 : 1)};
+  &:hover {
+    background: var(--surface-2);
     opacity: 1;
   }
-
-  &:hover {
-    color: var(--gold);
-  }
 `;
 
-const SidebarDeltaPill = styled.span`
-  font-family: var(--font-mono);
-  font-size: var(--text-xxxs);
-  font-weight: 700;
+const Row = styled.div`
+  ${rowStyles}
+`;
+
+const RowLink = styled(Link)`
+  ${rowStyles}
+  cursor: pointer;
+`;
+
+const AvatarWrap = styled.span`
+  position: relative;
+  width: ${AVATAR}px;
+  height: ${AVATAR}px;
   flex-shrink: 0;
-  padding: 0 4px;
-  border-radius: var(--radius-sm);
-  color: ${(p) => (p.$positive ? "var(--green)" : "var(--red)")};
-  background: ${(p) => (p.$positive ? "var(--green-tint)" : "var(--red-tint)")};
 `;
 
-const SidebarTwitchLink = styled.a`
+const AvatarImg = styled.img`
+  width: ${AVATAR}px;
+  height: ${AVATAR}px;
+  border-radius: var(--radius-sm);
+  display: block;
+  object-fit: cover;
+`;
+
+const AvatarRaceIcon = styled(AvatarImg)`
+  box-sizing: border-box;
+  padding: var(--space-1);
+  background: var(--surface-2);
+  opacity: ${(p) => (p.$faded ? 0.3 : 0.85)};
+`;
+
+const AvatarFlag = styled.span`
+  position: absolute;
+  bottom: -2px;
+  right: -2px;
+  line-height: 0;
+`;
+
+const Name = styled.span`
+  font-family: var(--font-display);
+  font-size: var(--text-xs);
+  color: var(--gold);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  min-width: 0;
+`;
+
+const Mmr = styled.span`
+  margin-left: auto;
+  font-family: var(--font-mono);
+  font-size: var(--text-xxs);
+  color: var(--grey-light);
+  flex-shrink: 0;
+`;
+
+const TwitchLink = styled.a`
   display: inline-flex;
   align-items: center;
   flex-shrink: 0;
-
   svg {
     width: 12px;
     height: 12px;
     fill: var(--twitch-purple);
   }
-
   &:hover svg {
     opacity: 0.8;
   }
 `;
 
-function UserRowItem({ user, avatars, stats, sessions, inGameInfoMap, inGame, matchUrl, isRecentWinner, isIdle, isQuiet, delta, liveInfo, isWatched, onToggleWatch }) {
-  const playerStats = stats?.get(user.battleTag);
-  const mmr = playerStats?.mmr;
-  const raceIcon = playerStats?.race != null ? raceMapping[playerStats.race] : null;
-  const country = avatars?.get(user.battleTag)?.country;
+const Star = styled.button`
+  background: none;
+  border: none;
+  padding: 0;
+  flex-shrink: 0;
+  cursor: pointer;
+  font-size: var(--text-xxs);
+  line-height: 1;
+  color: ${(p) => (p.$watched ? "var(--gold)" : "var(--grey-mid)")};
+  opacity: ${(p) => (p.$watched ? 1 : 0)};
+  transition: opacity var(--transition), color var(--transition);
+  ${Row}:hover &,
+  ${RowLink}:hover & {
+    opacity: 1;
+  }
+  &:hover {
+    color: var(--gold);
+  }
+`;
+
+const Empty = styled.div`
+  ${label}
+  padding: var(--space-2);
+`;
+
+const SkeletonRow = styled.div`
+  ${rowStyles}
+`;
+
+/* ── Helpers ───────────────────────────────────────────────────────── */
+
+function Avatar({ tag, avatars, stats }) {
+  const profile = avatars?.get(tag);
+  const race = stats?.get(tag)?.race;
+  const raceIcon = race != null ? raceMapping[race] : null;
+  return (
+    <AvatarWrap>
+      {profile?.profilePicUrl ? (
+        <AvatarImg src={profile.profilePicUrl} alt="" />
+      ) : (
+        <AvatarRaceIcon src={raceIcon || raceIcons.random} alt="" $faded={!raceIcon} />
+      )}
+      {profile?.country && (
+        <AvatarFlag>
+          <CountryFlag name={profile.country.toLowerCase()} style={{ width: 12, height: 9 }} />
+        </AvatarFlag>
+      )}
+    </AvatarWrap>
+  );
+}
+
+const byName = (a, b) => (a.name || "").localeCompare(b.name || "", undefined, { sensitivity: "base" });
+
+/**
+ * Games in progress from the channel's point of view: one entry per match
+ * with at least one channel member in it, most channel members first.
+ */
+export function liveGamesFrom(users, inGameTags, inGameInfoMap, inGameMatchMap) {
+  const games = new Map();
+  for (const u of users) {
+    const tag = u.battleTag;
+    if (!inGameTags?.has(tag)) continue;
+    const info = inGameInfoMap?.get(tag);
+    if (!info) continue;
+    const key = info.matchId || `${info.mapName}|${info.startTime}`;
+    let game = games.get(key);
+    if (!game) {
+      game = { key, mapName: info.mapName, startTime: info.startTime, players: [], url: inGameMatchMap?.get(tag) };
+      games.set(key, game);
+    }
+    game.players.push(u.name || tag.split("#")[0]);
+  }
+  return [...games.values()].sort(
+    (a, b) => b.players.length - a.players.length || new Date(b.startTime) - new Date(a.startTime)
+  );
+}
+
+function UserRow({ user, avatars, stats, sessions, inGameInfo, matchUrl, chip, liveInfo, isWatched, onToggleWatch, dim }) {
+  const tag = user.battleTag;
+  const mmr = stats?.get(tag)?.mmr;
+  const elapsed = inGameInfo ? formatGameMinutes(inGameInfo.startTime) : null;
+  const title = inGameInfo
+    ? [inGameInfo.mapName, elapsed].filter(Boolean).join(" · ")
+    : undefined;
 
   const content = (
     <>
-      <AvatarWrapper>
-        {getAvatarImg(user.battleTag, avatars, stats)}
-        {country && (
-          <AvatarFlag>
-            <CountryFlag name={country.toLowerCase()} style={{ width: 14, height: 10 }} />
-          </AvatarFlag>
-        )}
-      </AvatarWrapper>
-      {isRecentWinner && <WinnerCrown />}
-      {raceIcon && <RaceIcon src={raceIcon} alt="" />}
+      <Avatar tag={tag} avatars={avatars} stats={stats} />
       <PlayerHoverCard
-        battleTag={user.battleTag}
+        battleTag={tag}
         avatars={avatars}
         stats={stats}
         sessions={sessions}
-        inGameInfo={inGame ? inGameInfoMap?.get(user.battleTag) : null}
-        style={{ flex: 1, minWidth: 0 }}
+        inGameInfo={inGameInfo}
+        style={{ minWidth: 0 }}
       >
         <Name>{user.name}</Name>
       </PlayerHoverCard>
+      {chip && <Chip $kind={chip.kind}>{chip.label}</Chip>}
       {liveInfo && (
-        <SidebarTwitchLink
+        <TwitchLink
           href={`https://twitch.tv/${liveInfo.twitchName}`}
           target="_blank"
           rel="noopener noreferrer"
@@ -406,41 +424,92 @@ function UserRowItem({ user, avatars, stats, sessions, inGameInfoMap, inGame, ma
           onClick={(e) => e.stopPropagation()}
         >
           <FaTwitch />
-        </SidebarTwitchLink>
+        </TwitchLink>
       )}
-      {delta != null && (
-        <SidebarDeltaPill $positive={delta >= 0}>
-          {delta >= 0 ? `+${delta}` : delta}
-        </SidebarDeltaPill>
-      )}
+      {mmr != null && <Mmr>{Math.round(mmr)}</Mmr>}
       {onToggleWatch && (
-        <StarButton
+        <Star
           type="button"
           $watched={isWatched}
+          aria-label={isWatched ? "Unwatch player" : "Watch player"}
           title={isWatched ? "Unwatch player" : "Watch player (pin to top, enable pings)"}
           onClick={(e) => {
             e.preventDefault();
             e.stopPropagation();
-            onToggleWatch(user.battleTag);
+            onToggleWatch(tag);
           }}
         >
           {isWatched ? "★" : "☆"}
-        </StarButton>
-      )}
-      {mmr != null && (
-        <MmrNum>{Math.round(mmr)}</MmrNum>
+        </Star>
       )}
     </>
   );
 
-  if (matchUrl) {
-    return <UserLink to={matchUrl}>{content}</UserLink>;
-  }
-  const row = <UserRowBase>{content}</UserRowBase>;
-  if (isIdle) return <IdleRow>{row}</IdleRow>;
-  if (isQuiet) return <QuietRow>{row}</QuietRow>;
-  return row;
+  const shared = { "data-row": tag, "data-dim": dim, title, $dim: dim };
+  return matchUrl ? (
+    <RowLink to={matchUrl} {...shared}>{content}</RowLink>
+  ) : (
+    <Row {...shared}>{content}</Row>
+  );
 }
+
+function RosterSection({ id, title, count, open, onToggle, children }) {
+  if (count === 0) return null;
+  return (
+    <Section data-section={id}>
+      <SectionHeader type="button" onClick={onToggle} aria-expanded={open}>
+        <Chevron $open={open}>&#9654;</Chevron>
+        {title} <SectionCount>{count}</SectionCount>
+      </SectionHeader>
+      {open && children}
+    </Section>
+  );
+}
+
+function LiveNow({ games }) {
+  const [openOverride, setOpenOverride] = useState(null);
+  if (games.length === 0) return null;
+  const many = games.length > LIVE_STRIP_MAX_ROWS;
+  const open = openOverride ?? !many;
+  const players = games.reduce((n, g) => n + g.players.length, 0);
+  return (
+    <LiveStrip data-live-strip data-live-count={games.length}>
+      <LiveHeader
+        type="button"
+        $toggle={many}
+        aria-expanded={open}
+        onClick={() => many && setOpenOverride((v) => !(v ?? !many))}
+        title={many ? (open ? "Collapse" : "Show games") : undefined}
+      >
+        <Dot $size={6} $recent />
+        Live now <LiveCount>{games.length}</LiveCount>
+        {many && !open && <LiveMeta>{players} from channel</LiveMeta>}
+      </LiveHeader>
+      {open && games.map((g) => {
+        const elapsed = formatGameMinutes(g.startTime);
+        const row = (
+          <>
+            <LiveMap>{g.mapName || "Unknown map"}</LiveMap>
+            <LiveMeta>
+              {g.players.length} from channel{elapsed ? ` · ${elapsed}` : ""}
+            </LiveMeta>
+          </>
+        );
+        return g.url ? (
+          <LiveRow key={g.key} to={g.url} title={g.players.join(", ")} data-live-row>
+            {row}
+          </LiveRow>
+        ) : (
+          <LiveRow as="div" key={g.key} title={g.players.join(", ")} data-live-row>
+            {row}
+          </LiveRow>
+        );
+      })}
+    </LiveStrip>
+  );
+}
+
+/* ── Component ─────────────────────────────────────────────────────── */
 
 export default function UserListSidebar({
   users,
@@ -462,168 +531,131 @@ export default function UserListSidebar({
 }) {
   const [search, setSearch] = useState("");
   const [sortField, setSortField] = useState("mmr");
-  const [inGameOpen, setInGameOpen] = useState(true);
-  const [onlineOpen, setOnlineOpen] = useState(true);
-  const [awayOpen, setAwayOpen] = useState(true);
+  const [open, setOpen] = useState({ ingame: true, online: true, away: true });
   // Owns the once-a-minute idle tick so only the roster re-renders for it
   const idleTags = useIdleTags(users, inGameTags);
 
-  function handleSort(field) {
-    setSortField(field);
-  }
+  const toggle = (id) => setOpen((o) => ({ ...o, [id]: !o[id] }));
 
   const sortedUsers = useMemo(() => {
+    const isWatched = (u) => (watchList?.has(u.battleTag?.toLowerCase()) ? 1 : 0);
     return [...users].sort((a, b) => {
       // Watched players always sort to the top of their section
-      const aWatched = watchList?.has(a.battleTag?.toLowerCase()) ? 1 : 0;
-      const bWatched = watchList?.has(b.battleTag?.toLowerCase()) ? 1 : 0;
-      if (aWatched !== bWatched) return bWatched - aWatched;
-      if (sortField === "live") {
-        const aLive = inGameTags?.has(a.battleTag) ? 1 : 0;
-        const bLive = inGameTags?.has(b.battleTag) ? 1 : 0;
-        if (aLive !== bLive) return bLive - aLive;
-      }
+      const w = isWatched(b) - isWatched(a);
+      if (w !== 0) return w;
       if (sortField === "name") {
-        const cmp = (a.name || "").localeCompare(b.name || "", undefined, { sensitivity: "base" });
+        const cmp = byName(a, b);
         if (cmp !== 0) return cmp;
       }
       const aMmr = stats?.get(a.battleTag)?.mmr ?? -1;
       const bMmr = stats?.get(b.battleTag)?.mmr ?? -1;
       if (aMmr !== bMmr) return bMmr - aMmr;
-      return (a.name || "").localeCompare(b.name || "", undefined, { sensitivity: "base" });
+      return byName(a, b);
     });
-  }, [users, stats, inGameTags, sortField, watchList]);
+  }, [users, stats, sortField, watchList]);
 
   const filteredUsers = useMemo(() => {
-    if (!search.trim()) return sortedUsers;
-    const q = search.toLowerCase();
+    const q = search.trim().toLowerCase();
+    if (!q) return sortedUsers;
     return sortedUsers.filter((u) => (u.name || "").toLowerCase().includes(q));
   }, [sortedUsers, search]);
 
-  const { inGameUsers, onlineUsers: onlineOnly, awayUsers } = useMemo(() => {
-    const ig = [];
-    const on = [];
+  const sections = useMemo(() => {
+    const ingame = [];
+    const online = [];
     const away = [];
     for (const u of filteredUsers) {
-      if (inGameTags?.has(u.battleTag)) ig.push(u);
+      if (inGameTags?.has(u.battleTag)) ingame.push(u);
       else if (idleTags?.has(u.battleTag)) away.push(u);
-      else on.push(u);
+      else online.push(u);
     }
-    return { inGameUsers: ig, onlineUsers: on, awayUsers: away };
+    return { ingame, online, away };
   }, [filteredUsers, inGameTags, idleTags]);
 
+  const liveGames = useMemo(
+    () => liveGamesFrom(users, inGameTags, inGameInfoMap, inGameMatchMap),
+    [users, inGameTags, inGameInfoMap, inGameMatchMap]
+  );
+
+  const chipCtx = { inGameTags, recentDeltas, recentWinners, startTimes: inGameInfoMap };
+  const quietMode = Boolean(recentChatters && recentChatters.size > 0);
+
+  const rowFor = (section, user) => {
+    const tag = user.battleTag;
+    const inGame = section === "ingame";
+    return (
+      <UserRow
+        key={tag}
+        user={user}
+        avatars={avatars}
+        stats={stats}
+        sessions={sessions}
+        inGameInfo={inGame ? inGameInfoMap?.get(tag) : null}
+        matchUrl={inGame ? inGameMatchMap?.get(tag) : null}
+        chip={chipForTag(tag, chipCtx)}
+        liveInfo={liveStreamers?.get(tag)}
+        isWatched={Boolean(watchList?.has(tag?.toLowerCase()))}
+        onToggleWatch={onToggleWatch}
+        dim={
+          section === "away"
+            ? "idle"
+            : section === "online" && quietMode && !recentChatters.has(tag)
+              ? "quiet"
+              : undefined
+        }
+      />
+    );
+  };
+
+  const nothingMatches = users.length > 0 && filteredUsers.length === 0;
+
   return (
-    <Sidebar $mobileVisible={$mobileVisible}>
-      <SidebarContent $theme={borderTheme}>
-        <Header $theme={borderTheme}>
+    <Sidebar $mobileVisible={$mobileVisible} aria-label="Channel roster">
+      <Frame $theme={borderTheme}>
+        <Header>
           <HeaderTitle>Channel</HeaderTitle>
-          <HeaderCount>{users.length}</HeaderCount>
-          <CloseButton onClick={onClose}>&times;</CloseButton>
+          <HeaderCount data-online-count>{users.length} online</HeaderCount>
+          <CloseButton $icon type="button" aria-label="Close roster" onClick={onClose}>
+            &times;
+          </CloseButton>
         </Header>
-      <SearchWrapper>
-        <SearchInput
-          type="text"
-          placeholder="Search players..."
-          value={search}
-          onChange={(e) => setSearch(e.target.value)}
-        />
-        {search && (
-          <SearchClear onClick={() => setSearch("")}>×</SearchClear>
-        )}
-      </SearchWrapper>
-      <ColumnHeaders>
-        <ColPlayer $active={sortField === "name"} onClick={() => handleSort("name")}>
-          Player
-        </ColPlayer>
-        <ColMmr $active={sortField === "mmr"} onClick={() => handleSort("mmr")}>
-          MMR
-        </ColMmr>
-      </ColumnHeaders>
-      <UserList>
-        {users.length === 0 && (
-          <>
-            {[...Array(8)].map((_, i) => (
-              <UserRowBase key={`skel-${i}`}>
-                <SkeletonCircle $size="28px" style={{ borderRadius: "var(--radius-sm)" }} />
-                <Skeleton $w={`${60 + Math.random() * 30}%`} $h="14px" style={{ flex: 1 }} />
-                <Skeleton $w="32px" $h="12px" />
-              </UserRowBase>
-            ))}
-          </>
-        )}
-        {inGameUsers.length > 0 && (
-          <>
-            <SectionHeader onClick={() => setInGameOpen((v) => !v)}>
-              <Chevron $open={inGameOpen}>&#9654;</Chevron>
-              In Game - <SectionCount>{inGameUsers.length}</SectionCount>
-            </SectionHeader>
-            {inGameOpen && inGameUsers.map((user) => (
-              <UserRowItem
-                key={user.battleTag}
-                user={user}
-                avatars={avatars}
-                stats={stats}
-                sessions={sessions}
-                inGameInfoMap={inGameInfoMap}
-                inGame
-                matchUrl={inGameMatchMap?.get(user.battleTag)}
-                isRecentWinner={recentWinners?.has(user.battleTag)}
-                delta={recentDeltas?.get(user.battleTag)}
-                liveInfo={liveStreamers?.get(user.battleTag)}
-                isWatched={watchList?.has(user.battleTag?.toLowerCase())}
-                onToggleWatch={onToggleWatch}
-              />
-            ))}
-          </>
-        )}
-        <SectionHeader onClick={() => setOnlineOpen((v) => !v)}>
-          <Chevron $open={onlineOpen}>&#9654;</Chevron>
-          Online - <SectionCount>{onlineOnly.length}</SectionCount>
-        </SectionHeader>
-        {onlineOpen && onlineOnly.map((user) => (
-          <UserRowItem
-            key={user.battleTag}
-            user={user}
-            avatars={avatars}
-            stats={stats}
-            sessions={sessions}
-            inGame={false}
-            matchUrl={null}
-            isRecentWinner={recentWinners?.has(user.battleTag)}
-            isQuiet={recentChatters && recentChatters.size > 0 && !recentChatters.has(user.battleTag)}
-            delta={recentDeltas?.get(user.battleTag)}
-            liveInfo={liveStreamers?.get(user.battleTag)}
-            isWatched={watchList?.has(user.battleTag?.toLowerCase())}
-            onToggleWatch={onToggleWatch}
+        <Toolbar>
+          <FilterInput
+            type="text"
+            placeholder="Filter players"
+            aria-label="Filter players"
+            value={search}
+            onChange={(e) => setSearch(e.target.value)}
           />
-        ))}
-        {awayUsers.length > 0 && (
-          <>
-            <SectionHeader onClick={() => setAwayOpen((v) => !v)}>
-              <Chevron $open={awayOpen}>&#9654;</Chevron>
-              Away - <SectionCount>{awayUsers.length}</SectionCount>
-            </SectionHeader>
-            {awayOpen && awayUsers.map((user) => (
-              <UserRowItem
-                key={user.battleTag}
-                user={user}
-                avatars={avatars}
-                stats={stats}
-                sessions={sessions}
-                inGame={false}
-                matchUrl={null}
-                isRecentWinner={recentWinners?.has(user.battleTag)}
-                isIdle
-                delta={recentDeltas?.get(user.battleTag)}
-                liveInfo={liveStreamers?.get(user.battleTag)}
-                isWatched={watchList?.has(user.battleTag?.toLowerCase())}
-                onToggleWatch={onToggleWatch}
-              />
+          <SortButton $pill type="button" data-active={sortField === "name"} onClick={() => setSortField("name")}>
+            Player
+          </SortButton>
+          <SortButton $pill type="button" data-active={sortField === "mmr"} onClick={() => setSortField("mmr")}>
+            MMR
+          </SortButton>
+        </Toolbar>
+        <LiveNow games={liveGames} />
+        <List>
+          {users.length === 0 &&
+            [...Array(8)].map((_, i) => (
+              <SkeletonRow key={`skel-${i}`}>
+                <Skeleton $w={`${AVATAR}px`} $h={`${AVATAR}px`} />
+                <Skeleton $w={`${55 + ((i * 17) % 30)}%`} $h="12px" />
+                <Skeleton $w="28px" $h="10px" style={{ marginLeft: "auto" }} />
+              </SkeletonRow>
             ))}
-          </>
-        )}
-      </UserList>
-      </SidebarContent>
+          {nothingMatches && <Empty>No players match</Empty>}
+          <RosterSection id="ingame" title="In game" count={sections.ingame.length} open={open.ingame} onToggle={() => toggle("ingame")}>
+            {sections.ingame.map((u) => rowFor("ingame", u))}
+          </RosterSection>
+          <RosterSection id="online" title="Online" count={sections.online.length} open={open.online} onToggle={() => toggle("online")}>
+            {sections.online.map((u) => rowFor("online", u))}
+          </RosterSection>
+          <RosterSection id="away" title="Away" count={sections.away.length} open={open.away} onToggle={() => toggle("away")}>
+            {sections.away.map((u) => rowFor("away", u))}
+          </RosterSection>
+        </List>
+      </Frame>
     </Sidebar>
   );
 }

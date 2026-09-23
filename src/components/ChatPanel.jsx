@@ -12,6 +12,7 @@ import { linkifyMessage, playPing } from "../lib/chatExtras";
 import PlayerHoverCard from "./PlayerHoverCard";
 import ChatMessage, { FeedText } from "./chat/ChatMessage";
 import GameTicker from "./chat/GameTicker";
+import { chipForTag } from "./chat/chip";
 import { getPlayerProfile } from "../lib/api";
 import { relayFetch } from "../lib/relay";
 import { normalizeMessages } from "../lib/chat/normalize";
@@ -653,12 +654,6 @@ const MentionItem = styled.button`
   }
 `;
 
-function formatGameMinutes(startTime) {
-  if (!startTime) return null;
-  const mins = Math.floor((Date.now() - new Date(startTime).getTime()) / 60000);
-  return mins >= 0 && mins < 180 ? `${mins}m` : null;
-}
-
 // Wrap case-insensitive matches of `query` in a highlight mark
 function highlightMatches(text, query) {
   const q = query.trim();
@@ -1123,20 +1118,8 @@ export default function ChatPanel({
     if (showLoadOlder) handleLoadOlder();
   }, [showLoadOlder, handleLoadOlder]);
 
-  // Status chip for a name row: in game while playing, then won/lost for
-  // the two minutes recentWinners/recentDeltas stay lit, then nothing
-  const chipFor = (tag) => {
-    if (inGameTags?.has(tag)) {
-      const mins = formatGameMinutes(inGameInfoMap?.get(tag)?.startTime);
-      return { kind: "ingame", label: mins ? `in game ${mins}` : "in game" };
-    }
-    const delta = recentDeltas?.get(tag);
-    if (delta != null) {
-      return delta >= 0 ? { kind: "won", label: `won +${delta}` } : { kind: "lost", label: `lost ${delta}` };
-    }
-    if (recentWinners?.has(tag)) return { kind: "won", label: "won" };
-    return null;
-  };
+  // Status chip for a name row, shared with the roster (chat/chip.js)
+  const chipCtx = { inGameTags, recentDeltas, recentWinners, startTimes: inGameInfoMap };
 
   const hoverData = { avatars, stats, sessions, inGameTags, inGameInfoMap };
   const renderLine = (line) => linkifyMessage(line.text);
@@ -1225,7 +1208,7 @@ export default function ChatPanel({
       race: playerStats?.race,
       countryCode: profile?.country,
       mmr: playerStats?.mmr,
-      chip: chipFor(tag),
+      chip: chipForTag(tag, chipCtx),
       twitchLogin: live?.twitchName,
       twitchTitle: live?.title,
     };

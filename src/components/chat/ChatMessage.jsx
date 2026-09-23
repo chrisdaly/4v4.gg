@@ -5,6 +5,7 @@ import { FaTwitch } from "react-icons/fa";
 import { raceMapping, raceIcons } from "../../lib/constants";
 import { CountryFlag } from "../ui";
 import { formatTime } from "../../lib/useChatMessages";
+import { Chip } from "./chip";
 
 /**
  * One message group (author + consecutive lines) in three looks:
@@ -154,38 +155,6 @@ const Mmr = styled.span`
   font-family: var(--font-mono);
   font-size: var(--text-xxs);
   color: var(--grey-light);
-`;
-
-const chipStyles = {
-  ingame: css`
-    color: var(--amber);
-    background: var(--amber-tint);
-    border-color: rgba(245, 158, 11, 0.3);
-  `,
-  won: css`
-    color: var(--green);
-    background: var(--green-tint);
-    border-color: var(--green-border);
-  `,
-  lost: css`
-    color: var(--red);
-    background: var(--red-tint);
-    border-color: var(--red-border);
-  `,
-};
-
-const Chip = styled.span`
-  align-self: center;
-  font-family: var(--font-mono);
-  font-size: var(--text-xxxs);
-  text-transform: uppercase;
-  letter-spacing: 0.08em;
-  line-height: 1.2;
-  border: 1px solid transparent;
-  border-radius: var(--radius-sm);
-  padding: 1px var(--space-1);
-  white-space: nowrap;
-  ${(p) => chipStyles[p.$kind] || chipStyles.ingame}
 `;
 
 const TwitchLink = styled.a`
@@ -353,9 +322,7 @@ export default function ChatMessage({
           {author.clanTag && <ClanTag>{author.clanTag}</ClanTag>}
           {!isQuote && meta?.mmr != null && <Mmr>{Math.round(meta.mmr)} MMR</Mmr>}
           {!isQuote && chip?.label && (
-            <Chip $kind={chip.kind} data-chip={chip.kind}>
-              {chip.label}
-            </Chip>
+            <Chip $kind={chip.kind}>{chip.label}</Chip>
           )}
           {isFeed && meta?.twitchLogin && (
             <TwitchLink
