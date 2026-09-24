@@ -6,14 +6,15 @@ import { GiCrossedSwords } from "react-icons/gi";
 import WorldMap from "../WorldMap";
 import { Button } from "../ui";
 import { Panel, PanelHeader, CountPill } from "./panel";
-import { buildMapData, countriesLabel, regionOf } from "../../lib/chat/regions";
+import { buildMapData, countriesLabel, outsideScope, regionOf } from "../../lib/chat/regions";
 import { fetchTodayDigest } from "../../lib/chat/digestToday";
 
 /**
  * The map panel on /chat: the 4v4.GG home link with the relay dot, the
  * countries pill, the page's icon buttons (stats, today's digest, games
  * toggle) and the world map. Clicking a dot toggles the region filter
- * (onRegionChange); dots outside the selected region dim. A click anywhere
+ * (onRegionChange); dots outside the selected region, or the selected
+ * country (`country`, set from the fullscreen modal), dim. A click anywhere
  * else on the map body, or the expand button in its corner, calls onExpand
  * (Chat.jsx opens the fullscreen MapModal with it).
  */
@@ -110,6 +111,7 @@ export default function MapPanel({
   inGameTags,
   status,
   region = null,
+  country = null,
   onRegionChange,
   statsOpen = false,
   onStatsOpenChange,
@@ -122,6 +124,7 @@ export default function MapPanel({
     () => buildMapData(users, { stats, avatars, inGameTags }),
     [users, stats, avatars, inGameTags]
   );
+  const dimOutside = useMemo(() => outsideScope({ region, country }), [region, country]);
   const digest = useDigestToday();
   const connected = status === "connected";
   const countryCount = playerCountries.size;
@@ -190,7 +193,7 @@ export default function MapPanel({
           highlightInGame
           playerCountries={playerCountries}
           players={mapPlayers}
-          dimOutside={region}
+          dimOutside={dimOutside}
           onDotClick={onDotClick}
         />
       </MapBox>

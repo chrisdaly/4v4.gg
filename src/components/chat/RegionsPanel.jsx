@@ -1,13 +1,33 @@
 import React from "react";
 import styled from "styled-components";
 import { CountryFlag } from "../ui";
+import { countryNameOf } from "../../lib/chat/regions";
 import { Panel, PanelHeader, PanelLabel, Hint, scrollStyles } from "./panel";
 
 /**
  * Region ranking under the map on /chat: one row per region (from
  * regionSummary in lib/chat/regions) with the online count, average MMR,
  * local time and a share bar. Clicking a row toggles the region filter.
+ * With a `country` scope (set from the fullscreen map) every row is muted
+ * and the header names the country; Show all clears it through
+ * onRegionChange(null), which the page treats as "clear the scope".
  */
+
+const CountryScope = styled.span`
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  font-family: var(--font-display);
+  font-size: var(--text-xxs);
+  color: var(--white);
+  white-space: nowrap;
+  img {
+    width: 14px;
+    height: 10px;
+    border-radius: 1px;
+    display: block;
+  }
+`;
 
 const ShowAll = styled.button`
   margin-left: auto;
@@ -110,14 +130,21 @@ const Fill = styled.div`
   background: var(--gold);
 `;
 
-export default function RegionsPanel({ rows = [], region = null, onRegionChange, className }) {
+export default function RegionsPanel({ rows = [], region = null, country = null, onRegionChange, className }) {
   const pick = (name) => onRegionChange?.(region === name ? null : name);
   return (
     <Panel className={className} data-regions-panel aria-label="Regions">
       <PanelHeader>
         <PanelLabel>Regions</PanelLabel>
-        <Hint>online · avg MMR · local</Hint>
-        {region && (
+        {country ? (
+          <CountryScope data-regions-country={country}>
+            <CountryFlag name={country.toLowerCase()} />
+            {countryNameOf(country)}
+          </CountryScope>
+        ) : (
+          <Hint>online · avg MMR · local</Hint>
+        )}
+        {(region || country) && (
           <ShowAll type="button" onClick={() => onRegionChange?.(null)}>
             Show all
           </ShowAll>
@@ -130,7 +157,7 @@ export default function RegionsPanel({ rows = [], region = null, onRegionChange,
             data-region={r.name}
             data-selected={region === r.name ? "true" : undefined}
             $selected={region === r.name}
-            $muted={Boolean(region) && region !== r.name}
+            $muted={Boolean(country) || (Boolean(region) && region !== r.name)}
             role="button"
             tabIndex={0}
             aria-pressed={region === r.name}

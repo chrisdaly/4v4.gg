@@ -3,7 +3,6 @@ import * as d3 from "d3";
 import { feature } from "topojson-client";
 import countryCentroids from "../lib/countryCentroids";
 import { chartColors } from "../lib/design-tokens";
-import { regionOf } from "../lib/chat/regions";
 import "../styles/components/WorldMap.css";
 
 /** Compute the subsolar point (no library needed). */
@@ -141,8 +140,10 @@ const placeLabels = (g, candidates, dotPositions, existingRects, bounds, fontSiz
  * otherwise, fixed radius), no name/time labels, no organic enter/exit
  * effects, land at low opacity. For small hosts.
  *
- * `dimOutside`: a region name (lib/chat/regions regionOf); dots in other
- * regions drop to opacity .15 and lose their name labels. `onDotClick(code)`
+ * `dimOutside`: a predicate (code) => boolean, true for a country outside
+ * the active scope (lib/chat/regions outsideScope builds one for a region
+ * or a country); those dots drop to opacity .15 and lose their name labels.
+ * Memoize it in the host, it is a render-effect dependency. `onDotClick(code)`
  * makes dots clickable (the /chat map toggles a region filter with it).
  * `highlightInGame`: gold 1.2px stroke on dots whose country has someone in
  * a game. All three are optional and off by default.
@@ -294,7 +295,7 @@ const WorldMap = ({
     // Compute projected positions
     const dotData = dots.map((d) => {
       const pt = projection([d.lon, d.lat]);
-      const dim = Boolean(dimOutside) && regionOf(d.code) !== dimOutside;
+      const dim = Boolean(dimOutside) && dimOutside(d.code);
       return pt ? { ...d, px: pt[0], py: pt[1], r: compact ? COMPACT_R : rScale(d.total), dim } : null;
     }).filter(Boolean);
     const dotOpacity = (d) => (d.dim ? DIM_OPACITY : 1);
@@ -543,7 +544,7 @@ const WorldMap = ({
       ? labelCandidates.filter((p) => !enteringCodes.has(p.country.toUpperCase()))
       : labelCandidates;
     // Dimmed countries keep no name labels
-    const staticCandidates = dimOutside ? inRegion.filter((p) => regionOf(p.country) === dimOutside) : inRegion;
+    const staticCandidates = dimOutside ? inRegion.filter((p) => !dimOutside(p.country)) : inRegion;
     const placedLabels = placeLabels(
       labelG, staticCandidates, dotPositions, [],
       { left: 0, top: 0, right: width, bottom: height },

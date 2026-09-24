@@ -7,14 +7,16 @@ import { Button, CountryFlag, Skeleton } from "./ui";
 import PlayerHoverCard from "./PlayerHoverCard";
 import useIdleTags from "../lib/chat/useIdleTags";
 import { formatGameMinutes } from "./chat/chip";
-import { countryOf, regionOf } from "../lib/chat/regions";
+import { countryNameOf, countryOf, regionOf } from "../lib/chat/regions";
 import { Panel, PanelHeader, CountPill, Hint, scrollStyles } from "./chat/panel";
 
 /**
  * The channel roster on /chat (Chat v2): everyone online, MMR-sorted and
  * grouped into brackets under an MMR histogram. `region` (a regionOf name)
- * narrows the rows, the histogram and the header counts to that region;
- * `filter` narrows rows by name (no input of its own any more). An in-game
+ * or `country` (an ISO code, from the fullscreen map) narrows the rows, the
+ * histogram and the header counts to that scope (the page keeps one of the
+ * two set at a time); `filter` narrows rows by name (no input of its own
+ * any more). An in-game
  * row shows a red dot, opens the game on click (onOpenGame with the
  * inGameInfoMap entry) and links its name to the player page
  * (inGameMatchMap). The last-game delta comes from recentDeltas. Idle rows
@@ -89,6 +91,15 @@ const Scope = styled(Hint)`
   overflow: hidden;
   text-overflow: ellipsis;
   min-width: 0;
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  img {
+    width: 13px;
+    height: 9px;
+    border-radius: 1px;
+    display: block;
+  }
 `;
 
 const ColumnHint = styled.span`
@@ -323,7 +334,8 @@ const SkeletonRow = styled.div`
 
 /* ── Helpers ───────────────────────────────────────────────────────── */
 
-function Avatar({ tag, avatars, stats }) {
+/** 28px avatar (profile picture or race icon) with the country flag; the map modal's rail reuses it. */
+export function Avatar({ tag, avatars, stats }) {
   const profile = avatars?.get(tag);
   const race = stats?.get(tag)?.race;
   const raceIcon = race != null ? raceMapping[race] : null;
@@ -484,6 +496,7 @@ export default function UserListSidebar({
   $mobileVisible,
   onClose,
   region = null,
+  country = null,
   filter = "",
 }) {
   // Owns the once-a-minute idle tick so only the roster re-renders for it
@@ -493,6 +506,7 @@ export default function UserListSidebar({
     const q = (filter || "").trim().toLowerCase();
     const mmrOf = (u) => stats?.get(u.battleTag)?.mmr ?? -Infinity;
     return users
+      .filter((u) => !country || countryOf(u, avatars) === country)
       .filter((u) => !region || regionOf(countryOf(u, avatars)) === region)
       .filter((u) => !q || (u.name || "").toLowerCase().includes(q))
       .sort((a, b) => {
@@ -501,7 +515,7 @@ export default function UserListSidebar({
         if (aMmr !== bMmr) return bMmr - aMmr;
         return byName(a, b);
       });
-  }, [users, stats, avatars, region, filter]);
+  }, [users, stats, avatars, region, country, filter]);
 
   const bins = useMemo(() => histogramBins(visible, stats), [visible, stats]);
   const binMax = Math.max(1, ...bins);
@@ -542,7 +556,14 @@ export default function UserListSidebar({
           <RedDot />
           {inGameCount} in game
         </InGame>
-        {region && <Scope data-roster-scope title={region}>{region}</Scope>}
+        {country ? (
+          <Scope data-roster-scope title={countryNameOf(country)}>
+            <CountryFlag name={country.toLowerCase()} />
+            {country}
+          </Scope>
+        ) : (
+          region && <Scope data-roster-scope title={region}>{region}</Scope>
+        )}
         <ColumnHint title="MMR change from last game">LAST · MMR</ColumnHint>
         <CloseButton $icon type="button" aria-label="Close roster" onClick={onClose}>
           &times;
@@ -572,7 +593,9 @@ export default function UserListSidebar({
               <Skeleton $w="28px" $h="10px" style={{ marginLeft: "auto" }} />
             </SkeletonRow>
           ))}
-        {nothingMatches && <Empty>{region ? `Nobody online in ${region}` : "No players match"}</Empty>}
+        {nothingMatches && (
+          <Empty>{country || region ? `Nobody online in ${country ? countryNameOf(country) : region}` : "No players match"}</Empty>
+        )}
         {groups.map((g) => (
           <React.Fragment key={g.label}>
             <BracketHeader data-bracket={g.label}>

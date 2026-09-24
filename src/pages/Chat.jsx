@@ -228,9 +228,20 @@ const Chat = () => {
   const { borderTheme } = useTheme();
   const { watchList, toggleWatch } = useWatchList();
   const [mobileTab, setMobileTab] = useState("chat"); // "chat" | "users"
-  // Region filter (a regionOf name, or null): set from a region row or a map
-  // dot; narrows the roster, its histogram and the map dimming, never the chat
-  const [region, setRegion] = useState(null);
+  // One scope at a time: a region (a regionOf name, from a region row or a
+  // map dot) or a country (an ISO code, from the fullscreen map's rail or
+  // dots). Narrows the roster, its histogram and the map dimming, never the
+  // chat. Setting one clears the other; null from either clears both.
+  const [region, setRegionState] = useState(null);
+  const [country, setCountryState] = useState(null);
+  const setRegion = useCallback((r) => {
+    setRegionState(r);
+    setCountryState(null);
+  }, []);
+  const setCountry = useCallback((c) => {
+    setCountryState(c);
+    setRegionState(null);
+  }, []);
   // Chat panel modes: search from the chat panel's own corner icon, stats
   // and games from the map header's icon buttons
   const [searchOpen, setSearchOpen] = useState(false);
@@ -314,6 +325,7 @@ const Chat = () => {
         inGameTags={inGameTags}
         status={status}
         region={region}
+        country={country}
         onRegionChange={setRegion}
         statsOpen={statsOpen}
         onStatsOpenChange={setStatsOpen}
@@ -321,7 +333,7 @@ const Chat = () => {
         onShowGamesChange={changeShowGames}
         onExpand={openMap}
       />
-      <RegionsArea rows={regions.rows} region={region} onRegionChange={setRegion} />
+      <RegionsArea rows={regions.rows} region={region} country={country} onRegionChange={setRegion} />
       <UserListSidebar
         users={onlineUsers}
         avatars={avatars}
@@ -336,6 +348,7 @@ const Chat = () => {
         onToggleWatch={toggleWatch}
         onOpenGame={openGameModal}
         region={region}
+        country={country}
         $mobileVisible={mobileTab === "users"}
         onClose={() => setMobileTab("chat")}
       />
@@ -345,9 +358,13 @@ const Chat = () => {
           avatars={avatars}
           stats={stats}
           inGameTags={inGameTags}
+          inGameInfoMap={inGameInfoMap}
           regions={regions.rows}
           region={region}
+          country={country}
           onRegionChange={setRegion}
+          onCountryChange={setCountry}
+          onOpenGame={openGameModal}
           onClose={closeMap}
         />
       )}

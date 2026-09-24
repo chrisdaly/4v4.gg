@@ -224,6 +224,26 @@ describe('UserListSidebar region filter', () => {
     expect(screen.getByText('Nobody online in Oceania')).toBeInTheDocument();
   });
 
+  it('narrows rows, counts and the histogram to a country and shows its flag and code in the header', () => {
+    renderSidebar({ country: 'KR' });
+    expect(rowNames()).toEqual(['Moon#1', 'Lyn#1']);
+    expect(document.querySelector('[data-online-count]')).toHaveTextContent('2');
+    expect(document.querySelector('[data-in-game-count]')).toHaveTextContent('2 in game');
+    const scope = document.querySelector('[data-roster-scope]');
+    expect(scope).toHaveTextContent('KR');
+    expect(scope).toHaveAttribute('title', 'South Korea');
+    expect(scope.querySelector('img')).toHaveAttribute('alt', 'kr');
+    expect(bins()).toEqual([0, 0, 0, 0, 0, 1, 1, 0, 0, 0, 0, 0]);
+    expect(brackets()).toEqual(['1800 - 1999', '1600 - 1799']);
+    cleanup();
+    renderSidebar({ country: 'NL' });
+    expect(rowNames()).toEqual(['Grubby#1']);
+    cleanup();
+    renderSidebar({ country: 'FR' });
+    expect(rowNames()).toEqual([]);
+    expect(screen.getByText('Nobody online in France')).toBeInTheDocument();
+  });
+
   it('still honours a name filter prop', () => {
     renderSidebar({ filter: 'gru' });
     expect(rowNames()).toEqual(['Grubby#1']);
