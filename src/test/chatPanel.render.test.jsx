@@ -373,9 +373,10 @@ describe('ChatPanel rows', () => {
     expect(document.getElementById('msg-a1')).not.toBeNull();
     expect(document.getElementById('msg-a2')).not.toBeNull();
 
-    // No header: no title, no toggle pills, no status badge
+    // No header: no title, no toggle pills, no status badge (the search
+    // control is the corner icon, not a header pill)
     expect(screen.queryByText('4v4 Chat')).toBeNull();
-    expect(screen.queryByTitle('Search chat history')).toBeNull();
+    expect(screen.getByRole('button', { name: 'Search' })).toHaveAttribute('data-active', 'false');
     expect(screen.queryByTitle(/game tickers/)).toBeNull();
     expect(screen.queryByTitle(/Focus mode/)).toBeNull();
     expect(screen.queryByTitle(/relay:/)).toBeNull();
@@ -774,6 +775,30 @@ describe('ChatPanel search', () => {
     fireEvent.click(screen.getByRole('button', { name: 'Moon' }));
     expect(player).toHaveValue('Moon#2');
     expect(scrollToIndex).not.toHaveBeenCalled();
+  });
+
+  it('has a corner search icon that toggles the panel and shows as active while open', () => {
+    renderPanel();
+    const icon = screen.getByRole('button', { name: 'Search' });
+    expect(icon.querySelector('svg')).not.toBeNull();
+    expect(icon).toHaveAttribute('aria-pressed', 'false');
+    expect(icon).toHaveAttribute('data-active', 'false');
+    expect(screen.queryByRole('search')).toBeNull();
+    fireEvent.click(icon);
+    expect(searchToggle).toHaveBeenLastCalledWith(true);
+    expect(screen.getByRole('search', { name: 'Search chat history' })).toBeInTheDocument();
+    const open = screen.getByRole('button', { name: 'Search' });
+    expect(open).toHaveAttribute('aria-pressed', 'true');
+    expect(open).toHaveAttribute('data-active', 'true');
+    // the panel's own close still works: Esc, and the icon reads closed again
+    fireEvent.keyDown(window, { key: 'Escape' });
+    expect(searchToggle).toHaveBeenLastCalledWith(false);
+    expect(screen.queryByRole('search')).toBeNull();
+    expect(screen.getByRole('button', { name: 'Search' })).toHaveAttribute('data-active', 'false');
+    fireEvent.click(screen.getByRole('button', { name: 'Search' }));
+    expect(searchToggle).toHaveBeenLastCalledWith(true);
+    fireEvent.click(screen.getByRole('button', { name: 'Search' }));
+    expect(searchToggle).toHaveBeenLastCalledWith(false);
   });
 
   it('does not ask to open when the URL carries no search', () => {

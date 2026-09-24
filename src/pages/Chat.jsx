@@ -11,6 +11,7 @@ import UserListSidebar from "../components/UserListSidebar";
 import MapPanel from "../components/chat/MapPanel";
 import RegionsPanel from "../components/chat/RegionsPanel";
 import GameModal from "../components/chat/GameModal";
+import MapModal from "../components/chat/MapModal";
 import { regionSummary } from "../lib/chat/regions";
 
 /**
@@ -230,9 +231,14 @@ const Chat = () => {
   // Region filter (a regionOf name, or null): set from a region row or a map
   // dot; narrows the roster, its histogram and the map dimming, never the chat
   const [region, setRegion] = useState(null);
-  // Chat panel modes, driven from the map header's icon buttons
+  // Chat panel modes: search from the chat panel's own corner icon, stats
+  // and games from the map header's icon buttons
   const [searchOpen, setSearchOpen] = useState(false);
   const [statsOpen, setStatsOpen] = useState(false);
+  // The fullscreen map (MapModal), from the map body or its expand button
+  const [mapOpen, setMapOpen] = useState(false);
+  const openMap = useCallback(() => setMapOpen(true), []);
+  const closeMap = useCallback(() => setMapOpen(false), []);
   const [showGames, setShowGames] = useState(readShowGames);
   const changeShowGames = useCallback((v) => {
     writeShowGames(v);
@@ -309,12 +315,11 @@ const Chat = () => {
         status={status}
         region={region}
         onRegionChange={setRegion}
-        searchOpen={searchOpen}
-        onSearchOpenChange={setSearchOpen}
         statsOpen={statsOpen}
         onStatsOpenChange={setStatsOpen}
         showGames={showGames}
         onShowGamesChange={changeShowGames}
+        onExpand={openMap}
       />
       <RegionsArea rows={regions.rows} region={region} onRegionChange={setRegion} />
       <UserListSidebar
@@ -334,6 +339,18 @@ const Chat = () => {
         $mobileVisible={mobileTab === "users"}
         onClose={() => setMobileTab("chat")}
       />
+      {mapOpen && (
+        <MapModal
+          users={onlineUsers}
+          avatars={avatars}
+          stats={stats}
+          inGameTags={inGameTags}
+          regions={regions.rows}
+          region={region}
+          onRegionChange={setRegion}
+          onClose={closeMap}
+        />
+      )}
       {openGame && (
         <GameModal
           game={openGame}

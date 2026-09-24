@@ -19,9 +19,11 @@ vi.mock('../components/WorldMap', () => ({
         data-highlight={String(Boolean(props.highlightInGame))}
         data-countries={JSON.stringify([...props.playerCountries])}
       >
-        {[...props.playerCountries.keys()].map((code) => (
-          <button key={code} data-dot={code} onClick={() => props.onDotClick(code)}>{code}</button>
-        ))}
+        <svg>
+          {[...props.playerCountries.keys()].map((code) => (
+            <circle key={code} className="map-dot" data-dot={code} onClick={() => props.onDotClick(code)} />
+          ))}
+        </svg>
       </div>
     );
   },
@@ -69,26 +71,38 @@ describe('MapPanel header', () => {
     expect(document.querySelector('[data-relay-status]')).toHaveAttribute('title', 'Relay reconnecting');
   });
 
-  it('renders search, stats and games icon buttons that report toggles and reflect their state', () => {
-    const onSearchOpenChange = vi.fn();
+  it('renders stats and games icon buttons that report toggles and reflect their state, and no search icon', () => {
     const onStatsOpenChange = vi.fn();
     const onShowGamesChange = vi.fn();
-    renderMap({ searchOpen: false, statsOpen: true, showGames: true, onSearchOpenChange, onStatsOpenChange, onShowGamesChange });
-    const search = screen.getByRole('button', { name: 'Search chat history' });
+    renderMap({ statsOpen: true, showGames: true, onStatsOpenChange, onShowGamesChange });
+    expect(screen.queryByRole('button', { name: /search/i })).toBeNull();
     const statsBtn = screen.getByRole('button', { name: 'Channel stats' });
     const games = screen.getByRole('button', { name: 'Game tickers' });
-    expect(search).toHaveAttribute('aria-pressed', 'false');
     expect(statsBtn).toHaveAttribute('aria-pressed', 'true');
     expect(statsBtn).toHaveAttribute('data-active', 'true');
     expect(games).toHaveAttribute('aria-pressed', 'true');
-    fireEvent.click(search);
-    expect(onSearchOpenChange).toHaveBeenCalledWith(true);
     fireEvent.click(statsBtn);
     expect(onStatsOpenChange).toHaveBeenCalledWith(false);
     fireEvent.click(games);
     expect(onShowGamesChange).toHaveBeenCalledWith(false);
-    expect(search.querySelector('svg')).not.toBeNull();
+    expect(statsBtn.querySelector('svg')).not.toBeNull();
     expect(games.querySelector('svg')).not.toBeNull();
+  });
+
+  it('calls onExpand from the expand button and a map-body click, never from a dot', () => {
+    const onExpand = vi.fn();
+    const onRegionChange = vi.fn();
+    renderMap({ onExpand, onRegionChange });
+    const expand = screen.getByRole('button', { name: 'Expand map' });
+    expect(expand.querySelector('svg')).not.toBeNull();
+    fireEvent.click(expand);
+    expect(onExpand).toHaveBeenCalledTimes(1);
+    fireEvent.click(document.querySelector('[data-map-box]'));
+    expect(onExpand).toHaveBeenCalledTimes(2);
+    fireEvent.click(document.querySelector('[data-dot="FR"]'));
+    expect(onExpand).toHaveBeenCalledTimes(2);
+    expect(onRegionChange).toHaveBeenLastCalledWith('Europe');
+    expect(onRegionChange).toHaveBeenCalledTimes(1);
   });
 
   it('shows the digest link only when today has one', async () => {

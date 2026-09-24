@@ -371,10 +371,15 @@ const WorldMap = ({
       .attr("stroke-width", dotStrokeWidth)
       .attr("opacity", 0);
 
-    // Click-to-filter (the /chat map): every dot, entering or not
+    // Click-to-filter (the /chat map): every dot, entering or not. The
+    // click stops here so a host that opens something on a map-body click
+    // (MapPanel's fullscreen modal) never sees a dot click.
     dotG.selectAll("circle.map-dot")
       .style("cursor", clickable ? "pointer" : null)
-      .on("click", clickable ? (event, d) => onDotClickRef.current?.(d.code) : null);
+      .on("click", clickable ? (event, d) => {
+        event.stopPropagation();
+        onDotClickRef.current?.(d.code);
+      } : null);
     dotG.selectAll("circle.map-dot").each(function (d) {
       const title = d3.select(this).selectAll("title").data([0]).join("title");
       title.text(`${d.code} · ${d.total} online · ${d.inGame} in game`);

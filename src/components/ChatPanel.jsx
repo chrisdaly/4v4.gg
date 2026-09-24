@@ -2,6 +2,7 @@ import React, { useRef, useEffect, useState, useCallback, useMemo } from "react"
 import { Virtuoso } from "react-virtuoso";
 import styled from "styled-components";
 import { IoSend } from "react-icons/io5";
+import { HiOutlineSearch } from "react-icons/hi";
 import { Button, Skeleton, Input } from "./ui";
 import { useMessageSegments, useBotResponseMap, formatDateDivider, getDateKey } from "../lib/useChatMessages";
 import { linkifyMessage } from "../lib/chatExtras";
@@ -48,6 +49,48 @@ const OuterFrame = styled.div`
 const Wrapper = styled(Panel).attrs({ as: "div" })`
   flex: 1 1 0;
   min-height: 0;
+`;
+
+/* Everything under the stats strip: the list (or the search panel and its
+   results, or an empty state) with the search toggle pinned in its corner */
+const Body = styled.div`
+  position: relative;
+  flex: 1 1 0;
+  min-height: 0;
+  display: flex;
+  flex-direction: column;
+`;
+
+/* Corner control inset: the icon box plus its gutters, so the sticky day
+   bar and the search fields stop short of it while the list itself keeps
+   its own padding (the per-line copy-link icons and timestamps sit under
+   the icon only above the fold, where the day bar already floats) */
+const CORNER_TOP = "8px";
+const CORNER_RIGHT = "14px";
+const CORNER_SIZE = 24; // px
+const CORNER_INSET = `calc(${CORNER_RIGHT} + ${CORNER_SIZE}px + var(--space-2))`;
+
+const SearchToggle = styled(Button)`
+  position: absolute;
+  top: ${CORNER_TOP};
+  right: ${CORNER_RIGHT};
+  z-index: 3;
+  width: ${CORNER_SIZE}px;
+  height: ${CORNER_SIZE}px;
+  padding: 0;
+  border-radius: var(--radius-sm);
+  background: rgba(10, 8, 6, 0.85);
+  border-color: rgba(255, 255, 255, 0.1);
+  backdrop-filter: blur(4px);
+  svg {
+    width: 14px;
+    height: 14px;
+  }
+  &[data-active="true"] {
+    color: var(--gold);
+    background: var(--gold-tint);
+    border-color: rgba(var(--gold-muted-rgb), 0.5);
+  }
 `;
 
 const MessageList = styled.div`
@@ -192,6 +235,9 @@ const StickyBar = styled.div`
   align-items: center;
   justify-content: center;
   gap: var(--space-2);
+  /* the corner search icon sits in the right inset; mirrored on the left
+     so the day label stays centred on the list */
+  padding: 0 ${CORNER_INSET};
   pointer-events: none;
 
   > * {
@@ -391,7 +437,7 @@ const SearchPanel = styled.div`
   display: flex;
   flex-direction: column;
   gap: var(--space-2);
-  padding: 10px ${LIST_PAD_X};
+  padding: 10px ${CORNER_INSET} 10px ${LIST_PAD_X};
   border-bottom: 1px solid rgba(255, 255, 255, 0.06);
   flex-shrink: 0;
 `;
@@ -772,9 +818,11 @@ const rowKey = (index, row) => row.key;
  *   windowMode, windowId, permalinkId
  * Props (controls): searchOpen / onSearchOpenChange(bool), statsOpen /
  *   onStatsOpenChange(bool), showGames, showTranslations, onOpenGame.
- *   The panel closes the search itself (Esc, a jump to a hit, and it asks
- *   for it open on a shared /chat?q= link); it never closes the stats, so
- *   onStatsOpenChange is accepted for symmetry and left unread.
+ *   The search icon in the panel's top-right corner toggles searchOpen
+ *   through onSearchOpenChange; the panel also closes the search itself
+ *   (Esc, a jump to a hit) and asks for it open on a shared /chat?q= link.
+ *   It never closes the stats, so onStatsOpenChange is accepted for
+ *   symmetry and left unread.
  */
 export default function ChatPanel({
   messages,
@@ -1587,252 +1635,265 @@ export default function ChatPanel({
     <OuterFrame data-chat-panel>
       <Wrapper>
         <StatsStrip open={statsOpen} />
-        {searchOpen && (
-          <SearchPanel role="search" aria-label="Search chat history">
-            <SearchRow>
-              <SearchField
-                type="text"
-                placeholder="Search messages..."
-                aria-label="Search messages"
-                value={searchQuery}
-                onChange={(e) => setSearchQuery(e.target.value)}
-                autoFocus={!initialSearch.open}
-              />
-              <PlayerFieldWrap>
-                <PlayerField
+        <Body>
+          <SearchToggle
+            type="button"
+            $icon
+            data-active={searchOpen}
+            aria-pressed={searchOpen}
+            aria-label="Search"
+            title={searchOpen ? "Close search" : "Search chat history"}
+            onClick={() => onSearchOpenChange?.(!searchOpen)}
+          >
+            <HiOutlineSearch />
+          </SearchToggle>
+          {searchOpen && (
+            <SearchPanel role="search" aria-label="Search chat history">
+              <SearchRow>
+                <SearchField
                   type="text"
-                  placeholder="Player"
-                  aria-label="Filter by player"
-                  value={searchPlayer}
-                  onChange={(e) => setSearchPlayer(e.target.value)}
-                  onFocus={() => setPlayerFieldFocused(true)}
-                  onBlur={() => setPlayerFieldFocused(false)}
-                  onKeyDown={(e) => {
-                    if (e.key === "Tab" && playerSuggestions) {
-                      e.preventDefault();
-                      pickPlayer(playerSuggestions[0]);
-                    }
-                  }}
+                  placeholder="Search messages..."
+                  aria-label="Search messages"
+                  value={searchQuery}
+                  onChange={(e) => setSearchQuery(e.target.value)}
+                  autoFocus={!initialSearch.open}
                 />
-                {playerSuggestions && (
-                  <MentionMenu $below role="listbox" aria-label="Player suggestions">
-                    {playerSuggestions.map((u) => (
-                      <MentionItem
-                        key={u.battleTag}
-                        type="button"
-                        role="option"
-                        aria-selected={false}
-                        onMouseDown={(e) => e.preventDefault()}
-                        onClick={() => pickPlayer(u)}
-                      >
-                        {u.name}
-                      </MentionItem>
-                    ))}
-                  </MentionMenu>
-                )}
-              </PlayerFieldWrap>
-            </SearchRow>
-            <SearchRow>
-              <RangeGroup role="group" aria-label="Search range">
-                {SEARCH_RANGES.map((r) => (
-                  <RangePill
-                    key={r.key}
-                    type="button"
-                    $pill
-                    data-active={searchSince === r.key}
-                    aria-pressed={searchSince === r.key}
-                    onClick={() => setSearchSince(r.key)}
-                  >
-                    {r.label}
-                  </RangePill>
-                ))}
-              </RangeGroup>
-              {!searching && searchResults && !searchError && (
-                <ResultCount aria-live="polite">
-                  {searchTotal} {searchTotal === 1 ? "result" : "results"}
-                </ResultCount>
-              )}
-            </SearchRow>
-          </SearchPanel>
-        )}
-        {searchOpen ? (
-          <SearchResults>
-            {searching &&
-              [...Array(5)].map((_, i) => (
-                <SkeletonRow key={i} data-testid="search-skeleton">
-                  <Skeleton $w="24px" $h="24px" $radius="var(--radius-md)" style={{ flexShrink: 0 }} />
-                  <div style={{ flex: 1, display: "flex", flexDirection: "column", gap: 6, paddingTop: 2 }}>
-                    <Skeleton $w="90px" $h="12px" />
-                    <Skeleton $w={`${40 + ((i * 17) % 45)}%`} $h="14px" />
-                  </div>
-                </SkeletonRow>
-              ))}
-            {!searching && searchError && (
-              <SearchEmpty>Search failed. The relay may be offline, try again in a moment.</SearchEmpty>
-            )}
-            {!searching && !searchError && !searchResults && (
-              <SearchEmpty>
-                Search messages, filter by player, or both. At least {SEARCH_MIN_CHARS} characters.
-              </SearchEmpty>
-            )}
-            {!searching && !searchError && searchResults && searchResults.length === 0 && (
-              <SearchEmpty>
-                No messages match{searchSince !== "all" ? " in this range. Try a wider one." : "."}
-              </SearchEmpty>
-            )}
-            {!searching &&
-              searchResults?.map((r, i) => {
-                const prev = i > 0 ? searchResults[i - 1] : null;
-                const when = r.sentAt || r.receivedAt;
-                const showDay = !prev || getDateKey(prev.sentAt || prev.receivedAt) !== getDateKey(when);
-                const profile = avatars?.get(r.battleTag) || searchAvatars.get(r.battleTag);
-                const playerStats = stats?.get(r.battleTag);
-                const group = {
-                  author: { battleTag: r.battleTag, userName: r.userName, clanTag: r.clanTag },
-                  lines: [{ id: r.id, text: r.text, sentAt: r.sentAt, kind: r.kind }],
-                };
-                const meta = {
-                  avatarUrl: profile?.profilePicUrl,
-                  race: playerStats?.race,
-                  countryCode: profile?.country,
-                  mmr: playerStats?.mmr,
-                };
-                return (
-                  <React.Fragment key={r.id ?? `${r.receivedAt}-${i}`}>
-                    {showDay && (
-                      <ResultDivider $first={i === 0}>
-                        <DateLabel>{formatDateDivider(when)}</DateLabel>
-                      </ResultDivider>
-                    )}
-                    <SearchResultRow
-                      role="button"
-                      tabIndex={0}
-                      title="Jump to message"
-                      aria-disabled={jumpBusy}
-                      onClick={(e) => {
-                        if (jumpBusy || e.target.closest("button, a")) return;
-                        jumpToResult(r);
-                      }}
-                      onKeyDown={(e) => {
-                        if (e.target !== e.currentTarget || (e.key !== "Enter" && e.key !== " ")) return;
+                <PlayerFieldWrap>
+                  <PlayerField
+                    type="text"
+                    placeholder="Player"
+                    aria-label="Filter by player"
+                    value={searchPlayer}
+                    onChange={(e) => setSearchPlayer(e.target.value)}
+                    onFocus={() => setPlayerFieldFocused(true)}
+                    onBlur={() => setPlayerFieldFocused(false)}
+                    onKeyDown={(e) => {
+                      if (e.key === "Tab" && playerSuggestions) {
                         e.preventDefault();
-                        if (!jumpBusy) jumpToResult(r);
-                      }}
+                        pickPlayer(playerSuggestions[0]);
+                      }
+                    }}
+                  />
+                  {playerSuggestions && (
+                    <MentionMenu $below role="listbox" aria-label="Player suggestions">
+                      {playerSuggestions.map((u) => (
+                        <MentionItem
+                          key={u.battleTag}
+                          type="button"
+                          role="option"
+                          aria-selected={false}
+                          onMouseDown={(e) => e.preventDefault()}
+                          onClick={() => pickPlayer(u)}
+                        >
+                          {u.name}
+                        </MentionItem>
+                      ))}
+                    </MentionMenu>
+                  )}
+                </PlayerFieldWrap>
+              </SearchRow>
+              <SearchRow>
+                <RangeGroup role="group" aria-label="Search range">
+                  {SEARCH_RANGES.map((r) => (
+                    <RangePill
+                      key={r.key}
+                      type="button"
+                      $pill
+                      data-active={searchSince === r.key}
+                      aria-pressed={searchSince === r.key}
+                      onClick={() => setSearchSince(r.key)}
                     >
-                      <ChatMessage
-                        variant="transcript"
-                        group={group}
-                        meta={meta}
-                        onNameClick={filterByAuthor}
-                        renderLine={renderSearchLine}
-                      />
-                    </SearchResultRow>
-                  </React.Fragment>
-                );
-              })}
-            {!searching && searchResults && searchResults.length < searchTotal && (
-              <MoreRow>
-                <Button type="button" $pill disabled={searchingMore} onClick={loadMoreResults}>
-                  {searchingMore ? "Loading..." : "More"}
-                </Button>
-              </MoreRow>
-            )}
-          </SearchResults>
-        ) : null}
-        {searchOpen ? null : messages.length === 0 ? (
-          status !== "connected" ? (
-            <MessageList>
-              {[...Array(6)].map((_, i) => (
-                <div key={i} style={{ display: "flex", gap: 12, padding: "10px 0", alignItems: "flex-start" }}>
-                  <Skeleton $w="38px" $h="38px" $radius="3px" style={{ flexShrink: 0 }} />
-                  <div style={{ flex: 1, display: "flex", flexDirection: "column", gap: 6, paddingTop: 2 }}>
-                    <div style={{ display: "flex", gap: "var(--space-2)", alignItems: "center" }}>
-                      <Skeleton $w="100px" $h="14px" />
-                      <Skeleton $w="50px" $h="10px" />
+                      {r.label}
+                    </RangePill>
+                  ))}
+                </RangeGroup>
+                {!searching && searchResults && !searchError && (
+                  <ResultCount aria-live="polite">
+                    {searchTotal} {searchTotal === 1 ? "result" : "results"}
+                  </ResultCount>
+                )}
+              </SearchRow>
+            </SearchPanel>
+          )}
+          {searchOpen ? (
+            <SearchResults>
+              {searching &&
+                [...Array(5)].map((_, i) => (
+                  <SkeletonRow key={i} data-testid="search-skeleton">
+                    <Skeleton $w="24px" $h="24px" $radius="var(--radius-md)" style={{ flexShrink: 0 }} />
+                    <div style={{ flex: 1, display: "flex", flexDirection: "column", gap: 6, paddingTop: 2 }}>
+                      <Skeleton $w="90px" $h="12px" />
+                      <Skeleton $w={`${40 + ((i * 17) % 45)}%`} $h="14px" />
                     </div>
-                    <Skeleton $w={`${50 + Math.random() * 40}%`} $h="14px" />
-                    {i % 2 === 0 && <Skeleton $w={`${30 + Math.random() * 30}%`} $h="14px" />}
+                  </SkeletonRow>
+                ))}
+              {!searching && searchError && (
+                <SearchEmpty>Search failed. The relay may be offline, try again in a moment.</SearchEmpty>
+              )}
+              {!searching && !searchError && !searchResults && (
+                <SearchEmpty>
+                  Search messages, filter by player, or both. At least {SEARCH_MIN_CHARS} characters.
+                </SearchEmpty>
+              )}
+              {!searching && !searchError && searchResults && searchResults.length === 0 && (
+                <SearchEmpty>
+                  No messages match{searchSince !== "all" ? " in this range. Try a wider one." : "."}
+                </SearchEmpty>
+              )}
+              {!searching &&
+                searchResults?.map((r, i) => {
+                  const prev = i > 0 ? searchResults[i - 1] : null;
+                  const when = r.sentAt || r.receivedAt;
+                  const showDay = !prev || getDateKey(prev.sentAt || prev.receivedAt) !== getDateKey(when);
+                  const profile = avatars?.get(r.battleTag) || searchAvatars.get(r.battleTag);
+                  const playerStats = stats?.get(r.battleTag);
+                  const group = {
+                    author: { battleTag: r.battleTag, userName: r.userName, clanTag: r.clanTag },
+                    lines: [{ id: r.id, text: r.text, sentAt: r.sentAt, kind: r.kind }],
+                  };
+                  const meta = {
+                    avatarUrl: profile?.profilePicUrl,
+                    race: playerStats?.race,
+                    countryCode: profile?.country,
+                    mmr: playerStats?.mmr,
+                  };
+                  return (
+                    <React.Fragment key={r.id ?? `${r.receivedAt}-${i}`}>
+                      {showDay && (
+                        <ResultDivider $first={i === 0}>
+                          <DateLabel>{formatDateDivider(when)}</DateLabel>
+                        </ResultDivider>
+                      )}
+                      <SearchResultRow
+                        role="button"
+                        tabIndex={0}
+                        title="Jump to message"
+                        aria-disabled={jumpBusy}
+                        onClick={(e) => {
+                          if (jumpBusy || e.target.closest("button, a")) return;
+                          jumpToResult(r);
+                        }}
+                        onKeyDown={(e) => {
+                          if (e.target !== e.currentTarget || (e.key !== "Enter" && e.key !== " ")) return;
+                          e.preventDefault();
+                          if (!jumpBusy) jumpToResult(r);
+                        }}
+                      >
+                        <ChatMessage
+                          variant="transcript"
+                          group={group}
+                          meta={meta}
+                          onNameClick={filterByAuthor}
+                          renderLine={renderSearchLine}
+                        />
+                      </SearchResultRow>
+                    </React.Fragment>
+                  );
+                })}
+              {!searching && searchResults && searchResults.length < searchTotal && (
+                <MoreRow>
+                  <Button type="button" $pill disabled={searchingMore} onClick={loadMoreResults}>
+                    {searchingMore ? "Loading..." : "More"}
+                  </Button>
+                </MoreRow>
+              )}
+            </SearchResults>
+          ) : null}
+          {searchOpen ? null : messages.length === 0 ? (
+            status !== "connected" ? (
+              <MessageList>
+                {[...Array(6)].map((_, i) => (
+                  <div key={i} style={{ display: "flex", gap: 12, padding: "10px 0", alignItems: "flex-start" }}>
+                    <Skeleton $w="38px" $h="38px" $radius="3px" style={{ flexShrink: 0 }} />
+                    <div style={{ flex: 1, display: "flex", flexDirection: "column", gap: 6, paddingTop: 2 }}>
+                      <div style={{ display: "flex", gap: "var(--space-2)", alignItems: "center" }}>
+                        <Skeleton $w="100px" $h="14px" />
+                        <Skeleton $w="50px" $h="10px" />
+                      </div>
+                      <Skeleton $w={`${50 + Math.random() * 40}%`} $h="14px" />
+                      {i % 2 === 0 && <Skeleton $w={`${30 + Math.random() * 30}%`} $h="14px" />}
+                    </div>
                   </div>
-                </div>
-              ))}
-            </MessageList>
+                ))}
+              </MessageList>
+            ) : (
+              <EmptyState>No messages yet</EmptyState>
+            )
           ) : (
-            <EmptyState>No messages yet</EmptyState>
-          )
-        ) : (
-          <ScrollContainer>
-            <Virtuoso
-              key={windowId}
-              ref={virtuosoRef}
-              style={virtuosoStyle}
-              data={rows}
-              context={listContext}
-              components={listComponents}
-              computeItemKey={rowKey}
-              itemContent={renderRow}
-              firstItemIndex={firstItemIndex}
-              initialTopMostItemIndex={
-                pendingJumpIndex !== -1 ? { index: pendingJumpIndex, align: pendingJumpAlign } : rows.length - 1
-              }
-              followOutput={followOutput}
-              atBottomStateChange={handleAtBottomChange}
-              startReached={handleStartReached}
-              rangeChanged={handleRangeChanged}
-              scrollerRef={handleScrollerRef}
-              atBottomThreshold={40}
-              increaseViewportBy={{ top: 400, bottom: 400 }}
-            />
-            <StickyBar>
-              <DayPicker ref={dayPickerRef}>
-                {topDayLabel && (
-                  <DayButton
+            <ScrollContainer>
+              <Virtuoso
+                key={windowId}
+                ref={virtuosoRef}
+                style={virtuosoStyle}
+                data={rows}
+                context={listContext}
+                components={listComponents}
+                computeItemKey={rowKey}
+                itemContent={renderRow}
+                firstItemIndex={firstItemIndex}
+                initialTopMostItemIndex={
+                  pendingJumpIndex !== -1 ? { index: pendingJumpIndex, align: pendingJumpAlign } : rows.length - 1
+                }
+                followOutput={followOutput}
+                atBottomStateChange={handleAtBottomChange}
+                startReached={handleStartReached}
+                rangeChanged={handleRangeChanged}
+                scrollerRef={handleScrollerRef}
+                atBottomThreshold={40}
+                increaseViewportBy={{ top: 400, bottom: 400 }}
+              />
+              <StickyBar>
+                <DayPicker ref={dayPickerRef}>
+                  {topDayLabel && (
+                    <DayButton
+                      type="button"
+                      $pill
+                      data-active={dayPickerOpen}
+                      aria-haspopup="dialog"
+                      aria-expanded={dayPickerOpen}
+                      title="Jump to date"
+                      onClick={() => setDayPickerOpen((v) => !v)}
+                    >
+                      {topDayLabel}
+                    </DayButton>
+                  )}
+                  {dayPickerOpen && (
+                    <DayPopover role="dialog" aria-label="Jump to date">
+                      <DayPopoverLabel htmlFor="chat-jump-date">Jump to date</DayPopoverLabel>
+                      <DateInput
+                        id="chat-jump-date"
+                        type="date"
+                        defaultValue={topDayInput}
+                        min={archiveMin || undefined}
+                        max={todayInput}
+                        disabled={loadingWindow}
+                        onChange={(e) => jumpToDate(e.target.value)}
+                        autoFocus
+                      />
+                    </DayPopover>
+                  )}
+                </DayPicker>
+                {windowMode !== "live" && (
+                  <BackToLiveButton
                     type="button"
                     $pill
-                    data-active={dayPickerOpen}
-                    aria-haspopup="dialog"
-                    aria-expanded={dayPickerOpen}
-                    title="Jump to date"
-                    onClick={() => setDayPickerOpen((v) => !v)}
+                    data-active="true"
+                    disabled={loadingWindow}
+                    onClick={backToLive}
+                    title="Reload the latest messages"
                   >
-                    {topDayLabel}
-                  </DayButton>
+                    {loadingWindow ? "Loading..." : "Back to live"}
+                  </BackToLiveButton>
                 )}
-                {dayPickerOpen && (
-                  <DayPopover role="dialog" aria-label="Jump to date">
-                    <DayPopoverLabel htmlFor="chat-jump-date">Jump to date</DayPopoverLabel>
-                    <DateInput
-                      id="chat-jump-date"
-                      type="date"
-                      defaultValue={topDayInput}
-                      min={archiveMin || undefined}
-                      max={todayInput}
-                      disabled={loadingWindow}
-                      onChange={(e) => jumpToDate(e.target.value)}
-                      autoFocus
-                    />
-                  </DayPopover>
-                )}
-              </DayPicker>
-              {windowMode !== "live" && (
-                <BackToLiveButton
-                  type="button"
-                  $pill
-                  data-active="true"
-                  disabled={loadingWindow}
-                  onClick={backToLive}
-                  title="Reload the latest messages"
-                >
-                  {loadingWindow ? "Loading..." : "Back to live"}
-                </BackToLiveButton>
+              </StickyBar>
+              {showNotice && (
+                <ScrollNotice onClick={scrollToBottom}>
+                  New messages below
+                </ScrollNotice>
               )}
-            </StickyBar>
-            {showNotice && (
-              <ScrollNotice onClick={scrollToBottom}>
-                New messages below
-              </ScrollNotice>
-            )}
-          </ScrollContainer>
-        )}
+            </ScrollContainer>
+          )}
+        </Body>
       </Wrapper>
       {isAdmin && (
         <BotTestBar onSubmit={handleBotTest}>

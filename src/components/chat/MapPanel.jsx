@@ -1,7 +1,7 @@
 import React, { useEffect, useMemo, useState } from "react";
 import styled from "styled-components";
 import { Link } from "react-router-dom";
-import { HiOutlineSearch, HiOutlineChartBar, HiOutlineNewspaper } from "react-icons/hi";
+import { HiOutlineChartBar, HiOutlineNewspaper, HiOutlineArrowsExpand } from "react-icons/hi";
 import { GiCrossedSwords } from "react-icons/gi";
 import WorldMap from "../WorldMap";
 import { Button } from "../ui";
@@ -11,9 +11,11 @@ import { fetchTodayDigest } from "../../lib/chat/digestToday";
 
 /**
  * The map panel on /chat: the 4v4.GG home link with the relay dot, the
- * countries pill, the page's icon buttons (search, stats, today's digest,
- * games toggle) and the world map. Clicking a dot toggles the region
- * filter (onRegionChange); dots outside the selected region dim.
+ * countries pill, the page's icon buttons (stats, today's digest, games
+ * toggle) and the world map. Clicking a dot toggles the region filter
+ * (onRegionChange); dots outside the selected region dim. A click anywhere
+ * else on the map body, or the expand button in its corner, calls onExpand
+ * (Chat.jsx opens the fullscreen MapModal with it).
  */
 
 const MIN_MAP_HEIGHT = 170; // px
@@ -83,7 +85,23 @@ const MapBox = styled.div`
   min-height: ${MIN_MAP_HEIGHT}px;
   position: relative;
   display: flex;
+  cursor: zoom-in;
 `;
+
+const ExpandButton = styled(IconButton)`
+  position: absolute;
+  top: 4px;
+  right: 4px;
+  z-index: 1;
+  cursor: pointer;
+  color: rgba(255, 255, 255, 0.5);
+  background: rgba(10, 8, 6, 0.6);
+  &:hover {
+    color: var(--white);
+  }
+`;
+
+const isDot = (target) => Boolean(target?.closest?.("circle.map-dot"));
 
 export default function MapPanel({
   users,
@@ -93,12 +111,11 @@ export default function MapPanel({
   status,
   region = null,
   onRegionChange,
-  searchOpen = false,
-  onSearchOpenChange,
   statsOpen = false,
   onStatsOpenChange,
   showGames = true,
   onShowGamesChange,
+  onExpand,
   className,
 }) {
   const { playerCountries, mapPlayers } = useMemo(
@@ -115,6 +132,17 @@ export default function MapPanel({
     onRegionChange(region === r ? null : r);
   };
 
+  // WorldMap stops a dot click's propagation; the target check covers a host
+  // whose dots do not (tests) and keeps a dot click from also expanding
+  const onBodyClick = (e) => {
+    if (isDot(e.target)) return;
+    onExpand?.();
+  };
+  const onExpandClick = (e) => {
+    e.stopPropagation();
+    onExpand?.();
+  };
+
   return (
     <Panel className={className} data-map-panel aria-label="World map">
       <PanelHeader>
@@ -124,17 +152,6 @@ export default function MapPanel({
         </Home>
         <CountPill data-country-count>{countriesLabel(countryCount)}</CountPill>
         <Actions>
-          <IconButton
-            type="button"
-            $icon
-            data-active={searchOpen}
-            aria-pressed={searchOpen}
-            aria-label="Search chat history"
-            title="Search chat history"
-            onClick={() => onSearchOpenChange?.(!searchOpen)}
-          >
-            <HiOutlineSearch />
-          </IconButton>
           <IconButton
             type="button"
             $icon
@@ -164,7 +181,10 @@ export default function MapPanel({
           </IconButton>
         </Actions>
       </PanelHeader>
-      <MapBox data-map-box>
+      <MapBox data-map-box onClick={onBodyClick}>
+        <ExpandButton type="button" $icon aria-label="Expand map" title="Expand map" onClick={onExpandClick}>
+          <HiOutlineArrowsExpand />
+        </ExpandButton>
         <WorldMap
           instant
           highlightInGame
