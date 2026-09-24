@@ -62,6 +62,32 @@ const UTC_OFFSETS = {
   MA: 1, DZ: 1, TN: 1, KE: 3, ET: 3, IN: 5.5, PK: 5, BD: 6, LK: 5.5, NP: 5.75, AF: 4.5,
 };
 
+/* Display names for the codes the ladder actually produces (every code in
+   REGION_CODES and UTC_OFFSETS plus the common rest). countryNameOf falls
+   back to the code itself for anything missing here. */
+const COUNTRY_NAMES = {
+  AD: "Andorra", AE: "United Arab Emirates", AF: "Afghanistan", AL: "Albania", AM: "Armenia", AR: "Argentina",
+  AT: "Austria", AU: "Australia", AZ: "Azerbaijan", BA: "Bosnia and Herzegovina", BD: "Bangladesh", BE: "Belgium",
+  BG: "Bulgaria", BH: "Bahrain", BO: "Bolivia", BR: "Brazil", BY: "Belarus", CA: "Canada", CH: "Switzerland",
+  CL: "Chile", CN: "China", CO: "Colombia", CR: "Costa Rica", CU: "Cuba", CY: "Cyprus", CZ: "Czechia",
+  DE: "Germany", DK: "Denmark", DO: "Dominican Republic", DZ: "Algeria", EC: "Ecuador", EE: "Estonia", EG: "Egypt",
+  ES: "Spain", ET: "Ethiopia", FI: "Finland", FJ: "Fiji", FO: "Faroe Islands", FR: "France", GB: "United Kingdom",
+  GE: "Georgia", GI: "Gibraltar", GL: "Greenland", GR: "Greece", GT: "Guatemala", GU: "Guam", GY: "Guyana",
+  HK: "Hong Kong", HN: "Honduras", HR: "Croatia", HU: "Hungary", ID: "Indonesia", IE: "Ireland", IL: "Israel",
+  IN: "India", IQ: "Iraq", IR: "Iran", IS: "Iceland", IT: "Italy", JM: "Jamaica", JO: "Jordan", JP: "Japan",
+  KE: "Kenya", KG: "Kyrgyzstan", KH: "Cambodia", KR: "South Korea", KW: "Kuwait", KZ: "Kazakhstan", LA: "Laos",
+  LB: "Lebanon", LI: "Liechtenstein", LK: "Sri Lanka", LT: "Lithuania", LU: "Luxembourg", LV: "Latvia", MA: "Morocco",
+  MC: "Monaco", MD: "Moldova", ME: "Montenegro", MK: "North Macedonia", MM: "Myanmar", MN: "Mongolia", MO: "Macao",
+  MT: "Malta", MX: "Mexico", MY: "Malaysia", NC: "New Caledonia", NG: "Nigeria", NI: "Nicaragua", NL: "Netherlands",
+  NO: "Norway", NP: "Nepal", NZ: "New Zealand", OM: "Oman", PA: "Panama", PE: "Peru", PF: "French Polynesia",
+  PG: "Papua New Guinea", PH: "Philippines", PK: "Pakistan", PL: "Poland", PR: "Puerto Rico", PT: "Portugal",
+  PY: "Paraguay", QA: "Qatar", RO: "Romania", RS: "Serbia", RU: "Russia", SA: "Saudi Arabia", SE: "Sweden",
+  SG: "Singapore", SI: "Slovenia", SK: "Slovakia", SM: "San Marino", SR: "Suriname", SV: "El Salvador", SY: "Syria",
+  TH: "Thailand", TJ: "Tajikistan", TM: "Turkmenistan", TN: "Tunisia", TR: "Turkey", TW: "Taiwan", UA: "Ukraine",
+  US: "United States", UY: "Uruguay", UZ: "Uzbekistan", VA: "Vatican City", VE: "Venezuela", VN: "Vietnam",
+  XK: "Kosovo", ZA: "South Africa",
+};
+
 const norm = (code) => (typeof code === "string" && code ? code.toUpperCase() : null);
 
 /** Region name for a country code ("Other" when unknown or missing). */
@@ -103,6 +129,24 @@ export function localTimeLabel(countryCode, now = new Date()) {
 /** Uppercase country code for a user from the avatars map, or null. */
 export function countryOf(user, avatars) {
   return norm(avatars?.get(user?.battleTag)?.country);
+}
+
+/** Display name for a country code; the uppercased code when unknown, "" when missing. */
+export function countryNameOf(countryCode) {
+  const code = norm(countryCode);
+  return code ? COUNTRY_NAMES[code] || code : "";
+}
+
+/**
+ * Predicate for WorldMap's dimOutside: true for a country code outside the
+ * active scope. One scope at a time: a country wins over a region. null
+ * when neither is set (nothing dims).
+ */
+export function outsideScope({ region = null, country = null } = {}) {
+  const c = norm(country);
+  if (c) return (code) => norm(code) !== c;
+  if (region) return (code) => regionOf(code) !== region;
+  return null;
 }
 
 /** "12 countries" (singular when 1). */
@@ -151,6 +195,42 @@ export function regionSummary(users, meta = {}, now = new Date()) {
     }))
     .sort((a, b) => b.count - a.count || REGION_NAMES.indexOf(a.name) - REGION_NAMES.indexOf(b.name));
   return { rows, countryCount: knownCountries.size };
+}
+
+/**
+ * Per-country rows for the map modal's rail, sorted by online count desc
+ * (ties by name):
+ *   { code, name, count, inGame, avgMmr (null when nobody has one),
+ *     share (count / largest count) }
+ * Players without a known country are left out. meta = { stats, avatars, inGameTags }
+ */
+export function countrySummary(users, meta = {}) {
+  const { stats, avatars, inGameTags } = meta;
+  const byCode = new Map();
+  for (const u of users || []) {
+    const code = countryOf(u, avatars);
+    if (!code) continue;
+    if (!byCode.has(code)) byCode.set(code, { count: 0, inGame: 0, mmrSum: 0, mmrN: 0 });
+    const c = byCode.get(code);
+    c.count++;
+    if (inGameTags?.has(u.battleTag)) c.inGame++;
+    const mmr = stats?.get(u.battleTag)?.mmr;
+    if (mmr != null) {
+      c.mmrSum += mmr;
+      c.mmrN++;
+    }
+  }
+  const max = Math.max(1, ...[...byCode.values()].map((c) => c.count));
+  return [...byCode]
+    .map(([code, c]) => ({
+      code,
+      name: countryNameOf(code),
+      count: c.count,
+      inGame: c.inGame,
+      avgMmr: c.mmrN ? Math.round(c.mmrSum / c.mmrN) : null,
+      share: c.count / max,
+    }))
+    .sort((a, b) => b.count - a.count || a.name.localeCompare(b.name));
 }
 
 /**

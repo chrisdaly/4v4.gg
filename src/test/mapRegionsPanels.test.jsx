@@ -15,7 +15,7 @@ vi.mock('../components/WorldMap', () => ({
     return (
       <div
         data-mock-map
-        data-dim={props.dimOutside ?? ''}
+        data-dim={[...props.playerCountries.keys()].filter((c) => props.dimOutside?.(c)).join(',')}
         data-highlight={String(Boolean(props.highlightInGame))}
         data-countries={JSON.stringify([...props.playerCountries])}
       >
@@ -121,13 +121,18 @@ describe('MapPanel map', () => {
   it('feeds WorldMap the country counts, highlights in-game countries and dims outside the region', () => {
     renderMap({ region: 'Europe' });
     const map = document.querySelector('[data-mock-map]');
-    expect(map).toHaveAttribute('data-dim', 'Europe');
+    expect(map).toHaveAttribute('data-dim', 'CN,KR,US');
     expect(map).toHaveAttribute('data-highlight', 'true');
     expect(lastMapProps.playerCountries.get('DE')).toEqual({ online: 1, inGame: 1 });
     expect(lastMapProps.playerCountries.get('CN')).toEqual({ online: 1, inGame: 0 });
     expect(lastMapProps.players.map((p) => p.battleTag)).toEqual(roster.map((r) => r.battleTag));
     expect(lastMapProps.instant).toBe(true);
-    expect(map).toHaveAttribute('data-dim', 'Europe');
+    cleanup();
+    renderMap({ country: 'DE' });
+    expect(document.querySelector('[data-mock-map]')).toHaveAttribute('data-dim', 'FR,CN,KR,US');
+    cleanup();
+    renderMap({});
+    expect(document.querySelector('[data-mock-map]')).toHaveAttribute('data-dim', '');
   });
 
   it('toggles the region from a dot click', () => {
@@ -176,6 +181,18 @@ describe('RegionsPanel', () => {
     expect(onRegionChange).toHaveBeenLastCalledWith('Europe');
     fireEvent.keyDown(eu, { key: 'Enter' });
     expect(onRegionChange).toHaveBeenCalledTimes(3);
+    fireEvent.click(screen.getByRole('button', { name: 'Show all' }));
+    expect(onRegionChange).toHaveBeenLastCalledWith(null);
+  });
+
+  it('mutes every row under a country scope, names the country in the header, and Show all clears it', () => {
+    const onRegionChange = vi.fn();
+    render(<RegionsPanel rows={rows} region={null} country="DE" onRegionChange={onRegionChange} />);
+    expect(rowEls().some((el) => el.hasAttribute('data-selected'))).toBe(false);
+    const scope = document.querySelector('[data-regions-country="DE"]');
+    expect(scope).toHaveTextContent('Germany');
+    expect(scope.querySelector('img')).toHaveAttribute('alt', 'de');
+    expect(screen.queryByText('online · avg MMR · local')).toBeNull();
     fireEvent.click(screen.getByRole('button', { name: 'Show all' }));
     expect(onRegionChange).toHaveBeenLastCalledWith(null);
   });

@@ -7,6 +7,9 @@ import {
   regionSummary,
   buildMapData,
   countriesLabel,
+  countryNameOf,
+  countrySummary,
+  outsideScope,
   REGION_NAMES,
 } from '../lib/chat/regions';
 
@@ -62,6 +65,67 @@ describe('utcOffsetOf and local time', () => {
     expect(offsetTimeLabel(0, new Date('2026-09-23T00:05:00Z'))).toBe('12:05a');
     expect(offsetTimeLabel(0, new Date('2026-09-23T12:00:00Z'))).toBe('12:00p');
     expect(localTimeLabel('XX', t)).toBe('');
+  });
+});
+
+describe('countryNameOf', () => {
+  it('names the ladder countries in any case and falls back to the code', () => {
+    expect(countryNameOf('FR')).toBe('France');
+    expect(countryNameOf('de')).toBe('Germany');
+    expect(countryNameOf('KR')).toBe('South Korea');
+    expect(countryNameOf('US')).toBe('United States');
+    expect(countryNameOf('GB')).toBe('United Kingdom');
+    expect(countryNameOf('XK')).toBe('Kosovo');
+    expect(countryNameOf('XX')).toBe('XX');
+    expect(countryNameOf('zz')).toBe('ZZ');
+    expect(countryNameOf(null)).toBe('');
+    expect(countryNameOf('')).toBe('');
+  });
+
+  it('covers every region code and every UTC offset code', () => {
+    const regionCodes = ['FR', 'DE', 'SE', 'CN', 'HK', 'KR', 'US', 'CA', 'RU', 'UA', 'BR', 'PE', 'AU', 'NZ', 'GL', 'PF', 'GU', 'MM', 'AF'];
+    for (const cc of regionCodes) expect(countryNameOf(cc), cc).not.toBe(cc);
+  });
+});
+
+describe('outsideScope', () => {
+  it('returns null without a scope, a region predicate for a region, and a country predicate that wins over the region', () => {
+    expect(outsideScope()).toBeNull();
+    expect(outsideScope({ region: null, country: null })).toBeNull();
+    const eu = outsideScope({ region: 'Europe' });
+    expect(eu('FR')).toBe(false);
+    expect(eu('de')).toBe(false);
+    expect(eu('US')).toBe(true);
+    expect(eu(null)).toBe(true);
+    const other = outsideScope({ region: 'Other' });
+    expect(other(null)).toBe(false);
+    expect(other('ZA')).toBe(false);
+    expect(other('FR')).toBe(true);
+    const fr = outsideScope({ region: 'Europe', country: 'fr' });
+    expect(fr('FR')).toBe(false);
+    expect(fr('fr')).toBe(false);
+    expect(fr('DE')).toBe(true);
+    expect(fr(null)).toBe(true);
+  });
+});
+
+describe('countrySummary', () => {
+  it('sorts countries by count desc then name, averages known MMR, counts in-game players and skips unknown countries', () => {
+    const rows = countrySummary(roster, { stats, avatars, inGameTags: new Set(['b#1', 'g#1']) });
+    expect(rows.map((r) => r.code)).toEqual(['DE', 'CN', 'FR', 'KR', 'GB', 'US']);
+    expect(rows.map((r) => r.name)).toEqual(['Germany', 'China', 'France', 'South Korea', 'United Kingdom', 'United States']);
+    expect(rows.map((r) => r.count)).toEqual([2, 1, 1, 1, 1, 1]);
+    expect(rows[0].avgMmr).toBe(1700);
+    expect(rows[0].inGame).toBe(1);
+    expect(rows[0].share).toBe(1);
+    expect(rows[1].share).toBe(0.5);
+    expect(rows.find((r) => r.code === 'GB').avgMmr).toBeNull();
+    expect(rows.find((r) => r.code === 'US').inGame).toBe(1);
+  });
+
+  it('returns an empty list for an empty or countryless roster', () => {
+    expect(countrySummary([], {})).toEqual([]);
+    expect(countrySummary([u('h', null, 1400)], { avatars: new Map() })).toEqual([]);
   });
 });
 
