@@ -42,13 +42,14 @@ function parseDramaFromText(sections) {
       const qm = q.match(/^(\w[\w\d!ǃ]*?):\s+(.+)$/);
       return qm ? { speaker: qm[1], text: qm[2] } : { speaker: null, text: q };
     };
+    // Every item can carry "Headline | body", not just the lead: the
+    // sub-stories read as briefs rather than loose paragraphs.
+    const pipeSplit = trimmed.split(/\s*\|\s*/);
+    if (pipeSplit.length > 1) {
+      item.headline = pipeSplit[0];
+      item.summary = pipeSplit.slice(1).join(" | ");
+    }
     if (idx === 0) {
-      // Lead item: split headline from body via pipe
-      const pipeSplit = trimmed.split(/\s*\|\s*/);
-      if (pipeSplit.length > 1) {
-        item.headline = pipeSplit[0];
-        item.summary = pipeSplit.slice(1).join(" | ");
-      }
       // Attach quotes: prefer DRAMA_QUOTES section, fall back to inline
       const quotesSec = sections.find((s) => s.key === "DRAMA_QUOTES");
       if (quotesSec) {
@@ -72,8 +73,11 @@ function parseHighlightsFromText(sections) {
     const trimmed = raw.trim();
     if (!trimmed) return null;
     const { summary, quotes: rawQuotes } = splitQuotes(trimmed);
+    const cleaned = cleanSummary(summary);
+    const pipeSplit = cleaned.split(/\s*\|\s*/);
     return {
-      summary: cleanSummary(summary),
+      headline: pipeSplit.length > 1 ? pipeSplit[0] : undefined,
+      summary: pipeSplit.length > 1 ? pipeSplit.slice(1).join(" | ") : cleaned,
       quotes: rawQuotes.map((q) => {
         const qm = q.match(/^(\w[\w\d!ǃ]*?):\s+(.+)$/);
         return qm ? { speaker: qm[1], text: qm[2] } : { speaker: null, text: q };

@@ -376,6 +376,42 @@ a.mg-inline-name:hover {
   border-left-color: rgba(248, 113, 113, 0.4);
 }
 
+/* ── Briefs: a sub-story carrying its own headline ──
+   The dash marker gives way to a rule above the headline, so the column
+   reads as a stack of short stories rather than one run of bullets. */
+
+.mg-sidebar-item:has(.mg-brief-title) {
+  padding-left: 0;
+  padding-top: var(--space-3);
+  border-top: 1px solid rgba(255, 255, 255, 0.1);
+}
+
+.mg-sidebar-item:has(.mg-brief-title)::before {
+  display: none;
+}
+
+.mg-brief-title {
+  margin: 0 0 var(--space-2);
+  font-family: var(--font-display);
+  font-size: var(--text-sm);
+  font-weight: normal;
+  line-height: 1.2;
+  color: var(--gold);
+  text-wrap: balance;
+}
+
+.mg-brief-title--green {
+  color: var(--green);
+}
+
+.mg-brief-body {
+  display: block;
+  font-family: var(--font-body, Georgia, serif);
+  font-size: var(--text-xs);
+  line-height: 1.6;
+  color: rgba(255, 255, 255, 0.82);
+}
+
 /* Highlight items with inline quotes */
 .mg-highlight-item {
   flex-direction: column;
@@ -522,10 +558,25 @@ a.mg-inline-name:hover {
 .mg-spotlight-card:hover .mg-spotlight-dismiss { opacity: 1; }
 .mg-spotlight-card .mg-spotlight-dismiss:hover { color: var(--white); background: rgba(248, 113, 113, 0.7); }
 
-.mg-spotlight-card--green { border: var(--border-thick) solid rgba(74, 222, 128, 0.4); }
-.mg-spotlight-card--red { border: var(--border-thick) solid rgba(248, 113, 113, 0.4); }
-.mg-spotlight-card--gold { border: var(--border-thick) solid rgba(252, 219, 51, 0.4); }
-.mg-spotlight-card--white { border: var(--border-thick) solid rgba(255, 255, 255, 0.25); }
+.mg-spotlight-card--green {
+  border: var(--border-thick) solid rgba(74, 222, 128, 0.4);
+  background-image: linear-gradient(160deg, rgba(74, 222, 128, 0.1), transparent 55%);
+}
+
+.mg-spotlight-card--red {
+  border: var(--border-thick) solid rgba(248, 113, 113, 0.4);
+  background-image: linear-gradient(160deg, rgba(248, 113, 113, 0.1), transparent 55%);
+}
+
+.mg-spotlight-card--gold {
+  border: var(--border-thick) solid rgba(252, 219, 51, 0.4);
+  background-image: linear-gradient(160deg, rgba(252, 219, 51, 0.1), transparent 55%);
+}
+
+.mg-spotlight-card--white {
+  border: var(--border-thick) solid rgba(255, 255, 255, 0.25);
+  background-image: linear-gradient(160deg, rgba(255, 255, 255, 0.06), transparent 55%);
+}
 
 .mg-spotlight-avatar {
   flex-shrink: 0;
@@ -1347,6 +1398,15 @@ a.mg-inline-name:hover {
 .mg-streak-spectrum-tick { order: 2; }
 .mg-streak-spectrum-bar { order: 1; }
 .mg-streak-spectrum-count { order: 0; }
+
+.mg-streak-spectrum-caption {
+  margin: var(--space-4) 0 0;
+  text-align: center;
+  font-family: var(--font-mono);
+  font-size: var(--text-xxs);
+  color: var(--grey-light);
+  line-height: 1.5;
+}
 
 .mg-streak-spectrum-bar {
   width: 20px;
@@ -3488,8 +3548,8 @@ a.mg-stack-player-name:hover {
 .mg-lede-numbers {
   display: grid;
   grid-template-columns: 1fr 1fr;
-  row-gap: 26px;
-  column-gap: 32px;
+  row-gap: 18px;
+  column-gap: 28px;
 }
 
 .mg-lede-number {
@@ -3502,7 +3562,7 @@ a.mg-stack-player-name:hover {
 
 .mg-lede-value {
   font-family: var(--font-display);
-  font-size: 34px;
+  font-size: 24px;
   line-height: 1;
   color: var(--white);
 }

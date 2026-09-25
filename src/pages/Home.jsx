@@ -182,9 +182,13 @@ const Home = () => {
         json(`${RELAY_URL}/api/blog`),
       ]);
       if (cancelled) return;
-      const candidates = [todayDigest, ...(Array.isArray(past) ? past : [])].filter((d) => d?.digest);
+      const published = Array.isArray(weekly) ? weekly.filter((w) => w.published == null || String(w.published) === "1") : [];
+      // The weekly's quote of the week is hand-picked, so it leads; the
+      // dailies are the fallback for weeks with no issue yet.
+      const latestIssue = [...published].sort((a, b) => b.week_start.localeCompare(a.week_start))[0];
+      const candidates = [latestIssue, todayDigest, ...(Array.isArray(past) ? past : [])].filter((d) => d?.digest);
       setDigest(candidates.find((d) => quoteOfTheDay(d)) || candidates[0] || null);
-      if (Array.isArray(weekly)) setWeeklies(weekly.filter((w) => w.published == null || String(w.published) === "1"));
+      setWeeklies(published);
       if (Array.isArray(blog)) setDbBlogPosts(blog);
     })();
     return () => {

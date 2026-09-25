@@ -78,24 +78,24 @@ describe('issue rules', () => {
     expect(dayByDay(null, '2026-03-23', '2026-03-29')).toEqual([]);
   });
 
-  it('builds the key numbers from what the digest has', () => {
-    const digestData = {
-      spotlights: { hotStreak: { streakLength: 18, form: 'WWW' }, coldStreak: { streakLength: 19, form: 'LLL' } },
-      upsets: [{}, {}],
-      narrative: { bans: [{}] },
-    };
-    expect(keyNumbers({ weekly: { stats: '{"totalMessages": 18896}' }, digestData })).toEqual([
+  it('builds the key numbers from the week stats, not the spotlight cards', () => {
+    const stats = '{"totalGames": 1288, "totalPlayers": 567, "totalMessages": 18896, "busiestDayGames": 262, "busiestDay": "Sat"}';
+    expect(keyNumbers({ weekly: { stats } })).toEqual([
+      { value: '1,288', label: 'GAMES PLAYED', tone: 'white' },
+      { value: '567', label: 'PLAYERS', tone: 'white' },
       { value: '18,896', label: 'CHAT MESSAGES', tone: 'white' },
-      { value: '18W', label: 'LONGEST WIN STREAK', tone: 'green' },
-      { value: '19L', label: 'LONGEST LOSS STREAK', tone: 'red' },
-      { value: '2', label: 'UPSETS', tone: 'white' },
+      { value: '262', label: 'BUSIEST DAY, SAT', tone: 'gold' },
     ]);
-    expect(keyNumbers({ weekly: {}, digestData: { spotlights: {}, upsets: [], narrative: {} } })).toEqual([]);
+    // Streak lengths and upsets have their own cards further down the issue
+    expect(keyNumbers({ weekly: {} })).toEqual([]);
+    expect(keyNumbers({ weekly: { stats: '{"totalGames": 12}' } })).toEqual([
+      { value: '12', label: 'GAMES PLAYED', tone: 'white' },
+    ]);
   });
 
   it('picks the quote of the week from BEST_OF_CHAT only', () => {
     const weekly = { digest: 'DRAMA: x "Toast: garbage"\nBEST_OF_CHAT: zoo "GosuXtreme: when u enter 4s u entering a zoo"\nMENTIONS: GosuXtreme#2101' };
-    expect(quoteOfTheDay(weekly, { sources: ['BEST_OF_CHAT'] })).toEqual({ text: 'when u enter 4s u entering a zoo', speaker: 'GosuXtreme', battleTag: 'GosuXtreme#2101' });
+    expect(quoteOfTheDay(weekly, { sources: ['BEST_OF_CHAT'] })).toMatchObject({ text: 'when u enter 4s u entering a zoo', speaker: 'GosuXtreme', battleTag: 'GosuXtreme#2101' });
     expect(quoteOfTheDay({ digest: 'DRAMA: x "Toast: garbage"' }, { sources: ['BEST_OF_CHAT'] })).toBeNull();
   });
 });
