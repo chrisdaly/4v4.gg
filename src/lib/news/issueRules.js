@@ -13,6 +13,7 @@ export const SECTION_RULES = {
   newBloodGames: 20, // first-week players
   stackGames: 6, // arranged teams: games together
   returningMonths: 3, // back after a break
+  powerRankingsGames: 20, // a week's net MMR only ranks on this many games
 };
 
 /** The longest run of one result in a form string ("WWLW..."): { length, result }. */
