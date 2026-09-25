@@ -2,7 +2,7 @@ import { Router } from 'express';
 import rateLimit from 'express-rate-limit';
 import multer from 'multer';
 import config from '../config.js';
-import { setToken, getStats, getTopWords, getRecentDigests, deleteDigest, getDigest, getRecentWeeklyDigests, deleteWeeklyDigest, getWeeklyDigest, getWeeklyCoverImage, setWeeklyCoverImage, updateWeeklyCoverPosition, getDraftForDate, updateDigestOnly, updateDraftOnly, updateHiddenAvatars, getContextAroundQuotes, getMessagesByTimeWindow, getMessagesByDateAndUsers, getMessageBuckets, getGameStats, getMatchContext, getClipsByDateRange, saveCoverGeneration, getCoverGenerations, getAllCoverGenerations, getCoverGenerationImage, deleteCoverGeneration, getWeeklyDraftForWeek, updateWeeklyDraftOnly, updateWeeklyDigestOnly, createGenJob, getActiveGenJob, getLatestGenJob, getVariantsForJob, searchMessages, countSearchMessages, searchMessagesByPlayer, countMessagesByPlayer, getMessagesAroundTime, countMessagesByDateRange, updateWeeklyDigestJson, updateWeeklyClips, getDigestsByDateRange, saveStyleThumbnail, getStyleThumbnail, toggleWeeklyPublished, hasDailyPlayerStats, setDigestWithDraft, setWeeklyDigest } from '../db.js';
+import { setToken, getStats, getTopWords, getRecentDigests, deleteDigest, getDigest, getRecentWeeklyDigests, deleteWeeklyDigest, getWeeklyDigest, getWeeklyCoverImage, setWeeklyCoverImage, updateWeeklyCoverPosition, getDraftForDate, updateDigestOnly, updateDraftOnly, updateHiddenAvatars, getContextAroundQuotes, getMessagesByTimeWindow, getMessagesByDateAndUsers, getMessageBuckets, getGameStats, getMatchContext, getClipsByDateRange, saveCoverGeneration, getCoverGenerations, getAllCoverGenerations, getCoverGenerationImage, deleteCoverGeneration, getWeeklyDraftForWeek, updateWeeklyDraftOnly, updateWeeklyDigestOnly, createGenJob, getActiveGenJob, getLatestGenJob, getVariantsForJob, searchMessages, countSearchMessages, searchMessagesByPlayer, countMessagesByPlayer, getMessagesAroundTime, countMessagesByDateRange, updateWeeklyDigestJson, updateWeeklyClips, updateWeeklyStats, getDigestsByDateRange, saveStyleThumbnail, getStyleThumbnail, toggleWeeklyPublished, hasDailyPlayerStats, setDigestWithDraft, setWeeklyDigest } from '../db.js';
 import { updateToken, getStatus } from '../signalr.js';
 import { getClientCount } from '../sse.js';
 import { setBotEnabled, isBotEnabled, testCommand } from '../bot.js';
@@ -680,13 +680,17 @@ router.post('/weekly-digest/:weekStart/set', requireApiKey, (req, res) => {
   if (!/^\d{4}-\d{2}-\d{2}$/.test(weekStart)) {
     return res.status(400).json({ error: 'weekStart must be YYYY-MM-DD' });
   }
-  const { digest, weekEnd } = req.body;
+  const { digest, weekEnd, stats } = req.body;
   if (!digest || typeof digest !== 'string') {
     return res.status(400).json({ error: 'digest (string) is required' });
   }
   // Default weekEnd to weekStart + 6 days if not provided
   const end = weekEnd || new Date(new Date(weekStart + 'T12:00:00Z').getTime() + 6 * 86400000).toISOString().split('T')[0];
   setWeeklyDigest(weekStart, end, digest);
+  // The issue's key numbers come from here (games, players, messages)
+  if (stats && typeof stats === 'object') {
+    updateWeeklyStats(weekStart, JSON.stringify(stats));
+  }
   res.json({ ok: true, weekStart, weekEnd: end });
 });
 

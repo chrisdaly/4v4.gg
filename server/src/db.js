@@ -1428,6 +1428,10 @@ export function updateWeeklyDraftOnly(weekStart, draft) {
   db.prepare('UPDATE weekly_digests SET draft = ? WHERE week_start = ?').run(draft, weekStart);
 }
 
+export function updateWeeklyStats(weekStart, statsJson) {
+  db.prepare('UPDATE weekly_digests SET stats = ? WHERE week_start = ?').run(statsJson, weekStart);
+}
+
 export function updateWeeklyDigestOnly(weekStart, digest) {
   db.prepare('UPDATE weekly_digests SET digest = ? WHERE week_start = ?').run(digest, weekStart);
 }
