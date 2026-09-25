@@ -1428,8 +1428,16 @@ export function updateWeeklyDraftOnly(weekStart, draft) {
   db.prepare('UPDATE weekly_digests SET draft = ? WHERE week_start = ?').run(draft, weekStart);
 }
 
-export function updateWeeklyStats(weekStart, statsJson) {
-  db.prepare('UPDATE weekly_digests SET stats = ? WHERE week_start = ?').run(statsJson, weekStart);
+export function updateWeeklyStats(weekStart, stats) {
+  // Merge, because something else on the relay maintains totalMessages here
+  // and a blind overwrite would drop whatever the caller did not send.
+  const row = db.prepare('SELECT stats FROM weekly_digests WHERE week_start = ?').get(weekStart);
+  let existing = {};
+  if (row?.stats) {
+    try { existing = JSON.parse(row.stats) || {}; } catch { existing = {}; }
+  }
+  const merged = JSON.stringify({ ...existing, ...stats });
+  db.prepare('UPDATE weekly_digests SET stats = ? WHERE week_start = ?').run(merged, weekStart);
 }
 
 export function updateWeeklyDigestOnly(weekStart, digest) {

@@ -3822,3 +3822,203 @@ a.mg-stack-player-name:hover {
   font-size: 13px;
   color: var(--grey-light);
 }
+
+/* ── The Week In Games, and Most Talked About ─────────── */
+
+.mg-pulse-grid {
+  display: grid;
+  grid-template-columns: 1.4fr 1fr;
+  gap: var(--space-8);
+  align-items: end;
+}
+
+.mg-pulse-panel {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-3);
+  min-width: 0;
+}
+
+.mg-pulse-panel-label {
+  font-family: var(--font-mono);
+  font-size: var(--text-xxs);
+  text-transform: uppercase;
+  letter-spacing: 0.1em;
+  color: var(--grey-light);
+}
+
+.mg-pulse-days,
+.mg-pulse-weeks {
+  display: flex;
+  align-items: flex-end;
+  gap: var(--space-2);
+  height: 140px;
+}
+
+.mg-pulse-day,
+.mg-pulse-week {
+  flex: 1;
+  min-width: 0;
+  height: 100%;
+  display: flex;
+  flex-direction: column;
+  justify-content: flex-end;
+  align-items: center;
+  gap: var(--space-1);
+}
+
+.mg-pulse-bar,
+.mg-pulse-week-bar {
+  width: 100%;
+  height: var(--pct, 0%);
+  min-height: 2px;
+  border-radius: var(--radius-sm) var(--radius-sm) 0 0;
+  background: rgba(var(--gold-muted-rgb), 0.3);
+  transition: height var(--transition);
+}
+
+.mg-pulse-bar--peak {
+  background: var(--gold);
+}
+
+.mg-pulse-week-bar {
+  background: rgba(255, 255, 255, 0.14);
+}
+
+.mg-pulse-week-bar--now {
+  background: var(--red);
+}
+
+.mg-pulse-day-count,
+.mg-pulse-week-count {
+  font-family: var(--font-mono);
+  font-size: var(--text-xxs);
+  color: #fff;
+}
+
+.mg-pulse-week-count--now {
+  color: var(--red);
+  font-weight: bold;
+}
+
+.mg-pulse-day-label,
+.mg-pulse-week-label {
+  font-family: var(--font-mono);
+  font-size: var(--text-xxxs);
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+  color: var(--grey-light);
+  white-space: nowrap;
+}
+
+.mg-pulse-blurb {
+  margin: var(--space-6) 0 0;
+  font-family: var(--font-body, Georgia, serif);
+  font-size: var(--text-sm);
+  line-height: 1.6;
+  color: rgba(255, 255, 255, 0.82);
+  max-width: 68ch;
+}
+
+.mg-talked-card {
+  position: relative;
+  overflow: hidden;
+  padding: var(--space-6);
+  border: var(--border-thick) solid rgba(252, 219, 51, 0.4);
+  border-radius: var(--radius-md);
+  background: var(--surface-2);
+  background-image: linear-gradient(160deg, rgba(252, 219, 51, 0.1), transparent 55%);
+}
+
+.mg-talked-art {
+  position: absolute;
+  inset: 0 0 0 auto;
+  width: 40%;
+  background-size: cover;
+  background-position: center 20%;
+  opacity: 0.1;
+  mask-image: linear-gradient(to left, #000, transparent);
+  pointer-events: none;
+}
+
+.mg-talked-head {
+  position: relative;
+  display: flex;
+  align-items: center;
+  gap: var(--space-4);
+  flex-wrap: wrap;
+}
+
+.mg-talked-avatar {
+  width: 52px;
+  height: 52px;
+  border-radius: var(--radius-full);
+  object-fit: cover;
+  border: 1px solid rgba(var(--gold-muted-rgb), 0.5);
+}
+
+.mg-talked-who {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+}
+
+.mg-talked-name {
+  font-family: var(--font-display);
+  font-size: var(--text-lg);
+  color: var(--gold);
+  text-decoration: none;
+}
+
+.mg-talked-name:hover {
+  text-decoration: underline;
+}
+
+.mg-talked-stats {
+  display: flex;
+  gap: var(--space-6);
+  margin-left: auto;
+}
+
+.mg-talked-stat {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.mg-talked-value {
+  font-family: var(--font-mono);
+  font-size: var(--text-base);
+  color: #fff;
+}
+
+.mg-talked-label {
+  font-family: var(--font-mono);
+  font-size: var(--text-xxxs);
+  letter-spacing: 0.1em;
+  color: var(--grey-light);
+}
+
+.mg-talked-blurb {
+  position: relative;
+  margin: var(--space-4) 0 0;
+  font-family: var(--font-body, Georgia, serif);
+  font-size: var(--text-xs);
+  line-height: 1.6;
+  color: rgba(255, 255, 255, 0.82);
+  max-width: 68ch;
+}
+
+@media (max-width: 900px) {
+  .mg-pulse-grid {
+    grid-template-columns: 1fr;
+    gap: var(--space-8);
+  }
+
+  .mg-talked-stats {
+    margin-left: 0;
+    width: 100%;
+    justify-content: space-between;
+    gap: var(--space-4);
+  }
+}

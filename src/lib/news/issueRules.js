@@ -129,7 +129,8 @@ export function keyNumbers({ weekly }) {
   const n = (v) => Number(v) || 0;
   const out = [];
   if (n(stats.totalGames)) out.push({ value: n(stats.totalGames).toLocaleString("en-US"), label: "GAMES PLAYED", tone: "white" });
-  if (n(stats.totalPlayers)) out.push({ value: n(stats.totalPlayers).toLocaleString("en-US"), label: "PLAYERS", tone: "white" });
+  const players = n(stats.totalPlayers) || n(stats.uniquePlayers);
+  if (players) out.push({ value: players.toLocaleString("en-US"), label: "PLAYERS", tone: "white" });
   if (n(stats.totalMessages)) out.push({ value: n(stats.totalMessages).toLocaleString("en-US"), label: "CHAT MESSAGES", tone: "white" });
   if (n(stats.busiestDayGames)) out.push({ value: n(stats.busiestDayGames).toLocaleString("en-US"), label: `BUSIEST DAY, ${String(stats.busiestDay || "").toUpperCase()}`, tone: "gold" });
   return out.slice(0, 4);

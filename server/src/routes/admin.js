@@ -689,7 +689,7 @@ router.post('/weekly-digest/:weekStart/set', requireApiKey, (req, res) => {
   setWeeklyDigest(weekStart, end, digest);
   // The issue's key numbers come from here (games, players, messages)
   if (stats && typeof stats === 'object') {
-    updateWeeklyStats(weekStart, JSON.stringify(stats));
+    updateWeeklyStats(weekStart, stats);
   }
   res.json({ ok: true, weekStart, weekEnd: end });
 });

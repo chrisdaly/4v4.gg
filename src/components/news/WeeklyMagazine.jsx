@@ -6,6 +6,7 @@ import html2canvas from "html2canvas";
 import ChatContext from "../ChatContext";
 import ChatMessage from "../chat/ChatMessage";
 import QuoteBlock from "../chat/QuoteBlock";
+import { WeekTrend, MostTalkedAbout } from "./WeekPulse";
 import { fetchAndCacheProfile } from "../../lib/profileCache";
 import useAdmin from "../../lib/useAdmin";
 import { CountryFlag, ConfirmModal, PageNav, Button } from "../ui";
@@ -2851,6 +2852,7 @@ const WeeklyMagazine = ({ weekParam, isAdmin = false, apiKey = "" }) => {
     }
 
     if (weekQuoteTag && weekQuoteTag.includes("#")) tags.add(weekQuoteTag);
+    if (digestData.mostTalkedAbout?.battleTag) tags.add(digestData.mostTalkedAbout.battleTag);
 
     if (tags.size === 0) return;
 
@@ -2863,7 +2865,7 @@ const WeeklyMagazine = ({ weekParam, isAdmin = false, apiKey = "" }) => {
         setProfiles(map);
       }
     );
-  }, [weekly, knownNames, digestData.atSpotlight, weekQuoteTag]);
+  }, [weekly, knownNames, digestData.atSpotlight, digestData.mostTalkedAbout, weekQuoteTag]);
 
   const [coverBg, setCoverBg] = useState(null);
 
@@ -3186,6 +3188,19 @@ const WeeklyMagazine = ({ weekParam, isAdmin = false, apiKey = "" }) => {
           weekEnd: ed.weekEnd,
         } : null}
       />
+
+      {(!showEditControls || !ed.hiddenSections.has("WEEK_TREND")) && (
+        <WeekTrend trend={digestData.weekTrend} weekStart={weekly.week_start} />
+      )}
+
+      {(!showEditControls || !ed.hiddenSections.has("MOST_TALKED_ABOUT")) && (
+        <MostTalkedAbout
+          subject={digestData.mostTalkedAbout}
+          profile={digestData.mostTalkedAbout ? profiles.get(digestData.mostTalkedAbout.battleTag) : null}
+          highlightNames={highlightNames}
+          nameToTag={knownNames}
+        />
+      )}
 
       <ClipsSection
         clips={weekly.clips}
