@@ -1,16 +1,31 @@
 /* ============================================
-   GAME ROW - Table Row Format
+   GAME ROW - one match in the profile history
+   result | map | heroes | both teams | MMR
    ============================================ */
 
-.game-row {
+.game-row,
+.mh-header {
   display: grid;
-  grid-template-columns: 50px minmax(120px, 0.5fr) 70px 50px minmax(160px, 1.1fr) minmax(160px, 1.1fr) 65px 65px;
-  padding: var(--space-2) var(--space-4);
+  grid-template-columns: 48px minmax(150px, 0.6fr) 94px minmax(250px, 1.7fr) 78px;
+  gap: var(--space-4);
   align-items: center;
+}
+
+.game-row {
+  padding: var(--space-2) var(--space-4);
   border-bottom: 1px solid rgba(255, 255, 255, 0.03);
+  border-left: 3px solid transparent;
   text-decoration: none;
   transition: background var(--transition);
-  min-height: 56px;
+  min-height: 64px;
+}
+
+.game-row.gr-won {
+  border-left-color: rgba(74, 222, 128, 0.55);
+}
+
+.game-row.gr-lost {
+  border-left-color: rgba(248, 113, 113, 0.55);
 }
 
 .game-row.gr-striped {
@@ -21,20 +36,39 @@
   background: var(--gold-tint-subtle);
 }
 
-/* Map column */
-.gr-col.gr-map {
+.gr-col {
+  min-width: 0;
+}
+
+/* ── Result ── */
+
+.gr-col.gr-result {
+  display: flex;
+  justify-content: center;
+}
+
+/* ── Map, length and when ── */
+
+.gr-col.gr-game {
   display: flex;
   align-items: center;
   gap: var(--space-2);
 }
 
 .gr-map-img {
-  width: 36px;
-  height: 36px;
+  width: 38px;
+  height: 38px;
   border-radius: var(--radius-md);
   object-fit: cover;
   flex-shrink: 0;
   border: 1px solid var(--grey-mid);
+}
+
+.gr-game-meta {
+  display: flex;
+  flex-direction: column;
+  gap: 1px;
+  min-width: 0;
 }
 
 .gr-map-name {
@@ -46,17 +80,131 @@
   text-overflow: ellipsis;
 }
 
-/* Avg MMR */
-.gr-avg-mmr-value {
+.gr-game-sub {
   font-family: var(--font-mono);
-  font-size: var(--text-xs);
-  color: var(--white);
+  font-size: var(--text-xxxs);
+  color: var(--grey-light);
+  white-space: nowrap;
 }
 
-/* MMR change */
+/* ── Heroes: three fixed slots so rows stay aligned ── */
+
+.gr-col.gr-heroes {
+  display: flex;
+  align-items: center;
+  gap: 3px;
+}
+
+.gr-hero {
+  width: 26px;
+  height: 26px;
+  border-radius: 2px;
+  object-fit: cover;
+  background: var(--surface-2);
+  border: 1px solid rgba(var(--gold-muted-rgb), 0.35);
+  box-sizing: border-box;
+  flex-shrink: 0;
+}
+
+.gr-hero--empty {
+  border-style: dashed;
+  border-color: rgba(255, 255, 255, 0.07);
+  background: transparent;
+}
+
+/* ── Both teams, highest MMR first ── */
+
+.gr-col.gr-players {
+  display: flex;
+  flex-direction: column;
+  gap: 3px;
+}
+
+.gr-team {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+  min-width: 0;
+  overflow: hidden;
+}
+
+.gr-vs {
+  font-family: var(--font-mono);
+  font-size: var(--text-xxxs);
+  color: var(--grey-mid);
+  text-transform: uppercase;
+  letter-spacing: 0.1em;
+  flex-shrink: 0;
+}
+
+.gr-player {
+  display: flex;
+  align-items: center;
+  gap: var(--space-1);
+  flex-shrink: 0;
+  text-decoration: none;
+  cursor: pointer;
+  transition: opacity var(--transition);
+}
+
+.gr-player:hover {
+  opacity: 0.7;
+}
+
+.gr-player:hover .gr-player-name {
+  color: var(--gold);
+}
+
+.gr-race {
+  width: 15px;
+  height: 15px;
+  flex-shrink: 0;
+}
+
+.gr-player-name {
+  font-family: var(--font-display);
+  font-size: var(--text-xxs);
+  color: var(--gold);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  max-width: 92px;
+  transition: color var(--transition);
+}
+
+/* Opponents sit in grey so the two sides read apart */
+.gr-player-name--opp {
+  color: var(--grey-light);
+}
+
+/* The profile player's own slot: their MMR, in place of their name */
+.gr-player-self {
+  cursor: default;
+  padding: 1px 5px 1px 3px;
+  border: 1px solid rgba(var(--gold-muted-rgb), 0.5);
+  border-radius: var(--radius-sm);
+  background: var(--gold-tint);
+}
+
+.gr-self-mmr {
+  font-family: var(--font-mono);
+  font-size: var(--text-xxs);
+  font-weight: bold;
+  color: var(--gold);
+}
+
+/* ── MMR change, with the lobby average under it ── */
+
+.gr-col.gr-score {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-end;
+  gap: 1px;
+}
+
 .gr-mmr-change {
   font-family: var(--font-mono);
-  font-size: var(--text-xs);
+  font-size: var(--text-sm);
   font-weight: bold;
 }
 
@@ -68,134 +216,56 @@
   color: var(--red);
 }
 
-/* Players (allies and opponents) */
-.gr-players-list {
-  display: flex;
-  flex-wrap: nowrap;
-  gap: var(--space-2);
-  overflow: hidden;
-}
-
-.gr-player {
-  display: flex;
-  align-items: center;
-  gap: var(--space-1);
-  flex-shrink: 0;
-  text-decoration: none;
-  transition: opacity var(--transition);
-  cursor: pointer;
-}
-
-.gr-player:hover {
-  opacity: 0.7;
-}
-
-.gr-player:hover .gr-player-name {
-  color: var(--gold);
-}
-
-.gr-player-self {
-  cursor: default;
-  pointer-events: none;
-}
-
-.gr-player-self-name {
-  color: var(--gold);
-}
-
-.gr-race {
-  width: 16px;
-  height: 16px;
-  flex-shrink: 0;
-}
-
-.gr-player-name {
-  font-family: var(--font-display);
-  font-size: var(--text-xxs);
-  color: var(--gold);
-  white-space: nowrap;
-  overflow: hidden;
-  text-overflow: ellipsis;
-  max-width: 90px;
-  transition: color var(--transition);
-}
-
-/* Duration and time */
-.gr-duration,
-.gr-time {
+.gr-avg-mmr-value {
   font-family: var(--font-mono);
-  font-size: var(--text-xxs);
+  font-size: var(--text-xxxs);
   color: var(--grey-light);
+  white-space: nowrap;
 }
 
-/* Column alignment */
-.gr-col {
-  min-width: 0;
-}
+/* ── Responsive ── */
 
-.gr-col.gr-result {
-  display: flex;
-  justify-content: center;
-}
-
-.gr-col.gr-avg-mmr,
-.gr-col.gr-mmr {
-  text-align: center;
-}
-
-.gr-col.gr-duration,
-.gr-col.gr-time {
-  text-align: center;
-}
-
-/* Responsive adjustments */
-@media (max-width: 1024px) {
-  .game-row {
-    grid-template-columns: 50px minmax(120px, 1fr) 60px 50px minmax(120px, 1fr) minmax(150px, 1fr) 60px;
+@media (max-width: 1280px) {
+  .gr-player-name {
+    max-width: 70px;
   }
+}
 
-  .gr-col.gr-time {
-    display: none;
+@media (max-width: 1024px) {
+  .game-row,
+  .mh-header {
+    grid-template-columns: 44px minmax(130px, 0.6fr) 94px minmax(190px, 1.4fr) 70px;
+    gap: var(--space-3);
   }
 
   .gr-player-name {
-    max-width: 55px;
+    max-width: 58px;
   }
 }
 
 @media (max-width: 768px) {
-  .game-row {
-    grid-template-columns: 50px 1fr 60px 50px 100px 60px;
+  .game-row,
+  .mh-header {
+    grid-template-columns: 40px minmax(0, 1fr) 94px 70px;
   }
 
-  .gr-map-img {
-    width: 28px;
-    height: 28px;
-  }
-
-  .gr-col.gr-opponents {
+  .gr-col.gr-players {
     display: none;
   }
 
-  .gr-players-list {
-    gap: var(--space-1);
-  }
-
-  .gr-player-name {
-    max-width: 50px;
+  .gr-map-img {
+    width: 30px;
+    height: 30px;
   }
 }
 
 @media (max-width: 480px) {
-  .game-row {
-    grid-template-columns: 40px 1fr 50px 50px 60px;
+  .game-row,
+  .mh-header {
+    grid-template-columns: 36px minmax(0, 1fr) 64px;
   }
 
-  .gr-map-img {
-    display: none;
-  }
-
-  .gr-col.gr-allies {
+  .gr-col.gr-heroes {
     display: none;
   }
 }

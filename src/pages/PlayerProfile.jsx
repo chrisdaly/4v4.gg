@@ -17,7 +17,17 @@ import PeonLoader from "../components/PeonLoader";
 import { gateway } from "../lib/params";
 import { GameRow } from "../components/game/index";
 import ActivityGraph from "../components/ActivityGraph";
-import SeasonTimeline from "../components/SeasonTimeline";
+import ActivityOverTime from "../components/ActivityOverTime";
+import SeasonHistoryBars from "../components/SeasonHistoryBars";
+import { IssueThumb } from "../components/news/IssueCover";
+import { getPlayerAllSeasonActivity } from "../lib/api";
+import {
+  PROFILE_RULES,
+  playerMatchLite,
+  activeStreak,
+  weeklyMentions,
+  featuredIn,
+} from "../lib/profile/storyline";
 import MmrRangeBar from "../components/MmrRangeBar";
 import MmrSparkline from "../components/MmrSparkline";
 import OngoingGame from "../components/OngoingGame";
@@ -105,6 +115,7 @@ const PlayerProfile = () => {
       currentPage: 0,
       playerClips: [],
       playerMentions: [],
+      seasonLite: [],
     }
   );
 
@@ -115,7 +126,7 @@ const PlayerProfile = () => {
     isLoading, allyStats, worstAllyStats, mapStats, worstMapStats, nemesisStats, preyStats,
     allAllies, allWorstAllies, allNemesis, allPrey, statsSampleSize,
     selectedSeason, currentPage,
-    playerClips, playerMentions,
+    playerClips, playerMentions, seasonLite,
   } = state;
 
   const prevBattleTagRef = useRef(battleTag);
@@ -129,7 +140,7 @@ const PlayerProfile = () => {
   const [activeTab, setActiveTabState] = useState(() => {
     const params = new URLSearchParams(rrLocation.search);
     const tab = params.get('tab');
-    return ['matches', 'playstyle', 'activity'].includes(tab) ? tab : 'matches';
+    return ['matches', 'stats', 'playstyle', 'activity'].includes(tab) ? tab : 'matches';
   });
 
   // Update URL via React Router so other components (ScoutTab) see the change
@@ -143,6 +154,9 @@ const PlayerProfile = () => {
   const [expandedSections, setExpandedSections] = useState({});
   const [playerFilter, setPlayerFilter] = useState("");
   const [statAvatars, setStatAvatars] = useState(new Map());
+  // Weekly issues (storyline tags, In the news) and the all-season activity
+  const [weeklies, setWeeklies] = useState([]);
+  const [seasonActivity, setSeasonActivity] = useState(null);
   const toggleSection = (key) => setExpandedSections(prev => ({ ...prev, [key]: !prev[key] }));
 
   const SESSION_GAP_MINUTES = 60;
@@ -173,9 +187,40 @@ const PlayerProfile = () => {
       allNemesis: cached.allNemesis || [],
       allPrey: cached.allPrey || [],
       statsSampleSize: cached.statsSampleSize || 0,
+      seasonLite: cached.seasonLite || [],
       isLoading: false,
     });
   };
+
+  // Published weekly issues, once per player
+  useEffect(() => {
+    let cancelled = false;
+    fetch(`${RELAY_URL}/api/admin/weekly-digests`)
+      .then((r) => (r.ok ? r.json() : []))
+      .then((data) => {
+        if (!cancelled && Array.isArray(data)) setWeeklies(data);
+      })
+      .catch(() => {});
+    return () => {
+      cancelled = true;
+    };
+  }, [battleTag]);
+
+  // All-season activity (per-day game counts, season peaks) for the Activity tab
+  useEffect(() => {
+    if (activeTab !== 'activity' || seasonActivity) return;
+    let cancelled = false;
+    getPlayerAllSeasonActivity(battleTag).then((data) => {
+      if (!cancelled) setSeasonActivity(data || []);
+    });
+    return () => {
+      cancelled = true;
+    };
+  }, [activeTab, battleTag, seasonActivity]);
+
+  useEffect(() => {
+    setSeasonActivity(null);
+  }, [battleTag]);
 
   // Reset to the latest season when the player changes or seasons load
   useEffect(() => {
@@ -410,6 +455,7 @@ const PlayerProfile = () => {
         allAllies: statsResult?.allAllies || [], allWorstAllies: statsResult?.allWorstAllies || [],
         allNemesis: statsResult?.allNemesis || [], allPrey: statsResult?.allPrey || [],
         statsSampleSize: statsResult?.statsSampleSize || 0,
+        seasonLite: statsResult?.seasonLite || [],
       }, 5 * 60 * 1000);
     } catch (error) {
       console.error("Error loading player data:", error);
@@ -568,6 +614,9 @@ const PlayerProfile = () => {
       }
 
       const sampleSize = allMatches.length;
+      // The season's matches from the player's side, for the Today strip
+      // and the streak tags
+      const seasonLite = allMatches.map((m) => playerMatchLite(m, battleTagLower)).filter(Boolean);
 
       // Calculate ally stats
       const allies = {};
@@ -695,6 +744,7 @@ const PlayerProfile = () => {
         allAllies: allAlliesSorted, allWorstAllies: allWorstAlliesSorted,
         allNemesis: allNemesisSorted, allPrey: allPreySorted,
         statsSampleSize: sampleSize,
+        seasonLite,
       };
 
       // Cache past-season stats for 7 days (data never changes)
@@ -765,6 +815,19 @@ const PlayerProfile = () => {
   })();
   const totalPages = Math.ceil(totalMatches / GAMES_PER_PAGE);
 
+  // Storyline: the header tags and the issues that feature this player
+  const newestFirst = [...seasonLite].sort((a, b) => new Date(b.endTime) - new Date(a.endTime));
+  const streak = activeStreak(newestFirst);
+  const seasonPeak = seasonMmrs.length > 0 ? Math.max(...seasonMmrs) : null;
+  const atPeak = Boolean(playerData?.mmr && seasonPeak && playerData.mmr >= seasonPeak && !isAllSeasons);
+  const featured = featuredIn(weeklies, playerName);
+  const issueMentions = weeklyMentions(weeklies, playerName, 5);
+  const storyTags = [];
+  if (streak.length >= PROFILE_RULES.streakTag) {
+    storyTags.push({ key: "streak", tone: streak.won ? "green" : "red", text: `${streak.length}${streak.won ? "W" : "L"} streak`, href: "#match-history" });
+  }
+  if (atPeak) storyTags.push({ key: "peak", tone: "gold", text: "At season peak", href: "#season-mmr" });
+  if (featured) storyTags.push({ key: "featured", tone: "white", text: `Featured in No. ${featured.issueNo}`, href: `/news?week=${featured.week_start}` });
   // Render news snippet, replacing W/L streaks with FormDots
   const WL_RE = /[WL]{4,}/g;
   const renderSnippet = (text) => {
@@ -832,6 +895,21 @@ const PlayerProfile = () => {
                   )}
                 </>
               )}
+              {storyTags.length > 0 && (
+                <div className="hd-tags" data-story-tags={storyTags.length}>
+                  {storyTags.map((t) =>
+                    t.href.startsWith("/") ? (
+                      <Link key={t.key} to={t.href} className={`hd-tag hd-tag--${t.tone}`} data-story-tag={t.key}>
+                        <span className="hd-tag-dot" />{t.text}
+                      </Link>
+                    ) : (
+                      <a key={t.key} href={t.href} className={`hd-tag hd-tag--${t.tone}`} data-story-tag={t.key}>
+                        <span className="hd-tag-dot" />{t.text}
+                      </a>
+                    )
+                  )}
+                </div>
+              )}
             </div>
           </div>
 
@@ -875,7 +953,7 @@ const PlayerProfile = () => {
           <main className="player-main">
             {/* Live Game Section */}
             {ongoingGame && (
-              <section className="live-game-section">
+              <section className="live-game-section" id="live">
                 <div className="section-header">
                   <h2 className="section-title">Live Game</h2>
                 </div>
@@ -888,7 +966,7 @@ const PlayerProfile = () => {
             )}
 
             {/* Match History Table */}
-            <section className="match-history-section">
+            <section className="match-history-section" id="match-history">
               <div className="section-header">
                 <h2 className="section-title">Match History</h2>
                 <div className="mh-controls">
@@ -908,12 +986,9 @@ const PlayerProfile = () => {
                 <div className="mh-header">
                   <div className="mh-col result">Result</div>
                   <div className="mh-col map">Map</div>
-                  <div className="mh-col avg-mmr">Avg MMR</div>
+                  <div className="mh-col heroes">Heroes</div>
+                  <div className="mh-col players">Teams · highest MMR first</div>
                   <div className="mh-col mmr">+/-</div>
-                  <div className="mh-col allies">Allies</div>
-                  <div className="mh-col opponents">Opponents</div>
-                  <div className="mh-col duration">Duration</div>
-                  <div className="mh-col time">Time</div>
                 </div>
                 {filteredMatches.map((match, idx) => (
                   <GameRow
@@ -1043,17 +1118,32 @@ const PlayerProfile = () => {
             })()}
 
             {/* MMR Thermometer */}
-            {seasonMmrs.length > 2 && (
-              <div className="mmr-thermometer-card">
-                <h3 className="mtc-title">Season {selectedSeason} MMR</h3>
-                <MmrSparkline data={seasonMmrs} width="100%" height={36} className="mtc-sparkline" />
-                <MmrRangeBar
-                  low={Math.min(...seasonMmrs)}
-                  peak={Math.max(...seasonMmrs)}
-                  current={seasonMmrs[seasonMmrs.length - 1]}
-                />
-              </div>
-            )}
+            {seasonMmrs.length > 2 && (() => {
+              const peakIdx = seasonMmrs.indexOf(seasonPeak);
+              const lo = Math.min(...seasonMmrs);
+              const peakX = (peakIdx / (seasonMmrs.length - 1)) * 100;
+              const peakY = seasonPeak === lo ? 50 : 0;
+              return (
+                <div className="mmr-thermometer-card" id="season-mmr">
+                  <h3 className="mtc-title">Season {selectedSeason} MMR</h3>
+                  <div className="mtc-chart">
+                    <MmrSparkline data={seasonMmrs} width="100%" height={36} className="mtc-sparkline" />
+                    <span
+                      className={`mtc-peak ${atPeak ? "mtc-peak--now" : ""}`}
+                      style={{ left: `${peakX}%`, top: `${peakY}%` }}
+                      title={`Season peak ${seasonPeak.toLocaleString("en-US")}`}
+                      data-peak-marker={seasonPeak}
+                    />
+                  </div>
+                  <MmrRangeBar
+                    low={lo}
+                    peak={seasonPeak}
+                    current={seasonMmrs[seasonMmrs.length - 1]}
+                  />
+                  {atPeak && <span className="mtc-at-peak" data-at-peak>AT PEAK · SEASON HIGH</span>}
+                </div>
+              );
+            })()}
 
             {/* Activity Graph */}
             {!isAllSeasons && (
@@ -1246,15 +1336,36 @@ const PlayerProfile = () => {
       {activeTab === 'activity' && (
         <div className="activity-tab-content reveal" style={{ "--delay": "0.1s" }}>
 
-          {/* Season history timeline */}
-          <section className="activity-section">
-            <div className="section-header">
-              <h2 className="section-title">Season History</h2>
-            </div>
-            <SeasonTimeline battleTag={battleTag} />
-          </section>
+          {/* Recent activity: the last 3 months, large */}
+          {!isAllSeasons && (
+            <section className="activity-section">
+              <ActivityGraph battleTag={battleTag} currentSeason={selectedSeason} gateway={gateway} size="large" title="Recent Activity" />
+            </section>
+          )}
 
-          {/* Clips - at top */}
+          {/* Activity over time: games per week, inactive stretches shaded */}
+          {seasonActivity && seasonActivity.length > 0 && (
+            <section className="activity-section">
+              <div className="section-header">
+                <h2 className="section-title">Activity Over Time</h2>
+                <span className="section-hint">games per week · shaded = inactive {PROFILE_RULES.inactiveWeeks}+ weeks</span>
+              </div>
+              <ActivityOverTime seasonActivity={seasonActivity} />
+            </section>
+          )}
+
+          {/* Season history: peak MMR per season */}
+          {seasonActivity && seasonActivity.length > 0 && (
+            <section className="activity-section">
+              <div className="section-header">
+                <h2 className="section-title">Season History</h2>
+                <span className="section-hint">peak MMR by season</span>
+              </div>
+              <SeasonHistoryBars seasonActivity={seasonActivity} currentSeason={currentSeason} />
+            </section>
+          )}
+
+          {/* Clips */}
           {playerClips.length > 0 && (
             <section className="activity-section">
               <div className="section-header">
@@ -1280,13 +1391,29 @@ const PlayerProfile = () => {
             </section>
           )}
 
-          {/* News Mentions - limited to 5 */}
-          {playerMentions.length > 0 && (
+          {/* News Mentions: the weekly issues first, then the dailies (limited to 5) */}
+          {(issueMentions.length > 0 || playerMentions.length > 0) && (
             <section className="activity-section">
               <div className="section-header">
                 <h2 className="section-title">In the News</h2>
                 <Link to="/news"><Button $secondary>View All</Button></Link>
               </div>
+              {issueMentions.length > 0 && (
+                <div className="ph-issue-list" data-issue-mentions={issueMentions.length}>
+                  {issueMentions.map((m) => {
+                    const weekly = weeklies.find((w) => w.week_start === m.week_start);
+                    return (
+                      <Link key={`${m.week_start}-${m.section}`} to={`/news?week=${m.week_start}`} className="ph-issue-item">
+                        {weekly && <IssueThumb weekly={weekly} issueNo={m.issueNo} />}
+                        <span className="ph-issue-body">
+                          <span className={`ph-badge ph-badge--${m.section.toLowerCase()}`}>{m.section.replace(/_/g, " ")}</span>
+                          <span className="ph-issue-snippet">{renderSnippet(m.snippet)}</span>
+                        </span>
+                      </Link>
+                    );
+                  })}
+                </div>
+              )}
               <div className="activity-news-list">
                 {playerMentions.flatMap((mention) =>
                   mention.sections.map((sec, i) => ({
@@ -1317,7 +1444,7 @@ const PlayerProfile = () => {
           </section>
 
           {/* Empty State - only show if no news and no clips (conversations component handles its own empty state) */}
-          {playerMentions.length === 0 && playerClips.length === 0 && (
+          {issueMentions.length === 0 && playerMentions.length === 0 && playerClips.length === 0 && (
             <div className="activity-empty">
               <span className="activity-empty-text">No news or clips for this player yet.</span>
             </div>
