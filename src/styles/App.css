@@ -6,7 +6,7 @@
 @import "./components/Navbar.css";
 @import "./components/Game.css";
 @import "./pages/Observatory.css";
-@import "./pages/HomeNew.css";
+@import "./pages/Home.css";
 
 :root {
   /* ============================================
