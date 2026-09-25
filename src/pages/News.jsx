@@ -6,41 +6,23 @@ import PeonLoader from "../components/PeonLoader";
 import useAdmin from "../lib/useAdmin";
 import { PageLayout } from "../components/PageLayout";
 import { PageHero, Button } from "../components/ui";
-import {
-  COVER_BACKGROUNDS,
-  hashDate,
-  formatWeekRange,
-  formatDigestLabel,
-  formatDigestDay,
-  parseDigestSections,
-  splitQuotes,
-} from "../lib/digestUtils";
+import IssueCover from "../components/news/IssueCover";
+import { issueNumber } from "../lib/news/issueRules";
+import { formatDigestLabel, formatDigestDay, extractTeaser } from "../lib/digestUtils";
 import "../styles/pages/News.css";
 
 const RELAY_URL =
   import.meta.env.VITE_CHAT_RELAY_URL || "https://4v4gg-chat-relay.fly.dev";
 
-/** Extract a short teaser from the DRAMA section (or first narrative section) */
-const extractTeaser = (digestText) => {
-  const sections = parseDigestSections(digestText);
-  const drama = sections.find((s) => s.key === "DRAMA");
-  const source = drama || sections.find((s) => !["TOPICS", "MENTIONS"].includes(s.key));
-  if (!source) return "";
-  const { summary } = splitQuotes(source.content);
-  const cleaned = summary.split(/;\s*/)[0].replace(/\n+/g, " ").trim();
-  return cleaned.length > 160 ? cleaned.slice(0, 157) + "..." : cleaned;
-};
+/** "N ISSUES SINCE MAR 2026" for the index header. */
+export function issueCountLabel(weeklies) {
+  const n = weeklies.length;
+  if (n === 0) return null;
+  const oldest = [...weeklies].sort((a, b) => a.week_start.localeCompare(b.week_start))[0];
+  const since = new Date(`${oldest.week_start}T12:00:00`).toLocaleDateString("en-US", { month: "short", year: "numeric" }).toUpperCase();
+  return { count: n, label: `${n === 1 ? "ISSUE" : "ISSUES"} SINCE ${since}` };
+}
 
-/** Extract just the headline (text before the | pipe) from the DRAMA section */
-const extractHeadline = (digestText) => {
-  const sections = parseDigestSections(digestText);
-  const drama = sections.find((s) => s.key === "DRAMA");
-  if (!drama) return "";
-  const { summary } = splitQuotes(drama.content);
-  const firstItem = summary.split(/;\s*/)[0]?.trim() || "";
-  const pipeSplit = firstItem.split(/\s*\|\s*/);
-  return pipeSplit.length > 1 ? pipeSplit[0].trim() : firstItem;
-};
 
 const News = () => {
   const location = useLocation();
@@ -90,15 +72,14 @@ const NewsIndex = ({ isAdmin, adminKey: rawAdminKey }) => {
       .finally(check);
   }, [adminKey]);
 
-  // Latest weekly goes up top as hero; rest merge into timeline
+  // The latest issue is the banner, the rest the back-issue grid; the
+  // daily digests keep their own timeline below
   const latestWeekly = weeklyDigests.length > 0 ? weeklyDigests[0] : null;
   const olderWeeklies = weeklyDigests.slice(1);
+  const issues = issueCountLabel(weeklyDigests);
 
   const timeline = useMemo(() => {
     const items = [];
-    for (const w of olderWeeklies) {
-      items.push({ type: "weekly", sortDate: w.week_end, data: w });
-    }
     for (const d of dailyDigests) {
       items.push({ type: "daily", sortDate: d.date, data: d });
     }
@@ -111,15 +92,23 @@ const NewsIndex = ({ isAdmin, adminKey: rawAdminKey }) => {
     }
     items.sort((a, b) => b.sortDate.localeCompare(a.sortDate));
     return items;
-  }, [olderWeeklies, dailyDigests, todayDigest]);
+  }, [dailyDigests, todayDigest]);
 
   const newsHeader = (
-    <PageHero
-      eyebrow="4v4.gg News"
-      title="The Digest"
-      lead="Weekly roundups and daily recaps of 4v4 competitive Warcraft III - drama, stats, and highlights."
-      lg
-    />
+    <div className="nw-index-head">
+      <PageHero
+        eyebrow="4v4.gg News"
+        title="The Digest"
+        lead="Weekly roundups and daily recaps of 4v4 competitive Warcraft III - drama, stats, and highlights."
+        lg
+      />
+      {issues && (
+        <div className="nw-issue-count" data-issue-count={issues.count}>
+          <span className="nw-issue-count-num">{issues.count}</span>
+          <span className="nw-issue-count-label">{issues.label}</span>
+        </div>
+      )}
+    </div>
   );
 
   if (loading) {
@@ -137,24 +126,30 @@ const NewsIndex = ({ isAdmin, adminKey: rawAdminKey }) => {
     <PageLayout maxWidth="1200px" bare header={newsHeader}>
       <div style={{ maxWidth: 1200, margin: '0 auto' }}>
       {latestWeekly && (
-        <section className="nw-section reveal" style={{ "--delay": "0.10s" }}>
-          <h2 className="nw-section-title">Weekly Issues</h2>
-          <WeeklyHero weekly={latestWeekly} />
+        <section className="nw-section" data-latest-issue>
+          <IssueCover weekly={latestWeekly} issueNo={issueNumber(weeklyDigests, latestWeekly.week_start)} variant="latest" delay={0.1} />
           {isAdmin && <AdminWeeklyButton />}
+        </section>
+      )}
+
+      {olderWeeklies.length > 0 && (
+        <section className="nw-section" data-back-issues>
+          <span className="nw-eyebrow">Back issues</span>
+          <div className="nw-issue-grid">
+            {olderWeeklies.map((w, i) => (
+              <IssueCover key={w.week_start} weekly={w} issueNo={issueNumber(weeklyDigests, w.week_start)} variant="grid" delay={0.25 + i * 0.09} />
+            ))}
+          </div>
         </section>
       )}
 
       {timeline.length > 0 && (
         <section className="nw-section reveal" style={{ "--delay": "0.15s" }}>
-          <h2 className="nw-section-title">Daily Digests</h2>
+          <span className="nw-eyebrow">Daily digests</span>
           <div className="nw-timeline">
-          {visible.map((item, i) =>
-            item.type === "weekly" ? (
-              <TimelineWeekly key={`w-${item.data.week_start}`} weekly={item.data} delay={0.08 + i * 0.03} />
-            ) : (
-              <TimelineDaily key={`d-${item.data.date}`} digest={item.data} delay={0.08 + i * 0.03} isLive={item.isLive} />
-            )
-          )}
+          {visible.map((item, i) => (
+            <TimelineDaily key={`d-${item.data.date}`} digest={item.data} delay={0.08 + i * 0.03} isLive={item.isLive} />
+          ))}
           {hasMore && !showAll && (
             <Button $pill className="nw-show-more" onClick={() => setShowAll(true)}>
               Show {timeline.length - INITIAL_COUNT} older
@@ -169,68 +164,6 @@ const NewsIndex = ({ isAdmin, adminKey: rawAdminKey }) => {
       )}
       </div>
     </PageLayout>
-  );
-};
-
-const WeeklyHero = ({ weekly }) => {
-  const fallbackBg = COVER_BACKGROUNDS[hashDate(weekly.week_start) % COVER_BACKGROUNDS.length];
-  const coverUrl = useMemo(
-    () => `${RELAY_URL}/api/admin/weekly-digest/${weekly.week_start}/cover.jpg?v=${weekly.updated_at || weekly.week_start}`,
-    [weekly.week_start, weekly.updated_at]
-  );
-  const [coverBg, setCoverBg] = useState(fallbackBg);
-  const headline = weekly.digest ? extractHeadline(weekly.digest) : "";
-
-  useEffect(() => {
-    const img = new Image();
-    img.onload = () => setCoverBg(coverUrl);
-    img.onerror = () => setCoverBg(fallbackBg);
-    img.src = coverUrl;
-  }, [coverUrl, fallbackBg]);
-
-  return (
-    <Link to={`/news?week=${weekly.week_start}`} className="nw-hero-card reveal" style={{ "--delay": "0.05s" }}>
-      <div className="nw-hero-card-bg" style={{ backgroundImage: `url(${coverBg})`, backgroundPosition: weekly.cover_position || "center" }} />
-      <div className="nw-hero-card-overlay" />
-      <div className="nw-hero-card-content">
-        <span className="nw-hero-card-eyebrow">The 4v4 Weekly</span>
-        <h3 className="nw-hero-card-date">{formatWeekRange(weekly.week_start, weekly.week_end)}</h3>
-        {headline && <h2 className="nw-hero-card-title">{headline}</h2>}
-      </div>
-    </Link>
-  );
-};
-
-const TimelineWeekly = ({ weekly, delay }) => {
-  const headline = weekly.digest ? extractHeadline(weekly.digest) : "";
-  const fallbackBg = COVER_BACKGROUNDS[hashDate(weekly.week_start) % COVER_BACKGROUNDS.length];
-  const coverUrl = useMemo(
-    () => `${RELAY_URL}/api/admin/weekly-digest/${weekly.week_start}/cover.jpg?v=${weekly.updated_at || weekly.week_start}`,
-    [weekly.week_start, weekly.updated_at]
-  );
-  const [coverBg, setCoverBg] = useState(fallbackBg);
-
-  useEffect(() => {
-    const img = new Image();
-    img.onload = () => setCoverBg(coverUrl);
-    img.onerror = () => setCoverBg(fallbackBg);
-    img.src = coverUrl;
-  }, [coverUrl, fallbackBg]);
-
-  return (
-    <Link to={`/news?week=${weekly.week_start}`} className="nw-timeline-item nw-timeline-item--weekly reveal" style={{ "--delay": `${delay}s` }}>
-      <div className="nw-timeline-date">
-        <span className="nw-timeline-badge">Weekly</span>
-        <span className="nw-timeline-date-label">{formatWeekRange(weekly.week_start, weekly.week_end)}</span>
-      </div>
-      <div className="nw-timeline-content">
-        <div className="nw-timeline-weekly-banner">
-          <div className="nw-timeline-weekly-bg" style={{ backgroundImage: `url(${coverBg})`, backgroundPosition: weekly.cover_position || "center" }} />
-          <div className="nw-timeline-weekly-overlay" />
-          {headline && <span className="nw-timeline-weekly-title">{headline}</span>}
-        </div>
-      </div>
-    </Link>
   );
 };
 

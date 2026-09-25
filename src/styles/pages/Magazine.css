@@ -3338,3 +3338,427 @@ a.mg-stack-player-name:hover {
     gap: var(--space-3);
   }
 }
+
+
+/* ═══════════════════════════════════════════════════════
+   Issue layout (design handoff "News pages")
+   ═══════════════════════════════════════════════════════ */
+
+/* ── Cover: full-width art, text at the bottom ─────── */
+
+.mg-header {
+  position: relative;
+  max-width: none;
+  height: 500px;
+  padding: 0;
+  display: flex;
+  align-items: flex-end;
+  overflow: hidden;
+  /* cancel PageOuter padding: 64px top, 32px sides */
+  margin: -64px -32px 0;
+  width: calc(100% + 64px);
+}
+
+.mg-header-image {
+  position: absolute;
+  inset: 0;
+  border: 0;
+  border-radius: 0;
+  z-index: 0;
+}
+
+.mg-header-image--loading {
+  aspect-ratio: auto;
+}
+
+.mg-header-img {
+  width: 100%;
+  height: 100%;
+  aspect-ratio: auto;
+  object-fit: cover;
+}
+
+.mg-header-image::after {
+  content: "";
+  position: absolute;
+  inset: 0;
+  background: linear-gradient(to top, rgba(0, 0, 0, 0.95) 0%, rgba(0, 0, 0, 0.6) 30%, rgba(0, 0, 0, 0.1) 55%, rgba(0, 0, 0, 0.25) 100%);
+  pointer-events: none;
+}
+
+.mg-header-image .mg-header-pick-cover,
+.mg-header-image .mg-header-reposition-bar {
+  z-index: 2;
+}
+
+.mg-header-content {
+  position: relative;
+  z-index: 1;
+  width: 100%;
+  max-width: 1120px;
+  margin: 0 auto;
+  padding: 0 32px 52px;
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+}
+
+.mg-header-meta {
+  gap: var(--space-4);
+}
+
+.mg-header-back {
+  font-family: var(--font-mono);
+  font-size: 13px;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+  color: var(--text-body);
+  text-decoration: none;
+}
+
+.mg-header-back:hover {
+  color: var(--gold);
+}
+
+.mg-header-no {
+  font-family: var(--font-display);
+  font-size: 22px;
+  color: var(--gold);
+}
+
+.mg-header-title {
+  margin: 0;
+  font-size: clamp(2.4rem, 6vw, 80px);
+  line-height: 1;
+  color: var(--white);
+  text-wrap: balance;
+  text-shadow: 0 2px 16px rgba(0, 0, 0, 0.8);
+}
+
+.mg-header-rule {
+  display: block;
+  width: 48px;
+  height: 1px;
+  background: var(--gold);
+}
+
+.mg-header-date {
+  font-size: 13px;
+  letter-spacing: 0.2em;
+  color: var(--text-body);
+}
+
+@media (max-width: 900px) {
+  .mg-header-content {
+    padding: 0 var(--space-6) var(--space-12);
+  }
+
+  .mg-header-meta,
+  .mg-header-title {
+    padding: 0;
+  }
+
+  .mg-header-title {
+    font-size: clamp(2.2rem, 9vw, 4rem);
+    line-height: 1.05;
+  }
+}
+
+/* ── Lede: recap beside the key numbers ─────────────── */
+
+.mg-lede {
+  max-width: 900px;
+  margin: var(--space-12) auto 0;
+  padding: 0 var(--space-6);
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(320px, 1fr));
+  gap: 56px;
+  align-items: start;
+}
+
+.mg-lede-text {
+  margin: 0;
+  font-family: var(--font-body);
+  font-size: clamp(20px, 2.4vw, 28px);
+  line-height: 1.4;
+  color: var(--white);
+  text-wrap: pretty;
+}
+
+.mg-lede-numbers {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  row-gap: 26px;
+  column-gap: 32px;
+}
+
+.mg-lede-number {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  padding-top: 14px;
+  border-top: 1px solid rgba(255, 255, 255, 0.12);
+}
+
+.mg-lede-value {
+  font-family: var(--font-display);
+  font-size: 34px;
+  line-height: 1;
+  color: var(--white);
+}
+
+.mg-lede-value--green { color: var(--green); }
+.mg-lede-value--red { color: var(--red); }
+.mg-lede-value--gold { color: var(--gold); }
+
+.mg-lede-label {
+  font-family: var(--font-mono);
+  font-size: var(--text-xxs);
+  letter-spacing: 0.1em;
+  color: var(--grey-light);
+}
+
+/* ── Quote of the week ──────────────────────────────── */
+
+.mg-qow {
+  position: relative;
+  max-width: 900px;
+  margin: var(--space-12) auto 0;
+  padding: 40px 44px;
+  display: flex;
+  flex-direction: column;
+  gap: 18px;
+  background: #0d0b09;
+  border: 1px solid rgba(255, 255, 255, 0.07);
+  border-radius: var(--radius-md);
+  overflow: hidden;
+}
+
+.mg-qow-art {
+  position: absolute;
+  right: 0;
+  top: 0;
+  bottom: 0;
+  width: 42%;
+  background-size: cover;
+  background-position: center;
+  opacity: 0.3;
+  -webkit-mask-image: linear-gradient(90deg, transparent, #000);
+  mask-image: linear-gradient(90deg, transparent, #000);
+}
+
+.mg-qow-label,
+.mg-qow-mark,
+.mg-qow-text,
+.mg-qow-by {
+  position: relative;
+}
+
+.mg-qow-mark {
+  font-family: var(--font-body);
+  font-size: 96px;
+  line-height: 0.5;
+  height: 36px;
+  color: var(--gold);
+}
+
+.mg-qow-text {
+  max-width: 70%;
+  font-family: var(--font-body);
+  font-style: italic;
+  font-size: clamp(24px, 3.4vw, 40px);
+  line-height: 1.2;
+  color: var(--white);
+  text-wrap: balance;
+}
+
+.mg-qow-by {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  max-width: 70%;
+  padding-top: 16px;
+  border-top: 1px solid rgba(252, 219, 51, 0.35);
+}
+
+.mg-qow-avatar {
+  width: 40px;
+  height: 40px;
+  border-radius: 3px;
+  border: 1px solid rgba(var(--gold-muted-rgb), 0.5);
+  object-fit: cover;
+}
+
+.mg-qow-who {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.mg-qow-name {
+  font-family: var(--font-display);
+  font-size: 17px;
+  color: var(--gold);
+  text-decoration: none;
+}
+
+.mg-qow-ctx {
+  font-family: var(--font-mono);
+  font-size: var(--text-xxs);
+  color: var(--grey-light);
+}
+
+@media (max-width: 600px) {
+  .mg-qow {
+    padding: 28px 22px;
+  }
+
+  .mg-qow-text,
+  .mg-qow-by {
+    max-width: none;
+  }
+
+  .mg-qow-art {
+    width: 60%;
+  }
+}
+
+/* ── Day by day ─────────────────────────────────────── */
+
+.mg-days-list {
+  display: flex;
+  flex-direction: column;
+}
+
+.mg-day {
+  display: grid;
+  grid-template-columns: 96px minmax(0, 1fr);
+  gap: 28px;
+  padding: 20px 0;
+  border-top: 1px solid rgba(255, 255, 255, 0.08);
+  color: var(--text-body);
+  text-decoration: none;
+}
+
+.mg-day:hover .mg-day-text {
+  color: var(--white);
+}
+
+.mg-day-when {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.mg-day-dow {
+  font-family: var(--font-mono);
+  font-size: var(--text-xxxs);
+  letter-spacing: 0.14em;
+  color: var(--grey-light);
+}
+
+.mg-day-date {
+  font-family: var(--font-display);
+  font-size: var(--text-base);
+  color: var(--gold);
+}
+
+.mg-day-text {
+  font-family: var(--font-body);
+  font-size: 17px;
+  line-height: 1.55;
+  color: var(--text-body);
+  text-wrap: pretty;
+  transition: color var(--transition);
+}
+
+@media (max-width: 600px) {
+  .mg-day {
+    grid-template-columns: 1fr;
+    gap: 8px;
+  }
+}
+
+/* ── Prev / next issue ──────────────────────────────── */
+
+.mg-issue-nav {
+  max-width: 900px;
+  margin: var(--space-12) auto var(--space-12);
+  padding: 40px var(--space-6) 0;
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: var(--space-6);
+  border-top: 1px solid rgba(255, 255, 255, 0.12);
+}
+
+.mg-issue-nav-link {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  text-decoration: none;
+}
+
+.mg-issue-nav-next {
+  align-items: flex-end;
+  text-align: right;
+}
+
+.mg-issue-nav-kicker {
+  font-family: var(--font-mono);
+  font-size: var(--text-xxs);
+  letter-spacing: 0.16em;
+  text-transform: uppercase;
+  color: var(--grey-light);
+}
+
+.mg-issue-nav-title {
+  font-family: var(--font-display);
+  font-size: var(--text-lg);
+  color: var(--gold);
+}
+
+.mg-issue-nav-link:hover .mg-issue-nav-title {
+  color: var(--white);
+}
+
+.mg-issue-nav-soon .mg-issue-nav-kicker {
+  opacity: 0.7;
+}
+
+.mg-issue-nav-soon-text {
+  font-family: var(--font-body);
+  font-size: var(--text-base);
+  color: var(--grey-light);
+}
+
+/* ── Editorial: what the rules left out ─────────────── */
+
+.mg-leftout {
+  max-width: 900px;
+  margin: var(--space-12) auto 0;
+  padding: var(--space-6);
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  border: 1px dashed rgba(255, 255, 255, 0.25);
+  border-radius: var(--radius-md);
+}
+
+.mg-leftout-row {
+  display: grid;
+  grid-template-columns: 200px minmax(0, 1fr);
+  gap: var(--space-4);
+  font-family: var(--font-mono);
+  font-size: 13px;
+}
+
+.mg-leftout-name {
+  color: var(--white);
+}
+
+.mg-leftout-reason,
+.mg-leftout-none {
+  font-family: var(--font-mono);
+  font-size: 13px;
+  color: var(--grey-light);
+}
