@@ -307,6 +307,33 @@
   width: 124px;
 }
 
+/* The MMR dots fan out from the centre line as a slide becomes active.
+   MmrComparison is drawn by d3 at fixed positions, so the reveal scales
+   the chart out of the middle rather than moving each dot. */
+.hm-slide.is-active .mmr-chart-container svg,
+.hm-slide.is-active .gm-chart svg {
+  animation: hmChartIn 0.9s cubic-bezier(0.2, 0.8, 0.2, 1) 0.15s both;
+  transform-origin: 50% 50%;
+}
+
+@keyframes hmChartIn {
+  from {
+    transform: scaleY(0.02);
+    opacity: 0.4;
+  }
+  to {
+    transform: scaleY(1);
+    opacity: 1;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .hm-slide.is-active .mmr-chart-container svg,
+  .hm-slide.is-active .gm-chart svg {
+    animation: none;
+  }
+}
+
 @media (max-width: 1440px) {
   .hm-slide .playerDiv {
     width: 104px;
