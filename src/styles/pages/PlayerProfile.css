@@ -395,10 +395,9 @@
   box-shadow: var(--theme-shadow, none);
 }
 
+/* the grid itself lives with the rows, in game/GameRow.css */
 .mh-header {
-  display: grid;
-  grid-template-columns: 50px minmax(120px, 0.5fr) 70px 50px minmax(160px, 1.1fr) minmax(160px, 1.1fr) 65px 65px;
-  padding: 6px var(--space-4);
+  padding: 6px var(--space-4) 6px calc(var(--space-4) + 3px);
   border-bottom: 1px solid var(--gold-border-hover);
   border-radius: var(--radius-xl) var(--radius-xl) 0 0;
   color: var(--grey-light);
@@ -414,36 +413,23 @@
   text-align: center;
 }
 
+.mh-col.mmr {
+  text-align: right;
+}
+
 .mh-col.map {
   width: auto;
   height: auto;
-}
-
-.mh-col.avg-mmr {
-  text-align: center;
-  color: var(--gold);
 }
 
 .mh-col.mmr {
   text-align: center;
 }
 
-.mh-col.allies {
-  padding-left: var(--space-2);
-}
-
 .ally {
   display: flex;
   align-items: center;
   gap: var(--space-1);
-}
-
-.mh-col.duration,
-.mh-col.time {
-  font-family: var(--font-mono);
-  font-size: var(--text-xxs);
-  color: var(--grey-light);
-  text-align: center;
 }
 
 /* Pagination */
@@ -866,13 +852,6 @@
     min-width: 250px;
   }
 
-  .mh-header {
-    grid-template-columns: 50px minmax(120px, 1fr) 60px 50px minmax(120px, 1fr) minmax(150px, 1fr) 60px;
-  }
-
-  .mh-col.time {
-    display: none;
-  }
 }
 
 @media (max-width: 768px) {
@@ -886,12 +865,7 @@
     align-items: flex-start;
   }
 
-  .mh-header {
-    grid-template-columns: 50px 1fr 60px 50px 100px 60px;
-  }
-
-  .mh-col.opponents,
-  .mh-col.time {
+  .mh-col.players {
     display: none;
   }
 
@@ -903,13 +877,275 @@
     font-size: var(--text-lg);
   }
 
-  .mh-header {
-    grid-template-columns: 40px 1fr 50px 50px;
-  }
-
-  .mh-col.allies,
-  .mh-col.duration {
+  .mh-col.players {
     display: none;
   }
 
+}
+
+/* ═══════════════════════════════════════════════════════
+   Storyline layer (design handoff "Player profile")
+   ═══════════════════════════════════════════════════════ */
+
+/* ── Header: storyline tags ────────────────────────── */
+
+.hd-tags {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  margin-top: 4px;
+}
+
+.hd-tag {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  font-family: var(--font-mono);
+  font-size: var(--text-xxs);
+  color: var(--white);
+  padding: 4px 10px;
+  border: 1px solid rgba(255, 255, 255, 0.15);
+  background: rgba(0, 0, 0, 0.3);
+  border-radius: 3px;
+  text-decoration: none;
+  transition: border-color var(--transition);
+}
+
+.hd-tag:hover {
+  border-color: var(--gold);
+  color: var(--white);
+}
+
+.hd-tag-dot {
+  width: 6px;
+  height: 6px;
+  border-radius: var(--radius-full);
+  background: var(--grey-light);
+}
+
+.hd-tag--green { border-color: rgba(74, 222, 128, 0.4); background: rgba(74, 222, 128, 0.08); }
+.hd-tag--green .hd-tag-dot { background: var(--green); }
+.hd-tag--red { border-color: rgba(248, 113, 113, 0.4); background: rgba(248, 113, 113, 0.08); }
+.hd-tag--red .hd-tag-dot { background: var(--red); }
+.hd-tag--gold { border-color: rgba(252, 219, 51, 0.4); background: rgba(252, 219, 51, 0.08); }
+.hd-tag--gold .hd-tag-dot { background: var(--gold); }
+.hd-tag--white .hd-tag-dot { background: var(--gold); }
+
+/* ── Sidebar: peak marker on the sparkline ──────────── */
+
+.mtc-chart {
+  position: relative;
+}
+
+.mtc-peak {
+  position: absolute;
+  width: 9px;
+  height: 9px;
+  margin: -4px 0 0 -4.5px;
+  border-radius: var(--radius-full);
+  background: var(--gold);
+  border: 2px solid #0a0806;
+  box-sizing: content-box;
+}
+
+.mtc-peak--now {
+  box-shadow: 0 0 0 3px rgba(252, 219, 51, 0.25);
+}
+
+.mtc-at-peak {
+  display: block;
+  margin-top: 6px;
+  font-family: var(--font-mono);
+  font-size: var(--text-xxxs);
+  letter-spacing: 0.1em;
+  color: var(--gold);
+  text-align: right;
+}
+
+/* ── Activity tab: over time, season bars, issues ──── */
+
+.section-hint {
+  font-family: var(--font-mono);
+  font-size: var(--text-xxs);
+  color: var(--grey-light);
+}
+
+.aot-chart {
+  position: relative;
+  height: 148px;
+}
+
+.aot-svg {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+}
+
+.aot-area {
+  fill: rgba(252, 219, 51, 0.12);
+}
+
+.aot-line {
+  fill: none;
+  stroke: var(--gold);
+  stroke-width: 1.6;
+}
+
+.aot-gap {
+  position: absolute;
+  top: 0;
+  bottom: 0;
+  background: repeating-linear-gradient(135deg, rgba(248, 113, 113, 0.12) 0 6px, transparent 6px 12px);
+  border-left: 1px dashed rgba(248, 113, 113, 0.5);
+  border-right: 1px dashed rgba(248, 113, 113, 0.5);
+  z-index: 1;
+}
+
+.aot-gap-label {
+  position: absolute;
+  top: 6px;
+  left: 50%;
+  transform: translateX(-50%);
+  font-family: var(--font-mono);
+  font-size: var(--text-xxxs);
+  color: var(--red);
+  white-space: nowrap;
+  background: rgba(10, 8, 6, 0.85);
+  padding: 1px 6px;
+}
+
+.aot-season {
+  position: absolute;
+  bottom: -20px;
+  height: 20px;
+  display: flex;
+  align-items: flex-end;
+  padding-left: 4px;
+  border-left: 1px solid rgba(255, 255, 255, 0.15);
+  font-family: var(--font-mono);
+  font-size: 10px;
+  color: var(--grey-light);
+}
+
+.shb {
+  display: grid;
+  grid-auto-flow: column;
+  grid-auto-columns: minmax(0, 1fr);
+  gap: 10px;
+  align-items: end;
+  height: 130px;
+}
+
+.shb-col {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: flex-end;
+  gap: 5px;
+  height: 100%;
+}
+
+.shb-value {
+  font-family: var(--font-mono);
+  font-size: var(--text-xxxs);
+  color: var(--grey-light);
+}
+
+.shb-bar {
+  width: 100%;
+  background: rgba(252, 219, 51, 0.3);
+  border-radius: 2px 2px 0 0;
+}
+
+.shb-col--current .shb-bar { background: var(--gold); }
+.shb-col--current .shb-value { color: var(--gold); }
+
+.shb-label {
+  font-family: var(--font-mono);
+  font-size: var(--text-xxxs);
+  color: var(--grey-light);
+}
+
+.ph-issue-list {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-3);
+  margin-bottom: var(--space-4);
+}
+
+.ph-issue-item {
+  display: grid;
+  grid-template-columns: 110px minmax(0, 1fr);
+  gap: 14px;
+  align-items: center;
+  color: var(--white);
+  text-decoration: none;
+}
+
+.nw-issue-thumb {
+  position: relative;
+  height: 52px;
+  border-radius: 3px;
+  border: 1px solid rgba(200, 200, 200, 0.3);
+  background: var(--surface-2) center / cover no-repeat;
+  overflow: hidden;
+}
+
+.nw-issue-thumb-no {
+  position: absolute;
+  left: 6px;
+  bottom: 4px;
+  font-family: var(--font-display);
+  font-size: var(--text-xxs);
+  color: var(--white);
+  text-shadow: 0 0 4px #000;
+}
+
+.ph-issue-body {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  min-width: 0;
+}
+
+.ph-issue-snippet {
+  font-family: var(--font-body);
+  font-size: var(--text-xs);
+  line-height: 1.4;
+  color: var(--text-body);
+}
+
+/* ── Live game: the compact cells must fit the profile's column ──────
+   (.compact's 100px is overridden by .playerDiv's 160px later in
+   Game.css, so eight cells overflow; pin the width here instead) */
+
+.live-game-section .playerDiv,
+.live-game-section .playerDiv.compact {
+  width: 112px;
+  min-width: 0;
+}
+
+.live-game-section .profile-pic {
+  width: 60px;
+}
+
+.live-game-section .player-name-row .player-name {
+  font-size: var(--text-xxs);
+}
+
+.live-game-section .game-table th,
+.live-game-section .game-table td {
+  padding: 4px 2px;
+}
+
+@media (max-width: 1400px) {
+  .live-game-section .playerDiv,
+  .live-game-section .playerDiv.compact {
+    width: 96px;
+  }
+
+  .live-game-section .profile-pic {
+    width: 52px;
+  }
 }

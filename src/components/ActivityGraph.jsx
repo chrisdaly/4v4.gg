@@ -7,9 +7,11 @@ const CACHE_EXPIRY_MS = 30 * 60 * 1000; // 30 minutes
 const WEEKS_TO_SHOW = 13; // ~3 months
 
 /**
- * ActivityGraph - GitHub-style contribution graph for match activity
+ * ActivityGraph - GitHub-style contribution graph for match activity.
+ * size="large" (the profile's Activity tab) draws bigger cells with
+ * Mon / Wed / Fri labels and a "N games · played X of Y days" summary.
  */
-const ActivityGraph = ({ battleTag, currentSeason, gateway = 20 }) => {
+const ActivityGraph = ({ battleTag, currentSeason, gateway = 20, size = "small", title = "Activity" }) => {
   const [activityData, setActivityData] = useState({});
   const [seasonRanges, setSeasonRanges] = useState({});
   const [isLoading, setIsLoading] = useState(true);
@@ -207,15 +209,18 @@ const ActivityGraph = ({ battleTag, currentSeason, gateway = 20 }) => {
       if (d >= thirtyDaysAgo) last30 += count;
     }
     const avgPerDay = last30 / 30;
+    const daysPlayed = Object.values(activityData).filter((c) => c > 0).length;
 
-    return { total, last24h, last30, avgPerDay };
+    return { total, last24h, last30, avgPerDay, daysPlayed };
   }, [activityData]);
+  const daysShown = weeks.reduce((n, w) => n + w.filter((d) => d <= new Date()).length, 0);
+  const large = size === "large";
 
   if (isLoading) {
     return (
-      <div className="activity-graph-card">
+      <div className={`activity-graph-card${large ? " ag--large" : ""}`}>
         <div className="ag-header">
-          <h3 className="ag-title">Activity</h3>
+          <h3 className="ag-title">{title}</h3>
         </div>
         <div className="ag-loading">
           <PeonLoader size="sm" />
@@ -225,9 +230,14 @@ const ActivityGraph = ({ battleTag, currentSeason, gateway = 20 }) => {
   }
 
   return (
-    <div className="activity-graph-card">
+    <div className={`activity-graph-card${large ? " ag--large" : ""}`} data-activity-graph={size}>
       <div className="ag-header">
-        <h3 className="ag-title">Activity</h3>
+        <h3 className="ag-title">{title}</h3>
+        {large && (
+          <span className="ag-summary" data-activity-summary>
+            last 3 months · {stats.total} games · played {stats.daysPlayed} of {daysShown} days
+          </span>
+        )}
       </div>
 
       {/* Month labels */}
@@ -246,13 +256,27 @@ const ActivityGraph = ({ battleTag, currentSeason, gateway = 20 }) => {
       <div className="ag-body">
         {/* Day labels - Mon to Sun */}
         <div className="ag-day-labels">
-          <span>M</span>
-          <span>T</span>
-          <span>W</span>
-          <span>T</span>
-          <span>F</span>
-          <span>S</span>
-          <span>S</span>
+          {large ? (
+            <>
+              <span>Mon</span>
+              <span></span>
+              <span>Wed</span>
+              <span></span>
+              <span>Fri</span>
+              <span></span>
+              <span></span>
+            </>
+          ) : (
+            <>
+              <span>M</span>
+              <span>T</span>
+              <span>W</span>
+              <span>T</span>
+              <span>F</span>
+              <span>S</span>
+              <span>S</span>
+            </>
+          )}
         </div>
 
         {/* Grid */}

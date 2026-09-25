@@ -249,7 +249,15 @@ export const getPlayerAllSeasonActivity = async (battleTag) => {
       const all = raceResults.flat();
       if (all.length === 0) return null;
       const daySet = new Set(all.map(e => e.date.slice(0, 10)));
-      return { season: id, matchDays: [...daySet].sort() };
+      // one timeline point per game: per-day counts and the season's peak
+      const dayCounts = {};
+      let peakMmr = 0;
+      for (const e of all) {
+        const day = e.date.slice(0, 10);
+        dayCounts[day] = (dayCounts[day] || 0) + 1;
+        if (e.mmr > peakMmr) peakMmr = e.mmr;
+      }
+      return { season: id, matchDays: [...daySet].sort(), dayCounts, peakMmr, games: all.length };
     }));
 
     return perSeason.filter(Boolean);

@@ -1,6 +1,6 @@
 import { describe, it, expect, vi, afterEach, beforeEach } from 'vitest';
 import React from 'react';
-import { render, screen, fireEvent, cleanup, waitFor, act } from '@testing-library/react';
+import { render, screen, fireEvent, cleanup, waitFor, act, within } from '@testing-library/react';
 import { MemoryRouter } from 'react-router-dom';
 
 // Render every row eagerly: happy-dom has no layout, so the real Virtuoso
@@ -46,7 +46,6 @@ import { localTimeLabel } from '../lib/chat/localTime';
 // Noon LOCAL time today (the day dividers use local dates), so 'Today' /
 // 'Yesterday' assertions never rot and do not depend on the machine's timezone
 const T0 = (() => { const d = new Date(); d.setHours(12, 0, 0, 0); return d.getTime(); })();
-const DAY = (n) => new Date(T0 - n * 86400000).toISOString().slice(0, 10);
 const iso = (ms) => new Date(T0 + ms).toISOString();
 const msg = (id, tag, ms, text, extra = {}) => ({
   id, battleTag: tag, userName: tag.split('#')[0], clanTag: '', text,
@@ -357,7 +356,7 @@ describe('ChatPanel bottom state', () => {
 });
 
 describe('ChatPanel rows', () => {
-  it('renders groups, system rows, game rows, bot rows, translations and chips, with no header', () => {
+  it('renders groups, system rows, game rows, bot rows, translations and chips under the header', () => {
     renderPanel();
 
     expect(screen.getByText('Connected to channel')).toBeInTheDocument();
@@ -367,27 +366,36 @@ describe('ChatPanel rows', () => {
     expect(screen.getByText('Moon: 1800 MMR')).toBeInTheDocument();
     expect(screen.getByText('orphan')).toBeInTheDocument();
     expect(screen.getByText('hello')).toBeInTheDocument();
-    expect(screen.getByText('1900 MMR')).toBeInTheDocument();
+    expect(document.getElementById('msg-a1').closest('[data-variant="feed"]').querySelector('[data-mmr]')).toHaveTextContent(/^1900$/);
+    expect(screen.queryByText('1900 MMR')).toBeNull();
     expect(screen.getByText('Load earlier messages')).toBeInTheDocument();
     expect(screen.getAllByText('Today')).toHaveLength(2); // in-list divider + sticky day bar
     expect(document.getElementById('msg-a1')).not.toBeNull();
     expect(document.getElementById('msg-a2')).not.toBeNull();
 
-    // No header: no title, no toggle pills, no status badge (the search
-    // control is the corner icon, not a header pill)
+    // The header: home link (relay status in its tooltip, no dot), the
+    // always-visible search field; no toggle pills, no title
+    const header = document.querySelector('[data-chat-header]');
+    const home = within(header).getByRole('link', { name: /4v4\.GG/ });
+    expect(home).toHaveAttribute('href', '/');
+    expect(home).toHaveAttribute('data-relay-status', 'connected');
+    expect(home).toHaveAttribute('title', '4v4.GG home · relay connected');
+    expect(home.querySelector('span')).toBeNull();
+    expect(within(header).getByRole('search')).toHaveAttribute('data-search-active', 'false');
+    expect(within(header).getByLabelText('Search messages or players')).toHaveValue('');
     expect(screen.queryByText('4v4 Chat')).toBeNull();
-    expect(screen.getByRole('button', { name: 'Search' })).toHaveAttribute('data-active', 'false');
+    expect(screen.queryByRole('button', { name: 'Search' })).toBeNull();
     expect(screen.queryByTitle(/game tickers/)).toBeNull();
     expect(screen.queryByTitle(/Focus mode/)).toBeNull();
-    expect(screen.queryByTitle(/relay:/)).toBeNull();
     expect(screen.queryByTitle(/pulse column/)).toBeNull();
 
     // Grubby's two lines share one group (one avatar column for both)
     const grubbyGroup = document.getElementById('msg-a1').closest('[data-variant="feed"]');
     expect(grubbyGroup).toContainElement(document.getElementById('msg-a2'));
 
-    // In-game chip while playing, won/lost chips in the post-game window
-    expect(screen.getByText('in game 5m')).toHaveAttribute('data-chip', 'ingame');
+    // In-game marker while playing, won/lost chips in the post-game window
+    expect(screen.getByText('5m')).toHaveAttribute('data-chip', 'ingame');
+    expect(screen.queryByText('in game 5m')).toBeNull();
     expect(screen.getByText('lost -9')).toHaveAttribute('data-chip', 'lost');
     expect(screen.getByText('won')).toHaveAttribute('data-chip', 'won');
     expect(screen.getByTitle('live')).toHaveAttribute('href', 'https://twitch.tv/grubby');
@@ -400,11 +408,12 @@ describe('ChatPanel rows', () => {
     expect(screen.queryByText('close one')).toBeNull();
   });
 
-  it("shows each sender's local time from their profile country", () => {
+  it("puts each sender's local time from their profile country in the name's tooltip", () => {
     renderPanel();
     // Moon's profile says KR: the label is the send time shifted to Seoul (UTC+9)
     const moon = document.getElementById('msg-b1').closest('[data-variant="feed"]');
-    expect(moon.querySelector('[data-local-time]')).toHaveTextContent(`${localTimeLabel('KR', new Date(T0 + 60_000))} local`);
+    expect(moon.querySelector('[data-local-time]')).toHaveAttribute('title', `${localTimeLabel('KR', new Date(T0 + 60_000))} local`);
+    expect(moon).not.toHaveTextContent(/local/);
     // Grubby has no profile, so no country and no clock
     const grubby = document.getElementById('msg-a1').closest('[data-variant="feed"]');
     expect(grubby.querySelector('[data-local-time]')).toBeNull();
@@ -500,18 +509,30 @@ describe('ChatPanel rows', () => {
     expect(note.querySelector('a')).toHaveAttribute('href', '/player/Moon%232');
   });
 
-  it('opens the game from an in-game chip and keeps won/lost chips inert', () => {
+  it('opens the game from the in-game marker and keeps won/lost chips inert', () => {
     const onOpenGame = vi.fn();
     renderPanel({ onOpenGame });
-    const chip = screen.getByText('in game 5m');
-    expect(chip.tagName).toBe('BUTTON');
-    fireEvent.click(chip);
+    const marker = screen.getByText('5m');
+    expect(marker.tagName).toBe('BUTTON');
+    fireEvent.click(marker);
     expect(onOpenGame).toHaveBeenCalledTimes(1);
     expect(onOpenGame.mock.calls[0][0]).toMatchObject({ matchId: 'm2', mapName: 'Ferocity' });
     expect(screen.getByText('lost -9').tagName).toBe('SPAN');
     cleanup();
     renderPanel();
-    expect(screen.getByText('in game 5m').tagName).toBe('SPAN');
+    expect(screen.getByText('5m').tagName).toBe('SPAN');
+  });
+
+  it('on mobile a name opens the player card, rows use the short game copy and hover cards are off', () => {
+    const onOpenPlayer = vi.fn();
+    renderPanel({ isMobile: true, onOpenPlayer });
+    const name = screen.getByText('Moon');
+    expect(name.tagName).toBe('BUTTON');
+    fireEvent.click(name);
+    expect(onOpenPlayer).toHaveBeenCalledWith('Moon#2');
+    expect(screen.queryByText('FINISHED')).toBeNull();
+    expect(document.querySelector('[data-ticker="finished"]')).toHaveTextContent('Moon won Ferocity · +12');
+    expect(document.querySelector('[data-ticker="live"]')).toHaveTextContent('Moon +3 · Royal Gardens');
   });
 
   it('hides game rows when showGames is off', () => {
@@ -620,6 +641,34 @@ describe('ChatPanel permalinks', () => {
   });
 });
 
+describe('ChatPanel anchored permalink', () => {
+  it('reloads the window around &at= when the message is not loaded, then jumps once the new window is in', async () => {
+    const older = [msg('old1', 'Moon#2', -3 * 86400000, 'from the archive'), msg('old2', 'Moon#2', -3 * 86400000 + 1000, 'still there')];
+    const loadWindow = vi.fn(async () => older);
+    let windowId = 0;
+    const view = () => (
+      <Owner {...baseProps} messages={windowId === 0 ? messages : older} inGameInfoMap={new Map()} loadWindow={loadWindow} windowId={windowId} permalinkId="old1" permalinkAt="2026-09-22 11:00:00" />
+    );
+    const { rerender } = render(view());
+    await waitFor(() => expect(loadWindow).toHaveBeenCalledTimes(1));
+    // +1s past the anchor, in the relay's cursor format
+    expect(loadWindow).toHaveBeenCalledWith('2026-09-22 11:00:01');
+    expect(scrollToIndex).not.toHaveBeenCalled();
+    windowId = 1;
+    rerender(view());
+    await waitFor(() => expect(scrollToIndex).toHaveBeenCalled());
+    expect(document.getElementById('msg-old1')).not.toBeNull();
+    expect(loadWindow).toHaveBeenCalledTimes(1);
+  });
+
+  it('scrolls straight to a loaded message without touching the window', async () => {
+    const loadWindow = vi.fn(async () => messages);
+    renderPanel({ loadWindow, permalinkId: 'b1', permalinkAt: '2026-09-22 11:00:00' });
+    await waitFor(() => expect(scrollToIndex).toHaveBeenCalled());
+    expect(loadWindow).not.toHaveBeenCalled();
+  });
+});
+
 describe('ChatPanel sticky day bar', () => {
   beforeEach(() => {
     // /api/chat/stats supplies the archive's oldest day for the date input
@@ -676,196 +725,124 @@ describe('ChatPanel sticky day bar', () => {
   });
 });
 
-describe('ChatPanel search', () => {
-  // Relay rows are snake_case; the panel normalizes them
-  const row = (id, tag, receivedAt, text) => ({
-    id, user_name: tag.split('#')[0], clan_tag: '', battle_tag: tag, message: text,
-    sent_at: `${receivedAt.replace(' ', 'T')}.000Z`, received_at: receivedAt,
-  });
-  const hits = [
-    row('s1', 'Moon#2', `${DAY(0)} 11:00:00`, 'hola from moon'),
-    row('s2', 'Grubby#1', `${DAY(1)} 09:30:00`, 'HOLA again'),
-  ];
-  let fetchMock;
-  const searchCalls = () => fetchMock.mock.calls.map((c) => String(c[0])).filter((u) => u.includes('/api/chat/search'));
-  const lastSearchParams = () => new URLSearchParams(searchCalls().at(-1).split('?')[1]);
+describe('ChatPanel filter', () => {
+  const field = () => within(document.querySelector('[data-chat-header]')).getByLabelText('Search messages or players');
+  const groups = () => [...document.querySelectorAll('[data-variant="feed"]')].map((el) => el.querySelector('[data-local-time], a, button').textContent);
 
   beforeEach(() => {
     window.history.replaceState(null, '', '/chat');
-    fetchMock = vi.spyOn(globalThis, 'fetch').mockImplementation(async (url) => {
-      const u = String(url);
-      if (u.includes('/api/chat/search')) {
-        const sp = new URLSearchParams(u.split('?')[1]);
-        const offset = Number(sp.get('offset') || 0);
-        return { ok: true, json: async () => ({ results: offset === 0 ? hits : [row('s3', 'Moon#2', `${DAY(3)} 08:00:00`, 'hola three')], total: 3, offset, limit: 50 }) };
-      }
-      return { ok: true, json: async () => ({}) };
-    });
   });
   afterEach(() => {
-    vi.restoreAllMocks();
     window.history.replaceState(null, '', '/');
   });
 
-  it('is closed until the owner opens it, then searches with a debounce, renders transcript rows with the term marked, syncs the URL and switches range', async () => {
+  it('filters the stream by author name or text, counts the hits, hides game and system rows, and clears from the × or Esc', () => {
     renderPanel();
-    expect(screen.queryByLabelText('Search messages')).toBeNull();
-    fireEvent.click(screen.getByText('toggle search'));
-    expect(screen.getByText(/Search messages, filter by player/)).toBeInTheDocument();
+    expect(document.querySelectorAll('[data-variant="feed"]').length).toBe(3);
+    expect(document.querySelectorAll('[data-ticker]').length).toBe(2);
+
+    fireEvent.change(field(), { target: { value: 'HOLA' } });
+    expect(screen.getByRole('search', { name: 'Filter messages' })).toHaveAttribute('data-search-active', 'true');
+    expect(document.querySelector('[data-found-count]')).toHaveTextContent('1 found');
+    expect(groups()).toEqual(['Moon']);
+    expect(document.querySelectorAll('[data-ticker]').length).toBe(0);
+    expect(screen.queryByText('Connected to channel')).toBeNull();
+    expect(screen.getByText('hola')).toBeInTheDocument();
+    // one day divider for the remaining rows, still the sticky bar
+    expect(screen.getAllByText('Today')).toHaveLength(2);
+    expect(globalThis.fetch.mock.calls.some((c) => /\/api\/chat\/search/.test(String(c[0])))).toBe(false);
+
+    // by name, matching the whole group (both of Grubby's lines)
+    fireEvent.change(field(), { target: { value: 'grub' } });
+    expect(document.querySelector('[data-found-count]')).toHaveTextContent('1 found');
+    expect(document.getElementById('msg-a1')).not.toBeNull();
+    expect(document.getElementById('msg-a2')).not.toBeNull();
+    expect(document.getElementById('msg-b1')).toBeNull();
+
+    fireEvent.click(screen.getByRole('button', { name: 'Clear search' }));
+    expect(field()).toHaveValue('');
+    expect(document.querySelector('[data-found-count]')).toBeNull();
+    expect(document.querySelectorAll('[data-variant="feed"]').length).toBe(3);
+    expect(document.querySelectorAll('[data-ticker]').length).toBe(2);
+
+    fireEvent.change(field(), { target: { value: 'zzz' } });
+    expect(document.querySelector('[data-found-count]')).toHaveTextContent('0 found');
+    expect(screen.getByText('No messages match')).toBeInTheDocument();
     expect(screen.queryByTestId('virtuoso')).toBeNull();
-
-    fireEvent.change(screen.getByLabelText('Search messages'), { target: { value: 'hola' } });
-    // skeletons until the debounced request lands
-    expect(screen.getAllByTestId('search-skeleton').length).toBeGreaterThan(0);
-    expect(searchCalls()).toHaveLength(0);
-    await waitFor(() => expect(screen.getByText('3 results')).toBeInTheDocument());
-    expect(searchCalls()).toHaveLength(1);
-    expect(Object.fromEntries(lastSearchParams())).toEqual({ q: 'hola', since: '7d', limit: '50', offset: '0' });
-    expect(window.location.search).toBe('?q=hola&since=7d');
-
-    // transcript variant, one row per hit, day dividers between days, term highlighted
-    expect(document.querySelectorAll('[data-variant="transcript"]')).toHaveLength(2);
-    const s1 = document.getElementById('msg-s1');
-    expect(s1).toHaveTextContent('hola from moon');
-    expect(s1.querySelector('span span')).toHaveTextContent('hola');
-    expect(document.getElementById('msg-s2').textContent).toContain('HOLA again');
-    expect(screen.getByText('Today')).toBeInTheDocument();
-    expect(screen.getByText('Yesterday')).toBeInTheDocument();
-
-    // range pills
-    const pill7d = screen.getByRole('button', { name: '7d' });
-    expect(pill7d).toHaveAttribute('data-active', 'true');
-    fireEvent.click(screen.getByRole('button', { name: '30d' }));
-    await waitFor(() => expect(searchCalls()).toHaveLength(2));
-    expect(lastSearchParams().get('since')).toBe('30d');
-    expect(screen.getByRole('button', { name: '30d' })).toHaveAttribute('data-active', 'true');
-    expect(pill7d).toHaveAttribute('data-active', 'false');
-    await waitFor(() => expect(window.location.search).toBe('?q=hola&since=30d'));
-
-    // Esc asks the owner to close the panel, which clears the URL and brings the stream back
     fireEvent.keyDown(window, { key: 'Escape' });
-    expect(searchToggle).toHaveBeenLastCalledWith(false);
-    expect(screen.getByTestId('virtuoso')).toBeInTheDocument();
+    expect(field()).toHaveValue('');
+    expect(screen.queryByText('No messages match')).toBeNull();
+  });
+
+  it('pages older history from the button only while a query is set', async () => {
+    const loadOlder = vi.fn(async () => ({ added: 0 }));
+    renderPanel({ loadOlder });
+    fireEvent.change(field(), { target: { value: 'hola' } });
+    await act(async () => virtuosoProps.current.startReached?.());
+    expect(loadOlder).not.toHaveBeenCalled();
+    fireEvent.click(screen.getByText('Load earlier messages'));
+    await waitFor(() => expect(loadOlder).toHaveBeenCalledTimes(1));
+    fireEvent.click(screen.getByRole('button', { name: 'Clear search' }));
+    await act(async () => virtuosoProps.current.startReached?.());
+    expect(loadOlder).toHaveBeenCalledTimes(2);
+  });
+
+  it('seeds the field from ?q= (the old /search links), then drops the query from the address bar', () => {
+    window.history.replaceState(null, '', '/chat?q=gg&since=all');
+    renderPanel();
+    expect(field()).toHaveValue('gg');
+    expect(document.querySelector('[data-found-count]')).toHaveTextContent('0 found');
     expect(window.location.search).toBe('');
+    expect(searchToggle).not.toHaveBeenCalled();
+    cleanup();
+    window.history.replaceState(null, '', '/chat?player=Moon%232&m=b1');
+    renderPanel();
+    expect(field()).toHaveValue('Moon#2');
+    expect(window.location.search).toBe('?m=b1');
   });
 
-  it('asks the owner to open from ?q=&player=&since= on load and filters by player with suggestions', async () => {
-    window.history.replaceState(null, '', '/chat?q=gg&player=Moon%232&since=all');
+  it('shows the mobile search row only while searchOpen, sharing the query, and closes it on Esc', () => {
     renderPanel();
-    expect(searchToggle).toHaveBeenCalledWith(true);
-    expect(screen.getByLabelText('Search messages')).toHaveValue('gg');
-    expect(screen.getByLabelText('Filter by player')).toHaveValue('Moon#2');
-    expect(screen.getByRole('button', { name: 'All' })).toHaveAttribute('data-active', 'true');
-    await waitFor(() => expect(searchCalls()).toHaveLength(1));
-    expect(Object.fromEntries(lastSearchParams())).toEqual({ q: 'gg', player: 'Moon#2', since: 'all', limit: '50', offset: '0' });
-
-    // player field suggests online users by name prefix; picking one sets the full tag
-    const player = screen.getByLabelText('Filter by player');
-    fireEvent.focus(player);
-    fireEvent.change(player, { target: { value: 'gr' } });
-    const option = await screen.findByRole('option', { name: 'Grubby' });
-    fireEvent.click(option);
-    expect(player).toHaveValue('Grubby#1');
-    expect(screen.queryByRole('option')).toBeNull();
-    await waitFor(() => expect(lastSearchParams().get('player')).toBe('Grubby#1'));
-    expect(window.location.search).toBe('?q=gg&player=Grubby%231&since=all');
-
-    // a name inside a result narrows to that author instead of jumping
-    await waitFor(() => expect(document.getElementById('msg-s1')).not.toBeNull());
-    fireEvent.click(screen.getByRole('button', { name: 'Moon' }));
-    expect(player).toHaveValue('Moon#2');
-    expect(scrollToIndex).not.toHaveBeenCalled();
-  });
-
-  it('has a corner search icon that toggles the panel and shows as active while open', () => {
-    renderPanel();
-    const icon = screen.getByRole('button', { name: 'Search' });
-    expect(icon.querySelector('svg')).not.toBeNull();
-    expect(icon).toHaveAttribute('aria-pressed', 'false');
-    expect(icon).toHaveAttribute('data-active', 'false');
-    expect(screen.queryByRole('search')).toBeNull();
-    fireEvent.click(icon);
-    expect(searchToggle).toHaveBeenLastCalledWith(true);
-    expect(screen.getByRole('search', { name: 'Search chat history' })).toBeInTheDocument();
-    const open = screen.getByRole('button', { name: 'Search' });
-    expect(open).toHaveAttribute('aria-pressed', 'true');
-    expect(open).toHaveAttribute('data-active', 'true');
-    // the panel's own close still works: Esc, and the icon reads closed again
+    expect(document.querySelector('[data-mobile-search]')).toBeNull();
+    fireEvent.click(screen.getByText('toggle search'));
+    const row = document.querySelector('[data-mobile-search]');
+    expect(row).not.toBeNull();
+    fireEvent.change(within(row).getByLabelText('Search messages or players'), { target: { value: 'hola' } });
+    expect(field()).toHaveValue('hola');
+    expect(within(row).getByText('1 found')).toBeInTheDocument();
     fireEvent.keyDown(window, { key: 'Escape' });
     expect(searchToggle).toHaveBeenLastCalledWith(false);
-    expect(screen.queryByRole('search')).toBeNull();
-    expect(screen.getByRole('button', { name: 'Search' })).toHaveAttribute('data-active', 'false');
-    fireEvent.click(screen.getByRole('button', { name: 'Search' }));
-    expect(searchToggle).toHaveBeenLastCalledWith(true);
-    fireEvent.click(screen.getByRole('button', { name: 'Search' }));
-    expect(searchToggle).toHaveBeenLastCalledWith(false);
+    expect(document.querySelector('[data-mobile-search]')).toBeNull();
+    expect(field()).toHaveValue('');
+  });
+});
+
+describe('ChatPanel latest pill', () => {
+  const later = (n) => [...messages, ...Array.from({ length: n }, (_, i) => msg(`n${i + 1}`, 'Moon#2', 120000 + (i + 1) * 1000, `line ${i + 1}`))];
+
+  it('on desktop shows "N new" only when lines arrive while the viewport is off the bottom, and scrolls down on click', () => {
+    const { rerender } = renderPanel();
+    expect(document.querySelector('[data-latest-pill]')).toBeNull();
+    act(() => virtuosoProps.current.atBottomStateChange(false));
+    expect(document.querySelector('[data-latest-pill]')).toBeNull();
+    rerender(<Owner {...baseProps} messages={later(1)} inGameInfoMap={new Map()} />);
+    expect(document.querySelector('[data-latest-pill]')).toHaveAttribute('data-latest-pill', 'new');
+    expect(document.querySelector('[data-latest-pill]')).toHaveTextContent('↓ 1 new');
+    rerender(<Owner {...baseProps} messages={later(2)} inGameInfoMap={new Map()} />);
+    expect(document.querySelector('[data-latest-pill]')).toHaveTextContent('↓ 2 new');
+    fireEvent.click(document.querySelector('[data-latest-pill]'));
+    expect(scrollToIndex).toHaveBeenCalledWith(expect.objectContaining({ index: 'LAST' }));
+    act(() => virtuosoProps.current.atBottomStateChange(true));
+    expect(document.querySelector('[data-latest-pill]')).toBeNull();
   });
 
-  it('does not ask to open when the URL carries no search', () => {
-    renderPanel();
-    expect(searchToggle).not.toHaveBeenCalled();
-  });
-
-  it('pages with More until every result is in', async () => {
-    renderPanel({ initialSearchOpen: true });
-    fireEvent.change(screen.getByLabelText('Search messages'), { target: { value: 'hola' } });
-    const more = await screen.findByRole('button', { name: 'More' });
-    fireEvent.click(more);
-    await waitFor(() => expect(document.getElementById('msg-s3')).not.toBeNull());
-    expect(lastSearchParams().get('offset')).toBe('2');
-    expect(document.querySelectorAll('[data-variant="transcript"]')).toHaveLength(3);
-    expect(screen.queryByRole('button', { name: 'More' })).toBeNull();
-  });
-
-  it('jumps straight to a hit that is already in the stream and closes the panel', async () => {
-    const loadWindow = vi.fn();
-    fetchMock.mockImplementation(async () => ({ ok: true, json: async () => ({ results: [row('b1', 'Moon#2', `${DAY(0)} 12:01:00`, 'hola')], total: 1, offset: 0, limit: 50 }) }));
-    renderPanel({ loadWindow, initialSearchOpen: true });
-    fireEvent.change(screen.getByLabelText('Search messages'), { target: { value: 'hola' } });
-    const hit = await screen.findByTitle('Jump to message');
-    fireEvent.click(hit);
-    expect(searchToggle).toHaveBeenLastCalledWith(false);
-    await waitFor(() => expect(scrollToIndex).toHaveBeenCalled());
-    expect(loadWindow).not.toHaveBeenCalled();
-    expect(screen.getByTestId('virtuoso')).toBeInTheDocument();
-    expect(document.getElementById('msg-b1')).toHaveStyle({ background: 'rgba(252, 219, 51, 0.14)' });
-  });
-
-  it('reloads the window around a hit outside the stream, then jumps once it arrives', async () => {
-    const old = msg('old1', 'Moon#2', -5 * 86400000, 'hola from the archive', { receivedAt: '2026-09-18 12:00:00' });
-    fetchMock.mockImplementation(async () => ({ ok: true, json: async () => ({ results: [row('old1', 'Moon#2', '2026-09-18 12:00:00', 'hola from the archive')], total: 1, offset: 0, limit: 50 }) }));
-    const loadWindow = vi.fn();
-    function WindowHarness() {
-      const [state, setState] = React.useState({ msgs: messages, windowId: 0, mode: 'live' });
-      const load = React.useCallback(async (before) => {
-        loadWindow(before);
-        const loaded = [old, msg('old2', 'Grubby#1', -5 * 86400000 + 60000, 'later', { receivedAt: '2026-09-18 12:01:00' })];
-        setState((s) => ({ msgs: loaded, windowId: s.windowId + 1, mode: 'archive' }));
-        return loaded;
-      }, []);
-      return (
-        <Owner
-          {...baseProps}
-          initialSearchOpen
-          messages={state.msgs}
-          inGameInfoMap={new Map()}
-          gameEvents={[]}
-          loadWindow={load}
-          loadLatest={async () => messages}
-          windowMode={state.mode}
-          windowId={state.windowId}
-        />
-      );
-    }
-    render(<WindowHarness />);
-    fireEvent.change(screen.getByLabelText('Search messages'), { target: { value: 'hola' } });
-    fireEvent.click(await screen.findByTitle('Jump to message'));
-    await waitFor(() => expect(loadWindow).toHaveBeenCalledTimes(1));
-    // one second past the hit's received_at, in the relay's cursor format
-    expect(loadWindow.mock.calls[0][0]).toBe('2026-09-18 12:00:01');
-    await waitFor(() => expect(scrollToIndex).toHaveBeenCalled());
-    expect(document.getElementById('msg-old1')).toHaveStyle({ background: 'rgba(252, 219, 51, 0.14)' });
-    expect(screen.getByText('Back to live')).toBeInTheDocument();
+  it('on mobile shows "Latest" whenever the viewport is off the bottom', () => {
+    const { rerender } = renderPanel({ isMobile: true });
+    expect(document.querySelector('[data-latest-pill]')).toBeNull();
+    act(() => virtuosoProps.current.atBottomStateChange(false));
+    expect(document.querySelector('[data-latest-pill]')).toHaveTextContent('↓ Latest');
+    rerender(<Owner {...baseProps} isMobile messages={later(1)} inGameInfoMap={new Map()} />);
+    expect(document.querySelector('[data-latest-pill]')).toHaveTextContent('↓ 1 new');
   });
 });
 

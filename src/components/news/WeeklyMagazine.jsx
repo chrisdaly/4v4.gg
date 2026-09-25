@@ -27,6 +27,21 @@ import {
 } from "../../lib/digestUtils";
 import useDigestData from "../../lib/useDigestData";
 import useDragReorder from "../../lib/useDragReorder";
+import useWeekDailies from "../../lib/news/useWeekDailies";
+import { quoteOfTheDay } from "../../lib/home/quoteOfTheDay";
+import {
+  spotlightVerdict,
+  streakDistributionVerdict,
+  newBloodPasses,
+  stackPasses,
+  issueNumber,
+  issueDateRange,
+  neighbourIssues,
+  dayByDay,
+  keyNumbers,
+  SECTION_RULES,
+} from "../../lib/news/issueRules";
+import { LedeSection, QuoteOfWeek, DayByDay, IssueNav, LeftOut } from "./IssueParts";
 import "../../styles/pages/Magazine.css";
 
 const RELAY_URL =
@@ -204,8 +219,7 @@ const SectionRegenButton = ({ sectionKey, regenLoading, onRegen }) => {
    ACT 1 - THE STORIES (editorial / narrative)
    ═══════════════════════════════════════════════════════ */
 
-const CoverHero = ({ weekly, coverBg, headline, editorial, onPickCover, coverPosition, onSaveCoverPosition }) => {
-  const stats = weekly.stats;
+const CoverHero = ({ weekly, coverBg, headline, issueNo, editorial, onPickCover, coverPosition, onSaveCoverPosition }) => {
   const [copied, setCopied] = useState(false);
   const [shotState, setShotState] = useState(null); // null | "copying" | "copied" | "saved"
   const headerRef = useRef(null);
@@ -307,7 +321,7 @@ const CoverHero = ({ weekly, coverBg, headline, editorial, onPickCover, coverPos
           el.style.cssText = "position:relative;padding:0;background:none;overflow:hidden;margin:0";
 
           // Hide original text elements and buttons
-          for (const hide of el.querySelectorAll(".mg-header-actions, .mg-header-meta, .mg-header-title")) {
+          for (const hide of el.querySelectorAll(".mg-header-actions, .mg-header-meta, .mg-header-title, .mg-header-content, .mg-header-scroll-hint")) {
             hide.style.display = "none";
           }
 
@@ -370,24 +384,7 @@ const CoverHero = ({ weekly, coverBg, headline, editorial, onPickCover, coverPos
   }, [weekly.week_start, shotState]);
 
   return (
-    <header className="mg-header reveal" ref={headerRef} style={{ "--delay": "0.05s" }}>
-      <div className="mg-header-meta">
-        <span className="mg-header-date">{formatWeekRange(weekly.week_start, weekly.week_end)}</span>
-        {editorial && (
-          <span className="mg-header-actions">
-            <Button $pill className="digest-screenshot-btn" onClick={handleScreenshot} title="Copy as image">
-              {shotState === "copying" ? "..." : shotState === "copied" ? "Copied!" : shotState === "saved" ? "Saved!" : <FiCamera size={14} />}
-            </Button>
-          </span>
-        )}
-      </div>
-      {headline && (
-        editorial ? (
-          <EditableText value={headline} onSave={editorial.onEditHeadline} tag="h1" className="mg-header-title" />
-        ) : (
-          <h1 className="mg-header-title">{headline}</h1>
-        )
-      )}
+    <header className="mg-header reveal" ref={headerRef} style={{ "--delay": "0.05s" }} data-issue-no={issueNo ?? undefined}>
       <div className={`mg-header-image${repositioning ? " mg-header-image--repositioning" : ""}${!coverBg ? " mg-header-image--loading" : ""}`}>
         {coverBg && (
           <img
@@ -432,6 +429,28 @@ const CoverHero = ({ weekly, coverBg, headline, editorial, onPickCover, coverPos
             )}
           </>
         )}
+      </div>
+      <div className="mg-header-content">
+        <div className="mg-header-meta">
+          <Link to="/news" className="mg-header-back">← All issues</Link>
+          {editorial && (
+            <span className="mg-header-actions">
+              <Button $pill className="digest-screenshot-btn" onClick={handleScreenshot} title="Copy as image">
+                {shotState === "copying" ? "..." : shotState === "copied" ? "Copied!" : shotState === "saved" ? "Saved!" : <FiCamera size={14} />}
+              </Button>
+            </span>
+          )}
+        </div>
+        {issueNo != null && <span className="mg-header-no">No. {issueNo}</span>}
+        {headline && (
+          editorial ? (
+            <EditableText value={headline} onSave={editorial.onEditHeadline} tag="h1" className="mg-header-title" />
+          ) : (
+            <h1 className="mg-header-title">{headline}</h1>
+          )
+        )}
+        <span className="mg-header-rule" aria-hidden="true" />
+        <span className="mg-header-date">{issueDateRange(weekly)}</span>
       </div>
       <div className="mg-header-scroll-hint" aria-hidden="true">&#8595;</div>
     </header>
@@ -1731,7 +1750,7 @@ const StreakCard = ({ stat, profile, accent, role, blurb, quotes, dailyData, typ
   );
 };
 
-const SpotlightsSection = ({ spotlights, profiles, editorial }) => {
+const SpotlightsSection = ({ spotlights, profiles, editorial, allowed = null, showSpectrum = true }) => {
   const STREAK_KEYS = new Set(["HOTSTREAK", "COLDSTREAK"]);
   const cards = [
     { key: "WINNER", jsonKey: "winner", role: "Winner", accent: "green" },
@@ -1752,6 +1771,7 @@ const SpotlightsSection = ({ spotlights, profiles, editorial }) => {
   const parsed = cards.map(({ key, jsonKey, role, accent }) => {
     const card = spotlights[jsonKey];
     if (!card) return null;
+    if (allowed && !allowed.has(key)) return null;
     // Normalize stat shape for SpotlightCard/StreakCard compatibility
     const stat = {
       battleTag: card.battleTag,
@@ -1816,7 +1836,7 @@ const SpotlightsSection = ({ spotlights, profiles, editorial }) => {
                 ? <StreakCard stat={stat} profile={profiles.get(stat.battleTag)} accent={accent} role={role} blurb={blurb} quotes={quotes} dailyData={dailyData} type={key} editorial={editorial} />
                 : <SpotlightCard stat={stat} profile={profiles.get(stat.battleTag)} accent={accent} role={role} blurb={blurb} quotes={quotes} heroIcons={heroIcons} victimIcons={victimIcons} killboard={killboard} maxHeroKills={maxHeroKills} statKey={key} editorial={editorial} />
               }
-              {key === "COLDSTREAK" && spectrumData && (
+              {key === "COLDSTREAK" && spectrumData && showSpectrum && (
                 <StreakSpectrum spectrumData={spectrumData} hotName={hotStat?.stat?.name} coldName={coldStat?.stat?.name} />
               )}
               {key === "HEROSLAYER" && killsDistData && (
@@ -2725,6 +2745,56 @@ const WeeklyMagazine = ({ weekParam, isAdmin = false, apiKey = "" }) => {
     draft: ed.draft,
   });
 
+  // Issue numbering and neighbours (newest-first list), the week's dailies
+  const issueNo = weekly ? issueNumber(weeklyDigests, weekly.week_start) : null;
+  const { prev: prevIssue, next: nextIssue } = neighbourIssues(weeklyDigests, weekly?.week_start);
+  const weekDailies = useWeekDailies(weekly?.week_start, weekly?.week_end);
+  const days = useMemo(() => dayByDay(weekDailies, weekly?.week_start, weekly?.week_end), [weekDailies, weekly?.week_start, weekly?.week_end]);
+
+  // Quote of the week: BEST_OF_CHAT's first attributed line
+  const weekQuote = useMemo(() => {
+    const source = ed.isEditorial && ed.draft ? { ...weekly, digest: ed.draft } : weekly;
+    return quoteOfTheDay(source, { sources: ["BEST_OF_CHAT"] });
+  }, [weekly, ed.isEditorial, ed.draft]);
+  const weekQuoteTag = weekQuote?.battleTag || (weekQuote ? knownNames.get(weekQuote.speaker) : null) || null;
+
+  // Section rules: which spotlights, stacks and newcomers have a story
+  const { allowedSpotlights, showSpectrum, newBlood, stacks, leftOut } = useMemo(() => {
+    const skipped = [];
+    const allowed = new Set();
+    const cardKeys = [["WINNER", "winner"], ["LOSER", "loser"], ["GRINDER", "grinder"], ["HOTSTREAK", "hotStreak"], ["COLDSTREAK", "coldStreak"], ["HEROSLAYER", "heroSlayer"]];
+    for (const [key, jsonKey] of cardKeys) {
+      const card = digestData.spotlights[jsonKey];
+      if (!card) continue;
+      const v = spotlightVerdict(card, key);
+      if (v.pass) allowed.add(key);
+      else skipped.push({ name: `Spotlight: ${card.battleTag?.split("#")[0] || key}`, reason: v.reason });
+    }
+    const hot = digestData.spotlights.hotStreak;
+    const spectrum = hot?.streakSpectrum
+      ? {
+          win: Object.keys(hot.streakSpectrum.wins || {}).map((l) => ({ len: parseInt(l, 10) })),
+          loss: Object.keys(hot.streakSpectrum.losses || {}).map((l) => ({ len: parseInt(l, 10) })),
+        }
+      : null;
+    const sv = streakDistributionVerdict(spectrum);
+    if (spectrum && !sv.pass) skipped.push({ name: "Streak distribution", reason: sv.reason });
+    const nb = (digestData.newBlood || []).filter((p) => {
+      if (p.isReturning || newBloodPasses(p)) return true;
+      skipped.push({ name: `New: ${p.battleTag?.split("#")[0]}`, reason: `only ${p.games || 0} games (needs ${SECTION_RULES.newBloodGames})` });
+      return false;
+    });
+    const st = (digestData.atSpotlight || []).filter((x) => {
+      if (stackPasses(x)) return true;
+      const names = (x.players || []).map((p) => (typeof p === "string" ? p : p.name)).join(" + ");
+      skipped.push({ name: `Stack: ${names}`, reason: `${(x.wins || 0) + (x.losses || 0)} games together (needs ${SECTION_RULES.stackGames})` });
+      return false;
+    });
+    return { allowedSpotlights: allowed, showSpectrum: sv.pass, newBlood: nb, stacks: st, leftOut: skipped };
+  }, [digestData]);
+
+  const numbers = useMemo(() => keyNumbers({ weekly, digestData }), [weekly, digestData]);
+
   // Fetch profiles for all known battleTags
   useEffect(() => {
     if (!weekly?.digest && !weekly?.digestJson) return;
@@ -2744,6 +2814,8 @@ const WeeklyMagazine = ({ weekParam, isAdmin = false, apiKey = "" }) => {
       }
     }
 
+    if (weekQuoteTag && weekQuoteTag.includes("#")) tags.add(weekQuoteTag);
+
     if (tags.size === 0) return;
 
     Promise.all([...tags].map((tag) => fetchAndCacheProfile(tag).then((p) => [tag, p]))).then(
@@ -2755,7 +2827,7 @@ const WeeklyMagazine = ({ weekParam, isAdmin = false, apiKey = "" }) => {
         setProfiles(map);
       }
     );
-  }, [weekly, knownNames, digestData.atSpotlight]);
+  }, [weekly, knownNames, digestData.atSpotlight, weekQuoteTag]);
 
   const [coverBg, setCoverBg] = useState(null);
 
@@ -3021,8 +3093,15 @@ const WeeklyMagazine = ({ weekParam, isAdmin = false, apiKey = "" }) => {
 
       {/* ACT 1 - THE STORIES */}
       <div ref={heroRef}>
-        <CoverHero weekly={weekly} coverBg={coverBg} headline={dramaTitle || dramaLead} editorial={editorialProps} onPickCover={showEditControls ? fetchCoverGallery : null} coverPosition={weekly.cover_position} onSaveCoverPosition={showEditControls ? saveCoverPosition : null} />
+        <CoverHero weekly={weekly} coverBg={coverBg} headline={dramaTitle || dramaLead} issueNo={issueNo} editorial={editorialProps} onPickCover={showEditControls ? fetchCoverGallery : null} coverPosition={weekly.cover_position} onSaveCoverPosition={showEditControls ? saveCoverPosition : null} />
       </div>
+
+      <LedeSection
+        recap={digestData.narrative.recap}
+        numbers={numbers}
+        editorial={showEditControls ? { handleEditSection: ed.handleEditSection } : null}
+        EditableText={EditableText}
+      />
 
       {showEditControls && (
         <TopicPills
@@ -3040,6 +3119,12 @@ const WeeklyMagazine = ({ weekParam, isAdmin = false, apiKey = "" }) => {
           editorial={editorialProps}
         />
       )}
+
+      <QuoteOfWeek
+        quote={weekQuote}
+        profile={weekQuoteTag ? profiles.get(weekQuoteTag) : null}
+        context={weekQuote ? "Best of chat" : null}
+      />
 
       <StoriesGrid
         stories={dramaSubStories}
@@ -3080,6 +3165,8 @@ const WeeklyMagazine = ({ weekParam, isAdmin = false, apiKey = "" }) => {
         <SpotlightsSection
           spotlights={digestData.spotlights}
           profiles={profiles}
+          allowed={allowedSpotlights}
+          showSpectrum={showSpectrum}
           editorial={showEditControls ? { regenSpotlights: ed.regenSpotlights, regenMatchStats: ed.regenMatchStats, regenLoading: ed.regenLoading, browseMessages: ed.browseMessages, setQuotes: ed.setQuotes, handleEditSection: ed.handleEditSection, toggleStat: ed.toggleStat, weekStart: ed.weekStart, weekEnd: ed.weekEnd } : null}
         />
       )}
@@ -3091,13 +3178,24 @@ const WeeklyMagazine = ({ weekParam, isAdmin = false, apiKey = "" }) => {
         <RankingsSection rankings={digestData.powerRankings} profiles={profiles} />
       )}
       <CompactStats
-        newBlood={(!showEditControls || !ed.hiddenSections.has("NEW_BLOOD")) ? digestData.newBlood : null}
-        atSpotlight={(!showEditControls || !ed.hiddenSections.has("AT_SPOTLIGHT")) ? digestData.atSpotlight : null}
+        newBlood={(!showEditControls || !ed.hiddenSections.has("NEW_BLOOD")) ? newBlood : null}
+        atSpotlight={(!showEditControls || !ed.hiddenSections.has("AT_SPOTLIGHT")) ? stacks : null}
         heroMeta={(!showEditControls || !ed.hiddenSections.has("HEROES")) ? digestData.heroMeta : null}
         matchStats={(!showEditControls || !ed.hiddenSections.has("MATCH_STATS")) ? digestData.matchStats : null}
         profiles={profiles}
         weekStart={weekly?.week_start}
         weekEnd={weekly?.week_end}
+      />
+
+      <DayByDay days={days} />
+
+      {ed.isEditorial && <LeftOut items={leftOut} />}
+
+      <IssueNav
+        prev={prevIssue}
+        next={nextIssue}
+        prevNo={prevIssue ? issueNumber(weeklyDigests, prevIssue.week_start) : null}
+        nextNo={nextIssue ? issueNumber(weeklyDigests, nextIssue.week_start) : null}
       />
 
       {/* Save status bar */}

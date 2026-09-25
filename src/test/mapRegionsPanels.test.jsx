@@ -59,16 +59,12 @@ afterEach(() => {
 });
 
 describe('MapPanel header', () => {
-  it('links home with a green relay dot when connected, red otherwise, and counts countries', () => {
+  it('starts with a plain World label and the countries pill; the home link and relay dot live in the chat header now', () => {
     renderMap();
-    const home = screen.getByRole('link', { name: /4v4\.GG/ });
-    expect(home).toHaveAttribute('href', '/');
-    expect(document.querySelector('[data-relay-status]')).toHaveAttribute('data-relay-status', 'connected');
+    expect(screen.getByText('World')).toBeInTheDocument();
+    expect(screen.queryByRole('link', { name: /4v4\.GG/ })).toBeNull();
+    expect(document.querySelector('[data-relay-status]')).toBeNull();
     expect(document.querySelector('[data-country-count]')).toHaveTextContent('5 countries');
-    cleanup();
-    renderMap({ status: 'reconnecting' });
-    expect(document.querySelector('[data-relay-status]')).toHaveAttribute('data-relay-status', 'reconnecting');
-    expect(document.querySelector('[data-relay-status]')).toHaveAttribute('title', 'Relay reconnecting');
   });
 
   it('renders stats and games icon buttons that report toggles and reflect their state, and no search icon', () => {

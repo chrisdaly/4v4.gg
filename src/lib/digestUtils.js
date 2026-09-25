@@ -178,6 +178,28 @@ export const splitQuotes = (text) => {
  * quotes by the same speaker. Returns array of { name, messages } groups.
  * Quotes without a "Name: " prefix get name = null.
  */
+/** The DRAMA lead's headline (the text before its | pipe), for weekly covers. */
+export const extractHeadline = (digestText) => {
+  const sections = parseDigestSections(digestText || "");
+  const drama = sections.find((s) => s.key === "DRAMA");
+  if (!drama) return "";
+  const { summary } = splitQuotes(drama.content);
+  const firstItem = summary.split(/;\s*/)[0]?.trim() || "";
+  const pipeSplit = firstItem.split(/\s*\|\s*/);
+  return pipeSplit.length > 1 ? pipeSplit[0].trim() : firstItem;
+};
+
+/** A short teaser from the DRAMA section (or the first narrative section). */
+export const extractTeaser = (digestText) => {
+  const sections = parseDigestSections(digestText || "");
+  const drama = sections.find((s) => s.key === "DRAMA");
+  const source = drama || sections.find((s) => !["TOPICS", "MENTIONS"].includes(s.key));
+  if (!source) return "";
+  const { summary } = splitQuotes(source.content);
+  const cleaned = summary.split(/;\s*/)[0].replace(/\n+/g, " ").trim();
+  return cleaned.length > 160 ? cleaned.slice(0, 157) + "..." : cleaned;
+};
+
 export const groupQuotesBySpeaker = (quotes) => {
   const groups = [];
   for (const q of quotes) {

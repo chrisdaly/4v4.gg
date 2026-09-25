@@ -4,7 +4,7 @@ import PeonLoader from "./PeonLoader";
 import { colors, chartColors } from "../lib/design-tokens";
 
 // Approximate W3C season start dates
-const SEASON_STARTS = {
+export const SEASON_STARTS = {
   1:  new Date(2019, 10, 1),
   2:  new Date(2020, 1, 1),
   3:  new Date(2020, 5, 1),

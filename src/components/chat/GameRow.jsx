@@ -8,18 +8,25 @@ import { MmrComparison } from "../MmrComparison";
 import PlayerHoverCard from "../PlayerHoverCard";
 import useATGroupIds from "../../lib/useATGroupIds";
 import { renderBlurbText } from "../MatchNote";
+import { CHAT_MOBILE_PX } from "../../lib/useIsMobile";
 
 /**
  * A game event woven into the chat stream (Chat v2).
  *
  * Collapsed it is one quiet row on the message grid: a 6px dot in the
  * avatar column (green FINISHED, red LIVE, grey STARTED for a game that has
- * since ended), the tag and the ticker text where author names start, and
- * the same right-hand cell as a message line (LineEnd) so the time sits in
- * the message-time column.
+ * since ended), the tag and the ticker text where author names start, one
+ * line with an ellipsis in mono 12px on the design's #888, and the same
+ * right-hand cell as a message line (LineEnd) so the time sits in the
+ * message-time column. It reads as punctuation between messages.
  *
  *   .  FINISHED  ToastBrot, Shamiko +2 won 14:02 on Royal Gardens, +12 avg
  *   .  LIVE      ToastBrot, Shamiko +2 started on Royal Gardens, 1847 avg
+ *
+ * `compact` (the mobile stream) drops the tag for the short copy:
+ *
+ *   .  ToastBrot +3 · Royal Gardens
+ *   .  sjow +3 won Arathor · +8
  *
  * Clicking the row swaps it for the game card (GameEventCardView): header
  * (tag pill, duration or "N min in", lobby average, time), minimap, the two
@@ -28,7 +35,7 @@ import { renderBlurbText } from "../MatchNote";
  *
  * Props: event, expanded, onToggle(id), stillRunning, hoverData
  * ({ avatars, stats, sessions, inGameTags, inGameInfoMap } for the card's
- * hover cards).
+ * hover cards), compact.
  */
 
 const MAX_NAMES = 2;
@@ -104,6 +111,26 @@ export function buildTickerText(ev) {
   return parts.join(", ");
 }
 
+/**
+ * Short row text for the mobile stream; exported for tests.
+ *   FINISHED  "{p1}, {p2} +N won {map} · +{avg delta}"
+ *   LIVE      "{p1}, {p2} +N · {map}"
+ */
+export function buildShortTickerText(ev) {
+  if (ev.type === "game_end") {
+    const winners = ev.winners || [];
+    const losers = ev.losers || [];
+    const won = winners.filter((p) => p.inChannel).length >= losers.filter((p) => p.inChannel).length;
+    const team = won ? winners : losers;
+    const gain = avgGain(team);
+    const parts = [`${subjectOf(team)} ${won ? "won" : "lost"}${ev.mapName ? ` ${ev.mapName}` : ""}`];
+    if (gain != null) parts.push(`${gain >= 0 ? "+" : ""}${gain}`);
+    return parts.join(" · ");
+  }
+  const { team } = pickTeam(ev.teams || []);
+  return [subjectOf(team), ev.mapName].filter(Boolean).join(" · ");
+}
+
 /* ── Tone: finished / live / started ─────────────── */
 
 const toneColor = {
@@ -129,7 +156,8 @@ const toneOf = (ev, stillRunning) => (ev.type === "game_end" ? "finished" : stil
 /* ── Collapsed row ───────────────────────────────── */
 
 /* Same grid as a message group (ChatMessage Group): 38px avatar column,
-   12px gap, so the text starts where author names start */
+   12px gap, so the text starts where author names start; 34px and 10px on
+   mobile, where the copy-link slot is gone too */
 const Row = styled.div`
   display: grid;
   grid-template-columns: 38px minmax(0, 1fr) auto;
@@ -151,6 +179,15 @@ const Row = styled.div`
   &:hover ${Time} {
     opacity: 1;
   }
+  @media (max-width: ${CHAT_MOBILE_PX}px) {
+    grid-template-columns: 34px minmax(0, 1fr) auto;
+    gap: 10px;
+    padding: 7px 0;
+    margin: 0;
+    [data-end-slot] {
+      display: none;
+    }
+  }
 `;
 
 const Dot = styled.span`
@@ -166,18 +203,23 @@ const Dot = styled.span`
     `}
 `;
 
+/* mono 12px on the design's #888 (grey-light at .7), one line */
 const RowText = styled.span`
   min-width: 0;
   font-family: var(--font-mono);
-  font-size: 13px;
+  font-size: var(--text-xxs);
   line-height: 1.45;
-  color: var(--text-body);
-  overflow-wrap: anywhere;
+  color: var(--grey-light);
+  opacity: 0.7;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
 `;
 
 const Tag = styled.span`
   margin-right: 8px;
   letter-spacing: 0.06em;
+  opacity: 0.85;
   color: ${(p) => toneColor[p.$tone] || toneColor.started};
 `;
 
@@ -567,7 +609,7 @@ export function GameEventCardView({ event: ev, stillRunning = false, hoverData, 
   );
 }
 
-export default function GameRow({ event, expanded = false, onToggle, stillRunning = false, hoverData }) {
+export default function GameRow({ event, expanded = false, onToggle, stillRunning = false, hoverData, compact = false }) {
   const tone = toneOf(event, stillRunning);
   if (expanded) {
     return (
@@ -594,8 +636,8 @@ export default function GameRow({ event, expanded = false, onToggle, stillRunnin
     >
       <Dot $tone={tone} aria-hidden="true" />
       <RowText>
-        <Tag $tone={tone}>{toneLabel[tone]}</Tag>
-        {buildTickerText(event)}
+        {!compact && <Tag $tone={tone}>{toneLabel[tone]}</Tag>}
+        {compact ? buildShortTickerText(event) : buildTickerText(event)}
       </RowText>
       <LineEnd time={event.time} reserve />
     </Row>

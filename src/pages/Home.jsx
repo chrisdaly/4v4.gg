@@ -1,29 +1,35 @@
-import React, { useState, useEffect, useMemo } from "react";
-import { Link } from "react-router-dom";
+import React, { useState, useEffect, useMemo, useRef, useCallback } from "react";
 import useChatStream from "../lib/useChatStream";
-import { getOngoingMatchesCached, getFinishedMatches, getPlayerProfile } from "../lib/api";
 import useOngoingMatches from "../lib/useOngoingMatches";
-import { getMapImageUrl, formatElapsedTime } from "../lib/formatters";
-import { RaceIcon, CountryFlag } from "../components/ui";
-import { MmrComparison } from "../components/MmrComparison";
-import useATGroupIds from "../lib/useATGroupIds";
-import GameCard from "../components/game/GameCard";
-import PeonLoader from "../components/PeonLoader";
+import usePlayerMeta from "../lib/usePlayerMeta";
+import useGameEvents, { buildEndEvent } from "../lib/chat/useGameEvents";
+import useTwitchLive from "../lib/chat/useTwitchLive";
+import { getOngoingMatchesCached, getFinishedMatches, getMatch, getPlayerProfile } from "../lib/api";
+import { computeMvp, computeNote } from "../lib/matchNotes";
 import { blogPosts } from "../lib/blogPosts";
-import {
-  parseDigestSections,
-  splitQuotes,
-  parseStatLine,
-  DIGEST_SECTIONS,
-  COVER_BACKGROUNDS,
-  hashDate,
-  formatWeekRange,
-} from "../lib/digestUtils";
+import { COVER_BACKGROUNDS, hashDate, formatWeekRange, extractHeadline } from "../lib/digestUtils";
+import { quoteOfTheDay, findQuoteMessage } from "../lib/home/quoteOfTheDay";
+import { todayStats, useTodayEvents } from "../lib/home/todayStats";
+import Scoreboard from "../components/home/Scoreboard";
+import LiveGamePanel from "../components/home/LiveGamePanel";
+import WhosHere from "../components/home/WhosHere";
+import StreamerCarousel from "../components/home/StreamerCarousel";
+import ReadsCarousel from "../components/home/ReadsCarousel";
 
-const RELAY_URL =
-  import.meta.env.VITE_CHAT_RELAY_URL || "https://4v4gg-chat-relay.fly.dev";
+/**
+ * The homepage (design handoff "Homepage redesign"): the scoreboard header
+ * (players online, games live, quote of the day, ENTER THE JUNGLE), the
+ * live game panel rotating through the ongoing games highest-rated first
+ * with the LIVE NOW bar, and the right column: Who's here (map, today's
+ * numbers, online by MMR), the streamer carousel and the reads carousel
+ * (latest weekly issue and blog post). The page background is the art of
+ * the current live slide, crossfading. Under 640px everything stacks.
+ */
 
-// High-res backgrounds for hero cards (not the tiny minimap images)
+const RELAY_URL = import.meta.env.VITE_CHAT_RELAY_URL || "https://4v4gg-chat-relay.fly.dev";
+const ROTATE_SECONDS = 6;
+
+// High-res art behind the page, one per live slide (not the minimap)
 const HERO_BACKGROUNDS = [
   "/backgrounds/themes/arena-reforged.jpg",
   "/backgrounds/themes/frozen-throne-chronicle.jpg",
@@ -34,465 +40,266 @@ const HERO_BACKGROUNDS = [
   "/backgrounds/themes/outland.jpg",
 ];
 
-// Pick a consistent background based on a string hash
-const pickHeroBg = (str) => {
+const pickBg = (str) => {
   let h = 0;
   for (let i = 0; i < (str || "").length; i++) h = (h * 31 + str.charCodeAt(i)) | 0;
   return HERO_BACKGROUNDS[Math.abs(h) % HERO_BACKGROUNDS.length];
 };
 
-const sortByMMR = (matches) => {
-  if (!matches) return [];
-  return matches.slice().sort((a, b) => {
-    const avgA = getAvgMmr(a);
-    const avgB = getAvgMmr(b);
-    return avgB - avgA;
-  });
+const avgMmr = (match) => {
+  const mmrs = (match.teams || []).flatMap((t) => (t.players || []).map((p) => p.oldMmr || p.currentMmr || 0)).filter((m) => m > 0);
+  return mmrs.length ? mmrs.reduce((a, b) => a + b, 0) / mmrs.length : 0;
 };
 
-const getAvgMmr = (match) => {
-  const teams = match.teams || [];
-  const mmrs = teams.flatMap((t) =>
-    (t.players || []).map((p) => p.oldMmr || p.currentMmr || 0)
-  );
-  const valid = mmrs.filter((m) => m > 0);
-  return valid.length > 0 ? Math.round(valid.reduce((a, b) => a + b, 0) / valid.length) : 0;
+// Highest average MMR first, as on /live
+const sortByMmr = (matches) => (matches || []).slice().sort((a, b) => avgMmr(b) - avgMmr(a));
+
+const subjectOf = (players) => {
+  const first = players[0]?.name || players[0]?.battleTag?.split("#")[0];
+  return first ? `${first} and team` : "Team";
 };
 
-/* ── Hero Spotlight ─────────────────────────────────── */
-
-const getTeamMmr = (team) => {
-  const mmrs = (team?.players || []).map((p) => p.oldMmr || p.currentMmr || 0).filter((m) => m > 0);
-  return mmrs.length > 0 ? Math.round(mmrs.reduce((a, b) => a + b, 0) / mmrs.length) : 0;
+const avgGain = (players) => {
+  const gains = players.map((p) => p.mmrGain).filter((g) => g != null);
+  if (!gains.length) return null;
+  const avg = Math.round(gains.reduce((a, b) => a + b, 0) / gains.length);
+  return `${avg >= 0 ? "+" : "-"}${Math.abs(avg)}`;
 };
 
-const HeroLive = ({ match }) => {
-  const mapName = match.mapName || "";
-  const cleanMap = mapName.replace(/^\(\d\)\s*/, "");
-  const bgUrl = pickHeroBg(match.id || mapName);
-  const mapThumb = getMapImageUrl(mapName);
-  const teams = match.teams || [];
-  const team1Mmr = getTeamMmr(teams[0]);
-  const team2Mmr = getTeamMmr(teams[1]);
+/* ── Data hooks ─────────────────────────────────────── */
 
-  const teamOneMmrs = (teams[0]?.players || []).map((p) => p.oldMmr || p.currentMmr || 0);
-  const teamTwoMmrs = (teams[1]?.players || []).map((p) => p.oldMmr || p.currentMmr || 0);
-  const { teamOneAT, teamTwoAT } = useATGroupIds(teams[0]?.players, teams[1]?.players);
-  const mmrData = { teamOneMmrs, teamTwoMmrs, teamOneAT, teamTwoAT };
-
-  return (
-    <Link to="/live" className="sc-hero sc-hero-live sc-panel">
-      <div className="sc-hero-bg" style={{ backgroundImage: `url(${bgUrl})` }} />
-      <div className="sc-hero-content">
-        <div className="sc-hero-bottomleft">
-          <span className="sc-hero-live-dot" />
-          <span className="sc-hero-live-label">LIVE</span>
-          {match.startTime && <span className="sc-hero-elapsed">{formatElapsedTime(match.startTime)}</span>}
-        </div>
-        <div className="sc-hero-topright">
-          {mapThumb && <img src={mapThumb} alt="" className="sc-hero-map-thumb" />}
-          <span>{cleanMap}</span>
-          <span className="sc-hero-arrow">→</span>
-        </div>
-        <div className="sc-hero-teams">
-          {teams[0] && (
-            <div className="sc-hero-team-col">
-              {team1Mmr > 0 && <span className="sc-hero-team-mmr">{team1Mmr} MMR</span>}
-              <div className="sc-hero-team">
-                {teams[0].players?.map((p, i) => (
-                  <span key={i} className="sc-hero-player sc-hero-player-left">
-                    {p.name}
-                    <RaceIcon race={p.race} rndRace={p.rndRace} className="gc-race" />
-                  </span>
-                ))}
-              </div>
-            </div>
-          )}
-          <div className="sc-hero-chart">
-            <MmrComparison data={mmrData} variant="card" />
-          </div>
-          {teams[1] && (
-            <div className="sc-hero-team-col">
-              {team2Mmr > 0 && <span className="sc-hero-team-mmr">{team2Mmr} MMR</span>}
-              <div className="sc-hero-team">
-                {teams[1].players?.map((p, i) => (
-                  <span key={i} className="sc-hero-player">
-                    <RaceIcon race={p.race} rndRace={p.rndRace} className="gc-race" />
-                    {p.name}
-                  </span>
-                ))}
-              </div>
-            </div>
-          )}
-        </div>
-      </div>
-    </Link>
-  );
-};
-
-const HeroMagazine = ({ weekly }) => {
-  const coverUrl = `${RELAY_URL}/api/admin/weekly-digest/${weekly.week_start}/cover.jpg`;
-  const fallbackBg = COVER_BACKGROUNDS[hashDate(weekly.week_start) % COVER_BACKGROUNDS.length];
-
-  return (
-    <Link to={`/news?week=${weekly.week_start}`} className="sc-hero sc-panel">
-      <HeroBg url={coverUrl} fallback={fallbackBg} />
-      <div className="sc-hero-content">
-        <div className="sc-hero-badge">Weekly Magazine</div>
-        <h2 className="sc-hero-title">{weekly.headline || "This Week in 4v4"}</h2>
-        <div className="sc-hero-subtitle">{formatWeekRange(weekly.week_start, weekly.week_end)}</div>
-      </div>
-    </Link>
-  );
-};
-
-const HeroBg = ({ url, fallback }) => {
-  const [src, setSrc] = useState(url);
-  return (
-    <div
-      className="sc-hero-bg"
-      style={{ backgroundImage: `url(${src})` }}
-      onError={() => { if (fallback && src !== fallback) setSrc(fallback); }}
-    >
-      {/* Preload cover, fallback on error */}
-      <img
-        src={url}
-        alt=""
-        style={{ display: "none" }}
-        onError={() => { if (fallback) setSrc(fallback); }}
-      />
-    </div>
-  );
-};
-
-const HeroFinished = ({ match }) => {
-  const avgMmr = getAvgMmr(match);
-  const mapName = match.mapName || match.match?.mapName || "";
-  const cleanMap = mapName.replace(/^\(\d\)\s*/, "");
-  const bgUrl = pickHeroBg(match.match?.id || match.id || mapName);
-  const matchId = match.match?.id || match.id;
-
-  return (
-    <Link to={matchId ? `/match/${matchId}` : "/finished"} className="sc-hero sc-panel">
-      <div className="sc-hero-bg" style={{ backgroundImage: `url(${bgUrl})` }} />
-      <div className="sc-hero-content">
-        <div className="sc-hero-badge">Latest Match</div>
-        <div className="sc-hero-meta">
-          {avgMmr > 0 && <><span className="sc-hero-mmr">{avgMmr} MMR</span><span className="sc-hero-sep">·</span></>}
-          <span>{cleanMap}</span>
-        </div>
-      </div>
-    </Link>
-  );
-};
-
-/* ── Digest Section ─────────────────────────────────── */
-
-const DigestSection = ({ digest }) => {
-  const [profiles, setProfiles] = useState({});
-
-  const { headlines, stats, dateStr } = useMemo(() => {
-    if (!digest?.digest) return { headlines: [], stats: [], dateStr: null };
-
-    const sections = parseDigestSections(digest.digest);
-    const headlineItems = [];
-    const statItems = [];
-
-    // Collect DRAMA + HIGHLIGHTS headlines
-    for (const s of sections) {
-      if (s.key === "DRAMA" || s.key === "HIGHLIGHTS") {
-        const { summary } = splitQuotes(s.content);
-        const items = summary.split(/;\s*/).filter((t) => t.trim().length > 10);
-        for (const item of items.slice(0, 2)) {
-          headlineItems.push({ text: item.trim(), cls: s.key.toLowerCase() });
-        }
-      }
-    }
-
-    // Collect stat callouts
-    const statSections = DIGEST_SECTIONS.filter((s) => s.stat);
-    for (const def of statSections) {
-      const section = sections.find((s) => s.key === def.key);
-      if (!section) continue;
-      const parsed = parseStatLine(section.content);
-      if (parsed) {
-        statItems.push({ ...parsed, key: def.key, label: def.label, cls: def.cls });
-      }
-    }
-
-    return { headlines: headlineItems.slice(0, 3), stats: statItems.slice(0, 4), dateStr: digest.date };
-  }, [digest]);
-
-  // Fetch profiles (avatar + country) for stat card players
+// The latest finished game as a game_end event with MVP and note, for the
+// empty state
+function useLatestFinished(enabled) {
+  const [finished, setFinished] = useState(null);
   useEffect(() => {
-    if (stats.length === 0) return;
-    const tags = stats.map((s) => s.battleTag).filter(Boolean);
-    if (tags.length === 0) return;
-    Promise.all(
-      tags.map(async (tag) => {
-        const profile = await getPlayerProfile(tag);
-        return [tag, profile];
-      })
-    ).then((results) => {
-      const map = {};
-      for (const [tag, p] of results) { if (p) map[tag] = p; }
-      setProfiles(map);
+    if (!enabled) return undefined;
+    let cancelled = false;
+    getFinishedMatches(5, 0).then(async ({ matches }) => {
+      const match = (matches || []).find((m) => m.teams?.length === 2);
+      if (!match || cancelled) return;
+      const everyone = new Set((match.teams || []).flatMap((t) => (t.players || []).map((p) => p.battleTag?.toLowerCase())).filter(Boolean));
+      const event = buildEndEvent(match, match.id, everyone);
+      if (!event) return;
+      setFinished({ event, note: event.note });
+      const detail = await getMatch(match.id).catch(() => null);
+      if (cancelled || !detail?.playerScores) return;
+      const matchPlayers = (detail.match?.teams || []).flatMap((t) => t.players || []);
+      const mvp = computeMvp(detail.playerScores);
+      const note = computeNote(event, { playerScores: detail.playerScores, matchPlayers });
+      setFinished({ event: { ...event, mvp }, note });
+    }).catch(() => {});
+    return () => {
+      cancelled = true;
+    };
+  }, [enabled]);
+  return finished;
+}
+
+// The latest event worth a flash on the LIVE NOW bar: a game that started
+// or finished while the page is open (useGameEvents marks those live), or
+// someone joining the channel
+function useLiveFlash(gameEvents, onlineUsers, avatars, stats) {
+  const [flash, setFlash] = useState(null);
+  const seenEventsRef = useRef(new Set());
+  const rosterRef = useRef(null);
+
+  useEffect(() => {
+    for (const ev of gameEvents) {
+      if (!ev.live || seenEventsRef.current.has(ev.id)) continue;
+      seenEventsRef.current.add(ev.id);
+      const map = ev.mapName || "";
+      if (ev.type === "game_end") {
+        const gain = avgGain(ev.winners || []);
+        setFlash({ id: ev.id, tag: "FINISHED", text: [map, `${subjectOf(ev.winners || [])}${gain ? ` ${gain}` : ""}`].filter(Boolean).join(" · ") });
+      } else if (ev.type === "game_start") {
+        const avg = ev.teamMmrs?.filter(Boolean);
+        const lobby = avg?.length ? Math.round(avg.reduce((a, b) => a + b, 0) / avg.length) : null;
+        setFlash({ id: ev.id, tag: "STARTED", text: [map, lobby ? `${lobby.toLocaleString("en-US")} avg` : null].filter(Boolean).join(" · ") });
+      }
+    }
+  }, [gameEvents]);
+
+  useEffect(() => {
+    const tags = new Set(onlineUsers.map((u) => u.battleTag).filter(Boolean));
+    const prev = rosterRef.current;
+    rosterRef.current = tags;
+    if (!prev || prev.size === 0) return;
+    const joined = onlineUsers.find((u) => u.battleTag && !prev.has(u.battleTag));
+    if (!joined) return;
+    const country = avatars?.get(joined.battleTag)?.country;
+    const mmr = stats?.get(joined.battleTag)?.mmr;
+    setFlash({
+      id: `join-${joined.battleTag}-${Date.now()}`,
+      tag: "JOINED",
+      text: [joined.name || joined.battleTag.split("#")[0], country, mmr != null ? `${Math.round(mmr)} MMR` : null].filter(Boolean).join(" · "),
     });
-  }, [stats]);
+    // the roster diff is the trigger; avatars/stats are read at that moment
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [onlineUsers]);
 
-  if (headlines.length === 0 && stats.length === 0) return null;
+  return flash;
+}
 
-  return (
-    <section>
-      <div className="sc-section-header">
-        <span className="sc-section-title">Today's Digest</span>
-        {dateStr && (
-          <Link to={`/news?day=${dateStr}`} className="sc-section-link">
-            Full Digest →
-          </Link>
-        )}
-      </div>
-      <div className="sc-digest-grid">
-        {headlines.length > 0 && (
-          <div className="sc-digest-headlines">
-            {headlines.map((h, i) => (
-              <div key={i} className={`sc-headline sc-headline-${h.cls}`}>
-                {h.text}
-              </div>
-            ))}
-          </div>
-        )}
-        {stats.length > 0 && (
-          <div className="sc-digest-stats">
-            {stats.map((s) => (
-              <Link
-                key={s.key}
-                to={`/player/${encodeURIComponent(s.battleTag)}`}
-                className={`sc-stat-card sc-panel sc-stat-${s.cls}`}
-              >
-                {profiles[s.battleTag]?.profilePicUrl && (
-                  <img src={profiles[s.battleTag].profilePicUrl} alt="" className="sc-stat-avatar" />
-                )}
-                <span className="sc-stat-label">{s.label}</span>
-                <span className="sc-stat-name">
-                  {profiles[s.battleTag]?.country && (
-                    <CountryFlag name={profiles[s.battleTag].country} style={{ marginRight: 6 }} />
-                  )}
-                  {s.name}
-                </span>
-                <span className="sc-stat-detail">{s.headline}</span>
-              </Link>
-            ))}
-          </div>
-        )}
-      </div>
-    </section>
-  );
-};
-
-/* ── Featured Content ───────────────────────────────── */
-
-const FeaturedSection = ({ clips, weekly, blogPost }) => {
-  const topClip = clips?.[0];
-  if (!topClip && !weekly && !blogPost) return null;
-
-  const coverUrl = weekly
-    ? `${RELAY_URL}/api/admin/weekly-digest/${weekly.week_start}/cover.jpg`
-    : null;
-  const fallbackBg = weekly
-    ? COVER_BACKGROUNDS[hashDate(weekly.week_start) % COVER_BACKGROUNDS.length]
-    : null;
-
-  return (
-    <section>
-      <div className="sc-section-header">
-        <span className="sc-section-title">Featured</span>
-      </div>
-      <div className="sc-featured-grid">
-        {topClip && (
-          <Link to="/clips" className="sc-featured-card sc-panel">
-            {topClip.thumbnail_url && (
-              <img src={topClip.thumbnail_url} alt={topClip.title} className="sc-clip-thumb" />
-            )}
-            <div className="sc-featured-content">
-              <div className="sc-featured-label">Top Clip</div>
-              <div className="sc-featured-title">{topClip.title}</div>
-            </div>
-          </Link>
-        )}
-        {weekly && (
-          <Link to={`/news?week=${weekly.week_start}`} className="sc-featured-card sc-panel">
-            <FeaturedBg url={coverUrl} fallback={fallbackBg} />
-            <div className="sc-featured-content">
-              <div className="sc-featured-label">Weekly Magazine</div>
-              <div className="sc-featured-title">
-                {weekly.headline || formatWeekRange(weekly.week_start, weekly.week_end)}
-              </div>
-            </div>
-          </Link>
-        )}
-        {blogPost && (
-          <Link to={`/blog/${blogPost.slug}`} className="sc-featured-card sc-panel">
-            {blogPost.coverImage ? (
-              <div className="sc-featured-bg" style={{ backgroundImage: `url(${blogPost.coverImage})` }} />
-            ) : blogPost.preview ? (
-              <div className="sc-featured-preview"><blogPost.preview /></div>
-            ) : (
-              <div className="sc-featured-bg" style={{ backgroundImage: `url(${pickHeroBg(blogPost.slug)})` }} />
-            )}
-            <div className="sc-featured-content">
-              <div className="sc-featured-label">Blog</div>
-              <div className="sc-featured-title">{blogPost.title}</div>
-            </div>
-          </Link>
-        )}
-      </div>
-    </section>
-  );
-};
-
-const FeaturedBg = ({ url, fallback }) => {
-  const [src, setSrc] = useState(url);
-  return (
-    <>
-      <div className="sc-featured-bg" style={{ backgroundImage: `url(${src})` }} />
-      <img
-        src={url}
-        alt=""
-        style={{ display: "none" }}
-        onError={() => { if (fallback && src !== fallback) setSrc(fallback); }}
-      />
-    </>
-  );
-};
-
-/* ── Home Page ──────────────────────────────────────── */
+/* ── Page ───────────────────────────────────────────── */
 
 const Home = () => {
-  const { onlineUsers } = useChatStream();
-  const [liveMatches, setLiveMatches] = useState(() => {
+  const { messages, onlineUsers, status } = useChatStream();
+  const { data: ongoingData, matches: ongoingMatches } = useOngoingMatches();
+  const liveMatches = useMemo(() => {
+    if (ongoingData?.matches) return sortByMmr(ongoingData.matches);
     const cached = getOngoingMatchesCached();
-    return cached?.matches ? sortByMMR(cached.matches) : null;
-  });
-  const [finishedMatches, setFinishedMatches] = useState(null);
+    return cached?.matches ? sortByMmr(cached.matches) : null;
+  }, [ongoingData]);
+  const liveCount = liveMatches ? liveMatches.length : null;
+
+  // Roster metadata: countries for the map, MMR for the strip, join flashes
+  const rosterTags = useMemo(() => new Set(onlineUsers.map((u) => u.battleTag).filter(Boolean)), [onlineUsers]);
+  const { avatars, stats } = usePlayerMeta(rosterTags);
+  const inGameTags = useMemo(
+    () => new Set((liveMatches || []).flatMap((m) => (m.teams || []).flatMap((t) => (t.players || []).map((p) => p.battleTag)))),
+    [liveMatches]
+  );
+  const { gameEvents } = useGameEvents({ messages, onlineUsers, ongoingMatches });
+  const flash = useLiveFlash(gameEvents, onlineUsers, avatars, stats);
+  const liveStreamers = useTwitchLive(onlineUsers);
+  const finished = useLatestFinished(liveCount === 0);
+  const todayEvents = useTodayEvents();
+  const today = useMemo(() => (todayEvents ? todayStats(todayEvents, onlineUsers.length) : null), [todayEvents, onlineUsers.length]);
+
+  // Digest (for the quote), weekly issues and blog posts, once
   const [digest, setDigest] = useState(null);
-  const [clips, setClips] = useState(null);
-  const [weeklyDigests, setWeeklyDigests] = useState(null);
+  const [weeklies, setWeeklies] = useState([]);
   const [dbBlogPosts, setDbBlogPosts] = useState([]);
-  const [loading, setLoading] = useState(true);
-
-  // Fetch all independent data in parallel on mount
   useEffect(() => {
-    const fetchAll = async () => {
-      const results = await Promise.allSettled([
-        getFinishedMatches(10, 0),
-        fetch(`${RELAY_URL}/api/admin/stats/today`).then((r) => (r.ok ? r.json() : null)),
-        fetch(`${RELAY_URL}/api/clips?limit=3`).then((r) => (r.ok ? r.json() : null)),
-        fetch(`${RELAY_URL}/api/admin/weekly-digests`).then((r) => (r.ok ? r.json() : [])),
-        fetch(`${RELAY_URL}/api/blog`).then((r) => (r.ok ? r.json() : [])),
+    let cancelled = false;
+    const json = (url) => fetch(url).then((r) => (r.ok ? r.json() : null)).catch(() => null);
+    (async () => {
+      const [todayDigest, past, weekly, blog] = await Promise.all([
+        json(`${RELAY_URL}/api/admin/stats/today`),
+        json(`${RELAY_URL}/api/admin/digests?limit=3`),
+        json(`${RELAY_URL}/api/admin/weekly-digests`),
+        json(`${RELAY_URL}/api/blog`),
       ]);
-
-      if (results[0].status === "fulfilled" && results[0].value?.matches) {
-        setFinishedMatches(results[0].value.matches);
-      }
-
-      // Today's digest - fallback to most recent from digests list
-      let digestData = null;
-      if (results[1].status === "fulfilled" && results[1].value?.digest) {
-        digestData = results[1].value;
-      }
-      if (!digestData) {
-        // Fallback: fetch yesterday/recent
-        try {
-          const res = await fetch(`${RELAY_URL}/api/admin/digests?limit=1`);
-          if (res.ok) {
-            const past = await res.json();
-            if (past?.length > 0 && past[0].digest) digestData = past[0];
-          }
-        } catch {}
-      }
-      setDigest(digestData);
-
-      if (results[2].status === "fulfilled" && results[2].value?.clips) {
-        setClips(results[2].value.clips);
-      }
-      if (results[3].status === "fulfilled" && results[3].value?.length > 0) {
-        setWeeklyDigests(results[3].value);
-      }
-      if (results[4].status === "fulfilled" && Array.isArray(results[4].value)) {
-        setDbBlogPosts(results[4].value);
-      }
-
-      setLoading(false);
+      if (cancelled) return;
+      const candidates = [todayDigest, ...(Array.isArray(past) ? past : [])].filter((d) => d?.digest);
+      setDigest(candidates.find((d) => quoteOfTheDay(d)) || candidates[0] || null);
+      if (Array.isArray(weekly)) setWeeklies(weekly.filter((w) => w.published == null || String(w.published) === "1"));
+      if (Array.isArray(blog)) setDbBlogPosts(blog);
+    })();
+    return () => {
+      cancelled = true;
     };
-
-    fetchAll();
   }, []);
 
-  // Live games (30s poll)
-  const { data: ongoingData } = useOngoingMatches();
+  const quote = useMemo(() => quoteOfTheDay(digest), [digest]);
+  // The speaker's avatar and flag: their profile by battleTag (the digest's
+  // MENTIONS map, else a roster match on the name)
+  const quoteTag = quote?.battleTag || onlineUsers.find((u) => u.name === quote?.speaker)?.battleTag || null;
+  const [quoteProfile, setQuoteProfile] = useState(null);
+  // The chat message behind the quote: /chat?m=<id>&at=<received_at> opens
+  // the archive on it
+  const [quoteHref, setQuoteHref] = useState(null);
   useEffect(() => {
-    if (ongoingData?.matches) setLiveMatches(sortByMMR(ongoingData.matches));
-  }, [ongoingData]);
+    setQuoteHref(null);
+    if (!quote) return undefined;
+    let cancelled = false;
+    findQuoteMessage(quote).then((hit) => {
+      if (cancelled || !hit) return;
+      setQuoteHref(`/chat?m=${encodeURIComponent(hit.id)}&at=${encodeURIComponent(hit.receivedAt)}`);
+    });
+    return () => {
+      cancelled = true;
+    };
+  }, [quote]);
+  useEffect(() => {
+    if (!quoteTag) {
+      setQuoteProfile(null);
+      return undefined;
+    }
+    let cancelled = false;
+    getPlayerProfile(quoteTag).then((p) => {
+      if (!cancelled) setQuoteProfile(p || null);
+    }).catch(() => {});
+    return () => {
+      cancelled = true;
+    };
+  }, [quoteTag]);
 
-  const liveCount = liveMatches?.length || 0;
-  const latestWeekly = weeklyDigests?.[0] || null;
-
-  // Latest published blog post (merge static + DB, pick first non-draft)
-  const latestBlog = useMemo(() => {
+  const reads = useMemo(() => {
+    const items = [];
+    const latestWeekly = weeklies[0];
+    if (latestWeekly) {
+      const issueNo = weeklies.length;
+      items.push({
+        key: `weekly-${latestWeekly.week_start}`,
+        kicker: `THIS WEEK'S ISSUE · No. ${issueNo}`,
+        title: extractHeadline(latestWeekly.digest) || "This Week in 4v4",
+        sub: `${formatWeekRange(latestWeekly.week_start, latestWeekly.week_end)} · Read →`,
+        bg: `${RELAY_URL}/api/admin/weekly-digest/${latestWeekly.week_start}/cover.jpg`,
+        fallbackBg: COVER_BACKGROUNDS[hashDate(latestWeekly.week_start) % COVER_BACKGROUNDS.length],
+        href: `/news?week=${latestWeekly.week_start}`,
+      });
+    }
     const staticPublished = blogPosts.filter((p) => !p.draft);
-    const dbPublished = dbBlogPosts.filter((p) => p.published);
     const legacySlugs = new Set(staticPublished.map((p) => p.slug));
-    const merged = [...staticPublished, ...dbPublished.filter((p) => !legacySlugs.has(p.slug))];
+    const merged = [...staticPublished, ...dbBlogPosts.filter((p) => String(p.published) === "1" && !legacySlugs.has(p.slug))];
     merged.sort((a, b) => new Date(b.date) - new Date(a.date));
-    return merged[0] || null;
-  }, [dbBlogPosts]);
+    const post = merged[0];
+    if (post) {
+      items.push({
+        key: `blog-${post.slug}`,
+        kicker: "FROM THE BLOG",
+        title: post.title,
+        sub: `${post.date} · Read →`,
+        bg: post.coverImage || pickBg(post.slug),
+        href: `/blog/${post.slug}`,
+      });
+    }
+    return items;
+  }, [weeklies, dbBlogPosts]);
 
-  // Hero: best live game > latest magazine > latest finished
-  const heroMatch = liveMatches?.length > 0 ? liveMatches[0] : null;
-
-  if (loading && !liveMatches) {
-    return (
-      <div className="sc-home">
-        <PeonLoader />
-      </div>
-    );
-  }
+  // Background art follows the live slide, crossfading between two layers
+  const [bg, setBg] = useState(() => ({ a: HERO_BACKGROUNDS[0], b: null, showB: false }));
+  const onSlideChange = useCallback((idx, match) => {
+    const next = pickBg(match?.id || String(idx));
+    setBg((prev) => {
+      const current = prev.showB ? prev.b : prev.a;
+      if (current === next) return prev;
+      return prev.showB ? { a: next, b: prev.b, showB: false } : { a: prev.a, b: next, showB: true };
+    });
+  }, []);
 
   return (
-    <div className="sc-home">
-      {/* ══ RIGHT NOW ══ */}
-      {heroMatch ? (
-        <HeroLive match={heroMatch} />
-      ) : (
-        latestWeekly ? (
-          <HeroMagazine weekly={latestWeekly} />
-        ) : finishedMatches?.[0] ? (
-          <HeroFinished match={finishedMatches[0]} />
-        ) : (
-          <div className="sc-empty">
-            No games live right now. <Link to="/finished">View recent matches →</Link>
-          </div>
-        )
-      )}
-
-      {/* Pulse - always visible, right after hero */}
-      <div className="sc-pulse sc-panel">
-        <span className="sc-pulse-stat">
-          <span className="sc-pulse-value">{onlineUsers.length}</span> players online
-        </span>
-        {liveCount > 0 && (
-          <span className="sc-pulse-stat">
-            <span className="sc-pulse-value">{liveCount}</span> games live
-          </span>
-        )}
-        {liveCount > 1 && <Link to="/live">View All Live →</Link>}
+    <div className="hm-page" data-home>
+      <div className="hm-bg" aria-hidden="true">
+        <div className={`hm-bg-layer ${bg.showB ? "" : "is-on"}`} style={{ backgroundImage: `url(${bg.a})` }} />
+        {bg.b && <div className={`hm-bg-layer ${bg.showB ? "is-on" : ""}`} style={{ backgroundImage: `url(${bg.b})` }} />}
+        <div className="hm-bg-shade" />
       </div>
-
-      {/* ══ CATCH UP ══ */}
-      {digest && <DigestSection digest={digest} />}
-
-      <FeaturedSection clips={clips} weekly={latestWeekly} blogPost={latestBlog} />
+      <div className="hm-grid">
+        <div className="hm-main">
+          <Scoreboard
+            online={status === "connecting" && onlineUsers.length === 0 ? null : onlineUsers.length}
+            live={liveCount}
+            quote={quote}
+            quoteHref={quoteHref}
+            profile={quoteProfile}
+          />
+          <LiveGamePanel
+            matches={liveMatches}
+            rotateSeconds={ROTATE_SECONDS}
+            flash={flash}
+            finished={finished}
+            onSlideChange={onSlideChange}
+          />
+        </div>
+        <aside className="hm-side">
+          <WhosHere onlineUsers={onlineUsers} avatars={avatars} stats={stats} inGameTags={inGameTags} today={today} />
+          <StreamerCarousel liveStreamers={liveStreamers} onlineUsers={onlineUsers} rotateSeconds={ROTATE_SECONDS} />
+          <ReadsCarousel items={reads} rotateSeconds={ROTATE_SECONDS} />
+        </aside>
+      </div>
     </div>
   );
 };

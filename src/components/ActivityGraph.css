@@ -179,3 +179,47 @@
   white-space: nowrap;
   box-shadow: 0 4px 12px rgba(0, 0, 0, 0.5);
 }
+
+/* Large variant (profile Activity tab): bigger square cells, Mon/Wed/Fri labels, summary */
+.ag--large .ag-cell {
+  width: 100%;
+  aspect-ratio: 1;
+  height: auto;
+  max-width: 40px;
+  border-radius: 2px;
+}
+
+.ag--large .ag-grid {
+  flex: 1;
+  min-width: 0;
+  max-width: 640px;
+}
+
+.ag--large .ag-week {
+  flex: 1;
+  min-width: 0;
+}
+
+.ag--large .ag-day-labels {
+  width: 30px;
+}
+
+.ag--large .ag-day-labels span {
+  height: auto;
+  flex: 1;
+  display: flex;
+  align-items: center;
+  font-size: 10px;
+}
+
+.ag--large .ag-header {
+  align-items: baseline;
+  flex-wrap: wrap;
+  gap: var(--space-3);
+}
+
+.ag-summary {
+  font-family: var(--font-mono);
+  font-size: var(--text-xxs);
+  color: var(--grey-light);
+}

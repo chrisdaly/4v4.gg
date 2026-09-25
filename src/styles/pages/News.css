@@ -18,87 +18,214 @@
   text-shadow: 0 2px 12px rgba(0, 0, 0, 0.8);
 }
 
-/* ── Weekly Hero ──────────────────────────────────────── */
+/* ── Index header: issue count beside the page hero ─────── */
 
-.nw-hero-card {
+.nw-index-head {
+  display: flex;
+  align-items: flex-end;
+  gap: var(--space-8);
+  flex-wrap: wrap;
+}
+
+.nw-index-head > :first-child {
+  flex: 1;
+  min-width: 0;
+}
+
+.nw-issue-count {
+  margin-left: auto;
+  display: flex;
+  flex-direction: column;
+  align-items: flex-end;
+  gap: 4px;
+  padding-bottom: var(--space-2);
+}
+
+.nw-issue-count-num {
+  font-family: var(--font-display);
+  font-size: 36px;
+  line-height: 1;
+  color: var(--white);
+}
+
+.nw-issue-count-label {
+  font-family: var(--font-mono);
+  font-size: var(--text-xxs);
+  letter-spacing: 0.16em;
+  color: var(--grey-light);
+}
+
+.nw-eyebrow {
+  display: block;
+  font-family: var(--font-mono);
+  font-size: var(--text-xxs);
+  letter-spacing: 0.24em;
+  text-transform: uppercase;
+  color: var(--grey-light);
+  margin-bottom: var(--space-6);
+}
+
+/* ── Issue covers: the latest as a 21:8 banner, back issues 16:7 ──── */
+
+.nw-issue {
   display: block;
   position: relative;
-  text-decoration: none;
-  border-radius: var(--radius-md);
   overflow: hidden;
-  min-height: 200px;
-  margin-bottom: var(--space-8);
-  border: var(--border-thin) solid var(--surface-2);
-  transition: border-color 300ms ease, box-shadow 300ms ease;
+  border-radius: 3px;
+  background: #111;
+  color: var(--white);
+  text-decoration: none;
 }
 
-.nw-hero-card:hover {
-  border-color: var(--gold);
-  box-shadow: 0 8px 32px var(--overlay-light);
+.nw-issue--latest {
+  aspect-ratio: 21 / 8;
+  min-height: 300px;
+  box-shadow: 0 30px 70px rgba(0, 0, 0, 0.7), 0 0 0 1px rgba(var(--gold-muted-rgb), 0.35);
+  margin-bottom: var(--space-6);
 }
 
-.nw-hero-card-bg {
+.nw-issue--grid {
+  aspect-ratio: 16 / 7;
+  box-shadow: 0 16px 40px rgba(0, 0, 0, 0.6), 0 0 0 1px rgba(var(--gold-muted-rgb), 0.3);
+}
+
+.nw-issue-art {
   position: absolute;
   inset: 0;
   background-size: cover;
-  background-position: center; /* overridden by inline style when cover_position is set */
-  transition: transform 600ms ease;
+  background-position: center;
 }
 
-.nw-hero-card:hover .nw-hero-card-bg {
-  transform: scale(1.03);
-}
-
-.nw-hero-card-overlay {
+.nw-issue-shade {
   position: absolute;
   inset: 0;
-  background: linear-gradient(
-    to right,
-    rgba(0, 0, 0, 0.82) 0%,
-    rgba(0, 0, 0, 0.5) 50%,
-    rgba(0, 0, 0, 0.2) 100%
-  );
 }
 
-.nw-hero-card-content {
-  position: relative;
-  z-index: 1;
-  padding: var(--space-8);
+.nw-issue--latest .nw-issue-shade {
+  background: linear-gradient(90deg, rgba(0, 0, 0, 0.85) 0%, rgba(0, 0, 0, 0.45) 40%, rgba(0, 0, 0, 0) 70%);
+}
+
+.nw-issue--grid .nw-issue-shade {
+  background:
+    linear-gradient(rgba(0, 0, 0, 0.6) 0%, rgba(0, 0, 0, 0) 38%),
+    linear-gradient(90deg, rgba(0, 0, 0, 0.85) 0%, rgba(0, 0, 0, 0.35) 60%, rgba(0, 0, 0, 0.1) 100%);
+}
+
+.nw-issue-body {
+  position: absolute;
+  inset: 0;
   display: flex;
   flex-direction: column;
-  justify-content: center;
-  min-height: 200px;
+  justify-content: space-between;
 }
 
-.nw-hero-card-eyebrow {
+.nw-issue--latest .nw-issue-body {
+  top: 36px;
+  bottom: 36px;
+  left: 44px;
+  right: 44px;
+  max-width: 560px;
+}
+
+.nw-issue--grid .nw-issue-body {
+  top: 20px;
+  bottom: 20px;
+  left: 24px;
+  right: 24px;
+}
+
+.nw-issue-kicker {
   font-family: var(--font-mono);
   font-size: var(--text-xxs);
-  text-transform: uppercase;
-  letter-spacing: 0.2em;
+  letter-spacing: 0.16em;
   color: var(--gold);
-  display: block;
-  margin-bottom: var(--space-2);
 }
 
-.nw-hero-card-date {
+.nw-issue-no {
   font-family: var(--font-display);
-  font-size: clamp(1.6rem, 3.5vw, 2.4rem);
   color: var(--white);
-  margin: 0 0 var(--space-2) 0;
-  line-height: 1.15;
-  font-weight: normal;
-  text-shadow: 0 2px 16px rgba(0, 0, 0, 0.8);
 }
 
-.nw-hero-card-title {
+.nw-issue--latest .nw-issue-no {
+  font-size: 22px;
+}
+
+.nw-issue--grid .nw-issue-no {
+  align-self: flex-end;
+  font-size: var(--text-xxxs);
+}
+
+.nw-issue-text {
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+}
+
+.nw-issue--grid .nw-issue-text {
+  gap: 8px;
+}
+
+.nw-issue-title {
   font-family: var(--font-display);
-  font-size: var(--text-lg);
-  color: var(--gold);
-  margin: 0;
-  line-height: 1.2;
-  font-weight: normal;
-  max-width: 50ch;
-  text-shadow: 0 2px 16px rgba(0, 0, 0, 0.8);
+  color: var(--white);
+  line-height: 1;
+  text-wrap: balance;
+}
+
+.nw-issue--latest .nw-issue-title {
+  font-size: clamp(32px, 4.5vw, 56px);
+}
+
+.nw-issue--grid .nw-issue-title {
+  font-size: 21px;
+  line-height: 1.05;
+}
+
+.nw-issue-rule {
+  display: block;
+  width: 40px;
+  height: 1px;
+  background: var(--gold);
+}
+
+.nw-issue--grid .nw-issue-rule {
+  width: 24px;
+}
+
+.nw-issue-range {
+  font-family: var(--font-mono);
+  font-size: var(--text-xxs);
+  letter-spacing: 0.2em;
+  color: var(--text-body);
+}
+
+.nw-issue--grid .nw-issue-range {
+  font-size: 10px;
+  letter-spacing: 0.18em;
+}
+
+.nw-issue-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(340px, 1fr));
+  gap: var(--space-6);
+}
+
+@media (max-width: 640px) {
+  .nw-issue--latest {
+    aspect-ratio: auto;
+    min-height: 260px;
+  }
+
+  .nw-issue--latest .nw-issue-body {
+    top: 24px;
+    bottom: 24px;
+    left: 20px;
+    right: 20px;
+  }
+
+  .nw-issue-grid {
+    grid-template-columns: 1fr;
+  }
 }
 
 /* ── Unified timeline ─────────────────────────────────── */
@@ -152,56 +279,6 @@
 }
 
 /* Weekly dot is gold + wider date column for week ranges */
-.nw-timeline-item--weekly::before {
-  background: var(--gold);
-}
-.nw-timeline-item--weekly .nw-timeline-date {
-  width: 130px;
-}
-
-/* ── Timeline Weekly Banner ────────────────────────── */
-
-.nw-timeline-weekly-banner {
-  position: relative;
-  border-radius: var(--radius-sm);
-  overflow: hidden;
-  height: 56px;
-  display: flex;
-  align-items: center;
-  padding: 0 var(--space-4);
-}
-.nw-timeline-weekly-bg {
-  position: absolute;
-  inset: 0;
-  background-size: cover;
-  background-position: center;
-  transition: transform 600ms ease;
-}
-.nw-timeline-item--weekly:hover .nw-timeline-weekly-bg {
-  transform: scale(1.05);
-}
-.nw-timeline-weekly-overlay {
-  position: absolute;
-  inset: 0;
-  background: linear-gradient(
-    to right,
-    rgba(0, 0, 0, 0.75) 0%,
-    rgba(0, 0, 0, 0.3) 60%,
-    transparent 100%
-  );
-}
-.nw-timeline-weekly-title {
-  position: relative;
-  font-family: var(--font-display);
-  font-size: var(--text-sm);
-  color: var(--gold);
-  text-shadow: 0 1px 6px rgba(0, 0, 0, 0.8);
-  white-space: nowrap;
-  overflow: hidden;
-  text-overflow: ellipsis;
-}
-
-/* Live "today" dot pulses red */
 .nw-timeline-item--live::before {
   background: var(--red);
   animation: nw-pulse 1.5s infinite;

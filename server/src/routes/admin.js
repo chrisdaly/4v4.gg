@@ -445,6 +445,17 @@ router.get('/digests', publicLimiter, (_req, res) => {
   res.json(digests);
 });
 
+// Public: the daily digests inside a date range (a weekly issue's Day by day)
+router.get('/digests/range', publicLimiter, (req, res) => {
+  const from = String(req.query.from || '');
+  const to = String(req.query.to || '');
+  const day = /^\d{4}-\d{2}-\d{2}$/;
+  if (!day.test(from) || !day.test(to)) {
+    return res.status(400).json({ error: 'from and to must be YYYY-MM-DD' });
+  }
+  res.json(getDigestsByDateRange(from, to).map(d => ({ date: d.date, digest: d.digest })));
+});
+
 // Player digest mentions (public) - find which digests mention a player
 router.get('/digests/by-player/:tag', (req, res) => {
   const tag = decodeURIComponent(req.params.tag);
