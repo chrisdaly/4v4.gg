@@ -5,7 +5,6 @@ import {
   parseStatLine,
   splitQuotes,
   getSpotlightExtras,
-  buildStatBlurb,
   parsePowerRankings,
   parseUpsets,
   parseATSpotlight,
@@ -28,7 +27,7 @@ const cleanSummary = (text) =>
     .trim();
 
 /** Parse drama section from text into structured items */
-function parseDramaFromText(sections) {
+export function parseDramaFromText(sections) {
   const sec = sections.find((s) => s.key === "DRAMA");
   if (!sec) return [];
   // Split by semicolons first (preserving quotes), then extract quotes per item
@@ -66,7 +65,7 @@ function parseDramaFromText(sections) {
 }
 
 /** Parse highlights from text into structured items */
-function parseHighlightsFromText(sections) {
+export function parseHighlightsFromText(sections) {
   const sec = sections.find((s) => s.key === "HIGHLIGHTS");
   if (!sec) return [];
   return sec.content.split(/;\s*/).filter(Boolean).map((raw) => {

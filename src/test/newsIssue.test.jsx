@@ -10,6 +10,8 @@ import { issueCountLabel } from '../pages/News';
 import IssueCover from '../components/news/IssueCover';
 import { LedeSection, QuoteOfWeek, DayByDay, IssueNav, LeftOut } from '../components/news/IssueParts';
 import { quoteOfTheDay } from '../lib/home/quoteOfTheDay';
+import { parseDramaFromText, parseHighlightsFromText } from '../lib/useDigestData';
+import { parseDigestSections } from '../lib/digestUtils';
 import { formatWeekRange } from '../lib/digestUtils';
 
 const weeklies = [
@@ -91,6 +93,30 @@ describe('issue rules', () => {
     expect(keyNumbers({ weekly: { stats: '{"totalGames": 12}' } })).toEqual([
       { value: '12', label: 'GAMES PLAYED', tone: 'white' },
     ]);
+  });
+
+  it('gives every drama and highlight item its own headline, not just the lead', () => {
+    const text = [
+      'DRAMA: The Reports Ran Out | lumos pasted the moderation history one line at a time "lumos: can someone report him?"',
+      '; Seven Minutes On A Four Minute Leave | Roman kept going long after InSaNe left "Roman: go tetris"',
+      '; a sub-story with no headline at all "Toast: gg"',
+      '\nHIGHLIGHTS: Dogs On The Serengeti | TommyHsu called it from the sidelines "TommyHsu: like dogs attacking a deer"',
+      '; no headline here either',
+    ].join('');
+    const sections = parseDigestSections(text);
+    const drama = parseDramaFromText(sections);
+    expect(drama.map((d) => d.headline)).toEqual([
+      'The Reports Ran Out', 'Seven Minutes On A Four Minute Leave', undefined,
+    ]);
+    expect(drama[1].summary).toBe('Roman kept going long after InSaNe left');
+    expect(drama[1].quotes).toEqual([{ speaker: 'Roman', text: 'go tetris' }]);
+    expect(drama[2].summary).toBe('a sub-story with no headline at all');
+    const highlights = parseHighlightsFromText(sections);
+    expect(highlights[0]).toMatchObject({
+      headline: 'Dogs On The Serengeti',
+      summary: 'TommyHsu called it from the sidelines',
+    });
+    expect(highlights[1]).toMatchObject({ headline: undefined, summary: 'no headline here either' });
   });
 
   it('picks the quote of the week from BEST_OF_CHAT only', () => {
