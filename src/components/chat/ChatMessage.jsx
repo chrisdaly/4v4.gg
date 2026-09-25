@@ -7,17 +7,22 @@ import { CountryFlag } from "../ui";
 import { Chip } from "./chip";
 import CopyLink, { CopyLinkButton } from "./CopyLink";
 import LineEnd, { Time } from "./LineEnd";
+import { formatTime } from "../../lib/useChatMessages";
 import { localTimeLabel } from "../../lib/chat/localTime";
+import { CHAT_MOBILE_PX } from "../../lib/useIsMobile";
 
 /**
  * One message group (author + consecutive lines) in three looks:
  *
- *   feed        the /chat stream (Chat v2 message group): 38px avatar with
- *               a flag badge, display name, "{mmr} MMR", the sender's local
- *               time, one status chip; mono lines with a right-aligned
- *               timestamp per line
+ *   feed        the /chat stream (Chat v3 message group): 38px avatar with
+ *               a flag badge, display name (the sender's local time in its
+ *               tooltip), the bare MMR, the in-game marker (red dot +
+ *               minutes) or a won / lost chip, twitch; mono lines with a
+ *               right-aligned timestamp per line. At and below 768px the
+ *               avatar is 34px, the header ends with the group's time and
+ *               the lines carry no timestamps.
  *   transcript  compact serif transcript rows (RecentConversations,
- *               ChatContext, search results); `target` tints the focus author
+ *               ChatContext); `target` tints the focus author
  *   quote       no avatar, indented serif italic pull-quotes on the
  *               :root --quote-* vars (news digest, magazine)
  *
@@ -28,11 +33,13 @@ import { localTimeLabel } from "../../lib/chat/localTime";
  *                quotes carry names only); a quote group with no name at all
  *                renders its lines with no header.
  *   meta         { avatarUrl, race, countryCode, mmr,
- *                  chip: { kind: "ingame" | "won" | "lost", label, onClick? },
+ *                  chip: { kind: "ingame" | "won" | "lost", label, minutes?, onClick? },
  *                  twitchLogin, twitchTitle }
- *                A chip with onClick renders as a button (in-game chip opens
- *                the game modal). The feed derives the sender's local time
- *                from countryCode and the first line's sentAt (localTime.js).
+ *                An in-game chip renders as the marker (its `minutes`, "12m",
+ *                next to a red dot), a button when it has onClick (opens the
+ *                game modal). Won / lost chips render as the shared Chip.
+ *                The feed derives the sender's local time from countryCode
+ *                and the first line's sentAt (localTime.js).
  *   target       transcript only: gold tint background for the focus author
  *   watched      feed only: gold bar on the left for watch-listed authors
  *   onNameClick  (author) => void; when set the name is a button, else a /player link
@@ -45,10 +52,17 @@ import { localTimeLabel } from "../../lib/chat/localTime";
 
 const FEED_LINE_HEIGHT = 1.45;
 const LINE_HEIGHT = 1.5;
+const MOBILE_AVATAR = 34; // px, feed at and below the mobile breakpoint
 
 // Avatar size per variant: the feed avatar spans the header row plus one
 // message line; transcripts stay at 32px.
 export const avatarSize = (variant) => (variant === "transcript" ? 32 : 38);
+
+const mobile = (rules) => css`
+  @media (max-width: ${CHAT_MOBILE_PX}px) {
+    ${rules}
+  }
+`;
 
 const Group = styled.div`
   position: relative;
@@ -61,6 +75,11 @@ const Group = styled.div`
     p.$variant === "feed" &&
     css`
       padding: 10px 0;
+      ${mobile(css`
+        grid-template-columns: ${MOBILE_AVATAR}px minmax(0, 1fr);
+        gap: 10px;
+        padding: 9px 0;
+      `)}
     `}
   ${(p) =>
     p.$variant === "transcript" &&
@@ -85,6 +104,12 @@ const AvatarCol = styled.div`
   width: ${(p) => p.$size}px;
   height: ${(p) => p.$size}px;
   flex-shrink: 0;
+  ${(p) =>
+    p.$variant === "feed" &&
+    mobile(css`
+      width: ${MOBILE_AVATAR}px;
+      height: ${MOBILE_AVATAR}px;
+    `)}
 `;
 
 const avatarFrame = css`
@@ -114,7 +139,8 @@ const AvatarRaceIcon = styled.img`
 
 /* 16x11 flag badge over the avatar corner, ringed in the page background
    colour (#0a0806, the body background under the panels) so it reads as a
-   badge on any avatar */
+   badge on any avatar. The mobile feed draws it 13x10 under a 1px dark drop
+   shadow instead of the ring. */
 const AvatarFlag = styled.div`
   position: absolute;
   bottom: -3px;
@@ -132,6 +158,20 @@ const AvatarFlag = styled.div`
     display: block;
     object-fit: cover;
   }
+
+  ${(p) =>
+    p.$variant === "feed" &&
+    mobile(css`
+      width: 13px;
+      height: 10px;
+      box-shadow: none;
+      overflow: visible;
+      filter: drop-shadow(0 0 1px #000);
+      img {
+        width: 13px;
+        height: 10px;
+      }
+    `)}
 `;
 
 const Body = styled.div`
@@ -145,6 +185,13 @@ const Head = styled.div`
   gap: var(--space-2);
   margin-bottom: ${(p) => (p.$variant === "quote" ? "var(--quote-name-gap)" : p.$variant === "feed" ? "4px" : "2px")};
   line-height: 1.3;
+  ${(p) =>
+    p.$variant === "feed" &&
+    mobile(css`
+      flex-wrap: nowrap;
+      gap: 7px;
+      margin-bottom: 3px;
+    `)}
 `;
 
 const nameFont = {
@@ -153,10 +200,22 @@ const nameFont = {
   quote: "var(--text-xs)",
 };
 
-const NameLink = styled(Link)`
+const nameStyles = css`
   font-family: var(--font-display);
   font-size: ${(p) => nameFont[p.$variant] || nameFont.feed};
   color: var(--gold);
+  ${(p) =>
+    p.$variant === "feed" &&
+    mobile(css`
+      min-width: 0;
+      white-space: nowrap;
+      overflow: hidden;
+      text-overflow: ellipsis;
+    `)}
+`;
+
+const NameLink = styled(Link)`
+  ${nameStyles}
   text-decoration: none;
   &:hover {
     text-decoration: underline;
@@ -164,22 +223,19 @@ const NameLink = styled(Link)`
 `;
 
 const NameButton = styled.button`
-  font-family: var(--font-display);
-  font-size: ${(p) => nameFont[p.$variant] || nameFont.feed};
-  color: var(--gold);
+  ${nameStyles}
   background: none;
   border: none;
   padding: 0;
   cursor: pointer;
+  text-align: left;
   &:hover {
     text-decoration: underline;
   }
 `;
 
 const NameText = styled.span`
-  font-family: var(--font-display);
-  font-size: ${(p) => nameFont[p.$variant] || nameFont.feed};
-  color: var(--gold);
+  ${nameStyles}
 `;
 
 const ClanTag = styled.span`
@@ -188,6 +244,7 @@ const ClanTag = styled.span`
   color: var(--grey-light);
   opacity: 0.8;
   margin-left: calc(-1 * var(--space-1));
+  flex-shrink: 0;
   &::before {
     content: "[";
   }
@@ -196,25 +253,54 @@ const ClanTag = styled.span`
   }
 `;
 
+/* The bare MMR figure: mono 12px on the design's #888 (grey-light at .7) */
 const Mmr = styled.span`
   font-family: var(--font-mono);
   font-size: var(--text-xxs);
   color: var(--grey-light);
+  opacity: 0.7;
+  flex-shrink: 0;
 `;
 
-/* "{h:mm}{a|p} local": the sender's clock, mono 11px dimmed */
-const LocalTime = styled.span`
+/* The in-game marker: a 6px red dot and the minutes, mono 11px red. A
+   button when it opens the game. */
+const InGameMarker = styled.button.attrs({ "data-chip": "ingame" })`
+  align-self: center;
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  padding: 0;
+  background: none;
+  border: none;
+  flex-shrink: 0;
   font-family: var(--font-mono);
   font-size: var(--text-xxxs);
-  color: var(--grey-light);
-  opacity: 0.6;
+  line-height: 1;
+  color: var(--red);
   white-space: nowrap;
+  &::before {
+    content: "";
+    width: 6px;
+    height: 6px;
+    border-radius: var(--radius-full);
+    background: var(--red);
+  }
+  ${(p) =>
+    p.$clickable &&
+    css`
+      cursor: pointer;
+      transition: filter var(--transition);
+      &:hover {
+        filter: brightness(1.25);
+      }
+    `}
 `;
 
 const TwitchLink = styled.a`
   display: inline-flex;
   align-items: center;
   align-self: center;
+  flex-shrink: 0;
   svg {
     width: 13px;
     height: 13px;
@@ -223,6 +309,22 @@ const TwitchLink = styled.a`
   &:hover svg {
     opacity: 0.8;
   }
+`;
+
+/* Mobile feed only: the group's time at the end of the header, in place of
+   the per-line timestamps */
+const HeadTime = styled.span`
+  display: none;
+  margin-left: auto;
+  flex-shrink: 0;
+  font-family: var(--font-mono);
+  font-size: var(--text-xxxs);
+  color: var(--grey-light);
+  opacity: 0.7;
+  white-space: nowrap;
+  ${mobile(css`
+    display: inline;
+  `)}
 `;
 
 const Lines = styled.div`
@@ -250,6 +352,14 @@ const Line = styled.div`
   &:focus-within ${CopyLinkButton} {
     opacity: 1;
   }
+  ${(p) =>
+    p.$variant === "feed" &&
+    mobile(css`
+      grid-template-columns: minmax(0, 1fr);
+      [data-line-end] {
+        display: none;
+      }
+    `)}
 `;
 
 const FeedText = styled.span`
@@ -323,10 +433,10 @@ function AvatarBlock({ meta, variant }) {
     );
   }
   return (
-    <AvatarCol $size={avatarSize(variant)}>
+    <AvatarCol $size={avatarSize(variant)} $variant={variant}>
       {img}
       {countryCode && (
-        <AvatarFlag>
+        <AvatarFlag $variant={variant}>
           <CountryFlag name={countryCode.toLowerCase()} />
         </AvatarFlag>
       )}
@@ -355,23 +465,49 @@ export default function ChatMessage({
   const isQuote = variant === "quote";
   const isFeed = variant === "feed";
 
+  // The sender's local clock rides in the name's tooltip ("5:03a local")
+  const localTime = isFeed && meta?.countryCode ? localTimeLabel(meta.countryCode, lines[0]?.sentAt) : null;
+  const nameTitle = localTime ? `${localTime} local` : undefined;
+  const nameData = localTime ? { "data-local-time": localTime } : {};
+
   let name = onNameClick ? (
-    <NameButton type="button" $variant={variant} onClick={() => onNameClick(author)}>
+    <NameButton type="button" $variant={variant} title={nameTitle} {...nameData} onClick={() => onNameClick(author)}>
       {displayName}
     </NameButton>
   ) : tag ? (
-    <NameLink $variant={variant} to={`/player/${encodeURIComponent(tag)}`}>
+    <NameLink $variant={variant} title={nameTitle} {...nameData} to={`/player/${encodeURIComponent(tag)}`}>
       {displayName}
     </NameLink>
   ) : (
-    <NameText $variant={variant}>{displayName}</NameText>
+    <NameText $variant={variant} title={nameTitle} {...nameData}>{displayName}</NameText>
   );
   if (wrapName) name = wrapName(name, author);
   const showHead = !isQuote || Boolean(displayName) || Boolean(wrapName);
 
   const chip = meta?.chip;
-  const localTime = isFeed && meta?.countryCode ? localTimeLabel(meta.countryCode, lines[0]?.sentAt) : null;
   const Text = variant === "transcript" ? TranscriptText : FeedText;
+
+  let status = null;
+  if (!isQuote && chip) {
+    if (chip.kind === "ingame") {
+      const minutes = chip.minutes || "";
+      status = chip.onClick ? (
+        <InGameMarker type="button" $clickable onClick={chip.onClick} title={`In game${minutes ? ` ${minutes}` : ""} · click to open`}>
+          {minutes}
+        </InGameMarker>
+      ) : (
+        <InGameMarker as="span" title={`In game${minutes ? ` ${minutes}` : ""}`}>{minutes}</InGameMarker>
+      );
+    } else if (chip.label) {
+      status = chip.onClick ? (
+        <Chip as="button" type="button" $kind={chip.kind} $clickable onClick={chip.onClick} title="Show this game">
+          {chip.label}
+        </Chip>
+      ) : (
+        <Chip $kind={chip.kind}>{chip.label}</Chip>
+      );
+    }
+  }
 
   return (
     <Group $variant={variant} $target={target} $watched={watched} data-variant={variant} data-watched={watched || undefined}>
@@ -380,15 +516,8 @@ export default function ChatMessage({
         {showHead && <Head $variant={variant}>
           {name}
           {author.clanTag && <ClanTag>{author.clanTag}</ClanTag>}
-          {!isQuote && meta?.mmr != null && <Mmr>{Math.round(meta.mmr)} MMR</Mmr>}
-          {localTime && <LocalTime data-local-time title="The sender's local time">{localTime} local</LocalTime>}
-          {!isQuote && chip?.label && (chip.onClick ? (
-            <Chip as="button" type="button" $kind={chip.kind} $clickable onClick={chip.onClick} title="Show this game">
-              {chip.label}
-            </Chip>
-          ) : (
-            <Chip $kind={chip.kind}>{chip.label}</Chip>
-          ))}
+          {!isQuote && meta?.mmr != null && <Mmr data-mmr>{Math.round(meta.mmr)}</Mmr>}
+          {status}
           {isFeed && meta?.twitchLogin && (
             <TwitchLink
               href={`https://twitch.tv/${meta.twitchLogin}`}
@@ -399,6 +528,7 @@ export default function ChatMessage({
               <FaTwitch />
             </TwitchLink>
           )}
+          {isFeed && lines[0]?.sentAt && <HeadTime data-head-time>{formatTime(lines[0].sentAt)}</HeadTime>}
         </Head>}
         {isQuote ? (
           <QuoteLines>
@@ -412,7 +542,7 @@ export default function ChatMessage({
           <Lines $variant={variant}>
             {lines.map((line, i) => (
               <React.Fragment key={line.id ?? line.sentAt ?? i}>
-                <Line id={line.id != null ? `msg-${line.id}` : undefined} $highlight={Boolean(line.highlight)}>
+                <Line id={line.id != null ? `msg-${line.id}` : undefined} $highlight={Boolean(line.highlight)} $variant={variant}>
                   <Text>{renderLine(line)}</Text>
                   <LineEnd time={line.sentAt} reserve={isFeed && Boolean(permalinkHref)}>
                     {isFeed && permalinkHref && line.id != null && <CopyLink href={permalinkHref(line)} />}

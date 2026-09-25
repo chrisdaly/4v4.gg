@@ -61,7 +61,11 @@ export function formatGameMinutes(startTime, now = Date.now()) {
 
 /**
  * chipForTag(tag, { inGameTags, recentDeltas, recentWinners, startTimes })
- *   -> { kind: "ingame" | "won" | "lost", label } | null
+ *   -> { kind: "ingame" | "won" | "lost", label, minutes? } | null
+ *
+ * An in-game chip also carries `minutes` ("12m", or null when unknown or
+ * stale): the stream draws it as a quiet marker (red dot + minutes) rather
+ * than the chip, see ChatMessage.
  *
  * `startTimes` maps battleTag to a start time, or to an ongoing-index entry
  * ({ startTime, mapName, matchId }) so useChatFeed's inGameInfoMap can be
@@ -73,7 +77,7 @@ export function chipForTag(tag, { inGameTags, recentDeltas, recentWinners, start
     const entry = startTimes?.get(tag);
     const startTime = entry && typeof entry === "object" ? entry.startTime : entry;
     const mins = formatGameMinutes(startTime, now);
-    return { kind: "ingame", label: mins ? `in game ${mins}` : "in game" };
+    return { kind: "ingame", label: mins ? `in game ${mins}` : "in game", minutes: mins };
   }
   const delta = recentDeltas?.get(tag);
   if (delta != null) {

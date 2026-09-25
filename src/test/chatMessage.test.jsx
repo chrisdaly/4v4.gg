@@ -3,7 +3,7 @@ import React from 'react';
 import { render, screen, fireEvent, cleanup } from '@testing-library/react';
 import { MemoryRouter } from 'react-router-dom';
 import ChatMessage from '../components/chat/ChatMessage';
-import { buildTickerText, cardNotes } from '../components/chat/GameRow';
+import { buildTickerText, buildShortTickerText, cardNotes } from '../components/chat/GameRow';
 import { Chip, chipForTag, formatGameMinutes } from '../components/chat/chip';
 
 const group = {
@@ -19,7 +19,7 @@ const meta = {
   race: 1,
   countryCode: 'DE',
   mmr: 1847.4,
-  chip: { kind: 'ingame', label: 'in game 12m' },
+  chip: { kind: 'ingame', label: 'in game 12m', minutes: '12m' },
   twitchLogin: 'toastbrot',
   twitchTitle: 'ladder grind',
 };
@@ -29,7 +29,7 @@ const renderIn = (ui) => render(<MemoryRouter>{ui}</MemoryRouter>);
 afterEach(cleanup);
 
 describe('ChatMessage feed variant', () => {
-  it('renders avatar, flag, name link, clan, MMR, local time, chip, twitch, lines, times, translation and extras', () => {
+  it('renders avatar, flag, name link, clan, bare MMR, local time in the name tooltip, the in-game marker, twitch, lines, times, translation and extras', () => {
     renderIn(
       <ChatMessage
         variant="feed"
@@ -46,10 +46,20 @@ describe('ChatMessage feed variant', () => {
     expect(root.querySelector('img[alt="de"]')).not.toBeNull();
     expect(screen.getByText('ToastBrot')).toHaveAttribute('href', '/player/ToastBrot%232101');
     expect(screen.getByText('FOALS')).toBeInTheDocument();
-    expect(screen.getByText('1847 MMR')).toBeInTheDocument();
-    // the sender's clock from their country: 12:00Z in Germany (UTC+1)
-    expect(root.querySelector('[data-local-time]')).toHaveTextContent('1:00p local');
-    expect(screen.getByText('in game 12m')).toHaveAttribute('data-chip', 'ingame');
+    expect(root.querySelector('[data-mmr]')).toHaveTextContent(/^1847$/);
+    expect(screen.queryByText(/MMR/)).toBeNull();
+    // the sender's clock from their country (12:00Z in Germany, UTC+1) rides
+    // in the name's tooltip, not the header
+    expect(screen.getByText('ToastBrot')).toHaveAttribute('title', '1:00p local');
+    expect(root.querySelector('[data-local-time]')).toBe(screen.getByText('ToastBrot'));
+    expect(screen.queryByText(/local/)).toBeNull();
+    // the in-game marker: the minutes next to a red dot, no chip label
+    const marker = screen.getByText('12m');
+    expect(marker).toHaveAttribute('data-chip', 'ingame');
+    expect(marker.tagName).toBe('SPAN');
+    expect(screen.queryByText('in game 12m')).toBeNull();
+    // the mobile header time (hidden by CSS on desktop) is the first line's
+    expect(root.querySelector('[data-head-time]')).not.toBeNull();
     expect(screen.getByTitle('ladder grind')).toHaveAttribute('href', 'https://twitch.tv/toastbrot');
     expect(document.getElementById('msg-l1')).toContainElement(screen.getByText('gg wp'));
     expect(document.getElementById('msg-l2')).toContainElement(screen.getByText('rematch?'));
@@ -77,17 +87,32 @@ describe('ChatMessage feed variant', () => {
     expect(document.querySelector('[data-local-time]')).toBeNull();
   });
 
-  it('shows one chip, in each of its states', () => {
-    for (const chip of [
-      { kind: 'ingame', label: 'in game 12m' },
-      { kind: 'won', label: 'won +12' },
-      { kind: 'lost', label: 'lost -9' },
+  it('shows one status, in each of its states: the marker for in game, chips for won and lost', () => {
+    for (const [chip, text] of [
+      [{ kind: 'ingame', label: 'in game 12m', minutes: '12m' }, '12m'],
+      [{ kind: 'won', label: 'won +12' }, 'won +12'],
+      [{ kind: 'lost', label: 'lost -9' }, 'lost -9'],
     ]) {
       renderIn(<ChatMessage variant="feed" group={group} meta={{ chip }} />);
-      expect(screen.getByText(chip.label)).toHaveAttribute('data-chip', chip.kind);
+      expect(screen.getByText(text)).toHaveAttribute('data-chip', chip.kind);
       expect(document.querySelectorAll('[data-chip]')).toHaveLength(1);
       cleanup();
     }
+  });
+
+  it('draws the marker as a bare dot when the minutes are unknown, and as a button when it opens the game', () => {
+    renderIn(<ChatMessage variant="feed" group={group} meta={{ chip: { kind: 'ingame', label: 'in game', minutes: null } }} />);
+    const bare = document.querySelector('[data-chip="ingame"]');
+    expect(bare).toHaveTextContent('');
+    expect(bare).toHaveAttribute('title', 'In game');
+    cleanup();
+    const onClick = vi.fn();
+    renderIn(<ChatMessage variant="feed" group={group} meta={{ chip: { kind: 'ingame', label: 'in game 3m', minutes: '3m', onClick } }} />);
+    const marker = screen.getByText('3m');
+    expect(marker.tagName).toBe('BUTTON');
+    expect(marker).toHaveAttribute('title', 'In game 3m · click to open');
+    fireEvent.click(marker);
+    expect(onClick).toHaveBeenCalledTimes(1);
   });
 
   it('uses a button when onNameClick is set and wraps the name', () => {
@@ -118,9 +143,11 @@ describe('ChatMessage transcript variant', () => {
     expect(screen.getByText('ToastBrot')).toHaveAttribute('href', '/player/ToastBrot%232101');
     expect(screen.getByText('gg wp')).toBeInTheDocument();
     expect(screen.getByText('rematch?')).toBeInTheDocument();
-    expect(screen.getByText('1847 MMR')).toBeInTheDocument();
-    expect(screen.getByText('in game 12m')).toBeInTheDocument();
+    expect(root.querySelector('[data-mmr]')).toHaveTextContent(/^1847$/);
+    expect(screen.getByText('12m')).toHaveAttribute('data-chip', 'ingame');
     expect(root.querySelector('[data-local-time]')).toBeNull();
+    expect(screen.getByText('ToastBrot')).not.toHaveAttribute('title');
+    expect(root.querySelector('[data-head-time]')).toBeNull();
     // no twitch icon outside the feed
     expect(root.querySelector('a[href^="https://twitch.tv"]')).toBeNull();
     expect(root.querySelectorAll('[id^="msg-"]').length).toBe(2);
@@ -169,6 +196,19 @@ describe('GameRow text', () => {
     const won = { ...ev, winners: winners.map((p) => ({ ...p, inChannel: p.name === 'A' || p.name === 'B' })), losers: losers.map((p) => ({ ...p, inChannel: false })) };
     expect(buildTickerText(won)).toBe('A, B +2 won 14:02 on Ferocity, +12 avg');
   });
+
+  it('has a short mobile form: subject and map for a start, subject, result, map and gain for a finish', () => {
+    const start = {
+      type: 'game_start', mapName: 'Royal Gardens', teamMmrs: [1847, 1790],
+      teams: [lobby(['ToastBrot', 'Shamiko', 'A', 'B'], ['ToastBrot', 'Shamiko']), lobby(['C', 'D', 'E', 'F'])],
+    };
+    expect(buildShortTickerText(start)).toBe('ToastBrot, Shamiko +2 · Royal Gardens');
+    const winners = lobby(['sjow', 'B', 'C', 'D'], ['sjow']).map((p) => ({ ...p, mmrGain: 8 }));
+    const losers = lobby(['E', 'F', 'G', 'H']).map((p) => ({ ...p, mmrGain: -8 }));
+    expect(buildShortTickerText({ type: 'game_end', mapName: 'Arathor', durationInSeconds: 900, winners, losers })).toBe('sjow +3 won Arathor · +8');
+    const lost = { type: 'game_end', mapName: 'Arathor', winners: losers, losers: winners };
+    expect(buildShortTickerText(lost)).toBe('sjow +3 lost Arathor · +8');
+  });
 });
 
 describe('GameRow card notes', () => {
@@ -205,7 +245,7 @@ describe('chipForTag', () => {
   };
 
   it('prefers in game, then delta, then the bare winner crown', () => {
-    expect(chipForTag('Toast#1', ctx, now)).toEqual({ kind: 'ingame', label: 'in game 12m' });
+    expect(chipForTag('Toast#1', ctx, now)).toEqual({ kind: 'ingame', label: 'in game 12m', minutes: '12m' });
     expect(chipForTag('Win#1', ctx, now)).toEqual({ kind: 'won', label: 'won +12' });
     expect(chipForTag('Lose#1', ctx, now)).toEqual({ kind: 'lost', label: 'lost -9' });
     expect(chipForTag('Crown#1', ctx, now)).toEqual({ kind: 'won', label: 'won' });
@@ -215,9 +255,9 @@ describe('chipForTag', () => {
 
   it('drops the elapsed suffix when the start time is missing or stale', () => {
     const noTime = { ...ctx, startTimes: new Map() };
-    expect(chipForTag('Toast#1', noTime, now)).toEqual({ kind: 'ingame', label: 'in game' });
+    expect(chipForTag('Toast#1', noTime, now)).toEqual({ kind: 'ingame', label: 'in game', minutes: null });
     const stale = { ...ctx, startTimes: new Map([['Toast#1', new Date(now - 4 * 60 * 60 * 1000).toISOString()]]) };
-    expect(chipForTag('Toast#1', stale, now)).toEqual({ kind: 'ingame', label: 'in game' });
+    expect(chipForTag('Toast#1', stale, now)).toEqual({ kind: 'ingame', label: 'in game', minutes: null });
     expect(formatGameMinutes(new Date(now - 60 * 1000).toISOString(), now)).toBe('1m');
     expect(formatGameMinutes('garbage', now)).toBeNull();
   });

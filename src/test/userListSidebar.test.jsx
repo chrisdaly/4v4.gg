@@ -2,7 +2,7 @@ import { describe, it, expect, vi, afterEach } from 'vitest';
 import React from 'react';
 import { render, screen, fireEvent, cleanup, within } from '@testing-library/react';
 import { MemoryRouter } from 'react-router-dom';
-import UserListSidebar, { histogramBins, bracketGroups } from '../components/UserListSidebar';
+import UserListSidebar, { stripDots, bracketGroups } from '../components/UserListSidebar';
 
 const NOW = Date.now();
 const minsAgo = (m) => new Date(NOW - m * 60 * 1000).toISOString();
@@ -62,7 +62,6 @@ function renderSidebar(overrides = {}) {
         onToggleWatch={() => {}}
         onOpenGame={() => {}}
         $mobileVisible={false}
-        onClose={() => {}}
         {...overrides}
       />
     </MemoryRouter>
@@ -72,30 +71,38 @@ function renderSidebar(overrides = {}) {
 const rowNames = (scope = document) => [...scope.querySelectorAll('[data-row]')].map((el) => el.getAttribute('data-row'));
 const row = (tag) => document.querySelector(`[data-row="${tag}"]`);
 const brackets = () => [...document.querySelectorAll('[data-bracket]')].map((el) => el.getAttribute('data-bracket'));
-const bins = () => [...document.querySelectorAll('[data-bin]')].map((el) => Number(el.getAttribute('data-bin')));
+const stripTags = () => [...document.querySelectorAll('[data-strip-dot]')].map((el) => el.getAttribute('data-strip-dot'));
 
 afterEach(() => {
   cleanup();
   localStorage.clear();
 });
 
-describe('histogramBins and bracketGroups', () => {
-  it('bins MMR into 12 buckets of 100 from 1200, clamping both ends', () => {
-    const roster = [user('a'), user('b'), user('c'), user('d'), user('e'), user('f')];
+describe('stripDots and bracketGroups', () => {
+  it('places one dot per rated player on the 1200-2200+ axis, stacked per column, filled when in game, with the median', () => {
+    const many = [user('Low'), user('Mid'), user('MidToo'), user('High'), user('Unrated')];
     const s = new Map([
-      ['a#1', { mmr: 900 }],
-      ['b#1', { mmr: 1200 }],
-      ['c#1', { mmr: 1299 }],
-      ['d#1', { mmr: 1650 }],
-      ['e#1', { mmr: 2300 }],
-      ['f#1', { mmr: 2900 }],
+      ['Low#1', { mmr: 1000 }],
+      ['Mid#1', { mmr: 1700 }],
+      ['MidToo#1', { mmr: 1710 }],
+      ['High#1', { mmr: 2400 }],
     ]);
-    const b = histogramBins(roster, s);
-    expect(b.length).toBe(12);
-    expect(b[0]).toBe(3);
-    expect(b[4]).toBe(1);
-    expect(b[11]).toBe(2);
-    expect(b.reduce((x, y) => x + y, 0)).toBe(6);
+    const { dots, height, median } = stripDots(many, s, new Set(['Mid#1']));
+    expect(dots.map((d) => d.tag)).toEqual(['Low#1', 'Mid#1', 'MidToo#1', 'High#1']);
+    // x is a percent of 1200..2200, clamped at both ends
+    expect(dots[0].x).toBe(0);
+    expect(dots[1].x).toBe(50);
+    expect(dots[3].x).toBe(100);
+    // 1700 and 1710 share a ~30 MMR column: the second stacks 8px up
+    expect(dots[1].y).toBe(1);
+    expect(dots[2].y).toBe(9);
+    expect(dots[0].y).toBe(1);
+    expect(dots[1].inGame).toBe(true);
+    expect(dots[2].inGame).toBe(false);
+    expect(height).toBe(2 * 8 + 4);
+    // the median of four sorted values is the upper middle one (1710)
+    expect(median).toBe(51);
+    expect(stripDots([], s, new Set())).toEqual({ dots: [], height: 12, median: null, medianMmr: null });
   });
 
   it('groups by bracket in order and trails unrated players', () => {
@@ -136,7 +143,7 @@ describe('UserListSidebar list', () => {
     expect(document.querySelector('input')).toBeNull();
   });
 
-  it('renders rows with avatar, flag, mmr, twitch link and a player link on the name of in-game players', () => {
+  it('renders rows with avatar, flag, mmr, twitch link and a player link on every name', () => {
     renderSidebar();
     const moon = row('Moon#1');
     expect(moon.tagName).toBe('DIV');
@@ -148,7 +155,7 @@ describe('UserListSidebar list', () => {
 
     const grubby = row('Grubby#1');
     expect(grubby).not.toHaveAttribute('role');
-    expect(within(grubby).queryByRole('link', { name: 'Grubby' })).toBeNull();
+    expect(within(grubby).getByRole('link', { name: 'Grubby' })).toHaveAttribute('href', '/player/Grubby%231');
     expect(within(grubby).getByTitle('live')).toHaveAttribute('href', 'https://twitch.tv/grubby');
   });
 
@@ -180,8 +187,8 @@ describe('UserListSidebar list', () => {
   });
 });
 
-describe('UserListSidebar header and histogram', () => {
-  it('shows the online count pill, the in-game count and the column hint', () => {
+describe('UserListSidebar header and MMR strip', () => {
+  it('shows the online count pill, the in-game count and the column hint, and no close button', () => {
     renderSidebar();
     expect(screen.getByText('Online')).toBeInTheDocument();
     expect(document.querySelector('[data-online-count]')).toHaveTextContent('5');
@@ -189,29 +196,35 @@ describe('UserListSidebar header and histogram', () => {
     expect(screen.getByText('LAST · MMR')).toBeInTheDocument();
     expect(document.querySelector('[data-roster-scope]')).toBeNull();
     expect(document.querySelector('[data-live-count]')).toBeNull();
+    expect(document.querySelector('button[aria-label="Close roster"]')).toBeNull();
   });
 
-  it('renders 12 histogram bins over rated players with the axis labels', () => {
+  it('renders the dot strip over rated players, filled for in-game ones, with the median and the axis labels', () => {
     renderSidebar();
-    const b = bins();
-    expect(b.length).toBe(12);
-    // 1700 -> bin 5, 1800 -> 6, 1950 -> 7, 2100 -> 9
-    expect(b).toEqual([0, 0, 0, 0, 0, 1, 1, 1, 0, 1, 0, 0]);
+    expect(document.querySelector('[data-histogram]')).toBeNull();
+    expect(document.querySelectorAll('[data-bin]').length).toBe(0);
+    // rated players, lowest MMR first
+    expect(stripTags()).toEqual(['Lyn#1', 'Moon#1', 'Grubby#1', 'Happy#1']);
+    expect(document.querySelector('[data-strip-dot="Moon#1"]')).toHaveAttribute('data-strip-in-game', 'true');
+    expect(document.querySelector('[data-strip-dot="Moon#1"]')).toHaveAttribute('title', 'Moon · 1800 · in game');
+    expect(document.querySelector('[data-strip-dot="Grubby#1"]')).not.toHaveAttribute('data-strip-in-game');
+    expect(document.querySelector('[data-strip-dot="Grubby#1"]')).toHaveAttribute('title', 'Grubby · 1950');
+    // the median of 1700, 1800, 1950, 2100 is 1950: 75% along
+    expect(document.querySelector('[data-strip-median]')).toHaveAttribute('data-strip-median', '75.0');
+    expect(document.querySelector('[data-strip-height]')).toHaveAttribute('data-strip-height', '12');
     expect(screen.getByText('<1300')).toBeInTheDocument();
     expect(screen.getByText('2200+')).toBeInTheDocument();
-    expect(document.querySelector('[data-bin]')).toHaveAttribute('title', '1200 - 1299: 0');
-    expect(document.querySelectorAll('[data-bin]')[11]).toHaveAttribute('title', '2300+: 0');
   });
 });
 
 describe('UserListSidebar region filter', () => {
-  it('narrows rows, counts and the histogram to the region and names it in the header', () => {
+  it('narrows rows, counts and the strip to the region and names it in the header', () => {
     renderSidebar({ region: 'East Asia' });
     expect(rowNames()).toEqual(['Moon#1', 'Lyn#1']);
     expect(document.querySelector('[data-online-count]')).toHaveTextContent('2');
     expect(document.querySelector('[data-in-game-count]')).toHaveTextContent('2 in game');
     expect(document.querySelector('[data-roster-scope]')).toHaveTextContent('East Asia');
-    expect(bins()).toEqual([0, 0, 0, 0, 0, 1, 1, 0, 0, 0, 0, 0]);
+    expect(stripTags()).toEqual(['Lyn#1', 'Moon#1']);
     expect(brackets()).toEqual(['1800 - 1999', '1600 - 1799']);
   });
 
@@ -224,7 +237,7 @@ describe('UserListSidebar region filter', () => {
     expect(screen.getByText('Nobody online in Oceania')).toBeInTheDocument();
   });
 
-  it('narrows rows, counts and the histogram to a country and shows its flag and code in the header', () => {
+  it('narrows rows, counts and the strip to a country and shows its flag and code in the header', () => {
     renderSidebar({ country: 'KR' });
     expect(rowNames()).toEqual(['Moon#1', 'Lyn#1']);
     expect(document.querySelector('[data-online-count]')).toHaveTextContent('2');
@@ -233,7 +246,7 @@ describe('UserListSidebar region filter', () => {
     expect(scope).toHaveTextContent('KR');
     expect(scope).toHaveAttribute('title', 'South Korea');
     expect(scope.querySelector('img')).toHaveAttribute('alt', 'kr');
-    expect(bins()).toEqual([0, 0, 0, 0, 0, 1, 1, 0, 0, 0, 0, 0]);
+    expect(stripTags()).toEqual(['Lyn#1', 'Moon#1']);
     expect(brackets()).toEqual(['1800 - 1999', '1600 - 1799']);
     cleanup();
     renderSidebar({ country: 'NL' });
@@ -318,10 +331,34 @@ describe('UserListSidebar game modal', () => {
 });
 
 describe('UserListSidebar mobile sheet', () => {
-  it('closes from the header button', () => {
-    const onClose = vi.fn();
-    renderSidebar({ onClose, $mobileVisible: true });
-    fireEvent.click(document.querySelector('button[aria-label="Close roster"]'));
-    expect(onClose).toHaveBeenCalled();
+  it('opens the game from an in-game row and the player card from any other row, with plain names and no stars', () => {
+    const onOpenGame = vi.fn();
+    const onOpenPlayer = vi.fn();
+    renderSidebar({ isMobile: true, onOpenGame, onOpenPlayer, $mobileVisible: true, id: 'chat-roster' });
+    expect(document.querySelector('[data-roster]')).toHaveAttribute('id', 'chat-roster');
+    expect(screen.getByText('MMR')).toBeInTheDocument();
+    // in-game row: the game, and the name is text rather than a link
+    const moon = row('Moon#1');
+    expect(within(moon).queryByRole('link', { name: 'Moon' })).toBeNull();
+    fireEvent.click(moon);
+    expect(onOpenGame).toHaveBeenCalledWith(inGameInfoMap.get('Moon#1'));
+    expect(onOpenPlayer).not.toHaveBeenCalled();
+    // any other row: the player card, by click and keyboard
+    const grubby = row('Grubby#1');
+    expect(grubby).toHaveAttribute('role', 'button');
+    expect(grubby).toHaveAttribute('aria-label', 'Grubby');
+    fireEvent.click(grubby);
+    expect(onOpenPlayer).toHaveBeenCalledWith('Grubby#1');
+    fireEvent.keyDown(row('Happy#1'), { key: 'Enter' });
+    expect(onOpenPlayer).toHaveBeenLastCalledWith('Happy#1');
+    expect(onOpenGame).toHaveBeenCalledTimes(1);
+    expect(document.querySelectorAll('button[aria-label$="player"]').length).toBe(0);
+  });
+
+  it('keeps desktop rows plain when onOpenPlayer is given without isMobile', () => {
+    const onOpenPlayer = vi.fn();
+    renderSidebar({ onOpenPlayer });
+    expect(row('Grubby#1')).not.toHaveAttribute('role');
+    expect(within(row('Moon#1')).getByRole('link', { name: 'Moon' })).toBeInTheDocument();
   });
 });

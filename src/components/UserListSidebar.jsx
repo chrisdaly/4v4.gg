@@ -3,32 +3,41 @@ import { Link } from "react-router-dom";
 import styled, { css } from "styled-components";
 import { FaTwitch } from "react-icons/fa";
 import { raceMapping, raceIcons } from "../lib/constants";
-import { Button, CountryFlag, Skeleton } from "./ui";
+import { CountryFlag, Skeleton } from "./ui";
 import PlayerHoverCard from "./PlayerHoverCard";
 import useIdleTags from "../lib/chat/useIdleTags";
 import { formatGameMinutes } from "./chat/chip";
 import { countryNameOf, countryOf, regionOf } from "../lib/chat/regions";
 import { Panel, PanelHeader, CountPill, Hint, scrollStyles } from "./chat/panel";
+import { CHAT_MOBILE_PX } from "../lib/useIsMobile";
+import MmrDotStrip, { stripDots } from "./MmrDotStrip";
+
+export { stripDots };
 
 /**
- * The channel roster on /chat (Chat v2): everyone online, MMR-sorted and
- * grouped into brackets under an MMR histogram. `region` (a regionOf name)
- * or `country` (an ISO code, from the fullscreen map) narrows the rows, the
- * histogram and the header counts to that scope (the page keeps one of the
- * two set at a time); `filter` narrows rows by name (no input of its own
- * any more). An in-game
- * row shows a red dot, opens the game on click (onOpenGame with the
- * inGameInfoMap entry) and links its name to the player page
- * (inGameMatchMap). The last-game delta comes from recentDeltas. Idle rows
+ * The channel roster on /chat (Chat v3): everyone online, MMR-sorted and
+ * grouped into brackets under an MMR dot strip (one dot per player on a
+ * 1200-2200+ axis, gold when in a game, hollow when waiting, a dashed line
+ * at the median). `region` (a regionOf name) or `country` (an ISO code,
+ * from the fullscreen map) narrows the rows, the strip and the header
+ * counts to that scope (the page keeps one of the two set at a time);
+ * `filter` narrows rows by name (no input of its own any more). Every name
+ * links to the player page; an in-game row also shows a red dot and opens
+ * the game on click (onOpenGame with the inGameInfoMap entry). The
+ * last-game delta comes from recentDeltas. Idle rows
  * (joined over 3h ago, not in a game) are dimmed. The watch star shows on
  * hover and stays lit while watched.
+ *
+ * At and below 768px the roster is a sheet that slides down from the
+ * page's top bar over the chat ($mobileVisible), without the strip, delta
+ * column or star: 44px rows with a 30px avatar, and a tap on a row opens
+ * the game (in-game rows) or the player card (onOpenPlayer(battleTag))
+ * when `isMobile` is set.
  */
 
 const AVATAR = 28; // px
-const HIST_HEIGHT = 36; // px, tallest histogram bar
-const HIST_MIN = 1200;
-const HIST_BIN = 100;
-const HIST_BINS = 12; // 1200..2300+
+const MOBILE_AVATAR = 30; // px
+const MOBILE_TOP_BAR = 52; // px, the page's top bar the sheet hangs from
 const BRACKETS = [
   { min: 2000, label: "2000+" },
   { min: 1800, label: "1800 - 1999" },
@@ -44,15 +53,20 @@ const Sidebar = styled(Panel).attrs({ as: "aside" })`
   grid-area: roster;
   height: 100%;
 
-  @media (max-width: 768px) {
+  @media (max-width: ${CHAT_MOBILE_PX}px) {
     position: fixed;
-    inset: 0;
+    top: ${MOBILE_TOP_BAR}px;
+    left: 0;
+    right: 0;
+    bottom: 0;
     width: 100%;
-    height: 100dvh;
+    height: auto;
+    border: 0;
     border-radius: 0;
-    background: rgba(10, 8, 6, 0.96);
-    z-index: var(--z-modal);
-    transform: ${(p) => (p.$mobileVisible ? "translateY(0)" : "translateY(100%)")};
+    background: #0a0806;
+    box-shadow: 0 12px 30px rgba(0, 0, 0, 0.6);
+    z-index: var(--z-overlay);
+    transform: ${(p) => (p.$mobileVisible ? "translateY(0)" : "translateY(-102%)")};
     transition: transform 0.25s ease;
   }
 `;
@@ -113,49 +127,23 @@ const ColumnHint = styled.span`
   ${Scope} + & {
     margin-left: 0;
   }
-`;
-
-const CloseButton = styled(Button)`
-  display: none;
-  @media (max-width: 768px) {
-    display: inline-flex;
+  @media (max-width: ${CHAT_MOBILE_PX}px) {
+    ${(p) => (p.$mobile ? "" : "display: none;")}
+  }
+  @media (min-width: ${CHAT_MOBILE_PX + 1}px) {
+    ${(p) => (p.$mobile ? "display: none;" : "")}
   }
 `;
 
-/* ── Histogram ─────────────────────────────────────────────────────── */
+/* ── MMR dot strip (MmrDotStrip) ───────────────────────────────────── */
 
-const Histogram = styled.div`
+const StripBox = styled(MmrDotStrip)`
   padding: 10px 14px 8px;
-  display: flex;
-  flex-direction: column;
-  gap: var(--space-2);
   border-bottom: 1px solid rgba(255, 255, 255, 0.06);
   flex-shrink: 0;
-`;
-
-const Bars = styled.div`
-  display: flex;
-  align-items: flex-end;
-  gap: 2px;
-  height: ${HIST_HEIGHT}px;
-`;
-
-const Bar = styled.div`
-  flex: 1;
-  height: ${(p) => p.$pct}%;
-  min-height: 1px;
-  background: rgba(252, 219, 51, 0.7);
-  border-radius: 1px 1px 0 0;
-`;
-
-const Axis = styled.div`
-  display: flex;
-  justify-content: space-between;
-  font-family: var(--font-mono);
-  font-size: 10px;
-  color: var(--grey-light);
-  opacity: 0.6;
-  margin-top: -4px;
+  @media (max-width: ${CHAT_MOBILE_PX}px) {
+    display: none;
+  }
 `;
 
 /* ── List, brackets and rows ───────────────────────────────────────── */
@@ -165,6 +153,9 @@ const List = styled.div`
   flex: 1;
   min-height: 0;
   padding: 0 8px 10px;
+  @media (max-width: ${CHAT_MOBILE_PX}px) {
+    overscroll-behavior: contain;
+  }
 `;
 
 const BracketHeader = styled.div`
@@ -193,6 +184,12 @@ const rowStyles = css`
   &:hover {
     background: var(--gold-tint-subtle);
   }
+  @media (max-width: ${CHAT_MOBILE_PX}px) {
+    grid-template-columns: ${MOBILE_AVATAR}px minmax(0, 1fr) 8px 44px;
+    gap: 10px;
+    min-height: 44px;
+    padding: 0 6px;
+  }
 `;
 
 const Row = styled.div`
@@ -202,13 +199,22 @@ const Row = styled.div`
 
 const AvatarWrap = styled.span`
   position: relative;
-  width: ${AVATAR}px;
-  height: ${AVATAR}px;
+  width: ${(p) => p.$size}px;
+  height: ${(p) => p.$size}px;
+  flex-shrink: 0;
+  ${(p) =>
+    p.$fluid &&
+    css`
+      @media (max-width: ${CHAT_MOBILE_PX}px) {
+        width: ${MOBILE_AVATAR}px;
+        height: ${MOBILE_AVATAR}px;
+      }
+    `}
 `;
 
 const AvatarImg = styled.img`
-  width: ${AVATAR}px;
-  height: ${AVATAR}px;
+  width: 100%;
+  height: 100%;
   border-radius: 3px;
   display: block;
   object-fit: cover;
@@ -251,6 +257,9 @@ const nameStyles = css`
   white-space: nowrap;
   overflow: hidden;
   text-overflow: ellipsis;
+  @media (max-width: ${CHAT_MOBILE_PX}px) {
+    font-size: 15px;
+  }
 `;
 
 const Name = styled.span`
@@ -277,6 +286,9 @@ const Delta = styled.span`
   font-size: var(--text-xxxs);
   text-align: right;
   color: ${(p) => (p.$sign > 0 ? "var(--green)" : "var(--red)")};
+  @media (max-width: ${CHAT_MOBILE_PX}px) {
+    display: none;
+  }
 `;
 
 const Mmr = styled.span`
@@ -317,6 +329,9 @@ const Star = styled.button`
   &:hover {
     color: var(--gold);
   }
+  @media (max-width: ${CHAT_MOBILE_PX}px) {
+    display: none;
+  }
 `;
 
 const Empty = styled.div`
@@ -334,13 +349,17 @@ const SkeletonRow = styled.div`
 
 /* ── Helpers ───────────────────────────────────────────────────────── */
 
-/** 28px avatar (profile picture or race icon) with the country flag; the map modal's rail reuses it. */
-export function Avatar({ tag, avatars, stats }) {
+/**
+ * Avatar (profile picture or race icon) with the country flag, 28px unless
+ * `size` says otherwise; the map modal's rail and the mobile sheets reuse
+ * it. `fluid` grows it to the roster's 30px on mobile.
+ */
+export function Avatar({ tag, avatars, stats, size = AVATAR, fluid = false }) {
   const profile = avatars?.get(tag);
   const race = stats?.get(tag)?.race;
   const raceIcon = race != null ? raceMapping[race] : null;
   return (
-    <AvatarWrap>
+    <AvatarWrap $size={size} $fluid={fluid}>
       {profile?.profilePicUrl ? (
         <AvatarImg src={profile.profilePicUrl} alt="" />
       ) : (
@@ -356,23 +375,6 @@ export function Avatar({ tag, avatars, stats }) {
 }
 
 const byName = (a, b) => (a.name || "").localeCompare(b.name || "", undefined, { sensitivity: "base" });
-
-/** 12 histogram bins (1200..2300+, 100 each) over users with a known MMR. */
-export function histogramBins(users, stats) {
-  const bins = new Array(HIST_BINS).fill(0);
-  for (const u of users) {
-    const mmr = stats?.get(u.battleTag)?.mmr;
-    if (mmr == null) continue;
-    const i = Math.max(0, Math.min(HIST_BINS - 1, Math.floor((mmr - HIST_MIN) / HIST_BIN)));
-    bins[i]++;
-  }
-  return bins;
-}
-
-const binTitle = (i, n) => {
-  const lo = HIST_MIN + i * HIST_BIN;
-  return `${i === HIST_BINS - 1 ? `${lo}+` : `${lo} - ${lo + HIST_BIN - 1}`}: ${n}`;
-};
 
 /** Bracket groups in display order; unrated players (no MMR) trail in their own group. */
 export function bracketGroups(sortedUsers, stats) {
@@ -392,17 +394,21 @@ export function bracketGroups(sortedUsers, stats) {
 
 const formatDelta = (d) => `${d > 0 ? "+" : "-"}${Math.abs(Math.round(d))}`;
 
-function UserRow({ user, avatars, stats, sessions, inGameInfo, playerUrl, liveInfo, delta, isWatched, onToggleWatch, onOpenGame, dim }) {
+function UserRow({ user, avatars, stats, sessions, inGameInfo, playerUrl, liveInfo, delta, isWatched, onToggleWatch, onOpenGame, onOpenPlayer, dim }) {
   const tag = user.battleTag;
   const mmr = stats?.get(tag)?.mmr;
   const gameTitle = inGameInfo
     ? ["in game", inGameInfo.mapName, formatGameMinutes(inGameInfo.startTime)].filter(Boolean).join(" · ")
     : null;
   const openGame = inGameInfo && onOpenGame ? () => onOpenGame(inGameInfo) : null;
+  // Mobile: a tap on any other row opens the player card, and the name is
+  // plain text so the row takes the tap
+  const openPlayer = !openGame && onOpenPlayer ? () => onOpenPlayer(tag) : null;
+  const action = openGame || openPlayer;
 
   const content = (
     <>
-      <Avatar tag={tag} avatars={avatars} stats={stats} />
+      <Avatar tag={tag} avatars={avatars} stats={stats} fluid />
       <NameCell>
         <PlayerHoverCard
           battleTag={tag}
@@ -412,7 +418,7 @@ function UserRow({ user, avatars, stats, sessions, inGameInfo, playerUrl, liveIn
           inGameInfo={inGameInfo}
           style={{ flex: 1, minWidth: 0, display: "flex" }}
         >
-          {playerUrl ? (
+          {playerUrl && !onOpenPlayer ? (
             <NameLink to={playerUrl} $dim={dim} onClick={(e) => e.stopPropagation()}>
               {user.name}
             </NameLink>
@@ -456,18 +462,18 @@ function UserRow({ user, avatars, stats, sessions, inGameInfo, playerUrl, liveIn
   );
 
   const shared = { "data-row": tag, "data-dim": dim, $dim: dim };
-  return openGame ? (
+  return action ? (
     <Row
       {...shared}
       $clickable
       role="button"
       tabIndex={0}
-      aria-label={`${user.name}: ${gameTitle}`}
-      onClick={openGame}
+      aria-label={openGame ? `${user.name}: ${gameTitle}` : user.name}
+      onClick={action}
       onKeyDown={(e) => {
         if (e.key === "Enter" || e.key === " ") {
           e.preventDefault();
-          openGame();
+          action();
         }
       }}
     >
@@ -493,8 +499,10 @@ export default function UserListSidebar({
   watchList,
   onToggleWatch,
   onOpenGame,
+  onOpenPlayer,
+  isMobile = false,
   $mobileVisible,
-  onClose,
+  id,
   region = null,
   country = null,
   filter = "",
@@ -517,8 +525,6 @@ export default function UserListSidebar({
       });
   }, [users, stats, avatars, region, country, filter]);
 
-  const bins = useMemo(() => histogramBins(visible, stats), [visible, stats]);
-  const binMax = Math.max(1, ...bins);
   const groups = useMemo(() => bracketGroups(visible, stats), [visible, stats]);
   const inGameCount = visible.filter((u) => inGameTags?.has(u.battleTag)).length;
   const isWatched = (u) => Boolean(watchList?.has(u.battleTag?.toLowerCase()));
@@ -534,12 +540,13 @@ export default function UserListSidebar({
         stats={stats}
         sessions={sessions}
         inGameInfo={inGame ? inGameInfoMap?.get(tag) : null}
-        playerUrl={inGame ? inGameMatchMap?.get(tag) : null}
+        playerUrl={(inGame && inGameMatchMap?.get(tag)) || `/player/${encodeURIComponent(tag)}`}
         liveInfo={liveStreamers?.get(tag)}
         delta={recentDeltas?.get(tag) ?? null}
         isWatched={isWatched(user)}
-        onToggleWatch={onToggleWatch}
+        onToggleWatch={isMobile ? undefined : onToggleWatch}
         onOpenGame={onOpenGame}
+        onOpenPlayer={isMobile ? onOpenPlayer : undefined}
         dim={idleTags?.has(tag) ? "idle" : undefined}
       />
     );
@@ -548,7 +555,7 @@ export default function UserListSidebar({
   const nothingMatches = users.length > 0 && visible.length === 0;
 
   return (
-    <Sidebar $mobileVisible={$mobileVisible} aria-label="Channel roster" data-roster>
+    <Sidebar id={id} $mobileVisible={$mobileVisible} aria-label="Channel roster" data-roster>
       <Header>
         <Title>Online</Title>
         <CountPill data-online-count>{visible.length}</CountPill>
@@ -565,23 +572,9 @@ export default function UserListSidebar({
           region && <Scope data-roster-scope title={region}>{region}</Scope>
         )}
         <ColumnHint title="MMR change from last game">LAST · MMR</ColumnHint>
-        <CloseButton $icon type="button" aria-label="Close roster" onClick={onClose}>
-          &times;
-        </CloseButton>
+        <ColumnHint $mobile>MMR</ColumnHint>
       </Header>
-      <Histogram data-histogram>
-        <Bars>
-          {bins.map((n, i) => (
-            <Bar key={i} data-bin={n} title={binTitle(i, n)} $pct={Math.round((n / binMax) * 100)} />
-          ))}
-        </Bars>
-        <Axis>
-          <span>&lt;1300</span>
-          <span>1600</span>
-          <span>1900</span>
-          <span>2200+</span>
-        </Axis>
-      </Histogram>
+      <StripBox users={visible} stats={stats} inGameTags={inGameTags} />
       <List>
         {users.length === 0 &&
           [...Array(8)].map((_, i) => (

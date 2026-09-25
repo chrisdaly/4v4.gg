@@ -1,8 +1,9 @@
 import React from "react";
 import { Redirect, useLocation } from "react-router-dom";
 
-// /search moved into the /chat search panel. Old links carried ?q=, ?qmode=
-// player and ?qsince=; map them onto the panel's ?q=, ?player=, ?since=.
+// /search moved into /chat, whose header field filters the stream. Old links
+// carried ?q=, ?qmode=player and ?qsince=; map them onto ?q=, ?player=,
+// ?since= (the chat seeds its field from q or player and ignores since).
 const SINCE_KEYS = new Set(["24h", "7d", "30d", "all"]);
 
 export function searchRedirectTarget(search) {

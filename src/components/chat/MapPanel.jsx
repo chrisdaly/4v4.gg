@@ -5,14 +5,15 @@ import { HiOutlineChartBar, HiOutlineNewspaper, HiOutlineArrowsExpand } from "re
 import { GiCrossedSwords } from "react-icons/gi";
 import WorldMap from "../WorldMap";
 import { Button } from "../ui";
-import { Panel, PanelHeader, CountPill } from "./panel";
+import { Panel, PanelHeader, PanelLabel, CountPill } from "./panel";
 import { buildMapData, countriesLabel, outsideScope, regionOf } from "../../lib/chat/regions";
 import { fetchTodayDigest } from "../../lib/chat/digestToday";
 
 /**
- * The map panel on /chat: the 4v4.GG home link with the relay dot, the
- * countries pill, the page's icon buttons (stats, today's digest, games
- * toggle) and the world map. Clicking a dot toggles the region filter
+ * The map panel on /chat: a "World" label, the countries pill, the page's
+ * icon buttons (stats, today's digest, games toggle) and the world map. (The
+ * 4v4.GG home link and the relay dot moved to the chat panel's header in
+ * Chat v3.) Clicking a dot toggles the region filter
  * (onRegionChange); dots outside the selected region, or the selected
  * country (`country`, set from the fullscreen modal), dim. A click anywhere
  * else on the map body, or the expand button in its corner, calls onExpand
@@ -35,29 +36,6 @@ export function useDigestToday() {
   }, []);
   return digest;
 }
-
-const Home = styled(Link)`
-  display: inline-flex;
-  align-items: center;
-  gap: 7px;
-  font-family: var(--font-display);
-  font-size: var(--text-sm);
-  color: var(--gold);
-  letter-spacing: 0.02em;
-  text-decoration: none;
-  white-space: nowrap;
-  &:hover {
-    color: var(--white);
-  }
-`;
-
-const RelayDot = styled.span`
-  width: 6px;
-  height: 6px;
-  border-radius: var(--radius-full);
-  background: ${(p) => (p.$ok ? "var(--green)" : "var(--red)")};
-  flex-shrink: 0;
-`;
 
 const Actions = styled.div`
   margin-left: auto;
@@ -109,7 +87,6 @@ export default function MapPanel({
   avatars,
   stats,
   inGameTags,
-  status,
   region = null,
   country = null,
   onRegionChange,
@@ -126,7 +103,6 @@ export default function MapPanel({
   );
   const dimOutside = useMemo(() => outsideScope({ region, country }), [region, country]);
   const digest = useDigestToday();
-  const connected = status === "connected";
   const countryCount = playerCountries.size;
 
   const onDotClick = (code) => {
@@ -149,10 +125,7 @@ export default function MapPanel({
   return (
     <Panel className={className} data-map-panel aria-label="World map">
       <PanelHeader>
-        <Home to="/" title={`4v4.GG home · relay ${status || "connecting"}`}>
-          4v4.GG
-          <RelayDot data-relay-status={status || "connecting"} $ok={connected} title={`Relay ${status || "connecting"}`} />
-        </Home>
+        <PanelLabel>World</PanelLabel>
         <CountPill data-country-count>{countriesLabel(countryCount)}</CountPill>
         <Actions>
           <IconButton

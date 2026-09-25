@@ -1,8 +1,8 @@
 import React, { useRef, useEffect, useState, useCallback, useMemo } from "react";
 import { Virtuoso } from "react-virtuoso";
 import styled from "styled-components";
+import { Link } from "react-router-dom";
 import { IoSend } from "react-icons/io5";
-import { HiOutlineSearch } from "react-icons/hi";
 import { Button, Skeleton, Input } from "./ui";
 import { useMessageSegments, useBotResponseMap, formatDateDivider, getDateKey } from "../lib/useChatMessages";
 import { linkifyMessage } from "../lib/chatExtras";
@@ -17,12 +17,11 @@ import { notifyChat } from "../lib/chat/notify";
 import { applyTabBadge } from "../lib/chat/tabBadge";
 import { useUnreadCount, useDocumentVisible } from "../lib/chat/useUnread";
 import { chipForTag } from "./chat/chip";
-import { getPlayerProfile } from "../lib/api";
 import { relayFetch } from "../lib/relay";
-import { normalizeMessages } from "../lib/chat/normalize";
 import useAdmin from "../lib/useAdmin";
 import { setTrimPaused } from "../lib/chat/trimGate";
 import { Panel } from "./chat/panel";
+import { CHAT_MOBILE_PX } from "../lib/useIsMobile";
 
 /* The list's box is padding 6px 18px 12px (Chat v2 handoff); the panel
    frame is the one all four /chat panels share (chat/panel.js) */
@@ -49,10 +48,16 @@ const OuterFrame = styled.div`
 const Wrapper = styled(Panel).attrs({ as: "div" })`
   flex: 1 1 0;
   min-height: 0;
+  @media (max-width: ${CHAT_MOBILE_PX}px) {
+    border: 0;
+    border-radius: 0;
+    background: transparent;
+    backdrop-filter: none;
+  }
 `;
 
-/* Everything under the stats strip: the list (or the search panel and its
-   results, or an empty state) with the search toggle pinned in its corner */
+/* Everything under the header and the stats strip: the list (or an empty
+   state) */
 const Body = styled.div`
   position: relative;
   flex: 1 1 0;
@@ -61,36 +66,117 @@ const Body = styled.div`
   flex-direction: column;
 `;
 
-/* Corner control inset: the icon box plus its gutters, so the sticky day
-   bar and the search fields stop short of it while the list itself keeps
-   its own padding (the per-line copy-link icons and timestamps sit under
-   the icon only above the fold, where the day bar already floats) */
-const CORNER_TOP = "8px";
-const CORNER_RIGHT = "14px";
-const CORNER_SIZE = 24; // px
-const CORNER_INSET = `calc(${CORNER_RIGHT} + ${CORNER_SIZE}px + var(--space-2))`;
+/* ── Header: home link, relay dot, the filter field ── */
 
-const SearchToggle = styled(Button)`
+const Header = styled.div`
+  display: flex;
+  align-items: center;
+  gap: 14px;
+  padding: 10px 14px 10px ${LIST_PAD_X};
+  border-bottom: 1px solid rgba(255, 255, 255, 0.06);
+  flex-shrink: 0;
+  @media (max-width: ${CHAT_MOBILE_PX}px) {
+    display: none;
+  }
+`;
+
+const Home = styled(Link)`
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  flex-shrink: 0;
+  font-family: var(--font-display);
+  font-size: 20px;
+  letter-spacing: 0.02em;
+  color: var(--gold);
+  text-decoration: none;
+  white-space: nowrap;
+  &:hover {
+    color: var(--white);
+  }
+`;
+
+/* The always-visible search field, the navbar's player search look
+   (shared Input, magnifier inside on the left, × inside on the right):
+   "N found" sits after it while a query is set and the border stays gold */
+const SearchBox = styled.div`
+  flex: 1;
+  max-width: 420px;
+  margin-left: auto;
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  min-width: 0;
+`;
+
+const SearchWrap = styled.div`
+  position: relative;
+  flex: 1;
+  min-width: 0;
+  display: flex;
+  align-items: center;
+  color: var(--grey-light);
+  &:focus-within {
+    color: rgba(var(--gold-dark-rgb), 0.7);
+  }
+`;
+
+const SearchIcon = styled.svg`
   position: absolute;
-  top: ${CORNER_TOP};
-  right: ${CORNER_RIGHT};
-  z-index: 3;
-  width: ${CORNER_SIZE}px;
-  height: ${CORNER_SIZE}px;
-  padding: 0;
-  border-radius: var(--radius-sm);
-  background: rgba(10, 8, 6, 0.85);
-  border-color: rgba(255, 255, 255, 0.1);
-  backdrop-filter: blur(4px);
-  svg {
-    width: 14px;
-    height: 14px;
+  left: 11px;
+  pointer-events: none;
+  flex-shrink: 0;
+  transition: color var(--transition);
+`;
+
+const SearchInput = styled(Input)`
+  width: 100%;
+  padding-left: 32px;
+  padding-right: ${(p) => (p.$active ? "32px" : "var(--space-4)")};
+  ${(p) => p.$active && "border-color: var(--gold);"}
+`;
+
+const FoundCount = styled.span`
+  font-family: var(--font-mono);
+  font-size: var(--text-xxs);
+  color: var(--grey-light);
+  white-space: nowrap;
+`;
+
+const ClearButton = styled(Button)`
+  position: absolute;
+  right: 6px;
+  top: 50%;
+  transform: translateY(-50%);
+  width: 24px;
+  height: 24px;
+`;
+
+const searchGlyph = (
+  <SearchIcon width="14" height="14" viewBox="0 0 14 14" fill="none" aria-hidden="true">
+    <circle cx="5.5" cy="5.5" r="4" stroke="currentColor" strokeWidth="1.5" />
+    <line x1="8.7" y1="8.7" x2="13" y2="13" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" />
+  </SearchIcon>
+);
+
+/* Mobile: the search row under the page's top bar, shown while searchOpen */
+const MobileSearchRow = styled.div`
+  display: none;
+  align-items: center;
+  gap: 8px;
+  padding: 8px 14px;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.06);
+  background: rgba(10, 8, 6, 0.8);
+  flex-shrink: 0;
+  @media (max-width: ${CHAT_MOBILE_PX}px) {
+    display: flex;
   }
-  &[data-active="true"] {
-    color: var(--gold);
-    background: var(--gold-tint);
-    border-color: rgba(var(--gold-muted-rgb), 0.5);
-  }
+`;
+
+const MobileSearchInput = styled(Input)`
+  width: 100%;
+  height: 36px;
+  padding-left: 32px;
 `;
 
 const MessageList = styled.div`
@@ -153,35 +239,30 @@ const SystemMessageRow = styled.div`
   opacity: 0.7;
 `;
 
-const ScrollNotice = styled.button`
+/* The gold "↓ Latest" / "↓ N new" pill, centred 16px above the bottom of
+   the list while the viewport is off the bottom */
+const LatestPill = styled.button`
   position: absolute;
-  bottom: var(--space-1);
   left: 50%;
+  bottom: 16px;
   transform: translateX(-50%);
+  z-index: 3;
   display: flex;
   align-items: center;
-  gap: var(--space-2);
-  background: linear-gradient(180deg, rgba(30, 24, 16, 0.95) 0%, rgba(15, 12, 8, 0.98) 100%);
-  border: 1px solid rgba(252, 219, 51, 0.4);
-  border-radius: var(--radius-md);
-  color: var(--gold);
-  font-family: var(--font-display);
-  font-size: var(--text-xxs);
-  letter-spacing: 0.5px;
-  padding: var(--space-2) var(--space-4);
+  gap: 6px;
+  height: 36px;
+  padding: 0 16px;
+  font-family: var(--font-mono);
+  font-size: 13px;
+  color: #0a0806;
+  background: var(--gold);
+  border: 0;
+  border-radius: 18px;
+  box-shadow: 0 6px 18px rgba(0, 0, 0, 0.5);
   cursor: pointer;
-  box-shadow: 0 2px 12px rgba(0, 0, 0, 0.6), inset 0 1px 0 rgba(252, 219, 51, 0.1);
-  transition: all 0.2s ease;
-
-  &::after {
-    content: "▼";
-    font-size: var(--text-xxxs);
-  }
-
+  white-space: nowrap;
   &:hover {
-    border-color: var(--gold);
-    background: linear-gradient(180deg, rgba(252, 219, 51, 0.12) 0%, rgba(252, 219, 51, 0.04) 100%);
-    box-shadow: 0 2px 16px rgba(252, 219, 51, 0.15), inset 0 1px 0 rgba(252, 219, 51, 0.15);
+    filter: brightness(1.08);
   }
 `;
 
@@ -235,9 +316,7 @@ const StickyBar = styled.div`
   align-items: center;
   justify-content: center;
   gap: var(--space-2);
-  /* the corner search icon sits in the right inset; mirrored on the left
-     so the day label stays centred on the list */
-  padding: 0 ${CORNER_INSET};
+  padding: 0 var(--space-4);
   pointer-events: none;
 
   > * {
@@ -427,122 +506,8 @@ const EmptyState = styled.div`
   letter-spacing: 0.1em;
 `;
 
-/* ── Search ────────────────────────────────────── */
-
 const SystemWrap = styled.div`
   padding-top: var(--space-2);
-`;
-
-const SearchPanel = styled.div`
-  display: flex;
-  flex-direction: column;
-  gap: var(--space-2);
-  padding: 10px ${CORNER_INSET} 10px ${LIST_PAD_X};
-  border-bottom: 1px solid rgba(255, 255, 255, 0.06);
-  flex-shrink: 0;
-`;
-
-const SearchRow = styled.div`
-  display: flex;
-  align-items: center;
-  flex-wrap: wrap;
-  gap: var(--space-2);
-`;
-
-const SearchField = styled(Input)`
-  flex: 1 1 200px;
-  min-width: 0;
-  padding: 6px var(--space-2);
-  outline: none;
-`;
-
-const PlayerFieldWrap = styled.div`
-  position: relative;
-  flex: 0 1 200px;
-  min-width: 0;
-
-  @media (max-width: 640px) {
-    flex: 1 1 100%;
-  }
-`;
-
-const PlayerField = styled(Input)`
-  width: 100%;
-  padding: 6px var(--space-2);
-  outline: none;
-`;
-
-const RangeGroup = styled.div`
-  display: flex;
-  align-items: center;
-  gap: var(--space-1);
-`;
-
-const RangePill = styled(Button)`
-  font-size: var(--text-xxxs);
-  letter-spacing: 0.1em;
-  padding: 2px var(--space-3);
-  white-space: nowrap;
-`;
-
-const ResultCount = styled.span`
-  margin-left: auto;
-  font: var(--text-xxs) var(--font-mono);
-  text-transform: uppercase;
-  letter-spacing: 0.1em;
-  color: var(--grey-light);
-  white-space: nowrap;
-`;
-
-const SearchResults = styled.div`
-  flex: 1;
-  overflow-y: auto;
-  padding: ${LIST_PAD_TOP} ${LIST_PAD_X} ${LIST_PAD_BOTTOM};
-
-  &::-webkit-scrollbar {
-    width: 6px;
-  }
-  &::-webkit-scrollbar-track {
-    background: transparent;
-  }
-  &::-webkit-scrollbar-thumb {
-    background: var(--grey-mid);
-    border-radius: var(--radius-sm);
-  }
-`;
-
-/* A result is the transcript row itself; the whole row jumps into the
-   stream, the name inside it filters by that player instead */
-const SearchResultRow = styled.div`
-  border-radius: var(--radius-md);
-  cursor: pointer;
-  transition: background var(--transition);
-
-  &:hover,
-  &:focus-visible {
-    background: rgba(255, 255, 255, 0.04);
-    outline: none;
-  }
-
-  &[aria-disabled="true"] {
-    cursor: progress;
-    opacity: 0.7;
-  }
-`;
-
-const ResultDivider = styled.div`
-  display: flex;
-  align-items: center;
-  gap: var(--space-4);
-  margin: ${(p) => (p.$first ? "var(--space-1)" : "var(--space-4)")} 0 var(--space-1);
-
-  &::before,
-  &::after {
-    content: "";
-    flex: 1;
-    height: 1px;
-    background: rgba(var(--gold-muted-rgb), 0.15);
-  }
 `;
 
 const Mark = styled.span`
@@ -573,28 +538,6 @@ function markMentions(node, watchList) {
   if (Array.isArray(node)) return node.flatMap((part, i) => (typeof part === "string" ? markString(part, `m${i}`) : part));
   return node;
 }
-
-const SearchEmpty = styled.div`
-  padding: var(--space-6) var(--space-4);
-  text-align: center;
-  font-family: var(--font-body);
-  font-size: var(--text-xs);
-  line-height: 1.5;
-  color: var(--grey-light);
-`;
-
-const MoreRow = styled.div`
-  display: flex;
-  justify-content: center;
-  padding: var(--space-3) 0 var(--space-2);
-`;
-
-const SkeletonRow = styled.div`
-  display: flex;
-  gap: var(--space-3);
-  align-items: flex-start;
-  padding: var(--space-2) var(--space-2);
-`;
 
 /* ── History + unread markers ──────────────────── */
 
@@ -645,101 +588,30 @@ const NewDividerLabel = styled.span`
   color: var(--red);
 `;
 
-/* ── @mention autocomplete ─────────────────────── */
-
-const MentionMenu = styled.div`
-  position: absolute;
-  ${(p) => (p.$below ? "top: 100%; left: 0; right: 0; margin-top: 4px;" : "bottom: 100%; left: 48px; margin-bottom: 4px;")}
-  background: rgba(15, 12, 8, 0.98);
-  border: 1px solid rgba(var(--gold-muted-rgb), 0.4);
-  border-radius: var(--radius-md);
-  overflow: hidden;
-  z-index: 100;
+const NoMatch = styled.div`
+  padding: var(--space-6) var(--space-4);
+  text-align: center;
+  font-family: var(--font-mono);
+  font-size: 13px;
+  color: var(--grey-light);
 `;
 
-const MentionItem = styled.button`
-  display: block;
-  width: 100%;
-  text-align: left;
-  padding: var(--space-1) var(--space-3);
-  background: ${(p) => (p.$active ? "rgba(252, 219, 51, 0.12)" : "none")};
-  border: none;
-  color: var(--gold);
-  font-family: var(--font-display);
-  font-size: var(--text-xs);
-  cursor: pointer;
-
-  &:hover {
-    background: rgba(252, 219, 51, 0.12);
-  }
-`;
-
-// Wrap case-insensitive matches of `query` in a highlight mark
-function highlightMatches(text, query) {
-  const q = query.trim();
-  if (!q || !text) return text;
-  const lower = text.toLowerCase();
-  const ql = q.toLowerCase();
-  const parts = [];
-  let i = 0;
-  for (;;) {
-    const j = lower.indexOf(ql, i);
-    if (j === -1) break;
-    if (j > i) parts.push(text.slice(i, j));
-    parts.push(<Mark key={j}>{text.slice(j, j + q.length)}</Mark>);
-    i = j + q.length;
-  }
-  if (parts.length === 0) return text;
-  if (i < text.length) parts.push(text.slice(i));
-  return parts;
-}
-
-// Online users whose name starts with `prefix`: the search panel's player
-// filter suggestions
-function matchMentionCandidates(prefix, onlineUsers) {
-  const q = prefix.toLowerCase();
-  return onlineUsers.filter((u) => (u.name || "").toLowerCase().startsWith(q)).slice(0, 6);
-}
-
-/* ── Search panel ──────────────────────────────── */
-
-const SEARCH_RANGES = [
-  { key: "24h", label: "24h" },
-  { key: "7d", label: "7d" },
-  { key: "30d", label: "30d" },
-  { key: "all", label: "All" },
-];
-const SEARCH_DEFAULT_SINCE = "7d";
-const SEARCH_PAGE_SIZE = 50;
-const SEARCH_DEBOUNCE_MS = 300;
-const SEARCH_MIN_CHARS = 2;
-
-// /chat?q=&player=&since= is the shareable form of a search
-function readSearchUrl() {
+// /chat?q= (the old /search redirect, shared links) seeds the filter field
+function readQueryUrl() {
   try {
     const sp = new URLSearchParams(window.location.search);
-    const q = sp.get("q") || "";
-    const player = sp.get("player") || "";
-    const sinceRaw = sp.get("since");
-    const since = SEARCH_RANGES.some((r) => r.key === sinceRaw) ? sinceRaw : SEARCH_DEFAULT_SINCE;
-    return { q, player, since, open: Boolean(q.trim() || player.trim()) };
+    return sp.get("q") || sp.get("player") || "";
   } catch {
-    return { q: "", player: "", since: SEARCH_DEFAULT_SINCE, open: false };
+    return "";
   }
 }
 
-async function fetchSearchPage({ q, player, since, offset }) {
-  const sp = new URLSearchParams();
-  if (q) sp.set("q", q);
-  if (player) sp.set("player", player);
-  sp.set("since", since);
-  sp.set("limit", String(SEARCH_PAGE_SIZE));
-  sp.set("offset", String(offset));
-  const res = await relayFetch(`/api/chat/search?${sp.toString()}`);
-  if (!res.ok) throw new Error(`search failed: ${res.status}`);
-  const data = await res.json();
-  const results = normalizeMessages(data.results || []);
-  return { results, total: typeof data.total === "number" ? data.total : results.length };
+// Whether a message group (author + lines) matches the filter query, by
+// display name or text, case-insensitive
+function groupMatches(row, q) {
+  const name = (row.msg.userName || row.msg.battleTag?.split("#")[0] || "").toLowerCase();
+  if (name.includes(q)) return true;
+  return row.msgs.some((m) => (m.text || "").toLowerCase().includes(q));
 }
 
 // firstItemIndex base for react-virtuoso: prepends (load earlier) decrease
@@ -807,22 +679,30 @@ const listComponents = {
 const rowKey = (index, row) => row.key;
 
 /**
- * The /chat message stream (Chat v2). No header of its own: the Search,
- * Stats and Games toggles live in the map panel header and come in as
- * controlled props; the relay status shows there too.
+ * The /chat message stream (Chat v3). Its header holds the 4v4.GG home link
+ * with the relay dot and an always-visible search field that filters the
+ * loaded stream by author name or text ("N found", clear ×); game rows and
+ * system lines hide while a query is set. The Stats and Games toggles live
+ * in the map panel header and come in as controlled props.
+ *
+ * At and below 768px the header is gone (the page's top bar has the logo
+ * and a search button): `searchOpen` shows the search row under the bar
+ * and the panel closes it itself on Esc through onSearchOpenChange. The
+ * gold "↓ Latest" / "↓ N new" pill sits over the list while the viewport
+ * is off the bottom (always on mobile, only with new lines on desktop).
  *
  * Props (data): messages, status, avatars, stats, sessions, inGameTags,
  *   inGameInfoMap, recentWinners, recentDeltas, gameEvents, ongoingMatchIds,
- *   liveStreamers, watchList, onlineUsers, botResponses, translations
+ *   liveStreamers, watchList, botResponses, translations
  * Props (history): loadOlder, hasMoreHistory, loadWindow, loadLatest,
- *   windowMode, windowId, permalinkId
+ *   windowMode, windowId, permalinkId, permalinkAt (the message's
+ *   received_at: a permalink outside the loaded window reloads the window
+ *   around it instead of paging back)
  * Props (controls): searchOpen / onSearchOpenChange(bool), statsOpen /
- *   onStatsOpenChange(bool), showGames, showTranslations, onOpenGame.
- *   The search icon in the panel's top-right corner toggles searchOpen
- *   through onSearchOpenChange; the panel also closes the search itself
- *   (Esc, a jump to a hit) and asks for it open on a shared /chat?q= link.
- *   It never closes the stats, so onStatsOpenChange is accepted for
- *   symmetry and left unread.
+ *   onStatsOpenChange(bool), showGames, showTranslations, onOpenGame,
+ *   onOpenPlayer(battleTag) (mobile: a name opens the player card instead
+ *   of linking to /player), isMobile. It never closes the stats, so
+ *   onStatsOpenChange is accepted for symmetry and left unread.
  */
 export default function ChatPanel({
   messages,
@@ -838,7 +718,6 @@ export default function ChatPanel({
   ongoingMatchIds,
   liveStreamers,
   watchList,
-  onlineUsers = [],
   botResponses = [],
   translations = new Map(),
   loadOlder,
@@ -848,7 +727,10 @@ export default function ChatPanel({
   windowMode = "live",
   windowId = 0,
   permalinkId = null,
+  permalinkAt = null,
   onOpenGame,
+  onOpenPlayer,
+  isMobile = false,
   searchOpen = false,
   onSearchOpenChange,
   statsOpen = false,
@@ -856,7 +738,10 @@ export default function ChatPanel({
   showTranslations = true,
 }) {
   const virtuosoRef = useRef(null);
-  const [showNotice, setShowNotice] = useState(false);
+  // Whether the viewport sits at the newest row (state for the pill, ref
+  // for the scroll callbacks below)
+  const [atBottom, setAtBottom] = useState(true);
+  const unseen = useUnreadCount(messages, atBottom);
   const { adminKey: apiKey, isAdmin } = useAdmin();
   const [botDraft, setBotDraft] = useState("");
   const [botError, setBotError] = useState(null);
@@ -866,29 +751,15 @@ export default function ChatPanel({
   const hiddenUnread = useUnreadCount(messages, visible);
   // Expanded game rows, per event id (not persisted)
   const [expandedEvents, setExpandedEvents] = useState(() => new Set());
-  // Search panel; the fields' initial state comes from the URL so a shared
-  // link opens straight onto its results (the open flag is asked of the
-  // owner below)
-  const [initialSearch] = useState(readSearchUrl);
-  const [searchQuery, setSearchQuery] = useState(initialSearch.q);
-  const [searchPlayer, setSearchPlayer] = useState(initialSearch.player);
-  const [searchSince, setSearchSince] = useState(initialSearch.since);
-  // null = nothing searched yet; [] = searched, no hits
-  const [searchResults, setSearchResults] = useState(null);
-  const [searchTotal, setSearchTotal] = useState(0);
-  const [searching, setSearching] = useState(false);
-  const [searchingMore, setSearchingMore] = useState(false);
-  const [searchError, setSearchError] = useState(false);
-  const [playerFieldFocused, setPlayerFieldFocused] = useState(false);
-  // A result outside the loaded window: replace the window, then jump once
-  // the new one is in (windowId bumps)
-  const [windowJump, setWindowJump] = useState(null);
-  const searchReqRef = useRef(0);
+  // The filter query; seeded from /chat?q= so the old /search links land
+  // on a filtered stream
+  const [query, setQuery] = useState(readQueryUrl);
   const [loadingOlder, setLoadingOlder] = useState(false);
   const [newMarkerTime, setNewMarkerTime] = useState(null);
-  const [searchAvatars, setSearchAvatars] = useState(new Map());
   const [flashId, setFlashId] = useState(null);
-  const [jumping, setJumping] = useState(false);
+  // A permalink outside the loaded window: replace the window, then jump
+  // once the new one is in (windowId bumps)
+  const [windowJump, setWindowJump] = useState(null);
   // { id, align } - scroll to this message's row once it exists in `rows`
   const [pendingJump, setPendingJump] = useState(null);
   // Sticky day bar: absolute Virtuoso index of the topmost visible row
@@ -920,21 +791,7 @@ export default function ChatPanel({
     messagesRef.current = messages;
   }, [messages]);
 
-  // Fetch profiles for search-result authors not already known to the page
-  useEffect(() => {
-    if (!searchResults) return;
-    const missing = [...new Set(searchResults.map((r) => r.battleTag))]
-      .filter((tag) => tag && !avatars?.get(tag) && !searchAvatars.has(tag));
-    for (const tag of missing) {
-      getPlayerProfile(tag).then((profile) => {
-        setSearchAvatars((prev) => new Map(prev).set(tag, profile));
-      });
-    }
-    // searchAvatars intentionally omitted - it's the accumulator this effect fills
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [searchResults, avatars]);
-
-  // Jump to a message in the stream (search hit, permalink). The stream
+  // Jump to a message in the stream (a permalink). The stream
   // holds the newest few hundred messages, so page older history in until
   // the target is loaded (bounded), then let the list scroll to its row
   // once it renders (see the pendingJump effect). `targetTime` (a search
@@ -943,7 +800,6 @@ export default function ChatPanel({
   const jumpToId = useCallback(async (id, targetTime = null) => {
     if (jumpingRef.current || id == null) return false;
     jumpingRef.current = true;
-    setJumping(true);
     try {
       let oldest = messagesRef.current[0]?.receivedAt;
       let pages = 0;
@@ -964,70 +820,57 @@ export default function ChatPanel({
       return true;
     } finally {
       jumpingRef.current = false;
-      setJumping(false);
     }
   }, [loadOlder]);
 
-  // Search hit -> the stream. A hit whose message is already loaded scrolls
-  // straight to it; anything outside the loaded window (older, or newer
-  // than an archive window) replaces the window with the 100 messages up
-  // to the hit, and the windowJump effect finishes the jump once the new
-  // window has rendered.
-  const jumpToResult = useCallback(async (result) => {
-    if (result.id == null) return;
-    onSearchOpenChange?.(false);
-    const at = result.receivedAt ? new Date(`${String(result.receivedAt).replace(" ", "T")}Z`) : null;
+  // /chat?m=<id>: resolve once the first window is in. A loaded message
+  // scrolls straight into view; with &at= the window is reloaded around
+  // that time first (+1s: `before` is exclusive at second precision), else
+  // history pages back until the message is found.
+  useEffect(() => {
+    if (!permalinkId || messages.length === 0 || permalinkDoneRef.current === permalinkId) return;
+    permalinkDoneRef.current = permalinkId;
+    const at = permalinkAt ? new Date(`${String(permalinkAt).replace(" ", "T")}${/Z|[+-]\d\d:?\d\d$/.test(permalinkAt) ? "" : "Z"}`) : null;
     const canReload = Boolean(loadWindow) && at && !Number.isNaN(at.getTime());
-    if (messagesRef.current.some((m) => m.id === result.id) || !canReload) {
-      jumpToId(result.id, result.receivedAt);
+    if (messages.some((m) => m.id === permalinkId) || !canReload) {
+      jumpToId(permalinkId);
       return;
     }
     setLoadingWindow(true);
-    setWindowJump({ id: result.id, receivedAt: result.receivedAt, fromWindowId: windowId });
-    try {
-      // `before` is exclusive and received_at has second precision: +1s
-      // keeps the hit itself inside the window
-      await loadWindow(toRelayCursor(new Date(at.getTime() + 1000)));
-    } catch {
-      setWindowJump(null);
-    } finally {
-      setLoadingWindow(false);
-    }
-  }, [jumpToId, loadWindow, windowId, onSearchOpenChange]);
+    setWindowJump({ id: permalinkId, fromWindowId: windowId });
+    loadWindow(toRelayCursor(new Date(at.getTime() + 1000)))
+      .catch(() => setWindowJump(null))
+      .finally(() => setLoadingWindow(false));
+  }, [permalinkId, permalinkAt, messages, jumpToId, loadWindow, windowId]);
 
   // messagesRef is refreshed by an earlier effect, so jumpToId sees the
   // replaced window here
   useEffect(() => {
     if (!windowJump || windowId === windowJump.fromWindowId) return;
     setWindowJump(null);
-    jumpToId(windowJump.id, windowJump.receivedAt);
+    jumpToId(windowJump.id);
   }, [windowJump, windowId, jumpToId]);
 
-  // /chat?m=<id>: resolve once the first window is in, paging back if needed
-  useEffect(() => {
-    if (!permalinkId || messages.length === 0 || permalinkDoneRef.current === permalinkId) return;
-    permalinkDoneRef.current = permalinkId;
-    jumpToId(permalinkId);
-  }, [permalinkId, messages.length, jumpToId]);
+  const filterQ = query.trim().toLowerCase();
+  const filterActive = filterQ.length > 0;
 
-  // A shared /chat?q=... link opens the search panel on load
-  useEffect(() => {
-    if (initialSearch.open) onSearchOpenChange?.(true);
-    // once, on mount
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, []);
+  const clearQuery = useCallback(() => {
+    setQuery("");
+    onSearchOpenChange?.(false);
+  }, [onSearchOpenChange]);
 
-  // Esc closes the date popover first, then the search panel
+  // Esc closes the date popover first, then clears the filter (and closes
+  // the mobile search row)
   useEffect(() => {
-    if (!dayPickerOpen && !searchOpen) return;
+    if (!dayPickerOpen && !filterActive && !searchOpen) return;
     const onKey = (e) => {
       if (e.key !== "Escape") return;
       if (dayPickerOpen) setDayPickerOpen(false);
-      else onSearchOpenChange?.(false);
+      else clearQuery();
     };
     window.addEventListener("keydown", onKey);
     return () => window.removeEventListener("keydown", onKey);
-  }, [dayPickerOpen, searchOpen, onSearchOpenChange]);
+  }, [dayPickerOpen, filterActive, searchOpen, clearQuery]);
 
   // Close the date popover on an outside click
   useEffect(() => {
@@ -1086,7 +929,6 @@ export default function ChatPanel({
     setPendingJump(null);
     try {
       await loadLatest();
-      setShowNotice(false);
     } catch {
       // relay unreachable; the current window stays
     } finally {
@@ -1195,96 +1037,17 @@ export default function ChatPanel({
     });
   }, []);
 
-  // The effective search: each field counts once it has enough characters
-  const searchQ = searchQuery.trim().length >= SEARCH_MIN_CHARS ? searchQuery.trim() : "";
-  const searchP = searchPlayer.trim().length >= SEARCH_MIN_CHARS ? searchPlayer.trim() : "";
-  const searchActive = Boolean(searchQ || searchP);
-
-  // Debounced search against the relay; a stale response never lands
-  useEffect(() => {
-    if (!searchOpen) return;
-    if (!searchActive) {
-      setSearchResults(null);
-      setSearchTotal(0);
-      setSearching(false);
-      return;
-    }
-    const reqId = ++searchReqRef.current;
-    setSearching(true);
-    setSearchError(false);
-    const t = setTimeout(() => {
-      fetchSearchPage({ q: searchQ, player: searchP, since: searchSince, offset: 0 })
-        .then(({ results, total }) => {
-          if (reqId !== searchReqRef.current) return;
-          setSearchResults(results);
-          setSearchTotal(total);
-        })
-        .catch(() => {
-          if (reqId !== searchReqRef.current) return;
-          setSearchResults([]);
-          setSearchTotal(0);
-          setSearchError(true);
-        })
-        .finally(() => {
-          if (reqId === searchReqRef.current) setSearching(false);
-        });
-    }, SEARCH_DEBOUNCE_MS);
-    return () => clearTimeout(t);
-  }, [searchOpen, searchActive, searchQ, searchP, searchSince]);
-
-  const loadMoreResults = useCallback(async () => {
-    if (!searchResults || searchingMore) return;
-    const reqId = searchReqRef.current;
-    setSearchingMore(true);
-    try {
-      const { results, total } = await fetchSearchPage({ q: searchQ, player: searchP, since: searchSince, offset: searchResults.length });
-      if (reqId !== searchReqRef.current) return;
-      setSearchResults((prev) => {
-        const ids = new Set(prev.map((r) => r.id));
-        return [...prev, ...results.filter((r) => !ids.has(r.id))];
-      });
-      setSearchTotal(total);
-    } catch {
-      // keep the page already on screen
-    } finally {
-      setSearchingMore(false);
-    }
-  }, [searchResults, searchingMore, searchQ, searchP, searchSince]);
-
-  // Mirror the search into the address bar (?q=&player=&since=) so it can
-  // be shared; replaceState keeps the router out of it, like permalinks
+  // Once a /chat?q= link has seeded the field the address bar drops it, so
+  // the URL never carries a stale query (replaceState keeps the router out
+  // of it, like permalinks)
   useEffect(() => {
     const sp = new URLSearchParams(window.location.search);
-    if (searchOpen && searchActive) {
-      if (searchQ) sp.set("q", searchQ);
-      else sp.delete("q");
-      if (searchP) sp.set("player", searchP);
-      else sp.delete("player");
-      sp.set("since", searchSince);
-    } else {
-      sp.delete("q");
-      sp.delete("player");
-      sp.delete("since");
-    }
+    if (!sp.has("q") && !sp.has("player") && !sp.has("since")) return;
+    sp.delete("q");
+    sp.delete("player");
+    sp.delete("since");
     const qs = sp.toString();
-    const next = `${window.location.pathname}${qs ? `?${qs}` : ""}${window.location.hash}`;
-    const current = `${window.location.pathname}${window.location.search}${window.location.hash}`;
-    if (next !== current) window.history.replaceState(window.history.state, "", next);
-  }, [searchOpen, searchActive, searchQ, searchP, searchSince]);
-
-  // Player filter suggestions from the online list.
-  // A picked suggestion is a full battleTag, which the relay matches exactly.
-  const playerSuggestions = useMemo(() => {
-    if (!playerFieldFocused) return null;
-    const p = searchPlayer.trim();
-    if (!p || p.includes("#")) return null;
-    const candidates = matchMentionCandidates(p, onlineUsers);
-    return candidates.length > 0 ? candidates : null;
-  }, [playerFieldFocused, searchPlayer, onlineUsers]);
-
-  const pickPlayer = useCallback((user) => {
-    setSearchPlayer(user.battleTag || user.name);
-    setPlayerFieldFocused(false);
+    window.history.replaceState(window.history.state, "", `${window.location.pathname}${qs ? `?${qs}` : ""}${window.location.hash}`);
   }, []);
 
   // Prepends go through Virtuoso's firstItemIndex (see the memo below), so
@@ -1378,6 +1141,14 @@ export default function ChatPanel({
     return items.sort((a, b) => a.time - b.time);
   }, [messageSegments, gameEvents, showGames]);
 
+  // The filter: message groups whose author or text matches the query;
+  // game rows and system lines drop out while it is set
+  const filteredItems = useMemo(() => {
+    if (!filterActive) return renderItems;
+    return renderItems.filter((item) => item.kind === "group" && groupMatches(item, filterQ));
+  }, [renderItems, filterActive, filterQ]);
+  const foundCount = filterActive ? filteredItems.length : 0;
+
   // Day dividers are rows of their own (keyed by day) ahead of the first
   // message or system row of each day, so paging in older history from the
   // same day never changes an existing row's height. The "new" marker is a
@@ -1386,7 +1157,7 @@ export default function ChatPanel({
     const out = [];
     let prevDay = null;
     let newMarkerShown = false;
-    renderItems.forEach((item) => {
+    filteredItems.forEach((item) => {
       if (item.kind !== "group" && item.kind !== "system") {
         out.push(item);
         return;
@@ -1401,7 +1172,7 @@ export default function ChatPanel({
       out.push({ ...item, showNewMarker });
     });
     return out;
-  }, [renderItems, newMarkerTime]);
+  }, [filteredItems, newMarkerTime]);
 
   // Virtuoso keeps the viewport still across changes at the head of the
   // list as long as firstItemIndex moves, in the same render as the data,
@@ -1430,32 +1201,19 @@ export default function ChatPanel({
     return index;
   }, [rows, windowId]);
 
-  // Jump (search hit, permalink, date): scroll to the row once it exists.
-  // If the list is about to (re)mount (search closing, window replaced),
-  // the initial position handles it instead.
+  // Jump (permalink, date): scroll to the row once it exists. If the list
+  // is about to remount (window replaced), the initial position handles it
+  // instead.
   const pendingJumpIndex = pendingJump ? findRowIndex(rows, pendingJump.id) : -1;
   const pendingJumpAlign = pendingJump?.align || "center";
   useEffect(() => {
-    if (pendingJumpIndex === -1 || searchOpen) return;
+    if (pendingJumpIndex === -1) return;
     const raf = requestAnimationFrame(() => {
       virtuosoRef.current?.scrollToIndex({ index: pendingJumpIndex, align: pendingJumpAlign });
       setPendingJump(null);
     });
     return () => cancelAnimationFrame(raf);
-  }, [pendingJumpIndex, pendingJumpAlign, searchOpen]);
-
-  // "New messages below" when a new tail arrives while scrolled up. Paging
-  // in older history changes `messages` too, so key off the newest id; a
-  // replaced window is not a new tail either.
-  const lastMsgIdRef = useRef(null);
-  const noticeWindowRef = useRef(windowId);
-  useEffect(() => {
-    const lastId = messages[messages.length - 1]?.id ?? null;
-    const isNewTail = lastId !== lastMsgIdRef.current && noticeWindowRef.current === windowId;
-    lastMsgIdRef.current = lastId;
-    noticeWindowRef.current = windowId;
-    if (isNewTail && messages.length > 0 && !atBottomRef.current && !followingRef.current) setShowNotice(true);
-  }, [messages, windowId]);
+  }, [pendingJumpIndex, pendingJumpAlign]);
 
   // Virtuoso asks on every append. Its isAtBottom is true both when the
   // viewport sits at the bottom and while one of its own scrolls is still
@@ -1473,38 +1231,33 @@ export default function ChatPanel({
     return behavior;
   }, []);
 
-  const handleAtBottomChange = useCallback((atBottom) => {
-    atBottomRef.current = atBottom;
-    setTrimPaused(!atBottom);
-    if (atBottom) {
-      followingRef.current = false;
-      setShowNotice(false);
-    }
+  const handleAtBottomChange = useCallback((isAtBottom) => {
+    atBottomRef.current = isAtBottom;
+    setAtBottom(isAtBottom);
+    setTrimPaused(!isAtBottom);
+    if (isAtBottom) followingRef.current = false;
   }, []);
 
   function scrollToBottom() {
     virtuosoRef.current?.scrollToIndex({ index: "LAST", align: "end", behavior: "smooth" });
-    setShowNotice(false);
   }
 
   const showLoadOlder = Boolean(hasMoreHistory && loadOlder);
 
   // Reaching the top pages older history in automatically; the button stays
-  // for keyboard and screen-reader users
+  // for keyboard and screen-reader users. A filtered list is often short,
+  // so it pages from the button only.
   const handleStartReached = useCallback(() => {
-    if (showLoadOlder) handleLoadOlder();
-  }, [showLoadOlder, handleLoadOlder]);
+    if (showLoadOlder && !filterActive) handleLoadOlder();
+  }, [showLoadOlder, filterActive, handleLoadOlder]);
 
   // Status chip for a name row, shared with the roster (chat/chip.js)
   const chipCtx = { inGameTags, recentDeltas, recentWinners, startTimes: inGameInfoMap };
 
   const hoverData = { avatars, stats, sessions, inGameTags, inGameInfoMap };
   const renderLine = (line) => markMentions(linkifyMessage(line.text), watchList);
-  const renderSearchLine = (line) => highlightMatches(line.text, searchQ);
-  // Name inside a result narrows the search to that player (the row itself
-  // jumps into the stream, see SearchResultRow)
-  const filterByAuthor = (author) => setSearchPlayer(author.battleTag || author.userName || "");
-  const jumpBusy = jumping || loadingWindow;
+  // Mobile: a name opens the player card
+  const openPlayerCard = isMobile && onOpenPlayer ? (author) => onOpenPlayer(author.battleTag) : undefined;
   const permalinkHref = (line) => `${window.location.origin}/chat?m=${encodeURIComponent(line.id)}`;
   const renderAfterLine = (line) => {
     const unfurl = detectUnfurl(line.text);
@@ -1541,6 +1294,7 @@ export default function ChatPanel({
           onToggle={toggleEvent}
           stillRunning={stillRunning}
           hoverData={hoverData}
+          compact={isMobile}
         />
       );
     }
@@ -1616,7 +1370,8 @@ export default function ChatPanel({
           group={group}
           meta={meta}
           watched={isWatched}
-          wrapName={wrapName}
+          onNameClick={openPlayerCard}
+          wrapName={isMobile ? undefined : wrapName}
           renderLine={renderLine}
           renderAfterLine={renderAfterLine}
           permalinkHref={permalinkHref}
@@ -1631,175 +1386,58 @@ export default function ChatPanel({
   const topDayInput = topRow ? toInputDate(new Date(topRow.time)) : toInputDate(new Date());
   const todayInput = toInputDate(new Date());
 
+  const showPill = !atBottom && (unseen > 0 || isMobile);
+  const pillLabel = unseen > 0 ? `${unseen > 99 ? "99+" : unseen} new` : "Latest";
+  const noMatch = filterActive && messages.length > 0 && foundCount === 0;
+
   return (
     <OuterFrame data-chat-panel>
       <Wrapper>
+        <Header data-chat-header>
+          <Home to="/" title={`4v4.GG home · relay ${status || "connecting"}`} data-relay-status={status || "connecting"}>
+            4v4.GG
+          </Home>
+          <SearchBox role="search" aria-label="Filter messages" data-search-active={filterActive}>
+            <SearchWrap>
+              {searchGlyph}
+              <SearchInput
+                type="text"
+                placeholder="Search messages or players"
+                aria-label="Search messages or players"
+                value={query}
+                $active={filterActive}
+                onChange={(e) => setQuery(e.target.value)}
+              />
+              {filterActive && (
+                <ClearButton type="button" $icon aria-label="Clear search" onClick={clearQuery}>
+                  &times;
+                </ClearButton>
+              )}
+            </SearchWrap>
+            {filterActive && <FoundCount data-found-count aria-live="polite">{foundCount} found</FoundCount>}
+          </SearchBox>
+        </Header>
+        {searchOpen && (
+          <MobileSearchRow role="search" aria-label="Filter messages" data-mobile-search>
+            <SearchWrap>
+              {searchGlyph}
+              <MobileSearchInput
+                type="text"
+                placeholder="Search messages or players"
+                aria-label="Search messages or players"
+                value={query}
+                onChange={(e) => setQuery(e.target.value)}
+                autoFocus
+              />
+            </SearchWrap>
+            {filterActive && <FoundCount data-found-count>{foundCount} found</FoundCount>}
+          </MobileSearchRow>
+        )}
         <StatsStrip open={statsOpen} />
         <Body>
-          <SearchToggle
-            type="button"
-            $icon
-            data-active={searchOpen}
-            aria-pressed={searchOpen}
-            aria-label="Search"
-            title={searchOpen ? "Close search" : "Search chat history"}
-            onClick={() => onSearchOpenChange?.(!searchOpen)}
-          >
-            <HiOutlineSearch />
-          </SearchToggle>
-          {searchOpen && (
-            <SearchPanel role="search" aria-label="Search chat history">
-              <SearchRow>
-                <SearchField
-                  type="text"
-                  placeholder="Search messages..."
-                  aria-label="Search messages"
-                  value={searchQuery}
-                  onChange={(e) => setSearchQuery(e.target.value)}
-                  autoFocus={!initialSearch.open}
-                />
-                <PlayerFieldWrap>
-                  <PlayerField
-                    type="text"
-                    placeholder="Player"
-                    aria-label="Filter by player"
-                    value={searchPlayer}
-                    onChange={(e) => setSearchPlayer(e.target.value)}
-                    onFocus={() => setPlayerFieldFocused(true)}
-                    onBlur={() => setPlayerFieldFocused(false)}
-                    onKeyDown={(e) => {
-                      if (e.key === "Tab" && playerSuggestions) {
-                        e.preventDefault();
-                        pickPlayer(playerSuggestions[0]);
-                      }
-                    }}
-                  />
-                  {playerSuggestions && (
-                    <MentionMenu $below role="listbox" aria-label="Player suggestions">
-                      {playerSuggestions.map((u) => (
-                        <MentionItem
-                          key={u.battleTag}
-                          type="button"
-                          role="option"
-                          aria-selected={false}
-                          onMouseDown={(e) => e.preventDefault()}
-                          onClick={() => pickPlayer(u)}
-                        >
-                          {u.name}
-                        </MentionItem>
-                      ))}
-                    </MentionMenu>
-                  )}
-                </PlayerFieldWrap>
-              </SearchRow>
-              <SearchRow>
-                <RangeGroup role="group" aria-label="Search range">
-                  {SEARCH_RANGES.map((r) => (
-                    <RangePill
-                      key={r.key}
-                      type="button"
-                      $pill
-                      data-active={searchSince === r.key}
-                      aria-pressed={searchSince === r.key}
-                      onClick={() => setSearchSince(r.key)}
-                    >
-                      {r.label}
-                    </RangePill>
-                  ))}
-                </RangeGroup>
-                {!searching && searchResults && !searchError && (
-                  <ResultCount aria-live="polite">
-                    {searchTotal} {searchTotal === 1 ? "result" : "results"}
-                  </ResultCount>
-                )}
-              </SearchRow>
-            </SearchPanel>
-          )}
-          {searchOpen ? (
-            <SearchResults>
-              {searching &&
-                [...Array(5)].map((_, i) => (
-                  <SkeletonRow key={i} data-testid="search-skeleton">
-                    <Skeleton $w="24px" $h="24px" $radius="var(--radius-md)" style={{ flexShrink: 0 }} />
-                    <div style={{ flex: 1, display: "flex", flexDirection: "column", gap: 6, paddingTop: 2 }}>
-                      <Skeleton $w="90px" $h="12px" />
-                      <Skeleton $w={`${40 + ((i * 17) % 45)}%`} $h="14px" />
-                    </div>
-                  </SkeletonRow>
-                ))}
-              {!searching && searchError && (
-                <SearchEmpty>Search failed. The relay may be offline, try again in a moment.</SearchEmpty>
-              )}
-              {!searching && !searchError && !searchResults && (
-                <SearchEmpty>
-                  Search messages, filter by player, or both. At least {SEARCH_MIN_CHARS} characters.
-                </SearchEmpty>
-              )}
-              {!searching && !searchError && searchResults && searchResults.length === 0 && (
-                <SearchEmpty>
-                  No messages match{searchSince !== "all" ? " in this range. Try a wider one." : "."}
-                </SearchEmpty>
-              )}
-              {!searching &&
-                searchResults?.map((r, i) => {
-                  const prev = i > 0 ? searchResults[i - 1] : null;
-                  const when = r.sentAt || r.receivedAt;
-                  const showDay = !prev || getDateKey(prev.sentAt || prev.receivedAt) !== getDateKey(when);
-                  const profile = avatars?.get(r.battleTag) || searchAvatars.get(r.battleTag);
-                  const playerStats = stats?.get(r.battleTag);
-                  const group = {
-                    author: { battleTag: r.battleTag, userName: r.userName, clanTag: r.clanTag },
-                    lines: [{ id: r.id, text: r.text, sentAt: r.sentAt, kind: r.kind }],
-                  };
-                  const meta = {
-                    avatarUrl: profile?.profilePicUrl,
-                    race: playerStats?.race,
-                    countryCode: profile?.country,
-                    mmr: playerStats?.mmr,
-                  };
-                  return (
-                    <React.Fragment key={r.id ?? `${r.receivedAt}-${i}`}>
-                      {showDay && (
-                        <ResultDivider $first={i === 0}>
-                          <DateLabel>{formatDateDivider(when)}</DateLabel>
-                        </ResultDivider>
-                      )}
-                      <SearchResultRow
-                        role="button"
-                        tabIndex={0}
-                        title="Jump to message"
-                        aria-disabled={jumpBusy}
-                        onClick={(e) => {
-                          if (jumpBusy || e.target.closest("button, a")) return;
-                          jumpToResult(r);
-                        }}
-                        onKeyDown={(e) => {
-                          if (e.target !== e.currentTarget || (e.key !== "Enter" && e.key !== " ")) return;
-                          e.preventDefault();
-                          if (!jumpBusy) jumpToResult(r);
-                        }}
-                      >
-                        <ChatMessage
-                          variant="transcript"
-                          group={group}
-                          meta={meta}
-                          onNameClick={filterByAuthor}
-                          renderLine={renderSearchLine}
-                        />
-                      </SearchResultRow>
-                    </React.Fragment>
-                  );
-                })}
-              {!searching && searchResults && searchResults.length < searchTotal && (
-                <MoreRow>
-                  <Button type="button" $pill disabled={searchingMore} onClick={loadMoreResults}>
-                    {searchingMore ? "Loading..." : "More"}
-                  </Button>
-                </MoreRow>
-              )}
-            </SearchResults>
-          ) : null}
-          {searchOpen ? null : messages.length === 0 ? (
+          {noMatch ? (
+            <NoMatch data-no-match>No messages match</NoMatch>
+          ) : messages.length === 0 ? (
             status !== "connected" ? (
               <MessageList>
                 {[...Array(6)].map((_, i) => (
@@ -1839,7 +1477,7 @@ export default function ChatPanel({
                 startReached={handleStartReached}
                 rangeChanged={handleRangeChanged}
                 scrollerRef={handleScrollerRef}
-                atBottomThreshold={40}
+                atBottomThreshold={60}
                 increaseViewportBy={{ top: 400, bottom: 400 }}
               />
               <StickyBar>
@@ -1886,10 +1524,10 @@ export default function ChatPanel({
                   </BackToLiveButton>
                 )}
               </StickyBar>
-              {showNotice && (
-                <ScrollNotice onClick={scrollToBottom}>
-                  New messages below
-                </ScrollNotice>
+              {showPill && (
+                <LatestPill type="button" data-latest-pill={unseen > 0 ? "new" : "latest"} onClick={scrollToBottom}>
+                  ↓ {pillLabel}
+                </LatestPill>
               )}
             </ScrollContainer>
           )}
