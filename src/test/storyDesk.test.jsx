@@ -1,5 +1,8 @@
 import { describe, it, expect, beforeEach } from 'vitest';
-import { SLOTS, loadPicks, savePicks, assign, inSlot, toSections, pickQuotes, pickedTags } from '../lib/news/storyDesk';
+import {
+  SLOTS, loadPicks, savePicks, assign, inSlot, pickQuotes, pickedTags,
+  startDraft, composeItem, toggleQuote, hasQuote, isReady, applyToDigest, composedSections,
+} from '../lib/news/storyDesk';
 import { mondayOf, lastCompleteWeek } from '../pages/StoryDesk';
 import { findThreads, findThemes } from '../../server/src/storyCandidates.js';
 
@@ -21,6 +24,15 @@ describe('story desk picks', () => {
     picks = assign(picks, 't:99', 'brief');
     expect(picks).toEqual({});
     expect(SLOTS.map((s) => s.key)).toEqual(['lead', 'brief', 'highlight']);
+  });
+
+  it('round-trips drafts through storage, per week', async () => {
+    const { loadDrafts, saveDrafts } = await import('../lib/news/storyDesk');
+    saveDrafts('2026-09-14', { 'm:patch': { headline: 'H', body: 'B', quoteKeys: [] } });
+    expect(loadDrafts('2026-09-14')).toEqual({ 'm:patch': { headline: 'H', body: 'B', quoteKeys: [] } });
+    expect(loadDrafts('2026-09-07')).toEqual({});
+    localStorage.setItem('desk_drafts_2026-09-14', '{{{');
+    expect(loadDrafts('2026-09-14')).toEqual({});
   });
 
   it('round-trips picks through storage, per week, and survives bad json', () => {
@@ -46,20 +58,64 @@ describe('story desk picks', () => {
     expect(quotes.map((q) => q.text)).not.toContain('k');
   });
 
-  it('turns picks into digest sections and collects the tags they touch', () => {
-    const candidates = [
-      { id: 'm:patch', kind: 'theme', term: 'patch', why: '111 messages', lines: [{ name: 'OP3N', tag: 'OP3N#11598', text: 'why is replays not working at all here' }] },
-      { id: 't:1', kind: 'thread', who: [{ name: 'IvanOoze' }, { name: 'Tepixx' }], why: '93 messages', lines: [{ name: 'Tepixx', tag: 'Tepixx#2988', text: 'scores matter? i can creep all game' }] },
-    ];
-    const picks = { 'm:patch': 'lead', 't:1': 'highlight' };
-    const out = toSections(candidates, picks);
-    expect(out).toContain('DRAMA: HEADLINE HERE');
-    expect(out).toContain('Subject: patch');
-    expect(out).toContain('HIGHLIGHTS: HEADLINE HERE');
-    expect(out).toContain('Subject: IvanOoze, Tepixx');
-    expect(pickedTags(candidates, picks)).toEqual(['OP3N#11598', 'Tepixx#2988']);
-    expect(toSections(candidates, {})).toBe('');
-    expect(inSlot(candidates, picks, 'lead')).toHaveLength(1);
+  it('composes a picked story into its digest item, quotes and all', () => {
+    const c = {
+      id: 'm:replays', kind: 'theme', term: 'replays', why: '9 messages',
+      lines: [
+        { at: '2026-09-15 20:09', name: 'OP3N', tag: 'OP3N#11598', text: 'why is replays not working? It freezes every time' },
+        { at: '2026-09-15 21:52', name: 'FrostMan', tag: 'FrostMan#11411', text: 'how do u report if u cant dl replay?' },
+        { at: '2026-09-15 20:21', name: 'UFO', tag: 'UFO#11214', text: 'ok' },
+      ],
+    };
+    let draft = startDraft(c);
+    // The good lines start selected, the two-letter one does not
+    expect(draft.quoteKeys).toHaveLength(2);
+    expect(hasQuote(draft, c.lines[0])).toBe(true);
+    expect(hasQuote(draft, c.lines[2])).toBe(false);
+
+    expect(isReady(draft)).toBe(false);
+    draft = { ...draft, headline: 'The Patch Broke Replays', body: 'Replays stopped downloading.' };
+    expect(isReady(draft)).toBe(true);
+
+    const item = composeItem(c, draft);
+    expect(item).toContain('The Patch Broke Replays | Replays stopped downloading.');
+    expect(item).toContain('"OP3N: why is replays not working? It freezes every time"');
+    expect(item).not.toContain('UFO');
+
+    draft = toggleQuote(draft, c.lines[0]);
+    expect(composeItem(c, draft)).not.toContain('OP3N');
+
+    const sections = composedSections([c], { 'm:replays': 'lead' }, { 'm:replays': draft });
+    expect(sections.DRAMA).toContain('The Patch Broke Replays');
+    expect(sections.HIGHLIGHTS).toBeUndefined();
+    // Nothing is written until a story has both a headline and a body
+    expect(composedSections([c], { 'm:replays': 'lead' }, {})).toEqual({});
+    expect(pickedTags([c], { 'm:replays': 'lead' })).toEqual(['FrostMan#11411', 'OP3N#11598', 'UFO#11214']);
+    expect(inSlot([c], { 'm:replays': 'lead' }, 'lead')).toHaveLength(1);
+  });
+
+  it('splices sections into a digest without disturbing the others', () => {
+    const digest = [
+      'TOPICS: patch 3.0, replays',
+      'DRAMA: Old Lead | the old story',
+      'RECAP: a quiet week',
+      'MENTIONS: OP3N#11598',
+    ].join('\n');
+
+    const out = applyToDigest(digest, { DRAMA: 'New Lead | the new story', HIGHLIGHTS: 'A Brief | something lighter' });
+    const lines = out.split('\n');
+    expect(lines[0]).toBe('TOPICS: patch 3.0, replays');
+    expect(lines).toContain('DRAMA: New Lead | the new story');
+    expect(lines).not.toContain('DRAMA: Old Lead | the old story');
+    expect(lines).toContain('RECAP: a quiet week');
+    expect(lines).toContain('MENTIONS: OP3N#11598');
+    // A section that was not there lands right after TOPICS
+    expect(lines[1]).toBe('HIGHLIGHTS: A Brief | something lighter');
+
+    // An empty value deletes the section rather than leaving a stub
+    const dropped = applyToDigest(digest, { DRAMA: '' });
+    expect(dropped.split('\n').some((l) => l.startsWith('DRAMA:'))).toBe(false);
+    expect(dropped).toContain('RECAP: a quiet week');
   });
 
   it('defaults the desk to the last complete Monday week', () => {

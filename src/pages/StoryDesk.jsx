@@ -4,7 +4,11 @@ import { PageLayout } from "../components/PageLayout";
 import { PageHero, Button } from "../components/ui";
 import PeonLoader from "../components/PeonLoader";
 import useAdmin from "../lib/useAdmin";
-import { SLOTS, loadPicks, savePicks, assign, inSlot, toSections, pickedTags, pickQuotes } from "../lib/news/storyDesk";
+import {
+  SLOTS, loadPicks, savePicks, assign, inSlot, pickedTags, pickQuotes,
+  loadDrafts, saveDrafts, startDraft, composeItem, toggleQuote, hasQuote, isReady,
+  applyToDigest, composedSections,
+} from "../lib/news/storyDesk";
 import { formatWeekRange } from "../lib/digestUtils";
 import "../styles/pages/StoryDesk.css";
 
@@ -31,8 +35,60 @@ const shiftWeeks = (weekStart, n) => {
   return d.toISOString().slice(0, 10);
 };
 
+/**
+ * Writing a promoted story. The lines are already here, which is the point:
+ * the old editorial mode had to go searching the chat for quotes, and the
+ * desk knows the cast and the window a candidate came from.
+ */
+function Compose({ candidate, draft, onChange }) {
+  const d = draft || startDraft(candidate);
+  const preview = composeItem(candidate, d);
+  const set = (patch) => onChange({ ...d, ...patch });
+
+  return (
+    <div className="sd-compose" data-compose={candidate.id}>
+      <input
+        className="sd-input"
+        placeholder="Headline"
+        value={d.headline || ""}
+        onChange={(e) => set({ headline: e.target.value })}
+      />
+      <textarea
+        className="sd-textarea"
+        placeholder="The story, in two or three sentences."
+        rows={3}
+        value={d.body || ""}
+        onChange={(e) => set({ body: e.target.value })}
+      />
+      <span className="sd-compose-label">Quotes ({(d.quoteKeys || []).length} picked)</span>
+      <div className="sd-quotes">
+        {(candidate.lines || []).slice(0, 40).map((l, i) => {
+          const on = hasQuote(d, l);
+          return (
+            <button
+              key={i}
+              type="button"
+              className={`sd-quote${on ? " sd-quote--on" : ""}`}
+              onClick={() => onChange(toggleQuote(d, l))}
+            >
+              <span className="sd-quote-who">{l.name}</span>
+              <span className="sd-quote-text">{l.text}</span>
+            </button>
+          );
+        })}
+      </div>
+      {preview && (
+        <>
+          <span className="sd-compose-label">As it will read in the issue</span>
+          <pre className="sd-preview">{preview}</pre>
+        </>
+      )}
+    </div>
+  );
+}
+
 /** One candidate: its rank, why it ranked, and what to do with it. */
-function CandidateRow({ candidate, slot, onAssign }) {
+function CandidateRow({ candidate, slot, onAssign, draft, onDraft }) {
   const [open, setOpen] = useState(false);
   const quotes = useMemo(() => pickQuotes(candidate, 4), [candidate]);
   const title = candidate.kind === "theme"
@@ -64,6 +120,7 @@ function CandidateRow({ candidate, slot, onAssign }) {
       {quotes.length > 0 && !open && (
         <p className="sd-peek">{quotes[0].name}: {quotes[0].text}</p>
       )}
+      {slot && <Compose candidate={candidate} draft={draft} onChange={(d) => onDraft(candidate.id, d)} />}
       {open && (
         <div className="sd-lines">
           {(candidate.lines || []).slice(0, 60).map((l, i) => (
@@ -97,9 +154,15 @@ export default function StoryDesk() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
   const [picks, setPicks] = useState(() => loadPicks(weekStart));
-  const [copied, setCopied] = useState(false);
+  const [drafts, setDrafts] = useState(() => loadDrafts(weekStart));
+  const [applying, setApplying] = useState(false);
+  const [applied, setApplied] = useState(null);
 
-  useEffect(() => { setPicks(loadPicks(weekStart)); }, [weekStart]);
+  useEffect(() => {
+    setPicks(loadPicks(weekStart));
+    setDrafts(loadDrafts(weekStart));
+    setApplied(null);
+  }, [weekStart]);
 
   useEffect(() => {
     if (!isAdmin || !adminKey) { setLoading(false); return undefined; }
@@ -124,14 +187,47 @@ export default function StoryDesk() {
     });
   }, [weekStart]);
 
-  const sections = useMemo(() => toSections(all, picks), [all, picks]);
-  const tags = useMemo(() => pickedTags(all, picks), [all, picks]);
+  const onDraft = useCallback((id, d) => {
+    setDrafts((prev) => {
+      const next = { ...prev, [id]: d };
+      saveDrafts(weekStart, next);
+      return next;
+    });
+  }, [weekStart]);
 
-  const copy = () => {
-    const text = tags.length > 0 ? `${sections}\nMENTIONS: ${tags.join(",")}` : sections;
-    navigator.clipboard?.writeText(text);
-    setCopied(true);
-    setTimeout(() => setCopied(false), 1600);
+  const sections = useMemo(() => composedSections(all, picks, drafts), [all, picks, drafts]);
+  const tags = useMemo(() => pickedTags(all, picks), [all, picks]);
+  const readyCount = useMemo(
+    () => all.filter((c) => picks[c.id] && isReady(drafts[c.id])).length,
+    [all, picks, drafts]
+  );
+
+  /**
+   * Write the composed stories into the issue, keeping every other section
+   * as it is. The relay's set route also resets the draft column, so
+   * editorial mode cannot resurrect an older version over the top.
+   */
+  const apply = async () => {
+    setApplying(true);
+    setApplied(null);
+    try {
+      const res = await fetch(`${RELAY_URL}/api/admin/weekly-digest/${weekStart}/draft`, {
+        headers: { "X-API-Key": adminKey },
+      });
+      const current = res.ok ? (await res.json()).digest || "" : "";
+      const merged = applyToDigest(current, sections);
+      const save = await fetch(`${RELAY_URL}/api/admin/weekly-digest/${weekStart}/set`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json", "X-API-Key": adminKey },
+        body: JSON.stringify({ digest: merged }),
+      });
+      setApplied(save.ok ? "Written to the issue" : "Could not write to the issue");
+    } catch {
+      setApplied("Could not reach the relay");
+    } finally {
+      setApplying(false);
+      setTimeout(() => setApplied(null), 4000);
+    }
   };
 
   if (!isAdmin) {
@@ -175,8 +271,13 @@ export default function StoryDesk() {
                 <span className="sd-budget-label">{c.label}</span>
               </span>
             ))}
-            <Button $primary onClick={copy} disabled={!sections}>
-              {copied ? "Copied" : "Copy sections"}
+            <span className="sd-budget-slot">
+              <span className={`sd-budget-n${readyCount > 0 ? " sd-budget-n--ready" : ""}`}>{readyCount}</span>
+              <span className="sd-budget-label">Written</span>
+            </span>
+            {applied && <span className="sd-applied">{applied}</span>}
+            <Button $primary onClick={apply} disabled={applying || readyCount === 0}>
+              {applying ? "Writing…" : "Write to issue"}
             </Button>
           </div>
 
@@ -188,7 +289,7 @@ export default function StoryDesk() {
                 nothing that looks for busy minutes will find them.
               </p>
               {data.themes.map((c) => (
-                <CandidateRow key={c.id} candidate={c} slot={picks[c.id]} onAssign={onAssign} />
+                <CandidateRow key={c.id} candidate={c} slot={picks[c.id]} onAssign={onAssign} draft={drafts[c.id]} onDraft={onDraft} />
               ))}
               {data.themes.length === 0 && <p className="sd-empty">Nothing ran above baseline this week.</p>}
             </section>
@@ -200,16 +301,19 @@ export default function StoryDesk() {
                 These are almost always arguments.
               </p>
               {data.threads.map((c) => (
-                <CandidateRow key={c.id} candidate={c} slot={picks[c.id]} onAssign={onAssign} />
+                <CandidateRow key={c.id} candidate={c} slot={picks[c.id]} onAssign={onAssign} draft={drafts[c.id]} onDraft={onDraft} />
               ))}
               {data.threads.length === 0 && <p className="sd-empty">No bursts this week.</p>}
             </section>
           </div>
 
-          {sections && (
+          {Object.keys(sections).length > 0 && (
             <section className="sd-out">
-              <h2 className="sd-col-head">Sections from your picks</h2>
-              <pre className="sd-pre">{sections}</pre>
+              <h2 className="sd-col-head">What will be written</h2>
+              <pre className="sd-pre">
+                {Object.entries(sections).map(([k, v]) => `${k}: ${v}`).join("\n\n")}
+                {tags.length > 0 ? `\n\nMENTIONS touched: ${tags.join(", ")}` : ""}
+              </pre>
             </section>
           )}
         </>
