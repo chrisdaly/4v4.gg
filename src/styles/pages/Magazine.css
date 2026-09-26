@@ -4006,3 +4006,21 @@ a.mg-stack-player-name:hover {
     gap: var(--space-4);
   }
 }
+
+/* Admin only: from reading an issue to rebuilding it on the desk */
+.mg-desk-link {
+  display: block;
+  max-width: 760px;
+  margin: var(--space-6) auto 0;
+  padding: 0 var(--space-6);
+  font-family: var(--font-mono);
+  font-size: var(--text-xxs);
+  text-transform: uppercase;
+  letter-spacing: 0.1em;
+  color: var(--gold);
+  text-decoration: none;
+}
+
+.mg-desk-link:hover {
+  text-decoration: underline;
+}

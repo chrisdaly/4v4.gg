@@ -2484,7 +2484,12 @@ const WeeklyMagazine = ({ weekParam, isAdmin = false, apiKey = "" }) => {
         setWeeklyDigests(data);
         const target = selectWeek || weekParam;
         if (target && data.length > 0) {
-          const idx = data.findIndex((w) => w.week_start === target);
+          // Issues are keyed to a Monday. A link or a hand-typed URL landing
+          // mid-week should open that week's issue, not an empty page.
+          let idx = data.findIndex((w) => w.week_start === target);
+          if (idx < 0) {
+            idx = data.findIndex((w) => w.week_start <= target && (!w.week_end || target <= w.week_end));
+          }
           if (idx >= 0) {
             setWeeklyIdx(idx);
             setWeekNotFound(false);
@@ -3135,6 +3140,12 @@ const WeeklyMagazine = ({ weekParam, isAdmin = false, apiKey = "" }) => {
       <div ref={heroRef}>
         <CoverHero weekly={weekly} coverBg={coverBg} headline={dramaTitle || dramaLead} issueNo={issueNo} editorial={editorialProps} onPickCover={showEditControls ? fetchCoverGallery : null} coverPosition={weekly.cover_position} onSaveCoverPosition={showEditControls ? saveCoverPosition : null} />
       </div>
+
+      {showEditControls && (
+        <Link to={`/news-desk?week=${weekly.week_start}`} className="mg-desk-link" data-desk-link>
+          Open this week on the Story Desk →
+        </Link>
+      )}
 
       <LedeSection
         recap={digestData.narrative.recap}

@@ -53,6 +53,19 @@ describe('issue rules', () => {
     expect(stackPasses({ wins: 3, losses: 2 })).toBe(false);
   });
 
+  it('opens the issue a mid-week date falls inside, not an empty page', () => {
+    // Issues are keyed to a Monday; a link or typed URL can land on any day
+    const inWeek = (target) =>
+      weeklies.findIndex((w) => w.week_start === target) >= 0
+        ? weeklies.findIndex((w) => w.week_start === target)
+        : weeklies.findIndex((w) => w.week_start <= target && (!w.week_end || target <= w.week_end));
+    expect(inWeek('2026-03-23')).toBe(0);
+    expect(inWeek('2026-03-27')).toBe(0);
+    expect(inWeek('2026-03-29')).toBe(0);
+    expect(inWeek('2026-03-22')).toBe(1);
+    expect(inWeek('2020-01-01')).toBe(-1);
+  });
+
   it('numbers issues from the oldest week, titles them from the DRAMA headline and formats the range', () => {
     expect(issueNumber(weeklies, '2026-03-23')).toBe(3);
     expect(issueNumber(weeklies, '2026-03-09')).toBe(1);

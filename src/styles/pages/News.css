@@ -1827,3 +1827,23 @@
   font-size: var(--text-xxs);
   color: var(--grey-light);
 }
+
+/* Admin only: the way in to the story desk */
+.nw-desk-link {
+  align-self: center;
+  margin-left: var(--space-6);
+  padding: var(--space-2) var(--space-4);
+  border: 1px solid var(--gold);
+  border-radius: var(--radius-full);
+  font-family: var(--font-mono);
+  font-size: var(--text-xxs);
+  text-transform: uppercase;
+  letter-spacing: 0.1em;
+  color: var(--gold);
+  text-decoration: none;
+  white-space: nowrap;
+}
+
+.nw-desk-link:hover {
+  background: var(--gold-tint);
+}
