@@ -9,76 +9,62 @@ import QuoteBlock from "../chat/QuoteBlock";
  * meant to carry a line of argument rather than just a count.
  */
 
-const DAY_ORDER = ["Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun"];
-
 /**
- * Games by day as a bar row, with the player count of the last few weeks
- * beside it. The daily bars say when the ladder fills; the weekly players
- * line says whether there is anyone left to fill it.
+ * The player count of the last few weeks. The daily game counts used to sit
+ * beside this and they were only ever a report: the ladder is busier at the
+ * weekend, which surprises nobody. Whether there is anyone left to fill it
+ * is the story, so it gets the whole section.
  */
 export function WeekTrend({ trend, weekStart }) {
   if (!trend) return null;
-  const { days = [], weeks = [], blurb } = trend;
-  if (days.length === 0 && weeks.length === 0) return null;
-
-  const ordered = [...days].sort((a, b) => DAY_ORDER.indexOf(a.day) - DAY_ORDER.indexOf(b.day));
-  const maxGames = Math.max(...ordered.map((d) => d.games), 1);
-  const busiest = ordered.reduce((a, b) => (b.games > a.games ? b : a), ordered[0] || { games: 0 });
-
+  const { weeks = [], blurb } = trend;
   const players = weeks.filter((w) => w.players > 0);
-  const maxPlayers = Math.max(...players.map((w) => w.players), 1);
-  const minPlayers = Math.min(...players.map((w) => w.players), maxPlayers);
-  const span = Math.max(maxPlayers - minPlayers, 1);
-  // A tall-enough floor so a 5% swing still reads as a slope, not a flat line
-  const height = (n) => 30 + Math.round(((n - minPlayers) / span) * 70);
+  if (players.length < 2) return null;
+
+  const max = Math.max(...players.map((w) => w.players));
+  const min = Math.min(...players.map((w) => w.players));
+  const span = Math.max(max - min, 1);
+  // A tall floor so a 15% swing still reads as a slope rather than a flat line
+  const height = (n) => 24 + Math.round(((n - min) / span) * 76);
+
+  const first = players[0];
+  const last = players[players.length - 1];
+  const change = last.players - first.players;
+  const pct = Math.round((change / first.players) * 100);
 
   return (
     <section className="mg-section mg-pulse reveal" style={{ "--delay": "0.16s" }} data-week-trend>
       <div className="mg-section-header">
-        <span className="mg-section-label">The Week In Games</span>
+        <span className="mg-section-label">Players, last {players.length} weeks</span>
         <div className="mg-section-rule" />
       </div>
-      <div className="mg-pulse-grid">
-        {ordered.length > 0 && (
-          <div className="mg-pulse-panel">
-            <span className="mg-pulse-panel-label">Games by day</span>
-            <div className="mg-pulse-days">
-              {ordered.map((d) => (
-                <div key={d.day} className="mg-pulse-day" data-pulse-day={d.day}>
-                  <span className="mg-pulse-day-count">{d.games}</span>
-                  <div
-                    className={`mg-pulse-bar${d.day === busiest.day ? " mg-pulse-bar--peak" : ""}`}
-                    style={{ "--pct": `${Math.round((d.games / maxGames) * 100)}%` }}
-                  />
-                  <span className="mg-pulse-day-label">{d.day}</span>
-                </div>
-              ))}
+      <div className="mg-pulse-weeks">
+        {players.map((w) => {
+          const isThis = w.weekStart === weekStart;
+          return (
+            <div key={w.weekStart} className="mg-pulse-week" data-pulse-week={w.weekStart}>
+              <span className={`mg-pulse-week-count${isThis ? " mg-pulse-week-count--now" : ""}`}>{w.players}</span>
+              <div
+                className={`mg-pulse-week-bar${isThis ? " mg-pulse-week-bar--now" : ""}`}
+                style={{ "--pct": `${height(w.players)}%` }}
+              />
+              <span className="mg-pulse-week-label">
+                {new Date(`${w.weekStart}T12:00:00`).toLocaleDateString("en-US", { month: "short", day: "numeric" })}
+              </span>
             </div>
-          </div>
-        )}
-        {players.length > 1 && (
-          <div className="mg-pulse-panel">
-            <span className="mg-pulse-panel-label">Players, last {players.length} weeks</span>
-            <div className="mg-pulse-weeks">
-              {players.map((w) => {
-                const isThis = w.weekStart === weekStart;
-                return (
-                  <div key={w.weekStart} className="mg-pulse-week" data-pulse-week={w.weekStart}>
-                    <span className={`mg-pulse-week-count${isThis ? " mg-pulse-week-count--now" : ""}`}>{w.players}</span>
-                    <div
-                      className={`mg-pulse-week-bar${isThis ? " mg-pulse-week-bar--now" : ""}`}
-                      style={{ "--pct": `${height(w.players)}%` }}
-                    />
-                    <span className="mg-pulse-week-label">
-                      {new Date(`${w.weekStart}T12:00:00`).toLocaleDateString("en-US", { month: "short", day: "numeric" })}
-                    </span>
-                  </div>
-                );
-              })}
-            </div>
-          </div>
-        )}
+          );
+        })}
       </div>
+      {change !== 0 && (
+        <p className="mg-pulse-delta" data-pulse-delta>
+          <span className={change < 0 ? "mg-text-red" : "mg-text-green"}>
+            {change > 0 ? "+" : ""}{change} players
+          </span>
+          <span className="mg-pulse-delta-sub">
+            {pct > 0 ? "+" : ""}{pct}% since {new Date(`${first.weekStart}T12:00:00`).toLocaleDateString("en-US", { month: "long", day: "numeric" })}
+          </span>
+        </p>
+      )}
       {blurb && <p className="mg-pulse-blurb">{blurb}</p>}
     </section>
   );

@@ -9,27 +9,40 @@ import { issueTitle } from "../../lib/news/issueRules";
  * nothing when it has no story.
  */
 
-/** The lede: the recap (Georgia 28) beside a 2×2 grid of key numbers. */
-export function LedeSection({ recap, numbers = [], editorial, EditableText }) {
-  const grid = numbers.length >= 2 ? numbers : [];
-  if (!recap && grid.length === 0) return null;
+/**
+ * The standfirst: the claim, in two sentences, directly under the headline
+ * and above the story that proves it. It is one column at full measure, not
+ * a narrow one beside a grid, because a paragraph set 14 lines deep in a
+ * 420px column is a wall and nobody reads it.
+ */
+export function LedeSection({ recap, editorial, EditableText }) {
+  if (!recap) return null;
   return (
     <section className="mg-lede reveal" style={{ "--delay": "0.08s" }} data-issue-lede>
-      {recap && (editorial && EditableText ? (
+      {editorial && EditableText ? (
         <EditableText value={recap} onSave={(t) => editorial.handleEditSection("RECAP", t)} tag="p" className="mg-lede-text" />
       ) : (
         <p className="mg-lede-text">{recap}</p>
-      ))}
-      {grid.length > 0 && (
-        <div className="mg-lede-numbers">
-          {grid.map((n) => (
-            <div key={n.label} className="mg-lede-number" data-key-number={n.label}>
-              <span className={`mg-lede-value mg-lede-value--${n.tone || "white"}`}>{n.value}</span>
-              <span className="mg-lede-label">{n.label}</span>
-            </div>
-          ))}
-        </div>
       )}
+    </section>
+  );
+}
+
+/**
+ * The week at a glance as one strip, under the lead story rather than
+ * beside the standfirst. Supporting evidence reads better after the claim
+ * it supports, and a row does not leave a column of dead space.
+ */
+export function KeyNumbers({ numbers = [] }) {
+  if (numbers.length < 2) return null;
+  return (
+    <section className="mg-keynums reveal" style={{ "--delay": "0.16s" }} data-key-numbers>
+      {numbers.map((n) => (
+        <div key={n.label} className="mg-keynum" data-key-number={n.label}>
+          <span className={`mg-keynum-value mg-keynum-value--${n.tone || "white"}`}>{n.value}</span>
+          <span className="mg-keynum-label">{n.label}</span>
+        </div>
+      ))}
     </section>
   );
 }

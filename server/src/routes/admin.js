@@ -706,6 +706,10 @@ router.post('/weekly-digest/:weekStart/set', requireApiKey, (req, res) => {
   // Default weekEnd to weekStart + 6 days if not provided
   const end = weekEnd || new Date(new Date(weekStart + 'T12:00:00Z').getTime() + 6 * 86400000).toISOString().split('T')[0];
   setWeeklyDigest(weekStart, end, digest);
+  // Editorial mode reads the draft, not the digest, so a draft left over from
+  // an earlier version resurrects it and autosaves back over this one. Setting
+  // the digest means "this is the issue now", so the draft follows it.
+  updateWeeklyDraftOnly(weekStart, digest);
   // The issue's key numbers come from here (games, players, messages)
   if (stats && typeof stats === 'object') {
     updateWeeklyStats(weekStart, stats);

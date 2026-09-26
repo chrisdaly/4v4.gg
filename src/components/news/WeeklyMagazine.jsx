@@ -42,7 +42,7 @@ import {
   keyNumbers,
   SECTION_RULES,
 } from "../../lib/news/issueRules";
-import { LedeSection, QuoteOfWeek, DayByDay, IssueNav, LeftOut } from "./IssueParts";
+import { LedeSection, KeyNumbers, QuoteOfWeek, DayByDay, IssueNav, LeftOut } from "./IssueParts";
 import "../../styles/pages/Magazine.css";
 
 const RELAY_URL =
@@ -553,11 +553,13 @@ const FeatureStory = ({ lead, quotes, curated, nameToTag, editorial }) => {
   return (
     <section className="mg-feature reveal" style={{ "--delay": "0.10s" }}>
       <div className="mg-feature-body">
-        <div className="mg-section-header">
-          <span className="mg-section-label mg-section-label--red">Top Story</span>
-          {editorial && <SectionRegenButton sectionKey="DRAMA" regenLoading={editorial.regenLoading} onRegen={editorial.regenSection} />}
-          <div className="mg-section-rule" />
-        </div>
+        {editorial && (
+          <div className="mg-section-header">
+            <span className="mg-section-label mg-section-label--red">Top Story</span>
+            <SectionRegenButton sectionKey="DRAMA" regenLoading={editorial.regenLoading} onRegen={editorial.regenSection} />
+            <div className="mg-section-rule" />
+          </div>
+        )}
         {editorial ? (
           <EditableText value={lead} onSave={(t) => editorial.onEditLead(t)} tag="p" className="mg-feature-lead" />
         ) : (
@@ -3136,7 +3138,6 @@ const WeeklyMagazine = ({ weekParam, isAdmin = false, apiKey = "" }) => {
 
       <LedeSection
         recap={digestData.narrative.recap}
-        numbers={numbers}
         editorial={showEditControls ? { handleEditSection: ed.handleEditSection } : null}
         EditableText={EditableText}
       />
@@ -3157,6 +3158,8 @@ const WeeklyMagazine = ({ weekParam, isAdmin = false, apiKey = "" }) => {
           editorial={editorialProps}
         />
       )}
+
+      <KeyNumbers numbers={numbers} />
 
       <QuoteOfWeek
         quote={weekQuote}

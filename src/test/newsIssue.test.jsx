@@ -8,7 +8,7 @@ import {
 } from '../lib/news/issueRules';
 import { issueCountLabel } from '../pages/News';
 import IssueCover from '../components/news/IssueCover';
-import { LedeSection, QuoteOfWeek, DayByDay, IssueNav, LeftOut } from '../components/news/IssueParts';
+import { LedeSection, KeyNumbers, QuoteOfWeek, DayByDay, IssueNav, LeftOut } from '../components/news/IssueParts';
 import { WeekTrend, MostTalkedAbout } from '../components/news/WeekPulse';
 import { quoteOfTheDay } from '../lib/home/quoteOfTheDay';
 import { parseDramaFromText, parseHighlightsFromText, parseWeekTrendFromText, parseMostTalkedAboutFromText } from '../lib/useDigestData';
@@ -181,17 +181,28 @@ describe('issue components', () => {
     expect(grid).toHaveTextContent("Lacoste's Naga Orc Era");
   });
 
-  it('marks the busiest day and this issue\'s own week, and says nothing without a trend', () => {
+  it('draws the player trend, marks this issue\'s own week, and reads out the change', () => {
     renderIn(<WeekTrend weekStart="2026-09-14" trend={{
-      days: [{ day: 'Mon', games: 130 }, { day: 'Sun', games: 239 }],
-      weeks: [{ weekStart: '2026-09-07', games: 1123, players: 592 }, { weekStart: '2026-09-14', games: 1215, players: 569 }],
+      days: [{ day: 'Mon', games: 130 }],
+      weeks: [
+        { weekStart: '2026-08-31', games: 1434, players: 610 },
+        { weekStart: '2026-09-07', games: 1123, players: 592 },
+        { weekStart: '2026-09-14', games: 1215, players: 569 },
+      ],
       blurb: 'The ladder is getting smaller.',
     }} />);
-    expect(document.querySelector('[data-pulse-day="Sun"] .mg-pulse-bar')).toHaveClass('mg-pulse-bar--peak');
-    expect(document.querySelector('[data-pulse-day="Mon"] .mg-pulse-bar')).not.toHaveClass('mg-pulse-bar--peak');
+    // Games by day was only ever a report, so it is not drawn at all
+    expect(document.querySelector('[data-pulse-day]')).toBeNull();
+    expect(document.querySelectorAll('[data-pulse-week]')).toHaveLength(3);
     expect(document.querySelector('[data-pulse-week="2026-09-14"] .mg-pulse-week-bar')).toHaveClass('mg-pulse-week-bar--now');
-    expect(document.querySelector('[data-pulse-week="2026-09-07"] .mg-pulse-week-bar')).not.toHaveClass('mg-pulse-week-bar--now');
+    expect(document.querySelector('[data-pulse-week="2026-08-31"] .mg-pulse-week-bar')).not.toHaveClass('mg-pulse-week-bar--now');
+    expect(document.querySelector('[data-pulse-delta]')).toHaveTextContent('-41 players');
+    expect(document.querySelector('[data-pulse-delta]')).toHaveTextContent('-7%');
     expect(screen.getByText('The ladder is getting smaller.')).toBeInTheDocument();
+    cleanup();
+    // One week is not a trend
+    renderIn(<WeekTrend trend={{ weeks: [{ weekStart: '2026-09-14', players: 569 }] }} />);
+    expect(document.querySelector('[data-week-trend]')).toBeNull();
     cleanup();
     renderIn(<WeekTrend trend={null} />);
     expect(document.querySelector('[data-week-trend]')).toBeNull();
@@ -214,16 +225,22 @@ describe('issue components', () => {
     expect(document.querySelector('[data-most-talked-about]')).toBeNull();
   });
 
-  it('shows the lede beside the numbers, or neither without a story', () => {
-    renderIn(<LedeSection recap="A quiet week." numbers={[{ value: '18W', label: 'LONGEST WIN STREAK', tone: 'green' }, { value: '2', label: 'UPSETS' }]} />);
+  it('keeps the standfirst and the key numbers apart, each silent without content', () => {
+    renderIn(<LedeSection recap="A quiet week." />);
     expect(screen.getByText('A quiet week.')).toBeInTheDocument();
-    expect(document.querySelectorAll('[data-key-number]')).toHaveLength(2);
-    cleanup();
-    renderIn(<LedeSection recap="Only words." numbers={[{ value: '1', label: 'BAN' }]} />);
+    // The numbers used to sit in a second column here; they are their own strip now
     expect(document.querySelectorAll('[data-key-number]')).toHaveLength(0);
     cleanup();
-    renderIn(<LedeSection recap={null} numbers={[]} />);
+    renderIn(<LedeSection recap={null} />);
     expect(document.querySelector('[data-issue-lede]')).toBeNull();
+    cleanup();
+    renderIn(<KeyNumbers numbers={[{ value: '1,215', label: 'GAMES PLAYED' }, { value: '569', label: 'PLAYERS', tone: 'gold' }]} />);
+    expect(document.querySelectorAll('[data-key-number]')).toHaveLength(2);
+    expect(document.querySelector('[data-key-number="PLAYERS"] .mg-keynum-value')).toHaveClass('mg-keynum-value--gold');
+    cleanup();
+    // One number is not a strip
+    renderIn(<KeyNumbers numbers={[{ value: '1', label: 'BAN' }]} />);
+    expect(document.querySelector('[data-key-numbers]')).toBeNull();
   });
 
   it('renders the quote of the week with the speaker linked and faded art, and nothing without a quote', () => {

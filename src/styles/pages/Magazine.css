@@ -3469,7 +3469,7 @@ a.mg-stack-player-name:hover {
 
 .mg-header-back {
   font-family: var(--font-mono);
-  font-size: 13px;
+  font-size: var(--text-xxs);
   letter-spacing: 0.12em;
   text-transform: uppercase;
   color: var(--text-body);
@@ -3482,7 +3482,7 @@ a.mg-stack-player-name:hover {
 
 .mg-header-no {
   font-family: var(--font-display);
-  font-size: 22px;
+  font-size: var(--text-lg);
   color: var(--gold);
 }
 
@@ -3503,7 +3503,7 @@ a.mg-stack-player-name:hover {
 }
 
 .mg-header-date {
-  font-size: 13px;
+  font-size: var(--text-xxs);
   letter-spacing: 0.2em;
   color: var(--text-body);
 }
@@ -3527,51 +3527,50 @@ a.mg-stack-player-name:hover {
 /* ── Lede: recap beside the key numbers ─────────────── */
 
 .mg-lede {
-  max-width: 900px;
+  max-width: 760px;
   margin: var(--space-12) auto 0;
   padding: 0 var(--space-6);
-  display: grid;
-  grid-template-columns: repeat(auto-fit, minmax(320px, 1fr));
-  gap: 56px;
-  align-items: start;
 }
 
 .mg-lede-text {
   margin: 0;
   font-family: var(--font-body);
-  font-size: clamp(20px, 2.4vw, 28px);
-  line-height: 1.4;
+  font-size: var(--text-lg);
+  line-height: 1.5;
   color: var(--white);
   text-wrap: pretty;
 }
 
-.mg-lede-numbers {
+.mg-keynums {
+  max-width: 900px;
+  margin: var(--space-8) auto 0;
+  padding: var(--space-4) var(--space-6);
   display: grid;
-  grid-template-columns: 1fr 1fr;
-  row-gap: 18px;
-  column-gap: 28px;
+  grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
+  gap: var(--space-6);
+  border-top: 1px solid rgba(255, 255, 255, 0.12);
+  border-bottom: 1px solid rgba(255, 255, 255, 0.12);
 }
 
-.mg-lede-number {
+.mg-keynum {
   display: flex;
   flex-direction: column;
-  gap: 4px;
-  padding-top: 14px;
-  border-top: 1px solid rgba(255, 255, 255, 0.12);
+  gap: 2px;
+  min-width: 0;
 }
 
-.mg-lede-value {
-  font-family: var(--font-display);
-  font-size: 24px;
-  line-height: 1;
+.mg-keynum-value {
+  font-family: var(--font-mono);
+  font-size: var(--text-lg);
+  line-height: 1.1;
   color: var(--white);
 }
 
-.mg-lede-value--green { color: var(--green); }
-.mg-lede-value--red { color: var(--red); }
-.mg-lede-value--gold { color: var(--gold); }
+.mg-keynum-value--green { color: var(--green); }
+.mg-keynum-value--red { color: var(--red); }
+.mg-keynum-value--gold { color: var(--gold); }
 
-.mg-lede-label {
+.mg-keynum-label {
   font-family: var(--font-mono);
   font-size: var(--text-xxs);
   letter-spacing: 0.1em;
@@ -3616,7 +3615,7 @@ a.mg-stack-player-name:hover {
 
 .mg-qow-mark {
   font-family: var(--font-body);
-  font-size: 96px;
+  font-size: 64px;
   line-height: 0.5;
   height: 36px;
   color: var(--gold);
@@ -3626,7 +3625,7 @@ a.mg-stack-player-name:hover {
   max-width: 70%;
   font-family: var(--font-body);
   font-style: italic;
-  font-size: clamp(24px, 3.4vw, 40px);
+  font-size: var(--text-xl);
   line-height: 1.2;
   color: var(--white);
   text-wrap: balance;
@@ -3657,7 +3656,7 @@ a.mg-stack-player-name:hover {
 
 .mg-qow-name {
   font-family: var(--font-display);
-  font-size: 17px;
+  font-size: var(--text-sm);
   color: var(--gold);
   text-decoration: none;
 }
@@ -3725,7 +3724,7 @@ a.mg-stack-player-name:hover {
 
 .mg-day-text {
   font-family: var(--font-body);
-  font-size: 17px;
+  font-size: var(--text-sm);
   line-height: 1.55;
   color: var(--text-body);
   text-wrap: pretty;
@@ -3809,7 +3808,7 @@ a.mg-stack-player-name:hover {
   grid-template-columns: 200px minmax(0, 1fr);
   gap: var(--space-4);
   font-family: var(--font-mono);
-  font-size: 13px;
+  font-size: var(--text-xxs);
 }
 
 .mg-leftout-name {
@@ -3819,43 +3818,20 @@ a.mg-stack-player-name:hover {
 .mg-leftout-reason,
 .mg-leftout-none {
   font-family: var(--font-mono);
-  font-size: 13px;
+  font-size: var(--text-xxs);
   color: var(--grey-light);
 }
 
 /* ── The Week In Games, and Most Talked About ─────────── */
 
-.mg-pulse-grid {
-  display: grid;
-  grid-template-columns: 1.4fr 1fr;
-  gap: var(--space-8);
-  align-items: end;
-}
 
-.mg-pulse-panel {
-  display: flex;
-  flex-direction: column;
-  gap: var(--space-3);
-  min-width: 0;
-}
-
-.mg-pulse-panel-label {
-  font-family: var(--font-mono);
-  font-size: var(--text-xxs);
-  text-transform: uppercase;
-  letter-spacing: 0.1em;
-  color: var(--grey-light);
-}
-
-.mg-pulse-days,
 .mg-pulse-weeks {
   display: flex;
   align-items: flex-end;
-  gap: var(--space-2);
-  height: 140px;
+  gap: var(--space-4);
+  height: 180px;
 }
 
-.mg-pulse-day,
 .mg-pulse-week {
   flex: 1;
   min-width: 0;
@@ -3867,7 +3843,6 @@ a.mg-stack-player-name:hover {
   gap: var(--space-1);
 }
 
-.mg-pulse-bar,
 .mg-pulse-week-bar {
   width: 100%;
   height: var(--pct, 0%);
@@ -3889,7 +3864,6 @@ a.mg-stack-player-name:hover {
   background: var(--red);
 }
 
-.mg-pulse-day-count,
 .mg-pulse-week-count {
   font-family: var(--font-mono);
   font-size: var(--text-xxs);
@@ -3901,7 +3875,6 @@ a.mg-stack-player-name:hover {
   font-weight: bold;
 }
 
-.mg-pulse-day-label,
 .mg-pulse-week-label {
   font-family: var(--font-mono);
   font-size: var(--text-xxxs);
@@ -3911,8 +3884,24 @@ a.mg-stack-player-name:hover {
   white-space: nowrap;
 }
 
-.mg-pulse-blurb {
+.mg-pulse-delta {
+  display: flex;
+  align-items: baseline;
+  gap: var(--space-3);
   margin: var(--space-6) 0 0;
+  font-family: var(--font-mono);
+  font-size: var(--text-lg);
+}
+
+.mg-pulse-delta-sub {
+  font-size: var(--text-xxs);
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+  color: var(--grey-light);
+}
+
+.mg-pulse-blurb {
+  margin: var(--space-3) 0 0;
   font-family: var(--font-body, Georgia, serif);
   font-size: var(--text-sm);
   line-height: 1.6;
@@ -4010,11 +3999,6 @@ a.mg-stack-player-name:hover {
 }
 
 @media (max-width: 900px) {
-  .mg-pulse-grid {
-    grid-template-columns: 1fr;
-    gap: var(--space-8);
-  }
-
   .mg-talked-stats {
     margin-left: 0;
     width: 100%;
