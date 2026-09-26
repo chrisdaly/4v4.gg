@@ -24,6 +24,10 @@ describe('story desk picks', () => {
     picks = assign(picks, 't:99', 'brief');
     expect(picks).toEqual({});
     expect(SLOTS.map((s) => s.key)).toEqual(['lead', 'brief', 'highlight']);
+    // Labels name the section a reader sees, so promoting says where it lands
+    expect(SLOTS.map((s) => s.label)).toEqual(['Top story', 'Also this week', 'Highlight']);
+    // Only the top story is capped
+    expect(SLOTS.filter((s) => s.max === 1).map((s) => s.key)).toEqual(['lead']);
   });
 
   it('round-trips drafts through storage, per week', async () => {

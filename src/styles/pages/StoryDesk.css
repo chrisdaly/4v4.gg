@@ -67,6 +67,10 @@
   gap: var(--space-2);
 }
 
+.sd-budget-sep {
+  flex: 1;
+}
+
 .sd-budget-n {
   font-family: var(--font-mono);
   font-size: var(--text-base);
@@ -85,9 +89,9 @@
   color: var(--grey-light);
 }
 
-.sd-budget .btn,
-.sd-budget button {
-  margin-left: auto;
+.sd-budget .btn:last-child,
+.sd-budget button:last-child {
+  margin-left: var(--space-3);
 }
 
 /* ── Two ranked lists ── */
@@ -108,12 +112,20 @@
 }
 
 .sd-col-sub {
-  margin: 0 0 var(--space-4);
+  margin: 0 0 var(--space-6);
+  padding-bottom: var(--space-4);
+  border-bottom: 1px solid var(--panel-border);
   font-family: var(--font-body, Georgia, serif);
   font-size: var(--text-xs);
   line-height: 1.6;
   color: var(--grey-light);
   max-width: 56ch;
+}
+
+.sd-col-sub strong {
+  color: var(--gold);
+  font-weight: normal;
+  font-family: var(--font-mono);
 }
 
 /* ── One candidate ── */
@@ -127,7 +139,18 @@
   background: var(--surface-1);
 }
 
-.sd-row--lead { border-left-color: var(--gold); }
+.sd-row--lead,
+.sd-row--brief,
+.sd-row--highlight {
+  background: var(--surface-2);
+  border-color: var(--panel-border);
+}
+
+.sd-row--lead {
+  border-left-color: var(--gold);
+  border-left-width: 4px;
+}
+
 .sd-row--brief { border-left-color: var(--cyan); }
 .sd-row--highlight { border-left-color: var(--green); }
 
@@ -168,6 +191,23 @@
   display: flex;
   gap: var(--space-1);
   flex-shrink: 0;
+  opacity: 0;
+  transition: opacity var(--transition);
+}
+
+/* Forty identical rows of buttons is the mess. They appear on the row you
+   are pointing at, and stay on the ones you have already picked. */
+.sd-row:hover .sd-slots,
+.sd-row:focus-within .sd-slots,
+.sd-row--lead .sd-slots,
+.sd-row--brief .sd-slots,
+.sd-row--highlight .sd-slots {
+  opacity: 1;
+}
+
+.sd-more {
+  width: 100%;
+  margin-bottom: var(--space-4);
 }
 
 .sd-slot--on {

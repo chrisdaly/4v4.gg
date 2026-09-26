@@ -7,10 +7,28 @@
  * writes nothing until you copy the sections into the issue.
  */
 
+/**
+ * The three places a story can land in the issue. The labels are the names
+ * of the sections a reader actually sees, not desk jargon, so promoting
+ * something says where it will end up.
+ */
 export const SLOTS = [
-  { key: "lead", label: "Lead", hint: "The top story. One only." },
-  { key: "brief", label: "Brief", hint: "A sub-story in Also This Week." },
-  { key: "highlight", label: "Highlight", hint: "Lighter, one line and a quote." },
+  {
+    key: "lead",
+    label: "Top story",
+    max: 1,
+    hint: "The headline on the cover. Full body and quotes. One per issue.",
+  },
+  {
+    key: "brief",
+    label: "Also this week",
+    hint: "A short story with its own headline, two or three sentences and a quote.",
+  },
+  {
+    key: "highlight",
+    label: "Highlight",
+    hint: "The lighter stuff. One line and a quote.",
+  },
 ];
 
 const KEY = (weekStart) => `desk_picks_${weekStart}`;
@@ -42,8 +60,10 @@ export function assign(picks, id, slot) {
     delete next[id];
     return next;
   }
-  if (slot === "lead") {
-    for (const [k, v] of Object.entries(next)) if (v === "lead") delete next[k];
+  // A slot with a cap releases whatever was holding it
+  const cap = SLOTS.find((s) => s.key === slot)?.max;
+  if (cap === 1) {
+    for (const [k, v] of Object.entries(next)) if (v === slot) delete next[k];
   }
   next[id] = slot;
   return next;

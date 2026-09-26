@@ -111,13 +111,13 @@ function CandidateRow({ candidate, slot, onAssign, draft, onDraft }) {
               title={s.hint}
               onClick={() => onAssign(candidate.id, s.key)}
             >
-              {s.label}
+              {slot === s.key ? s.label : s.label.split(" ")[0]}
             </Button>
           ))}
         </div>
       </div>
       <p className="sd-why">{candidate.why}</p>
-      {quotes.length > 0 && !open && (
+      {quotes.length > 0 && !open && !slot && (
         <p className="sd-peek">{quotes[0].name}: {quotes[0].text}</p>
       )}
       {slot && <Compose candidate={candidate} draft={draft} onChange={(d) => onDraft(candidate.id, d)} />}
@@ -157,6 +157,8 @@ export default function StoryDesk() {
   const [drafts, setDrafts] = useState(() => loadDrafts(weekStart));
   const [applying, setApplying] = useState(false);
   const [applied, setApplied] = useState(null);
+  const [showAllThemes, setShowAllThemes] = useState(false);
+  const [showAllThreads, setShowAllThreads] = useState(false);
 
   useEffect(() => {
     setPicks(loadPicks(weekStart));
@@ -241,6 +243,23 @@ export default function StoryDesk() {
 
   const counts = SLOTS.map((s) => ({ ...s, n: inSlot(all, picks, s.key).length }));
 
+  /** The strongest few, plus anything already picked, then the rest on ask. */
+  const List = ({ items, expanded, onExpand }) => {
+    const shown = expanded ? items : items.filter((c, i) => i < 8 || picks[c.id]);
+    return (
+      <>
+        {shown.map((c) => (
+          <CandidateRow key={c.id} candidate={c} slot={picks[c.id]} onAssign={onAssign} draft={drafts[c.id]} onDraft={onDraft} />
+        ))}
+        {!expanded && items.length > shown.length && (
+          <Button $ghost className="sd-more" onClick={onExpand}>
+            Show {items.length - shown.length} more
+          </Button>
+        )}
+      </>
+    );
+  };
+
   return (
     <PageLayout>
       <PageHero eyebrow="Editorial" title="Story Desk" />
@@ -266,11 +285,12 @@ export default function StoryDesk() {
         <>
           <div className="sd-budget" data-budget>
             {counts.map((c) => (
-              <span key={c.key} className={`sd-budget-slot${c.n > 0 ? " sd-budget-slot--filled" : ""}`}>
-                <span className="sd-budget-n">{c.n}</span>
+              <span key={c.key} className={`sd-budget-slot${c.n > 0 ? " sd-budget-slot--filled" : ""}`} title={c.hint}>
+                <span className="sd-budget-n">{c.max ? `${c.n}/${c.max}` : c.n}</span>
                 <span className="sd-budget-label">{c.label}</span>
               </span>
             ))}
+            <span className="sd-budget-sep" aria-hidden="true" />
             <span className="sd-budget-slot">
               <span className={`sd-budget-n${readyCount > 0 ? " sd-budget-n--ready" : ""}`}>{readyCount}</span>
               <span className="sd-budget-label">Written</span>
@@ -283,27 +303,24 @@ export default function StoryDesk() {
 
           <div className="sd-cols">
             <section className="sd-col" data-list="themes">
-              <h2 className="sd-col-head">Themes</h2>
+              <h2 className="sd-col-head">Talked about all week</h2>
               <p className="sd-col-sub">
-                Topics that ran well above the last four weeks. These are the slow stories: they never spike, so
-                nothing that looks for busy minutes will find them.
+                One subject, many people, spread over days. Ranked by how far above the last four weeks it ran,
+                so <strong>3x</strong> means three times the usual amount of talk. Slow stories: they never spike,
+                so counting busy minutes will not find them.
               </p>
-              {data.themes.map((c) => (
-                <CandidateRow key={c.id} candidate={c} slot={picks[c.id]} onAssign={onAssign} draft={drafts[c.id]} onDraft={onDraft} />
-              ))}
-              {data.themes.length === 0 && <p className="sd-empty">Nothing ran above baseline this week.</p>}
+              <List items={data.themes} expanded={showAllThemes} onExpand={() => setShowAllThemes(true)} />
+              {data.themes.length === 0 && <p className="sd-empty">Nothing ran above the last four weeks.</p>}
             </section>
 
             <section className="sd-col" data-list="threads">
-              <h2 className="sd-col-head">Threads</h2>
+              <h2 className="sd-col-head">Blew up in minutes</h2>
               <p className="sd-col-sub">
-                Bursts: a lot of messages in a few minutes, mostly between two people, with the room reacting.
-                These are almost always arguments.
+                One conversation, fast, usually two people going at each other while the room watches. Ranked on
+                messages per minute and how many people laughed. These are almost always arguments.
               </p>
-              {data.threads.map((c) => (
-                <CandidateRow key={c.id} candidate={c} slot={picks[c.id]} onAssign={onAssign} draft={drafts[c.id]} onDraft={onDraft} />
-              ))}
-              {data.threads.length === 0 && <p className="sd-empty">No bursts this week.</p>}
+              <List items={data.threads} expanded={showAllThreads} onExpand={() => setShowAllThreads(true)} />
+              {data.threads.length === 0 && <p className="sd-empty">Nothing blew up this week.</p>}
             </section>
           </div>
 
