@@ -6,6 +6,7 @@ import html2canvas from "html2canvas";
 import ChatContext from "../ChatContext";
 import ChatMessage from "../chat/ChatMessage";
 import QuoteBlock from "../chat/QuoteBlock";
+import { WeekTrend, MostTalkedAbout } from "./WeekPulse";
 import { fetchAndCacheProfile } from "../../lib/profileCache";
 import useAdmin from "../../lib/useAdmin";
 import { CountryFlag, ConfirmModal, PageNav, Button } from "../ui";
@@ -41,7 +42,7 @@ import {
   keyNumbers,
   SECTION_RULES,
 } from "../../lib/news/issueRules";
-import { LedeSection, QuoteOfWeek, DayByDay, IssueNav, LeftOut } from "./IssueParts";
+import { LedeSection, KeyNumbers, QuoteOfWeek, DayByDay, IssueNav, LeftOut } from "./IssueParts";
 import "../../styles/pages/Magazine.css";
 
 const RELAY_URL =
@@ -552,11 +553,13 @@ const FeatureStory = ({ lead, quotes, curated, nameToTag, editorial }) => {
   return (
     <section className="mg-feature reveal" style={{ "--delay": "0.10s" }}>
       <div className="mg-feature-body">
-        <div className="mg-section-header">
-          <span className="mg-section-label mg-section-label--red">Top Story</span>
-          {editorial && <SectionRegenButton sectionKey="DRAMA" regenLoading={editorial.regenLoading} onRegen={editorial.regenSection} />}
-          <div className="mg-section-rule" />
-        </div>
+        {editorial && (
+          <div className="mg-section-header">
+            <span className="mg-section-label mg-section-label--red">Top Story</span>
+            <SectionRegenButton sectionKey="DRAMA" regenLoading={editorial.regenLoading} onRegen={editorial.regenSection} />
+            <div className="mg-section-rule" />
+          </div>
+        )}
         {editorial ? (
           <EditableText value={lead} onSave={(t) => editorial.onEditLead(t)} tag="p" className="mg-feature-lead" />
         ) : (
@@ -668,10 +671,17 @@ const StoriesGrid = ({ stories, highlights, bans, nameToTag, editorial }) => {
                         dragProps={{ draggable: true, onDragStart: () => drag.onDragStart("DRAMA", i), onDragEnd: drag.onDragEnd }}
                       />
                     )}
+                    {item.headline && (
+                      editorial?.onEditDrama ? (
+                        <EditableText value={item.headline} onSave={(t) => editorial.onEditDrama(i, `${t} | ${item.summary.trim()}`)} tag="h4" className="mg-brief-title" />
+                      ) : (
+                        <h4 className="mg-brief-title">{item.headline}</h4>
+                      )
+                    )}
                     {editorial?.onEditDrama ? (
-                      <EditableText value={item.summary.trim()} onSave={(t) => editorial.onEditDrama(i, t)} className="mg-sidebar-item-text" />
+                      <EditableText value={item.summary.trim()} onSave={(t) => editorial.onEditDrama(i, item.headline ? `${item.headline} | ${t}` : t)} className="mg-sidebar-item-text mg-brief-body" />
                     ) : (
-                      <span>{highlightNames(item.summary.trim(), nameToTag)}</span>
+                      <span className="mg-brief-body">{highlightNames(item.summary.trim(), nameToTag)}</span>
                     )}
                     {item.quotes.length > 0 && (
                       <div className="mg-highlight-quotes">
@@ -727,10 +737,17 @@ const StoriesGrid = ({ stories, highlights, bans, nameToTag, editorial }) => {
                           dragProps={{ draggable: true, onDragStart: () => drag.onDragStart("HIGHLIGHTS", i), onDragEnd: drag.onDragEnd }}
                         />
                       )}
+                      {item.headline && (
+                        editorial?.onEditHighlight ? (
+                          <EditableText value={item.headline} onSave={(t) => editorial.onEditHighlight(i, `${t} | ${item.summary.trim()}`)} tag="h4" className="mg-brief-title mg-brief-title--green" />
+                        ) : (
+                          <h4 className="mg-brief-title mg-brief-title--green">{item.headline}</h4>
+                        )
+                      )}
                       {editorial?.onEditHighlight ? (
-                        <EditableText value={item.summary.trim()} onSave={(t) => editorial.onEditHighlight(i, t)} className="mg-sidebar-item-text mg-highlight-summary" />
+                        <EditableText value={item.summary.trim()} onSave={(t) => editorial.onEditHighlight(i, item.headline ? `${item.headline} | ${t}` : t)} className="mg-sidebar-item-text mg-highlight-summary mg-brief-body" />
                       ) : (
-                        <span className="mg-highlight-summary">{highlightNames(item.summary.trim(), nameToTag)}</span>
+                        <span className="mg-highlight-summary mg-brief-body">{highlightNames(item.summary.trim(), nameToTag)}</span>
                       )}
                       {item.quotes.length > 0 && (
                         <div className="mg-highlight-quotes">
@@ -1633,10 +1650,31 @@ const HeroKillsChart = ({ killsDistribution, highlightBucket }) => {
 };
 
 /* ── Streak Spectrum: horizontal distribution of all players' max streaks ── */
+/**
+ * Reads the spectrum in words: where most runs stopped, and the two
+ * extremes. The bars show the shape, this says what the shape means.
+ */
+function spectrumCaption(win, loss) {
+  const all = [...win.map((e) => ({ ...e, t: "W" })), ...loss.map((e) => ({ ...e, t: "L" }))];
+  if (all.length === 0) return null;
+  const modal = all.reduce((a, b) => (b.count > a.count ? b : a));
+  const longest = (side, t) => {
+    if (side.length === 0) return null;
+    return { ...side.reduce((a, b) => (b.len > a.len ? b : a)), t };
+  };
+  const ends = [longest(win, "W"), longest(loss, "L")].filter(Boolean);
+  const players = (n) => `${n} player${n === 1 ? "" : "s"}`;
+  return [
+    `Most common run: ${modal.len} in a row (${players(modal.count)}).`,
+    ends.length > 0 && `Longest: ${ends.map((e) => `${e.len}${e.t} (${players(e.count)})`).join(", ")}.`,
+  ].filter(Boolean).join(" ");
+}
+
 const StreakSpectrum = ({ spectrumData, hotName, coldName }) => {
   if (!spectrumData) return null;
   const { win, loss } = spectrumData;
   if (win.length === 0 && loss.length === 0) return null;
+  const caption = spectrumCaption(win, loss);
 
   const maxCount = Math.max(
     ...win.map((e) => e.count),
@@ -1681,6 +1719,7 @@ const StreakSpectrum = ({ spectrumData, hotName, coldName }) => {
           ))}
         </div>
       </div>
+      {caption && <p className="mg-streak-spectrum-caption">{caption}</p>}
     </div>
   );
 };
@@ -2815,6 +2854,7 @@ const WeeklyMagazine = ({ weekParam, isAdmin = false, apiKey = "" }) => {
     }
 
     if (weekQuoteTag && weekQuoteTag.includes("#")) tags.add(weekQuoteTag);
+    if (digestData.mostTalkedAbout?.battleTag) tags.add(digestData.mostTalkedAbout.battleTag);
 
     if (tags.size === 0) return;
 
@@ -2827,7 +2867,7 @@ const WeeklyMagazine = ({ weekParam, isAdmin = false, apiKey = "" }) => {
         setProfiles(map);
       }
     );
-  }, [weekly, knownNames, digestData.atSpotlight, weekQuoteTag]);
+  }, [weekly, knownNames, digestData.atSpotlight, digestData.mostTalkedAbout, weekQuoteTag]);
 
   const [coverBg, setCoverBg] = useState(null);
 
@@ -3098,7 +3138,6 @@ const WeeklyMagazine = ({ weekParam, isAdmin = false, apiKey = "" }) => {
 
       <LedeSection
         recap={digestData.narrative.recap}
-        numbers={numbers}
         editorial={showEditControls ? { handleEditSection: ed.handleEditSection } : null}
         EditableText={EditableText}
       />
@@ -3119,6 +3158,8 @@ const WeeklyMagazine = ({ weekParam, isAdmin = false, apiKey = "" }) => {
           editorial={editorialProps}
         />
       )}
+
+      <KeyNumbers numbers={numbers} />
 
       <QuoteOfWeek
         quote={weekQuote}
@@ -3150,6 +3191,19 @@ const WeeklyMagazine = ({ weekParam, isAdmin = false, apiKey = "" }) => {
           weekEnd: ed.weekEnd,
         } : null}
       />
+
+      {(!showEditControls || !ed.hiddenSections.has("WEEK_TREND")) && (
+        <WeekTrend trend={digestData.weekTrend} weekStart={weekly.week_start} />
+      )}
+
+      {(!showEditControls || !ed.hiddenSections.has("MOST_TALKED_ABOUT")) && (
+        <MostTalkedAbout
+          subject={digestData.mostTalkedAbout}
+          profile={digestData.mostTalkedAbout ? profiles.get(digestData.mostTalkedAbout.battleTag) : null}
+          highlightNames={highlightNames}
+          nameToTag={knownNames}
+        />
+      )}
 
       <ClipsSection
         clips={weekly.clips}

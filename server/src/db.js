@@ -983,6 +983,15 @@ export function countMessagesByDateRange(startDate, endDate) {
   ).get(startDate + ' 00:00:00', endDate + ' 23:59:59')?.count || 0;
 }
 
+/** Every live message between two YYYY-MM-DD days, inclusive, oldest first. */
+export function getMessagesInRange(startDate, endDate) {
+  return db.prepare(`
+    SELECT id, battle_tag, user_name, message, received_at FROM messages
+    WHERE deleted = 0 AND received_at >= ? AND received_at <= ?
+    ORDER BY received_at ASC
+  `).all(startDate + ' 00:00:00', endDate + ' 23:59:59');
+}
+
 export function getMessagesByDate(date) {
   return db.prepare(`
     SELECT battle_tag, user_name, message FROM messages
@@ -1426,6 +1435,18 @@ export function getWeeklyDraftForWeek(weekStart) {
 
 export function updateWeeklyDraftOnly(weekStart, draft) {
   db.prepare('UPDATE weekly_digests SET draft = ? WHERE week_start = ?').run(draft, weekStart);
+}
+
+export function updateWeeklyStats(weekStart, stats) {
+  // Merge, because something else on the relay maintains totalMessages here
+  // and a blind overwrite would drop whatever the caller did not send.
+  const row = db.prepare('SELECT stats FROM weekly_digests WHERE week_start = ?').get(weekStart);
+  let existing = {};
+  if (row?.stats) {
+    try { existing = JSON.parse(row.stats) || {}; } catch { existing = {}; }
+  }
+  const merged = JSON.stringify({ ...existing, ...stats });
+  db.prepare('UPDATE weekly_digests SET stats = ? WHERE week_start = ?').run(merged, weekStart);
 }
 
 export function updateWeeklyDigestOnly(weekStart, digest) {

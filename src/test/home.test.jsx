@@ -26,11 +26,13 @@ describe('quoteOfTheDay', () => {
     const digest = {
       digest: 'DRAMA: Toast flamed Moon over a tower rush "Toast: you are garbage" "Moon: cry more"\nBEST_OF_CHAT: The zoo line "GosuXtreme: when u enter 4s u entering a zoo"\nMENTIONS: GosuXtreme#2101, Toast#1',
     };
-    expect(quoteOfTheDay(digest)).toEqual({ text: 'when u enter 4s u entering a zoo', speaker: 'GosuXtreme', battleTag: 'GosuXtreme#2101' });
+    expect(quoteOfTheDay(digest)).toEqual({ text: 'when u enter 4s u entering a zoo', speaker: 'GosuXtreme', battleTag: 'GosuXtreme#2101', label: 'QUOTE OF THE DAY' });
     const dramaOnly = { digest: 'DRAMA: Toast flamed Moon "Toast: you are garbage"\nDRAMA_QUOTES: "Moon: cry more"' };
-    expect(quoteOfTheDay(dramaOnly)).toEqual({ text: 'cry more', speaker: 'Moon', battleTag: null });
+    expect(quoteOfTheDay(dramaOnly)).toEqual({ text: 'cry more', speaker: 'Moon', battleTag: null, label: 'QUOTE OF THE DAY' });
     expect(quoteOfTheDay({ digest: 'DRAMA: nothing quoted here' })).toBeNull();
     expect(quoteOfTheDay(null)).toBeNull();
+    // A weekly issue row (it carries week_start) is the quote of the week
+    expect(quoteOfTheDay({ ...digest, week_start: '2026-09-15' }).label).toBe('QUOTE OF THE WEEK');
   });
 
   it('finds the message behind a quote through the relay search, retrying with the first four words', async () => {
@@ -54,7 +56,7 @@ describe('quoteOfTheDay', () => {
 
   it('reads a JSON narrative as well and skips unattributed quotes', () => {
     const digest = { digest: '', digestJson: JSON.stringify({ narrative: { bestOfChat: '"just text" "sjow: who wants 4s?"', drama: [] } }) };
-    expect(quoteOfTheDay(digest)).toEqual({ text: 'who wants 4s?', speaker: 'sjow', battleTag: null });
+    expect(quoteOfTheDay(digest)).toEqual({ text: 'who wants 4s?', speaker: 'sjow', battleTag: null, label: 'QUOTE OF THE DAY' });
   });
 });
 

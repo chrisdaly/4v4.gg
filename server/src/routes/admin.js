@@ -2,7 +2,8 @@ import { Router } from 'express';
 import rateLimit from 'express-rate-limit';
 import multer from 'multer';
 import config from '../config.js';
-import { setToken, getStats, getTopWords, getRecentDigests, deleteDigest, getDigest, getRecentWeeklyDigests, deleteWeeklyDigest, getWeeklyDigest, getWeeklyCoverImage, setWeeklyCoverImage, updateWeeklyCoverPosition, getDraftForDate, updateDigestOnly, updateDraftOnly, updateHiddenAvatars, getContextAroundQuotes, getMessagesByTimeWindow, getMessagesByDateAndUsers, getMessageBuckets, getGameStats, getMatchContext, getClipsByDateRange, saveCoverGeneration, getCoverGenerations, getAllCoverGenerations, getCoverGenerationImage, deleteCoverGeneration, getWeeklyDraftForWeek, updateWeeklyDraftOnly, updateWeeklyDigestOnly, createGenJob, getActiveGenJob, getLatestGenJob, getVariantsForJob, searchMessages, countSearchMessages, searchMessagesByPlayer, countMessagesByPlayer, getMessagesAroundTime, countMessagesByDateRange, updateWeeklyDigestJson, updateWeeklyClips, getDigestsByDateRange, saveStyleThumbnail, getStyleThumbnail, toggleWeeklyPublished, hasDailyPlayerStats, setDigestWithDraft, setWeeklyDigest } from '../db.js';
+import { setToken, getStats, getTopWords, getRecentDigests, deleteDigest, getDigest, getRecentWeeklyDigests, deleteWeeklyDigest, getWeeklyDigest, getWeeklyCoverImage, setWeeklyCoverImage, updateWeeklyCoverPosition, getDraftForDate, updateDigestOnly, updateDraftOnly, updateHiddenAvatars, getContextAroundQuotes, getMessagesByTimeWindow, getMessagesInRange, getMessagesByDateAndUsers, getMessageBuckets, getGameStats, getMatchContext, getClipsByDateRange, saveCoverGeneration, getCoverGenerations, getAllCoverGenerations, getCoverGenerationImage, deleteCoverGeneration, getWeeklyDraftForWeek, updateWeeklyDraftOnly, updateWeeklyDigestOnly, createGenJob, getActiveGenJob, getLatestGenJob, getVariantsForJob, searchMessages, countSearchMessages, searchMessagesByPlayer, countMessagesByPlayer, getMessagesAroundTime, countMessagesByDateRange, updateWeeklyDigestJson, updateWeeklyClips, updateWeeklyStats, getDigestsByDateRange, saveStyleThumbnail, getStyleThumbnail, toggleWeeklyPublished, hasDailyPlayerStats, setDigestWithDraft, setWeeklyDigest } from '../db.js';
+import { storyCandidates } from '../storyCandidates.js';
 import { updateToken, getStatus } from '../signalr.js';
 import { getClientCount } from '../sse.js';
 import { setBotEnabled, isBotEnabled, testCommand } from '../bot.js';
@@ -288,6 +289,24 @@ router.get('/digest/:date/stat-candidates', requireApiKey, async (req, res) => {
   } catch (err) {
     console.error('[Digest] Stat candidates error:', err.message);
     res.status(500).json({ error: 'Failed to fetch stat candidates' });
+  }
+});
+
+/**
+ * Ranked story candidates for a week: bursts and slow themes, each with the
+ * numbers behind its rank and the lines it came from. The story desk reads
+ * this; nothing here writes anything.
+ */
+router.get('/story-candidates/:weekStart', requireApiKey, contextLimiter, (req, res) => {
+  const { weekStart } = req.params;
+  if (!/^\d{4}-\d{2}-\d{2}$/.test(weekStart)) {
+    return res.status(400).json({ error: 'weekStart must be YYYY-MM-DD' });
+  }
+  try {
+    res.json(storyCandidates(weekStart, getMessagesInRange));
+  } catch (err) {
+    console.error('[Desk] Story candidates failed:', err.message);
+    res.status(500).json({ error: 'Failed to build story candidates' });
   }
 });
 
@@ -680,13 +699,21 @@ router.post('/weekly-digest/:weekStart/set', requireApiKey, (req, res) => {
   if (!/^\d{4}-\d{2}-\d{2}$/.test(weekStart)) {
     return res.status(400).json({ error: 'weekStart must be YYYY-MM-DD' });
   }
-  const { digest, weekEnd } = req.body;
+  const { digest, weekEnd, stats } = req.body;
   if (!digest || typeof digest !== 'string') {
     return res.status(400).json({ error: 'digest (string) is required' });
   }
   // Default weekEnd to weekStart + 6 days if not provided
   const end = weekEnd || new Date(new Date(weekStart + 'T12:00:00Z').getTime() + 6 * 86400000).toISOString().split('T')[0];
   setWeeklyDigest(weekStart, end, digest);
+  // Editorial mode reads the draft, not the digest, so a draft left over from
+  // an earlier version resurrects it and autosaves back over this one. Setting
+  // the digest means "this is the issue now", so the draft follows it.
+  updateWeeklyDraftOnly(weekStart, digest);
+  // The issue's key numbers come from here (games, players, messages)
+  if (stats && typeof stats === 'object') {
+    updateWeeklyStats(weekStart, stats);
+  }
   res.json({ ok: true, weekStart, weekEnd: end });
 });
 

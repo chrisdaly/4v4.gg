@@ -2,12 +2,12 @@ import { parseDigestSections, parseMentions } from "../digestUtils";
 import { relayFetch } from "../relay";
 
 /**
- * The home page's quote of the day from a daily digest: the first
+ * The home page's quote from a weekly issue or a daily digest: the first
  * speaker-attributed quote in BEST_OF_CHAT, else DRAMA_QUOTES, else the
  * quotes inside DRAMA. A digest with a JSON narrative (digestJson) is read
  * the same way from its bestOfChat / drama fields.
  *
- * quoteOfTheDay(digest) -> { text, speaker, battleTag } | null
+ * quoteOfTheDay(digest) -> { text, speaker, battleTag, label } | null
  *   digest   { digest: "TOPICS: ...", digestJson? } (a relay digest row)
  */
 
@@ -59,7 +59,9 @@ export function quoteOfTheDay(digest, { sources = DEFAULT_SOURCES } = {}) {
   const pick = candidates.map(attributed).find(Boolean);
   if (!pick) return null;
   const mentions = parseMentions(sections);
-  return { ...pick, battleTag: mentions.get(pick.speaker) || null };
+  // A weekly issue row carries week_start; its pick is the quote of the week.
+  const label = digest.week_start ? "QUOTE OF THE WEEK" : "QUOTE OF THE DAY";
+  return { ...pick, battleTag: mentions.get(pick.speaker) || null, label };
 }
 
 /**

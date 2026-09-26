@@ -1,0 +1,412 @@
+/* ============================================
+   STORY DESK - where the week's editorial
+   decisions get made, away from the page
+   ============================================ */
+
+.sd-bar {
+  display: flex;
+  align-items: center;
+  gap: var(--space-6);
+  flex-wrap: wrap;
+  padding: var(--space-4) 0;
+  border-bottom: 1px solid var(--panel-border);
+}
+
+.sd-week {
+  display: flex;
+  align-items: center;
+  gap: var(--space-3);
+}
+
+.sd-week-label {
+  font-family: var(--font-mono);
+  font-size: var(--text-sm);
+  color: #fff;
+  white-space: nowrap;
+}
+
+.sd-counts {
+  font-family: var(--font-mono);
+  font-size: var(--text-xxs);
+  color: var(--grey-light);
+}
+
+.sd-link {
+  margin-left: auto;
+  font-family: var(--font-mono);
+  font-size: var(--text-xxs);
+  text-transform: uppercase;
+  letter-spacing: 0.1em;
+  color: var(--gold);
+  text-decoration: none;
+}
+
+.sd-link:hover {
+  text-decoration: underline;
+}
+
+/* ── The budget: what is assigned so far ── */
+
+.sd-budget {
+  position: sticky;
+  top: 0;
+  z-index: 3;
+  display: flex;
+  align-items: center;
+  gap: var(--space-6);
+  padding: var(--space-3) var(--space-4);
+  margin: var(--space-4) 0;
+  background: var(--surface-2);
+  border: 1px solid var(--panel-border);
+  border-radius: var(--radius-md);
+}
+
+.sd-budget-slot {
+  display: flex;
+  align-items: baseline;
+  gap: var(--space-2);
+}
+
+.sd-budget-sep {
+  flex: 1;
+}
+
+.sd-budget-n {
+  font-family: var(--font-mono);
+  font-size: var(--text-base);
+  color: var(--grey-light);
+}
+
+.sd-budget-slot--filled .sd-budget-n {
+  color: var(--gold);
+}
+
+.sd-budget-label {
+  font-family: var(--font-mono);
+  font-size: var(--text-xxs);
+  text-transform: uppercase;
+  letter-spacing: 0.1em;
+  color: var(--grey-light);
+}
+
+.sd-budget .btn:last-child,
+.sd-budget button:last-child {
+  margin-left: var(--space-3);
+}
+
+/* ── Two ranked lists ── */
+
+.sd-cols {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: var(--space-8);
+  align-items: start;
+}
+
+.sd-col-head {
+  margin: 0 0 var(--space-2);
+  font-family: var(--font-display);
+  font-size: var(--text-lg);
+  font-weight: normal;
+  color: var(--gold);
+}
+
+.sd-col-sub {
+  margin: 0 0 var(--space-6);
+  padding-bottom: var(--space-4);
+  border-bottom: 1px solid var(--panel-border);
+  font-family: var(--font-body, Georgia, serif);
+  font-size: var(--text-xs);
+  line-height: 1.6;
+  color: var(--grey-light);
+  max-width: 56ch;
+}
+
+.sd-col-sub strong {
+  color: var(--gold);
+  font-weight: normal;
+  font-family: var(--font-mono);
+}
+
+/* ── One candidate ── */
+
+.sd-row {
+  padding: var(--space-3) var(--space-4);
+  margin-bottom: var(--space-3);
+  border: 1px solid var(--panel-border);
+  border-left: 3px solid transparent;
+  border-radius: var(--radius-md);
+  background: var(--surface-1);
+}
+
+.sd-row--lead,
+.sd-row--brief,
+.sd-row--highlight {
+  background: var(--surface-2);
+  border-color: var(--panel-border);
+}
+
+.sd-row--lead {
+  border-left-color: var(--gold);
+  border-left-width: 4px;
+}
+
+.sd-row--brief { border-left-color: var(--cyan); }
+.sd-row--highlight { border-left-color: var(--green); }
+
+.sd-row-head {
+  display: flex;
+  align-items: center;
+  gap: var(--space-3);
+}
+
+.sd-score {
+  font-family: var(--font-mono);
+  font-size: var(--text-xs);
+  color: var(--gold);
+  min-width: 46px;
+}
+
+.sd-title {
+  flex: 1;
+  min-width: 0;
+  padding: 0;
+  border: 0;
+  background: none;
+  text-align: left;
+  cursor: pointer;
+  font-family: var(--font-display);
+  font-size: var(--text-sm);
+  color: #fff;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.sd-title:hover {
+  color: var(--gold);
+}
+
+.sd-slots {
+  display: flex;
+  gap: var(--space-1);
+  flex-shrink: 0;
+  opacity: 0;
+  transition: opacity var(--transition);
+}
+
+/* Forty identical rows of buttons is the mess. They appear on the row you
+   are pointing at, and stay on the ones you have already picked. */
+.sd-row:hover .sd-slots,
+.sd-row:focus-within .sd-slots,
+.sd-row--lead .sd-slots,
+.sd-row--brief .sd-slots,
+.sd-row--highlight .sd-slots {
+  opacity: 1;
+}
+
+.sd-more {
+  width: 100%;
+  margin-bottom: var(--space-4);
+}
+
+.sd-slot--on {
+  border-color: var(--gold);
+  color: var(--gold);
+}
+
+.sd-why {
+  margin: var(--space-2) 0 0;
+  font-family: var(--font-mono);
+  font-size: var(--text-xxs);
+  color: var(--grey-light);
+}
+
+.sd-peek {
+  margin: var(--space-2) 0 0;
+  font-family: var(--font-body, Georgia, serif);
+  font-size: var(--text-xs);
+  color: rgba(255, 255, 255, 0.72);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.sd-lines {
+  margin-top: var(--space-3);
+  padding-top: var(--space-3);
+  border-top: 1px solid var(--panel-border);
+  max-height: 340px;
+  overflow-y: auto;
+}
+
+.sd-line {
+  display: flex;
+  gap: var(--space-2);
+  margin: 0 0 2px;
+  font-size: var(--text-xxs);
+  line-height: 1.5;
+}
+
+.sd-line-at {
+  font-family: var(--font-mono);
+  color: var(--grey-mid);
+  flex-shrink: 0;
+}
+
+.sd-line-who {
+  font-family: var(--font-display);
+  color: var(--gold);
+  flex-shrink: 0;
+}
+
+.sd-line-text {
+  color: rgba(255, 255, 255, 0.82);
+  min-width: 0;
+}
+
+/* ── The sections the picks become ── */
+
+.sd-out {
+  margin-top: var(--space-8);
+}
+
+.sd-pre {
+  margin: 0;
+  padding: var(--space-4);
+  background: var(--surface-2);
+  border: 1px solid var(--panel-border);
+  border-radius: var(--radius-md);
+  font-family: var(--font-mono);
+  font-size: var(--text-xxs);
+  line-height: 1.7;
+  color: rgba(255, 255, 255, 0.82);
+  white-space: pre-wrap;
+  word-break: break-word;
+}
+
+.sd-empty {
+  font-family: var(--font-body, Georgia, serif);
+  font-size: var(--text-xs);
+  color: var(--grey-light);
+}
+
+@media (max-width: 900px) {
+  .sd-cols {
+    grid-template-columns: 1fr;
+  }
+}
+
+/* ── Composing a promoted story ───────────────── */
+
+.sd-compose {
+  margin-top: var(--space-3);
+  padding-top: var(--space-3);
+  border-top: 1px dashed var(--panel-border);
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-2);
+}
+
+.sd-compose-label {
+  font-family: var(--font-mono);
+  font-size: var(--text-xxxs);
+  text-transform: uppercase;
+  letter-spacing: 0.1em;
+  color: var(--grey-light);
+}
+
+.sd-input,
+.sd-textarea {
+  width: 100%;
+  padding: var(--space-2) var(--space-3);
+  background: var(--surface-2);
+  border: 1px solid var(--panel-border);
+  border-radius: var(--radius-sm);
+  color: #fff;
+  box-sizing: border-box;
+}
+
+.sd-input {
+  font-family: var(--font-display);
+  font-size: var(--text-sm);
+}
+
+.sd-textarea {
+  font-family: var(--font-body, Georgia, serif);
+  font-size: var(--text-xs);
+  line-height: 1.6;
+  resize: vertical;
+}
+
+.sd-input:focus,
+.sd-textarea:focus {
+  outline: none;
+  border-color: var(--gold);
+}
+
+.sd-quotes {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  max-height: 220px;
+  overflow-y: auto;
+}
+
+.sd-quote {
+  display: flex;
+  gap: var(--space-2);
+  padding: 3px var(--space-2);
+  border: 1px solid transparent;
+  border-radius: var(--radius-sm);
+  background: none;
+  text-align: left;
+  cursor: pointer;
+  font-size: var(--text-xxs);
+  line-height: 1.5;
+  color: var(--grey-light);
+}
+
+.sd-quote:hover {
+  background: var(--surface-2);
+}
+
+.sd-quote--on {
+  border-color: rgba(var(--gold-muted-rgb), 0.5);
+  background: var(--gold-tint);
+  color: #fff;
+}
+
+.sd-quote-who {
+  font-family: var(--font-display);
+  color: var(--gold);
+  flex-shrink: 0;
+}
+
+.sd-quote-text {
+  min-width: 0;
+}
+
+.sd-preview {
+  margin: 0;
+  padding: var(--space-3);
+  background: var(--surface-2);
+  border-left: 3px solid var(--gold);
+  border-radius: var(--radius-sm);
+  font-family: var(--font-body, Georgia, serif);
+  font-size: var(--text-xxs);
+  line-height: 1.7;
+  color: rgba(255, 255, 255, 0.82);
+  white-space: pre-wrap;
+  word-break: break-word;
+}
+
+.sd-budget-n--ready {
+  color: var(--green);
+}
+
+.sd-applied {
+  font-family: var(--font-mono);
+  font-size: var(--text-xxs);
+  color: var(--green);
+}

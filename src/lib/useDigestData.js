@@ -5,7 +5,6 @@ import {
   parseStatLine,
   splitQuotes,
   getSpotlightExtras,
-  buildStatBlurb,
   parsePowerRankings,
   parseUpsets,
   parseATSpotlight,
@@ -28,7 +27,7 @@ const cleanSummary = (text) =>
     .trim();
 
 /** Parse drama section from text into structured items */
-function parseDramaFromText(sections) {
+export function parseDramaFromText(sections) {
   const sec = sections.find((s) => s.key === "DRAMA");
   if (!sec) return [];
   // Split by semicolons first (preserving quotes), then extract quotes per item
@@ -42,13 +41,14 @@ function parseDramaFromText(sections) {
       const qm = q.match(/^(\w[\w\d!ǃ]*?):\s+(.+)$/);
       return qm ? { speaker: qm[1], text: qm[2] } : { speaker: null, text: q };
     };
+    // Every item can carry "Headline | body", not just the lead: the
+    // sub-stories read as briefs rather than loose paragraphs.
+    const pipeSplit = trimmed.split(/\s*\|\s*/);
+    if (pipeSplit.length > 1) {
+      item.headline = pipeSplit[0];
+      item.summary = pipeSplit.slice(1).join(" | ");
+    }
     if (idx === 0) {
-      // Lead item: split headline from body via pipe
-      const pipeSplit = trimmed.split(/\s*\|\s*/);
-      if (pipeSplit.length > 1) {
-        item.headline = pipeSplit[0];
-        item.summary = pipeSplit.slice(1).join(" | ");
-      }
       // Attach quotes: prefer DRAMA_QUOTES section, fall back to inline
       const quotesSec = sections.find((s) => s.key === "DRAMA_QUOTES");
       if (quotesSec) {
@@ -65,21 +65,81 @@ function parseDramaFromText(sections) {
 }
 
 /** Parse highlights from text into structured items */
-function parseHighlightsFromText(sections) {
+export function parseHighlightsFromText(sections) {
   const sec = sections.find((s) => s.key === "HIGHLIGHTS");
   if (!sec) return [];
   return sec.content.split(/;\s*/).filter(Boolean).map((raw) => {
     const trimmed = raw.trim();
     if (!trimmed) return null;
     const { summary, quotes: rawQuotes } = splitQuotes(trimmed);
+    const cleaned = cleanSummary(summary);
+    const pipeSplit = cleaned.split(/\s*\|\s*/);
     return {
-      summary: cleanSummary(summary),
+      headline: pipeSplit.length > 1 ? pipeSplit[0] : undefined,
+      summary: pipeSplit.length > 1 ? pipeSplit.slice(1).join(" | ") : cleaned,
       quotes: rawQuotes.map((q) => {
         const qm = q.match(/^(\w[\w\d!ǃ]*?):\s+(.+)$/);
         return qm ? { speaker: qm[1], text: qm[2] } : { speaker: null, text: q };
       }),
     };
   }).filter(Boolean);
+}
+
+/**
+ * WEEK_TREND: the daily game counts and the last few weeks' totals.
+ *   days=Mon:130,Tue:144,...|weeks=2026-09-07:1123/592,2026-09-14:1215/569
+ * The last week listed is this issue's own, so the chart can mark it.
+ */
+export function parseWeekTrendFromText(sections) {
+  const sec = sections.find((s) => s.key === "WEEK_TREND");
+  if (!sec) return null;
+  const parts = {};
+  for (const chunk of sec.content.split("|")) {
+    const [k, v] = chunk.split(/=(.+)/);
+    if (k && v) parts[k.trim()] = v.trim();
+  }
+  const days = (parts.days || "").split(",").map((e) => {
+    const [day, games] = e.split(":");
+    return day && games != null ? { day: day.trim(), games: parseInt(games, 10) || 0 } : null;
+  }).filter(Boolean);
+  const weeks = (parts.weeks || "").split(",").map((e) => {
+    const [weekStart, rest] = e.split(":");
+    const [games, players] = String(rest || "").split("/");
+    return weekStart && games ? {
+      weekStart: weekStart.trim(),
+      games: parseInt(games, 10) || 0,
+      players: parseInt(players, 10) || 0,
+    } : null;
+  }).filter(Boolean);
+  if (days.length === 0 && weeks.length === 0) return null;
+  return { days, weeks, blurb: sections.find((s) => s.key === "WEEK_TREND_BLURB")?.content || null };
+}
+
+/**
+ * MOST_TALKED_ABOUT: "Name#1234 25 messages, 16 people, 7 days" plus its
+ * own blurb and the lines other people said about them.
+ */
+export function parseMostTalkedAboutFromText(sections) {
+  const sec = sections.find((s) => s.key === "MOST_TALKED_ABOUT");
+  if (!sec) return null;
+  const m = sec.content.match(/^(\S+#\d+)\s+(\d+)\s+messages?,\s*(\d+)\s+(?:people|players?),\s*(\d+)\s+days?/i);
+  if (!m) return null;
+  const quotesSec = sections.find((s) => s.key === "MOST_TALKED_ABOUT_QUOTES");
+  const quotes = quotesSec
+    ? [...quotesSec.content.matchAll(/"([^"]+)"/g)].map((q) => {
+        const qm = q[1].match(/^(\w[\w\d!ǃ]*?):\s+(.+)$/);
+        return qm ? { speaker: qm[1], text: qm[2] } : { speaker: null, text: q[1] };
+      })
+    : [];
+  return {
+    battleTag: m[1],
+    name: m[1].split("#")[0],
+    messages: parseInt(m[2], 10),
+    people: parseInt(m[3], 10),
+    days: parseInt(m[4], 10),
+    blurb: sections.find((s) => s.key === "MOST_TALKED_ABOUT_BLURB")?.content || null,
+    quotes,
+  };
 }
 
 /** Parse bans from text into structured items */
@@ -324,6 +384,9 @@ export default function useDigestData({ weekly, isEditorial, draft }) {
         upsets: json.upsets || [],
         atSpotlight: json.atSpotlight || [],
         mentions: json.mentions || {},
+        // These two have no JSON shape yet, so they come from the text either way
+        weekTrend: parseWeekTrendFromText(sections),
+        mostTalkedAbout: parseMostTalkedAboutFromText(sections),
       };
     }
 
@@ -339,6 +402,8 @@ export default function useDigestData({ weekly, isEditorial, draft }) {
         upsets: [],
         atSpotlight: [],
         mentions: {},
+        weekTrend: null,
+        mostTalkedAbout: null,
       };
     }
 
@@ -371,6 +436,8 @@ export default function useDigestData({ weekly, isEditorial, draft }) {
         ? weekly.digestJson.atSpotlight
         : parseATSpotlightFromText(sections),
       mentions: parseMentionsFromText(sections),
+      weekTrend: parseWeekTrendFromText(sections),
+      mostTalkedAbout: parseMostTalkedAboutFromText(sections),
     };
   }, [hasJSON, weekly, sections]);
 
