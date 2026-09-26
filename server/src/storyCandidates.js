@@ -29,6 +29,21 @@ game games play played player players team teams map good bad nice well much mor
 back down up out off over about into only other same because after before while gl hf ez noob man bro guys dude
 think know see look watch say said tell need want make made take took give gave thing things time times`.split(/\s+/));
 
+// The room is not all English. These carry no topic either, and because a
+// language comes and goes with who is online, their share swings week to
+// week and fakes a spike. German first, it is the biggest by some way.
+const FOREIGN_STOP = new Set(`
+der die das den dem des ein eine einen einem eines und oder aber wenn weil dass doch noch auch schon mal nur
+ich du er sie es wir ihr mich dich sich uns euch mir dir ihm ihnen mein dein sein unser
+ist sind war waren bin bist hat habe haben hatte hatten wird werden wurde kann kannst konnte muss musst
+nicht kein keine nichts alle alles man wie was wer wo warum immer mehr sehr gut hier dort jetzt dann
+le la les un une des du de et ou mais si que qui quoi pas ne je tu il elle nous vous ils elles
+est sont etait sera avoir etre fait plus tout tous bien pour avec sur dans sans chez
+el los las una por para con como pero muy todo todos eso ese esta este nao voce mais nada
+sim entao porque quando onde tambem ainda agora depois sempre
+eto kak chto nu da net ty vse tak tebe menya moi tvoi etot ochen tolko uzhe eshe
+`.split(/\s+/).filter(Boolean));
+
 const iso = (d) => d.toISOString().slice(0, 10);
 const addDays = (day, n) => {
   const d = new Date(`${day}T12:00:00Z`);
@@ -40,7 +55,7 @@ const addDays = (day, n) => {
 function topicWords(text) {
   const out = new Set();
   for (const w of String(text).toLowerCase().match(WORD) || []) {
-    if (w.length <= 20 && !STOP.has(w)) out.add(w);
+    if (w.length <= 20 && !STOP.has(w) && !FOREIGN_STOP.has(w)) out.add(w);
   }
   return out;
 }

@@ -109,6 +109,22 @@ describe('story detectors', () => {
     expect(replays.why).toContain('the last 4 weeks');
   });
 
+  it('ignores non-English filler, which swings with who is online and fakes a spike', () => {
+    const week = [];
+    // A real topic: eight people talking about the same thing
+    for (let i = 0; i < 8; i++) week.push(msg(`w${i}`, `2026-09-1${4 + (i % 6)} 10:00:0${i}`, `P${i}`, 'forsaken paladin again'));
+    // German chat from seven people the same week: filler, not a story
+    for (let i = 0; i < 8; i++) week.push(msg(`g${i}`, `2026-09-1${4 + (i % 3)} 11:00:0${i}`, `G${i % 7}`, 'ich habe das noch nicht auch'));
+    const baseline = [];
+    for (let i = 0; i < 400; i++) baseline.push(msg(`b${i}`, '2026-08-20 10:00:00', `Q${i % 30}`, 'gg wp nice game'));
+
+    const terms = findThemes(week, baseline, { minMessages: 4, minSpeakers: 6 }).map((t) => t.term);
+    expect(terms).toContain('forsaken');
+    for (const filler of ['noch', 'nicht', 'auch', 'habe', 'das', 'ich']) {
+      expect(terms).not.toContain(filler);
+    }
+  });
+
   it('returns nothing rather than throwing on an empty week', () => {
     expect(findThreads([])).toEqual([]);
     expect(findThemes([], [])).toEqual([]);
