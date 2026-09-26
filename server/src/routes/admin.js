@@ -330,7 +330,19 @@ router.post('/story-draft', requireApiKey, aiLimiter, async (req, res) => {
     res.json(draft);
   } catch (err) {
     console.error('[Desk] Draft failed:', err.message);
-    res.status(500).json({ error: 'Draft failed' });
+    // Pass the real reason through. "Draft failed" sent me to the logs to
+    // find out the API key was simply out of credit.
+    const msg = String(err?.message || '');
+    if (/credit balance is too low/i.test(msg)) {
+      return res.status(402).json({ error: 'The relay\'s Anthropic key is out of credit. Top it up to draft stories.' });
+    }
+    if (err?.status === 401 || /authentication/i.test(msg)) {
+      return res.status(502).json({ error: 'The relay\'s Anthropic key was rejected.' });
+    }
+    if (err?.status === 429 || /rate limit/i.test(msg)) {
+      return res.status(429).json({ error: 'Rate limited by the model. Try again in a moment.' });
+    }
+    res.status(500).json({ error: `Draft failed: ${msg.slice(0, 140)}` });
   }
 });
 
