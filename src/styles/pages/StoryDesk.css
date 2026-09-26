@@ -475,3 +475,90 @@
   font-size: var(--text-xxs);
   color: var(--grey-light);
 }
+
+/* ── The issue being built, at full width ─────── */
+
+.sd-working {
+  margin-bottom: var(--space-12);
+}
+
+.sd-story {
+  margin-bottom: var(--space-6);
+  padding: var(--space-4) var(--space-6);
+  border: 1px solid var(--panel-border);
+  border-left: 4px solid var(--grey-mid);
+  border-radius: var(--radius-md);
+  background: var(--surface-1);
+}
+
+.sd-story--lead { border-left-color: var(--gold); }
+.sd-story--brief { border-left-color: var(--cyan); }
+.sd-story--highlight { border-left-color: var(--green); }
+
+.sd-story-head {
+  display: flex;
+  align-items: baseline;
+  gap: var(--space-3);
+  flex-wrap: wrap;
+  padding-bottom: var(--space-3);
+  border-bottom: 1px solid var(--panel-border);
+}
+
+.sd-story-slot {
+  font-family: var(--font-mono);
+  font-size: var(--text-xxs);
+  text-transform: uppercase;
+  letter-spacing: 0.1em;
+  color: var(--gold);
+}
+
+.sd-story-subject {
+  font-family: var(--font-display);
+  font-size: var(--text-base);
+  color: #fff;
+}
+
+.sd-story-why {
+  font-family: var(--font-mono);
+  font-size: var(--text-xxs);
+  color: var(--grey-light);
+}
+
+.sd-story-head button:last-child {
+  margin-left: auto;
+}
+
+/* Hunting for a quote needs room, so results run two across when there is
+   space, and the panel is no longer trapped in a half-width column. */
+.sd-quotes--wide {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(380px, 1fr));
+  gap: 2px;
+  max-height: 420px;
+}
+
+.sd-quote-at {
+  font-family: var(--font-mono);
+  font-size: var(--text-xxxs);
+  color: var(--grey-mid);
+  flex-shrink: 0;
+}
+
+.sd-placed {
+  margin: var(--space-2) 0 0;
+  font-family: var(--font-mono);
+  font-size: var(--text-xxxs);
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+  color: var(--gold);
+}
+
+.sd-linkish {
+  padding: 0;
+  border: 0;
+  background: none;
+  cursor: pointer;
+  font: inherit;
+  color: var(--gold);
+  text-decoration: underline;
+}

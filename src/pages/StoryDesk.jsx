@@ -54,6 +54,8 @@ function Compose({ candidate, slot, draft, onChange, adminKey, weekStart, weekEn
   const [wholeArchive, setWholeArchive] = useState(false);
   const [found, setFound] = useState(null);
   const [searching, setSearching] = useState(false);
+  const [total, setTotal] = useState(0);
+  const [offset, setOffset] = useState(0);
 
   /** Ask the relay to write a first pass. You edit it; you never keep it as is. */
   const writeDraft = async () => {
@@ -78,27 +80,39 @@ function Compose({ candidate, slot, draft, onChange, adminKey, weekStart, weekEn
     }
   };
 
-  /** Your own search, not my picks. The week by default, everything on ask. */
-  const search = async (e) => {
-    e?.preventDefault();
+  /**
+   * Your own search, not my picks. The week by default, everything on ask,
+   * and it pages, because the first fifty hits are rarely the good ones.
+   */
+  const PAGE = 50;
+  const runSearch = async (offset = 0) => {
     if (query.trim().length < 2) return;
     setSearching(true);
     try {
-      const sp = new URLSearchParams({ q: query.trim(), limit: "40", since: "all" });
+      const sp = new URLSearchParams({
+        q: query.trim(), limit: String(PAGE), offset: String(offset), since: "all",
+      });
       if (!wholeArchive) {
         sp.set("after", `${weekStart}T00:00:00`);
         sp.set("before", `${weekEnd}T23:59:59`);
       }
       const res = await fetch(`${RELAY_URL}/api/chat/search?${sp}`);
-      const data = res.ok ? await res.json() : { results: [] };
-      setFound((data.results || []).map((m) => ({
+      const data = res.ok ? await res.json() : { results: [], total: 0 };
+      const rows = (data.results || []).map((m) => ({
         at: m.received_at, name: m.user_name, tag: m.battle_tag, text: m.message,
-      })));
+      }));
+      setFound((prev) => (offset > 0 ? [...(prev || []), ...rows] : rows));
+      setTotal(data.total ?? rows.length);
+      setOffset(offset);
     } catch {
-      setFound([]);
+      if (offset === 0) setFound([]);
     } finally {
       setSearching(false);
     }
+  };
+  const search = (e) => {
+    e?.preventDefault();
+    runSearch(0);
   };
 
   const QuoteRow = ({ line, i }) => (
@@ -108,6 +122,7 @@ function Compose({ candidate, slot, draft, onChange, adminKey, weekStart, weekEn
       className={`sd-quote${hasQuote(d, line) ? " sd-quote--on" : ""}`}
       onClick={() => onChange(toggleQuote(d, line))}
     >
+      <span className="sd-quote-at">{String(line.at).slice(5, 16)}</span>
       <span className="sd-quote-who">{line.name}</span>
       <span className="sd-quote-text">{line.text}</span>
     </button>
@@ -170,23 +185,28 @@ function Compose({ candidate, slot, draft, onChange, adminKey, weekStart, weekEn
         </Button>
       </form>
 
-      {found !== null && (
+      {found !== null ? (
         <>
           <span className="sd-compose-label">
-            {found.length} found{wholeArchive ? " in the whole archive" : " this week"}
+            {total} found{wholeArchive ? " in the whole archive" : " this week"}
             {found.length > 0 && " · click to add"}
+            {" · "}
+            <button type="button" className="sd-linkish" onClick={() => setFound(null)}>back to this story</button>
           </span>
-          <div className="sd-quotes">
+          <div className="sd-quotes sd-quotes--wide">
             {found.filter((l) => !pickedKeys.has(lineKey(l))).map((l, i) => <QuoteRow key={`f${i}`} line={l} i={i} />)}
           </div>
+          {found.length < total && (
+            <Button $ghost onClick={() => runSearch(offset + PAGE)} disabled={searching}>
+              {searching ? "…" : `Show ${Math.min(PAGE, total - found.length)} more of ${total}`}
+            </Button>
+          )}
         </>
-      )}
-
-      {found === null && (
+      ) : (
         <>
-          <span className="sd-compose-label">From this story</span>
-          <div className="sd-quotes">
-            {(candidate.lines || []).filter((l) => !pickedKeys.has(lineKey(l))).slice(0, 30)
+          <span className="sd-compose-label">From this story ({(candidate.lines || []).length} lines)</span>
+          <div className="sd-quotes sd-quotes--wide">
+            {(candidate.lines || []).filter((l) => !pickedKeys.has(lineKey(l)))
               .map((l, i) => <QuoteRow key={`c${i}`} line={l} i={i} />)}
           </div>
         </>
@@ -203,7 +223,7 @@ function Compose({ candidate, slot, draft, onChange, adminKey, weekStart, weekEn
 }
 
 /** One candidate: its rank, why it ranked, and what to do with it. */
-function CandidateRow({ candidate, slot, onAssign, draft, onDraft, adminKey, weekStart, weekEnd }) {
+function CandidateRow({ candidate, slot, onAssign }) {
   const [open, setOpen] = useState(false);
   const quotes = useMemo(() => pickQuotes(candidate, 4), [candidate]);
   const title = candidate.kind === "theme"
@@ -235,17 +255,7 @@ function CandidateRow({ candidate, slot, onAssign, draft, onDraft, adminKey, wee
       {quotes.length > 0 && !open && !slot && (
         <p className="sd-peek">{quotes[0].name}: {quotes[0].text}</p>
       )}
-      {slot && (
-        <Compose
-          candidate={candidate}
-          slot={slot}
-          draft={draft}
-          onChange={(d) => onDraft(candidate.id, d)}
-          adminKey={adminKey}
-          weekStart={weekStart}
-          weekEnd={weekEnd}
-        />
-      )}
+      {slot && <p className="sd-placed">In the issue above · {SLOTS.find((x) => x.key === slot)?.label}</p>}
       {open && (
         <div className="sd-lines">
           {(candidate.lines || []).slice(0, 60).map((l, i) => (
@@ -367,6 +377,8 @@ export default function StoryDesk() {
   }
 
   const counts = SLOTS.map((s) => ({ ...s, n: inSlot(all, picks, s.key).length }));
+  // Promoted stories, in the order they will appear in the issue
+  const working = SLOTS.flatMap((slot) => inSlot(all, picks, slot.key));
 
   /** The strongest few, plus anything already picked, then the rest on ask. */
   const List = ({ items, expanded, onExpand }) => {
@@ -374,17 +386,7 @@ export default function StoryDesk() {
     return (
       <>
         {shown.map((c) => (
-          <CandidateRow
-            key={c.id}
-            candidate={c}
-            slot={picks[c.id]}
-            onAssign={onAssign}
-            draft={drafts[c.id]}
-            onDraft={onDraft}
-            adminKey={adminKey}
-            weekStart={weekStart}
-            weekEnd={data?.weekEnd || weekStart}
-          />
+          <CandidateRow key={c.id} candidate={c} slot={picks[c.id]} onAssign={onAssign} />
         ))}
         {!expanded && items.length > shown.length && (
           <Button $ghost className="sd-more" onClick={onExpand}>
@@ -435,6 +437,35 @@ export default function StoryDesk() {
               {applying ? "Writing…" : "Write to issue"}
             </Button>
           </div>
+
+          {working.length > 0 && (
+            <section className="sd-working" data-working>
+              <h2 className="sd-col-head">In the issue</h2>
+              {working.map((c) => (
+                <article key={c.id} className={`sd-story sd-story--${picks[c.id]}`} data-story={c.id}>
+                  <div className="sd-story-head">
+                    <span className="sd-story-slot">{SLOTS.find((x) => x.key === picks[c.id])?.label}</span>
+                    <span className="sd-story-subject">
+                      {c.kind === "theme" ? c.term : c.who.map((w) => w.name).join(" · ")}
+                    </span>
+                    <span className="sd-story-why">{c.why}</span>
+                    <Button $ghost onClick={() => onAssign(c.id, picks[c.id])} title="Take it out of the issue">
+                      Remove
+                    </Button>
+                  </div>
+                  <Compose
+                    candidate={c}
+                    slot={picks[c.id]}
+                    draft={drafts[c.id]}
+                    onChange={(d) => onDraft(c.id, d)}
+                    adminKey={adminKey}
+                    weekStart={weekStart}
+                    weekEnd={data?.weekEnd || weekStart}
+                  />
+                </article>
+              ))}
+            </section>
+          )}
 
           <div className="sd-cols">
             <section className="sd-col" data-list="themes">
