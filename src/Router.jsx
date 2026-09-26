@@ -39,6 +39,7 @@ const Clips = lazy(pageImports.clips);
 const Replay = lazy(() => import("./pages/Replay"));
 const ReplayLab = lazy(() => import("./pages/ReplayLab"));
 const BlurbLab = lazy(() => import("./pages/BlurbLab"));
+const StoryDesk = lazy(() => import("./pages/StoryDesk"));
 const Upload = lazy(() => import("./pages/Upload"));
 const ReplayViewer = lazy(() => import("./pages/ReplayViewer"));
 const ReplayAnalysis = lazy(() => import("./pages/ReplayAnalysis"));
@@ -160,6 +161,7 @@ const Router = () => (
                 <PrivateRoute path="/truesight" component={ReplayLab} />
                 <Redirect from="/replay-lab" to="/truesight" />
                 <PrivateRoute path="/blurb-lab" component={BlurbLab} />
+                <PrivateRoute path="/news-desk" component={StoryDesk} />
                 <Route path="/upload" component={Upload} />
                 <Route path="/replay/:id" component={ReplayAnalysis} />
                 <Route exact path="/replay" component={Replay} />

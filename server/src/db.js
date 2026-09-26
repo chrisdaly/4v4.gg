@@ -983,6 +983,15 @@ export function countMessagesByDateRange(startDate, endDate) {
   ).get(startDate + ' 00:00:00', endDate + ' 23:59:59')?.count || 0;
 }
 
+/** Every live message between two YYYY-MM-DD days, inclusive, oldest first. */
+export function getMessagesInRange(startDate, endDate) {
+  return db.prepare(`
+    SELECT id, battle_tag, user_name, message, received_at FROM messages
+    WHERE deleted = 0 AND received_at >= ? AND received_at <= ?
+    ORDER BY received_at ASC
+  `).all(startDate + ' 00:00:00', endDate + ' 23:59:59');
+}
+
 export function getMessagesByDate(date) {
   return db.prepare(`
     SELECT battle_tag, user_name, message FROM messages
