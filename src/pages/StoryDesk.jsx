@@ -5,7 +5,7 @@ import { PageHero, Button } from "../components/ui";
 import PeonLoader from "../components/PeonLoader";
 import useAdmin from "../lib/useAdmin";
 import {
-  SLOTS, loadPicks, savePicks, assign, inSlot, pickedTags, pickQuotes,
+  SLOTS, loadPicks, savePicks, assign, inSlot, pickedTags, pickQuotes, lineKey,
   loadDrafts, saveDrafts, startDraft, composeItem, toggleQuote, hasQuote, isReady,
   applyToDigest, composedSections,
 } from "../lib/news/storyDesk";
@@ -40,13 +40,85 @@ const shiftWeeks = (weekStart, n) => {
  * the old editorial mode had to go searching the chat for quotes, and the
  * desk knows the cast and the window a candidate came from.
  */
-function Compose({ candidate, draft, onChange }) {
+function Compose({ candidate, slot, draft, onChange, adminKey, weekStart, weekEnd }) {
   const d = draft || startDraft(candidate);
   const preview = composeItem(candidate, d);
   const set = (patch) => onChange({ ...d, ...patch });
 
+  const [drafting, setDrafting] = useState(false);
+  const [draftError, setDraftError] = useState(null);
+  const [query, setQuery] = useState("");
+  const [wholeArchive, setWholeArchive] = useState(false);
+  const [found, setFound] = useState(null);
+  const [searching, setSearching] = useState(false);
+
+  /** Ask the relay to write a first pass. You edit it; you never keep it as is. */
+  const writeDraft = async () => {
+    setDrafting(true);
+    setDraftError(null);
+    try {
+      const res = await fetch(`${RELAY_URL}/api/admin/story-draft`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json", "X-API-Key": adminKey },
+        body: JSON.stringify({ candidate, slot }),
+      });
+      if (!res.ok) throw new Error((await res.json().catch(() => ({}))).error || `Relay said ${res.status}`);
+      const { headline, body } = await res.json();
+      set({ headline: headline || d.headline, body: body || d.body });
+    } catch (e) {
+      setDraftError(e.message);
+    } finally {
+      setDrafting(false);
+    }
+  };
+
+  /** Your own search, not my picks. The week by default, everything on ask. */
+  const search = async (e) => {
+    e?.preventDefault();
+    if (query.trim().length < 2) return;
+    setSearching(true);
+    try {
+      const sp = new URLSearchParams({ q: query.trim(), limit: "40", since: "all" });
+      if (!wholeArchive) {
+        sp.set("after", `${weekStart}T00:00:00`);
+        sp.set("before", `${weekEnd}T23:59:59`);
+      }
+      const res = await fetch(`${RELAY_URL}/api/chat/search?${sp}`);
+      const data = res.ok ? await res.json() : { results: [] };
+      setFound((data.results || []).map((m) => ({
+        at: m.received_at, name: m.user_name, tag: m.battle_tag, text: m.message,
+      })));
+    } catch {
+      setFound([]);
+    } finally {
+      setSearching(false);
+    }
+  };
+
+  const QuoteRow = ({ line, i }) => (
+    <button
+      key={i}
+      type="button"
+      className={`sd-quote${hasQuote(d, line) ? " sd-quote--on" : ""}`}
+      onClick={() => onChange(toggleQuote(d, line))}
+    >
+      <span className="sd-quote-who">{line.name}</span>
+      <span className="sd-quote-text">{line.text}</span>
+    </button>
+  );
+
+  const picked = d.quotes || [];
+  const pickedKeys = new Set(picked.map(lineKey));
+
   return (
     <div className="sd-compose" data-compose={candidate.id}>
+      <div className="sd-compose-top">
+        <span className="sd-compose-label">The story</span>
+        <Button $pill onClick={writeDraft} disabled={drafting} title="Have a first pass written from these lines, then edit it">
+          {drafting ? "Writing…" : "Draft it for me"}
+        </Button>
+      </div>
+      {draftError && <span className="sd-compose-error">{draftError}</span>}
       <input
         className="sd-input"
         placeholder="Headline"
@@ -60,35 +132,64 @@ function Compose({ candidate, draft, onChange }) {
         value={d.body || ""}
         onChange={(e) => set({ body: e.target.value })}
       />
-      <span className="sd-compose-label">Quotes ({(d.quoteKeys || []).length} picked)</span>
-      <div className="sd-quotes">
-        {(candidate.lines || []).slice(0, 40).map((l, i) => {
-          const on = hasQuote(d, l);
-          return (
-            <button
-              key={i}
-              type="button"
-              className={`sd-quote${on ? " sd-quote--on" : ""}`}
-              onClick={() => onChange(toggleQuote(d, l))}
-            >
-              <span className="sd-quote-who">{l.name}</span>
-              <span className="sd-quote-text">{l.text}</span>
-            </button>
-          );
-        })}
-      </div>
-      {preview && (
+
+      <span className="sd-compose-label">Quotes ({picked.length} picked)</span>
+      {picked.length > 0 && (
+        <div className="sd-quotes sd-quotes--picked">
+          {picked.map((l, i) => <QuoteRow key={`p${i}`} line={l} i={i} />)}
+        </div>
+      )}
+
+      <form className="sd-search" onSubmit={search}>
+        <input
+          className="sd-input sd-input--search"
+          placeholder="Search the chat for any quote..."
+          value={query}
+          onChange={(e) => setQuery(e.target.value)}
+        />
+        <label className="sd-search-scope">
+          <input type="checkbox" checked={wholeArchive} onChange={(e) => setWholeArchive(e.target.checked)} />
+          All time
+        </label>
+        <Button $pill onClick={search} disabled={searching || query.trim().length < 2}>
+          {searching ? "…" : "Search"}
+        </Button>
+      </form>
+
+      {found !== null && (
         <>
-          <span className="sd-compose-label">As it will read in the issue</span>
-          <pre className="sd-preview">{preview}</pre>
+          <span className="sd-compose-label">
+            {found.length} found{wholeArchive ? " in the whole archive" : " this week"}
+            {found.length > 0 && " · click to add"}
+          </span>
+          <div className="sd-quotes">
+            {found.filter((l) => !pickedKeys.has(lineKey(l))).map((l, i) => <QuoteRow key={`f${i}`} line={l} i={i} />)}
+          </div>
         </>
+      )}
+
+      {found === null && (
+        <>
+          <span className="sd-compose-label">From this story</span>
+          <div className="sd-quotes">
+            {(candidate.lines || []).filter((l) => !pickedKeys.has(lineKey(l))).slice(0, 30)
+              .map((l, i) => <QuoteRow key={`c${i}`} line={l} i={i} />)}
+          </div>
+        </>
+      )}
+
+      <span className="sd-compose-label">As it will read in the issue</span>
+      {isReady(d) ? (
+        <pre className="sd-preview">{preview}</pre>
+      ) : (
+        <pre className="sd-preview sd-preview--empty">Write a headline and a body, or have one drafted.</pre>
       )}
     </div>
   );
 }
 
 /** One candidate: its rank, why it ranked, and what to do with it. */
-function CandidateRow({ candidate, slot, onAssign, draft, onDraft }) {
+function CandidateRow({ candidate, slot, onAssign, draft, onDraft, adminKey, weekStart, weekEnd }) {
   const [open, setOpen] = useState(false);
   const quotes = useMemo(() => pickQuotes(candidate, 4), [candidate]);
   const title = candidate.kind === "theme"
@@ -120,7 +221,17 @@ function CandidateRow({ candidate, slot, onAssign, draft, onDraft }) {
       {quotes.length > 0 && !open && !slot && (
         <p className="sd-peek">{quotes[0].name}: {quotes[0].text}</p>
       )}
-      {slot && <Compose candidate={candidate} draft={draft} onChange={(d) => onDraft(candidate.id, d)} />}
+      {slot && (
+        <Compose
+          candidate={candidate}
+          slot={slot}
+          draft={draft}
+          onChange={(d) => onDraft(candidate.id, d)}
+          adminKey={adminKey}
+          weekStart={weekStart}
+          weekEnd={weekEnd}
+        />
+      )}
       {open && (
         <div className="sd-lines">
           {(candidate.lines || []).slice(0, 60).map((l, i) => (
@@ -198,7 +309,7 @@ export default function StoryDesk() {
   }, [weekStart]);
 
   const sections = useMemo(() => composedSections(all, picks, drafts), [all, picks, drafts]);
-  const tags = useMemo(() => pickedTags(all, picks), [all, picks]);
+  const tags = useMemo(() => pickedTags(all, picks, drafts), [all, picks, drafts]);
   const readyCount = useMemo(
     () => all.filter((c) => picks[c.id] && isReady(drafts[c.id])).length,
     [all, picks, drafts]
@@ -249,7 +360,17 @@ export default function StoryDesk() {
     return (
       <>
         {shown.map((c) => (
-          <CandidateRow key={c.id} candidate={c} slot={picks[c.id]} onAssign={onAssign} draft={drafts[c.id]} onDraft={onDraft} />
+          <CandidateRow
+            key={c.id}
+            candidate={c}
+            slot={picks[c.id]}
+            onAssign={onAssign}
+            draft={drafts[c.id]}
+            onDraft={onDraft}
+            adminKey={adminKey}
+            weekStart={weekStart}
+            weekEnd={data?.weekEnd || weekStart}
+          />
         ))}
         {!expanded && items.length > shown.length && (
           <Button $ghost className="sd-more" onClick={onExpand}>

@@ -193,3 +193,70 @@ export function storyCandidates(weekStart, getMessagesInRange, { baselineWeeks =
     themes,
   };
 }
+
+/**
+ * Draft one chosen story.
+ *
+ * The detectors decide what is worth writing about and a person decides
+ * which of those to run, so by the time this is called the story is already
+ * picked. All the model does is turn a pile of chat lines into a headline
+ * and two or three sentences, which is the part that is genuinely tedious
+ * and the part a model is actually good at.
+ *
+ * It never chooses the story and it never invents a quote: quotes are
+ * picked from the lines by hand, in the desk.
+ */
+export async function draftStory({ candidate, slot, client, model = 'claude-haiku-4-5-20251001' }) {
+  const lines = (candidate.lines || []).slice(0, 80);
+  if (lines.length === 0) return null;
+
+  const isLead = slot === 'lead';
+  const subject = candidate.kind === 'theme'
+    ? `the word "${candidate.term}", which ran ${candidate.score}x its usual rate`
+    : `an argument between ${(candidate.who || []).map((w) => w.name).join(' and ')}`;
+
+  const system = `You write a weekly news digest for a Warcraft III 4v4 ladder.
+Voice: a reporter who plays. Plain, specific, dry. Never breathless, never a press release.
+
+Hard rules:
+- ASCII only. No em-dashes. Use a plain hyphen or a colon.
+- Never open with a teaser ("here's the thing", "what's interesting is", "and here's why"). State the point, then the reasoning.
+- Use the exact player names as they appear in the log. Never invent a name, a number or an event.
+- Say only what the log shows. If the log does not say why something happened, do not guess.
+- Do not include quotes in your output. They are attached separately.`;
+
+  const prompt = `${lines.length} chat lines, picked because of ${subject}.
+${candidate.why}
+
+Write this as ${isLead ? "the issue's top story" : 'a short item'}.
+
+Return JSON only:
+{"headline": "...", "body": "..."}
+
+headline: ${isLead ? '4 to 9 words' : '3 to 7 words'}, title case, no final full stop. It names what happened, not how it felt.
+body: ${isLead ? '3 to 4 sentences' : '1 to 2 sentences'}. What happened, who, and what it led to.
+
+Lines:
+${lines.map((l) => `[${l.at.slice(5, 16)}] ${l.name}: ${l.text}`).join('\n')}`;
+
+  const msg = await client.messages.create({
+    model,
+    max_tokens: 400,
+    system,
+    messages: [{ role: 'user', content: prompt }],
+  });
+
+  const text = msg.content[0]?.text?.trim();
+  if (!text) return null;
+  const json = text.match(/\{[\s\S]*\}/);
+  if (!json) return null;
+  try {
+    const parsed = JSON.parse(json[0]);
+    const clean = (v) => String(v || '').replace(/[—–]/g, '-').trim();
+    const headline = clean(parsed.headline).replace(/\.$/, '');
+    const body = clean(parsed.body);
+    return headline || body ? { headline, body } : null;
+  } catch {
+    return null;
+  }
+}

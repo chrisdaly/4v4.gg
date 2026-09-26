@@ -3,7 +3,8 @@ import rateLimit from 'express-rate-limit';
 import multer from 'multer';
 import config from '../config.js';
 import { setToken, getStats, getTopWords, getRecentDigests, deleteDigest, getDigest, getRecentWeeklyDigests, deleteWeeklyDigest, getWeeklyDigest, getWeeklyCoverImage, setWeeklyCoverImage, updateWeeklyCoverPosition, getDraftForDate, updateDigestOnly, updateDraftOnly, updateHiddenAvatars, getContextAroundQuotes, getMessagesByTimeWindow, getMessagesInRange, getMessagesByDateAndUsers, getMessageBuckets, getGameStats, getMatchContext, getClipsByDateRange, saveCoverGeneration, getCoverGenerations, getAllCoverGenerations, getCoverGenerationImage, deleteCoverGeneration, getWeeklyDraftForWeek, updateWeeklyDraftOnly, updateWeeklyDigestOnly, createGenJob, getActiveGenJob, getLatestGenJob, getVariantsForJob, searchMessages, countSearchMessages, searchMessagesByPlayer, countMessagesByPlayer, getMessagesAroundTime, countMessagesByDateRange, updateWeeklyDigestJson, updateWeeklyClips, updateWeeklyStats, getDigestsByDateRange, saveStyleThumbnail, getStyleThumbnail, toggleWeeklyPublished, hasDailyPlayerStats, setDigestWithDraft, setWeeklyDigest } from '../db.js';
-import { storyCandidates } from '../storyCandidates.js';
+import Anthropic from '@anthropic-ai/sdk';
+import { storyCandidates, draftStory } from '../storyCandidates.js';
 import { updateToken, getStatus } from '../signalr.js';
 import { getClientCount } from '../sse.js';
 import { setBotEnabled, isBotEnabled, testCommand } from '../bot.js';
@@ -307,6 +308,29 @@ router.get('/story-candidates/:weekStart', requireApiKey, contextLimiter, (req, 
   } catch (err) {
     console.error('[Desk] Story candidates failed:', err.message);
     res.status(500).json({ error: 'Failed to build story candidates' });
+  }
+});
+
+/**
+ * Draft one chosen story. The desk sends a candidate it already picked and
+ * gets back a headline and a body to edit. Quotes are not the model's job.
+ */
+router.post('/story-draft', requireApiKey, aiLimiter, async (req, res) => {
+  const { candidate, slot } = req.body || {};
+  if (!candidate || !Array.isArray(candidate.lines) || candidate.lines.length === 0) {
+    return res.status(400).json({ error: 'candidate with lines is required' });
+  }
+  if (!config.ANTHROPIC_API_KEY) {
+    return res.status(503).json({ error: 'No model configured on the relay' });
+  }
+  try {
+    const client = new Anthropic({ apiKey: config.ANTHROPIC_API_KEY });
+    const draft = await draftStory({ candidate, slot, client });
+    if (!draft) return res.status(502).json({ error: 'The model returned nothing usable' });
+    res.json(draft);
+  } catch (err) {
+    console.error('[Desk] Draft failed:', err.message);
+    res.status(500).json({ error: 'Draft failed' });
   }
 });
 

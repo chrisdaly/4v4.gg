@@ -79,8 +79,11 @@ export function pickQuotes(candidate, max = 4) {
   const lines = candidate.lines || [];
   const laugh = /(lol|lmao|haha|hehe|xd+|\)\)\)|kekw|😂|🤣|rofl)/i;
   const scored = lines.map((l, i) => {
+    // A wall of text is not a pull-quote no matter who laughed at it
+    if (l.text.length < 12 || l.text.length > 160) return { line: l, score: 0 };
+    if (/https?:\/\//.test(l.text)) return { line: l, score: 0 };
     const reacted = lines.slice(i + 1, i + 5).some((n) => n.name !== l.name && laugh.test(n.text));
-    const meaty = l.text.length >= 15 && l.text.length <= 140;
+    const meaty = l.text.length >= 20 && l.text.length <= 120;
     return { line: l, score: (reacted ? 2 : 0) + (meaty ? 1 : 0) };
   });
   return scored
@@ -118,38 +121,41 @@ export function saveDrafts(weekStart, drafts) {
  * and body are yours to write.
  */
 export function startDraft(candidate) {
-  const chosen = pickQuotes(candidate, 4);
-  return {
-    headline: "",
-    body: "",
-    quoteKeys: chosen.map((l) => `${l.at}|${l.name}`),
-  };
+  return { headline: "", body: "", quotes: pickQuotes(candidate, 3) };
 }
 
-const lineKey = (l) => `${l.at}|${l.name}`;
+export const lineKey = (l) => `${l.at}|${l.name}`;
 
 /** One story as its digest item: "Headline | body "quote" "quote"". */
 export function composeItem(candidate, draft) {
   const d = draft || startDraft(candidate);
-  const keys = new Set(d.quoteKeys || []);
-  const quotes = (candidate.lines || []).filter((l) => keys.has(lineKey(l))).map(quoteStr);
+  const quotes = (d.quotes || []).map(quoteStr);
   const head = (d.headline || "").trim();
   const body = (d.body || "").trim();
   const text = [head, body].filter(Boolean).join(" | ");
   return [text, quotes.join(" ")].filter(Boolean).join(" ").trim();
 }
 
-/** Toggle one line in or out of a story's quotes. */
+/**
+ * Toggle a line in or out of a story's quotes. The whole line is stored, not
+ * a reference into the candidate, so a quote found by searching the archive
+ * sits alongside one the detector surfaced.
+ */
 export function toggleQuote(draft, line) {
   const k = lineKey(line);
-  const keys = new Set(draft?.quoteKeys || []);
-  if (keys.has(k)) keys.delete(k);
-  else keys.add(k);
-  return { ...draft, quoteKeys: [...keys] };
+  const quotes = draft?.quotes || [];
+  const found = quotes.some((q) => lineKey(q) === k);
+  return {
+    ...draft,
+    quotes: found
+      ? quotes.filter((q) => lineKey(q) !== k)
+      : [...quotes, { at: line.at, name: line.name, tag: line.tag, text: line.text }],
+  };
 }
 
 export function hasQuote(draft, line) {
-  return (draft?.quoteKeys || []).includes(lineKey(line));
+  const k = lineKey(line);
+  return (draft?.quotes || []).some((q) => lineKey(q) === k);
 }
 
 /** True once a story has enough to be worth writing into the issue. */
@@ -225,11 +231,12 @@ export function toSections(candidates, picks) {
 }
 
 /** Every battleTag a set of picks touches, for the MENTIONS line. */
-export function pickedTags(candidates, picks) {
+export function pickedTags(candidates, picks, drafts = {}) {
   const tags = new Set();
   for (const c of candidates) {
     if (!picks[c.id]) continue;
     for (const l of c.lines || []) if (l.tag?.includes("#")) tags.add(l.tag);
+    for (const q of drafts[c.id]?.quotes || []) if (q.tag?.includes("#")) tags.add(q.tag);
   }
   return [...tags].sort();
 }

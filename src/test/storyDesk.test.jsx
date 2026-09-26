@@ -47,19 +47,25 @@ describe('story desk picks', () => {
     expect(loadPicks('2026-09-14')).toEqual({});
   });
 
-  it('prefers lines the room reacted to when pulling quotes', () => {
+  it('prefers lines the room reacted to, and never a wall of text or a link', () => {
+    const wall = 'If you are just playing 4v4 for fun, just go Orc or Undead. Sure, Human is broken as hell, so it is easy to just expand and pump up your MMR with sheer economy, which is why the ladder looks like it does.';
     const c = {
       lines: [
         { name: 'OP3N', text: 'If replays are unavailable, how is the mods watching them?' },
         { name: 'UFO', text: 'lol' },
         { name: 'x', text: 'k' },
+        { name: 'zairongliu', text: wall },
+        { name: 'BsK', text: 'New patch Stream: https://www.twitch.tv/aaabsk' },
         { name: 'y', text: 'this one is long enough to count but nobody laughed at it' },
       ],
     };
     const quotes = pickQuotes(c);
     expect(quotes[0].name).toBe('OP3N');
-    // "k" is too short to be worth quoting
-    expect(quotes.map((q) => q.text)).not.toContain('k');
+    const texts = quotes.map((q) => q.text);
+    expect(texts).not.toContain('k');
+    // A paste that happened to get a laugh is still not a pull-quote
+    expect(texts).not.toContain(wall);
+    expect(texts.some((t) => t.includes('twitch.tv'))).toBe(false);
   });
 
   it('composes a picked story into its digest item, quotes and all', () => {
@@ -73,7 +79,7 @@ describe('story desk picks', () => {
     };
     let draft = startDraft(c);
     // The good lines start selected, the two-letter one does not
-    expect(draft.quoteKeys).toHaveLength(2);
+    expect(draft.quotes).toHaveLength(2);
     expect(hasQuote(draft, c.lines[0])).toBe(true);
     expect(hasQuote(draft, c.lines[2])).toBe(false);
 
@@ -95,6 +101,12 @@ describe('story desk picks', () => {
     // Nothing is written until a story has both a headline and a body
     expect(composedSections([c], { 'm:replays': 'lead' }, {})).toEqual({});
     expect(pickedTags([c], { 'm:replays': 'lead' })).toEqual(['FrostMan#11411', 'OP3N#11598', 'UFO#11214']);
+
+    // A quote found by searching the archive carries its own text and tag
+    const outside = { at: '2026-09-18 02:21', name: 'NotEra', tag: 'NotEra#1199', text: 'what other choice to i have but to go bnet' };
+    const widened = toggleQuote(draft, outside);
+    expect(composeItem(c, widened)).toContain('"NotEra: what other choice to i have but to go bnet"');
+    expect(pickedTags([c], { 'm:replays': 'lead' }, { 'm:replays': widened })).toContain('NotEra#1199');
     expect(inSlot([c], { 'm:replays': 'lead' }, 'lead')).toHaveLength(1);
   });
 

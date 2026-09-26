@@ -410,3 +410,62 @@
   font-size: var(--text-xxs);
   color: var(--green);
 }
+
+/* ── Drafting and searching inside a story ─────── */
+
+.sd-compose-top {
+  display: flex;
+  align-items: center;
+  gap: var(--space-3);
+}
+
+.sd-compose-top .sd-compose-label {
+  margin-right: auto;
+}
+
+.sd-compose-error {
+  font-family: var(--font-mono);
+  font-size: var(--text-xxs);
+  color: var(--red);
+}
+
+.sd-search {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+  margin-top: var(--space-2);
+  padding-top: var(--space-3);
+  border-top: 1px dashed var(--panel-border);
+}
+
+.sd-input--search {
+  flex: 1;
+  font-family: var(--font-mono);
+  font-size: var(--text-xxs);
+}
+
+.sd-search-scope {
+  display: flex;
+  align-items: center;
+  gap: var(--space-1);
+  font-family: var(--font-mono);
+  font-size: var(--text-xxxs);
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+  color: var(--grey-light);
+  white-space: nowrap;
+  cursor: pointer;
+}
+
+/* Picked quotes sit above the pool, so the story reads in order */
+.sd-quotes--picked {
+  max-height: none;
+  padding-bottom: var(--space-2);
+  border-bottom: 1px dashed var(--panel-border);
+}
+
+.sd-preview--empty {
+  border-left-color: var(--grey-mid);
+  color: var(--grey-light);
+  font-style: italic;
+}
