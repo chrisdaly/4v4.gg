@@ -469,3 +469,9 @@
   color: var(--grey-light);
   font-style: italic;
 }
+
+.sd-compose-note {
+  font-family: var(--font-mono);
+  font-size: var(--text-xxs);
+  color: var(--grey-light);
+}

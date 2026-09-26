@@ -47,6 +47,9 @@ function Compose({ candidate, slot, draft, onChange, adminKey, weekStart, weekEn
 
   const [drafting, setDrafting] = useState(false);
   const [draftError, setDraftError] = useState(null);
+  // 402 or 503 means the relay has no usable model, which no amount of
+  // clicking fixes. Stop offering the button and say where to draft instead.
+  const [noModel, setNoModel] = useState(false);
   const [query, setQuery] = useState("");
   const [wholeArchive, setWholeArchive] = useState(false);
   const [found, setFound] = useState(null);
@@ -62,7 +65,10 @@ function Compose({ candidate, slot, draft, onChange, adminKey, weekStart, weekEn
         headers: { "Content-Type": "application/json", "X-API-Key": adminKey },
         body: JSON.stringify({ candidate, slot }),
       });
-      if (!res.ok) throw new Error((await res.json().catch(() => ({}))).error || `Relay said ${res.status}`);
+      if (!res.ok) {
+        if (res.status === 402 || res.status === 503) setNoModel(true);
+        throw new Error((await res.json().catch(() => ({}))).error || `Relay said ${res.status}`);
+      }
       const { headline, body } = await res.json();
       set({ headline: headline || d.headline, body: body || d.body });
     } catch (e) {
@@ -114,11 +120,19 @@ function Compose({ candidate, slot, draft, onChange, adminKey, weekStart, weekEn
     <div className="sd-compose" data-compose={candidate.id}>
       <div className="sd-compose-top">
         <span className="sd-compose-label">The story</span>
-        <Button $pill onClick={writeDraft} disabled={drafting} title="Have a first pass written from these lines, then edit it">
-          {drafting ? "Writing…" : "Draft it for me"}
-        </Button>
+        {!noModel && (
+          <Button $pill onClick={writeDraft} disabled={drafting} title="Have a first pass written from these lines, then edit it">
+            {drafting ? "Writing…" : "Draft it for me"}
+          </Button>
+        )}
       </div>
-      {draftError && <span className="sd-compose-error">{draftError}</span>}
+      {noModel ? (
+        <span className="sd-compose-note">
+          No model on the relay. Draft this one in Claude Code and paste it in.
+        </span>
+      ) : draftError ? (
+        <span className="sd-compose-error">{draftError}</span>
+      ) : null}
       <input
         className="sd-input"
         placeholder="Headline"
