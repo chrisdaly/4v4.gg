@@ -232,3 +232,31 @@ describe('subjects and people', () => {
     expect(by.dharma).toBe('player');
   });
 });
+
+describe('reading the computed numbers back', () => {
+  it('turns a stat line, a spectrum and a rankings line into something drawable', async () => {
+    const { readStatLine, readSpectrum, readRankings } = await import('../lib/news/storyDesk');
+
+    expect(readStatLine('CNYerou#3494[HU] +239 MMR (17W-6L) WLWWL')).toEqual({
+      battleTag: 'CNYerou#3494', name: 'CNYerou', race: 'HU',
+      headline: '+239 MMR', wins: 17, losses: 6, form: 'WLWWL',
+    });
+    // Hero slayer carries no race tag and no form string
+    expect(readStatLine('Solana#21903 280 hero kills (90W-72L)')).toMatchObject({
+      name: 'Solana', race: null, headline: '280 hero kills', form: '',
+    });
+    expect(readStatLine('not a stat line')).toBeNull();
+
+    expect(readSpectrum('W:3=105,4=88|L:3=95')).toEqual({
+      win: [{ len: 3, count: 105 }, { len: 4, count: 88 }],
+      loss: [{ len: 3, count: 95 }],
+    });
+    expect(readSpectrum('')).toBeNull();
+
+    const ranks = readRankings('1. CNYerou#3494 +239 MMR (17W-6L); 2. Sal#12254 -109 MMR (10W-20L)');
+    expect(ranks).toHaveLength(2);
+    expect(ranks[0]).toMatchObject({ name: 'CNYerou', mmrChange: 239 });
+    expect(ranks[1]).toMatchObject({ name: 'Sal', mmrChange: -109 });
+    expect(readRankings('')).toEqual([]);
+  });
+});

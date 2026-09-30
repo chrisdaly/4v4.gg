@@ -28,19 +28,8 @@ import useDigestData from "../../lib/useDigestData";
 import useDragReorder from "../../lib/useDragReorder";
 import useWeekDailies from "../../lib/news/useWeekDailies";
 import { quoteOfTheDay } from "../../lib/home/quoteOfTheDay";
-import {
-  spotlightVerdict,
-  streakDistributionVerdict,
-  newBloodPasses,
-  stackPasses,
-  issueNumber,
-  issueDateRange,
-  neighbourIssues,
-  dayByDay,
-  keyNumbers,
-  SECTION_RULES,
-} from "../../lib/news/issueRules";
-import { LedeSection, KeyNumbers, QuoteOfWeek, DayByDay, IssueNav, LeftOut } from "./IssueParts";
+import { spotlightVerdict, streakDistributionVerdict, newBloodPasses, stackPasses, issueNumber, issueDateRange, neighbourIssues, dayByDay, SECTION_RULES } from "../../lib/news/issueRules";
+import { LedeSection, QuoteOfWeek, DayByDay, IssueNav, LeftOut } from "./IssueParts";
 import "../../styles/pages/Magazine.css";
 
 const RELAY_URL =
@@ -1562,7 +1551,7 @@ const StreakTimeline = ({ dailyData, type }) => {
 };
 
 /* ── Hero Kills Distribution: bar chart of hero kills/game across all players ── */
-const HeroKillsChart = ({ killsDistribution, highlightBucket }) => {
+export const HeroKillsChart = ({ killsDistribution, highlightBucket }) => {
   if (!killsDistribution) return null;
   const { all } = killsDistribution;
   if (!all || Object.keys(all).length === 0) return null;
@@ -1624,7 +1613,7 @@ function spectrumCaption(win, loss) {
   ].filter(Boolean).join(" ");
 }
 
-const StreakSpectrum = ({ spectrumData, hotName, coldName }) => {
+export const StreakSpectrum = ({ spectrumData, hotName, coldName }) => {
   if (!spectrumData) return null;
   const { win, loss } = spectrumData;
   if (win.length === 0 && loss.length === 0) return null;
@@ -2707,7 +2696,6 @@ const WeeklyMagazine = ({ weekParam, isAdmin = false, apiKey = "" }) => {
     return { allowedSpotlights: allowed, showSpectrum: sv.pass, newBlood: nb, stacks: st, leftOut: skipped };
   }, [digestData]);
 
-  const numbers = useMemo(() => keyNumbers({ weekly, digestData }), [weekly, digestData]);
 
   // Fetch profiles for all known battleTags
   useEffect(() => {
@@ -2907,8 +2895,6 @@ const WeeklyMagazine = ({ weekParam, isAdmin = false, apiKey = "" }) => {
           editorial={editorialProps}
         />
       )}
-
-      <KeyNumbers numbers={numbers} />
 
       <QuoteOfWeek
         quote={weekQuote}

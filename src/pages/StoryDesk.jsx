@@ -4,8 +4,12 @@ import { PageLayout } from "../components/PageLayout";
 import { PageHero, Button } from "../components/ui";
 import PeonLoader from "../components/PeonLoader";
 import useAdmin from "../lib/useAdmin";
+import FormDots from "../components/FormDots";
+import { StreakSpectrum } from "../components/news/WeeklyMagazine";
+import { WeekTrend } from "../components/news/WeekPulse";
 import {
   SLOTS, loadPicks, savePicks, assign, inSlot, pickedTags, pickQuotes, lineKey,
+  readStatLine, readSpectrum, readRankings, SPOTLIGHT_ORDER,
   loadDrafts, saveDrafts, startDraft, composeItem, toggleQuote, hasQuote, isReady,
   applyToDigest, composedSections,
 } from "../lib/news/storyDesk";
@@ -278,6 +282,90 @@ function CandidateRow({ candidate, slot, onAssign }) {
 }
 
 /**
+ * The week's numbers as they will appear, not as the text that encodes them.
+ * A line like "WINNER: Name#1[HU] +239 MMR (17W-6L) WLWW" is unreadable and
+ * the totals underneath it were never interesting, so both are gone.
+ */
+function NumbersPreview({ sections, weekStart }) {
+  const cards = SPOTLIGHT_ORDER
+    .map((c) => ({ ...c, stat: readStatLine(sections[c.key]) }))
+    .filter((c) => c.stat);
+  const spectrum = readSpectrum(sections.STREAK_SPECTRUM);
+  const rankings = readRankings(sections.POWER_RANKINGS);
+  const trend = sections.WEEK_TREND;
+  const heroes = (sections.HEROSLAYER_HEROES || "").split(",").filter(Boolean);
+  const maxRise = Math.max(...rankings.map((r) => Math.abs(r.mmrChange)), 1);
+
+  return (
+    <div className="sd-numbers" data-numbers>
+      {cards.length > 0 && (
+        <div className="sd-cards">
+          {cards.map(({ key, label, accent, stat }) => (
+            <div key={key} className={`sd-card sd-card--${accent}`} data-number-card={key}>
+              <span className="sd-card-role">{label}</span>
+              <span className="sd-card-name">{stat.name}</span>
+              <span className="sd-card-stat">{stat.headline}</span>
+              <span className="sd-card-record">{stat.wins}W-{stat.losses}L</span>
+              {key === "HEROSLAYER" && heroes.length > 0 ? (
+                <div className="sd-card-heroes">
+                  {heroes.map((h) => <img key={h} src={`/heroes/${h}.jpeg`} alt={h} className="sd-card-hero" />)}
+                </div>
+              ) : stat.form ? (
+                <FormDots form={stat.form.split("").map((c) => c === "W")} size="small" maxDots={24} showSummary={false} />
+              ) : null}
+            </div>
+          ))}
+        </div>
+      )}
+
+      {rankings.length > 0 && (
+        <div className="sd-ranks">
+          <span className="sd-compose-label">Power rankings</span>
+          {rankings.map((r) => (
+            <div key={r.battleTag} className="sd-rank" data-rank={r.battleTag}>
+              <span className="sd-rank-name">{r.name}</span>
+              <span className="sd-rank-bar-wrap">
+                <span
+                  className={`sd-rank-bar${r.mmrChange < 0 ? " sd-rank-bar--down" : ""}`}
+                  style={{ "--pct": `${Math.round((Math.abs(r.mmrChange) / maxRise) * 100)}%` }}
+                />
+              </span>
+              <span className={`sd-rank-mmr ${r.mmrChange < 0 ? "mg-text-red" : "mg-text-green"}`}>
+                {r.mmrChange > 0 ? "+" : ""}{r.mmrChange}
+              </span>
+            </div>
+          ))}
+        </div>
+      )}
+
+      {spectrum && (
+        <div className="sd-spectrum">
+          <span className="sd-compose-label">Streaks across the ladder</span>
+          <StreakSpectrum spectrumData={spectrum} />
+        </div>
+      )}
+
+      {trend && <WeekTrend trend={parseTrend(trend)} weekStart={weekStart} />}
+    </div>
+  );
+}
+
+/** "days=Mon:203,...|weeks=2026-08-24:1502/666,..." as WeekTrend wants it. */
+function parseTrend(line) {
+  const parts = {};
+  for (const chunk of String(line).split("|")) {
+    const [k, v] = chunk.split(/=(.+)/);
+    if (k && v) parts[k] = v;
+  }
+  const weeks = (parts.weeks || "").split(",").map((e) => {
+    const [weekStart, rest] = e.split(":");
+    const [games, players] = String(rest || "").split("/");
+    return weekStart && games ? { weekStart, games: Number(games), players: Number(players) } : null;
+  }).filter(Boolean);
+  return weeks.length ? { weeks, blurb: null } : null;
+}
+
+/**
  * The story desk: where the week's editorial decisions get made. Two ranked
  * lists of candidates with the numbers behind each rank, a slot to promote
  * them into, and the digest sections those picks become.
@@ -539,21 +627,7 @@ export default function StoryDesk() {
               )}
             </div>
             {statsState && statsState !== "loading" && <p className="sd-compose-error">{statsState}</p>}
-            {stats && (
-              <>
-                <div className="sd-stats-totals">
-                  {Object.entries(stats.stats || {}).map(([k, v]) => (
-                    <span key={k} className="sd-stats-total">
-                      <span className="sd-stats-n">{typeof v === "number" ? v.toLocaleString("en-US") : v}</span>
-                      <span className="sd-budget-label">{k.replace(/([A-Z])/g, " $1").trim()}</span>
-                    </span>
-                  ))}
-                </div>
-                <pre className="sd-pre">
-                  {Object.entries(stats.sections).map(([k, v]) => `${k}: ${v}`).join("\n\n")}
-                </pre>
-              </>
-            )}
+            {stats && <NumbersPreview sections={stats.sections} weekStart={weekStart} />}
           </section>
 
           {working.length > 0 && (

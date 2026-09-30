@@ -240,3 +240,54 @@ export function pickedTags(candidates, picks, drafts = {}) {
   }
   return [...tags].sort();
 }
+
+
+/* ── Reading the computed sections back as something drawable ───── */
+
+/** "Name#123[HU] +239 MMR (17W-6L) WLWW" -> the parts a card needs. */
+export function readStatLine(line) {
+  const m = String(line || "").match(/^(\S+?#\d+)(?:\[(\w+)\])?\s+(.+?)\s+\((\d+)W-(\d+)L\)\s*([WL]*)$/);
+  if (!m) return null;
+  return {
+    battleTag: m[1],
+    name: m[1].split("#")[0],
+    race: m[2] || null,
+    headline: m[3],
+    wins: Number(m[4]),
+    losses: Number(m[5]),
+    form: m[6] || "",
+  };
+}
+
+/** "W:3=105,4=88|L:3=95" -> { win: [{len,count}], loss: [...] }. */
+export function readSpectrum(line) {
+  const parse = (part) => (part || "").split(",").map((e) => {
+    const [len, count] = e.split("=");
+    return len && count ? { len: Number(len), count: Number(count) } : null;
+  }).filter(Boolean);
+  const [w, l] = String(line || "").split("|");
+  const win = parse((w || "").replace(/^W:/, ""));
+  const loss = parse((l || "").replace(/^L:/, ""));
+  return win.length || loss.length ? { win, loss } : null;
+}
+
+/** "1. Name#1 +239 MMR (17W-6L); 2. ..." -> rows. */
+export function readRankings(line) {
+  return String(line || "").split(/;\s*/).map((entry) => {
+    const m = entry.match(/^\d+\.\s*(\S+?#\d+)\s*([+-]?\d+)\s*MMR\s*\((\d+)W-(\d+)L\)/);
+    return m ? {
+      battleTag: m[1], name: m[1].split("#")[0],
+      mmrChange: Number(m[2]), wins: Number(m[3]), losses: Number(m[4]),
+    } : null;
+  }).filter(Boolean);
+}
+
+/** The five spotlight cards, in the order they read in the issue. */
+export const SPOTLIGHT_ORDER = [
+  { key: "WINNER", label: "Winner", accent: "green" },
+  { key: "LOSER", label: "Loser", accent: "red" },
+  { key: "GRINDER", label: "Grinder", accent: "gold" },
+  { key: "HOTSTREAK", label: "Hot streak", accent: "green" },
+  { key: "COLDSTREAK", label: "Cold streak", accent: "red" },
+  { key: "HEROSLAYER", label: "Hero slayer", accent: "white" },
+];
