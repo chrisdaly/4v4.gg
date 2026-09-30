@@ -25,7 +25,7 @@ import { getMatchPlayerScoresRange, getDailyMatchesRange, getMessagesInRange } f
 
 /** Rankings and spotlights need enough games to mean anything. */
 export const RULES = {
-  spotlightGames: 10,   // a week's net MMR on fewer is noise
+  spotlightGames: 20,   // a week's net MMR on fewer is noise, same floor as the rankings
   rankingGames: 20,     // power rankings: +89 on ten games is not a rise
   streakFloor: 3,       // the spectrum only plots runs this long
   newBloodGames: 20,
@@ -60,7 +60,7 @@ function playersFrom(weeklyPlayerMap) {
 }
 
 /** Most hero kills, from the match details stored nightly. */
-export function heroSlayerFrom(weekStart, weekEnd, weeklyPlayerMap) {
+export function heroSlayerFrom(weekStart, weekEnd, weeklyPlayerMap, exclude = new Set()) {
   const rows = getMatchPlayerScoresRange(weekStart, weekEnd);
   if (rows.length === 0) return null;
 
@@ -78,7 +78,8 @@ export function heroSlayerFrom(weekStart, weekEnd, weeklyPlayerMap) {
     all.set(k, (all.get(k) || 0) + 1);
   }
 
-  const eligible = [...kills.entries()].filter(([tag]) => (games.get(tag) || 0) >= RULES.heroSlayerGames);
+  const eligible = [...kills.entries()]
+    .filter(([tag]) => (games.get(tag) || 0) >= RULES.heroSlayerGames && !exclude.has(tag));
   if (eligible.length === 0) return null;
   const [tag, total] = eligible.sort((a, b) => b[1] - a[1])[0];
 
@@ -157,13 +158,16 @@ export function weekTrendFrom(weekStart, weekEnd, { weeksBack = 5 } = {}) {
  * expects.
  */
 export async function weeklyStatSections(weekStart, weekEnd) {
-  const { weeklyPlayerMap, totalGames, uniquePlayers } = await computeWeeklyMatchStats(weekStart, weekEnd);
+  const { weeklyPlayerMap, uniquePlayers } = await computeWeeklyMatchStats(weekStart, weekEnd);
+  // Its totalGames counts team rows, so it reads four times the real number
+  const totalGames = getDailyMatchesRange(weekStart, weekEnd).length;
   const players = playersFrom(weeklyPlayerMap);
   const sections = {};
   const mentions = new Set();
   const note = (p) => { if (p?.battleTag) mentions.add(p.battleTag); };
 
   const active = players.filter((p) => p.games >= RULES.spotlightGames);
+  let spoken = new Set();
   const line = (fn, p) => fn(p).replace(/^[A-Z_]+:\s*/, '').trim();
 
   if (active.length > 0) {
@@ -171,17 +175,21 @@ export async function weeklyStatSections(weekStart, weekEnd) {
     const loser = active.reduce((a, b) => (b.mmrChange < a.mmrChange ? b : a));
     const hot = active.reduce((a, b) => (b.winStreak > a.winStreak ? b : a));
     const cold = active.reduce((a, b) => (b.lossStreak > a.lossStreak ? b : a));
-    // The grinder must not be the winner as well, or one player takes two cards
+    // One player, one card. Without this the same name can take the winner,
+    // the grinder and the hero slayer in the same issue.
+    const taken = new Set([winner.battleTag, loser.battleTag, hot.battleTag, cold.battleTag]);
     const grinder = players
-      .filter((p) => p.battleTag !== winner.battleTag)
-      .reduce((a, b) => (b.games > a.games ? b : a), players[0]);
+      .filter((p) => !taken.has(p.battleTag))
+      .reduce((a, b) => (!a || b.games > a.games ? b : a), null);
+    if (grinder) taken.add(grinder.battleTag);
+    spoken = taken;
 
     sections.WINNER = line(formatMmrLine.bind(null, 'WINNER'), winner);
     sections.LOSER = line(formatMmrLine.bind(null, 'LOSER'), loser);
     if (grinder) sections.GRINDER = line(formatGrinderLine, grinder);
     if (hot.winStreak >= RULES.streakFloor) sections.HOTSTREAK = line(formatWinStreakLine, hot);
     if (cold.lossStreak >= RULES.streakFloor) sections.COLDSTREAK = line(formatLossStreakLine, cold);
-    [winner, loser, grinder, hot, cold].forEach(note);
+    [winner, loser, grinder, hot, cold].filter(Boolean).forEach(note);
 
     const ranked = players.filter((p) => p.games >= RULES.rankingGames).sort((a, b) => b.mmrChange - a.mmrChange);
     if (ranked.length >= 4) {
@@ -199,8 +207,13 @@ export async function weeklyStatSections(weekStart, weekEnd) {
   if (spectrum) sections.STREAK_SPECTRUM = String(spectrum).replace(/^STREAK_SPECTRUM:\s*/, '').trim();
 
   try {
-    const fresh = await computeNewBlood(weekStart, weekEnd);
-    const nb = fresh && formatNewBloodLine(fresh);
+    const all = await computeNewBlood(weekStart, weekEnd);
+    // computeNewBlood lets anyone through on 5 games or 2k MMR, which prints
+    // "debuted at 0 MMR (2 games)". A debut is only a story with a week behind it.
+    const fresh = (all || [])
+      .filter((p) => (p.totalGames || 0) >= RULES.newBloodGames && (p.maxMmr || 0) > 0)
+      .slice(0, 5);
+    const nb = fresh.length > 0 && formatNewBloodLine(fresh);
     if (nb) {
       sections.NEW_BLOOD = String(nb).replace(/^NEW_BLOOD:\s*/, '').trim();
       for (const p of fresh) note(p);
@@ -209,7 +222,7 @@ export async function weeklyStatSections(weekStart, weekEnd) {
     console.warn('[WeeklyStats] New blood failed:', err.message);
   }
 
-  const slayer = heroSlayerFrom(weekStart, weekEnd, weeklyPlayerMap);
+  const slayer = heroSlayerFrom(weekStart, weekEnd, weeklyPlayerMap, spoken);
   if (slayer) {
     const RACES = { 0: 'RND', 1: 'HU', 2: 'ORC', 4: 'NE', 8: 'UD' };
     const race = RACES[slayer.race] ? `[${RACES[slayer.race]}]` : '';
