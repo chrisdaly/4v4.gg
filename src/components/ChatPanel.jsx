@@ -1,6 +1,6 @@
 import React, { useRef, useEffect, useState, useCallback, useMemo } from "react";
 import { Virtuoso } from "react-virtuoso";
-import styled from "styled-components";
+import styled, { css } from "styled-components";
 import { Link } from "react-router-dom";
 import { IoSend } from "react-icons/io5";
 import { Button, Skeleton, Input } from "./ui";
@@ -8,8 +8,6 @@ import { useMessageSegments, useBotResponseMap, formatDateDivider, getDateKey } 
 import { linkifyMessage } from "../lib/chatExtras";
 import PlayerHoverCard from "./PlayerHoverCard";
 import ChatMessage from "./chat/ChatMessage";
-import GameRow from "./chat/GameRow";
-import StatsStrip from "./chat/StatsStrip";
 import UnfurlCard from "./chat/UnfurlCard";
 import { findWatchedMentions, splitByMentions } from "../lib/chat/mentions";
 import { detectUnfurl } from "../lib/chat/unfurl";
@@ -143,6 +141,20 @@ const FoundCount = styled.span`
   white-space: nowrap;
 `;
 
+/* "N found · whole archive ↗": the field only filters what is loaded, so
+   when it comes up short the whole archive is one click away (/search) */
+const ArchiveLink = styled(Link)`
+  font-family: var(--font-mono);
+  font-size: var(--text-xxs);
+  color: var(--gold);
+  text-decoration: none;
+  white-space: nowrap;
+
+  &:hover {
+    text-decoration: underline;
+  }
+`;
+
 const ClearButton = styled(Button)`
   position: absolute;
   right: 6px;
@@ -239,28 +251,35 @@ const SystemMessageRow = styled.div`
   opacity: 0.7;
 `;
 
-/* The gold "↓ Latest" / "↓ N new" pill, centred 16px above the bottom of
-   the list while the viewport is off the bottom */
-const LatestPill = styled.button`
-  position: absolute;
-  left: 50%;
-  bottom: 16px;
-  transform: translateX(-50%);
-  z-index: 3;
+/* One pill shape for the stream's own controls, so "↓ 2 new" at the bottom
+   and "Load earlier messages" at the top are visibly the same kind of
+   thing: 36px tall, fully rounded, mono 13px. */
+const pillShape = css`
   display: flex;
   align-items: center;
   gap: 6px;
   height: 36px;
   padding: 0 16px;
+  border-radius: 18px;
   font-family: var(--font-mono);
   font-size: 13px;
+  cursor: pointer;
+  white-space: nowrap;
+`;
+
+/* The gold "↓ Latest" / "↓ N new" pill, centred 16px above the bottom of
+   the list while the viewport is off the bottom */
+const LatestPill = styled.button`
+  ${pillShape}
+  position: absolute;
+  left: 50%;
+  bottom: 16px;
+  transform: translateX(-50%);
+  z-index: 3;
   color: #0a0806;
   background: var(--gold);
   border: 0;
-  border-radius: 18px;
   box-shadow: 0 6px 18px rgba(0, 0, 0, 0.5);
-  cursor: pointer;
-  white-space: nowrap;
   &:hover {
     filter: brightness(1.08);
   }
@@ -541,18 +560,14 @@ function markMentions(node, watchList) {
 
 /* ── History + unread markers ──────────────────── */
 
+/* The same pill as "↓ N new", in the quiet variant */
 const LoadOlderButton = styled.button`
-  display: block;
+  ${pillShape}
   margin: var(--space-2) auto;
-  padding: var(--space-1) var(--space-4);
   background: rgba(255, 255, 255, 0.04);
   border: 1px solid rgba(var(--gold-muted-rgb), 0.25);
-  border-radius: var(--radius-md);
   color: var(--grey-light);
-  font-family: var(--font-mono);
-  font-size: var(--text-xxs);
-  cursor: pointer;
-  transition: all 0.15s;
+  transition: color 0.15s, border-color 0.15s;
 
   &:hover:not(:disabled) {
     color: var(--gold);
@@ -618,6 +633,13 @@ function groupMatches(row, q) {
 // it by the number of rows added at the head so the viewport stays put
 const FIRST_ITEM_BASE = 1_000_000;
 
+// The pill's landing check: poll this often, give up after this many tries
+const BOTTOM_FIX_TICK_MS = 80;
+const BOTTOM_FIX_MAX_TICKS = 14;
+
+// How long the "new" marker stays after the reader comes back to the tab
+const NEW_MARKER_LINGER_MS = 120_000;
+
 // How many pages of older history a jump (search hit, permalink) pages in
 // before giving up
 const MAX_JUMP_PAGES = 20;
@@ -679,11 +701,13 @@ const listComponents = {
 const rowKey = (index, row) => row.key;
 
 /**
- * The /chat message stream (Chat v3). Its header holds the 4v4.GG home link
- * with the relay dot and an always-visible search field that filters the
- * loaded stream by author name or text ("N found", clear ×); game rows and
- * system lines hide while a query is set. The Stats and Games toggles live
- * in the map panel header and come in as controlled props.
+ * The /chat message stream (Chat v3). Only messages: games live in the
+ * game activity panel, so nothing interrupts the reading. Its header holds
+ * the 4v4.GG home link with the relay dot and an always-visible search
+ * field that filters the loaded stream by author name or text ("N found",
+ * a link to the whole archive, clear ×); system lines hide while a query
+ * is set. The Stats toggle lives in the map panel header and comes in as a
+ * controlled prop.
  *
  * At and below 768px the header is gone (the page's top bar has the logo
  * and a search button): `searchOpen` shows the search row under the bar
@@ -692,14 +716,14 @@ const rowKey = (index, row) => row.key;
  * is off the bottom (always on mobile, only with new lines on desktop).
  *
  * Props (data): messages, status, avatars, stats, sessions, inGameTags,
- *   inGameInfoMap, recentWinners, recentDeltas, gameEvents, ongoingMatchIds,
- *   liveStreamers, watchList, botResponses, translations
+ *   inGameInfoMap, recentWinners, recentDeltas, liveStreamers, watchList,
+ *   botResponses, translations
  * Props (history): loadOlder, hasMoreHistory, loadWindow, loadLatest,
  *   windowMode, windowId, permalinkId, permalinkAt (the message's
  *   received_at: a permalink outside the loaded window reloads the window
  *   around it instead of paging back)
- * Props (controls): searchOpen / onSearchOpenChange(bool), statsOpen /
- *   onStatsOpenChange(bool), showGames, showTranslations, onOpenGame,
+ * Props (controls): searchOpen / onSearchOpenChange(bool),
+ *   showTranslations, onOpenGame,
  *   onOpenPlayer(battleTag) (mobile: a name opens the player card instead
  *   of linking to /player), isMobile. It never closes the stats, so
  *   onStatsOpenChange is accepted for symmetry and left unread.
@@ -714,8 +738,6 @@ export default function ChatPanel({
   inGameInfoMap,
   recentWinners,
   recentDeltas,
-  gameEvents = [],
-  ongoingMatchIds,
   liveStreamers,
   watchList,
   botResponses = [],
@@ -733,8 +755,6 @@ export default function ChatPanel({
   isMobile = false,
   searchOpen = false,
   onSearchOpenChange,
-  statsOpen = false,
-  showGames = true,
   showTranslations = true,
 }) {
   const virtuosoRef = useRef(null);
@@ -750,7 +770,6 @@ export default function ChatPanel({
   const visible = useDocumentVisible();
   const hiddenUnread = useUnreadCount(messages, visible);
   // Expanded game rows, per event id (not persisted)
-  const [expandedEvents, setExpandedEvents] = useState(() => new Set());
   // The filter query; seeded from /chat?q= so the old /search links land
   // on a filtered stream
   const [query, setQuery] = useState(readQueryUrl);
@@ -773,6 +792,8 @@ export default function ChatPanel({
   const permalinkDoneRef = useRef(null);
   const dayPickerRef = useRef(null);
   const scrollerElRef = useRef(null);
+  // The interval that checks the "↓ N new" scroll actually landed
+  const bottomFixRef = useRef(null);
   const rangeRef = useRef(null);
   const topRowRafRef = useRef(null);
   const topIndexRef = useRef(null);
@@ -786,6 +807,7 @@ export default function ChatPanel({
   const followingRef = useRef(false);
 
   useEffect(() => () => setTrimPaused(false), []);
+  useEffect(() => () => clearInterval(bottomFixRef.current), []);
 
   useEffect(() => {
     messagesRef.current = messages;
@@ -1009,33 +1031,33 @@ export default function ChatPanel({
     });
   }, [messages, watchList, avatars, jumpToId]);
 
-  // "- new -" marker: remember where you were when the tab went hidden
+  // "- new -" marker: remember where you were when the tab went hidden, and
+  // drop it two minutes after you are back.
+  //
+  // The listener registers once and reads the feed through messagesRef. It
+  // used to depend on `messages`, so every arriving line tore the effect
+  // down, and the teardown cleared the pending timer: on a busy channel the
+  // marker never expired and sat there mid-stream, pointing at nothing.
+  const markerTimerRef = useRef(null);
   useEffect(() => {
-    let clearTimer = null;
     const onVisibility = () => {
       if (document.hidden) {
-        clearTimeout(clearTimer);
-        const last = messages[messages.length - 1];
+        clearTimeout(markerTimerRef.current);
+        const loaded = messagesRef.current;
+        const last = loaded[loaded.length - 1];
         if (last) setNewMarkerTime(new Date(last.sentAt).getTime());
       } else {
-        clearTimer = setTimeout(() => setNewMarkerTime(null), 120_000);
+        clearTimeout(markerTimerRef.current);
+        markerTimerRef.current = setTimeout(() => setNewMarkerTime(null), NEW_MARKER_LINGER_MS);
       }
     };
     document.addEventListener("visibilitychange", onVisibility);
     return () => {
-      clearTimeout(clearTimer);
+      clearTimeout(markerTimerRef.current);
       document.removeEventListener("visibilitychange", onVisibility);
     };
-  }, [messages]);
-
-  const toggleEvent = useCallback((id) => {
-    setExpandedEvents((prev) => {
-      const next = new Set(prev);
-      if (next.has(id)) next.delete(id);
-      else next.add(id);
-      return next;
-    });
   }, []);
+
 
   // Once a /chat?q= link has seeded the field the address bar drops it, so
   // the URL never carries a stale query (replaceState keeps the router out
@@ -1117,9 +1139,10 @@ export default function ChatPanel({
   const messageSegments = useMessageSegments(messages, boundaryIds);
 
   // One list row per message group (author + consecutive lines within 2 min)
-  // or system message, plus game events woven in by timestamp when the Games
-  // toggle is on. A group sorts by its first line, so an event never lands
-  // inside a group.
+  // or system message. Nothing else: games used to be woven in here, and a
+  // quiet spell could leave more tickers on screen than sentences. They are
+  // all in the game activity panel now, live and finished alike, and the
+  // stream is only what people said.
   const renderItems = useMemo(() => {
     const items = [];
     for (const seg of messageSegments) {
@@ -1131,15 +1154,8 @@ export default function ChatPanel({
         items.push({ kind: "group", key: start.id, msg: start, msgs: [start, ...seg.continuations], time });
       }
     }
-    if (showGames) {
-      const oldestLoaded = items.length > 0 ? items[0].time : 0;
-      for (const ev of gameEvents) {
-        const t = new Date(ev.time).getTime();
-        if (t >= oldestLoaded) items.push({ kind: "event", key: ev.id, ev, time: t });
-      }
-    }
     return items.sort((a, b) => a.time - b.time);
-  }, [messageSegments, gameEvents, showGames]);
+  }, [messageSegments]);
 
   // The filter: message groups whose author or text matches the query;
   // game rows and system lines drop out while it is set
@@ -1148,6 +1164,8 @@ export default function ChatPanel({
     return renderItems.filter((item) => item.kind === "group" && groupMatches(item, filterQ));
   }, [renderItems, filterActive, filterQ]);
   const foundCount = filterActive ? filteredItems.length : 0;
+  // The same words, against the whole archive instead of the loaded stream
+  const archiveHref = `/search?q=${encodeURIComponent(query.trim())}&since=all`;
 
   // Day dividers are rows of their own (keyed by day) ahead of the first
   // message or system row of each day, so paging in older history from the
@@ -1173,6 +1191,15 @@ export default function ChatPanel({
     });
     return out;
   }, [filteredItems, newMarkerTime]);
+
+  // How many rows the newest change appended, for followOutput: a burst
+  // scrolls instantly, a single line glides.
+  const rowCountRef = useRef({ count: null, added: 1 });
+  if (rowCountRef.current.count !== rows.length) {
+    const prev = rowCountRef.current.count;
+    // The first fill is not an append: the list is simply there
+    rowCountRef.current = { count: rows.length, added: prev == null ? 1 : Math.max(0, rows.length - prev) };
+  }
 
   // Virtuoso keeps the viewport still across changes at the head of the
   // list as long as firstItemIndex moves, in the same render as the data,
@@ -1221,12 +1248,18 @@ export default function ChatPanel({
   // gets a smooth scroll; a follow that has not landed yet catches up
   // instantly instead of stacking smooth scrolls, and a jump to a search
   // hit or permalink is never hijacked.
+  //
+  // A smooth scroll is only worth it for one new row. When several land at
+  // once (a burst, a backfill, someone pasting four lines) the animation
+  // has further to travel than the reader can follow and the stream looks
+  // like it is lurching, so those catch up instantly.
   const followOutput = useCallback((isAtBottom) => {
     if (!isAtBottom || jumpingRef.current) {
       followingRef.current = false;
       return false;
     }
-    const behavior = atBottomRef.current ? "smooth" : "auto";
+    const added = rowCountRef.current.added;
+    const behavior = atBottomRef.current && added <= 1 ? "smooth" : "auto";
     followingRef.current = true;
     return behavior;
   }, []);
@@ -1238,8 +1271,37 @@ export default function ChatPanel({
     if (isAtBottom) followingRef.current = false;
   }, []);
 
+  /**
+   * The "↓ N new" pill. scrollToIndex aims at the heights Virtuoso knew
+   * when the animation started, and rows it measures on the way down
+   * (wrapped lines, avatars, unfurl cards) move the target further away, so
+   * a smooth scroll lands short of the newest line and the pill stays up.
+   *
+   * So: scroll, wait for the animation to stop moving, then close whatever
+   * gap is left in one step.
+   */
   function scrollToBottom() {
     virtuosoRef.current?.scrollToIndex({ index: "LAST", align: "end", behavior: "smooth" });
+    clearInterval(bottomFixRef.current);
+    let lastTop = -1;
+    let ticks = 0;
+    bottomFixRef.current = setInterval(() => {
+      const node = scrollerElRef.current;
+      ticks += 1;
+      if (!node || ticks > BOTTOM_FIX_MAX_TICKS) {
+        clearInterval(bottomFixRef.current);
+        return;
+      }
+      const top = Math.round(node.scrollTop);
+      if (top !== lastTop) {
+        lastTop = top;
+        return; // still travelling
+      }
+      clearInterval(bottomFixRef.current);
+      if (node.scrollHeight - node.clientHeight - node.scrollTop > 1) {
+        node.scrollTop = node.scrollHeight;
+      }
+    }, BOTTOM_FIX_TICK_MS);
   }
 
   const showLoadOlder = Boolean(hasMoreHistory && loadOlder);
@@ -1254,7 +1316,6 @@ export default function ChatPanel({
   // Status chip for a name row, shared with the roster (chat/chip.js)
   const chipCtx = { inGameTags, recentDeltas, recentWinners, startTimes: inGameInfoMap };
 
-  const hoverData = { avatars, stats, sessions, inGameTags, inGameInfoMap };
   const renderLine = (line) => markMentions(linkifyMessage(line.text), watchList);
   // Mobile: a name opens the player card
   const openPlayerCard = isMobile && onOpenPlayer ? (author) => onOpenPlayer(author.battleTag) : undefined;
@@ -1283,22 +1344,6 @@ export default function ChatPanel({
   );
 
   const renderRow = (index, row) => {
-    // Game event woven into the stream: one quiet row, the card on click
-    if (row.kind === "event") {
-      const ev = row.ev;
-      const stillRunning = ev.type !== "game_end" && Boolean(ongoingMatchIds?.has(ev.matchId));
-      return (
-        <GameRow
-          event={ev}
-          expanded={expandedEvents.has(ev.id)}
-          onToggle={toggleEvent}
-          stillRunning={stillRunning}
-          hoverData={hoverData}
-          compact={isMobile}
-        />
-      );
-    }
-
     if (row.kind === "divider") {
       const isFirstRow = index - firstItemIndex === 0;
       return (
@@ -1414,7 +1459,14 @@ export default function ChatPanel({
                 </ClearButton>
               )}
             </SearchWrap>
-            {filterActive && <FoundCount data-found-count aria-live="polite">{foundCount} found</FoundCount>}
+            {filterActive && (
+              <>
+                <FoundCount data-found-count aria-live="polite">{foundCount} found</FoundCount>
+                <ArchiveLink to={archiveHref} data-archive-link title="Search every message the relay has kept">
+                  whole archive &#8599;
+                </ArchiveLink>
+              </>
+            )}
           </SearchBox>
         </Header>
         {searchOpen && (
@@ -1430,10 +1482,14 @@ export default function ChatPanel({
                 autoFocus
               />
             </SearchWrap>
-            {filterActive && <FoundCount data-found-count>{foundCount} found</FoundCount>}
+            {filterActive && (
+              <>
+                <FoundCount data-found-count>{foundCount} found</FoundCount>
+                <ArchiveLink to={archiveHref} data-archive-link>whole archive &#8599;</ArchiveLink>
+              </>
+            )}
           </MobileSearchRow>
         )}
-        <StatsStrip open={statsOpen} />
         <Body>
           {noMatch ? (
             <NoMatch data-no-match>No messages match</NoMatch>

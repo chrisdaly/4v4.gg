@@ -1,3 +1,5 @@
+import { geometricMean } from "../formatters";
+
 /**
  * Incremental indexes over the message feed.
  *
@@ -145,4 +147,46 @@ export function ongoingIndexFrom(ongoingMatches) {
     }
   }
   return { inGameInfoMap, inGameMatchMap, ongoingMatchIds };
+}
+
+/**
+ * Ongoing matches with at least one channel member in them, newest first.
+ * The stream used to carry these as LIVE tickers, but a game starting is
+ * state, not a moment: it stays true for twenty minutes and then stops
+ * being true, which is a list's job, not a log line's.
+ *
+ *   -> [{ matchId, mapName, startTime, avgMmr, names, extra, playerCount }]
+ *      names  the channel members in it, at most two
+ *      extra  how many more players the lobby holds
+ */
+export function liveGamesFrom(ongoingMatches, onlineUsers, max = 8) {
+  const channel = new Set(
+    (onlineUsers || []).map((u) => u.battleTag?.toLowerCase()).filter(Boolean)
+  );
+  if (channel.size === 0) return [];
+  const games = [];
+  for (const match of ongoingMatches || []) {
+    const id = match.id || match.match?.id;
+    if (!id) continue;
+    const players = (match.teams || []).flatMap((t) => t.players || []);
+    const inChannel = players.filter((p) => channel.has(p.battleTag?.toLowerCase()));
+    if (inChannel.length === 0) continue;
+    const mmrs = players.map((p) => p.oldMmr).filter((m) => m > 0);
+    const names = inChannel
+      .slice(0, 2)
+      .map((p) => p.name || p.battleTag?.split("#")[0])
+      .filter(Boolean);
+    games.push({
+      matchId: id,
+      mapName: match.mapName || null,
+      startTime: match.startTime || null,
+      avgMmr: mmrs.length > 0 ? Math.round(geometricMean(mmrs)) : null,
+      names,
+      extra: Math.max(players.length - names.length, 0),
+      playerCount: players.length,
+    });
+  }
+  return games
+    .sort((a, b) => new Date(b.startTime || 0) - new Date(a.startTime || 0))
+    .slice(0, max);
 }

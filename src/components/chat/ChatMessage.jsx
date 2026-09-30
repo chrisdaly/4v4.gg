@@ -17,7 +17,7 @@ import { CHAT_MOBILE_PX } from "../../lib/useIsMobile";
  *   feed        the /chat stream (Chat v3 message group): 38px avatar with
  *               a flag badge, display name (the sender's local time in its
  *               tooltip), the bare MMR, the in-game marker (red dot +
- *               minutes) or a won / lost chip, twitch; mono lines with a
+ *               minutes) or a won / lost chip, twitch; serif lines with a
  *               right-aligned timestamp per line. At and below 768px the
  *               avatar is 34px, the header ends with the group's time and
  *               the lines carry no timestamps.
@@ -50,7 +50,7 @@ import { CHAT_MOBILE_PX } from "../../lib/useIsMobile";
  *                hover-only copy-link anchor next to its timestamp
  */
 
-const FEED_LINE_HEIGHT = 1.45;
+const FEED_LINE_HEIGHT = 1.5;
 const LINE_HEIGHT = 1.5;
 const MOBILE_AVATAR = 34; // px, feed at and below the mobile breakpoint
 
@@ -330,7 +330,7 @@ const HeadTime = styled.span`
 const Lines = styled.div`
   display: flex;
   flex-direction: column;
-  gap: ${(p) => (p.$variant === "feed" ? "3px" : "0")};
+  gap: ${(p) => (p.$variant === "feed" ? "2px" : "0")};
 `;
 
 const Line = styled.div`
@@ -363,8 +363,8 @@ const Line = styled.div`
 `;
 
 const FeedText = styled.span`
-  font-family: var(--font-mono);
-  font-size: var(--text-xs);
+  font-family: var(--font-body);
+  font-size: 15px; /* between --text-xs and --text-sm: serif at 14 reads thin */
   line-height: ${FEED_LINE_HEIGHT};
   color: var(--text-body);
   overflow-wrap: anywhere;
@@ -399,7 +399,7 @@ const QuoteLines = styled.div`
 
 const Translation = styled.div`
   padding: 1px 0 2px;
-  font-family: var(--font-mono);
+  font-family: var(--font-body);
   font-size: var(--text-xxs);
   font-style: italic;
   color: var(--grey-light);

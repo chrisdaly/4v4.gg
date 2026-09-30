@@ -81,6 +81,7 @@ Main user-facing routes (see `src/Router.jsx` for the full list, including inter
 | `/news` | News | News/digest feed |
 | `/blog`, `/blog/:slug` | Blog, BlogPost | Blog listing and articles |
 | `/chat` | Chat | W3C chat (via relay) |
+| `/search` | ChatSearch | Chat archive search (relay `/api/chat/search`) |
 | `/clips` | Clips | Video clips |
 | `/replay`, `/replay-lab` | Replay, ReplayLab | Replay analysis tools |
 | `/stream`, `/mystream` | PlayerStream, MyStreamPage | Stream-optimized views |

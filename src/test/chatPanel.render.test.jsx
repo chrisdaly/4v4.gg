@@ -14,15 +14,21 @@ const scrollToIndex = vi.fn();
 const virtuosoProps = vi.hoisted(() => ({ current: null }));
 vi.mock('react-virtuoso', () => ({
   Virtuoso: React.forwardRef(function FakeVirtuoso(props, ref) {
-    const { data, itemContent, components, context, firstItemIndex = 0, computeItemKey, rangeChanged } = props;
+    const { data, itemContent, components, context, firstItemIndex = 0, computeItemKey, rangeChanged, scrollerRef } = props;
     virtuosoProps.current = props;
     React.useImperativeHandle(ref, () => ({ scrollToIndex }));
     React.useEffect(() => {
       rangeChanged?.({ startIndex: firstItemIndex, endIndex: firstItemIndex + data.length - 1 });
     }, [rangeChanged, firstItemIndex, data.length]);
+    // The real list hands the panel its scroller; the panel measures it to
+    // check a "↓ N new" scroll actually reached the bottom
+    const scrollerElRef = React.useRef(null);
+    React.useEffect(() => {
+      scrollerRef?.(scrollerElRef.current);
+    }, [scrollerRef]);
     const { Header, Footer } = components;
     return (
-      <div data-testid="virtuoso">
+      <div data-testid="virtuoso" ref={scrollerElRef}>
         {Header && <Header context={context} />}
         {data.map((row, i) => (
           <div key={computeItemKey(firstItemIndex + i, row)} data-key={computeItemKey(firstItemIndex + i, row)} data-index={firstItemIndex + i}>
@@ -353,6 +359,25 @@ describe('ChatPanel bottom state', () => {
     act(() => atBottomStateChange(false));
     expect(followOutput(false)).toBe(false);
   });
+
+  it('catches up instantly when several rows land at once', () => {
+    const { rerender } = render(<Owner {...baseProps} messages={messages} inGameInfoMap={new Map()} />);
+    const at = () => virtuosoProps.current.atBottomStateChange;
+    act(() => at()(true));
+    // one new line: worth animating
+    rerender(<Owner {...baseProps} inGameInfoMap={new Map()} messages={[...messages, msg('n1', 'Moon#2', 120000, 'one more')]} />);
+    act(() => at()(true));
+    expect(virtuosoProps.current.followOutput(true)).toBe('smooth');
+    // a burst: the animation would have further to travel than the reader
+    // can follow, so it jumps
+    rerender(<Owner {...baseProps} inGameInfoMap={new Map()} messages={[...messages,
+      msg('n1', 'Moon#2', 120000, 'one more'),
+      msg('n2', 'Grubby#1', 130000, 'and another'),
+      msg('n3', 'Watched#3', 140000, 'and a third'),
+    ]} />);
+    act(() => at()(true));
+    expect(virtuosoProps.current.followOutput(true)).toBe('auto');
+  });
 });
 
 describe('ChatPanel rows', () => {
@@ -400,11 +425,8 @@ describe('ChatPanel rows', () => {
     expect(screen.getByText('won')).toHaveAttribute('data-chip', 'won');
     expect(screen.getByTitle('live')).toHaveAttribute('href', 'https://twitch.tv/grubby');
 
-    // Game events are one-line rows until clicked
-    expect(screen.getByText('FINISHED')).toBeInTheDocument();
-    expect(screen.getByText('LIVE')).toBeInTheDocument();
-    expect(screen.getByText(/Moon won 20:00 on Ferocity, \+12 avg/)).toBeInTheDocument();
-    expect(screen.getByText(/Moon \+3 started on Royal Gardens, 1847 avg/)).toBeInTheDocument();
+    // no game rows: the stream is messages, bot replies and system lines
+    expect(screen.queryByText('FINISHED')).toBeNull();
     expect(screen.queryByText('close one')).toBeNull();
   });
 
@@ -419,95 +441,20 @@ describe('ChatPanel rows', () => {
     expect(grubby.querySelector('[data-local-time]')).toBeNull();
   });
 
-  it('lays a game row on the message grid with a tone dot and the same right-hand cell as a message line', () => {
+  it('keeps games out of the stream entirely: they belong to the game activity panel', () => {
     renderPanel();
-    const rows = document.querySelectorAll('[data-ticker]');
-    expect(rows).toHaveLength(2);
-    const finished = document.querySelector('[data-ticker="finished"]');
-    const live = document.querySelector('[data-ticker="live"]');
-    expect(finished).toHaveAttribute('role', 'button');
-    expect(finished).toHaveAttribute('aria-expanded', 'false');
-    expect(finished).toHaveAttribute('data-event-id', 'ge-m1');
-    expect(live).toHaveAttribute('data-event-id', 'gs-m2');
-    expect(finished.querySelector('[aria-hidden="true"]')).not.toBeNull(); // the dot
-    // no old-style icon slot or run block
-    expect(document.querySelector('[data-ticker-icon]')).toBeNull();
-    expect(document.querySelector('[data-run-start]')).toBeNull();
-    // game row and message line end with the same cell: time plus the 20px copy-link slot
-    const lineEnd = document.getElementById('msg-a1').querySelector('[data-line-end]');
-    const rowEnd = live.querySelector('[data-line-end]');
-    expect(lineEnd.querySelector('[data-end-slot]')).not.toBeNull();
-    expect(rowEnd.querySelector('[data-end-slot]')).not.toBeNull();
-    expect(lineEnd.className).toBe(rowEnd.className);
-    expect(lineEnd.querySelector('[data-end-slot]').className).toBe(rowEnd.querySelector('[data-end-slot]').className);
-    expect(rowEnd.querySelector('a')).toBeNull(); // slot reserved, no copy link
+    expect(document.querySelectorAll('[data-ticker]')).toHaveLength(0);
+    expect(document.querySelector('[data-game-run]')).toBeNull();
+    expect(screen.queryByText('FINISHED')).toBeNull();
+    expect(screen.queryByText(/won 20:00 on Ferocity/)).toBeNull();
+    expect(screen.queryByText(/started on Royal Gardens/)).toBeNull();
+    // the talk is all that is left
+    expect(screen.getByText('hola')).toBeInTheDocument();
   });
 
-  it('marks a start event whose game has ended as started, without the live dot', () => {
-    renderPanel({ ongoingMatchIds: new Set() });
-    expect(document.querySelector('[data-ticker="live"]')).toBeNull();
-    const started = document.querySelector('[data-ticker="started"]');
-    expect(started).toHaveTextContent('STARTED');
-    expect(started).toHaveTextContent(/Moon \+3 started on Royal Gardens/);
-  });
 
-  it('expands a row into the game card on click and collapses it from the card header', () => {
-    renderPanel();
-    fireEvent.click(screen.getByText('FINISHED'));
-    const card = document.querySelector('[data-game-card="ge-m1"]');
-    expect(card).not.toBeNull();
-    expect(document.querySelector('[data-ticker="finished"]')).toHaveAttribute('data-expanded', 'true');
-    // header: tag pill, duration, lobby average, time
-    const head = screen.getByTitle('Collapse');
-    expect(head).toHaveTextContent('FINISHED');
-    expect(head).toHaveTextContent('20:00');
-    expect(head).toHaveTextContent('1750 avg');
-    // map links to the match, teams with MMR and delta, losers dimmed
-    expect(screen.getByRole('link', { name: 'Ferocity' })).toHaveAttribute('href', '/match/m1');
-    expect(card.querySelector('[data-team="a"]')).toHaveTextContent('Moon');
-    expect(card.querySelector('[data-team="a"]')).toHaveTextContent('1800');
-    expect(card.querySelector('[data-team="a"]')).toHaveTextContent('+12');
-    expect(card.querySelector('[data-team="b"]')).toHaveTextContent('X');
-    expect(card.querySelector('[data-team="b"]')).toHaveTextContent('-9');
-    expect(card.querySelector('[data-mmr-strip]')).not.toBeNull();
-    // the note row below the hairline
-    const note = card.querySelector('[data-note="NOTE"]');
-    expect(note).toHaveTextContent('close one');
-    // streak and rivalry badges are gone from the card
-    expect(card.querySelector('[data-badge]')).toBeNull();
 
-    fireEvent.click(head);
-    expect(document.querySelector('[data-game-card="ge-m1"]')).toBeNull();
-    expect(screen.queryByText('close one')).toBeNull();
-    expect(document.querySelector('[data-ticker="finished"]')).toHaveAttribute('aria-expanded', 'false');
 
-    // keyboard: Enter on the row opens, Enter on the header closes
-    fireEvent.keyDown(document.querySelector('[data-ticker="live"]'), { key: 'Enter' });
-    const liveCard = document.querySelector('[data-game-card="gs-m2"]');
-    expect(liveCard).not.toBeNull();
-    expect(screen.getByTitle('Collapse')).toHaveTextContent('LIVE');
-    expect(screen.getByRole('link', { name: 'Royal Gardens' })).toHaveAttribute('href', '/live');
-    expect(liveCard.querySelector('[data-team="a"]').querySelectorAll('a')).toHaveLength(4);
-    fireEvent.keyDown(screen.getByTitle('Collapse'), { key: 'Enter' });
-    expect(document.querySelector('[data-game-card="gs-m2"]')).toBeNull();
-  });
-
-  it('shows the MVP badge and tags the MVP note', () => {
-    const mvpEvents = [{
-      ...gameEvents[0],
-      mvp: 'Moon#2',
-      note: { text: 'fielded a 94-supply army', tag: 'Moon#2', name: 'Moon', mmr: 1800, race: 4, heroes: null, raceId: null, quote: null },
-    }];
-    renderPanel({ gameEvents: mvpEvents });
-    fireEvent.click(screen.getByText('FINISHED'));
-    const card = document.querySelector('[data-game-card="ge-m1"]');
-    expect(card.querySelector('[data-team="a"] [data-mvp]')).toHaveTextContent('MVP');
-    expect(card.querySelector('[data-team="b"] [data-mvp]')).toBeNull();
-    const note = card.querySelector('[data-note="MVP"]');
-    expect(note).toHaveTextContent('MVP');
-    expect(note).toHaveTextContent('fielded a 94-supply army');
-    expect(note.querySelector('a')).toHaveAttribute('href', '/player/Moon%232');
-  });
 
   it('opens the game from the in-game marker and keeps won/lost chips inert', () => {
     const onOpenGame = vi.fn();
@@ -531,18 +478,8 @@ describe('ChatPanel rows', () => {
     fireEvent.click(name);
     expect(onOpenPlayer).toHaveBeenCalledWith('Moon#2');
     expect(screen.queryByText('FINISHED')).toBeNull();
-    expect(document.querySelector('[data-ticker="finished"]')).toHaveTextContent('Moon won Ferocity · +12');
-    expect(document.querySelector('[data-ticker="live"]')).toHaveTextContent('Moon +3 · Royal Gardens');
   });
 
-  it('hides game rows when showGames is off', () => {
-    renderPanel({ showGames: false });
-    expect(document.querySelectorAll('[data-ticker]')).toHaveLength(0);
-    expect(screen.queryByText('FINISHED')).toBeNull();
-    expect(screen.getByText('hola')).toBeInTheDocument();
-    // the preference belongs to the owner now
-    expect(localStorage.getItem('chat:showGames')).toBeNull();
-  });
 
   it('shows translations unless told not to', () => {
     renderPanel({ showTranslations: false });
@@ -736,16 +673,14 @@ describe('ChatPanel filter', () => {
     window.history.replaceState(null, '', '/');
   });
 
-  it('filters the stream by author name or text, counts the hits, hides game and system rows, and clears from the × or Esc', () => {
+  it('filters the stream by author name or text, counts the hits, hides system rows, and clears from the × or Esc', () => {
     renderPanel();
     expect(document.querySelectorAll('[data-variant="feed"]').length).toBe(3);
-    expect(document.querySelectorAll('[data-ticker]').length).toBe(2);
 
     fireEvent.change(field(), { target: { value: 'HOLA' } });
     expect(screen.getByRole('search', { name: 'Filter messages' })).toHaveAttribute('data-search-active', 'true');
     expect(document.querySelector('[data-found-count]')).toHaveTextContent('1 found');
     expect(groups()).toEqual(['Moon']);
-    expect(document.querySelectorAll('[data-ticker]').length).toBe(0);
     expect(screen.queryByText('Connected to channel')).toBeNull();
     expect(screen.getByText('hola')).toBeInTheDocument();
     // one day divider for the remaining rows, still the sticky bar
@@ -763,7 +698,6 @@ describe('ChatPanel filter', () => {
     expect(field()).toHaveValue('');
     expect(document.querySelector('[data-found-count]')).toBeNull();
     expect(document.querySelectorAll('[data-variant="feed"]').length).toBe(3);
-    expect(document.querySelectorAll('[data-ticker]').length).toBe(2);
 
     fireEvent.change(field(), { target: { value: 'zzz' } });
     expect(document.querySelector('[data-found-count]')).toHaveTextContent('0 found');
@@ -836,6 +770,49 @@ describe('ChatPanel latest pill', () => {
     expect(document.querySelector('[data-latest-pill]')).toBeNull();
   });
 
+  it('closes the gap when the scroll lands short of the newest line', () => {
+    vi.useFakeTimers();
+    try {
+      const { rerender } = renderPanel();
+      act(() => virtuosoProps.current.atBottomStateChange(false));
+      rerender(<Owner {...baseProps} messages={later(2)} inGameInfoMap={new Map()} />);
+      const scroller = document.querySelector('[data-testid="virtuoso"]');
+      Object.defineProperty(scroller, 'scrollHeight', { value: 1000, configurable: true });
+      Object.defineProperty(scroller, 'clientHeight', { value: 400, configurable: true });
+      // where a smooth scrollToIndex left it: 200px short of the newest line
+      scroller.scrollTop = 400;
+
+      fireEvent.click(document.querySelector('[data-latest-pill]'));
+      expect(scrollToIndex).toHaveBeenCalledWith(expect.objectContaining({ index: 'LAST' }));
+      // first tick sees it still moving, the second sees it settled and corrects
+      act(() => vi.advanceTimersByTime(80));
+      expect(scroller.scrollTop).toBe(400);
+      act(() => vi.advanceTimersByTime(80));
+      expect(scroller.scrollHeight - scroller.clientHeight - scroller.scrollTop).toBeLessThanOrEqual(0);
+    } finally {
+      vi.useRealTimers();
+    }
+  });
+
+  it('leaves a scroll that landed at the bottom alone', () => {
+    vi.useFakeTimers();
+    try {
+      const { rerender } = renderPanel();
+      act(() => virtuosoProps.current.atBottomStateChange(false));
+      rerender(<Owner {...baseProps} messages={later(2)} inGameInfoMap={new Map()} />);
+      const scroller = document.querySelector('[data-testid="virtuoso"]');
+      Object.defineProperty(scroller, 'scrollHeight', { value: 1000, configurable: true });
+      Object.defineProperty(scroller, 'clientHeight', { value: 400, configurable: true });
+      scroller.scrollTop = 600; // already there
+
+      fireEvent.click(document.querySelector('[data-latest-pill]'));
+      act(() => vi.advanceTimersByTime(240));
+      expect(scroller.scrollTop).toBe(600);
+    } finally {
+      vi.useRealTimers();
+    }
+  });
+
   it('on mobile shows "Latest" whenever the viewport is off the bottom', () => {
     const { rerender } = renderPanel({ isMobile: true });
     expect(document.querySelector('[data-latest-pill]')).toBeNull();
@@ -843,75 +820,6 @@ describe('ChatPanel latest pill', () => {
     expect(document.querySelector('[data-latest-pill]')).toHaveTextContent('↓ Latest');
     rerender(<Owner {...baseProps} isMobile messages={later(1)} inGameInfoMap={new Map()} />);
     expect(document.querySelector('[data-latest-pill]')).toHaveTextContent('↓ 1 new');
-  });
-});
-
-describe('ChatPanel stats strip', () => {
-  const statsPayload = {
-    totalMessages: 5000, uniqueUsers: 320, messagesLast24h: 1234, messagesLast7d: 8765, usersLast24h: 42,
-    oldestMessage: '2026-06-01 00:00:00',
-    topChatters: [
-      { user_name: 'Grubby', battle_tag: 'Grubby#1', count: 900 },
-      { user_name: 'Moon', battle_tag: 'Moon#2', count: 800 },
-      { user_name: 'C', battle_tag: 'C#3', count: 3 }, { user_name: 'D', battle_tag: 'D#4', count: 2 },
-      { user_name: 'E', battle_tag: 'E#5', count: 1 }, { user_name: 'F', battle_tag: 'F#6', count: 1 },
-    ],
-    byHour: [...Array(24)].map((_, hour) => ({ hour, count: hour + 1 })),
-    byHourToday: [{ hour: 12, count: 7 }],
-    perDay: [],
-  };
-
-  it('is closed until statsOpen, then fetches /api/chat/stats and renders the figures at the top of the list', async () => {
-    let resolveStats;
-    globalThis.fetch.mockImplementation(async (url) => {
-      if (String(url).endsWith('/api/chat/stats')) {
-        return new Promise((resolve) => { resolveStats = () => resolve({ ok: true, json: async () => statsPayload }); });
-      }
-      return { ok: false, json: async () => ({}) };
-    });
-    renderPanel();
-    expect(screen.queryByTestId('stats-strip')).toBeNull();
-    expect(globalThis.fetch.mock.calls.filter((c) => String(c[0]).endsWith('/api/chat/stats'))).toHaveLength(0);
-    fireEvent.click(screen.getByText('toggle stats'));
-    // skeleton until the relay answers
-    const strip = screen.getByTestId('stats-strip');
-    expect(strip).toHaveAttribute('aria-busy', 'true');
-    expect(globalThis.fetch.mock.calls.filter((c) => String(c[0]).endsWith('/api/chat/stats'))).toHaveLength(1);
-    // the strip sits above the stream inside the panel
-    const panel = document.querySelector('[data-chat-panel]');
-    expect(panel).toContainElement(strip);
-    expect(strip.compareDocumentPosition(screen.getByTestId('virtuoso')) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
-
-    resolveStats();
-    await waitFor(() => expect(screen.getByText('1,234')).toBeInTheDocument());
-    expect(screen.getByText('Messages 24h')).toBeInTheDocument();
-    expect(screen.getByText('42')).toBeInTheDocument();
-    expect(screen.getByText('Chatters 24h')).toBeInTheDocument();
-    expect(screen.getByText('Busiest hour today')).toBeInTheDocument();
-    expect(screen.getByText('7 msgs')).toBeInTheDocument();
-    // top 5 of 6, names link to the player page
-    const top = screen.getByText('Top chatters').parentElement;
-    expect(top.querySelectorAll('li')).toHaveLength(5);
-    expect(screen.getByTitle('Grubby#1')).toHaveAttribute('href', '/player/Grubby%231');
-    expect(screen.getByText('900')).toBeInTheDocument();
-    // 24 bars, the current hour drawn full gold
-    const bars = screen.getByTestId('stats-sparkline').querySelectorAll('rect');
-    expect(bars).toHaveLength(24);
-    const current = [...bars].filter((r) => r.getAttribute('data-current') === 'true');
-    expect(current).toHaveLength(1);
-    expect(current[0].getAttribute('data-hour')).toBe(String(new Date().getHours()));
-    expect(current[0].getAttribute('fill-opacity')).toBe('1');
-    expect(bars[(Number(current[0].getAttribute('data-hour')) + 1) % 24].getAttribute('fill-opacity')).toBe('0.35');
-
-    fireEvent.click(screen.getByText('toggle stats'));
-    expect(screen.queryByTestId('stats-strip')).toBeNull();
-    // no preference of its own any more
-    expect(localStorage.getItem('chat:showStats')).toBeNull();
-  });
-
-  it('renders straight away when mounted open', () => {
-    renderPanel({ initialStatsOpen: true });
-    expect(screen.getByTestId('stats-strip')).toBeInTheDocument();
   });
 });
 
@@ -1220,16 +1128,5 @@ describe('ChatPanel mentions and unfurls', () => {
     expect(yt).toHaveTextContent('A video');
     // u1 had two links but gets one card (the first); the card sits in the feed row
     expect(document.getElementById('msg-u1').parentElement.querySelectorAll('[data-testid="unfurl-card"]')).toHaveLength(1);
-  });
-});
-
-describe('/search redirect', () => {
-  it('maps the old page params onto the chat search panel', async () => {
-    const { searchRedirectTarget } = await import('../pages/Search');
-    expect(searchRedirectTarget('')).toBe('/chat');
-    expect(searchRedirectTarget('?q=hola')).toBe('/chat?q=hola');
-    expect(searchRedirectTarget('?q=Moon&qmode=player&qsince=30d')).toBe('/chat?player=Moon&since=30d');
-    expect(searchRedirectTarget('?q=gg&qsince=')).toBe('/chat?q=gg&since=all');
-    expect(searchRedirectTarget('?q=gg&qsince=2d')).toBe('/chat?q=gg');
   });
 });
