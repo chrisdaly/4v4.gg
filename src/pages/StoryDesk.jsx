@@ -303,6 +303,8 @@ export default function StoryDesk() {
   const [showAllPeople, setShowAllPeople] = useState(false);
   const [stats, setStats] = useState(null);
   const [statsState, setStatsState] = useState(null);
+  const [issue, setIssue] = useState(null);
+  const [publishing, setPublishing] = useState(false);
 
   useEffect(() => {
     setPicks(loadPicks(weekStart));
@@ -353,6 +355,37 @@ export default function StoryDesk() {
    * the trend. Computed on the relay from stored match data, so this is a
    * fetch and a write, never a judgement call.
    */
+  /** What the issue already says, so the desk never has to send you elsewhere. */
+  const loadIssue = useCallback(async () => {
+    try {
+      const res = await fetch(`${RELAY_URL}/api/admin/weekly-digests`, {
+        cache: "no-store", headers: { "X-API-Key": adminKey },
+      });
+      const all = res.ok ? await res.json() : [];
+      setIssue(all.find((w) => w.week_start === weekStart) || null);
+    } catch {
+      setIssue(null);
+    }
+  }, [weekStart, adminKey]);
+
+  /**
+   * Publishing reads the current flag first and only moves it in the
+   * direction asked. The relay's route is a toggle, so firing it blind can
+   * unpublish something that was already out.
+   */
+  const setPublished = async (next) => {
+    if (!issue || Boolean(issue.published) === next) return;
+    setPublishing(true);
+    try {
+      await fetch(`${RELAY_URL}/api/admin/weekly-digest/${weekStart}/publish`, {
+        method: "PUT", headers: { "X-API-Key": adminKey },
+      });
+      await loadIssue();
+    } finally {
+      setPublishing(false);
+    }
+  };
+
   const loadStats = useCallback(async () => {
     setStatsState("loading");
     try {
@@ -371,14 +404,18 @@ export default function StoryDesk() {
   useEffect(() => {
     setStats(null);
     setStatsState(null);
-  }, [weekStart]);
+    if (isAdmin && adminKey) {
+      loadStats();
+      loadIssue();
+    }
+  }, [weekStart, isAdmin, adminKey, loadStats, loadIssue]);
 
   /**
    * Write the composed stories into the issue, keeping every other section
    * as it is. The relay's set route also resets the draft column, so
    * editorial mode cannot resurrect an older version over the top.
    */
-  const apply = async (includeStats = false) => {
+  const apply = async (includeStats = true) => {
     setApplying(true);
     setApplied(null);
     try {
@@ -386,13 +423,14 @@ export default function StoryDesk() {
         headers: { "X-API-Key": adminKey },
       });
       const current = res.ok ? (await res.json()).digest || "" : "";
-      const merged = applyToDigest(current, { ...(includeStats ? stats.sections : {}), ...sections });
+      const merged = applyToDigest(current, { ...(includeStats && stats ? stats.sections : {}), ...sections });
       const save = await fetch(`${RELAY_URL}/api/admin/weekly-digest/${weekStart}/set`, {
         method: "POST",
         headers: { "Content-Type": "application/json", "X-API-Key": adminKey },
-        body: JSON.stringify({ digest: merged, ...(includeStats && stats?.stats ? { stats: stats.stats } : {}) }),
+        body: JSON.stringify({ digest: merged, ...(stats?.stats ? { stats: stats.stats } : {}) }),
       });
-      setApplied(save.ok ? "Written to the issue" : "Could not write to the issue");
+      setApplied(save.ok ? "Saved" : "Could not save");
+      if (save.ok) await loadIssue();
     } catch {
       setApplied("Could not reach the relay");
     } finally {
@@ -465,32 +503,39 @@ export default function StoryDesk() {
                 <span className="sd-budget-label">{c.label}</span>
               </span>
             ))}
-            <span className="sd-budget-sep" aria-hidden="true" />
             <span className="sd-budget-slot">
-              <span className={`sd-budget-n${readyCount > 0 ? " sd-budget-n--ready" : ""}`}>{readyCount}</span>
-              <span className="sd-budget-label">Written</span>
+              <span className={`sd-budget-n${stats ? " sd-budget-n--ready" : ""}`}>
+                {stats ? Object.keys(stats.sections).length : statsState === "loading" ? "…" : 0}
+              </span>
+              <span className="sd-budget-label">Numbers</span>
             </span>
+            <span className="sd-budget-sep" aria-hidden="true" />
             {applied && <span className="sd-applied">{applied}</span>}
-            <Button $primary onClick={() => apply(false)} disabled={applying || readyCount === 0}>
-              {applying ? "Writing…" : "Write stories to issue"}
+            <Button $primary onClick={() => apply()} disabled={applying || (readyCount === 0 && !stats)}>
+              {applying ? "Saving…" : "Save to issue"}
             </Button>
+            {issue && (
+              <Button
+                $secondary
+                onClick={() => setPublished(!issue.published)}
+                disabled={publishing}
+                title={issue.published ? "Take it back off the site" : "Put this issue on the site"}
+              >
+                {publishing ? "…" : issue.published ? "Published · take down" : "Publish"}
+              </Button>
+            )}
           </div>
 
           <section className="sd-stats" data-stats>
             <div className="sd-stats-head">
               <h2 className="sd-col-head">The week&rsquo;s numbers</h2>
               <span className="sd-col-sub sd-stats-sub">
-                Winners, streaks, rankings, new blood, hero kills and the trend, counted from match data.
-                Nothing here is a judgement call, so it is a fetch and a write.
+                Winners, streaks, rankings, new blood, hero kills and the trend, already counted from match
+                data. Nothing here is a judgement call, so it saves with everything else.
               </span>
-              {!stats ? (
-                <Button $secondary onClick={loadStats} disabled={statsState === "loading"}>
-                  {statsState === "loading" ? "Counting…" : "Work out the numbers"}
-                </Button>
-              ) : (
-                <Button $primary onClick={() => apply(true)} disabled={applying}>
-                  {applying ? "Writing…" : "Write numbers to issue"}
-                </Button>
+              {statsState === "loading" && <span className="sd-col-sub sd-stats-sub">Counting…</span>}
+              {statsState && statsState !== "loading" && (
+                <Button $secondary onClick={loadStats}>Try again</Button>
               )}
             </div>
             {statsState && statsState !== "loading" && <p className="sd-compose-error">{statsState}</p>}

@@ -2523,8 +2523,8 @@ const WeeklyMagazine = ({ weekParam, isAdmin = false, apiKey = "" }) => {
   // Headline picker state
 
   // Preview mode - hides edit controls but keeps editorial panel visible
-  const [previewMode, setPreviewMode] = useState(false);
-  const showEditControls = ed.isEditorial && !previewMode;
+  // Text is edited on the desk, so the page renders the same for everyone
+  const showEditControls = false;
 
   // Mobile: show nav after scrolling past hero, hide site navbar during splash
   const heroRef = useRef(null);
@@ -2578,23 +2578,6 @@ const WeeklyMagazine = ({ weekParam, isAdmin = false, apiKey = "" }) => {
 
   // Inline cover generation
 
-  const handleTogglePublish = useCallback(async () => {
-    if (!weekly?.week_start || !apiKey) return;
-    try {
-      const res = await fetch(`${RELAY_URL}/api/admin/weekly-digest/${weekly.week_start}/publish`, {
-        method: "PUT",
-        headers: { "X-API-Key": apiKey },
-      });
-      if (res.ok) {
-        const { published } = await res.json();
-        setWeeklyDigests((prev) =>
-          prev.map((w, i) => (i === weeklyIdx ? { ...w, published: published ? 1 : 0 } : w))
-        );
-      }
-    } catch (err) {
-      console.warn("[Magazine] Publish toggle failed:", err.message);
-    }
-  }, [weekly, apiKey, weeklyIdx]);
 
 
   // Headline picker - fetch 5 options from LLM
@@ -2868,19 +2851,15 @@ const WeeklyMagazine = ({ weekParam, isAdmin = false, apiKey = "" }) => {
       </div>
 
       {/* Editorial controls panel */}
-      {/* What the desk cannot do: the cover, which needs to be seen on the
-          page, and publishing, which is a decision rather than an edit.
-          Story picking, section toggles and regeneration moved to
-          /news-desk. See docs/GRAVEYARD.md. */}
+      {/* The desk is the one page an issue is built on. What is left here is
+          the cover, which has to be judged against the page it sits on.
+          Everything else, including publishing, moved to /news-desk.
+          See docs/GRAVEYARD.md. */}
       {ed.isEditorial && (
         <div className="mg-editorial-panel reveal" style={{ "--delay": "0.08s" }}>
-          <div className="mg-section-header" style={{ maxWidth: 900, margin: "0 auto", padding: "0 var(--space-6)" }}>
-            <span className="mg-section-label mg-section-label--gold">This issue</span>
-            <div className="mg-section-rule" />
-          </div>
           <div className="mg-editorial-actions">
-            <Button $secondary as={Link} to={`/news-desk?week=${weekly.week_start}`} title="Pick and write this week's stories">
-              Story Desk
+            <Button $primary as={Link} to={`/news-desk?week=${weekly.week_start}`} title="Build this week's issue">
+              Edit on the Story Desk
             </Button>
             {weekly.week_start && (
               <Button $secondary as="a" href={`/cover-art?week=${weekly.week_start}`} title="Open full cover art editor">Edit Cover</Button>
@@ -2890,17 +2869,7 @@ const WeeklyMagazine = ({ weekParam, isAdmin = false, apiKey = "" }) => {
                 {coverGalleryLoading ? "Loading..." : "Pick Cover"}
               </Button>
             )}
-            <Button $secondary onClick={() => setPreviewMode((p) => !p)} title={previewMode ? "Return to editing mode" : "Preview as a reader would see it"}>
-              {previewMode ? "Editing" : "Preview"}
-            </Button>
-            <Button
-              $secondary={!!weekly.published}
-              $primary={!weekly.published}
-              onClick={handleTogglePublish}
-              title={weekly.published ? "Unpublish this weekly" : "Publish this weekly to all visitors"}
-            >
-              {weekly.published ? "Unpublish" : "Publish"}
-            </Button>
+            {!weekly.published && <span className="mg-draft-flag">Draft, not on the site</span>}
           </div>
         </div>
       )}

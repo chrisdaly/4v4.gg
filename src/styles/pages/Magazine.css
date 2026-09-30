@@ -4024,3 +4024,13 @@ a.mg-stack-player-name:hover {
 .mg-desk-link:hover {
   text-decoration: underline;
 }
+
+/* The one control left on the page: the cover, judged against the page it
+   sits on. Everything else is on the desk. */
+.mg-draft-flag {
+  font-family: var(--font-mono);
+  font-size: var(--text-xxs);
+  text-transform: uppercase;
+  letter-spacing: 0.1em;
+  color: var(--amber);
+}
