@@ -40,7 +40,17 @@ string, and a daily with no BEST_OF_CHAT all still work.
 
 ## Removed
 
-_Nothing yet._
+### The issue page's editorial drawer - 2026-09-30
+- **Commit:** `3998dce`
+- **Was:** DRAMA / HIGHLIGHTS item pickers with drag and delete, section and
+  stat visibility toggles, Regenerate, Headlines, Generate Variants, and the
+  confirm and picker modals behind them. 154 lines plus its state.
+- **Replaced by:** `/news-desk`, which finds candidates, writes the stories
+  and computes every numeric section.
+- **Kept on the page:** Edit Cover, Pick Cover, Preview, Publish, and inline
+  text editing. The desk cannot read an existing issue back yet, so inline
+  editing is still the only way to fix a typo. Remove it when that lands.
+- **Restore:** `git checkout 3998dce^ -- src/components/news/WeeklyMagazine.jsx`
 
 <!-- Format:
 ### <what> - <YYYY-MM-DD>
