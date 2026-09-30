@@ -983,6 +983,38 @@ export function countMessagesByDateRange(startDate, endDate) {
   ).get(startDate + ' 00:00:00', endDate + ' 23:59:59')?.count || 0;
 }
 
+/**
+ * What data actually exists, day by day, for each table an issue is built
+ * from. The weekly pipeline reads all four, and when one stops filling the
+ * symptom is a missing section rather than an error, so it is worth being
+ * able to see coverage directly.
+ */
+export function pipelineCoverage(startDate, endDate) {
+  const from = startDate + ' 00:00:00';
+  const to = endDate + ' 23:59:59';
+  const byDay = (sql, params) => {
+    const rows = db.prepare(sql).all(...params);
+    return Object.fromEntries(rows.map((r) => [r.date, r.n]));
+  };
+  return {
+    messages: byDay(
+      `SELECT DATE(received_at) AS date, COUNT(*) AS n FROM messages
+       WHERE deleted = 0 AND received_at >= ? AND received_at <= ? GROUP BY date`, [from, to]),
+    matches: byDay(
+      `SELECT date, COUNT(*) AS n FROM daily_matches WHERE date >= ? AND date <= ? GROUP BY date`,
+      [startDate, endDate]),
+    matchScores: byDay(
+      `SELECT date, COUNT(DISTINCT match_id) AS n FROM match_player_scores
+       WHERE date >= ? AND date <= ? GROUP BY date`, [startDate, endDate]),
+    playerStats: byDay(
+      `SELECT date, COUNT(*) AS n FROM daily_player_stats WHERE date >= ? AND date <= ? GROUP BY date`,
+      [startDate, endDate]),
+    digests: byDay(
+      `SELECT date, COUNT(*) AS n FROM daily_digests WHERE date >= ? AND date <= ? GROUP BY date`,
+      [startDate, endDate]),
+  };
+}
+
 /** Every live message between two YYYY-MM-DD days, inclusive, oldest first. */
 export function getMessagesInRange(startDate, endDate) {
   return db.prepare(`

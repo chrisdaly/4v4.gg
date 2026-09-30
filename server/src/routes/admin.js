@@ -2,7 +2,7 @@ import { Router } from 'express';
 import rateLimit from 'express-rate-limit';
 import multer from 'multer';
 import config from '../config.js';
-import { setToken, getStats, getTopWords, getRecentDigests, deleteDigest, getDigest, getRecentWeeklyDigests, deleteWeeklyDigest, getWeeklyDigest, getWeeklyCoverImage, setWeeklyCoverImage, updateWeeklyCoverPosition, getDraftForDate, updateDigestOnly, updateDraftOnly, updateHiddenAvatars, getContextAroundQuotes, getMessagesByTimeWindow, getMessagesInRange, getMessagesByDateAndUsers, getMessageBuckets, getGameStats, getMatchContext, getClipsByDateRange, saveCoverGeneration, getCoverGenerations, getAllCoverGenerations, getCoverGenerationImage, deleteCoverGeneration, getWeeklyDraftForWeek, updateWeeklyDraftOnly, updateWeeklyDigestOnly, createGenJob, getActiveGenJob, getLatestGenJob, getVariantsForJob, searchMessages, countSearchMessages, searchMessagesByPlayer, countMessagesByPlayer, getMessagesAroundTime, countMessagesByDateRange, updateWeeklyDigestJson, updateWeeklyClips, updateWeeklyStats, getDigestsByDateRange, saveStyleThumbnail, getStyleThumbnail, toggleWeeklyPublished, hasDailyPlayerStats, setDigestWithDraft, setWeeklyDigest } from '../db.js';
+import { setToken, getStats, getTopWords, getRecentDigests, deleteDigest, getDigest, getRecentWeeklyDigests, deleteWeeklyDigest, getWeeklyDigest, getWeeklyCoverImage, setWeeklyCoverImage, updateWeeklyCoverPosition, getDraftForDate, updateDigestOnly, updateDraftOnly, updateHiddenAvatars, getContextAroundQuotes, getMessagesByTimeWindow, getMessagesInRange, pipelineCoverage, getMessagesByDateAndUsers, getMessageBuckets, getGameStats, getMatchContext, getClipsByDateRange, saveCoverGeneration, getCoverGenerations, getAllCoverGenerations, getCoverGenerationImage, deleteCoverGeneration, getWeeklyDraftForWeek, updateWeeklyDraftOnly, updateWeeklyDigestOnly, createGenJob, getActiveGenJob, getLatestGenJob, getVariantsForJob, searchMessages, countSearchMessages, searchMessagesByPlayer, countMessagesByPlayer, getMessagesAroundTime, countMessagesByDateRange, updateWeeklyDigestJson, updateWeeklyClips, updateWeeklyStats, getDigestsByDateRange, saveStyleThumbnail, getStyleThumbnail, toggleWeeklyPublished, hasDailyPlayerStats, setDigestWithDraft, setWeeklyDigest } from '../db.js';
 import Anthropic from '@anthropic-ai/sdk';
 import { storyCandidates, draftStory } from '../storyCandidates.js';
 import { updateToken, getStatus } from '../signalr.js';
@@ -308,6 +308,24 @@ router.get('/story-candidates/:weekStart', requireApiKey, contextLimiter, (req, 
   } catch (err) {
     console.error('[Desk] Story candidates failed:', err.message);
     res.status(500).json({ error: 'Failed to build story candidates' });
+  }
+});
+
+/**
+ * Which of the four data feeds an issue needs are actually filling. Read
+ * only; it answers "is the pipeline alive" without generating anything.
+ */
+router.get('/pipeline-status', requireApiKey, (req, res) => {
+  const day = /^\d{4}-\d{2}-\d{2}$/;
+  const to = day.test(String(req.query.to)) ? String(req.query.to) : new Date().toISOString().slice(0, 10);
+  const from = day.test(String(req.query.from))
+    ? String(req.query.from)
+    : new Date(Date.now() - 27 * 86400000).toISOString().slice(0, 10);
+  try {
+    res.json({ from, to, coverage: pipelineCoverage(from, to) });
+  } catch (err) {
+    console.error('[Pipeline] status failed:', err.message);
+    res.status(500).json({ error: 'Could not read coverage' });
   }
 });
 
