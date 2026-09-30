@@ -1,7 +1,7 @@
 import React, { useState, useEffect, useMemo, useCallback, useRef } from "react";
 import { createPortal } from "react-dom";
 import { Link } from "react-router-dom";
-import { FiRefreshCw, FiX, FiPlus, FiMenu, FiShare2, FiCamera, FiMessageSquare, FiImage, FiMove, FiCheck } from "react-icons/fi";
+import { FiRefreshCw, FiX, FiPlus, FiMenu, FiShare2, FiCamera, FiImage, FiMove, FiCheck } from "react-icons/fi";
 import html2canvas from "html2canvas";
 import ChatContext from "../ChatContext";
 import ChatMessage from "../chat/ChatMessage";
@@ -9,12 +9,10 @@ import QuoteBlock from "../chat/QuoteBlock";
 import { WeekTrend, MostTalkedAbout } from "./WeekPulse";
 import { fetchAndCacheProfile } from "../../lib/profileCache";
 import useAdmin from "../../lib/useAdmin";
-import { CountryFlag, ConfirmModal, PageNav, Button } from "../ui";
+import { CountryFlag, PageNav, Button } from "../ui";
 import FormDots from "../FormDots";
 import PeonLoader from "../PeonLoader";
 import useWeeklyEditorial, {
-  TOGGLEABLE_SECTIONS,
-  STAT_LINES,
 } from "../../lib/useWeeklyEditorial";
 import useVariantGen from "../../lib/useVariantGen";
 import VariantPicker from "./VariantPicker";
@@ -151,52 +149,8 @@ const EditableText = ({ value, onSave, tag: Tag = "span", className = "" }) => {
 };
 
 /** Section visibility toggle for admins */
-const SectionToggle = ({ label, sectionKey, hidden, onToggle, children }) => {
-  return (
-    <div className={`mg-editorial-section-wrap ${hidden ? "mg-editorial-section--hidden" : ""}`}>
-      <div className="mg-editorial-section-toggle">
-        <label className="mg-editorial-toggle-label">
-          <input
-            type="checkbox"
-            checked={!hidden}
-            onChange={() => onToggle(sectionKey)}
-          />
-          {label}
-        </label>
-      </div>
-      {!hidden && children}
-    </div>
-  );
-};
 
 /** Stat line toggle */
-const StatToggle = ({ label, statKey, hidden, onToggle }) => (
-  <label className="mg-editorial-stat-toggle">
-    <input type="checkbox" checked={!hidden} onChange={() => onToggle(statKey)} />
-    {label}
-  </label>
-);
-
-/** Item drag handle + delete controls for semicolon lists */
-const ItemControls = ({ onDelete, onContext, dragProps }) => (
-  <div className="mg-editorial-item-controls">
-    {dragProps && <span className="mg-editorial-drag" {...dragProps} title="Drag to reorder"><FiMenu size={12} /></span>}
-    {onDelete && <Button $icon className="mg-editorial-delete" onClick={onDelete} title="Delete item" aria-label="Delete item"><FiX size={12} /></Button>}
-    {onContext && <Button $icon className="mg-editorial-context" onClick={onContext} title="View chat context" aria-label="View chat context"><FiMessageSquare size={12} /></Button>}
-  </div>
-);
-
-
-/** Save status bar */
-const SaveStatus = ({ state }) => {
-  if (state === "idle" || state === "dirty") return null;
-  const label = state === "saving" ? "Saving..." : "Saved";
-  return (
-    <div className={`mg-editorial-status mg-editorial-status--${state}`}>
-      {label}
-    </div>
-  );
-};
 
 /** Per-section regen button - only visible in editorial mode */
 const SectionRegenButton = ({ sectionKey, regenLoading, onRegen }) => {
@@ -2565,14 +2519,8 @@ const WeeklyMagazine = ({ weekParam, isAdmin = false, apiKey = "" }) => {
   }, [variantGen.applyPicks, weeklyIdx]);
 
   // Regenerate digest (delete cache + re-fetch)
-  const [regenerating, setRegenerating] = useState(false);
-  const [showRegenConfirm, setShowRegenConfirm] = useState(false);
-  const panelDrag = useDragReorder();
 
   // Headline picker state
-  const [headlineOptions, setHeadlineOptions] = useState([]);
-  const [headlineLoading, setHeadlineLoading] = useState(false);
-  const [showHeadlinePicker, setShowHeadlinePicker] = useState(false);
 
   // Preview mode - hides edit controls but keeps editorial panel visible
   const [previewMode, setPreviewMode] = useState(false);
@@ -2629,27 +2577,7 @@ const WeeklyMagazine = ({ weekParam, isAdmin = false, apiKey = "" }) => {
   const [showCoverGallery, setShowCoverGallery] = useState(false);
 
   // Inline cover generation
-  const [coverGenLoading, setCoverGenLoading] = useState(false);
-  const generateCover = useCallback(async () => {
-    if (!weekly?.week_start || !apiKey || !weekly?.digest) return;
-    setCoverGenLoading(true);
-    try {
-      const res = await fetch(`${RELAY_URL}/api/admin/weekly-digest/${weekly.week_start}/cover`, {
-        method: "POST",
-        headers: { "X-API-Key": apiKey },
-      });
-      if (res.ok) {
-        setCoverBg(`${RELAY_URL}/api/admin/weekly-digest/${weekly.week_start}/cover.jpg?t=${Date.now()}`);
-      }
-    } catch (err) {
-      console.warn("[Magazine] Cover generation failed:", err.message);
-    }
-    setCoverGenLoading(false);
-  }, [weekly, apiKey]);
 
-  const handlePanelDrop = (section, from, toIdx) => {
-    ed.handleReorderItem(section, from, toIdx);
-  };
   const handleTogglePublish = useCallback(async () => {
     if (!weekly?.week_start || !apiKey) return;
     try {
@@ -2668,49 +2596,8 @@ const WeeklyMagazine = ({ weekParam, isAdmin = false, apiKey = "" }) => {
     }
   }, [weekly, apiKey, weeklyIdx]);
 
-  const doRegenerate = useCallback(async () => {
-    if (!weekly?.week_start || !apiKey) return;
-    setShowRegenConfirm(false);
-    setRegenerating(true);
-    try {
-      await fetch(`${RELAY_URL}/api/admin/weekly-digest/${weekly.week_start}`, {
-        method: "DELETE",
-        headers: { "X-API-Key": apiKey },
-      });
-      const res = await fetch(`${RELAY_URL}/api/admin/weekly-digest/${weekly.week_start}`);
-      if (res.ok) {
-        const data = await res.json();
-        if (data?.digest) {
-          setWeeklyDigests((prev) =>
-            prev.map((w, i) => (i === weeklyIdx ? { ...w, digest: data.digest } : w))
-          );
-        }
-      }
-    } catch (err) {
-      console.warn("[Magazine] Regenerate failed:", err.message);
-    }
-    setRegenerating(false);
-  }, [weekly, apiKey, weeklyIdx]);
 
   // Headline picker - fetch 5 options from LLM
-  const fetchHeadlines = useCallback(async () => {
-    if (!weekly?.week_start || !apiKey) return;
-    setHeadlineLoading(true);
-    setShowHeadlinePicker(true);
-    try {
-      const res = await fetch(`${RELAY_URL}/api/admin/weekly-digest/${weekly.week_start}/headline`, {
-        method: "POST",
-        headers: { "X-API-Key": apiKey, "Content-Type": "application/json" },
-      });
-      if (res.ok) {
-        const data = await res.json();
-        setHeadlineOptions(data.headlines || []);
-      }
-    } catch (err) {
-      console.warn("[Magazine] Headline fetch failed:", err.message);
-    }
-    setHeadlineLoading(false);
-  }, [weekly, apiKey]);
 
   // Cover gallery - fetch all saved generations across all weeks
   const fetchCoverGallery = useCallback(async () => {
@@ -2981,20 +2868,20 @@ const WeeklyMagazine = ({ weekParam, isAdmin = false, apiKey = "" }) => {
       </div>
 
       {/* Editorial controls panel */}
-      {ed.isEditorial && ed.editableItemSections.length > 0 && (
+      {/* What the desk cannot do: the cover, which needs to be seen on the
+          page, and publishing, which is a decision rather than an edit.
+          Story picking, section toggles and regeneration moved to
+          /news-desk. See docs/GRAVEYARD.md. */}
+      {ed.isEditorial && (
         <div className="mg-editorial-panel reveal" style={{ "--delay": "0.08s" }}>
           <div className="mg-section-header" style={{ maxWidth: 900, margin: "0 auto", padding: "0 var(--space-6)" }}>
-            <span className="mg-section-label mg-section-label--gold">Editorial Controls</span>
-            {weekly.dataCoverage && (
-              <span className="mg-data-coverage" title="Daily stats coverage for this week">
-                {Object.entries(weekly.dataCoverage).map(([date, has]) => (
-                  <span key={date} className={`mg-data-dot${has ? " mg-data-dot--ok" : ""}`} title={`${date}: ${has ? "data" : "missing"}`} />
-                ))}
-              </span>
-            )}
+            <span className="mg-section-label mg-section-label--gold">This issue</span>
             <div className="mg-section-rule" />
           </div>
           <div className="mg-editorial-actions">
+            <Button $secondary as={Link} to={`/news-desk?week=${weekly.week_start}`} title="Pick and write this week's stories">
+              Story Desk
+            </Button>
             {weekly.week_start && (
               <Button $secondary as="a" href={`/cover-art?week=${weekly.week_start}`} title="Open full cover art editor">Edit Cover</Button>
             )}
@@ -3002,39 +2889,6 @@ const WeeklyMagazine = ({ weekParam, isAdmin = false, apiKey = "" }) => {
               <Button $secondary onClick={fetchCoverGallery} disabled={coverGalleryLoading} title="Browse generated covers and pick one">
                 {coverGalleryLoading ? "Loading..." : "Pick Cover"}
               </Button>
-            )}
-            {weekly.week_start && (
-              <Button $secondary onClick={generateCover} disabled={coverGenLoading} title="Auto-generate a cover image from the top story">
-                {coverGenLoading ? "Generating..." : "Generate Cover"}
-              </Button>
-            )}
-            <Button $secondary onClick={fetchHeadlines} disabled={headlineLoading} title="Generate 5 headline options to choose from">
-              {headlineLoading ? "Generating..." : "Headlines"}
-            </Button>
-            <Button $secondary onClick={() => setShowRegenConfirm(true)} disabled={regenerating} title="Delete cached digest and regenerate from scratch">
-              {regenerating ? "Regenerating..." : "Regenerate"}
-            </Button>
-            {variantGen && !variantGen.isGenerating && !variantGen.isDone && variantGen.job?.status !== "error" && (
-              <Button $secondary onClick={variantGen.startGeneration} title="Generate 3 editorial variants for mix-and-match">
-                Generate Variants
-              </Button>
-            )}
-            {variantGen?.isGenerating && (
-              <span className="mg-gen-status mg-gen-status--generating">
-                <span className="mg-gen-dot" />
-                Generating... <span className="mg-gen-progress">{variantGen.job.completed}/{variantGen.job.total}</span>
-              </span>
-            )}
-            {variantGen?.isDone && (
-              <Button $secondary onClick={() => variantGen.setShowPicker(true)} title="Review and pick from 3 generated variants">
-                Review {variantGen.variants.length} Variants
-              </Button>
-            )}
-            {variantGen?.job?.status === "error" && (
-              <span className="mg-gen-status mg-gen-status--error">
-                Failed: {variantGen.job.error || "Unknown error"}
-                <Button $secondary onClick={variantGen.startGeneration} style={{ marginLeft: "var(--space-2)" }}>Retry</Button>
-              </span>
             )}
             <Button $secondary onClick={() => setPreviewMode((p) => !p)} title={previewMode ? "Return to editing mode" : "Preview as a reader would see it"}>
               {previewMode ? "Editing" : "Preview"}
@@ -3047,91 +2901,6 @@ const WeeklyMagazine = ({ weekParam, isAdmin = false, apiKey = "" }) => {
             >
               {weekly.published ? "Unpublish" : "Publish"}
             </Button>
-          </div>
-          <div className="mg-editorial-grid">
-            {ed.editableItemSections.map(({ key, label, items }) => (
-              <div key={key} className="mg-editorial-block">
-                <span className="mg-editorial-block-label">
-                  {label}
-                  {["DRAMA", "BANS", "HIGHLIGHTS", "TOPICS"].includes(key) && (
-                    <SectionRegenButton sectionKey={key} regenLoading={ed.regenLoading} onRegen={ed.regenSection} />
-                  )}
-                </span>
-                {items.map((item, i) => {
-                  const summaryText = item.replace(/"[^"]+"/g, "").replace(/\s{2,}/g, " ").trim();
-                  const short = summaryText.length > 60 ? summaryText.slice(0, 57) + "..." : summaryText;
-                  const isSelected = ed.sectionSelections[key]?.has(i);
-                  return (
-                    <div
-                      key={i}
-                      className={`mg-editorial-item${panelDrag.isDragOver(key, i) ? " mg-editorial-item--dragover" : ""}${!isSelected ? " mg-editorial-item--unpublished" : ""}`}
-                      onDragOver={(e) => { if (panelDrag.dragState.section === key) { e.preventDefault(); panelDrag.onDragOver(key, i); } }}
-                      onDragLeave={() => panelDrag.onDragLeave(i)}
-                      onDrop={(e) => { if (panelDrag.dragState.section === key) { e.preventDefault(); panelDrag.onDrop(key, i, handlePanelDrop); } }}
-                    >
-                      <ItemControls
-                        onDelete={() => ed.handleDeleteItem(key, i)}
-                        dragProps={{
-                          draggable: true,
-                          onDragStart: () => panelDrag.onDragStart(key, i),
-                          onDragEnd: panelDrag.onDragEnd,
-                        }}
-                      />
-                      {ed.editingItem === `${key}-${i}` ? (
-                        <input
-                          type="text"
-                          className="mg-editorial-inline-input"
-                          defaultValue={summaryText}
-                          autoFocus
-                          onBlur={(e) => ed.handleEditSummary(key, i, e.target.value)}
-                          onKeyDown={(e) => {
-                            if (e.key === "Enter") ed.handleEditSummary(key, i, e.target.value);
-                            if (e.key === "Escape") ed.setEditingItem(null);
-                          }}
-                        />
-                      ) : (
-                        <span
-                          className="mg-editorial-item-text"
-                          onClick={() => ed.setEditingItem(`${key}-${i}`)}
-                          title="Click to edit"
-                        >
-                          {short}
-                        </span>
-                      )}
-                    </div>
-                  );
-                })}
-              </div>
-            ))}
-
-            {/* Section toggles */}
-            <div className="mg-editorial-block">
-              <span className="mg-editorial-block-label">Sections</span>
-              {TOGGLEABLE_SECTIONS.map(({ key, label }) => (
-                <label key={key} className="mg-editorial-toggle-label">
-                  <input
-                    type="checkbox"
-                    checked={!ed.hiddenSections.has(key)}
-                    onChange={() => ed.toggleSection(key)}
-                  />
-                  {label}
-                </label>
-              ))}
-            </div>
-
-            {/* Stat line toggles */}
-            <div className="mg-editorial-block">
-              <span className="mg-editorial-block-label">Stats</span>
-              {STAT_LINES.map(({ key, label }) => (
-                <StatToggle
-                  key={key}
-                  label={label}
-                  statKey={key}
-                  hidden={ed.hiddenStats.has(key)}
-                  onToggle={ed.toggleStat}
-                />
-              ))}
-            </div>
           </div>
         </div>
       )}
@@ -3267,56 +3036,7 @@ const WeeklyMagazine = ({ weekParam, isAdmin = false, apiKey = "" }) => {
       {ed.isEditorial && <SaveStatus state={ed.publishState} />}
 
       {/* Regenerate confirmation modal */}
-      <ConfirmModal
-        open={showRegenConfirm}
-        title="Regenerate Digest"
-        message={`This will delete the cached digest for ${weekly ? formatWeekRange(weekly.week_start, weekly.week_end) : ""} and regenerate it from scratch. All editorial edits will be lost.`}
-        confirmLabel="Regenerate"
-        cancelLabel="Cancel"
-        variant="danger"
-        onConfirm={doRegenerate}
-        onCancel={() => setShowRegenConfirm(false)}
-      />
 
-      {/* Headline picker overlay */}
-      {showHeadlinePicker && (
-        <div className="mg-picker-overlay" onClick={() => setShowHeadlinePicker(false)}>
-          <div className="mg-picker-panel" onClick={(e) => e.stopPropagation()}>
-            <div className="mg-picker-header">
-              <span className="mg-section-label mg-section-label--gold">Pick a Headline</span>
-              <Button $icon onClick={() => setShowHeadlinePicker(false)} aria-label="Close"><FiX size={16} /></Button>
-            </div>
-            {headlineLoading ? (
-              <div className="mg-picker-loading"><PeonLoader size="sm" /></div>
-            ) : headlineOptions.length === 0 ? (
-              <p className="mg-picker-empty">No headlines generated yet.</p>
-            ) : (
-              <div className="mg-headline-options">
-                {headlineOptions.map((opt, i) => (
-                  <button
-                    key={i}
-                    className="mg-headline-option"
-                    onClick={() => {
-                      editorialProps?.onEditHeadline(opt.headline);
-                      setShowHeadlinePicker(false);
-                    }}
-                  >
-                    <span className="mg-headline-score">{opt.score}</span>
-                    <div className="mg-headline-content">
-                      <span className="mg-headline-text">{opt.headline}</span>
-                      {opt.players?.length > 0 && (
-                        <span className="mg-headline-players">
-                          {opt.players.map((p) => p.name).join(", ")}
-                        </span>
-                      )}
-                    </div>
-                  </button>
-                ))}
-              </div>
-            )}
-          </div>
-        </div>
-      )}
 
       {/* Cover gallery picker overlay */}
       {showCoverGallery && (

@@ -20,12 +20,16 @@ const Navbar = () => {
   const mobileRef = useRef(null);
   const { adminKey, isAdmin, adminViewActive, toggleAdminView, isKeyValid } = useAdmin();
 
-  const isActive = (path, matchPaths) => {
-    if (matchPaths) {
-      return matchPaths.some((p) => location.pathname.startsWith(p));
-    }
-    return location.pathname.startsWith(path);
+  // A prefix match lights up News for /news-desk too, so a path only counts
+  // when the next character is a boundary.
+  const hits = (path) => {
+    const { pathname } = location;
+    if (!pathname.startsWith(path)) return false;
+    const next = pathname[path.length];
+    return next === undefined || next === "/" || next === "?";
   };
+
+  const isActive = (path, matchPaths) => (matchPaths || [path]).some(hits);
 
   // Close search on outside click
   useEffect(() => {
