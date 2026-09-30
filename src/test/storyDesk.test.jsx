@@ -467,3 +467,29 @@ describe('what may be printed big', () => {
     expect(quotes[0].score).toBeGreaterThan(quotes[1].score);
   });
 });
+
+describe('digging into a quote', () => {
+  it('carries the conversation either side, with the line itself marked', async () => {
+    const { findQuotes } = await import('../../server/src/storyCandidates.js');
+    const at = (n) => `2026-09-21 11:${String(n).padStart(2, '0')}:00`;
+    const say = (i, name, text) => ({ id: `q${i}`, received_at: at(i), user_name: name, battle_tag: `${name}#1`, message: text });
+    const rows = [
+      say(1, 'PEEN1E', 'show me on the doll which part was serious'),
+      say(2, 'lumos', 'took you a while to think of that one'),
+      say(3, 'lumos', 'what took you so long? had to google it?'),
+      say(4, 'Watcher', 'lol'),
+      say(5, 'Other', 'hahaha'),
+      say(6, 'PEEN1E', 'very funny'),
+    ];
+    const [q] = findQuotes(rows);
+    expect(q.text).toBe('what took you so long? had to google it?');
+
+    // You cannot judge that line without seeing who it was aimed at
+    const texts = q.context.map((l) => l.text);
+    expect(texts).toContain('show me on the doll which part was serious');
+    expect(texts).toContain('very funny');
+    const marked = q.context.filter((l) => l.isQuote);
+    expect(marked).toHaveLength(1);
+    expect(marked[0].name).toBe('lumos');
+  });
+});

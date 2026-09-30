@@ -412,8 +412,17 @@ export function findQuotes(messages, { limit = 40 } = {}) {
       score,
       imagery: IMAGERY.test(text),
       who: [...reactors],
-      // What was said around it, so a line can be judged in context
-      before: messages.slice(Math.max(0, i - 2), i).map((x) => ({ name: x.user_name, text: x.message })),
+      // The conversation either side, because a line on its own is a
+      // fragment: you cannot tell who it was aimed at or what provoked it.
+      context: messages
+        .slice(Math.max(0, i - 4), i + 5)
+        .map((x) => ({
+          at: x.received_at,
+          name: x.user_name,
+          tag: x.battle_tag,
+          text: x.message,
+          isQuote: x.id === m.id,
+        })),
     });
   }
 

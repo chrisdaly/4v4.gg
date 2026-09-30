@@ -936,3 +936,62 @@
   line-height: 1.5;
   color: rgba(255, 255, 255, 0.82);
 }
+
+/* A quote with no context is a fragment: this is how you find out what it
+   was about, and who it was aimed at. */
+.sd-qotw-pick {
+  padding: 0;
+  border: 0;
+  background: none;
+  text-align: left;
+  cursor: pointer;
+}
+
+.sd-qotw-more {
+  font-family: var(--font-mono);
+  font-size: var(--text-xxxs);
+}
+
+.sd-qotw-context {
+  margin-top: var(--space-3);
+  padding-top: var(--space-3);
+  border-top: 1px dashed var(--panel-border);
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  max-height: 260px;
+  overflow-y: auto;
+}
+
+.sd-qotw-line {
+  display: flex;
+  gap: var(--space-2);
+  margin: 0;
+  font-size: var(--text-xxs);
+  line-height: 1.5;
+  color: var(--grey-light);
+}
+
+.sd-qotw-line--is {
+  color: #fff;
+  background: var(--gold-tint);
+  border-radius: var(--radius-sm);
+  padding: 1px var(--space-1);
+}
+
+.sd-qotw-line-at {
+  font-family: var(--font-mono);
+  font-size: var(--text-xxxs);
+  color: var(--grey-mid);
+  flex-shrink: 0;
+}
+
+.sd-qotw-line-who {
+  font-family: var(--font-display);
+  color: var(--gold);
+  flex-shrink: 0;
+}
+
+.sd-qotw-line-text {
+  min-width: 0;
+}

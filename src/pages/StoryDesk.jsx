@@ -288,10 +288,39 @@ function CandidateRow({ candidate, slot, onAssign }) {
  * rather than reading a score. Your own search is there for when none of
  * them is the one you remember.
  */
-function QuoteOfWeek({ quotes, chosen, onChoose, weekStart, weekEnd }) {
+function QuoteOfWeek({ quotes, chosen, onChoose, weekStart, weekEnd, adminKey }) {
   const [query, setQuery] = useState("");
   const [found, setFound] = useState(null);
   const [searching, setSearching] = useState(false);
+  const [openId, setOpenId] = useState(null);
+  const [fetched, setFetched] = useState({});
+
+  /**
+   * The conversation around a line. Scored candidates arrive with theirs;
+   * a line you found by searching has to go and get it, because you cannot
+   * judge "had to google it?" without seeing who it was aimed at.
+   */
+  const openContext = async (q) => {
+    if (openId === q.id) { setOpenId(null); return; }
+    setOpenId(q.id);
+    if (q.context || fetched[q.id]) return;
+    try {
+      const sp = new URLSearchParams({ received_at: q.at, padding: "2" });
+      const res = await fetch(`${RELAY_URL}/api/admin/messages/search/context?${sp}`, {
+        headers: { "X-API-Key": adminKey },
+      });
+      const rows = res.ok ? await res.json() : [];
+      setFetched((prev) => ({
+        ...prev,
+        [q.id]: (rows || []).map((m) => ({
+          at: m.received_at, name: m.user_name, text: m.message,
+          isQuote: m.received_at === q.at && m.user_name === q.name,
+        })),
+      }));
+    } catch {
+      setFetched((prev) => ({ ...prev, [q.id]: [] }));
+    }
+  };
 
   const search = async (e) => {
     e?.preventDefault();
@@ -351,14 +380,14 @@ function QuoteOfWeek({ quotes, chosen, onChoose, weekStart, weekEnd }) {
 
       <div className="sd-qotw-grid">
         {shown.map((q) => (
-          <button
+          <div
             key={q.id}
-            type="button"
             className={`sd-qotw-card${isChosen(q) ? " sd-qotw-card--on" : ""}`}
-            onClick={() => onChoose(isChosen(q) ? null : q)}
             data-quote-option={q.id}
           >
-            <span className="sd-qotw-text">&ldquo;{q.text}&rdquo;</span>
+            <button type="button" className="sd-qotw-pick" onClick={() => onChoose(isChosen(q) ? null : q)}>
+              <span className="sd-qotw-text">&ldquo;{q.text}&rdquo;</span>
+            </button>
             <span className="sd-qotw-foot">
               <span className="sd-qotw-by">{q.name}</span>
               {q.laughs > 0 && (
@@ -366,9 +395,24 @@ function QuoteOfWeek({ quotes, chosen, onChoose, weekStart, weekEnd }) {
                   {q.laughs} laughed
                 </span>
               )}
+              <button type="button" className="sd-linkish sd-qotw-more" onClick={() => openContext(q)}>
+                {openId === q.id ? "hide" : "what was this about?"}
+              </button>
               <span className="sd-qotw-at">{String(q.at).slice(5, 16)}</span>
             </span>
-          </button>
+            {openId === q.id && (
+              <div className="sd-qotw-context">
+                {(q.context || fetched[q.id] || []).map((l, i) => (
+                  <p key={i} className={`sd-qotw-line${l.isQuote ? " sd-qotw-line--is" : ""}`}>
+                    <span className="sd-qotw-line-at">{String(l.at).slice(11, 16)}</span>
+                    <span className="sd-qotw-line-who">{l.name}</span>
+                    <span className="sd-qotw-line-text">{l.text}</span>
+                  </p>
+                ))}
+                {!(q.context || fetched[q.id]) && <p className="sd-qotw-line">Loading…</p>}
+              </div>
+            )}
+          </div>
         ))}
         {shown.length === 0 && (
           <p className="sd-empty">{found ? "Nothing matched that." : "Nothing landed this week."}</p>
@@ -813,6 +857,7 @@ export default function StoryDesk() {
             chosen={quote}
             weekStart={weekStart}
             weekEnd={data.weekEnd || weekStart}
+            adminKey={adminKey}
             onChoose={(q) => { setQuote(q); saveQuote(weekStart, q); }}
           />
 
