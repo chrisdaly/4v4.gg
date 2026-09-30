@@ -260,3 +260,24 @@ describe('reading the computed numbers back', () => {
     expect(readRankings('')).toEqual([]);
   });
 });
+
+describe('a card week', () => {
+  it('splits form by day, carries MMR, and finds the run that earned the card', async () => {
+    const { readDaily, readMmr, findRun } = await import('../lib/news/storyDesk');
+
+    expect(readDaily('WINNER=Mon:WLW|Tue:LL;HOTSTREAK=Wed:WWWW')).toEqual({
+      WINNER: [{ day: 'Mon', form: 'WLW' }, { day: 'Tue', form: 'LL' }],
+      HOTSTREAK: [{ day: 'Wed', form: 'WWWW' }],
+    });
+    expect(readDaily('')).toEqual({});
+
+    expect(readMmr('WINNER=1842,LOSER=1520')).toEqual({ WINNER: 1842, LOSER: 1520 });
+    expect(readMmr('WINNER=0')).toEqual({});
+
+    // A 10-win run inside a long week, which a flat dot strip hides
+    const form = 'WLLWLWWLWWWWWWWWWWLW';
+    expect(findRun(form, 'W', 10)).toEqual({ start: 8, end: 18 });
+    expect(findRun(form, 'W', 12)).toBeNull();
+    expect(findRun('', 'W', 3)).toBeNull();
+  });
+});

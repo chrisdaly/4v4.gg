@@ -9,7 +9,7 @@ import { StreakSpectrum } from "../components/news/WeeklyMagazine";
 import { WeekTrend } from "../components/news/WeekPulse";
 import {
   SLOTS, loadPicks, savePicks, assign, inSlot, pickedTags, pickQuotes, lineKey,
-  readStatLine, readSpectrum, readRankings, SPOTLIGHT_ORDER,
+  readStatLine, readSpectrum, readRankings, readDaily, readMmr, findRun, SPOTLIGHT_ORDER,
   loadDrafts, saveDrafts, startDraft, composeItem, toggleQuote, hasQuote, isReady,
   applyToDigest, composedSections,
 } from "../lib/news/storyDesk";
@@ -286,6 +286,41 @@ function CandidateRow({ candidate, slot, onAssign }) {
  * A line like "WINNER: Name#1[HU] +239 MMR (17W-6L) WLWW" is unreadable and
  * the totals underneath it were never interesting, so both are gone.
  */
+/**
+ * A card's week as dots, grouped by the day they were played, with the run
+ * that earned the card picked out. 187 dots in a row tell you nothing about
+ * when the week turned, and a 10-win streak is invisible inside 80 of them.
+ */
+function WeekDots({ days, streak }) {
+  if (!days?.length) return null;
+  // Walk the flat form so the streak's position maps back onto the days
+  let seen = 0;
+  return (
+    <div className="sd-weekdots">
+      {days.map(({ day, form }) => {
+        const cells = form.split("").map((ch, i) => {
+          const idx = seen + i;
+          const inRun = streak && idx >= streak.start && idx < streak.end;
+          return (
+            <span
+              key={i}
+              className={`sd-dot sd-dot--${ch === "W" ? "win" : "loss"}${inRun ? " sd-dot--run" : ""}`}
+            />
+          );
+        });
+        seen += form.length;
+        return (
+          <div key={day} className="sd-weekday">
+            <span className="sd-weekday-label">{day}</span>
+            <div className="sd-weekday-dots">{cells}</div>
+            <span className="sd-weekday-n">{form.length || ""}</span>
+          </div>
+        );
+      })}
+    </div>
+  );
+}
+
 function NumbersPreview({ sections, weekStart }) {
   const cards = SPOTLIGHT_ORDER
     .map((c) => ({ ...c, stat: readStatLine(sections[c.key]) }))
@@ -294,6 +329,14 @@ function NumbersPreview({ sections, weekStart }) {
   const rankings = readRankings(sections.POWER_RANKINGS);
   const trend = sections.WEEK_TREND;
   const heroes = (sections.HEROSLAYER_HEROES || "").split(",").filter(Boolean);
+  const daily = readDaily(sections.SPOTLIGHT_DAILY);
+  const mmr = readMmr(sections.SPOTLIGHT_MMR);
+  const mostInAGame = Number(sections.HEROSLAYER_MAX) || 0;
+  // The run that earned the card, so it can be picked out of the dots
+  const runFor = (key, stat) => {
+    const m = String(stat.headline).match(/(\d+)([WL]) streak/);
+    return m ? findRun(stat.form, m[2], Number(m[1])) : null;
+  };
   const maxRise = Math.max(...rankings.map((r) => Math.abs(r.mmrChange)), 1);
 
   return (
@@ -305,11 +348,20 @@ function NumbersPreview({ sections, weekStart }) {
               <span className="sd-card-role">{label}</span>
               <span className="sd-card-name">{stat.name}</span>
               <span className="sd-card-stat">{stat.headline}</span>
-              <span className="sd-card-record">{stat.wins}W-{stat.losses}L</span>
-              {key === "HEROSLAYER" && heroes.length > 0 ? (
+              <span className="sd-card-record">
+                {stat.wins}W-{stat.losses}L
+                {mmr[key] ? <span className="sd-card-mmr">{mmr[key].toLocaleString("en-US")} MMR</span> : null}
+              </span>
+              {key === "HEROSLAYER" && mostInAGame > 0 && (
+                <span className="sd-card-extra">{mostInAGame} in one game, the week&rsquo;s best</span>
+              )}
+              {key === "HEROSLAYER" && heroes.length > 0 && (
                 <div className="sd-card-heroes">
                   {heroes.map((h) => <img key={h} src={`/heroes/${h}.jpeg`} alt={h} className="sd-card-hero" />)}
                 </div>
+              )}
+              {daily[key]?.length ? (
+                <WeekDots days={daily[key]} streak={runFor(key, stat)} />
               ) : stat.form ? (
                 <FormDots form={stat.form.split("").map((c) => c === "W")} size="small" maxDots={24} showSummary={false} />
               ) : null}
@@ -345,7 +397,7 @@ function NumbersPreview({ sections, weekStart }) {
         </div>
       )}
 
-      {trend && <WeekTrend trend={parseTrend(trend)} weekStart={weekStart} />}
+      {trend && <WeekTrend trend={{ ...parseTrend(trend), blurb: sections.WEEK_TREND_BLURB || null }} weekStart={weekStart} />}
     </div>
   );
 }
@@ -362,7 +414,7 @@ function parseTrend(line) {
     const [games, players] = String(rest || "").split("/");
     return weekStart && games ? { weekStart, games: Number(games), players: Number(players) } : null;
   }).filter(Boolean);
-  return weeks.length ? { weeks, blurb: null } : null;
+  return weeks.length ? { weeks } : null;
 }
 
 /**

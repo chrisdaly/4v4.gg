@@ -691,6 +691,70 @@
   color: var(--grey-light);
 }
 
+/* A card's week, one column per day. The run that earned the card is lit;
+   everything else is dimmed, so a 10-win streak is findable inside 80 games. */
+.sd-weekdots {
+  display: flex;
+  gap: var(--space-2);
+  margin-top: var(--space-2);
+  align-items: flex-start;
+}
+
+.sd-weekday {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 3px;
+  min-width: 0;
+}
+
+.sd-weekday-label {
+  font-family: var(--font-mono);
+  font-size: var(--text-xxxs);
+  color: var(--grey-mid);
+  text-transform: uppercase;
+}
+
+.sd-weekday-dots {
+  display: grid;
+  grid-template-columns: repeat(4, 5px);
+  gap: 2px;
+  justify-content: center;
+}
+
+.sd-weekday-n {
+  font-family: var(--font-mono);
+  font-size: var(--text-xxxs);
+  color: var(--grey-mid);
+}
+
+.sd-dot {
+  width: 5px;
+  height: 5px;
+  border-radius: 50%;
+  opacity: 0.32;
+}
+
+.sd-dot--win { background: var(--green); }
+.sd-dot--loss { background: var(--red); }
+
+/* The streak itself */
+.sd-dot--run {
+  opacity: 1;
+  box-shadow: 0 0 0 1px rgba(255, 255, 255, 0.35);
+}
+
+.sd-card-mmr {
+  margin-left: var(--space-2);
+  color: var(--gold);
+}
+
+.sd-card-extra {
+  font-family: var(--font-mono);
+  font-size: var(--text-xxxs);
+  color: var(--amber);
+}
+
 .sd-card-heroes {
   display: flex;
   gap: 3px;

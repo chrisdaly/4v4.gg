@@ -187,6 +187,53 @@ function dailyFormLines(weekStart, weekEnd, cards) {
 }
 
 /**
+ * What the trend line actually says, in a sentence. A chart of five bars
+ * shows a fall; it does not say how steep, how long, or whether anyone who
+ * turns up is playing more to make up for it. That last number is the one
+ * that separates "the ladder is quieter" from "the ladder is smaller".
+ */
+export function trendBlurb(trendLine) {
+  const weeks = String(trendLine).split('|').find((p) => p.startsWith('weeks='));
+  if (!weeks) return null;
+  const rows = weeks.replace('weeks=', '').split(',').map((e) => {
+    const [start, rest] = e.split(':');
+    const [games, players] = String(rest || '').split('/');
+    return { start, games: Number(games), players: Number(players) };
+  }).filter((r) => r.players > 0);
+  if (rows.length < 3) return null;
+
+  const first = rows[0];
+  const last = rows[rows.length - 1];
+  const change = last.players - first.players;
+  const pct = Math.round((change / first.players) * 100);
+  const when = new Date(`${first.start}T12:00:00Z`)
+    .toLocaleDateString('en-US', { month: 'long', day: 'numeric' });
+
+  // A run of consecutive falls reads differently from one bad week
+  let falls = 0;
+  for (let i = rows.length - 1; i > 0; i--) {
+    if (rows[i].players < rows[i - 1].players) falls++;
+    else break;
+  }
+
+  const perPlayer = (r) => (r.players > 0 ? (r.games * 8) / r.players : 0);
+  const thenRate = perPlayer(first);
+  const nowRate = perPlayer(last);
+
+  const parts = [];
+  parts.push(change < 0
+    ? `${Math.abs(change)} fewer players than ${when}, down ${Math.abs(pct)}%.`
+    : `${change} more players than ${when}, up ${pct}%.`);
+  if (falls >= 2) parts.push(`${falls} weekly falls in a row.`);
+  if (thenRate > 0 && Math.abs(nowRate - thenRate) / thenRate < 0.12) {
+    parts.push(`Everyone who turns up still plays about ${Math.round(nowRate)} games a week, so the ladder is not getting keener, it is getting smaller.`);
+  } else if (nowRate > thenRate) {
+    parts.push(`The ones left are playing more, ${Math.round(thenRate)} games a week then against ${Math.round(nowRate)} now.`);
+  }
+  return parts.join(' ');
+}
+
+/**
  * Every numeric section for a week, as digest lines. Sections with nothing
  * to say are simply absent, which is what every reader of a digest already
  * expects.
@@ -274,7 +321,11 @@ export async function weeklyStatSections(weekStart, weekEnd) {
   Object.assign(sections, dailyFormLines(weekStart, weekEnd, cardPlayers));
 
   const trend = weekTrendFrom(weekStart, weekEnd);
-  if (trend) sections.WEEK_TREND = trend;
+  if (trend) {
+    sections.WEEK_TREND = trend;
+    const blurb = trendBlurb(trend);
+    if (blurb) sections.WEEK_TREND_BLURB = blurb;
+  }
 
   if (mentions.size > 0) sections.MENTIONS = [...mentions].sort().join(',');
 

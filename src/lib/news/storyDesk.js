@@ -291,3 +291,39 @@ export const SPOTLIGHT_ORDER = [
   { key: "COLDSTREAK", label: "Cold streak", accent: "red" },
   { key: "HEROSLAYER", label: "Hero slayer", accent: "white" },
 ];
+
+
+/** "WINNER=Mon:WLW|Tue:LL;LOSER=..." -> { WINNER: [{day, form}], ... } */
+export function readDaily(line) {
+  const out = {};
+  for (const part of String(line || "").split(";")) {
+    const [key, rest] = part.split(/=(.+)/);
+    if (!key || !rest) continue;
+    out[key.trim()] = rest.split("|").map((d) => {
+      const [day, form] = d.split(":");
+      return day ? { day, form: form || "" } : null;
+    }).filter(Boolean);
+  }
+  return out;
+}
+
+/** "WINNER=1842,LOSER=1520" -> { WINNER: 1842, ... } */
+export function readMmr(line) {
+  const out = {};
+  for (const part of String(line || "").split(",")) {
+    const [key, v] = part.split("=");
+    if (key && v && Number(v)) out[key.trim()] = Number(v);
+  }
+  return out;
+}
+
+/**
+ * Where a run of wins or losses sits inside a week's form, so it can be
+ * picked out of the dots. Returns null when there is no run that long.
+ */
+export function findRun(form, result, length) {
+  if (!form || !length || length < 2) return null;
+  const needle = String(result).repeat(length);
+  const at = String(form).indexOf(needle);
+  return at < 0 ? null : { start: at, end: at + length };
+}
