@@ -222,14 +222,33 @@
   color: var(--grey-light);
 }
 
+/* Three lines, because a term and a number is not a story and clicking
+   twenty rows to find out which ones are is the whole problem. */
 .sd-peek {
   margin: var(--space-2) 0 0;
+  display: flex;
+  flex-direction: column;
+  gap: 1px;
+}
+
+.sd-peek-line {
+  margin: 0;
   font-family: var(--font-body, Georgia, serif);
   font-size: var(--text-xs);
+  line-height: 1.5;
   color: rgba(255, 255, 255, 0.72);
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
+}
+
+.sd-peek-who {
+  font-family: var(--font-display);
+  color: var(--gold);
+}
+
+.sd-col-head--second {
+  margin-top: var(--space-12);
 }
 
 .sd-lines {

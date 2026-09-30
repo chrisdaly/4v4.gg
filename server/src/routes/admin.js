@@ -2,7 +2,7 @@ import { Router } from 'express';
 import rateLimit from 'express-rate-limit';
 import multer from 'multer';
 import config from '../config.js';
-import { setToken, getStats, getTopWords, getRecentDigests, deleteDigest, getDigest, getRecentWeeklyDigests, deleteWeeklyDigest, getWeeklyDigest, getWeeklyCoverImage, setWeeklyCoverImage, updateWeeklyCoverPosition, getDraftForDate, updateDigestOnly, updateDraftOnly, updateHiddenAvatars, getContextAroundQuotes, getMessagesByTimeWindow, getMessagesInRange, pipelineCoverage, getMessagesByDateAndUsers, getMessageBuckets, getGameStats, getMatchContext, getClipsByDateRange, saveCoverGeneration, getCoverGenerations, getAllCoverGenerations, getCoverGenerationImage, deleteCoverGeneration, getWeeklyDraftForWeek, updateWeeklyDraftOnly, updateWeeklyDigestOnly, createGenJob, getActiveGenJob, getLatestGenJob, getVariantsForJob, searchMessages, countSearchMessages, searchMessagesByPlayer, countMessagesByPlayer, getMessagesAroundTime, countMessagesByDateRange, updateWeeklyDigestJson, updateWeeklyClips, updateWeeklyStats, getDigestsByDateRange, saveStyleThumbnail, getStyleThumbnail, toggleWeeklyPublished, hasDailyPlayerStats, setDigestWithDraft, setWeeklyDigest } from '../db.js';
+import { setToken, getStats, getTopWords, getRecentDigests, deleteDigest, getDigest, getRecentWeeklyDigests, deleteWeeklyDigest, getWeeklyDigest, getWeeklyCoverImage, setWeeklyCoverImage, updateWeeklyCoverPosition, getDraftForDate, updateDigestOnly, updateDraftOnly, updateHiddenAvatars, getContextAroundQuotes, getMessagesByTimeWindow, getMessagesInRange, getDailyMatchesRange, pipelineCoverage, getMessagesByDateAndUsers, getMessageBuckets, getGameStats, getMatchContext, getClipsByDateRange, saveCoverGeneration, getCoverGenerations, getAllCoverGenerations, getCoverGenerationImage, deleteCoverGeneration, getWeeklyDraftForWeek, updateWeeklyDraftOnly, updateWeeklyDigestOnly, createGenJob, getActiveGenJob, getLatestGenJob, getVariantsForJob, searchMessages, countSearchMessages, searchMessagesByPlayer, countMessagesByPlayer, getMessagesAroundTime, countMessagesByDateRange, updateWeeklyDigestJson, updateWeeklyClips, updateWeeklyStats, getDigestsByDateRange, saveStyleThumbnail, getStyleThumbnail, toggleWeeklyPublished, hasDailyPlayerStats, setDigestWithDraft, setWeeklyDigest } from '../db.js';
 import Anthropic from '@anthropic-ai/sdk';
 import { storyCandidates, draftStory } from '../storyCandidates.js';
 import { weeklyStatSections } from '../weeklyStats.js';
@@ -305,7 +305,15 @@ router.get('/story-candidates/:weekStart', requireApiKey, contextLimiter, (req, 
     return res.status(400).json({ error: 'weekStart must be YYYY-MM-DD' });
   }
   try {
-    res.json(storyCandidates(weekStart, getMessagesInRange));
+    const weekEnd = new Date(new Date(weekStart + 'T12:00:00Z').getTime() + 6 * 86400000)
+      .toISOString().slice(0, 10);
+    const playerTags = [];
+    for (const m of getDailyMatchesRange(weekStart, weekEnd)) {
+      for (const key of ['team1_tags', 'team2_tags']) {
+        for (const t of String(m[key] || '').split(',')) if (t.trim()) playerTags.push(t.trim());
+      }
+    }
+    res.json(storyCandidates(weekStart, getMessagesInRange, { playerTags }));
   } catch (err) {
     console.error('[Desk] Story candidates failed:', err.message);
     res.status(500).json({ error: 'Failed to build story candidates' });

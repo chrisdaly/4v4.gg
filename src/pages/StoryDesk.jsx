@@ -253,7 +253,13 @@ function CandidateRow({ candidate, slot, onAssign }) {
       </div>
       <p className="sd-why">{candidate.why}</p>
       {quotes.length > 0 && !open && !slot && (
-        <p className="sd-peek">{quotes[0].name}: {quotes[0].text}</p>
+        <div className="sd-peek">
+          {quotes.slice(0, 3).map((q, i) => (
+            <p key={i} className="sd-peek-line">
+              <span className="sd-peek-who">{q.name}</span> {q.text}
+            </p>
+          ))}
+        </div>
       )}
       {slot && <p className="sd-placed">In the issue above · {SLOTS.find((x) => x.key === slot)?.label}</p>}
       {open && (
@@ -294,6 +300,7 @@ export default function StoryDesk() {
   const [applied, setApplied] = useState(null);
   const [showAllThemes, setShowAllThemes] = useState(false);
   const [showAllThreads, setShowAllThreads] = useState(false);
+  const [showAllPeople, setShowAllPeople] = useState(false);
   const [stats, setStats] = useState(null);
   const [statsState, setStatsState] = useState(null);
 
@@ -406,6 +413,10 @@ export default function StoryDesk() {
   const counts = SLOTS.map((s) => ({ ...s, n: inSlot(all, picks, s.key).length }));
   // Promoted stories, in the order they will appear in the issue
   const working = SLOTS.flatMap((slot) => inSlot(all, picks, slot.key));
+  // A term that is a player's name says who the week was about, not what happened
+  const themes = data?.themes || [];
+  const subjects = themes.filter((t) => t.subject !== "player");
+  const people = themes.filter((t) => t.subject === "player");
 
   /** The strongest few, plus anything already picked, then the rest on ask. */
   const List = ({ items, expanded, onExpand }) => {
@@ -531,14 +542,25 @@ export default function StoryDesk() {
 
           <div className="sd-cols">
             <section className="sd-col" data-list="themes">
-              <h2 className="sd-col-head">Talked about all week</h2>
+              <h2 className="sd-col-head">Argued about all week</h2>
               <p className="sd-col-sub">
-                One subject, many people, spread over days. Ranked by how far above the last four weeks it ran,
-                so <strong>3x</strong> means three times the usual amount of talk. Slow stories: they never spike,
-                so counting busy minutes will not find them.
+                A subject that ran well above the last four weeks, so <strong>3x</strong> is three times the
+                usual amount of talk. These are the slow stories: they never spike, so counting busy minutes
+                will not find them.
               </p>
-              <List items={data.themes} expanded={showAllThemes} onExpand={() => setShowAllThemes(true)} />
-              {data.themes.length === 0 && <p className="sd-empty">Nothing ran above the last four weeks.</p>}
+              <List items={subjects} expanded={showAllThemes} onExpand={() => setShowAllThemes(true)} />
+              {subjects.length === 0 && <p className="sd-empty">No subject ran above the last four weeks.</p>}
+
+              {people.length > 0 && (
+                <>
+                  <h2 className="sd-col-head sd-col-head--second">Who they talked about</h2>
+                  <p className="sd-col-sub">
+                    The same measure, but the word is somebody&rsquo;s name. A player spiking is usually not a
+                    story on its own, it is who the week was about. Worth a look when the number is large.
+                  </p>
+                  <List items={people} expanded={showAllPeople} onExpand={() => setShowAllPeople(true)} />
+                </>
+              )}
             </section>
 
             <section className="sd-col" data-list="threads">

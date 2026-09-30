@@ -117,7 +117,34 @@ export function findThreads(messages, { gapSeconds = 180, minMessages = 8, limit
  * of the four weeks before, keeping only terms several different people
  * used so one person repeating himself cannot invent a theme.
  */
-export function findThemes(weekMessages, baselineMessages, { minMessages = 8, minSpeakers = 6, minLift = 1.5, limit = 20 } = {}) {
+/**
+ * The names people go by, lowercased, from who actually spoke. A term that
+ * is somebody's name is not a subject: it means the room talked about that
+ * player, which is a different kind of candidate and belongs in its own
+ * list. Without this the whole board fills with names and the one real
+ * subject of the week sits eighth.
+ */
+function playerNames(messages, extraTags = []) {
+  const names = new Set();
+  const add = (raw) => {
+    const n = String(raw || '').toLowerCase().trim();
+    if (n.length < 3) return;
+    names.add(n);
+    // Most nicknames are a prefix of the handle: Mikauzora is "mika"
+    for (let i = 4; i < Math.min(n.length, 9); i++) names.add(n.slice(0, i));
+  };
+  for (const m of messages) {
+    add(m.user_name);
+    add(String(m.battle_tag || '').split('#')[0]);
+    // <@Someone#1234> markup names players who never typed
+    for (const mention of String(m.message || '').matchAll(/<@([^#>]+)#\d+>/g)) add(mention[1]);
+  }
+  // Everyone who played that week, whether they spoke or not
+  for (const tag of extraTags) add(String(tag).split('#')[0]);
+  return names;
+}
+
+export function findThemes(weekMessages, baselineMessages, { minMessages = 8, minSpeakers = 6, minLift = 1.5, limit = 20, playerTags = [] } = {}) {
   const tally = (msgs) => {
     const docs = new Map();
     const speakers = new Map();
@@ -137,6 +164,7 @@ export function findThemes(weekMessages, baselineMessages, { minMessages = 8, mi
   const wk = tally(weekMessages);
   const base = tally(baselineMessages);
   if (wk.total === 0) return [];
+  const names = playerNames([...weekMessages, ...baselineMessages], playerTags);
 
   const out = [];
   for (const [term, n] of wk.docs) {
@@ -147,8 +175,11 @@ export function findThemes(weekMessages, baselineMessages, { minMessages = 8, mi
     const lift = (n / wk.total) / ((priorN + 0.5) / (base.total + 0.5));
     if (lift < minLift) continue;
     const days = wk.days.get(term).size;
+    const isName = names.has(term);
     out.push({
       kind: 'theme',
+      // A subject is a story. A name is who the week was about.
+      subject: isName ? 'player' : 'topic',
       id: `m:${term}`,
       term,
       score: Math.round(lift * 10) / 10,
@@ -167,14 +198,14 @@ export function findThemes(weekMessages, baselineMessages, { minMessages = 8, mi
  * the desk can show what a term actually meant without a second request.
  * Takes its reader as an argument so the detectors stay pure and testable.
  */
-export function storyCandidates(weekStart, getMessagesInRange, { baselineWeeks = 4 } = {}) {
+export function storyCandidates(weekStart, getMessagesInRange, { baselineWeeks = 4, playerTags = [] } = {}) {
   const weekEnd = addDays(weekStart, 6);
   const baseStart = addDays(weekStart, -7 * baselineWeeks);
 
   const week = getMessagesInRange(weekStart, weekEnd);
   const baseline = getMessagesInRange(baseStart, addDays(weekStart, -1));
 
-  const themes = findThemes(week, baseline);
+  const themes = findThemes(week, baseline, { playerTags });
   // Attach each theme's own messages, newest scoring terms first
   for (const t of themes) {
     const rx = new RegExp(`(?<![a-z0-9])${t.term.replace(/[.*+?^${}()|[\]\\-]/g, '\\$&')}(?![a-z0-9])`, 'i');
