@@ -608,7 +608,18 @@ export function insertMessages(msgs) {
   tx(msgs);
 }
 
-export function getMessages({ limit = 50, before = null } = {}) {
+export function getMessages({ limit = 50, before = null, after = null } = {}) {
+  // Reading forward out of an archive window. Ordered ascending so the limit
+  // takes the messages nearest the cursor, then reversed to match the rest.
+  if (after) {
+    const rows = db.prepare(`
+      SELECT * FROM messages
+      WHERE deleted = 0 AND received_at > ?
+      ORDER BY received_at ASC
+      LIMIT ?
+    `).all(after, limit);
+    return rows.reverse();
+  }
   if (before) {
     return db.prepare(`
       SELECT * FROM messages

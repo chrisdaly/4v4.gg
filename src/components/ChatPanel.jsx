@@ -744,6 +744,8 @@ export default function ChatPanel({
   translations = new Map(),
   loadOlder,
   hasMoreHistory,
+  loadNewer,
+  hasNewer = false,
   loadWindow,
   loadLatest,
   windowMode = "live",
@@ -1313,6 +1315,20 @@ export default function ChatPanel({
     if (showLoadOlder && !filterActive) handleLoadOlder();
   }, [showLoadOlder, filterActive, handleLoadOlder]);
 
+  // Reaching the bottom of an archive window pages forward, so a permalink
+  // is a place you can read on from rather than a dead end.
+  const newerInFlightRef = useRef(false);
+  const handleEndReached = useCallback(async () => {
+    if (windowMode === "live" || !loadNewer || !hasNewer || filterActive) return;
+    if (newerInFlightRef.current) return;
+    newerInFlightRef.current = true;
+    try {
+      await loadNewer();
+    } finally {
+      newerInFlightRef.current = false;
+    }
+  }, [windowMode, loadNewer, hasNewer, filterActive]);
+
   // Status chip for a name row, shared with the roster (chat/chip.js)
   const chipCtx = { inGameTags, recentDeltas, recentWinners, startTimes: inGameInfoMap };
 
@@ -1531,6 +1547,7 @@ export default function ChatPanel({
                 followOutput={followOutput}
                 atBottomStateChange={handleAtBottomChange}
                 startReached={handleStartReached}
+                endReached={handleEndReached}
                 rangeChanged={handleRangeChanged}
                 scrollerRef={handleScrollerRef}
                 atBottomThreshold={60}

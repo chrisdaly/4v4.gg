@@ -242,6 +242,8 @@ const Chat = () => {
     translations,
     loadOlder,
     hasMoreHistory,
+    loadNewer,
+    hasNewer,
     loadWindow,
     loadLatest,
     windowMode,
@@ -412,6 +414,8 @@ const Chat = () => {
           windowId={windowId}
           permalinkId={permalinkId}
           permalinkAt={permalinkAt}
+          loadNewer={loadNewer}
+          hasNewer={hasNewer}
           onOpenGame={openGameModal}
           onOpenPlayer={openPlayerCard}
           isMobile={isMobile}

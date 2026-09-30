@@ -91,7 +91,8 @@ router.use(publicLimiter);
 router.get('/messages', (req, res) => {
   const limit = Math.min(parseInt(req.query.limit || '50', 10), 200);
   const before = req.query.before || null;
-  const messages = getMessages({ limit, before });
+  const after = req.query.after || null;
+  const messages = getMessages({ limit, before, after });
   res.json(messages);
 });
 

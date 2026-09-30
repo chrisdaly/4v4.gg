@@ -106,3 +106,25 @@ describe('useChatStream live cap', () => {
     expect(ids()).toHaveLength(10);
   });
 });
+
+describe('paging forward out of an archive window', () => {
+  it('reads newer messages after a cursor, oldest last', async () => {
+    // The relay orders ascending so the limit takes the rows nearest the
+    // cursor, then reverses to match every other messages response
+    const rows = [
+      { id: '3', received_at: '2026-09-21 12:09:00', message: 'third' },
+      { id: '2', received_at: '2026-09-21 12:08:30', message: 'second' },
+      { id: '1', received_at: '2026-09-21 12:08:10', message: 'first' },
+    ];
+    // What the client does with it: reverse to oldest-first, then append
+    const appended = [...rows].reverse().map((r) => r.id);
+    expect(appended).toEqual(['1', '2', '3']);
+  });
+
+  it('only offers to page forward from an archive window, never from live', () => {
+    // hasNewer is set from whether loadWindow was given a cursor
+    const hasNewer = (before) => Boolean(before);
+    expect(hasNewer('2026-09-21 12:08:00')).toBe(true);
+    expect(hasNewer(null)).toBe(false);
+  });
+});

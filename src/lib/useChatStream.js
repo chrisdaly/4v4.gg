@@ -34,6 +34,10 @@ export default function useChatStream() {
   // append in both modes. windowId changes whenever the window is replaced
   // wholesale so the list can remount instead of diffing a prepend.
   const [windowMode, setWindowMode] = useState("live");
+  // Only an archive window has anything newer to fetch; live is already there
+  const [hasNewer, setHasNewer] = useState(false);
+  const loadingNewerRef = useRef(false);
+  const newestCursorRef = useRef(null);
   const [windowId, setWindowId] = useState(0);
   const eventSourceRef = useRef(null);
   const retriesRef = useRef(0);
@@ -113,13 +117,60 @@ export default function useChatStream() {
     const loaded = Array.isArray(data) ? normalizeMessages(data.reverse()) : [];
     historyExtraRef.current = 0;
     setHasMoreHistory(loaded.length >= 100);
+    setHasNewer(Boolean(before));
     setWindowMode(before ? "archive" : "live");
     setWindowId((id) => id + 1);
     setMessages(loaded);
     return loaded;
   }, []);
 
+  /**
+   * Page forward out of an archive window. Without this you can scroll back
+   * from a permalink but never forward, so landing on a message from last
+   * Sunday traps you at that moment.
+   *
+   * Live mode needs nothing: the stream already appends.
+   */
+  const loadNewer = useCallback(async () => {
+    if (loadingNewerRef.current) return { added: 0 };
+    loadingNewerRef.current = true;
+    try {
+      const newest = newestCursorRef.current;
+      if (!newest) return { added: 0 };
+      const res = await relayFetch(
+        `/api/chat/messages?limit=100&after=${encodeURIComponent(newest)}`
+      );
+      const data = await res.json();
+      if (!Array.isArray(data) || data.length === 0) {
+        setHasNewer(false);
+        return { added: 0 };
+      }
+      const newer = normalizeMessages(data.reverse());
+      let added = 0;
+      setMessages((prev) => {
+        const ids = new Set(prev.map((m) => m.id));
+        const unique = newer.filter((m) => !ids.has(m.id));
+        added = unique.length;
+        return unique.length === 0 ? prev : [...prev, ...unique];
+      });
+      if (data.length < 100) setHasNewer(false);
+      return { added };
+    } catch {
+      return { added: 0 };
+    } finally {
+      loadingNewerRef.current = false;
+    }
+  }, []);
+
   const loadLatest = useCallback(() => loadWindow(null), [loadWindow]);
+
+  // Where the loaded window currently ends, which is what paging forward
+  // reads from. Tracked off the messages themselves so it stays right
+  // whether they arrived from a window load, a page or the live stream.
+  useEffect(() => {
+    const last = messages[messages.length - 1];
+    if (last?.receivedAt) newestCursorRef.current = last.receivedAt;
+  }, [messages]);
 
   useEffect(() => {
     setTranslations((prev) => {
@@ -252,6 +303,8 @@ export default function useChatStream() {
     translations,
     loadOlder,
     hasMoreHistory,
+    loadNewer,
+    hasNewer,
     loadWindow,
     loadLatest,
     windowMode,
