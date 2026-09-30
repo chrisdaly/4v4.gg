@@ -42,7 +42,25 @@ est sont etait sera avoir etre fait plus tout tous bien pour avec sur dans sans 
 el los las una por para con como pero muy todo todos eso ese esta este nao voce mais nada
 sim entao porque quando onde tambem ainda agora depois sempre
 eto kak chto nu da net ty vse tak tebe menya moi tvoi etot ochen tolko uzhe eshe
+fais fait faire veux veut peux peut sais sait dis dit vais vient prend donne joue
+hab habe hast hatte kannst muss musst will willst geht macht machst kommt spielt
 `.split(/\s+/).filter(Boolean));
+
+/**
+ * Words the room uses constantly about each other. They spike with mood
+ * rather than with a subject, so they crowd out the one thing the week was
+ * actually about: for the week of 2026-09-21 they put "sucking", "chill",
+ * "losers" and "rape" above "pause", which was the only real story.
+ */
+const CHAT_STOP = new Set(`
+noob noobs trash garbage idiot idiots stupid dumb bad worst terrible awful
+sucking sucks suck chill chilling losers loser winner winners rape raped raping
+lol lmao haha gg wp ez rekt owned nice great cool damn shit fuck fucking
+`.split(/\s+/).filter(Boolean));
+
+// Deliberately NOT stopped: report, ban, leave, grief, troll, carry, feed,
+// pause. They are how this ladder argues about its own rules, and when one
+// spikes that is the story. "report" was the whole lead for 2026-09-14.
 
 const iso = (d) => d.toISOString().slice(0, 10);
 const addDays = (day, n) => {
@@ -55,7 +73,7 @@ const addDays = (day, n) => {
 function topicWords(text) {
   const out = new Set();
   for (const w of String(text).toLowerCase().match(WORD) || []) {
-    if (w.length <= 20 && !STOP.has(w) && !FOREIGN_STOP.has(w)) out.add(w);
+    if (w.length <= 20 && !STOP.has(w) && !FOREIGN_STOP.has(w) && !CHAT_STOP.has(w)) out.add(w);
   }
   return out;
 }

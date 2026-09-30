@@ -281,3 +281,33 @@ describe('a card week', () => {
     expect(findRun('', 'W', 3)).toBeNull();
   });
 });
+
+describe('what counts as a subject', () => {
+  const msg = (id, at, name, text) => ({ id, received_at: at, user_name: name, battle_tag: `${name}#1`, message: text });
+  const spread = (word, prefix) => {
+    const out = [];
+    for (let i = 0; i < 8; i++) out.push(msg(`${prefix}${i}`, `2026-09-2${1 + (i % 6)} 1${i % 9}:00:00`, `P${prefix}${i}`, `${word} again today`));
+    return out;
+  };
+
+  it('keeps the words this ladder argues with, and drops the ones it argues in', () => {
+    const week = [
+      ...spread('pause', 'a'),
+      ...spread('report', 'b'),   // the whole lead for the week of Sep 14
+      ...spread('noob', 'c'),     // mood, not a subject
+      ...spread('sucking', 'd'),
+      ...spread('fais', 'e'),     // French filler
+    ];
+    const baseline = [];
+    for (let i = 0; i < 400; i++) baseline.push(msg(`z${i}`, '2026-08-25 10:00:00', `Z${i % 30}`, 'anyone searching'));
+
+    const terms = findThemes(week, baseline, { minMessages: 4, minSpeakers: 6 }).map((t) => t.term);
+    // How the room argues about its own rules
+    expect(terms).toContain('pause');
+    expect(terms).toContain('report');
+    // How it insults each other, which spikes with mood rather than subject
+    expect(terms).not.toContain('noob');
+    expect(terms).not.toContain('sucking');
+    expect(terms).not.toContain('fais');
+  });
+});
