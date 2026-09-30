@@ -331,7 +331,7 @@ function NumbersPreview({ sections, weekStart }) {
   const heroes = (sections.HEROSLAYER_HEROES || "").split(",").filter(Boolean);
   const daily = readDaily(sections.SPOTLIGHT_DAILY);
   const mmr = readMmr(sections.SPOTLIGHT_MMR);
-  const mostInAGame = Number(sections.HEROSLAYER_MAX) || 0;
+  const heroTotal = sections.HEROSLAYER_TOTAL || null;
   // The run that earned the card, so it can be picked out of the dots
   const runFor = (key, stat) => {
     const m = String(stat.headline).match(/(\d+)([WL]) streak/);
@@ -352,8 +352,8 @@ function NumbersPreview({ sections, weekStart }) {
                 {stat.wins}W-{stat.losses}L
                 {mmr[key] ? <span className="sd-card-mmr">{mmr[key].toLocaleString("en-US")} MMR</span> : null}
               </span>
-              {key === "HEROSLAYER" && mostInAGame > 0 && (
-                <span className="sd-card-extra">{mostInAGame} in one game, the week&rsquo;s best</span>
+              {key === "HEROSLAYER" && heroTotal && (
+                <span className="sd-card-extra">{heroTotal} over the week</span>
               )}
               {key === "HEROSLAYER" && heroes.length > 0 && (
                 <div className="sd-card-heroes">

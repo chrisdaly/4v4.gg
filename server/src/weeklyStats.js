@@ -30,7 +30,6 @@ export const RULES = {
   streakFloor: 3,       // the spectrum only plots runs this long
   newBloodGames: 20,
   stackGames: 6,
-  heroSlayerGames: 20,
 };
 
 const addDays = (day, n) => {
@@ -59,8 +58,15 @@ function playersFrom(weeklyPlayerMap) {
   }));
 }
 
-/** Most hero kills, from the match details stored nightly. */
-export function heroSlayerFrom(weekStart, weekEnd, weeklyPlayerMap, exclude = new Set()) {
+/**
+ * The most hero kills anyone managed in a single game.
+ *
+ * This used to rank on the weekly total, which mostly measures who played
+ * the most: Solana's 280 came from 162 games. A single-game number is a
+ * feat, so there is no games floor and no skipping someone who already has
+ * a card. The record is the record.
+ */
+export function heroSlayerFrom(weekStart, weekEnd, weeklyPlayerMap) {
   const rows = getMatchPlayerScoresRange(weekStart, weekEnd);
   if (rows.length === 0) return null;
 
@@ -78,10 +84,13 @@ export function heroSlayerFrom(weekStart, weekEnd, weeklyPlayerMap, exclude = ne
     all.set(k, (all.get(k) || 0) + 1);
   }
 
-  const eligible = [...kills.entries()]
-    .filter(([tag]) => (games.get(tag) || 0) >= RULES.heroSlayerGames && !exclude.has(tag));
-  if (eligible.length === 0) return null;
-  const [tag, total] = eligible.sort((a, b) => b[1] - a[1])[0];
+  // Ranked on the best single game, with the weekly total breaking ties
+  const ranked = [...best.entries()]
+    .filter(([, mx]) => mx > 0)
+    .sort((a, b) => b[1] - a[1] || (kills.get(b[0]) || 0) - (kills.get(a[0]) || 0));
+  if (ranked.length === 0) return null;
+  const [tag] = ranked[0];
+  const total = kills.get(tag) || 0;
 
   for (const r of rows) {
     if (r.battle_tag !== tag) continue;
@@ -310,13 +319,14 @@ export async function weeklyStatSections(weekStart, weekEnd) {
     console.warn('[WeeklyStats] New blood failed:', err.message);
   }
 
-  const slayer = heroSlayerFrom(weekStart, weekEnd, weeklyPlayerMap, spoken);
+  const slayer = heroSlayerFrom(weekStart, weekEnd, weeklyPlayerMap);
   if (slayer) {
     const RACES = { 0: 'RND', 1: 'HU', 2: 'ORC', 4: 'NE', 8: 'UD' };
     const race = RACES[slayer.race] ? `[${RACES[slayer.race]}]` : '';
-    sections.HEROSLAYER = `${slayer.battleTag}${race} ${slayer.kills} hero kills (${slayer.wins}W-${slayer.losses}L)`;
+    sections.HEROSLAYER = `${slayer.battleTag}${race} ${slayer.max} hero kills in a game (${slayer.wins}W-${slayer.losses}L)`;
     if (slayer.heroes.length > 0) sections.HEROSLAYER_HEROES = slayer.heroes.join(',');
-    sections.HEROSLAYER_MAX = String(slayer.max);
+    // The week's total, now the supporting fact rather than the headline
+    sections.HEROSLAYER_TOTAL = `${slayer.kills} across ${slayer.games} games`;
     cardPlayers.HEROSLAYER = { battleTag: slayer.battleTag };
     sections.HEROSLAYER_DISTRIBUTION = slayer.distribution;
     mentions.add(slayer.battleTag);
