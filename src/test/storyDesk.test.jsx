@@ -202,3 +202,33 @@ describe('story detectors', () => {
     expect(findThemes([], [])).toEqual([]);
   });
 });
+
+describe('subjects and people', () => {
+  const msg = (id, at, name, text, tag = `${name}#1`) => ({
+    id, received_at: at, user_name: name, battle_tag: tag, message: text,
+  });
+
+  it('marks a term that is a player name, including a nickname and a non-talker', () => {
+    const week = [];
+    // A real subject: eight people arguing about the pause button
+    for (let i = 0; i < 8; i++) week.push(msg(`p${i}`, `2026-09-2${1 + (i % 6)} 10:00:0${i}`, `P${i}`, 'pause abuse again'));
+    // A player's nickname: Mikauzora plays, people call him mika
+    for (let i = 0; i < 8; i++) week.push(msg(`m${i}`, `2026-09-2${1 + (i % 6)} 11:00:0${i}`, `Q${i}`, 'mika tower maxing'));
+    // Someone discussed who never typed a word all week
+    for (let i = 0; i < 8; i++) week.push(msg(`d${i}`, `2026-09-2${1 + (i % 6)} 12:00:0${i}`, `R${i}`, 'dharma asked to wait'));
+
+    const baseline = [];
+    for (let i = 0; i < 400; i++) baseline.push(msg(`b${i}`, '2026-08-25 10:00:00', `Z${i % 30}`, 'gg wp nice game'));
+
+    const themes = findThemes(week, baseline, {
+      minMessages: 4,
+      minSpeakers: 6,
+      // Mikauzora spoke; Dharma only ever played
+      playerTags: ['Mikauzora#2821', 'Dharma#11729'],
+    });
+    const by = Object.fromEntries(themes.map((t) => [t.term, t.subject]));
+    expect(by.pause).toBe('topic');
+    expect(by.mika).toBe('player');
+    expect(by.dharma).toBe('player');
+  });
+});
