@@ -29,7 +29,8 @@ import useDragReorder from "../../lib/useDragReorder";
 import useWeekDailies from "../../lib/news/useWeekDailies";
 import { quoteOfTheDay } from "../../lib/home/quoteOfTheDay";
 import { spotlightVerdict, streakDistributionVerdict, newBloodPasses, stackPasses, issueNumber, issueDateRange, neighbourIssues, dayByDay, SECTION_RULES } from "../../lib/news/issueRules";
-import { LedeSection, QuoteOfWeek, DayByDay, IssueNav, LeftOut } from "./IssueParts";
+import { LedeSection, QuoteOfWeek, DayByDay, IssueNav, LeftOut, Feats } from "./IssueParts";
+import { readFeats } from "../../lib/news/storyDesk";
 import "../../styles/pages/Magazine.css";
 
 const RELAY_URL =
@@ -2966,6 +2967,8 @@ const WeeklyMagazine = ({ weekParam, isAdmin = false, apiKey = "" }) => {
         <UpsetsSection upsets={digestData.upsets} profiles={profiles} />
       )}
       {/* Stats & data */}
+      <Feats items={readFeats(sections.find((s) => s.key === "FEATS")?.content)} />
+
       {digestData.powerRankings.length > 0 && (!showEditControls || !ed.hiddenSections.has("POWER_RANKINGS")) && (
         <RankingsSection rankings={digestData.powerRankings} profiles={profiles} />
       )}

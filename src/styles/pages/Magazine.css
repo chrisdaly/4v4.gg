@@ -4071,3 +4071,43 @@ a.mg-stack-player-name:hover {
 .mg-pulse-weeks--dense .mg-pulse-week-bar {
   border-radius: 1px 1px 0 0;
 }
+
+/* ── Also worth knowing: one line per fact ──────────── */
+
+.mg-feats-list {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
+  gap: var(--space-3) var(--space-8);
+  max-width: 900px;
+}
+
+.mg-feat {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  padding-bottom: var(--space-2);
+  border-bottom: 1px solid rgba(255, 255, 255, 0.07);
+}
+
+.mg-feat-label {
+  font-family: var(--font-mono);
+  font-size: var(--text-xxs);
+  text-transform: uppercase;
+  letter-spacing: 0.1em;
+  color: var(--grey-light);
+}
+
+.mg-feat-text {
+  font-family: var(--font-body, Georgia, serif);
+  font-size: var(--text-xs);
+  line-height: 1.5;
+  color: rgba(255, 255, 255, 0.86);
+  text-decoration: none;
+}
+
+a.mg-feat-text:hover {
+  color: var(--gold);
+}

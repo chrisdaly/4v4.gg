@@ -351,3 +351,17 @@ export function quoteSection(quote) {
   if (!quote?.text || !quote?.name) return null;
   return `"${quote.name}: ${String(quote.text).replace(/"/g, "")}"`;
 }
+
+
+/**
+ * "Longest game: 71 minutes on Ferocity 6ab4...; Biggest day: X +120 MMR"
+ * -> one line each, with the match id pulled out so it can be linked.
+ */
+export function readFeats(line) {
+  return String(line || "").split(/;\s*/).map((e) => {
+    const text = e.trim();
+    if (!text) return null;
+    const m = text.match(/\s([a-f0-9]{16,})$/);
+    return { text: m ? text.slice(0, m.index) : text, matchId: m ? m[1] : null };
+  }).filter(Boolean);
+}

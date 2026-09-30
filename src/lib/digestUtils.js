@@ -67,6 +67,7 @@ export const DIGEST_SECTIONS = [
   { key: "NEW_BLOOD", label: "New Blood", cls: "new-blood" },
   { key: "UPSET", label: "Upset", cls: "upset" },
   { key: "AT_SPOTLIGHT", label: "AT Stacks", cls: "at-spotlight" },
+  { key: "FEATS", label: "Also worth knowing", cls: "feats" },
   { key: "BEST_OF_CHAT", label: "Best of Chat", cls: "chat-best" },
   { key: "WEEK_TREND", label: "The Week In Games", cls: "week-trend" },
   { key: "MOST_TALKED_ABOUT", label: "Most Talked About", cls: "most-talked-about" },

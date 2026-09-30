@@ -368,3 +368,52 @@ describe('finding the lines worth printing', () => {
     expect(texts).not.toContain('a perfectly good line nobody reacted to');
   });
 });
+
+describe('pairs, upsets and feats', () => {
+  const match = (id, date, map, t1, t2, won, a1 = 1500, a2 = 1500) => ({
+    match_id: id, date, map_name: `(4)${map}`,
+    team1_tags: t1.join(','), team2_tags: t2.join(','),
+    team1_won: won ? 1 : 0, team1_avg_mmr: a1, team2_avg_mmr: a2,
+  });
+
+  it('finds who queues together and what their record is', async () => {
+    const { stacksFrom } = await import('../../server/src/weeklyStats.js');
+    const ms = [];
+    // A pair losing together six times is a better line than a pair winning once
+    for (let i = 0; i < 6; i++) ms.push(match(`m${i}`, '2026-09-21', 'Ferocity', ['A#1', 'B#2', 'C#3', 'D#4'], ['E#5', 'F#6', 'G#7', 'H#8'], i < 2));
+    const players = new Map([['A#1', { name: 'Ana', currentMmr: 1600 }], ['B#2', { name: 'Bo', currentMmr: 1400 }]]);
+    const out = stacksFrom(ms, players, { minGames: 6, limit: 1 });
+    expect(out[0]).toContain('Ana + Bo');
+    expect(out[0]).toContain('(2-stack, avg 1500 MMR)');
+    expect(out[0]).toContain('2W-4L 33%');
+    // Nobody played enough together
+    expect(stacksFrom(ms, players, { minGames: 20 })).toEqual([]);
+  });
+
+  it('takes the widest gap a losing side overturned, and nothing under the floor', async () => {
+    const { upsetFrom } = await import('../../server/src/weeklyStats.js');
+    const ms = [
+      // Favourites won: not an upset however big the gap
+      match('a', '2026-09-21', 'Ferocity', ['A#1'], ['B#2'], true, 1900, 1500),
+      // Underdogs won by 250
+      match('b', '2026-09-22', 'Snowblind', ['C#3'], ['D#4'], true, 1600, 1850),
+      // Underdogs won by more
+      match('c', '2026-09-23', 'GoldRush', ['E#5'], ['F#6'], false, 1900, 1550),
+    ];
+    const out = upsetFrom(ms, { minGap: 100 });
+    expect(out).toContain('on GoldRush');
+    expect(out).toContain('350 MMR gap');
+    expect(out).toContain('beat favorites (avg 1900 MMR)');
+    expect(upsetFrom(ms, { minGap: 500 })).toBeNull();
+  });
+
+  it('reads a feats line back, pulling out the match id to link', async () => {
+    const { readFeats } = await import('../lib/news/storyDesk');
+    const out = readFeats('Longest game: 71 minutes on Ferocity 6ab472481c8e357435620307; Biggest day: Ana +120 MMR on the Saturday');
+    expect(out).toHaveLength(2);
+    expect(out[0]).toEqual({ text: 'Longest game: 71 minutes on Ferocity', matchId: '6ab472481c8e357435620307' });
+    // Not everything has a match behind it
+    expect(out[1]).toEqual({ text: 'Biggest day: Ana +120 MMR on the Saturday', matchId: null });
+    expect(readFeats('')).toEqual([]);
+  });
+});

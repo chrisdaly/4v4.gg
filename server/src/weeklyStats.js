@@ -365,6 +365,15 @@ export async function weeklyStatSections(weekStart, weekEnd) {
   // After every card is chosen, the hero slayer included
   Object.assign(sections, dailyFormLines(weekStart, weekEnd, cardPlayers));
 
+  // Pairs, the biggest upset and the week's one-off facts
+  const matches = getDailyMatchesRange(weekStart, weekEnd);
+  const stacks = stacksFrom(matches, weeklyPlayerMap);
+  if (stacks.length > 0) sections.AT_SPOTLIGHT = stacks.join('; ');
+  const upset = upsetFrom(matches);
+  if (upset) sections.UPSET = upset;
+  const feats = featsFrom(weekStart, weekEnd, matches, weeklyPlayerMap);
+  if (feats.length > 0) sections.FEATS = feats.join('; ');
+
   const trend = weekTrendFrom(weekStart, weekEnd);
   if (trend) {
     sections.WEEK_TREND = trend;
@@ -389,4 +398,130 @@ export async function weeklyStatSections(weekStart, weekEnd) {
       ...(busiest ? { busiestDay: busiest[0], busiestDayGames: Number(busiest[1]) } : {}),
     },
   };
+}
+
+/* ── Pairs, upsets and feats ─────────────────────────── */
+
+const tagsOf = (csv) => String(csv || '').split(',').map((t) => t.trim()).filter(Boolean);
+
+/**
+ * Who queues together. A pair on the same team in six or more games is an
+ * arranged team whether or not the API says so, and their record is the
+ * point: a stack going 9-15 is a better line than one going 12-7.
+ */
+export function stacksFrom(matches, weeklyPlayerMap, { minGames = RULES.stackGames, limit = 3 } = {}) {
+  const pairs = new Map();
+  for (const m of matches) {
+    for (const [key, won] of [['team1_tags', !!m.team1_won], ['team2_tags', !m.team1_won]]) {
+      const tags = tagsOf(m[key]).sort();
+      for (let i = 0; i < tags.length; i++) {
+        for (let j = i + 1; j < tags.length; j++) {
+          const id = `${tags[i]}|${tags[j]}`;
+          if (!pairs.has(id)) pairs.set(id, { a: tags[i], b: tags[j], wins: 0, losses: 0 });
+          const p = pairs.get(id);
+          if (won) p.wins++; else p.losses++;
+        }
+      }
+    }
+  }
+  const named = (tag) => weeklyPlayerMap.get(tag)?.name || tag.split('#')[0];
+  const mmr = (tag) => weeklyPlayerMap.get(tag)?.currentMmr || 0;
+  return [...pairs.values()]
+    .filter((p) => p.wins + p.losses >= minGames)
+    .sort((x, y) => (y.wins + y.losses) - (x.wins + x.losses))
+    .slice(0, limit)
+    .map((p) => {
+      const avg = Math.round((mmr(p.a) + mmr(p.b)) / 2);
+      const pct = Math.round((p.wins / (p.wins + p.losses)) * 100);
+      return `${named(p.a)} + ${named(p.b)} (2-stack, avg ${avg} MMR) ${p.wins}W-${p.losses}L ${pct}%`;
+    });
+}
+
+/** The widest MMR gap a losing side overturned. */
+export function upsetFrom(matches, { minGap = 100 } = {}) {
+  let best = null;
+  for (const m of matches) {
+    const one = Number(m.team1_avg_mmr) || 0;
+    const two = Number(m.team2_avg_mmr) || 0;
+    if (!one || !two) continue;
+    const underdogIsOne = one < two;
+    const wonAsUnderdog = underdogIsOne === Boolean(m.team1_won);
+    if (!wonAsUnderdog) continue;
+    const gap = Math.round(Math.abs(one - two));
+    if (gap < minGap || (best && gap <= best.gap)) continue;
+    best = {
+      gap,
+      map: String(m.map_name || '').replace(/^\(\d+\)/, '').trim(),
+      matchId: m.match_id,
+      under: { avg: Math.round(underdogIsOne ? one : two), tags: tagsOf(underdogIsOne ? m.team1_tags : m.team2_tags) },
+      over: { avg: Math.round(underdogIsOne ? two : one), tags: tagsOf(underdogIsOne ? m.team2_tags : m.team1_tags) },
+    };
+  }
+  if (!best) return null;
+  const names = (t) => t.tags.map((x) => x.split('#')[0]).join(', ');
+  const mmrs = (t) => t.tags.map(() => t.avg).join(',');
+  return `${names(best.under)} (avg ${best.under.avg} MMR) beat favorites (avg ${best.over.avg} MMR) on ${best.map} - ${best.gap} MMR gap ${best.matchId} [${mmrs(best.under)}|${mmrs(best.over)}|${best.under.tags.join(',')}|${best.over.tags.join(',')}]`;
+}
+
+/**
+ * The week's one-off facts, as one line each. Kept in a single section
+ * rather than five, because each is a sentence and none of them earns a
+ * card of its own.
+ */
+export function featsFrom(weekStart, weekEnd, matches, weeklyPlayerMap) {
+  const out = [];
+  const named = (tag) => weeklyPlayerMap.get(tag)?.name || String(tag).split('#')[0];
+  const byId = new Map(matches.map((m) => [m.match_id, m]));
+
+  // Longest and shortest, from the durations stored with the match scores
+  const durations = new Map();
+  for (const r of getMatchPlayerScoresRange(weekStart, weekEnd)) {
+    const d = r.duration_seconds || 0;
+    if (d > 0 && !durations.has(r.match_id)) durations.set(r.match_id, d);
+  }
+  const ranked = [...durations.entries()].sort((a, b) => b[1] - a[1]);
+  const mins = (s) => `${Math.round(s / 60)} minutes`;
+  const mapOf = (id) => String(byId.get(id)?.map_name || '').replace(/^\(\d+\)/, '').trim();
+  if (ranked.length > 1) {
+    const [longId, longSec] = ranked[0];
+    const [shortId, shortSec] = ranked[ranked.length - 1];
+    if (mapOf(longId)) out.push(`Longest game: ${mins(longSec)} on ${mapOf(longId)} ${longId}`);
+    // Under four minutes is somebody leaving, not a game
+    if (mapOf(shortId) && shortSec < 300) out.push(`Shortest game: ${mins(shortSec)} on ${mapOf(shortId)} ${shortId}`);
+  }
+
+  // The biggest thing anyone did to their MMR in one day
+  let swing = null;
+  for (const r of getDailyPlayerStatsRange(weekStart, weekEnd)) {
+    const d = Math.round(r.mmr_change || 0);
+    if (!swing || Math.abs(d) > Math.abs(swing.d)) swing = { d, tag: r.battle_tag, date: r.date };
+  }
+  if (swing && Math.abs(swing.d) >= 80) {
+    const DOW = ['Sunday', 'Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday'];
+    const day = DOW[new Date(`${swing.date}T12:00:00Z`).getUTCDay()];
+    out.push(`Biggest day: ${named(swing.tag)} ${swing.d > 0 ? '+' : ''}${swing.d} MMR on the ${day}`);
+  }
+
+  // Who kept running into whom
+  const met = new Map();
+  for (const m of matches) {
+    const one = tagsOf(m.team1_tags);
+    const two = tagsOf(m.team2_tags);
+    for (const a of one) {
+      for (const b of two) {
+        const id = [a, b].sort().join('|');
+        if (!met.has(id)) met.set(id, { a: id.split('|')[0], b: id.split('|')[1], games: 0, aWon: 0 });
+        const p = met.get(id);
+        p.games++;
+        const aIsOne = one.includes(p.a);
+        if (aIsOne === Boolean(m.team1_won)) p.aWon++;
+      }
+    }
+  }
+  const top = [...met.values()].sort((x, y) => y.games - x.games)[0];
+  if (top && top.games >= 8) {
+    out.push(`Met most: ${named(top.a)} and ${named(top.b)} faced each other ${top.games} times, ${top.aWon}-${top.games - top.aWon} to ${named(top.a)}`);
+  }
+
+  return out;
 }

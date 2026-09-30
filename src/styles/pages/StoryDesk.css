@@ -922,3 +922,17 @@
   font-size: var(--text-xxxs);
   color: var(--grey-mid);
 }
+
+.sd-feats {
+  display: flex;
+  flex-direction: column;
+  gap: 3px;
+}
+
+.sd-feat {
+  margin: 0;
+  font-family: var(--font-body, Georgia, serif);
+  font-size: var(--text-xs);
+  line-height: 1.5;
+  color: rgba(255, 255, 255, 0.82);
+}

@@ -10,7 +10,7 @@ import { WeekTrend } from "../components/news/WeekPulse";
 import {
   SLOTS, loadPicks, savePicks, assign, inSlot, pickedTags, pickQuotes, lineKey,
   readStatLine, readSpectrum, readRankings, readDaily, readMmr, findRun, SPOTLIGHT_ORDER,
-  loadQuote, saveQuote, quoteSection,
+  loadQuote, saveQuote, quoteSection, readFeats,
   loadDrafts, saveDrafts, startDraft, composeItem, toggleQuote, hasQuote, isReady,
   applyToDigest, composedSections,
 } from "../lib/news/storyDesk";
@@ -499,6 +499,31 @@ function NumbersPreview({ sections, weekStart }) {
         <div className="sd-spectrum">
           <span className="sd-compose-label">Streaks across the ladder</span>
           <StreakSpectrum spectrumData={spectrum} />
+        </div>
+      )}
+
+      {sections.FEATS && (
+        <div className="sd-feats">
+          <span className="sd-compose-label">Also worth knowing</span>
+          {readFeats(sections.FEATS).map((f, i) => (
+            <p key={i} className="sd-feat">{f.text}</p>
+          ))}
+        </div>
+      )}
+
+      {sections.AT_SPOTLIGHT && (
+        <div className="sd-feats">
+          <span className="sd-compose-label">Who queues together</span>
+          {sections.AT_SPOTLIGHT.split(/;\s*/).map((t, i) => (
+            <p key={i} className="sd-feat">{t}</p>
+          ))}
+        </div>
+      )}
+
+      {sections.UPSET && (
+        <div className="sd-feats">
+          <span className="sd-compose-label">Upset of the week</span>
+          <p className="sd-feat">{sections.UPSET.split(/\s+[a-f0-9]{16,}/)[0]}</p>
         </div>
       )}
 

@@ -119,6 +119,39 @@ export function IssueNav({ prev, next, prevNo, nextNo }) {
   );
 }
 
+/**
+ * The week's one-off facts: the longest game, the shortest, the biggest day,
+ * the pair who kept meeting. One line each, because none of them is worth a
+ * card and all of them are worth knowing.
+ */
+export function Feats({ items = [] }) {
+  if (items.length === 0) return null;
+  return (
+    <section className="mg-section mg-feats reveal" style={{ "--delay": "0.34s" }} data-feats>
+      <div className="mg-section-header">
+        <span className="mg-section-label">Also worth knowing</span>
+        <div className="mg-section-rule" />
+      </div>
+      <ul className="mg-feats-list">
+        {items.map((f, i) => {
+          const [label, ...rest] = f.text.split(/:\s*/);
+          const body = rest.join(": ");
+          return (
+            <li key={i} className="mg-feat" data-feat={label}>
+              <span className="mg-feat-label">{label}</span>
+              {f.matchId ? (
+                <Link to={`/match/${f.matchId}`} className="mg-feat-text">{body}</Link>
+              ) : (
+                <span className="mg-feat-text">{body}</span>
+              )}
+            </li>
+          );
+        })}
+      </ul>
+    </section>
+  );
+}
+
 /** Editorial only: what the section rules left out this week, and why. */
 export function LeftOut({ items = [] }) {
   return (
