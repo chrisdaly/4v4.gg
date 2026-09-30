@@ -2,7 +2,10 @@ import { Router } from 'express';
 import rateLimit from 'express-rate-limit';
 import multer from 'multer';
 import config from '../config.js';
-import { setToken, getStats, getTopWords, getRecentDigests, deleteDigest, getDigest, getRecentWeeklyDigests, deleteWeeklyDigest, getWeeklyDigest, getWeeklyCoverImage, setWeeklyCoverImage, updateWeeklyCoverPosition, getDraftForDate, updateDigestOnly, updateDraftOnly, updateHiddenAvatars, getContextAroundQuotes, getMessagesByTimeWindow, getMessagesByDateAndUsers, getMessageBuckets, getGameStats, getMatchContext, getClipsByDateRange, saveCoverGeneration, getCoverGenerations, getAllCoverGenerations, getCoverGenerationImage, deleteCoverGeneration, getWeeklyDraftForWeek, updateWeeklyDraftOnly, updateWeeklyDigestOnly, createGenJob, getActiveGenJob, getLatestGenJob, getVariantsForJob, searchMessages, countSearchMessages, searchMessagesByPlayer, countMessagesByPlayer, getMessagesAroundTime, countMessagesByDateRange, updateWeeklyDigestJson, updateWeeklyClips, getDigestsByDateRange, saveStyleThumbnail, getStyleThumbnail, toggleWeeklyPublished, hasDailyPlayerStats, setDigestWithDraft, setWeeklyDigest } from '../db.js';
+import { setToken, getStats, getTopWords, getRecentDigests, deleteDigest, getDigest, getRecentWeeklyDigests, deleteWeeklyDigest, getWeeklyDigest, getWeeklyCoverImage, setWeeklyCoverImage, updateWeeklyCoverPosition, getDraftForDate, updateDigestOnly, updateDraftOnly, updateHiddenAvatars, getContextAroundQuotes, getMessagesByTimeWindow, getMessagesInRange, pipelineCoverage, getMessagesByDateAndUsers, getMessageBuckets, getGameStats, getMatchContext, getClipsByDateRange, saveCoverGeneration, getCoverGenerations, getAllCoverGenerations, getCoverGenerationImage, deleteCoverGeneration, getWeeklyDraftForWeek, updateWeeklyDraftOnly, updateWeeklyDigestOnly, createGenJob, getActiveGenJob, getLatestGenJob, getVariantsForJob, searchMessages, countSearchMessages, searchMessagesByPlayer, countMessagesByPlayer, getMessagesAroundTime, countMessagesByDateRange, updateWeeklyDigestJson, updateWeeklyClips, updateWeeklyStats, getDigestsByDateRange, saveStyleThumbnail, getStyleThumbnail, toggleWeeklyPublished, hasDailyPlayerStats, setDigestWithDraft, setWeeklyDigest } from '../db.js';
+import Anthropic from '@anthropic-ai/sdk';
+import { storyCandidates, draftStory } from '../storyCandidates.js';
+import { weeklyStatSections } from '../weeklyStats.js';
 import { updateToken, getStatus } from '../signalr.js';
 import { getClientCount } from '../sse.js';
 import { setBotEnabled, isBotEnabled, testCommand } from '../bot.js';
@@ -288,6 +291,98 @@ router.get('/digest/:date/stat-candidates', requireApiKey, async (req, res) => {
   } catch (err) {
     console.error('[Digest] Stat candidates error:', err.message);
     res.status(500).json({ error: 'Failed to fetch stat candidates' });
+  }
+});
+
+/**
+ * Ranked story candidates for a week: bursts and slow themes, each with the
+ * numbers behind its rank and the lines it came from. The story desk reads
+ * this; nothing here writes anything.
+ */
+router.get('/story-candidates/:weekStart', requireApiKey, contextLimiter, (req, res) => {
+  const { weekStart } = req.params;
+  if (!/^\d{4}-\d{2}-\d{2}$/.test(weekStart)) {
+    return res.status(400).json({ error: 'weekStart must be YYYY-MM-DD' });
+  }
+  try {
+    res.json(storyCandidates(weekStart, getMessagesInRange));
+  } catch (err) {
+    console.error('[Desk] Story candidates failed:', err.message);
+    res.status(500).json({ error: 'Failed to build story candidates' });
+  }
+});
+
+/**
+ * Every numeric section of a week, computed from stored match data with an
+ * API fallback for missing days. No model involved. The desk writes these
+ * in one go so nobody has to hand-build a spotlight again.
+ */
+router.get('/weekly-stats/:weekStart', requireApiKey, contextLimiter, async (req, res) => {
+  const { weekStart } = req.params;
+  if (!/^\d{4}-\d{2}-\d{2}$/.test(weekStart)) {
+    return res.status(400).json({ error: 'weekStart must be YYYY-MM-DD' });
+  }
+  const weekEnd = new Date(new Date(weekStart + 'T12:00:00Z').getTime() + 6 * 86400000)
+    .toISOString().slice(0, 10);
+  try {
+    const { sections, stats } = await weeklyStatSections(weekStart, weekEnd);
+    res.json({ weekStart, weekEnd, sections, stats });
+  } catch (err) {
+    console.error('[WeeklyStats] Failed:', err.message);
+    res.status(500).json({ error: `Could not compute the week's stats: ${err.message.slice(0, 140)}` });
+  }
+});
+
+/**
+ * Which of the four data feeds an issue needs are actually filling. Read
+ * only; it answers "is the pipeline alive" without generating anything.
+ */
+router.get('/pipeline-status', requireApiKey, (req, res) => {
+  const day = /^\d{4}-\d{2}-\d{2}$/;
+  const to = day.test(String(req.query.to)) ? String(req.query.to) : new Date().toISOString().slice(0, 10);
+  const from = day.test(String(req.query.from))
+    ? String(req.query.from)
+    : new Date(Date.now() - 27 * 86400000).toISOString().slice(0, 10);
+  try {
+    res.json({ from, to, coverage: pipelineCoverage(from, to) });
+  } catch (err) {
+    console.error('[Pipeline] status failed:', err.message);
+    res.status(500).json({ error: 'Could not read coverage' });
+  }
+});
+
+/**
+ * Draft one chosen story. The desk sends a candidate it already picked and
+ * gets back a headline and a body to edit. Quotes are not the model's job.
+ */
+router.post('/story-draft', requireApiKey, aiLimiter, async (req, res) => {
+  const { candidate, slot } = req.body || {};
+  if (!candidate || !Array.isArray(candidate.lines) || candidate.lines.length === 0) {
+    return res.status(400).json({ error: 'candidate with lines is required' });
+  }
+  if (!config.ANTHROPIC_API_KEY) {
+    return res.status(503).json({ error: 'No model configured on the relay' });
+  }
+  try {
+    const client = new Anthropic({ apiKey: config.ANTHROPIC_API_KEY });
+    const draft = await draftStory({ candidate, slot, client });
+    if (!draft) return res.status(502).json({ error: 'The model returned nothing usable' });
+    res.json(draft);
+  } catch (err) {
+    console.error('[Desk] Draft failed:', err.message);
+    // Pass the real reason through. "Draft failed" sent me to the logs to
+    // find out the API key was simply out of credit.
+    const msg = String(err?.message || '');
+    if (/credit balance is too low/i.test(msg)) {
+      return res.status(402).json({ error: 'The relay\'s Anthropic key is out of credit. Top it up to draft stories.' });
+    }
+    if (err?.status === 401 || /authentication/i.test(msg)) {
+      return res.status(502).json({ error: 'The relay\'s Anthropic key was rejected.' });
+    }
+    if (err?.status === 429 || /rate limit/i.test(msg)) {
+      return res.status(429).json({ error: 'Rate limited by the model. Try again in a moment.' });
+    }
+    res.status(500).json({ error: `Draft failed: ${msg.slice(0, 140)}` });
   }
 });
 
@@ -680,13 +775,21 @@ router.post('/weekly-digest/:weekStart/set', requireApiKey, (req, res) => {
   if (!/^\d{4}-\d{2}-\d{2}$/.test(weekStart)) {
     return res.status(400).json({ error: 'weekStart must be YYYY-MM-DD' });
   }
-  const { digest, weekEnd } = req.body;
+  const { digest, weekEnd, stats } = req.body;
   if (!digest || typeof digest !== 'string') {
     return res.status(400).json({ error: 'digest (string) is required' });
   }
   // Default weekEnd to weekStart + 6 days if not provided
   const end = weekEnd || new Date(new Date(weekStart + 'T12:00:00Z').getTime() + 6 * 86400000).toISOString().split('T')[0];
   setWeeklyDigest(weekStart, end, digest);
+  // Editorial mode reads the draft, not the digest, so a draft left over from
+  // an earlier version resurrects it and autosaves back over this one. Setting
+  // the digest means "this is the issue now", so the draft follows it.
+  updateWeeklyDraftOnly(weekStart, digest);
+  // The issue's key numbers come from here (games, players, messages)
+  if (stats && typeof stats === 'object') {
+    updateWeeklyStats(weekStart, stats);
+  }
   res.json({ ok: true, weekStart, weekEnd: end });
 });
 

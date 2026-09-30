@@ -273,17 +273,15 @@
   min-height: 0;
 }
 
+/* The slide is OngoingGame / Game.jsx itself, so it matches /live. The
+   panel already provides the frame, so the card's own one is dropped and
+   the cells narrow to fit this column. */
 .hm-slide {
   grid-area: 1 / 1;
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  justify-content: center;
-  gap: 18px;
-  padding: 24px 20px;
+  min-width: 0;
+  padding: 18px 16px;
   box-sizing: border-box;
-  color: var(--white);
-  text-decoration: none;
+  cursor: pointer;
   opacity: 0;
   transform: translateY(24px);
   transition: opacity 0.7s ease, transform 0.9s cubic-bezier(0.2, 0.8, 0.2, 1);
@@ -296,240 +294,75 @@
   pointer-events: auto;
 }
 
-.hm-slide-heads,
-.hm-slide-body {
-  display: grid;
-  grid-template-columns: 336px 150px 336px;
-  gap: 12px;
-  align-items: end;
-  max-width: 100%;
+.hm-slide .Game {
+  margin: 0;
+  padding: 0;
+  background: none;
+  border: none;
+  box-shadow: none;
+  border-radius: 0;
 }
 
-.hm-slide-body {
-  align-items: center;
+.hm-slide .playerDiv {
+  width: 124px;
 }
 
-.hm-team-head {
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  gap: 4px;
-}
-
-.hm-team-label {
-  font-family: var(--font-display);
-  font-size: 18px;
-}
-
-.hm-team-head-a .hm-team-label {
-  color: var(--team-blue);
-}
-
-.hm-team-head-b .hm-team-label {
-  color: var(--team-red);
-}
-
-.hm-team-mmr {
-  font-family: var(--font-mono);
-  font-size: 15px;
-  color: var(--white);
-}
-
-.hm-team-mmr small {
-  font-size: var(--text-xxxs);
-  color: var(--grey-light);
-}
-
-.hm-team-races {
-  display: flex;
-}
-
-.hm-team-race {
-  width: 24px;
-  height: 24px;
-}
-
-.hm-vs {
-  font-family: var(--font-display);
-  font-size: 18px;
-  color: #999;
-  text-align: center;
-  padding-bottom: 26px;
-}
-
-.hm-cells {
-  display: flex;
-  justify-content: center;
-}
-
-.hm-cell {
-  position: relative;
-  width: 84px;
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  gap: 6px;
-}
-
-.hm-portrait {
-  position: relative;
-  width: 60px;
-  height: 60px;
-}
-
-.hm-portrait-img {
-  width: 60px;
-  height: 60px;
-  border-radius: 6px;
-  border: 1px solid rgba(var(--gold-muted-rgb), 0.45);
-  box-sizing: border-box;
-  object-fit: cover;
-  display: block;
-  background: var(--surface-2);
-}
-
-.hm-portrait-race {
-  padding: 12px;
-  opacity: 0.8;
-}
-
-.hm-portrait-flag {
-  position: absolute;
-  top: 4px;
-  width: 18px;
-  height: 12px;
-  border-radius: 1px;
-  box-shadow: 0 0 0 1px rgba(0, 0, 0, 0.6);
-  z-index: 2;
-}
-
-.hm-cell-a .hm-portrait-flag {
-  right: 4px;
-}
-
-.hm-cell-b .hm-portrait-flag {
-  left: 4px;
-}
-
-.hm-portrait-race-badge {
-  position: absolute;
-  bottom: 4px;
-  width: 20px;
-  height: 20px;
-  filter: drop-shadow(0 0 3px #000) drop-shadow(0 0 3px #000);
-  z-index: 2;
-}
-
-.hm-cell-a .hm-portrait-race-badge {
-  left: 3px;
-}
-
-.hm-cell-b .hm-portrait-race-badge {
-  right: 3px;
-}
-
-/* AT partners: the gold connector between adjacent cells (Game.jsx's .at-connector) */
-.hm-at-line {
-  position: absolute;
-  right: -14px;
-  top: 29px;
-  width: 28px;
-  height: 3px;
-  border-radius: var(--radius-sm);
-  background: var(--gold);
-  z-index: 3;
-}
-
-.hm-cell-name {
-  font-family: var(--font-display);
-  font-size: 13px;
-  color: var(--gold);
-  max-width: 84px;
-  white-space: nowrap;
-  overflow: hidden;
-  text-overflow: ellipsis;
-}
-
-.hm-cell-form {
-  display: flex;
-  justify-content: center;
-  max-width: 69px;
-}
-
-.hm-cell-form .form-dots {
-  display: flex;
-  flex-wrap: wrap;
-  justify-content: center;
-  gap: 3px;
-}
-
-.hm-chart {
-  position: relative;
-  height: 170px;
-  min-width: 0;
-}
-
-.hm-chart svg {
-  overflow: visible;
-}
-
-/* the dots slide from the middle to their MMR as a slide becomes active */
-.hm-slide.is-active .hm-chart svg {
-  animation: hmDotsIn 0.9s cubic-bezier(0.2, 0.8, 0.2, 1) 0.15s both;
+/* The MMR dots fan out from the centre line as a slide becomes active.
+   MmrComparison is drawn by d3 at fixed positions, so the reveal scales
+   the chart out of the middle rather than moving each dot. */
+.hm-slide.is-active .mmr-chart-container svg,
+.hm-slide.is-active .gm-chart svg {
+  animation: hmChartIn 0.9s cubic-bezier(0.2, 0.8, 0.2, 1) 0.15s both;
   transform-origin: 50% 50%;
 }
 
-@keyframes hmDotsIn {
+@keyframes hmChartIn {
   from {
     transform: scaleY(0.02);
+    opacity: 0.4;
   }
   to {
     transform: scaleY(1);
+    opacity: 1;
   }
 }
 
-.hm-slide-foot {
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  gap: 6px;
+@media (prefers-reduced-motion: reduce) {
+  .hm-slide.is-active .mmr-chart-container svg,
+  .hm-slide.is-active .gm-chart svg {
+    animation: none;
+  }
 }
 
-.hm-map-thumb {
-  width: 64px;
-  height: 64px;
-  border-radius: 6px;
-  border: 1px solid rgba(255, 255, 255, 0.18);
-  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.4);
-  object-fit: cover;
-  background: var(--surface-2);
+@media (max-width: 1440px) {
+  .hm-slide .playerDiv {
+    width: 104px;
+  }
+
+  .hm-slide .profile-pic {
+    width: 60px;
+  }
 }
 
-.hm-map-meta {
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  gap: 4px;
+@media (max-width: 1240px) {
+  .hm-slide .playerDiv {
+    width: 92px;
+  }
+
+  .hm-slide .profile-pic {
+    width: 52px;
+  }
 }
 
-.hm-map-name {
-  font-family: var(--font-display);
-  font-size: 15px;
-  color: var(--white);
-}
+/* one column from here, so the panel is the viewport less its padding */
+@media (max-width: 1023px) {
+  .hm-slide .playerDiv {
+    width: 80px;
+  }
 
-.hm-map-mins {
-  display: flex;
-  align-items: center;
-  gap: 6px;
-  font-family: var(--font-mono);
-  font-size: 13px;
-  color: var(--grey-light);
-}
-
-.hm-live-dot {
-  width: 8px;
-  height: 8px;
+  .hm-slide .profile-pic {
+    width: 48px;
+  }
 }
 
 /* LIVE NOW bar */
@@ -1093,22 +926,6 @@
 
 /* ── Narrow desktop: the live panel's three columns shrink ── */
 
-@media (max-width: 1180px) {
-  .hm-slide-heads,
-  .hm-slide-body {
-    grid-template-columns: minmax(0, 1fr) 120px minmax(0, 1fr);
-  }
-
-  .hm-cell {
-    width: 72px;
-  }
-
-  .hm-at-line {
-    right: -8px;
-    width: 16px;
-  }
-}
-
 @media (max-width: 1023px) {
   .hm-grid {
     grid-template-columns: minmax(0, 1fr);
@@ -1204,151 +1021,9 @@
     background: rgba(10, 8, 6, 0.72);
   }
 
-  /* Game.jsx's mobile order: team 1 head, cells, chart, cells, team 2 head, map */
+  /* Game.jsx switches to its own .game-mobile layout at this width */
   .hm-slide {
-    display: grid;
-    grid-template-areas:
-      "head-a"
-      "cells-a"
-      "chart"
-      "cells-b"
-      "head-b"
-      "foot";
-    gap: 12px;
-    padding: 16px 14px;
-    align-items: stretch;
-    justify-items: stretch;
-  }
-
-  .hm-slide-heads,
-  .hm-slide-body {
-    display: contents;
-  }
-
-  .hm-vs {
-    display: none;
-  }
-
-  .hm-team-head {
-    flex-direction: row;
-    align-items: center;
-    gap: 8px;
-  }
-
-  .hm-team-head-a {
-    grid-area: head-a;
-  }
-
-  .hm-team-head-b {
-    grid-area: head-b;
-  }
-
-  .hm-team-label {
-    font-size: var(--text-xs);
-  }
-
-  .hm-team-mmr {
-    font-size: 13px;
-  }
-
-  .hm-team-races {
-    display: none;
-  }
-
-  .hm-cells {
-    display: grid;
-    grid-template-columns: repeat(4, 1fr);
-    gap: 4px;
-  }
-
-  .hm-cells-a {
-    grid-area: cells-a;
-  }
-
-  .hm-cells-b {
-    grid-area: cells-b;
-  }
-
-  .hm-cell {
-    width: auto;
-    min-width: 0;
-    gap: 4px;
-  }
-
-  .hm-portrait,
-  .hm-portrait-img {
-    width: 52px;
-    height: 52px;
-  }
-
-  .hm-portrait-img {
-    border-radius: 5px;
-  }
-
-  .hm-portrait-flag {
-    top: 3px;
-    width: 15px;
-    height: 10px;
-  }
-
-  .hm-cell-a .hm-portrait-flag {
-    right: 3px;
-  }
-
-  .hm-cell-b .hm-portrait-flag {
-    left: 3px;
-  }
-
-  .hm-portrait-race-badge {
-    bottom: 3px;
-    width: 17px;
-    height: 17px;
-  }
-
-  .hm-at-line {
-    display: none;
-  }
-
-  .hm-cell-name {
-    font-size: var(--text-xxxs);
-    max-width: 100%;
-  }
-
-  .hm-cell-form {
-    display: none;
-  }
-
-  .hm-chart {
-    grid-area: chart;
-    height: 130px;
-  }
-
-  .hm-slide-foot {
-    grid-area: foot;
-    flex-direction: row;
-    align-items: center;
-    gap: 10px;
-    padding-top: 12px;
-    border-top: 1px solid rgba(255, 255, 255, 0.06);
-  }
-
-  .hm-map-thumb {
-    width: 44px;
-    height: 44px;
-    border-radius: 5px;
-  }
-
-  .hm-map-meta {
-    align-items: flex-start;
-    gap: 2px;
-  }
-
-  .hm-map-name {
-    font-size: var(--text-xs);
-  }
-
-  .hm-map-mins {
-    font-size: var(--text-xxs);
+    padding: 14px 12px;
   }
 
   .hm-livebar {

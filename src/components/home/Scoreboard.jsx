@@ -41,7 +41,7 @@ export default function Scoreboard({ online, live, quote, quoteHref = null, prof
       <div className="hm-board-side">
         {quote && (
           <Link to={speakerHref} className="hm-quote" data-quote title="Open in the chat">
-            <span className="hm-quote-label">QUOTE OF THE DAY</span>
+            <span className="hm-quote-label">{quote.label || "QUOTE OF THE WEEK"}</span>
             <span className="hm-quote-text">“{quote.text}”</span>
             <span className="hm-quote-by">
               <span className="hm-quote-name">{quote.speaker}</span>

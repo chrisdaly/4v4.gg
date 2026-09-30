@@ -13,6 +13,7 @@ export const SECTION_RULES = {
   newBloodGames: 20, // first-week players
   stackGames: 6, // arranged teams: games together
   returningMonths: 3, // back after a break
+  powerRankingsGames: 20, // a week's net MMR only ranks on this many games
 };
 
 /** The longest run of one result in a form string ("WWLW..."): { length, result }. */
@@ -118,24 +119,20 @@ export function dayByDay(dailies, weekStart, weekEnd) {
 /* ── Key numbers ──────────────────────────────────────── */
 
 /**
- * The lede's key numbers from what the digest carries: messages, the
- * longest win and loss streaks, upsets. Only numbers we have; the grid
- * needs at least two to show.
+ * The lede's key numbers: the week at a glance. Deliberately not the
+ * streak lengths or the upset count, which already have their own cards
+ * further down the issue. Needs at least two to be worth showing.
  */
-export function keyNumbers({ weekly, digestData }) {
-  const out = [];
+export function keyNumbers({ weekly }) {
   const stats = typeof weekly?.stats === "string" ? safeJson(weekly.stats) : weekly?.stats;
-  if (stats?.totalMessages) out.push({ value: stats.totalMessages.toLocaleString("en-US"), label: "CHAT MESSAGES", tone: "white" });
-  const hot = digestData?.spotlights?.hotStreak;
-  const cold = digestData?.spotlights?.coldStreak;
-  const hotLen = Math.max(hot?.streakLength || 0, longestRun(hot?.form).result === "W" ? longestRun(hot?.form).length : 0);
-  const coldLen = Math.max(cold?.streakLength || 0, longestRun(cold?.form).result === "L" ? longestRun(cold?.form).length : 0);
-  if (hotLen) out.push({ value: `${hotLen}W`, label: "LONGEST WIN STREAK", tone: "green" });
-  if (coldLen) out.push({ value: `${coldLen}L`, label: "LONGEST LOSS STREAK", tone: "red" });
-  const upsets = digestData?.upsets?.length || 0;
-  if (upsets) out.push({ value: String(upsets), label: upsets === 1 ? "UPSET" : "UPSETS", tone: "white" });
-  const bans = digestData?.narrative?.bans?.length || 0;
-  if (bans && out.length < 4) out.push({ value: String(bans), label: bans === 1 ? "BAN" : "BANS", tone: "red" });
+  if (!stats) return [];
+  const n = (v) => Number(v) || 0;
+  const out = [];
+  if (n(stats.totalGames)) out.push({ value: n(stats.totalGames).toLocaleString("en-US"), label: "GAMES PLAYED", tone: "white" });
+  const players = n(stats.totalPlayers) || n(stats.uniquePlayers);
+  if (players) out.push({ value: players.toLocaleString("en-US"), label: "PLAYERS", tone: "white" });
+  if (n(stats.totalMessages)) out.push({ value: n(stats.totalMessages).toLocaleString("en-US"), label: "CHAT MESSAGES", tone: "white" });
+  if (n(stats.busiestDayGames)) out.push({ value: n(stats.busiestDayGames).toLocaleString("en-US"), label: `BUSIEST DAY, ${String(stats.busiestDay || "").toUpperCase()}`, tone: "gold" });
   return out.slice(0, 4);
 }
 

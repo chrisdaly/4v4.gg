@@ -108,6 +108,11 @@ const NewsIndex = ({ isAdmin, adminKey: rawAdminKey }) => {
           <span className="nw-issue-count-label">{issues.label}</span>
         </div>
       )}
+      {isAdmin && (
+        <Link to="/news-desk" className="nw-desk-link" data-desk-link>
+          Story Desk →
+        </Link>
+      )}
     </div>
   );
 
@@ -198,9 +203,10 @@ const AdminWeeklyButton = () => {
   lastMon.setDate(thisMon.getDate() - 7);
   const weekStr = lastMon.toISOString().slice(0, 10);
 
+  // Building an issue starts at the desk now, not in edit mode over the page
   return (
-    <Link to={`/news?week=${weekStr}`} className="nw-admin-weekly-btn">
-      Edit this week's magazine
+    <Link to={`/news-desk?week=${weekStr}`} className="nw-admin-weekly-btn">
+      Build last week&rsquo;s issue
     </Link>
   );
 };

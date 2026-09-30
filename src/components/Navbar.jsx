@@ -18,7 +18,7 @@ const Navbar = () => {
   const searchRef = useRef(null);
   const [mobileOpen, setMobileOpen] = useState(false);
   const mobileRef = useRef(null);
-  const { adminKey, adminViewActive, toggleAdminView, isKeyValid } = useAdmin();
+  const { adminKey, isAdmin, adminViewActive, toggleAdminView, isKeyValid } = useAdmin();
 
   const isActive = (path, matchPaths) => {
     if (matchPaths) {
@@ -148,6 +148,8 @@ const Navbar = () => {
   ];
 
   const moreLinks = [
+    // The desk is where an issue gets built, so it only shows in admin mode
+    ...(isAdmin ? [{ to: "/news-desk", label: "Story Desk" }] : []),
     { to: "/upload", label: "Upload" },
     { to: "/stats", label: "Stats" },
     { to: "/lab", label: "Lab" },

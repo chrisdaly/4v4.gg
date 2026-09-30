@@ -24,7 +24,6 @@ import { renderBlurbText } from "../MatchNote";
  */
 
 const FLASH_MS = 1700;
-const MINUTE_MS = 60_000;
 
 const TAG_COLOR = {
   FINISHED: "var(--green)",
@@ -103,7 +102,6 @@ export default function LiveGamePanel({ matches: matchesProp = [], rotateSeconds
   const loading = matchesProp === null;
   const matches = useMemo(() => matchesProp || [], [matchesProp]);
   const [idx, setIdx] = useState(0);
-  const [now, setNow] = useState(() => Date.now());
   const [shownFlash, setShownFlash] = useState(null);
   const count = matches.length;
   const safeIdx = count > 0 ? Math.min(idx, count - 1) : 0;
@@ -120,12 +118,6 @@ export default function LiveGamePanel({ matches: matchesProp = [], rotateSeconds
     onSlideChange?.(safeIdx, matches[safeIdx] || null);
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [safeIdx, ids]);
-
-  // Elapsed minutes on the footer
-  useEffect(() => {
-    const id = setInterval(() => setNow(Date.now()), MINUTE_MS);
-    return () => clearInterval(id);
-  }, []);
 
   // A new event replaces the caption for 1.7s
   const flashTimer = useRef(null);
@@ -153,7 +145,7 @@ export default function LiveGamePanel({ matches: matchesProp = [], rotateSeconds
     <section className="hm-live hm-panel" data-live-panel={count}>
       <div className="hm-slides">
         {matches.map((m, i) => (
-          <LiveGameSlide key={m.id} match={m} active={i === safeIdx} now={now} />
+          <LiveGameSlide key={m.id} match={m} active={i === safeIdx} />
         ))}
       </div>
       <div className="hm-livebar" data-live-bar>

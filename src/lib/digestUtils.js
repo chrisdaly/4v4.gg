@@ -68,6 +68,8 @@ export const DIGEST_SECTIONS = [
   { key: "UPSET", label: "Upset", cls: "upset" },
   { key: "AT_SPOTLIGHT", label: "AT Stacks", cls: "at-spotlight" },
   { key: "BEST_OF_CHAT", label: "Best of Chat", cls: "chat-best" },
+  { key: "WEEK_TREND", label: "The Week In Games", cls: "week-trend" },
+  { key: "MOST_TALKED_ABOUT", label: "Most Talked About", cls: "most-talked-about" },
   { key: "POWER_RANKINGS", label: "Power Rankings", cls: "rankings", rankings: true },
   { key: "MATCH_STATS", label: "Match Stats", cls: "match-stats", awards: true },
   { key: "HEROES", label: "Heroes", cls: "heroes", awards: true },
@@ -76,10 +78,14 @@ export const DIGEST_SECTIONS = [
 ];
 
 const HEROSLAYER_DATA_KEYS = ["HEROSLAYER_HEROES", "HEROSLAYER_VICTIMS", "HEROSLAYER_KILLBOARD", "HEROSLAYER_MAX", "HEROSLAYER_DISTRIBUTION"];
-const BLURB_KEYS = ["WINNER_BLURB", "LOSER_BLURB", "GRINDER_BLURB", "HOTSTREAK_BLURB", "COLDSTREAK_BLURB", "HEROSLAYER_BLURB", "UNITKILLER_BLURB", "Hero Slayer_BLURB", "Unit Killer_BLURB"];
-const QUOTE_KEYS = ["DRAMA_QUOTES", "WINNER_QUOTES", "LOSER_QUOTES", "GRINDER_QUOTES", "HOTSTREAK_QUOTES", "COLDSTREAK_QUOTES", "HEROSLAYER_QUOTES", "UNITKILLER_QUOTES", "Hero Slayer_QUOTES", "Unit Killer_QUOTES"];
+const BLURB_KEYS = ["WEEK_TREND_BLURB", "MOST_TALKED_ABOUT_BLURB", "WINNER_BLURB", "LOSER_BLURB", "GRINDER_BLURB", "HOTSTREAK_BLURB", "COLDSTREAK_BLURB", "HEROSLAYER_BLURB", "UNITKILLER_BLURB", "Hero Slayer_BLURB", "Unit Killer_BLURB"];
+const QUOTE_KEYS = ["MOST_TALKED_ABOUT_QUOTES", "DRAMA_QUOTES", "WINNER_QUOTES", "LOSER_QUOTES", "GRINDER_QUOTES", "HOTSTREAK_QUOTES", "COLDSTREAK_QUOTES", "HEROSLAYER_QUOTES", "UNITKILLER_QUOTES", "Hero Slayer_QUOTES", "Unit Killer_QUOTES"];
 const STREAK_DATA_KEYS = ["HOTSTREAK_DAILY", "COLDSTREAK_DAILY", "STREAK_SPECTRUM"];
-export const ALL_SECTION_KEYS = [...DIGEST_SECTIONS.map((s) => s.key), ...BLURB_KEYS, ...QUOTE_KEYS, ...STREAK_DATA_KEYS, ...HEROSLAYER_DATA_KEYS, "MENTIONS"];
+// Longest keys first: the regex alternation is greedy by order, so
+// MOST_TALKED_ABOUT would otherwise match inside MOST_TALKED_ABOUT_QUOTES.
+export const ALL_SECTION_KEYS = [...DIGEST_SECTIONS.map((s) => s.key), ...BLURB_KEYS, ...QUOTE_KEYS, ...STREAK_DATA_KEYS, ...HEROSLAYER_DATA_KEYS, "MENTIONS"]
+  .slice()
+  .sort((a, b) => b.length - a.length);
 export const SECTION_RE = new RegExp(`^(${ALL_SECTION_KEYS.join("|")})\\s*:\\s*`, "gm");
 
 export const parseDigestSections = (text) => {
