@@ -85,3 +85,23 @@ describe('old digests keep working', () => {
     expect(parseDramaFromText(secs)[0].summary).toBe('CaSpEND rage-quit after Mogul went AFK');
   });
 });
+
+describe('every section key the relay writes is registered', () => {
+  it('parses each one separately instead of swallowing it into the one before', () => {
+    // An unregistered key is not an error: it is absorbed as text into the
+    // previous section, which then fails its own parse. SPOTLIGHT_DAILY did
+    // exactly that to COLDSTREAK.
+    const written = [
+      'TOPICS', 'DRAMA', 'HIGHLIGHTS', 'BEST_OF_CHAT', 'RECAP',
+      'WEEK_TREND', 'WEEK_TREND_BLURB', 'MOST_TALKED_ABOUT', 'MOST_TALKED_ABOUT_BLURB', 'MOST_TALKED_ABOUT_QUOTES',
+      'WINNER', 'LOSER', 'GRINDER', 'HOTSTREAK', 'COLDSTREAK',
+      'SPOTLIGHT_DAILY', 'SPOTLIGHT_MMR',
+      'HEROSLAYER', 'HEROSLAYER_HEROES', 'HEROSLAYER_TOTAL', 'HEROSLAYER_GAME', 'HEROSLAYER_MAX', 'HEROSLAYER_DISTRIBUTION',
+      'STREAK_SPECTRUM', 'POWER_RANKINGS', 'UPSET', 'AT_SPOTLIGHT', 'FEATS', 'NEW_BLOOD', 'MENTIONS',
+    ];
+    const text = written.map((k) => `${k}: value for ${k}`).join('\n');
+    const parsed = parseDigestSections(text);
+    expect(parsed.map((s) => s.key)).toEqual(written);
+    for (const s of parsed) expect(s.content).toBe(`value for ${s.key}`);
+  });
+});
