@@ -4034,3 +4034,17 @@ a.mg-stack-player-name:hover {
   letter-spacing: 0.1em;
   color: var(--amber);
 }
+
+/* A long run of weeks: thinner bars, fewer labels, still readable */
+.mg-pulse-weeks--dense {
+  gap: var(--space-1);
+}
+
+.mg-pulse-weeks--dense .mg-pulse-week-count,
+.mg-pulse-weeks--dense .mg-pulse-week-label {
+  font-size: var(--text-xxxs);
+}
+
+.mg-pulse-weeks--dense .mg-pulse-week-bar {
+  border-radius: 1px 1px 0 0;
+}

@@ -116,8 +116,13 @@ export function heroSlayerFrom(weekStart, weekEnd, weeklyPlayerMap, exclude = ne
   };
 }
 
-/** Games per day this week, and the player count of the weeks before it. */
-export function weekTrendFrom(weekStart, weekEnd, { weeksBack = 5 } = {}) {
+/**
+ * Games per day this week, and the player count of every week before it that
+ * the archive covers, up to weeksBack. Five weeks showed a fall; four months
+ * shows whether it is a fall or a slide, which is a different story. Weeks
+ * with no data are skipped rather than drawn as zero.
+ */
+export function weekTrendFrom(weekStart, weekEnd, { weeksBack = 16 } = {}) {
   const DOW = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'];
   const rows = getDailyMatchesRange(addDays(weekStart, -7 * (weeksBack - 1)), weekEnd);
   if (rows.length === 0) return null;

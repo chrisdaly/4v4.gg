@@ -27,6 +27,9 @@ export function WeekTrend({ trend, weekStart }) {
   // A tall floor so a 15% swing still reads as a slope rather than a flat line
   const height = (n) => 24 + Math.round(((n - min) / span) * 76);
 
+  // With a long run of weeks the labels collide, so only some are drawn
+  const step = players.length > 10 ? Math.ceil(players.length / 6) : 1;
+  const dense = players.length > 12;
   const first = players[0];
   const last = players[players.length - 1];
   const change = last.players - first.players;
@@ -38,18 +41,22 @@ export function WeekTrend({ trend, weekStart }) {
         <span className="mg-section-label">Players, last {players.length} weeks</span>
         <div className="mg-section-rule" />
       </div>
-      <div className="mg-pulse-weeks">
-        {players.map((w) => {
+      <div className={`mg-pulse-weeks${dense ? " mg-pulse-weeks--dense" : ""}`}>
+        {players.map((w, i) => {
           const isThis = w.weekStart === weekStart;
+          const labelled = !dense || isThis || i % step === 0;
           return (
-            <div key={w.weekStart} className="mg-pulse-week" data-pulse-week={w.weekStart}>
-              <span className={`mg-pulse-week-count${isThis ? " mg-pulse-week-count--now" : ""}`}>{w.players}</span>
+            <div key={w.weekStart} className="mg-pulse-week" data-pulse-week={w.weekStart}
+              title={`${w.weekStart}: ${w.players} players, ${w.games} games`}>
+              <span className={`mg-pulse-week-count${isThis ? " mg-pulse-week-count--now" : ""}`}>
+                {labelled ? w.players : ""}
+              </span>
               <div
                 className={`mg-pulse-week-bar${isThis ? " mg-pulse-week-bar--now" : ""}`}
                 style={{ "--pct": `${height(w.players)}%` }}
               />
               <span className="mg-pulse-week-label">
-                {new Date(`${w.weekStart}T12:00:00`).toLocaleDateString("en-US", { month: "short", day: "numeric" })}
+                {labelled ? new Date(`${w.weekStart}T12:00:00`).toLocaleDateString("en-US", { month: "short", day: "numeric" }) : ""}
               </span>
             </div>
           );
