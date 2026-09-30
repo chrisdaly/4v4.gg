@@ -21,7 +21,7 @@ import {
   computeNewBlood, formatNewBloodLine,
   formatMmrLine, formatGrinderLine, formatWinStreakLine, formatLossStreakLine,
 } from './digest.js';
-import { getMatchPlayerScoresRange, getDailyMatchesRange, getMessagesInRange } from './db.js';
+import { getMatchPlayerScoresRange, getDailyMatchesRange, getMessagesInRange, getDailyPlayerStatsRange } from './db.js';
 
 /** Rankings and spotlights need enough games to mean anything. */
 export const RULES = {
@@ -153,6 +153,40 @@ export function weekTrendFrom(weekStart, weekEnd, { weeksBack = 5 } = {}) {
 }
 
 /**
+ * A card's week, day by day, so the dots can be grouped and a streak can be
+ * seen inside them. A flat run of 187 dots says nothing; the same games
+ * split across seven days show when the week turned.
+ *
+ *   WINNER=Mon:WLW|Tue:LL|Wed:WWW
+ */
+function dailyFormLines(weekStart, weekEnd, cards) {
+  const DOW = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'];
+  const rows = getDailyPlayerStatsRange(weekStart, weekEnd);
+  if (rows.length === 0) return {};
+  const byTag = new Map();
+  for (const r of rows) {
+    if (!r.form) continue;
+    if (!byTag.has(r.battle_tag)) byTag.set(r.battle_tag, []);
+    byTag.get(r.battle_tag).push(r);
+  }
+  const daily = [];
+  const mmr = [];
+  for (const [key, stat] of Object.entries(cards)) {
+    if (!stat?.battleTag) continue;
+    const days = (byTag.get(stat.battleTag) || []).sort((a, b) => a.date.localeCompare(b.date));
+    if (days.length > 0) {
+      daily.push(`${key}=${days.map((d) => `${DOW[new Date(`${d.date}T12:00:00Z`).getUTCDay()]}:${d.form}`).join('|')}`);
+      const last = days[days.length - 1];
+      if (last.current_mmr > 0) mmr.push(`${key}=${last.current_mmr}`);
+    }
+  }
+  const out = {};
+  if (daily.length > 0) out.SPOTLIGHT_DAILY = daily.join(';');
+  if (mmr.length > 0) out.SPOTLIGHT_MMR = mmr.join(',');
+  return out;
+}
+
+/**
  * Every numeric section for a week, as digest lines. Sections with nothing
  * to say are simply absent, which is what every reader of a digest already
  * expects.
@@ -168,6 +202,7 @@ export async function weeklyStatSections(weekStart, weekEnd) {
 
   const active = players.filter((p) => p.games >= RULES.spotlightGames);
   let spoken = new Set();
+  const cardPlayers = {};
   const line = (fn, p) => fn(p).replace(/^[A-Z_]+:\s*/, '').trim();
 
   if (active.length > 0) {
@@ -190,6 +225,7 @@ export async function weeklyStatSections(weekStart, weekEnd) {
     if (hot.winStreak >= RULES.streakFloor) sections.HOTSTREAK = line(formatWinStreakLine, hot);
     if (cold.lossStreak >= RULES.streakFloor) sections.COLDSTREAK = line(formatLossStreakLine, cold);
     [winner, loser, grinder, hot, cold].filter(Boolean).forEach(note);
+    Object.assign(cardPlayers, { WINNER: winner, LOSER: loser, GRINDER: grinder, HOTSTREAK: hot, COLDSTREAK: cold });
 
     const ranked = players.filter((p) => p.games >= RULES.rankingGames).sort((a, b) => b.mmrChange - a.mmrChange);
     if (ranked.length >= 4) {
@@ -229,9 +265,13 @@ export async function weeklyStatSections(weekStart, weekEnd) {
     sections.HEROSLAYER = `${slayer.battleTag}${race} ${slayer.kills} hero kills (${slayer.wins}W-${slayer.losses}L)`;
     if (slayer.heroes.length > 0) sections.HEROSLAYER_HEROES = slayer.heroes.join(',');
     sections.HEROSLAYER_MAX = String(slayer.max);
+    cardPlayers.HEROSLAYER = { battleTag: slayer.battleTag };
     sections.HEROSLAYER_DISTRIBUTION = slayer.distribution;
     mentions.add(slayer.battleTag);
   }
+
+  // After every card is chosen, the hero slayer included
+  Object.assign(sections, dailyFormLines(weekStart, weekEnd, cardPlayers));
 
   const trend = weekTrendFrom(weekStart, weekEnd);
   if (trend) sections.WEEK_TREND = trend;
