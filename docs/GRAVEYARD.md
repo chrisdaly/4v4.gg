@@ -33,7 +33,10 @@ missing section renders nothing rather than breaking the page.
 New sections are additive. Parsers treat an absent key as absent, never as an
 error. Nothing that reads a digest may require a key that old issues lack.
 
-Covered by `src/test/newsIssue.test.jsx` and `src/test/digest-parser.test.js`.
+Covered by `src/test/digestCompat.test.js`, which parses a real March 2026
+weekly and a pre-July daily and asserts that sub-stories without headlines,
+absent WEEK_TREND / MOST_TALKED_ABOUT, stat lines with and without a form
+string, and a daily with no BEST_OF_CHAT all still work.
 
 ## Removed
 
