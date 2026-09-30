@@ -294,6 +294,8 @@ export default function StoryDesk() {
   const [applied, setApplied] = useState(null);
   const [showAllThemes, setShowAllThemes] = useState(false);
   const [showAllThreads, setShowAllThreads] = useState(false);
+  const [stats, setStats] = useState(null);
+  const [statsState, setStatsState] = useState(null);
 
   useEffect(() => {
     setPicks(loadPicks(weekStart));
@@ -340,11 +342,36 @@ export default function StoryDesk() {
   );
 
   /**
+   * The week's numbers: winners, streaks, rankings, new blood, hero kills,
+   * the trend. Computed on the relay from stored match data, so this is a
+   * fetch and a write, never a judgement call.
+   */
+  const loadStats = useCallback(async () => {
+    setStatsState("loading");
+    try {
+      const res = await fetch(`${RELAY_URL}/api/admin/weekly-stats/${weekStart}`, {
+        headers: { "X-API-Key": adminKey },
+      });
+      if (!res.ok) throw new Error((await res.json().catch(() => ({}))).error || `Relay said ${res.status}`);
+      setStats(await res.json());
+      setStatsState(null);
+    } catch (e) {
+      setStats(null);
+      setStatsState(e.message);
+    }
+  }, [weekStart, adminKey]);
+
+  useEffect(() => {
+    setStats(null);
+    setStatsState(null);
+  }, [weekStart]);
+
+  /**
    * Write the composed stories into the issue, keeping every other section
    * as it is. The relay's set route also resets the draft column, so
    * editorial mode cannot resurrect an older version over the top.
    */
-  const apply = async () => {
+  const apply = async (includeStats = false) => {
     setApplying(true);
     setApplied(null);
     try {
@@ -352,11 +379,11 @@ export default function StoryDesk() {
         headers: { "X-API-Key": adminKey },
       });
       const current = res.ok ? (await res.json()).digest || "" : "";
-      const merged = applyToDigest(current, sections);
+      const merged = applyToDigest(current, { ...(includeStats ? stats.sections : {}), ...sections });
       const save = await fetch(`${RELAY_URL}/api/admin/weekly-digest/${weekStart}/set`, {
         method: "POST",
         headers: { "Content-Type": "application/json", "X-API-Key": adminKey },
-        body: JSON.stringify({ digest: merged }),
+        body: JSON.stringify({ digest: merged, ...(includeStats && stats?.stats ? { stats: stats.stats } : {}) }),
       });
       setApplied(save.ok ? "Written to the issue" : "Could not write to the issue");
     } catch {
@@ -433,10 +460,45 @@ export default function StoryDesk() {
               <span className="sd-budget-label">Written</span>
             </span>
             {applied && <span className="sd-applied">{applied}</span>}
-            <Button $primary onClick={apply} disabled={applying || readyCount === 0}>
-              {applying ? "Writing…" : "Write to issue"}
+            <Button $primary onClick={() => apply(false)} disabled={applying || readyCount === 0}>
+              {applying ? "Writing…" : "Write stories to issue"}
             </Button>
           </div>
+
+          <section className="sd-stats" data-stats>
+            <div className="sd-stats-head">
+              <h2 className="sd-col-head">The week&rsquo;s numbers</h2>
+              <span className="sd-col-sub sd-stats-sub">
+                Winners, streaks, rankings, new blood, hero kills and the trend, counted from match data.
+                Nothing here is a judgement call, so it is a fetch and a write.
+              </span>
+              {!stats ? (
+                <Button $secondary onClick={loadStats} disabled={statsState === "loading"}>
+                  {statsState === "loading" ? "Counting…" : "Work out the numbers"}
+                </Button>
+              ) : (
+                <Button $primary onClick={() => apply(true)} disabled={applying}>
+                  {applying ? "Writing…" : "Write numbers to issue"}
+                </Button>
+              )}
+            </div>
+            {statsState && statsState !== "loading" && <p className="sd-compose-error">{statsState}</p>}
+            {stats && (
+              <>
+                <div className="sd-stats-totals">
+                  {Object.entries(stats.stats || {}).map(([k, v]) => (
+                    <span key={k} className="sd-stats-total">
+                      <span className="sd-stats-n">{typeof v === "number" ? v.toLocaleString("en-US") : v}</span>
+                      <span className="sd-budget-label">{k.replace(/([A-Z])/g, " $1").trim()}</span>
+                    </span>
+                  ))}
+                </div>
+                <pre className="sd-pre">
+                  {Object.entries(stats.sections).map(([k, v]) => `${k}: ${v}`).join("\n\n")}
+                </pre>
+              </>
+            )}
+          </section>
 
           {working.length > 0 && (
             <section className="sd-working" data-working>

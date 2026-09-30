@@ -562,3 +562,55 @@
   color: var(--gold);
   text-decoration: underline;
 }
+
+/* ── The week's numbers ───────────────────────── */
+
+.sd-stats {
+  margin-bottom: var(--space-12);
+  padding: var(--space-4) var(--space-6);
+  border: 1px solid var(--panel-border);
+  border-left: 4px solid var(--grey-mid);
+  border-radius: var(--radius-md);
+  background: var(--surface-1);
+}
+
+.sd-stats-head {
+  display: flex;
+  align-items: center;
+  gap: var(--space-4);
+  flex-wrap: wrap;
+}
+
+.sd-stats-head .sd-col-head {
+  margin: 0;
+}
+
+.sd-stats-sub {
+  flex: 1;
+  margin: 0;
+  padding: 0;
+  border: 0;
+  min-width: 280px;
+}
+
+.sd-stats-totals {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--space-6);
+  margin: var(--space-4) 0;
+  padding: var(--space-3) 0;
+  border-top: 1px solid var(--panel-border);
+  border-bottom: 1px solid var(--panel-border);
+}
+
+.sd-stats-total {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.sd-stats-n {
+  font-family: var(--font-mono);
+  font-size: var(--text-base);
+  color: var(--gold);
+}
