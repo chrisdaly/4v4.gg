@@ -40,6 +40,16 @@ string, and a daily with no BEST_OF_CHAT all still work.
 
 ## Removed
 
+### Inline editing and publishing on the issue page - 2026-09-30
+- **Commit:** `f8125e1`
+- **Was:** `showEditControls`, which made every heading, summary and blurb
+  editable in place, plus Preview and the Publish toggle.
+- **Replaced by:** the story desk, which now loads the week's numbers on
+  open, saves stories and numbers together, and publishes.
+- **Kept on the page:** Edit Cover and Pick Cover only. A cover has to be
+  judged against the page it sits on.
+- **Restore:** `git checkout f8125e1^ -- src/components/news/WeeklyMagazine.jsx`
+
 ### The issue page's editorial drawer - 2026-09-30
 - **Commit:** `3998dce`
 - **Was:** DRAMA / HIGHLIGHTS item pickers with drag and delete, section and
