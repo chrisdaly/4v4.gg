@@ -952,22 +952,46 @@
   font-size: var(--text-xxxs);
 }
 
+/* Full width, because a conversation in a 300px column is unreadable and
+   that is the whole reason for opening it. */
 .sd-qotw-context {
-  margin-top: var(--space-3);
-  padding-top: var(--space-3);
-  border-top: 1px dashed var(--panel-border);
+  margin: var(--space-4) 0;
+  padding: var(--space-4);
+  border: 1px solid rgba(var(--gold-muted-rgb), 0.35);
+  border-radius: var(--radius-md);
+  background: var(--surface-2);
+}
+
+.sd-qotw-context-head {
+  display: flex;
+  align-items: center;
+  gap: var(--space-3);
+  margin-bottom: var(--space-3);
+}
+
+.sd-qotw-context-head .sd-compose-label {
+  margin-right: auto;
+  text-transform: none;
+  letter-spacing: 0;
+  font-family: var(--font-body, Georgia, serif);
+  font-size: var(--text-xs);
+  font-style: italic;
+  color: rgba(255, 255, 255, 0.72);
+}
+
+.sd-qotw-lines {
   display: flex;
   flex-direction: column;
   gap: 2px;
-  max-height: 260px;
+  max-height: 420px;
   overflow-y: auto;
 }
 
 .sd-qotw-line {
   display: flex;
-  gap: var(--space-2);
+  gap: var(--space-3);
   margin: 0;
-  font-size: var(--text-xxs);
+  font-size: var(--text-xs);
   line-height: 1.5;
   color: var(--grey-light);
 }

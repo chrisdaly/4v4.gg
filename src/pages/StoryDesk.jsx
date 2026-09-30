@@ -344,6 +344,8 @@ function QuoteOfWeek({ quotes, chosen, onChoose, weekStart, weekEnd, adminKey })
   };
 
   const shown = found ?? quotes;
+  // The conversation reads at the page's width, not inside a 300px card
+  const open = shown.find((q) => q.id === openId) || null;
   const isChosen = (q) => chosen?.text === q.text && chosen?.name === q.name;
 
   return (
@@ -378,6 +380,35 @@ function QuoteOfWeek({ quotes, chosen, onChoose, weekStart, weekEnd, adminKey })
         </Button>
       </form>
 
+      {open && (
+        <div className="sd-qotw-context" data-quote-context={open.id}>
+          <div className="sd-qotw-context-head">
+            <span className="sd-compose-label">Around &ldquo;{open.text.slice(0, 60)}{open.text.length > 60 ? "…" : ""}&rdquo;</span>
+            {open.id.startsWith("q:") && (
+              <a
+                className="sd-linkish"
+                href={`/chat?m=${encodeURIComponent(open.id.slice(2))}&at=${encodeURIComponent(open.at)}`}
+                target="_blank"
+                rel="noreferrer"
+              >
+                open in the chat →
+              </a>
+            )}
+            <Button $ghost onClick={() => setOpenId(null)}>Close</Button>
+          </div>
+          <div className="sd-qotw-lines">
+            {(open.context || fetched[open.id] || []).map((l, i) => (
+              <p key={i} className={`sd-qotw-line${l.isQuote ? " sd-qotw-line--is" : ""}`}>
+                <span className="sd-qotw-line-at">{String(l.at).slice(11, 16)}</span>
+                <span className="sd-qotw-line-who">{l.name}</span>
+                <span className="sd-qotw-line-text">{l.text}</span>
+              </p>
+            ))}
+            {!(open.context || fetched[open.id]) && <p className="sd-qotw-line">Loading…</p>}
+          </div>
+        </div>
+      )}
+
       <div className="sd-qotw-grid">
         {shown.map((q) => (
           <div
@@ -400,18 +431,6 @@ function QuoteOfWeek({ quotes, chosen, onChoose, weekStart, weekEnd, adminKey })
               </button>
               <span className="sd-qotw-at">{String(q.at).slice(5, 16)}</span>
             </span>
-            {openId === q.id && (
-              <div className="sd-qotw-context">
-                {(q.context || fetched[q.id] || []).map((l, i) => (
-                  <p key={i} className={`sd-qotw-line${l.isQuote ? " sd-qotw-line--is" : ""}`}>
-                    <span className="sd-qotw-line-at">{String(l.at).slice(11, 16)}</span>
-                    <span className="sd-qotw-line-who">{l.name}</span>
-                    <span className="sd-qotw-line-text">{l.text}</span>
-                  </p>
-                ))}
-                {!(q.context || fetched[q.id]) && <p className="sd-qotw-line">Loading…</p>}
-              </div>
-            )}
           </div>
         ))}
         {shown.length === 0 && (
