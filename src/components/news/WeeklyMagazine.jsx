@@ -585,7 +585,10 @@ const StoriesGrid = ({ stories, highlights, bans, nameToTag, editorial }) => {
 
   return (
     <section className="mg-section mg-stories reveal" style={{ "--delay": "0.14s" }}>
-      <div className="mg-stories-grid">
+      {/* An issue is one lead and three briefs, so the briefs run across.
+          Older issues still carry highlights and bans, and keep the two
+          columns those were written for. */}
+      <div className={`mg-stories-grid${highlightItems.length === 0 && banRows.length === 0 ? " mg-stories-grid--wide" : ""}`}>
         {/* Left column: drama sub-stories */}
         {stories.length > 0 && (
           <div className="mg-stories-col">

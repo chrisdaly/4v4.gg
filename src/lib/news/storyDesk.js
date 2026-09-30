@@ -22,12 +22,8 @@ export const SLOTS = [
   {
     key: "brief",
     label: "Also this week",
-    hint: "A short story with its own headline, two or three sentences and a quote.",
-  },
-  {
-    key: "highlight",
-    label: "Highlight",
-    hint: "The lighter stuff. One line and a quote.",
+    max: 3,
+    hint: "A short story with its own headline, two or three sentences and a quote. Three at most.",
   },
 ];
 
@@ -60,10 +56,11 @@ export function assign(picks, id, slot) {
     delete next[id];
     return next;
   }
-  // A slot with a cap releases whatever was holding it
+  // A full slot makes room by dropping whatever went in first
   const cap = SLOTS.find((s) => s.key === slot)?.max;
-  if (cap === 1) {
-    for (const [k, v] of Object.entries(next)) if (v === slot) delete next[k];
+  if (cap) {
+    const held = Object.entries(next).filter(([, v]) => v === slot).map(([k]) => k);
+    for (const k of held.slice(0, Math.max(0, held.length - cap + 1))) delete next[k];
   }
   next[id] = slot;
   return next;
@@ -200,10 +197,8 @@ export function composedSections(candidates, picks, drafts) {
   const item = (c) => composeItem(c, drafts[c.id]);
   const drama = [...inSlot(candidates, picks, "lead"), ...inSlot(candidates, picks, "brief")]
     .filter((c) => isReady(drafts[c.id]));
-  const highlights = inSlot(candidates, picks, "highlight").filter((c) => isReady(drafts[c.id]));
   const sections = {};
   if (drama.length > 0) sections.DRAMA = drama.map(item).join("; ");
-  if (highlights.length > 0) sections.HIGHLIGHTS = highlights.map(item).join("; ");
   return sections;
 }
 

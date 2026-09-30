@@ -317,6 +317,22 @@ a.mg-inline-name:hover {
   gap: var(--space-8);
 }
 
+/* One lead and three briefs: the briefs run across rather than stacking in
+   half the width with nothing beside them. */
+.mg-stories-grid--wide {
+  grid-template-columns: 1fr;
+}
+
+.mg-stories-grid--wide .mg-sidebar-list {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(260px, 1fr));
+  gap: var(--space-6);
+}
+
+.mg-stories-grid--wide .mg-sidebar-item:has(.mg-brief-title) {
+  padding-top: var(--space-4);
+}
+
 .mg-stories-col {
   display: flex;
   flex-direction: column;
@@ -3832,14 +3848,18 @@ a.mg-stack-player-name:hover {
   height: 180px;
 }
 
+/* Three rows: the count, the bar's own track, the label. The bar's height is
+   a percentage, so it has to resolve against a track of its own. In a flex
+   column it resolved against the whole 180px including the labels, which is
+   why a tall bar overflowed and shunted everything upward. */
 .mg-pulse-week {
   flex: 1;
   min-width: 0;
   height: 100%;
-  display: flex;
-  flex-direction: column;
-  justify-content: flex-end;
-  align-items: center;
+  display: grid;
+  grid-template-rows: auto 1fr auto;
+  align-items: end;
+  justify-items: center;
   gap: var(--space-1);
 }
 
@@ -3847,6 +3867,7 @@ a.mg-stack-player-name:hover {
   width: 100%;
   height: var(--pct, 0%);
   min-height: 2px;
+  align-self: end;
   border-radius: var(--radius-sm) var(--radius-sm) 0 0;
   background: rgba(var(--gold-muted-rgb), 0.3);
   transition: height var(--transition);
@@ -3865,6 +3886,7 @@ a.mg-stack-player-name:hover {
 }
 
 .mg-pulse-week-count {
+  min-height: 1em;
   font-family: var(--font-mono);
   font-size: var(--text-xxs);
   color: #fff;
@@ -3876,6 +3898,7 @@ a.mg-stack-player-name:hover {
 }
 
 .mg-pulse-week-label {
+  min-height: 1em;
   font-family: var(--font-mono);
   font-size: var(--text-xxxs);
   text-transform: uppercase;

@@ -13,7 +13,7 @@ const msg = (id, at, name, text, tag = `${name}#1`) => ({
 describe('story desk picks', () => {
   beforeEach(() => localStorage.clear());
 
-  it('keeps one lead at a time and clears a slot when it is picked twice', () => {
+  it('holds one lead and three briefs, dropping the oldest when a slot is full', () => {
     let picks = assign({}, 'm:patch', 'lead');
     expect(picks).toEqual({ 'm:patch': 'lead' });
     picks = assign(picks, 't:99', 'lead');
@@ -23,11 +23,17 @@ describe('story desk picks', () => {
     expect(picks).toEqual({ 't:99': 'brief' });
     picks = assign(picks, 't:99', 'brief');
     expect(picks).toEqual({});
-    expect(SLOTS.map((s) => s.key)).toEqual(['lead', 'brief', 'highlight']);
+
+    // Three briefs fit; the fourth pushes the first out
+    picks = ['a', 'b', 'c'].reduce((p, id) => assign(p, id, 'brief'), {});
+    expect(Object.keys(picks)).toEqual(['a', 'b', 'c']);
+    picks = assign(picks, 'd', 'brief');
+    expect(Object.keys(picks)).toEqual(['b', 'c', 'd']);
+
+    expect(SLOTS.map((s) => s.key)).toEqual(['lead', 'brief']);
     // Labels name the section a reader sees, so promoting says where it lands
-    expect(SLOTS.map((s) => s.label)).toEqual(['Top story', 'Also this week', 'Highlight']);
-    // Only the top story is capped
-    expect(SLOTS.filter((s) => s.max === 1).map((s) => s.key)).toEqual(['lead']);
+    expect(SLOTS.map((s) => s.label)).toEqual(['Top story', 'Also this week']);
+    expect(SLOTS.map((s) => s.max)).toEqual([1, 3]);
   });
 
   it('round-trips drafts through storage, per week', async () => {
@@ -97,6 +103,7 @@ describe('story desk picks', () => {
 
     const sections = composedSections([c], { 'm:replays': 'lead' }, { 'm:replays': draft });
     expect(sections.DRAMA).toContain('The Patch Broke Replays');
+    // Highlights are no longer a slot: an issue is one lead and three briefs
     expect(sections.HIGHLIGHTS).toBeUndefined();
     // Nothing is written until a story has both a headline and a body
     expect(composedSections([c], { 'm:replays': 'lead' }, {})).toEqual({});
