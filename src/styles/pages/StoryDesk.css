@@ -820,3 +820,12 @@
 .sd-spectrum .mg-streak-spectrum {
   margin-top: var(--space-2);
 }
+
+.sd-card-link {
+  color: var(--amber);
+  text-decoration: none;
+}
+
+.sd-card-link:hover {
+  text-decoration: underline;
+}

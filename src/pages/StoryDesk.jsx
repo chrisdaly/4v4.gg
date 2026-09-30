@@ -49,6 +49,7 @@ function Compose({ candidate, slot, draft, onChange, adminKey, weekStart, weekEn
   const preview = composeItem(candidate, d);
   const set = (patch) => onChange({ ...d, ...patch });
 
+  const quotesOnly = Boolean(SLOTS.find((x) => x.key === slot)?.quotesOnly);
   const [drafting, setDrafting] = useState(false);
   const [draftError, setDraftError] = useState(null);
   // 402 or 503 means the relay has no usable model, which no amount of
@@ -138,8 +139,8 @@ function Compose({ candidate, slot, draft, onChange, adminKey, weekStart, weekEn
   return (
     <div className="sd-compose" data-compose={candidate.id}>
       <div className="sd-compose-top">
-        <span className="sd-compose-label">The story</span>
-        {!noModel && (
+        <span className="sd-compose-label">{quotesOnly ? "Pick the line" : "The story"}</span>
+        {!noModel && !quotesOnly && (
           <Button $pill onClick={writeDraft} disabled={drafting} title="Have a first pass written from these lines, then edit it">
             {drafting ? "Writing…" : "Draft it for me"}
           </Button>
@@ -152,6 +153,8 @@ function Compose({ candidate, slot, draft, onChange, adminKey, weekStart, weekEn
       ) : draftError ? (
         <span className="sd-compose-error">{draftError}</span>
       ) : null}
+      {!quotesOnly && (
+        <>
       <input
         className="sd-input"
         placeholder="Headline"
@@ -165,6 +168,8 @@ function Compose({ candidate, slot, draft, onChange, adminKey, weekStart, weekEn
         value={d.body || ""}
         onChange={(e) => set({ body: e.target.value })}
       />
+        </>
+      )}
 
       <span className="sd-compose-label">Quotes ({picked.length} picked)</span>
       {picked.length > 0 && (
@@ -217,7 +222,7 @@ function Compose({ candidate, slot, draft, onChange, adminKey, weekStart, weekEn
       )}
 
       <span className="sd-compose-label">As it will read in the issue</span>
-      {isReady(d) ? (
+      {isReady(d, slot) ? (
         <pre className="sd-preview">{preview}</pre>
       ) : (
         <pre className="sd-preview sd-preview--empty">Write a headline and a body, or have one drafted.</pre>
@@ -332,6 +337,7 @@ function NumbersPreview({ sections, weekStart }) {
   const daily = readDaily(sections.SPOTLIGHT_DAILY);
   const mmr = readMmr(sections.SPOTLIGHT_MMR);
   const heroTotal = sections.HEROSLAYER_TOTAL || null;
+  const [heroGame, heroMatchId] = String(sections.HEROSLAYER_GAME || "").split("|");
   // The run that earned the card, so it can be picked out of the dots
   const runFor = (key, stat) => {
     const m = String(stat.headline).match(/(\d+)([WL]) streak/);
@@ -352,17 +358,24 @@ function NumbersPreview({ sections, weekStart }) {
                 {stat.wins}W-{stat.losses}L
                 {mmr[key] ? <span className="sd-card-mmr">{mmr[key].toLocaleString("en-US")} MMR</span> : null}
               </span>
+              {key === "HEROSLAYER" && heroGame && (
+                heroMatchId ? (
+                  <a className="sd-card-extra sd-card-link" href={`/match/${heroMatchId}`} target="_blank" rel="noreferrer">
+                    {heroGame} →
+                  </a>
+                ) : <span className="sd-card-extra">{heroGame}</span>
+              )}
               {key === "HEROSLAYER" && heroTotal && (
-                <span className="sd-card-extra">{heroTotal} over the week</span>
+                <span className="sd-card-record">{heroTotal} over the week</span>
               )}
               {key === "HEROSLAYER" && heroes.length > 0 && (
                 <div className="sd-card-heroes">
                   {heroes.map((h) => <img key={h} src={`/heroes/${h}.jpeg`} alt={h} className="sd-card-hero" />)}
                 </div>
               )}
-              {daily[key]?.length ? (
+              {key !== "HEROSLAYER" && daily[key]?.length ? (
                 <WeekDots days={daily[key]} streak={runFor(key, stat)} />
-              ) : stat.form ? (
+              ) : key !== "HEROSLAYER" && stat.form ? (
                 <FormDots form={stat.form.split("").map((c) => c === "W")} size="small" maxDots={24} showSummary={false} />
               ) : null}
             </div>
@@ -486,7 +499,7 @@ export default function StoryDesk() {
   const sections = useMemo(() => composedSections(all, picks, drafts), [all, picks, drafts]);
   const tags = useMemo(() => pickedTags(all, picks, drafts), [all, picks, drafts]);
   const readyCount = useMemo(
-    () => all.filter((c) => picks[c.id] && isReady(drafts[c.id])).length,
+    () => all.filter((c) => picks[c.id] && isReady(drafts[c.id], picks[c.id])).length,
     [all, picks, drafts]
   );
 

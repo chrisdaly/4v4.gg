@@ -25,6 +25,13 @@ export const SLOTS = [
     max: 3,
     hint: "A short story with its own headline, two or three sentences and a quote. Three at most.",
   },
+  {
+    key: "quote",
+    label: "Quote of the week",
+    max: 1,
+    quotesOnly: true,
+    hint: "One line, printed big. Pick the quotes; no headline or body needed.",
+  },
 ];
 
 const KEY = (weekStart) => `desk_picks_${weekStart}`;
@@ -156,7 +163,8 @@ export function hasQuote(draft, line) {
 }
 
 /** True once a story has enough to be worth writing into the issue. */
-export function isReady(draft) {
+export function isReady(draft, slot) {
+  if (SLOTS.find((s) => s.key === slot)?.quotesOnly) return (draft?.quotes || []).length > 0;
   return Boolean(draft?.headline?.trim() && draft?.body?.trim());
 }
 
@@ -196,9 +204,14 @@ export function applyToDigest(digestText, sections) {
 export function composedSections(candidates, picks, drafts) {
   const item = (c) => composeItem(c, drafts[c.id]);
   const drama = [...inSlot(candidates, picks, "lead"), ...inSlot(candidates, picks, "brief")]
-    .filter((c) => isReady(drafts[c.id]));
+    .filter((c) => isReady(drafts[c.id], picks[c.id]));
   const sections = {};
   if (drama.length > 0) sections.DRAMA = drama.map(item).join("; ");
+
+  // The quote of the week is just its quotes, printed big
+  const picked = inSlot(candidates, picks, "quote").filter((c) => isReady(drafts[c.id], "quote"));
+  const lines = picked.flatMap((c) => drafts[c.id]?.quotes || []).map(quoteStr);
+  if (lines.length > 0) sections.BEST_OF_CHAT = lines.join(" ");
   return sections;
 }
 

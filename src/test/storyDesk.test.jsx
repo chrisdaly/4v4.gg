@@ -30,10 +30,27 @@ describe('story desk picks', () => {
     picks = assign(picks, 'd', 'brief');
     expect(Object.keys(picks)).toEqual(['b', 'c', 'd']);
 
-    expect(SLOTS.map((s) => s.key)).toEqual(['lead', 'brief']);
+    expect(SLOTS.map((s) => s.key)).toEqual(['lead', 'brief', 'quote']);
     // Labels name the section a reader sees, so promoting says where it lands
-    expect(SLOTS.map((s) => s.label)).toEqual(['Top story', 'Also this week']);
-    expect(SLOTS.map((s) => s.max)).toEqual([1, 3]);
+    expect(SLOTS.map((s) => s.label)).toEqual(['Top story', 'Also this week', 'Quote of the week']);
+    expect(SLOTS.map((s) => s.max)).toEqual([1, 3, 1]);
+  });
+
+  it('asks a quote pick for quotes, not prose, and writes it to BEST_OF_CHAT', async () => {
+    const { isReady, composedSections } = await import('../lib/news/storyDesk');
+    const c = {
+      id: 'm:pause', kind: 'theme', term: 'pause', why: '18 messages',
+      lines: [{ at: '2026-09-24 05:10', name: 'BogaSyn', tag: 'BogaSyn#1712', text: 'Dharma asked for a pause. We all agreed.' }],
+    };
+    const quoteDraft = { quotes: [c.lines[0]] };
+    // A story needs a headline and a body; a quote needs neither
+    expect(isReady(quoteDraft, 'lead')).toBe(false);
+    expect(isReady(quoteDraft, 'quote')).toBe(true);
+    expect(isReady({ quotes: [] }, 'quote')).toBe(false);
+
+    const out = composedSections([c], { 'm:pause': 'quote' }, { 'm:pause': quoteDraft });
+    expect(out.BEST_OF_CHAT).toBe('"BogaSyn: Dharma asked for a pause. We all agreed."');
+    expect(out.DRAMA).toBeUndefined();
   });
 
   it('round-trips drafts through storage, per week', async () => {

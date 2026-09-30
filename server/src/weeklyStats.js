@@ -109,6 +109,25 @@ export function heroSlayerFrom(weekStart, weekEnd, weeklyPlayerMap) {
     } catch { /* a row with unparseable heroes is not worth failing over */ }
   }
 
+  // The game itself, which is the only context a single-game record needs
+  let bestGame = null;
+  for (const r of rows) {
+    if (r.battle_tag !== tag || (r.heroes_killed || 0) !== best.get(tag)) continue;
+    bestGame = { matchId: r.match_id, date: r.date, units: r.units_killed || 0 };
+    break;
+  }
+  if (bestGame) {
+    const match = getDailyMatchesRange(bestGame.date, bestGame.date)
+      .find((m) => m.match_id === bestGame.matchId);
+    if (match) {
+      bestGame.map = (match.map_name || '').replace(/^\(\d+\)/, '').trim();
+      const onTeamOne = String(match.team1_tags || '').split(',').includes(tag);
+      bestGame.won = Boolean(match.team1_won) === onTeamOne;
+      const theirs = onTeamOne ? match.team2_tags : match.team1_tags;
+      bestGame.against = String(theirs || '').split(',').filter(Boolean);
+    }
+  }
+
   const wp = weeklyPlayerMap.get(tag);
   const hist = (m) => [...m.entries()].sort((a, b) => a[0] - b[0]).map(([k, n]) => `${k}=${n}`).join(',');
 
@@ -122,6 +141,7 @@ export function heroSlayerFrom(weekStart, weekEnd, weeklyPlayerMap) {
     losses: wp?.losses ?? 0,
     race: wp?.race ?? null,
     distribution: `${hist(all)}|player:${hist(mine)}`,
+    game: bestGame,
   };
 }
 
@@ -327,6 +347,16 @@ export async function weeklyStatSections(weekStart, weekEnd) {
     if (slayer.heroes.length > 0) sections.HEROSLAYER_HEROES = slayer.heroes.join(',');
     // The week's total, now the supporting fact rather than the headline
     sections.HEROSLAYER_TOTAL = `${slayer.kills} across ${slayer.games} games`;
+    if (slayer.game?.map) {
+      const DOW = ['Sunday', 'Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday'];
+      const day = DOW[new Date(`${slayer.game.date}T12:00:00Z`).getUTCDay()];
+      const parts = [
+        `${slayer.game.won ? 'won' : 'lost'} on ${slayer.game.map}`,
+        day.toLowerCase(),
+      ];
+      if (slayer.game.units) parts.push(`${slayer.game.units} units killed`);
+      sections.HEROSLAYER_GAME = `${parts.join(', ')}|${slayer.game.matchId}`;
+    }
     cardPlayers.HEROSLAYER = { battleTag: slayer.battleTag };
     sections.HEROSLAYER_DISTRIBUTION = slayer.distribution;
     mentions.add(slayer.battleTag);
