@@ -829,3 +829,96 @@
 .sd-card-link:hover {
   text-decoration: underline;
 }
+
+/* ── Quote of the week ────────────────────────── */
+
+.sd-qotw {
+  margin-bottom: var(--space-12);
+  padding: var(--space-4) var(--space-6);
+  border: 1px solid var(--panel-border);
+  border-left: 4px solid var(--gold);
+  border-radius: var(--radius-md);
+  background: var(--surface-1);
+}
+
+.sd-qotw-chosen {
+  display: flex;
+  align-items: baseline;
+  gap: var(--space-3);
+  flex-wrap: wrap;
+  margin: var(--space-4) 0;
+  padding: var(--space-3) var(--space-4);
+  border-radius: var(--radius-md);
+  background: var(--gold-tint);
+}
+
+.sd-qotw-label {
+  font-family: var(--font-mono);
+  font-size: var(--text-xxxs);
+  text-transform: uppercase;
+  letter-spacing: 0.16em;
+  color: var(--grey-light);
+}
+
+.sd-qotw-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
+  gap: var(--space-3);
+  margin-top: var(--space-4);
+}
+
+/* Shaped like the home page's quote, because that is where it ends up */
+.sd-qotw-card {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-2);
+  padding: var(--space-4);
+  border: 1px solid var(--panel-border);
+  border-radius: var(--radius-md);
+  background: var(--surface-2);
+  text-align: left;
+  cursor: pointer;
+  transition: border-color var(--transition), background var(--transition);
+}
+
+.sd-qotw-card:hover {
+  border-color: rgba(var(--gold-muted-rgb), 0.5);
+}
+
+.sd-qotw-card--on {
+  border-color: var(--gold);
+  background: var(--gold-tint);
+}
+
+.sd-qotw-text {
+  font-family: Georgia, "Times New Roman", serif;
+  font-style: italic;
+  font-size: var(--text-base);
+  line-height: 1.35;
+  color: var(--white);
+}
+
+.sd-qotw-foot {
+  display: flex;
+  align-items: baseline;
+  gap: var(--space-3);
+}
+
+.sd-qotw-by {
+  font-family: var(--font-display);
+  font-size: var(--text-xs);
+  color: var(--gold);
+}
+
+.sd-qotw-laughs {
+  font-family: var(--font-mono);
+  font-size: var(--text-xxxs);
+  color: var(--green);
+}
+
+.sd-qotw-at {
+  margin-left: auto;
+  font-family: var(--font-mono);
+  font-size: var(--text-xxxs);
+  color: var(--grey-mid);
+}

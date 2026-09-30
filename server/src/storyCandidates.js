@@ -240,6 +240,7 @@ export function storyCandidates(weekStart, getMessagesInRange, { baselineWeeks =
     baselineMessages: baseline.length,
     threads: findThreads(week),
     themes,
+    quotes: findQuotes(week),
   };
 }
 
@@ -308,4 +309,50 @@ ${lines.map((l) => `[${l.at.slice(5, 16)}] ${l.name}: ${l.text}`).join('\n')}`;
   } catch {
     return null;
   }
+}
+
+/**
+ * Lines worth printing big.
+ *
+ * A quote of the week is not a story, so it is not one of the candidates
+ * above: it is one line that landed. The test is whether somebody else
+ * laughed within a couple of minutes, which is the only signal in this data
+ * for "the room found that good", plus the plain readability rules that
+ * stop a paste or a link being offered as a pull-quote.
+ */
+export function findQuotes(messages, { limit = 40 } = {}) {
+  const at = (m) => new Date(m.received_at.replace(' ', 'T') + 'Z').getTime();
+  const LAUGHTER = /(lol|lmao|haha|hehe|xd+|\)\)\)|kekw|😂|🤣|rofl|mdr)/i;
+  const out = [];
+
+  for (let i = 0; i < messages.length; i++) {
+    const m = messages[i];
+    const text = String(m.message || '').trim();
+    // Readable on its own, and not a paste, a link or a one-word reaction
+    if (text.length < 18 || text.length > 160) continue;
+    if (/https?:\/\//.test(text)) continue;
+    if (LAUGHTER.test(text) && text.length < 40) continue;
+
+    const reactors = new Set();
+    for (let j = i + 1; j < messages.length && j < i + 12; j++) {
+      const n = messages[j];
+      if (at(n) - at(m) > 150000) break;
+      if (n.user_name !== m.user_name && LAUGHTER.test(n.message || '')) reactors.add(n.user_name);
+    }
+    if (reactors.size === 0) continue;
+
+    out.push({
+      id: `q:${m.id}`,
+      at: m.received_at,
+      name: m.user_name,
+      tag: m.battle_tag,
+      text,
+      laughs: reactors.size,
+      who: [...reactors],
+      // What was said around it, so a line can be judged in context
+      before: messages.slice(Math.max(0, i - 2), i).map((x) => ({ name: x.user_name, text: x.message })),
+    });
+  }
+
+  return out.sort((a, b) => b.laughs - a.laughs || b.text.length - a.text.length).slice(0, limit);
 }

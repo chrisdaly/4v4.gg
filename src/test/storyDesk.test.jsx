@@ -30,27 +30,29 @@ describe('story desk picks', () => {
     picks = assign(picks, 'd', 'brief');
     expect(Object.keys(picks)).toEqual(['b', 'c', 'd']);
 
-    expect(SLOTS.map((s) => s.key)).toEqual(['lead', 'brief', 'quote']);
+    expect(SLOTS.map((s) => s.key)).toEqual(['lead', 'brief']);
     // Labels name the section a reader sees, so promoting says where it lands
-    expect(SLOTS.map((s) => s.label)).toEqual(['Top story', 'Also this week', 'Quote of the week']);
-    expect(SLOTS.map((s) => s.max)).toEqual([1, 3, 1]);
+    expect(SLOTS.map((s) => s.label)).toEqual(['Top story', 'Also this week']);
+    expect(SLOTS.map((s) => s.max)).toEqual([1, 3]);
   });
 
-  it('asks a quote pick for quotes, not prose, and writes it to BEST_OF_CHAT', async () => {
-    const { isReady, composedSections } = await import('../lib/news/storyDesk');
-    const c = {
-      id: 'm:pause', kind: 'theme', term: 'pause', why: '18 messages',
-      lines: [{ at: '2026-09-24 05:10', name: 'BogaSyn', tag: 'BogaSyn#1712', text: 'Dharma asked for a pause. We all agreed.' }],
-    };
-    const quoteDraft = { quotes: [c.lines[0]] };
-    // A story needs a headline and a body; a quote needs neither
-    expect(isReady(quoteDraft, 'lead')).toBe(false);
-    expect(isReady(quoteDraft, 'quote')).toBe(true);
-    expect(isReady({ quotes: [] }, 'quote')).toBe(false);
+  it('keeps the quote of the week apart from the stories, and remembers it', async () => {
+    const { loadQuote, saveQuote, quoteSection } = await import('../lib/news/storyDesk');
+    localStorage.clear();
 
-    const out = composedSections([c], { 'm:pause': 'quote' }, { 'm:pause': quoteDraft });
-    expect(out.BEST_OF_CHAT).toBe('"BogaSyn: Dharma asked for a pause. We all agreed."');
-    expect(out.DRAMA).toBeUndefined();
+    // It belongs to no story, so it is picked and stored on its own
+    const q = { id: 'q:1', at: '2026-09-21 11:12', name: 'TommyHsu', text: 'go hunt down some animals with your hyenas friends' };
+    expect(loadQuote('2026-09-21')).toBeNull();
+    saveQuote('2026-09-21', q);
+    expect(loadQuote('2026-09-21')).toEqual(q);
+    expect(loadQuote('2026-09-14')).toBeNull();
+
+    expect(quoteSection(q)).toBe('"TommyHsu: go hunt down some animals with your hyenas friends"');
+    expect(quoteSection(null)).toBeNull();
+    expect(quoteSection({ text: 'no speaker' })).toBeNull();
+
+    saveQuote('2026-09-21', null);
+    expect(loadQuote('2026-09-21')).toBeNull();
   });
 
   it('round-trips drafts through storage, per week', async () => {
@@ -333,5 +335,36 @@ describe('what counts as a subject', () => {
     expect(terms).not.toContain('noob');
     expect(terms).not.toContain('sucking');
     expect(terms).not.toContain('fais');
+  });
+});
+
+describe('finding the lines worth printing', () => {
+  const msg = (id, at, name, text) => ({ id, received_at: at, user_name: name, battle_tag: `${name}#1`, message: text });
+
+  it('takes lines the room laughed at, and refuses pastes, links and reactions', async () => {
+    const { findQuotes } = await import('../../server/src/storyCandidates.js');
+    const wall = 'x'.repeat(200);
+    const rows = [
+      msg('1', '2026-09-21 11:12:00', 'TommyHsu', 'go hunt down some animals with your hyenas friends'),
+      msg('2', '2026-09-21 11:12:30', 'Compre', 'lol'),
+      msg('3', '2026-09-21 11:12:40', 'Blue', 'hahaha'),
+      msg('4', '2026-09-21 12:00:00', 'BsK', 'New patch stream: https://www.twitch.tv/aaabsk'),
+      msg('5', '2026-09-21 12:00:20', 'Anica', 'lol'),
+      msg('6', '2026-09-21 13:00:00', 'zairongliu', wall),
+      msg('7', '2026-09-21 13:00:20', 'Sal', 'lmao'),
+      msg('8', '2026-09-21 14:00:00', 'Quiet', 'a perfectly good line nobody reacted to'),
+      // Laughing at yourself does not count
+      msg('9', '2026-09-21 15:00:00', 'Solo', 'this line is long enough to be quotable'),
+      msg('10', '2026-09-21 15:00:10', 'Solo', 'lol'),
+    ];
+    const quotes = findQuotes(rows);
+    expect(quotes).toHaveLength(1);
+    expect(quotes[0]).toMatchObject({ name: 'TommyHsu', laughs: 2 });
+    expect(quotes[0].who.sort()).toEqual(['Blue', 'Compre']);
+
+    const texts = quotes.map((q) => q.text);
+    expect(texts.some((t) => t.includes('twitch.tv'))).toBe(false);
+    expect(texts).not.toContain(wall);
+    expect(texts).not.toContain('a perfectly good line nobody reacted to');
   });
 });

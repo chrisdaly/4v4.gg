@@ -25,13 +25,6 @@ export const SLOTS = [
     max: 3,
     hint: "A short story with its own headline, two or three sentences and a quote. Three at most.",
   },
-  {
-    key: "quote",
-    label: "Quote of the week",
-    max: 1,
-    quotesOnly: true,
-    hint: "One line, printed big. Pick the quotes; no headline or body needed.",
-  },
 ];
 
 const KEY = (weekStart) => `desk_picks_${weekStart}`;
@@ -163,8 +156,7 @@ export function hasQuote(draft, line) {
 }
 
 /** True once a story has enough to be worth writing into the issue. */
-export function isReady(draft, slot) {
-  if (SLOTS.find((s) => s.key === slot)?.quotesOnly) return (draft?.quotes || []).length > 0;
+export function isReady(draft) {
   return Boolean(draft?.headline?.trim() && draft?.body?.trim());
 }
 
@@ -204,14 +196,9 @@ export function applyToDigest(digestText, sections) {
 export function composedSections(candidates, picks, drafts) {
   const item = (c) => composeItem(c, drafts[c.id]);
   const drama = [...inSlot(candidates, picks, "lead"), ...inSlot(candidates, picks, "brief")]
-    .filter((c) => isReady(drafts[c.id], picks[c.id]));
+    .filter((c) => isReady(drafts[c.id]));
   const sections = {};
   if (drama.length > 0) sections.DRAMA = drama.map(item).join("; ");
-
-  // The quote of the week is just its quotes, printed big
-  const picked = inSlot(candidates, picks, "quote").filter((c) => isReady(drafts[c.id], "quote"));
-  const lines = picked.flatMap((c) => drafts[c.id]?.quotes || []).map(quoteStr);
-  if (lines.length > 0) sections.BEST_OF_CHAT = lines.join(" ");
   return sections;
 }
 
@@ -334,4 +321,33 @@ export function findRun(form, result, length) {
   const needle = String(result).repeat(length);
   const at = String(form).indexOf(needle);
   return at < 0 ? null : { start: at, end: at + length };
+}
+
+
+/* ── Quote of the week ───────────────────────────────── */
+
+const QOTW_KEY = (weekStart) => `desk_quote_${weekStart}`;
+
+export function loadQuote(weekStart) {
+  try {
+    const raw = localStorage.getItem(QOTW_KEY(weekStart));
+    return raw ? JSON.parse(raw) : null;
+  } catch {
+    return null;
+  }
+}
+
+export function saveQuote(weekStart, quote) {
+  try {
+    if (quote) localStorage.setItem(QOTW_KEY(weekStart), JSON.stringify(quote));
+    else localStorage.removeItem(QOTW_KEY(weekStart));
+  } catch {
+    // Private window: the pick just does not survive a reload
+  }
+}
+
+/** The chosen line as BEST_OF_CHAT, which is what the issue reads. */
+export function quoteSection(quote) {
+  if (!quote?.text || !quote?.name) return null;
+  return `"${quote.name}: ${String(quote.text).replace(/"/g, "")}"`;
 }

@@ -10,6 +10,7 @@ import { WeekTrend } from "../components/news/WeekPulse";
 import {
   SLOTS, loadPicks, savePicks, assign, inSlot, pickedTags, pickQuotes, lineKey,
   readStatLine, readSpectrum, readRankings, readDaily, readMmr, findRun, SPOTLIGHT_ORDER,
+  loadQuote, saveQuote, quoteSection,
   loadDrafts, saveDrafts, startDraft, composeItem, toggleQuote, hasQuote, isReady,
   applyToDigest, composedSections,
 } from "../lib/news/storyDesk";
@@ -49,7 +50,6 @@ function Compose({ candidate, slot, draft, onChange, adminKey, weekStart, weekEn
   const preview = composeItem(candidate, d);
   const set = (patch) => onChange({ ...d, ...patch });
 
-  const quotesOnly = Boolean(SLOTS.find((x) => x.key === slot)?.quotesOnly);
   const [drafting, setDrafting] = useState(false);
   const [draftError, setDraftError] = useState(null);
   // 402 or 503 means the relay has no usable model, which no amount of
@@ -139,8 +139,8 @@ function Compose({ candidate, slot, draft, onChange, adminKey, weekStart, weekEn
   return (
     <div className="sd-compose" data-compose={candidate.id}>
       <div className="sd-compose-top">
-        <span className="sd-compose-label">{quotesOnly ? "Pick the line" : "The story"}</span>
-        {!noModel && !quotesOnly && (
+        <span className="sd-compose-label">The story</span>
+        {!noModel && (
           <Button $pill onClick={writeDraft} disabled={drafting} title="Have a first pass written from these lines, then edit it">
             {drafting ? "Writing…" : "Draft it for me"}
           </Button>
@@ -153,8 +153,6 @@ function Compose({ candidate, slot, draft, onChange, adminKey, weekStart, weekEn
       ) : draftError ? (
         <span className="sd-compose-error">{draftError}</span>
       ) : null}
-      {!quotesOnly && (
-        <>
       <input
         className="sd-input"
         placeholder="Headline"
@@ -168,8 +166,6 @@ function Compose({ candidate, slot, draft, onChange, adminKey, weekStart, weekEn
         value={d.body || ""}
         onChange={(e) => set({ body: e.target.value })}
       />
-        </>
-      )}
 
       <span className="sd-compose-label">Quotes ({picked.length} picked)</span>
       {picked.length > 0 && (
@@ -222,7 +218,7 @@ function Compose({ candidate, slot, draft, onChange, adminKey, weekStart, weekEn
       )}
 
       <span className="sd-compose-label">As it will read in the issue</span>
-      {isReady(d, slot) ? (
+      {isReady(d) ? (
         <pre className="sd-preview">{preview}</pre>
       ) : (
         <pre className="sd-preview sd-preview--empty">Write a headline and a body, or have one drafted.</pre>
@@ -283,6 +279,102 @@ function CandidateRow({ candidate, slot, onAssign }) {
         </div>
       )}
     </div>
+  );
+}
+
+/**
+ * Quote of the week: the lines somebody else laughed at, shown the way the
+ * home page shows the winner, so picking one is a matter of reading them
+ * rather than reading a score. Your own search is there for when none of
+ * them is the one you remember.
+ */
+function QuoteOfWeek({ quotes, chosen, onChoose, weekStart, weekEnd }) {
+  const [query, setQuery] = useState("");
+  const [found, setFound] = useState(null);
+  const [searching, setSearching] = useState(false);
+
+  const search = async (e) => {
+    e?.preventDefault();
+    if (query.trim().length < 2) return;
+    setSearching(true);
+    try {
+      const sp = new URLSearchParams({
+        q: query.trim(), limit: "30", since: "all",
+        after: `${weekStart}T00:00:00`, before: `${weekEnd}T23:59:59`,
+      });
+      const res = await fetch(`${RELAY_URL}/api/chat/search?${sp}`);
+      const data = res.ok ? await res.json() : { results: [] };
+      setFound((data.results || []).map((m) => ({
+        id: `s:${m.id}`, at: m.received_at, name: m.user_name, tag: m.battle_tag, text: m.message,
+      })));
+    } catch {
+      setFound([]);
+    } finally {
+      setSearching(false);
+    }
+  };
+
+  const shown = found ?? quotes;
+  const isChosen = (q) => chosen?.text === q.text && chosen?.name === q.name;
+
+  return (
+    <section className="sd-qotw" data-qotw>
+      <div className="sd-stats-head">
+        <h2 className="sd-col-head">Quote of the week</h2>
+        <span className="sd-col-sub sd-stats-sub">
+          Lines somebody else laughed at within two minutes. One goes on the front of the issue and on the
+          home page, so pick the one that reads best cold.
+        </span>
+      </div>
+
+      {chosen && (
+        <div className="sd-qotw-chosen">
+          <span className="sd-qotw-label">Chosen</span>
+          <span className="sd-qotw-text">&ldquo;{chosen.text}&rdquo;</span>
+          <span className="sd-qotw-by">{chosen.name}</span>
+          <Button $ghost onClick={() => onChoose(null)}>Clear</Button>
+        </div>
+      )}
+
+      <form className="sd-search" onSubmit={search}>
+        <input
+          className="sd-input sd-input--search"
+          placeholder="Or find one yourself..."
+          value={query}
+          onChange={(e) => setQuery(e.target.value)}
+        />
+        {found && <Button $ghost onClick={() => { setFound(null); setQuery(""); }}>Back to the best</Button>}
+        <Button $pill onClick={search} disabled={searching || query.trim().length < 2}>
+          {searching ? "…" : "Search"}
+        </Button>
+      </form>
+
+      <div className="sd-qotw-grid">
+        {shown.map((q) => (
+          <button
+            key={q.id}
+            type="button"
+            className={`sd-qotw-card${isChosen(q) ? " sd-qotw-card--on" : ""}`}
+            onClick={() => onChoose(isChosen(q) ? null : q)}
+            data-quote-option={q.id}
+          >
+            <span className="sd-qotw-text">&ldquo;{q.text}&rdquo;</span>
+            <span className="sd-qotw-foot">
+              <span className="sd-qotw-by">{q.name}</span>
+              {q.laughs > 0 && (
+                <span className="sd-qotw-laughs" title={(q.who || []).join(", ")}>
+                  {q.laughs} laughed
+                </span>
+              )}
+              <span className="sd-qotw-at">{String(q.at).slice(5, 16)}</span>
+            </span>
+          </button>
+        ))}
+        {shown.length === 0 && (
+          <p className="sd-empty">{found ? "Nothing matched that." : "Nothing landed this week."}</p>
+        )}
+      </div>
+    </section>
   );
 }
 
@@ -457,6 +549,7 @@ export default function StoryDesk() {
   const [stats, setStats] = useState(null);
   const [statsState, setStatsState] = useState(null);
   const [issue, setIssue] = useState(null);
+  const [quote, setQuote] = useState(null);
   const [publishing, setPublishing] = useState(false);
 
   useEffect(() => {
@@ -499,7 +592,7 @@ export default function StoryDesk() {
   const sections = useMemo(() => composedSections(all, picks, drafts), [all, picks, drafts]);
   const tags = useMemo(() => pickedTags(all, picks, drafts), [all, picks, drafts]);
   const readyCount = useMemo(
-    () => all.filter((c) => picks[c.id] && isReady(drafts[c.id], picks[c.id])).length,
+    () => all.filter((c) => picks[c.id] && isReady(drafts[c.id])).length,
     [all, picks, drafts]
   );
 
@@ -557,6 +650,7 @@ export default function StoryDesk() {
   useEffect(() => {
     setStats(null);
     setStatsState(null);
+    setQuote(loadQuote(weekStart));
     if (isAdmin && adminKey) {
       loadStats();
       loadIssue();
@@ -576,7 +670,12 @@ export default function StoryDesk() {
         headers: { "X-API-Key": adminKey },
       });
       const current = res.ok ? (await res.json()).digest || "" : "";
-      const merged = applyToDigest(current, { ...(includeStats && stats ? stats.sections : {}), ...sections });
+      const best = quoteSection(quote);
+      const merged = applyToDigest(current, {
+        ...(includeStats && stats ? stats.sections : {}),
+        ...sections,
+        ...(best ? { BEST_OF_CHAT: best } : {}),
+      });
       const save = await fetch(`${RELAY_URL}/api/admin/weekly-digest/${weekStart}/set`, {
         method: "POST",
         headers: { "Content-Type": "application/json", "X-API-Key": adminKey },
@@ -664,6 +763,11 @@ export default function StoryDesk() {
             </span>
             <span className="sd-budget-sep" aria-hidden="true" />
             {applied && <span className="sd-applied">{applied}</span>}
+            <span className="sd-budget-slot">
+              <span className={`sd-budget-n${quote ? " sd-budget-n--ready" : ""}`}>{quote ? 1 : 0}</span>
+              <span className="sd-budget-label">Quote</span>
+            </span>
+            <span className="sd-budget-sep" aria-hidden="true" />
             <Button $primary onClick={() => apply()} disabled={applying || (readyCount === 0 && !stats)}>
               {applying ? "Saving…" : "Save to issue"}
             </Button>
@@ -678,6 +782,14 @@ export default function StoryDesk() {
               </Button>
             )}
           </div>
+
+          <QuoteOfWeek
+            quotes={data.quotes || []}
+            chosen={quote}
+            weekStart={weekStart}
+            weekEnd={data.weekEnd || weekStart}
+            onChoose={(q) => { setQuote(q); saveQuote(weekStart, q); }}
+          />
 
           <section className="sd-stats" data-stats>
             <div className="sd-stats-head">
