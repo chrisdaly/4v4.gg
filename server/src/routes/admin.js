@@ -5,6 +5,7 @@ import config from '../config.js';
 import { setToken, getStats, getTopWords, getRecentDigests, deleteDigest, getDigest, getRecentWeeklyDigests, deleteWeeklyDigest, getWeeklyDigest, getWeeklyCoverImage, setWeeklyCoverImage, updateWeeklyCoverPosition, getDraftForDate, updateDigestOnly, updateDraftOnly, updateHiddenAvatars, getContextAroundQuotes, getMessagesByTimeWindow, getMessagesInRange, pipelineCoverage, getMessagesByDateAndUsers, getMessageBuckets, getGameStats, getMatchContext, getClipsByDateRange, saveCoverGeneration, getCoverGenerations, getAllCoverGenerations, getCoverGenerationImage, deleteCoverGeneration, getWeeklyDraftForWeek, updateWeeklyDraftOnly, updateWeeklyDigestOnly, createGenJob, getActiveGenJob, getLatestGenJob, getVariantsForJob, searchMessages, countSearchMessages, searchMessagesByPlayer, countMessagesByPlayer, getMessagesAroundTime, countMessagesByDateRange, updateWeeklyDigestJson, updateWeeklyClips, updateWeeklyStats, getDigestsByDateRange, saveStyleThumbnail, getStyleThumbnail, toggleWeeklyPublished, hasDailyPlayerStats, setDigestWithDraft, setWeeklyDigest } from '../db.js';
 import Anthropic from '@anthropic-ai/sdk';
 import { storyCandidates, draftStory } from '../storyCandidates.js';
+import { weeklyStatSections } from '../weeklyStats.js';
 import { updateToken, getStatus } from '../signalr.js';
 import { getClientCount } from '../sse.js';
 import { setBotEnabled, isBotEnabled, testCommand } from '../bot.js';
@@ -308,6 +309,27 @@ router.get('/story-candidates/:weekStart', requireApiKey, contextLimiter, (req, 
   } catch (err) {
     console.error('[Desk] Story candidates failed:', err.message);
     res.status(500).json({ error: 'Failed to build story candidates' });
+  }
+});
+
+/**
+ * Every numeric section of a week, computed from stored match data with an
+ * API fallback for missing days. No model involved. The desk writes these
+ * in one go so nobody has to hand-build a spotlight again.
+ */
+router.get('/weekly-stats/:weekStart', requireApiKey, contextLimiter, async (req, res) => {
+  const { weekStart } = req.params;
+  if (!/^\d{4}-\d{2}-\d{2}$/.test(weekStart)) {
+    return res.status(400).json({ error: 'weekStart must be YYYY-MM-DD' });
+  }
+  const weekEnd = new Date(new Date(weekStart + 'T12:00:00Z').getTime() + 6 * 86400000)
+    .toISOString().slice(0, 10);
+  try {
+    const { sections, stats } = await weeklyStatSections(weekStart, weekEnd);
+    res.json({ weekStart, weekEnd, sections, stats });
+  } catch (err) {
+    console.error('[WeeklyStats] Failed:', err.message);
+    res.status(500).json({ error: `Could not compute the week's stats: ${err.message.slice(0, 140)}` });
   }
 });
 

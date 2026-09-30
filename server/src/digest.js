@@ -1378,7 +1378,7 @@ function parseWeeklyStatLines(digestTexts) {
  * Compute aggregate match stats across a week.
  * Reads from stored daily_player_stats in DB first; falls back to API for missing days.
  */
-async function computeWeeklyMatchStats(weekStart, weekEnd) {
+export async function computeWeeklyMatchStats(weekStart, weekEnd) {
   const startDate = new Date(weekStart + 'T12:00:00Z');
   const endDate = new Date(weekEnd + 'T12:00:00Z');
   const weeklyPlayerMap = new Map();
@@ -1747,7 +1747,7 @@ function computeStreakDailyBreakdown(type, player, dailyRows) {
  * @param {Map} weeklyPlayerMap
  * @returns {string|null}
  */
-function computeStreakSpectrum(weeklyPlayerMap) {
+export function computeStreakSpectrum(weeklyPlayerMap) {
   const winHist = {};
   const lossHist = {};
 
