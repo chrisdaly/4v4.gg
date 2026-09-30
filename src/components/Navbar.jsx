@@ -151,6 +151,7 @@ const Navbar = () => {
     // The desk is where an issue gets built, so it only shows in admin mode
     ...(isAdmin ? [{ to: "/news-desk", label: "Story Desk" }] : []),
     { to: "/upload", label: "Upload" },
+    { to: "/search", label: "Chat Search" },
     { to: "/stats", label: "Stats" },
     { to: "/lab", label: "Lab" },
     { to: "/observatory", label: "Observatory" },

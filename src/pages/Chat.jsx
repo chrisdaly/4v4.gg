@@ -9,12 +9,14 @@ import useIsMobile, { CHAT_MOBILE_PX } from "../lib/useIsMobile";
 import ChatPanel from "../components/ChatPanel";
 import UserListSidebar from "../components/UserListSidebar";
 import MapPanel from "../components/chat/MapPanel";
+import GamesPanel from "../components/chat/GamesPanel";
 import RegionsPanel from "../components/chat/RegionsPanel";
 import GameModal from "../components/chat/GameModal";
 import GameSheet from "../components/chat/GameSheet";
 import PlayerSheet from "../components/chat/PlayerSheet";
 import MapModal from "../components/chat/MapModal";
 import { regionSummary } from "../lib/chat/regions";
+import { liveGamesFrom } from "../lib/chat/derived";
 
 /**
  * /chat (Chat v3): the full viewport, no navbar (Router.jsx renders this
@@ -60,17 +62,19 @@ const Page = styled.div`
   display: grid;
   gap: var(--space-2);
   grid-template-columns: minmax(0, 1fr) minmax(280px, 340px);
-  grid-template-rows: auto auto minmax(0, 1fr);
+  grid-template-rows: auto auto auto minmax(0, 1fr);
   grid-template-areas:
     "chat map"
+    "chat games"
     "chat regions"
     "chat roster";
 
   @media (min-width: ${WIDE}px) {
     grid-template-columns: minmax(380px, 1fr) minmax(220px, 300px) minmax(240px, 320px);
-    grid-template-rows: auto minmax(0, 1fr);
+    grid-template-rows: auto auto minmax(0, 1fr);
     grid-template-areas:
       "chat map roster"
+      "chat games roster"
       "chat regions roster";
   }
 
@@ -98,6 +102,16 @@ const ChatArea = styled.div`
 
 const MapArea = styled(MapPanel)`
   grid-area: map;
+  @media (max-width: ${MOBILE}px) {
+    display: none;
+  }
+`;
+
+/* Game activity: the stream's old tickers, live and finished, as a list.
+   Capped so a busy night cannot push the regions off the column. */
+const GamesArea = styled(GamesPanel)`
+  grid-area: games;
+  max-height: 260px;
   @media (max-width: ${MOBILE}px) {
     display: none;
   }
@@ -276,7 +290,6 @@ const Chat = () => {
     setRosterOpen((v) => !v);
     setSearchOpenState(false);
   }, []);
-  const [statsOpen, setStatsOpen] = useState(false);
   // The fullscreen map (MapModal), from the map body or its expand button
   const [mapOpen, setMapOpen] = useState(false);
   const openMap = useCallback(() => setMapOpen(true), []);
@@ -321,6 +334,9 @@ const Chat = () => {
     return () => clearInterval(id);
   }, []);
   const regions = useMemo(() => regionSummary(onlineUsers, { stats, avatars }, now), [onlineUsers, stats, avatars, now]);
+
+  // The games panel: what the channel is playing right now
+  const liveGames = useMemo(() => liveGamesFrom(ongoingMatches, onlineUsers), [ongoingMatches, onlineUsers]);
 
   const inGameCount = useMemo(() => onlineUsers.filter((u) => inGameTags?.has(u.battleTag)).length, [onlineUsers, inGameTags]);
   const gameProps = {
@@ -383,8 +399,6 @@ const Chat = () => {
           inGameInfoMap={inGameInfoMap}
           recentWinners={recentWinners}
           recentDeltas={recentDeltas}
-          gameEvents={gameEvents}
-          ongoingMatchIds={ongoingMatchIds}
           liveStreamers={liveStreamers}
           watchList={watchList}
           botResponses={botResponses}
@@ -403,9 +417,6 @@ const Chat = () => {
           isMobile={isMobile}
           searchOpen={searchOpen}
           onSearchOpenChange={setSearchOpen}
-          statsOpen={statsOpen}
-          onStatsOpenChange={setStatsOpen}
-          showGames={showGames}
         />
       </ChatArea>
       <MapArea
@@ -416,12 +427,11 @@ const Chat = () => {
         region={region}
         country={country}
         onRegionChange={setRegion}
-        statsOpen={statsOpen}
-        onStatsOpenChange={setStatsOpen}
         showGames={showGames}
         onShowGamesChange={changeShowGames}
         onExpand={openMap}
       />
+      {showGames && <GamesArea games={liveGames} finished={gameEvents} onOpenGame={openGameModal} />}
       <RegionsArea rows={regions.rows} region={region} country={country} onRegionChange={setRegion} />
       <UserListSidebar
         users={onlineUsers}

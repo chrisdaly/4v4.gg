@@ -67,21 +67,16 @@ describe('MapPanel header', () => {
     expect(document.querySelector('[data-country-count]')).toHaveTextContent('5 countries');
   });
 
-  it('renders stats and games icon buttons that report toggles and reflect their state, and no search icon', () => {
-    const onStatsOpenChange = vi.fn();
+  it('renders the game activity toggle, reports its state, and has no stats or search icon', () => {
     const onShowGamesChange = vi.fn();
-    renderMap({ statsOpen: true, showGames: true, onStatsOpenChange, onShowGamesChange });
+    renderMap({ showGames: true, onShowGamesChange });
     expect(screen.queryByRole('button', { name: /search/i })).toBeNull();
-    const statsBtn = screen.getByRole('button', { name: 'Channel stats' });
-    const games = screen.getByRole('button', { name: 'Game tickers' });
-    expect(statsBtn).toHaveAttribute('aria-pressed', 'true');
-    expect(statsBtn).toHaveAttribute('data-active', 'true');
+    expect(screen.queryByRole('button', { name: /stats/i })).toBeNull();
+    const games = screen.getByRole('button', { name: 'Game activity' });
     expect(games).toHaveAttribute('aria-pressed', 'true');
-    fireEvent.click(statsBtn);
-    expect(onStatsOpenChange).toHaveBeenCalledWith(false);
+    expect(games).toHaveAttribute('data-active', 'true');
     fireEvent.click(games);
     expect(onShowGamesChange).toHaveBeenCalledWith(false);
-    expect(statsBtn.querySelector('svg')).not.toBeNull();
     expect(games.querySelector('svg')).not.toBeNull();
   });
 

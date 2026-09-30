@@ -1,7 +1,7 @@
 import React, { useEffect, useMemo, useState } from "react";
 import styled from "styled-components";
 import { Link } from "react-router-dom";
-import { HiOutlineChartBar, HiOutlineNewspaper, HiOutlineArrowsExpand } from "react-icons/hi";
+import { HiOutlineNewspaper, HiOutlineArrowsExpand } from "react-icons/hi";
 import { GiCrossedSwords } from "react-icons/gi";
 import WorldMap from "../WorldMap";
 import { Button } from "../ui";
@@ -90,8 +90,6 @@ export default function MapPanel({
   region = null,
   country = null,
   onRegionChange,
-  statsOpen = false,
-  onStatsOpenChange,
   showGames = true,
   onShowGamesChange,
   onExpand,
@@ -128,17 +126,6 @@ export default function MapPanel({
         <PanelLabel>World</PanelLabel>
         <CountPill data-country-count>{countriesLabel(countryCount)}</CountPill>
         <Actions>
-          <IconButton
-            type="button"
-            $icon
-            data-active={statsOpen}
-            aria-pressed={statsOpen}
-            aria-label="Channel stats"
-            title={statsOpen ? "Hide channel stats" : "Show channel stats"}
-            onClick={() => onStatsOpenChange?.(!statsOpen)}
-          >
-            <HiOutlineChartBar />
-          </IconButton>
           {digest && (
             <IconButton as={Link} to={digest.href} $icon aria-label="Today's digest" title={`Today's digest (${digest.date})`} data-digest>
               <HiOutlineNewspaper />
@@ -149,8 +136,8 @@ export default function MapPanel({
             $icon
             data-active={showGames}
             aria-pressed={showGames}
-            aria-label="Game tickers"
-            title={showGames ? "Hide game tickers" : "Show game tickers"}
+            aria-label="Game activity"
+            title={showGames ? "Hide game activity" : "Show game activity"}
             onClick={() => onShowGamesChange?.(!showGames)}
           >
             <GiCrossedSwords />
