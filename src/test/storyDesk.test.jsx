@@ -417,3 +417,53 @@ describe('pairs, upsets and feats', () => {
     expect(readFeats('')).toEqual([]);
   });
 });
+
+describe('what may be printed big', () => {
+  const at = (n) => `2026-09-21 11:${String(n).padStart(2, '0')}:00`;
+  const say = (i, name, text) => ({ id: `q${i}`, received_at: at(i), user_name: name, battle_tag: `${name}#1`, message: text });
+  // Two other people laughing, so the line itself is what decides
+  const withLaughs = (i, name, text) => [say(i, name, text), say(i + 1, 'Bystander', 'lol'), say(i + 2, 'Another', 'haha')];
+
+  it('refuses abuse at any score, because this goes on the front page', async () => {
+    const { findQuotes } = await import('../../server/src/storyCandidates.js');
+    const rows = [
+      ...withLaughs(10, 'Fine', 'pretty much like a bunch of dogs attacking a deer'),
+      ...withLaughs(20, 'Slur', 'u sound like a completely desperate fag mate'),
+      ...withLaughs(30, 'Abl', 'he is pinging like a retard again'),
+    ];
+    const texts = (await Promise.resolve(findQuotes(rows))).map((q) => q.text);
+    expect(texts).toContain('pretty much like a bunch of dogs attacking a deer');
+    expect(texts.some((t) => /fag|retard/i.test(t))).toBe(false);
+  });
+
+  it('applies the rest of the criteria: no self-regard, no bare insult, no monologue', async () => {
+    const { findQuotes } = await import('../../server/src/storyCandidates.js');
+    const rows = [
+      ...withLaughs(10, 'Ego', 'levels : 500mmr - 1000mmr - 1500mmr - pros - me'),
+      ...withLaughs(20, 'Rude', 'you are a noob'),
+      // Four lines from one speaker with no reply: a fragment, not a quote
+      say(30, 'Solo', 'first thing he said here'),
+      say(31, 'Solo', 'second thing he said here'),
+      say(32, 'Solo', 'third thing he said here'),
+      ...withLaughs(33, 'Solo', 'the fourth thing he said here'),
+      ...withLaughs(40, 'Good', 'he tp d out of his own base and left us to it'),
+    ];
+    const texts = findQuotes(rows).map((q) => q.text);
+    expect(texts).toContain('he tp d out of his own base and left us to it');
+    expect(texts.some((t) => t.includes('500mmr'))).toBe(false);
+    expect(texts).not.toContain('you are a noob');
+    expect(texts).not.toContain('the fourth thing he said here');
+  });
+
+  it('lifts a turn of phrase above a plainer line with the same laughs', async () => {
+    const { findQuotes } = await import('../../server/src/storyCandidates.js');
+    const rows = [
+      ...withLaughs(10, 'Plain', 'he went and lost his hero to the militia'),
+      ...withLaughs(20, 'Vivid', 'it was like a bunch of dogs attacking a deer out there'),
+    ];
+    const quotes = findQuotes(rows);
+    expect(quotes[0].name).toBe('Vivid');
+    expect(quotes[0].imagery).toBe(true);
+    expect(quotes[0].score).toBeGreaterThan(quotes[1].score);
+  });
+});

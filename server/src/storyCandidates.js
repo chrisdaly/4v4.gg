@@ -315,11 +315,54 @@ ${lines.map((l) => `[${l.at.slice(5, 16)}] ${l.name}: ${l.text}`).join('\n')}`;
  * Lines worth printing big.
  *
  * A quote of the week is not a story, so it is not one of the candidates
- * above: it is one line that landed. The test is whether somebody else
- * laughed within a couple of minutes, which is the only signal in this data
- * for "the room found that good", plus the plain readability rules that
- * stop a paste or a link being offered as a pull-quote.
+ * above. Chris's criteria, in his words: about other people or the game and
+ * not the speaker's own rank, it landed, readable cold, has an image or a
+ * turn of phrase rather than an insult or a stat, and not a monologue
+ * fragment.
+ *
+ * Landing is the only one with a signal in the data: somebody else laughing
+ * within a couple of minutes. The rest are filters. Imagery is the one thing
+ * that lifts a line above its laugh count, because a turn of phrase beats a
+ * good joke told plainly.
  */
+// Ranking against the rest of the criteria, not just the laugh.
+// Placing yourself on the ladder, in either order. The line Chris rejected,
+// "levels : 500mmr - 1000mmr - 1500mmr - pros - me", puts the ranks first and
+// itself last, which an I-comes-first pattern misses entirely.
+const SELF = "(?:i|i'm|im|me|my|myself|mine)";
+const RANK = '(?:mmr|ranks?|pros?|levels?|best|skill|better|carried|carry|top)';
+const SELF_REGARD = new RegExp(
+  `\\b${SELF}\\b.{0,40}\\b${RANK}\\b|\\b${RANK}\\b.{0,40}\\b${SELF}\\b|[<>=-]\\s*me\\s*$`,
+  'i'
+);
+const IMAGERY = /\b(like a|like the|as if|looks like|reminds me|basically a|might as well|it'?s like)\b/i;
+/**
+ * Never offered as a quote, at any score.
+ *
+ * These go on the front of the issue and on the home page, so a slur reaching
+ * a candidate list is a publishing failure, not a ranking one. The imagery
+ * bonus made this urgent: "like a" is how a simile is built and also how an
+ * insult is built, and it promoted two slurs to the top of the board.
+ *
+ * Word-boundary matched so "scunthorpe" problems do not bite, and kept
+ * deliberately blunt: a false positive costs one quote, a false negative
+ * costs a slur on the site.
+ */
+const ABUSE = new RegExp(
+  '\\b(' + [
+    'fag', 'faggot', 'fags', 'tranny', 'trannies',
+    'nigger', 'nigga', 'niggers', 'chink', 'chinks', 'gook', 'kike', 'spic', 'wetback', 'paki',
+    'retard', 'retards', 'retarded', 'tard', 'spastic', 'spaz', 'mongoloid',
+    'downie', 'down syndrome', 'autistic', 'autist',
+    'kys', 'kill yourself', 'rape', 'raped', 'rapist',
+    'cunt', 'whore', 'slut',
+  ].join('|') + ')\\b',
+  'i'
+);
+
+const PURE_INSULT = /^(\W*)(u|you|ur|your)?\s*(are|r)?\s*(a\s+)?(noob|trash|garbage|idiot|retard|clown|dogshit|shit|bad|terrible|cancer)\W*$/i;
+const STAT_ONLY = /^[^a-z]*\d[\d\s%.,:+-]*[a-z]{0,6}[^a-z]*$/i;
+
 export function findQuotes(messages, { limit = 40 } = {}) {
   const at = (m) => new Date(m.received_at.replace(' ', 'T') + 'Z').getTime();
   const LAUGHTER = /(lol|lmao|haha|hehe|xd+|\)\)\)|kekw|😂|🤣|rofl|mdr)/i;
@@ -341,6 +384,24 @@ export function findQuotes(messages, { limit = 40 } = {}) {
     }
     if (reactors.size === 0) continue;
 
+    if (ABUSE.test(text)) continue;
+    // Ranking his own ladder is not a quote of the week, however many laughed
+    if (SELF_REGARD.test(text)) continue;
+    if (PURE_INSULT.test(text)) continue;
+    if (STAT_ONLY.test(text)) continue;
+
+    // A monologue fragment reads as nonsense out of context, so a line only
+    // counts when the speaker was talking to somebody rather than at them
+    let ownRun = 0;
+    for (let j = i - 1; j >= 0 && j > i - 5; j--) {
+      if (messages[j].user_name !== m.user_name) break;
+      ownRun++;
+    }
+    if (ownRun >= 3) continue;
+
+    // A turn of phrase beats a good joke told plainly
+    const score = reactors.size + (IMAGERY.test(text) ? 2 : 0);
+
     out.push({
       id: `q:${m.id}`,
       at: m.received_at,
@@ -348,11 +409,13 @@ export function findQuotes(messages, { limit = 40 } = {}) {
       tag: m.battle_tag,
       text,
       laughs: reactors.size,
+      score,
+      imagery: IMAGERY.test(text),
       who: [...reactors],
       // What was said around it, so a line can be judged in context
       before: messages.slice(Math.max(0, i - 2), i).map((x) => ({ name: x.user_name, text: x.message })),
     });
   }
 
-  return out.sort((a, b) => b.laughs - a.laughs || b.text.length - a.text.length).slice(0, limit);
+  return out.sort((a, b) => b.score - a.score || b.laughs - a.laughs).slice(0, limit);
 }
