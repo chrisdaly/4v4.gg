@@ -61,6 +61,19 @@ curl -X POST https://4v4gg-chat-relay.fly.dev/api/admin/token \
   -d '{"token":"<jwt>"}'
 ```
 
+## Feature switches (fly secrets)
+
+Set with `fly secrets set NAME=value -a 4v4gg-chat-relay`; the machine restarts, which drops the chat relay for a few seconds. Unset with `fly secrets unset NAME`.
+
+| Secret | Default | What it does |
+|---|---|---|
+| `BLURB_ENABLED` | off | Match blurbs. On, every request to `/api/chat/match-blurb/:id` that has no stored row runs a Sonnet call over a fact sheet, and a second one once post-game reactions land. Off, stored blurbs still serve and nothing reaches the model. Turned off Oct 2026: the chat was asking for one per finished game, 234 a day, about $100 a month, for cards mostly nobody opened. The frontend now only asks from `/match/:id`, so leaving this on costs roughly what people actually read. |
+| `BOT_ENABLED` | off | The `!command` bot in the 4v4 room. |
+| `ANNOUNCE_ENABLED` | off | GAME START / GAME OVER tickers posted into the room (needs a bot account + JWT). |
+| `ANTHROPIC_API_KEY` | unset | Every model call: translations, digests, blurbs, cover art prompts. Unset means those features no-op rather than error. |
+
+Translations are not switchable: the relay translates a message only when it is non-Latin script (`translate.js` `needsTranslation`), which is about 1.1% of traffic, a few cents a month. The English is stored on `messages.translation`, so history and search carry it.
+
 ## June 2026 incident (context)
 
 The replay importer filled the volume (16.8GB `chat.db`, mostly `raw_parsed`, plus ~4GB of `.w3g` files) → `SQLITE_IOERR_SHMSIZE` crash-loop on June 3 → the then-current auto-recovery wiped the DB. History before June 3, 2026 was lost from the live DB. All mitigations above came out of this incident.
