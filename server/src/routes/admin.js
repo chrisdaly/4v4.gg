@@ -332,7 +332,10 @@ router.get('/weekly-stats/:weekStart', requireApiKey, contextLimiter, async (req
   const weekEnd = new Date(new Date(weekStart + 'T12:00:00Z').getTime() + 6 * 86400000)
     .toISOString().slice(0, 10);
   try {
-    const { sections, stats, debug } = await weeklyStatSections(weekStart, weekEnd);
+    const floor = Number(req.query.newBloodGames);
+    const { sections, stats, debug } = await weeklyStatSections(weekStart, weekEnd, {
+      ...(Number.isFinite(floor) && floor >= 0 ? { newBloodGames: floor } : {}),
+    });
     res.json({ weekStart, weekEnd, sections, stats, debug });
   } catch (err) {
     console.error('[WeeklyStats] Failed:', err.message);

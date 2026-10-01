@@ -317,7 +317,13 @@ export function trendBlurb(trendLine) {
  * to say are simply absent, which is what every reader of a digest already
  * expects.
  */
-export async function weeklyStatSections(weekStart, weekEnd) {
+export async function weeklyStatSections(weekStart, weekEnd, opts = {}) {
+  // The new-blood games floor is tunable from the stats route, because the
+  // right floor is a judgement about what counts as a debut and the only way
+  // to make it is to see the candidates it would keep.
+  const newBloodGames = Number.isFinite(opts.newBloodGames)
+    ? opts.newBloodGames
+    : RULES.newBloodGames;
   const { weeklyPlayerMap, uniquePlayers } = await computeWeeklyMatchStats(weekStart, weekEnd);
   // Its totalGames counts team rows, so it reads four times the real number
   const totalGames = getDailyMatchesRange(weekStart, weekEnd).length;
@@ -377,12 +383,16 @@ export async function weeklyStatSections(weekStart, weekEnd) {
     debug.newBlood = {
       candidates: (all || []).length,
       kept: 0,
-      gamesFloor: RULES.newBloodGames,
+      gamesFloor: newBloodGames,
+      // What the floor is choosing between, so it can be set from evidence
+      sample: (all || [])
+        .map((p) => ({ games: p.totalGames || 0, mmr: p.maxMmr || 0, returning: !!p.returning }))
+        .sort((a, b) => b.games - a.games),
     };
     // computeNewBlood lets anyone through on 5 games or 2k MMR, which prints
     // "debuted at 0 MMR (2 games)". A debut is only a story with a week behind it.
     const fresh = (all || [])
-      .filter((p) => (p.totalGames || 0) >= RULES.newBloodGames && (p.maxMmr || 0) > 0)
+      .filter((p) => (p.totalGames || 0) >= newBloodGames && (p.maxMmr || 0) > 0)
       .slice(0, 5);
     debug.newBlood.kept = fresh.length;
     const nb = fresh.length > 0 && formatNewBloodLine(fresh);
