@@ -4173,11 +4173,11 @@ a.mg-feat-text:hover {
   margin-top: var(--space-3);
 }
 
-/* MmrComparison reads parent.clientWidth and clientHeight, so this has to be
-   a real box. A max-width alone left it taking the whole card's height. */
+/* .mmr-chart-container carries the size the live game draws at; this only
+   keeps it from stretching inside the card's flex column. */
 .mg-spotlight-game-box {
-  width: 260px;
-  height: 104px;
+  flex-shrink: 0;
+  align-self: flex-start;
 }
 
 .mg-spotlight-game-label {

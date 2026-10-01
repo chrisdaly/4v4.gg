@@ -1482,11 +1482,11 @@ const SpotlightCard = ({ stat, profile, accent, role, blurb, quotes, statKey, he
         {game ? (
           <div className="mg-spotlight-game">
             <span className="mg-spotlight-game-label">The game</span>
-            {/* The chart measures its own parent, so that parent needs a real
-                width and height. Without one it inherits the card's height and
-                sprawls, which is what made it unreadable. */}
-            <div className="mg-spotlight-game-box">
-              <MmrComparison data={game} variant="card" showValues />
+            {/* The same chart, the same way, as the live game and the home
+                page: scorecard, compact, no value labels, and a box of the
+                size it is drawn in there. It measures its own parent. */}
+            <div className="mmr-chart-container mg-spotlight-game-box">
+              <MmrComparison data={game} variant="scorecard" compact />
             </div>
           </div>
         ) : week?.length > 0 ? (
