@@ -1,5 +1,5 @@
 import { useState, useEffect, useRef, useCallback } from "react";
-import { getFinishedMatches, getMatch, getMatchBlurb } from "../api";
+import { getFinishedMatches, getMatch } from "../api";
 import { computeMvp, computeNote } from "../matchNotes";
 import { geometricMean } from "../formatters";
 
@@ -79,8 +79,10 @@ const lobbyTags = (ev) =>
  * - live detection: diffs the ongoing-match poll for started/ended ids
  * - backfill: on first load, injects recently finished + running games
  *   involving channel members or recent chatters
- * - blurbs: asks the relay's LLM ticker for a drama angle and keeps
- *   polling while the blurb is provisional
+ * Game cards carry the heuristic notes (MVP, analytics) only. The relay's
+ * LLM blurb is no longer fetched per finished game: that was a model call
+ * for every game in the channel, read or not. The match page still asks for
+ * one when a reader opens it.
  */
 export default function useGameEvents({ messages, onlineUsers, ongoingMatches }) {
   const [gameEvents, setGameEvents] = useState([]);
@@ -123,31 +125,6 @@ export default function useGameEvents({ messages, onlineUsers, ongoingMatches })
     });
   }, []);
 
-  // When heuristics found nothing, ask the relay's LLM ticker for a drama
-  // angle. The relay answers immediately with a provisional blurb, then may
-  // rewrite it once post-game reactions land - so keep polling while
-  // pending and swap the text in place (only blurb notes get replaced).
-  const fillBlurb = useCallback((eventId, matchId, attempt = 0) => {
-    getMatchBlurb(matchId).then(({ blurb, parts, badges, rivals, pending, retryInMs }) => {
-      setGameEvents((prev) =>
-        prev.map((e) => {
-          if (e.id !== eventId) return e;
-          const next = { ...e };
-          // Chat shows all parts: headline + h2h + streaks + drama
-          const chatText = parts
-            ? [parts.headline, parts.h2h, parts.streaks, parts.drama].filter(Boolean).join(" · ")
-            : blurb;
-          if (chatText) next.note = { text: chatText, tag: null, blurb: true };
-          if (badges?.length) next.badges = badges;
-          if (rivals?.length) next.rivals = rivals;
-          return next;
-        })
-      );
-      if (pending && attempt < 3) {
-        addMatchTimer(() => fillBlurb(eventId, matchId, attempt + 1), retryInMs || 5 * 60 * 1000);
-      }
-    });
-  }, [addMatchTimer]);
 
   // Backfill game events retroactively on page load: recently finished games
   // (real endTime) and currently running games (real startTime) involving
@@ -187,7 +164,6 @@ export default function useGameEvents({ messages, onlineUsers, ongoingMatches })
           setGameEvents((prev) =>
             prev.map((e) => (e.id === ev.id ? { ...e, mvp, note } : e))
           );
-          fillBlurb(ev.id, match.id);
         });
       }
     });
@@ -296,7 +272,6 @@ export default function useGameEvents({ messages, onlineUsers, ongoingMatches })
             mvp: computeMvp(playerScores),
             note,
           });
-          fillBlurb(ev.id, id);
           startedMatchPlayersRef.current.delete(id);
           const withDelta = [...ev.winners, ...ev.losers].filter(
             (p) => p.inChannel && p.mmrGain != null
@@ -322,7 +297,7 @@ export default function useGameEvents({ messages, onlineUsers, ongoingMatches })
     for (const id of endedIds) {
       addMatchTimer(() => fetchResult(id), RESULT_RETRY_MS);
     }
-  }, [ongoingMatches, addGameEvent, addMatchTimer, fillBlurb]);
+  }, [ongoingMatches, addGameEvent, addMatchTimer]);
 
   return { gameEvents, recentWinners, recentDeltas };
 }

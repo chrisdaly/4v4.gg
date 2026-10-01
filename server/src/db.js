@@ -602,17 +602,6 @@ export function setTranslation(id, translation) {
   return result.changes > 0;
 }
 
-/** Messages that still need one, newest first (the translation backfill). */
-export function untranslatedMessages(limit = 100, sinceHours = null) {
-  const since = sinceHours ? `AND received_at > datetime('now', '-${Number(sinceHours)} hours')` : '';
-  return db.prepare(`
-    SELECT id, message FROM messages
-    WHERE deleted = 0 AND translation IS NULL ${since}
-    ORDER BY received_at DESC
-    LIMIT ?
-  `).all(Math.min(limit, 500));
-}
-
 export function insertMessages(msgs) {
   const stmt = db.prepare(`
     INSERT OR IGNORE INTO messages (id, battle_tag, user_name, clan_tag, message, sent_at, received_at, deleted, room)

@@ -536,6 +536,15 @@ export async function generateMatchBlurb(matchId) {
   const row = getMatchBlurb(matchId);
   const now = Date.now();
 
+  // Generation is off (BLURB_ENABLED): hand back whatever was written while
+  // it was on, and never reach for the model. ~230 games a day each cost a
+  // Sonnet call, whether or not anyone opened the card.
+  if (!config.BLURB_ENABLED) {
+    return row
+      ? DONE(row.blurb, [], row.rivals || [], row.blurb_parts || null)
+      : DONE('');
+  }
+
   if (row?.finalized) return DONE(row.blurb, [], row.rivals || [], row.blurb_parts || null);
 
   if (row && !row.finalized) {
