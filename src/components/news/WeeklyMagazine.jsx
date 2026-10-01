@@ -29,7 +29,8 @@ import useDragReorder from "../../lib/useDragReorder";
 import useWeekDailies from "../../lib/news/useWeekDailies";
 import { quoteOfTheDay } from "../../lib/home/quoteOfTheDay";
 import { spotlightVerdict, streakDistributionVerdict, newBloodPasses, stackPasses, issueNumber, issueDateRange, neighbourIssues, dayByDay, SECTION_RULES } from "../../lib/news/issueRules";
-import { LedeSection, QuoteOfWeek, DayByDay, IssueNav, LeftOut, Feats } from "./IssueParts";
+import { LedeSection, QuoteOfWeek, DayByDay, IssueNav, LeftOut } from "./IssueParts";
+import { MmrComparison } from "../MmrComparison";
 import { readDaily, readMmr, findRun } from "../../lib/news/storyDesk";
 import "../../styles/pages/Magazine.css";
 
@@ -1429,7 +1430,7 @@ const WeekDots = ({ days, streak }) => {
   );
 };
 
-const SpotlightCard = ({ stat, profile, accent, role, blurb, quotes, statKey, heroIcons, victimIcons, killboard, maxHeroKills, week, run, mmr, extra, editorial }) => {
+const SpotlightCard = ({ stat, profile, accent, role, blurb, quotes, statKey, heroIcons, victimIcons, killboard, maxHeroKills, week, run, mmr, extra, game, editorial }) => {
   if (!stat) return null;
   const canDismiss = editorial?.toggleStat;
   // For streak types, show only the streak portion (e.g. 16 red dots) not the full week form
@@ -1478,7 +1479,11 @@ const SpotlightCard = ({ stat, profile, accent, role, blurb, quotes, statKey, he
             ))}
           </div>
         )}
-        {week?.length > 0 ? (
+        {game ? (
+          <div className="mg-spotlight-game">
+            <MmrComparison data={game} variant="scorecard" compact showValues />
+          </div>
+        ) : week?.length > 0 ? (
           <WeekDots days={week} streak={run} />
         ) : killboard?.length > 0 ? (
           <div className="mg-spotlight-heroes mg-spotlight-heroes--victims">
@@ -1553,46 +1558,6 @@ const StreakTimeline = ({ dailyData, type }) => {
 };
 
 /* ── Hero Kills Distribution: bar chart of hero kills/game across all players ── */
-export const HeroKillsChart = ({ killsDistribution, highlightBucket }) => {
-  if (!killsDistribution) return null;
-  const { all } = killsDistribution;
-  if (!all || Object.keys(all).length === 0) return null;
-
-  // Build contiguous bucket list from 0 to max kill count (no gaps)
-  const maxBucket = Math.max(...Object.keys(all).map(Number), 0);
-  const buckets = Array.from({ length: maxBucket + 1 }, (_, i) => i);
-  const maxCount = Math.max(...buckets.map((k) => all[k] || 0), 1);
-  // sqrt scale so small bars are visible when data is heavily skewed
-  const sqrtMax = Math.sqrt(maxCount);
-
-  return (
-    <div className="mg-kills-dist">
-      <div className="mg-kills-dist-title">Global Hero Kills Per Game</div>
-      <div className="mg-kills-dist-header">
-        <span className="mg-kills-dist-label">{"\u2190"} Fewer</span>
-        <span className="mg-kills-dist-label">More {"\u2192"}</span>
-      </div>
-      <div className="mg-kills-dist-chart">
-        {buckets.map((k) => {
-          const allCount = all[k] || 0;
-          const pct = allCount > 0 ? Math.round((Math.sqrt(allCount) / sqrtMax) * 100) : 0;
-          const isHighlighted = highlightBucket != null && k === highlightBucket;
-          return (
-            <div key={k} className={`mg-kills-dist-col${allCount === 0 ? " mg-kills-dist-col--empty" : ""}${isHighlighted ? " mg-kills-dist-col--highlighted" : ""}`}>
-              <span className="mg-kills-dist-count">{allCount || ""}</span>
-              {allCount > 0 && (
-                <div className="mg-kills-dist-bar-wrapper" style={{ '--pct': `${pct}%` }}>
-                  <div className={`mg-kills-dist-bar mg-kills-dist-bar--all${isHighlighted ? " mg-kills-dist-bar--highlighted" : ""}`} />
-                </div>
-              )}
-              <span className="mg-kills-dist-tick">{k}</span>
-            </div>
-          );
-        })}
-      </div>
-    </div>
-  );
-};
 
 /* ── Streak Spectrum: horizontal distribution of all players' max streaks ── */
 /**
@@ -1615,6 +1580,9 @@ function spectrumCaption(win, loss) {
   ].filter(Boolean).join(" ");
 }
 
+
+/* Kept for the story desk, which draws it while an issue is built even
+   though the issue itself no longer prints it. */
 export const StreakSpectrum = ({ spectrumData, hotName, coldName }) => {
   if (!spectrumData) return null;
   const { win, loss } = spectrumData;
@@ -1738,9 +1706,15 @@ const SpotlightsSection = ({ spotlights, profiles, editorial, allowed = null, sh
   const find = (k) => sections.find((x) => x.key === k)?.content;
   const daily = readDaily(find("SPOTLIGHT_DAILY"));
   const mmrs = readMmr(find("SPOTLIGHT_MMR"));
-  // The hero slayer's record is one game, so the card says which
-  const heroGame = String(find("HEROSLAYER_GAME") || "").split("|")[0];
-  const extras = heroGame ? { HEROSLAYER: heroGame } : {};
+  // The hero slayer's record is one game, so the card draws that game the way
+  // a live match is drawn: both sides' MMRs, not a sentence about it.
+  const heroParts = String(find("HEROSLAYER_GAME") || "").split("|");
+  const extras = heroParts[0] ? { HEROSLAYER: heroParts[0] } : {};
+  const nums = (csv) => String(csv || "").split(",").map(Number).filter(Boolean);
+  const heroGameMmrs = nums(heroParts[2]).length && nums(heroParts[3]).length
+    ? { teamOneMmrs: nums(heroParts[2]), teamTwoMmrs: nums(heroParts[3]) }
+    : null;
+  const games = heroGameMmrs ? { HEROSLAYER: heroGameMmrs } : {};
   const STREAK_KEYS = new Set(["HOTSTREAK", "COLDSTREAK"]);
   const cards = [
     { key: "WINNER", jsonKey: "winner", role: "Winner", accent: "green" },
@@ -1798,7 +1772,7 @@ const SpotlightsSection = ({ spotlights, profiles, editorial, allowed = null, sh
     // The run that earned the card, so it can be found inside the dots
     const streakMatch = String(stat.headline || "").match(/(\d+)([WL]) streak/);
     const run = streakMatch ? findRun(stat.form, streakMatch[2], Number(streakMatch[1])) : null;
-    return { key, stat, role, accent, blurb, quotes, dailyData, heroIcons, victimIcons, killboard, maxHeroKills, killsDistribution, week, run, mmr: mmrs[key] || null, extra: extras[key] || null };
+    return { key, stat, role, accent, blurb, quotes, dailyData, heroIcons, victimIcons, killboard, maxHeroKills, killsDistribution, week, run, mmr: mmrs[key] || null, extra: extras[key] || null, game: games[key] || null };
   }).filter(Boolean);
 
   if (parsed.length === 0) return null;
@@ -1824,18 +1798,12 @@ const SpotlightsSection = ({ spotlights, profiles, editorial, allowed = null, sh
       </div>
       {parsed.length > 0 && (
         <div className="mg-spotlight-grid">
-          {parsed.map(({ key, stat, role, accent, blurb, quotes, heroIcons, victimIcons, killboard, maxHeroKills, dailyData, week, run, mmr, extra }) => (
+          {parsed.map(({ key, stat, role, accent, blurb, quotes, heroIcons, victimIcons, killboard, maxHeroKills, dailyData, week, run, mmr, extra, game }) => (
             <React.Fragment key={stat.battleTag}>
               {STREAK_KEYS.has(key) && dailyData
                 ? <StreakCard stat={stat} profile={profiles.get(stat.battleTag)} accent={accent} role={role} blurb={blurb} quotes={quotes} dailyData={dailyData} type={key} editorial={editorial} />
-                : <SpotlightCard stat={stat} profile={profiles.get(stat.battleTag)} accent={accent} role={role} blurb={blurb} quotes={quotes} heroIcons={heroIcons} victimIcons={victimIcons} killboard={killboard} maxHeroKills={maxHeroKills} week={week} run={run} mmr={mmr} extra={extra} statKey={key} editorial={editorial} />
+                : <SpotlightCard stat={stat} profile={profiles.get(stat.battleTag)} accent={accent} role={role} blurb={blurb} quotes={quotes} heroIcons={heroIcons} victimIcons={victimIcons} killboard={killboard} maxHeroKills={maxHeroKills} week={week} run={run} mmr={mmr} extra={extra} game={game} statKey={key} editorial={editorial} />
               }
-              {key === "COLDSTREAK" && spectrumData && showSpectrum && (
-                <StreakSpectrum spectrumData={spectrumData} hotName={hotStat?.stat?.name} coldName={coldStat?.stat?.name} />
-              )}
-              {key === "HEROSLAYER" && killsDistData && (
-                <HeroKillsChart killsDistribution={killsDistData} highlightBucket={heroSlayerParsed?.maxHeroKills} />
-              )}
             </React.Fragment>
           ))}
         </div>
@@ -1844,75 +1812,6 @@ const SpotlightsSection = ({ spotlights, profiles, editorial, allowed = null, sh
   );
 };
 
-const UpsetsSection = ({ upsets: rawUpsets, profiles }) => {
-  // upsets are now pre-parsed with { underdogs: [{battleTag, mmr}], favorites: [{battleTag, mmr}] }
-  const upsets = (rawUpsets || []).filter((u) =>
-    u.underdogs.every((p) => p.mmr > 0) && u.favorites.every((p) => p.mmr > 0)
-  );
-  if (upsets.length === 0) return null;
-
-  const biggest = upsets.reduce((a, b) => (b.mmrGap > a.mmrGap ? b : a), upsets[0]);
-  const u = biggest;
-  const mapClean = u.map.replace(/ /g, "").replace(/'/g, "");
-
-  return (
-    <section className="mg-section reveal" style={{ "--delay": "0.24s" }}>
-      <div className="mg-section-header">
-        <span className="mg-section-label mg-section-label--green">Upset of the Week</span>
-        <div className="mg-section-rule" />
-      </div>
-      <div className="mg-upset-card">
-        <div className="mg-upset-map-bg" style={{ backgroundImage: `url(/maps/${mapClean}.png)` }} />
-        <div className="mg-upset-overlay" />
-        <div className="mg-upset-content">
-          <div className="mg-upset-badge">
-            <span className="mg-upset-gap">{u.mmrGap}</span>
-            <span className="mg-upset-gap-label">MMR gap</span>
-          </div>
-          <div className="mg-upset-teams">
-            <div className="mg-upset-team mg-upset-team--underdogs">
-              <span className="mg-upset-team-label mg-text-green">Underdogs</span>
-              <span className="mg-upset-team-avg">{Math.round(u.underdogs.reduce((s, p) => s + p.mmr, 0) / u.underdogs.length)} avg</span>
-              {u.underdogs.map((p) => {
-                const profile = profiles.get(p.battleTag);
-                const name = p.battleTag.split("#")[0];
-                return (
-                  <div key={p.battleTag} className="mg-upset-player">
-                    {profile?.pic && <img src={profile.pic} alt="" className="mg-upset-avatar" />}
-                    <Link to={`/player/${encodeURIComponent(p.battleTag)}`} className="mg-upset-name">{name}</Link>
-                    {profile?.country && <CountryFlag name={profile.country.toLowerCase()} style={{ width: 12, height: 9 }} />}
-                    <span className="mg-upset-mmr">{p.mmr || ""}</span>
-                  </div>
-                );
-              })}
-            </div>
-            <div className="mg-upset-vs">VS</div>
-            <div className="mg-upset-team mg-upset-team--favorites">
-              <span className="mg-upset-team-label mg-text-red">Favorites</span>
-              <span className="mg-upset-team-avg">{Math.round(u.favorites.reduce((s, p) => s + p.mmr, 0) / u.favorites.length)} avg</span>
-              {u.favorites.map((p) => {
-                const profile = profiles.get(p.battleTag);
-                const name = p.battleTag.split("#")[0];
-                return (
-                  <div key={p.battleTag} className="mg-upset-player">
-                    {profile?.pic && <img src={profile.pic} alt="" className="mg-upset-avatar" />}
-                    <Link to={`/player/${encodeURIComponent(p.battleTag)}`} className="mg-upset-name">{name}</Link>
-                    {profile?.country && <CountryFlag name={profile.country.toLowerCase()} style={{ width: 12, height: 9 }} />}
-                    <span className="mg-upset-mmr">{p.mmr || ""}</span>
-                  </div>
-                );
-              })}
-            </div>
-          </div>
-          <div className="mg-upset-footer">
-            <span className="mg-upset-map-name">{u.map}</span>
-            <Link to={`/match/${u.matchId}`} className="mg-upset-match-link">View Match</Link>
-          </div>
-        </div>
-      </div>
-    </section>
-  );
-};
 
 /* ═══════════════════════════════════════════════════════
    ACT 3 - THE NUMBERS (stats / data)

@@ -125,6 +125,19 @@ export function heroSlayerFrom(weekStart, weekEnd, weeklyPlayerMap) {
       bestGame.won = Boolean(match.team1_won) === onTeamOne;
       const theirs = onTeamOne ? match.team2_tags : match.team1_tags;
       bestGame.against = String(theirs || '').split(',').filter(Boolean);
+      // Both sides' MMRs, so the card can draw the game the way a live match
+      // is drawn rather than describing it in a sentence
+      const parseMmrs = (raw) => {
+        try {
+          const v = JSON.parse(raw || '[]');
+          return Array.isArray(v) ? v.map(Number).filter(Boolean) : [];
+        } catch {
+          return String(raw || '').split(',').map(Number).filter(Boolean);
+        }
+      };
+      const mine = parseMmrs(onTeamOne ? match.team1_mmrs : match.team2_mmrs);
+      const theirMmrs = parseMmrs(onTeamOne ? match.team2_mmrs : match.team1_mmrs);
+      if (mine.length && theirMmrs.length) bestGame.mmrs = { mine, theirs: theirMmrs };
     }
   }
 
@@ -355,7 +368,10 @@ export async function weeklyStatSections(weekStart, weekEnd) {
         day.toLowerCase(),
       ];
       if (slayer.game.units) parts.push(`${slayer.game.units} units killed`);
-      sections.HEROSLAYER_GAME = `${parts.join(', ')}|${slayer.game.matchId}`;
+      const mmrs = slayer.game.mmrs
+        ? `|${slayer.game.mmrs.mine.join(',')}|${slayer.game.mmrs.theirs.join(',')}`
+        : '';
+      sections.HEROSLAYER_GAME = `${parts.join(', ')}|${slayer.game.matchId}${mmrs}`;
     }
     cardPlayers.HEROSLAYER = { battleTag: slayer.battleTag };
     sections.HEROSLAYER_DISTRIBUTION = slayer.distribution;
