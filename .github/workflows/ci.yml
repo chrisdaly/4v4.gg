@@ -14,7 +14,17 @@ jobs:
         with:
           node-version: 20
           cache: npm
+          cache-dependency-path: |
+            package-lock.json
+            server/package-lock.json
       - run: npm ci
+      # Some frontend tests import the relay's own modules on purpose, to guard
+      # the digest format against the two sides drifting apart. Those modules
+      # resolve their deps from server/node_modules, so without this the files
+      # fail to import and the job has been red since before PR #20 while
+      # reporting nothing useful about the frontend.
+      - run: npm ci
+        working-directory: server
       # TODO: enable once the tree is lint-clean
       # - run: npm run lint
       - run: npm test
