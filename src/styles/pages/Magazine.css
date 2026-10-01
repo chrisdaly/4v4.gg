@@ -4221,3 +4221,13 @@ a.mg-feat-text:hover {
   font-size: var(--text-xxs);
   color: var(--grey-light);
 }
+
+/* His share of the kills, which is arithmetic: a hero can only be killed by
+   the other side, so a team's kill total is deaths on the opposing roster. */
+.mg-field-share {
+  display: block;
+  margin-top: var(--space-1);
+  font-family: var(--font-mono);
+  font-size: var(--text-xxs);
+  color: var(--amber);
+}

@@ -142,20 +142,33 @@ export function heroSlayerFrom(weekStart, weekEnd, weeklyPlayerMap) {
     }
   }
 
-  // The heroes that were on the other side of the record game. Not a
-  // killboard: neither the API nor a replay says which hero actually died,
-  // because a replay only carries player actions. This is the field he was
-  // working through, and it is labelled as that.
+  // Two facts about the other side of the record game, from one pass.
+  //
+  // The field: the heroes they fielded. NOT a killboard - neither the API nor
+  // a replay says which hero actually died, because a replay carries player
+  // actions, not simulation outcomes. This is the roster he worked through.
+  //
+  // The share: a hero can only be killed by the other side, so each team's
+  // kill total is deaths on the opposing roster. His share of his own team's
+  // kills, and the comparison against the whole enemy team, are arithmetic.
+  // Which hero died stays unclaimed.
   if (bestGame?.against?.length) {
     const theirs = new Set(bestGame.against);
     const field = [];
+    let ours = 0;
+    let them = 0;
     for (const r of rows) {
-      if (r.match_id !== bestGame.matchId || !theirs.has(r.battle_tag) || !r.heroes) continue;
+      if (r.match_id !== bestGame.matchId) continue;
+      const theirRow = theirs.has(r.battle_tag);
+      if (theirRow) them += r.heroes_killed || 0;
+      else ours += r.heroes_killed || 0;
+      if (!theirRow || !r.heroes) continue;
       try {
         for (const h of JSON.parse(r.heroes) || []) if (h?.icon) field.push(h.icon);
       } catch { /* a row with unparseable heroes just contributes nothing */ }
     }
     if (field.length) bestGame.field = field;
+    if (ours > 0) bestGame.share = { ours, them };
   }
 
   const wp = weeklyPlayerMap.get(tag);
@@ -173,6 +186,7 @@ export function heroSlayerFrom(weekStart, weekEnd, weeklyPlayerMap) {
     distribution: `${hist(all)}|player:${hist(mine)}`,
     game: bestGame,
     field: bestGame?.field || null,
+    share: bestGame?.share || null,
   };
 }
 
@@ -377,6 +391,9 @@ export async function weeklyStatSections(weekStart, weekEnd) {
     sections.HEROSLAYER = `${slayer.battleTag}${race} ${slayer.max} hero kills in a game (${slayer.wins}W-${slayer.losses}L)`;
     if (slayer.heroes.length > 0) sections.HEROSLAYER_HEROES = slayer.heroes.join(',');
     if (slayer.field?.length) sections.HEROSLAYER_FIELD = slayer.field.join(',');
+    if (slayer.share) {
+      sections.HEROSLAYER_SHARE = `${slayer.max} of his team's ${slayer.share.ours}; the other side managed ${slayer.share.them} between them`;
+    }
     // The week's total, now the supporting fact rather than the headline
     sections.HEROSLAYER_TOTAL = `${slayer.kills} across ${slayer.games} games`;
     if (slayer.game?.map) {

@@ -1430,7 +1430,7 @@ const WeekDots = ({ days, streak }) => {
   );
 };
 
-const SpotlightCard = ({ stat, profile, accent, role, blurb, quotes, statKey, heroIcons, victimIcons, killboard, maxHeroKills, week, run, mmr, extra, game, field, kills, editorial }) => {
+const SpotlightCard = ({ stat, profile, accent, role, blurb, quotes, statKey, heroIcons, victimIcons, killboard, maxHeroKills, week, run, mmr, extra, game, field, kills, share, editorial }) => {
   if (!stat) return null;
   const canDismiss = editorial?.toggleStat;
   // For streak types, show only the streak portion (e.g. 16 red dots) not the full week form
@@ -1492,6 +1492,7 @@ const SpotlightCard = ({ stat, profile, accent, role, blurb, quotes, statKey, he
               {field.length} heroes on the other side
               {kills > field.length ? `, and ${kills} kills, so some of them twice` : ""}
             </span>
+            {share && <span className="mg-field-share">{share}</span>}
           </div>
         ) : game ? (
           <div className="mg-spotlight-game">
@@ -1737,6 +1738,7 @@ const SpotlightsSection = ({ spotlights, profiles, editorial, allowed = null, sh
   const games = heroGameMmrs ? { HEROSLAYER: heroGameMmrs } : {};
   const heroField = String(find("HEROSLAYER_FIELD") || "").split(",").filter(Boolean);
   const heroKills = Number(String(find("HEROSLAYER") || "").match(/(\d+)\s+hero kills/)?.[1]) || 0;
+  const heroShare = find("HEROSLAYER_SHARE") || null;
   const STREAK_KEYS = new Set(["HOTSTREAK", "COLDSTREAK"]);
   const cards = [
     { key: "WINNER", jsonKey: "winner", role: "Winner", accent: "green" },
@@ -1795,7 +1797,7 @@ const SpotlightsSection = ({ spotlights, profiles, editorial, allowed = null, sh
     // The run that earned the card, so it can be found inside the dots
     const streakMatch = String(stat.headline || "").match(/(\d+)([WL]) streak/);
     const run = streakMatch ? findRun(stat.form, streakMatch[2], Number(streakMatch[1])) : null;
-    return { key, stat, role, accent, blurb, quotes, dailyData, heroIcons, victimIcons, killboard, maxHeroKills, killsDistribution, week, run, mmr: mmrs[key] || null, extra: extras[key] || null, game: games[key] || null, field: key === "HEROSLAYER" ? heroField : null, kills: key === "HEROSLAYER" ? heroKills : 0 };
+    return { key, stat, role, accent, blurb, quotes, dailyData, heroIcons, victimIcons, killboard, maxHeroKills, killsDistribution, week, run, mmr: mmrs[key] || null, extra: extras[key] || null, game: games[key] || null, field: key === "HEROSLAYER" ? heroField : null, kills: key === "HEROSLAYER" ? heroKills : 0, share: key === "HEROSLAYER" ? heroShare : null };
   }).filter(Boolean);
 
   if (parsed.length === 0) return null;
@@ -1821,11 +1823,11 @@ const SpotlightsSection = ({ spotlights, profiles, editorial, allowed = null, sh
       </div>
       {parsed.length > 0 && (
         <div className="mg-spotlight-grid">
-          {parsed.map(({ key, stat, role, accent, blurb, quotes, heroIcons, victimIcons, killboard, maxHeroKills, dailyData, week, run, mmr, extra, game, field, kills }) => (
+          {parsed.map(({ key, stat, role, accent, blurb, quotes, heroIcons, victimIcons, killboard, maxHeroKills, dailyData, week, run, mmr, extra, game, field, kills, share }) => (
             <React.Fragment key={stat.battleTag}>
               {STREAK_KEYS.has(key) && dailyData
                 ? <StreakCard stat={stat} profile={profiles.get(stat.battleTag)} accent={accent} role={role} blurb={blurb} quotes={quotes} dailyData={dailyData} type={key} editorial={editorial} />
-                : <SpotlightCard stat={stat} profile={profiles.get(stat.battleTag)} accent={accent} role={role} blurb={blurb} quotes={quotes} heroIcons={heroIcons} victimIcons={victimIcons} killboard={killboard} maxHeroKills={maxHeroKills} week={week} run={run} mmr={mmr} extra={extra} game={game} field={field} kills={kills} statKey={key} editorial={editorial} />
+                : <SpotlightCard stat={stat} profile={profiles.get(stat.battleTag)} accent={accent} role={role} blurb={blurb} quotes={quotes} heroIcons={heroIcons} victimIcons={victimIcons} killboard={killboard} maxHeroKills={maxHeroKills} week={week} run={run} mmr={mmr} extra={extra} game={game} field={field} kills={kills} share={share} statKey={key} editorial={editorial} />
               }
             </React.Fragment>
           ))}
