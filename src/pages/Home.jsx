@@ -68,8 +68,9 @@ const avgGain = (players) => {
 
 /* ── Data hooks ─────────────────────────────────────── */
 
-// The latest finished game as a game_end event with MVP and note, for the
-// empty state
+// The latest finished game for the empty state: the game_end event (map,
+// winners, note) plus the full match detail, which is what the panel
+// renders as a scorecard
 function useLatestFinished(enabled) {
   const [finished, setFinished] = useState(null);
   useEffect(() => {
@@ -87,7 +88,7 @@ function useLatestFinished(enabled) {
       const matchPlayers = (detail.match?.teams || []).flatMap((t) => t.players || []);
       const mvp = computeMvp(detail.playerScores);
       const note = computeNote(event, { playerScores: detail.playerScores, matchPlayers });
-      setFinished({ event: { ...event, mvp }, note });
+      setFinished({ event: { ...event, mvp }, note, detail });
     }).catch(() => {});
     return () => {
       cancelled = true;

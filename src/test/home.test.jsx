@@ -14,6 +14,11 @@ vi.mock('../components/home/LiveGameSlide', () => ({
   default: ({ match, active }) => <div data-slide={match.id} data-active={active ? 'true' : 'false'}>{match.mapName}</div>,
 }));
 
+// So does the finished scorecard the empty state renders
+vi.mock('../components/FinishedGame', () => ({
+  default: ({ data, embed }) => <div data-finished-card={data.match.id} data-embed={embed ? 'true' : 'false'} />,
+}));
+
 const renderIn = (ui) => render(<MemoryRouter>{ui}</MemoryRouter>);
 
 afterEach(() => {
@@ -173,8 +178,7 @@ describe('LiveGamePanel', () => {
     renderIn(<LiveGamePanel matches={[]} finished={finished} />);
     expect(document.querySelector('[data-live-panel]')).toHaveAttribute('data-live-panel', 'empty');
     expect(screen.getByText('FINISHED')).toBeInTheDocument();
-    expect(screen.getByText('Northmarsh Ruin')).toBeInTheDocument();
-    expect(screen.getByText('5:43 · 35 min ago')).toBeInTheDocument();
+    expect(screen.getByText('Northmarsh Ruin · 5:43 · 35 min ago')).toBeInTheDocument();
     expect(screen.getByText('WINNERS')).toBeInTheDocument();
     expect(screen.getByText('LOSERS')).toBeInTheDocument();
     expect(screen.getByRole('link', { name: 'Solana' })).toHaveAttribute('href', '/player/Solana%231');
@@ -182,8 +186,27 @@ describe('LiveGamePanel', () => {
     expect(screen.getAllByText('-7')).toHaveLength(2);
     expect(screen.getAllByText('MVP')).toHaveLength(2); // badge on the row, tag on the note
     expect(screen.getByText('fielded a 94-supply army')).toBeInTheDocument();
-    expect(screen.getByRole('link', { name: 'RECENT MATCHES →' })).toHaveAttribute('href', '/finished');
-    expect(document.querySelector('[data-live-bar]')).toBeNull();
+    expect(screen.getByRole('link', { name: 'Recent matches →' })).toHaveAttribute('href', '/finished');
+  });
+
+  it('swaps the names for the full scorecard once the match detail lands', async () => {
+    const player = (name, mmrGain) => ({ battleTag: `${name}#1`, name, race: 1, mmr: 1800, mmrGain, inChannel: true });
+    const finished = {
+      event: {
+        id: 'ge-1', type: 'game_end', time: new Date().toISOString(), matchId: '1', mapName: 'Northmarsh Ruin',
+        durationInSeconds: 343, winners: [player('Solana', 7)], losers: [player('riggen', -7)],
+      },
+      note: { text: 'fielded a 94-supply army', tag: 'Solana#1', name: 'Solana' },
+      detail: { match: { id: '1' }, playerScores: [] },
+    };
+    vi.useRealTimers(); // React.lazy resolves on a microtask, not a timer
+    renderIn(<LiveGamePanel matches={[]} finished={finished} />);
+    await waitFor(() => expect(document.querySelector('[data-finished-card="1"]')).toBeInTheDocument());
+    expect(document.querySelector('[data-finished-card="1"]')).toHaveAttribute('data-embed', 'true');
+    // the names-only summary gives way to the card; the bar stays
+    expect(screen.queryByText('WINNERS')).toBeNull();
+    expect(screen.getByText('FINISHED')).toBeInTheDocument();
+    expect(screen.getByRole('link', { name: 'Recent matches →' })).toBeInTheDocument();
   });
 
   it('offers recent matches when there is no finished game to show either', () => {

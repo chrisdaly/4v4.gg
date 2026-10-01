@@ -17,7 +17,13 @@ const getCachedMatchPlayerData = (matchId) => {
   return cache.get(`finishedMatchPlayers:${matchId}`);
 };
 
-const FinishedGame = ({ data, compact = false }) => {
+/**
+ * `embed` is the home page's empty state: the same card as the match page
+ * (portraits, MMR chart, the stat table) without the page furniture the
+ * panel has nowhere to put - the admin link, the note footer (the panel's
+ * bar carries the note) and the replay playstyles.
+ */
+const FinishedGame = ({ data, compact = false, embed = false }) => {
   const matchId = data?.match?.id;
   const cachedData = matchId ? getCachedMatchPlayerData(matchId) : null;
 
@@ -32,13 +38,13 @@ const FinishedGame = ({ data, compact = false }) => {
   const { adminKey } = useAdmin();
 
   useEffect(() => {
-    if (matchId && !compact) {
+    if (matchId && !compact && !embed) {
       fetch(`${import.meta.env.VITE_CHAT_RELAY_URL || "https://4v4gg-chat-relay.fly.dev"}/api/fingerprints/match/${encodeURIComponent(matchId)}`)
         .then(r => r.ok ? r.json() : null)
         .then(d => { if (d?.profiles?.length) setGameProfiles(d.profiles); })
         .catch(() => {});
     }
-  }, [matchId, compact]);
+  }, [matchId, compact, embed]);
 
   useEffect(() => {
     fetchMatchData();
@@ -137,15 +143,15 @@ const FinishedGame = ({ data, compact = false }) => {
         </div>
       ) : playerData ? (
         <>
-          {adminKey && !compact && data?.match?.id && (
+          {adminKey && !compact && !embed && data?.match?.id && (
             <MatchActions>
               <BlurbLabLink to={`/blurb-lab?id=${encodeURIComponent(data.match.id)}`}>
                 blurb lab →
               </BlurbLabLink>
             </MatchActions>
           )}
-          <Game playerData={playerData} metaData={metaData} profilePics={profilePics} playerCountries={playerCountries} sessionData={sessionData} compact={compact} />
-          {metaData?.note && !compact && (
+          <Game playerData={playerData} metaData={metaData} profilePics={profilePics} playerCountries={playerCountries} sessionData={sessionData} compact={compact} showStats={!embed} />
+          {metaData?.note && !compact && !embed && (
             <NoteFooter>
               {(() => {
                 const note = metaData.note;
@@ -164,7 +170,7 @@ const FinishedGame = ({ data, compact = false }) => {
           )}
 
           {/* Playstyle Section - only shown when replay exists for this match */}
-          {!compact && gameProfiles && (
+          {!compact && !embed && gameProfiles && (
             <PlaystyleSection>
               <SectionHeader>
                 <SectionTitle>Player Playstyles</SectionTitle>

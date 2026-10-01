@@ -10,7 +10,7 @@ import { raceMapping } from "../lib/constants";
 import { getMapImageUrl, geometricMean } from "../lib/formatters";
 import FormDots from "./FormDots";
 
-const Game = ({ playerData: rawPlayerData, metaData, profilePics, playerCountries, sessionData, liveStreamers = {}, compact, streamerTag, initialATGroups }) => {
+const Game = ({ playerData: rawPlayerData, metaData, profilePics, playerCountries, sessionData, liveStreamers = {}, compact, streamerTag, initialATGroups, showStats = true }) => {
   const [atGroups, setAtGroups] = useState(initialATGroups || {});
 
   const isLive = metaData.gameLength === "0:00";
@@ -511,15 +511,21 @@ const Game = ({ playerData: rawPlayerData, metaData, profilePics, playerCountrie
           ) : (
             <>
               {renderHeroRows()}
-              {renderTableRows("heroScore")}
-              <tr className="section-divider">
-                <td colSpan={9}></td>
-              </tr>
-              {renderTableRows("unitScore")}
-              <tr className="section-divider">
-                <td colSpan={9}></td>
-              </tr>
-              {renderTableRows("resourceScore")}
+              {/* showStats=false keeps the heroes but drops the numbers, for
+                  the home panel, which is one viewport tall */}
+              {showStats && (
+                <>
+                  {renderTableRows("heroScore")}
+                  <tr className="section-divider">
+                    <td colSpan={9}></td>
+                  </tr>
+                  {renderTableRows("unitScore")}
+                  <tr className="section-divider">
+                    <td colSpan={9}></td>
+                  </tr>
+                  {renderTableRows("resourceScore")}
+                </>
+              )}
             </>
           )}
           <tr className="meta">
@@ -615,7 +621,7 @@ const Game = ({ playerData: rawPlayerData, metaData, profilePics, playerCountrie
           </div>
         </div>
 
-        {renderMobileStats()}
+        {showStats && renderMobileStats()}
 
         <div className="gm-meta">
           <img
