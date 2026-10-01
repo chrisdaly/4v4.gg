@@ -247,7 +247,7 @@ const Game = ({ playerData: rawPlayerData, metaData, profilePics, playerCountrie
     const playerRelation = getPlayerRelation(player.battleTag, playerIndex);
 
     return (
-      <th key={player.battleTag} style={{ position: 'relative', overflow: 'visible' }} className={`${playerRelation ? `at-${playerRelation}` : ""} ${playerIsAT ? "is-at" : ""}`}>
+      <th key={player.battleTag} style={{ position: 'relative', overflow: 'visible' }} className={`player-cell ${playerRelation ? `at-${playerRelation}` : ""} ${playerIsAT ? "is-at" : ""}`}>
         <div
           className={`playerDiv ${teamClassName} ${compact ? "compact" : ""} ${playerRelation ? `at-${playerRelation}` : ""} ${playerIsAT ? "is-at" : ""} ${streamerTag && player.battleTag?.toLowerCase() === streamerTag.toLowerCase() ? "streamer-highlight" : ""}`}
         >

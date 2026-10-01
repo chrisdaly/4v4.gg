@@ -152,6 +152,12 @@ img.race {
   vertical-align: middle;
 }
 
+/* Portraits and names line up across the row; a long session's dots grow
+   downward out of the cell rather than pushing the player up */
+.game-table th.player-cell {
+  vertical-align: top;
+}
+
 
 .max-width-cell {
   width: 100px;
