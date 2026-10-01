@@ -376,6 +376,7 @@ export default function useDigestData({ weekly, isEditorial, draft }) {
           hotStreak: json.spotlights?.hotStreak ? { ...json.spotlights.hotStreak, quotes: normalizeQuotes(json.spotlights.hotStreak.quotes) } : null,
           coldStreak: json.spotlights?.coldStreak ? { ...json.spotlights.coldStreak, quotes: normalizeQuotes(json.spotlights.coldStreak.quotes) } : null,
           heroSlayer: json.spotlights?.heroSlayer ? { ...json.spotlights.heroSlayer, quotes: normalizeQuotes(json.spotlights.heroSlayer.quotes) } : null,
+          unitKiller: json.spotlights?.unitKiller ? { ...json.spotlights.unitKiller, quotes: normalizeQuotes(json.spotlights.unitKiller.quotes) } : null,
         },
         powerRankings: (json.powerRankings || []).map((r) => ({ ...r, name: r.name || r.battleTag?.split("#")[0] })),
         matchStats: (json.matchStats || []).map((s) => ({ ...s, name: s.name || s.battleTag?.split("#")[0] })),
@@ -394,7 +395,7 @@ export default function useDigestData({ weekly, isEditorial, draft }) {
     if (sections.length === 0) {
       return {
         narrative: { topics: [], drama: [], bans: [], highlights: [], recap: null, bestOfChat: null },
-        spotlights: { winner: null, loser: null, grinder: null, hotStreak: null, coldStreak: null, heroSlayer: null },
+        spotlights: { winner: null, loser: null, grinder: null, hotStreak: null, coldStreak: null, heroSlayer: null, unitKiller: null },
         powerRankings: [],
         matchStats: [],
         heroMeta: [],
@@ -425,6 +426,7 @@ export default function useDigestData({ weekly, isEditorial, draft }) {
         hotStreak: parseSpotlightFromText("HOTSTREAK", sections),
         coldStreak: parseSpotlightFromText("COLDSTREAK", sections),
         heroSlayer: parseSpotlightFromText("HEROSLAYER", sections),
+        unitKiller: parseSpotlightFromText("UNITKILLER", sections),
       },
       powerRankings: parseRankingsFromText(sections),
       matchStats: parseMatchStatsFromText(sections, "MATCH_STATS"),

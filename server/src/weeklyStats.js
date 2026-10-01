@@ -22,13 +22,14 @@ import {
   formatMmrLine, formatGrinderLine, formatWinStreakLine, formatLossStreakLine,
 } from './digest.js';
 import { getMatchPlayerScoresRange, getDailyMatchesRange, getMessagesInRange, getDailyPlayerStatsRange } from './db.js';
+import { quotesForPlayers } from './storyCandidates.js';
 
 /** Rankings and spotlights need enough games to mean anything. */
 export const RULES = {
   spotlightGames: 20,   // a week's net MMR on fewer is noise, same floor as the rankings
   rankingGames: 20,     // power rankings: +89 on ten games is not a rise
   streakFloor: 3,       // the spectrum only plots runs this long
-  newBloodGames: 20,
+  newBloodGames: 10,
   stackGames: 6,
 };
 
@@ -381,6 +382,31 @@ export async function weeklyStatSections(weekStart, weekEnd) {
   // After every card is chosen, the hero slayer included
   Object.assign(sections, dailyFormLines(weekStart, weekEnd, cardPlayers));
 
+  // The unit killer skips anyone already holding a card, since unlike a hero
+  // kill record it correlates with simply playing a lot
+  const unitKiller = unitKillerFrom(weekStart, weekEnd, weeklyPlayerMap, spoken);
+  if (unitKiller) sections.UNITKILLER = unitKiller;
+
+  const heroMeta = heroMetaFrom(weekStart, weekEnd, weeklyPlayerMap);
+  if (heroMeta) sections.HEROES = heroMeta;
+
+  const week = getMessagesInRange(weekStart, weekEnd);
+  const bans = bansFrom(week);
+  if (bans.length > 0) sections.BANS = bans.join('; ');
+
+  // A line beside each card's number, so a spotlight is about a person
+  const cardTags = Object.fromEntries(
+    Object.entries(cardPlayers).filter(([, p]) => p?.battleTag).map(([k, p]) => [k, p.battleTag])
+  );
+  if (slayer) cardTags.HEROSLAYER = slayer.battleTag;
+  const said = quotesForPlayers(week, Object.values(cardTags));
+  for (const [key, tag] of Object.entries(cardTags)) {
+    const lines = said[tag] || [];
+    if (lines.length > 0) {
+      sections[`${key}_QUOTES`] = lines.map((q) => `"${q.name}: ${q.text.replace(/"/g, '')}"`).join(' ');
+    }
+  }
+
   // Pairs, the biggest upset and the week's one-off facts
   const matches = getDailyMatchesRange(weekStart, weekEnd);
   const stacks = stacksFrom(matches, weeklyPlayerMap);
@@ -540,4 +566,97 @@ export function featsFrom(weekStart, weekEnd, matches, weeklyPlayerMap) {
   }
 
   return out;
+}
+
+/* ── Bans, unit kills and the hero meta ──────────────── */
+
+/**
+ * Moderation verdicts, lifted from the chat the bot posts them into.
+ *
+ * The reliable shape is "<tag> <reason> accepted, N days", which is what the
+ * W3C moderation bot prints and what players paste when they are arguing
+ * about a ban. Anything looser than that is somebody saying "he should be
+ * banned", which is an opinion, not a verdict.
+ */
+export function bansFrom(messages, { limit = 6 } = {}) {
+  const VERDICT = /(\S+#\d+)\s+(.{3,40}?)\s*(?:✅\s*)?accepted,?\s*(\d+)\s*days?/i;
+  const seen = new Set();
+  const out = [];
+  for (const m of messages) {
+    const hit = String(m.message || '').match(VERDICT);
+    if (!hit) continue;
+    const [, tag, rawReason, days] = hit;
+    const reason = rawReason.replace(/[✅❌|]/g, '').trim().toLowerCase();
+    const key = `${tag}|${reason}|${days}`;
+    if (seen.has(key)) continue;
+    seen.add(key);
+    out.push(`${tag} ${days}d ${reason}`);
+    if (out.length >= limit) break;
+  }
+  return out;
+}
+
+/** Most units killed in a single game, the hero slayer's sibling. */
+export function unitKillerFrom(weekStart, weekEnd, weeklyPlayerMap, exclude = new Set()) {
+  const rows = getMatchPlayerScoresRange(weekStart, weekEnd);
+  if (rows.length === 0) return null;
+  let best = null;
+  for (const r of rows) {
+    const u = r.units_killed || 0;
+    if (u <= 0 || exclude.has(r.battle_tag)) continue;
+    if (!best || u > best.units) best = { units: u, tag: r.battle_tag, matchId: r.match_id, date: r.date };
+  }
+  if (!best) return null;
+  const wp = weeklyPlayerMap.get(best.tag);
+  const RACES = { 0: 'RND', 1: 'HU', 2: 'ORC', 4: 'NE', 8: 'UD' };
+  const race = RACES[wp?.race] ? `[${RACES[wp.race]}]` : '';
+  return `${best.tag}${race} ${best.units} units killed in a game (${wp?.wins ?? 0}W-${wp?.losses ?? 0}L)`;
+}
+
+/**
+ * What the week actually played. Three facts rather than a table: the hero
+ * the ladder reached for most, the player who would not play anything else,
+ * and the hero almost nobody touched.
+ */
+export function heroMetaFrom(weekStart, weekEnd, weeklyPlayerMap) {
+  const rows = getMatchPlayerScoresRange(weekStart, weekEnd);
+  const picks = new Map();
+  const byPlayer = new Map();
+  for (const r of rows) {
+    if (!r.heroes) continue;
+    let list;
+    try { list = JSON.parse(r.heroes) || []; } catch { continue; }
+    for (const h of list) {
+      if (!h?.icon) continue;
+      picks.set(h.icon, (picks.get(h.icon) || 0) + 1);
+      if (!byPlayer.has(r.battle_tag)) byPlayer.set(r.battle_tag, new Map());
+      const mine = byPlayer.get(r.battle_tag);
+      mine.set(h.icon, (mine.get(h.icon) || 0) + 1);
+    }
+  }
+  if (picks.size === 0) return null;
+  const pretty = (icon) => String(icon).replace(/([a-z])([A-Z])/g, '$1 $2')
+    .replace(/^./, (c) => c.toUpperCase());
+  const named = (tag) => weeklyPlayerMap.get(tag)?.name || String(tag).split('#')[0];
+
+  const out = [];
+  const [topHero, topCount] = [...picks.entries()].sort((a, b) => b[1] - a[1])[0];
+  out.push(`Most played ${pretty(topHero)} picked ${topCount} times`);
+
+  // One trick: the largest share of one player's own picks, over enough games
+  let trick = null;
+  for (const [tag, mine] of byPlayer) {
+    const total = [...mine.values()].reduce((a, b) => a + b, 0);
+    if (total < 40) continue;
+    const [hero, n] = [...mine.entries()].sort((a, b) => b[1] - a[1])[0];
+    const share = n / total;
+    if (!trick || share > trick.share) trick = { tag, hero, n, share };
+  }
+  if (trick && trick.share > 0.34) {
+    out.push(`One trick ${named(trick.tag)} ${pretty(trick.hero)} in ${Math.round(trick.share * 100)}% of his picks`);
+  }
+
+  const [rareHero, rareCount] = [...picks.entries()].sort((a, b) => a[1] - b[1])[0];
+  if (rareCount <= topCount / 20) out.push(`Barely seen ${pretty(rareHero)} picked ${rareCount} times`);
+  return out.length > 0 ? out.join('; ') : null;
 }

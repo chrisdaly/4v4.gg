@@ -493,3 +493,45 @@ describe('digging into a quote', () => {
     expect(marked[0].name).toBe('lumos');
   });
 });
+
+describe('what the older issues had', () => {
+  // Seconds apart, so a reaction lands inside the two-minute window
+  const say = (i, name, text, tag) => ({
+    id: `b${i}`, received_at: `2026-09-21 10:00:${String(i * 5).padStart(2, '0')}`,
+    user_name: name, battle_tag: tag || `${name}#1`, message: text,
+  });
+
+  it('takes a moderation verdict and ignores an opinion about one', async () => {
+    const { bansFrom } = await import('../../server/src/weeklyStats.js');
+    const rows = [
+      say(1, 'lumos', 'xlrenxuanwei#3229 early leave ✅ accepted, 7 days'),
+      say(2, 'vitruviuss', 'vitruviuss#2898 pause abuse accepted, 1 days'),
+      // Opinions, not verdicts
+      say(3, 'Magnus', 'he should be banned for grief'),
+      say(4, 'BogaSyn', 'please get him banned and report'),
+      // The same verdict pasted twice is still one ban
+      say(5, 'JayZ', 'xlrenxuanwei#3229 early leave ✅ accepted, 7 days'),
+    ];
+    const bans = bansFrom(rows);
+    expect(bans).toEqual(['xlrenxuanwei#3229 7d early leave', 'vitruviuss#2898 1d pause abuse']);
+  });
+
+  it('gives a card the player\'s own line first, then one about them', async () => {
+    const { quotesForPlayers } = await import('../../server/src/storyCandidates.js');
+    const rows = [
+      say(1, 'Other', 'lacoste went and lost his hero to the militia again'),
+      say(2, 'Watcher', 'lol'),
+      say(3, 'Someone', 'haha'),
+      say(4, 'Lacoste', 'i had three bases and still nothing to show for it'),
+      say(5, 'Watcher', 'lmao'),
+      say(6, 'Someone', 'haha'),
+    ];
+    const out = quotesForPlayers(rows, ['Lacoste#22218']);
+    const lines = out['Lacoste#22218'] || [];
+    expect(lines).toHaveLength(2);
+    // What he said himself leads; what was said about him follows
+    expect(lines[0].name).toBe('Lacoste');
+    expect(lines[1].text).toContain('lost his hero');
+    expect(quotesForPlayers(rows, [])).toEqual({});
+  });
+});

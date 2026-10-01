@@ -428,3 +428,45 @@ export function findQuotes(messages, { limit = 40 } = {}) {
 
   return out.sort((a, b) => b.score - a.score || b.laughs - a.laughs).slice(0, limit);
 }
+
+/**
+ * A line for a spotlight card: something the player said, or something said
+ * about them, that is worth printing beside their number.
+ *
+ * This is what makes a card feel like it is about a person. Six cards of
+ * pure arithmetic is what "sterile" means.
+ *
+ * Ranked on the same signal as the quote of the week, and filtered by the
+ * same rules, so nothing abusive or self-regarding reaches a card either.
+ */
+export function quotesForPlayers(messages, tags, { perPlayer = 2 } = {}) {
+  const wanted = new Map();
+  for (const tag of tags) {
+    const name = String(tag).split('#')[0].toLowerCase();
+    if (name.length >= 3) wanted.set(name, tag);
+  }
+  if (wanted.size === 0) return {};
+
+  const scored = findQuotes(messages, { limit: 400 });
+  const out = {};
+  const take = (tag, line) => {
+    if (!out[tag]) out[tag] = [];
+    if (out[tag].length >= perPlayer) return;
+    if (out[tag].some((q) => q.text === line.text)) return;
+    out[tag].push(line);
+  };
+
+  // What they said themselves reads better than what was said about them
+  for (const q of scored) {
+    const tag = wanted.get(String(q.name || '').toLowerCase());
+    if (tag) take(tag, q);
+  }
+  for (const q of scored) {
+    for (const [name, tag] of wanted) {
+      if (String(q.name || '').toLowerCase() === name) continue;
+      const rx = new RegExp(`(?<![a-z0-9])${name.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')}(?![a-z0-9])`, 'i');
+      if (rx.test(q.text)) take(tag, q);
+    }
+  }
+  return out;
+}

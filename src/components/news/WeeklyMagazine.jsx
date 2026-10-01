@@ -1723,6 +1723,7 @@ const SpotlightsSection = ({ spotlights, profiles, editorial, allowed = null, sh
     { key: "HOTSTREAK", jsonKey: "hotStreak", role: "Hot Streak", accent: "green" },
     { key: "COLDSTREAK", jsonKey: "coldStreak", role: "Cold Streak", accent: "red" },
     { key: "HEROSLAYER", jsonKey: "heroSlayer", role: "Hero Slayer", accent: "white" },
+    { key: "UNITKILLER", jsonKey: "unitKiller", role: "Unit Killer", accent: "white" },
   ];
 
   // Build spectrum data from hotStreak spotlight's streakSpectrum
