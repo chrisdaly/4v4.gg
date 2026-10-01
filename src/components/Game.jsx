@@ -10,9 +10,6 @@ import { raceMapping } from "../lib/constants";
 import { getMapImageUrl, geometricMean } from "../lib/formatters";
 import FormDots from "./FormDots";
 
-// Dots the player cell can show before the W-L summary takes over (8 per row)
-const SESSION_DOTS = 16;
-
 const Game = ({ playerData: rawPlayerData, metaData, profilePics, playerCountries, sessionData, liveStreamers = {}, compact, streamerTag, initialATGroups, showStats = true }) => {
   const [atGroups, setAtGroups] = useState(initialATGroups || {});
 
@@ -312,11 +309,10 @@ const Game = ({ playerData: rawPlayerData, metaData, profilePics, playerCountrie
             )}
           </div>
 
-          {/* The session so far, oldest on the left. Two rows of eight is
-              as much as the cell can hold; past that the W-L line carries
-              the rest of the sitting. */}
+          {/* The whole session, oldest on the left, eight dots to a row,
+              with the W-L line under it once it runs past one row */}
           <div className="form-dots-wrapper">
-            <FormDots form={playerSession?.form} size="small" maxDots={SESSION_DOTS} />
+            <FormDots form={playerSession?.form} size="small" />
           </div>
         </div>
         {/* AT connector line - positioned at cell level */}
@@ -363,7 +359,7 @@ const Game = ({ playerData: rawPlayerData, metaData, profilePics, playerCountrie
             <span className="mmr-label-muted">-</span>
           )}
         </div>
-        <FormDots form={playerSession?.form} size="small" maxDots={SESSION_DOTS} />
+        <FormDots form={playerSession?.form} size="small" />
       </div>
     );
   };
