@@ -4147,18 +4147,18 @@ a.mg-feat-text:hover {
   width: 7px;
   height: 7px;
   border-radius: 50%;
-  opacity: 0.85;
+  opacity: 0.45;
 }
 
 .mg-wd-dot--win { background: var(--green); }
 .mg-wd-dot--loss { background: var(--red); }
 
 /* The run that earned the card */
-/* The run that earned the card: bigger and fully lit, rather than ringed.
-   A white halo on a small dot reads as a white background behind it. */
+/* The run that earned the card is the only one at full strength; the rest of
+   the week sits back. Tried a white ring, which read as a white background,
+   and a larger dot, which just looked swollen. Nothing changes size. */
 .mg-wd-dot--run {
   opacity: 1;
-  transform: scale(1.45);
 }
 
 .mg-spotlight-extra {

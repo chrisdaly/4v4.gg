@@ -105,3 +105,25 @@ describe('every section key the relay writes is registered', () => {
     for (const s of parsed) expect(s.content).toBe(`value for ${s.key}`);
   });
 });
+
+describe('a card blurb says what the form actually shows', () => {
+  it('only claims a closing streak when the player was on one at the end', async () => {
+    const { buildStatBlurb, trailingRun } = await import('../lib/digestUtils');
+
+    // CNYerou's real week: an 8-win run, then a loss, then one win
+    const form = 'WLWWLWWWLLWWLWWWWWWWWLW';
+    expect(trailingRun(form)).toEqual({ char: 'W', len: 1 });
+
+    const lines = buildStatBlurb({ wins: 17, losses: 6, mmrChange: 239, race: 1, form }, 'green');
+    const text = lines.join(' ');
+    expect(text).not.toContain('Closed the week on');
+    expect(text).toContain('Longest run of the week: 8 straight wins');
+
+    // Someone who really did finish on a run gets the other sentence
+    const closer = buildStatBlurb({ wins: 12, losses: 3, mmrChange: 90, race: 2, form: 'WLLWWWWWW' }, 'green');
+    expect(closer.join(' ')).toContain('Closed the week on a 6-game win streak');
+
+    expect(trailingRun('')).toEqual({ char: '', len: 0 });
+    expect(trailingRun('WWLLL')).toEqual({ char: 'L', len: 3 });
+  });
+});

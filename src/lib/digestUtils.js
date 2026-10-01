@@ -371,6 +371,17 @@ const longestRun = (form) => {
  * @param {"green"|"red"|"gold"} accent - Spotlight type
  * @returns {string[]} Array of 1-2 sentences
  */
+/** The run a player is actually on at the end of the week, which is not the
+ *  same as their longest run and is the only one you can say they closed on. */
+export const trailingRun = (form) => {
+  const f = String(form || "");
+  if (!f) return { char: "", len: 0 };
+  const char = f[f.length - 1];
+  let len = 0;
+  for (let i = f.length - 1; i >= 0 && f[i] === char; i--) len++;
+  return { char, len };
+};
+
 export const buildStatBlurb = (stat, accent) => {
   if (!stat) return [];
   const totalGames = stat.wins + stat.losses;
@@ -383,8 +394,13 @@ export const buildStatBlurb = (stat, accent) => {
   if (accent === "green") {
     const mmrPart = stat.mmrChange != null ? `Climbed +${Math.abs(stat.mmrChange)} MMR across ${totalGames} games on ${raceName}` : `Went ${stat.wins}-${stat.losses} on ${raceName} across ${totalGames} games`;
     lines.push(`${mmrPart} - a ${winRate}% win rate.`);
-    if (run.char === "W" && run.len >= 4) {
-      lines.push(`Closed the week on a ${run.len}-game win streak.`);
+    // "Closed the week on" has to mean the run they were on at the end.
+    // CNYerou's longest was 8 but he finished on one win, two games later.
+    const last = trailingRun(stat.form);
+    if (last.char === "W" && last.len >= 4) {
+      lines.push(`Closed the week on a ${last.len}-game win streak.`);
+    } else if (run.char === "W" && run.len >= 4) {
+      lines.push(`Longest run of the week: ${run.len} straight wins.`);
     }
   } else if (accent === "red") {
     if (totalGames <= 6) {
