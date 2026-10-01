@@ -5,19 +5,21 @@ import "./GameRow.css";
 import { RaceIcon } from "../ui";
 import { getMapImageUrl, formatDuration, formatTimeAgo } from "../../lib/formatters";
 
+const HERO_SLOTS = 3;
+
 /**
  * GameRow - one match in the player profile's history, as a fixture list:
  *
- *   result + map | your team ▸ | avg vs avg | ◂ opponents | +/-
+ *   result + map + your heroes | your team ▸ | avg vs avg | ◂ opponents | +/-
  *
- * Both sides are plain names in the same font, sorted highest MMR first, so a
- * player's slot shows where they sat in their own lineup. The two teams read
- * apart from position - yours right-aligned into the centre divider, theirs
- * left-aligned out of it - rather than from two different text colours. The
- * profile player is the one gold name; every MMR is on hover.
+ * Both sides are sorted highest MMR first, and every player carries their MMR
+ * under their name, so the ordering is visible instead of implied - no tooltip
+ * needed to see who the strongest player in the lobby was. The two teams read
+ * apart from position, each leaning into the centre divider, rather than from
+ * two different text colours. The profile player is the one gold name.
  *
  * @param {Object} game - Match data object
- * @param {string} playerBattleTag - The profile player: their MMR, result and gold slot
+ * @param {string} playerBattleTag - The profile player: their heroes, result and gold slot
  * @param {string} linkTo - URL for click navigation (default: /match/{id})
  * @param {boolean} striped - Alternate row styling
  * @param {string} className - Additional CSS class
@@ -57,6 +59,7 @@ const GameRow = ({ game, playerBattleTag, linkTo, striped = false, className = "
   const mmrChange = (playerData.currentMmr || 0) - (playerData.oldMmr || 0);
   const cleanMapName = match.mapName?.replace(/^\(\d\)\s*/, "") || "Unknown";
   const mapUrl = getMapImageUrl(match.mapName);
+  const heroes = (playerData.heroes || []).filter((h) => h?.icon).slice(0, HERO_SLOTS);
 
   // Skip players the API gave no MMR for, or one zero drags the average
   // hundreds of points below the lobby it is meant to describe
@@ -78,33 +81,26 @@ const GameRow = ({ game, playerBattleTag, linkTo, striped = false, className = "
     history.push(`/player/${encodeURIComponent(tag)}`);
   };
 
-  // Same name, same font, both sides. The only difference is which way the
-  // race icon sits, so each side leans into the centre divider.
+  // Name over MMR, both sides. The only difference is which way the race icon
+  // sits, so each side leans into the centre divider.
   const chip = (p, i, mine) => {
     const isSelf = p.battleTag?.toLowerCase() === battleTagLower;
-    const title = isSelf
-      ? `${p.name} · ${p.oldMmr || "?"} MMR · ${ordinal} highest on the team`
-      : `${p.name} · ${p.oldMmr || "?"} MMR`;
     const icon = <RaceIcon race={p.race} rndRace={p.rndRace} className="gr-race" />;
+    const stack = (
+      <span className="gr-p-stack">
+        <span className="gr-p-name">{p.name}</span>
+        <span className="gr-p-mmr">{p.oldMmr > 0 ? p.oldMmr.toLocaleString("en-US") : "–"}</span>
+      </span>
+    );
     return (
       <span
         key={i}
         className={`gr-p${isSelf ? " gr-p--self" : ""}`}
-        title={title}
+        title={isSelf ? `${p.name} · ${ordinal} highest on the team` : p.name}
         data-self-seat={isSelf ? seat : undefined}
         onClick={isSelf ? undefined : goTo(p.battleTag)}
       >
-        {mine ? (
-          <>
-            <span className="gr-p-name">{p.name}</span>
-            {icon}
-          </>
-        ) : (
-          <>
-            {icon}
-            <span className="gr-p-name">{p.name}</span>
-          </>
-        )}
+        {mine ? <>{stack}{icon}</> : <>{icon}{stack}</>}
       </span>
     );
   };
@@ -121,6 +117,23 @@ const GameRow = ({ game, playerBattleTag, linkTo, striped = false, className = "
           <span className="gr-game-sub">
             {formatDuration(match.durationInSeconds)} · {formatTimeAgo(match.endTime)}
           </span>
+        </span>
+        <span className="gr-heroes" data-heroes={heroes.length}>
+          {Array.from({ length: HERO_SLOTS }, (_, i) => {
+            const h = heroes[i];
+            if (!h) return <span key={i} className="gr-hero gr-hero--empty" />;
+            return (
+              <img
+                key={i}
+                src={`/heroes/${h.icon}.jpeg`}
+                alt={h.name}
+                title={`${h.name}${h.level ? ` · level ${h.level}` : ""}`}
+                className="gr-hero"
+                loading="lazy"
+                onError={(e) => { e.target.style.visibility = "hidden"; }}
+              />
+            );
+          })}
         </span>
       </div>
 

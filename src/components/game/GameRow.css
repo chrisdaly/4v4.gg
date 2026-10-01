@@ -1,21 +1,24 @@
 /* ============================================
    GAME ROW - one match in the profile history
-   result + map | your team ▸ | avg vs avg | ◂ opponents | +/-
+   result + map + heroes | your team ▸ |
+   avg vs avg | ◂ opponents | +/-
 
    A fixture list. Both sides use the same name
-   styling; they separate by which way they lean
-   into the centre divider, not by colour. The
-   profile player is the one gold name.
+   styling and carry their MMR under the name, so
+   the highest-MMR-first sort is visible rather
+   than implied. They separate by which way they
+   lean into the centre divider, not by colour.
+   The profile player is the one gold name.
    ============================================ */
 
 .game-row,
 .mh-header {
   display: grid;
   grid-template-columns:
-    minmax(170px, 0.9fr)
-    minmax(150px, 1.1fr)
+    minmax(230px, 1fr)
+    minmax(160px, 1.1fr)
     94px
-    minmax(150px, 1.1fr)
+    minmax(160px, 1.1fr)
     58px;
   gap: var(--space-3);
   align-items: center;
@@ -27,7 +30,9 @@
   border-left: 3px solid transparent;
   text-decoration: none;
   transition: background var(--transition);
-  min-height: 64px;
+  /* Two stacked lines per slot already make the lineups 58px tall; anything
+     larger here is padding the row for no one */
+  min-height: 58px;
 }
 
 .game-row.gr-won {
@@ -108,12 +113,39 @@
   white-space: nowrap;
 }
 
+/* ── The heroes you fielded, three fixed slots so rows stay aligned ── */
+
+.gr-heroes {
+  display: flex;
+  gap: 3px;
+  margin-left: auto;
+  padding-left: var(--space-2);
+  flex-shrink: 0;
+}
+
+.gr-hero {
+  width: 24px;
+  height: 24px;
+  border-radius: 2px;
+  object-fit: cover;
+  background: var(--surface-2);
+  border: 1px solid rgba(var(--gold-muted-rgb), 0.35);
+  box-sizing: border-box;
+  flex-shrink: 0;
+}
+
+.gr-hero--empty {
+  border-style: dashed;
+  border-color: rgba(255, 255, 255, 0.07);
+  background: transparent;
+}
+
 /* ── Both sides, highest MMR first, two per line ── */
 
 .gr-col.gr-side {
   display: grid;
   grid-template-columns: repeat(2, minmax(0, 1fr));
-  gap: 1px var(--space-2);
+  gap: 3px var(--space-2);
   min-width: 0;
 }
 
@@ -150,14 +182,38 @@
   opacity: 0.9;
 }
 
+.gr-p-stack {
+  display: flex;
+  flex-direction: column;
+  min-width: 0;
+}
+
+.gr-side--mine .gr-p-stack {
+  align-items: flex-end;
+}
+
 .gr-p-name {
   font-family: var(--font-display);
   font-size: var(--text-xxs);
+  /* Tight, or the second line per slot pushes the row past 85px */
+  line-height: 1.25;
   color: #c4c4c4;
   white-space: nowrap;
   overflow: hidden;
   text-overflow: ellipsis;
   transition: color var(--transition);
+}
+
+/* The number under every name is what makes the sort legible */
+.gr-p-mmr {
+  font-family: var(--font-mono);
+  font-size: var(--text-xxxs);
+  line-height: 1.15;
+  color: #7a7a7a;
+}
+
+.gr-p--self .gr-p-mmr {
+  color: rgba(var(--gold-muted-rgb), 1);
 }
 
 .gr-side--theirs .gr-p-name {
@@ -231,29 +287,34 @@
   .game-row,
   .mh-header {
     grid-template-columns:
-      minmax(150px, 0.9fr)
-      minmax(120px, 1.1fr)
+      minmax(200px, 1fr)
+      minmax(126px, 1.1fr)
       86px
-      minmax(120px, 1.1fr)
+      minmax(126px, 1.1fr)
       52px;
   }
 }
 
 /* Teams stack into one column each so names stop truncating to nothing */
+/* Teams stack into one column each; the heroes go before the names do */
 @media (max-width: 1024px) {
   .game-row,
   .mh-header {
     grid-template-columns:
-      minmax(140px, 1fr)
-      minmax(84px, 0.8fr)
+      minmax(150px, 1fr)
+      minmax(92px, 0.8fr)
       78px
-      minmax(84px, 0.8fr)
+      minmax(92px, 0.8fr)
       48px;
     gap: var(--space-2);
   }
 
   .gr-col.gr-side {
     grid-template-columns: minmax(0, 1fr);
+  }
+
+  .gr-heroes {
+    display: none;
   }
 }
 
