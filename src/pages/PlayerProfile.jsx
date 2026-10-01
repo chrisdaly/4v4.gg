@@ -2,9 +2,9 @@ import React, { useState, useEffect, useReducer, useMemo, useRef } from "react";
 import { Link, useHistory, useLocation } from "react-router-dom";
 import { CountryFlag, Select, Button, Input, Delta, PageNav } from "../components/ui";
 import { findPlayerInOngoingMatches } from "../lib/utils";
-import { getPlayerProfile, getPlayerTimelineMerged, getPlayerProfilesBatch } from "../lib/api";
+import { getPlayerProfile, getPlayerTimelineMerged, getPlayerProfilesBatch, getPlayerMatches } from "../lib/api";
 import { cache } from "../lib/cache";
-import { matchIdleGapMs } from "../lib/session";
+import { matchIdleGapMs, SESSION_GAP_MINUTES } from "../lib/session";
 import useSeasons from "../lib/useSeasons";
 import useOngoingMatches from "../lib/useOngoingMatches";
 import ClipModal from "../components/ClipModal";
@@ -45,6 +45,8 @@ const PROFILE_TABS = [
 
 const RELAY_URL = import.meta.env.VITE_CHAT_RELAY_URL || "https://4v4gg-chat-relay.fly.dev";
 const GAMES_PER_PAGE = 10;
+// Games read back when working out the current session (the live card's window)
+const SESSION_WINDOW = 50;
 const ALL_SEASONS = 0;
 
 const MIN_GAMES_FOR_STATS = 3;
@@ -158,8 +160,6 @@ const PlayerProfile = () => {
   const [weeklies, setWeeklies] = useState([]);
   const [seasonActivity, setSeasonActivity] = useState(null);
   const toggleSection = (key) => setExpandedSections(prev => ({ ...prev, [key]: !prev[key] }));
-
-  const SESSION_GAP_MINUTES = 60;
 
   // Helper to restore from cache in a single batch
   const restoreFromCache = (cached) => {
@@ -477,7 +477,16 @@ const PlayerProfile = () => {
           matchUpdate.totalMatches = matchesData.count;
         }
         updateState(matchUpdate);
-        if (page === 0 && !isAllSeasons) processMatchData(matchesData.matches);
+        // The session is read from a wider window than this page: a long
+        // sitting runs past ten games, and the live card reads the same 50.
+        if (page === 0 && !isAllSeasons) {
+          getPlayerMatches(battleTag, SESSION_WINDOW, 0, selectedSeason)
+            .then(({ matches }) => {
+              if (latestReq.current !== reqId) return;
+              processMatchData(matches?.length ? matches : matchesData.matches);
+            })
+            .catch(() => processMatchData(matchesData.matches));
+        }
         if (returnData) return matchesData.matches;
       }
     }
@@ -495,7 +504,8 @@ const PlayerProfile = () => {
     if (!matchList || matchList.length === 0) return;
 
     const sessionGapMs = SESSION_GAP_MINUTES * 60 * 1000;
-    const sessionMaxAgeMs = 2 * 60 * 60 * 1000;
+    // the same two hours decide whether the last session is still running
+    const sessionMaxAgeMs = sessionGapMs;
     const sessionMatches = [];
 
     const mostRecentEndTime = new Date(matchList[0]?.endTime);

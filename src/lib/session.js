@@ -3,7 +3,9 @@
  * Matches arrive newest-first from the API.
  */
 
-const SESSION_GAP_MINUTES = 60;
+// A session is one sitting: games run together until someone stops for more
+// than two hours, and that gap is the break between sessions.
+export const SESSION_GAP_MINUTES = 120;
 
 // Idle time between two consecutive games (newer game's start minus older game's end)
 export const matchIdleGapMs = (newerMatch, olderMatch) =>

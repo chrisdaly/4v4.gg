@@ -278,7 +278,10 @@ export const getPlayerAllSeasonActivity = async (battleTag) => {
  */
 export const getPlayerMatches = async (battleTag, pageSize = 50, offset = 0, seasonOverride = season) => {
   try {
-    const url = `${API_BASE}/matches?playerId=${encodeURIComponent(battleTag)}&offset=${offset}&gameMode=4&season=${seasonOverride}&gateway=${gateway}&pageSize=${pageSize}`;
+    // /matches ignores playerId and hands back the global feed, so the form
+    // dots were built from whichever of the last 50 games on the ladder the
+    // player happened to be in. /matches/search is the one that filters.
+    const url = `${API_BASE}/matches/search?playerId=${encodeURIComponent(battleTag)}&offset=${offset}&gameMode=4&season=${seasonOverride}&gateway=${gateway}&pageSize=${pageSize}`;
     const cacheKey = `matches:${battleTag.toLowerCase()}:${offset}:${pageSize}:${seasonOverride}`;
 
     const data = await fetchWithCache(url, { cacheKey, ttl: TTL.MATCHES });
