@@ -2,23 +2,22 @@ import React from "react";
 import { Link, useHistory } from "react-router-dom";
 import "./GameRow.css";
 
-import { RaceIcon, ResultBadge } from "../ui";
+import { RaceIcon } from "../ui";
 import { getMapImageUrl, formatDuration, formatTimeAgo } from "../../lib/formatters";
 
-const HERO_SLOTS = 3;
-
 /**
- * GameRow - one match in the player profile's history, in five zones:
+ * GameRow - one match in the player profile's history, as a fixture list:
  *
- *   result | map + length/when | the heroes you fielded | both teams | MMR
+ *   result + map | your team ▸ | avg vs avg | ◂ opponents | +/-
  *
- * Each team is listed highest MMR first, so a player's slot shows where
- * they sat in their own lineup; the profile player is that gold MMR chip
- * rather than a repeated name. Opponents follow a dim "vs" in grey so the
- * two sides read apart at a glance.
+ * Both sides are plain names in the same font, sorted highest MMR first, so a
+ * player's slot shows where they sat in their own lineup. The two teams read
+ * apart from position - yours right-aligned into the centre divider, theirs
+ * left-aligned out of it - rather than from two different text colours. The
+ * profile player is the one gold name; every MMR is on hover.
  *
  * @param {Object} game - Match data object
- * @param {string} playerBattleTag - The profile player: their heroes, MMR and result
+ * @param {string} playerBattleTag - The profile player: their MMR, result and gold slot
  * @param {string} linkTo - URL for click navigation (default: /match/{id})
  * @param {boolean} striped - Alternate row styling
  * @param {string} className - Additional CSS class
@@ -58,12 +57,17 @@ const GameRow = ({ game, playerBattleTag, linkTo, striped = false, className = "
   const mmrChange = (playerData.currentMmr || 0) - (playerData.oldMmr || 0);
   const cleanMapName = match.mapName?.replace(/^\(\d\)\s*/, "") || "Unknown";
   const mapUrl = getMapImageUrl(match.mapName);
-  const heroes = (playerData.heroes || []).filter((h) => h?.icon).slice(0, HERO_SLOTS);
 
-  const allPlayers = (match.teams || []).flatMap((t) => t.players || []);
-  const avgMmr = allPlayers.length > 0
-    ? Math.round(allPlayers.reduce((sum, p) => sum + (p.oldMmr || 0), 0) / allPlayers.length)
-    : null;
+  // Skip players the API gave no MMR for, or one zero drags the average
+  // hundreds of points below the lobby it is meant to describe
+  const teamAvg = (ps) => {
+    const rated = ps.filter((p) => p.oldMmr > 0);
+    return rated.length
+      ? Math.round(rated.reduce((sum, p) => sum + p.oldMmr, 0) / rated.length)
+      : null;
+  };
+  const myAvg = teamAvg(teamMembers);
+  const theirAvg = teamAvg(opponents);
 
   const matchId = match.id || game.id;
   const href = linkTo || (matchId ? `/match/${matchId}` : null);
@@ -74,38 +78,43 @@ const GameRow = ({ game, playerBattleTag, linkTo, striped = false, className = "
     history.push(`/player/${encodeURIComponent(tag)}`);
   };
 
-  const chip = (p, i, opponent = false) => {
+  // Same name, same font, both sides. The only difference is which way the
+  // race icon sits, so each side leans into the centre divider.
+  const chip = (p, i, mine) => {
     const isSelf = p.battleTag?.toLowerCase() === battleTagLower;
-    if (isSelf) {
-      return (
-        <span
-          key={i}
-          className="gr-player gr-player-self"
-          title={`${p.name} · ${p.oldMmr || "?"} MMR · ${ordinal} highest on the team`}
-          data-self-seat={seat}
-        >
-          <RaceIcon race={p.race} rndRace={p.rndRace} className="gr-race" />
-          <span className="gr-self-mmr">{p.oldMmr ? p.oldMmr.toLocaleString("en-US") : "–"}</span>
-        </span>
-      );
-    }
+    const title = isSelf
+      ? `${p.name} · ${p.oldMmr || "?"} MMR · ${ordinal} highest on the team`
+      : `${p.name} · ${p.oldMmr || "?"} MMR`;
+    const icon = <RaceIcon race={p.race} rndRace={p.rndRace} className="gr-race" />;
     return (
-      <span key={i} className="gr-player" title={`${p.name} · ${p.oldMmr || "?"} MMR`} onClick={goTo(p.battleTag)}>
-        <RaceIcon race={p.race} rndRace={p.rndRace} className="gr-race" />
-        <span className={`gr-player-name${opponent ? " gr-player-name--opp" : ""}`}>{p.name}</span>
+      <span
+        key={i}
+        className={`gr-p${isSelf ? " gr-p--self" : ""}`}
+        title={title}
+        data-self-seat={isSelf ? seat : undefined}
+        onClick={isSelf ? undefined : goTo(p.battleTag)}
+      >
+        {mine ? (
+          <>
+            <span className="gr-p-name">{p.name}</span>
+            {icon}
+          </>
+        ) : (
+          <>
+            {icon}
+            <span className="gr-p-name">{p.name}</span>
+          </>
+        )}
       </span>
     );
   };
 
   const content = (
     <>
-      <div className="gr-col gr-result">
-        <ResultBadge $square $won={won} $lost={!won}>
-          {won ? "W" : "L"}
-        </ResultBadge>
-      </div>
-
       <div className="gr-col gr-game">
+        <span className={`gr-result ${won ? "gr-result--won" : "gr-result--lost"}`}>
+          {won ? "W" : "L"}
+        </span>
         {mapUrl && <img src={mapUrl} alt="" className="gr-map-img" />}
         <span className="gr-game-meta">
           <span className="gr-map-name">{cleanMapName}</span>
@@ -115,32 +124,18 @@ const GameRow = ({ game, playerBattleTag, linkTo, striped = false, className = "
         </span>
       </div>
 
-      <div className="gr-col gr-heroes" data-heroes={heroes.length}>
-        {Array.from({ length: HERO_SLOTS }, (_, i) => {
-          const h = heroes[i];
-          if (!h) return <span key={i} className="gr-hero gr-hero--empty" />;
-          return (
-            <img
-              key={i}
-              src={`/heroes/${h.icon}.jpeg`}
-              alt={h.name}
-              title={`${h.name}${h.level ? ` · level ${h.level}` : ""}`}
-              className="gr-hero"
-              loading="lazy"
-              onError={(e) => { e.target.style.visibility = "hidden"; }}
-            />
-          );
-        })}
+      <div className="gr-col gr-side gr-side--mine" data-team="ally">
+        {teamMembers.slice(0, 4).map((p, i) => chip(p, i, true))}
       </div>
 
-      <div className="gr-col gr-players">
-        <span className="gr-team" data-team="ally">
-          {teamMembers.slice(0, 4).map((p, i) => chip(p, i))}
-        </span>
-        <span className="gr-team gr-team--opp" data-team="opponent">
-          <span className="gr-vs">vs</span>
-          {opponents.slice(0, 4).map((p, i) => chip(p, i, true))}
-        </span>
+      <div className="gr-col gr-mid">
+        <span className="gr-avg gr-avg--mine" title="Your team's average MMR">{myAvg ?? "–"}</span>
+        <span className="gr-vs">vs</span>
+        <span className="gr-avg gr-avg--theirs" title="Opponents' average MMR">{theirAvg ?? "–"}</span>
+      </div>
+
+      <div className="gr-col gr-side gr-side--theirs" data-team="opponent">
+        {opponents.slice(0, 4).map((p, i) => chip(p, i, false))}
       </div>
 
       <div className="gr-col gr-score">
@@ -148,7 +143,6 @@ const GameRow = ({ game, playerBattleTag, linkTo, striped = false, className = "
           {mmrChange >= 0 ? "+" : ""}
           {mmrChange}
         </span>
-        {avgMmr && <span className="gr-avg-mmr-value">{avgMmr.toLocaleString("en-US")} avg</span>}
       </div>
     </>
   );

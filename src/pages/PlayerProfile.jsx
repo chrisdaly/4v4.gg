@@ -994,10 +994,10 @@ const PlayerProfile = () => {
 
               <div className="match-history-table">
                 <div className="mh-header">
-                  <div className="mh-col result">Result</div>
                   <div className="mh-col map">Map</div>
-                  <div className="mh-col heroes">Heroes</div>
-                  <div className="mh-col players">Teams · highest MMR first</div>
+                  <div className="mh-col team">Your team</div>
+                  <div className="mh-col avg">Avg</div>
+                  <div className="mh-col opponents">Opponents</div>
                   <div className="mh-col mmr">+/-</div>
                 </div>
                 {filteredMatches.map((match, idx) => (

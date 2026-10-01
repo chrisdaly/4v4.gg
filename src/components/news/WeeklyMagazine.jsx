@@ -1430,7 +1430,7 @@ const WeekDots = ({ days, streak }) => {
   );
 };
 
-const SpotlightCard = ({ stat, profile, accent, role, blurb, quotes, statKey, heroIcons, victimIcons, killboard, maxHeroKills, week, run, mmr, extra, game, editorial }) => {
+const SpotlightCard = ({ stat, profile, accent, role, blurb, quotes, statKey, heroIcons, victimIcons, killboard, maxHeroKills, week, run, mmr, extra, game, field, kills, editorial }) => {
   if (!stat) return null;
   const canDismiss = editorial?.toggleStat;
   // For streak types, show only the streak portion (e.g. 16 red dots) not the full week form
@@ -1479,7 +1479,21 @@ const SpotlightCard = ({ stat, profile, accent, role, blurb, quotes, statKey, he
             ))}
           </div>
         )}
-        {game ? (
+        {field?.length > 0 ? (
+          <div className="mg-field">
+            <div className="mg-field-heroes" role="img" aria-label={`The ${field.length} heroes on the losing side`}>
+              {field.map((h, i) => (
+                <img key={`${h}-${i}`} src={`/heroes/${h}.jpeg`} alt={h} className="mg-field-hero" />
+              ))}
+            </div>
+            <span className="mg-field-note">
+              {/* Neither the API nor a replay says which hero died, so this is
+                  the field he was working through, never a killboard. */}
+              {field.length} heroes on the other side
+              {kills > field.length ? `, and ${kills} kills, so some of them twice` : ""}
+            </span>
+          </div>
+        ) : game ? (
           <div className="mg-spotlight-game">
             <span className="mg-spotlight-game-label">The game</span>
             {/* The same chart, the same way, as the live game and the home
@@ -1721,6 +1735,8 @@ const SpotlightsSection = ({ spotlights, profiles, editorial, allowed = null, sh
     ? { teamOneMmrs: nums(heroParts[2]), teamTwoMmrs: nums(heroParts[3]) }
     : null;
   const games = heroGameMmrs ? { HEROSLAYER: heroGameMmrs } : {};
+  const heroField = String(find("HEROSLAYER_FIELD") || "").split(",").filter(Boolean);
+  const heroKills = Number(String(find("HEROSLAYER") || "").match(/(\d+)\s+hero kills/)?.[1]) || 0;
   const STREAK_KEYS = new Set(["HOTSTREAK", "COLDSTREAK"]);
   const cards = [
     { key: "WINNER", jsonKey: "winner", role: "Winner", accent: "green" },
@@ -1779,7 +1795,7 @@ const SpotlightsSection = ({ spotlights, profiles, editorial, allowed = null, sh
     // The run that earned the card, so it can be found inside the dots
     const streakMatch = String(stat.headline || "").match(/(\d+)([WL]) streak/);
     const run = streakMatch ? findRun(stat.form, streakMatch[2], Number(streakMatch[1])) : null;
-    return { key, stat, role, accent, blurb, quotes, dailyData, heroIcons, victimIcons, killboard, maxHeroKills, killsDistribution, week, run, mmr: mmrs[key] || null, extra: extras[key] || null, game: games[key] || null };
+    return { key, stat, role, accent, blurb, quotes, dailyData, heroIcons, victimIcons, killboard, maxHeroKills, killsDistribution, week, run, mmr: mmrs[key] || null, extra: extras[key] || null, game: games[key] || null, field: key === "HEROSLAYER" ? heroField : null, kills: key === "HEROSLAYER" ? heroKills : 0 };
   }).filter(Boolean);
 
   if (parsed.length === 0) return null;
@@ -1805,11 +1821,11 @@ const SpotlightsSection = ({ spotlights, profiles, editorial, allowed = null, sh
       </div>
       {parsed.length > 0 && (
         <div className="mg-spotlight-grid">
-          {parsed.map(({ key, stat, role, accent, blurb, quotes, heroIcons, victimIcons, killboard, maxHeroKills, dailyData, week, run, mmr, extra, game }) => (
+          {parsed.map(({ key, stat, role, accent, blurb, quotes, heroIcons, victimIcons, killboard, maxHeroKills, dailyData, week, run, mmr, extra, game, field, kills }) => (
             <React.Fragment key={stat.battleTag}>
               {STREAK_KEYS.has(key) && dailyData
                 ? <StreakCard stat={stat} profile={profiles.get(stat.battleTag)} accent={accent} role={role} blurb={blurb} quotes={quotes} dailyData={dailyData} type={key} editorial={editorial} />
-                : <SpotlightCard stat={stat} profile={profiles.get(stat.battleTag)} accent={accent} role={role} blurb={blurb} quotes={quotes} heroIcons={heroIcons} victimIcons={victimIcons} killboard={killboard} maxHeroKills={maxHeroKills} week={week} run={run} mmr={mmr} extra={extra} game={game} statKey={key} editorial={editorial} />
+                : <SpotlightCard stat={stat} profile={profiles.get(stat.battleTag)} accent={accent} role={role} blurb={blurb} quotes={quotes} heroIcons={heroIcons} victimIcons={victimIcons} killboard={killboard} maxHeroKills={maxHeroKills} week={week} run={run} mmr={mmr} extra={extra} game={game} field={field} kills={kills} statKey={key} editorial={editorial} />
               }
             </React.Fragment>
           ))}

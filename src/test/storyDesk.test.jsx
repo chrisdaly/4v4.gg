@@ -535,3 +535,30 @@ describe('what the older issues had', () => {
     expect(quotesForPlayers(rows, [])).toEqual({});
   });
 });
+
+describe('the hero slayer field', () => {
+  it('collects the losing side\'s heroes, and only from the record game', async () => {
+    // Shape of what heroSlayerFrom builds: the opposing roster for one match
+    const rows = [
+      { match_id: 'rec', battle_tag: 'TommyHsu#1', heroes: '[{"icon":"paladin"},{"icon":"sorceror"}]' },
+      { match_id: 'rec', battle_tag: 'Dharma#2', heroes: '[{"icon":"blademaster"}]' },
+      // His own heroes are not the field
+      { match_id: 'rec', battle_tag: 'kiggatroon#3', heroes: '[{"icon":"lich"}]' },
+      // A different game entirely
+      { match_id: 'other', battle_tag: 'TommyHsu#1', heroes: '[{"icon":"archmage"}]' },
+      // A row whose heroes will not parse must not take the rest down
+      { match_id: 'rec', battle_tag: 'Magnus#4', heroes: 'not json' },
+    ];
+    const against = new Set(['TommyHsu#1', 'Dharma#2', 'Magnus#4']);
+    const field = [];
+    for (const r of rows) {
+      if (r.match_id !== 'rec' || !against.has(r.battle_tag) || !r.heroes) continue;
+      try {
+        for (const h of JSON.parse(r.heroes) || []) if (h?.icon) field.push(h.icon);
+      } catch { /* skipped */ }
+    }
+    expect(field).toEqual(['paladin', 'sorceror', 'blademaster']);
+    expect(field).not.toContain('lich');
+    expect(field).not.toContain('archmage');
+  });
+});

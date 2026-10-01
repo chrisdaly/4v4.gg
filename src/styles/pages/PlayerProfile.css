@@ -409,21 +409,24 @@
   flex-shrink: 0;
 }
 
-.mh-col.result {
-  text-align: center;
-}
-
-.mh-col.mmr {
-  text-align: right;
-}
-
+/* Header labels sit over the zones they name: each team leans into the
+   divider the same way its names do. */
 .mh-col.map {
   width: auto;
   height: auto;
 }
 
+.mh-col.team {
+  text-align: right;
+}
+
+.mh-col.avg,
 .mh-col.mmr {
   text-align: center;
+}
+
+.mh-col.mmr {
+  text-align: right;
 }
 
 .ally {
@@ -865,7 +868,9 @@
     align-items: flex-start;
   }
 
-  .mh-col.players {
+  /* Both lineups drop out of the row here, so their labels go too */
+  .mh-col.team,
+  .mh-col.opponents {
     display: none;
   }
 
@@ -875,10 +880,6 @@
 
   .player-page .player-name {
     font-size: var(--text-lg);
-  }
-
-  .mh-col.players {
-    display: none;
   }
 
 }

@@ -142,6 +142,22 @@ export function heroSlayerFrom(weekStart, weekEnd, weeklyPlayerMap) {
     }
   }
 
+  // The heroes that were on the other side of the record game. Not a
+  // killboard: neither the API nor a replay says which hero actually died,
+  // because a replay only carries player actions. This is the field he was
+  // working through, and it is labelled as that.
+  if (bestGame?.against?.length) {
+    const theirs = new Set(bestGame.against);
+    const field = [];
+    for (const r of rows) {
+      if (r.match_id !== bestGame.matchId || !theirs.has(r.battle_tag) || !r.heroes) continue;
+      try {
+        for (const h of JSON.parse(r.heroes) || []) if (h?.icon) field.push(h.icon);
+      } catch { /* a row with unparseable heroes just contributes nothing */ }
+    }
+    if (field.length) bestGame.field = field;
+  }
+
   const wp = weeklyPlayerMap.get(tag);
   const hist = (m) => [...m.entries()].sort((a, b) => a[0] - b[0]).map(([k, n]) => `${k}=${n}`).join(',');
 
@@ -156,6 +172,7 @@ export function heroSlayerFrom(weekStart, weekEnd, weeklyPlayerMap) {
     race: wp?.race ?? null,
     distribution: `${hist(all)}|player:${hist(mine)}`,
     game: bestGame,
+    field: bestGame?.field || null,
   };
 }
 
@@ -359,6 +376,7 @@ export async function weeklyStatSections(weekStart, weekEnd) {
     const race = RACES[slayer.race] ? `[${RACES[slayer.race]}]` : '';
     sections.HEROSLAYER = `${slayer.battleTag}${race} ${slayer.max} hero kills in a game (${slayer.wins}W-${slayer.losses}L)`;
     if (slayer.heroes.length > 0) sections.HEROSLAYER_HEROES = slayer.heroes.join(',');
+    if (slayer.field?.length) sections.HEROSLAYER_FIELD = slayer.field.join(',');
     // The week's total, now the supporting fact rather than the headline
     sections.HEROSLAYER_TOTAL = `${slayer.kills} across ${slayer.games} games`;
     if (slayer.game?.map) {

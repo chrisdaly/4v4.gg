@@ -4189,3 +4189,35 @@ a.mg-feat-text:hover {
   letter-spacing: 0.1em;
   color: var(--grey-light);
 }
+
+/* ── The hero slayer's field ────────────────────────
+   The heroes that were on the losing side. Not a killboard: nothing in the
+   data says which hero died, so the label says what this actually is. */
+
+.mg-field {
+  margin-top: var(--space-3);
+}
+
+.mg-field-heroes {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 4px;
+  max-width: 420px;
+}
+
+.mg-field-hero {
+  width: 34px;
+  height: 34px;
+  border-radius: var(--radius-sm);
+  object-fit: cover;
+  border: 1px solid rgba(255, 255, 255, 0.18);
+  filter: grayscale(0.55) brightness(0.8);
+}
+
+.mg-field-note {
+  display: block;
+  margin-top: var(--space-2);
+  font-family: var(--font-mono);
+  font-size: var(--text-xxs);
+  color: var(--grey-light);
+}
