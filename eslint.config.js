@@ -33,6 +33,10 @@ export default [
       ...react.configs.flat.recommended.rules,
       'react/react-in-jsx-scope': 'off', // Vite/automatic JSX runtime
       'react/prop-types': 'off',
+      // A component used in JSX but never defined builds clean and then
+      // blows up at runtime. Removing a section once left <SaveStatus />
+      // behind and the whole news page died on "SaveStatus is not defined".
+      'react/jsx-no-undef': 'error',
       'react-hooks/rules-of-hooks': 'error',
       'react-hooks/exhaustive-deps': 'warn',
     },

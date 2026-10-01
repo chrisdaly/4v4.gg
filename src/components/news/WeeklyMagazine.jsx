@@ -554,17 +554,6 @@ const StoriesGrid = ({ stories, highlights, bans, nameToTag, editorial }) => {
             onDragLeave={() => drag.onDragLeave(i)}
             onDrop={(e) => { if (drag.dragState.section === sectionKey) { e.preventDefault(); drag.onDrop(sectionKey, i, (sec, from, to) => editorial?.reorderItem?.(sec, from + offset, to + offset)); } }}
           >
-            {editorial && (
-              <ItemControls
-                onDelete={() => editorial.deleteItem(sectionKey, draftIdx)}
-                onContext={() => setContextOpen(isContextOpen ? null : contextKey)}
-                dragProps={{
-                  draggable: true,
-                  onDragStart: () => drag.onDragStart(sectionKey, i),
-                  onDragEnd: drag.onDragEnd,
-                }}
-              />
-            )}
             {onEdit ? (
               <EditableText value={text.trim()} onSave={(t) => onEdit(i, t)} className="mg-sidebar-item-text" />
             ) : (
@@ -611,13 +600,6 @@ const StoriesGrid = ({ stories, highlights, bans, nameToTag, editorial }) => {
                     onDragLeave={() => drag.onDragLeave(i)}
                     onDrop={(e) => { if (drag.dragState.section === "DRAMA") { e.preventDefault(); drag.onDrop("DRAMA", i, (sec, from, to) => editorial?.reorderItem?.(sec, from + 1, to + 1)); } }}
                   >
-                    {editorial && (
-                      <ItemControls
-                        onDelete={() => editorial.deleteItem("DRAMA", draftIdx)}
-                        onContext={() => setContextOpen(isContextOpen ? null : contextKey)}
-                        dragProps={{ draggable: true, onDragStart: () => drag.onDragStart("DRAMA", i), onDragEnd: drag.onDragEnd }}
-                      />
-                    )}
                     {item.headline && (
                       editorial?.onEditDrama ? (
                         <EditableText value={item.headline} onSave={(t) => editorial.onEditDrama(i, `${t} | ${item.summary.trim()}`)} tag="h4" className="mg-brief-title" />
@@ -677,13 +659,6 @@ const StoriesGrid = ({ stories, highlights, bans, nameToTag, editorial }) => {
                       onDragLeave={() => drag.onDragLeave(i)}
                       onDrop={(e) => { if (drag.dragState.section === "HIGHLIGHTS") { e.preventDefault(); drag.onDrop("HIGHLIGHTS", i, (sec, from, to) => editorial?.reorderItem?.(sec, from, to)); } }}
                     >
-                      {editorial && (
-                        <ItemControls
-                          onDelete={() => editorial.deleteItem("HIGHLIGHTS", draftIdx)}
-                          onContext={() => setContextOpen(isContextOpen ? null : contextKey)}
-                          dragProps={{ draggable: true, onDragStart: () => drag.onDragStart("HIGHLIGHTS", i), onDragEnd: drag.onDragEnd }}
-                        />
-                      )}
                       {item.headline && (
                         editorial?.onEditHighlight ? (
                           <EditableText value={item.headline} onSave={(t) => editorial.onEditHighlight(i, `${t} | ${item.summary.trim()}`)} tag="h4" className="mg-brief-title mg-brief-title--green" />
@@ -737,16 +712,6 @@ const StoriesGrid = ({ stories, highlights, bans, nameToTag, editorial }) => {
                     onDragLeave={() => drag.onDragLeave(i)}
                     onDrop={(e) => { if (drag.dragState.section === "BANS") { e.preventDefault(); drag.onDrop("BANS", i, (sec, from, to) => editorial?.reorderItem?.(sec, from, to)); } }}
                   >
-                    {editorial && (
-                      <ItemControls
-                        onDelete={() => editorial.deleteItem("BANS", i)}
-                        dragProps={{
-                          draggable: true,
-                          onDragStart: () => drag.onDragStart("BANS", i),
-                          onDragEnd: drag.onDragEnd,
-                        }}
-                      />
-                    )}
                     <div className="mg-ban-content">
                       <div className="mg-ban-header">
                         <span className="mg-ban-name">{b.name}</span>
@@ -2992,9 +2957,6 @@ const WeeklyMagazine = ({ weekParam, isAdmin = false, apiKey = "" }) => {
         prevNo={prevIssue ? issueNumber(weeklyDigests, prevIssue.week_start) : null}
         nextNo={nextIssue ? issueNumber(weeklyDigests, nextIssue.week_start) : null}
       />
-
-      {/* Save status bar */}
-      {ed.isEditorial && <SaveStatus state={ed.publishState} />}
 
       {/* Regenerate confirmation modal */}
 
