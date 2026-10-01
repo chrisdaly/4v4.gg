@@ -141,6 +141,12 @@ export function initDb() {
     );
   `);
 
+  // Migration: the English translation of a non-Latin message, written once
+  // when the model answers. It used to live only in the SSE broadcast, so it
+  // survived about two seconds: a reload or a scroll back through history
+  // left every Russian and Chinese line untranslated.
+  tryAddColumn(`ALTER TABLE messages ADD COLUMN translation TEXT`);
+
   // Migration: add player_tag column to clips
   tryAddColumn(`ALTER TABLE clips ADD COLUMN player_tag TEXT`);
 
@@ -585,6 +591,26 @@ export function insertMessage(msg) {
     msg.sentAt,
     msg.room || '4 vs 4'
   );
+}
+
+/** Store a message's English translation. Returns true when a row changed. */
+export function setTranslation(id, translation) {
+  if (!id || !translation) return false;
+  const result = db.prepare(`
+    UPDATE messages SET translation = ? WHERE id = ? AND deleted = 0
+  `).run(translation, id);
+  return result.changes > 0;
+}
+
+/** Messages that still need one, newest first (the translation backfill). */
+export function untranslatedMessages(limit = 100, sinceHours = null) {
+  const since = sinceHours ? `AND received_at > datetime('now', '-${Number(sinceHours)} hours')` : '';
+  return db.prepare(`
+    SELECT id, message FROM messages
+    WHERE deleted = 0 AND translation IS NULL ${since}
+    ORDER BY received_at DESC
+    LIMIT ?
+  `).all(Math.min(limit, 500));
 }
 
 export function insertMessages(msgs) {
@@ -1587,7 +1613,7 @@ export function deleteCoverGeneration(id) {
 
 // ── Full-text message search ──────────────────────────
 
-const SEARCH_COLUMNS = 'id, user_name, clan_tag, message, sent_at, battle_tag, received_at';
+const SEARCH_COLUMNS = 'id, user_name, clan_tag, message, sent_at, battle_tag, received_at, translation';
 
 /**
  * One WHERE clause for every message search. Filters compose with AND:

@@ -1,5 +1,6 @@
 import Anthropic from '@anthropic-ai/sdk';
 import { broadcast } from './sse.js';
+import { setTranslation } from './db.js';
 import config from './config.js';
 
 // Matches CJK, Cyrillic, Arabic, Thai, Korean, Devanagari, and other non-Latin scripts
@@ -9,9 +10,14 @@ export function needsTranslation(text) {
   return NON_LATIN_RE.test(text);
 }
 
-export async function maybeTranslate(messageId, text) {
-  if (!config.ANTHROPIC_API_KEY) return;
-  if (!needsTranslation(text)) return;
+/**
+ * Translate a message to English when it is not already Latin script, store
+ * it on the row and push it to anyone watching. Results are permanent: the
+ * archive and search carry them too.
+ */
+export async function maybeTranslate(messageId, text, { broadcastLive = true } = {}) {
+  if (!config.ANTHROPIC_API_KEY) return false;
+  if (!needsTranslation(text)) return false;
 
   try {
     const client = new Anthropic({ apiKey: config.ANTHROPIC_API_KEY });
@@ -25,11 +31,17 @@ export async function maybeTranslate(messageId, text) {
     });
 
     const translated = msg.content[0]?.text?.trim();
-    if (!translated) return;
+    if (!translated) return false;
 
-    broadcast('translation', { id: messageId, translated });
+    // Stored first, then broadcast: the live stream shows it at once and a
+    // reader who arrives tomorrow still gets it with the message. A backfill
+    // skips the broadcast, since nobody is watching those lines arrive.
+    setTranslation(messageId, translated);
+    if (broadcastLive) broadcast('translation', { id: messageId, translated });
     console.log(`[Translate] ${text.substring(0, 30)} -> ${translated.substring(0, 50)}`);
+    return true;
   } catch (err) {
     console.error('[Translate] Error:', err.message);
+    return false;
   }
 }

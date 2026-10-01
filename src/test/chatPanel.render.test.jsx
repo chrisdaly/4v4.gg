@@ -48,6 +48,7 @@ import { resetNotifyThrottle } from '../lib/chat/notify';
 import { resetUnfurlCache } from '../lib/chat/unfurl';
 import { isTrimPaused, setTrimPaused } from '../lib/chat/trimGate';
 import { localTimeLabel } from '../lib/chat/localTime';
+import { saveLastRead, loadLastRead, resetLastReadThrottle } from '../lib/chat/lastRead';
 
 // Noon LOCAL time today (the day dividers use local dates), so 'Today' /
 // 'Yesterday' assertions never rot and do not depend on the machine's timezone
@@ -820,6 +821,48 @@ describe('ChatPanel latest pill', () => {
     expect(document.querySelector('[data-latest-pill]')).toHaveTextContent('↓ Latest');
     rerender(<Owner {...baseProps} isMobile messages={later(1)} inGameInfoMap={new Map()} />);
     expect(document.querySelector('[data-latest-pill]')).toHaveTextContent('↓ 1 new');
+  });
+});
+
+describe('ChatPanel last read', () => {
+  beforeEach(() => {
+    localStorage.clear();
+    resetLastReadThrottle();
+  });
+
+  it('marks where the last visit stopped, and offers the trip back while it is off screen', async () => {
+    // the reader last saw Grubby's second line; three messages have landed
+    saveLastRead({ id: 'a2', sentAt: iso(30000) }, { force: true });
+    renderPanel();
+
+    const marker = screen.getByText('new');
+    expect(marker).toBeInTheDocument();
+    // it sits on the first row the reader has not seen, not at the end
+    const markerRow = marker.closest('[data-index]');
+    expect(markerRow.querySelector('[id="msg-b1"]')).not.toBeNull();
+
+    // the stream opens at the bottom, so the marker is above the viewport
+    act(() => virtuosoProps.current.rangeChanged({
+      startIndex: Number(markerRow.dataset.index) + 1,
+      endIndex: Number(markerRow.dataset.index) + 2,
+    }));
+    const jump = document.querySelector('[data-unread-jump]');
+    expect(jump).toHaveTextContent('Where you left off');
+    fireEvent.click(jump);
+    await waitFor(() => expect(scrollToIndex).toHaveBeenCalled());
+  });
+
+  it('shows no marker when nothing arrived since the last visit', () => {
+    saveLastRead({ id: 'c1', sentAt: iso(90000) }, { force: true });
+    renderPanel();
+    expect(screen.queryByText('new')).toBeNull();
+    expect(document.querySelector('[data-unread-jump]')).toBeNull();
+  });
+
+  it('keeps following the reader: the newest line at the bottom is stored', () => {
+    renderPanel();
+    act(() => virtuosoProps.current.atBottomStateChange(true));
+    expect(loadLastRead().id).toBe('c1');
   });
 });
 

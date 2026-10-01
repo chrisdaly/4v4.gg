@@ -14,6 +14,7 @@ import { detectUnfurl } from "../lib/chat/unfurl";
 import { notifyChat } from "../lib/chat/notify";
 import { applyTabBadge } from "../lib/chat/tabBadge";
 import { useUnreadCount, useDocumentVisible } from "../lib/chat/useUnread";
+import { loadLastRead, saveLastRead } from "../lib/chat/lastRead";
 import { chipForTag } from "./chat/chip";
 import { relayFetch } from "../lib/relay";
 import useAdmin from "../lib/useAdmin";
@@ -1033,6 +1034,39 @@ export default function ChatPanel({
     });
   }, [messages, watchList, avatars, jumpToId]);
 
+  // Where the last visit stopped reading: the marker starts there, so
+  // coming back to a busy day shows the spot instead of a wall of lines.
+  // Only once, on mount, and only while the reader has not caught up.
+  const seededMarkerRef = useRef(false);
+  useEffect(() => {
+    if (seededMarkerRef.current || messages.length === 0) return;
+    seededMarkerRef.current = true;
+    const stored = loadLastRead();
+    if (!stored) return;
+    const newest = new Date(messages[messages.length - 1].sentAt).getTime();
+    if (Number.isNaN(newest) || newest <= stored.at) return; // nothing missed
+    setNewMarkerTime(stored.at);
+  }, [messages]);
+
+  // Follow the reader's position while they are at the bottom, and write it
+  // once more on the way out
+  useEffect(() => {
+    if (!atBottom || messages.length === 0) return;
+    saveLastRead(messages[messages.length - 1]);
+  }, [atBottom, messages]);
+  useEffect(() => () => {
+    const loaded = messagesRef.current;
+    if (atBottomRef.current && loaded.length > 0) saveLastRead(loaded[loaded.length - 1], { force: true });
+  }, []);
+
+  // Caught up: the marker has done its job, so it fades on the same timer
+  // the tab-return path uses
+  useEffect(() => {
+    if (!atBottom || newMarkerTime == null) return undefined;
+    const id = setTimeout(() => setNewMarkerTime(null), NEW_MARKER_LINGER_MS);
+    return () => clearTimeout(id);
+  }, [atBottom, newMarkerTime]);
+
   // "- new -" marker: remember where you were when the tab went hidden, and
   // drop it two minutes after you are back.
   //
@@ -1233,6 +1267,20 @@ export default function ChatPanel({
   // Jump (permalink, date): scroll to the row once it exists. If the list
   // is about to remount (window replaced), the initial position handles it
   // instead.
+  // The row the "new" marker sits on, while it is above the viewport: the
+  // reader always lands at the bottom of a live stream, so the spot they
+  // left off is up the list and the sticky bar offers the trip back to it.
+  const markerRow = useMemo(() => rows.find((r) => r.showNewMarker) || null, [rows]);
+  const unreadRowId = useMemo(() => {
+    if (!markerRow || topIndex == null) return null;
+    const idx = findRowIndex(rows, markerRow.msg?.id);
+    if (idx === -1) return null;
+    return idx + firstItemIndex < topIndex ? markerRow.msg?.id : null;
+  }, [markerRow, rows, firstItemIndex, topIndex]);
+  const jumpToUnread = useCallback(() => {
+    if (unreadRowId) setPendingJump({ id: unreadRowId, align: "start" });
+  }, [unreadRowId]);
+
   const pendingJumpIndex = pendingJump ? findRowIndex(rows, pendingJump.id) : -1;
   const pendingJumpAlign = pendingJump?.align || "center";
   useEffect(() => {
@@ -1402,7 +1450,9 @@ export default function ChatPanel({
         text: m.text,
         sentAt: m.sentAt,
         kind: m.kind,
-        translation: showTranslations ? translations.get(m.id) : undefined,
+        // the live event wins while it is in memory, the stored one covers
+        // history and anything that arrived before this session
+        translation: showTranslations ? translations.get(m.id) || m.translation || undefined : undefined,
         highlight: flashId === m.id,
       })),
     };
@@ -1584,6 +1634,17 @@ export default function ChatPanel({
                     </DayPopover>
                   )}
                 </DayPicker>
+                {unreadRowId && (
+                  <BackToLiveButton
+                    type="button"
+                    $pill
+                    data-unread-jump
+                    title="Go to the first message you have not read"
+                    onClick={jumpToUnread}
+                  >
+                    &#8593; Where you left off
+                  </BackToLiveButton>
+                )}
                 {windowMode !== "live" && (
                   <BackToLiveButton
                     type="button"
