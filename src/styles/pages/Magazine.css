@@ -325,8 +325,8 @@ a.mg-inline-name:hover {
 
 .mg-stories-grid--wide .mg-sidebar-list {
   display: grid;
-  grid-template-columns: repeat(auto-fit, minmax(260px, 1fr));
-  gap: var(--space-6);
+  grid-template-columns: repeat(auto-fit, minmax(340px, 1fr));
+  gap: var(--space-8);
 }
 
 .mg-stories-grid--wide .mg-sidebar-item:has(.mg-brief-title) {
@@ -409,7 +409,7 @@ a.mg-inline-name:hover {
 .mg-brief-title {
   margin: 0 0 var(--space-2);
   font-family: var(--font-display);
-  font-size: var(--text-sm);
+  font-size: var(--text-lg);
   font-weight: normal;
   line-height: 1.2;
   color: var(--gold);
@@ -423,9 +423,9 @@ a.mg-inline-name:hover {
 .mg-brief-body {
   display: block;
   font-family: var(--font-body, Georgia, serif);
-  font-size: var(--text-xs);
-  line-height: 1.6;
-  color: rgba(255, 255, 255, 0.82);
+  font-size: var(--text-sm);
+  line-height: 1.65;
+  color: rgba(255, 255, 255, 0.88);
 }
 
 /* Highlight items with inline quotes */
@@ -451,7 +451,7 @@ a.mg-inline-name:hover {
 .mg-highlight-quote {
   margin: 0;
   font-family: var(--font-mono);
-  font-size: var(--text-xxs);
+  font-size: var(--text-xs);
   color: var(--grey-light);
   line-height: 1.4;
 }
@@ -4110,4 +4110,56 @@ a.mg-stack-player-name:hover {
 
 a.mg-feat-text:hover {
   color: var(--gold);
+}
+
+/* ── A card's week, grouped by day ──────────────────── */
+
+.mg-weekdots {
+  display: flex;
+  gap: var(--space-3);
+  margin-top: var(--space-3);
+  align-items: flex-start;
+}
+
+.mg-weekday {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: var(--space-1);
+}
+
+.mg-weekday-label {
+  font-family: var(--font-mono);
+  font-size: var(--text-xxxs);
+  text-transform: uppercase;
+  color: var(--grey-mid);
+}
+
+.mg-weekday-dots {
+  display: grid;
+  grid-template-columns: repeat(4, 6px);
+  gap: 3px;
+  justify-content: center;
+}
+
+.mg-wd-dot {
+  width: 6px;
+  height: 6px;
+  border-radius: 50%;
+  opacity: 0.3;
+}
+
+.mg-wd-dot--win { background: var(--green); }
+.mg-wd-dot--loss { background: var(--red); }
+
+/* The run that earned the card */
+.mg-wd-dot--run {
+  opacity: 1;
+  box-shadow: 0 0 0 1px rgba(255, 255, 255, 0.4);
+}
+
+.mg-spotlight-extra {
+  font-family: var(--font-mono);
+  font-size: var(--text-xxs);
+  color: var(--amber);
 }

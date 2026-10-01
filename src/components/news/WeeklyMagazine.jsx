@@ -30,7 +30,7 @@ import useWeekDailies from "../../lib/news/useWeekDailies";
 import { quoteOfTheDay } from "../../lib/home/quoteOfTheDay";
 import { spotlightVerdict, streakDistributionVerdict, newBloodPasses, stackPasses, issueNumber, issueDateRange, neighbourIssues, dayByDay, SECTION_RULES } from "../../lib/news/issueRules";
 import { LedeSection, QuoteOfWeek, DayByDay, IssueNav, LeftOut, Feats } from "./IssueParts";
-import { readFeats } from "../../lib/news/storyDesk";
+import { readDaily, readMmr, findRun } from "../../lib/news/storyDesk";
 import "../../styles/pages/Magazine.css";
 
 const RELAY_URL =
@@ -1400,7 +1400,36 @@ const QuoteBrowser = ({ statKey, battleTag, editorial, label, text, nameToTag, d
   );
 };
 
-const SpotlightCard = ({ stat, profile, accent, role, blurb, quotes, statKey, heroIcons, victimIcons, killboard, maxHeroKills, editorial }) => {
+/**
+ * A card's week as dots, one column per day it was played, with the run that
+ * earned the card picked out. The same shape the desk uses, because 187 dots
+ * in a single row tell you nothing about when the week turned and a 10-win
+ * streak is invisible inside eighty of them.
+ */
+const WeekDots = ({ days, streak }) => {
+  if (!days?.length) return null;
+  let seen = 0;
+  return (
+    <div className="mg-weekdots">
+      {days.map(({ day, form }) => {
+        const cells = form.split("").map((ch, i) => {
+          const idx = seen + i;
+          const inRun = streak && idx >= streak.start && idx < streak.end;
+          return <span key={i} className={`mg-wd-dot mg-wd-dot--${ch === "W" ? "win" : "loss"}${inRun ? " mg-wd-dot--run" : ""}`} />;
+        });
+        seen += form.length;
+        return (
+          <div key={day} className="mg-weekday">
+            <span className="mg-weekday-label">{day}</span>
+            <div className="mg-weekday-dots">{cells}</div>
+          </div>
+        );
+      })}
+    </div>
+  );
+};
+
+const SpotlightCard = ({ stat, profile, accent, role, blurb, quotes, statKey, heroIcons, victimIcons, killboard, maxHeroKills, week, run, mmr, extra, editorial }) => {
   if (!stat) return null;
   const canDismiss = editorial?.toggleStat;
   // For streak types, show only the streak portion (e.g. 16 red dots) not the full week form
@@ -1432,6 +1461,7 @@ const SpotlightCard = ({ stat, profile, accent, role, blurb, quotes, statKey, he
           {profile?.country && <CountryFlag name={profile.country.toLowerCase()} />}
         </div>
         <div className="mg-spotlight-stats">
+          {mmr ? <span className="mg-spotlight-mmr mg-text-gold">{mmr.toLocaleString("en-US")} MMR</span> : null}
           {stat.mmrChange != null ? (
             <span className={`mg-spotlight-mmr ${stat.mmrChange >= 0 ? "mg-text-green" : "mg-text-red"}`}>
               {sign}{stat.mmrChange} MMR
@@ -1440,6 +1470,7 @@ const SpotlightCard = ({ stat, profile, accent, role, blurb, quotes, statKey, he
             <span className={`mg-spotlight-mmr mg-text-${accent}`}>{stat.headline}</span>
           )}
         </div>
+        {extra && <span className="mg-spotlight-extra">{extra}</span>}
         {heroIcons?.length > 0 && (
           <div className="mg-spotlight-heroes">
             {heroIcons.map((icon) => (
@@ -1447,7 +1478,9 @@ const SpotlightCard = ({ stat, profile, accent, role, blurb, quotes, statKey, he
             ))}
           </div>
         )}
-        {killboard?.length > 0 ? (
+        {week?.length > 0 ? (
+          <WeekDots days={week} streak={run} />
+        ) : killboard?.length > 0 ? (
           <div className="mg-spotlight-heroes mg-spotlight-heroes--victims">
             {killboard.map(({ name }) => (
               <img key={name} src={`/heroes/${name}.jpeg`} alt={name} className="mg-spotlight-hero-icon mg-spotlight-hero-victim" />
@@ -1701,7 +1734,13 @@ const StreakCard = ({ stat, profile, accent, role, blurb, quotes, dailyData, typ
   );
 };
 
-const SpotlightsSection = ({ spotlights, profiles, editorial, allowed = null, showSpectrum = true }) => {
+const SpotlightsSection = ({ spotlights, profiles, editorial, allowed = null, showSpectrum = true, sections = [] }) => {
+  const find = (k) => sections.find((x) => x.key === k)?.content;
+  const daily = readDaily(find("SPOTLIGHT_DAILY"));
+  const mmrs = readMmr(find("SPOTLIGHT_MMR"));
+  // The hero slayer's record is one game, so the card says which
+  const heroGame = String(find("HEROSLAYER_GAME") || "").split("|")[0];
+  const extras = heroGame ? { HEROSLAYER: heroGame } : {};
   const STREAK_KEYS = new Set(["HOTSTREAK", "COLDSTREAK"]);
   const cards = [
     { key: "WINNER", jsonKey: "winner", role: "Winner", accent: "green" },
@@ -1755,7 +1794,11 @@ const SpotlightsSection = ({ spotlights, profiles, editorial, allowed = null, sh
     const killboard = card.killboard ? Object.entries(card.killboard).map(([name, count]) => ({ name, count })).sort((a, b) => b.count - a.count) : null;
     const maxHeroKills = card.maxKillsInGame || null;
     const killsDistribution = card.killsDistribution || null;
-    return { key, stat, role, accent, blurb, quotes, dailyData, heroIcons, victimIcons, killboard, maxHeroKills, killsDistribution };
+    const week = daily[key] || null;
+    // The run that earned the card, so it can be found inside the dots
+    const streakMatch = String(stat.headline || "").match(/(\d+)([WL]) streak/);
+    const run = streakMatch ? findRun(stat.form, streakMatch[2], Number(streakMatch[1])) : null;
+    return { key, stat, role, accent, blurb, quotes, dailyData, heroIcons, victimIcons, killboard, maxHeroKills, killsDistribution, week, run, mmr: mmrs[key] || null, extra: extras[key] || null };
   }).filter(Boolean);
 
   if (parsed.length === 0) return null;
@@ -1781,11 +1824,11 @@ const SpotlightsSection = ({ spotlights, profiles, editorial, allowed = null, sh
       </div>
       {parsed.length > 0 && (
         <div className="mg-spotlight-grid">
-          {parsed.map(({ key, stat, role, accent, blurb, quotes, heroIcons, victimIcons, killboard, maxHeroKills, dailyData }) => (
+          {parsed.map(({ key, stat, role, accent, blurb, quotes, heroIcons, victimIcons, killboard, maxHeroKills, dailyData, week, run, mmr, extra }) => (
             <React.Fragment key={stat.battleTag}>
               {STREAK_KEYS.has(key) && dailyData
                 ? <StreakCard stat={stat} profile={profiles.get(stat.battleTag)} accent={accent} role={role} blurb={blurb} quotes={quotes} dailyData={dailyData} type={key} editorial={editorial} />
-                : <SpotlightCard stat={stat} profile={profiles.get(stat.battleTag)} accent={accent} role={role} blurb={blurb} quotes={quotes} heroIcons={heroIcons} victimIcons={victimIcons} killboard={killboard} maxHeroKills={maxHeroKills} statKey={key} editorial={editorial} />
+                : <SpotlightCard stat={stat} profile={profiles.get(stat.battleTag)} accent={accent} role={role} blurb={blurb} quotes={quotes} heroIcons={heroIcons} victimIcons={victimIcons} killboard={killboard} maxHeroKills={maxHeroKills} week={week} run={run} mmr={mmr} extra={extra} statKey={key} editorial={editorial} />
               }
               {key === "COLDSTREAK" && spectrumData && showSpectrum && (
                 <StreakSpectrum spectrumData={spectrumData} hotName={hotStat?.stat?.name} coldName={coldStat?.stat?.name} />
@@ -2923,20 +2966,17 @@ const WeeklyMagazine = ({ weekParam, isAdmin = false, apiKey = "" }) => {
         <SpotlightsSection
           spotlights={digestData.spotlights}
           profiles={profiles}
+          sections={sections}
           allowed={allowedSpotlights}
           showSpectrum={showSpectrum}
           editorial={showEditControls ? { regenSpotlights: ed.regenSpotlights, regenMatchStats: ed.regenMatchStats, regenLoading: ed.regenLoading, browseMessages: ed.browseMessages, setQuotes: ed.setQuotes, handleEditSection: ed.handleEditSection, toggleStat: ed.toggleStat, weekStart: ed.weekStart, weekEnd: ed.weekEnd } : null}
         />
       )}
-      {digestData.upsets.length > 0 && (!showEditControls || !ed.hiddenSections.has("UPSET")) && (
-        <UpsetsSection upsets={digestData.upsets} profiles={profiles} />
-      )}
-      {/* Stats & data */}
-      <Feats items={readFeats(sections.find((s) => s.key === "FEATS")?.content)} />
 
       {digestData.powerRankings.length > 0 && (!showEditControls || !ed.hiddenSections.has("POWER_RANKINGS")) && (
         <RankingsSection rankings={digestData.powerRankings} profiles={profiles} />
       )}
+      {/* Stats & data */}
       <CompactStats
         newBlood={(!showEditControls || !ed.hiddenSections.has("NEW_BLOOD")) ? newBlood : null}
         atSpotlight={(!showEditControls || !ed.hiddenSections.has("AT_SPOTLIGHT")) ? stacks : null}
