@@ -307,6 +307,24 @@
   width: 124px;
 }
 
+/* The finished card's hero row: full-size portraits are wider than the
+   column, so they scale with the player cell */
+.hm-slide .heroes-wrapper {
+  gap: 4px;
+}
+
+.hm-slide .hero-pic {
+  width: 34px;
+  height: 34px;
+}
+
+.hm-slide .hero-level {
+  bottom: 2px;
+  right: 2px;
+  padding: 0 3px;
+  font-size: var(--text-xxxs);
+}
+
 /* The MMR dots fan out from the centre line as a slide becomes active.
    MmrComparison is drawn by d3 at fixed positions, so the reveal scales
    the chart out of the middle rather than moving each dot. */
@@ -342,6 +360,11 @@
   .hm-slide .profile-pic {
     width: 60px;
   }
+
+  .hm-slide .hero-pic {
+    width: 30px;
+    height: 30px;
+  }
 }
 
 @media (max-width: 1240px) {
@@ -351,6 +374,11 @@
 
   .hm-slide .profile-pic {
     width: 52px;
+  }
+
+  .hm-slide .hero-pic {
+    width: 26px;
+    height: 26px;
   }
 }
 
@@ -464,8 +492,7 @@
 }
 
 /* Empty state: the latest finished game */
-.hm-empty,
-.hm-finished {
+.hm-empty {
   flex: 1;
   display: flex;
   flex-direction: column;
@@ -473,6 +500,28 @@
   justify-content: center;
   gap: 28px;
   padding: 32px 24px;
+}
+
+/* The finished game is the same scorecard as a live slide, so it keeps the
+   slide frame and its own bar at the bottom where LIVE NOW sits. */
+.hm-finished {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  min-height: 0;
+}
+
+.hm-finished .hm-slides {
+  flex: 1;
+}
+
+/* names only, until the match detail (and with it the portraits and the
+   MMR chart) lands */
+.hm-finished > .hm-finished-teams {
+  flex: 1;
+  align-content: center;
+  padding: 32px 24px;
+  box-sizing: border-box;
 }
 
 .hm-empty-text {
@@ -642,6 +691,50 @@
 .hm-finished-note-name {
   font-family: var(--font-display);
   color: var(--gold);
+}
+
+/* FINISHED bar: the LIVE NOW bar's twin, with the map, the note and the
+   way back to /finished */
+.hm-finishedbar {
+  height: auto;
+  min-height: 50px;
+  padding-top: 8px;
+  padding-bottom: 8px;
+}
+
+.hm-finishedbar .hm-finished-tag {
+  font-size: var(--text-xxs);
+  letter-spacing: 0.16em;
+  padding: 1px 6px;
+  flex-shrink: 0;
+}
+
+.hm-finishedbar-map {
+  width: 24px;
+  height: 24px;
+  border-radius: 2px;
+  border: 1px solid rgba(var(--gold-muted-rgb), 0.5);
+  object-fit: cover;
+  flex-shrink: 0;
+}
+
+.hm-finishedbar .hm-finished-note {
+  min-width: 0;
+  font-size: 13px;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  gap: 8px;
+}
+
+.hm-finishedbar .hm-finished-note-tag {
+  font-size: var(--text-xxxs);
+  padding: 1px 6px;
+  flex-shrink: 0;
+}
+
+.hm-livebar-end {
+  margin-left: auto;
 }
 
 /* ── Who's here ── */
@@ -1040,6 +1133,10 @@
   .hm-finished-teams {
     grid-template-columns: minmax(0, 1fr);
     gap: 16px;
+  }
+
+  .hm-finishedbar .hm-finished-note {
+    display: none;
   }
 
   .hm-finished-vs {

@@ -1,9 +1,12 @@
-import React, { useEffect, useMemo, useRef, useState } from "react";
-import { Link } from "react-router-dom";
+import React, { Suspense, lazy, useEffect, useMemo, useRef, useState } from "react";
+import { Link, useHistory } from "react-router-dom";
 import LiveGameSlide from "./LiveGameSlide";
 import { RaceIcon } from "../ui";
 import { getMapImageUrl } from "../../lib/formatters";
 import { renderBlurbText } from "../MatchNote";
+
+// Only the empty state needs it, so it stays out of the home chunk
+const FinishedGame = lazy(() => import("../FinishedGame"));
 
 /**
  * The home page's live game panel: one slide per ongoing game, highest
@@ -11,7 +14,9 @@ import { renderBlurbText } from "../MatchNote";
  * along the bottom (pulsing dot, "Game N of M · highest-rated first" or,
  * for ~1.7s after one arrives, a tagged event, then the pager bars and the
  * link to /live). With no game live it shows the latest finished game
- * instead (winners, losers, MVP, note) and a link to /finished.
+ * instead, rendered as the same scorecard the match page gets (portraits,
+ * MMR chart, stat table), with a FINISHED bar carrying the map, the note
+ * and the link to /finished.
  *
  * Props
  *   matches        ongoing matches sorted by average MMR (desc), or null
@@ -19,8 +24,9 @@ import { renderBlurbText } from "../MatchNote";
  *   rotateSeconds  default 6
  *   flash          the latest event to announce, { id, tag, color, text }
  *                  or null; a new id restarts the 1.7s
- *   finished       { event, note } the latest finished game for the empty
- *                  state (a game_end event from useGameEvents' builder)
+ *   finished       { event, note, detail } the latest finished game for
+ *                  the empty state: a game_end event from useGameEvents'
+ *                  builder, and the match detail once it has loaded
  */
 
 const FLASH_MS = 1700;
@@ -32,6 +38,7 @@ const TAG_COLOR = {
 };
 
 function FinishedPanel({ finished }) {
+  const history = useHistory();
   const ev = finished?.event;
   if (!ev) {
     return (
@@ -41,6 +48,7 @@ function FinishedPanel({ finished }) {
       </div>
     );
   }
+  const matchId = ev.matchId || ev.id;
   const mapImg = getMapImageUrl(ev.mapName);
   const duration = ev.durationInSeconds != null ? `${Math.floor(ev.durationInSeconds / 60)}:${String(Math.round(ev.durationInSeconds % 60)).padStart(2, "0")}` : null;
   const ago = ev.time ? Math.max(0, Math.round((Date.now() - new Date(ev.time).getTime()) / 60000)) : null;
@@ -48,43 +56,60 @@ function FinishedPanel({ finished }) {
   const note = finished.note || ev.note;
   const noteText = typeof note === "string" ? note : note?.text;
   const noteName = typeof note === "object" ? note?.name : null;
+
+  // The scorecard, once the match detail (player scores, so portraits and
+  // the MMR chart) has landed; until then the names-only summary
+  const card = finished.detail ? (
+    <div className="hm-slides">
+      <div
+        className="hm-slide is-active"
+        data-live-slide={matchId}
+        onClick={(e) => {
+          if (e.target.closest("a")) return;
+          if (matchId) history.push(`/match/${matchId}`);
+        }}
+      >
+        <Suspense fallback={null}>
+          <FinishedGame data={finished.detail} embed />
+        </Suspense>
+      </div>
+    </div>
+  ) : (
+    <div className="hm-finished-teams">
+      <div className="hm-finished-side hm-finished-winners">
+        <span className="hm-finished-label hm-finished-label-w">WINNERS</span>
+        {ev.winners.map((p) => (
+          <div key={p.battleTag} className="hm-finished-row">
+            {ev.mvp && p.battleTag === ev.mvp && <span className="hm-mvp-badge">MVP</span>}
+            <span className="hm-finished-delta hm-finished-delta-w">{gain(p)}</span>
+            <Link to={`/player/${encodeURIComponent(p.battleTag)}`} className="hm-finished-name">{p.name}</Link>
+            <RaceIcon race={p.race} className="hm-finished-race" />
+          </div>
+        ))}
+      </div>
+      <span className="hm-finished-vs">vs</span>
+      <div className="hm-finished-side hm-finished-losers">
+        <span className="hm-finished-label hm-finished-label-l">LOSERS</span>
+        {ev.losers.map((p) => (
+          <div key={p.battleTag} className="hm-finished-row">
+            <RaceIcon race={p.race} className="hm-finished-race" />
+            <Link to={`/player/${encodeURIComponent(p.battleTag)}`} className="hm-finished-name hm-finished-name-l">{p.name}</Link>
+            <span className="hm-finished-delta hm-finished-delta-l">{gain(p)}</span>
+          </div>
+        ))}
+      </div>
+    </div>
+  );
+
   return (
     <div className="hm-finished" data-live-empty="finished">
-      <div className="hm-finished-head">
+      {card}
+      <div className="hm-livebar hm-finishedbar" data-live-bar="finished">
         <span className="hm-finished-tag">FINISHED</span>
-        {mapImg && <img src={mapImg} alt="" className="hm-finished-map" onError={(e) => { e.target.style.display = "none"; }} />}
-        <span className="hm-finished-mapname">{ev.mapName}</span>
-        <span className="hm-finished-meta">
-          {duration}
-          {duration && ago != null ? " · " : ""}
-          {ago != null ? `${ago} min ago` : ""}
+        {mapImg && <img src={mapImg} alt="" className="hm-finishedbar-map" onError={(e) => { e.target.style.display = "none"; }} />}
+        <span className="hm-livebar-caption">
+          {[ev.mapName, duration, ago != null ? `${ago} min ago` : null].filter(Boolean).join(" · ")}
         </span>
-      </div>
-      <div className="hm-finished-teams">
-        <div className="hm-finished-side hm-finished-winners">
-          <span className="hm-finished-label hm-finished-label-w">WINNERS</span>
-          {ev.winners.map((p) => (
-            <div key={p.battleTag} className="hm-finished-row">
-              {ev.mvp && p.battleTag === ev.mvp && <span className="hm-mvp-badge">MVP</span>}
-              <span className="hm-finished-delta hm-finished-delta-w">{gain(p)}</span>
-              <Link to={`/player/${encodeURIComponent(p.battleTag)}`} className="hm-finished-name">{p.name}</Link>
-              <RaceIcon race={p.race} className="hm-finished-race" />
-            </div>
-          ))}
-        </div>
-        <span className="hm-finished-vs">vs</span>
-        <div className="hm-finished-side hm-finished-losers">
-          <span className="hm-finished-label hm-finished-label-l">LOSERS</span>
-          {ev.losers.map((p) => (
-            <div key={p.battleTag} className="hm-finished-row">
-              <RaceIcon race={p.race} className="hm-finished-race" />
-              <Link to={`/player/${encodeURIComponent(p.battleTag)}`} className="hm-finished-name hm-finished-name-l">{p.name}</Link>
-              <span className="hm-finished-delta hm-finished-delta-l">{gain(p)}</span>
-            </div>
-          ))}
-        </div>
-      </div>
-      <div className="hm-finished-foot">
         {noteText && (
           <span className="hm-finished-note">
             <span className="hm-finished-note-tag">{ev.mvp && note?.tag === ev.mvp ? "MVP" : "NOTE"}</span>
@@ -92,7 +117,7 @@ function FinishedPanel({ finished }) {
             <span>{renderBlurbText(noteText)}</span>
           </span>
         )}
-        <Link to="/finished" className="hm-cta hm-cta-inline">RECENT MATCHES →</Link>
+        <Link to="/finished" className="hm-livebar-link hm-livebar-end">Recent matches →</Link>
       </div>
     </div>
   );
