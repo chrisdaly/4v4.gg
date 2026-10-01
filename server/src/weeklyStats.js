@@ -29,7 +29,8 @@ export const RULES = {
   spotlightGames: 20,   // a week's net MMR on fewer is noise, same floor as the rankings
   rankingGames: 20,     // power rankings: +89 on ten games is not a rise
   streakFloor: 3,       // the spectrum only plots runs this long
-  newBloodGames: 10,
+  newBloodGames: 3,   // the week of Sep 14 tops out at 7 games, so a high floor empties the
+                      // section; the garbage rows are the 0-MMR ones, which the MMR test takes
   stackGames: 6,
 };
 
@@ -210,7 +211,7 @@ export function weekTrendFrom(weekStart, weekEnd, { weeksBack = 16 } = {}) {
     days.push(`${DOW[new Date(`${d}T12:00:00Z`).getUTCDay()]}:${perDay.get(d) || 0}`);
   }
 
-  const weeks = [];
+  const counted = [];
   for (let w = weeksBack - 1; w >= 0; w--) {
     const start = addDays(weekStart, -7 * w);
     const end = addDays(start, 6);
@@ -225,10 +226,20 @@ export function weekTrendFrom(weekStart, weekEnd, { weeksBack = 16 } = {}) {
         }
       }
     }
-    if (games > 0) weeks.push(`${start}:${games}/${players.size}`);
+    if (games > 0) counted.push({ start, games, players: players.size });
   }
+  if (counted.length === 0) return null;
+
+  // A week where our own collection failed is not a measurement of how many
+  // people played, and leaving it in makes the chart show a population crash
+  // and the blurb compare against it. The week of 2026-06-01 holds 182 games
+  // against a ~1500 median because of the disk-full incident; see
+  // server/OPERATIONS.md. A real halving survives this cut easily.
+  const sorted = [...counted].map((r) => r.games).sort((a, b) => a - b);
+  const median = sorted[Math.floor(sorted.length / 2)];
+  const weeks = counted.filter((r) => r.games >= median * 0.4);
   if (weeks.length === 0) return null;
-  return `days=${days.join(',')}|weeks=${weeks.join(',')}`;
+  return `days=${days.join(',')}|weeks=${weeks.map((r) => `${r.start}:${r.games}/${r.players}`).join(',')}`;
 }
 
 /**
@@ -308,6 +319,8 @@ export function trendBlurb(trendLine) {
     parts.push(`Everyone who turns up still plays about ${Math.round(nowRate)} games a week, so the ladder is not getting keener, it is getting smaller.`);
   } else if (nowRate > thenRate) {
     parts.push(`The ones left are playing more, ${Math.round(thenRate)} games a week then against ${Math.round(nowRate)} now.`);
+  } else {
+    parts.push(`And the ones who turn up play less, ${Math.round(thenRate)} games a week then against ${Math.round(nowRate)} now.`);
   }
   return parts.join(' ');
 }

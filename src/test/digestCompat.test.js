@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest';
-import { parseDigestSections, parseStatLine, extractHeadline, extractTeaser } from '../lib/digestUtils';
+import { parseDigestSections, parseStatLine, extractHeadline, extractTeaser, parseNewBlood } from '../lib/digestUtils';
 import { parseDramaFromText, parseHighlightsFromText, parseWeekTrendFromText, parseMostTalkedAboutFromText } from '../lib/useDigestData';
 import { keyNumbers } from '../lib/news/issueRules';
 import { quoteOfTheDay } from '../lib/home/quoteOfTheDay';
@@ -125,5 +125,29 @@ describe('a card blurb says what the form actually shows', () => {
 
     expect(trailingRun('')).toEqual({ char: '', len: 0 });
     expect(trailingRun('WWLLL')).toEqual({ char: 'L', len: 3 });
+  });
+});
+
+/**
+ * The real NEW_BLOOD line prod writes for the week of 2026-09-14, after the
+ * games floor moved from 10 to 3. Every candidate that week is a returning
+ * player, so this also guards the returning path, which the page renders in
+ * its own section with the trivial-gap filter applied.
+ */
+describe("NEW_BLOOD from prod", () => {
+  const LINE = "Chemluth#21147 debuted at 1736 MMR (7 games, 71% WR) [returning:2025-09-24] first:2026-09-16; "
+    + "nyash#21821 debuted at 1377 MMR (5 games, 40% WR) [returning:2025-05-03] first:2026-09-14; "
+    + "redwood#21563 debuted at 1356 MMR (6 games, 50% WR) [returning:2025-08-09] first:2026-09-18; "
+    + "Lowell#1735 debuted at 1218 MMR (5 games, 60% WR) [returning:2025-08-01] first:2026-09-20";
+
+  it("reads every player, their MMR, games and return date", () => {
+    const players = parseNewBlood(LINE);
+    expect(players).toHaveLength(4);
+    expect(players[0]).toMatchObject({
+      battleTag: "Chemluth#21147", mmr: 1736, games: 7, winPct: 71,
+      returning: true, lastActive: "2025-09-24",
+    });
+    expect(players.every((p) => p.returning)).toBe(true);
+    expect(players.map((p) => p.games)).toEqual([7, 5, 6, 5]);
   });
 });
