@@ -9,7 +9,13 @@
  *     battleTag, userName, clanTag, sentAt (no receivedAt)
  *
  * Everything downstream of useChatStream consumes only the normalized form:
- *   { id, battleTag, userName, clanTag, text, sentAt, receivedAt, deleted, kind }
+ *   { id, battleTag, userName, clanTag, text, sentAt, receivedAt, deleted,
+ *     kind, translation }
+ *
+ * `translation` is the stored English of a non-Latin line. The relay writes
+ * it once and hands it back with the message, so history and search results
+ * carry it; the live SSE `translation` event still arrives separately for
+ * lines that are being translated as they land.
  *
  * `kind` is one of: message | system | bot | translation. Bot responses and
  * translations arrive on their own SSE events today and are kept in their
@@ -48,6 +54,7 @@ export function normalizeMessage(raw) {
     // cursor for /api/chat/messages?before=
     receivedAt: pick(raw, "received_at", "receivedAt"),
     deleted: raw.deleted === 1 || raw.deleted === true,
+    translation: raw.translation ?? null,
     kind,
   };
 }

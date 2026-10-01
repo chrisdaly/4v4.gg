@@ -9,6 +9,7 @@ import { weeklyStatSections } from '../weeklyStats.js';
 import { updateToken, getStatus } from '../signalr.js';
 import { getClientCount } from '../sse.js';
 import { setBotEnabled, isBotEnabled, testCommand } from '../bot.js';
+import { maybeTranslate, needsTranslation } from '../translate.js';
 import { setAnnounceEnabled, isAnnounceEnabled } from '../gameAnnouncer.js';
 import { generateDigest, fetchDailyStats, generateLiveDigest, todayDigestCache, setTodayDigestCache, generateWeeklyDigest, curateDigest, fetchDailyStatCandidates, analyzeSpike, generateMoreItems, appendItemsToDraft, backfillDailyStats, backfillMatchScores, backfillMatchMmrs, generateWeeklyVariants, regenerateSection, regenerateSpotlights, regeneratePlayerQuotes, regenerateMatchStatBlurbs, getPlayerMessageCandidates, computeNewBlood, formatNewBloodLine, digestToJSON } from '../digest.js';
 import { generateCoverImage, buildImagePrompt, extractHeadline, buildImagePromptWithPlayers, generateImageFromPrompt, WC3_STYLE_SUFFIX, suggestScenes } from '../coverImage.js';
@@ -18,6 +19,7 @@ import { getPriorityQueueHead, removeFromPriorityQueue } from '../db.js';
 import { buildFactSheet, generateWithPrompt, SYSTEM_PROMPT, generateStructuredParts, STRUCTURED_SYSTEM_PROMPT } from '../matchBlurb.js';
 import { getMatchBlurb } from '../db.js';
 import { requireApiKey } from '../middleware/auth.js';
+import { untranslatedMessages } from '../db.js';
 
 const router = Router();
 
@@ -182,6 +184,23 @@ router.post('/announce', requireApiKey, (req, res) => {
 
 router.get('/announce', requireApiKey, (_req, res) => {
   res.json({ announceEnabled: isAnnounceEnabled() });
+});
+
+// Translation backfill: history written before translations were stored has
+// none, so a scroll back through a Russian evening is unreadable. Bounded and
+// manual, because every message costs a model call.
+//   POST { limit = 50, sinceHours = null } -> { looked, translated }
+router.post('/translate-backfill', requireApiKey, async (req, res) => {
+  const limit = Math.min(Math.max(parseInt(req.body?.limit ?? 50, 10) || 50, 1), 200);
+  const sinceHours = req.body?.sinceHours ? Math.max(parseInt(req.body.sinceHours, 10) || 0, 0) : null;
+  const rows = untranslatedMessages(limit, sinceHours).filter((m) => needsTranslation(m.message));
+  let translated = 0;
+  for (const row of rows) {
+    // Sequential on purpose: this runs beside the live stream's own calls
+    const ok = await maybeTranslate(row.id, row.message, { broadcastLive: false });
+    if (ok) translated += 1;
+  }
+  res.json({ looked: rows.length, translated });
 });
 
 // Top words (public)

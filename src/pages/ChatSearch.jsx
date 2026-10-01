@@ -135,6 +135,9 @@ export function buildResultItems(rows, { dividers = true, prefix = "hit", markId
       sentAt: toIso(ts),
       msgId: row.id ?? null,
       receivedAt: row.received_at || null,
+      // the relay's stored English for a non-Latin line; ChatMessage renders
+      // it under the message
+      translation: row.translation || undefined,
       highlight: markId != null && String(row.id) === String(markId),
     };
     const close = group && Math.abs((parseTs(ts) || 0) - (parseTs(group.lastTs) || 0)) <= GROUP_GAP_MS;

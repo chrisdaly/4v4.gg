@@ -1,7 +1,7 @@
 import { describe, it, expect } from 'vitest';
 import { normalizeMessage, normalizeMessages } from '../lib/chat/normalize';
 
-const SHAPE = ['id', 'battleTag', 'userName', 'clanTag', 'text', 'sentAt', 'receivedAt', 'deleted', 'kind'];
+const SHAPE = ['id', 'battleTag', 'userName', 'clanTag', 'text', 'sentAt', 'receivedAt', 'deleted', 'translation', 'kind'];
 
 describe('normalizeMessage', () => {
   it('maps a SQLite row (REST history / SSE history / search)', () => {
@@ -17,6 +17,7 @@ describe('normalizeMessage', () => {
       room: '4 vs 4',
     };
     expect(normalizeMessage(row)).toEqual({
+      translation: null,
       id: 'abc',
       battleTag: 'Grubby#1234',
       userName: 'Grubby',
@@ -27,6 +28,16 @@ describe('normalizeMessage', () => {
       deleted: false,
       kind: 'message',
     });
+  });
+
+  it('carries the stored English of a non-Latin line', () => {
+    const row = {
+      id: 'ru1', battle_tag: 'Sasha#1', user_name: 'Sasha', message: 'привет',
+      sent_at: '2026-09-23T10:00:00.000Z', received_at: '2026-09-23 10:00:01',
+      translation: 'hello',
+    };
+    expect(normalizeMessage(row).translation).toBe('hello');
+    expect(normalizeMessage({ ...row, translation: undefined }).translation).toBeNull();
   });
 
   it('maps a live SSE message (camelCase, no receivedAt)', () => {
