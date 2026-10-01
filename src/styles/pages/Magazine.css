@@ -4130,9 +4130,10 @@ a.mg-feat-text:hover {
 
 .mg-weekday-label {
   font-family: var(--font-mono);
-  font-size: var(--text-xxxs);
+  font-size: var(--text-xxs);
+  letter-spacing: 0.06em;
   text-transform: uppercase;
-  color: var(--grey-mid);
+  color: var(--grey-light);
 }
 
 .mg-weekday-dots {
@@ -4153,9 +4154,11 @@ a.mg-feat-text:hover {
 .mg-wd-dot--loss { background: var(--red); }
 
 /* The run that earned the card */
+/* The run that earned the card: bigger and fully lit, rather than ringed.
+   A white halo on a small dot reads as a white background behind it. */
 .mg-wd-dot--run {
   opacity: 1;
-  box-shadow: 0 0 0 2px rgba(255, 255, 255, 0.85);
+  transform: scale(1.45);
 }
 
 .mg-spotlight-extra {
@@ -4168,5 +4171,15 @@ a.mg-feat-text:hover {
 /* A single-game record is drawn as the game, the way a live match is */
 .mg-spotlight-game {
   margin-top: var(--space-3);
-  max-width: 340px;
+  max-width: 260px;
+}
+
+.mg-spotlight-game-label {
+  display: block;
+  margin-bottom: var(--space-1);
+  font-family: var(--font-mono);
+  font-size: var(--text-xxxs);
+  text-transform: uppercase;
+  letter-spacing: 0.1em;
+  color: var(--grey-light);
 }

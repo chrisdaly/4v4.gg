@@ -1481,7 +1481,10 @@ const SpotlightCard = ({ stat, profile, accent, role, blurb, quotes, statKey, he
         )}
         {game ? (
           <div className="mg-spotlight-game">
-            <MmrComparison data={game} variant="scorecard" compact showValues />
+            <span className="mg-spotlight-game-label">The game</span>
+            {/* "card" is the documented variant for news cards; scorecard is
+                the /live and /match preset and reads as a different chart */}
+            <MmrComparison data={game} variant="card" showValues />
           </div>
         ) : week?.length > 0 ? (
           <WeekDots days={week} streak={run} />
