@@ -373,6 +373,33 @@ const longestRun = (form) => {
  */
 /** The run a player is actually on at the end of the week, which is not the
  *  same as their longest run and is the only one you can say they closed on. */
+/**
+ * Lay a kill count out across the heroes the other side actually fielded, so
+ * the card can draw a killboard rather than a roster.
+ *
+ * What is real: the roster, and the total. Which hero fell, and how often, is
+ * recorded nowhere - the API returns a count and a replay carries player
+ * actions, not simulation outcomes. So the spread here is even and fixed, not
+ * drawn at random: random clumps ("deathknight four times" on one load, none
+ * on the next) and reshuffles on every refresh, which reads as broken data.
+ * Even and deterministic keeps the board honest about being a layout, and the
+ * card's note says the per-hero split is unknown.
+ *
+ * Returns one entry per hero in roster order: { icon, share }.
+ */
+export const killboardTiles = (field, kills) => {
+  const roster = (field || []).filter(Boolean);
+  const total = Math.max(0, Math.floor(Number(kills) || 0));
+  if (roster.length === 0 || total === 0) return [];
+  // Fewer kills than heroes: one each, and the rest of the roster is untouched
+  if (total <= roster.length) {
+    return roster.slice(0, total).map((icon) => ({ icon, share: 1 }));
+  }
+  const base = Math.floor(total / roster.length);
+  const extra = total % roster.length;
+  return roster.map((icon, i) => ({ icon, share: base + (i < extra ? 1 : 0) }));
+};
+
 export const trailingRun = (form) => {
   const f = String(form || "");
   if (!f) return { char: "", len: 0 };

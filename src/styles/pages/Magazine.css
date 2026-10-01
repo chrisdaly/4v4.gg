@@ -4198,14 +4198,22 @@ a.mg-feat-text:hover {
   margin-top: var(--space-3);
 }
 
-.mg-field-heroes {
+/* The killboard: one tile per kill, grouped by the hero it is laid against.
+   The gap between groups is wider than the gap inside one, so the eye reads
+   the roster first and the repeats second. */
+.mg-killboard {
   display: flex;
   flex-wrap: wrap;
-  gap: 4px;
+  gap: 4px 10px;
   max-width: 420px;
 }
 
-.mg-field-hero {
+.mg-killboard-group {
+  display: flex;
+  gap: 2px;
+}
+
+.mg-killboard-tile {
   width: 34px;
   height: 34px;
   border-radius: var(--radius-sm);

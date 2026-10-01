@@ -23,6 +23,7 @@ import {
   extractMentionedTags,
   groupQuotesBySpeaker,
   buildStatBlurb,
+  killboardTiles,
 } from "../../lib/digestUtils";
 import useDigestData from "../../lib/useDigestData";
 import useDragReorder from "../../lib/useDragReorder";
@@ -1481,16 +1482,31 @@ const SpotlightCard = ({ stat, profile, accent, role, blurb, quotes, statKey, he
         )}
         {field?.length > 0 ? (
           <div className="mg-field">
-            <div className="mg-field-heroes" role="img" aria-label={`The ${field.length} heroes on the losing side`}>
-              {field.map((h, i) => (
-                <img key={`${h}-${i}`} src={`/heroes/${h}.jpeg`} alt={h} className="mg-field-hero" />
+            <div
+              className="mg-killboard"
+              role="img"
+              aria-label={`${kills || field.length} hero kills, laid out across the ${field.length} heroes the other side fielded`}
+            >
+              {killboardTiles(field, kills || field.length).map(({ icon, share }) => (
+                <div key={icon} className="mg-killboard-group">
+                  {Array.from({ length: share }, (_, n) => (
+                    <img
+                      key={`${icon}-${n}`}
+                      src={`/heroes/${icon}.jpeg`}
+                      alt={icon}
+                      className="mg-killboard-tile"
+                    />
+                  ))}
+                </div>
               ))}
             </div>
             <span className="mg-field-note">
-              {/* Neither the API nor a replay says which hero died, so this is
-                  the field he was working through, never a killboard. */}
-              {field.length} heroes on the other side
-              {kills > field.length ? `, and ${kills} kills, so some of them twice` : ""}
+              {/* The roster and the total are real. Which hero fell, and how
+                  often, is recorded nowhere, so the spread is an even layout
+                  and the note says so rather than letting the board imply a
+                  per-hero tally. */}
+              {kills > 0 ? `${kills} kills across the ` : "The "}
+              {field.length} heroes they fielded. Which of them fell, and how often, is not recorded.
             </span>
             {share && <span className="mg-field-share">{share}</span>}
           </div>
