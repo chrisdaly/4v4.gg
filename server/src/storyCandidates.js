@@ -1,3 +1,6 @@
+import { segmentTopics, groupSegments } from './topicSegments.js';
+import { makeVectoriser } from './textEmbed.js';
+
 /**
  * Story candidates for a weekly issue.
  *
@@ -5,10 +8,14 @@
  * both. Neither uses a model: the same week gives the same candidates every
  * time, and a model only ever writes from a candidate a human picked.
  *
- *   threads  bursts. An argument: many messages, few minutes, two people
- *            doing most of the talking, other people laughing at it.
+ *   threads  bursts. An argument, found by Kleinberg burst level and by how
+ *            often the speaker changes, not by messages per minute.
  *   themes   the slow ones. A topic that ran all week at a rate well above
  *            what the four weeks before it looked like.
+ *   echoes   one line from several different mouths, which is the room
+ *            reacting rather than a person ranting.
+ *   topics   conversations cut where their subject changed, then regrouped
+ *            by subject, so the same argument on four days reads as one.
  *
  * The second matters more than it sounds. For the week of 2026-09-14 the
  * burst detector ranked the week's real lead 37th, because the lead was a
@@ -407,7 +414,42 @@ export function findThemes(weekMessages, baselineMessages, { minMessages = 8, mi
  * the desk can show what a term actually meant without a second request.
  * Takes its reader as an argument so the detectors stay pure and testable.
  */
-export function storyCandidates(weekStart, getMessagesInRange, { baselineWeeks = 4, playerTags = [] } = {}) {
+/**
+ * Cut the week into conversations and group the ones sharing a subject.
+ *
+ * Segmentation runs inside each continuous run of talk rather than across the
+ * whole week, because a six hour overnight gap is not a change of subject and
+ * TextTiling has no notion of time. Runs split on a fifteen minute silence,
+ * longer than the thread detector's three minutes: a thread is one exchange,
+ * whereas this wants a whole sitting to look for subject changes within.
+ */
+async function topicsFor(week) {
+  const at = (m) => new Date(m.received_at.replace(' ', 'T') + 'Z').getTime();
+  const turns = toUtterances(week);
+  if (turns.length === 0) return [];
+
+  // A sentence model if one is reachable, the lexical vectoriser otherwise
+  const vectorise = (await makeVectoriser(turns.map((t) => t.message))) || undefined;
+
+  const runs = [];
+  let cur = [turns[0]];
+  for (let i = 1; i < turns.length; i++) {
+    if (at(turns[i]) - at(turns[i - 1]) <= 900 * 1000) cur.push(turns[i]);
+    else { runs.push(cur); cur = [turns[i]]; }
+  }
+  runs.push(cur);
+
+  const segments = [];
+  for (const run of runs) {
+    if (run.length < 8) continue;
+    for (const seg of segmentTopics(run, { vectorise })) {
+      if (seg.turns >= 4 && seg.speakers >= 2) segments.push(seg);
+    }
+  }
+  return groupSegments(segments, { threshold: vectorise?.groupThreshold });
+}
+
+export async function storyCandidates(weekStart, getMessagesInRange, { baselineWeeks = 4, playerTags = [] } = {}) {
   const weekEnd = addDays(weekStart, 6);
   const baseStart = addDays(weekStart, -7 * baselineWeeks);
 
@@ -433,6 +475,8 @@ export function storyCandidates(weekStart, getMessagesInRange, { baselineWeeks =
     themes,
     // The same line from several mouths, which neither of the other two finds
     echoes: findEchoes(week),
+    // Conversations cut where their subject changed, then regrouped by subject
+    topics: await topicsFor(week),
     quotes: findQuotes(week),
   };
 }

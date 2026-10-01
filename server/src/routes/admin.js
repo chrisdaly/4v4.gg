@@ -298,7 +298,7 @@ router.get('/digest/:date/stat-candidates', requireApiKey, async (req, res) => {
  * numbers behind its rank and the lines it came from. The story desk reads
  * this; nothing here writes anything.
  */
-router.get('/story-candidates/:weekStart', requireApiKey, contextLimiter, (req, res) => {
+router.get('/story-candidates/:weekStart', requireApiKey, contextLimiter, async (req, res) => {
   const { weekStart } = req.params;
   if (!/^\d{4}-\d{2}-\d{2}$/.test(weekStart)) {
     return res.status(400).json({ error: 'weekStart must be YYYY-MM-DD' });
@@ -312,7 +312,7 @@ router.get('/story-candidates/:weekStart', requireApiKey, contextLimiter, (req, 
         for (const t of String(m[key] || '').split(',')) if (t.trim()) playerTags.push(t.trim());
       }
     }
-    res.json(storyCandidates(weekStart, getMessagesInRange, { playerTags }));
+    res.json(await storyCandidates(weekStart, getMessagesInRange, { playerTags }));
   } catch (err) {
     console.error('[Desk] Story candidates failed:', err.message);
     res.status(500).json({ error: 'Failed to build story candidates' });
