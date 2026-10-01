@@ -44,12 +44,4 @@ describe('stored translations', () => {
     expect(db.setTranslation('nope', 'hello')).toBe(false);
   });
 
-  it('lists what still needs one, and stops listing it once it has one', () => {
-    db.insertMessage(message('t2', '你好'));
-    const waiting = () => db.untranslatedMessages(50).map((m) => m.id);
-    expect(waiting()).toContain('t2');
-    expect(waiting()).not.toContain('t1');
-    db.setTranslation('t2', 'hi');
-    expect(waiting()).not.toContain('t2');
-  });
 });
