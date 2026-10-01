@@ -1482,9 +1482,12 @@ const SpotlightCard = ({ stat, profile, accent, role, blurb, quotes, statKey, he
         {game ? (
           <div className="mg-spotlight-game">
             <span className="mg-spotlight-game-label">The game</span>
-            {/* "card" is the documented variant for news cards; scorecard is
-                the /live and /match preset and reads as a different chart */}
-            <MmrComparison data={game} variant="card" showValues />
+            {/* The chart measures its own parent, so that parent needs a real
+                width and height. Without one it inherits the card's height and
+                sprawls, which is what made it unreadable. */}
+            <div className="mg-spotlight-game-box">
+              <MmrComparison data={game} variant="card" showValues />
+            </div>
           </div>
         ) : week?.length > 0 ? (
           <WeekDots days={week} streak={run} />

@@ -4171,7 +4171,13 @@ a.mg-feat-text:hover {
 /* A single-game record is drawn as the game, the way a live match is */
 .mg-spotlight-game {
   margin-top: var(--space-3);
-  max-width: 260px;
+}
+
+/* MmrComparison reads parent.clientWidth and clientHeight, so this has to be
+   a real box. A max-width alone left it taking the whole card's height. */
+.mg-spotlight-game-box {
+  width: 260px;
+  height: 104px;
 }
 
 .mg-spotlight-game-label {
