@@ -1,5 +1,6 @@
 import { describe, it, expect } from 'vitest';
 import { trendBlurb } from '../../server/src/weeklyStats.js';
+import { killboardTiles } from '../lib/digestUtils';
 
 /**
  * The week of 2026-06-01 holds 182 games against a ~1500 median because of the
@@ -34,5 +35,48 @@ describe('trendBlurb', () => {
   it('refuses a comparison it cannot make', () => {
     expect(trendBlurb('days=Mon:130|weeks=2026-09-14:1215/569')).toBeNull();
     expect(trendBlurb('nonsense')).toBeNull();
+  });
+});
+
+/**
+ * The killboard lays a kill count across the heroes the other side actually
+ * fielded. The roster and the total are real; the per-hero split is recorded
+ * nowhere, so the spread has to be even and deterministic rather than drawn at
+ * random, which would clump and reshuffle on every render.
+ */
+describe('killboardTiles', () => {
+  const FIELD = [
+    'deathknight', 'lich', 'dreadlord', 'deathknight', 'bansheeranger', 'lich',
+    'shadowhunter', 'farseer', 'blademaster', 'shadowhunter', 'taurenchieftain',
+  ];
+
+  it('lays every kill against a hero and loses none', () => {
+    const tiles = killboardTiles(FIELD, 17);
+    expect(tiles.reduce((a, t) => a + t.share, 0)).toBe(17);
+    expect(tiles).toHaveLength(FIELD.length);
+    expect(tiles.map((t) => t.share)).toEqual([2, 2, 2, 2, 2, 2, 1, 1, 1, 1, 1]);
+  });
+
+  it('spreads as evenly as the count allows, never more than one apart', () => {
+    for (const kills of [12, 17, 22, 23, 40]) {
+      const shares = killboardTiles(FIELD, kills).map((t) => t.share);
+      expect(Math.max(...shares) - Math.min(...shares)).toBeLessThanOrEqual(1);
+    }
+  });
+
+  it('is the same on every render, so the board does not reshuffle', () => {
+    expect(killboardTiles(FIELD, 17)).toEqual(killboardTiles(FIELD, 17));
+  });
+
+  it('leaves heroes untouched when there were fewer kills than heroes', () => {
+    const tiles = killboardTiles(FIELD, 4);
+    expect(tiles).toHaveLength(4);
+    expect(tiles.every((t) => t.share === 1)).toBe(true);
+  });
+
+  it('draws nothing from nothing', () => {
+    expect(killboardTiles([], 17)).toEqual([]);
+    expect(killboardTiles(FIELD, 0)).toEqual([]);
+    expect(killboardTiles(null, null)).toEqual([]);
   });
 });
