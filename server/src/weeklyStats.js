@@ -29,7 +29,8 @@ export const RULES = {
   spotlightGames: 20,   // a week's net MMR on fewer is noise, same floor as the rankings
   rankingGames: 20,     // power rankings: +89 on ten games is not a rise
   streakFloor: 3,       // the spectrum only plots runs this long
-  newBloodGames: 10,
+  newBloodGames: 3,   // the week of Sep 14 tops out at 7 games, so a high floor empties the
+                      // section; the garbage rows are the 0-MMR ones, which the MMR test takes
   stackGames: 6,
 };
 
