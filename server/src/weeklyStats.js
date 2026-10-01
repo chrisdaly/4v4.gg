@@ -323,6 +323,7 @@ export async function weeklyStatSections(weekStart, weekEnd) {
   const totalGames = getDailyMatchesRange(weekStart, weekEnd).length;
   const players = playersFrom(weeklyPlayerMap);
   const sections = {};
+  const debug = {};
   const mentions = new Set();
   const note = (p) => { if (p?.battleTag) mentions.add(p.battleTag); };
 
@@ -370,11 +371,20 @@ export async function weeklyStatSections(weekStart, weekEnd) {
 
   try {
     const all = await computeNewBlood(weekStart, weekEnd);
+    // Why the section is empty is worth reporting. computeNewBlood drops
+    // anyone the W3C API shows as active before the week, so a gap in our own
+    // daily stats can silently empty it, and silence looks like "no debuts".
+    debug.newBlood = {
+      candidates: (all || []).length,
+      kept: 0,
+      gamesFloor: RULES.newBloodGames,
+    };
     // computeNewBlood lets anyone through on 5 games or 2k MMR, which prints
     // "debuted at 0 MMR (2 games)". A debut is only a story with a week behind it.
     const fresh = (all || [])
       .filter((p) => (p.totalGames || 0) >= RULES.newBloodGames && (p.maxMmr || 0) > 0)
       .slice(0, 5);
+    debug.newBlood.kept = fresh.length;
     const nb = fresh.length > 0 && formatNewBloodLine(fresh);
     if (nb) {
       sections.NEW_BLOOD = String(nb).replace(/^NEW_BLOOD:\s*/, '').trim();
@@ -382,6 +392,7 @@ export async function weeklyStatSections(weekStart, weekEnd) {
     }
   } catch (err) {
     console.warn('[WeeklyStats] New blood failed:', err.message);
+    debug.newBlood = { error: err.message.slice(0, 140) };
   }
 
   const slayer = heroSlayerFrom(weekStart, weekEnd, weeklyPlayerMap);
@@ -468,6 +479,7 @@ export async function weeklyStatSections(weekStart, weekEnd) {
 
   return {
     sections,
+    debug,
     stats: {
       totalGames,
       totalPlayers: uniquePlayers,
