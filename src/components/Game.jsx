@@ -247,7 +247,7 @@ const Game = ({ playerData: rawPlayerData, metaData, profilePics, playerCountrie
     const playerRelation = getPlayerRelation(player.battleTag, playerIndex);
 
     return (
-      <th key={player.battleTag} style={{ position: 'relative', overflow: 'visible' }} className={`${playerRelation ? `at-${playerRelation}` : ""} ${playerIsAT ? "is-at" : ""}`}>
+      <th key={player.battleTag} style={{ position: 'relative', overflow: 'visible' }} className={`player-cell ${playerRelation ? `at-${playerRelation}` : ""} ${playerIsAT ? "is-at" : ""}`}>
         <div
           className={`playerDiv ${teamClassName} ${compact ? "compact" : ""} ${playerRelation ? `at-${playerRelation}` : ""} ${playerIsAT ? "is-at" : ""} ${streamerTag && player.battleTag?.toLowerCase() === streamerTag.toLowerCase() ? "streamer-highlight" : ""}`}
         >
@@ -309,7 +309,8 @@ const Game = ({ playerData: rawPlayerData, metaData, profilePics, playerCountrie
             )}
           </div>
 
-          {/* Form dots - oldest on left, newest (latest) on right */}
+          {/* The whole session, oldest on the left, eight dots to a row,
+              with the W-L line under it once it runs past one row */}
           <div className="form-dots-wrapper">
             <FormDots form={playerSession?.form} size="small" />
           </div>
