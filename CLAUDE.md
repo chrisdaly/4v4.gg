@@ -39,6 +39,10 @@ VITE_CHAT_RELAY_URL=http://localhost:3002
 
 The relay server source is in `server/`. Token is injected via `POST /api/admin/token` with `X-API-Key` header.
 
+**Relay-side feature switches** (`BLURB_ENABLED`, `BOT_ENABLED`, `ANNOUNCE_ENABLED`) and what each costs: see `server/OPERATIONS.md`. Match blurb generation is off by default.
+
+**CORS:** the relay only allows `https://4v4.gg`, `localhost:3000` and `localhost:3001`. A dev server or preview on any other port gets no data back.
+
 **Operations:** see `server/OPERATIONS.md` for the production runbook - backups (Litestream), DB corruption recovery, disk management, token refresh, and the June 2026 data-loss incident. Key rules: never scale the relay above 1 machine (volume split-brain), and the server intentionally exits rather than auto-repairing a corrupt DB.
 
 ## Architecture
@@ -157,6 +161,9 @@ Import from `src/components/ui.jsx` (full list with variants: `components` in `d
 Chat components live in `src/components/chat/`:
 - `ChatMessage` - one message group (author + consecutive lines) in three variants: `feed` (/chat stream), `transcript` (profile recent conversations, digest pickers), `quote` (digest pull-quotes). Reuse it instead of hand-rolling message rows.
 - `QuoteBlock` - "Speaker: text" strings grouped by speaker, rendered through the quote variant
+- `GamesPanel` - live games and recent finishes in the /chat middle column. Game events are deliberately NOT in the message stream: it carries messages only, so it stays readable. Rows open the existing game card.
+
+Reading the stream is the point of /chat, so: message lines are serif (`--font-body`), the "new" marker is seeded from `lib/chat/lastRead.js` (per-browser localStorage), and `/search` searches the whole archive while the stream's own field only filters what is loaded.
 
 ## API Integration
 
