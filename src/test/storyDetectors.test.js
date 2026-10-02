@@ -151,3 +151,41 @@ describe('findEchoes', () => {
     expect(findEchoes(null)).toEqual([]);
   });
 });
+
+describe('findEchoes, defects from the first real week', () => {
+  it('ignores the client furniture people paste with a quote', () => {
+    // Six people "said" this, and it was the top-ranked echo of the week
+    const rows = ['IvanOoze', 'lumos', 'TommyHsu', 'Krystalus'].map((n, i) =>
+      msg(i, `2026-09-23 0${i}:50:00`, n, `${n} Sep 23 - 00:50 Message hidden from blocked player Show message`));
+    expect(findEchoes(rows, { minSpeakers: 3 })).toEqual([]);
+  });
+
+  it('keeps two players’ verdicts apart, template and all', () => {
+    // Every verdict shares "early leave accepted days", so CoolGhoul's ban had
+    // joined xlrenxuanwei's and the group stopped being about anybody
+    const rows = [
+      msg(1, '2026-09-27 10:00:00', 'Lyvz', 'xlrenxuanwei#3229 early leave accepted, 100 days'),
+      msg(2, '2026-09-27 11:00:00', 'lumos', 'xlrenxuanwei#3229 early leave accepted, 100 days'),
+      msg(3, '2026-09-27 12:00:00', 'Magnus', 'xlrenxuanwei#3229 early leave accepted, 100 days'),
+      msg(4, '2026-09-25 10:00:00', 'GazanResolve', 'CoolGhoul#11519 early leave accepted, 3 days'),
+      msg(5, '2026-09-25 11:00:00', 'vitruviuss', 'CoolGhoul#11519 early leave accepted, 3 days'),
+      msg(6, '2026-09-25 12:00:00', 'sunflowers', 'CoolGhoul#11519 early leave accepted, 3 days'),
+    ];
+    const echoes = findEchoes(rows, { minSpeakers: 3 });
+    expect(echoes).toHaveLength(2);
+    for (const e of echoes) {
+      const tags = new Set(e.lines.flatMap((l) => l.text.match(/\S+#\d+/g) || []));
+      expect(tags.size).toBe(1);
+    }
+  });
+
+  it('still groups one player’s verdict however it was introduced', () => {
+    const rows = [
+      msg(1, '2026-09-27 10:00:00', 'Lyvz', 'oh RIP: xlrenxuanwei#3229 early leave accepted, 100 days 90+10'),
+      msg(2, '2026-09-27 11:00:00', 'lumos', 'xlrenxuanwei#3229 early leave accepted, 100 days'),
+      msg(3, '2026-09-27 12:00:00', 'Magnus', 'xlrenxuanwei#3229 early leave accepted, 100 days today is a good day'),
+    ];
+    const [echo] = findEchoes(rows, { minSpeakers: 3 });
+    expect(echo.speakers).toBe(3);
+  });
+});

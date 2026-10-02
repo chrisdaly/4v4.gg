@@ -1,4 +1,4 @@
-import { segmentTopics, groupSegments } from './topicSegments.js';
+import { segmentTopics, groupSegments, CLIENT_CHROME } from './topicSegments.js';
 import { makeVectoriser } from './textEmbed.js';
 
 /**
@@ -290,19 +290,34 @@ export function findEchoes(messages, { minSpeakers = 3, minChars = 25, overlap =
     return shared / (a.size + b.size - shared);
   };
 
+  // Two moderation verdicts share almost every word, because the bot writes
+  // them from one template: "early leave accepted, N days". What makes them
+  // different stories is the player named, so when both lines name players they
+  // have to name the same one. Without this CoolGhoul's ban joined
+  // xlrenxuanwei's and the group stopped being about anybody.
+  const tagsIn = (text) => new Set(String(text).match(/\S+#\d+/g) || []);
+  const sameSubject = (a, b) => {
+    if (a.size === 0 || b.size === 0) return true;
+    for (const t of a) if (b.has(t)) return true;
+    return false;
+  };
+
   const groups = [];
   for (const m of turns) {
     const text = String(m.message || '').trim();
     if (text.replace(/https?:\/\/\S+/g, '').trim().length < minChars) continue;
+    if (CLIENT_CHROME.test(text)) continue;
     const tok = tokens(text);
     if (tok.size < 4) continue;
-    const hit = groups.find((g) => jaccard(g.tokens, tok) >= overlap);
+    const tags = tagsIn(text);
+    const hit = groups.find((g) => jaccard(g.tokens, tok) >= overlap && sameSubject(g.tags, tags));
     if (hit) {
       hit.members.push(m);
+      for (const t of tags) hit.tags.add(t);
       // Keep the shared core, so a group cannot drift term by term
       hit.tokens = new Set([...hit.tokens].filter((w) => tok.has(w)));
     } else {
-      groups.push({ tokens: tok, members: [m] });
+      groups.push({ tokens: tok, tags, members: [m] });
     }
   }
 
