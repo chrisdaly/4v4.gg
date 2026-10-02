@@ -21,21 +21,57 @@
 
 /* ── Sparse vectors ──────────────────────────────────── */
 
-// Tokens that carry no subject. Deliberately short: this is a stop list for
-// segmentation, where a word only needs to be uninformative, not uninteresting.
-const NOISE = new Set([
-  'the', 'a', 'an', 'and', 'or', 'but', 'if', 'then', 'is', 'are', 'was', 'were',
-  'be', 'been', 'am', 'do', 'does', 'did', 'have', 'has', 'had', 'to', 'of', 'in',
-  'on', 'at', 'for', 'with', 'you', 'your', 'he', 'she', 'it', 'they', 'we', 'me',
-  'my', 'him', 'her', 'them', 'us', 'this', 'that', 'these', 'those', 'so', 'not',
-  'no', 'yes', 'just', 'like', 'get', 'got', 'can', 'will', 'would', 'what', 'why',
-  'how', 'who', 'all', 'one', 'out', 'up', 'now', 'too', 'very', 'xd', 'lol', 'gg',
-]);
+// Tokens that carry no subject.
+//
+// Function words in every language the chat actually uses, not only English.
+// With an English-only list the lexical backend groups French with French and
+// German with German: on the real week of Sep 21 two of the top five "subjects"
+// came back as "est, pas, que, toi" and "ich, das, der, auf", which is a
+// language and not a story. Roughly a fifth of this chat is not English.
+const NOISE = new Set(`
+the a an and or but if then is are was were be been am do does did have has had
+to of in on at for with you your he she it they we me my him her them us this
+that these those so not no yes just like get got can will would what why how who
+all one out up now too very xd lol gg dont didnt thats
+
+le la les un une des du de et ou mais si est sont etait ete pour avec dans sur
+que qui quoi pas ne plus moi toi lui nous vous ils elles ce cette ces mon ton
+son ma ta sa tres bien tout tous rien alors donc comme quand jai cest
+
+der die das den dem ein eine einer und oder aber wenn ist sind war waren sein
+hab habe hat hatte fur mit auf bei von zu nicht nein doch auch nur noch schon
+sehr ich du er sie wir ihr mich dich sich mein dein wie wer warum
+
+los las una unos unas por para con sin pero muy todo nada como cuando donde
+porque eso esto ese este mucho poco
+
+nao sim uma uns umas isso esse
+
+eto kak chto gde kogda nado tozhe tolko ochen tak vot
+не на что как это тот быть весь этот один мы вы они она оно для или
+`.split(/\s+/).filter(Boolean));
+
+/**
+ * Chat-client furniture, not anybody's words. People paste it along with what
+ * they quoted, and on the real week of Sep 21 it became a "subject" of its own:
+ * "message, hidden, sep, from, blocked, player". The second pattern is the
+ * timestamp header the client puts above a quoted line, which is why "sep"
+ * turned up as a topic word in a week that began on a Monday in September.
+ */
+const CHROME_SOURCE = 'message hidden from blocked player|show message|click to show';
+// Two regexes from one source: the global one strips every occurrence in a
+// multi-line paste, and the plain one is for `test`, where a global flag carries
+// lastIndex between calls and would skip every other match.
+export const CLIENT_CHROME = new RegExp(CHROME_SOURCE, 'i');
+const CHROME_ALL = new RegExp(CHROME_SOURCE, 'gi');
+const QUOTE_HEADER = /\b(jan|feb|mar|apr|may|jun|jul|aug|sep|oct|nov|dec)\w*\s+\d{1,2}\s*-\s*\d{1,2}:\d{2}/gi;
 
 export function tokenise(text) {
   return String(text || '')
     .toLowerCase()
     .replace(/https?:\/\/\S+/g, ' ')
+    .replace(CHROME_ALL, ' ')
+    .replace(QUOTE_HEADER, ' ')
     .replace(/[^\p{L}\p{N}#]+/gu, ' ')
     .split(' ')
     .filter((w) => w.length >= 3 && w.length <= 24 && !NOISE.has(w));
@@ -231,7 +267,7 @@ function makeSegment(turns, from, to, vectorise) {
  * several days with a different cast each time is the interesting shape: one
  * argument is an argument, the same argument on four days is a story.
  */
-export function groupSegments(segments, { threshold, minSegments = 2 } = {}) {
+export function groupSegments(segments, { threshold, minSegments = 2, maxSegments = 12 } = {}) {
   const floor = threshold ?? lexicalVectors.groupThreshold;
   const groups = [];
   for (const seg of segments || []) {
@@ -250,7 +286,11 @@ export function groupSegments(segments, { threshold, minSegments = 2 } = {}) {
   }
 
   return groups
-    .filter((g) => g.members.length >= minSegments)
+    // A group that swallows most of the week is the background, not a subject.
+    // On the real week of Sep 21 the largest came back as 37 conversations,
+    // 124 people and all 7 days, labelled "game, mmr, dont, base, side, play":
+    // that is people talking, which is true of every week and worth no column.
+    .filter((g) => g.members.length >= minSegments && g.members.length <= maxSegments)
     .map((g) => {
       const speakers = new Set(g.members.flatMap((m) => m.cast));
       const days = new Set(g.members.map((m) => String(m.startedAt || '').slice(0, 10)).filter(Boolean));

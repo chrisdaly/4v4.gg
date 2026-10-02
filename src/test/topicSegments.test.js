@@ -193,3 +193,43 @@ describe('segmentTopics with sentence vectors', () => {
     expect(cosine(centroid([a, b]), a)).toBeGreaterThan(0);
   });
 });
+
+/**
+ * Four defects the first real run on the week of 2026-09-21 showed, each kept
+ * here because none of them appeared on synthetic data.
+ */
+describe('defects from the first real week', () => {
+  it('does not turn a language into a subject', () => {
+    // Two of the top five "subjects" came back as "est, pas, que, toi" and
+    // "ich, das, der, auf", because the stop list was English only
+    expect(tokenise('est pas que toi')).toEqual([]);
+    expect(tokenise('ich das der auf die')).toEqual([]);
+    expect(tokenise('los las por para con')).toEqual([]);
+    expect(tokenise('что как это для или')).toEqual([]);
+  });
+
+  it('strips every copy of the client furniture, not just the first', () => {
+    // A non-global regex replaced one occurrence, so a multi-line paste still
+    // produced "message, hidden, show, from, blocked, player" as a subject
+    const paste = 'o11ec Sep 21 - 16:20 Message hidden from blocked player '
+      + 'Show message lumos Sep 21 - 16:20 Message hidden from blocked player';
+    expect(tokenise(paste)).toEqual(['o11ec', 'lumos']);
+  });
+
+  it('drops the timestamp header the client puts above a quote', () => {
+    // "sep" ranked as a topic word in a week that started in September
+    expect(tokenise('GazanResolve Sep 23 - 00:50 pause abuse')).toEqual(['gazanresolve', 'pause', 'abuse']);
+  });
+
+  it('refuses a group that has swallowed the week', () => {
+    // The largest group was 37 conversations, 124 people and all 7 days,
+    // labelled "game, mmr, dont, base, side, play": that is people talking
+    const wide = Array.from({ length: 30 }, (_, i) => ({
+      from: i, to: i + 1, turns: 5, speakers: 3, cast: [`P${i}`],
+      startedAt: `2026-09-2${1 + (i % 7)} 10:00:00`, endedAt: null,
+      terms: ['game'], centroid: new Map([['game', 1]]), lines: [],
+    }));
+    expect(groupSegments(wide, { threshold: 0.3 })).toEqual([]);
+    expect(groupSegments(wide.slice(0, 5), { threshold: 0.3 })).toHaveLength(1);
+  });
+});
