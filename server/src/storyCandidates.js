@@ -1,3 +1,6 @@
+import { segmentTopics, groupSegments } from './topicSegments.js';
+import { makeVectoriser } from './textEmbed.js';
+
 /**
  * Story candidates for a weekly issue.
  *
@@ -5,10 +8,14 @@
  * both. Neither uses a model: the same week gives the same candidates every
  * time, and a model only ever writes from a candidate a human picked.
  *
- *   threads  bursts. An argument: many messages, few minutes, two people
- *            doing most of the talking, other people laughing at it.
+ *   threads  bursts. An argument, found by Kleinberg burst level and by how
+ *            often the speaker changes, not by messages per minute.
  *   themes   the slow ones. A topic that ran all week at a rate well above
  *            what the four weeks before it looked like.
+ *   echoes   one line from several different mouths, which is the room
+ *            reacting rather than a person ranting.
+ *   topics   conversations cut where their subject changed, then regrouped
+ *            by subject, so the same argument on four days reads as one.
  *
  * The second matters more than it sounds. For the week of 2026-09-14 the
  * burst detector ranked the week's real lead 37th, because the lead was a
@@ -83,15 +90,120 @@ function topicWords(text) {
  * gapSeconds, then each thread is scored on how hot, how two-handed, how
  * funny and how consequential it was.
  */
-export function findThreads(messages, { gapSeconds = 180, minMessages = 8, limit = 20 } = {}) {
+/**
+ * One person's consecutive lines, within a short window, are one turn.
+ *
+ * The W3C chat stores every Enter as its own row, so a typed word can arrive
+ * split: ToastBrot sent "lo" at 08:04:31 and "l" at 08:04:32, and the burst
+ * scorer read that as two messages in zero minutes and ranked the pair the
+ * top story of the week. Counting turns instead of keystrokes fixes the unit
+ * every other measure here is built on.
+ *
+ * Parts are joined with a space, so a split word reads "lo l" rather than
+ * "lol". That is deliberate: guessing where a word break belongs would mangle
+ * the common case, two real sentences a second apart.
+ */
+export function toUtterances(messages, { windowSeconds = 10 } = {}) {
+  if (!messages || messages.length === 0) return [];
+  const at = (m) => new Date(m.received_at.replace(' ', 'T') + 'Z').getTime();
+  const out = [];
+  let cur = null;
+  let lastAt = 0;
+  for (const m of messages) {
+    const t = at(m);
+    if (cur && cur.user_name === m.user_name && t - lastAt <= windowSeconds * 1000) {
+      cur.message = `${cur.message} ${m.message}`.trim();
+      cur.parts += 1;
+    } else {
+      if (cur) out.push(cur);
+      cur = { ...m, parts: 1 };
+    }
+    lastAt = t;
+  }
+  if (cur) out.push(cur);
+  return out;
+}
+
+/**
+ * Kleinberg burst detection: which messages sit in a stretch whose arrival
+ * rate is high enough to be worth explaining.
+ *
+ * The old scorer used messages-per-minute, which is why nine messages in
+ * thirty seconds beat a forty minute argument. Rate alone has no idea what
+ * normal looks like. This fits a two-or-more state automaton over the gaps
+ * between messages: state 0 emits gaps at the week's base rate, state i at
+ * base * s^i, and moving up a state costs gamma * ln(n). Viterbi then picks
+ * the cheapest path, so a brief spike does not pay for itself but a sustained
+ * one does. Returns one level per message, 0 meaning ordinary traffic.
+ *
+ * Kleinberg, "Bursty and Hierarchical Structure in Streams" (2002).
+ */
+export function burstLevels(times, { s = 2, gamma = 1, levels = 3 } = {}) {
+  const n = times.length;
+  if (n < 3) return new Array(Math.max(n, 0)).fill(0);
+
+  const gaps = [];
+  for (let i = 1; i < n; i++) {
+    // A zero gap would make the exponential density infinite
+    gaps.push(Math.max((times[i] - times[i - 1]) / 1000, 1e-6));
+  }
+  const total = gaps.reduce((a, b) => a + b, 0);
+  if (!(total > 0)) return new Array(n).fill(0);
+
+  const base = gaps.length / total;           // messages per second, this week
+  const rate = [];
+  for (let i = 0; i <= levels; i++) rate.push(base * Math.pow(s, i));
+  const switchCost = (from, to) => (to > from ? (to - from) * gamma * Math.log(gaps.length) : 0);
+  // -ln of the exponential density: cheap when the gap matches the state's rate
+  const gapCost = (state, x) => -Math.log(rate[state]) + rate[state] * x;
+
+  let prev = rate.map((_, i) => (i === 0 ? 0 : Infinity));
+  const back = [];
+  for (const gap of gaps) {
+    const cur = new Array(levels + 1).fill(Infinity);
+    const from = new Array(levels + 1).fill(0);
+    for (let to = 0; to <= levels; to++) {
+      for (let f = 0; f <= levels; f++) {
+        if (prev[f] === Infinity) continue;
+        const c = prev[f] + switchCost(f, to) + gapCost(to, gap);
+        if (c < cur[to]) { cur[to] = c; from[to] = f; }
+      }
+    }
+    back.push(from);
+    prev = cur;
+  }
+
+  let end = 0;
+  for (let j = 1; j <= levels; j++) if (prev[j] < prev[end]) end = j;
+  const gapState = new Array(gaps.length);
+  let st = end;
+  for (let t = gaps.length - 1; t >= 0; t--) { gapState[t] = st; st = back[t][st]; }
+
+  // A message is as bursty as the busier of the two gaps touching it
+  const out = new Array(n).fill(0);
+  for (let i = 0; i < n; i++) {
+    const before = i > 0 ? gapState[i - 1] : 0;
+    const after = i < gapState.length ? gapState[i] : 0;
+    out[i] = Math.max(before, after);
+  }
+  return out;
+}
+
+export function findThreads(messages, { gapSeconds = 180, minMessages = 8, limit = 20, turnWindow = 10 } = {}) {
   if (messages.length === 0) return [];
   const at = (m) => new Date(m.received_at.replace(' ', 'T') + 'Z').getTime();
+  const turns = toUtterances(messages, { windowSeconds: turnWindow });
+
+  // How unusual each turn's arrival was, measured against the whole stretch
+  // rather than against the thread it lands in
+  const levels = burstLevels(turns.map(at));
+  const levelOf = new Map(turns.map((m, i) => [m.id, levels[i]]));
 
   const threads = [];
-  let cur = [messages[0]];
-  for (let i = 1; i < messages.length; i++) {
-    if (at(messages[i]) - at(messages[i - 1]) <= gapSeconds * 1000) cur.push(messages[i]);
-    else { threads.push(cur); cur = [messages[i]]; }
+  let cur = [turns[0]];
+  for (let i = 1; i < turns.length; i++) {
+    if (at(turns[i]) - at(turns[i - 1]) <= gapSeconds * 1000) cur.push(turns[i]);
+    else { threads.push(cur); cur = [turns[i]]; }
   }
   threads.push(cur);
 
@@ -104,27 +216,113 @@ export function findThreads(messages, { gapSeconds = 180, minMessages = 8, limit
     if (cast < 2) continue;
 
     const spanMin = Math.max((at(th[th.length - 1]) - at(th[0])) / 60000, 1 / 60);
-    const rate = th.length / spanMin;
     const ranked = [...counts.entries()].sort((a, b) => b[1] - a[1]);
     const topTwo = (ranked[0][1] + (ranked[1]?.[1] || 0)) / th.length;
     const laughs = th.filter((m) => LAUGH.test(m.message)).length;
     const stakes = th.filter((m) => STAKES.test(m.message)).length;
+    const level = Math.max(...th.map((m) => levelOf.get(m.id) || 0));
+
+    // How often the speaker changes. A monologue sits near 0, people actually
+    // talking to each other near 1, and it does not reward raw speed.
+    let switches = 0;
+    for (let i = 1; i < th.length; i++) if (th[i].user_name !== th[i - 1].user_name) switches++;
+    const alternation = th.length > 1 ? switches / (th.length - 1) : 0;
 
     scored.push({
       kind: 'thread',
       id: `t:${th[0].id}`,
-      score: Math.round((rate * 2 + topTwo * 8 + laughs * 0.6 + stakes * 0.5 + Math.min(cast, 6) * 0.4) * 10) / 10,
+      score: Math.round((
+        level * 6
+        + alternation * 10
+        + Math.min(cast, 8) * 1.5
+        + laughs * 0.6
+        + stakes * 0.5
+        + Math.min(spanMin, 20) * 0.3
+      ) * 10) / 10,
       startedAt: th[0].received_at,
       messages: th.length,
       minutes: Math.round(spanMin * 10) / 10,
       cast,
+      level,
+      alternationPct: Math.round(alternation * 100),
       twoHanderPct: Math.round(topTwo * 100),
       laughs,
       stakes,
       // Why it scored, in the order a person would want to read it
-      why: `${th.length} messages in ${Math.round(spanMin)} min · ${cast} people · ${Math.round(topTwo * 100)}% two of them · ${laughs} laughing`,
+      why: `${th.length} turns in ${Math.round(spanMin)} min · ${cast} people · burst level ${level} · ${Math.round(alternation * 100)}% back and forth · ${laughs} laughing`,
       who: ranked.slice(0, 4).map(([name, n]) => ({ name, messages: n })),
       lines: th.map((m) => ({ at: m.received_at, name: m.user_name, tag: m.battle_tag, text: m.message })),
+    });
+  }
+  return scored.sort((a, b) => b.score - a.score).slice(0, limit);
+}
+
+/**
+ * The same thing, said by different people.
+ *
+ * Neither detector above finds the best story of the week of Sep 21. On the
+ * Sunday five separate players pasted the same moderation verdict into the
+ * lobby, xlrenxuanwei banned 100 days after two weeks of complaints. Thirteen
+ * messages out of 10,450 is invisible to a theme, and spread over five days it
+ * is no kind of burst. What makes it a story is who repeated it: a line coming
+ * back from one mouth is a person ranting, and from five is the room reacting.
+ *
+ * Matching is token-set overlap rather than exact text, because the pastes are
+ * never identical ("oh RIP: ..." against the bare bot line), and a minimum
+ * length keeps "gg" and "lol" out, which every player types every day.
+ */
+export function findEchoes(messages, { minSpeakers = 3, minChars = 25, overlap = 0.5, limit = 10 } = {}) {
+  if (!messages || messages.length === 0) return [];
+  const at = (m) => new Date(m.received_at.replace(' ', 'T') + 'Z').getTime();
+  const turns = toUtterances(messages);
+
+  const tokens = (text) => new Set(
+    String(text)
+      .toLowerCase()
+      .replace(/https?:\/\/\S+/g, ' ')        // a shared link is the subject, not the wording
+      .replace(/[^a-z0-9#]+/g, ' ')
+      .split(' ')
+      .filter((w) => w.length >= 2),
+  );
+  const jaccard = (a, b) => {
+    let shared = 0;
+    for (const w of a) if (b.has(w)) shared++;
+    return shared / (a.size + b.size - shared);
+  };
+
+  const groups = [];
+  for (const m of turns) {
+    const text = String(m.message || '').trim();
+    if (text.replace(/https?:\/\/\S+/g, '').trim().length < minChars) continue;
+    const tok = tokens(text);
+    if (tok.size < 4) continue;
+    const hit = groups.find((g) => jaccard(g.tokens, tok) >= overlap);
+    if (hit) {
+      hit.members.push(m);
+      // Keep the shared core, so a group cannot drift term by term
+      hit.tokens = new Set([...hit.tokens].filter((w) => tok.has(w)));
+    } else {
+      groups.push({ tokens: tok, members: [m] });
+    }
+  }
+
+  const scored = [];
+  for (const g of groups) {
+    const speakers = new Set(g.members.map((m) => m.user_name));
+    if (speakers.size < minSpeakers) continue;
+    const times = g.members.map(at).sort((a, b) => a - b);
+    const hours = Math.round(((times[times.length - 1] - times[0]) / 3600000) * 10) / 10;
+    scored.push({
+      kind: 'echo',
+      id: `e:${g.members[0].id}`,
+      score: Math.round((speakers.size * 4 + g.members.length) * 10) / 10,
+      speakers: speakers.size,
+      repeats: g.members.length,
+      hours,
+      startedAt: g.members[0].received_at,
+      why: `${speakers.size} different people said it, ${g.members.length} times over ${hours}h`,
+      who: [...speakers].slice(0, 6),
+      lines: g.members.slice(0, 8).map((m) => ({ at: m.received_at, name: m.user_name, tag: m.battle_tag, text: m.message })),
     });
   }
   return scored.sort((a, b) => b.score - a.score).slice(0, limit);
@@ -216,7 +414,42 @@ export function findThemes(weekMessages, baselineMessages, { minMessages = 8, mi
  * the desk can show what a term actually meant without a second request.
  * Takes its reader as an argument so the detectors stay pure and testable.
  */
-export function storyCandidates(weekStart, getMessagesInRange, { baselineWeeks = 4, playerTags = [] } = {}) {
+/**
+ * Cut the week into conversations and group the ones sharing a subject.
+ *
+ * Segmentation runs inside each continuous run of talk rather than across the
+ * whole week, because a six hour overnight gap is not a change of subject and
+ * TextTiling has no notion of time. Runs split on a fifteen minute silence,
+ * longer than the thread detector's three minutes: a thread is one exchange,
+ * whereas this wants a whole sitting to look for subject changes within.
+ */
+async function topicsFor(week) {
+  const at = (m) => new Date(m.received_at.replace(' ', 'T') + 'Z').getTime();
+  const turns = toUtterances(week);
+  if (turns.length === 0) return [];
+
+  // A sentence model if one is reachable, the lexical vectoriser otherwise
+  const vectorise = (await makeVectoriser(turns.map((t) => t.message))) || undefined;
+
+  const runs = [];
+  let cur = [turns[0]];
+  for (let i = 1; i < turns.length; i++) {
+    if (at(turns[i]) - at(turns[i - 1]) <= 900 * 1000) cur.push(turns[i]);
+    else { runs.push(cur); cur = [turns[i]]; }
+  }
+  runs.push(cur);
+
+  const segments = [];
+  for (const run of runs) {
+    if (run.length < 8) continue;
+    for (const seg of segmentTopics(run, { vectorise })) {
+      if (seg.turns >= 4 && seg.speakers >= 2) segments.push(seg);
+    }
+  }
+  return groupSegments(segments, { threshold: vectorise?.groupThreshold });
+}
+
+export async function storyCandidates(weekStart, getMessagesInRange, { baselineWeeks = 4, playerTags = [] } = {}) {
   const weekEnd = addDays(weekStart, 6);
   const baseStart = addDays(weekStart, -7 * baselineWeeks);
 
@@ -240,6 +473,10 @@ export function storyCandidates(weekStart, getMessagesInRange, { baselineWeeks =
     baselineMessages: baseline.length,
     threads: findThreads(week),
     themes,
+    // The same line from several mouths, which neither of the other two finds
+    echoes: findEchoes(week),
+    // Conversations cut where their subject changed, then regrouped by subject
+    topics: await topicsFor(week),
     quotes: findQuotes(week),
   };
 }

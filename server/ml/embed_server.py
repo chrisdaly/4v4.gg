@@ -27,6 +27,13 @@ N_EMBD = 128
 session = None
 umap_model = None  # cached fitted UMAP model
 
+# The sentence model for chat text, separate from the player-style model above
+TEXT_MODEL_PATH = os.environ.get("TEXT_MODEL_PATH", "/app/data/text-model.onnx")
+TEXT_TOKENIZER_PATH = os.environ.get("TEXT_TOKENIZER_PATH", "/app/data/text-tokenizer.json")
+TEXT_MAX_TOKENS = 128  # chat lines are short; truncating here keeps inference cheap
+text_session = None
+text_tokenizer = None
+
 
 @app.on_event("startup")
 def load_model():
@@ -76,6 +83,66 @@ def health():
         "ok": True,
         "model_loaded": session is not None,
         "umap_fitted": umap_model is not None,
+        "text_model_loaded": text_session is not None,
+    }
+
+
+class TextEmbedRequest(BaseModel):
+    texts: list[str]
+
+
+def _load_text_model():
+    """
+    Load the sentence model on first use, not at import, so the player-embedding
+    endpoints keep serving even when the text model is missing from the image.
+    """
+    global text_session, text_tokenizer
+    if text_session is not None:
+        return
+    from tokenizers import Tokenizer
+
+    if not os.path.exists(TEXT_MODEL_PATH) or not os.path.exists(TEXT_TOKENIZER_PATH):
+        raise HTTPException(503, "Text model not in this image; rebuild with the download step")
+    text_tokenizer = Tokenizer.from_file(TEXT_TOKENIZER_PATH)
+    text_tokenizer.enable_truncation(max_length=TEXT_MAX_TOKENS)
+    text_tokenizer.enable_padding(length=None)
+    text_session = ort.InferenceSession(TEXT_MODEL_PATH, providers=["CPUExecutionProvider"])
+
+
+@app.post("/embed-text")
+def embed_text(req: TextEmbedRequest):
+    """
+    Sentence embeddings for chat lines, used to find where a conversation
+    changes subject and which conversations share one.
+
+    multilingual-e5-small, because roughly a fifth of this chat is not English
+    and an English-only model clusters by language rather than by subject. The
+    "query: " prefix is what e5 was trained with; the same prefix goes on both
+    sides because the comparison here is symmetric, line against line.
+    """
+    if not req.texts:
+        return {"vectors": [], "dims": 0}
+    _load_text_model()
+
+    encoded = text_tokenizer.encode_batch([f"query: {t or ''}" for t in req.texts])
+    ids = np.array([e.ids for e in encoded], dtype=np.int64)
+    mask = np.array([e.attention_mask for e in encoded], dtype=np.int64)
+
+    feed = {"input_ids": ids, "attention_mask": mask}
+    names = {i.name for i in text_session.get_inputs()}
+    if "token_type_ids" in names:
+        feed["token_type_ids"] = np.zeros_like(ids)
+    hidden = text_session.run(None, feed)[0]
+
+    # Mean-pool over real tokens only, then L2 normalise so cosine is a dot product
+    m = mask[:, :, None].astype(np.float32)
+    pooled = (hidden * m).sum(axis=1) / np.clip(m.sum(axis=1), 1e-9, None)
+    norms = np.clip(np.linalg.norm(pooled, axis=1, keepdims=True), 1e-9, None)
+    pooled = pooled / norms
+
+    return {
+        "vectors": [[round(float(x), 6) for x in row] for row in pooled],
+        "dims": int(pooled.shape[1]),
     }
 
 
