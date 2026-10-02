@@ -2,9 +2,20 @@ import React, { useState, useEffect, useMemo } from "react";
 import PeonLoader from "./PeonLoader";
 import "./ActivityGraph.css";
 
-const CACHE_KEY_PREFIX = "activity-graph-";
+// v2: keys are local days, so a cached v1 map (UTC days) must not be reused
+const CACHE_KEY_PREFIX = "activity-graph-v2-";
 const CACHE_EXPIRY_MS = 30 * 60 * 1000; // 30 minutes
 const WEEKS_TO_SHOW = 13; // ~3 months
+
+/**
+ * A day's key in the player's own timezone. toISOString() would key by UTC,
+ * which in Dubai put every game on the cell before the one the player reads
+ * and lit up tomorrow's square with today's games.
+ */
+const dayKey = (d) =>
+  `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(d.getDate()).padStart(2, "0")}`;
+
+const fromDayKey = (key) => new Date(`${key}T00:00:00`);
 
 /**
  * ActivityGraph - GitHub-style contribution graph for match activity.
@@ -15,7 +26,7 @@ const ActivityGraph = ({ battleTag, currentSeason, gateway = 20, size = "small",
   const [activityData, setActivityData] = useState({});
   const [seasonRanges, setSeasonRanges] = useState({});
   const [isLoading, setIsLoading] = useState(true);
-  const [tooltip, setTooltip] = useState(null);
+  const [hoveredDay, setHoveredDay] = useState(null);
 
   // Generate dates for the last 13 weeks (3 months), starting on Monday
   const { weeks, monthLabels } = useMemo(() => {
@@ -135,7 +146,7 @@ const ActivityGraph = ({ battleTag, currentSeason, gateway = 20, size = "small",
                 hasMore = false;
                 break;
               }
-              const dateKey = endDate.toISOString().split("T")[0];
+              const dateKey = dayKey(endDate);
               activityMap[dateKey] = (activityMap[dateKey] || 0) + 1;
             }
 
@@ -196,8 +207,8 @@ const ActivityGraph = ({ battleTag, currentSeason, gateway = 20, size = "small",
     const now = new Date();
     const yesterday = new Date(now);
     yesterday.setDate(yesterday.getDate() - 1);
-    const todayKey = now.toISOString().split("T")[0];
-    const yesterdayKey = yesterday.toISOString().split("T")[0];
+    const todayKey = dayKey(now);
+    const yesterdayKey = dayKey(yesterday);
     const last24h = (activityData[todayKey] || 0) + (activityData[yesterdayKey] || 0);
 
     // Average per day over the last 30 days
@@ -205,7 +216,7 @@ const ActivityGraph = ({ battleTag, currentSeason, gateway = 20, size = "small",
     thirtyDaysAgo.setDate(thirtyDaysAgo.getDate() - 30);
     let last30 = 0;
     for (const [key, count] of Object.entries(activityData)) {
-      const d = new Date(key);
+      const d = fromDayKey(key);
       if (d >= thirtyDaysAgo) last30 += count;
     }
     const avgPerDay = last30 / 30;
@@ -284,22 +295,22 @@ const ActivityGraph = ({ battleTag, currentSeason, gateway = 20, size = "small",
           {weeks.map((week, wi) => (
             <div key={wi} className={`ag-week ${isNewMonth(wi) && wi > 0 ? "ag-month-start" : ""}`}>
               {week.map((date, di) => {
-                const dateKey = date.toISOString().split("T")[0];
-                const count = activityData[dateKey] || 0;
-                const intensity = getIntensity(count);
-                const inSeason = isInCurrentSeason(date);
+                const dateKey = dayKey(date);
                 const isFuture = date > new Date();
+                const count = activityData[dateKey] || 0;
+                // A day that has not happened is always blank: a filled square
+                // that ignores the cursor reads as a broken one
+                const intensity = isFuture ? 0 : getIntensity(count);
+                const inSeason = !isFuture && isInCurrentSeason(date);
 
                 return (
                   <div
                     key={di}
                     className={`ag-cell ag-l${intensity}${inSeason ? " ag-season" : ""}${isFuture ? " ag-future" : ""}`}
-                    onMouseEnter={(e) => !isFuture && setTooltip({
-                      x: e.clientX,
-                      y: e.clientY,
-                      text: `${count} game${count !== 1 ? "s" : ""} on ${formatDate(date)}`,
-                    })}
-                    onMouseLeave={() => setTooltip(null)}
+                    onMouseEnter={() => !isFuture && setHoveredDay(
+                      `${count} game${count !== 1 ? "s" : ""} on ${formatDate(date)}`
+                    )}
+                    onMouseLeave={() => setHoveredDay(null)}
                   />
                 );
               })}
@@ -308,6 +319,10 @@ const ActivityGraph = ({ battleTag, currentSeason, gateway = 20, size = "small",
         </div>
       </div>
 
+      {/* The hovered day reads out here rather than in a box over the grid,
+          and the line keeps its height so nothing shifts on hover */}
+      <div className="ag-readout">{hoveredDay || "\u00a0"}</div>
+
       <div className="ag-footer">
         <span className="ag-stat">{stats.last24h} today</span>
         <span className="ag-stat-sep">&middot;</span>
@@ -315,13 +330,6 @@ const ActivityGraph = ({ battleTag, currentSeason, gateway = 20, size = "small",
         <span className="ag-stat-sep">&middot;</span>
         <span className="ag-stat">{stats.total} total</span>
       </div>
-
-      {/* Tooltip */}
-      {tooltip && (
-        <div className="ag-tooltip" style={{ left: tooltip.x + 10, top: tooltip.y - 40 }}>
-          {tooltip.text}
-        </div>
-      )}
     </div>
   );
 };
