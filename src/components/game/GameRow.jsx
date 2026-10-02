@@ -5,10 +5,12 @@ import "./GameRow.css";
 import { RaceIcon } from "../ui";
 import { getMapImageUrl, formatDuration, formatTimeAgo } from "../../lib/formatters";
 
+const HERO_SLOTS = 3;
+
 /**
  * GameRow - one match in the player profile's history, as a fixture list:
  *
- *   result + map | your team ▸ | avg vs avg | ◂ opponents | +/-
+ *   result + map | heroes | your team ▸ | avg vs avg | ◂ opponents | +/-
  *
  * Both sides are plain names in the same font, sorted highest MMR first, so a
  * player's slot shows where they sat in their own lineup. The two teams read
@@ -57,6 +59,8 @@ const GameRow = ({ game, playerBattleTag, linkTo, striped = false, className = "
   const mmrChange = (playerData.currentMmr || 0) - (playerData.oldMmr || 0);
   const cleanMapName = match.mapName?.replace(/^\(\d\)\s*/, "") || "Unknown";
   const mapUrl = getMapImageUrl(match.mapName);
+  // The heroes the profile player fielded, from the match list already fetched
+  const heroes = (playerData.heroes || []).filter((h) => h?.icon).slice(0, HERO_SLOTS);
 
   // Skip players the API gave no MMR for, or one zero drags the average
   // hundreds of points below the lobby it is meant to describe
@@ -122,6 +126,24 @@ const GameRow = ({ game, playerBattleTag, linkTo, striped = false, className = "
             {formatDuration(match.durationInSeconds)} · {formatTimeAgo(match.endTime)}
           </span>
         </span>
+      </div>
+
+      <div className="gr-col gr-heroes" data-heroes={heroes.length}>
+        {Array.from({ length: HERO_SLOTS }, (_, i) => {
+          const h = heroes[i];
+          if (!h) return <span key={i} className="gr-hero gr-hero--empty" />;
+          return (
+            <img
+              key={i}
+              src={`/heroes/${h.icon}.jpeg`}
+              alt={h.name}
+              title={`${h.name}${h.level ? ` · level ${h.level}` : ""}`}
+              className="gr-hero"
+              loading="lazy"
+              onError={(e) => { e.target.style.visibility = "hidden"; }}
+            />
+          );
+        })}
       </div>
 
       <div className="gr-col gr-side gr-side--mine" data-team="ally">

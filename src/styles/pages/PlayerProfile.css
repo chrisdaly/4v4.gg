@@ -425,6 +425,13 @@
   text-align: center;
 }
 
+/* The hero slots drop out of the row at 1024, so their label goes too */
+@media (max-width: 1024px) {
+  .mh-col.heroes {
+    display: none;
+  }
+}
+
 .mh-col.mmr {
   text-align: right;
 }
