@@ -9,6 +9,29 @@ function isAdmin(req) {
   return req.headers['x-api-key'] === config.ADMIN_API_KEY && !!config.ADMIN_API_KEY;
 }
 
+/**
+ * Tags as an array, whatever is in the column.
+ *
+ * createBlogPost JSON.stringifies whatever it is handed, so a caller that
+ * helpfully stringified its own array stores a double-encoded string. Parsing
+ * that once returns a string, and the client then calls .map on it and takes
+ * the whole page down behind the error boundary. One malformed row should not
+ * cost the reader the post.
+ */
+function parseTags(raw) {
+  if (Array.isArray(raw)) return raw;
+  let value = raw;
+  // Unwrap at most twice: the double-encoded case, and no further
+  for (let i = 0; i < 2 && typeof value === 'string'; i++) {
+    try {
+      value = JSON.parse(value);
+    } catch {
+      return [];
+    }
+  }
+  return Array.isArray(value) ? value.filter((t) => typeof t === 'string') : [];
+}
+
 // List posts - admins see drafts too
 router.get('/', (req, res) => {
   const admin = isAdmin(req);
@@ -16,7 +39,7 @@ router.get('/', (req, res) => {
   // Parse tags JSON
   const result = posts.map(p => ({
     ...p,
-    tags: JSON.parse(p.tags || '[]'),
+    tags: parseTags(p.tags),
     coverImage: p.cover_image || null,
   }));
   res.json(result);
@@ -31,14 +54,15 @@ router.get('/:slug', (req, res) => {
   }
   res.json({
     ...post,
-    tags: JSON.parse(post.tags || '[]'),
+    tags: parseTags(post.tags),
     coverImage: post.cover_image || null,
   });
 });
 
 // Create new post
 router.post('/', requireApiKey, (req, res) => {
-  const { slug, title, description, date, tags, content, published, coverImage } = req.body;
+  const { slug, title, description, date, content, published, coverImage } = req.body;
+  const tags = parseTags(req.body.tags);
   if (!slug || !title || !date) {
     return res.status(400).json({ error: 'slug, title, and date are required' });
   }
@@ -64,7 +88,7 @@ router.put('/:slug', requireApiKey, (req, res) => {
   if (title !== undefined) fields.title = title;
   if (description !== undefined) fields.description = description;
   if (date !== undefined) fields.date = date;
-  if (tags !== undefined) fields.tags = tags;
+  if (tags !== undefined) fields.tags = parseTags(tags);
   if (content !== undefined) fields.content = content;
   if (published !== undefined) fields.published = published;
   if (coverImage !== undefined) fields.coverImage = coverImage;
