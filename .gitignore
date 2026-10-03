@@ -25,3 +25,10 @@ server/data/
 
 # Large media
 *.mp4
+
+# One-off local scripts. These get written against the live relay with the
+# admin key pasted in, so they must never reach the repo - see CLAUDE.md on
+# where credentials go. Anything reusable belongs in server/scripts/ with the
+# key read from the environment.
+/*.mjs
+/*.cjs
