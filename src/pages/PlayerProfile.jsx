@@ -56,7 +56,6 @@ const GAMES_PER_PAGE = 10;
 // streak tag and the session detection read, so they come free with it.
 const STATS_PAGE_SIZE = 100;
 const STATS_MAX = 2000;
-const ALL_SEASONS = 0;
 
 const MIN_GAMES_FOR_STATS = 3;
 
@@ -383,7 +382,6 @@ const PlayerProfile = () => {
     getPlayerProfilesBatch(tags).then(map => setStatAvatars(map));
   }, [activeTab, allyStats, worstAllyStats, nemesisStats, preyStats]);
 
-  const isAllSeasons = selectedSeason === ALL_SEASONS;
 
   // One leg per slice of the page. Each writes its own state the moment it
   // lands, so the header does not wait on the ladder and the ladder does not
@@ -417,7 +415,6 @@ const PlayerProfile = () => {
   };
 
   const fetchGameModeStats = async (reqId) => {
-    if (isAllSeasons) return null;
     const stats = await getPlayerGameModeStatsRaw(battleTag, {
       seasonOverride: selectedSeason,
     }).catch(() => null);
@@ -434,7 +431,6 @@ const PlayerProfile = () => {
   // is deeper than any streak worth a tag, which keeps the Stats tab's full
   // crawl (up to STATS_MAX matches) off the first paint.
   const fetchSeasonLite = async (reqId) => {
-    if (isAllSeasons) return [];
     const { matches } = await getPlayerMatches(battleTag, STATS_PAGE_SIZE, 0, selectedSeason);
     if (latestReq.current !== reqId) return [];
     const lite = matches.map((m) => playerMatchLite(m, battleTagLower)).filter(Boolean);
@@ -453,8 +449,8 @@ const PlayerProfile = () => {
           fetchProfile ? fetchProfileAndStream(reqId) : Promise.resolve(null),
           fetchGameModeStats(reqId),
           fetchMatches(0, true, reqId),
-          isAllSeasons ? Promise.resolve([]) : fetchMmrTimeline(true, reqId),
-          isAllSeasons ? Promise.resolve(null) : fetchLadderStanding(true, reqId),
+          fetchMmrTimeline(true, reqId),
+          fetchLadderStanding(true, reqId),
           fetchSeasonLite(reqId),
         ]);
 
@@ -496,7 +492,6 @@ const PlayerProfile = () => {
     );
     if (latestReq.current !== reqId) return returnData ? [] : undefined;
     const matchUpdate = { matches: pageMatches };
-    if (isAllSeasons && page === 0 && count) matchUpdate.totalMatches = count;
     updateState(matchUpdate);
     return returnData ? pageMatches : undefined;
   };
@@ -796,13 +791,13 @@ const PlayerProfile = () => {
   // heaviest fetch on the page, and nothing outside this tab renders them.
   // One attempt per player and season.
   useEffect(() => {
-    if (activeTab !== 'stats' || isAllSeasons || selectedSeason === null) return;
+    if (activeTab !== 'stats' || selectedSeason === null) return;
     const key = `${battleTagLower}:${selectedSeason}`;
     if (statsTriedRef.current === key) return;
     statsTriedRef.current = key;
     setStatsLoading(true);
     fetchStatistics(true, latestReq.current).finally(() => setStatsLoading(false));
-  }, [activeTab, battleTagLower, selectedSeason, isAllSeasons]);
+  }, [activeTab, battleTagLower, selectedSeason]);
 
   const handleSeasonChange = (e) => {
     updateState({ selectedSeason: parseInt(e.target.value, 10) });
@@ -851,7 +846,7 @@ const PlayerProfile = () => {
   const newestFirst = [...seasonLite].sort((a, b) => new Date(b.endTime) - new Date(a.endTime));
   const streak = activeStreak(newestFirst);
   const seasonPeak = seasonMmrs.length > 0 ? Math.max(...seasonMmrs) : null;
-  const atPeak = Boolean(playerData?.mmr && seasonPeak && playerData.mmr >= seasonPeak && !isAllSeasons);
+  const atPeak = Boolean(playerData?.mmr && seasonPeak && playerData.mmr >= seasonPeak);
   const featured = featuredIn(weeklies, playerName);
   const issueMentions = weeklyMentions(weeklies, playerName, 5);
   const storyTags = [];
@@ -971,7 +966,6 @@ const PlayerProfile = () => {
               {availableSeasons.map((s) => (
                 <option key={s.id} value={s.id}>S{s.id}</option>
               ))}
-              <option value={ALL_SEASONS}>All</option>
             </Select>
           </div>
           <a
@@ -1198,13 +1192,11 @@ const PlayerProfile = () => {
             })()}
 
             {/* Activity Graph */}
-            {!isAllSeasons && (
-              <ActivityGraph
-                battleTag={battleTag}
-                currentSeason={selectedSeason}
-                gateway={gateway}
-              />
-            )}
+            <ActivityGraph
+              battleTag={battleTag}
+              currentSeason={selectedSeason}
+              gateway={gateway}
+            />
 
           </aside>
         </div>
@@ -1396,11 +1388,9 @@ const PlayerProfile = () => {
         <div className="activity-tab-content reveal" style={{ "--delay": "0.1s" }}>
 
           {/* Recent activity: the last 3 months, large */}
-          {!isAllSeasons && (
-            <section className="activity-section">
-              <ActivityGraph battleTag={battleTag} currentSeason={selectedSeason} gateway={gateway} size="large" title="Recent Activity" />
-            </section>
-          )}
+          <section className="activity-section">
+            <ActivityGraph battleTag={battleTag} currentSeason={selectedSeason} gateway={gateway} size="large" title="Recent Activity" />
+          </section>
 
           {/* Activity over time: games per week, inactive stretches shaded */}
           {seasonActivity && seasonActivity.length > 0 && (
