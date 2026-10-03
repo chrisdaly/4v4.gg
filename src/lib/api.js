@@ -602,7 +602,19 @@ export const getPlayerStatsBatch = async (battleTags, seasonOverride = season) =
       const res = await fetch(`${RELAY_BASE}/api/w3c/stats?season=${seasonOverride}&tags=${tags}`);
       if (!res.ok) throw new Error(`HTTP ${res.status}`);
       const { stats } = await res.json();
-      for (const battleTag of chunk) remember(battleTag, stats?.[battleTag]);
+      // A tag the relay could not answer is absent; one it answered for an
+      // unknown player is present and null. Only the former needs a retry.
+      const unanswered = [];
+      for (const battleTag of chunk) {
+        if (stats && battleTag in stats) remember(battleTag, stats[battleTag]);
+        else unanswered.push(battleTag);
+      }
+      if (unanswered.length > 0) {
+        const perTag = await Promise.all(
+          unanswered.map((battleTag) => getPlayerStats(battleTag, { seasonOverride }).catch(() => null))
+        );
+        unanswered.forEach((battleTag, idx) => remember(battleTag, perTag[idx]));
+      }
     } catch {
       // Relay down or rate limited: go straight to W3C, one tag at a time
       const perTag = await Promise.all(
@@ -649,7 +661,17 @@ export const getTwitchNamesBatch = async (battleTags) => {
       const res = await fetch(`${RELAY_BASE}/api/w3c/twitch?tags=${tags}`);
       if (!res.ok) throw new Error(`HTTP ${res.status}`);
       const { twitch } = await res.json();
-      for (const battleTag of chunk) remember(battleTag, twitch?.[battleTag]);
+      const unanswered = [];
+      for (const battleTag of chunk) {
+        if (twitch && battleTag in twitch) remember(battleTag, twitch[battleTag]);
+        else unanswered.push(battleTag);
+      }
+      if (unanswered.length > 0) {
+        const perTag = await Promise.all(
+          unanswered.map((battleTag) => getPlayerProfile(battleTag).catch(() => null))
+        );
+        unanswered.forEach((battleTag, idx) => remember(battleTag, perTag[idx]?.twitch));
+      }
     } catch {
       // Relay down: one profile fetch per tag, which is what this replaced
       const perTag = await Promise.all(
