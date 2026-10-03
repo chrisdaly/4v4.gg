@@ -65,6 +65,11 @@ export function detectUnfurl(text) {
 }
 
 const cache = new Map(); // `${kind}:${id}` -> Promise<meta | null>
+// The same lookups, readable synchronously: a row that scrolls out of the
+// rendered window and back in remounts its card, and a card that has to
+// wait a tick for an answer it already has shows a placeholder for a frame
+// on the way past. `undefined` means nobody has asked yet.
+const settled = new Map(); // `${kind}:${id}` -> meta | null
 
 async function loadTwitch(id) {
   const res = await relayFetch(`/api/twitch/clip/${encodeURIComponent(id)}`);
@@ -89,12 +94,24 @@ export function fetchUnfurl(target) {
   let p = cache.get(key);
   if (!p) {
     const loader = target.kind === "twitch" ? loadTwitch : loadYoutube;
-    p = loader(target.id).catch(() => null);
+    p = loader(target.id)
+      .catch(() => null)
+      .then((meta) => {
+        settled.set(key, meta);
+        return meta;
+      });
     cache.set(key, p);
   }
   return p;
 }
 
+/** The answer if this link has already been looked up, else undefined. */
+export function peekUnfurl(target) {
+  if (!target) return null;
+  return settled.get(`${target.kind}:${target.id}`);
+}
+
 export function resetUnfurlCache() {
   cache.clear();
+  settled.clear();
 }

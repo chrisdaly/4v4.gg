@@ -1,5 +1,5 @@
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
-import { detectUnfurl, fetchUnfurl, resetUnfurlCache } from '../lib/chat/unfurl';
+import { detectUnfurl, fetchUnfurl, peekUnfurl, resetUnfurlCache } from '../lib/chat/unfurl';
 
 describe('detectUnfurl', () => {
   it('finds clips.twitch.tv slugs', () => {
@@ -86,5 +86,27 @@ describe('fetchUnfurl', () => {
     expect(await fetchUnfurl(target)).toBeNull();
     expect(fetchMock).toHaveBeenCalledTimes(1);
     expect(await fetchUnfurl(null)).toBeNull();
+  });
+});
+
+describe('peekUnfurl', () => {
+  it('answers synchronously once a lookup has settled, so a remount never flashes', async () => {
+    globalThis.fetch = vi.fn(async () => ({
+      ok: true,
+      json: async () => ({ title: 'Insane hold', thumbnail_url: 'https://t/c.jpg', broadcaster_name: 'Grubby' }),
+    }));
+    const target = { kind: 'twitch', id: 'Slug-1', url: 'https://clips.twitch.tv/Slug-1', host: 'clips.twitch.tv' };
+    expect(peekUnfurl(target)).toBeUndefined();
+    await fetchUnfurl(target);
+    expect(peekUnfurl(target)).toMatchObject({ title: 'Insane hold' });
+    // a different object for the same link reads the same answer
+    expect(peekUnfurl({ ...target })).toMatchObject({ title: 'Insane hold' });
+  });
+
+  it('remembers a failed lookup as null rather than undefined', async () => {
+    globalThis.fetch = vi.fn(async () => ({ ok: false, json: async () => ({}) }));
+    const target = { kind: 'youtube', id: 'dQw4w9WgXcQ' };
+    await fetchUnfurl(target);
+    expect(peekUnfurl(target)).toBeNull();
   });
 });

@@ -1,7 +1,7 @@
 import React, { useEffect, useState } from "react";
 import styled from "styled-components";
 import { ThemedCard } from "../ui";
-import { fetchUnfurl } from "../../lib/chat/unfurl";
+import { fetchUnfurl, peekUnfurl } from "../../lib/chat/unfurl";
 
 /**
  * Compact link card under a feed line for a Twitch clip or YouTube video.
@@ -109,22 +109,29 @@ const Host = styled.span`
 
 export default function UnfurlCard({ target }) {
   const { kind, id } = target;
-  // null while the lookup is in flight, false once it has failed
-  const [meta, setMeta] = useState(null);
+  // undefined while the lookup is in flight, null once it has failed. A
+  // link that has been looked up already renders its card on the first
+  // paint, so scrolling one back into view never flashes the placeholder.
+  const [meta, setMeta] = useState(() => peekUnfurl(target));
 
   useEffect(() => {
+    const known = peekUnfurl({ kind, id });
+    if (known !== undefined) {
+      setMeta(known);
+      return undefined;
+    }
     let cancelled = false;
-    setMeta(null);
+    setMeta(undefined);
     fetchUnfurl({ kind, id }).then((m) => {
-      if (!cancelled) setMeta(m || false);
+      if (!cancelled) setMeta(m ?? null);
     });
     return () => {
       cancelled = true;
     };
   }, [kind, id]);
 
-  if (meta === false) return null;
-  if (!meta) return <CardShell aria-hidden="true" data-testid="unfurl-pending" />;
+  if (meta === null) return null;
+  if (meta === undefined) return <CardShell aria-hidden="true" data-testid="unfurl-pending" />;
   const href = meta.url || target.url;
   const host = meta.author ? `${target.host} · ${meta.author}` : target.host;
 
