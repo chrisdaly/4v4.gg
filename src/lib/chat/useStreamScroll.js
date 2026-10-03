@@ -54,8 +54,15 @@ export default function useStreamScroll({
   onNearBottom,
   onTopRowChange,
 }) {
-  const scrollerRef = useRef(null);
-  const listRef = useRef(null);
+  // Element refs are callbacks, not plain refs, and this is load-bearing:
+  // the panel shows a skeleton until the first messages arrive, so on every
+  // cold load the scroller mounts long after an effect would have looked for
+  // it. An effect whose dependencies never change would then bind its
+  // listener to nothing, no scroll would ever be seen, and every page of
+  // older history would read as "the reader is at the end" and send them
+  // there. A callback ref fires exactly when the element appears.
+  const scrollerElRef = useRef(null);
+  const listElRef = useRef(null);
   const [atBottom, setAtBottom] = useState(true);
   const atBottomRef = useRef(true);
   // The row held still across changes: its key, its offset, and its element
@@ -63,6 +70,9 @@ export default function useStreamScroll({
   // below almost always starts one row from where it ends)
   const anchorRef = useRef(null);
   const windowRef = useRef(windowId);
+  // Distance from the end as of the last measurement; 0 so the first fill of
+  // an empty stream lands at the newest line
+  const distanceRef = useRef(0);
   const lastTopRef = useRef(-1);
   const topKeyRef = useRef(null);
   // Read through a ref so the scroll listener never has to be re-bound
@@ -72,8 +82,8 @@ export default function useStreamScroll({
   // Which row is at the top of the viewport, walked from the last answer
   // rather than scanned from the start of the list
   const findTopRow = useCallback(() => {
-    const el = scrollerRef.current;
-    const list = listRef.current;
+    const el = scrollerElRef.current;
+    const list = listElRef.current;
     if (!el || !list) return null;
     const edge = el.getBoundingClientRect().top + 1;
     let node = anchorRef.current?.node;
@@ -104,7 +114,7 @@ export default function useStreamScroll({
   }, [findTopRow]);
 
   const pinToBottom = useCallback(() => {
-    const el = scrollerRef.current;
+    const el = scrollerElRef.current;
     if (!el) return;
     el.scrollTop = el.scrollHeight;
     lastTopRef.current = el.scrollTop;
@@ -114,8 +124,8 @@ export default function useStreamScroll({
   // Move the scroll by however far the anchor row moved, so it ends up back
   // under the same pixel it was under before the change
   const hold = useCallback(() => {
-    const el = scrollerRef.current;
-    const list = listRef.current;
+    const el = scrollerElRef.current;
+    const list = listElRef.current;
     const a = anchorRef.current;
     if (!el || !list || !a) {
       capture();
@@ -140,74 +150,108 @@ export default function useStreamScroll({
     setAtBottom(value);
   }, []);
 
+  /**
+   * How far the viewport is from the end, recorded every time anything could
+   * have changed it. The decision below reads this rather than a flag kept
+   * by the scroll handler: a scroll that does not move the position, a
+   * programmatic jump, or a list that grew under a viewport sitting still
+   * all leave such a flag describing a position the reader is no longer in,
+   * and a stale "at the end" sends them to the end on the next change.
+   */
+  const measure = useCallback(() => {
+    const el = scrollerElRef.current;
+    if (!el) return;
+    distanceRef.current = el.scrollHeight - el.scrollTop - el.clientHeight;
+    setBottom(distanceRef.current <= AT_BOTTOM_PX);
+  }, [setBottom]);
+
   const handleScroll = useCallback(() => {
-    const el = scrollerRef.current;
-    if (!el || el.scrollTop === lastTopRef.current) return;
+    const el = scrollerElRef.current;
+    if (!el) return;
+    measure();
+    // The position itself is unchanged (momentum settling, a rubber-band at
+    // either end): nothing to re-anchor and nothing new within reach
+    if (el.scrollTop === lastTopRef.current) return;
     lastTopRef.current = el.scrollTop;
-    const distance = el.scrollHeight - el.scrollTop - el.clientHeight;
-    setBottom(distance <= AT_BOTTOM_PX);
     capture();
     if (el.scrollTop <= NEAR_TOP_PX) cbRef.current.onNearTop?.();
-    if (distance <= NEAR_BOTTOM_PX) cbRef.current.onNearBottom?.();
-  }, [capture, setBottom]);
+    if (distanceRef.current <= NEAR_BOTTOM_PX) cbRef.current.onNearBottom?.();
+  }, [capture, measure]);
 
-  useEffect(() => {
-    const el = scrollerRef.current;
-    if (!el) return undefined;
-    el.addEventListener("scroll", handleScroll, { passive: true });
-    return () => el.removeEventListener("scroll", handleScroll);
-  }, [handleScroll]);
+  // The handler through a ref, so the callback ref below can stay stable
+  const scrollHandlerRef = useRef(null);
+  scrollHandlerRef.current = handleScroll;
+  const onScrollEvent = useRef((e) => scrollHandlerRef.current?.(e)).current;
+
+  const scrollerRef = useCallback((el) => {
+    const prev = scrollerElRef.current;
+    if (prev === el) return;
+    if (prev) prev.removeEventListener("scroll", onScrollEvent);
+    scrollerElRef.current = el;
+    if (el) el.addEventListener("scroll", onScrollEvent, { passive: true });
+  }, [onScrollEvent]);
 
   // Rows changed: a replaced window starts at the newest line, a reader at
   // the tail follows it, anyone reading further up stays where they are
   useLayoutEffect(() => {
-    if (!scrollerRef.current) return;
+    if (!scrollerElRef.current) return;
     if (windowRef.current !== windowId) {
       windowRef.current = windowId;
-      setBottom(true);
       pinToBottom();
+      measure();
       return;
     }
-    if (atBottomRef.current) pinToBottom();
+    // Where the reader was before this change, measured, not remembered
+    if (distanceRef.current <= AT_BOTTOM_PX) pinToBottom();
     else hold();
-  }, [rows, windowId, hold, pinToBottom, setBottom]);
+    measure();
+  }, [rows, windowId, hold, pinToBottom, measure]);
 
   // Heights that settle after the fact - a card landing, an image decoding,
-  // a font swapping - move the rows under the reader just as a prepend does
-  useEffect(() => {
-    const list = listRef.current;
-    if (!list || typeof ResizeObserver === "undefined") return undefined;
-    // No guard on the first callback: observe() fires one immediately and
-    // holding a row that has not moved costs a subtraction, while skipping
-    // a callback that turns out to be a real resize costs the reader their
-    // place.
-    const ro = new ResizeObserver(() => {
-      if (atBottomRef.current) pinToBottom();
-      else hold();
-    });
-    ro.observe(list);
-    return () => ro.disconnect();
-  }, [hold, pinToBottom]);
+  // a font swapping - move the rows under the reader just as a prepend does.
+  // No guard on the observer's first callback: observe() fires one
+  // immediately, and holding a row that has not moved costs a subtraction,
+  // while skipping a callback that turns out to be a real resize costs the
+  // reader their place.
+  const resizeRef = useRef(null);
+  resizeRef.current = () => {
+    if (distanceRef.current <= AT_BOTTOM_PX) pinToBottom();
+    else hold();
+    measure();
+  };
+  const observerRef = useRef(null);
+  const listRef = useCallback((el) => {
+    if (listElRef.current === el) return;
+    listElRef.current = el;
+    observerRef.current?.disconnect();
+    observerRef.current = null;
+    if (el && typeof ResizeObserver !== "undefined") {
+      observerRef.current = new ResizeObserver(() => resizeRef.current?.());
+      observerRef.current.observe(el);
+    }
+  }, []);
+  useEffect(() => () => observerRef.current?.disconnect(), []);
 
   const scrollToBottom = useCallback(() => {
-    const el = scrollerRef.current;
+    const el = scrollerElRef.current;
     if (!el) return;
-    setBottom(true);
     el.scrollTo({ top: el.scrollHeight, behavior: "smooth" });
+    distanceRef.current = 0;
+    setBottom(true);
   }, [setBottom]);
 
   /** Put a row on screen. Returns false when it is not loaded. */
   const scrollToKey = useCallback((key, align = "center") => {
-    const el = scrollerRef.current;
-    const node = rowNode(listRef.current, key);
+    const el = scrollerElRef.current;
+    const node = rowNode(listElRef.current, key);
     if (!el || !node) return false;
     const room = align === "center" ? Math.max(0, (el.clientHeight - node.offsetHeight) / 2) : 0;
     el.scrollTop = Math.max(0, node.offsetTop - room);
     lastTopRef.current = el.scrollTop;
-    setBottom(el.scrollHeight - el.scrollTop - el.clientHeight <= AT_BOTTOM_PX);
+    measure();
     capture();
     return true;
-  }, [capture, setBottom]);
+  }, [capture, measure]);
 
   return { scrollerRef, listRef, atBottom, scrollToBottom, scrollToKey };
 }

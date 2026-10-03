@@ -404,6 +404,31 @@ describe('ChatPanel bottom state', () => {
     expect(isTrimPaused()).toBe(false);
   });
 
+  it('sees the reader scroll on a cold load, where the stream arrives after the skeleton', () => {
+    // The panel shows a skeleton until the first messages land, so the
+    // scroller is not in the DOM when the page mounts. Everything the stream
+    // knows about where the reader is depends on noticing it when it appears.
+    const { rerender } = render(<Owner {...baseProps} messages={[]} inGameInfoMap={new Map()} />);
+    expect(scroller()).toBeNull();
+
+    rerender(<Owner {...baseProps} messages={messages} inGameInfoMap={new Map()} />);
+    expect(scroller()).not.toBeNull();
+
+    scrollUp();
+    // the scroll was seen: the pill is up and the live cap is held off
+    expect(isTrimPaused()).toBe(true);
+
+    // and a page of older history holds the reader instead of sending them
+    // to the end
+    const anchorRow = rowFor('b1');
+    const before = anchorRow.getBoundingClientRect().top;
+    const older = Array.from({ length: 6 }, (_, i) => msg(`o${i}`, 'Sok#4', -600000 + i * 10000, `older ${i}`));
+    rerender(<Owner {...baseProps} messages={[...older, ...messages]} inGameInfoMap={new Map()} />);
+
+    expect(rowFor('b1').getBoundingClientRect().top).toBe(before);
+    expect(scroller().scrollTop).not.toBe(scroller().scrollHeight - VIEWPORT);
+  });
+
   it('follows the newest line while the reader is at the tail', () => {
     const { rerender } = render(<Owner {...baseProps} messages={messages} inGameInfoMap={new Map()} />);
     layout();

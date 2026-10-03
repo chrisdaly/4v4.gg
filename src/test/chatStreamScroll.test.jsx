@@ -124,6 +124,38 @@ describe('useStreamScroll', () => {
     expect(scroller().scrollTop).toBe(510);
   });
 
+  it('holds the reader at the very top, where paging older history actually happens', () => {
+    const keys = ['a', 'b', 'c', 'd', 'e', 'f', 'g', 'h', 'i', 'j'];
+    const { rerender } = render(<Stream rows={makeRows(keys)} />);
+    scrollTo(0);
+    const before = rowEl('a').getBoundingClientRect().top;
+
+    heights = [...Array.from({ length: 5 }, () => 100), ...heights];
+    rerender(<Stream rows={makeRows(['v', 'w', 'x', 'y', 'z', ...keys])} />);
+
+    // the oldest line the reader had is still exactly where it was, with the
+    // page that just arrived sitting above it
+    expect(rowEl('a').getBoundingClientRect().top).toBe(before);
+    expect(scroller().scrollTop).toBe(500);
+  });
+
+  it('does not send the reader to the end when the scroll position has not changed recently', () => {
+    const keys = ['a', 'b', 'c', 'd', 'e', 'f', 'g', 'h', 'i', 'j'];
+    const { rerender } = render(<Stream rows={makeRows(keys)} />);
+    scrollTo(0);
+    // A scroll event that reports the same position - momentum settling, a
+    // rubber-band at the top, a programmatic nudge. It must not be read as
+    // "nothing to update" for where the reader is.
+    act(() => fireEvent.scroll(scroller()));
+    const before = rowEl('a').getBoundingClientRect().top;
+
+    heights = [...Array.from({ length: 5 }, () => 100), ...heights];
+    rerender(<Stream rows={makeRows(['v', 'w', 'x', 'y', 'z', ...keys])} />);
+
+    expect(scroller().scrollTop).not.toBe(scroller().scrollHeight - VIEWPORT);
+    expect(rowEl('a').getBoundingClientRect().top).toBe(before);
+  });
+
   it('stays on the newest row when one grows and the reader is at the tail', () => {
     render(<Stream rows={makeRows(['a', 'b', 'c', 'd', 'e', 'f', 'g', 'h', 'i', 'j'])} />);
     expect(scroller().scrollTop).toBe(1000);
