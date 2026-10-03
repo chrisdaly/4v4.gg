@@ -242,8 +242,26 @@ Map minimap images are stored in `public/maps/` as PNG files. The filename is de
 **If a map image is missing:**
 
 1. Check the browser console/network tab for the 404'd filename (e.g., `/maps/SomeNewMap.png`)
-2. Find the map on [wc3maps.com](https://wc3maps.com/) by searching for the map name
-3. Get the map ID from the URL (e.g., `wc3maps.com/map/248157/Deadlock_LV` → ID is `248157`)
+2. Find the map ID on wc3maps **via their API, not the site search**. The site
+   search 404s, and the API ranks ladder maps below mods and custom maps, so a
+   plain name lookup for a common melee map returns everything except the one
+   you want.
+   ```bash
+   # The parameter is `query`. q / search / name / term are silently ignored
+   # and return the same default list.
+   curl -s "https://wc3maps.com/api/search?query=Tidehunters" | python3 -m json.tool
+   ```
+3. Confirm you have the W3C ladder version, not an edit or a winter re-skin, by
+   checking the `path` field:
+   ```bash
+   curl -s "https://wc3maps.com/api/map/446664"
+   # -> "path": "54_w3c_260615_2308_Tidehunters_v1.2.w3x"
+   ```
+   A `w3c_` prefix means it is W3Champions' own upload. If search cannot find
+   the map at all, W3C's uploads cluster by batch (the June 2026 pool sits
+   around id 446200-446900), so scanning that band for `w3c_` in the path
+   works. Scan serially with a short sleep and retries: concurrent requests get
+   rate limited and return nothing, which looks identical to "no results".
 4. Download the minimap image:
    ```bash
    curl -sL -o public/maps/{CleanName}.png "https://wc3maps.com/static/maps/{MAP_ID}/archive/war3mapMap.jpg"
@@ -252,6 +270,11 @@ Map minimap images are stored in `public/maps/` as PNG files. The filename is de
    ```bash
    curl -sL -o public/maps/DeadlockLV.png "https://wc3maps.com/static/maps/248157/archive/war3mapMap.jpg"
    ```
-5. The `getMapImageUrl()` function in `Game.jsx` handles the name transformation
+5. Check what you downloaded before committing. Several candidates with the
+   right name turned out to be the wrong map; a contact sheet of the new files
+   side by side catches it in seconds.
+6. The `getMapImageUrl()` function in `Game.jsx` handles the name transformation
 
-**Current maps:** Ferocity, EkrezemsMaze, Snowblind, NorthshireLV, OrdealGround, GoldRush, RoyalGardens, NerubianPassage, PaintedWorld, Nightopia, IndigoKeeper, Deadlock, TwilightRuinsLV, WellspringTemple, SanctuaryLV, BloodvenomFallsv2, Lilious, NorthmarshRuin, RuinsofAlterac
+**Current 4v4 maps:** Ferocity, EkrezemsMaze, Snowblind, NorthshireLV, OrdealGround, GoldRush, RoyalGardens, NerubianPassage, PaintedWorld, Nightopia, IndigoKeeper, Deadlock, TwilightRuinsLV, WellspringTemple, SanctuaryLV, BloodvenomFallsv2, Lilious, NorthmarshRuin, RuinsofAlterac
+
+**Current 1v1 maps** (the profile's solo match history renders these): AutumnLeavesv2, EchoIslesv2, FadingAutumn, Hammerfall, LastRefuge, NorthernIsles, Scrimmage, ShallowGrave, Springtime, Tidehunters, TurtleRockv2, TwistedMeadows
