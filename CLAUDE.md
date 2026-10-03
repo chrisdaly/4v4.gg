@@ -165,6 +165,12 @@ Chat components live in `src/components/chat/`:
 
 Reading the stream is the point of /chat, so: message lines are serif (`--font-body`), the "new" marker is seeded from `lib/chat/lastRead.js` (per-browser localStorage), and `/search` searches the whole archive while the stream's own field only filters what is loaded.
 
+**The stream is deliberately not virtualized.** react-virtuoso was removed because a virtual list has to guess the height of rows it has not rendered, then correct a paint later, and that correction is the jumpy scrolling. Two pieces replace it:
+- `src/lib/chat/useStreamScroll.js` - records the row at the top of the viewport and its `offsetTop`, then after any change (older history above, a link card landing, an image decoding) moves `scrollTop` by exactly how far that row moved. Day dividers are excluded from anchoring: they belong ahead of the first row of their day, so older history from that day moves them up on purpose.
+- `src/lib/chat/useStreamRows.js` - the rows pipeline, which keeps a row object referentially stable while its content is unchanged so the memoized row skips its render.
+
+Two things break this by accident: spreading a row object anywhere in the pipeline (`{...item}` gives every row a new identity and the whole visible stream re-renders on each message), and keying an effect on an object rebuilt every render (`detectUnfurl` returns a fresh object, so an effect on it blanked every link card on every re-render). Do not reintroduce a virtual list to make /chat faster - at 429 rows the scroll handler costs 0.03ms per tick.
+
 ## API Integration
 
 All data from W3Champions API:
