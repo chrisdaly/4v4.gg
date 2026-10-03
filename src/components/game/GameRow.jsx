@@ -10,7 +10,7 @@ const HERO_SLOTS = 3;
 /**
  * GameRow - one match in the player profile's history, as a fixture list:
  *
- *   result + map | heroes | your team ▸ | avg vs avg | ◂ opponents | +/-
+ *   result + map | heroes (with level) | your team ▸ | avg vs avg | ◂ opponents | +/-
  *
  * Both sides are plain names in the same font, sorted highest MMR first, so a
  * player's slot shows where they sat in their own lineup. The two teams read
@@ -131,17 +131,22 @@ const GameRow = ({ game, playerBattleTag, linkTo, striped = false, className = "
       <div className="gr-col gr-heroes" data-heroes={heroes.length}>
         {Array.from({ length: HERO_SLOTS }, (_, i) => {
           const h = heroes[i];
-          if (!h) return <span key={i} className="gr-hero gr-hero--empty" />;
+          if (!h) return <span key={i} className="gr-hero-slot gr-hero--empty" />;
           return (
-            <img
+            <span
               key={i}
-              src={`/heroes/${h.icon}.jpeg`}
-              alt={h.name}
+              className="gr-hero-slot"
               title={`${h.name}${h.level ? ` · level ${h.level}` : ""}`}
-              className="gr-hero"
-              loading="lazy"
-              onError={(e) => { e.target.style.visibility = "hidden"; }}
-            />
+            >
+              <img
+                src={`/heroes/${h.icon}.jpeg`}
+                alt={h.name}
+                className="gr-hero"
+                loading="lazy"
+                onError={(e) => { e.target.style.visibility = "hidden"; }}
+              />
+              {h.level > 0 && <span className="gr-hero-lvl" data-hero-level={h.level}>{h.level}</span>}
+            </span>
           );
         })}
       </div>
