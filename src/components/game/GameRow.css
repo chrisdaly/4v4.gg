@@ -13,7 +13,7 @@
   display: grid;
   grid-template-columns:
     minmax(170px, 0.9fr)
-    78px
+    128px
     minmax(150px, 1.1fr)
     94px
     minmax(150px, 1.1fr)
@@ -114,24 +114,53 @@
 .gr-col.gr-heroes {
   display: flex;
   align-items: center;
-  gap: 3px;
+  gap: 4px;
+}
+
+.gr-hero-slot {
+  position: relative;
+  display: block;
+  width: 40px;
+  height: 40px;
+  flex-shrink: 0;
 }
 
 .gr-hero {
-  width: 24px;
-  height: 24px;
-  border-radius: 2px;
+  width: 100%;
+  height: 100%;
+  display: block;
+  border-radius: var(--radius-sm);
   object-fit: cover;
   background: var(--surface-2);
   border: 1px solid rgba(var(--gold-muted-rgb), 0.35);
   box-sizing: border-box;
-  flex-shrink: 0;
+}
+
+/* The level sits in the corner of the portrait, the way the game shows it */
+.gr-hero-lvl {
+  position: absolute;
+  right: 0;
+  bottom: 0;
+  min-width: 16px;
+  padding: 0 2px;
+  font-family: var(--font-mono);
+  font-size: var(--text-xxxs);
+  line-height: 15px;
+  text-align: center;
+  color: var(--gold);
+  background: var(--overlay-heavy);
+  border-top: 1px solid rgba(var(--gold-muted-rgb), 0.5);
+  border-left: 1px solid rgba(var(--gold-muted-rgb), 0.5);
+  border-radius: var(--radius-sm) 0 var(--radius-sm) 0;
+  box-sizing: border-box;
+  pointer-events: none;
 }
 
 .gr-hero--empty {
-  border-style: dashed;
-  border-color: rgba(255, 255, 255, 0.07);
+  border: 1px dashed rgba(255, 255, 255, 0.07);
+  border-radius: var(--radius-sm);
   background: transparent;
+  box-sizing: border-box;
 }
 
 /* ── Both sides, highest MMR first, two per line ── */
@@ -258,11 +287,16 @@
   .mh-header {
     grid-template-columns:
       minmax(150px, 0.9fr)
-      78px
+      110px
       minmax(120px, 1.1fr)
       86px
       minmax(120px, 1.1fr)
       52px;
+  }
+
+  .gr-hero-slot {
+    width: 34px;
+    height: 34px;
   }
 }
 
