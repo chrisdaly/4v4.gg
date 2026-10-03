@@ -4,6 +4,7 @@ import styled from "styled-components";
 import FormDots from "../FormDots";
 import { Avatar } from "../UserListSidebar";
 import { formatGameMinutes } from "./chip";
+import { requestPlayerSession } from "../../lib/usePlayerMeta";
 
 /**
  * The mobile player card on /chat: a bottom sheet over a scrim, opened from
@@ -171,6 +172,11 @@ export default function PlayerSheet({ battleTag, onlineUsers = [], avatars, stat
     window.addEventListener("keydown", onKey, true);
     return () => window.removeEventListener("keydown", onKey, true);
   }, [onClose]);
+
+  // The form row below is the only thing on the page that needs it
+  useEffect(() => {
+    requestPlayerSession(battleTag);
+  }, [battleTag]);
 
   if (!battleTag) return null;
   const user = onlineUsers.find((u) => u.battleTag === battleTag);

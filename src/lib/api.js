@@ -565,6 +565,104 @@ export const getPlayerProfilesBatch = async (battleTags) => {
 };
 
 /**
+ * 4v4 stats for many players in one request.
+ *
+ * /chat and the homepage need MMR for everyone in the channel at once, and
+ * W3C has no batched form of game-mode-stats, so the relay does the fan-out
+ * behind a cache every viewer shares. If the relay is unreachable this falls
+ * back to the per-tag endpoint, which is what the page did before.
+ *
+ * @param {string[]} battleTags
+ * @param {number} seasonOverride
+ * @returns {Promise<Map<string, {mmr, wins, losses, rank, race}>>}
+ */
+export const getPlayerStatsBatch = async (battleTags, seasonOverride = season) => {
+  const results = new Map();
+  const missing = [];
+
+  for (const battleTag of battleTags) {
+    const cached = cache.get(`stats4v4:${battleTag.toLowerCase()}:${seasonOverride}`);
+    if (cached) results.set(battleTag, cached);
+    else missing.push(battleTag);
+  }
+  if (missing.length === 0) return results;
+
+  const remember = (battleTag, stats) => {
+    if (!stats) return;
+    results.set(battleTag, stats);
+    cache.set(`stats4v4:${battleTag.toLowerCase()}:${seasonOverride}`, stats, TTL.GAME_MODE_STATS);
+  };
+
+  // The relay caps a request at 120 tags
+  const CHUNK = 100;
+  for (let i = 0; i < missing.length; i += CHUNK) {
+    const chunk = missing.slice(i, i + CHUNK);
+    try {
+      const tags = chunk.map(encodeURIComponent).join(',');
+      const res = await fetch(`${RELAY_BASE}/api/w3c/stats?season=${seasonOverride}&tags=${tags}`);
+      if (!res.ok) throw new Error(`HTTP ${res.status}`);
+      const { stats } = await res.json();
+      for (const battleTag of chunk) remember(battleTag, stats?.[battleTag]);
+    } catch {
+      // Relay down or rate limited: go straight to W3C, one tag at a time
+      const perTag = await Promise.all(
+        chunk.map((battleTag) => getPlayerStats(battleTag, { seasonOverride }).catch(() => null))
+      );
+      chunk.forEach((battleTag, idx) => remember(battleTag, perTag[idx]));
+    }
+  }
+
+  return results;
+};
+
+/**
+ * Twitch handles for many players in one request.
+ *
+ * personal-settings/{tags}/many leaves `twitch` out, so learning who in the
+ * channel streams otherwise costs one profile fetch per player. Same relay
+ * fan-out as getPlayerStatsBatch, with the same per-tag fallback.
+ *
+ * @param {string[]} battleTags
+ * @returns {Promise<Map<string, string|null>>} battleTag -> handle or null
+ */
+export const getTwitchNamesBatch = async (battleTags) => {
+  const results = new Map();
+  const missing = [];
+
+  for (const battleTag of battleTags) {
+    const cached = cache.get(`twitchName:${battleTag.toLowerCase()}`);
+    if (cached !== null) results.set(battleTag, cached.name);
+    else missing.push(battleTag);
+  }
+  if (missing.length === 0) return results;
+
+  const remember = (battleTag, name) => {
+    results.set(battleTag, name || null);
+    cache.set(`twitchName:${battleTag.toLowerCase()}`, { name: name || null }, TTL.PERSONAL_SETTINGS);
+  };
+
+  const CHUNK = 100;
+  for (let i = 0; i < missing.length; i += CHUNK) {
+    const chunk = missing.slice(i, i + CHUNK);
+    try {
+      const tags = chunk.map(encodeURIComponent).join(',');
+      const res = await fetch(`${RELAY_BASE}/api/w3c/twitch?tags=${tags}`);
+      if (!res.ok) throw new Error(`HTTP ${res.status}`);
+      const { twitch } = await res.json();
+      for (const battleTag of chunk) remember(battleTag, twitch?.[battleTag]);
+    } catch {
+      // Relay down: one profile fetch per tag, which is what this replaced
+      const perTag = await Promise.all(
+        chunk.map((battleTag) => getPlayerProfile(battleTag).catch(() => null))
+      );
+      chunk.forEach((battleTag, idx) => remember(battleTag, perTag[idx]?.twitch));
+    }
+  }
+
+  return results;
+};
+
+/**
  * Lightweight session data fetch - skips full timeline for faster loading
  * Used for match cards where we just need session/form data
  *

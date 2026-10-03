@@ -1,5 +1,5 @@
 import { useState, useEffect, useRef } from "react";
-import { getPlayerProfile } from "../api";
+import { getTwitchNamesBatch } from "../api";
 import { getLiveStreamers } from "../twitchService";
 
 const EMPTY = new Map();
@@ -45,15 +45,17 @@ export default function useTwitchLive(onlineUsers) {
     if (tags.length === 0) return;
     let cancelled = false;
 
-    const lookups = tags
-      .filter((tag) => !twitchByTag.has(tag))
-      .map((tag) =>
-        getPlayerProfile(tag).then((profile) => {
-          twitchByTag.set(tag, profile?.twitch || null);
-        })
-      );
+    const unknown = tags.filter((tag) => !twitchByTag.has(tag));
 
-    Promise.all(lookups).then(() => {
+    // One request for the whole roster. A full profile fetch per player was
+    // the single biggest source of requests on this page.
+    const lookups = unknown.length
+      ? getTwitchNamesBatch(unknown).then((names) => {
+          for (const tag of unknown) twitchByTag.set(tag, names.get(tag) || null);
+        })
+      : Promise.resolve();
+
+    lookups.then(() => {
       if (cancelled) return;
       const entries = tags
         .map((tag) => [tag, twitchByTag.get(tag)])

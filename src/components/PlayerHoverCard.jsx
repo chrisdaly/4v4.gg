@@ -4,6 +4,7 @@ import { GiCrossedSwords } from "react-icons/gi";
 import { raceMapping, raceIcons } from "../lib/constants";
 import { CountryFlag } from "./ui";
 import FormDots from "./FormDots";
+import { requestPlayerSession } from "../lib/usePlayerMeta";
 
 const HOVER_DELAY_MS = 350;
 
@@ -117,8 +118,11 @@ export default function PlayerHoverCard({ battleTag, avatars, stats, sessions, i
   const timerRef = useRef(null);
 
   const onEnter = useCallback(() => {
+    // The form is fetched per player, so it is asked for here rather than for
+    // the whole roster up front. The hover delay gives it a head start.
+    requestPlayerSession(battleTag);
     timerRef.current = setTimeout(() => setOpen(true), HOVER_DELAY_MS);
-  }, []);
+  }, [battleTag]);
 
   const onLeave = useCallback(() => {
     clearTimeout(timerRef.current);

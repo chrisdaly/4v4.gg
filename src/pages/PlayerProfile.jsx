@@ -581,7 +581,14 @@ const PlayerProfile = () => {
       const playerIndex = ladderData.findIndex(
         r => r.playersInfo?.[0]?.battleTag?.toLowerCase() === battleTagLower
       );
-      if (playerIndex === -1) return returnData ? partial : undefined;
+      // /ladder/{league} only returns that league's top 100, so a player
+      // ranked below it has no neighbours to show. The card keeps the league
+      // and the rank rather than waiting on rows that will never arrive.
+      if (playerIndex === -1) {
+        const noNeighbors = { ...partial, neighbors: [] };
+        updateState({ ladderStanding: noNeighbors });
+        return returnData ? noNeighbors : undefined;
+      }
 
       // Two players above and two below
       const startIdx = Math.max(0, playerIndex - 2);
@@ -1095,7 +1102,7 @@ const PlayerProfile = () => {
                   <span className="ls-league-name">{ladderStanding.league?.name}</span>
                 </div>
                 <div className="ls-list">
-                  {!ladderStanding.neighbors &&
+                  {ladderStanding.neighbors === null &&
                     Array.from({ length: 5 }, (_, i) => (
                       <div className="ls-row ls-row--skeleton" key={i}>
                         <Skeleton $h="14px" />
