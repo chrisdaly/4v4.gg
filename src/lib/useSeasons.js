@@ -23,7 +23,11 @@ export default function useSeasons() {
     getSeasons()
       .then((data) => {
         if (cancelled) return;
-        setSeasons(Array.isArray(data) ? data : []);
+        // The endpoint lists season 0, which holds no 4v4 games at all - its
+        // ladder comes back empty for every league. Left in, it is a season
+        // picker entry that always leads to a blank page.
+        const playable = Array.isArray(data) ? data.filter((s) => s.id > 0) : [];
+        setSeasons(playable);
         setLoading(false);
       })
       .catch((e) => {
