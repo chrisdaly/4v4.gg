@@ -169,6 +169,8 @@ Reading the stream is the point of /chat, so: message lines are serif (`--font-b
 - `src/lib/chat/useStreamScroll.js` - records the row at the top of the viewport and its `offsetTop`, then after any change (older history above, a link card landing, an image decoding) moves `scrollTop` by exactly how far that row moved. Day dividers are excluded from anchoring: they belong ahead of the first row of their day, so older history from that day moves them up on purpose.
 - `src/lib/chat/useStreamRows.js` - the rows pipeline, which keeps a row object referentially stable while its content is unchanged so the memoized row skips its render.
 
+`ChatContext` (the digest/quote-browser transcript) shares `useStreamScroll` with `followTail: false`: newer messages page in at the *top* of that list, so it needs the same hold, but a transcript opens at the top and stays where the reader put it rather than chasing the newest line. Tests for both get their geometry from `src/test/helpers/layout.js`, because happy-dom reports every box as 0px and without it "at the end" and "at the top" look identical.
+
 Two things break this by accident: spreading a row object anywhere in the pipeline (`{...item}` gives every row a new identity and the whole visible stream re-renders on each message), and keying an effect on an object rebuilt every render (`detectUnfurl` returns a fresh object, so an effect on it blanked every link card on every re-render). Do not reintroduce a virtual list to make /chat faster - at 429 rows the scroll handler costs 0.03ms per tick.
 
 ## API Integration

@@ -41,6 +41,10 @@ function rowNode(el, key) {
  *   rows          the rendered rows, in order; a change re-runs the hold
  *   windowId      changes when the loaded window is replaced (jump to date,
  *                 back to live), which lands at the newest row
+ *   followTail    whether the newest row pulls the viewport along when the
+ *                 reader is already at the end. True for a live stream; false
+ *                 for a transcript, which opens at the top and stays wherever
+ *                 the reader put it
  *   onNearTop     reaching the head: page older history in
  *   onNearBottom  reaching the tail of an archive window: page forward
  *   onTopRowChange(key) the row at the top of the viewport, for the day bar
@@ -50,6 +54,7 @@ function rowNode(el, key) {
 export default function useStreamScroll({
   rows,
   windowId = 0,
+  followTail = true,
   onNearTop,
   onNearBottom,
   onTopRowChange,
@@ -78,6 +83,10 @@ export default function useStreamScroll({
   // Read through a ref so the scroll listener never has to be re-bound
   const cbRef = useRef(null);
   cbRef.current = { onNearTop, onNearBottom, onTopRowChange };
+  const followRef = useRef(followTail);
+  followRef.current = followTail;
+  // Only a tail-following stream has a reason to jump to the end
+  const shouldPin = () => followRef.current && distanceRef.current <= AT_BOTTOM_PX;
 
   // Which row is at the top of the viewport, walked from the last answer
   // rather than scanned from the start of the list
@@ -195,14 +204,15 @@ export default function useStreamScroll({
   // the tail follows it, anyone reading further up stays where they are
   useLayoutEffect(() => {
     if (!scrollerElRef.current) return;
-    if (windowRef.current !== windowId) {
+    if (windowRef.current !== windowId && followRef.current) {
       windowRef.current = windowId;
       pinToBottom();
       measure();
       return;
     }
+    windowRef.current = windowId;
     // Where the reader was before this change, measured, not remembered
-    if (distanceRef.current <= AT_BOTTOM_PX) pinToBottom();
+    if (shouldPin()) pinToBottom();
     else hold();
     measure();
   }, [rows, windowId, hold, pinToBottom, measure]);
@@ -215,7 +225,7 @@ export default function useStreamScroll({
   // reader their place.
   const resizeRef = useRef(null);
   resizeRef.current = () => {
-    if (distanceRef.current <= AT_BOTTOM_PX) pinToBottom();
+    if (shouldPin()) pinToBottom();
     else hold();
     measure();
   };

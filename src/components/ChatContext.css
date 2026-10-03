@@ -95,6 +95,16 @@
   overflow-x: hidden;
 }
 
+/* The rows sit in their own box inside the scroller so a ResizeObserver can
+   watch the content's height: observing the scroller itself would only ever
+   report its own fixed box. It inherits the stacking the rows used to get
+   from .cc-list directly, so nothing moves. */
+.cc-list > [data-cc-list] {
+  display: flex;
+  flex-direction: column;
+  gap: 0;
+}
+
 .cc-list::-webkit-scrollbar {
   width: 4px;
 }

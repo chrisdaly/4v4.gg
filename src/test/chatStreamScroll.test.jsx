@@ -27,8 +27,8 @@ function installGeometry() {
   fireResize = installResizeObserver();
 }
 
-function Stream({ rows, windowId = 0 }) {
-  const { scrollerRef, listRef, atBottom } = useStreamScroll({ rows, windowId });
+function Stream({ rows, windowId = 0, followTail = true }) {
+  const { scrollerRef, listRef, atBottom } = useStreamScroll({ rows, windowId, followTail });
   return (
     <div data-scroller ref={scrollerRef} data-at-bottom={String(atBottom)}>
       <div data-list ref={listRef}>
@@ -157,6 +157,33 @@ describe('useStreamScroll', () => {
     rerender(<Stream rows={makeRows(['p', 'q', 'r', 's', 't', 'u'])} windowId={1} />);
     expect(scroller().scrollTop).toBe(600);
     expect(scroller().dataset.atBottom).toBe('true');
+  });
+
+  describe('followTail: false (a transcript, not a live stream)', () => {
+    const keys = ['a', 'b', 'c', 'd', 'e', 'f', 'g', 'h', 'i', 'j'];
+
+    it('opens at the top and stays there', () => {
+      render(<Stream rows={makeRows(keys)} followTail={false} />);
+      expect(scroller().scrollTop).toBe(0);
+    });
+
+    it('does not chase a new row at the end', () => {
+      const { rerender } = render(<Stream rows={makeRows(keys)} followTail={false} />);
+      heights.push(100);
+      rerender(<Stream rows={makeRows([...keys, 'k'])} followTail={false} />);
+      // a live stream would have followed it; a transcript leaves the reader be
+      expect(scroller().scrollTop).toBe(0);
+    });
+
+    it('still holds the reader when rows arrive above them', () => {
+      const { rerender } = render(<Stream rows={makeRows(keys)} followTail={false} />);
+      scrollTo(300);
+      const before = rowEl('d').getBoundingClientRect().top;
+      heights = [...Array.from({ length: 4 }, () => 100), ...heights];
+      rerender(<Stream rows={makeRows(['w', 'x', 'y', 'z', ...keys])} followTail={false} />);
+      expect(rowEl('d').getBoundingClientRect().top).toBe(before);
+      expect(scroller().scrollTop).toBe(700);
+    });
   });
 
   it('reports reaching the head and the tail', () => {
