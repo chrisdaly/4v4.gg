@@ -2,6 +2,7 @@ import { describe, it, expect, beforeEach, afterEach, vi } from 'vitest';
 import React from 'react';
 import { render, act, cleanup, fireEvent } from '@testing-library/react';
 import useStreamScroll, { ROW_KEY_ATTR } from '../lib/chat/useStreamScroll';
+import { installLayout, restoreLayout, installResizeObserver } from './helpers/layout';
 
 // The hold, on its own. The panel tests cover a page of older history
 // arriving; this covers the case that has no React render behind it at all -
@@ -13,48 +14,17 @@ const VIEWPORT = 200;
 
 // Row heights live here so a test can change one and fire a resize
 let heights = [];
-const offsetOf = (i) => heights.slice(0, i).reduce((a, b) => a + b, 0);
-const total = () => heights.reduce((a, b) => a + b, 0);
 
-let resizeCallbacks = [];
+let fireResize = () => {};
 function installGeometry() {
-  const proto = window.HTMLElement.prototype;
-  const rows = () => Array.from(document.querySelectorAll(`[data-list] > [${ROW_KEY_ATTR}]`));
-  const isScroller = (el) => el.dataset && el.dataset.scroller !== undefined;
-  const rect = (top, bottom) => ({ top, bottom, height: bottom - top, left: 0, right: 0, width: 100, x: 0, y: top });
-  const scroller = () => document.querySelector('[data-scroller]');
-
-  Object.defineProperty(proto, 'offsetTop', {
-    configurable: true,
-    get() { const i = rows().indexOf(this); return i === -1 ? 0 : offsetOf(i); },
+  installLayout({
+    scroller: '[data-scroller]',
+    list: '[data-list]',
+    row: `[${ROW_KEY_ATTR}]`,
+    viewport: VIEWPORT,
+    heights: () => heights,
   });
-  Object.defineProperty(proto, 'offsetHeight', {
-    configurable: true,
-    get() { const i = rows().indexOf(this); return i === -1 ? 0 : heights[i]; },
-  });
-  Object.defineProperty(proto, 'clientHeight', {
-    configurable: true,
-    get() { return isScroller(this) ? VIEWPORT : 0; },
-  });
-  Object.defineProperty(proto, 'scrollHeight', {
-    configurable: true,
-    get() { return isScroller(this) ? total() : 0; },
-  });
-  proto.getBoundingClientRect = function () {
-    if (isScroller(this)) return rect(0, VIEWPORT);
-    const i = rows().indexOf(this);
-    if (i === -1) return rect(0, 0);
-    const top = offsetOf(i) - (scroller()?.scrollTop || 0);
-    return rect(top, top + heights[i]);
-  };
-  proto.scrollTo = function (opts) { this.scrollTop = opts?.top ?? 0; };
-
-  resizeCallbacks = [];
-  globalThis.ResizeObserver = class {
-    constructor(cb) { resizeCallbacks.push(cb); }
-    observe() {}
-    disconnect() {}
-  };
+  fireResize = installResizeObserver();
 }
 
 function Stream({ rows, windowId = 0 }) {
@@ -82,14 +52,17 @@ const scrollTo = (top) => act(() => {
 // the screen by exactly `by`.
 const growRow = (index, by) => act(() => {
   heights[index] += by;
-  resizeCallbacks.forEach((cb) => cb());
+  fireResize();
 });
 
 beforeEach(() => {
   heights = Array.from({ length: 10 }, () => 100);
   installGeometry();
 });
-afterEach(cleanup);
+afterEach(() => {
+  cleanup();
+  restoreLayout();
+});
 
 describe('useStreamScroll', () => {
   it('opens at the newest row', () => {

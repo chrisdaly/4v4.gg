@@ -13,6 +13,12 @@ export const TRIM_HYSTERESIS = 100;
 // Cap how far back scrollback can page in - keeps the DOM and memory bounded.
 // ~2000 messages is days of history; beyond that, use search instead.
 const MAX_HISTORY_EXTRA = 1500;
+// Messages per page of older history. The relay caps a request at 200, and a
+// prepend costs the reader nothing now that the viewport is held against a
+// real row (lib/chat/useStreamScroll.js) - so the only thing page size still
+// buys is round trips, and fewer is better. The initial window stays at 100:
+// that one is first paint.
+const HISTORY_PAGE = 200;
 const BACKOFF_DELAYS = [1000, 2000, 4000, 8000, 16000, 30000];
 // Relay-side SignalR states (server/src/signalr.js) other than Connected
 const RELAY_STATES = new Set(["auth_failed", "banned", "no_token", "error", "Disconnected", "stopped"]);
@@ -79,7 +85,7 @@ export default function useChatStream() {
       if (!cursor) return { added: 0, oldestCursor: null };
 
       const res = await relayFetch(
-        `/api/chat/messages?limit=100&before=${encodeURIComponent(cursor)}`
+        `/api/chat/messages?limit=${HISTORY_PAGE}&before=${encodeURIComponent(cursor)}`
       );
       const data = await res.json();
       if (!Array.isArray(data) || data.length === 0) {
@@ -96,7 +102,7 @@ export default function useChatStream() {
         historyExtraRef.current += unique.length;
         return [...unique, ...prev];
       });
-      if (data.length < 100 || historyExtraRef.current >= MAX_HISTORY_EXTRA) {
+      if (data.length < HISTORY_PAGE || historyExtraRef.current >= MAX_HISTORY_EXTRA) {
         setHasMoreHistory(false);
       }
       return { added, oldestCursor: older[0]?.receivedAt || cursor };

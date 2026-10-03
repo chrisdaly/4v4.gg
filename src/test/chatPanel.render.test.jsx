@@ -12,74 +12,9 @@ import { MemoryRouter } from 'react-router-dom';
 const ROW_H = 100;
 const VIEWPORT = 200;
 
-// Geometry is installed on the prototype rather than per element, because
-// the stream scrolls to rows that only exist after an await: a stub applied
-// at a fixed moment would miss them. Anything that is not a stream row or
-// the stream scroller keeps the real (zero) answers.
-const patched = [];
-function installLayout() {
-  const proto = window.HTMLElement.prototype;
-  const listRows = () => Array.from(document.querySelectorAll('[data-chat-list] > [data-row-key]'));
-  const isScroller = (el) => el.dataset && el.dataset.chatScroller !== undefined;
-  const rect = (top, bottom) => ({ top, bottom, height: bottom - top, left: 0, right: 0, width: 100, x: 0, y: top });
-
-  const define = (name, get) => {
-    const original = Object.getOwnPropertyDescriptor(proto, name);
-    patched.push([name, original]);
-    Object.defineProperty(proto, name, {
-      configurable: true,
-      get() {
-        const mine = get.call(this);
-        if (mine !== undefined) return mine;
-        return original?.get ? original.get.call(this) : 0;
-      },
-    });
-  };
-
-  define('offsetTop', function () {
-    const i = listRows().indexOf(this);
-    return i === -1 ? undefined : i * ROW_H;
-  });
-  define('offsetHeight', function () {
-    return this.dataset?.rowKey === undefined ? undefined : ROW_H;
-  });
-  define('clientHeight', function () {
-    return isScroller(this) ? VIEWPORT : undefined;
-  });
-  define('scrollHeight', function () {
-    return isScroller(this) ? listRows().length * ROW_H : undefined;
-  });
-
-  const originalRect = proto.getBoundingClientRect;
-  patched.push(['getBoundingClientRect', { value: originalRect }]);
-  proto.getBoundingClientRect = function () {
-    if (isScroller(this)) return rect(0, VIEWPORT);
-    const i = listRows().indexOf(this);
-    if (i === -1) return originalRect.call(this);
-    const top = i * ROW_H - (scroller()?.scrollTop || 0);
-    return rect(top, top + ROW_H);
-  };
-  const originalScrollTo = proto.scrollTo;
-  patched.push(['scrollTo', { value: originalScrollTo }]);
-  proto.scrollTo = function (opts) {
-    if (!isScroller(this)) return originalScrollTo?.call(this, opts);
-    this.scrollTop = opts?.top ?? 0;
-    fireEvent.scroll(this);
-    return undefined;
-  };
-}
-
-function restoreLayout() {
-  const proto = window.HTMLElement.prototype;
-  while (patched.length) {
-    const [name, original] = patched.pop();
-    if (original) Object.defineProperty(proto, name, { configurable: true, ...original });
-    else delete proto[name];
-  }
-}
-
-// Kept so the intent reads at each call site; the geometry is already live
-const layout = () => scroller();
+// Geometry for a DOM that has none: see src/test/helpers/layout.js for why
+// it goes on the prototype rather than onto specific elements.
+const layout = () => installLayout({ rowHeight: ROW_H, viewport: VIEWPORT });
 
 const scroller = () => document.querySelector('[data-chat-scroller]');
 const rowFor = (msgId) => document.getElementById(`msg-${msgId}`)?.closest('[data-row-key]');
@@ -103,6 +38,7 @@ function scrollTo(top) {
 const scrollUp = () => scrollTo(100);
 const scrollToEnd = () => scrollTo(scroller().scrollHeight - VIEWPORT);
 
+import { installLayout, restoreLayout } from './helpers/layout';
 import ChatPanel from '../components/ChatPanel';
 import GameModal, { resolveGame } from '../components/chat/GameModal';
 import { useWatchList } from '../lib/chatExtras';
@@ -207,7 +143,7 @@ function renderPanel(overrides = {}) {
 
 // Keep the relay off the network unless a test installs its own fetch mock
 beforeEach(() => {
-  installLayout();
+  layout();
   searchToggle.mockClear();
   setTrimPaused(false);
   resetNotifyThrottle();
