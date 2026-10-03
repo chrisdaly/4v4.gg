@@ -8,6 +8,8 @@ import {
   getPlayerProfilesBatch,
   getPlayerMatches,
   getPlayerGameModeStatsRaw,
+  pickModeRow,
+  toModeStats,
   searchLadder,
   getLadder,
 } from "../lib/api";
@@ -21,7 +23,7 @@ import { FaTwitch } from "react-icons/fa";
 import { GiCrossedSwords } from "react-icons/gi";
 
 import FormDots from "../components/FormDots";
-import { gateway } from "../lib/params";
+import { gateway, GAME_MODE, GAME_MODE_LABEL } from "../lib/params";
 import { GameRow } from "../components/game/index";
 import ActivityGraph from "../components/ActivityGraph";
 import ActivityOverTime from "../components/ActivityOverTime";
@@ -52,6 +54,14 @@ const PROFILE_TABS = [
 
 const RELAY_URL = import.meta.env.VITE_CHAT_RELAY_URL || "https://4v4gg-chat-relay.fly.dev";
 const GAMES_PER_PAGE = 10;
+// Below this, a solo MMR is a coin-flip artefact rather than a reading. Half
+// the 4v4 ladder has a 1v1 row and most of those are a handful of games.
+const SOLO_MIN_GAMES = 10;
+const HISTORY_MODES = [
+  { key: GAME_MODE.FOUR_V_FOUR, label: "4v4" },
+  { key: GAME_MODE.ONE_V_ONE, label: "1v1" },
+  { key: null, label: "All" },
+];
 // One page of the Stats tab's crawl. The same page is the window the header's
 // streak tag and the session detection read, so they come free with it.
 const STATS_PAGE_SIZE = 100;
@@ -140,6 +150,7 @@ const PlayerProfile = () => {
   } = state;
 
   const prevBattleTagRef = useRef(battleTag);
+  const fetchedModeRef = useRef(null);
   const hasLoadedProfileRef = useRef(false);
   const latestReq = useRef(0);
   const [activeClip, setActiveClip] = useState(null);
@@ -163,6 +174,15 @@ const PlayerProfile = () => {
   };
   const [expandedSections, setExpandedSections] = useState({});
   const [playerFilter, setPlayerFilter] = useState("");
+  // The history table's mode. 4v4 by default: this is a 4v4 site, and the
+  // other modes are here to inform it rather than to share the billing.
+  const [historyMode, setHistoryMode] = useState(GAME_MODE.FOUR_V_FOUR);
+  // W3C's own count for the current filter. The header's `totalMatches` comes
+  // from 4v4 ladder stats, so it cannot answer for 1v1 or for every mode.
+  const [historyCount, setHistoryCount] = useState(null);
+  // Last game in ANY mode. Half the 4v4 ladder also plays 1v1, and reading
+  // "last seen" off 4v4 alone calls those players dead while they are on daily.
+  const [lastPlayedAnyMode, setLastPlayedAnyMode] = useState(null);
   const [statAvatars, setStatAvatars] = useState(new Map());
   // Weekly issues (storyline tags, In the news) and the all-season activity
   const [weeklies, setWeeklies] = useState([]);
@@ -232,6 +252,40 @@ const PlayerProfile = () => {
   useEffect(() => {
     setSeasonActivity(null);
   }, [battleTag]);
+
+  // When the player last played anything, not just 4v4. One request: omitting
+  // gameMode makes /matches/search return every mode merged and date-sorted.
+  useEffect(() => {
+    let cancelled = false;
+    setLastPlayedAnyMode(null);
+    // The season arrives a tick after mount, and W3C answers 400 to a request
+    // without one rather than defaulting to the current season
+    if (selectedSeason === null) return;
+    getPlayerMatches(battleTag, 1, 0, selectedSeason, null).then(({ matches: any }) => {
+      if (!cancelled) setLastPlayedAnyMode(any?.[0] || null);
+    });
+    return () => {
+      cancelled = true;
+    };
+  }, [battleTag, selectedSeason]);
+
+  // Back to 4v4 whenever the player changes, so a filter does not follow you
+  // from one profile to the next
+  useEffect(() => {
+    setHistoryMode(GAME_MODE.FOUR_V_FOUR);
+    fetchedModeRef.current = GAME_MODE.FOUR_V_FOUR;
+    setHistoryCount(null);
+  }, [battleTag]);
+
+  // Refetch page one when the mode filter changes. The initial load already
+  // fetched 4v4, so the ref keeps this from firing on first paint.
+  useEffect(() => {
+    if (fetchedModeRef.current === historyMode) return;
+    fetchedModeRef.current = historyMode;
+    if (selectedSeason === null) return;
+    updateState({ currentPage: 0 });
+    fetchMatches(0, false, latestReq.current, historyMode);
+  }, [historyMode, selectedSeason]);
 
   // Reset to the latest season when the player changes or seasons load
   useEffect(() => {
@@ -418,13 +472,21 @@ const PlayerProfile = () => {
     const stats = await getPlayerGameModeStatsRaw(battleTag, {
       seasonOverride: selectedSeason,
     }).catch(() => null);
-    const fourVsFourStats = Array.isArray(stats) ? stats.find((s) => s.gameMode === 4) : null;
+    const fourVsFourStats = pickModeRow(stats, GAME_MODE.FOUR_V_FOUR);
     if (!fourVsFourStats || latestReq.current !== reqId) return null;
+    // 1v1 and 2v2 ride along in the same response, so the header's solo line
+    // and the history mode filter cost no extra request. Spread rather than
+    // reshape: the raw row carries league and division the header reads.
+    const withModes = {
+      ...fourVsFourStats,
+      solo: toModeStats(pickModeRow(stats, GAME_MODE.ONE_V_ONE)),
+      twos: toModeStats(pickModeRow(stats, GAME_MODE.TWO_V_TWO)),
+    };
     updateState({
-      playerData: fourVsFourStats,
+      playerData: withModes,
       totalMatches: (fourVsFourStats.wins || 0) + (fourVsFourStats.losses || 0),
     });
-    return fourVsFourStats;
+    return withModes;
   };
 
   // The header's streak tag reads the season from the player's side. One page
@@ -483,15 +545,17 @@ const PlayerProfile = () => {
     }
   };
 
-  const fetchMatches = async (page, returnData = false, reqId = latestReq.current) => {
+  const fetchMatches = async (page, returnData = false, reqId = latestReq.current, mode = historyMode) => {
     const { matches: pageMatches, count } = await getPlayerMatches(
       battleTag,
       GAMES_PER_PAGE,
       page * GAMES_PER_PAGE,
-      selectedSeason
+      selectedSeason,
+      mode
     );
     if (latestReq.current !== reqId) return returnData ? [] : undefined;
     const matchUpdate = { matches: pageMatches };
+    if (page === 0) setHistoryCount(count ?? null);
     updateState(matchUpdate);
     return returnData ? pageMatches : undefined;
   };
@@ -831,16 +895,48 @@ const PlayerProfile = () => {
   const winrate = playerData && (playerData.wins + playerData.losses) > 0
     ? Math.round((playerData.wins / (playerData.wins + playerData.losses)) * 100)
     : 0;
+  // Solo standing, free in the game-mode-stats response the header already
+  // fetched. Under a handful of games the MMR has not converged on anything,
+  // so showing it would be worse than showing nothing.
+  const soloStats =
+    playerData?.solo && playerData.solo.games >= SOLO_MIN_GAMES ? playerData.solo : null;
+  // The 1v1 and 4v4 MMR scales differ, so the percentile is the honest
+  // cross-mode number. W3C hands it over in the same row.
+  const soloPercentile = (() => {
+    if (typeof soloStats?.quantile !== 'number') return null;
+    const top = Math.max(1, Math.round((1 - soloStats.quantile) * 100));
+    return top <= 50 ? `top ${top}%` : null;
+  })();
+
+  // Whichever is newer: the loaded page's latest game, or the latest game in
+  // any mode. A 4v4-only read calls daily 1v1 players inactive for months.
+  const lastSeenMatch = (() => {
+    const candidates = [matches[0], lastPlayedAnyMode].filter((m) => m?.endTime);
+    if (candidates.length === 0) return null;
+    return candidates.sort((a, b) => new Date(b.endTime) - new Date(a.endTime))[0];
+  })();
   const lastSeen = (() => {
-    if (!matches[0]?.endTime) return null;
-    const diffMs = Date.now() - new Date(matches[0].endTime);
+    if (!lastSeenMatch) return null;
+    const diffMs = Date.now() - new Date(lastSeenMatch.endTime);
     const diffDays = Math.floor(diffMs / 86400000);
     const diffHours = Math.floor(diffMs / 3600000);
     if (diffHours < 1) return "< 1h ago";
     if (diffHours < 24) return `${diffHours}h ago`;
     return `${diffDays}d ago`;
   })();
-  const totalPages = Math.ceil(totalMatches / GAMES_PER_PAGE);
+  // Say so when the last game was not 4v4, or the number looks like a 4v4 one
+  const lastSeenMode =
+    lastSeenMatch?.gameMode && lastSeenMatch.gameMode !== GAME_MODE.FOUR_V_FOUR
+      ? GAME_MODE_LABEL[lastSeenMatch.gameMode] || null
+      : null;
+  // Both sides' heroes need a wider hero column, which only works when every
+  // row in the table is 1v1. Under "All" the rows stay their 4v4 shape.
+  const isSoloHistory = historyMode === GAME_MODE.ONE_V_ONE;
+  // A 4v4-only player should not be shown a filter with nothing behind it
+  const hasOtherModes = Boolean(playerData?.solo?.games || playerData?.twos?.games);
+  const historyTotal =
+    historyMode === GAME_MODE.FOUR_V_FOUR ? totalMatches : historyCount ?? 0;
+  const totalPages = Math.ceil(historyTotal / GAMES_PER_PAGE);
 
   // Storyline: the header tags and the issues that feature this player
   const newestFirst = [...seasonLite].sort((a, b) => new Date(b.endTime) - new Date(a.endTime));
@@ -916,9 +1012,21 @@ const PlayerProfile = () => {
                       <span className="hd-games">{totalGames.toLocaleString()} games</span>
                     </div>
                   )}
+                  {soloStats && (
+                    <div className="hd-solo-row" title="Solo ladder standing this season">
+                      <span className="hd-solo-label">Solo</span>
+                      <span className="hd-solo-mmr">{soloStats.mmr.toLocaleString('en-US')}</span>
+                      {soloPercentile && <span className="hd-solo-pct">{soloPercentile}</span>}
+                      <span className="hd-sep">·</span>
+                      <span className="hd-solo-games">{soloStats.games} games</span>
+                    </div>
+                  )}
                   {lastSeen && (
                     <div className="hd-footer-row">
-                      <span className="hd-lastseen-inline">Last seen <strong>{lastSeen}</strong></span>
+                      <span className="hd-lastseen-inline">
+                        Last seen <strong>{lastSeen}</strong>
+                        {lastSeenMode && <span className="hd-lastseen-mode"> in {lastSeenMode}</span>}
+                      </span>
                     </div>
                   )}
                 </>
@@ -1003,6 +1111,21 @@ const PlayerProfile = () => {
               <div className="section-header">
                 <h2 className="section-title">Match History</h2>
                 <div className="mh-controls">
+                  {hasOtherModes && (
+                    <div className="mh-modes" role="group" aria-label="Game mode">
+                      {HISTORY_MODES.map((m) => (
+                        <button
+                          key={m.label}
+                          type="button"
+                          className="mh-mode"
+                          data-active={historyMode === m.key ? "true" : undefined}
+                          onClick={() => setHistoryMode(m.key)}
+                        >
+                          {m.label}
+                        </button>
+                      ))}
+                    </div>
+                  )}
                   <Input
                     type="text"
                     placeholder="Filter by player..."
@@ -1010,18 +1133,20 @@ const PlayerProfile = () => {
                     onChange={(e) => setPlayerFilter(e.target.value)}
                   />
                   <span className="match-count">
-                    {playerFilter ? `${filteredMatches.length} / ${matches.length}` : `${totalMatches} games`}
+                    {playerFilter ? `${filteredMatches.length} / ${matches.length}` : `${historyTotal} games`}
                   </span>
                 </div>
               </div>
 
-              <div className="match-history-table">
+              <div className={`match-history-table${isSoloHistory ? " mh-solo" : ""}`}>
                 <div className="mh-header">
                   <div className="mh-col map">Map</div>
                   <div className="mh-col heroes">Heroes</div>
-                  <div className="mh-col team">Your team</div>
+                  <div className="mh-col team">{isSoloHistory ? "You" : "Your team"}</div>
                   <div className="mh-col avg">Avg</div>
-                  <div className="mh-col opponents">Opponents</div>
+                  <div className="mh-col opponents">{isSoloHistory ? "Opponent" : "Opponents"}</div>
+                  {/* The mirrored hero column only exists on a 1v1 table */}
+                  {isSoloHistory && <div className="mh-col heroes">Heroes</div>}
                   <div className="mh-col mmr">+/-</div>
                 </div>
                 {filteredMatches.map((match, idx) => (
@@ -1030,6 +1155,7 @@ const PlayerProfile = () => {
                     game={match}
                     playerBattleTag={battleTag}
                     striped={idx % 2 === 1}
+                    showOpponentHeroes={isSoloHistory}
                   />
                 ))}
                 {matches.length === 0 && isLoading &&

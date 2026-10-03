@@ -8,6 +8,8 @@ router.use(publicLimiter);
 const API_BASE = 'https://website-backend.w3champions.com/api';
 const GATEWAY = 20;
 const GAME_MODE = 4;
+const GAME_MODE_1V1 = 1;
+const GAME_MODE_2V2 = 2;
 
 const MAX_TAGS = 120;
 // Discriminators run longer than they look: Adventurer#127632598 is a real tag
@@ -84,19 +86,55 @@ async function collect(tags, store, ttl, fetchOne, label) {
   return { out, hits: tags.length - misses.length };
 }
 
-async function fetchStats(tag, season) {
-  const url = `${API_BASE}/players/${encodeURIComponent(tag)}/game-mode-stats?gateway=${GATEWAY}&season=${season}`;
-  const res = await fetch(url);
-  if (!res.ok) throw new Error(`HTTP ${res.status}`);
-  const rows = await res.json();
-  const row = Array.isArray(rows) ? rows.find(r => r.gameMode === GAME_MODE) : null;
+/**
+ * One row per game mode, out of a response that holds several.
+ *
+ * W3C splits 1v1 into one row per race played, so a solo player can have
+ * three. The row with the most games is the one that describes them.
+ */
+function pickModeRow(rows, gameMode) {
+  if (!Array.isArray(rows)) return null;
+  let best = null;
+  let bestGames = -1;
+  for (const row of rows) {
+    if (row?.gameMode !== gameMode) continue;
+    const games = (row.wins || 0) + (row.losses || 0);
+    if (games > bestGames) {
+      best = row;
+      bestGames = games;
+    }
+  }
+  return best;
+}
+
+function toModeStats(row) {
   if (!row) return null;
   return {
     mmr: row.mmr || 0,
     wins: row.wins || 0,
     losses: row.losses || 0,
+    games: (row.wins || 0) + (row.losses || 0),
     rank: row.rank || null,
     race: row.race ?? null,
+    // W3C's own percentile for the mode. The 1v1 and 4v4 MMR scales differ,
+    // so this is what makes the two comparable.
+    quantile: typeof row.quantile === 'number' ? row.quantile : null,
+  };
+}
+
+async function fetchStats(tag, season) {
+  const url = `${API_BASE}/players/${encodeURIComponent(tag)}/game-mode-stats?gateway=${GATEWAY}&season=${season}`;
+  const res = await fetch(url);
+  if (!res.ok) throw new Error(`HTTP ${res.status}`);
+  const rows = await res.json();
+  const row = pickModeRow(rows, GAME_MODE);
+  if (!row) return null;
+  // 1v1 and 2v2 are in the same response, so they cost no extra request.
+  // Either can be absent; most 4v4 players have no solo row at all.
+  return {
+    ...toModeStats(row),
+    solo: toModeStats(pickModeRow(rows, GAME_MODE_1V1)),
+    twos: toModeStats(pickModeRow(rows, GAME_MODE_2V2)),
   };
 }
 

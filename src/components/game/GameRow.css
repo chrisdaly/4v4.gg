@@ -22,6 +22,33 @@
   align-items: center;
 }
 
+/* A 1v1 table mirrors about the MMR column: map, your heroes, you, the two
+   MMRs, them, their heroes. Seven columns rather than six, and the width comes
+   from the lineup columns, which hold one name a side instead of four. Header
+   and rows share the rule, so they stay aligned. */
+.mh-solo .game-row,
+.mh-solo .mh-header {
+  grid-template-columns:
+    minmax(150px, 0.9fr)
+    132px
+    minmax(70px, 0.8fr)
+    94px
+    minmax(70px, 0.8fr)
+    132px
+    58px;
+}
+
+/* Their heroes hug the right edge, yours the left, so the two lineups sit
+   equally far out from the centre */
+.gr-heroes--theirs {
+  justify-content: flex-end;
+}
+
+/* One name a side: the two-up lineup grid has nothing to lay out */
+.mh-solo .gr-col.gr-side {
+  grid-template-columns: minmax(0, 1fr);
+}
+
 .game-row {
   padding: var(--space-2) var(--space-4);
   border-bottom: 1px solid rgba(255, 255, 255, 0.03);
@@ -109,6 +136,13 @@
   white-space: nowrap;
 }
 
+/* Only non-4v4 rows carry one, so it should read as a label, not a stat */
+.gr-mode {
+  color: var(--cyan);
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+}
+
 /* ── The heroes you fielded: three fixed slots so rows stay aligned ── */
 
 .gr-col.gr-heroes {
@@ -122,6 +156,19 @@
   display: block;
   width: 40px;
   height: 40px;
+  flex-shrink: 0;
+}
+
+/* 1v1 rows carry both sides' heroes, so the column needs a divider. The empty
+   slots either side of it are what keep both lineups aligned down the table. */
+.gr-col.gr-heroes[data-solo="true"] {
+  gap: 2px;
+}
+
+.gr-hero-vs {
+  font: var(--text-xxxs) var(--font-mono);
+  color: var(--grey-mid);
+  padding: 0 var(--space-2);
   flex-shrink: 0;
 }
 
@@ -156,11 +203,10 @@
   pointer-events: none;
 }
 
+/* A hero the player never built is absence, not an empty container: the slot
+   still holds the row's shape, it just does not draw itself */
 .gr-hero--empty {
-  border: 1px dashed rgba(255, 255, 255, 0.07);
-  border-radius: var(--radius-sm);
   background: transparent;
-  box-sizing: border-box;
 }
 
 /* ── Both sides, highest MMR first, two per line ── */
@@ -291,6 +337,18 @@
       minmax(120px, 1.1fr)
       86px
       minmax(120px, 1.1fr)
+      52px;
+  }
+
+  .mh-solo .game-row,
+  .mh-solo .mh-header {
+    grid-template-columns:
+      minmax(130px, 0.9fr)
+      114px
+      minmax(60px, 0.8fr)
+      86px
+      minmax(60px, 0.8fr)
+      114px
       52px;
   }
 
