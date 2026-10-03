@@ -1157,3 +1157,27 @@
     width: 52px;
   }
 }
+
+/* Loading placeholders: the page renders its shell immediately and each
+   section fills in when its own request lands */
+.hd-skeleton {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-2);
+  margin-top: var(--space-2);
+}
+
+.mh-row-skeleton {
+  padding: var(--space-3) var(--space-2);
+  border-bottom: 1px solid var(--panel-border);
+}
+
+.ls-row--skeleton {
+  pointer-events: none;
+}
+
+.stats-tab-skeleton {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(260px, 1fr));
+  gap: var(--space-4);
+}

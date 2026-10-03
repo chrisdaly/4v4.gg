@@ -1,11 +1,14 @@
 import React, { useState, useEffect, useMemo } from "react";
 import PeonLoader from "./PeonLoader";
+import { getSeasons, getPlayerMatches } from "../lib/api";
 import "./ActivityGraph.css";
 
 // v2: keys are local days, so a cached v1 map (UTC days) must not be reused
 const CACHE_KEY_PREFIX = "activity-graph-v2-";
 const CACHE_EXPIRY_MS = 30 * 60 * 1000; // 30 minutes
 const WEEKS_TO_SHOW = 13; // ~3 months
+const PAGE_SIZE = 100;
+const MAX_OFFSET = 500;
 
 /**
  * A day's key in the player's own timezone. toISOString() would key by UTC,
@@ -113,13 +116,31 @@ const ActivityGraph = ({ battleTag, currentSeason, gateway = 20, size = "small",
       const threeMonthsAgo = new Date();
       threeMonthsAgo.setMonth(threeMonthsAgo.getMonth() - 3);
 
+      // Matches are newest first, so the page that crosses three months back
+      // is the last one worth having. Most players are inside that on page
+      // one; the rest fan out in a single round trip rather than a chain of
+      // them. getPlayerMatches shares its cache with the profile page, so the
+      // current season's first page is usually already in hand.
+      const countPage = (matches) => {
+        let reachedEdge = false;
+        for (const match of matches) {
+          const endDate = new Date(match.endTime);
+          if (endDate < threeMonthsAgo) {
+            reachedEdge = true;
+            continue;
+          }
+          const dateKey = dayKey(endDate);
+          activityMap[dateKey] = (activityMap[dateKey] || 0) + 1;
+        }
+        return reachedEdge;
+      };
+
       try {
-        const seasonsResponse = await fetch("https://website-backend.w3champions.com/api/ladder/seasons");
-        const seasons = await seasonsResponse.json();
+        const seasons = await getSeasons();
         if (cancelled) return;
         const relevantSeasons = seasons.filter(s => s.id >= currentSeason - 1 && s.id <= currentSeason);
 
-        for (const season of relevantSeasons) {
+        await Promise.all(relevantSeasons.map(async (season) => {
           if (season.startDate) {
             ranges[season.id] = {
               start: new Date(season.startDate),
@@ -127,33 +148,20 @@ const ActivityGraph = ({ battleTag, currentSeason, gateway = 20, size = "small",
             };
           }
 
-          let offset = 0;
-          const pageSize = 100;
-          let hasMore = true;
+          const first = await getPlayerMatches(battleTag, PAGE_SIZE, 0, season.id);
+          if (cancelled || first.matches.length === 0) return;
+          if (countPage(first.matches)) return;
 
-          while (hasMore && !cancelled) {
-            const url = `https://website-backend.w3champions.com/api/matches/search?playerId=${encodeURIComponent(battleTag)}&offset=${offset}&gameMode=4&season=${season.id}&gateway=${gateway}&pageSize=${pageSize}`;
-            const response = await fetch(url);
-            if (cancelled || !response.ok) break;
-
-            const data = await response.json();
-            const matches = data.matches || [];
-            if (matches.length === 0) break;
-
-            for (const match of matches) {
-              const endDate = new Date(match.endTime);
-              if (endDate < threeMonthsAgo) {
-                hasMore = false;
-                break;
-              }
-              const dateKey = dayKey(endDate);
-              activityMap[dateKey] = (activityMap[dateKey] || 0) + 1;
-            }
-
-            offset += pageSize;
-            if (offset > 500) break;
-          }
-        }
+          const total = Math.min(first.count || first.matches.length, MAX_OFFSET + PAGE_SIZE);
+          const rest = await Promise.all(
+            Array.from(
+              { length: Math.max(0, Math.ceil(total / PAGE_SIZE) - 1) },
+              (_, i) => getPlayerMatches(battleTag, PAGE_SIZE, (i + 1) * PAGE_SIZE, season.id)
+            )
+          );
+          if (cancelled) return;
+          for (const page of rest) countPage(page.matches);
+        }));
 
         if (cancelled) return;
         setActivityData(activityMap);

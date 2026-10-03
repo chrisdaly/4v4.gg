@@ -1,8 +1,16 @@
 import React, { useState, useEffect, useReducer, useMemo, useRef } from "react";
 import { Link, useHistory, useLocation } from "react-router-dom";
-import { CountryFlag, Select, Button, Input, Delta, PageNav } from "../components/ui";
+import { CountryFlag, Select, Button, Input, Delta, PageNav, Skeleton, SkeletonCircle } from "../components/ui";
 import { findPlayerInOngoingMatches } from "../lib/utils";
-import { getPlayerProfile, getPlayerTimelineMerged, getPlayerProfilesBatch, getPlayerMatches } from "../lib/api";
+import {
+  getPlayerProfile,
+  getPlayerTimelineMerged,
+  getPlayerProfilesBatch,
+  getPlayerMatches,
+  getPlayerGameModeStatsRaw,
+  searchLadder,
+  getLadder,
+} from "../lib/api";
 import { cache } from "../lib/cache";
 import { matchIdleGapMs, SESSION_GAP_MINUTES } from "../lib/session";
 import useSeasons from "../lib/useSeasons";
@@ -13,7 +21,6 @@ import { FaTwitch } from "react-icons/fa";
 import { GiCrossedSwords } from "react-icons/gi";
 
 import FormDots from "../components/FormDots";
-import PeonLoader from "../components/PeonLoader";
 import { gateway } from "../lib/params";
 import { GameRow } from "../components/game/index";
 import ActivityGraph from "../components/ActivityGraph";
@@ -45,8 +52,10 @@ const PROFILE_TABS = [
 
 const RELAY_URL = import.meta.env.VITE_CHAT_RELAY_URL || "https://4v4gg-chat-relay.fly.dev";
 const GAMES_PER_PAGE = 10;
-// Games read back when working out the current session (the live card's window)
-const SESSION_WINDOW = 50;
+// One page of the Stats tab's crawl. The same page is the window the header's
+// streak tag and the session detection read, so they come free with it.
+const STATS_PAGE_SIZE = 100;
+const STATS_MAX = 2000;
 const ALL_SEASONS = 0;
 
 const MIN_GAMES_FOR_STATS = 3;
@@ -159,6 +168,9 @@ const PlayerProfile = () => {
   // Weekly issues (storyline tags, In the news) and the all-season activity
   const [weeklies, setWeeklies] = useState([]);
   const [seasonActivity, setSeasonActivity] = useState(null);
+  // The Stats tab's aggregates load on first open, not on first paint
+  const [statsLoading, setStatsLoading] = useState(false);
+  const statsTriedRef = useRef(null);
   const toggleSection = (key) => setExpandedSections(prev => ({ ...prev, [key]: !prev[key] }));
 
   // Helper to restore from cache in a single batch
@@ -252,7 +264,7 @@ const PlayerProfile = () => {
         sessionGames: [], seasonMmrs: [], ongoingGame: null, ladderStanding: null,
         allyStats: [], worstAllyStats: [], mapStats: [], worstMapStats: [],
         nemesisStats: [], preyStats: [], allAllies: [], allWorstAllies: [], allNemesis: [], allPrey: [],
-        statsSampleSize: 0, currentPage: 0, isLoading: true,
+        statsSampleSize: 0, seasonLite: [], currentPage: 0, isLoading: true,
       });
     } else {
       // Season change - clear season data, keep profile visible
@@ -261,7 +273,7 @@ const PlayerProfile = () => {
         sessionGames: [], seasonMmrs: [], ladderStanding: null,
         allyStats: [], worstAllyStats: [], mapStats: [], worstMapStats: [],
         nemesisStats: [], preyStats: [], allAllies: [], allWorstAllies: [], allNemesis: [], allPrey: [],
-        statsSampleSize: 0, currentPage: 0,
+        statsSampleSize: 0, seasonLite: [], currentPage: 0,
       });
     }
 
@@ -371,91 +383,102 @@ const PlayerProfile = () => {
     getPlayerProfilesBatch(tags).then(map => setStatAvatars(map));
   }, [activeTab, allyStats, worstAllyStats, nemesisStats, preyStats]);
 
-  const seasonParam = selectedSeason > 0 ? `&season=${selectedSeason}` : '';
   const isAllSeasons = selectedSeason === ALL_SEASONS;
+
+  // One leg per slice of the page. Each writes its own state the moment it
+  // lands, so the header does not wait on the ladder and the ladder does not
+  // wait on the match list. The Twitch check is the only real dependency
+  // (it needs the profile's twitch name) and it runs detached, so the avatar
+  // paints without it.
+  const fetchProfileAndStream = async (reqId) => {
+    const profile = await getPlayerProfile(battleTag);
+    if (latestReq.current !== reqId) return null;
+    updateState({
+      profilePic: profile?.profilePicUrl,
+      country: profile?.country,
+      twitchName: profile?.twitch || null,
+      homePage: profile?.homePage || null,
+      profileMessage: profile?.profileMessage || null,
+      totalGames: profile?.totalGames || null,
+      mostPlayedRace: profile?.mostPlayedRace ?? null,
+    });
+    if (profile?.twitch) {
+      isStreamerLive(profile.twitch)
+        .then((streamStatus) => {
+          if (latestReq.current !== reqId) return;
+          updateState({
+            isStreaming: streamStatus.isLive,
+            streamInfo: streamStatus.isLive ? streamStatus : null,
+          });
+        })
+        .catch(() => {});
+    }
+    return profile;
+  };
+
+  const fetchGameModeStats = async (reqId) => {
+    if (isAllSeasons) return null;
+    const stats = await getPlayerGameModeStatsRaw(battleTag, {
+      seasonOverride: selectedSeason,
+    }).catch(() => null);
+    const fourVsFourStats = Array.isArray(stats) ? stats.find((s) => s.gameMode === 4) : null;
+    if (!fourVsFourStats || latestReq.current !== reqId) return null;
+    updateState({
+      playerData: fourVsFourStats,
+      totalMatches: (fourVsFourStats.wins || 0) + (fourVsFourStats.losses || 0),
+    });
+    return fourVsFourStats;
+  };
+
+  // The header's streak tag reads the season from the player's side. One page
+  // is deeper than any streak worth a tag, which keeps the Stats tab's full
+  // crawl (up to STATS_MAX matches) off the first paint.
+  const fetchSeasonLite = async (reqId) => {
+    if (isAllSeasons) return [];
+    const { matches } = await getPlayerMatches(battleTag, STATS_PAGE_SIZE, 0, selectedSeason);
+    if (latestReq.current !== reqId) return [];
+    const lite = matches.map((m) => playerMatchLite(m, battleTagLower)).filter(Boolean);
+    updateState({ seasonLite: lite });
+    // The session needs a wider window than the ten-game page: a long sitting
+    // runs past it. This page is that window, so it costs no extra request.
+    processMatchData(matches);
+    return lite;
+  };
 
   const loadAllData = async (fetchProfile = true, reqId = latestReq.current) => {
     const isStale = () => latestReq.current !== reqId;
     try {
-      let newProfilePic = profilePic;
-      let newCountry = country;
-      let newTwitchName = twitchName;
-
-      if (fetchProfile) {
-        const profile = await getPlayerProfile(battleTag);
-        newProfilePic = profile?.profilePicUrl;
-        newCountry = profile?.country;
-        newTwitchName = profile?.twitch || null;
-
-        const profileUpdate = {
-          profilePic: newProfilePic,
-          country: newCountry,
-          twitchName: newTwitchName,
-          homePage: profile?.homePage || null,
-          profileMessage: profile?.profileMessage || null,
-          totalGames: profile?.totalGames || null,
-          mostPlayedRace: profile?.mostPlayedRace ?? null,
-        };
-
-        if (newTwitchName) {
-          const streamStatus = await isStreamerLive(newTwitchName);
-          profileUpdate.isStreaming = streamStatus.isLive;
-          profileUpdate.streamInfo = streamStatus.isLive ? streamStatus : null;
-        }
-        if (isStale()) return;
-        updateState(profileUpdate);
-      }
-
-      // Fetch player stats (season-specific W/L/MMR)
-      let newPlayerData = null;
-      let newTotalMatches = 0;
-      if (!isAllSeasons) {
-        const statsUrl = `https://website-backend.w3champions.com/api/players/${encodeURIComponent(battleTag)}/game-mode-stats?gateway=${gateway}${seasonParam}`;
-        const statsResponse = await fetch(statsUrl);
-        if (statsResponse.ok) {
-          const stats = await statsResponse.json();
-          const fourVsFourStats = stats.find(s => s.gameMode === 4);
-          if (fourVsFourStats) {
-            newPlayerData = fourVsFourStats;
-            newTotalMatches = (fourVsFourStats.wins || 0) + (fourVsFourStats.losses || 0);
-            if (isStale()) return;
-            updateState({ playerData: newPlayerData, totalMatches: newTotalMatches });
-          }
-        }
-      }
-
-      const newMatches = await fetchMatches(0, true, reqId);
-
-      // Skip season-specific data for all-seasons view
-      let newSeasonMmrs = [];
-      let newLadderStanding = null;
-      if (!isAllSeasons) {
-        newSeasonMmrs = await fetchMmrTimeline(true, reqId);
-        newLadderStanding = await fetchLadderStanding(true, reqId);
-      }
-      const statsResult = await fetchStatistics(true, reqId);
+      const [profile, newPlayerData, newMatches, newSeasonMmrs, newLadderStanding, newSeasonLite] =
+        await Promise.all([
+          fetchProfile ? fetchProfileAndStream(reqId) : Promise.resolve(null),
+          fetchGameModeStats(reqId),
+          fetchMatches(0, true, reqId),
+          isAllSeasons ? Promise.resolve([]) : fetchMmrTimeline(true, reqId),
+          isAllSeasons ? Promise.resolve(null) : fetchLadderStanding(true, reqId),
+          fetchSeasonLite(reqId),
+        ]);
 
       if (isStale()) return;
 
-      // For all-seasons, derive totalMatches from the stats fetch count
-      if (isAllSeasons && statsResult) {
-        newTotalMatches = statsResult.statsSampleSize || 0;
-        updateState({ totalMatches: newTotalMatches });
-      }
-
-      // Cache all player data for instant display on next visit (5 min TTL)
+      // What the page opens with, for an instant second visit. The Stats
+      // tab's aggregates keep their own cache entry, written when that tab
+      // is first opened.
       cache.set(`playerPage:${battleTagLower}:${selectedSeason}`, {
-        playerData: newPlayerData, profilePic: newProfilePic, country: newCountry,
-        twitchName: newTwitchName, homePage, profileMessage, totalGames, mostPlayedRace,
-        matches: newMatches || [], totalMatches: newTotalMatches,
-        seasonMmrs: newSeasonMmrs || [], ladderStanding: newLadderStanding,
-        allyStats: statsResult?.allyStats || [], worstAllyStats: statsResult?.worstAllyStats || [],
-        mapStats: statsResult?.mapStats || [], worstMapStats: statsResult?.worstMapStats || [],
-        nemesisStats: statsResult?.nemesisStats || [], preyStats: statsResult?.preyStats || [],
-        allAllies: statsResult?.allAllies || [], allWorstAllies: statsResult?.allWorstAllies || [],
-        allNemesis: statsResult?.allNemesis || [], allPrey: statsResult?.allPrey || [],
-        statsSampleSize: statsResult?.statsSampleSize || 0,
-        seasonLite: statsResult?.seasonLite || [],
+        playerData: newPlayerData,
+        profilePic: fetchProfile ? profile?.profilePicUrl : profilePic,
+        country: fetchProfile ? profile?.country : country,
+        twitchName: fetchProfile ? profile?.twitch || null : twitchName,
+        homePage: fetchProfile ? profile?.homePage || null : homePage,
+        profileMessage: fetchProfile ? profile?.profileMessage || null : profileMessage,
+        totalGames: fetchProfile ? profile?.totalGames || null : totalGames,
+        mostPlayedRace: fetchProfile ? profile?.mostPlayedRace ?? null : mostPlayedRace,
+        matches: newMatches || [],
+        totalMatches: newPlayerData
+          ? (newPlayerData.wins || 0) + (newPlayerData.losses || 0)
+          : 0,
+        seasonMmrs: newSeasonMmrs || [],
+        ladderStanding: newLadderStanding,
+        seasonLite: newSeasonLite || [],
       }, 5 * 60 * 1000);
     } catch (error) {
       console.error("Error loading player data:", error);
@@ -465,32 +488,17 @@ const PlayerProfile = () => {
   };
 
   const fetchMatches = async (page, returnData = false, reqId = latestReq.current) => {
-    const offset = page * GAMES_PER_PAGE;
-    const matchesUrl = `https://website-backend.w3champions.com/api/matches/search?playerId=${encodeURIComponent(battleTag)}&offset=${offset}&gameMode=4${seasonParam}&gateway=${gateway}&pageSize=${GAMES_PER_PAGE}`;
-    const matchesResponse = await fetch(matchesUrl);
-    if (matchesResponse.ok) {
-      const matchesData = await matchesResponse.json();
-      if (matchesData.matches) {
-        if (latestReq.current !== reqId) return returnData ? [] : undefined;
-        const matchUpdate = { matches: matchesData.matches };
-        if (isAllSeasons && page === 0 && matchesData.count) {
-          matchUpdate.totalMatches = matchesData.count;
-        }
-        updateState(matchUpdate);
-        // The session is read from a wider window than this page: a long
-        // sitting runs past ten games, and the live card reads the same 50.
-        if (page === 0 && !isAllSeasons) {
-          getPlayerMatches(battleTag, SESSION_WINDOW, 0, selectedSeason)
-            .then(({ matches }) => {
-              if (latestReq.current !== reqId) return;
-              processMatchData(matches?.length ? matches : matchesData.matches);
-            })
-            .catch(() => processMatchData(matchesData.matches));
-        }
-        if (returnData) return matchesData.matches;
-      }
-    }
-    return returnData ? [] : undefined;
+    const { matches: pageMatches, count } = await getPlayerMatches(
+      battleTag,
+      GAMES_PER_PAGE,
+      page * GAMES_PER_PAGE,
+      selectedSeason
+    );
+    if (latestReq.current !== reqId) return returnData ? [] : undefined;
+    const matchUpdate = { matches: pageMatches };
+    if (isAllSeasons && page === 0 && count) matchUpdate.totalMatches = count;
+    updateState(matchUpdate);
+    return returnData ? pageMatches : undefined;
   };
 
   const fetchMmrTimeline = async (returnData = false, reqId = latestReq.current) => {
@@ -533,13 +541,18 @@ const PlayerProfile = () => {
     }
   };
 
+  // Two stages. The search call already carries the rank and the league, so
+  // the header's "#123" lands with it; the league table is a separate 80 KB
+  // download, needed only for the five neighbour rows, so the card fills in
+  // when it arrives. getLadder caches per league, which every player in that
+  // league then shares.
   const fetchLadderStanding = async (returnData = false, reqId = latestReq.current) => {
     try {
-      const searchUrl = `https://website-backend.w3champions.com/api/ladder/search?gateWay=${gateway}&searchFor=${encodeURIComponent(battleTag.split("#")[0])}&gameMode=4${seasonParam}`;
-      const searchResponse = await fetch(searchUrl);
-      if (!searchResponse.ok) return returnData ? null : undefined;
+      const searchResults = await searchLadder(battleTag.split("#")[0], selectedSeason);
+      if (!Array.isArray(searchResults) || latestReq.current !== reqId) {
+        return returnData ? null : undefined;
+      }
 
-      const searchResults = await searchResponse.json();
       const playerResult = searchResults.find(r => {
         const tag1 = r.playersInfo?.[0]?.battleTag?.toLowerCase();
         const tag2 = r.player?.playerIds?.[0]?.battleTag?.toLowerCase();
@@ -550,32 +563,36 @@ const PlayerProfile = () => {
 
       const leagueId = playerResult.league;
       const league = LEAGUES.find(l => l.id === leagueId);
-
-      const ladderUrl = `https://website-backend.w3champions.com/api/ladder/${leagueId}?gateWay=${gateway}&gameMode=4${seasonParam}`;
-      const ladderResponse = await fetch(ladderUrl);
-      if (!ladderResponse.ok) return returnData ? null : undefined;
-
-      const ladderData = await ladderResponse.json();
-      const playerIndex = ladderData.findIndex(
-        r => r.playersInfo?.[0]?.battleTag?.toLowerCase() === battleTagLower
-      );
-
-      if (playerIndex === -1) return returnData ? null : undefined;
-
-      // Get 2 players above and 2 below
-      const startIdx = Math.max(0, playerIndex - 2);
-      const endIdx = Math.min(ladderData.length, playerIndex + 3);
-      const neighbors = ladderData.slice(startIdx, endIdx);
-
-      const standing = {
+      const partial = {
         league,
         leagueId,
         playerRank: playerResult.rankNumber,
+        playerIndex: null,
+        neighbors: null,
+        totalInLeague: null,
+      };
+      updateState({ ladderStanding: partial });
+
+      const ladderData = await getLadder(leagueId, selectedSeason);
+      if (!Array.isArray(ladderData) || latestReq.current !== reqId) {
+        return returnData ? partial : undefined;
+      }
+
+      const playerIndex = ladderData.findIndex(
+        r => r.playersInfo?.[0]?.battleTag?.toLowerCase() === battleTagLower
+      );
+      if (playerIndex === -1) return returnData ? partial : undefined;
+
+      // Two players above and two below
+      const startIdx = Math.max(0, playerIndex - 2);
+      const endIdx = Math.min(ladderData.length, playerIndex + 3);
+
+      const standing = {
+        ...partial,
         playerIndex,
-        neighbors,
+        neighbors: ladderData.slice(startIdx, endIdx),
         totalInLeague: ladderData.length,
       };
-      if (latestReq.current !== reqId) return returnData ? null : undefined;
       updateState({ ladderStanding: standing });
       if (returnData) return standing;
     } catch (error) {
@@ -600,32 +617,28 @@ const PlayerProfile = () => {
         }
       }
 
-      // Fetch first page to get total count
-      const baseUrl = `https://website-backend.w3champions.com/api/matches/search?playerId=${encodeURIComponent(battleTag)}&gameMode=4${seasonParam}&gateway=${gateway}`;
-      const firstRes = await fetch(`${baseUrl}&offset=0&pageSize=100`);
-      if (!firstRes.ok) return returnData ? null : undefined;
+      // The first page is the one fetchSeasonLite already pulled, so it comes
+      // from cache; the rest go out together.
+      const first = await getPlayerMatches(battleTag, STATS_PAGE_SIZE, 0, selectedSeason);
+      if (first.matches.length === 0) return returnData ? null : undefined;
 
-      const firstData = await firstRes.json();
-      if (!firstData.matches || firstData.matches.length === 0) return returnData ? null : undefined;
+      const allMatches = [...first.matches];
+      const total = first.count || allMatches.length;
 
-      const allMatches = [...firstData.matches];
-      const total = firstData.count || allMatches.length;
-
-      // Paginate remaining pages in parallel (cap at 2000 matches)
-      if (total > 100) {
-        const remaining = [];
-        for (let offset = 100; offset < Math.min(total, 2000); offset += 100) {
-          remaining.push(fetch(`${baseUrl}&offset=${offset}&pageSize=100`).then(r => r.json()));
-        }
-        const pages = await Promise.all(remaining);
-        for (const page of pages) {
-          if (page.matches) allMatches.push(...page.matches);
-        }
+      if (total > STATS_PAGE_SIZE) {
+        const pages = await Promise.all(
+          Array.from(
+            { length: Math.ceil((Math.min(total, STATS_MAX) - STATS_PAGE_SIZE) / STATS_PAGE_SIZE) },
+            (_, i) =>
+              getPlayerMatches(battleTag, STATS_PAGE_SIZE, (i + 1) * STATS_PAGE_SIZE, selectedSeason)
+          )
+        );
+        for (const page of pages) allMatches.push(...page.matches);
       }
 
       const sampleSize = allMatches.length;
-      // The season's matches from the player's side, for the Today strip
-      // and the streak tags
+      // The whole season from the player's side: a longer tail than the single
+      // page the header opened with, so the streak tag gets more accurate
       const seasonLite = allMatches.map((m) => playerMatchLite(m, battleTagLower)).filter(Boolean);
 
       // Calculate ally stats
@@ -772,6 +785,18 @@ const PlayerProfile = () => {
     }
   };
 
+  // The ally/nemesis/map aggregates: up to STATS_MAX matches, by far the
+  // heaviest fetch on the page, and nothing outside this tab renders them.
+  // One attempt per player and season.
+  useEffect(() => {
+    if (activeTab !== 'stats' || isAllSeasons || selectedSeason === null) return;
+    const key = `${battleTagLower}:${selectedSeason}`;
+    if (statsTriedRef.current === key) return;
+    statsTriedRef.current = key;
+    setStatsLoading(true);
+    fetchStatistics(true, latestReq.current).finally(() => setStatsLoading(false));
+  }, [activeTab, battleTagLower, selectedSeason, isAllSeasons]);
+
   const handleSeasonChange = (e) => {
     updateState({ selectedSeason: parseInt(e.target.value, 10) });
   };
@@ -794,16 +819,6 @@ const PlayerProfile = () => {
       );
     });
   }, [matches, playerFilter, battleTagLower]);
-
-  if (isLoading) {
-    return (
-      <div className="player-page">
-        <div className="page-loader">
-          <PeonLoader />
-        </div>
-      </div>
-    );
-  }
 
   // Calculate derived stats
   const sessionWins = sessionGames.filter(g => g.won).length;
@@ -860,6 +875,7 @@ const PlayerProfile = () => {
           <div className="player-header-left">
             <div className="hd-pic-wrapper">
               {profilePic && <img src={profilePic} alt="" className="hd-pic" />}
+              {!profilePic && isLoading && <SkeletonCircle $size="88px" />}
               {country && <CountryFlag name={country.toLowerCase()} className="hd-flag" />}
             </div>
             <div className="hd-info">
@@ -904,6 +920,12 @@ const PlayerProfile = () => {
                     </div>
                   )}
                 </>
+              )}
+              {!playerData && isLoading && (
+                <div className="hd-skeleton">
+                  <Skeleton $w="140px" $h="34px" />
+                  <Skeleton $w="100px" $h="16px" />
+                </div>
               )}
               {storyTags.length > 0 && (
                 <div className="hd-tags" data-story-tags={storyTags.length}>
@@ -1009,6 +1031,12 @@ const PlayerProfile = () => {
                     striped={idx % 2 === 1}
                   />
                 ))}
+                {matches.length === 0 && isLoading &&
+                  Array.from({ length: GAMES_PER_PAGE }, (_, i) => (
+                    <div className="mh-row-skeleton" key={i}>
+                      <Skeleton $h="28px" />
+                    </div>
+                  ))}
               </div>
 
               {/* Pagination */}
@@ -1067,7 +1095,13 @@ const PlayerProfile = () => {
                   <span className="ls-league-name">{ladderStanding.league?.name}</span>
                 </div>
                 <div className="ls-list">
-                  {ladderStanding.neighbors.map((n) => {
+                  {!ladderStanding.neighbors &&
+                    Array.from({ length: 5 }, (_, i) => (
+                      <div className="ls-row ls-row--skeleton" key={i}>
+                        <Skeleton $h="14px" />
+                      </div>
+                    ))}
+                  {(ladderStanding.neighbors || []).map((n) => {
                     const isMe = n.playersInfo?.[0]?.battleTag?.toLowerCase() === battleTagLower;
                     const nTag = n.playersInfo?.[0]?.battleTag;
                     return (
@@ -1173,6 +1207,13 @@ const PlayerProfile = () => {
       {/* Stats Tab Content */}
       {activeTab === 'stats' && (
         <div className="stats-tab-content reveal" style={{ "--delay": "0.1s" }}>
+          {statsLoading && statsSampleSize === 0 && (
+            <div className="stats-tab-skeleton">
+              {Array.from({ length: 4 }, (_, i) => (
+                <Skeleton $h="180px" $radius="var(--radius-md)" key={i} />
+              ))}
+            </div>
+          )}
           {statsSampleSize > 0 && (
             <p className="stats-sample-header">Based on last {statsSampleSize} games</p>
           )}
