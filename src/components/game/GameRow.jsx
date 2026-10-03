@@ -4,6 +4,7 @@ import "./GameRow.css";
 
 import { RaceIcon } from "../ui";
 import { getMapImageUrl, formatDuration, formatTimeAgo } from "../../lib/formatters";
+import { GAME_MODE, GAME_MODE_LABEL } from "../../lib/params";
 
 const HERO_SLOTS = 3;
 
@@ -24,7 +25,7 @@ const HERO_SLOTS = 3;
  * @param {boolean} striped - Alternate row styling
  * @param {string} className - Additional CSS class
  */
-const GameRow = ({ game, playerBattleTag, linkTo, striped = false, className = "" }) => {
+const GameRow = ({ game, playerBattleTag, linkTo, striped = false, className = "", showOpponentHeroes = false }) => {
   const history = useHistory();
 
   if (!game) return null;
@@ -58,9 +59,25 @@ const GameRow = ({ game, playerBattleTag, linkTo, striped = false, className = "
   const won = playerData.won === true || playerData.won === 1;
   const mmrChange = (playerData.currentMmr || 0) - (playerData.oldMmr || 0);
   const cleanMapName = match.mapName?.replace(/^\(\d\)\s*/, "") || "Unknown";
+  // 4v4 is the site's default and needs no saying. Anything else does, because
+  // the row's team and Avg columns read very differently with one player a
+  // side. A table filtered to one mode has already said so, so it stays quiet.
+  const modeLabel =
+    !showOpponentHeroes && match.gameMode && match.gameMode !== GAME_MODE.FOUR_V_FOUR
+      ? GAME_MODE_LABEL[match.gameMode] || null
+      : null;
   const mapUrl = getMapImageUrl(match.mapName);
-  // The heroes the profile player fielded, from the match list already fetched
-  const heroes = (playerData.heroes || []).filter((h) => h?.icon).slice(0, HERO_SLOTS);
+  // The heroes the profile player fielded, from the match list already fetched.
+  // "unknown" is W3C's placeholder for a hero it could not name, and we have no
+  // portrait for it, so it would only ever render as a broken slot.
+  const playable = (list) =>
+    (list || []).filter((h) => h?.icon && h.icon !== "unknown").slice(0, HERO_SLOTS);
+  const heroes = playable(playerData.heroes);
+  // In 1v1 the hero matchup is most of the story, and with one player a side
+  // there is room to show it. Only when the caller has widened the column for
+  // it, though: a mixed-mode table has to keep every row the same shape.
+  const soloOpponent = showOpponentHeroes && opponents.length === 1 ? opponents[0] : null;
+  const opponentHeroes = soloOpponent ? playable(soloOpponent.heroes) : [];
 
   // Skip players the API gave no MMR for, or one zero drags the average
   // hundreds of points below the lobby it is meant to describe
@@ -80,6 +97,35 @@ const GameRow = ({ game, playerBattleTag, linkTo, striped = false, className = "
     e.preventDefault();
     e.stopPropagation();
     history.push(`/player/${encodeURIComponent(tag)}`);
+  };
+
+  // Fixed slots rather than one per hero, so rows stay aligned whether a
+  // player fielded one hero or three. `padFront` puts the blanks on the left
+  // so a right-hand lineup hugs the edge of the row instead of floating off it.
+  const heroSlots = (list, keyPrefix, padFront = false) => {
+    const blanks = Math.max(0, HERO_SLOTS - list.length);
+    const padded = padFront
+      ? [...Array(blanks).fill(null), ...list]
+      : [...list, ...Array(blanks).fill(null)];
+    return padded.map((h, i) => {
+      if (!h) return <span key={`${keyPrefix}-${i}`} className="gr-hero-slot gr-hero--empty" />;
+      return (
+        <span
+          key={`${keyPrefix}-${i}`}
+          className="gr-hero-slot"
+          title={`${h.name}${h.level ? ` · level ${h.level}` : ""}`}
+        >
+          <img
+            src={`/heroes/${h.icon}.jpeg`}
+            alt={h.name}
+            className="gr-hero"
+            loading="lazy"
+            onError={(e) => { e.target.style.visibility = "hidden"; }}
+          />
+          {h.level > 0 && <span className="gr-hero-lvl" data-hero-level={h.level}>{h.level}</span>}
+        </span>
+      );
+    });
   };
 
   // Same name, same font, both sides. The only difference is which way the
@@ -119,36 +165,28 @@ const GameRow = ({ game, playerBattleTag, linkTo, striped = false, className = "
         <span className={`gr-result ${won ? "gr-result--won" : "gr-result--lost"}`}>
           {won ? "W" : "L"}
         </span>
-        {mapUrl && <img src={mapUrl} alt="" className="gr-map-img" />}
+        {mapUrl && (
+          <img
+            src={mapUrl}
+            alt=""
+            className="gr-map-img"
+            loading="lazy"
+            // A map we have no minimap for should leave a gap, not a bordered
+            // empty box that reads as a broken row
+            onError={(e) => { e.target.style.display = "none"; }}
+          />
+        )}
         <span className="gr-game-meta">
           <span className="gr-map-name">{cleanMapName}</span>
           <span className="gr-game-sub">
+            {modeLabel && <><span className="gr-mode">{modeLabel}</span> · </>}
             {formatDuration(match.durationInSeconds)} · {formatTimeAgo(match.endTime)}
           </span>
         </span>
       </div>
 
       <div className="gr-col gr-heroes" data-heroes={heroes.length}>
-        {Array.from({ length: HERO_SLOTS }, (_, i) => {
-          const h = heroes[i];
-          if (!h) return <span key={i} className="gr-hero-slot gr-hero--empty" />;
-          return (
-            <span
-              key={i}
-              className="gr-hero-slot"
-              title={`${h.name}${h.level ? ` · level ${h.level}` : ""}`}
-            >
-              <img
-                src={`/heroes/${h.icon}.jpeg`}
-                alt={h.name}
-                className="gr-hero"
-                loading="lazy"
-                onError={(e) => { e.target.style.visibility = "hidden"; }}
-              />
-              {h.level > 0 && <span className="gr-hero-lvl" data-hero-level={h.level}>{h.level}</span>}
-            </span>
-          );
-        })}
+        {heroSlots(heroes, "mine")}
       </div>
 
       <div className="gr-col gr-side gr-side--mine" data-team="ally">
@@ -164,6 +202,14 @@ const GameRow = ({ game, playerBattleTag, linkTo, striped = false, className = "
       <div className="gr-col gr-side gr-side--theirs" data-team="opponent">
         {opponents.slice(0, 4).map((p, i) => chip(p, i, false))}
       </div>
+
+      {/* The mirror of the hero column, so a 1v1 row reads outward from the
+          centre: your heroes, you, the MMRs, them, their heroes. */}
+      {soloOpponent && (
+        <div className="gr-col gr-heroes gr-heroes--theirs" data-heroes={opponentHeroes.length}>
+          {heroSlots(opponentHeroes, "theirs", true)}
+        </div>
+      )}
 
       <div className="gr-col gr-score">
         <span className={`gr-mmr-change ${mmrChange >= 0 ? "positive" : "negative"}`}>

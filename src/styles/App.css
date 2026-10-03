@@ -8037,6 +8037,39 @@ a.neighbor-name:hover {
   }
 }
 
+/* "in 1v1" only appears when the last game was not 4v4, so it must not read
+   as loudly as the time it qualifies */
+.hd-lastseen-mode {
+  color: var(--grey-mid);
+}
+
+/* Solo standing: present for about half the ladder, so it sits under the 4v4
+   numbers rather than beside them, and reads as a secondary line */
+.hd-solo-row {
+  display: flex;
+  align-items: baseline;
+  gap: var(--space-2);
+  font-size: var(--text-xs);
+}
+
+.hd-solo-label {
+  font: var(--text-xxs) var(--font-mono);
+  text-transform: uppercase;
+  letter-spacing: 0.1em;
+  color: var(--grey-light);
+}
+
+.hd-solo-mmr {
+  font-family: var(--font-mono);
+  color: var(--cyan);
+}
+
+.hd-solo-pct,
+.hd-solo-games {
+  font-family: var(--font-mono);
+  color: var(--grey-light);
+}
+
 .hd-season-corner {
   position: absolute;
   top: 10px;

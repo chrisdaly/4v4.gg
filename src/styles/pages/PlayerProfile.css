@@ -332,6 +332,39 @@
   color: var(--grey-light);
 }
 
+/* Mode filter: only rendered for players who have games outside 4v4 */
+.mh-modes {
+  display: flex;
+  border: 1px solid var(--grey-mid);
+  border-radius: var(--radius-md);
+  overflow: hidden;
+}
+
+.mh-mode {
+  background: none;
+  border: none;
+  cursor: pointer;
+  padding: var(--space-1) var(--space-3);
+  font: var(--text-xxs) var(--font-mono);
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+  color: var(--grey-light);
+}
+
+.mh-mode + .mh-mode {
+  border-left: 1px solid var(--grey-mid);
+}
+
+.mh-mode:hover {
+  color: #fff;
+  background: var(--overlay-light);
+}
+
+.mh-mode[data-active="true"] {
+  color: var(--gold);
+  background: var(--gold-tint);
+}
+
 /* Live dot on the section title */
 .live-game-section .section-title::before {
   content: '';

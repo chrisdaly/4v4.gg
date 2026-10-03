@@ -9,7 +9,7 @@
  */
 
 import { fetchWithCache, TTL, cache, createCacheKey } from './cache';
-import { gateway, season, gameMode } from './params';
+import { gateway, season, gameMode, GAME_MODE } from './params';
 import { detectSessionGames, filterMatchesByRace } from './session';
 
 const API_BASE = 'https://website-backend.w3champions.com/api';
@@ -110,19 +110,60 @@ export const getPlayerGameModeStatsRaw = async (battleTag, { seasonOverride = se
   return fetchWithCache(url, { cacheKey, ttl: TTL.GAME_MODE_STATS, skipCache });
 };
 
+/**
+ * Pick one row for a game mode out of a game-mode-stats response.
+ *
+ * W3C splits 1v1 into one row per race played, so a solo player can have
+ * three. The row with the most games is the one that describes them; the
+ * others are a handful of off-race games. 4v4 comes back as a single row.
+ *
+ * @param {Array} rows - raw game-mode-stats array
+ * @param {number} gameMode
+ * @returns {object|null}
+ */
+export const pickModeRow = (rows, gameMode) => {
+  if (!Array.isArray(rows)) return null;
+  let best = null;
+  let bestGames = -1;
+  for (const row of rows) {
+    if (row?.gameMode !== gameMode) continue;
+    const games = (row.wins || 0) + (row.losses || 0);
+    if (games > bestGames) {
+      best = row;
+      bestGames = games;
+    }
+  }
+  return best;
+};
+
+export const toModeStats = (row) => {
+  if (!row) return null;
+  return {
+    mmr: row.mmr || 0,
+    wins: row.wins || 0,
+    losses: row.losses || 0,
+    games: (row.wins || 0) + (row.losses || 0),
+    rank: row.rank || null,
+    race: row.race ?? null,
+    // W3C's own percentile for the mode. The 1v1 and 4v4 MMR scales are not
+    // the same, so this is what makes the two comparable.
+    quantile: typeof row.quantile === 'number' ? row.quantile : null,
+  };
+};
+
 export const getPlayerStats = async (battleTag, { seasonOverride = season, skipCache = false } = {}) => {
   try {
     const data = await getPlayerGameModeStatsRaw(battleTag, { seasonOverride, skipCache });
 
-    const fourVsFourStats = data.find(s => s.gameMode === 4);
+    const fourVsFourStats = pickModeRow(data, GAME_MODE.FOUR_V_FOUR);
     if (!fourVsFourStats) return null;
 
+    // 1v1 and 2v2 ride along in the same response, so they cost no extra
+    // request. Either can be absent; most 4v4 players have no solo row.
     return {
-      mmr: fourVsFourStats.mmr || 0,
-      wins: fourVsFourStats.wins || 0,
-      losses: fourVsFourStats.losses || 0,
-      rank: fourVsFourStats.rank || null,
-      race: fourVsFourStats.race ?? null,
+      ...toModeStats(fourVsFourStats),
+      solo: toModeStats(pickModeRow(data, GAME_MODE.ONE_V_ONE)),
+      twos: toModeStats(pickModeRow(data, GAME_MODE.TWO_V_TWO)),
     };
   } catch (error) {
     console.error(`Error fetching stats for ${battleTag}:`, error);
@@ -270,19 +311,32 @@ export const getPlayerAllSeasonActivity = async (battleTag) => {
 /**
  * Get player's recent matches
  *
+ * Omitting gameMode (pass `null`) makes W3C return every mode merged and
+ * date-sorted in one response, with a combined count. That is the only way to
+ * see when a player last actually played: half the 4v4 ladder also plays 1v1,
+ * and a 4v4-only history reads as inactive for players who are on every day.
+ *
  * @param {string} battleTag
  * @param {number} pageSize - Number of matches to fetch
  * @param {number} offset - Pagination offset
  * @param {number} seasonOverride - Optional season override
+ * @param {number|null} modeFilter - A GAME_MODE id, or null for every mode
  * @returns {Promise<{matches: Array, count: number}>}
  */
-export const getPlayerMatches = async (battleTag, pageSize = 50, offset = 0, seasonOverride = season) => {
+export const getPlayerMatches = async (
+  battleTag,
+  pageSize = 50,
+  offset = 0,
+  seasonOverride = season,
+  modeFilter = GAME_MODE.FOUR_V_FOUR
+) => {
   try {
     // /matches ignores playerId and hands back the global feed, so the form
     // dots were built from whichever of the last 50 games on the ladder the
     // player happened to be in. /matches/search is the one that filters.
-    const url = `${API_BASE}/matches/search?playerId=${encodeURIComponent(battleTag)}&offset=${offset}&gameMode=4&season=${seasonOverride}&gateway=${gateway}&pageSize=${pageSize}`;
-    const cacheKey = `matches:${battleTag.toLowerCase()}:${offset}:${pageSize}:${seasonOverride}`;
+    const modeParam = modeFilter == null ? '' : `&gameMode=${modeFilter}`;
+    const url = `${API_BASE}/matches/search?playerId=${encodeURIComponent(battleTag)}&offset=${offset}${modeParam}&season=${seasonOverride}&gateway=${gateway}&pageSize=${pageSize}`;
+    const cacheKey = `matches:${battleTag.toLowerCase()}:${offset}:${pageSize}:${seasonOverride}:${modeFilter ?? 'all'}`;
 
     const data = await fetchWithCache(url, { cacheKey, ttl: TTL.MATCHES });
 
@@ -581,7 +635,7 @@ export const getPlayerStatsBatch = async (battleTags, seasonOverride = season) =
   const missing = [];
 
   for (const battleTag of battleTags) {
-    const cached = cache.get(`stats4v4:${battleTag.toLowerCase()}:${seasonOverride}`);
+    const cached = cache.get(`stats4v4v2:${battleTag.toLowerCase()}:${seasonOverride}`);
     if (cached) results.set(battleTag, cached);
     else missing.push(battleTag);
   }
@@ -590,7 +644,7 @@ export const getPlayerStatsBatch = async (battleTags, seasonOverride = season) =
   const remember = (battleTag, stats) => {
     if (!stats) return;
     results.set(battleTag, stats);
-    cache.set(`stats4v4:${battleTag.toLowerCase()}:${seasonOverride}`, stats, TTL.GAME_MODE_STATS);
+    cache.set(`stats4v4v2:${battleTag.toLowerCase()}:${seasonOverride}`, stats, TTL.GAME_MODE_STATS);
   };
 
   // The relay caps a request at 120 tags
