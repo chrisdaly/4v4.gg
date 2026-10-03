@@ -1,0 +1,31 @@
+# The build context is uploaded to the remote builder on every deploy, and
+# data/ alone is ~1.8GB of production SQLite. The Dockerfile copies only
+# package*.json, src/, ml/tokenizer.js, litestream.yml and
+# docker-entrypoint.sh, so everything below is pure upload cost.
+#
+# Deliberately no `!` negations: a broad pattern that caught one of those
+# paths would break the build, and that is not worth the extra few KB.
+
+# Live data and its backups. The real database lives on the fly volume and
+# must never be baked into an image.
+data/
+backups/
+*.db
+*.db-shm
+*.db-wal
+*.sqlite
+*.sqlite-shm
+*.sqlite-wal
+
+# Reinstalled in the image by `npm ci --production`
+node_modules/
+
+# Operator tooling, not part of the running service
+scripts/
+query_foals_nenzz.sh
+OPERATIONS.md
+
+# Local config
+.env
+.env.*
+*.log

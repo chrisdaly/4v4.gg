@@ -8,6 +8,34 @@ Runbook for the `4v4gg-chat-relay` Fly app (single machine, region `ewr`, SQLite
 - SQLite runs in WAL mode. The WAL is flushed every 30 minutes (or continuously by Litestream when enabled).
 - The server handles SIGTERM: it checkpoints and closes the DB, so normal deploys are safe.
 
+## Deploying
+
+```bash
+cd server
+fly deploy . --config fly.toml -a 4v4gg-chat-relay --ha=false
+```
+
+Four things that have each failed a deploy:
+
+- **Run it from `server/`.** The Dockerfile lives there, not at the repo root. From the root, fly reports `app does not have a Dockerfile or buildpacks configured`.
+- **`--ha=false` is not optional.** Without it fly can start a second machine, which forks the database (see Architecture constraints above).
+- **`fly auth login` needs a real terminal.** Through a non-interactive shell it fails with `requires an interactive terminal`, but still rewrites `~/.fly/config.yml`, leaving a valid `fm2_` token that flyctl then refuses to read back (`no access token available`). The token works when passed explicitly:
+
+  ```bash
+  export FLY_API_TOKEN=$(python3 -c "import re;t=open('$HOME/.fly/config.yml').read();print(re.search(r'^access_token:\s*(.*)$',t,re.M).group(1).strip())")
+  ```
+
+  A permanent fix is `fly tokens create deploy` in an interactive terminal, stored in your shell profile.
+- **Each `!`-prefixed command in Claude Code is a fresh shell**, so an `export` on one line is gone by the next. Chain everything with `&&`.
+
+`.dockerignore` keeps `data/` (~1.8GB of production SQLite) and `node_modules/` out of the build context. Without it every deploy uploads the live database to the remote builder. If you add a file the Dockerfile needs to `COPY`, check it is not caught by a pattern there - the file deliberately uses no `!` negations.
+
+After deploying, confirm the routes you changed actually shipped, e.g.:
+
+```bash
+curl -s "https://4v4gg-chat-relay.fly.dev/api/w3c/twitch?tags=ToD%232792"
+```
+
 ## Backups (Litestream)
 
 The Docker image bundles [Litestream](https://litestream.io), replicating to a Tigris bucket (Fly object storage). It activates when `BUCKET_NAME` is set, which happens automatically when the bucket is provisioned:
