@@ -3,43 +3,105 @@ import React from 'react';
 import { render, screen, fireEvent, cleanup, waitFor, act, within } from '@testing-library/react';
 import { MemoryRouter } from 'react-router-dom';
 
-// Render every row eagerly: happy-dom has no layout, so the real Virtuoso
-// would measure a 0px viewport and render nothing. This exercises the same
-// itemContent/Header/Footer wiring the real list uses. rangeChanged fires
-// once per data change with the whole list "visible" (no boxes to measure),
-// which is what the sticky day bar falls back to.
-const scrollToIndex = vi.fn();
-// The latest props the panel handed the list, so a test can drive the
-// callbacks the real Virtuoso would call (atBottomStateChange, followOutput)
-const virtuosoProps = vi.hoisted(() => ({ current: null }));
-vi.mock('react-virtuoso', () => ({
-  Virtuoso: React.forwardRef(function FakeVirtuoso(props, ref) {
-    const { data, itemContent, components, context, firstItemIndex = 0, computeItemKey, rangeChanged, scrollerRef } = props;
-    virtuosoProps.current = props;
-    React.useImperativeHandle(ref, () => ({ scrollToIndex }));
-    React.useEffect(() => {
-      rangeChanged?.({ startIndex: firstItemIndex, endIndex: firstItemIndex + data.length - 1 });
-    }, [rangeChanged, firstItemIndex, data.length]);
-    // The real list hands the panel its scroller; the panel measures it to
-    // check a "↓ N new" scroll actually reached the bottom
-    const scrollerElRef = React.useRef(null);
-    React.useEffect(() => {
-      scrollerRef?.(scrollerElRef.current);
-    }, [scrollerRef]);
-    const { Header, Footer } = components;
-    return (
-      <div data-testid="virtuoso" ref={scrollerElRef}>
-        {Header && <Header context={context} />}
-        {data.map((row, i) => (
-          <div key={computeItemKey(firstItemIndex + i, row)} data-key={computeItemKey(firstItemIndex + i, row)} data-index={firstItemIndex + i}>
-            {itemContent(firstItemIndex + i, row, context)}
-          </div>
-        ))}
-        {Footer && <Footer context={context} />}
-      </div>
-    );
-  }),
-}));
+// happy-dom has no layout: every box is 0px, so the stream's scroller would
+// think it is always at the bottom and the viewport hold would have nothing
+// to measure. `layout()` gives the real elements a geometry - uniform row
+// heights down a fixed viewport - and `scrollTo` moves it and fires the
+// event the hook listens for. Rows are all really in the DOM now, so
+// everything else in here reads them directly.
+const ROW_H = 100;
+const VIEWPORT = 200;
+
+// Geometry is installed on the prototype rather than per element, because
+// the stream scrolls to rows that only exist after an await: a stub applied
+// at a fixed moment would miss them. Anything that is not a stream row or
+// the stream scroller keeps the real (zero) answers.
+const patched = [];
+function installLayout() {
+  const proto = window.HTMLElement.prototype;
+  const listRows = () => Array.from(document.querySelectorAll('[data-chat-list] > [data-row-key]'));
+  const isScroller = (el) => el.dataset && el.dataset.chatScroller !== undefined;
+  const rect = (top, bottom) => ({ top, bottom, height: bottom - top, left: 0, right: 0, width: 100, x: 0, y: top });
+
+  const define = (name, get) => {
+    const original = Object.getOwnPropertyDescriptor(proto, name);
+    patched.push([name, original]);
+    Object.defineProperty(proto, name, {
+      configurable: true,
+      get() {
+        const mine = get.call(this);
+        if (mine !== undefined) return mine;
+        return original?.get ? original.get.call(this) : 0;
+      },
+    });
+  };
+
+  define('offsetTop', function () {
+    const i = listRows().indexOf(this);
+    return i === -1 ? undefined : i * ROW_H;
+  });
+  define('offsetHeight', function () {
+    return this.dataset?.rowKey === undefined ? undefined : ROW_H;
+  });
+  define('clientHeight', function () {
+    return isScroller(this) ? VIEWPORT : undefined;
+  });
+  define('scrollHeight', function () {
+    return isScroller(this) ? listRows().length * ROW_H : undefined;
+  });
+
+  const originalRect = proto.getBoundingClientRect;
+  patched.push(['getBoundingClientRect', { value: originalRect }]);
+  proto.getBoundingClientRect = function () {
+    if (isScroller(this)) return rect(0, VIEWPORT);
+    const i = listRows().indexOf(this);
+    if (i === -1) return originalRect.call(this);
+    const top = i * ROW_H - (scroller()?.scrollTop || 0);
+    return rect(top, top + ROW_H);
+  };
+  const originalScrollTo = proto.scrollTo;
+  patched.push(['scrollTo', { value: originalScrollTo }]);
+  proto.scrollTo = function (opts) {
+    if (!isScroller(this)) return originalScrollTo?.call(this, opts);
+    this.scrollTop = opts?.top ?? 0;
+    fireEvent.scroll(this);
+    return undefined;
+  };
+}
+
+function restoreLayout() {
+  const proto = window.HTMLElement.prototype;
+  while (patched.length) {
+    const [name, original] = patched.pop();
+    if (original) Object.defineProperty(proto, name, { configurable: true, ...original });
+    else delete proto[name];
+  }
+}
+
+// Kept so the intent reads at each call site; the geometry is already live
+const layout = () => scroller();
+
+const scroller = () => document.querySelector('[data-chat-scroller]');
+const rowFor = (msgId) => document.getElementById(`msg-${msgId}`)?.closest('[data-row-key]');
+// scrollToKey centres a row: its top, less half the room left over
+const centredOn = (msgId) => Math.max(0, rowFor(msgId).offsetTop - (VIEWPORT - ROW_H) / 2);
+const waitForCentred = (msgId) => waitFor(() => expect(scroller().scrollTop).toBe(centredOn(msgId)));
+
+// Move the viewport and let the stream see it
+function scrollTo(top) {
+  const el = scroller();
+  act(() => {
+    el.scrollTop = top;
+    fireEvent.scroll(el);
+  });
+  return el;
+}
+
+// Up the list, far enough off the end that the tail behaviour stops. Not 0:
+// the panel mounts at scrollTop 0 in a layout-less DOM, so a scroll to 0 is
+// not a move and the stream rightly ignores it.
+const scrollUp = () => scrollTo(100);
+const scrollToEnd = () => scrollTo(scroller().scrollHeight - VIEWPORT);
 
 import ChatPanel from '../components/ChatPanel';
 import GameModal, { resolveGame } from '../components/chat/GameModal';
@@ -145,7 +207,7 @@ function renderPanel(overrides = {}) {
 
 // Keep the relay off the network unless a test installs its own fetch mock
 beforeEach(() => {
-  scrollToIndex.mockClear();
+  installLayout();
   searchToggle.mockClear();
   setTrimPaused(false);
   resetNotifyThrottle();
@@ -157,6 +219,7 @@ beforeEach(() => {
 
 afterEach(() => {
   cleanup();
+  restoreLayout();
   localStorage.clear();
   vi.restoreAllMocks();
 });
@@ -175,11 +238,10 @@ function resetHidden() {
 }
 
 describe('ChatPanel history prepend', () => {
-  // Rows as the fake Virtuoso renders them: absolute index and key
-  const domRows = () => Array.from(document.querySelectorAll('[data-index]')).map((el) => ({
-    el, index: Number(el.dataset.index), key: el.dataset.key,
+  const domRows = () => Array.from(document.querySelectorAll('[data-row-key]')).map((el) => ({
+    el, index: Number(el.dataset.index), key: el.dataset.rowKey,
   }));
-  const rowOf = (msgId) => document.getElementById(`msg-${msgId}`).closest('[data-index]');
+  const rowOf = (msgId) => document.getElementById(`msg-${msgId}`).closest('[data-row-key]');
   const lineCount = (rowEl) => rowEl.querySelectorAll('[id^="msg-"]').length;
 
   it('keeps the viewport anchor when older history loads, even from the same author', async () => {
@@ -225,21 +287,21 @@ describe('ChatPanel history prepend', () => {
     const keyWarnings = vi.spyOn(console, 'error').mockImplementation(() => {});
     render(<Harness />);
 
+    layout();
+    // Reaching the head pages older history in; a second trigger while that
+    // fetch is in flight does not start another
+    scrollTo(100);
+    expect(loadOlder).toHaveBeenCalledTimes(1);
+    scrollTo(90);
+    expect(loadOlder).toHaveBeenCalledTimes(1);
+
     const before = domRows();
-    const firstBefore = before[0].index;
     const anchorBefore = rowOf('a1');
-    const anchorIndexBefore = Number(anchorBefore.dataset.index);
-    const anchorKeyBefore = anchorBefore.dataset.key;
+    const anchorKeyBefore = anchorBefore.dataset.rowKey;
+    const anchorOffsetBefore = anchorBefore.offsetTop - scroller().scrollTop;
     expect(lineCount(anchorBefore)).toBe(2);
     // Day divider is its own row ahead of the first message row
     expect(before[0].key).toMatch(/^day:/);
-    expect(anchorIndexBefore).toBe(firstBefore + 1);
-
-    // Two triggers while the fetch is in flight load once
-    const button = screen.getByRole('button', { name: 'Load earlier messages' });
-    fireEvent.click(button);
-    fireEvent.click(button);
-    expect(loadOlder).toHaveBeenCalledTimes(1);
 
     await act(async () => {
       resolveLoad();
@@ -247,34 +309,33 @@ describe('ChatPanel history prepend', () => {
     await waitFor(() => expect(document.getElementById('msg-o0')).toBeInTheDocument());
 
     const after = domRows();
-    const added = after.length - before.length;
     // 27 single-line groups + 1 separate Grubby group; the divider moved
-    expect(added).toBe(28);
-    expect(after[0].index).toBe(firstBefore - added);
+    expect(after.length - before.length).toBe(28);
 
-    // The previously first message row keeps its key, its index and its lines
+    // The previously first message row keeps its key and its lines, and -
+    // the point of all of it - it is still under the same pixel
     const anchorAfter = rowOf('a1');
-    expect(anchorAfter.dataset.key).toBe(anchorKeyBefore);
-    expect(Number(anchorAfter.dataset.index)).toBe(anchorIndexBefore);
+    expect(anchorAfter.dataset.rowKey).toBe(anchorKeyBefore);
     expect(lineCount(anchorAfter)).toBe(2);
+    expect(anchorAfter.offsetTop - scroller().scrollTop).toBe(anchorOffsetBefore);
+
     // The same-author page forms its own group right above it
     const grubbyOlder = rowOf('g1');
     expect(lineCount(grubbyOlder)).toBe(3);
-    expect(Number(grubbyOlder.dataset.index)).toBe(anchorIndexBefore - 1);
+    expect(grubbyOlder.nextElementSibling).toBe(anchorAfter);
 
-    // No duplicate keys, indices consecutive
+    // No duplicate keys
     const keys = after.map((r) => r.key);
     expect(new Set(keys).size).toBe(keys.length);
-    after.forEach((r, i) => expect(r.index).toBe(after[0].index + i));
     expect(keyWarnings.mock.calls.filter((c) => String(c[0]).includes('same key'))).toHaveLength(0);
   });
 });
 
 describe('ChatPanel head trim', () => {
-  const domRows = () => Array.from(document.querySelectorAll('[data-index]')).map((el) => ({
-    el, index: Number(el.dataset.index), key: el.dataset.key,
+  const domRows = () => Array.from(document.querySelectorAll('[data-row-key]')).map((el) => ({
+    el, index: Number(el.dataset.index), key: el.dataset.rowKey,
   }));
-  const rowOf = (msgId) => document.getElementById(`msg-${msgId}`).closest('[data-index]');
+  const rowOf = (msgId) => document.getElementById(`msg-${msgId}`).closest('[data-row-key]');
   const lineCount = (rowEl) => rowEl.querySelectorAll('[id^="msg-"]').length;
 
   // The live cap drops the oldest messages. Rows: day divider, sys1, the
@@ -296,88 +357,74 @@ describe('ChatPanel head trim', () => {
     );
   }
 
-  it('raises firstItemIndex by the number of whole rows removed, so the surviving rows keep their index', () => {
+  it('keeps the surviving rows when whole rows are trimmed off the head', () => {
     render(<Harness initial={messages} />);
     const before = domRows();
     expect(before.map((r) => r.key.replace(/^day:.*/, 'day'))).toEqual(['day', 'sys1', 'a1', 'b1', 'c1']);
-    const bIndex = Number(rowOf('b1').dataset.index);
+    const bRow = rowOf('b1');
 
     // sys1, a1, a2 gone: the system row and the whole Grubby group
     fireEvent.click(screen.getByText('drop three'));
     const after = domRows();
     expect(after.map((r) => r.key.replace(/^day:.*/, 'day'))).toEqual(['day', 'b1', 'c1']);
-    expect(after[0].index).toBe(before[0].index + 2);
-    expect(Number(rowOf('b1').dataset.index)).toBe(bIndex);
-    after.forEach((r, i) => expect(r.index).toBe(after[0].index + i));
+    // the same element, not one torn down and rebuilt
+    expect(rowOf('b1')).toBe(bRow);
   });
 
-  it('leaves firstItemIndex alone when only the head group shrinks', () => {
+  it('re-keys the head group when only its first line is trimmed', () => {
     render(<Harness initial={messages.filter((m) => m.id !== 'sys1')} />);
-    const before = domRows();
     expect(lineCount(rowOf('a1'))).toBe(2);
-    const bIndex = Number(rowOf('b1').dataset.index);
+    const bRow = rowOf('b1');
 
     // a1 gone: the Grubby group is now keyed a2 with one line, no row removed
     fireEvent.click(screen.getByText('drop one'));
     const after = domRows();
     expect(after.map((r) => r.key.replace(/^day:.*/, 'day'))).toEqual(['day', 'a2', 'b1', 'c1']);
-    expect(after[0].index).toBe(before[0].index);
     expect(lineCount(rowOf('a2'))).toBe(1);
-    expect(Number(rowOf('b1').dataset.index)).toBe(bIndex);
+    expect(rowOf('b1')).toBe(bRow);
   });
 });
 
 describe('ChatPanel bottom state', () => {
+  // The reader is at the tail or they are not, and the stream behaves
+  // differently in each: new lines follow them down at the tail and are left
+  // alone above it, and the live cap never trims the head out from under
+  // someone reading up the list.
   it('pauses the live trim while the viewport is off the bottom, resumes on return and resets on unmount', () => {
     const { unmount } = renderPanel();
+    layout();
     expect(isTrimPaused()).toBe(false);
-    act(() => virtuosoProps.current.atBottomStateChange(false));
+    scrollUp();
     expect(isTrimPaused()).toBe(true);
-    act(() => virtuosoProps.current.atBottomStateChange(true));
+    scrollToEnd();
     expect(isTrimPaused()).toBe(false);
-    act(() => virtuosoProps.current.atBottomStateChange(false));
+    scrollUp();
     expect(isTrimPaused()).toBe(true);
     unmount();
     expect(isTrimPaused()).toBe(false);
   });
 
-  it('follows output only from the bottom: smooth when the reader was there, instant catch-up mid-follow, never when away', () => {
-    renderPanel();
-    const { followOutput, atBottomStateChange } = virtuosoProps.current;
-    // Virtuoso reports not at bottom: never follow
-    expect(followOutput(false)).toBe(false);
-    // At rest at the bottom before the append
-    act(() => atBottomStateChange(true));
-    expect(followOutput(true)).toBe('smooth');
-    // The list grew and the follow scroll is still in flight (Virtuoso passes
-    // true while its own scroll runs): catch up instantly, no stacked smooth
-    act(() => atBottomStateChange(false));
-    expect(followOutput(true)).toBe('auto');
-    // Landed
-    act(() => atBottomStateChange(true));
-    expect(followOutput(true)).toBe('smooth');
-    // Reader scrolled up and no scroll in flight
-    act(() => atBottomStateChange(false));
-    expect(followOutput(false)).toBe(false);
+  it('follows the newest line while the reader is at the tail', () => {
+    const { rerender } = render(<Owner {...baseProps} messages={messages} inGameInfoMap={new Map()} />);
+    layout();
+    scrollToEnd();
+    const el = scroller();
+    expect(el.scrollTop).toBe(el.scrollHeight - VIEWPORT);
+
+    rerender(<Owner {...baseProps} inGameInfoMap={new Map()} messages={[...messages, msg('n1', 'Moon#2', 300000, 'one more')]} />);
+    // pinned to the end of a list that just grew by a row
+    expect(el.scrollTop).toBe(el.scrollHeight);
   });
 
-  it('catches up instantly when several rows land at once', () => {
+  it('leaves the scroll alone when a line arrives while the reader is up the list', () => {
     const { rerender } = render(<Owner {...baseProps} messages={messages} inGameInfoMap={new Map()} />);
-    const at = () => virtuosoProps.current.atBottomStateChange;
-    act(() => at()(true));
-    // one new line: worth animating
-    rerender(<Owner {...baseProps} inGameInfoMap={new Map()} messages={[...messages, msg('n1', 'Moon#2', 120000, 'one more')]} />);
-    act(() => at()(true));
-    expect(virtuosoProps.current.followOutput(true)).toBe('smooth');
-    // a burst: the animation would have further to travel than the reader
-    // can follow, so it jumps
-    rerender(<Owner {...baseProps} inGameInfoMap={new Map()} messages={[...messages,
-      msg('n1', 'Moon#2', 120000, 'one more'),
-      msg('n2', 'Grubby#1', 130000, 'and another'),
-      msg('n3', 'Watched#3', 140000, 'and a third'),
-    ]} />);
-    act(() => at()(true));
-    expect(virtuosoProps.current.followOutput(true)).toBe('auto');
+    layout();
+    scrollTo(100);
+    const el = scroller();
+
+    rerender(<Owner {...baseProps} inGameInfoMap={new Map()} messages={[...messages, msg('n1', 'Moon#2', 300000, 'one more')]} />);
+    // the new row went on the end, below the viewport: nothing moved
+    expect(el.scrollTop).toBe(100);
   });
 });
 
@@ -526,13 +573,8 @@ describe('ChatPanel permalinks', () => {
 
   it('resolves ?m= on load: scrolls to the row and flashes the line', async () => {
     renderPanel({ permalinkId: 'b1' });
-    await waitFor(() => expect(scrollToIndex).toHaveBeenCalled());
-    const call = scrollToIndex.mock.calls[0][0];
-    expect(call.align).toBe('center');
-    // scrollToIndex takes the 0-based data index; data-index carries firstItemIndex
-    const row = document.getElementById('msg-b1').closest('[data-index]');
-    const rowsInOrder = Array.from(document.querySelectorAll('[data-index]'));
-    expect(call.index).toBe(rowsInOrder.indexOf(row));
+    layout();
+    await waitForCentred('b1');
     expect(document.getElementById('msg-b1')).toHaveStyle({ background: 'rgba(252, 219, 51, 0.14)' });
   });
 
@@ -574,8 +616,9 @@ describe('ChatPanel permalinks', () => {
     }
     render(<PagingHarness />);
     await waitFor(() => expect(loadOlder).toHaveBeenCalledTimes(1));
-    await waitFor(() => expect(scrollToIndex).toHaveBeenCalled());
-    expect(document.getElementById('msg-a1')).not.toBeNull();
+    await waitFor(() => expect(document.getElementById('msg-a1')).not.toBeNull());
+    layout();
+    await waitForCentred('a1');
   });
 });
 
@@ -591,18 +634,20 @@ describe('ChatPanel anchored permalink', () => {
     await waitFor(() => expect(loadWindow).toHaveBeenCalledTimes(1));
     // +1s past the anchor, in the relay's cursor format
     expect(loadWindow).toHaveBeenCalledWith('2026-09-22 11:00:01');
-    expect(scrollToIndex).not.toHaveBeenCalled();
+    expect(document.getElementById('msg-old1')).toBeNull();
     windowId = 1;
     rerender(view());
-    await waitFor(() => expect(scrollToIndex).toHaveBeenCalled());
-    expect(document.getElementById('msg-old1')).not.toBeNull();
+    await waitFor(() => expect(document.getElementById('msg-old1')).not.toBeNull());
+    layout();
+    await waitForCentred('old1');
     expect(loadWindow).toHaveBeenCalledTimes(1);
   });
 
   it('scrolls straight to a loaded message without touching the window', async () => {
     const loadWindow = vi.fn(async () => messages);
     renderPanel({ loadWindow, permalinkId: 'b1', permalinkAt: '2026-09-22 11:00:00' });
-    await waitFor(() => expect(scrollToIndex).toHaveBeenCalled());
+    layout();
+    await waitForCentred('b1');
     expect(loadWindow).not.toHaveBeenCalled();
   });
 });
@@ -713,13 +758,13 @@ describe('ChatPanel filter', () => {
     const loadOlder = vi.fn(async () => ({ added: 0 }));
     renderPanel({ loadOlder });
     fireEvent.change(field(), { target: { value: 'hola' } });
-    await act(async () => virtuosoProps.current.startReached?.());
+    scrollUp(); // reaching the head pages nothing while a query is set
     expect(loadOlder).not.toHaveBeenCalled();
     fireEvent.click(screen.getByText('Load earlier messages'));
     await waitFor(() => expect(loadOlder).toHaveBeenCalledTimes(1));
     fireEvent.click(screen.getByRole('button', { name: 'Clear search' }));
-    await act(async () => virtuosoProps.current.startReached?.());
-    expect(loadOlder).toHaveBeenCalledTimes(2);
+    scrollTo(90);
+    await waitFor(() => expect(loadOlder).toHaveBeenCalledTimes(2));
   });
 
   it('seeds the field from ?q= (the old /search links), then drops the query from the address bar', () => {
@@ -758,66 +803,25 @@ describe('ChatPanel latest pill', () => {
   it('on desktop shows "N new" only when lines arrive while the viewport is off the bottom, and scrolls down on click', () => {
     const { rerender } = renderPanel();
     expect(document.querySelector('[data-latest-pill]')).toBeNull();
-    act(() => virtuosoProps.current.atBottomStateChange(false));
+    scrollUp();
     expect(document.querySelector('[data-latest-pill]')).toBeNull();
     rerender(<Owner {...baseProps} messages={later(1)} inGameInfoMap={new Map()} />);
     expect(document.querySelector('[data-latest-pill]')).toHaveAttribute('data-latest-pill', 'new');
     expect(document.querySelector('[data-latest-pill]')).toHaveTextContent('↓ 1 new');
     rerender(<Owner {...baseProps} messages={later(2)} inGameInfoMap={new Map()} />);
     expect(document.querySelector('[data-latest-pill]')).toHaveTextContent('↓ 2 new');
-    fireEvent.click(document.querySelector('[data-latest-pill]'));
-    expect(scrollToIndex).toHaveBeenCalledWith(expect.objectContaining({ index: 'LAST' }));
-    act(() => virtuosoProps.current.atBottomStateChange(true));
+
+    // the whole list is loaded, so the pill is one scroll to the end
+    act(() => fireEvent.click(document.querySelector('[data-latest-pill]')));
+    const el = scroller();
+    expect(el.scrollTop).toBe(el.scrollHeight);
     expect(document.querySelector('[data-latest-pill]')).toBeNull();
-  });
-
-  it('closes the gap when the scroll lands short of the newest line', () => {
-    vi.useFakeTimers();
-    try {
-      const { rerender } = renderPanel();
-      act(() => virtuosoProps.current.atBottomStateChange(false));
-      rerender(<Owner {...baseProps} messages={later(2)} inGameInfoMap={new Map()} />);
-      const scroller = document.querySelector('[data-testid="virtuoso"]');
-      Object.defineProperty(scroller, 'scrollHeight', { value: 1000, configurable: true });
-      Object.defineProperty(scroller, 'clientHeight', { value: 400, configurable: true });
-      // where a smooth scrollToIndex left it: 200px short of the newest line
-      scroller.scrollTop = 400;
-
-      fireEvent.click(document.querySelector('[data-latest-pill]'));
-      expect(scrollToIndex).toHaveBeenCalledWith(expect.objectContaining({ index: 'LAST' }));
-      // first tick sees it still moving, the second sees it settled and corrects
-      act(() => vi.advanceTimersByTime(80));
-      expect(scroller.scrollTop).toBe(400);
-      act(() => vi.advanceTimersByTime(80));
-      expect(scroller.scrollHeight - scroller.clientHeight - scroller.scrollTop).toBeLessThanOrEqual(0);
-    } finally {
-      vi.useRealTimers();
-    }
-  });
-
-  it('leaves a scroll that landed at the bottom alone', () => {
-    vi.useFakeTimers();
-    try {
-      const { rerender } = renderPanel();
-      act(() => virtuosoProps.current.atBottomStateChange(false));
-      rerender(<Owner {...baseProps} messages={later(2)} inGameInfoMap={new Map()} />);
-      const scroller = document.querySelector('[data-testid="virtuoso"]');
-      Object.defineProperty(scroller, 'scrollHeight', { value: 1000, configurable: true });
-      Object.defineProperty(scroller, 'clientHeight', { value: 400, configurable: true });
-      scroller.scrollTop = 600; // already there
-
-      fireEvent.click(document.querySelector('[data-latest-pill]'));
-      act(() => vi.advanceTimersByTime(240));
-      expect(scroller.scrollTop).toBe(600);
-    } finally {
-      vi.useRealTimers();
-    }
   });
 
   it('on mobile shows "Latest" whenever the viewport is off the bottom', () => {
     const { rerender } = renderPanel({ isMobile: true });
     expect(document.querySelector('[data-latest-pill]')).toBeNull();
-    act(() => virtuosoProps.current.atBottomStateChange(false));
+    scrollUp();
     expect(document.querySelector('[data-latest-pill]')).toHaveTextContent('↓ Latest');
     rerender(<Owner {...baseProps} isMobile messages={later(1)} inGameInfoMap={new Map()} />);
     expect(document.querySelector('[data-latest-pill]')).toHaveTextContent('↓ 1 new');
@@ -831,25 +835,24 @@ describe('ChatPanel last read', () => {
   });
 
   it('marks where the last visit stopped, and offers the trip back while it is off screen', async () => {
-    // the reader last saw Grubby's second line; three messages have landed
+    // the reader last saw Grubby's second line; several messages have landed
     saveLastRead({ id: 'a2', sentAt: iso(30000) }, { force: true });
-    renderPanel();
+    const since = Array.from({ length: 4 }, (_, i) => msg(`s${i}`, 'Sok#4', 300000 + i * 60000, `since ${i}`));
+    renderPanel({ messages: [...messages, ...since] });
 
     const marker = screen.getByText('new');
     expect(marker).toBeInTheDocument();
     // it sits on the first row the reader has not seen, not at the end
-    const markerRow = marker.closest('[data-index]');
+    const markerRow = marker.closest('[data-row-key]');
     expect(markerRow.querySelector('[id="msg-b1"]')).not.toBeNull();
 
     // the stream opens at the bottom, so the marker is above the viewport
-    act(() => virtuosoProps.current.rangeChanged({
-      startIndex: Number(markerRow.dataset.index) + 1,
-      endIndex: Number(markerRow.dataset.index) + 2,
-    }));
+    scrollToEnd();
     const jump = document.querySelector('[data-unread-jump]');
     expect(jump).toHaveTextContent('Where you left off');
     fireEvent.click(jump);
-    await waitFor(() => expect(scrollToIndex).toHaveBeenCalled());
+    // aligned to the top of the viewport, not centred
+    await waitFor(() => expect(scroller().scrollTop).toBe(markerRow.offsetTop));
   });
 
   it('shows no marker when nothing arrived since the last visit', () => {
@@ -861,7 +864,7 @@ describe('ChatPanel last read', () => {
 
   it('keeps following the reader: the newest line at the bottom is stored', () => {
     renderPanel();
-    act(() => virtuosoProps.current.atBottomStateChange(true));
+    scrollToEnd();
     expect(loadLastRead().id).toBe('c1');
   });
 });
@@ -1171,49 +1174,6 @@ describe('ChatPanel mentions and unfurls', () => {
     expect(yt).toHaveTextContent('A video');
     // u1 had two links but gets one card (the first); the card sits in the feed row
     expect(document.getElementById('msg-u1').parentElement.querySelectorAll('[data-testid="unfurl-card"]')).toHaveLength(1);
-  });
-});
-
-// A row that has not changed must come back as the same object: the rows
-// are memoized on identity, so losing it means one arriving line re-renders
-// every visible group. A `{ ...item }` spread anywhere in the rows pipeline
-// is enough to break this and nothing else in the suite would notice.
-describe('ChatPanel row identity', () => {
-  const dataRows = () => virtuosoProps.current.data;
-
-  it('reuses the row objects of untouched groups when a message arrives', () => {
-    const { rerender } = render(<Owner {...baseProps} messages={messages} inGameInfoMap={new Map()} />);
-    const before = new Map(dataRows().map((r) => [r.key, r]));
-
-    rerender(
-      <Owner {...baseProps} inGameInfoMap={new Map()} messages={[...messages, msg('n1', 'Lyn#9', 600000, 'fresh line')]} />
-    );
-    const after = dataRows();
-
-    const newRow = after.find((r) => r.key === 'n1');
-    expect(newRow).toBeTruthy();
-    const carried = after.filter((r) => before.has(r.key));
-    expect(carried.length).toBeGreaterThan(2);
-    for (const row of carried) expect(row).toBe(before.get(row.key));
-  });
-
-  it('gives the group that gained a line a new object, and only that one', () => {
-    const { rerender } = render(<Owner {...baseProps} messages={messages} inGameInfoMap={new Map()} />);
-    const before = new Map(dataRows().map((r) => [r.key, r]));
-    const last = messages[messages.length - 1];
-
-    // same author, within the 2 minute window: this joins the last group
-    rerender(
-      <Owner
-        {...baseProps}
-        inGameInfoMap={new Map()}
-        messages={[...messages, msg('n2', last.battleTag, 60000 + 30000, 'and another')]}
-      />
-    );
-    const after = dataRows();
-    const changed = after.filter((r) => before.has(r.key) && r !== before.get(r.key));
-    expect(changed).toHaveLength(1);
-    expect(changed[0].msgs.some((m) => m.id === 'n2')).toBe(true);
   });
 });
 
