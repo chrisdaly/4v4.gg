@@ -51,7 +51,9 @@ const HERO_ICON_MAP = {
   "Tauren Chieftain": "taurenchieftain", "Lich": "lich", "Blademaster": "blademaster",
   "Mountain King": "mountainking", "Paladin": "paladin", "Far Seer": "farseer",
   "Keeper": "keeperofthegrove", "Crypt Lord": "cryptlord", "Priestess": "priestessofthemoon",
-  "Dreadlord": "dreadlord", "Naga": "sorceror", "Sea Witch": "seawitch", "Pit Lord": "pitlord",
+  "Dreadlord": "dreadlord", "Naga": "seawitch", "Sea Witch": "seawitch", "Pit Lord": "pitlord",
+  // W3C calls the Blood Mage "sorceror" in its match data, so that is the file name
+  "Blood Mage": "sorceror",
   "Panda": "pandarenbrewmaster", "Dark Ranger": "bansheeranger", "Demon Hunter": "demonhunter",
   "Tinker": "tinker", "Beastmaster": "beastmaster", "Alchemist": "alchemist",
   "Firelord": "avatarofflame", "Warden": "warden",
