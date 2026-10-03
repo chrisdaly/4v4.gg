@@ -1,3 +1,4 @@
+import { useRef } from "react";
 import { geometricMean } from "../formatters";
 
 /**
@@ -190,3 +191,29 @@ export function liveGamesFrom(ongoingMatches, onlineUsers, max = 8) {
     .sort((a, b) => new Date(b.startTime || 0) - new Date(a.startTime || 0))
     .slice(0, max);
 }
+
+/**
+ * Hold on to the previous collection when the new one holds the same
+ * things. These derivations are rebuilt on every arriving message (they key
+ * off lastChatAt), and the chat rows are memoized on their identity: a new
+ * Set with identical members would re-render every visible row for nothing.
+ */
+export function useStable(value, equal) {
+  const ref = useRef(value);
+  if (ref.current !== value && !equal(ref.current, value)) ref.current = value;
+  return ref.current;
+}
+
+export const sameSet = (a, b) => {
+  if (a === b) return true;
+  if (!a || !b || a.size !== b.size) return false;
+  for (const v of a) if (!b.has(v)) return false;
+  return true;
+};
+
+export const sameMapKeys = (a, b) => {
+  if (a === b) return true;
+  if (!a || !b || a.size !== b.size) return false;
+  for (const [k, v] of a) if (b.get(k) !== v) return false;
+  return true;
+};

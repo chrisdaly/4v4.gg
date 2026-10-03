@@ -10,6 +10,8 @@ import {
   recentChattersFrom,
   inGameTagsFrom,
   ongoingIndexFrom,
+  useStable,
+  sameSet,
 } from "./derived";
 
 /**
@@ -34,11 +36,14 @@ export default function useChatFeed() {
   // Who chatted in the last 10 minutes (roster dims everyone else)
   const recentChatters = useMemo(() => recentChattersFrom(lastChatAt), [lastChatAt]);
 
-  // In-game players, minus anyone who chatted in the last minute
-  const inGameTags = useMemo(
+  // In-game players, minus anyone who chatted in the last minute. Rebuilt on
+  // every message because lastChatAt moves; held at its previous identity
+  // while the membership is unchanged, since the chat rows memoize on it.
+  const inGameTagsRaw = useMemo(
     () => inGameTagsFrom(ongoingMatches, lastChatAt),
     [ongoingMatches, lastChatAt]
   );
+  const inGameTags = useStable(inGameTagsRaw, sameSet);
 
   const { inGameInfoMap, inGameMatchMap, ongoingMatchIds } = useMemo(
     () => ongoingIndexFrom(ongoingMatches),

@@ -1,10 +1,9 @@
 import React, { useRef, useEffect, useState, useCallback, useMemo } from "react";
-import { Virtuoso } from "react-virtuoso";
 import styled, { css } from "styled-components";
 import { Link } from "react-router-dom";
 import { IoSend } from "react-icons/io5";
 import { Button, Skeleton, Input } from "./ui";
-import { useMessageSegments, useBotResponseMap, formatDateDivider, getDateKey } from "../lib/useChatMessages";
+import { useBotResponseMap, formatDateDivider, getDateKey } from "../lib/useChatMessages";
 import { linkifyMessage } from "../lib/chatExtras";
 import PlayerHoverCard from "./PlayerHoverCard";
 import ChatMessage from "./chat/ChatMessage";
@@ -19,6 +18,9 @@ import { chipForTag } from "./chat/chip";
 import { relayFetch } from "../lib/relay";
 import useAdmin from "../lib/useAdmin";
 import { setTrimPaused } from "../lib/chat/trimGate";
+import { useStable, sameMapKeys } from "../lib/chat/derived";
+import useStreamScroll, { ROW_KEY_ATTR } from "../lib/chat/useStreamScroll";
+import useStreamRows from "../lib/chat/useStreamRows";
 import { Panel } from "./chat/panel";
 import { CHAT_MOBILE_PX } from "../lib/useIsMobile";
 
@@ -39,7 +41,7 @@ const OuterFrame = styled.div`
   font-family: var(--font-body);
 `;
 
-/* Every level from the grid cell down to the Virtuoso scroller takes its
+/* Every level from the grid cell down to the stream's scroller takes its
    height from flex (basis 0, min-height 0), never from a percentage: a
    percentage height inside a flex-sized item resolves to auto in some
    engines, and the scroller would then grow to its content and push the
@@ -209,13 +211,18 @@ const MessageList = styled.div`
   }
 `;
 
-/* The virtualized list splits MessageList's box across react-virtuoso's
-   parts: scrollbar on the Scroller, horizontal padding on the List (Virtuoso
-   owns the List's vertical padding for the virtual offsets), vertical
-   padding on the Header/Footer. Same rendered box as MessageList. */
-const noContextProp = { shouldForwardProp: (prop) => prop !== "context" };
+/* The stream's own scroller. Position: relative so a row's offsetTop is
+   measured against it, which is the same axis as scrollTop - that is what
+   useStreamScroll holds the viewport with. The box is MessageList's, split
+   so the scrollbar sits on the scroller and the horizontal padding on the
+   rows; the vertical padding is on the top and bottom blocks. */
+const ChatScroller = styled.div`
+  position: relative;
+  flex: 1 1 0;
+  min-height: 0;
+  overflow-y: auto;
+  overscroll-behavior: contain;
 
-const ChatScroller = styled.div.withConfig(noContextProp)`
   &::-webkit-scrollbar {
     width: 6px;
   }
@@ -228,9 +235,14 @@ const ChatScroller = styled.div.withConfig(noContextProp)`
   }
 `;
 
-const ChatList = styled.div.withConfig(noContextProp)`
+/* The browser's scroll anchoring is off here on purpose: it does not run at
+   scroll offset 0, which is exactly where a page of older history arrives,
+   so useStreamScroll holds the viewport itself and would otherwise be
+   correcting on top of a correction. */
+const ChatList = styled.div`
   padding-left: ${LIST_PAD_X};
   padding-right: ${LIST_PAD_X};
+  overflow-anchor: none;
 `;
 
 const ListTop = styled.div`
@@ -294,11 +306,6 @@ const ScrollContainer = styled.div`
   display: flex;
   flex-direction: column;
 `;
-
-// Virtuoso's scroller: flex-sized by ScrollContainer (see Wrapper). Its own
-// default is height: 100%, which is what the flex basis replaces. The scroll
-// never chains to the document when the list hits either end.
-const virtuosoStyle = { flex: "1 1 0", minHeight: 0, height: "auto", overscrollBehavior: "contain" };
 
 const DateDivider = styled.div`
   display: flex;
@@ -622,22 +629,6 @@ function readQueryUrl() {
   }
 }
 
-// Whether a message group (author + lines) matches the filter query, by
-// display name or text, case-insensitive
-function groupMatches(row, q) {
-  const name = (row.msg.userName || row.msg.battleTag?.split("#")[0] || "").toLowerCase();
-  if (name.includes(q)) return true;
-  return row.msgs.some((m) => (m.text || "").toLowerCase().includes(q));
-}
-
-// firstItemIndex base for react-virtuoso: prepends (load earlier) decrease
-// it by the number of rows added at the head so the viewport stays put
-const FIRST_ITEM_BASE = 1_000_000;
-
-// The pill's landing check: poll this often, give up after this many tries
-const BOTTOM_FIX_TICK_MS = 80;
-const BOTTOM_FIX_MAX_TICKS = 14;
-
 // How long the "new" marker stays after the reader comes back to the tab
 const NEW_MARKER_LINGER_MS = 120_000;
 
@@ -662,10 +653,7 @@ function findRowIndex(rows, id) {
   return rows.findIndex((r) => (r.msgs ? r.msgs.some((m) => m.id === id) : r.msg?.id === id));
 }
 
-// Virtuoso renders these outside the virtual window; dynamic state comes in
-// through the `context` prop so the component references stay stable
-function ListHeader({ context }) {
-  const { showLoadOlder, loadingOlder, onLoadOlder } = context;
+function ListHeader({ showLoadOlder, loadingOlder, onLoadOlder }) {
   return (
     <ListTop>
       {showLoadOlder && (
@@ -677,10 +665,10 @@ function ListHeader({ context }) {
   );
 }
 
-function ListFooter({ context }) {
+function ListFooter({ unmatchedBotResponses }) {
   return (
     <ListBottom>
-      {context.unmatchedBotResponses.map((br, i) => (
+      {unmatchedBotResponses.map((br, i) => (
         <BotResponseRow key={`bot-${i}`} style={{ marginLeft: "var(--space-4)" }}>
           <BotLabel>BOT</BotLabel>
           {!br.botEnabled && <BotPreviewTag>(preview)</BotPreviewTag>}
@@ -692,14 +680,95 @@ function ListFooter({ context }) {
   );
 }
 
-const listComponents = {
-  Scroller: ChatScroller,
-  List: ChatList,
-  Header: ListHeader,
-  Footer: ListFooter,
-};
+/**
+ * One stream row - a message group or a system line - memoized.
+ *
+ * Everything that varies arrives in one `ctx` object the panel memoizes, so
+ * a panel render that changed none of it (a scroll tick moving the sticky
+ * day bar, a presence event, the 30s ongoing-games poll) re-renders no rows
+ * at all. Row objects keep their identity across regroupings for the same
+ * reason (see the rowCacheRef memo), so one arriving message re-renders one
+ * group rather than the whole visible stream.
+ */
+const FeedRow = React.memo(function FeedRow({ row, showNewMarker, ctx }) {
+  const msg = row.msg;
+  const marker = showNewMarker ? (
+    <NewDivider><NewDividerLabel>new</NewDividerLabel></NewDivider>
+  ) : null;
 
-const rowKey = (index, row) => row.key;
+  if (row.kind === "system") {
+    return (
+      <>
+        {marker}
+        <SystemWrap>
+          <SystemMessageRow>{msg.text}</SystemMessageRow>
+        </SystemWrap>
+      </>
+    );
+  }
+
+  const {
+    avatars, stats, sessions, liveStreamers, inGameTags, inGameInfoMap, watchList,
+    translations, showTranslations, flashId, chipCtx, onOpenGame, openPlayerCard,
+    isMobile, renderLine, renderAfterLine, permalinkHref,
+  } = ctx;
+
+  const tag = msg.battleTag;
+  const isWatched =
+    (Boolean(tag) && Boolean(watchList?.has(tag.toLowerCase()))) ||
+    row.msgs.some((m) => findWatchedMentions(m.text, watchList).length > 0);
+  const profile = avatars?.get(tag);
+  const playerStats = stats?.get(tag);
+  const live = liveStreamers?.get(tag);
+  const gameInfo = inGameTags?.has(tag) ? inGameInfoMap?.get(tag) : null;
+
+  const group = {
+    author: { battleTag: tag, userName: msg.userName, clanTag: msg.clanTag },
+    lines: row.msgs.map((m) => ({
+      id: m.id,
+      text: m.text,
+      sentAt: m.sentAt,
+      kind: m.kind,
+      // the live event wins while it is in memory, the stored one covers
+      // history and anything that arrived before this session
+      translation: showTranslations ? translations.get(m.id) || m.translation || undefined : undefined,
+      highlight: flashId === m.id,
+    })),
+  };
+  const chip = chipForTag(tag, chipCtx);
+  if (chip?.kind === "ingame" && gameInfo && onOpenGame) chip.onClick = () => onOpenGame(gameInfo);
+  const meta = {
+    avatarUrl: profile?.profilePicUrl,
+    race: playerStats?.race,
+    countryCode: profile?.country,
+    mmr: playerStats?.mmr,
+    chip,
+    twitchLogin: live?.twitchName,
+    twitchTitle: live?.title,
+  };
+  const wrapName = (node) => (
+    <PlayerHoverCard battleTag={tag} avatars={avatars} stats={stats} sessions={sessions} inGameInfo={gameInfo}>
+      {node}
+    </PlayerHoverCard>
+  );
+
+  return (
+    <>
+      {marker}
+      <ChatMessage
+        variant="feed"
+        group={group}
+        meta={meta}
+        watched={isWatched}
+        onNameClick={openPlayerCard}
+        wrapName={isMobile ? undefined : wrapName}
+        renderLine={renderLine}
+        renderAfterLine={renderAfterLine}
+        permalinkHref={permalinkHref}
+      />
+    </>
+  );
+});
 
 /**
  * The /chat message stream (Chat v3). Only messages: games live in the
@@ -760,11 +829,8 @@ export default function ChatPanel({
   onSearchOpenChange,
   showTranslations = true,
 }) {
-  const virtuosoRef = useRef(null);
-  // Whether the viewport sits at the newest row (state for the pill, ref
-  // for the scroll callbacks below)
-  const [atBottom, setAtBottom] = useState(true);
-  const unseen = useUnreadCount(messages, atBottom);
+  // The scroll layer is wired further down, once `rows` exists; `atBottom`
+  // comes back from it (the pill, the unread count, the live cap's gate)
   const { adminKey: apiKey, isAdmin } = useAdmin();
   const [botDraft, setBotDraft] = useState("");
   const [botError, setBotError] = useState(null);
@@ -784,8 +850,8 @@ export default function ChatPanel({
   const [windowJump, setWindowJump] = useState(null);
   // { id, align } - scroll to this message's row once it exists in `rows`
   const [pendingJump, setPendingJump] = useState(null);
-  // Sticky day bar: absolute Virtuoso index of the topmost visible row
-  const [topIndex, setTopIndex] = useState(null);
+  // Sticky day bar: the key of the row at the top of the viewport
+  const [topKey, setTopKey] = useState(null);
   const [dayPickerOpen, setDayPickerOpen] = useState(false);
   const [archiveMin, setArchiveMin] = useState(null);
   const [loadingWindow, setLoadingWindow] = useState(false);
@@ -794,23 +860,12 @@ export default function ChatPanel({
   const jumpingRef = useRef(false);
   const permalinkDoneRef = useRef(null);
   const dayPickerRef = useRef(null);
-  const scrollerElRef = useRef(null);
-  // The interval that checks the "↓ N new" scroll actually landed
-  const bottomFixRef = useRef(null);
-  const rangeRef = useRef(null);
-  const topRowRafRef = useRef(null);
-  const topIndexRef = useRef(null);
   const messagesRef = useRef(messages);
-  // Whether the viewport is pinned to the newest row, from Virtuoso's
-  // atBottomStateChange. It also gates the live cap: no head trim while the
-  // reader is scrolled up (lib/chat/trimGate.js).
+  // Whether the viewport is pinned to the newest row. It also gates the live
+  // cap: no head trim while the reader is scrolled up (lib/chat/trimGate.js).
   const atBottomRef = useRef(true);
-  // A followOutput scroll is in flight: the viewport left the bottom only
-  // because the list grew, not because the reader scrolled up
-  const followingRef = useRef(false);
 
   useEffect(() => () => setTrimPaused(false), []);
-  useEffect(() => () => clearInterval(bottomFixRef.current), []);
 
   useEffect(() => {
     messagesRef.current = messages;
@@ -961,50 +1016,6 @@ export default function ChatPanel({
     }
   }, [loadLatest, loadingWindow]);
 
-  // Sticky day bar: which row is at the top of the viewport. Measured from
-  // the rendered rows (Virtuoso stamps data-index on each), falling back to
-  // the rendered range's start when nothing has a box yet (first paint,
-  // tests). Scroll events are coalesced into one frame.
-  const updateTopRow = useCallback(() => {
-    const el = scrollerElRef.current;
-    let idx = null;
-    if (el) {
-      const top = el.getBoundingClientRect().top;
-      const nodes = el.querySelectorAll("[data-index]");
-      for (const n of nodes) {
-        const r = n.getBoundingClientRect();
-        if (r.height > 0 && r.bottom > top + 1) {
-          idx = Number(n.dataset.index);
-          break;
-        }
-      }
-    }
-    if (idx === null && rangeRef.current) idx = rangeRef.current.startIndex;
-    // Scroll ticks mostly land on the same row: no state update, no render
-    if (idx === topIndexRef.current) return;
-    topIndexRef.current = idx;
-    setTopIndex(idx);
-  }, []);
-
-  const scheduleTopRow = useCallback(() => {
-    cancelAnimationFrame(topRowRafRef.current);
-    topRowRafRef.current = requestAnimationFrame(updateTopRow);
-  }, [updateTopRow]);
-
-  const handleRangeChanged = useCallback((range) => {
-    rangeRef.current = range;
-    updateTopRow();
-  }, [updateTopRow]);
-
-  const handleScrollerRef = useCallback((el) => {
-    const prev = scrollerElRef.current;
-    if (prev && prev !== el) prev.removeEventListener("scroll", scheduleTopRow);
-    scrollerElRef.current = el;
-    if (el && el !== prev) el.addEventListener("scroll", scheduleTopRow, { passive: true });
-  }, [scheduleTopRow]);
-
-  useEffect(() => () => cancelAnimationFrame(topRowRafRef.current), []);
-
   // "(N) 4v4 Chat" + red-dot favicon while hidden; restored on return
   useEffect(() => {
     applyTabBadge(hiddenUnread);
@@ -1048,25 +1059,6 @@ export default function ChatPanel({
     setNewMarkerTime(stored.at);
   }, [messages]);
 
-  // Follow the reader's position while they are at the bottom, and write it
-  // once more on the way out
-  useEffect(() => {
-    if (!atBottom || messages.length === 0) return;
-    saveLastRead(messages[messages.length - 1]);
-  }, [atBottom, messages]);
-  useEffect(() => () => {
-    const loaded = messagesRef.current;
-    if (atBottomRef.current && loaded.length > 0) saveLastRead(loaded[loaded.length - 1], { force: true });
-  }, []);
-
-  // Caught up: the marker has done its job, so it fades on the same timer
-  // the tab-return path uses
-  useEffect(() => {
-    if (!atBottom || newMarkerTime == null) return undefined;
-    const id = setTimeout(() => setNewMarkerTime(null), NEW_MARKER_LINGER_MS);
-    return () => clearTimeout(id);
-  }, [atBottom, newMarkerTime]);
-
   // "- new -" marker: remember where you were when the tab went hidden, and
   // drop it two minutes after you are back.
   //
@@ -1108,10 +1100,9 @@ export default function ChatPanel({
     window.history.replaceState(window.history.state, "", `${window.location.pathname}${qs ? `?${qs}` : ""}${window.location.hash}`);
   }, []);
 
-  // Prepends go through Virtuoso's firstItemIndex (see the memo below), so
-  // the viewport stays anchored without any scrollHeight arithmetic here.
-  // The ref guard is synchronous: startReached and the button can both fire
-  // before the loading state has rendered.
+  // The viewport is held against a real row by useStreamScroll, so there is
+  // nothing to arrange here. The ref guard is synchronous: reaching the top
+  // and the button can both fire before the loading state has rendered.
   const olderInFlightRef = useRef(false);
   const handleLoadOlder = useCallback(async () => {
     if (!loadOlder || olderInFlightRef.current) return;
@@ -1151,208 +1142,37 @@ export default function ChatPanel({
     }
   }, [botDraft, apiKey, botTesting]);
 
-  const { botResponseMap, unmatchedBotResponses } = useBotResponseMap(botResponses, messages);
-  // Prepend boundaries: the id of the earliest message before each page of
-  // older history. Grouping never merges across one, so the row that was
-  // first before the prepend keeps its key and its lines; Virtuoso anchors
-  // the viewport to that row by index (see the firstItemIndex memo). A
-  // prepend is recognised by the previous first message still being loaded
-  // but no longer first; a replaced window resets.
-  const boundaryRef = useRef({ windowId, firstId: null, ids: new Set() });
-  const boundaryIds = useMemo(() => {
-    const firstId = messages[0]?.id ?? null;
-    if (boundaryRef.current.windowId !== windowId) {
-      boundaryRef.current = { windowId, firstId, ids: new Set() };
-      return boundaryRef.current.ids;
-    }
-    const b = boundaryRef.current;
-    if (b.firstId !== null && firstId !== b.firstId && messages.some((m) => m.id === b.firstId)) {
-      b.ids = new Set(b.ids).add(b.firstId);
-    }
-    b.firstId = firstId;
-    return b.ids;
-  }, [messages, windowId]);
-  const messageSegments = useMessageSegments(messages, boundaryIds);
-
-  // One list row per message group (author + consecutive lines within 2 min)
-  // or system message. Nothing else: games used to be woven in here, and a
-  // quiet spell could leave more tickers on screen than sentences. They are
-  // all in the game activity panel now, live and finished alike, and the
-  // stream is only what people said.
-  const renderItems = useMemo(() => {
-    const items = [];
-    for (const seg of messageSegments) {
-      const start = seg.start;
-      const time = new Date(start.sentAt).getTime();
-      if (start.kind === "system") {
-        items.push({ kind: "system", key: start.id, msg: start, time });
-      } else {
-        items.push({ kind: "group", key: start.id, msg: start, msgs: [start, ...seg.continuations], time });
-      }
-    }
-    return items.sort((a, b) => a.time - b.time);
-  }, [messageSegments]);
-
-  // The filter: message groups whose author or text matches the query;
-  // game rows and system lines drop out while it is set
-  const filteredItems = useMemo(() => {
-    if (!filterActive) return renderItems;
-    return renderItems.filter((item) => item.kind === "group" && groupMatches(item, filterQ));
-  }, [renderItems, filterActive, filterQ]);
-  const foundCount = filterActive ? filteredItems.length : 0;
+  const { botResponseMap: botResponseMapRaw, unmatchedBotResponses } = useBotResponseMap(botResponses, messages);
+  // Re-indexed on every message, almost always to the same (usually empty)
+  // map; the rows memoize on it, so give it its identity back
+  const botResponseMap = useStable(botResponseMapRaw, sameMapKeys);
+  const { rows, newMarkerKey, foundCount } = useStreamRows({
+    messages,
+    windowId,
+    filterActive,
+    filterQ,
+    newMarkerTime,
+  });
   // The same words, against the whole archive instead of the loaded stream
   const archiveHref = `/search?q=${encodeURIComponent(query.trim())}&since=all`;
 
-  // Day dividers are rows of their own (keyed by day) ahead of the first
-  // message or system row of each day, so paging in older history from the
-  // same day never changes an existing row's height. The "new" marker is a
-  // flag on the first message row past newMarkerTime.
-  const rows = useMemo(() => {
-    const out = [];
-    let prevDay = null;
-    let newMarkerShown = false;
-    filteredItems.forEach((item) => {
-      if (item.kind !== "group" && item.kind !== "system") {
-        out.push(item);
-        return;
-      }
-      const day = getDateKey(item.msg.sentAt);
-      if (day !== prevDay) {
-        out.push({ kind: "divider", key: `day:${day}`, time: item.time, sentAt: item.msg.sentAt });
-        prevDay = day;
-      }
-      const showNewMarker = !newMarkerShown && newMarkerTime != null && item.time > newMarkerTime;
-      if (showNewMarker) newMarkerShown = true;
-      out.push({ ...item, showNewMarker });
-    });
-    return out;
-  }, [filteredItems, newMarkerTime]);
-
-  // How many rows the newest change appended, for followOutput: a burst
-  // scrolls instantly, a single line glides.
-  const rowCountRef = useRef({ count: null, added: 1 });
-  if (rowCountRef.current.count !== rows.length) {
-    const prev = rowCountRef.current.count;
-    // The first fill is not an append: the list is simply there
-    rowCountRef.current = { count: rows.length, added: prev == null ? 1 : Math.max(0, rows.length - prev) };
-  }
-
-  // Virtuoso keeps the viewport still across changes at the head of the
-  // list as long as firstItemIndex moves, in the same render as the data,
-  // by exactly the number of rows added ahead of (or removed from ahead
-  // of) a row that survives the change. The anchor is the first message or
-  // event row of the new list that was already in the previous one; day
-  // divider rows are skipped because a divider moves ahead of older rows
-  // from its own day. Prepends decrease the index, head trims (live cap,
-  // deletions) increase it, appends leave it alone.
-  const headRef = useRef({ keys: null, index: FIRST_ITEM_BASE, windowId });
-  const firstItemIndex = useMemo(() => {
-    // A replaced window (jump to date, back to live) remounts the list, so
-    // its anchor starts over
-    if (headRef.current.windowId !== windowId) {
-      headRef.current = { keys: null, index: FIRST_ITEM_BASE, windowId };
-    }
-    const head = headRef.current;
-    let index = head.index;
-    if (head.keys) {
-      const at = rows.findIndex((r) => r.kind !== "divider" && head.keys.has(r.key));
-      if (at !== -1) index += head.keys.get(rows[at].key) - at;
-    }
-    const keys = new Map();
-    rows.forEach((r, i) => keys.set(r.key, i));
-    headRef.current = { keys, index, windowId };
-    return index;
-  }, [rows, windowId]);
-
-  // Jump (permalink, date): scroll to the row once it exists. If the list
-  // is about to remount (window replaced), the initial position handles it
-  // instead.
   // The row the "new" marker sits on, while it is above the viewport: the
   // reader always lands at the bottom of a live stream, so the spot they
   // left off is up the list and the sticky bar offers the trip back to it.
-  const markerRow = useMemo(() => rows.find((r) => r.showNewMarker) || null, [rows]);
+  const markerRow = useMemo(
+    () => (newMarkerKey == null ? null : rows.find((r) => r.key === newMarkerKey) || null),
+    [rows, newMarkerKey]
+  );
   const unreadRowId = useMemo(() => {
-    if (!markerRow || topIndex == null) return null;
-    const idx = findRowIndex(rows, markerRow.msg?.id);
-    if (idx === -1) return null;
-    return idx + firstItemIndex < topIndex ? markerRow.msg?.id : null;
-  }, [markerRow, rows, firstItemIndex, topIndex]);
+    if (!markerRow || topKey == null) return null;
+    const markerAt = rows.indexOf(markerRow);
+    const topAt = rows.findIndex((r) => r.key === topKey);
+    if (markerAt === -1 || topAt === -1) return null;
+    return markerAt < topAt ? markerRow.msg?.id : null;
+  }, [markerRow, rows, topKey]);
   const jumpToUnread = useCallback(() => {
     if (unreadRowId) setPendingJump({ id: unreadRowId, align: "start" });
   }, [unreadRowId]);
-
-  const pendingJumpIndex = pendingJump ? findRowIndex(rows, pendingJump.id) : -1;
-  const pendingJumpAlign = pendingJump?.align || "center";
-  useEffect(() => {
-    if (pendingJumpIndex === -1) return;
-    const raf = requestAnimationFrame(() => {
-      virtuosoRef.current?.scrollToIndex({ index: pendingJumpIndex, align: pendingJumpAlign });
-      setPendingJump(null);
-    });
-    return () => cancelAnimationFrame(raf);
-  }, [pendingJumpIndex, pendingJumpAlign]);
-
-  // Virtuoso asks on every append. Its isAtBottom is true both when the
-  // viewport sits at the bottom and while one of its own scrolls is still
-  // in flight. Only the former (atBottomRef, the state before this append)
-  // gets a smooth scroll; a follow that has not landed yet catches up
-  // instantly instead of stacking smooth scrolls, and a jump to a search
-  // hit or permalink is never hijacked.
-  //
-  // A smooth scroll is only worth it for one new row. When several land at
-  // once (a burst, a backfill, someone pasting four lines) the animation
-  // has further to travel than the reader can follow and the stream looks
-  // like it is lurching, so those catch up instantly.
-  const followOutput = useCallback((isAtBottom) => {
-    if (!isAtBottom || jumpingRef.current) {
-      followingRef.current = false;
-      return false;
-    }
-    const added = rowCountRef.current.added;
-    const behavior = atBottomRef.current && added <= 1 ? "smooth" : "auto";
-    followingRef.current = true;
-    return behavior;
-  }, []);
-
-  const handleAtBottomChange = useCallback((isAtBottom) => {
-    atBottomRef.current = isAtBottom;
-    setAtBottom(isAtBottom);
-    setTrimPaused(!isAtBottom);
-    if (isAtBottom) followingRef.current = false;
-  }, []);
-
-  /**
-   * The "↓ N new" pill. scrollToIndex aims at the heights Virtuoso knew
-   * when the animation started, and rows it measures on the way down
-   * (wrapped lines, avatars, unfurl cards) move the target further away, so
-   * a smooth scroll lands short of the newest line and the pill stays up.
-   *
-   * So: scroll, wait for the animation to stop moving, then close whatever
-   * gap is left in one step.
-   */
-  function scrollToBottom() {
-    virtuosoRef.current?.scrollToIndex({ index: "LAST", align: "end", behavior: "smooth" });
-    clearInterval(bottomFixRef.current);
-    let lastTop = -1;
-    let ticks = 0;
-    bottomFixRef.current = setInterval(() => {
-      const node = scrollerElRef.current;
-      ticks += 1;
-      if (!node || ticks > BOTTOM_FIX_MAX_TICKS) {
-        clearInterval(bottomFixRef.current);
-        return;
-      }
-      const top = Math.round(node.scrollTop);
-      if (top !== lastTop) {
-        lastTop = top;
-        return; // still travelling
-      }
-      clearInterval(bottomFixRef.current);
-      if (node.scrollHeight - node.clientHeight - node.scrollTop > 1) {
-        node.scrollTop = node.scrollHeight;
-      }
-    }, BOTTOM_FIX_TICK_MS);
-  }
 
   const showLoadOlder = Boolean(hasMoreHistory && loadOlder);
 
@@ -1377,122 +1197,117 @@ export default function ChatPanel({
     }
   }, [windowMode, loadNewer, hasNewer, filterActive]);
 
-  // Status chip for a name row, shared with the roster (chat/chip.js)
-  const chipCtx = { inGameTags, recentDeltas, recentWinners, startTimes: inGameInfoMap };
+  // Hold the viewport against a real row: see lib/chat/useStreamScroll.js
+  const { scrollerRef, listRef, atBottom, scrollToBottom, scrollToKey } = useStreamScroll({
+    rows,
+    windowId,
+    onNearTop: handleStartReached,
+    onNearBottom: handleEndReached,
+    onTopRowChange: setTopKey,
+  });
+  const unseen = useUnreadCount(messages, atBottom);
 
-  const renderLine = (line) => markMentions(linkifyMessage(line.text), watchList);
-  // Mobile: a name opens the player card
-  const openPlayerCard = isMobile && onOpenPlayer ? (author) => onOpenPlayer(author.battleTag) : undefined;
-  const permalinkHref = (line) => `${window.location.origin}/chat?m=${encodeURIComponent(line.id)}`;
-  const renderAfterLine = (line) => {
-    const unfurl = detectUnfurl(line.text);
-    const br = botResponseMap.get(line.id);
-    if (!unfurl && !br) return null;
-    return (
-      <>
-        {unfurl && <UnfurlCard target={unfurl} />}
-        {br && (
-          <BotResponseRow>
-            <BotLabel>BOT</BotLabel>
-            {!br.botEnabled && <BotPreviewTag>(preview)</BotPreviewTag>}
-            <BotText>{br.response}</BotText>
-          </BotResponseRow>
-        )}
-      </>
-    );
-  };
+  // The row exists in the DOM the moment it is in `rows`, so the jump is one
+  // assignment against its real box - no aiming at a guessed offset and no
+  // second pass to close what the guess missed.
+  useEffect(() => {
+    if (!pendingJump) return undefined;
+    const idx = findRowIndex(rows, pendingJump.id);
+    if (idx === -1) return undefined;
+    const { key } = rows[idx];
+    const align = pendingJump.align || "center";
+    const raf = requestAnimationFrame(() => {
+      scrollToKey(key, align);
+      setPendingJump(null);
+    });
+    return () => cancelAnimationFrame(raf);
+  }, [pendingJump, rows, scrollToKey]);
 
-  const listContext = useMemo(
-    () => ({ showLoadOlder, loadingOlder, onLoadOlder: handleLoadOlder, unmatchedBotResponses }),
-    [showLoadOlder, loadingOlder, handleLoadOlder, unmatchedBotResponses]
-  );
+  // The live cap never trims the head while the reader is scrolled up
+  useEffect(() => {
+    atBottomRef.current = atBottom;
+    setTrimPaused(!atBottom);
+  }, [atBottom]);
 
-  const renderRow = (index, row) => {
-    if (row.kind === "divider") {
-      const isFirstRow = index - firstItemIndex === 0;
+  // Caught up: the marker has done its job, so it fades on the same timer
+  // the tab-return path uses
+  useEffect(() => {
+    if (!atBottom || newMarkerTime == null) return undefined;
+    const id = setTimeout(() => setNewMarkerTime(null), NEW_MARKER_LINGER_MS);
+    return () => clearTimeout(id);
+  }, [atBottom, newMarkerTime]);
+
+  // Follow the reader's position while they are at the bottom, and write it
+  // once more on the way out
+  useEffect(() => {
+    if (!atBottom || messages.length === 0) return;
+    saveLastRead(messages[messages.length - 1]);
+  }, [atBottom, messages]);
+  useEffect(() => () => {
+    const loaded = messagesRef.current;
+    if (atBottomRef.current && loaded.length > 0) saveLastRead(loaded[loaded.length - 1], { force: true });
+  }, []);
+
+
+  // Everything a row reads, in one memoized object. The rows are memoized
+  // against it, so a render that changed none of this costs nothing: the
+  // sticky day bar updating as you scroll used to re-render every visible
+  // message group, which is the work that made scrolling feel heavy.
+  const rowCtx = useMemo(() => ({
+    avatars,
+    stats,
+    sessions,
+    liveStreamers,
+    inGameTags,
+    inGameInfoMap,
+    watchList,
+    translations,
+    showTranslations,
+    flashId,
+    onOpenGame,
+    isMobile,
+    // Status chip for a name row, shared with the roster (chat/chip.js)
+    chipCtx: { inGameTags, recentDeltas, recentWinners, startTimes: inGameInfoMap },
+    // Mobile: a name opens the player card
+    openPlayerCard: isMobile && onOpenPlayer ? (author) => onOpenPlayer(author.battleTag) : undefined,
+    renderLine: (line) => markMentions(linkifyMessage(line.text), watchList),
+    permalinkHref: (line) => `${window.location.origin}/chat?m=${encodeURIComponent(line.id)}`,
+    renderAfterLine: (line) => {
+      const unfurl = detectUnfurl(line.text);
+      const br = botResponseMap.get(line.id);
+      if (!unfurl && !br) return null;
       return (
-        <DateDivider $first={isFirstRow && !showLoadOlder}>
+        <>
+          {unfurl && <UnfurlCard target={unfurl} />}
+          {br && (
+            <BotResponseRow>
+              <BotLabel>BOT</BotLabel>
+              {!br.botEnabled && <BotPreviewTag>(preview)</BotPreviewTag>}
+              <BotText>{br.response}</BotText>
+            </BotResponseRow>
+          )}
+        </>
+      );
+    },
+  }), [
+    avatars, stats, sessions, liveStreamers, inGameTags, inGameInfoMap, watchList,
+    translations, showTranslations, flashId, recentDeltas, recentWinners,
+    botResponseMap, onOpenGame, onOpenPlayer, isMobile,
+  ]);
+
+  const itemContent = useCallback((index, row) => {
+    if (row.kind === "divider") {
+      return (
+        <DateDivider $first={index === 0 && !showLoadOlder}>
           <DateLabel>{formatDateDivider(row.sentAt)}</DateLabel>
         </DateDivider>
       );
     }
-
-    const msg = row.msg;
-    const dividers = row.showNewMarker ? (
-      <NewDivider><NewDividerLabel>new</NewDividerLabel></NewDivider>
-    ) : null;
-
-    // System message
-    if (row.kind === "system") {
-      return (
-        <>
-          {dividers}
-          <SystemWrap>
-            <SystemMessageRow>{msg.text}</SystemMessageRow>
-          </SystemWrap>
-        </>
-      );
-    }
-
-    const tag = msg.battleTag;
-    const isWatched =
-      (Boolean(tag) && Boolean(watchList?.has(tag.toLowerCase()))) ||
-      row.msgs.some((m) => findWatchedMentions(m.text, watchList).length > 0);
-    const profile = avatars?.get(tag);
-    const playerStats = stats?.get(tag);
-    const live = liveStreamers?.get(tag);
-    const gameInfo = inGameTags?.has(tag) ? inGameInfoMap?.get(tag) : null;
-
-    const group = {
-      author: { battleTag: tag, userName: msg.userName, clanTag: msg.clanTag },
-      lines: row.msgs.map((m) => ({
-        id: m.id,
-        text: m.text,
-        sentAt: m.sentAt,
-        kind: m.kind,
-        // the live event wins while it is in memory, the stored one covers
-        // history and anything that arrived before this session
-        translation: showTranslations ? translations.get(m.id) || m.translation || undefined : undefined,
-        highlight: flashId === m.id,
-      })),
-    };
-    const chip = chipForTag(tag, chipCtx);
-    if (chip?.kind === "ingame" && gameInfo && onOpenGame) chip.onClick = () => onOpenGame(gameInfo);
-    const meta = {
-      avatarUrl: profile?.profilePicUrl,
-      race: playerStats?.race,
-      countryCode: profile?.country,
-      mmr: playerStats?.mmr,
-      chip,
-      twitchLogin: live?.twitchName,
-      twitchTitle: live?.title,
-    };
-    const wrapName = (node) => (
-      <PlayerHoverCard battleTag={tag} avatars={avatars} stats={stats} sessions={sessions} inGameInfo={gameInfo}>
-        {node}
-      </PlayerHoverCard>
-    );
-
-    return (
-      <>
-        {dividers}
-        <ChatMessage
-          variant="feed"
-          group={group}
-          meta={meta}
-          watched={isWatched}
-          onNameClick={openPlayerCard}
-          wrapName={isMobile ? undefined : wrapName}
-          renderLine={renderLine}
-          renderAfterLine={renderAfterLine}
-          permalinkHref={permalinkHref}
-        />
-      </>
-    );
-  };
+    return <FeedRow row={row} showNewMarker={row.key === newMarkerKey} ctx={rowCtx} />;
+  }, [showLoadOlder, newMarkerKey, rowCtx]);
 
   // Sticky day bar label: the day of the topmost visible row
-  const topRow = topIndex == null ? null : rows[topIndex - firstItemIndex];
+  const topRow = topKey == null ? null : rows.find((r) => r.key === topKey) || null;
   const topDayLabel = topRow ? formatDateDivider(new Date(topRow.time).toISOString()) : null;
   const topDayInput = topRow ? toInputDate(new Date(topRow.time)) : toInputDate(new Date());
   const todayInput = toInputDate(new Date());
@@ -1581,28 +1396,26 @@ export default function ChatPanel({
             )
           ) : (
             <ScrollContainer>
-              <Virtuoso
-                key={windowId}
-                ref={virtuosoRef}
-                style={virtuosoStyle}
-                data={rows}
-                context={listContext}
-                components={listComponents}
-                computeItemKey={rowKey}
-                itemContent={renderRow}
-                firstItemIndex={firstItemIndex}
-                initialTopMostItemIndex={
-                  pendingJumpIndex !== -1 ? { index: pendingJumpIndex, align: pendingJumpAlign } : rows.length - 1
-                }
-                followOutput={followOutput}
-                atBottomStateChange={handleAtBottomChange}
-                startReached={handleStartReached}
-                endReached={handleEndReached}
-                rangeChanged={handleRangeChanged}
-                scrollerRef={handleScrollerRef}
-                atBottomThreshold={60}
-                increaseViewportBy={{ top: 400, bottom: 400 }}
-              />
+              <ChatScroller ref={scrollerRef} data-chat-scroller>
+                <ListHeader
+                  showLoadOlder={showLoadOlder}
+                  loadingOlder={loadingOlder}
+                  onLoadOlder={handleLoadOlder}
+                />
+                <ChatList ref={listRef} data-chat-list>
+                  {rows.map((row, index) => (
+                    <div
+                      key={row.key}
+                      {...{ [ROW_KEY_ATTR]: row.key }}
+                      data-row-divider={row.kind === "divider" ? "true" : undefined}
+                      data-index={index}
+                    >
+                      {itemContent(index, row)}
+                    </div>
+                  ))}
+                </ChatList>
+                <ListFooter unmatchedBotResponses={unmatchedBotResponses} />
+              </ChatScroller>
               <StickyBar>
                 <DayPicker ref={dayPickerRef}>
                   {topDayLabel && (

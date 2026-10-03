@@ -1,14 +1,20 @@
 import React, { useEffect, useState } from "react";
 import styled from "styled-components";
 import { ThemedCard } from "../ui";
-import { fetchUnfurl } from "../../lib/chat/unfurl";
+import { fetchUnfurl, peekUnfurl } from "../../lib/chat/unfurl";
 
 /**
  * Compact link card under a feed line for a Twitch clip or YouTube video.
- * The line itself renders first; the card appears once metadata arrives
- * and never renders at all when the lookup fails.
+ * The card holds its own height from the first paint, so a row that has a
+ * link is the same height before and after the lookup lands. Only a failed
+ * lookup collapses it, once, and the failure is cached for the page.
  *
  *   target  { kind, id, url, host } from detectUnfurl()
+ *
+ * detectUnfurl builds a new object for the same link on every render, so
+ * the lookup keys off kind and id rather than the object: an effect on
+ * `target` would re-run on every re-render of the row, blanking the card
+ * and taking ~110px out of the stream each time.
  */
 
 const Card = styled(ThemedCard).attrs({ as: "a", $radius: "var(--radius-md)", $padding: "var(--space-2)" })`
@@ -57,6 +63,22 @@ const ThumbEmpty = styled.div`
   }
 `;
 
+/* The same box as Card, held while the lookup is in flight: content-box
+   90px + 8px padding + 1px border on each side is exactly the loaded
+   card's height, so the card lands without moving the stream. */
+const CardShell = styled.div`
+  box-sizing: content-box;
+  height: 90px;
+  max-width: 480px;
+  padding: var(--space-2);
+  margin: var(--space-1) 0 var(--space-1);
+  border: 1px solid transparent;
+
+  @media (max-width: 480px) {
+    height: 68px;
+  }
+`;
+
 const Body = styled.div`
   min-width: 0;
   display: flex;
@@ -86,20 +108,30 @@ const Host = styled.span`
 `;
 
 export default function UnfurlCard({ target }) {
-  const [meta, setMeta] = useState(null);
+  const { kind, id } = target;
+  // undefined while the lookup is in flight, null once it has failed. A
+  // link that has been looked up already renders its card on the first
+  // paint, so scrolling one back into view never flashes the placeholder.
+  const [meta, setMeta] = useState(() => peekUnfurl(target));
 
   useEffect(() => {
+    const known = peekUnfurl({ kind, id });
+    if (known !== undefined) {
+      setMeta(known);
+      return undefined;
+    }
     let cancelled = false;
-    setMeta(null);
-    fetchUnfurl(target).then((m) => {
-      if (!cancelled) setMeta(m);
+    setMeta(undefined);
+    fetchUnfurl({ kind, id }).then((m) => {
+      if (!cancelled) setMeta(m ?? null);
     });
     return () => {
       cancelled = true;
     };
-  }, [target]);
+  }, [kind, id]);
 
-  if (!meta) return null;
+  if (meta === null) return null;
+  if (meta === undefined) return <CardShell aria-hidden="true" data-testid="unfurl-pending" />;
   const href = meta.url || target.url;
   const host = meta.author ? `${target.host} · ${meta.author}` : target.host;
 
