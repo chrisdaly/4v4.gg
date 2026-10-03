@@ -10,7 +10,8 @@ const GATEWAY = 20;
 const GAME_MODE = 4;
 
 const MAX_TAGS = 120;
-const TAG_RE = /^[^,/?&#]{1,40}#\d{3,8}$/;
+// Discriminators run longer than they look: Adventurer#127632598 is a real tag
+const TAG_RE = /^[^,/?&#]{1,40}#\d{1,12}$/;
 const STATS_TTL = 5 * 60 * 1000;
 // A player changes their Twitch handle about never
 const TWITCH_TTL = 6 * 60 * 60 * 1000;
@@ -28,20 +29,29 @@ function prune(store) {
   }
 }
 
-/** The battleTags a request asked for, validated, or an error string. */
+/**
+ * The battleTags a request asked for.
+ *
+ * A tag that does not parse is dropped, not fatal. These batches carry a
+ * whole chat roster, and rejecting all of them over one odd tag sends the
+ * client back to fetching every player one at a time - which is the entire
+ * thing this endpoint exists to avoid.
+ */
 function readTags(req) {
-  const tags = String(req.query.tags || '')
+  const asked = String(req.query.tags || '')
     .split(',')
     .map(t => t.trim())
     .filter(Boolean)
     .slice(0, MAX_TAGS);
 
-  if (tags.length === 0) {
+  if (asked.length === 0) {
     return { error: 'tags query parameter is required (comma-separated battleTags)' };
   }
-  const invalid = tags.find(t => !TAG_RE.test(t));
-  if (invalid) return { error: `Invalid battleTag: ${invalid}` };
-  return { tags };
+  const tags = asked.filter(t => TAG_RE.test(t));
+  if (tags.length === 0) {
+    return { error: `No valid battleTag in: ${asked.slice(0, 3).join(', ')}` };
+  }
+  return { tags, skipped: asked.length - tags.length };
 }
 
 /**
@@ -120,7 +130,7 @@ router.get('/stats', async (req, res) => {
   if (!Number.isInteger(season) || season < 1 || season > 999) {
     return res.status(400).json({ error: 'season query parameter is required' });
   }
-  const { tags, error } = readTags(req);
+  const { tags, skipped, error } = readTags(req);
   if (error) return res.status(400).json({ error });
 
   const { out, hits } = await collect(
@@ -131,7 +141,7 @@ router.get('/stats', async (req, res) => {
     'stats'
   );
   res.set('Cache-Control', 'public, max-age=60');
-  res.json({ stats: out, cached: hits });
+  res.json({ stats: out, cached: hits, skipped });
 });
 
 // GET /api/w3c/twitch?tags=a%231,b%232
@@ -141,12 +151,12 @@ router.get('/stats', async (req, res) => {
 // costs one profile fetch per player. Same fan-out, same shared cache, and a
 // long TTL because handles effectively never change.
 router.get('/twitch', async (req, res) => {
-  const { tags, error } = readTags(req);
+  const { tags, skipped, error } = readTags(req);
   if (error) return res.status(400).json({ error });
 
   const { out, hits } = await collect(tags, twitchCache, TWITCH_TTL, fetchTwitch, 'twitch');
   res.set('Cache-Control', 'public, max-age=300');
-  res.json({ twitch: out, cached: hits });
+  res.json({ twitch: out, cached: hits, skipped });
 });
 
 export default router;
