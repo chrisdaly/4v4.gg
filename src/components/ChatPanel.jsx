@@ -19,6 +19,7 @@ import { chipForTag } from "./chat/chip";
 import { relayFetch } from "../lib/relay";
 import useAdmin from "../lib/useAdmin";
 import { setTrimPaused } from "../lib/chat/trimGate";
+import { useStable, sameMapKeys } from "../lib/chat/derived";
 import { Panel } from "./chat/panel";
 import { CHAT_MOBILE_PX } from "../lib/useIsMobile";
 
@@ -656,6 +657,15 @@ function toRelayCursor(d) {
   return d.toISOString().slice(0, 19).replace("T", " ");
 }
 
+// Two renders of the same group row. Message objects are never mutated in
+// place, so identity on the first and last line settles it: the row object
+// is then reused and the memoized row skips its render (see FeedRow).
+function sameRow(a, b) {
+  if (!a || a.kind !== b.kind || a.msg !== b.msg) return false;
+  if (!a.msgs) return !b.msgs;
+  return Boolean(b.msgs) && a.msgs.length === b.msgs.length && a.msgs[a.msgs.length - 1] === b.msgs[b.msgs.length - 1];
+}
+
 // Find the row that holds a message id (a group row holds several lines)
 function findRowIndex(rows, id) {
   if (id == null) return -1;
@@ -700,6 +710,96 @@ const listComponents = {
 };
 
 const rowKey = (index, row) => row.key;
+
+/**
+ * One stream row - a message group or a system line - memoized.
+ *
+ * Everything that varies arrives in one `ctx` object the panel memoizes, so
+ * a panel render that changed none of it (a scroll tick moving the sticky
+ * day bar, a presence event, the 30s ongoing-games poll) re-renders no rows
+ * at all. Row objects keep their identity across regroupings for the same
+ * reason (see the rowCacheRef memo), so one arriving message re-renders one
+ * group rather than the whole visible stream.
+ */
+const FeedRow = React.memo(function FeedRow({ row, showNewMarker, ctx }) {
+  const msg = row.msg;
+  const marker = showNewMarker ? (
+    <NewDivider><NewDividerLabel>new</NewDividerLabel></NewDivider>
+  ) : null;
+
+  if (row.kind === "system") {
+    return (
+      <>
+        {marker}
+        <SystemWrap>
+          <SystemMessageRow>{msg.text}</SystemMessageRow>
+        </SystemWrap>
+      </>
+    );
+  }
+
+  const {
+    avatars, stats, sessions, liveStreamers, inGameTags, inGameInfoMap, watchList,
+    translations, showTranslations, flashId, chipCtx, onOpenGame, openPlayerCard,
+    isMobile, renderLine, renderAfterLine, permalinkHref,
+  } = ctx;
+
+  const tag = msg.battleTag;
+  const isWatched =
+    (Boolean(tag) && Boolean(watchList?.has(tag.toLowerCase()))) ||
+    row.msgs.some((m) => findWatchedMentions(m.text, watchList).length > 0);
+  const profile = avatars?.get(tag);
+  const playerStats = stats?.get(tag);
+  const live = liveStreamers?.get(tag);
+  const gameInfo = inGameTags?.has(tag) ? inGameInfoMap?.get(tag) : null;
+
+  const group = {
+    author: { battleTag: tag, userName: msg.userName, clanTag: msg.clanTag },
+    lines: row.msgs.map((m) => ({
+      id: m.id,
+      text: m.text,
+      sentAt: m.sentAt,
+      kind: m.kind,
+      // the live event wins while it is in memory, the stored one covers
+      // history and anything that arrived before this session
+      translation: showTranslations ? translations.get(m.id) || m.translation || undefined : undefined,
+      highlight: flashId === m.id,
+    })),
+  };
+  const chip = chipForTag(tag, chipCtx);
+  if (chip?.kind === "ingame" && gameInfo && onOpenGame) chip.onClick = () => onOpenGame(gameInfo);
+  const meta = {
+    avatarUrl: profile?.profilePicUrl,
+    race: playerStats?.race,
+    countryCode: profile?.country,
+    mmr: playerStats?.mmr,
+    chip,
+    twitchLogin: live?.twitchName,
+    twitchTitle: live?.title,
+  };
+  const wrapName = (node) => (
+    <PlayerHoverCard battleTag={tag} avatars={avatars} stats={stats} sessions={sessions} inGameInfo={gameInfo}>
+      {node}
+    </PlayerHoverCard>
+  );
+
+  return (
+    <>
+      {marker}
+      <ChatMessage
+        variant="feed"
+        group={group}
+        meta={meta}
+        watched={isWatched}
+        onNameClick={openPlayerCard}
+        wrapName={isMobile ? undefined : wrapName}
+        renderLine={renderLine}
+        renderAfterLine={renderAfterLine}
+        permalinkHref={permalinkHref}
+      />
+    </>
+  );
+});
 
 /**
  * The /chat message stream (Chat v3). Only messages: games live in the
@@ -800,6 +900,7 @@ export default function ChatPanel({
   const rangeRef = useRef(null);
   const topRowRafRef = useRef(null);
   const topIndexRef = useRef(null);
+  const lastScrollTopRef = useRef(-1);
   const messagesRef = useRef(messages);
   // Whether the viewport is pinned to the newest row, from Virtuoso's
   // atBottomStateChange. It also gates the live cap: no head trim while the
@@ -986,7 +1087,17 @@ export default function ChatPanel({
     setTopIndex(idx);
   }, []);
 
+  // Reading scrollTop in a scroll handler is free (nothing has written to
+  // the DOM yet); the measuring is what costs, so a scroll that landed back
+  // where it started - momentum settling, a rubber-band at either end -
+  // never schedules it. Data changes come in through rangeChanged instead
+  // and are not gated on the scroll position.
   const scheduleTopRow = useCallback(() => {
+    const el = scrollerElRef.current;
+    if (el) {
+      if (el.scrollTop === lastScrollTopRef.current) return;
+      lastScrollTopRef.current = el.scrollTop;
+    }
     cancelAnimationFrame(topRowRafRef.current);
     topRowRafRef.current = requestAnimationFrame(updateTopRow);
   }, [updateTopRow]);
@@ -1151,7 +1262,10 @@ export default function ChatPanel({
     }
   }, [botDraft, apiKey, botTesting]);
 
-  const { botResponseMap, unmatchedBotResponses } = useBotResponseMap(botResponses, messages);
+  const { botResponseMap: botResponseMapRaw, unmatchedBotResponses } = useBotResponseMap(botResponses, messages);
+  // Re-indexed on every message, almost always to the same (usually empty)
+  // map; the rows memoize on it, so give it its identity back
+  const botResponseMap = useStable(botResponseMapRaw, sameMapKeys);
   // Prepend boundaries: the id of the earliest message before each page of
   // older history. Grouping never merges across one, so the row that was
   // first before the prepend keeps its key and its lines; Virtuoso anchors
@@ -1179,17 +1293,28 @@ export default function ChatPanel({
   // quiet spell could leave more tickers on screen than sentences. They are
   // all in the game activity panel now, live and finished alike, and the
   // stream is only what people said.
+  // Grouping runs over the whole list again on every new message, so a row
+  // object that has not changed is reused rather than rebuilt. Without this
+  // one arriving line gives every visible row a new object and React.memo
+  // on the rows has nothing to compare: the entire stream re-renders, which
+  // is what made a busy minute feel like it was shuddering.
+  const rowCacheRef = useRef(new Map());
   const renderItems = useMemo(() => {
+    const prev = rowCacheRef.current;
+    const next = new Map();
     const items = [];
     for (const seg of messageSegments) {
       const start = seg.start;
       const time = new Date(start.sentAt).getTime();
-      if (start.kind === "system") {
-        items.push({ kind: "system", key: start.id, msg: start, time });
-      } else {
-        items.push({ kind: "group", key: start.id, msg: start, msgs: [start, ...seg.continuations], time });
-      }
+      const fresh = start.kind === "system"
+        ? { kind: "system", key: start.id, msg: start, time }
+        : { kind: "group", key: start.id, msg: start, msgs: [start, ...seg.continuations], time };
+      const cached = prev.get(start.id);
+      const item = sameRow(cached, fresh) ? cached : fresh;
+      next.set(start.id, item);
+      items.push(item);
     }
+    rowCacheRef.current = next;
     return items.sort((a, b) => a.time - b.time);
   }, [messageSegments]);
 
@@ -1207,25 +1332,33 @@ export default function ChatPanel({
   // message or system row of each day, so paging in older history from the
   // same day never changes an existing row's height. The "new" marker is a
   // flag on the first message row past newMarkerTime.
-  const rows = useMemo(() => {
+  // The marker is a key, not a flag spread onto the row: `{ ...item }` gave
+  // every row a new object on every pass and defeated the identity cache
+  // above. Divider objects are reused the same way.
+  const dividerCacheRef = useRef(new Map());
+  const { rows, newMarkerKey } = useMemo(() => {
+    const prev = dividerCacheRef.current;
+    const next = new Map();
     const out = [];
     let prevDay = null;
-    let newMarkerShown = false;
+    let markerKey = null;
     filteredItems.forEach((item) => {
-      if (item.kind !== "group" && item.kind !== "system") {
-        out.push(item);
-        return;
-      }
       const day = getDateKey(item.msg.sentAt);
       if (day !== prevDay) {
-        out.push({ kind: "divider", key: `day:${day}`, time: item.time, sentAt: item.msg.sentAt });
+        const key = `day:${day}`;
+        const cached = prev.get(key);
+        const divider = cached && cached.sentAt === item.msg.sentAt
+          ? cached
+          : { kind: "divider", key, time: item.time, sentAt: item.msg.sentAt };
+        next.set(key, divider);
+        out.push(divider);
         prevDay = day;
       }
-      const showNewMarker = !newMarkerShown && newMarkerTime != null && item.time > newMarkerTime;
-      if (showNewMarker) newMarkerShown = true;
-      out.push({ ...item, showNewMarker });
+      if (markerKey === null && newMarkerTime != null && item.time > newMarkerTime) markerKey = item.key;
+      out.push(item);
     });
-    return out;
+    dividerCacheRef.current = next;
+    return { rows: out, newMarkerKey: markerKey };
   }, [filteredItems, newMarkerTime]);
 
   // How many rows the newest change appended, for followOutput: a burst
@@ -1270,7 +1403,10 @@ export default function ChatPanel({
   // The row the "new" marker sits on, while it is above the viewport: the
   // reader always lands at the bottom of a live stream, so the spot they
   // left off is up the list and the sticky bar offers the trip back to it.
-  const markerRow = useMemo(() => rows.find((r) => r.showNewMarker) || null, [rows]);
+  const markerRow = useMemo(
+    () => (newMarkerKey == null ? null : rows.find((r) => r.key === newMarkerKey) || null),
+    [rows, newMarkerKey]
+  );
   const unreadRowId = useMemo(() => {
     if (!markerRow || topIndex == null) return null;
     const idx = findRowIndex(rows, markerRow.msg?.id);
@@ -1377,37 +1513,58 @@ export default function ChatPanel({
     }
   }, [windowMode, loadNewer, hasNewer, filterActive]);
 
-  // Status chip for a name row, shared with the roster (chat/chip.js)
-  const chipCtx = { inGameTags, recentDeltas, recentWinners, startTimes: inGameInfoMap };
-
-  const renderLine = (line) => markMentions(linkifyMessage(line.text), watchList);
-  // Mobile: a name opens the player card
-  const openPlayerCard = isMobile && onOpenPlayer ? (author) => onOpenPlayer(author.battleTag) : undefined;
-  const permalinkHref = (line) => `${window.location.origin}/chat?m=${encodeURIComponent(line.id)}`;
-  const renderAfterLine = (line) => {
-    const unfurl = detectUnfurl(line.text);
-    const br = botResponseMap.get(line.id);
-    if (!unfurl && !br) return null;
-    return (
-      <>
-        {unfurl && <UnfurlCard target={unfurl} />}
-        {br && (
-          <BotResponseRow>
-            <BotLabel>BOT</BotLabel>
-            {!br.botEnabled && <BotPreviewTag>(preview)</BotPreviewTag>}
-            <BotText>{br.response}</BotText>
-          </BotResponseRow>
-        )}
-      </>
-    );
-  };
+  // Everything a row reads, in one memoized object. The rows are memoized
+  // against it, so a render that changed none of this costs nothing: the
+  // sticky day bar updating as you scroll used to re-render every visible
+  // message group, which is the work that made scrolling feel heavy.
+  const rowCtx = useMemo(() => ({
+    avatars,
+    stats,
+    sessions,
+    liveStreamers,
+    inGameTags,
+    inGameInfoMap,
+    watchList,
+    translations,
+    showTranslations,
+    flashId,
+    onOpenGame,
+    isMobile,
+    // Status chip for a name row, shared with the roster (chat/chip.js)
+    chipCtx: { inGameTags, recentDeltas, recentWinners, startTimes: inGameInfoMap },
+    // Mobile: a name opens the player card
+    openPlayerCard: isMobile && onOpenPlayer ? (author) => onOpenPlayer(author.battleTag) : undefined,
+    renderLine: (line) => markMentions(linkifyMessage(line.text), watchList),
+    permalinkHref: (line) => `${window.location.origin}/chat?m=${encodeURIComponent(line.id)}`,
+    renderAfterLine: (line) => {
+      const unfurl = detectUnfurl(line.text);
+      const br = botResponseMap.get(line.id);
+      if (!unfurl && !br) return null;
+      return (
+        <>
+          {unfurl && <UnfurlCard target={unfurl} />}
+          {br && (
+            <BotResponseRow>
+              <BotLabel>BOT</BotLabel>
+              {!br.botEnabled && <BotPreviewTag>(preview)</BotPreviewTag>}
+              <BotText>{br.response}</BotText>
+            </BotResponseRow>
+          )}
+        </>
+      );
+    },
+  }), [
+    avatars, stats, sessions, liveStreamers, inGameTags, inGameInfoMap, watchList,
+    translations, showTranslations, flashId, recentDeltas, recentWinners,
+    botResponseMap, onOpenGame, onOpenPlayer, isMobile,
+  ]);
 
   const listContext = useMemo(
     () => ({ showLoadOlder, loadingOlder, onLoadOlder: handleLoadOlder, unmatchedBotResponses }),
     [showLoadOlder, loadingOlder, handleLoadOlder, unmatchedBotResponses]
   );
 
-  const renderRow = (index, row) => {
+  const itemContent = useCallback((index, row) => {
     if (row.kind === "divider") {
       const isFirstRow = index - firstItemIndex === 0;
       return (
@@ -1416,80 +1573,8 @@ export default function ChatPanel({
         </DateDivider>
       );
     }
-
-    const msg = row.msg;
-    const dividers = row.showNewMarker ? (
-      <NewDivider><NewDividerLabel>new</NewDividerLabel></NewDivider>
-    ) : null;
-
-    // System message
-    if (row.kind === "system") {
-      return (
-        <>
-          {dividers}
-          <SystemWrap>
-            <SystemMessageRow>{msg.text}</SystemMessageRow>
-          </SystemWrap>
-        </>
-      );
-    }
-
-    const tag = msg.battleTag;
-    const isWatched =
-      (Boolean(tag) && Boolean(watchList?.has(tag.toLowerCase()))) ||
-      row.msgs.some((m) => findWatchedMentions(m.text, watchList).length > 0);
-    const profile = avatars?.get(tag);
-    const playerStats = stats?.get(tag);
-    const live = liveStreamers?.get(tag);
-    const gameInfo = inGameTags?.has(tag) ? inGameInfoMap?.get(tag) : null;
-
-    const group = {
-      author: { battleTag: tag, userName: msg.userName, clanTag: msg.clanTag },
-      lines: row.msgs.map((m) => ({
-        id: m.id,
-        text: m.text,
-        sentAt: m.sentAt,
-        kind: m.kind,
-        // the live event wins while it is in memory, the stored one covers
-        // history and anything that arrived before this session
-        translation: showTranslations ? translations.get(m.id) || m.translation || undefined : undefined,
-        highlight: flashId === m.id,
-      })),
-    };
-    const chip = chipForTag(tag, chipCtx);
-    if (chip?.kind === "ingame" && gameInfo && onOpenGame) chip.onClick = () => onOpenGame(gameInfo);
-    const meta = {
-      avatarUrl: profile?.profilePicUrl,
-      race: playerStats?.race,
-      countryCode: profile?.country,
-      mmr: playerStats?.mmr,
-      chip,
-      twitchLogin: live?.twitchName,
-      twitchTitle: live?.title,
-    };
-    const wrapName = (node) => (
-      <PlayerHoverCard battleTag={tag} avatars={avatars} stats={stats} sessions={sessions} inGameInfo={gameInfo}>
-        {node}
-      </PlayerHoverCard>
-    );
-
-    return (
-      <>
-        {dividers}
-        <ChatMessage
-          variant="feed"
-          group={group}
-          meta={meta}
-          watched={isWatched}
-          onNameClick={openPlayerCard}
-          wrapName={isMobile ? undefined : wrapName}
-          renderLine={renderLine}
-          renderAfterLine={renderAfterLine}
-          permalinkHref={permalinkHref}
-        />
-      </>
-    );
-  };
+    return <FeedRow row={row} showNewMarker={row.key === newMarkerKey} ctx={rowCtx} />;
+  }, [firstItemIndex, showLoadOlder, newMarkerKey, rowCtx]);
 
   // Sticky day bar label: the day of the topmost visible row
   const topRow = topIndex == null ? null : rows[topIndex - firstItemIndex];
@@ -1589,7 +1674,7 @@ export default function ChatPanel({
                 context={listContext}
                 components={listComponents}
                 computeItemKey={rowKey}
-                itemContent={renderRow}
+                itemContent={itemContent}
                 firstItemIndex={firstItemIndex}
                 initialTopMostItemIndex={
                   pendingJumpIndex !== -1 ? { index: pendingJumpIndex, align: pendingJumpAlign } : rows.length - 1
@@ -1601,7 +1686,7 @@ export default function ChatPanel({
                 rangeChanged={handleRangeChanged}
                 scrollerRef={handleScrollerRef}
                 atBottomThreshold={60}
-                increaseViewportBy={{ top: 400, bottom: 400 }}
+                increaseViewportBy={{ top: 1200, bottom: 600 }}
               />
               <StickyBar>
                 <DayPicker ref={dayPickerRef}>

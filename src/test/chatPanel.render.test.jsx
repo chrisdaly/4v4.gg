@@ -1173,3 +1173,85 @@ describe('ChatPanel mentions and unfurls', () => {
     expect(document.getElementById('msg-u1').parentElement.querySelectorAll('[data-testid="unfurl-card"]')).toHaveLength(1);
   });
 });
+
+// A row that has not changed must come back as the same object: the rows
+// are memoized on identity, so losing it means one arriving line re-renders
+// every visible group. A `{ ...item }` spread anywhere in the rows pipeline
+// is enough to break this and nothing else in the suite would notice.
+describe('ChatPanel row identity', () => {
+  const dataRows = () => virtuosoProps.current.data;
+
+  it('reuses the row objects of untouched groups when a message arrives', () => {
+    const { rerender } = render(<Owner {...baseProps} messages={messages} inGameInfoMap={new Map()} />);
+    const before = new Map(dataRows().map((r) => [r.key, r]));
+
+    rerender(
+      <Owner {...baseProps} inGameInfoMap={new Map()} messages={[...messages, msg('n1', 'Lyn#9', 600000, 'fresh line')]} />
+    );
+    const after = dataRows();
+
+    const newRow = after.find((r) => r.key === 'n1');
+    expect(newRow).toBeTruthy();
+    const carried = after.filter((r) => before.has(r.key));
+    expect(carried.length).toBeGreaterThan(2);
+    for (const row of carried) expect(row).toBe(before.get(row.key));
+  });
+
+  it('gives the group that gained a line a new object, and only that one', () => {
+    const { rerender } = render(<Owner {...baseProps} messages={messages} inGameInfoMap={new Map()} />);
+    const before = new Map(dataRows().map((r) => [r.key, r]));
+    const last = messages[messages.length - 1];
+
+    // same author, within the 2 minute window: this joins the last group
+    rerender(
+      <Owner
+        {...baseProps}
+        inGameInfoMap={new Map()}
+        messages={[...messages, msg('n2', last.battleTag, 60000 + 30000, 'and another')]}
+      />
+    );
+    const after = dataRows();
+    const changed = after.filter((r) => before.has(r.key) && r !== before.get(r.key));
+    expect(changed).toHaveLength(1);
+    expect(changed[0].msgs.some((m) => m.id === 'n2')).toBe(true);
+  });
+});
+
+// detectUnfurl builds a fresh target object on every render. Keying the
+// lookup on it meant every re-render of the panel blanked every card on
+// screen and took ~110px out of the stream, then put it back.
+describe('ChatPanel unfurl stability', () => {
+  const withClip = (extra = []) => [
+    ...messages,
+    msg('u1', 'Moon#2', 120000, 'clip https://clips.twitch.tv/Slug-1'),
+    ...extra,
+  ];
+
+  beforeEach(() => {
+    globalThis.fetch.mockImplementation(async (url) => {
+      if (String(url).includes('/api/twitch/clip/')) {
+        return { ok: true, json: async () => ({ title: 'Insane hold', thumbnail_url: 'https://t/c.jpg', broadcaster_name: 'Grubby', url: 'https://clips.twitch.tv/Slug-1' }) };
+      }
+      return { ok: false, json: async () => ({}) };
+    });
+  });
+
+  it('holds the card through a re-render instead of blanking it', async () => {
+    const { rerender } = render(<Owner {...baseProps} messages={withClip()} inGameInfoMap={new Map()} />);
+    const card = await screen.findByTestId('unfurl-card');
+
+    rerender(
+      <Owner {...baseProps} inGameInfoMap={new Map()} messages={withClip([msg('n3', 'Lyn#9', 180000, 'unrelated')])} />
+    );
+    await act(async () => {});
+
+    // the same node, not one that went away and came back
+    expect(screen.getByTestId('unfurl-card')).toBe(card);
+    expect(screen.queryByTestId('unfurl-pending')).toBeNull();
+  });
+
+  it('reserves the card height while the lookup is in flight', () => {
+    render(<Owner {...baseProps} messages={withClip()} inGameInfoMap={new Map()} />);
+    expect(screen.getByTestId('unfurl-pending')).toBeTruthy();
+  });
+});
