@@ -1,4 +1,5 @@
 .activity-graph-card {
+  position: relative;
   background: var(--theme-bg, var(--surface-1));
   border: var(--theme-border, 1px solid var(--grey-mid));
   border-image: var(--theme-border-image, none);
@@ -33,7 +34,7 @@
   font-family: var(--font-mono);
   font-size: var(--text-xxs);
   color: var(--grey-light);
-  margin-top: var(--space-3);
+  margin-top: var(--space-2);
   white-space: nowrap;
 }
 
@@ -164,20 +165,19 @@
   box-shadow: 0 0 4px rgba(252, 219, 51, 0.5);
 }
 
-/* Tooltip */
-.ag-tooltip {
-  position: fixed;
-  background: var(--surface-1);
-  border: 1px solid var(--gold);
-  border-radius: var(--radius-sm);
-  padding: var(--space-2) var(--space-2);
+/* Hovered day: a reserved line under the grid, left-aligned with the first
+   column, so the readout never covers the calendar it describes */
+.ag-readout {
+  margin-top: var(--space-2);
+  padding-left: 22px;
+  min-height: 15px;
   font-family: var(--font-mono);
-  font-size: var(--text-xs);
-  color: var(--white);
-  pointer-events: none;
-  z-index: var(--z-popover);
+  font-size: var(--text-xxs);
+  line-height: 15px;
+  color: var(--gold);
   white-space: nowrap;
-  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.5);
+  overflow: hidden;
+  text-overflow: ellipsis;
 }
 
 /* Large variant (profile Activity tab): bigger square cells, Mon/Wed/Fri labels, summary */
@@ -193,6 +193,24 @@
   flex: 1;
   min-width: 0;
   max-width: 640px;
+  justify-content: flex-start;
+}
+
+/* The month labels track the grid's columns: same start, same cell width */
+.ag--large .ag-month-row {
+  justify-content: flex-start;
+  max-width: calc(640px + 38px);
+}
+
+.ag--large .ag-day-label-spacer {
+  width: 35px; /* 30px day labels + the body's 8px gap, less this row's 3px */
+}
+
+.ag--large .ag-month-cell {
+  width: auto;
+  flex: 1 1 0;
+  min-width: 0;
+  max-width: 40px;
 }
 
 .ag--large .ag-week {
@@ -216,6 +234,10 @@
   align-items: baseline;
   flex-wrap: wrap;
   gap: var(--space-3);
+}
+
+.ag--large .ag-readout {
+  padding-left: 38px;
 }
 
 .ag-summary {
