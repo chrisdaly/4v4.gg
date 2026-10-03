@@ -1,9 +1,10 @@
-import React, { useState, useEffect, useRef, useMemo, useCallback } from "react";
+import React, { useState, useEffect, useMemo, useCallback } from "react";
 import { FiPlus, FiCheck } from "react-icons/fi";
 import { fetchAndCacheProfile, getCachedProfile } from "../lib/profileCache";
 import { Button } from "./ui";
 import PeonLoader from "./PeonLoader";
 import ChatMessage from "./chat/ChatMessage";
+import useStreamScroll, { ROW_KEY_ATTR } from "../lib/chat/useStreamScroll";
 import "./ChatContext.css";
 
 /* ── Utilities ─────────────────────────────────────── */
@@ -76,6 +77,10 @@ function groupMessages(messages, gapMs = GROUP_GAP_MS) {
       last.lastTime = ts;
     } else {
       groups.push({
+        // Keyed off the message, not its position: paging newer messages in
+        // at the top shifts every index, and the viewport is held against
+        // one of these rows (useStreamScroll)
+        key: msg.id != null ? String(msg.id) : `cc-${i}`,
         author: { battleTag: tag, userName: msg.name || msg.user_name || tag.split("#")[0] },
         time: ts,
         lastTime: ts,
@@ -148,9 +153,6 @@ const ChatContext = ({
   const [selected, setSelected] = useState(new Set());
   const [profiles, setProfiles] = useState(new Map());
   const targetSet = useMemo(() => new Set(targetTags || []), [targetTags]);
-  const sentinelRef = useRef(null);
-  const topSentinelRef = useRef(null);
-  const listRef = useRef(null);
 
   // Detect whether messages span multiple days
   const spansMultipleDays = useMemo(() => {
@@ -164,34 +166,6 @@ const ChatContext = ({
     return false;
   }, [messages]);
   const useDates = showDates || spansMultipleDays;
-
-  // Infinite scroll - observe sentinel at bottom of list (older messages)
-  useEffect(() => {
-    if (!onLoadMore || !hasMore || loadingMore) return;
-    const el = sentinelRef.current;
-    const root = listRef.current;
-    if (!el || !root) return;
-    const observer = new IntersectionObserver(
-      ([entry]) => { if (entry.isIntersecting) onLoadMore(); },
-      { root, rootMargin: "100px" }
-    );
-    observer.observe(el);
-    return () => observer.disconnect();
-  }, [onLoadMore, hasMore, loadingMore]);
-
-  // Infinite scroll - observe sentinel at top of list (newer messages)
-  useEffect(() => {
-    if (!onLoadNewer || !hasNewer || loadingNewer) return;
-    const el = topSentinelRef.current;
-    const root = listRef.current;
-    if (!el || !root) return;
-    const observer = new IntersectionObserver(
-      ([entry]) => { if (entry.isIntersecting) onLoadNewer(); },
-      { root, rootMargin: "100px" }
-    );
-    observer.observe(el);
-    return () => observer.disconnect();
-  }, [onLoadNewer, hasNewer, loadingNewer]);
 
   // Reset selection when messages change
   useEffect(() => { setSelected(new Set()); }, [messages]);
@@ -274,6 +248,29 @@ const ChatContext = ({
 
   const highlightQuery = highlight || filter;
   const groups = useMemo(() => groupMessages(filtered), [filtered]);
+
+  /**
+   * Infinite scroll in both directions, and the viewport held against a real
+   * row while it happens. Newer messages arrive at the top of this list, so
+   * without the hold a page of them pushes whatever you were reading down
+   * the screen - the same thing the /chat stream used to do.
+   *
+   * `followTail` is off: a transcript opens at the top and stays where the
+   * reader put it, rather than chasing the newest line like a live stream.
+   */
+  const reachNewer = useCallback(() => {
+    if (onLoadNewer && hasNewer && !loadingNewer) onLoadNewer();
+  }, [onLoadNewer, hasNewer, loadingNewer]);
+  const reachOlder = useCallback(() => {
+    if (onLoadMore && hasMore && !loadingMore) onLoadMore();
+  }, [onLoadMore, hasMore, loadingMore]);
+  const { scrollerRef, listRef } = useStreamScroll({
+    rows: groups,
+    followTail: false,
+    onNearTop: reachNewer,
+    onNearBottom: reachOlder,
+  });
+
 
   /* ── Row rendering ─────────────────────────────── */
 
@@ -403,18 +400,19 @@ const ChatContext = ({
 
       {/* Message list */}
       {groups.length > 0 && (
-        <div className="cc-list" ref={listRef}>
+        <div className="cc-list" ref={scrollerRef} data-cc-scroller>
+          <div ref={listRef} data-cc-list>
           {hasNewer && (
-            <div ref={topSentinelRef} className="cc-load-more cc-load-more--top">
+            <div className="cc-load-more cc-load-more--top">
               {loadingNewer && <span className="cc-status">Loading newer...</span>}
             </div>
           )}
-          {groups.map((group, gi) => {
+          {groups.map((group) => {
             const dateKey = useDates ? getDateKey(group.time) : null;
             const showDateSep = useDates && dateKey && dateKey !== lastDateKey;
             if (dateKey) lastDateKey = dateKey;
             return (
-              <React.Fragment key={gi}>
+              <div key={group.key} {...{ [ROW_KEY_ATTR]: group.key }}>
                 {showDateSep && (
                   <div className="cc-date-separator">
                     {parseTimestamp(group.time)?.toLocaleDateString([], { weekday: "short", month: "short", day: "numeric" }) || dateKey}
@@ -427,11 +425,12 @@ const ChatContext = ({
                   target={targetSet.size > 0 && targetSet.has(group.author.battleTag)}
                   renderLine={renderLine}
                 />
-              </React.Fragment>
+              </div>
             );
           })}
+          </div>
           {hasMore && (
-            <div ref={sentinelRef} className="cc-load-more">
+            <div className="cc-load-more">
               {loadingMore && <span className="cc-status">Loading more...</span>}
             </div>
           )}
