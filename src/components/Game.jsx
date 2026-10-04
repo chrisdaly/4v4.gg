@@ -425,8 +425,16 @@ const Game = ({ playerData: rawPlayerData, metaData, profilePics, playerCountrie
   const team1Won = playerData[0].won;
   const team2Won = playerData[4].won;
 
+  // Longest name on the card, in characters; a Twitch icon beside a name
+  // takes about two more. Game.css sizes every name on the card from it so
+  // the longest one fits its cell and the row stays one size.
+  const nameLen = Math.max(
+    8,
+    ...playerData.map((p) => (p.name?.length || 0) + (liveStreamers[p.battleTag] ? 2 : 0))
+  );
+
   return (
-    <div className="Game">
+    <div className="Game" style={{ "--name-len": nameLen }}>
       {!compact && metaData.matchId && (
         <a
           href={`https://www.w3champions.com/match/${metaData.matchId}`}

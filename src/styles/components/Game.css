@@ -751,9 +751,17 @@ h2.team-name {
   color: var(--white);
 }
 
-/* Player name in the scorecard. Desktop size comes from the default h2 rule in App.css. */
+/* Player name in the scorecard. Sized from the cell width and the card's
+   longest name (--name-len, set by Game.jsx): Friz Quadrata runs about
+   0.56em per letter, so 178cqw / letters is the largest size at which the
+   longest name still fits. A 12-letter name (the BattleTag maximum) gets
+   ~24px in a 160px cell, ~18px at 124px, ~17px at 112px; a card of short
+   names stays at 24px. Pages set the cell width, not the font size. */
 .player-name-row .player-name {
   margin: 0;
+  min-width: 0;
+  font-size: clamp(12px, calc(178cqw / var(--name-len, 12)), var(--text-lg));
+  line-height: 1.2;
   white-space: nowrap;
   overflow: hidden;
   text-overflow: ellipsis;
@@ -917,8 +925,11 @@ h2.team-name {
   color: var(--red);
 }
 
-/* Player card - all centered */
+/* Player card - all centered. It is a size container so the name can
+   scale with the cell: 160px on /live, 124px in the home hero, 112px on
+   the profile */
 .playerDiv {
+  container-type: inline-size;
   width: 160px;
   min-height: 110px;
   display: flex;
@@ -949,10 +960,6 @@ h2.team-name {
 
   .profile-pic {
     width: 52px !important;
-  }
-
-  .player-name-row .player-name {
-    font-size: var(--text-xxs);
   }
 
   .mmr-value {
