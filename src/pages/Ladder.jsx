@@ -3,7 +3,7 @@ import React, { useState, useEffect, useMemo } from "react";
 import LadderRow from "../components/LadderRow";
 import PeonLoader from "../components/PeonLoader";
 import { PageLayout, PageHero } from "../components/PageLayout";
-import { Select, Input, Button } from "../components/ui";
+import { Select, PlayerSearch } from "../components/ui";
 import { gateway } from "../lib/params";
 import { fetchPlayerSessionData } from "../lib/utils";
 import { getPlayerProfile, getPlayerTimelineMerged, getLadder, getLadderCached } from "../lib/api";
@@ -385,15 +385,12 @@ const Ladder = () => {
       </PageHero>
       <div className="ladder-controls-row">
         <div className="ladder-search">
-          <Input
-            type="text"
-            placeholder="Search all leagues..."
+          <PlayerSearch
+            placeholder="Search all leagues"
             value={searchQuery}
             onChange={(e) => setSearchQuery(e.target.value)}
+            onClear={() => { setSearchQuery(""); setSearchResults(null); }}
           />
-          {searchQuery && (
-            <Button $icon className="search-clear" onClick={() => { setSearchQuery(""); setSearchResults(null); }} aria-label="Clear search">×</Button>
-          )}
         </div>
         <div className="ladder-selectors">
           <div className="league-selector">

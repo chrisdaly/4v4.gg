@@ -3,7 +3,7 @@ import { useHistory, useLocation } from "react-router-dom";
 import styled from "styled-components";
 import { BiFullscreen, BiExitFullscreen } from "react-icons/bi";
 import { PageLayout, PageHero } from "../../components/PageLayout";
-import { Button, CountryFlag, Select } from "../../components/ui";
+import { Button, CountryFlag, Select, PlayerSearch } from "../../components/ui";
 import MatchOverlay from "../../components/MatchOverlay";
 import PlayerOverlay from "../../components/PlayerOverlay";
 import GameIntroScreen from "../../components/GameIntroScreen";
@@ -1135,19 +1135,16 @@ const OverlayIndex = () => {
           <Panel>
             <PanelTitle>1. Your Account</PanelTitle>
             <div ref={searchRef} style={{ position: "relative" }}>
-              <Input
-                type="text"
+              <PlayerSearch
+                $fullWidth
                 value={battleTag}
                 onChange={(e) => handleSearchChange(e.target.value)}
                 onFocus={() => setShowDropdown(true)}
                 onBlur={() => updateUrl(battleTag, selectedGame)}
-                placeholder="Search for your battle tag..."
-              />
-              {isSearching && (
-                <div style={{ position: "absolute", right: 8, top: 8 }}>
-                  <PeonLoader size="sm" />
-                </div>
-              )}
+                placeholder="Find your battle tag"
+              >
+                {isSearching && <PeonLoader size="sm" />}
+              </PlayerSearch>
               {showDropdown && searchResults.length > 0 && (
                 <SearchDropdown>
                   {searchResults.map((p, i) => {

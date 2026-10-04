@@ -1,7 +1,7 @@
 import React, { useState, useEffect, useCallback, useRef } from "react";
 import { useHistory, useLocation, Link } from "react-router-dom";
 import styled from "styled-components";
-import { Input, CountryFlag } from "../../components/ui";
+import { PlayerSearch, CountryFlag } from "../../components/ui";
 import PeonLoader from "../../components/PeonLoader";
 import TransitionGlyph from "../../components/replay-lab/TransitionGlyph";
 import PlaystyleReport from "../../components/replay-lab/PlaystyleReport";
@@ -426,13 +426,14 @@ export default function ScoutTab({ initialPlayer = null, initialProfileData = nu
       {!embedded && (
       <SearchSection>
         <SearchInputWrap ref={searchRef}>
-          <Input
+          <PlayerSearch
             $fullWidth
             value={searchQuery}
             onChange={(e) => setSearchQuery(e.target.value)}
+            onClear={() => setSearchQuery("")}
             onKeyDown={(e) => e.key === "Escape" && setSearchQuery("")}
             onFocus={() => (searchSuggestions.length > 0 || w3cResults.length > 0) && setShowDropdown(true)}
-            placeholder="Search players…"
+            placeholder="Search players"
             autoFocus={!initialPlayer}
           />
           {showDropdown && (searchSuggestions.length > 0 || w3cResults.length > 0 || w3cSearching) && (

@@ -31,6 +31,7 @@ import {
   ThemedCard,
   Select,
   Input,
+  PlayerSearch,
   Skeleton,
   SkeletonCircle,
   RaceIcon,
@@ -109,6 +110,7 @@ const StyleReference = () => {
   const [modalDanger, setModalDanger] = useState(false);
   const [modalGold, setModalGold] = useState(false);
   const [modalSuccess, setModalSuccess] = useState(false);
+  const [searchDemo, setSearchDemo] = useState("");
 
   const renderSwatch = ([key, token]) => (
     <div
@@ -456,15 +458,22 @@ const StyleReference = () => {
             <div className="sr-label">Input</div>
             <div style={{ display: "flex", flexDirection: "column", gap: "var(--space-2)" }}>
               <Input placeholder="Plain input" />
-              <div style={{ position: "relative", display: "inline-flex", alignItems: "center" }}>
-                <svg style={{ position: "absolute", left: "var(--space-3)", color: "var(--grey-light)", pointerEvents: "none" }} width="14" height="14" viewBox="0 0 14 14" fill="none">
-                  <circle cx="5.5" cy="5.5" r="4" stroke="currentColor" strokeWidth="1.5"/>
-                  <line x1="8.7" y1="8.7" x2="13" y2="13" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round"/>
-                </svg>
-                <Input style={{ paddingLeft: "var(--space-8)" }} placeholder="Search players..." />
-              </div>
               <Input $fullWidth placeholder="Full width variant ($fullWidth)" />
               <Input $fullWidth $error defaultValue="Invalid value ($error)" />
+            </div>
+          </div>
+
+          <div className="sr-stack">
+            <div className="sr-label">PlayerSearch</div>
+            <div style={{ display: "flex", flexDirection: "column", gap: "var(--space-3)" }}>
+              <PlayerSearch
+                placeholder="Find a player"
+                value={searchDemo}
+                onChange={(e) => setSearchDemo(e.target.value)}
+                onClear={() => setSearchDemo("")}
+              />
+              <PlayerSearch value="FOALS" onChange={() => {}} onClear={() => {}} placeholder="Find a player" />
+              <PlayerSearch $fullWidth value="" onChange={() => {}} placeholder="Full width ($fullWidth)" />
             </div>
           </div>
 

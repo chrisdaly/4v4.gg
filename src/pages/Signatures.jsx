@@ -2,7 +2,7 @@ import React, { useState, useEffect, useRef, useMemo } from "react";
 import styled from "styled-components";
 import { Link } from "react-router-dom";
 import { PageLayout } from "../components/PageLayout";
-import { PageHero, CountryFlag } from "../components/ui";
+import { PageHero, CountryFlag, PlayerSearch } from "../components/ui";
 import PeonLoader from "../components/PeonLoader";
 import TransitionGlyph from "../components/replay-lab/TransitionGlyph";
 import { getPlayerProfilesBatch } from "../lib/api";
@@ -51,30 +51,6 @@ const GalleryControls = styled.div`
   align-items: center;
 `;
 
-const GallerySearch = styled.input`
-  font-family: var(--font-mono);
-  font-size: var(--text-xs);
-  background: rgba(0, 0, 0, 0.35);
-  border: 1px solid rgba(var(--gold-dark-rgb), 0.3);
-  border-radius: var(--radius-sm);
-  color: var(--white);
-  padding: 10px 16px;
-  width: 280px;
-  outline: none;
-  transition: var(--transition);
-  box-shadow: inset 0 1px 4px rgba(0, 0, 0, 0.5);
-
-  &:focus {
-    border-color: var(--gold);
-    box-shadow: inset 0 1px 4px rgba(0, 0, 0, 0.5), 0 0 8px rgba(var(--gold-dark-rgb), 0.15);
-  }
-  &:hover:not(:focus) {
-    border-color: rgba(var(--gold-dark-rgb), 0.55);
-  }
-  &::placeholder {
-    color: var(--grey-light);
-  }
-`;
 
 const RaceFilter = styled.div`
   display: flex;
@@ -505,10 +481,12 @@ function PlayerGallery({ players, loading }) {
   return (
     <>
       <GalleryControls>
-        <GallerySearch
+        <PlayerSearch
+          $width="280px"
           value={search}
           onChange={e => setSearch(e.target.value)}
-          placeholder="Search players..."
+          onClear={() => setSearch("")}
+          placeholder="Search players"
         />
         <RaceFilter>
           <RaceButton $active={!raceFilter} onClick={() => setRaceFilter(null)}>All</RaceButton>

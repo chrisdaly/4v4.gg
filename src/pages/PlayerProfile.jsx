@@ -1,6 +1,6 @@
 import React, { useState, useEffect, useReducer, useMemo, useRef } from "react";
 import { Link, useHistory, useLocation } from "react-router-dom";
-import { CountryFlag, Select, Button, Input, Delta, PageNav, Skeleton, SkeletonCircle } from "../components/ui";
+import { CountryFlag, Select, Button, PlayerSearch, Delta, PageNav, Skeleton, SkeletonCircle } from "../components/ui";
 import { findPlayerInOngoingMatches } from "../lib/utils";
 import {
   getPlayerProfile,
@@ -1154,12 +1154,11 @@ const PlayerProfile = () => {
                       ))}
                     </div>
                   )}
-                  <Input
-                    type="text"
-                    placeholder="Filter by player..."
+                  <PlayerSearch
+                    placeholder="Filter by player"
                     value={playerFilter}
-                    onClear={() => setPlayerFilter("")}
                     onChange={(e) => setPlayerFilter(e.target.value)}
+                    onClear={() => setPlayerFilter("")}
                   />
                   <span className="match-count">
                     {playerFilter ? `${filteredMatches.length} / ${matches.length}` : `${historyTotal} games`}

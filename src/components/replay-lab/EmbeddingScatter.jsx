@@ -1,6 +1,7 @@
 import React, { useState, useCallback, useRef } from "react";
 import styled from "styled-components";
 import PeonLoader from "../PeonLoader";
+import { PlayerSearch } from "../ui";
 import PlayerGlyph from "./PlayerGlyph";
 import { chartColors } from "../../lib/design-tokens";
 
@@ -322,11 +323,13 @@ export default function EmbeddingScatter({ mapData, highlightTags = [], suspects
       {/* Search */}
       <SearchRow>
         <SearchInputWrap>
-          <SearchInput
+          <PlayerSearch
+            $width="240px"
             value={searchQuery}
             onChange={e => setSearchQuery(e.target.value)}
+            onClear={() => setSearchQuery("")}
             onKeyDown={e => e.key === "Escape" && setSearchQuery("")}
-            placeholder="Search players…"
+            placeholder="Search players"
           />
           {searchSuggestions.length > 0 && (
             <SearchDropdown>
@@ -786,26 +789,6 @@ const SearchInputWrap = styled.div`
   position: relative;
 `;
 
-const SearchInput = styled.input`
-  font-family: var(--font-mono);
-  font-size: var(--text-xxs);
-  background: rgba(0, 0, 0, 0.35);
-  border: 1px solid rgba(var(--gold-dark-rgb), 0.3);
-  border-radius: var(--radius-sm);
-  color: var(--white);
-  padding: 8px 14px;
-  width: 240px;
-  outline: none;
-  transition: all 0.2s ease;
-  box-shadow: inset 0 1px 4px rgba(0, 0, 0, 0.5);
-
-  &:focus {
-    border-color: var(--gold);
-    box-shadow: inset 0 1px 4px rgba(0, 0, 0, 0.5), 0 0 8px rgba(var(--gold-dark-rgb), 0.15);
-  }
-  &:hover:not(:focus) { border-color: rgba(var(--gold-dark-rgb), 0.55); }
-  &::placeholder { color: var(--grey-light); }
-`;
 
 const SearchDropdown = styled.div`
   position: absolute;
