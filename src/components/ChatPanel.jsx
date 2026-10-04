@@ -2,7 +2,7 @@ import React, { useRef, useEffect, useState, useCallback, useMemo } from "react"
 import styled, { css } from "styled-components";
 import { Link } from "react-router-dom";
 import { IoSend } from "react-icons/io5";
-import { Button, Skeleton, Input } from "./ui";
+import { Button, Skeleton, Input, PlayerSearch } from "./ui";
 import { useBotResponseMap, formatDateDivider, getDateKey } from "../lib/useChatMessages";
 import { linkifyMessage } from "../lib/chatExtras";
 import PlayerHoverCard from "./PlayerHoverCard";
@@ -97,9 +97,9 @@ const Home = styled(Link)`
   }
 `;
 
-/* The always-visible search field, the navbar's player search look
-   (shared Input, magnifier inside on the left, × inside on the right):
-   "N found" sits after it while a query is set and the border stays gold */
+/* The always-visible search field is the shared PlayerSearch (ui.jsx), the
+   same underline field as the navbar: "N found" and the archive link sit
+   after it while a query is set */
 const SearchBox = styled.div`
   flex: 1;
   max-width: 420px;
@@ -110,32 +110,8 @@ const SearchBox = styled.div`
   min-width: 0;
 `;
 
-const SearchWrap = styled.div`
-  position: relative;
-  flex: 1;
-  min-width: 0;
-  display: flex;
-  align-items: center;
-  color: var(--grey-light);
-  &:focus-within {
-    color: rgba(var(--gold-dark-rgb), 0.7);
-  }
-`;
 
-const SearchIcon = styled.svg`
-  position: absolute;
-  left: 11px;
-  pointer-events: none;
-  flex-shrink: 0;
-  transition: color var(--transition);
-`;
 
-const SearchInput = styled(Input)`
-  width: 100%;
-  padding-left: 32px;
-  padding-right: ${(p) => (p.$active ? "32px" : "var(--space-4)")};
-  ${(p) => p.$active && "border-color: var(--gold);"}
-`;
 
 const FoundCount = styled.span`
   font-family: var(--font-mono);
@@ -158,21 +134,7 @@ const ArchiveLink = styled(Link)`
   }
 `;
 
-const ClearButton = styled(Button)`
-  position: absolute;
-  right: 6px;
-  top: 50%;
-  transform: translateY(-50%);
-  width: 24px;
-  height: 24px;
-`;
 
-const searchGlyph = (
-  <SearchIcon width="14" height="14" viewBox="0 0 14 14" fill="none" aria-hidden="true">
-    <circle cx="5.5" cy="5.5" r="4" stroke="currentColor" strokeWidth="1.5" />
-    <line x1="8.7" y1="8.7" x2="13" y2="13" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" />
-  </SearchIcon>
-);
 
 /* Mobile: the search row under the page's top bar, shown while searchOpen */
 const MobileSearchRow = styled.div`
@@ -188,11 +150,6 @@ const MobileSearchRow = styled.div`
   }
 `;
 
-const MobileSearchInput = styled(Input)`
-  width: 100%;
-  height: 36px;
-  padding-left: 32px;
-`;
 
 const MessageList = styled.div`
   flex: 1;
@@ -1324,22 +1281,14 @@ export default function ChatPanel({
             4v4.GG
           </Home>
           <SearchBox role="search" aria-label="Filter messages" data-search-active={filterActive}>
-            <SearchWrap>
-              {searchGlyph}
-              <SearchInput
-                type="text"
-                placeholder="Search messages or players"
-                aria-label="Search messages or players"
-                value={query}
-                $active={filterActive}
-                onChange={(e) => setQuery(e.target.value)}
-              />
-              {filterActive && (
-                <ClearButton type="button" $icon aria-label="Clear search" onClick={clearQuery}>
-                  &times;
-                </ClearButton>
-              )}
-            </SearchWrap>
+            <PlayerSearch
+              $fullWidth
+              placeholder="Search messages or players"
+              aria-label="Search messages or players"
+              value={query}
+              onChange={(e) => setQuery(e.target.value)}
+              onClear={clearQuery}
+            />
             {filterActive && (
               <>
                 <FoundCount data-found-count aria-live="polite">{foundCount} found</FoundCount>
@@ -1352,17 +1301,15 @@ export default function ChatPanel({
         </Header>
         {searchOpen && (
           <MobileSearchRow role="search" aria-label="Filter messages" data-mobile-search>
-            <SearchWrap>
-              {searchGlyph}
-              <MobileSearchInput
-                type="text"
-                placeholder="Search messages or players"
-                aria-label="Search messages or players"
-                value={query}
-                onChange={(e) => setQuery(e.target.value)}
-                autoFocus
-              />
-            </SearchWrap>
+            <PlayerSearch
+              $fullWidth
+              placeholder="Search messages or players"
+              aria-label="Search messages or players"
+              value={query}
+              onChange={(e) => setQuery(e.target.value)}
+              onClear={clearQuery}
+              autoFocus
+            />
             {filterActive && (
               <>
                 <FoundCount data-found-count>{foundCount} found</FoundCount>
