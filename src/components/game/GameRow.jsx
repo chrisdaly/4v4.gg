@@ -3,6 +3,7 @@ import { Link, useHistory } from "react-router-dom";
 import "./GameRow.css";
 
 import { RaceIcon } from "../ui";
+import useATGroupIds from "../../lib/useATGroupIds";
 import { getMapImageUrl, formatDuration, formatTimeAgo } from "../../lib/formatters";
 import { GAME_MODE, GAME_MODE_LABEL } from "../../lib/params";
 
@@ -11,26 +12,26 @@ const HERO_SLOTS = 3;
 /**
  * GameRow - one match in the player profile's history, as a fixture list:
  *
- *   result + map | heroes (with level) | your team ▸ | avg vs avg | ◂ opponents | +/-
+ *   result +/- map | heroes (with level) | your team | avg vs avg | opponents
  *
- * Both sides are plain names in the same font, sorted highest MMR first, so a
- * player's slot shows where they sat in their own lineup. The two teams read
- * apart from position - yours right-aligned into the centre divider, theirs
- * left-aligned out of it - rather than from two different text colours. The
- * profile player is the one gold name; every MMR is on hover.
+ * Each side is one vertical list, highest MMR first, so a player's line shows
+ * where they sat in their own lineup. The two lineups mirror about the centre
+ * divider: yours right-aligned into it, theirs left-aligned out of it, in the
+ * same font and colour. The profile player is the one gold line; every MMR
+ * is on hover. Arranged teams get a purple bar down the divider side of
+ * their lines, the same purple the match page uses.
  *
  * @param {Object} game - Match data object
  * @param {string} playerBattleTag - The profile player: their MMR, result and gold slot
  * @param {string} linkTo - URL for click navigation (default: /match/{id})
  * @param {boolean} striped - Alternate row styling
  * @param {string} className - Additional CSS class
+ * @param {string} mvpTag - battleTag of the match MVP, if known: gets the gold chip
  */
-const GameRow = ({ game, playerBattleTag, linkTo, striped = false, className = "", showOpponentHeroes = false }) => {
+const GameRow = ({ game, playerBattleTag, linkTo, striped = false, className = "", showOpponentHeroes = false, mvpTag }) => {
   const history = useHistory();
 
-  if (!game) return null;
-
-  const match = game.match || game;
+  const match = game?.match || game || {};
   const battleTagLower = playerBattleTag?.toLowerCase();
 
   let playerData = null;
@@ -49,10 +50,18 @@ const GameRow = ({ game, playerBattleTag, linkTo, striped = false, className = "
     }
   }
 
-  if (!playerData) return null;
-
   // Highest MMR first, so a slot's position is the player's standing in the lineup
-  const teamMembers = [playerData, ...allies].sort((a, b) => (b.oldMmr || 0) - (a.oldMmr || 0));
+  const teamMembers = playerData
+    ? [playerData, ...allies].sort((a, b) => (b.oldMmr || 0) - (a.oldMmr || 0))
+    : [];
+
+  // Who queued together. The hook only asks W3C about players who share an
+  // MMR, and caches per lobby, so a page of rows costs a few calls at most.
+  // Hooks run before the early returns below; it is a no-op without 4v4.
+  const { teamOneAT, teamTwoAT } = useATGroupIds(teamMembers, opponents);
+
+  if (!game || !playerData) return null;
+
   const seat = teamMembers.findIndex((p) => p.battleTag?.toLowerCase() === battleTagLower) + 1;
   const ordinal = ["", "1st", "2nd", "3rd", "4th"][seat] || `${seat}th`;
 
@@ -128,33 +137,40 @@ const GameRow = ({ game, playerBattleTag, linkTo, striped = false, className = "
     });
   };
 
-  // Same name, same font, both sides. The only difference is which way the
-  // race icon sits, so each side leans into the centre divider.
+  // One line per player, the same name and font on both sides. Each side
+  // leans into the centre divider: yours end with the race icon against it,
+  // theirs start with it. The rating is on hover.
+  // An arranged team shares one MMR, so after the sort its members sit
+  // together: a bar down the divider side of those lines marks the group.
   const chip = (p, i, mine) => {
+    const list = mine ? teamMembers : opponents;
+    const groups = mine ? teamOneAT : teamTwoAT;
+    const groupId = groups[i] || 0;
+    const partners = groupId
+      ? list.filter((o, j) => j !== i && groups[j] === groupId).map((o) => o.name)
+      : [];
+    const atClass = groupId
+      ? ` gr-p--at${groups[i - 1] !== groupId ? " gr-p--at-start" : ""}${groups[i + 1] !== groupId ? " gr-p--at-end" : ""}`
+      : "";
     const isSelf = p.battleTag?.toLowerCase() === battleTagLower;
-    const title = isSelf
-      ? `${p.name} · ${p.oldMmr || "?"} MMR · ${ordinal} highest on the team`
-      : `${p.name} · ${p.oldMmr || "?"} MMR`;
+    const title = [
+      `${p.name} · ${p.oldMmr || "?"} MMR`,
+      isSelf && `${ordinal} highest on the team`,
+      partners.length && `arranged team with ${partners.join(", ")}`,
+    ].filter(Boolean).join(" · ");
     const icon = <RaceIcon race={p.race} rndRace={p.rndRace} className="gr-race" />;
+    const name = <span className="gr-p-name">{p.name}</span>;
+    // The chip sits on the outer end of the line, away from the divider
+    const mvp = mvpTag && p.battleTag === mvpTag ? <span className="gr-mvp">MVP</span> : null;
     return (
       <span
         key={i}
-        className={`gr-p${isSelf ? " gr-p--self" : ""}`}
+        className={`gr-p${isSelf ? " gr-p--self" : ""}${atClass}`}
         title={title}
         data-self-seat={isSelf ? seat : undefined}
         onClick={isSelf ? undefined : goTo(p.battleTag)}
       >
-        {mine ? (
-          <>
-            <span className="gr-p-name">{p.name}</span>
-            {icon}
-          </>
-        ) : (
-          <>
-            {icon}
-            <span className="gr-p-name">{p.name}</span>
-          </>
-        )}
+        {mine ? <>{mvp}{name}{icon}</> : <>{icon}{name}{mvp}</>}
       </span>
     );
   };
@@ -162,8 +178,13 @@ const GameRow = ({ game, playerBattleTag, linkTo, striped = false, className = "
   const content = (
     <>
       <div className="gr-col gr-game">
+        {/* The result and what it cost or paid, together: one glance per row */}
         <span className={`gr-result ${won ? "gr-result--won" : "gr-result--lost"}`}>
-          {won ? "W" : "L"}
+          <span className="gr-result-letter">{won ? "W" : "L"}</span>
+          <span className="gr-mmr-change">
+            {mmrChange >= 0 ? "+" : ""}
+            {mmrChange}
+          </span>
         </span>
         {mapUrl && (
           <img
@@ -210,13 +231,6 @@ const GameRow = ({ game, playerBattleTag, linkTo, striped = false, className = "
           {heroSlots(opponentHeroes, "theirs", true)}
         </div>
       )}
-
-      <div className="gr-col gr-score">
-        <span className={`gr-mmr-change ${mmrChange >= 0 ? "positive" : "negative"}`}>
-          {mmrChange >= 0 ? "+" : ""}
-          {mmrChange}
-        </span>
-      </div>
     </>
   );
 
