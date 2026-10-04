@@ -12,7 +12,7 @@ import TransitionGlyph from "../../components/replay-lab/TransitionGlyph";
 import { getGroupUnits, HERO_IMAGES, BUILDINGS } from "../../components/replay-lab/PlaystyleReport";
 import { searchLadderWithFallback, getPlayerProfilesBatch, getLadder } from "../../lib/api";
 import { raceMapping } from "../../lib/constants";
-import { Input, CountryFlag } from "../../components/ui";
+import { Input, PlayerSearch, CountryFlag } from "../../components/ui";
 import { raceIcons } from "../../lib/constants";
 import { EmptyState, CloseBtn } from "./shared-styles";
 
@@ -1606,13 +1606,14 @@ export default function InvestigateTab() {
       {!selectedTag && !loading && (
         <SearchSection ref={searchRef}>
           <SearchInputWrap>
-            <Input
+            <PlayerSearch
               $fullWidth
               value={query}
               onChange={(e) => setQuery(e.target.value)}
+              onClear={() => setQuery("")}
               onKeyDown={(e) => e.key === "Escape" && setQuery("")}
               onFocus={() => searchResults.length > 0 && setShowDropdown(true)}
-              placeholder="Search a player to investigate…"
+              placeholder="Search a player to investigate"
               autoFocus
             />
           </SearchInputWrap>

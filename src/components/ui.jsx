@@ -399,6 +399,125 @@ export const Input = styled.input`
   }
 `;
 
+// ============================================
+// PLAYER SEARCH
+// ============================================
+// The one field for finding a player, used by the navbar, ladder, profile
+// filter, overlay setup and replay-lab. Typed text matches the profile heading
+// (Friz Quadrata, gold); the placeholder is the same face in muted gold so the
+// idle field previews the typed look. Underline instead of a box.
+
+const PlayerSearchField = styled.div`
+  position: relative;
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+  box-sizing: border-box;
+  width: ${p => p.$fullWidth ? '100%' : (p.$width || '200px')};
+  height: 34px;
+  padding: 0 var(--space-1) 0 var(--space-2);
+  border-bottom: 1px solid rgba(var(--gold-muted-rgb), 0.3);
+  transition: border-color var(--transition), width 200ms ease, box-shadow var(--transition);
+
+  &:hover {
+    border-color: rgba(var(--gold-muted-rgb), 0.55);
+  }
+
+  &:focus-within,
+  &[data-has-query="true"] {
+    width: ${p => p.$fullWidth ? '100%' : (p.$focusWidth || p.$width || '260px')};
+    border-color: var(--gold);
+    box-shadow: 0 6px 12px -8px rgba(var(--gold-muted-rgb), 0.6);
+  }
+
+  > svg {
+    flex-shrink: 0;
+    color: var(--grey-light);
+    pointer-events: none;
+    transition: color var(--transition);
+  }
+
+  &:focus-within > svg,
+  &[data-has-query="true"] > svg {
+    color: var(--gold);
+  }
+
+  > .player-search-clear {
+    flex-shrink: 0;
+    width: 24px;
+    height: 24px;
+  }
+`;
+
+const PlayerSearchInput = styled.input`
+  flex: 1;
+  min-width: 0;
+  padding: 0;
+  margin: 0;
+  background: none;
+  border: none;
+  outline: none;
+  box-shadow: none;
+  font-family: var(--font-display);
+  font-size: var(--text-sm);
+  letter-spacing: 0.5px;
+  color: var(--gold);
+  caret-color: var(--gold);
+  text-shadow: 0 0 12px rgba(var(--gold-muted-rgb), 0.35);
+
+  &::placeholder {
+    color: rgba(var(--gold-muted-rgb), 0.75);
+    text-shadow: none;
+    opacity: 1;
+  }
+
+  &::-webkit-search-cancel-button,
+  &::-webkit-search-decoration {
+    -webkit-appearance: none;
+  }
+`;
+
+/**
+ * PlayerSearch - underline search field for player names.
+ * Props: value, onChange, onClear (shows the clear button when set and value is
+ * non-empty), $fullWidth, $width, $focusWidth, className/style (go on the
+ * field), children (rendered inside the field after the input, e.g. a loader).
+ * Everything else is forwarded to the <input>; ref points at the <input>.
+ */
+export const PlayerSearch = React.forwardRef(function PlayerSearch(
+  { value, onChange, onClear, className, style, $fullWidth, $width, $focusWidth, children, ...rest },
+  ref
+) {
+  return (
+    <PlayerSearchField
+      className={`player-search${className ? ` ${className}` : ""}`}
+      style={style}
+      $fullWidth={$fullWidth}
+      $width={$width}
+      $focusWidth={$focusWidth}
+      data-has-query={value ? "true" : "false"}
+    >
+      <svg width="14" height="14" viewBox="0 0 14 14" fill="none" aria-hidden="true">
+        <circle cx="5.5" cy="5.5" r="4" stroke="currentColor" strokeWidth="1.5" />
+        <line x1="8.7" y1="8.7" x2="13" y2="13" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" />
+      </svg>
+      <PlayerSearchInput
+        ref={ref}
+        type="text"
+        value={value}
+        onChange={onChange}
+        autoComplete="off"
+        spellCheck={false}
+        {...rest}
+      />
+      {value && onClear && (
+        <Button type="button" $icon className="player-search-clear" onClick={onClear} aria-label="Clear search">&times;</Button>
+      )}
+      {children}
+    </PlayerSearchField>
+  );
+});
+
 export const FieldGroup = styled.div`
   display: flex;
   flex-direction: column;

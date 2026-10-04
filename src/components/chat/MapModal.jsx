@@ -3,7 +3,7 @@ import styled from "styled-components";
 import { Link } from "react-router-dom";
 import { HiOutlineArrowLeft } from "react-icons/hi";
 import WorldMap from "../WorldMap";
-import { Button, CountryFlag, Input, ModalBackdrop } from "../ui";
+import { Button, CountryFlag, PlayerSearch, ModalBackdrop } from "../ui";
 import { Avatar } from "../UserListSidebar";
 import useIdleTags from "../../lib/chat/useIdleTags";
 import { formatGameMinutes } from "./chip";
@@ -162,11 +162,6 @@ const RailTop = styled.div`
   gap: 6px;
   border-bottom: 1px solid rgba(255, 255, 255, 0.06);
   flex-shrink: 0;
-`;
-
-const FilterInput = styled(Input)`
-  font-size: var(--text-xxs);
-  padding: 6px 10px;
 `;
 
 const RailCaption = styled.span`
@@ -451,13 +446,13 @@ export default function MapModal({
           </MapColumn>
           <Rail data-map-rail aria-label="Players by country">
             <RailTop>
-              <FilterInput
+              <PlayerSearch
                 $fullWidth
-                type="search"
                 placeholder="Filter players"
                 aria-label="Filter players"
                 value={filter}
                 onChange={(e) => setFilter(e.target.value)}
+                onClear={() => setFilter("")}
               />
               <RailCaption data-rail-caption>
                 {playersLabel((users || []).length)} · {countriesLabel(playerCountries.size)}

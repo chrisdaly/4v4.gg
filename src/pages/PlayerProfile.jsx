@@ -1,12 +1,13 @@
 import React, { useState, useEffect, useReducer, useMemo, useRef } from "react";
 import { Link, useHistory, useLocation } from "react-router-dom";
-import { CountryFlag, Select, Button, Input, Delta, PageNav, Skeleton, SkeletonCircle } from "../components/ui";
+import { CountryFlag, Select, Button, PlayerSearch, Delta, PageNav, Skeleton, SkeletonCircle } from "../components/ui";
 import { findPlayerInOngoingMatches } from "../lib/utils";
 import {
   getPlayerProfile,
   getPlayerTimelineMerged,
   getPlayerProfilesBatch,
   getPlayerMatches,
+  getMatchMvps,
   getPlayerGameModeStatsRaw,
   pickModeRow,
   toModeStats,
@@ -14,7 +15,7 @@ import {
   getLadder,
 } from "../lib/api";
 import { cache } from "../lib/cache";
-import { matchIdleGapMs, SESSION_GAP_MINUTES } from "../lib/session";
+import { matchIdleGapMs, SESSION_GAP_MINUTES, groupIntoSessions } from "../lib/session";
 import useSeasons from "../lib/useSeasons";
 import useOngoingMatches from "../lib/useOngoingMatches";
 import ClipModal from "../components/ClipModal";
@@ -24,7 +25,7 @@ import { GiCrossedSwords } from "react-icons/gi";
 
 import FormDots from "../components/FormDots";
 import { gateway, GAME_MODE, GAME_MODE_LABEL } from "../lib/params";
-import { GameRow } from "../components/game/index";
+import { GameRow, SessionDivider } from "../components/game/index";
 import ActivityGraph from "../components/ActivityGraph";
 import ActivityOverTime from "../components/ActivityOverTime";
 import SeasonHistoryBars from "../components/SeasonHistoryBars";
@@ -874,6 +875,26 @@ const PlayerProfile = () => {
     window.scrollTo({ top: document.querySelector('.match-history-section')?.offsetTop - 100 || 0, behavior: 'smooth' });
   };
 
+  // MVP per match on the page, from the relay's stored scores. Looked up after
+  // the rows are drawn, so the table never waits on it; a match is asked for
+  // once and remembered across pages.
+  const [mvpByMatch, setMvpByMatch] = useState({});
+  useEffect(() => {
+    const ids = matches
+      .filter((m) => m.gameMode === GAME_MODE.FOUR_V_FOUR && !(m.id in mvpByMatch))
+      .map((m) => m.id);
+    if (ids.length === 0) return;
+    let cancelled = false;
+    getMatchMvps(ids).then((mvp) => {
+      if (cancelled) return;
+      // Record the misses too, so a match with no stored scores is not re-asked
+      const seen = Object.fromEntries(ids.map((id) => [id, mvp[id] ?? null]));
+      setMvpByMatch((prev) => ({ ...prev, ...seen }));
+    });
+    return () => { cancelled = true; };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [matches]);
+
   // Filter matches by player name (allies + opponents) - must be before early return to preserve hook order
   const filteredMatches = useMemo(() => {
     const q = playerFilter.trim().toLowerCase();
@@ -885,6 +906,13 @@ const PlayerProfile = () => {
       );
     });
   }, [matches, playerFilter, battleTagLower]);
+
+  // The page as sittings, for the dividers between them. A player filter
+  // leaves holes in the timeline, so a filtered table is a flat list.
+  const sessions = useMemo(
+    () => (playerFilter.trim() ? null : groupIntoSessions(filteredMatches, battleTag)),
+    [filteredMatches, playerFilter, battleTag]
+  );
 
   // Calculate derived stats
   const sessionWins = sessionGames.filter(g => g.won).length;
@@ -1126,11 +1154,11 @@ const PlayerProfile = () => {
                       ))}
                     </div>
                   )}
-                  <Input
-                    type="text"
-                    placeholder="Filter by player..."
+                  <PlayerSearch
+                    placeholder="Filter by player"
                     value={playerFilter}
                     onChange={(e) => setPlayerFilter(e.target.value)}
+                    onClear={() => setPlayerFilter("")}
                   />
                   <span className="match-count">
                     {playerFilter ? `${filteredMatches.length} / ${matches.length}` : `${historyTotal} games`}
@@ -1147,17 +1175,31 @@ const PlayerProfile = () => {
                   <div className="mh-col opponents">{isSoloHistory ? "Opponent" : "Opponents"}</div>
                   {/* The mirrored hero column only exists on a 1v1 table */}
                   {isSoloHistory && <div className="mh-col heroes">Heroes</div>}
-                  <div className="mh-col mmr">+/-</div>
                 </div>
-                {filteredMatches.map((match, idx) => (
-                  <GameRow
-                    key={match.id}
-                    game={match}
-                    playerBattleTag={battleTag}
-                    striped={idx % 2 === 1}
-                    showOpponentHeroes={isSoloHistory}
-                  />
-                ))}
+                {(sessions || [{ matches: filteredMatches }]).map((session, si) => {
+                  // A sitting cut by the page edge may continue on the page
+                  // before or after, so its record is withheld rather than
+                  // shown as a fragment
+                  const partial = !sessions ? false
+                    : si === 0 && currentPage > 0 ? "prev"
+                    : si === sessions.length - 1 && currentPage < totalPages - 1 ? "next"
+                    : false;
+                  return (
+                    <React.Fragment key={session.matches[0]?.id || si}>
+                      {sessions && <SessionDivider session={session} partial={partial} />}
+                      {session.matches.map((match, idx) => (
+                        <GameRow
+                          key={match.id}
+                          game={match}
+                          playerBattleTag={battleTag}
+                          striped={idx % 2 === 1}
+                          showOpponentHeroes={isSoloHistory}
+                          mvpTag={mvpByMatch[match.id]}
+                        />
+                      ))}
+                    </React.Fragment>
+                  );
+                })}
                 {matches.length === 0 && isLoading &&
                   Array.from({ length: GAMES_PER_PAGE }, (_, i) => (
                     <div className="mh-row-skeleton" key={i}>

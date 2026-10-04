@@ -2,7 +2,7 @@ import React, { useState, useRef, useEffect } from "react";
 import { Link, useLocation, useHistory } from "react-router-dom";
 import { raceMapping } from "../lib/constants";
 import { searchLadderWithFallback, getPlayerProfile, getOngoingMatches, getFinishedMatches, getLadder, getSeasons } from "../lib/api";
-import { CountryFlag, Input, Button } from "./ui";
+import { CountryFlag, Button, PlayerSearch } from "./ui";
 import PeonLoader from "./PeonLoader";
 import useAdmin from "../lib/useAdmin";
 
@@ -16,6 +16,8 @@ const Navbar = () => {
   const [profiles, setProfiles] = useState({});
   const profilesRef = useRef(profiles);
   const searchRef = useRef(null);
+  const searchInputRef = useRef(null);
+  const [activeIndex, setActiveIndex] = useState(-1);
   const [mobileOpen, setMobileOpen] = useState(false);
   const mobileRef = useRef(null);
   const { adminKey, isAdmin, adminViewActive, toggleAdminView, isKeyValid } = useAdmin();
@@ -30,6 +32,20 @@ const Navbar = () => {
   };
 
   const isActive = (path, matchPaths) => (matchPaths || [path]).some(hits);
+
+  // "/" focuses the search from anywhere that is not already a text field
+  useEffect(() => {
+    const handler = (e) => {
+      if (e.key !== "/" || e.metaKey || e.ctrlKey || e.altKey) return;
+      const t = e.target;
+      const tag = t?.tagName;
+      if (tag === "INPUT" || tag === "TEXTAREA" || tag === "SELECT" || t?.isContentEditable) return;
+      e.preventDefault();
+      searchInputRef.current?.focus();
+    };
+    document.addEventListener("keydown", handler);
+    return () => document.removeEventListener("keydown", handler);
+  }, []);
 
   // Close search on outside click
   useEffect(() => {
@@ -89,6 +105,7 @@ const Navbar = () => {
         deduped.sort((a, b) => ((b.player?.wins || 0) + (b.player?.losses || 0)) - ((a.player?.wins || 0) + (a.player?.losses || 0)));
         const sliced = deduped.slice(0, 8);
         setSearchResults(sliced);
+        setActiveIndex(-1);
         setShowSearch(true);
 
         for (const r of sliced) {
@@ -116,6 +133,34 @@ const Navbar = () => {
     setSearchQuery("");
     setSearchResults([]);
     setShowSearch(false);
+    setActiveIndex(-1);
+    searchInputRef.current?.blur();
+  };
+
+  const resultTag = (r) => r.playersInfo?.[0]?.battleTag || r.player?.playerIds?.[0]?.battleTag;
+
+  const handleSearchKeyDown = (e) => {
+    const n = searchResults.length;
+    if (e.key === "Escape") {
+      setShowSearch(false);
+      searchInputRef.current?.blur();
+      return;
+    }
+    if (!n) return;
+    if (e.key === "ArrowDown") {
+      e.preventDefault();
+      setShowSearch(true);
+      setActiveIndex((i) => (i + 1) % n);
+    } else if (e.key === "ArrowUp") {
+      e.preventDefault();
+      setShowSearch(true);
+      setActiveIndex((i) => (i - 1 + n) % n);
+    } else if (e.key === "Enter") {
+      e.preventDefault();
+      const pick = searchResults[activeIndex >= 0 ? activeIndex : 0];
+      const tag = resultTag(pick);
+      if (tag) handleResultClick(tag);
+    }
   };
 
   const [showMore, setShowMore] = useState(false);
@@ -209,27 +254,21 @@ const Navbar = () => {
         </div>
         <div className="navbar-right">
           <div className="navbar-search" ref={searchRef}>
-            <div className="navbar-search-input-wrap">
-              <svg className="navbar-search-icon" width="14" height="14" viewBox="0 0 14 14" fill="none">
-                <circle cx="5.5" cy="5.5" r="4" stroke="currentColor" strokeWidth="1.5"/>
-                <line x1="8.7" y1="8.7" x2="13" y2="13" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round"/>
-              </svg>
-              <Input
-                className="navbar-search-input"
-                type="text"
-                placeholder="Search player..."
-                value={searchQuery}
-                onChange={(e) => setSearchQuery(e.target.value)}
-                onFocus={() => searchResults.length > 0 && setShowSearch(true)}
-              />
-              {searchQuery && (
-                <Button $icon className="navbar-search-clear" onClick={() => { setSearchQuery(""); setSearchResults([]); setShowSearch(false); }} aria-label="Clear search">&times;</Button>
-              )}
-            </div>
+            <PlayerSearch
+              ref={searchInputRef}
+              placeholder="Find a player"
+              value={searchQuery}
+              onChange={(e) => setSearchQuery(e.target.value)}
+              onClear={() => { setSearchQuery(""); setSearchResults([]); setShowSearch(false); searchInputRef.current?.focus(); }}
+              onFocus={() => searchResults.length > 0 && setShowSearch(true)}
+              onKeyDown={handleSearchKeyDown}
+              aria-label="Search player"
+              aria-expanded={showSearch && searchResults.length > 0}
+            />
             {showSearch && searchResults.length > 0 && (
               <div className="navbar-search-dropdown">
-                {searchResults.map((p) => {
-                  const tag = p.playersInfo?.[0]?.battleTag || p.player?.playerIds?.[0]?.battleTag;
+                {searchResults.map((p, idx) => {
+                  const tag = resultTag(p);
                   const race = p.player?.race;
                   const mmr = p.player?.mmr;
                   const wins = p.player?.wins || 0;
@@ -242,6 +281,8 @@ const Navbar = () => {
                     <button
                       key={tag}
                       className="navbar-search-result"
+                      data-active={idx === activeIndex ? "true" : undefined}
+                      onMouseEnter={() => setActiveIndex(idx)}
                       onClick={() => handleResultClick(tag)}
                     >
                       <span className="navbar-search-avatar-wrap">
@@ -275,6 +316,11 @@ const Navbar = () => {
                     </button>
                   );
                 })}
+                <div className="navbar-search-hint">
+                  <span><kbd>&uarr;</kbd><kbd>&darr;</kbd> move</span>
+                  <span><kbd>&crarr;</kbd> open</span>
+                  <span><kbd>esc</kbd> close</span>
+                </div>
               </div>
             )}
             {isSearching && searchQuery.length >= 2 && !showSearch && (

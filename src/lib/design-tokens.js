@@ -219,6 +219,10 @@ export const patterns = {
     description: 'Text input (Input in ui.jsx)',
     css: 'font-family: var(--font-mono); font-size: var(--text-xs); background: rgba(0, 0, 0, 0.35); border: 1px solid rgba(var(--gold-dark-rgb), 0.3); border-radius: var(--radius-sm); color: var(--white); padding: var(--space-2) var(--space-4); placeholder: var(--grey-light); focus: border-color var(--gold)',
   },
+  playerSearch: {
+    description: 'Player search field (PlayerSearch in ui.jsx) - typed text matches the profile name',
+    css: 'underline: border-bottom 1px rgba(var(--gold-muted-rgb), 0.3), focus var(--gold); input: font-family var(--font-display); font-size var(--text-sm); letter-spacing 0.5px; color var(--gold); caret-color var(--gold); placeholder: rgba(var(--gold-muted-rgb), 0.75); icon: var(--grey-light), focus var(--gold); 200px idle, 260px focused',
+  },
   listItemName: {
     description: 'List item names (leagues, races, countries)',
     css: 'font-family: var(--font-display); font-size: var(--text-base); color: var(--white)',
@@ -344,6 +348,7 @@ export const components = [
   { name: 'TeamBar', description: 'Blue/red team indicator' },
   { name: 'Select', description: 'Dropdown with custom arrow' },
   { name: 'Input', description: 'Text input; $fullWidth, $error' },
+  { name: 'PlayerSearch', description: 'Player search field; onClear, $fullWidth, $width, $focusWidth' },
   { name: 'PageNav', description: 'Back link + sibling tabs' },
   { name: 'PageHero', description: 'Page eyebrow + title + lead' },
   { name: 'ConfirmModal', description: 'window.confirm replacement; danger/gold/success' },

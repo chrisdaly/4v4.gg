@@ -208,40 +208,7 @@
   position: relative;
 }
 
-.navbar-search-input-wrap {
-  position: relative;
-  display: flex;
-  align-items: center;
-}
-
-.navbar-search-icon {
-  position: absolute;
-  left: 11px;
-  color: var(--grey-light);
-  pointer-events: none;
-  flex-shrink: 0;
-  transition: color var(--transition);
-}
-
-.navbar-search-input-wrap:focus-within .navbar-search-icon {
-  color: rgba(var(--gold-dark-rgb), 0.7);
-}
-
-.navbar-search-input {
-  width: 190px;
-  padding-left: 32px !important;
-}
-
-.navbar-search-clear {
-  /* Visuals come from Button $icon; this only positions it inside the input */
-  position: absolute;
-  right: 6px;
-  top: 50%;
-  transform: translateY(-50%);
-  width: 24px;
-  height: 24px;
-}
-
+/* The field itself is PlayerSearch in ui.jsx; only the dropdown lives here */
 
 .navbar-search-dropdown {
   position: absolute;
@@ -278,8 +245,10 @@
   width: 100%;
 }
 
-.navbar-search-result:hover {
+.navbar-search-result:hover,
+.navbar-search-result[data-active="true"] {
   background: var(--surface-3);
+  box-shadow: inset 2px 0 0 var(--gold);
 }
 
 .navbar-search-avatar-wrap {
@@ -387,6 +356,29 @@
 
 .navbar-search-loading {
   padding: var(--space-2) var(--space-4);
+}
+
+.navbar-search-hint {
+  display: flex;
+  gap: var(--space-3);
+  margin-top: var(--space-1);
+  padding: var(--space-2) var(--space-3) var(--space-1);
+  border-top: 1px solid rgba(var(--gold-muted-rgb), 0.15);
+  font-family: var(--font-mono);
+  font-size: var(--text-xxxs);
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: var(--grey-mid);
+}
+
+.navbar-search-hint kbd {
+  font-family: inherit;
+  font-size: inherit;
+  padding: 0 4px;
+  margin-right: 2px;
+  border: 1px solid var(--grey-mid);
+  border-radius: var(--radius-sm);
+  color: var(--grey-light);
 }
 
 /* ── Admin key status dot (small, informational) ──── */

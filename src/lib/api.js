@@ -575,6 +575,24 @@ export const getMatchBlurb = async (matchId) => {
  * @param {string[]} battleTags
  * @returns {Promise<Map<string, {profilePicUrl: string|null, country: string|null}>>}
  */
+/**
+ * MVP per match from the relay's stored score lines: { [matchId]: battleTag | null }.
+ * The relay only has yesterday and older, so today's games come back null.
+ * A relay failure is an empty map, never an error: the badge is a garnish.
+ */
+export const getMatchMvps = async (matchIds) => {
+  const ids = [...new Set(matchIds)].filter(Boolean);
+  if (ids.length === 0) return {};
+  try {
+    const res = await fetch(`${RELAY_BASE}/api/matches/mvp?ids=${ids.map(encodeURIComponent).join(',')}`);
+    if (!res.ok) return {};
+    const data = await res.json();
+    return data.mvp || {};
+  } catch {
+    return {};
+  }
+};
+
 export const getPlayerProfilesBatch = async (battleTags) => {
   const results = new Map();
   const missing = [];

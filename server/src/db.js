@@ -1559,6 +1559,20 @@ export function hasMatchScores(matchId) {
   return row.count > 0;
 }
 
+/**
+ * The stored score lines for a handful of matches, in the order they were
+ * saved (W3C's playerScores order), so an MVP tie resolves the same way the
+ * match page resolves it from the live response.
+ */
+export function getMatchPlayerScoresByIds(matchIds) {
+  if (!matchIds.length) return [];
+  const marks = matchIds.map(() => '?').join(',');
+  return db.prepare(`
+    SELECT match_id, battle_tag, heroes_killed, exp_gained, gold_collected, units_killed, largest_army
+    FROM match_player_scores WHERE match_id IN (${marks}) ORDER BY rowid
+  `).all(...matchIds);
+}
+
 export function getMatchPlayerScoresRange(startDate, endDate) {
   return db.prepare('SELECT * FROM match_player_scores WHERE date >= ? AND date <= ?').all(startDate, endDate);
 }

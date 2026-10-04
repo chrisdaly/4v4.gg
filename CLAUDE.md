@@ -157,6 +157,7 @@ Import from `src/components/ui.jsx` (full list with variants: `components` in `d
 - `PageNav`, `PageHero` - back link + sibling tabs; page eyebrow + title
 - `Skeleton`, `SkeletonCircle` - loading placeholders
 - `Select`, `Input`, `ConfirmModal`, `RaceIcon`, `CountryFlag`
+- `PlayerSearch` - the one player-name search field (navbar, ladder, profile filter, overlay setup, replay-lab). Underline, Friz Quadrata gold text. Do not hand-roll another search input
 
 Chat components live in `src/components/chat/`:
 - `ChatMessage` - one message group (author + consecutive lines) in three variants: `feed` (/chat stream), `transcript` (profile recent conversations, digest pickers), `quote` (digest pull-quotes). Reuse it instead of hand-rolling message rows.
