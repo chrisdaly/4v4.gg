@@ -2,7 +2,7 @@ import React, { useCallback, useEffect, useMemo, useRef, useState } from "react"
 import { Link, useHistory, useLocation } from "react-router-dom";
 import styled from "styled-components";
 import { IoSearch } from "react-icons/io5";
-import { Button, Input, Skeleton, PageLayout, PageHero } from "../components/ui";
+import { Button, PlayerSearch, Skeleton, PageLayout, PageHero } from "../components/ui";
 import ChatMessage from "../components/chat/ChatMessage";
 import { formatTime } from "../lib/useChatMessages";
 import { fetchAndCacheProfile, getCachedProfile } from "../lib/profileCache";
@@ -750,15 +750,14 @@ export default function ChatSearchPage() {
           </PlayerChip>
         )}
         <QueryWrap>
-          <Input
+          <PlayerSearch
             $fullWidth
-            type="text"
             value={text}
             onChange={(e) => setText(e.target.value)}
+            onClear={() => setText("")}
             onKeyDown={(e) => e.key === "Escape" && setShowSuggests(false)}
-            placeholder={player ? `Narrow ${player.split("#")[0]}'s lines...` : "Search messages or a player..."}
+            placeholder={player ? `Narrow ${player.split("#")[0]}'s lines` : "Search messages or a player"}
             aria-label="Search chat messages"
-            autoComplete="off"
             autoFocus
           />
           {showSuggests && (suggests.length > 0 || text.trim().length >= 3) && (
