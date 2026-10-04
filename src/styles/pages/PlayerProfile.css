@@ -1167,10 +1167,6 @@
   width: 60px;
 }
 
-.live-game-section .player-name-row .player-name {
-  font-size: var(--text-xxs);
-}
-
 .live-game-section .game-table th,
 .live-game-section .game-table td {
   padding: 4px 2px;
