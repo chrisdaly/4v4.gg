@@ -2,18 +2,7 @@ import React, { useState, useEffect, useReducer, useMemo, useRef } from "react";
 import { Link, useHistory, useLocation } from "react-router-dom";
 import { CountryFlag, Select, Button, PlayerSearch, Delta, PageNav, Skeleton, SkeletonCircle } from "../components/ui";
 import { findPlayerInOngoingMatches } from "../lib/utils";
-import {
-  getPlayerProfile,
-  getPlayerTimelineMerged,
-  getPlayerProfilesBatch,
-  getPlayerMatches,
-  getMatchMvps,
-  getPlayerGameModeStatsRaw,
-  pickModeRow,
-  toModeStats,
-  searchLadder,
-  getLadder,
-} from "../lib/api";
+import { getPlayerProfile, getPlayerTimelineMerged, getPlayerProfilesBatch, getPlayerMatches, getMatchMvps, getPlayerGameModeStatsRaw, pickModeRow, toModeStats, searchLadder, getLadder, getLeagueDivisions } from "../lib/api";
 import { cache } from "../lib/cache";
 import { matchIdleGapMs, SESSION_GAP_MINUTES, groupIntoSessions } from "../lib/session";
 import useSeasons from "../lib/useSeasons";
@@ -43,7 +32,7 @@ import MmrSparkline from "../components/MmrSparkline";
 import OngoingGame from "../components/OngoingGame";
 import ScoutTab from "./replay-lab/ScoutTab";
 import RecentConversations from "../components/RecentConversations";
-import { raceMapping, LEAGUES } from "../lib/constants";
+import { raceMapping, leagueTier } from "../lib/constants";
 import { parseDigestSections, splitQuotes } from "../lib/digestUtils";
 
 const PROFILE_TABS = [
@@ -621,11 +610,17 @@ const PlayerProfile = () => {
 
       if (!playerResult) return returnData ? null : undefined;
 
+      // league is the division id, not the tier (4 is Diamond 2, not Gold),
+      // and the row's leagueOrder is always 0, so resolve it through the
+      // season's constellation.
       const leagueId = playerResult.league;
-      const league = LEAGUES.find(l => l.id === leagueId);
+      const division = (await getLeagueDivisions(selectedSeason)).find((d) => d.id === leagueId);
+      if (latestReq.current !== reqId) return returnData ? null : undefined;
+      const league = leagueTier(division?.order);
       const partial = {
         league,
         leagueId,
+        leagueDivision: division?.division || 0,
         playerRank: playerResult.rankNumber,
         playerIndex: null,
         neighbors: null,
@@ -1261,7 +1256,10 @@ const PlayerProfile = () => {
               <div className="ladder-standing">
                 <div className="ls-header">
                   <img src={ladderStanding.league?.icon} alt="" className="ls-league-icon" />
-                  <span className="ls-league-name">{ladderStanding.league?.name}</span>
+                  <span className="ls-league-name">
+                    {ladderStanding.league?.name}
+                    {ladderStanding.leagueDivision > 0 && ` ${ladderStanding.leagueDivision}`}
+                  </span>
                 </div>
                 <div className="ls-list">
                   {ladderStanding.neighbors === null &&

@@ -195,13 +195,15 @@
 }
 
 /* League bar colors - tokens defined in App.css :root / design-tokens.js */
-.stats-bar.league-0 { background: var(--league-grandmaster); }
-.stats-bar.league-1 { background: var(--league-master); }
-.stats-bar.league-2 { background: var(--league-diamond); }
-.stats-bar.league-3 { background: var(--league-platinum); }
-.stats-bar.league-4 { background: var(--league-gold); }
-.stats-bar.league-5 { background: var(--league-silver); }
-.stats-bar.league-6 { background: var(--league-bronze); }
+.stats-bar.league-grandmaster { background: var(--league-grandmaster); }
+.stats-bar.league-master { background: var(--league-master); }
+.stats-bar.league-adept { background: var(--league-adept); }
+.stats-bar.league-diamond { background: var(--league-diamond); }
+.stats-bar.league-platinum { background: var(--league-platinum); }
+.stats-bar.league-gold { background: var(--league-gold); }
+.stats-bar.league-silver { background: var(--league-silver); }
+.stats-bar.league-bronze { background: var(--league-bronze); }
+.stats-bar.league-grass { background: var(--league-grass); }
 
 /* Race bar colors - tokens defined in App.css :root / design-tokens.js */
 .stats-bar.race-1 { background: var(--race-human); }

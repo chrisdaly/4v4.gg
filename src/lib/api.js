@@ -9,6 +9,7 @@
  */
 
 import { fetchWithCache, TTL, cache, createCacheKey } from './cache';
+import { DEFAULT_LEAGUE_DIVISIONS } from './constants';
 import { gateway, season, gameMode, GAME_MODE } from './params';
 import { detectSessionGames, filterMatchesByRace } from './session';
 
@@ -484,9 +485,33 @@ export const searchLadderWithFallback = async (searchTerm, gameMode = 4) => {
 };
 
 /**
- * Get ladder by league
+ * The season's 4v4 league divisions: [{ id, order, division }] in ladder
+ * order. id is what /ladder/{id} takes, order is the tier (LEAGUE_TIERS).
+ * Falls back to DEFAULT_LEAGUE_DIVISIONS when the endpoint fails.
+ */
+export const getLeagueDivisions = async (seasonOverride = season) => {
+  try {
+    const url = `${API_BASE}/ladder/league-constellation?gateWay=${gateway}&gameMode=4&season=${seasonOverride}`;
+    const cacheKey = `leagueDivisions:${seasonOverride}`;
+    const data = await fetchWithCache(url, { cacheKey, ttl: 60 * 60 * 1000 });
+    const entry = (Array.isArray(data) ? data : []).find(
+      (e) => e.gameMode === 4 && e.gateway === gateway
+    );
+    const divisions = (entry?.leagues || [])
+      .map((l) => ({ id: l.id, order: l.order, division: l.division }))
+      .sort((a, b) => a.id - b.id);
+    return divisions.length ? divisions : DEFAULT_LEAGUE_DIVISIONS;
+  } catch (error) {
+    console.error('Error fetching league constellation:', error);
+    return DEFAULT_LEAGUE_DIVISIONS;
+  }
+};
+
+/**
+ * Get ladder by league division
  *
- * @param {number} leagueId - 0=GM, 1=Master, 2=Diamond, etc.
+ * @param {number} leagueId - a division id from getLeagueDivisions (0=GM,
+ *   1=Master, then one id per division: 2=Adept, 3=Diamond 1, 4=Diamond 2 ...)
  * @param {number} seasonOverride
  * @returns {Promise<Array>}
  */
