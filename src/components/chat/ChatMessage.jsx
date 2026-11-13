@@ -265,14 +265,14 @@ const ClanTag = styled.span`
 `;
 
 /* "1974 MMR", the form the hover card, player sheet and profile header
-   use. A bare number next to a name read as unanchored. One size for the
-   figure and the label: at the header's 12px a smaller label was too
-   faint to read. */
+   use. A bare number next to a name read as unanchored, and grey at 12px
+   was too faint on the dark panel, so it follows the design's stats
+   pattern: mono, white. */
 const Mmr = styled.span`
   font-family: var(--font-mono);
   font-size: var(--text-xxs);
-  color: var(--grey-light);
-  opacity: 0.85;
+  color: var(--white);
+  opacity: 0.9;
   flex-shrink: 0;
 `;
 
