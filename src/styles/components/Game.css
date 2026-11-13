@@ -960,6 +960,14 @@ h2.team-name {
     margin: 10px 4px 20px 4px;
   }
 
+  /* Top-right is where the team header's race icons sit on a phone, so
+     the W3C link moves to the bottom corner beside the map block */
+  .game-w3c-link {
+    top: auto;
+    bottom: 10px;
+    right: 10px;
+  }
+
   .game-clickable,
   .match-page .Game {
     padding: 12px 8px;
