@@ -4,6 +4,7 @@ import PeonLoader from "../components/PeonLoader";
 import { gateway } from "../lib/params";
 import { cache } from "../lib/cache";
 import { getLadder, getLadderCached } from "../lib/api";
+import { cleanMapName, mapKey, getMapImageUrl } from "../lib/formatters";
 import useSeasons from "../lib/useSeasons";
 import "../styles/Stats.css";
 
@@ -505,12 +506,6 @@ const GameLengthChart = ({ lengthData, isLoading }) => {
 };
 
 // Helper to get map image URL
-const getMapImageUrl = (mapName) => {
-  if (!mapName) return null;
-  const cleanName = mapName.replace(/^\(\d\)/, "").replace(/ /g, "").replace(/'/g, "");
-  return `/maps/${cleanName}.png`;
-};
-
 // Map Popularity chart
 const MapPopularity = ({ mapData, selectedSeason, isLoading }) => {
   const chartData = useMemo(() => {
@@ -522,7 +517,19 @@ const MapPopularity = ({ mapData, selectedSeason, isLoading }) => {
     const mode4Data = seasonData.matchesOnMapPerModes.find(m => m.gameMode === 4);
     if (!mode4Data?.maps) return [];
 
-    return mode4Data.maps
+    // One map arrives as several upload ids (one per version), and mapName
+    // is only set on the newest. Merge them by map.
+    const byMap = new Map();
+    mode4Data.maps.forEach((m) => {
+      const key = mapKey(m.map);
+      if (!key) return;
+      const entry = byMap.get(key) || { key, name: null, count: 0 };
+      entry.count += m.count;
+      if (m.mapName && !entry.name) entry.name = m.mapName;
+      byMap.set(key, entry);
+    });
+    return [...byMap.values()]
+      .map((e) => ({ ...e, name: e.name || cleanMapName(mode4Data.maps.find((m) => mapKey(m.map) === e.key).map) }))
       .sort((a, b) => b.count - a.count);
   }, [mapData, selectedSeason]);
 
@@ -553,12 +560,11 @@ const MapPopularity = ({ mapData, selectedSeason, isLoading }) => {
       <div className="map-grid">
         {chartData.map((map, index) => {
           const percentage = totalGames > 0 ? ((map.count / totalGames) * 100).toFixed(1) : 0;
-          // API returns mapName (display name) or map (can be timestamp-prefixed ID or "(4)MapName")
-          const displayName = map.mapName || map.map.replace(/^\(\d\)/, '').replace(/^\d+/, '').trim();
+          const displayName = map.name;
           const mapImageUrl = getMapImageUrl(displayName);
 
           return (
-            <div key={map.map} className="map-grid-item">
+            <div key={map.key} className="map-grid-item">
               <div className="map-grid-rank">#{index + 1}</div>
               <img
                 src={mapImageUrl}

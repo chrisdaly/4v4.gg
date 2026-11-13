@@ -8,6 +8,33 @@
  * @param {string} mapId - Map ID like "(4)Ekrezem's Maze"
  * @returns {string|null} URL path to map image
  */
+/**
+ * Display name from a W3C map id. The stats endpoint names maps by upload
+ * id, in several shapes: "0w3c2606152308EkrezemsMazev1_1",
+ * "2506221057BanditsRetreatv1_1", "DeadlockLVw3c260125135730",
+ * "MountHyjalv1_25w3c26012513575149"; match endpoints send "(4)Ekrezem's
+ * Maze". Strips the upload id, timestamp, version and "(4)", then splits
+ * CamelCase into words ("RuinsOfAlterac" -> "Ruins of Alterac").
+ */
+export const cleanMapName = (raw) => {
+  if (!raw || typeof raw !== "string") return "";
+  const s = raw
+    .trim()
+    .replace(/^\(\d\)/, "")
+    .replace(/^\d*w3c\d+/i, "")
+    .replace(/w3c\d+$/i, "")
+    .replace(/^\d{6,}/, "")
+    .replace(/v\d+(_\d+)?[a-z]?$/, "")
+    .trim();
+  if (s.includes(" ")) return s;
+  return s
+    .replace(/([a-z0-9])([A-Z])/g, "$1 $2")
+    .replace(/ (Of|The|And)(?= )/g, (m) => m.toLowerCase());
+};
+
+/** Key that matches a map across upload ids and spellings */
+export const mapKey = (raw) => cleanMapName(raw).replace(/[\s']/g, "").toLowerCase();
+
 export const getMapImageUrl = (mapId) => {
   if (!mapId || typeof mapId !== "string") return null;
   // Strip parentheses prefix like "(4)", spaces, and apostrophes
