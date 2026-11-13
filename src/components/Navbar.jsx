@@ -196,18 +196,24 @@ const Navbar = () => {
     { to: "/chat", label: "Chat" },
   ];
 
+  // Public pages first, most-read at the top; the admin-only tools (the
+  // desk and the lab are private routes that show a visitor a login wall)
+  // sit under a divider and only in admin mode
   const moreLinks = [
-    // The desk is where an issue gets built, so it only shows in admin mode
-    ...(isAdmin ? [{ to: "/news-desk", label: "Story Desk" }] : []),
-    { to: "/upload", label: "Upload" },
-    { to: "/search", label: "Chat Search" },
     { to: "/stats", label: "Stats" },
-    { to: "/lab", label: "Lab" },
-    { to: "/observatory", label: "Observatory" },
-    { to: "/clips", label: "Clips" },
     { to: "/blog", label: "Blog" },
+    { to: "/observatory", label: "Observatory" },
+    { to: "/search", label: "Chat Search" },
+    { to: "/clips", label: "Clips" },
     { to: "/overlay", label: "Overlay" },
+    { to: "/upload", label: "Upload" },
     { to: "/themes", label: "Themes" },
+    ...(isAdmin
+      ? [
+          { to: "/news-desk", label: "Story Desk", admin: true },
+          { to: "/lab", label: "Lab", admin: true },
+        ]
+      : []),
   ];
 
   const isMoreActive = moreLinks.some((link) => isActive(link.to));
@@ -238,15 +244,17 @@ const Navbar = () => {
             </button>
             {showMore && (
               <div className="navbar-more-dropdown">
-                {moreLinks.map((link) => (
-                  <Link
-                    key={link.to}
-                    to={link.to}
-                    className={`navbar-more-link ${isActive(link.to) ? "active" : ""}`}
-                    onClick={() => setShowMore(false)}
-                  >
-                    {link.label}
-                  </Link>
+                {moreLinks.map((link, i) => (
+                  <React.Fragment key={link.to}>
+                    {link.admin && !moreLinks[i - 1]?.admin && <div className="navbar-more-divider">Admin</div>}
+                    <Link
+                      to={link.to}
+                      className={`navbar-more-link ${isActive(link.to) ? "active" : ""}`}
+                      onClick={() => setShowMore(false)}
+                    >
+                      {link.label}
+                    </Link>
+                  </React.Fragment>
                 ))}
               </div>
             )}
