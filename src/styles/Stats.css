@@ -5,27 +5,12 @@
   padding: 0 var(--space-4) var(--space-8);
 }
 
-.stats-header {
-  display: flex;
-  justify-content: space-between;
-  align-items: center;
-  padding: var(--space-6) 0;
-  margin-bottom: var(--space-6);
-  max-width: 1400px;
-  margin-left: auto;
-  margin-right: auto;
-}
-
-.stats-title {
-  font-family: var(--font-display);
-  font-size: var(--text-xl);
-  color: var(--gold);
-  margin: 0;
-}
-
+/* Season select under the hero, like the ladder's controls row */
 .stats-controls {
   display: flex;
   gap: var(--space-4);
+  max-width: 1400px;
+  margin: 0 auto var(--space-6);
 }
 
 /* Stats Grid - use more space */
@@ -56,14 +41,14 @@
 }
 
 /* Stats Card - uses theme border */
+/* Secondary card: the page's themed frame comes from PageLayout, so the
+   cards inside it take the plain grey border rather than a second theme
+   border */
 .stats-card {
-  background: var(--theme-bg, var(--surface-1));
-  border: var(--theme-border, 1px solid var(--grey-mid));
-  border-image: var(--theme-border-image, none);
+  background: var(--surface-1);
+  border: var(--border-thin) solid var(--grey-mid);
   border-radius: var(--radius-md);
   padding: var(--space-4);
-  backdrop-filter: var(--theme-blur, none);
-  box-shadow: var(--theme-shadow, none);
 }
 
 .stats-card-header {
@@ -468,11 +453,8 @@
 
 /* Responsive */
 @media (max-width: 600px) {
-  .stats-header {
-    flex-direction: column;
-    gap: var(--space-4);
-    align-items: center;
-    text-align: center;
+  .stats-controls {
+    justify-content: center;
   }
 
   .stats-row {

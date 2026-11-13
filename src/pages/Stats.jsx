@@ -9,7 +9,7 @@ import useSeasons from "../lib/useSeasons";
 import "../styles/Stats.css";
 
 import { LEAGUE_TIERS, leagueTier, DEFAULT_LEAGUE_DIVISIONS, raceIcons } from "../lib/constants";
-import { PageLayout } from "../components/PageLayout";
+import { PageLayout, PageHero } from "../components/PageLayout";
 
 const RACES = [
   { id: 1, name: "Human", icon: raceIcons.human },
@@ -988,24 +988,27 @@ const Stats = () => {
     <PageLayout
       maxWidth="1400px"
       header={
-        <div className="stats-header">
-          <h1 className="stats-title">4v4 Statistics</h1>
+        <>
+          <PageHero
+            eyebrow="4v4.gg Stats"
+            title="Statistics"
+            lead="Who plays 4v4 this season: leagues, races, countries, the MMR curve and the map pool."
+            lg
+          />
           <div className="stats-controls">
-            <div className="season-selector">
-              <Select
-                id="season-select"
-                value={selectedSeason || ""}
-                onChange={handleSeasonChange}
-              >
-                {availableSeasons.map((s) => (
-                  <option key={s.id} value={s.id}>
-                    S{s.id}
-                  </option>
-                ))}
-              </Select>
-            </div>
+            <Select
+              id="season-select"
+              value={selectedSeason || ""}
+              onChange={handleSeasonChange}
+            >
+              {availableSeasons.map((s) => (
+                <option key={s.id} value={s.id}>
+                  S{s.id}
+                </option>
+              ))}
+            </Select>
           </div>
-        </div>
+        </>
       }
     >
       <div className="stats-grid">
