@@ -3,12 +3,12 @@ import { CountryFlag, Select, Button } from "../components/ui";
 import PeonLoader from "../components/PeonLoader";
 import { gateway } from "../lib/params";
 import { cache } from "../lib/cache";
-import { getLadder, getLadderCached } from "../lib/api";
+import { getLadder, getLadderCached, getLeagueDivisions } from "../lib/api";
 import { cleanMapName, mapKey, getMapImageUrl } from "../lib/formatters";
 import useSeasons from "../lib/useSeasons";
 import "../styles/Stats.css";
 
-import { LEAGUES, raceIcons } from "../lib/constants";
+import { LEAGUE_TIERS, leagueTier, DEFAULT_LEAGUE_DIVISIONS, raceIcons } from "../lib/constants";
 import { PageLayout } from "../components/PageLayout";
 
 const RACES = [
@@ -74,17 +74,17 @@ const LeagueDistribution = ({ leagueCounts, selectedLeague, onLeagueClick, filte
         </div>
       </div>
       <div className="stats-bars">
-        {LEAGUES.map((league) => {
-          const count = leagueCounts[league.id] || 0;
+        {LEAGUE_TIERS.filter((league) => league.order in leagueCounts).map((league) => {
+          const count = leagueCounts[league.order] || 0;
           const percentage = totalPlayers > 0 ? ((count / totalPlayers) * 100).toFixed(1) : 0;
           const barWidth = maxCount > 0 ? (count / maxCount) * 100 : 0;
-          const isSelected = selectedLeague === league.id;
+          const isSelected = selectedLeague === league.order;
 
           return (
             <div
-              key={league.id}
+              key={league.order}
               className={`stats-row clickable ${isSelected ? "selected" : ""}`}
-              onClick={() => onLeagueClick(league.id)}
+              onClick={() => onLeagueClick(league.order)}
             >
               <div className="stats-label">
                 <img src={league.icon} alt="" className="stats-icon" />
@@ -92,7 +92,7 @@ const LeagueDistribution = ({ leagueCounts, selectedLeague, onLeagueClick, filte
               </div>
               <div className="stats-bar-container">
                 <div
-                  className={`stats-bar league-${league.id}`}
+                  className={`stats-bar league-${league.key}`}
                   style={{ width: `${barWidth}%` }}
                 />
               </div>
@@ -712,7 +712,7 @@ const ChatActivity = () => {
 
 // Helper to get cached stats data
 const getCachedStatsData = (season) => {
-  const cacheKey = `statsPage:${season}`;
+  const cacheKey = `statsPage:v2:${season}`;
   return cache.get(cacheKey);
 };
 
@@ -730,6 +730,7 @@ const Stats = () => {
   const [selectedCountry, setSelectedCountry] = useState(null);
   const { seasons: availableSeasons, currentSeason } = useSeasons();
   const [leagueData, setLeagueData] = useState({});
+  const [divisions, setDivisions] = useState(DEFAULT_LEAGUE_DIVISIONS);
   const [playerCountries, setPlayerCountries] = useState({});
   const [isLoading, setIsLoading] = useState(true);
 
@@ -826,13 +827,14 @@ const Stats = () => {
   useEffect(() => {
     if (selectedSeason === null) return;
 
-    const statsCacheKey = `statsPage:${selectedSeason}`;
+    const statsCacheKey = `statsPage:v2:${selectedSeason}`;
 
     const fetchAllLeagueData = async () => {
       // Check cache first for instant display
       const cachedData = getCachedStatsData(selectedSeason);
       if (cachedData) {
         setLeagueData(cachedData.leagueData || {});
+        setDivisions(cachedData.divisions || DEFAULT_LEAGUE_DIVISIONS);
         setPlayerCountries(cachedData.countries || {});
         setIsLoading(false);
         // Still fetch fresh data in background
@@ -843,10 +845,12 @@ const Stats = () => {
       const data = {};
 
       try {
-        // Use cached API for each league
-        const promises = LEAGUES.map(async (league) => {
-          const result = await getLadder(league.id, selectedSeason);
-          return { id: league.id, players: Array.isArray(result) ? result : [] };
+        // Every division of every tier: /ladder/{id} is one division of up
+        // to 100 players, so a tier's count is the sum of its divisions.
+        const seasonDivisions = await getLeagueDivisions(selectedSeason);
+        const promises = seasonDivisions.map(async (division) => {
+          const result = await getLadder(division.id, selectedSeason);
+          return { id: division.id, players: Array.isArray(result) ? result : [] };
         });
 
         const results = await Promise.all(promises);
@@ -855,6 +859,7 @@ const Stats = () => {
         });
 
         setLeagueData(data);
+        setDivisions(seasonDivisions);
 
         // Extract countries from player data
         const countries = {};
@@ -869,6 +874,7 @@ const Stats = () => {
         // Cache the combined stats page data (5 minute TTL)
         cache.set(statsCacheKey, {
           leagueData: data,
+          divisions: seasonDivisions,
           countries,
           mmrData,
         }, 5 * 60 * 1000);
@@ -893,25 +899,26 @@ const Stats = () => {
     return true;
   };
 
-  // Compute league counts - filtered by race and country
+  // Division ids that count for the current tier filter (all when none)
+  const divisionIdsFor = (order) =>
+    divisions.filter((d) => order === null || d.order === order).map((d) => d.id);
+
+  // Compute league counts by tier - filtered by race and country
   const leagueCounts = useMemo(() => {
     const counts = {};
-    LEAGUES.forEach((league) => {
-      const players = leagueData[league.id] || [];
-      counts[league.id] = players.filter(p => filterPlayer(p, { skipLeague: true })).length;
+    divisions.forEach((division) => {
+      const players = leagueData[division.id] || [];
+      const n = players.filter(p => filterPlayer(p, { skipLeague: true })).length;
+      counts[division.order] = (counts[division.order] || 0) + n;
     });
     return counts;
-  }, [leagueData, selectedRace, selectedCountry]);
+  }, [leagueData, divisions, selectedRace, selectedCountry]);
 
   // Compute race counts - filtered by league and country
   const raceCounts = useMemo(() => {
     const counts = { 0: 0, 1: 0, 2: 0, 4: 0, 8: 0 };
 
-    const leaguesToCount = selectedLeague !== null
-      ? [selectedLeague]
-      : LEAGUES.map(l => l.id);
-
-    leaguesToCount.forEach((leagueId) => {
+    divisionIdsFor(selectedLeague).forEach((leagueId) => {
       const players = leagueData[leagueId] || [];
       players.forEach((player) => {
         if (!filterPlayer(player, { skipRace: true })) return;
@@ -923,17 +930,13 @@ const Stats = () => {
     });
 
     return counts;
-  }, [leagueData, selectedLeague, selectedCountry]);
+  }, [leagueData, divisions, selectedLeague, selectedCountry]);
 
   // Compute country counts - filtered by league and race
   const countryCounts = useMemo(() => {
     const counts = {};
 
-    const leaguesToCount = selectedLeague !== null
-      ? [selectedLeague]
-      : LEAGUES.map(l => l.id);
-
-    leaguesToCount.forEach((leagueId) => {
+    divisionIdsFor(selectedLeague).forEach((leagueId) => {
       const players = leagueData[leagueId] || [];
       players.forEach((player) => {
         if (!filterPlayer(player, { skipCountry: true })) return;
@@ -945,13 +948,13 @@ const Stats = () => {
     });
 
     return counts;
-  }, [leagueData, selectedLeague, selectedRace]);
+  }, [leagueData, divisions, selectedLeague, selectedRace]);
 
   // Generate filter labels for display
   const getFilterLabels = (exclude) => {
     const labels = [];
     if (exclude !== 'league' && selectedLeague !== null) {
-      labels.push(LEAGUES.find(l => l.id === selectedLeague)?.name);
+      labels.push(leagueTier(selectedLeague)?.name);
     }
     if (exclude !== 'race' && selectedRace !== null) {
       labels.push(RACES.find(r => r.id === selectedRace)?.name);

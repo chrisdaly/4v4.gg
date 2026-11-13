@@ -107,11 +107,13 @@ export const tints = {
 export const leagueColors = {
   grandmaster: { value: 'linear-gradient(90deg, #c9a227, #f5d742)', css: '--league-grandmaster', usage: 'League 0 bar' },
   master: { value: 'linear-gradient(90deg, #7b5dbd, #a78bfa)', css: '--league-master', usage: 'League 1 bar' },
-  diamond: { value: 'linear-gradient(90deg, #38bdf8, #67e8f9)', css: '--league-diamond', usage: 'League 2 bar' },
-  platinum: { value: 'linear-gradient(90deg, #22c55e, #4ade80)', css: '--league-platinum', usage: 'League 3 bar' },
-  gold: { value: 'linear-gradient(90deg, #eab308, #facc15)', css: '--league-gold', usage: 'League 4 bar' },
-  silver: { value: 'linear-gradient(90deg, #94a3b8, #cbd5e1)', css: '--league-silver', usage: 'League 5 bar' },
-  bronze: { value: 'linear-gradient(90deg, #b45309, #f59e0b)', css: '--league-bronze', usage: 'League 6 bar' },
+  adept: { value: 'linear-gradient(90deg, #0d9488, #2dd4bf)', css: '--league-adept', usage: 'League 2 bar (Adept)' },
+  diamond: { value: 'linear-gradient(90deg, #38bdf8, #67e8f9)', css: '--league-diamond', usage: 'League 3 bar' },
+  platinum: { value: 'linear-gradient(90deg, #22c55e, #4ade80)', css: '--league-platinum', usage: 'League 4 bar' },
+  gold: { value: 'linear-gradient(90deg, #eab308, #facc15)', css: '--league-gold', usage: 'League 5 bar' },
+  silver: { value: 'linear-gradient(90deg, #94a3b8, #cbd5e1)', css: '--league-silver', usage: 'League 6 bar' },
+  bronze: { value: 'linear-gradient(90deg, #b45309, #f59e0b)', css: '--league-bronze', usage: 'League 7 bar' },
+  grass: { value: 'linear-gradient(90deg, #4d7c0f, #84cc16)', css: '--league-grass', usage: 'League 8 bar (Grass)' },
 };
 
 // Race bar colors - classic WC3 faction colors.

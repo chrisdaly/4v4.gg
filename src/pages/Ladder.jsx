@@ -6,12 +6,12 @@ import { PageLayout, PageHero } from "../components/PageLayout";
 import { Select, PlayerSearch } from "../components/ui";
 import { gateway } from "../lib/params";
 import { fetchPlayerSessionData } from "../lib/utils";
-import { getPlayerProfile, getPlayerTimelineMerged, getLadder, getLadderCached } from "../lib/api";
+import { getPlayerProfile, getPlayerTimelineMerged, getLadder, getLadderCached, getLeagueDivisions } from "../lib/api";
 import { cache } from "../lib/cache";
 import useSeasons from "../lib/useSeasons";
 import useOngoingMatches from "../lib/useOngoingMatches";
 import { getLiveStreamers } from "../lib/twitchService";
-import { LEAGUES } from "../lib/constants";
+import { leagueTier, divisionLabel, DEFAULT_LEAGUE_DIVISIONS } from "../lib/constants";
 import "../styles/pages/Ladder.css";
 
 // Initialize rankings from cache for instant UI on navigation
@@ -24,7 +24,21 @@ const Ladder = () => {
   // Try to get initial season from cache or use default
   const [selectedSeason, setSelectedSeason] = useState(null);
   const [selectedLeague, setSelectedLeague] = useState(0);
+  const [divisions, setDivisions] = useState(DEFAULT_LEAGUE_DIVISIONS);
   const { seasons: availableSeasons, currentSeason } = useSeasons();
+
+  // The season's divisions drive the league select. If the chosen id is not
+  // in the new season's constellation, fall back to Grandmaster.
+  useEffect(() => {
+    if (selectedSeason === null) return;
+    let cancelled = false;
+    getLeagueDivisions(selectedSeason).then((list) => {
+      if (cancelled) return;
+      setDivisions(list);
+      setSelectedLeague((id) => (list.some((d) => d.id === id) ? id : 0));
+    });
+    return () => { cancelled = true; };
+  }, [selectedSeason]);
 
   // Initialize rankings from cache for instant UI
   const [rankings, setRankings] = useState([]);
@@ -358,7 +372,9 @@ const Ladder = () => {
     return battleTag && ongoingPlayers.has(battleTag.toLowerCase());
   }).length, [rankings, ongoingPlayers]);
 
-  const currentLeague = LEAGUES.find((l) => l.id === selectedLeague);
+  const currentDivision = divisions.find((d) => d.id === selectedLeague) || divisions[0];
+  const currentLeague = leagueTier(currentDivision?.order);
+  const divisionCount = divisions.filter((d) => d.order === currentDivision?.order).length;
 
   const ladderHeader = (
     <>
@@ -373,6 +389,9 @@ const Ladder = () => {
           ) : (
             <>
               <span className="stat-item">{rankings.length} players</span>
+              {divisionCount > 1 && (
+                <span className="stat-item">Division {currentDivision.division} of {divisionCount}</span>
+              )}
               {inGameCount > 0 && (
                 <span className="stat-item in-game">
                   <span className="live-dot" />
@@ -402,9 +421,9 @@ const Ladder = () => {
               disabled={searchResults !== null}
               style={{ paddingLeft: '34px' }}
             >
-              {LEAGUES.map((league) => (
-                <option key={league.id} value={league.id}>
-                  {league.name}
+              {divisions.map((division) => (
+                <option key={division.id} value={division.id}>
+                  {divisionLabel(division, divisions)}
                 </option>
               ))}
             </Select>

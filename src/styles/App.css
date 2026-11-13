@@ -113,11 +113,13 @@
   /* League bar colors - match league icons (same league = same color on every page) */
   --league-grandmaster: linear-gradient(90deg, #c9a227, #f5d742);
   --league-master: linear-gradient(90deg, #7b5dbd, #a78bfa);
+  --league-adept: linear-gradient(90deg, #0d9488, #2dd4bf);
   --league-diamond: linear-gradient(90deg, #38bdf8, #67e8f9);
   --league-platinum: linear-gradient(90deg, #22c55e, #4ade80);
   --league-gold: linear-gradient(90deg, #eab308, #facc15);
   --league-silver: linear-gradient(90deg, #94a3b8, #cbd5e1);
   --league-bronze: linear-gradient(90deg, #b45309, #f59e0b);
+  --league-grass: linear-gradient(90deg, #4d7c0f, #84cc16);
 
   /* Race bar colors - classic WC3 faction colors */
   --race-human: linear-gradient(90deg, #3b82f6, #60a5fa);
