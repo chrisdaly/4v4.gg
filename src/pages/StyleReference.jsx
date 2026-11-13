@@ -103,6 +103,17 @@ const tintBackground = (key, token) =>
 const mono = { fontFamily: "var(--font-mono)", color: "var(--grey-light)" };
 const cellName = { fontFamily: "var(--font-display)", color: "var(--gold)", whiteSpace: "nowrap" };
 
+// Face per type-scale step, so the sample reads the way the size is used
+const TYPE_SAMPLE_FONT = {
+  xl: "var(--font-display)",
+  lg: "var(--font-display)",
+  base: "var(--font-body)",
+  sm: "var(--font-body)",
+  xs: "var(--font-mono)",
+  xxs: "var(--font-mono)",
+  xxxs: "var(--font-mono)",
+};
+
 const StyleReference = () => {
   const colorEntries = Object.entries(colors);
   const spacingEntries = Object.entries(spacing);
@@ -301,7 +312,10 @@ const StyleReference = () => {
           {typeEntries.map(([key, token]) => (
             <div className="sr-type-row" key={key}>
               <span className="sr-type-meta">{token.css} ({token.value})</span>
-              <span style={{ fontSize: token.value, color: "var(--white)" }}>{token.usage}</span>
+              {/* Each size in the face its usage names: headings and player
+                  names are display, body sizes are the serif, label sizes
+                  are mono (patterns in design-tokens.js) */}
+              <span style={{ fontSize: token.value, color: "var(--white)", fontFamily: TYPE_SAMPLE_FONT[key] }}>{token.usage}</span>
             </div>
           ))}
         </div>
@@ -599,10 +613,11 @@ const StyleReference = () => {
         <div className="sr-section-head">
           <div>
             <h2>Player cards</h2>
-            <p>Compact identity cards with avatar, name, race, and MMR. Used in cover art tools, could work for spotlights, leaderboards, or anywhere a player needs a visual identity.</p>
+            <p>Compact identity cards with avatar, name, race, and MMR. These belong to the cover-art tool (DevTools.css) and are not a shared component: nothing in ui.jsx exports them. Shown here as a candidate for spotlights or leaderboards, should one be promoted.</p>
           </div>
           <div className="sr-tag-row">
             <span className="sr-tag">dt-player-card</span>
+            <span className="sr-tag">tooling only</span>
           </div>
         </div>
 
