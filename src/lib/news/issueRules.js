@@ -65,9 +65,16 @@ export const stackPasses = (s) => ((s?.wins || 0) + (s?.losses || 0)) >= SECTION
 
 /* ── Issues ───────────────────────────────────────────── */
 
-/** Issue number for a week: 1 for the oldest published week, counting up. */
+/** Whether an issue is on the site. The public list carries no flag, so a missing one counts as live. */
+export const isLive = (w) => w?.published == null || String(w.published) === "1";
+
+/**
+ * Issue number for a week: 1 for the oldest published week, counting up.
+ * Drafts are not numbered: the number a draft would take belongs to it only
+ * once it is live, and counting drafts would renumber the live issues around it.
+ */
 export function issueNumber(weeklies, weekStart) {
-  const list = (weeklies || []).map((w) => w.week_start).sort();
+  const list = (weeklies || []).filter(isLive).map((w) => w.week_start).sort();
   const idx = list.indexOf(weekStart);
   return idx === -1 ? null : idx + 1;
 }

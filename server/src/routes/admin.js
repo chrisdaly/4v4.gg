@@ -671,7 +671,9 @@ router.get('/analytics', publicLimiter, (_req, res) => {
 // Recent weekly digests (public) - parse clips + stats + digest_json, backfill message count
 router.get('/weekly-digests', publicLimiter, (req, res) => {
   const isAdmin = req.headers['x-api-key'] === config.ADMIN_API_KEY && !!config.ADMIN_API_KEY;
-  const weeklies = getRecentWeeklyDigests(8, isAdmin).map(w => {
+  // Every issue, not the last eight: the index numbers issues by their place
+  // in this list, so a cap renumbers everything once it is exceeded.
+  const weeklies = getRecentWeeklyDigests(200, isAdmin).map(w => {
     const result = { ...w };
     if (w.clips) {
       try { result.clips = JSON.parse(w.clips); } catch { result.clips = null; }
