@@ -404,6 +404,7 @@ const Chat = () => {
           recentDeltas={recentDeltas}
           liveStreamers={liveStreamers}
           watchList={watchList}
+          onlineUsers={onlineUsers}
           botResponses={botResponses}
           translations={translations}
           borderTheme={borderTheme}

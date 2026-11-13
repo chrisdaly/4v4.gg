@@ -2,13 +2,13 @@ import React, { useRef, useEffect, useState, useCallback, useMemo } from "react"
 import styled, { css } from "styled-components";
 import { Link } from "react-router-dom";
 import { IoSend } from "react-icons/io5";
-import { Button, Skeleton, Input, PlayerSearch } from "./ui";
+import { Button, Skeleton, Input, Select, PlayerSearch } from "./ui";
 import { useBotResponseMap, formatDateDivider, getDateKey } from "../lib/useChatMessages";
 import { linkifyMessage } from "../lib/chatExtras";
 import PlayerHoverCard from "./PlayerHoverCard";
 import ChatMessage from "./chat/ChatMessage";
 import UnfurlCard from "./chat/UnfurlCard";
-import { findWatchedMentions, splitByMentions } from "../lib/chat/mentions";
+import { findWatchedMentions, splitByMentions, nameIndex } from "../lib/chat/mentions";
 import { detectUnfurl } from "../lib/chat/unfurl";
 import { notifyChat } from "../lib/chat/notify";
 import { applyTabBadge } from "../lib/chat/tabBadge";
@@ -18,9 +18,10 @@ import { chipForTag } from "./chat/chip";
 import { relayFetch } from "../lib/relay";
 import useAdmin from "../lib/useAdmin";
 import { setTrimPaused } from "../lib/chat/trimGate";
-import { useStable, sameMapKeys } from "../lib/chat/derived";
+import { useStable, sameMapKeys, sameSet } from "../lib/chat/derived";
 import useStreamScroll, { ROW_KEY_ATTR } from "../lib/chat/useStreamScroll";
 import useStreamRows from "../lib/chat/useStreamRows";
+import useAuthorHover from "../lib/chat/useAuthorHover";
 import { Panel } from "./chat/panel";
 import { CHAT_MOBILE_PX } from "../lib/useIsMobile";
 
@@ -96,6 +97,38 @@ const Home = styled(Link)`
     color: var(--white);
   }
 `;
+
+/* The rest of the site, since /chat has no navbar: mono labels between the
+   logo and the search field, on the wide layout only (the chat column is
+   too narrow for them under 1200px) */
+const HeaderNav = styled.nav`
+  display: flex;
+  align-items: center;
+  gap: var(--space-4);
+  @media (max-width: 1199px) {
+    display: none;
+  }
+`;
+
+const HeaderLink = styled(Link)`
+  font-family: var(--font-mono);
+  font-size: var(--text-xxxs);
+  text-transform: uppercase;
+  letter-spacing: 0.1em;
+  color: var(--grey-light);
+  text-decoration: none;
+  white-space: nowrap;
+  &:hover {
+    color: var(--gold);
+  }
+`;
+
+const SITE_LINKS = [
+  { to: "/live", label: "Live" },
+  { to: "/finished", label: "Finished" },
+  { to: "/ladder", label: "Ladder" },
+  { to: "/news", label: "News" },
+];
 
 /* The always-visible search field is the shared PlayerSearch (ui.jsx), the
    same underline field as the navbar: "N found" and the archive link sit
@@ -208,6 +241,22 @@ const ListTop = styled.div`
 
 const ListBottom = styled.div`
   padding: 0 ${LIST_PAD_X} ${LIST_PAD_BOTTOM};
+`;
+
+/* Under the newest line, where a first-time reader looks for the input
+   that is not there. Indented to the text column (38px avatar + 12px gap)
+   on desktop, flush on mobile. */
+const ReadOnlyNote = styled.p`
+  margin: var(--space-3) 0 0;
+  padding-left: 50px;
+  font-family: var(--font-mono);
+  font-size: var(--text-xxxs);
+  line-height: 1.5;
+  color: var(--grey-light);
+  opacity: 0.55;
+  @media (max-width: ${CHAT_MOBILE_PX}px) {
+    padding-left: 0;
+  }
 `;
 
 /* Indented to the message text column: 38px avatar + 12px gap */
@@ -501,22 +550,70 @@ const Mark = styled.span`
   padding: 0 1px;
 `;
 
-/* A watched player's name inside someone else's line */
-const MentionMark = styled(Mark).attrs({ "data-mention": "true" })`
+/* A watched player's name inside someone else's line, when that player is
+   not in the channel (nothing to link to with the right casing) */
+const MentionMark = styled(Mark).attrs({ "data-mention": "watched" })`
   font-family: var(--font-display);
   background: rgba(252, 219, 51, 0.16);
 `;
 
-// Wrap watched-player names in a line (already linkified: a string or an
-// array of strings and anchors) in a gold mark
-function markMentions(node, watchList) {
-  if (!watchList || watchList.size === 0) return node;
-  const markString = (text, keyBase) => {
-    const parts = splitByMentions(text, watchList);
-    if (parts.length === 1 && typeof parts[0] === "string") return text;
-    return parts.map((part, i) =>
-      typeof part === "string" ? part : <MentionMark key={`${keyBase}-${i}`}>{part.mention}</MentionMark>
+/* Someone in the channel named in a line: the display face in gold, a
+   link to their profile (a button that opens the player card on mobile).
+   A watched player keeps the mark behind it. */
+const mentionStyles = css`
+  font-family: var(--font-display);
+  font-size: inherit;
+  line-height: inherit;
+  color: var(--gold);
+  text-decoration: none;
+  border-radius: 2px;
+  padding: 0 1px;
+  &:hover {
+    text-decoration: underline;
+  }
+  &[data-watched="true"] {
+    background: rgba(252, 219, 51, 0.16);
+  }
+`;
+
+const MentionLink = styled(Link).attrs({ "data-mention": "online" })`
+  ${mentionStyles}
+`;
+
+const MentionButton = styled.button.attrs({ "data-mention": "online", type: "button" })`
+  ${mentionStyles}
+  background: none;
+  border: 0;
+  cursor: pointer;
+`;
+
+// Mark the players named in a line (already linkified: a string or an
+// array of strings and anchors). `tags` is the watch list plus the channel
+// roster; `roster` maps a lowercased name to the roster's cased battleTag,
+// which is what the profile link needs.
+function markMentions(node, { tags, watchList, roster, onOpenPlayer }) {
+  if (!tags || tags.size === 0) return node;
+  const renderMention = (part, key) => {
+    const tag = roster?.get(part.mention.toLowerCase()) || null;
+    const watched = Boolean(watchList?.size) && watchList.has((tag || part.battleTag || "").toLowerCase());
+    if (!tag) return watched ? <MentionMark key={key}>{part.mention}</MentionMark> : part.mention;
+    if (onOpenPlayer) {
+      return (
+        <MentionButton key={key} data-watched={watched || undefined} title={tag} onClick={() => onOpenPlayer({ battleTag: tag })}>
+          {part.mention}
+        </MentionButton>
+      );
+    }
+    return (
+      <MentionLink key={key} data-watched={watched || undefined} title={tag} to={`/player/${encodeURIComponent(tag)}`}>
+        {part.mention}
+      </MentionLink>
     );
+  };
+  const markString = (text, keyBase) => {
+    const parts = splitByMentions(text, tags);
+    if (parts.length === 1 && typeof parts[0] === "string") return text;
+    return parts.map((part, i) => (typeof part === "string" ? part : renderMention(part, `${keyBase}-${i}`)));
   };
   if (typeof node === "string") return markString(node, "m");
   if (Array.isArray(node)) return node.flatMap((part, i) => (typeof part === "string" ? markString(part, `m${i}`) : part));
@@ -593,6 +690,17 @@ const NEW_MARKER_LINGER_MS = 120_000;
 // before giving up
 const MAX_JUMP_PAGES = 20;
 
+// The hour picker's rows, labelled the way the stream's times are
+const HOURS = Array.from({ length: 24 }, (_, h) => h);
+function hourLabel(h) {
+  const d = new Date(2000, 0, 1, h);
+  return d.toLocaleTimeString([], { hour: "numeric" });
+}
+// A jump to an hour loads the window that ends this long after it, so the
+// first line past the hour is in the window on a normal evening; on a very
+// busy one the window starts inside the hour and the reader lands there
+const TIME_JUMP_SLACK_MS = 15 * 60 * 1000;
+
 // Local "YYYY-MM-DD" for a native date input
 function toInputDate(d) {
   const pad = (n) => String(n).padStart(2, "0");
@@ -633,6 +741,9 @@ function ListFooter({ unmatchedBotResponses }) {
           <BotText>{br.response}</BotText>
         </BotResponseRow>
       ))}
+      <ReadOnlyNote data-read-only-note>
+        Read-only. This mirrors the W3Champions 4 vs 4 channel. To talk, open it in the game client.
+      </ReadOnlyNote>
     </ListBottom>
   );
 }
@@ -744,7 +855,8 @@ const FeedRow = React.memo(function FeedRow({ row, showNewMarker, ctx }) {
  *
  * Props (data): messages, status, avatars, stats, sessions, inGameTags,
  *   inGameInfoMap, recentWinners, recentDeltas, liveStreamers, watchList,
- *   botResponses, translations
+ *   onlineUsers (the channel roster: names in a line that belong to someone
+ *   in the channel link to their profile), botResponses, translations
  * Props (history): loadOlder, hasMoreHistory, loadWindow, loadLatest,
  *   windowMode, windowId, permalinkId, permalinkAt (the message's
  *   received_at: a permalink outside the loaded window reloads the window
@@ -767,6 +879,7 @@ export default function ChatPanel({
   recentDeltas,
   liveStreamers,
   watchList,
+  onlineUsers = [],
   botResponses = [],
   translations = new Map(),
   loadOlder,
@@ -807,8 +920,15 @@ export default function ChatPanel({
   const [windowJump, setWindowJump] = useState(null);
   // { id, align } - scroll to this message's row once it exists in `rows`
   const [pendingJump, setPendingJump] = useState(null);
-  // Sticky day bar: the key of the row at the top of the viewport
+  // Sticky day bar: the key of the row at the top of the viewport; and the
+  // row the scroll hold protects (that row, or the first message row under
+  // a day divider), which the rows pipeline keeps its prepend boundary on
   const [topKey, setTopKey] = useState(null);
+  const [heldKey, setHeldKey] = useState(null);
+  const onTopRowChange = useCallback((key, held) => {
+    setTopKey(key);
+    setHeldKey(held);
+  }, []);
   const [dayPickerOpen, setDayPickerOpen] = useState(false);
   const [archiveMin, setArchiveMin] = useState(null);
   const [loadingWindow, setLoadingWindow] = useState(false);
@@ -817,6 +937,7 @@ export default function ChatPanel({
   const jumpingRef = useRef(false);
   const permalinkDoneRef = useRef(null);
   const dayPickerRef = useRef(null);
+  const dateInputRef = useRef(null);
   const messagesRef = useRef(messages);
   // Whether the viewport is pinned to the newest row. It also gates the live
   // cap: no head trim while the reader is scrolled up (lib/chat/trimGate.js).
@@ -952,6 +1073,33 @@ export default function ChatPanel({
     try {
       const loaded = isToday ? await loadLatest() : await loadWindow(toRelayCursor(nextDay));
       const first = loaded.find((msg) => getDateKey(msg.sentAt) === key) || loaded[loaded.length - 1];
+      setPendingJump(first ? { id: first.id, align: "start" } : null);
+    } catch {
+      // relay unreachable; the current window stays
+    } finally {
+      setLoadingWindow(false);
+    }
+  }, [loadWindow, loadLatest, loadingWindow]);
+
+  // Jump to an hour of a day: load the window that ends a little after it
+  // and scroll to the first line at or past the hour (or the window's last
+  // row when nothing was said after it). An hour still to come is the
+  // live tail.
+  const jumpToTime = useCallback(async (ymd, hour) => {
+    if (!ymd || !loadWindow || !loadLatest || loadingWindow) return;
+    const [y, m, d] = ymd.split("-").map(Number);
+    if (!y || !m || !d) return;
+    const at = new Date(y, m - 1, d, hour);
+    setDayPickerOpen(false);
+    setLoadingWindow(true);
+    try {
+      if (at.getTime() >= Date.now()) {
+        await loadLatest();
+        setPendingJump(null);
+        return;
+      }
+      const loaded = await loadWindow(toRelayCursor(new Date(at.getTime() + TIME_JUMP_SLACK_MS)));
+      const first = loaded.find((msg) => new Date(msg.sentAt).getTime() >= at.getTime()) || loaded[loaded.length - 1];
       setPendingJump(first ? { id: first.id, align: "start" } : null);
     } catch {
       // relay unreachable; the current window stays
@@ -1099,6 +1247,15 @@ export default function ChatPanel({
     }
   }, [botDraft, apiKey, botTesting]);
 
+  // Names the stream marks: the channel roster (cased tags, for the profile
+  // link) plus the watch list. Held at identity while the membership stands,
+  // since every row re-renders when they change.
+  const rosterTagsRaw = useMemo(() => new Set(onlineUsers.map((u) => u?.battleTag).filter(Boolean)), [onlineUsers]);
+  const rosterTags = useStable(rosterTagsRaw, sameSet);
+  const mentionTagsRaw = useMemo(() => new Set([...(watchList || []), ...rosterTags]), [watchList, rosterTags]);
+  const mentionTags = useStable(mentionTagsRaw, sameSet);
+  const rosterByName = useMemo(() => nameIndex(rosterTags), [rosterTags]);
+
   const { botResponseMap: botResponseMapRaw, unmatchedBotResponses } = useBotResponseMap(botResponses, messages);
   // Re-indexed on every message, almost always to the same (usually empty)
   // map; the rows memoize on it, so give it its identity back
@@ -1109,6 +1266,7 @@ export default function ChatPanel({
     filterActive,
     filterQ,
     newMarkerTime,
+    holdKey: heldKey,
   });
   // The same words, against the whole archive instead of the loaded stream
   const archiveHref = `/search?q=${encodeURIComponent(query.trim())}&since=all`;
@@ -1160,7 +1318,7 @@ export default function ChatPanel({
     windowId,
     onNearTop: handleStartReached,
     onNearBottom: handleEndReached,
-    onTopRowChange: setTopKey,
+    onTopRowChange,
   });
   const unseen = useUnreadCount(messages, atBottom);
 
@@ -1227,7 +1385,13 @@ export default function ChatPanel({
     chipCtx: { inGameTags, recentDeltas, recentWinners, startTimes: inGameInfoMap },
     // Mobile: a name opens the player card
     openPlayerCard: isMobile && onOpenPlayer ? (author) => onOpenPlayer(author.battleTag) : undefined,
-    renderLine: (line) => markMentions(linkifyMessage(line.text), watchList),
+    renderLine: (line) =>
+      markMentions(linkifyMessage(line.text), {
+        tags: mentionTags,
+        watchList,
+        roster: rosterByName,
+        onOpenPlayer: isMobile && onOpenPlayer ? (author) => onOpenPlayer(author.battleTag) : undefined,
+      }),
     permalinkHref: (line) => `${window.location.origin}/chat?m=${encodeURIComponent(line.id)}`,
     renderAfterLine: (line) => {
       const unfurl = detectUnfurl(line.text);
@@ -1248,9 +1412,12 @@ export default function ChatPanel({
     },
   }), [
     avatars, stats, sessions, liveStreamers, inGameTags, inGameInfoMap, watchList,
-    translations, showTranslations, flashId, recentDeltas, recentWinners,
-    botResponseMap, onOpenGame, onOpenPlayer, isMobile,
+    mentionTags, rosterByName, translations, showTranslations, flashId, recentDeltas,
+    recentWinners, botResponseMap, onOpenGame, onOpenPlayer, isMobile,
   ]);
+
+  // Hover a name: every group by that author lights up (DOM only)
+  const authorHover = useAuthorHover();
 
   const itemContent = useCallback((index, row) => {
     if (row.kind === "divider") {
@@ -1280,6 +1447,11 @@ export default function ChatPanel({
           <Home to="/" title={`4v4.GG home · relay ${status || "connecting"}`} data-relay-status={status || "connecting"}>
             4v4.GG
           </Home>
+          <HeaderNav aria-label="Site" data-chat-nav>
+            {SITE_LINKS.map((l) => (
+              <HeaderLink key={l.to} to={l.to}>{l.label}</HeaderLink>
+            ))}
+          </HeaderNav>
           <SearchBox role="search" aria-label="Filter messages" data-search-active={filterActive}>
             <PlayerSearch
               $fullWidth
@@ -1349,7 +1521,7 @@ export default function ChatPanel({
                   loadingOlder={loadingOlder}
                   onLoadOlder={handleLoadOlder}
                 />
-                <ChatList ref={listRef} data-chat-list>
+                <ChatList ref={listRef} data-chat-list {...authorHover}>
                   {rows.map((row, index) => (
                     <div
                       key={row.key}
@@ -1383,6 +1555,7 @@ export default function ChatPanel({
                       <DayPopoverLabel htmlFor="chat-jump-date">Jump to date</DayPopoverLabel>
                       <DateInput
                         id="chat-jump-date"
+                        ref={dateInputRef}
                         type="date"
                         defaultValue={topDayInput}
                         min={archiveMin || undefined}
@@ -1391,6 +1564,22 @@ export default function ChatPanel({
                         onChange={(e) => jumpToDate(e.target.value)}
                         autoFocus
                       />
+                      <DayPopoverLabel htmlFor="chat-jump-hour">Hour</DayPopoverLabel>
+                      <Select
+                        id="chat-jump-hour"
+                        defaultValue=""
+                        disabled={loadingWindow}
+                        onChange={(e) => {
+                          const ymd = dateInputRef.current?.value || topDayInput;
+                          if (e.target.value === "") jumpToDate(ymd);
+                          else jumpToTime(ymd, Number(e.target.value));
+                        }}
+                      >
+                        <option value="">Start of day</option>
+                        {HOURS.map((h) => (
+                          <option key={h} value={String(h)}>{hourLabel(h)}</option>
+                        ))}
+                      </Select>
                     </DayPopover>
                   )}
                 </DayPicker>

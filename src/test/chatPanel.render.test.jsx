@@ -669,6 +669,59 @@ describe('ChatPanel sticky day bar', () => {
   });
 });
 
+describe('ChatPanel hour jump', () => {
+  beforeEach(() => {
+    vi.spyOn(globalThis, 'fetch').mockResolvedValue({ ok: true, json: async () => ({ oldestMessage: '2026-06-01 00:00:00' }) });
+  });
+  afterEach(() => {
+    vi.restoreAllMocks();
+  });
+
+  it('loads the window just past the picked hour and lands on the first line after it', async () => {
+    const midnight = new Date(); midnight.setHours(0, 0, 0, 0);
+    const at = (min) => new Date(midnight.getTime() + min * 60000).toISOString();
+    const hourMsgs = [
+      { ...msg('h0', 'Moon#2', 0, 'late'), sentAt: at(-5) },
+      { ...msg('h1', 'Moon#2', 0, 'first past midnight'), sentAt: at(10) },
+      { ...msg('h2', 'Moon#2', 0, 'later'), sentAt: at(20) },
+    ];
+    const loadWindow = vi.fn(async () => hourMsgs);
+    const loadLatest = vi.fn(async () => messages);
+    renderPanel({ loadWindow, loadLatest });
+
+    fireEvent.click(screen.getByTitle('Jump to date'));
+    fireEvent.click(document.getElementById('chat-jump-hour'));
+    const label = new Date(2000, 0, 1, 0).toLocaleTimeString([], { hour: 'numeric' });
+    fireEvent.click(screen.getByText(label));
+    await waitFor(() => expect(loadWindow).toHaveBeenCalledTimes(1));
+    // the cursor is 15 minutes past the hour, in the relay's UTC format
+    const cursor = new Date(midnight.getTime() + 15 * 60000).toISOString().slice(0, 19).replace('T', ' ');
+    expect(loadWindow.mock.calls[0][0]).toBe(cursor);
+    expect(loadLatest).not.toHaveBeenCalled();
+    expect(document.getElementById('chat-jump-hour')).toBeNull();
+
+    // the window is in: the first line at or past the hour is at the top
+    cleanup();
+    renderPanel({ messages: hourMsgs, loadWindow, loadLatest, windowMode: 'archive', windowId: 1 });
+    expect(screen.getByText('Back to live')).toBeInTheDocument();
+  });
+
+  it('treats an hour still to come as the live tail', async () => {
+    const loadWindow = vi.fn(async () => []);
+    const loadLatest = vi.fn(async () => messages);
+    renderPanel({ loadWindow, loadLatest });
+    fireEvent.click(screen.getByTitle('Jump to date'));
+    // tomorrow's date is past the input's max, so set the hour on a date typed in by hand
+    const tomorrow = new Date(T0 + 86400000);
+    const ymd = `${tomorrow.getFullYear()}-${String(tomorrow.getMonth() + 1).padStart(2, '0')}-${String(tomorrow.getDate()).padStart(2, '0')}`;
+    document.getElementById('chat-jump-date').value = ymd;
+    fireEvent.click(document.getElementById('chat-jump-hour'));
+    fireEvent.click(screen.getByText(new Date(2000, 0, 1, 23).toLocaleTimeString([], { hour: 'numeric' })));
+    await waitFor(() => expect(loadLatest).toHaveBeenCalledTimes(1));
+    expect(loadWindow).not.toHaveBeenCalled();
+  });
+});
+
 describe('ChatPanel filter', () => {
   const field = () => within(document.querySelector('[data-chat-header]')).getByLabelText('Search messages or players');
   const groups = () => [...document.querySelectorAll('[data-variant="feed"]')].map((el) => el.querySelector('[data-local-time], a, button').textContent);
@@ -1094,14 +1147,50 @@ describe('ChatPanel mentions and unfurls', () => {
     renderPanel({ messages: [...messages, msg('m1', 'Moon#2', 120000, 'gg WATCHED nice one'), msg('m2', 'Grubby#1', 150000, 'watchedx is not a mention')] });
     const mentioned = document.getElementById('msg-m1').closest('[data-variant="feed"]');
     expect(mentioned).toHaveAttribute('data-watched', 'true');
-    const mark = mentioned.querySelector('[data-mention="true"]');
+    // watched but not in the channel: a mark, nothing to link to
+    const mark = mentioned.querySelector('[data-mention="watched"]');
     expect(mark).toHaveTextContent('WATCHED');
+    expect(mark.tagName).toBe('SPAN');
     const plain = document.getElementById('msg-m2').closest('[data-variant="feed"]');
-    expect(plain.querySelector('[data-mention="true"]')).toBeNull();
+    expect(plain.querySelector('[data-mention]')).toBeNull();
     expect(plain).not.toHaveAttribute('data-watched');
     // the author's own row keeps its treatment
     const own = document.getElementById('msg-c1').closest('[data-variant="feed"]');
     expect(own).toHaveAttribute('data-watched', 'true');
+  });
+
+  it('links a name in a line to the profile when that player is in the channel, as a card on mobile', () => {
+    const extra = [msg('m3', 'Moon#2', 120000, 'nice hold GRUBBY, really'), msg('m4', 'Moon#2', 125000, 'grubbyx and grubby2 are not him')];
+    renderPanel({ messages: [...messages, ...extra] });
+    const link = document.getElementById('msg-m3').querySelector('[data-mention="online"]');
+    expect(link).toHaveTextContent('GRUBBY');
+    expect(link).toHaveAttribute('href', '/player/Grubby%231');
+    expect(link).not.toHaveAttribute('data-watched');
+    expect(document.getElementById('msg-m4').querySelector('[data-mention]')).toBeNull();
+    // not a watched mention: the row is not tinted
+    expect(document.getElementById('msg-m3').closest('[data-variant="feed"]')).not.toHaveAttribute('data-watched');
+
+    cleanup();
+    const onOpenPlayer = vi.fn();
+    renderPanel({ messages: [...messages, ...extra], isMobile: true, onOpenPlayer });
+    const button = document.getElementById('msg-m3').querySelector('[data-mention="online"]');
+    expect(button.tagName).toBe('BUTTON');
+    fireEvent.click(button);
+    expect(onOpenPlayer).toHaveBeenCalledWith('Grubby#1');
+  });
+
+  it('lights every group by an author while their name is hovered, without re-rendering the rows', () => {
+    renderPanel();
+    const a1 = document.getElementById('msg-a1').closest('[data-author]');
+    expect(a1).toHaveAttribute('data-author', 'Grubby#1');
+    const name = a1.querySelector('[data-author-name]');
+    expect(name).toHaveTextContent('Grubby');
+    fireEvent.mouseOver(name);
+    const hot = [...document.querySelectorAll('[data-author-hot]')].map((el) => el.getAttribute('data-author'));
+    expect(hot).toEqual(['Grubby#1']);
+    expect(document.getElementById('msg-b1').closest('[data-author]')).not.toHaveAttribute('data-author-hot');
+    fireEvent.mouseOut(name, { relatedTarget: document.body });
+    expect(document.querySelector('[data-author-hot]')).toBeNull();
   });
 
   it('renders the link first and one card per message once metadata arrives', async () => {
