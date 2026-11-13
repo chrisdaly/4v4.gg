@@ -138,12 +138,20 @@ img.race {
   margin: var(--space-4) var(--space-2) var(--space-8);
 }
 
-/* Game table - replaces Semantic UI Table */
+/* Game table - replaces Semantic UI Table. Fixed layout: the chart column
+   is 200px and the eight player columns share whatever is left, so the
+   card never grows wider than its container (a fixed px cell width per
+   page used to add up past the card and hide team 2's fourth player). */
 .game-table {
   width: 100%;
+  table-layout: fixed;
   border-collapse: collapse;
   background: transparent;
   color: var(--white);
+}
+
+.game-table th.th-center {
+  width: 200px;
 }
 
 .game-table th,
@@ -925,12 +933,13 @@ h2.team-name {
   color: var(--red);
 }
 
-/* Player card - all centered. It is a size container so the name can
-   scale with the cell: 160px on /live, 124px in the home hero, 112px on
-   the profile */
+/* Player card - all centered. It fills its table column and is a size
+   container, so the name scales with whatever width the page gives the
+   card (see .game-table) */
 .playerDiv {
   container-type: inline-size;
-  width: 160px;
+  width: 100%;
+  min-width: 0;
   min-height: 110px;
   display: flex;
   flex-direction: column;
@@ -950,7 +959,6 @@ h2.team-name {
   }
 
   .playerDiv {
-    width: 88px;
     min-height: 120px;
   }
 
