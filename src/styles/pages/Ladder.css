@@ -276,7 +276,8 @@
 .col-form .col-empty {
   font-family: var(--font-mono);
   font-size: var(--text-xs);
-  color: var(--grey-mid);
+  color: var(--grey-light);
+  opacity: 0.5;
 }
 
 .col-session .form-dots-inline {
