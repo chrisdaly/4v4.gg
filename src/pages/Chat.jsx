@@ -108,10 +108,11 @@ const MapArea = styled(MapPanel)`
 `;
 
 /* Game activity: the stream's old tickers, live and finished, as a list.
-   Capped so a busy night cannot push the regions off the column. */
+   Capped so a busy night cannot push the regions off the column; the panel
+   shows four live rows at most, so two finished rows fit under them. */
 const GamesArea = styled(GamesPanel)`
   grid-area: games;
-  max-height: 260px;
+  max-height: 340px;
   @media (max-width: ${MOBILE}px) {
     display: none;
   }
@@ -476,7 +477,6 @@ const Chat = () => {
       {openPlayer && isMobile && (
         <PlayerSheet
           battleTag={openPlayer}
-          onlineUsers={onlineUsers}
           avatars={avatars}
           stats={stats}
           sessions={sessions}

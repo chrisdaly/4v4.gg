@@ -1,5 +1,6 @@
 import React, { useEffect, useMemo, useState } from "react";
 import styled from "styled-components";
+import { Link } from "react-router-dom";
 import { Panel, PanelHeader, PanelLabel, CountPill, Hint, scrollStyles } from "./panel";
 import { buildShortTickerText } from "./GameRow";
 import { formatTime } from "../../lib/useChatMessages";
@@ -17,6 +18,9 @@ import { formatTime } from "../../lib/useChatMessages";
 
 const TICK_MS = 30_000; // the "12m" clock
 const MAX_FINISHED = 6;
+// Live rows shown before "+N more": the panel is capped in height, and a
+// busy night of live games used to push "Just finished" below the cut
+const DEFAULT_MAX_LIVE = 4;
 
 const List = styled.div`
   ${scrollStyles}
@@ -136,6 +140,19 @@ const SectionLabel = styled.div`
   opacity: 0.6;
 `;
 
+/* "+3 more": the live games past the cap, as a link to /live */
+const MoreLink = styled(Link)`
+  display: block;
+  padding: 2px 14px 6px;
+  font-family: var(--font-mono);
+  font-size: var(--text-xxxs);
+  color: var(--gold);
+  text-decoration: none;
+  &:hover {
+    text-decoration: underline;
+  }
+`;
+
 const Quiet = styled.div`
   padding: var(--space-4) 14px;
 `;
@@ -148,7 +165,7 @@ export function minutesIn(startTime, now = Date.now()) {
   return Math.max(0, Math.floor((now - started) / 60_000));
 }
 
-export default function GamesPanel({ games = [], finished = [], onOpenGame, className }) {
+export default function GamesPanel({ games = [], finished = [], onOpenGame, maxLive = DEFAULT_MAX_LIVE, className }) {
   // The minutes column ages on its own; the games themselves arrive with
   // the ongoing-match poll
   const [, setTick] = useState(0);
@@ -170,6 +187,8 @@ export default function GamesPanel({ games = [], finished = [], onOpenGame, clas
   );
 
   const empty = games.length === 0 && recent.length === 0;
+  const shown = games.slice(0, maxLive);
+  const hidden = games.length - shown.length;
 
   return (
     <Panel className={className} data-games-panel aria-label="Game activity">
@@ -183,7 +202,7 @@ export default function GamesPanel({ games = [], finished = [], onOpenGame, clas
         </Quiet>
       ) : (
         <List>
-          {games.map((game) => {
+          {shown.map((game) => {
             const mins = minutesIn(game.startTime);
             return (
               <GameRow
@@ -209,6 +228,11 @@ export default function GamesPanel({ games = [], finished = [], onOpenGame, clas
               </GameRow>
             );
           })}
+          {hidden > 0 && (
+            <MoreLink to="/live" data-games-more title="Every live game">
+              +{hidden} more
+            </MoreLink>
+          )}
           {recent.length > 0 && <SectionLabel>Just finished</SectionLabel>}
           {recent.map((ev) => (
             <GameRow
