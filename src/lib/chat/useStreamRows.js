@@ -17,6 +17,9 @@ import { useMessageSegments, getDateKey } from "../useChatMessages";
  *   filterActive   the search field has a query
  *   filterQ        that query, lowercased
  *   newMarkerTime  lines after this are new since the last visit
+ *   holdKey        the key of the row at the top of the viewport, which is
+ *                  the row the scroll hold protects; a prepend boundary on
+ *                  any other row is released (see below)
  *
  * Returns { rows, newMarkerKey, foundCount }.
  */
@@ -26,6 +29,7 @@ export default function useStreamRows({
   filterActive = false,
   filterQ = "",
   newMarkerTime = null,
+  holdKey = null,
 }) {
   // Prepend boundaries: the id of the earliest message before each page of
   // older history. Grouping never merges across one, so the row that was
@@ -33,6 +37,13 @@ export default function useStreamRows({
   // the viewport is held against while the page arrives above it. A prepend
   // is recognised by the previous first message still being loaded but no
   // longer first; a replaced window resets.
+  //
+  // A boundary is only needed while that row is the one being held. Once
+  // the reader has scrolled on and another row is at the top, it is
+  // released and the row merges into the group above it (the same author
+  // within two minutes), so a page break never reads as a second group by
+  // the same person two seconds apart. The merge moves rows above the
+  // held one, and the hold compensates for that like any other change.
   const boundaryRef = useRef({ windowId, firstId: null, ids: new Set() });
   const boundaryIds = useMemo(() => {
     const firstId = messages[0]?.id ?? null;
@@ -41,12 +52,21 @@ export default function useStreamRows({
       return boundaryRef.current.ids;
     }
     const b = boundaryRef.current;
+    let ids = b.ids;
     if (b.firstId !== null && firstId !== b.firstId && messages.some((m) => m.id === b.firstId)) {
-      b.ids = new Set(b.ids).add(b.firstId);
+      ids = new Set(ids).add(b.firstId);
     }
+    if (holdKey != null) {
+      for (const id of ids) {
+        if (id === holdKey) continue;
+        if (ids === b.ids) ids = new Set(ids);
+        ids.delete(id);
+      }
+    }
+    b.ids = ids;
     b.firstId = firstId;
-    return b.ids;
-  }, [messages, windowId]);
+    return ids;
+  }, [messages, windowId, holdKey]);
   const messageSegments = useMessageSegments(messages, boundaryIds);
 
   // One row per message group (author + consecutive lines within 2 min) or
