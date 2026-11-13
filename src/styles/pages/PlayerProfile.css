@@ -904,6 +904,23 @@
     align-items: flex-start;
   }
 
+  /* The season select floated top-right over the player's name once the
+     header stacked; in flow it follows the details instead */
+  .player-header .hd-season-corner {
+    position: static;
+    margin-top: var(--space-2);
+  }
+
+  /* Title, mode tabs and the filter field wrap rather than clip "ALL" */
+  .match-history-section .section-header {
+    flex-wrap: wrap;
+    gap: var(--space-2) var(--space-3);
+  }
+
+  .match-history-section .mh-controls {
+    flex-wrap: wrap;
+  }
+
   /* Both lineups drop out of the row here, so their labels go too */
   .mh-col.team,
   .mh-col.opponents {
