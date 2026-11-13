@@ -26,7 +26,7 @@ const getInitialData = () => {
 
 /* ── MmrChart (fills remaining space) ─────────────────── */
 
-const MmrChart = ({ players, matches, count, histogram, mmrFilter, onMmrFilter, mmrSteps, pendingDeltas }) => {
+const MmrChart = ({ players, matches, count, idle, histogram, mmrFilter, onMmrFilter, mmrSteps, pendingDeltas }) => {
   const history = useHistory();
   const handlePlayerClick = useCallback((battleTag) => {
     if (battleTag) history.push(`/player/${encodeURIComponent(battleTag)}`);
@@ -36,7 +36,7 @@ const MmrChart = ({ players, matches, count, histogram, mmrFilter, onMmrFilter, 
     <div className="home-panel home-mmr-chart">
       <div className="home-section-header">
         <span className="home-section-title">MMR Distribution</span>
-        <span className="home-section-count">{count} online</span>
+        <span className="home-section-count">{count} online{idle > 0 && ` · ${idle} idle`}</span>
         {matches && matches.length > 0 && (
           <span className="home-section-count">
             {matches.reduce((sum, m) => sum + (m.teams || []).reduce((s, t) => s + (t.players?.length || 0), 0), 0)} live
@@ -723,7 +723,8 @@ const Observatory = () => {
         <MmrChart
           players={effectiveStripPlayers}
           matches={effectiveMatches}
-          count={onlineUsers.length - idleTags.size}
+          count={onlineUsers.length}
+          idle={idleTags.size}
           histogram={histogram}
           mmrFilter={mmrFilter}
           onMmrFilter={handleMmrFilter}
