@@ -1153,15 +1153,7 @@
   color: var(--text-body);
 }
 
-/* ── Live game: the compact cells must fit the profile's column ──────
-   (.compact's 100px is overridden by .playerDiv's 160px later in
-   Game.css, so eight cells overflow; pin the width here instead) */
-
-.live-game-section .playerDiv,
-.live-game-section .playerDiv.compact {
-  width: 112px;
-  min-width: 0;
-}
+/* ── Live game: smaller portraits so the compact cells fit the column ── */
 
 .live-game-section .profile-pic {
   width: 60px;
@@ -1173,11 +1165,6 @@
 }
 
 @media (max-width: 1400px) {
-  .live-game-section .playerDiv,
-  .live-game-section .playerDiv.compact {
-    width: 96px;
-  }
-
   .live-game-section .profile-pic {
     width: 52px;
   }

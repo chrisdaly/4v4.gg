@@ -5,7 +5,7 @@ import useCountUp from "../../lib/home/useCountUp";
 
 /**
  * The home page's scoreboard header: players online (Friz 96px gold) and
- * games live (white, pulsing red dot) counting up on load, the quote of the
+ * games live (white, pulsing red dot while any are) counting up on load, the quote of the
  * day with its speaker's avatar and flag, and the ENTER THE JUNGLE call to
  * action into /chat.
  *
@@ -33,9 +33,9 @@ export default function Scoreboard({ online, live, quote, quoteHref = null, prof
         <div className="hm-figure">
           <span className="hm-figure-num" data-count="live">
             {liveShown}
-            <span className="hm-figure-dot" aria-hidden="true" />
+            {live > 0 && <span className="hm-figure-dot" aria-hidden="true" />}
           </span>
-          <span className="hm-figure-label">GAMES LIVE</span>
+          <span className="hm-figure-label">{live === 1 ? "GAME LIVE" : "GAMES LIVE"}</span>
         </div>
       </div>
       <div className="hm-board-side">

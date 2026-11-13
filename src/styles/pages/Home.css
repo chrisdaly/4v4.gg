@@ -303,10 +303,6 @@
   border-radius: 0;
 }
 
-.hm-slide .playerDiv {
-  width: 124px;
-}
-
 /* The finished card's hero row: full-size portraits are wider than the
    column, so they scale with the player cell */
 .hm-slide .heroes-wrapper {
@@ -353,10 +349,6 @@
 }
 
 @media (max-width: 1440px) {
-  .hm-slide .playerDiv {
-    width: 104px;
-  }
-
   .hm-slide .profile-pic {
     width: 60px;
   }
@@ -368,10 +360,6 @@
 }
 
 @media (max-width: 1240px) {
-  .hm-slide .playerDiv {
-    width: 92px;
-  }
-
   .hm-slide .profile-pic {
     width: 52px;
   }
@@ -384,10 +372,6 @@
 
 /* one column from here, so the panel is the viewport less its padding */
 @media (max-width: 1023px) {
-  .hm-slide .playerDiv {
-    width: 80px;
-  }
-
   .hm-slide .profile-pic {
     width: 48px;
   }
