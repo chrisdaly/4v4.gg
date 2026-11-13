@@ -66,8 +66,12 @@ const Sidebar = styled(Panel).attrs({ as: "aside" })`
     background: #0a0806;
     box-shadow: 0 12px 30px rgba(0, 0, 0, 0.6);
     z-index: var(--z-overlay);
-    transform: ${(p) => (p.$mobileVisible ? "translateY(0)" : "translateY(-102%)")};
-    transition: transform 0.25s ease;
+    /* Parked a full height plus the bar above its open position, so its last
+       rows do not sit behind the 90% top bar and read through it; hidden
+       once the slide is over so its rows take no focus */
+    transform: ${(p) => (p.$mobileVisible ? "translateY(0)" : `translateY(calc(-100% - ${MOBILE_TOP_BAR}px))`)};
+    visibility: ${(p) => (p.$mobileVisible ? "visible" : "hidden")};
+    transition: transform 0.25s ease, visibility 0s linear ${(p) => (p.$mobileVisible ? "0s" : "0.25s")};
   }
 `;
 
