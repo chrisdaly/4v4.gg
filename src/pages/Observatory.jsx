@@ -36,8 +36,7 @@ const MmrChart = ({ players, matches, count, idle, histogram, mmrFilter, onMmrFi
     <div className="home-panel home-mmr-chart">
       <div className="home-section-header">
         <span className="home-section-title">MMR Distribution</span>
-        <span className="home-section-count">{count} online</span>
-        {idle > 0 && <span className="home-section-count">{idle} idle</span>}
+        <span className="home-section-count">{count} online{idle > 0 && ` · ${idle} idle`}</span>
         {matches && matches.length > 0 && (
           <span className="home-section-count">
             {matches.reduce((sum, m) => sum + (m.teams || []).reduce((s, t) => s + (t.players?.length || 0), 0), 0)} live
