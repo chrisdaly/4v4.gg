@@ -321,6 +321,13 @@ img.race {
   min-height: calc(100vh - var(--nav-height));
 }
 
+/* Back link above the scorecard, aligned to the card's left edge */
+.match-page-nav {
+  width: 100%;
+  max-width: 1400px;
+  margin-bottom: var(--space-3);
+}
+
 th {
   border: none !important;
 }

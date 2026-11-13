@@ -4,6 +4,7 @@ import { useParams } from "react-router-dom";
 import FinishedGame from "../components/FinishedGame";
 import OnGoingGame from "../components/OngoingGame";
 import PeonLoader from "../components/PeonLoader";
+import { PageNav } from "../components/ui";
 import { getMatch, getMatchCached, getOngoingMatches } from "../lib/api";
 
 // Initialize from cache for instant UI on navigation (finished games only)
@@ -69,8 +70,16 @@ const FinishedGamePage = () => {
     return () => { cancelled = true; };
   }, [matchId]);
 
+  // Back to the list this match belongs to: /live while it is in progress,
+  // /finished once it has a result
+  const backTo = !isLoading && !data?.match && ongoingMatch ? "/live" : "/finished";
+  const backLabel = backTo === "/live" ? "Live games" : "Finished games";
+
   return (
     <div className="match-page">
+      <div className="match-page-nav">
+        <PageNav backTo={backTo} backLabel={backLabel} />
+      </div>
       {isLoading ? (
         <div className="page-loader">
           <PeonLoader />
