@@ -5,6 +5,7 @@ import { MemoryRouter } from 'react-router-dom';
 import ChatMessage from '../components/chat/ChatMessage';
 import { buildTickerText, buildShortTickerText, cardNotes } from '../components/chat/GameRow';
 import { Chip, chipForTag, formatGameMinutes } from '../components/chat/chip';
+import { formatTime } from '../lib/useChatMessages';
 
 const group = {
   author: { battleTag: 'ToastBrot#2101', userName: 'ToastBrot', clanTag: 'FOALS' },
@@ -58,8 +59,8 @@ describe('ChatMessage feed variant', () => {
     expect(marker).toHaveAttribute('data-chip', 'ingame');
     expect(marker.tagName).toBe('SPAN');
     expect(screen.queryByText('in game 12m')).toBeNull();
-    // the mobile header time (hidden by CSS on desktop) is the first line's
-    expect(root.querySelector('[data-head-time]')).not.toBeNull();
+    // the header carries the group's time (the first line's)
+    expect(root.querySelector('[data-head-time]')).toHaveTextContent(formatTime(group.lines[0].sentAt));
     expect(screen.getByTitle('ladder grind')).toHaveAttribute('href', 'https://twitch.tv/toastbrot');
     expect(document.getElementById('msg-l1')).toContainElement(screen.getByText('gg wp'));
     expect(document.getElementById('msg-l2')).toContainElement(screen.getByText('rematch?'));
