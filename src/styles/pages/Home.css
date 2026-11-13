@@ -518,7 +518,15 @@
   display: flex;
   align-items: center;
   gap: 14px;
+  padding: 14px 18px 0;
   font-family: var(--font-mono);
+}
+
+.hm-finished-head-sub {
+  font-size: var(--text-xxs);
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+  color: var(--grey-light);
 }
 
 .hm-finished-tag {

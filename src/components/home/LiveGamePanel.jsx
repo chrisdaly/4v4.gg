@@ -103,6 +103,12 @@ function FinishedPanel({ finished }) {
 
   return (
     <div className="hm-finished" data-live-empty="finished">
+      {/* Says what the slot holds: without it the last result reads as a
+          live game under a scoreboard that says 0 */}
+      <div className="hm-finished-head" data-finished-head>
+        <span className="hm-finished-tag">LAST FINISHED</span>
+        <span className="hm-finished-head-sub">No 4v4 game live right now</span>
+      </div>
       {card}
       <div className="hm-livebar hm-finishedbar" data-live-bar="finished">
         <span className="hm-finished-tag">FINISHED</span>
