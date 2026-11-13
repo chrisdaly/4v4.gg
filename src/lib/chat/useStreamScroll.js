@@ -47,7 +47,10 @@ function rowNode(el, key) {
  *                 the reader put it
  *   onNearTop     reaching the head: page older history in
  *   onNearBottom  reaching the tail of an archive window: page forward
- *   onTopRowChange(key) the row at the top of the viewport, for the day bar
+ *   onTopRowChange(key, heldKey) the row at the top of the viewport, for
+ *                 the day bar, and the row the hold protects (the same row,
+ *                 or the first message row after a day divider), for the
+ *                 rows pipeline's prepend boundaries
  *
  * Returns { scrollerRef, listRef, atBottom, scrollToBottom, scrollToKey }.
  */
@@ -80,6 +83,7 @@ export default function useStreamScroll({
   const distanceRef = useRef(0);
   const lastTopRef = useRef(-1);
   const topKeyRef = useRef(null);
+  const heldKeyRef = useRef(null);
   // Read through a ref so the scroll listener never has to be re-bound
   const cbRef = useRef(null);
   cbRef.current = { onNearTop, onNearBottom, onTopRowChange };
@@ -109,10 +113,6 @@ export default function useStreamScroll({
     const node = findTopRow();
     // The day bar follows whatever is at the top, divider included
     const key = node?.dataset.rowKey ?? null;
-    if (key !== topKeyRef.current) {
-      topKeyRef.current = key;
-      cbRef.current.onTopRowChange?.(key);
-    }
     // The hold does not: a day divider belongs ahead of the first row of its
     // day, so a page of older history from that same day moves it up the
     // list on purpose. Holding it would hold the list still and let
@@ -120,6 +120,12 @@ export default function useStreamScroll({
     let anchor = node;
     while (anchor && anchor.dataset.rowDivider === "true") anchor = anchor.nextElementSibling;
     anchorRef.current = anchor ? { key: anchor.dataset.rowKey, top: anchor.offsetTop, node: anchor } : null;
+    const heldKey = anchorRef.current?.key ?? null;
+    if (key !== topKeyRef.current || heldKey !== heldKeyRef.current) {
+      topKeyRef.current = key;
+      heldKeyRef.current = heldKey;
+      cbRef.current.onTopRowChange?.(key, heldKey);
+    }
   }, [findTopRow]);
 
   const pinToBottom = useCallback(() => {

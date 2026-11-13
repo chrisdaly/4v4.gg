@@ -10,17 +10,21 @@ import LineEnd, { Time } from "./LineEnd";
 import { formatTime } from "../../lib/useChatMessages";
 import { localTimeLabel } from "../../lib/chat/localTime";
 import { CHAT_MOBILE_PX } from "../../lib/useIsMobile";
+import { AUTHOR_ATTR, AUTHOR_NAME_ATTR, HOT_ATTR } from "../../lib/chat/useAuthorHover";
 
 /**
  * One message group (author + consecutive lines) in three looks:
  *
  *   feed        the /chat stream (Chat v3 message group): 38px avatar with
  *               a flag badge, display name (the sender's local time in its
- *               tooltip), the bare MMR, the in-game marker (red dot +
- *               minutes) or a won / lost chip, twitch; serif lines with a
- *               right-aligned timestamp per line. At and below 768px the
- *               avatar is 34px, the header ends with the group's time and
- *               the lines carry no timestamps.
+ *               tooltip), "1974 MMR", the in-game marker (red dot +
+ *               minutes) or a won / lost chip, twitch, and the group's time
+ *               at the end of the header; serif lines, each with its own
+ *               time at the right that shows on hover (a group spans two
+ *               minutes at most, so one time per group is the reading
+ *               default and the per-line time is there when it matters).
+ *               At and below 768px the avatar is 34px and the lines carry
+ *               no timestamps at all.
  *   transcript  compact serif transcript rows (RecentConversations,
  *               ChatContext); `target` tints the focus author
  *   quote       no avatar, indented serif italic pull-quotes on the
@@ -75,6 +79,13 @@ const Group = styled.div`
     p.$variant === "feed" &&
     css`
       padding: 10px 0;
+      transition: background 0.15s;
+      /* Every group by the author whose name is under the pointer
+         (lib/chat/useAuthorHover.js) */
+      &[${HOT_ATTR}] {
+        background: var(--gold-tint-subtle);
+        box-shadow: inset 2px 0 0 rgba(var(--gold-muted-rgb), 0.5);
+      }
       ${mobile(css`
         grid-template-columns: ${MOBILE_AVATAR}px minmax(0, 1fr);
         gap: 10px;
@@ -253,14 +264,19 @@ const ClanTag = styled.span`
   }
 `;
 
-/* The bare MMR figure: mono 12px on the design's #888 (grey-light at .7) */
+/* "1974 MMR", the form the hover card, player sheet and profile header
+   use. A bare number next to a name read as unanchored, and grey at 12px
+   was too faint on the dark panel, so it follows the design's stats
+   pattern: mono, white. */
 const Mmr = styled.span`
   font-family: var(--font-mono);
   font-size: var(--text-xxs);
-  color: var(--grey-light);
-  opacity: 0.7;
+  color: var(--white);
+  opacity: 0.9;
   flex-shrink: 0;
 `;
+
+const MmrLabel = styled.span``;
 
 /* The in-game marker: a 6px red dot and the minutes, mono 11px red. A
    button when it opens the game. */
@@ -311,19 +327,23 @@ const TwitchLink = styled.a`
   }
 `;
 
-/* Mobile feed only: the group's time at the end of the header, in place of
-   the per-line timestamps */
+/* The group's time at the end of the header: the one time a group shows
+   by default (the per-line times are hover-only on desktop and gone on
+   mobile) */
 const HeadTime = styled.span`
-  display: none;
-  margin-left: auto;
+  display: inline;
   flex-shrink: 0;
   font-family: var(--font-mono);
   font-size: var(--text-xxxs);
   color: var(--grey-light);
   opacity: 0.7;
   white-space: nowrap;
+  /* After the name, MMR and marker, so the whole header reads in one
+     glance: pinned to the right edge of a wide column it sat 500px from
+     the name. The mobile header is short, so there it keeps the right
+     edge. */
   ${mobile(css`
-    display: inline;
+    margin-left: auto;
   `)}
 `;
 
@@ -354,12 +374,23 @@ const Line = styled.div`
   }
   ${(p) =>
     p.$variant === "feed" &&
-    mobile(css`
-      grid-template-columns: minmax(0, 1fr);
-      [data-line-end] {
-        display: none;
+    css`
+      /* The header carries the group's time; a line's own time shows on
+         hover, with the copy link */
+      ${Time} {
+        opacity: 0;
       }
-    `)}
+      &:hover ${Time},
+      &:focus-within ${Time} {
+        opacity: 0.8;
+      }
+      ${mobile(css`
+        grid-template-columns: minmax(0, 1fr);
+        [data-line-end] {
+          display: none;
+        }
+      `)}
+    `}
 `;
 
 const FeedText = styled.span`
@@ -369,6 +400,10 @@ const FeedText = styled.span`
   color: var(--text-body);
   overflow-wrap: anywhere;
   word-break: break-word;
+  /* A measure for the long lines: at 1440px the column ran to about 110
+     characters, and a two-line message read like a paragraph of prose.
+     The timestamp column stays at the right edge. */
+  max-width: 68ch;
 `;
 
 const TranscriptText = styled.span`
@@ -469,6 +504,10 @@ export default function ChatMessage({
   const localTime = isFeed && meta?.countryCode ? localTimeLabel(meta.countryCode, lines[0]?.sentAt) : null;
   const nameTitle = localTime ? `${localTime} local` : undefined;
   const nameData = localTime ? { "data-local-time": localTime } : {};
+  // The feed's author hover (useAuthorHover) finds the name and its group
+  // by these
+  if (isFeed && tag) nameData[AUTHOR_NAME_ATTR] = "true";
+  const groupData = isFeed && tag ? { [AUTHOR_ATTR]: tag } : {};
 
   let name = onNameClick ? (
     <NameButton type="button" $variant={variant} title={nameTitle} {...nameData} onClick={() => onNameClick(author)}>
@@ -510,13 +549,17 @@ export default function ChatMessage({
   }
 
   return (
-    <Group $variant={variant} $target={target} $watched={watched} data-variant={variant} data-watched={watched || undefined}>
+    <Group $variant={variant} $target={target} $watched={watched} data-variant={variant} data-watched={watched || undefined} {...groupData}>
       {!isQuote && <AvatarBlock meta={meta} variant={variant} />}
       <Body>
         {showHead && <Head $variant={variant}>
           {name}
           {author.clanTag && <ClanTag>{author.clanTag}</ClanTag>}
-          {!isQuote && meta?.mmr != null && <Mmr data-mmr>{Math.round(meta.mmr)}</Mmr>}
+          {!isQuote && meta?.mmr != null && (
+            <Mmr data-mmr>
+              {Math.round(meta.mmr)} <MmrLabel>MMR</MmrLabel>
+            </Mmr>
+          )}
           {status}
           {isFeed && meta?.twitchLogin && (
             <TwitchLink

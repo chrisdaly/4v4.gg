@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest';
-import { findWatchedMentions, splitByMentions, watchedNames } from '../lib/chat/mentions';
+import { findWatchedMentions, findMentions, nameIndex, splitByMentions, watchedNames } from '../lib/chat/mentions';
 
 const watch = new Set(['moon#2', 'grubby#1', 'кулкулкул#2718', 'xi#9']);
 
@@ -49,9 +49,16 @@ describe('findWatchedMentions', () => {
 });
 
 describe('splitByMentions', () => {
-  it('splits text into strings and mention runs', () => {
-    expect(splitByMentions('gg Moon, nice', watch)).toEqual(['gg ', { mention: 'Moon' }, ', nice']);
-    expect(splitByMentions('Moon', watch)).toEqual([{ mention: 'Moon' }]);
+  it('splits text into strings and mention runs that name the tag', () => {
+    expect(splitByMentions('gg Moon, nice', watch)).toEqual(['gg ', { mention: 'Moon', battleTag: 'moon#2' }, ', nice']);
+    expect(splitByMentions('Moon', watch)).toEqual([{ mention: 'Moon', battleTag: 'moon#2' }]);
     expect(splitByMentions('nothing here', watch)).toEqual(['nothing here']);
+  });
+
+  it('keeps the tag as cased in the set, so a roster mention links to the right profile', () => {
+    const roster = new Set(['Moon#2356', 'Grubby#1', 'element#21']);
+    expect(findMentions('sure its me element lol', roster)).toEqual([{ start: 12, end: 19, name: 'element', battleTag: 'element#21' }]);
+    expect(splitByMentions('MOON?', roster)).toEqual([{ mention: 'MOON', battleTag: 'Moon#2356' }, '?']);
+    expect(nameIndex(roster).get('grubby')).toBe('Grubby#1');
   });
 });

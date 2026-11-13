@@ -91,6 +91,23 @@ describe('useStreamRows identity', () => {
     expect(out.current.rows.find((r) => r.key === 'o1').msgs.map((m) => m.id)).toEqual(['o1', 'o2', 'o3']);
   });
 
+  it('releases the boundary once the reader has scrolled on, so the page break stops splitting one author in two', () => {
+    const older = [
+      msg('o1', 'Grubby#1', -90000, 'earlier 1'),
+      msg('o2', 'Grubby#1', -60000, 'earlier 2'),
+      msg('o3', 'Grubby#1', -30000, 'earlier 3'),
+    ];
+    const { out, rerender } = harness({ messages: base, holdKey: 'a1' });
+    rerender({ messages: [...older, ...base], holdKey: 'a1' });
+    // held: still two groups
+    expect(out.current.rows.find((r) => r.key === 'a1').msgs.map((m) => m.id)).toEqual(['a1', 'a2']);
+
+    // another row is at the top now
+    rerender({ messages: [...older, ...base], holdKey: 'b1' });
+    expect(out.current.rows.find((r) => r.key === 'a1')).toBeUndefined();
+    expect(out.current.rows.find((r) => r.key === 'o1').msgs.map((m) => m.id)).toEqual(['o1', 'o2', 'o3', 'a1', 'a2']);
+  });
+
   it('starts over when the window is replaced', () => {
     const { out, rerender } = harness({ messages: base, windowId: 0 });
     const before = out.current.rows.find((r) => r.key === 'a1');
