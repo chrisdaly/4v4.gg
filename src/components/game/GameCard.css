@@ -706,3 +706,17 @@ a.game-card.gc-finished:hover {
   text-transform: uppercase;
 }
 
+
+/* Phones: eight names do not fit one line, so each team wraps onto its
+   own rows and the two teams stack rather than clip at the card's edge */
+@media (max-width: 640px) {
+  .gc-teams {
+    flex-wrap: wrap;
+    gap: var(--space-2) var(--space-4);
+  }
+
+  .gc-team {
+    flex-wrap: wrap;
+    row-gap: var(--space-1);
+  }
+}
