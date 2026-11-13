@@ -174,6 +174,9 @@ const Game = ({ playerData: rawPlayerData, metaData, profilePics, playerCountrie
       .filter(([statName]) => !excludedKeys.includes(statName))
       .map(([statName, _]) => {
         const scores = playerData.map((player) => player[scoreType][statName]);
+        // A row of eight zeros (upkeep in a short game, no hero kills)
+        // says nothing; skip it rather than print "0 / 0%" eight times
+        if (scores.every((s) => !s)) return null;
         let percentiles = calculatePercentiles(scores);
 
         if (statName === "goldUpkeepLost") {
