@@ -177,6 +177,18 @@
   animation: fadeIn 120ms ease-out;
 }
 
+/* "Admin" eyebrow between the public pages and the admin-only tools */
+.navbar-more-divider {
+  font: var(--text-xxs) var(--font-mono);
+  text-transform: uppercase;
+  letter-spacing: 0.1em;
+  color: var(--grey-light);
+  opacity: 0.7;
+  margin-top: var(--space-2);
+  padding: var(--space-2) var(--space-3) var(--space-1);
+  border-top: 1px solid var(--surface-3);
+}
+
 .navbar-more-link {
   font-family: var(--font-display);
   font-size: var(--text-xs);
