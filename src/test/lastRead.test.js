@@ -10,21 +10,27 @@ describe('last read position', () => {
     resetLastReadThrottle();
   });
 
+  // Message times are relative to now: loadLastRead drops anything older
+  // than STALE_AFTER_MS, so a fixed date made these fail a week after it
+  // was written
+  const recent = (secondsAgo) => new Date(Date.now() - secondsAgo * 1000).toISOString();
+
   it('remembers the message and reads it back', () => {
-    saveLastRead(msg('m1', '2026-09-30T10:00:00.000Z'));
-    expect(loadLastRead()).toEqual({ id: 'm1', at: at('2026-09-30T10:00:00.000Z') });
+    const sentAt = recent(3600);
+    saveLastRead(msg('m1', sentAt));
+    expect(loadLastRead()).toEqual({ id: 'm1', at: at(sentAt) });
   });
 
   it('writes at most once every few seconds unless forced', () => {
     const now = Date.now();
-    saveLastRead(msg('m1', '2026-09-30T10:00:00.000Z'), { now });
-    saveLastRead(msg('m2', '2026-09-30T10:00:01.000Z'), { now: now + 1000 });
+    saveLastRead(msg('m1', recent(60)), { now });
+    saveLastRead(msg('m2', recent(59)), { now: now + 1000 });
     expect(loadLastRead().id).toBe('m1');
     // leaving the page writes whatever the reader actually reached
-    saveLastRead(msg('m3', '2026-09-30T10:00:02.000Z'), { now: now + 1200, force: true });
+    saveLastRead(msg('m3', recent(58)), { now: now + 1200, force: true });
     expect(loadLastRead().id).toBe('m3');
     // and the throttle opens again with time
-    saveLastRead(msg('m4', '2026-09-30T10:00:09.000Z'), { now: now + 9000 });
+    saveLastRead(msg('m4', recent(51)), { now: now + 9000 });
     expect(loadLastRead().id).toBe('m4');
   });
 
