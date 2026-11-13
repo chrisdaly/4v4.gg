@@ -161,6 +161,76 @@
   gap: 14px;
 }
 
+/* Admin only: whether the public can see this issue */
+.nw-issue-state {
+  position: absolute;
+  top: var(--space-3);
+  left: var(--space-3);
+  z-index: 2;
+  padding: 2px var(--space-2);
+  border-radius: var(--radius-sm);
+  font-family: var(--font-mono);
+  font-size: var(--text-xxxs);
+  text-transform: uppercase;
+  letter-spacing: 0.12em;
+  line-height: 1.6;
+}
+
+.nw-issue-state--live {
+  color: var(--green);
+  background: var(--green-tint);
+  border: 1px solid var(--green);
+}
+
+.nw-issue-state--draft {
+  color: var(--amber);
+  background: rgba(0, 0, 0, 0.55);
+  border: 1px dashed var(--amber);
+}
+
+/* The grid card's title sits top left and its number top right, so the chip takes the free corner */
+.nw-issue--grid .nw-issue-state {
+  top: auto;
+  left: auto;
+  right: var(--space-3);
+  bottom: var(--space-3);
+}
+
+.nw-issue--latest .nw-issue-state {
+  top: var(--space-4);
+  left: auto;
+  right: var(--space-4);
+}
+
+/* A cover plus its admin row under it */
+.nw-issue-slot {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-2);
+  min-width: 0;
+}
+
+.nw-issue-admin-row {
+  display: flex;
+  align-items: center;
+  gap: var(--space-4);
+  margin-top: var(--space-3);
+}
+
+.nw-issue-desk {
+  align-self: flex-start;
+  font-family: var(--font-mono);
+  font-size: var(--text-xxs);
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+  color: var(--gold);
+  text-decoration: none;
+}
+
+.nw-issue-desk:hover {
+  text-decoration: underline;
+}
+
 .nw-issue--grid .nw-issue-text {
   gap: 8px;
 }

@@ -7,7 +7,7 @@ import useAdmin from "../lib/useAdmin";
 import { PageLayout } from "../components/PageLayout";
 import { PageHero, Button } from "../components/ui";
 import IssueCover from "../components/news/IssueCover";
-import { issueNumber } from "../lib/news/issueRules";
+import { issueNumber, isLive } from "../lib/news/issueRules";
 import { formatDigestLabel, formatDigestDay, extractTeaser } from "../lib/digestUtils";
 import "../styles/pages/News.css";
 
@@ -72,11 +72,16 @@ const NewsIndex = ({ isAdmin, adminKey: rawAdminKey }) => {
       .finally(check);
   }, [adminKey]);
 
-  // The latest issue is the banner, the rest the back-issue grid; the
-  // daily digests keep their own timeline below
-  const latestWeekly = weeklyDigests.length > 0 ? weeklyDigests[0] : null;
-  const olderWeeklies = weeklyDigests.slice(1);
-  const issues = issueCountLabel(weeklyDigests);
+  // The latest live issue is the banner, the rest of the live ones the
+  // back-issue grid; the daily digests keep their own timeline below. The
+  // relay sends an admin the drafts too, and they get their own section:
+  // mixed into the grid nothing says which issues the public can see.
+  const liveWeeklies = weeklyDigests.filter(isLive);
+  const draftWeeklies = isAdmin ? weeklyDigests.filter((w) => !isLive(w)) : [];
+  const latestWeekly = liveWeeklies.length > 0 ? liveWeeklies[0] : null;
+  const olderWeeklies = liveWeeklies.slice(1);
+  const issues = issueCountLabel(liveWeeklies);
+  const coverState = isAdmin ? (w) => (isLive(w) ? "live" : "draft") : () => null;
 
   const timeline = useMemo(() => {
     const items = [];
@@ -130,10 +135,29 @@ const NewsIndex = ({ isAdmin, adminKey: rawAdminKey }) => {
   return (
     <PageLayout maxWidth="1200px" bare header={newsHeader}>
       <div style={{ maxWidth: 1200, margin: '0 auto' }}>
+      {draftWeeklies.length > 0 && (
+        <section className="nw-section" data-draft-issues>
+          <span className="nw-eyebrow">Drafts, not on the site</span>
+          <div className="nw-issue-grid">
+            {draftWeeklies.map((w, i) => (
+              <div key={w.week_start} className="nw-issue-slot">
+                <IssueCover weekly={w} variant="grid" delay={0.1 + i * 0.09} state="draft" />
+                <DeskLink weekStart={w.week_start} />
+              </div>
+            ))}
+          </div>
+        </section>
+      )}
+
       {latestWeekly && (
         <section className="nw-section" data-latest-issue>
-          <IssueCover weekly={latestWeekly} issueNo={issueNumber(weeklyDigests, latestWeekly.week_start)} variant="latest" delay={0.1} />
-          {isAdmin && <AdminWeeklyButton />}
+          <IssueCover weekly={latestWeekly} issueNo={issueNumber(liveWeeklies, latestWeekly.week_start)} variant="latest" delay={0.1} state={coverState(latestWeekly)} />
+          {isAdmin && (
+            <div className="nw-issue-admin-row">
+              <DeskLink weekStart={latestWeekly.week_start} />
+              <AdminWeeklyButton />
+            </div>
+          )}
         </section>
       )}
 
@@ -142,7 +166,10 @@ const NewsIndex = ({ isAdmin, adminKey: rawAdminKey }) => {
           <span className="nw-eyebrow">Back issues</span>
           <div className="nw-issue-grid">
             {olderWeeklies.map((w, i) => (
-              <IssueCover key={w.week_start} weekly={w} issueNo={issueNumber(weeklyDigests, w.week_start)} variant="grid" delay={0.25 + i * 0.09} />
+              <div key={w.week_start} className="nw-issue-slot">
+                <IssueCover weekly={w} issueNo={issueNumber(liveWeeklies, w.week_start)} variant="grid" delay={0.25 + i * 0.09} state={coverState(w)} />
+                {isAdmin && <DeskLink weekStart={w.week_start} />}
+              </div>
             ))}
           </div>
         </section>
@@ -190,6 +217,13 @@ const TimelineDaily = ({ digest, delay, isLive }) => {
     </Link>
   );
 };
+
+/** Admin only: this issue at the story desk. Outside the cover, because the cover is itself a link. */
+const DeskLink = ({ weekStart }) => (
+  <Link to={`/news-desk?week=${weekStart}`} className="nw-issue-desk" data-desk-week={weekStart}>
+    Open in desk &rarr;
+  </Link>
+);
 
 const AdminWeeklyButton = () => {
   const now = new Date();

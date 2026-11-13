@@ -70,6 +70,10 @@ describe('issue rules', () => {
     expect(issueNumber(weeklies, '2026-03-23')).toBe(3);
     expect(issueNumber(weeklies, '2026-03-09')).toBe(1);
     expect(issueNumber(weeklies, '2020-01-01')).toBeNull();
+    // A draft takes no number and does not shift the live issues around it
+    const withDraft = [{ week_start: '2026-03-30', week_end: '2026-04-05', digest: 'RECAP: x', published: 0 }, ...weeklies.map((w) => ({ ...w, published: 1 }))];
+    expect(issueNumber(withDraft, '2026-03-30')).toBeNull();
+    expect(issueNumber(withDraft, '2026-03-23')).toBe(3);
     expect(issueTitle(weeklies[0])).toBe('Instagram Wars');
     expect(issueTitle(weeklies[2])).toBe(formatWeekRange('2026-03-09', '2026-03-15'));
     expect(issueDateRange(weeklies[0])).toBe('MAR 23 – 29, 2026');
@@ -192,6 +196,14 @@ describe('issue components', () => {
     expect(grid).toHaveClass('nw-issue--grid');
     expect(grid).not.toHaveTextContent('LATEST ISSUE');
     expect(grid).toHaveTextContent("Lacoste's Naga Orc Era");
+    expect(grid).not.toHaveAttribute('data-issue-state');
+    cleanup();
+    // Admin view: the cover says whether the public can see it
+    renderIn(<IssueCover weekly={{ ...weeklies[2], published: 0 }} variant="grid" state="draft" />);
+    const draft = document.querySelector('[data-issue="2026-03-09"]');
+    expect(draft).toHaveAttribute('data-issue-state', 'draft');
+    expect(draft).toHaveTextContent('Draft');
+    expect(draft).not.toHaveTextContent('No.');
   });
 
   it('draws the player trend, marks this issue\'s own week, and reads out the change', () => {
