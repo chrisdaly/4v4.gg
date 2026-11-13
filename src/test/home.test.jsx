@@ -178,7 +178,7 @@ describe('LiveGamePanel', () => {
     renderIn(<LiveGamePanel matches={[]} finished={finished} />);
     expect(document.querySelector('[data-live-panel]')).toHaveAttribute('data-live-panel', 'empty');
     expect(screen.getByText('FINISHED')).toBeInTheDocument();
-    expect(screen.getByText('Northmarsh Ruin · 5:43 · 35 min ago')).toBeInTheDocument();
+    expect(screen.getByText('Northmarsh Ruin · 5m 43s · 35 min ago')).toBeInTheDocument();
     expect(screen.getByText('WINNERS')).toBeInTheDocument();
     expect(screen.getByText('LOSERS')).toBeInTheDocument();
     expect(screen.getByRole('link', { name: 'Solana' })).toHaveAttribute('href', '/player/Solana%231');

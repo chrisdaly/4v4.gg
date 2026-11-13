@@ -30,7 +30,7 @@ describe('game card', () => {
     renderCard();
     const card = document.querySelector('[data-game-card="ge-m1"]');
     expect(card).toHaveTextContent('FINISHED');
-    expect(card).toHaveTextContent('20:00');
+    expect(card).toHaveTextContent('20m 00s');
     expect(card).toHaveTextContent('1750 avg');
     expect(screen.getByRole('link', { name: 'Ferocity' })).toHaveAttribute('href', '/match/m1');
   });

@@ -1,4 +1,5 @@
 import React from "react";
+import { formatDuration } from "../../lib/formatters";
 import { Link } from "react-router-dom";
 import styled, { css } from "styled-components";
 import { getMapImageUrl } from "../../lib/formatters";
@@ -39,13 +40,6 @@ import { CHAT_MOBILE_PX } from "../../lib/useIsMobile";
  */
 
 const MAX_NAMES = 2;
-
-const formatDuration = (seconds) => {
-  if (seconds == null) return null;
-  const m = Math.floor(seconds / 60);
-  const s = Math.round(seconds % 60);
-  return `${m}:${String(s).padStart(2, "0")}`;
-};
 
 const pickTeam = (teams) => {
   // The team with the most channel members; ties go to the first

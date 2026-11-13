@@ -1,4 +1,5 @@
 import React from "react";
+import { formatDuration } from "../lib/formatters";
 import { GiCrossedSwords } from "react-icons/gi";
 import { CountryFlag } from "./ui";
 import FormDots from "./FormDots";
@@ -11,13 +12,6 @@ import MmrSparkline from "./MmrSparkline";
  * layout options: "default", "horizontal", "minimal", "compact", "session", "banner"
  * bgStyle options: bg-gradient-fade, bg-dark-gold, bg-frosted, bg-none, bg-minimal
  */
-const formatDuration = (seconds) => {
-  if (!seconds) return null;
-  const m = Math.floor(seconds / 60);
-  const s = seconds % 60;
-  return `${m}:${String(s).padStart(2, '0')}`;
-};
-
 const PlayerOverlay = ({ playerData, layout = "default", bgStyle = "bg-gradient-fade" }) => {
   const {
     name,

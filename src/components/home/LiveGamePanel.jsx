@@ -2,7 +2,7 @@ import React, { Suspense, lazy, useEffect, useMemo, useRef, useState } from "rea
 import { Link, useHistory } from "react-router-dom";
 import LiveGameSlide from "./LiveGameSlide";
 import { RaceIcon } from "../ui";
-import { getMapImageUrl } from "../../lib/formatters";
+import { getMapImageUrl, formatDuration } from "../../lib/formatters";
 import { renderBlurbText } from "../MatchNote";
 
 // Only the empty state needs it, so it stays out of the home chunk
@@ -50,7 +50,7 @@ function FinishedPanel({ finished }) {
   }
   const matchId = ev.matchId || ev.id;
   const mapImg = getMapImageUrl(ev.mapName);
-  const duration = ev.durationInSeconds != null ? `${Math.floor(ev.durationInSeconds / 60)}:${String(Math.round(ev.durationInSeconds % 60)).padStart(2, "0")}` : null;
+  const duration = formatDuration(ev.durationInSeconds);
   const ago = ev.time ? Math.max(0, Math.round((Date.now() - new Date(ev.time).getTime()) / 60000)) : null;
   const gain = (p) => (p.mmrGain == null ? "" : `${p.mmrGain >= 0 ? "+" : "-"}${Math.abs(Math.round(p.mmrGain))}`);
   const note = finished.note || ev.note;
