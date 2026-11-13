@@ -30,7 +30,7 @@ const renderIn = (ui) => render(<MemoryRouter>{ui}</MemoryRouter>);
 afterEach(cleanup);
 
 describe('ChatMessage feed variant', () => {
-  it('renders avatar, flag, name link, clan, bare MMR, local time in the name tooltip, the in-game marker, twitch, lines, times, translation and extras', () => {
+  it('renders avatar, flag, name link, clan, labelled MMR, local time in the name tooltip, the in-game marker, twitch, lines, times, translation and extras', () => {
     renderIn(
       <ChatMessage
         variant="feed"
@@ -47,8 +47,7 @@ describe('ChatMessage feed variant', () => {
     expect(root.querySelector('img[alt="de"]')).not.toBeNull();
     expect(screen.getByText('ToastBrot')).toHaveAttribute('href', '/player/ToastBrot%232101');
     expect(screen.getByText('FOALS')).toBeInTheDocument();
-    expect(root.querySelector('[data-mmr]')).toHaveTextContent(/^1847$/);
-    expect(screen.queryByText(/MMR/)).toBeNull();
+    expect(root.querySelector('[data-mmr]')).toHaveTextContent(/^1847 MMR$/);
     // the sender's clock from their country (12:00Z in Germany, UTC+1) rides
     // in the name's tooltip, not the header
     expect(screen.getByText('ToastBrot')).toHaveAttribute('title', '1:00p local');
@@ -144,7 +143,7 @@ describe('ChatMessage transcript variant', () => {
     expect(screen.getByText('ToastBrot')).toHaveAttribute('href', '/player/ToastBrot%232101');
     expect(screen.getByText('gg wp')).toBeInTheDocument();
     expect(screen.getByText('rematch?')).toBeInTheDocument();
-    expect(root.querySelector('[data-mmr]')).toHaveTextContent(/^1847$/);
+    expect(root.querySelector('[data-mmr]')).toHaveTextContent(/^1847 MMR$/);
     expect(screen.getByText('12m')).toHaveAttribute('data-chip', 'ingame');
     expect(root.querySelector('[data-local-time]')).toBeNull();
     expect(screen.getByText('ToastBrot')).not.toHaveAttribute('title');

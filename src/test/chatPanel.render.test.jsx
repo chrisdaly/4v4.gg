@@ -400,8 +400,7 @@ describe('ChatPanel rows', () => {
     expect(screen.getByText('Moon: 1800 MMR')).toBeInTheDocument();
     expect(screen.getByText('orphan')).toBeInTheDocument();
     expect(screen.getByText('hello')).toBeInTheDocument();
-    expect(document.getElementById('msg-a1').closest('[data-variant="feed"]').querySelector('[data-mmr]')).toHaveTextContent(/^1900$/);
-    expect(screen.queryByText('1900 MMR')).toBeNull();
+    expect(document.getElementById('msg-a1').closest('[data-variant="feed"]').querySelector('[data-mmr]')).toHaveTextContent(/^1900 MMR$/);
     expect(screen.getByText('Load earlier messages')).toBeInTheDocument();
     expect(screen.getAllByText('Today')).toHaveLength(2); // in-list divider + sticky day bar
     expect(document.getElementById('msg-a1')).not.toBeNull();

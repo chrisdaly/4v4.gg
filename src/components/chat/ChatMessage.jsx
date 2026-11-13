@@ -17,7 +17,7 @@ import { AUTHOR_ATTR, AUTHOR_NAME_ATTR, HOT_ATTR } from "../../lib/chat/useAutho
  *
  *   feed        the /chat stream (Chat v3 message group): 38px avatar with
  *               a flag badge, display name (the sender's local time in its
- *               tooltip), the bare MMR, the in-game marker (red dot +
+ *               tooltip), "1974 MMR", the in-game marker (red dot +
  *               minutes) or a won / lost chip, twitch, and the group's time
  *               at the end of the header; serif lines, each with its own
  *               time at the right that shows on hover (a group spans two
@@ -264,18 +264,20 @@ const ClanTag = styled.span`
   }
 `;
 
-/* The bare MMR figure: mono 12px on the design's #888 (grey-light at .7) */
-/* The bare MMR figure, tied to the name by tone rather than a label: mono
-   11px, dimmer than the name, on the name's baseline. "1974 MMR" rides in
-   its tooltip, the way the local time rides in the name's. The roster
-   header over the same numbers says MMR once for the whole page. */
+/* "1974 MMR", the form the hover card, player sheet and profile header
+   use: mono 12px figure, the label a step smaller. A bare number next to a
+   name read as unanchored. */
 const Mmr = styled.span`
   font-family: var(--font-mono);
-  font-size: var(--text-xxxs);
+  font-size: var(--text-xxs);
   color: var(--grey-light);
-  opacity: 0.6;
-  letter-spacing: 0.02em;
+  opacity: 0.7;
   flex-shrink: 0;
+`;
+
+const MmrLabel = styled.span`
+  font-size: var(--text-xxxs);
+  opacity: 0.8;
 `;
 
 /* The in-game marker: a 6px red dot and the minutes, mono 11px red. A
@@ -545,7 +547,11 @@ export default function ChatMessage({
         {showHead && <Head $variant={variant}>
           {name}
           {author.clanTag && <ClanTag>{author.clanTag}</ClanTag>}
-          {!isQuote && meta?.mmr != null && <Mmr data-mmr title={`${Math.round(meta.mmr)} MMR`}>{Math.round(meta.mmr)}</Mmr>}
+          {!isQuote && meta?.mmr != null && (
+            <Mmr data-mmr>
+              {Math.round(meta.mmr)} <MmrLabel>MMR</MmrLabel>
+            </Mmr>
+          )}
           {status}
           {isFeed && meta?.twitchLogin && (
             <TwitchLink
