@@ -332,13 +332,19 @@ const TwitchLink = styled.a`
    mobile) */
 const HeadTime = styled.span`
   display: inline;
-  margin-left: auto;
   flex-shrink: 0;
   font-family: var(--font-mono);
   font-size: var(--text-xxxs);
   color: var(--grey-light);
   opacity: 0.7;
   white-space: nowrap;
+  /* After the name, MMR and marker, so the whole header reads in one
+     glance: pinned to the right edge of a wide column it sat 500px from
+     the name. The mobile header is short, so there it keeps the right
+     edge. */
+  ${mobile(css`
+    margin-left: auto;
+  `)}
 `;
 
 const Lines = styled.div`
@@ -394,6 +400,10 @@ const FeedText = styled.span`
   color: var(--text-body);
   overflow-wrap: anywhere;
   word-break: break-word;
+  /* A measure for the long lines: at 1440px the column ran to about 110
+     characters, and a two-line message read like a paragraph of prose.
+     The timestamp column stays at the right edge. */
+  max-width: 68ch;
 `;
 
 const TranscriptText = styled.span`
