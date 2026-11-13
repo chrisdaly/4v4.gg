@@ -85,7 +85,7 @@ async function copyText(text) {
   }
 }
 
-export default function CopyLink({ href, label = "Copy link" }) {
+export default function CopyLink({ href, label = "Copy link to this line" }) {
   const [copied, setCopied] = useState(false);
   const timerRef = useRef(null);
 

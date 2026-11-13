@@ -511,7 +511,7 @@ describe('ChatPanel permalinks', () => {
     const replaceState = vi.spyOn(window.history, 'replaceState');
     renderPanel();
 
-    const links = screen.getAllByLabelText('Copy link');
+    const links = screen.getAllByLabelText('Copy link to this line');
     // one per non-system line: a1, a2, b1, c1
     expect(links).toHaveLength(4);
     const expected = `${window.location.origin}/chat?m=a2`;

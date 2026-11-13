@@ -265,11 +265,16 @@ const ClanTag = styled.span`
 `;
 
 /* The bare MMR figure: mono 12px on the design's #888 (grey-light at .7) */
+/* The bare MMR figure, tied to the name by tone rather than a label: mono
+   11px, dimmer than the name, on the name's baseline. "1974 MMR" rides in
+   its tooltip, the way the local time rides in the name's. The roster
+   header over the same numbers says MMR once for the whole page. */
 const Mmr = styled.span`
   font-family: var(--font-mono);
-  font-size: var(--text-xxs);
+  font-size: var(--text-xxxs);
   color: var(--grey-light);
-  opacity: 0.7;
+  opacity: 0.6;
+  letter-spacing: 0.02em;
   flex-shrink: 0;
 `;
 
@@ -540,7 +545,7 @@ export default function ChatMessage({
         {showHead && <Head $variant={variant}>
           {name}
           {author.clanTag && <ClanTag>{author.clanTag}</ClanTag>}
-          {!isQuote && meta?.mmr != null && <Mmr data-mmr>{Math.round(meta.mmr)}</Mmr>}
+          {!isQuote && meta?.mmr != null && <Mmr data-mmr title={`${Math.round(meta.mmr)} MMR`}>{Math.round(meta.mmr)}</Mmr>}
           {status}
           {isFeed && meta?.twitchLogin && (
             <TwitchLink
