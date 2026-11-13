@@ -458,9 +458,22 @@
   }
 
   .stats-row {
-    grid-template-columns: 100px 1fr 80px;
+    grid-template-columns: 118px 1fr 76px;
     gap: var(--space-2);
     padding: var(--space-2);
+  }
+
+  /* The label column is a grid track: without min-width: 0 a long name
+     ("Grandmaster", "United States") overflowed under the bar */
+  .stats-label {
+    min-width: 0;
+  }
+
+  .stats-item-name {
+    font-size: var(--text-sm);
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
   }
 
   .map-grid {
