@@ -192,9 +192,9 @@ describe('GameRow text', () => {
     const winners = lobby(['A', 'B', 'C', 'D']).map((p) => ({ ...p, mmrGain: 12 }));
     const losers = lobby(['Shamiko', 'E', 'F', 'G'], ['Shamiko']).map((p) => ({ ...p, mmrGain: -9 }));
     const ev = { type: 'game_end', mapName: 'Ferocity', durationInSeconds: 842, winners, losers };
-    expect(buildTickerText(ev)).toBe('Shamiko +3 lost 14:02 on Ferocity, -9 avg');
+    expect(buildTickerText(ev)).toBe('Shamiko +3 lost 14m 02s on Ferocity, -9 avg');
     const won = { ...ev, winners: winners.map((p) => ({ ...p, inChannel: p.name === 'A' || p.name === 'B' })), losers: losers.map((p) => ({ ...p, inChannel: false })) };
-    expect(buildTickerText(won)).toBe('A, B +2 won 14:02 on Ferocity, +12 avg');
+    expect(buildTickerText(won)).toBe('A, B +2 won 14m 02s on Ferocity, +12 avg');
   });
 
   it('has a short mobile form: subject and map for a start, subject, result, map and gain for a finish', () => {
