@@ -453,11 +453,8 @@
 
 /* Responsive */
 @media (max-width: 600px) {
-  .stats-header {
-    flex-direction: column;
-    gap: var(--space-4);
-    align-items: center;
-    text-align: center;
+  .stats-controls {
+    justify-content: center;
   }
 
   .stats-row {
