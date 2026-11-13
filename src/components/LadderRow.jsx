@@ -74,14 +74,14 @@ const LadderRow = ({ rank, sparklineData, session, detectedRace, twitch, isStrea
             )}
           </div>
         ) : (
-          <span className="session-none">-</span>
+          <span className="col-empty">-</span>
         )}
       </div>
       <div className="col-form">
         {sparklineData.length >= 2 ? (
           <MmrSparkline data={sparklineData} maxPoints={50} width={80} height={18} />
         ) : (
-          <div className="sparkline-placeholder" />
+          <span className="col-empty">-</span>
         )}
       </div>
     </div>

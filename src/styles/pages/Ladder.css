@@ -270,8 +270,14 @@
   color: var(--red);
 }
 
-.col-session .session-none {
-  color: var(--grey-dark);
+/* No session today / not enough games for a sparkline: a visible dash,
+   so the right half of the table does not read as blank */
+.col-session .col-empty,
+.col-form .col-empty {
+  font-family: var(--font-mono);
+  font-size: var(--text-xs);
+  color: var(--grey-light);
+  opacity: 0.5;
 }
 
 .col-session .form-dots-inline {
@@ -287,10 +293,6 @@
   min-height: 32px;
 }
 
-.col-form .sparkline-placeholder {
-  width: 100px;
-  height: 20px;
-}
 
 /* Ensure all columns are vertically centered */
 .col-rank,
