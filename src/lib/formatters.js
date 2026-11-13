@@ -47,11 +47,20 @@ export const getMapImageUrl = (mapId) => {
  * @param {number} seconds - Duration in seconds
  * @returns {string|null} Formatted duration string
  */
+/**
+ * Game duration for display: "8m 35s", or "1h 02m" from an hour. The one
+ * format every page uses ("8:35" read as a clock time next to "1h ago").
+ * @param {number} seconds
+ * @returns {string|null} null for 0 or missing
+ */
 export const formatDuration = (seconds) => {
-  if (!seconds) return null;
-  const mins = Math.floor(seconds / 60);
-  const secs = seconds % 60;
-  return `${mins}:${secs.toString().padStart(2, "0")}`;
+  if (!seconds || seconds < 0) return null;
+  const total = Math.round(seconds);
+  const hours = Math.floor(total / 3600);
+  const mins = Math.floor((total % 3600) / 60);
+  const secs = total % 60;
+  if (hours > 0) return `${hours}h ${String(mins).padStart(2, "0")}m`;
+  return `${mins}m ${String(secs).padStart(2, "0")}s`;
 };
 
 /**

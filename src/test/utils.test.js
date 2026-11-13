@@ -148,7 +148,7 @@ describe('processOngoingGameData', () => {
     expect(playerData).toHaveLength(2);
     expect(playerData[0].battleTag).toBe('Alice#1234');
     expect(metaData.matchId).toBe('ongoing1');
-    expect(metaData.gameLength).toBe('12:34');
+    expect(metaData.gameLength).toBe('12m 34s');
     expect(metaData.server).toBe('US-EAST');
     expect(metaData.mapName).toBe('(4)FEROCITY');
   });

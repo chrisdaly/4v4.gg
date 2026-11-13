@@ -1,4 +1,5 @@
 import { detectSessionGames, filterMatchesByRace } from "./session";
+import { formatDuration } from "./formatters";
 
 export const akaLookup = (aka) => {
   const mapping = {
@@ -150,7 +151,7 @@ export const preprocessPlayerScores = (match, playerScores) => {
 
   const metaData = {
     startTime: match.startTime,
-    gameLength: `${Math.floor(match.durationInSeconds / 60)}:${(match.durationInSeconds % 60).toString().padStart(2, "0")}`,
+    gameLength: formatDuration(match.durationInSeconds),
     server: match.serverInfo.name?.toUpperCase(),
     location: match.serverInfo.location?.toUpperCase(),
     mapName: match.mapName?.toUpperCase(),
@@ -186,7 +187,7 @@ export const processOngoingGameData = (match) => {
   const metaData = {
     matchId: match.id,
     startTime: match.startTime,
-    gameLength: `${Math.floor(match.durationInSeconds / 60)}:${(match.durationInSeconds % 60).toString().padStart(2, "0")}`,
+    gameLength: formatDuration(match.durationInSeconds),
     server: match.serverInfo.name?.toUpperCase(),
     location: match.serverInfo.location?.toUpperCase(),
     mapName: match.mapName?.toUpperCase(),

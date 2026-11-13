@@ -13,7 +13,8 @@ import FormDots from "./FormDots";
 const Game = ({ playerData: rawPlayerData, metaData, profilePics, playerCountries, sessionData, liveStreamers = {}, compact, streamerTag, initialATGroups, showStats = true }) => {
   const [atGroups, setAtGroups] = useState(initialATGroups || {});
 
-  const isLive = metaData.gameLength === "0:00";
+  // an ongoing match has no duration yet (formatDuration gives null for 0)
+  const isLive = !metaData.gameLength;
   const [elapsedMins, setElapsedMins] = useState(() =>
     isLive && metaData.startTime ? calculateElapsedTime(metaData.startTime) : null
   );
@@ -550,10 +551,10 @@ const Game = ({ playerData: rawPlayerData, metaData, profilePics, playerCountrie
                   <div className="meta-map-info">
                     <span className="meta-map-name">{metaData.mapName}</span>
                     <span className="meta-details">
-                      {isLive ? elapsedMins : metaData.gameLength} mins
+                      {isLive ? `${elapsedMins} mins` : metaData.gameLength}
                       {isLive && <span className="live-dot"></span>}
                     </span>
-                    {metaData.startTime && metaData.gameLength !== "0:00" && (
+                    {metaData.startTime && metaData.gameLength && (
                       <span className="meta-time">
                         {new Date(metaData.startTime).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
                       </span>
@@ -569,7 +570,7 @@ const Game = ({ playerData: rawPlayerData, metaData, profilePics, playerCountrie
                     )}
                   </div>
                 </div>
-                {metaData.matchId && metaData.gameLength !== "0:00" && (
+                {metaData.matchId && metaData.gameLength && (
                   <Link to={`/match/${metaData.matchId}`} className="meta-match-id">
                     #{metaData.matchId}
                   </Link>
@@ -642,12 +643,12 @@ const Game = ({ playerData: rawPlayerData, metaData, profilePics, playerCountrie
           <div className="gm-meta-info">
             <span className="meta-map-name">{metaData.mapName}</span>
             <span className="meta-details">
-              {isLive ? elapsedMins : metaData.gameLength} mins
+              {isLive ? `${elapsedMins} mins` : metaData.gameLength}
               {isLive && <span className="live-dot"></span>}
             </span>
-            {metaData.server && metaData.gameLength !== "0:00" && <span className="meta-server">{metaData.server}</span>}
+            {metaData.server && metaData.gameLength && <span className="meta-server">{metaData.server}</span>}
           </div>
-          {metaData.matchId && metaData.gameLength !== "0:00" && (
+          {metaData.matchId && metaData.gameLength && (
             <Link to={`/match/${metaData.matchId}`} className="meta-match-id gm-meta-link">
               #{metaData.matchId}
             </Link>
