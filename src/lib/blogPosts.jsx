@@ -54,6 +54,8 @@ export const blogPosts = [
     type: "component",
     component: () => import("../pages/blog/OneMoreGame"),
     preview: LastGamePreview,
+    // Backdrop for the home page's "From the blog" card: orcs at a campfire at night
+    coverImage: "/frames/launcher/Static_Background.png",
   },
   {
     slug: "dots-not-numbers",
