@@ -1,0 +1,1079 @@
+{
+  "promises": {
+    "total": 100,
+    "people": 55,
+    "matched": 77,
+    "noGame": 23,
+    "again": 39,
+    "depth": [
+      {
+        "games": "0-2",
+        "n": 24,
+        "again": 6
+      },
+      {
+        "games": "3-6",
+        "n": 19,
+        "again": 8
+      },
+      {
+        "games": "7+",
+        "n": 34,
+        "again": 25
+      }
+    ]
+  },
+  "quotes": [
+    {
+      "name": "Boyzinho",
+      "tag": "Boyzinho#11456",
+      "text": "last one",
+      "then": "gogog",
+      "avatar": "https://storage.w3champions.com/prod/integration/icons/raceAvatars/ORC_16.jpg",
+      "localTime": "00:59",
+      "endLocal": "02:36",
+      "before": [
+        0,
+        1,
+        1,
+        1,
+        1,
+        0,
+        0,
+        0,
+        1,
+        1,
+        1,
+        0,
+        0,
+        1,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        1,
+        0,
+        1,
+        1,
+        0,
+        1,
+        0
+      ],
+      "promised": 0,
+      "after": [
+        0,
+        1,
+        1,
+        1
+      ],
+      "games": [
+        {
+          "s": 0.0,
+          "e": 10.3,
+          "w": 0
+        },
+        {
+          "s": 10.6,
+          "e": 30.3,
+          "w": 1
+        },
+        {
+          "s": 30.9,
+          "e": 45.5,
+          "w": 1
+        },
+        {
+          "s": 112.7,
+          "e": 122.0,
+          "w": 1
+        },
+        {
+          "s": 122.5,
+          "e": 142.7,
+          "w": 1
+        },
+        {
+          "s": 143.1,
+          "e": 165.3,
+          "w": 0
+        },
+        {
+          "s": 173.7,
+          "e": 195.6,
+          "w": 0
+        },
+        {
+          "s": 199.0,
+          "e": 214.8,
+          "w": 0
+        },
+        {
+          "s": 215.2,
+          "e": 225.6,
+          "w": 1
+        },
+        {
+          "s": 233.3,
+          "e": 255.3,
+          "w": 1
+        },
+        {
+          "s": 256.2,
+          "e": 265.5,
+          "w": 1
+        },
+        {
+          "s": 267.4,
+          "e": 287.9,
+          "w": 0
+        },
+        {
+          "s": 290.2,
+          "e": 314.5,
+          "w": 0
+        },
+        {
+          "s": 318.6,
+          "e": 335.9,
+          "w": 1
+        },
+        {
+          "s": 338.4,
+          "e": 351.1,
+          "w": 0
+        },
+        {
+          "s": 351.4,
+          "e": 372.1,
+          "w": 0
+        },
+        {
+          "s": 372.3,
+          "e": 383.4,
+          "w": 0
+        },
+        {
+          "s": 387.1,
+          "e": 403.4,
+          "w": 0
+        },
+        {
+          "s": 409.8,
+          "e": 425.6,
+          "w": 0
+        },
+        {
+          "s": 436.2,
+          "e": 457.0,
+          "w": 0
+        },
+        {
+          "s": 466.4,
+          "e": 480.0,
+          "w": 1
+        },
+        {
+          "s": 480.7,
+          "e": 487.8,
+          "w": 0
+        },
+        {
+          "s": 488.4,
+          "e": 508.4,
+          "w": 1
+        },
+        {
+          "s": 508.9,
+          "e": 525.2,
+          "w": 1
+        },
+        {
+          "s": 525.4,
+          "e": 549.8,
+          "w": 0
+        },
+        {
+          "s": 552.5,
+          "e": 570.8,
+          "w": 1
+        },
+        {
+          "s": 578.0,
+          "e": 603.6,
+          "w": 0
+        },
+        {
+          "s": 616.6,
+          "e": 630.7,
+          "w": 0
+        },
+        {
+          "s": 631.2,
+          "e": 649.9,
+          "w": 0
+        },
+        {
+          "s": 650.1,
+          "e": 671.1,
+          "w": 1
+        },
+        {
+          "s": 677.9,
+          "e": 688.0,
+          "w": 1
+        },
+        {
+          "s": 699.2,
+          "e": 710.0,
+          "w": 1
+        }
+      ]
+    },
+    {
+      "name": "PIZZA",
+      "tag": "PIZZA#14290",
+      "text": "ill do 1 more",
+      "then": "before gym",
+      "avatar": "https://storage.w3champions.com/prod/integration/icons/raceAvatars/classic/TOTAL_1.jpg",
+      "localTime": null,
+      "endLocal": null,
+      "before": [
+        1
+      ],
+      "promised": 1,
+      "after": [],
+      "games": [
+        {
+          "s": 0.0,
+          "e": 14.1,
+          "w": 1
+        },
+        {
+          "s": 18.0,
+          "e": 33.2,
+          "w": 1
+        }
+      ]
+    },
+    {
+      "name": "Sportsgamblr",
+      "tag": "Sportsgamblr#2254",
+      "text": "bro i play 1 more then i make the saltiest kraft dinner",
+      "then": "nothing but noodles and salt",
+      "avatar": "https://storage.w3champions.com/prod/integration/icons/raceAvatars/classic/TOTAL_6.jpg",
+      "localTime": "04:48",
+      "endLocal": "06:29",
+      "before": [
+        1,
+        1,
+        1,
+        0,
+        1,
+        1,
+        1,
+        1,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        1,
+        1,
+        1,
+        0,
+        0,
+        0,
+        0,
+        1
+      ],
+      "promised": 1,
+      "after": [
+        0,
+        0,
+        1
+      ],
+      "games": [
+        {
+          "s": 0.0,
+          "e": 26.1,
+          "w": 1
+        },
+        {
+          "s": 27.6,
+          "e": 36.4,
+          "w": 1
+        },
+        {
+          "s": 36.7,
+          "e": 54.2,
+          "w": 1
+        },
+        {
+          "s": 56.0,
+          "e": 65.7,
+          "w": 0
+        },
+        {
+          "s": 66.2,
+          "e": 89.2,
+          "w": 1
+        },
+        {
+          "s": 97.9,
+          "e": 107.4,
+          "w": 1
+        },
+        {
+          "s": 114.2,
+          "e": 132.1,
+          "w": 1
+        },
+        {
+          "s": 140.6,
+          "e": 159.4,
+          "w": 1
+        },
+        {
+          "s": 163.5,
+          "e": 180.4,
+          "w": 0
+        },
+        {
+          "s": 287.7,
+          "e": 309.9,
+          "w": 0
+        },
+        {
+          "s": 314.1,
+          "e": 327.1,
+          "w": 0
+        },
+        {
+          "s": 327.5,
+          "e": 341.0,
+          "w": 0
+        },
+        {
+          "s": 341.4,
+          "e": 351.8,
+          "w": 0
+        },
+        {
+          "s": 354.3,
+          "e": 369.4,
+          "w": 0
+        },
+        {
+          "s": 430.3,
+          "e": 443.6,
+          "w": 0
+        },
+        {
+          "s": 445.8,
+          "e": 460.7,
+          "w": 1
+        },
+        {
+          "s": 471.1,
+          "e": 490.1,
+          "w": 1
+        },
+        {
+          "s": 510.7,
+          "e": 532.9,
+          "w": 1
+        },
+        {
+          "s": 545.9,
+          "e": 571.2,
+          "w": 0
+        },
+        {
+          "s": 571.7,
+          "e": 597.8,
+          "w": 0
+        },
+        {
+          "s": 611.4,
+          "e": 643.1,
+          "w": 0
+        },
+        {
+          "s": 649.8,
+          "e": 661.4,
+          "w": 0
+        },
+        {
+          "s": 662.2,
+          "e": 680.3,
+          "w": 1
+        },
+        {
+          "s": 692.0,
+          "e": 708.0,
+          "w": 1
+        },
+        {
+          "s": 711.3,
+          "e": 733.9,
+          "w": 0
+        },
+        {
+          "s": 744.0,
+          "e": 757.0,
+          "w": 0
+        },
+        {
+          "s": 767.2,
+          "e": 787.7,
+          "w": 1
+        }
+      ]
+    },
+    {
+      "name": "Lacoste",
+      "tag": "Lacoste#22218",
+      "text": "ONE MORE GAME then i go buy kebab",
+      "then": "saturday = kebab",
+      "avatar": "https://storage.w3champions.com/prod/integration/icons/specialAvatars/SPECIAL_12037.jpg",
+      "localTime": "21:16",
+      "endLocal": "00:47",
+      "before": [
+        0,
+        1,
+        1,
+        1,
+        0,
+        0,
+        1,
+        0,
+        1,
+        1,
+        1,
+        0,
+        1,
+        1
+      ],
+      "promised": 1,
+      "after": [
+        0,
+        1,
+        1,
+        0,
+        0
+      ],
+      "games": [
+        {
+          "s": 0.0,
+          "e": 23.6,
+          "w": 0
+        },
+        {
+          "s": 25.4,
+          "e": 39.6,
+          "w": 1
+        },
+        {
+          "s": 41.6,
+          "e": 56.8,
+          "w": 1
+        },
+        {
+          "s": 58.1,
+          "e": 73.8,
+          "w": 1
+        },
+        {
+          "s": 74.0,
+          "e": 86.4,
+          "w": 0
+        },
+        {
+          "s": 86.6,
+          "e": 111.0,
+          "w": 0
+        },
+        {
+          "s": 115.0,
+          "e": 134.8,
+          "w": 1
+        },
+        {
+          "s": 135.7,
+          "e": 156.7,
+          "w": 0
+        },
+        {
+          "s": 161.3,
+          "e": 178.9,
+          "w": 1
+        },
+        {
+          "s": 182.3,
+          "e": 189.6,
+          "w": 1
+        },
+        {
+          "s": 193.8,
+          "e": 205.7,
+          "w": 1
+        },
+        {
+          "s": 205.9,
+          "e": 234.3,
+          "w": 0
+        },
+        {
+          "s": 238.0,
+          "e": 253.3,
+          "w": 1
+        },
+        {
+          "s": 274.2,
+          "e": 289.4,
+          "w": 1
+        },
+        {
+          "s": 292.0,
+          "e": 314.8,
+          "w": 1
+        },
+        {
+          "s": 415.7,
+          "e": 424.5,
+          "w": 0
+        },
+        {
+          "s": 431.2,
+          "e": 445.9,
+          "w": 1
+        },
+        {
+          "s": 446.9,
+          "e": 460.9,
+          "w": 1
+        },
+        {
+          "s": 461.1,
+          "e": 481.3,
+          "w": 0
+        },
+        {
+          "s": 484.3,
+          "e": 501.3,
+          "w": 0
+        }
+      ]
+    },
+    {
+      "name": "KODOFORSAKEN",
+      "tag": "KODOFORSAKEN#1601",
+      "text": "can do 1 more",
+      "then": "nice game on end on",
+      "avatar": "https://storage.w3champions.com/prod/integration/icons/specialAvatars/SPECIAL_5091.jpg",
+      "localTime": null,
+      "endLocal": null,
+      "before": [
+        1,
+        1
+      ],
+      "promised": 1,
+      "after": [],
+      "games": [
+        {
+          "s": 0.0,
+          "e": 18.9,
+          "w": 1
+        },
+        {
+          "s": 20.7,
+          "e": 44.8,
+          "w": 1
+        },
+        {
+          "s": 100.5,
+          "e": 126.4,
+          "w": 1
+        }
+      ]
+    },
+    {
+      "name": "GoGuma",
+      "tag": "GoGuma#3767",
+      "text": "last game",
+      "then": null,
+      "avatar": "https://storage.w3champions.com/prod/integration/icons/raceAvatars/STARTER_1.jpg",
+      "localTime": null,
+      "endLocal": null,
+      "before": [
+        0,
+        0,
+        0,
+        1,
+        1,
+        1,
+        1,
+        0,
+        1,
+        0,
+        0,
+        0,
+        0,
+        1,
+        0,
+        1,
+        0,
+        0
+      ],
+      "promised": 1,
+      "after": [],
+      "games": [
+        {
+          "s": 0.0,
+          "e": 19.6,
+          "w": 0
+        },
+        {
+          "s": 59.4,
+          "e": 67.7,
+          "w": 0
+        },
+        {
+          "s": 67.9,
+          "e": 83.6,
+          "w": 0
+        },
+        {
+          "s": 116.6,
+          "e": 135.6,
+          "w": 1
+        },
+        {
+          "s": 136.9,
+          "e": 163.5,
+          "w": 1
+        },
+        {
+          "s": 164.4,
+          "e": 185.1,
+          "w": 1
+        },
+        {
+          "s": 200.8,
+          "e": 213.8,
+          "w": 1
+        },
+        {
+          "s": 214.1,
+          "e": 226.1,
+          "w": 0
+        },
+        {
+          "s": 226.5,
+          "e": 232.7,
+          "w": 1
+        },
+        {
+          "s": 233.0,
+          "e": 257.5,
+          "w": 0
+        },
+        {
+          "s": 258.0,
+          "e": 273.4,
+          "w": 0
+        },
+        {
+          "s": 274.4,
+          "e": 298.9,
+          "w": 0
+        },
+        {
+          "s": 302.1,
+          "e": 315.4,
+          "w": 0
+        },
+        {
+          "s": 315.8,
+          "e": 332.8,
+          "w": 1
+        },
+        {
+          "s": 333.2,
+          "e": 339.6,
+          "w": 0
+        },
+        {
+          "s": 358.0,
+          "e": 384.4,
+          "w": 1
+        },
+        {
+          "s": 386.3,
+          "e": 405.8,
+          "w": 0
+        },
+        {
+          "s": 410.0,
+          "e": 433.7,
+          "w": 0
+        },
+        {
+          "s": 451.3,
+          "e": 467.4,
+          "w": 1
+        }
+      ]
+    },
+    {
+      "name": "Shocker",
+      "tag": "Shocker#21685",
+      "text": "one last try",
+      "then": "this is pure time waste",
+      "avatar": "https://storage.w3champions.com/prod/integration/icons/specialAvatars/SPECIAL_30.jpg",
+      "localTime": "13:53",
+      "endLocal": "16:10",
+      "before": [
+        0
+      ],
+      "promised": 0,
+      "after": [
+        0,
+        0,
+        1
+      ],
+      "games": [
+        {
+          "s": 0.0,
+          "e": 12.0,
+          "w": 0
+        },
+        {
+          "s": 46.8,
+          "e": 61.3,
+          "w": 0
+        },
+        {
+          "s": 65.6,
+          "e": 84.7,
+          "w": 0
+        },
+        {
+          "s": 85.3,
+          "e": 102.5,
+          "w": 0
+        },
+        {
+          "s": 119.0,
+          "e": 150.0,
+          "w": 1
+        }
+      ]
+    },
+    {
+      "name": "volumeǃone",
+      "tag": "volumeǃone#2423",
+      "text": "ok last game",
+      "then": "and i uninstall this fkin game",
+      "avatar": "https://storage.w3champions.com/prod/integration/icons/raceAvatars/classic/STARTER_1.jpg",
+      "localTime": "01:44",
+      "endLocal": "02:11",
+      "before": [
+        1,
+        0,
+        1,
+        1,
+        0,
+        1,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        1,
+        1,
+        0,
+        1,
+        0,
+        1,
+        1,
+        0,
+        1,
+        0,
+        0,
+        0
+      ],
+      "promised": 0,
+      "after": [],
+      "games": [
+        {
+          "s": 0.0,
+          "e": 20.6,
+          "w": 1
+        },
+        {
+          "s": 22.2,
+          "e": 43.6,
+          "w": 0
+        },
+        {
+          "s": 47.5,
+          "e": 70.1,
+          "w": 1
+        },
+        {
+          "s": 84.0,
+          "e": 110.4,
+          "w": 1
+        },
+        {
+          "s": 120.2,
+          "e": 142.4,
+          "w": 0
+        },
+        {
+          "s": 142.8,
+          "e": 166.0,
+          "w": 1
+        },
+        {
+          "s": 174.3,
+          "e": 191.3,
+          "w": 0
+        },
+        {
+          "s": 191.8,
+          "e": 212.7,
+          "w": 0
+        },
+        {
+          "s": 213.2,
+          "e": 228.8,
+          "w": 0
+        },
+        {
+          "s": 240.9,
+          "e": 259.5,
+          "w": 0
+        },
+        {
+          "s": 274.1,
+          "e": 278.1,
+          "w": 0
+        },
+        {
+          "s": 280.4,
+          "e": 299.4,
+          "w": 0
+        },
+        {
+          "s": 299.6,
+          "e": 313.9,
+          "w": 0
+        },
+        {
+          "s": 314.3,
+          "e": 338.6,
+          "w": 1
+        },
+        {
+          "s": 338.7,
+          "e": 351.3,
+          "w": 1
+        },
+        {
+          "s": 357.7,
+          "e": 372.2,
+          "w": 0
+        },
+        {
+          "s": 387.8,
+          "e": 396.4,
+          "w": 1
+        },
+        {
+          "s": 396.6,
+          "e": 412.8,
+          "w": 0
+        },
+        {
+          "s": 418.0,
+          "e": 443.9,
+          "w": 1
+        },
+        {
+          "s": 448.3,
+          "e": 476.5,
+          "w": 1
+        },
+        {
+          "s": 480.1,
+          "e": 500.2,
+          "w": 0
+        },
+        {
+          "s": 501.5,
+          "e": 518.9,
+          "w": 1
+        },
+        {
+          "s": 522.4,
+          "e": 539.6,
+          "w": 0
+        },
+        {
+          "s": 545.9,
+          "e": 565.1,
+          "w": 0
+        },
+        {
+          "s": 565.2,
+          "e": 579.4,
+          "w": 0
+        },
+        {
+          "s": 593.5,
+          "e": 612.2,
+          "w": 0
+        }
+      ]
+    },
+    {
+      "name": "MOCKBA",
+      "tag": "MOCKBA#21602",
+      "text": "last game and sleep )",
+      "then": "Moscow never sleep )",
+      "avatar": "https://storage.w3champions.com/prod/integration/icons/raceAvatars/NIGHTELF_18.jpg",
+      "localTime": "04:50",
+      "endLocal": "05:34",
+      "before": [
+        1,
+        1,
+        0,
+        1,
+        1,
+        0,
+        1,
+        0,
+        0,
+        1,
+        1,
+        1,
+        1
+      ],
+      "promised": 1,
+      "after": [
+        0
+      ],
+      "games": [
+        {
+          "s": 0.0,
+          "e": 12.7,
+          "w": 1
+        },
+        {
+          "s": 67.7,
+          "e": 92.3,
+          "w": 1
+        },
+        {
+          "s": 132.9,
+          "e": 155.1,
+          "w": 0
+        },
+        {
+          "s": 167.7,
+          "e": 183.6,
+          "w": 1
+        },
+        {
+          "s": 199.2,
+          "e": 210.1,
+          "w": 1
+        },
+        {
+          "s": 285.1,
+          "e": 299.7,
+          "w": 0
+        },
+        {
+          "s": 313.0,
+          "e": 335.6,
+          "w": 1
+        },
+        {
+          "s": 360.8,
+          "e": 373.1,
+          "w": 0
+        },
+        {
+          "s": 373.9,
+          "e": 393.7,
+          "w": 0
+        },
+        {
+          "s": 410.0,
+          "e": 439.1,
+          "w": 1
+        },
+        {
+          "s": 449.7,
+          "e": 465.9,
+          "w": 1
+        },
+        {
+          "s": 477.9,
+          "e": 498.9,
+          "w": 1
+        },
+        {
+          "s": 516.0,
+          "e": 532.5,
+          "w": 1
+        },
+        {
+          "s": 548.0,
+          "e": 562.8,
+          "w": 1
+        },
+        {
+          "s": 570.0,
+          "e": 587.0,
+          "w": 0
+        }
+      ]
+    }
+  ],
+  "people": {
+    "Boyzinho": {
+      "tag": "Boyzinho#11456",
+      "avatar": "https://storage.w3champions.com/prod/integration/icons/raceAvatars/ORC_16.jpg"
+    },
+    "mubarak": {
+      "tag": "mubarak#22745",
+      "avatar": "https://storage.w3champions.com/prod/integration/icons/raceAvatars/classic/RANDOM_18.jpg"
+    },
+    "GoGuma": {
+      "tag": "GoGuma#3767",
+      "avatar": "https://storage.w3champions.com/prod/integration/icons/raceAvatars/STARTER_1.jpg"
+    },
+    "ToD": {
+      "tag": "ToD#2792",
+      "avatar": "https://storage.w3champions.com/prod/integration/icons/specialAvatars/SPECIAL_5022.jpg"
+    },
+    "MOCKBA": {
+      "tag": "MOCKBA#21602",
+      "avatar": "https://storage.w3champions.com/prod/integration/icons/raceAvatars/NIGHTELF_18.jpg"
+    },
+    "era": {
+      "tag": "era#1612",
+      "avatar": "https://storage.w3champions.com/prod/integration/icons/raceAvatars/classic/UNDEAD_9.jpg"
+    }
+  }
+}
