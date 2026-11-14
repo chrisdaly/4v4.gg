@@ -1,0 +1,139 @@
+/* "One More Game" post. Own prefix (og-) so nothing here leaks into other posts. */
+
+.og-article {
+  padding-bottom: var(--space-12);
+}
+
+.og-tags {
+  margin-bottom: var(--space-4);
+}
+
+.og-date {
+  margin-bottom: var(--space-6);
+}
+
+.bl-section p.og-lede {
+  font-size: var(--text-lg);
+  line-height: 1.5;
+  color: #fff;
+}
+
+/* ── Who said it, and the night around it ── */
+
+.og-who {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+}
+
+.og-avatar {
+  width: 28px;
+  height: 28px;
+  border-radius: var(--radius-sm);
+  border: 1px solid var(--grey-mid);
+  object-fit: cover;
+}
+
+.og-name {
+  font-family: var(--font-display);
+  font-size: var(--text-sm);
+  color: var(--gold);
+  text-decoration: none;
+}
+
+.og-name:hover {
+  text-decoration: underline;
+}
+
+
+.og-session {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 5px;
+  margin: var(--space-2) 0 var(--space-1);
+}
+
+/* where they said it: a small speech bubble among the dots */
+.og-said {
+  width: 16px;
+  height: 16px;
+  margin: 0 2px;
+  flex-shrink: 0;
+  fill: var(--gold);
+}
+
+.bl-section p.og-key-line {
+  font-family: var(--font-mono);
+  font-size: var(--text-xxs);
+  color: var(--grey-light);
+  line-height: 1.6;
+  margin-top: calc(-1 * var(--space-4));
+}
+
+/* ── Quotes with what happened next ──── */
+
+.og-quotes {
+  list-style: none;
+  margin: 0 0 var(--space-8) 0;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-4);
+}
+
+.og-quotes li {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-1);
+  padding-left: var(--space-4);
+  border-left: var(--border-thick) solid var(--gold);
+}
+
+.og-quote {
+  font-family: var(--font-body);
+  font-size: var(--text-base);
+  color: #fff;
+  line-height: 1.5;
+}
+
+/* the follow-up line is as much the quote as the first, so it reads the same */
+.og-quote--then {
+  color: #fff;
+}
+
+.og-gloss {
+  font-family: var(--font-body);
+  font-style: italic;
+  font-size: var(--text-xs);
+  color: var(--grey-light);
+}
+
+.og-after {
+  font-family: var(--font-mono);
+  font-size: var(--text-xs);
+  color: var(--gold);
+}
+
+/* Method and limits, present but not competing with the argument */
+.bl-section p.og-foot {
+  font-size: var(--text-xs);
+  color: var(--grey-light);
+  line-height: 1.7;
+  border-top: 1px solid rgba(255, 255, 255, 0.08);
+  padding-top: var(--space-4);
+  margin-top: var(--space-8);
+}
+
+/* A chat exchange: each new speaker gets a little air, translations sit beside the line */
+.og-who--turn:not(:first-child) {
+  margin-top: var(--space-2);
+}
+
+.og-gloss--inline {
+  margin-left: var(--space-3);
+}
+
+.og-aside {
+  margin: var(--space-2) 0;
+}

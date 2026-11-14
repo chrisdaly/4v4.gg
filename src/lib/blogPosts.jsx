@@ -19,6 +19,16 @@ const DotsPreview = () => (
 
 export const blogPosts = [
   {
+    slug: "one-more-game",
+    title: "Just One More Game",
+    description:
+      "What happens after someone in 4v4 chat says \"last game\". Half of those who get the game play another.",
+    date: "Nov 14, 2026",
+    tags: ["chat", "stats"],
+    type: "component",
+    component: () => import("../pages/blog/OneMoreGame"),
+  },
+  {
     slug: "dots-not-numbers",
     title: "Dots, Not Numbers",
     description: "How the MMR charts work on 4v4.gg.",
