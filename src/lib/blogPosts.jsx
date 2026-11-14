@@ -17,6 +17,32 @@ const DotsPreview = () => (
   </svg>
 );
 
+/**
+ * A session as dots, with a speech bubble where the player said "last game"
+ * and the games they played after it - the motif of "Just One More Game"
+ */
+const LastGamePreview = () => {
+  const before = [1, 0, 0, 1, 0];
+  const after = [0, 0, 1, 1];
+  const step = 28;
+  const x0 = 34;
+  const bubbleX = x0 + before.length * step;
+  const dot = (won, i, x) => (
+    <circle key={`${x}-${i}`} cx={x} cy="80" r="10" fill={won ? "var(--green)" : "var(--red)"} />
+  );
+  return (
+    <svg viewBox="0 0 320 160" className="bl-card-preview-svg">
+      {before.map((w, i) => dot(w, i, x0 + i * step))}
+      <path
+        transform={`translate(${bubbleX - 13} 66) scale(1.7)`}
+        fill="var(--gold)"
+        d="M2 1.5h12a1.5 1.5 0 0 1 1.5 1.5v7a1.5 1.5 0 0 1-1.5 1.5H8.2L4.5 14.8v-3.3H2A1.5 1.5 0 0 1 .5 10V3A1.5 1.5 0 0 1 2 1.5z"
+      />
+      {after.map((w, i) => dot(w, i, bubbleX + step + 6 + i * step))}
+    </svg>
+  );
+};
+
 export const blogPosts = [
   {
     slug: "one-more-game",
@@ -27,6 +53,7 @@ export const blogPosts = [
     tags: ["chat", "stats"],
     type: "component",
     component: () => import("../pages/blog/OneMoreGame"),
+    preview: LastGamePreview,
   },
   {
     slug: "dots-not-numbers",
