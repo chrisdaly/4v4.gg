@@ -2038,6 +2038,36 @@ export function getPlayerActionDataTop(battleTag, limit = 10) {
   `).all(battleTag, limit);
 }
 
+/**
+ * What the gallery glyph needs for one player, kept cheap: hotkey and group
+ * columns from the latest 10 replays, and the opening of the latest 3 click
+ * sequences. Reading full sequences (hundreds of KB each) for ~3,500 players
+ * kept the gallery build from ever finishing.
+ */
+const GALLERY_SEQ_CHARS = 200000; // well past the 1,000 actions the glyph reads
+export function getPlayerGalleryActions(battleTag) {
+  const join = `
+    FROM replay_player_actions rpa
+    JOIN replay_players rp ON rp.replay_id = rpa.replay_id AND rp.player_id = rpa.player_id
+    WHERE rp.battle_tag = ?`;
+  const meta = db.prepare(`
+    SELECT rpa.group_hotkeys, rpa.group_compositions ${join}
+    ORDER BY rpa.replay_id DESC LIMIT 10
+  `).all(battleTag);
+  const seqs = db.prepare(`
+    SELECT substr(rpa.full_action_sequence, 1, ${GALLERY_SEQ_CHARS}) AS full_action_sequence ${join}
+      AND octet_length(rpa.full_action_sequence) > 2
+    ORDER BY rpa.replay_id DESC LIMIT 3
+  `).all(battleTag).map(r => {
+    const s = r.full_action_sequence;
+    // A cut-off JSON array: close it after the last whole action
+    if (s.length < GALLERY_SEQ_CHARS) return r;
+    const end = s.lastIndexOf('},');
+    return { full_action_sequence: end > 0 ? `${s.slice(0, end + 1)}]` : '[]' };
+  });
+  return [...meta, ...seqs];
+}
+
 export function getPlayerActionData(battleTag) {
   // Fetch newest rows first (replay_id DESC uses the existing PK index - fast).
   // Callers that need sequence-rich rows first should sort in JS after fetching.

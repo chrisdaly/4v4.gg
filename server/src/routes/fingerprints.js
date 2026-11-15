@@ -3,7 +3,7 @@ import rateLimit from 'express-rate-limit';
 import multer from 'multer';
 import { createHash } from 'crypto';
 import { readFileSync, mkdirSync, writeFileSync, unlinkSync } from 'fs';
-import { join } from 'path';
+import { join, dirname } from 'path';
 import config from '../config.js';
 import {
   getPlayerFingerprints,
@@ -48,6 +48,7 @@ import {
   getCountryCounts,
   getPlayerCountries,
   getLobbyMessagesByTag,
+  getPlayerGalleryActions,
 } from '../db.js';
 import { buildChatIndex, chatEvidence } from '../chatStyle.js';
 import {
@@ -1026,7 +1027,25 @@ router.get('/profile/:battleTag/personas', (req, res) => {
 let galleryCache = null;
 let galleryAge = 0;
 let galleryBuilding = false;
+let galleryBuildStarted = 0;
 const GALLERY_TTL = 60 * 60 * 1000; // 1 hour (expensive to compute)
+// Imports mark the gallery stale every ~15 min; a build takes minutes, so
+// never start one more often than this
+const GALLERY_MIN_REBUILD = 6 * 60 * 60 * 1000;
+// The last build, kept on the data volume so a restart serves it at once
+const GALLERY_FILE = join(dirname(config.DB_PATH), 'gallery-cache.json');
+
+function loadGalleryFromDisk() {
+  try {
+    const saved = JSON.parse(readFileSync(GALLERY_FILE, 'utf8'));
+    if (Array.isArray(saved?.players)) {
+      galleryCache = { players: saved.players };
+      galleryAge = saved.builtAt || 0;
+      galleryBuildStarted = saved.builtAt || 0;
+      console.log(`[gallery] loaded ${saved.players.length} players from ${GALLERY_FILE}`);
+    }
+  } catch { /* no saved gallery yet */ }
+}
 
 // Fetch W3C 4v4 ladder for MMR lookup
 async function fetchLadderMmr() {
@@ -1206,6 +1225,7 @@ function computeActionProfileLight(actionRows) {
 async function buildGalleryCache() {
   if (galleryBuilding) return;
   galleryBuilding = true;
+  galleryBuildStarted = Date.now();
   try {
     console.log('[gallery] Building cache...');
     // Use the no-embedding query - gallery never uses embeddings, and the
@@ -1267,7 +1287,7 @@ async function buildGalleryCache() {
 
       // Derive action profile from pre-aggregated columns - avoids iterating
       // full_action_sequence (can be millions of actions across 2500+ players).
-      const actionRows = getPlayerActionDataTop(p.battleTag, 10);
+      const actionRows = getPlayerGalleryActions(p.battleTag);
       const { transitionPairs, groupUsage, groupCompositions } = computeActionProfileLight(actionRows);
 
       // Lookup MMR from W3C ladder
@@ -1306,14 +1326,22 @@ async function buildGalleryCache() {
         },
       });
 
-      // Yield after every player: each can mean parsing ten long click
-      // sequences, and a blocked loop fails Fly's health check
+      // Yield after every player so other requests (and Fly's health check)
+      // get in between
       await yieldToEventLoop();
+      if (players.length % 250 === 0) {
+        console.log(`[gallery] ${players.length} players built in ${Math.round((Date.now() - galleryBuildStarted) / 1000)}s`);
+      }
     }
 
     galleryCache = { players };
     galleryAge = Date.now();
-    console.log(`[gallery] Cache built: ${players.length} players`);
+    console.log(`[gallery] Cache built: ${players.length} players in ${Math.round((Date.now() - galleryBuildStarted) / 1000)}s`);
+    try {
+      writeFileSync(GALLERY_FILE, JSON.stringify({ builtAt: galleryAge, players }));
+    } catch (err) {
+      console.warn('[gallery] could not save:', err.message);
+    }
   } finally {
     galleryBuilding = false;
   }
@@ -1322,10 +1350,12 @@ async function buildGalleryCache() {
 // GET /api/fingerprints/gallery - Public gallery of player extremes (no auth)
 // Stale-while-revalidate: serve cached data immediately, rebuild in background when stale.
 router.get('/gallery', async (req, res) => {
+  if (!galleryCache) loadGalleryFromDisk();
   const now = Date.now();
   const isStale = !galleryCache || (now - galleryAge) >= GALLERY_TTL;
+  const tooSoon = galleryCache && (now - galleryBuildStarted) < GALLERY_MIN_REBUILD;
 
-  if (isStale) {
+  if (isStale && !tooSoon) {
     // Kick off rebuild without awaiting - caller gets whatever is cached (possibly empty)
     buildGalleryCache().catch(e => console.error('[gallery] build error:', e.message));
   }
