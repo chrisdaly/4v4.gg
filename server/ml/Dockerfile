@@ -27,4 +27,8 @@ ENV TEXT_TOKENIZER_PATH=/app/data/text-tokenizer.json
 
 EXPOSE 8081
 
-CMD ["uvicorn", "embed_server:app", "--host", "0.0.0.0", "--port", "8081"]
+# An empty host binds every interface, IPv4 and IPv6. Both are needed: Fly's
+# health check and public proxy come in over IPv4, and the relay reaches this
+# app at 4v4gg-ml.internal, which is IPv6 only. "0.0.0.0" refused the relay;
+# "::" on its own answers IPv6 only and fails the health check.
+CMD ["uvicorn", "embed_server:app", "--host", "", "--port", "8081"]

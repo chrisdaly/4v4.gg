@@ -11,6 +11,7 @@ Usage:
 """
 
 import os
+import threading
 import numpy as np
 import onnxruntime as ort
 from fastapi import FastAPI, HTTPException
@@ -20,6 +21,10 @@ from typing import Optional
 app = FastAPI(title="WC3 Embed Server", docs_url=None, redoc_url=None)
 
 umap_model = None  # cached fitted UMAP model
+# Every UMAP call takes this lock. Numba's default threading layer aborts the
+# whole process if two threads enter it at once, which is what happened when a
+# map request arrived while the start-up warm-up was still compiling.
+umap_lock = threading.Lock()
 
 # The sentence model for chat text
 TEXT_MODEL_PATH = os.environ.get("TEXT_MODEL_PATH", "/app/data/text-model.onnx")
@@ -32,14 +37,14 @@ text_tokenizer = None
 @app.on_event("startup")
 def warm_up():
     # Warm up UMAP/numba JIT in a background thread to avoid blocking startup
-    import threading
     def _warmup():
         try:
             import umap
-            print("[Embed] Warming up UMAP (numba JIT)...")
-            dummy = np.random.rand(20, 10).astype(np.float32)
-            umap.UMAP(n_components=2, n_neighbors=5, random_state=42).fit_transform(dummy)
-            print("[Embed] UMAP warmup complete")
+            with umap_lock:
+                print("[Embed] Warming up UMAP (numba JIT)...")
+                dummy = np.random.rand(20, 10).astype(np.float32)
+                umap.UMAP(n_components=2, n_neighbors=5, random_state=42).fit_transform(dummy)
+                print("[Embed] UMAP warmup complete")
         except Exception as e:
             print(f"[Embed] UMAP warmup failed (non-fatal): {e}")
     threading.Thread(target=_warmup, daemon=True).start()
@@ -144,7 +149,8 @@ async def umap_fit_project(req: UmapRequest):
             metric="cosine",
             random_state=42,
         )
-        coords = reducer.fit_transform(matrix)
+        with umap_lock:
+            coords = reducer.fit_transform(matrix)
         return reducer, coords
 
     # Run in thread pool to avoid blocking health checks
@@ -170,7 +176,8 @@ async def umap_transform(req: UmapTransformRequest):
     matrix = np.array(req.embeddings, dtype=np.float32)
 
     def _transform():
-        return umap_model.transform(matrix)
+        with umap_lock:
+            return umap_model.transform(matrix)
 
     loop = asyncio.get_event_loop()
     coords = await loop.run_in_executor(None, _transform)
