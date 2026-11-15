@@ -263,17 +263,19 @@ async function runCycle() {
       console.log(`[Importer] Priority queue: trying ${priorityTag}`);
       const priorityResult = await importPlayerMatches(priorityTag, 1);
       incrementPriorityAttempts(priorityTag);
-      if (priorityResult.imported > 0 || priorityResult.noReplay > 0 || priorityResult.discovered === 0) {
-        // Success or no replays available - either way, done with this tag
-        removeFromPriorityQueue(priorityTag);
-        console.log(`[Importer] Priority queue: ${priorityTag} done (imported=${priorityResult.imported} noReplay=${priorityResult.noReplay} discovered=${priorityResult.discovered})`);
-      } else if (priorityResult.rateLimited) {
+      if (priorityResult.rateLimited && priorityResult.imported === 0) {
         // Still rate limited - leave in queue, pause the whole cycle
         rateLimitCooldown = RATE_LIMIT_PAUSE_CYCLES;
         console.log(`[Importer] Priority queue: rate limited on ${priorityTag}, pausing ${RATE_LIMIT_PAUSE_CYCLES} cycles`);
         isRunning = false;
         return;
       }
+      // Every other outcome is final for this tag: imported, no replay on
+      // W3C, nothing found, everything already imported, or downloads that
+      // errored. Only the head of the queue is ever tried, so a tag left here
+      // would be retried every cycle and block everyone queued behind it.
+      removeFromPriorityQueue(priorityTag);
+      console.log(`[Importer] Priority queue: ${priorityTag} done (imported=${priorityResult.imported} noReplay=${priorityResult.noReplay} discovered=${priorityResult.discovered} errors=${priorityResult.errors})`);
       prioritySlotUsed = 1;
     }
 

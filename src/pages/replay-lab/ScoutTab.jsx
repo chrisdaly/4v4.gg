@@ -130,6 +130,10 @@ export default function ScoutTab({ initialPlayer = null, initialProfileData = nu
   // Import state
   const [importStatus, setImportStatus] = useState(null); // null | 'importing' | 'done' | 'error'
   const [importResult, setImportResult] = useState(null);
+  // True once the relay has answered 404 for the selected player: it has no
+  // fingerprints. "No profile data yet" is not the same thing - that is also
+  // the state before the fetch has run, and after one that failed.
+  const [profileMissing, setProfileMissing] = useState(false);
 
   // Close dropdown on outside click (same pattern as Navbar)
   useEffect(() => {
@@ -175,6 +179,7 @@ export default function ScoutTab({ initialPlayer = null, initialProfileData = nu
       setReplayProfileData(null);
       setImportStatus(null);
       setImportResult(null);
+      setProfileMissing(false);
       replayCache.current = new Map();
       setProfileLoading(true);
       setSearchQuery("");
@@ -187,6 +192,7 @@ export default function ScoutTab({ initialPlayer = null, initialProfileData = nu
           `${RELAY_URL}/api/fingerprints/profile/${tag}`
         );
         if (profileRes.ok) setProfileData(await profileRes.json());
+        else if (profileRes.status === 404) setProfileMissing(true);
       } catch (err) {
         console.error("Profile fetch failed:", err);
       }
@@ -284,12 +290,15 @@ export default function ScoutTab({ initialPlayer = null, initialProfileData = nu
     }
   }, [initialPlayer, initialProfileData]); // eslint-disable-line react-hooks/exhaustive-deps
 
-  // Auto-import when embedded in a player profile and no fingerprint data exists
+  // Auto-import when embedded in a player profile and the relay has confirmed
+  // it holds no fingerprints for them. Waiting for that 404 matters: on mount
+  // this effect runs before the profile fetch has even marked itself loading,
+  // and an import spends W3C's small daily replay-download budget.
   useEffect(() => {
-    if (embedded && selectedTag && !profileData && !profileLoading && importStatus === null) {
+    if (embedded && selectedTag && profileMissing && !profileData && !profileLoading && importStatus === null) {
       handleImport();
     }
-  }, [embedded, selectedTag, profileData, profileLoading, importStatus, handleImport]);
+  }, [embedded, selectedTag, profileMissing, profileData, profileLoading, importStatus, handleImport]);
 
   const loadPersonas = useCallback(async () => {
     if (!selectedTag || personaData || personaLoading) return;
@@ -365,6 +374,7 @@ export default function ScoutTab({ initialPlayer = null, initialProfileData = nu
     setReplayProfileData(null);
     setImportStatus(null);
     setImportResult(null);
+    setProfileMissing(false);
     replayCache.current = new Map();
     pushPlayerParam(null);
   }, [pushPlayerParam]);
@@ -791,8 +801,11 @@ export default function ScoutTab({ initialPlayer = null, initialProfileData = nu
                     </ImportBtn>
                   )}
                 </>
-              ) : embedded ? (
+              ) : embedded && profileMissing ? (
+                // About to auto-import
                 <PeonLoader size="sm" subject={queryName} />
+              ) : embedded ? (
+                <span>Could not load playstyle data. Reload the page to try again.</span>
               ) : (
                 <>
                   <span>No data yet for {queryName}</span>
