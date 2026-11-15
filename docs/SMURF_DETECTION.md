@@ -4,7 +4,7 @@ How 4v4.gg decides that two accounts are probably the same person. Measured
 results and the experiments behind them are in
 [`server/ml/identity/RESULTS.md`](../server/ml/identity/RESULTS.md).
 
-## The three pieces
+## The pieces
 
 1. **Fingerprint** (`server/src/fingerprint.js`). Every replay is boiled down
    to 63 numbers per player, in seven segments:
@@ -35,6 +35,16 @@ results and the experiments behind them are in
    others. The verdict asks how far the top match stands out above the nearest
    strangers on both sides, then how unusual that is among other accounts' best
    matches: `confident` if at most 1% stand out as much, `possible` at 5%.
+
+4. **Side evidence** (`server/src/sideEvidence.js`, `server/src/countries.js`).
+   Things that are not playstyle. A top-five match that has never been in a
+   ladder game with the query and shares a country flown by under 5% of
+   accounts is reported as "possibly the same player", even when the click
+   verdict is "no match". A shared ladder game rules a candidate out. Countries
+   come from W3Champions profiles and are cached in `player_countries`.
+
+Only ladder 4v4 games are fingerprinted into an account's average and counted
+as meetings. Uploaded custom maps and 1v1/2v2 games are excluded.
 
 ## Where it shows up
 

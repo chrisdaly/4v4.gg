@@ -6,8 +6,9 @@ score in production was the handcrafted score alone.
 
 ## The test
 
-Every player with 8+ games is split by date. The older half keeps its name; the
-newer half has its name hidden. A scorer ranks all 2,316 known accounts for each
+Every player with 8+ games is split in two by import order (the relay holds no
+match dates). The earlier half keeps its name; the later half has its name
+hidden. A scorer ranks all 2,316 known accounts for each
 of the 1,590 hidden halves. Anything fitted is trained on one half of the
 players and tested on the other, so it never sees a player it is tested on.
 
@@ -56,6 +57,60 @@ The suspects list ranks pairs by the same stand-out measure. Ranked by raw
 similarity it was generic low-game accounts; ranked this way its head is pairs
 such as Cacxa26/cacxa27, bark#21978/bark#5125 and oONever#21412/oONever#2423.
 
+## Side evidence
+
+Clicks rank candidates but rarely confirm one. Evidence from outside the game
+does (`server/src/sideEvidence.js`). Measured on whole accounts, 2,315 with 3+
+games.
+
+**Never in the same ladder game.** Two accounts in one ladder game are
+different people. All 14 confirmed pairs have never shared one. Random pairs
+have, more often the more they play:
+
+| Both accounts have | Share that have met |
+|---|---|
+| 50+ games | 38.6% |
+| 150+ games | 67.5% |
+| 400+ games | 90.4% |
+
+Only ladder 4v4 counts. Uploaded custom maps (FOALS and Nenzzz share four
+games of Hero Siege and 7 Blademasters) are neither a meeting nor a playstyle
+sample, so they are left out of both.
+
+**Country.** 2,298 accounts have one set. 14 of 19 known pairs share it. How
+telling a shared country is has to be judged against strangers in the click
+top five, not the population: compatriots resemble each other. Comparing
+top-five candidates who never met the query with those who did:
+
+| Query's country is | Strangers sharing it | Never-met candidates sharing it | Est. share of those that are real |
+|---|---|---|---|
+| under 1% of accounts | 1.8% | 8.3% | 78% |
+| 1 to 5% | 4.5% | 13.6% | 67% |
+| over 5% | 15.4% | 24.0% | 36% |
+
+So a top-five match that never met the query and shares a country under 5% of
+accounts is reported as "possibly the same player". A shared common country is
+shown but changes nothing. The estimates rest on small counts (4 and 15
+strangers in the first two rows).
+
+**Chat style.** Word and character n-gram TF-IDF over an account's messages.
+
+- Public lobby chat (552,000 messages, 643 indexed accounts with 20+): hidden
+  half by time, pool of 684. Right account first with 20 messages 47%, 100
+  messages 87%, 300 messages 92%, 1,000 messages 97%. Stronger than clicks for
+  anyone who talks.
+- Lobby chat and clicks agreeing (closest chat match inside the click top
+  five): 101 accounts. About 7% of those matches have shared a game against
+  38% expected for strangers, so roughly one in five is wrong.
+- In-game chat: 97% of it comes from one player's own replays (W3Champions
+  downloads carry no chat), so it only covers people who have been in that
+  player's games. Within that set, clicks and chat agreeing left 3.3% provably
+  different.
+- Blending chat into the click score made ranking worse (71% to 63% on
+  accounts with chat). It is a second opinion, not an ingredient.
+
+Not built into the relay yet: chat style.
+
 ## What the whitened model is
 
 The same seven segments, with three changes:
@@ -81,6 +136,11 @@ the Python numbers exactly (79.7% / 93.8% on the fold it never saw).
 - Gap to runner-up, or the top score in standard deviations above the query's
   own spread, as the verdict statistic on the handcrafted score.
 - Excluding same-game players from the candidate list: half a point.
+- Excluding accounts that are close to both sides, a median in place of the
+  mean, and a query-side-only stand-out: none beat the deployed verdict when
+  measured the way the relay works (14-27% against 26%).
+- Requiring the match to be mutual: 40% of lookups with no owner present are
+  mutual too.
 - Leaving the nearest 3 to 20 accounts out of the "nearest strangers" group, so
   a player's own alternates do not count against them: correct "possible or
   better" verdicts fell from 26% to 16-19%.

@@ -483,6 +483,11 @@ export function initDb() {
 
   // Validation pairs - known smurf-main pairs for ground-truth testing
   db.exec(`
+    CREATE TABLE IF NOT EXISTS player_countries (
+      battle_tag TEXT PRIMARY KEY,
+      country    TEXT,
+      fetched_at INTEGER NOT NULL
+    );
     CREATE TABLE IF NOT EXISTS validation_pairs (
       id INTEGER PRIMARY KEY AUTOINCREMENT,
       tag_main TEXT NOT NULL,
@@ -2182,19 +2187,23 @@ export function getPlayerActionDataTopFiltered(battleTag, limit = 10, { race = n
 
 export function getAllAveragedFingerprints() {
   return db.prepare(`
-    SELECT battle_tag, player_name, race,
+    SELECT pf.battle_tag, pf.player_name, pf.race,
            COUNT(*) as replay_count,
-           GROUP_CONCAT(vector, '|||') as vectors,
-           GROUP_CONCAT(action_seg, '|||') as action_segs,
-           GROUP_CONCAT(apm_seg, '|||') as apm_segs,
-           GROUP_CONCAT(hotkey_seg, '|||') as hotkey_segs,
-           GROUP_CONCAT(COALESCE(tempo_seg, '[]'), '|||') as tempo_segs,
-           GROUP_CONCAT(COALESCE(intensity_seg, '[]'), '|||') as intensity_segs,
-           GROUP_CONCAT(COALESCE(transitions_seg, '[]'), '|||') as transitions_segs,
-           GROUP_CONCAT(COALESCE(rhythm_seg, '[]'), '|||') as rhythm_segs
-    FROM player_fingerprints
-    WHERE battle_tag IS NOT NULL
-    GROUP BY battle_tag
+           GROUP_CONCAT(pf.vector, '|||') as vectors,
+           GROUP_CONCAT(pf.action_seg, '|||') as action_segs,
+           GROUP_CONCAT(pf.apm_seg, '|||') as apm_segs,
+           GROUP_CONCAT(pf.hotkey_seg, '|||') as hotkey_segs,
+           GROUP_CONCAT(COALESCE(pf.tempo_seg, '[]'), '|||') as tempo_segs,
+           GROUP_CONCAT(COALESCE(pf.intensity_seg, '[]'), '|||') as intensity_segs,
+           GROUP_CONCAT(COALESCE(pf.transitions_seg, '[]'), '|||') as transitions_segs,
+           GROUP_CONCAT(COALESCE(pf.rhythm_seg, '[]'), '|||') as rhythm_segs
+    FROM player_fingerprints pf
+    JOIN replays r ON r.id = pf.replay_id
+    WHERE pf.battle_tag IS NOT NULL
+      -- Ladder 4v4 only. Uploaded custom maps (Hero Siege and the like) and
+      -- 1v1/2v2 games are played nothing like a 4v4 and would skew the average.
+      AND r.match_type = '4on4'
+    GROUP BY pf.battle_tag
   `).all();
 }
 
@@ -2522,6 +2531,48 @@ export function getSharedReplayCount(tagA, tagB) {
     WHERE a.battle_tag = ? AND b.battle_tag = ? AND r.match_type = '4on4'
   `).get(tagA, tagB);
   return row?.n || 0;
+}
+
+/**
+ * Every account that has been in a ladder 4v4 with this one. Two accounts in
+ * the same ladder game are different people.
+ */
+export function getMetTags(battleTag) {
+  return db.prepare(`
+    SELECT DISTINCT b.battle_tag AS tag
+    FROM replay_players a
+    JOIN replay_players b ON a.replay_id = b.replay_id
+    JOIN replays r ON r.id = a.replay_id
+    WHERE a.battle_tag = ? AND b.battle_tag IS NOT NULL AND b.battle_tag != a.battle_tag
+      AND r.match_type = '4on4'
+  `).all(battleTag).map(row => row.tag);
+}
+
+// ── Player countries (side evidence for identify) ──────
+
+export function getPlayerCountries(battleTags) {
+  const out = new Map();
+  if (battleTags.length === 0) return out;
+  const stmt = db.prepare('SELECT battle_tag, country FROM player_countries WHERE battle_tag = ?');
+  for (const tag of battleTags) {
+    const row = stmt.get(tag);
+    if (row) out.set(tag, row.country);
+  }
+  return out;
+}
+
+export function upsertPlayerCountries(rows) {
+  const stmt = db.prepare(`
+    INSERT INTO player_countries (battle_tag, country, fetched_at) VALUES (?, ?, ?)
+    ON CONFLICT(battle_tag) DO UPDATE SET country = excluded.country, fetched_at = excluded.fetched_at
+  `);
+  const now = Date.now();
+  db.transaction(() => { for (const { battleTag, country } of rows) stmt.run(battleTag, country, now); })();
+}
+
+/** How many stored accounts fly each flag: [{ country, n }]. */
+export function getCountryCounts() {
+  return db.prepare('SELECT country, COUNT(*) AS n FROM player_countries WHERE country IS NOT NULL GROUP BY country').all();
 }
 
 // ── Import priority queue ─────────────────────────────

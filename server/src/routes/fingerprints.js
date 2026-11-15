@@ -45,6 +45,7 @@ import {
   getPlayerAvgApm,
   getPlayerMostPlayedRace,
   getSharedReplayCount,
+  getCountryCounts,
 } from '../db.js';
 import {
   buildServerFingerprint,
@@ -65,6 +66,8 @@ import {
   verdictFor,
 } from '../identityModel.js';
 import { checkSidecar, getUmapProjection, getUmapTransform } from '../embedClient.js';
+import { sideEvidence, countryShares } from '../sideEvidence.js';
+import { ensureCountries, fillCountriesInBackground } from '../countries.js';
 import { importPlayerMatches, importPlayerMatchesBulk, enqueueImport } from '../replayImporter.js';
 import { requireApiKey } from '../middleware/auth.js';
 
@@ -2190,7 +2193,26 @@ router.get('/identify/:battleTag', requireApiKey, async (req, res) => {
   });
 
   const top = similar[0];
-  const verdict = verdictFor(top?.rarity ?? null);
+  const clickVerdict = verdictFor(top?.rarity ?? null);
+
+  // Side evidence: country and ladder games in common. Clicks rank the
+  // candidates; this is what can say one of them is real (sideEvidence.js).
+  const countries = await ensureCountries([battleTag, ...similar.map(s => s.battleTag)]);
+  fillCountriesInBackground(getVerdictPool().map(p => p.battleTag));
+  const shareOf = countryShares(getCountryCounts());
+  const queryCountry = countries.get(battleTag) || null;
+  for (const s of similar) {
+    s.sharedReplays = getSharedReplayCount(battleTag, s.battleTag);
+    s.evidence = sideEvidence({
+      queryCountry,
+      candidateCountry: countries.get(s.battleTag) || null,
+      countryShare: shareOf(queryCountry),
+      sharedLadderGames: s.sharedReplays,
+    });
+  }
+  const sideMatches = similar.filter(s => s.evidence.supports).map(s => s.battleTag);
+  // Side evidence can raise "no match" to "possible". It never lowers a click verdict.
+  const verdict = clickVerdict === 'no_match' && sideMatches.length > 0 ? 'possible' : clickVerdict;
 
   // Enrich query player with glyph + APM (filtered if filters active)
   let queryGlyph = null;
@@ -2214,7 +2236,6 @@ router.get('/identify/:battleTag', requireApiKey, async (req, res) => {
   const mmrMap = await fetchLadderMmr();
   for (const s of similar) {
     s.race = getPlayerMostPlayedRace(s.battleTag);
-    s.sharedReplays = getSharedReplayCount(battleTag, s.battleTag);
     const actionRows = getPlayerActionDataTop(s.battleTag, 10);
     if (actionRows.length > 0) {
       const { transitionPairs, groupUsage, groupCompositions, reassignRatio, dominantLoop } = computeActionProfileLight(actionRows);
@@ -2266,6 +2287,10 @@ router.get('/identify/:battleTag', requireApiKey, async (req, res) => {
   res.json({
     battleTag,
     verdict,
+    // What the verdict rests on: the click scorer alone, or side evidence
+    clickVerdict,
+    sideMatches,
+    queryCountry,
     // Share of accounts whose best match is at least as strong as this one's
     topMatchRarity: top?.rarity ?? null,
     filters: hasFilter ? { race: filterRace, after: filterAfter, replayIds: filterReplayIds } : null,

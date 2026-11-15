@@ -34,15 +34,41 @@ const ACTION_ID_LABELS = {
   30: "Dequeue", 97: "ESC", 102: "Skill", 103: "Build", 104: "Ping",
 };
 
-// The relay's verdict in words. `rarity` is the share of accounts whose own
-// best match stands out at least as much as this one: small means unusual.
-function getIdentifyVerdict(verdict, topMatch, queryName, rarity) {
-  const matchName = topMatch ? (topMatch.playerName || topMatch.battleTag || "").split("#")[0] : null;
-  if (verdict === 'confident') return {
+// The relay's verdict in words. Two things can back it: the click scorer on its
+// own (how far the top match stands out), or side evidence on a top-five match
+// (a shared uncommon country and never having been in the same ladder game).
+const shortName = (tag) => (tag || "").split("#")[0];
+
+function listNames(tags) {
+  const names = tags.map(shortName);
+  if (names.length <= 1) return names[0] || "";
+  return `${names.slice(0, -1).join(", ")} and ${names[names.length - 1]}`;
+}
+
+function getIdentifyVerdict(data, queryName) {
+  const { verdict, clickVerdict, sideMatches = [], similar = [], topMatchRarity: rarity } = data;
+  const top = similar[0];
+  const matchName = top ? shortName(top.playerName || top.battleTag) : null;
+
+  if (clickVerdict === 'confident') return {
     icon: "🚨",
     heading: `Likely the same player as ${matchName}`,
-    sub: "This match stands out more than 99% of best matches",
+    sub: "This playstyle match stands out more than 99% of best matches",
   };
+
+  if (sideMatches.length > 0) {
+    const ev = similar.find(s => s.battleTag === sideMatches[0])?.evidence || {};
+    const share = ev.countryShare != null
+      ? `${(ev.countryShare * 100).toFixed(ev.countryShare < 0.01 ? 1 : 0)}% of players`
+      : "an uncommon country";
+    const odds = ev.estimateReal >= 0.75 ? "about 3 in 4" : "about 2 in 3";
+    return {
+      icon: "⚠️",
+      heading: `Possibly the same player as ${listNames(sideMatches)}`,
+      sub: `Top-five playstyle match, same country (${ev.country}, ${share}), never in the same ladder game - ${odds} matches like this are the same player`,
+    };
+  }
+
   if (verdict === 'possible') return {
     icon: "⚠️",
     heading: `Possibly the same player as ${matchName}`,
@@ -2164,7 +2190,7 @@ export default function InvestigateTab() {
                           </div>
 
                           {(() => {
-                            const v = getIdentifyVerdict(playstyleData.verdict, playstyleData.similar?.[0], selectedTag.split('#')[0], playstyleData.topMatchRarity);
+                            const v = getIdentifyVerdict(playstyleData, selectedTag.split('#')[0]);
                             return v && (
                               <VerdictBanner $verdict={playstyleData.verdict}>
                                 <VerdictIcon>{v.icon}</VerdictIcon>
