@@ -151,7 +151,8 @@ export default function HeroUsage() {
       <p>
         The Keeper also gets to level 6, and the DH usually doesn&rsquo;t.
         A Keeper can be your only hero: his treants creep fast, Entangle
-        picks off units, and he holds up in a fight, so he levels quickly
+        picks off units, and he&rsquo;s ranged, so he fights from a
+        distance instead of in the middle of it. He levels quickly
         and arrives at Tranquility, which heals the whole army. About one
         DH in ten ever sees Metamorphosis.
       </p>
@@ -159,22 +160,13 @@ export default function HeroUsage() {
       <p>
         And the DH can&rsquo;t keep himself alive. A hero in melee range of
         four opponents needs a Holy Light or a Healing Wave behind him, and
-        NE has neither. So he needs a second hero with a Staff of
-        Preservation to pull him out, and his item slots go on surviving
-        rather than on damage.
+        NE has neither. A DH on his own has to carry his survival: a Town
+        Portal, a Staff of Preservation, boots, an Orb of Venom, an
+        invulnerability potion, maybe an anti-magic potion. That&rsquo;s
+        all six slots, and by then he&rsquo;s picked up good items creeping
+        too. Every slot becomes a choice between staying alive and being
+        worth bringing.
       </p>
-
-      <Exchange
-        when="May 12"
-        rows={[
-          ["Lynfan", "every elf pro plays dh in solo,maybe dh is not bad in 4s"],
-          ["Lynfan", "dh need a  pladin or sh to heal him"],
-          ["fuetti", "jens made dh work in 4v4"],
-          ["fuetti", "but its jens"],
-          ["SHIP", "theres just not much space u can make with dh compared to warden or bm"],
-          ["SHIP", "and kotg outclass dh lvl6 with tranq"],
-        ]}
-      />
 
       <h2>Where he still works</h2>
 
@@ -230,9 +222,9 @@ export default function HeroUsage() {
       />
 
       <p>
-        And his team has to commit to him: a dedicated healer, a staff,
-        invulnerability, anti-magic. They&rsquo;re keeping alive a hero all
-        four opponents want dead.
+        And his team has to commit to him: a dedicated healer, and a second
+        hero with a staff to pull him out. They&rsquo;re keeping alive a
+        hero all four opponents want dead.
       </p>
 
       <Exchange
@@ -241,6 +233,18 @@ export default function HeroUsage() {
           ["criver", "i was playing pala lv1 rpg for 2min"],
           ["Mellow", "pala was the best choice in this situation, for sustain"],
           ["Scorch", "my dh would have been dead a few times if it weren't for the heals"],
+        ]}
+      />
+
+      <Exchange
+        when="May 12"
+        rows={[
+          ["Lynfan", "every elf pro plays dh in solo,maybe dh is not bad in 4s"],
+          ["Lynfan", "dh need a  pladin or sh to heal him"],
+          ["fuetti", "jens made dh work in 4v4"],
+          ["fuetti", "but its jens"],
+          ["SHIP", "theres just not much space u can make with dh compared to warden or bm"],
+          ["SHIP", "and kotg outclass dh lvl6 with tranq"],
         ]}
       />
 
