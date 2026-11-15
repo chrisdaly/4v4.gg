@@ -20,7 +20,7 @@ import "../../styles/pages/blog/DemonHunter.css";
  *
  * Chat exchanges are quoted as typed, chosen after reading the lines around
  * them; a narrator's aside marks any gap of more than a few minutes. French is
- * glossed. Under ~700 words, so no section headings.
+ * glossed. Two sections: why he disappears, and where he still works.
  *
  * Every number is a share of picks or player slots, never of games, from a
  * stride across season 25 (heroModeSplit.json). Per-race hero shares (62% /
@@ -102,16 +102,56 @@ export default function HeroUsage() {
 
       <p>
         In solo, 62% of NE players choose a DH, in 4v4 only 16% do. No
-        hero&rsquo;s pick rate falls further between the two modes, and
-        wonderwood had the reason in three lines.
+        hero&rsquo;s pick rate falls further between the two modes.
+      </p>
+
+      <h2>Why he disappears</h2>
+
+      <p>
+        Some of it is his kit. Most of it is built for a fight against one
+        other hero, and a 4v4 puts around eighteen on the field.
       </p>
 
       <DemonHunterKit />
 
       <p>
-        His place goes to a Keeper of the Grove, in 64% of NE slots against
-        29% in solo, and the Priestess goes from about one NE in ten to
-        nearly half. In May the chat worked through it.
+        Some of it is the map. In solo the DH&rsquo;s job is pressure: harass
+        early, burn the enemy hero&rsquo;s mana, stop him creeping. 4v4 maps
+        are bigger, with more camps and more expos, so the player he&rsquo;s
+        chasing creeps somewhere else, or three allies come and help. By
+        the time the armies meet, the fights are huge and he&rsquo;s the
+        easiest hero on the field to catch.
+      </p>
+
+      <Exchange
+        when="Apr 3"
+        rows={[
+          ["RONALDO", "dh good idea"],
+          ["Boyzinho", "dh good in small maps"],
+          ["RONALDO", "meybe"],
+          ["Boyzinho", "in big maps that people usually go 60 70 food"],
+          ["Boyzinho", "dh is ez target"],
+          ["Boyzinho", "hex"],
+          ["Boyzinho", "stun"],
+          ["Boyzinho", "focus"],
+        ]}
+      />
+
+      <p>
+        Some of it is what his team would rather have. An aura that helps
+        one player in solo helps four in 4v4, so the NE altar makes a Keeper
+        of the Grove instead, in 64% of NE slots against 29% in solo, and
+        the Priestess goes from about one NE in ten to nearly half. Every
+        aura and healing hero rises the same way.
+      </p>
+
+      <HeroModeSplit />
+
+      <p>
+        And NE can&rsquo;t heal him. A hero who lives in melee range of
+        eight players needs a Holy Light or a Healing Wave behind him, and
+        NE has neither. Its big heal is the Keeper&rsquo;s ultimate, which
+        is the other reason the Keeper gets picked.
       </p>
 
       <Exchange
@@ -126,20 +166,13 @@ export default function HeroUsage() {
         ]}
       />
 
-      <p>
-        The healers Lynfan wants beside him rise in 4v4 too, and so does
-        every aura carrier. An aura that helps one player in solo helps four
-        in 4v4.
-      </p>
-
-      <HeroModeSplit />
+      <h2>Where he still works</h2>
 
       <p>
-        The 16% who still bring a DH mostly know when. A 4v4 doesn&rsquo;t
-        start as a 4v4. For the first few minutes it&rsquo;s four separate
-        games, and a player in the corner spawn, close to the enemy, is
-        playing something near a solo game. Galen, the player ToD was
-        calling brain rot, explained himself after the game.
+        A 4v4 doesn&rsquo;t start as a 4v4. For the first few minutes
+        it&rsquo;s four separate games, and a player in the corner spawn,
+        close to the enemy, is playing something near solo. Galen, the
+        player ToD was calling brain rot, made that case after the game.
       </p>
 
       <Exchange
@@ -152,13 +185,12 @@ export default function HeroUsage() {
       />
 
       <p>
-        They agree on when he works, a 2v2 in the first minutes, and argue
-        only about whether that&rsquo;s worth a hero slot. The players who
-        rate the DH talk about the corner, the harass and the first fight.
+        The players who rate him agree on when: the corner, the harass, the
+        first fight. mubarak had just harassed Lakers out of a game.
       </p>
 
       <Exchange
-        when="Mar 1, after a harass"
+        when="Mar 1, after the game"
         rows={[
           ["mubarak", "yeah lakers i give u advice in that map as elf"],
           ["mubarak", "get dh in corner its better"],
@@ -171,35 +203,45 @@ export default function HeroUsage() {
       />
 
       <p>
-        The chat&rsquo;s other defence of the DH is one player.
+        After that window he needs the right opponents. Mana Burn barely
+        dents most of the nine heroes across from him, but some of them
+        feel it.
       </p>
 
       <Exchange
-        when="Aug 5, the same conversation"
+        when="Mar 25"
         rows={[
-          ["SeeKer", "Look at the best elf"],
-          ["SeeKer", "Jens is Jens, but, he goes dh :)"],
-          ["wonderwood", "i think at some point people are so good they can make anything work"],
-          [null, "Eleven minutes later:"],
-          ["ToD", "what applies to a truly high level player doesnt necessarily apply to rest"],
-          ["ToD", "you can give a katana to a samurai and he'll be deadly"],
-          ["ToD", "give it to some random and he'll chop his own limbers"],
-          ["ToD", "limbs"],
+          ["JeeF", "was suprised you harrasing with dh tbh"],
+          ["Sabbatical", "dh so useless after minute 8"],
+          ["Sabbatical", "just wastes your micro moving it back while it does 0 damange and gets 2-3 mana burns in"],
+          ["mubarak", "trust me dh is good vs orc heroes"],
+          ["mubarak", "and kotg"],
         ]}
       />
 
       <p>
-        Jens brings a DH in one NE game in six, the same as everyone else.
-        Whether those are his corner spawns, the data can&rsquo;t say. The
-        window closes fast either way. Once the sides join up, the eight
-        players fight as one army each, and the DH is one hero among
-        eighteen.
+        And he needs a healer, which has to come from an ally.
       </p>
 
       <Exchange
-        when="Nov 1, 5:16am"
+        when="Nov 2"
         rows={[
-          ["ToD", "les ours sont contres par toutes les unitées en 4v4", "Bears get countered by every unit in 4v4."],
+          ["criver", "i was playing pala lv1 rpg for 2min"],
+          ["Mellow", "pala was the best choice in this situation, for sustain"],
+          ["Scorch", "my dh would have been dead a few times if it weren't for the heals"],
+        ]}
+      />
+
+      <p>
+        That&rsquo;s a narrow set of games: the right spawn, the right
+        opponents, an ally with a heal. Jens, the player fuetti credits with
+        making the DH work, brings one in one NE game in six, the same as
+        everyone else. Outside those games the chat has a name for him.
+      </p>
+
+      <Exchange
+        when="Nov 1"
+        rows={[
           ["ToD", "et dh ... completement naze", "And DH... completely useless."],
           ["Mellow", "mais oui DH bears c'est vrmt de la merde je confirme", "Yeah, DH bears really is crap, I confirm."],
           ["Apm50", "dh=dead hero Kappa"],

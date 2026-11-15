@@ -11,10 +11,6 @@
   "tag": "wonderwood#11834",
   "avatar": "https://storage.w3champions.com/prod/integration/icons/raceAvatars/STARTER_1.jpg"
  },
- "SeeKer": {
-  "tag": "SeeKer#12422",
-  "avatar": "https://storage.w3champions.com/prod/integration/icons/raceAvatars/classic/NIGHTELF_12.jpg"
- },
  "Lynfan": {
   "tag": "Lynfan#1254",
   "avatar": "https://storage.w3champions.com/prod/integration/icons/raceAvatars/classic/RANDOM_15.jpg"
@@ -54,5 +50,25 @@
  "Boyzinho": {
   "tag": "Boyzinho#11456",
   "avatar": "https://storage.w3champions.com/prod/integration/icons/raceAvatars/ORC_16.jpg"
+ },
+ "RONALDO": {
+  "tag": "RONALDO#22593",
+  "avatar": "https://storage.w3champions.com/prod/integration/icons/raceAvatars/classic/STARTER_3.jpg"
+ },
+ "Sabbatical": {
+  "tag": "Sabbatical#11582",
+  "avatar": "https://storage.w3champions.com/prod/integration/icons/raceAvatars/classic/NIGHTELF_10.jpg"
+ },
+ "JeeF": {
+  "tag": "JeeF#2254",
+  "avatar": "https://storage.w3champions.com/prod/integration/icons/raceAvatars/classic/ORC_3.jpg"
+ },
+ "Scorch": {
+  "tag": "Scorch#21698",
+  "avatar": "https://storage.w3champions.com/prod/integration/icons/specialAvatars/SPECIAL_1004.jpg"
+ },
+ "criver": {
+  "tag": "criver#3427",
+  "avatar": "https://storage.w3champions.com/prod/integration/icons/raceAvatars/STARTER_1.jpg"
  }
 }
