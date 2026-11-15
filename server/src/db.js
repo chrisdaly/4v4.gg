@@ -2557,17 +2557,21 @@ export function getSharedReplayCount(tagA, tagB) {
 
 // ── Import priority queue ─────────────────────────────
 
+// Asking again for a player already queued moves them back to the front.
 export function enqueueImportPriority(battleTag) {
   db.prepare(`
     INSERT INTO import_priority_queue (battle_tag) VALUES (?)
-    ON CONFLICT(battle_tag) DO NOTHING
+    ON CONFLICT(battle_tag) DO UPDATE SET requested_at = strftime('%s', 'now'), attempts = 0
   `).run(battleTag);
 }
 
+// Newest request first: whoever just asked is the one still looking at the
+// page. One player is tried per cycle, so oldest-first made a fresh request
+// wait behind every stale one.
 export function getPriorityQueueHead(n = 1) {
   return db.prepare(`
     SELECT battle_tag, attempts FROM import_priority_queue
-    ORDER BY requested_at ASC LIMIT ?
+    ORDER BY requested_at DESC, rowid DESC LIMIT ?
   `).all(n);
 }
 
