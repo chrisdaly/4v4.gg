@@ -55,11 +55,6 @@ const TOOLS = [
     desc: "Analyze playstyles, fingerprint players, identify smurfs",
   },
   {
-    to: "/signatures",
-    title: "Signatures",
-    desc: "Browse all fingerprinted player profiles",
-  },
-  {
     to: "/glyph-lab",
     title: "Glyph Lab",
     desc: "Explore unit transition glyphs",

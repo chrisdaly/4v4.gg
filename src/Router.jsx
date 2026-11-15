@@ -41,7 +41,6 @@ const ReplayLab = lazy(() => import("./pages/ReplayLab"));
 const BlurbLab = lazy(() => import("./pages/BlurbLab"));
 const StoryDesk = lazy(() => import("./pages/StoryDesk"));
 const Upload = lazy(() => import("./pages/Upload"));
-const ReplayViewer = lazy(() => import("./pages/ReplayViewer"));
 const ReplayAnalysis = lazy(() => import("./pages/ReplayAnalysis"));
 
 // Overlay pages (lazy-loaded)
@@ -62,7 +61,6 @@ const Admin = lazy(() => import("./pages/Admin"));
 const DevTools = lazy(() => import("./pages/DevTools"));
 const Themes = lazy(() => import("./pages/Themes"));
 const FaviconMockups = lazy(() => import("./pages/FaviconMockups"));
-const Signatures = lazy(() => import("./pages/Signatures"));
 const Lab = lazy(() => import("./pages/Lab"));
 const GlyphLab = lazy(() => import("./pages/GlyphLab"));
 const IconPicker = lazy(() => import("./pages/IconPicker"));
@@ -154,7 +152,7 @@ const Router = () => (
                 <Route path="/cover-art" component={DevTools} />
                 <Route path="/favicons" component={FaviconMockups} />
                 <PrivateRoute path="/lab" component={Lab} />
-                <PrivateRoute path="/signatures" component={Signatures} />
+                <Redirect from="/signatures" to="/truesight?tab=signatures" />
                 <PrivateRoute path="/glyph-lab" component={GlyphLab} />
                 <Route path="/icon-picker" component={IconPicker} />
 
@@ -165,7 +163,7 @@ const Router = () => (
                 <Route path="/upload" component={Upload} />
                 <Route path="/replay/:id" component={ReplayAnalysis} />
                 <Route exact path="/replay" component={Replay} />
-                <Route path="/replay-viewer" component={ReplayViewer} />
+                <Redirect from="/replay-viewer" to="/upload" />
 
                 {/* Overlay setup pages (with navbar) */}
                 <Route exact path="/overlay" component={OverlayIndex} />
