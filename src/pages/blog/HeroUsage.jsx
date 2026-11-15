@@ -131,7 +131,7 @@ export default function HeroUsage() {
         tanks, deals damage, burns the enemy hero&rsquo;s mana and stops
         him creeping. In 4v4 the maps are bigger, with more camps and more
         expos, so the player he&rsquo;s chasing creeps somewhere else, or
-        three allies come and help. By the time the armies meet, the
+        an ally comes to help. By the time the armies meet, the
         fights are huge and he&rsquo;s the first hero they focus.
       </p>
 
