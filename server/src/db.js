@@ -1756,6 +1756,22 @@ export function getExistingW3cMatchIds(matchIds) {
   return new Set(rows.map(r => r.w3c_match_id));
 }
 
+// How many fingerprinted replays each of these players has. Tags with none
+// are absent from the map. Chunked to stay under SQLite's parameter limit.
+export function getFingerprintCounts(battleTags) {
+  const counts = new Map();
+  for (let i = 0; i < battleTags.length; i += 500) {
+    const chunk = battleTags.slice(i, i + 500);
+    const placeholders = chunk.map(() => '?').join(',');
+    const rows = db.prepare(`
+      SELECT battle_tag, COUNT(*) AS n FROM player_fingerprints
+      WHERE battle_tag IN (${placeholders}) GROUP BY battle_tag
+    `).all(...chunk);
+    for (const r of rows) counts.set(r.battle_tag, r.n);
+  }
+  return counts;
+}
+
 export function insertReplayWithW3c({ filename, filePath, fileSize, w3cMatchId }) {
   // Explicitly set id/uploaded_at/parse_status because production DB schema
   // predates the AUTOINCREMENT and DEFAULT constraints

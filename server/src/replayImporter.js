@@ -25,6 +25,7 @@ import {
   updateFingerprintEmbedding,
   getExistingW3cMatchIds,
   enqueueImportPriority,
+  getFingerprintCounts,
   getPriorityQueueHead,
   incrementPriorityAttempts,
   removeFromPriorityQueue,
@@ -33,11 +34,11 @@ import { buildServerFingerprint } from './fingerprint.js';
 import { getEmbeddingBatch } from './embedClient.js';
 
 const W3C_API = 'https://website-backend.w3champions.com/api';
-// W3C replay downloads are rate-limited to ~30/hr and ~70/day for matches
-// under 7 days old. 2 imports per 5-minute cycle stays under the hourly cap;
-// the daily cap surfaces as a 429, which pauses imports for an hour.
+// At most 2 imports per 5-minute cycle, which stays under W3C's hourly cap.
+// See "W3C replay allowance" below for the limits and the daily budget.
 const CYCLE_MS = 5 * 60 * 1000;
 const IMPORTS_PER_CYCLE = 2;
+const DISCOVER_EVERY_CYCLES = 2; // re-read the match feed every 3rd cycle (~15 min)
 const RATE_LIMIT_MS = 3000; // 3s between W3C API calls
 const RATE_LIMIT_PAUSE_CYCLES = 12; // ~1 hour
 const PRIORITY_MAX_ATTEMPTS = 3; // failed tries before a queued player is dropped
@@ -46,7 +47,8 @@ const REPLAY_DIR = config.REPLAY_DIR.startsWith('/')
   ? config.REPLAY_DIR
   : join(process.cwd(), config.REPLAY_DIR);
 
-// In-memory queue (simple - no need for a DB table since it's rebuilt each discover cycle)
+// Candidate matches from the last discovery, not yet downloaded. In memory:
+// it is rebuilt from the feed every few cycles.
 let importQueue = [];
 
 // Add a player to the persistent priority queue. The drip drains this first
@@ -106,16 +108,50 @@ function diskHasHeadroom() {
   }
 }
 
+// ── Which game to download ──────────────────────
+// A replay covers eight players and the same people play every day, so what
+// matters is who a game adds, not how many games are held. Measured over two
+// weeks of November 2026 (174 games a day, 700 players): taking the
+// highest-MMR games first, 60 downloads a day reached 51% of players; taking
+// the game with the most players still short of replays reached 99% with 25.
+// So the drip only downloads a game that contains someone with fewer than
+// TARGET_REPLAYS, and takes the one with the most such players first. When
+// every player in the recent feed is covered it downloads nothing, which
+// leaves the W3C allowance for on-demand imports.
+const TARGET_REPLAYS = 3;
+
+// Matches W3C answered 404 for. They are not in the DB, so discovery would
+// offer them again and each retry costs a download. In memory; a restart
+// spends one download on each to relearn them.
+const noReplayMatches = new Set();
+
+// Imports this process has made, per player. A player whose in-replay name
+// cannot be tied to their battletag never gains a fingerprint row, so by the
+// DB count alone every game of theirs would look worth downloading forever.
+const importsThisRun = new Map();
+
+function pickNextMatch(queue) {
+  const tags = [...new Set(queue.flatMap(m => m.players.map(p => p.battleTag).filter(Boolean)))];
+  const counts = getFingerprintCounts(tags);
+  let best = null, bestNeed = 0;
+  for (const match of queue) {
+    const need = match.players.filter(p => p.battleTag
+      && Math.max(counts.get(p.battleTag) || 0, importsThisRun.get(p.battleTag) || 0) < TARGET_REPLAYS).length;
+    if (need > bestNeed || (need === bestNeed && need > 0 && match.avgMmr > best.avgMmr)) {
+      best = match;
+      bestNeed = need;
+    }
+  }
+  return best ? { match: best, need: bestNeed } : null;
+}
+
 /**
  * Discover new matches from the recent finished-matches feed.
- * Two pages of 100 cover the last ~200 4v4 games in 2 API calls - the old
- * approach (4 ladder pages + a match-search per player) needed ~65 calls and
- * only saw games involving top-league players.
+ * Two pages of 100 cover the last ~200 4v4 games (a bit over a day) in 2 API
+ * calls. Short games are skipped (too little action data to fingerprint), as
+ * are matches W3C has already said it has no replay for.
  *
- * Short games are skipped (too little action data to fingerprint), and
- * candidates are sorted by average match MMR so the tight replay-download
- * budget (W3C allows ~70/day for fresh matches) goes to the games whose
- * players matter most for smurf detection.
+ * Returns candidates unordered: pickNextMatch() chooses among them.
  */
 async function discoverMatches() {
   const matchMap = new Map();
@@ -149,9 +185,8 @@ async function discoverMatches() {
   if (allIds.length === 0) return [];
   const existing = getExistingW3cMatchIds(allIds);
   const newMatches = allIds
-    .filter(id => !existing.has(id))
-    .map(id => matchMap.get(id))
-    .sort((a, b) => b.avgMmr - a.avgMmr);
+    .filter(id => !existing.has(id) && !noReplayMatches.has(id))
+    .map(id => matchMap.get(id));
 
   console.log(`[Importer] Discovered ${matchMap.size} matches, ${existing.size} already imported, ${newMatches.length} new`);
   return newMatches;
@@ -341,44 +376,47 @@ async function runCycle() {
     }
     dripBudgetLogged = false;
 
-    // Discover new matches if queue is low
-    if (importQueue.length < IMPORTS_PER_CYCLE) {
-      if (discoverCooldown <= 0) {
-        const newMatches = await discoverMatches();
-        importQueue.push(...newMatches);
-        // Don't discover again for 3 cycles even if queue empties
-        discoverCooldown = 3;
-      } else {
-        discoverCooldown--;
-      }
+    // Refresh the candidate list from the feed. It is replaced, not appended
+    // to: a new player's first game should be seen within a few cycles, and
+    // the feed already reaches back about a day.
+    if (discoverCooldown <= 0) {
+      importQueue = await discoverMatches();
+      discoverCooldown = DISCOVER_EVERY_CYCLES;
+      // Cool down after discovery before starting downloads
+      await sleep(30_000);
+    } else {
+      discoverCooldown--;
     }
 
     const regularSlots = Math.min(IMPORTS_PER_CYCLE - prioritySlotUsed, dripBudget);
-    if (importQueue.length === 0 || regularSlots === 0) {
-      isRunning = false;
-      return;
-    }
-
-    // Cool down after discovery before starting downloads
-    await sleep(30_000);
-
-    // Import up to remaining slots
-    const batch = importQueue.splice(0, regularSlots);
     let imported = 0, skipped = 0, errors = 0;
 
-    for (const match of batch) {
+    for (let slot = 0; slot < regularSlots; slot++) {
+      // Chosen one at a time: the game just imported changes who is covered.
+      const pick = pickNextMatch(importQueue);
+      if (!pick) break; // everyone in the recent feed has enough replays
+      const { match, need } = pick;
+      importQueue.splice(importQueue.indexOf(match), 1);
       await sleep(RATE_LIMIT_MS);
       try {
         const result = await importMatch(match);
-        if (result.status === 'imported') imported++;
-        else if (result.status === 'rate_limited') {
-          // Keep the (MMR-sorted) queue and pause; the W3C daily budget
-          // resets on its own. Put the failed match back at the front.
-          importQueue.unshift(match, ...batch.slice(batch.indexOf(match) + 1));
+        if (result.status === 'imported') {
+          imported++;
+          for (const p of match.players) {
+            if (p.battleTag) importsThisRun.set(p.battleTag, (importsThisRun.get(p.battleTag) || 0) + 1);
+          }
+          console.log(`[Importer] Imported ${match.matchId}: ${need} of ${match.players.length} players had fewer than ${TARGET_REPLAYS} replays`);
+        } else if (result.status === 'rate_limited') {
+          // Put it back and pause; the W3C allowance frees up on its own.
+          importQueue.push(match);
           rateLimitCooldown = RATE_LIMIT_PAUSE_CYCLES;
-          console.log(`[Importer] Rate limited - pausing imports for ${RATE_LIMIT_PAUSE_CYCLES} cycles (~1h), ${importQueue.length} queued`);
+          console.log(`[Importer] Rate limited - pausing imports for ${RATE_LIMIT_PAUSE_CYCLES} cycles (~1h), ${importQueue.length} candidates`);
           break;
         } else {
+          if (result.status === 'no_replay') {
+            if (noReplayMatches.size > 5000) noReplayMatches.clear();
+            noReplayMatches.add(match.matchId);
+          }
           skipped++;
         }
       } catch (err) {
@@ -387,8 +425,8 @@ async function runCycle() {
       }
     }
 
-    if (imported > 0 || errors > 0) {
-      console.log(`[Importer] Cycle done: ${imported} imported, ${skipped} skipped, ${errors} errors, ${importQueue.length} queued`);
+    if (imported > 0 || skipped > 0 || errors > 0) {
+      console.log(`[Importer] Cycle done: ${imported} imported, ${skipped} skipped, ${errors} errors, ${importQueue.length} candidates, ${replayDownloadsLastDay()} downloads in 24h`);
     }
   } catch (err) {
     console.error('[Importer] Cycle error:', err.message);
