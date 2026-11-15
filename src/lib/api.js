@@ -309,6 +309,45 @@ export const getPlayerAllSeasonActivity = async (battleTag) => {
   }
 };
 
+const lastSeasonKey = (battleTag) => `lastSeason4v4:${battleTag.toLowerCase()}`;
+
+/** Synchronous read of getPlayerLastSeason's answer, if it is still cached */
+export const getPlayerLastSeasonCached = (battleTag) => cache.get(lastSeasonKey(battleTag)) ?? null;
+
+/**
+ * The newest season this player has 4v4 games in, or null if none was found.
+ *
+ * W3C's `participatedInSeasons` counts every mode, and half the 4v4 ladder
+ * also plays 1v1, so the newest entry is only a candidate: each one is checked
+ * for a 4v4 game, newest first. An active player settles on the first check.
+ */
+export const getPlayerLastSeason = async (battleTag) => {
+  const cached = getPlayerLastSeasonCached(battleTag);
+  if (cached) return cached;
+  try {
+    const url = `${API_BASE}/players/${encodeURIComponent(battleTag)}`;
+    const data = await fetchWithCache(url, {
+      cacheKey: `playerSeasons:${battleTag.toLowerCase()}`,
+      ttl: MEDIUM_TTL,
+    });
+    const ids = (data?.participatedInSeasons || [])
+      .map((s) => s.id)
+      .filter((id) => id > 0)
+      .sort((a, b) => b - a);
+    for (const id of ids) {
+      const { count } = await getPlayerMatches(battleTag, 1, 0, id);
+      if (count > 0) {
+        cache.set(lastSeasonKey(battleTag), id, MEDIUM_TTL);
+        return id;
+      }
+    }
+    return null;
+  } catch (error) {
+    console.error(`Error finding last season for ${battleTag}:`, error);
+    return null;
+  }
+};
+
 /**
  * Get player's recent matches
  *

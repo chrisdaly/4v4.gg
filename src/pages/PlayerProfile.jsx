@@ -19,7 +19,7 @@ import ActivityGraph from "../components/ActivityGraph";
 import ActivityOverTime from "../components/ActivityOverTime";
 import SeasonHistoryBars from "../components/SeasonHistoryBars";
 import { IssueThumb } from "../components/news/IssueCover";
-import { getPlayerAllSeasonActivity } from "../lib/api";
+import { getPlayerAllSeasonActivity, getPlayerLastSeason, getPlayerLastSeasonCached } from "../lib/api";
 import {
   PROFILE_RULES,
   playerMatchLite,
@@ -143,6 +143,10 @@ const PlayerProfile = () => {
   const fetchedModeRef = useRef(null);
   const hasLoadedProfileRef = useRef(false);
   const latestReq = useRef(0);
+  // The season a bare /player/X link resolves to: the player's latest 4v4 one
+  const defaultSeasonRef = useRef(null);
+  const seasonParamRaw = new URLSearchParams(rrLocation.search).get('season');
+  const seasonParam = /^\d+$/.test(seasonParamRaw || '') ? parseInt(seasonParamRaw, 10) : null;
   const [activeClip, setActiveClip] = useState(null);
   const { seasons: availableSeasons, currentSeason } = useSeasons();
   const { data: ongoingData } = useOngoingMatches();
@@ -277,14 +281,37 @@ const PlayerProfile = () => {
     fetchMatches(0, false, latestReq.current, historyMode);
   }, [historyMode, selectedSeason]);
 
-  // Reset to the latest season when the player changes or seasons load
+  // Which season the page opens on. `?season=` wins, so a link to a past
+  // season survives a reload. Without it, the player's own latest 4v4 season:
+  // opening on the ladder's current season drew an empty page for anyone who
+  // sat it out.
   useEffect(() => {
     if (currentSeason === null) return;
-    updateState({ selectedSeason: currentSeason });
-
-    const cached = getCachedPlayerData(battleTag, currentSeason);
-    if (cached) restoreFromCache(cached);
-  }, [battleTag, currentSeason]);
+    const fromUrl =
+      seasonParam !== null && availableSeasons.some((s) => s.id === seasonParam) ? seasonParam : null;
+    // The default is looked up even when the URL names a season: the picker
+    // needs it to know which choice leaves the URL bare
+    const known = getPlayerLastSeasonCached(battleTag);
+    defaultSeasonRef.current = known;
+    if (fromUrl !== null || known) {
+      updateState({ selectedSeason: fromUrl ?? known });
+      if (known) return;
+    }
+    let cancelled = false;
+    // Hold the load until the season is known, rather than load the current
+    // season and throw it away
+    if (fromUrl === null && prevBattleTagRef.current !== battleTag) {
+      updateState({ selectedSeason: null, isLoading: true });
+    }
+    getPlayerLastSeason(battleTag).then((last) => {
+      if (cancelled) return;
+      defaultSeasonRef.current = last ?? currentSeason;
+      if (fromUrl === null) updateState({ selectedSeason: defaultSeasonRef.current });
+    });
+    return () => {
+      cancelled = true;
+    };
+  }, [battleTag, currentSeason, seasonParam, availableSeasons]);
 
   // Reset and reload when battleTag or season changes
   useEffect(() => {
@@ -859,8 +886,16 @@ const PlayerProfile = () => {
     fetchStatistics(true, latestReq.current).finally(() => setStatsLoading(false));
   }, [activeTab, battleTagLower, selectedSeason]);
 
+  // The season goes in the URL so the view can be linked and reloaded. The
+  // player's default season stays out of it, which keeps a plain profile link
+  // plain.
   const handleSeasonChange = (e) => {
-    updateState({ selectedSeason: parseInt(e.target.value, 10) });
+    const next = parseInt(e.target.value, 10);
+    updateState({ selectedSeason: next });
+    const p = new URLSearchParams(window.location.search);
+    if (next === defaultSeasonRef.current) p.delete('season');
+    else p.set('season', next);
+    rrHistory.replace({ search: p.toString() ? `?${p}` : '' });
   };
 
   const handlePageChange = async (newPage) => {
