@@ -60,6 +60,34 @@ let rateLimitCooldown = 0; // cycles to skip entirely after a 429
 
 const sleep = (ms) => new Promise(r => setTimeout(r, ms));
 
+// ── W3C replay allowance ────────────────────────
+// W3C limits replay downloads per IP over a rolling 24 hours: 100 a day for
+// matches up to 7 days old, 70 for older ones (50 and 30 an hour). Every
+// request counts, including a 404. Left alone, the background drip asks for up
+// to 24 an hour and uses the whole day's allowance in about four hours, after
+// which a visitor asking for one player gets a 429 and lands in the queue.
+// So the drip stops at DRIP_DAILY_BUDGET downloads of any kind in the last
+// 24h, and the rest is kept for on-demand imports and the priority queue.
+// The count lives in memory: a restart forgets it, and the 429 handling
+// below is still the backstop.
+const DRIP_DAILY_BUDGET = 60;
+const DAY_MS = 24 * 60 * 60 * 1000;
+let replayDownloadTimes = [];
+let dripBudgetLogged = false;
+
+// Called for every request to W3C's replay endpoint, wherever it is made.
+export function recordReplayDownload() {
+  replayDownloadTimes.push(Date.now());
+}
+
+export function replayDownloadsLastDay() {
+  const cutoff = Date.now() - DAY_MS;
+  if (replayDownloadTimes.length && replayDownloadTimes[0] < cutoff) {
+    replayDownloadTimes = replayDownloadTimes.filter((t) => t >= cutoff);
+  }
+  return replayDownloadTimes.length;
+}
+
 // The importer must never starve the database of disk (a full volume is what
 // corrupted the DB in June 2026). Pause imports when free space drops below 15%.
 export const MIN_FREE_RATIO = 0.15;
@@ -138,6 +166,7 @@ async function importMatch({ matchId, players: w3cPlayers }) {
 
   // Download .w3g
   const w3cUrl = `${W3C_API}/replays/${encodeURIComponent(matchId)}`;
+  recordReplayDownload();
   const dlRes = await fetch(w3cUrl);
   if (!dlRes.ok) {
     if (dlRes.status === 404) return { status: 'no_replay' };
@@ -299,6 +328,19 @@ async function runCycle() {
       prioritySlotUsed = 1;
     }
 
+    // The background drip stops once the relay has used its share of W3C's
+    // daily replay allowance. What is left stays free for on-demand imports.
+    const dripBudget = DRIP_DAILY_BUDGET - replayDownloadsLastDay();
+    if (dripBudget <= 0) {
+      if (!dripBudgetLogged) {
+        console.log(`[Importer] Background imports paused: ${replayDownloadsLastDay()} replay downloads in the last 24h (budget ${DRIP_DAILY_BUDGET})`);
+        dripBudgetLogged = true;
+      }
+      isRunning = false;
+      return;
+    }
+    dripBudgetLogged = false;
+
     // Discover new matches if queue is low
     if (importQueue.length < IMPORTS_PER_CYCLE) {
       if (discoverCooldown <= 0) {
@@ -311,7 +353,7 @@ async function runCycle() {
       }
     }
 
-    const regularSlots = IMPORTS_PER_CYCLE - prioritySlotUsed;
+    const regularSlots = Math.min(IMPORTS_PER_CYCLE - prioritySlotUsed, dripBudget);
     if (importQueue.length === 0 || regularSlots === 0) {
       isRunning = false;
       return;

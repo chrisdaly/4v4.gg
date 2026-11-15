@@ -22,6 +22,7 @@ import {
 import { buildServerFingerprint } from '../fingerprint.js';
 import { getEmbeddingBatch } from '../embedClient.js';
 import { requireApiKey } from '../middleware/auth.js';
+import { recordReplayDownload } from '../replayImporter.js';
 
 const router = Router();
 
@@ -312,6 +313,7 @@ router.post('/import-w3c', requireApiKey, async (req, res) => {
   let replayBuffer;
   try {
     const w3cUrl = `https://website-backend.w3champions.com/api/replays/${encodeURIComponent(matchId)}`;
+    recordReplayDownload();
     const dlRes = await fetch(w3cUrl);
     if (!dlRes.ok) {
       const status = dlRes.status === 404 ? 422 : 502;
@@ -685,6 +687,7 @@ router.post('/batch-import', requireApiKey, async (req, res) => {
       try {
         // Download .w3g from W3C
         const w3cUrl = `${W3C_API}/replays/${encodeURIComponent(matchId)}`;
+        recordReplayDownload();
         const dlRes = await fetch(w3cUrl);
         if (!dlRes.ok) {
           if (dlRes.status === 404) { skipped++; continue; }
