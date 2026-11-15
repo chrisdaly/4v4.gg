@@ -161,9 +161,9 @@ export default function HeroUsage() {
       <HeroModeSplit />
 
       <p>
-        The Keeper also levels better. Heroes nearby split the experience
-        from a kill, so a player with one hero gets all of it, and a Keeper
-        can be your only hero: his treants creep fast and, with Entangle,
+        The Keeper also levels better. A player with only one hero gets all
+        the experience, plus a bonus: 15% more at tier 2, 30% at tier 3.
+        And a Keeper can be your only hero: his treants creep fast and, with Entangle,
         harass and win skirmishes, and he fights from a distance instead of
         in the middle of it. A lone Keeper reaches level 6 and Tranquility,
         which heals the whole army, in about a quarter of 4v4 games. A lone
@@ -179,7 +179,7 @@ export default function HeroUsage() {
         all six slots, before any of the good items he picks up creeping.
         So he often needs a second hero, to carry items and to staff him
         out when he&rsquo;s caught, and a second hero splits his
-        experience, which puts Metamorphosis further away.
+        experience and ends the bonus, which puts Metamorphosis further away.
       </p>
 
       <h2>Where he still works</h2>
