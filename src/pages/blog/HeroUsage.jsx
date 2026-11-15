@@ -149,10 +149,19 @@ export default function HeroUsage() {
       <HeroModeSplit />
 
       <p>
-        And NE can&rsquo;t heal him. A hero who lives in melee range of
+        The Keeper also gets to level 6, and the DH usually doesn&rsquo;t.
+        A Keeper can be your only hero: his treants creep fast, Entangle
+        picks off units, and he holds up in a fight, so he levels quickly
+        and arrives at Tranquility, which heals the whole army. About one
+        DH in ten ever sees Metamorphosis.
+      </p>
+
+      <p>
+        And the DH can&rsquo;t keep himself alive. A hero in melee range of
         four opponents needs a Holy Light or a Healing Wave behind him, and
-        NE has neither. Its big heal is the Keeper&rsquo;s ultimate, which
-        is the other reason the Keeper gets picked.
+        NE has neither. So he needs a second hero with a Staff of
+        Preservation to pull him out, and his item slots go on surviving
+        rather than on damage.
       </p>
 
       <Exchange

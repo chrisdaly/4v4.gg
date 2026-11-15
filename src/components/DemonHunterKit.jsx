@@ -35,7 +35,7 @@ const KIT = [
     icon: "metamorphosis",
     name: "Metamorphosis",
     text:
-      "Good in both modes, but it needs level 6, which about one Demon Hunter in ten gets to. A Keeper who reaches 6 brings Tranquility, which heals the whole army.",
+      "Good in both modes, but it needs level 6, which about one Demon Hunter in ten gets to.",
     verdict: "same",
   },
 ];
