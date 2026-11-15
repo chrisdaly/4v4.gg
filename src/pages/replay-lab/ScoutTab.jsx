@@ -260,15 +260,31 @@ export default function ScoutTab({ initialPlayer = null, initialProfileData = nu
       setImportResult(result);
       setImportStatus('done');
       if (result.imported > 0) {
-        // Re-fetch profile now that data exists
-        setSelectedTag(null); // force selectPlayer to re-run
-        setTimeout(() => selectPlayer(tag), 300);
+        // Load the profile now that data exists. Fetched here rather than by
+        // re-selecting the player: clearing the selection blanked the panel,
+        // and the re-select then bailed because its closure still saw the
+        // same player as selected.
+        const enc = encodeURIComponent(tag);
+        try {
+          const profileRes = await fetch(`${RELAY_URL}/api/fingerprints/profile/${enc}`);
+          if (profileRes.ok && mountedRef.current && selectedTagRef.current === tag) {
+            setProfileData(await profileRes.json());
+          }
+        } catch (err) {
+          console.error("Profile fetch failed:", err);
+        }
+        fetch(`${RELAY_URL}/api/fingerprints/profile/${enc}/replays`)
+          .then((r) => (r.ok ? r.json() : null))
+          .then((list) => {
+            if (list?.replays && mountedRef.current && selectedTagRef.current === tag) setReplayList(list.replays);
+          })
+          .catch(() => {});
       }
     } catch (err) {
       setImportStatus('error');
       setImportResult(`Import failed: ${err.message}`);
     }
-  }, [selectedTag, importStatus, selectPlayer]);
+  }, [selectedTag, importStatus]);
 
   // Auto-select player from URL param on mount
   useEffect(() => {

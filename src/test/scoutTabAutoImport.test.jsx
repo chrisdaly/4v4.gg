@@ -60,6 +60,35 @@ describe("ScoutTab embedded auto-import", () => {
     expect(imports(calls)).toHaveLength(1);
   });
 
+  // After an import that brought in replays the tab used to clear the
+  // selection and re-select through a stale closure, which bailed: the panel
+  // stayed blank and the profile was never fetched again.
+  it("loads the profile in place once an import brings in replays", async () => {
+    let imported = false;
+    const profileCalls = [];
+    global.fetch = vi.fn(async (url, opts) => {
+      const p = path(url);
+      if (p === "/api/fingerprints/import") {
+        return { ok: true, status: 202, json: async () => ({ status: "running" }) };
+      }
+      if (p.startsWith("/api/fingerprints/import/status")) {
+        imported = true;
+        return { ok: true, status: 200, json: async () => ({ status: "done", result: { imported: 3, discovered: 25 } }) };
+      }
+      if (/\/profile\/[^/]+$/.test(p)) {
+        profileCalls.push(opts?.method || "GET");
+        return imported
+          ? { ok: true, status: 200, json: async () => ({ battleTag: "Foo#1", replayCount: 3, averaged: {} }) }
+          : { ok: false, status: 404, json: async () => ({}) };
+      }
+      return { ok: true, status: 200, json: async () => ({}) };
+    });
+    mount();
+    await waitFor(() => expect(profileCalls).toHaveLength(2), { timeout: 6000 });
+    await settle();
+    expect(screen.queryByText(/Imported 3 replays/)).toBeNull();
+  }, 10000);
+
   it("does not import when the profile request fails", async () => {
     const calls = mockRelay(async () => ({ ok: false, status: 502, json: async () => ({}) }));
     mount();
