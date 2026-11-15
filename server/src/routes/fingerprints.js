@@ -185,7 +185,9 @@ function getCalibration() {
     return calibrationCache;
   }
 
-  let players = getParsedPlayers();
+  // Copy before shuffling: the suspects cache holds index pairs into the shared
+  // array, and reordering it in place relabels those pairs with the wrong tags.
+  let players = getParsedPlayers().slice();
   if (players.length < 5) return null; // need enough players
 
   // Sample up to 200 players to keep O(n²) manageable (~20K pairs vs 1.6M)
@@ -249,6 +251,72 @@ function scoreToPercentile(rawScore, cal) {
 function scoreToZScore(rawScore, cal) {
   if (!cal || cal.stddev === 0) return null;
   return Math.round(((rawScore - cal.mean) / cal.stddev) * 100) / 100;
+}
+
+// ── Best-match calibration ───────────────────────
+// A smurf verdict is about the BEST of thousands of candidates, so it cannot be
+// judged against the pairwise distribution above: with ~2,300 candidates about
+// a dozen clear the pairwise 99.5th percentile by chance, and the old rule said
+// "confident" for 82% of accounts whose real owner was not indexed at all
+// (scripts/eval-identify.mjs). This caches, for a sample of accounts, the score
+// of each one's best match against everyone else. A verdict then asks how
+// unusual a top match is among best matches.
+let bestMatchCache = null;
+let bestMatchAge = 0;
+const BEST_MATCH_SAMPLE = 300;
+const MIN_VERDICT_REPLAYS = 3;
+// Share of accounts whose best match is at least this strong. Measured on the
+// Nov 2026 data these give 1.5% and 8.8% false alarms; the pairwise rule gave
+// 81.6% and 95.2%.
+const CONFIDENT_RARITY = 0.01;
+const POSSIBLE_RARITY = 0.05;
+
+function getBestMatchCalibration() {
+  const now = Date.now();
+  if (bestMatchCache && (now - bestMatchAge) < CALIBRATION_TTL) return bestMatchCache;
+
+  const pool = getParsedPlayers().filter(p => p.replayCount >= MIN_VERDICT_REPLAYS);
+  if (pool.length < 50) return null; // too few accounts for a 1% tail to mean anything
+
+  const order = pool.map((_, i) => i);
+  const rand = seededLCG(54321);
+  for (let i = order.length - 1; i > 0; i--) {
+    const j = Math.floor(rand() * (i + 1));
+    [order[i], order[j]] = [order[j], order[i]];
+  }
+
+  const best = [];
+  for (const i of order.slice(0, BEST_MATCH_SAMPLE)) {
+    let top = -Infinity;
+    for (let j = 0; j < pool.length; j++) {
+      if (j === i) continue;
+      const { similarity } = computeHybridSimilarity(pool[i].fp, pool[j].fp, pool[i].embedding, pool[j].embedding);
+      if (similarity > top) top = similarity;
+    }
+    best.push(top);
+  }
+  best.sort((a, b) => a - b);
+
+  bestMatchCache = { best, poolSize: pool.length, sampleCount: best.length };
+  bestMatchAge = now;
+  return bestMatchCache;
+}
+
+/**
+ * Share (0-1) of sampled accounts whose own best match scores at least `score`.
+ * Small means the match stands out; 0.5 means half of all accounts have a
+ * lookalike this close.
+ */
+function bestMatchRarity(score, cal) {
+  if (!cal) return null;
+  const arr = cal.best;
+  let lo = 0, hi = arr.length;
+  while (lo < hi) {
+    const mid = (lo + hi) >> 1;
+    if (arr[mid] < score) lo = mid + 1;
+    else hi = mid;
+  }
+  return (arr.length - lo) / arr.length;
 }
 
 /**
@@ -1941,6 +2009,7 @@ router.post('/backfill', requireApiKey, (req, res) => {
 // POST /api/fingerprints/rebuild - Delete all fingerprints and recompute from action data
 router.post('/rebuild', requireApiKey, (req, res) => {
   calibrationCache = null; // invalidate calibration
+  bestMatchCache = null;
   parsedPlayersCache = null; // invalidate shared cache
   suspectsCache = null;
   pcaCache = null;
@@ -2612,10 +2681,11 @@ function getSuspectsData() {
 
 // GET /api/fingerprints/identify/:battleTag - Smurf verdict for one account
 // Returns the top similar account with a confidence verdict.
-// Thresholds calibrated against 14 ground-truth validation pairs (all score p99.8+).
-//   confident  → percentile >= 99.5 (all known smurfs land here)
-//   possible   → percentile >= 97
-//   no_match   → below that
+// The verdict compares the top match with other accounts' best matches (see
+// getBestMatchCalibration), not with random pairs:
+//   confident  → at most 1% of accounts have a best match this strong
+//   possible   → at most 5%
+//   no_match   → more common than that, or too few accounts to calibrate
 router.get('/identify/:battleTag', requireApiKey, async (req, res) => {
   const { battleTag } = req.params;
   const filterRace = req.query.race || null;
@@ -2627,6 +2697,7 @@ router.get('/identify/:battleTag', requireApiKey, async (req, res) => {
 
   const allPlayers = getParsedPlayers();
   const cal = getCalibration();
+  const bestCal = getBestMatchCalibration();
 
   const suspect = allPlayers.find(p => p.battleTag === battleTag);
   if (!suspect) {
@@ -2689,11 +2760,13 @@ router.get('/identify/:battleTag', requireApiKey, async (req, res) => {
   results.sort((a, b) => b.similarity - a.similarity);
   const similar = results.slice(0, 5);
 
+  for (const s of similar) s.rarity = bestMatchRarity(s.similarity, bestCal);
+
   const top = similar[0];
   let verdict = 'no_match';
-  if (top) {
-    if (top.percentile != null && top.percentile >= 99.5) verdict = 'confident';
-    else if (top.percentile != null && top.percentile >= 97) verdict = 'possible';
+  if (top && top.rarity != null) {
+    if (top.rarity <= CONFIDENT_RARITY) verdict = 'confident';
+    else if (top.rarity <= POSSIBLE_RARITY) verdict = 'possible';
   }
 
   // Enrich query player with glyph + APM (filtered if filters active)
@@ -2770,6 +2843,8 @@ router.get('/identify/:battleTag', requireApiKey, async (req, res) => {
   res.json({
     battleTag,
     verdict,
+    // Share of accounts whose best match is at least as strong as this one's
+    topMatchRarity: top?.rarity ?? null,
     filters: hasFilter ? { race: filterRace, after: filterAfter, replayIds: filterReplayIds } : null,
     query: {
       replayCount: suspectReplayCount,
