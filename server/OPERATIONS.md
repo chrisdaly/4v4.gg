@@ -86,6 +86,28 @@ Alerts go out through `src/alerts.js` on every configured channel:
 
 Prove the channels work rather than assuming: `curl -X POST https://4v4gg-chat-relay.fly.dev/api/admin/alert-test -H "X-API-Key: $ADMIN_API_KEY"` sends a test alert and returns `sent` / `not_configured` / `failed` per channel.
 
+## Replay imports
+
+Playstyle and smurf detection run on replays downloaded from W3C. The code is `src/replayImporter.js`.
+
+**W3C's limit** (read from `w3champions/website-backend`, `ReplaysController` and `ReplayRateLimitAttribute`, November 2026):
+
+- Per IP address, over a rolling hour and a rolling 24 hours. There is no reset time.
+- Matches up to 7 days old: 50 an hour, 100 a day. Older matches: 30 an hour, 70 a day.
+- Every request counts, including one that returns 404.
+- Over the limit returns 429. The importer then pauses for an hour.
+- W3C can issue an API token (`X-API-Token` header) with its own higher limits. The relay does not have one.
+
+**How the allowance is spent:**
+
+- The background importer runs every 5 minutes and re-reads the last ~200 games every third cycle. It only downloads a game containing a player with fewer than 3 replays (`TARGET_REPLAYS`), taking the game with the most such players first. With everyone covered it downloads nothing.
+- It stops once the relay has made 60 downloads of any kind in the last 24 hours (`DRIP_DAILY_BUDGET`). The rest is for on-demand imports, which are not capped. The count is in memory, so a restart forgets it.
+- An on-demand import (`POST /api/fingerprints/import`) runs at once as a background job. Only if W3C answers 429 does the player go to the priority queue (`import_priority_queue`), which the importer drains one player per cycle, newest request first. Inspect it with `GET /api/admin/import-queue`.
+
+**Sizing** (1 to 14 November 2026): 174 4v4 games a day, about 257 different players a day, 700 over two weeks. Choosing games by missing players covers all of them on roughly 25 downloads a day, so the allowance is not the constraint for keeping up. It is the constraint for bulk re-downloads such as the sequence backfill.
+
+Imports stop entirely below 15% free disk (see Disk management). `/api/health` reports the free space.
+
 ## W3C chat token
 
 The SignalR JWT expires **7 days after issue** (hardcoded in W3C's identification-service; no refresh endpoint exists).
