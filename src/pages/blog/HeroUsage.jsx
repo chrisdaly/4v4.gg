@@ -152,11 +152,12 @@ export default function HeroUsage() {
       />
 
       <p>
-        Some of it is what his team would rather have. An aura that helps
-        one player in solo helps four in 4v4, so the NE altar makes a Keeper
-        of the Grove instead, in 64% of NE slots against 29% in solo, and
-        the Priestess goes from about one NE in ten to nearly half. Every
-        aura and healing hero rises the same way.
+        And NE has better options. 4v4 rewards auras and range: an aura
+        that helps one player in solo helps four, and a ranged hero can
+        fight from behind the army. The Keeper and the Priestess have both,
+        so the NE altar makes a Keeper instead, in 64% of NE slots against
+        29% in solo, and the Priestess goes from about one NE in ten to
+        nearly half. Every aura and healing hero rises the same way.
       </p>
 
       <HeroModeSplit />
@@ -164,8 +165,8 @@ export default function HeroUsage() {
       <p>
         The Keeper also gets to level 6, and the DH usually doesn&rsquo;t.
         A Keeper can be your only hero: his treants creep fast, Entangle
-        picks off units, and he&rsquo;s ranged, so he fights from a
-        distance instead of in the middle of it. He levels quickly
+        picks off units, and he fights from a distance instead of in the
+        middle of it. He levels quickly
         and arrives at Tranquility, which heals the whole army. About one
         DH in ten ever sees Metamorphosis.
       </p>
