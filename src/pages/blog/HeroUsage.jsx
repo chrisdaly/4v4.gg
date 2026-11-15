@@ -250,9 +250,8 @@ export default function HeroUsage() {
 
       <p>
         That&rsquo;s a narrow set of games: the right spawn, the right
-        opponents, an ally with a heal. Jens, the player fuetti credits with
-        making the DH work, picks him in about 16% of his NE games, the same
-        as everyone else. Outside those games the chat has a name for him.
+        opponents, an ally with a heal. Most of the chat has stopped looking
+        for them.
       </p>
 
       <Exchange
@@ -264,6 +263,23 @@ export default function HeroUsage() {
           ["ToD", "yep"],
         ]}
       />
+
+      <p>
+        That&rsquo;s probably too early. Solo has had twenty years of pros
+        working out the DH&rsquo;s timings, and 4v4 has had a chat room.
+        Nobody has worked out in public which spawns, which maps or which enemy
+        heroes make him worth the slot, or when a level-3 DH should leave
+        the corner on a map twice the size.
+      </p>
+
+      <p>
+        Jens is the hint. Even in solo he picks the DH less than half as
+        often as other NE players, and in 4v4 he picks him in about 16% of
+        his NE games, the same as everyone else. fuetti still says he made
+        him work. If one of the best NE players on the ladder can get that
+        out of a hero he barely picks, there&rsquo;s a 4v4 DH still waiting
+        to be found, and the timings to go with him.
+      </p>
 
       <p className="dw-foot">
         Picks are from season 25, Europe: 11,000 solo games against 11,000
