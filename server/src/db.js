@@ -1953,8 +1953,7 @@ export function getPlayersWithoutSequences() {
         FROM replay_player_actions rpa
         JOIN replay_players rp ON rp.replay_id = rpa.replay_id AND rp.player_id = rpa.player_id
         WHERE rp.battle_tag = pf.battle_tag
-          AND rpa.full_action_sequence IS NOT NULL
-          AND rpa.full_action_sequence != '[]'
+          AND octet_length(rpa.full_action_sequence) > 2
       )
   `).all().map(r => r.battle_tag);
 }
@@ -2003,8 +2002,7 @@ export function getActionSequencesForExport() {
            rp.battle_tag, rp.player_name, rp.race
     FROM replay_player_actions rpa
     JOIN replay_players rp ON rp.replay_id = rpa.replay_id AND rp.player_id = rpa.player_id
-    WHERE rpa.full_action_sequence IS NOT NULL
-      AND rpa.full_action_sequence != '[]'
+    WHERE octet_length(rpa.full_action_sequence) > 2
       AND rp.battle_tag IS NOT NULL
     ORDER BY rp.battle_tag, rpa.replay_id
   `).all();
@@ -2034,8 +2032,7 @@ export function getPlayerActionDataTop(battleTag, limit = 10) {
     JOIN replay_players rp ON rp.replay_id = rpa.replay_id AND rp.player_id = rpa.player_id
     JOIN replays r ON r.id = rpa.replay_id
     WHERE rp.battle_tag = ?
-    ORDER BY (CASE WHEN rpa.full_action_sequence IS NOT NULL
-                        AND rpa.full_action_sequence != '[]' THEN 1 ELSE 0 END) DESC,
+    ORDER BY (CASE WHEN octet_length(rpa.full_action_sequence) > 2 THEN 1 ELSE 0 END) DESC,
              rpa.replay_id DESC
     LIMIT ?
   `).all(battleTag, limit);
@@ -2188,8 +2185,7 @@ export function getPlayerActionDataTopFiltered(battleTag, limit = 10, { race = n
     JOIN replay_players rp ON rp.replay_id = rpa.replay_id AND rp.player_id = rpa.player_id
     JOIN replays r ON r.id = rpa.replay_id
     WHERE ${conditions.join(' AND ')}
-    ORDER BY (CASE WHEN rpa.full_action_sequence IS NOT NULL
-                        AND rpa.full_action_sequence != '[]' THEN 1 ELSE 0 END) DESC,
+    ORDER BY (CASE WHEN octet_length(rpa.full_action_sequence) > 2 THEN 1 ELSE 0 END) DESC,
              rpa.replay_id DESC
     LIMIT ?
   `).all(...params);

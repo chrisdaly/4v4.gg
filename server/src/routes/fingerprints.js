@@ -1306,8 +1306,9 @@ async function buildGalleryCache() {
         },
       });
 
-      // Yield every 5 players so the event loop stays responsive during the build
-      if (players.length % 5 === 0) await yieldToEventLoop();
+      // Yield after every player: each can mean parsing ten long click
+      // sequences, and a blocked loop fails Fly's health check
+      await yieldToEventLoop();
     }
 
     galleryCache = { players };
