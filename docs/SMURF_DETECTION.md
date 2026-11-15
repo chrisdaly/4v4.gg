@@ -56,7 +56,6 @@ replay_player_actions (
 | `PlaystyleReport` | `src/components/replay-lab/PlaystyleReport.jsx` | Detailed playstyle breakdown (groups, speed, habits) |
 | `PersonaSplit` | `src/components/replay-lab/PersonaSplit.jsx` | Account sharing visualization |
 | `ScoutTab` | `src/pages/replay-lab/ScoutTab.jsx` | Player lookup + profile view |
-| `CompareTab` | `src/pages/replay-lab/CompareTab.jsx` | Side-by-side player comparison |
 
 ### Fingerprint Vector (30 dimensions)
 
