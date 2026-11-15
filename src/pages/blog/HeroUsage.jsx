@@ -150,7 +150,7 @@ export default function HeroUsage() {
       />
 
       <p>
-        And NE has better options. 4v4 rewards auras and range: an aura
+        And NE has heroes that usually suit 4v4 better. 4v4 rewards auras and range: an aura
         that helps one player in solo helps four, and a ranged hero can
         fight from behind the army. The Keeper and the Priestess have both,
         so the NE altar makes a Keeper instead, in 64% of NE slots against
