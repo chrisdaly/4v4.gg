@@ -127,10 +127,12 @@ export default function HeroUsage() {
       <DemonHunterKit />
 
       <p>
-        Some of it is the map. In solo the DH&rsquo;s job is pressure: harass
-        early, burn the enemy hero&rsquo;s mana, stop him creeping. 4v4 maps
-        are bigger, with more camps and more expos, so the player he&rsquo;s
-        chasing creeps somewhere else, or three allies come and help. By
+        Some of it is the map. In solo the DH does a bit of everything: he
+        creeps fast with Immolation, harasses, burns the enemy hero&rsquo;s
+        mana and stops him creeping. His creeping still works in 4v4. The
+        pressure doesn&rsquo;t: the maps are bigger, with more camps and
+        more expos, so the player he&rsquo;s chasing creeps somewhere else,
+        or three allies come and help. By
         the time the armies meet, the fights are huge and he&rsquo;s the
         easiest hero on the field to catch.
       </p>
