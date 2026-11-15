@@ -102,8 +102,19 @@ export default function HeroUsage() {
 
       <p>
         In solo, 62% of NE players choose a DH, in 4v4 only 16% do. No
-        hero&rsquo;s pick rate falls further between the two modes.
+        hero&rsquo;s pick rate falls further between the two modes, and the
+        chat has a name for him.
       </p>
+
+      <Exchange
+        when="Nov 1"
+        rows={[
+          ["ToD", "et dh ... completement naze", "And DH... completely useless."],
+          ["Mellow", "mais oui DH bears c'est vrmt de la merde je confirme", "Yeah, DH bears really is crap, I confirm."],
+          ["Apm50", "dh=dead hero Kappa"],
+          ["ToD", "yep"],
+        ]}
+      />
 
       <h2>Why he disappears</h2>
 
@@ -250,22 +261,12 @@ export default function HeroUsage() {
 
       <p>
         That&rsquo;s a narrow set of games: the right spawn, the right
-        opponents, an ally with a heal. Most of the chat has stopped looking
-        for them.
+        opponents, an ally with a heal. It&rsquo;s also a set nobody has
+        finished mapping.
       </p>
 
-      <Exchange
-        when="Nov 1"
-        rows={[
-          ["ToD", "et dh ... completement naze", "And DH... completely useless."],
-          ["Mellow", "mais oui DH bears c'est vrmt de la merde je confirme", "Yeah, DH bears really is crap, I confirm."],
-          ["Apm50", "dh=dead hero Kappa"],
-          ["ToD", "yep"],
-        ]}
-      />
-
       <p>
-        That&rsquo;s probably too early. Solo has had twenty years of pros
+        Solo has had twenty years of pros
         working out the DH&rsquo;s timings, and 4v4 has had a chat room.
         Nobody has worked out in public which spawns, which maps or which enemy
         heroes make him worth the slot, or when a level-3 DH should leave
