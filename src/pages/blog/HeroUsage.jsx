@@ -251,8 +251,8 @@ export default function HeroUsage() {
       <p>
         That&rsquo;s a narrow set of games: the right spawn, the right
         opponents, an ally with a heal. Jens, the player fuetti credits with
-        making the DH work, brings one in one NE game in six, the same as
-        everyone else. Outside those games the chat has a name for him.
+        making the DH work, picks him in about 16% of his NE games, the same
+        as everyone else. Outside those games the chat has a name for him.
       </p>
 
       <Exchange
