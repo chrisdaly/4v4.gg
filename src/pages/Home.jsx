@@ -258,6 +258,7 @@ const Home = () => {
         title: post.title,
         sub: `${post.date} · Read →`,
         bg: post.coverImage || pickBg(post.slug),
+        preview: post.preview,
         href: `/blog/${post.slug}`,
       });
     }

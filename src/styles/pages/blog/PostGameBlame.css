@@ -1,0 +1,263 @@
+/* "Post-Game Blame" post. Own prefix (pb-) so nothing here leaks into other posts. */
+
+.pb-article {
+  padding-bottom: var(--space-12);
+}
+
+.pb-tags {
+  margin-bottom: var(--space-4);
+}
+
+.pb-date {
+  margin-bottom: var(--space-6);
+}
+
+.bl-section p.pb-lede {
+  font-size: var(--text-lg);
+  line-height: 1.5;
+  color: #fff;
+}
+
+/* ── A stretch of chat after one game, with the game drawn beside it ── */
+
+.pb-card {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: flex-start;
+  gap: var(--space-3) var(--space-6);
+  margin: 0 0 var(--space-8) 0;
+  padding-left: var(--space-4);
+  border-left: var(--border-thick) solid var(--gold);
+}
+
+.pb-lines {
+  flex: 1 1 300px;
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+}
+
+/* One player's run of lines. Pointing at it lights their bar in the chart. */
+.pb-turn {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-1);
+  margin: 0 calc(-1 * var(--space-2)) var(--space-1);
+  padding: var(--space-1) var(--space-2) var(--space-2);
+  border-radius: var(--radius-md);
+}
+
+.pb-turn--hot {
+  background: rgba(255, 255, 255, 0.06);
+}
+
+.pb-who {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--space-1) var(--space-2);
+}
+
+.pb-avatar {
+  width: 28px;
+  height: 28px;
+  border-radius: var(--radius-sm);
+  border: 1px solid var(--grey-mid);
+  object-fit: cover;
+}
+
+.pb-name {
+  font-family: var(--font-display);
+  font-size: var(--text-sm);
+  color: var(--gold);
+  text-decoration: none;
+}
+
+.pb-name:hover {
+  text-decoration: underline;
+}
+
+.pb-role {
+  font-family: var(--font-mono);
+  font-size: var(--text-xxs);
+  color: var(--grey-light);
+}
+
+.pb-quote {
+  font-family: var(--font-body);
+  font-size: var(--text-base);
+  color: #fff;
+  line-height: 1.5;
+  overflow-wrap: anywhere;
+}
+
+.pb-after {
+  margin-top: var(--space-1);
+  font-family: var(--font-mono);
+  font-size: var(--text-xs);
+  color: var(--gold);
+}
+
+/* The numbered dot beside a name: place in the game by units killed */
+.pb-place {
+  width: 20px;
+  height: 20px;
+  flex-shrink: 0;
+}
+
+.pb-place-n {
+  font-family: var(--font-mono);
+  font-size: 11px;
+  font-weight: 700;
+  fill: #101010;
+}
+
+/* ── The game: rating up the side, one bar per player for units killed ── */
+
+.pb-fig {
+  flex: 1 1 340px;
+  max-width: 440px;
+  min-width: 0;
+  margin: 0;
+  /* stays in view while a long exchange scrolls past */
+  position: sticky;
+  top: 72px;
+}
+
+.pb-chart {
+  display: block;
+  width: 100%;
+  height: auto;
+}
+
+.pb-chart-mid {
+  stroke: var(--grey-light);
+  stroke-width: 0.5;
+}
+
+.pb-t {
+  font-family: var(--font-mono);
+  font-size: 10px;
+  fill: var(--grey-light);
+}
+
+.pb-t--name {
+  fill: #fff;
+  font-weight: 700;
+}
+
+.pb-t--told {
+  fill: #fff;
+}
+
+/* Players who said nothing sit back; when one speaker is picked, the other speakers sit back too */
+.pb-row {
+  opacity: 0.5;
+  transition: opacity 0.12s;
+}
+
+.pb-row--spoke,
+.pb-row--named {
+  opacity: 1;
+}
+
+.pb-chart--picked .pb-row--spoke {
+  opacity: 0.5;
+}
+
+.pb-chart--picked .pb-row--spoke.pb-row--hot {
+  opacity: 1;
+}
+
+.pb-fig-cap {
+  margin-top: var(--space-1);
+  font-family: var(--font-mono);
+  font-size: var(--text-xxs);
+  color: var(--grey-light);
+  line-height: 1.5;
+}
+
+/* ── Winners against losers, on one scale ── */
+
+.pb-mirror {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-4);
+  margin: var(--space-6) 0 var(--space-8);
+}
+
+.pb-mirror-row {
+  display: grid;
+  grid-template-columns: 6rem 1fr;
+  align-items: center;
+  column-gap: var(--space-3);
+}
+
+.pb-mirror-label {
+  font-family: var(--font-display);
+  font-size: var(--text-sm);
+  color: #fff;
+}
+
+.pb-mirror-bars {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  min-width: 0;
+}
+
+.pb-bar {
+  display: flex;
+  align-items: center;
+  height: 22px;
+  min-width: 6.5rem;
+  border-radius: var(--radius-sm);
+  font-family: var(--font-mono);
+  font-size: var(--text-xxs);
+  color: #000;
+  white-space: nowrap;
+}
+
+.pb-bar span {
+  padding: 0 var(--space-2);
+}
+
+.pb-bar--blame {
+  background: var(--red);
+}
+
+.pb-bar--praise {
+  background: var(--green);
+}
+
+/* A one-line reading guide under a chart */
+.bl-section p.pb-key-line {
+  font-family: var(--font-mono);
+  font-size: var(--text-xxs);
+  color: var(--grey-light);
+  line-height: 1.6;
+  margin-top: calc(-1 * var(--space-4));
+}
+
+/* Method and limits, present but not competing with the argument */
+.bl-section p.pb-foot {
+  font-size: var(--text-xs);
+  color: var(--grey-light);
+  line-height: 1.7;
+  border-top: 1px solid rgba(255, 255, 255, 0.08);
+  padding-top: var(--space-4);
+  margin-top: var(--space-8);
+}
+
+@media (max-width: 760px) {
+  .pb-fig {
+    position: static;
+  }
+}
+
+@media (max-width: 560px) {
+  .pb-mirror-row {
+    grid-template-columns: 1fr;
+    row-gap: var(--space-1);
+  }
+}

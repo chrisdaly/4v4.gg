@@ -6,7 +6,7 @@ import { Link } from "react-router-dom";
  * turns every six seconds (crossfade), each on its own art under a bottom
  * fade. The pager bars in the corner pin one.
  *
- * Props: items [{ key, kicker, title, sub, bg, fallbackBg?, href }],
+ * Props: items [{ key, kicker, title, sub, bg, fallbackBg?, preview?, href }],
  * rotateSeconds
  */
 
@@ -45,8 +45,15 @@ export default function ReadsCarousel({ items = [], rotateSeconds = 6 }) {
           aria-hidden={i === active ? undefined : "true"}
           tabIndex={i === active ? 0 : -1}
         >
-          <Art bg={it.bg} fallbackBg={it.fallbackBg} />
-          <div className="hm-read-fade" />
+          {/* A post with its own drawing shows that drawing, the same one as on the blog index */}
+          {it.preview ? (
+            <div className="hm-read-preview"><it.preview /></div>
+          ) : (
+            <>
+              <Art bg={it.bg} fallbackBg={it.fallbackBg} />
+              <div className="hm-read-fade" />
+            </>
+          )}
           <span className="hm-read-kicker">{it.kicker}</span>
           <span className="hm-read-title">{it.title}</span>
           {it.sub && <span className="hm-read-sub">{it.sub}</span>}

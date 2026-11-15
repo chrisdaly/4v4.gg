@@ -43,7 +43,56 @@ const LastGamePreview = () => {
   );
 };
 
+/**
+ * The post's own chart for its opening game (ToD on Mount Hyjal): rating up
+ * the side, winners left and losers right, one bar per player for the MVP
+ * score. The top of the losing column has the longest bar and a speech
+ * bubble, and the blame curves down to a teammate - the motif of "The Blame
+ * Game": the accusation comes from the top
+ */
+const BlamePreview = () => {
+  const won = [[75, 72], [95, 52], [106, 60], [117, 42]];
+  const lost = [[26, 72], [86, 27], [115, 37], [133, 60]];
+  const lit = (i) => i === 0 || i === 2;
+  return (
+    <svg viewBox="0 0 320 160" className="bl-card-preview-svg">
+      <line x1="160" y1="12" x2="160" y2="150" stroke="var(--grey-light)" strokeWidth="0.6" />
+      <polyline points={won.map(([y]) => `148,${y}`).join(" ")} fill="none" stroke="var(--team-blue)" strokeWidth="1" opacity="0.5" />
+      <polyline points={lost.map(([y]) => `172,${y}`).join(" ")} fill="none" stroke="var(--red)" strokeWidth="1" opacity="0.5" />
+      {won.map(([y, len]) => (
+        <g key={`w${y}`} opacity="0.45">
+          <rect x={141 - len} y={y - 3.5} width={len} height="7" rx="2" fill="var(--team-blue)" />
+          <circle cx="148" cy={y} r="4.5" fill="var(--team-blue)" />
+        </g>
+      ))}
+      {lost.map(([y, len], i) => (
+        <g key={`l${y}`} opacity={lit(i) ? 1 : 0.55}>
+          <rect x="179" y={y - 3.5} width={len} height="7" rx="2" fill="var(--red)" />
+          <circle cx="172" cy={y} r="4.5" fill="var(--red)" stroke={lit(i) ? "#fff" : "none"} strokeWidth="1.5" />
+        </g>
+      ))}
+      <path
+        transform="translate(258 8) scale(1.6)"
+        fill="var(--gold)"
+        d="M2 1.5h12a1.5 1.5 0 0 1 1.5 1.5v7a1.5 1.5 0 0 1-1.5 1.5H8.2L4.5 14.8v-3.3H2A1.5 1.5 0 0 1 .5 10V3A1.5 1.5 0 0 1 2 1.5z"
+      />
+      <path d="M276 34 Q300 80 232 112" fill="none" stroke="var(--gold)" strokeWidth="2.5" strokeLinecap="round" />
+      <path d="M224 116 L238 104 L239 118 Z" fill="var(--gold)" />
+    </svg>
+  );
+};
+
 export const blogPosts = [
+  {
+    slug: "the-blame-game",
+    title: "The Blame Game",
+    description: "Who says what in chat in the five minutes after a 4v4, and who gets the blame.",
+    date: "Nov 16, 2026",
+    tags: ["chat", "stats"],
+    type: "component",
+    component: () => import("../pages/blog/PostGameBlame"),
+    preview: BlamePreview,
+  },
   {
     slug: "one-more-game",
     title: "Just One More Game",
@@ -54,8 +103,6 @@ export const blogPosts = [
     type: "component",
     component: () => import("../pages/blog/OneMoreGame"),
     preview: LastGamePreview,
-    // Backdrop for the home page's "From the blog" card: orcs at a campfire at night
-    coverImage: "/frames/launcher/Static_Background.png",
   },
   {
     slug: "dots-not-numbers",
