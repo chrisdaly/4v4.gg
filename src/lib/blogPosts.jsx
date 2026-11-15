@@ -105,6 +105,19 @@ export const blogPosts = [
     preview: LastGamePreview,
   },
   {
+    slug: "where-the-demon-hunter-went",
+    title: "Where the Demon Hunter Went",
+    description:
+      "The hero that defines Night Elf in solo is nearly absent from 4v4, and the same arithmetic moves every other pick in the mode.",
+    date: "Oct 4, 2026",
+    tags: ["heroes", "races", "stats", "solo"],
+    type: "component",
+    component: () => import("../pages/blog/HeroUsage"),
+    coverImage: "/blog/demonhunter-cover.svg",
+    // Written Oct 2026, not yet approved for publishing
+    draft: true,
+  },
+  {
     slug: "dots-not-numbers",
     title: "Dots, Not Numbers",
     description: "How the MMR charts work on 4v4.gg.",

@@ -544,3 +544,60 @@
 
 }
 
+
+/* ── Chart-led posts: charts break the text column, prose does not ── */
+
+.bu-article {
+  max-width: 720px;
+}
+
+.bu-lede {
+  font-size: var(--text-lg) !important;
+  line-height: 1.5 !important;
+  color: #fff !important;
+}
+
+/* The charts are the argument, so they get more room than the prose */
+.bu-article .hm-figure,
+.bu-article .sc-figure {
+  margin: var(--space-8) 0;
+  width: min(100%, 100vw - 2 * var(--space-4));
+}
+
+.bu-table {
+  width: 100%;
+  border-collapse: collapse;
+  margin: 0 0 var(--space-6) 0;
+  font-family: var(--font-mono);
+  font-size: var(--text-xs);
+}
+
+.bu-table th {
+  text-align: left;
+  font: var(--text-xxs) var(--font-mono);
+  text-transform: uppercase;
+  letter-spacing: 0.1em;
+  color: var(--grey-light);
+  font-weight: normal;
+  padding: 0 var(--space-3) var(--space-2) 0;
+  border-bottom: 1px solid var(--grey-mid);
+}
+
+.bu-table td {
+  padding: var(--space-2) var(--space-3) var(--space-2) 0;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.05);
+  color: var(--text-body);
+}
+
+.bu-table strong {
+  color: var(--gold);
+  font-weight: normal;
+}
+
+/* Method and limits, present but not competing with the argument */
+.bu-foot {
+  font-size: var(--text-xs) !important;
+  color: var(--grey-light) !important;
+  border-top: 1px solid rgba(255, 255, 255, 0.08);
+  padding-top: var(--space-4);
+}
