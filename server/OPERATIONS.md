@@ -25,7 +25,13 @@ Four things that have each failed a deploy:
   export FLY_API_TOKEN=$(python3 -c "import re;t=open('$HOME/.fly/config.yml').read();print(re.search(r'^access_token:\s*(.*)$',t,re.M).group(1).strip())")
   ```
 
-  A permanent fix is `fly tokens create deploy` in an interactive terminal, stored in your shell profile.
+  The permanent fix is an app-scoped deploy token in a private file, which `server/deploy.sh` picks up on its own. Create it once in an interactive terminal:
+
+  ```bash
+  (umask 077 && fly tokens create deploy -a 4v4gg-chat-relay -x 8760h > ~/.fly/4v4gg-chat-relay.deploy-token)
+  ```
+
+  Then deploy with `./server/deploy.sh`. The token expires after a year (`-x 8760h`); rerun the command to renew it. Keep it out of the shell profile: `~/.zshrc` is tracked in the dotfiles repo, and a global `FLY_API_TOKEN` would point every fly command at this one app.
 - **Each `!`-prefixed command in Claude Code is a fresh shell**, so an `export` on one line is gone by the next. Chain everything with `&&`.
 
 `.dockerignore` keeps `data/` (~1.8GB of production SQLite) and `node_modules/` out of the build context. Without it every deploy uploads the live database to the remote builder. If you add a file the Dockerfile needs to `COPY`, check it is not caught by a pattern there - the file deliberately uses no `!` negations.

@@ -40,6 +40,7 @@ const CYCLE_MS = 5 * 60 * 1000;
 const IMPORTS_PER_CYCLE = 2;
 const RATE_LIMIT_MS = 3000; // 3s between W3C API calls
 const RATE_LIMIT_PAUSE_CYCLES = 12; // ~1 hour
+const PRIORITY_MAX_ATTEMPTS = 3; // failed tries before a queued player is dropped
 
 const REPLAY_DIR = config.REPLAY_DIR.startsWith('/')
   ? config.REPLAY_DIR
@@ -259,23 +260,42 @@ async function runCycle() {
     let prioritySlotUsed = 0;
     const priorityHead = getPriorityQueueHead(1);
     if (priorityHead.length > 0) {
-      const { battle_tag: priorityTag } = priorityHead[0];
+      const { battle_tag: priorityTag, attempts: priorAttempts } = priorityHead[0];
       console.log(`[Importer] Priority queue: trying ${priorityTag}`);
-      const priorityResult = await importPlayerMatches(priorityTag, 1);
+      // importPlayerMatches throws when the W3C match search itself fails.
+      // Caught here rather than by the cycle's catch, which would leave the
+      // tag at the head with no attempt counted and skip the regular imports.
+      let priorityResult = null;
+      let priorityError = null;
+      try {
+        priorityResult = await importPlayerMatches(priorityTag, 1);
+      } catch (err) {
+        priorityError = err;
+      }
       incrementPriorityAttempts(priorityTag);
-      if (priorityResult.rateLimited && priorityResult.imported === 0) {
-        // Still rate limited - leave in queue, pause the whole cycle
+      const searchRateLimited = / 429$/.test(priorityError?.message || '');
+      if (searchRateLimited || (priorityResult?.rateLimited && priorityResult.imported === 0)) {
+        // Rate limited - leave in queue, pause the whole cycle
         rateLimitCooldown = RATE_LIMIT_PAUSE_CYCLES;
         console.log(`[Importer] Priority queue: rate limited on ${priorityTag}, pausing ${RATE_LIMIT_PAUSE_CYCLES} cycles`);
         isRunning = false;
         return;
       }
-      // Every other outcome is final for this tag: imported, no replay on
-      // W3C, nothing found, everything already imported, or downloads that
-      // errored. Only the head of the queue is ever tried, so a tag left here
-      // would be retried every cycle and block everyone queued behind it.
-      removeFromPriorityQueue(priorityTag);
-      console.log(`[Importer] Priority queue: ${priorityTag} done (imported=${priorityResult.imported} noReplay=${priorityResult.noReplay} discovered=${priorityResult.discovered} errors=${priorityResult.errors})`);
+      if (priorityError) {
+        // Some other failure (W3C 5xx, network). Worth another go, but not
+        // forever: only the head is ever tried, so it blocks the queue.
+        const attempts = priorAttempts + 1;
+        const giveUp = attempts >= PRIORITY_MAX_ATTEMPTS;
+        if (giveUp) removeFromPriorityQueue(priorityTag);
+        console.error(`[Importer] Priority queue: ${priorityTag} failed (attempt ${attempts}/${PRIORITY_MAX_ATTEMPTS}${giveUp ? ', dropped' : ''}): ${priorityError.message}`);
+      } else {
+        // Every other outcome is final for this tag: imported, no replay on
+        // W3C, nothing found, everything already imported, or downloads that
+        // errored. A tag left here would be retried every cycle and block
+        // everyone queued behind it.
+        removeFromPriorityQueue(priorityTag);
+        console.log(`[Importer] Priority queue: ${priorityTag} done (imported=${priorityResult.imported} noReplay=${priorityResult.noReplay} discovered=${priorityResult.discovered} errors=${priorityResult.errors})`);
+      }
       prioritySlotUsed = 1;
     }
 
