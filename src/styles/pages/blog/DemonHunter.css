@@ -1,0 +1,384 @@
+/* "Where the Demon Hunter Went" charts: hero and race dumbbells, the key, and the DH kit.
+   Recovered from the uncommitted App.css in the main checkout (Oct 2026). */
+
+/* ── Hero pick rates, 1v1 against 4v4 ────────────────────── */
+
+.hm-figure {
+  margin: 0;
+  width: 100%;
+}
+
+/* The svg is measured from .hm-scroll, so it keeps a readable plot width and
+   the reader swipes instead of squinting at a 130px-wide chart. */
+.hm-scroll {
+  overflow-x: auto;
+  overflow-y: hidden;
+  -webkit-overflow-scrolling: touch;
+}
+
+.hm-scroll > svg {
+  display: block;
+}
+
+.hm-caption {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-1);
+  margin-bottom: var(--space-3);
+}
+
+.hm-title {
+  font-family: var(--font-display);
+  font-size: var(--text-base);
+  color: #fff;
+}
+
+.hm-sub {
+  font-family: var(--font-mono);
+  font-size: var(--text-xxs);
+  color: var(--grey-light);
+}
+
+.hm-legend {
+  display: flex;
+  gap: var(--space-4);
+  margin-top: var(--space-1);
+}
+
+.hm-key {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+  font: var(--text-xxs) var(--font-mono);
+  text-transform: uppercase;
+  letter-spacing: 0.1em;
+  color: var(--grey-light);
+}
+
+.hm-swatch {
+  width: 10px;
+  height: 10px;
+  border-radius: var(--radius-full);
+}
+
+.hm-svg {
+  display: block;
+  overflow: visible;
+}
+
+.hm-row {
+  cursor: default;
+}
+
+.hm-name {
+  font-family: var(--font-display);
+  font-size: var(--text-xs);
+  fill: #fff;
+}
+
+.hm-axis,
+.hm-diff {
+  font-family: var(--font-mono);
+  font-size: var(--text-xxxs);
+}
+
+.hm-axis {
+  fill: var(--grey-light);
+}
+
+.hm-axis-title {
+  font: var(--text-xxs) var(--font-mono);
+  text-transform: uppercase;
+  letter-spacing: 0.1em;
+  fill: var(--grey-light);
+}
+
+.hm-readout {
+  margin-top: var(--space-2);
+  min-height: 1.4em;
+  font-family: var(--font-mono);
+  font-size: var(--text-xxs);
+  color: var(--grey-light);
+}
+
+.hm-readout strong {
+  color: var(--gold);
+  font-weight: normal;
+}
+
+/* Names need the room more than the chart does */
+@media (max-width: 640px) {
+  .hm-name {
+    font-size: var(--text-xxs);
+  }
+}
+
+/* ── How to read the dumbbell charts ─────────────────────── */
+
+.dk {
+  margin: var(--space-3) 0 var(--space-4) 0;
+  padding: var(--space-3) var(--space-4);
+  border-left: 2px solid var(--grey-mid);
+}
+
+.dk-legend {
+  display: flex;
+  gap: var(--space-4);
+  margin-bottom: var(--space-2);
+}
+
+.dk-key {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+  font: var(--text-xxs) var(--font-mono);
+  text-transform: uppercase;
+  letter-spacing: 0.1em;
+  color: var(--grey-light);
+}
+
+.dk-swatch {
+  width: 10px;
+  height: 10px;
+  border-radius: var(--radius-full);
+}
+
+.dk-svg {
+  display: block;
+  overflow: visible;
+  max-width: 100%;
+  /* Paired with the viewBox: without this the fixed height attribute keeps 62px
+     while the width scales down, which squashes the example rows. */
+  height: auto;
+}
+
+.dk-value {
+  font-family: var(--font-mono);
+  font-size: var(--text-xxxs);
+}
+
+.dk-label {
+  font-family: var(--font-mono);
+  font-size: var(--text-xxxs);
+  fill: var(--grey-light);
+}
+
+.dk-note {
+  margin: var(--space-2) 0 0 0 !important;
+  font-family: var(--font-mono) !important;
+  font-size: var(--text-xxs) !important;
+  line-height: 1.5 !important;
+  color: var(--grey-light) !important;
+}
+
+/* ── Hero kit breakdown ──────────────────────────────────── */
+
+.dh-kit {
+  margin: var(--space-6) 0;
+  padding: var(--space-4);
+  border: 1px solid var(--grey-mid);
+  border-radius: var(--radius-md);
+  background: var(--surface-1);
+}
+
+.dh-kit-head {
+  display: flex;
+  align-items: center;
+  gap: var(--space-3);
+  margin-bottom: var(--space-4);
+  padding-bottom: var(--space-3);
+  border-bottom: 1px solid rgba(255, 255, 255, 0.07);
+}
+
+.dh-portrait {
+  width: 56px;
+  height: 56px;
+  border-radius: var(--radius-md);
+  border: 1px solid var(--grey-mid);
+}
+
+.dh-name {
+  font-family: var(--font-display);
+  font-size: var(--text-base);
+  color: var(--gold);
+}
+
+.dh-role {
+  font: var(--text-xxs) var(--font-mono);
+  text-transform: uppercase;
+  letter-spacing: 0.1em;
+  color: var(--grey-light);
+}
+
+.dh-list {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-4);
+}
+
+.dh-row {
+  display: flex;
+  gap: var(--space-3);
+  align-items: flex-start;
+}
+
+.dh-icon {
+  width: 40px;
+  height: 40px;
+  border-radius: var(--radius-sm);
+  border: 1px solid var(--grey-mid);
+  flex-shrink: 0;
+}
+
+.dh-copy {
+  min-width: 0;
+}
+
+.dh-ability {
+  display: flex;
+  align-items: baseline;
+  flex-wrap: wrap;
+  gap: var(--space-3);
+  font-family: var(--font-display);
+  font-size: var(--text-sm);
+  color: #fff;
+  margin-bottom: var(--space-1);
+}
+
+/* The verdict is the scannable part, so it carries the colour */
+.dh-verdict {
+  font: var(--text-xxxs) var(--font-mono);
+  text-transform: uppercase;
+  letter-spacing: 0.1em;
+}
+
+.dh-v-worse { color: var(--red); }
+.dh-v-better { color: var(--green); }
+.dh-v-same { color: var(--grey-light); }
+
+.dh-text {
+  margin: 0 !important;
+  font-family: var(--font-body) !important;
+  font-size: var(--text-xs) !important;
+  line-height: 1.65 !important;
+  color: var(--text-body) !important;
+}
+
+@media (max-width: 560px) {
+  .dh-icon { width: 32px; height: 32px; }
+  .dh-portrait { width: 44px; height: 44px; }
+}
+
+.dh-foot {
+  margin: var(--space-4) 0 0 0 !important;
+  padding-top: var(--space-3);
+  border-top: 1px solid rgba(255, 255, 255, 0.07);
+  font-family: var(--font-body) !important;
+  font-size: var(--text-xs) !important;
+  line-height: 1.65 !important;
+  color: var(--text-body) !important;
+}
+
+/* ── The post: header, chat exchanges, footnote. Same shapes as "One More Game" ── */
+
+.dw-article {
+  padding-bottom: var(--space-12);
+}
+
+.dw-tags {
+  margin-bottom: var(--space-4);
+}
+
+.dw-date {
+  margin-bottom: var(--space-6);
+}
+
+.bl-section p.dw-lede {
+  font-size: var(--text-lg);
+  line-height: 1.5;
+  color: #fff;
+}
+
+.dw-exchange {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-1);
+  margin: 0 0 var(--space-8) 0;
+  padding-left: var(--space-4);
+  border-left: var(--border-thick) solid var(--gold);
+}
+
+.dw-who {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+}
+
+/* each new speaker gets a little air */
+.dw-who:not(:first-child) {
+  margin-top: var(--space-2);
+}
+
+.dw-avatar {
+  width: 28px;
+  height: 28px;
+  border-radius: var(--radius-sm);
+  border: 1px solid var(--grey-mid);
+  object-fit: cover;
+}
+
+.dw-name {
+  font-family: var(--font-display);
+  font-size: var(--text-sm);
+  color: var(--gold);
+  text-decoration: none;
+}
+
+.dw-name:hover {
+  text-decoration: underline;
+}
+
+.dw-quote {
+  font-family: var(--font-body);
+  font-size: var(--text-base);
+  color: #fff;
+  line-height: 1.5;
+}
+
+.dw-gloss,
+.dw-aside {
+  font-family: var(--font-body);
+  font-style: italic;
+  font-size: var(--text-xs);
+  color: var(--grey-light);
+}
+
+.dw-aside {
+  margin: var(--space-2) 0;
+}
+
+.dw-when {
+  margin-top: var(--space-2);
+  font-family: var(--font-mono);
+  font-size: var(--text-xs);
+  color: var(--gold);
+}
+
+/* Method and limits, present but not competing with the argument */
+.bl-section p.dw-foot {
+  font-size: var(--text-xs);
+  color: var(--grey-light);
+  line-height: 1.7;
+  border-top: 1px solid rgba(255, 255, 255, 0.08);
+  padding-top: var(--space-4);
+  margin-top: var(--space-8);
+}
+
+/* Charts break the text column, prose does not */
+.dw-article .hm-figure,
+.dw-article .dh-kit {
+  margin: var(--space-8) 0;
+}

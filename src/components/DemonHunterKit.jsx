@@ -14,7 +14,7 @@ const KIT = [
     icon: "manaburn",
     name: "Mana Burn",
     text:
-      "Burns up to 150 mana and deals that much damage. In solo that is one of the one to three heroes opposite you, so you can keep his caster dry all game. In 4v4 the other team brings around nine, and the ones you didn't touch cast anyway.",
+      "Burns up to 150 mana and deals that much damage. In solo the other player brings one to three heroes, so you can keep his caster dry all game. In 4v4 the other team brings around nine, and the ones you didn't touch cast anyway.",
     verdict: "diluted",
   },
   {
@@ -35,8 +35,8 @@ const KIT = [
     icon: "metamorphosis",
     name: "Metamorphosis",
     text:
-      "Genuinely good, and the one part of him 4v4 does not argue with. It needs level 6, which about one Demon Hunter in ten gets to, slightly more often in 4v4 than in solo.",
-    verdict: "good",
+      "Good in both modes, but it needs level 6, which about one Demon Hunter in ten gets to. A Keeper who reaches 6 brings Tranquility, which heals the whole army.",
+    verdict: "same",
   },
 ];
 
@@ -45,6 +45,7 @@ const VERDICT = {
   exposed: { label: "gets him killed", cls: "dh-v-worse" },
   bypassed: { label: "bypassed", cls: "dh-v-worse" },
   good: { label: "still good", cls: "dh-v-better" },
+  same: { label: "rarely reached", cls: "dh-v-same" },
 };
 
 export default function DemonHunterKit() {
