@@ -32,7 +32,9 @@ import { AUTHOR_ATTR, AUTHOR_NAME_ATTR, HOT_ATTR } from "../../lib/chat/useAutho
  *
  * Props
  *   group        { author: { battleTag, userName, clanTag },
- *                  lines: [{ id, text, sentAt, kind, translation?, highlight? }] }
+ *                  lines: [{ id, text, sentAt, kind, translation?, highlight?, linked? }] }
+ *                highlight is the brief flash on arrival; linked is the
+ *                lasting mark on the line a permalink or search hit opened
  *                An author without a battleTag renders as plain text (digest
  *                quotes carry names only); a quote group with no name at all
  *                renders its lines with no header.
@@ -50,6 +52,7 @@ import { AUTHOR_ATTR, AUTHOR_NAME_ATTR, HOT_ATTR } from "../../lib/chat/useAutho
  *   wrapName     (nameNode, author) => node; hover-card wrapper for the name
  *   renderLine   (line) => node; override the line text (linkify, search marks)
  *   renderAfterLine (line) => node; extra rows under a line (bot replies)
+ *   timeHref     (line) => href | null; makes a line's time a link
  *   permalinkHref (line) => string; feed only: when set, each line gets a
  *                hover-only copy-link anchor next to its timestamp
  */
@@ -365,6 +368,14 @@ const Line = styled.div`
     css`
       background: rgba(252, 219, 51, 0.14) !important;
     `}
+  ${(p) =>
+    p.$linked &&
+    css`
+      /* the same wash the search drawer puts on its hit; no edge bar, which
+         has nowhere to sit between the avatar's flag and the text */
+      background: rgba(252, 219, 51, 0.14);
+      box-shadow: -4px 0 0 rgba(252, 219, 51, 0.14), 4px 0 0 rgba(252, 219, 51, 0.14);
+    `}
   &:hover ${Time} {
     opacity: 1;
   }
@@ -492,6 +503,7 @@ export default function ChatMessage({
   renderLine = defaultRenderLine,
   renderAfterLine,
   permalinkHref,
+  timeHref,
 }) {
   if (!group?.author) return null;
   const { author, lines = [] } = group;
@@ -585,9 +597,15 @@ export default function ChatMessage({
           <Lines $variant={variant}>
             {lines.map((line, i) => (
               <React.Fragment key={line.id ?? line.sentAt ?? i}>
-                <Line id={line.id != null ? `msg-${line.id}` : undefined} $highlight={Boolean(line.highlight)} $variant={variant}>
+                <Line
+                  id={line.id != null ? `msg-${line.id}` : undefined}
+                  $highlight={Boolean(line.highlight)}
+                  $linked={Boolean(line.linked)}
+                  data-linked={line.linked ? "true" : undefined}
+                  $variant={variant}
+                >
                   <Text>{renderLine(line)}</Text>
-                  <LineEnd time={line.sentAt} reserve={isFeed && Boolean(permalinkHref)}>
+                  <LineEnd time={line.sentAt} href={timeHref ? timeHref(line) : undefined} reserve={isFeed && Boolean(permalinkHref)}>
                     {isFeed && permalinkHref && line.id != null && <CopyLink href={permalinkHref(line)} />}
                   </LineEnd>
                 </Line>

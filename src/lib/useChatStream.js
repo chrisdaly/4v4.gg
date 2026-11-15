@@ -28,7 +28,28 @@ const RELAY_STATES = new Set(["auth_failed", "banned", "no_token", "error", "Dis
  * Every message crosses the wire boundary through normalizeMessage, so
  * consumers only ever see the camelCase feed shape (see chat/normalize.js).
  */
-export default function useChatStream() {
+/**
+ * The `before` cursor that loads the archive window ending at a permalink's
+ * &at= (a received_at, UTC). +1s because `before` is exclusive at second
+ * precision. Null when there is no usable time.
+ */
+export function permalinkBefore(at) {
+  if (!at) return null;
+  const d = new Date(`${String(at).replace(" ", "T")}${/Z|[+-]\d\d:?\d\d$/.test(at) ? "" : "Z"}`);
+  if (Number.isNaN(d.getTime())) return null;
+  return new Date(d.getTime() + 1000).toISOString().slice(0, 19).replace("T", " ");
+}
+
+/**
+ * @param {object} [opts]
+ * @param {string} [opts.initialBefore] open on the archive window ending at
+ *   this cursor instead of the live tail. A permalink would otherwise paint
+ *   the newest messages first and swap them for the linked ones a moment
+ *   later.
+ */
+export default function useChatStream({ initialBefore = null } = {}) {
+  // Read once: only the first connect opens on it
+  const initialBeforeRef = useRef(initialBefore);
   const [messages, setMessages] = useState([]);
   const [status, setStatus] = useState("connecting");
   const [onlineUsers, setOnlineUsers] = useState([]);
@@ -37,11 +58,26 @@ export default function useChatStream() {
   const [hasMoreHistory, setHasMoreHistory] = useState(true);
   // Which window of the archive is loaded: the live tail (default) or a
   // window ending at some past time (jump to date). Live SSE messages
-  // append in both modes. windowId changes whenever the window is replaced
+  // append once the window has caught up to now. windowId changes whenever the window is replaced
   // wholesale so the list can remount instead of diffing a prepend.
-  const [windowMode, setWindowMode] = useState("live");
+  const [windowMode, setWindowMode] = useState(initialBefore ? "archive" : "live");
   // Only an archive window has anything newer to fetch; live is already there
-  const [hasNewer, setHasNewer] = useState(false);
+  const [hasNewer, setHasNewerState] = useState(Boolean(initialBefore));
+  // Mirrored in a ref so the live stream can read it without re-binding
+  const hasNewerRef = useRef(Boolean(initialBefore));
+  // Live lines that arrived while an archive window was holding them back,
+  // so "back to live" can say how far chat has moved on
+  const heldIdsRef = useRef(new Set());
+  const [heldLive, setHeldLive] = useState(0);
+  const setHasNewer = useCallback((value) => {
+    hasNewerRef.current = value;
+    setHasNewerState(value);
+    // caught up (or a fresh window): whatever was held is loaded or stale
+    if (heldIdsRef.current.size > 0) {
+      heldIdsRef.current = new Set();
+      setHeldLive(0);
+    }
+  }, []);
   const loadingNewerRef = useRef(false);
   const newestCursorRef = useRef(null);
   const [windowId, setWindowId] = useState(0);
@@ -63,6 +99,11 @@ export default function useChatStream() {
   // skipped entirely while the reader is scrolled up (chat/trimGate.js);
   // it catches up on the first append after the gate reopens.
   const addMessages = useCallback((newMsgs) => {
+    // An archive window that has not paged forward to now ends in the past.
+    // A live line appended to it would sit straight after a message from
+    // hours ago, and would move the forward cursor to now, so the lines in
+    // between could never be fetched. Paging forward reaches it instead.
+    if (hasNewerRef.current) return;
     setMessages((prev) => {
       const ids = new Set(prev.map((m) => m.id));
       const unique = newMsgs.filter((m) => !ids.has(m.id));
@@ -122,13 +163,16 @@ export default function useChatStream() {
     const data = await res.json();
     const loaded = Array.isArray(data) ? normalizeMessages(data.reverse()) : [];
     historyExtraRef.current = 0;
+    // Set here, not only in the effect below: a child's effect can ask for
+    // the next page before this hook's own effects have run
+    newestCursorRef.current = loaded[loaded.length - 1]?.receivedAt || null;
     setHasMoreHistory(loaded.length >= 100);
     setHasNewer(Boolean(before));
     setWindowMode(before ? "archive" : "live");
     setWindowId((id) => id + 1);
     setMessages(loaded);
     return loaded;
-  }, []);
+  }, [setHasNewer]);
 
   /**
    * Page forward out of an archive window. Without this you can scroll back
@@ -166,7 +210,7 @@ export default function useChatStream() {
     } finally {
       loadingNewerRef.current = false;
     }
-  }, []);
+  }, [setHasNewer]);
 
   const loadLatest = useCallback(() => loadWindow(null), [loadWindow]);
 
@@ -193,13 +237,30 @@ export default function useChatStream() {
   }, [messages]);
 
   const connect = useCallback(() => {
-    // Fetch initial history
-    relayFetch(`/api/chat/messages?limit=100`)
+    // Fetch initial history: the live tail, or the window a permalink asked
+    // for. A window that fails or comes back empty falls through to live
+    // rather than leaving an empty stream that refuses live lines.
+    const fetchLive = () => relayFetch(`/api/chat/messages?limit=100`)
       .then((r) => r.json())
       .then((data) => {
         addMessages(normalizeMessages(data.reverse()));
       })
       .catch(() => {});
+    const openOn = initialBeforeRef.current;
+    initialBeforeRef.current = null;
+    if (openOn) {
+      loadWindow(openOn)
+        .then((loaded) => {
+          if (loaded.length === 0) throw new Error("empty window");
+        })
+        .catch(() => {
+          setHasNewer(false);
+          setWindowMode("live");
+          fetchLive();
+        });
+    } else {
+      fetchLive();
+    }
 
     // Open SSE stream
     const es = new EventSource(`${RELAY_URL}/api/chat/stream`);
@@ -212,7 +273,12 @@ export default function useChatStream() {
 
     es.addEventListener("message", (e) => {
       const msg = normalizeMessage(JSON.parse(e.data));
-      if (msg) addMessages([msg]);
+      if (!msg) return;
+      if (hasNewerRef.current && !heldIdsRef.current.has(msg.id)) {
+        heldIdsRef.current.add(msg.id);
+        setHeldLive(heldIdsRef.current.size);
+      }
+      addMessages([msg]);
     });
 
     es.addEventListener("delete", (e) => {
@@ -288,7 +354,7 @@ export default function useChatStream() {
     };
 
     return es;
-  }, [addMessages]);
+  }, [addMessages, loadWindow, setHasNewer]);
 
   useEffect(() => {
     const es = connect();
@@ -311,6 +377,7 @@ export default function useChatStream() {
     hasMoreHistory,
     loadNewer,
     hasNewer,
+    heldLive,
     loadWindow,
     loadLatest,
     windowMode,

@@ -27,8 +27,8 @@ function installGeometry() {
   fireResize = installResizeObserver();
 }
 
-function Stream({ rows, windowId = 0, followTail = true }) {
-  const { scrollerRef, listRef, atBottom } = useStreamScroll({ rows, windowId, followTail });
+function Stream({ rows, windowId = 0, followTail = true, pinTail = true }) {
+  const { scrollerRef, listRef, atBottom } = useStreamScroll({ rows, windowId, followTail, pinTail });
   return (
     <div data-scroller ref={scrollerRef} data-at-bottom={String(atBottom)}>
       <div data-list ref={listRef}>
@@ -147,6 +147,26 @@ describe('useStreamScroll', () => {
     heights.push(100);
     rerender(<Stream rows={makeRows([...keys, 'k', 'l'])} />);
     expect(scroller().scrollTop).toBe(300);
+  });
+
+  it('leaves a reader at the end of an archive window where they are when the next page lands', () => {
+    // A permalink's window ends at the linked message, so the reader is at
+    // the end of it. The page that loads below must not carry them past it.
+    const keys = ['a', 'b', 'c', 'd', 'e', 'f', 'g', 'h', 'i', 'j'];
+    const { rerender } = render(<Stream rows={makeRows(['x', 'y'])} />);
+    heights = Array.from({ length: 10 }, () => 100);
+    rerender(<Stream rows={makeRows(keys)} windowId={1} pinTail={false} />);
+    const landed = scroller().scrollTop;
+    expect(scroller().dataset.atBottom).toBe('true');
+    heights.push(100, 100, 100);
+    rerender(<Stream rows={makeRows([...keys, 'k', 'l', 'm'])} windowId={1} pinTail={false} />);
+    expect(scroller().scrollTop).toBe(landed);
+    expect(scroller().dataset.atBottom).toBe('false');
+  });
+
+  it('turns the browser\'s own scroll anchoring off, since it follows the footer down', () => {
+    render(<Stream rows={makeRows(['a', 'b', 'c'])} />);
+    expect(scroller().style.overflowAnchor).toBe('none');
   });
 
   it('lands at the newest row when the window is replaced', () => {

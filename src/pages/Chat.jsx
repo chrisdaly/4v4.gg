@@ -3,6 +3,7 @@ import styled, { createGlobalStyle } from "styled-components";
 import { Link, useLocation } from "react-router-dom";
 import { HiOutlineSearch } from "react-icons/hi";
 import useChatFeed from "../lib/chat/useChatFeed";
+import { permalinkBefore } from "../lib/useChatStream";
 import { useWatchList } from "../lib/chatExtras";
 import { useTheme } from "../lib/ThemeContext";
 import useIsMobile, { CHAT_MOBILE_PX } from "../lib/useIsMobile";
@@ -235,6 +236,14 @@ function writeShowGames(value) {
 /* ── Main component ───────────────────────────────────────────── */
 
 const Chat = () => {
+  // A permalink opens straight on its own window, so the newest messages
+  // never paint first. Read once: later navigation goes through the panel.
+  const initialSearch = useLocation().search;
+  const initialBefore = useMemo(
+    () => permalinkBefore(new URLSearchParams(initialSearch).get("at")),
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+    []
+  );
   const {
     messages,
     status,
@@ -245,6 +254,7 @@ const Chat = () => {
     hasMoreHistory,
     loadNewer,
     hasNewer,
+    heldLive,
     loadWindow,
     loadLatest,
     windowMode,
@@ -261,7 +271,7 @@ const Chat = () => {
     recentWinners,
     recentDeltas,
     liveStreamers,
-  } = useChatFeed();
+  } = useChatFeed({ initialBefore });
   const { borderTheme } = useTheme();
   const { watchList, toggleWatch } = useWatchList();
   const isMobile = useIsMobile();
@@ -418,6 +428,7 @@ const Chat = () => {
           permalinkAt={permalinkAt}
           loadNewer={loadNewer}
           hasNewer={hasNewer}
+          heldLive={heldLive}
           onOpenGame={openGameModal}
           onOpenPlayer={openPlayerCard}
           isMobile={isMobile}

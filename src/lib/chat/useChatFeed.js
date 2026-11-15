@@ -20,8 +20,8 @@ import {
  * events, player metadata - and the sets derived from them. The page is a
  * thin shell that passes these down.
  */
-export default function useChatFeed() {
-  const stream = useChatStream();
+export default function useChatFeed({ initialBefore = null } = {}) {
+  const stream = useChatStream({ initialBefore });
   const { messages, onlineUsers } = stream;
   const { matches: ongoingMatches } = useOngoingMatches();
 

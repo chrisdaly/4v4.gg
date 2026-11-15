@@ -4,6 +4,7 @@ import { Link } from "react-router-dom";
 import { IoSend } from "react-icons/io5";
 import { Button, Skeleton, Input, Select, PlayerSearch } from "./ui";
 import { useBotResponseMap, formatDateDivider, getDateKey } from "../lib/useChatMessages";
+import { formatTimeAgo } from "../lib/formatters";
 import { linkifyMessage } from "../lib/chatExtras";
 import PlayerHoverCard from "./PlayerHoverCard";
 import ChatMessage from "./chat/ChatMessage";
@@ -673,6 +674,39 @@ const NoMatch = styled.div`
   color: var(--grey-light);
 `;
 
+// /chat?...&hl=<words>: the search that led here, marked in the lines
+function readHighlightUrl() {
+  try {
+    return (new URLSearchParams(window.location.search).get("hl") || "").trim();
+  } catch {
+    return "";
+  }
+}
+
+const TermMark = styled.mark`
+  background: rgba(252, 219, 51, 0.22);
+  color: var(--white);
+  border-radius: 2px;
+`;
+
+// Mark a search term in a rendered line: a string, or an array of strings
+// and elements (links, mentions), of which only the strings are searched
+function markTerm(node, term) {
+  if (!term || term.length < 2) return node;
+  const escaped = term.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+  const lower = term.toLowerCase();
+  const markString = (text, keyBase) => {
+    const parts = text.split(new RegExp(`(${escaped})`, "gi"));
+    if (parts.length === 1) return text;
+    return parts.map((part, i) =>
+      part.toLowerCase() === lower ? <TermMark key={`${keyBase}-${i}`}>{part}</TermMark> : part
+    );
+  };
+  if (typeof node === "string") return markString(node, "t");
+  if (Array.isArray(node)) return node.flatMap((part, i) => (typeof part === "string" ? markString(part, `t${i}`) : part));
+  return node;
+}
+
 // /chat?q= (the old /search redirect, shared links) seeds the filter field
 function readQueryUrl() {
   try {
@@ -691,6 +725,20 @@ const NEW_MARKER_LINGER_MS = 120_000;
 const MAX_JUMP_PAGES = 20;
 
 // The hour picker's rows, labelled the way the stream's times are
+// "Sun 15 Nov - 7h ago": the day bar's label while reading an archive window
+export function archiveDayLabel(time, now = new Date()) {
+  const d = new Date(time);
+  const date = d.toLocaleDateString([], {
+    weekday: "short",
+    day: "numeric",
+    month: "short",
+    ...(d.getFullYear() === now.getFullYear() ? {} : { year: "numeric" }),
+  });
+  // past a week formatTimeAgo falls back to a date, which is already here
+  const ago = now - d < 7 * 24 * 60 * 60 * 1000 ? formatTimeAgo(d.toISOString()) : null;
+  return ago ? `${date} \u00b7 ${ago}` : date;
+}
+
 const HOURS = Array.from({ length: 24 }, (_, h) => h);
 function hourLabel(h) {
   const d = new Date(2000, 0, 1, h);
@@ -777,7 +825,7 @@ const FeedRow = React.memo(function FeedRow({ row, showNewMarker, ctx }) {
 
   const {
     avatars, stats, sessions, liveStreamers, inGameTags, inGameInfoMap, watchList,
-    translations, showTranslations, flashId, chipCtx, onOpenGame, openPlayerCard,
+    translations, showTranslations, flashId, linkedId, chipCtx, onOpenGame, openPlayerCard,
     isMobile, renderLine, renderAfterLine, permalinkHref,
   } = ctx;
 
@@ -801,6 +849,7 @@ const FeedRow = React.memo(function FeedRow({ row, showNewMarker, ctx }) {
       // history and anything that arrived before this session
       translation: showTranslations ? translations.get(m.id) || m.translation || undefined : undefined,
       highlight: flashId === m.id,
+      linked: linkedId === m.id,
     })),
   };
   const chip = chipForTag(tag, chipCtx);
@@ -886,6 +935,7 @@ export default function ChatPanel({
   hasMoreHistory,
   loadNewer,
   hasNewer = false,
+  heldLive = 0,
   loadWindow,
   loadLatest,
   windowMode = "live",
@@ -915,6 +965,12 @@ export default function ChatPanel({
   const [loadingOlder, setLoadingOlder] = useState(false);
   const [newMarkerTime, setNewMarkerTime] = useState(null);
   const [flashId, setFlashId] = useState(null);
+  // The line a permalink or a search hit opened. The flash fades in a couple
+  // of seconds; this stays until the reader goes back to live, so the line
+  // can still be found after scrolling around it.
+  const [linkedId, setLinkedId] = useState(null);
+  // The search words that led here (&hl=), marked while the archive is open
+  const [hlTerm, setHlTerm] = useState(readHighlightUrl);
   // A permalink outside the loaded window: replace the window, then jump
   // once the new one is in (windowId bumps)
   const [windowJump, setWindowJump] = useState(null);
@@ -988,6 +1044,7 @@ export default function ChatPanel({
   useEffect(() => {
     if (!permalinkId || messages.length === 0 || permalinkDoneRef.current === permalinkId) return;
     permalinkDoneRef.current = permalinkId;
+    setLinkedId(permalinkId);
     const at = permalinkAt ? new Date(`${String(permalinkAt).replace(" ", "T")}${/Z|[+-]\d\d:?\d\d$/.test(permalinkAt) ? "" : "Z"}`) : null;
     const canReload = Boolean(loadWindow) && at && !Number.isNaN(at.getTime());
     if (messages.some((m) => m.id === permalinkId) || !canReload) {
@@ -1112,6 +1169,8 @@ export default function ChatPanel({
     if (!loadLatest || loadingWindow) return;
     setLoadingWindow(true);
     setPendingJump(null);
+    setLinkedId(null);
+    setHlTerm("");
     try {
       await loadLatest();
     } catch {
@@ -1316,11 +1375,19 @@ export default function ChatPanel({
   const { scrollerRef, listRef, atBottom, scrollToBottom, scrollToKey } = useStreamScroll({
     rows,
     windowId,
+    pinTail: windowMode === "live" || !hasNewer,
     onNearTop: handleStartReached,
     onNearBottom: handleEndReached,
     onTopRowChange,
   });
   const unseen = useUnreadCount(messages, atBottom);
+
+  // A permalink's window ends at the linked message, so the reader lands
+  // already at the end of it. No scroll event comes from an end you cannot
+  // scroll past, so page forward from here rather than waiting for one.
+  useEffect(() => {
+    if (atBottom && !loadingWindow) handleEndReached();
+  }, [atBottom, loadingWindow, windowId, handleEndReached]);
 
   // The row exists in the DOM the moment it is in `rows`, so the jump is one
   // assignment against its real box - no aiming at a guessed offset and no
@@ -1379,6 +1446,7 @@ export default function ChatPanel({
     translations,
     showTranslations,
     flashId,
+    linkedId,
     onOpenGame,
     isMobile,
     // Status chip for a name row, shared with the roster (chat/chip.js)
@@ -1386,12 +1454,12 @@ export default function ChatPanel({
     // Mobile: a name opens the player card
     openPlayerCard: isMobile && onOpenPlayer ? (author) => onOpenPlayer(author.battleTag) : undefined,
     renderLine: (line) =>
-      markMentions(linkifyMessage(line.text), {
+      markTerm(markMentions(linkifyMessage(line.text), {
         tags: mentionTags,
         watchList,
         roster: rosterByName,
         onOpenPlayer: isMobile && onOpenPlayer ? (author) => onOpenPlayer(author.battleTag) : undefined,
-      }),
+      }), hlTerm),
     permalinkHref: (line) => `${window.location.origin}/chat?m=${encodeURIComponent(line.id)}`,
     renderAfterLine: (line) => {
       const unfurl = detectUnfurl(line.text);
@@ -1412,7 +1480,7 @@ export default function ChatPanel({
     },
   }), [
     avatars, stats, sessions, liveStreamers, inGameTags, inGameInfoMap, watchList,
-    mentionTags, rosterByName, translations, showTranslations, flashId, recentDeltas,
+    mentionTags, rosterByName, translations, showTranslations, flashId, linkedId, hlTerm, recentDeltas,
     recentWinners, botResponseMap, onOpenGame, onOpenPlayer, isMobile,
   ]);
 
@@ -1432,7 +1500,14 @@ export default function ChatPanel({
 
   // Sticky day bar label: the day of the topmost visible row
   const topRow = topKey == null ? null : rows.find((r) => r.key === topKey) || null;
-  const topDayLabel = topRow ? formatDateDivider(new Date(topRow.time).toISOString()) : null;
+  // Live, "Today" is enough. In an archive window it is not: a line from
+  // seven hours ago is also "Today", and nothing else on screen says the
+  // reader is in the past. So the bar spells out the date and how far back.
+  const topDayLabel = !topRow
+    ? null
+    : windowMode === "live"
+      ? formatDateDivider(new Date(topRow.time).toISOString())
+      : archiveDayLabel(topRow.time);
   const topDayInput = topRow ? toInputDate(new Date(topRow.time)) : toInputDate(new Date());
   const todayInput = toInputDate(new Date());
 
@@ -1603,7 +1678,7 @@ export default function ChatPanel({
                     onClick={backToLive}
                     title="Reload the latest messages"
                   >
-                    {loadingWindow ? "Loading..." : "Back to live"}
+                    {loadingWindow ? "Loading..." : heldLive > 0 ? `Back to live \u00b7 ${heldLive} new` : "Back to live"}
                   </BackToLiveButton>
                 )}
               </StickyBar>

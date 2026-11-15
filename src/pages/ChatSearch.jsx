@@ -24,10 +24,12 @@ const PAGE_SIZE = 50;
 // only merges lines that are actually close in time
 const GROUP_GAP_MS = 5 * 60 * 1000;
 
-// How many minutes either side a context drawer shows, and how far "wider" goes
-const PAD_STEPS = [3, 10, 30];
-const DEFAULT_PAD = PAD_STEPS[0];
-const contextKey = (msgId, minutes) => `${msgId}:${minutes}`;
+// How many minutes either side a context drawer opens with
+const DEFAULT_PAD = 3;
+// "earlier" / "later" ask the relay for the rows nearest the drawer's edge.
+// The relay caps a side at 30 rows, so this is how far it may reach across a
+// quiet stretch to find them, not how much comes back.
+const EXTEND_PAD = 180;
 
 const SINCE_OPTIONS = [
   { key: "24h", label: "24h" },
@@ -81,6 +83,18 @@ function dayKey(ts) {
   const d = parseTs(ts);
   if (!d) return "";
   return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(d.getDate()).padStart(2, "0")}`;
+}
+
+// "Sun, Nov 15": a context drawer's date, since its rows only carry times
+function drawerDate(ts) {
+  const d = parseTs(ts);
+  if (!d) return "";
+  return d.toLocaleDateString([], {
+    weekday: "short",
+    month: "short",
+    day: "numeric",
+    ...(d.getFullYear() === new Date().getFullYear() ? {} : { year: "numeric" }),
+  });
 }
 
 function dayLabel(ts) {
@@ -355,6 +369,32 @@ const DrawerAction = styled.button`
   }
 `;
 
+// The "earlier" / "later" rows at the drawer's two ends
+const DrawerMore = styled(DrawerAction)`
+  display: block;
+  width: 100%;
+  padding: var(--space-2) 0;
+  font-family: var(--font-mono);
+  font-size: var(--text-xxxs);
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+  text-align: left;
+`;
+
+// A link-styled button inside the results count line
+const MetaAction = styled.button`
+  padding: 0;
+  border: none;
+  background: none;
+  font: inherit;
+  color: var(--gold);
+  cursor: pointer;
+
+  &:hover {
+    text-decoration: underline;
+  }
+`;
+
 const DrawerLink = styled(Link)`
   font: inherit;
   color: var(--gold);
@@ -421,11 +461,15 @@ export default function ChatSearchPage() {
   const [loading, setLoading] = useState(false);
   const [loadingMore, setLoadingMore] = useState(false);
   const [error, setError] = useState(false);
+  // How many lines the same search finds in the whole archive, asked for
+  // alongside a narrower window so the reader knows whether to widen it
+  const [archiveTotal, setArchiveTotal] = useState(null);
+  const searchSeqRef = useRef(0);
   const [history, setHistory] = useState(loadHistory);
   const [profiles, setProfiles] = useState(new Map());
   // The hit whose surrounding minutes are open, and what has been fetched
   const [openHit, setOpenHit] = useState(null);
-  const [pad, setPad] = useState(DEFAULT_PAD);
+  // msgId -> { loading, rows, error, extending, extendError, ends }
   const [contexts, setContexts] = useState(new Map());
 
   // Player typeahead, same source as the navbar's player search
@@ -464,9 +508,11 @@ export default function ChatSearchPage() {
 
     lastRanTextRef.current = q;
     setShowSuggests(false);
+    const seq = offset === 0 ? ++searchSeqRef.current : searchSeqRef.current;
     if (offset === 0) {
       setRan(next);
       setLoading(true);
+      setArchiveTotal(null);
       addToHistory({ q, player: who });
       const url = searchToUrl(next);
       if (url !== location.search) routerHistory.replace({ search: url });
@@ -479,7 +525,20 @@ export default function ChatSearchPage() {
       const sp = new URLSearchParams({ since: windowKey, limit: String(PAGE_SIZE), offset: String(offset) });
       if (q) sp.set("q", q);
       if (who) sp.set("player", who);
-      const res = await fetch(`${RELAY_URL}/api/chat/search?${sp}`);
+      const request = fetch(`${RELAY_URL}/api/chat/search?${sp}`);
+      // after the search itself, so the count never delays it
+      if (offset === 0 && windowKey !== "all") {
+        const all = new URLSearchParams({ since: "all", limit: "1", offset: "0" });
+        if (q) all.set("q", q);
+        if (who) all.set("player", who);
+        fetch(`${RELAY_URL}/api/chat/search?${all}`)
+          .then((r) => (r.ok ? r.json() : null))
+          .then((d) => {
+            if (seq === searchSeqRef.current && typeof d?.total === "number") setArchiveTotal(d.total);
+          })
+          .catch(() => { /* the count is an extra */ });
+      }
+      const res = await request;
       if (!res.ok) throw new Error(`relay said ${res.status}`);
       const data = await res.json();
       const page = data.results || [];
@@ -613,22 +672,26 @@ export default function ChatSearchPage() {
      minutes around it under that line: the results keep their scroll, their
      paging and their place, and closing it costs one click. */
 
-  const loadContext = useCallback(async (hit, minutes) => {
-    const key = contextKey(hit.msgId, minutes);
+  const fetchContext = useCallback(async (receivedAt, minutes) => {
+    const sp = new URLSearchParams({ received_at: receivedAt, padding: String(minutes) });
+    const res = await fetch(`${RELAY_URL}/api/admin/messages/search/context?${sp}`);
+    if (!res.ok) throw new Error(`relay said ${res.status}`);
+    const rows = await res.json();
+    return Array.isArray(rows) ? rows : [];
+  }, []);
+
+  const loadContext = useCallback(async (hit) => {
+    const key = hit.msgId;
     if (contexts.get(key)?.rows) return;
     setContexts((prev) => new Map(prev).set(key, { loading: true, rows: null, error: false }));
     try {
-      const sp = new URLSearchParams({ received_at: hit.receivedAt, padding: String(minutes) });
-      const res = await fetch(`${RELAY_URL}/api/admin/messages/search/context?${sp}`);
-      if (!res.ok) throw new Error(`relay said ${res.status}`);
-      const rows = await res.json();
-      const list = Array.isArray(rows) ? rows : [];
+      const list = await fetchContext(hit.receivedAt, DEFAULT_PAD);
       setContexts((prev) => new Map(prev).set(key, { loading: false, rows: list, error: false }));
       loadProfiles(list);
     } catch {
-      setContexts((prev) => new Map(prev).set(key, { loading: false, rows: [], error: true }));
+      setContexts((prev) => new Map(prev).set(key, { loading: false, rows: null, error: true }));
     }
-  }, [contexts, loadProfiles]);
+  }, [contexts, fetchContext, loadProfiles]);
 
   const toggleContext = useCallback((line) => {
     if (openHit?.msgId === line.msgId) {
@@ -637,17 +700,41 @@ export default function ChatSearchPage() {
     }
     const hit = { msgId: line.msgId, receivedAt: line.receivedAt };
     setOpenHit(hit);
-    setPad(DEFAULT_PAD);
-    loadContext(hit, DEFAULT_PAD);
+    loadContext(hit);
   }, [openHit, loadContext]);
 
-  const widenContext = useCallback(() => {
+  // Grow the open drawer one way: fetch around its first or last row and keep
+  // whatever lies beyond it. Rows already shown come back too and are dropped.
+  const extendContext = useCallback(async (dir) => {
     if (!openHit) return;
-    const next = PAD_STEPS[Math.min(PAD_STEPS.indexOf(pad) + 1, PAD_STEPS.length - 1)];
-    if (next === pad) return;
-    setPad(next);
-    loadContext(openHit, next);
-  }, [openHit, pad, loadContext]);
+    const key = openHit.msgId;
+    const entry = contexts.get(key);
+    if (!entry?.rows || entry.extending) return;
+    const edgeRow = dir === "earlier" ? entry.rows[0] : entry.rows[entry.rows.length - 1];
+    const edge = edgeRow?.received_at || openHit.receivedAt;
+    const patch = (fn) => setContexts((prev) => {
+      const cur = prev.get(key);
+      return cur?.rows ? new Map(prev).set(key, fn(cur)) : prev;
+    });
+    patch((cur) => ({ ...cur, extending: dir, extendError: false }));
+    try {
+      const list = await fetchContext(edge, EXTEND_PAD);
+      patch((cur) => {
+        const have = new Set(cur.rows.map((r) => String(r.id)));
+        const fresh = list.filter((r) => !have.has(String(r.id))
+          && (dir === "earlier" ? r.received_at <= edge : r.received_at >= edge));
+        return {
+          ...cur,
+          extending: null,
+          rows: dir === "earlier" ? [...fresh, ...cur.rows] : [...cur.rows, ...fresh],
+          ends: fresh.length ? cur.ends : { ...cur.ends, [dir]: true },
+        };
+      });
+      loadProfiles(list);
+    } catch {
+      patch((cur) => ({ ...cur, extending: null, extendError: true }));
+    }
+  }, [openHit, contexts, fetchContext, loadProfiles]);
 
   const closeContext = useCallback(() => setOpenHit(null), []);
 
@@ -658,6 +745,18 @@ export default function ChatSearchPage() {
     document.addEventListener("keydown", onKey);
     return () => document.removeEventListener("keydown", onKey);
   }, [openHit]);
+
+  // Where a line lives in the stream, carrying the words that found it
+  const chatHref = useCallback((line) => {
+    if (line.msgId == null || !line.receivedAt) return null;
+    const hl = ran?.q ? `&hl=${encodeURIComponent(ran.q)}` : "";
+    return `/chat?m=${encodeURIComponent(line.msgId)}&at=${encodeURIComponent(line.receivedAt)}${hl}`;
+  }, [ran]);
+
+  const renderContextLine = useCallback(
+    (line) => <Highlight text={line.text} query={ran?.q || ""} />,
+    [ran]
+  );
 
   const renderLine = useCallback((line) => (
     <>
@@ -678,19 +777,35 @@ export default function ChatSearchPage() {
 
   const renderAfterLine = useCallback((line) => {
     if (!openHit || openHit.msgId !== line.msgId) return null;
-    const entry = contexts.get(contextKey(openHit.msgId, pad));
+    const entry = contexts.get(openHit.msgId);
     const rows = entry?.rows || [];
+    const loaded = !!entry?.rows;
+    const first = rows[0]?.received_at;
+    const last = rows[rows.length - 1]?.received_at;
+    const edgeButton = (dir, arrow) => (
+      <DrawerMore
+        type="button"
+        disabled={!!entry.extending || !!entry.ends?.[dir]}
+        onClick={() => extendContext(dir)}
+      >
+        {entry.extending === dir
+          ? "loading..."
+          : entry.ends?.[dir]
+            ? `nothing ${dir} for ${EXTEND_PAD / 60} hours`
+            : `${arrow} ${dir}`}
+      </DrawerMore>
+    );
     return (
       <Drawer data-context-drawer>
         <DrawerHead>
           <span>
-            &plusmn;{pad} min &middot; {formatTime(line.sentAt)}
+            {`${drawerDate(first || line.receivedAt)} \u00b7 `}
+            {rows.length > 1
+              ? `${formatTime(toIso(first))} to ${formatTime(toIso(last))} \u00b7 ${rows.length} lines`
+              : `around ${formatTime(line.sentAt)}`}
           </span>
-          <DrawerAction type="button" disabled={pad >= PAD_STEPS[PAD_STEPS.length - 1]} onClick={widenContext}>
-            wider
-          </DrawerAction>
           <DrawerLink
-            to={`/chat?m=${encodeURIComponent(line.msgId)}&at=${encodeURIComponent(line.receivedAt)}`}
+            to={chatHref(line)}
             title="Open this line in the live chat stream"
           >
             open in chat &#8599;
@@ -701,7 +816,7 @@ export default function ChatSearchPage() {
         </DrawerHead>
         {entry?.loading && <DrawerNote>Loading the conversation...</DrawerNote>}
         {entry?.error && <DrawerNote>The relay did not answer. Try that again.</DrawerNote>}
-        {!entry?.loading && !entry?.error && rows.length === 0 && <DrawerNote>Nothing else was said around this.</DrawerNote>}
+        {loaded && edgeButton("earlier", "\u2191")}
         {buildResultItems(rows, { dividers: false, prefix: `ctx-${openHit.msgId}`, markId: openHit.msgId }).map((item) => (
           <ChatMessage
             key={item.key}
@@ -711,11 +826,15 @@ export default function ChatSearchPage() {
               avatarUrl: profiles.get(item.tag)?.pic || null,
               countryCode: profiles.get(item.tag)?.country || null,
             }}
+            renderLine={renderContextLine}
+            timeHref={chatHref}
           />
         ))}
+        {loaded && edgeButton("later", "\u2193")}
+        {entry?.extendError && <DrawerNote>The relay did not answer. Try that again.</DrawerNote>}
       </Drawer>
     );
-  }, [openHit, contexts, pad, profiles, widenContext, closeContext]);
+  }, [openHit, contexts, profiles, extendContext, closeContext, chatHref, renderContextLine]);
 
   const hasMore = results.length > 0 && (total == null ? results.length % PAGE_SIZE === 0 : results.length < total);
 
@@ -727,6 +846,14 @@ export default function ChatSearchPage() {
       {ran.q && ` for "${ran.q}"`}
       {ran.player && ` by ${ran.player}`}
       {` · ${ran.since === "all" ? "whole archive" : `last ${sinceLabel(ran.since)}`}`}
+      {ran.since !== "all" && archiveTotal != null && total != null && archiveTotal > total && (
+        <>
+          {" \u00b7 "}
+          <MetaAction type="button" onClick={() => pickSince("all")}>
+            {archiveTotal - total} more in the whole archive
+          </MetaAction>
+        </>
+      )}
       {error && <ErrorNote> &middot; the search request failed, try again</ErrorNote>}
     </Meta>
   );
@@ -874,6 +1001,7 @@ export default function ChatSearchPage() {
                   }}
                   renderLine={renderLine}
                   renderAfterLine={renderAfterLine}
+                  timeHref={chatHref}
                 />
               </Hit>
             )

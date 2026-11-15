@@ -1,5 +1,6 @@
 import React from "react";
 import styled from "styled-components";
+import { Link } from "react-router-dom";
 import { formatTime } from "../../lib/useChatMessages";
 
 /**
@@ -9,6 +10,7 @@ import { formatTime } from "../../lib/useChatMessages";
  * a game row has no copy link but still reserves the slot.
  *
  *   time      ISO string, formatted with formatTime (12-hour)
+ *   href      make the time a link (a search hit opens in the stream)
  *   reserve   keep the 20px slot even when there is nothing to put in it
  *             (feed lines and game rows); transcript rows pass false
  *   children  the control for the slot (CopyLink)
@@ -26,6 +28,18 @@ export const Time = styled.span`
   transition: opacity var(--transition);
 `;
 
+const TimeLink = styled(Time)`
+  text-decoration: none;
+  cursor: pointer;
+
+  &:hover,
+  &:focus-visible {
+    color: var(--gold);
+    opacity: 1;
+    text-decoration: underline;
+  }
+`;
+
 const Cell = styled.span`
   display: inline-flex;
   align-items: center;
@@ -41,10 +55,14 @@ const Slot = styled.span`
   flex-shrink: 0;
 `;
 
-export default function LineEnd({ time, reserve = true, children }) {
+export default function LineEnd({ time, href, reserve = true, children }) {
   return (
     <Cell data-line-end>
-      <Time>{time ? formatTime(time) : ""}</Time>
+      {href && time ? (
+        <TimeLink as={Link} to={href} title="Open in the chat stream">{formatTime(time)}</TimeLink>
+      ) : (
+        <Time>{time ? formatTime(time) : ""}</Time>
+      )}
       {(reserve || children) && <Slot data-end-slot>{children}</Slot>}
     </Cell>
   );

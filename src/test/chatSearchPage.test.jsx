@@ -130,28 +130,61 @@ describe('chat search page', () => {
     await screen.findByText(/2 lines/);
 
     fireEvent.click(screen.getAllByRole('button', { name: 'context' })[0]);
-    const drawer = await screen.findByText(/3 min/).then((el) => el.closest('[data-context-drawer]'));
+    const drawer = await waitFor(() => {
+      const el = document.querySelector('[data-context-drawer]');
+      expect(el).toBeTruthy();
+      return el;
+    });
     expect(fetchCalls.some((u) => u.includes('/messages/search/context') && u.includes('padding=3'))).toBe(true);
     // the surrounding lines land under the hit, and the results are untouched
     await waitFor(() => expect(within(drawer).getByText('rematch?')).toBeTruthy());
     expect(screen.getByText(/2 lines/)).toBeTruthy();
     // the live stream is still one click away, from inside the drawer
     expect(within(drawer).getByRole('link', { name: /open in chat/i }).getAttribute('href'))
-      .toBe('/chat?m=6ab81&at=2026-09-26%2019%3A40%3A57');
+      .toBe('/chat?m=6ab81&at=2026-09-26%2019%3A40%3A57&hl=gg');
+    // a line's time is the same link, without opening anything first
+    expect(within(drawer).getAllByRole('link', { name: /\d:\d\d/ })[0].getAttribute('href'))
+      .toContain('/chat?m=');
 
     fireEvent.click(within(drawer).getByRole('button', { name: /close/i }));
     await waitFor(() => expect(document.querySelector('[data-context-drawer]')).toBeNull());
   });
 
-  it('widens the window without touching the results', async () => {
-    contextPayload = [];
+  it('extends the drawer earlier and later from its own edges', async () => {
+    const around = [
+      { id: 'b1', user_name: 'Anica', message: 'gj meta', battle_tag: 'Anica#11244', received_at: '2026-09-26 19:39:55' },
+      { id: '6ab81', user_name: 'Moon', message: 'gg wp', battle_tag: 'Moon#2356', received_at: '2026-09-26 19:40:57' },
+      { id: 'b3', user_name: 'Anica', message: 'rematch?', battle_tag: 'Anica#11244', received_at: '2026-09-26 19:41:30' },
+    ];
+    contextPayload = around;
     renderPage('?q=gg&since=30d');
     await screen.findByText(/2 lines/);
     fireEvent.click(screen.getAllByRole('button', { name: 'context' })[0]);
-    await screen.findByText(/3 min/);
-    fireEvent.click(screen.getByRole('button', { name: 'wider' }));
-    await waitFor(() => expect(fetchCalls.some((u) => u.includes('padding=10'))).toBe(true));
-    expect(screen.getByText(/2 lines/)).toBeTruthy();
+    const drawer = await waitFor(() => {
+      const el = document.querySelector('[data-context-drawer]');
+      expect(within(el).getByText('rematch?')).toBeTruthy();
+      return el;
+    });
+
+    // the relay answers around the first row: one older line, plus rows the
+    // drawer already has and one from the wrong side of the edge
+    contextPayload = [
+      { id: 'a0', user_name: 'Moon', message: 'who is hosting', battle_tag: 'Moon#2356', received_at: '2026-09-26 19:20:00' },
+      ...around,
+    ];
+    fireEvent.click(within(drawer).getByRole('button', { name: /earlier/ }));
+    await waitFor(() => expect(within(drawer).getByText('who is hosting')).toBeTruthy());
+    expect(fetchCalls.some((u) => u.includes('received_at=2026-09-26+19%3A39%3A55'))).toBe(true);
+    expect(within(drawer).getAllByText('rematch?')).toHaveLength(1);
+    const text = drawer.textContent;
+    expect(text.indexOf('who is hosting')).toBeLessThan(text.indexOf('gj meta'));
+
+    // nothing beyond the last row: the button says so and stops asking
+    contextPayload = around;
+    fireEvent.click(within(drawer).getByRole('button', { name: /later/ }));
+    const done = await within(drawer).findByRole('button', { name: /nothing later/ });
+    expect(done.disabled).toBe(true);
+    expect(screen.getByText(/2 lines for/)).toBeTruthy();
   });
 
   it('says so when the window holds nothing', async () => {

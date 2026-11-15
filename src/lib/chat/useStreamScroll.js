@@ -45,6 +45,10 @@ function rowNode(el, key) {
  *                 reader is already at the end. True for a live stream; false
  *                 for a transcript, which opens at the top and stays wherever
  *                 the reader put it
+ *   pinTail       false while the end of the list is not the live end (an
+ *                 archive window with more to page forward): rows arriving
+ *                 below then leave the reader where they are, instead of
+ *                 carrying them past a page they have not read
  *   onNearTop     reaching the head: page older history in
  *   onNearBottom  reaching the tail of an archive window: page forward
  *   onTopRowChange(key, heldKey) the row at the top of the viewport, for
@@ -58,6 +62,7 @@ export default function useStreamScroll({
   rows,
   windowId = 0,
   followTail = true,
+  pinTail = true,
   onNearTop,
   onNearBottom,
   onTopRowChange,
@@ -89,8 +94,10 @@ export default function useStreamScroll({
   cbRef.current = { onNearTop, onNearBottom, onTopRowChange };
   const followRef = useRef(followTail);
   followRef.current = followTail;
+  const pinTailRef = useRef(pinTail);
+  pinTailRef.current = pinTail;
   // Only a tail-following stream has a reason to jump to the end
-  const shouldPin = () => followRef.current && distanceRef.current <= AT_BOTTOM_PX;
+  const shouldPin = () => followRef.current && pinTailRef.current && distanceRef.current <= AT_BOTTOM_PX;
 
   // Which row is at the top of the viewport, walked from the last answer
   // rather than scanned from the start of the list
@@ -203,7 +210,14 @@ export default function useStreamScroll({
     if (prev === el) return;
     if (prev) prev.removeEventListener("scroll", onScrollEvent);
     scrollerElRef.current = el;
-    if (el) el.addEventListener("scroll", onScrollEvent, { passive: true });
+    if (!el) return;
+    // This hook is the only thing that may move the scroll. Left on, the
+    // browser's own scroll anchoring picks the footer under the last row as
+    // its anchor and follows it down whenever rows are added above it, which
+    // carries a reader at the end of an archive window past every page that
+    // loads, with no scrollTop write for the hook to see.
+    el.style.overflowAnchor = "none";
+    el.addEventListener("scroll", onScrollEvent, { passive: true });
   }, [onScrollEvent]);
 
   // Rows changed: a replaced window starts at the newest line, a reader at
