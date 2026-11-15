@@ -34,5 +34,25 @@
  "Apm50": {
   "tag": "Apm50#1700",
   "avatar": "https://storage.w3champions.com/prod/integration/icons/specialAvatars/SPECIAL_12021.jpg"
+ },
+ "Galen": {
+  "tag": "Galen#11398",
+  "avatar": "https://storage.w3champions.com/prod/integration/icons/raceAvatars/classic/NIGHTELF_8.jpg"
+ },
+ "EGMoon": {
+  "tag": "EGMoon#21523",
+  "avatar": "https://storage.w3champions.com/prod/integration/icons/raceAvatars/classic/UNDEAD_6.jpg"
+ },
+ "mubarak": {
+  "tag": "mubarak#22745",
+  "avatar": "https://storage.w3champions.com/prod/integration/icons/raceAvatars/classic/RANDOM_18.jpg"
+ },
+ "Lakers": {
+  "tag": "Lakers#1486",
+  "avatar": "https://storage.w3champions.com/prod/integration/icons/raceAvatars/classic/NIGHTELF_17.jpg"
+ },
+ "Boyzinho": {
+  "tag": "Boyzinho#11456",
+  "avatar": "https://storage.w3champions.com/prod/integration/icons/raceAvatars/ORC_16.jpg"
  }
 }

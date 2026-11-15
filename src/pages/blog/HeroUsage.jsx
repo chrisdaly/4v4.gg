@@ -1,6 +1,5 @@
 import React from "react";
 import { Link } from "react-router-dom";
-import RaceModeSplit from "../../components/RaceModeSplit";
 import HeroModeSplit from "../../components/HeroModeSplit";
 import DemonHunterKit from "../../components/DemonHunterKit";
 import people from "../../lib/data/demonHunterPeople.json";
@@ -8,22 +7,26 @@ import "../../styles/pages/Blog.css";
 import "../../styles/pages/blog/DemonHunter.css";
 
 /**
- * Blog post: why the Demon Hunter, Night Elf's hero in solo, nearly vanishes in 4v4.
+ * Blog post: where the Demon Hunter, Night Elf's hero in solo, went in 4v4.
  *
- * The argument, carried by the chat and checked against the ladder: in a game
- * of eight players his tools are diluted (one mana bar among many, an evasion
- * that spells ignore), while auras and heals multiply by four. So NE builds a
- * Keeper instead, every aura hero rises, and NE itself sinks to last.
+ * The story: the chat calls opening DH "brain rot"; his kit explains why (one
+ * mana bar among many, an evasion spells ignore); the Keeper and the aura
+ * heroes take his place; and the DH that survives lives where a 4v4 still
+ * looks like solo, the corner spawn and the first minutes, where it is a 1v1
+ * or a 2v2. Once the game becomes a 4v4 he is a dead hero.
+ *
+ * The corner-spawn claim is the players' own, quoted, not measured: the relay
+ * does not record spawn position, and replays cover too few games to infer it.
  *
  * Chat exchanges are quoted as typed, chosen after reading the lines around
  * them; a narrator's aside marks any gap of more than a few minutes. French is
  * glossed. Under ~700 words, so no section headings.
  *
  * Every number is a share of picks or player slots, never of games, from a
- * stride across season 25 (heroModeSplit.json, raceModeSplit.json). Per-race
- * hero shares (62% / 16% DH, 29% / 64% Keeper) were computed with the same
- * stride and back-check against those files to within a point. Nothing claims
- * a pick order: the API sorts heroes by XP, not by when they were built.
+ * stride across season 25 (heroModeSplit.json). Per-race hero shares (62% /
+ * 16% DH, 29% / 64% Keeper) were computed with the same stride and back-check
+ * against that file to within a point. Nothing claims a pick order: the API
+ * sorts heroes by XP, not by when they were built.
  */
 
 /** A speaker's avatar and name, linked to their profile. */
@@ -79,8 +82,8 @@ export default function HeroUsage() {
       <div className="dw-date"><span className="bl-card-tag">November 2026</span></div>
 
       <p className="dw-lede">
-        In solo the Demon Hunter is the Night Elf hero, in 4v4 opening with
-        him gets you called names.
+        In solo, Night Elf is built around the Demon Hunter, in 4v4 opening
+        with him gets you called names.
       </p>
 
       <Exchange
@@ -98,17 +101,17 @@ export default function HeroUsage() {
       />
 
       <p>
-        In solo, 62% of NE players choose a DH, in 4v4 only 16% do. No hero
-        loses more between the two modes, and wonderwood had the reason in
-        three lines.
+        In solo, 62% of NE players choose a DH, in 4v4 only 16% do. No
+        hero&rsquo;s pick rate falls further between the two modes, and
+        wonderwood had the reason in three lines.
       </p>
 
       <DemonHunterKit />
 
       <p>
-        Without the DH, the NE altar makes a Keeper of the Grove instead, in
-        64% of NE slots against 29% in solo, and the Priestess goes from about
-        one NE in ten to nearly half.
+        His place goes to a Keeper of the Grove, in 64% of NE slots against
+        29% in solo, and the Priestess goes from about one NE in ten to
+        nearly half. In May the chat worked through it.
       </p>
 
       <Exchange
@@ -132,8 +135,43 @@ export default function HeroUsage() {
       <HeroModeSplit />
 
       <p>
-        When someone defends the DH, the name that comes up is Jens, one of
-        the highest-rated NE players in solo. It came up again in August.
+        The 16% who still bring a DH mostly know when. A 4v4 doesn&rsquo;t
+        start as a 4v4. For the first few minutes it&rsquo;s four separate
+        games, and a player in the corner spawn, close to the enemy, is
+        playing something near a solo game. Galen, the player ToD was
+        calling brain rot, explained himself after the game.
+      </p>
+
+      <Exchange
+        when="Aug 5, 82 minutes later"
+        rows={[
+          ["Galen", "well Tod in that game, i knew you would have kotg and potm so what point is there in me going kotg/potm also, when in the team fights we would have the auras and in the 2v2 dh can fight well after 3"],
+          ["Galen", "2 kotg is stupid"],
+          ["EGMoon", "using dh in 4v4 is the stupid thing there, tod is right, u only be usefull on early game, and be useless mid/late game"],
+        ]}
+      />
+
+      <p>
+        They agree on when he works, a 2v2 in the first minutes, and argue
+        only about whether that&rsquo;s worth a hero slot. The players who
+        rate the DH talk about the corner, the harass and the first fight.
+      </p>
+
+      <Exchange
+        when="Mar 1, after a harass"
+        rows={[
+          ["mubarak", "yeah lakers i give u advice in that map as elf"],
+          ["mubarak", "get dh in corner its better"],
+          ["mubarak", "and tree creep the small camp with 2 level 3s and the ogre with item"],
+          ["mubarak", "ur archer and aow can lower them b4 ur hero comes out"],
+          ["mubarak", "so u are rdy for a herass"],
+          ["Lakers", "dh i like"],
+          ["Lakers", "but can be hard in 4s"],
+        ]}
+      />
+
+      <p>
+        The chat&rsquo;s other defence of the DH is one player.
       </p>
 
       <Exchange
@@ -151,35 +189,12 @@ export default function HeroUsage() {
       />
 
       <p>
-        Jens mostly doesn&rsquo;t go DH. In solo he picks him less than half
-        as often as other NE players, and the Keeper and the Priestess more.
-        In 4v4 he brings a DH in one NE game in six, the same as everyone else.
+        Jens brings a DH in one NE game in six, the same as everyone else.
+        Whether those are his corner spawns, the data can&rsquo;t say. The
+        window closes fast either way. Once the sides join up, the eight
+        players fight as one army each, and the DH is one hero among
+        eighteen.
       </p>
-
-      <p>
-        NE as a race goes the same way. It&rsquo;s mid-table in solo and last
-        in 4v4, and no race falls further. The pick that rises is Random, from
-        10% of solo players to 32% of 4v4 ones.
-      </p>
-
-      <RaceModeSplit showKey={false} />
-
-      <p>
-        Mellow is one of them. On Nov 1, in French, he told ToD what had
-        changed.
-      </p>
-
-      <Exchange
-        when="Nov 1, 2:42am"
-        rows={[
-          ["Mellow", "depuis que je random je spam pas du tout le meme build tout le temps", "Since I went Random I don't spam the same build all the time."],
-          ["ToD", "ouais c'est deja mieux je dirai", "Yeah, that's already better I'd say."],
-          ["Mellow", "peu importe à quel point je me donne sur la game, si jfais DH first, jvais me faire insulter quoi", "However hard I try in the game, if I go DH first, I'm getting insulted."],
-          ["Mellow", "et ca faisait pas sens pour moi jusqu'a y a 2 jours", "And that didn't make sense to me until two days ago."],
-        ]}
-      />
-
-      <p>Later that night, the chat settled it.</p>
 
       <Exchange
         when="Nov 1, 5:16am"
@@ -198,11 +213,12 @@ export default function HeroUsage() {
         Shares are of NE player slots, so a DH appears in more games than
         the 16% suggests: 23% of 4v4 games have one somewhere, against 29%
         of solo games. Pick rate isn&rsquo;t strength: the ladder matches on
-        MMR, so every race wins close to half its games. Jens&rsquo;s figures
-        are from Jens#11592: 384 solo games as NE this season, and the 105 of
-        his 4v4 games that carry hero data and rolled NE (in 4v4 he queues as
-        Random). The DH comes up in about 440 chat messages between February
-        and November 2026.
+        MMR, so every race wins close to half its games. Where players
+        spawned isn&rsquo;t recorded, so the corner-spawn pattern is the
+        players&rsquo; account, not a measurement. Jens&rsquo;s figure is
+        from Jens#11592: the 105 of his 4v4 games that carry hero data and
+        rolled NE (in 4v4 he queues as Random). The DH comes up in about 440
+        chat messages between February and November 2026.
       </p>
     </article>
   );
