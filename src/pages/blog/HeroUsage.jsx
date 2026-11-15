@@ -173,7 +173,11 @@ export default function HeroUsage() {
       <p>
         And the DH can&rsquo;t keep himself alive. A hero in melee range of
         four opponents needs a Holy Light or a Healing Wave behind him, and
-        NE has neither. A DH on his own has to carry his survival: a Town
+        NE has neither. The Warden, NE&rsquo;s other melee hero, gets
+        around that: Blink takes her out of trouble, she can hide at
+        night, and her damage is a burst she can land and leave. She
+        reaches level 6 in about a third of her 4v4 games. The DH has to
+        stand in the fight to do his damage. A DH on his own has to carry his survival: a Town
         Portal, a Staff of Preservation, boots, an Orb of Venom, an
         invulnerability potion, maybe an anti-magic potion. That&rsquo;s
         all six slots, before any of the good items he picks up creeping.
@@ -292,7 +296,8 @@ export default function HeroUsage() {
         the 16% suggests: 23% of 4v4 games have one somewhere, against 29%
         of solo games. Hero levels are from 600 recent 4v4 games: a Keeper
         ends at level 6 or higher in 14% of picks (27% when he&rsquo;s the
-        player&rsquo;s only hero), a DH in 7% (14%). Pick rate isn&rsquo;t strength: the ladder matches on
+        player&rsquo;s only hero), a DH in 7% (14%), a Warden in 38%, though from only 68 picks.
+        Pick rate isn&rsquo;t strength: the ladder matches on
         MMR, so every race wins close to half its games. Where players
         spawned isn&rsquo;t recorded, so the corner-spawn pattern is the
         players&rsquo; account, not a measurement. Jens&rsquo;s figure is
