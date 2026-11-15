@@ -30,6 +30,7 @@ import {
   removeFromPriorityQueue,
 } from './db.js';
 import { buildServerFingerprint } from './fingerprint.js';
+import { recordMatchCountries } from './connectionCountries.js';
 
 const W3C_API = 'https://website-backend.w3champions.com/api';
 // At most 2 imports per 5-minute cycle, which stays under W3C's hourly cap.
@@ -161,6 +162,7 @@ async function discoverMatches() {
       const res = await fetch(url);
       if (!res.ok) continue;
       const data = await res.json();
+      recordMatchCountries(data.matches);
       for (const m of (data.matches || [])) {
         if (matchMap.has(m.id)) continue;
         if (m.durationInSeconds != null && m.durationInSeconds < 300) continue;
@@ -437,6 +439,7 @@ export async function importPlayerMatches(battleTag, targetImports = 3, seasonOv
   const res = await fetch(url);
   if (!res.ok) throw new Error(`W3C API returned ${res.status}`);
   const data = await res.json();
+  recordMatchCountries(data.matches);
 
   let filteredShort = 0;
   const candidates = [];
@@ -509,6 +512,7 @@ export async function importPlayerMatchesBulk(battleTag, { daysBack = 7, maxImpo
     const data = await res.json();
     const matches = data.matches || [];
     if (matches.length === 0) break;
+    recordMatchCountries(matches);
 
     let hitCutoff = false;
     for (const m of matches) {

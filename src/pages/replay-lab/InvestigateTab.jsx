@@ -57,7 +57,13 @@ function getIdentifyVerdict(data, queryName) {
   };
 
   if (sideMatches.length > 0) {
-    const ev = similar.find(s => s.battleTag === sideMatches[0])?.evidence || {};
+    const first = similar.find(s => s.battleTag === sideMatches[0]) || {};
+    const ev = first.evidence || {};
+    // Where the match's country comes from: its recorded games, or only its latest
+    const conn = first.connection;
+    const where = conn
+      ? `, connected from there in ${Math.round(conn.share * 100)}% of ${conn.games} games`
+      : "";
     const share = ev.countryShare != null
       ? `${(ev.countryShare * 100).toFixed(ev.countryShare < 0.01 ? 1 : 0)}% of players`
       : "an uncommon country";
@@ -65,7 +71,7 @@ function getIdentifyVerdict(data, queryName) {
     return {
       icon: "⚠️",
       heading: `Possibly the same player as ${listNames(sideMatches)}`,
-      sub: `Top-five playstyle match, same country (${ev.country}, ${share}), never in the same ladder game - ${odds} matches like this are the same player`,
+      sub: `Top-five playstyle match, same country (${ev.country}, ${share}${where}), never in the same ladder game - ${odds} matches like this are the same player`,
     };
   }
 

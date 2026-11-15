@@ -68,6 +68,7 @@ import {
 import { checkSidecar, getUmapProjection, getUmapTransform } from '../embedClient.js';
 import { sideEvidence, countryShares } from '../sideEvidence.js';
 import { ensureCountries, fillCountriesInBackground } from '../countries.js';
+import { usualCountries, startCountryBackfill, countryBackfillStatus } from '../connectionCountries.js';
 import { importPlayerMatches, importPlayerMatchesBulk, enqueueImport } from '../replayImporter.js';
 import { requireApiKey } from '../middleware/auth.js';
 
@@ -2116,6 +2117,18 @@ function getSuspectsData() {
   return suspectsCache;
 }
 
+// POST /api/fingerprints/backfill-connection-countries - Record per-game
+// connection countries for indexed accounts that lack a history (admin).
+// One W3C request every 1.5s; GET the same path for progress.
+router.post('/backfill-connection-countries', requireApiKey, (req, res) => {
+  const seasons = Math.min(Math.max(parseInt(req.query.seasons) || 2, 1), 4);
+  res.json(startCountryBackfill(getVerdictPool().map(p => p.battleTag), { seasons }));
+});
+
+router.get('/backfill-connection-countries', requireApiKey, (req, res) => {
+  res.json(countryBackfillStatus());
+});
+
 // GET /api/fingerprints/identify/:battleTag - Smurf verdict for one account
 // Returns the top similar account with a confidence verdict.
 // The verdict compares the top match with other accounts' best matches (see
@@ -2200,12 +2213,17 @@ router.get('/identify/:battleTag', requireApiKey, async (req, res) => {
   const countries = await ensureCountries([battleTag, ...similar.map(s => s.battleTag)]);
   fillCountriesInBackground(getVerdictPool().map(p => p.battleTag));
   const shareOf = countryShares(getCountryCounts());
-  const queryCountry = countries.get(battleTag) || null;
+  // Usual connection country across recorded games where there is a history,
+  // else the profile's, which is only the latest game (connectionCountries.js)
+  const usual = usualCountries([battleTag, ...similar.map(s => s.battleTag)]);
+  const countryOf = (tag) => usual.get(tag)?.country || countries.get(tag) || null;
+  const queryCountry = countryOf(battleTag);
   for (const s of similar) {
     s.sharedReplays = getSharedReplayCount(battleTag, s.battleTag);
+    s.connection = usual.get(s.battleTag) || null;
     s.evidence = sideEvidence({
       queryCountry,
-      candidateCountry: countries.get(s.battleTag) || null,
+      candidateCountry: countryOf(s.battleTag),
       countryShare: shareOf(queryCountry),
       sharedLadderGames: s.sharedReplays,
     });
@@ -2291,6 +2309,7 @@ router.get('/identify/:battleTag', requireApiKey, async (req, res) => {
     clickVerdict,
     sideMatches,
     queryCountry,
+    queryConnection: usual.get(battleTag) || null,
     // Share of accounts whose best match is at least as strong as this one's
     topMatchRarity: top?.rarity ?? null,
     filters: hasFilter ? { race: filterRace, after: filterAfter, replayIds: filterReplayIds } : null,

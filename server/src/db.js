@@ -483,6 +483,16 @@ export function initDb() {
 
   // Validation pairs - known smurf-main pairs for ground-truth testing
   db.exec(`
+    -- The country matchmaking saw for a player's connection in one ladder game.
+    -- W3C keeps only the latest on the profile; the history is what shows an
+    -- account's usual country through a trip or a VPN session.
+    CREATE TABLE IF NOT EXISTS player_game_countries (
+      battle_tag TEXT NOT NULL,
+      match_id   TEXT NOT NULL,
+      played_at  TEXT,
+      country    TEXT NOT NULL,
+      PRIMARY KEY (battle_tag, match_id)
+    );
     CREATE TABLE IF NOT EXISTS player_countries (
       battle_tag TEXT PRIMARY KEY,
       country    TEXT,
@@ -2568,6 +2578,43 @@ export function upsertPlayerCountries(rows) {
   `);
   const now = Date.now();
   db.transaction(() => { for (const { battleTag, country } of rows) stmt.run(battleTag, country, now); })();
+}
+
+export function insertGameCountries(rows) {
+  if (rows.length === 0) return 0;
+  const stmt = db.prepare(`
+    INSERT OR IGNORE INTO player_game_countries (battle_tag, match_id, played_at, country) VALUES (?, ?, ?, ?)
+  `);
+  let added = 0;
+  db.transaction(() => {
+    for (const r of rows) added += stmt.run(r.battleTag, r.matchId, r.playedAt, r.country).changes;
+  })();
+  return added;
+}
+
+/**
+ * Games recorded per connection country for each account.
+ * @returns {Map<string, {total: number, counts: Record<string, number>}>}
+ */
+export function getGameCountries(battleTags) {
+  const out = new Map();
+  const stmt = db.prepare('SELECT country, COUNT(*) AS n FROM player_game_countries WHERE battle_tag = ? GROUP BY country');
+  for (const tag of battleTags) {
+    const rows = stmt.all(tag);
+    if (rows.length === 0) continue;
+    const counts = {};
+    let total = 0;
+    for (const { country, n } of rows) { counts[country] = n; total += n; }
+    out.set(tag, { total, counts });
+  }
+  return out;
+}
+
+/** Accounts with at least `minGames` recorded connection countries. */
+export function getTagsWithGameCountries(minGames) {
+  return new Set(db.prepare(
+    'SELECT battle_tag FROM player_game_countries GROUP BY battle_tag HAVING COUNT(*) >= ?'
+  ).all(minGames).map(r => r.battle_tag));
 }
 
 /** How many stored accounts fly each flag: [{ country, n }]. */
