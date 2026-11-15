@@ -175,8 +175,9 @@ export default function HeroUsage() {
         four opponents needs a Holy Light or a Healing Wave behind him, and
         NE has neither. The Warden, NE&rsquo;s other melee hero, gets
         around that: Blink takes her out of trouble, she can hide at
-        night, and her damage is a burst she can land and leave. She
-        reaches level 6 in about a third of her 4v4 games. The DH has to
+        night, and her damage is a burst she can land and leave. Fan of
+        Knives also farms workers, which levels her fast. She reaches
+        level 6 in about a third of her 4v4 games. The DH has to
         stand in the fight to do his damage. A DH on his own has to carry his survival: a Town
         Portal, a Staff of Preservation, boots, an Orb of Venom, an
         invulnerability potion, maybe an anti-magic potion. That&rsquo;s
