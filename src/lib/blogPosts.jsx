@@ -108,14 +108,12 @@ export const blogPosts = [
     slug: "where-the-demon-hunter-went",
     title: "Where the Demon Hunter Went",
     description:
-      "The hero that defines Night Elf in solo is nearly absent from 4v4, and the same arithmetic moves every other pick in the mode.",
+      "In solo, Night Elf is built around the Demon Hunter. In 4v4, opening with him gets you called names.",
     date: "Oct 4, 2026",
-    tags: ["heroes", "races", "stats", "solo"],
+    tags: ["heroes", "chat", "stats"],
     type: "component",
     component: () => import("../pages/blog/HeroUsage"),
     coverImage: "/blog/demonhunter-cover.svg",
-    // Written Oct 2026, not yet approved for publishing
-    draft: true,
   },
   {
     slug: "dots-not-numbers",
