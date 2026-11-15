@@ -161,12 +161,13 @@ export default function HeroUsage() {
       <HeroModeSplit />
 
       <p>
-        The Keeper also gets to level 6, and the DH usually doesn&rsquo;t.
-        A Keeper can be your only hero: his treants creep fast, Entangle
-        picks off units, and he fights from a distance instead of in the
-        middle of it. He levels quickly
-        and arrives at Tranquility, which heals the whole army. About one
-        DH in ten ever sees Metamorphosis.
+        The Keeper also levels better. Heroes nearby split the experience
+        from a kill, so a player with one hero gets all of it, and a Keeper
+        can be your only hero: his treants creep fast and, with Entangle,
+        harass and win skirmishes, and he fights from a distance instead of
+        in the middle of it. A lone Keeper reaches level 6 and Tranquility,
+        which heals the whole army, in about a quarter of 4v4 games. A lone
+        DH reaches Metamorphosis in about one in seven.
       </p>
 
       <p>
@@ -175,9 +176,10 @@ export default function HeroUsage() {
         NE has neither. A DH on his own has to carry his survival: a Town
         Portal, a Staff of Preservation, boots, an Orb of Venom, an
         invulnerability potion, maybe an anti-magic potion. That&rsquo;s
-        all six slots, and by then he&rsquo;s picked up good items creeping
-        too. Every slot becomes a choice between staying alive and being
-        worth bringing.
+        all six slots, before any of the good items he picks up creeping.
+        So he often needs a second hero, to carry items and to staff him
+        out when he&rsquo;s caught, and a second hero splits his
+        experience, which puts Metamorphosis further away.
       </p>
 
       <h2>Where he still works</h2>
@@ -234,8 +236,8 @@ export default function HeroUsage() {
       />
 
       <p>
-        And his team has to commit to him: a dedicated healer, and a second
-        hero with a staff to pull him out. They&rsquo;re keeping alive a
+        And his team has to commit to him: an ally with a heal.
+        They&rsquo;re keeping alive a
         hero all four opponents want dead.
       </p>
 
@@ -288,7 +290,9 @@ export default function HeroUsage() {
         of 4v4, 236,000 hero picks, about nine heroes per 4v4 team.
         Shares are of NE player slots, so a DH appears in more games than
         the 16% suggests: 23% of 4v4 games have one somewhere, against 29%
-        of solo games. Pick rate isn&rsquo;t strength: the ladder matches on
+        of solo games. Hero levels are from 600 recent 4v4 games: a Keeper
+        ends at level 6 or higher in 14% of picks (27% when he&rsquo;s the
+        player&rsquo;s only hero), a DH in 7% (14%). Pick rate isn&rsquo;t strength: the ladder matches on
         MMR, so every race wins close to half its games. Where players
         spawned isn&rsquo;t recorded, so the corner-spawn pattern is the
         players&rsquo; account, not a measurement. Jens&rsquo;s figure is
