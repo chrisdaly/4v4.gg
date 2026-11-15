@@ -109,7 +109,8 @@ export default function HeroUsage() {
 
       <p>
         Some of it is his kit. Most of it is built for a fight against one
-        other hero, and a 4v4 puts around eighteen on the field.
+        other hero, and in 4v4 the other team brings around nine, out of a
+        possible twelve.
       </p>
 
       <DemonHunterKit />
@@ -149,7 +150,7 @@ export default function HeroUsage() {
 
       <p>
         And NE can&rsquo;t heal him. A hero who lives in melee range of
-        eight players needs a Holy Light or a Healing Wave behind him, and
+        four opponents needs a Holy Light or a Healing Wave behind him, and
         NE has neither. Its big heal is the Keeper&rsquo;s ultimate, which
         is the other reason the Keeper gets picked.
       </p>
@@ -251,7 +252,7 @@ export default function HeroUsage() {
 
       <p className="dw-foot">
         Picks are from season 25, Europe: 11,000 solo games against 11,000
-        of 4v4, 236,000 hero picks, about eighteen heroes per 4v4 game.
+        of 4v4, 236,000 hero picks, about nine heroes per 4v4 team.
         Shares are of NE player slots, so a DH appears in more games than
         the 16% suggests: 23% of 4v4 games have one somewhere, against 29%
         of solo games. Pick rate isn&rsquo;t strength: the ladder matches on

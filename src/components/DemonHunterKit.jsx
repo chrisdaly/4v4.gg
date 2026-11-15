@@ -21,7 +21,7 @@ const KIT = [
     icon: "immolation",
     name: "Immolation",
     text:
-      "Wants a crowd, and 4v4 has one. The problem is getting there: standing in the middle of eight players with that much spell damage on the field is how he dies.",
+      "Wants a crowd, and 4v4 has one. The problem is getting there: standing in the middle of four opponents and their nine heroes on the field is how he dies.",
     verdict: "exposed",
   },
   {
