@@ -158,25 +158,33 @@ export default function HeroUsage() {
 
       <p>
         The Keeper also levels better. A player with only one hero gets all
-        the experience, plus a bonus: 15% more at tier 2, 30% at tier 3.
-        And a Keeper can be your only hero: his treants creep fast and, with Entangle,
-        harass and win skirmishes, and he fights from a distance instead of
-        in the middle of it. A lone Keeper reaches level 6 and Tranquility,
-        which heals the whole army, in about a quarter of 4v4 games. A lone
-        DH reaches Metamorphosis in about one in seven.
+        the experience, plus 15% at tier 2 and 30% at tier 3, and the
+        Keeper is a hero you can go alone with. His treants creep fast,
+        Entangle wins skirmishes, and he fights from range.
       </p>
 
       <p>
-        And the DH can&rsquo;t keep himself alive. A hero in melee range of
-        four opponents needs a Holy Light or a Healing Wave behind him, and
-        NE has neither. The Warden, NE&rsquo;s other melee hero, gets
-        around that: Blink takes her out of trouble, and her damage is a
-        burst she can land and leave. She reaches level 6 in about a third
-        of her 4v4 games. The DH has to stand in the fight. On his own he
-        carries his survival: a Town Portal, a Staff of Preservation,
-        boots, an Orb of Venom, an invulnerability potion, maybe an
-        anti-magic potion. That&rsquo;s all six slots. So he often needs a
-        second hero to carry items and staff him out, and that splits his
+        A lone Keeper reaches Tranquility in about a quarter of 4v4 games.
+        A lone DH reaches Metamorphosis in one in seven.
+      </p>
+
+      <p>
+        And the DH can&rsquo;t keep himself alive. In melee range of four
+        opponents he needs a Holy Light or a Healing Wave behind him, and
+        NE has neither.
+      </p>
+
+      <p>
+        The Warden, NE&rsquo;s other melee hero, doesn&rsquo;t need one.
+        Blink gets her out, and her damage is a burst she lands before
+        leaving. She reaches level 6 in about a third of her games.
+      </p>
+
+      <p>
+        The DH has to stand in the fight. Alone, he fills his six slots
+        with survival: Town Portal, Staff of Preservation, boots, Orb of
+        Venom, invulnerability potion, maybe anti-magic. So he often needs
+        a second hero to carry items and staff him out, which splits his
         experience and ends the bonus.
       </p>
 
