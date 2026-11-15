@@ -14,9 +14,14 @@
  * Usage (read-only; point it at a local copy of the relay database):
  *   node scripts/eval-identify.mjs --db /path/to/chat.db
  *   node scripts/eval-identify.mjs --db chat.db --min-replays 8 --max-probes 1000 --out eval.json
+ *
+ * To score the whitened identity model as well, pass its JSON. A model fitted
+ * on one fold of players (fit_export.py --fold) lists the players it never
+ * saw, and only those are used as probes, so the number is honest:
+ *   node scripts/eval-identify.mjs --db chat.db --identity-model model-fold0.json
  */
 
-import { writeFileSync } from 'fs';
+import { readFileSync, writeFileSync } from 'fs';
 import Database from 'better-sqlite3';
 import {
   cosineSegment,
@@ -26,6 +31,7 @@ import {
   averageFingerprints,
   averageEmbeddings,
 } from '../src/fingerprint.js';
+import { createIdentityModel, identitySimilarity } from '../src/identityModel.js';
 
 // ── Arguments ───────────────────────────────────────
 
@@ -40,6 +46,7 @@ const MIN_GALLERY = Number(arg('min-gallery', 3)); // production's candidate flo
 const MAX_PROBES = Number(arg('max-probes', 1000));
 const SEED = Number(arg('seed', 12345));
 const OUT = arg('out', null);
+const IDENTITY_MODEL_PATH = arg('identity-model', null);
 const PROBE_SIZES = [1, 3, 5, 10]; // games in the hidden half, for the "how many games" curve
 const FPR_TARGETS = [0.01, 0.05];
 
@@ -80,6 +87,14 @@ const SCORERS = {
   embedding: (a, b) => embeddingSimilarity(a.emb, b.emb),
   hybrid: (a, b) => computeHybridSimilarity(a.fp, b.fp, a.emb, b.emb).similarity,
 };
+let identityModel = null;
+let heldOut = null; // players the identity model never saw; null = no restriction
+if (IDENTITY_MODEL_PATH) {
+  const json = JSON.parse(readFileSync(IDENTITY_MODEL_PATH, 'utf8'));
+  identityModel = createIdentityModel(json);
+  if (json.heldOutPlayers) heldOut = new Set(json.heldOutPlayers);
+  SCORERS.whitened = (a, b) => identitySimilarity(a.idEmb, b.idEmb);
+}
 const SCORER_NAMES = Object.keys(SCORERS);
 
 // ── Helpers ─────────────────────────────────────────
@@ -118,6 +133,7 @@ function entity(games) {
   return {
     fp: averageFingerprints(games.map(g => g.fp)),
     emb: averageEmbeddings(games.map(g => g.emb)),
+    idEmb: identityModel ? identityModel.embed(games.map(g => g.fp.segments)) : null,
     n: games.length,
     race: majorityRace(games),
     replayIds: new Set(games.map(g => g.replayId)),
@@ -198,7 +214,11 @@ for (let i = probeOrder.length - 1; i > 0; i--) {
   const j = Math.floor(rand() * (i + 1));
   [probeOrder[i], probeOrder[j]] = [probeOrder[j], probeOrder[i]];
 }
-const sampled = probeOrder.slice(0, MAX_PROBES).map(i => probes[i]);
+const sampled = probeOrder
+  .map(i => probes[i])
+  .filter(p => !heldOut || heldOut.has(p.tag))
+  .slice(0, MAX_PROBES);
+if (heldOut) console.log(`Identity model was fitted on one fold: probes restricted to the ${sampled.length} sampled players it never saw.`);
 
 console.log(`Database: ${DB_PATH}`);
 console.log(`  ${totalRows} fingerprints (${rowsWithEmbedding} with an embedding) from ${playersSeen} players`);
