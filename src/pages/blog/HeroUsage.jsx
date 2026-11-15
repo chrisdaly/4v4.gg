@@ -132,9 +132,8 @@ export default function HeroUsage() {
         hero&rsquo;s mana and stops him creeping. His creeping still works in 4v4. The
         pressure doesn&rsquo;t: the maps are bigger, with more camps and
         more expos, so the player he&rsquo;s chasing creeps somewhere else,
-        or three allies come and help. By
-        the time the armies meet, the fights are huge and he&rsquo;s the
-        easiest hero on the field to catch.
+        or three allies come and help. By the time the armies meet, the
+        fights are huge and he&rsquo;s the first hero they focus.
       </p>
 
       <Exchange
