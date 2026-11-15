@@ -18,6 +18,8 @@ import { getPriorityQueueHead, removeFromPriorityQueue } from '../db.js';
 import { buildFactSheet, generateWithPrompt, SYSTEM_PROMPT, generateStructuredParts, STRUCTURED_SYSTEM_PROMPT } from '../matchBlurb.js';
 import { getMatchBlurb } from '../db.js';
 import { requireApiKey } from '../middleware/auth.js';
+import { sendAlert } from '../alerts.js';
+import { getDiskHealth } from '../diskMonitor.js';
 
 const router = Router();
 
@@ -1629,6 +1631,16 @@ router.get('/image-proxy', async (req, res) => {
     console.warn('[Admin] Image proxy failed:', err.message);
     res.status(502).send('Failed to fetch image');
   }
+});
+
+// POST /api/admin/alert-test - Send a test alert on every channel and report
+// what each one did. The only way to know an alert channel works is to use it.
+router.post('/alert-test', requireApiKey, async (_req, res) => {
+  const outcome = await sendAlert({
+    title: '[Relay] Test alert - ignore',
+    body: `Test alert sent from POST /api/admin/alert-test.\n\nDisk: ${JSON.stringify(getDiskHealth())}`,
+  });
+  res.json(outcome);
 });
 
 // Health check (public)

@@ -61,7 +61,7 @@ const sleep = (ms) => new Promise(r => setTimeout(r, ms));
 
 // The importer must never starve the database of disk (a full volume is what
 // corrupted the DB in June 2026). Pause imports when free space drops below 15%.
-const MIN_FREE_RATIO = 0.15;
+export const MIN_FREE_RATIO = 0.15;
 
 function diskHasHeadroom() {
   try {

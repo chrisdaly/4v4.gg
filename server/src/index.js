@@ -24,6 +24,7 @@ import { startReplayImporter } from './replayImporter.js';
 import { startGameAnnouncer } from './gameAnnouncer.js';
 import { startTokenMonitor, getTokenHealth } from './tokenMonitor.js';
 import { startMapSync } from './mapSync.js';
+import { startDiskMonitor, getDiskHealth } from './diskMonitor.js';
 
 const app = express();
 app.set('trust proxy', 1);
@@ -52,7 +53,7 @@ app.use('/og', ogRoutes);
 app.get('/api/health', (_req, res) => {
   let token = {};
   try { token = getTokenHealth(); } catch { /* keep health fast and infallible */ }
-  res.json({ status: 'ok', uptime: process.uptime(), ...token });
+  res.json({ status: 'ok', uptime: process.uptime(), ...token, ...getDiskHealth() });
 });
 
 initDb();
@@ -89,6 +90,9 @@ startGameAnnouncer();
 
 // Token monitor - warn + file GitHub issue before the weekly W3C JWT expires
 startTokenMonitor();
+
+// Disk monitor - alert before the volume fills (imports pause at 15% free)
+startDiskMonitor();
 
 // Map sync - download missing minimap PNGs from Liquipedia when season updates
 startMapSync();

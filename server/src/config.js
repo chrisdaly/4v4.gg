@@ -16,6 +16,11 @@ const config = {
   // GitHub (for feedback issue creation)
   GITHUB_TOKEN: process.env.GITHUB_TOKEN || '',
   GITHUB_REPO: process.env.GITHUB_REPO || 'chrisdaly/4v4-gg',
+  // Operator alert email (via Resend). Inert until both the key and the
+  // recipient are set; see src/alerts.js.
+  RESEND_API_KEY: process.env.RESEND_API_KEY || '',
+  ALERT_EMAIL_TO: process.env.ALERT_EMAIL_TO || '',
+  ALERT_EMAIL_FROM: process.env.ALERT_EMAIL_FROM || '4v4.gg relay <onboarding@resend.dev>',
   // ML embed sidecar
   EMBED_URL: process.env.EMBED_URL || 'http://localhost:8081',
   // Replay storage directory (should be on persistent volume in production)

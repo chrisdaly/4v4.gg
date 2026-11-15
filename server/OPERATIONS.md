@@ -70,6 +70,15 @@ If the machine crash-loops, that is intentional: a crash-looping server is recov
 - The replay importer deletes each `.w3g` after a successful import and does not store `raw_parsed`. It pauses itself below 15% free disk (`[Importer] Low disk space`).
 - Check usage: `fly ssh console -a 4v4gg-chat-relay -C "df -h /data"`.
 - If the DB file itself is bloated from before June 2026, reclaim space with `VACUUM` during a quiet period.
+- `fly machine exec` cuts a command off after about a minute, so a full-DB scan (table sizes, counts over `replays`) has to run detached and write to a file: `setsid nohup sqlite3 -readonly /data/chat.db "..." > /tmp/out.txt 2>&1 &`, then `cat` it later.
+
+**Alerts** (`src/diskMonitor.js`, checks every 30 min): one alert when free space drops below 25%, another below 15% (where imports pause), re-armed once free space is back above 30%. `/api/health` reports `diskFreePct`.
+
+Alerts go out through `src/alerts.js` on every configured channel:
+- GitHub issue labelled `relay-ops` - needs `GITHUB_TOKEN` and `GITHUB_REPO`. An issue filed with your own token does not email you, so this is a record, not a notification.
+- Email via Resend - needs `RESEND_API_KEY` and `ALERT_EMAIL_TO` (`fly secrets set`). Off until both are set.
+
+Prove the channels work rather than assuming: `curl -X POST https://4v4gg-chat-relay.fly.dev/api/admin/alert-test -H "X-API-Key: $ADMIN_API_KEY"` sends a test alert and returns `sent` / `not_configured` / `failed` per channel.
 
 ## W3C chat token
 
