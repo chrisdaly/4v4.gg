@@ -230,7 +230,9 @@ export default function HeroUsage() {
       />
 
       <p>
-        And he needs a healer, which has to come from an ally.
+        And his team has to commit to him: a dedicated healer, a staff,
+        invulnerability, anti-magic. They&rsquo;re keeping alive a hero all
+        four opponents want dead.
       </p>
 
       <Exchange

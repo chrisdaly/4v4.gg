@@ -75,12 +75,6 @@ export default function DemonHunterKit() {
           </li>
         ))}
       </ul>
-
-      <p className="dh-foot">
-        He can be made to work in 4v4, but the team has to commit to it: a dedicated healer,
-        a second staff, invulnerability, anti-magic. You are deciding to keep a hero alive that
-        all four opponents want dead.
-      </p>
     </figure>
   );
 }
