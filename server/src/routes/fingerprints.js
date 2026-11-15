@@ -46,6 +46,7 @@ import {
   getPlayerMostPlayedRace,
   getSharedReplayCount,
   getCountryCounts,
+  getPlayerCountries,
 } from '../db.js';
 import {
   buildServerFingerprint,
@@ -2108,11 +2109,39 @@ function getSuspectsData() {
   const players = getVerdictPool();
   if (players.length < 5) return null;
 
-  // Ranked by how far a pair stands out for both accounts, not by raw
-  // similarity, which fills the list with generic low-game accounts.
-  const scoredPairs = standoutPairs(players.map(p => p.embedding)).slice(0, 1000);
+  // Each account nominates its five closest by playstyle, the same top five
+  // Identify judges. Every pair is then judged two ways, as in Identify: how
+  // far it stands out on clicks, and side evidence (a shared country flown by
+  // under 5% of accounts). Ordered by verdict, pairs backed by both ahead of
+  // pairs backed by one, then by click stand-out.
+  const tags = players.map(p => p.battleTag);
+  const reference = getVerdictReference();
+  const shareOf = countryShares(getCountryCounts());
+  const usual = usualCountries(tags);
+  const profile = getPlayerCountries(tags);
+  const countryOf = (tag) => usual.get(tag)?.country || profile.get(tag) || null;
 
-  suspectsCache = { players, scoredPairs };
+  const scoredPairs = standoutPairs(players.map(p => p.embedding), 5).map(p => {
+    const a = tags[p.i], b = tags[p.j];
+    const clickRarity = rarity(p.standout, reference);
+    const clickVerdict = verdictFor(clickRarity);
+    const cA = countryOf(a), cB = countryOf(b);
+    // Shared ladder games are checked when the list is served (only for the
+    // pairs shown), so this is "would support if they never met"
+    const ev = sideEvidence({ queryCountry: cA, candidateCountry: cB, countryShare: shareOf(cA), sharedLadderGames: 0 });
+    const verdict = clickVerdict === 'no_match' && ev.supports ? 'possible' : clickVerdict;
+    // Order: verdict first, then pairs backed by both clicks and side
+    // evidence ahead of those backed by one
+    const rank = (verdict === 'confident' ? 4 : verdict === 'possible' ? 2 : 0)
+      + (ev.supports && clickVerdict !== 'no_match' ? 1 : 0);
+    return {
+      ...p, clickRarity, clickVerdict, evidence: ev, verdict, rank,
+      connectionA: usual.get(a) || null, connectionB: usual.get(b) || null,
+    };
+  });
+  scoredPairs.sort((x, y) => (y.rank - x.rank) || (y.standout - x.standout));
+
+  suspectsCache = { players, scoredPairs: scoredPairs.slice(0, 2000) };
   suspectsAge = now;
   return suspectsCache;
 }
@@ -2415,7 +2444,6 @@ router.get('/suspects', async (req, res) => {
 
   const { players, scoredPairs } = data;
   const cal = getCalibration();
-  const reference = getVerdictReference();
 
   // Two accounts that have appeared in the same game are different people,
   // however alike they play, so they are not suspects.
@@ -2435,8 +2463,12 @@ router.get('/suspects', async (req, res) => {
       similarity: r3(p.similarity),
       percentile: cal ? scoreToPercentile(p.similarity, cal) : null,
       // Share of accounts whose own best match stands out at least this much
-      rarity: rarity(p.standout, reference),
-      verdict: verdictFor(rarity(p.standout, reference)),
+      rarity: p.clickRarity,
+      verdict: p.verdict,
+      clickVerdict: p.clickVerdict,
+      evidence: p.evidence,
+      connectionA: p.connectionA,
+      connectionB: p.connectionB,
       breakdown: formatBreakdown(breakdown),
     });
   }

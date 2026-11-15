@@ -10,12 +10,41 @@ const RED = chartColors.red;
 const GOLD = chartColors.gold;
 const GREY = "var(--grey-light)";
 
-// The relay's verdict for a pair: how far it stands out from each account's
-// nearest strangers, not how high the raw similarity is.
+// The relay's verdict for a pair: how far it stands out on playstyle, raised
+// to "possible" by side evidence (an uncommon shared country, never in the same
+// ladder game). Pairs where both agree rank first.
 function getVerdict(pair) {
   if (pair.verdict === "confident") return { label: "Likely same player", color: RED };
   if (pair.verdict === "possible") return { label: "Possible", color: GOLD };
   return { label: "Lookalike", color: GREY };
+}
+
+const pct = (share) => `${(share * 100).toFixed(share < 0.01 ? 1 : 0)}%`;
+
+/** Why the relay flagged a pair, as short reasons. */
+function getReasons(pair) {
+  const reasons = [];
+  if (pair.clickVerdict === "confident") reasons.push("Playstyle stands out more than 99% of best matches");
+  else if (pair.clickVerdict === "possible") reasons.push("Playstyle stands out more than 95% of best matches");
+  const ev = pair.evidence || {};
+  if (ev.sameCountry && ev.country) {
+    const share = ev.countryShare != null ? `, ${pct(ev.countryShare)} of players` : "";
+    reasons.push(`Both ${ev.country}${share}${ev.supports ? "" : " (too common to count)"}`);
+  }
+  reasons.push("Never in the same ladder game");
+  return reasons;
+}
+
+/** "AE 52/52" style connection summary for one account, or null. */
+function connectionLabel(conn) {
+  if (!conn) return null;
+  const others = Object.entries(conn.countries || {})
+    .filter(([c]) => c !== conn.country)
+    .sort((a, b) => b[1] - a[1])
+    .slice(0, 2)
+    .map(([c, n]) => `${c} ${n}`);
+  const main = `${conn.country} ${Math.round(conn.share * conn.games)}/${conn.games}`;
+  return others.length ? `${main} (${others.join(", ")})` : main;
 }
 
 export default function SmurfsTab() {
@@ -64,15 +93,26 @@ export default function SmurfsTab() {
           return (
             <PairCard key={i} onClick={() => setExpandedIdx(isExpanded ? null : i)}>
               <PairRank $color={verdict.color}>{i + 1}</PairRank>
-              <PairPlayers>
-                <PlayerName>{pair.tagA.split("#")[0]}</PlayerName>
-                <Vs>vs</Vs>
-                <PlayerName>{pair.tagB.split("#")[0]}</PlayerName>
-              </PairPlayers>
+              <PairMain>
+                <PairPlayers>
+                  <PlayerName>{pair.tagA.split("#")[0]}</PlayerName>
+                  <Vs>vs</Vs>
+                  <PlayerName>{pair.tagB.split("#")[0]}</PlayerName>
+                </PairPlayers>
+                <Reasons>{getReasons(pair).join(" · ")}</Reasons>
+              </PairMain>
               <PairScore>
                 <ScoreValue $color={verdict.color}>{displayScore}</ScoreValue>
                 <VerdictLabel $color={verdict.color}>{verdict.label}</VerdictLabel>
               </PairScore>
+
+              {isExpanded && (pair.connectionA || pair.connectionB) && (
+                <Connections onClick={e => e.stopPropagation()}>
+                  <span>Connected from, by game:</span>
+                  <span>{pair.tagA.split("#")[0]} {connectionLabel(pair.connectionA) || "no history"}</span>
+                  <span>{pair.tagB.split("#")[0]} {connectionLabel(pair.connectionB) || "no history"}</span>
+                </Connections>
+              )}
 
               {isExpanded && Object.keys(bd).length > 0 && (
                 <BreakdownGrid onClick={e => e.stopPropagation()}>
@@ -189,6 +229,35 @@ const PairRank = styled.div`
   border-radius: var(--radius-full);
   font-weight: 600;
   transition: all 0.2s ease;
+`;
+
+const PairMain = styled.div`
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-1);
+  min-width: 0;
+`;
+
+const Reasons = styled.div`
+  font-family: var(--font-mono);
+  font-size: var(--text-xxs);
+  color: var(--grey-light);
+`;
+
+const Connections = styled.div`
+  grid-column: 1 / -1;
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--space-2) var(--space-4);
+  font-family: var(--font-mono);
+  font-size: var(--text-xxs);
+  color: var(--white);
+
+  > span:first-child {
+    color: var(--grey-light);
+    text-transform: uppercase;
+    letter-spacing: 0.1em;
+  }
 `;
 
 const PairPlayers = styled.div`
