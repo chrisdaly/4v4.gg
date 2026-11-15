@@ -2235,53 +2235,6 @@ export function getAllReplayIds() {
   return db.prepare("SELECT id FROM replays WHERE parse_status = 'parsed'").all();
 }
 
-export function updateFingerprintEmbedding(replayId, playerId, embedding) {
-  db.prepare(`
-    UPDATE player_fingerprints SET embedding = ? WHERE replay_id = ? AND player_id = ?
-  `).run(JSON.stringify(embedding), replayId, playerId);
-}
-
-export function getFingerprintsWithoutEmbeddings() {
-  return db.prepare(`
-    SELECT pf.replay_id, pf.player_id, rpa.full_action_sequence
-    FROM player_fingerprints pf
-    JOIN replay_player_actions rpa ON rpa.replay_id = pf.replay_id AND rpa.player_id = pf.player_id
-    WHERE pf.embedding IS NULL
-      AND rpa.full_action_sequence IS NOT NULL
-      AND rpa.full_action_sequence != '[]'
-  `).all();
-}
-
-export function countFingerprintsWithoutEmbeddings() {
-  return db.prepare(`
-    SELECT COUNT(*) as count
-    FROM player_fingerprints pf
-    JOIN replay_player_actions rpa ON rpa.replay_id = pf.replay_id AND rpa.player_id = pf.player_id
-    WHERE pf.embedding IS NULL
-      AND rpa.full_action_sequence IS NOT NULL
-      AND rpa.full_action_sequence != '[]'
-  `).get().count;
-}
-
-export function getAllAveragedFingerprintsWithEmbeddings() {
-  return db.prepare(`
-    SELECT battle_tag, player_name, race,
-           COUNT(*) as replay_count,
-           GROUP_CONCAT(vector, '|||') as vectors,
-           GROUP_CONCAT(action_seg, '|||') as action_segs,
-           GROUP_CONCAT(apm_seg, '|||') as apm_segs,
-           GROUP_CONCAT(hotkey_seg, '|||') as hotkey_segs,
-           GROUP_CONCAT(COALESCE(tempo_seg, '[]'), '|||') as tempo_segs,
-           GROUP_CONCAT(COALESCE(intensity_seg, '[]'), '|||') as intensity_segs,
-           GROUP_CONCAT(COALESCE(transitions_seg, '[]'), '|||') as transitions_segs,
-           GROUP_CONCAT(COALESCE(rhythm_seg, '[]'), '|||') as rhythm_segs,
-           GROUP_CONCAT(COALESCE(embedding, ''), '|||') as embeddings
-    FROM player_fingerprints
-    WHERE battle_tag IS NOT NULL
-    GROUP BY battle_tag
-  `).all();
-}
-
 // ── Feedback issues ──────────────────────────────────
 
 export function searchMessagesByKeywords(keywords, sinceHours = 24) {

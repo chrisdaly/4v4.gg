@@ -1,66 +1,33 @@
-# WC3 Smurf Detector — nanoGPT Embeddings
+# ml/
 
-Train a tiny GPT model on WC3 replay action sequences to learn player "style" embeddings.
+Two things live here.
 
-## Pipeline
+## The sidecar (`embed_server.py`, fly app `4v4gg-ml`)
 
-```
-1. Batch import replays → server has 1000+ replays in SQLite
-2. Backfill action sequences → full_action_sequence column populated
-3. Tokenize → train.bin / val.bin
-4. Train on Modal → best_model.pt
-5. Evaluate → t-SNE plot, clustering metrics
-```
+A small FastAPI service the relay calls at `EMBED_URL`:
 
-## Quick Start
+- `POST /umap`, `POST /umap-transform`: lay player embeddings out in 2D for the
+  True Sight map. The embeddings are computed in the relay
+  (`src/identityModel.js`); the sidecar only projects them.
+- `POST /embed-text`: sentence embeddings for chat lines (multilingual-e5-small),
+  used to cut conversations where the subject changes.
 
-```bash
-# 1. Import replays (from server root)
-curl -X POST http://localhost:3002/api/replays/batch-import \
-  -H "X-API-Key: $ADMIN_API_KEY" \
-  -H "Content-Type: application/json" \
-  -d '{}'
+Deploy from this directory with `fly deploy`. The text model is downloaded at
+image build, so nothing large is committed.
 
-# 2. Backfill action sequences
-curl -X POST http://localhost:3002/api/replays/backfill-actions \
-  -H "X-API-Key: $ADMIN_API_KEY"
+## The identity scorer (`identity/`)
 
-# 3. Tokenize (from ml/ directory)
-python tokenizer.py --db ../data/chat.db --out ./data
+The model behind smurf detection: how it is fitted, how it is tested, and every
+measured result. Start with `identity/RESULTS.md`. The fitted model ships as
+`server/src/identity-model.json` and is applied in Node, so the relay needs no
+Python to score players.
 
-# 4. Train on Modal
-modal run train_modal.py
+## History
 
-# 5. Download model and evaluate
-modal volume get wc3-nanogpt-data best_model.pt ./data/best_model.pt
-python eval_embeddings.py --model ./data/best_model.pt --db ../data/chat.db
-```
-
-## Token Schema
-
-| Range | Count | Description |
-|-------|-------|-------------|
-| 0 | 1 | PAD |
-| 1 | 1 | BOS (start of sequence) |
-| 2 | 1 | EOS (end of sequence) |
-| 3–86 | 84 | 12 base actions × 7 time buckets |
-| 87–156 | 70 | 10 hotkey-assign groups × 7 time buckets |
-| 157–226 | 70 | 10 hotkey-select groups × 7 time buckets |
-| **Total** | **227** | |
-
-Time buckets: instant (<50ms), fast (50-150), medium (150-500), slow (500-1500), pause (1500-4000), long (4000-10000), afk (>10000)
-
-## Model Config
-
-- **Layers:** 4, **Heads:** 4, **Embedding dim:** 128
-- **Parameters:** ~1M
-- **Block size:** 1024 tokens
-- **Training:** ~5-15 min on T4 GPU ($0.15-0.30 on Modal)
-
-## Evaluation
-
-The eval script computes:
-- **Intra-player distance**: Average cosine distance between same-player replays (lower = better)
-- **Inter-player distance**: Average cosine distance between different-player replays (higher = better)
-- **Separation ratio**: inter/intra (>1.5 indicates meaningful clustering)
-- **t-SNE plot**: Visual clustering of player embeddings
+Until November 2026 this folder also held a nanoGPT model trained on replay
+action sequences ("player embeddings", 128 dimensions). It was removed: it only
+ever read the first ~126 actions of a game, was trained to predict the next
+action rather than to tell players apart, its weights were never committed, and
+a rebuild in June 2026 wiped every embedding it had produced. A sequence model
+is still a reasonable next step; it should be measured with
+`scripts/eval-identify.mjs` against the numbers in `identity/RESULTS.md`.

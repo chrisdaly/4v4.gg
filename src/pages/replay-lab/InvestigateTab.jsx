@@ -34,22 +34,26 @@ const ACTION_ID_LABELS = {
   30: "Dequeue", 97: "ESC", 102: "Skill", 103: "Build", 104: "Ping",
 };
 
-function getIdentifyVerdict(verdict, topMatch, queryName) {
+// The relay's verdict in words. `rarity` is the share of accounts whose own
+// best match stands out at least as much as this one: small means unusual.
+function getIdentifyVerdict(verdict, topMatch, queryName, rarity) {
   const matchName = topMatch ? (topMatch.playerName || topMatch.battleTag || "").split("#")[0] : null;
   if (verdict === 'confident') return {
-    icon: "🚨", color: "var(--red)",
-    heading: `Likely smurf of ${matchName}`,
-    sub: `p${Math.round(topMatch.percentile)} similarity - above the confident threshold`,
+    icon: "🚨",
+    heading: `Likely the same player as ${matchName}`,
+    sub: "This match stands out more than 99% of best matches",
   };
   if (verdict === 'possible') return {
-    icon: "⚠️", color: "var(--gold)",
-    heading: matchName ? `Possibly related to ${matchName}` : "Possible match found",
-    sub: `p${Math.round(topMatch.percentile)} similarity - warrants investigation`,
+    icon: "⚠️",
+    heading: `Possibly the same player as ${matchName}`,
+    sub: "Stands out more than 95% of best matches - check the evidence below",
   };
   if (verdict === 'no_match') return {
-    icon: "✓", color: "var(--grey-light)",
+    icon: "✓",
     heading: `${queryName} - no confident match`,
-    sub: "Playstyle does not closely match any indexed player",
+    sub: matchName && rarity != null
+      ? `Closest is ${matchName}, but about ${Math.max(1, Math.round(rarity * 100))}% of accounts have a lookalike this close`
+      : "Playstyle does not closely match any indexed player",
   };
   return null;
 }
@@ -2158,6 +2162,19 @@ export default function InvestigateTab() {
                               </div>
                             </div>
                           </div>
+
+                          {(() => {
+                            const v = getIdentifyVerdict(playstyleData.verdict, playstyleData.similar?.[0], selectedTag.split('#')[0], playstyleData.topMatchRarity);
+                            return v && (
+                              <VerdictBanner $verdict={playstyleData.verdict}>
+                                <VerdictIcon>{v.icon}</VerdictIcon>
+                                <VerdictText>
+                                  <VerdictHeading $verdict={playstyleData.verdict}>{v.heading}</VerdictHeading>
+                                  <VerdictSub>{v.sub}</VerdictSub>
+                                </VerdictText>
+                              </VerdictBanner>
+                            );
+                          })()}
 
                           {/* Section: Top 5 similar */}
                           {sectionLabel('Top 5 similar')}

@@ -10,17 +10,12 @@ const RED = chartColors.red;
 const GOLD = chartColors.gold;
 const GREY = "var(--grey-light)";
 
-function getVerdict(similarity, percentile) {
-  if (percentile != null) {
-    if (percentile >= 99) return { label: "Very strong", color: RED };
-    if (percentile >= 95) return { label: "Strong", color: RED };
-    if (percentile >= 90) return { label: "Possible", color: GOLD };
-    if (percentile >= 80) return { label: "Weak", color: GREY };
-    return { label: "Unlikely", color: "var(--grey-mid)" };
-  }
-  if (similarity >= 0.90) return { label: "Strong", color: RED };
-  if (similarity >= 0.80) return { label: "Possible", color: GOLD };
-  return { label: "Weak", color: GREY };
+// The relay's verdict for a pair: how far it stands out from each account's
+// nearest strangers, not how high the raw similarity is.
+function getVerdict(pair) {
+  if (pair.verdict === "confident") return { label: "Likely same player", color: RED };
+  if (pair.verdict === "possible") return { label: "Possible", color: GOLD };
+  return { label: "Lookalike", color: GREY };
 }
 
 export default function SmurfsTab() {
@@ -61,12 +56,10 @@ export default function SmurfsTab() {
 
       <PairsList>
         {suspects.pairs.map((pair, i) => {
-          const verdict = getVerdict(pair.similarity, pair.percentile);
+          const verdict = getVerdict(pair);
           const isExpanded = expandedIdx === i;
           const bd = pair.breakdown || {};
-          const displayScore = pair.percentile != null
-            ? `p${Math.round(pair.percentile)}`
-            : `${Math.round(pair.similarity * 100)}%`;
+          const displayScore = `${Math.round(pair.similarity * 100)}%`;
 
           return (
             <PairCard key={i} onClick={() => setExpandedIdx(isExpanded ? null : i)}>
@@ -90,7 +83,7 @@ export default function SmurfsTab() {
                     { key: "tempo", label: "Tempo", val: bd.tempo },
                     { key: "intensity", label: "Intensity", val: bd.intensity },
                     { key: "trans", label: "Switching", val: bd.transitions },
-                    ...(bd.embedding != null ? [{ key: "embedding", label: "Neural", val: bd.embedding }] : []),
+                    { key: "rhythm", label: "Rhythm", val: bd.rhythm },
                   ].filter(({ val }) => val != null && val > 0).map(({ key, label, val }) => (
                     <BreakdownItem key={key}>
                       <BreakdownLabel>{label}</BreakdownLabel>

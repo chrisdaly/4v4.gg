@@ -254,7 +254,6 @@ export default function PlayerIdentityCard({ fpData, name }) {
           <IdCardMeta>
             {fpData.replayCount} replay{fpData.replayCount !== 1 ? "s" : ""} analyzed
             {meanApm > 0 && ` • ${meanApm} avg APM`}
-            {fpData.embeddingCount > 0 && ` • ${fpData.embeddingCount} neural`}
           </IdCardMeta>
           {traits.length > 0 && (
             <IdCardTraits>

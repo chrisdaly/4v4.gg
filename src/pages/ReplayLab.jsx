@@ -29,7 +29,7 @@ const LEGACY_KEYS = {
 const TAB_CONTENT = {
   identify: {
     title: "Identify",
-    lead: "Search any player to find similar-fingerprint candidates - backed by playstyle fingerprint + neural similarity.",
+    lead: "Search any player to find the accounts that play most like them, with a verdict on how far the top match stands out.",
   },
   map: {
     title: "Player Map",

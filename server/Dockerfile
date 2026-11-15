@@ -14,7 +14,6 @@ RUN npm ci --production
 
 # Copy application code
 COPY src/ src/
-COPY ml/tokenizer.js ml/tokenizer.js
 COPY litestream.yml /etc/litestream.yml
 COPY docker-entrypoint.sh ./
 RUN chmod +x docker-entrypoint.sh

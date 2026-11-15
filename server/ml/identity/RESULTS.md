@@ -34,6 +34,28 @@ handcrafted 48.6% (same race 52.4%).
 Confirmed smurf pairs (14): whitened puts the main in the top 4 for all 14 and
 first for 9. Handcrafted is first for 9 but ranks two at 57 and 76.
 
+## The verdict
+
+Ranking is not a verdict: the raw score cannot tell a real match from a
+lookalike (3.7% caught in the table above). The relay therefore judges how far
+the top match stands out above the nearest 100 strangers on both sides, against
+how far a best match stands out for a sample of 300 accounts
+(`server/src/identityModel.js`). Measured with the relay's own functions on the
+819 players the scorer never saw (`scripts/eval-identify.mjs`):
+
+| | confident | possible or better |
+|---|---|---|
+| Owner in the pool, names them | 10.9% | 26.3% |
+| Owner in the pool, names someone else | 0.4% | 1.5% |
+| Owner not in the pool (every verdict is wrong) | 1.7% | 5.5% |
+
+The rule it replaced (top score against the 99.5th percentile of random pairs)
+said "confident" for 82% of lookups whose owner was not in the pool.
+
+The suspects list ranks pairs by the same stand-out measure. Ranked by raw
+similarity it was generic low-game accounts; ranked this way its head is pairs
+such as Cacxa26/cacxa27, bark#21978/bark#5125 and oONever#21412/oONever#2423.
+
 ## What the whitened model is
 
 The same seven segments, with three changes:
@@ -59,6 +81,9 @@ the Python numbers exactly (79.7% / 93.8% on the fold it never saw).
 - Gap to runner-up, or the top score in standard deviations above the query's
   own spread, as the verdict statistic on the handcrafted score.
 - Excluding same-game players from the candidate list: half a point.
+- Leaving the nearest 3 to 20 accounts out of the "nearest strangers" group, so
+  a player's own alternates do not count against them: correct "possible or
+  better" verdicts fell from 26% to 16-19%.
 
 ## Segment ablation (handcrafted)
 
@@ -86,5 +111,7 @@ python3 -m venv .venv && .venv/bin/pip install -r requirements.txt
 .venv/bin/python detail.py ../../eval.db               # games needed, race, confirmed pairs
 .venv/bin/python neural.py ../../eval.db               # small neural embedding
 .venv/bin/python fit_export.py ../../eval.db ../../src/identity-model.json
-cd ../.. && node scripts/eval-identify.mjs --db eval.db --identity-model model-fold0.json
+# honest numbers: fit on one fold, test on the players it never saw
+.venv/bin/python fit_export.py ../../eval.db model-fold0.json --fold 0
+cd ../.. && node scripts/eval-identify.mjs --db eval.db --identity-model ml/identity/model-fold0.json
 ```

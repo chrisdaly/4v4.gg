@@ -9,7 +9,6 @@ import {
   getPlayerFingerprints,
   getPlayerFingerprintsByName,
   getPlayerFingerprintsFiltered,
-  getAllAveragedFingerprintsWithEmbeddings,
   getAllAveragedFingerprints,
   getFingerprintCount,
   getIndexedPlayers,
@@ -17,10 +16,6 @@ import {
   getReplayPlayerActions,
   getReplayPlayers,
   insertPlayerFingerprints,
-  getFingerprintsWithoutEmbeddings,
-  countFingerprintsWithoutEmbeddings,
-  updateFingerprintEmbedding,
-  getPlayerActionData,
   getPlayerActionDataTop,
   getPlayerActionDataTopFiltered,
   getPlayerActionDataByName,
@@ -54,16 +49,22 @@ import {
 import {
   buildServerFingerprint,
   averageFingerprints,
-  computeServerSimilarity,
   computeServerBreakdown,
-  computeHybridSimilarity,
-  averageEmbeddings,
-  embeddingSimilarity,
   computeConfidence,
   detectPersonas,
 } from '../fingerprint.js';
 import { parseReplayFile } from '../replayParser.js';
-import { getEmbedding, getEmbeddingBatch, checkSidecar, getUmapProjection, getUmapTransform } from '../embedClient.js';
+import {
+  identity,
+  identitySimilarity,
+  scorePool,
+  standout,
+  bestMatchStandouts,
+  standoutPairs,
+  rarity,
+  verdictFor,
+} from '../identityModel.js';
+import { checkSidecar, getUmapProjection, getUmapTransform } from '../embedClient.js';
 import { importPlayerMatches, importPlayerMatchesBulk, enqueueImport } from '../replayImporter.js';
 import { requireApiKey } from '../middleware/auth.js';
 
@@ -76,7 +77,7 @@ function tryParse(json) {
 
 function r3(v) { return v !== null && v !== undefined ? Math.round(v * 1000) / 1000 : null; }
 
-function formatBreakdown(breakdown, hybrid) {
+function formatBreakdown(breakdown) {
   return {
     action: r3(breakdown.action),
     apm: r3(breakdown.apm),
@@ -85,8 +86,6 @@ function formatBreakdown(breakdown, hybrid) {
     intensity: r3(breakdown.intensity),
     transitions: r3(breakdown.transitions),
     rhythm: r3(breakdown.rhythm),
-    handcrafted: r3(hybrid.handcrafted),
-    embedding: r3(hybrid.embedding),
   };
 }
 
@@ -109,9 +108,9 @@ function parseDbFingerprint(row) {
 }
 
 /**
- * Parse grouped fingerprint rows into averaged fingerprint + averaged embedding.
+ * Split a grouped fingerprint row back into one fingerprint per game.
  */
-function parseAveragedRow(row) {
+function parseGames(row) {
   const vectors = row.vectors.split('|||').map(v => tryParse(v)).filter(Boolean);
   const actionSegs = row.action_segs.split('|||').map(v => tryParse(v)).filter(Boolean);
   const apmSegs = row.apm_segs.split('|||').map(v => tryParse(v)).filter(Boolean);
@@ -121,7 +120,7 @@ function parseAveragedRow(row) {
   const transitionsSegs = (row.transitions_segs || '').split('|||').map(v => tryParse(v)).filter(Boolean);
   const rhythmSegs = (row.rhythm_segs || '').split('|||').map(v => tryParse(v)).filter(Boolean);
 
-  const fps = vectors.map((vec, i) => ({
+  return vectors.map((vec, i) => ({
     vector: vec,
     segments: {
       action: actionSegs[i] || [],
@@ -133,20 +132,54 @@ function parseAveragedRow(row) {
       rhythm: rhythmSegs[i] || [],
     },
   }));
-
-  return averageFingerprints(fps);
 }
 
-function parseAveragedRowWithEmbedding(row) {
-  const fp = parseAveragedRow(row);
+function parseAveragedRow(row) {
+  return averageFingerprints(parseGames(row));
+}
 
-  let avgEmb = null;
-  if (row.embeddings) {
-    const embeddings = row.embeddings.split('|||').map(v => tryParse(v)).filter(Boolean);
-    avgEmb = averageEmbeddings(embeddings);
-  }
+/** An account's identity embedding from its per-game fingerprints, as a plain array. */
+function identityEmbedding(fps) {
+  const emb = identity.embed(fps.map(fp => fp.segments));
+  return emb ? Array.from(emb) : null;
+}
 
-  return { fp, embedding: avgEmb };
+const hasSignal = (arr) => Array.isArray(arr) && arr.some(v => v);
+const meanOf = (values) => (values.length ? values.reduce((a, b) => a + b, 0) / values.length : null);
+
+/**
+ * Plain-language habits, for colouring the map and for "who is fastest" lists.
+ * Sequence-derived ones average only the games that had an action sequence:
+ * a game without one says nothing about the habit.
+ */
+function playerTraits(fps) {
+  const tempo = fps.map(fp => fp.segments.tempo).filter(hasSignal);
+  const rhythm = fps.map(fp => fp.segments.rhythm).filter(hasSignal);
+  const usedShare = Array(10).fill(0);
+  for (const fp of fps) for (let g = 0; g < 10; g++) usedShare[g] += (fp.segments.hotkey?.[g] || 0) / fps.length;
+  const round = (v, d = 3) => (v == null ? null : Math.round(v * 10 ** d) / 10 ** d);
+  return {
+    // actions per minute (the apm segment stores mean / 300)
+    apm: Math.round((meanOf(fps.map(fp => fp.segments.apm?.[0] || 0)) || 0) * 300),
+    // share of consecutive actions under 100ms apart
+    fastShare: round(meanOf(tempo.map(t => (t[0] || 0) + (t[1] || 0)))),
+    // control groups that carry at least 3% of group selections
+    groupsUsed: usedShare.filter(v => v >= 0.03).length,
+    // share of group switches that go A, B, A (1-2-1 spam)
+    oscillation: round(meanOf(rhythm.map(r => r[10] || 0))),
+    // share of all actions that are control-group selections
+    hotkeyShare: round(meanOf(fps.map(fp => fp.segments.intensity?.[0] || 0))),
+  };
+}
+
+function parsePlayerRow(row) {
+  const fps = parseGames(row);
+  return { fp: averageFingerprints(fps), embedding: identityEmbedding(fps), traits: playerTraits(fps) };
+}
+
+/** Similarity between two parsed players, 0 to 1. */
+function matchScore(a, b) {
+  return identitySimilarity(a.embedding, b.embedding) ?? 0;
 }
 
 // ── Shared Parsed Players Cache ──────────────────
@@ -161,11 +194,11 @@ function getParsedPlayers() {
   if (parsedPlayersCache && (now - parsedPlayersAge) < PARSED_PLAYERS_TTL) {
     return parsedPlayersCache;
   }
-  const allRows = getAllAveragedFingerprintsWithEmbeddings();
+  const allRows = getAllAveragedFingerprints();
   const players = allRows.map(row => {
-    const { fp, embedding } = parseAveragedRowWithEmbedding(row);
-    return { battleTag: row.battle_tag, playerName: row.player_name, race: row.race, replayCount: row.replay_count, fp, embedding };
-  }).filter(p => p.fp);
+    const { fp, embedding, traits } = parsePlayerRow(row);
+    return { battleTag: row.battle_tag, playerName: row.player_name, race: row.race, replayCount: row.replay_count, fp, embedding, traits };
+  }).filter(p => p.fp && p.embedding);
   parsedPlayersCache = players;
   parsedPlayersAge = now;
   return parsedPlayersCache;
@@ -207,11 +240,7 @@ function getCalibration() {
   const scores = [];
   for (let i = 0; i < players.length; i++) {
     for (let j = i + 1; j < players.length; j++) {
-      const hybrid = computeHybridSimilarity(
-        players[i].fp, players[j].fp,
-        players[i].embedding, players[j].embedding
-      );
-      scores.push(hybrid.similarity);
+      scores.push(matchScore(players[i], players[j]));
     }
   }
 
@@ -253,29 +282,27 @@ function scoreToZScore(rawScore, cal) {
   return Math.round(((rawScore - cal.mean) / cal.stddev) * 100) / 100;
 }
 
-// ── Best-match calibration ───────────────────────
+// ── Verdict reference ────────────────────────────
 // A smurf verdict is about the BEST of thousands of candidates, so it cannot be
 // judged against the pairwise distribution above: with ~2,300 candidates about
-// a dozen clear the pairwise 99.5th percentile by chance, and the old rule said
-// "confident" for 82% of accounts whose real owner was not indexed at all
-// (scripts/eval-identify.mjs). This caches, for a sample of accounts, the score
-// of each one's best match against everyone else. A verdict then asks how
-// unusual a top match is among best matches.
-let bestMatchCache = null;
-let bestMatchAge = 0;
-const BEST_MATCH_SAMPLE = 300;
+// a dozen clear the pairwise 99.5th percentile by chance. The reference here is
+// how far a best match stands out for a sample of accounts (identityModel.js);
+// scripts/eval-identify.mjs measures the verdicts it produces.
+let verdictReferenceCache = null;
+let verdictReferenceAge = 0;
+const VERDICT_SAMPLE = 300;
 const MIN_VERDICT_REPLAYS = 3;
-// Share of accounts whose best match is at least this strong. Measured on the
-// Nov 2026 data these give 1.5% and 8.8% false alarms; the pairwise rule gave
-// 81.6% and 95.2%.
-const CONFIDENT_RARITY = 0.01;
-const POSSIBLE_RARITY = 0.05;
 
-function getBestMatchCalibration() {
+/** Accounts with enough games to be named as a match. */
+function getVerdictPool() {
+  return getParsedPlayers().filter(p => p.replayCount >= MIN_VERDICT_REPLAYS);
+}
+
+function getVerdictReference() {
   const now = Date.now();
-  if (bestMatchCache && (now - bestMatchAge) < CALIBRATION_TTL) return bestMatchCache;
+  if (verdictReferenceCache && (now - verdictReferenceAge) < CALIBRATION_TTL) return verdictReferenceCache;
 
-  const pool = getParsedPlayers().filter(p => p.replayCount >= MIN_VERDICT_REPLAYS);
+  const pool = getVerdictPool();
   if (pool.length < 50) return null; // too few accounts for a 1% tail to mean anything
 
   const order = pool.map((_, i) => i);
@@ -285,38 +312,9 @@ function getBestMatchCalibration() {
     [order[i], order[j]] = [order[j], order[i]];
   }
 
-  const best = [];
-  for (const i of order.slice(0, BEST_MATCH_SAMPLE)) {
-    let top = -Infinity;
-    for (let j = 0; j < pool.length; j++) {
-      if (j === i) continue;
-      const { similarity } = computeHybridSimilarity(pool[i].fp, pool[j].fp, pool[i].embedding, pool[j].embedding);
-      if (similarity > top) top = similarity;
-    }
-    best.push(top);
-  }
-  best.sort((a, b) => a - b);
-
-  bestMatchCache = { best, poolSize: pool.length, sampleCount: best.length };
-  bestMatchAge = now;
-  return bestMatchCache;
-}
-
-/**
- * Share (0-1) of sampled accounts whose own best match scores at least `score`.
- * Small means the match stands out; 0.5 means half of all accounts have a
- * lookalike this close.
- */
-function bestMatchRarity(score, cal) {
-  if (!cal) return null;
-  const arr = cal.best;
-  let lo = 0, hi = arr.length;
-  while (lo < hi) {
-    const mid = (lo + hi) >> 1;
-    if (arr[mid] < score) lo = mid + 1;
-    else hi = mid;
-  }
-  return (arr.length - lo) / arr.length;
+  verdictReferenceCache = bestMatchStandouts(pool.map(p => p.embedding), order.slice(0, VERDICT_SAMPLE));
+  verdictReferenceAge = now;
+  return verdictReferenceCache;
 }
 
 /**
@@ -583,76 +581,6 @@ router.get('/explore/players', (req, res) => {
   res.json({ players });
 });
 
-// GET /api/fingerprints/explore/similar/:battleTag?limit=5 - Public nearest neighbors (no auth)
-router.get('/explore/similar/:battleTag', (req, res) => {
-  const { battleTag } = req.params;
-  const limit = Math.min(parseInt(req.query.limit) || 5, 5);
-
-  const queryRows = getPlayerFingerprints(battleTag);
-  if (queryRows.length === 0) {
-    return res.status(404).json({ error: 'No fingerprints found for player', battleTag });
-  }
-
-  const queryFps = queryRows.map(parseDbFingerprint);
-  const queryAvg = averageFingerprints(queryFps);
-  const queryRace = queryRows[0].race;
-
-  const queryEmbeddings = queryRows.map(r => tryParse(r.embedding)).filter(Boolean);
-  const queryAvgEmb = averageEmbeddings(queryEmbeddings);
-
-  const allPlayers = getParsedPlayers();
-  const results = [];
-
-  for (const p of allPlayers) {
-    if (p.battleTag === battleTag) continue;
-
-    const hybrid = computeHybridSimilarity(queryAvg, p.fp, queryAvgEmb, p.embedding);
-    const breakdown = computeServerBreakdown(queryAvg, p.fp);
-
-    results.push({
-      battleTag: p.battleTag,
-      playerName: p.playerName,
-      race: p.race,
-      replayCount: p.replayCount,
-      similarity: Math.round(hybrid.similarity * 1000) / 1000,
-      hybrid: hybrid.hybrid,
-      breakdown: formatBreakdown(breakdown, hybrid),
-      _segments: p.fp.segments, // keep for glyph enrichment, stripped before response
-    });
-  }
-
-  results.sort((a, b) => b.similarity - a.similarity);
-
-  const cal = getCalibration();
-  const topResults = results.slice(0, limit);
-
-  if (cal) {
-    for (const r of topResults) {
-      r.percentile = scoreToPercentile(r.similarity, cal);
-    }
-  }
-
-  // Enrich top results with glyph data (transition pairs, group usage, compositions, APM)
-  for (const r of topResults) {
-    const allActionRows = getPlayerActionData(r.battleTag);
-    const actionRows = allActionRows.slice(0, 10);
-    if (actionRows.length > 0) {
-      const { transitionPairs, groupUsage, groupCompositions } = computeActionProfile(actionRows);
-      r.glyph = { transitionPairs, groupUsage, groupCompositions };
-    }
-    // Include APM segment for mini glyph center display
-    if (r._segments?.apm) {
-      r.segments = { apm: r._segments.apm };
-    }
-    delete r._segments;
-  }
-
-  res.json({
-    query: { battleTag, race: queryRace, replayCount: queryRows.length },
-    similar: topResults,
-  });
-});
-
 // GET /api/fingerprints/profile/:battleTag - Public profile (no auth)
 // Returns averaged fingerprint data only (no raw per-replay fingerprints)
 router.get('/profile/:battleTag', (req, res) => {
@@ -678,8 +606,6 @@ router.get('/profile/:battleTag', (req, res) => {
 
   const fingerprints = rows.map(parseDbFingerprint);
   const avgFp = averageFingerprints(fingerprints);
-  const embeddings = rows.map(r => tryParse(r.embedding)).filter(Boolean);
-  const avgEmb = averageEmbeddings(embeddings);
   const confidence = computeConfidence(fingerprints);
 
   // Build action profile from most-recent 300 replays (sequences-first, then by recency).
@@ -693,10 +619,8 @@ router.get('/profile/:battleTag', (req, res) => {
     battleTag,
     replayCount: rows.length,
     sampleCount: actionRows.length,
-    embeddingCount: embeddings.length,
     confidence,
     averaged: avgFp,
-    averagedEmbedding: avgEmb,
     transitionPairs,
     groupUsage,
     groupCompositions,
@@ -1023,13 +947,6 @@ router.get('/profile/:battleTag/personas', (req, res) => {
   ];
   const avgFps = clusterFps.map(fps => averageFingerprints(fps));
 
-  // Build per-cluster embeddings
-  const clusterEmbs = [
-    rows.filter((_, i) => labels[i] === 0).map(r => tryParse(r.embedding)).filter(Boolean),
-    rows.filter((_, i) => labels[i] === 1).map(r => tryParse(r.embedding)).filter(Boolean),
-  ];
-  const avgEmbs = clusterEmbs.map(embs => averageEmbeddings(embs));
-
   // Build per-cluster action profiles
   const clusterActionRows = [
     getPlayerActionDataByReplayIds(battleTag, clusterReplayIds[0]),
@@ -1061,10 +978,8 @@ router.get('/profile/:battleTag/personas', (req, res) => {
   const personas = [0, 1].map(c => ({
     battleTag,
     replayCount: clusterSizes[c],
-    embeddingCount: clusterEmbs[c].length,
     confidence: computeConfidence(clusterFps[c]),
     averaged: avgFps[c],
-    averagedEmbedding: avgEmbs[c],
     ...clusterProfiles[c],
     dateRange: dateRanges[c],
   }));
@@ -1457,30 +1372,6 @@ function computeFingerprints(actions, players) {
   });
 }
 
-/**
- * Fire-and-forget: compute embeddings for a just-uploaded replay via the sidecar.
- */
-async function computeEmbeddingsAsync(replayId, actions) {
-  try {
-    const sequences = actions
-      .filter(a => a.fullActionSequence && a.fullActionSequence.length > 10)
-      .map(a => a.fullActionSequence);
-    if (sequences.length === 0) return;
-    const embeddings = await getEmbeddingBatch(sequences);
-    let idx = 0;
-    for (const a of actions) {
-      if (a.fullActionSequence && a.fullActionSequence.length > 10) {
-        if (embeddings[idx]) {
-          updateFingerprintEmbedding(replayId, a.playerId, embeddings[idx]);
-        }
-        idx++;
-      }
-    }
-  } catch (err) {
-    console.error(`[Embed] Error for replay ${replayId}:`, err.message);
-  }
-}
-
 // POST /api/fingerprints/upload - Public replay upload (rate-limited; API key bypasses limit)
 router.post('/upload', (req, res, next) => {
   const key = req.headers['x-api-key'];
@@ -1555,7 +1446,6 @@ router.post('/upload', (req, res, next) => {
     try {
       const fingerprints = computeFingerprints(parsed.actions, playersWithTags);
       if (fingerprints.length > 0) insertPlayerFingerprints(replayId, fingerprints);
-      computeEmbeddingsAsync(replayId, parsed.actions);
     } catch (fpErr) {
       console.error(`[Fingerprint] Error for ${originalname}:`, fpErr.message);
     }
@@ -1736,231 +1626,6 @@ router.get('/players', requireApiKey, (req, res) => {
   res.json({ players, ...dbStats });
 });
 
-// GET /api/fingerprints/similar/:battleTag?limit=10&sameRace=true&minDuration=300
-router.get('/similar/:battleTag', requireApiKey, (req, res) => {
-  const { battleTag } = req.params;
-  const limit = Math.min(parseInt(req.query.limit) || 10, 50);
-  const sameRace = req.query.sameRace === 'true';
-  const minDuration = parseInt(req.query.minDuration) || 0;
-
-  // Get query player's fingerprints (with optional duration filter)
-  const queryRows = minDuration > 0
-    ? getPlayerFingerprintsFiltered(battleTag, { minDuration })
-    : getPlayerFingerprints(battleTag);
-  if (queryRows.length === 0) {
-    return res.status(404).json({ error: 'No fingerprints found for player', battleTag });
-  }
-
-  const queryFps = queryRows.map(parseDbFingerprint);
-  const queryAvg = averageFingerprints(queryFps);
-  const queryRace = queryRows[0].race;
-  const queryConfidence = computeConfidence(queryFps);
-
-  // Get query player's embeddings
-  const queryEmbeddings = queryRows.map(r => tryParse(r.embedding)).filter(Boolean);
-  const queryAvgEmb = averageEmbeddings(queryEmbeddings);
-
-  // Get all players from shared cache
-  const allPlayers = getParsedPlayers();
-  const results = [];
-
-  for (const p of allPlayers) {
-    if (p.battleTag === battleTag) continue;
-    // Race filter: skip candidates with different race
-    if (sameRace && queryRace && p.race !== queryRace) continue;
-
-    const hybrid = computeHybridSimilarity(queryAvg, p.fp, queryAvgEmb, p.embedding);
-    const breakdown = computeServerBreakdown(queryAvg, p.fp);
-
-    results.push({
-      battleTag: p.battleTag,
-      playerName: p.playerName,
-      race: p.race,
-      replayCount: p.replayCount,
-      similarity: Math.round(hybrid.similarity * 1000) / 1000,
-      hybrid: hybrid.hybrid,
-      breakdown: formatBreakdown(breakdown, hybrid),
-    });
-  }
-
-  results.sort((a, b) => b.similarity - a.similarity);
-
-  // Population-calibrated scoring (race-filtered if sameRace)
-  const cal = getCalibration();
-  if (cal) {
-    for (const r of results) {
-      r.percentile = scoreToPercentile(r.similarity, cal);
-      r.zScore = scoreToZScore(r.similarity, cal);
-    }
-  }
-
-  const dbStats = getFingerprintCount();
-
-  res.json({
-    query: {
-      battleTag,
-      race: queryRace,
-      replayCount: queryRows.length,
-      hasEmbedding: queryAvgEmb !== null,
-      confidence: queryConfidence,
-    },
-    filters: { sameRace, minDuration: minDuration || null },
-    similar: results.slice(0, limit),
-    calibration: cal ? {
-      populationMean: r3(cal.mean),
-      populationStddev: r3(cal.stddev),
-      playerCount: cal.playerCount,
-      pairCount: cal.pairCount,
-    } : null,
-    dbStats,
-  });
-});
-
-// GET /api/fingerprints/player/:battleTag?minDuration=300
-router.get('/player/:battleTag', requireApiKey, (req, res) => {
-  const { battleTag } = req.params;
-  const minDuration = parseInt(req.query.minDuration) || 0;
-  const rows = minDuration > 0
-    ? getPlayerFingerprintsFiltered(battleTag, { minDuration })
-    : getPlayerFingerprints(battleTag);
-
-  if (rows.length === 0) {
-    return res.status(404).json({ error: 'No fingerprints found', battleTag });
-  }
-
-  const fingerprints = rows.map(r => ({
-    replayId: r.replay_id,
-    playerId: r.player_id,
-    playerName: r.player_name,
-    race: r.race,
-    mapName: r.map_name,
-    matchDate: r.match_date,
-    gameDuration: r.game_duration,
-    hasEmbedding: !!r.embedding,
-    ...parseDbFingerprint(r),
-  }));
-
-  const fpObjs = fingerprints.map(f => ({
-    vector: f.vector,
-    segments: f.segments,
-  }));
-  const avgFp = averageFingerprints(fpObjs);
-  const confidence = computeConfidence(fpObjs);
-
-  const embeddings = rows.map(r => tryParse(r.embedding)).filter(Boolean);
-  const avgEmb = averageEmbeddings(embeddings);
-
-  res.json({
-    battleTag,
-    replayCount: rows.length,
-    embeddingCount: embeddings.length,
-    confidence,
-    fingerprints,
-    averaged: avgFp,
-    averagedEmbedding: avgEmb,
-  });
-});
-
-// GET /api/fingerprints/compare/:tagA/:tagB - Deep comparison data
-router.get('/compare/:tagA/:tagB', requireApiKey, (req, res) => {
-  const { tagA, tagB } = req.params;
-
-  function buildProfile(battleTag) {
-    const allRows = getPlayerActionData(battleTag);
-    if (allRows.length === 0) return null;
-    const rows = allRows.slice(0, 10);
-
-    // Average timed_segments across replays (APM curve)
-    const allTs = rows.map(r => tryParse(r.timed_segments)).filter(Boolean);
-    let apmCurve = [];
-    if (allTs.length > 0) {
-      const maxLen = Math.max(...allTs.map(t => t.length));
-      apmCurve = Array(maxLen).fill(0);
-      const counts = Array(maxLen).fill(0);
-      for (const ts of allTs) {
-        for (let i = 0; i < ts.length; i++) {
-          apmCurve[i] += ts[i];
-          counts[i]++;
-        }
-      }
-      for (let i = 0; i < maxLen; i++) {
-        apmCurve[i] = counts[i] > 0 ? Math.round(apmCurve[i] / counts[i]) : 0;
-      }
-    }
-
-    // Compute action tempo from full_action_sequence (inter-action time deltas)
-    const tempoHist = Array(8).fill(0); // buckets: <50, 50-100, 100-200, 200-500, 500-1000, 1000-2000, 2000-5000, 5000+
-    let totalDeltas = 0;
-    const allSeqs = rows.map(r => tryParse(r.full_action_sequence)).filter(a => a && a.length > 1);
-    for (const seq of allSeqs) {
-      for (let i = 1; i < seq.length; i++) {
-        const delta = seq[i].ms - seq[i - 1].ms;
-        if (delta < 0) continue;
-        totalDeltas++;
-        if (delta < 50) tempoHist[0]++;
-        else if (delta < 100) tempoHist[1]++;
-        else if (delta < 200) tempoHist[2]++;
-        else if (delta < 500) tempoHist[3]++;
-        else if (delta < 1000) tempoHist[4]++;
-        else if (delta < 2000) tempoHist[5]++;
-        else if (delta < 5000) tempoHist[6]++;
-        else tempoHist[7]++;
-      }
-    }
-    // Normalize to percentages
-    const tempoPct = totalDeltas > 0
-      ? tempoHist.map(v => Math.round((v / totalDeltas) * 1000) / 10)
-      : tempoHist;
-
-    // Hotkey switching patterns from full_action_sequence
-    // Count transitions between hotkey groups (which group follows which)
-    const groupTransitions = {};
-    for (const seq of allSeqs) {
-      let lastGroup = null;
-      for (const a of seq) {
-        if ((a.id === 0x17 || a.id === 0x18 || a.id === 23 || a.id === 24) && a.g != null) {
-          if (lastGroup !== null && lastGroup !== a.g) {
-            const key = `${lastGroup}→${a.g}`;
-            groupTransitions[key] = (groupTransitions[key] || 0) + 1;
-          }
-          lastGroup = a.g;
-        }
-      }
-    }
-    // Top 8 transitions
-    const topTransitions = Object.entries(groupTransitions)
-      .sort((a, b) => b[1] - a[1])
-      .slice(0, 8)
-      .map(([k, v]) => ({ from: parseInt(k), to: parseInt(k.split('→')[1]), count: v }));
-
-    // Early game actions (first 60s) - action type sequence
-    const earlyActions = [];
-    for (const seq of allSeqs) {
-      const early = seq.filter(a => a.ms <= 60000).map(a => ({ ms: a.ms, id: a.id, g: a.g }));
-      if (early.length > 0) earlyActions.push(early);
-    }
-    // Average early game (take the longest one as representative)
-    const earlyGame = earlyActions.sort((a, b) => b.length - a.length)[0] || [];
-
-    return {
-      apmCurve,
-      tempo: tempoPct,
-      topTransitions,
-      earlyGame: earlyGame.slice(0, 80), // cap at 80 actions
-      replayCount: rows.length,
-    };
-  }
-
-  const profileA = buildProfile(tagA);
-  const profileB = buildProfile(tagB);
-
-  if (!profileA || !profileB) {
-    return res.status(404).json({ error: 'Missing action data for one or both players' });
-  }
-
-  res.json({ tagA, tagB, profileA, profileB });
-});
-
 // POST /api/fingerprints/backfill - Backfill handcrafted fingerprints
 router.post('/backfill', requireApiKey, (req, res) => {
   const missing = getReplaysWithoutFingerprints();
@@ -2009,7 +1674,7 @@ router.post('/backfill', requireApiKey, (req, res) => {
 // POST /api/fingerprints/rebuild - Delete all fingerprints and recompute from action data
 router.post('/rebuild', requireApiKey, (req, res) => {
   calibrationCache = null; // invalidate calibration
-  bestMatchCache = null;
+  verdictReferenceCache = null;
   parsedPlayersCache = null; // invalidate shared cache
   suspectsCache = null;
   pcaCache = null;
@@ -2053,43 +1718,6 @@ router.post('/rebuild', requireApiKey, (req, res) => {
 
   const dbStats = getFingerprintCount();
   res.json({ ok: true, deleted, replaysProcessed: processed, errors, total: allReplays.length, dbStats });
-});
-
-// POST /api/fingerprints/backfill-embeddings - Compute embeddings via sidecar
-router.post('/backfill-embeddings', requireApiKey, async (req, res) => {
-  const available = await checkSidecar();
-  if (!available) {
-    return res.status(503).json({ error: 'Embed sidecar not available', url: config.EMBED_URL });
-  }
-
-  const missing = getFingerprintsWithoutEmbeddings();
-  if (missing.length === 0) {
-    return res.json({ ok: true, message: 'All fingerprints already have embeddings', processed: 0 });
-  }
-
-  // Process in small batches to avoid OOM on sidecar
-  const BATCH_SIZE = 4;
-  let processed = 0, errors = 0;
-
-  for (let i = 0; i < missing.length; i += BATCH_SIZE) {
-    const batch = missing.slice(i, i + BATCH_SIZE);
-    const actionSequences = batch.map(row => tryParse(row.full_action_sequence) || []);
-
-    try {
-      const embeddings = await getEmbeddingBatch(actionSequences);
-      for (let j = 0; j < batch.length; j++) {
-        if (embeddings[j]) {
-          updateFingerprintEmbedding(batch[j].replay_id, batch[j].player_id, embeddings[j]);
-          processed++;
-        }
-      }
-    } catch (err) {
-      console.error(`[Embed Backfill] Batch error:`, err.message);
-      errors += batch.length;
-    }
-  }
-
-  res.json({ ok: true, processed, errors, total: missing.length });
 });
 
 // POST /api/fingerprints/backfill-sequences - Re-download replays to populate missing full_action_sequence
@@ -2210,143 +1838,6 @@ async function backfillViaSearch(battleTags) {
   console.log(`[Backfill-Search] Done - ${done} imported, ${noReplay} no replay, ${failed} failed`);
 }
 
-// POST /api/fingerprints/blind-test - Split a player's data and test if system can re-identify
-router.post('/blind-test', requireApiKey, (req, res) => {
-  const { battleTag } = req.body;
-  if (!battleTag) return res.status(400).json({ error: 'battleTag required' });
-
-  const rows = getPlayerFingerprints(battleTag);
-  const minGames = parseInt(req.body.minGames) || 8;
-  if (rows.length < minGames) {
-    return res.status(400).json({ error: `Need at least ${minGames} fingerprints, found ${rows.length}`, battleTag });
-  }
-
-  // Shuffle and split into two halves
-  const shuffled = [...rows].sort(() => Math.random() - 0.5);
-  const half = Math.floor(shuffled.length / 2);
-  const groupA = shuffled.slice(0, half); // stays as real tag
-  const groupB = shuffled.slice(half);    // becomes "Mystery#99999"
-
-  // Compute everything in-memory - no DB mutations needed
-
-  // Parse all fingerprints for groupA (the "known" set)
-  const groupAFps = groupA.map(parseDbFingerprint);
-  const avgA = averageFingerprints(groupAFps);
-  const groupAEmbs = groupA.map(r => tryParse(r.embedding)).filter(Boolean);
-  const avgEmbA = averageEmbeddings(groupAEmbs);
-  const raceA = groupA[0]?.race;
-
-  // Parse all fingerprints for groupB (the "mystery" set)
-  const groupBFps = groupB.map(parseDbFingerprint);
-  const avgB = averageFingerprints(groupBFps);
-  const groupBEmbs = groupB.map(r => tryParse(r.embedding)).filter(Boolean);
-  const avgEmbB = averageEmbeddings(groupBEmbs);
-
-  // Compute similarity between groupA and groupB (should be high if system works)
-  const selfSim = computeHybridSimilarity(avgA, avgB, avgEmbA, avgEmbB);
-  const selfBreakdown = computeServerBreakdown(avgA, avgB);
-
-  // Now compare groupB against ALL other players
-  const allPlayers = getParsedPlayers();
-  const results = [];
-
-  for (const p of allPlayers) {
-    // Skip the test player entirely (both halves should be excluded)
-    if (p.battleTag === battleTag) continue;
-
-    const hybrid = computeHybridSimilarity(avgB, p.fp, avgEmbB, p.embedding);
-    const breakdown = computeServerBreakdown(avgB, p.fp);
-
-    results.push({
-      battleTag: p.battleTag,
-      race: p.race,
-      replayCount: p.replayCount,
-      similarity: Math.round(hybrid.similarity * 1000) / 1000,
-      hybrid: hybrid.hybrid,
-      breakdown: formatBreakdown(breakdown, hybrid),
-    });
-  }
-
-  results.sort((a, b) => b.similarity - a.similarity);
-
-  // Insert the "self" match result
-  const selfResult = {
-    battleTag: `${battleTag} (other half)`,
-    race: raceA,
-    replayCount: groupA.length,
-    similarity: Math.round(selfSim.similarity * 1000) / 1000,
-    hybrid: selfSim.hybrid,
-    breakdown: formatBreakdown(selfBreakdown, selfSim),
-  };
-
-  // Find where the self-match would rank
-  let rank = 1;
-  for (const r of results) {
-    if (selfResult.similarity >= r.similarity) break;
-    rank++;
-  }
-
-  // Insert self into ranked list
-  results.splice(rank - 1, 0, selfResult);
-
-  res.json({
-    test: {
-      battleTag,
-      totalFingerprints: rows.length,
-      groupASize: groupA.length,
-      groupBSize: groupB.length,
-      groupAEmbeddings: groupAEmbs.length,
-      groupBEmbeddings: groupBEmbs.length,
-    },
-    selfMatch: {
-      rank,
-      outOf: results.length,
-      similarity: selfResult.similarity,
-      breakdown: selfResult.breakdown,
-    },
-    verdict: rank === 1 ? 'PASS - Correctly identified as #1 match'
-      : rank <= 3 ? `PARTIAL - Ranked #${rank} (top 3)`
-      : `FAIL - Ranked #${rank} out of ${results.length}`,
-    topResults: results.slice(0, 10),
-  });
-});
-
-// GET /api/fingerprints/calibration - Population similarity distribution stats
-router.get('/calibration', requireApiKey, (req, res) => {
-  const cal = getCalibration();
-  if (!cal) {
-    return res.json({ available: false, reason: 'Not enough players (need 5+)' });
-  }
-
-  // Compute histogram buckets for the frontend
-  const buckets = [0, 0.1, 0.2, 0.3, 0.4, 0.5, 0.6, 0.7, 0.8, 0.9, 1.0];
-  const histogram = Array(buckets.length - 1).fill(0);
-  for (const s of cal.scores) {
-    const idx = Math.min(Math.floor(s * 10), 9);
-    histogram[idx]++;
-  }
-
-  res.json({
-    available: true,
-    mean: r3(cal.mean),
-    stddev: r3(cal.stddev),
-    playerCount: cal.playerCount,
-    pairCount: cal.pairCount,
-    min: r3(cal.scores[0]),
-    max: r3(cal.scores[cal.scores.length - 1]),
-    p25: r3(cal.scores[Math.floor(cal.pairCount * 0.25)]),
-    p50: r3(cal.scores[Math.floor(cal.pairCount * 0.50)]),
-    p75: r3(cal.scores[Math.floor(cal.pairCount * 0.75)]),
-    p90: r3(cal.scores[Math.floor(cal.pairCount * 0.90)]),
-    p95: r3(cal.scores[Math.floor(cal.pairCount * 0.95)]),
-    p99: r3(cal.scores[Math.floor(cal.pairCount * 0.99)]),
-    histogram: histogram.map((count, i) => ({
-      range: `${(buckets[i] * 100).toFixed(0)}-${(buckets[i + 1] * 100).toFixed(0)}%`,
-      count,
-    })),
-  });
-});
-
 // Seeded LCG PRNG for deterministic PCA
 function seededLCG(seed) {
   let s = seed;
@@ -2414,6 +1905,7 @@ async function computeEmbeddingMapResult(method) {
       x: result.points[i].x,
       y: result.points[i].y,
       glyph: buildGlyph(p.battleTag),
+      traits: p.traits,
     }));
 
     const responseData = {
@@ -2492,6 +1984,7 @@ async function computeEmbeddingMapResult(method) {
       x: Math.round(x * 1000) / 1000,
       y: Math.round(y * 1000) / 1000,
       glyph: buildGlyph(p.battleTag),
+      traits: p.traits,
     };
   });
 
@@ -2608,71 +2101,12 @@ function getSuspectsData() {
     return suspectsCache;
   }
 
-  const players = getParsedPlayers();
+  const players = getVerdictPool();
   if (players.length < 5) return null;
 
-  // Two-phase approach: fast embedding pre-filter, then full hybrid on top candidates
-  // Phase 1: For players with embeddings, compute cheap cosine similarity to find top candidates
-  const playersWithEmb = players.map((p, idx) => ({ ...p, idx })).filter(p => p.embedding);
-  const candidatePairs = new Set(); // store as "i,j" strings
-
-  if (playersWithEmb.length > 50) {
-    // Fast embedding-only pass: keep top ~500 pairs by embedding similarity
-    const embPairs = [];
-    for (let a = 0; a < playersWithEmb.length; a++) {
-      for (let b = a + 1; b < playersWithEmb.length; b++) {
-        const sim = embeddingSimilarity(playersWithEmb[a].embedding, playersWithEmb[b].embedding);
-        if (sim !== null) {
-          embPairs.push({ i: playersWithEmb[a].idx, j: playersWithEmb[b].idx, embSim: sim });
-        }
-      }
-    }
-    embPairs.sort((a, b) => b.embSim - a.embSim);
-    for (const p of embPairs.slice(0, 500)) {
-      candidatePairs.add(`${p.i},${p.j}`);
-    }
-  }
-
-  // Phase 2: For players without embeddings, or if few have embeddings, do full comparison
-  // Also always include pairs from a random sample to ensure coverage
-  const MAX_BRUTE = 300;
-  if (players.length <= MAX_BRUTE) {
-    // Small enough for full O(n²)
-    for (let i = 0; i < players.length; i++) {
-      for (let j = i + 1; j < players.length; j++) {
-        candidatePairs.add(`${i},${j}`);
-      }
-    }
-  } else {
-    // Add all pairs involving players without embeddings (compare against sample)
-    const noEmbIdxs = players.map((p, idx) => ({ ...p, idx })).filter(p => !p.embedding).map(p => p.idx);
-    const sampleSize = Math.min(100, players.length);
-    const rand = seededLCG(54321);
-    const sampleIdxs = new Set();
-    while (sampleIdxs.size < sampleSize) {
-      sampleIdxs.add(Math.floor(rand() * players.length));
-    }
-    for (const i of noEmbIdxs) {
-      for (const j of sampleIdxs) {
-        if (i !== j) {
-          const [a, b] = i < j ? [i, j] : [j, i];
-          candidatePairs.add(`${a},${b}`);
-        }
-      }
-    }
-  }
-
-  // Compute full hybrid similarity for all candidate pairs
-  const scoredPairs = [];
-  for (const key of candidatePairs) {
-    const [i, j] = key.split(',').map(Number);
-    const hybrid = computeHybridSimilarity(
-      players[i].fp, players[j].fp,
-      players[i].embedding, players[j].embedding
-    );
-    scoredPairs.push({ i, j, ...hybrid });
-  }
-  scoredPairs.sort((a, b) => b.similarity - a.similarity);
+  // Ranked by how far a pair stands out for both accounts, not by raw
+  // similarity, which fills the list with generic low-game accounts.
+  const scoredPairs = standoutPairs(players.map(p => p.embedding)).slice(0, 1000);
 
   suspectsCache = { players, scoredPairs };
   suspectsAge = now;
@@ -2683,7 +2117,7 @@ function getSuspectsData() {
 // Returns the top similar account with a confidence verdict.
 // The verdict compares the top match with other accounts' best matches (see
 // getBestMatchCalibration), not with random pairs:
-//   confident  → at most 1% of accounts have a best match this strong
+//   confident  → at most 1% of accounts have a best match that stands out this much
 //   possible   → at most 5%
 //   no_match   → more common than that, or too few accounts to calibrate
 router.get('/identify/:battleTag', requireApiKey, async (req, res) => {
@@ -2697,7 +2131,7 @@ router.get('/identify/:battleTag', requireApiKey, async (req, res) => {
 
   const allPlayers = getParsedPlayers();
   const cal = getCalibration();
-  const bestCal = getBestMatchCalibration();
+  const reference = getVerdictReference();
 
   const suspect = allPlayers.find(p => p.battleTag === battleTag);
   if (!suspect) {
@@ -2724,7 +2158,7 @@ router.get('/identify/:battleTag', requireApiKey, async (req, res) => {
       });
     }
     suspectFp = averageFingerprints(filteredRows.map(parseDbFingerprint));
-    suspectEmbedding = null; // no pre-computed embedding for filtered subset
+    suspectEmbedding = identityEmbedding(filteredRows.map(parseDbFingerprint));
   } else if (suspect.replayCount < 3) {
     return res.json({
       battleTag, verdict: 'insufficient_data',
@@ -2734,40 +2168,29 @@ router.get('/identify/:battleTag', requireApiKey, async (req, res) => {
     });
   }
 
-  const results = [];
-  for (const p of allPlayers) {
-    if (p.battleTag === battleTag) continue;
-    if (p.replayCount < 3) continue;
-    const hybrid = computeHybridSimilarity(suspectFp, p.fp, suspectEmbedding, p.embedding);
-    const percentile = cal ? scoreToPercentile(hybrid.similarity, cal) : null;
-    const zScore = cal ? scoreToZScore(hybrid.similarity, cal) : null;
-    const breakdown = computeServerBreakdown(suspectFp, p.fp);
-    results.push({
+  const pool = getVerdictPool().filter(p => p.battleTag !== battleTag);
+  const poolEmbeddings = pool.map(p => p.embedding);
+  const { scores, order } = scorePool(suspectEmbedding, poolEmbeddings);
+
+  const similar = order.slice(0, 5).map(i => {
+    const p = pool[i];
+    const similarity = scores[i];
+    return {
       battleTag: p.battleTag,
       playerName: p.playerName,
       race: p.race,
       replayCount: p.replayCount,
-      similarity: r3(hybrid.similarity),
-      handcrafted: r3(hybrid.handcrafted),
-      embedding: r3(hybrid.embedding),
-      hybrid: hybrid.hybrid,
-      percentile,
-      zScore,
-      breakdown: formatBreakdown(breakdown, hybrid),
-    });
-  }
-
-  results.sort((a, b) => b.similarity - a.similarity);
-  const similar = results.slice(0, 5);
-
-  for (const s of similar) s.rarity = bestMatchRarity(s.similarity, bestCal);
+      similarity: r3(similarity),
+      percentile: cal ? scoreToPercentile(similarity, cal) : null,
+      zScore: cal ? scoreToZScore(similarity, cal) : null,
+      // Share of accounts whose own best match stands out at least this much
+      rarity: rarity(standout(i, scores, poolEmbeddings), reference),
+      breakdown: formatBreakdown(computeServerBreakdown(suspectFp, p.fp)),
+    };
+  });
 
   const top = similar[0];
-  let verdict = 'no_match';
-  if (top && top.rarity != null) {
-    if (top.rarity <= CONFIDENT_RARITY) verdict = 'confident';
-    else if (top.rarity <= POSSIBLE_RARITY) verdict = 'possible';
-  }
+  const verdict = verdictFor(top?.rarity ?? null);
 
   // Enrich query player with glyph + APM (filtered if filters active)
   let queryGlyph = null;
@@ -2849,7 +2272,6 @@ router.get('/identify/:battleTag', requireApiKey, async (req, res) => {
     query: {
       replayCount: suspectReplayCount,
       totalReplayCount: suspectTotalCount,
-      hasEmbedding: !!suspect.embedding,
       glyph: queryGlyph,
       apm: queryApm,
       race: getPlayerMostPlayedRace(battleTag),
@@ -2949,11 +2371,17 @@ router.get('/suspects', async (req, res) => {
 
   const { players, scoredPairs } = data;
   const cal = getCalibration();
+  const reference = getVerdictReference();
 
-  const pairs = scoredPairs.slice(0, limit).map(p => {
+  // Two accounts that have appeared in the same game are different people,
+  // however alike they play, so they are not suspects.
+  const pairs = [];
+  for (const p of scoredPairs) {
+    if (pairs.length >= limit) break;
     const pA = players[p.i], pB = players[p.j];
+    if (getSharedReplayCount(pA.battleTag, pB.battleTag) > 0) continue;
     const breakdown = computeServerBreakdown(pA.fp, pB.fp);
-    return {
+    pairs.push({
       tagA: pA.battleTag,
       tagB: pB.battleTag,
       raceA: pA.race,
@@ -2961,12 +2389,13 @@ router.get('/suspects', async (req, res) => {
       replaysA: pA.replayCount,
       replaysB: pB.replayCount,
       similarity: r3(p.similarity),
-      handcrafted: r3(p.handcrafted),
-      embedding: r3(p.embedding),
       percentile: cal ? scoreToPercentile(p.similarity, cal) : null,
-      breakdown: formatBreakdown(breakdown, p),
-    };
-  });
+      // Share of accounts whose own best match stands out at least this much
+      rarity: rarity(p.standout, reference),
+      verdict: verdictFor(rarity(p.standout, reference)),
+      breakdown: formatBreakdown(breakdown),
+    });
+  }
 
   res.json({
     pairs,
@@ -2990,8 +2419,8 @@ router.get('/embeddings/:battleTag', async (req, res) => {
   const replays = [];
   const embeddings = [];
   for (const row of rows) {
-    const emb = tryParse(row.embedding);
-    if (!emb || emb.length === 0) continue;
+    const emb = identityEmbedding([parseDbFingerprint(row)]);
+    if (!emb) continue;
     replays.push({
       replayId: row.replay_id,
       matchDate: row.match_date,
@@ -3028,13 +2457,11 @@ router.get('/embeddings/:battleTag', async (req, res) => {
 router.get('/stats', requireApiKey, async (req, res) => {
   const dbStats = getFingerprintCount();
   const missing = getReplaysWithoutFingerprints();
-  const missingEmbeddingCount = countFingerprintsWithoutEmbeddings();
   const sidecarUp = await checkSidecar();
   const cal = getCalibration();
   res.json({
     ...dbStats,
     replaysWithoutFingerprints: missing.length,
-    fingerprintsWithoutEmbeddings: missingEmbeddingCount,
     embedSidecar: sidecarUp ? 'available' : 'unavailable',
     calibration: cal ? {
       mean: r3(cal.mean),
@@ -3071,7 +2498,7 @@ router.get('/validation', (req, res) => {
       enriched.push({
         id: pair.id, tagMain: pair.tag_main, tagSmurf: pair.tag_smurf,
         notes: pair.notes, createdAt: pair.created_at,
-        similarity: null, percentile: null, handcrafted: null, embedding: null,
+        similarity: null, percentile: null,
         breakdown: null, replaysMain: pMain?.replayCount || 0, replaysSmurf: pSmurf?.replayCount || 0,
         raceMain: pMain?.race || null, raceSmurf: pSmurf?.race || null,
         missing: true,
@@ -3079,16 +2506,15 @@ router.get('/validation', (req, res) => {
       continue;
     }
 
-    const hybrid = computeHybridSimilarity(pMain.fp, pSmurf.fp, pMain.embedding, pSmurf.embedding);
+    const similarity = matchScore(pMain, pSmurf);
     const breakdown = computeServerBreakdown(pMain.fp, pSmurf.fp);
-    const percentile = cal ? scoreToPercentile(hybrid.similarity, cal) : null;
+    const percentile = cal ? scoreToPercentile(similarity, cal) : null;
 
     enriched.push({
       id: pair.id, tagMain: pair.tag_main, tagSmurf: pair.tag_smurf,
       notes: pair.notes, createdAt: pair.created_at,
-      similarity: r3(hybrid.similarity), percentile,
-      handcrafted: r3(hybrid.handcrafted), embedding: r3(hybrid.embedding),
-      breakdown: formatBreakdown(breakdown, hybrid),
+      similarity: r3(similarity), percentile,
+      breakdown: formatBreakdown(breakdown),
       replaysMain: pMain.replayCount, replaysSmurf: pSmurf.replayCount,
       raceMain: pMain.race, raceSmurf: pSmurf.race,
       missing: false,

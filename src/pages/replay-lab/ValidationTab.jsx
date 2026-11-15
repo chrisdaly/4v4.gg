@@ -225,7 +225,7 @@ export default function ValidationTab() {
                       { key: "tempo", label: "Tempo", val: bd.tempo },
                       { key: "intensity", label: "Intensity", val: bd.intensity },
                       { key: "trans", label: "Switching", val: bd.transitions },
-                      ...(bd.embedding != null ? [{ key: "embedding", label: "Neural", val: bd.embedding }] : []),
+                      { key: "rhythm", label: "Rhythm", val: bd.rhythm },
                     ].filter(({ val }) => val != null && val > 0).map(({ key, label, val }) => (
                       <BreakdownItem key={key}>
                         <BreakdownLabel>{label}</BreakdownLabel>

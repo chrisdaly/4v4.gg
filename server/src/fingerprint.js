@@ -340,59 +340,6 @@ export function computeServerBreakdown(fpA, fpB) {
   };
 }
 
-// ── Embedding Similarity ─────────────────────────────
-
-/**
- * Cosine similarity between two embedding vectors (0-1).
- */
-export function embeddingSimilarity(a, b) {
-  if (!a || !b || a.length !== b.length) return null;
-  let dot = 0, magA = 0, magB = 0;
-  for (let i = 0; i < a.length; i++) {
-    dot += a[i] * b[i];
-    magA += a[i] * a[i];
-    magB += b[i] * b[i];
-  }
-  const denom = Math.sqrt(magA) * Math.sqrt(magB);
-  if (denom === 0) return 0;
-  // Clamp to [0,1] - orthogonal or opposite vectors = 0
-  return Math.max(0, dot / denom);
-}
-
-/**
- * Compute hybrid similarity: weighted combination of handcrafted + neural embedding.
- * Falls back to handcrafted-only if embeddings are unavailable.
- */
-export function computeHybridSimilarity(fpA, fpB, embA, embB) {
-  const handcrafted = computeServerSimilarity(fpA, fpB);
-  const embSim = embeddingSimilarity(embA, embB);
-
-  if (embSim === null) {
-    return { similarity: handcrafted, handcrafted, embedding: null, hybrid: false };
-  }
-
-  // 50/50 blend
-  const similarity = 0.5 * handcrafted + 0.5 * embSim;
-  return { similarity, handcrafted, embedding: embSim, hybrid: true };
-}
-
-/**
- * Element-wise mean of multiple embedding vectors.
- */
-export function averageEmbeddings(embeddings) {
-  const valid = embeddings.filter(e => e && e.length > 0);
-  if (valid.length === 0) return null;
-  if (valid.length === 1) return valid[0];
-
-  const dim = valid[0].length;
-  const avg = Array(dim).fill(0);
-  for (const emb of valid) {
-    for (let i = 0; i < dim; i++) avg[i] += emb[i];
-  }
-  for (let i = 0; i < dim; i++) avg[i] /= valid.length;
-  return avg;
-}
-
 /**
  * Element-wise mean of multiple fingerprints.
  * Returns { vector, segments } with averaged values.

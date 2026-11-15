@@ -21,10 +21,7 @@ RUN mkdir -p data \
  && python -c "import os;assert os.path.getsize('data/text-model.onnx')>50_000_000,'model download truncated'"
 
 COPY embed_server.py .
-COPY tokenizer.py .
-COPY data/model.onnx data/model.onnx
 
-ENV MODEL_PATH=/app/data/model.onnx
 ENV TEXT_MODEL_PATH=/app/data/text-model.onnx
 ENV TEXT_TOKENIZER_PATH=/app/data/text-tokenizer.json
 

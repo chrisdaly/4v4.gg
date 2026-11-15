@@ -1,74 +1,42 @@
 /**
- * Client for the Python embed sidecar.
- * Tokenizes action sequences and calls POST /embed to get 128-dim embeddings.
+ * Client for the Python sidecar's 2D projection (UMAP), used by the True Sight
+ * map. The sidecar also serves chat text embeddings; see textEmbed.js.
  */
 
 import config from './config.js';
-import { tokenize } from '../ml/tokenizer.js';
 
 const EMBED_URL = config.EMBED_URL;
 
-let sidecarAvailable = null; // null = unknown, true/false after first check
+let sidecarAvailable = null; // null = unknown, true/false after a check
 let lastSidecarCheck = 0;
-const SIDECAR_RECHECK_MS = 30000; // re-check every 30s if unavailable
+const SIDECAR_RECHECK_MS = 30000;
 
 /**
- * Check if the embed sidecar is running.
+ * Check if the sidecar is running.
  */
 export async function checkSidecar() {
+  lastSidecarCheck = Date.now();
   try {
     const res = await fetch(`${EMBED_URL}/health`, { signal: AbortSignal.timeout(2000) });
-    if (res.ok) {
-      const data = await res.json();
-      sidecarAvailable = data.model_loaded === true;
-      lastSidecarCheck = Date.now();
-      return sidecarAvailable;
-    }
+    sidecarAvailable = res.ok;
   } catch {
     sidecarAvailable = false;
-    lastSidecarCheck = Date.now();
   }
-  return false;
+  return sidecarAvailable;
 }
 
 /**
- * Ensure sidecar is available, re-checking periodically if previously unavailable.
+ * Re-check at most every 30s, whichever way the last check went: a sidecar
+ * that was up can go down.
  */
 async function ensureSidecar() {
-  if (sidecarAvailable === true) return true;
-  if (sidecarAvailable === false && (Date.now() - lastSidecarCheck) < SIDECAR_RECHECK_MS) return false;
+  if (sidecarAvailable !== null && (Date.now() - lastSidecarCheck) < SIDECAR_RECHECK_MS) return sidecarAvailable;
   return checkSidecar();
 }
 
 /**
- * Get embedding for a single action sequence.
- * @param {Array} actions - Raw action sequence [{ms, id, g?}, ...]
- * @returns {number[]|null} 128-dim embedding or null if sidecar unavailable
- */
-export async function getEmbedding(actions) {
-  if (!(await ensureSidecar())) return null;
-
-  const tokens = tokenize(actions);
-  if (tokens.length < 5) return null;
-
-  try {
-    const res = await fetch(`${EMBED_URL}/embed`, {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ tokens }),
-      signal: AbortSignal.timeout(5000),
-    });
-    if (!res.ok) return null;
-    const data = await res.json();
-    return data.embedding || null;
-  } catch {
-    return null;
-  }
-}
-
-/**
  * Fit UMAP on a matrix of embeddings and return 2D projections.
- * @param {number[][]} embeddings - Array of 128-dim embeddings
+ * @param {number[][]} embeddings
  * @param {object} options - { n_neighbors, min_dist }
  * @returns {{ points: {x: number, y: number}[] } | null}
  */
@@ -104,7 +72,7 @@ export async function getUmapProjection(embeddings, options = {}) {
 
 /**
  * Project new embeddings using the cached fitted UMAP model.
- * @param {number[][]} embeddings - Array of 128-dim embeddings
+ * @param {number[][]} embeddings
  * @returns {{ points: {x: number, y: number}[] } | null}
  */
 export async function getUmapTransform(embeddings) {
@@ -121,47 +89,5 @@ export async function getUmapTransform(embeddings) {
     return await res.json();
   } catch {
     return null;
-  }
-}
-
-/**
- * Get embeddings for multiple action sequences in one call.
- * @param {Array<Array>} actionSequences - Array of raw action sequences
- * @returns {Array<number[]|null>} Array of embeddings (null for failed ones)
- */
-export async function getEmbeddingBatch(actionSequences) {
-  if (!(await ensureSidecar())) return actionSequences.map(() => null);
-
-  const tokenized = actionSequences.map(actions => tokenize(actions));
-  const valid = tokenized.map(t => t.length >= 5);
-
-  // Only send valid sequences
-  const validTokens = tokenized.filter((_, i) => valid[i]);
-  if (validTokens.length === 0) return actionSequences.map(() => null);
-
-  try {
-    const res = await fetch(`${EMBED_URL}/embed-batch`, {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ sequences: validTokens }),
-      signal: AbortSignal.timeout(10000),
-    });
-    if (!res.ok) return actionSequences.map(() => null);
-    const data = await res.json();
-    const embeddings = data.embeddings || [];
-
-    // Map back to original indices
-    const result = [];
-    let embIdx = 0;
-    for (let i = 0; i < actionSequences.length; i++) {
-      if (valid[i] && embIdx < embeddings.length) {
-        result.push(embeddings[embIdx++]);
-      } else {
-        result.push(null);
-      }
-    }
-    return result;
-  } catch {
-    return actionSequences.map(() => null);
   }
 }

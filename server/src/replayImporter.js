@@ -22,7 +22,6 @@ import {
   insertReplayChat,
   insertReplayPlayerActions,
   insertPlayerFingerprints,
-  updateFingerprintEmbedding,
   getExistingW3cMatchIds,
   enqueueImportPriority,
   getFingerprintCounts,
@@ -31,7 +30,6 @@ import {
   removeFromPriorityQueue,
 } from './db.js';
 import { buildServerFingerprint } from './fingerprint.js';
-import { getEmbeddingBatch } from './embedClient.js';
 
 const W3C_API = 'https://website-backend.w3champions.com/api';
 // At most 2 imports per 5-minute cycle, which stays under W3C's hourly cap.
@@ -273,9 +271,6 @@ async function importMatch({ matchId, players: w3cPlayers }) {
       };
     });
     if (fingerprints.length > 0) insertPlayerFingerprints(replayId, fingerprints);
-
-    // Neural embeddings (fire-and-forget)
-    computeEmbeddingsAsync(replayId, parsed.actions).catch(() => {});
   } catch { /* fingerprint error is non-fatal */ }
 
   // Everything useful is extracted - drop the .w3g to keep the volume from
@@ -284,24 +279,6 @@ async function importMatch({ matchId, players: w3cPlayers }) {
   try { unlinkSync(filePath); } catch { /* already gone */ }
 
   return { status: 'imported', replayId, playerCount: playersWithTags.length };
-}
-
-async function computeEmbeddingsAsync(replayId, actions) {
-  const sequences = actions
-    .filter(a => a.fullActionSequence && a.fullActionSequence.length > 10)
-    .map(a => a.fullActionSequence);
-  if (sequences.length === 0) return;
-
-  const embeddings = await getEmbeddingBatch(sequences);
-  let idx = 0;
-  for (const a of actions) {
-    if (a.fullActionSequence && a.fullActionSequence.length > 10) {
-      if (embeddings[idx]) {
-        updateFingerprintEmbedding(replayId, a.playerId, embeddings[idx]);
-      }
-      idx++;
-    }
-  }
 }
 
 /**

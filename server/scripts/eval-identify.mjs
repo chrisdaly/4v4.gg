@@ -1,37 +1,40 @@
 /**
- * Offline evaluation of the smurf-detection scorers.
+ * Offline evaluation of smurf detection.
  *
  * The test needs no smurf labels. Every player with enough replays is split in
  * two by date: the older half stays under their name (the "known account"),
- * the newer half has its name hidden (the "probe"). Each scorer then ranks
+ * the newer half has its name hidden (the "probe"). The scorer then ranks
  * every known account against each probe, and we count how often the true
  * owner comes first. Players with too few replays to split still sit in the
  * pool as distractors, the same as in production.
  *
- * It scores with the functions production uses (src/fingerprint.js), so the
- * numbers describe what /api/fingerprints/identify actually does.
+ * It scores and judges with the functions the relay uses (src/identityModel.js),
+ * so the numbers describe what /api/fingerprints/identify actually does.
  *
  * Usage (read-only; point it at a local copy of the relay database):
  *   node scripts/eval-identify.mjs --db /path/to/chat.db
  *   node scripts/eval-identify.mjs --db chat.db --min-replays 8 --max-probes 1000 --out eval.json
  *
- * To score the whitened identity model as well, pass its JSON. A model fitted
- * on one fold of players (fit_export.py --fold) lists the players it never
- * saw, and only those are used as probes, so the number is honest:
+ * The scorer that ships was fitted on every player, including the ones tested
+ * here, so its numbers from this script run a little high. For an honest
+ * number, fit on one fold of players (ml/identity/fit_export.py --fold 0) and
+ * pass that file: only the players it never saw are then used as probes.
  *   node scripts/eval-identify.mjs --db chat.db --identity-model model-fold0.json
  */
 
 import { readFileSync, writeFileSync } from 'fs';
 import Database from 'better-sqlite3';
+import { cosineSegment, computeServerSimilarity, averageFingerprints } from '../src/fingerprint.js';
 import {
-  cosineSegment,
-  computeServerSimilarity,
-  embeddingSimilarity,
-  computeHybridSimilarity,
-  averageFingerprints,
-  averageEmbeddings,
-} from '../src/fingerprint.js';
-import { createIdentityModel, identitySimilarity } from '../src/identityModel.js';
+  createIdentityModel,
+  identity as shippedModel,
+  identitySimilarity,
+  scorePool,
+  standout,
+  bestMatchStandouts,
+  rarity,
+  verdictFor,
+} from '../src/identityModel.js';
 
 // ── Arguments ───────────────────────────────────────
 
@@ -48,20 +51,35 @@ const SEED = Number(arg('seed', 12345));
 const OUT = arg('out', null);
 const IDENTITY_MODEL_PATH = arg('identity-model', null);
 const PROBE_SIZES = [1, 3, 5, 10]; // games in the hidden half, for the "how many games" curve
-const FPR_TARGETS = [0.01, 0.05];
+const CALIBRATION_SAMPLE = 300; // same as the relay
 
 if (!DB_PATH) {
-  console.error('Usage: node scripts/eval-identify.mjs --db /path/to/chat.db [--min-replays 8] [--max-probes 1000] [--out eval.json]');
+  console.error('Usage: node scripts/eval-identify.mjs --db /path/to/chat.db [--identity-model model.json] [--min-replays 8] [--max-probes 1000] [--out eval.json]');
   process.exit(1);
 }
 
+let model = shippedModel;
+let heldOut = null; // players the model never saw; null = no restriction
+if (IDENTITY_MODEL_PATH) {
+  const json = JSON.parse(readFileSync(IDENTITY_MODEL_PATH, 'utf8'));
+  model = createIdentityModel(json);
+  if (json.heldOutPlayers) heldOut = new Set(json.heldOutPlayers);
+}
+
 // ── Scorers ─────────────────────────────────────────
-// Each takes two entities { fp, emb } and returns a similarity, or null when
-// it cannot score the pair (the embedding scorer, when either side has none).
+// Each takes two entities and returns a similarity, or null when it cannot
+// score the pair. `scorer` is what the relay uses. The rest are reference
+// points: the hand-weighted score it replaced, and two parts of it on their own.
 
 const seg = (e, k) => e.fp.segments[k];
 
-function weightedCosine(a, b, keys) {
+function hasSignal(v) {
+  if (!v?.length) return false;
+  for (const x of v) if (x) return true;
+  return false;
+}
+
+function meanCosine(a, b, keys) {
   let sum = 0, n = 0;
   for (const k of keys) {
     const sa = seg(a, k), sb = seg(b, k);
@@ -74,34 +92,30 @@ function weightedCosine(a, b, keys) {
   return n ? sum / n : null;
 }
 
-function hasSignal(v) {
-  if (!v?.length) return false;
-  for (const x of v) if (x) return true;
-  return false;
-}
-
 const SCORERS = {
-  hotkey: (a, b) => weightedCosine(a, b, ['hotkey']),
-  transitions_rhythm: (a, b) => weightedCosine(a, b, ['transitions', 'rhythm']),
-  handcrafted: (a, b) => computeServerSimilarity(a.fp, b.fp),
-  embedding: (a, b) => embeddingSimilarity(a.emb, b.emb),
-  hybrid: (a, b) => computeHybridSimilarity(a.fp, b.fp, a.emb, b.emb).similarity,
+  scorer: (a, b) => identitySimilarity(a.emb, b.emb),
+  old_hand_weighted: (a, b) => computeServerSimilarity(a.fp, b.fp),
+  hotkey_only: (a, b) => meanCosine(a, b, ['hotkey']),
+  transitions_rhythm_only: (a, b) => meanCosine(a, b, ['transitions', 'rhythm']),
 };
-let identityModel = null;
-let heldOut = null; // players the identity model never saw; null = no restriction
-if (IDENTITY_MODEL_PATH) {
-  const json = JSON.parse(readFileSync(IDENTITY_MODEL_PATH, 'utf8'));
-  identityModel = createIdentityModel(json);
-  if (json.heldOutPlayers) heldOut = new Set(json.heldOutPlayers);
-  SCORERS.whitened = (a, b) => identitySimilarity(a.idEmb, b.idEmb);
-}
 const SCORER_NAMES = Object.keys(SCORERS);
+const COL = 26;
 
 // ── Helpers ─────────────────────────────────────────
 
 function lcg(seed) {
   let s = seed >>> 0;
   return () => ((s = (Math.imul(s, 1664525) + 1013904223) >>> 0) / 4294967296);
+}
+
+function shuffled(n, seed) {
+  const order = Array.from({ length: n }, (_, i) => i);
+  const rand = lcg(seed);
+  for (let i = n - 1; i > 0; i--) {
+    const j = Math.floor(rand() * (i + 1));
+    [order[i], order[j]] = [order[j], order[i]];
+  }
+  return order;
 }
 
 function parse(json) {
@@ -125,15 +139,13 @@ function rowToGame(row) {
         rhythm: parse(row.rhythm_seg) || [],
       },
     },
-    emb: parse(row.embedding),
   };
 }
 
 function entity(games) {
   return {
     fp: averageFingerprints(games.map(g => g.fp)),
-    emb: averageEmbeddings(games.map(g => g.emb)),
-    idEmb: identityModel ? identityModel.embed(games.map(g => g.fp.segments)) : null,
+    emb: model.embed(games.map(g => g.fp.segments)),
     n: games.length,
     race: majorityRace(games),
     replayIds: new Set(games.map(g => g.replayId)),
@@ -154,12 +166,11 @@ const pct = (x) => (x == null || Number.isNaN(x) ? '   -  ' : `${(x * 100).toFix
 
 const db = new Database(DB_PATH, { readonly: true, fileMustExist: true });
 
-// Same identity rule as the tokenizer: bulk-imported replays have no
-// battle_tag, only a "Name#1234" player_name.
+// Bulk-imported replays have no battle_tag, only a "Name#1234" player_name.
 const rows = db.prepare(`
   SELECT COALESCE(pf.battle_tag, pf.player_name) AS player_key,
          pf.replay_id, pf.race, pf.vector, pf.action_seg, pf.apm_seg, pf.hotkey_seg,
-         pf.tempo_seg, pf.intensity_seg, pf.transitions_seg, pf.rhythm_seg, pf.embedding,
+         pf.tempo_seg, pf.intensity_seg, pf.transitions_seg, pf.rhythm_seg,
          COALESCE(r.match_date, r.uploaded_at) AS played_at
   FROM player_fingerprints pf
   JOIN replays r ON r.id = pf.replay_id
@@ -169,7 +180,7 @@ const rows = db.prepare(`
 const gallery = [];   // every candidate account: { tag, fp, emb, n, race, replayIds }
 const probes = [];    // hidden halves: { tag, ownerIdx, bySize: {k: entity}, full: entity }
 const accounts = new Map(); // tag -> whole-account entity, for the real smurf pairs
-let totalRows = 0, rowsWithEmbedding = 0, playersSeen = 0;
+let totalRows = 0, playersSeen = 0;
 
 function flush(tag, games) {
   if (!tag || games.length === 0) return;
@@ -192,7 +203,6 @@ function flush(tag, games) {
 let currentTag = null, currentGames = [];
 for (const row of rows) {
   totalRows++;
-  if (row.embedding) rowsWithEmbedding++;
   if (row.player_key !== currentTag) {
     flush(currentTag, currentGames);
     currentTag = row.player_key;
@@ -208,21 +218,17 @@ if (probes.length < 20) {
 }
 
 // Seeded sample so reruns compare like with like
-const rand = lcg(SEED);
-const probeOrder = probes.map((_, i) => i);
-for (let i = probeOrder.length - 1; i > 0; i--) {
-  const j = Math.floor(rand() * (i + 1));
-  [probeOrder[i], probeOrder[j]] = [probeOrder[j], probeOrder[i]];
-}
-const sampled = probeOrder
+const sampled = shuffled(probes.length, SEED)
   .map(i => probes[i])
   .filter(p => !heldOut || heldOut.has(p.tag))
   .slice(0, MAX_PROBES);
-if (heldOut) console.log(`Identity model was fitted on one fold: probes restricted to the ${sampled.length} sampled players it never saw.`);
 
 console.log(`Database: ${DB_PATH}`);
-console.log(`  ${totalRows} fingerprints (${rowsWithEmbedding} with an embedding) from ${playersSeen} players`);
-console.log(`  ${gallery.length} candidate accounts (${MIN_GALLERY}+ replays), ${probes.length} splittable (${MIN_REPLAYS}+), ${sampled.length} probes evaluated\n`);
+console.log(`  ${totalRows} fingerprints from ${playersSeen} players`);
+console.log(`  ${gallery.length} candidate accounts (${MIN_GALLERY}+ replays), ${probes.length} splittable (${MIN_REPLAYS}+), ${sampled.length} probes evaluated`);
+console.log(heldOut
+  ? '  Scorer was fitted on one fold of players; probes are only players it never saw.\n'
+  : '  Scorer is the shipped one, fitted on all players including these: its numbers run a little high.\n');
 
 // ── Rank one probe against the gallery ──────────────
 
@@ -232,39 +238,36 @@ function sharesGame(probe, cand) {
 }
 
 /**
- * Returns, for one scorer: the owner's rank (1 = first), the owner's score,
- * the best score among everyone else (what the detector would report if the
- * owner were not indexed), and the owner's rank once anyone who appeared in
- * the same game as the probe is ruled out.
+ * For one scorer: the owner's rank (1 = first), and the owner's rank once
+ * anyone who appeared in the same game as the probe is ruled out.
  */
 function rankProbe(probeEntity, ownerIdx, score) {
   const ownerScore = score(probeEntity, gallery[ownerIdx]);
   if (ownerScore == null) return null;
 
-  let better = 0, betterNoCoplay = 0, bestOther = -Infinity;
+  let better = 0, betterNoCoplay = 0;
   for (let i = 0; i < gallery.length; i++) {
     if (i === ownerIdx) continue;
     const s = score(probeEntity, gallery[i]);
     if (s == null) continue;
-    if (s > bestOther) bestOther = s;
     if (s > ownerScore) {
       better++;
       if (!sharesGame(probeEntity, gallery[i])) betterNoCoplay++;
     }
   }
-  return { rank: better + 1, rankNoCoplay: betterNoCoplay + 1, ownerScore, bestOther };
+  return { rank: better + 1, rankNoCoplay: betterNoCoplay + 1 };
 }
 
 // ── Main table: full hidden half ────────────────────
 
-const results = { meta: {}, scorers: {}, byProbeSize: {}, byRace: {}, production: {}, realPairs: [] };
+const results = { meta: {}, scorers: {}, byProbeSize: {}, byRace: {}, verdict: {}, realPairs: [] };
 results.meta = {
   db: DB_PATH, minReplays: MIN_REPLAYS, minGallery: MIN_GALLERY, seed: SEED,
-  fingerprints: totalRows, withEmbedding: rowsWithEmbedding, players: playersSeen,
-  gallery: gallery.length, splittable: probes.length, probesEvaluated: sampled.length,
+  fingerprints: totalRows, players: playersSeen, gallery: gallery.length,
+  splittable: probes.length, probesEvaluated: sampled.length, heldOutOnly: !!heldOut,
 };
 
-const perProbe = {}; // scorer -> [{ rank, rankNoCoplay, ownerScore, bestOther, sameRace }]
+const perProbe = {};
 for (const name of SCORER_NAMES) {
   perProbe[name] = [];
   for (const p of sampled) {
@@ -289,48 +292,29 @@ function summarise(list) {
   };
 }
 
-/**
- * Detection rate at a fixed false-alarm rate. The threshold is set on the best
- * non-owner score per probe, which is what the detector reports when the true
- * owner is not in the database. At that threshold, how many true owners are
- * both ranked first and above it?
- */
-function detectionAtFpr(list, fpr) {
-  if (!list.length) return null;
-  const impostor = list.map(r => r.bestOther).sort((a, b) => b - a);
-  const idx = Math.min(impostor.length - 1, Math.max(0, Math.floor(impostor.length * fpr)));
-  const threshold = impostor[idx];
-  const detected = list.filter(r => r.rank === 1 && r.ownerScore > threshold).length / list.length;
-  return { threshold, detected };
-}
-
 console.log('Re-identification, full hidden half');
-console.log('  scorer               probes  rank-1   top-5    MRR   rank-1 (same-game ruled out)   caught at 1% / 5% false alarms');
+console.log(`  ${'scorer'.padEnd(COL)} probes  first    top 5    MRR   first (same-game players ruled out)`);
 for (const name of SCORER_NAMES) {
   const s = summarise(perProbe[name]);
-  const d = FPR_TARGETS.map(f => detectionAtFpr(perProbe[name], f));
-  results.scorers[name] = { ...s, detectionAtFpr: Object.fromEntries(FPR_TARGETS.map((f, i) => [f, d[i]])) };
-  console.log(
-    `  ${name.padEnd(19)} ${String(s.n).padStart(6)}  ${pct(s.rank1)}  ${pct(s.top5)}  ${(s.mrr ?? 0).toFixed(3)}   ${pct(s.rank1NoCoplay)}` +
-    `                        ${pct(d[0]?.detected)} / ${pct(d[1]?.detected)}`
-  );
+  results.scorers[name] = s;
+  console.log(`  ${name.padEnd(COL)} ${String(s.n).padStart(6)}  ${pct(s.rank1)}  ${pct(s.top5)}  ${(s.mrr ?? 0).toFixed(3)}   ${pct(s.rank1NoCoplay)}`);
 }
 
 // ── Same race versus cross race ─────────────────────
 
-console.log('\nRank-1 when the hidden half is the same race as the known half, versus a different race');
-console.log('  scorer               same race (n)        cross race (n)');
+console.log('\nFirst place when the hidden half is the same race as the known half, versus a different race');
+console.log(`  ${'scorer'.padEnd(COL)} same race (n)        cross race (n)`);
 for (const name of SCORER_NAMES) {
   const same = summarise(perProbe[name].filter(r => r.sameRace === true));
   const cross = summarise(perProbe[name].filter(r => r.sameRace === false));
   results.byRace[name] = { same, cross };
-  console.log(`  ${name.padEnd(19)} ${pct(same.rank1)} (${String(same.n).padStart(4)})       ${pct(cross.rank1)} (${String(cross.n).padStart(4)})`);
+  console.log(`  ${name.padEnd(COL)} ${pct(same.rank1)} (${String(same.n).padStart(4)})       ${pct(cross.rank1)} (${String(cross.n).padStart(4)})`);
 }
 
-// ── How many games does a verdict need? ─────────────
+// ── How many games does a lookup need? ──────────────
 
-console.log('\nRank-1 by number of games in the hidden half');
-console.log(`  scorer               ${PROBE_SIZES.map(k => `${k} game${k > 1 ? 's' : ' '}`.padStart(9)).join('  ')}`);
+console.log('\nFirst place by number of games in the hidden half');
+console.log(`  ${'scorer'.padEnd(COL)} ${PROBE_SIZES.map(k => `${k} game${k > 1 ? 's' : ' '}`.padStart(9)).join('  ')}`);
 for (const name of SCORER_NAMES) {
   results.byProbeSize[name] = {};
   const cells = [];
@@ -345,125 +329,47 @@ for (const name of SCORER_NAMES) {
     results.byProbeSize[name][k] = s;
     cells.push(`${pct(s.rank1)}`.padStart(9));
   }
-  console.log(`  ${name.padEnd(19)} ${cells.join('  ')}`);
+  console.log(`  ${name.padEnd(COL)} ${cells.join('  ')}`);
 }
 
-// ── The production verdict rule ─────────────────────
-// /identify calls the top match "confident" when its hybrid score clears the
-// 99.5th percentile of scores between random pairs of players. Reproduce that
-// threshold, then ask how often it fires when the owner is not in the pool.
+// ── The verdict /identify gives ─────────────────────
+// Same functions as the relay. The reference is how far a best match stands
+// out for a sample of accounts; a lookup is "confident" when its top match
+// stands out more than 99% of those, "possible" above 95%. Each probe is
+// looked up twice: with its owner in the pool, and with the owner removed, in
+// which case any verdict other than no_match is a false accusation.
 
 {
-  const sample = gallery.slice();
-  const r2 = lcg(SEED);
-  for (let i = sample.length - 1; i > 0; i--) {
-    const j = Math.floor(r2() * (i + 1));
-    [sample[i], sample[j]] = [sample[j], sample[i]];
+  const pool = gallery.map(g => g.emb);
+  const reference = bestMatchStandouts(pool, shuffled(pool.length, SEED + 1).slice(0, CALIBRATION_SAMPLE));
+
+  function lookup(probeEmb, skip) {
+    const { scores, order } = scorePool(probeEmb, pool, skip);
+    const top = order[0];
+    return { top, verdict: verdictFor(rarity(standout(top, scores, pool, skip), reference)) };
   }
-  const cal = sample.slice(0, 200);
-  const pairScores = [];
-  for (let i = 0; i < cal.length; i++) {
-    for (let j = i + 1; j < cal.length; j++) pairScores.push(SCORERS.hybrid(cal[i], cal[j]));
-  }
-  pairScores.sort((a, b) => a - b);
-  const at = (q) => pairScores[Math.min(pairScores.length - 1, Math.floor(pairScores.length * q))];
-  const p995 = at(0.995), p97 = at(0.97);
 
-  const list = perProbe.hybrid;
-  const n = list.length || 1;
-  const falseConfident = list.filter(r => r.bestOther >= p995).length / n;
-  const falsePossible = list.filter(r => r.bestOther >= p97).length / n;
-  const trueConfident = list.filter(r => r.rank === 1 && r.ownerScore >= p995).length / n;
-  results.production = { p995, p97, falseConfident, falsePossible, trueConfident };
-
-  console.log('\nThe verdict rule /identify uses today (hybrid score against the pairwise 99.5th percentile)');
-  console.log(`  threshold: confident >= ${p995.toFixed(3)}, possible >= ${p97.toFixed(3)}`);
-  console.log(`  owner in the pool:      "confident" and correct  ${pct(trueConfident)}`);
-  console.log(`  owner NOT in the pool:  still says "confident"   ${pct(falseConfident)}   (every one of these is a false accusation)`);
-  console.log(`                          says at least "possible" ${pct(falsePossible)}`);
-}
-
-// ── The replacement verdict rule ────────────────────
-// Production cannot remove the true owner to measure false alarms, so it
-// calibrates on what it can see: for a sample of accounts, the score of each
-// one's best match against everyone else. A verdict then asks how unusual the
-// top match is among best matches, not among random pairs. Check here that
-// thresholds set that way deliver the false-alarm rate they promise.
-
-{
-  const order = gallery.map((_, i) => i);
-  const r3 = lcg(SEED + 1);
-  for (let i = order.length - 1; i > 0; i--) {
-    const j = Math.floor(r3() * (i + 1));
-    [order[i], order[j]] = [order[j], order[i]];
-  }
-  const best = [];
-  for (const i of order.slice(0, 300)) {
-    let top = -Infinity;
-    for (let j = 0; j < gallery.length; j++) {
-      if (j === i) continue;
-      const v = SCORERS.hybrid(gallery[i], gallery[j]);
-      if (v > top) top = v;
-    }
-    best.push(top);
-  }
-  best.sort((a, b) => a - b);
-  const q = (x) => best[Math.min(best.length - 1, Math.floor(best.length * x))];
-  const list = perProbe.hybrid, n = list.length || 1;
-  results.proposedRule = {};
-  console.log('\nReplacement rule (top score against the distribution of best-match scores)');
-  console.log('  verdict     threshold   owner in pool: correct   owner NOT in pool: fires anyway');
-  for (const [label, quant] of [['confident', 0.99], ['possible', 0.95]]) {
-    const t = q(quant);
-    const hit = list.filter(r => r.rank === 1 && r.ownerScore >= t).length / n;
-    const falseAlarm = list.filter(r => r.bestOther >= t).length / n;
-    results.proposedRule[label] = { threshold: t, hit, falseAlarm };
-    console.log(`  ${label.padEnd(10)}  ${t.toFixed(4)}      ${pct(hit)}                   ${pct(falseAlarm)}`);
-  }
-}
-
-// ── Which number should the verdict be based on? ────
-// The raw top score is a poor basis: some players look like everyone. Compare
-// it with two statistics that ask how far the top match stands out for THIS
-// query: the gap to the runner-up, and the top score in standard deviations
-// above that query's own spread of scores.
-
-{
-  const stats = []; // per probe: { correct, present: {raw,gap,z}, absent: {raw,gap,z} }
-  const describe = (top, second, mean, std) => ({ raw: top, gap: top - second, z: std > 0 ? (top - mean) / std : 0 });
+  const tally = { n: 0, confidentRight: 0, possibleRight: 0, confidentWrong: 0, possibleWrong: 0, falseConfident: 0, falsePossible: 0 };
   for (const p of sampled) {
-    const owner = SCORERS.handcrafted(p.full, gallery[p.ownerIdx]);
-    let top = -Infinity, second = -Infinity, sum = 0, sumSq = 0, n = 0;
-    for (let i = 0; i < gallery.length; i++) {
-      if (i === p.ownerIdx) continue;
-      const v = SCORERS.handcrafted(p.full, gallery[i]);
-      sum += v; sumSq += v * v; n++;
-      if (v > top) { second = top; top = v; } else if (v > second) second = v;
-    }
-    const mean = sum / n, std = Math.sqrt(Math.max(0, sumSq / n - mean * mean));
-    const absent = describe(top, second, mean, std);
-    const correct = owner > top;
-    const meanP = (sum + owner) / (n + 1);
-    const stdP = Math.sqrt(Math.max(0, (sumSq + owner * owner) / (n + 1) - meanP * meanP));
-    const present = correct ? describe(owner, top, meanP, stdP) : null;
-    stats.push({ correct, present, absent });
-  }
+    tally.n++;
+    const present = lookup(p.full.emb, null);
+    const right = present.top === p.ownerIdx;
+    if (present.verdict === 'confident') right ? tally.confidentRight++ : tally.confidentWrong++;
+    if (present.verdict !== 'no_match') right ? tally.possibleRight++ : tally.possibleWrong++;
 
-  results.verdictStatistics = {};
-  console.log('\nBasis for the verdict (handcrafted score): share of true owners caught at a fixed false-alarm rate');
-  console.log('  statistic               1% false alarms   5% false alarms   threshold at 1%');
-  for (const key of ['raw', 'gap', 'z']) {
-    const row = {};
-    for (const fpr of FPR_TARGETS) {
-      const impostor = stats.map(x => x.absent[key]).sort((a, b) => b - a);
-      const threshold = impostor[Math.min(impostor.length - 1, Math.floor(impostor.length * fpr))];
-      const detected = stats.filter(x => x.correct && x.present[key] > threshold).length / stats.length;
-      row[fpr] = { threshold, detected };
-    }
-    results.verdictStatistics[key] = row;
-    const label = { raw: 'top score', gap: 'gap to runner-up', z: 'std devs above own spread' }[key];
-    console.log(`  ${label.padEnd(26)} ${pct(row[0.01].detected)}            ${pct(row[0.05].detected)}           ${row[0.01].threshold.toFixed(4)}`);
+    const absent = lookup(p.full.emb, new Set([p.ownerIdx]));
+    if (absent.verdict === 'confident') tally.falseConfident++;
+    if (absent.verdict !== 'no_match') tally.falsePossible++;
   }
+  const share = (k) => tally[k] / tally.n;
+  results.verdict = Object.fromEntries(Object.keys(tally).filter(k => k !== 'n').map(k => [k, share(k)]));
+  results.verdict.n = tally.n;
+
+  console.log('\nThe verdict /identify gives');
+  console.log('                                    confident    possible or better');
+  console.log(`  owner in the pool, names them      ${pct(share('confidentRight'))}       ${pct(share('possibleRight'))}`);
+  console.log(`  owner in the pool, names another   ${pct(share('confidentWrong'))}       ${pct(share('possibleWrong'))}`);
+  console.log(`  owner NOT in the pool (all wrong)  ${pct(share('falseConfident'))}       ${pct(share('falsePossible'))}`);
 }
 
 // ── Real smurf pairs (a final check, never a tuning set) ──
@@ -475,8 +381,14 @@ for (const name of SCORER_NAMES) {
   } catch { /* table absent in older copies */ }
 
   const pool = [...accounts.entries()].map(([tag, e]) => ({ tag, ...e }));
-  console.log(`\nConfirmed smurf pairs (${pairs.length} on file): where the main ranks when you look up the smurf`);
-  if (pairs.length) console.log(`  ${'smurf -> main'.padEnd(46)} ${SCORER_NAMES.map(s => s.padStart(11)).join(' ')}`);
+  const siblings = new Map(); // main -> its confirmed smurfs: the same person, so not wrong answers
+  for (const { tag_main: main, tag_smurf: smurf } of pairs) {
+    if (!siblings.has(main)) siblings.set(main, new Set());
+    siblings.get(main).add(smurf);
+  }
+
+  console.log(`\nConfirmed smurf pairs (${pairs.length} on file): where the main ranks among ${pool.length} accounts when you look up the smurf`);
+  if (pairs.length) console.log(`  ${'smurf -> main'.padEnd(46)} ${SCORER_NAMES.map(s => s.padStart(COL)).join(' ')}`);
 
   for (const { tag_main: main, tag_smurf: smurf } of pairs) {
     const q = accounts.get(smurf), target = accounts.get(main);
@@ -491,14 +403,14 @@ for (const name of SCORER_NAMES) {
       if (own == null) { ranks[name] = null; continue; }
       let better = 0;
       for (const c of pool) {
-        if (c.tag === smurf || c.tag === main) continue;
+        if (c.tag === smurf || c.tag === main || siblings.get(main).has(c.tag)) continue;
         const s = SCORERS[name](q, c);
         if (s != null && s > own) better++;
       }
       ranks[name] = better + 1;
     }
     results.realPairs.push({ main, smurf, indexed: true, ranks, poolSize: pool.length });
-    console.log(`  ${`${smurf} -> ${main}`.padEnd(46)} ${SCORER_NAMES.map(s => String(ranks[s] ?? '-').padStart(11)).join(' ')}`);
+    console.log(`  ${`${smurf} -> ${main}`.padEnd(46)} ${SCORER_NAMES.map(s => String(ranks[s] ?? '-').padStart(COL)).join(' ')}`);
   }
 }
 

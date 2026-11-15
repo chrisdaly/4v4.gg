@@ -1,6 +1,6 @@
 # The build context is uploaded to the remote builder on every deploy, and
 # data/ alone is ~1.8GB of production SQLite. The Dockerfile copies only
-# package*.json, src/, ml/tokenizer.js, litestream.yml and
+# package*.json, src/, litestream.yml and
 # docker-entrypoint.sh, so everything below is pure upload cost.
 #
 # Deliberately no `!` negations: a broad pattern that caught one of those

@@ -19,20 +19,21 @@ const RACE_COLORS = {
  *   - Spoke count = number of active control groups
  *   - Spoke length = relative usage of each group
  *   - Overall scale = replay count (confidence)
- *   - Fill color = race
- *   - Center dot brightness = APM
+ *   - Fill color = race, or `color` when the map is coloured by a trait
+ *   - Center dot brightness = APM (fixed when coloured by a trait, so the
+ *     colour alone carries the value)
  *   - Rotation offset = derived from group indices (visual variety)
  */
 export default function PlayerGlyph({
   cx, cy, glyph, race, replayCount = 1,
-  baseR = 12, isHighlighted = false, isHovered = false,
+  baseR = 12, isHighlighted = false, isHovered = false, color: colorOverride = null,
 }) {
   if (!glyph || !glyph.hotkey) {
     const r = isHovered ? 5.5 : isHighlighted ? 5 : 3.5;
     return (
       <circle cx={cx} cy={cy} r={r}
-        fill={GOLD} opacity={isHighlighted ? 0.9 : 0.4}
-        stroke={isHighlighted ? "var(--white)" : GOLD_DIM}
+        fill={colorOverride || GOLD} opacity={isHighlighted ? 0.9 : 0.4}
+        stroke={isHighlighted ? "var(--white)" : colorOverride || GOLD_DIM}
         strokeWidth={isHighlighted ? 1.5 : 0.5}
         pointerEvents="none" />
     );
@@ -40,7 +41,7 @@ export default function PlayerGlyph({
 
   const hotkey = glyph.hotkey;
   const apm = glyph.apm || 0;
-  const color = RACE_COLORS[race] || GOLD;
+  const color = colorOverride || RACE_COLORS[race] || GOLD;
 
   // Active groups: any with usage > 5% of max
   const maxUsage = Math.max(...hotkey, 0.01);
@@ -65,7 +66,7 @@ export default function PlayerGlyph({
   const finalR = R * hoverScale;
 
   // Opacity from APM
-  const apmAlpha = 0.35 + Math.min(apm, 1) * 0.45;
+  const apmAlpha = colorOverride ? 0.8 : 0.35 + Math.min(apm, 1) * 0.45;
 
   // Rotation offset: sum of active group indices → unique angle per player
   const rotOffset = active.reduce((s, g) => s + g.group * 0.7, 0);

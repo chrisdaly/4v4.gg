@@ -17,10 +17,8 @@ import {
   getReplaysNeedingActionSequences,
   updatePlayerActionSequence,
   getActionSequencesForExport,
-  updateFingerprintEmbedding,
 } from '../db.js';
 import { buildServerFingerprint } from '../fingerprint.js';
-import { getEmbeddingBatch } from '../embedClient.js';
 import { requireApiKey } from '../middleware/auth.js';
 import { recordReplayDownload } from '../replayImporter.js';
 
@@ -261,8 +259,6 @@ router.post('/upload', requireApiKey, (req, res, next) => {
     try {
       const fingerprints = computeFingerprints(parsed.actions, playersWithTags);
       if (fingerprints.length > 0) insertPlayerFingerprints(replayId, fingerprints);
-      // Fire-and-forget: compute neural embeddings if sidecar is up
-      computeEmbeddingsAsync(replayId, parsed.actions);
     } catch (fpErr) {
       console.error(`[Fingerprint] Error for ${originalname}:`, fpErr.message);
     }
@@ -383,7 +379,6 @@ router.post('/import-w3c', requireApiKey, async (req, res) => {
     try {
       const fingerprints = computeFingerprints(parsed.actions, playersWithTags);
       if (fingerprints.length > 0) insertPlayerFingerprints(replayId, fingerprints);
-      computeEmbeddingsAsync(replayId, parsed.actions);
     } catch (fpErr) {
       console.error(`[Fingerprint] Error for W3C match ${matchId}:`, fpErr.message);
     }
@@ -832,31 +827,6 @@ function computeFingerprints(actions, players) {
       ...fp,
     };
   });
-}
-
-/**
- * Fire-and-forget: compute embeddings for a just-imported replay via the sidecar.
- */
-async function computeEmbeddingsAsync(replayId, actions) {
-  try {
-    const sequences = actions
-      .filter(a => a.fullActionSequence && a.fullActionSequence.length > 10)
-      .map(a => a.fullActionSequence);
-    if (sequences.length === 0) return;
-
-    const embeddings = await getEmbeddingBatch(sequences);
-    let idx = 0;
-    for (const a of actions) {
-      if (a.fullActionSequence && a.fullActionSequence.length > 10) {
-        if (embeddings[idx]) {
-          updateFingerprintEmbedding(replayId, a.playerId, embeddings[idx]);
-        }
-        idx++;
-      }
-    }
-  } catch (err) {
-    console.error(`[Embed] Error for replay ${replayId}:`, err.message);
-  }
 }
 
 export default router;

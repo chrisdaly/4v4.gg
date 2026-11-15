@@ -1,4 +1,4 @@
-import React, { useState, useCallback, useRef } from "react";
+import React, { useState, useCallback, useRef, useMemo } from "react";
 import styled from "styled-components";
 import PeonLoader from "../PeonLoader";
 import { PlayerSearch } from "../ui";
@@ -14,6 +14,31 @@ const GREY = "var(--grey-light)";
 const GREY_MID = "var(--grey-mid)";
 const RED = chartColors.red;
 const GREEN = chartColors.green;
+
+// What the map can be coloured by. Every trait is a plain number the relay
+// derives from the fingerprint, so a colour always means something sayable.
+const pctFmt = v => `${Math.round(v * 100)}%`;
+const COLOR_MODES = [
+  { key: "race", label: "Race" },
+  { key: "apm", label: "Speed", unit: "actions per minute", fmt: v => Math.round(v) },
+  { key: "fastShare", label: "Fast clicks", unit: "of actions under 100ms apart", fmt: pctFmt },
+  { key: "groupsUsed", label: "Control groups", unit: "groups in regular use", fmt: v => Math.round(v) },
+  { key: "oscillation", label: "1-2-1 spam", unit: "of group switches go A, B, A", fmt: pctFmt },
+  { key: "hotkeyShare", label: "Hotkey use", unit: "of actions are group selections", fmt: pctFmt },
+];
+const NO_DATA = "rgba(255, 255, 255, 0.18)";
+
+function hexToRgb(hex) {
+  const h = hex.replace("#", "");
+  return [0, 2, 4].map(i => parseInt(h.slice(i, i + 2), 16));
+}
+const RAMP_LOW = hexToRgb(chartColors.blue);
+const RAMP_HIGH = hexToRgb(chartColors.gold);
+/** Low values blue, high values gold. t is 0 to 1. */
+function rampColor(t) {
+  const c = RAMP_LOW.map((lo, i) => Math.round(lo + (RAMP_HIGH[i] - lo) * t));
+  return `rgb(${c[0]}, ${c[1]}, ${c[2]})`;
+}
 
 function projectEmbedding(embedding, pcaMean, pcaComponents) {
   const centered = embedding.map((v, d) => v - pcaMean[d]);
@@ -51,7 +76,7 @@ function covarianceEllipse(dots) {
 const HOVER_THRESHOLD = 25;
 
 /**
- * EmbeddingScatter - PCA scatter plot of neural player embeddings.
+ * EmbeddingScatter - 2D scatter plot of player identity embeddings.
  *
  * @param {object}   mapData        - { players, pca } from /api/fingerprints/embedding-map
  * @param {string[]} highlightTags  - battleTags to highlight as foreground
@@ -70,7 +95,20 @@ export default function EmbeddingScatter({ mapData, highlightTags = [], suspects
   const [searchQuery, setSearchQuery] = useState("");
   const [searchedTags, setSearchedTags] = useState([]);
   const [showSuspects, setShowSuspects] = useState(true);
+  const [colorBy, setColorBy] = useState("race");
   const [hoveredSuspect, setHoveredSuspect] = useState(null);
+
+  // Colour scale for the chosen trait. The ends sit at the 5th and 95th
+  // percentile so a handful of extreme players do not flatten everyone else.
+  const mapPlayers = mapData?.players;
+  const traitScale = useMemo(() => {
+    if (colorBy === "race" || !mapPlayers) return null;
+    const values = mapPlayers.map(p => p.traits?.[colorBy]).filter(v => v != null).sort((a, b) => a - b);
+    if (values.length < 5) return null;
+    const lo = values[Math.floor(values.length * 0.05)];
+    const hi = values[Math.floor(values.length * 0.95)];
+    return { lo, hi, known: values.length };
+  }, [mapPlayers, colorBy]);
 
   // Clear expanded replay dots when projection method changes
   const prevMethod = useRef(projectionMethod);
@@ -188,6 +226,15 @@ export default function EmbeddingScatter({ mapData, highlightTags = [], suspects
       }))
     : [];
   const bgPlayers = players.filter(p => !highlightSet.has(p.battleTag));
+
+  const colorMode = COLOR_MODES.find(m => m.key === colorBy) || COLOR_MODES[0];
+  const traitColor = (p) => {
+    if (colorBy === "race") return null;
+    const v = p.traits?.[colorBy];
+    if (v == null || !traitScale) return NO_DATA;
+    const t = traitScale.hi > traitScale.lo ? (v - traitScale.lo) / (traitScale.hi - traitScale.lo) : 0.5;
+    return rampColor(Math.max(0, Math.min(1, t)));
+  };
   const fgPlayers = players.filter(p => highlightSet.has(p.battleTag));
 
   const popMeanX = players.reduce((a, p) => a + p.x, 0) / players.length;
@@ -320,6 +367,27 @@ export default function EmbeddingScatter({ mapData, highlightTags = [], suspects
         {projectionLoading && <StatChip style={{ color: GREY }}>loading…</StatChip>}
       </StatsBar>
 
+      {/* Colour by a readable trait */}
+      <ColorRow>
+        <ColorLabel>Colour by</ColorLabel>
+        <MethodToggle>
+          {COLOR_MODES.map(m => (
+            <MethodBtn key={m.key} $active={colorBy === m.key} onClick={() => setColorBy(m.key)}>{m.label}</MethodBtn>
+          ))}
+        </MethodToggle>
+        {traitScale && (
+          <ColorLegend>
+            <span>{colorMode.fmt(traitScale.lo)}</span>
+            <ColorRamp style={{ background: `linear-gradient(to right, ${rampColor(0)}, ${rampColor(1)})` }} />
+            <span>{colorMode.fmt(traitScale.hi)}</span>
+            <span className="unit">{colorMode.unit}</span>
+            {traitScale.known < players.length && (
+              <span className="unit">&middot; grey: no click-by-click data ({players.length - traitScale.known})</span>
+            )}
+          </ColorLegend>
+        )}
+      </ColorRow>
+
       {/* Search */}
       <SearchRow>
         <SearchInputWrap>
@@ -435,6 +503,7 @@ export default function EmbeddingScatter({ mapData, highlightTags = [], suspects
               replayCount={p.replayCount}
               baseR={10}
               isHovered={isHovered}
+              color={traitColor(p)}
             />
           );
         })}
@@ -543,6 +612,7 @@ export default function EmbeddingScatter({ mapData, highlightTags = [], suspects
                 replayCount={p.replayCount}
                 baseR={14}
                 isHighlighted
+                color={traitColor(p)}
               />
               <text x={sx + 18} y={sy + 4} fill="var(--white)" fontSize="11"
                 fontFamily="var(--font-display)" fontWeight="bold"
@@ -625,6 +695,12 @@ export default function EmbeddingScatter({ mapData, highlightTags = [], suspects
         <ScatterTooltip style={{ left: mousePos.clientX, top: mousePos.clientY }}>
           <span className="name">{hoveredPlayer.battleTag.split("#")[0]}</span>
           <span className="meta">{hoveredPlayer.race} &middot; {hoveredPlayer.replayCount} replays</span>
+          {hoveredPlayer.traits && (
+            <span className="meta">
+              {hoveredPlayer.traits.apm} APM &middot; {hoveredPlayer.traits.groupsUsed} groups
+              {hoveredPlayer.traits.oscillation != null && <> &middot; {pctFmt(hoveredPlayer.traits.oscillation)} 1-2-1</>}
+            </span>
+          )}
           <span className="meta">{distFromCenter(hoveredPlayer).toFixed(1)}σ from center</span>
         </ScatterTooltip>
       )}
@@ -720,7 +796,8 @@ export default function EmbeddingScatter({ mapData, highlightTags = [], suspects
 
 const ScatterContainer = styled.div`
   position: relative;
-  svg { display: block; width: 100%; height: auto; }
+  /* Only the plot itself: a bare "svg" also stretched the search field's icon */
+  > svg { display: block; width: 100%; height: auto; }
 `;
 
 const StatsBar = styled.div`
@@ -756,6 +833,40 @@ const MethodBtn = styled.button`
   & + & {
     border-left: var(--border-thin) solid var(--grey-mid);
   }
+`;
+
+const ColorRow = styled.div`
+  display: flex;
+  align-items: center;
+  gap: var(--space-3);
+  flex-wrap: wrap;
+  margin-bottom: var(--space-3);
+`;
+
+const ColorLabel = styled.span`
+  font-family: var(--font-mono);
+  font-size: var(--text-xxs);
+  text-transform: uppercase;
+  letter-spacing: 0.1em;
+  color: var(--grey-light);
+`;
+
+const ColorLegend = styled.div`
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+  font-family: var(--font-mono);
+  font-size: var(--text-xxs);
+  color: var(--white);
+
+  .unit { color: var(--grey-light); }
+`;
+
+const ColorRamp = styled.span`
+  display: inline-block;
+  width: 96px;
+  height: 8px;
+  border-radius: var(--radius-sm);
 `;
 
 const StatChip = styled.div`
