@@ -679,7 +679,7 @@ export default function ScoutTab({ initialPlayer = null, initialProfileData = nu
                     <PlaystyleReport profileData={activeData} />
                   </ProfileCard>
                   {embedded && (
-                    <SeeOthersLink to="/truesight?tab=signatures">
+                    <SeeOthersLink to="/signatures">
                       Browse other signatures
                     </SeeOthersLink>
                   )}

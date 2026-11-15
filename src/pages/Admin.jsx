@@ -729,6 +729,13 @@ function AdminDashboard() {
           </LinkInfo>
           <LinkIcon size={16} />
         </LinkCard>
+        <LinkCard as={Link} to="/signatures">
+          <LinkInfo>
+            <LinkTitle>Signatures</LinkTitle>
+            <LinkDesc>Browse all fingerprinted player profiles</LinkDesc>
+          </LinkInfo>
+          <LinkIcon size={16} />
+        </LinkCard>
       </Section>
 
       <Section>
