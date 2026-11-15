@@ -35,7 +35,7 @@ const KIT = [
     icon: "metamorphosis",
     name: "Metamorphosis",
     text:
-      "Good in both modes, but it needs level 6, which fewer than one Demon Hunter in ten gets to in 4v4.",
+      "Good in both modes, but it needs level 6, which few Demon Hunters reach in 4v4.",
     verdict: "same",
   },
 ];

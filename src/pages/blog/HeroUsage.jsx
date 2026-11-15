@@ -109,8 +109,6 @@ export default function HeroUsage() {
       <Exchange
         when="Nov 1"
         rows={[
-          ["ToD", "et dh ... completement naze", "And DH... completely useless."],
-          ["Mellow", "mais oui DH bears c'est vrmt de la merde je confirme", "Yeah, DH bears really is crap, I confirm."],
           ["Apm50", "dh=dead hero Kappa"],
           ["ToD", "yep"],
         ]}
@@ -127,20 +125,18 @@ export default function HeroUsage() {
       <DemonHunterKit />
 
       <p>
-        Some of it is the map. In solo the DH does a bit of everything: he
-        tanks, deals damage, burns the enemy hero&rsquo;s mana and stops
-        him creeping. In 4v4 the maps are bigger, with more camps and more
-        expos, so the player he&rsquo;s chasing creeps somewhere else, or
-        an ally comes to help. By the time the armies meet, the
-        fights are huge and he&rsquo;s the first hero they focus.
+        Some of it is the map. In solo the DH tanks, deals damage, burns
+        the enemy hero&rsquo;s mana and stops him creeping. 4v4 maps are
+        bigger, with more camps and more expos, so the player he&rsquo;s
+        chasing creeps somewhere else, or an ally comes to help. By the
+        time the armies meet, the fights are huge and he&rsquo;s the first
+        hero they focus.
       </p>
 
       <Exchange
         when="Apr 3"
         rows={[
-          ["RONALDO", "dh good idea"],
           ["Boyzinho", "dh good in small maps"],
-          ["RONALDO", "meybe"],
           ["Boyzinho", "in big maps that people usually go 60 70 food"],
           ["Boyzinho", "dh is ez target"],
           ["Boyzinho", "hex"],
@@ -174,17 +170,14 @@ export default function HeroUsage() {
         And the DH can&rsquo;t keep himself alive. A hero in melee range of
         four opponents needs a Holy Light or a Healing Wave behind him, and
         NE has neither. The Warden, NE&rsquo;s other melee hero, gets
-        around that: Blink takes her out of trouble, she can hide at
-        night, and her damage is a burst she can land and leave. Fan of
-        Knives also farms workers, which levels her fast. She reaches
-        level 6 in about a third of her 4v4 games. The DH has to
-        stand in the fight to do his damage. A DH on his own has to carry his survival: a Town
-        Portal, a Staff of Preservation, boots, an Orb of Venom, an
-        invulnerability potion, maybe an anti-magic potion. That&rsquo;s
-        all six slots, before any of the good items he picks up creeping.
-        So he often needs a second hero, to carry items and to staff him
-        out when he&rsquo;s caught, and a second hero splits his
-        experience and ends the bonus, which puts Metamorphosis further away.
+        around that: Blink takes her out of trouble, and her damage is a
+        burst she can land and leave. She reaches level 6 in about a third
+        of her 4v4 games. The DH has to stand in the fight. On his own he
+        carries his survival: a Town Portal, a Staff of Preservation,
+        boots, an Orb of Venom, an invulnerability potion, maybe an
+        anti-magic potion. That&rsquo;s all six slots. So he often needs a
+        second hero to carry items and staff him out, and that splits his
+        experience and ends the bonus.
       </p>
 
       <h2>Where he still works</h2>
@@ -206,8 +199,7 @@ export default function HeroUsage() {
       />
 
       <p>
-        The players who rate him agree on when: the corner, the harass, the
-        first fight. mubarak had just harassed Lakers out of a game.
+        mubarak had just harassed Lakers out of a game.
       </p>
 
       <Exchange
@@ -215,9 +207,6 @@ export default function HeroUsage() {
         rows={[
           ["mubarak", "yeah lakers i give u advice in that map as elf"],
           ["mubarak", "get dh in corner its better"],
-          ["mubarak", "and tree creep the small camp with 2 level 3s and the ogre with item"],
-          ["mubarak", "ur archer and aow can lower them b4 ur hero comes out"],
-          ["mubarak", "so u are rdy for a herass"],
           ["Lakers", "dh i like"],
           ["Lakers", "but can be hard in 4s"],
         ]}
@@ -232,9 +221,6 @@ export default function HeroUsage() {
       <Exchange
         when="Mar 25"
         rows={[
-          ["JeeF", "was suprised you harrasing with dh tbh"],
-          ["Sabbatical", "dh so useless after minute 8"],
-          ["Sabbatical", "just wastes your micro moving it back while it does 0 damange and gets 2-3 mana burns in"],
           ["mubarak", "trust me dh is good vs orc heroes"],
           ["mubarak", "and kotg"],
         ]}
@@ -246,14 +232,6 @@ export default function HeroUsage() {
         hero all four opponents want dead.
       </p>
 
-      <Exchange
-        when="Nov 2"
-        rows={[
-          ["criver", "i was playing pala lv1 rpg for 2min"],
-          ["Mellow", "pala was the best choice in this situation, for sustain"],
-          ["Scorch", "my dh would have been dead a few times if it weren't for the heals"],
-        ]}
-      />
 
       <Exchange
         when="May 12"
@@ -262,23 +240,16 @@ export default function HeroUsage() {
           ["Lynfan", "dh need a  pladin or sh to heal him"],
           ["fuetti", "jens made dh work in 4v4"],
           ["fuetti", "but its jens"],
-          ["SHIP", "theres just not much space u can make with dh compared to warden or bm"],
-          ["SHIP", "and kotg outclass dh lvl6 with tranq"],
         ]}
       />
 
       <p>
         That&rsquo;s a narrow set of games: the right spawn, the right
-        opponents, an ally with a heal. It&rsquo;s also a set nobody has
-        finished mapping.
-      </p>
-
-      <p>
-        Solo has had twenty years of pros
-        working out the DH&rsquo;s timings, and 4v4 has had a chat room.
-        Nobody has worked out in public which spawns, which maps or which enemy
-        heroes make him worth the slot, or when a level-3 DH should leave
-        the corner on a map twice the size.
+        opponents, an ally with a heal.
+        Solo has had twenty years of pros working out the DH&rsquo;s
+        timings, and 4v4 has had a chat room. Nobody has worked out which
+        spawns, maps or enemy heroes make him worth the slot, or when a
+        level-3 DH should leave the corner on a map twice the size.
       </p>
 
       <p>
@@ -292,10 +263,7 @@ export default function HeroUsage() {
 
       <p className="dw-foot">
         Picks are from season 25, Europe: 11,000 solo games against 11,000
-        of 4v4, 236,000 hero picks, about nine heroes per 4v4 team.
-        Shares are of NE player slots, so a DH appears in more games than
-        the 16% suggests: 23% of 4v4 games have one somewhere, against 29%
-        of solo games. Hero levels are from 600 recent 4v4 games: a Keeper
+        of 4v4, 236,000 hero picks, about nine heroes per 4v4 team. Hero levels are from 600 recent 4v4 games: a Keeper
         ends at level 6 or higher in 14% of picks (27% when he&rsquo;s the
         player&rsquo;s only hero), a DH in 7% (14%), a Warden in 38%, though from only 68 picks.
         Pick rate isn&rsquo;t strength: the ladder matches on
