@@ -12,6 +12,67 @@ import { getPlayerProfile } from "../../lib/api";
 const RELAY_URL =
   import.meta.env.VITE_CHAT_RELAY_URL || "https://4v4gg-chat-relay.fly.dev";
 
+// The relay only answers origins on its CORS list. A dev server on any other
+// port gets a response the browser refuses to hand over, and fetch reports
+// that as a bare "Failed to fetch" - retrying cannot fix it.
+const BLOCKED_DEV_ORIGIN =
+  import.meta.env.DEV &&
+  typeof window !== "undefined" &&
+  new URL(RELAY_URL, window.location.origin).origin !== window.location.origin &&
+  !["3000", "3001"].includes(window.location.port);
+
+// fetch threw: no response reached the page at all.
+function unreachableMessage() {
+  if (BLOCKED_DEV_ORIGIN) {
+    return `The replay server does not accept requests from ${window.location.origin}. Run the dev server on port 3000 or 3001.`;
+  }
+  return "Could not reach the replay server. It may be restarting, or the import ran too long and the connection dropped. Try again in a minute.";
+}
+
+const IMPORT_POLL_MS = 2500;
+const IMPORT_POLL_LIMIT_MS = 3 * 60 * 1000;
+const IMPORT_POLL_MAX_MISSES = 4;
+
+// Follow an import job to its end. Resolves to { result }, { error } (a
+// sentence ready to show), or null once `isCurrent` says nobody is waiting.
+async function pollImport(tag, firstJob, isCurrent) {
+  const started = Date.now();
+  let job = firstJob;
+  let misses = 0;
+  for (;;) {
+    if (job?.status === 'done') return { result: job.result || {} };
+    if (job?.status === 'error') return { error: failureMessage(500, job.error) };
+    if (job?.status === 'none') {
+      return { error: "The replay server restarted before the import finished. Try again." };
+    }
+    if (Date.now() - started > IMPORT_POLL_LIMIT_MS) {
+      return { error: "The import is taking longer than expected. It is still running - reload this page in a few minutes." };
+    }
+    await new Promise((r) => setTimeout(r, IMPORT_POLL_MS));
+    if (!isCurrent()) return null;
+    try {
+      const res = await fetch(
+        `${RELAY_URL}/api/fingerprints/import/status?battleTag=${encodeURIComponent(tag)}`
+      );
+      job = res.ok ? await res.json() : null;
+    } catch {
+      job = null;
+    }
+    // One dropped poll is not a failed import; a run of them is.
+    misses = job ? 0 : misses + 1;
+    if (misses >= IMPORT_POLL_MAX_MISSES) return { error: unreachableMessage() };
+  }
+}
+
+// A response arrived but it was not a successful import.
+function failureMessage(status, serverError) {
+  if (status === 429) return "Too many imports in the last minute. Try again shortly.";
+  if (!serverError) {
+    return `The replay server returned an error (${status}). It may be restarting. Try again in a minute.`;
+  }
+  return `Import failed: ${serverError.replace(/^Import failed:\s*/i, "")}`;
+}
+
 const RACE_ICON_MAP = {
   Human: raceIcons.human,
   human: raceIcons.human,
@@ -142,33 +203,64 @@ export default function ScoutTab({ initialPlayer = null, initialProfileData = nu
     [selectedTag, pushPlayerParam]
   );
 
+  // Lets a poll that is still waiting notice the reader picked someone else.
+  const selectedTagRef = useRef(selectedTag);
+  selectedTagRef.current = selectedTag;
+  const mountedRef = useRef(true);
+  useEffect(() => {
+    mountedRef.current = true;
+    return () => { mountedRef.current = false; };
+  }, []);
+
   const handleImport = useCallback(async () => {
     if (!selectedTag || importStatus === 'importing') return;
     const tag = selectedTag;
     setImportStatus('importing');
     setImportResult(null);
     try {
-      const res = await fetch(`${RELAY_URL}/api/fingerprints/import`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ battleTag: tag }),
-      });
-      const data = await res.json();
-      if (!res.ok) {
+      let res;
+      try {
+        res = await fetch(`${RELAY_URL}/api/fingerprints/import`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ battleTag: tag }),
+        });
+      } catch {
         setImportStatus('error');
-        setImportResult(data.error || 'Import failed');
+        setImportResult(unreachableMessage());
         return;
       }
-      setImportResult(data);
+      // A proxy error page (502/504) is HTML, not JSON.
+      const data = await res.json().catch(() => null);
+      if (!res.ok || !data) {
+        setImportStatus('error');
+        setImportResult(failureMessage(res.status, data?.error));
+        return;
+      }
+      // The relay answers at once with a job; the outcome comes from polling.
+      // A response without `status` is a relay that still runs the import
+      // inside the request and has already returned the final result.
+      let result = data;
+      if (data.status) {
+        const outcome = await pollImport(tag, data, () => mountedRef.current && selectedTagRef.current === tag);
+        if (!outcome) return; // the reader moved on to another player
+        if (outcome.error) {
+          setImportStatus('error');
+          setImportResult(outcome.error);
+          return;
+        }
+        result = outcome.result;
+      }
+      setImportResult(result);
       setImportStatus('done');
-      if (data.imported > 0) {
+      if (result.imported > 0) {
         // Re-fetch profile now that data exists
         setSelectedTag(null); // force selectPlayer to re-run
         setTimeout(() => selectPlayer(tag), 300);
       }
     } catch (err) {
       setImportStatus('error');
-      setImportResult(err.message);
+      setImportResult(`Import failed: ${err.message}`);
     }
   }, [selectedTag, importStatus, selectPlayer]);
 
@@ -670,6 +762,10 @@ export default function ScoutTab({ initialPlayer = null, initialProfileData = nu
                   <span>Imported {importResult.imported} replays - loading profile...</span>
                 ) : importResult.discovered === 0 ? (
                   <span>No 4v4 matches found for this player.</span>
+                ) : importResult.rateLimited ? (
+                  <span>
+                    W3Champions is rate limiting replay downloads. This player is queued and will be imported automatically - check back later.
+                  </span>
                 ) : importResult.noReplay > 0 ? (
                   <span>
                     Searched {importResult.discovered} matches - replay files not available on W3C. This is normal.
@@ -688,10 +784,12 @@ export default function ScoutTab({ initialPlayer = null, initialProfileData = nu
                 )
               ) : importStatus === 'error' ? (
                 <>
-                  <span>Import failed: {typeof importResult === 'string' ? importResult : 'Unknown error'}</span>
-                  <ImportBtn onClick={handleImport} style={{ marginTop: 'var(--space-2)' }}>
-                    Retry import
-                  </ImportBtn>
+                  <span>{typeof importResult === 'string' ? importResult : 'Import failed: unknown error'}</span>
+                  {!BLOCKED_DEV_ORIGIN && (
+                    <ImportBtn onClick={handleImport} style={{ marginTop: 'var(--space-2)' }}>
+                      Retry import
+                    </ImportBtn>
+                  )}
                 </>
               ) : embedded ? (
                 <PeonLoader size="sm" subject={queryName} />

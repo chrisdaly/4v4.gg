@@ -1570,28 +1570,78 @@ router.get('/search-w3c', searchW3cLimiter, async (req, res) => {
   }
 });
 
-// POST /api/fingerprints/import - Import replays for a player (public, rate-limited)
-router.post('/import', importLimiter, async (req, res) => {
+// ── Import jobs ─────────────────────────────────
+// An import walks up to 10 matches with a 3s pause before each, plus replay
+// downloads, so it can outlive the proxy's patience for a silent connection.
+// The POST therefore starts the work and returns at once; the page polls
+// /import/status. Jobs live in memory: a restart loses them, and the status
+// endpoint reports that as 'none' so the page can say so.
+const IMPORT_JOB_TTL_MS = 10 * 60 * 1000;
+const importJobs = new Map(); // lowercased battleTag -> { status, result?, error?, finishedAt? }
+
+const jobKey = (battleTag) => battleTag.trim().toLowerCase();
+
+function pruneImportJobs() {
+  const cutoff = Date.now() - IMPORT_JOB_TTL_MS;
+  for (const [key, job] of importJobs) {
+    if (job.finishedAt && job.finishedAt < cutoff) importJobs.delete(key);
+  }
+}
+
+function startImportJob(battleTag) {
+  const job = { status: 'running' };
+  importJobs.set(jobKey(battleTag), job);
+  importPlayerMatches(battleTag, 3)
+    .then((result) => {
+      // Invalidate caches so new data shows up immediately
+      parsedPlayersCache = null;
+      galleryAge = 0; // mark stale, keep old data serving
+      // If rate limited, queue the tag so the drip retries it next available slot
+      if (result.rateLimited) {
+        enqueueImport(battleTag);
+        result.queued = true;
+      }
+      job.status = 'done';
+      job.result = result;
+    })
+    .catch((err) => {
+      console.error('[import] Error:', err.message);
+      job.status = 'error';
+      job.error = err.message;
+    })
+    .finally(() => {
+      job.finishedAt = Date.now();
+    });
+  return job;
+}
+
+const publicJob = ({ status, result, error }) => ({ status, result, error });
+
+// POST /api/fingerprints/import - Start importing replays for a player (public, rate-limited)
+// Returns 202 straight away; poll GET /import/status for the outcome.
+router.post('/import', importLimiter, (req, res) => {
   const { battleTag } = req.body;
   if (!battleTag || typeof battleTag !== 'string') {
     return res.status(400).json({ error: 'battleTag is required' });
   }
+  pruneImportJobs();
+  // A second request for a player whose import is still running joins it
+  // rather than starting a duplicate walk over the same matches.
+  const existing = importJobs.get(jobKey(battleTag));
+  const job = existing?.status === 'running' ? existing : startImportJob(battleTag);
+  res.status(202).json(publicJob(job));
+});
 
-  try {
-    const result = await importPlayerMatches(battleTag, 3);
-    // Invalidate caches so new data shows up immediately
-    parsedPlayersCache = null;
-    galleryAge = 0; // mark stale, keep old data serving
-    // If rate limited, queue the tag so the drip retries it next available slot
-    if (result.rateLimited) {
-      enqueueImport(battleTag);
-      result.queued = true;
-    }
-    res.json(result);
-  } catch (err) {
-    console.error('[import] Error:', err.message);
-    res.status(500).json({ error: 'Import failed: ' + err.message });
+// GET /api/fingerprints/import/status?battleTag= - Outcome of the latest import for a player
+router.get('/import/status', (req, res) => {
+  const { battleTag } = req.query;
+  if (!battleTag || typeof battleTag !== 'string') {
+    return res.status(400).json({ error: 'battleTag is required' });
   }
+  pruneImportJobs();
+  const job = importJobs.get(jobKey(battleTag));
+  res.set('Cache-Control', 'no-store');
+  res.json(job ? publicJob(job) : { status: 'none' });
 });
 
 // POST /api/fingerprints/import-bulk - Import all recent matches for a player (admin, rate-limited)
