@@ -36,7 +36,7 @@ const ACTION_ID_LABELS = {
 
 // The relay's verdict in words. Two things can back it: the click scorer on its
 // own (how far the top match stands out), or side evidence on a top-five match
-// (a shared uncommon country and never having been in the same ladder game).
+// (a shared rare country or the closest lobby chat, never in the same ladder game).
 const shortName = (tag) => (tag || "").split("#")[0];
 
 function listNames(tags) {
@@ -59,19 +59,24 @@ function getIdentifyVerdict(data, queryName) {
   if (sideMatches.length > 0) {
     const first = similar.find(s => s.battleTag === sideMatches[0]) || {};
     const ev = first.evidence || {};
-    // Where the match's country comes from: its recorded games, or only its latest
-    const conn = first.connection;
-    const where = conn
-      ? `, connected from there in ${Math.round(conn.share * 100)}% of ${conn.games} games`
-      : "";
-    const share = ev.countryShare != null
-      ? `${(ev.countryShare * 100).toFixed(ev.countryShare < 0.01 ? 1 : 0)}% of players`
-      : "an uncommon country";
-    const odds = ev.estimateReal >= 0.75 ? "about 3 in 4" : "about 2 in 3";
+    const reasons = ["top-five playstyle match"];
+    if (ev.supports) {
+      // Where the match's country comes from: its recorded games, or only its latest
+      const conn = first.connection;
+      const where = conn
+        ? `, connected from there in ${Math.round(conn.share * 100)}% of ${conn.games} games`
+        : "";
+      const share = ev.countryShare != null
+        ? `${(ev.countryShare * 100).toFixed(ev.countryShare < 0.01 ? 1 : 0)}% of players`
+        : "a rare country";
+      reasons.push(`same country (${ev.country}, ${share}${where})`);
+    }
+    if (first.chat?.supports) reasons.push("writes in lobby chat more like them than anyone else");
+    reasons.push("never in the same ladder game");
     return {
       icon: "⚠️",
       heading: `Possibly the same player as ${listNames(sideMatches)}`,
-      sub: `Top-five playstyle match, same country (${ev.country}, ${share}${where}), never in the same ladder game - ${odds} matches like this are the same player`,
+      sub: reasons.join(", ").replace(/^./, c => c.toUpperCase()),
     };
   }
 

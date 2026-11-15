@@ -19,8 +19,12 @@
  *      78% when the country is under 1% of accounts,
  *      67% when it is 1 to 5%,
  *      36% when it is over 5%.
- *    The first two are enough to say "possibly the same player". The third is
- *    not: two French accounts that play alike are usually two French players.
+ *    Those were estimates from separate tests. Measured end to end
+ *    (scripts/eval-combined.mjs, Nov 2026, 1,500 lookups), counting 1-5%
+ *    countries named a wrong account in 17.5% of lookups whose owner was not
+ *    in the pool, against 3.5% for clicks alone. Under 1% only: 7.0%. So only
+ *    a rare country counts. With lobby chat (chatStyle.js) as the other line:
+ *    owner named 40.6% of the time, a wrong account 9.5% when absent.
  */
 
 export const RARE_COUNTRY_SHARE = 0.01;
@@ -54,7 +58,7 @@ export function sideEvidence({ queryCountry, candidateCountry, countryShare, sha
   const ruledOut = sharedLadderGames > 0;
   const sameCountry = queryCountry && candidateCountry ? queryCountry === candidateCountry : null;
   const tier = sameCountry ? countryTier(countryShare) : null;
-  const supports = !ruledOut && sameCountry === true && (tier === 'rare' || tier === 'uncommon');
+  const supports = !ruledOut && sameCountry === true && tier === 'rare';
   return {
     sameCountry,
     country: sameCountry ? queryCountry : null,

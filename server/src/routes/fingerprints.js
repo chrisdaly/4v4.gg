@@ -47,7 +47,9 @@ import {
   getSharedReplayCount,
   getCountryCounts,
   getPlayerCountries,
+  getLobbyMessagesByTag,
 } from '../db.js';
+import { buildChatIndex, chatEvidence } from '../chatStyle.js';
 import {
   buildServerFingerprint,
   averageFingerprints,
@@ -320,6 +322,27 @@ function getVerdictReference() {
   verdictReferenceCache = bestMatchStandouts(pool.map(p => p.embedding), order.slice(0, VERDICT_SAMPLE));
   verdictReferenceAge = now;
   return verdictReferenceCache;
+}
+
+// ── Lobby chat style (chatStyle.js) ──────────────
+// Built from every lobby message, about five seconds, so cached like the
+// verdict reference.
+let chatIndexCache = null;
+let chatIndexAge = 0;
+
+function getChatIndex() {
+  const now = Date.now();
+  if (chatIndexCache && (now - chatIndexAge) < CALIBRATION_TTL) return chatIndexCache;
+  try {
+    const t = Date.now();
+    chatIndexCache = buildChatIndex(getLobbyMessagesByTag());
+    console.log(`[ChatStyle] indexed ${chatIndexCache.tags.length} accounts in ${Date.now() - t}ms`);
+  } catch (err) {
+    console.warn('[ChatStyle] build failed:', err.message);
+    chatIndexCache = null;
+  }
+  chatIndexAge = now;
+  return chatIndexCache;
 }
 
 /**
@@ -2120,6 +2143,9 @@ function getSuspectsData() {
   const usual = usualCountries(tags);
   const profile = getPlayerCountries(tags);
   const countryOf = (tag) => usual.get(tag)?.country || profile.get(tag) || null;
+  // Each chatter's closest account by lobby chat style
+  const chatIndex = getChatIndex();
+  const bestChat = new Map((chatIndex?.tags || []).map(t => [t, chatIndex.ranked(t)[0]?.tag]));
 
   const scoredPairs = standoutPairs(players.map(p => p.embedding), 5).map(p => {
     const a = tags[p.i], b = tags[p.j];
@@ -2129,13 +2155,18 @@ function getSuspectsData() {
     // Shared ladder games are checked when the list is served (only for the
     // pairs shown), so this is "would support if they never met"
     const ev = sideEvidence({ queryCountry: cA, candidateCountry: cB, countryShare: shareOf(cA), sharedLadderGames: 0 });
-    const verdict = clickVerdict === 'no_match' && ev.supports ? 'possible' : clickVerdict;
-    // Order: verdict first, then pairs backed by both clicks and side
-    // evidence ahead of those backed by one
-    const rank = (verdict === 'confident' ? 4 : verdict === 'possible' ? 2 : 0)
-      + (ev.supports && clickVerdict !== 'no_match' ? 1 : 0);
+    const chat = {
+      indexed: !!(chatIndex?.has(a) && chatIndex?.has(b)),
+      supports: bestChat.get(a) === b || bestChat.get(b) === a,
+      similarity: chatIndex?.similarity(a, b) ?? null,
+    };
+    const sideCount = (ev.supports ? 1 : 0) + (chat.supports ? 1 : 0);
+    const verdict = clickVerdict === 'no_match' && sideCount > 0 ? 'possible' : clickVerdict;
+    // Order: verdict first, then by how many lines of side evidence back it
+    const rank = (verdict === 'confident' ? 6 : verdict === 'possible' ? 3 : 0)
+      + (clickVerdict !== 'no_match' ? sideCount : Math.max(0, sideCount - 1));
     return {
-      ...p, clickRarity, clickVerdict, evidence: ev, verdict, rank,
+      ...p, clickRarity, clickVerdict, evidence: ev, chat, verdict, rank,
       connectionA: usual.get(a) || null, connectionB: usual.get(b) || null,
     };
   });
@@ -2247,6 +2278,7 @@ router.get('/identify/:battleTag', requireApiKey, async (req, res) => {
   const usual = usualCountries([battleTag, ...similar.map(s => s.battleTag)]);
   const countryOf = (tag) => usual.get(tag)?.country || countries.get(tag) || null;
   const queryCountry = countryOf(battleTag);
+  const chatIndex = getChatIndex();
   for (const s of similar) {
     s.sharedReplays = getSharedReplayCount(battleTag, s.battleTag);
     s.connection = usual.get(s.battleTag) || null;
@@ -2256,8 +2288,12 @@ router.get('/identify/:battleTag', requireApiKey, async (req, res) => {
       countryShare: shareOf(queryCountry),
       sharedLadderGames: s.sharedReplays,
     });
+    // Lobby chat: does this candidate write more like the query than any
+    // other chatter? Accounts that met in a ladder game are ruled out anyway.
+    const chat = chatEvidence(chatIndex, battleTag, s.battleTag);
+    s.chat = { ...chat, supports: chat.supports && !s.evidence.ruledOut };
   }
-  const sideMatches = similar.filter(s => s.evidence.supports).map(s => s.battleTag);
+  const sideMatches = similar.filter(s => s.evidence.supports || s.chat.supports).map(s => s.battleTag);
   // Side evidence can raise "no match" to "possible". It never lowers a click verdict.
   const verdict = clickVerdict === 'no_match' && sideMatches.length > 0 ? 'possible' : clickVerdict;
 
@@ -2339,6 +2375,8 @@ router.get('/identify/:battleTag', requireApiKey, async (req, res) => {
     sideMatches,
     queryCountry,
     queryConnection: usual.get(battleTag) || null,
+    // Lobby messages on file for the query (chat evidence needs 20+)
+    queryChatMessages: chatIndex?.messageCount.get(battleTag) ?? 0,
     // Share of accounts whose best match is at least as strong as this one's
     topMatchRarity: top?.rarity ?? null,
     filters: hasFilter ? { race: filterRace, after: filterAfter, replayIds: filterReplayIds } : null,
@@ -2467,6 +2505,7 @@ router.get('/suspects', async (req, res) => {
       verdict: p.verdict,
       clickVerdict: p.clickVerdict,
       evidence: p.evidence,
+      chat: p.chat,
       connectionA: p.connectionA,
       connectionB: p.connectionB,
       breakdown: formatBreakdown(breakdown),

@@ -2364,6 +2364,22 @@ export function getPlayerMessages(battleTag, limit = 10) {
   `).all(battleTag, limit);
 }
 
+/** Every account's lobby messages, oldest first, for the chat-style index. */
+export function getLobbyMessagesByTag() {
+  const out = new Map();
+  for (const r of db.prepare(`
+    SELECT battle_tag, message FROM messages
+    WHERE deleted = 0 AND battle_tag IS NOT NULL
+    ORDER BY received_at, rowid
+  `).iterate()) {
+    const m = r.message?.trim();
+    if (!m) continue;
+    if (!out.has(r.battle_tag)) out.set(r.battle_tag, []);
+    out.get(r.battle_tag).push(m);
+  }
+  return out;
+}
+
 export function getMessagesInTimeRange(from, to) {
   return db.prepare(`
     SELECT id, battle_tag, user_name, clan_tag, message, sent_at, received_at

@@ -38,10 +38,14 @@ results and the experiments behind them are in
 
 4. **Side evidence** (`server/src/sideEvidence.js`, `server/src/countries.js`).
    Things that are not playstyle. A top-five match that has never been in a
-   ladder game with the query and shares a country flown by under 5% of
-   accounts is reported as "possibly the same player", even when the click
-   verdict is "no match". A shared ladder game rules a candidate out. Countries
-   come from W3Champions profiles and are cached in `player_countries`.
+   ladder game with the query is reported as "possibly the same player", even
+   when the click verdict is "no match", if either:
+   - it shares the query's usual connection country and that country is under
+     1% of accounts (per-game history in `player_game_countries`, else the
+     profile's latest, `player_countries`), or
+   - its lobby chat reads more like the query's than any other account's
+     (`server/src/chatStyle.js`: word and character n-grams, 20+ messages).
+   A shared ladder game rules a candidate out.
 
 Only ladder 4v4 games are fingerprinted into an account's average and counted
 as meetings. Uploaded custom maps and 1v1/2v2 games are excluded.
@@ -68,6 +72,19 @@ against a copy of the relay database before changing the scorer or the verdict:
 ```
 cd server && node scripts/eval-identify.mjs --db /path/to/chat.db
 ```
+
+`server/scripts/eval-combined.mjs` does the same for the whole verdict, clicks
+plus country plus chat, and compares rules. Nov 2026, 1,500 lookups:
+
+| Rule | Owner present: named | Named someone else | Owner removed: false "possible" or better |
+|---|---|---|---|
+| Clicks only | 23.8% | 1.2% | 5.1% |
+| + country under 5% (old) | 50.8% | 5.5% | 19.1% |
+| + country under 1% or chat (live) | 48.8% | 3.3% | 11.1% |
+
+Among accounts that chat, the live rule names the owner 79% of the time. A
+false "possible" when the owner is removed can still be right: the owner's
+other accounts stay in the pool.
 
 Two accounts that appear in the same game are provably different people. The
 suspects list drops such pairs, and the experiments use them as clean negatives.

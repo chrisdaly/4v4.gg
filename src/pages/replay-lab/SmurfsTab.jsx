@@ -11,7 +11,7 @@ const GOLD = chartColors.gold;
 const GREY = "var(--grey-light)";
 
 // The relay's verdict for a pair: how far it stands out on playstyle, raised
-// to "possible" by side evidence (an uncommon shared country, never in the same
+// to "possible" by side evidence (a rare shared country or the closest lobby chat, never in the same
 // ladder game). Pairs where both agree rank first.
 function getVerdict(pair) {
   if (pair.verdict === "confident") return { label: "Likely same player", color: RED };
@@ -31,6 +31,7 @@ function getReasons(pair) {
     const share = ev.countryShare != null ? `, ${pct(ev.countryShare)} of players` : "";
     reasons.push(`Both ${ev.country}${share}${ev.supports ? "" : " (too common to count)"}`);
   }
+  if (pair.chat?.supports) reasons.push("Closest lobby chat style");
   reasons.push("Never in the same ladder game");
   return reasons;
 }
