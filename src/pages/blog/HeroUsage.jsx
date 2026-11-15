@@ -101,9 +101,9 @@ export default function HeroUsage() {
       />
 
       <p>
-        In solo, 62% of NE players choose a DH, in 4v4 only 16% do. No
-        hero&rsquo;s pick rate falls further between the two modes, and the
-        chat has a name for him.
+        Most NE players agree with ToD. Only 16% of them pick a DH in 4v4,
+        against 62% in solo, the biggest drop of any hero, and the chat has
+        a name for him.
       </p>
 
       <Exchange
@@ -119,7 +119,7 @@ export default function HeroUsage() {
       <h2>Why he disappears</h2>
 
       <p>
-        Some of it is his kit. Most of it is built for a fight against one
+        Some of it is his abilities. Most are built for a fight against one
         other hero, and in 4v4 the other team brings around nine, out of a
         possible twelve.
       </p>
