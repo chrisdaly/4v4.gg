@@ -166,10 +166,10 @@ export default function HeroUsage() {
 
       <p>
         A lone Keeper reaches Tranquility in about a quarter of 4v4 games.
-        The DH is a worse hero to go alone with: Metamorphosis makes him
-        stronger but does nothing for the army, and on his own he has no
-        one to save him when he&rsquo;s caught. A lone DH reaches it in
-        one game in seven.
+        A lone DH reaches Metamorphosis in one game in seven, and it
+        isn&rsquo;t the same prize. It makes him ranged, gives him a chaos
+        attack that splashes and adds health, but it does nothing for the
+        army, and it makes him even more of a target.
       </p>
 
       <p>
@@ -187,9 +187,9 @@ export default function HeroUsage() {
       <p>
         The DH has to stand in the fight. Alone, he fills his six slots
         with survival: Town Portal, Staff of Preservation, boots, Orb of
-        Venom, invulnerability potion, maybe anti-magic. So he often needs
-        a second hero to carry items and staff him out, which splits his
-        experience and ends the bonus.
+        Venom, invulnerability potion, maybe anti-magic. So going alone
+        rarely works: he needs a second hero to carry items and staff him
+        out, which splits his experience and ends the bonus.
       </p>
 
       <h2>Where he still works</h2>
