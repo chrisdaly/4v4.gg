@@ -4,6 +4,7 @@ import multer from 'multer';
 import { createHash } from 'crypto';
 import { readFileSync, mkdirSync, writeFileSync, unlinkSync } from 'fs';
 import { join, dirname } from 'path';
+import { Worker, isMainThread } from 'worker_threads';
 import config from '../config.js';
 import {
   getPlayerFingerprints,
@@ -1079,8 +1080,9 @@ async function backfillGroupTransitions() {
     transitionsBackfill.finishedAt = Date.now();
   }
 }
-// A minute after startup, once the relay has settled
-setTimeout(() => { backfillGroupTransitions(); }, 60 * 1000).unref?.();
+// A minute after startup, once the relay has settled. Not in the suspects
+// worker, which loads this module only for its scoring functions.
+if (isMainThread) setTimeout(() => { backfillGroupTransitions(); }, 60 * 1000).unref?.();
 
 function loadGalleryFromDisk() {
   try {
@@ -1772,7 +1774,7 @@ router.post('/rebuild', requireApiKey, (req, res) => {
   calibrationCache = null; // invalidate calibration
   verdictReferenceCache = null;
   parsedPlayersCache = null; // invalidate shared cache
-  suspectsCache = null;
+  suspectsAge = 0; // stale: rebuilt in the worker, old list served meanwhile
   pcaCache = null;
   umapCache = null;
   galleryAge = 0; // mark stale, keep old data serving
@@ -2187,16 +2189,50 @@ router.get('/embedding-map', async (req, res) => {
   }
 });
 
-// ── Suspects Cache ──────────────────────────────────
+// ── Suspects ────────────────────────────────────────
+// Building the list takes about a minute of solid CPU (every account's
+// fingerprints parsed, all pairs scored, the chat index). On the main thread
+// that froze the relay and failed health checks, so it runs in a worker
+// (suspectsWorker.js) and the last list keeps being served while a new one
+// builds. Only the very first request after a boot waits.
 let suspectsCache = null;
 let suspectsAge = 0;
+let suspectsBuild = null; // Promise while a worker is running
 
-function getSuspectsData() {
-  const now = Date.now();
-  if (suspectsCache && (now - suspectsAge) < CALIBRATION_TTL) {
+function buildSuspectsInWorker() {
+  if (suspectsBuild) return suspectsBuild;
+  const t0 = Date.now();
+  suspectsBuild = new Promise((resolve, reject) => {
+    const worker = new Worker(new URL('../suspectsWorker.js', import.meta.url));
+    worker.once('message', msg => (msg.error ? reject(new Error(msg.error)) : resolve(msg.data)));
+    worker.once('error', reject);
+    worker.once('exit', code => reject(new Error(`suspects worker exited with code ${code}`)));
+  }).then(data => {
+    suspectsCache = data;
+    suspectsAge = Date.now();
+    console.log(`[Suspects] built in worker in ${((Date.now() - t0) / 1000).toFixed(1)}s`);
+    return data;
+  }).catch(err => {
+    console.error('[Suspects] worker build failed:', err.message);
     return suspectsCache;
-  }
+  }).finally(() => {
+    suspectsBuild = null;
+  });
+  return suspectsBuild;
+}
 
+/** Latest suspects list; refreshes in the background once it is 30 minutes old. */
+async function getSuspectsData() {
+  if (!suspectsCache) return buildSuspectsInWorker();
+  if (Date.now() - suspectsAge >= CALIBRATION_TTL) buildSuspectsInWorker();
+  return suspectsCache;
+}
+
+/**
+ * Scores every pair. Runs in the suspects worker; returns only what the
+ * /suspects route reads, so the copy back to the main thread stays small.
+ */
+export function computeSuspectsSnapshot() {
   const players = getVerdictPool();
   if (players.length < 5) return null;
 
@@ -2240,9 +2276,12 @@ function getSuspectsData() {
   });
   scoredPairs.sort((x, y) => (y.rank - x.rank) || (y.standout - x.standout));
 
-  suspectsCache = { players, scoredPairs: scoredPairs.slice(0, 2000) };
-  suspectsAge = now;
-  return suspectsCache;
+  const cal = getCalibration();
+  return {
+    players: players.map(p => ({ battleTag: p.battleTag, race: p.race, replayCount: p.replayCount, fp: p.fp })),
+    scoredPairs: scoredPairs.slice(0, 2000),
+    calibration: cal ? { mean: cal.mean, stddev: cal.stddev, scores: cal.scores } : null,
+  };
 }
 
 // POST /api/fingerprints/backfill-connection-countries - Record per-game
@@ -2525,31 +2564,16 @@ router.get('/identify/:battleTag', requireApiKey, async (req, res) => {
 // ── Request coalescing for suspects ──
 const sequenceFetchingTags = new Set(); // dedup concurrent identify-triggered backfills
 
-let suspectsInflight = null; // Promise
-
 // GET /api/fingerprints/suspects - Top similar player pairs (public, no auth)
 router.get('/suspects', async (req, res) => {
   const limit = Math.min(parseInt(req.query.limit) || 50, 200);
 
-  let data;
-  if (suspectsInflight) {
-    data = await suspectsInflight;
-  } else {
-    const promise = new Promise(resolve => resolve(getSuspectsData()));
-    suspectsInflight = promise;
-    try {
-      data = await promise;
-    } finally {
-      suspectsInflight = null;
-    }
-  }
-
+  const data = await getSuspectsData();
   if (!data) {
     return res.json({ pairs: [], playerCount: 0 });
   }
 
-  const { players, scoredPairs } = data;
-  const cal = getCalibration();
+  const { players, scoredPairs, calibration: cal } = data;
 
   // Two accounts that have appeared in the same game are different people,
   // however alike they play, so they are not suspects.
@@ -2784,18 +2808,9 @@ export async function warmCaches() {
   // getParsedPlayers() and getCalibration() are synchronous better-sqlite3
   // calls that block the event loop for 30-40s when the DB is large - long
   // enough to fail the Fly.io health check and crash the machine.
-  // So wait until the deploy's health checks have passed, then build the
-  // suspects data (parsed players, calibration, chat index) once, so the
-  // first visitor after a deploy doesn't wait on it.
-  setTimeout(() => {
-    const t0 = Date.now();
-    try {
-      getSuspectsData();
-      console.log(`[Cache] Warmed suspects data in ${((Date.now() - t0) / 1000).toFixed(1)}s`);
-    } catch (err) {
-      console.error('[Cache] Warmup error:', err.message);
-    }
-  }, 90 * 1000).unref?.();
+  // Those stay lazy. The suspects list builds in a worker thread, so it can
+  // start straight away and the first visitor after a deploy doesn't wait.
+  setTimeout(() => { buildSuspectsInWorker(); }, 10 * 1000).unref?.();
 }
 
 export default router;

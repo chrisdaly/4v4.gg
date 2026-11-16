@@ -7,6 +7,16 @@ import { groupTransitionCounts } from './groupTransitions.js';
 
 let db;
 
+/**
+ * Read-only connection for worker threads (suspectsWorker.js). No schema
+ * setup and no recovery: the main thread's initDb() owns both.
+ */
+export function openDbReadOnly() {
+  db = new Database(config.DB_PATH, { readonly: true });
+  db.pragma('busy_timeout = 5000');
+  db.pragma('cache_size = -20000');
+}
+
 function tryAddColumn(sql) {
   try {
     db.exec(sql);
