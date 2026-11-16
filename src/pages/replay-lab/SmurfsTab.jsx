@@ -53,7 +53,8 @@ export default function SmurfsTab() {
   const [suspects, setSuspects] = useState(null);
   const [loading, setLoading] = useState(true);
   const [expandedIdx, setExpandedIdx] = useState(null);
-  const { adminKey } = useAdmin();
+  const { adminKey, isAdmin } = useAdmin();
+  const [labelError, setLabelError] = useState(null);
 
   // Your verdict on a pair: test cases for the end-to-end eval. Clicking the
   // current label again clears it.
@@ -64,7 +65,11 @@ export default function SmurfsTab() {
       headers: { "Content-Type": "application/json", "x-api-key": adminKey },
       body: JSON.stringify({ tagA: pair.tagA, tagB: pair.tagB, label: next }),
     }).catch(() => null);
-    if (!res?.ok) return;
+    if (!res?.ok) {
+      setLabelError(res?.status === 401 ? "Admin key rejected" : "Couldn't save, try again");
+      return;
+    }
+    setLabelError(null);
     setSuspects(s => ({
       ...s,
       pairs: s.pairs.map(p => (p.tagA === pair.tagA && p.tagB === pair.tagB ? { ...p, label: next } : p)),
@@ -119,14 +124,15 @@ export default function SmurfsTab() {
                   <PlayerName>{pair.tagB.split("#")[0]}</PlayerName>
                 </PairPlayers>
                 <Reasons>{getReasons(pair).join(" · ")}</Reasons>
-                <LabelRow onClick={e => e.stopPropagation()}>
+                {isAdmin && <LabelRow onClick={e => e.stopPropagation()}>
                   <LabelButton $active={pair.label === "same"} $color="var(--red)" onClick={() => setLabel(pair, "same")}>
                     Same player
                   </LabelButton>
                   <LabelButton $active={pair.label === "different"} $color="var(--green)" onClick={() => setLabel(pair, "different")}>
                     Different
                   </LabelButton>
-                </LabelRow>
+                  {labelError && <LabelError>{labelError}</LabelError>}
+                </LabelRow>}
               </PairMain>
               <PairScore>
                 <ScoreValue $color={verdict.color}>{displayScore}</ScoreValue>
@@ -284,6 +290,13 @@ const LabelButton = styled.button`
   color: ${p => (p.$active ? "#000" : "var(--grey-light)")};
 
   &:hover { border-color: ${p => p.$color}; color: ${p => (p.$active ? "#000" : "var(--white)")}; }
+`;
+
+const LabelError = styled.span`
+  font-family: var(--font-mono);
+  font-size: var(--text-xxxs);
+  color: var(--red);
+  align-self: center;
 `;
 
 const Reasons = styled.div`

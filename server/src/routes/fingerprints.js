@@ -2784,8 +2784,18 @@ export async function warmCaches() {
   // getParsedPlayers() and getCalibration() are synchronous better-sqlite3
   // calls that block the event loop for 30-40s when the DB is large - long
   // enough to fail the Fly.io health check and crash the machine.
-  // All caches warm lazily on first request instead.
-  console.log('[Cache] Deferred - parsed players, calibration, and PCA will warm on first request');
+  // So wait until the deploy's health checks have passed, then build the
+  // suspects data (parsed players, calibration, chat index) once, so the
+  // first visitor after a deploy doesn't wait on it.
+  setTimeout(() => {
+    const t0 = Date.now();
+    try {
+      getSuspectsData();
+      console.log(`[Cache] Warmed suspects data in ${((Date.now() - t0) / 1000).toFixed(1)}s`);
+    } catch (err) {
+      console.error('[Cache] Warmup error:', err.message);
+    }
+  }, 90 * 1000).unref?.();
 }
 
 export default router;
