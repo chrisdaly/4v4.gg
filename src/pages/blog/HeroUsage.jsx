@@ -158,38 +158,37 @@ export default function HeroUsage() {
 
       <p>
         A player with only one hero gets more experience: all of it, plus
-        15% at tier 2 and 30% at tier 3. That pays off when the hero has a
-        good ultimate, and the Keeper suits it better than the DH. His
-        treants creep fast, Entangle wins skirmishes, he fights from range,
-        and his ultimate, Tranquility, heals the whole army.
+        15% at tier 2 and 30% at tier 3. Going alone pays off with a hero
+        who can survive on his own and whose ultimate is worth reaching.
       </p>
 
       <p>
-        A lone Keeper reaches Tranquility in about a quarter of 4v4 games.
-        A lone DH reaches Metamorphosis in one game in seven, and it
-        isn&rsquo;t the same prize. It makes him ranged, gives him a chaos
-        attack that splashes and adds health, but it does nothing for the
-        army, and it makes him even more of a target.
+        The Keeper is both. His treants creep fast, Entangle wins
+        skirmishes, he fights from range, and Tranquility heals the whole
+        army. A lone Keeper reaches it in about a quarter of 4v4 games.
       </p>
 
       <p>
-        And the DH can&rsquo;t keep himself alive. In melee range of four
+        The DH is neither. He&rsquo;s brittle: in melee range of four
         opponents he needs a Holy Light or a Healing Wave behind him, and
-        NE has neither.
+        NE has no such heal. Alone, he fills his six slots with survival:
+        Town Portal, Staff of Preservation, boots, Orb of Venom,
+        invulnerability potion, maybe anti-magic. So he usually gets a
+        second hero to carry items and staff him out, which splits his
+        experience and ends the bonus.
+      </p>
+
+      <p>
+        And Metamorphosis isn&rsquo;t the same prize. It makes him ranged,
+        gives him a chaos attack that splashes and adds health, but it does
+        nothing for the army, and it makes him even more of a target. Fewer
+        than one DH in ten gets there.
       </p>
 
       <p>
         The Warden, NE&rsquo;s other melee hero, survives on her own.
         Blink gets her out, and her damage is a burst she lands before
         leaving. She reaches level 6 in about a third of her games.
-      </p>
-
-      <p>
-        The DH has to stand in the fight. Alone, he fills his six slots
-        with survival: Town Portal, Staff of Preservation, boots, Orb of
-        Venom, invulnerability potion, maybe anti-magic. So going alone
-        rarely works: he needs a second hero to carry items and staff him
-        out, which splits his experience and ends the bonus.
       </p>
 
       <h2>Where he still works</h2>
