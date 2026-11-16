@@ -169,8 +169,8 @@ export default function HeroUsage() {
       </p>
 
       <p>
-        The DH is neither. He&rsquo;s brittle: in melee range of four
-        opponents he needs a Holy Light or a Healing Wave behind him, and
+        In solo the DH is both, but it doesn&rsquo;t scale up to 4v4.
+        He&rsquo;s brittle there: in melee range of four opponents he needs a Holy Light or a Healing Wave behind him, and
         NE has no such heal. Alone, he fills his six slots with survival:
         Town Portal, Staff of Preservation, boots, Orb of Venom,
         invulnerability potion, maybe anti-magic. So he usually gets a
