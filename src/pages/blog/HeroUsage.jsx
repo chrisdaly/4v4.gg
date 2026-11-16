@@ -166,7 +166,10 @@ export default function HeroUsage() {
 
       <p>
         A lone Keeper reaches Tranquility in about a quarter of 4v4 games.
-        A lone DH reaches Metamorphosis in one in seven.
+        The DH is a worse hero to go alone with: Metamorphosis makes him
+        stronger but does nothing for the army, and on his own he has no
+        one to save him when he&rsquo;s caught. A lone DH reaches it in
+        one game in seven.
       </p>
 
       <p>
