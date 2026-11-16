@@ -190,7 +190,9 @@ export default function HeroUsage() {
       <p>
         The Warden, NE&rsquo;s other melee hero, survives on her own.
         Blink gets her out, and her damage is a burst she lands before
-        leaving. She reaches level 6 in about a third of her games.
+        leaving. Fan of Knives is great for harassing workers, which
+        levels her fast, and she reaches level 6 in about a third of her
+        games.
       </p>
 
       <h2>Where he still works</h2>
