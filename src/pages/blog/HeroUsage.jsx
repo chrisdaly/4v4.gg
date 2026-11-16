@@ -157,10 +157,11 @@ export default function HeroUsage() {
       <HeroModeSplit />
 
       <p>
-        The Keeper also levels better. A player with only one hero gets all
-        the experience, plus 15% at tier 2 and 30% at tier 3, and the
-        Keeper is a hero you can go alone with. His treants creep fast,
-        Entangle wins skirmishes, and he fights from range.
+        A player with only one hero gets more experience: all of it, plus
+        15% at tier 2 and 30% at tier 3. That pays off when the hero has a
+        good ultimate, and the Keeper suits it better than the DH. His
+        treants creep fast, Entangle wins skirmishes, he fights from range,
+        and his ultimate, Tranquility, heals the whole army.
       </p>
 
       <p>
@@ -175,7 +176,7 @@ export default function HeroUsage() {
       </p>
 
       <p>
-        The Warden, NE&rsquo;s other melee hero, doesn&rsquo;t need one.
+        The Warden, NE&rsquo;s other melee hero, survives on her own.
         Blink gets her out, and her damage is a burst she lands before
         leaving. She reaches level 6 in about a third of her games.
       </p>
