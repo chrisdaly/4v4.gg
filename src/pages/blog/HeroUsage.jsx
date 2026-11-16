@@ -216,7 +216,7 @@ export default function HeroUsage() {
       />
 
       <p>
-        mubarak had just harassed Lakers out of a game.
+        After one game, mubarak gave Lakers some advice.
       </p>
 
       <Exchange
