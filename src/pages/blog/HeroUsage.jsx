@@ -266,7 +266,7 @@ export default function HeroUsage() {
       </p>
 
       <p>
-        Jens, one of the best NE players on the ladder, barely picks the DH
+        Jens, by far the best NE player on the ladder, barely picks the DH
         in solo: less than half as often as other NE players. In 4v4 he
         picks him as often as everyone else. He and the others who stick
         with the DH may be onto something: a 4v4 DH strat still waiting to
