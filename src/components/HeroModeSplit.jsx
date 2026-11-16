@@ -8,8 +8,8 @@ import data from "../lib/data/heroModeSplit.json";
  * Which heroes each mode actually picks.
  *
  * A dumbbell rather than a bar of the difference, because the levels matter as
- * much as the change: Archmage moves only 1.4 points but is near the top of
- * both lists, while Demon Hunter moves 7 and effectively leaves the game.
+ * much as the change: Archmage moves under a point but is near the top of
+ * both lists, while Demon Hunter moves 6.5 and effectively leaves the game.
  *
  * Sorted by difference, so the shape of the list is the finding: the heroes
  * that gain in 4v4 are auras and team heals, the ones that fall are duelists.

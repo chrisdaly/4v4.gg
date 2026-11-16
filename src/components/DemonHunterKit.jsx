@@ -28,14 +28,14 @@ const KIT = [
     icon: "evasion",
     name: "Evasion",
     text:
-      "Dodges attacks, not spells. Making it count means staying in range, and most of what kills you in a 4v4 fight goes straight through it.",
+      "Dodges attacks, not spells, and most of what kills you in a 4v4 fight is spells.",
     verdict: "bypassed",
   },
   {
     icon: "metamorphosis",
     name: "Metamorphosis",
     text:
-      "Good in both modes, but it needs level 6, which few Demon Hunters reach in 4v4.",
+      "Ranged chaos splash and more health, but only for him, and it needs level 6, which few Demon Hunters reach in 4v4.",
     verdict: "same",
   },
 ];

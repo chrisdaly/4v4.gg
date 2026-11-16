@@ -82,7 +82,7 @@ export default function HeroUsage() {
       <div className="dw-date"><span className="bl-card-tag">October 2026</span></div>
 
       <p className="dw-lede">
-        In solo, Night Elf is built around the Demon Hunter, in 4v4 opening
+        In solo, Night Elf is built around the Demon Hunter. In 4v4, opening
         with him gets you called names.
       </p>
 
@@ -151,7 +151,7 @@ export default function HeroUsage() {
         fight from behind the army. The Keeper and the Priestess have both,
         so the NE altar makes a Keeper instead, in 64% of NE slots against
         29% in solo, and the Priestess goes from about one NE in ten to
-        nearly half. Every aura and healing hero rises the same way.
+        nearly half. Most aura and healing heroes rise the same way.
       </p>
 
       <HeroModeSplit />
@@ -165,13 +165,13 @@ export default function HeroUsage() {
       <p>
         The Keeper is both. His treants creep fast, Entangle wins
         skirmishes, he fights from range, and Tranquility heals the whole
-        army. A lone Keeper reaches it in about a quarter of 4v4 games.
+        army. A lone Keeper reaches it about a quarter of the time.
       </p>
 
       <p>
-        In solo the DH is both, but it doesn&rsquo;t scale up to 4v4.
+        In solo the DH is both, but that doesn&rsquo;t scale up to 4v4.
         He&rsquo;s brittle there: in melee range of four opponents he needs a Holy Light or a Healing Wave behind him, and
-        NE has no such heal. He depends on an ally to bring one, and
+        NE has no hero heal like that. He depends on an ally to bring one, and
         allies don&rsquo;t always pan out (see{" "}
         <Link to="/blog/the-blame-game">The Blame Game</Link>). Alone, he fills his six slots with survival:
         Town Portal, Staff of Preservation, boots, Orb of Venom,
@@ -191,8 +191,8 @@ export default function HeroUsage() {
         The Warden, NE&rsquo;s other melee hero, survives on her own.
         Blink gets her out, and her damage is a burst she lands before
         leaving. Fan of Knives is great for harassing workers, which
-        levels her fast, and she reaches level 6 in about a third of her
-        games.
+        levels her fast, and she reaches level 6 in nearly two games in
+        five.
       </p>
 
       <h2>Where he still works</h2>
@@ -201,7 +201,7 @@ export default function HeroUsage() {
         A 4v4 doesn&rsquo;t start as a 4v4. For the first few minutes
         it&rsquo;s four separate games, and a player in the corner spawn,
         close to the enemy, is playing something near solo. Galen, the
-        player ToD was calling brain rot, made that case after the game.
+        player whose pick ToD called brain rot, made that case after the game.
       </p>
 
       <Exchange
@@ -266,11 +266,12 @@ export default function HeroUsage() {
       </p>
 
       <p>
-        Jens, by far the best NE player on the ladder, barely picks the DH
-        in solo: less than half as often as other NE players. In 4v4 he
-        picks him as often as everyone else. He and the others who stick
-        with the DH may be onto something: a 4v4 DH strat still waiting to
-        be found.
+        Jens, by far the best NE player on the ladder, already picks the DH
+        like a 4v4 player in solo: in 14% of his games, less than half the
+        rate of other NE players. In 4v4 he picks him in 16%. He&rsquo;s
+        the rare NE who doesn&rsquo;t drop him between the modes. He and
+        the others who stick with the DH may be onto something: a 4v4 DH
+        strat still waiting to be found.
       </p>
 
       <p className="dw-foot">
@@ -281,9 +282,9 @@ export default function HeroUsage() {
         Pick rate isn&rsquo;t strength: the ladder matches on
         MMR, so every race wins close to half its games. Where players
         spawned isn&rsquo;t recorded, so the corner-spawn pattern is the
-        players&rsquo; account, not a measurement. Jens&rsquo;s figure is
-        from Jens#11592: the 105 of his 4v4 games that carry hero data and
-        rolled NE (in 4v4 he queues as Random). The DH comes up in about 440
+        players&rsquo; account, not a measurement. Jens&rsquo;s figures are
+        from Jens#11592: 384 solo NE games, and the 105 of his 4v4 games
+        that carry hero data and rolled NE (in 4v4 he queues as Random). The DH comes up in about 440
         chat messages between February and November 2026.
       </p>
     </article>
