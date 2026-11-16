@@ -3,6 +3,7 @@ import { mkdirSync, existsSync, unlinkSync } from 'fs';
 import { execSync } from 'child_process';
 import { dirname } from 'path';
 import config from './config.js';
+import { groupTransitionCounts } from './groupTransitions.js';
 
 let db;
 
@@ -444,6 +445,28 @@ export function initDb() {
 
   // Migration: add full_action_sequence column for nanoGPT training data
   tryAddColumn(`ALTER TABLE replay_player_actions ADD COLUMN full_action_sequence TEXT`);
+  // Control-group switch counts per replay and player (groupTransitions.js).
+  // A table of its own: a column on replay_player_actions would sit after the
+  // click sequence, and reading it would mean walking that sequence on disk.
+  // Chris's verdicts on suspect pairs: 'same' or 'different'. Tags stored in
+  // sorted order so a pair has one row. Test cases for scripts/eval-combined.mjs.
+  db.exec(`
+    CREATE TABLE IF NOT EXISTS pair_labels (
+      tag_a      TEXT NOT NULL,
+      tag_b      TEXT NOT NULL,
+      label      TEXT NOT NULL CHECK (label IN ('same', 'different')),
+      labelled_at TEXT NOT NULL DEFAULT (datetime('now')),
+      PRIMARY KEY (tag_a, tag_b)
+    )
+  `);
+  db.exec(`
+    CREATE TABLE IF NOT EXISTS replay_group_transitions (
+      replay_id   INTEGER NOT NULL,
+      player_id   INTEGER NOT NULL,
+      transitions TEXT NOT NULL,
+      PRIMARY KEY (replay_id, player_id)
+    )
+  `);
 
   // Migration: add embedding column for nanoGPT embeddings
   tryAddColumn(`ALTER TABLE player_fingerprints ADD COLUMN embedding TEXT`);
@@ -1874,6 +1897,12 @@ export function getReplayChat(replayId) {
   return db.prepare('SELECT * FROM replay_chat WHERE replay_id = ? ORDER BY time_ms ASC').all(replayId);
 }
 
+function saveGroupTransitions(replayId, playerId, seq) {
+  db.prepare(`
+    INSERT OR REPLACE INTO replay_group_transitions (replay_id, player_id, transitions) VALUES (?, ?, ?)
+  `).run(replayId, playerId, JSON.stringify(groupTransitionCounts(seq)));
+}
+
 export function insertReplayPlayerActions(replayId, actions) {
   const stmt = db.prepare(`
     INSERT OR REPLACE INTO replay_player_actions
@@ -1898,6 +1927,7 @@ export function insertReplayPlayerActions(replayId, actions) {
         JSON.stringify(a.fullActionSequence || []),
         JSON.stringify(a.groupCompositions || {})
       );
+      saveGroupTransitions(replayId, a.playerId, a.fullActionSequence);
     }
   });
   tx();
@@ -1920,6 +1950,7 @@ export function updatePlayerActionSequence(replayId, playerId, fullActionSequenc
   db.prepare(`
     UPDATE replay_player_actions SET full_action_sequence = ? WHERE replay_id = ? AND player_id = ?
   `).run(JSON.stringify(fullActionSequence), replayId, playerId);
+  saveGroupTransitions(replayId, playerId, fullActionSequence);
 }
 
 // Backfill all sequence-derived columns for a single player row
@@ -1940,6 +1971,7 @@ export function updatePlayerActionData(replayId, playerId, data) {
     JSON.stringify(data.earlyGameSequence   || []),
     replayId, playerId
   );
+  saveGroupTransitions(replayId, playerId, data.fullActionSequence);
 }
 
 // Find all players (by battle_tag) that have zero non-NULL full_action_sequence rows
@@ -2026,9 +2058,10 @@ export function getPlayerActionDataForReplay(battleTag, replayId) {
 // with full_action_sequence first (for transition computation on the first row only).
 export function getPlayerActionDataTop(battleTag, limit = 10) {
   return db.prepare(`
-    SELECT rpa.group_hotkeys, rpa.group_compositions, rpa.full_action_sequence,
-           rpa.removeunit, rpa.basic, rpa.heroes, r.game_duration
+    SELECT rpa.group_hotkeys, rpa.group_compositions, rgt.transitions AS group_transitions,
+           rpa.full_action_sequence, rpa.removeunit, rpa.basic, rpa.heroes, r.game_duration
     FROM replay_player_actions rpa
+    LEFT JOIN replay_group_transitions rgt ON rgt.replay_id = rpa.replay_id AND rgt.player_id = rpa.player_id
     JOIN replay_players rp ON rp.replay_id = rpa.replay_id AND rp.player_id = rpa.player_id
     JOIN replays r ON r.id = rpa.replay_id
     WHERE rp.battle_tag = ?
@@ -2039,33 +2072,49 @@ export function getPlayerActionDataTop(battleTag, limit = 10) {
 }
 
 /**
- * What the gallery glyph needs for one player, kept cheap: hotkey and group
- * columns from the latest 10 replays, and the opening of the latest 3 click
- * sequences. Reading full sequences (hundreds of KB each) for ~3,500 players
- * kept the gallery build from ever finishing.
+ * What the gallery glyph needs for one player, from the 10 latest replays,
+ * preferring ones with switch counts: group hotkey and composition columns and
+ * the stored counts. No click sequences are read.
  */
-const GALLERY_SEQ_CHARS = 200000; // well past the 1,000 actions the glyph reads
 export function getPlayerGalleryActions(battleTag) {
-  const join = `
+  return db.prepare(`
+    SELECT rpa.group_hotkeys, rpa.group_compositions, rgt.transitions AS group_transitions
     FROM replay_player_actions rpa
     JOIN replay_players rp ON rp.replay_id = rpa.replay_id AND rp.player_id = rpa.player_id
-    WHERE rp.battle_tag = ?`;
-  const meta = db.prepare(`
-    SELECT rpa.group_hotkeys, rpa.group_compositions ${join}
-    ORDER BY rpa.replay_id DESC LIMIT 10
+    LEFT JOIN replay_group_transitions rgt ON rgt.replay_id = rpa.replay_id AND rgt.player_id = rpa.player_id
+    WHERE rp.battle_tag = ?
+    ORDER BY (CASE WHEN octet_length(rgt.transitions) > 2 THEN 1 ELSE 0 END) DESC,
+             rpa.replay_id DESC
+    LIMIT 10
   `).all(battleTag);
-  const seqs = db.prepare(`
-    SELECT substr(rpa.full_action_sequence, 1, ${GALLERY_SEQ_CHARS}) AS full_action_sequence ${join}
-      AND octet_length(rpa.full_action_sequence) > 2
-    ORDER BY rpa.replay_id DESC LIMIT 3
-  `).all(battleTag).map(r => {
-    const s = r.full_action_sequence;
-    // A cut-off JSON array: close it after the last whole action
-    if (s.length < GALLERY_SEQ_CHARS) return r;
-    const end = s.lastIndexOf('},');
-    return { full_action_sequence: end > 0 ? `${s.slice(0, end + 1)}]` : '[]' };
-  });
-  return [...meta, ...seqs];
+}
+
+// Enough of a sequence for the switch counts (1,000 actions) with room to spare
+const SEQUENCE_HEAD_CHARS = 200000;
+
+/** The opening of a click sequence as a JSON array, closed after the last whole action. */
+export function sequenceHead(text) {
+  if (!text || text.length < SEQUENCE_HEAD_CHARS) return text;
+  const end = text.lastIndexOf('},');
+  return end > 0 ? `${text.slice(0, end + 1)}]` : '[]';
+}
+
+/** Action rows with a click sequence but no stored switch counts, after a cursor. */
+export function getActionRowsNeedingTransitions(afterId, limit) {
+  return db.prepare(`
+    SELECT rpa.id, rpa.replay_id, rpa.player_id,
+           substr(rpa.full_action_sequence, 1, ${SEQUENCE_HEAD_CHARS}) AS full_action_sequence
+    FROM replay_player_actions rpa
+    LEFT JOIN replay_group_transitions rgt ON rgt.replay_id = rpa.replay_id AND rgt.player_id = rpa.player_id
+    WHERE rpa.id > ? AND rgt.replay_id IS NULL AND octet_length(rpa.full_action_sequence) > 2
+    ORDER BY rpa.id LIMIT ?
+  `).all(afterId, limit);
+}
+
+/** @param {Array<{replayId: number, playerId: number, json: string}>} rows */
+export function setGroupTransitions(rows) {
+  const stmt = db.prepare('INSERT OR REPLACE INTO replay_group_transitions (replay_id, player_id, transitions) VALUES (?, ?, ?)');
+  db.transaction(() => { for (const r of rows) stmt.run(r.replayId, r.playerId, r.json); })();
 }
 
 export function getPlayerActionData(battleTag) {
@@ -2209,9 +2258,10 @@ export function getPlayerActionDataTopFiltered(battleTag, limit = 10, { race = n
   if (after) { conditions.push('COALESCE(r.match_date, r.uploaded_at) >= ?'); params.push(after); }
   params.push(limit);
   return db.prepare(`
-    SELECT rpa.group_hotkeys, rpa.group_compositions, rpa.full_action_sequence,
-           rpa.removeunit, rpa.basic, rpa.heroes, r.game_duration
+    SELECT rpa.group_hotkeys, rpa.group_compositions, rgt.transitions AS group_transitions,
+           rpa.full_action_sequence, rpa.removeunit, rpa.basic, rpa.heroes, r.game_duration
     FROM replay_player_actions rpa
+    LEFT JOIN replay_group_transitions rgt ON rgt.replay_id = rpa.replay_id AND rgt.player_id = rpa.player_id
     JOIN replay_players rp ON rp.replay_id = rpa.replay_id AND rp.player_id = rpa.player_id
     JOIN replays r ON r.id = rpa.replay_id
     WHERE ${conditions.join(' AND ')}
@@ -2521,6 +2571,32 @@ export function deleteBlogPost(slug) {
 }
 
 // ── Validation pairs (known smurf-main) ────────────
+
+const sortedPair = (a, b) => (a < b ? [a, b] : [b, a]);
+
+/** @param {'same'|'different'|null} label - null removes the label */
+export function setPairLabel(tagA, tagB, label) {
+  const [a, b] = sortedPair(tagA, tagB);
+  if (label === null) {
+    db.prepare('DELETE FROM pair_labels WHERE tag_a = ? AND tag_b = ?').run(a, b);
+    return;
+  }
+  db.prepare(`
+    INSERT INTO pair_labels (tag_a, tag_b, label) VALUES (?, ?, ?)
+    ON CONFLICT(tag_a, tag_b) DO UPDATE SET label = excluded.label, labelled_at = datetime('now')
+  `).run(a, b, label);
+}
+
+/** @returns {Map<string, 'same'|'different'>} keyed "tagA|tagB" in sorted order */
+export function getPairLabels() {
+  const out = new Map();
+  for (const r of db.prepare('SELECT tag_a, tag_b, label FROM pair_labels').all()) out.set(`${r.tag_a}|${r.tag_b}`, r.label);
+  return out;
+}
+
+export function pairLabelKey(tagA, tagB) {
+  return sortedPair(tagA, tagB).join('|');
+}
 
 export function getValidationPairs() {
   return db.prepare('SELECT * FROM validation_pairs ORDER BY created_at DESC').all();

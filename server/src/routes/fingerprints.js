@@ -49,7 +49,14 @@ import {
   getPlayerCountries,
   getLobbyMessagesByTag,
   getPlayerGalleryActions,
+  getActionRowsNeedingTransitions,
+  setGroupTransitions,
+  sequenceHead,
+  setPairLabel,
+  getPairLabels,
+  pairLabelKey,
 } from '../db.js';
+import { groupTransitionCounts } from '../groupTransitions.js';
 import { buildChatIndex, chatEvidence } from '../chatStyle.js';
 import {
   buildServerFingerprint,
@@ -1035,6 +1042,46 @@ const GALLERY_MIN_REBUILD = 6 * 60 * 60 * 1000;
 // The last build, kept on the data volume so a restart serves it at once
 const GALLERY_FILE = join(dirname(config.DB_PATH), 'gallery-cache.json');
 
+// ── Switch-count backfill ──────────────────────
+// Replays imported before replay_group_transitions existed get their counts
+// here, a few rows at a time so the relay stays responsive. Once done the
+// gallery is rebuilt from the stored counts.
+const TRANSITIONS_CHUNK = 25;
+const TRANSITIONS_GAP_MS = 250;
+let transitionsBackfill = { running: false, done: 0, startedAt: null, finishedAt: null };
+
+async function backfillGroupTransitions() {
+  if (transitionsBackfill.running) return;
+  transitionsBackfill = { running: true, done: 0, startedAt: Date.now(), finishedAt: null };
+  let cursor = 0;
+  try {
+    for (;;) {
+      const rows = getActionRowsNeedingTransitions(cursor, TRANSITIONS_CHUNK);
+      if (rows.length === 0) break;
+      setGroupTransitions(rows.map(r => ({
+        replayId: r.replay_id,
+        playerId: r.player_id,
+        json: JSON.stringify(groupTransitionCounts(tryParse(sequenceHead(r.full_action_sequence)))),
+      })));
+      cursor = rows[rows.length - 1].id;
+      transitionsBackfill.done += rows.length;
+      if (transitionsBackfill.done % 2000 < TRANSITIONS_CHUNK) {
+        console.log(`[transitions] ${transitionsBackfill.done} replays done in ${Math.round((Date.now() - transitionsBackfill.startedAt) / 1000)}s`);
+      }
+      await new Promise(r => setTimeout(r, TRANSITIONS_GAP_MS));
+    }
+    console.log(`[transitions] backfill finished: ${transitionsBackfill.done} replays`);
+    if (transitionsBackfill.done > 0) { galleryAge = 0; galleryBuildStarted = 0; }
+  } catch (err) {
+    console.warn('[transitions] backfill stopped:', err.message);
+  } finally {
+    transitionsBackfill.running = false;
+    transitionsBackfill.finishedAt = Date.now();
+  }
+}
+// A minute after startup, once the relay has settled
+setTimeout(() => { backfillGroupTransitions(); }, 60 * 1000).unref?.();
+
 function loadGalleryFromDisk() {
   try {
     const saved = JSON.parse(readFileSync(GALLERY_FILE, 'utf8'));
@@ -1148,7 +1195,6 @@ function computeActionProfileLight(actionRows) {
   const groupStats = {};
   const groupUnitCounts = {};
   const groupTransitions = {};
-  const ACTION_CAP = 5000;
 
   for (const row of actionRows) {
     const hk = tryParse(row.group_hotkeys);
@@ -1173,24 +1219,15 @@ function computeActionProfileLight(actionRows) {
     }
   }
 
-  // Compute transitions across all rows with sequences (capped per-row to avoid bias from longer games).
-  const perRowCap = Math.max(1000, Math.floor(ACTION_CAP / Math.max(1, actionRows.length)));
+  // Control-group switches per replay: the stored counts where they exist
+  // (replay_group_transitions), else worked out from the click sequence
   for (const row of actionRows) {
-    if (!row.full_action_sequence || row.full_action_sequence === '[]') continue;
-    const seq = tryParse(row.full_action_sequence);
-    if (!seq) continue;
-    let lastGroup = null;
-    const cap = Math.min(seq.length, perRowCap);
-    for (let i = 0; i < cap; i++) {
-      const a = seq[i];
-      if (a.ms < 120000) continue;
-      const isHotkey = (a.id === 0x17 || a.id === 0x18 || a.id === 23 || a.id === 24) && a.g != null;
-      if (isHotkey && lastGroup !== null && lastGroup !== a.g) {
-        const key = `${lastGroup}->${a.g}`;
-        groupTransitions[key] = (groupTransitions[key] || 0) + 1;
-      }
-      if (isHotkey) lastGroup = a.g;
+    let counts = row.group_transitions ? tryParse(row.group_transitions) : null;
+    if (!counts && row.full_action_sequence && row.full_action_sequence !== '[]') {
+      counts = groupTransitionCounts(tryParse(row.full_action_sequence));
     }
+    if (!counts) continue;
+    for (const [key, n] of Object.entries(counts)) groupTransitions[key] = (groupTransitions[key] || 0) + n;
   }
 
   const transitionPairs = Object.entries(groupTransitions)
@@ -2516,6 +2553,7 @@ router.get('/suspects', async (req, res) => {
 
   // Two accounts that have appeared in the same game are different people,
   // however alike they play, so they are not suspects.
+  const labels = getPairLabels();
   const pairs = [];
   for (const p of scoredPairs) {
     if (pairs.length >= limit) break;
@@ -2539,6 +2577,8 @@ router.get('/suspects', async (req, res) => {
       chat: p.chat,
       connectionA: p.connectionA,
       connectionB: p.connectionB,
+      // Chris's verdict on this pair, if given: 'same' or 'different'
+      label: labels.get(pairLabelKey(pA.battleTag, pB.battleTag)) || null,
       breakdown: formatBreakdown(breakdown),
     });
   }
@@ -2682,6 +2722,27 @@ router.get('/validation', (req, res) => {
   };
 
   res.json({ pairs: enriched, summary });
+});
+
+// POST /api/fingerprints/pair-label - Admin: mark a suspect pair as the same
+// player or different players ({tagA, tagB, label: 'same'|'different'|null}).
+// 'same' also adds a confirmed pair, so it shows on the Confirmed tab.
+router.post('/pair-label', requireApiKey, (req, res) => {
+  const { tagA, tagB, label } = req.body || {};
+  if (!tagA || !tagB || tagA === tagB) return res.status(400).json({ error: 'tagA and tagB required' });
+  if (![ 'same', 'different', null ].includes(label ?? null)) return res.status(400).json({ error: "label must be 'same', 'different' or null" });
+  setPairLabel(tagA, tagB, label ?? null);
+  if (label === 'same') {
+    const known = getValidationPairs().some(v =>
+      (v.tag_main === tagA && v.tag_smurf === tagB) || (v.tag_main === tagB && v.tag_smurf === tagA));
+    if (!known) insertValidationPair(tagA, tagB, 'confirmed from the suspects list');
+  }
+  res.json({ ok: true, label: label ?? null });
+});
+
+// GET /api/fingerprints/pair-labels - every labelled pair
+router.get('/pair-labels', (req, res) => {
+  res.json({ labels: [...getPairLabels()].map(([key, label]) => { const [tagA, tagB] = key.split('|'); return { tagA, tagB, label }; }) });
 });
 
 // POST /api/fingerprints/validation - Admin: add pair

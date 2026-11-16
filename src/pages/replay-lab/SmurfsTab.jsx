@@ -2,6 +2,7 @@ import React, { useState, useEffect } from "react";
 import styled from "styled-components";
 import PeonLoader from "../../components/PeonLoader";
 import { chartColors } from "../../lib/design-tokens";
+import useAdmin from "../../lib/useAdmin";
 
 const RELAY_URL =
   import.meta.env.VITE_CHAT_RELAY_URL || "https://4v4gg-chat-relay.fly.dev";
@@ -52,6 +53,23 @@ export default function SmurfsTab() {
   const [suspects, setSuspects] = useState(null);
   const [loading, setLoading] = useState(true);
   const [expandedIdx, setExpandedIdx] = useState(null);
+  const { adminKey } = useAdmin();
+
+  // Your verdict on a pair: test cases for the end-to-end eval. Clicking the
+  // current label again clears it.
+  async function setLabel(pair, label) {
+    const next = pair.label === label ? null : label;
+    const res = await fetch(`${RELAY_URL}/api/fingerprints/pair-label`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json", "x-api-key": adminKey },
+      body: JSON.stringify({ tagA: pair.tagA, tagB: pair.tagB, label: next }),
+    }).catch(() => null);
+    if (!res?.ok) return;
+    setSuspects(s => ({
+      ...s,
+      pairs: s.pairs.map(p => (p.tagA === pair.tagA && p.tagB === pair.tagB ? { ...p, label: next } : p)),
+    }));
+  }
 
   useEffect(() => {
     fetch(`${RELAY_URL}/api/fingerprints/suspects?limit=50`)
@@ -101,6 +119,14 @@ export default function SmurfsTab() {
                   <PlayerName>{pair.tagB.split("#")[0]}</PlayerName>
                 </PairPlayers>
                 <Reasons>{getReasons(pair).join(" · ")}</Reasons>
+                <LabelRow onClick={e => e.stopPropagation()}>
+                  <LabelButton $active={pair.label === "same"} $color="var(--red)" onClick={() => setLabel(pair, "same")}>
+                    Same player
+                  </LabelButton>
+                  <LabelButton $active={pair.label === "different"} $color="var(--green)" onClick={() => setLabel(pair, "different")}>
+                    Different
+                  </LabelButton>
+                </LabelRow>
               </PairMain>
               <PairScore>
                 <ScoreValue $color={verdict.color}>{displayScore}</ScoreValue>
@@ -237,6 +263,27 @@ const PairMain = styled.div`
   flex-direction: column;
   gap: var(--space-1);
   min-width: 0;
+`;
+
+const LabelRow = styled.div`
+  display: flex;
+  gap: var(--space-2);
+  margin-top: var(--space-1);
+`;
+
+const LabelButton = styled.button`
+  font-family: var(--font-mono);
+  font-size: var(--text-xxxs);
+  text-transform: uppercase;
+  letter-spacing: 0.1em;
+  padding: 2px var(--space-2);
+  border-radius: var(--radius-sm);
+  cursor: pointer;
+  border: 1px solid ${p => (p.$active ? p.$color : "var(--grey-mid)")};
+  background: ${p => (p.$active ? p.$color : "transparent")};
+  color: ${p => (p.$active ? "#000" : "var(--grey-light)")};
+
+  &:hover { border-color: ${p => p.$color}; color: ${p => (p.$active ? "#000" : "var(--white)")}; }
 `;
 
 const Reasons = styled.div`
