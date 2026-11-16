@@ -173,9 +173,11 @@ export default function HeroUsage() {
         He&rsquo;s brittle there: in melee range of four opponents he needs a Holy Light or a Healing Wave behind him, and
         NE has no hero heal like that. He depends on an ally to bring one, and
         allies don&rsquo;t always pan out (see{" "}
-        <Link to="/blog/the-blame-game">The Blame Game</Link>). Alone, he fills his six slots with survival:
-        Town Portal, Staff of Preservation, boots, Orb of Venom,
-        invulnerability potion, maybe anti-magic. So he usually gets a
+        <Link to="/blog/the-blame-game">The Blame Game</Link>). Alone, he fills his six slots with
+        essentials: a Town Portal, a Staff of Preservation, an
+        invulnerability potion and maybe an anti-magic potion to get out,
+        boots to position better, and an Orb of Venom for the extra damage
+        and so he can hit air. So he usually gets a
         second hero to carry items and staff him out, which splits his
         experience and ends the bonus.
       </p>
