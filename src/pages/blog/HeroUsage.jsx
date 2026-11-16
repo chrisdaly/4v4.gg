@@ -260,20 +260,18 @@ export default function HeroUsage() {
 
       <p>
         That&rsquo;s a narrow set of games: the right spawn, the right
-        opponents, an ally with a heal.
-        Solo has had twenty years of pros working out the DH&rsquo;s
-        timings, and 4v4 has had a chat room. Nobody has worked out which
-        spawns, maps or enemy heroes make him worth the slot, or when a
-        level-3 DH should leave the corner on a map twice the size.
+        opponents, an ally with a heal. Solo has had twenty years of pros
+        working out the DH. 4v4 hasn&rsquo;t: nobody has worked out which
+        spawns, maps or enemy heroes make him worth the slot.
       </p>
 
       <p>
-        Jens is the hint. Even in solo he picks the DH less than half as
-        often as other NE players, and in 4v4 he picks him in about 16% of
-        his NE games, the same as everyone else. fuetti still says he made
-        him work. If one of the best NE players on the ladder can get that
-        out of a hero he barely picks, there&rsquo;s a 4v4 DH still waiting
-        to be found, and the timings to go with him.
+        Jens and the other players who still pick him may be onto
+        something. Even in solo Jens picks the DH less than half as often
+        as other NE players, and in 4v4 he picks him in about 16% of his NE
+        games, the same as everyone else. If one of the best NE players on
+        the ladder still makes room for a hero he barely picks in solo,
+        there&rsquo;s a 4v4 DH strat still waiting to be found.
       </p>
 
       <p className="dw-foot">
