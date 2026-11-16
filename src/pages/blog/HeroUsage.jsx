@@ -171,7 +171,9 @@ export default function HeroUsage() {
       <p>
         In solo the DH is both, but it doesn&rsquo;t scale up to 4v4.
         He&rsquo;s brittle there: in melee range of four opponents he needs a Holy Light or a Healing Wave behind him, and
-        NE has no such heal. Alone, he fills his six slots with survival:
+        NE has no such heal. He depends on an ally to bring one, and
+        allies don&rsquo;t always pan out (see{" "}
+        <Link to="/blog/the-blame-game">The Blame Game</Link>). Alone, he fills his six slots with survival:
         Town Portal, Staff of Preservation, boots, Orb of Venom,
         invulnerability potion, maybe anti-magic. So he usually gets a
         second hero to carry items and staff him out, which splits his
