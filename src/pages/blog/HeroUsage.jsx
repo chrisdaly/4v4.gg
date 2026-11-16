@@ -266,12 +266,11 @@ export default function HeroUsage() {
       </p>
 
       <p>
-        Jens and the other players who still pick him may be onto
-        something. Even in solo Jens picks the DH less than half as often
-        as other NE players, and in 4v4 he picks him in about 16% of his NE
-        games, the same as everyone else. If one of the best NE players on
-        the ladder still makes room for a hero he barely picks in solo,
-        there&rsquo;s a 4v4 DH strat still waiting to be found.
+        Jens, one of the best NE players on the ladder, barely picks the DH
+        in solo: less than half as often as other NE players. In 4v4 he
+        picks him as often as everyone else. He and the others who stick
+        with the DH may be onto something: a 4v4 DH strat still waiting to
+        be found.
       </p>
 
       <p className="dw-foot">
