@@ -8,3 +8,4 @@ ml/*.tsv.gz
 ml/sequence/data/
 ml/sequence/runs/
 ml/sequence/.venv/
+ml/**/__pycache__/
