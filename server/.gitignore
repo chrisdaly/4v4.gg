@@ -2,3 +2,9 @@ node_modules/
 data/
 package-lock.json
 .admin-key
+
+# Sequence-model training data and checkpoints (exported from prod, large)
+ml/*.tsv.gz
+ml/sequence/data/
+ml/sequence/runs/
+ml/sequence/.venv/
