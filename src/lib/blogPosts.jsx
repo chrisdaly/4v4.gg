@@ -84,6 +84,17 @@ const BlamePreview = () => {
 
 export const blogPosts = [
   {
+    slug: "where-the-demon-hunter-went",
+    title: "Where the Demon Hunter Went",
+    description:
+      "In solo, Night Elf is built around the Demon Hunter. In 4v4, opening with him gets you called names.",
+    date: "Nov 17, 2026",
+    tags: ["heroes", "chat", "stats"],
+    type: "component",
+    component: () => import("../pages/blog/HeroUsage"),
+    coverImage: "/blog/demonhunter-cover.svg",
+  },
+  {
     slug: "the-blame-game",
     title: "The Blame Game",
     description: "Who says what in chat in the five minutes after a 4v4, and who gets the blame.",
@@ -103,17 +114,6 @@ export const blogPosts = [
     type: "component",
     component: () => import("../pages/blog/OneMoreGame"),
     preview: LastGamePreview,
-  },
-  {
-    slug: "where-the-demon-hunter-went",
-    title: "Where the Demon Hunter Went",
-    description:
-      "In solo, Night Elf is built around the Demon Hunter. In 4v4, opening with him gets you called names.",
-    date: "Oct 4, 2026",
-    tags: ["heroes", "chat", "stats"],
-    type: "component",
-    component: () => import("../pages/blog/HeroUsage"),
-    coverImage: "/blog/demonhunter-cover.svg",
   },
   {
     slug: "dots-not-numbers",

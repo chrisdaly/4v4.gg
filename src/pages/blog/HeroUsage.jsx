@@ -79,7 +79,7 @@ export default function HeroUsage() {
         <span className="bl-card-tag">stats</span>
       </div>
       <h1 className="bl-article-title">Where the Demon Hunter Went</h1>
-      <div className="dw-date"><span className="bl-card-tag">October 2026</span></div>
+      <div className="dw-date"><span className="bl-card-tag">November 2026</span></div>
 
       <p className="dw-lede">
         In solo, Night Elf is built around the Demon Hunter. In 4v4, opening
