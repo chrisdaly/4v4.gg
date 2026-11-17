@@ -1185,9 +1185,6 @@ async function fetchPlayerRecentInfo(battleTag) {
   };
 }
 
-function yieldToEventLoop() {
-  return new Promise(resolve => setImmediate(resolve));
-}
 
 // Lightweight alternative to computeActionProfile for gallery builds.
 // Derives groupUsage and groupCompositions from pre-aggregated columns only -
@@ -1261,12 +1258,32 @@ function computeActionProfileLight(actionRows) {
   return { transitionPairs, groupUsage, groupCompositions, reassignRatio, dominantLoop };
 }
 
+// Loading every player's fingerprints takes ~30s of solid CPU, which froze
+// the relay (and the request that started the build), so the gallery is built
+// in the worker like the suspects list.
 async function buildGalleryCache() {
   if (galleryBuilding) return;
   galleryBuilding = true;
   galleryBuildStarted = Date.now();
   try {
-    console.log('[gallery] Building cache...');
+    console.log('[gallery] Building cache in worker...');
+    const players = await runInWorker('gallery');
+    galleryCache = { players };
+    galleryAge = Date.now();
+    console.log(`[gallery] Cache built: ${players.length} players in ${Math.round((Date.now() - galleryBuildStarted) / 1000)}s`);
+    try {
+      writeFileSync(GALLERY_FILE, JSON.stringify({ builtAt: galleryAge, players }));
+    } catch (err) {
+      console.warn('[gallery] could not save:', err.message);
+    }
+  } finally {
+    galleryBuilding = false;
+  }
+}
+
+/** Gallery rows for every player with 2+ replays. Runs in the worker. */
+export async function computeGallerySnapshot() {
+  const t0 = Date.now();
     // Use the no-embedding query - gallery never uses embeddings, and the
     // embedding GROUP_CONCAT pulls 300MB+ blocking the event loop for 20s.
     const allRows = getAllAveragedFingerprints();
@@ -1278,11 +1295,7 @@ async function buildGalleryCache() {
       fp: parseAveragedRow(row),
     })).filter(p => p.fp);
     console.log(`[gallery] loaded ${allParsed.length} players (no-embedding query)`);
-    if (allParsed.length === 0) {
-      galleryCache = { players: [] };
-      galleryAge = Date.now();
-      return;
-    }
+    if (allParsed.length === 0) return [];
 
     const mmrMap = await fetchLadderMmr();
     console.log(`[gallery] fetchLadderMmr returned ${mmrMap.size} entries`);
@@ -1365,25 +1378,11 @@ async function buildGalleryCache() {
         },
       });
 
-      // Yield after every player so other requests (and Fly's health check)
-      // get in between
-      await yieldToEventLoop();
-      if (players.length % 250 === 0) {
-        console.log(`[gallery] ${players.length} players built in ${Math.round((Date.now() - galleryBuildStarted) / 1000)}s`);
+      if (players.length % 500 === 0) {
+        console.log(`[gallery] ${players.length} players built in ${Math.round((Date.now() - t0) / 1000)}s`);
       }
     }
-
-    galleryCache = { players };
-    galleryAge = Date.now();
-    console.log(`[gallery] Cache built: ${players.length} players in ${Math.round((Date.now() - galleryBuildStarted) / 1000)}s`);
-    try {
-      writeFileSync(GALLERY_FILE, JSON.stringify({ builtAt: galleryAge, players }));
-    } catch (err) {
-      console.warn('[gallery] could not save:', err.message);
-    }
-  } finally {
-    galleryBuilding = false;
-  }
+    return players;
 }
 
 // GET /api/fingerprints/gallery - Public gallery of player extremes (no auth)
@@ -2193,21 +2192,26 @@ router.get('/embedding-map', async (req, res) => {
 // Building the list takes about a minute of solid CPU (every account's
 // fingerprints parsed, all pairs scored, the chat index). On the main thread
 // that froze the relay and failed health checks, so it runs in a worker
-// (suspectsWorker.js) and the last list keeps being served while a new one
+// (buildWorker.js) and the last list keeps being served while a new one
 // builds. Only the very first request after a boot waits.
 let suspectsCache = null;
 let suspectsAge = 0;
 let suspectsBuild = null; // Promise while a worker is running
 
+/** Runs one build ('suspects' or 'gallery') in buildWorker.js and returns its result. */
+function runInWorker(job) {
+  return new Promise((resolve, reject) => {
+    const worker = new Worker(new URL('../buildWorker.js', import.meta.url), { workerData: { job } });
+    worker.once('message', msg => (msg.error ? reject(new Error(msg.error)) : resolve(msg.data)));
+    worker.once('error', reject);
+    worker.once('exit', code => reject(new Error(`${job} worker exited with code ${code}`)));
+  });
+}
+
 function buildSuspectsInWorker() {
   if (suspectsBuild) return suspectsBuild;
   const t0 = Date.now();
-  suspectsBuild = new Promise((resolve, reject) => {
-    const worker = new Worker(new URL('../suspectsWorker.js', import.meta.url));
-    worker.once('message', msg => (msg.error ? reject(new Error(msg.error)) : resolve(msg.data)));
-    worker.once('error', reject);
-    worker.once('exit', code => reject(new Error(`suspects worker exited with code ${code}`)));
-  }).then(data => {
+  suspectsBuild = runInWorker('suspects').then(data => {
     suspectsCache = data;
     suspectsAge = Date.now();
     console.log(`[Suspects] built in worker in ${((Date.now() - t0) / 1000).toFixed(1)}s`);
