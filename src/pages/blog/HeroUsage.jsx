@@ -189,6 +189,13 @@ export default function HeroUsage() {
         than one DH in ten gets there.
       </p>
 
+      <Exchange
+        when="Nov 11, after the game"
+        rows={[
+          ["Boyzinho", "dh lvl 6 so cute"],
+        ]}
+      />
+
       <p>
         The Warden, NE&rsquo;s other melee hero, survives on her own.
         Blink gets her out, and her damage is a burst she lands before
@@ -226,6 +233,18 @@ export default function HeroUsage() {
           ["mubarak", "get dh in corner its better"],
           ["Lakers", "dh i like"],
           ["Lakers", "but can be hard in 4s"],
+        ]}
+      />
+
+      <p>
+        Lyvz had a DH ally who spawned in the pocket instead.
+      </p>
+
+      <Exchange
+        when="Nov 13, after the game"
+        rows={[
+          ["Lyvz", "previous game you went pocket spawn Lilious with DH + \"fast expo\" at what, 6 min? Then you didnt come even tho I asked"],
+          ["Lyvz", "you decisions have a cost for your allies"],
         ]}
       />
 
