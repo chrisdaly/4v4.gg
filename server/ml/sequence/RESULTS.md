@@ -29,5 +29,26 @@ training fold only). Both folds pooled, 1,019 hidden players, pool 1,928.
   uses the stand-out measure). Fusing by per-lookup z-scores throws away the
   absolute level, which is why it ranks best but thresholds worst. Next: the
   stand-out verdict on both scores, and the confirmed smurf pairs.
+## Verdicts (the relay's stand-out rule)
+
+`eval_verdict.py`, run on Modal CPUs (`modal_eval.py`). Same games and split;
+each scorer's top match judged by the relay's verdict (stand-out above the
+100 nearest strangers on both sides, rarity against 300 ordinary accounts'
+best matches; confident at 1%, possible at 5%). "Absent" removes the owner's
+known half from the pool, so every flag there is a false alarm.
+
+| Scorer | Right + confident | Right + possible | Wrong + possible | Absent: confident | Absent: possible |
+|---|---|---|---|---|---|
+| Whitened | 9.9% | 41.4% | 1.9% | 1.3% | 7.5% |
+| Sequence | 10.9% | 57.4% | 2.5% | 1.3% | 8.3% |
+| Both (mean cosine) | 10.7% | 53.5% | 1.5% | 1.8% | 7.9% |
+
+- At "possible", the sequence model names the right owner for 57% of hidden
+  halves against 41%, for about one more false alarm per hundred lookups.
+- Only 3 of the 15 confirmed pairs have sequences on both sides (the rest are
+  missing action sequences, see the sequence backfill). Andreevich/Chervyak:
+  whitened "possible", sequence "confident". FOALS/потоп: rank 1 for all three,
+  no verdict. kazM/AlanHarper: rank 2 for all three, "possible" only for both.
+
 - The stored sequences carry action type, control group and timing only; unit
   counts and ability ids are absent, so those inputs are all zero.
