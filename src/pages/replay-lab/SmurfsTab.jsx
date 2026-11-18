@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useMemo } from "react";
+import React, { useState, useEffect, useMemo, useRef, useLayoutEffect } from "react";
 import { Link } from "react-router-dom";
 import styled from "styled-components";
 import PeonLoader from "../../components/PeonLoader";
@@ -125,20 +125,22 @@ function ChatCompare({ pair, nameA, nameB }) {
         Lobby chat · {data.countA} vs {data.countB} messages
         {pair.chat?.supports && " · closest writer to each other"}
       </SectionTitle>
-      {data.shared.length > 0 ? (
-        <SharedTerms>
-          {data.shared.map(s => (
-            <SharedTerm key={s.term}>
-              <TermChip>{s.term}</TermChip>
-              <QuoteBlock quotes={[`${nameA}: ${s.exampleA}`, `${nameB}: ${s.exampleB}`]} />
-            </SharedTerm>
-          ))}
-        </SharedTerms>
-      ) : <DrawerNote>No distinctive words in common.</DrawerNote>}
-      <Glyphs style={{ marginTop: "var(--space-4)" }}>
-        <QuoteBlock quotes={data.recentA.map(m => `${nameA}: ${m}`)} />
-        <QuoteBlock quotes={data.recentB.map(m => `${nameB}: ${m}`)} />
-      </Glyphs>
+      <ChatTable>
+        <span />
+        <ChatHead>{nameA}</ChatHead>
+        <ChatHead>{nameB}</ChatHead>
+        {data.shared.map(s => (
+          <React.Fragment key={s.term}>
+            <div><TermChip>{s.term}</TermChip></div>
+            <QuoteBlock quotes={[s.exampleA]} />
+            <QuoteBlock quotes={[s.exampleB]} />
+          </React.Fragment>
+        ))}
+        {data.shared.length === 0 && <DrawerNote style={{ gridColumn: "1 / -1" }}>No distinctive words in common.</DrawerNote>}
+        <RecentLabel>Recent</RecentLabel>
+        <QuoteBlock quotes={data.recentA} />
+        <QuoteBlock quotes={data.recentB} />
+      </ChatTable>
     </section>
   );
 }
@@ -153,7 +155,7 @@ function PairDrawer({ pair, detailA, detailB }) {
   ];
   return (
     <Drawer onClick={e => e.stopPropagation()}>
-      <Reasons>{getReasons(pair).join(" · ")}</Reasons>
+      <Reasons>{pair.notes || getReasons(pair).join(" · ")}</Reasons>
       <Connections>
         <span>Games</span>
         <span>{nameA} {pair.replaysA}</span>
@@ -194,17 +196,30 @@ function PairDrawer({ pair, detailA, detailB }) {
           </Glyphs>
         </>
       )}
-      {pair.chat?.indexed && <ChatCompare pair={pair} nameA={nameA} nameB={nameB} />}
+      {pair.chat?.indexed !== false && <ChatCompare pair={pair} nameA={nameA} nameB={nameB} />}
     </Drawer>
   );
 }
 
-function PairRow({ pair, index, open, onToggle, meta, isAdmin, onLabel, labelError }) {
-  const verdict = getVerdict(pair);
+/** One pair of accounts: a compact row that opens into the evidence drawer.
+ *  Shared by the suspects list and the confirmed pairs (ValidationTab), which
+ *  pass their own verdict, score text and footer and no label buttons. */
+export function PairRow({ pair, index, open, onToggle, meta, isAdmin, onLabel, labelError, verdict: verdictIn, scoreText, footer }) {
+  const verdict = verdictIn || getVerdict(pair);
   const detailA = useAccountDetail(pair.tagA, open);
   const detailB = useAccountDetail(pair.tagB, open);
+  // Opening a row closes the one above it, which would pull this row up off
+  // screen; bring it back to the top once the layout has settled.
+  const cardRef = useRef(null);
+  useLayoutEffect(() => {
+    if (!open || !cardRef.current) return;
+    const top = cardRef.current.getBoundingClientRect().top;
+    if (top < 80 || top > window.innerHeight * 0.6) {
+      cardRef.current.scrollIntoView({ block: "start" });
+    }
+  }, [open]);
   return (
-    <PairCard $open={open}>
+    <PairCard $open={open} ref={cardRef}>
       <PairHead onClick={onToggle}>
         <PairRank $color={verdict.color}>{index + 1}</PairRank>
         <PairPlayers>
@@ -213,14 +228,15 @@ function PairRow({ pair, index, open, onToggle, meta, isAdmin, onLabel, labelErr
           <Account tag={pair.tagB} race={pair.raceB} conn={pair.connectionB} meta={meta} activity={detailB?.activity} />
         </PairPlayers>
         <PairScore>
-          <ScoreValue $color={verdict.color}>{Math.round(pair.similarity * 100)}%</ScoreValue>
+          <ScoreValue $color={verdict.color}>{scoreText ?? `${Math.round(pair.similarity * 100)}%`}</ScoreValue>
           <VerdictLabel $color={verdict.color}>{verdict.label}</VerdictLabel>
         </PairScore>
         <Chevron $open={open}>▾</Chevron>
       </PairHead>
       {pair.label && !open && <LabelledTag $label={pair.label}>{pair.label === "same" ? "You said: same player" : "You said: different"}</LabelledTag>}
       {open && <PairDrawer pair={pair} detailA={detailA} detailB={detailB} />}
-      {open && isAdmin && (
+      {open && footer}
+      {open && isAdmin && onLabel && (
         <LabelRow onClick={e => e.stopPropagation()}>
           <LabelPrompt>Your call</LabelPrompt>
           <LabelButton $active={pair.label === "same"} $color="var(--gold)" onClick={() => onLabel(pair, "same")}>
@@ -379,6 +395,7 @@ const PairsList = styled.div`
 const PairCard = styled.div`
   display: flex;
   flex-direction: column;
+  scroll-margin-top: 90px; /* clear the fixed navbar when scrolled into view */
   background: var(--theme-bg, var(--surface-1));
   backdrop-filter: var(--theme-blur, none);
   border: var(--theme-border, var(--border-thin) solid var(--grey-mid));
@@ -452,17 +469,32 @@ const SectionTitle = styled.div`
   margin-bottom: var(--space-3);
 `;
 
-const SharedTerms = styled.div`
+// One row per shared word: the word, then each account's message using it
+const ChatTable = styled.div`
   display: grid;
-  grid-template-columns: repeat(auto-fill, minmax(280px, 1fr));
-  gap: var(--space-4);
+  grid-template-columns: 120px 1fr 1fr;
+  gap: var(--space-3) var(--space-6);
+  align-items: start;
+
+  > * { min-width: 0; }
+
+  @media (max-width: 640px) { grid-template-columns: 80px 1fr 1fr; gap: var(--space-2) var(--space-3); }
 `;
 
-const SharedTerm = styled.div`
-  display: flex;
-  flex-direction: column;
-  gap: var(--space-2);
-  min-width: 0;
+const ChatHead = styled.div`
+  font-family: var(--font-display);
+  font-size: var(--text-sm);
+  color: var(--gold);
+  padding-bottom: var(--space-1);
+  border-bottom: var(--border-thin) solid rgba(255, 255, 255, 0.08);
+`;
+
+const RecentLabel = styled.div`
+  font: var(--text-xxs) var(--font-mono);
+  text-transform: uppercase;
+  letter-spacing: 0.1em;
+  color: var(--grey-light);
+  padding-top: var(--space-1);
 `;
 
 const TermChip = styled.span`

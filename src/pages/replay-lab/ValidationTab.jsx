@@ -1,7 +1,9 @@
-import React, { useState, useEffect, useCallback } from "react";
+import React, { useState, useEffect, useCallback, useMemo } from "react";
 import styled from "styled-components";
 import PeonLoader from "../../components/PeonLoader";
 import useAdmin from "../../lib/useAdmin";
+import usePlayerMeta from "../../lib/usePlayerMeta";
+import { PairRow } from "./SmurfsTab";
 import { chartColors } from "../../lib/design-tokens";
 
 const RELAY_URL =
@@ -49,6 +51,10 @@ export default function ValidationTab() {
 
   useEffect(() => { fetchData(); }, [fetchData]);
 
+  const pairs = data?.pairs || [];
+  const tags = useMemo(() => pairs.flatMap(p => [p.tagMain, p.tagSmurf]), [data]); // eslint-disable-line react-hooks/exhaustive-deps
+  const meta = usePlayerMeta(tags);
+
   useEffect(() => {
     if (!isAdmin) return;
     fetch(`${RELAY_URL}/api/fingerprints/explore/players`)
@@ -91,9 +97,7 @@ export default function ValidationTab() {
     );
   }
 
-  const pairs = data?.pairs || [];
   const summary = data?.summary || {};
-  const indexed = pairs.filter(p => !p.missing);
   const filteredMain = mainSearch.length >= 2
     ? players.filter(p => p.battle_tag.toLowerCase().includes(mainSearch.toLowerCase())).slice(0, 8)
     : [];
@@ -185,66 +189,37 @@ export default function ValidationTab() {
         <PairsList>
           {pairs.map((pair, i) => {
             const isMissing = pair.missing;
-            const verdict = !isMissing ? getVerdict(pair.similarity, pair.percentile) : null;
-            const isPass = !isMissing && pair.percentile != null && pair.percentile >= 90;
-            const isExpanded = expandedIdx === i;
-            const bd = pair.breakdown || {};
-            const displayScore = isMissing
+            const verdict = isMissing
+              ? { label: "Needs data", color: "var(--grey-mid)" }
+              : getVerdict(pair.similarity, pair.percentile);
+            const scoreText = isMissing
               ? "-"
               : pair.percentile != null
                 ? `p${Math.round(pair.percentile)}`
                 : `${Math.round(pair.similarity * 100)}%`;
-
+            // Same shape as a suspect pair, so it gets the same row and drawer
+            const row = {
+              tagA: pair.tagMain, tagB: pair.tagSmurf,
+              raceA: pair.raceMain, raceB: pair.raceSmurf,
+              replaysA: pair.replaysMain, replaysB: pair.replaysSmurf,
+              similarity: pair.similarity,
+              connectionA: pair.connectionMain, connectionB: pair.connectionSmurf,
+              notes: pair.notes || "Confirmed pair",
+            };
             return (
-              <PairCard
+              <PairRow
                 key={pair.id}
-                $missing={isMissing}
-                onClick={() => !isMissing && setExpandedIdx(isExpanded ? null : i)}
-              >
-                <PassIndicator $pass={isPass} $missing={isMissing}>
-                  {isMissing ? "?" : isPass ? "\u2713" : "\u2717"}
-                </PassIndicator>
-                <PairPlayers>
-                  <PlayerName $missing={isMissing}>{pair.tagMain.split("#")[0]}</PlayerName>
-                  <Arrow>{"\u2194"}</Arrow>
-                  <PlayerName $missing={isMissing}>{pair.tagSmurf.split("#")[0]}</PlayerName>
-                  {pair.notes && <Notes>{pair.notes}</Notes>}
-                  {isMissing && <MissingBadge>needs data</MissingBadge>}
-                </PairPlayers>
-                <PairScore>
-                  <ScoreValue $color={verdict?.color}>{displayScore}</ScoreValue>
-                  {verdict && <VerdictLabel $color={verdict.color}>{verdict.label}</VerdictLabel>}
-                </PairScore>
-
-                {isExpanded && !isMissing && Object.keys(bd).length > 0 && (
-                  <BreakdownGrid onClick={e => e.stopPropagation()}>
-                    {[
-                      { key: "action", label: "Actions", val: bd.action },
-                      { key: "apm", label: "APM", val: bd.apm },
-                      { key: "hotkey", label: "Hotkeys", val: bd.hotkey },
-                      { key: "tempo", label: "Tempo", val: bd.tempo },
-                      { key: "intensity", label: "Intensity", val: bd.intensity },
-                      { key: "trans", label: "Switching", val: bd.transitions },
-                      { key: "rhythm", label: "Rhythm", val: bd.rhythm },
-                    ].filter(({ val }) => val != null && val > 0).map(({ key, label, val }) => (
-                      <BreakdownItem key={key}>
-                        <BreakdownLabel>{label}</BreakdownLabel>
-                        <BreakdownTrack>
-                          <BreakdownFill $val={val} style={{ width: `${Math.round(val * 100)}%` }} />
-                        </BreakdownTrack>
-                        <BreakdownVal>{Math.round(val * 100)}%</BreakdownVal>
-                      </BreakdownItem>
-                    ))}
-                    <MetaRow>
-                      <MetaItem>Main: {pair.replaysMain} replays ({pair.raceMain || "?"})</MetaItem>
-                      <MetaItem>Smurf: {pair.replaysSmurf} replays ({pair.raceSmurf || "?"})</MetaItem>
-                    </MetaRow>
-                    {isAdmin && (
-                      <DeleteButton onClick={() => handleDelete(pair.id)}>Remove pair</DeleteButton>
-                    )}
-                  </BreakdownGrid>
+                pair={row}
+                index={i}
+                open={expandedIdx === i}
+                onToggle={() => setExpandedIdx(expandedIdx === i ? null : i)}
+                meta={meta}
+                verdict={verdict}
+                scoreText={scoreText}
+                footer={isAdmin && (
+                  <DeleteButton onClick={() => handleDelete(pair.id)}>Remove pair</DeleteButton>
                 )}
-              </PairCard>
+              />
             );
           })}
         </PairsList>
@@ -429,190 +404,6 @@ const PairsList = styled.div`
   display: flex;
   flex-direction: column;
   gap: var(--space-3);
-`;
-
-const PairCard = styled.div`
-  display: grid;
-  grid-template-columns: 40px 1fr auto;
-  gap: var(--space-4);
-  align-items: center;
-  cursor: ${p => p.$missing ? "default" : "pointer"};
-  opacity: ${p => p.$missing ? 0.5 : 1};
-  background: var(--theme-bg, var(--surface-1));
-  backdrop-filter: var(--theme-blur, none);
-  border: var(--theme-border, var(--border-thin) solid var(--grey-mid));
-  border-image: var(--theme-border-image, none);
-  border-radius: var(--radius-md);
-  box-shadow: var(--theme-shadow, none);
-  padding: var(--space-4);
-  transition: all 0.2s ease;
-
-  &:hover {
-    border-color: ${p => p.$missing ? "var(--grey-mid)" : "var(--gold)"};
-  }
-`;
-
-const PassIndicator = styled.div`
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  width: 32px;
-  height: 32px;
-  font-family: var(--font-mono);
-  font-size: var(--text-sm);
-  font-weight: 700;
-  color: ${p => p.$missing ? "var(--grey-mid)" : p.$pass ? GREEN : RED};
-  background: rgba(255, 255, 255, 0.04);
-  border: var(--border-thin) solid ${p => p.$missing ? "var(--grey-mid)" : p.$pass ? GREEN : RED}40;
-  border-radius: var(--radius-full);
-`;
-
-const PairPlayers = styled.div`
-  display: flex;
-  align-items: center;
-  gap: var(--space-3);
-  min-width: 0;
-  flex-wrap: wrap;
-`;
-
-const PlayerName = styled.span`
-  font-family: var(--font-display);
-  font-size: var(--text-base);
-  color: ${p => p.$missing ? "var(--grey-mid)" : "var(--gold)"};
-  white-space: nowrap;
-  overflow: hidden;
-  text-overflow: ellipsis;
-  text-shadow: 0 1px 8px rgba(0, 0, 0, 0.6);
-`;
-
-const Arrow = styled.span`
-  font-family: var(--font-mono);
-  font-size: var(--text-xxs);
-  color: var(--grey-mid);
-  flex-shrink: 0;
-`;
-
-const Notes = styled.span`
-  font-family: var(--font-mono);
-  font-size: var(--text-xxxs);
-  color: var(--grey-mid);
-  font-style: italic;
-  white-space: nowrap;
-  overflow: hidden;
-  text-overflow: ellipsis;
-  max-width: 200px;
-`;
-
-const MissingBadge = styled.span`
-  font-family: var(--font-mono);
-  font-size: var(--text-xxxs);
-  color: var(--grey-mid);
-  background: rgba(255, 255, 255, 0.04);
-  border: var(--border-thin) solid rgba(255, 255, 255, 0.08);
-  border-radius: var(--radius-sm);
-  padding: 2px 8px;
-  text-transform: uppercase;
-  letter-spacing: 0.08em;
-`;
-
-const PairScore = styled.div`
-  text-align: center;
-  flex-shrink: 0;
-  min-width: 80px;
-`;
-
-const ScoreValue = styled.div`
-  font-family: var(--font-mono);
-  font-size: var(--text-lg);
-  color: ${p => p.$color || "var(--grey-mid)"};
-  font-weight: 700;
-  margin-bottom: var(--space-1);
-`;
-
-const VerdictLabel = styled.div`
-  display: inline-block;
-  font-family: var(--font-mono);
-  font-size: var(--text-xxxs);
-  color: ${p => p.$color || "var(--grey-light)"};
-  background: rgba(255, 255, 255, 0.04);
-  border: var(--border-thin) solid rgba(255, 255, 255, 0.08);
-  border-radius: var(--radius-sm);
-  padding: 4px 8px;
-  text-transform: uppercase;
-  letter-spacing: 0.08em;
-  text-align: center;
-  min-width: 60px;
-`;
-
-const BreakdownGrid = styled.div`
-  grid-column: 1 / -1;
-  display: grid;
-  grid-template-columns: repeat(auto-fill, minmax(160px, 1fr));
-  gap: var(--space-2) var(--space-4);
-  padding: var(--space-3);
-  margin-top: var(--space-3);
-  border-top: var(--border-thin) solid rgba(255, 255, 255, 0.06);
-  background: rgba(255, 255, 255, 0.02);
-  border-radius: var(--radius-sm);
-`;
-
-const BreakdownItem = styled.div`
-  display: flex;
-  align-items: center;
-  gap: var(--space-2);
-`;
-
-const BreakdownLabel = styled.span`
-  font-family: var(--font-mono);
-  font-size: var(--text-xxxs);
-  color: var(--grey-light);
-  text-transform: uppercase;
-  letter-spacing: 0.05em;
-  width: 64px;
-  flex-shrink: 0;
-`;
-
-const BreakdownTrack = styled.div`
-  flex: 1;
-  height: 6px;
-  background: var(--surface-2);
-  border-radius: var(--radius-sm);
-  overflow: hidden;
-  border: var(--border-thin) solid rgba(255, 255, 255, 0.08);
-`;
-
-const BreakdownFill = styled.div`
-  height: 100%;
-  border-radius: var(--radius-sm);
-  background: ${p =>
-    p.$val >= 0.8 ? "var(--green)" :
-    p.$val >= 0.6 ? "var(--gold)" :
-    "var(--grey-light)"};
-  transition: width 0.3s ease;
-`;
-
-const BreakdownVal = styled.span`
-  font-family: var(--font-mono);
-  font-size: var(--text-xxxs);
-  color: var(--grey-mid);
-  width: 32px;
-  text-align: right;
-  flex-shrink: 0;
-  font-weight: 500;
-`;
-
-const MetaRow = styled.div`
-  grid-column: 1 / -1;
-  display: flex;
-  gap: var(--space-4);
-  padding-top: var(--space-2);
-  border-top: var(--border-thin) solid rgba(255, 255, 255, 0.04);
-`;
-
-const MetaItem = styled.span`
-  font-family: var(--font-mono);
-  font-size: var(--text-xxxs);
-  color: var(--grey-mid);
 `;
 
 const DeleteButton = styled.button`

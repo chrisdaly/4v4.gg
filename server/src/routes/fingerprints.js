@@ -2730,10 +2730,13 @@ router.get('/validation', (req, res) => {
 
   const cal = getCalibration();
   const enriched = [];
+  // Where each account usually connects from, as on the suspects list
+  const usual = usualCountries(pairs.flatMap(p => [p.tag_main, p.tag_smurf]));
 
   for (const pair of pairs) {
     const pMain = playerLookup[pair.tag_main];
     const pSmurf = playerLookup[pair.tag_smurf];
+    const connections = { connectionMain: usual.get(pair.tag_main) || null, connectionSmurf: usual.get(pair.tag_smurf) || null };
 
     if (!pMain || !pSmurf) {
       enriched.push({
@@ -2742,7 +2745,7 @@ router.get('/validation', (req, res) => {
         similarity: null, percentile: null,
         breakdown: null, replaysMain: pMain?.replayCount || 0, replaysSmurf: pSmurf?.replayCount || 0,
         raceMain: pMain?.race || null, raceSmurf: pSmurf?.race || null,
-        missing: true,
+        missing: true, ...connections,
       });
       continue;
     }
@@ -2758,7 +2761,7 @@ router.get('/validation', (req, res) => {
       breakdown: formatBreakdown(breakdown),
       replaysMain: pMain.replayCount, replaysSmurf: pSmurf.replayCount,
       raceMain: pMain.race, raceSmurf: pSmurf.race,
-      missing: false,
+      missing: false, ...connections,
     });
   }
 
