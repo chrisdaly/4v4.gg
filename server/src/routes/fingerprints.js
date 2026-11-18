@@ -2,7 +2,7 @@ import { Router } from 'express';
 import rateLimit from 'express-rate-limit';
 import multer from 'multer';
 import { createHash } from 'crypto';
-import { readFileSync, mkdirSync, writeFileSync, unlinkSync } from 'fs';
+import { readFileSync, mkdirSync, writeFileSync, unlinkSync, existsSync } from 'fs';
 import { join, dirname } from 'path';
 import { Worker, isMainThread } from 'worker_threads';
 import config from '../config.js';
@@ -203,7 +203,9 @@ function matchScore(a, b) {
 // across concurrent requests to /embedding-map, /suspects, /explore etc.
 let parsedPlayersCache = null;
 let parsedPlayersAge = 0;
-const PARSED_PLAYERS_TTL = 5 * 60 * 1000; // 5 min
+// Rebuilding parses every averaged fingerprint on the main thread; the data
+// changes by a few players an hour, so a stale half hour costs nothing
+const PARSED_PLAYERS_TTL = 30 * 60 * 1000;
 
 function getParsedPlayers() {
   const now = Date.now();
@@ -222,11 +224,15 @@ function getParsedPlayers() {
 
 // ── Population Calibration Cache ─────────────────
 // Caches the pairwise similarity distribution across all players.
-// Rebuilt on demand (invalidated every 30 min or when rebuild is called).
+// Rebuilt on demand (invalidated every 6 hours or when rebuild is called).
+// The same lifetime covers the verdict reference and the chat index. Each is
+// seconds of CPU, and on a shared CPU that has used up its burst allowance
+// seconds become minutes with every request waiting; the population they
+// describe barely moves in six hours.
 
 let calibrationCache = null;
 let calibrationAge = 0;
-const CALIBRATION_TTL = 30 * 60 * 1000; // 30 min
+const CALIBRATION_TTL = 6 * 60 * 60 * 1000;
 
 function getCalibration() {
   const now = Date.now();
@@ -1051,8 +1057,14 @@ const TRANSITIONS_CHUNK = 25;
 const TRANSITIONS_GAP_MS = 250;
 let transitionsBackfill = { running: false, done: 0, startedAt: null, finishedAt: null };
 
+// Written when a backfill finds nothing left. Every write path stores counts
+// itself (saveGroupTransitions in db.js), so once done it never needs to run
+// again, and its first query walks all of replay_player_actions on the main
+// thread: ~1.7 GB of reads on every boot, on top of Litestream's snapshot.
+const TRANSITIONS_DONE_FILE = join(dirname(config.DB_PATH), 'transitions-backfill.done');
+
 async function backfillGroupTransitions() {
-  if (transitionsBackfill.running) return;
+  if (transitionsBackfill.running || existsSync(TRANSITIONS_DONE_FILE)) return;
   transitionsBackfill = { running: true, done: 0, startedAt: Date.now(), finishedAt: null };
   let cursor = 0;
   try {
@@ -1073,6 +1085,7 @@ async function backfillGroupTransitions() {
     }
     console.log(`[transitions] backfill finished: ${transitionsBackfill.done} replays`);
     if (transitionsBackfill.done > 0) { galleryAge = 0; galleryBuildStarted = 0; }
+    writeFileSync(TRANSITIONS_DONE_FILE, new Date().toISOString());
   } catch (err) {
     console.warn('[transitions] backfill stopped:', err.message);
   } finally {
@@ -2208,6 +2221,21 @@ function runInWorker(job) {
   });
 }
 
+// The last list, kept on the data volume like the gallery, so a restart
+// serves it at once instead of rebuilding during Litestream's snapshot
+const SUSPECTS_FILE = join(dirname(config.DB_PATH), 'suspects-cache.json');
+
+function loadSuspectsFromDisk() {
+  try {
+    const saved = JSON.parse(readFileSync(SUSPECTS_FILE, 'utf8'));
+    if (saved?.data?.scoredPairs) {
+      suspectsCache = saved.data;
+      suspectsAge = saved.builtAt || 0;
+      console.log(`[Suspects] loaded list from ${SUSPECTS_FILE}, built ${new Date(suspectsAge).toISOString()}`);
+    }
+  } catch { /* none saved yet */ }
+}
+
 function buildSuspectsInWorker() {
   if (suspectsBuild) return suspectsBuild;
   const t0 = Date.now();
@@ -2215,6 +2243,8 @@ function buildSuspectsInWorker() {
     suspectsCache = data;
     suspectsAge = Date.now();
     console.log(`[Suspects] built in worker in ${((Date.now() - t0) / 1000).toFixed(1)}s`);
+    try { writeFileSync(SUSPECTS_FILE, JSON.stringify({ builtAt: suspectsAge, data })); }
+    catch (err) { console.warn('[Suspects] could not save list:', err.message); }
     return data;
   }).catch(err => {
     console.error('[Suspects] worker build failed:', err.message);
@@ -2225,7 +2255,8 @@ function buildSuspectsInWorker() {
   return suspectsBuild;
 }
 
-/** Latest suspects list; refreshes in the background once it is 30 minutes old. */
+/** Latest suspects list; refreshes in the background once it is 6 hours old
+ *  (CALIBRATION_TTL). Labels are read per request, so labelling needs no rebuild. */
 async function getSuspectsData() {
   if (!suspectsCache) return buildSuspectsInWorker();
   if (Date.now() - suspectsAge >= CALIBRATION_TTL) buildSuspectsInWorker();
@@ -2842,9 +2873,11 @@ export async function warmCaches() {
   // getParsedPlayers() and getCalibration() are synchronous better-sqlite3
   // calls that block the event loop for 30-40s when the DB is large - long
   // enough to fail the Fly.io health check and crash the machine.
-  // Those stay lazy. The suspects list builds in a worker thread, so it can
-  // start straight away and the first visitor after a deploy doesn't wait.
-  setTimeout(() => { buildSuspectsInWorker(); }, 10 * 1000).unref?.();
+  // Those stay lazy. The suspects list is served from its saved copy; only
+  // with none saved does it build, in a worker, after Litestream's
+  // post-restart snapshot has had a head start.
+  loadSuspectsFromDisk();
+  if (!suspectsCache) setTimeout(() => { buildSuspectsInWorker(); }, 5 * 60 * 1000).unref?.();
 }
 
 export default router;
