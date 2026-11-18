@@ -7,6 +7,9 @@ import { chartColors } from "../../lib/design-tokens";
 import { raceIcons } from "../../lib/constants";
 import useAdmin from "../../lib/useAdmin";
 import usePlayerMeta from "../../lib/usePlayerMeta";
+import { ActivityTimeline } from "./InvestigateTab";
+import TransitionGlyph from "../../components/replay-lab/TransitionGlyph";
+import QuoteBlock from "../../components/chat/QuoteBlock";
 
 const RELAY_URL =
   import.meta.env.VITE_CHAT_RELAY_URL || "https://4v4gg-chat-relay.fly.dev";
@@ -56,43 +59,180 @@ function connectionLabel(conn) {
 const pairKey = (pair) => `${pair.tagA}|${pair.tagB}`;
 
 const RACE_ICON = { Human: raceIcons.human, Orc: raceIcons.orc, "Night Elf": raceIcons.elf, Undead: raceIcons.undead, Random: raceIcons.random };
-const GROUP_ORDER = [1, 2, 3, 4, 5, 6, 7, 8, 9, 0]; // keyboard order
 
-/** One account of a pair: who they are, where they connect from, and their
- *  habits, with control-group bars to compare against the other account. */
-function Account({ tag, race, games, conn, habits, other, meta }) {
+/** One account in the collapsed row: avatar, name, country, MMR. MMR is this
+ *  season's; once the drawer has loaded activity, the last season played. */
+function Account({ tag, race, conn, meta, activity }) {
   const profile = meta.avatars.get(tag);
   const stats = meta.stats.get(tag);
   const country = conn?.country || profile?.country;
-  const max = Math.max(0.001, ...(habits?.groups || []), ...(other?.groups || []));
+  const mmr = stats?.mmr != null
+    ? `${Math.round(stats.mmr)} MMR`
+    : activity?.mmr != null ? `${Math.round(activity.mmr)} MMR (S${activity.season})` : "unranked this season";
   return (
     <AccountBox>
-      <AccountHead>
-        <Avatar src={profile?.profilePicUrl || RACE_ICON[race] || raceIcons.random} alt="" />
-        <div style={{ minWidth: 0 }}>
-          <PlayerName as={Link} to={`/player/${encodeURIComponent(tag)}`} onClick={e => e.stopPropagation()}>
-            {tag.split("#")[0]}
-          </PlayerName>
-          <AccountFacts>
-            {country && <CountryFlag name={country.toLowerCase()} />}
-            {RACE_ICON[race] && <img src={RACE_ICON[race]} alt={race} />}
-            <span>{stats?.mmr != null ? `${Math.round(stats.mmr)} MMR` : "MMR ?"}</span>
-            <span>{games} games</span>
-            {habits?.apm > 0 && <span>{habits.apm} APM</span>}
-          </AccountFacts>
-        </div>
-      </AccountHead>
-      {habits?.groups && (
-        <Groups title="Share of control-group selections, groups 1-9 and 0">
-          {GROUP_ORDER.map(g => (
-            <GroupCol key={g}>
-              <GroupBar style={{ height: `${Math.round((habits.groups[g] / max) * 100)}%` }} />
-              <GroupNum>{g}</GroupNum>
-            </GroupCol>
-          ))}
-        </Groups>
-      )}
+      <Avatar src={profile?.profilePicUrl || RACE_ICON[race] || raceIcons.random} alt="" />
+      <div style={{ minWidth: 0 }}>
+        <PlayerName as={Link} to={`/player/${encodeURIComponent(tag)}`} onClick={e => e.stopPropagation()}>
+          {tag.split("#")[0]}
+        </PlayerName>
+        <AccountFacts>
+          {country && <CountryFlag name={country.toLowerCase()} />}
+          {RACE_ICON[race] && <img src={RACE_ICON[race]} alt={race} />}
+          <span>{mmr}</span>
+        </AccountFacts>
+      </div>
     </AccountBox>
+  );
+}
+
+/** Loads both accounts' fingerprints and season activity when a drawer opens.
+ *  Cached per tag for the life of the page. */
+const detailCache = new Map();
+function useAccountDetail(tag, open) {
+  const [detail, setDetail] = useState(() => detailCache.get(tag) || null);
+  useEffect(() => {
+    if (!open || !tag || detailCache.has(tag)) return;
+    let cancelled = false;
+    const enc = encodeURIComponent(tag);
+    Promise.all([
+      fetch(`${RELAY_URL}/api/fingerprints/profile/${enc}`).then(r => (r.ok ? r.json() : null)).catch(() => null),
+      fetch(`${RELAY_URL}/api/fingerprints/activity/${enc}`).then(r => (r.ok ? r.json() : null)).catch(() => null),
+    ]).then(([profile, activity]) => {
+      const d = { profile, activity };
+      detailCache.set(tag, d);
+      if (!cancelled) setDetail(d);
+    });
+    return () => { cancelled = true; };
+  }, [tag, open]);
+  return detail;
+}
+
+/** How the two accounts' lobby chat matches: shared distinctive words, each
+ *  quoted from both accounts, then a few recent lines from each. */
+function ChatCompare({ pair, nameA, nameB }) {
+  const [data, setData] = useState(null);
+  useEffect(() => {
+    const qs = `a=${encodeURIComponent(pair.tagA)}&b=${encodeURIComponent(pair.tagB)}`;
+    fetch(`${RELAY_URL}/api/fingerprints/chat-compare?${qs}`)
+      .then(r => (r.ok ? r.json() : null)).then(setData).catch(() => setData({}));
+  }, [pair.tagA, pair.tagB]);
+  if (!data) return <DrawerNote>Loading lobby chat…</DrawerNote>;
+  if (!data.shared) return null;
+  return (
+    <section>
+      <SectionTitle>
+        Lobby chat · {data.countA} vs {data.countB} messages
+        {pair.chat?.supports && " · closest writer to each other"}
+      </SectionTitle>
+      {data.shared.length > 0 ? (
+        <SharedTerms>
+          {data.shared.map(s => (
+            <SharedTerm key={s.term}>
+              <TermChip>{s.term}</TermChip>
+              <QuoteBlock quotes={[`${nameA}: ${s.exampleA}`, `${nameB}: ${s.exampleB}`]} />
+            </SharedTerm>
+          ))}
+        </SharedTerms>
+      ) : <DrawerNote>No distinctive words in common.</DrawerNote>}
+      <Glyphs style={{ marginTop: "var(--space-4)" }}>
+        <QuoteBlock quotes={data.recentA.map(m => `${nameA}: ${m}`)} />
+        <QuoteBlock quotes={data.recentB.map(m => `${nameB}: ${m}`)} />
+      </Glyphs>
+    </section>
+  );
+}
+
+function PairDrawer({ pair, detailA, detailB }) {
+  const nameA = pair.tagA.split("#")[0];
+  const nameB = pair.tagB.split("#")[0];
+  const loaded = detailA && detailB;
+  const players = [
+    { tag: pair.tagA, name: nameA, isQuery: true, seasonActivity: detailA?.activity?.seasonActivity || [] },
+    { tag: pair.tagB, name: nameB, isQuery: false, seasonActivity: detailB?.activity?.seasonActivity || [] },
+  ];
+  return (
+    <Drawer onClick={e => e.stopPropagation()}>
+      <Reasons>{getReasons(pair).join(" · ")}</Reasons>
+      <Connections>
+        <span>Games</span>
+        <span>{nameA} {pair.replaysA}</span>
+        <span>{nameB} {pair.replaysB}</span>
+      </Connections>
+      {(pair.connectionA || pair.connectionB) && (
+        <Connections>
+          <span>Connected from, by game</span>
+          <span>{nameA} {connectionLabel(pair.connectionA) || "no history"}</span>
+          <span>{nameB} {connectionLabel(pair.connectionB) || "no history"}</span>
+        </Connections>
+      )}
+
+
+      {!loaded ? (
+        <DrawerNote>Loading fingerprints and season activity…</DrawerNote>
+      ) : (
+        <>
+          {players.some(p => p.seasonActivity.length > 0)
+            ? <ActivityTimeline players={players} matchProfiles={{}} />
+            : <DrawerNote>No ladder activity found for either account.</DrawerNote>}
+          <Glyphs>
+            {[[nameA, detailA.profile], [nameB, detailB.profile]].map(([name, profile]) => (
+              <GlyphCell key={name}>
+                {profile ? (
+                  <TransitionGlyph
+                    transitionPairs={profile.transitionPairs || []}
+                    groupUsage={profile.groupUsage || []}
+                    groupCompositions={profile.groupCompositions || {}}
+                    segments={profile.averaged?.segments || null}
+                    playerName={name}
+                    replayCount={profile.replayCount}
+                    sampleCount={profile.sampleCount}
+                  />
+                ) : <DrawerNote>No playstyle data for {name}.</DrawerNote>}
+              </GlyphCell>
+            ))}
+          </Glyphs>
+        </>
+      )}
+      {pair.chat?.indexed && <ChatCompare pair={pair} nameA={nameA} nameB={nameB} />}
+    </Drawer>
+  );
+}
+
+function PairRow({ pair, index, open, onToggle, meta, isAdmin, onLabel, labelError }) {
+  const verdict = getVerdict(pair);
+  const detailA = useAccountDetail(pair.tagA, open);
+  const detailB = useAccountDetail(pair.tagB, open);
+  return (
+    <PairCard $open={open}>
+      <PairHead onClick={onToggle}>
+        <PairRank $color={verdict.color}>{index + 1}</PairRank>
+        <PairPlayers>
+          <Account tag={pair.tagA} race={pair.raceA} conn={pair.connectionA} meta={meta} activity={detailA?.activity} />
+          <Vs>vs</Vs>
+          <Account tag={pair.tagB} race={pair.raceB} conn={pair.connectionB} meta={meta} activity={detailB?.activity} />
+        </PairPlayers>
+        <PairScore>
+          <ScoreValue $color={verdict.color}>{Math.round(pair.similarity * 100)}%</ScoreValue>
+          <VerdictLabel $color={verdict.color}>{verdict.label}</VerdictLabel>
+        </PairScore>
+        <Chevron $open={open}>▾</Chevron>
+      </PairHead>
+      {pair.label && !open && <LabelledTag $label={pair.label}>{pair.label === "same" ? "You said: same player" : "You said: different"}</LabelledTag>}
+      {open && <PairDrawer pair={pair} detailA={detailA} detailB={detailB} />}
+      {open && isAdmin && (
+        <LabelRow onClick={e => e.stopPropagation()}>
+          <LabelPrompt>Your call</LabelPrompt>
+          <LabelButton $active={pair.label === "same"} $color="var(--gold)" onClick={() => onLabel(pair, "same")}>
+            Same player
+          </LabelButton>
+          <LabelButton $active={pair.label === "different"} $color="var(--grey-light)" onClick={() => onLabel(pair, "different")}>
+            Different players
+          </LabelButton>
+          {labelError?.key === pairKey(pair) && <LabelError>{labelError.text}</LabelError>}
+        </LabelRow>
+      )}
+    </PairCard>
   );
 }
 
@@ -167,72 +307,19 @@ export default function SmurfsTab() {
       </StatsRow>
 
       <PairsList>
-        {suspects.pairs.map((pair, i) => {
-          const verdict = getVerdict(pair);
-          const isExpanded = expandedIdx === i;
-          const bd = pair.breakdown || {};
-          const displayScore = `${Math.round(pair.similarity * 100)}%`;
-
-          return (
-            <PairCard key={i} onClick={() => setExpandedIdx(isExpanded ? null : i)}>
-              <PairRank $color={verdict.color}>{i + 1}</PairRank>
-              <PairMain>
-                <PairPlayers>
-                  <Account tag={pair.tagA} race={pair.raceA} games={pair.replaysA} conn={pair.connectionA}
-                    habits={pair.habitsA} other={pair.habitsB} meta={meta} />
-                  <Vs>vs</Vs>
-                  <Account tag={pair.tagB} race={pair.raceB} games={pair.replaysB} conn={pair.connectionB}
-                    habits={pair.habitsB} other={pair.habitsA} meta={meta} />
-                </PairPlayers>
-                <Reasons>{getReasons(pair).join(" · ")}</Reasons>
-                {isAdmin && <LabelRow onClick={e => e.stopPropagation()}>
-                  <LabelPrompt>Your call</LabelPrompt>
-                  <LabelButton $active={pair.label === "same"} $color="var(--red)" onClick={() => setLabel(pair, "same")}>
-                    ✓ Same player
-                  </LabelButton>
-                  <LabelButton $active={pair.label === "different"} $color="var(--green)" onClick={() => setLabel(pair, "different")}>
-                    ✗ Different players
-                  </LabelButton>
-                  {labelError?.key === pairKey(pair) && <LabelError>{labelError.text}</LabelError>}
-                </LabelRow>}
-              </PairMain>
-              <PairScore>
-                <ScoreValue $color={verdict.color}>{displayScore}</ScoreValue>
-                <VerdictLabel $color={verdict.color}>{verdict.label}</VerdictLabel>
-              </PairScore>
-
-              {isExpanded && (pair.connectionA || pair.connectionB) && (
-                <Connections onClick={e => e.stopPropagation()}>
-                  <span>Connected from, by game:</span>
-                  <span>{pair.tagA.split("#")[0]} {connectionLabel(pair.connectionA) || "no history"}</span>
-                  <span>{pair.tagB.split("#")[0]} {connectionLabel(pair.connectionB) || "no history"}</span>
-                </Connections>
-              )}
-
-              {isExpanded && Object.keys(bd).length > 0 && (
-                <BreakdownGrid onClick={e => e.stopPropagation()}>
-                  {[
-                    { key: "action", label: "Actions", val: bd.action },
-                    { key: "apm", label: "APM", val: bd.apm },
-                    { key: "hotkey", label: "Hotkeys", val: bd.hotkey },
-                    { key: "tempo", label: "Tempo", val: bd.tempo },
-                    { key: "intensity", label: "Intensity", val: bd.intensity },
-                    { key: "trans", label: "Switching", val: bd.transitions },
-                    { key: "rhythm", label: "Rhythm", val: bd.rhythm },
-                  ].filter(({ val }) => val != null && val > 0).map(({ key, label, val }) => (
-                    <BreakdownItem key={key}>
-                      <BreakdownLabel>{label}</BreakdownLabel>
-                      <BreakdownTrack>
-                        <BreakdownFill $val={val} style={{ width: `${Math.round(val * 100)}%` }} />
-                      </BreakdownTrack>
-                      <BreakdownVal>{Math.round(val * 100)}%</BreakdownVal>
-                    </BreakdownItem>
-                  ))}
-                </BreakdownGrid>
-              )}
-            </PairCard>
-          );
-        })}
+        {suspects.pairs.map((pair, i) => (
+          <PairRow
+            key={pairKey(pair)}
+            pair={pair}
+            index={i}
+            open={expandedIdx === i}
+            onToggle={() => setExpandedIdx(expandedIdx === i ? null : i)}
+            meta={meta}
+            isAdmin={isAdmin}
+            onLabel={setLabel}
+            labelError={labelError}
+          />
+        ))}
       </PairsList>
     </>
   );
@@ -290,24 +377,107 @@ const PairsList = styled.div`
 `;
 
 const PairCard = styled.div`
-  display: grid;
-  grid-template-columns: 40px 1fr auto;
-  gap: var(--space-4);
-  align-items: center;
-  cursor: pointer;
+  display: flex;
+  flex-direction: column;
   background: var(--theme-bg, var(--surface-1));
   backdrop-filter: var(--theme-blur, none);
   border: var(--theme-border, var(--border-thin) solid var(--grey-mid));
   border-image: var(--theme-border-image, none);
   border-radius: var(--radius-md);
   box-shadow: var(--theme-shadow, none);
-  padding: var(--space-4);
-  transition: all 0.2s ease;
+  padding: var(--space-3) var(--space-4);
+  transition: border-color 0.2s ease;
+  ${p => p.$open && "border-color: var(--gold);"}
 
-  &:hover {
-    border-color: var(--gold);
-    background: var(--theme-bg, rgba(252, 219, 51, 0.02));
+  &:hover { border-color: var(--gold); }
+`;
+
+const PairHead = styled.div`
+  display: grid;
+  grid-template-columns: 32px 1fr auto 20px;
+  gap: var(--space-4);
+  align-items: center;
+  cursor: pointer;
+
+  @media (max-width: 640px) {
+    grid-template-columns: 1fr auto 20px;
+    > :first-child { display: none; }
   }
+`;
+
+const Chevron = styled.span`
+  color: var(--grey-light);
+  font-size: var(--text-sm);
+  transition: transform 0.2s ease;
+  transform: rotate(${p => (p.$open ? "180deg" : "0deg")});
+`;
+
+const LabelledTag = styled.div`
+  margin: var(--space-2) 0 0 calc(32px + var(--space-4));
+  font: var(--text-xxxs) var(--font-mono);
+  text-transform: uppercase;
+  letter-spacing: 0.1em;
+  color: ${p => (p.$label === "same" ? "var(--gold)" : "var(--grey-light)")};
+`;
+
+const Drawer = styled.div`
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-4);
+  margin-top: var(--space-4);
+  padding-top: var(--space-4);
+  border-top: var(--border-thin) solid rgba(255, 255, 255, 0.08);
+  cursor: default;
+`;
+
+const Glyphs = styled.div`
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: var(--space-4);
+
+  @media (max-width: 760px) { grid-template-columns: 1fr; }
+`;
+
+const GlyphCell = styled.div`
+  min-width: 0;
+
+  svg { width: 100%; height: auto; }
+`;
+
+const SectionTitle = styled.div`
+  font: var(--text-xxs) var(--font-mono);
+  text-transform: uppercase;
+  letter-spacing: 0.1em;
+  color: var(--grey-light);
+  margin-bottom: var(--space-3);
+`;
+
+const SharedTerms = styled.div`
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(280px, 1fr));
+  gap: var(--space-4);
+`;
+
+const SharedTerm = styled.div`
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-2);
+  min-width: 0;
+`;
+
+const TermChip = styled.span`
+  align-self: flex-start;
+  font: var(--text-xs) var(--font-mono);
+  color: var(--gold);
+  background: var(--gold-tint);
+  border: var(--border-thin) solid rgba(252, 219, 51, 0.25);
+  border-radius: var(--radius-sm);
+  padding: 2px var(--space-2);
+`;
+
+const DrawerNote = styled.div`
+  font: var(--text-xxs) var(--font-mono);
+  color: var(--grey-light);
 `;
 
 const PairRank = styled.div`
@@ -324,13 +494,6 @@ const PairRank = styled.div`
   border-radius: var(--radius-full);
   font-weight: 600;
   transition: all 0.2s ease;
-`;
-
-const PairMain = styled.div`
-  display: flex;
-  flex-direction: column;
-  gap: var(--space-1);
-  min-width: 0;
 `;
 
 const LabelRow = styled.div`
@@ -377,20 +540,13 @@ const AccountBox = styled.div`
   flex: 1 1 0;
   min-width: 0;
   display: flex;
-  flex-direction: column;
-  gap: var(--space-2);
-`;
-
-const AccountHead = styled.div`
-  display: flex;
   align-items: center;
   gap: var(--space-3);
-  min-width: 0;
 `;
 
 const Avatar = styled.img`
-  width: 44px;
-  height: 44px;
+  width: 36px;
+  height: 36px;
   border-radius: var(--radius-full);
   object-fit: cover;
   flex-shrink: 0;
@@ -407,38 +563,6 @@ const AccountFacts = styled.div`
   color: var(--grey-light);
 
   img { width: 16px; height: 16px; }
-`;
-
-const Groups = styled.div`
-  display: flex;
-  align-items: flex-end;
-  gap: 3px;
-  height: 40px;
-  max-width: 220px;
-`;
-
-const GroupCol = styled.div`
-  flex: 1;
-  height: 100%;
-  display: flex;
-  flex-direction: column;
-  justify-content: flex-end;
-  align-items: center;
-`;
-
-const GroupBar = styled.div`
-  width: 100%;
-  min-height: 1px;
-  background: var(--gold);
-  border-radius: 1px;
-  opacity: 0.85;
-`;
-
-const GroupNum = styled.span`
-  font-family: var(--font-mono);
-  font-size: 10px;
-  color: var(--grey-mid);
-  line-height: 1.2;
 `;
 
 const Reasons = styled.div`
@@ -465,16 +589,14 @@ const Connections = styled.div`
 
 const PairPlayers = styled.div`
   display: flex;
-  align-items: flex-start;
+  align-items: center;
   gap: var(--space-4);
   min-width: 0;
-  margin-bottom: var(--space-2);
-
-  > span { margin-top: 12px; }
 
   @media (max-width: 640px) {
     flex-direction: column;
-    > span { margin-top: 0; }
+    align-items: stretch;
+    gap: var(--space-2);
   }
 `;
 
@@ -531,62 +653,4 @@ const VerdictLabel = styled.div`
   letter-spacing: 0.08em;
   text-align: center;
   min-width: 60px;
-`;
-
-const BreakdownGrid = styled.div`
-  grid-column: 1 / -1;
-  display: grid;
-  grid-template-columns: repeat(auto-fill, minmax(160px, 1fr));
-  gap: var(--space-2) var(--space-4);
-  padding: var(--space-4) 0 0;
-  margin-top: var(--space-3);
-  border-top: var(--border-thin) solid rgba(255, 255, 255, 0.06);
-  background: rgba(255, 255, 255, 0.02);
-  border-radius: var(--radius-sm);
-  padding: var(--space-3);
-`;
-
-const BreakdownItem = styled.div`
-  display: flex;
-  align-items: center;
-  gap: var(--space-2);
-`;
-
-const BreakdownLabel = styled.span`
-  font-family: var(--font-mono);
-  font-size: var(--text-xxxs);
-  color: var(--grey-light);
-  text-transform: uppercase;
-  letter-spacing: 0.05em;
-  width: 64px;
-  flex-shrink: 0;
-`;
-
-const BreakdownTrack = styled.div`
-  flex: 1;
-  height: 6px;
-  background: var(--surface-2);
-  border-radius: var(--radius-sm);
-  overflow: hidden;
-  border: var(--border-thin) solid rgba(255, 255, 255, 0.08);
-`;
-
-const BreakdownFill = styled.div`
-  height: 100%;
-  border-radius: var(--radius-sm);
-  background: ${p =>
-    p.$val >= 0.8 ? "var(--green)" :
-    p.$val >= 0.6 ? "var(--gold)" :
-    "var(--grey-light)"};
-  transition: width 0.3s ease;
-`;
-
-const BreakdownVal = styled.span`
-  font-family: var(--font-mono);
-  font-size: var(--text-xxxs);
-  color: var(--grey-mid);
-  width: 32px;
-  text-align: right;
-  flex-shrink: 0;
-  font-weight: 500;
 `;

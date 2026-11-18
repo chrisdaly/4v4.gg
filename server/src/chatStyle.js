@@ -16,6 +16,7 @@
 
 export const MIN_CHAT_MESSAGES = 20;
 const MAX_MESSAGES = 3000; // per account, most recent
+const RECENT_KEPT = 400; // per account, kept to quote examples from
 
 // ── Tokenising (matches scikit-learn's analyzers) ───────────
 
@@ -59,7 +60,7 @@ function tfidf(docs, analyse) {
     vocab.set(t, vocab.size);
     idf.push(Math.log((1 + n) / (1 + d)) + 1);
   }
-  return counts.map((m) => {
+  const vectors = counts.map((m) => {
     const entries = [];
     for (const [t, c] of m) {
       const id = vocab.get(t);
@@ -74,6 +75,8 @@ function tfidf(docs, analyse) {
     for (let i = 0; i < w.length; i++) w[i] /= norm;
     return { ids, w };
   });
+  vectors.terms = [...vocab.keys()]; // id -> term, for explaining a match
+  return vectors;
 }
 
 /**
@@ -138,11 +141,13 @@ export function buildChatIndex(messagesByTag) {
   const tags = [];
   const docs = [];
   const messageCount = new Map();
+  const recent = new Map(); // last messages per account, for showing examples
   for (const [tag, msgs] of messagesByTag) {
     if (!tag || msgs.length < MIN_CHAT_MESSAGES) continue;
     tags.push(tag);
     docs.push(msgs.slice(-MAX_MESSAGES).join('\n'));
     messageCount.set(tag, msgs.length);
+    recent.set(tag, msgs.slice(-RECENT_KEPT));
   }
   const words = tfidf(docs, wordTerms);
   const chars = tfidf(docs, charTerms);
@@ -170,6 +175,39 @@ export function buildChatIndex(messagesByTag) {
     similarity(a, b) {
       const i = pos.get(a), j = pos.get(b);
       return i === undefined || j === undefined ? null : sim(i, j);
+    },
+    /**
+     * Why two accounts write alike: the words and word pairs both use that add
+     * most to their similarity (rare across chatters, frequent for both), each
+     * with a message from either account that uses it, plus recent lines.
+     */
+    explain(a, b, k = 8) {
+      const i = pos.get(a), j = pos.get(b);
+      if (i === undefined || j === undefined) return null;
+      const A = words[i], B = words[j];
+      const shared = [];
+      for (let x = 0, y = 0; x < A.ids.length && y < B.ids.length;) {
+        if (A.ids[x] === B.ids[y]) { shared.push({ term: words.terms[A.ids[x]], weight: A.w[x] * B.w[y] }); x++; y++; }
+        else if (A.ids[x] < B.ids[y]) x++;
+        else y++;
+      }
+      const ra = recent.get(a) || [], rb = recent.get(b) || [];
+      const example = (lines, term) => {
+        const re = new RegExp(`(^|\\s)${term.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')}(\\s|$)`, 'i');
+        for (let n = lines.length - 1; n >= 0; n--) if (re.test(lines[n])) return lines[n];
+        return null;
+      };
+      const terms = shared.sort((p, q) => q.weight - p.weight).slice(0, k * 2)
+        .map((s) => ({ term: s.term, exampleA: example(ra, s.term), exampleB: example(rb, s.term) }))
+        .filter((s) => s.exampleA && s.exampleB)
+        .slice(0, k);
+      const lastLines = (lines) => [...new Set(lines.filter((m) => m.length >= 4))].slice(-6).reverse();
+      return {
+        similarity: sim(i, j),
+        countA: messageCount.get(a), countB: messageCount.get(b),
+        shared: terms,
+        recentA: lastLines(ra), recentB: lastLines(rb),
+      };
     },
     /** Every other indexed account by chat similarity to `tag`, closest first. */
     ranked(tag, exclude) {

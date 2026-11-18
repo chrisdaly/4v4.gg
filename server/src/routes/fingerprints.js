@@ -310,17 +310,6 @@ const VERDICT_SAMPLE = 300;
 const MIN_VERDICT_REPLAYS = 3;
 
 /** Accounts with enough games to be named as a match. */
-/** Readable habits for one account, from its averaged fingerprint: mean APM
- *  and the share of group selections that go to each control group 1-9, 0. */
-function accountHabits(fp) {
-  const apm = fp?.segments?.apm || [];
-  const hk = fp?.segments?.hotkey || [];
-  return {
-    apm: Math.round((apm[0] || 0) * 300),
-    groups: Array.from({ length: 10 }, (_, g) => Math.round((hk[g] || 0) * 1000) / 1000),
-  };
-}
-
 function getVerdictPool() {
   return getParsedPlayers().filter(p => p.replayCount >= MIN_VERDICT_REPLAYS);
 }
@@ -2580,6 +2569,33 @@ router.get('/identify/:battleTag', requireApiKey, async (req, res) => {
 const sequenceFetchingTags = new Set(); // dedup concurrent identify-triggered backfills
 
 // GET /api/fingerprints/suspects - Top similar player pairs (public, no auth)
+// GET /api/fingerprints/activity/:battleTag - last-known MMR and the days
+// played in each of the last nine seasons (W3C's MMR timeline), for comparing
+// two accounts' activity. About 45 W3C calls, so cached for an hour.
+const activityCache = new Map();
+router.get('/activity/:battleTag', async (req, res) => {
+  const tag = req.params.battleTag;
+  const hit = activityCache.get(tag);
+  if (hit && Date.now() - hit.at < 60 * 60 * 1000) return res.json(hit.data);
+  try {
+    const data = await fetchPlayerRecentInfo(tag);
+    if (activityCache.size > 500) activityCache.delete(activityCache.keys().next().value);
+    activityCache.set(tag, { at: Date.now(), data });
+    res.json(data);
+  } catch (e) {
+    res.status(502).json({ error: 'W3C unavailable' });
+  }
+});
+
+// GET /api/fingerprints/chat-compare?a=&b= - examples of how two accounts'
+// lobby chat matches: shared distinctive words with a message from each.
+router.get('/chat-compare', (req, res) => {
+  const a = String(req.query.a || ''), b = String(req.query.b || '');
+  if (!a || !b) return res.status(400).json({ error: 'a and b required' });
+  const out = getChatIndex()?.explain(a, b);
+  res.json(out || { indexed: false });
+});
+
 router.get('/suspects', async (req, res) => {
   const limit = Math.min(parseInt(req.query.limit) || 50, 200);
 
@@ -2619,8 +2635,6 @@ router.get('/suspects', async (req, res) => {
       // Chris's verdict on this pair, if given: 'same' or 'different'
       label: labels.get(pairLabelKey(pA.battleTag, pB.battleTag)) || null,
       breakdown: formatBreakdown(breakdown),
-      habitsA: accountHabits(pA.fp),
-      habitsB: accountHabits(pB.fp),
     });
   }
 

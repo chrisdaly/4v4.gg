@@ -320,7 +320,7 @@ function toWeekStart(dayStr) {
   return d.toISOString().slice(0, 10);
 }
 
-function ActivityTimeline({ players, matchProfiles, startDate = null }) {
+export function ActivityTimeline({ players, matchProfiles, startDate = null }) {
   // When a date filter is active, clip matchDays to only those on/after startDate
   const filterMs = startDate ? new Date(startDate).getTime() : null;
   const filteredPlayers = filterMs
