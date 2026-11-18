@@ -88,8 +88,14 @@ export async function parseReplayBuffer(buffer) {
             entry.g = (action.groupNumber + 1) % 10;
           }
           // Order/ability ID for targeted actions (move, attack, spells)
-          if ((action.id >= 0x10 && action.id <= 0x14) && action.itemId) {
-            const oid = fourCCToString(action.itemId);
+          // w3gjs names it orderId (orderId1 on 0x14); reading itemId here
+          // silently stored no order ids from June to November 2026.
+          const orderId = action.orderId || action.orderId1;
+          if ((action.id >= 0x10 && action.id <= 0x14) && orderId) {
+            // Built-in orders (move, attack, stop, hold, patrol) are numeric
+            // ids like 0x000D0012, not FourCCs: keep them as hex, "d0012"
+            const oid = fourCCToString(orderId)
+              || (orderId.length === 4 ? ((orderId[3] << 24 | orderId[2] << 16 | orderId[1] << 8 | orderId[0]) >>> 0).toString(16) : null);
             if (oid) entry.oid = oid;
           }
           // Unit count for select actions
