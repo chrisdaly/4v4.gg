@@ -261,6 +261,7 @@ export default function SmurfsTab() {
   const [loading, setLoading] = useState(true);
   const [openKey, setOpenKey] = useState(null);
   const [showLabelled, setShowLabelled] = useState(false);
+  const [shown, setShown] = useState(50);
   const { adminKey, isAdmin } = useAdmin();
   const [labelError, setLabelError] = useState(null);
 
@@ -305,7 +306,7 @@ export default function SmurfsTab() {
   const meta = usePlayerMeta(tags);
 
   useEffect(() => {
-    fetch(`${RELAY_URL}/api/fingerprints/suspects?limit=50`)
+    fetch(`${RELAY_URL}/api/fingerprints/suspects?limit=200`)
       .then(r => r.ok ? r.json() : null)
       .then(data => { setSuspects(data); setLoading(false); })
       .catch(() => setLoading(false));
@@ -354,8 +355,13 @@ export default function SmurfsTab() {
       </StatsRow>
 
       <PairsList>
-        {queue.length ? queue.map(row) : <NoData>Nothing left to review.</NoData>}
+        {queue.length ? queue.slice(0, shown).map(row) : <NoData>Nothing left to review.</NoData>}
       </PairsList>
+      {queue.length > shown && (
+        <ShowLabelled onClick={() => setShown(n => n + 50)}>
+          Load more ({queue.length - shown} weaker matches)
+        </ShowLabelled>
+      )}
 
       {labelled.length > 0 && (
         <>
