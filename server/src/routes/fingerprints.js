@@ -310,6 +310,17 @@ const VERDICT_SAMPLE = 300;
 const MIN_VERDICT_REPLAYS = 3;
 
 /** Accounts with enough games to be named as a match. */
+/** Readable habits for one account, from its averaged fingerprint: mean APM
+ *  and the share of group selections that go to each control group 1-9, 0. */
+function accountHabits(fp) {
+  const apm = fp?.segments?.apm || [];
+  const hk = fp?.segments?.hotkey || [];
+  return {
+    apm: Math.round((apm[0] || 0) * 300),
+    groups: Array.from({ length: 10 }, (_, g) => Math.round((hk[g] || 0) * 1000) / 1000),
+  };
+}
+
 function getVerdictPool() {
   return getParsedPlayers().filter(p => p.replayCount >= MIN_VERDICT_REPLAYS);
 }
@@ -2608,6 +2619,8 @@ router.get('/suspects', async (req, res) => {
       // Chris's verdict on this pair, if given: 'same' or 'different'
       label: labels.get(pairLabelKey(pA.battleTag, pB.battleTag)) || null,
       breakdown: formatBreakdown(breakdown),
+      habitsA: accountHabits(pA.fp),
+      habitsB: accountHabits(pB.fp),
     });
   }
 
