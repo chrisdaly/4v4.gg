@@ -117,7 +117,7 @@ Every parsed game's per-player row in `replay_player_actions` carries `parser_ve
 | NULL | before 2026-11-18 | timing, action type, control group, unit count on selections. No order/ability ids (the parser read the wrong field), no tabbed unit type, no resource sends. Some rows have no sequence at all. |
 | 2 (gold) | 2026-11-18 | adds the order/ability id on every order (FourCC like `ohun`, or hex for built-in orders, `d0012` = move), the unit type tabbed to, gold/lumber sent to allies |
 
-**Coverage:** `GET /api/replays/parse-coverage` gives rows and games per version, how many players have at least one gold game, and the re-parse job's progress.
+**Coverage:** `GET /api/replays/parse-coverage` (admin key) gives rows and games per version, how many players have at least one gold game, and the re-parse job's progress.
 
 **Bringing old games up to standard:**
 

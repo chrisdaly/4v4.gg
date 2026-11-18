@@ -424,6 +424,19 @@ router.get('/', requireApiKey, (req, res) => {
 });
 
 // GET /api/replays/action-sequences - Export action sequences for ML training
+// GET /api/replays/parse-coverage - games and players at each parser standard,
+// plus the re-parse job's progress. Above /:id, which would swallow it.
+router.get('/parse-coverage', requireApiKey, (req, res) => {
+  res.json({ ...getParserCoverage(), reparse: reparseStatus() });
+});
+
+// POST /api/replays/reparse - Admin: re-parse stored replay files up to the
+// current parser standard, in a worker. ?limit=N for a trial run.
+router.post('/reparse', requireApiKey, (req, res) => {
+  const limit = parseInt(req.query.limit) || null;
+  res.json(startReparse({ limit }));
+});
+
 router.get('/action-sequences', requireApiKey, (req, res) => {
   const rows = getActionSequencesForExport();
   const result = rows.map(r => ({
@@ -791,19 +804,6 @@ router.post('/backfill-actions', requireApiKey, async (req, res) => {
   res.json({ ok: true, processed, errors, total: missing.length });
 });
 
-
-// GET /api/replays/parse-coverage - games and players at each parser standard,
-// plus the re-parse job's progress
-router.get('/parse-coverage', (req, res) => {
-  res.json({ ...getParserCoverage(), reparse: reparseStatus() });
-});
-
-// POST /api/replays/reparse - Admin: re-parse stored replay files up to the
-// current parser standard, in a worker. ?limit=N for a trial run.
-router.post('/reparse', requireApiKey, (req, res) => {
-  const limit = parseInt(req.query.limit) || null;
-  res.json(startReparse({ limit }));
-});
 
 // POST /api/replays/check-existing - Check which W3C match IDs already exist
 router.post('/check-existing', requireApiKey, (req, res) => {
