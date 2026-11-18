@@ -76,6 +76,7 @@ function tfidf(docs, analyse) {
     return { ids, w };
   });
   vectors.terms = [...vocab.keys()]; // id -> term, for explaining a match
+  vectors.df = [...df.values()].filter((d) => d >= 2); // id -> accounts using it
   return vectors;
 }
 
@@ -152,6 +153,12 @@ export function buildChatIndex(messagesByTag) {
   const words = tfidf(docs, wordTerms);
   const chars = tfidf(docs, charTerms);
   const pos = new Map(tags.map((t, i) => [t, i]));
+  // Shown examples should be habits few chatters share (a misspelling, a pet
+  // phrase), not common words, numbers or the names of people in the lobby.
+  const names = new Set(tags.map((t) => t.split('#')[0].toLowerCase()));
+  const maxShared = Math.max(5, Math.round(tags.length * 0.03));
+  const telling = (term, df) => df <= maxShared &&
+    term.split(' ').every((w) => w.length >= 3 && /\p{L}/u.test(w) && !names.has(w));
   const sim = (i, j) => 0.5 * sparseDot(words[i], words[j]) + 0.5 * sparseDot(chars[i], chars[j]);
   // One account against every other, kept: 700 floats per account asked about
   const wordPost = postings(words, maxId(words));
@@ -187,7 +194,11 @@ export function buildChatIndex(messagesByTag) {
       const A = words[i], B = words[j];
       const shared = [];
       for (let x = 0, y = 0; x < A.ids.length && y < B.ids.length;) {
-        if (A.ids[x] === B.ids[y]) { shared.push({ term: words.terms[A.ids[x]], weight: A.w[x] * B.w[y] }); x++; y++; }
+        if (A.ids[x] === B.ids[y]) {
+          const id = A.ids[x], term = words.terms[id];
+          if (telling(term, words.df[id])) shared.push({ term, weight: A.w[x] * B.w[y] });
+          x++; y++;
+        }
         else if (A.ids[x] < B.ids[y]) x++;
         else y++;
       }

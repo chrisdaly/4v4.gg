@@ -9,6 +9,7 @@ import useAdmin from "../../lib/useAdmin";
 import usePlayerMeta from "../../lib/usePlayerMeta";
 import { ActivityTimeline } from "./InvestigateTab";
 import TransitionGlyph from "../../components/replay-lab/TransitionGlyph";
+import { GroupRoster } from "../../components/replay-lab/PlaystyleReport";
 import QuoteBlock from "../../components/chat/QuoteBlock";
 
 const RELAY_URL =
@@ -181,6 +182,7 @@ function PairDrawer({ pair, detailA, detailB }) {
             {[[nameA, detailA.profile], [nameB, detailB.profile]].map(([name, profile]) => (
               <GlyphCell key={name}>
                 {profile ? (
+                  <>
                   <TransitionGlyph
                     transitionPairs={profile.transitionPairs || []}
                     groupUsage={profile.groupUsage || []}
@@ -190,6 +192,8 @@ function PairDrawer({ pair, detailA, detailB }) {
                     replayCount={profile.replayCount}
                     sampleCount={profile.sampleCount}
                   />
+                  <GroupRoster groupUsage={profile.groupUsage || []} groupCompositions={profile.groupCompositions || {}} />
+                  </>
                 ) : <DrawerNote>No playstyle data for {name}.</DrawerNote>}
               </GlyphCell>
             ))}
@@ -255,14 +259,25 @@ export function PairRow({ pair, index, open, onToggle, meta, isAdmin, onLabel, l
 export default function SmurfsTab() {
   const [suspects, setSuspects] = useState(null);
   const [loading, setLoading] = useState(true);
-  const [expandedIdx, setExpandedIdx] = useState(null);
+  const [openKey, setOpenKey] = useState(null);
+  const [showLabelled, setShowLabelled] = useState(false);
   const { adminKey, isAdmin } = useAdmin();
   const [labelError, setLabelError] = useState(null);
 
+  const relabel = (pair, label) => setSuspects(s => ({
+    ...s,
+    pairs: s.pairs.map(p => (pairKey(p) === pairKey(pair) ? { ...p, label } : p)),
+  }));
+
   // Your verdict on a pair: test cases for the end-to-end eval. Clicking the
-  // current label again clears it.
+  // current label again clears it. The row updates at once and moves out of
+  // the queue; a failed save puts it back and says why.
   async function setLabel(pair, label) {
-    const next = pair.label === label ? null : label;
+    const prev = pair.label ?? null;
+    const next = prev === label ? null : label;
+    relabel(pair, next);
+    setLabelError(null);
+    if (next) setOpenKey(null);
     let failure = null;
     const res = await fetch(`${RELAY_URL}/api/fingerprints/pair-label`, {
       method: "POST",
@@ -270,19 +285,17 @@ export default function SmurfsTab() {
       body: JSON.stringify({ tagA: pair.tagA, tagB: pair.tagB, label: next }),
     }).catch(err => { failure = err; return null; });
     if (!res?.ok) {
-      // Say what went wrong, so a failure can be traced
       const text = res?.status === 401 ? "Admin key rejected"
         : res ? `Couldn't save (HTTP ${res.status})`
         : `Couldn't reach the relay (${failure?.message || "network error"}). An ad blocker can cause this.`;
       console.error("[pair-label]", res?.status, failure);
+      relabel(pair, prev);
+      setOpenKey(pairKey(pair));
       setLabelError({ key: pairKey(pair), text });
       return;
     }
-    setLabelError(null);
-    setSuspects(s => ({
-      ...s,
-      pairs: s.pairs.map(p => (p.tagA === pair.tagA && p.tagB === pair.tagB ? { ...p, label: next } : p)),
-    }));
+    // The confirmed list above refetches so a "same" pair shows up there
+    window.dispatchEvent(new Event("pair-labelled"));
   }
 
   const tags = useMemo(
@@ -310,10 +323,28 @@ export default function SmurfsTab() {
     return <NoData>No suspect pairs found yet. More replays needed to build the similarity graph.</NoData>;
   }
 
+  const queue = suspects.pairs.filter(p => !p.label);
+  const labelled = suspects.pairs.filter(p => p.label);
+  const row = (pair, i) => (
+    <PairRow
+      key={pairKey(pair)}
+      pair={pair}
+      index={i}
+      open={openKey === pairKey(pair)}
+      onToggle={() => setOpenKey(openKey === pairKey(pair) ? null : pairKey(pair))}
+      meta={meta}
+      isAdmin={isAdmin}
+      onLabel={setLabel}
+      labelError={labelError}
+    />
+  );
+
   return (
     <>
+      <ListTitle>Suspects to review</ListTitle>
       <StatsRow>
-        <StatChip>{suspects.pairs.length} <span>suspect pairs</span></StatChip>
+        <StatChip>{queue.length} <span>to review</span></StatChip>
+        {labelled.length > 0 && <StatChip>{labelled.length} <span>labelled</span></StatChip>}
         {suspects.totalPairs != null && (
           <StatChip>{suspects.totalPairs} <span>total pairs analyzed</span></StatChip>
         )}
@@ -323,20 +354,17 @@ export default function SmurfsTab() {
       </StatsRow>
 
       <PairsList>
-        {suspects.pairs.map((pair, i) => (
-          <PairRow
-            key={pairKey(pair)}
-            pair={pair}
-            index={i}
-            open={expandedIdx === i}
-            onToggle={() => setExpandedIdx(expandedIdx === i ? null : i)}
-            meta={meta}
-            isAdmin={isAdmin}
-            onLabel={setLabel}
-            labelError={labelError}
-          />
-        ))}
+        {queue.length ? queue.map(row) : <NoData>Nothing left to review.</NoData>}
       </PairsList>
+
+      {labelled.length > 0 && (
+        <>
+          <ShowLabelled onClick={() => setShowLabelled(v => !v)}>
+            {showLabelled ? "Hide" : "Show"} labelled ({labelled.length})
+          </ShowLabelled>
+          {showLabelled && <PairsList>{labelled.map(row)}</PairsList>}
+        </>
+      )}
     </>
   );
 }
@@ -352,6 +380,26 @@ const NoData = styled.div`
   background: var(--surface-1);
   border: var(--border-thin) solid var(--grey-mid);
   border-radius: var(--radius-md);
+`;
+
+const ListTitle = styled.h2`
+  font-family: var(--font-display);
+  font-size: var(--text-lg);
+  color: var(--gold);
+  margin: 0 0 var(--space-4);
+`;
+
+const ShowLabelled = styled.button`
+  margin: var(--space-6) 0 var(--space-3);
+  background: none;
+  border: none;
+  padding: 0;
+  cursor: pointer;
+  font: var(--text-xxs) var(--font-mono);
+  text-transform: uppercase;
+  letter-spacing: 0.1em;
+  color: var(--grey-light);
+  &:hover { color: var(--gold); }
 `;
 
 const StatsRow = styled.div`

@@ -50,6 +50,11 @@ export default function ValidationTab() {
   }, []);
 
   useEffect(() => { fetchData(); }, [fetchData]);
+  // A "same player" click in the suspects list below adds a confirmed pair
+  useEffect(() => {
+    window.addEventListener("pair-labelled", fetchData);
+    return () => window.removeEventListener("pair-labelled", fetchData);
+  }, [fetchData]);
 
   const pairs = data?.pairs || [];
   const tags = useMemo(() => pairs.flatMap(p => [p.tagMain, p.tagSmurf]), [data]); // eslint-disable-line react-hooks/exhaustive-deps
@@ -107,6 +112,7 @@ export default function ValidationTab() {
 
   return (
     <>
+      <SectionTitle>Confirmed pairs</SectionTitle>
       {/* Summary banner */}
       <SummaryBanner>
         <SummaryMain>
@@ -258,6 +264,13 @@ const StatsRow = styled.div`
   display: flex;
   gap: var(--space-3);
   flex-wrap: wrap;
+`;
+
+const SectionTitle = styled.h2`
+  font-family: var(--font-display);
+  font-size: var(--text-lg);
+  color: var(--gold);
+  margin: 0 0 var(--space-4);
 `;
 
 const StatChip = styled.div`

@@ -403,7 +403,7 @@ export function getGroupUnits(items) {
   return units;
 }
 
-function GroupRoster({ groupUsage, groupCompositions }) {
+export function GroupRoster({ groupUsage, groupCompositions }) {
   const active = (groupUsage || []).filter(g => (g.used + g.assigned) > 0);
   if (active.length === 0) return null;
 
