@@ -10,7 +10,7 @@
  *
  * Writes gzip TSV, one line per player per replay:
  *   replay_id  player_id  battle_tag  race  team_id  match_date  map_name  duration_s  actions
- * actions are space-separated "dt:id[:g<group>][:n<units>][:o<order>]" with
+ * actions are space-separated "dt:id[:g<group>][:n<units>][:o<order>][:u<tabbed unit>][:r<gold>/<lumber>]" with
  * dt the milliseconds since the previous action and id the action id in hex.
  * Stops before the volume holding the output gets close to full.
  */
@@ -69,6 +69,8 @@ function encode(seq) {
     if (a.g != null) tok += `:g${a.g}`;
     if (a.n != null) tok += `:n${a.n}`;
     if (a.oid) tok += `:o${String(a.oid).replace(/[\s:]/g, '')}`;
+    if (a.u) tok += `:u${String(a.u).replace(/[\s:]/g, '')}`;
+    if (a.gold || a.lumber) tok += `:r${a.gold || 0}/${a.lumber || 0}`;
     out.push(tok);
     last = a.ms;
   }

@@ -13,6 +13,7 @@ const TRACKED_ACTION_IDS = new Set([
   0x18,                           // Select group hotkey
   0x19,                           // Select subgroup (Tab)
   0x1E,                           // Remove from build queue
+  0x51,                           // Send gold/lumber to an ally
   0x61,                           // ESC pressed
   0x66,                           // Hero skill menu
   0x67,                           // Build menu
@@ -101,6 +102,16 @@ export async function parseReplayBuffer(buffer) {
           // Unit count for select actions
           if (action.id === 0x16 && action.units) {
             entry.n = action.units.length;
+          }
+          // Unit type tabbed to within the selection
+          if (action.id === 0x19 && action.itemId) {
+            const u = fourCCToString(action.itemId);
+            if (u) entry.u = u;
+          }
+          // Resources sent to an ally: gold and lumber
+          if (action.id === 0x51) {
+            entry.gold = action.gold || 0;
+            entry.lumber = action.lumber || 0;
           }
           fullSeqs[cmd.playerId].push(entry);
         }
