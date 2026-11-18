@@ -15,12 +15,14 @@ import {
   getExistingW3cMatchIds,
   insertPlayerFingerprints,
   getReplaysNeedingActionSequences,
+  getParserCoverage,
   updatePlayerActionSequence,
   getActionSequencesForExport,
 } from '../db.js';
 import { buildServerFingerprint } from '../fingerprint.js';
 import { requireApiKey } from '../middleware/auth.js';
 import { recordReplayDownload } from '../replayImporter.js';
+import { startReparse, reparseStatus } from '../reparse.js';
 
 const router = Router();
 
@@ -789,6 +791,19 @@ router.post('/backfill-actions', requireApiKey, async (req, res) => {
   res.json({ ok: true, processed, errors, total: missing.length });
 });
 
+
+// GET /api/replays/parse-coverage - games and players at each parser standard,
+// plus the re-parse job's progress
+router.get('/parse-coverage', (req, res) => {
+  res.json({ ...getParserCoverage(), reparse: reparseStatus() });
+});
+
+// POST /api/replays/reparse - Admin: re-parse stored replay files up to the
+// current parser standard, in a worker. ?limit=N for a trial run.
+router.post('/reparse', requireApiKey, (req, res) => {
+  const limit = parseInt(req.query.limit) || null;
+  res.json(startReparse({ limit }));
+});
 
 // POST /api/replays/check-existing - Check which W3C match IDs already exist
 router.post('/check-existing', requireApiKey, (req, res) => {

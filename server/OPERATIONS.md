@@ -108,6 +108,24 @@ Playstyle and smurf detection run on replays downloaded from W3C. The code is `s
 
 Imports stop entirely below 15% free disk (see Disk management). `/api/health` reports the free space.
 
+## Replay parser standard
+
+Every parsed game's per-player row in `replay_player_actions` carries `parser_version`: what its action sequence holds. The versions and what each adds are listed on `PARSER_VERSION` in `src/replayParser.js`; bump it whenever the sequence gains information.
+
+| Version | Since | Holds |
+|---|---|---|
+| NULL | before 2026-11-18 | timing, action type, control group, unit count on selections. No order/ability ids (the parser read the wrong field), no tabbed unit type, no resource sends. Some rows have no sequence at all. |
+| 2 (gold) | 2026-11-18 | adds the order/ability id on every order (FourCC like `ohun`, or hex for built-in orders, `d0012` = move), the unit type tabbed to, gold/lumber sent to allies |
+
+**Coverage:** `GET /api/replays/parse-coverage` gives rows and games per version, how many players have at least one gold game, and the re-parse job's progress.
+
+**Bringing old games up to standard:**
+
+- Games whose `.w3g` is still on the volume (`/data/replays`, about 7,400 files in November 2026): `POST /api/replays/reparse` (admin key) re-parses them in a worker thread, newest first, pausing 1.5 s between games so the relay stays responsive. No W3C requests. `?limit=N` for a trial. Roughly 3-6 s of CPU per game, so a full run takes most of a day.
+- Games whose file is gone: only a re-download brings them up (`POST /api/fingerprints/backfill-sequences`, inside W3C's 70 a day for older games). New games are parsed at the current standard on import.
+
+Not kept, deliberately: actions 0x1A (sent by the client after every selection change) and 0x1B (undocumented, arrives in automatic runs of tens of thousands per game, more than all real actions).
+
 ## W3C chat token
 
 The SignalR JWT expires **7 days after issue** (hardcoded in W3C's identification-service; no refresh endpoint exists).

@@ -1,6 +1,26 @@
 import { readFileSync } from 'fs';
 import W3GReplay from 'w3gjs';
 
+/**
+ * Version of what a parsed game's action sequence holds, stamped on each
+ * replay_player_actions row (parser_version) so we know which games are at
+ * the current standard. Bump it whenever the sequence gains information, and
+ * add a line here.
+ *
+ *   NULL  before 2026-11-18. Timing, action type, control group, unit count
+ *         on selections. No order/ability ids (read from the wrong field),
+ *         no tabbed unit type, no resource sends. Some rows have no sequence.
+ *   2     2026-11-18, the gold standard. Adds order/ability ids on every
+ *         order (FourCC like "ohun", or hex for built-in orders like
+ *         "d0012" = move), the unit type tabbed to (0x19, "u"), and
+ *         gold/lumber sent to allies (0x51).
+ *
+ * Game-client bookkeeping is deliberately not kept: 0x1A (sent after every
+ * selection change) and 0x1B (undocumented, arrives in long automatic runs,
+ * ~40k per 4v4 game, more than all real actions).
+ */
+export const PARSER_VERSION = 2;
+
 // Capture early-game (first 60s) hotkey sequences from raw gamedatablock events.
 // Actions 0x17 = assign group, 0x18 = select group. groupNumber is mapped via (n+1)%10.
 const EARLY_GAME_MS = 60000;

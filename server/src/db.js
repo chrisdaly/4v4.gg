@@ -4,6 +4,7 @@ import { execSync } from 'child_process';
 import { dirname } from 'path';
 import config from './config.js';
 import { groupTransitionCounts } from './groupTransitions.js';
+import { PARSER_VERSION } from './replayParser.js';
 
 let db;
 
@@ -375,9 +376,13 @@ export function initDb() {
       buildings_summary TEXT,
       early_game_sequence TEXT,
       group_compositions TEXT,
+      parser_version  INTEGER,
       UNIQUE(replay_id, player_id)
     );
   `);
+  // Migration: which parser standard the row's sequence was written at
+  // (PARSER_VERSION in replayParser.js; NULL = before 2026-11-18)
+  tryAddColumn(`ALTER TABLE replay_player_actions ADD COLUMN parser_version INTEGER`);
 
   // Migration: add file_hash column to replays for dedup
   tryAddColumn(`ALTER TABLE replays ADD COLUMN file_hash TEXT`);
@@ -1919,8 +1924,8 @@ export function insertReplayPlayerActions(replayId, actions) {
       (replay_id, player_id, assigngroup, rightclick, basic, buildtrain, ability, item,
        select_count, removeunit, subgroup, selecthotkey, esc, timed_segments, group_hotkeys,
        heroes, units_summary, buildings_summary, early_game_sequence, full_action_sequence,
-       group_compositions)
-    VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+       group_compositions, parser_version)
+    VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
   `);
   const tx = db.transaction(() => {
     for (const a of actions) {
@@ -1935,7 +1940,8 @@ export function insertReplayPlayerActions(replayId, actions) {
         JSON.stringify(a.buildingsSummary),
         JSON.stringify(a.earlyGameSequence),
         JSON.stringify(a.fullActionSequence || []),
-        JSON.stringify(a.groupCompositions || {})
+        JSON.stringify(a.groupCompositions || {}),
+        PARSER_VERSION
       );
       saveGroupTransitions(replayId, a.playerId, a.fullActionSequence);
     }
@@ -1956,10 +1962,36 @@ export function getReplaysNeedingActionSequences() {
   `).all();
 }
 
+/** Replays with a file on disk and any player row below the current parser standard, newest first. */
+export function getReplaysBelowParserVersion() {
+  return db.prepare(`
+    SELECT DISTINCT r.id, r.file_path FROM replays r
+    JOIN replay_player_actions rpa ON rpa.replay_id = r.id
+    WHERE r.file_path IS NOT NULL AND r.file_path != ''
+      AND (rpa.parser_version IS NULL OR rpa.parser_version < ?)
+    ORDER BY r.id DESC
+  `).all(PARSER_VERSION);
+}
+
+/** How many games and players are at each parser standard (NULL reported as 0). */
+export function getParserCoverage() {
+  const byVersion = db.prepare(`
+    SELECT COALESCE(parser_version, 0) AS version, COUNT(*) AS rows, COUNT(DISTINCT replay_id) AS replays
+    FROM replay_player_actions GROUP BY 1 ORDER BY 1
+  `).all();
+  const goldPlayers = db.prepare(`
+    SELECT COUNT(DISTINCT rp.battle_tag) AS n FROM replay_players rp
+    JOIN replay_player_actions rpa ON rpa.replay_id = rp.replay_id AND rpa.player_id = rp.player_id
+    WHERE rpa.parser_version >= ? AND rp.battle_tag IS NOT NULL
+  `).get(PARSER_VERSION).n;
+  const allPlayers = db.prepare(`SELECT COUNT(DISTINCT battle_tag) AS n FROM replay_players WHERE battle_tag IS NOT NULL`).get().n;
+  return { currentVersion: PARSER_VERSION, byVersion, playersWithGoldGame: goldPlayers, playersTotal: allPlayers };
+}
+
 export function updatePlayerActionSequence(replayId, playerId, fullActionSequence) {
   db.prepare(`
-    UPDATE replay_player_actions SET full_action_sequence = ? WHERE replay_id = ? AND player_id = ?
-  `).run(JSON.stringify(fullActionSequence), replayId, playerId);
+    UPDATE replay_player_actions SET full_action_sequence = ?, parser_version = ? WHERE replay_id = ? AND player_id = ?
+  `).run(JSON.stringify(fullActionSequence), PARSER_VERSION, replayId, playerId);
   saveGroupTransitions(replayId, playerId, fullActionSequence);
 }
 
@@ -1971,7 +2003,8 @@ export function updatePlayerActionData(replayId, playerId, data) {
       group_hotkeys        = ?,
       group_compositions   = ?,
       timed_segments       = ?,
-      early_game_sequence  = ?
+      early_game_sequence  = ?,
+      parser_version       = ?
     WHERE replay_id = ? AND player_id = ?
   `).run(
     JSON.stringify(data.fullActionSequence  || []),
@@ -1979,6 +2012,7 @@ export function updatePlayerActionData(replayId, playerId, data) {
     JSON.stringify(data.groupCompositions   || {}),
     JSON.stringify(data.timedSegments       || []),
     JSON.stringify(data.earlyGameSequence   || []),
+    PARSER_VERSION,
     replayId, playerId
   );
   saveGroupTransitions(replayId, playerId, data.fullActionSequence);
