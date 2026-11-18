@@ -146,6 +146,43 @@ function ChatCompare({ pair, nameA, nameB }) {
   );
 }
 
+/** Did the two accounts ever play in the same 4v4 game? One person can't
+ *  play both sides of one game, so a shared game points to two people. */
+function SharedGames({ pair }) {
+  const [data, setData] = useState(null);
+  useEffect(() => {
+    const qs = `a=${encodeURIComponent(pair.tagA)}&b=${encodeURIComponent(pair.tagB)}`;
+    fetch(`${RELAY_URL}/api/fingerprints/shared-games?${qs}`)
+      .then(r => (r.ok ? r.json() : {})).then(setData).catch(() => setData({}));
+  }, [pair.tagA, pair.tagB]);
+  if (!data) return <DrawerNote>Checking for games they played together…</DrawerNote>;
+  if (!data.games) return null;
+  const n = data.games.length;
+  if (n === 0) {
+    return (
+      <SharedLine>
+        {data.seasonsChecked.length
+          ? `Never in the same game${data.truncated ? " (history only partly checked)" : ""}.`
+          : "Never played on the same day, so never in the same game."}
+      </SharedLine>
+    );
+  }
+  const teammates = data.games.filter(g => g.sameTeam).length;
+  return (
+    <SharedLine $warn>
+      In the same game {n} time{n === 1 ? "" : "s"}: {teammates} as teammates, {n - teammates} against.
+      {" "}Likely two people, unless one person plays both accounts at once.
+      <SharedGameLinks>
+        {data.games.slice(0, 6).map(g => (
+          <Link key={g.matchId} to={`/match/${g.matchId}`}>
+            {(g.endTime || "").slice(0, 10)} · {g.sameTeam ? "team" : "vs"}
+          </Link>
+        ))}
+      </SharedGameLinks>
+    </SharedLine>
+  );
+}
+
 function PairDrawer({ pair, detailA, detailB }) {
   const nameA = pair.tagA.split("#")[0];
   const nameB = pair.tagB.split("#")[0];
@@ -178,6 +215,7 @@ function PairDrawer({ pair, detailA, detailB }) {
           {players.some(p => p.seasonActivity.length > 0)
             ? <ActivityTimeline players={players} matchProfiles={{}} />
             : <DrawerNote>No ladder activity found for either account.</DrawerNote>}
+          <SharedGames pair={pair} />
           <Glyphs>
             {[[nameA, detailA.profile], [nameB, detailB.profile]].map(([name, profile]) => (
               <GlyphCell key={name}>
@@ -559,6 +597,20 @@ const TermChip = styled.span`
   border: var(--border-thin) solid rgba(252, 219, 51, 0.25);
   border-radius: var(--radius-sm);
   padding: 2px var(--space-2);
+`;
+
+const SharedLine = styled.div`
+  font: var(--text-xs) var(--font-mono);
+  color: ${p => (p.$warn ? "var(--amber)" : "var(--grey-light)")};
+`;
+
+const SharedGameLinks = styled.div`
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--space-3);
+  margin-top: var(--space-2);
+  a { color: var(--grey-light); font-size: var(--text-xxs); }
+  a:hover { color: var(--gold); }
 `;
 
 const DrawerNote = styled.div`

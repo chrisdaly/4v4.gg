@@ -2618,6 +2618,68 @@ router.get('/activity/:battleTag', async (req, res) => {
   }
 });
 
+async function cachedActivity(tag) {
+  const hit = activityCache.get(tag);
+  if (hit && Date.now() - hit.at < 60 * 60 * 1000) return hit.data;
+  const data = await fetchPlayerRecentInfo(tag);
+  if (activityCache.size > 500) activityCache.delete(activityCache.keys().next().value);
+  activityCache.set(tag, { at: Date.now(), data });
+  return data;
+}
+
+// GET /api/fingerprints/shared-games?a=&b= - 4v4 games both accounts played
+// in. One person can't play two accounts in one game, so any shared game is
+// strong evidence of two people. Only days both accounts played can hold one,
+// so each season pages the quieter account's history back to the earliest
+// shared day and no further.
+const sharedGamesCache = new Map();
+router.get('/shared-games', async (req, res) => {
+  const { a, b } = req.query;
+  if (!a || !b || a === b) return res.status(400).json({ error: 'a and b required' });
+  const key = [a, b].sort().join('|');
+  const hit = sharedGamesCache.get(key);
+  if (hit && Date.now() - hit.at < 6 * 3600 * 1000) return res.json(hit.data);
+  try {
+    const [actA, actB] = await Promise.all([cachedActivity(a), cachedActivity(b)]);
+    const daysOf = (act, s) => new Set(act.seasonActivity.find(x => x.season === s)?.matchDays || []);
+    const games = [];
+    const seasonsChecked = [];
+    let truncated = false;
+    for (const { season } of actA.seasonActivity) {
+      const dA = daysOf(actA, season), dB = daysOf(actB, season);
+      const shared = [...dA].filter(d => dB.has(d));
+      if (!shared.length) continue;
+      seasonsChecked.push(season);
+      const [who, other] = dA.size <= dB.size ? [a, b] : [b, a];
+      // A day early: the timeline's day and the match's end time can sit
+      // either side of midnight
+      const earliest = new Date(Date.parse(shared.sort()[0]) - 86400000).toISOString().slice(0, 10);
+      let done = false;
+      for (let offset = 0; offset < 1000 && !done; offset += 100) {
+        if (offset > 0) await sleep(300);
+        const r = await fetch(`${W3C_API}/matches/search?playerId=${encodeURIComponent(who)}&offset=${offset}&gameMode=4&season=${season}&gateway=20&pageSize=100`,
+          { signal: AbortSignal.timeout(8000) });
+        if (!r.ok) { truncated = true; break; }
+        const matches = (await r.json()).matches || [];
+        for (const m of matches) {
+          if ((m.endTime || '').slice(0, 10) < earliest) { done = true; break; }
+          const teamOf = tag => (m.teams || []).findIndex(t => (t.players || []).some(p => p.battleTag === tag));
+          const tw = teamOf(who), to = teamOf(other);
+          if (to >= 0) games.push({ matchId: m.id, endTime: m.endTime, season, sameTeam: tw === to });
+        }
+        if (matches.length < 100) done = true;
+        if (!done && offset + 100 >= 1000) truncated = true;
+      }
+    }
+    const data = { games, seasonsChecked, truncated };
+    if (sharedGamesCache.size > 500) sharedGamesCache.delete(sharedGamesCache.keys().next().value);
+    sharedGamesCache.set(key, { at: Date.now(), data });
+    res.json(data);
+  } catch (e) {
+    res.status(502).json({ error: 'W3C unavailable' });
+  }
+});
+
 // GET /api/fingerprints/chat-compare?a=&b= - examples of how two accounts'
 // lobby chat matches: shared distinctive words with a message from each.
 router.get('/chat-compare', (req, res) => {
