@@ -36,6 +36,10 @@ Four things that have each failed a deploy:
 
 `.dockerignore` keeps `data/` (~1.8GB of production SQLite) and `node_modules/` out of the build context. Without it every deploy uploads the live database to the remote builder. If you add a file the Dockerfile needs to `COPY`, check it is not caught by a pattern there - the file deliberately uses no `!` negations.
 
+**Every deploy or restart takes the relay down for about 15 minutes, starting about 30 seconds after it reports healthy.** Litestream starts a new generation and snapshots the whole database (16 GB in November 2026), reading it at about 17 MB/s. The relay's SQLite reads queue behind it on the same disk, the node process sits in uninterruptible IO wait, and health checks fail until the snapshot finishes. Seen on 2026-11-18: restart 13:44 UTC, back 13:57. So batch relay changes into one deploy, deploy at a quiet hour, and do not restart to "fix" a stall in that window. Check with `fly ssh console -C "cat /proc/<litestream pid>/io"`: `read_bytes` climbing towards the database size means it is the snapshot.
+
+**Never scan `replay_player_actions` on the main thread.** Its rows hold the full action sequences, so any query without an index reads gigabytes and blocks every request for minutes. Put per-game facts on `replays` instead (as `parser_version` is), or run the scan in a worker.
+
 After deploying, confirm the routes you changed actually shipped, e.g.:
 
 ```bash

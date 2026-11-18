@@ -381,8 +381,12 @@ export function initDb() {
     );
   `);
   // Migration: which parser standard the row's sequence was written at
-  // (PARSER_VERSION in replayParser.js; NULL = before 2026-11-18)
+  // (PARSER_VERSION in replayParser.js; NULL = before 2026-11-18). Also kept
+  // per game on replays, which is what coverage and re-parse query: rows of
+  // replay_player_actions hold the sequence blobs, so any scan of that table
+  // reads gigabytes and stalls the relay for minutes.
   tryAddColumn(`ALTER TABLE replay_player_actions ADD COLUMN parser_version INTEGER`);
+  tryAddColumn(`ALTER TABLE replays ADD COLUMN parser_version INTEGER`);
 
   // Migration: add file_hash column to replays for dedup
   tryAddColumn(`ALTER TABLE replays ADD COLUMN file_hash TEXT`);
@@ -1945,6 +1949,7 @@ export function insertReplayPlayerActions(replayId, actions) {
       );
       saveGroupTransitions(replayId, a.playerId, a.fullActionSequence);
     }
+    stampReplayVersion(replayId);
   });
   tx();
 }
@@ -1962,27 +1967,31 @@ export function getReplaysNeedingActionSequences() {
   `).all();
 }
 
-/** Replays with a file on disk and any player row below the current parser standard, newest first. */
+/** Parsed replays with a file on disk below the current parser standard, newest first.
+ *  Reads only the replays table (see the parser_version migration). */
 export function getReplaysBelowParserVersion() {
   return db.prepare(`
-    SELECT DISTINCT r.id, r.file_path FROM replays r
-    JOIN replay_player_actions rpa ON rpa.replay_id = r.id
-    WHERE r.file_path IS NOT NULL AND r.file_path != ''
-      AND (rpa.parser_version IS NULL OR rpa.parser_version < ?)
-    ORDER BY r.id DESC
+    SELECT id, file_path FROM replays
+    WHERE parse_status = 'parsed' AND file_path IS NOT NULL AND file_path != ''
+      AND (parser_version IS NULL OR parser_version < ?)
+    ORDER BY id DESC
   `).all(PARSER_VERSION);
+}
+
+function stampReplayVersion(replayId) {
+  db.prepare('UPDATE replays SET parser_version = ? WHERE id = ?').run(PARSER_VERSION, replayId);
 }
 
 /** How many games and players are at each parser standard (NULL reported as 0). */
 export function getParserCoverage() {
   const byVersion = db.prepare(`
-    SELECT COALESCE(parser_version, 0) AS version, COUNT(*) AS rows, COUNT(DISTINCT replay_id) AS replays
-    FROM replay_player_actions GROUP BY 1 ORDER BY 1
+    SELECT COALESCE(parser_version, 0) AS version, COUNT(*) AS replays
+    FROM replays WHERE parse_status = 'parsed' GROUP BY 1 ORDER BY 1
   `).all();
   const goldPlayers = db.prepare(`
     SELECT COUNT(DISTINCT rp.battle_tag) AS n FROM replay_players rp
-    JOIN replay_player_actions rpa ON rpa.replay_id = rp.replay_id AND rpa.player_id = rp.player_id
-    WHERE rpa.parser_version >= ? AND rp.battle_tag IS NOT NULL
+    JOIN replays r ON r.id = rp.replay_id
+    WHERE r.parser_version >= ? AND rp.battle_tag IS NOT NULL
   `).get(PARSER_VERSION).n;
   const allPlayers = db.prepare(`SELECT COUNT(DISTINCT battle_tag) AS n FROM replay_players WHERE battle_tag IS NOT NULL`).get().n;
   return { currentVersion: PARSER_VERSION, byVersion, playersWithGoldGame: goldPlayers, playersTotal: allPlayers };
@@ -1993,6 +2002,7 @@ export function updatePlayerActionSequence(replayId, playerId, fullActionSequenc
     UPDATE replay_player_actions SET full_action_sequence = ?, parser_version = ? WHERE replay_id = ? AND player_id = ?
   `).run(JSON.stringify(fullActionSequence), PARSER_VERSION, replayId, playerId);
   saveGroupTransitions(replayId, playerId, fullActionSequence);
+  stampReplayVersion(replayId);
 }
 
 // Backfill all sequence-derived columns for a single player row
@@ -2016,6 +2026,7 @@ export function updatePlayerActionData(replayId, playerId, data) {
     replayId, playerId
   );
   saveGroupTransitions(replayId, playerId, data.fullActionSequence);
+  stampReplayVersion(replayId);
 }
 
 // Find all players (by battle_tag) that have zero non-NULL full_action_sequence rows
