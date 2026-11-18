@@ -206,7 +206,7 @@ export default function ValidationTab() {
                 </PassIndicator>
                 <PairPlayers>
                   <PlayerName $missing={isMissing}>{pair.tagMain.split("#")[0]}</PlayerName>
-                  <Arrow>\u2194</Arrow>
+                  <Arrow>{"\u2194"}</Arrow>
                   <PlayerName $missing={isMissing}>{pair.tagSmurf.split("#")[0]}</PlayerName>
                   {pair.notes && <Notes>{pair.notes}</Notes>}
                   {isMissing && <MissingBadge>needs data</MissingBadge>}
