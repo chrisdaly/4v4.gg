@@ -2888,12 +2888,13 @@ router.get('/validation', (req, res) => {
 });
 
 // POST /api/fingerprints/pair-label - Admin: mark a suspect pair as the same
-// player or different players ({tagA, tagB, label: 'same'|'different'|null}).
+// player, different players, or unsure, which only hides it from review
+// ({tagA, tagB, label: 'same'|'different'|'unsure'|null}).
 // 'same' also adds a confirmed pair, so it shows on the Confirmed tab.
 router.post('/pair-label', requireApiKey, (req, res) => {
   const { tagA, tagB, label } = req.body || {};
   if (!tagA || !tagB || tagA === tagB) return res.status(400).json({ error: 'tagA and tagB required' });
-  if (![ 'same', 'different', null ].includes(label ?? null)) return res.status(400).json({ error: "label must be 'same', 'different' or null" });
+  if (![ 'same', 'different', 'unsure', null ].includes(label ?? null)) return res.status(400).json({ error: "label must be 'same', 'different', 'unsure' or null" });
   setPairLabel(tagA, tagB, label ?? null);
   if (label === 'same') {
     const known = getValidationPairs().some(v =>

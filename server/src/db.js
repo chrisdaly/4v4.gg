@@ -478,6 +478,17 @@ export function initDb() {
       PRIMARY KEY (tag_a, tag_b)
     )
   `);
+  // Pairs Chris looked at and couldn't call. Kept apart from pair_labels
+  // (whose CHECK allows only same/different) so they are never test cases;
+  // they only leave the review queue.
+  db.exec(`
+    CREATE TABLE IF NOT EXISTS pair_unsure (
+      tag_a      TEXT NOT NULL,
+      tag_b      TEXT NOT NULL,
+      labelled_at TEXT NOT NULL DEFAULT (datetime('now')),
+      PRIMARY KEY (tag_a, tag_b)
+    )
+  `);
   db.exec(`
     CREATE TABLE IF NOT EXISTS replay_group_transitions (
       replay_id   INTEGER NOT NULL,
@@ -2633,11 +2644,14 @@ export function deleteBlogPost(slug) {
 
 const sortedPair = (a, b) => (a < b ? [a, b] : [b, a]);
 
-/** @param {'same'|'different'|null} label - null removes the label */
+/** @param {'same'|'different'|'unsure'|null} label - null removes the label */
 export function setPairLabel(tagA, tagB, label) {
   const [a, b] = sortedPair(tagA, tagB);
-  if (label === null) {
-    db.prepare('DELETE FROM pair_labels WHERE tag_a = ? AND tag_b = ?').run(a, b);
+  db.prepare('DELETE FROM pair_labels WHERE tag_a = ? AND tag_b = ?').run(a, b);
+  db.prepare('DELETE FROM pair_unsure WHERE tag_a = ? AND tag_b = ?').run(a, b);
+  if (label === null) return;
+  if (label === 'unsure') {
+    db.prepare('INSERT INTO pair_unsure (tag_a, tag_b) VALUES (?, ?)').run(a, b);
     return;
   }
   db.prepare(`
@@ -2646,9 +2660,13 @@ export function setPairLabel(tagA, tagB, label) {
   `).run(a, b, label);
 }
 
-/** @returns {Map<string, 'same'|'different'>} keyed "tagA|tagB" in sorted order */
+/**
+ * @returns {Map<string, 'same'|'different'|'unsure'>} keyed "tagA|tagB" in
+ * sorted order. 'unsure' only hides a pair from review: evals must skip it.
+ */
 export function getPairLabels() {
   const out = new Map();
+  for (const r of db.prepare('SELECT tag_a, tag_b FROM pair_unsure').all()) out.set(`${r.tag_a}|${r.tag_b}`, 'unsure');
   for (const r of db.prepare('SELECT tag_a, tag_b, label FROM pair_labels').all()) out.set(`${r.tag_a}|${r.tag_b}`, r.label);
   return out;
 }

@@ -291,7 +291,7 @@ export function PairRow({ pair, index, open, onToggle, meta, isAdmin, onLabel, l
         </PairScore>
         <Chevron $open={open}>▾</Chevron>
       </PairHead>
-      {pair.label && !open && <LabelledTag $label={pair.label}>{pair.label === "same" ? "You said: same player" : "You said: different"}</LabelledTag>}
+      {pair.label && !open && <LabelledTag $label={pair.label}>{{ same: "You said: same player", different: "You said: different", unsure: "You said: not sure" }[pair.label]}</LabelledTag>}
       {open && <PairDrawer pair={pair} detailA={detailA} detailB={detailB} />}
       {open && footer}
       {open && isAdmin && onLabel && (
@@ -302,6 +302,10 @@ export function PairRow({ pair, index, open, onToggle, meta, isAdmin, onLabel, l
           </LabelButton>
           <LabelButton $active={pair.label === "different"} $color="var(--grey-light)" onClick={() => onLabel(pair, "different")}>
             Different players
+          </LabelButton>
+          <LabelButton $active={pair.label === "unsure"} $color="var(--grey-mid)" onClick={() => onLabel(pair, "unsure")}
+            title="Hide it from the queue without counting it either way">
+            Not sure
           </LabelButton>
           {labelError?.key === pairKey(pair) && <LabelError>{labelError.text}</LabelError>}
         </LabelRow>
