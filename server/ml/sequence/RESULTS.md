@@ -50,5 +50,6 @@ known half from the pool, so every flag there is a false alarm.
   whitened "possible", sequence "confident". FOALS/потоп: rank 1 for all three,
   no verdict. kazM/AlanHarper: rank 2 for all three, "possible" only for both.
 
-- The stored sequences carry action type, control group and timing only; unit
-  counts and ability ids are absent, so those inputs are all zero.
+- The stored sequences carry action type, control group, unit counts and
+  timing. Order/ability ids were all missing (a parser field bug, fixed in
+  parser v2 on 18 Nov), so that input was all zero for this run.
