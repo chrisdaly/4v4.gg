@@ -2498,8 +2498,11 @@ export function getPlayerMessages(battleTag, limit = 10) {
 /** Every account's lobby messages, oldest first, for the chat-style index. */
 export function getLobbyMessagesByTag() {
   const out = new Map();
+  // Stored English translations of non-Latin lines, keyed by the text, so the
+  // chat comparison can show them under the quotes
+  out.translations = new Map();
   for (const r of db.prepare(`
-    SELECT battle_tag, message FROM messages
+    SELECT battle_tag, message, translation FROM messages
     WHERE deleted = 0 AND battle_tag IS NOT NULL
     ORDER BY received_at, rowid
   `).iterate()) {
@@ -2507,6 +2510,7 @@ export function getLobbyMessagesByTag() {
     if (!m) continue;
     if (!out.has(r.battle_tag)) out.set(r.battle_tag, []);
     out.get(r.battle_tag).push(m);
+    if (r.translation) out.translations.set(m, r.translation);
   }
   return out;
 }

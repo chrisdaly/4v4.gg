@@ -120,6 +120,17 @@ function ChatCompare({ pair, nameA, nameB }) {
   }, [pair.tagA, pair.tagB]);
   if (!data) return <DrawerNote>Loading lobby chat…</DrawerNote>;
   if (!data.shared) return null;
+  // Each line quoted, with its stored English translation under it if any
+  const cell = (lines) => (
+    <div>
+      {lines.map(line => (
+        <React.Fragment key={line}>
+          <QuoteBlock quotes={[line]} />
+          {data.translations?.[line] && <Translation>{data.translations[line]}</Translation>}
+        </React.Fragment>
+      ))}
+    </div>
+  );
   return (
     <section>
       <SectionTitle>
@@ -133,14 +144,14 @@ function ChatCompare({ pair, nameA, nameB }) {
         {data.shared.map(s => (
           <React.Fragment key={s.term}>
             <div><TermChip>{s.term}</TermChip></div>
-            <QuoteBlock quotes={[s.exampleA]} />
-            <QuoteBlock quotes={[s.exampleB]} />
+            {cell([s.exampleA])}
+            {cell([s.exampleB])}
           </React.Fragment>
         ))}
         {data.shared.length === 0 && <DrawerNote style={{ gridColumn: "1 / -1" }}>No distinctive words in common.</DrawerNote>}
         <RecentLabel>Recent</RecentLabel>
-        <QuoteBlock quotes={data.recentA} />
-        <QuoteBlock quotes={data.recentB} />
+        {cell(data.recentA)}
+        {cell(data.recentB)}
       </ChatTable>
     </section>
   );
@@ -272,6 +283,11 @@ export function PairRow({ pair, index, open, onToggle, meta, isAdmin, onLabel, l
         <PairScore>
           <ScoreValue $color={verdict.color}>{scoreText ?? `${Math.round(pair.similarity * 100)}%`}</ScoreValue>
           <VerdictLabel $color={verdict.color}>{verdict.label}</VerdictLabel>
+          {pair.chat?.indexed && (
+            <ChatBadge title="Both accounts have enough lobby chat to compare">
+              Chat{pair.chat.supports ? " · closest match" : ""}
+            </ChatBadge>
+          )}
         </PairScore>
         <Chevron $open={open}>▾</Chevron>
       </PairHead>
@@ -589,8 +605,16 @@ const RecentLabel = styled.div`
   padding-top: var(--space-1);
 `;
 
+const Translation = styled.div`
+  margin: -2px 0 var(--space-2) var(--space-4);
+  font: var(--text-xxs) var(--font-mono);
+  color: var(--grey-light);
+`;
+
 const TermChip = styled.span`
-  align-self: flex-start;
+  display: inline-block;
+  max-width: 100%;
+  overflow-wrap: anywhere;
   font: var(--text-xs) var(--font-mono);
   color: var(--gold);
   background: var(--gold-tint);
@@ -776,6 +800,14 @@ const ScoreValue = styled.div`
   color: ${p => p.$color || "var(--white)"};
   font-weight: 700;
   margin-bottom: var(--space-1);
+`;
+
+const ChatBadge = styled.div`
+  margin-top: var(--space-1);
+  font: var(--text-xxxs) var(--font-mono);
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+  color: var(--cyan);
 `;
 
 const VerdictLabel = styled.div`

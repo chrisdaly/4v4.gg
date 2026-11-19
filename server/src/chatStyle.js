@@ -213,11 +213,17 @@ export function buildChatIndex(messagesByTag) {
         .filter((s) => s.exampleA && s.exampleB)
         .slice(0, k);
       const lastLines = (lines) => [...new Set(lines.filter((m) => m.length >= 4))].slice(-6).reverse();
+      const recentA = lastLines(ra), recentB = lastLines(rb);
+      const translations = {};
+      for (const line of [...recentA, ...recentB, ...terms.flatMap((t) => [t.exampleA, t.exampleB])]) {
+        const t = messagesByTag.translations?.get(line);
+        if (t) translations[line] = t;
+      }
       return {
         similarity: sim(i, j),
         countA: messageCount.get(a), countB: messageCount.get(b),
         shared: terms,
-        recentA: lastLines(ra), recentB: lastLines(rb),
+        recentA, recentB, translations,
       };
     },
     /** Every other indexed account by chat similarity to `tag`, closest first. */
