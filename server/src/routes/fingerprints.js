@@ -1830,17 +1830,13 @@ router.post('/rebuild', requireApiKey, (req, res) => {
   res.json({ ok: true, deleted, replaysProcessed: processed, errors, total: allReplays.length, dbStats });
 });
 
-// POST /api/fingerprints/backfill-sequences - Re-download replays to populate missing full_action_sequence
-// Uses greedy set cover so one 4v4 replay can fix up to 8 players at once.
-router.post('/backfill-sequences', requireApiKey, async (req, res) => {
+// Which replays to re-download so every fingerprinted player gets an action
+// sequence. Finding who lacks one reads replay_player_actions, whose rows hold
+// the sequence blobs, so it runs in buildWorker.js, never on the main thread.
+// Greedy set cover: one 4v4 replay can fix up to 8 players at once.
+export function computeBackfillPlan() {
   const uncovered = getPlayersWithoutSequences();
-  if (uncovered.length === 0) {
-    return res.json({ message: 'All players already have sequence data', uncovered: 0, replaysNeeded: 0 });
-  }
-
   const replayMatches = getReplayMatchesForPlayers(uncovered);
-
-  // Greedy set cover: each iteration picks the replay covering the most uncovered players
   const remaining = new Set(uncovered);
   const selected = [];
   const available = [...replayMatches];
@@ -1855,24 +1851,40 @@ router.post('/backfill-sequences', requireApiKey, async (req, res) => {
     selected.push(pick);
     for (const p of pick.players) remaining.delete(p);
   }
+  return { uncoveredCount: uncovered.length, selected, uncoverableTags: [...remaining] };
+}
 
-  const uncoverableTags = [...remaining];
+const backfillState = { phase: 'idle', startedAt: null, plan: null, error: null };
 
-  res.json({
-    uncoveredPlayers: uncovered.length,
-    replaysToDownload: selected.length,
-    willCover: uncovered.length - remaining.size,
-    notCoverable: uncoverableTags.length,
-    searchBackfill: uncoverableTags.length, // phase 2 via W3C search API
-  });
-
-  // Phase 1: re-download replays already in DB (set-cover)
+// POST /api/fingerprints/backfill-sequences - Re-download replays to populate
+// missing full_action_sequence. Answers at once; progress at GET
+// /api/fingerprints/backfill-sequences.
+router.post('/backfill-sequences', requireApiKey, (req, res) => {
+  if (backfillState.phase === 'planning' || backfillState.phase === 'downloading') {
+    return res.status(409).json({ error: 'already running', ...backfillState });
+  }
+  Object.assign(backfillState, { phase: 'planning', startedAt: new Date().toISOString(), plan: null, error: null });
+  res.status(202).json(backfillState);
+  // Phase 1: re-download replays already in DB (set cover)
   // Phase 2: search W3C API for a fresh replay for each uncoverable player
   (async () => {
-    await sequenceBackfill(selected);
-    if (uncoverableTags.length > 0) await backfillViaSearch(uncoverableTags);
-  })().catch(err => console.error('[Backfill]', err.message));
+    const plan = await runInWorker('backfillPlan');
+    backfillState.plan = {
+      uncoveredPlayers: plan.uncoveredCount,
+      replaysToDownload: plan.selected.length,
+      notCoverable: plan.uncoverableTags.length,
+    };
+    backfillState.phase = 'downloading';
+    await sequenceBackfill(plan.selected);
+    if (plan.uncoverableTags.length > 0) await backfillViaSearch(plan.uncoverableTags);
+    backfillState.phase = 'done';
+  })().catch(err => {
+    console.error('[Backfill]', err.message);
+    Object.assign(backfillState, { phase: 'failed', error: err.message });
+  });
 });
+
+router.get('/backfill-sequences', requireApiKey, (req, res) => res.json(backfillState));
 
 const W3C_REPLAY_API = 'https://website-backend.w3champions.com/api/replays';
 const sleep = ms => new Promise(r => setTimeout(r, ms));
