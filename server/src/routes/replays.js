@@ -434,7 +434,8 @@ router.get('/parse-coverage', requireApiKey, (req, res) => {
 // current parser standard, in a worker. ?limit=N for a trial run.
 router.post('/reparse', requireApiKey, (req, res) => {
   const limit = parseInt(req.query.limit) || null;
-  res.json(startReparse({ limit }));
+  const pauseMs = Math.max(5000, parseInt(req.query.pauseMs) || 20000);
+  res.json(startReparse({ limit, pauseMs }));
 });
 
 router.get('/action-sequences', requireApiKey, (req, res) => {

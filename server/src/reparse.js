@@ -16,7 +16,12 @@ export function reparseStatus() {
   return { ...state };
 }
 
-export function startReparse({ pauseMs = 1500, limit = null } = {}) {
+// Parsing a game takes about a second of CPU. The relay is a shared-cpu-1x
+// machine whose baseline is a small slice of one core: a 1.5 s pause ran it
+// flat out for hours, drained its burst credits, and on 19 Nov 2026 the
+// throttled machine froze for 15 minutes. 20 s between games stays under the
+// baseline (about 7,400 files is then roughly two days).
+export function startReparse({ pauseMs = 20000, limit = null } = {}) {
   if (state.running) return reparseStatus();
   let files = getReplaysBelowParserVersion().map((r) => ({ id: r.id, path: r.file_path }));
   if (limit) files = files.slice(0, limit);

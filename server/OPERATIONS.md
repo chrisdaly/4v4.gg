@@ -40,6 +40,8 @@ Four things that have each failed a deploy:
 
 **Keep the relay inside its CPU share.** It is a shared CPU with a burst allowance; once that runs out (a snapshot plus a couple of rebuilds is enough) it drops to a small baseline and every request waits. Seen 2026-11-18 ~14:15-14:25 UTC: CPU pressure 99.8%, node getting ~4% of a CPU, health checks timing out. Hence: the suspects list, calibration, verdict reference and chat index refresh every 6 hours, not 30 minutes; the suspects list is saved to `/data/suspects-cache.json` and the gallery to `/data/gallery-cache.json`, so a restart serves them without rebuilding; the switch-count backfill writes `/data/transitions-backfill.done` and never runs again (delete the file to force it). Check pressure with `fly ssh console -C "cat /proc/pressure/cpu"`.
 
+Long background jobs must average under the baseline too. Seen 2026-11-19 15:13-15:29 UTC: the replay re-parse (1.5 s pause, about a second of CPU per game) had run for three hours and drained the burst credits. The first chat-index build after a deploy, normally 5 s, then took minutes on the main thread and the relay was down until a machine restart, which also stopped the re-parse. The re-parse now pauses 20 s between games by default (`?pauseMs=`, minimum 5000).
+
 **Never scan `replay_player_actions` on the main thread.** Its rows hold the full action sequences, so any query without an index reads gigabytes and blocks every request for minutes. Put per-game facts on `replays` instead (as `parser_version` is), or run the scan in a worker.
 
 After deploying, confirm the routes you changed actually shipped, e.g.:
