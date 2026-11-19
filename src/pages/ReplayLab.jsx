@@ -4,16 +4,15 @@ import { useLocation, useHistory } from "react-router-dom";
 import { PageLayout, PageNav, PageHero } from "../components/ui";
 import { ReplayLabProvider } from "../lib/useReplayLabStore";
 import ExploreTab from "./replay-lab/ExploreTab";
-import SmurfsTab from "./replay-lab/SmurfsTab";
 import GalleryTab from "./replay-lab/GalleryTab";
-import ValidationTab from "./replay-lab/ValidationTab";
+import SmurfsHub from "./replay-lab/SmurfsHub";
 import InvestigateTab from "./replay-lab/InvestigateTab";
 
 const TABS = [
   { key: "identify", label: "Identify" },
   { key: "map",      label: "Map" },
   { key: "signatures", label: "Signatures" },
-  { key: "confirmed",  label: "Confirmed" },
+  { key: "confirmed",  label: "Smurfs" },
 ];
 
 // Redirect old tab keys to their new equivalents
@@ -40,8 +39,8 @@ const TAB_CONTENT = {
     lead: "The most distinctive playstyles in the indexed population - player extremes across every behavioral dimension.",
   },
   confirmed: {
-    title: "Confirmed",
-    lead: "Verified smurf–main pairs and auto-detected suspects ranked by playstyle similarity.",
+    title: "Smurfs",
+    lead: "Known smurf pairs, the scorer's suggestions to review, and pairs to add by hand.",
   },
 };
 
@@ -114,11 +113,7 @@ function ReplayLabInner() {
         {activeTab === "map"        && <ExploreTab initialPlayer={initialPlayer} />}
         {activeTab === "signatures" && <GalleryTab />}
         {activeTab === "confirmed"  && (
-          <>
-            <ValidationTab />
-            <div style={{ borderTop: "1px solid rgba(255,255,255,0.08)", margin: "var(--space-8) 0" }} />
-            <SmurfsTab />
-          </>
+          <SmurfsHub />
         )}
       </Inner>
     </PageLayout>

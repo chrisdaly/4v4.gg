@@ -400,7 +400,6 @@ export default function SmurfsTab() {
 
   return (
     <>
-      <ListTitle>Suspects to review</ListTitle>
       <StatsRow>
         <StatChip>{queue.length} <span>to review</span></StatChip>
         {labelled.length > 0 && <StatChip>{labelled.length} <span>labelled</span></StatChip>}

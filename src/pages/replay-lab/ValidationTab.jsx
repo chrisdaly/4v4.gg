@@ -27,7 +27,8 @@ function getVerdict(similarity, percentile) {
   return { label: "Weak", color: GREY };
 }
 
-export default function ValidationTab() {
+/** part="list": the confirmed pairs. part="add": the manual add form (admin). */
+export default function ValidationTab({ part = "list", onAdded }) {
   const { adminKey, isAdmin } = useAdmin();
   const [data, setData] = useState(null);
   const [loading, setLoading] = useState(true);
@@ -81,10 +82,11 @@ export default function ValidationTab() {
         setMainTag(""); setSmurfTag(""); setNotes("");
         setMainSearch(""); setSmurfSearch("");
         fetchData();
+        onAdded?.();
       }
     } catch { /* ignore */ }
     setAdding(false);
-  }, [mainTag, smurfTag, notes, adminKey, adding, fetchData]);
+  }, [mainTag, smurfTag, notes, adminKey, adding, fetchData, onAdded]);
 
   const handleDelete = useCallback(async (id) => {
     await fetch(`${RELAY_URL}/api/fingerprints/validation/${id}`, {
@@ -110,34 +112,10 @@ export default function ValidationTab() {
     ? players.filter(p => p.battle_tag.toLowerCase().includes(smurfSearch.toLowerCase())).slice(0, 8)
     : [];
 
-  return (
-    <>
-      <SectionTitle>Confirmed pairs</SectionTitle>
-      {/* Summary banner */}
-      <SummaryBanner>
-        <SummaryMain>
-          {summary.indexed > 0 ? (
-            <>
-              <Big>{summary.aboveP95}</Big>
-              <span>/ {summary.indexed} pairs above 95th percentile</span>
-            </>
-          ) : (
-            <span>No indexed pairs yet</span>
-          )}
-        </SummaryMain>
-        <StatsRow>
-          <StatChip>{summary.total} <span>total pairs</span></StatChip>
-          <StatChip>{summary.indexed} <span>indexed</span></StatChip>
-          {summary.meanPercentile > 0 && (
-            <StatChip>p{Math.round(summary.meanPercentile)} <span>mean percentile</span></StatChip>
-          )}
-          <StatChip>{summary.aboveP90} <span>&ge; p90</span></StatChip>
-          <StatChip>{summary.aboveP99} <span>&ge; p99</span></StatChip>
-        </StatsRow>
-      </SummaryBanner>
-
-      {/* Admin add form */}
-      {isAdmin && (
+  if (part === "add") {
+    if (!isAdmin) return <NoData>Turn on admin view to add pairs.</NoData>;
+    return (
+      <>
         <AddForm>
           <FormLabel>Add known pair</FormLabel>
           <FormRow>
@@ -186,7 +164,39 @@ export default function ValidationTab() {
             </AddButton>
           </FormRow>
         </AddForm>
-      )}
+        <FormHint>
+          Use this for accounts you know are the same person from outside the
+          site. Pairs from To review get added automatically when you mark
+          them Same player.
+        </FormHint>
+      </>
+    );
+  }
+
+  return (
+    <>
+      {/* Summary banner */}
+      <SummaryBanner>
+        <SummaryMain>
+          {summary.indexed > 0 ? (
+            <>
+              <Big>{summary.aboveP95}</Big>
+              <span>/ {summary.indexed} pairs above 95th percentile</span>
+            </>
+          ) : (
+            <span>No indexed pairs yet</span>
+          )}
+        </SummaryMain>
+        <StatsRow>
+          <StatChip>{summary.total} <span>total pairs</span></StatChip>
+          <StatChip>{summary.indexed} <span>indexed</span></StatChip>
+          {summary.meanPercentile > 0 && (
+            <StatChip>p{Math.round(summary.meanPercentile)} <span>mean percentile</span></StatChip>
+          )}
+          <StatChip>{summary.aboveP90} <span>&ge; p90</span></StatChip>
+          <StatChip>{summary.aboveP99} <span>&ge; p99</span></StatChip>
+        </StatsRow>
+      </SummaryBanner>
 
       {/* Pair list */}
       {pairs.length === 0 ? (
@@ -264,6 +274,13 @@ const StatsRow = styled.div`
   display: flex;
   gap: var(--space-3);
   flex-wrap: wrap;
+`;
+
+const FormHint = styled.p`
+  font: var(--text-xs) var(--font-mono);
+  color: var(--grey-light);
+  max-width: 640px;
+  line-height: 1.6;
 `;
 
 const SectionTitle = styled.h2`
