@@ -7,6 +7,8 @@ import { chartColors } from "../../lib/design-tokens";
 import { raceIcons } from "../../lib/constants";
 import useAdmin from "../../lib/useAdmin";
 import usePlayerMeta from "../../lib/usePlayerMeta";
+import { getPlayerStatsBatch } from "../../lib/api";
+import { season as currentSeason } from "../../lib/params";
 import { ActivityTimeline } from "./InvestigateTab";
 import TransitionGlyph from "../../components/replay-lab/TransitionGlyph";
 import { GroupRoster } from "../../components/replay-lab/PlaystyleReport";
@@ -61,15 +63,49 @@ const pairKey = (pair) => `${pair.tagA}|${pair.tagB}`;
 
 const RACE_ICON = { Human: raceIcons.human, Orc: raceIcons.orc, "Night Elf": raceIcons.elf, Undead: raceIcons.undead, Random: raceIcons.random };
 
+/**
+ * MMR from the latest of the last three seasons for players with none this
+ * season, so a collapsed row still shows how strong the account is. Waits for
+ * this season's stats to land, then asks only for the players still missing,
+ * one season at a time. -> Map(tag -> {mmr, season})
+ */
+export function usePastMmr(tags, stats) {
+  const [past, setPast] = useState(() => new Map());
+  const asked = useRef(new Set());
+  const statsRef = useRef(stats);
+  statsRef.current = stats;
+  useEffect(() => {
+    const timer = setTimeout(async () => {
+      let missing = [...new Set(tags)].filter(t => !statsRef.current.has(t) && !asked.current.has(t));
+      missing.forEach(t => asked.current.add(t));
+      for (let s = currentSeason - 1; s >= currentSeason - 3 && missing.length; s--) {
+        const found = await getPlayerStatsBatch(missing, s).catch(() => new Map());
+        const hits = [...found].filter(([, v]) => v?.mmr != null);
+        if (hits.length) {
+          setPast(prev => {
+            const next = new Map(prev);
+            for (const [t, v] of hits) if (!next.has(t)) next.set(t, { mmr: v.mmr, season: s });
+            return next;
+          });
+        }
+        missing = missing.filter(t => !found.get(t)?.mmr);
+      }
+    }, 2500);
+    return () => clearTimeout(timer);
+  }, [tags]);
+  return past;
+}
+
 /** One account in the collapsed row: avatar, name, country, MMR. MMR is this
- *  season's; once the drawer has loaded activity, the last season played. */
-function Account({ tag, race, conn, meta, activity }) {
+ *  season's, else the latest of the last three seasons. */
+function Account({ tag, race, conn, meta, activity, pastMmr }) {
   const profile = meta.avatars.get(tag);
   const stats = meta.stats.get(tag);
   const country = conn?.country || profile?.country;
+  const past = pastMmr?.get(tag) || (activity?.mmr != null ? { mmr: activity.mmr, season: activity.season } : null);
   const mmr = stats?.mmr != null
     ? `${Math.round(stats.mmr)} MMR`
-    : activity?.mmr != null ? `${Math.round(activity.mmr)} MMR (S${activity.season})` : "unranked this season";
+    : past ? `${Math.round(past.mmr)} MMR (S${past.season})` : "unranked recently";
   return (
     <AccountBox>
       <Avatar src={profile?.profilePicUrl || RACE_ICON[race] || raceIcons.random} alt="" />
@@ -257,7 +293,7 @@ function PairDrawer({ pair, detailA, detailB }) {
 /** One pair of accounts: a compact row that opens into the evidence drawer.
  *  Shared by the suspects list and the confirmed pairs (ValidationTab), which
  *  pass their own verdict, score text and footer and no label buttons. */
-export function PairRow({ pair, index, open, onToggle, meta, isAdmin, onLabel, labelError, verdict: verdictIn, scoreText, footer }) {
+export function PairRow({ pair, index, open, onToggle, meta, pastMmr, isAdmin, onLabel, labelError, verdict: verdictIn, scoreText, footer }) {
   const verdict = verdictIn || getVerdict(pair);
   const detailA = useAccountDetail(pair.tagA, open);
   const detailB = useAccountDetail(pair.tagB, open);
@@ -276,9 +312,9 @@ export function PairRow({ pair, index, open, onToggle, meta, isAdmin, onLabel, l
       <PairHead onClick={onToggle}>
         <PairRank $color={verdict.color}>{index + 1}</PairRank>
         <PairPlayers>
-          <Account tag={pair.tagA} race={pair.raceA} conn={pair.connectionA} meta={meta} activity={detailA?.activity} />
+          <Account tag={pair.tagA} race={pair.raceA} conn={pair.connectionA} meta={meta} pastMmr={pastMmr} activity={detailA?.activity} />
           <Vs>vs</Vs>
-          <Account tag={pair.tagB} race={pair.raceB} conn={pair.connectionB} meta={meta} activity={detailB?.activity} />
+          <Account tag={pair.tagB} race={pair.raceB} conn={pair.connectionB} meta={meta} pastMmr={pastMmr} activity={detailB?.activity} />
         </PairPlayers>
         <PairScore>
           <ScoreValue $color={verdict.color}>{scoreText ?? `${Math.round(pair.similarity * 100)}%`}</ScoreValue>
@@ -362,6 +398,7 @@ export default function SmurfsTab() {
     [suspects?.pairs],
   );
   const meta = usePlayerMeta(tags);
+  const pastMmr = usePastMmr(tags, meta.stats);
 
   useEffect(() => {
     fetch(`${RELAY_URL}/api/fingerprints/suspects?limit=200`)
@@ -392,6 +429,7 @@ export default function SmurfsTab() {
       open={openKey === pairKey(pair)}
       onToggle={() => setOpenKey(openKey === pairKey(pair) ? null : pairKey(pair))}
       meta={meta}
+      pastMmr={pastMmr}
       isAdmin={isAdmin}
       onLabel={setLabel}
       labelError={labelError}

@@ -3,7 +3,7 @@ import styled from "styled-components";
 import PeonLoader from "../../components/PeonLoader";
 import useAdmin from "../../lib/useAdmin";
 import usePlayerMeta from "../../lib/usePlayerMeta";
-import { PairRow } from "./SmurfsTab";
+import { PairRow, usePastMmr } from "./SmurfsTab";
 import { chartColors } from "../../lib/design-tokens";
 
 const RELAY_URL =
@@ -60,6 +60,7 @@ export default function ValidationTab({ part = "list", onAdded }) {
   const pairs = data?.pairs || [];
   const tags = useMemo(() => pairs.flatMap(p => [p.tagMain, p.tagSmurf]), [data]); // eslint-disable-line react-hooks/exhaustive-deps
   const meta = usePlayerMeta(tags);
+  const pastMmr = usePastMmr(tags, meta.stats);
 
   useEffect(() => {
     if (!isAdmin) return;
@@ -230,6 +231,7 @@ export default function ValidationTab({ part = "list", onAdded }) {
                 open={expandedIdx === i}
                 onToggle={() => setExpandedIdx(expandedIdx === i ? null : i)}
                 meta={meta}
+                pastMmr={pastMmr}
                 verdict={verdict}
                 scoreText={scoreText}
                 footer={isAdmin && (
