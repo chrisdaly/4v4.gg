@@ -31,7 +31,7 @@ const HERO_IDS = new Set([
   "shadowhunter", "taurenchieftain", "deathknight", "lich", "dreadlord",
   "cryptlord", "demonhunter", "keeperofthegrove", "priestessofthemoon",
   "warden", "alchemist", "avatarofflame", "bansheeranger", "beastmaster",
-  "pandarenbrewmaster", "pitlord", "seawitch", "tinker",
+  "pandarenbrewmaster", "pitlord", "seawitch", "tinker", "forsakenpaladin",
 ]);
 
 function entityIconSrc(id) {

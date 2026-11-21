@@ -10,7 +10,7 @@ const HERO_IMAGES = {
   Udea: "deathknight", Udre: "dreadlord", Ulic: "lich", Ucrl: "cryptlord",
   Nplh: "pitlord", Npbm: "pandarenbrewmaster", Nbst: "beastmaster",
   Ntin: "tinker", Nalc: "alchemist", Nfir: "avatarofflame",
-  Nngs: "seawitch", Nbrn: "bansheeranger",
+  Nngs: "seawitch", Nbrn: "bansheeranger", Npal: "forsakenpaladin",
 };
 
 // Short unit names (same as TransitionGlyph)
@@ -20,7 +20,7 @@ const SHORT_NAMES = {
   Ekee: 'KotG', Emoo: 'PotM', Edem: 'DH', Ewar: 'Ward',
   Udea: 'DK', Udre: 'DL', Ulic: 'Lich', Ucrl: 'CL',
   Nplh: 'PL', Nngs: 'Naga', Npbm: 'Panda', Nbrn: 'DR',
-  Nbst: 'Beast', Ntin: 'Tink', Nfir: 'Fire', Nalc: 'Alch',
+  Nbst: 'Beast', Ntin: 'Tink', Nfir: 'Fire', Nalc: 'Alch', Npal: 'FP',
   hfoo: 'Foot', hrif: 'Rifle', hkni: 'Knight', hspt: 'Breaker',
   hmtm: 'Mortar', hgyr: 'Gyro', hdhw: 'Hawk', hmpr: 'Priest',
   hsor: 'Sorc', hgry: 'Gryph', hsie: 'Tank', hmil: 'Militia', hpea: 'Peon',
@@ -42,6 +42,8 @@ const SHORT_NAMES = {
   ucrm: 'Fiend', esen: 'Hunt', ebal: 'Glaive', hphx: 'Phoenix',
   nzep: 'Zep', nass: 'Assassin', nftb: 'Troll',
   nnwl: 'Spider', emrc: 'Spider',
+  ngir: 'Shredder', nfsp: 'Priest', nndr: 'Drake', nsrh: 'Hermit',
+  Nrob: 'Tink', ugrm: 'Garg',
 };
 
 const BUILDINGS = new Set([
@@ -94,6 +96,9 @@ const UNIT_ICONS = new Set([
   'uabo','uaco','uaod','uban','ubon','ubsp','Ucrl','ucry','ucs1','ucs2','ucs3',
   'Udea','Udre','udth','ufro','ugar','ugho','ugrv','Ulic','umtw','unec','unp1','unp2','unpl',
   'uobs','usep','ushd','uslh','utod','utom','uzg1','uzg2','uzig',
+  // Summons, upgraded forms, mercs
+  'efon','ehpr','ebal','hphx','uske','uskm','nzep',
+  'ngir','nass','nfsp','nndr','nsrh','ugol','Npal',
 ]);
 
 /**
@@ -365,6 +370,12 @@ const ICON_ALIASES = {
   owyv: 'owvy',  // Wind Rider alternate ID → owvy.png
   ospw: 'osp1',  // Spirit Walker upgraded → osp1.png
   ospm: 'osp1',  // Spirit Walker variant → osp1.png
+  ucrm: 'ucry',  // Crypt Fiend burrowed → ucry.png
+  esen: 'ehun',  // Huntress alternate ID → ehun.png
+  uske1: 'uske', uske2: 'uske',  // Skeleton variants → uske.png
+  Nrob: 'Ntin',  // Tinker robo-goblin form → Ntin.png
+  ugrm: 'ugar',  // Gargoyle stone form → ugar.png
+  hrtt: 'hatw',  // Arcane Tower alternate ID → hatw.png
 };
 
 export function getUnitImage(id) {
